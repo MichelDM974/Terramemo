@@ -1,0 +1,279 @@
+import { readFileSync } from 'node:fs';
+import { geoContains, geoPath, type GeoProjection } from 'd3-geo';
+import type { Topology } from 'topojson-specification';
+import { describe, expect, it } from 'vitest';
+import { assembler, type DonneesCarte } from '../src/map/donnees';
+import { contient, dansEmprise, distanceAuBordKm, versLonLat } from '../src/map/geo';
+import { estUnToucher, SuiviPointeurs } from '../src/map/geste';
+import { aPastille, calculerPastilles, PASTILLE, pastilleLaPlusProche, tailleEcranPx } from '../src/map/pastilles';
+import { noter, pick, type ContexteCarte } from '../src/map/pick';
+import { creerProjection } from '../src/map/projection';
+import { traceDirect, UNITE } from '../src/map/traces';
+import type { Entite, NomProjection, Transfo } from '../src/map/types';
+
+// Carte du J0 sur les données réelles de public/geo, au format du téléphone de
+// mesure (carte de 384 × 723 px CSS sous l'en-tête).
+
+const lire = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
+const donnees: DonneesCarte = assembler(lire('monde.topo.json') as Topology<never>, lire('pays.json'), lire('contestees.json'), lire('noms.fr.json'));
+const L = 384;
+const H = 723;
+const entite = (id: string): Entite => {
+  const e = donnees.entites.find((en) => en.pays.id === id);
+  if (!e) throw new Error(id);
+  return e;
+};
+
+function contexte(nom: NomProjection = 'monde', t: Transfo = { k: 1, x: 0, y: 0 }): ContexteCarte {
+  const proj = creerProjection(nom, L, H);
+  return { proj, t, entites: donnees.entites, pastilles: calculerPastilles(donnees.entites, proj, t.k) };
+}
+
+/** Point écran d'un [lon, lat] dans un contexte. */
+function ecran(ctx: ContexteCarte, ll: [number, number]): [number, number] {
+  const b = ctx.proj(ll) as [number, number];
+  return [ctx.t.k * b[0] + ctx.t.x, ctx.t.k * b[1] + ctx.t.y];
+}
+
+/** Transformation qui centre [lon, lat] au zoom k. */
+function centrer(proj: GeoProjection, ll: [number, number], k: number): Transfo {
+  const b = proj(ll) as [number, number];
+  return { k, x: L / 2 - k * b[0], y: H / 2 - k * b[1] };
+}
+
+const PARIS: [number, number] = [2.35, 48.86];
+const MOSCOU: [number, number] = [37.62, 55.75];
+
+describe('projections', () => {
+  it('la sphère entière tient dans la carte au zoom 1', () => {
+    for (const nom of ['monde', 'pacifique'] as const) {
+      const [[x0, y0], [x1, y1]] = geoPath(creerProjection(nom, L, H)).bounds({ type: 'Sphere' });
+      expect(x0).toBeGreaterThanOrEqual(-0.01);
+      expect(x1).toBeLessThanOrEqual(L + 0.01);
+      expect(y0).toBeGreaterThanOrEqual(-0.01);
+      expect(y1).toBeLessThanOrEqual(H + 0.01);
+      expect(x1 - x0).toBeCloseTo(L, 0);
+    }
+  });
+
+  it.each(['FJI', 'KIR'])('pacifique : %s d’un seul tenant (coupé en « monde »)', (id) => {
+    const largeur = (nom: NomProjection) => {
+      const [[x0], [x1]] = geoPath(creerProjection(nom, L, H)).bounds(entite(id).forme);
+      return x1 - x0;
+    };
+    expect(largeur('monde')).toBeGreaterThan(0.9 * L); // de part et d'autre de l'antiméridien
+    expect(largeur('pacifique')).toBeLessThan(0.15 * L);
+  });
+});
+
+describe('tracés directs', () => {
+  it.each(['monde', 'pacifique'] as const)('%s : mêmes emprises que geoPath, repli seulement où la coupure passe', (nom) => {
+    const proj = creerProjection(nom, L, H);
+    const replis: string[] = [];
+    let ecart = 0;
+    for (const e of donnees.entites) {
+      const d = traceDirect(proj, e.forme);
+      if (d === null) {
+        replis.push(e.pays.id);
+        continue;
+      }
+      // Rejoue les commandes relatives pour retrouver l'emprise.
+      let x = 0;
+      let y = 0;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const m of d.matchAll(/([Ml])(-?\d+),(-?\d+)/g)) {
+        if (m[1] === 'M') [x, y] = [Number(m[2]), Number(m[3])];
+        else [x, y] = [x + Number(m[2]), y + Number(m[3])];
+        [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+      }
+      const [[a0, b0], [a1, b1]] = geoPath(proj).bounds(e.forme);
+      ecart = Math.max(ecart, Math.abs(x0 / UNITE - a0), Math.abs(y0 / UNITE - b0), Math.abs(x1 / UNITE - a1), Math.abs(y1 / UNITE - b1));
+    }
+    expect(ecart).toBeLessThan(0.02);
+    expect(replis.sort()).toEqual(nom === 'monde' ? [] : ['ATA', 'GRL']);
+  });
+});
+
+describe('pastilles', () => {
+  const proj = creerProjection('monde', L, H);
+  const s = proj.scale();
+
+  it('tous les micro-États jouables en ont une au zoom 1', () => {
+    const ids = new Set(calculerPastilles(donnees.entites, proj, 1).map((p) => p.id));
+    for (const e of donnees.entites) if (e.pays.micro && e.pays.statut === 'jouable') expect(ids.has(e.pays.id)).toBe(true);
+  });
+
+  it('jamais pour un territoire ou une entité contestée', () => {
+    for (const id of ['ABW', 'NCL', 'NE_SOL', 'ESH']) expect(aPastille(entite(id).pays, s, 1)).toBe(false);
+  });
+
+  it('un micro-État la perd quand sa forme atteint la taille de la cible (44 px)', () => {
+    const and = entite('AND').pays;
+    const k44 = PASTILLE.micro_jusqua_px / tailleEcranPx(and, s, 1);
+    expect(aPastille(and, s, k44 * 0.99)).toBe(true);
+    expect(aPastille(and, s, k44 * 1.01)).toBe(false);
+    // Le Vatican (0,01 km² chez Natural Earth) la garde jusqu'au zoom maximal.
+    expect(aPastille(entite('VAT').pays, s, 400)).toBe(true);
+  });
+
+  it('un grand pays n’en a pas ; la France en a une, sans disque, au zoom 1 du téléphone', () => {
+    const p = calculerPastilles(donnees.entites, proj, 1);
+    expect(p.some((pa) => pa.id === 'BRA')).toBe(false);
+    expect(p.find((pa) => pa.id === 'FRA')?.visible).toBe(false);
+    expect(p.find((pa) => pa.id === 'MCO')?.visible).toBe(true);
+  });
+
+  it('deux cibles qui se chevauchent : la plus proche du doigt gagne', () => {
+    const t = { k: 1, x: 0, y: 0 };
+    const deux = [
+      { id: 'A', bx: 100, by: 100, visible: true },
+      { id: 'B', bx: 120, by: 100, visible: true },
+    ];
+    expect(pastilleLaPlusProche(deux, t, 108, 100)?.id).toBe('A');
+    expect(pastilleLaPlusProche(deux, t, 112, 100)?.id).toBe('B');
+    expect(pastilleLaPlusProche(deux, t, 141, 100)?.id).toBe('B'); // 21 px de B
+    expect(pastilleLaPlusProche(deux, t, 143, 100)).toBeNull(); // 23 px : hors cible
+    // Au zoom 10, les cibles gardent 22 px de rayon à l'écran.
+    const t10 = { k: 10, x: 0, y: 0 };
+    expect(pastilleLaPlusProche(deux, t10, 1000 + 21, 1000)?.id).toBe('A');
+  });
+
+  it('Caraïbes au zoom 1 : chaque île est touchable par son point, la plus proche gagne', () => {
+    const ctx = contexte();
+    for (const id of ['ATG', 'KNA', 'DMA', 'LCA', 'VCT', 'GRD', 'BRB']) {
+      const [x, y] = ecran(ctx, entite(id).pays.point);
+      expect(pick(ctx, x, y)?.id).toBe(id);
+    }
+  });
+});
+
+describe('contient', () => {
+  it('même réponse que geoContains sur la forme entière (500 points tirés, toutes les entités)', () => {
+    let graine = 42;
+    const alea = () => ((graine = (graine * 1103515245 + 12345) % 2147483648) / 2147483648);
+    let dedans = 0;
+    for (let i = 0; i < 500; i++) {
+      const ll: [number, number] = [alea() * 360 - 180, alea() * 180 - 90];
+      for (const e of donnees.entites) {
+        if (!dansEmprise(e.pays.bbox, ll[0], ll[1], 0.05)) continue;
+        const attendu = geoContains(e.forme, ll);
+        expect(contient(e.forme, e.pays.bbox, ll)).toBe(attendu);
+        if (attendu) dedans++;
+      }
+    }
+    expect(dedans).toBeGreaterThan(100); // assez de points sur terre pour que le test dise quelque chose
+  });
+});
+
+describe('pick', () => {
+  it('Monaco au zoom 1 : sa pastille, pas la France', () => {
+    const ctx = contexte();
+    const [x, y] = ecran(ctx, entite('MCO').pays.point);
+    expect(pick(ctx, x, y)).toMatchObject({ id: 'MCO', via: 'pastille' });
+  });
+
+  it('le Brésil au zoom 1 reste le Brésil malgré la cible du Paraguay à 17 px', () => {
+    const ctx = contexte();
+    const [x, y] = ecran(ctx, entite('BRA').pays.point);
+    expect(pick(ctx, x, y)).toMatchObject({ id: 'BRA', via: 'trace' });
+  });
+
+  it('Rome zoomée : l’Italie ; le Vatican à moins de 11 px de son centre', () => {
+    const proj = creerProjection('monde', L, H);
+    const ctx = contexte('monde', centrer(proj, [12.45, 41.9], 60));
+    const [vx, vy] = ecran(ctx, entite('VAT').pays.point);
+    expect(pick(ctx, vx, vy)?.id).toBe('VAT');
+    expect(pick(ctx, vx + 8, vy)?.id).toBe('VAT');
+    expect(pick(ctx, vx + 18, vy)).toMatchObject({ id: 'ITA', via: 'trace' });
+  });
+
+  it('Paris zoomé : la France par son tracé', () => {
+    const proj = creerProjection('monde', L, H);
+    const ctx = contexte('monde', centrer(proj, PARIS, 20));
+    expect(pick(ctx, L / 2, H / 2)).toMatchObject({ id: 'FRA', via: 'trace', distance_px: 0 });
+  });
+
+  it('en mer près d’une côte : le pays proche ; au large : rien ; hors de la sphère : rien', () => {
+    const proj = creerProjection('monde', L, H);
+    const ctx = contexte('monde', centrer(proj, [-9.6, 39], 20)); // ~10 px au large du Portugal
+    const r = pick(ctx, L / 2, H / 2);
+    expect(r).toMatchObject({ id: 'PRT', via: 'proche' });
+    const large = contexte('monde', centrer(proj, [-30, 0], 20)); // milieu de l'Atlantique
+    expect(pick(large, L / 2, H / 2)).toBeNull();
+    expect(pick(contexte(), 2, 2)).toBeNull(); // coin, hors du contour d'Equal Earth
+    expect(versLonLat(proj, { k: 1, x: 0, y: 0 }, 2, 2)).toBeNull();
+  });
+});
+
+describe('noter', () => {
+  const proj = creerProjection('monde', L, H);
+
+  it('un point dans Paris : France juste', () => {
+    const ctx = contexte('monde', centrer(proj, PARIS, 20));
+    expect(noter(ctx, 'FRA', L / 2, H / 2)).toMatchObject({ juste: true, via: 'trace', distance_km: 0 });
+  });
+
+  it('le Vatican au zoom 1 : juste par sa pastille, faux hors de sa cible', () => {
+    const ctx = contexte();
+    const [x, y] = ecran(ctx, entite('VAT').pays.point);
+    expect(noter(ctx, 'VAT', x, y).juste).toBe(true); // son point est aussi dans son tracé
+    expect(noter(ctx, 'VAT', x + 15, y)).toMatchObject({ juste: true, via: 'pastille' });
+    const loin = noter(ctx, 'VAT', x + 40, y);
+    expect(loin.juste).toBe(false);
+    expect(loin.distance_km).toBeGreaterThan(100);
+  });
+
+  it('la Russie demandée, Paris touché : distance au bord le plus proche (Kaliningrad), pas au centre', () => {
+    const ctx = contexte('monde', centrer(proj, PARIS, 20));
+    const n = noter(ctx, 'RUS', L / 2, H / 2);
+    expect(n.juste).toBe(false);
+    // Paris → frontière ouest de l'oblast de Kaliningrad : ~1 200 km (le point de la Russie est à plus de 4 000 km).
+    expect(n.distance_km).toBeGreaterThan(1000);
+    expect(n.distance_km).toBeLessThan(1400);
+  });
+
+  it('un point dans la Russie : juste, distance nulle', () => {
+    const ctx = contexte('monde', centrer(proj, MOSCOU, 10));
+    expect(noter(ctx, 'RUS', L / 2, H / 2)).toMatchObject({ juste: true, distance_km: 0 });
+  });
+
+  it('distance au bord géodésique : un point au bord est à ~0 km', () => {
+    const fra = entite('FRA').forme;
+    const g = fra.geometry;
+    const premier = (g.type === 'Polygon' ? g.coordinates[0]?.[0] : g.coordinates[0]?.[0]?.[0]) as [number, number];
+    expect(distanceAuBordKm(fra, premier)).toBeLessThan(0.01);
+  });
+});
+
+describe('toucher ou déplacer', () => {
+  it('seuils : un doigt, < 10 px, < 500 ms', () => {
+    const base = { doigts_max: 1, deplacement_px: 3, duree_ms: 120, annule: false };
+    expect(estUnToucher(base)).toBe(true);
+    expect(estUnToucher({ ...base, deplacement_px: 10 })).toBe(false);
+    expect(estUnToucher({ ...base, duree_ms: 500 })).toBe(false);
+    expect(estUnToucher({ ...base, doigts_max: 2 })).toBe(false);
+    expect(estUnToucher({ ...base, annule: true })).toBe(false);
+  });
+
+  it('suivi des pointeurs : le point où le doigt s’est posé, jamais un geste', () => {
+    const s = new SuiviPointeurs();
+    s.bas(1, 100, 100, 0);
+    s.bouge(1, 104, 103);
+    expect(s.haut(1, 105, 103, 150)).toEqual({ x: 100, y: 100 });
+
+    s.bas(1, 100, 100, 1000);
+    s.bouge(1, 115, 100); // glissé de 15 px puis revenu : déplacement quand même
+    expect(s.haut(1, 101, 100, 1100)).toBeNull();
+
+    s.bas(1, 100, 100, 2000); // pincement : deux doigts, même immobiles
+    s.bas(2, 200, 100, 2010);
+    expect(s.haut(2, 200, 100, 2100)).toBeNull();
+    expect(s.haut(1, 100, 100, 2110)).toBeNull();
+
+    s.bas(1, 100, 100, 3000); // appui long
+    expect(s.haut(1, 100, 100, 3600)).toBeNull();
+
+    s.bas(1, 100, 100, 4000);
+    expect(s.haut(1, 100, 100, 4100)).toEqual({ x: 100, y: 100 }); // l'état se remet à zéro
+  });
+});
