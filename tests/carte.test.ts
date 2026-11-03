@@ -322,4 +322,34 @@ describe('toucher ou déplacer', () => {
     s.bas(1, 100, 100, 4000);
     expect(s.haut(1, 100, 100, 4100)).toEqual({ x: 100, y: 100 }); // l'état se remet à zéro
   });
+
+  it('glissé de 8 px (toucher) pendant lequel la carte a suivi le doigt : le point de la carte visé à la pose', () => {
+    // Belgique zoomée : l'Allemagne sous le doigt, les Pays-Bas 8 px à gauche
+    // (preuve du relecteur, souris.mjs). La carte suit le doigt de 8 px vers la droite.
+    const proj = creerProjection('monde', L, H);
+    const t0 = centrer(proj, [6.6, 51.2], 50);
+    const t1 = { ...t0, x: t0.x + 8 };
+    const avant = contexte('monde', t0);
+    const apres = contexte('monde', t1);
+    const s = new SuiviPointeurs();
+    // Un point de terre dont le pays change 8 px à gauche.
+    let vise: [number, number] | null = null;
+    for (let x = 100; x < L - 100 && !vise; x += 2)
+      for (let y = 200; y < H - 200 && !vise; y += 2) {
+        const a = pick(avant, x, y);
+        if (a?.via === 'trace' && pick(avant, x - 8, y)?.id !== a.id) vise = [x, y];
+      }
+    if (!vise) throw new Error('aucun point de frontière trouvé');
+    const [x, y] = vise;
+    s.bas(1, x, y, 0, t0);
+    for (let i = 1; i <= 8; i++) s.bouge(1, x + i, y);
+    const p = s.haut(1, x + 8, y, 120, t1);
+    expect(p).toEqual({ x: x + 8, y });
+    expect(pick(apres, p!.x, p!.y)?.id).toBe(pick(avant, x, y)?.id);
+    // L'ancien point (celui de la pose, lu avec la transformation d'après) désignait le voisin.
+    expect(pick(apres, x, y)?.id).not.toBe(pick(avant, x, y)?.id);
+    // Carte immobile (doigt sous la tolérance du système) : le point de la pose.
+    s.bas(1, x, y, 1000, t0);
+    expect(s.haut(1, x + 8, y, 1100, t0)).toEqual({ x, y });
+  });
 });

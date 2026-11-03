@@ -46,6 +46,7 @@ export interface OptionsCarte {
   donnees: DonneesCarte;
   projection: NomProjection;
   rendu: Rendu;
+  /** Un toucher : (x, y) est le point de la carte visé à la pose, dans le repère de la transformation courante. */
   surToucher?: (x: number, y: number, ev: PointerEvent) => void;
   gestes?: EcouteGestes;
 }
@@ -109,7 +110,8 @@ export class Carte {
     sur('pointerdown', (ev) => {
       if (ev.button !== 0) return;
       const [x, y] = this.local(ev);
-      this.suivi.bas(ev.pointerId, x, y, ev.timeStamp);
+      // La transformation à la pose : d3-zoom (mousedown, touchstart) n'a pas encore bougé la carte.
+      this.suivi.bas(ev.pointerId, x, y, ev.timeStamp, this.t);
     });
     sur('pointermove', (ev) => {
       const [x, y] = this.local(ev);
@@ -118,7 +120,7 @@ export class Carte {
     sur('pointercancel', (ev) => this.suivi.annule(ev.pointerId));
     sur('pointerup', (ev) => {
       const [x, y] = this.local(ev);
-      const toucher = this.suivi.haut(ev.pointerId, x, y, ev.timeStamp);
+      const toucher = this.suivi.haut(ev.pointerId, x, y, ev.timeStamp, this.t);
       if (toucher) this.o.surToucher?.(toucher.x, toucher.y, ev);
     });
 
