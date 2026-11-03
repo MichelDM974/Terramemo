@@ -39,3 +39,27 @@ l'oublier, jusqu'à tenir des mois.
 
 Le détail des études préparatoires est dans [`docs/etudes/`](docs/etudes/)
 et le plan arrêté dans [`docs/plan.md`](docs/plan.md).
+
+## Développement
+
+Prérequis : Node 24 (`.nvmrc`) ; pour l'APK, le SDK Android et un JDK 21.
+
+```bash
+npm ci               # dépendances, versions figées (package-lock.json)
+npm run dev          # site en développement sur http://localhost:8060
+npm test             # tests (Vitest), aussi lancés par la CI à chaque push
+npm run typecheck    # vérification des types (TypeScript)
+npm run build        # site statique dans dist/ (servi par Firebase Hosting)
+```
+
+- **Données de la carte** : `npm run geodata` télécharge les sources
+  épinglées (version et empreinte dans `geodata/sources.lock.json`) et
+  régénère `public/geo/` ; deux lancements donnent des fichiers identiques
+  octet pour octet. La liste des pays (193 membres de l'ONU, Vatican,
+  Palestine, et un paquet optionnel) est dans `geodata/liste.json`.
+- **APK de débogage** : `npm run build && npx cap sync android`, puis
+  `./gradlew assembleDebug` dans `android/` avec `JAVA_HOME` sur un JDK 21 ;
+  la CI le construit aussi à la demande (workflow « Android »).
+- **Crédits** : frontières Natural Earth (domaine public), noms Unicode
+  CLDR (Unicode License v3), police Inter (SIL OFL 1.1) ; le détail des
+  sources est dans `public/geo/sources.json`.
