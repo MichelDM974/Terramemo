@@ -8,10 +8,18 @@ export function vueExplorer(ctx: ContexteVue): Vue {
   barre.hidden = true;
   ctx.zone.append(barre);
 
+  /** Barre vide : au retour dans la vue, les marques sont effacées, le nom aussi. */
+  const vider = () => {
+    nom.textContent = 'Touche un pays';
+    detail.textContent = '';
+    delete barre.dataset.id;
+  };
+
   return {
     activer() {
       barre.hidden = false;
       ctx.carte.effacerMarques();
+      vider();
     },
     desactiver() {
       barre.hidden = true;
