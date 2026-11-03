@@ -7,3 +7,4 @@ android/.gradle/
 .env*
 .firebase/
 coverage/
+__pycache__/
