@@ -1,0 +1,7 @@
+node_modules/
+dist/
+geodata/raw/
+android/app/build/
+android/.gradle/
+*.log
+.env*
