@@ -173,7 +173,7 @@ export class Carte {
     this.svg.append(defs, this.vue);
     if (!this.enveloppe.isConnected) this.hote.prepend(this.enveloppe);
 
-    this.comportement.translateExtent([[0, 0], [l, h]]).extent([[0, 0], [l, h]]);
+    this.limiter(l, h);
     const s = select(this.hote).call(this.comportement).on('dblclick.zoom', null);
     this.comportement.transform(s, zoomIdentity);
     this.poser(this.t);
@@ -375,6 +375,15 @@ export class Carte {
     }
     this.taille.h = h;
     this.svg.setAttribute('height', String(h));
-    this.comportement.translateExtent([[0, 0], [l, h]]).extent([[0, 0], [l, h]]);
+    this.limiter(l, h);
+  }
+
+  /**
+   * Le déplacement s'arrête aux bords de la sphère (pas aux bandes vides
+   * au-dessus et au-dessous du monde sur un écran en hauteur).
+   */
+  private limiter(l: number, h: number): void {
+    const [[x0, y0], [x1, y1]] = geoPath(this.proj).bounds({ type: 'Sphere' });
+    this.comportement.extent([[0, 0], [l, h]]).translateExtent([[Math.min(0, x0), y0], [Math.max(l, x1), y1]]);
   }
 }
