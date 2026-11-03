@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { geoContains, geoDistance } from 'd3-geo';
@@ -376,6 +377,13 @@ describe('noms et sources', () => {
     expect([...parNom.values()].filter((ids) => ids.length > 1)).toEqual([]);
     expect(noms.NE_B19).toBe('Sahara occidental (administré par le Maroc)');
     expect(noms.NE_B14).toBe('Sources de la Lawa');
+  });
+
+  it('la Unicode License v3 accompagne les noms dérivés de CLDR, texte complet et épinglé', () => {
+    const texte = readFileSync('public/geo/LICENSE-CLDR.txt');
+    expect(texte.toString('utf8')).toMatch(/^UNICODE LICENSE V3\n[\s\S]*Copyright © 2015-2024 Unicode, Inc\.[\s\S]*Permission is hereby granted/);
+    expect(createHash('sha256').update(texte).digest('hex')).toBe(verrou.cldr?.fichiers['cldr/LICENSE']);
+    expect(sources.sources.find((s) => s.url.includes('cldr-json'))?.licence).toContain('LICENSE-CLDR.txt');
   });
 
   it('sources datées, licences et empreintes égales au verrou', () => {

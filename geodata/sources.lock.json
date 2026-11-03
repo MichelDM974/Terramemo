@@ -17,7 +17,8 @@
   "cldr": {
     "telecharge_le": "2026-11-04",
     "fichiers": {
-      "cldr/fr/territories.json": "42d67b78cb74ffe87380db1d702d06be995c3082d7f711ffd6e75a721133c5e0"
+      "cldr/fr/territories.json": "42d67b78cb74ffe87380db1d702d06be995c3082d7f711ffd6e75a721133c5e0",
+      "cldr/LICENSE": "220ba0e1c43b99530d2d5bdb892a99dca0989414f51ab695ecd90163eaa1ec3b"
     }
   }
 }

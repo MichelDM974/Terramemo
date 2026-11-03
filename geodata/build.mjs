@@ -6,6 +6,7 @@
 //   contestees.json  zones contestées dessinées hachurées par-dessus les pays
 //   noms.<langue>.json  { id: nom } pour chaque entité et chaque zone contestée
 //   sources.json     sources, versions, licences, dates et empreintes
+//   LICENSE-CLDR.txt texte de la Unicode License v3, qui doit accompagner noms.<langue>.json
 //
 // Usage : npm run geodata [-- --maj-empreintes]
 // Les sources sont téléchargées dans geodata/raw/ (ignoré par git) puis vérifiées par
@@ -50,7 +51,8 @@ const NE_EXTENSIONS = ['shp', 'shx', 'dbf', 'prj', 'cpg'];
 
 const CLDR_TAG = '49.0.0';
 const CLDR_COMMIT = 'a4b67247b446fd51b475991017a2481911210c60';
-const CLDR_BASE = `https://raw.githubusercontent.com/unicode-org/cldr-json/${CLDR_TAG}/cldr-json/cldr-localenames-full/main/`;
+const CLDR_RACINE = `https://raw.githubusercontent.com/unicode-org/cldr-json/${CLDR_TAG}/`;
+const CLDR_BASE = `${CLDR_RACINE}cldr-json/cldr-localenames-full/main/`;
 
 const SOURCES = [
   {
@@ -71,11 +73,16 @@ const SOURCES = [
     nom: 'Unicode CLDR, noms des territoires (cldr-localenames-full)',
     url: 'https://github.com/unicode-org/cldr-json',
     version: `${CLDR_TAG} (commit ${CLDR_COMMIT})`,
-    licence: 'Unicode License v3 (https://www.unicode.org/license.txt), notice : « Copyright © 2015-2024 Unicode, Inc. »',
-    fichiers: LANGUES.map((l) => ({
-      chemin: `cldr/${l}/territories.json`,
-      url: `${CLDR_BASE}${l}/territories.json`,
-    })),
+    licence:
+      'Unicode License v3, notice : « Copyright © 2015-2024 Unicode, Inc. » ; texte complet (notice de copyright ' +
+      'et de permission, à joindre aux noms dérivés de CLDR) dans LICENSE-CLDR.txt, à côté de ce fichier',
+    fichiers: [
+      ...LANGUES.map((l) => ({
+        chemin: `cldr/${l}/territories.json`,
+        url: `${CLDR_BASE}${l}/territories.json`,
+      })),
+      { chemin: 'cldr/LICENSE', url: `${CLDR_RACINE}LICENSE` },
+    ],
   },
 ];
 
@@ -716,6 +723,10 @@ async function main() {
     const tri = Object.fromEntries(Object.entries(noms).sort(([a], [b]) => (a < b ? -1 : 1)));
     await ecrire(`noms.${l}.json`, JSON.stringify(tri, null, 1) + '\n');
   }
+
+  // La Unicode License v3 demande que sa notice accompagne les copies : noms.<langue>.json
+  // en dérive et est servi publiquement, le texte est donc servi à côté, tel quel.
+  await ecrire('LICENSE-CLDR.txt', await readFile(join(RAW, 'cldr', 'LICENSE')));
 
   const meta = SOURCES.map((s) => ({
     nom: s.nom,
