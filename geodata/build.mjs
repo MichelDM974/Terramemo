@@ -740,6 +740,12 @@ async function main() {
     outil: 'mapshaper 0.6.110',
     simplification: `-simplify ${SIMPLIFICATION}, chaque polygone comme une forme à part (aucune île perdue), regroupés par id`,
     quantification: QUANTIFICATION,
+    // Empreintes des entrées tenues à la main : tests/donnees.test.ts les compare aux
+    // fichiers, la CI échoue donc si l'on change le script ou la liste sans relancer.
+    entrees: {
+      'geodata/build.mjs': sha256(await readFile(fileURLToPath(import.meta.url))),
+      'geodata/liste.json': sha256(await readFile(LISTE)),
+    },
     superficies:
       `aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, ` +
       `Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = ${R_TERRE_KM} km, sur la géométrie non simplifiée`,

@@ -46,6 +46,7 @@ interface EntreeListe {
 
 interface Sources {
   sources: { nom: string; url: string; version: string; licence: string; telecharge_le: string; fichiers: { url: string; sha256: string }[] }[];
+  traitement: { entrees: Record<string, string> };
 }
 
 const lire = <T>(chemin: string): T => JSON.parse(readFileSync(chemin, 'utf8')) as T;
@@ -193,6 +194,24 @@ describe('entités (pays.json)', () => {
     ] as const) {
       expect(geoContains(fra, pt as unknown as [number, number]), lieu).toBe(true);
     }
+  });
+
+  it('cas négatifs : une ville voisine n’est pas dans le pays', () => {
+    const dans = (id: string, pt: [number, number]) => {
+      const f = formes.get(id);
+      if (!f) throw new Error(`${id} sans forme`);
+      return geoContains(f, pt);
+    };
+    for (const [lieu, pt, hors, dedans] of [
+      ['Madrid', [-3.7038, 40.4168], 'FRA', 'ESP'],
+      ['Rimini', [12.5683, 44.0678], 'SMR', 'ITA'],
+      ['Rome (Colisée)', [12.4922, 41.8902], 'VAT', 'ITA'],
+      ['Monaco-Ville', [7.4236, 43.7311], 'FRA', null],
+    ] as const) {
+      expect(dans(hors, pt as unknown as [number, number]), `${lieu} hors de ${hors}`).toBe(false);
+      if (dedans) expect(dans(dedans, pt as unknown as [number, number]), `${lieu} dans ${dedans}`).toBe(true);
+    }
+    expect(dans('FRA', parId.get('MCO')?.point ?? [0, 0])).toBe(false);
   });
 
   it('continent et sous-région renseignés, sans « Seven seas »', () => {
@@ -384,6 +403,12 @@ describe('noms et sources', () => {
     expect(texte.toString('utf8')).toMatch(/^UNICODE LICENSE V3\n[\s\S]*Copyright © 2015-2024 Unicode, Inc\.[\s\S]*Permission is hereby granted/);
     expect(createHash('sha256').update(texte).digest('hex')).toBe(verrou.cldr?.fichiers['cldr/LICENSE']);
     expect(sources.sources.find((s) => s.url.includes('cldr-json'))?.licence).toContain('LICENSE-CLDR.txt');
+  });
+
+  it('sorties à jour : empreintes du script et de la liste égales aux fichiers (sinon : npm run geodata)', () => {
+    const empreinte = (f: string) => createHash('sha256').update(readFileSync(f)).digest('hex');
+    expect(Object.keys(sources.traitement.entrees).sort()).toEqual(['geodata/build.mjs', 'geodata/liste.json']);
+    for (const [f, h] of Object.entries(sources.traitement.entrees)) expect(empreinte(f), f).toBe(h);
   });
 
   it('sources datées, licences et empreintes égales au verrou', () => {
