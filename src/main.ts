@@ -18,12 +18,38 @@ import { vueSaisie } from './vues/saisie';
 const debutScript = performance.now();
 
 /**
- * Rendu par défaut : « css ». Mesuré dans Chromium 153 headless, 384 × 832,
- * processeur ralenti 4× puis 6×, mêmes gestes rejoués : aucune image perdue
- * sur 11 gestes en css à 4× (3 sur 11 à 6×), contre 22 à 42 % d'images perdues
- * pendant les pincements en g. Le prix : une image de 30 à 90 ms à la fin du
- * geste (la transformation posée au SVG). À confirmer sur le téléphone ;
- * ?rendu=g ou ?rendu=css force l'un ou l'autre.
+ * Rendu par défaut : « css » en attendant le téléphone, où le choix g / css
+ * se tranche (?rendu=g ou ?rendu=css force l'un ou l'autre).
+ * - g : la transformation est posée sur le <g> du SVG à chaque mouvement ;
+ *   le navigateur repeint la carte à chaque image.
+ * - css : pendant le geste, le compositeur déplace et agrandit l'image déjà
+ *   rastérisée de la carte ; la transformation n'est posée au SVG qu'au lever
+ *   du doigt, qui paie alors la nouvelle peinture et la rastérisation de
+ *   toute la carte.
+ * Mesuré le 2026-11-04 (rapport v2) dans chrome-headless-shell 153, 384 × 832,
+ * DPR 2,8125, toucher émulé par CDP (un événement toutes les 16 ms), écran à
+ * 60 Hz, sur un PC chargé (charge 9 à 12, d'autres agents tournaient) :
+ * - processeur ralenti 4×, 12 pincements par mode (k de 1 à 7, 3 à 21, 12 à
+ *   6, 1,5 à 10,5 ; trois fois) : css 0 image perdue sur 732, g 46 sur 884
+ *   (0 à 14 % par pincement, intervalle max 50 ms) ; fin du geste (Event
+ *   Timing du touchend, de l'entrée à la présentation) : css 64 à 96 ms,
+ *   g 40 à 56 ms. 6 glissés d'un doigt par mode (k 1, 4, 12) : aucune image
+ *   perdue dans les deux ; fin 56 à 72 ms en css, 48 à 64 ms en g ;
+ * - processeur normal : aucune image perdue dans les deux modes ; fin d'un
+ *   pincement 48 à 64 ms en css, 40 ms en g ; d'un glissé 48 à 56 ms en css,
+ *   40 à 48 ms en g.
+ * fin.image_ms (deux requestAnimationFrame) donnait 30 à 49 ms à 4× : il
+ * s'arrête avant la rastérisation et la présentation et sous-estime la fin.
+ * Donc css garde le geste fluide mais fige l'écran au lever du doigt (64 à
+ * 96 ms à 4×, soit 8 à 11 images à 120 Hz) ; g perd des images pendant les
+ * pincements mais finit plus vite. Sur le téléphone : comparer
+ * gestes[].stats.perdues et gestes[].fin.event_timing_ms dans les deux modes.
+ * À juger à l'œil aussi : en css, pendant un pincement, toute la couche est
+ * mise à l'échelle par le compositeur : pastilles et frontières grossissent
+ * avec le zoom (vu sur une capture : pincement de k 2 à 20, disques et traits
+ * dix fois plus gros) et la carte est floue jusqu'au lever du doigt, puis tout
+ * revient d'un coup. Si css est retenu, piste : masquer la couche des
+ * pastilles pendant le geste (ou décider d'accepter le flou).
  */
 export const RENDU_DEFAUT: Rendu = 'css';
 
