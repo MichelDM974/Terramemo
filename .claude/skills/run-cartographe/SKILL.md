@@ -158,6 +158,38 @@ python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu
 - DevTools à la main : `chrome://inspect` sur le Chrome du PC (le
   forward du driver doit être retiré : `adb forward --remove-all`).
 
+### À l'œil, avec le téléphone (après les mesures)
+
+Noter chaque point (OK, ou ce qui est vu) dans le registre.
+
+1. **g / css pendant un pincement** (Chrome puis APK ; ⚙ → Rendu, la page
+   se recharge) : pincer de l'Europe entière jusqu'à la Suisse, doigts
+   posés, puis lever. En css la couche entière est agrandie par le
+   compositeur jusqu'au lever du doigt : carte floue, disques des pastilles
+   et traits des frontières grossis avec le zoom, puis net d'un coup au
+   lever (coût lu dans `fin.event_timing_ms`). En g : net tout du long,
+   mais saccades possibles. Dire lequel gêne le plus (tranche
+   `RENDU_DEFAUT`, src/main.ts).
+2. **Clavier et hauteur de page dans l'APK** : vue Saisie, toucher un
+   champ ; le clavier rétrécit-il la page (fond qui remonte, carte
+   retracée au retour dans la vue Carte, centre gardé) ou passe-t-il
+   par-dessus ? Revenir à la Carte clavier ouvert puis fermé : même vue.
+3. **Écran de lancement** : fermer l'appli (balayer dans les récentes),
+   la rouvrir : icône sur fond sombre, puis la carte, **sans éclair
+   blanc** entre les deux (`backgroundColor` de capacitor.config.ts).
+4. **Bord à bord** : rien sous l'encoche ni sous la barre de navigation ;
+   dans `chrome://inspect` → la WebView → console :
+   `getComputedStyle(document.body).padding` doit donner des valeurs
+   **non nulles** en haut et en bas (env(safe-area-inset-*) reçues).
+5. **Icônes des barres du téléphone** : passer le téléphone en **thème
+   clair** (Paramètres → Affichage → Clair) et rouvrir l'APK : heure,
+   batterie et boutons de navigation doivent rester **clairs** sur le fond
+   sombre (`style: 'DARK'` du plugin SystemBars), pas sombres sur sombre.
+   Remettre le thème d'avant.
+6. **Touchers au doigt** : micro-États (Vatican, Saint-Marin, Monaco) et
+   Caraïbes au zoom 1 puis zoomés, dans la vue Toucher ; un glissé léger
+   du doigt (moins de 10 px) doit compter comme toucher au point visé.
+
 ### Essai de saisie (clavier Samsung puis Gboard)
 
 1. Gboard : Play Store → « Gboard » → installer ; puis Paramètres →
