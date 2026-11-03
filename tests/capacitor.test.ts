@@ -19,6 +19,11 @@ describe('capacitor.config.ts', () => {
     expect(config.webDir).toBe('dist');
   });
 
+  it('peint la WebView du fond sombre avant la page', () => {
+    // Sinon un éclair blanc entre l'écran de lancement et la première peinture.
+    expect(config.backgroundColor).toBe('#080809');
+  });
+
   it("ne sert pas l'appli depuis une adresse distante", () => {
     // server.url ferait charger le site d'ailleurs que de l'APK (autre origine, pas hors ligne).
     expect(config.server?.url).toBeUndefined();

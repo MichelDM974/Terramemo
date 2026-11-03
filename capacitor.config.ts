@@ -7,6 +7,9 @@ const config: CapacitorConfig = {
   appId: 'io.github.micheldm974.cartographe',
   appName: 'Cartographe',
   webDir: 'dist',
+  // Fond de la WebView avant la première peinture de la page (--bg de src/style.css) :
+  // sans lui, Capacitor laisse le blanc par défaut entre l'écran de lancement et la carte.
+  backgroundColor: '#080809',
   server: {
     // FIGÉS (tests/capacitor.test.ts) : schéma et hôte forment l'origine de la WebView
     // (https://localhost). Les changer change l'origine, et toute la base IndexedDB des
