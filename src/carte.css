@@ -14,6 +14,13 @@ body {
 }
 header { flex: none; }
 
+/* Chiffres tabulaires seulement là où des nombres changent sous les yeux. Le
+   style commun les met sur tout le corps, mais le « tnum » d'Inter élargit
+   aussi le trait d'union (8 → 12 px à 20 px, chiffre « 1 » : 7 → 13 px) :
+   « Saint - Marin », « touche - le ». */
+body { font-variant-numeric: normal; }
+.panneau-mesures, .essai-compte { font-variant-numeric: tabular-nums; }
+
 #app {
   flex: 1;
   min-height: 0;
