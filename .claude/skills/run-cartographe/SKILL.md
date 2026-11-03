@@ -97,7 +97,11 @@ du J0. Lignes du résumé :
   `gestes[].fin.event_timing_ms`, Event Timing du touchend qui finit le
   geste jusqu'à la présentation (en css : transformation posée, nouvelle
   peinture et rastérisation de toute la carte), médiane et max par type de
-  geste ; `fin.image_ms` (fil principal seul) en indicatif.
+  geste ; `fin.image_ms` (fil principal seul) en indicatif. Une entrée qui
+  ne se clôt qu'avec l'image du geste suivant (sans image longue ni
+  `image_ms` long) est montrée à part, hors verdict : la fin n'avait rien
+  de neuf à présenter, sa durée est celle de la pause du scénario (vu en
+  g : 576 ms, 1592 ms si la pause passe à 1,5 s).
 - **toucher < 100 ms** : Event Timing du pointerup partout
   (`event_timing_etat` 'mesure') ; 'sous_seuil' (aucune entrée, donc sous
   16 ms) compté 16 ; 'non_pris_en_charge' : repli sur

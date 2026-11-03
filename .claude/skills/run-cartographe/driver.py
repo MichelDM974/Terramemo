@@ -898,7 +898,9 @@ def resumer(rapports, vises):
     periode = _med([r["ecran"]["periode_ms"] for r in rapports]) or 1000 / 60
     gestes = {}
     for r in rapports:
-        for g in r["gestes"]:
+        suivants = r["gestes"][1:] + [None]
+        periode_r = r["ecran"]["periode_ms"] or 1000 / 60
+        for g, suivant in zip(r["gestes"], suivants):
             if g["type"] not in ("glisser", "pincer"):
                 continue
             # Un fichier = un rendu ; la clé le garde quand même (rapports mêlés).
@@ -906,7 +908,7 @@ def resumer(rapports, vises):
             e = gestes.setdefault(cle, {"rendu": g.get("rendu", r["rendu"]), "gestes": 0, "intervalles": 0,
                                         "perdues": 0, "max_ms": 0, "p95_ms": [], "longues_images": 0,
                                         "periodes_ms": [], "ecarts_periode": 0, "fin_et": [], "fin_et_absente": 0,
-                                        "fin_image": []})
+                                        "fin_et_reportees": [], "fin_image": []})
             st = g["stats"]
             e["gestes"] += 1
             e["intervalles"] += len(g["intervalles_ms"])
@@ -920,6 +922,15 @@ def resumer(rapports, vises):
             fin = g["fin"].get("event_timing_ms")
             if fin is None:
                 e["fin_et_absente"] += 1
+            elif (suivant and g["fin_ms"] + fin >= suivant["debut_ms"] - 2 * periode_r
+                  and (g["fin"]["image_ms"] or 0) < CRITERE_FIN_GESTE_MS and not g["longues_images"]["nombre"]):
+                # Présentation reportée : l'entrée ne se clôt qu'avec l'image du
+                # geste suivant, sans travail long ni image longue : la fin du
+                # geste n'a sans doute rien changé à l'écran (vu en rendu g, le
+                # pincement de k 14,5 à 36 : 576 ms dans les 3 répétitions, qui
+                # suivent la pause du scénario, 1592 ms si elle passe à 1,5 s).
+                # Montré à part, hors verdict.
+                e["fin_et_reportees"].append(fin)
             else:
                 e["fin_et"].append(fin)
             e["fin_image"].append(g["fin"]["image_ms"])
@@ -933,6 +944,7 @@ def resumer(rapports, vises):
         fins = e.pop("fin_et")
         e["fin_event_timing_ms"] = {"mediane": _med(fins), "max": max(fins, default=None),
                                     "sans_entree": e.pop("fin_et_absente"),
+                                    "reportees": e.pop("fin_et_reportees"),
                                     "ok": bool(fins) and max(fins) < CRITERE_FIN_GESTE_MS}
         images = [f for f in e.pop("fin_image") if f is not None]
         e["fin_image_ms"] = {"mediane": _med(images), "max": max(images, default=None)}
@@ -1003,6 +1015,8 @@ def afficher_resume(res, entete):
         f, i = e["fin_event_timing_ms"], e["fin_image_ms"]
         dire(f"      {quoi:8} rendu {e['rendu']} : médiane {f['mediane']}, max {f['max']} ms"
              + (f" ({f['sans_entree']} sans entrée)" if f["sans_entree"] else "")
+             + (f" ; {len(f['reportees'])} hors verdict, présentation reportée au geste suivant : "
+                f"{', '.join(str(x) for x in f['reportees'])} ms" if f["reportees"] else "")
              + f" ; fil principal seul (image_ms) : médiane {i['mediane']}, max {i['max']} ms")
     t = res["touchers"]
     et, m = t["event_timing_ms"], t["fin_fil_principal_ms"]
