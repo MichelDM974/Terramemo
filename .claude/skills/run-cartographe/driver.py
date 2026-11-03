@@ -51,6 +51,11 @@ PC = {"largeur": 1280, "hauteur": 800, "dpr": 1}
 # Critères du J0 (docs/plan.md).
 CRITERE_RENDU_MS = 1000
 CRITERE_TOUCHER_MS = 100
+# Fin de geste (Event Timing du touchend, pointerup ou mouseup) : seuil
+# proposé, le même que le toucher (le doigt levé attend la carte nette).
+CRITERE_FIN_GESTE_MS = 100
+# Event Timing ne garde que les entrées de 16 ms et plus (durationThreshold).
+SEUIL_EVENT_TIMING_MS = 16
 # « Saccade » au sens du driver (à confirmer à l'œil sur le téléphone) : plus
 # de 5 % d'images perdues sur un type de geste, ou un intervalle de plus de
 # 50 ms (3 images à 60 Hz, 6 à 120 Hz).
@@ -78,7 +83,8 @@ def http(url, methode="GET", delai=10):
 
 def serveur_de_dev(base):
     """Vrai si c'est `vite` (dev) qui répond : lui seul sert /@vite/client en
-    JavaScript (preview et Firebase renvoient index.html à toute adresse)."""
+    JavaScript (preview renvoie index.html à toute adresse inconnue, Firebase
+    un 404 : firebase.json n'a pas de rewrites)."""
     code, entetes, _ = http(base.rstrip("/") + "/@vite/client")
     return code == 200 and "javascript" in (entetes.get("content-type") or "")
 
@@ -111,9 +117,20 @@ def commande_serve(args):
 
 # --- DevTools : deux transports, un tube ou un WebSocket --------------
 
-CHROMIUMS = (sorted(pathlib.Path.home().glob(".cache/ms-playwright/chromium-*/chrome-linux*/chrome"))
-             or sorted(pathlib.Path.home().glob(
-                 ".cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux*/chrome-headless-shell")))
+def _binaires(motif):
+    """Binaires de ~/.cache/ms-playwright, du plus ancien au plus récent : tri
+    sur le numéro du dossier (chromium-1243), pas sur la chaîne (999 > 1243)."""
+    numero = lambda p: int(p.relative_to(pathlib.Path.home() / ".cache/ms-playwright").parts[0].rsplit("-", 1)[1])
+    return sorted(pathlib.Path.home().glob(".cache/ms-playwright/" + motif), key=numero)
+
+
+# Deux binaires : chrome-headless-shell (l'ancien headless) mesure juste ;
+# chromium-* en nouveau headless fausse Event Timing sur nos touchers (la
+# présentation n'est signalée qu'au prochain événement : des secondes en
+# escalier, cf. SKILL.md, Pièges). Le shell passe donc en premier partout ;
+# `--binaire chromium` force l'autre.
+SHELLS = _binaires("chromium_headless_shell-*/chrome-headless-shell-linux*/chrome-headless-shell")
+CHROMIUMS = _binaires("chromium-*/chrome-linux*/chrome")
 # Le trousseau GNOME, verrouillé au démarrage, figerait chromium sans `basic`.
 OPTIONS_CHROMIUM = [
     "--headless", "--no-sandbox", "--hide-scrollbars", "--mute-audio", "--force-color-profile=srgb",
@@ -492,10 +509,19 @@ def _doigt(x, y, ident=0):
     return {"x": round(x, 2), "y": round(y, 2), "id": ident, "radiusX": 4, "radiusY": 4, "force": 1}
 
 
+BINAIRE = "shell"  # réglé par --binaire (main)
+
+
 def chromium_binaire():
-    if not CHROMIUMS:
+    """Le plus récent chrome-headless-shell, sinon chromium (ou l'inverse
+    avec --binaire chromium) ; un chemin donné à --binaire tel quel."""
+    if BINAIRE not in ("shell", "chromium"):
+        return pathlib.Path(BINAIRE)
+    ordre = (SHELLS, CHROMIUMS) if BINAIRE == "shell" else (CHROMIUMS, SHELLS)
+    trouves = ordre[0] or ordre[1]
+    if not trouves:
         sys.exit("ECHEC : aucun chromium dans ~/.cache/ms-playwright (cf. SKILL.md, Dépannage)")
-    return CHROMIUMS[-1]
+    return trouves[-1]
 
 
 def ouvrir_onglet_http(port, url="about:blank", delai=15):
@@ -791,11 +817,24 @@ def centrer(page, ident, k):
         c.zoomer({{k: {k}, x: r.largeur / 2 - {k} * x, y: r.hauteur / 2 - {k} * y}}); }})()""")
 
 
-def une_mesure(page, url, journal):
+# Cadence de rejeu sur le téléphone : au moins celle d'un écran 120 Hz (Galaxy
+# A37). Son écran peut tenir 60 Hz au repos et passer à 120 Hz pendant un
+# geste : rejoué à la seule période du repos, un doigt à 60 Hz n'en ferait
+# qu'une image sur deux, et le geste ne dirait rien du 120 Hz. Sur le PC
+# (headless, 60 Hz fixe), la période du repos, comme les mesures d'avant.
+PAS_TELEPHONE_MS = 1000 / 120
+
+
+def pas_de_rejeu(periode, cible):
+    return min(periode, PAS_TELEPHONE_MS) if cible != "local" else periode
+
+
+def une_mesure(page, url, journal, cible):
     """Un chargement, le scénario de gestes, les touchers ; rend le rapport
-    de la page et la liste des touchers visés."""
+    de la page, la liste des touchers visés, les durées réelles des gestes et
+    le pas de rejeu."""
     page.goto(url)
-    periode = page.attendre_carte() or 1000 / 60
+    periode = pas_de_rejeu(page.attendre_carte() or 1000 / 60, cible)
     page.js("window.cartographe.reinitialiser()")
     r = page.js("window.cartographe.carte.rect()")
     cx, cy = r["x"] + r["largeur"] / 2, r["y"] + r["hauteur"] / 2
@@ -835,6 +874,8 @@ def une_mesure(page, url, journal):
             vises.append({"vue": nom, "zoom": round(zoom, 2), "id": ident, "via": pt["via"],
                           "x": round(pt["x"], 1), "y": round(pt["y"], 1)})
             page.pause(450)
+    # Les entrées Event Timing arrivent quelques images après la présentation :
+    # au moins 0,5 s après le dernier geste (src/mesure/rapport.ts).
     page.pause(800)
     rapport = page.js("window.cartographe.rapport()")
     if len(rapport["touchers"]) != len(vises):
@@ -842,7 +883,7 @@ def une_mesure(page, url, journal):
     for v, t in zip(vises, rapport["touchers"]):
         v["pick"] = (t.get("pick") or {}).get("id")
         v["juste"] = v["pick"] == v["id"]
-    return rapport, vises, duree_reelle
+    return rapport, vises, duree_reelle, round(periode, 2)
 
 
 def _med(valeurs):
@@ -850,8 +891,9 @@ def _med(valeurs):
     return round(statistics.median(valeurs), 1) if valeurs else None
 
 
-def resumer(rapports, vises, cible):
-    """Résumé face aux critères du J0, sur toutes les répétitions."""
+def resumer(rapports, vises):
+    """Résumé face aux critères du J0, sur toutes les répétitions (rapports v2,
+    src/mesure/rapport.ts)."""
     chargements = [r["chargement"]["total_ms"] for r in rapports if r.get("chargement")]
     periode = _med([r["ecran"]["periode_ms"] for r in rapports]) or 1000 / 60
     gestes = {}
@@ -859,43 +901,63 @@ def resumer(rapports, vises, cible):
         for g in r["gestes"]:
             if g["type"] not in ("glisser", "pincer"):
                 continue
-            e = gestes.setdefault(g["type"], {"gestes": 0, "intervalles": 0, "perdues": 0, "max_ms": 0,
-                                              "p95_ms": [], "longues_images": 0, "fin_image_ms": []})
+            # Un fichier = un rendu ; la clé le garde quand même (rapports mêlés).
+            cle = g["type"] if g.get("rendu", r["rendu"]) == r["rendu"] else f"{g['type']} ({g['rendu']})"
+            e = gestes.setdefault(cle, {"rendu": g.get("rendu", r["rendu"]), "gestes": 0, "intervalles": 0,
+                                        "perdues": 0, "max_ms": 0, "p95_ms": [], "longues_images": 0,
+                                        "periodes_ms": [], "ecarts_periode": 0, "fin_et": [], "fin_et_absente": 0,
+                                        "fin_image": []})
+            st = g["stats"]
             e["gestes"] += 1
             e["intervalles"] += len(g["intervalles_ms"])
-            e["perdues"] += g["stats"]["perdues"]
-            e["max_ms"] = max(e["max_ms"], g["stats"]["max_ms"] or 0)
-            e["p95_ms"].append(g["stats"]["p95_ms"])
+            # Comptées par la page avec la période du geste (stats.periode_ms).
+            e["perdues"] += st["perdues"]
+            e["max_ms"] = max(e["max_ms"], st["max_ms"] or 0)
+            e["p95_ms"].append(st["p95_ms"])
+            e["periodes_ms"].append(st.get("periode_ms"))
+            e["ecarts_periode"] += bool(st.get("ecart_periode"))
             e["longues_images"] += g["longues_images"]["nombre"]
-            e["fin_image_ms"].append(g["fin"]["image_ms"])
+            fin = g["fin"].get("event_timing_ms")
+            if fin is None:
+                e["fin_et_absente"] += 1
+            else:
+                e["fin_et"].append(fin)
+            e["fin_image"].append(g["fin"]["image_ms"])
     for e in gestes.values():
         e["part_perdues"] = round(e["perdues"] / e["intervalles"], 3) if e["intervalles"] else None
         e["p95_ms"] = _med(e["p95_ms"])
-        fins = [f for f in e.pop("fin_image_ms") if f is not None]
-        e["fin_image_ms"] = {"mediane": _med(fins), "max": max(fins) if fins else None}
+        periodes = [x for x in e.pop("periodes_ms") if x is not None]
+        e["periode_ms"] = {"mediane": _med(periodes), "min": min(periodes, default=None),
+                           "max": max(periodes, default=None)}
         e["saccade"] = (e["part_perdues"] or 0) > SACCADE_PART or e["max_ms"] > SACCADE_MAX_MS
-    # Deux mesures du toucher : Event Timing (de l'entrée à l'image
-    # présentée ; null = sous 16 ms ou API absente, remplacé par la mesure
-    # maison) et la mesure maison seule (latence_peinte_ms : jusqu'au rendu de
-    # l'image, sans l'affichage). Le verdict suit Event Timing sur le
-    # téléphone ; en headless il est faussé (cf. SKILL.md, Pièges) : la
-    # présentation de l'image n'arrive qu'au prochain événement, des secondes
-    # plus tard quand la page est au repos. Le verdict y suit la mesure maison.
-    event_timing, maison, sous_seuil = [], [], 0
+        fins = e.pop("fin_et")
+        e["fin_event_timing_ms"] = {"mediane": _med(fins), "max": max(fins, default=None),
+                                    "sans_entree": e.pop("fin_et_absente"),
+                                    "ok": bool(fins) and max(fins) < CRITERE_FIN_GESTE_MS}
+        images = [f for f in e.pop("fin_image") if f is not None]
+        e["fin_image_ms"] = {"mediane": _med(images), "max": max(images, default=None)}
+    # Toucher : Event Timing partout (de l'entrée à l'image présentée).
+    # 'sous_seuil' = l'API n'a rien gardé, donc sous 16 ms : compté 16 (borne
+    # haute). 'non_pris_en_charge' : repli sur fin_fil_principal_ms, signalé,
+    # car il s'arrête avant rastérisation et présentation (sous-estime).
+    latences, mesures, sous_seuil, repli, fil = [], [], 0, 0, []
     for r in rapports:
         for t in r["touchers"]:
-            et, m = t.get("event_timing"), t.get("latence_peinte_ms")
-            if m is not None:
-                maison.append(m)
-            if et:
-                event_timing.append(et["duree_ms"])
-            elif m is not None:
-                event_timing.append(m)
+            etat = t.get("event_timing_etat")
+            if t.get("fin_fil_principal_ms") is not None:
+                fil.append(t["fin_fil_principal_ms"])
+            if etat == "mesure" and t.get("event_timing"):
+                latences.append(t["event_timing"]["duree_ms"])
+                mesures.append(t["event_timing"]["duree_ms"])
+            elif etat == "sous_seuil":
+                latences.append(SEUIL_EVENT_TIMING_MS)
                 sous_seuil += 1
-    source = "maison" if cible == "local" else "event_timing"
-    latences = maison if source == "maison" else event_timing
+            elif t.get("fin_fil_principal_ms") is not None:
+                latences.append(t["fin_fil_principal_ms"])
+                repli += 1
     justes = sum(v.get("juste", False) for v in vises)
     faux = sorted({f"{v['id']}→{v.get('pick')} ({v['vue']})" for v in vises if not v.get("juste")})
+    ecarts = sum(e["ecarts_periode"] for e in gestes.values())
     return {
         "periode_ms": periode,
         "chargement_ms": {"mediane": _med(chargements), "min": min(chargements, default=None),
@@ -903,10 +965,12 @@ def resumer(rapports, vises, cible):
                           "ok": bool(chargements) and max(chargements) < CRITERE_RENDU_MS},
         "gestes": gestes,
         "saccade": any(e["saccade"] for e in gestes.values()),
-        "touchers": {"n": len(latences), "verdict_sur": source,
-                     "event_timing_ms": {"mediane": _med(event_timing), "max": max(event_timing, default=None),
-                                         "sous_seuil": sous_seuil},
-                     "maison_ms": {"mediane": _med(maison), "max": max(maison, default=None)},
+        "ecarts_periode": ecarts,
+        "fin_geste_ok": bool(gestes) and all(e["fin_event_timing_ms"]["ok"] for e in gestes.values()),
+        "touchers": {"n": len(latences), "verdict_sur": "event_timing",
+                     "event_timing_ms": {"mediane": _med(latences), "max": max(latences, default=None),
+                                         "mesures": len(mesures), "sous_seuil": sous_seuil, "repli": repli},
+                     "fin_fil_principal_ms": {"mediane": _med(fil), "max": max(fil, default=None)},
                      "ok": bool(latences) and max(latences) < CRITERE_TOUCHER_MS,
                      "justes": justes, "vises": len(vises), "faux": faux},
     }
@@ -915,26 +979,67 @@ def resumer(rapports, vises, cible):
 def afficher_resume(res, entete):
     ok = lambda b: "OK " if b else "NON"
     dire(f"\n=== {entete} ===")
-    dire(f"période de l'écran : {res['periode_ms']} ms ({1000 / res['periode_ms']:.0f} Hz)")
+    dire(f"période de l'écran au repos : {res['periode_ms']} ms ({1000 / res['periode_ms']:.0f} Hz)")
     c = res["chargement_ms"]
     dire(f"[{ok(c['ok'])}] rendu < {CRITERE_RENDU_MS} ms : médiane {c['mediane']}, de {c['min']} à {c['max']} "
          f"({c['n']} chargements)")
+    dire(f"[{ok(not res['ecarts_periode'])}] période des gestes = période du repos (écart ≤ 25 %) : "
+         + ("oui" if not res["ecarts_periode"] else
+            f"{res['ecarts_periode']} geste(s) en écart : écran à une autre fréquence pendant les gestes, "
+            "images perdues comptées sur la période de chaque geste"))
+    for quoi, e in res["gestes"].items():
+        pg = e["periode_ms"]
+        dire(f"      {quoi:8} période des gestes : médiane {pg['mediane']} ms (de {pg['min']} à {pg['max']}), "
+             f"repos {res['periode_ms']} ms, {e['ecarts_periode']} écart(s)")
     dire(f"[{ok(not res['saccade'])}] pas de saccade (≤ {SACCADE_PART:.0%} d'images perdues, aucun intervalle "
          f"> {SACCADE_MAX_MS} ms) :")
     for quoi, e in res["gestes"].items():
         dire(f"      {quoi:8} {e['gestes']:2} gestes, {e['perdues']}/{e['intervalles']} images perdues "
              f"({(e['part_perdues'] or 0):.1%}), p95 {e['p95_ms']} ms, max {e['max_ms']} ms, "
-             f"{e['longues_images']} longue(s) image(s) ; image de fin de geste : médiane "
-             f"{e['fin_image_ms']['mediane']}, max {e['fin_image_ms']['max']} ms")
+             f"{e['longues_images']} longue(s) image(s)")
+    dire(f"[{ok(res['fin_geste_ok'])}] fin de geste < {CRITERE_FIN_GESTE_MS} ms (Event Timing de l'événement qui "
+         "le finit, jusqu'à la présentation) :")
+    for quoi, e in res["gestes"].items():
+        f, i = e["fin_event_timing_ms"], e["fin_image_ms"]
+        dire(f"      {quoi:8} rendu {e['rendu']} : médiane {f['mediane']}, max {f['max']} ms"
+             + (f" ({f['sans_entree']} sans entrée)" if f["sans_entree"] else "")
+             + f" ; fil principal seul (image_ms) : médiane {i['mediane']}, max {i['max']} ms")
     t = res["touchers"]
-    et, m = t["event_timing_ms"], t["maison_ms"]
-    dire(f"[{ok(t['ok'])}] toucher → réponse < {CRITERE_TOUCHER_MS} ms ({t['n']} touchers, verdict sur "
-         f"{'la mesure maison' if t['verdict_sur'] == 'maison' else 'Event Timing'}) :")
-    dire(f"      Event Timing : médiane {et['mediane']}, max {et['max']} ms ({et['sous_seuil']} sous son seuil de "
-         f"16 ms, comptés par la mesure maison){' — faussé en headless' if t['verdict_sur'] == 'maison' else ''}")
-    dire(f"      mesure maison (jusqu'au rendu de l'image) : médiane {m['mediane']}, max {m['max']} ms")
+    et, m = t["event_timing_ms"], t["fin_fil_principal_ms"]
+    dire(f"[{ok(t['ok'])}] toucher → réponse < {CRITERE_TOUCHER_MS} ms ({t['n']} touchers, Event Timing) :")
+    dire(f"      Event Timing : médiane {et['mediane']}, max {et['max']} ms ({et['mesures']} mesurés, "
+         f"{et['sous_seuil']} sous son seuil de {SEUIL_EVENT_TIMING_MS} ms, comptés {SEUIL_EVENT_TIMING_MS})")
+    if et["repli"]:
+        dire(f"      REPLI : {et['repli']} toucher(s) sans Event Timing (navigateur sans l'API), jugés sur la fin "
+             "du fil principal, qui sous-estime (ni rastérisation ni présentation)")
+    dire(f"      fin du fil principal (indicatif, avant rastérisation) : médiane {m['mediane']}, max {m['max']} ms")
     dire(f"[{ok(t['justes'] == t['vises'])}] pays touchés justes : {t['justes']}/{t['vises']}"
          + (f" ; faux : {', '.join(t['faux'])}" if t["faux"] else ""))
+
+
+def code_mesure(cible, serie):
+    """Quel code est mesuré : commit, arbre propre ou modifié ; pour la
+    WebView, l'APK installé (date de mise à jour sur le téléphone) et celui du
+    disque (date du fichier). Le site servi est censé venir de cet arbre
+    (serve --preview le construit au lancement : le relancer après un
+    changement)."""
+    git = lambda *a: subprocess.run(["git", *a], cwd=RACINE, capture_output=True, text=True).stdout.strip()
+    modifies = git("status", "--porcelain").splitlines()
+    code = {"commit": git("rev-parse", "--short", "HEAD") or None, "arbre_modifie": bool(modifies),
+            "fichiers_modifies": modifies[:20]}
+    if cible == "webview":
+        installe = None
+        try:
+            for ligne in adb(serie, "shell", "dumpsys", "package", APPID, verifier=False).splitlines():
+                if "lastUpdateTime=" in ligne:
+                    installe = ligne.split("=", 1)[1].strip()
+                    break
+        except (RuntimeError, subprocess.TimeoutExpired):
+            pass
+        fichier = (datetime.datetime.fromtimestamp(APK.stat().st_mtime).astimezone().isoformat(timespec="seconds")
+                   if APK.exists() else None)
+        code["apk"] = {"installe_le": installe, "fichier_du": fichier}
+    return code
 
 
 def commande_mesurer(args):
@@ -948,7 +1053,8 @@ def commande_mesurer(args):
         return 1
     if args.cible == "local" and serveur_de_dev(url_base):
         dire("  attention : serveur de développement, chargement plus lent qu'en build (serve --preview)")
-    rapports, vises, journal, durees = [], [], [], []
+    rapports, vises, journal, durees, pas_ms = [], [], [], [], []
+    code = code_mesure(args.cible, args.serie)
     with Session(args.cible, serie=args.serie, ws_local=args.ws) as s:
         p = s.page
         s.reverse(url_base)
@@ -957,14 +1063,20 @@ def commande_mesurer(args):
         else:
             p.tactile = True
         p.cdp("Network.setCacheDisabled", cacheDisabled=not args.cache)
-        dire(f"navigateur : {s.navigateur}")
+        dire(f"navigateur : {s.navigateur}" + (f" ({chromium_binaire()})" if args.cible == "local" else ""))
+        dire(f"code : {code['commit']}{' (arbre modifié)' if code['arbre_modifie'] else ''}"
+             + (f" ; APK du {code['apk']['installe_le']}" if code.get("apk") else ""))
         dire(f"url : {url} ; ralenti ×{args.ralenti:g} ; cache {'actif' if args.cache else 'désactivé'}")
         for i in range(args.repetitions):
             debut = time.monotonic()
-            rapport, v, d = une_mesure(p, url, journal)
+            rapport, v, d, pas = une_mesure(p, url, journal, args.cible)
+            if rapport.get("v") != 2:
+                raise RuntimeError(f"rapport v{rapport.get('v')} de la page, le driver lit la v2 "
+                                   "(src/mesure/rapport.ts) : site à reconstruire ?")
             rapports.append(rapport)
             vises.extend(v)
             durees.append(d)
+            pas_ms.append(pas)
             dire(f"  répétition {i + 1}/{args.repetitions} : chargement {rapport['chargement']['total_ms']} ms, "
                  f"{len(rapport['gestes'])} gestes, {len(rapport['touchers'])} touchers ({time.monotonic() - debut:.0f} s)")
         erreurs = p.erreurs + p.echecs
@@ -972,7 +1084,7 @@ def commande_mesurer(args):
         dire(f"  note : {ligne}")
     for e in erreurs:
         dire(f"  erreur de la page : {e}")
-    res = resumer(rapports, vises, args.cible)
+    res = resumer(rapports, vises)
     afficher_resume(res, f"{args.cible}, rendu {args.rendu}, {args.projection}, ralenti ×{args.ralenti:g}")
     jour = datetime.date.today().isoformat()
     nom = f"{jour}-{args.cible}-{args.rendu}-{args.projection}" + (f"-x{args.ralenti:g}" if args.ralenti != 1 else "")
@@ -980,16 +1092,21 @@ def commande_mesurer(args):
     sortie.mkdir(parents=True, exist_ok=True)
     fichier = sortie / f"{nom}.json"
     fichier.write_text(json.dumps({
-        "v": 1,
+        "v": 2,
         "outil": ".claude/skills/run-cartographe/driver.py mesurer",
         "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
-        "cible": args.cible, "navigateur": s.navigateur, "url": url, "ralenti": args.ralenti,
+        "code": code,
+        "cible": args.cible, "navigateur": s.navigateur,
+        "binaire": str(chromium_binaire()) if args.cible == "local" else None,
+        "url": url, "ralenti": args.ralenti,
         "cache": args.cache, "repetitions": args.repetitions,
         "ecran_emule": TELEPHONE if args.cible == "local" else None,
         "scenario": {"gestes": SCENARIO, "duree_glisser_ms": DUREE_GLISSER_MS, "duree_pincer_ms": DUREE_PINCER_MS,
-                     "cadence": "un touchMove par période de l'écran mesurée (window.cartographe.repos)",
-                     "durees_reelles_ms": durees, "touchers": TOUCHERS},
+                     "cadence": "un touchMove par période de l'écran au repos (window.cartographe.repos) ; "
+                                "sur le téléphone, au plus 8,33 ms (120 Hz)",
+                     "pas_ms": pas_ms, "durees_reelles_ms": durees, "touchers": TOUCHERS},
         "criteres": {"rendu_ms": CRITERE_RENDU_MS, "toucher_ms": CRITERE_TOUCHER_MS,
+                     "fin_geste_ms": CRITERE_FIN_GESTE_MS, "ecart_periode": 0.25,
                      "saccade": {"part_perdues": SACCADE_PART, "max_ms": SACCADE_MAX_MS}},
         "resume": res,
         "touchers_vises": vises,
@@ -1058,7 +1175,15 @@ def main():
     s.add_argument("--installer", action="store_true", help="puis adb install -r")
     s.add_argument("--serie")
 
+    for nom in ("smoke", "ui", "mesurer"):
+        sub.choices[nom].add_argument(
+            "--binaire", default="shell",
+            help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
+                 "(nouveau headless : Event Timing faussé), ou un chemin")
+
     args = p.parse_args()
+    global BINAIRE
+    BINAIRE = getattr(args, "binaire", BINAIRE)
     commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui,
                  "mesurer": commande_mesurer, "apk": commande_apk}
     try:

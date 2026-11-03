@@ -16,8 +16,11 @@ relatifs à `Cartographe/`. Contrat de la page avec le pilote :
 ## Prérequis
 
 - `node_modules/` (`npm ci`), Node de `.nvmrc`.
-- Le chromium de `~/.cache/ms-playwright` (le plus récent `chromium-*`) :
-  pas besoin d'installer playwright.
+- Le navigateur de `~/.cache/ms-playwright` : le plus récent
+  `chromium_headless_shell-*` (chrome-headless-shell, celui qui mesure
+  juste), à défaut `chromium-*` ; tri sur le numéro du dossier.
+  `--binaire chromium|shell|<chemin>` sur smoke, ui et mesurer. Pas besoin
+  d'installer playwright.
 - Téléphone et APK : `~/Android/Sdk` (adb dans `platform-tools/`), JDK 21
   (`/usr/lib/jvm/java-21-openjdk-amd64`).
 
@@ -60,25 +63,48 @@ Options : `--projection monde|pacifique`, `--repetitions N` (défaut 3 :
 chaque répétition recharge la page et rejoue tout), `--url`, `--cache`
 (garde le cache HTTP, désactivé par défaut : première visite), `--ws`
 (local par HTTP + WebSocket, le chemin du téléphone), `--serie` (adb),
-`--out`.
+`--out`, `--binaire`.
 
 Chaque répétition : chargement de `?rendu=…&projection=…&mesures=0`,
 attente de `window.cartographe.repos` (période de l'écran mesurée), puis
 11 gestes par `Input.dispatchTouchEvent` (pincements à deux doigts et
-glissers à un doigt, un `touchMove` par période d'écran, zooms de 1 à ~36,
+glissers à un doigt, un `touchMove` par période d'écran au repos — sur le
+téléphone au plus 8,33 ms, la cadence d'un écran 120 Hz, car il peut tenir
+60 Hz au repos et 120 Hz pendant un geste —, zooms de 1 à ~36,
 `zoomerSur("DEU")` au milieu), puis des touchers sur des pays et des
 pastilles (micro-États, Caraïbes au zoom 1, Italie zoomée, Caraïbes au
 zoom 8 ; coordonnées lues dans le DOM : `circle.pastille[data-id]`, sinon
 `cartographe.carte.ecran(id)`) ; enfin `cartographe.rapport()`.
 
-Sortie : un résumé `[OK ]`/`[NON]` par critère (rendu < 1 s, pas de
-saccade, toucher < 100 ms, pays touchés justes) et le JSON complet
-(rapports bruts, touchers visés, scénario, navigateur) dans
+Sortie : un résumé `[OK ]`/`[NON]` par critère et le JSON complet
+(rapports v2 bruts, touchers visés, scénario et pas de rejeu, navigateur et
+binaire, `code` : commit, arbre modifié ou non, et pour la WebView les
+dates de l'APK installé et du fichier) dans
 `docs/mesures/j0/AAAA-MM-JJ-<cible>-<rendu>-<projection>[-x<ralenti>].json`
 (réécrit si relancé le même jour). **Les commiter** : ce sont les preuves
-du J0. « Saccade » au sens du driver : plus de 5 % d'images perdues
-(intervalle > 1,5 période) sur un type de geste, ou un intervalle > 50 ms ;
-l'œil sur le téléphone tranche. L'image de fin de geste est donnée à part.
+du J0. Lignes du résumé :
+
+- **rendu < 1 s** : `chargement.total_ms`.
+- **période des gestes = période du repos** : `stats.periode_ms` (10e
+  centile des intervalles de chaque geste) à côté de `ecran.periode_ms` ;
+  `[NON]` dès qu'un geste s'en écarte de plus de 25 %
+  (`stats.ecart_periode`) : l'écran change de fréquence pendant les gestes.
+  Les images perdues sont comptées sur la période de chaque geste.
+- **pas de saccade** : plus de 5 % d'images perdues (intervalle > 1,5
+  période du geste) sur un type de geste, ou un intervalle > 50 ms ; l'œil
+  sur le téléphone tranche.
+- **fin de geste < 100 ms** (seuil proposé, celui du toucher) :
+  `gestes[].fin.event_timing_ms`, Event Timing du touchend qui finit le
+  geste jusqu'à la présentation (en css : transformation posée, nouvelle
+  peinture et rastérisation de toute la carte), médiane et max par type de
+  geste ; `fin.image_ms` (fil principal seul) en indicatif.
+- **toucher < 100 ms** : Event Timing du pointerup partout
+  (`event_timing_etat` 'mesure') ; 'sous_seuil' (aucune entrée, donc sous
+  16 ms) compté 16 ; 'non_pris_en_charge' : repli sur
+  `fin_fil_principal_ms`, signalé `REPLI` (il sous-estime : ni
+  rastérisation ni présentation). `fin_fil_principal_ms` reste affiché en
+  indicatif.
+- **pays touchés justes** : `pick` de la page = pays visé.
 
 ## Chemin humain
 
@@ -123,8 +149,9 @@ python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu
   pid par `pidof`, `adb forward` vers `webview_devtools_remote_<pid>` ; la
   page est `https://localhost/` (fichiers de l'APK, pas le PC). Seul
   l'**APK de debug** ouvre DevTools.
-- Aucun ralenti sur le téléphone (`--ralenti` refusé) ; l'écran est à
-  120 Hz, la période mesurée le dit.
+- Aucun ralenti sur le téléphone (`--ralenti` refusé). L'écran est à
+  120 Hz mais peut tenir 60 Hz au repos : `ecran.periode_ms` (repos) et la
+  période des gestes sont affichées côte à côte, l'écart en `[NON]`.
 - **À l'œil en plus des chiffres** : déplacer et pincer soi-même la carte
   (saccades du compositeur, tuiles non peintes : invisibles aux
   intervalles rAF), toucher les micro-États et les Caraïbes au doigt.
@@ -171,14 +198,13 @@ arbre propre (`git status`).
 
 ## Pièges
 
-- **Event Timing est faussé en headless** (chromium du PC) : la
-  présentation de l'image n'est signalée qu'au prochain événement, si
-  bien qu'un toucher sur une page au repos affiche des secondes (durées en
-  escalier décroissant d'un toucher à l'autre) alors que la mesure maison
-  (`latence_peinte_ms`) reste de l'ordre d'une image. Rien n'y fait (`--disable-gpu`,
-  `--disable-gpu-vsync`… ; swiftshader le supprime tout court). Le verdict
-  local suit donc la mesure maison, celui du téléphone Event Timing ; les
-  deux sont toujours affichés.
+- **Event Timing est faussé par `chromium-*` en nouveau headless**, pas
+  par le headless en général : sur nos touchers (Caraïbes au zoom 1), la
+  présentation n'y est signalée qu'au prochain événement, d'où des
+  secondes en escalier décroissant (JAM 5304, GRD 4768 … TTO 1024 ms).
+  chrome-headless-shell, sur la même suite, donne 16 à 40 ms partout :
+  c'est le binaire par défaut du driver (`--binaire`). Un escalier pareil
+  sur le téléphone serait donc un vrai défaut à creuser, pas cet artefact.
 - Headless tourne à 60 Hz et `--ralenti` ne ralentit que le fil principal
   du moteur de rendu (ni compositeur, ni rastérisation, ni GPU) : le PC
   avantage le rendu `css`. Seul le téléphone tranche.
@@ -186,9 +212,9 @@ arbre propre (`git status`).
   autre session) : relancer au calme avant d'en conclure quoi que ce soit.
 - `dist/` est partagé : `apk` et `npm run build` le réécrivent ; `serve
   --preview` construit ailleurs exprès.
-- `vite preview` et Firebase renvoient `index.html` à toute adresse
-  inconnue : un fichier de `/geo/` absent répond 200… en HTML (smoke le
-  voit au JSON invalide).
+- `vite preview` renvoie `index.html` à toute adresse inconnue : un
+  fichier de `/geo/` absent y répond 200… en HTML (smoke le voit au JSON
+  invalide). Firebase répond 404 (pas de rewrites dans `firebase.json`).
 - Changer le rendu ou la projection dans ⚙ recharge la page (mesures d'un
   chargement propre) ; `?rendu=`, `?projection=`, `?mesures=1` font de
   même par l'adresse.
@@ -203,7 +229,7 @@ arbre propre (`git status`).
 | `ECHEC : rien ne répond sur http://localhost:8060/` | `serve` non lancé. |
 | `Port 8060 is already in use` | Un `serve` traîne : `fuser -k -n tcp 8060`. |
 | `carte pas prête en 60 s` | Erreur de chargement (voir `erreur de la page`), ou `/geo/` absent : `npm run geodata`. |
-| `aucun chromium dans ~/.cache/ms-playwright` | `npx playwright install chromium` dans un dossier jetable. |
+| `aucun chromium dans ~/.cache/ms-playwright` | `npx playwright install chromium chromium-headless-shell` dans un dossier jetable. |
 | `aucun téléphone prêt pour adb (… unauthorized)` | Accepter l'empreinte du PC sur le téléphone ; sinon `adb kill-server`. |
 | `port 8061 déjà pris` (`--ws`) ou `/json/version` muet | Un `adb forward` est resté : `adb forward --remove-all`. |
 | `aucune page dans la WebView` | APK de release (pas de DevTools) ou appli fermée : `apk --installer`. |
