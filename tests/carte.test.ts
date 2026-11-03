@@ -7,7 +7,7 @@ import { contient, dansEmprise, distanceAuBordKm, versLonLat } from '../src/map/
 import { estUnToucher, SuiviPointeurs } from '../src/map/geste';
 import { aPastille, calculerPastilles, PASTILLE, pastilleLaPlusProche, tailleEcranPx } from '../src/map/pastilles';
 import { noter, pick, type ContexteCarte } from '../src/map/pick';
-import { creerProjection } from '../src/map/projection';
+import { creerProjection, garderVue } from '../src/map/projection';
 import { traceDirect, UNITE } from '../src/map/traces';
 import type { Entite, NomProjection, Transfo } from '../src/map/types';
 import { ciblesEssai } from '../src/vues/cibles';
@@ -64,6 +64,32 @@ describe('projections', () => {
     };
     expect(largeur('monde')).toBeGreaterThan(0.9 * L); // de part et d'autre de l'antiméridien
     expect(largeur('pacifique')).toBeLessThan(0.15 * L);
+  });
+});
+
+describe('redimensionnement', () => {
+  it('garde le point central et l’échelle à l’écran à travers un retracé', () => {
+    const rome: [number, number] = [12.45, 41.9];
+    for (const nom of ['monde', 'pacifique'] as const) {
+      const avant = { proj: creerProjection(nom, L, H), l: L, h: H };
+      const t = centrer(avant.proj, rome, 17);
+      for (const [l, h] of [[L, 420], [600, 900], [300, H]] as const) {
+        const apres = { proj: creerProjection(nom, l, h), l, h };
+        const t2 = garderVue(t, avant, apres, 400);
+        const b = apres.proj(rome) as [number, number];
+        expect(t2.k * b[0] + t2.x).toBeCloseTo(l / 2, 6);
+        expect(t2.k * b[1] + t2.y).toBeCloseTo(h / 2, 6);
+        expect(t2.k * apres.proj.scale()).toBeCloseTo(t.k * avant.proj.scale(), 6);
+      }
+    }
+  });
+
+  it('au zoom 1, ou si l’échelle tombe sous la carte entière : l’identité ; borné au zoom maximal', () => {
+    const avant = { proj: creerProjection('monde', L, H), l: L, h: H };
+    const grand = { proj: creerProjection('monde', 2 * L, 2 * H), l: 2 * L, h: 2 * H };
+    expect(garderVue({ k: 1, x: 0, y: 0 }, avant, avant, 400)).toEqual({ k: 1, x: 0, y: 0 });
+    expect(garderVue({ k: 1.5, x: -10, y: -10 }, avant, grand, 400)).toEqual({ k: 1, x: 0, y: 0 });
+    expect(garderVue({ k: 300, x: -300 * 200, y: -300 * 300 }, grand, avant, 400).k).toBe(400); // 300 × 2 → 600, borné
   });
 });
 

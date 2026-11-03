@@ -8,7 +8,7 @@ import type { DonneesCarte } from './donnees';
 import { versEcran } from './geo';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
-import { creerProjection } from './projection';
+import { creerProjection, garderVue } from './projection';
 import { fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
 import type { Entite, NomProjection, Rendu, Transfo } from './types';
@@ -89,6 +89,8 @@ export class Carte {
   private parUtilisateur = false;
   private taille = { l: 0, h: 0 };
   private suivi = new SuiviPointeurs();
+  /** Carte masquée (vue Saisie) : pas de retracé avant son retour. */
+  private masquee = false;
   private observateur: ResizeObserver;
   private ecouteurs: [string, EventListener][] = [];
 
@@ -137,9 +139,12 @@ export class Carte {
   rendre(): ChronoRendu {
     const l = this.hote.clientWidth || window.innerWidth;
     const h = this.hote.clientHeight || window.innerHeight;
+    // Un retracé (redimensionnement) garde le centre et le zoom de la vue.
+    const avant = this.proj ? { proj: this.proj, ...this.taille } : null;
     this.taille = { l, h };
     const t0 = performance.now();
     this.proj = creerProjection(this.o.projection, l, h);
+    const vise = avant ? garderVue(this.t, avant, { proj: this.proj, l, h }, ZOOM_MAX) : { k: 1, x: 0, y: 0 };
     const d = fabriqueTraces(this.o.projection, this.proj);
     const sphere = geoPath(this.proj).digits(DECIMALES)({ type: 'Sphere' }) ?? '';
     const traces = this.o.donnees.entites.map((e) => d(e.forme));
@@ -183,7 +188,8 @@ export class Carte {
 
     this.limiter(l, h);
     const s = select(this.hote).call(this.comportement).on('dblclick.zoom', null);
-    this.comportement.transform(s, zoomIdentity);
+    this.comportement.transform(s, zoomIdentity.translate(vise.x, vise.y).scale(vise.k));
+    this.t = { ...vise };
     this.poser(this.t);
     this.majPastilles();
     const t2 = performance.now();
@@ -370,6 +376,17 @@ export class Carte {
     this.hote.dataset.disques = String(voulues.size);
   }
 
+  /**
+   * Carte masquée (vue Saisie) ou de nouveau visible. Masquée, elle ne se
+   * retrace pas : le clavier qui redimensionne la page coûtait deux longues
+   * images (300 à 370 ms au processeur ralenti 4×) et le zoom. Au retour, elle
+   * se retrace si sa taille a changé entre-temps.
+   */
+  masquer(oui: boolean): void {
+    this.masquee = oui;
+    if (!oui) this.redimensionner();
+  }
+
   private redimensionner(): void {
     const l = this.hote.clientWidth;
     const h = this.hote.clientHeight;
@@ -377,8 +394,7 @@ export class Carte {
     // La barre d'adresse du téléphone change la hauteur sans cesse : on ne refait
     // les tracés (~200 ms) que si la largeur change ou la hauteur de plus de 15 %.
     if (l !== this.taille.l || Math.abs(h - this.taille.h) > 0.15 * this.taille.h) {
-      this.t = { k: 1, x: 0, y: 0 };
-      this.rendre();
+      if (!this.masquee) this.rendre(); // masquée : au retour (masquer(false))
       return;
     }
     this.taille.h = h;

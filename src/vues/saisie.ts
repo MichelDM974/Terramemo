@@ -62,9 +62,11 @@ export function vueSaisie(ctx: ContexteVue): Vue {
   return {
     activer() {
       section.hidden = false;
+      ctx.carte.masquer(true);
     },
     desactiver() {
       section.hidden = true;
+      ctx.carte.masquer(false);
     },
   };
 }
