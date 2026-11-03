@@ -1,0 +1,72 @@
+{
+  "sources": [
+    {
+      "nom": "Natural Earth, Admin 0 – Countries et Admin 0 – Breakaway, Disputed Areas (1:10m)",
+      "url": "https://github.com/nvkelso/natural-earth-vector",
+      "version": "v5.1.2 (commit f1890d9f152c896d250a77557a5751a93d494776)",
+      "licence": "Domaine public (https://www.naturalearthdata.com/about/terms-of-use/), mention facultative « Made with Natural Earth »",
+      "telecharge_le": "2026-11-04",
+      "fichiers": [
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_countries.shp",
+          "sha256": "7ce119ef6342e43cff7c0c3004e0911ab7ec1988a14734372031d2012180e7bc"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_countries.shx",
+          "sha256": "ca19ec112d054c77bc8f7ac00e3b110d5dff32cc9bcf4cd1b8b66bdd0f611d32"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_countries.dbf",
+          "sha256": "c5dbd3dd5fd7e2ef49051fc88562c03819e8ea63a382642df6eadd1243bf4b49"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_countries.prj",
+          "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_countries.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_disputed_areas.shp",
+          "sha256": "5c44088c26c93e5317a7ca3be83c6cffc4d53370a7199f070df3c42cf6f7add5"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_disputed_areas.shx",
+          "sha256": "3d928545d18ff6b44f51b2262f0ebdb260c372f5123fad1184ae40ebcbc7474a"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_disputed_areas.dbf",
+          "sha256": "93064dad28997bffb3822fb320049ebd34e5d9375ab33f3b0c64a065b7df0745"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_disputed_areas.prj",
+          "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_disputed_areas.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        }
+      ]
+    },
+    {
+      "nom": "Unicode CLDR, noms des territoires (cldr-localenames-full)",
+      "url": "https://github.com/unicode-org/cldr-json",
+      "version": "49.0.0 (commit a4b67247b446fd51b475991017a2481911210c60)",
+      "licence": "Unicode License v3 (https://www.unicode.org/license.txt), notice : « Copyright © 2015-2024 Unicode, Inc. »",
+      "telecharge_le": "2026-11-04",
+      "fichiers": [
+        {
+          "url": "https://raw.githubusercontent.com/unicode-org/cldr-json/49.0.0/cldr-json/cldr-localenames-full/main/fr/territories.json",
+          "sha256": "42d67b78cb74ffe87380db1d702d06be995c3082d7f711ffd6e75a721133c5e0"
+        }
+      ]
+    }
+  ],
+  "traitement": {
+    "outil": "mapshaper 0.6.110",
+    "simplification": "-simplify visvalingam interval=2000 keep-shapes",
+    "quantification": 1000000,
+    "superficies": "géodésiques, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée"
+  }
+}
