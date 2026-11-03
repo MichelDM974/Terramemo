@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Construit les données géographiques versionnées dans public/geo/ :
 //   monde.topo.json  topologie TopoJSON (objets « pays » et « contestees », propriété id seule)
-//   pays.json        attributs de chaque entité (statut, superficie, point, bbox, voisins…)
+//   pays.json        attributs de chaque entité (statut, superficie, point, bbox, voisins,
+//                    revendique_par et note_ne des entités contestées…)
 //   contestees.json  zones contestées dessinées hachurées par-dessus les pays
 //   noms.<langue>.json  { id: nom } pour chaque entité et chaque zone contestée
 //   sources.json     sources, versions, licences, dates et empreintes
@@ -117,6 +118,31 @@ const PART_ENTITE_ENTIERE = 0.9;
 // Morceaux d'une entité jouable que NE range parmi les zones disputées sans dire qui les
 // revendique : la Palestine est un pays du jeu, pas une zone hachurée.
 const CONTESTEES_EXCLUES = { B53: 'bande de Gaza (Palestine)', B54: 'Cisjordanie (Palestine)' };
+
+// Qui revendique une entité entière (ids de pays.json), pour toute entité « conteste » et
+// pour les territoires dont NE note une revendication (NOTE_BRK « Claimed by… », reprise
+// dans pays.json en note_ne). Le choix de notation (un toucher au Somaliland compte-t-il
+// pour la Somalie ?) se fait au J1a, pas ici. Les revendications d'une partie d'entité
+// (Kouriles, Tromelin, Wake…) sont dans contestees.json.
+const REVENDICATIONS = {
+  ESH: ['MAR'], // NE : « Self admin.; Claimed by Morocco » (partie à l'est du mur)
+  FLK: ['ARG'],
+  GIB: ['ESP'],
+  IOT: ['MUS', 'SYC'], // NE v5.1.2, avant le traité Royaume-Uni–Maurice de 2025
+  NE_BJN: ['COL', 'JAM', 'NIC', 'USA'],
+  NE_BRI: ['BRA', 'URY'],
+  NE_BRT: [], // Bir Tawil : ni l'Égypte ni le Soudan ne le revendiquent
+  NE_CNM: ['CYP'], // zone tampon de l'ONU, de jure chypriote (NOTE_BRK vide)
+  NE_CYN: ['CYP'],
+  NE_KAS: ['IND', 'PAK'], // glacier de Siachen, tenu par l'Inde
+  NE_PGA: ['BRN', 'CHN', 'MYS', 'PHL', 'TWN', 'VNM'], // NE oublie le Viêt Nam
+  NE_SCR: ['CHN', 'PHL', 'TWN'], // NOTE_BRK vide
+  NE_SER: ['COL', 'HND', 'NIC', 'USA'],
+  NE_SOL: ['SOM'],
+  NE_SPI: ['ARG', 'CHL'], // frontière non tracée, les deux le revendiquent en partie
+  NE_USG: ['CUB'],
+  SGS: ['ARG'], // NE le note sur ses deux parties (B32, B33), pas sur l'entité
+};
 
 // Point (pastille, étiquette) pris dans le polygone le plus proche de « lieu » au lieu du
 // plus grand, quand le plus grand est absurde pour un archipel étendu. Vérifiés avec les
@@ -448,6 +474,16 @@ async function main() {
   }
   for (const entree of liste) if (!entites.has(entree.id)) echec(`liste.json : ${entree.id} sans géométrie`);
   for (const id of Object.keys(POINT_EXCEPTIONS)) if (!entites.has(id)) echec(`POINT_EXCEPTIONS : ${id} inconnu`);
+  for (const [id, ids] of Object.entries(REVENDICATIONS)) {
+    for (const x of [id, ...ids]) if (!entites.has(x)) echec(`REVENDICATIONS : ${x} inconnu`);
+  }
+  for (const e of entites.values()) {
+    const note = (e.props.NOTE_BRK ?? '').trim();
+    if (e.statut === 'conteste' && !REVENDICATIONS[e.id]) echec(`${e.id} contesté sans REVENDICATIONS (NE : « ${note} »)`);
+    if (/claimed by/i.test(note) && !REVENDICATIONS[e.id] && e.statut !== 'optionnel') {
+      echec(`${e.id} : NE note « ${note} », absent de REVENDICATIONS`);
+    }
+  }
 
   // Attributs calculés sur la géométrie non simplifiée.
   const tous = [...entites.values()].sort(parId);
@@ -597,6 +633,9 @@ async function main() {
       micro: e.partieMax < SEUIL_MICRO_KM2,
       voisins: voisinsParId.get(e.id) ?? [],
     });
+    if (REVENDICATIONS[e.id]) o.revendique_par = REVENDICATIONS[e.id];
+    const note = (e.props.NOTE_BRK ?? '').trim();
+    if ((e.statut === 'conteste' || e.statut === 'territoire') && note) o.note_ne = note;
     return JSON.stringify(o);
   });
   await ecrire('pays.json', `[\n${lignes.join(',\n')}\n]\n`);

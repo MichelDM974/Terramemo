@@ -22,6 +22,8 @@ interface Pays {
   bbox: [number, number, number, number];
   micro: boolean;
   voisins: string[];
+  revendique_par?: string[];
+  note_ne?: string;
 }
 
 interface Contestee {
@@ -153,6 +155,30 @@ describe('entités (pays.json)', () => {
     expect(parId.get('ATA')?.statut).toBe('autre');
     for (const id of ['ESH', 'NE_SOL', 'NE_CYN', 'NE_CNM', 'NE_KAS']) expect(parId.get(id)?.statut, id).toBe('conteste');
     for (const id of ['GRL', 'NCL', 'PRI', 'HKG', 'MAC', 'PYF', 'NE_KAB']) expect(parId.get(id)?.statut, id).toBe('territoire');
+  });
+
+  it('les entités contestées disent qui les revendique (ids connus) et gardent la note NE', () => {
+    for (const p of pays.filter((x) => x.statut === 'conteste')) {
+      expect(p.revendique_par, p.id).toBeDefined();
+      for (const v of p.revendique_par ?? []) {
+        expect(parId.has(v), `${p.id} → ${v}`).toBe(true);
+        expect(v).not.toBe(p.id);
+      }
+    }
+    for (const p of pays) if (p.revendique_par) expect(['conteste', 'territoire'], p.id).toContain(p.statut);
+    for (const [id, par] of [
+      ['NE_SOL', ['SOM']],
+      ['NE_CYN', ['CYP']],
+      ['ESH', ['MAR']],
+      ['NE_KAS', ['IND', 'PAK']],
+      ['NE_BRT', []],
+      ['FLK', ['ARG']],
+      ['GIB', ['ESP']],
+    ] as const) {
+      expect(parId.get(id)?.revendique_par, id).toEqual(par);
+    }
+    expect(parId.get('NE_SOL')?.note_ne).toBe('Self admin.; Claimed by Somalia');
+    expect(parId.get('FRA')?.note_ne).toBeUndefined();
   });
 
   it('les DROM restent dans la France (Guyane : voisins Brésil et Suriname)', () => {
