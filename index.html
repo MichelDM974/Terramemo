@@ -7,6 +7,11 @@
   <title>Cartographe</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preload" href="/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+  <!-- Données de la carte : téléchargées pendant le chargement du script (lues par fetch dans src/map/donnees.ts). -->
+  <link rel="preload" href="/geo/monde.topo.json" as="fetch" crossorigin />
+  <link rel="preload" href="/geo/pays.json" as="fetch" crossorigin />
+  <link rel="preload" href="/geo/contestees.json" as="fetch" crossorigin />
+  <link rel="preload" href="/geo/noms.fr.json" as="fetch" crossorigin />
 </head>
 <body>
   <header>
@@ -15,14 +20,31 @@
       <p class="tagline">La géographie du monde, au doigt.</p>
     </div>
     <nav class="page-nav" aria-label="Pages">
-      <a href="/" class="nav-link active" aria-current="page">Carte</a>
+      <a href="#carte" class="nav-link active" aria-current="page">Carte</a>
+      <a href="#toucher" class="nav-link">Toucher</a>
+      <a href="#saisie" class="nav-link">Saisie</a>
     </nav>
     <div class="header-actions">
       <div class="settings-menu">
         <button type="button" id="settings-btn" title="Paramètres" aria-label="Paramètres" aria-expanded="false">⚙</button>
         <div id="settings-popup" class="settings-popup" hidden>
           <h3>Paramètres</h3>
-          <p class="hint">Aucun réglage pour l'instant.</p>
+          <div class="reglage">
+            <span class="reglage-nom">Rendu</span>
+            <div class="seg" id="reglage-rendu" role="group" aria-label="Rendu">
+              <button type="button" data-v="g">g</button>
+              <button type="button" data-v="css">css</button>
+            </div>
+          </div>
+          <div class="reglage">
+            <span class="reglage-nom">Projection</span>
+            <div class="seg" id="reglage-projection" role="group" aria-label="Projection">
+              <button type="button" data-v="monde">Monde</button>
+              <button type="button" data-v="pacifique">Pacifique</button>
+            </div>
+          </div>
+          <label class="case"><input type="checkbox" id="reglage-mesures"> Afficher les mesures</label>
+          <p class="hint">Fond de carte : Natural Earth ; noms : Unicode CLDR.</p>
         </div>
       </div>
     </div>
