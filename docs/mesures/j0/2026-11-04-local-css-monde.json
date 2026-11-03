@@ -1,0 +1,7446 @@
+{
+ "v": 1,
+ "outil": ".claude/skills/run-cartographe/driver.py mesurer",
+ "date": "2026-11-04T01:57:44+04:00",
+ "cible": "local",
+ "navigateur": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+ "url": "http://localhost:8060/?rendu=css&projection=monde&mesures=0",
+ "ralenti": 1.0,
+ "cache": false,
+ "repetitions": 3,
+ "ecran_emule": {
+  "largeur": 384,
+  "hauteur": 832,
+  "dpr": 2.8125
+ },
+ "scenario": {
+  "gestes": [
+   [
+    "pincer",
+    60,
+    260
+   ],
+   [
+    "glisser",
+    -150,
+    40
+   ],
+   [
+    "glisser",
+    150,
+    -40
+   ],
+   [
+    "pincer",
+    80,
+    300
+   ],
+   [
+    "glisser",
+    -120,
+    120
+   ],
+   [
+    "pincer",
+    300,
+    80
+   ],
+   [
+    "pincer",
+    300,
+    60
+   ],
+   [
+    "zoomerSur",
+    "DEU"
+   ],
+   [
+    "glisser",
+    160,
+    0
+   ],
+   [
+    "glisser",
+    -160,
+    100
+   ],
+   [
+    "pincer",
+    100,
+    250
+   ],
+   [
+    "pincer",
+    250,
+    80
+   ]
+  ],
+  "duree_glisser_ms": 640,
+  "duree_pincer_ms": 480,
+  "cadence": "un touchMove par période de l'écran mesurée (window.cartographe.repos)",
+  "durees_reelles_ms": [
+   [
+    523.5,
+    670.2,
+    671.4,
+    542.3,
+    676.4,
+    520.5,
+    523.9,
+    663.4,
+    656.7,
+    506.6,
+    512.9
+   ],
+   [
+    515.0,
+    675.2,
+    658.3,
+    515.8,
+    670.5,
+    519.3,
+    516.7,
+    669.3,
+    659.2,
+    508.3,
+    522.1
+   ],
+   [
+    513.3,
+    658.9,
+    666.6,
+    537.4,
+    667.6,
+    515.8,
+    515.5,
+    671.2,
+    658.7,
+    522.0,
+    519.4
+   ]
+  ],
+  "touchers": [
+   [
+    "monde",
+    null,
+    1,
+    [
+     "BRA",
+     "RUS",
+     "FRA",
+     "MCO",
+     "VAT",
+     "SMR",
+     "LIE",
+     "AND",
+     "MLT",
+     "SGP",
+     "BHR",
+     "MDV",
+     "JAM",
+     "GRD",
+     "KNA",
+     "ATG",
+     "DMA",
+     "LCA",
+     "VCT",
+     "BRB",
+     "TTO",
+     "FJI"
+    ]
+   ],
+   [
+    "Italie",
+    "ITA",
+    null,
+    [
+     "VAT",
+     "SMR",
+     "ITA",
+     "MLT"
+    ]
+   ],
+   [
+    "Caraïbes",
+    "LCA",
+    8,
+    [
+     "JAM",
+     "HTI",
+     "DOM",
+     "KNA",
+     "ATG",
+     "DMA",
+     "LCA",
+     "VCT",
+     "BRB",
+     "GRD",
+     "TTO"
+    ]
+   ]
+  ]
+ },
+ "criteres": {
+  "rendu_ms": 1000,
+  "toucher_ms": 100,
+  "saccade": {
+   "part_perdues": 0.05,
+   "max_ms": 50
+  }
+ },
+ "resume": {
+  "periode_ms": 16.7,
+  "chargement_ms": {
+   "mediane": 316.1,
+   "min": 287.8,
+   "max": 516.5,
+   "n": 3,
+   "ok": true
+  },
+  "gestes": {
+   "pincer": {
+    "gestes": 18,
+    "intervalles": 515,
+    "perdues": 0,
+    "max_ms": 16.8,
+    "p95_ms": 16.7,
+    "longues_images": 0,
+    "part_perdues": 0.0,
+    "fin_image_ms": {
+     "mediane": 29.4,
+     "max": 43.4
+    },
+    "saccade": false
+   },
+   "glisser": {
+    "gestes": 15,
+    "intervalles": 511,
+    "perdues": 0,
+    "max_ms": 16.8,
+    "p95_ms": 16.7,
+    "longues_images": 0,
+    "part_perdues": 0.0,
+    "fin_image_ms": {
+     "mediane": 30.7,
+     "max": 32.1
+    },
+    "saccade": false
+   }
+  },
+  "saccade": false,
+  "touchers": {
+   "n": 111,
+   "verdict_sur": "maison",
+   "event_timing_ms": {
+    "mediane": 24,
+    "max": 5328,
+    "sous_seuil": 22
+   },
+   "maison_ms": {
+    "mediane": 13.4,
+    "max": 30.4
+   },
+   "ok": true,
+   "justes": 111,
+   "vises": 111,
+   "faux": []
+  }
+ },
+ "touchers_vises": [
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRA",
+   "via": "carte",
+   "x": 140.2,
+   "y": 488.3,
+   "pick": "BRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "RUS",
+   "via": "carte",
+   "x": 277.1,
+   "y": 391.4,
+   "pick": "RUS",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FRA",
+   "via": "carte",
+   "x": 194.2,
+   "y": 406.9,
+   "pick": "FRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MCO",
+   "via": "pastille",
+   "x": 198.8,
+   "y": 411.0,
+   "pick": "MCO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VAT",
+   "via": "pastille",
+   "x": 203.6,
+   "y": 413.2,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SMR",
+   "via": "pastille",
+   "x": 203.5,
+   "y": 410.8,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LIE",
+   "via": "pastille",
+   "x": 200.6,
+   "y": 407.0,
+   "pick": "LIE",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "AND",
+   "via": "pastille",
+   "x": 193.4,
+   "y": 412.4,
+   "pick": "AND",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MLT",
+   "via": "pastille",
+   "x": 206.0,
+   "y": 420.7,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SGP",
+   "via": "pastille",
+   "x": 302.7,
+   "y": 468.5,
+   "pick": "SGP",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BHR",
+   "via": "pastille",
+   "x": 243.3,
+   "y": 433.8,
+   "pick": "BHR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MDV",
+   "via": "pastille",
+   "x": 270.3,
+   "y": 464.5,
+   "pick": "MDV",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "JAM",
+   "via": "pastille",
+   "x": 111.3,
+   "y": 444.6,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "GRD",
+   "via": "pastille",
+   "x": 126.9,
+   "y": 453.2,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "KNA",
+   "via": "pastille",
+   "x": 126.5,
+   "y": 445.8,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "ATG",
+   "via": "pastille",
+   "x": 127.5,
+   "y": 446.2,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "DMA",
+   "via": "pastille",
+   "x": 127.7,
+   "y": 448.4,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LCA",
+   "via": "pastille",
+   "x": 127.9,
+   "y": 450.7,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VCT",
+   "via": "pastille",
+   "x": 127.5,
+   "y": 451.6,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRB",
+   "via": "pastille",
+   "x": 129.3,
+   "y": 451.7,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "TTO",
+   "via": "pastille",
+   "x": 127.2,
+   "y": 455.7,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FJI",
+   "via": "pastille",
+   "x": 377.5,
+   "y": 495.9,
+   "pick": "FJI",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "VAT",
+   "via": "pastille",
+   "x": 225.8,
+   "y": 537.4,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "SMR",
+   "via": "pastille",
+   "x": 222.7,
+   "y": 495.2,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "ITA",
+   "via": "carte",
+   "x": 192,
+   "y": 470.5,
+   "pick": "ITA",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "MLT",
+   "via": "pastille",
+   "x": 266.3,
+   "y": 667.2,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "JAM",
+   "via": "carte",
+   "x": 59.4,
+   "y": 422.2,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "HTI",
+   "via": "carte",
+   "x": 105.2,
+   "y": 410.2,
+   "pick": "HTI",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DOM",
+   "via": "carte",
+   "x": 116.1,
+   "y": 411.6,
+   "pick": "DOM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "KNA",
+   "via": "pastille",
+   "x": 181.2,
+   "y": 431.4,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "ATG",
+   "via": "pastille",
+   "x": 188.9,
+   "y": 434.4,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DMA",
+   "via": "pastille",
+   "x": 190.6,
+   "y": 452.3,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "LCA",
+   "via": "pastille",
+   "x": 192,
+   "y": 470.5,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "VCT",
+   "via": "pastille",
+   "x": 189.5,
+   "y": 477.8,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "BRB",
+   "via": "pastille",
+   "x": 203.2,
+   "y": 478.6,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "GRD",
+   "via": "pastille",
+   "x": 184.3,
+   "y": 490.7,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "TTO",
+   "via": "carte",
+   "x": 186.7,
+   "y": 511.0,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRA",
+   "via": "carte",
+   "x": 140.2,
+   "y": 488.3,
+   "pick": "BRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "RUS",
+   "via": "carte",
+   "x": 277.1,
+   "y": 391.4,
+   "pick": "RUS",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FRA",
+   "via": "carte",
+   "x": 194.2,
+   "y": 406.9,
+   "pick": "FRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MCO",
+   "via": "pastille",
+   "x": 198.8,
+   "y": 411.0,
+   "pick": "MCO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VAT",
+   "via": "pastille",
+   "x": 203.6,
+   "y": 413.2,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SMR",
+   "via": "pastille",
+   "x": 203.5,
+   "y": 410.8,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LIE",
+   "via": "pastille",
+   "x": 200.6,
+   "y": 407.0,
+   "pick": "LIE",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "AND",
+   "via": "pastille",
+   "x": 193.4,
+   "y": 412.4,
+   "pick": "AND",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MLT",
+   "via": "pastille",
+   "x": 206.0,
+   "y": 420.7,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SGP",
+   "via": "pastille",
+   "x": 302.7,
+   "y": 468.5,
+   "pick": "SGP",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BHR",
+   "via": "pastille",
+   "x": 243.3,
+   "y": 433.8,
+   "pick": "BHR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MDV",
+   "via": "pastille",
+   "x": 270.3,
+   "y": 464.5,
+   "pick": "MDV",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "JAM",
+   "via": "pastille",
+   "x": 111.3,
+   "y": 444.6,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "GRD",
+   "via": "pastille",
+   "x": 126.9,
+   "y": 453.2,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "KNA",
+   "via": "pastille",
+   "x": 126.5,
+   "y": 445.8,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "ATG",
+   "via": "pastille",
+   "x": 127.5,
+   "y": 446.2,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "DMA",
+   "via": "pastille",
+   "x": 127.7,
+   "y": 448.4,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LCA",
+   "via": "pastille",
+   "x": 127.9,
+   "y": 450.7,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VCT",
+   "via": "pastille",
+   "x": 127.5,
+   "y": 451.6,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRB",
+   "via": "pastille",
+   "x": 129.3,
+   "y": 451.7,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "TTO",
+   "via": "pastille",
+   "x": 127.2,
+   "y": 455.7,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FJI",
+   "via": "pastille",
+   "x": 377.5,
+   "y": 495.9,
+   "pick": "FJI",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "VAT",
+   "via": "pastille",
+   "x": 225.8,
+   "y": 537.4,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "SMR",
+   "via": "pastille",
+   "x": 222.7,
+   "y": 495.2,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "ITA",
+   "via": "carte",
+   "x": 192,
+   "y": 470.5,
+   "pick": "ITA",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "MLT",
+   "via": "pastille",
+   "x": 266.3,
+   "y": 667.2,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "JAM",
+   "via": "carte",
+   "x": 59.4,
+   "y": 422.2,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "HTI",
+   "via": "carte",
+   "x": 105.2,
+   "y": 410.2,
+   "pick": "HTI",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DOM",
+   "via": "carte",
+   "x": 116.1,
+   "y": 411.6,
+   "pick": "DOM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "KNA",
+   "via": "pastille",
+   "x": 181.2,
+   "y": 431.4,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "ATG",
+   "via": "pastille",
+   "x": 188.9,
+   "y": 434.4,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DMA",
+   "via": "pastille",
+   "x": 190.6,
+   "y": 452.3,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "LCA",
+   "via": "pastille",
+   "x": 192,
+   "y": 470.5,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "VCT",
+   "via": "pastille",
+   "x": 189.5,
+   "y": 477.8,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "BRB",
+   "via": "pastille",
+   "x": 203.2,
+   "y": 478.6,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "GRD",
+   "via": "pastille",
+   "x": 184.3,
+   "y": 490.7,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "TTO",
+   "via": "carte",
+   "x": 186.7,
+   "y": 511.0,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRA",
+   "via": "carte",
+   "x": 140.2,
+   "y": 488.3,
+   "pick": "BRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "RUS",
+   "via": "carte",
+   "x": 277.1,
+   "y": 391.4,
+   "pick": "RUS",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FRA",
+   "via": "carte",
+   "x": 194.2,
+   "y": 406.9,
+   "pick": "FRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MCO",
+   "via": "pastille",
+   "x": 198.8,
+   "y": 411.0,
+   "pick": "MCO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VAT",
+   "via": "pastille",
+   "x": 203.6,
+   "y": 413.2,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SMR",
+   "via": "pastille",
+   "x": 203.5,
+   "y": 410.8,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LIE",
+   "via": "pastille",
+   "x": 200.6,
+   "y": 407.0,
+   "pick": "LIE",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "AND",
+   "via": "pastille",
+   "x": 193.4,
+   "y": 412.4,
+   "pick": "AND",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MLT",
+   "via": "pastille",
+   "x": 206.0,
+   "y": 420.7,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SGP",
+   "via": "pastille",
+   "x": 302.7,
+   "y": 468.5,
+   "pick": "SGP",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BHR",
+   "via": "pastille",
+   "x": 243.3,
+   "y": 433.8,
+   "pick": "BHR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MDV",
+   "via": "pastille",
+   "x": 270.3,
+   "y": 464.5,
+   "pick": "MDV",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "JAM",
+   "via": "pastille",
+   "x": 111.3,
+   "y": 444.6,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "GRD",
+   "via": "pastille",
+   "x": 126.9,
+   "y": 453.2,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "KNA",
+   "via": "pastille",
+   "x": 126.5,
+   "y": 445.8,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "ATG",
+   "via": "pastille",
+   "x": 127.5,
+   "y": 446.2,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "DMA",
+   "via": "pastille",
+   "x": 127.7,
+   "y": 448.4,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LCA",
+   "via": "pastille",
+   "x": 127.9,
+   "y": 450.7,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VCT",
+   "via": "pastille",
+   "x": 127.5,
+   "y": 451.6,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRB",
+   "via": "pastille",
+   "x": 129.3,
+   "y": 451.7,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "TTO",
+   "via": "pastille",
+   "x": 127.2,
+   "y": 455.7,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FJI",
+   "via": "pastille",
+   "x": 377.5,
+   "y": 495.9,
+   "pick": "FJI",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "VAT",
+   "via": "pastille",
+   "x": 225.8,
+   "y": 537.4,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "SMR",
+   "via": "pastille",
+   "x": 222.7,
+   "y": 495.2,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "ITA",
+   "via": "carte",
+   "x": 192,
+   "y": 470.5,
+   "pick": "ITA",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "MLT",
+   "via": "pastille",
+   "x": 266.3,
+   "y": 667.2,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "JAM",
+   "via": "carte",
+   "x": 59.4,
+   "y": 422.2,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "HTI",
+   "via": "carte",
+   "x": 105.2,
+   "y": 410.2,
+   "pick": "HTI",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DOM",
+   "via": "carte",
+   "x": 116.1,
+   "y": 411.6,
+   "pick": "DOM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "KNA",
+   "via": "pastille",
+   "x": 181.2,
+   "y": 431.4,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "ATG",
+   "via": "pastille",
+   "x": 188.9,
+   "y": 434.4,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DMA",
+   "via": "pastille",
+   "x": 190.6,
+   "y": 452.3,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "LCA",
+   "via": "pastille",
+   "x": 192,
+   "y": 470.5,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "VCT",
+   "via": "pastille",
+   "x": 189.5,
+   "y": 477.8,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "BRB",
+   "via": "pastille",
+   "x": 203.2,
+   "y": 478.6,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "GRD",
+   "via": "pastille",
+   "x": 184.3,
+   "y": 490.7,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "TTO",
+   "via": "carte",
+   "x": 186.7,
+   "y": 511.0,
+   "pick": "TTO",
+   "juste": true
+  }
+ ],
+ "notes": [],
+ "erreurs_page": [],
+ "rapports": [
+  {
+   "v": 1,
+   "version": "0.0.0",
+   "date": "2026-11-03T21:56:33.494Z",
+   "agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+   "ecran": {
+    "largeur": 384,
+    "hauteur": 832,
+    "dpr": 2.8125,
+    "carte": {
+     "largeur": 384,
+     "hauteur": 723
+    },
+    "periode_ms": 16.65,
+    "hz": 60.1
+   },
+   "rendu": "css",
+   "projection": "monde",
+   "capacites": {
+    "long_animation_frame": true,
+    "event_timing": true
+   },
+   "chargement": {
+    "total_ms": 516.5,
+    "debut_script_ms": 221.8,
+    "etapes": {
+     "telechargement_ms": 33.7,
+     "analyse_ms": 35,
+     "feature_ms": 36.5,
+     "chemins_ms": 120.8,
+     "insertion_ms": 35.4,
+     "peinture_ms": 29
+    },
+    "ressources": [
+     {
+      "nom": "monde.topo.json",
+      "transfert": 432907,
+      "decode": 1180359,
+      "duree_ms": 185.5
+     },
+     {
+      "nom": "pays.json",
+      "transfert": 15708,
+      "decode": 66851,
+      "duree_ms": 69.1
+     },
+     {
+      "nom": "contestees.json",
+      "transfert": 2792,
+      "decode": 11737,
+      "duree_ms": 67.9
+     },
+     {
+      "nom": "noms.fr.json",
+      "transfert": 3818,
+      "decode": 8260,
+      "duree_ms": 64.6
+     }
+    ],
+    "caracteres_chemins": 673809,
+    "pastilles": 164
+   },
+   "gestes": [
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 1092.4,
+     "fin_ms": 1580.8,
+     "doigts_max": 2,
+     "evenements": 56,
+     "k_debut": 1.115,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 30,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 1.2,
+      "image_ms": 29.5
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 2192.3,
+     "fin_ms": 2761,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 30.9
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 3374.6,
+     "fin_ms": 3947.7,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.8
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.9,
+      "image_ms": 31.6
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 4491.6,
+     "fin_ms": 4997.8,
+     "doigts_max": 2,
+     "evenements": 27,
+     "k_debut": 4.744,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 31,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.8,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.7,
+      "image_ms": 29.2
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 5608.5,
+     "fin_ms": 6184.2,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 16.25,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.8,
+      16.6
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 23.8
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 6726.5,
+     "fin_ms": 7213.8,
+     "doigts_max": 2,
+     "evenements": 54,
+     "k_debut": 15.839,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.5,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.9,
+      "image_ms": 17.2
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 7758.3,
+     "fin_ms": 8248,
+     "doigts_max": 2,
+     "evenements": 58,
+     "k_debut": 4.214,
+     "k_fin": 1,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 30,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 2.3,
+      "image_ms": 30.9
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 9357.9,
+     "fin_ms": 9927.6,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.4,
+      "image_ms": 30.3
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 10525.7,
+     "fin_ms": 11094.5,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 29.9
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 11641.1,
+     "fin_ms": 12109.9,
+     "doigts_max": 2,
+     "evenements": 51,
+     "k_debut": 15.233,
+     "k_fin": 36.207,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.5,
+      16.8,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 32.3
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 12657.8,
+     "fin_ms": 13144.1,
+     "doigts_max": 2,
+     "evenements": 56,
+     "k_debut": 35.358,
+     "k_fin": 11.586,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 30,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 43.4
+     }
+    }
+   ],
+   "touchers": [
+    {
+     "t_ms": 14129.1,
+     "x": 140.2,
+     "y": 379.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 3.4,
+     "latence_raf_ms": 14.8,
+     "latence_peinte_ms": 16.5,
+     "event_timing": {
+      "duree_ms": 600,
+      "attente_ms": 2,
+      "traitement_ms": 4.1,
+      "presentation_ms": 593.9,
+      "interaction": 7296
+     }
+    },
+    {
+     "t_ms": 14672.7,
+     "x": 277.1,
+     "y": 282.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "RUS",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.4,
+     "latence_raf_ms": 28.8,
+     "latence_peinte_ms": 30.4,
+     "event_timing": {
+      "duree_ms": 56,
+      "attente_ms": 11.3,
+      "traitement_ms": 2.5,
+      "presentation_ms": 42.2,
+      "interaction": 7303
+     }
+    },
+    {
+     "t_ms": 15233.6,
+     "x": 194.2,
+     "y": 297.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FRA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 13.7,
+     "latence_peinte_ms": 15.1,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.7,
+      "traitement_ms": 0.9,
+      "presentation_ms": 29.4,
+      "interaction": 7310
+     }
+    },
+    {
+     "t_ms": 15779.5,
+     "x": 198.8,
+     "y": 302,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MCO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 11,
+     "latence_peinte_ms": 11.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 4.4,
+      "traitement_ms": 0.9,
+      "presentation_ms": 26.7,
+      "interaction": 7317
+     }
+    },
+    {
+     "t_ms": 16319.9,
+     "x": 203.6,
+     "y": 304.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 10.7,
+     "latence_peinte_ms": 11.3,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.7,
+      "presentation_ms": 13.7,
+      "interaction": 7324
+     }
+    },
+    {
+     "t_ms": 16867.3,
+     "x": 203.4,
+     "y": 301.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 9.7,
+     "latence_peinte_ms": 10.5,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 2.6,
+      "traitement_ms": 0.8,
+      "presentation_ms": 12.6,
+      "interaction": 7331
+     }
+    },
+    {
+     "t_ms": 17412,
+     "x": 200.6,
+     "y": 298,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LIE",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 11.6,
+     "latence_peinte_ms": 12.3,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.8,
+      "presentation_ms": 13.4,
+      "interaction": 7338
+     }
+    },
+    {
+     "t_ms": 17950.7,
+     "x": 193.4,
+     "y": 303.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "AND",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 11.9,
+     "latence_peinte_ms": 13.7,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 4,
+      "traitement_ms": 0.5,
+      "presentation_ms": 11.5,
+      "interaction": 7345
+     }
+    },
+    {
+     "t_ms": 18493.5,
+     "x": 206,
+     "y": 311.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 13.4,
+     "latence_peinte_ms": 14,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 2.3,
+      "traitement_ms": 1.1,
+      "presentation_ms": 12.6,
+      "interaction": 7352
+     }
+    },
+    {
+     "t_ms": 19023.6,
+     "x": 302.7,
+     "y": 359.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SGP",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 16.9,
+     "latence_peinte_ms": 17.6,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.7,
+      "presentation_ms": 21.7,
+      "interaction": 7359
+     }
+    },
+    {
+     "t_ms": 19558.9,
+     "x": 243.3,
+     "y": 324.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BHR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 14.9,
+     "latence_peinte_ms": 15.5,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.5,
+      "presentation_ms": 22,
+      "interaction": 7366
+     }
+    },
+    {
+     "t_ms": 20097.4,
+     "x": 270.3,
+     "y": 355.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MDV",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 9.4,
+     "latence_peinte_ms": 10.2,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.2,
+      "traitement_ms": 0.5,
+      "presentation_ms": 14.3,
+      "interaction": 7373
+     }
+    },
+    {
+     "t_ms": 20632.1,
+     "x": 111.3,
+     "y": 335.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 8,
+     "latence_peinte_ms": 8.5,
+     "event_timing": {
+      "duree_ms": 5320,
+      "attente_ms": 1.9,
+      "traitement_ms": 0.6,
+      "presentation_ms": 5317.5,
+      "interaction": 7380
+     }
+    },
+    {
+     "t_ms": 21164.7,
+     "x": 126.9,
+     "y": 344.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 8.6,
+     "latence_peinte_ms": 9,
+     "event_timing": {
+      "duree_ms": 4784,
+      "attente_ms": 1.7,
+      "traitement_ms": 0.6,
+      "presentation_ms": 4781.7,
+      "interaction": 7387
+     }
+    },
+    {
+     "t_ms": 21698.2,
+     "x": 126.5,
+     "y": 336.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 9.6,
+     "latence_peinte_ms": 10.5,
+     "event_timing": {
+      "duree_ms": 4248,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.8,
+      "presentation_ms": 4245.4,
+      "interaction": 7394
+     }
+    },
+    {
+     "t_ms": 22228.5,
+     "x": 127.5,
+     "y": 337.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 11.7,
+     "latence_peinte_ms": 13.2,
+     "event_timing": {
+      "duree_ms": 3720,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.6,
+      "presentation_ms": 3718,
+      "interaction": 7401
+     }
+    },
+    {
+     "t_ms": 22764.8,
+     "x": 127.7,
+     "y": 339.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 10.8,
+     "latence_peinte_ms": 26,
+     "event_timing": {
+      "duree_ms": 3184,
+      "attente_ms": 10,
+      "traitement_ms": 0.5,
+      "presentation_ms": 3173.5,
+      "interaction": 7408
+     }
+    },
+    {
+     "t_ms": 23312,
+     "x": 127.9,
+     "y": 341.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.7,
+     "latence_raf_ms": 11.4,
+     "latence_peinte_ms": 12.6,
+     "event_timing": {
+      "duree_ms": 2640,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.9,
+      "presentation_ms": 2637.3,
+      "interaction": 7415
+     }
+    },
+    {
+     "t_ms": 23846.6,
+     "x": 127.6,
+     "y": 342.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 12,
+     "latence_peinte_ms": 12.6,
+     "event_timing": {
+      "duree_ms": 2104,
+      "attente_ms": 5.6,
+      "traitement_ms": 0.8,
+      "presentation_ms": 2097.6,
+      "interaction": 7422
+     }
+    },
+    {
+     "t_ms": 24384.7,
+     "x": 129.3,
+     "y": 342.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 8.5,
+     "latence_peinte_ms": 9.5,
+     "event_timing": {
+      "duree_ms": 1560,
+      "attente_ms": 2.8,
+      "traitement_ms": 0.4,
+      "presentation_ms": 1556.8,
+      "interaction": 7429
+     }
+    },
+    {
+     "t_ms": 24918.4,
+     "x": 127.2,
+     "y": 346.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 7.6,
+     "latence_peinte_ms": 8.1,
+     "event_timing": {
+      "duree_ms": 1032,
+      "attente_ms": 1.7,
+      "traitement_ms": 0.6,
+      "presentation_ms": 1029.7,
+      "interaction": 7436
+     }
+    },
+    {
+     "t_ms": 25450.1,
+     "x": 377.5,
+     "y": 386.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FJI",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 8.9,
+     "latence_peinte_ms": 10.2,
+     "event_timing": {
+      "duree_ms": 496,
+      "attente_ms": 2.8,
+      "traitement_ms": 0.6,
+      "presentation_ms": 492.6,
+      "interaction": 7443
+     }
+    },
+    {
+     "t_ms": 26382,
+     "x": 225.8,
+     "y": 428.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 8.5,
+     "latence_peinte_ms": 9.1,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.9,
+      "traitement_ms": 0.5,
+      "presentation_ms": 13.6,
+      "interaction": 7450
+     }
+    },
+    {
+     "t_ms": 26913.8,
+     "x": 222.7,
+     "y": 386.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 9.5,
+     "latence_peinte_ms": 11.9,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 3,
+      "traitement_ms": 0.5,
+      "presentation_ms": 12.5,
+      "interaction": 7457
+     }
+    },
+    {
+     "t_ms": 27443.6,
+     "x": 192,
+     "y": 361.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ITA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 12.8,
+     "latence_peinte_ms": 13.4,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.7,
+      "traitement_ms": 0.9,
+      "presentation_ms": 13.4,
+      "interaction": 7464
+     }
+    },
+    {
+     "t_ms": 27974.4,
+     "x": 266.3,
+     "y": 558.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 15.6,
+     "latence_peinte_ms": 16.7,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 5.3,
+      "traitement_ms": 0.5,
+      "presentation_ms": 18.2,
+      "interaction": 7471
+     }
+    },
+    {
+     "t_ms": 28921.3,
+     "x": 59.4,
+     "y": 313.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 18.6,
+     "latence_peinte_ms": 19.6,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2.5,
+      "traitement_ms": 0.5,
+      "presentation_ms": 21,
+      "interaction": 7478
+     }
+    },
+    {
+     "t_ms": 29449.1,
+     "x": 105.2,
+     "y": 301.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "HTI",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 7.3,
+     "latence_peinte_ms": 7.7,
+     "event_timing": null
+    },
+    {
+     "t_ms": 29974.1,
+     "x": 116.1,
+     "y": 302.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DOM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 15.8,
+     "latence_peinte_ms": 16.5,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.6,
+      "presentation_ms": 13.6,
+      "interaction": 7492
+     }
+    },
+    {
+     "t_ms": 30500.6,
+     "x": 181.1,
+     "y": 322.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 7.6,
+     "latence_peinte_ms": 8.1,
+     "event_timing": null
+    },
+    {
+     "t_ms": 31025.5,
+     "x": 188.9,
+     "y": 325.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 14.4,
+     "latence_peinte_ms": 15.2,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.4,
+      "presentation_ms": 13.8,
+      "interaction": 7506
+     }
+    },
+    {
+     "t_ms": 31550.5,
+     "x": 190.6,
+     "y": 343.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 7.6,
+     "latence_peinte_ms": 9.3,
+     "event_timing": null
+    },
+    {
+     "t_ms": 32073.9,
+     "x": 192,
+     "y": 361.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 15.8,
+     "latence_peinte_ms": 16.5,
+     "event_timing": null
+    },
+    {
+     "t_ms": 32600.6,
+     "x": 189.5,
+     "y": 368.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 8.9,
+     "latence_peinte_ms": 9.6,
+     "event_timing": null
+    },
+    {
+     "t_ms": 33127.1,
+     "x": 203.2,
+     "y": 369.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 12.5,
+     "latence_peinte_ms": 13.4,
+     "event_timing": null
+    },
+    {
+     "t_ms": 33658.2,
+     "x": 184.3,
+     "y": 381.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 14.9,
+     "latence_peinte_ms": 15.9,
+     "event_timing": null
+    },
+    {
+     "t_ms": 34183,
+     "x": 186.7,
+     "y": 402,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 8.2,
+     "latence_peinte_ms": 8.6,
+     "event_timing": null
+    }
+   ],
+   "longues_images": [],
+   "interactions": [
+    {
+     "nom": "pointerup",
+     "debut_ms": 1560.5,
+     "duree_ms": 56,
+     "interaction": 7177
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 1560.5,
+     "duree_ms": 56,
+     "interaction": 7184
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 2741.7,
+     "duree_ms": 56,
+     "interaction": 7191
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 3928.1,
+     "duree_ms": 48,
+     "interaction": 7198
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4960.4,
+     "duree_ms": 64,
+     "interaction": 7205
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4960.4,
+     "duree_ms": 64,
+     "interaction": 7212
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 6160.5,
+     "duree_ms": 48,
+     "interaction": 7219
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7194,
+     "duree_ms": 56,
+     "interaction": 7226
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7194,
+     "duree_ms": 56,
+     "interaction": 7233
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 8225.6,
+     "duree_ms": 64,
+     "interaction": 7240
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 8225.6,
+     "duree_ms": 64,
+     "interaction": 7247
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 9915.9,
+     "duree_ms": 40,
+     "interaction": 7254
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 11088.7,
+     "duree_ms": 32,
+     "interaction": 7261
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12105.4,
+     "duree_ms": 40,
+     "interaction": 7268
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12105.4,
+     "duree_ms": 40,
+     "interaction": 7275
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 12612.9,
+     "duree_ms": 16,
+     "interaction": 7282
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 12612.9,
+     "duree_ms": 16,
+     "interaction": 7289
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13132.9,
+     "duree_ms": 80,
+     "interaction": 7282
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13132.9,
+     "duree_ms": 80,
+     "interaction": 7289
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 14054.8,
+     "duree_ms": 16,
+     "interaction": 7296
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 14129.1,
+     "duree_ms": 600,
+     "interaction": 7296
+    },
+    {
+     "nom": "click",
+     "debut_ms": 14129.1,
+     "duree_ms": 600,
+     "interaction": 7296
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 14597.3,
+     "duree_ms": 16,
+     "interaction": 7303
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 14672.7,
+     "duree_ms": 56,
+     "interaction": 7303
+    },
+    {
+     "nom": "click",
+     "debut_ms": 14672.7,
+     "duree_ms": 56,
+     "interaction": 7303
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 15154,
+     "duree_ms": 16,
+     "interaction": 7310
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 15233.6,
+     "duree_ms": 32,
+     "interaction": 7310
+    },
+    {
+     "nom": "click",
+     "debut_ms": 15233.6,
+     "duree_ms": 32,
+     "interaction": 7310
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 15700.2,
+     "duree_ms": 16,
+     "interaction": 7317
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 15779.5,
+     "duree_ms": 32,
+     "interaction": 7317
+    },
+    {
+     "nom": "click",
+     "debut_ms": 15779.5,
+     "duree_ms": 32,
+     "interaction": 7317
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 16244.2,
+     "duree_ms": 16,
+     "interaction": 7324
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 16319.9,
+     "duree_ms": 16,
+     "interaction": 7324
+    },
+    {
+     "nom": "click",
+     "debut_ms": 16319.9,
+     "duree_ms": 16,
+     "interaction": 7324
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 16785.2,
+     "duree_ms": 24,
+     "interaction": 7331
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 16867.3,
+     "duree_ms": 16,
+     "interaction": 7331
+    },
+    {
+     "nom": "click",
+     "debut_ms": 16867.3,
+     "duree_ms": 16,
+     "interaction": 7331
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 17333.4,
+     "duree_ms": 16,
+     "interaction": 7338
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 17412,
+     "duree_ms": 16,
+     "interaction": 7338
+    },
+    {
+     "nom": "click",
+     "debut_ms": 17412,
+     "duree_ms": 16,
+     "interaction": 7338
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 17875,
+     "duree_ms": 16,
+     "interaction": 7345
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 17950.7,
+     "duree_ms": 16,
+     "interaction": 7345
+    },
+    {
+     "nom": "click",
+     "debut_ms": 17950.7,
+     "duree_ms": 16,
+     "interaction": 7345
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 18414.1,
+     "duree_ms": 16,
+     "interaction": 7352
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 18493.5,
+     "duree_ms": 16,
+     "interaction": 7352
+    },
+    {
+     "nom": "click",
+     "debut_ms": 18493.5,
+     "duree_ms": 16,
+     "interaction": 7352
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19023.6,
+     "duree_ms": 24,
+     "interaction": 7359
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19023.6,
+     "duree_ms": 24,
+     "interaction": 7359
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 19484.1,
+     "duree_ms": 16,
+     "interaction": 7366
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19558.9,
+     "duree_ms": 24,
+     "interaction": 7366
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19558.9,
+     "duree_ms": 24,
+     "interaction": 7366
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20097.4,
+     "duree_ms": 16,
+     "interaction": 7373
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20097.4,
+     "duree_ms": 16,
+     "interaction": 7373
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 20558.1,
+     "duree_ms": 16,
+     "interaction": 7380
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20632.1,
+     "duree_ms": 5320,
+     "interaction": 7380
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20632.1,
+     "duree_ms": 5320,
+     "interaction": 7380
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21164.7,
+     "duree_ms": 4784,
+     "interaction": 7387
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21164.7,
+     "duree_ms": 4784,
+     "interaction": 7387
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21698.2,
+     "duree_ms": 4248,
+     "interaction": 7394
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21698.2,
+     "duree_ms": 4248,
+     "interaction": 7394
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22228.5,
+     "duree_ms": 3720,
+     "interaction": 7401
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22228.5,
+     "duree_ms": 3720,
+     "interaction": 7401
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22764.8,
+     "duree_ms": 3184,
+     "interaction": 7408
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22764.8,
+     "duree_ms": 24,
+     "interaction": 7408
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23312,
+     "duree_ms": 2640,
+     "interaction": 7415
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23312,
+     "duree_ms": 2640,
+     "interaction": 7415
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23846.6,
+     "duree_ms": 2104,
+     "interaction": 7422
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23846.6,
+     "duree_ms": 2104,
+     "interaction": 7422
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24384.7,
+     "duree_ms": 1560,
+     "interaction": 7429
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24384.7,
+     "duree_ms": 1560,
+     "interaction": 7429
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24918.4,
+     "duree_ms": 1032,
+     "interaction": 7436
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24918.4,
+     "duree_ms": 1032,
+     "interaction": 7436
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25450.1,
+     "duree_ms": 496,
+     "interaction": 7443
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25450.1,
+     "duree_ms": 496,
+     "interaction": 7443
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26382,
+     "duree_ms": 16,
+     "interaction": 7450
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26382,
+     "duree_ms": 16,
+     "interaction": 7450
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26913.8,
+     "duree_ms": 16,
+     "interaction": 7457
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26913.8,
+     "duree_ms": 16,
+     "interaction": 7457
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27443.6,
+     "duree_ms": 16,
+     "interaction": 7464
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27443.6,
+     "duree_ms": 16,
+     "interaction": 7464
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27974.4,
+     "duree_ms": 24,
+     "interaction": 7471
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27974.4,
+     "duree_ms": 24,
+     "interaction": 7471
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 28921.3,
+     "duree_ms": 24,
+     "interaction": 7478
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28921.3,
+     "duree_ms": 24,
+     "interaction": 7478
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29974.1,
+     "duree_ms": 16,
+     "interaction": 7492
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29974.1,
+     "duree_ms": 16,
+     "interaction": 7492
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 31025.5,
+     "duree_ms": 16,
+     "interaction": 7506
+    },
+    {
+     "nom": "click",
+     "debut_ms": 31025.5,
+     "duree_ms": 16,
+     "interaction": 7506
+    }
+   ]
+  },
+  {
+   "v": 1,
+   "version": "0.0.0",
+   "date": "2026-11-03T21:57:08.709Z",
+   "agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+   "ecran": {
+    "largeur": 384,
+    "hauteur": 832,
+    "dpr": 2.8125,
+    "carte": {
+     "largeur": 384,
+     "hauteur": 723
+    },
+    "periode_ms": 16.7,
+    "hz": 59.9
+   },
+   "rendu": "css",
+   "projection": "monde",
+   "capacites": {
+    "long_animation_frame": true,
+    "event_timing": true
+   },
+   "chargement": {
+    "total_ms": 316.1,
+    "debut_script_ms": 86.2,
+    "etapes": {
+     "telechargement_ms": 73.1,
+     "analyse_ms": 18.5,
+     "feature_ms": 24.6,
+     "chemins_ms": 86.1,
+     "insertion_ms": 15.8,
+     "peinture_ms": 10.2
+    },
+    "ressources": [
+     {
+      "nom": "monde.topo.json",
+      "transfert": 432907,
+      "decode": 1180359,
+      "duree_ms": 125.6
+     },
+     {
+      "nom": "pays.json",
+      "transfert": 15708,
+      "decode": 66851,
+      "duree_ms": 40.3
+     },
+     {
+      "nom": "contestees.json",
+      "transfert": 2792,
+      "decode": 11737,
+      "duree_ms": 37.5
+     },
+     {
+      "nom": "noms.fr.json",
+      "transfert": 3818,
+      "decode": 8260,
+      "duree_ms": 37.8
+     }
+    ],
+    "caracteres_chemins": 673809,
+    "pastilles": 164
+   },
+   "gestes": [
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 887.7,
+     "fin_ms": 1358,
+     "doigts_max": 2,
+     "evenements": 58,
+     "k_debut": 1.115,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.8,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 1.1,
+      "image_ms": 33
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 1953.9,
+     "fin_ms": 2540.5,
+     "doigts_max": 1,
+     "evenements": 34,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.5,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 36,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.8,
+      "image_ms": 30.8
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 3137.2,
+     "fin_ms": 3706.6,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.6,
+      16.7,
+      16.8,
+      16.6,
+      16.7,
+      16.7,
+      16.5,
+      16.8,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.5,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.6,
+      "image_ms": 32.1
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 4254,
+     "fin_ms": 4728.7,
+     "doigts_max": 2,
+     "evenements": 27,
+     "k_debut": 4.744,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.8,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.6,
+      "image_ms": 25.3
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 5337.3,
+     "fin_ms": 5906.7,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 16.25,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 30.5
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 6454.1,
+     "fin_ms": 6932.7,
+     "doigts_max": 2,
+     "evenements": 58,
+     "k_debut": 15.839,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.8,
+      16.5,
+      16.8,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.8,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.9,
+      "image_ms": 22.4
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 7487.3,
+     "fin_ms": 7959.7,
+     "doigts_max": 2,
+     "evenements": 58,
+     "k_debut": 4.214,
+     "k_fin": 1,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.8,
+      16.5,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.8,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 1.4,
+      "image_ms": 28.7
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 9070.5,
+     "fin_ms": 9639.4,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.7,
+      16.5,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.4,
+      "image_ms": 30.9
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 10237,
+     "fin_ms": 10807.6,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.4,
+      "image_ms": 31.7
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 11355.7,
+     "fin_ms": 11823.3,
+     "doigts_max": 2,
+     "evenements": 52,
+     "k_debut": 15.233,
+     "k_fin": 36.207,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.7,
+      "image_ms": 30.9
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 12370.2,
+     "fin_ms": 12866.4,
+     "doigts_max": 2,
+     "evenements": 58,
+     "k_debut": 35.358,
+     "k_fin": 11.586,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7
+     ],
+     "stats": {
+      "images": 30,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.3,
+      "image_ms": 25.4
+     }
+    }
+   ],
+   "touchers": [
+    {
+     "t_ms": 13845.2,
+     "x": 140.2,
+     "y": 379.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.3,
+     "latence_raf_ms": 13.7,
+     "latence_peinte_ms": 14.2,
+     "event_timing": {
+      "duree_ms": 576,
+      "attente_ms": 1.6,
+      "traitement_ms": 2.6,
+      "presentation_ms": 571.8,
+      "interaction": 6240
+     }
+    },
+    {
+     "t_ms": 14385.3,
+     "x": 277.1,
+     "y": 282.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "RUS",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.8,
+     "latence_raf_ms": 18.1,
+     "latence_peinte_ms": 18.7,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 2.5,
+      "traitement_ms": 2.1,
+      "presentation_ms": 27.4,
+      "interaction": 6247
+     }
+    },
+    {
+     "t_ms": 14930.9,
+     "x": 194.2,
+     "y": 297.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FRA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 15,
+     "latence_peinte_ms": 17.4,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 2.4,
+      "traitement_ms": 0.8,
+      "presentation_ms": 28.8,
+      "interaction": 6254
+     }
+    },
+    {
+     "t_ms": 15475.7,
+     "x": 198.8,
+     "y": 302,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MCO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 10.7,
+     "latence_peinte_ms": 11.4,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.6,
+      "presentation_ms": 29.8,
+      "interaction": 6261
+     }
+    },
+    {
+     "t_ms": 16020.4,
+     "x": 203.6,
+     "y": 304.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 16,
+     "latence_peinte_ms": 16.7,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.7,
+      "presentation_ms": 21.5,
+      "interaction": 6268
+     }
+    },
+    {
+     "t_ms": 16560.8,
+     "x": 203.4,
+     "y": 301.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 10,
+     "latence_peinte_ms": 10.4,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 4,
+      "traitement_ms": 0.8,
+      "presentation_ms": 11.2,
+      "interaction": 6275
+     }
+    },
+    {
+     "t_ms": 17098.3,
+     "x": 200.6,
+     "y": 298,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LIE",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 21.6,
+     "latence_peinte_ms": 22.5,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 5.1,
+      "traitement_ms": 0.6,
+      "presentation_ms": 18.3,
+      "interaction": 6282
+     }
+    },
+    {
+     "t_ms": 17635.3,
+     "x": 193.4,
+     "y": 303.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "AND",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 18.4,
+     "latence_peinte_ms": 21.3,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 8.5,
+      "traitement_ms": 0.6,
+      "presentation_ms": 14.9,
+      "interaction": 6289
+     }
+    },
+    {
+     "t_ms": 18183.8,
+     "x": 206,
+     "y": 311.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 7.8,
+     "latence_peinte_ms": 13,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.7,
+      "presentation_ms": 13.7,
+      "interaction": 6296
+     }
+    },
+    {
+     "t_ms": 18715.6,
+     "x": 302.7,
+     "y": 359.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SGP",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 7.8,
+     "latence_peinte_ms": 12.5,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.7,
+      "traitement_ms": 0.6,
+      "presentation_ms": 13.7,
+      "interaction": 6303
+     }
+    },
+    {
+     "t_ms": 19250,
+     "x": 243.3,
+     "y": 324.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BHR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 4.2,
+     "latence_peinte_ms": 19.9,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 3.5,
+      "traitement_ms": 0.5,
+      "presentation_ms": 12,
+      "interaction": 6310
+     }
+    },
+    {
+     "t_ms": 19785.5,
+     "x": 270.3,
+     "y": 355.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MDV",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 17.5,
+     "latence_peinte_ms": 18.2,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.6,
+      "presentation_ms": 21.6,
+      "interaction": 6317
+     }
+    },
+    {
+     "t_ms": 20324,
+     "x": 111.3,
+     "y": 335.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 12.2,
+     "latence_peinte_ms": 13.3,
+     "event_timing": {
+      "duree_ms": 5328,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.6,
+      "presentation_ms": 5325.6,
+      "interaction": 6324
+     }
+    },
+    {
+     "t_ms": 20859.4,
+     "x": 126.9,
+     "y": 344.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 11.5,
+     "latence_peinte_ms": 12.4,
+     "event_timing": {
+      "duree_ms": 4792,
+      "attente_ms": 3.3,
+      "traitement_ms": 0.5,
+      "presentation_ms": 4788.2,
+      "interaction": 6331
+     }
+    },
+    {
+     "t_ms": 21395.9,
+     "x": 126.5,
+     "y": 336.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 7.5,
+     "latence_peinte_ms": 8,
+     "event_timing": {
+      "duree_ms": 4256,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.6,
+      "presentation_ms": 4254,
+      "interaction": 6338
+     }
+    },
+    {
+     "t_ms": 21930.3,
+     "x": 127.5,
+     "y": 337.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 9,
+     "latence_peinte_ms": 12.2,
+     "event_timing": {
+      "duree_ms": 3720,
+      "attente_ms": 2.8,
+      "traitement_ms": 0.4,
+      "presentation_ms": 3716.8,
+      "interaction": 6345
+     }
+    },
+    {
+     "t_ms": 22470.9,
+     "x": 127.7,
+     "y": 339.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 15.1,
+     "latence_peinte_ms": 16,
+     "event_timing": {
+      "duree_ms": 3184,
+      "attente_ms": 2,
+      "traitement_ms": 0.9,
+      "presentation_ms": 3181.1,
+      "interaction": 6352
+     }
+    },
+    {
+     "t_ms": 23005.1,
+     "x": 127.9,
+     "y": 341.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 14.6,
+     "latence_peinte_ms": 15.3,
+     "event_timing": {
+      "duree_ms": 2648,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.4,
+      "presentation_ms": 2646.1,
+      "interaction": 6359
+     }
+    },
+    {
+     "t_ms": 23544.2,
+     "x": 127.6,
+     "y": 342.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 8.5,
+     "latence_peinte_ms": 8.9,
+     "event_timing": {
+      "duree_ms": 2112,
+      "attente_ms": 3.1,
+      "traitement_ms": 0.5,
+      "presentation_ms": 2108.4,
+      "interaction": 6366
+     }
+    },
+    {
+     "t_ms": 24079.5,
+     "x": 129.3,
+     "y": 342.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 10.5,
+     "latence_peinte_ms": 11.1,
+     "event_timing": {
+      "duree_ms": 1576,
+      "attente_ms": 4,
+      "traitement_ms": 0.8,
+      "presentation_ms": 1571.2,
+      "interaction": 6373
+     }
+    },
+    {
+     "t_ms": 24616.1,
+     "x": 127.2,
+     "y": 346.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 5.9,
+     "latence_peinte_ms": 6.3,
+     "event_timing": {
+      "duree_ms": 1040,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.3,
+      "presentation_ms": 1038.1,
+      "interaction": 6380
+     }
+    },
+    {
+     "t_ms": 25148.8,
+     "x": 377.5,
+     "y": 386.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FJI",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 9.8,
+     "latence_peinte_ms": 20.8,
+     "event_timing": {
+      "duree_ms": 504,
+      "attente_ms": 9,
+      "traitement_ms": 0.5,
+      "presentation_ms": 494.5,
+      "interaction": 6387
+     }
+    },
+    {
+     "t_ms": 26087.3,
+     "x": 225.8,
+     "y": 428.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 15.9,
+     "latence_peinte_ms": 17.4,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2.5,
+      "traitement_ms": 0.4,
+      "presentation_ms": 21.1,
+      "interaction": 6394
+     }
+    },
+    {
+     "t_ms": 26617.4,
+     "x": 222.7,
+     "y": 386.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 2.1,
+     "latence_peinte_ms": 7.3,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.4,
+      "presentation_ms": 14.1,
+      "interaction": 6401
+     }
+    },
+    {
+     "t_ms": 27154.7,
+     "x": 192,
+     "y": 361.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ITA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 15.4,
+     "latence_peinte_ms": 17,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 5.3,
+      "traitement_ms": 0.7,
+      "presentation_ms": 18,
+      "interaction": 6408
+     }
+    },
+    {
+     "t_ms": 27688.3,
+     "x": 266.3,
+     "y": 558.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 14.3,
+     "latence_peinte_ms": 14.8,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 3.1,
+      "traitement_ms": 0.5,
+      "presentation_ms": 12.4,
+      "interaction": 6415
+     }
+    },
+    {
+     "t_ms": 28640.2,
+     "x": 59.4,
+     "y": 313.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 12.4,
+     "latence_peinte_ms": 13.1,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 2,
+      "traitement_ms": 0.5,
+      "presentation_ms": 13.5,
+      "interaction": 6422
+     }
+    },
+    {
+     "t_ms": 29168.7,
+     "x": 105.2,
+     "y": 301.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "HTI",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 17.2,
+     "latence_peinte_ms": 18.1,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2.2,
+      "traitement_ms": 0.6,
+      "presentation_ms": 21.2,
+      "interaction": 6429
+     }
+    },
+    {
+     "t_ms": 29697.4,
+     "x": 116.1,
+     "y": 302.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DOM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 21.7,
+     "latence_peinte_ms": 23.9,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2.4,
+      "traitement_ms": 0.6,
+      "presentation_ms": 21,
+      "interaction": 6436
+     }
+    },
+    {
+     "t_ms": 30236.2,
+     "x": 181.1,
+     "y": 322.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 16.3,
+     "latence_peinte_ms": 17,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 3.7,
+      "traitement_ms": 0.5,
+      "presentation_ms": 19.8,
+      "interaction": 6443
+     }
+    },
+    {
+     "t_ms": 30767.5,
+     "x": 188.9,
+     "y": 325.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.7,
+     "latence_raf_ms": 20,
+     "latence_peinte_ms": 23.5,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 12.4,
+      "traitement_ms": 2,
+      "presentation_ms": 9.6,
+      "interaction": 6450
+     }
+    },
+    {
+     "t_ms": 31303.6,
+     "x": 190.6,
+     "y": 343.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2,
+     "latence_raf_ms": 15.4,
+     "latence_peinte_ms": 17.8,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 2,
+      "traitement_ms": 2.3,
+      "presentation_ms": 11.7,
+      "interaction": 6457
+     }
+    },
+    {
+     "t_ms": 31835.7,
+     "x": 192,
+     "y": 361.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 16.7,
+     "latence_peinte_ms": 17.3,
+     "event_timing": null
+    },
+    {
+     "t_ms": 32365.5,
+     "x": 189.5,
+     "y": 368.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 5.7,
+     "latence_peinte_ms": 6.8,
+     "event_timing": null
+    },
+    {
+     "t_ms": 32895.2,
+     "x": 203.2,
+     "y": 369.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 6.9,
+     "latence_peinte_ms": 7.6,
+     "event_timing": null
+    },
+    {
+     "t_ms": 33422.6,
+     "x": 184.3,
+     "y": 381.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 13.1,
+     "latence_peinte_ms": 13.7,
+     "event_timing": null
+    },
+    {
+     "t_ms": 33947.7,
+     "x": 186.7,
+     "y": 402,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 7.5,
+     "latence_peinte_ms": 8.2,
+     "event_timing": null
+    }
+   ],
+   "longues_images": [],
+   "interactions": [
+    {
+     "nom": "pointerdown",
+     "debut_ms": 827.8,
+     "duree_ms": 16,
+     "interaction": 6121
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 827.8,
+     "duree_ms": 16,
+     "interaction": 6128
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 1345.3,
+     "duree_ms": 48,
+     "interaction": 6121
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 1345.3,
+     "duree_ms": 48,
+     "interaction": 6128
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 2522,
+     "duree_ms": 48,
+     "interaction": 6135
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 3702.3,
+     "duree_ms": 32,
+     "interaction": 6142
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4716,
+     "duree_ms": 40,
+     "interaction": 6149
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4716,
+     "duree_ms": 40,
+     "interaction": 6156
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 5889.1,
+     "duree_ms": 48,
+     "interaction": 6163
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 6916.4,
+     "duree_ms": 56,
+     "interaction": 6170
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 6916.4,
+     "duree_ms": 56,
+     "interaction": 6177
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7945.2,
+     "duree_ms": 56,
+     "interaction": 6184
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7945.2,
+     "duree_ms": 56,
+     "interaction": 6191
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 9622.4,
+     "duree_ms": 40,
+     "interaction": 6198
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 10800.9,
+     "duree_ms": 40,
+     "interaction": 6205
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 11819.1,
+     "duree_ms": 40,
+     "interaction": 6212
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 11819.1,
+     "duree_ms": 40,
+     "interaction": 6219
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 12326.8,
+     "duree_ms": 16,
+     "interaction": 6226
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 12326.8,
+     "duree_ms": 16,
+     "interaction": 6233
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12846.9,
+     "duree_ms": 56,
+     "interaction": 6226
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12846.9,
+     "duree_ms": 56,
+     "interaction": 6233
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13845.2,
+     "duree_ms": 576,
+     "interaction": 6240
+    },
+    {
+     "nom": "click",
+     "debut_ms": 13845.2,
+     "duree_ms": 576,
+     "interaction": 6240
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 14385.3,
+     "duree_ms": 32,
+     "interaction": 6247
+    },
+    {
+     "nom": "click",
+     "debut_ms": 14385.3,
+     "duree_ms": 32,
+     "interaction": 6247
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 14851.9,
+     "duree_ms": 16,
+     "interaction": 6254
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 14930.9,
+     "duree_ms": 32,
+     "interaction": 6254
+    },
+    {
+     "nom": "click",
+     "debut_ms": 14930.9,
+     "duree_ms": 32,
+     "interaction": 6254
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 15399.1,
+     "duree_ms": 16,
+     "interaction": 6261
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 15475.7,
+     "duree_ms": 32,
+     "interaction": 6261
+    },
+    {
+     "nom": "click",
+     "debut_ms": 15475.7,
+     "duree_ms": 32,
+     "interaction": 6261
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 15936.8,
+     "duree_ms": 24,
+     "interaction": 6268
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 16020.4,
+     "duree_ms": 24,
+     "interaction": 6268
+    },
+    {
+     "nom": "click",
+     "debut_ms": 16020.4,
+     "duree_ms": 24,
+     "interaction": 6268
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 16480.7,
+     "duree_ms": 16,
+     "interaction": 6275
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 16560.8,
+     "duree_ms": 16,
+     "interaction": 6275
+    },
+    {
+     "nom": "click",
+     "debut_ms": 16560.8,
+     "duree_ms": 16,
+     "interaction": 6275
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 17023.1,
+     "duree_ms": 16,
+     "interaction": 6282
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 17098.3,
+     "duree_ms": 24,
+     "interaction": 6282
+    },
+    {
+     "nom": "click",
+     "debut_ms": 17098.3,
+     "duree_ms": 24,
+     "interaction": 6282
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 17635.3,
+     "duree_ms": 24,
+     "interaction": 6289
+    },
+    {
+     "nom": "click",
+     "debut_ms": 17635.3,
+     "duree_ms": 24,
+     "interaction": 6289
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 18104.2,
+     "duree_ms": 16,
+     "interaction": 6296
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 18183.8,
+     "duree_ms": 16,
+     "interaction": 6296
+    },
+    {
+     "nom": "click",
+     "debut_ms": 18183.8,
+     "duree_ms": 16,
+     "interaction": 6296
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 18715.6,
+     "duree_ms": 16,
+     "interaction": 6303
+    },
+    {
+     "nom": "click",
+     "debut_ms": 18715.6,
+     "duree_ms": 16,
+     "interaction": 6303
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 19175.5,
+     "duree_ms": 16,
+     "interaction": 6310
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19250,
+     "duree_ms": 16,
+     "interaction": 6310
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19250,
+     "duree_ms": 16,
+     "interaction": 6310
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19785.5,
+     "duree_ms": 24,
+     "interaction": 6317
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19785.5,
+     "duree_ms": 24,
+     "interaction": 6317
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 20248.3,
+     "duree_ms": 16,
+     "interaction": 6324
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20324,
+     "duree_ms": 5328,
+     "interaction": 6324
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20324,
+     "duree_ms": 5328,
+     "interaction": 6324
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20859.4,
+     "duree_ms": 4792,
+     "interaction": 6331
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20859.4,
+     "duree_ms": 4792,
+     "interaction": 6331
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21395.9,
+     "duree_ms": 4256,
+     "interaction": 6338
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21395.9,
+     "duree_ms": 4256,
+     "interaction": 6338
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 21856.5,
+     "duree_ms": 16,
+     "interaction": 6345
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21930.3,
+     "duree_ms": 3720,
+     "interaction": 6345
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21930.3,
+     "duree_ms": 3720,
+     "interaction": 6345
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 22396.8,
+     "duree_ms": 16,
+     "interaction": 6352
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22470.9,
+     "duree_ms": 3184,
+     "interaction": 6352
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22470.9,
+     "duree_ms": 3184,
+     "interaction": 6352
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 22932,
+     "duree_ms": 16,
+     "interaction": 6359
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23005.1,
+     "duree_ms": 2648,
+     "interaction": 6359
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23005.1,
+     "duree_ms": 2648,
+     "interaction": 6359
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 23469.8,
+     "duree_ms": 16,
+     "interaction": 6366
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23544.2,
+     "duree_ms": 2112,
+     "interaction": 6366
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23544.2,
+     "duree_ms": 2112,
+     "interaction": 6366
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 24005.8,
+     "duree_ms": 16,
+     "interaction": 6373
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24079.5,
+     "duree_ms": 1576,
+     "interaction": 6373
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24079.5,
+     "duree_ms": 1576,
+     "interaction": 6373
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24616.1,
+     "duree_ms": 1040,
+     "interaction": 6380
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24616.1,
+     "duree_ms": 1040,
+     "interaction": 6380
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25148.8,
+     "duree_ms": 504,
+     "interaction": 6387
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25148.8,
+     "duree_ms": 24,
+     "interaction": 6387
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26087.3,
+     "duree_ms": 24,
+     "interaction": 6394
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26087.3,
+     "duree_ms": 24,
+     "interaction": 6394
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26617.4,
+     "duree_ms": 16,
+     "interaction": 6401
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26617.4,
+     "duree_ms": 24,
+     "interaction": 6401
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27154.7,
+     "duree_ms": 24,
+     "interaction": 6408
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27154.7,
+     "duree_ms": 24,
+     "interaction": 6408
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27688.3,
+     "duree_ms": 16,
+     "interaction": 6415
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27688.3,
+     "duree_ms": 16,
+     "interaction": 6415
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 28563,
+     "duree_ms": 16,
+     "interaction": 6422
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 28640.2,
+     "duree_ms": 16,
+     "interaction": 6422
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28640.2,
+     "duree_ms": 16,
+     "interaction": 6422
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29168.7,
+     "duree_ms": 24,
+     "interaction": 6429
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29168.7,
+     "duree_ms": 24,
+     "interaction": 6429
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29697.4,
+     "duree_ms": 24,
+     "interaction": 6436
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29697.4,
+     "duree_ms": 24,
+     "interaction": 6436
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30236.2,
+     "duree_ms": 24,
+     "interaction": 6443
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30236.2,
+     "duree_ms": 24,
+     "interaction": 6443
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30767.5,
+     "duree_ms": 24,
+     "interaction": 6450
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30767.5,
+     "duree_ms": 24,
+     "interaction": 6450
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 31303.6,
+     "duree_ms": 16,
+     "interaction": 6457
+    },
+    {
+     "nom": "click",
+     "debut_ms": 31303.6,
+     "duree_ms": 16,
+     "interaction": 6457
+    }
+   ]
+  },
+  {
+   "v": 1,
+   "version": "0.0.0",
+   "date": "2026-11-03T21:57:43.828Z",
+   "agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+   "ecran": {
+    "largeur": 384,
+    "hauteur": 832,
+    "dpr": 2.8125,
+    "carte": {
+     "largeur": 384,
+     "hauteur": 723
+    },
+    "periode_ms": 16.7,
+    "hz": 59.9
+   },
+   "rendu": "css",
+   "projection": "monde",
+   "capacites": {
+    "long_animation_frame": true,
+    "event_timing": true
+   },
+   "chargement": {
+    "total_ms": 287.8,
+    "debut_script_ms": 83.5,
+    "etapes": {
+     "telechargement_ms": 70.4,
+     "analyse_ms": 16.7,
+     "feature_ms": 21.1,
+     "chemins_ms": 65.7,
+     "insertion_ms": 13.3,
+     "peinture_ms": 15.1
+    },
+    "ressources": [
+     {
+      "nom": "monde.topo.json",
+      "transfert": 432907,
+      "decode": 1180359,
+      "duree_ms": 121.9
+     },
+     {
+      "nom": "pays.json",
+      "transfert": 15708,
+      "decode": 66851,
+      "duree_ms": 31.6
+     },
+     {
+      "nom": "contestees.json",
+      "transfert": 2792,
+      "decode": 11737,
+      "duree_ms": 30.1
+     },
+     {
+      "nom": "noms.fr.json",
+      "transfert": 3818,
+      "decode": 8260,
+      "duree_ms": 29.6
+     }
+    ],
+    "caracteres_chemins": 673809,
+    "pastilles": 164
+   },
+   "gestes": [
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 853.9,
+     "fin_ms": 1324.1,
+     "doigts_max": 2,
+     "evenements": 58,
+     "k_debut": 1.115,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 1.2,
+      "image_ms": 34
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 1920,
+     "fin_ms": 2491.5,
+     "doigts_max": 1,
+     "evenements": 33,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.5,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.8,
+      16.5,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.9,
+      "image_ms": 29.2
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 3086.6,
+     "fin_ms": 3662.4,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.5,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 24.7
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 4203.4,
+     "fin_ms": 4712.3,
+     "doigts_max": 2,
+     "evenements": 25,
+     "k_debut": 4.744,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.5,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.8
+     ],
+     "stats": {
+      "images": 31,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.8,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.7,
+      "image_ms": 28.7
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 5319.8,
+     "fin_ms": 5890.9,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 16.25,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.8,
+      16.5,
+      16.8,
+      16.6
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.4,
+      "image_ms": 31.6
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 6436.7,
+     "fin_ms": 6914,
+     "doigts_max": 2,
+     "evenements": 55,
+     "k_debut": 15.839,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.8,
+      "image_ms": 22.9
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 7453.4,
+     "fin_ms": 7940.1,
+     "doigts_max": 2,
+     "evenements": 58,
+     "k_debut": 4.214,
+     "k_fin": 1,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.8,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 30,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.8,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 1.6,
+      "image_ms": 30.9
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 9053.1,
+     "fin_ms": 9622.5,
+     "doigts_max": 1,
+     "evenements": 34,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.8,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 30.5
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "css",
+     "debut_ms": 10220.6,
+     "fin_ms": 10789,
+     "doigts_max": 1,
+     "evenements": 35,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.8,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.5,
+      "image_ms": 30.7
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 11336.2,
+     "fin_ms": 11821.4,
+     "doigts_max": 2,
+     "evenements": 57,
+     "k_debut": 15.233,
+     "k_fin": 36.207,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 30,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.7,
+      "image_ms": 33.2
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "css",
+     "debut_ms": 12369.6,
+     "fin_ms": 12861,
+     "doigts_max": 2,
+     "evenements": 58,
+     "k_debut": 35.358,
+     "k_fin": 11.586,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.5,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 30,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "fin": {
+      "script_ms": 0.6,
+      "image_ms": 26.5
+     }
+    }
+   ],
+   "touchers": [
+    {
+     "t_ms": 13841.1,
+     "x": 140.2,
+     "y": 379.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 2,
+     "latence_raf_ms": 11.3,
+     "latence_peinte_ms": 12.9,
+     "event_timing": {
+      "duree_ms": 576,
+      "attente_ms": 1.4,
+      "traitement_ms": 2.3,
+      "presentation_ms": 572.3,
+      "interaction": 1801
+     }
+    },
+    {
+     "t_ms": 14379.2,
+     "x": 277.1,
+     "y": 282.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "RUS",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.8,
+     "latence_raf_ms": 17.6,
+     "latence_peinte_ms": 18.4,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.2,
+      "traitement_ms": 3.1,
+      "presentation_ms": 27.7,
+      "interaction": 1808
+     }
+    },
+    {
+     "t_ms": 14928,
+     "x": 194.2,
+     "y": 297.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FRA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 12.5,
+     "latence_peinte_ms": 13.2,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.6,
+      "presentation_ms": 29.6,
+      "interaction": 1815
+     }
+    },
+    {
+     "t_ms": 15471.2,
+     "x": 198.8,
+     "y": 302,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MCO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 14.7,
+     "latence_peinte_ms": 15.7,
+     "event_timing": {
+      "duree_ms": 40,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.7,
+      "presentation_ms": 37.7,
+      "interaction": 1822
+     }
+    },
+    {
+     "t_ms": 16012.9,
+     "x": 203.6,
+     "y": 304.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 12.3,
+     "latence_peinte_ms": 13,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2.6,
+      "traitement_ms": 0.9,
+      "presentation_ms": 20.5,
+      "interaction": 1829
+     }
+    },
+    {
+     "t_ms": 16561.7,
+     "x": 203.4,
+     "y": 301.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 7.4,
+     "latence_peinte_ms": 7.9,
+     "event_timing": null
+    },
+    {
+     "t_ms": 17100.3,
+     "x": 200.6,
+     "y": 298,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LIE",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 2.7,
+     "latence_peinte_ms": 19.5,
+     "event_timing": null
+    },
+    {
+     "t_ms": 17634.8,
+     "x": 193.4,
+     "y": 303.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "AND",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 17.6,
+     "latence_peinte_ms": 18.2,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.8,
+      "presentation_ms": 21.4,
+      "interaction": 1850
+     }
+    },
+    {
+     "t_ms": 18174.3,
+     "x": 206,
+     "y": 311.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 11.3,
+     "latence_peinte_ms": 11.9,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 2.4,
+      "traitement_ms": 0.4,
+      "presentation_ms": 13.2,
+      "interaction": 1857
+     }
+    },
+    {
+     "t_ms": 18703.7,
+     "x": 302.7,
+     "y": 359.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SGP",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 15.3,
+     "latence_peinte_ms": 16.2,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 3.9,
+      "traitement_ms": 0.6,
+      "presentation_ms": 19.5,
+      "interaction": 1864
+     }
+    },
+    {
+     "t_ms": 19243.2,
+     "x": 243.3,
+     "y": 324.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BHR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 9.8,
+     "latence_peinte_ms": 10.4,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 4.4,
+      "traitement_ms": 0.5,
+      "presentation_ms": 11.1,
+      "interaction": 1871
+     }
+    },
+    {
+     "t_ms": 19771.5,
+     "x": 270.3,
+     "y": 355.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MDV",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 15.8,
+     "latence_peinte_ms": 16.6,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 4.1,
+      "traitement_ms": 0.6,
+      "presentation_ms": 19.3,
+      "interaction": 1878
+     }
+    },
+    {
+     "t_ms": 20311.7,
+     "x": 111.3,
+     "y": 335.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 9.8,
+     "latence_peinte_ms": 10.6,
+     "event_timing": {
+      "duree_ms": 5304,
+      "attente_ms": 2.1,
+      "traitement_ms": 0.6,
+      "presentation_ms": 5301.3,
+      "interaction": 1885
+     }
+    },
+    {
+     "t_ms": 20846.6,
+     "x": 126.9,
+     "y": 344.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 7.2,
+     "latence_peinte_ms": 8.6,
+     "event_timing": {
+      "duree_ms": 4768,
+      "attente_ms": 2.2,
+      "traitement_ms": 0.5,
+      "presentation_ms": 4765.3,
+      "interaction": 1892
+     }
+    },
+    {
+     "t_ms": 21386.5,
+     "x": 126.5,
+     "y": 336.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 15.7,
+     "latence_peinte_ms": 16.6,
+     "event_timing": {
+      "duree_ms": 4224,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.6,
+      "presentation_ms": 4222,
+      "interaction": 1899
+     }
+    },
+    {
+     "t_ms": 21928.1,
+     "x": 127.5,
+     "y": 337.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 9.5,
+     "latence_peinte_ms": 10.8,
+     "event_timing": {
+      "duree_ms": 3688,
+      "attente_ms": 2.2,
+      "traitement_ms": 0.6,
+      "presentation_ms": 3685.2,
+      "interaction": 1906
+     }
+    },
+    {
+     "t_ms": 22464.4,
+     "x": 127.7,
+     "y": 339.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 7.4,
+     "latence_peinte_ms": 8.1,
+     "event_timing": {
+      "duree_ms": 3152,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.4,
+      "presentation_ms": 3149.8,
+      "interaction": 1913
+     }
+    },
+    {
+     "t_ms": 22994.2,
+     "x": 127.9,
+     "y": 341.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 8,
+     "latence_peinte_ms": 8.5,
+     "event_timing": {
+      "duree_ms": 2616,
+      "attente_ms": 1.2,
+      "traitement_ms": 0.5,
+      "presentation_ms": 2614.3,
+      "interaction": 1920
+     }
+    },
+    {
+     "t_ms": 23522.2,
+     "x": 127.6,
+     "y": 342.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 13.3,
+     "latence_peinte_ms": 14.2,
+     "event_timing": {
+      "duree_ms": 2088,
+      "attente_ms": 1.3,
+      "traitement_ms": 0.6,
+      "presentation_ms": 2086.1,
+      "interaction": 1927
+     }
+    },
+    {
+     "t_ms": 24052.7,
+     "x": 129.3,
+     "y": 342.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 16.4,
+     "latence_peinte_ms": 18.1,
+     "event_timing": {
+      "duree_ms": 1560,
+      "attente_ms": 2.2,
+      "traitement_ms": 0.5,
+      "presentation_ms": 1557.3,
+      "interaction": 1934
+     }
+    },
+    {
+     "t_ms": 24591.4,
+     "x": 127.2,
+     "y": 346.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 10.7,
+     "latence_peinte_ms": 12.8,
+     "event_timing": {
+      "duree_ms": 1024,
+      "attente_ms": 1.6,
+      "traitement_ms": 1,
+      "presentation_ms": 1021.4,
+      "interaction": 1941
+     }
+    },
+    {
+     "t_ms": 25120.1,
+     "x": 377.5,
+     "y": 386.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FJI",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 15.4,
+     "latence_peinte_ms": 16.3,
+     "event_timing": {
+      "duree_ms": 496,
+      "attente_ms": 1.9,
+      "traitement_ms": 0.5,
+      "presentation_ms": 493.6,
+      "interaction": 1948
+     }
+    },
+    {
+     "t_ms": 26051.6,
+     "x": 225.8,
+     "y": 428.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 17.2,
+     "latence_peinte_ms": 18,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 4,
+      "traitement_ms": 0.3,
+      "presentation_ms": 19.7,
+      "interaction": 1955
+     }
+    },
+    {
+     "t_ms": 26584.5,
+     "x": 222.7,
+     "y": 386.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 17.6,
+     "latence_peinte_ms": 20.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.3,
+      "traitement_ms": 0.5,
+      "presentation_ms": 22.2,
+      "interaction": 1962
+     }
+    },
+    {
+     "t_ms": 27110.2,
+     "x": 192,
+     "y": 361.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ITA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 11.8,
+     "latence_peinte_ms": 12.3,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.8,
+      "presentation_ms": 13.6,
+      "interaction": 1969
+     }
+    },
+    {
+     "t_ms": 27643.3,
+     "x": 266.3,
+     "y": 558.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 10.4,
+     "latence_peinte_ms": 11,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 3.8,
+      "traitement_ms": 0.4,
+      "presentation_ms": 11.8,
+      "interaction": 1976
+     }
+    },
+    {
+     "t_ms": 28582.9,
+     "x": 59.4,
+     "y": 313.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 2.7,
+     "latence_peinte_ms": 19.7,
+     "event_timing": null
+    },
+    {
+     "t_ms": 29107.9,
+     "x": 105.2,
+     "y": 301.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "HTI",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 10.6,
+     "latence_peinte_ms": 11.1,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.9,
+      "traitement_ms": 0.6,
+      "presentation_ms": 13.5,
+      "interaction": 1990
+     }
+    },
+    {
+     "t_ms": 29634.9,
+     "x": 116.1,
+     "y": 302.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DOM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 16.9,
+     "latence_peinte_ms": 17.5,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.7,
+      "presentation_ms": 13.8,
+      "interaction": 1997
+     }
+    },
+    {
+     "t_ms": 30167,
+     "x": 181.1,
+     "y": 322.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 18.2,
+     "latence_peinte_ms": 18.9,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2.3,
+      "traitement_ms": 0.6,
+      "presentation_ms": 21.1,
+      "interaction": 2004
+     }
+    },
+    {
+     "t_ms": 30693.5,
+     "x": 188.9,
+     "y": 325.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.3,
+     "latence_raf_ms": 8.1,
+     "latence_peinte_ms": 8.5,
+     "event_timing": null
+    },
+    {
+     "t_ms": 31217.8,
+     "x": 190.6,
+     "y": 343.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 17.5,
+     "latence_peinte_ms": 18.3,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.6,
+      "presentation_ms": 21.8,
+      "interaction": 2018
+     }
+    },
+    {
+     "t_ms": 31741.3,
+     "x": 192,
+     "y": 361.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 10.8,
+     "latence_peinte_ms": 11.5,
+     "event_timing": null
+    },
+    {
+     "t_ms": 32268.5,
+     "x": 189.5,
+     "y": 368.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 16.7,
+     "latence_peinte_ms": 17.3,
+     "event_timing": null
+    },
+    {
+     "t_ms": 32799.6,
+     "x": 203.2,
+     "y": 369.6,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 2.4,
+     "latence_peinte_ms": 19.4,
+     "event_timing": null
+    },
+    {
+     "t_ms": 33324.5,
+     "x": 184.3,
+     "y": 381.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 10.6,
+     "latence_peinte_ms": 11.3,
+     "event_timing": null
+    },
+    {
+     "t_ms": 33851.3,
+     "x": 186.7,
+     "y": 402,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 17.2,
+     "latence_peinte_ms": 18,
+     "event_timing": null
+    }
+   ],
+   "longues_images": [],
+   "interactions": [
+    {
+     "nom": "pointerup",
+     "debut_ms": 1313.6,
+     "duree_ms": 56,
+     "interaction": 1682
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 1313.6,
+     "duree_ms": 56,
+     "interaction": 1689
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 2485.7,
+     "duree_ms": 40,
+     "interaction": 1696
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 3651.4,
+     "duree_ms": 40,
+     "interaction": 1703
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4679.2,
+     "duree_ms": 64,
+     "interaction": 1710
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4679.2,
+     "duree_ms": 64,
+     "interaction": 1717
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 5876.1,
+     "duree_ms": 40,
+     "interaction": 1724
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 6902,
+     "duree_ms": 48,
+     "interaction": 1731
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 6902,
+     "duree_ms": 48,
+     "interaction": 1738
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7927.3,
+     "duree_ms": 48,
+     "interaction": 1745
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7927.3,
+     "duree_ms": 48,
+     "interaction": 1752
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 9604.5,
+     "duree_ms": 48,
+     "interaction": 1759
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 10783.1,
+     "duree_ms": 32,
+     "interaction": 1766
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 11802.2,
+     "duree_ms": 56,
+     "interaction": 1773
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 11802.2,
+     "duree_ms": 56,
+     "interaction": 1780
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 12323.3,
+     "duree_ms": 16,
+     "interaction": 1787
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 12323.3,
+     "duree_ms": 16,
+     "interaction": 1794
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12843.9,
+     "duree_ms": 48,
+     "interaction": 1787
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12843.9,
+     "duree_ms": 48,
+     "interaction": 1794
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13841.1,
+     "duree_ms": 576,
+     "interaction": 1801
+    },
+    {
+     "nom": "click",
+     "debut_ms": 13841.1,
+     "duree_ms": 576,
+     "interaction": 1801
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 14304.8,
+     "duree_ms": 16,
+     "interaction": 1808
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 14379.2,
+     "duree_ms": 32,
+     "interaction": 1808
+    },
+    {
+     "nom": "click",
+     "debut_ms": 14379.2,
+     "duree_ms": 32,
+     "interaction": 1808
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 14849.2,
+     "duree_ms": 16,
+     "interaction": 1815
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 14928,
+     "duree_ms": 32,
+     "interaction": 1815
+    },
+    {
+     "nom": "click",
+     "debut_ms": 14928,
+     "duree_ms": 32,
+     "interaction": 1815
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 15393.4,
+     "duree_ms": 16,
+     "interaction": 1822
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 15471.2,
+     "duree_ms": 40,
+     "interaction": 1822
+    },
+    {
+     "nom": "click",
+     "debut_ms": 15471.2,
+     "duree_ms": 40,
+     "interaction": 1822
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 15931.3,
+     "duree_ms": 16,
+     "interaction": 1829
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 16012.9,
+     "duree_ms": 24,
+     "interaction": 1829
+    },
+    {
+     "nom": "click",
+     "debut_ms": 16012.9,
+     "duree_ms": 24,
+     "interaction": 1829
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 16479.6,
+     "duree_ms": 24,
+     "interaction": 1836
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 17022.4,
+     "duree_ms": 16,
+     "interaction": 1843
+    },
+    {
+     "nom": "click",
+     "debut_ms": 17100.3,
+     "duree_ms": 16,
+     "interaction": 1843
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 17634.8,
+     "duree_ms": 24,
+     "interaction": 1850
+    },
+    {
+     "nom": "click",
+     "debut_ms": 17634.8,
+     "duree_ms": 24,
+     "interaction": 1850
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 18095.9,
+     "duree_ms": 16,
+     "interaction": 1857
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 18174.3,
+     "duree_ms": 16,
+     "interaction": 1857
+    },
+    {
+     "nom": "click",
+     "debut_ms": 18174.3,
+     "duree_ms": 16,
+     "interaction": 1857
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 18703.7,
+     "duree_ms": 24,
+     "interaction": 1864
+    },
+    {
+     "nom": "click",
+     "debut_ms": 18703.7,
+     "duree_ms": 24,
+     "interaction": 1864
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 19166.5,
+     "duree_ms": 16,
+     "interaction": 1871
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19243.2,
+     "duree_ms": 16,
+     "interaction": 1871
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19243.2,
+     "duree_ms": 16,
+     "interaction": 1871
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19771.5,
+     "duree_ms": 24,
+     "interaction": 1878
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19771.5,
+     "duree_ms": 24,
+     "interaction": 1878
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 20234.3,
+     "duree_ms": 16,
+     "interaction": 1885
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20311.7,
+     "duree_ms": 5304,
+     "interaction": 1885
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20311.7,
+     "duree_ms": 5304,
+     "interaction": 1885
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20846.6,
+     "duree_ms": 4768,
+     "interaction": 1892
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20846.6,
+     "duree_ms": 4768,
+     "interaction": 1892
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 21307.3,
+     "duree_ms": 16,
+     "interaction": 1899
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21386.5,
+     "duree_ms": 4224,
+     "interaction": 1899
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21386.5,
+     "duree_ms": 4224,
+     "interaction": 1899
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 21850.7,
+     "duree_ms": 16,
+     "interaction": 1906
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21928.1,
+     "duree_ms": 3688,
+     "interaction": 1906
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21928.1,
+     "duree_ms": 3688,
+     "interaction": 1906
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22464.4,
+     "duree_ms": 3152,
+     "interaction": 1913
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22464.4,
+     "duree_ms": 3152,
+     "interaction": 1913
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22994.2,
+     "duree_ms": 2616,
+     "interaction": 1920
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22994.2,
+     "duree_ms": 2616,
+     "interaction": 1920
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23522.2,
+     "duree_ms": 2088,
+     "interaction": 1927
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23522.2,
+     "duree_ms": 2088,
+     "interaction": 1927
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24052.7,
+     "duree_ms": 1560,
+     "interaction": 1934
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24052.7,
+     "duree_ms": 1560,
+     "interaction": 1934
+    },
+    {
+     "nom": "pointerdown",
+     "debut_ms": 24516.2,
+     "duree_ms": 16,
+     "interaction": 1941
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24591.4,
+     "duree_ms": 1024,
+     "interaction": 1941
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24591.4,
+     "duree_ms": 1024,
+     "interaction": 1941
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25120.1,
+     "duree_ms": 496,
+     "interaction": 1948
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25120.1,
+     "duree_ms": 496,
+     "interaction": 1948
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26051.6,
+     "duree_ms": 24,
+     "interaction": 1955
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26051.6,
+     "duree_ms": 24,
+     "interaction": 1955
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26584.5,
+     "duree_ms": 24,
+     "interaction": 1962
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26584.5,
+     "duree_ms": 24,
+     "interaction": 1962
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27110.2,
+     "duree_ms": 16,
+     "interaction": 1969
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27110.2,
+     "duree_ms": 16,
+     "interaction": 1969
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27643.3,
+     "duree_ms": 16,
+     "interaction": 1976
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27643.3,
+     "duree_ms": 16,
+     "interaction": 1976
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28582.9,
+     "duree_ms": 16,
+     "interaction": 1983
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29107.9,
+     "duree_ms": 16,
+     "interaction": 1990
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29107.9,
+     "duree_ms": 16,
+     "interaction": 1990
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29634.9,
+     "duree_ms": 16,
+     "interaction": 1997
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29634.9,
+     "duree_ms": 16,
+     "interaction": 1997
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30167,
+     "duree_ms": 24,
+     "interaction": 2004
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30167,
+     "duree_ms": 24,
+     "interaction": 2004
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 31217.8,
+     "duree_ms": 24,
+     "interaction": 2018
+    },
+    {
+     "nom": "click",
+     "debut_ms": 31217.8,
+     "duree_ms": 24,
+     "interaction": 2018
+    }
+   ]
+  }
+ ]
+}
