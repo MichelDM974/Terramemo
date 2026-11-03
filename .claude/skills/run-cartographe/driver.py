@@ -1037,9 +1037,12 @@ def code_mesure(cible, serie):
     disque (date du fichier). Le site servi est censé venir de cet arbre
     (serve --preview le construit au lancement : le relancer après un
     changement)."""
-    git = lambda *a: subprocess.run(["git", *a], cwd=RACINE, capture_output=True, text=True).stdout.strip()
-    modifies = git("status", "--porcelain").splitlines()
-    code = {"commit": git("rev-parse", "--short", "HEAD") or None, "arbre_modifie": bool(modifies),
+    git = lambda *a: subprocess.run(["git", *a], cwd=RACINE, capture_output=True, text=True).stdout
+    # Les rapports de mesure eux-mêmes ne comptent pas : ce sont des sorties,
+    # pas le code mesuré (sinon une série de mesures marque l'arbre modifié).
+    modifies = [ligne for ligne in git("status", "--porcelain").splitlines()
+                if not ligne[3:].startswith(str(MESURES.relative_to(RACINE)) + "/")]
+    code = {"commit": git("rev-parse", "--short", "HEAD").strip() or None, "arbre_modifie": bool(modifies),
             "fichiers_modifies": modifies[:20]}
     if cible == "webview":
         installe = None
