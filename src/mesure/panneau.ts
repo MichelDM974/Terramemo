@@ -1,7 +1,21 @@
 // Panneau des dernières mesures (⚙ → « Afficher les mesures ») et « Copier le rapport ».
 import type { Mesures } from './mesures';
+import type { Geste, Toucher } from './rapport';
 
 const ms = (v: number | null | undefined) => (v == null ? '—' : `${Math.round(v)}`);
+
+/** Event Timing d'un toucher : « < 16 » seulement sous le seuil de l'API. */
+const etEtat = (t: Toucher) =>
+  t.event_timing_etat === 'mesure' ? ms(t.event_timing?.duree_ms) : t.event_timing_etat === 'sous_seuil' ? '< 16' : 'indisponible';
+
+/** Tous les gestes : images perdues, écarts de période, pire fin (Event Timing). */
+function resumeGestes(gestes: readonly Geste[]): string {
+  const perdues = gestes.reduce((a, g) => a + g.stats.perdues, 0);
+  const intervalles = gestes.reduce((a, g) => a + Math.max(0, g.stats.images - 1), 0);
+  const ecarts = gestes.filter((g) => g.stats.ecart_periode).length;
+  const fins = gestes.map((g) => g.fin.event_timing_ms).filter((v): v is number => v != null);
+  return `${gestes.length} gestes : ${perdues} / ${intervalles} images perdues${ecarts ? ` · ⚠ ${ecarts} à une autre période que le repos` : ''} · fin Event Timing max ${fins.length ? ms(Math.max(...fins)) : '—'} ms (${fins.length} mesurée(s))`;
+}
 
 async function copier(texte: string): Promise<boolean> {
   try {
@@ -56,13 +70,14 @@ export function panneauMesures(zone: HTMLElement, mesures: Mesures): HTMLElement
         : 'Chargement…',
       `Écran ${r.ecran.hz ?? '—'} Hz (${r.ecran.periode_ms ?? '—'} ms) · rendu ${r.rendu} · ${r.projection} · ${r.gestes.length} geste(s), ${r.touchers.length} toucher(s)`,
       g
-        ? `Geste ${g.type} : ${g.stats.images} images, méd. ${g.stats.mediane_ms} · p95 ${g.stats.p95_ms} · max ${g.stats.max_ms} ms, ${g.stats.perdues} perdue(s) · longues ${g.longues_images.nombre} · fin ${ms(g.fin.script_ms)}/${ms(g.fin.image_ms)} ms`
+        ? `Geste ${g.type} k ${g.k_debut}→${g.k_fin} : ${g.stats.images} images, méd. ${g.stats.mediane_ms} · p95 ${g.stats.p95_ms} · max ${g.stats.max_ms} ms, ${g.stats.perdues} perdue(s) à ${g.stats.periode_ms ?? r.ecran.periode_ms ?? '—'} ms${g.stats.ecart_periode ? ` (⚠ repos ${r.ecran.periode_ms} ms)` : ''} · longues ${g.longues_images.nombre} · fin : script ${ms(g.fin.script_ms)}, fil principal ${ms(g.fin.image_ms)}, Event Timing ${ms(g.fin.event_timing_ms)} ms`
         : 'Geste : —',
+      r.gestes.length > 1 ? resumeGestes(r.gestes) : '',
       t
-        ? `Toucher ${t.pick ? `${t.pick.id} (${t.pick.via})` : 'mer'} : script ${t.traitement_ms} · rAF ${ms(t.latence_raf_ms)} · peint ${ms(t.latence_peinte_ms)} · Event Timing ${t.event_timing ? ms(t.event_timing.duree_ms) : '< 16'} ms`
+        ? `Toucher ${t.pick ? `${t.pick.id} (${t.pick.via})` : 'mer'} : script ${t.traitement_ms} · rAF ${ms(t.latence_raf_ms)} · fil principal ${ms(t.fin_fil_principal_ms)} · Event Timing ${etEtat(t)} ms`
         : 'Toucher : —',
     ];
-    lignes.replaceChildren(...texte.map((l) => Object.assign(document.createElement('div'), { textContent: l })));
+    lignes.replaceChildren(...texte.filter(Boolean).map((l) => Object.assign(document.createElement('div'), { textContent: l })));
   };
 
   let prevu = 0;

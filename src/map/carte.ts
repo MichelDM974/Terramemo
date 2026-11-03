@@ -31,12 +31,18 @@ export interface FinDeGeste {
   source: Event | null;
   /** Durée du script de fin (application de la transformation en mode css, pastilles). */
   script_ms: number;
-  /** Du début de la fin du geste à l'image suivante (double requestAnimationFrame). */
+  /**
+   * Du début du script de fin au deuxième requestAnimationFrame qui suit :
+   * le travail du fil principal de l'image de fin (style, mise en page,
+   * peinture enregistrée), sans rastérisation ni présentation. Il sous-estime
+   * ce que l'on voit ; Event Timing de l'événement de fin le mesure (mesures.ts).
+   */
   image: Promise<number>;
 }
 
 export interface EcouteGestes {
-  debut?(source: Event | null): void;
+  /** Événement start de d3-zoom : la transformation au début du geste, avant tout mouvement. */
+  debut?(t: Transfo, source: Event | null): void;
   mouvement?(t: Transfo, source: Event | null): void;
   fin?(f: FinDeGeste): void;
 }
@@ -279,7 +285,7 @@ export class Carte {
   private debut(e: D3ZoomEvent<HTMLElement, unknown>): void {
     this.aBouge = false;
     this.parUtilisateur = !!e.sourceEvent;
-    if (this.parUtilisateur) this.o.gestes?.debut?.(e.sourceEvent as Event);
+    if (this.parUtilisateur) this.o.gestes?.debut?.({ k: e.transform.k, x: e.transform.x, y: e.transform.y }, e.sourceEvent as Event);
   }
 
   private mouvement(e: D3ZoomEvent<HTMLElement, unknown>): void {

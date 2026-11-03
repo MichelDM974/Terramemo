@@ -58,6 +58,45 @@ export function statsImages(iv: readonly number[], periode_ms: number): StatsIma
   };
 }
 
+/**
+ * Rang de quantile qui estime la période de l'écran sur les intervalles d'un
+ * geste : un bas centile tient même si 40 % des images sont perdues (la
+ * médiane, elle, deviendrait deux périodes).
+ */
+export const QUANTILE_PERIODE = 0.1;
+/** Écart relatif entre la période d'un geste et celle du repos au-delà duquel on le signale. */
+export const ECART_PERIODE = 0.25;
+
+/** Période de l'écran estimée sur les intervalles d'un geste ; null sans intervalle. */
+export function periodeGeste(iv: readonly number[]): number | null {
+  return arrondi(quantile(iv, QUANTILE_PERIODE), 2);
+}
+
+export interface StatsGeste extends StatsImages {
+  /**
+   * Période estimée sur les intervalles du geste (bas centile), base du compte
+   * des images perdues de ce geste ; null sans intervalle (compte fait alors
+   * avec la période du repos).
+   */
+  periode_ms: number | null;
+  /** La période du geste s'écarte de plus de 25 % de celle du repos (écran à fréquence variable). */
+  ecart_periode: boolean;
+}
+
+/**
+ * Statistiques d'un geste comptées avec SA période : un écran à 60 Hz au repos
+ * et 120 Hz pendant le geste (fréquence adaptative) ne compterait pas, avec la
+ * période du repos, une image sautée à 120 Hz (16,7 ms < 25 ms).
+ */
+export function statsGeste(iv: readonly number[], periode_repos_ms: number): StatsGeste {
+  const p = periodeGeste(iv);
+  return {
+    ...statsImages(iv, p ?? periode_repos_ms),
+    periode_ms: p,
+    ecart_periode: p != null && Math.abs(p - periode_repos_ms) > ECART_PERIODE * periode_repos_ms,
+  };
+}
+
 export function arrondi(v: number | null | undefined, chiffres = 1): number | null {
   if (v == null || !Number.isFinite(v)) return null;
   const f = 10 ** chiffres;

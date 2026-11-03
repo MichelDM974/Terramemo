@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { intervalles, mediane, quantile, statsImages } from '../src/mesure/stats';
+import { intervalles, mediane, periodeGeste, quantile, statsGeste, statsImages } from '../src/mesure/stats';
 
 describe('statistiques des mesures', () => {
   it('quantiles par interpolation linéaire (type 7)', () => {
@@ -34,5 +34,28 @@ describe('statistiques des mesures', () => {
 
   it('aucun intervalle : rien de perdu, statistiques nulles', () => {
     expect(statsImages([], 8.33)).toMatchObject({ images: 0, mediane_ms: null, p95_ms: null, max_ms: null, perdues: 0 });
+  });
+
+  it('période d’un geste : un bas centile, qui tient même si la moitié des images est perdue', () => {
+    const pire = [...Array(10).fill(16.7), ...Array(12).fill(33.4)];
+    expect(mediane(pire)).toBe(33.4); // la médiane prendrait deux périodes
+    expect(periodeGeste(pire)).toBe(16.7);
+    expect(periodeGeste([])).toBeNull();
+  });
+
+  it('repos à 60 Hz, geste à 120 Hz : les images sautées à 120 Hz sont comptées, l’écart signalé', () => {
+    const iv = [8.3, 8.4, 8.3, 16.7, 8.3, 8.4, 8.3, 8.3, 25, 8.3, 8.4, 8.3];
+    expect(statsImages(iv, 16.7).perdues).toBe(0); // avec la seule période du repos : rien
+    const s = statsGeste(iv, 16.7);
+    expect(s.periode_ms).toBe(8.3);
+    expect(s.perdues).toBe(2);
+    expect(s.ecart_periode).toBe(true);
+  });
+
+  it('même période au repos et pendant le geste : pas d’écart ; sans intervalle, la période du repos', () => {
+    const s = statsGeste([16.6, 16.7, 16.8, 33.4, 16.7, 16.6], 16.7);
+    expect(s.ecart_periode).toBe(false);
+    expect(s.perdues).toBe(1);
+    expect(statsGeste([], 16.7)).toMatchObject({ periode_ms: null, ecart_periode: false, perdues: 0 });
   });
 });

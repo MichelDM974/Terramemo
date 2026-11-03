@@ -3,7 +3,7 @@
 import type { EcouteGestes, FinDeGeste } from '../map/carte';
 import type { Transfo } from '../map/types';
 import type { Chargement, Geste, Interaction, LongueImage, Rapport, Toucher } from './rapport';
-import { arrondi, intervalles, mediane, statsImages } from './stats';
+import { arrondi, intervalles, mediane, statsGeste } from './stats';
 
 const r1 = (v: number) => arrondi(v) ?? 0;
 
@@ -30,6 +30,14 @@ interface EntreeEvent extends PerformanceEntry {
   interactionId: number;
 }
 
+/**
+ * Entrées Event Timing gardées même sans interactionId : celles qui finissent
+ * un toucher (pointerup) ou un geste (touchend, pointerup, mouseup). En mode
+ * css, l'entrée du touchend porte le vrai coût de fin de geste (transformation
+ * posée au SVG, peinture et rastérisation de toute la carte, présentation).
+ */
+const FINS = new Set(['pointerup', 'touchend', 'mouseup']);
+
 const soutenus = (): readonly string[] =>
   (typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes) || [];
 
@@ -53,6 +61,10 @@ export class Mesures {
   private loaf: LongueImage[] = [];
   private evenements: (Interaction & { processingStart: number; processingEnd: number })[] = [];
   private enCours: GesteEnCours | null = null;
+  /** Zoom à l'événement start du geste en cours (k_debut). */
+  private kDepart: number | null = null;
+  /** Événement qui a fini chaque geste (type et timeStamp), rattaché à Event Timing dans rapport(). */
+  private finsGestes = new WeakMap<Geste, { nom: string; t_ms: number }>();
   private abonnes = new Set<() => void>();
   readonly capacites = {
     long_animation_frame: soutenus().includes('long-animation-frame'),
@@ -80,7 +92,7 @@ export class Mesures {
     if (this.capacites.event_timing) {
       new PerformanceObserver((liste) => {
         for (const e of liste.getEntries() as EntreeEvent[]) {
-          if (!e.interactionId && e.name !== 'pointerup') continue;
+          if (!e.interactionId && !FINS.has(e.name)) continue;
           this.evenements.push({
             nom: e.name,
             debut_ms: e.startTime,
@@ -125,10 +137,10 @@ export class Mesures {
   /** Écouteurs à passer à la Carte. */
   ecouteGestes(): EcouteGestes {
     return {
-      debut: (source) => {
+      debut: (t) => {
         this.arreterBoucle();
         this.enCours = null;
-        void source;
+        this.kDepart = t.k;
       },
       mouvement: (t: Transfo, source) => {
         let g = this.enCours;
@@ -138,7 +150,7 @@ export class Mesures {
             doigts_max: 0,
             evenements: 0,
             debut_ms: performance.now(),
-            k_debut: t.k,
+            k_debut: this.kDepart ?? t.k,
             k: t.k,
             horodatages: [],
             boucle: 0,
@@ -179,11 +191,12 @@ export class Mesures {
       k_debut: arrondi(g.k_debut, 3) ?? 1,
       k_fin: arrondi(g.k, 3) ?? 1,
       intervalles_ms: iv,
-      stats: statsImages(iv, this.periode_ms ?? 1000 / 60),
+      stats: statsGeste(iv, this.periode_ms ?? 1000 / 60),
       longues_images: { nombre: 0, max_ms: null, blocage_total_ms: 0 },
-      fin: { script_ms: r1(f.script_ms), image_ms: null },
+      fin: { script_ms: r1(f.script_ms), image_ms: null, event_timing_ms: null },
     };
     this.gestes.push(geste);
+    if (f.source && FINS.has(f.source.type)) this.finsGestes.set(geste, { nom: f.source.type, t_ms: f.source.timeStamp });
     void f.image.then((ms) => {
       geste.fin.image_ms = r1(ms);
       this.signaler();
@@ -207,8 +220,9 @@ export class Mesures {
       ...res,
       traitement_ms: arrondi(t1 - t0, 2) ?? 0,
       latence_raf_ms: null,
-      latence_peinte_ms: null,
+      fin_fil_principal_ms: null,
       event_timing: null,
+      event_timing_etat: this.capacites.event_timing ? 'sous_seuil' : 'non_pris_en_charge',
     };
     if (toucher.distance_km != null) toucher.distance_km = arrondi(toucher.distance_km, 1);
     if (toucher.pick) toucher.pick = { ...toucher.pick, distance_px: r1(toucher.pick.distance_px) };
@@ -217,7 +231,7 @@ export class Mesures {
       toucher.latence_raf_ms = r1(performance.now() - ev.timeStamp);
       const canal = new MessageChannel();
       canal.port1.onmessage = () => {
-        toucher.latence_peinte_ms = r1(performance.now() - ev.timeStamp);
+        toucher.fin_fil_principal_ms = r1(performance.now() - ev.timeStamp);
         this.signaler();
       };
       canal.port2.postMessage(0);
@@ -233,13 +247,21 @@ export class Mesures {
     this.signaler();
   }
 
+  /** Entrée Event Timing d'un événement, retrouvée par son type et son timeStamp (= startTime). */
+  private entree(nom: string, t_ms: number) {
+    return this.evenements.find((en) => en.nom === nom && Math.abs(en.debut_ms - t_ms) < 1);
+  }
+
   rapport(): Rapport {
     const periode = this.periode_ms ?? 1000 / 60;
     const gestes = this.gestes.map((g) => {
       const recouvre = this.loaf.filter((l) => l.debut_ms < g.fin_ms + 50 && l.debut_ms + l.duree_ms > g.debut_ms);
+      const src = this.finsGestes.get(g);
+      const et = src ? this.entree(src.nom, src.t_ms) : undefined;
       return {
         ...g,
-        stats: statsImages(g.intervalles_ms, periode),
+        stats: statsGeste(g.intervalles_ms, periode),
+        fin: { ...g.fin, event_timing_ms: et ? et.duree_ms : null },
         longues_images: {
           nombre: recouvre.length,
           max_ms: recouvre.length ? Math.max(...recouvre.map((l) => l.duree_ms)) : null,
@@ -248,9 +270,10 @@ export class Mesures {
       };
     });
     const touchers = this.touchers.map((t) => {
-      const e = this.evenements.find((en) => en.nom === 'pointerup' && Math.abs(en.debut_ms - t.t_ms) < 1);
+      const e = this.entree('pointerup', t.t_ms);
       return {
         ...t,
+        event_timing_etat: e ? ('mesure' as const) : t.event_timing_etat,
         event_timing: e
           ? {
               duree_ms: e.duree_ms,
@@ -264,7 +287,7 @@ export class Mesures {
     });
     const carte = this.ctx.carte();
     return {
-      v: 1,
+      v: 2,
       version: this.ctx.version,
       date: new Date().toISOString(),
       agent: navigator.userAgent,
