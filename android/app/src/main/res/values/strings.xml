@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cartographe</string>
+    <string name="title_activity_main">Cartographe</string>
+    <string name="package_name">io.github.micheldm974.cartographe</string>
+    <string name="custom_url_scheme">io.github.micheldm974.cartographe</string>
+</resources>
