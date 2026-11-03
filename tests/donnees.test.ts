@@ -54,6 +54,8 @@ const noms = lire<Record<string, string>>('public/geo/noms.fr.json');
 const sources = lire<Sources>('public/geo/sources.json');
 const verrou = lire<Record<string, { telecharge_le: string; fichiers: Record<string, string> }>>('geodata/sources.lock.json');
 const topoTexte = readFileSync('public/geo/monde.topo.json', 'utf8');
+// Point intérieur [lon, lat] et aire (km²) de chaque polygone source des jouables et optionnels.
+const temoin = lire<Record<string, [number, number, number][]>>('geodata/temoin-polygones.json');
 type Props = { id: string };
 const topo = JSON.parse(topoTexte) as Topology<{
   pays: GeometryCollection<Props>;
@@ -70,6 +72,26 @@ function polys(g: Geometry | null): Position[][][] {
   if (g.type === 'Polygon') return [(g as Polygon).coordinates];
   if (g.type === 'MultiPolygon') return (g as MultiPolygon).coordinates;
   return [];
+}
+
+/** Distance (km) du point au bord de la forme (segments en plan local, assez juste sous 50 km). */
+function distanceBordKm(f: Feature<Geometry | null, Props>, [x, y]: [number, number]): number {
+  const k = Math.cos((y * Math.PI) / 180);
+  const dlon = (lon: number) => (((lon - x + 540) % 360) - 180) * k;
+  let min = Infinity;
+  for (const p of polys(f.geometry))
+    for (const r of p)
+      for (let i = 1; i < r.length; i++) {
+        const [a, b] = [r[i - 1] as [number, number], r[i] as [number, number]];
+        const ax = dlon(a[0]);
+        const ay = a[1] - y;
+        const dx = dlon(b[0]) - ax;
+        const dy = b[1] - y - ay;
+        const l = dx * dx + dy * dy;
+        const t = l ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l)) : 0;
+        min = Math.min(min, Math.hypot(ax + t * dx, ay + t * dy));
+      }
+  return ((min * Math.PI) / 180) * 6371.0088;
 }
 
 /** Distance (km) du point au sommet le plus proche de la forme. */
@@ -189,6 +211,40 @@ describe('géométries (monde.topo.json)', () => {
       return !f || polys(f.geometry).every((poly) => (poly[0]?.length ?? 0) < 4);
     });
     expect(vides.map((p) => p.id)).toEqual([]);
+  });
+
+  it('aucun polygone source perdu : autant de polygones que dans Natural Earth', () => {
+    // Chaque polygone est simplifié comme une forme à part (keep-shapes le garde) : la
+    // simplification d'un bloc effaçait 961 îles des jouables, dont Tarawa et 175 îles des Maldives.
+    expect(Object.keys(temoin).sort()).toEqual(jeu.map((p) => p.id));
+    const ecarts = jeu
+      .map((p) => [p.id, polys(formes.get(p.id)?.geometry ?? null).length, temoin[p.id]?.length])
+      .filter(([, n, m]) => n !== m);
+    expect(ecarts).toEqual([]);
+    expect(temoin.MDV).toHaveLength(176);
+    expect(temoin.KIR).toHaveLength(35);
+  });
+
+  it('polygones sources (toutes aires) absents de la forme simplifiée : liste figée, vide', () => {
+    // Absent : point intérieur hors de la forme et à plus de 10 km de son bord. Un atoll
+    // réduit à un triangle (Maiana, Kiribati) s'écarte de 9 km de son point d'origine.
+    const absents: string[] = [];
+    for (const p of jeu) {
+      const f = formes.get(p.id);
+      if (!f) throw new Error(`${p.id} sans forme`);
+      for (const [lon, lat, km2] of temoin[p.id] ?? []) {
+        if (geoContains(f, [lon, lat]) || distanceBordKm(f, [lon, lat]) <= 10) continue;
+        absents.push(`${p.id} ${km2} km² @${lon},${lat}`);
+      }
+    }
+    expect(absents).toEqual([]);
+  });
+
+  it('points d’exception : Kiribati sur Tarawa, pas sur Kiritimati', () => {
+    const tarawa: [number, number] = [173.03, 1.33];
+    expect(geoDistance(parId.get('KIR')?.point ?? [0, 0], tarawa) * 6371).toBeLessThan(30);
+    // Majuro est dans le plus grand polygone des Marshall : pas d'exception.
+    expect(geoDistance(parId.get('MHL')?.point ?? [0, 0], [171.38, 7.09]) * 6371).toBeLessThan(50);
   });
 
   it('le point de chaque jouable est dans sa forme (micro-État : à moins de 5 km)', () => {

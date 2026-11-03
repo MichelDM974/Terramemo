@@ -18,7 +18,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
-import { geoArea, geoContains } from 'd3-geo';
+import { geoArea, geoContains, geoDistance } from 'd3-geo';
 import mapshaper from 'mapshaper';
 import polylabel from 'polylabel';
 import { neighbors } from 'topojson-client';
@@ -27,6 +27,7 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RAW = join(RACINE, 'geodata', 'raw');
 const VERROU = join(RACINE, 'geodata', 'sources.lock.json');
 const LISTE = join(RACINE, 'geodata', 'liste.json');
+const TEMOIN = join(RACINE, 'geodata', 'temoin-polygones.json');
 const SORTIE = join(RACINE, 'public', 'geo');
 
 // Langues des fichiers de noms (décision « Langue » : l'anglais s'ajoutera ici).
@@ -116,6 +117,16 @@ const PART_ENTITE_ENTIERE = 0.9;
 // Morceaux d'une entité jouable que NE range parmi les zones disputées sans dire qui les
 // revendique : la Palestine est un pays du jeu, pas une zone hachurée.
 const CONTESTEES_EXCLUES = { B53: 'bande de Gaza (Palestine)', B54: 'Cisjordanie (Palestine)' };
+
+// Point (pastille, étiquette) pris dans le polygone le plus proche de « lieu » au lieu du
+// plus grand, quand le plus grand est absurde pour un archipel étendu. Vérifiés avec les
+// capitales (relecture du J0) : seul Kiribati en a besoin ; Majuro est dans le plus grand
+// polygone des Marshall (même atoll, 38 km), Funafuti, Malé, Victoria, Palikir, Ngerulmud,
+// Nuku'alofa, Praia, Moroni aussi (à moins de 20 km).
+const POINT_EXCEPTIONS = {
+  // Le plus grand polygone est Kiritimati (îles de la Ligne), à 3 290 km de la capitale.
+  KIR: { lieu: [173.03, 1.33], nom: 'Tarawa-Sud' },
+};
 
 // Frontières terrestres réelles que la topologie ne voit pas : NE laisse 96 m entre Macao
 // et la Chine, et ne fait se toucher le Botswana et la Zambie qu'en un point (Kazungula,
@@ -235,6 +246,28 @@ function polygones(geom) {
   );
 }
 
+/** Polygones (tableaux d'anneaux) d'une géométrie déjà dans le sens de d3. */
+const polysDe = (g) => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates);
+
+/**
+ * Regroupe par id les parties simplifiées (géométries TopoJSON d'un polygone chacune),
+ * dans l'ordre des items ; une entité dont aucune partie ne reste a type null.
+ */
+function regrouper(geometries, items) {
+  const arcs = new Map(items.map((x) => [x.id, []]));
+  for (const g of geometries) {
+    const liste = arcs.get(g.properties.id);
+    if (!liste) echec(`partie simplifiée d'id inconnu ${g.properties.id}`);
+    if (g.type === 'Polygon') liste.push(g.arcs);
+    else if (g.type === 'MultiPolygon') liste.push(...g.arcs);
+  }
+  return items.map(({ id }) => {
+    const a = arcs.get(id);
+    if (a.length === 0) return { type: null, properties: { id } };
+    return a.length === 1 ? { arcs: a[0], type: 'Polygon', properties: { id } } : { arcs: a, type: 'MultiPolygon', properties: { id } };
+  });
+}
+
 /** Aire sphérique (stéradians) d'une géométrie déjà dans le sens de d3. */
 const aireSr = (geometrie) => geoArea(geometrie);
 
@@ -257,6 +290,22 @@ function pointInterieur(anneaux) {
   const precision = Math.max((e - o) * k, n - s) / 1000;
   const [px, py] = polylabel(plan, precision);
   return [arrondi(px / k, 5), arrondi(py, 5)];
+}
+
+/** Indice du polygone dont un sommet extérieur est le plus près du lieu [lon, lat]. */
+function polyPres(polys, lieu) {
+  let iMin = 0;
+  let min = Infinity;
+  polys.forEach((p, i) => {
+    for (const c of p[0]) {
+      const d = geoDistance(c, lieu);
+      if (d < min) {
+        min = d;
+        iMin = i;
+      }
+    }
+  });
+  return iMin;
 }
 
 /**
@@ -398,6 +447,7 @@ async function main() {
     });
   }
   for (const entree of liste) if (!entites.has(entree.id)) echec(`liste.json : ${entree.id} sans géométrie`);
+  for (const id of Object.keys(POINT_EXCEPTIONS)) if (!entites.has(id)) echec(`POINT_EXCEPTIONS : ${id} inconnu`);
 
   // Attributs calculés sur la géométrie non simplifiée.
   const tous = [...entites.values()].sort(parId);
@@ -410,7 +460,8 @@ async function main() {
     });
     e.superficie = aires.reduce((s, a) => s + a, 0);
     e.partieMax = aires[iMax] ?? 0;
-    e.point = pointInterieur(e.polys[iMax]);
+    e.aires = aires;
+    e.point = pointInterieur(e.polys[POINT_EXCEPTIONS[e.id] ? polyPres(e.polys, POINT_EXCEPTIONS[e.id].lieu) : iMax]);
     e.bbox = emprise(e.polys);
     e.geojson = {
       type: 'Feature',
@@ -469,10 +520,24 @@ async function main() {
   if (new Set(contestees.map((c) => c.id)).size !== contestees.length) echec('zones contestées en double');
 
   // --- Simplification et topologie (mapshaper) ---
+  // keep-shapes ne protège que le plus grand anneau de chaque forme : simplifiée d'un
+  // bloc, Kiribati perdait Tarawa (29 polygones sur 35), les Maldives 175 sur 176, la
+  // France Yeu, Ré et Ouessant. Chaque polygone part donc comme une forme à part (même
+  // id), ce qui le protège, puis les parties sont regroupées par id dans la topologie.
+  // La topologie est bâtie à l'import, avant la simplification : les parties d'une
+  // entité et ses voisins gardent les mêmes arcs, les voisins ne changent pas.
   console.log('Simplification');
+  const parties = (items) =>
+    items.flatMap((x) =>
+      polysDe(x.geojson.geometry).map((coordinates) => ({
+        type: 'Feature',
+        properties: { id: x.id },
+        geometry: { type: 'Polygon', coordinates },
+      })),
+    );
   const entree = {
-    'pays.json': JSON.stringify({ type: 'FeatureCollection', features: tous.map((e) => e.geojson) }),
-    'contestees.json': JSON.stringify({ type: 'FeatureCollection', features: contestees.map((c) => c.geojson) }),
+    'pays.json': JSON.stringify({ type: 'FeatureCollection', features: parties(tous) }),
+    'contestees.json': JSON.stringify({ type: 'FeatureCollection', features: parties(contestees) }),
   };
   const sortie = await mapshaper.applyCommands(
     `-i pays.json contestees.json combine-files ` +
@@ -480,12 +545,23 @@ async function main() {
       `-o monde.topo.json format=topojson quantization=${QUANTIFICATION}`,
     entree,
   );
-  const topoTexte = String(sortie['monde.topo.json']);
-  const topo = JSON.parse(topoTexte);
+  const topo = JSON.parse(String(sortie['monde.topo.json']));
   if (!topo.objects.pays || !topo.objects.contestees) echec('objets pays/contestees absents de la topologie');
+  topo.objects.pays.geometries = regrouper(topo.objects.pays.geometries, tous);
+  topo.objects.contestees.geometries = regrouper(topo.objects.contestees.geometries, contestees);
+  const topoTexte = JSON.stringify(topo);
   const geomsPays = topo.objects.pays.geometries;
-  const vides = geomsPays.filter((g) => !g.type || !g.arcs || g.arcs.length === 0).map((g) => g.properties.id);
-  if (vides.length) console.log(`  géométries vides après simplification : ${vides.join(', ')}`);
+  // Aucune partie ne doit disparaître (keep-shapes la garde au pire en triangle).
+  const nParties = (g) => (g.type === 'Polygon' ? 1 : g.type === 'MultiPolygon' ? g.arcs.length : 0);
+  for (const [items, geoms] of [
+    [tous, geomsPays],
+    [contestees, topo.objects.contestees.geometries],
+  ]) {
+    items.forEach((x, i) => {
+      const n = polysDe(x.geojson.geometry).length;
+      if (nParties(geoms[i]) !== n) echec(`${x.id} : ${nParties(geoms[i])} polygones après simplification sur ${n}`);
+    });
+  }
 
   // Voisins sur la topologie finale (arcs partagés).
   const voisins = neighbors(geomsPays);
@@ -524,6 +600,18 @@ async function main() {
     return JSON.stringify(o);
   });
   await ecrire('pays.json', `[\n${lignes.join(',\n')}\n]\n`);
+
+  // Témoin (versionné, non servi) : point intérieur et aire de chaque polygone source des
+  // jouables et optionnels, pour que tests/donnees.test.ts vérifie sans les sources
+  // qu'aucune île n'a disparu de la topologie simplifiée.
+  const lignesT = tous
+    .filter((e) => e.statut === 'jouable' || e.statut === 'optionnel')
+    .map((e) => {
+      const parts = e.polys.map((poly, i) => [...pointInterieur(poly).map((x) => arrondi(x, 4)), arrondi(e.aires[i], 2)]);
+      return `${JSON.stringify(e.id)}:${JSON.stringify(parts)}`;
+    });
+  await writeFile(TEMOIN, `{\n${lignesT.join(',\n')}\n}\n`);
+  console.log(`  geodata/temoin-polygones.json  ${lignesT.length} entités`);
 
   const lignesC = contestees.map((c) =>
     JSON.stringify({
@@ -567,7 +655,7 @@ async function main() {
   }));
   const traitement = {
     outil: 'mapshaper 0.6.110',
-    simplification: `-simplify ${SIMPLIFICATION}`,
+    simplification: `-simplify ${SIMPLIFICATION}, chaque polygone comme une forme à part (aucune île perdue), regroupés par id`,
     quantification: QUANTIFICATION,
     superficies: `géodésiques, d3-geo geoArea × R², R = ${R_TERRE_KM} km, sur la géométrie non simplifiée`,
   };
