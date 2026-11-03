@@ -63,26 +63,34 @@ export function pick(ctx: ContexteCarte, x: number, y: number): ResultatPick | n
 
 export interface Note {
   juste: boolean;
-  /** Ce qui rend la réponse juste ; null si fausse. */
-  via: 'trace' | 'pastille' | null;
-  /** 0 si juste, distance géodésique au bord de la cible sinon ; null hors de la sphère. */
+  /** Ce par quoi la carte désigne la cible (pick) ; null si fausse. */
+  via: Via | null;
+  /** 0 si juste ou si le point est dans le tracé de la cible ; sinon distance géodésique à son bord ; null hors de la sphère. */
   distance_km: number | null;
   lonlat: [number, number] | null;
+  /** Ce que la carte désigne en (x, y) : pick(), calculé une fois pour la note et la rétroaction. */
+  pick: ResultatPick | null;
 }
 
 /**
- * Notation par rapport à la cible demandée (plan, « Technique ») : juste si le
- * point est dans sa géométrie ou dans la cible de sa pastille affichée ; sinon,
- * distance au bord le plus proche de la cible.
+ * Notation par rapport à la cible demandée (plan, « Technique ») : ce que la
+ * carte désigne est ce qui est noté. Juste si et seulement si pick(x, y) rend
+ * la cible : son tracé, sa pastille (la tolérance de 22 px, réduite à 11 px
+ * sur le tracé d'un grand pays sans pastille) ou la côte à moins de 12 px.
+ * Jamais juste quand pick() désigne un autre pays : avant, la cible de 22 px
+ * jouait même sur le tracé d'un voisin, et l'essai du J0 comptait juste un
+ * toucher sur l'Albanie pour Andorre (36 cibles sur 43 à zoom 1).
+ * Point dans le tracé de la cible mais à moins de 11 px de la pastille d'un
+ * micro-État voisin (Rome, le Vatican) : faux, distance 0. La carte désigne le
+ * micro-État et la rétroaction le montre ; le noter juste rendrait la note et
+ * la rétroaction contradictoires, et le disque est visible sous le doigt.
  */
 export function noter(ctx: ContexteCarte, cible: string, x: number, y: number): Note {
   const e = ctx.entites.find((en) => en.pays.id === cible);
   if (!e) throw new Error(`cible inconnue : ${cible}`);
   const ll = versLonLat(ctx.proj, ctx.t, x, y);
-  if (ll && contient(e.forme, e.pays.bbox, ll)) return { juste: true, via: 'trace', distance_km: 0, lonlat: ll };
-  const pastille = ctx.pastilles.filter((p) => p.id === cible);
-  if (pastilleLaPlusProche(pastille, ctx.t, x, y, PASTILLE.rayon_cible_px)) {
-    return { juste: true, via: 'pastille', distance_km: 0, lonlat: ll };
-  }
-  return { juste: false, via: null, distance_km: ll ? distanceAuBordKm(e.forme, ll) : null, lonlat: ll };
+  const p = pick(ctx, x, y);
+  if (p?.id === cible) return { juste: true, via: p.via, distance_km: 0, lonlat: ll, pick: p };
+  const distance_km = !ll ? null : contient(e.forme, e.pays.bbox, ll) ? 0 : distanceAuBordKm(e.forme, ll);
+  return { juste: false, via: null, distance_km, lonlat: ll, pick: p };
 }

@@ -141,14 +141,15 @@ export function vueEssai(ctx: ContexteVue): Vue {
       const id = courante();
       if (!id || enAttente) return;
       ctx.mesures.toucher(ev, x, y, () => {
-        const r = ctx.carte.pick(x, y);
+        // noter() désigne par pick() : la rétroaction montre ce qui a été noté.
         const note = ctx.carte.noter(id, x, y);
+        const r = note.pick;
         essais++;
         ctx.carte.effacerMarques();
         if (note.juste) {
           ctx.carte.marquer(id, 'juste');
           retro.className = 'essai-retro juste';
-          retro.textContent = `Juste${note.via === 'pastille' ? ' (pastille)' : ''} · ${essais} essai${essais > 1 ? 's' : ''} · ${fmtS(performance.now() - debut)}`;
+          retro.textContent = `Juste${note.via === 'pastille' ? ' (pastille)' : note.via === 'proche' ? ' (au plus près)' : ''} · ${essais} essai${essais > 1 ? 's' : ''} · ${fmtS(performance.now() - debut)}`;
           const res: Resultat = { id, essais, juste: true, premier: essais === 1, temps_ms: performance.now() - debut, distance_km: premierFaux };
           enAttente = window.setTimeout(() => {
             enAttente = 0;
@@ -160,7 +161,9 @@ export function vueEssai(ctx: ContexteVue): Vue {
           ctx.carte.marquer(id, 'juste');
           ctx.carte.anneau(id, 'juste');
           retro.className = 'essai-retro faux';
-          retro.textContent = `Faux : ${r ? nomDe(ctx, r.id) : 'la mer'}${note.distance_km != null ? `, à ${fmtKm(note.distance_km)} du bord` : ''}. Le bon pays est en vert : touche-le.`;
+          // distance 0 : dans le tracé de la cible, mais la pastille d'un micro-État voisin l'emporte.
+          const ou = note.distance_km === 0 ? ` (sa pastille l’emporte sur ${nomDe(ctx, id)})` : note.distance_km != null ? `, à ${fmtKm(note.distance_km)} du bord` : '';
+          retro.textContent = `Faux : ${r ? nomDe(ctx, r.id) : 'la mer'}${ou}. Le bon pays est en vert : touche-le.`;
         }
         return { pick: r, cible: id, juste: note.juste, distance_km: note.distance_km };
       });
