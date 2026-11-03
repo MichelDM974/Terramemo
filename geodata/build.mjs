@@ -494,6 +494,9 @@ async function main() {
     aires.forEach((a, i) => {
       if (a > (aires[iMax] ?? 0)) iMax = i;
     });
+    // superficie_km2 : aire de la géométrie NE de fait, pas une superficie officielle
+    // (Monaco ×9, Chypre −42 % sans le Nord, Maroc +33 % avec le Sahara, Somalie −26 %
+    // sans le Somaliland) ; les superficies à apprendre viendront de Wikidata (P2046) au J4.
     e.superficie = aires.reduce((s, a) => s + a, 0);
     e.partieMax = aires[iMax] ?? 0;
     e.aires = aires;
@@ -696,7 +699,9 @@ async function main() {
     outil: 'mapshaper 0.6.110',
     simplification: `-simplify ${SIMPLIFICATION}, chaque polygone comme une forme à part (aucune île perdue), regroupés par id`,
     quantification: QUANTIFICATION,
-    superficies: `géodésiques, d3-geo geoArea × R², R = ${R_TERRE_KM} km, sur la géométrie non simplifiée`,
+    superficies:
+      `aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, ` +
+      `Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = ${R_TERRE_KM} km, sur la géométrie non simplifiée`,
   };
   await ecrire('sources.json', JSON.stringify({ sources: meta, traitement }, null, 2) + '\n');
 

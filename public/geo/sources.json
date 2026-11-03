@@ -67,6 +67,6 @@
     "outil": "mapshaper 0.6.110",
     "simplification": "-simplify visvalingam interval=2000 keep-shapes, chaque polygone comme une forme à part (aucune île perdue), regroupés par id",
     "quantification": 1000000,
-    "superficies": "géodésiques, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée"
+    "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée"
   }
 }
