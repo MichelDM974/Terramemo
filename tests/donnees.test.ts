@@ -368,6 +368,16 @@ describe('noms et sources', () => {
     expect(noms.NE_PGA).toBe('Îles Spratleys');
   });
 
+  it('noms uniques entre entités et zones contestées (accents, casse et ponctuation ignorés)', () => {
+    const norm = (s: string) =>
+      s.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('fr').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const parNom = new Map<string, string[]>();
+    for (const [id, nom] of Object.entries(noms)) parNom.set(norm(nom), [...(parNom.get(norm(nom)) ?? []), id]);
+    expect([...parNom.values()].filter((ids) => ids.length > 1)).toEqual([]);
+    expect(noms.NE_B19).toBe('Sahara occidental (administré par le Maroc)');
+    expect(noms.NE_B14).toBe('Sources de la Lawa');
+  });
+
   it('sources datées, licences et empreintes égales au verrou', () => {
     expect(sources.sources).toHaveLength(2);
     for (const s of sources.sources) {

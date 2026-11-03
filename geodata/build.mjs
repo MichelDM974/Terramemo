@@ -107,8 +107,35 @@ const REGION_EXCEPTIONS = {
 // longue (« R.A.S. chinoise de Hong Kong », « Territoires palestiniens »).
 const CLDR_VARIANTE = { HK: 'short', MO: 'short', PS: 'short' };
 
-// Noms NE faux ou absents, par langue (NE donne « Wake » aux îles Spratleys).
-const NOM_CORRECTIONS = { fr: { NE_PGA: 'Îles Spratleys' } };
+// Noms NE faux, absents ou pas en français, par langue (NE donne « Wake » aux îles
+// Spratleys). Une zone contestée ne porte jamais le nom d'une entité (testé) : « Sahara
+// occidental » désignait ESH (à l'est du mur) et la zone tenue par le Maroc, « Belize »
+// le pays et sa partie revendiquée par le Guatemala.
+const NOM_CORRECTIONS = {
+  fr: {
+    NE_PGA: 'Îles Spratleys',
+    NE_BRI: 'Île Brésilienne', // NE : « Ilha Brasileira »
+    NE_B05: 'Jammu-et-Cachemire', // NE : « Cachemire », qui est toute la région
+    NE_B12: 'Malouines (zone revendiquée par l’Argentine)',
+    NE_B14: 'Sources de la Lawa', // NE : « Lawa Headwaters »
+    NE_B15: 'Sources de la Courantyne', // NE : « Courantyne River »
+    NE_B17: 'Triangle d’Ilemi (administré par le Kenya)',
+    NE_B19: 'Sahara occidental (administré par le Maroc)',
+    NE_B44: 'Base de Diego Garcia', // NE : « Aéroport », c'est une base navale
+    NE_B48: 'Île d’Aves', // NE : « Isla de Aves »
+    NE_B50: 'Baie de Guantánamo (revendiquée par Cuba)',
+    NE_B51: 'Sud du Belize (revendiqué par le Guatemala)',
+    NE_B55: 'Gibraltar (revendiqué par l’Espagne)',
+    NE_B66: 'Îles Matthew et Hunter', // NE : « Île Matthew »
+    NE_B68: 'Îles Tiran et Sanafir', // NE : « Sanafir »
+    NE_B69: 'Archipel des Chagos (hors Diego Garcia)',
+    NE_B71: 'Île Swains',
+    NE_B74: 'Triangle d’Ilemi (partie sud-soudanaise)',
+    NE_B78: 'No man’s land de Latroun', // NE : « Fort du No Man's Land »
+    NE_B95: 'Île de Šarengrad', // NE : « Isla Šarengrad »
+    NE_B96: 'Île de Vukovar', // NE : « Isla Vukovar »
+  },
+};
 
 // Zones contestées : une zone qui couvre presque toute une entité de la couche des
 // pays (Kosovo, Taïwan, Israël, Somaliland…) n'est pas une zone hachurée à part :
@@ -669,6 +696,9 @@ async function main() {
   await ecrire('contestees.json', `[\n${lignesC.join(',\n')}\n]\n`);
 
   for (const l of LANGUES) {
+    for (const id of Object.keys(NOM_CORRECTIONS[l] ?? {})) {
+      if (!entites.has(id) && !contestees.some((c) => c.id === id)) echec(`NOM_CORRECTIONS.${l} : ${id} inconnu`);
+    }
     const noms = {};
     const corrections = NOM_CORRECTIONS[l] ?? {};
     for (const e of tous) {
