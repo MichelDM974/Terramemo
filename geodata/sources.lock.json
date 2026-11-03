@@ -1,0 +1,23 @@
+{
+  "natural-earth": {
+    "telecharge_le": "2026-11-04",
+    "fichiers": {
+      "natural-earth/ne_10m_admin_0_countries.shp": "7ce119ef6342e43cff7c0c3004e0911ab7ec1988a14734372031d2012180e7bc",
+      "natural-earth/ne_10m_admin_0_countries.shx": "ca19ec112d054c77bc8f7ac00e3b110d5dff32cc9bcf4cd1b8b66bdd0f611d32",
+      "natural-earth/ne_10m_admin_0_countries.dbf": "c5dbd3dd5fd7e2ef49051fc88562c03819e8ea63a382642df6eadd1243bf4b49",
+      "natural-earth/ne_10m_admin_0_countries.prj": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+      "natural-earth/ne_10m_admin_0_countries.cpg": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+      "natural-earth/ne_10m_admin_0_disputed_areas.shp": "5c44088c26c93e5317a7ca3be83c6cffc4d53370a7199f070df3c42cf6f7add5",
+      "natural-earth/ne_10m_admin_0_disputed_areas.shx": "3d928545d18ff6b44f51b2262f0ebdb260c372f5123fad1184ae40ebcbc7474a",
+      "natural-earth/ne_10m_admin_0_disputed_areas.dbf": "93064dad28997bffb3822fb320049ebd34e5d9375ab33f3b0c64a065b7df0745",
+      "natural-earth/ne_10m_admin_0_disputed_areas.prj": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+      "natural-earth/ne_10m_admin_0_disputed_areas.cpg": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+    }
+  },
+  "cldr": {
+    "telecharge_le": "2026-11-04",
+    "fichiers": {
+      "cldr/fr/territories.json": "42d67b78cb74ffe87380db1d702d06be995c3082d7f711ffd6e75a721133c5e0"
+    }
+  }
+}
