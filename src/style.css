@@ -1,0 +1,278 @@
+:root {
+  color-scheme: dark;
+  /* Style commun (skill nouveau-projet, modèle CryptX) : fond noir, halo de l'accent
+     en haut à gauche qui s'éteint vers le bas ; panneaux opaques à peine plus clairs,
+     bordés d'un filet presque invisible. Valeurs dérivées de l'accent #3d72f0 par les
+     formules de palette() (centre-de-controle/cdc/gabarit.py). Seule source des
+     couleurs : aucune règle n'en écrit en dur (tests/style.test.ts). */
+  --bg: #080809;
+  --bg-top: #090e1a;
+  --bg-glow: rgba(61, 114, 240, 0.22);
+  --bg-glow-2: rgba(61, 114, 240, 0.06);
+  --panel: #111214;
+  --panel-2: #1a1b1f;
+  --border: rgba(236, 241, 254, 0.08);
+  --border-2: rgba(236, 241, 254, 0.13);
+  --row-hover: rgba(236, 241, 254, 0.035);
+  --text: #eff0f3;
+  --muted: #91949b;
+  /* Accent réservé : la marque, la page affichée, le bouton principal, le choix en
+     cours, les liens. Le reste est neutre. */
+  --accent: #3d72f0;
+  --accent-soft: rgba(61, 114, 240, 0.14);
+  --accent-text: #02050a;
+  --disabled-bg: #34363c;
+  --shadow: rgba(0, 0, 0, 0.35);
+  --popup-bg: rgba(17, 18, 20, 0.88);  /* --panel, sous ce qui flotte (popup, bulle) */
+  /* Statuts : réservés au juste et au faux, jamais à une échelle de couleurs. */
+  --good: #34c77b;
+  --good-soft: rgba(52, 199, 123, 0.14);
+  --danger: #f0686b;
+  --danger-soft: rgba(240, 104, 107, 0.14);
+  /* Carte : terres neutres, frontières en filet, zones contestées hachurées. */
+  --terre: #23252b;
+  --terre-survol: #2c2f36;
+  --frontiere: rgba(236, 241, 254, 0.22);
+  --hachure: rgba(236, 241, 254, 0.28);
+  --pastille: #8e939d;
+  /* Marge latérale : le contenu de l'en-tête s'aligne sur celui de la page. */
+  --pad: max(32px, calc((100% - 1216px) / 2));
+}
+
+/* Inter 4 (SIL OFL 1.1), servie localement : pas de dépendance à un site externe. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/vendor/inter/InterVariable.woff2") format("woff2");
+}
+
+* { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 100% 70% at 0% 0%, var(--bg-glow), transparent 70%),
+    radial-gradient(ellipse 80% 55% at 100% 0%, var(--bg-glow-2), transparent 70%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 70%);
+  background-attachment: fixed;
+  color: var(--text);
+  /* Android 15+ affiche l'appli bord à bord : le contenu évite encoche et barres. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+button, input, select { font-family: inherit; }
+
+/* En-tête compact : titre à gauche, pages au centre, ⚙ à droite. */
+header {
+  padding: 18px var(--pad) 14px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+header h1 a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3em; }
+/* Logo (le favicon) devant le titre : en em, il suit la taille du titre sur téléphone. */
+header h1 .logo { width: 0.95em; height: 0.95em; flex: none; }
+
+header .tagline {
+  margin: 3px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+
+/* Pages : sélecteur segmenté. */
+.page-nav {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.nav-link {
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 7px 18px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav-link:hover { color: var(--text); background: var(--panel-2); }
+.nav-link.active { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+
+.settings-menu { position: relative; flex-shrink: 0; }
+
+#settings-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#settings-btn:hover { background: var(--panel-2); color: var(--text); }
+
+.settings-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(300px, calc(100vw - 32px));
+  background: var(--popup-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 12px 32px var(--shadow);
+}
+
+.settings-popup h3 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 600; }
+
+main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 10px 32px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 28px;
+  min-width: 0;
+}
+
+.panel h2 { margin: 0 0 4px; font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+
+/* Téléphone : en-tête sur deux lignes (titre et ⚙, puis les pages), marges de 16 px. */
+@media (max-width: 700px) {
+  header {
+    grid-template-columns: 1fr auto;
+    padding: 12px 16px 10px;
+    gap: 10px;
+  }
+  header .page-nav { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; }
+  header .page-nav .nav-link { flex: 1; text-align: center; padding: 7px 8px; }
+  header .tagline { display: none; }
+  main { padding-left: 16px; padding-right: 16px; }
+  .panel { padding: 18px 16px; }
+}
+
+button {
+  background: var(--accent);
+  color: var(--accent-text);
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+button:disabled { background: var(--disabled-bg); border-color: var(--disabled-bg); color: var(--muted); cursor: default; }
+
+/* Bouton secondaire : neutre, l'accent plein reste au bouton principal. */
+button.secondary {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+button.secondary:hover { background: var(--panel-2); }
+
+/* Sélecteur segmenté : choix exclusifs d'affichage, l'actif sur un fond à peine plus
+   clair (l'accent plein reste aux pages, .page-nav). */
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  align-self: flex-start;
+}
+.seg button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  padding: 5px 14px;
+  font-size: 0.88rem;
+}
+.seg button:hover { color: var(--text); background: transparent; }
+.seg button.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
+
+label { font-size: 0.85rem; color: var(--muted); }
+
+input[type="text"], select {
+  display: block;
+  margin: 4px 0 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: var(--panel-2);
+  color: var(--text);
+  max-width: 100%;
+}
+
+input[type="text"]:hover, select:hover { border-color: var(--muted); }
+
+.hint { color: var(--muted); font-size: 0.82rem; margin: 4px 0 12px; line-height: 1.5; }
+
+.status { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; }
+.status.error { color: var(--danger); }
+
+/* Explication repliée derrière un « ? » à côté d'un titre (texte affiché au clic). */
+.help-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: 2px;
+  margin-left: 6px;
+}
+.help-btn:hover { background: var(--panel-2); color: var(--text); }
+.help-text { color: var(--muted); font-size: 0.82rem; line-height: 1.5; margin: 6px 0 10px; }

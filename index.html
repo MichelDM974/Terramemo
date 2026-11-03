@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080809" />
+  <title>Cartographe</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preload" href="/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+</head>
+<body>
+  <header>
+    <div class="header-title">
+      <h1><a href="/"><img class="logo" src="/favicon.svg" width="40" height="40" alt="">Cartographe</a></h1>
+      <p class="tagline">La géographie du monde, au doigt.</p>
+    </div>
+    <nav class="page-nav" aria-label="Pages">
+      <a href="/" class="nav-link active" aria-current="page">Carte</a>
+    </nav>
+    <div class="header-actions">
+      <div class="settings-menu">
+        <button type="button" id="settings-btn" title="Paramètres" aria-label="Paramètres" aria-expanded="false">⚙</button>
+        <div id="settings-popup" class="settings-popup" hidden>
+          <h3>Paramètres</h3>
+          <p class="hint">Aucun réglage pour l'instant.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main id="app"></main>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

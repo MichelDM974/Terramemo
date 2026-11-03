@@ -5,3 +5,5 @@ android/app/build/
 android/.gradle/
 *.log
 .env*
+.firebase/
+coverage/
