@@ -12,8 +12,11 @@ export function normaliser(s: string): string {
     .trim();
 }
 
+/** Nombre de noms proposés au plus. */
+export const MAX_SUGGESTIONS = 8;
+
 /** Noms qui commencent par ce qui est tapé, dans l'ordre alphabétique français. */
-export function suggestions(tape: string, noms: readonly string[], max = 8): string[] {
+export function suggestions(tape: string, noms: readonly string[], max = MAX_SUGGESTIONS): string[] {
   const n = normaliser(tape);
   if (!n) return [];
   return noms
