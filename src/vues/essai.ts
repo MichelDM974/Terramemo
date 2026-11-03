@@ -15,8 +15,9 @@ interface Resultat {
   distance_km: number | null;
 }
 
-const fmtS = (ms: number) => `${(ms / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`;
-const fmtKm = (km: number) => `${Math.round(km).toLocaleString('fr-FR')} km`;
+// Espace insécable avant l'unité : « 1 517 km » ne se coupe pas en fin de ligne.
+const fmtS = (ms: number) => `${(ms / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}\u00a0s`;
+const fmtKm = (km: number) => `${Math.round(km).toLocaleString('fr-FR')}\u00a0km`;
 
 export function vueEssai(ctx: ContexteVue): Vue {
   const consigne = creer('div', { class: 'essai-consigne' });
