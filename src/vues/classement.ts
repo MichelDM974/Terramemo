@@ -111,16 +111,23 @@ export function blocClassement(epreuve: string, titre: string, apresPartie?: (ps
     );
   }
 
+  // Seule la dernière lecture s'affiche : celle lancée à l'ouverture (SDK à
+  // charger) finissait après celle qui suit la publication du pseudo, et la
+  // remplaçait par un classement vide.
+  let derniere = 0;
   async function charger(): Promise<void> {
+    const n = ++derniere;
     for (const b of boutons) b.classList.toggle('active', (b.dataset.v === 'toujours') === (periode === 'toujours'));
     etat.textContent = T.chargement;
     try {
       const t = await lireTableau(epreuve, periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now()));
+      if (n !== derniere) return;
       const lignes = t.places.map((p, i) => ligne(p, i + 1, p.uid === t.moi?.uid));
       if (t.moi && t.rang && t.rang > t.places.length) lignes.push(creer('li', { class: 'ellipse' }, '…'), ligne(t.moi, t.rang, true));
       liste.replaceChildren(...lignes);
       etat.textContent = t.joueurs ? remplir(T.joueurs, { n: t.joueurs }) : T.vide;
     } catch {
+      if (n !== derniere) return;
       liste.replaceChildren();
       etat.textContent = T.indisponible;
     }
