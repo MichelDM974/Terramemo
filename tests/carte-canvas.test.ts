@@ -517,13 +517,20 @@ describe('carte allégée', () => {
     const ids = new Set(donnees.entites.map((e) => e.pays.id));
     for (const id of formes.pays.keys()) expect(ids.has(id), id).toBe(true);
     const allegees = seules(formes);
+    const sans: string[] = [];
     donnees.entites.forEach((e, i) => {
       const ps = complet.pays[i] ?? [];
       const grandes = ps.filter((p) => p.km >= ILE_LEGERE_KM);
       // Les siennes (au moins 40 km à la source) couvrent les grandes de la complète ; les petites en viennent telles quelles.
       expect(allegees.pays[i]?.length ?? 0, e.pays.id).toBeGreaterThanOrEqual(grandes.length);
       expect(leger.pays[i]?.filter((p) => ps.includes(p)).length, e.pays.id).toBe(ps.length - grandes.length);
+      // Chaque grande est la source d'une partie de l'allégée (calqueLeger) : le
+      // build (emprise sur la géométrie source) et le rendu (sur la complète) la
+      // mesurent assez pareil pour qu'aucune île ne tombe entre les deux seuils.
+      const sources = new Set(leger.pays[i]?.map((p) => p.source));
+      for (const p of grandes) if (!sources.has(p)) sans.push(`${e.pays.id} ${p.km.toFixed(1)} km`);
     });
+    expect(sans).toEqual([]);
     // Le Canada, l'Indonésie, les Maldives, la Polynésie : toutes leurs îles.
     for (const id of ['CAN', 'IDN', 'MDV', 'PYF', 'GRC', 'JPN', 'BHS', 'USA']) {
       const i = donnees.entites.findIndex((e) => e.pays.id === id);
@@ -771,9 +778,9 @@ describe('îles pendant un geste', () => {
       vues++;
       tracerPartie(rec, im, p);
     });
-    // 4 426 parties (707 grandes, 3 719 îles de moins de 50 km) : environ 1 200
+    // 4 289 parties (707 grandes, 3 582 îles de moins de 40 km) : environ 1 100
     // tracées ; plus d'un millier que le repos ne montre pas, sautées
-    // (minuscules), sans parcourir le reste des listes ; 650 points.
+    // (minuscules), sans parcourir le reste des listes ; 530 points.
     expect(vues).toBeLessThan(1500);
     expect(vues + im.minuscules).toBeLessThan(2500);
     expect(im.points).toBeGreaterThan(400);

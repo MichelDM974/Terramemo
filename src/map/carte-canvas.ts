@@ -110,15 +110,17 @@ const FIN_MOLETTE_MS = 150;
 
 /**
  * Îles de la carte complète reprises dans l'allégée : celles dont le plus
- * grand côté fait moins de ce nombre de km. geodata/build.mjs ne met dans
- * monde-leger.topo.json que les polygones d'au moins 40 km (chacun simplifié
- * à part, aucun ne s'y perd) : entre 40 et 50 km, une île est dans les deux
- * (dessinée deux fois, au même endroit), ce qui absorbe l'écart entre les
- * emprises mesurées par le build (géométrie source) et ici (simplifiée à
- * 2 km). Les 3 719 polygones de moins de 50 km n'ont que 22 700 sommets ; au
- * zoom 1, presque tous font moins de TAILLE_MIN_PX et sont sautés.
+ * grand côté fait moins de ce nombre de km, le seuil de geodata/build.mjs, qui
+ * ne met dans monde-leger.topo.json que les polygones d'au moins 40 km
+ * (chacun simplifié à part, aucun ne s'y perd). Le build mesure l'emprise sur
+ * la géométrie source, ici sur la complète simplifiée à 2 km : une marge (50
+ * km) devait absorber l'écart, mais chaque polygone de la complète d'au moins
+ * 40 km a le sien dans l'allégée (tests/carte-canvas.test.ts le vérifie) ;
+ * entre 40 et 50 km, 137 îles étaient dessinées deux fois. Les quelque 3 600
+ * polygones de moins de 40 km ont peu de sommets ; au zoom 1, presque tous
+ * font moins de TAILLE_MIN_PX et sont sautés.
  */
-export const ILE_LEGERE_KM = 50;
+export const ILE_LEGERE_KM = 40;
 /** Majoration de la taille (px / K) d'une partie de la carte allégée : 2 × 15 km / rayon de la Terre. */
 const MARGE_LEGERE = (2 * 15) / RAYON_TERRE_KM;
 
@@ -156,7 +158,7 @@ function compter(pays: Partie[][], zones: Partie[][]): Calque {
  * liste de la carte allégée sont sautées d'un bloc si leur emprise commune est
  * hors de l'écran ou leur plus grande minuscule, et la première minuscule
  * arrête la liste (triée par taille) plutôt que de tester une à une ses
- * 3 700 îles de moins de 50 km : tracé JS de l'allégée sur le PC (Node, sans
+ * 3 600 îles de moins de 40 km : tracé JS de l'allégée sur le PC (Node, sans
  * Canvas), 0,50 → 0,41 ms au zoom 1, 0,22 → 0,08 ms zoomé sur la Polynésie.
  */
 export function parcourir(im: ImageTrace, listes: Partie[][], groupes: (Groupe | null)[] | undefined, f: (p: Partie, i: number) => void): void {
