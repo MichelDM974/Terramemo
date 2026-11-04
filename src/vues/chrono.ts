@@ -4,8 +4,10 @@
 // gardé sur l'appareil, pas encore de classement en ligne. Quitter la vue
 // pendant une partie l'abandonne : le temps ne se met pas en pause.
 import { DELAI_CHRONO_MS, POINTS_JUSTE } from '../epreuve/bareme';
-import { enregistrer, idEpreuve, lireRecords, PartieChrono, type Bilan, type QuestionJouee } from '../epreuve/chrono';
+import { enregistrerPartie, idEpreuve, lireRecords, PartieChrono, type QuestionJouee } from '../epreuve/chrono';
+import { GENERAL } from '../epreuve/classement';
 import { melanger, SERIE_ESSAI, SERIE_TOUS, series, type Serie } from './cibles';
+import { blocClassement, publierPartie } from './classement';
 import { creer, nomDe, type ContexteVue, type Vue } from './commun';
 import { remplir, textes } from './textes';
 
@@ -57,6 +59,7 @@ export function vueChrono(ctx: ContexteVue): Vue {
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'chrono-bilan' });
   const statut = creer('p', { class: 'hint chrono-statut' });
   const liste = creer('ul', { class: 'essai-series' });
+  const general = creer('button', { type: 'button', class: 'secondary chrono-general', id: 'chrono-general' }, T.general_bouton);
   const depart = creer(
     'div',
     { class: 'essai-depart', id: 'chrono-depart' },
@@ -64,6 +67,7 @@ export function vueChrono(ctx: ContexteVue): Vue {
     creer('p', { class: 'hint' }, remplir(T.depart_aide, { s: DELAI / 1000 })),
     statut,
     liste,
+    general,
   );
   barre.hidden = true;
   bilan.hidden = true;
@@ -200,7 +204,9 @@ export function vueChrono(ctx: ContexteVue): Vue {
     ctx.carte.effacerMarques();
     if (!partie || !serie) return afficherDepart();
     const score = partie.score();
-    const b: Bilan = enregistrer(stockage(), idEpreuve(serie.id), score, Date.now());
+    const epreuve = idEpreuve(serie.id);
+    const bp = enregistrerPartie(stockage(), epreuve, score, Date.now());
+    const b = bp.toujours;
     const manquees = partie.jouees.filter((q) => !q.juste);
     const ligne = (q: QuestionJouee) =>
       q.temps_ms == null
@@ -225,13 +231,14 @@ export function vueChrono(ctx: ContexteVue): Vue {
             : T.premier_record
           : remplir(T.record_a_battre, { points: fmtPts(b.record.points), temps: fmtTemps(b.record.temps_ms) }),
       ),
-      ...(manquees.length ? [creer('ul', { class: 'essai-rates' }, ...manquees.map((q) => creer('li', {}, ligne(q))))] : []),
       creer(
         'div',
         { class: 'essai-actions' },
         creer('button', { type: 'button', id: 'chrono-rejouer' }, T.rejouer),
         creer('button', { type: 'button', class: 'secondary', id: 'chrono-autre' }, T.autre_serie),
       ),
+      blocClassement(epreuve, T.classement_titre, (pseudo) => publierPartie(pseudo, epreuve, bp)),
+      ...(manquees.length ? [creer('ul', { class: 'essai-rates' }, ...manquees.map((q) => creer('li', {}, ligne(q))))] : []),
     );
     bilan.querySelector('#chrono-rejouer')?.addEventListener('click', () => demarrer(s));
     bilan.querySelector('#chrono-autre')?.addEventListener('click', () => afficherDepart());
@@ -240,6 +247,20 @@ export function vueChrono(ctx: ContexteVue): Vue {
   }
 
   abandonner.addEventListener('click', () => afficherDepart(T.abandon));
+
+  // Classement général : la somme des records de toutes les séries.
+  general.addEventListener('click', () => {
+    depart.hidden = true;
+    const retour = creer('button', { type: 'button', class: 'secondary', id: 'chrono-retour' }, T.retour);
+    retour.addEventListener('click', () => afficherDepart());
+    bilan.replaceChildren(
+      creer('h2', {}, T.general_titre),
+      creer('p', { class: 'hint' }, T.general_aide),
+      blocClassement(GENERAL, T.classement_titre),
+      creer('div', { class: 'essai-actions' }, retour),
+    );
+    bilan.hidden = false;
+  });
 
   return {
     activer() {

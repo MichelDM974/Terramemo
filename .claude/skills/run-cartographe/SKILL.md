@@ -8,10 +8,14 @@ description: Lancer, piloter, photographier et MESURER Cartographe (site TypeScr
 Site statique TypeScript + Vite sans framework (`src/`, carte d3-geo : SVG
 en rendus `g` et `css` ; la carte qui tourne en Canvas 2D (rendu `canvas`)
 ou en WebGL2 (rendu `webgl`)),
-emballé en APK par Capacitor (`android/`). **Aucun serveur ni donnée
-serveur au J0** : tout le stockage est dans le navigateur (profil jetable
-du chromium du driver ; sur le téléphone, `mesurer` vide celui de l'origine
-mesurée, cf. « Première visite »). Tout passe par
+emballé en APK par Capacitor (`android/`). **Pas de serveur à soi** : le
+stockage est dans le navigateur (profil jetable du chromium du driver ;
+sur le téléphone, `mesurer` vide celui de l'origine mesurée, cf.
+« Première visite »), sauf les **classements du Chrono** : Firestore et
+Auth anonyme de Firebase (`src/epreuve/classement.ts`, règles
+`firestore.rules`), chargés seulement à l'ouverture d'un classement. Le
+driver (`ui`) y lit les vrais classements sans publier ni créer de
+compte ; pour publier, les émulateurs (ci-dessous). Tout passe par
 `.claude/skills/run-cartographe/driver.py` (Python stdlib seule) ; chemins
 relatifs à `Cartographe/`. Contrat de la page avec le pilote :
 `window.cartographe` (`src/main.ts`, `src/mesure/rapport.ts`).
@@ -482,11 +486,27 @@ APK : `android/app/build/outputs/apk/debug/app-debug.apk`. Le driver met
 `sdk.dir=/home/delhomme/Android/Sdk`). En CI : `.github/workflows/android.yml`
 (à la demande ou sur tag `v*`, APK en artefact).
 
+## Classements : émulateurs et règles
+
+```bash
+npm run test:regles                                                           # règles Firestore sur l'émulateur (aussi en CI)
+npx firebase emulators:start --only firestore,auth --project cartographe-geo  # Firestore 8062, Auth 8063, en arrière-plan
+```
+
+Puis le site de dev avec `?emulateurs` (`http://localhost:8060/?emulateurs#chrono`) :
+comptes et classements y vont aux émulateurs (serveur de dev seulement ;
+le site construit parle toujours au vrai projet). Les deux ne tournent
+pas ensemble : `test:regles` lance son propre émulateur sur 8062. Base
+d'émulateur vidée par `curl -X DELETE
+"http://127.0.0.1:8062/emulator/v1/projects/cartographe-geo/databases/(default)/documents"`.
+Java 21+ requis (celui du PC suffit).
+
 ## Déploiement (Firebase Hosting, projet `cartographe-geo`)
 
 ```bash
 npm run build && npx firebase deploy --only hosting
 python3 .claude/skills/run-cartographe/driver.py smoke --url https://cartographe-geo.web.app/
+npx firebase deploy --only firestore    # après un changement de firestore.rules ou des index
 ```
 
 Depuis le PC, juste après le commit. **`deploy` publie `dist/` tel qu'il

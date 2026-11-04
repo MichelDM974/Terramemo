@@ -1,8 +1,7 @@
 // Partie de Chrono (pur) : les pays d'une série, une question à la fois, un
-// seul toucher, des points au barème (bareme.ts). Le record se garde sur
-// l'appareil ; le classement en ligne viendra au J1a (#14), après le
-// renommage (#10) : un score publié est lié à l'adresse du site.
-import { pointsQuestion, scoreEpreuve, comparerScores, type ReponseChrono, type ScoreEpreuve } from './bareme';
+// seul toucher, des points au barème (bareme.ts). Les records se gardent sur
+// l'appareil (de toujours et de la semaine) ; classement.ts les publie.
+import { comparerScores, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
 
 /** Version du barème : un changement de formule repart de records vides. */
 export const VERSION_BAREME = 1;
@@ -115,4 +114,63 @@ export function enregistrer(stockage: Stockage | null, epreuve: string, score: S
     // Stockage plein ou refusé : le record vaut pour cette visite seulement.
   }
   return { record: candidat, nouveau, ancien };
+}
+
+// --- Semaine et classement général ------------------------------------------
+
+/** Période du classement de la semaine : « s » + numéro de semaine (bareme.ts). */
+export const periodeSemaine = (t_ms: number): string => `s${semaine(t_ms)}`;
+
+/** Clé du record de la semaine d'une épreuve. */
+const cleSemaine = (epreuve: string, periode: string) => `${epreuve}@${periode}`;
+
+export interface BilanPartie {
+  toujours: Bilan;
+  semaine: Bilan;
+  periode: string;
+}
+
+/**
+ * Garde le score comme record de toujours et de la semaine (les semaines
+ * passées sont oubliées) : ce que le classement de l'appareil sait publier.
+ */
+export function enregistrerPartie(stockage: Stockage | null, epreuve: string, score: ScoreEpreuve, date: number): BilanPartie {
+  const periode = periodeSemaine(date);
+  const toujours = enregistrer(stockage, epreuve, score, date);
+  const sem = enregistrer(stockage, cleSemaine(epreuve, periode), score, date);
+  const records = lireRecords(stockage);
+  const anciens = [...records.keys()].filter((k) => k.includes('@') && !k.endsWith(`@${periode}`));
+  if (anciens.length) {
+    for (const k of anciens) records.delete(k);
+    try {
+      stockage?.setItem(CLE_RECORDS, JSON.stringify(Object.fromEntries(records)));
+    } catch {
+      // Sans stockage, rien à oublier.
+    }
+  }
+  return { toujours, semaine: sem, periode };
+}
+
+/** Le record d'une épreuve pour une période ('toujours' ou la semaine). */
+export function recordDe(records: Map<string, RecordChrono>, epreuve: string, periode: string): RecordChrono | null {
+  return records.get(periode === 'toujours' ? epreuve : cleSemaine(epreuve, periode)) ?? null;
+}
+
+/**
+ * Le score du classement général : la somme des records de toutes les
+ * épreuves pour la période (décision « Classements ») ; null sans record.
+ */
+export function totalGeneral(records: Map<string, RecordChrono>, periode: string): ScoreEpreuve | null {
+  const choisis = [...records].filter(([k]) => (periode === 'toujours' ? !k.includes('@') : k.endsWith(`@${periode}`))).map(([, r]) => r);
+  if (!choisis.length) return null;
+  return choisis.reduce(
+    (t, r) => ({ points: t.points + r.points, justes: t.justes + r.justes, questions: t.questions + r.questions, temps_ms: t.temps_ms + r.temps_ms }),
+    { points: 0, justes: 0, questions: 0, temps_ms: 0 },
+  );
+}
+
+/** Pseudo public : espaces resserrés, 2 à 20 caractères ; null sinon. */
+export function pseudoValide(brut: string): string | null {
+  const p = brut.trim().replace(/\s+/g, ' ');
+  return p.length >= 2 && p.length <= 20 ? p : null;
 }

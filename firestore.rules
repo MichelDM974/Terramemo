@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// Classements du Chrono (#14, décisions « Points et classement » et
+// « Classements », docs/etudes/2026-11-04-points-classement.md § 4).
+// Sans serveur (offre Spark) : c'est l'appli qui écrit son score ; ces règles
+// n'en vérifient que la vraisemblance (bornes du barème, taille de l'épreuve,
+// semaine en cours, record qui progresse). Tests : tests/regles.test.ts, sur
+// l'émulateur. Tout le reste de la base est fermé.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Nombre de questions de chaque épreuve (src/vues/cibles.ts : 195 pays
+    // jouables, répartis en six continents).
+    function tailles() {
+      return {
+        'chrono:localiser:Africa': 54,
+        'chrono:localiser:Asia': 48,
+        'chrono:localiser:Europe': 44,
+        'chrono:localiser:North America': 23,
+        'chrono:localiser:Oceania': 14,
+        'chrono:localiser:South America': 12,
+        'chrono:localiser:tous': 195
+      };
+    }
+
+    // Le général additionne les records de toutes les épreuves : 390 questions au plus.
+    function questionsValides(epreuve, n) {
+      return epreuve == 'general'
+        ? n >= 1 && n <= 390
+        : epreuve in tailles() && n == tailles()[epreuve];
+    }
+
+    // Semaine du classement de la semaine : repart le lundi à 0 h UTC
+    // (src/epreuve/bareme.ts, semaine()).
+    function semaineCourante() {
+      return 's' + string(int(math.floor((request.time.toMillis() - 345600000) / 604800000)));
+    }
+
+    function scoreValide(epreuve) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['pseudo', 'points', 'justes', 'questions', 'temps_ms', 'date', 'bareme'])
+        && d.keys().hasAll(['pseudo', 'points', 'justes', 'questions', 'temps_ms', 'date', 'bareme'])
+        && d.pseudo is string && d.pseudo.size() >= 2 && d.pseudo.size() <= 20
+        && d.points is int && d.justes is int && d.questions is int && d.temps_ms is int
+        && d.bareme == 1
+        && d.date == request.time
+        && questionsValides(epreuve, d.questions)
+        && d.justes >= 0 && d.justes <= d.questions
+        // 1 000 par juste, 500 au plus par erreur.
+        && d.points >= d.justes * 1000
+        && d.points <= d.justes * 1000 + (d.questions - d.justes) * 500
+        // Au moins 0,2 s par question, 15 s au plus.
+        && d.temps_ms >= d.questions * 200 && d.temps_ms <= d.questions * 15000;
+    }
+
+    // Un record ne se réécrit que s'il progresse (plus de points, puis moins de
+    // temps), ou pour changer de pseudo à score égal.
+    function progresse() {
+      let n = request.resource.data;
+      let a = resource.data;
+      return n.points > a.points
+        || (n.points == a.points && n.temps_ms < a.temps_ms)
+        || (n.points == a.points && n.temps_ms == a.temps_ms && n.justes == a.justes && n.questions == a.questions);
+    }
+
+    match /classements/{epreuve}/periodes/{periode}/scores/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && (periode == 'toujours' || periode == semaineCourante())
+        && scoreValide(epreuve);
+      allow update: if request.auth != null && request.auth.uid == uid
+        && (periode == 'toujours' || periode == semaineCourante())
+        && scoreValide(epreuve) && progresse();
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

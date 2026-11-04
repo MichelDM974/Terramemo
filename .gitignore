@@ -8,3 +8,4 @@ android/.gradle/
 .firebase/
 coverage/
 __pycache__/
+firestore-debug.log

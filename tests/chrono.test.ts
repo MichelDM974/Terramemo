@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { enregistrer, idEpreuve, lireRecords, PartieChrono, VERSION_BAREME } from '../src/epreuve/chrono';
+import { enregistrer, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, totalGeneral, VERSION_BAREME } from '../src/epreuve/chrono';
 import type { Pays } from '../src/map/types';
 import { SERIE_TOUS, series } from '../src/vues/cibles';
 import { seriesChrono } from '../src/vues/chrono';
@@ -98,5 +98,45 @@ describe('séries du Chrono', () => {
   it('textes du Chrono : toutes les clés remplies par la vue existent', () => {
     for (const k of ['depart_aide', 'record', 'points', 'juste', 'faux', 'bilan_score', 'bilan_detail', 'bilan_faux', 'bilan_expire', 'record_a_battre', 'nouveau_record_bat'])
       expect(textes.chrono[k as keyof typeof textes.chrono], k).toBeTruthy();
+  });
+});
+
+describe('records de la semaine et classement général', () => {
+  const score = (points: number, justes: number, questions: number, temps_ms: number) => ({ points, justes, questions, temps_ms });
+  const lundi = Date.parse('2026-11-02T00:00:00Z');
+  const lundiSuivant = Date.parse('2026-11-09T00:00:00Z');
+
+  it('une partie compte pour toujours et pour la semaine ; les semaines passées sont oubliées', () => {
+    const s = stockage();
+    const a = idEpreuve('South America');
+    const b1 = enregistrerPartie(s, a, score(11_000, 11, 12, 60_000), lundi);
+    expect([b1.toujours.nouveau, b1.semaine.nouveau, b1.periode]).toEqual([true, true, periodeSemaine(lundi)]);
+    // La semaine suivante : moins bien que le record de toujours, mais premier de la semaine.
+    const b2 = enregistrerPartie(s, a, score(9_000, 9, 12, 70_000), lundiSuivant);
+    expect([b2.toujours.nouveau, b2.semaine.nouveau]).toEqual([false, true]);
+    const r = lireRecords(s);
+    expect(recordDe(r, a, 'toujours')?.points).toBe(11_000);
+    expect(recordDe(r, a, periodeSemaine(lundiSuivant))?.points).toBe(9_000);
+    expect(recordDe(r, a, periodeSemaine(lundi))).toBeNull();
+    expect([...r.keys()].filter((k) => k.includes('@'))).toEqual([`${a}@${periodeSemaine(lundiSuivant)}`]);
+  });
+
+  it('le général additionne les records de la période, toutes épreuves', () => {
+    const s = stockage();
+    enregistrerPartie(s, idEpreuve('South America'), score(11_000, 11, 12, 60_000), lundi);
+    enregistrerPartie(s, idEpreuve('Oceania'), score(12_300, 12, 14, 90_000), lundi);
+    const r = lireRecords(s);
+    expect(totalGeneral(r, 'toujours')).toEqual(score(23_300, 23, 26, 150_000));
+    expect(totalGeneral(r, periodeSemaine(lundi))).toEqual(score(23_300, 23, 26, 150_000));
+    expect(totalGeneral(r, periodeSemaine(lundiSuivant))).toBeNull();
+    expect(totalGeneral(new Map(), 'toujours')).toBeNull();
+  });
+
+  it('pseudo : 2 à 20 caractères, espaces resserrés', () => {
+    expect(pseudoValide('  Michel   D ')).toBe('Michel D');
+    expect(pseudoValide('M')).toBeNull();
+    expect(pseudoValide(' '.repeat(5))).toBeNull();
+    expect(pseudoValide('x'.repeat(20))).toBe('x'.repeat(20));
+    expect(pseudoValide('x'.repeat(21))).toBeNull();
   });
 });

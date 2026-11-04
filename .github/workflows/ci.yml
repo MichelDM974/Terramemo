@@ -21,7 +21,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+      # Émulateur Firestore des tests des règles (tests/regles.test.ts).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:regles
       - run: npm run build

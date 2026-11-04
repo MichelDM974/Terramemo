@@ -12,5 +12,18 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "eur3",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "auth": { "providers": { "anonymous": true } },
+  "emulators": {
+    "firestore": { "port": 8062 },
+    "auth": { "port": 8063 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
   }
 }

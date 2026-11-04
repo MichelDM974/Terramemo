@@ -127,24 +127,24 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
 - **Quatre classements par épreuve jouée** (choix de l'utilisateur) : un
   par épreuve et un général, chacun de toujours et de la semaine.
   - Par épreuve : le meilleur score Chrono de chaque joueur
-    (`classements/{epreuve}/toujours/{uid}` : pseudo, score, justes,
-    temps, date, version du barème), écrit en fin d'épreuve s'il bat
-    l'ancien.
+    (`classements/{epreuve}/periodes/toujours/scores/{uid}` : pseudo,
+    points, justes, questions, temps, date, version du barème), écrit en
+    fin d'épreuve s'il bat l'ancien.
   - Général : la somme des records Chrono de toutes les épreuves du
-    joueur (`classements/general/toujours/{uid}`), réécrite par l'appli
+    joueur (`classements/general/periodes/toujours/scores/{uid}`), réécrite par l'appli
     quand un record tombe. Chaque pays y compte deux fois (dans son
     continent et dans le Monde) : le marathon du Monde pèse autant que
     tous les continents réunis, et une épreuve ajoutée (capitales,
     drapeaux) fait monter le total possible de tous.
-  - De la semaine : les mêmes, sous `semaines/{n}/scores/{uid}`, remis à
+  - De la semaine : les mêmes, sous `periodes/s{n}/scores/{uid}`, remis à
     zéro le lundi à 0 h UTC (4 h à La Réunion), pour qu'un nouveau venu
     ait sa chance ; `n` = numéro de semaine entier depuis le lundi
     5 janvier 1970, `⌊(t − 345 600 000 ms) / 604 800 000 ms⌋`, que les
     règles recalculent depuis `request.time` (une semaine passée ne se
     réécrit pas). Les anciennes semaines restent (quelques Ko).
-- **Coût** : afficher un classement = 20 lectures (les 20 premiers) + 1
-  pour son rang (`count()` des meilleurs scores, une lecture par tranche
-  de 1 000) ; finir une épreuve = jusqu'à 4 écritures (les deux records
+- **Coût** : afficher un classement = 10 lectures (les 10 premiers) + 1
+  pour le nombre de joueurs, + 3 pour sa place et son rang s'il est hors
+  des 10 (`count()`, une lecture par tranche de 1 000) ; finir une épreuve = jusqu'à 4 écritures (les deux records
   de l'épreuve, les deux totaux), seulement pour ce qui progresse. Avec
   50 000 lectures et 20 000 écritures par jour (Spark), ~2 000
   affichages de classement et ~5 000 épreuves finies par jour, partagés
@@ -170,6 +170,12 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
     haut du classement et retire les impossibles.
   Un client modifié peut encore mentir de façon plausible ; pour une
   appli gratuite, à reprendre seulement si la triche apparaît.
+  **Fait le 04/11/2026** (`firestore.rules`, tests sur l'émulateur) : les
+  bornes du barème, le nombre de questions de chaque épreuve, au moins
+  0,2 s par question, la semaine en cours, le record qui progresse, le
+  pseudo (2 à 20 caractères). Pas encore : le document de début de
+  partie (durée réelle), App Check, les réponses gardées pour l'audit,
+  la liste de mots refusés pour les pseudos.
 - **Version du barème** dans chaque score : changer une formule ouvre un
   nouveau classement (les anciens scores ne se comparent plus).
 - Pseudo et scores publics : à la politique de confidentialité (#3), et
