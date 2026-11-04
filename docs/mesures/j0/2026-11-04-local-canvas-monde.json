@@ -253,11 +253,11 @@
   },
   "dessin": "p95 du script de chaque image < période du geste, sur chaque geste",
   "saccade": {
-   "seuil_ms": 25.0,
-   "tolerance_ms": 0.5,
-   "part": 0.05,
+   "acoup_des_ms": 21,
+   "acoups_par_s_max": 3,
    "max_ms": 50,
-   "tenue": "part des intervalles ≤ 1,5 × la période la plus courte de l'écran (repos ou gestes, sur le fichier), et images/s ; sans verdict"
+   "tenue_120_ms": 12.5,
+   "tenue": "part des intervalles ≤ 12,5 ms (120 i/s), et images/s ; sans verdict"
   }
  },
  "resume": {
@@ -274,7 +274,8 @@
     "rendu": "canvas",
     "gestes": 18,
     "intervalles": 497,
-    "saccades": 15,
+    "acoups": 15,
+    "duree_ms": 8548.8,
     "perdues": 15,
     "perdues_repos": 15,
     "bascule_images": 0,
@@ -285,10 +286,9 @@
      "plus_rapide": 0,
      "plus_lent": 0
     },
-    "part_saccades": 0.03,
-    "tenue": {
-     "periode_ecran_ms": 16.7,
-     "part": 0.97,
+    "acoups_par_s": 1.75,
+    "tenue_120": {
+     "part": 0.0,
      "cadence_ips": 58.1
     },
     "part_perdues": 0.03,
@@ -328,7 +328,8 @@
     "rendu": "canvas",
     "gestes": 15,
     "intervalles": 511,
-    "saccades": 9,
+    "acoups": 9,
+    "duree_ms": 8682.8,
     "perdues": 9,
     "perdues_repos": 9,
     "bascule_images": 0,
@@ -339,10 +340,9 @@
      "plus_rapide": 0,
      "plus_lent": 0
     },
-    "part_saccades": 0.018,
-    "tenue": {
-     "periode_ecran_ms": 16.7,
-     "part": 0.982,
+    "acoups_par_s": 1.04,
+    "tenue_120": {
+     "part": 0.0,
      "cadence_ips": 58.9
     },
     "part_perdues": 0.018,
@@ -382,7 +382,8 @@
     "rendu": "canvas",
     "gestes": 9,
     "intervalles": 481,
-    "saccades": 9,
+    "acoups": 9,
+    "duree_ms": 8166.2,
     "perdues": 9,
     "perdues_repos": 9,
     "bascule_images": 0,
@@ -393,10 +394,9 @@
      "plus_rapide": 0,
      "plus_lent": 0
     },
-    "part_saccades": 0.019,
-    "tenue": {
-     "periode_ecran_ms": 16.7,
-     "part": 0.981,
+    "acoups_par_s": 1.1,
+    "tenue_120": {
+     "part": 0.0,
      "cadence_ips": 58.9
     },
     "part_perdues": 0.019,
@@ -437,7 +437,6 @@
    "plus_rapide": 0,
    "plus_lent": 0
   },
-  "periode_ecran_ms": 16.7,
   "saccade_ok": false,
   "dessin_ok": true,
   "fin_geste_ok": true,
@@ -9566,10 +9565,10 @@
   }
  ],
  "resume_recalcule": {
-  "date": "2026-11-04T10:25:15+04:00",
+  "date": "2026-11-04T11:12:52+04:00",
   "outil": ".claude/skills/run-cartographe/driver.py resumer",
-  "commit": "57964e5",
-  "driver_modifie": true,
-  "pourquoi": "critère de saccade de l'utilisateur (04/11/2026) : intervalle ≥ 25 ms, tenue de la cadence à part, sans verdict ; mesures non refaites (PC chargé)"
+  "commit": "db800c4",
+  "driver_modifie": false,
+  "pourquoi": "critère de saccade par seconde de geste (à-coup dès 21 ms, NON au-delà de 3/s ou d'un intervalle > 50 ms), tenue des 120 i/s à 12,5 ms"
  }
 }
