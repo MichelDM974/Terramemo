@@ -201,6 +201,11 @@ OPTIONS_CHROMIUM = [
     "--disable-background-timer-throttling", "--disable-renderer-backgrounding",
     "--disable-backgrounding-occluded-windows",
 ]
+# --gpu : le vrai GPU du PC au lieu de SwiftShader (logiciel, le WebGL par
+# défaut du headless, très pessimiste). Le pilote ANGLE GL passe sur la
+# GTX 970 ; sans --ignore-gpu-blocklist, headless reste en logiciel.
+OPTIONS_GPU = ["--ignore-gpu-blocklist", "--enable-gpu", "--use-angle=gl"]
+GPU = False  # réglé par --gpu (main)
 
 
 class Tube:
@@ -220,6 +225,7 @@ class Tube:
         os.close(lecture)
         os.close(ecriture)
         options = [f"--remote-debugging-port={port}"] if port else []
+        options += OPTIONS_GPU if GPU else []
         with open(self.journal, "wb") as journal:
             self.processus = subprocess.Popen(
                 [str(binaire), *OPTIONS_CHROMIUM, *options, f"--user-data-dir={self.profil.name}",
@@ -1304,6 +1310,8 @@ def commande_mesurer(args):
         dire(f"navigateur : {s.navigateur}" + (f" ({chromium_binaire()})" if args.cible == "local" else ""))
         dire(f"code : {code['commit']}{' (arbre modifié)' if code['arbre_modifie'] else ''}"
              + (f" ; APK du {code['apk']['installe_le']}" if code.get("apk") else ""))
+        if args.cible == "local":
+            dire("GPU : " + (" ".join(OPTIONS_GPU) if GPU else "défaut du headless (WebGL en SwiftShader)"))
         dire(f"url : {url} ; ralenti ×{args.ralenti:g} ; cache {'actif' if args.cache else 'désactivé'}")
         for i in range(args.repetitions):
             debut = time.monotonic()
@@ -1329,7 +1337,8 @@ def commande_mesurer(args):
         dire(f"  erreur de la page : {e}")
     afficher_resume(res, f"{args.cible}, rendu {args.rendu}, {args.projection}, ralenti ×{args.ralenti:g}")
     jour = datetime.date.today().isoformat()
-    nom = f"{jour}-{args.cible}-{args.rendu}-{args.projection}" + (f"-x{args.ralenti:g}" if args.ralenti != 1 else "")
+    nom = (f"{jour}-{args.cible}-{args.rendu}-{args.projection}" + (f"-x{args.ralenti:g}" if args.ralenti != 1 else "")
+           + ("-gpu" if GPU and args.cible == "local" else ""))
     sortie = pathlib.Path(args.out).resolve() if args.out else MESURES
     sortie.mkdir(parents=True, exist_ok=True)
     fichier = sortie / f"{nom}.json"
@@ -1340,6 +1349,7 @@ def commande_mesurer(args):
         "code": code,
         "cible": args.cible, "navigateur": s.navigateur,
         "binaire": str(chromium_binaire()) if args.cible == "local" else None,
+        "options_gpu": (OPTIONS_GPU if GPU else []) if args.cible == "local" else None,
         "url": url, "ralenti": args.ralenti,
         "cache": args.cache, "repetitions": args.repetitions,
         "ecran_emule": TELEPHONE if args.cible == "local" else None,
@@ -1473,10 +1483,14 @@ def main():
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
                  "(nouveau headless : Event Timing faussé), ou un chemin")
+        sub.choices[nom].add_argument(
+            "--gpu", action="store_true",
+            help="navigateur local : le vrai GPU du PC (" + " ".join(OPTIONS_GPU) + ") au lieu de SwiftShader")
 
     args = p.parse_args()
-    global BINAIRE
+    global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
+    GPU = getattr(args, "gpu", GPU)
     commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk}
     try:
