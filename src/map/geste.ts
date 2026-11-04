@@ -28,12 +28,22 @@ export function estUnToucher(b: BilanPointeurs): boolean {
   );
 }
 
+/** Rend un point de l'écran visé sous la transformation de, dans le repère de vers. */
+export type Suivre = (de: Transfo, vers: Transfo, x: number, y: number) => [number, number];
+
+/** Carte plane (SVG) : écran = k × base + (x, y). */
+export const suivrePlan: Suivre = (de, vers, x, y) => versEcran(vers, ...versBase(de, x, y));
+
 /**
  * Suit les pointeurs posés et dit, au lever du dernier, si c'était un toucher.
  * Sans DOM : on lui passe les champs des PointerEvent et la transformation de
- * la carte (d3-zoom) au moment de l'événement.
+ * la carte au moment de l'événement ; suivre dit comment un point de la carte
+ * se déplace d'une transformation à l'autre (plan en SVG, carte qui tourne en
+ * Canvas : vue.suivrePoint).
  */
 export class SuiviPointeurs {
+  constructor(private readonly suivre: Suivre = suivrePlan) {}
+
   private actifs = new Set<number>();
   private premier: { id: number; x: number; y: number; t: number; transfo: Transfo | null } | null = null;
   private bilan: BilanPointeurs = { doigts_max: 0, deplacement_px: 0, duree_ms: 0, annule: false };
@@ -63,9 +73,10 @@ export class SuiviPointeurs {
    * Au lever d'un doigt : si le geste entier était un toucher, le point de la
    * carte que le doigt visait en se posant, sinon null. Avec les transformations
    * de la pose et du lever, ce point est rendu dans le repère du lever : sous
-   * 10 px de glissé, d3-zoom a déjà déplacé la carte (à la souris à chaque
-   * mouvement ; au doigt au-delà de la tolérance du système), et le point de
-   * l'écran où le doigt s'est posé montrerait jusqu'à 10 px à côté.
+   * 10 px de glissé, la carte a déjà suivi le doigt (d3-zoom à la souris à
+   * chaque mouvement, au doigt au-delà de la tolérance du système ; le Canvas
+   * dès le premier mouvement), et le point de l'écran où le doigt s'est posé
+   * montrerait jusqu'à 10 px à côté.
    */
   haut(id: number, x: number, y: number, t: number, transfo: Transfo | null = null): { x: number; y: number } | null {
     this.bouge(id, x, y);
@@ -76,7 +87,7 @@ export class SuiviPointeurs {
     this.premier = null;
     if (id !== premier.id || !estUnToucher(this.bilan)) return null;
     if (!premier.transfo || !transfo) return { x: premier.x, y: premier.y };
-    const [x1, y1] = versEcran(transfo, ...versBase(premier.transfo, premier.x, premier.y));
+    const [x1, y1] = this.suivre(premier.transfo, transfo, premier.x, premier.y);
     return { x: x1, y: y1 };
   }
 

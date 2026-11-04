@@ -62,6 +62,30 @@ export interface EcouteGestes {
   dessin?(ms: number): void;
 }
 
+/**
+ * Ce que les vues, main.ts et window.cartographe.carte demandent d'une carte,
+ * SVG (Carte : rendus g et css) ou Canvas (CarteCanvas, carte qui tourne).
+ */
+export interface CarteAffichee {
+  readonly hote: HTMLElement;
+  rendre(): ChronoRendu;
+  readonly projection: GeoProjection;
+  readonly transfo: Transfo;
+  readonly nbPastilles: number;
+  contexte(): ContexteCarte;
+  pick(x: number, y: number): ResultatPick | null;
+  noter(cible: string, x: number, y: number): Note;
+  ecran(id: string): [number, number] | null;
+  zoomerSur(id: string): void;
+  montrer(id: string): void;
+  zoomer(t: Transfo): void;
+  marquer(id: string, classe: string): void;
+  effacerMarques(): void;
+  anneau(id: string, classe: string, rayon_px?: number): void;
+  masquer(oui: boolean): void;
+  detruire(): void;
+}
+
 export interface OptionsCarte {
   hote: HTMLElement;
   donnees: DonneesCarte;
@@ -80,7 +104,7 @@ function el<K extends keyof SVGElementTagNameMap>(nom: K, attrs: Record<string, 
   return e;
 }
 
-export class Carte {
+export class Carte implements CarteAffichee {
   readonly hote: HTMLElement;
   readonly enveloppe: HTMLDivElement;
   readonly svg: SVGSVGElement;

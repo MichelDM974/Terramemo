@@ -73,3 +73,26 @@ export async function chargerDonnees(base = '/geo/'): Promise<{ donnees: Donnees
     },
   };
 }
+
+/** Formes de la carte allégée (monde-leger.topo.json), par id : les mêmes que la complète, moins de sommets. */
+export interface FormesLegeres {
+  pays: Map<string, Forme>;
+  zones: Map<string, Forme>;
+}
+
+export function formesLegeres(topo: Topology<Objets>): FormesLegeres {
+  const parId = (o: GeometryCollection<{ id: string }>) =>
+    new Map((feature(topo, o).features as Forme[]).filter((f) => f.geometry).map((f) => [f.properties.id, f]));
+  return { pays: parId(topo.objects.pays), zones: parId(topo.objects.contestees) };
+}
+
+/** Carte allégée du rendu Canvas (tracée pendant les gestes) ; null si elle manque : la complète partout. */
+export async function chargerLeger(base = '/geo/'): Promise<FormesLegeres | null> {
+  try {
+    const r = await fetch(base + 'monde-leger.topo.json');
+    if (!r.ok) return null;
+    return formesLegeres((await r.json()) as Topology<Objets>);
+  } catch {
+    return null;
+  }
+}

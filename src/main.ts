@@ -1,8 +1,9 @@
 import './style.css';
 import './carte.css';
 import { version as VERSION } from '../package.json';
-import { Carte } from './map/carte';
-import { chargerDonnees } from './map/donnees';
+import { Carte, type CarteAffichee } from './map/carte';
+import { CarteCanvas } from './map/carte-canvas';
+import { chargerDonnees, chargerLeger } from './map/donnees';
 import { prechauffer } from './map/geo';
 import type { ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
@@ -18,8 +19,11 @@ import { vueSaisie } from './vues/saisie';
 const debutScript = performance.now();
 
 /**
- * Rendu par défaut : « css » en attendant le téléphone, où le choix g / css
- * se tranche (?rendu=g ou ?rendu=css force l'un ou l'autre).
+ * Rendu par défaut : « css » en attendant le téléphone, où le choix g / css /
+ * canvas se tranche (?rendu=g, ?rendu=css ou ?rendu=canvas force l'un d'eux).
+ * - canvas : la carte qui tourne (décision du 04/11), redessinée à chaque
+ *   image dans un Canvas 2D (src/map/carte-canvas.ts) ; mesures du PC dans
+ *   le message du commit qui l'ajoute, à refaire sur le téléphone.
  * - g : la transformation est posée sur le <g> du SVG à chaque mouvement ;
  *   le navigateur repeint la carte à chaque image.
  * - css : pendant le geste, le compositeur déplace et agrandit l'image déjà
@@ -61,7 +65,7 @@ export const RENDU_DEFAUT: Rendu = 'css';
 
 const params = new URLSearchParams(location.search);
 const pRendu = params.get('rendu');
-const rendu: Rendu = pRendu === 'g' || pRendu === 'css' ? pRendu : RENDU_DEFAUT;
+const rendu: Rendu = pRendu === 'g' || pRendu === 'css' || pRendu === 'canvas' ? pRendu : RENDU_DEFAUT;
 const pProj = params.get('projection');
 const projection: NomProjection = estNomProjection(pProj) ? pProj : 'monde';
 const CLE_MESURES = 'cartographe.mesures';
@@ -114,6 +118,14 @@ function reglerSegment(id: string, actuel: string, param: string): void {
 }
 reglerSegment('reglage-rendu', rendu, 'rendu');
 reglerSegment('reglage-projection', projection, 'projection');
+// En canvas, la carte tourne : la « projection » n'est que le méridien central au chargement.
+if (rendu === 'canvas') {
+  const nom = document.querySelector('#reglage-projection')?.closest('.reglage')?.querySelector('.reglage-nom');
+  if (nom) {
+    nom.textContent = 'Départ';
+    nom.setAttribute('title', 'Méridien central au chargement : Monde 0°, Pacifique 150° E');
+  }
+}
 
 const caseMesures = document.getElementById('reglage-mesures') as HTMLInputElement | null;
 function appliquerMesures(): void {
@@ -186,11 +198,17 @@ export interface AideCarte {
   /** Rectangle de la carte dans la fenêtre. */
   rect(): { x: number; y: number; largeur: number; hauteur: number };
   transfo(): Transfo;
-  /** Pose une transformation de d3-zoom (non comptée comme geste). */
+  /**
+   * Pose une transformation (non comptée comme geste). Canvas : r (méridien
+   * central) facultatif ; un x qui ne centre pas l'ovale devient une rotation
+   * qui garde au centre le point qu'il y mettait.
+   */
   zoomer(t: Transfo): void;
   zoomerSur(id: string): void;
-  /** Pays qui ont une cible de pastille au zoom courant ; visible : disque dessiné (circle.pastille). */
+  /** Pays qui ont une cible de pastille au zoom courant ; visible : disque dessiné (circle.pastille en SVG). */
   pastilles(): { id: string; visible: boolean }[];
+  /** Rendu canvas : compteurs du dernier dessin (durée du script, carte allégée, parties et sommets tracés). */
+  dessin(): CarteCanvas['dernier'];
 }
 
 export interface Cartographe {
@@ -221,16 +239,20 @@ window.cartographe = {
 
 const deuxImages = () => new Promise<void>((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok())));
 
+// Carte allégée (rendu canvas) : téléchargée en même temps que la complète, servie quand elle arrive.
+const leger = rendu === 'canvas' ? chargerLeger() : null;
+
 async function demarrer(): Promise<void> {
   const { donnees, chrono } = await chargerDonnees();
-  const carte = new Carte({
+  const options = {
     hote,
     donnees,
     projection,
     rendu,
-    surToucher: (x, y, ev) => vueActive?.toucher?.(x, y, ev),
+    surToucher: (x: number, y: number, ev: PointerEvent) => vueActive?.toucher?.(x, y, ev),
     gestes: mesures.ecouteGestes(),
-  });
+  };
+  const carte: CarteAffichee = rendu === 'canvas' ? new CarteCanvas({ ...options, leger: leger ?? undefined }) : new Carte(options);
   const cr = carte.rendre();
   const finInsertion = performance.now();
   await deuxImages();
@@ -273,6 +295,7 @@ async function demarrer(): Promise<void> {
     zoomer: (t) => carte.zoomer(t),
     zoomerSur: (id) => carte.zoomerSur(id),
     pastilles: () => carte.contexte().pastilles.map((p) => ({ id: p.id, visible: p.visible })),
+    dessin: () => (carte instanceof CarteCanvas ? carte.dernier : null),
   };
   document.body.dataset.pret = '1';
   pretOk();

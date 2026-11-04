@@ -2,6 +2,9 @@
   /* Carte : la mer, un bleu nuit à peine plus clair que le fond (style commun dans
      style.css : --terre, --frontiere, --hachure, --pastille, --good, --danger). */
   --mer: #0b1322;
+  /* Frontières du rendu canvas : un pixel physique (au lieu de 0,6 px CSS), donc
+     plus opaques que --frontiere (0,22 × 1,7 px ≈ 0,37 × 1 px sur le téléphone). */
+  --frontiere-fine: rgba(236, 241, 254, 0.37);
 }
 
 /* La page tient dans l'écran : en-tête puis la carte sur toute la hauteur restante. */
@@ -53,6 +56,8 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 }
 /* Mode css : l'enveloppe est une couche du compositeur, déplacée pendant le geste. */
 .carte[data-rendu="css"] .carte-enveloppe { will-change: transform; }
+/* Rendu canvas : un seul élément, redessiné à chaque image (src/map/carte-canvas.ts). */
+.carte-canvas { position: absolute; left: 0; top: 0; display: block; }
 /* Ce qui sort du SVG reste peint : il entre dans l'écran pendant un geste en mode css. */
 .carte-svg { display: block; overflow: visible; }
 

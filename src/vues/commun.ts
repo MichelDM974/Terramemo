@@ -1,10 +1,10 @@
-import type { Carte } from '../map/carte';
+import type { CarteAffichee } from '../map/carte';
 import type { DonneesCarte } from '../map/donnees';
 import type { Statut } from '../map/types';
 import type { Mesures } from '../mesure/mesures';
 
 export interface ContexteVue {
-  carte: Carte;
+  carte: CarteAffichee;
   donnees: DonneesCarte;
   mesures: Mesures;
   /** Zone sous l'en-tête (main#app). */

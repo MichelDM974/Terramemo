@@ -41,12 +41,18 @@ export interface Entite {
   forme: Forme;
 }
 
-/** Transformation de d3-zoom : écran = k × base + (x, y). */
+/**
+ * Transformation de la carte : écran = k × base + (x, y), la base étant la
+ * projection au zoom 1 (d3-zoom en SVG). En Canvas, la carte tourne : r est
+ * la longitude du méridien central (degrés), base = projection tournée de r,
+ * et x découle de k (l'ovale reste centré : vue.ts). Absent : pas de rotation.
+ */
 export interface Transfo {
   k: number;
   x: number;
   y: number;
+  r?: number;
 }
 
 export type NomProjection = 'monde' | 'pacifique';
-export type Rendu = 'g' | 'css';
+export type Rendu = 'g' | 'css' | 'canvas';

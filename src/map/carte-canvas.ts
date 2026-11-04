@@ -1,0 +1,696 @@
+// Carte Canvas qui tourne (décision « Carte qui tourne ») : la mappemonde garde
+// son ovale (Equal Earth) et tourne sous le doigt comme un globe. Même API que
+// la carte SVG (CarteAffichee) pour les vues et window.cartographe.carte.
+//
+// Gestes : suivi des doigts écrit ici plutôt que d3-zoom. d3-zoom tient une
+// transformation plane (k, x, y) : son x devrait être converti en rotation et
+// remis à zéro à chaque événement, et son pincement garde fixe un point du
+// plan, pas un point de la sphère. Ici, chaque geste garde une ancre (le point
+// de la sphère sous le doigt, ou entre les deux doigts, vue.pointVirtuel) et
+// chaque mouvement calcule la vue qui la remet sous les doigts (vue.placer) :
+// le zoom autour du pincement et la rotation viennent du même calcul. Les
+// doigts sont lus dans les TouchEvent (comme d3-zoom) : les mesures
+// (src/mesure) y lisent le nombre de doigts et le type du geste ; la souris
+// par les PointerEvent, la molette par wheel. Pas d'inertie (d3-zoom n'en a
+// pas non plus).
+//
+// Dessin : une fois par image au plus (requestAnimationFrame), quand la vue
+// change ; la carte allégée pendant un mouvement si la complète a trop de
+// sommets visibles, la complète au repos (redessinée dans la fin du geste).
+import { interpolateZoom } from 'd3-interpolate';
+import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
+import type { DonneesCarte } from './donnees';
+import { image, MARGE_PX, preparer, SEUIL_MOUVEMENT_PX, SEUIL_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
+import { versEcran } from './geo';
+import { SuiviPointeurs } from './geste';
+import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
+import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
+import { ROTATIONS } from './projection';
+import type { Forme, Transfo } from './types';
+import {
+  bornerK,
+  cadre,
+  dePlan,
+  ecartLon,
+  placer,
+  pointVirtuel,
+  projectionDe,
+  regionVisible,
+  suivrePoint,
+  transfoDe,
+  versPlan,
+  vueDeTransfo,
+  type Cadre,
+  type VueGlobe,
+} from './vue';
+import type { GeoProjection } from 'd3-geo';
+
+export const ZOOM_MAX = 400;
+const ZOOM_MAX_MONTRER = 40;
+const DUREE_MONTRER_MS = { min: 600, max: 2000 } as const;
+/** Pas des hachures à l'écran (px), comme le SVG. */
+const PAS_HACHURES = 6;
+/**
+ * Au-delà de ce nombre de sommets visibles de la carte complète, un mouvement
+ * dessine la carte allégée : au zoom 1, la complète en montre 125 000 (3 ms de
+ * tracé sur le PC, sans le remplissage), l'allégée 13 000 ; zoomé sur une
+ * région (zoom 20), la complète tient seule dans le budget.
+ */
+export const BUDGET_SOMMETS = 20_000;
+/** Fin d'un geste de molette : sans nouvel événement pendant ce délai (comme d3-zoom). */
+const FIN_MOLETTE_MS = 150;
+
+/** Les parties précalculées d'une carte, alignées sur donnees.entites et donnees.contestees. */
+export interface Calque {
+  pays: Partie[][];
+  zones: Partie[][];
+  sommets: number;
+}
+
+export function calque(donnees: DonneesCarte, formes?: { pays: Map<string, Forme>; zones: Map<string, Forme> }): Calque {
+  const pays = donnees.entites.map((e) => preparer(formes?.pays.get(e.pays.id) ?? e.forme));
+  const zones = donnees.contestees.map((z) => preparer(formes?.zones.get(z.forme.properties.id) ?? z.forme));
+  let sommets = 0;
+  for (const ps of [...pays, ...zones]) for (const p of ps) sommets += p.points;
+  return { pays, zones, sommets };
+}
+
+/** Sommets des parties visibles : le coût du tracé de ce calque. */
+export function sommetsVisibles(im: ImageTrace, cq: Calque): number {
+  let n = 0;
+  for (const ps of cq.pays) for (const p of ps) if (visible(im, p)) n += p.points;
+  return n;
+}
+
+interface Couleurs {
+  mer: string;
+  terre: string;
+  frontiere: string;
+  hachure: string;
+  pastille: string;
+  bord: string;
+  marques: Record<string, string>;
+}
+
+function lireCouleurs(): Couleurs {
+  const css = getComputedStyle(document.documentElement);
+  const v = (nom: string) => css.getPropertyValue(nom).trim();
+  return {
+    mer: v('--mer'),
+    terre: v('--terre'),
+    frontiere: v('--frontiere-fine'),
+    hachure: v('--hachure'),
+    pastille: v('--pastille'),
+    bord: v('--bg'),
+    // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
+    marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
+  };
+}
+
+const deuxImages = () => new Promise<number>((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+const TOUR = 2 * Math.PI;
+
+export class CarteCanvas implements CarteAffichee {
+  readonly hote: HTMLElement;
+  readonly canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private c: Cadre = cadre(1, 1);
+  private v: VueGlobe;
+  private proj: GeoProjection;
+  private dpr = 1;
+  private complet: Calque | null = null;
+  private leger: Calque | null = null;
+  private couleurs: Couleurs;
+  private motif: CanvasPattern | null = null;
+  private pastilles: Pastille[] = [];
+  private marques = new Map<string, Set<string>>();
+  private anneaux: { id: string; classe: string; rayon_px: number }[] = [];
+  private image = 0;
+  /** Un mouvement (geste ou vol) est en cours : carte allégée possible. */
+  private enMouvement = false;
+  private masquee = false;
+  private observateur: ResizeObserver;
+  private ecouteurs: [EventTarget, string, EventListener, AddEventListenerOptions?][] = [];
+  private suivi: SuiviPointeurs;
+  /** Geste de l'utilisateur en cours : ancre et état des doigts. */
+  private geste: {
+    ancre: [number, number];
+    ids: string;
+    k0: number;
+    d0: number;
+    aBouge: boolean;
+    souris: number | null;
+    molette: number;
+  } | null = null;
+  /** Vol de montrer() en cours, avancé par l'image du dessin (une seule boucle d'images). */
+  private vol: { interp: (u: number) => number[]; duree: number; t0: number | null; cible: VueGlobe } | null = null;
+  /** Dernier dessin : compteurs, pour le pilote et les mesures. */
+  dernier: { ms: number; trace_ms: number; leger: boolean; parties: number; sommets: number; emis: number; copies: number } | null = null;
+
+  constructor(private readonly o: OptionsCarte & { leger?: Promise<{ pays: Map<string, Forme>; zones: Map<string, Forme> } | null> }) {
+    this.hote = o.hote;
+    this.hote.classList.add('carte');
+    this.hote.dataset.rendu = 'canvas';
+    this.hote.dataset.projection = o.projection;
+    this.canvas = document.createElement('canvas');
+    this.canvas.className = 'carte-canvas';
+    this.canvas.setAttribute('role', 'img');
+    this.canvas.setAttribute('aria-label', 'Carte du monde');
+    const ctx = this.canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D indisponible');
+    this.ctx = ctx;
+    this.couleurs = lireCouleurs();
+    // Point de départ de la rotation : le segment Projection (Monde 0°, Pacifique 150° E).
+    this.v = { r: -ROTATIONS[o.projection][0], k: 1, y: 0 };
+    this.proj = projectionDe(this.v.r, this.c);
+    this.suivi = new SuiviPointeurs((de, vers, x, y) =>
+      suivrePoint(this.c, { r: de.r ?? 0, k: de.k, y: de.y }, { r: vers.r ?? 0, k: vers.k, y: vers.y }, x, y),
+    );
+
+    const sur = <E extends Event>(cible: EventTarget, type: string, f: (ev: E) => void, opts?: AddEventListenerOptions) => {
+      const l = f as EventListener;
+      cible.addEventListener(type, l, opts);
+      this.ecouteurs.push([cible, type, l, opts]);
+    };
+    // Seuil toucher/déplacer : les PointerEvent, doigt et souris, comme en SVG.
+    sur<PointerEvent>(this.hote, 'pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      const [x, y] = this.local(ev);
+      this.suivi.bas(ev.pointerId, x, y, ev.timeStamp, this.transfo);
+      if (ev.pointerType === 'mouse') this.sourisBas(ev);
+    });
+    sur<PointerEvent>(this.hote, 'pointermove', (ev) => {
+      const [x, y] = this.local(ev);
+      this.suivi.bouge(ev.pointerId, x, y);
+      if (ev.pointerType === 'mouse' && this.geste?.souris === ev.pointerId) this.sourisBouge(ev);
+    });
+    sur<PointerEvent>(this.hote, 'pointercancel', (ev) => {
+      this.suivi.annule(ev.pointerId);
+      if (ev.pointerType === 'mouse' && this.geste?.souris === ev.pointerId) this.finir(ev);
+    });
+    sur<PointerEvent>(this.hote, 'pointerup', (ev) => {
+      const [x, y] = this.local(ev);
+      // Fin du geste de la souris d'abord : le toucher est lu dans la vue du lever.
+      if (ev.pointerType === 'mouse' && this.geste?.souris === ev.pointerId) this.finir(ev);
+      const toucher = this.suivi.haut(ev.pointerId, x, y, ev.timeStamp, this.transfo);
+      if (toucher) this.o.surToucher?.(toucher.x, toucher.y, ev);
+    });
+    // Doigts : les TouchEvent donnent tous les doigts posés d'un coup.
+    const doigts = (ev: TouchEvent) => this.doigts(ev);
+    sur<TouchEvent>(this.hote, 'touchstart', doigts, { passive: true });
+    sur<TouchEvent>(this.hote, 'touchmove', doigts, { passive: true });
+    sur<TouchEvent>(this.hote, 'touchend', doigts, { passive: true });
+    sur<TouchEvent>(this.hote, 'touchcancel', doigts, { passive: true });
+    sur<WheelEvent>(this.hote, 'wheel', (ev) => this.molette(ev), { passive: false });
+
+    this.observateur = new ResizeObserver(() => this.redimensionner());
+    void o.leger?.then((formes) => {
+      if (!formes) return;
+      this.leger = calque(this.o.donnees, formes);
+    });
+  }
+
+  /** Prépare les géométries et dessine la carte entière. */
+  rendre(): ChronoRendu {
+    const t0 = performance.now();
+    if (!this.complet) this.complet = calque(this.o.donnees);
+    const t1 = performance.now();
+    this.dimensionner();
+    this.poser(placer(this.c, [this.v.r, 0], this.c.l / 2, this.c.h / 2, 1), true);
+    if (!this.canvas.isConnected) this.hote.prepend(this.canvas);
+    this.dessiner();
+    const t2 = performance.now();
+    this.observateur.observe(this.hote);
+    return { chemins_ms: t1 - t0, insertion_ms: t2 - t1, caracteres_chemins: 0 };
+  }
+
+  get projection(): GeoProjection {
+    return this.proj;
+  }
+
+  get transfo(): Transfo {
+    return transfoDe(this.v, this.c);
+  }
+
+  get nbPastilles(): number {
+    return this.pastilles.length;
+  }
+
+  contexte(): ContexteCarte {
+    return { proj: this.proj, t: this.transfo, entites: this.o.donnees.entites, pastilles: this.pastilles };
+  }
+
+  pick(x: number, y: number): ResultatPick | null {
+    return pick(this.contexte(), x, y);
+  }
+
+  noter(cible: string, x: number, y: number): Note {
+    return noter(this.contexte(), cible, x, y);
+  }
+
+  ecran(id: string): [number, number] | null {
+    const t = this.transfo;
+    const p = this.pastilles.find((pa) => pa.id === id);
+    if (p) return versEcran(t, p.bx, p.by);
+    const e = this.o.donnees.entites.find((en) => en.pays.id === id);
+    const b = e && this.proj(e.pays.point);
+    return b ? versEcran(t, b[0], b[1]) : null;
+  }
+
+  zoomerSur(id: string): void {
+    const v = this.vise(id, ZOOM_MAX);
+    if (v) this.poserProgramme(v);
+  }
+
+  /**
+   * « Voir » : le globe tourne et zoome en même temps jusqu'au pays (son point
+   * au centre), par l'interpolation de van Wijk et Nuij sur un plan où la
+   * longitude du centre est déroulée (le plus court chemin autour du globe) :
+   * sur un long trajet, elle recule d'abord. Carte allégée pendant le vol.
+   */
+  montrer(id: string): void {
+    const cible = this.vise(id, ZOOM_MAX_MONTRER);
+    if (!cible) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible);
+    this.arreterVol();
+    const depart = { ...this.v };
+    const arrivee = { ...cible, r: depart.r + ecartLon(depart.r, cible.r) };
+    const interp = interpolateZoom(versPlan(depart, this.c), versPlan(arrivee, this.c));
+    const duree = Math.min(DUREE_MONTRER_MS.max, Math.max(DUREE_MONTRER_MS.min, interp.duration));
+    this.vol = { interp, duree, t0: null, cible };
+    this.demander();
+  }
+
+  /** Une image du vol : la vue à l'instant ts (première image : départ). */
+  private avancerVol(ts: number): void {
+    const vol = this.vol;
+    if (!vol) return;
+    vol.t0 ??= ts;
+    const u = Math.min(1, Math.max(0, (ts - vol.t0) / vol.duree));
+    // Même courbe que d3-transition (easeCubicInOut).
+    const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+    if (u >= 1) {
+      this.vol = null;
+      this.enMouvement = false;
+      this.poser(vol.cible);
+      return;
+    }
+    this.enMouvement = true;
+    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX));
+  }
+
+  /** La vue qui met le point d'un pays au centre, son plus grand polygone sur un quart de l'écran. */
+  private vise(id: string, kMax: number): VueGlobe | null {
+    const e = this.o.donnees.entites.find((en) => en.pays.id === id);
+    if (!e) return null;
+    const taille1 = Math.max(tailleEcranPx(e.pays, this.c.s, 1), 1e-6);
+    const k = bornerK(Math.min(this.c.l, this.c.h) / 4 / taille1, kMax);
+    return placer(this.c, e.pays.point, this.c.l / 2, this.c.h / 2, k);
+  }
+
+  /**
+   * Pose une transformation (sans geste : non comptée dans les mesures). Avec
+   * r, la rotation ; sans r, celle du moment. Un x qui ne garde pas l'ovale
+   * centré (pilote écrit pour la carte plane) devient une rotation : le point
+   * qu'il mettait au centre de l'écran y reste.
+   */
+  zoomer(t: Transfo): void {
+    this.poserProgramme(vueDeTransfo(t, this.c, this.v.r, ZOOM_MAX));
+  }
+
+  marquer(id: string, classe: string): void {
+    let s = this.marques.get(id);
+    if (!s) this.marques.set(id, (s = new Set()));
+    s.add(classe);
+    this.demander();
+  }
+
+  effacerMarques(): void {
+    this.marques.clear();
+    this.anneaux = [];
+    this.demander();
+  }
+
+  anneau(id: string, classe: string, rayon_px = 16): void {
+    this.anneaux.push({ id, classe, rayon_px });
+    this.demander();
+  }
+
+  masquer(oui: boolean): void {
+    this.masquee = oui;
+    if (!oui) {
+      this.redimensionner();
+      this.demander();
+    }
+  }
+
+  detruire(): void {
+    this.observateur.disconnect();
+    this.vol = null;
+    cancelAnimationFrame(this.image);
+    for (const [cible, type, l, opts] of this.ecouteurs) cible.removeEventListener(type, l, opts);
+    this.canvas.remove();
+  }
+
+  // --- vue -------------------------------------------------------------------
+
+  /** Change la vue : projection tournée et pastilles recalculées (pick et noter les lisent). */
+  private poser(v: VueGlobe, forcer = false): void {
+    const rChange = forcer || v.r !== this.v.r;
+    const kChange = v.k !== this.v.k;
+    this.v = v;
+    if (rChange) this.proj = projectionDe(v.r, this.c);
+    if (rChange || kChange) {
+      this.pastilles = calculerPastilles(this.o.donnees.entites, this.proj, v.k);
+      this.hote.dataset.pastilles = String(this.pastilles.length);
+      this.hote.dataset.disques = String(this.pastilles.filter((p) => p.visible).length);
+    }
+  }
+
+  private poserProgramme(v: VueGlobe): void {
+    this.arreterVol();
+    this.enMouvement = false;
+    this.poser(v);
+    this.demander();
+  }
+
+  /** Arrête un vol où il en est ; sa dernière image était peut-être allégée : la complète. */
+  private arreterVol(): void {
+    if (!this.vol) return;
+    this.vol = null;
+    this.enMouvement = false;
+    this.demander();
+  }
+
+  private dimensionner(): void {
+    const l = this.hote.clientWidth || window.innerWidth;
+    const h = this.hote.clientHeight || window.innerHeight;
+    this.dpr = window.devicePixelRatio || 1;
+    this.c = cadre(l, h);
+    this.canvas.width = Math.round(l * this.dpr);
+    this.canvas.height = Math.round(h * this.dpr);
+    this.canvas.style.width = `${l}px`;
+    this.canvas.style.height = `${h}px`;
+    this.motif = this.creerMotif();
+    this.proj = projectionDe(this.v.r, this.c);
+  }
+
+  /**
+   * Nouvelle taille : même point au centre, même échelle à l'écran (k × échelle
+   * de la projection), bornée au zoom 1. Un canvas se retrace sans coût de
+   * tracés SVG : pas de seuil de 15 % sur la hauteur ici.
+   */
+  private redimensionner(): void {
+    if (this.masquee) return;
+    const l = this.hote.clientWidth;
+    const h = this.hote.clientHeight;
+    if (!l || !h || (l === this.c.l && h === this.c.h && (window.devicePixelRatio || 1) === this.dpr)) return;
+    const avant = this.c;
+    const centre = pointVirtuel(this.v, avant, avant.l / 2, avant.h / 2);
+    const echelle = this.v.k * avant.s;
+    this.dimensionner();
+    this.poser(placer(this.c, centre, this.c.l / 2, this.c.h / 2, bornerK(echelle / this.c.s, ZOOM_MAX)), true);
+    this.dessiner();
+  }
+
+  // --- gestes ----------------------------------------------------------------
+
+  private local(ev: { clientX: number; clientY: number }): [number, number] {
+    const r = this.hote.getBoundingClientRect();
+    return [ev.clientX - r.left, ev.clientY - r.top];
+  }
+
+  private debuter(source: Event, souris: number | null): void {
+    this.arreterVol();
+    this.geste = { ancre: [0, 0], ids: '', k0: this.v.k, d0: 0, aBouge: false, souris, molette: 0 };
+    this.o.gestes?.debut?.(this.transfo, source);
+  }
+
+  /** Ancre le geste sur les points posés : leur centre, et l'écart des deux premiers. */
+  private ancrer(points: [number, number][], ids: string): void {
+    const g = this.geste;
+    if (!g) return;
+    const [cx, cy] = centre(points);
+    g.ancre = pointVirtuel(this.v, this.c, cx, cy);
+    g.ids = ids;
+    g.k0 = this.v.k;
+    g.d0 = points.length >= 2 ? ecart(points) : 0;
+  }
+
+  /** Un mouvement : la vue qui remet l'ancre sous les doigts, au zoom du pincement. */
+  private suivre(points: [number, number][], source: Event): void {
+    const g = this.geste;
+    if (!g) return;
+    const [cx, cy] = centre(points);
+    const k = points.length >= 2 && g.d0 > 0 ? bornerK((g.k0 * ecart(points)) / g.d0, ZOOM_MAX) : this.v.k;
+    const v = placer(this.c, g.ancre, cx, cy, k);
+    if (v.r === this.v.r && v.k === this.v.k && v.y === this.v.y) return;
+    g.aBouge = true;
+    this.enMouvement = true;
+    this.poser(v);
+    this.o.gestes?.mouvement?.(this.transfo, source);
+    this.demander();
+  }
+
+  private finir(source: Event): void {
+    const g = this.geste;
+    if (!g) return;
+    clearTimeout(g.molette);
+    this.geste = null;
+    const t0 = performance.now();
+    // La carte complète, tout de suite : le dessin de la fin est dans script_ms.
+    this.enMouvement = false;
+    if (g.aBouge) this.dessiner();
+    const script_ms = performance.now() - t0;
+    this.o.gestes?.fin?.({ a_bouge: g.aBouge, source, script_ms, image: deuxImages().then(() => performance.now() - t0) });
+  }
+
+  private doigts(ev: TouchEvent): void {
+    const points: [number, number][] = [];
+    const ids: number[] = [];
+    // Deux doigts au plus, comme d3-zoom : un troisième ne change rien.
+    for (let i = 0; i < Math.min(2, ev.touches.length); i++) {
+      const t = ev.touches[i];
+      if (!t) continue;
+      points.push(this.local(t));
+      ids.push(t.identifier);
+    }
+    if (!points.length) {
+      if (this.geste && this.geste.souris === null) this.finir(ev);
+      return;
+    }
+    if (!this.geste) this.debuter(ev, null);
+    else if (this.geste.souris !== null) return;
+    const cle = ids.join(',');
+    if (cle !== this.geste?.ids) this.ancrer(points, cle);
+    else if (ev.type === 'touchmove') this.suivre(points, ev);
+  }
+
+  private sourisBas(ev: PointerEvent): void {
+    if (this.geste) return;
+    this.hote.setPointerCapture?.(ev.pointerId);
+    this.debuter(ev, ev.pointerId);
+    this.ancrer([this.local(ev)], String(ev.pointerId));
+  }
+
+  private sourisBouge(ev: PointerEvent): void {
+    this.suivre([this.local(ev)], ev);
+  }
+
+  private molette(ev: WheelEvent): void {
+    ev.preventDefault();
+    if (this.geste && this.geste.souris !== null) return;
+    if (this.geste?.ids && this.geste.ids !== 'molette') return; // doigts posés
+    if (!this.geste) this.debuter(ev, null);
+    const g = this.geste;
+    if (!g) return;
+    const p = this.local(ev);
+    // Le point sous la souris reste sous la souris ; même pas que d3-zoom.
+    this.ancrer([p], 'molette');
+    const facteur = Math.pow(2, -ev.deltaY * (ev.deltaMode === 1 ? 0.05 : ev.deltaMode ? 1 : 0.002));
+    g.k0 = this.v.k;
+    const v = placer(this.c, g.ancre, p[0], p[1], bornerK(this.v.k * facteur, ZOOM_MAX));
+    if (v.k !== this.v.k || v.y !== this.v.y || v.r !== this.v.r) {
+      g.aBouge = true;
+      this.enMouvement = true;
+      this.poser(v);
+      this.o.gestes?.mouvement?.(this.transfo, ev);
+      this.demander();
+    }
+    clearTimeout(g.molette);
+    g.molette = window.setTimeout(() => this.finir(ev), FIN_MOLETTE_MS);
+  }
+
+  // --- dessin ----------------------------------------------------------------
+
+  /** Un dessin à la prochaine image (un seul, quel que soit le nombre de demandes). */
+  private demander(): void {
+    if (this.image || this.masquee) return;
+    this.image = requestAnimationFrame((ts) => {
+      this.image = 0;
+      this.avancerVol(ts);
+      this.dessiner();
+      if (this.geste?.aBouge && this.dernier) this.o.gestes?.dessin?.(this.dernier.ms);
+      if (this.vol) this.demander();
+    });
+  }
+
+  private creerMotif(): CanvasPattern | null {
+    const cote = Math.max(1, Math.round(PAS_HACHURES * this.dpr));
+    const m = document.createElement('canvas');
+    m.width = cote;
+    m.height = cote;
+    const c = m.getContext('2d');
+    if (!c) return null;
+    // Un trait vertical de 1,2 px à 1 px du bord, tourné de 45° : le motif du SVG.
+    c.strokeStyle = this.couleurs.hachure;
+    c.lineWidth = 1.2 * this.dpr;
+    c.beginPath();
+    c.moveTo(this.dpr, 0);
+    c.lineTo(this.dpr, cote);
+    c.stroke();
+    const motif = this.ctx.createPattern(m, 'repeat');
+    // Le motif vit dans l'espace du contexte (mis à l'échelle du dpr) : pas constant à l'écran.
+    motif?.setTransform(new DOMMatrix().rotateSelf(45).scaleSelf(1 / this.dpr));
+    return motif;
+  }
+
+  /** Dessine la vue courante (synchrone). */
+  private dessiner(): void {
+    if (this.masquee || !this.complet) return;
+    cancelAnimationFrame(this.image);
+    this.image = 0;
+    const t0 = performance.now();
+    const { ctx, c, v } = this;
+    const im = image(v, c, regionVisible(v, c, MARGE_PX), this.enMouvement ? SEUIL_MOUVEMENT_PX : SEUIL_PX);
+    const leger = this.enMouvement && this.leger !== null && sommetsVisibles(im, this.complet) > BUDGET_SOMMETS;
+    const cq = leger && this.leger ? this.leger : this.complet;
+    const coul = this.couleurs;
+    const entites = this.o.donnees.entites;
+
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, c.l, c.h);
+    const ovale = new Path2D();
+    tracerOvale(ovale, im);
+    ctx.fillStyle = coul.mer;
+    ctx.fill(ovale);
+
+    // Terres : un chemin pour tout ce qui n'a pas de couture (rempli puis tracé),
+    // les coutures à part (remplies, tracées sans le côté qui suit l'antiméridien).
+    const terres = new Path2D();
+    const coutures = new Path2D();
+    const couturesContour = new Path2D();
+    const parClasse = new Map<string, Path2D>();
+    const hachures = new Path2D();
+    let avecCoutures = false;
+    cq.pays.forEach((ps, i) => {
+      const e = entites[i];
+      if (!e) return;
+      const classes = this.marques.get(e.pays.id);
+      const conteste = e.pays.statut === 'conteste';
+      for (const p of ps) {
+        if (!visible(im, p)) continue;
+        if (p.couture) {
+          avecCoutures = true;
+          tracerPartie(coutures, im, p);
+          tracerPartie(couturesContour, im, p, true);
+        } else tracerPartie(terres, im, p);
+        if (classes) {
+          for (const cl of classes) {
+            let chemin = parClasse.get(cl);
+            if (!chemin) parClasse.set(cl, (chemin = new Path2D()));
+            tracerPartie(chemin, im, p);
+          }
+        }
+        // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
+        if (conteste) tracerPartie(hachures, im, p);
+      }
+    });
+    for (const ps of cq.zones) for (const p of ps) if (visible(im, p)) tracerPartie(hachures, im, p);
+    const t1 = performance.now();
+
+    ctx.fillStyle = coul.terre;
+    ctx.fill(terres);
+    if (avecCoutures) ctx.fill(coutures);
+    for (const [cl, chemin] of parClasse) {
+      const couleur = coul.marques[cl];
+      if (!couleur) continue;
+      ctx.fillStyle = couleur;
+      ctx.fill(chemin);
+    }
+    if (this.motif) {
+      ctx.fillStyle = this.motif;
+      ctx.fill(hachures);
+    }
+    // Frontières d'un pixel physique : sous 1 px, Skia trace un trait fin
+    // (hairline) sans calculer d'enveloppe. Le trait de 0,6 px du SVG (1,7 px
+    // physique, joints ronds) faisait perdre la moitié des images d'une
+    // rotation au zoom 1 sur le PC (rastérisation logicielle de
+    // chrome-headless-shell), 1 px aucune. Plus opaque (--frontiere-fine) pour
+    // garder la même encre par unité de longueur.
+    ctx.strokeStyle = coul.frontiere;
+    ctx.lineWidth = 1 / this.dpr;
+    ctx.lineJoin = 'miter';
+    ctx.stroke(terres);
+    if (avecCoutures) ctx.stroke(couturesContour);
+
+    this.dessinerPastilles();
+    const ms = performance.now() - t0;
+    this.dernier = { ms, trace_ms: t1 - t0, leger, parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies };
+    this.hote.dataset.dessin = leger ? 'leger' : 'complet';
+  }
+
+  /** Disques des pastilles (rayon constant à l'écran) et anneaux. */
+  private dessinerPastilles(): void {
+    const { ctx, c } = this;
+    const t = this.transfo;
+    const coul = this.couleurs;
+    const r = PASTILLE.rayon_visible_px;
+    const parCouleur = new Map<string, Path2D>();
+    for (const p of this.pastilles) {
+      if (!p.visible) continue;
+      const [x, y] = versEcran(t, p.bx, p.by);
+      if (x < -r || y < -r || x > c.l + r || y > c.h + r) continue;
+      const classes = this.marques.get(p.id);
+      let couleur = coul.pastille;
+      for (const cl of classes ?? []) couleur = coul.marques[cl] ?? couleur;
+      let chemin = parCouleur.get(couleur);
+      if (!chemin) parCouleur.set(couleur, (chemin = new Path2D()));
+      chemin.moveTo(x + r, y);
+      chemin.arc(x, y, r, 0, TOUR);
+    }
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = coul.bord;
+    for (const [couleur, chemin] of parCouleur) {
+      ctx.fillStyle = couleur;
+      ctx.fill(chemin);
+      ctx.stroke(chemin);
+    }
+    for (const a of this.anneaux) {
+      const e = this.o.donnees.entites.find((en) => en.pays.id === a.id);
+      const b = e && this.proj(e.pays.point);
+      if (!b) continue;
+      const [x, y] = versEcran(t, b[0], b[1]);
+      ctx.beginPath();
+      ctx.arc(x, y, a.rayon_px, 0, TOUR);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = coul.marques[a.classe] ?? coul.marques.juste ?? coul.pastille;
+      ctx.stroke();
+    }
+  }
+}
+
+function centre(points: readonly [number, number][]): [number, number] {
+  let x = 0;
+  let y = 0;
+  for (const p of points) {
+    x += p[0];
+    y += p[1];
+  }
+  return [x / points.length, y / points.length];
+}
+
+function ecart(points: readonly [number, number][]): number {
+  const [a, b] = points;
+  return a && b ? Math.hypot(a[0] - b[0], a[1] - b[1]) : 0;
+}
