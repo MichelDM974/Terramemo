@@ -1,11 +1,12 @@
 ---
 name: run-cartographe
-description: Lancer, piloter, photographier et MESURER Cartographe (site TypeScript + Vite et APK Capacitor, carte SVG du monde). À utiliser pour servir le site, vérifier qu'un changement marche dans un vrai navigateur, prendre des captures des vues, rejouer gestes et touchers et mesurer chargement, saccades et latence (chromium du PC, Chrome du téléphone ou APK par adb), construire et installer l'APK, déployer sur Firebase Hosting.
+description: Lancer, piloter, photographier et MESURER Cartographe (site TypeScript + Vite et APK Capacitor, carte du monde en SVG ou en Canvas). À utiliser pour servir le site, vérifier qu'un changement marche dans un vrai navigateur, prendre des captures des vues, rejouer gestes et touchers et mesurer chargement, saccades et latence (chromium du PC, Chrome du téléphone ou APK par adb), construire et installer l'APK, déployer sur Firebase Hosting.
 ---
 
 # Lancer, piloter et mesurer Cartographe
 
-Site statique TypeScript + Vite sans framework (`src/`, carte SVG d3-geo),
+Site statique TypeScript + Vite sans framework (`src/`, carte d3-geo : SVG
+en rendus `g` et `css`, Canvas en rendu `canvas`, la carte qui tourne),
 emballé en APK par Capacitor (`android/`). **Aucun serveur ni donnée
 serveur au J0** : tout le stockage est dans le navigateur (profil jetable
 du chromium du driver, rien à nettoyer). Tout passe par
@@ -54,54 +55,85 @@ python3 .claude/skills/run-cartographe/driver.py ui --width 1280    # captures P
 
 ```bash
 python3 .claude/skills/run-cartographe/driver.py mesurer --cible local --rendu css               # PC, vitesse réelle
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible local --rendu g --ralenti 4     # processeur ralenti 4×
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu css              # Chrome du téléphone (adb)
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu css             # l'APK (adb)
+python3 .claude/skills/run-cartographe/driver.py mesurer --cible local --rendu canvas --ralenti 4  # processeur ralenti 4×
+python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu canvas           # Chrome du téléphone (adb)
+python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu canvas          # l'APK (adb)
 ```
 
-Options : `--projection monde|pacifique`, `--repetitions N` (défaut 3 :
-chaque répétition recharge la page et rejoue tout), `--url`, `--cache`
-(garde le cache HTTP, désactivé par défaut : première visite), `--ws`
-(local par HTTP + WebSocket, le chemin du téléphone), `--serie` (adb),
-`--out`, `--binaire`.
+Options : `--rendu css|g|canvas` (défaut css ; `g` et `css` : carte SVG,
+`canvas` : la carte qui tourne), `--projection monde|pacifique` (en
+canvas : le méridien central au chargement, « Départ » dans ⚙),
+`--repetitions N` (défaut 3 : chaque répétition recharge la page et rejoue
+tout), `--url`, `--cache` (garde le cache HTTP, désactivé par défaut :
+première visite), `--ws` (local par HTTP + WebSocket, le chemin du
+téléphone), `--serie` (adb), `--out`, `--binaire`.
 
-Chaque répétition : chargement de `?rendu=…&projection=…&mesures=0`,
-attente de `window.cartographe.repos` (période de l'écran mesurée), puis
-11 gestes par `Input.dispatchTouchEvent` (pincements à deux doigts et
-glissers à un doigt, un `touchMove` par période d'écran au repos — sur le
-téléphone au plus 8,33 ms, la cadence d'un écran 120 Hz, car il peut tenir
-60 Hz au repos et 120 Hz pendant un geste —, zooms de 1 à ~36,
-`zoomerSur("DEU")` au milieu), puis des touchers sur des pays et des
-pastilles (micro-États, Caraïbes au zoom 1, Italie zoomée, Caraïbes au
-zoom 8 ; coordonnées lues dans le DOM : `circle.pastille[data-id]`, sinon
-`cartographe.carte.ecran(id)`) ; enfin `cartographe.rapport()`.
+Chaque répétition : chargement de `?rendu=…&projection=…&mesures=0` (sans
+panneau : sa mise à jour présenterait une image et fausserait les fins, cf.
+`rapport.ts`), attente de `window.cartographe.repos` (période de l'écran
+mesurée), puis 14 gestes par `Input.dispatchTouchEvent` (un `touchMove` par
+période d'écran au repos — sur le téléphone au plus 8,33 ms, la cadence
+d'un écran 120 Hz, car il peut tenir 60 Hz au repos et 120 Hz pendant un
+geste) :
+- 6 pincements à deux doigts et 5 glissés à un doigt, zooms de 1 à ~36,
+  `zoomerSur("DEU")` au milieu ;
+- le **tour du monde** (`tourner` dans le résumé) : au zoom 2, trois longs
+  glissés horizontaux de 300 px en 960 ms. En canvas ils font tourner le
+  globe d'un peu plus d'un tour (`scenario.transfo_apres_tour` : `r`, le
+  méridien central à la fin) ; en SVG la carte plane va jusqu'à son bord.
 
-Sortie : un résumé `[OK ]`/`[NON]` par critère et le JSON complet
-(rapports v2 bruts, touchers visés, scénario et pas de rejeu, navigateur et
-binaire, `code` : commit, arbre modifié ou non, et pour la WebView les
-dates de l'APK installé et du fichier) dans
+Puis des touchers sur des pays et des pastilles (micro-États, Caraïbes au
+zoom 1, Italie zoomée, Caraïbes au zoom 8 ; coordonnées lues dans le DOM :
+`circle.pastille[data-id]`, sinon `cartographe.carte.ecran(id)`, seul
+chemin en canvas). En canvas, la carte reste tournée par le tour du monde :
+les touchers au zoom 1 éprouvent `ecran` et `pick` sur un globe tourné
+(`touchers_vises[].rotation`). Enfin `cartographe.rapport()` (v3).
+
+Sortie : un résumé `[OK ]`/`[NON]`/`[ ? ]` (à juger) par critère et le JSON
+complet (v3 : rapports v3 bruts, touchers visés, scénario et pas de rejeu,
+navigateur et binaire, `code` : commit, arbre modifié ou non, et pour la
+WebView les dates de l'APK installé et du fichier) dans
 `docs/mesures/j0/AAAA-MM-JJ-<cible>-<rendu>-<projection>[-x<ralenti>].json`
 (réécrit si relancé le même jour). **Les commiter** : ce sont les preuves
-du J0. Lignes du résumé :
+du J0. Champs du rapport : `src/mesure/rapport.ts` (le contrat, qui fait
+foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
 
 - **rendu < 1 s** : `chargement.total_ms`.
-- **période des gestes = période du repos** : `stats.periode_ms` (10e
-  centile des intervalles de chaque geste) à côté de `ecran.periode_ms` ;
-  `[NON]` dès qu'un geste s'en écarte de plus de 25 %
-  (`stats.ecart_periode`) : l'écran change de fréquence pendant les gestes.
-  Les images perdues sont comptées sur la période de chaque geste.
-- **pas de saccade** : plus de 5 % d'images perdues (intervalle > 1,5
-  période du geste) sur un type de geste, ou un intervalle > 50 ms ; l'œil
-  sur le téléphone tranche.
+- **période des gestes face au repos** : `stats.periode_geste_ms` (médiane
+  de la grappe basse des intervalles, calée sur 144, 120, 90, 60 Hz ou
+  30 images/s) à côté de `ecran.periode_ms` (repos) ; écart au-delà de 25 %
+  selon `stats.ecart_sens` : `plus_rapide` (l'écran monte à 120 Hz pendant
+  le geste : attendu, `[OK ]`) ou `plus_lent` (l'appli tient une cadence
+  sous celle de l'écran, ex. 60 images/s sur 120 Hz : `[ ? ]`).
+  `stats.bascule_images` : intervalles de tête encore à la fréquence du
+  repos.
+- **pas de saccade** : `[NON]` si plus de 5 % d'images perdues sur la
+  période du geste (`stats.perdues` : intervalle > 1,5 × `periode_geste_ms`,
+  la bascule de tête comptée sur la période du repos) ou un intervalle
+  > 50 ms ; sinon `[ ? ]` si un geste est `plus_lent`, avec sa cadence en Hz
+  et `stats.perdues_repos` (le compte sur la période du repos) : une cadence
+  moitié n'est pas une saccade, l'œil tranche ; sinon `[OK ]`.
+- **dessin des images < période de l'écran** (canvas seulement, `[ — ]`
+  sans objet en SVG) : `gestes[].dessin_ms` (script de chaque image
+  dessinée pendant le geste), le 95e centile de chaque geste face à sa
+  période ; `[NON]` dès qu'un geste le dépasse (leur nombre est affiché).
+  Ni rastérisation ni présentation : un dessin court ne prouve pas l'image
+  à l'heure, les images perdues le disent.
 - **fin de geste < 100 ms** (seuil proposé, celui du toucher) :
   `gestes[].fin.event_timing_ms`, Event Timing du touchend qui finit le
   geste jusqu'à la présentation (en css : transformation posée, nouvelle
-  peinture et rastérisation de toute la carte), médiane et max par type de
-  geste ; `fin.image_ms` (fil principal seul) en indicatif. Une entrée qui
-  ne se clôt qu'avec l'image du geste suivant (sans image longue ni
-  `image_ms` long) est montrée à part, hors verdict : la fin n'avait rien
-  de neuf à présenter, sa durée est celle de la pause du scénario (vu en
-  g : 576 ms, 1592 ms si la pause passe à 1,5 s).
+  peinture et rastérisation de toute la carte ; en canvas : la carte
+  complète redessinée à la place de l'allégée), médiane et max ;
+  `fin.image_ms` (fil principal seul) en indicatif. Selon
+  `fin.event_timing_etat` : `sous_seuil` (une entrée postérieure est
+  arrivée, l'image de la fin a pris moins de 16 ms) compté 16 ;
+  `en_attente` (rien de postérieur : image peut-être pas encore présentée,
+  durée inconnue) jamais compté, il met la ligne à `[ ? ]`, comme une fin
+  sans entrée. **Écartée du verdict** (montrée à part) seulement l'artefact
+  prouvé du rendu g : `rendu` g ET `fin.close_par_entree_suivante` ET
+  `image_ms` < 100 ET aucune longue image (la fin ne change aucun pixel,
+  son entrée attend la première image présentée ensuite ; en css la fin
+  repeint toujours, jamais écartée). Aucune fin comptée : `[ ? ]`.
 - **toucher < 100 ms** : Event Timing du pointerup partout
   (`event_timing_etat` 'mesure') ; 'sous_seuil' (aucune entrée, donc sous
   16 ms) compté 16 ; 'non_pris_en_charge' : repli sur
@@ -129,17 +161,28 @@ Préparer, une fois :
 3. Écran allumé et déverrouillé pendant les mesures (sinon plus d'images,
    tout se fige) : `adb shell svc power stayon usb` (remettre `false` après).
 
+Déroulé d'une séance avec le téléphone (l'ordre compte : les mesures
+d'abord, téléphone au calme, puis l'œil, panneau affiché) :
+1. préparer (ci-dessus), `serve --preview` sur le PC, arbre propre
+   (`git status`) : le JSON note le commit mesuré ;
+2. mesurer Chrome dans les trois rendus, puis `apk --installer` et
+   mesurer l'APK dans les trois rendus (commandes ci-dessous) ; lire les
+   résumés, regarder les `[ ? ]` ;
+3. « À l'œil », point 0 d'abord (le doigt monte-t-il l'écran à 120 Hz
+   quand le driver ne le fait pas ?), puis les autres, dont la rotation
+   (point 2) ;
+4. commiter les JSON de `docs/mesures/j0/` et noter au registre ce que
+   l'œil a vu, rendu par rendu ; `adb shell svc power stayon false`.
+
 Mesurer (même code, autre transport : `adb forward tcp:8061` vers le
 socket DevTools, client WebSocket du driver) :
 
 ```bash
 python3 .claude/skills/run-cartographe/driver.py serve --preview        # en arrière-plan, sur le PC
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu css
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu g
+for r in css g canvas; do python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu $r; done
 python3 .claude/skills/run-cartographe/driver.py apk --installer        # APK de debug sur le téléphone
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu css
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu g
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu css --projection pacifique
+for r in css g canvas; do python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu $r; done
+python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu canvas --projection pacifique
 ```
 
 - `chrome` : `adb forward tcp:8061 localabstract:chrome_devtools_remote`
@@ -155,7 +198,10 @@ python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu
   l'**APK de debug** ouvre DevTools.
 - Aucun ralenti sur le téléphone (`--ralenti` refusé). L'écran est à
   120 Hz mais peut tenir 60 Hz au repos : `ecran.periode_ms` (repos) et la
-  période des gestes sont affichées côte à côte, l'écart en `[NON]`.
+  période des gestes sont affichées côte à côte (écart `plus_rapide` en
+  `[OK ]`, `plus_lent` en `[ ? ]`). Les touchers injectés par DevTools ne
+  passent pas par l'écran tactile : ils ne font peut-être pas monter
+  l'écran à 120 Hz (point 0 de « À l'œil »).
 - **À l'œil en plus des chiffres** : déplacer et pincer soi-même la carte
   (saccades du compositeur, tuiles non peintes : invisibles aux
   intervalles rAF), toucher les micro-États et les Caraïbes au doigt.
@@ -164,35 +210,63 @@ python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu
 
 ### À l'œil, avec le téléphone (après les mesures)
 
-Noter chaque point (OK, ou ce qui est vu) dans le registre.
+Noter chaque point (OK, ou ce qui est vu) dans le registre. Chrome
+(`http://localhost:8060` après `adb reverse tcp:8060 tcp:8060`, que le
+driver retire en fin de mesure, ou le site déployé) **puis** l'APK ; rendu
+changé dans ⚙ → Rendu (la page se recharge), les trois : `css`, `g`,
+`canvas`.
 
-1. **g / css pendant un pincement** (Chrome puis APK ; ⚙ → Rendu, la page
-   se recharge) : pincer de l'Europe entière jusqu'à la Suisse, doigts
-   posés, puis lever. En css la couche entière est agrandie par le
-   compositeur jusqu'au lever du doigt : carte floue, disques des pastilles
-   et traits des frontières grossis avec le zoom, puis net d'un coup au
-   lever (coût lu dans `fin.event_timing_ms`). En g : net tout du long,
-   mais saccades possibles. Dire lequel gêne le plus (tranche
-   `RENDU_DEFAUT`, src/main.ts).
-2. **Clavier et hauteur de page dans l'APK** : vue Saisie, toucher un
+0. **Le doigt et le driver voient-ils le même écran ?** ⚙ → « Afficher
+   les mesures ». Pincer au doigt de l'Europe à la Suisse, puis glisser :
+   le panneau donne `Écran … Hz (… ms)` (repos) et, par geste, « N
+   perdue(s) à P ms » (P : la période du geste) et « ⚠ geste plus rapide
+   que le repos : X Hz contre Y Hz » si elle change. Le faire dans Chrome
+   puis dans l'APK, et comparer P à `stats.periode_geste_ms` des JSON du
+   driver (même cible, même rendu). Si le doigt donne 8,3 ms (120 Hz) et le
+   driver 16,7 ms, les gestes injectés ne font pas monter l'écran : ne
+   retenir du driver que les fins, les touchers et `dessin_ms`, et juger la
+   fluidité au doigt (panneau affiché). Panneau affiché, une fin en g peut
+   valoir ~270 ms (sa mise à jour clôt l'entrée) : ne pas la lire comme
+   une vraie fin lente.
+1. **g / css / canvas pendant un pincement** : pincer de l'Europe entière
+   jusqu'à la Suisse, doigts posés, puis lever. En css la couche entière
+   est agrandie par le compositeur jusqu'au lever du doigt : carte floue,
+   disques des pastilles et traits des frontières grossis avec le zoom,
+   puis net d'un coup au lever (coût lu dans `fin.event_timing_ms`). En g :
+   net tout du long, mais saccades possibles. En canvas : net tout du long
+   (redessinée à chaque image), carte allégée pendant le geste. Dire
+   lequel gêne le plus (tranche `RENDU_DEFAUT`, src/main.ts).
+2. **La carte qui tourne (canvas)** : au zoom 1 puis zoomé (Europe),
+   glisser horizontalement, long et vite, plusieurs fois dans le même sens
+   (le tour du monde), puis lentement. Le globe tourne-t-il sans à-coup,
+   le point sous le doigt reste-t-il sous le doigt ? La **carte allégée**
+   se voit-elle pendant le mouvement (côtes simplifiées, petites îles qui
+   changent), et le passage à la carte complète au lever (saut, flou,
+   éclair) ? Les frontières (un pixel physique, `--frontiere-fine`) :
+   trop marquées, trop fines ? Les hachures (Sahara occidental…) glissent
+   sous la carte pendant le geste : gênant ? « Voir » dans la vue Toucher
+   (le globe tourne et zoome jusqu'au pays) : fluide ? Enfin toucher des
+   micro-États sur le globe tourné (la carte rend le bon pays).
+3. **Clavier et hauteur de page dans l'APK** : vue Saisie, toucher un
    champ ; le clavier rétrécit-il la page (fond qui remonte, carte
    retracée au retour dans la vue Carte, centre gardé) ou passe-t-il
    par-dessus ? Revenir à la Carte clavier ouvert puis fermé : même vue.
-3. **Écran de lancement** : fermer l'appli (balayer dans les récentes),
+4. **Écran de lancement** : fermer l'appli (balayer dans les récentes),
    la rouvrir : icône sur fond sombre, puis la carte, **sans éclair
    blanc** entre les deux (`backgroundColor` de capacitor.config.ts).
-4. **Bord à bord** : rien sous l'encoche ni sous la barre de navigation ;
+5. **Bord à bord** : rien sous l'encoche ni sous la barre de navigation ;
    dans `chrome://inspect` → la WebView → console :
    `getComputedStyle(document.body).padding` doit donner des valeurs
    **non nulles** en haut et en bas (env(safe-area-inset-*) reçues).
-5. **Icônes des barres du téléphone** : passer le téléphone en **thème
+6. **Icônes des barres du téléphone** : passer le téléphone en **thème
    clair** (Paramètres → Affichage → Clair) et rouvrir l'APK : heure,
    batterie et boutons de navigation doivent rester **clairs** sur le fond
    sombre (`style: 'DARK'` du plugin SystemBars), pas sombres sur sombre.
    Remettre le thème d'avant.
-6. **Touchers au doigt** : micro-États (Vatican, Saint-Marin, Monaco) et
-   Caraïbes au zoom 1 puis zoomés, dans la vue Toucher ; un glissé léger
-   du doigt (moins de 10 px) doit compter comme toucher au point visé.
+7. **Touchers au doigt** (les trois rendus) : micro-États (Vatican,
+   Saint-Marin, Monaco) et Caraïbes au zoom 1 puis zoomés, dans la vue
+   Toucher ; un glissé léger du doigt (moins de 10 px) doit compter comme
+   toucher au point visé.
 
 ### Essai de saisie (clavier Samsung puis Gboard)
 
@@ -243,7 +317,10 @@ arbre propre (`git status`).
   sur le téléphone serait donc un vrai défaut à creuser, pas cet artefact.
 - Headless tourne à 60 Hz et `--ralenti` ne ralentit que le fil principal
   du moteur de rendu (ni compositeur, ni rastérisation, ni GPU) : le PC
-  avantage le rendu `css`. Seul le téléphone tranche.
+  avantage le rendu `css`. En canvas, à l'inverse, le PC sans GPU
+  rastérise le canvas au processeur : ses images perdues à ×4 ne disent
+  rien du téléphone, `dessin_ms` (le script) se compare mieux. Seul le
+  téléphone tranche.
 - Les mesures du PC sont faussées si la machine est chargée (autre build,
   autre session) : relancer au calme avant d'en conclure quoi que ce soit.
 - `dist/` est partagé : `apk` et `npm run build` le réécrivent ; `serve

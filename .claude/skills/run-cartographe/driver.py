@@ -6,7 +6,7 @@ adb). Python stdlib seule ; à lancer depuis Cartographe/ :
     serve [--preview] [--lan]   Vite sur le port 8060 (au premier plan)
     smoke                       page, fichiers /geo/*.json, carte peinte
     ui [--width 384]            captures des vues (téléphone ou PC)
-    mesurer --cible local|chrome|webview
+    mesurer --cible local|chrome|webview [--rendu css|g|canvas]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
     apk [--installer]           APK de débogage, installé par adb
@@ -57,10 +57,17 @@ CRITERE_FIN_GESTE_MS = 100
 # Event Timing ne garde que les entrées de 16 ms et plus (durationThreshold).
 SEUIL_EVENT_TIMING_MS = 16
 # « Saccade » au sens du driver (à confirmer à l'œil sur le téléphone) : plus
-# de 5 % d'images perdues sur un type de geste, ou un intervalle de plus de
-# 50 ms (3 images à 60 Hz, 6 à 120 Hz).
+# de 5 % d'images perdues sur un type de geste (comptées sur la période du
+# geste, stats.perdues), ou un intervalle de plus de 50 ms (3 images à 60 Hz,
+# 6 à 120 Hz). Une cadence plus lente que l'écran au repos (stats.ecart_sens
+# 'plus_lent' : appli à 60 images par seconde sur un écran à 120 Hz) n'en est
+# pas une sous ces deux seuils : « ? », à juger avec sa cadence en Hz.
 SACCADE_PART = 0.05
 SACCADE_MAX_MS = 50
+# Fin de geste écartée du verdict (artefact prouvé, src/mesure/rapport.ts,
+# Geste.fin) : rendu g, close par l'entrée suivante, image_ms sous ce seuil
+# et aucune longue image.
+ARTEFACT_IMAGE_MS = 100
 
 
 def dire(texte=""):
@@ -793,13 +800,23 @@ def commande_ui(args):
 
 # Scénario de gestes (celui des premières mesures de l'agent de la carte,
 # pour comparer) : écarts des doigts en px pour pincer, déplacement pour
-# glisser, autour du centre de la carte. zoomerSur ne compte pas comme geste.
+# glisser, autour du centre de la carte. zoomerSur et zoomer ne comptent pas
+# comme gestes. À la fin, le tour du monde : au zoom 2, trois longs glissés
+# horizontaux de 300 px (de la droite vers la gauche de l'écran), soit plus
+# d'un tour en Canvas (la carte tourne : 360° ≈ 2 × la largeur de l'ovale au
+# zoom 2) ; en SVG, la carte plane va jusqu'à son bord et s'y arrête. La
+# carte reste tournée pour les touchers qui suivent (Canvas) : ils éprouvent
+# carte.ecran(id) et pick sur une carte tournée.
 SCENARIO = [
     ("pincer", 60, 260), ("glisser", -150, 40), ("glisser", 150, -40), ("pincer", 80, 300),
     ("glisser", -120, 120), ("pincer", 300, 80), ("pincer", 300, 60), ("zoomerSur", "DEU"),
     ("glisser", 160, 0), ("glisser", -160, 100), ("pincer", 100, 250), ("pincer", 250, 80),
+    ("zoomer", 2), ("tourner", -300, 0), ("tourner", -300, 0), ("tourner", -300, 0),
 ]
-DUREE_GLISSER_MS, DUREE_PINCER_MS = 640, 480
+DUREE_GLISSER_MS, DUREE_PINCER_MS, DUREE_TOURNER_MS = 640, 480, 960
+# Nom de chaque geste du scénario (« tourner » est un glissé pour la page).
+NOMS_GESTES = [g[0] for g in SCENARIO if g[0] in ("pincer", "glisser", "tourner")]
+TYPE_PAGE = {"pincer": "pincer", "glisser": "glisser", "tourner": "glisser"}
 # Touchers : (vue, centre, zoom, pays). Micro-États et Caraïbes au zoom 1
 # (centres des pastilles), puis zoomés.
 TOUCHERS = [
@@ -811,10 +828,18 @@ TOUCHERS = [
 
 
 def centrer(page, ident, k):
-    """Zoom k, centré sur le point de toucher de `ident`."""
+    """Zoom k, centré sur le point de toucher de `ident`. En Canvas, le x qui
+    ne centre pas l'ovale devient une rotation (zoomer, src/main.ts) : le pays
+    vient au centre par le méridien central."""
     page.js(f"""(() => {{ const c = window.cartographe.carte; c.zoomer({{k: 1, x: 0, y: 0}});
         const r = c.rect(), p = c.ecran("{ident}"), x = p.x - r.x, y = p.y - r.y;
         c.zoomer({{k: {k}, x: r.largeur / 2 - {k} * x, y: r.hauteur / 2 - {k} * y}}); }})()""")
+
+
+def zoomer_au_centre(page, k):
+    """Zoom k autour du centre de la carte (rotation gardée en Canvas)."""
+    page.js(f"""(() => {{ const c = window.cartographe.carte, r = c.rect(); c.zoomer({{k: 1, x: 0, y: 0}});
+        c.zoomer({{k: {k}, x: r.largeur / 2 * (1 - {k}), y: r.hauteur / 2 * (1 - {k})}}); }})()""")
 
 
 # Cadence de rejeu sur le téléphone : au moins celle d'un écran 120 Hz (Galaxy
@@ -831,8 +856,8 @@ def pas_de_rejeu(periode, cible):
 
 def une_mesure(page, url, journal, cible):
     """Un chargement, le scénario de gestes, les touchers ; rend le rapport
-    de la page, la liste des touchers visés, les durées réelles des gestes et
-    le pas de rejeu."""
+    de la page, la liste des touchers visés, les durées réelles des gestes,
+    le pas de rejeu et la transformation après le tour du monde."""
     page.goto(url)
     periode = pas_de_rejeu(page.attendre_carte() or 1000 / 60, cible)
     page.js("window.cartographe.reinitialiser()")
@@ -844,15 +869,24 @@ def une_mesure(page, url, journal, cible):
             page.js(f'window.cartographe.carte.zoomerSur("{geste[1]}")')
             page.pause(500)
             continue
+        if geste[0] == "zoomer":
+            zoomer_au_centre(page, geste[1])
+            page.pause(500)
+            continue
         quoi, a, b = geste
-        n = max(10, round((DUREE_GLISSER_MS if quoi == "glisser" else DUREE_PINCER_MS) / periode))
+        duree = {"glisser": DUREE_GLISSER_MS, "pincer": DUREE_PINCER_MS, "tourner": DUREE_TOURNER_MS}[quoi]
+        n = max(10, round(duree / periode))
         if quoi == "glisser":
             positions = [[(cx + a * i / n, cy + b * i / n)] for i in range(n + 1)]
+        elif quoi == "tourner":
+            # Centré sur le centre de la carte : 300 px tiennent dans l'écran.
+            positions = [[(cx - a / 2 + a * i / n, cy - b / 2 + b * i / n)] for i in range(n + 1)]
         else:
             ecart = lambda i: a + (b - a) * i / n
             positions = [[(cx - ecart(i) / 2, cy), (cx + ecart(i) / 2, cy)] for i in range(n + 1)]
         duree_reelle.append(round(page.geste(positions, periode), 1))
         page.pause(500)
+    apres_tour = page.js("window.cartographe.carte.transfo()")
     vises = []
     for nom, centre, k, pays in TOUCHERS:
         if centre is None:
@@ -863,7 +897,7 @@ def une_mesure(page, url, journal, cible):
             centrer(page, centre, k)
         page.pause(400)
         zone = page.js("window.cartographe.carte.rect()")
-        zoom = page.js("window.cartographe.carte.transfo().k")
+        t = page.js("window.cartographe.carte.transfo()")
         for ident in pays:
             pt = position(page, ident)
             dedans = pt and zone["x"] <= pt["x"] <= zone["x"] + zone["largeur"] and zone["y"] <= pt["y"] <= zone["y"] + zone["hauteur"]
@@ -871,8 +905,9 @@ def une_mesure(page, url, journal, cible):
                 journal.append(f"{ident} hors de la carte ({nom}), pas touché")
                 continue
             page.toucher(pt["x"], pt["y"])
-            vises.append({"vue": nom, "zoom": round(zoom, 2), "id": ident, "via": pt["via"],
-                          "x": round(pt["x"], 1), "y": round(pt["y"], 1)})
+            vises.append({"vue": nom, "zoom": round(t["k"], 2), "id": ident, "via": pt["via"],
+                          "x": round(pt["x"], 1), "y": round(pt["y"], 1),
+                          **({"rotation": round(t["r"], 1)} if t.get("r") is not None else {})})
             page.pause(450)
     # Les entrées Event Timing arrivent quelques images après la présentation :
     # au moins 0,5 s après le dernier geste (src/mesure/rapport.ts).
@@ -883,7 +918,7 @@ def une_mesure(page, url, journal, cible):
     for v, t in zip(vises, rapport["touchers"]):
         v["pick"] = (t.get("pick") or {}).get("id")
         v["juste"] = v["pick"] == v["id"]
-    return rapport, vises, duree_reelle, round(periode, 2)
+    return rapport, vises, duree_reelle, round(periode, 2), apres_tour
 
 
 def _med(valeurs):
@@ -891,72 +926,114 @@ def _med(valeurs):
     return round(statistics.median(valeurs), 1) if valeurs else None
 
 
-def resumer(rapports, vises):
-    """Résumé face aux critères du J0, sur toutes les répétitions (rapports v2,
-    src/mesure/rapport.ts)."""
+def noms_des_gestes(r, journal=None):
+    """Le nom de chaque geste du rapport dans le scénario (« tourner » pour le
+    tour du monde, que la page appelle glisser) ; à défaut (un geste sans
+    mouvement n'est pas rapporté : décompte différent), son type."""
+    types = [g["type"] for g in r["gestes"]]
+    if types == [TYPE_PAGE[n] for n in NOMS_GESTES]:
+        return list(NOMS_GESTES)
+    if journal is not None:
+        journal.append(f"{len(types)} gestes rapportés pour {len(NOMS_GESTES)} rejoués : rangés par type")
+    return types
+
+
+def _verdict(*oks):
+    """False si l'un est faux, None si l'un est à juger, sinon True."""
+    return False if any(o is False for o in oks) else None if any(o is None for o in oks) else True
+
+
+def resumer(rapports, vises, journal=None):
+    """Résumé face aux critères du J0, sur toutes les répétitions (rapports v3,
+    src/mesure/rapport.ts : chaque règle ci-dessous y est décrite)."""
     chargements = [r["chargement"]["total_ms"] for r in rapports if r.get("chargement")]
     periode = _med([r["ecran"]["periode_ms"] for r in rapports]) or 1000 / 60
     gestes = {}
     for r in rapports:
-        suivants = r["gestes"][1:] + [None]
-        periode_r = r["ecran"]["periode_ms"] or 1000 / 60
-        for g, suivant in zip(r["gestes"], suivants):
+        for g, quoi in zip(r["gestes"], noms_des_gestes(r, journal)):
             if g["type"] not in ("glisser", "pincer"):
                 continue
+            rendu = g.get("rendu", r["rendu"])
             # Un fichier = un rendu ; la clé le garde quand même (rapports mêlés).
-            cle = g["type"] if g.get("rendu", r["rendu"]) == r["rendu"] else f"{g['type']} ({g['rendu']})"
-            e = gestes.setdefault(cle, {"rendu": g.get("rendu", r["rendu"]), "gestes": 0, "intervalles": 0,
-                                        "perdues": 0, "max_ms": 0, "p95_ms": [], "longues_images": 0,
-                                        "periodes_ms": [], "ecarts_periode": 0, "fin_et": [], "fin_et_absente": 0,
-                                        "fin_et_reportees": [], "fin_image": []})
+            cle = quoi if rendu == r["rendu"] else f"{quoi} ({rendu})"
+            e = gestes.setdefault(cle, {"rendu": rendu, "gestes": 0, "intervalles": 0, "perdues": 0,
+                                        "perdues_repos": 0, "bascule_images": 0, "max_ms": 0, "p95_ms": [],
+                                        "longues_images": 0, "periodes_ms": [], "lents_ms": [],
+                                        "ecarts_periode": {"plus_rapide": 0, "plus_lent": 0},
+                                        "dessins": [], "fin_et": [], "fin_et_en_attente": 0,
+                                        "fin_et_absente": 0, "fin_et_artefacts": [], "fin_image": []})
             st = g["stats"]
             e["gestes"] += 1
             e["intervalles"] += len(g["intervalles_ms"])
-            # Comptées par la page sur stats.periode_ms : la plus courte de la
-            # période du geste et de celle du repos (src/mesure/stats.ts).
+            # perdues : sur la période du geste (bascule de tête sur celle du
+            # repos) ; perdues_repos : sur celle du repos (stats.ts, statsGeste).
             e["perdues"] += st["perdues"]
+            e["perdues_repos"] += st.get("perdues_repos", 0)
+            e["bascule_images"] += st.get("bascule_images", 0)
             e["max_ms"] = max(e["max_ms"], st["max_ms"] or 0)
             e["p95_ms"].append(st["p95_ms"])
             e["periodes_ms"].append(st.get("periode_geste_ms"))
-            e["ecarts_periode"] += bool(st.get("ecart_periode"))
+            if st.get("ecart_sens"):
+                e["ecarts_periode"][st["ecart_sens"]] += 1
+                if st["ecart_sens"] == "plus_lent":
+                    e["lents_ms"].append(st.get("periode_geste_ms"))
             e["longues_images"] += g["longues_images"]["nombre"]
-            fin = g["fin"].get("event_timing_ms")
-            if fin is None and g["fin"].get("event_timing_etat") == "sous_seuil":
-                e["fin_et"].append(SEUIL_EVENT_TIMING_MS)  # aucune entrée : sous le seuil de l'API
-            elif fin is None:
-                e["fin_et_absente"] += 1
-            elif (suivant and g["fin_ms"] + fin >= suivant["debut_ms"] - 2 * periode_r
-                  and (g["fin"]["image_ms"] or 0) < CRITERE_FIN_GESTE_MS and not g["longues_images"]["nombre"]):
-                # Présentation reportée : l'entrée ne se clôt qu'avec l'image du
-                # geste suivant, sans travail long ni image longue : la fin du
-                # geste n'a sans doute rien changé à l'écran (vu en rendu g, le
-                # pincement de k 14,5 à 36 : 576 ms dans les 3 répétitions, qui
-                # suivent la pause du scénario, 1592 ms si elle passe à 1,5 s).
-                # Mais c'est aussi la signature d'une vraie fin lente en css
-                # (rastérisation hors du fil principal) : montré à part et
-                # verdict « à juger » au-delà du seuil, jamais OK d'office.
-                e["fin_et_reportees"].append(fin)
+            d = g.get("dessin_ms")
+            if d:
+                # Rendu Canvas : le script de chaque image du geste, face à la
+                # période de ce geste (celle du repos à défaut).
+                e["dessins"].append({**d, "periode_ms": st.get("periode_geste_ms") or st.get("periode_repos_ms") or periode})
+            f = g["fin"]
+            etat, fin = f.get("event_timing_etat"), f.get("event_timing_ms")
+            if fin is not None:
+                # Artefact prouvé (rapport.ts, Geste.fin) : en g, une fin qui ne
+                # change aucun pixel n'a d'entrée close qu'à l'image suivante,
+                # quelle qu'elle soit. Close par l'entrée suivante, fil
+                # principal court, aucune longue image : écartée, montrée. En
+                # css la fin repeint toujours : jamais écartée.
+                artefact = (rendu == "g" and f.get("close_par_entree_suivante") is True
+                            and f.get("image_ms") is not None and f["image_ms"] < ARTEFACT_IMAGE_MS
+                            and not g["longues_images"]["nombre"])
+                e["fin_et_artefacts" if artefact else "fin_et"].append(fin)
+            elif etat == "sous_seuil":
+                e["fin_et"].append(SEUIL_EVENT_TIMING_MS)  # une entrée postérieure est arrivée : sous le seuil de l'API
+            elif etat == "en_attente":
+                e["fin_et_en_attente"] += 1  # image peut-être pas encore présentée : durée inconnue, jamais 16
             else:
-                e["fin_et"].append(fin)
-            e["fin_image"].append(g["fin"]["image_ms"])
+                e["fin_et_absente"] += 1
+            e["fin_image"].append(f["image_ms"])
     for e in gestes.values():
         e["part_perdues"] = round(e["perdues"] / e["intervalles"], 3) if e["intervalles"] else None
+        e["part_perdues_repos"] = round(e["perdues_repos"] / e["intervalles"], 3) if e["intervalles"] else None
         e["p95_ms"] = _med(e["p95_ms"])
         periodes = [x for x in e.pop("periodes_ms") if x is not None]
         e["periode_ms"] = {"mediane": _med(periodes), "min": min(periodes, default=None),
                            "max": max(periodes, default=None)}
-        e["saccade"] = (e["part_perdues"] or 0) > SACCADE_PART or e["max_ms"] > SACCADE_MAX_MS
+        lents = [x for x in e.pop("lents_ms") if x]
+        # Cadence des gestes plus lents que le repos (Hz), à juger à l'œil.
+        e["cadence_lente_hz"] = round(1000 / statistics.median(lents), 1) if lents else None
+        # Saccade : sur la période du geste. Un écran qui accélère pendant le
+        # geste peut conclure OK ; une cadence plus lente que le repos, sous
+        # les seuils, est « ? » (à juger), pas NON.
+        saccade = (e["part_perdues"] or 0) > SACCADE_PART or e["max_ms"] > SACCADE_MAX_MS
+        e["saccade_ok"] = False if saccade else None if e["ecarts_periode"]["plus_lent"] else True
+        dessins = e.pop("dessins")
+        au_dessus = sum(d["p95"] >= d["periode_ms"] for d in dessins)
+        e["dessin_ms"] = None if not dessins else {
+            "gestes": len(dessins), "images": sum(d["images"] for d in dessins),
+            "mediane": _med([d["mediane"] for d in dessins]), "p95": _med([d["p95"] for d in dessins]),
+            "p95_max": max(d["p95"] for d in dessins), "max": max(d["max"] for d in dessins),
+            "periode_ms": _med([d["periode_ms"] for d in dessins]),
+            "p95_au_dessus_periode": au_dessus, "ok": not au_dessus}
         fins = e.pop("fin_et")
-        e["fin_et_reportees_"] = list(e["fin_et_reportees"])
-        e["fin_event_timing_ms"] = {"mediane": _med(fins), "max": max(fins, default=None),
+        e["fin_event_timing_ms"] = {"mediane": _med(fins), "max": max(fins, default=None), "n": len(fins),
+                                    "en_attente": e.pop("fin_et_en_attente"),
                                     "sans_entree": e.pop("fin_et_absente"),
-                                    "reportees": e.pop("fin_et_reportees"),
-                                    "ok": (False if fins and max(fins) >= CRITERE_FIN_GESTE_MS
-                                           else None if not fins or any(x >= CRITERE_FIN_GESTE_MS
-                                                                        for x in e["fin_et_reportees_"])
-                                           else True)}
-        e.pop("fin_et_reportees_")
-        images = [f for f in e.pop("fin_image") if f is not None]
+                                    "artefacts": e.pop("fin_et_artefacts")}
+        f = e["fin_event_timing_ms"]
+        f["ok"] = (False if fins and max(fins) >= CRITERE_FIN_GESTE_MS
+                   else None if not fins or f["en_attente"] or f["sans_entree"] else True)
+        images = [x for x in e.pop("fin_image") if x is not None]
         e["fin_image_ms"] = {"mediane": _med(images), "max": max(images, default=None)}
     # Toucher : Event Timing partout (de l'entrée à l'image présentée).
     # 'sous_seuil' = l'API n'a rien gardé, donc sous 16 ms : compté 16 (borne
@@ -979,19 +1056,22 @@ def resumer(rapports, vises):
                 repli += 1
     justes = sum(v.get("juste", False) for v in vises)
     faux = sorted({f"{v['id']}→{v.get('pick')} ({v['vue']})" for v in vises if not v.get("juste")})
-    ecarts = sum(e["ecarts_periode"] for e in gestes.values())
+    ecarts = {s: sum(e["ecarts_periode"][s] for e in gestes.values()) for s in ("plus_rapide", "plus_lent")}
+    dessins = [e["dessin_ms"]["ok"] for e in gestes.values() if e["dessin_ms"]]
     return {
         "periode_ms": periode,
         "chargement_ms": {"mediane": _med(chargements), "min": min(chargements, default=None),
                           "max": max(chargements, default=None), "n": len(chargements),
                           "ok": bool(chargements) and max(chargements) < CRITERE_RENDU_MS},
         "gestes": gestes,
-        "saccade": any(e["saccade"] for e in gestes.values()),
         "ecarts_periode": ecarts,
-        # True, False, ou None : à juger (fin sans mesure, ou présentation reportée au-delà du seuil).
-        "fin_geste_ok": (False if not gestes or any(e["fin_event_timing_ms"]["ok"] is False for e in gestes.values())
-                         else None if any(e["fin_event_timing_ms"]["ok"] is None for e in gestes.values())
-                         else True),
+        # True, False, ou None : à juger (cadence plus lente que l'écran au repos).
+        "saccade_ok": _verdict(*(e["saccade_ok"] for e in gestes.values())) if gestes else None,
+        # None sans dessin rapporté (rendus SVG) : sans objet.
+        "dessin_ok": _verdict(*dessins) if dessins else None,
+        # True, False, ou None : à juger (fin en attente ou sans entrée).
+        "fin_geste_ok": (_verdict(*(e["fin_event_timing_ms"]["ok"] for e in gestes.values()))
+                         if gestes else False),
         "touchers": {"n": len(latences), "verdict_sur": "event_timing",
                      "event_timing_ms": {"mediane": _med(latences), "max": max(latences, default=None),
                                          "mesures": len(mesures), "sous_seuil": sous_seuil, "repli": repli},
@@ -1008,30 +1088,46 @@ def afficher_resume(res, entete):
     c = res["chargement_ms"]
     dire(f"[{ok(c['ok'])}] rendu < {CRITERE_RENDU_MS} ms : médiane {c['mediane']}, de {c['min']} à {c['max']} "
          f"({c['n']} chargements)")
-    dire(f"[{ok(not res['ecarts_periode'])}] période des gestes = période du repos (écart ≤ 25 %) : "
-         + ("oui" if not res["ecarts_periode"] else
-            f"{res['ecarts_periode']} geste(s) en écart : écran à une autre fréquence pendant les gestes, ou "
-            "appli à une autre cadence ; images perdues comptées sur la plus courte des deux périodes"))
+    ec = res["ecarts_periode"]
+    # Plus rapide (l'écran monte à 120 Hz pendant le geste) : attendu, compté
+    # sur la période du geste. Plus lent : une cadence à juger.
+    dire(f"[{ok(None if ec['plus_lent'] else True)}] période des gestes face au repos (écart > 25 %) : "
+         + ("même période" if not ec["plus_rapide"] and not ec["plus_lent"] else
+            f"{ec['plus_rapide']} geste(s) plus rapides (l'écran accélère : images comptées sur la période "
+            f"du geste), {ec['plus_lent']} plus lents (cadence de l'appli sous celle de l'écran, à juger)"))
     for quoi, e in res["gestes"].items():
-        pg = e["periode_ms"]
+        pg, ee = e["periode_ms"], e["ecarts_periode"]
         dire(f"      {quoi:8} période des gestes : médiane {pg['mediane']} ms (de {pg['min']} à {pg['max']}), "
-             f"repos {res['periode_ms']} ms, {e['ecarts_periode']} écart(s)")
-    # Un écart de période empêche de conclure OK : un écran qui ralentit vraiment
-    # pendant le geste compterait ses images perdues (à juger à l'œil).
-    dire(f"[{ok(False if res['saccade'] else None if res['ecarts_periode'] else True)}] pas de saccade (≤ {SACCADE_PART:.0%} d'images perdues, aucun intervalle "
-         f"> {SACCADE_MAX_MS} ms) :")
+             f"repos {res['periode_ms']} ms ; {ee['plus_rapide']} plus rapide(s), {ee['plus_lent']} plus lent(s)"
+             + (f", {e['bascule_images']} image(s) de bascule en tête" if e["bascule_images"] else ""))
+    dire(f"[{ok(res['saccade_ok'])}] pas de saccade (≤ {SACCADE_PART:.0%} d'images perdues sur la période du "
+         f"geste, aucun intervalle > {SACCADE_MAX_MS} ms ; « ? » : cadence plus lente que le repos, à juger) :")
     for quoi, e in res["gestes"].items():
-        dire(f"      {quoi:8} {e['gestes']:2} gestes, {e['perdues']}/{e['intervalles']} images perdues "
-             f"({(e['part_perdues'] or 0):.1%}), p95 {e['p95_ms']} ms, max {e['max_ms']} ms, "
-             f"{e['longues_images']} longue(s) image(s)")
+        dire(f"      {quoi:8} [{ok(e['saccade_ok'])}] {e['gestes']:2} gestes, {e['perdues']}/{e['intervalles']} "
+             f"images perdues ({(e['part_perdues'] or 0):.1%}), p95 {e['p95_ms']} ms, max {e['max_ms']} ms, "
+             f"{e['longues_images']} longue(s) image(s)"
+             + (f" ; cadence {e['cadence_lente_hz']} Hz, {e['perdues_repos']} perdues sur la période du repos "
+                f"({(e['part_perdues_repos'] or 0):.1%})" if e["cadence_lente_hz"] else ""))
+    if res["dessin_ok"] is None:
+        dire("[ — ] dessin des images < période de l'écran : sans objet (rendu SVG, aucun dessin rapporté)")
+    else:
+        dire(f"[{ok(res['dessin_ok'])}] dessin des images < période de l'écran (95e centile du script de chaque "
+             "image, par geste ; ni rastérisation ni présentation) :")
+        for quoi, e in res["gestes"].items():
+            d = e["dessin_ms"]
+            if d:
+                dire(f"      {quoi:8} [{ok(d['ok'])}] {d['images']} images sur {d['gestes']} gestes : médiane "
+                     f"{d['mediane']}, p95 {d['p95']} (max des p95 {d['p95_max']}), max {d['max']} ms ; période "
+                     f"{d['periode_ms']} ms, {d['p95_au_dessus_periode']} geste(s) au-dessus")
     dire(f"[{ok(res['fin_geste_ok'])}] fin de geste < {CRITERE_FIN_GESTE_MS} ms (Event Timing de l'événement qui "
          "le finit, jusqu'à la présentation) :")
     for quoi, e in res["gestes"].items():
         f, i = e["fin_event_timing_ms"], e["fin_image_ms"]
-        dire(f"      {quoi:8} rendu {e['rendu']} : médiane {f['mediane']}, max {f['max']} ms"
-             + (f" ({f['sans_entree']} sans entrée)" if f["sans_entree"] else "")
-             + (f" ; {len(f['reportees'])} à part, présentation reportée au geste suivant (à juger) : "
-                f"{', '.join(str(x) for x in f['reportees'])} ms" if f["reportees"] else "")
+        dire(f"      {quoi:8} rendu {e['rendu']} : médiane {f['mediane']}, max {f['max']} ms ({f['n']} fins)"
+             + (f" ; {f['en_attente']} en attente (image peut-être pas présentée : à juger)" if f["en_attente"] else "")
+             + (f" ; {f['sans_entree']} sans entrée" if f["sans_entree"] else "")
+             + (f" ; {len(f['artefacts'])} écartée(s), artefact du rendu g (close par l'entrée suivante) : "
+                f"{', '.join(str(x) for x in f['artefacts'])} ms" if f["artefacts"] else "")
              + f" ; fil principal seul (image_ms) : médiane {i['mediane']}, max {i['max']} ms")
     t = res["touchers"]
     et, m = t["event_timing_ms"], t["fin_fil_principal_ms"]
@@ -1085,7 +1181,7 @@ def commande_mesurer(args):
         return 1
     if args.cible == "local" and serveur_de_dev(url_base):
         dire("  attention : serveur de développement, chargement plus lent qu'en build (serve --preview)")
-    rapports, vises, journal, durees, pas_ms = [], [], [], [], []
+    rapports, vises, journal, durees, pas_ms, apres_tour = [], [], [], [], [], []
     code = code_mesure(args.cible, args.serie)
     with Session(args.cible, serie=args.serie, ws_local=args.ws) as s:
         p = s.page
@@ -1101,22 +1197,26 @@ def commande_mesurer(args):
         dire(f"url : {url} ; ralenti ×{args.ralenti:g} ; cache {'actif' if args.cache else 'désactivé'}")
         for i in range(args.repetitions):
             debut = time.monotonic()
-            rapport, v, d, pas = une_mesure(p, url, journal, args.cible)
-            if rapport.get("v") != 2:
-                raise RuntimeError(f"rapport v{rapport.get('v')} de la page, le driver lit la v2 "
+            rapport, v, d, pas, tour = une_mesure(p, url, journal, args.cible)
+            if rapport.get("v") != 3:
+                raise RuntimeError(f"rapport v{rapport.get('v')} de la page, le driver lit la v3 "
                                    "(src/mesure/rapport.ts) : site à reconstruire ?")
+            if rapport.get("rendu") != args.rendu:
+                raise RuntimeError(f"la page dit rendu {rapport.get('rendu')!r}, demandé {args.rendu!r} : "
+                                   "site à reconstruire ?")
             rapports.append(rapport)
             vises.extend(v)
             durees.append(d)
             pas_ms.append(pas)
+            apres_tour.append(tour)
             dire(f"  répétition {i + 1}/{args.repetitions} : chargement {rapport['chargement']['total_ms']} ms, "
                  f"{len(rapport['gestes'])} gestes, {len(rapport['touchers'])} touchers ({time.monotonic() - debut:.0f} s)")
         erreurs = p.erreurs + p.echecs
+    res = resumer(rapports, vises, journal)  # avant les notes : il en ajoute (gestes rangés par type)
     for ligne in sorted(set(journal)):
         dire(f"  note : {ligne}")
     for e in erreurs:
         dire(f"  erreur de la page : {e}")
-    res = resumer(rapports, vises)
     afficher_resume(res, f"{args.cible}, rendu {args.rendu}, {args.projection}, ralenti ×{args.ralenti:g}")
     jour = datetime.date.today().isoformat()
     nom = f"{jour}-{args.cible}-{args.rendu}-{args.projection}" + (f"-x{args.ralenti:g}" if args.ralenti != 1 else "")
@@ -1124,7 +1224,7 @@ def commande_mesurer(args):
     sortie.mkdir(parents=True, exist_ok=True)
     fichier = sortie / f"{nom}.json"
     fichier.write_text(json.dumps({
-        "v": 2,
+        "v": 3,
         "outil": ".claude/skills/run-cartographe/driver.py mesurer",
         "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "code": code,
@@ -1134,11 +1234,15 @@ def commande_mesurer(args):
         "cache": args.cache, "repetitions": args.repetitions,
         "ecran_emule": TELEPHONE if args.cible == "local" else None,
         "scenario": {"gestes": SCENARIO, "duree_glisser_ms": DUREE_GLISSER_MS, "duree_pincer_ms": DUREE_PINCER_MS,
+                     "duree_tourner_ms": DUREE_TOURNER_MS, "transfo_apres_tour": apres_tour,
                      "cadence": "un touchMove par période de l'écran au repos (window.cartographe.repos) ; "
                                 "sur le téléphone, au plus 8,33 ms (120 Hz)",
                      "pas_ms": pas_ms, "durees_reelles_ms": durees, "touchers": TOUCHERS},
         "criteres": {"rendu_ms": CRITERE_RENDU_MS, "toucher_ms": CRITERE_TOUCHER_MS,
                      "fin_geste_ms": CRITERE_FIN_GESTE_MS, "ecart_periode": 0.25,
+                     "fin_artefact": {"rendu": "g", "close_par_entree_suivante": True,
+                                      "image_ms_sous": ARTEFACT_IMAGE_MS, "longues_images": 0},
+                     "dessin": "p95 du script de chaque image < période du geste, sur chaque geste",
                      "saccade": {"part_perdues": SACCADE_PART, "max_ms": SACCADE_MAX_MS}},
         "resume": res,
         "touchers_vises": vises,
@@ -1193,7 +1297,8 @@ def main():
 
     s = sub.add_parser("mesurer", help="gestes et touchers rejoués, rapport JSON")
     s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")
-    s.add_argument("--rendu", choices=("g", "css"), default="css")
+    s.add_argument("--rendu", choices=("g", "css", "canvas"), default="css",
+                   help="g et css : carte SVG ; canvas : la carte qui tourne")
     s.add_argument("--projection", choices=("monde", "pacifique"), default="monde")
     s.add_argument("--ralenti", type=float, default=1, help="ralenti du processeur (local seulement)")
     s.add_argument("--repetitions", type=int, default=3)
