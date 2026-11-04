@@ -55,6 +55,11 @@ export interface EcouteGestes {
   debut?(t: Transfo, source: Event | null): void;
   mouvement?(t: Transfo, source: Event | null): void;
   fin?(f: FinDeGeste): void;
+  /**
+   * Rendu Canvas : durée du script d'une image dessinée pendant un geste
+   * (projection et tracé de la carte), appelée après chaque dessin.
+   */
+  dessin?(ms: number): void;
 }
 
 export interface OptionsCarte {

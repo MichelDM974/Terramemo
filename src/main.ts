@@ -37,14 +37,16 @@ const debutScript = performance.now();
  * - ralenti 4× : pincements css 4 images perdues sur 514, g 37 sur 473
  *   (7,8 %, intervalle max 83 ms) ; fin d'un pincement css 112 / 152 ms,
  *   g 56 / 120 ms ; d'un glissé css 72 / 112, g 48 / 88.
- * En g, un même pincement (k 14,5 → 36) finit à ~600 ms dans chaque
- * répétition sans travail long : l'entrée ne se clôt qu'avec l'image du
- * geste suivant (sa durée suit la pause du scénario), le driver la montre à
- * part. fin.image_ms (deux requestAnimationFrame) s'arrête avant la
+ * En g, un même pincement (k 14,5 → 36) finit à ~600 ms dans 2 répétitions
+ * sur 3 à ×1 et 1 sur 3 à ×4 : cette fin ne change aucun pixel (captures
+ * identiques), aucune image n'est présentée, et l'entrée Event Timing ne se
+ * clôt qu'à la première image présentée ensuite. Un artefact : rien de
+ * visible n'attend ; le driver la montre à part. fin.image_ms (deux requestAnimationFrame) s'arrête avant la
  * rastérisation et la présentation : il sous-estime la fin.
  * Donc css garde le geste fluide mais fige l'écran au lever du doigt (plus
  * de 100 ms à 4×, une douzaine d'images à 120 Hz) ; g perd des images pendant
- * les pincements mais finit plus vite. Sur le téléphone : comparer
+ * les pincements mais finit plus vite en médiane (son maximum à 4× atteint
+ * pourtant 120 ms). Sur le téléphone : comparer
  * gestes[].stats.perdues et gestes[].fin.event_timing_ms dans les deux modes.
  * À juger à l'œil aussi : en css, pendant un pincement, toute la couche est
  * mise à l'échelle par le compositeur : pastilles et frontières grossissent
