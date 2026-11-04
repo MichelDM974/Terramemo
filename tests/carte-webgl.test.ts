@@ -3,7 +3,10 @@ import type { Polygon, Position } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EtatImage } from '../src/map/carte-canvas';
-import { lireCouleurs, PeintreWebGL, uniformesVue, VERTEX_CARTE, type Couleurs } from '../src/map/carte-webgl';
+import { FRAG_DISQUES, FRAG_HACHURES, FRAG_TERRES, lireCouleurs, PeintreWebGL, uniformesVue, VERTEX_CARTE, VERTEX_DISQUES, type Couleurs, type Rvba } from '../src/map/carte-webgl';
+import { ancre, image, MARGE_PX, preparer, tracerOvale } from '../src/map/dessin';
+import { versEcran } from '../src/map/geo';
+import { PASTILLE } from '../src/map/pastilles';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import {
   deballer,
@@ -25,8 +28,9 @@ import {
   toursEnPlus,
   type Maillage,
   type MaillagesCarte,
+  type PartieMaillee,
 } from '../src/map/maillage';
-import { cadre, placer, projectionDe, transfoDe } from '../src/map/vue';
+import { cadre, placer, projectionDe, regionVisible, transfoDe } from '../src/map/vue';
 
 // Rendu WebGL : maillage (triangulation, couture) et projection du shader,
 // sur les données réelles, au format du téléphone de mesure (384 × 723 px CSS).
@@ -285,38 +289,445 @@ describe('vue de la carte webgl', () => {
   });
 });
 
-// --- Le vertex shader lui-même, et le dessin ------------------------------------
+// --- Les shaders eux-mêmes : traduits de GLSL en JavaScript, évalués ------------
 
 /**
- * VERTEX_CARTE traduit en JavaScript (le sous-ensemble de GLSL qu'il emploie :
- * flottants, vec2, vec4, asin, sin, cos, floor, int, ternaires), évalué en
- * Float64. Le test confronte ainsi le vrai texte du shader à projeterF32 et à
- * la projection de d3 : un shader ou un miroir qui dérive casse le test.
+ * Traducteur GLSL ES 3.00 → JavaScript, pour le sous-ensemble qu'emploient les
+ * shaders de la carte : scalaires (bool, int, float), vecteurs (vec2 à vec4,
+ * ivec2) et leurs composantes (.xy, .rgb, .a…), opérateurs composante par
+ * composante, division entière, fonctions, if/else, ternaires, fonctions
+ * natives usuelles et texelFetch. Les types sont suivis comme par le
+ * compilateur (int et float mêlés sans conversion : refusé) et tout ce qu'il ne
+ * connaît pas lève une erreur : un shader qui sort du sous-ensemble casse le
+ * test au lieu d'être mal traduit. Évalué en Float64 (highp), sur le vrai texte
+ * des shaders : un shader qui dérive de ce qu'attendent les tests les casse.
  */
-function shaderEnJs(src: string) {
-  const entrees: string[] = [];
-  let js = src
-    .replace(/^#version.*$/m, '')
-    .replace(/^precision .*;$/gm, '')
-    .replace(/^layout\(location = \d+\) in \w+ (\w+);$/gm, (_, n: string) => (entrees.push(n), ''))
-    .replace(/^uniform \w+ (\w+);$/gm, (_, n: string) => (entrees.push(n), ''))
-    .replace(/^(?:flat )?out \w+ (\w+);$/gm, 'let $1;')
-    .replace(/^const (?:float|int) /gm, 'const ')
-    .replace(/^(?:vec2|vec4|float|int|void) (\w+)\(([^)]*)\) \{/gm, (_, nom: string, ps: string) => `function ${nom}(${ps.split(',').map((x) => x.trim().split(' ').pop()).join(', ')}) {`)
-    .replace(/\b(?:float|int|vec2|vec4) (\w+) =/g, 'let $1 =');
-  js = js.replace(/\bint\(/g, 'Math.trunc(');
-  expect(js).not.toMatch(/\b(float|vec2|vec4|uniform|layout|in|out|flat)\s+\w+\s*[;=]/);
-  const corps = `const vec2 = (x, y) => ({ x, y }); const vec4 = (x, y, z, w) => ({ x, y, z, w });
-    const { floor, asin, sin, cos } = Math; let gl_Position;\n${js}\nmain();\nreturn { gl_Position, vRef, vForme };`;
-  const f = new Function(...entrees, corps) as (...a: unknown[]) => { gl_Position: { x: number; y: number }; vRef: { x: number; y: number }; vForme: number };
-  expect(entrees).toEqual(['aLonLat', 'aMilieu', 'aForme', 'uR', 'uMode', 'uTour', 'uK', 'uCentre', 'uTaille']);
-  return (o: { lon: number; lat: number; ml: number; mp?: number; forme?: number; r: number; mode: number; tour?: number; K: number; centre: [number, number]; l: number; h: number }) => {
-    const res = f({ x: o.lon, y: o.lat }, { x: o.ml, y: o.mp ?? 0 }, o.forme ?? 0, o.r, o.mode, o.tour ?? 0, o.K, { x: o.centre[0], y: o.centre[1] }, { x: o.l, y: o.h });
-    // Coordonnées de découpe → px CSS (l'inverse de gl_Position du shader).
-    return { x: ((res.gl_Position.x + 1) / 2) * o.l, y: ((1 - res.gl_Position.y) / 2) * o.h, forme: res.vForme };
+type TypeGlsl = 'void' | 'bool' | 'int' | 'float' | 'vec2' | 'vec3' | 'vec4' | 'ivec2' | 'sampler2D';
+const COMPOSANTES: Partial<Record<TypeGlsl, number>> = { bool: 1, int: 1, float: 1, vec2: 2, vec3: 3, vec4: 4, ivec2: 2 };
+const TYPES_GLSL = new Set<string>(['void', 'bool', 'int', 'float', 'vec2', 'vec3', 'vec4', 'ivec2', 'sampler2D']);
+const PRECISIONS = new Set(['highp', 'mediump', 'lowp']);
+const QUALIFICATIFS = new Set(['uniform', 'in', 'out', 'flat', 'smooth', ...PRECISIONS]);
+const INTEGREES: Record<string, TypeGlsl> = { gl_Position: 'vec4', gl_VertexID: 'int', gl_FragCoord: 'vec4' };
+const scalaire = (t: TypeGlsl) => COMPOSANTES[t] === 1;
+const entier = (t: TypeGlsl) => t === 'int' || t === 'ivec2';
+
+/** Texture RGBA8 lue par texelFetch : texels en octets, ligne après ligne. */
+interface TextureGlsl {
+  largeur: number;
+  hauteur: number;
+  texels: Uint8Array;
+}
+type ValeurGlsl = number | boolean | number[] | TextureGlsl;
+type Varying = { type: TypeGlsl; flat: boolean };
+interface ShaderJs {
+  /** Ce que le shader lit : attributs, uniformes, in, gl_VertexID et gl_FragCoord s'il les emploie. */
+  entrees: Record<string, TypeGlsl>;
+  /** Ses in et out (et gl_Position), pour vérifier l'édition des liens entre deux étages. */
+  ins: Record<string, Varying>;
+  sorties: Record<string, Varying>;
+  executer(valeurs: Record<string, ValeurGlsl>): Record<string, number | boolean | number[]>;
+}
+
+/** Fonctions du code traduit (préfixe $ : aucun nom de shader ne les masque). */
+const RUNTIME_GLSL = (() => {
+  type N = number | number[];
+  const compo = (a: N, i: number) => (typeof a === 'number' ? a : (a[i] as number));
+  // Une fonction scalaire appliquée composante par composante (scalaires diffusés).
+  const cc =
+    (f: (...x: number[]) => number) =>
+    (...xs: N[]): N => {
+      if (xs.every((x) => typeof x === 'number')) return f(...(xs as number[]));
+      const n = Math.max(...xs.map((x) => (typeof x === 'number' ? 1 : x.length)));
+      return Array.from({ length: n }, (_, i) => f(...xs.map((x) => compo(x, i))));
+    };
+  const ops: Record<string, (a: number, b: number) => number> = { '+': (a, b) => a + b, '-': (a, b) => a - b, '*': (a, b) => a * b, '/': (a, b) => a / b };
+  return {
+    $op: (op: string, a: N, b: N) => cc(ops[op] as (a: number, b: number) => number)(a, b),
+    $sw: (v: number[], s: string) => {
+      const r = [...s].map((k) => v['xyzwrgbastpq'.indexOf(k) % 4] as number);
+      return r.length === 1 ? r[0] : r;
+    },
+    $ctor: (n: number, ent: boolean, ...args: N[]) => {
+      let c = args.flat();
+      if (args.length === 1 && typeof args[0] === 'number') c = Array<number>(n).fill(args[0]);
+      else if (args.length === 1 ? c.length < n : c.length !== n) throw new Error(`GLSL : constructeur de ${n} composantes avec ${c.length}`);
+      return c.slice(0, n).map((x) => (ent ? Math.trunc(x) : x));
+    },
+    $abs: cc(Math.abs),
+    $floor: cc(Math.floor),
+    $sin: cc(Math.sin),
+    $cos: cc(Math.cos),
+    $asin: cc(Math.asin),
+    $min: cc(Math.min),
+    $max: cc(Math.max),
+    $mod: cc((x, y) => x - y * Math.floor(x / y)),
+    $clamp: cc((x, a, b) => Math.min(Math.max(x, a), b)),
+    $mix: cc((a, b, t) => a * (1 - t) + b * t),
+    $distance: (a: N, b: N) => (typeof a === 'number' ? Math.abs(a - (b as number)) : Math.hypot(...a.map((x, i) => x - compo(b, i)))),
+    $texelFetch: (t: TextureGlsl, p: number[], lod: number) => {
+      const [x, y] = p as [number, number];
+      // Hors de la texture, GLSL ne promet rien : une erreur ici.
+      if (lod !== 0 || x < 0 || y < 0 || x >= t.largeur || y >= t.hauteur) throw new Error(`GLSL : texelFetch hors de la texture (${x}, ${y}, lod ${lod})`);
+      const i = 4 * (y * t.largeur + x);
+      return [...t.texels.subarray(i, i + 4)].map((o) => o / 255);
+    },
+  };
+})();
+
+/** Fonctions natives : nombre d'arguments et type du résultat. */
+const NATIVES_GLSL: Record<string, { n: number; t: (a: TypeGlsl[]) => TypeGlsl }> = {
+  ...Object.fromEntries(['abs', 'floor', 'sin', 'cos', 'asin'].map((f) => [f, { n: 1, t: (a: TypeGlsl[]) => a[0] as TypeGlsl }])),
+  ...Object.fromEntries(['min', 'max', 'mod'].map((f) => [f, { n: 2, t: (a: TypeGlsl[]) => a[0] as TypeGlsl }])),
+  clamp: { n: 3, t: (a) => a[0] as TypeGlsl },
+  mix: { n: 3, t: (a) => a[0] as TypeGlsl },
+  distance: { n: 2, t: () => 'float' },
+  texelFetch: { n: 3, t: () => 'vec4' },
+};
+
+function jetonsGlsl(src: string): string[] {
+  const s = src.replace(/^\s*#.*$/gm, '').replace(/\/\/.*$/gm, '');
+  const re = /\s*(\d+\.\d*(?:[eE][+-]?\d+)?|\d*\.\d+(?:[eE][+-]?\d+)?|\d+|[A-Za-z_]\w*|<<|>>|<=|>=|==|!=|&&|\|\||[-+*/%<>=!?:;,.(){}&|^])\s*/y;
+  const res: string[] = [];
+  while (re.lastIndex < s.length) {
+    const debut = re.lastIndex;
+    const m = re.exec(s);
+    if (!m) throw new Error(`GLSL : jeton inconnu à « ${s.slice(debut, debut + 20)} »`);
+    res.push(m[1] as string);
+  }
+  return res;
+}
+
+function traduireGlsl(src: string): ShaderJs {
+  const j = jetonsGlsl(src);
+  let i = 0;
+  const voir = (k = 0) => j[i + k];
+  const prendre = (attendu?: string): string => {
+    const t = j[i++];
+    if (t === undefined || (attendu !== undefined && t !== attendu)) throw new Error(`GLSL : « ${attendu ?? 'un jeton'} » attendu, « ${t} » lu (jeton ${i - 1} : ${j.slice(Math.max(0, i - 6), i + 3).join(' ')})`);
+    return t;
+  };
+  const exiger = (ok: boolean, quoi: string) => {
+    if (!ok) throw new Error(`GLSL : ${quoi} (jeton ${i} : ${j.slice(Math.max(0, i - 6), i + 2).join(' ')})`);
+  };
+  const portees: Map<string, TypeGlsl>[] = [new Map(Object.entries(INTEGREES))];
+  const typeDe = (nom: string): TypeGlsl => {
+    for (let k = portees.length - 1; k >= 0; k--) {
+      const t = portees[k]?.get(nom);
+      if (t) return t;
+    }
+    throw new Error(`GLSL : « ${nom} » inconnu`);
+  };
+  const declarer = (nom: string, t: TypeGlsl) => (portees[portees.length - 1] as Map<string, TypeGlsl>).set(nom, t);
+  const fonctions = new Map<string, TypeGlsl>();
+  const entrees: Record<string, TypeGlsl> = {};
+  const ins: Record<string, Varying> = {};
+  const sorties: Record<string, Varying> = {};
+  const integrees = new Set<string>();
+  const type = (): TypeGlsl => {
+    const t = prendre();
+    exiger(TYPES_GLSL.has(t), `type inconnu « ${t} »`);
+    return t as TypeGlsl;
+  };
+
+  type E = { js: string; t: TypeGlsl };
+  const NIVEAUX = [['||'], ['&&'], ['|'], ['^'], ['&'], ['==', '!='], ['<', '>', '<=', '>='], ['<<', '>>'], ['+', '-'], ['*', '/', '%']];
+  function operation(op: string, a: E, b: E): E {
+    if (op === '||' || op === '&&') {
+      exiger(a.t === 'bool' && b.t === 'bool', `${a.t} ${op} ${b.t}`);
+      return { js: `(${a.js} ${op} ${b.js})`, t: 'bool' };
+    }
+    if (['|', '^', '&', '<<', '>>', '%'].includes(op)) {
+      exiger(a.t === 'int' && b.t === 'int', `${a.t} ${op} ${b.t}`);
+      return { js: `(${a.js} ${op} ${b.js})`, t: 'int' };
+    }
+    if (['==', '!=', '<', '>', '<=', '>='].includes(op)) {
+      exiger(a.t === b.t && scalaire(a.t), `${a.t} ${op} ${b.t}`);
+      return { js: `(${a.js} ${op === '==' ? '===' : op === '!=' ? '!==' : op} ${b.js})`, t: 'bool' };
+    }
+    // + - * / : int et float ne se mêlent pas ; vecteur et scalaire, composante par composante.
+    exiger(entier(a.t) === entier(b.t) && a.t !== 'bool' && b.t !== 'bool', `${a.t} ${op} ${b.t} (sans conversion, refusé par le compilateur)`);
+    exiger(scalaire(a.t) || scalaire(b.t) || a.t === b.t, `${a.t} ${op} ${b.t}`);
+    const t = scalaire(a.t) ? b.t : a.t;
+    if (scalaire(t)) return { js: op === '/' && t === 'int' ? `Math.trunc(${a.js} / ${b.js})` : `(${a.js} ${op} ${b.js})`, t };
+    exiger(!(op === '/' && entier(t)), 'division de vecteurs entiers (non traduite)');
+    return { js: `$op('${op}', ${a.js}, ${b.js})`, t };
+  }
+  function expression(): E {
+    const c = binaire(0);
+    if (voir() !== '?') return c;
+    prendre('?');
+    const a = expression();
+    prendre(':');
+    const b = expression();
+    exiger(c.t === 'bool' && a.t === b.t, 'ternaire');
+    return { js: `(${c.js} ? ${a.js} : ${b.js})`, t: a.t };
+  }
+  function binaire(niveau: number): E {
+    const ops = NIVEAUX[niveau];
+    if (!ops) return unaire();
+    let g = binaire(niveau + 1);
+    while (ops.includes(voir() as string)) {
+      const op = prendre();
+      g = operation(op, g, binaire(niveau + 1));
+    }
+    return g;
+  }
+  function unaire(): E {
+    const op = voir();
+    if (op !== '-' && op !== '+' && op !== '!') return composantes(primaire());
+    prendre();
+    const e = unaire();
+    if (op === '!') {
+      exiger(e.t === 'bool', '! sur un non-booléen');
+      return { js: `(!${e.js})`, t: 'bool' };
+    }
+    exiger(e.t !== 'bool', `${op} sur un booléen`);
+    if (op === '+') return e;
+    return scalaire(e.t) ? { js: `(-${e.js})`, t: e.t } : { js: `$op('*', ${e.js}, -1)`, t: e.t };
+  }
+  function composantes(e: E): E {
+    while (voir() === '.') {
+      prendre('.');
+      const s = prendre();
+      const n = COMPOSANTES[e.t] ?? 0;
+      exiger(n > 1 && /^(?:[xyzw]{1,4}|[rgba]{1,4}|[stpq]{1,4})$/.test(s) && [...s].every((k) => 'xyzwrgbastpq'.indexOf(k) % 4 < n), `.${s} sur ${e.t}`);
+      const t = s.length === 1 ? (entier(e.t) ? 'int' : 'float') : `${entier(e.t) ? 'ivec' : 'vec'}${s.length}`;
+      exiger(TYPES_GLSL.has(t), `type ${t} (non traduit)`);
+      e = { js: `$sw(${e.js}, '${s}')`, t: t as TypeGlsl };
+    }
+    return e;
+  }
+  function primaire(): E {
+    const t = prendre();
+    if (t === '(') {
+      const e = expression();
+      prendre(')');
+      return { js: `(${e.js})`, t: e.t };
+    }
+    if (/^[\d.]/.test(t)) return { js: t, t: /[.eE]/.test(t) ? 'float' : 'int' };
+    if (t === 'true' || t === 'false') return { js: t, t: 'bool' };
+    exiger(/^[A-Za-z_]\w*$/.test(t), `« ${t} » inattendu`);
+    if (voir() === '(') return appel(t);
+    if (t in INTEGREES) integrees.add(t);
+    return { js: t, t: typeDe(t) };
+  }
+  function appel(nom: string): E {
+    prendre('(');
+    const args: E[] = [];
+    while (voir() !== ')') {
+      args.push(expression());
+      if (voir() === ',') prendre(',');
+    }
+    prendre(')');
+    const js = args.map((a) => a.js).join(', ');
+    if (nom === 'float' || nom === 'int') {
+      exiger(args.length === 1 && scalaire((args[0] as E).t), `${nom}(…)`);
+      return { js: nom === 'int' ? `Math.trunc(${js})` : `(+${js})`, t: nom };
+    }
+    if (TYPES_GLSL.has(nom) && !scalaire(nom as TypeGlsl) && nom !== 'sampler2D' && nom !== 'void') {
+      const t = nom as TypeGlsl;
+      return { js: `$ctor(${COMPOSANTES[t]}, ${entier(t)}, ${js})`, t };
+    }
+    const nat = NATIVES_GLSL[nom];
+    if (nat) {
+      exiger(args.length === nat.n, `${nom} à ${args.length} arguments`);
+      // Les natives de flottants refusent les entiers (texelFetch : coordonnées entières).
+      if (nom !== 'texelFetch') exiger(args.every((a) => !entier(a.t) && a.t !== 'bool'), `${nom} sur des entiers`);
+      else exiger(args.map((a) => a.t).join() === 'sampler2D,ivec2,int', 'texelFetch(sampler2D, ivec2, int)');
+      return { js: `$${nom}(${js})`, t: nat.t(args.map((a) => a.t)) };
+    }
+    const f = fonctions.get(nom);
+    exiger(f !== undefined, `fonction « ${nom} » inconnue`);
+    return { js: `${nom}(${js})`, t: f as TypeGlsl };
+  }
+
+  function declaration(): string {
+    const constante = voir() === 'const';
+    if (constante) prendre();
+    while (PRECISIONS.has(voir() as string)) prendre();
+    const t = type();
+    const parts: string[] = [];
+    for (;;) {
+      const nom = prendre();
+      prendre('=');
+      const e = expression();
+      exiger(e.t === t, `${t} ${nom} = ${e.t}`);
+      declarer(nom, t);
+      parts.push(`${nom} = ${e.js}`);
+      if (voir() !== ',') break;
+      prendre(',');
+    }
+    prendre(';');
+    return `${constante ? 'const' : 'let'} ${parts.join(', ')};`;
+  }
+  function bloc(): string {
+    prendre('{');
+    portees.push(new Map());
+    const corps: string[] = [];
+    while (voir() !== '}') corps.push(instruction());
+    prendre('}');
+    portees.pop();
+    return `{\n${corps.join('\n')}\n}`;
+  }
+  function instruction(): string {
+    const t = voir() as string;
+    if (t === '{') return bloc();
+    if (t === 'if') {
+      prendre();
+      prendre('(');
+      const c = expression();
+      prendre(')');
+      exiger(c.t === 'bool', 'condition non booléenne');
+      const alors = instruction();
+      if (voir() !== 'else') return `if (${c.js}) ${alors}`;
+      prendre();
+      return `if (${c.js}) ${alors} else ${instruction()}`;
+    }
+    if (t === 'return') {
+      prendre();
+      if (voir() === ';') return (prendre(), 'return;');
+      const e = expression();
+      prendre(';');
+      return `return ${e.js};`;
+    }
+    if (TYPES_GLSL.has(t) || t === 'const' || PRECISIONS.has(t)) return declaration();
+    const nom = prendre();
+    exiger(/^[A-Za-z_]\w*$/.test(nom), `instruction « ${nom} » (non traduite)`);
+    if (nom in INTEGREES) integrees.add(nom);
+    const tv = typeDe(nom);
+    prendre('=');
+    const e = expression();
+    prendre(';');
+    exiger(e.t === tv, `${nom} (${tv}) = ${e.t}`);
+    return `${nom} = ${e.js};`;
+  }
+  function fonction(t: TypeGlsl, nom: string): string {
+    prendre('(');
+    const params: [string, TypeGlsl][] = [];
+    if (voir() === 'void' && voir(1) === ')') prendre();
+    while (voir() !== ')') {
+      if (voir() === 'in') prendre();
+      const pt = type();
+      params.push([prendre(), pt]);
+      if (voir() === ',') prendre(',');
+    }
+    prendre(')');
+    fonctions.set(nom, t);
+    portees.push(new Map(params));
+    const corps = bloc();
+    portees.pop();
+    return `function ${nom}(${params.map((p) => p[0]).join(', ')}) ${corps}`;
+  }
+
+  const code: string[] = [];
+  while (i < j.length) {
+    if (voir() === 'precision') {
+      while (prendre() !== ';');
+      continue;
+    }
+    if (voir() === 'const') {
+      code.push(declaration());
+      continue;
+    }
+    if (voir() === 'layout') {
+      prendre();
+      prendre('(');
+      while (prendre() !== ')');
+    }
+    const quals = new Set<string>();
+    while (QUALIFICATIFS.has(voir() as string)) quals.add(prendre());
+    const t = type();
+    const nom = prendre();
+    if (voir() === '(') {
+      exiger(quals.size === 0, `qualificatifs sur la fonction ${nom}`);
+      code.push(fonction(t, nom));
+      continue;
+    }
+    prendre(';');
+    declarer(nom, t);
+    if (quals.has('uniform') || quals.has('in')) {
+      entrees[nom] = t;
+      if (quals.has('in')) ins[nom] = { type: t, flat: quals.has('flat') };
+    } else {
+      exiger(quals.has('out'), `variable globale ${nom} sans uniform, in ni out (non traduite)`);
+      sorties[nom] = { type: t, flat: quals.has('flat') };
+      code.push(`let ${nom};`);
+    }
+  }
+  exiger(fonctions.get('main') === 'void', 'pas de void main()');
+  for (const n of integrees) if (n !== 'gl_Position') entrees[n] = INTEGREES[n] as TypeGlsl;
+  if (integrees.has('gl_Position')) sorties.gl_Position = { type: 'vec4', flat: false };
+  const corps = [
+    `const { ${Object.keys(RUNTIME_GLSL).join(', ')} } = $;`,
+    integrees.has('gl_Position') ? 'let gl_Position;' : '',
+    ...code,
+    'main();',
+    `return { ${Object.keys(sorties).join(', ')} };`,
+  ].join('\n');
+  const f = new Function('$', ...Object.keys(entrees), corps) as (...a: unknown[]) => Record<string, number | boolean | number[]>;
+  return {
+    entrees,
+    ins,
+    sorties,
+    executer(valeurs) {
+      const args = Object.entries(entrees).map(([nom, t]) => {
+        const v = valeurs[nom];
+        const n = COMPOSANTES[t];
+        const ok =
+          t === 'sampler2D' ? typeof v === 'object' && v !== null && 'texels' in v
+          : t === 'bool' ? typeof v === 'boolean'
+          : n === 1 ? typeof v === 'number' && (t !== 'int' || Number.isInteger(v))
+          : Array.isArray(v) && v.length === n && (!entier(t) || v.every(Number.isInteger));
+        if (!ok) throw new Error(`GLSL : entrée ${nom} (${t}) absente ou mal formée : ${JSON.stringify(v)}`);
+        return v;
+      });
+      const res = f(RUNTIME_GLSL, ...args);
+      for (const [nom, v] of Object.entries(sorties)) {
+        const x = res[nom];
+        const n = COMPOSANTES[v.type];
+        if (n === 1 ? typeof x !== 'number' && typeof x !== 'boolean' : !Array.isArray(x) || x.length !== n) throw new Error(`GLSL : sortie ${nom} (${v.type}) non écrite : ${JSON.stringify(x)}`);
+      }
+      return res;
+    },
   };
 }
-const shader = shaderEnJs(VERTEX_CARTE);
+
+/** Coordonnées de découpe → px CSS (l'inverse de gl_Position des vertex shaders). */
+const versCss = (p: number[], l: number, h: number): [number, number] => [(((p[0] as number) + 1) / 2) * l, ((1 - (p[1] as number)) / 2) * h];
+
+const vertexCarte = traduireGlsl(VERTEX_CARTE);
+const shader = (o: { lon: number; lat: number; ml: number; mp?: number; forme?: number; r: number; mode: number; tour?: number; K: number; centre: [number, number]; l: number; h: number }) => {
+  const s = vertexCarte.executer({ aLonLat: [o.lon, o.lat], aMilieu: [o.ml, o.mp ?? 0], aForme: o.forme ?? 0, uR: o.r, uMode: o.mode, uTour: o.tour ?? 0, uK: o.K, uCentre: o.centre, uTaille: [o.l, o.h] });
+  const [x, y] = versCss(s.gl_Position as number[], o.l, o.h);
+  return { x, y, forme: s.vForme as number, ref: s.vRef as [number, number] };
+};
+
+describe('traducteur GLSL des tests', () => {
+  it('lit les entrées de chaque shader, refuse int et float mêlés, et ce qu’il ne sait pas traduire', () => {
+    expect(Object.keys(vertexCarte.entrees)).toEqual(['aLonLat', 'aMilieu', 'aForme', 'uR', 'uMode', 'uTour', 'uK', 'uCentre', 'uTaille']);
+    expect(Object.keys(traduireGlsl(FRAG_TERRES).entrees)).toEqual(['uCouleurs', 'vForme']);
+    expect(Object.keys(traduireGlsl(FRAG_HACHURES).entrees)).toEqual(['uCouleur', 'uDpr', 'uHauteur', 'vRef', 'gl_FragCoord']);
+    expect(Object.keys(traduireGlsl(VERTEX_DISQUES).entrees)).toEqual(['aDisque', 'aCouleur', 'uTaille', 'gl_VertexID']);
+    expect(Object.keys(traduireGlsl(FRAG_DISQUES).entrees)).toEqual(['uBord', 'uDpr', 'vP', 'vD', 'vC']);
+    const essai = (corps: string) => () => traduireGlsl(`#version 300 es\nprecision highp float;\nout vec4 sortie;\nvoid main() {\n${corps}\n}`);
+    expect(essai('float x = 1;')).toThrow(/float x = int/);
+    expect(essai('float x = 2.0 * 3;')).toThrow(/sans conversion/);
+    expect(essai('sortie = vec4(1.0); sortie += vec4(1.0);')).toThrow(/attendu/);
+    expect(essai('sortie = fract(vec4(1.5));')).toThrow(/fract/);
+    const s = essai('int a = 7 / 2; int b = -7 / 2; vec2 v = vec2(a, b) * 0.5; sortie = vec4(v.yx, mod(-1.0, 4.0), float(7 % 4));')().executer({});
+    expect(s.sortie).toEqual([-1.5, 1.5, 3, 3]);
+  });
+
+  it('édition des liens : chaque in d’un fragment shader est un out de son vertex shader, même type, même flat', () => {
+    const lier = (v: string, f: string) => {
+      const sv = traduireGlsl(v).sorties;
+      for (const [nom, x] of Object.entries(traduireGlsl(f).ins)) expect([nom, sv[nom]]).toEqual([nom, x]);
+    };
+    lier(VERTEX_CARTE, FRAG_TERRES);
+    lier(VERTEX_CARTE, FRAG_HACHURES);
+    lier(VERTEX_DISQUES, FRAG_DISQUES);
+  });
+});
 
 describe('vertex shader (le texte GLSL, traduit et évalué)', () => {
   it('= projeterF32 (le miroir) et = la projection de d3 de la vue (uniformesVue, transfoDe, projectionDe)', () => {
@@ -441,11 +852,15 @@ function fauxWebGL() {
   const constantes = new Map<string, number>();
   const programmes = new Map<object, Record<string, unknown>>();
   const indicesDuVao = new Map<object, number>();
+  /** Premier tampon de sommets de chaque VAO (celui de l'attribut 0). */
+  const sommetsDuVao = new Map<object, Float32Array>();
   const dessins: { prog: object | null; vao: object | null; mode: number; n: number; decalage: number; u: Record<string, unknown> }[] = [];
   let prog: object | null = null;
   let vao: object | null = null;
   let elements = false;
-  let texels: Uint8Array | null = null;
+  let texture: TextureGlsl | null = null;
+  let instances: Float32Array | null = null;
+  let melange: [number, number] | null = null;
   const objet = (type: string) => ({ type });
   const uniforme = (loc: { nom: string; p: object } | null, ...v: unknown[]) => {
     if (loc) (programmes.get(loc.p) ?? programmes.set(loc.p, {}).get(loc.p))![loc.nom] = v.length === 1 ? v[0] : v;
@@ -467,15 +882,18 @@ function fauxWebGL() {
     bindBuffer: (c: number) => (elements = c === constante('ELEMENT_ARRAY_BUFFER')),
     bufferData: (_c: number, d: ArrayBufferView | number) => {
       if (elements && vao && typeof d !== 'number') indicesDuVao.set(vao, d.byteLength / 4);
+      if (!elements && vao && d instanceof Float32Array && !sommetsDuVao.has(vao)) sommetsDuVao.set(vao, d);
     },
+    bufferSubData: (_c: number, _o: number, d: Float32Array, debut: number, n: number) => (instances = d.slice(debut, debut + n)),
+    blendFunc: (a: number, b: number) => (melange = [a, b]),
     uniform1f: uniforme,
     uniform1i: uniforme,
     uniform2f: uniforme,
     uniform4fv: (loc: { nom: string; p: object } | null, v: number[]) => uniforme(loc, [...v]),
-    texImage2D: (...a: unknown[]) => (texels = a[8] as Uint8Array),
+    texImage2D: (...a: unknown[]) => (texture = { largeur: a[3] as number, hauteur: a[4] as number, texels: a[8] as Uint8Array }),
     drawElements: (mode: number, n: number, _t: number, decalage: number) => dessins.push({ prog, vao, mode, n, decalage, u: { ...(prog && programmes.get(prog)) } }),
     drawArrays: (mode: number, _a: number, n: number) => dessins.push({ prog, vao, mode, n, decalage: 0, u: { ...(prog && programmes.get(prog)) } }),
-    drawArraysInstanced: (mode: number, _a: number, _n: number, n: number) => dessins.push({ prog, vao, mode, n, decalage: 0, u: {} }),
+    drawArraysInstanced: (mode: number, _a: number, _n: number, n: number) => dessins.push({ prog, vao, mode, n, decalage: 0, u: { ...(prog && programmes.get(prog)) } }),
   };
   function constante(nom: string): number {
     let c = constantes.get(nom);
@@ -485,7 +903,7 @@ function fauxWebGL() {
   const gl = new Proxy(cible, {
     get: (t, nom: string) => (nom in t ? t[nom] : /^[A-Z0-9_]+$/.test(nom) ? constante(nom) : () => undefined),
   });
-  return { gl, dessins, indicesDuVao, texels: () => texels, constante };
+  return { gl, dessins, indicesDuVao, sommetsDuVao, texels: () => texture?.texels ?? null, texture: () => texture, instances: () => instances, melange: () => melange, constante };
 }
 
 const couleursEssai: Couleurs = {
@@ -498,22 +916,24 @@ const couleursEssai: Couleurs = {
   marques: { choisi: [0, 0, 255, 255], juste: [0, 255, 0, 255], faux: [255, 0, 0, 255] },
 };
 
+const arcs = donnees.traits();
+const tout: MaillagesCarte = { terres, zones, interieurs: maillerTraits(arcs.interieurs), cotes: maillerTraits(arcs.cotes) };
+/** Un PeintreWebGL sur le faux WebGL2, au format du téléphone de mesure (dpr 2,8125 par défaut). */
+const peintre = (couleurs?: Couleurs, dpr = 2.8125) => {
+  const f = fauxWebGL();
+  const canvas = { width: Math.round(L * dpr), height: Math.round(H * dpr), getContext: () => f.gl, addEventListener: () => undefined, removeEventListener: () => undefined };
+  const p = new PeintreWebGL(canvas as unknown as HTMLCanvasElement, { donnees, redessiner: () => undefined, couleurs: couleurs ?? couleursEssai });
+  p.charger(tout);
+  p.dimensionner(L, H, dpr);
+  return { p, f, canvas };
+};
+const etat = (r: number, k: number, marques = new Map<string, Set<string>>(), lat = 0): EtatImage => {
+  const v = placer(C, [r, lat], L / 2, H / 2, k);
+  return { v, c: C, t: transfoDe(v, C), proj: projectionDe(v.r, C), enMouvement: false, pastilles: [], marques, anneaux: [] };
+};
+const vaoDe = (f: ReturnType<typeof fauxWebGL>, n: number) => [...f.indicesDuVao].filter(([, k]) => k === n).map(([v]) => v);
+
 describe('PeintreWebGL.dessiner (faux WebGL2)', () => {
-  const arcs = donnees.traits();
-  const tout: MaillagesCarte = { terres, zones, interieurs: maillerTraits(arcs.interieurs), cotes: maillerTraits(arcs.cotes) };
-  const peintre = (couleurs?: Couleurs) => {
-    const f = fauxWebGL();
-    const canvas = { width: 1080, height: 2033, getContext: () => f.gl, addEventListener: () => undefined, removeEventListener: () => undefined };
-    const p = new PeintreWebGL(canvas as unknown as HTMLCanvasElement, { donnees, redessiner: () => undefined, couleurs: couleurs ?? couleursEssai });
-    p.charger(tout);
-    p.dimensionner(L, H, 2.8125);
-    return { p, f };
-  };
-  const etat = (r: number, k: number, marques = new Map<string, Set<string>>()): EtatImage => {
-    const v = placer(C, [r, 0], L / 2, H / 2, k);
-    return { v, c: C, t: transfoDe(v, C), proj: projectionDe(v.r, C), enMouvement: false, pastilles: [], marques, anneaux: [] };
-  };
-  const vaoDe = (f: ReturnType<typeof fauxWebGL>, n: number) => [...f.indicesDuVao].filter(([, k]) => k === n).map(([v]) => v);
 
   it('uniformes de la vue : uK et uCentre = uniformesVue, à chaque programme de la carte', () => {
     const { p, f } = peintre();
@@ -569,6 +989,263 @@ describe('PeintreWebGL.dessiner (faux WebGL2)', () => {
     const ovale = f.dessins[0];
     expect(ovale?.u.uMode).toBe(2);
     expect(ovale?.u.uCouleur).toEqual(couleursEssai.mer.map((x) => x / 255));
+  });
+});
+
+// --- Les fragment shaders et les disques, contre le dessin du Canvas 2D ---------
+
+/** Transformations affines 2D au format de DOMMatrix (x' = a·x + c·y + e, y' = b·x + d·y + f). */
+type Affine = [number, number, number, number, number, number];
+const composer = (...ms: Affine[]): Affine =>
+  ms.reduce(([a, b, c, d, e, f], [A, B, CC, D, E, F]) => [a * A + c * B, b * A + d * B, a * CC + c * D, b * CC + d * D, a * E + c * F + e, b * E + d * F + f]);
+const inverser = ([a, b, c, d, e, f]: Affine): Affine => {
+  const det = a * d - b * c;
+  return [d / det, -b / det, -c / det, a / det, (c * f - d * e) / det, (b * e - a * f) / det];
+};
+const appliquer = ([a, b, c, d, e, f]: Affine, [x, y]: readonly number[]): [number, number] => [a * (x as number) + c * (y as number) + e, b * (x as number) + d * (y as number) + f];
+/** rotateSelf(deg) de DOMMatrix (et rotate() du Canvas 2D) : y vers le bas, sens des aiguilles d'une montre à l'écran. */
+const rotation = (deg: number): Affine => {
+  const t = (deg * Math.PI) / 180;
+  return [Math.cos(t), Math.sin(t), -Math.sin(t), Math.cos(t), 0, 0];
+};
+
+/** Couleur du Canvas (octets non prémultipliés) en flottants prémultipliés, la sortie attendue d'un fragment shader. */
+const premultipliee = (c: Rvba) => [(c[0] / 255) * (c[3] / 255), (c[1] / 255) * (c[3] / 255), (c[2] / 255) * (c[3] / 255), c[3] / 255];
+const TRANSPARENT = [0, 0, 0, 0];
+const ecartMax = (a: readonly number[], b: readonly number[]) => Math.max(...a.map((x, k) => Math.abs(x - (b[k] as number))));
+
+describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le dessin du Canvas 2D', () => {
+  it('terres (FRAG_TERRES) : chaque pays de sa couleur, terre ou marque, posée sur la mer comme par le Canvas (prémultipliée, toutes les lignes de la texture)', () => {
+    // Terre translucide : une couleur non prémultipliée se verrait. Plus de 256 entités : la seconde ligne de la texture sert.
+    const couleurs: Couleurs = { ...couleursEssai, mer: [10, 30, 60, 255], terre: [35, 37, 43, 200] };
+    const n = donnees.entites.length;
+    expect(n).toBeGreaterThan(256);
+    const marquees: [number, string][] = [[0, 'choisi'], [100, 'faux'], [254, 'juste'], [255, 'faux'], [256, 'juste'], [n - 1, 'choisi']];
+    const marques = new Map(marquees.map(([i, cl]) => [donnees.entites[i]?.pays.id as string, new Set([cl])]));
+    const { p, f } = peintre(couleurs);
+    p.dessiner(etat(0, 1, marques));
+    // Mélange du WebGL : source prémultipliée (ONE, ONE_MINUS_SRC_ALPHA) ; le Canvas 2D : source-over d'une couleur non prémultipliée.
+    expect(f.melange()).toEqual([f.constante('ONE'), f.constante('ONE_MINUS_SRC_ALPHA')]);
+    const mer = premultipliee(couleurs.mer);
+    const surMerWebGL = (s: number[]) => [0, 1, 2].map((k) => (s[k] as number) + (mer[k] as number) * (1 - (s[3] as number)));
+    const surMerCanvas = (c: Rvba) => [0, 1, 2].map((k) => ((c[k] as number) / 255) * (c[3] / 255) + (mer[k] as number) * (1 - c[3] / 255));
+    const texture = f.texture() as TextureGlsl;
+    const frag = traduireGlsl(FRAG_TERRES);
+    const ecarts: string[] = [];
+    donnees.entites.forEach((e, i) => {
+      // Le Canvas remplit la terre puis, par-dessus, la couleur de chaque classe (opaques : la dernière se voit).
+      const cl = [...(marques.get(e.pays.id) ?? [])].pop();
+      const canvas = surMerCanvas(cl ? (couleurs.marques[cl] as Rvba) : couleurs.terre);
+      const webgl = surMerWebGL(frag.executer({ uCouleurs: texture, vForme: i }).sortie as number[]);
+      if (ecartMax(webgl, canvas) > 1e-9) ecarts.push(`${i} ${e.pays.id} : ${webgl.map((x) => x.toFixed(3))} au lieu de ${canvas.map((x) => x.toFixed(3))}`);
+    });
+    expect(ecarts).toEqual([]);
+  });
+
+  it('hachures (FRAG_HACHURES) = le motif du Canvas : traits à 45° montant vers la droite, au pas de 6 px, épais de 1,2 px, à 1 px de l’ancre', () => {
+    const frag = traduireGlsl(FRAG_HACHURES);
+    // Translucide comme --hachure : la couleur passe prémultipliée.
+    const couleurs: Couleurs = { ...couleursEssai, hachure: [236, 241, 254, 71] };
+    // dpr 2 et 3 : la tuile du Canvas fait alors juste 6 px CSS (à 2,8125, 17 px physiques, 6,04 px).
+    for (const dpr of [2, 3]) {
+      const { p, f, canvas } = peintre(couleurs, dpr);
+      p.dessiner(etat(0, 3));
+      const d = f.dessins.find((x) => x.u.uHauteur !== undefined);
+      expect([d?.u.uDpr, d?.u.uHauteur]).toEqual([dpr, canvas.height]);
+      const uCouleur = d?.u.uCouleur as number[];
+      expect(ecartMax(uCouleur, premultipliee(couleurs.hachure))).toBeLessThan(1e-12);
+      // Le motif du Canvas (carte-canvas.ts, creerMotif et dessiner) : une tuile de round(6·dpr) px physiques,
+      // un trait vertical de 1,2·dpr px centré à dpr px de son bord gauche, posée par
+      // translate(ancre)·rotate(45°)·scale(1/dpr), ancre arrondie au pixel physique.
+      const ancre: [number, number] = [Math.round(151.3 * dpr) / dpr, Math.round(300.7 * dpr) / dpr];
+      const cote = Math.round(6 * dpr);
+      const versTuile = inverser(composer([1, 0, 0, 1, ancre[0], ancre[1]], rotation(45), [1 / dpr, 0, 0, 1 / dpr, 0, 0]));
+      const distanceAuTrait = (q: [number, number]) => {
+        const du = (((appliquer(versTuile, q)[0] - dpr) % cote) + cote) % cote;
+        return Math.min(du, cote - du) / dpr;
+      };
+      const flou = 0.5 / dpr + 1e-3; // l'antialiasing : un pixel physique à cheval sur le bord du trait
+      const ecarts: string[] = [];
+      let traits = 0;
+      let vides = 0;
+      for (let i = Math.round((ancre[0] - 12) * dpr); i < (ancre[0] + 12) * dpr; i++) {
+        for (let j = Math.round((ancre[1] - 12) * dpr); j < (ancre[1] + 12) * dpr; j++) {
+          const q: [number, number] = [(i + 0.5) / dpr, (j + 0.5) / dpr];
+          const dist = distanceAuTrait(q);
+          const attendu = dist <= 0.6 - flou ? 1 : dist >= 0.6 + flou ? 0 : null;
+          if (attendu === null) continue;
+          const s = frag.executer({ uCouleur, uDpr: dpr, uHauteur: canvas.height, vRef: ancre, gl_FragCoord: [i + 0.5, canvas.height - (j + 0.5), 0.5, 1] }).sortie as number[];
+          if (ecartMax(s, uCouleur.map((x) => x * attendu)) > 1e-9) ecarts.push(`dpr ${dpr}, (${q.map((x) => x.toFixed(2))}) à ${dist.toFixed(2)} px du trait : ${s[3]?.toFixed(3)}`);
+          if (attendu) traits++;
+          else vides++;
+        }
+      }
+      expect(ecarts.slice(0, 5)).toEqual([]);
+      expect(traits).toBeGreaterThan(200);
+      expect(vides).toBeGreaterThan(1000);
+    }
+  });
+
+  it('hachures ancrées comme celles du Canvas : vRef = ancre() de la zone (une seule partie), le même à chaque sommet', () => {
+    let comparees = 0;
+    let pire = 0;
+    for (const [r, lat, k] of [[0, 20, 3], [150, -10, 8], [-100, 40, 2], [180, 60, 5]] as const) {
+      const v = placer(C, [r, lat], L / 2, H / 2, k);
+      const { K, centre } = uniformesVue(v, C);
+      const im = image(v, C, regionVisible(v, C, MARGE_PX));
+      donnees.contestees.forEach((z, iz) => {
+        const ps = preparer(z.forme);
+        const parts = zones.parties.filter((pa) => pa.forme === iz);
+        if (ps.length !== 1 || parts.length !== 1) return;
+        const pa = parts[0] as PartieMaillee;
+        const sommets = new Set(Array.from(zones.triangles.subarray(pa.t0, pa.t1)));
+        const refs = [...sommets].map((s) => shader({ lon: zones.lonlat[2 * s] as number, lat: zones.lonlat[2 * s + 1] as number, ml: zones.milieu[2 * s] as number, mp: zones.milieu[2 * s + 1] as number, r: v.r, mode: 0, K, centre, l: L, h: H }).ref);
+        // Un seul vRef pour toute la partie : le motif ne change pas d'un triangle à l'autre.
+        for (const x of refs) expect(x).toEqual(refs[0]);
+        const a = ancre(im, ps) as [number, number];
+        pire = Math.max(pire, ecartMax(refs[0] as number[], a));
+        comparees++;
+      });
+    }
+    expect(comparees).toBeGreaterThan(80);
+    expect(pire).toBeLessThan(0.05);
+  });
+
+  it('ovale (la mer, uMode 2) : son contour suit le bord vrai d’Equal Earth au moins aussi près que celui du Canvas (tracerOvale)', () => {
+    // Le bord de l'ovale ne se voit qu'aux petits zooms (au-delà de ~1,7, le bord au pôle sort de l'écran).
+    // λ0 = 180 (atteint : normaliserLon rend 180 pour −180) : le tour du milieu (0, 0) y vaut 1, ignoré en uMode 2.
+    for (const [r, k, lat] of [[180, 1, 0], [30, 1.3, 60], [-100, 1.6, -75]] as const) {
+      const { p, f } = peintre();
+      const e = etat(r, k, undefined, lat);
+      expect(e.v.r).toBe(r);
+      p.dessiner(e);
+      const fan = f.dessins.find((d) => d.mode === f.constante('TRIANGLE_FAN'));
+      expect(fan?.u.uMode).toBe(2);
+      const sommets = f.sommetsDuVao.get(fan?.vao as object) as Float32Array;
+      expect(fan?.n).toBe(sommets.length / 2);
+      const { K, centre } = uniformesVue(e.v, e.c);
+      // Contour du WebGL : les sommets du TRIANGLE_FAN (le premier est le centre) passés par VERTEX_CARTE.
+      const webgl: [number, number][] = [];
+      for (let i = 2; i < sommets.length; i += 2) {
+        const s = shader({ lon: sommets[i] as number, lat: sommets[i + 1] as number, ml: 0, r: e.v.r, mode: 2, K, centre, l: L, h: H });
+        webgl.push([s.x, s.y]);
+      }
+      const canvas: [number, number][] = [];
+      const ctx = { moveTo: (x: number, y: number) => canvas.push([x, y]), lineTo: (x: number, y: number) => canvas.push([x, y]), rect: () => undefined };
+      tracerOvale(ctx, image(e.v, C, regionVisible(e.v, C, MARGE_PX)));
+      // Le bord vrai (d3, à ±180° du centre) ; écart horizontal d'un contour à la même hauteur, sur l'écran.
+      const bord = (phi: number, cote: number) => {
+        const [x, y] = projeterF64(180, phi, 0, 0);
+        return [centre[0] + cote * K * x, centre[1] - K * y] as const;
+      };
+      const ecart = (pts: [number, number][]) => {
+        let pire = 0;
+        let mesures = 0;
+        for (let i = 1; i < pts.length; i++) {
+          const [a, b] = [pts[i - 1], pts[i]] as [[number, number], [number, number]];
+          if (Math.abs(a[1] - b[1]) < 1e-9) continue; // le segment du pôle, plat
+          for (let t = 0; t <= 1; t += 1 / 8) {
+            const q = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])] as const;
+            const cote = Math.sign(q[0] - centre[0]);
+            if (q[1] < 0 || q[1] > H || q[0] < 0 || q[0] > L || !cote) continue;
+            let [sud, nord] = [-90, 90];
+            for (let n = 0; n < 60; n++) {
+              const m = (sud + nord) / 2;
+              if (bord(m, cote)[1] > q[1]) sud = m;
+              else nord = m;
+            }
+            pire = Math.max(pire, Math.abs(bord((sud + nord) / 2, cote)[0] - q[0]));
+            mesures++;
+          }
+        }
+        expect(mesures).toBeGreaterThan(50);
+        return pire;
+      };
+      // Chaque sommet du contour sur le bord vrai, à sa latitude et de son côté (est pour 180°, ouest pour −180°).
+      let pireSommet = 0;
+      for (let i = 2; i < sommets.length; i += 2) {
+        const [x, y] = bord(sommets[i + 1] as number, Math.sign(sommets[i] as number));
+        pireSommet = Math.max(pireSommet, ecartMax(webgl[i / 2 - 1] as [number, number], [x, y]));
+      }
+      expect(pireSommet).toBeLessThan(1e-3);
+      const [eWebgl, eCanvas] = [ecart(webgl), ecart(canvas)];
+      expect(eCanvas).toBeLessThan(0.1);
+      expect(eWebgl).toBeLessThanOrEqual(eCanvas);
+    }
+  });
+
+  it('pastilles et anneaux (VERTEX_DISQUES, FRAG_DISQUES) = les disques du Canvas : couleur au centre, bord de 1 px au rayon, rien au-delà ; le carré les contient', () => {
+    const couleurs: Couleurs = { ...couleursEssai, pastille: [142, 147, 157, 255], bord: [8, 8, 9, 255] };
+    const { p, f } = peintre(couleurs);
+    const e = etat(10, 4, new Map([['MLT', new Set(['faux'])]]), 45);
+    const base = (id: string) => e.proj(donnees.entites.find((x) => x.pays.id === id)?.pays.point as [number, number]) as [number, number];
+    const pastilles = ['AND', 'MLT'].map((id) => ({ id, bx: base(id)[0], by: base(id)[1], visible: true }));
+    p.dessiner({ ...e, pastilles, anneaux: [{ id: 'CHE', classe: 'juste', rayon_px: 16 }] });
+    // Le Canvas (carte-canvas.ts, dessinerPastilles) : disque de rayon_visible_px rempli puis bordé d'un trait
+    // de 1 px couleur du fond ; anneau : trait de 2 px. Dans le même ordre que les instances.
+    const attendus = [
+      ...pastilles.map((pa) => ({ centre: versEcran(e.t, pa.bx, pa.by), rayon: PASTILLE.rayon_visible_px, demiTrait: 0.5, plein: pa.id === 'MLT' ? couleurs.marques.faux : couleurs.pastille })),
+      { centre: versEcran(e.t, ...base('CHE')), rayon: 16, demiTrait: 1, plein: null },
+    ];
+    const anneau = couleurs.marques.juste as Rvba;
+    const canvas = (x: (typeof attendus)[number], d: number, flou: number) => {
+      const bord = Math.abs(d - x.rayon);
+      if (x.plein && d <= x.rayon - x.demiTrait - flou) return premultipliee(x.plein as Rvba);
+      if (bord <= x.demiTrait - flou) return premultipliee(x.plein ? couleurs.bord : anneau);
+      if (bord >= x.demiTrait + flou && (!x.plein || d > x.rayon)) return TRANSPARENT;
+      return null;
+    };
+    const dessin = f.dessins.find((d) => d.mode === f.constante('TRIANGLE_STRIP'));
+    expect(dessin?.n).toBe(attendus.length);
+    const { uTaille, uBord, uDpr } = dessin?.u as { uTaille: number[]; uBord: number[]; uDpr: number };
+    expect(uTaille).toEqual([L, H]);
+    const flou = 0.5 / uDpr + 1e-3;
+    const inst = f.instances() as Float32Array;
+    const vert = traduireGlsl(VERTEX_DISQUES);
+    const frag = traduireGlsl(FRAG_DISQUES);
+    const ecarts: string[] = [];
+    attendus.forEach((x, k) => {
+      const aDisque = [...inst.subarray(8 * k, 8 * k + 4)];
+      const aCouleur = [...inst.subarray(8 * k + 4, 8 * k + 8)];
+      // Les quatre sommets du carré (TRIANGLE_STRIP : triangles 0-1-2 et 1-2-3) ; vP y est la position en px CSS.
+      const sommets = [0, 1, 2, 3].map((id) => vert.executer({ aDisque, aCouleur, uTaille, gl_VertexID: id }));
+      const coins = sommets.map((s) => versCss(s.gl_Position as number[], L, H));
+      for (const [s, c] of sommets.map((s, i) => [s, coins[i]] as const)) expect(ecartMax(s.vP as number[], c as number[])).toBeLessThan(1e-9);
+      const { vD, vC } = sommets[3] as { vD: number[]; vC: number[] };
+      const dansTriangle = (q: readonly number[], a: readonly number[], b: readonly number[], c: readonly number[]) => {
+        const s = (u: readonly number[], v: readonly number[]) => ((v[0] as number) - (u[0] as number)) * ((q[1] as number) - (u[1] as number)) - ((v[1] as number) - (u[1] as number)) * ((q[0] as number) - (u[0] as number));
+        const [s1, s2, s3] = [s(a, b), s(b, c), s(c, a)];
+        return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
+      };
+      const [c0, c1, c2, c3] = coins as [[number, number], [number, number], [number, number], [number, number]];
+      const dansLeCarre = (q: readonly number[]) => dansTriangle(q, c0, c1, c2) || dansTriangle(q, c1, c2, c3);
+      // Tout ce que le Canvas peint (jusqu'au bord extérieur du trait, plus l'antialiasing) tient dans le carré.
+      for (let a = 0; a < 360; a += 5) {
+        const q = [x.centre[0] + (x.rayon + x.demiTrait + flou) * Math.cos(a), x.centre[1] + (x.rayon + x.demiTrait + flou) * Math.sin(a)];
+        if (!dansLeCarre(q)) ecarts.push(`instance ${k} : (${q.map((v) => v.toFixed(2))}) hors du carré`);
+      }
+      // Pixel par pixel : la sortie du fragment shader (rien hors du carré) = la couleur du Canvas, hors antialiasing.
+      const vus = { plein: 0, bord: 0, vide: 0, horsCarre: 0 };
+      const m = x.rayon + 4;
+      for (let i = Math.floor((x.centre[0] - m) * uDpr); i < (x.centre[0] + m) * uDpr; i++) {
+        for (let j = Math.floor((x.centre[1] - m) * uDpr); j < (x.centre[1] + m) * uDpr; j++) {
+          const q = [(i + 0.5) / uDpr, (j + 0.5) / uDpr];
+          const d = Math.hypot((q[0] as number) - x.centre[0], (q[1] as number) - x.centre[1]);
+          const attendu = canvas(x, d, flou);
+          if (!attendu) continue;
+          const dedans = dansLeCarre(q);
+          const s = dedans ? (frag.executer({ uBord, uDpr, vP: q, vD, vC }).sortie as number[]) : TRANSPARENT;
+          if (ecartMax(s, attendu) > 1e-6) ecarts.push(`instance ${k}, à ${d.toFixed(2)} px du centre : ${s.map((v) => v.toFixed(3))} au lieu de ${attendu.map((v) => v.toFixed(3))}`);
+          if (!dedans) vus.horsCarre++;
+          else if (attendu === TRANSPARENT) vus.vide++;
+          else if (d < x.rayon - x.demiTrait) vus.plein++;
+          else vus.bord++;
+        }
+      }
+      expect(ecarts.slice(0, 5)).toEqual([]);
+      // Chaque cas vu : couleur pleine (pastille), trait, transparent dans le carré, hors du carré.
+      expect(Math.min(vus.bord, vus.vide, vus.horsCarre, x.plein ? vus.plein : Infinity)).toBeGreaterThan(10);
+    });
   });
 });
 

@@ -99,7 +99,7 @@ void main() {
   gl_Position = vec4(e.x / uTaille.x * 2.0 - 1.0, 1.0 - e.y / uTaille.y * 2.0, 0.0, 1.0);
 }`;
 
-const FRAG_TERRES = `#version 300 es
+export const FRAG_TERRES = `#version 300 es
 precision highp float;
 precision highp int;
 uniform highp sampler2D uCouleurs;
@@ -118,7 +118,7 @@ void main() { sortie = uCouleur; }`;
 
 // Hachures : traits à 45° (montant vers la droite, le motif du Canvas tourné
 // de 45°), au pas de 6 px CSS, comptés depuis le milieu de la partie à l'écran.
-const FRAG_HACHURES = `#version 300 es
+export const FRAG_HACHURES = `#version 300 es
 precision highp float;
 uniform vec4 uCouleur;
 uniform float uDpr;
@@ -134,7 +134,7 @@ void main() {
 
 // Pastilles et anneaux : un carré par instance (gl_VertexID), le disque au pixel.
 // aDisque : centre (px CSS), rayon, demi-épaisseur du trait (0 : disque plein bordé).
-const VERTEX_DISQUES = `#version 300 es
+export const VERTEX_DISQUES = `#version 300 es
 precision highp float;
 layout(location = 0) in vec4 aDisque;
 layout(location = 1) in vec4 aCouleur;
@@ -151,7 +151,7 @@ void main() {
   gl_Position = vec4(p.x / uTaille.x * 2.0 - 1.0, 1.0 - p.y / uTaille.y * 2.0, 0.0, 1.0);
 }`;
 
-const FRAG_DISQUES = `#version 300 es
+export const FRAG_DISQUES = `#version 300 es
 precision highp float;
 uniform vec4 uBord;
 uniform float uDpr;
