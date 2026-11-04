@@ -95,7 +95,10 @@ navigateur et binaire, `code` : commit, arbre modifié ou non, et pour la
 WebView les dates de l'APK installé et du fichier) dans
 `docs/mesures/j0/AAAA-MM-JJ-<cible>-<rendu>-<projection>[-x<ralenti>].json`
 (réécrit si relancé le même jour). **Les commiter** : ce sont les preuves
-du J0. Champs du rapport : `src/mesure/rapport.ts` (le contrat, qui fait
+du J0. Critère changé dans le driver : `driver.py resumer FICHIER.json…
+[--pourquoi …] [--sec]` recalcule le résumé sur les rapports bruts (v3 ou
+v4) sans refaire les mesures, réécrit le fichier (rapports intacts) et le
+note dans `resume_recalcule` ; `--sec` affiche sans écrire. Champs du rapport : `src/mesure/rapport.ts` (le contrat, qui fait
 foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
 
 - **rendu < 1 s** : `chargement.total_ms`.

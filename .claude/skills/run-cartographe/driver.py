@@ -9,6 +9,8 @@ adb). Python stdlib seule ; à lancer depuis Cartographe/ :
     mesurer --cible local|chrome|webview [--rendu css|g|canvas]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
+    resumer FICHIER.json…       résumé recalculé sur les rapports bruts
+                                d'un JSON de mesurer (critères changés)
     apk [--installer]           APK de débogage, installé par adb
 
 Pas de données serveur au J0 : tout le stockage est dans le navigateur.
@@ -966,6 +968,7 @@ def _verdict(*oks):
 
 def resumer(rapports, vises, journal=None):
     """Résumé face aux critères du J0, sur toutes les répétitions (rapports v4,
+    ou v3 relus par `resumer`,
     src/mesure/rapport.ts : chaque règle ci-dessous y est décrite)."""
     chargements = [r["chargement"]["total_ms"] for r in rapports if r.get("chargement")]
     periode = _med([r["ecran"]["periode_ms"] for r in rapports]) or 1000 / 60
@@ -1304,6 +1307,38 @@ def commande_mesurer(args):
     return 1 if erreurs else 0
 
 
+def commande_resumer(args):
+    """Recalcule le résumé d'un JSON de `mesurer` sur ses rapports bruts
+    (rapports v3 ou v4, touchers visés), aux critères actuels du driver : un
+    critère qui change n'oblige pas à refaire les mesures. Réécrit le fichier,
+    rapports bruts intacts, et note le recalcul dans `resume_recalcule`."""
+    for chemin in args.fichiers:
+        fichier = pathlib.Path(chemin)
+        d = json.loads(fichier.read_text())
+        versions = {r.get("v") for r in d["rapports"]}
+        if not versions <= {3, VERSION_RAPPORT}:
+            dire(f"ECHEC : {fichier} : rapports v{sorted(versions)}, le driver relit la v3 et la v{VERSION_RAPPORT}")
+            return 1
+        journal = []
+        res = resumer(d["rapports"], d["touchers_vises"], journal)
+        d["resume"] = res
+        d["criteres"]["saccade"] = CRITERE_SACCADE
+        d["notes"] = sorted(set(d.get("notes", [])) | set(journal))
+        d["resume_recalcule"] = {
+            "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+            "outil": ".claude/skills/run-cartographe/driver.py resumer",
+            "commit": subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=RACINE,
+                                     capture_output=True, text=True).stdout.strip() or None,
+            # Le driver qui a recalculé diffère-t-il de ce commit (pas encore commité) ?
+            "driver_modifie": subprocess.run(["git", "diff", "--quiet", "HEAD", "--", __file__],
+                                             cwd=RACINE).returncode != 0,
+            "pourquoi": args.pourquoi}
+        if not args.sec:
+            fichier.write_text(json.dumps(d, ensure_ascii=False, indent=1) + "\n")
+        afficher_resume(res, f"{fichier.name} (recalculé{', non écrit' if args.sec else ''})")
+    return 0
+
+
 # --- apk ---------------------------------------------------------------
 
 def commande_apk(args):
@@ -1358,6 +1393,11 @@ def main():
     s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
     s.add_argument("--out", help=f"dossier du rapport (défaut : {MESURES.relative_to(RACINE)})")
 
+    s = sub.add_parser("resumer", help="résumé d'un JSON de mesurer recalculé sur ses rapports bruts")
+    s.add_argument("fichiers", nargs="+")
+    s.add_argument("--pourquoi", default="critères du driver changés", help="noté dans resume_recalcule")
+    s.add_argument("--sec", action="store_true", help="affiche sans réécrire le fichier")
+
     s = sub.add_parser("apk", help="APK de débogage (npm run build, cap sync, gradlew)")
     s.add_argument("--installer", action="store_true", help="puis adb install -r")
     s.add_argument("--serie")
@@ -1372,7 +1412,7 @@ def main():
     global BINAIRE
     BINAIRE = getattr(args, "binaire", BINAIRE)
     commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui,
-                 "mesurer": commande_mesurer, "apk": commande_apk}
+                 "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk}
     try:
         return commandes[args.commande](args) or 0
     except RuntimeError as e:
