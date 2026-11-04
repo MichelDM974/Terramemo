@@ -25,7 +25,7 @@
 import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
-import { ancre, image, MARGE_PX, minuscule, preparer, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
+import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
 import { RAYON_TERRE_KM, versEcran } from './geo';
 import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
@@ -740,7 +740,9 @@ export class CarteCanvas implements CarteAffichee {
     ctx.fill(ovale);
 
     // Terres : un chemin pour tout ce qui n'a pas de couture (rempli puis tracé),
-    // les coutures à part (remplies, tracées sans le côté qui suit l'antiméridien).
+    // les coutures à part (remplies, tracées sans le côté qui suit l'antiméridien),
+    // et de même les parties qui passent la coupure (tracées sans leurs segments
+    // ramenés sur le bord de l'ovale, dessin.ts).
     const terres = new Path2D();
     const coutures = new Path2D();
     const couturesContour = new Path2D();
@@ -760,7 +762,7 @@ export class CarteCanvas implements CarteAffichee {
     parcourir(im, cq.pays, cq.groupes?.pays, (p, i) => {
       const e = entites[i];
       if (!e) return;
-      if (p.couture) {
+      if (p.couture || passeCoupure(p, v.r)) {
         avecCoutures = true;
         tracerPartie(coutures, im, p);
         tracerPartie(couturesContour, im, p, true);

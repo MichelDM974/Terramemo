@@ -4,7 +4,7 @@ import type { Polygon } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import { calque, calqueLeger, ILE_LEGERE_KM, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
-import { ancre, decalages, image, MARGE_PX, preparer, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
+import { ancre, decalages, image, MARGE_PX, passeCoupure, preparer, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
 import { contient, versLonLat } from '../src/map/geo';
 import { SuiviPointeurs } from '../src/map/geste';
@@ -362,6 +362,51 @@ describe('dessin : découpage de ce qui est hors de l’écran', () => {
       remplis += surLeMeridien(plein.segments).length;
     }
     expect(remplis).toBeGreaterThan(0); // le remplissage, lui, suit la couture
+  });
+});
+
+describe('dessin : bord de l’ovale', () => {
+  it('une partie qui passe la coupure : son contour ne suit jamais le bord (Brésil à r = 145, Groenland au départ Pacifique, Russie et Antarctique vers r = 0)', () => {
+    const PI = Math.PI;
+    for (const [id, r] of [['BRA', 145], ['GRL', 150], ['RUS', -2], ['ATA', -2]] as const) {
+      for (const k of [1]) {
+        const v = placer(C, [r, 0], L / 2, H / 2, k);
+        const im = image(v, C, regionVisible(v, C, MARGE_PX));
+        let surLeBord = 0;
+        let traits = 0;
+        for (const p of preparer(entite(id).forme)) {
+          const ds = decalages(p, v.r);
+          if (ds.length < 2 || !visible(im, p)) continue;
+          // Sommets ramenés sur le bord, calculés ici : au-delà de ±180° du centre dans une copie.
+          const bord = new Set<string>();
+          const cle = (x: number, y: number) => `${x.toFixed(6)},${y.toFixed(6)}`;
+          for (const d of ds)
+            for (const a of p.anneaux)
+              for (let i = 0; i < a.length; i += 3) {
+                const l = (a[i] as number) + d;
+                if (Math.abs(l) > PI) bord.add(cle(im.cx + im.K * Math.sign(l) * PI * (a[i + 1] as number), im.y0 - im.K * (a[i + 2] as number)));
+              }
+          const surBord = (sg: [number, number, number, number]) => bord.has(cle(sg[0], sg[1])) && bord.has(cle(sg[2], sg[3])) && Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > 1e-9;
+          const contour = enregistreur();
+          tracerPartie(contour, im, p, true);
+          const fautifs = contour.segments.filter(surBord);
+          if (fautifs.length) throw new Error(`${id} r=${r} k=${k} : ${fautifs.length} segments du contour sur le bord, ${JSON.stringify(fautifs[0])}`);
+          traits += contour.segments.filter((sg) => toucheEcran(sg) && Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > 1e-9).length;
+          const plein = enregistreur();
+          tracerPartie(plein, im, p);
+          surLeBord += plein.segments.filter(surBord).length;
+        }
+        expect(surLeBord, `${id} r=${r} k=${k}`).toBeGreaterThan(0); // le remplissage, lui, suit le bord
+        expect(traits, `${id} r=${r} k=${k}`).toBeGreaterThan(0); // ses frontières restent tracées
+      }
+    }
+  });
+
+  it('passeCoupure : la carte la trace avec les coutures, son contour à part', () => {
+    const bra = preparer(entite('BRA').forme).sort((a, b) => b.points - a.points)[0]!;
+    expect(passeCoupure(bra, 145)).toBe(true);
+    expect(passeCoupure(bra, 0)).toBe(false);
+    for (const r of [-180, -90, -35, 0, 37, 145, 150, 179.9]) expect(passeCoupure(bra, r), String(r)).toBe(decalages(bra, r).length > 1);
   });
 });
 

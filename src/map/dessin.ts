@@ -14,7 +14,13 @@
 // de tours du contour ne change pas pendant qu'on le ramène), et rien ne
 // déborde : les cordes entre deux points du bord restent dans l'ovale, qui
 // est convexe. Seul écart : la corde entre deux sommets voisins ramenés sur le
-// bord coupe l'arc (sous le pixel au zoom 1, les sommets étant serrés).
+// bord coupe l'arc (sous le pixel au zoom 1, les sommets étant serrés). Le
+// trait, lui, ne doit pas suivre le bord : tracés comme une frontière, ces
+// segments ramenés y dessinaient un trait clair sur toute la bande de
+// latitudes du pays, même au-dessus de la mer, qui s'allumait et s'éteignait
+// pendant une rotation (le Brésil à r = 145, le Groenland au départ
+// Pacifique). En mode « contour », un segment entre deux sommets ramenés sur
+// le même bord est sauté, comme une couture.
 // geoPath de d3 découpait 30 fois plus lentement (rotation, découpe et
 // rééchantillonnage de chaque sommet de l'Antarctique et de la Russie à chaque
 // image : 8 ms sur le PC au zoom 1) ; un clip de l'ovale coûtait un tiers des
@@ -217,8 +223,12 @@ export function decalages(p: Partie, r: number): number[] {
   return res;
 }
 
-/** La partie passe-t-elle la coupure (deux copies, sommets ramenés sur le bord) ? */
-export const passeCoupure = (p: Partie, r: number): boolean => decalages(p, r).length > 1;
+/** La partie passe-t-elle la coupure (deux copies, sommets ramenés sur le bord) ? Sans allocation (chaque image, chaque partie). */
+export function passeCoupure(p: Partie, r: number): boolean {
+  const milieu = (p.o + p.e) / 2;
+  const d = normaliserLon(milieu - r) - milieu;
+  return p.e + d > 180 + EPS || p.o + d < -180 - EPS;
+}
 
 /** Partie sautée pendant un mouvement : moins de TAILLE_MIN_PX (comptée dans im.minuscules). */
 export function minuscule(im: ImageTrace, p: Partie): boolean {
@@ -239,11 +249,13 @@ const BAS = 8;
 
 /**
  * Trace une partie visible (sans beginPath ni remplissage). En mode
- * « contour », les coutures d'une partie sont sautées par des moveTo (à
- * tracer seulement : un remplissage fermerait chaque morceau). Pendant un
- * mouvement, une partie de moins de TAILLE_MIN_PX est sautée ; une partie de
- * moins de TAILLE_POINT_PX, ou dont le contour extérieur est réduit par les
- * sommets sautés à moins de trois sommets (sans aire), devient un point
+ * « contour », ce qui n'est pas une frontière est sauté par des moveTo (à
+ * tracer seulement : un remplissage fermerait chaque morceau) : les coutures
+ * d'une partie, et les segments ramenés sur le bord de l'ovale d'une partie
+ * qui passe la coupure ; un contour n'a pas de point. Pendant un mouvement,
+ * une partie de moins de TAILLE_MIN_PX est sautée ; une partie de moins de
+ * TAILLE_POINT_PX, ou dont le contour extérieur est réduit par les sommets
+ * sautés à moins de trois sommets (sans aire), devient un point
  * (tracerPoint).
  *
  * Deux économies, sans rien changer de ce que l'écran montre :
@@ -265,12 +277,12 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
   const yb = im.c.h + MARGE_PX;
   const code = (x: number, y: number) => (x < x0 ? GAUCHE : x > x1 ? DROITE : 0) | (y < yh ? HAUT : y > yb ? BAS : 0);
   if (im.mouvement && K * p.taille < TAILLE_POINT_PX) {
-    if (!minuscule(im, p)) tracerPoint(ctx, im, p, decalageMilieu(p, im.v.r), x0, x1, yh, yb);
+    if (!contour && !minuscule(im, p)) tracerPoint(ctx, im, p, decalageMilieu(p, im.v.r), x0, x1, yh, yb);
     return;
   }
-  const sauter = contour && p.couture;
   const ds = decalages(p, im.v.r);
   const borner = ds.length > 1;
+  const sauter = contour && (p.couture || borner);
   const PI = Math.PI;
   im.parties++;
   im.copies += ds.length - 1;
@@ -282,11 +294,20 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
       im.sommets += n / 3;
       const emis0 = im.emis;
       let l0 = (a[0] as number) + delta;
-      if (borner) l0 = l0 > PI ? PI : l0 < -PI ? -PI : l0;
+      // Bord de l'ovale où le sommet précédent est ramené : 1 à l'est, -1 à l'ouest, 0 dans l'ovale.
+      let bord = 0;
+      if (borner) {
+        if (l0 > PI) [l0, bord] = [PI, 1];
+        else if (l0 < -PI) [l0, bord] = [-PI, -1];
+      }
       let lx = cx + K * l0 * (a[1] as number);
       let ly = y0 - K * (a[2] as number);
       ctx.moveTo(lx, ly);
       im.emis++;
+      // Contour : crayon levé sur ce qui n'est pas une frontière ; le moveTo
+      // attend le prochain trait (la copie ramenée sur le bord de la Russie ou
+      // de l'Antarctique : des milliers de sommets, aucun moveTo).
+      let leve = false;
       // Bords communs au dernier sommet tracé et aux sommets sautés depuis.
       let masque = code(lx, ly);
       let attente = false;
@@ -294,20 +315,31 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
       let ay = 0;
       for (let i = 3; i < n; i += 3) {
         let lp = (a[i] as number) + delta;
-        if (borner) lp = lp > PI ? PI : lp < -PI ? -PI : lp;
+        let b = 0;
+        if (borner) {
+          if (lp > PI) [lp, b] = [PI, 1];
+          else if (lp < -PI) [lp, b] = [-PI, -1];
+        }
         const x = cx + K * lp * (a[i + 1] as number);
         const y = y0 - K * (a[i + 2] as number);
         if (sauter) {
           const memeLon = a[i] === a[i - 3] && Math.abs(a[i] as number) >= Math.PI - EPS;
           const memePole = a[i + 2] === a[i - 1] && Math.abs(a[i + 2] as number) >= Y_POLE - EPS;
-          if (memeLon || memePole) {
-            ctx.moveTo(x, y);
-            im.emis++;
+          // Deux sommets ramenés sur le même bord : le segment suit le bord, au-delà de la coupure.
+          const memeBord = b !== 0 && b === bord;
+          bord = b;
+          if (memeLon || memePole || memeBord) {
+            leve = true;
             lx = x;
             ly = y;
             masque = code(x, y);
             attente = false;
             continue;
+          }
+          if (leve) {
+            ctx.moveTo(lx, ly);
+            im.emis++;
+            leve = false;
           }
         }
         const cd = code(x, y);
@@ -337,7 +369,7 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
         im.emis++;
       }
       // Contour extérieur effondré (moveTo et deux lineTo au plus : un segment) : un point, s'il est à l'écran.
-      if (im.mouvement && r === 0 && im.emis - emis0 <= 3) tracerPoint(ctx, im, p, delta, x0, x1, yh, yb);
+      if (im.mouvement && !contour && r === 0 && im.emis - emis0 <= 3) tracerPoint(ctx, im, p, delta, x0, x1, yh, yb);
     }
   }
 }
