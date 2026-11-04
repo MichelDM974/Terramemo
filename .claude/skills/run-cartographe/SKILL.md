@@ -1,15 +1,17 @@
 ---
 name: run-cartographe
-description: Lancer, piloter, photographier et MESURER Cartographe (site TypeScript + Vite et APK Capacitor, carte du monde en SVG ou en Canvas). À utiliser pour servir le site, vérifier qu'un changement marche dans un vrai navigateur, prendre des captures des vues, rejouer gestes et touchers et mesurer chargement, saccades et latence (chromium du PC, Chrome du téléphone ou APK par adb), construire et installer l'APK, déployer sur Firebase Hosting.
+description: Lancer, piloter, photographier et MESURER Cartographe (site TypeScript + Vite et APK Capacitor, carte du monde en SVG, en Canvas ou en WebGL). À utiliser pour servir le site, vérifier qu'un changement marche dans un vrai navigateur, prendre des captures des vues, rejouer gestes et touchers et mesurer chargement, saccades et latence (chromium du PC, Chrome du téléphone ou APK par adb), construire et installer l'APK, déployer sur Firebase Hosting.
 ---
 
 # Lancer, piloter et mesurer Cartographe
 
 Site statique TypeScript + Vite sans framework (`src/`, carte d3-geo : SVG
-en rendus `g` et `css`, Canvas en rendu `canvas`, la carte qui tourne),
+en rendus `g` et `css` ; la carte qui tourne en Canvas 2D (rendu `canvas`)
+ou en WebGL2 (rendu `webgl`)),
 emballé en APK par Capacitor (`android/`). **Aucun serveur ni donnée
 serveur au J0** : tout le stockage est dans le navigateur (profil jetable
-du chromium du driver, rien à nettoyer). Tout passe par
+du chromium du driver ; sur le téléphone, `mesurer` vide celui de l'origine
+mesurée, cf. « Première visite »). Tout passe par
 `.claude/skills/run-cartographe/driver.py` (Python stdlib seule) ; chemins
 relatifs à `Cartographe/`. Contrat de la page avec le pilote :
 `window.cartographe` (`src/main.ts`, `src/mesure/rapport.ts`).
@@ -67,9 +69,49 @@ images perdues ne disent rien du GPU du téléphone ; `--gpu` prend le vrai
 GPU du PC, rapport suffixé `-gpu`), `--projection monde|pacifique` (en
 canvas : le méridien central au chargement, « Départ » dans ⚙),
 `--repetitions N` (défaut 3 : chaque répétition recharge la page et rejoue
-tout), `--url`, `--cache` (garde le cache HTTP, désactivé par défaut :
-première visite), `--ws` (local par HTTP + WebSocket, le chemin du
-téléphone), `--serie` (adb), `--out`, `--binaire`.
+tout), `--url` (avec `?logiciel=1` : WebGL logiciel accepté, rapport
+suffixé `-logiciel`), `--cache` (garde le cache HTTP, désactivé par
+défaut), `--garder-stockage` (voir ci-dessous), `--ws` (local par HTTP +
+WebSocket, le chemin du téléphone), `--serie` (adb), `--out`, `--binaire`.
+
+**Première visite, puis visites suivantes.** Avant la répétition 1, le
+driver vide le stockage de l'origine mesurée (`Storage.clearDataForOrigin`,
+types `indexeddb,cache_storage,service_workers,shader_cache` : le maillage
+du webgl gardé en IndexedDB, un éventuel service worker et ses fichiers,
+les shaders compilés gardés sur disque ; pas le `localStorage`, réglages de
+l'utilisateur sans effet sur le chargement). Sur le téléphone, Chrome et
+l'APK gardent sinon leurs données d'une séance à l'autre et après `adb
+install -r` : la répétition 1 lirait le maillage du cache. La répétition 1
+est donc une **première visite** (cache HTTP coupé, rien de gardé), les
+suivantes des **visites suivantes** (en webgl : maillage lu dans le cache
+écrit à la première). Sur le PC, le profil du chromium est neuf à chaque
+lancement : la répétition 1 y est toujours une première visite. Le vidage
+efface TOUT l'IndexedDB de l'origine (`https://localhost` pour l'APK) : le
+jour où l'appli y garde des données de l'utilisateur, `--garder-stockage`
+(la répétition 1 devient « visite inconnue »). Le cache des shaders en
+mémoire du processus GPU, lui, survit tant que le navigateur tourne : pour
+un premier lancement à froid, fermer Chrome ou l'APK avant (`adb shell am
+force-stop com.android.chrome`, ou `io.github.micheldm974.cartographe`).
+
+**Rendu webgl** : la carte s'affiche d'abord en Canvas 2D, le WebGL prend
+le relais quand le maillage est prêt (`src/map/relais-webgl.ts`). Le
+résumé y ajoute une ligne `[ — ] relais WebGL` (sans verdict), première
+visite et suivantes à part : source du maillage
+(`rapports[].webgl.maillage` : `calcul/absent` à la première visite,
+`cache/lu` ensuite), durées du Worker (`maillage.worker.total_ms`,
+`maillage_ms`), `temps.apres_affichage_ms` (du premier affichage au
+relais), les étapes du fil principal à surveiller (`temps.etapes` :
+« contexte », « nom du GPU », « premiere image ») et la plus longue.
+**À `--ralenti 4`, ces durées sont trop optimistes** : le ralenti ne touche
+pas le Worker (`maillage_ms` 208 à 224 ms à ×4 contre 241 à 259 à ×1),
+la ligne le dit ; sur un téléphone lent, le maillage de la première visite
+durerait jusqu'à ~4 fois plus. Si le WebGL est refusé (WebGL2 absent ou
+logiciel, shader refusé, contexte perdu : `rapport.rendu` `canvas` et
+`webgl.etape` `repli`), le driver dit « REPLI du webgl » avec
+`webgl.raison` et le GPU, et écrit quand même le JSON, suffixé `-repli`
+(champ `repli`) : son résumé est celui du Canvas 2D de repli. Sur le PC,
+`--rendu webgl` sans `--gpu` se replie toujours (SwiftShader, logiciel
+refusé), sauf avec `?logiciel=1`.
 
 Chaque répétition : chargement de `?rendu=…&projection=…&mesures=0` (sans
 panneau : sa mise à jour présenterait une image et fausserait les fins, cf.
@@ -95,9 +137,14 @@ les touchers au zoom 1 éprouvent `ecran` et `pick` sur un globe tourné
 Sortie : un résumé `[OK ]`/`[NON]`/`[ ? ]` (à juger) par critère et le JSON
 complet (v6 : rapports v6 bruts, touchers visés, scénario et pas de rejeu,
 navigateur et binaire, `code` : commit, arbre modifié ou non, et pour la
-WebView les dates de l'APK installé et du fichier) dans
-`docs/mesures/j0/AAAA-MM-JJ-<cible>-<rendu>-<projection>[-x<ralenti>].json`
-(réécrit si relancé le même jour). **Les commiter** : ce sont les preuves
+WebView les dates de l'APK installé et du fichier ; `stockage` : vidé ou
+non, origine, types, erreur ; `visites` : par répétition, `premiere`,
+`suivante` ou `inconnue`, le maillage du webgl (`calcul/absent`,
+`cache/lu`), le rendu et la raison d'un repli ; `logiciel` ; `repli`) dans
+`docs/mesures/j0/AAAA-MM-JJ-<cible>-<rendu>-<projection>[-x<ralenti>][-gpu][-logiciel][-repli].json`
+(`-gpu` : vrai GPU du PC ; `-logiciel` : l'adresse porte `logiciel=1`,
+WebGL SwiftShader accepté ; `-repli` : le webgl demandé a fini en Canvas
+2D ; réécrit si relancé le même jour). **Les commiter** : ce sont les preuves
 du J0. Critère changé dans le driver : `driver.py resumer FICHIER.json…
 [--pourquoi …] [--sec] [--json]` recalcule le résumé sur les rapports bruts
 (v3 à v6) sans refaire les mesures, réécrit le fichier (rapports intacts) et
@@ -107,7 +154,11 @@ le critère recopié dans le driver à `src/mesure/stats.ts` : changer l'un
 sans l'autre casse `npm test`). Champs du rapport : `src/mesure/rapport.ts` (le contrat, qui fait
 foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
 
-- **rendu < 1 s** : `chargement.total_ms`.
+- **rendu < 1 s** : `chargement.total_ms`, première visite et suivantes à
+  part (`resume.chargement_ms.par_visite`) ; le critère vaut pour le premier
+  affichage, donc aussi à la première visite (verdict sur toutes). `resumer`
+  relit `visites` ; dans un JSON plus ancien, la répétition 1 du PC est une
+  première visite (profil neuf), celle du téléphone « inconnue ».
 - **pas de saccade** (décision de l'utilisateur, 04/11/2026, registre) : un
   à-coup est une image qui tarde 25 ms ou plus (trois rafraîchissements à
   120 Hz, un et demi à 60 i/s), compté dès 21 ms (`SEUIL_ACOUP_MS` : loin de
@@ -374,8 +425,13 @@ arbre propre (`git status`).
   c'est le binaire par défaut du driver (`--binaire`). Un escalier pareil
   sur le téléphone serait donc un vrai défaut à creuser, pas cet artefact.
 - Headless tourne à 60 Hz et `--ralenti` ne ralentit que le fil principal
-  du moteur de rendu (ni compositeur, ni rastérisation, ni GPU) : le PC
-  avantage le rendu `css`. En canvas, à l'inverse, le PC sans GPU
+  du moteur de rendu (ni compositeur, ni rastérisation, ni GPU, **ni les Web
+  Workers**) : le PC avantage le rendu `css`. En webgl, le maillage se fait
+  dans un Worker : à ×4, `maillage.worker.maillage_ms` vaut 208 à 224 ms
+  contre 241 à 259 à ×1 (relecture de l'assemblage). Toutes les durées du
+  relais à ×4 (`apres_affichage_ms` de la première visite surtout) sont
+  donc trop optimistes : sur un téléphone lent, le maillage de la
+  première visite durerait jusqu'à ~4 fois plus. Seul le téléphone le dit. En canvas, à l'inverse, le PC sans GPU
   rastérise le canvas au processeur : ses images perdues à ×4 ne disent
   rien du téléphone, `dessin_ms` (le script) se compare mieux. Seul le
   téléphone tranche.

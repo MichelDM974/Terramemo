@@ -929,6 +929,62 @@ def pas_de_rejeu(periode, cible):
     return min(periode, PAS_TELEPHONE_MS) if cible != "local" else periode
 
 
+# Première visite : avant la répétition 1, le stockage de l'origine mesurée
+# est vidé (Storage.clearDataForOrigin), en plus du cache HTTP coupé. Sur le
+# téléphone, Chrome et la WebView gardent leurs données d'une séance à
+# l'autre, et après `adb install -r` : sans cela, le maillage du rendu webgl
+# sortait du cache IndexedDB dès la répétition 1, et la première visite
+# n'était jamais mesurée. Sur le PC, le profil du chromium est neuf à chaque
+# lancement : la répétition 1 y est toujours une première visite.
+# Les types vidés sont ceux qui changent ce que fait le chargement :
+# indexeddb (maillage du webgl, src/map/maillage.worker.ts), cache_storage et
+# service_workers (aucun aujourd'hui ; un site hors ligne y garderait ses
+# fichiers), shader_cache (shaders compilés gardés sur disque par le
+# navigateur : sans lui, le contexte et la compilation de la répétition 1
+# profiteraient d'une séance d'avant). Pas « all » : local_storage garde les
+# réglages de l'utilisateur (série choisie, panneau des mesures), sans effet
+# sur le chargement mesuré (?mesures=0 et ?rendu= sont dans l'adresse).
+# Un nouveau stockage qui change le chargement doit entrer dans la liste.
+STOCKAGE_VIDE = "indexeddb,cache_storage,service_workers,shader_cache"
+# Les répétitions : la première visite (stockage vidé, ou profil neuf du PC),
+# les suivantes (cache du maillage écrit à la première), ou inconnue
+# (stockage du téléphone gardé, ou non vidé).
+NOMS_VISITES = {"premiere": "première visite", "suivante": "suivantes", "inconnue": "visite inconnue"}
+
+
+def origine(url):
+    """Origine d'une adresse (schéma, hôte et port) : celle dont le stockage
+    est vidé."""
+    u = urllib.parse.urlsplit(url)
+    return f"{u.scheme}://{u.netloc}"
+
+
+def visites_du_fichier(d):
+    """Visite de chaque répétition d'un JSON de mesurer : notée depuis le
+    stockage vidé (champ visites) ; avant, déduite : sur le PC, profil neuf à
+    chaque lancement, donc la répétition 1 est une première visite ; sur le
+    téléphone, inconnue."""
+    if d.get("visites"):
+        return [v.get("visite") for v in d["visites"]]
+    return [("premiere" if d.get("cible") == "local" else "inconnue") if i == 0 else "suivante"
+            for i in range(len(d["rapports"]))]
+
+
+def source_maillage(rapport):
+    """« calcul/absent », « cache/lu »… : source du maillage du webgl et état
+    du cache vu par le Worker (rapports[].webgl.maillage) ; None hors webgl."""
+    m = (rapport.get("webgl") or {}).get("maillage")
+    if not m:
+        return None
+    return f"{m.get('source')}/{m.get('cache')}" if m.get("source") else "aucun"
+
+
+def est_repli(rapport):
+    """Le webgl demandé a fini en Canvas 2D (WebGL2 absent ou logiciel,
+    shader refusé, contexte perdu) : rapport.webgl.etape 'repli'."""
+    return (rapport.get("webgl") or {}).get("etape") == "repli"
+
+
 def une_mesure(page, url, journal, cible):
     """Un chargement, le scénario de gestes, les touchers ; rend le rapport
     de la page, la liste des touchers visés, les durées réelles des gestes,
@@ -1018,20 +1074,36 @@ def _verdict(*oks):
     return False if any(o is False for o in oks) else None if any(o is None for o in oks) else True
 
 
-def resumer(rapports, vises, journal=None):
+def _stats(valeurs):
+    valeurs = [v for v in valeurs if v is not None]
+    return {"mediane": _med(valeurs), "min": min(valeurs, default=None), "max": max(valeurs, default=None),
+            "n": len(valeurs)}
+
+
+def resumer(rapports, vises, journal=None, visites=None):
     """Résumé face aux critères du J0, sur toutes les répétitions (rapports v6,
     ou v3 à v5 relus par `resumer`, src/mesure/rapport.ts : chaque règle
-    ci-dessous y est décrite)."""
+    ci-dessous y est décrite). `visites` : celle de chaque répétition
+    (premiere, suivante, inconnue ; visites_du_fichier), pour le chargement
+    et le relais du webgl."""
+    visites = list(visites or [None] * len(rapports))
     chargements = [r["chargement"]["total_ms"] for r in rapports if r.get("chargement")]
+    par_visite = {}
+    for r, v in zip(rapports, visites):
+        if r.get("chargement") and v:
+            par_visite.setdefault(v, []).append(r["chargement"]["total_ms"])
     periode = _med([r["ecran"]["periode_ms"] for r in rapports]) or 1000 / 60
+    # Un fichier = un rendu, sauf un webgl qui se replie en cours de série
+    # (des répétitions en webgl, d'autres en canvas) : les gestes d'un autre
+    # rendu que celui de la plupart des rapports ont leur propre ligne.
+    principal = statistics.mode([r["rendu"] for r in rapports]) if rapports else None
     gestes = {}
     for r in rapports:
         for g, quoi in zip(r["gestes"], noms_des_gestes(r, journal)):
             if g["type"] not in ("glisser", "pincer"):
                 continue
             rendu = g.get("rendu", r["rendu"])
-            # Un fichier = un rendu ; la clé le garde quand même (rapports mêlés).
-            cle = quoi if rendu == r["rendu"] else f"{quoi} ({rendu})"
+            cle = quoi if rendu == principal else f"{quoi} ({rendu})"
             e = gestes.setdefault(cle, {"rendu": rendu, "gestes": 0, "intervalles": 0, "acoups": 0,
                                         "duree_ms": 0, "gels": 0, "gestes_saccades": 0,
                                         "geste_max_acoups_par_s": None, "a_120": 0, "perdues": 0,
@@ -1158,9 +1230,13 @@ def resumer(rapports, vises, journal=None):
     return {
         "periode_ms": periode,
         "hz": frequence(periode),
+        # Le critère vaut pour le premier affichage, donc aussi à la première
+        # visite (maillage du webgl à calculer, rien en cache) : ok sur toutes.
         "chargement_ms": {"mediane": _med(chargements), "min": min(chargements, default=None),
                           "max": max(chargements, default=None), "n": len(chargements),
-                          "ok": bool(chargements) and max(chargements) < CRITERE_RENDU_MS},
+                          "ok": bool(chargements) and max(chargements) < CRITERE_RENDU_MS,
+                          "par_visite": {v: _stats(par_visite[v]) for v in NOMS_VISITES if v in par_visite}},
+        "relais_webgl": resumer_relais(rapports, visites, journal),
         "gestes": gestes,
         "ecarts_periode": ecarts,
         # True ou False (None sans geste) : la tenue n'a pas de verdict.
@@ -1183,6 +1259,61 @@ def resumer(rapports, vises, journal=None):
     }
 
 
+# Étapes du relais à lire sur le téléphone (src/map/relais-webgl.ts,
+# temps.etapes) : « contexte » (getContext, 131 à 181 ms à froid sur le PC),
+# « nom du GPU » (110 ms une fois au tout premier lancement du PC),
+# « premiere image » (47 ms à ×4 quand les triangles viennent d'être calculés).
+ETAPES_RELAIS = ("contexte", "nom du GPU", "premiere image")
+
+
+def resumer_relais(rapports, visites, journal=None):
+    """Relais du rendu webgl (rapports[].webgl, src/map/relais-webgl.ts), par
+    visite : source du maillage, durées du Worker, apres_affichage_ms (du
+    premier affichage en Canvas 2D au relais), étapes du fil principal ; et
+    les replis. None hors webgl. Sans verdict."""
+    groupes, replis, gpus = {}, [], []
+    for i, (r, v) in enumerate(zip(rapports, visites)):
+        w = r.get("webgl")
+        if not w:
+            continue
+        v = v or "inconnue"
+        if w.get("gpu") and w["gpu"] not in gpus:
+            gpus.append(w["gpu"])
+        if est_repli(r):
+            replis.append({"repetition": i + 1, "raison": w.get("raison"), "gpu": w.get("gpu"),
+                           "logiciel": w.get("logiciel")})
+        m = w.get("maillage") or {}
+        if v == "premiere" and m.get("source") == "cache" and journal is not None:
+            journal.append(f"répétition {i + 1} : première visite, mais maillage lu dans le cache "
+                           "(stockage pas vidé ?)")
+        e = groupes.setdefault(v, {"n": 0, "maillage": {}, "worker_total": [], "maillage_ms": [],
+                                   "apres_affichage": [], "etapes": {}, "plus_longue": None})
+        e["n"] += 1
+        source = source_maillage(r)
+        e["maillage"][source] = e["maillage"].get(source, 0) + 1
+        worker = m.get("worker") or {}
+        e["worker_total"].append(worker.get("total_ms"))
+        e["maillage_ms"].append(worker.get("maillage_ms"))
+        tp = w.get("temps") or {}
+        e["apres_affichage"].append(tp.get("apres_affichage_ms"))
+        for etape in tp.get("etapes") or []:
+            e["etapes"].setdefault(etape["nom"], []).append(etape["ms"])
+            if e["plus_longue"] is None or etape["ms"] > e["plus_longue"]["ms"]:
+                e["plus_longue"] = {"nom": etape["nom"], "ms": etape["ms"], "repetition": i + 1}
+    if not groupes:
+        return None
+    return {
+        "gpu": gpus,
+        "replis": replis,
+        "par_visite": {v: {"n": e["n"], "maillage": e["maillage"],
+                           "worker_total_ms": _stats(e["worker_total"]), "maillage_ms": _stats(e["maillage_ms"]),
+                           "apres_affichage_ms": _stats(e["apres_affichage"]),
+                           "etapes_ms": {nom: _stats(e["etapes"].get(nom, [])) for nom in ETAPES_RELAIS},
+                           "plus_longue_etape": e["plus_longue"]}
+                       for v, e in sorted(groupes.items(), key=lambda kv: list(NOMS_VISITES).index(kv[0]))},
+    }
+
+
 def frequence(periode_ms):
     """Fréquence d'une période (Hz) : la fréquence connue la plus proche à 6 %
     près (16,7 ms → 60, 8,3 → 120), sinon arrondie (13,3 → 75)."""
@@ -1195,13 +1326,29 @@ def hz(periode_ms):
     return f"{frequence(periode_ms)} Hz"
 
 
-def afficher_resume(res, entete):
+def _en_clair(s, unite=" ms"):
+    """Une valeur seule, ou médiane, min et max de plusieurs (_stats)."""
+    if not s or not s["n"]:
+        return "—"
+    if s["n"] == 1:
+        return f"{s['mediane']}{unite}"
+    return f"médiane {s['mediane']}, de {s['min']} à {s['max']}{unite} ({s['n']})"
+
+
+def afficher_resume(res, entete, ralenti=1):
     ok = lambda b: " ? " if b is None else "OK " if b else "NON"
     dire(f"\n=== {entete} ===")
     dire(f"période de l'écran au repos : {res['periode_ms']} ms ({hz(res['periode_ms'])})")
     c = res["chargement_ms"]
-    dire(f"[{ok(c['ok'])}] rendu < {CRITERE_RENDU_MS} ms : médiane {c['mediane']}, de {c['min']} à {c['max']} "
-         f"({c['n']} chargements)")
+    pv = c.get("par_visite")
+    if pv:
+        # Le critère vaut pour le premier affichage, première visite comprise.
+        dire(f"[{ok(c['ok'])}] rendu < {CRITERE_RENDU_MS} ms (premier affichage, à chaque visite) : "
+             + " ; ".join(f"{NOMS_VISITES[v]} {_en_clair(s)}" for v, s in pv.items()))
+    else:
+        dire(f"[{ok(c['ok'])}] rendu < {CRITERE_RENDU_MS} ms : médiane {c['mediane']}, de {c['min']} à {c['max']} "
+             f"({c['n']} chargements)")
+    afficher_relais(res.get("relais_webgl"), ralenti)
     dire(f"[{ok(res['saccade_ok'])}] pas de saccade (à-coup : intervalle ≥ {SEUIL_ACOUP_MS} ms, une image qui "
          f"tarde 25 ms ou plus ; gel : ≥ {SEUIL_GEL_MS} ms, une image qui tarde 50 ms ; [NON] au-delà de "
          f"{ACOUPS_PAR_S_MAX} à-coups par seconde en moyenne par type de geste, ou si un seul geste a un gel ou "
@@ -1267,6 +1414,32 @@ def afficher_resume(res, entete):
          + (f" ; faux : {', '.join(t['faux'])}" if t["faux"] else ""))
 
 
+def afficher_relais(rw, ralenti=1):
+    """Lignes du relais du webgl (resumer_relais), sans verdict."""
+    if not rw:
+        return
+    x4 = (f" ; À ×{ralenti:g}, TROP OPTIMISTE : le ralenti ne touche pas le Worker du maillage, la première "
+          f"visite d'un téléphone lent maillerait jusqu'à ~{ralenti:g} fois plus longtemps") if ralenti != 1 else ""
+    dire(f"[ — ] relais WebGL (sans verdict : du premier affichage en Canvas 2D au WebGL, apres_affichage_ms)"
+         f"{x4} ; GPU : {', '.join(rw['gpu']) or '?'} :")
+    for v, e in rw["par_visite"].items():
+        maillage = ", ".join(f"{s} ×{n}" if n > 1 else str(s) for s, n in e["maillage"].items())
+        et = e["etapes_ms"]
+        pl = e["plus_longue_etape"]
+        relaye = e["apres_affichage_ms"]["n"]
+        dire(f"      {NOMS_VISITES[v]} : "
+             + (f"maillage {maillage} (Worker {_en_clair(e['worker_total_ms'])}, dont maillage "
+                f"{_en_clair(e['maillage_ms'])}) ; relais {_en_clair(e['apres_affichage_ms'])} après l'affichage"
+                + (f" ({e['n'] - relaye} sans relais)" if relaye < e["n"] else "") if relaye else
+                f"aucun relais (maillage {maillage})")
+             + " ; " + ", ".join(f"« {nom} » {_en_clair(et[nom])}" for nom in ETAPES_RELAIS if et[nom]["n"])
+             + (f" ; plus longue étape « {pl['nom']} » {pl['ms']} ms" if pl else ""))
+    for r in rw["replis"]:
+        dire(f"      REPLI (répétition {r['repetition']}) : {r['raison']} ; GPU {r['gpu'] or '?'}"
+             f"{' (logiciel)' if r['logiciel'] else ''} : la carte est restée en Canvas 2D, les lignes "
+             "ci-dessous sont celles du Canvas de repli")
+
+
 def code_mesure(cible, serie):
     """Quel code est mesuré : commit, arbre propre ou modifié ; pour la
     WebView, l'APK installé (date de mise à jour sur le téléphone) et celui du
@@ -1307,6 +1480,8 @@ def commande_mesurer(args):
     if args.cible == "local" and serveur_de_dev(url_base):
         dire("  attention : serveur de développement, chargement plus lent qu'en build (serve --preview)")
     rapports, vises, journal, durees, pas_ms, apres_tour = [], [], [], [], [], []
+    visites = []  # par répétition : première visite ou suivante, et le maillage du webgl
+    logiciel = "1" in urllib.parse.parse_qs(urllib.parse.urlsplit(url).query).get("logiciel", [])
     code = code_mesure(args.cible, args.serie)
     with Session(args.cible, serie=args.serie, ws_local=args.ws) as s:
         p = s.page
@@ -1316,19 +1491,40 @@ def commande_mesurer(args):
         else:
             p.tactile = True
         p.cdp("Network.setCacheDisabled", cacheDisabled=not args.cache)
+        # Première visite : le stockage de l'origine mesurée vidé (STOCKAGE_VIDE).
+        stockage = {"vide": False, "origine": origine(url), "types": None, "erreur": None}
+        if not args.garder_stockage:
+            try:
+                p.cdp("Storage.clearDataForOrigin", origin=stockage["origine"], storageTypes=STOCKAGE_VIDE)
+                stockage.update(vide=True, types=STOCKAGE_VIDE)
+            except RuntimeError as e:
+                stockage["erreur"] = str(e)
+                dire(f"  ATTENTION : stockage de {stockage['origine']} non vidé ({e}) : la répétition 1 n'est "
+                     "peut-être pas une première visite")
+        # Sur le PC, profil neuf à chaque lancement : première visite même sans vider.
+        premiere = stockage["vide"] or args.cible == "local"
         dire(f"navigateur : {s.navigateur}" + (f" ({chromium_binaire()})" if args.cible == "local" else ""))
         dire(f"code : {code['commit']}{' (arbre modifié)' if code['arbre_modifie'] else ''}"
              + (f" ; APK du {code['apk']['installe_le']}" if code.get("apk") else ""))
         if args.cible == "local":
             dire("GPU : " + (" ".join(OPTIONS_GPU) if GPU else "défaut du headless (WebGL en SwiftShader)"))
-        dire(f"url : {url} ; ralenti ×{args.ralenti:g} ; cache {'actif' if args.cache else 'désactivé'}")
+        dire(f"url : {url} ; ralenti ×{args.ralenti:g} ; cache HTTP {'actif' if args.cache else 'désactivé'} ; "
+             + (f"stockage de {stockage['origine']} vidé ({STOCKAGE_VIDE})" if stockage["vide"] else
+                "stockage gardé" + (" (profil neuf du PC)" if args.cible == "local" else "")))
+        if args.ralenti != 1 and args.rendu == "webgl":
+            dire(f"  attention : le ralenti ×{args.ralenti:g} ne touche pas le Worker du maillage (SKILL.md, Pièges) : "
+                 "durées du relais trop optimistes")
         for i in range(args.repetitions):
             debut = time.monotonic()
             rapport, v, d, pas, tour = une_mesure(p, url, journal, args.cible)
             if rapport.get("v") != VERSION_RAPPORT:
                 raise RuntimeError(f"rapport v{rapport.get('v')} de la page, le driver lit la v{VERSION_RAPPORT} "
                                    "(src/mesure/rapport.ts) : site à reconstruire ?")
-            if rapport.get("rendu") != args.rendu:
+            if args.rendu == "webgl" and rapport.get("rendu") == "canvas" and est_repli(rapport):
+                w = rapport["webgl"]
+                dire(f"  REPLI du webgl (répétition {i + 1}) : {w.get('raison')} ; GPU {w.get('gpu') or '?'}"
+                     f"{' (logiciel)' if w.get('logiciel') else ''} : la carte est restée en Canvas 2D")
+            elif rapport.get("rendu") != args.rendu:
                 raise RuntimeError(f"la page dit rendu {rapport.get('rendu')!r}, demandé {args.rendu!r} : "
                                    "site à reconstruire ?")
             rapports.append(rapport)
@@ -1336,18 +1532,34 @@ def commande_mesurer(args):
             durees.append(d)
             pas_ms.append(pas)
             apres_tour.append(tour)
-            dire(f"  répétition {i + 1}/{args.repetitions} : chargement {rapport['chargement']['total_ms']} ms, "
-                 f"{len(rapport['gestes'])} gestes, {len(rapport['touchers'])} touchers ({time.monotonic() - debut:.0f} s)")
+            visite = ("premiere" if premiere else "inconnue") if i == 0 else "suivante"
+            relais = (rapport.get("webgl") or {}).get("temps") or {}
+            visites.append({"repetition": i + 1, "visite": visite, "maillage": source_maillage(rapport),
+                            "rendu": rapport.get("rendu"),
+                            "repli": rapport["webgl"].get("raison") if est_repli(rapport) else None})
+            dire(f"  répétition {i + 1}/{args.repetitions} ({NOMS_VISITES[visite].replace('suivantes', 'visite suivante')}) : chargement "
+                 f"{rapport['chargement']['total_ms']} ms"
+                 + (", repli en canvas" if est_repli(rapport) else
+                    f", maillage {source_maillage(rapport)}, relais {relais.get('apres_affichage_ms')} ms après "
+                    "l'affichage" if rapport.get("webgl") else "")
+                 + f", {len(rapport['gestes'])} gestes, {len(rapport['touchers'])} touchers "
+                 f"({time.monotonic() - debut:.0f} s)")
         erreurs = p.erreurs + p.echecs
-    res = resumer(rapports, vises, journal)  # avant les notes : il en ajoute (gestes rangés par type)
+    # Avant les notes : il en ajoute (gestes rangés par type, maillage lu à la première visite).
+    res = resumer(rapports, vises, journal, [v["visite"] for v in visites])
     for ligne in sorted(set(journal)):
         dire(f"  note : {ligne}")
     for e in erreurs:
         dire(f"  erreur de la page : {e}")
-    afficher_resume(res, f"{args.cible}, rendu {args.rendu}, {args.projection}, ralenti ×{args.ralenti:g}")
+    repli = [v for v in visites if v["repli"]]
+    afficher_resume(res, f"{args.cible}, rendu {args.rendu}" + (" (REPLI en canvas)" if repli else "")
+                    + f", {args.projection}, ralenti ×{args.ralenti:g}", args.ralenti)
     jour = datetime.date.today().isoformat()
+    # -logiciel : WebGL logiciel accepté (?logiciel=1, SwiftShader) ; -repli :
+    # le webgl demandé a fini en Canvas 2D, le résumé est celui du repli.
     nom = (f"{jour}-{args.cible}-{args.rendu}-{args.projection}" + (f"-x{args.ralenti:g}" if args.ralenti != 1 else "")
-           + ("-gpu" if GPU and args.cible == "local" else ""))
+           + ("-gpu" if GPU and args.cible == "local" else "") + ("-logiciel" if logiciel else "")
+           + ("-repli" if repli else ""))
     sortie = pathlib.Path(args.out).resolve() if args.out else MESURES
     sortie.mkdir(parents=True, exist_ok=True)
     fichier = sortie / f"{nom}.json"
@@ -1361,6 +1573,11 @@ def commande_mesurer(args):
         "options_gpu": (OPTIONS_GPU if GPU else []) if args.cible == "local" else None,
         "url": url, "ralenti": args.ralenti,
         "cache": args.cache, "repetitions": args.repetitions,
+        # Stockage de l'origine vidé avant la répétition 1 (STOCKAGE_VIDE) ; visite de
+        # chaque répétition et, en webgl, source du maillage (rapports[].webgl.maillage).
+        "stockage": stockage, "visites": visites,
+        "logiciel": logiciel,
+        "repli": [{"repetition": v["repetition"], "raison": v["repli"]} for v in repli] or None,
         "ecran_emule": TELEPHONE if args.cible == "local" else None,
         "scenario": {"gestes": SCENARIO, "duree_glisser_ms": DUREE_GLISSER_MS, "duree_pincer_ms": DUREE_PINCER_MS,
                      "duree_tourner_ms": DUREE_TOURNER_MS, "transfo_apres_tour": apres_tour,
@@ -1399,7 +1616,7 @@ def commande_resumer(args):
             dire(f"ECHEC : {fichier} : rapports v{sorted(versions)}, le driver relit les v3 à v{VERSION_RAPPORT}")
             return 1
         journal = []
-        res = resumer(d["rapports"], d["touchers_vises"], journal)
+        res = resumer(d["rapports"], d["touchers_vises"], journal, visites_du_fichier(d))
         d["resume"] = res
         d["criteres"]["saccade"] = CRITERE_SACCADE
         d["notes"] = sorted(set(d.get("notes", [])) | set(journal))
@@ -1417,7 +1634,8 @@ def commande_resumer(args):
         if args.json:
             sortie.append({"fichier": str(fichier), "resume": res})
         else:
-            afficher_resume(res, f"{fichier.name} (recalculé{', non écrit' if args.sec else ''})")
+            afficher_resume(res, f"{fichier.name} (recalculé{', non écrit' if args.sec else ''})",
+                            d.get("ralenti") or 1)
     if args.json:
         print(json.dumps({"criteres": CRITERE_SACCADE, "resumes": sortie}, ensure_ascii=False))
     return 0
@@ -1473,6 +1691,9 @@ def main():
     s.add_argument("--repetitions", type=int, default=3)
     s.add_argument("--url", help=f"défaut : {URL_DEFAUT} (webview : https://localhost/)")
     s.add_argument("--cache", action="store_true", help="garde le cache HTTP (désactivé par défaut)")
+    s.add_argument("--garder-stockage", action="store_true",
+                   help="ne vide pas le stockage de l'origine avant la répétition 1 (IndexedDB… : vidé par "
+                        "défaut, première visite) ; ex. pour garder des données de l'utilisateur sur le téléphone")
     s.add_argument("--ws", action="store_true", help="local : passe par HTTP + WebSocket comme le téléphone")
     s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
     s.add_argument("--out", help=f"dossier du rapport (défaut : {MESURES.relative_to(RACINE)})")
