@@ -33,9 +33,16 @@ export const FACTEUR_PERDUE = 1.5;
  * il comptait au hasard : l'arrondi au dixième donne 24,9, 25 ou 25,1 ms, et
  * avec ± 1 ms de gigue un quart de ces intervalles échappait (relecture du
  * critère v4). À 21 ms, ± 4 ms de gigue autour de 16,67 comme de 25 ms ne
- * changent rien. Compte aussi 22,2 ms (deux images à 90 Hz : une perdue) ;
- * 20,8 ms (trois images à 144 Hz) est à 0,2 ms du seuil, mais aucun écran
- * visé ne tourne à 144 Hz. Aucune période estimée n'y entre.
+ * changent rien : vrai à 60 et 120 Hz, pas à 90 Hz. 22,2 ms (deux images à
+ * 90 Hz : une perdue) est à 1,2 ms du seuil : sous ± 2 ms de gigue par
+ * horodatage, elle ne compte qu'environ 77 fois sur 100, et la règle n'y est
+ * plus monotone (relecture de l'assemblage : même durée, 44,4 + 2 × 22,2 +
+ * 83 × 11,1 ms donne 3 à-coups, 2,97/s, OK ; 4 × 22,2 + 83 × 11,1 ms, une
+ * image de plus et aucune plus longue, 4 à-coups, 3,96/s, NON). Ça ne compte
+ * que si le Galaxy A37 a un mode 90 Hz (question posée à l'utilisateur) :
+ * seuil inchangé. 20,8 ms (trois images à 144 Hz) compte à peu près une fois
+ * sur deux, mais aucun écran visé ne tourne à 144 Hz. Aucune période estimée
+ * n'y entre.
  */
 export const SEUIL_ACOUP_MS = 21;
 /** Verdict « pas de saccade » : NON au-delà de 3 à-coups par seconde, en moyenne par type de geste ou dans un seul geste… */
@@ -54,8 +61,10 @@ export const ACOUPS_MIN_GESTE = 2;
  * (relecture du critère v5 : seul, un intervalle de 50,1 ms faisait NON le
  * rendu canvas). À 46 ms, un gel de 50 ms sous ± 2 ms de gigue par
  * horodatage (46 à 54 ms) compte toujours, cinq images à 120 Hz (41,67 ±
- * 4 ms) jamais. 44,4 ms (quatre images à 90 Hz) est à 1,6 ms du seuil, mais
- * aucun écran visé ne tourne à 90 Hz.
+ * 4 ms) jamais. 44,4 ms (quatre images à 90 Hz) est à 1,6 ms du seuil : sous
+ * ± 2 ms de gigue, elle compte gel environ 19 fois sur 100 ; comme pour les
+ * à-coups, ça ne compte que si le Galaxy A37 a un mode 90 Hz (question posée
+ * à l'utilisateur), seuil inchangé.
  */
 export const SEUIL_GEL_MS = 46;
 
@@ -93,9 +102,10 @@ export const gesteSaccade = (g: CompteSaccade) =>
  * avec au moins 2). Compté par seconde et non par intervalle (v4 : 5 % des
  * intervalles), pour ne pas avantager le rendu le plus rapide : à 120 i/s,
  * 5 % des intervalles laissaient passer deux fois plus d'à-coups visibles
- * par seconde qu'à 60 i/s. 3 par seconde, c'est ces 5 % à 60 i/s. Monotone :
- * à durée fixe, des images plus rapides ne changent ni les comptes, ni la
- * durée. Recopié par le driver (run-cartographe : est_acoup, est_gel,
+ * par seconde qu'à 60 i/s. 3 par seconde, c'est ces 5 % à 60 i/s. Monotone
+ * sur un écran à 60 ou 120 Hz : à durée fixe, des images plus rapides ne
+ * changent ni les comptes, ni la durée (pas à 90 Hz : SEUIL_ACOUP_MS).
+ * Recopié par le driver (run-cartographe : est_acoup, est_gel,
  * geste_saccade, sans_saccade, tenue des 120 i/s), confronté à celui-ci par
  * tests/mesure-driver.test.ts.
  */

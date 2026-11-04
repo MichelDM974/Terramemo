@@ -111,8 +111,8 @@ foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
 - **pas de saccade** (décision de l'utilisateur, 04/11/2026, registre) : un
   à-coup est une image qui tarde 25 ms ou plus (trois rafraîchissements à
   120 Hz, un et demi à 60 i/s), compté dès 21 ms (`SEUIL_ACOUP_MS` : loin de
-  16,67 et 25 ms, les valeurs exactes de l'écran, l'arrondi et la gigue ne
-  le font pas compter au hasard), quelle que soit la fréquence de l'écran
+  16,67 et 25 ms, les valeurs exactes d'un écran à 60 ou 120 Hz, l'arrondi
+  et la gigue ne le font pas compter au hasard), quelle que soit la fréquence de l'écran
   (`stats.acoups`, recalculé par le driver sur les intervalles bruts). Un
   gel est une image qui tarde 50 ms (trois images à 60 Hz), compté dès
   46 ms (`SEUIL_GEL_MS`, loin de 41,67 et 50 ms ; `stats.gels`). `[NON]`,
@@ -130,7 +130,12 @@ foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
   verdict. Un type d'un seul geste court se juge aussi sur sa moyenne : un
   à-coup en 0,3 s, seul de son type, y fait NON (3,3/s). Compté par seconde, pas par intervalle, pour ne pas avantager le
   rendu le plus rapide (3/s, ce sont les 5 % des intervalles à 60 i/s) ;
-  monotone : à durée fixe, plus d'images à 120 i/s ne change rien.
+  monotone : à durée fixe, plus d'images à 120 i/s ne change rien. **Pas à
+  90 Hz** : 22,2 ms (deux images) et 44,4 ms (quatre) tombent près des
+  seuils (sous ± 2 ms de gigue, à-coup ~77 fois sur 100, gel ~19 fois sur
+  100) et la règle n'y est plus monotone (`src/mesure/stats.ts`,
+  `SEUIL_ACOUP_MS`). Ne compte que si le Galaxy A37 a un mode 90 Hz
+  (question posée à l'utilisateur) ; seuils inchangés.
 - **tenue des 120 i/s** (`[ — ]`, sans verdict, pour comparer les rendus) :
   images/s de chaque type de geste et part des intervalles ≤ 12,5 ms
   (1,5 × 8,33, seuil fixe, `stats.tenue_120` : elle suit exactement la part

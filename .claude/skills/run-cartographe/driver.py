@@ -65,10 +65,18 @@ SEUIL_EVENT_TIMING_MS = 16
 # intervalles bruts pour relire aussi les rapports v3 à v5 ;
 # tests/mesure-driver.test.ts la confronte à stats.ts.
 # Un à-coup est une image qui tarde 25 ms ou plus (trois rafraîchissements à
-# 120 Hz, un et demi à 60 i/s), compté dès 21 ms : loin des valeurs exactes de
-# l'écran (16,67 et 25 ms), l'arrondi et la gigue ne le font pas compter au
-# hasard. Un gel est une image qui tarde 50 ms (trois images à 60 Hz), compté
-# dès 46 ms, loin de 41,67 (cinq images à 120 Hz) et de 50 ms. Verdict par
+# 120 Hz, un et demi à 60 i/s), compté dès 21 ms : loin des valeurs exactes
+# d'un écran à 60 ou 120 Hz (16,67 et 25 ms), l'arrondi et la gigue ne le
+# font pas compter au hasard. Un gel est une image qui tarde 50 ms (trois
+# images à 60 Hz), compté dès 46 ms, loin de 41,67 (cinq images à 120 Hz) et
+# de 50 ms. Pas à 90 Hz : 22,2 ms (deux images) et 44,4 ms (quatre) tombent
+# près des seuils ; sous ± 2 ms de gigue par horodatage, 22,2 ms compte
+# à-coup environ 77 fois sur 100 et 44,4 ms compte gel environ 19 fois sur
+# 100, et la règle n'y est pas monotone (même durée, 44,4 + 2 × 22,2 +
+# 83 × 11,1 ms : 3 à-coups, 2,97/s, OK ; 4 × 22,2 + 83 × 11,1 ms, une image
+# de plus et aucune plus longue : 4 à-coups, 3,96/s, NON). Ça ne compte que
+# si le Galaxy A37 a un mode 90 Hz (question posée à l'utilisateur) ; seuils
+# inchangés (décision de l'utilisateur). Verdict par
 # type de geste, quel que soit le rendu : [NON] au-delà de 3 à-coups par
 # seconde de geste en moyenne sur toutes les répétitions (à-coups × 1000 /
 # somme des intervalles), compté par seconde pour ne pas avantager le rendu
@@ -76,8 +84,9 @@ SEUIL_EVENT_TIMING_MS = 16
 # un gel (visible seul, que la moyenne laisserait passer), ou plus de 3
 # à-coups par seconde de ce geste avec au moins 2 (un geste qui saccade
 # franchement, que les gestes propres dilueraient ; un à-coup isolé dans un
-# geste court ne compte pas). Monotone : à durée fixe, des images plus
-# rapides ne changent ni les comptes, ni la durée. La tenue des 120 i/s (part
+# geste court ne compte pas). Monotone à 60 et 120 Hz : à durée fixe, des
+# images plus rapides ne changent ni les comptes, ni la durée (pas à 90 Hz,
+# ci-dessus). La tenue des 120 i/s (part
 # des intervalles ≤ 12,5 ms, seuil fixe) est rapportée à part, sans verdict.
 SEUIL_ACOUP_MS = 21
 ACOUPS_PAR_S_MAX = 3
