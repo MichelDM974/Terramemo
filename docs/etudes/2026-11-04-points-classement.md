@@ -124,22 +124,31 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
 
 ## 4. Le classement sur Firebase (offre Spark)
 
-- **Un document par épreuve et par joueur** : le meilleur score seul
-  (`classements/{epreuve}/scores/{uid}` : pseudo, score, justes, temps,
-  date, version du barème). Écrit en fin d'épreuve s'il bat l'ancien.
-  Possible en plus : un classement « cette semaine » (un document de plus,
-  remis à zéro chaque lundi), pour qu'un nouveau venu ait sa chance (à
-  trancher, § 5).
-- **Classement global** (choix de l'utilisateur) : ouvert à tous les
-  joueurs ; ce qui range les joueurs toutes épreuves confondues reste à
-  trancher (§ 5). Le plus simple sans serveur : un document par joueur,
-  la somme de ses records Chrono, que l'appli réécrit quand un record
-  tombe (une écriture de plus).
+- **Quatre classements par épreuve jouée** (choix de l'utilisateur) : un
+  par épreuve et un général, chacun de toujours et de la semaine.
+  - Par épreuve : le meilleur score Chrono de chaque joueur
+    (`classements/{epreuve}/toujours/{uid}` : pseudo, score, justes,
+    temps, date, version du barème), écrit en fin d'épreuve s'il bat
+    l'ancien.
+  - Général : la somme des records Chrono de toutes les épreuves du
+    joueur (`classements/general/toujours/{uid}`), réécrite par l'appli
+    quand un record tombe. Chaque pays y compte deux fois (dans son
+    continent et dans le Monde) : le marathon du Monde pèse autant que
+    tous les continents réunis, et une épreuve ajoutée (capitales,
+    drapeaux) fait monter le total possible de tous.
+  - De la semaine : les mêmes, sous `semaines/{n}/scores/{uid}`, remis à
+    zéro le lundi à 0 h UTC (4 h à La Réunion), pour qu'un nouveau venu
+    ait sa chance ; `n` = numéro de semaine entier depuis le lundi
+    5 janvier 1970, `⌊(t − 345 600 000 ms) / 604 800 000 ms⌋`, que les
+    règles recalculent depuis `request.time` (une semaine passée ne se
+    réécrit pas). Les anciennes semaines restent (quelques Ko).
 - **Coût** : afficher un classement = 20 lectures (les 20 premiers) + 1
   pour son rang (`count()` des meilleurs scores, une lecture par tranche
-  de 1 000) ; finir une épreuve = 1 ou 2 écritures. Avec 50 000 lectures et
-  20 000 écritures par jour (Spark), ~2 000 affichages de classement par
-  jour, partagés avec les séances : à surveiller si le public grandit.
+  de 1 000) ; finir une épreuve = jusqu'à 4 écritures (les deux records
+  de l'épreuve, les deux totaux), seulement pour ce qui progresse. Avec
+  50 000 lectures et 20 000 écritures par jour (Spark), ~2 000
+  affichages de classement et ~5 000 épreuves finies par jour, partagés
+  avec les séances : à surveiller si le public grandit.
 - **Pseudo public**, choisi à la première entrée au classement, jamais le
   nom du compte Google ; liste de mots refusés et suppression à la main
   par l'utilisateur (le propriétaire). Les invités y figurent avec un
@@ -150,7 +159,10 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
   - règles Firestore : uid du joueur seul, score ≤ 1 000 × nombre de
     questions, durée déclarée ≥ écart réel entre le document de début et
     celui de fin (`request.time`), une écriture qui n'améliore pas le
-    score refusée ;
+    score refusée. Le total général ne se vérifie que par ses bornes :
+    les règles ne lisent pas plus de 10 documents par écriture (20 en
+    lot), trop peu pour refaire la somme quand les épreuves se
+    multiplient ;
   - App Check (reCAPTCHA v3, comme Light) : refuse les écritures qui ne
     viennent pas de l'appli ;
   - les réponses stockées avec le score (pays touché, distance, temps) :
@@ -175,8 +187,8 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
    anonyme : les scores d'un invité suivent son compte quand il se
    connecte à Google (J1b, #3), la connexion gardant son identifiant.
 
-Restent à trancher : ce que range le classement global (par épreuve, total
-des records Chrono, fiches maîtrisées) et le classement de la semaine.
+5. **Classements** : par épreuve et général (somme des records Chrono de
+   toutes les épreuves), chacun de toujours et de la semaine (§ 4).
 
 ## Méthode des chiffres
 
