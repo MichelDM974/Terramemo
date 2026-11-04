@@ -26,23 +26,25 @@ const debutScript = performance.now();
  *   rastérisée de la carte ; la transformation n'est posée au SVG qu'au lever
  *   du doigt, qui paie alors la nouvelle peinture et la rastérisation de
  *   toute la carte.
- * Mesuré le 2026-11-04 (rapport v2) dans chrome-headless-shell 153, 384 × 832,
- * DPR 2,8125, toucher émulé par CDP (un événement toutes les 16 ms), écran à
- * 60 Hz, sur un PC chargé (charge 9 à 12, d'autres agents tournaient) :
- * - processeur ralenti 4×, 12 pincements par mode (k de 1 à 7, 3 à 21, 12 à
- *   6, 1,5 à 10,5 ; trois fois) : css 0 image perdue sur 732, g 46 sur 884
- *   (0 à 14 % par pincement, intervalle max 50 ms) ; fin du geste (Event
- *   Timing du touchend, de l'entrée à la présentation) : css 64 à 96 ms,
- *   g 40 à 56 ms. 6 glissés d'un doigt par mode (k 1, 4, 12) : aucune image
- *   perdue dans les deux ; fin 56 à 72 ms en css, 48 à 64 ms en g ;
+ * Mesures du PC commitées dans docs/mesures/j0/2026-11-04-local-*.json
+ * (driver run-cartographe, commit 9fcbd35 ; chrome-headless-shell 153,
+ * 384 × 832, DPR 2,8125, écran à 60 Hz, toucher émulé ; 3 répétitions de
+ * 6 pincements et 5 glissés ; PC très chargé par une autre session, charge
+ * 14 à 17, donc ×4 bruité). Fin de geste = Event Timing de l'événement qui
+ * le finit, jusqu'à la présentation ; médiane / max :
  * - processeur normal : aucune image perdue dans les deux modes ; fin d'un
- *   pincement 48 à 64 ms en css, 40 ms en g ; d'un glissé 48 à 56 ms en css,
- *   40 à 48 ms en g.
- * fin.image_ms (deux requestAnimationFrame) donnait 30 à 49 ms à 4× : il
- * s'arrête avant la rastérisation et la présentation et sous-estime la fin.
- * Donc css garde le geste fluide mais fige l'écran au lever du doigt (64 à
- * 96 ms à 4×, soit 8 à 11 images à 120 Hz) ; g perd des images pendant les
- * pincements mais finit plus vite. Sur le téléphone : comparer
+ *   pincement css 64 / 96 ms, g 48 / 72 ms ; d'un glissé css 48 / 80, g 40 / 64 ;
+ * - ralenti 4× : pincements css 4 images perdues sur 514, g 37 sur 473
+ *   (7,8 %, intervalle max 83 ms) ; fin d'un pincement css 112 / 152 ms,
+ *   g 56 / 120 ms ; d'un glissé css 72 / 112, g 48 / 88.
+ * En g, un même pincement (k 14,5 → 36) finit à ~600 ms dans chaque
+ * répétition sans travail long : l'entrée ne se clôt qu'avec l'image du
+ * geste suivant (sa durée suit la pause du scénario), le driver la montre à
+ * part. fin.image_ms (deux requestAnimationFrame) s'arrête avant la
+ * rastérisation et la présentation : il sous-estime la fin.
+ * Donc css garde le geste fluide mais fige l'écran au lever du doigt (plus
+ * de 100 ms à 4×, une douzaine d'images à 120 Hz) ; g perd des images pendant
+ * les pincements mais finit plus vite. Sur le téléphone : comparer
  * gestes[].stats.perdues et gestes[].fin.event_timing_ms dans les deux modes.
  * À juger à l'œil aussi : en css, pendant un pincement, toute la couche est
  * mise à l'échelle par le compositeur : pastilles et frontières grossissent
