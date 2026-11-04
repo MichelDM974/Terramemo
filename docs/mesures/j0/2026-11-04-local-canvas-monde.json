@@ -255,13 +255,16 @@
   "saccade": {
    "acoup_des_ms": 21,
    "acoups_par_s_max": 3,
-   "max_ms": 50,
+   "acoups_min_geste": 2,
+   "gel_des_ms": 46,
    "tenue_120_ms": 12.5,
+   "verdict": "NON si, par type de geste, plus de 3 à-coups par seconde en moyenne, ou un seul geste avec un gel, ou plus de 3 à-coups par seconde avec au moins 2",
    "tenue": "part des intervalles ≤ 12,5 ms (120 i/s), et images/s ; sans verdict"
   }
  },
  "resume": {
   "periode_ms": 16.7,
+  "hz": 60,
   "chargement_ms": {
    "mediane": 435.5,
    "min": 373.5,
@@ -276,6 +279,9 @@
     "intervalles": 497,
     "acoups": 15,
     "duree_ms": 8548.8,
+    "gels": 1,
+    "gestes_saccades": 4,
+    "geste_max_acoups_par_s": 10.34,
     "perdues": 15,
     "perdues_repos": 15,
     "bascule_images": 0,
@@ -330,6 +336,9 @@
     "intervalles": 511,
     "acoups": 9,
     "duree_ms": 8682.8,
+    "gels": 1,
+    "gestes_saccades": 3,
+    "geste_max_acoups_par_s": 5.14,
     "perdues": 9,
     "perdues_repos": 9,
     "bascule_images": 0,
@@ -352,7 +361,7 @@
      "min": 16.7,
      "max": 16.7
     },
-    "saccade_ok": true,
+    "saccade_ok": false,
     "dessin_ms": {
      "gestes": 15,
      "images": 313,
@@ -384,6 +393,9 @@
     "intervalles": 481,
     "acoups": 9,
     "duree_ms": 8166.2,
+    "gels": 0,
+    "gestes_saccades": 1,
+    "geste_max_acoups_par_s": 3.4,
     "perdues": 9,
     "perdues_repos": 9,
     "bascule_images": 0,
@@ -406,7 +418,7 @@
      "min": 16.7,
      "max": 16.7
     },
-    "saccade_ok": true,
+    "saccade_ok": false,
     "dessin_ms": {
      "gestes": 9,
      "images": 293,
@@ -9565,10 +9577,10 @@
   }
  ],
  "resume_recalcule": {
-  "date": "2026-11-04T11:12:52+04:00",
+  "date": "2026-11-04T12:26:27+04:00",
   "outil": ".claude/skills/run-cartographe/driver.py resumer",
-  "commit": "db800c4",
+  "commit": "b6fdb13",
   "driver_modifie": false,
-  "pourquoi": "critère de saccade par seconde de geste (à-coup dès 21 ms, NON au-delà de 3/s ou d'un intervalle > 50 ms), tenue des 120 i/s à 12,5 ms"
+  "pourquoi": "critère de saccade final (décision de l'utilisateur) : gel dès 46 ms, et NON si un seul geste dépasse 3 à-coups par seconde avec au moins 2"
  }
 }
