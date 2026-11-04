@@ -25,10 +25,13 @@ export const PASTILLE = {
    */
   visible_sous_px: 4,
   /**
-   * Sur un tracé, un disque dessiné ne gagne qu'à moins de 11 px de son centre
-   * (le Vatican dans Rome) ; une cible invisible, jamais (pick.ts).
+   * Sur un tracé, un disque dessiné ne gagne que sous le doigt : son rayon
+   * visible et ~3 px de marge (le Vatican dans Rome) ; une cible invisible,
+   * jamais (pick.ts). Décision « Toucher sur la terre ferme » : ce qu'on voit
+   * est ce qui compte. À 11 px, il prenait la moitié de l'Italie au zoom 4 et
+   * comptait juste pour Trinité un toucher sur le Venezuela.
    */
-  rayon_sur_trace_px: 11,
+  rayon_sur_trace_px: 6.5,
 } as const;
 
 /** Statuts qui reçoivent une pastille : ceux qu'on demandera de toucher. */

@@ -205,12 +205,16 @@ describe('pick', () => {
     expect(pick(ctx, x, y)).toMatchObject({ id: 'BRA', via: 'trace' });
   });
 
-  it('Rome zoomée : l’Italie ; le Vatican à moins de 11 px de son centre', () => {
+  it('Rome zoomée : l’Italie ; le Vatican sur son disque, avec ~3 px de marge', () => {
     const proj = creerProjection('monde', L, H);
     const ctx = contexte('monde', centrer(proj, [12.45, 41.9], 60));
     const [vx, vy] = ecran(ctx, entite('VAT').pays.point);
+    expect(PASTILLE.rayon_sur_trace_px).toBe(PASTILLE.rayon_visible_px + 3);
     expect(pick(ctx, vx, vy)?.id).toBe('VAT');
-    expect(pick(ctx, vx + 8, vy)?.id).toBe('VAT');
+    expect(pick(ctx, vx + 3.5, vy)?.id).toBe('VAT'); // bord du disque dessiné
+    expect(pick(ctx, vx, vy - 6)?.id).toBe('VAT'); // dans la marge
+    // À 8 px du centre, hors du disque et de sa marge : l'Italie (11 px auparavant).
+    expect(pick(ctx, vx + 8, vy)).toMatchObject({ id: 'ITA', via: 'trace' });
     expect(pick(ctx, vx + 18, vy)).toMatchObject({ id: 'ITA', via: 'trace' });
   });
 
@@ -282,7 +286,7 @@ describe('pick : règles de la relecture V1', () => {
     expect(vus).toBeGreaterThan(0);
   });
 
-  it('sur un tracé : un disque voisin gagne à moins de 11 px s’il est plus près que le point du pays ; sinon le disque du pays à moins de 22 px, sinon le tracé', () => {
+  it('sur un tracé : un disque voisin gagne sous le doigt (6,5 px) s’il est plus près que le point du pays ; sinon le pays, par son disque sous le doigt ou par son tracé', () => {
     // Pastilles posées à la main sur le Brésil (au zoom 2, ~120 px de large).
     const base = contexte('monde', { k: 2, x: 0, y: 0 });
     const [bx, by] = ecran(base, entite('BRA').pays.point);
@@ -296,15 +300,62 @@ describe('pick : règles de la relecture V1', () => {
       };
       return pick(ctx, ...doigt);
     };
-    // Doigt à 15 px du point du Brésil (son disque), à 8 px d'un disque voisin : le voisin.
-    expect(avec([bx + 15, by], [bx + 15, by + 8])).toMatchObject({ id: 'PRY', via: 'pastille' });
-    // Voisin à 12 px (> 11) : le disque du Brésil, à 15 px (< 22).
-    expect(avec([bx + 15, by], [bx + 15, by + 12])).toMatchObject({ id: 'BRA', via: 'pastille' });
-    // Voisin à 12 px, point du Brésil à 25 px (> 22, vers le nord) : le tracé.
-    expect(avec([bx, by - 25], [bx + 12, by - 25])).toMatchObject({ id: 'BRA', via: 'trace' });
-    // Voisin plus près que 11 px mais plus loin que le point du pays : le pays.
-    expect(avec([bx + 5, by], [bx + 5, by + 9])).toMatchObject({ id: 'BRA', via: 'pastille' });
+    // Doigt à 15 px du point du Brésil (son disque), à 6 px d'un disque voisin : le voisin.
+    expect(avec([bx + 15, by], [bx + 15, by + 6])).toMatchObject({ id: 'PRY', via: 'pastille' });
+    // Voisin à 8 px (> 6,5, hors du disque et de sa marge) : le tracé du Brésil.
+    expect(avec([bx + 15, by], [bx + 15, by + 8])).toMatchObject({ id: 'BRA', via: 'trace' });
+    // Doigt à 5 px du disque du Brésil, voisin à 8 px : le Brésil par son disque.
+    expect(avec([bx + 5, by], [bx + 5, by + 8])).toMatchObject({ id: 'BRA', via: 'pastille', distance_px: 5 });
+    // Voisin sous le doigt (6 px) mais plus loin que le point du pays (4 px) : le pays.
+    expect(avec([bx + 4, by], [bx + 4, by + 6])).toMatchObject({ id: 'BRA', via: 'pastille' });
+    // Doigt à 15 px du disque du Brésil, aucun voisin proche : le tracé (22 px auparavant : via « pastille »).
+    expect(avec([bx + 15, by], [bx + 60, by])).toMatchObject({ id: 'BRA', via: 'trace', distance_px: 0 });
   });
+
+  it('sur un tracé, un autre pays n’est désigné que par son disque sous le doigt (6,5 px) : Italie, Allemagne, France, Venezuela, Suisse, Malaisie, zooms 1 à 8', () => {
+    // Décision « Toucher sur la terre ferme » : à 11 px, un disque voisin prenait la
+    // moitié de l'Italie au zoom 4 (32 % désormais, 9 % au zoom 8).
+    const proj = creerProjection('monde', L, H);
+    let pris = 0;
+    for (const id of ['ITA', 'DEU', 'FRA', 'VEN', 'CHE', 'MYS']) {
+      const e = entite(id);
+      for (const k of [1, 2, 4, 8]) {
+        const ctx = contexte('monde', centrer(proj, e.pays.point, k));
+        for (let x = L / 2 - 60; x <= L / 2 + 60; x += 1.5) {
+          for (let y = H / 2 - 60; y <= H / 2 + 60; y += 1.5) {
+            const ll = versLonLat(ctx.proj, ctx.t, x, y);
+            if (!ll || !contient(e.forme, e.pays.bbox, ll)) continue;
+            const r = pick(ctx, x, y);
+            if (r?.id === id) continue;
+            pris++;
+            const disque = ctx.pastilles.find((p) => p.id === r?.id);
+            if (r?.via !== 'pastille' || !disque?.visible || r.distance_px > PASTILLE.rayon_sur_trace_px) {
+              throw new Error(`${id} k=${k} (${x}, ${y}) : ${JSON.stringify(r)}`);
+            }
+          }
+        }
+      }
+    }
+    expect(pris).toBeGreaterThan(100); // des disques voisins jouent bien
+  }, 30_000);
+
+  it('chaque pays à disque reste touchable à chaque zoom : son point le désigne, et son disque autour (zooms 1 à 400)', () => {
+    const proj = creerProjection('monde', L, H);
+    const fautes: string[] = [];
+    for (const k of [1, 2, 4, 16, 400]) {
+      for (const e of donnees.entites) {
+        const ctx = contexte('monde', centrer(proj, e.pays.point, k));
+        if (!ctx.pastilles.some((p) => p.id === e.pays.id && p.visible)) continue;
+        if (pick(ctx, L / 2, H / 2)?.id !== e.pays.id) fautes.push(`${e.pays.id} k=${k} : son point`);
+        // Surface où pick le désigne (grille de 0,5 px sur ±8 px) : au moins 4 px²
+        // (au zoom 1, les disques serrés des Balkans et des Antilles se partagent au plus proche).
+        let s = 0;
+        for (let x = -8; x <= 8; x += 0.5) for (let y = -8; y <= 8; y += 0.5) if (pick(ctx, L / 2 + x, H / 2 + y)?.id === e.pays.id) s += 0.25;
+        if (s < 4) fautes.push(`${e.pays.id} k=${k} : ${s} px²`);
+      }
+    }
+    expect(fautes).toEqual([]);
+  }, 60_000);
 
   it('en mer près d’une côte : les sondes de 8 et de 12 px trouvent le pays', () => {
     const proj = creerProjection('monde', L, H);
@@ -388,13 +439,18 @@ describe('noter', () => {
     expect(autrePays).toBeGreaterThan(1000); // le test touche bien d'autres pays
   }, 60_000);
 
-  it('dans le tracé de l’Italie, sur le disque du Vatican : juste pour l’Italie (plan : « dedans »), la carte désigne le Vatican', () => {
+  it('dans le tracé de l’Italie, sur le disque du Vatican : juste pour l’Italie (plan : « dedans »), la carte désigne le Vatican ; à côté du disque, l’Italie seule', () => {
     const ctx = contexte('monde', centrer(proj, [12.45, 41.9], 60));
     const [vx, vy] = ecran(ctx, entite('VAT').pays.point);
-    const n = noter(ctx, 'ITA', vx + 8, vy);
+    const n = noter(ctx, 'ITA', vx + 5, vy);
     expect(n.pick?.id).toBe('VAT');
     expect(n).toMatchObject({ juste: true, via: 'trace', distance_km: 0 });
-    expect(noter(ctx, 'VAT', vx + 8, vy)).toMatchObject({ juste: true, via: 'pastille' });
+    expect(noter(ctx, 'VAT', vx + 5, vy)).toMatchObject({ juste: true, via: 'pastille' });
+    // À 8 px du centre du disque : la carte désigne l'Italie, la note suit (faux pour le Vatican).
+    const a8 = noter(ctx, 'VAT', vx + 8, vy);
+    expect(a8.pick?.id).toBe('ITA');
+    expect(a8.juste).toBe(false);
+    expect(noter(ctx, 'ITA', vx + 8, vy)).toMatchObject({ juste: true, via: 'trace' });
   });
 
   it('un toucher dans le tracé de la cible est toujours juste (cibles de l’essai, zooms 1, 2, 4, 8)', () => {

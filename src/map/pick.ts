@@ -35,26 +35,28 @@ function sousLePoint(ctx: ContexteCarte, x: number, y: number): Entite | null {
 
 /**
  * Ce qui est sous le doigt en (x, y), px CSS dans le repère de la carte :
- * 1. sur le tracé d'un pays, un disque dessiné (pastille visible) voisin à
- *    moins de 11 px, s'il est plus près du doigt que le point du pays sous le
- *    doigt (sa pastille, ou son point d'étiquette s'il n'en a pas) : le
- *    Vatican dans Rome, Andorre au zoom 1 ; mais le point de la France reste
- *    la France malgré le Luxembourg, celui du Venezuela le Venezuela malgré
+ * 1. sur le tracé d'un pays, un disque dessiné (pastille visible) voisin sous
+ *    le doigt (à moins de PASTILLE.rayon_sur_trace_px de son centre : le
+ *    disque de 7 px et ~3 px de marge), s'il est plus près du doigt que le
+ *    point du pays sous le doigt (sa pastille, ou son point d'étiquette s'il
+ *    n'en a pas) : le Vatican dans Rome ; mais le point de la France reste la
+ *    France malgré le Luxembourg, celui du Venezuela le Venezuela malgré
  *    Trinité (relecture V1 : seul un pays à pastille faisait concourir son
  *    point, la Tanzanie et l'Arabie saoudite étaient intouchables au zoom 1) ;
- * 2. sinon, sur le tracé d'un pays qui a lui-même un disque dessiné (une île
- *    de quelques pixels des Caraïbes au zoom 1), ce disque s'il est à moins
- *    de 22 px (via « pastille ») ;
- * 3. sinon ce tracé ;
- * 4. en mer, la cible la plus proche à moins de 22 px : un disque, ou la
+ * 2. sinon ce tracé : via « pastille » si le doigt est aussi sur le disque du
+ *    pays (même rayon), « trace » sinon ;
+ * 3. en mer, la cible la plus proche à moins de 22 px : un disque, ou la
  *    cible invisible d'un pays de moins de 10 px à l'écran ;
- * 5. sinon le tracé le plus proche à moins de 12 px (sondes en couronnes) ;
+ * 4. sinon le tracé le plus proche à moins de 12 px (sondes en couronnes) ;
  * null si rien.
- * La cible invisible d'un autre pays ne l'emporte jamais sur un tracé sous le
- * doigt : au zoom 1, celle du Maroc prenait le centre de l'Algérie, celle de
- * Trinité une côte du Venezuela au zoom 8 (relecture du J0). Sur son propre
- * tracé, un pays à disque ne cède qu'à la règle 1 : un disque voisin entre 11
- * et 22 px ne prend plus Aldabra (Seychelles) aux Comores (relecture V1).
+ * Décision « Toucher sur la terre ferme » : sur un tracé, ce qu'on voit sous
+ * le doigt est ce qui compte. Un disque voisin gagnait d'abord à 11 px de son
+ * centre (7,5 px hors du disque dessiné) : il prenait la moitié de l'Italie
+ * au zoom 4 (un tiers désormais), et pick, donc noter, comptait juste pour
+ * Trinité un toucher sur le Venezuela. La cible invisible d'un autre pays ne
+ * l'emporte jamais sur un tracé sous le doigt : au zoom 1, celle du Maroc
+ * prenait le centre de l'Algérie, celle de Trinité une côte du Venezuela au
+ * zoom 8 (relecture du J0). En mer, les cibles de 44 px restent.
  */
 export function pick(ctx: ContexteCarte, x: number, y: number): ResultatPick | null {
   const disques = ctx.pastilles.filter((p) => p.visible);
@@ -69,7 +71,7 @@ export function pick(ctx: ContexteCarte, x: number, y: number): ResultatPick | n
       return { id: d.id, via: 'pastille', distance_px: d.distance_px };
     }
     const propre = disques.find((p) => p.id === id);
-    if (propre && dPropre <= PASTILLE.rayon_cible_px) return { id, via: 'pastille', distance_px: dPropre };
+    if (propre && dPropre <= PASTILLE.rayon_sur_trace_px) return { id, via: 'pastille', distance_px: dPropre };
     return { id, via: 'trace', distance_px: 0 };
   }
   const p = pastilleLaPlusProche(ctx.pastilles, ctx.t, x, y);
@@ -102,9 +104,11 @@ export interface Note {
  * sa côte à moins de 12 px). Jamais juste sur le tracé d'un autre pays que la
  * carte désigne : avant, la cible de 22 px de la pastille jouait même là, et
  * l'essai du J0 comptait juste un toucher sur l'Albanie pour Andorre.
- * Dans le tracé de la cible mais à moins de 11 px du disque d'un micro-État
- * voisin (Rome et le Vatican) : juste, comme le dit le plan ; pick() y désigne
- * le micro-État, mais la rétroaction d'une réponse juste montre la cible.
+ * Sur le tracé d'un voisin, la tolérance d'un micro-État est donc son disque
+ * dessiné et ~3 px de marge (pick, règle 1) : dans Rome, à 5 px du centre du
+ * disque du Vatican, juste pour le Vatican comme pour l'Italie (pick y désigne
+ * le Vatican, la rétroaction d'une réponse juste montre la cible) ; à 8 px,
+ * l'Italie seule.
  */
 export function noter(ctx: ContexteCarte, cible: string, x: number, y: number): Note {
   const e = ctx.entites.find((en) => en.pays.id === cible);

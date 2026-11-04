@@ -18,10 +18,18 @@ par une décision au registre, puis ce fichier se met à jour.
    Kazakhstan), Guantánamo (`NE_USG`, hors de Cuba), Akrotiri et Dhekelia
    (hors de Chypre) : les fusionner au pays pour la notation, ou les
    laisser à part ?
-3. **Recouvrement d'un micro-État et de son voisin.** Dans Rome, à moins de
-   11 px du disque du Vatican, la carte désigne le Vatican ; un toucher y est
-   noté juste pour le Vatican comme pour l'Italie (plan : « dedans, ou dans
-   la tolérance d'un micro-État »). À garder ?
+3. **Recouvrement d'un micro-État et de son voisin.** *Tranchée*
+   (décision « Toucher sur la terre ferme ») : sur le tracé d'un pays, le
+   disque d'un petit pays voisin ne l'emporte que sous le doigt, avec ~3 px
+   de marge (6,5 px de son centre), et s'il est plus près que le point du
+   pays ; sinon le pays sous le doigt, et la note suit. Dans Rome, à 5 px du
+   centre du disque du Vatican, la carte désigne le Vatican, juste pour le
+   Vatican comme pour l'Italie (dedans) ; à 8 px, l'Italie seule. Reste à
+   voir : aux petits zooms, les disques de 7 px couvrent encore l'essentiel
+   des petits pays qu'ils bordent (au zoom 1, 79 % du tracé de l'Italie
+   désigne le Vatican, Saint-Marin ou Malte ; la Suisse cède 41 % au
+   Liechtenstein au zoom 1, 26 % au zoom 8) : c'est ce qu'on voit à l'écran,
+   mais faut-il dessiner ces disques plus petits sur un pays voisin ?
 
 ## Carte au doigt
 
