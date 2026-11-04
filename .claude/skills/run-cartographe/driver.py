@@ -969,7 +969,12 @@ def resumer(rapports, vises, journal=None):
             # repos) ; perdues_repos : sur celle du repos (stats.ts, statsGeste).
             e["perdues"] += st["perdues"]
             e["perdues_repos"] += st.get("perdues_repos", 0)
-            e["bascule_images"] += st.get("bascule_images", 0)
+            # Bascule de tête : seulement si l'écran accélère vraiment. La page
+            # en compte aussi quand la période du geste est à peine sous celle
+            # du repos (16,67 contre 16,7 ms) : ce sont alors des images
+            # perdues en tête, déjà comptées, pas une bascule.
+            if st.get("ecart_sens") == "plus_rapide":
+                e["bascule_images"] += st.get("bascule_images", 0)
             e["max_ms"] = max(e["max_ms"], st["max_ms"] or 0)
             e["p95_ms"].append(st["p95_ms"])
             e["periodes_ms"].append(st.get("periode_geste_ms"))
