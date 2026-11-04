@@ -1,32 +1,65 @@
 /**
- * Rapport des mesures du J0 (v: 2), rendu par window.cartographe.rapport() et
- * par « Copier le rapport » (⚙ → mesures). Toutes les durées sont en
- * millisecondes, les instants en ms depuis performance.timeOrigin (l'origine de
- * la navigation), arrondis au dixième.
+ * Rapport des mesures du J0 (v: 3), rendu par window.cartographe.rapport() et
+ * par « Copier le rapport » (⚙ → mesures). Contrat lu par le driver du skill
+ * run-cartographe : chaque champ est documenté sur son type ci-dessous. Toutes
+ * les durées sont en millisecondes, les instants en ms depuis
+ * performance.timeOrigin (l'origine de la navigation), arrondis au dixième.
  *
  * Critères du J0 (plan) et champs qui les tranchent :
  * - « rendu < 1 s » → chargement.total_ms ;
- * - « pas de saccade au déplacement » → gestes[].stats (perdues, p95_ms,
- *   max_ms), comptées avec la période du geste lui-même (stats.periode_ms ;
- *   stats.ecart_periode signale un écart de plus de 25 % avec
- *   ecran.periode_ms, mesurée au repos), longues_images, et la fin du geste :
- *   gestes[].fin.event_timing_ms (en mode css, le coût se paie au lever du
- *   doigt, après le dernier intervalle compté) ;
+ * - « pas de saccade au déplacement » → gestes[].stats, deux comptes d'images
+ *   perdues (intervalle > 1,5 période) : perdues, sur la période du geste
+ *   (stats.periode_geste_ms, estimée sur ses intervalles), et perdues_repos,
+ *   sur celle du repos (ecran.periode_ms). À choisir selon stats.ecart_sens :
+ *   'plus_rapide' (l'écran accélère pendant le geste : repos à 60 Hz, geste à
+ *   120) → perdues ; 'plus_lent' (appli à 60 images par seconde sur un écran
+ *   à 120 Hz, ou écran qui ralentit) → ce n'est pas une saccade mais une
+ *   cadence (1000 / periode_geste_ms images par seconde), à juger, chiffrée
+ *   par perdues_repos ; sans écart (null), les deux se valent.
+ *   stats.bascule_images : intervalles de tête encore à la fréquence du repos
+ *   (comptés sur sa période). Aussi p95_ms, max_ms, longues_images, et
+ *   dessin_ms (rendu Canvas : script de chaque image) ;
+ * - fin du geste (en mode css, le coût se paie au lever du doigt, après le
+ *   dernier intervalle compté) → gestes[].fin.event_timing_ms selon
+ *   fin.event_timing_etat ; fin.close_par_entree_suivante repère l'entrée
+ *   qui ne s'est close qu'avec l'image d'une entrée suivante (voir Geste.fin) ;
  * - « toucher → réponse < 100 ms » → touchers[].event_timing.duree_ms (Event
  *   Timing API : de l'entrée matérielle à l'image présentée qui suit les
  *   gestionnaires), selon touchers[].event_timing_etat. fin_fil_principal_ms
  *   ne vaut pas mesure de ce critère : il s'arrête avant rastérisation et
  *   présentation (voir Toucher).
  *
+ * Changements de v2 à v3 :
+ * - gestes[].stats.perdues, vsync_manquees, part_perdues : comptés sur la
+ *   période du geste (v2 : sur la plus courte de celle du geste et de celle
+ *   du repos), les intervalles de bascule en tête sur celle du repos ;
+ * - gestes[].stats.periode_geste_ms : médiane de la grappe basse calée sur
+ *   une période connue (v2 : 10e centile des intervalles) ;
+ * - gestes[].stats.periode_ms retiré (v2 : base du compte, le min des deux
+ *   périodes) ; ajoutés periode_repos_ms, ecart_sens, bascule_images,
+ *   perdues_repos, part_perdues_repos ;
+ * - gestes[].fin.event_timing_etat : 'en_attente' ajouté ; 'sous_seuil' ne
+ *   se dit plus que si une entrée Event Timing postérieure à la fin est
+ *   arrivée (v2 : dès qu'aucune entrée n'était trouvée) ;
+ * - gestes[].fin.t_evenement_ms, entree_suivante_ms, close_par_entree_suivante
+ *   et gestes[].dessin_ms ajoutés ; rendu peut valoir 'canvas'.
+ *
  * Changements de v1 à v2 : touchers[].latence_peinte_ms renommé
  * fin_fil_principal_ms ; touchers[].event_timing_etat ajouté ;
- * gestes[].fin.event_timing_ms ajouté ; gestes[].stats.periode_ms et
- * ecart_periode ajoutés, et le compte des images perdues se fait avec la
- * période du geste ; gestes[].k_debut relevé à l'événement start (v1 : au
- * premier mouvement).
+ * gestes[].fin.event_timing_ms ajouté ; gestes[].stats.periode_ms (base du
+ * compte, la plus courte de la période du geste et de celle du repos) et
+ * ecart_periode ajoutés ; gestes[].k_debut relevé à l'événement start (v1 :
+ * au premier mouvement).
  *
  * Les entrées Event Timing arrivent après la présentation de l'image (quelques
  * images plus tard) : lire le rapport au moins 0,5 s après le dernier geste.
+ * Ça ne suffit pas quand la fin ne change aucun pixel (rendu g à certaines
+ * vues) : son entrée attend la prochaine image présentée, d'où 'en_attente' ;
+ * faire suivre une entrée (un toucher) avant de lire le rapport la clôt.
+ * Le panneau des mesures, s'il est affiché, la clôt aussi : sa mise à jour
+ * (250 ms après) présente une image, et une telle fin vaut alors ~270 ms en g
+ * (au PC, k 14,5 → 36), close_par_entree_suivante faux. Mesurer sans panneau
+ * (?mesures=0), comme le driver ; une capture d'écran la clôt de même.
  *
  * window.cartographe (src/main.ts) :
  *   version: string ;
@@ -35,12 +68,21 @@
  *                                    (aussi document.body.dataset.repos = '1') : attendre
  *                                    avant de rejouer des gestes ;
  *   rapport(): Rapport ;
- *   reinitialiser(): void            vide gestes, touchers, longues images et interactions
- *                                    (garde chargement et écran) ;
+ *   reinitialiser(): void            vide gestes, touchers, longues images, interactions et
+ *                                    entrées suivies (garde chargement et écran) ;
  *   carte: AideCarte                 aides au pilote (voir src/main.ts).
  */
+import type { Rendu } from '../map/types';
+
+/**
+ * Rendu de la carte : 'g' et 'css' (SVG), 'canvas' (carte qui tourne). Union
+ * avec Rendu (src/map/types.ts) : 'canvas' est accepté avant comme après son
+ * ajout à Rendu.
+ */
+export type RenduMesure = Rendu | 'canvas';
+
 export interface Rapport {
-  v: 2;
+  v: 3;
   /** Version de l'appli (package.json). */
   version: string;
   /** Date ISO de la production du rapport. */
@@ -57,7 +99,7 @@ export interface Rapport {
     periode_ms: number | null;
     hz: number | null;
   };
-  rendu: 'g' | 'css';
+  rendu: RenduMesure;
   projection: 'monde' | 'pacifique';
   /** Fonctions du navigateur disponibles pour les mesures. */
   capacites: { long_animation_frame: boolean; event_timing: boolean };
@@ -99,7 +141,7 @@ export interface Chargement {
 export interface Geste {
   /** glisser (un doigt), pincer (deux doigts ou plus), souris, molette. */
   type: 'glisser' | 'pincer' | 'souris' | 'molette';
-  rendu: 'g' | 'css';
+  rendu: RenduMesure;
   /** Premier mouvement (premier événement zoom de d3-zoom). */
   debut_ms: number;
   /** Événement end de d3-zoom. */
@@ -113,13 +155,35 @@ export interface Geste {
   /** Intervalles entre images (requestAnimationFrame) du premier mouvement à la fin. */
   intervalles_ms: number[];
   /**
-   * Calculées avec stats.periode_ms, la plus courte de la période estimée sur
-   * les intervalles du geste (stats.periode_geste_ms, 10e centile) et de
-   * ecran.periode_ms (16,7 ms si non mesurée) : voir statsGeste.
+   * Statistiques des intervalles (statsGeste, src/mesure/stats.ts) :
+   * - images, mediane_ms, p95_ms, max_ms : sur tous les intervalles ;
+   * - periode_geste_ms : période de l'écran pendant le geste, médiane de la
+   *   grappe basse (intervalles ≤ 1,5 × la période) calée à 6 % près sur 144,
+   *   120, 90, 60 Hz, 30 images par seconde ou la période du repos ; null
+   *   sans intervalle ;
+   * - periode_repos_ms : ecran.periode_ms (16,67 si non mesurée) ;
+   * - perdues, vsync_manquees (images sautées : somme de round(intervalle /
+   *   période) − 1), part_perdues (de 0 à 1) : sur periode_geste_ms, sauf les
+   *   bascule_images premiers intervalles, sur periode_repos_ms ;
+   * - bascule_images : quand le geste est plus rapide que le repos, les
+   *   intervalles avant le premier à la période du geste (l'écran monte de 60
+   *   à 120 Hz au début du geste) ; 0 sinon ;
+   * - perdues_repos, part_perdues_repos : sur periode_repos_ms, tous les
+   *   intervalles ;
+   * - ecart_periode : |periode_geste_ms − periode_repos_ms| > 25 % de
+   *   periode_repos_ms ; ecart_sens : 'plus_rapide', 'plus_lent' ou null
+   *   (voir l'en-tête pour le compte à retenir).
    */
   stats: import('./stats').StatsGeste;
   /** Long Animation Frames qui recouvrent le geste. */
   longues_images: { nombre: number; max_ms: number | null; blocage_total_ms: number };
+  /**
+   * Rendu Canvas : durée du script de chaque image dessinée entre les
+   * événements start et end du geste (EcouteGestes.dessin, src/map/carte.ts ;
+   * le dessin de la fin est dans fin.script_ms) : nombre, médiane, 95e
+   * centile, maximum. null si aucun dessin rapporté (rendus SVG g et css).
+   */
+  dessin_ms: { images: number; mediane: number; p95: number; max: number } | null;
   /**
    * Fin du geste (événement end de d3-zoom) :
    * - script_ms : le script de fin (en mode css, la transformation posée sur
@@ -132,15 +196,36 @@ export interface Geste {
    *   mouseup), rattachée au geste par son horodatage ; null si aucune entrée.
    *   C'est le vrai coût de fin de geste : en mode css, la transformation posée
    *   au SVG, la nouvelle peinture et la rastérisation de toute la carte ;
-   * - event_timing_etat : 'mesure', 'sous_seuil' (API présente, aucune entrée :
-   *   sous 16 ms, ou rapport lu trop tôt), 'non_pris_en_charge', ou
-   *   'sans_evenement_de_fin' (molette).
+   * - event_timing_etat : 'mesure' (entrée trouvée) ; 'sous_seuil' (aucune
+   *   entrée, mais une entrée Event Timing d'un événement postérieur est
+   *   arrivée : l'image de la fin a été présentée en moins de 16 ms, le seuil
+   *   de l'API) ; 'en_attente' (aucune entrée et rien de postérieur : l'image
+   *   de la fin n'est peut-être pas encore présentée, sa durée est inconnue et
+   *   peut dépasser la seconde ; à ne pas compter 16) ; 'non_pris_en_charge' ;
+   *   'sans_evenement_de_fin' (molette) ;
+   * - t_evenement_ms : event.timeStamp de l'événement de fin (= startTime de
+   *   son entrée Event Timing) ; null sans événement de fin. fin_ms, lui, est
+   *   pris dans le gestionnaire, plus tard (~30 ms au rejeu) ;
+   * - entree_suivante_ms : timeStamp de la première entrée de l'utilisateur
+   *   après la fin (pointerdown ou touchstart, écoutés en capture : geste ou
+   *   toucher) ; null s'il n'y en a pas encore ;
+   * - close_par_entree_suivante : t_evenement_ms + event_timing_ms ≥
+   *   entree_suivante_ms, l'entrée de la fin ne s'est close qu'avec l'image
+   *   d'une entrée suivante ; false sans entrée suivante ; null sans
+   *   event_timing_ms. Seul, il ne prouve rien : une vraie fin lente (css, la
+   *   rastérisation) donne la même signature. L'artefact (rendu g : la fin ne
+   *   change aucun pixel, son entrée attend l'image suivante, captures
+   *   identiques à l'octet, relecture V2) se prouve par rendu 'g' ET
+   *   close_par_entree_suivante ET image_ms < 100 ET aucune longue image.
    */
   fin: {
     script_ms: number;
     image_ms: number | null;
     event_timing_ms: number | null;
-    event_timing_etat: 'mesure' | 'sous_seuil' | 'non_pris_en_charge' | 'sans_evenement_de_fin';
+    event_timing_etat: 'mesure' | 'sous_seuil' | 'en_attente' | 'non_pris_en_charge' | 'sans_evenement_de_fin';
+    t_evenement_ms: number | null;
+    entree_suivante_ms: number | null;
+    close_par_entree_suivante: boolean | null;
   };
 }
 

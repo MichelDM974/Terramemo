@@ -2,8 +2,8 @@
 // (latence), Long Animation Frames, Event Timing. Le format est dans rapport.ts.
 import type { EcouteGestes, FinDeGeste } from '../map/carte';
 import type { Transfo } from '../map/types';
-import type { Chargement, Geste, Interaction, LongueImage, Rapport, Toucher } from './rapport';
-import { arrondi, intervalles, mediane, statsGeste } from './stats';
+import type { Chargement, Geste, Interaction, LongueImage, Rapport, RenduMesure, Toucher } from './rapport';
+import { arrondi, intervalles, mediane, quantile, statsGeste } from './stats';
 
 const r1 = (v: number) => arrondi(v) ?? 0;
 
@@ -38,6 +38,14 @@ interface EntreeEvent extends PerformanceEntry {
  */
 const FINS = new Set(['pointerup', 'touchend', 'mouseup']);
 
+/**
+ * Entrées de l'utilisateur qui peuvent suivre une fin de geste (nouveau geste
+ * ou toucher), écoutées en capture : leur horodatage dit si l'entrée Event
+ * Timing de la fin ne s'est close qu'avec l'image d'une entrée suivante
+ * (fin.close_par_entree_suivante).
+ */
+const ENTREES = ['pointerdown', 'touchstart'] as const;
+
 const soutenus = (): readonly string[] =>
   (typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes) || [];
 
@@ -53,6 +61,28 @@ function typeDe(source: Event | null, doigtsMax: number): Geste['type'] {
   return 'souris';
 }
 
+/**
+ * État Event Timing d'une fin de geste. Sans entrée, 'sous_seuil' seulement si
+ * une entrée Event Timing d'un événement postérieur est arrivée : l'image de la
+ * fin a alors été présentée (l'entrée de la fin se clôt à la première image
+ * présentée après elle, au plus tard avec celle de l'événement suivant), donc
+ * la fin a duré moins de 16 ms. Sinon 'en_attente' : une fin qui ne change
+ * aucun pixel n'a pas d'entrée tant qu'aucune autre image n'est présentée, et
+ * peut alors valoir plus d'une seconde (relecture V2 : 'sous_seuil' lu 1,2 s
+ * après le lever, 1256 ms après une capture).
+ */
+function etatFin(
+  src: { t_ms: number } | undefined,
+  et: unknown,
+  api: boolean,
+  derniereEntreeEt: number,
+): Geste['fin']['event_timing_etat'] {
+  if (!src) return 'sans_evenement_de_fin';
+  if (et) return 'mesure';
+  if (!api) return 'non_pris_en_charge';
+  return derniereEntreeEt > src.t_ms + 1 ? 'sous_seuil' : 'en_attente';
+}
+
 export class Mesures {
   chargement: Chargement | null = null;
   periode_ms: number | null = null;
@@ -61,6 +91,12 @@ export class Mesures {
   private loaf: LongueImage[] = [];
   private evenements: (Interaction & { processingStart: number; processingEnd: number })[] = [];
   private enCours: GesteEnCours | null = null;
+  /** Durées des dessins (rendu Canvas) du geste en cours, de l'événement start à end ; null hors geste. */
+  private dessins: number[] | null = null;
+  /** Plus grand startTime des entrées Event Timing reçues, toutes, même écartées de this.evenements. */
+  private derniereEntreeEt = -Infinity;
+  /** Horodatages (event.timeStamp) des pointerdown et touchstart, en capture. */
+  private entrees: number[] = [];
   /** Zoom à l'événement start du geste en cours (k_debut). */
   private kDepart: number | null = null;
   /** Événement qui a fini chaque geste (type et timeStamp), rattaché à Event Timing dans rapport(). */
@@ -71,7 +107,7 @@ export class Mesures {
     event_timing: soutenus().includes('event'),
   };
 
-  constructor(private readonly ctx: { version: string; rendu: 'g' | 'css'; projection: 'monde' | 'pacifique'; carte: () => { largeur: number; hauteur: number } }) {
+  constructor(private readonly ctx: { version: string; rendu: RenduMesure; projection: 'monde' | 'pacifique'; carte: () => { largeur: number; hauteur: number } }) {
     if (this.capacites.long_animation_frame) {
       new PerformanceObserver((liste) => {
         for (const e of liste.getEntries() as EntreeLoaf[]) {
@@ -92,6 +128,7 @@ export class Mesures {
     if (this.capacites.event_timing) {
       new PerformanceObserver((liste) => {
         for (const e of liste.getEntries() as EntreeEvent[]) {
+          this.derniereEntreeEt = Math.max(this.derniereEntreeEt, e.startTime);
           if (!e.interactionId && !FINS.has(e.name)) continue;
           this.evenements.push({
             nom: e.name,
@@ -104,6 +141,9 @@ export class Mesures {
         }
         this.signaler();
       }).observe({ type: 'event', durationThreshold: 16, buffered: true } as PerformanceObserverInit);
+    }
+    if (typeof window !== 'undefined') {
+      for (const type of ENTREES) window.addEventListener(type, (e) => this.entrees.push(e.timeStamp), { capture: true, passive: true });
     }
   }
 
@@ -141,6 +181,7 @@ export class Mesures {
         this.arreterBoucle();
         this.enCours = null;
         this.kDepart = t.k;
+        this.dessins = [];
       },
       mouvement: (t: Transfo, source) => {
         let g = this.enCours;
@@ -168,6 +209,9 @@ export class Mesures {
         g.type = typeDe(source, g.doigts_max);
       },
       fin: (f: FinDeGeste) => this.finGeste(f),
+      // Rendu Canvas : chaque image dessinée entre start et end (le dessin de
+      // la fin elle-même est dans fin.script_ms).
+      dessin: (ms: number) => this.dessins?.push(ms),
     };
   }
 
@@ -177,8 +221,10 @@ export class Mesures {
 
   private finGeste(f: FinDeGeste): void {
     const g = this.enCours;
+    const dessins = this.dessins;
     this.arreterBoucle();
     this.enCours = null;
+    this.dessins = null;
     if (!g || !f.a_bouge) return;
     const iv = intervalles(g.horodatages).map((v) => r1(v));
     const geste: Geste = {
@@ -193,10 +239,24 @@ export class Mesures {
       intervalles_ms: iv,
       stats: statsGeste(iv, this.periode_ms ?? 1000 / 60),
       longues_images: { nombre: 0, max_ms: null, blocage_total_ms: 0 },
-      fin: { script_ms: r1(f.script_ms), image_ms: null, event_timing_ms: null, event_timing_etat: 'sans_evenement_de_fin' },
+      dessin_ms: dessins?.length
+        ? { images: dessins.length, mediane: r1(mediane(dessins) as number), p95: r1(quantile(dessins, 0.95) as number), max: r1(Math.max(...dessins)) }
+        : null,
+      fin: {
+        script_ms: r1(f.script_ms),
+        image_ms: null,
+        event_timing_ms: null,
+        event_timing_etat: 'sans_evenement_de_fin',
+        t_evenement_ms: null,
+        entree_suivante_ms: null,
+        close_par_entree_suivante: null,
+      },
     };
     this.gestes.push(geste);
-    if (f.source && FINS.has(f.source.type)) this.finsGestes.set(geste, { nom: f.source.type, t_ms: f.source.timeStamp });
+    if (f.source && FINS.has(f.source.type)) {
+      this.finsGestes.set(geste, { nom: f.source.type, t_ms: f.source.timeStamp });
+      geste.fin.t_evenement_ms = r1(f.source.timeStamp);
+    }
     void f.image.then((ms) => {
       geste.fin.image_ms = r1(ms);
       this.signaler();
@@ -244,6 +304,8 @@ export class Mesures {
     this.touchers = [];
     this.loaf = [];
     this.evenements = [];
+    this.entrees = [];
+    this.derniereEntreeEt = -Infinity;
     this.signaler();
   }
 
@@ -258,13 +320,16 @@ export class Mesures {
       const recouvre = this.loaf.filter((l) => l.debut_ms < g.fin_ms + 50 && l.debut_ms + l.duree_ms > g.debut_ms);
       const src = this.finsGestes.get(g);
       const et = src ? this.entree(src.nom, src.t_ms) : undefined;
+      const suivante = src ? this.entrees.find((t) => t > src.t_ms) : undefined;
       return {
         ...g,
         stats: statsGeste(g.intervalles_ms, periode),
         fin: {
           ...g.fin,
           event_timing_ms: et ? et.duree_ms : null,
-          event_timing_etat: !src ? ('sans_evenement_de_fin' as const) : et ? ('mesure' as const) : this.capacites.event_timing ? ('sous_seuil' as const) : ('non_pris_en_charge' as const),
+          event_timing_etat: etatFin(src, et, this.capacites.event_timing, this.derniereEntreeEt),
+          entree_suivante_ms: suivante == null ? null : r1(suivante),
+          close_par_entree_suivante: !src || !et ? null : suivante != null && src.t_ms + et.duree_ms >= suivante,
         },
         longues_images: {
           nombre: recouvre.length,
@@ -291,7 +356,7 @@ export class Mesures {
     });
     const carte = this.ctx.carte();
     return {
-      v: 2,
+      v: 3,
       version: this.ctx.version,
       date: new Date().toISOString(),
       agent: navigator.userAgent,

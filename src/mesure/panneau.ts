@@ -8,13 +8,37 @@ const ms = (v: number | null | undefined) => (v == null ? '—' : `${Math.round(
 const etEtat = (t: Toucher) =>
   t.event_timing_etat === 'mesure' ? ms(t.event_timing?.duree_ms) : t.event_timing_etat === 'sous_seuil' ? '< 16' : 'indisponible';
 
+const hz = (periode: number | null) => (periode ? `${Math.round(1000 / periode)} Hz` : '—');
+
+/** Event Timing d'une fin de geste, et la marque d'une entrée close par l'entrée suivante. */
+const etFin = (g: Geste) =>
+  g.fin.event_timing_etat === 'sous_seuil'
+    ? '< 16 ms'
+    : g.fin.event_timing_etat === 'en_attente'
+      ? 'en attente'
+      : `${ms(g.fin.event_timing_ms)} ms${g.fin.close_par_entree_suivante ? ' (close par l’entrée suivante)' : ''}`;
+
+/** Images perdues d'un geste sur sa période, et sur celle du repos si elle s'en écarte. */
+function perduesGeste(g: Geste): string {
+  const s = g.stats;
+  const base = `${s.perdues} perdue(s) à ${s.periode_geste_ms ?? s.periode_repos_ms} ms`;
+  const bascule = s.bascule_images ? ` après ${s.bascule_images} à la période du repos` : '';
+  const ecart = s.ecart_sens
+    ? ` (⚠ geste ${s.ecart_sens === 'plus_rapide' ? 'plus rapide' : 'plus lent'} que le repos : ${hz(s.periode_geste_ms)} contre ${hz(s.periode_repos_ms)} ; ${s.perdues_repos} perdue(s) sur le repos)`
+    : '';
+  return base + bascule + ecart;
+}
+
 /** Tous les gestes : images perdues, écarts de période, pire fin (Event Timing). */
 function resumeGestes(gestes: readonly Geste[]): string {
   const perdues = gestes.reduce((a, g) => a + g.stats.perdues, 0);
   const intervalles = gestes.reduce((a, g) => a + Math.max(0, g.stats.images - 1), 0);
-  const ecarts = gestes.filter((g) => g.stats.ecart_periode).length;
+  const rapides = gestes.filter((g) => g.stats.ecart_sens === 'plus_rapide').length;
+  const lents = gestes.filter((g) => g.stats.ecart_sens === 'plus_lent').length;
+  const ecarts = [rapides ? `${rapides} plus rapide(s)` : '', lents ? `${lents} plus lent(s)` : ''].filter(Boolean).join(', ');
   const fins = gestes.map((g) => g.fin.event_timing_ms).filter((v): v is number => v != null);
-  return `${gestes.length} gestes : ${perdues} / ${intervalles} images perdues${ecarts ? ` · ⚠ ${ecarts} à une autre période que le repos` : ''} · fin Event Timing max ${fins.length ? ms(Math.max(...fins)) : '—'} ms (${fins.length} mesurée(s))`;
+  const attente = gestes.filter((g) => g.fin.event_timing_etat === 'en_attente').length;
+  return `${gestes.length} gestes : ${perdues} / ${intervalles} images perdues${ecarts ? ` · ⚠ ${ecarts} que le repos` : ''} · fin Event Timing max ${fins.length ? ms(Math.max(...fins)) : '—'} ms (${fins.length} mesurée(s)${attente ? `, ${attente} en attente` : ''})`;
 }
 
 async function copier(texte: string): Promise<boolean> {
@@ -70,7 +94,7 @@ export function panneauMesures(zone: HTMLElement, mesures: Mesures): HTMLElement
         : 'Chargement…',
       `Écran ${r.ecran.hz ?? '—'} Hz (${r.ecran.periode_ms ?? '—'} ms) · rendu ${r.rendu} · ${r.projection} · ${r.gestes.length} geste(s), ${r.touchers.length} toucher(s)`,
       g
-        ? `Geste ${g.type} k ${g.k_debut}→${g.k_fin} : ${g.stats.images} images, méd. ${g.stats.mediane_ms} · p95 ${g.stats.p95_ms} · max ${g.stats.max_ms} ms, ${g.stats.perdues} perdue(s) à ${g.stats.periode_ms} ms${g.stats.ecart_periode ? ` (⚠ geste ${g.stats.periode_geste_ms} ms, repos ${r.ecran.periode_ms} ms)` : ''} · longues ${g.longues_images.nombre} · fin : script ${ms(g.fin.script_ms)}, fil principal ${ms(g.fin.image_ms)}, Event Timing ${g.fin.event_timing_etat === 'sous_seuil' ? '< 16' : ms(g.fin.event_timing_ms)} ms`
+        ? `Geste ${g.type} k ${g.k_debut}→${g.k_fin} : ${g.stats.images} images, méd. ${g.stats.mediane_ms} · p95 ${g.stats.p95_ms} · max ${g.stats.max_ms} ms, ${perduesGeste(g)} · longues ${g.longues_images.nombre}${g.dessin_ms ? ` · dessin méd. ${g.dessin_ms.mediane} · p95 ${g.dessin_ms.p95} · max ${g.dessin_ms.max} ms (${g.dessin_ms.images})` : ''} · fin : script ${ms(g.fin.script_ms)}, fil principal ${ms(g.fin.image_ms)}, Event Timing ${etFin(g)}`
         : 'Geste : —',
       r.gestes.length > 1 ? resumeGestes(r.gestes) : '',
       t

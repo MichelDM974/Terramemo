@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { intervalles, mediane, periodeGeste, quantile, statsGeste, statsImages } from '../src/mesure/stats';
+import { intervalles, mediane, periodeGeste, quantile, statsGeste, statsImages, type StatsGeste } from '../src/mesure/stats';
 
 describe('statistiques des mesures', () => {
   it('quantiles par interpolation linéaire (type 7)', () => {
@@ -36,40 +36,93 @@ describe('statistiques des mesures', () => {
     expect(statsImages([], 8.33)).toMatchObject({ images: 0, mediane_ms: null, p95_ms: null, max_ms: null, perdues: 0 });
   });
 
-  it('période d’un geste : un bas centile, qui tient même si la moitié des images est perdue', () => {
+  it('période d’un geste : la grappe basse, qui tient même si plus de la moitié des images est perdue', () => {
     const pire = [...Array(10).fill(16.7), ...Array(12).fill(33.4)];
     expect(mediane(pire)).toBe(33.4); // la médiane prendrait deux périodes
-    expect(periodeGeste(pire)).toBe(16.7);
+    expect(periodeGeste(pire)).toBe(16.67); // calée sur 60 Hz
+    expect(statsGeste(pire, 16.67).perdues).toBe(12);
     expect(periodeGeste([])).toBeNull();
+  });
+
+  it('période d’un geste : calée sur la période connue la plus proche, ou celle du repos', () => {
+    expect(periodeGeste(Array.from({ length: 58 }, (_, i) => (i % 3 ? 8.3 : 8.4)))).toBe(8.33);
+    expect(periodeGeste(Array(43).fill(11.1))).toBe(11.11); // 90 Hz
+    expect(periodeGeste(Array(30).fill(13.3), 13.33)).toBe(13.33); // 75 Hz : celle du repos
+    expect(periodeGeste(Array(30).fill(13.3))).toBe(13.3); // inconnue : pas de calage
   });
 
   it('repos à 60 Hz, geste à 120 Hz : les images sautées à 120 Hz sont comptées, l’écart signalé', () => {
     const iv = [8.3, 8.4, 8.3, 16.7, 8.3, 8.4, 8.3, 8.3, 25, 8.3, 8.4, 8.3];
     expect(statsImages(iv, 16.7).perdues).toBe(0); // avec la seule période du repos : rien
     const s = statsGeste(iv, 16.7);
-    expect(s.periode_ms).toBe(8.3);
-    expect(s.periode_geste_ms).toBe(8.3);
+    expect(s.periode_geste_ms).toBe(8.33);
     expect(s.perdues).toBe(2);
-    expect(s.ecart_periode).toBe(true);
+    expect(s.perdues_repos).toBe(0);
+    expect(s).toMatchObject({ ecart_periode: true, ecart_sens: 'plus_rapide', bascule_images: 0 });
   });
 
-  it('repos à 120 Hz, appli tenue à 60 images par seconde : toutes perdues, jamais comptées sur 16,7 ms', () => {
-    const iv = Array(30).fill(16.7);
-    const s = statsGeste(iv, 8.33);
-    expect(s.periode_geste_ms).toBe(16.7);
-    expect(s.periode_ms).toBe(8.33);
-    expect(s.perdues).toBe(30);
-    expect(s.ecart_periode).toBe(true);
+  it('repos à 120 Hz, appli tenue à 60 images par seconde : une cadence, chiffrée sur le repos', () => {
+    const s = statsGeste(Array(30).fill(16.7), 8.33);
+    expect(s.periode_geste_ms).toBe(16.67);
+    expect(s.periode_repos_ms).toBe(8.33);
+    expect(s.perdues).toBe(0);
+    expect(s.perdues_repos).toBe(30);
+    expect(s.part_perdues_repos).toBe(1);
+    expect(s).toMatchObject({ ecart_periode: true, ecart_sens: 'plus_lent' });
   });
 
-  it('repos à 60 Hz, appli tenue à 30 images par seconde : toutes perdues', () => {
-    expect(statsGeste(Array(30).fill(33.3), 16.7)).toMatchObject({ periode_ms: 16.7, perdues: 30 });
+  it('repos à 60 Hz, appli tenue à 30 images par seconde : cadence plus lente, toutes perdues sur le repos', () => {
+    expect(statsGeste(Array(30).fill(33.3), 16.7)).toMatchObject({ periode_geste_ms: 33.33, perdues: 0, perdues_repos: 30, ecart_sens: 'plus_lent' });
   });
 
   it('même période au repos et pendant le geste : pas d’écart ; sans intervalle, la période du repos', () => {
     const s = statsGeste([16.6, 16.7, 16.8, 33.4, 16.7, 16.6], 16.7);
-    expect(s.ecart_periode).toBe(false);
-    expect(s.perdues).toBe(1);
-    expect(statsGeste([], 16.7)).toMatchObject({ periode_geste_ms: null, periode_ms: 16.7, ecart_periode: false, perdues: 0 });
+    expect(s).toMatchObject({ ecart_periode: false, ecart_sens: null, perdues: 1, perdues_repos: 1 });
+    expect(statsGeste([], 16.7)).toMatchObject({ periode_geste_ms: null, periode_repos_ms: 16.7, ecart_periode: false, perdues: 0, bascule_images: 0 });
+  });
+});
+
+// Cas de la relecture V2 du J0 (scratchpad relecture-3b/periode3.verif.ts et
+// verdict.py) : téléphone à fréquence adaptative, gigue, cadence moitié.
+describe('statsGeste, cas du téléphone (relecture V2)', () => {
+  const rep = (n: number, v: number): number[] => Array(n).fill(v);
+  // Pseudo-aléa reproductible et gigue alternée, comme la relecture.
+  const gigue = (iv: number[], a: number) => {
+    let s = 7;
+    const alea = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    return iv.map((v, i) => Math.round((v + (i % 2 ? a : -a) * alea()) * 10) / 10);
+  };
+  const P120 = 8.33;
+  const P60 = 16.67;
+  const cas: [string, number[], number, Partial<StatsGeste>][] = [
+    ['1 repos 60, geste 120 parfait', rep(58, P120), P60, { periode_geste_ms: 8.33, perdues: 0, ecart_sens: 'plus_rapide' }],
+    ['2 repos 60, geste 120, 20 % sautées', [...rep(46, P120), ...rep(12, P60)], P60, { perdues: 12, perdues_repos: 0, ecart_sens: 'plus_rapide' }],
+    ['3 montée de 60 à 120 après 6 images (bascule), 0 sautée', [...rep(6, P60), ...rep(52, P120)], P60, { periode_geste_ms: 8.33, bascule_images: 6, perdues: 0 }],
+    ['4 bascule lente (15 images à 60)', [...rep(15, P60), ...rep(36, P120)], P60, { bascule_images: 15, perdues: 0 }],
+    ['5 120 Hz sur 8 % du geste, à la fin', [...rep(50, P60), ...rep(4, P120)], P60, { periode_geste_ms: 16.67, perdues: 0 }],
+    ['6 120 Hz sur 12 % (la falaise du 10e centile)', [...rep(46, P60), ...rep(6, P120)], P60, { periode_geste_ms: 16.67, perdues: 0 }],
+    ['7 repos 120, geste stable à 60', rep(29, P60), P120, { periode_geste_ms: 16.67, perdues: 0, perdues_repos: 29, ecart_sens: 'plus_lent' }],
+    ['8 repos 120, geste à 60 avec 10 % de vraies pertes', [...rep(26, P60), ...rep(3, 33.3)], P120, { perdues: 3, perdues_repos: 29, ecart_sens: 'plus_lent' }],
+    ['9 repos 60, geste à 60', rep(29, P60), P60, { perdues: 0, ecart_periode: false }],
+    ['10 120 Hz, gigue ± 1 ms', gigue(rep(58, P120), 1), P120, { periode_geste_ms: 8.33, perdues: 0 }],
+    ['11 120 Hz, gigue ± 2 ms', gigue(rep(58, P120), 2), P120, { periode_geste_ms: 8.33, perdues: 0, ecart_periode: false }],
+    ['12 60 Hz, gigue ± 3 ms', gigue(rep(29, P60), 3), P60, { periode_geste_ms: 16.67, perdues: 0 }],
+    ['13 repos 120, 8,3 et 16,7 en alternance', Array.from({ length: 40 }, (_, i) => (i % 2 ? P60 : P120)), P120, { periode_geste_ms: 8.33, perdues: 20 }],
+    ['14 repos 60, geste 120, 1 image sur 3 sautée', Array.from({ length: 45 }, (_, i) => (i % 3 === 2 ? P60 : P120)), P60, { bascule_images: 0, perdues: 15 }],
+    ['15 repos 120, geste à 90 Hz', rep(43, 11.1), P120, { periode_geste_ms: 11.11, perdues: 0, perdues_repos: 0, ecart_sens: 'plus_lent' }],
+    ['16 geste à 60 avec un rattrapage de 8,3 ms', [...rep(7, P60), 8.3, ...rep(21, P60)], P60, { periode_geste_ms: 16.67, perdues: 0, bascule_images: 0 }],
+    ['17 intervalles arrondis 8,3 / 8,4', Array.from({ length: 58 }, (_, i) => (i % 3 ? 8.3 : 8.4)), 8.33, { periode_geste_ms: 8.33, perdues: 0 }],
+    ['18 12,6 ms à 120 Hz : juste au-delà de 1,5 période', [...rep(50, P120), ...rep(5, 12.6)], P120, { perdues: 5 }],
+    ['19 bascule puis 20 % sautées à 120', [...rep(25, P60), ...Array.from({ length: 25 }, (_, i) => (i % 5 === 4 ? P60 : P120))], P60, { bascule_images: 25, perdues: 5 }],
+    ['20 bascule en tête après une longue image : perdue sur le repos', [40, ...rep(5, P60), ...rep(40, P120)], P60, { bascule_images: 6, perdues: 1, perdues_repos: 1 }],
+  ];
+  for (const [nom, iv, repos, attendu] of cas) it(nom, () => expect(statsGeste(iv, repos)).toMatchObject(attendu));
+
+  it('pas de falaise : la part d’images à 120 Hz en fin de geste ne fait jamais compter de perte', () => {
+    for (let courts = 1; courts < 52; courts++) expect(statsGeste([...rep(52 - courts, P60), ...rep(courts, P120)], P60).perdues).toBe(0);
+  });
+
+  it('pas de falaise : bascule en tête de toute longueur, jamais de perte', () => {
+    for (let tete = 0; tete < 52; tete++) expect(statsGeste([...rep(tete, P60), ...rep(52 - tete, P120)], P60).perdues).toBe(0);
   });
 });
