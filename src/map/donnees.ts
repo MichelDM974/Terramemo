@@ -52,7 +52,14 @@ export function assembler(
   return { entites, contestees: zones, noms, traits };
 }
 
-export async function chargerDonnees(base = '/geo/'): Promise<{ donnees: DonneesCarte; chrono: ChronoChargement }> {
+/** Les fichiers lus, tels quels : le Web Worker du maillage webgl les analyse de son côté (maillage.worker.ts). */
+export interface TextesCarte {
+  topo: string;
+  pays: string;
+  contestees: string;
+}
+
+export async function chargerDonnees(base = '/geo/'): Promise<{ donnees: DonneesCarte; chrono: ChronoChargement; textes: TextesCarte }> {
   const t0 = performance.now();
   const lire = async (nom: string) => {
     const r = await fetch(base + nom);
@@ -75,6 +82,7 @@ export async function chargerDonnees(base = '/geo/'): Promise<{ donnees: Donnees
   const t3 = performance.now();
   return {
     donnees,
+    textes: { topo: topoTxt, pays: paysTxt, contestees: contTxt },
     chrono: {
       telechargement_ms: t1 - t0,
       analyse_ms: t2 - t1,

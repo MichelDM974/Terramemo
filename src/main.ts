@@ -3,11 +3,11 @@ import './carte.css';
 import { version as VERSION } from '../package.json';
 import { Carte, type CarteAffichee } from './map/carte';
 import { CarteCanvas } from './map/carte-canvas';
-import { fabriqueWebGL, type PeintreWebGL } from './map/carte-webgl';
 import { chargerDonnees, chargerLeger } from './map/donnees';
 import { prechauffer } from './map/geo';
 import type { ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
+import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
 import type { NomProjection, Rendu, Transfo } from './map/types';
 import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
@@ -28,8 +28,13 @@ const debutScript = performance.now();
  *   le message du commit qui l'ajoute, à refaire sur le téléphone.
  * - webgl : la même carte qui tourne (mêmes gestes, pick et noter), dessinée
  *   par la carte graphique (src/map/carte-webgl.ts), toujours complète, sans
- *   carte allégée ; repli sur canvas sans WebGL2 (dataset.repli de #carte).
- *   ?aa=0 coupe l'anticrénelage (MSAA), pour comparer.
+ *   carte allégée. Affichée d'abord en Canvas 2D, le WebGL prend le relais
+ *   quand son maillage est prêt (Web Worker ou cache de l'appareil,
+ *   src/map/relais-webgl.ts : data-relais de #carte, champ webgl du rapport) ;
+ *   la carte reste en canvas sans WebGL2 matériel, shader refusé ou contexte
+ *   perdu pour de bon (data-repli="webgl"). ?aa=0 coupe l'anticrénelage
+ *   (MSAA), ?logiciel=1 accepte un WebGL logiciel (SwiftShader), ?maillage=0
+ *   recalcule le maillage sans lire le cache, pour comparer.
  * - g : la transformation est posée sur le <g> du SVG à chaque mouvement ;
  *   le navigateur repeint la carte à chaque image.
  * - css : pendant le geste, le compositeur déplace et agrandit l'image déjà
@@ -188,10 +193,14 @@ const hote = document.createElement('div');
 hote.id = 'carte';
 zone.append(hote);
 
-/** Contexte des mesures : rendu corrigé en canvas si webgl se replie (les rapports disent ce qui a dessiné). */
+/**
+ * Contexte des mesures : en webgl, « canvas » tant que le Canvas 2D dessine
+ * (avant le relais, ou après un repli) : les rapports et chaque geste disent
+ * ce qui a dessiné.
+ */
 const contexteMesures = {
   version: VERSION,
-  rendu: rendu as Rendu,
+  rendu: (rendu === 'webgl' ? 'canvas' : rendu) as Rendu,
   projection,
   carte: () => ({ largeur: hote.clientWidth, hauteur: hote.clientHeight }),
 };
@@ -217,16 +226,24 @@ export interface AideCarte {
   pastilles(): { id: string; visible: boolean }[];
   /** Rendus canvas et webgl : compteurs du dernier dessin (durée du script, carte allégée, parties et sommets tracés). */
   dessin(): CarteCanvas['dernier'];
-  /** Rendu webgl : processeur graphique (gl.RENDERER), et perte du contexte provoquée puis rendue après retour_ms. */
-  webgl(): { renderer: string; perdu: boolean } | null;
+  /**
+   * Rendu webgl : processeur graphique (UNMASKED_RENDERER_WEBGL, lu à cette
+   * demande : aussi dans data-gpu de #carte ensuite), contexte
+   * perdu, étape du relais ; perte du contexte provoquée puis rendue après
+   * retour_ms (négatif : jamais rendue, la carte revient au canvas).
+   */
+  webgl(): { renderer: string | null; perdu: boolean; etape: EtatRelais['etape']; raison: string | null } | null;
   perdreContexte(retour_ms?: number): boolean;
 }
+
+/** Le rapport des mesures, et en webgl l'état du relais (src/map/relais-webgl.ts). */
+export type RapportCartographe = Rapport & { webgl?: EtatRelais };
 
 export interface Cartographe {
   version: string;
   pret: Promise<void>;
   repos: Promise<number>;
-  rapport(): Rapport;
+  rapport(): RapportCartographe;
   reinitialiser(): void;
   carte: AideCarte | null;
 }
@@ -243,7 +260,11 @@ window.cartographe = {
   version: VERSION,
   pret: new Promise<void>((ok) => (pretOk = ok)),
   repos: new Promise<number>((ok) => (reposOk = ok)),
-  rapport: () => mesures.rapport(),
+  rapport: () => {
+    if (!relais) return mesures.rapport();
+    relais.lireGpu();
+    return { ...mesures.rapport(), webgl: structuredClone(relais.etat) };
+  },
   reinitialiser: () => mesures.reinitialiser(),
   carte: null,
 };
@@ -251,24 +272,32 @@ window.cartographe = {
 const deuxImages = () => new Promise<void>((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok())));
 
 // Carte allégée (rendu canvas) : téléchargée en même temps que la complète, servie quand elle arrive.
+// Pas en webgl : le Canvas 2D n'y dessine qu'en attendant le relais (rien de plus à télécharger).
 const leger = rendu === 'canvas' ? chargerLeger() : null;
 
-/** WebGL2, ou le rendu canvas (et sa carte allégée) si le contexte manque. */
-function carteGlobe(options: ConstructorParameters<typeof CarteCanvas>[0]): CarteCanvas {
-  if (rendu !== 'webgl') return new CarteCanvas({ ...options, leger: leger ?? undefined });
-  try {
-    return new CarteCanvas({ ...options, peintre: fabriqueWebGL({ antialias: params.get('aa') !== '0' }) });
-  } catch (e) {
-    console.warn('Rendu webgl indisponible, repli sur canvas :', e);
-    contexteMesures.rendu = 'canvas';
-    const carte = new CarteCanvas({ ...options, rendu: 'canvas', leger: chargerLeger() });
-    hote.dataset.repli = 'webgl';
-    return carte;
-  }
-}
+// Rendu webgl : le Worker du maillage démarre tout de suite (son script se charge avec les données).
+const relais =
+  rendu === 'webgl'
+    ? new RelaisWebGL({
+        antialias: params.get('aa') !== '0',
+        logicielAccepte: params.get('logiciel') === '1',
+        lireCache: params.get('maillage') !== '0',
+        surEtat: (e) => {
+          hote.dataset.relais = e.etape;
+          if (e.gpu) hote.dataset.gpu = e.gpu;
+          if (e.etape === 'repli') hote.dataset.repli = 'webgl';
+          contexteMesures.rendu = e.etape === 'webgl' ? 'webgl' : 'canvas';
+        },
+      })
+    : null;
+if (relais) hote.dataset.relais = 'attente';
 
 async function demarrer(): Promise<void> {
-  const { donnees, chrono } = await chargerDonnees();
+  const chargement = chargerDonnees();
+  // Les fichiers sont demandés : contexte WebGL et shaders pendant que le réseau répond (relais-webgl.ts).
+  relais?.preparer();
+  const { donnees, chrono, textes } = await chargement;
+  relais?.envoyer(textes);
   const options = {
     hote,
     donnees,
@@ -277,10 +306,9 @@ async function demarrer(): Promise<void> {
     surToucher: (x: number, y: number, ev: PointerEvent) => vueActive?.toucher?.(x, y, ev),
     gestes: mesures.ecouteGestes(),
   };
-  const carte: CarteAffichee = rendu === 'canvas' || rendu === 'webgl' ? carteGlobe(options) : new Carte(options);
+  // En webgl, le Canvas 2D d'abord (sans carte allégée), le WebGL ensuite (relais).
+  const carte: CarteAffichee = rendu === 'canvas' || rendu === 'webgl' ? new CarteCanvas({ ...options, leger: leger ?? undefined }) : new Carte(options);
   const cr = carte.rendre();
-  const peintreGL = carte instanceof CarteCanvas ? (carte.peintre as PeintreWebGL | null) : null;
-  if (peintreGL) hote.dataset.gpu = peintreGL.renderer;
   const finInsertion = performance.now();
   await deuxImages();
   const peinte = performance.now();
@@ -323,11 +351,14 @@ async function demarrer(): Promise<void> {
     zoomerSur: (id) => carte.zoomerSur(id),
     pastilles: () => carte.contexte().pastilles.map((p) => ({ id: p.id, visible: p.visible })),
     dessin: () => (carte instanceof CarteCanvas ? carte.dernier : null),
-    webgl: () => (peintreGL ? { renderer: peintreGL.renderer, perdu: peintreGL.contextePerdu } : null),
-    perdreContexte: (retour_ms) => peintreGL?.perdreContexte(retour_ms) ?? false,
+    webgl: () =>
+      relais ? { renderer: relais.lireGpu(), perdu: relais.peintre?.contextePerdu ?? false, etape: relais.etat.etape, raison: relais.etat.raison } : null,
+    perdreContexte: (retour_ms) => (relais?.etat.etape === 'webgl' && relais.peintre?.perdreContexte(retour_ms)) || false,
   };
   document.body.dataset.pret = '1';
   pretOk();
+  // Contexte et shaders du WebGL dès la carte affichée, pendant que le Worker maille.
+  const relaye = relais && carte instanceof CarteCanvas ? relais.relayer(carte, donnees, peinte) : null;
 
   const ctx = { carte, donnees, mesures, zone };
   vues.set('carte', vueExplorer(ctx));
@@ -337,6 +368,8 @@ async function demarrer(): Promise<void> {
   appliquerMesures();
   router();
 
+  // Le repos (période de l'écran, puis les gestes du pilote) se mesure sur le rendu qui restera.
+  if (relaye) await relaye;
   const periode = await mesures.mesurerRepos();
   prechauffer(donnees.entites.map((e) => e.forme));
   document.body.dataset.repos = '1';

@@ -21,7 +21,10 @@
 // îles plus petites y sont celles de la complète (peu de sommets chacune), si
 // bien qu'aucune île visible au repos ne disparaît pendant le geste.
 // Avec l'option peintre, un autre rendu dessine dans le même canvas (WebGL :
-// carte-webgl.ts, ?rendu=webgl) ; gestes, vue, pick et noter restent ceux-ci.
+// carte-webgl.ts) ; gestes, vue, pick et noter restent ceux-ci. En ?rendu=webgl,
+// le Canvas 2D dessine d'abord, puis adopter() passe la main au peintre WebGL
+// (relais-webgl.ts) à la même vue, geste en cours compris : seul l'élément
+// canvas change, l'état de la carte reste ici.
 import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
@@ -289,10 +292,12 @@ const TOUR = 2 * Math.PI;
 
 export class CarteCanvas implements CarteAffichee {
   readonly hote: HTMLElement;
-  readonly canvas: HTMLCanvasElement;
-  /** Canvas 2D, ou null quand un peintre dessine. */
+  /** L'élément qui montre la carte : celui du Canvas 2D, ou celui du peintre (adopter). */
+  private elt: HTMLCanvasElement;
+  /** Canvas 2D (gardé après adopter : revenirAuCanvas2D le remet), ou null quand un peintre dessine dès le départ. */
   private ctx: CanvasRenderingContext2D | null = null;
-  readonly peintre: Peintre | null = null;
+  private canvas2d: HTMLCanvasElement | null = null;
+  private peintreActif: Peintre | null = null;
   private c: Cadre = cadre(1, 1);
   private v: VueGlobe;
   private proj: GeoProjection;
@@ -334,15 +339,13 @@ export class CarteCanvas implements CarteAffichee {
     },
   ) {
     this.hote = o.hote;
-    this.canvas = document.createElement('canvas');
-    this.canvas.className = 'carte-canvas';
-    this.canvas.setAttribute('role', 'img');
-    this.canvas.setAttribute('aria-label', 'Carte du monde');
-    if (o.peintre) this.peintre = o.peintre(this.canvas, { donnees: o.donnees, redessiner: () => this.demander() });
+    this.elt = CarteCanvas.element();
+    if (o.peintre) this.peintreActif = o.peintre(this.elt, { donnees: o.donnees, redessiner: () => this.demander() });
     else {
-      const ctx = this.canvas.getContext('2d');
+      const ctx = this.elt.getContext('2d');
       if (!ctx) throw new Error('Canvas 2D indisponible');
       this.ctx = ctx;
+      this.canvas2d = this.elt;
     }
     this.hote.classList.add('carte');
     this.hote.dataset.rendu = o.rendu;
@@ -397,6 +400,82 @@ export class CarteCanvas implements CarteAffichee {
       this.complet ??= calque(this.o.donnees);
       this.leger = calqueLeger(this.o.donnees, this.complet, formes);
     });
+  }
+
+  /** Un élément canvas de la carte (celui du Canvas 2D, ou d'un peintre adopté plus tard). */
+  static element(): HTMLCanvasElement {
+    const c = document.createElement('canvas');
+    c.className = 'carte-canvas';
+    c.setAttribute('role', 'img');
+    c.setAttribute('aria-label', 'Carte du monde');
+    return c;
+  }
+
+  get canvas(): HTMLCanvasElement {
+    return this.elt;
+  }
+
+  get peintre(): Peintre | null {
+    return this.peintreActif;
+  }
+
+  /**
+   * Le peintre (WebGL) prend le relais du Canvas 2D, à la vue du moment :
+   * rotation, zoom, marques, pastilles, anneaux et geste en cours sont ceux de
+   * cette carte, seul l'élément canvas change. Son canvas est d'abord dessiné
+   * hors du document (le GPU fait là le travail de la première image), puis à
+   * l'image suivante il prend la place de celui du Canvas 2D et dessine la vue
+   * de cette image-là : l'échange et le dessin tombent dans la même image,
+   * sans saut. Le Canvas 2D reste dans le document, masqué (display: none),
+   * sa mémoire rendue (0 × 0 pixels) : un doigt posé dessus avant l'échange
+   * garde lui pour cible jusqu'au lever, et un élément retiré du document ne
+   * ferait plus remonter ses touchmove et touchend jusqu'à l'hôte (le geste
+   * en cours se serait figé). Gardé aussi pour revenirAuCanvas2D.
+   */
+  adopter(canvas: HTMLCanvasElement, peintre: Peintre): Promise<void> {
+    const dimensionner = () => {
+      canvas.width = Math.round(this.c.l * this.dpr);
+      canvas.height = Math.round(this.c.h * this.dpr);
+      canvas.style.width = `${this.c.l}px`;
+      canvas.style.height = `${this.c.h}px`;
+      peintre.dimensionner(this.c.l, this.c.h, this.dpr);
+    };
+    dimensionner();
+    peintre.dessiner(this.etatImage());
+    return new Promise((ok) =>
+      requestAnimationFrame(() => {
+        if (canvas.width !== Math.round(this.c.l * this.dpr) || canvas.height !== Math.round(this.c.h * this.dpr)) dimensionner();
+        if (this.elt.isConnected) this.elt.after(canvas);
+        else this.hote.prepend(canvas);
+        masquer(this.elt);
+        this.elt = canvas;
+        this.peintreActif = peintre;
+        this.dessiner();
+        ok();
+      }),
+    );
+  }
+
+  /** Une image à la prochaine occasion (contexte WebGL rendu). */
+  redessiner(): void {
+    this.demander();
+  }
+
+  /** Retour au Canvas 2D gardé par adopter (contexte WebGL perdu pour de bon) ; le peintre est détruit. */
+  revenirAuCanvas2D(): boolean {
+    const c2d = this.canvas2d;
+    if (!c2d || !this.ctx || !this.peintreActif) return false;
+    this.peintreActif.detruire();
+    this.peintreActif = null;
+    // Le canvas du WebGL reste masqué dans le document : il est peut-être la cible d'un doigt posé (adopter).
+    masquer(this.elt);
+    c2d.style.display = '';
+    if (!c2d.isConnected) this.hote.prepend(c2d);
+    this.elt = c2d;
+    this.complet ??= calque(this.o.donnees);
+    this.dimensionner();
+    this.dessiner();
+    return true;
   }
 
   /** Prépare les géométries et dessine la carte entière. */
@@ -541,6 +620,7 @@ export class CarteCanvas implements CarteAffichee {
     for (const [cible, type, l, opts] of this.ecouteurs) cible.removeEventListener(type, l, opts);
     this.peintre?.detruire();
     this.canvas.remove();
+    this.canvas2d?.remove();
   }
 
   // --- vue -------------------------------------------------------------------
@@ -857,7 +937,13 @@ export class CarteCanvas implements CarteAffichee {
     cancelAnimationFrame(this.image);
     this.image = 0;
     const t0 = performance.now();
-    const stats = p.dessiner({
+    const stats = p.dessiner(this.etatImage());
+    this.dernier = { ms: performance.now() - t0, ...stats };
+    this.hote.dataset.dessin = 'complet';
+  }
+
+  private etatImage(): EtatImage {
+    return {
       v: this.v,
       c: this.c,
       t: this.transfo,
@@ -866,9 +952,7 @@ export class CarteCanvas implements CarteAffichee {
       pastilles: this.pastilles,
       marques: this.marques,
       anneaux: this.anneaux,
-    });
-    this.dernier = { ms: performance.now() - t0, ...stats };
-    this.hote.dataset.dessin = 'complet';
+    };
   }
 
   /**
@@ -910,6 +994,13 @@ export class CarteCanvas implements CarteAffichee {
       ctx.stroke();
     }
   }
+}
+
+/** Un canvas qui ne dessine plus : masqué et sans pixels, mais toujours dans le document (adopter). */
+function masquer(c: HTMLCanvasElement): void {
+  c.style.display = 'none';
+  c.width = 0;
+  c.height = 0;
 }
 
 function centre(points: readonly [number, number][]): [number, number] {
