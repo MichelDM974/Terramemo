@@ -939,24 +939,38 @@ describe('maillage emballé (Worker, cache de l’appareil)', () => {
   });
 });
 
+/** Un attribut tel que l'a branché le code (vertexAttribPointer, vertexAttribDivisor, enableVertexAttribArray). */
+type PointeurGl = { tampon: object | null; taille: number; type: number; pas: number; decalage: number; diviseur: number; actif: boolean };
+
 /**
  * Un faux WebGL2 : chaque appel est noté, les constantes sont des nombres
  * distincts ; drawElements et drawArrays retiennent le programme, le VAO et
- * les uniformes du moment. Assez pour vérifier ce que dessiner() demande.
+ * les uniformes du moment. Les tampons de sommets gardent leur contenu
+ * (bufferData, bufferSubData) et chaque VAO ses attributs, par location :
+ * attributs() rend ce qu'un vertex shader lit à ses layout(location), le
+ * chemin du vrai GPU. Assez pour vérifier ce que dessiner() demande.
  */
 function fauxWebGL() {
   const constantes = new Map<string, number>();
   const programmes = new Map<object, Record<string, unknown>>();
   const indicesDuVao = new Map<object, number>();
-  /** Premier tampon de sommets de chaque VAO (celui de l'attribut 0). */
-  const sommetsDuVao = new Map<object, Float32Array>();
+  /** Contenu des tampons de sommets (ARRAY_BUFFER), en flottants. */
+  const contenus = new Map<object, Float32Array>();
+  /** Attributs de chaque VAO (null : celui par défaut), par location. */
+  const pointeurs = new Map<object | null, Map<number, PointeurGl>>();
+  /** Valeurs constantes des attributs non activés (vertexAttrib*f : état du contexte, pas du VAO). */
+  const constantesAttributs = new Map<number, number[]>();
   const dessins: { prog: object | null; vao: object | null; mode: number; n: number; decalage: number; u: Record<string, unknown> }[] = [];
   let prog: object | null = null;
   let vao: object | null = null;
   let elements = false;
+  let tamponSommets: object | null = null;
   let texture: TextureGlsl | null = null;
-  let instances: Float32Array | null = null;
   let melange: [number, number] | null = null;
+  const pointeur = (loc: number): PointeurGl => {
+    const m = pointeurs.get(vao) ?? (pointeurs.set(vao, new Map()).get(vao) as Map<number, PointeurGl>);
+    return m.get(loc) ?? (m.set(loc, { tampon: null, taille: 4, type: constante('FLOAT'), pas: 0, decalage: 0, diviseur: 0, actif: false }).get(loc) as PointeurGl);
+  };
   const objet = (type: string) => ({ type });
   const uniforme = (loc: { nom: string; p: object } | null, ...v: unknown[]) => {
     if (loc) (programmes.get(loc.p) ?? programmes.set(loc.p, {}).get(loc.p))![loc.nom] = v.length === 1 ? v[0] : v;
@@ -975,12 +989,28 @@ function fauxWebGL() {
     getUniformLocation: (p: object, nom: string) => ({ p, nom }),
     useProgram: (p: object) => (prog = p),
     bindVertexArray: (v: object | null) => (vao = v),
-    bindBuffer: (c: number) => (elements = c === constante('ELEMENT_ARRAY_BUFFER')),
-    bufferData: (_c: number, d: ArrayBufferView | number) => {
-      if (elements && vao && typeof d !== 'number') indicesDuVao.set(vao, d.byteLength / 4);
-      if (!elements && vao && d instanceof Float32Array && !sommetsDuVao.has(vao)) sommetsDuVao.set(vao, d);
+    bindBuffer: (c: number, t: object | null) => {
+      elements = c === constante('ELEMENT_ARRAY_BUFFER');
+      if (c === constante('ARRAY_BUFFER')) tamponSommets = t;
     },
-    bufferSubData: (_c: number, _o: number, d: Float32Array, debut: number, n: number) => (instances = d.slice(debut, debut + n)),
+    bufferData: (c: number, d: ArrayBufferView | number) => {
+      if (elements && vao && typeof d !== 'number') indicesDuVao.set(vao, d.byteLength / 4);
+      if (c !== constante('ARRAY_BUFFER')) return;
+      if (typeof d !== 'number' && !(d instanceof Float32Array)) throw new Error('faux WebGL : tampon de sommets autre que Float32Array');
+      // Comme le vrai : une copie (ou une taille, à remplir par bufferSubData).
+      contenus.set(tamponSommets as object, typeof d === 'number' ? new Float32Array(d / 4) : new Float32Array(d));
+    },
+    bufferSubData: (c: number, octet: number, d: Float32Array, debut: number, n: number) => {
+      const t = contenus.get(tamponSommets as object);
+      if (c !== constante('ARRAY_BUFFER') || !t || octet % 4 || octet / 4 + n > t.length) throw new Error('faux WebGL : bufferSubData hors du tampon');
+      t.set(d.subarray(debut, debut + n), octet / 4);
+    },
+    vertexAttribPointer: (loc: number, taille: number, type: number, _norm: boolean, pas: number, decalage: number) => Object.assign(pointeur(loc), { tampon: tamponSommets, taille, type, pas, decalage }),
+    vertexAttribDivisor: (loc: number, d: number) => (pointeur(loc).diviseur = d),
+    enableVertexAttribArray: (loc: number) => (pointeur(loc).actif = true),
+    disableVertexAttribArray: (loc: number) => (pointeur(loc).actif = false),
+    vertexAttrib1f: (loc: number, x: number) => constantesAttributs.set(loc, [x, 0, 0, 1]),
+    vertexAttrib2f: (loc: number, x: number, y: number) => constantesAttributs.set(loc, [x, y, 0, 1]),
     blendFunc: (a: number, b: number) => (melange = [a, b]),
     uniform1f: uniforme,
     uniform1i: uniforme,
@@ -999,7 +1029,42 @@ function fauxWebGL() {
   const gl = new Proxy(cible, {
     get: (t, nom: string) => (nom in t ? t[nom] : /^[A-Z0-9_]+$/.test(nom) ? constante(nom) : () => undefined),
   });
-  return { gl, dessins, indicesDuVao, sommetsDuVao, texels: () => texture?.texels ?? null, texture: () => texture, instances: () => instances, melange: () => melange, constante };
+  /** Le pointeur d'un attribut actif du VAO, et le tampon qu'il lit. */
+  const source = (v: object | null, loc: number) => {
+    const p = pointeurs.get(v)?.get(loc);
+    if (!p?.actif) return null;
+    const t = p.tampon && contenus.get(p.tampon);
+    if (!t || p.type !== constante('FLOAT')) throw new Error(`faux WebGL : attribut ${loc} sans tampon de flottants`);
+    return { p, t, pas: p.pas || 4 * p.taille };
+  };
+  /**
+   * Ce que lit chaque attribut du vertex shader sh (à sa layout(location)) pour
+   * ce sommet de cette instance, dans le VAO v : tampon, décalage, pas et
+   * diviseur du pointeur, ou la constante d'un attribut non activé ;
+   * composantes manquantes (0, 0, 0, 1), comme le GPU.
+   */
+  const attributs = (v: object | null, sh: ShaderJs, sommet: number, instance = 0): Record<string, number | number[]> =>
+    Object.fromEntries(
+      Object.entries(sh.locations).map(([nom, loc]) => {
+        const t = sh.entrees[nom] as TypeGlsl;
+        if (entier(t)) throw new Error(`faux WebGL : attribut entier ${nom} (vertexAttribIPointer non simulé)`);
+        const s = source(v, loc);
+        let x = constantesAttributs.get(loc) ?? [0, 0, 0, 1];
+        if (s) {
+          const debut = s.p.decalage + s.pas * (s.p.diviseur ? Math.floor(instance / s.p.diviseur) : sommet);
+          if (debut % 4 || debut / 4 + s.p.taille > s.t.length) throw new Error(`faux WebGL : ${nom} lu hors du tampon (octet ${debut})`);
+          x = [...s.t.subarray(debut / 4, debut / 4 + s.p.taille), ...[0, 0, 0, 1].slice(s.p.taille)];
+        }
+        const n = COMPOSANTES[t] as number;
+        return [nom, n === 1 ? (x[0] as number) : x.slice(0, n)];
+      }),
+    );
+  /** Nombre de sommets (ou d'instances) que contient le tampon de l'attribut loc du VAO v. */
+  const sommetsDe = (v: object | null, loc: number) => {
+    const s = source(v, loc);
+    return s ? Math.floor((4 * s.t.length - s.p.decalage - 4 * s.p.taille) / s.pas) + 1 : 0;
+  };
+  return { gl, dessins, indicesDuVao, attributs, sommetsDe, texels: () => texture?.texels ?? null, texture: () => texture, melange: () => melange, constante };
 }
 
 const couleursEssai: Couleurs = {
@@ -1085,6 +1150,27 @@ describe('PeintreWebGL.dessiner (faux WebGL2)', () => {
     const ovale = f.dessins[0];
     expect(ovale?.u.uMode).toBe(2);
     expect(ovale?.u.uCouleur).toEqual(couleursEssai.mer.map((x) => x / 255));
+  });
+
+  it('attributs : ce que VERTEX_CARTE lit à ses layout(location), dans le VAO de chaque dessin = le maillage (λ, φ ; milieu ; forme)', () => {
+    const { p, f } = peintre();
+    p.dessiner(etat(30, 2, new Map([['FRA', new Set(['faux'])]])));
+    const vaosDessines = new Set(f.dessins.filter((d) => d.u.uK !== undefined).map((d) => d.vao));
+    for (const [nom, m] of Object.entries(tout) as [string, Maillage][]) {
+      const vaos = vaoDe(f, m.triangles.length + m.traits.length);
+      expect([nom, vaos.length]).toEqual([nom, 1]);
+      const vao = vaos[0] as object;
+      expect(vaosDessines.has(vao)).toBe(true);
+      const n = m.forme.length;
+      expect(f.sommetsDe(vao, vertexCarte.locations.aLonLat as number)).toBe(n);
+      const ecarts: string[] = [];
+      for (const s of [0, 1, n - 1, ...Array.from({ length: 300 }, () => Math.floor(alea() * n))]) {
+        const attendu = { aLonLat: [m.lonlat[2 * s], m.lonlat[2 * s + 1]], aMilieu: [m.milieu[2 * s], m.milieu[2 * s + 1]], aForme: m.forme[s] };
+        const lu = f.attributs(vao, vertexCarte, s);
+        if (JSON.stringify(lu) !== JSON.stringify(attendu)) ecarts.push(`${nom} ${s} : ${JSON.stringify(lu)} au lieu de ${JSON.stringify(attendu)}`);
+      }
+      expect(ecarts.slice(0, 3)).toEqual([]);
+    }
   });
 });
 
@@ -1217,14 +1303,18 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
       p.dessiner(e);
       const fan = f.dessins.find((d) => d.mode === f.constante('TRIANGLE_FAN'));
       expect(fan?.u.uMode).toBe(2);
-      const sommets = f.sommetsDuVao.get(fan?.vao as object) as Float32Array;
-      expect(fan?.n).toBe(sommets.length / 2);
+      expect(fan?.n).toBe(f.sommetsDe(fan?.vao as object, vertexCarte.locations.aLonLat as number));
       const { K, centre } = uniformesVue(e.v, e.c);
-      // Contour du WebGL : les sommets du TRIANGLE_FAN (le premier est le centre) passés par VERTEX_CARTE.
+      // Contour du WebGL : les sommets du TRIANGLE_FAN (le premier est le centre) passés par VERTEX_CARTE,
+      // attributs lus à leurs locations dans le VAO du dessin (milieu et forme : les constantes des attributs 1 et 2).
       const webgl: [number, number][] = [];
-      for (let i = 2; i < sommets.length; i += 2) {
-        const s = shader({ lon: sommets[i] as number, lat: sommets[i + 1] as number, ml: 0, r: e.v.r, mode: 2, K, centre, l: L, h: H });
+      const lonlats: number[][] = [];
+      for (let i = 1; i < (fan?.n as number); i++) {
+        const a = f.attributs(fan?.vao as object, vertexCarte, i) as { aLonLat: number[]; aMilieu: number[]; aForme: number };
+        expect([a.aMilieu, a.aForme]).toEqual([[0, 0], 0]);
+        const s = shader({ lon: a.aLonLat[0] as number, lat: a.aLonLat[1] as number, ml: 0, r: e.v.r, mode: 2, K, centre, l: L, h: H });
         webgl.push([s.x, s.y]);
+        lonlats.push(a.aLonLat);
       }
       const canvas: [number, number][] = [];
       const ctx = { moveTo: (x: number, y: number) => canvas.push([x, y]), lineTo: (x: number, y: number) => canvas.push([x, y]), rect: () => undefined };
@@ -1259,10 +1349,10 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
       };
       // Chaque sommet du contour sur le bord vrai, à sa latitude et de son côté (est pour 180°, ouest pour −180°).
       let pireSommet = 0;
-      for (let i = 2; i < sommets.length; i += 2) {
-        const [x, y] = bord(sommets[i + 1] as number, Math.sign(sommets[i] as number));
-        pireSommet = Math.max(pireSommet, ecartMax(webgl[i / 2 - 1] as [number, number], [x, y]));
-      }
+      lonlats.forEach(([lon, lat], i) => {
+        const [x, y] = bord(lat as number, Math.sign(lon as number));
+        pireSommet = Math.max(pireSommet, ecartMax(webgl[i] as [number, number], [x, y]));
+      });
       expect(pireSommet).toBeLessThan(1e-3);
       const [eWebgl, eCanvas] = [ecart(webgl), ecart(canvas)];
       expect(eCanvas).toBeLessThan(0.1);
@@ -1296,15 +1386,15 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
     const { uTaille, uBord, uDpr } = dessin?.u as { uTaille: number[]; uBord: number[]; uDpr: number };
     expect(uTaille).toEqual([L, H]);
     const flou = 0.5 / uDpr + 1e-3;
-    const inst = f.instances() as Float32Array;
     const vert = traduireGlsl(VERTEX_DISQUES);
     const frag = traduireGlsl(FRAG_DISQUES);
     const ecarts: string[] = [];
     attendus.forEach((x, k) => {
-      const aDisque = [...inst.subarray(8 * k, 8 * k + 4)];
-      const aCouleur = [...inst.subarray(8 * k + 4, 8 * k + 8)];
       // Les quatre sommets du carré (TRIANGLE_STRIP : triangles 0-1-2 et 1-2-3) ; vP y est la position en px CSS.
-      const sommets = [0, 1, 2, 3].map((id) => vert.executer({ aDisque, aCouleur, uTaille, gl_VertexID: id }));
+      // aDisque et aCouleur : lus à leur layout(location) dans le VAO du dessin, instance k (pas, décalage, diviseur).
+      const sommets = [0, 1, 2, 3].map((id) => vert.executer({ ...f.attributs(dessin?.vao as object, vert, id, k), uTaille, gl_VertexID: id }));
+      // Une instance par disque : les mêmes attributs aux quatre sommets.
+      expect(f.attributs(dessin?.vao as object, vert, 3, k)).toEqual(f.attributs(dessin?.vao as object, vert, 0, k));
       const coins = sommets.map((s) => versCss(s.gl_Position as number[], L, H));
       for (const [s, c] of sommets.map((s, i) => [s, coins[i]] as const)) expect(ecartMax(s.vP as number[], c as number[])).toBeLessThan(1e-9);
       const { vD, vC } = sommets[3] as { vD: number[]; vC: number[] };
