@@ -356,9 +356,10 @@ fige la carte une image (gel) ; la ligne du relais donne la plus longue.
 **WebGL refusé** (REPLI au résumé : WebGL2 absent ou logiciel, shader
 refusé, contexte perdu) : le JSON est écrit quand même, suffixé `-repli`
 (champ `repli`, `webgl.raison`, `webgl.gpu`) ; son résumé est celui du
-Canvas 2D de repli (la carte complète, sans la carte allégée du rendu
-canvas). Noter la raison et le GPU au registre : sur ce téléphone, le
-webgl ne peut pas être jugé, seulement son repli.
+Canvas 2D de repli : au repli, la page télécharge la carte allégée (51 Ko,
+décision « Chargement du rendu WebGL »), servie aux gestes dès qu'elle
+arrive, comme en rendu canvas. Noter la raison et le GPU au registre : sur
+ce téléphone, le webgl ne peut pas être jugé, seulement son repli.
 
 ### À l'œil, avec le téléphone (après les mesures)
 
@@ -443,7 +444,7 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
    pendant ce temps : la carte suit-elle, le relais casse-t-il le geste ?
    Puis les **visites suivantes** (recharger) : relais plus rapide. Si le
    driver a dit REPLI, faire un pincement et un tour du monde dans le
-   rendu de repli (Canvas 2D complet, sans carte allégée) : fluide ?
+   rendu de repli (Canvas 2D, carte allégée pendant les gestes) : fluide ?
 
 ### Essai de saisie (clavier Samsung puis Gboard)
 

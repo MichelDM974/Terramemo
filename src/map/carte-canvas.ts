@@ -395,10 +395,19 @@ export class CarteCanvas implements CarteAffichee {
     sur<WheelEvent>(this.hote, 'wheel', (ev) => this.molette(ev), { passive: false });
 
     this.observateur = new ResizeObserver(() => this.redimensionner());
-    void o.leger?.then((formes) => {
-      if (!formes) return;
+    if (o.leger) this.prendreLeger(o.leger);
+  }
+
+  /**
+   * Formes de la carte allégée, servies aux gestes dès qu'elles arrivent :
+   * au départ (rendu canvas), ou plus tard (rendu webgl replié pour de bon
+   * sur le Canvas 2D, src/main.ts). Une seule fois.
+   */
+  prendreLeger(formes: Promise<{ pays: Map<string, Forme>; zones: Map<string, Forme> } | null>): void {
+    void formes.then((f) => {
+      if (!f || this.leger) return;
       this.complet ??= calque(this.o.donnees);
-      this.leger = calqueLeger(this.o.donnees, this.complet, formes);
+      this.leger = calqueLeger(this.o.donnees, this.complet, f);
     });
   }
 

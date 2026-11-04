@@ -28,7 +28,8 @@ const debutScript = performance.now();
  *   les gestes.
  * - webgl : la même carte qui tourne (mêmes gestes, pick et noter), dessinée
  *   par la carte graphique (src/map/carte-webgl.ts), toujours complète, sans
- *   carte allégée. Affichée d'abord en Canvas 2D, le WebGL prend le relais
+ *   carte allégée (téléchargée seulement si le webgl se replie pour de bon
+ *   sur le Canvas 2D). Affichée d'abord en Canvas 2D, le WebGL prend le relais
  *   quand son maillage est prêt (Web Worker ou cache de l'appareil,
  *   src/map/relais-webgl.ts : data-relais de #carte, champ webgl du rapport) ;
  *   la carte reste en canvas sans WebGL2 matériel, shader refusé ou contexte
@@ -268,8 +269,18 @@ window.cartographe = {
 const deuxImages = () => new Promise<void>((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok())));
 
 // Carte allégée (rendu canvas) : téléchargée en même temps que la complète, servie quand elle arrive.
-// Pas en webgl : le Canvas 2D n'y dessine qu'en attendant le relais (rien de plus à télécharger).
-const leger = rendu === 'canvas' ? chargerLeger() : null;
+// En webgl, seulement si le relais se replie pour de bon sur le Canvas 2D (pas de WebGL2 matériel,
+// shader refusé, contexte perdu) : ce Canvas-là dessine tous les gestes, sur les appareils les plus
+// faibles (décision « Chargement du rendu WebGL » : 51 Ko de plus pour eux seuls). Pas en attendant
+// le relais, où le Canvas 2D ne dessine qu'un instant.
+let leger = rendu === 'canvas' ? chargerLeger() : null;
+/** La carte en Canvas 2D (rendus canvas et webgl), une fois créée : le repli lui passe la carte allégée. */
+let carteCanvas: CarteCanvas | null = null;
+function legerAuRepli(): void {
+  if (leger) return;
+  leger = chargerLeger();
+  carteCanvas?.prendreLeger(leger);
+}
 
 // Rendu webgl : le Worker du maillage démarre tout de suite (son script se charge avec les données).
 const relais =
@@ -281,7 +292,10 @@ const relais =
         surEtat: (e) => {
           hote.dataset.relais = e.etape;
           if (e.gpu) hote.dataset.gpu = e.gpu;
-          if (e.etape === 'repli') hote.dataset.repli = 'webgl';
+          if (e.etape === 'repli') {
+            hote.dataset.repli = 'webgl';
+            legerAuRepli();
+          }
           contexteMesures.rendu = e.etape === 'webgl' ? 'webgl' : 'canvas';
         },
       })
@@ -302,8 +316,9 @@ async function demarrer(): Promise<void> {
     surToucher: (x: number, y: number, ev: PointerEvent) => vueActive?.toucher?.(x, y, ev),
     gestes: mesures.ecouteGestes(),
   };
-  // En webgl, le Canvas 2D d'abord (sans carte allégée), le WebGL ensuite (relais).
+  // En webgl, le Canvas 2D d'abord (sans carte allégée, sauf repli déjà connu), le WebGL ensuite (relais).
   const carte: CarteAffichee = rendu === 'canvas' || rendu === 'webgl' ? new CarteCanvas({ ...options, leger: leger ?? undefined }) : new Carte(options);
+  if (carte instanceof CarteCanvas) carteCanvas = carte;
   const cr = carte.rendre();
   const finInsertion = performance.now();
   await deuxImages();
