@@ -183,6 +183,21 @@ export function image(v: VueGlobe, c: Cadre, region: Region, mouvement = false):
   return { v, c, region, K: v.k * c.s, cx: c.l / 2, y0: v.k * c.ty + v.y, mouvement, seuil, parties: 0, sommets: 0, emis: 0, copies: 0, points: 0, minuscules: 0, pixels: new Map() };
 }
 
+/**
+ * Point de l'écran (px CSS) qui suit une entité ou une zone pendant un geste :
+ * le centre de l'emprise de sa plus grande partie, dans la copie à moins de
+ * 180° du centre de la vue (la rotation décale chaque parallèle de K·Δλ·G(φ),
+ * aucune translation unique ne suit toute la carte) ; null sans partie. Les
+ * hachures d'une zone contestée s'y ancrent (carte-canvas.ts).
+ */
+export function ancre(im: ImageTrace, ps: readonly Partie[]): [number, number] | null {
+  let p: Partie | undefined;
+  for (const q of ps) if (!p || q.taille > p.taille) p = q;
+  if (!p) return null;
+  const [lc, gc, yc] = p.centre;
+  return [im.cx + im.K * (lc + decalageMilieu(p, im.v.r)) * gc, im.y0 - im.K * yc];
+}
+
 /** Décalage (radians) qui met le milieu d'une partie à moins de 180° du centre. */
 function decalageMilieu(p: Partie, r: number): number {
   const milieu = (p.o + p.e) / 2;

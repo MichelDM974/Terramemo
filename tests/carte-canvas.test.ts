@@ -4,7 +4,7 @@ import type { Polygon } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import { calque, calqueLeger, ILE_LEGERE_KM, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
-import { decalages, image, MARGE_PX, preparer, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
+import { ancre, decalages, image, MARGE_PX, preparer, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
 import { contient, versLonLat } from '../src/map/geo';
 import { SuiviPointeurs } from '../src/map/geste';
@@ -428,6 +428,24 @@ describe('pick et noter, carte tournée', () => {
     const w = placer(C, [-120, 0], L / 2, H / 2, 1);
     const [mx, my] = ecran(w, entite('MCO').pays.point);
     expect(pick(contexte(w), mx, my)).toMatchObject({ id: 'MCO', via: 'pastille' });
+  });
+});
+
+describe('hachures', () => {
+  it('leur ancre suit la zone : le centre de sa plus grande partie, à l’écran, quelle que soit la rotation', () => {
+    const complet = calque(donnees);
+    const i = donnees.entites.findIndex((e) => e.pays.id === 'ESH');
+    const ps = complet.pays[i] ?? [];
+    const p = ps.reduce((a, b) => (b.taille > a.taille ? b : a));
+    const centre: [number, number] = [(p.o + p.e) / 2, (p.s + p.n) / 2];
+    for (const [r, k] of [[0, 1], [40, 1], [-170, 4], [150, 8]] as const) {
+      const v = placer(C, [r, 20], L / 2, H / 2, k);
+      const a = ancre(image(v, C, regionVisible(v, C, MARGE_PX), true), ps);
+      const [x, y] = ecran(v, centre);
+      expect(a?.[0]).toBeCloseTo(x, 6);
+      expect(a?.[1]).toBeCloseTo(y, 6);
+    }
+    expect(ancre(image(centrer([0, 0], 1), C, regionVisible(centrer([0, 0], 1), C, MARGE_PX)), [])).toBeNull();
   });
 });
 

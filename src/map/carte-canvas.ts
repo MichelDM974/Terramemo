@@ -23,7 +23,7 @@
 import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
-import { image, MARGE_PX, minuscule, preparer, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
+import { ancre, image, MARGE_PX, minuscule, preparer, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
 import { RAYON_TERRE_KM, versEcran } from './geo';
 import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
@@ -650,8 +650,8 @@ export class CarteCanvas implements CarteAffichee {
     c.lineTo(this.dpr, cote);
     c.stroke();
     const motif = this.ctx.createPattern(m, 'repeat');
-    // Le motif vit dans l'espace du contexte (mis à l'échelle du dpr) : pas constant à l'écran.
-    motif?.setTransform(new DOMMatrix().rotateSelf(45).scaleSelf(1 / this.dpr));
+    // Le motif vit dans l'espace du contexte (mis à l'échelle du dpr) : pas constant à
+    // l'écran ; tourné et ancré à chaque remplissage (dessiner).
     return motif;
   }
 
@@ -681,7 +681,17 @@ export class CarteCanvas implements CarteAffichee {
     const coutures = new Path2D();
     const couturesContour = new Path2D();
     const parClasse = new Map<string, Path2D>();
-    const hachures = new Path2D();
+    // Hachures : un chemin par entité ou zone, son motif ancré sur elle (ancre).
+    // Une partie de moins d'un demi-pas à l'écran n'en montrerait pas un trait :
+    // sautée (au zoom 1, une trentaine de remplissages en moins).
+    const hachures = new Map<string, { chemin: Path2D; ancre: [number, number] | null }>();
+    const complet = this.complet;
+    const hachurer = (cle: string, ps: Partie[] | undefined, p: Partie): void => {
+      if (im.K * p.taille < PAS_HACHURES / 2) return;
+      let h = hachures.get(cle);
+      if (!h) hachures.set(cle, (h = { chemin: new Path2D(), ancre: ancre(im, ps ?? []) }));
+      tracerPartie(h.chemin, im, p);
+    };
     let avecCoutures = false;
     parcourir(im, cq.pays, cq.groupes?.pays, (p, i) => {
       const e = entites[i];
@@ -700,9 +710,9 @@ export class CarteCanvas implements CarteAffichee {
         }
       }
       // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
-      if (e.pays.statut === 'conteste') tracerPartie(hachures, im, p);
+      if (e.pays.statut === 'conteste') hachurer(`p${i}`, complet.pays[i], p);
     });
-    parcourir(im, cq.zones, cq.groupes?.zones, (p) => tracerPartie(hachures, im, p));
+    parcourir(im, cq.zones, cq.groupes?.zones, (p, i) => hachurer(`z${i}`, complet.zones[i], p));
     const t1 = performance.now();
 
     ctx.fillStyle = coul.terre;
@@ -714,9 +724,16 @@ export class CarteCanvas implements CarteAffichee {
       ctx.fillStyle = couleur;
       ctx.fill(chemin);
     }
+    // Le motif de chaque zone est ancré sur elle (au pixel physique près) : fixe
+    // à l'écran, il glissait sous la carte pendant un geste. Ancré sur la carte
+    // complète, il ne saute pas quand l'allégée prend le relais.
     if (this.motif) {
-      ctx.fillStyle = this.motif;
-      ctx.fill(hachures);
+      for (const { chemin, ancre: a } of hachures.values()) {
+        const [ax, ay] = a ? [Math.round(a[0] * this.dpr) / this.dpr, Math.round(a[1] * this.dpr) / this.dpr] : [0, 0];
+        this.motif.setTransform(new DOMMatrix().translateSelf(ax, ay).rotateSelf(45).scaleSelf(1 / this.dpr));
+        ctx.fillStyle = this.motif;
+        ctx.fill(chemin);
+      }
     }
     // Frontières d'un pixel physique : sous 1 px, Skia trace un trait fin
     // (hairline) sans calculer d'enveloppe. Le trait de 0,6 px du SVG (1,7 px
