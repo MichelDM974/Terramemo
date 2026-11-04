@@ -30,14 +30,22 @@
 // Une partie à cheval sur le bord de l'ovale est redessinée décalée d'un tour
 // (maillage.toursEnPlus) ; le stencil de l'ovale coupe ce qui déborde.
 //
+// Chargement (relais-webgl.ts) : contexte et shaders créés pendant le
+// téléchargement des données, compilés sans bloquer (KHR_parallel_shader_compile),
+// maillage reçu du Web Worker ou du cache de l'appareil (charger), puis
+// CarteCanvas.adopter passe la main au WebGL. Sans WebGL2 matériel
+// (failIfMajorPerformanceCaveat, ou nom logiciel du GPU), shader refusé :
+// WebGLIndisponible ou une erreur, et la carte reste en Canvas 2D.
+//
 // Perte du contexte (appli mise en arrière-plan sur Android, pilote
 // graphique réinitialisé) : webglcontextlost suspend le dessin,
 // webglcontextrestored recrée programmes, tampons et texture depuis le
-// maillage gardé en mémoire, puis redessine. Sans WebGL2, la fabrique lève
-// une erreur : main.ts se replie sur le rendu canvas.
+// maillage gardé en mémoire, puis redessine. Pas rendu après DELAI_PERTE_MS
+// (page visible), ou programmes refusés au retour : surPerteDurable, et la
+// carte revient au Canvas 2D (CarteCanvas.revenirAuCanvas2D).
 import type { DonneesCarte } from './donnees';
 import { versEcran } from './geo';
-import { emprisesAPlat, mailler, maillerTraits, pourChaqueCopie, toursEnPlus, type Maillage, type PartieMaillee } from './maillage';
+import { emprisesAPlat, maillerCarte, pourChaqueCopie, toursEnPlus, type Maillage, type MaillagesCarte, type PartieMaillee } from './maillage';
 import { PASTILLE } from './pastilles';
 import type { EtatImage, Peintre, StatsDessin } from './carte-canvas';
 
@@ -58,7 +66,7 @@ const TRAIT_HACHURES = 1.2;
 // 2 : déjà dans le repère de la vue (le contour de l'ovale).
 // λ + tour·360 avant − r : les deux bords d'une couture (180 et −180 + 360)
 // donnent exactement le même nombre (maillage.projeterF32 fait de même).
-const VERTEX_CARTE = `#version 300 es
+export const VERTEX_CARTE = `#version 300 es
 precision highp float;
 layout(location = 0) in vec2 aLonLat;
 layout(location = 1) in vec2 aMilieu;
@@ -162,10 +170,10 @@ void main() {
   }
 }`;
 
-type Rvba = [number, number, number, number];
+export type Rvba = [number, number, number, number];
 
 /** Couleurs de :root (jamais en dur), en octets RVBA (alpha non prémultiplié). */
-interface Couleurs {
+export interface Couleurs {
   mer: Rvba;
   terre: Rvba;
   frontiere: Rvba;
@@ -190,7 +198,7 @@ function lecteurCouleurs(): (css: string) => Rvba {
   };
 }
 
-function lireCouleurs(): Couleurs {
+export function lireCouleurs(): Couleurs {
   const css = getComputedStyle(document.documentElement);
   const lire = lecteurCouleurs();
   const v = (nom: string) => lire(css.getPropertyValue(nom).trim());
@@ -212,34 +220,73 @@ const premult = (c: Rvba): Rvba => {
   return [(c[0] / 255) * a, (c[1] / 255) * a, (c[2] / 255) * a, a];
 };
 
-function compiler(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
-  const p = gl.createProgram();
-  for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]] as const) {
-    const s = gl.createShader(type);
-    if (!s) throw new Error('WebGL : shader impossible à créer');
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) throw new Error(`WebGL : ${gl.getShaderInfoLog(s)}`);
-    gl.attachShader(p, s);
-    gl.deleteShader(s);
+/** Le WebGL2 manque, ou n'est que logiciel (failIfMajorPerformanceCaveat) : relais-webgl.ts garde le Canvas 2D. */
+export class WebGLIndisponible extends Error {
+  constructor(
+    message: string,
+    /** Nom du processeur graphique logiciel refusé (SwiftShader…) ; null : pas de WebGL2 du tout. */
+    readonly logiciel: string | null,
+  ) {
+    super(message);
+    this.name = 'WebGLIndisponible';
   }
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error(`WebGL : ${gl.getProgramInfoLog(p)}`);
-  return p;
 }
 
-/** Un programme et ses uniformes (emplacements lus une fois). */
+/** Nom lisible du processeur graphique : UNMASKED_RENDERER_WEBGL (Chrome répond « WebKit WebGL » à gl.RENDERER). */
+export function nomGpu(gl: WebGL2RenderingContext): string {
+  const ext = gl.getExtension('WEBGL_debug_renderer_info') as { UNMASKED_RENDERER_WEBGL: number } | null;
+  const nom = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null;
+  return typeof nom === 'string' && nom ? nom : String(gl.getParameter(gl.RENDERER));
+}
+
+/** Contexte du canvas de la carte (même réglage pour le diagnostic d'un refus). */
+const ATTRIBUTS_CONTEXTE: WebGLContextAttributes = {
+  alpha: true,
+  premultipliedAlpha: true,
+  stencil: true,
+  depth: false,
+  preserveDrawingBuffer: false,
+  powerPreference: 'high-performance',
+};
+
+/**
+ * Un programme et ses uniformes (emplacements lus une fois). Compilation et
+ * édition des liens sont lancées par lancerProgrammes, vérifiées par
+ * verifier() : avec KHR_parallel_shader_compile, le pilote compile pendant que
+ * le fil principal continue (compiler() attend COMPLETION_STATUS_KHR image
+ * après image) ; sans elle, verifier() attend la fin de la compilation.
+ */
 class Programme {
   readonly p: WebGLProgram;
   private u = new Map<string, WebGLUniformLocation | null>();
-  constructor(private readonly gl: WebGL2RenderingContext, vs: string, fs: string) {
-    this.p = compiler(gl, vs, fs);
+  constructor(private readonly gl: WebGL2RenderingContext, private readonly shaders: readonly WebGLShader[]) {
+    this.p = gl.createProgram();
+    for (const sh of shaders) gl.attachShader(this.p, sh);
+    gl.linkProgram(this.p);
+  }
+  /** Compilation finie (sans l'extension : toujours vrai, verifier() attend). */
+  fini(ext: { COMPLETION_STATUS_KHR: number } | null): boolean {
+    return !ext || this.gl.getProgramParameter(this.p, ext.COMPLETION_STATUS_KHR) === true;
+  }
+  /** Lève une erreur si un shader ou l'édition des liens a échoué (contexte perdu : rien à dire, il sera recréé). */
+  verifier(): void {
+    const { gl } = this;
+    if (gl.getProgramParameter(this.p, gl.LINK_STATUS) || gl.isContextLost()) return;
+    const journal = this.shaders.map((s) => (gl.getShaderParameter(s, gl.COMPILE_STATUS) ? '' : gl.getShaderInfoLog(s) ?? '')).join(' ').trim();
+    throw new Error(`WebGL : ${journal || gl.getProgramInfoLog(this.p) || 'édition des liens refusée'}`);
   }
   loc(nom: string): WebGLUniformLocation | null {
     let l = this.u.get(nom);
     if (l === undefined) this.u.set(nom, (l = this.gl.getUniformLocation(this.p, nom)));
     return l;
   }
+}
+
+interface Programmes {
+  carte: Programme;
+  remplir: Programme;
+  hachurer: Programme;
+  disques: Programme;
 }
 
 /** Les tampons d'un maillage sur le GPU. */
@@ -255,10 +302,27 @@ interface MaillageGpu {
 
 /** Instances des disques : centre x, y, rayon, demi-épaisseur, puis RVBA prémultiplié. */
 const PAR_DISQUE = 8;
+/**
+ * Contexte perdu et pas rendu après ce délai (page visible) : surPerteDurable,
+ * et relais-webgl.ts rend la carte au Canvas 2D. Mise en arrière-plan sur
+ * Android : le délai ne court qu'une fois la page revenue au premier plan.
+ */
+export const DELAI_PERTE_MS = 3000;
+
+/** Échelle (px CSS par unité de la projection) et centre de l'ovale à l'écran : uK et uCentre du shader. */
+export function uniformesVue(v: EtatImage['v'], c: EtatImage['c']): { K: number; centre: [number, number] } {
+  return { K: v.k * c.s, centre: [c.l / 2, v.k * c.ty + v.y] };
+}
 
 export interface OptionsWebGL {
   /** Anticrénelage (MSAA du contexte) ; ?aa=0 le coupe, pour comparer. */
   antialias?: boolean;
+  /** Accepter un WebGL logiciel (SwiftShader : 5 à 7 images/s mesurées) ; ?logiciel=1, pour comparer. */
+  logicielAccepte?: boolean;
+  /** Contexte perdu pour de bon (DELAI_PERTE_MS), ou programmes refusés à son retour. */
+  surPerteDurable?: (raison: string) => void;
+  /** Couleurs déjà lues (tests, sans DOM) ; sinon les variables de :root. */
+  couleurs?: Couleurs;
 }
 
 export class PeintreWebGL implements Peintre {
@@ -271,11 +335,8 @@ export class PeintreWebGL implements Peintre {
   private cotes: Maillage | null = null;
   /** Parties hachurées du maillage des terres : celles des entités au statut « conteste ». */
   private contestees: PartieMaillee[] = [];
-  private g: {
-    carte: Programme;
-    remplir: Programme;
-    hachurer: Programme;
-    disques: Programme;
+  private programmes: Programmes | null = null;
+  private g: (Programmes & {
     terres: MaillageGpu;
     zones: MaillageGpu;
     interieurs: MaillageGpu;
@@ -283,8 +344,9 @@ export class PeintreWebGL implements Peintre {
     ovale: { vao: WebGLVertexArrayObject; tampon: WebGLBuffer; n: number };
     instances: { vao: WebGLVertexArrayObject; tampon: WebGLBuffer; octets: number };
     couleurs: WebGLTexture;
-  } | null = null;
+  }) | null = null;
   private perdu = false;
+  private minuteurPerte = 0;
   private l = 1;
   private h = 1;
   private dpr = 1;
@@ -292,65 +354,182 @@ export class PeintreWebGL implements Peintre {
   private signature: string | null = null;
   private disques = new Float32Array(64 * PAR_DISQUE);
   private chrono: { ext: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number }; q: WebGLQuery | null; actif: boolean; gpu_ms: number | null } | null = null;
-  readonly renderer: string;
-  private ecouteurs: [string, EventListener][] = [];
+  private nom: string | null = null;
+  private d: DonneesCarte | null;
+  private ecouteurs: [EventTarget, string, EventListener][] = [];
 
+  /**
+   * Lève WebGLIndisponible sans WebGL2, ou s'il n'est que logiciel (sauf
+   * logicielAccepte). Les données peuvent venir plus tard (charger) : le
+   * relais crée le contexte avant qu'elles n'arrivent.
+   */
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    private readonly o: { donnees: DonneesCarte; redessiner: () => void } & OptionsWebGL,
+    private readonly o: { donnees: DonneesCarte | null; redessiner: () => void } & OptionsWebGL,
   ) {
-    const gl = canvas.getContext('webgl2', {
-      antialias: o.antialias ?? true,
-      alpha: true,
-      premultipliedAlpha: true,
-      stencil: true,
-      depth: false,
-      preserveDrawingBuffer: false,
-      powerPreference: 'high-performance',
-    });
-    if (!gl) throw new Error('WebGL2 indisponible');
+    this.d = o.donnees;
+    const gl = canvas.getContext('webgl2', { ...ATTRIBUTS_CONTEXTE, antialias: o.antialias ?? true, failIfMajorPerformanceCaveat: !o.logicielAccepte });
+    if (!gl) throw new WebGLIndisponible(o.logicielAccepte ? 'WebGL2 indisponible' : 'WebGL2 indisponible ou logiciel', null);
     this.gl = gl;
-    this.couleurs = lireCouleurs();
-    this.renderer = String(gl.getParameter(gl.RENDERER));
-    const sur = (type: string, f: (ev: Event) => void) => {
-      canvas.addEventListener(type, f);
-      this.ecouteurs.push([type, f]);
+    this.couleurs = o.couleurs ?? lireCouleurs();
+    const sur = (cible: EventTarget, type: string, f: (ev: Event) => void) => {
+      cible.addEventListener(type, f);
+      this.ecouteurs.push([cible, type, f]);
     };
-    sur('webglcontextlost', (ev) => {
+    sur(canvas, 'webglcontextlost', (ev) => {
       ev.preventDefault(); // sans quoi le navigateur ne le rend jamais
       this.perdu = true;
       this.g = null;
+      this.programmes = null;
       this.chrono = null;
+      this.armerPerte();
     });
-    sur('webglcontextrestored', () => {
+    sur(canvas, 'webglcontextrestored', () => {
       this.perdu = false;
-      if (this.terres) this.creerRessources();
+      clearTimeout(this.minuteurPerte);
+      this.minuteurPerte = 0;
+      try {
+        if (this.terres) this.creerRessources();
+      } catch (e) {
+        this.o.surPerteDurable?.(`contexte rendu, programmes refusés : ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      }
       this.o.redessiner();
     });
+    if (typeof document !== 'undefined') sur(document, 'visibilitychange', () => this.armerPerte());
   }
 
-  /** Triangule et téléverse (chronométré par rendre() : chemins_ms du chargement). */
-  preparer(): void {
-    if (this.terres) return;
-    const d = this.o.donnees;
-    this.terres = mailler(d.entites.map((e) => e.forme));
-    this.zones = mailler(d.contestees.map((z) => z.forme));
-    const traits = d.traits();
-    this.interieurs = maillerTraits(traits.interieurs);
-    this.cotes = maillerTraits(traits.cotes);
-    const terres = this.terres;
-    this.contestees = terres.parties.filter((p) => d.entites[p.forme]?.pays.statut === 'conteste');
+  private get donnees(): DonneesCarte {
+    if (!this.d) throw new Error('WebGL : données de la carte pas encore reçues');
+    return this.d;
+  }
+
+  /**
+   * Après un refus : WebGL2 logiciel (son nom) ou absent (null) ? Un contexte
+   * d'essai, sans failIfMajorPerformanceCaveat, le dit ; son premier appel
+   * synchrone attend son initialisation (~150 ms sur le PC) : à n'appeler
+   * qu'une fois la carte affichée.
+   */
+  static diagnostiquer(): string | null {
+    const essai = document.createElement('canvas').getContext('webgl2', ATTRIBUTS_CONTEXTE);
+    const nom = essai ? nomGpu(essai) : null;
+    essai?.getExtension('WEBGL_lose_context')?.loseContext();
+    return nom;
+  }
+
+  /**
+   * Processeur graphique (nomGpu), lu à la première demande : c'est un appel
+   * synchrone au processus du GPU, et le premier attend la fin de
+   * l'initialisation du contexte (136 à 152 ms sur le PC, fil principal
+   * bloqué). Après compiler(), qui l'attend sans bloquer, il est immédiat.
+   */
+  get renderer(): string {
+    return (this.nom ??= nomGpu(this.gl));
+  }
+
+  /** Délai avant d'abandonner un contexte perdu, compté page visible seulement. */
+  private armerPerte(): void {
+    if (!this.perdu || this.minuteurPerte || document.visibilityState === 'hidden') return;
+    this.minuteurPerte = window.setTimeout(() => {
+      this.minuteurPerte = 0;
+      if (!this.perdu) return;
+      if (document.visibilityState === 'hidden') return; // repris au retour au premier plan
+      this.o.surPerteDurable?.(`contexte perdu, pas rendu après ${DELAI_PERTE_MS / 1000} s`);
+    }, DELAI_PERTE_MS);
+  }
+
+  /** Compile les shaders (le vertex shader de la carte une fois, pour trois programmes) et lance l'édition des liens. */
+  private lancerProgrammes(): { ps: Programmes; shaders: WebGLShader[] } {
+    const { gl } = this;
+    const shaders: WebGLShader[] = [];
+    const shader = (type: number, src: string) => {
+      const s = gl.createShader(type);
+      if (!s) throw new Error('WebGL : shader impossible à créer');
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      shaders.push(s);
+      return s;
+    };
+    const vCarte = shader(gl.VERTEX_SHADER, VERTEX_CARTE);
+    const vDisques = shader(gl.VERTEX_SHADER, VERTEX_DISQUES);
+    const ps = {
+      carte: new Programme(gl, [vCarte, shader(gl.FRAGMENT_SHADER, FRAG_UNI)]),
+      remplir: new Programme(gl, [vCarte, shader(gl.FRAGMENT_SHADER, FRAG_TERRES)]),
+      hachurer: new Programme(gl, [vCarte, shader(gl.FRAGMENT_SHADER, FRAG_HACHURES)]),
+      disques: new Programme(gl, [vDisques, shader(gl.FRAGMENT_SHADER, FRAG_DISQUES)]),
+    };
+    return { ps, shaders };
+  }
+
+  /** Vérifie les programmes lancés (erreur si un shader est refusé), puis libère les shaders. */
+  private verifierProgrammes({ ps, shaders }: { ps: Programmes; shaders: WebGLShader[] }): Programmes {
+    for (const p of Object.values(ps) as Programme[]) p.verifier();
+    for (const s of shaders) this.gl.deleteShader(s);
+    return ps;
+  }
+
+  /**
+   * Compile les programmes sans bloquer le fil principal quand le pilote le
+   * permet (KHR_parallel_shader_compile) : attend leur fin image après image
+   * (COMPLETION_STATUS_KHR ne bloque pas, mesuré : 0,1 ms par question ; le
+   * premier appel synchrone, lui, aurait attendu l'initialisation du contexte
+   * dans le processus du GPU). Lève une erreur si un shader est refusé ou si
+   * le contexte se perd.
+   */
+  async compiler(attendre: () => Promise<unknown> = () => new Promise((ok) => requestAnimationFrame(ok))): Promise<void> {
+    if (this.programmes) return;
+    const ext = this.gl.getExtension('KHR_parallel_shader_compile') as { COMPLETION_STATUS_KHR: number } | null;
+    const lances = this.lancerProgrammes();
+    const tous = Object.values(lances.ps) as Programme[];
+    while (!this.gl.isContextLost() && !tous.every((p) => p.fini(ext))) await attendre();
+    if (this.gl.isContextLost()) throw new Error('WebGL : contexte perdu pendant la compilation');
+    this.programmes = this.verifierProgrammes(lances);
+  }
+
+  /** Le maillage calculé ailleurs (Web Worker, ou cache) : téléversé d'un coup ; programmes compilés ici s'ils ne le sont pas. */
+  charger(m: MaillagesCarte, d?: DonneesCarte): void {
+    this.garder(m, d);
     this.creerRessources();
   }
 
-  /** Programmes, tampons, texture : au chargement et à chaque contexte rendu. */
+  /**
+   * Le même téléversement, un tampon par tâche : attendre() entre deux (une
+   * image passe) ; au total ~7 Mo, qui d'un bloc tenaient le fil principal
+   * une cinquantaine de millisecondes sur le PC chargé.
+   */
+  async chargerPeuAPeu(m: MaillagesCarte, d: DonneesCarte, attendre: () => Promise<unknown>): Promise<void> {
+    this.garder(m, d);
+    for (const _ of this.etapesRessources()) {
+      await attendre();
+      if (this.gl.isContextLost()) throw new Error('WebGL : contexte perdu pendant le téléversement');
+    }
+  }
+
+  private garder(m: MaillagesCarte, donnees?: DonneesCarte): void {
+    if (donnees) this.d = donnees;
+    const d = this.donnees;
+    this.terres = m.terres;
+    this.zones = m.zones;
+    this.interieurs = m.interieurs;
+    this.cotes = m.cotes;
+    this.contestees = m.terres.parties.filter((p) => d.entites[p.forme]?.pays.statut === 'conteste');
+  }
+
+  /** Peintre passé à CarteCanvas dès sa construction : maillage sur le fil principal (chronométré par rendre()). */
+  preparer(): void {
+    if (!this.terres) this.charger(maillerCarte(this.donnees));
+  }
+
+  /** Programmes (s'il le faut), tampons, texture : au chargement et à chaque contexte rendu. */
   private creerRessources(): void {
+    for (const _ of this.etapesRessources());
+  }
+
+  /** creerRessources par étapes : rend la main (yield) après chaque gros tampon. */
+  private *etapesRessources(): Generator<void, void, void> {
     const { gl } = this;
     if (gl.isContextLost() || !this.terres || !this.zones || !this.interieurs || !this.cotes) return;
-    const carte = new Programme(gl, VERTEX_CARTE, FRAG_UNI);
-    const remplir = new Programme(gl, VERTEX_CARTE, FRAG_TERRES);
-    const hachurer = new Programme(gl, VERTEX_CARTE, FRAG_HACHURES);
-    const disques = new Programme(gl, VERTEX_DISQUES, FRAG_DISQUES);
+    this.programmes ??= this.verifierProgrammes(this.lancerProgrammes());
 
     // Contour de l'ovale dans le repère de la vue (uMode 2) : bord est du nord au sud, bord ouest du sud au nord.
     const ovale: number[] = [0, 0];
@@ -377,10 +556,12 @@ export class PeintreWebGL implements Peintre {
     gl.vertexAttribPointer(1, 4, gl.FLOAT, false, PAR_DISQUE * 4, 16);
     gl.vertexAttribDivisor(1, 1);
 
-    const terres = this.televerser(this.terres);
-    const zones = this.televerser(this.zones);
-    const interieurs = this.televerser(this.interieurs);
-    const cotes = this.televerser(this.cotes);
+    gl.bindVertexArray(null);
+    yield;
+    const terres = yield* this.televerser(this.terres);
+    const zones = yield* this.televerser(this.zones);
+    const interieurs = yield* this.televerser(this.interieurs);
+    const cotes = yield* this.televerser(this.cotes);
     gl.bindVertexArray(null);
 
     const couleurs = gl.createTexture();
@@ -389,7 +570,7 @@ export class PeintreWebGL implements Peintre {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     this.signature = null;
 
-    this.g = { carte, remplir, hachurer, disques, terres, zones, interieurs, cotes, ovale: { vao: vaoOvale, tampon: tOvale, n: ovale.length / 2 }, instances: { vao: vaoDisques, tampon: tDisques, octets: this.disques.byteLength }, couleurs };
+    this.g = { ...this.programmes, terres, zones, interieurs, cotes, ovale: { vao: vaoOvale, tampon: tOvale, n: ovale.length / 2 }, instances: { vao: vaoDisques, tampon: tDisques, octets: this.disques.byteLength }, couleurs };
     const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
     this.chrono = ext ? { ext, q: null, actif: false, gpu_ms: null } : null;
   }
@@ -402,21 +583,29 @@ export class PeintreWebGL implements Peintre {
     return t;
   }
 
-  /** Un maillage dans son VAO : sommets (λ, φ), milieux, formes ; indices des triangles puis des traits. */
-  private televerser(m: Maillage): MaillageGpu {
+  /** Un maillage dans son VAO : sommets (λ, φ), milieux, formes ; indices des triangles puis des traits. Rend la main après chaque tampon. */
+  private *televerser(m: Maillage): Generator<void, MaillageGpu, void> {
     const { gl } = this;
     const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
     const tampons: WebGLBuffer[] = [];
-    ([[m.lonlat, 2], [m.milieu, 2], [m.forme, 1]] as const).forEach(([d, n], i) => {
+    const attributs = [[m.lonlat, 2], [m.milieu, 2], [m.forme, 1]] as const;
+    for (let i = 0; i < attributs.length; i++) {
+      const [d, n] = attributs[i] as (typeof attributs)[number];
+      // Le VAO est relié à chaque étape : entre deux, un dessin (Canvas 2D… ou rien) a pu en lier un autre.
+      gl.bindVertexArray(vao);
       tampons.push(this.tampon(gl.ARRAY_BUFFER, d));
       gl.enableVertexAttribArray(i);
       gl.vertexAttribPointer(i, n, gl.FLOAT, false, 0, 0);
-    });
+      gl.bindVertexArray(null);
+      if (d.byteLength > 1 << 18) yield;
+    }
     const indices = new Uint32Array(m.triangles.length + m.traits.length);
     indices.set(m.triangles);
     indices.set(m.traits, m.triangles.length);
+    gl.bindVertexArray(vao);
     tampons.push(this.tampon(gl.ELEMENT_ARRAY_BUFFER, indices));
+    gl.bindVertexArray(null);
+    if (indices.byteLength > 1 << 18) yield;
     return { m, vao, tampons, traits: m.triangles.length * 4, emprises: emprisesAPlat(m.parties) };
   }
 
@@ -435,7 +624,7 @@ export class PeintreWebGL implements Peintre {
     if (sig === this.signature) return;
     this.signature = sig;
     const { gl } = this;
-    const entites = this.o.donnees.entites;
+    const entites = this.donnees.entites;
     const lignes = Math.max(1, Math.ceil(entites.length / LARGEUR_COULEURS));
     const texels = new Uint8Array(LARGEUR_COULEURS * lignes * 4);
     entites.forEach((en, i) => {
@@ -455,8 +644,7 @@ export class PeintreWebGL implements Peintre {
     const { gl } = this;
     this.lireChrono();
     const { v, c } = e;
-    const K = v.k * c.s;
-    const centre: [number, number] = [c.l / 2, v.k * c.ty + v.y];
+    const { K, centre } = uniformesVue(v, c);
     const larg = this.canvas.width;
     const haut = this.canvas.height;
     let appels = 0;
@@ -602,7 +790,7 @@ export class PeintreWebGL implements Peintre {
       ajouter(x, y, r, 0, couleur);
     }
     for (const a of e.anneaux) {
-      const en = this.o.donnees.entites.find((x) => x.pays.id === a.id);
+      const en = this.donnees.entites.find((x) => x.pays.id === a.id);
       const b = en && e.proj(en.pays.point);
       if (!b) continue;
       const [x, y] = versEcran(t, b[0], b[1]);
@@ -649,12 +837,12 @@ export class PeintreWebGL implements Peintre {
     ch.actif = false;
   }
 
-  /** Pour le pilote : provoque la perte du contexte, puis son retour (WEBGL_lose_context). */
+  /** Pour le pilote : provoque la perte du contexte, puis son retour après retour_ms (négatif : jamais rendu). */
   perdreContexte(retour_ms = 200): boolean {
     const ext = this.gl.getExtension('WEBGL_lose_context');
     if (!ext) return false;
     ext.loseContext();
-    setTimeout(() => ext.restoreContext(), retour_ms);
+    if (retour_ms >= 0) setTimeout(() => ext.restoreContext(), retour_ms);
     return true;
   }
 
@@ -663,13 +851,16 @@ export class PeintreWebGL implements Peintre {
   }
 
   detruire(): void {
-    for (const [type, f] of this.ecouteurs) this.canvas.removeEventListener(type, f);
+    for (const [cible, type, f] of this.ecouteurs) cible.removeEventListener(type, f);
+    clearTimeout(this.minuteurPerte);
+    this.minuteurPerte = 0;
     this.gl.getExtension('WEBGL_lose_context')?.loseContext();
     this.g = null;
+    this.programmes = null;
   }
 }
 
-/** Fabrique du peintre pour CarteCanvas (option peintre) ; lève une erreur sans WebGL2. */
+/** Fabrique du peintre pour CarteCanvas (option peintre : maillage sur le fil principal) ; lève WebGLIndisponible. */
 export const fabriqueWebGL =
   (opts: OptionsWebGL = {}) =>
   (canvas: HTMLCanvasElement, o: { donnees: DonneesCarte; redessiner: () => void }): PeintreWebGL =>

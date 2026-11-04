@@ -2,6 +2,8 @@
 // triangulés une fois au chargement, en longitude et latitude (degrés), et
 // les traits des frontières ; la projection et la rotation se font dans le
 // vertex shader (carte-webgl.ts), dont projeterF32 est le miroir testé.
+// Calculé dans un Web Worker (maillage.worker.ts : maillerCarte, emballer)
+// et gardé sur l'appareil ; le fil principal ne fait que deballer.
 //
 // - Densifier : une arête de plus de PAS_DENSIFIER_DEG reçoit des sommets.
 //   Les parallèles restent droits dans Equal Earth, mais un méridien (le
@@ -30,6 +32,7 @@
 import earcut, { refine } from 'earcut';
 import { geoEqualEarthRaw } from 'd3-geo';
 import type { Position } from 'geojson';
+import type { DonneesCarte } from './donnees';
 import type { Forme } from './types';
 
 /** Pas maximal d'une arête de contour (degrés, en λ comme en φ). */
@@ -240,6 +243,89 @@ export function maillerTraits(lignes: readonly (readonly Position[])[], pas = PA
   };
 }
 
+/** Les quatre maillages du rendu webgl : terres et zones contestées (triangles), frontières et côtes (traits). */
+export interface MaillagesCarte {
+  terres: Maillage;
+  zones: Maillage;
+  interieurs: Maillage;
+  cotes: Maillage;
+}
+
+/** Maille la carte entière (dans le Web Worker de maillage.worker.ts, ou sur le fil principal à défaut). */
+export function maillerCarte(d: Pick<DonneesCarte, 'entites' | 'contestees' | 'traits'>): MaillagesCarte {
+  const traits = d.traits();
+  return {
+    terres: mailler(d.entites.map((e) => e.forme)),
+    zones: mailler(d.contestees.map((z) => z.forme)),
+    interieurs: maillerTraits(traits.interieurs),
+    cotes: maillerTraits(traits.cotes),
+  };
+}
+
+/**
+ * Un maillage en tableaux typés seulement : transférable d'un Worker sans
+ * copie (postMessage) et rangé tel quel dans IndexedDB. Les parties, objets
+ * d'une dizaine de milliers, y sont à plat (PAR_PARTIE nombres chacune) :
+ * le clonage de 10 000 objets coûterait des millisecondes au fil principal,
+ * leur reconstruction à partir d'un tableau bien moins.
+ */
+export interface MaillageEmballe {
+  lonlat: Float32Array;
+  milieu: Float32Array;
+  forme: Float32Array;
+  triangles: Uint32Array;
+  traits: Uint32Array;
+  /** forme, o, e, t0, t1, l0, l1 de chaque partie. */
+  parties: Float64Array;
+  /** t0, t1, l0, l1 de chaque forme. */
+  formes: Uint32Array;
+}
+export type MaillagesEmballes = Record<keyof MaillagesCarte, MaillageEmballe>;
+const PAR_PARTIE = 7;
+const NOMS: (keyof MaillagesCarte)[] = ['terres', 'zones', 'interieurs', 'cotes'];
+
+export function emballer(ms: MaillagesCarte): MaillagesEmballes {
+  const un = (m: Maillage): MaillageEmballe => {
+    const parties = new Float64Array(m.parties.length * PAR_PARTIE);
+    m.parties.forEach((p, i) => parties.set([p.forme, p.o, p.e, p.t0, p.t1, p.l0, p.l1], i * PAR_PARTIE));
+    const formes = new Uint32Array(m.formes.length * 4);
+    m.formes.forEach((f, i) => formes.set([f.t0, f.t1, f.l0, f.l1], i * 4));
+    return { lonlat: m.lonlat, milieu: m.milieu, forme: m.forme, triangles: m.triangles, traits: m.traits, parties, formes };
+  };
+  return { terres: un(ms.terres), zones: un(ms.zones), interieurs: un(ms.interieurs), cotes: un(ms.cotes) };
+}
+
+export function deballer(e: MaillagesEmballes): MaillagesCarte {
+  const un = (m: MaillageEmballe): Maillage => {
+    const parties: PartieMaillee[] = [];
+    const p = m.parties;
+    for (let i = 0; i < p.length; i += PAR_PARTIE) {
+      parties.push({ forme: p[i] as number, o: p[i + 1] as number, e: p[i + 2] as number, t0: p[i + 3] as number, t1: p[i + 4] as number, l0: p[i + 5] as number, l1: p[i + 6] as number });
+    }
+    const formes: Maillage['formes'] = [];
+    for (let i = 0; i < m.formes.length; i += 4) formes.push({ t0: m.formes[i] as number, t1: m.formes[i + 1] as number, l0: m.formes[i + 2] as number, l1: m.formes[i + 3] as number });
+    return { lonlat: m.lonlat, milieu: m.milieu, forme: m.forme, triangles: m.triangles, traits: m.traits, parties, formes };
+  };
+  return { terres: un(e.terres), zones: un(e.zones), interieurs: un(e.interieurs), cotes: un(e.cotes) };
+}
+
+/** Les tampons d'un maillage emballé, à transférer (postMessage) : chacun une fois. */
+export function tampons(e: MaillagesEmballes): ArrayBuffer[] {
+  const vus = new Set<ArrayBuffer>();
+  for (const n of NOMS) for (const t of Object.values(e[n])) vus.add((t as ArrayBufferView).buffer as ArrayBuffer);
+  return [...vus];
+}
+
+/** Un maillage emballé bien formé (lu d'IndexedDB : un enregistrement d'une ancienne version, abîmé, est écarté). */
+export function estEmballe(x: unknown): x is MaillagesEmballes {
+  if (!x || typeof x !== 'object') return false;
+  const types = { lonlat: Float32Array, milieu: Float32Array, forme: Float32Array, triangles: Uint32Array, traits: Uint32Array, parties: Float64Array, formes: Uint32Array };
+  return NOMS.every((n) => {
+    const m = (x as Record<string, unknown>)[n];
+    return !!m && typeof m === 'object' && Object.entries(types).every(([k, T]) => (m as Record<string, unknown>)[k] instanceof T);
+  });
+}
+
 /** Tour (nombre entier de 360°) qui met le milieu m d'une partie à moins de 180° du méridien central r : celui du shader. */
 export const tourDe = (r: number, m: number): number => Math.floor((r - m) / 360 + 0.5);
 
@@ -303,7 +389,7 @@ const M = Math.sqrt(3) / 2;
 const RAD = Math.PI / 180;
 
 /**
- * Le calcul du vertex shader (VERTEX_GLSL de carte-webgl.ts, même ordre
+ * Le calcul du vertex shader (VERTEX_CARTE de carte-webgl.ts, même ordre
  * d'opérations), arrondi en Float32 comme sur le GPU : la longitude dans le
  * repère de la vue, λ + tour·360 − r, puis Equal Earth (formule polynomiale
  * de Šavrič, Patterson et Jenny, celle de d3) en unités de la projection,
