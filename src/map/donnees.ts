@@ -1,6 +1,7 @@
 // Chargement des fichiers de public/geo (servis à la racine par Vite, Firebase
 // Hosting et Capacitor), avec la durée de chaque étape.
-import { feature } from 'topojson-client';
+import type { Position } from 'geojson';
+import { feature, mesh } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import type { Contestee, Entite, Forme, Pays } from './types';
 
@@ -9,6 +10,11 @@ export interface DonneesCarte {
   /** Zones de la couche contestees (hachurées par-dessus, jamais touchées). */
   contestees: { info: Contestee | undefined; forme: Forme }[];
   noms: Record<string, string>;
+  /**
+   * Traits de la carte tirés des arcs de la topologie (rendu WebGL), calculés
+   * à la demande : frontières entre deux pays (chacune une fois) et côtes.
+   */
+  traits(): { interieurs: Position[][]; cotes: Position[][] };
 }
 
 export interface ChronoChargement {
@@ -39,7 +45,11 @@ export function assembler(
   const zones = (feature(topo, topo.objects.contestees).features as Forme[])
     .filter((f) => f.geometry)
     .map((forme) => ({ info: infos.get(forme.properties.id), forme }));
-  return { entites, contestees: zones, noms };
+  const traits = () => ({
+    interieurs: mesh(topo, topo.objects.pays, (a, b) => a !== b).coordinates,
+    cotes: mesh(topo, topo.objects.pays, (a, b) => a === b).coordinates,
+  });
+  return { entites, contestees: zones, noms, traits };
 }
 
 export async function chargerDonnees(base = '/geo/'): Promise<{ donnees: DonneesCarte; chrono: ChronoChargement }> {
