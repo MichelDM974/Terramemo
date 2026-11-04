@@ -1,6 +1,7 @@
 // Panneau des dernières mesures (⚙ → « Afficher les mesures ») et « Copier le rapport ».
 import type { Mesures } from './mesures';
 import type { Geste, Toucher } from './rapport';
+import { acoupsParSeconde, SEUIL_120_MS, SEUIL_ACOUP_MS } from './stats';
 
 const ms = (v: number | null | undefined) => (v == null ? '—' : `${Math.round(v)}`);
 
@@ -20,33 +21,36 @@ const etFin = (g: Geste) =>
 
 const pct = (part: number) => `${Math.round(part * 100)} %`;
 
+const parS = (v: number) => `${v.toFixed(1).replace('.', ',')}/s`;
+
 /**
- * Saccades d'un geste (≥ 25 ms, le verdict), puis la tenue de la cadence de
- * l'écran (sans verdict) : période du geste, part tenue, images par seconde,
- * et l'écart au repos s'il y en a un.
+ * À-coups d'un geste (≥ 21 ms, par seconde de geste : le verdict), puis la
+ * tenue des 120 i/s (sans verdict) : période du geste, part des intervalles
+ * ≤ 12,5 ms, images par seconde, et l'écart au repos s'il y en a un.
  */
 function cadenceGeste(g: Geste): string {
   const s = g.stats;
-  const saccades = `${s.saccades} saccade(s) ≥ 25 ms (${pct(s.part_saccades)})`;
+  const acoups = `${s.acoups} à-coup(s) ≥ ${SEUIL_ACOUP_MS} ms (${parS(s.acoups_par_s)})`;
   const periode = ` · période ${s.periode_geste_ms ?? s.periode_repos_ms} ms${s.bascule_images ? ` après ${s.bascule_images} à la période du repos` : ''}`;
-  const tenue = ` · tenue ${pct(s.tenue)} à ${s.periode_ecran_ms} ms, ${s.cadence_ips ?? '—'} i/s`;
+  const tenue = ` · tenue 120 i/s ${pct(s.tenue_120)}, ${s.cadence_ips ?? '—'} i/s`;
   const ecart = s.ecart_sens
     ? ` (⚠ geste ${s.ecart_sens === 'plus_rapide' ? 'plus rapide' : 'plus lent'} que le repos : ${hz(s.periode_geste_ms)} contre ${hz(s.periode_repos_ms)})`
     : '';
-  return saccades + periode + tenue + ecart;
+  return acoups + periode + tenue + ecart;
 }
 
-/** Tous les gestes : saccades, tenue, écarts de période, pire fin (Event Timing). */
+/** Tous les gestes : à-coups par seconde, tenue des 120 i/s, écarts de période, pire fin (Event Timing). */
 function resumeGestes(gestes: readonly Geste[]): string {
-  const saccades = gestes.reduce((a, g) => a + g.stats.saccades, 0);
-  const intervalles = gestes.reduce((a, g) => a + Math.max(0, g.stats.images - 1), 0);
-  const tenues = gestes.reduce((a, g) => a + g.stats.tenue * Math.max(0, g.stats.images - 1), 0);
+  const acoups = gestes.reduce((a, g) => a + g.stats.acoups, 0);
+  const duree = gestes.reduce((a, g) => a + g.stats.duree_ms, 0);
+  const intervalles = gestes.reduce((a, g) => a + g.intervalles_ms.length, 0);
+  const a120 = gestes.reduce((a, g) => a + g.intervalles_ms.filter((d) => d <= SEUIL_120_MS).length, 0);
   const rapides = gestes.filter((g) => g.stats.ecart_sens === 'plus_rapide').length;
   const lents = gestes.filter((g) => g.stats.ecart_sens === 'plus_lent').length;
   const ecarts = [rapides ? `${rapides} plus rapide(s)` : '', lents ? `${lents} plus lent(s)` : ''].filter(Boolean).join(', ');
   const fins = gestes.map((g) => g.fin.event_timing_ms).filter((v): v is number => v != null);
   const attente = gestes.filter((g) => g.fin.event_timing_etat === 'en_attente').length;
-  return `${gestes.length} gestes : ${saccades} / ${intervalles} saccades ≥ 25 ms · tenue ${intervalles ? pct(tenues / intervalles) : '—'}${ecarts ? ` · ⚠ ${ecarts} que le repos` : ''} · fin Event Timing max ${fins.length ? ms(Math.max(...fins)) : '—'} ms (${fins.length} mesurée(s)${attente ? `, ${attente} en attente` : ''})`;
+  return `${gestes.length} gestes : ${acoups} à-coups ≥ ${SEUIL_ACOUP_MS} ms (${parS(acoupsParSeconde(acoups, duree))}) · tenue 120 i/s ${intervalles ? pct(a120 / intervalles) : '—'}${ecarts ? ` · ⚠ ${ecarts} que le repos` : ''} · fin Event Timing max ${fins.length ? ms(Math.max(...fins)) : '—'} ms (${fins.length} mesurée(s)${attente ? `, ${attente} en attente` : ''})`;
 }
 
 async function copier(texte: string): Promise<boolean> {

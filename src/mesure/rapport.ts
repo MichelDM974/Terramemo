@@ -1,5 +1,5 @@
 /**
- * Rapport des mesures du J0 (v: 4), rendu par window.cartographe.rapport() et
+ * Rapport des mesures du J0 (v: 5), rendu par window.cartographe.rapport() et
  * par « Copier le rapport » (⚙ → mesures). Contrat lu par le driver du skill
  * run-cartographe : chaque champ est documenté sur son type ci-dessous. Toutes
  * les durées sont en millisecondes, les instants en ms depuis
@@ -7,20 +7,21 @@
  *
  * Critères du J0 (plan) et champs qui les tranchent :
  * - « rendu < 1 s » → chargement.total_ms ;
- * - « pas de saccade au déplacement » → gestes[].stats.saccades (décision de
- *   l'utilisateur du 04/11/2026) : une saccade est un à-coup visible même à
- *   60 images par seconde, un intervalle ≥ 1,5 × 16,67 = 25 ms (à 0,5 ms
- *   près), quelle que soit la fréquence de l'écran ; verdict sansSaccade
- *   (stats.ts) : NON au-delà de 5 % de saccades sur un type de geste ou d'un
- *   intervalle de plus de 50 ms (stats.part_saccades, stats.max_ms). Il est
- *   monotone : une appli plus souvent à 120 images par seconde ne peut pas
- *   être jugée pire. Aussi p95_ms, longues_images, et dessin_ms (rendu
- *   Canvas : script de chaque image) ;
- * - tenue de la cadence de l'écran, rapportée à part, SANS verdict, pour
- *   comparer les rendus → stats.cadence_ips (images par seconde, monotone) et
- *   stats.tenue (part des intervalles à stats.periode_ecran_ms, la période
- *   la plus courte de l'écran vue au repos ou pendant le geste : 120 Hz sur
- *   le Galaxy A37) ; stats.ecart_sens, bascule_images, perdues et
+ * - « pas de saccade au déplacement » → gestes[].stats.acoups_par_s et
+ *   max_ms (décision de l'utilisateur du 04/11/2026, registre) : un à-coup
+ *   est une image qui tarde 25 ms ou plus (trois rafraîchissements à 120 Hz,
+ *   un et demi à 60 i/s), compté dès 21 ms (SEUIL_ACOUP_MS, loin des valeurs
+ *   exactes de l'écran, 16,67 et 25 ms, pour ne pas compter au hasard), quelle
+ *   que soit la fréquence de l'écran ; verdict sansSaccade (stats.ts) : NON
+ *   au-delà de 3 à-coups par seconde de geste sur un type de geste, ou d'un
+ *   intervalle de plus de 50 ms. Compté par seconde pour ne pas avantager le
+ *   rendu le plus rapide ; monotone : à durée de geste fixe, des images plus
+ *   rapides ne changent rien. Aussi p95_ms, longues_images, et dessin_ms
+ *   (rendu Canvas : script de chaque image) ;
+ * - tenue des 120 i/s, rapportée à part, SANS verdict, pour comparer les
+ *   rendus → stats.tenue_120 (part des intervalles ≤ 12,5 ms, seuil fixe :
+ *   monotone avec la part d'images à 120 i/s) et stats.cadence_ips (images
+ *   par seconde) ; stats.ecart_sens, bascule_images, perdues et
  *   perdues_repos la détaillent ;
  * - fin du geste (en mode css, le coût se paie au lever du doigt, après le
  *   dernier intervalle compté) → gestes[].fin.event_timing_ms selon
@@ -31,6 +32,19 @@
  *   gestionnaires), selon touchers[].event_timing_etat. fin_fil_principal_ms
  *   ne vaut pas mesure de ce critère : il s'arrête avant rastérisation et
  *   présentation (voir Toucher).
+ *
+ * Changements de v4 à v5 (critère de saccade compté par seconde, relecture
+ * du critère v4 : 5 % des intervalles laissaient passer deux fois plus
+ * d'à-coups par seconde à 120 i/s qu'à 60 ; le seuil de 24,5 ms, sur un point
+ * de la grille de l'écran, comptait au hasard sous la gigue ; la tenue, sur
+ * la plus courte des périodes estimées, n'était pas monotone) :
+ * - gestes[].stats.saccades (≥ 24,5 ms) et part_saccades (part des
+ *   intervalles) retirés ; ajoutés acoups (intervalles ≥ 21 ms), duree_ms
+ *   (somme des intervalles) et acoups_par_s (acoups × 1000 / duree_ms), base
+ *   du verdict ;
+ * - gestes[].stats.periode_ecran_ms et tenue (part des intervalles ≤ 1,5 ×
+ *   min(periode_geste_ms, periode_repos_ms)) retirés ; ajouté tenue_120
+ *   (part des intervalles ≤ 12,5 ms, seuil fixe).
  *
  * Changements de v3 à v4 (critère de saccade de l'utilisateur, relecture
  * VM du J0 : le verdict sur stats.perdues, compté sur la période estimée du
@@ -99,7 +113,7 @@ import type { Rendu } from '../map/types';
 export type RenduMesure = Rendu | 'canvas';
 
 export interface Rapport {
-  v: 4;
+  v: 5;
   /** Version de l'appli (package.json). */
   version: string;
   /** Date ISO de la production du rapport. */
@@ -189,15 +203,13 @@ export interface Geste {
    *   intervalles ;
    * - ecart_periode : |periode_geste_ms − periode_repos_ms| > 25 % de
    *   periode_repos_ms ; ecart_sens : 'plus_rapide', 'plus_lent' ou null ;
-   * - saccades, part_saccades : intervalles ≥ 25 ms (à 0,5 ms près), tous
-   *   les intervalles, sans période estimée : la base du verdict « pas de
-   *   saccade » (voir l'en-tête) ;
-   * - periode_ecran_ms : min(periode_geste_ms, periode_repos_ms) ; tenue :
-   *   part des intervalles ≤ 1,5 × periode_ecran_ms (de 0 à 1) ;
+   * - duree_ms : somme des intervalles ; acoups : intervalles ≥ 21 ms, sans
+   *   période estimée ; acoups_par_s : acoups × 1000 / duree_ms (au
+   *   centième) : la base du verdict « pas de saccade » avec max_ms (voir
+   *   l'en-tête) ;
+   * - tenue_120 : part des intervalles ≤ 12,5 ms (de 0 à 1), seuil fixe ;
    *   cadence_ips : intervalles × 1000 / leur somme (null sans intervalle).
-   *   Sans verdict ; tenue suit l'estimation de periode_geste_ms (grappe
-   *   d'au moins 25 % des intervalles), cadence_ips non : comparer les
-   *   rendus sur elle d'abord.
+   *   Sans verdict.
    */
   stats: import('./stats').StatsGeste;
   /** Long Animation Frames qui recouvrent le geste. */

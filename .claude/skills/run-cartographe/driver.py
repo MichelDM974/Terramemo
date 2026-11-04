@@ -9,7 +9,8 @@ adb). Python stdlib seule ; à lancer depuis Cartographe/ :
     mesurer --cible local|chrome|webview [--rendu css|g|canvas]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
-    resumer FICHIER.json…       résumé recalculé sur les rapports bruts
+    resumer FICHIER.json… [--sec] [--json]
+                                résumé recalculé sur les rapports bruts
                                 d'un JSON de mesurer (critères changés)
     apk [--installer]           APK de débogage, installé par adb
 
@@ -58,35 +59,47 @@ CRITERE_TOUCHER_MS = 100
 CRITERE_FIN_GESTE_MS = 100
 # Event Timing ne garde que les entrées de 16 ms et plus (durationThreshold).
 SEUIL_EVENT_TIMING_MS = 16
-# Saccade (décision de l'utilisateur du 04/11/2026, ticket #1) : un à-coup
-# visible même à 60 images/s, un intervalle ≥ 1,5 × 16,67 = 25 ms (à 0,5 ms
-# près : trois périodes à 120 Hz arrondies au dixième), quelle que soit la
-# fréquence de l'écran ; recopie de src/mesure/stats.ts (estSaccade,
-# sansSaccade), recalculée ici sur les intervalles bruts pour relire aussi les
-# rapports v3. [NON] au-delà de 5 % de saccades sur un type de geste ou d'un
-# intervalle de plus de 50 ms. Monotone : plus d'images à 120 i/s ne change
-# ni le compte ni le maximum et baisse la part. La tenue de la cadence de
-# l'écran (120 Hz sur le téléphone) est rapportée à part, sans verdict.
-SEUIL_SACCADE_MS = 1.5 * 1000 / 60
-TOLERANCE_SACCADE_MS = 0.5
-SACCADE_PART = 0.05
+# Saccade (décision de l'utilisateur du 04/11/2026, registre, ticket #1) :
+# recopie de src/mesure/stats.ts (SEUIL_ACOUP_MS, estAcoup, sansSaccade,
+# SEUIL_120_MS), recalculée ici sur les intervalles bruts pour relire aussi
+# les rapports v3 et v4 ; tests/mesure-driver.test.ts la confronte à stats.ts.
+# Un à-coup est une image qui tarde 25 ms ou plus (trois rafraîchissements à
+# 120 Hz, un et demi à 60 i/s), compté dès 21 ms : loin des valeurs exactes de
+# l'écran (16,67 et 25 ms), l'arrondi et la gigue ne le font pas compter au
+# hasard. Verdict par type de geste, sur toutes les répétitions : [NON]
+# au-delà de 3 à-coups par seconde de geste (à-coups × 1000 / somme des
+# intervalles), compté par seconde pour ne pas avantager le rendu le plus
+# rapide (5 % des intervalles à 60 i/s), ou dès un intervalle de plus de
+# 50 ms (trois images à 60 i/s : un gel isolé, que la moyenne par seconde
+# laisserait passer). Monotone : à durée fixe, des images plus rapides ne
+# changent ni le compte, ni la durée, ni le plus long. La tenue des 120 i/s
+# (part des intervalles ≤ 12,5 ms, seuil fixe) est rapportée à part, sans
+# verdict.
+SEUIL_ACOUP_MS = 21
+ACOUPS_PAR_S_MAX = 3
 SACCADE_MAX_MS = 50
-FACTEUR_PERDUE = 1.5
-VERSION_RAPPORT = 4  # src/mesure/rapport.ts ; resumer relit aussi la v3
+SEUIL_120_MS = 12.5
+FREQUENCES_CONNUES = (144, 120, 90, 60, 30)  # Hz, comme PERIODES_CONNUES de stats.ts
+VERSION_RAPPORT = 5  # src/mesure/rapport.ts ; resumer relit aussi la v3 et la v4
 
 
-CRITERE_SACCADE = {"seuil_ms": round(SEUIL_SACCADE_MS, 2), "tolerance_ms": TOLERANCE_SACCADE_MS,
-                   "part": SACCADE_PART, "max_ms": SACCADE_MAX_MS,
-                   "tenue": "part des intervalles ≤ 1,5 × la période la plus courte de l'écran (repos ou "
-                            "gestes, sur le fichier), et images/s ; sans verdict"}
+CRITERE_SACCADE = {"acoup_des_ms": SEUIL_ACOUP_MS, "acoups_par_s_max": ACOUPS_PAR_S_MAX,
+                   "max_ms": SACCADE_MAX_MS, "tenue_120_ms": SEUIL_120_MS,
+                   "tenue": "part des intervalles ≤ 12,5 ms (120 i/s), et images/s ; sans verdict"}
 
 
-def est_saccade(d):
-    return d > SEUIL_SACCADE_MS - TOLERANCE_SACCADE_MS
+def est_acoup(d):
+    return d >= SEUIL_ACOUP_MS
 
 
-def sans_saccade(saccades, intervalles, max_ms):
-    return not ((intervalles and saccades / intervalles > SACCADE_PART) or (max_ms or 0) > SACCADE_MAX_MS)
+def acoups_par_s(acoups, duree_ms):
+    return acoups * 1000 / duree_ms if duree_ms > 0 else 0
+
+
+def sans_saccade(acoups, duree_ms, max_ms):
+    return not (acoups_par_s(acoups, duree_ms) > ACOUPS_PAR_S_MAX or (max_ms or 0) > SACCADE_MAX_MS)
+
+
 # Fin de geste écartée du verdict (artefact prouvé, src/mesure/rapport.ts,
 # Geste.fin) : rendu g, close par l'entrée suivante, image_ms sous ce seuil
 # et aucune longue image.
@@ -972,13 +985,6 @@ def resumer(rapports, vises, journal=None):
     src/mesure/rapport.ts : chaque règle ci-dessous y est décrite)."""
     chargements = [r["chargement"]["total_ms"] for r in rapports if r.get("chargement")]
     periode = _med([r["ecran"]["periode_ms"] for r in rapports]) or 1000 / 60
-    # Période de l'écran pour la tenue : la plus courte vue au repos ou
-    # pendant un geste, sur tout le fichier (8,33 ms dès que l'écran tient
-    # 120 Hz quelque part), pour juger toutes les lignes sur la même base.
-    ecran = [st.get("periode_geste_ms") for r in rapports for g in r["gestes"]
-             if g["type"] in ("glisser", "pincer") for st in [g["stats"]]]
-    ecran += [r["ecran"]["periode_ms"] for r in rapports]
-    periode_ecran = min((x for x in ecran if x), default=periode)
     gestes = {}
     for r in rapports:
         for g, quoi in zip(r["gestes"], noms_des_gestes(r, journal)):
@@ -987,8 +993,8 @@ def resumer(rapports, vises, journal=None):
             rendu = g.get("rendu", r["rendu"])
             # Un fichier = un rendu ; la clé le garde quand même (rapports mêlés).
             cle = quoi if rendu == r["rendu"] else f"{quoi} ({rendu})"
-            e = gestes.setdefault(cle, {"rendu": rendu, "gestes": 0, "intervalles": 0, "saccades": 0,
-                                        "duree_ms": 0, "tenues": 0, "perdues": 0,
+            e = gestes.setdefault(cle, {"rendu": rendu, "gestes": 0, "intervalles": 0, "acoups": 0,
+                                        "duree_ms": 0, "a_120": 0, "perdues": 0,
                                         "perdues_repos": 0, "bascule_images": 0, "max_ms": 0, "p95_ms": [],
                                         "longues_images": 0, "periodes_ms": [],
                                         "ecarts_periode": {"plus_rapide": 0, "plus_lent": 0},
@@ -998,9 +1004,9 @@ def resumer(rapports, vises, journal=None):
             iv = g["intervalles_ms"]
             e["gestes"] += 1
             e["intervalles"] += len(iv)
-            e["saccades"] += sum(est_saccade(d) for d in iv)
+            e["acoups"] += sum(est_acoup(d) for d in iv)
             e["duree_ms"] += sum(iv)
-            e["tenues"] += sum(d <= FACTEUR_PERDUE * periode_ecran for d in iv)
+            e["a_120"] += sum(d <= SEUIL_120_MS for d in iv)
             # Informatifs (plus la base du verdict depuis le rapport v4) :
             # perdues sur la période du geste (bascule de tête sur celle du
             # repos), perdues_repos sur celle du repos (stats.ts, statsGeste).
@@ -1044,19 +1050,21 @@ def resumer(rapports, vises, journal=None):
             e["fin_image"].append(f["image_ms"])
     for e in gestes.values():
         n = e["intervalles"]
-        e["part_saccades"] = round(e["saccades"] / n, 3) if n else None
-        duree, tenues = e.pop("duree_ms"), e.pop("tenues")
-        e["tenue"] = {"periode_ecran_ms": periode_ecran, "part": round(tenues / n, 3) if n else None,
-                      "cadence_ips": round(n * 1000 / duree, 1) if duree else None}
+        duree, a_120 = e["duree_ms"], e.pop("a_120")
+        e["duree_ms"] = round(duree, 1)
+        e["acoups_par_s"] = round(acoups_par_s(e["acoups"], duree), 2)
+        e["tenue_120"] = {"part": round(a_120 / n, 3) if n else None,
+                          "cadence_ips": round(n * 1000 / duree, 1) if duree else None}
         e["part_perdues"] = round(e["perdues"] / e["intervalles"], 3) if e["intervalles"] else None
         e["part_perdues_repos"] = round(e["perdues_repos"] / e["intervalles"], 3) if e["intervalles"] else None
         e["p95_ms"] = _med(e["p95_ms"])
         periodes = [x for x in e.pop("periodes_ms") if x is not None]
         e["periode_ms"] = {"mediane": _med(periodes), "min": min(periodes, default=None),
                            "max": max(periodes, default=None)}
-        # Saccade : ≥ 25 ms, sans période estimée (une cadence plus lente que
-        # l'écran n'en est pas une : elle se lit dans la tenue, sans verdict).
-        e["saccade_ok"] = sans_saccade(e["saccades"], n, e["max_ms"])
+        # À-coups ≥ 21 ms par seconde de geste, sans période estimée (une
+        # cadence plus lente que l'écran n'en est pas une : elle se lit dans
+        # la tenue, sans verdict). Sur la durée brute, comme stats.ts.
+        e["saccade_ok"] = sans_saccade(e["acoups"], duree, e["max_ms"])
         dessins = e.pop("dessins")
         au_dessus = sum(d["p95"] >= d["periode_ms"] for d in dessins)
         e["dessin_ms"] = None if not dessins else {
@@ -1106,7 +1114,6 @@ def resumer(rapports, vises, journal=None):
                           "ok": bool(chargements) and max(chargements) < CRITERE_RENDU_MS},
         "gestes": gestes,
         "ecarts_periode": ecarts,
-        "periode_ecran_ms": periode_ecran,
         # True ou False (None sans geste) : la tenue n'a pas de verdict.
         "saccade_ok": _verdict(*(e["saccade_ok"] for e in gestes.values())) if gestes else None,
         # None sans dessin rapporté (rendus SVG) : sans objet.
@@ -1127,33 +1134,41 @@ def resumer(rapports, vises, journal=None):
     }
 
 
+def hz(periode_ms):
+    """Fréquence d'une période : la fréquence connue la plus proche à 6 % près
+    (16,7 ms → 60 Hz, 8,3 → 120), sinon arrondie."""
+    f = 1000 / periode_ms
+    connue = min(FREQUENCES_CONNUES, key=lambda c: abs(f - c) / c)
+    return f"{connue if abs(f - connue) / connue <= 0.06 else round(f)} Hz"
+
+
 def afficher_resume(res, entete):
     ok = lambda b: " ? " if b is None else "OK " if b else "NON"
     dire(f"\n=== {entete} ===")
-    dire(f"période de l'écran au repos : {res['periode_ms']} ms ({1000 / res['periode_ms']:.0f} Hz)")
+    dire(f"période de l'écran au repos : {res['periode_ms']} ms ({hz(res['periode_ms'])})")
     c = res["chargement_ms"]
     dire(f"[{ok(c['ok'])}] rendu < {CRITERE_RENDU_MS} ms : médiane {c['mediane']}, de {c['min']} à {c['max']} "
          f"({c['n']} chargements)")
-    dire(f"[{ok(res['saccade_ok'])}] pas de saccade (à-coup visible même à 60 images/s : intervalle ≥ "
-         f"{SEUIL_SACCADE_MS:g} ms ; [NON] au-delà de {SACCADE_PART:.0%} d'entre eux ou d'un intervalle > "
-         f"{SACCADE_MAX_MS} ms) :")
+    dire(f"[{ok(res['saccade_ok'])}] pas de saccade (à-coup : intervalle ≥ {SEUIL_ACOUP_MS} ms, une image qui "
+         f"tarde 25 ms ou plus ; [NON] au-delà de {ACOUPS_PAR_S_MAX} à-coups par seconde de geste ou d'un "
+         f"intervalle > {SACCADE_MAX_MS} ms) :")
     for quoi, e in res["gestes"].items():
-        dire(f"      {quoi:8} [{ok(e['saccade_ok'])}] {e['gestes']:2} gestes, {e['saccades']}/{e['intervalles']} "
-             f"intervalles ≥ {SEUIL_SACCADE_MS:g} ms ({(e['part_saccades'] or 0):.1%}), le plus long {e['max_ms']} ms, "
-             f"p95 {e['p95_ms']} ms, {e['longues_images']} longue(s) image(s)")
+        dire(f"      {quoi:8} [{ok(e['saccade_ok'])}] {e['gestes']:2} gestes, {e['acoups']} à-coup(s) en "
+             f"{e['duree_ms'] / 1000:.1f} s ({e['acoups_par_s']:g}/s, {e['intervalles']} intervalles), le plus long "
+             f"{e['max_ms']} ms, p95 {e['p95_ms']} ms, {e['longues_images']} longue(s) image(s)")
     ec = res["ecarts_periode"]
-    # Sans verdict : pour comparer les rendus (la cadence en images/s d'abord,
-    # monotone ; la part tenue suit l'estimation de la période des gestes).
-    dire(f"[ — ] tenue de la cadence de l'écran pendant les gestes (sans verdict) : période de l'écran "
-         f"{res['periode_ecran_ms']} ms ({1000 / res['periode_ecran_ms']:.0f} Hz), repos {res['periode_ms']} ms"
+    # Sans verdict : pour comparer les rendus. Seuil fixe de 12,5 ms, aucune
+    # période estimée : la part suit celle des images à 120 i/s.
+    dire(f"[ — ] tenue des 120 i/s pendant les gestes (sans verdict) : part des intervalles ≤ {SEUIL_120_MS:g} ms ; "
+         f"écran au repos {res['periode_ms']} ms ({hz(res['periode_ms'])})"
          + ("" if not ec["plus_rapide"] and not ec["plus_lent"] else
             f" ; {ec['plus_rapide']} geste(s) plus rapides que le repos (l'écran accélère), {ec['plus_lent']} plus "
             "lents (cadence de l'appli sous celle de l'écran au repos)"))
     for quoi, e in res["gestes"].items():
-        pg, ee, t = e["periode_ms"], e["ecarts_periode"], e["tenue"]
-        dire(f"      {quoi:8} {t['cadence_ips']} images/s, {(t['part'] or 0):.1%} des intervalles à "
-             f"{t['periode_ecran_ms']} ms ; période des gestes : médiane {pg['mediane']} ms (de {pg['min']} à "
-             f"{pg['max']}) ; {ee['plus_rapide']} plus rapide(s), {ee['plus_lent']} plus lent(s)"
+        pg, ee, t = e["periode_ms"], e["ecarts_periode"], e["tenue_120"]
+        dire(f"      {quoi:8} {t['cadence_ips']} images/s, {(t['part'] or 0):.1%} des intervalles à 120 i/s ; "
+             f"période estimée des gestes : médiane {pg['mediane']} ms ; {ee['plus_rapide']} plus rapide(s), "
+             f"{ee['plus_lent']} plus lent(s)"
              + (f", {e['bascule_images']} image(s) de bascule en tête" if e["bascule_images"] else "")
              + (f" ; perdues (indicatif) : {e['perdues']} sur la période du geste, {e['perdues_repos']} sur celle "
                 "du repos"))
@@ -1309,15 +1324,18 @@ def commande_mesurer(args):
 
 def commande_resumer(args):
     """Recalcule le résumé d'un JSON de `mesurer` sur ses rapports bruts
-    (rapports v3 ou v4, touchers visés), aux critères actuels du driver : un
+    (rapports v3 à v5, touchers visés), aux critères actuels du driver : un
     critère qui change n'oblige pas à refaire les mesures. Réécrit le fichier,
-    rapports bruts intacts, et note le recalcul dans `resume_recalcule`."""
+    rapports bruts intacts, et note le recalcul dans `resume_recalcule`.
+    --json : les résumés et le critère de saccade en JSON sur la sortie, au
+    lieu du texte (tests/mesure-driver.test.ts les confronte à stats.ts)."""
+    sortie = []
     for chemin in args.fichiers:
         fichier = pathlib.Path(chemin)
         d = json.loads(fichier.read_text())
         versions = {r.get("v") for r in d["rapports"]}
-        if not versions <= {3, VERSION_RAPPORT}:
-            dire(f"ECHEC : {fichier} : rapports v{sorted(versions)}, le driver relit la v3 et la v{VERSION_RAPPORT}")
+        if not versions <= {3, 4, VERSION_RAPPORT}:
+            dire(f"ECHEC : {fichier} : rapports v{sorted(versions)}, le driver relit les v3 à v{VERSION_RAPPORT}")
             return 1
         journal = []
         res = resumer(d["rapports"], d["touchers_vises"], journal)
@@ -1335,7 +1353,12 @@ def commande_resumer(args):
             "pourquoi": args.pourquoi}
         if not args.sec:
             fichier.write_text(json.dumps(d, ensure_ascii=False, indent=1) + "\n")
-        afficher_resume(res, f"{fichier.name} (recalculé{', non écrit' if args.sec else ''})")
+        if args.json:
+            sortie.append({"fichier": str(fichier), "resume": res})
+        else:
+            afficher_resume(res, f"{fichier.name} (recalculé{', non écrit' if args.sec else ''})")
+    if args.json:
+        print(json.dumps({"criteres": CRITERE_SACCADE, "resumes": sortie}, ensure_ascii=False))
     return 0
 
 
@@ -1397,6 +1420,7 @@ def main():
     s.add_argument("fichiers", nargs="+")
     s.add_argument("--pourquoi", default="critères du driver changés", help="noté dans resume_recalcule")
     s.add_argument("--sec", action="store_true", help="affiche sans réécrire le fichier")
+    s.add_argument("--json", action="store_true", help="résumés et critère de saccade en JSON (tests)")
 
     s = sub.add_parser("apk", help="APK de débogage (npm run build, cap sync, gradlew)")
     s.add_argument("--installer", action="store_true", help="puis adb install -r")

@@ -25,40 +25,59 @@ export function intervalles(horodatages: readonly number[]): number[] {
 export const FACTEUR_PERDUE = 1.5;
 
 /**
- * Saccade (décision de l'utilisateur du 04/11/2026, ticket #1) : un à-coup
- * visible même à 60 images par seconde, une image qui tarde 1,5 fois une
- * image à 60 i/s, soit 25 ms, quelle que soit la fréquence de l'écran. Le
- * seuil ne dépend d'aucune période estimée : une appli plus souvent à
- * 120 i/s ne peut pas compter plus de saccades (le compte sur la période du
- * geste basculait d'un coup entre 60 et 120 Hz, relecture VM du J0).
+ * À-coup (décision de l'utilisateur du 04/11/2026, ticket #1) : une image qui
+ * tarde 25 ms ou plus, trois rafraîchissements d'un écran à 120 Hz, un et
+ * demi à 60 i/s, quelle que soit la fréquence de l'écran. Le seuil est posé
+ * vers 21 ms, loin des valeurs exactes que donne l'écran : 16,67 ms (deux
+ * images à 120 Hz, une à 60) et 25 ms (trois à 120 Hz). Posé à 25 ms pile,
+ * il comptait au hasard : l'arrondi au dixième donne 24,9, 25 ou 25,1 ms, et
+ * avec ± 1 ms de gigue un quart de ces intervalles échappait (relecture du
+ * critère v4). À 21 ms, ± 4 ms de gigue autour de 16,67 comme de 25 ms ne
+ * changent rien. Compte aussi 22,2 ms (deux images à 90 Hz : une perdue) ;
+ * 20,8 ms (trois images à 144 Hz) est à 0,2 ms du seuil, mais aucun écran
+ * visé ne tourne à 144 Hz. Aucune période estimée n'y entre.
  */
-export const SEUIL_SACCADE_MS = (FACTEUR_PERDUE * 1000) / 60;
-/**
- * Tolérance de mesure du seuil : 25 ms, ce sont trois périodes d'un écran à
- * 120 Hz, que l'arrondi des horodatages au dixième donne 24,9, 25 ou 25,1 ms.
- * Une comparaison stricte jugerait au hasard ; elles comptent toutes (une
- * image tenue 1,5 fois plus qu'à 60 i/s), sans toucher à 22,2 ms (deux
- * périodes à 90 Hz) ni à 16,7 ms et sa gigue.
- */
-export const TOLERANCE_SACCADE_MS = 0.5;
-/** Verdict « pas de saccade » : NON au-delà de 5 % d'intervalles en saccade sur un type de geste… */
-export const SACCADE_PART = 0.05;
+export const SEUIL_ACOUP_MS = 21;
+/** Verdict « pas de saccade » : NON au-delà de 3 à-coups par seconde de geste… */
+export const ACOUPS_PAR_S_MAX = 3;
 /** … ou dès un intervalle de plus de 50 ms (trois images à 60 i/s). */
 export const SACCADE_MAX_MS = 50;
 
-/** Un intervalle est une saccade : ≥ 25 ms, à la mesure près. */
-export const estSaccade = (d: number) => d > SEUIL_SACCADE_MS - TOLERANCE_SACCADE_MS;
+/** Un intervalle est un à-coup : ≥ SEUIL_ACOUP_MS. */
+export const estAcoup = (d: number) => d >= SEUIL_ACOUP_MS;
+
+/** À-coups par seconde de geste : à-coups × 1000 / durée (somme des intervalles) ; 0 sans durée. */
+export const acoupsParSeconde = (acoups: number, duree_ms: number) => (duree_ms > 0 ? (acoups * 1000) / duree_ms : 0);
 
 /**
  * Verdict « pas de saccade » sur un ensemble d'intervalles (un geste, ou tous
- * ceux d'un type de geste) : faux si plus de 5 % sont des saccades ou si le
- * plus long dépasse 50 ms. Monotone : ajouter des images rapides (≤ 25 ms) ne
- * change ni le compte ni le maximum et baisse la part, donc ne peut pas faire
- * passer de OK à NON. Recopié par le driver (run-cartographe, resumer).
+ * ceux d'un type de geste) de durée totale duree_ms (somme des intervalles) :
+ * faux au-delà de 3 à-coups par seconde de geste, ou si le plus long dépasse
+ * 50 ms. Compté par seconde et non par intervalle (v4 : 5 % des intervalles),
+ * pour ne pas avantager le rendu le plus rapide : à 120 i/s, 5 % des
+ * intervalles laissaient passer deux fois plus d'à-coups visibles par
+ * seconde qu'à 60 i/s. 3 par seconde, c'est ces 5 % à 60 i/s. Monotone : à
+ * durée fixe, des images plus rapides ne changent ni le compte, ni la durée,
+ * ni le plus long. Recopié par le driver (run-cartographe : est_acoup,
+ * sans_saccade, tenue des 120 i/s), confronté à celui-ci par
+ * tests/mesure-driver.test.ts.
  */
-export function sansSaccade(saccades: number, intervalles: number, max_ms: number | null): boolean {
-  return !(intervalles > 0 && saccades / intervalles > SACCADE_PART) && !((max_ms ?? 0) > SACCADE_MAX_MS);
+export function sansSaccade(acoups: number, duree_ms: number, max_ms: number | null): boolean {
+  return !(acoupsParSeconde(acoups, duree_ms) > ACOUPS_PAR_S_MAX) && !((max_ms ?? 0) > SACCADE_MAX_MS);
 }
+
+/**
+ * Tenue des 120 i/s : un intervalle d'au plus 12,5 ms (1,5 × 8,33, une image
+ * à 120 Hz, gigue comprise) est une image à 120 i/s. Seuil fixe, sans période
+ * estimée (v4 : 1,5 × la plus courte des périodes estimées, qui tombait à
+ * 7,7 ou 6,94 ms sous ± 2 ms de gigue et rendait la tenue non monotone) : à
+ * ± 2 ms de gigue, 8,33 reste dessous et 16,67 dessus, la part suit donc
+ * exactement celle des images à 120 i/s. Rapportée sans verdict.
+ */
+export const SEUIL_120_MS = 12.5;
+
+/** Part des intervalles ≤ SEUIL_120_MS, de 0 à 1 (0 sans intervalle). */
+export const tenue120 = (iv: readonly number[]) => (iv.length ? iv.filter((d) => d <= SEUIL_120_MS).length / iv.length : 0);
 
 export interface StatsImages {
   /** Nombre d'images (intervalles + 1). */
@@ -181,32 +200,27 @@ export interface StatsGeste extends StatsImages {
   perdues_repos: number;
   /** Part de ces intervalles, de 0 à 1. */
   part_perdues_repos: number;
-  /** Intervalles en saccade (estSaccade : ≥ 25 ms à 0,5 ms près), base du verdict « pas de saccade ». */
-  saccades: number;
-  /** Part de ces intervalles, de 0 à 1. Le plus long : max_ms. */
-  part_saccades: number;
+  /** Durée du geste : somme des intervalles (ms). */
+  duree_ms: number;
+  /** À-coups : intervalles ≥ 21 ms (estAcoup), base du verdict « pas de saccade ». */
+  acoups: number;
+  /** À-coups par seconde de geste : acoups × 1000 / duree_ms (0 sans durée), arrondi au centième. Le plus long : max_ms. */
+  acoups_par_s: number;
   /**
-   * Période la plus courte de l'écran vue pour ce geste : min(periode_geste_ms,
-   * periode_repos_ms) (8,33 ms sur un écran à 120 Hz, qu'il y soit au repos ou
-   * qu'il y monte pendant le geste).
+   * Tenue des 120 i/s : part des intervalles ≤ 12,5 ms (tenue120), de 0 à 1,
+   * bascule de tête comprise. Seuil fixe : monotone avec la part d'images à
+   * 120 i/s. Rapportée sans verdict, pour comparer les rendus.
    */
-  periode_ecran_ms: number;
-  /**
-   * Tenue de la cadence de l'écran : part des intervalles ≤ 1,5 ×
-   * periode_ecran_ms, de 0 à 1 (bascule de tête comprise : l'écran n'y est
-   * pas encore). Rapportée sans verdict, pour comparer les rendus. Sa base
-   * suit l'estimation de la période du geste (grappe d'au moins 25 % des
-   * intervalles) : comparer les rendus d'abord par cadence_ips, monotone.
-   */
-  tenue: number;
+  tenue_120: number;
   /** Images par seconde du geste : intervalles × 1000 / leur somme ; null sans intervalle. */
   cadence_ips: number | null;
 }
 
 /**
  * Statistiques d'un geste. Le verdict « pas de saccade » se lit sur
- * saccades (≥ 25 ms, sans période estimée : sansSaccade) ; la tenue de la
- * cadence de l'écran (tenue, cadence_ips) se rapporte à part, sans verdict.
+ * acoups par seconde de geste et max_ms (≥ 21 ms, sans période estimée :
+ * sansSaccade) ; la tenue des 120 i/s (tenue_120, cadence_ips) se rapporte à
+ * part, sans verdict.
  * Restent, informatifs, deux comptes d'images perdues (plus d'une période et
  * demie). perdues : sur la période du geste, sauf la bascule de tête (sur
  * celle du repos) ; il voit une image sautée à 120 Hz sur un écran à 60 Hz au
@@ -229,8 +243,7 @@ export function statsGeste(iv: readonly number[], periode_repos_ms: number): Sta
     if (tete === iv.length) tete = 0;
   }
   const repos = statsImages(iv, periode_repos_ms);
-  const saccades = iv.filter(estSaccade).length;
-  const ecran = Math.min(p, periode_repos_ms);
+  const acoups = iv.filter(estAcoup).length;
   const somme = iv.reduce((a, d) => a + d, 0);
   return {
     ...statsImages(iv, p, tete, periode_repos_ms),
@@ -241,10 +254,10 @@ export function statsGeste(iv: readonly number[], periode_repos_ms: number): Sta
     bascule_images: tete,
     perdues_repos: repos.perdues,
     part_perdues_repos: repos.part_perdues,
-    saccades,
-    part_saccades: iv.length ? arrondi(saccades / iv.length, 3) ?? 0 : 0,
-    periode_ecran_ms: arrondi(ecran, 2) ?? ecran,
-    tenue: iv.length ? arrondi(iv.filter((d) => d <= FACTEUR_PERDUE * ecran).length / iv.length, 3) ?? 0 : 0,
+    duree_ms: arrondi(somme) ?? 0,
+    acoups,
+    acoups_par_s: arrondi(acoupsParSeconde(acoups, somme), 2) ?? 0,
+    tenue_120: arrondi(tenue120(iv), 3) ?? 0,
     cadence_ips: somme > 0 ? arrondi((iv.length * 1000) / somme) : null,
   };
 }
