@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { intervalles, mediane, periodeGeste, quantile, statsGeste, statsImages, type StatsGeste } from '../src/mesure/stats';
+import {
+  estSaccade,
+  intervalles,
+  mediane,
+  periodeGeste,
+  quantile,
+  sansSaccade,
+  statsGeste,
+  statsImages,
+  type StatsGeste,
+} from '../src/mesure/stats';
 
 describe('statistiques des mesures', () => {
   it('quantiles par interpolation linéaire (type 7)', () => {
@@ -124,5 +134,101 @@ describe('statsGeste, cas du téléphone (relecture V2)', () => {
 
   it('pas de falaise : bascule en tête de toute longueur, jamais de perte', () => {
     for (let tete = 0; tete < 52; tete++) expect(statsGeste([...rep(tete, P60), ...rep(52 - tete, P120)], P60).perdues).toBe(0);
+  });
+});
+
+// Critère de saccade de l'utilisateur (04/11/2026) et cas de la relecture VM
+// du J0 (scratchpad relecture-4m/stats.verif.ts et verdict4.py) : cadences
+// mêlées, où le compte sur la période du geste basculait à 25 % d'images
+// courtes et jugeait pire une appli plus souvent à 120 images par seconde.
+describe('saccades (≥ 25 ms) et tenue de la cadence, cas de la relecture VM', () => {
+  const rep = (n: number, v: number): number[] => Array(n).fill(v);
+  const P120 = 8.33;
+  const P60 = 16.67;
+  /** n intervalles, une part f à 8,33 ms entrelacée régulièrement (Bresenham) dans des 16,67 ms. */
+  const mele = (n: number, f: number) => Array.from({ length: n }, (_, i) => (Math.floor((i + 1) * f) > Math.floor(i * f) ? P120 : P60));
+  const verdict = (s: StatsGeste) => sansSaccade(s.saccades, s.images - 1, s.max_ms);
+  const parts = Array.from({ length: 101 }, (_, i) => i / 100);
+
+  it('seuil : 25 ms à la mesure près (24,9 à 25,1, trois périodes à 120 Hz) ; ni 22,2 (90 Hz) ni 16,7 et sa gigue', () => {
+    for (const d of [24.9, 25, 25.1, 33.3, 50]) expect(estSaccade(d)).toBe(true);
+    for (const d of [8.3, 16.7, 20.8, 21.7, 22.2, 24.4]) expect(estSaccade(d)).toBe(false);
+  });
+
+  it('verdict : NON au-delà de 5 % de saccades ou d’un intervalle de plus de 50 ms', () => {
+    expect(sansSaccade(5, 100, 33.3)).toBe(true);
+    expect(sansSaccade(6, 100, 33.3)).toBe(false);
+    expect(sansSaccade(1, 100, 50)).toBe(true);
+    expect(sansSaccade(1, 100, 50.1)).toBe(false);
+    expect(sansSaccade(0, 0, null)).toBe(true);
+  });
+
+  for (const [repos, nom] of [[P60, '60'], [P120, '120']] as const) {
+    it(`cadences mêlées 8,33 / 16,67 ms de 0 à 100 % par pas de 1 %, repos à ${nom} Hz : aucune saccade, verdict OK, cadence croissante`, () => {
+      let avant = 0;
+      for (const f of parts) {
+        const s = statsGeste(mele(60, f), repos);
+        expect(s.saccades, `f = ${f}`).toBe(0);
+        expect(verdict(s), `f = ${f}`).toBe(true);
+        expect(s.cadence_ips as number, `f = ${f}`).toBeGreaterThanOrEqual(avant);
+        avant = s.cadence_ips as number;
+      }
+    });
+  }
+
+  it('monotonie du verdict : à durée de geste fixe et 4 images de 33 ms, plus d’images à 120 i/s ne fait jamais passer de OK à NON', () => {
+    const verdicts = parts.map((f) => {
+      const iv: number[] = [];
+      for (let i = 0, somme = 0; somme < 866.8; i++) {
+        const d = Math.floor((i + 1) * f) > Math.floor(i * f) ? P120 : P60;
+        iv.push(d);
+        somme += d;
+      }
+      for (const k of [1, 2, 3, 4]) iv.splice(Math.floor((k * iv.length) / 5), 0, 33.3);
+      return verdict(statsGeste(iv, P60));
+    });
+    expect(verdicts[0]).toBe(false); // 4 saccades sur 56 : 7 %
+    expect(verdicts.at(-1)).toBe(true); // 4 sur 108 : 3,7 %
+    expect(verdicts.findIndex((v, i) => i > 0 && verdicts[i - 1] && !v)).toBe(-1);
+  });
+
+  it('repos à 60 Hz, geste à 120 : tenue entière ; repos à 120, appli à 60 i/s : tenue nulle, pas une saccade', () => {
+    expect(statsGeste(rep(58, P120), P60)).toMatchObject({ saccades: 0, periode_ecran_ms: 8.33, tenue: 1, cadence_ips: 120 });
+    const lent = statsGeste(rep(29, P60), P120);
+    expect(lent).toMatchObject({ saccades: 0, periode_ecran_ms: 8.33, tenue: 0, cadence_ips: 60, ecart_sens: 'plus_lent' });
+    expect(verdict(lent)).toBe(true); // v3 : « ? », une cadence à juger
+    expect(statsGeste(rep(29, P60), P60)).toMatchObject({ saccades: 0, periode_ecran_ms: 16.67, tenue: 1 });
+  });
+
+  it('bascule de tête (6 ou 25 images à 60 avant 120) : aucune saccade, tenue sans la bascule', () => {
+    for (const tete of [6, 25]) {
+      const s = statsGeste([...rep(tete, P60), ...rep(52, P120)], P60);
+      expect(s).toMatchObject({ saccades: 0, bascule_images: tete });
+      expect(s.tenue).toBeCloseTo(52 / (52 + tete), 3);
+      expect(verdict(s)).toBe(true);
+    }
+  });
+
+  it('fin de geste au doigt, l’écran redescend à 60 Hz : des « perdues » sur la période du geste, aucune saccade', () => {
+    const s = statsGeste([...rep(40, P120), ...rep(10, P60)], P60);
+    expect(s.perdues).toBe(10);
+    expect(s.saccades).toBe(0);
+    expect(verdict(s)).toBe(true);
+    expect(statsGeste([...rep(40, P120), ...rep(10, P60)], P120).saccades).toBe(0);
+  });
+
+  it('intervalles de 25 ms à la cadence de 60 (trois périodes à 120 Hz) : des saccades, que la période du geste ne voyait pas', () => {
+    const iv = mele(60, 0.2).map((d, i) => (d === P60 && i % 8 < 3 ? 25 : d)); // 20 % à 8, ~30 % à 25, le reste à 16,7
+    const s = statsGeste(iv, P120);
+    expect(s.saccades).toBe(iv.filter((d) => d === 25).length);
+    expect(s.part_saccades).toBeGreaterThan(0.05);
+    expect(verdict(s)).toBe(false);
+    // Arrondis au dixième : 24,9 et 25,1 comptent comme 25.
+    expect(statsGeste([...rep(20, P60), 24.9, 25.1, 25], P120).saccades).toBe(3);
+  });
+
+  it('bascule_images seulement quand l’écran accélère vraiment : 16,67 contre 16,7 ms au repos, une perte en tête n’est pas une bascule', () => {
+    const s = statsGeste([33.4, ...rep(29, P60)], 16.7);
+    expect(s).toMatchObject({ periode_geste_ms: 16.67, ecart_sens: null, bascule_images: 0, perdues: 1, saccades: 1 });
   });
 });

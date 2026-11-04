@@ -87,10 +87,10 @@ zoom 1, Italie zoomée, Caraïbes au zoom 8 ; coordonnées lues dans le DOM :
 `circle.pastille[data-id]`, sinon `cartographe.carte.ecran(id)`, seul
 chemin en canvas). En canvas, la carte reste tournée par le tour du monde :
 les touchers au zoom 1 éprouvent `ecran` et `pick` sur un globe tourné
-(`touchers_vises[].rotation`). Enfin `cartographe.rapport()` (v3).
+(`touchers_vises[].rotation`). Enfin `cartographe.rapport()` (v4).
 
 Sortie : un résumé `[OK ]`/`[NON]`/`[ ? ]` (à juger) par critère et le JSON
-complet (v3 : rapports v3 bruts, touchers visés, scénario et pas de rejeu,
+complet (v4 : rapports v4 bruts, touchers visés, scénario et pas de rejeu,
 navigateur et binaire, `code` : commit, arbre modifié ou non, et pour la
 WebView les dates de l'APK installé et du fichier) dans
 `docs/mesures/j0/AAAA-MM-JJ-<cible>-<rendu>-<projection>[-x<ralenti>].json`
@@ -99,20 +99,27 @@ du J0. Champs du rapport : `src/mesure/rapport.ts` (le contrat, qui fait
 foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
 
 - **rendu < 1 s** : `chargement.total_ms`.
-- **période des gestes face au repos** : `stats.periode_geste_ms` (médiane
-  de la grappe basse des intervalles, calée sur 144, 120, 90, 60 Hz ou
-  30 images/s) à côté de `ecran.periode_ms` (repos) ; écart au-delà de 25 %
-  selon `stats.ecart_sens` : `plus_rapide` (l'écran monte à 120 Hz pendant
-  le geste : attendu, `[OK ]`) ou `plus_lent` (l'appli tient une cadence
-  sous celle de l'écran, ex. 60 images/s sur 120 Hz : `[ ? ]`).
-  `stats.bascule_images` : intervalles de tête encore à la fréquence du
-  repos.
-- **pas de saccade** : `[NON]` si plus de 5 % d'images perdues sur la
-  période du geste (`stats.perdues` : intervalle > 1,5 × `periode_geste_ms`,
-  la bascule de tête comptée sur la période du repos) ou un intervalle
-  > 50 ms ; sinon `[ ? ]` si un geste est `plus_lent`, avec sa cadence en Hz
-  et `stats.perdues_repos` (le compte sur la période du repos) : une cadence
-  moitié n'est pas une saccade, l'œil tranche ; sinon `[OK ]`.
+- **pas de saccade** (critère de l'utilisateur, 04/11/2026) : une saccade
+  est un à-coup visible même à 60 images/s, un intervalle ≥ 1,5 × 16,67 =
+  25 ms (à 0,5 ms près : trois périodes à 120 Hz, arrondies au dixième),
+  quelle que soit la fréquence de l'écran (`stats.saccades`, recalculé par
+  le driver sur les intervalles bruts). `[NON]` si plus de 5 % des
+  intervalles d'un type de geste en sont, ou un intervalle > 50 ms ; sinon
+  `[OK ]`, jamais `[ ? ]`. Monotone : plus d'images à 120 i/s ne peut pas
+  dégrader le verdict (l'ancien compte, sur la période estimée du geste,
+  basculait d'un coup quand le quart des intervalles passait à 8,33 ms).
+- **tenue de la cadence de l'écran** (`[ — ]`, sans verdict, pour comparer
+  les rendus) : images/s de chaque type de geste (monotone : la comparer
+  d'abord), et part des intervalles ≤ 1,5 × la période la plus courte de
+  l'écran vue sur le fichier (repos ou gestes : 8,33 ms dès que l'écran
+  tient 120 Hz quelque part). À côté : `stats.periode_geste_ms` (médiane de
+  la grappe basse, calée sur 144, 120, 90, 60 Hz ou 30 images/s), le repos
+  `ecran.periode_ms`, l'écart au-delà de 25 % selon `stats.ecart_sens`
+  (`plus_rapide` : l'écran monte à 120 Hz pendant le geste ; `plus_lent` :
+  l'appli tient une cadence sous celle de l'écran au repos, ex. 60 i/s sur
+  120 Hz), `stats.bascule_images` (intervalles de tête encore à la
+  fréquence du repos, quand l'écran accélère) et, en indicatif, les images
+  perdues sur la période du geste et sur celle du repos.
 - **dessin des images < période de l'écran** (canvas seulement, `[ — ]`
   sans objet en SVG) : `gestes[].dessin_ms` (script de chaque image
   dessinée pendant le geste), le 95e centile de chaque geste face à sa
@@ -198,8 +205,8 @@ python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu
   l'**APK de debug** ouvre DevTools.
 - Aucun ralenti sur le téléphone (`--ralenti` refusé). L'écran est à
   120 Hz mais peut tenir 60 Hz au repos : `ecran.periode_ms` (repos) et la
-  période des gestes sont affichées côte à côte (écart `plus_rapide` en
-  `[OK ]`, `plus_lent` en `[ ? ]`). Les touchers injectés par DevTools ne
+  période des gestes sont affichées côte à côte dans la ligne de tenue
+  (sans verdict ; la saccade, ≥ 25 ms, n'en dépend pas). Les touchers injectés par DevTools ne
   passent pas par l'écran tactile : ils ne font peut-être pas monter
   l'écran à 120 Hz (point 0 de « À l'œil »).
 - **À l'œil en plus des chiffres** : déplacer et pincer soi-même la carte
@@ -219,8 +226,9 @@ changé dans ⚙ → Rendu (la page se recharge), les trois : `css`, `g`,
 0. **Le doigt et le driver voient-ils le même écran ?** ⚙ → « Afficher
    les mesures ». Pincer au doigt de l'Europe à la Suisse, puis glisser :
    le panneau donne `Écran … Hz (… ms)` (repos) et, par geste, « N
-   perdue(s) à P ms » (P : la période du geste) et « ⚠ geste plus rapide
-   que le repos : X Hz contre Y Hz » si elle change. Le faire dans Chrome
+   saccade(s) ≥ 25 ms (x %) · période P ms » (P : la période du geste),
+   « tenue T % à E ms, C i/s » et « ⚠ geste plus rapide que le repos : X Hz
+   contre Y Hz » si elle change. Le faire dans Chrome
    puis dans l'APK, et comparer P à `stats.periode_geste_ms` des JSON du
    driver (même cible, même rendu). Si le doigt donne 8,3 ms (120 Hz) et le
    driver 16,7 ms, les gestes injectés ne font pas monter l'écran : ne

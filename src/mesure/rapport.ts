@@ -1,5 +1,5 @@
 /**
- * Rapport des mesures du J0 (v: 3), rendu par window.cartographe.rapport() et
+ * Rapport des mesures du J0 (v: 4), rendu par window.cartographe.rapport() et
  * par « Copier le rapport » (⚙ → mesures). Contrat lu par le driver du skill
  * run-cartographe : chaque champ est documenté sur son type ci-dessous. Toutes
  * les durées sont en millisecondes, les instants en ms depuis
@@ -7,18 +7,21 @@
  *
  * Critères du J0 (plan) et champs qui les tranchent :
  * - « rendu < 1 s » → chargement.total_ms ;
- * - « pas de saccade au déplacement » → gestes[].stats, deux comptes d'images
- *   perdues (intervalle > 1,5 période) : perdues, sur la période du geste
- *   (stats.periode_geste_ms, estimée sur ses intervalles), et perdues_repos,
- *   sur celle du repos (ecran.periode_ms). À choisir selon stats.ecart_sens :
- *   'plus_rapide' (l'écran accélère pendant le geste : repos à 60 Hz, geste à
- *   120) → perdues ; 'plus_lent' (appli à 60 images par seconde sur un écran
- *   à 120 Hz, ou écran qui ralentit) → ce n'est pas une saccade mais une
- *   cadence (1000 / periode_geste_ms images par seconde), à juger, chiffrée
- *   par perdues_repos ; sans écart (null), les deux se valent.
- *   stats.bascule_images : intervalles de tête encore à la fréquence du repos
- *   (comptés sur sa période). Aussi p95_ms, max_ms, longues_images, et
- *   dessin_ms (rendu Canvas : script de chaque image) ;
+ * - « pas de saccade au déplacement » → gestes[].stats.saccades (décision de
+ *   l'utilisateur du 04/11/2026) : une saccade est un à-coup visible même à
+ *   60 images par seconde, un intervalle ≥ 1,5 × 16,67 = 25 ms (à 0,5 ms
+ *   près), quelle que soit la fréquence de l'écran ; verdict sansSaccade
+ *   (stats.ts) : NON au-delà de 5 % de saccades sur un type de geste ou d'un
+ *   intervalle de plus de 50 ms (stats.part_saccades, stats.max_ms). Il est
+ *   monotone : une appli plus souvent à 120 images par seconde ne peut pas
+ *   être jugée pire. Aussi p95_ms, longues_images, et dessin_ms (rendu
+ *   Canvas : script de chaque image) ;
+ * - tenue de la cadence de l'écran, rapportée à part, SANS verdict, pour
+ *   comparer les rendus → stats.cadence_ips (images par seconde, monotone) et
+ *   stats.tenue (part des intervalles à stats.periode_ecran_ms, la période
+ *   la plus courte de l'écran vue au repos ou pendant le geste : 120 Hz sur
+ *   le Galaxy A37) ; stats.ecart_sens, bascule_images, perdues et
+ *   perdues_repos la détaillent ;
  * - fin du geste (en mode css, le coût se paie au lever du doigt, après le
  *   dernier intervalle compté) → gestes[].fin.event_timing_ms selon
  *   fin.event_timing_etat ; fin.close_par_entree_suivante repère l'entrée
@@ -28,6 +31,20 @@
  *   gestionnaires), selon touchers[].event_timing_etat. fin_fil_principal_ms
  *   ne vaut pas mesure de ce critère : il s'arrête avant rastérisation et
  *   présentation (voir Toucher).
+ *
+ * Changements de v3 à v4 (critère de saccade de l'utilisateur, relecture
+ * VM du J0 : le verdict sur stats.perdues, compté sur la période estimée du
+ * geste, basculait d'un coup quand le quart des intervalles passait à
+ * 8,33 ms, et jugeait pire une appli plus souvent à 120 images par seconde) :
+ * - gestes[].stats.saccades, part_saccades : ajoutés, base du verdict ;
+ * - gestes[].stats.periode_ecran_ms, tenue, cadence_ips : ajoutés (tenue de
+ *   la cadence de l'écran, sans verdict) ;
+ * - gestes[].stats.bascule_images : compté seulement si ecart_sens vaut
+ *   'plus_rapide' (v3 : dès que la période du geste était sous celle du
+ *   repos, même sans écart, 16,67 contre 16,7 ms : des images perdues en
+ *   tête comptées comme une bascule) ;
+ * - gestes[].stats.perdues, perdues_repos : inchangés, mais informatifs (plus
+ *   la base du verdict).
  *
  * Changements de v2 à v3 :
  * - gestes[].stats.perdues, vsync_manquees, part_perdues : comptés sur la
@@ -82,7 +99,7 @@ import type { Rendu } from '../map/types';
 export type RenduMesure = Rendu | 'canvas';
 
 export interface Rapport {
-  v: 3;
+  v: 4;
   /** Version de l'appli (package.json). */
   version: string;
   /** Date ISO de la production du rapport. */
@@ -165,14 +182,22 @@ export interface Geste {
    * - perdues, vsync_manquees (images sautées : somme de round(intervalle /
    *   période) − 1), part_perdues (de 0 à 1) : sur periode_geste_ms, sauf les
    *   bascule_images premiers intervalles, sur periode_repos_ms ;
-   * - bascule_images : quand le geste est plus rapide que le repos, les
-   *   intervalles avant le premier à la période du geste (l'écran monte de 60
-   *   à 120 Hz au début du geste) ; 0 sinon ;
+   * - bascule_images : quand ecart_sens vaut 'plus_rapide', les intervalles
+   *   avant le premier à la période du geste (l'écran monte de 60 à 120 Hz au
+   *   début du geste) ; 0 sinon ;
    * - perdues_repos, part_perdues_repos : sur periode_repos_ms, tous les
    *   intervalles ;
    * - ecart_periode : |periode_geste_ms − periode_repos_ms| > 25 % de
-   *   periode_repos_ms ; ecart_sens : 'plus_rapide', 'plus_lent' ou null
-   *   (voir l'en-tête pour le compte à retenir).
+   *   periode_repos_ms ; ecart_sens : 'plus_rapide', 'plus_lent' ou null ;
+   * - saccades, part_saccades : intervalles ≥ 25 ms (à 0,5 ms près), tous
+   *   les intervalles, sans période estimée : la base du verdict « pas de
+   *   saccade » (voir l'en-tête) ;
+   * - periode_ecran_ms : min(periode_geste_ms, periode_repos_ms) ; tenue :
+   *   part des intervalles ≤ 1,5 × periode_ecran_ms (de 0 à 1) ;
+   *   cadence_ips : intervalles × 1000 / leur somme (null sans intervalle).
+   *   Sans verdict ; tenue suit l'estimation de periode_geste_ms (grappe
+   *   d'au moins 25 % des intervalles), cadence_ips non : comparer les
+   *   rendus sur elle d'abord.
    */
   stats: import('./stats').StatsGeste;
   /** Long Animation Frames qui recouvrent le geste. */
