@@ -134,6 +134,9 @@ foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
   images/s de chaque type de geste et part des intervalles ≤ 12,5 ms
   (1,5 × 8,33, seuil fixe, `stats.tenue_120` : elle suit exactement la part
   d'images à 120 i/s, même sous ± 2 ms de gigue ; 0 % sur un écran à 60 Hz).
+  **La lire avec la cadence affichée à côté** (images/s) : un écran à 90 Hz
+  donne aussi 100 % (11,1 ms ≤ 12,5), à 90 i/s et non 120 ; seul un écran à
+  60 ou 120 Hz se lit sur la part seule.
   La ligne donne la fréquence de l'écran au repos (`ecran.periode_ms`) et,
   par type, la médiane de `stats.periode_geste_ms` (estimée : médiane de la
   grappe basse, calée sur 144, 120, 90, 60 Hz ou 30 images/s), l'écart

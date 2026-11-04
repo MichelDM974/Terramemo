@@ -6,7 +6,8 @@
 // fonctions de stats.ts, aux limites (21 ms, 46 ms, 12,5 ms, 3 à-coups par
 // seconde entre 3 et 3,5, en moyenne par type et dans un seul geste, au
 // moins 2 à-coups par geste), sur des durées qui ne tombent pas sur une
-// seconde ronde et sur des cadences mêlées avec gigue.
+// seconde ronde et sur des cadences mêlées avec gigue ; et la fréquence de
+// l'écran affichée (hz).
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,6 +39,9 @@ interface Cas {
   rapports: Partial<Record<Type, number[][]>>[];
   /** Verdict attendu par type, en dur (ancre le critère des deux côtés). */
   ok?: Partial<Record<Type, boolean>>;
+  /** Période de l'écran au repos de chaque rapport (16,67 ms par défaut) et fréquence attendue (hz du driver). */
+  periode?: number;
+  hz?: number;
 }
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -155,13 +159,31 @@ const cas: Cas[] = [
       { glisser: [mele(70, f, 2, 10 + j)], pincer: [[...mele(50, f, 2, 11 + j), 25, 33.3]] },
     ],
   })),
+  // Fréquence affichée (hz) : calée à 6 % près sur 144, 120, 90, 60 ou 30 Hz,
+  // sinon arrondie. La période du repos est la médiane des rapports, au dixième.
+  ...(
+    [
+      [16.67, 60],
+      [16.9, 60],
+      [8.33, 120],
+      [8.5, 120],
+      [11.11, 90],
+      [13.3, 75],
+      [15.58, 64],
+    ] as const
+  ).map(([periode, hz]) => ({
+    nom: `fréquence de l’écran : ${periode} ms → ${hz} Hz`,
+    rapports: [{ glisser: [rep(30, P60)] }],
+    periode,
+    hz,
+  })),
 ];
 
 function fichier(c: Cas) {
   const rapports = c.rapports.map((r) => ({
     v: 6,
     rendu: 'g',
-    ecran: { periode_ms: P60 },
+    ecran: { periode_ms: c.periode ?? P60 },
     chargement: null,
     touchers: [],
     gestes: (Object.entries(r) as [Type, number[][]][]).flatMap(([type, gestes]) =>
@@ -193,7 +215,7 @@ interface Ligne {
 }
 let sortie: {
   criteres: Record<string, unknown>;
-  resumes: { resume: { gestes: Record<string, Ligne>; saccade_ok: boolean } }[];
+  resumes: { resume: { gestes: Record<string, Ligne>; saccade_ok: boolean; hz: number } }[];
 };
 let dossier: string;
 
@@ -254,6 +276,7 @@ describe('driver.py resumer : critère de saccade et tenue des 120 i/s identique
         expect(ligne.tenue_120.part, quoi).toBeCloseTo(tenue120(tous), 3);
       }
       expect(res.saccade_ok).toBe(types.every((t) => res.gestes[t]!.saccade_ok));
+      if (c.hz !== undefined) expect(res.hz).toBe(c.hz);
     });
   });
 

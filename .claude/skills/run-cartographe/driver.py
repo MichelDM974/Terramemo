@@ -1138,6 +1138,7 @@ def resumer(rapports, vises, journal=None):
     fins = [e["fin_event_timing_ms"] for e in gestes.values()]
     return {
         "periode_ms": periode,
+        "hz": frequence(periode),
         "chargement_ms": {"mediane": _med(chargements), "min": min(chargements, default=None),
                           "max": max(chargements, default=None), "n": len(chargements),
                           "ok": bool(chargements) and max(chargements) < CRITERE_RENDU_MS},
@@ -1163,12 +1164,16 @@ def resumer(rapports, vises, journal=None):
     }
 
 
-def hz(periode_ms):
-    """Fréquence d'une période : la fréquence connue la plus proche à 6 % près
-    (16,7 ms → 60 Hz, 8,3 → 120), sinon arrondie."""
+def frequence(periode_ms):
+    """Fréquence d'une période (Hz) : la fréquence connue la plus proche à 6 %
+    près (16,7 ms → 60, 8,3 → 120), sinon arrondie (13,3 → 75)."""
     f = 1000 / periode_ms
     connue = min(FREQUENCES_CONNUES, key=lambda c: abs(f - c) / c)
-    return f"{connue if abs(f - connue) / connue <= 0.06 else round(f)} Hz"
+    return connue if abs(f - connue) / connue <= 0.06 else round(f)
+
+
+def hz(periode_ms):
+    return f"{frequence(periode_ms)} Hz"
 
 
 def afficher_resume(res, entete):
