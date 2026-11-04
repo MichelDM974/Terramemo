@@ -240,6 +240,87 @@ describe('pick', () => {
   });
 });
 
+describe('pick : règles de la relecture V1', () => {
+  it('le point de chaque pays jouable le désigne (zooms 1, 2, 4 ; monde et pacifique)', () => {
+    // Relecture V1 : un pays sans pastille ne faisait pas concourir son point, tout
+    // disque à moins de 11 px gagnait (FRA → LUX au zoom 2, ITA → SMR, VEN → TTO au zoom 1).
+    const fautifs: string[] = [];
+    for (const nom of ['monde', 'pacifique'] as const) {
+      for (const k of [1, 2, 4]) {
+        const ctx = contexte(nom, { k, x: 0, y: 0 });
+        for (const e of donnees.entites) {
+          if (e.pays.statut !== 'jouable' && e.pays.statut !== 'optionnel') continue;
+          const [x, y] = ecran(ctx, e.pays.point);
+          const r = pick(ctx, x, y);
+          if (r?.id !== e.pays.id) fautifs.push(`${nom} k=${k} ${e.pays.id} → ${r?.id}`);
+        }
+      }
+    }
+    expect(fautifs).toEqual([]);
+    const z1 = contexte();
+    expect(pick(z1, ...ecran(z1, entite('VEN').pays.point))).toMatchObject({ id: 'VEN', via: 'trace' });
+    const z2 = contexte('monde', { k: 2, x: 0, y: 0 });
+    expect(pick(z2, ...ecran(z2, entite('FRA').pays.point))?.id).toBe('FRA');
+    expect(pick(z2, ...ecran(z2, entite('ITA').pays.point))?.id).toBe('ITA');
+  });
+
+  it('en mer, la cible invisible d’un pays de 4 à 10 px le désigne (le Maroc au zoom 1, côté Atlantique)', () => {
+    const ctx = contexte();
+    const mar = ctx.pastilles.find((p) => p.id === 'MAR');
+    expect(mar?.visible).toBe(false);
+    const [fx, fy] = ecran(ctx, entite('MAR').pays.point);
+    let vus = 0;
+    for (let i = 0; i < 32; i++) {
+      const a = (2 * Math.PI * i) / 32;
+      const [x, y] = [fx + 15 * Math.cos(a), fy + 15 * Math.sin(a)];
+      const ll = versLonLat(ctx.proj, ctx.t, x, y);
+      if (!ll || donnees.entites.some((e) => contient(e.forme, e.pays.bbox, ll))) continue; // pas en mer
+      if (pastilleLaPlusProche(ctx.pastilles, ctx.t, x, y)?.id !== 'MAR') continue;
+      expect(pick(ctx, x, y)).toMatchObject({ id: 'MAR', via: 'pastille' });
+      vus++;
+    }
+    expect(vus).toBeGreaterThan(0);
+  });
+
+  it('sur un tracé : un disque voisin gagne à moins de 11 px s’il est plus près que le point du pays ; sinon le disque du pays à moins de 22 px, sinon le tracé', () => {
+    // Pastilles posées à la main sur le Brésil (au zoom 2, ~120 px de large).
+    const base = contexte('monde', { k: 2, x: 0, y: 0 });
+    const [bx, by] = ecran(base, entite('BRA').pays.point);
+    const avec = (doigt: [number, number], voisin: [number, number]) => {
+      const ctx: ContexteCarte = {
+        ...base,
+        pastilles: [
+          { id: 'BRA', bx: bx / 2, by: by / 2, visible: true },
+          { id: 'PRY', bx: voisin[0] / 2, by: voisin[1] / 2, visible: true },
+        ],
+      };
+      return pick(ctx, ...doigt);
+    };
+    // Doigt à 15 px du point du Brésil (son disque), à 8 px d'un disque voisin : le voisin.
+    expect(avec([bx + 15, by], [bx + 15, by + 8])).toMatchObject({ id: 'PRY', via: 'pastille' });
+    // Voisin à 12 px (> 11) : le disque du Brésil, à 15 px (< 22).
+    expect(avec([bx + 15, by], [bx + 15, by + 12])).toMatchObject({ id: 'BRA', via: 'pastille' });
+    // Voisin à 12 px, point du Brésil à 25 px (> 22, vers le nord) : le tracé.
+    expect(avec([bx, by - 25], [bx + 12, by - 25])).toMatchObject({ id: 'BRA', via: 'trace' });
+    // Voisin plus près que 11 px mais plus loin que le point du pays : le pays.
+    expect(avec([bx + 5, by], [bx + 5, by + 9])).toMatchObject({ id: 'BRA', via: 'pastille' });
+  });
+
+  it('en mer près d’une côte : les sondes de 8 et de 12 px trouvent le pays', () => {
+    const proj = creerProjection('monde', L, H);
+    const ctx = contexte('monde', centrer(proj, [-9.6, 39], 20)); // au large du Portugal
+    const distances = new Set<number>();
+    for (let x = L / 2; x > L / 2 - 40; x--) {
+      const r = pick(ctx, x, H / 2);
+      if (r?.via === 'proche') {
+        expect(r.id).toBe('PRT');
+        distances.add(r.distance_px);
+      }
+    }
+    expect([...distances].sort((a, b) => a - b)).toEqual([4, 8, 12]);
+  });
+});
+
 describe('noter', () => {
   const proj = creerProjection('monde', L, H);
 

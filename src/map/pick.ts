@@ -26,42 +26,50 @@ export interface ResultatPick {
 /** Rayons (px) des sondes autour d'un toucher en mer, et nombre de directions. */
 export const SONDES_PROCHE = { rayons_px: [4, 8, 12], directions: 8 } as const;
 
-function sousLePoint(ctx: ContexteCarte, x: number, y: number): string | null {
+function sousLePoint(ctx: ContexteCarte, x: number, y: number): Entite | null {
   const ll = versLonLat(ctx.proj, ctx.t, x, y);
   if (!ll) return null;
-  for (const e of ctx.entites) if (contient(e.forme, e.pays.bbox, ll)) return e.pays.id;
+  for (const e of ctx.entites) if (contient(e.forme, e.pays.bbox, ll)) return e;
   return null;
 }
 
 /**
  * Ce qui est sous le doigt en (x, y), px CSS dans le repère de la carte :
  * 1. sur le tracé d'un pays, un disque dessiné (pastille visible) voisin à
- *    moins de 11 px, s'il est plus près du doigt que la cible du pays sous le
- *    doigt (son point) : le Vatican dans Rome, Andorre au zoom 1 ; mais le
- *    centre de la France y reste la France malgré le Luxembourg à 5 px ;
- * 2. sinon ce tracé ; mais sur celui d'un pays qui a lui-même un disque
- *    dessiné (une île de quelques pixels des Caraïbes au zoom 1), le disque le
- *    plus proche à moins de 22 px ;
- * 3. sinon, en mer, la cible la plus proche à moins de 22 px : un disque, ou la
+ *    moins de 11 px, s'il est plus près du doigt que le point du pays sous le
+ *    doigt (sa pastille, ou son point d'étiquette s'il n'en a pas) : le
+ *    Vatican dans Rome, Andorre au zoom 1 ; mais le point de la France reste
+ *    la France malgré le Luxembourg, celui du Venezuela le Venezuela malgré
+ *    Trinité (relecture V1 : seul un pays à pastille faisait concourir son
+ *    point, la Tanzanie et l'Arabie saoudite étaient intouchables au zoom 1) ;
+ * 2. sinon, sur le tracé d'un pays qui a lui-même un disque dessiné (une île
+ *    de quelques pixels des Caraïbes au zoom 1), ce disque s'il est à moins
+ *    de 22 px (via « pastille ») ;
+ * 3. sinon ce tracé ;
+ * 4. en mer, la cible la plus proche à moins de 22 px : un disque, ou la
  *    cible invisible d'un pays de moins de 10 px à l'écran ;
- * 4. sinon le tracé le plus proche à moins de 12 px (sondes en couronnes) ;
+ * 5. sinon le tracé le plus proche à moins de 12 px (sondes en couronnes) ;
  * null si rien.
  * La cible invisible d'un autre pays ne l'emporte jamais sur un tracé sous le
  * doigt : au zoom 1, celle du Maroc prenait le centre de l'Algérie, celle de
- * Trinité une côte du Venezuela au zoom 8 (relecture du J0).
+ * Trinité une côte du Venezuela au zoom 8 (relecture du J0). Sur son propre
+ * tracé, un pays à disque ne cède qu'à la règle 1 : un disque voisin entre 11
+ * et 22 px ne prend plus Aldabra (Seychelles) aux Comores (relecture V1).
  */
 export function pick(ctx: ContexteCarte, x: number, y: number): ResultatPick | null {
   const disques = ctx.pastilles.filter((p) => p.visible);
   const d = pastilleLaPlusProche(disques, ctx.t, x, y);
-  const id = sousLePoint(ctx, x, y);
-  if (id) {
-    const propre = ctx.pastilles.find((p) => p.id === id);
-    const [px, py] = propre ? versEcran(ctx.t, propre.bx, propre.by) : [Infinity, Infinity];
+  const e = sousLePoint(ctx, x, y);
+  if (e) {
+    const id = e.pays.id;
+    const b = ctx.proj(e.pays.point);
+    const [px, py] = b ? versEcran(ctx.t, b[0], b[1]) : [Infinity, Infinity];
     const dPropre = Math.hypot(px - x, py - y);
     if (d && d.id !== id && d.distance_px <= PASTILLE.rayon_sur_trace_px && d.distance_px < dPropre) {
       return { id: d.id, via: 'pastille', distance_px: d.distance_px };
     }
-    if (d && propre?.visible) return { id: d.id, via: 'pastille', distance_px: d.distance_px };
+    const propre = disques.find((p) => p.id === id);
+    if (propre && dPropre <= PASTILLE.rayon_cible_px) return { id, via: 'pastille', distance_px: dPropre };
     return { id, via: 'trace', distance_px: 0 };
   }
   const p = pastilleLaPlusProche(ctx.pastilles, ctx.t, x, y);
@@ -70,7 +78,7 @@ export function pick(ctx: ContexteCarte, x: number, y: number): ResultatPick | n
     for (let i = 0; i < SONDES_PROCHE.directions; i++) {
       const a = (2 * Math.PI * i) / SONDES_PROCHE.directions;
       const voisin = sousLePoint(ctx, x + r * Math.cos(a), y + r * Math.sin(a));
-      if (voisin) return { id: voisin, via: 'proche', distance_px: r };
+      if (voisin) return { id: voisin.pays.id, via: 'proche', distance_px: r };
     }
   }
   return null;
