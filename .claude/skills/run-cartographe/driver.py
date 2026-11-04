@@ -6,7 +6,7 @@ adb). Python stdlib seule ; à lancer depuis Cartographe/ :
     serve [--preview] [--lan]   Vite sur le port 8060 (au premier plan)
     smoke                       page, fichiers /geo/*.json, carte peinte
     ui [--width 384]            captures des vues (téléphone ou PC)
-    mesurer --cible local|chrome|webview [--rendu css|g|canvas]
+    mesurer --cible local|chrome|webview [--rendu css|g|canvas|webgl]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
     resumer FICHIER.json… [--sec] [--json]
@@ -1405,8 +1405,8 @@ def main():
 
     s = sub.add_parser("mesurer", help="gestes et touchers rejoués, rapport JSON")
     s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")
-    s.add_argument("--rendu", choices=("g", "css", "canvas"), default="css",
-                   help="g et css : carte SVG ; canvas : la carte qui tourne")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), default="css",
+                   help="g et css : carte SVG ; canvas et webgl : la carte qui tourne (Canvas 2D, WebGL2)")
     s.add_argument("--projection", choices=("monde", "pacifique"), default="monde")
     s.add_argument("--ralenti", type=float, default=1, help="ralenti du processeur (local seulement)")
     s.add_argument("--repetitions", type=int, default=3)

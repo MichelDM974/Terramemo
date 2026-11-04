@@ -3,6 +3,7 @@ import './carte.css';
 import { version as VERSION } from '../package.json';
 import { Carte, type CarteAffichee } from './map/carte';
 import { CarteCanvas } from './map/carte-canvas';
+import { fabriqueWebGL, type PeintreWebGL } from './map/carte-webgl';
 import { chargerDonnees, chargerLeger } from './map/donnees';
 import { prechauffer } from './map/geo';
 import type { ResultatPick } from './map/pick';
@@ -20,10 +21,15 @@ const debutScript = performance.now();
 
 /**
  * Rendu par défaut : « css » en attendant le téléphone, où le choix g / css /
- * canvas se tranche (?rendu=g, ?rendu=css ou ?rendu=canvas force l'un d'eux).
+ * canvas / webgl se tranche (?rendu=g, ?rendu=css, ?rendu=canvas ou
+ * ?rendu=webgl force l'un d'eux).
  * - canvas : la carte qui tourne (décision du 04/11), redessinée à chaque
  *   image dans un Canvas 2D (src/map/carte-canvas.ts) ; mesures du PC dans
  *   le message du commit qui l'ajoute, à refaire sur le téléphone.
+ * - webgl : la même carte qui tourne (mêmes gestes, pick et noter), dessinée
+ *   par la carte graphique (src/map/carte-webgl.ts), toujours complète, sans
+ *   carte allégée ; repli sur canvas sans WebGL2 (dataset.repli de #carte).
+ *   ?aa=0 coupe l'anticrénelage (MSAA), pour comparer.
  * - g : la transformation est posée sur le <g> du SVG à chaque mouvement ;
  *   le navigateur repeint la carte à chaque image.
  * - css : pendant le geste, le compositeur déplace et agrandit l'image déjà
@@ -65,7 +71,7 @@ export const RENDU_DEFAUT: Rendu = 'css';
 
 const params = new URLSearchParams(location.search);
 const pRendu = params.get('rendu');
-const rendu: Rendu = pRendu === 'g' || pRendu === 'css' || pRendu === 'canvas' ? pRendu : RENDU_DEFAUT;
+const rendu: Rendu = pRendu === 'g' || pRendu === 'css' || pRendu === 'canvas' || pRendu === 'webgl' ? pRendu : RENDU_DEFAUT;
 const pProj = params.get('projection');
 const projection: NomProjection = estNomProjection(pProj) ? pProj : 'monde';
 const CLE_MESURES = 'cartographe.mesures';
@@ -118,8 +124,8 @@ function reglerSegment(id: string, actuel: string, param: string): void {
 }
 reglerSegment('reglage-rendu', rendu, 'rendu');
 reglerSegment('reglage-projection', projection, 'projection');
-// En canvas, la carte tourne : la « projection » n'est que le méridien central au chargement.
-if (rendu === 'canvas') {
+// En canvas et webgl, la carte tourne : la « projection » n'est que le méridien central au chargement.
+if (rendu === 'canvas' || rendu === 'webgl') {
   const nom = document.querySelector('#reglage-projection')?.closest('.reglage')?.querySelector('.reglage-nom');
   if (nom) {
     nom.textContent = 'Départ';
@@ -182,12 +188,14 @@ const hote = document.createElement('div');
 hote.id = 'carte';
 zone.append(hote);
 
-const mesures = new Mesures({
+/** Contexte des mesures : rendu corrigé en canvas si webgl se replie (les rapports disent ce qui a dessiné). */
+const contexteMesures = {
   version: VERSION,
-  rendu,
+  rendu: rendu as Rendu,
   projection,
   carte: () => ({ largeur: hote.clientWidth, hauteur: hote.clientHeight }),
-});
+};
+const mesures = new Mesures(contexteMesures);
 
 /** Aides au pilote (skill run-cartographe) : coordonnées dans la fenêtre (clientX, clientY). */
 export interface AideCarte {
@@ -207,8 +215,11 @@ export interface AideCarte {
   zoomerSur(id: string): void;
   /** Pays qui ont une cible de pastille au zoom courant ; visible : disque dessiné (circle.pastille en SVG). */
   pastilles(): { id: string; visible: boolean }[];
-  /** Rendu canvas : compteurs du dernier dessin (durée du script, carte allégée, parties et sommets tracés). */
+  /** Rendus canvas et webgl : compteurs du dernier dessin (durée du script, carte allégée, parties et sommets tracés). */
   dessin(): CarteCanvas['dernier'];
+  /** Rendu webgl : processeur graphique (gl.RENDERER), et perte du contexte provoquée puis rendue après retour_ms. */
+  webgl(): { renderer: string; perdu: boolean } | null;
+  perdreContexte(retour_ms?: number): boolean;
 }
 
 export interface Cartographe {
@@ -242,6 +253,20 @@ const deuxImages = () => new Promise<void>((ok) => requestAnimationFrame(() => r
 // Carte allégée (rendu canvas) : téléchargée en même temps que la complète, servie quand elle arrive.
 const leger = rendu === 'canvas' ? chargerLeger() : null;
 
+/** WebGL2, ou le rendu canvas (et sa carte allégée) si le contexte manque. */
+function carteGlobe(options: ConstructorParameters<typeof CarteCanvas>[0]): CarteCanvas {
+  if (rendu !== 'webgl') return new CarteCanvas({ ...options, leger: leger ?? undefined });
+  try {
+    return new CarteCanvas({ ...options, peintre: fabriqueWebGL({ antialias: params.get('aa') !== '0' }) });
+  } catch (e) {
+    console.warn('Rendu webgl indisponible, repli sur canvas :', e);
+    contexteMesures.rendu = 'canvas';
+    const carte = new CarteCanvas({ ...options, rendu: 'canvas', leger: chargerLeger() });
+    hote.dataset.repli = 'webgl';
+    return carte;
+  }
+}
+
 async function demarrer(): Promise<void> {
   const { donnees, chrono } = await chargerDonnees();
   const options = {
@@ -252,8 +277,10 @@ async function demarrer(): Promise<void> {
     surToucher: (x: number, y: number, ev: PointerEvent) => vueActive?.toucher?.(x, y, ev),
     gestes: mesures.ecouteGestes(),
   };
-  const carte: CarteAffichee = rendu === 'canvas' ? new CarteCanvas({ ...options, leger: leger ?? undefined }) : new Carte(options);
+  const carte: CarteAffichee = rendu === 'canvas' || rendu === 'webgl' ? carteGlobe(options) : new Carte(options);
   const cr = carte.rendre();
+  const peintreGL = carte instanceof CarteCanvas ? (carte.peintre as PeintreWebGL | null) : null;
+  if (peintreGL) hote.dataset.gpu = peintreGL.renderer;
   const finInsertion = performance.now();
   await deuxImages();
   const peinte = performance.now();
@@ -296,6 +323,8 @@ async function demarrer(): Promise<void> {
     zoomerSur: (id) => carte.zoomerSur(id),
     pastilles: () => carte.contexte().pastilles.map((p) => ({ id: p.id, visible: p.visible })),
     dessin: () => (carte instanceof CarteCanvas ? carte.dernier : null),
+    webgl: () => (peintreGL ? { renderer: peintreGL.renderer, perdu: peintreGL.contextePerdu } : null),
+    perdreContexte: (retour_ms) => peintreGL?.perdreContexte(retour_ms) ?? false,
   };
   document.body.dataset.pret = '1';
   pretOk();

@@ -55,4 +55,4 @@ export interface Transfo {
 }
 
 export type NomProjection = 'monde' | 'pacifique';
-export type Rendu = 'g' | 'css' | 'canvas';
+export type Rendu = 'g' | 'css' | 'canvas' | 'webgl';

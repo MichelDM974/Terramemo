@@ -60,8 +60,10 @@ python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu 
 python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu canvas          # l'APK (adb)
 ```
 
-Options : `--rendu css|g|canvas` (défaut css ; `g` et `css` : carte SVG,
-`canvas` : la carte qui tourne), `--projection monde|pacifique` (en
+Options : `--rendu css|g|canvas|webgl` (défaut css ; `g` et `css` : carte
+SVG, `canvas` et `webgl` : la carte qui tourne, Canvas 2D ou WebGL2 ; sur
+le PC, le WebGL de chrome-headless-shell est SwiftShader, logiciel : ses
+images perdues ne disent rien du GPU du téléphone), `--projection monde|pacifique` (en
 canvas : le méridien central au chargement, « Départ » dans ⚙),
 `--repetitions N` (défaut 3 : chaque répétition recharge la page et rejoue
 tout), `--url`, `--cache` (garde le cache HTTP, désactivé par défaut :
