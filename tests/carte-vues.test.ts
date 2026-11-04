@@ -17,22 +17,27 @@ describe('essai et saisie', () => {
     expect(new Set(c).size).toBe(c.length);
     for (const p of pays) if (p.micro && p.statut === 'jouable') expect(c).toContain(p.id);
     for (const id of ['CUB', 'JAM', 'FJI', 'KIR', 'TON', 'WSM', 'PNG', 'RUS', 'BRA']) expect(c).toContain(id);
-    for (const id of c) expect(['jouable', 'optionnel']).toContain(statut(id));
+    for (const id of c) expect(statut(id)).toBe('jouable');
   });
 
-  it('séries de Toucher : l’essai intact, tous les pays, un continent par nom du fichier de langue', () => {
+  it('séries de Toucher : l’essai intact, les 195 pays sans le paquet optionnel, un continent par nom du fichier de langue', () => {
     const continents = textes.continents as Record<string, string>;
     const s = series(pays, (c) => continents[c] ?? c);
     expect(s.map((x) => x.id)).toEqual([SERIE_ESSAI, SERIE_TOUS, 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania']);
     expect(s[0]?.ids).toEqual(ciblesEssai(pays));
     expect(s[0]?.ids.length).toBe(43);
-    const jouables = pays.filter((p) => p.statut === 'jouable' || p.statut === 'optionnel');
+    const jouables = pays.filter((p) => p.statut === 'jouable');
     expect(new Set(s[1]?.ids)).toEqual(new Set(jouables.map((p) => p.id)));
-    expect(s[1]?.ids.length).toBe(197);
+    expect(s[1]?.ids.length).toBe(195);
+    // Kosovo et Taïwan (paquet optionnel) ne sont posés dans aucune série.
+    for (const id of ['XKX', 'TWN']) {
+      expect(statut(id)).toBe('optionnel');
+      for (const x of s) expect(x.ids, x.id).not.toContain(id);
+    }
     expect(s.find((x) => x.id === 'Africa')?.ids.length).toBe(54);
     // Les continents se partagent tous les pays, sans territoire ni zone contestée.
     const parContinent = s.slice(2).flatMap((x) => x.ids);
-    expect(parContinent.length).toBe(197);
+    expect(parContinent.length).toBe(195);
     expect(new Set(parContinent)).toEqual(new Set(s[1]?.ids));
     // Chaque continent de pays.json a son nom en français.
     for (const p of pays) expect(continents[p.continent], p.continent).toBeTruthy();

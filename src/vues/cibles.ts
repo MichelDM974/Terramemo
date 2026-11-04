@@ -2,10 +2,12 @@
 import type { Pays } from '../map/types';
 
 /**
- * Ce qu'une série peut demander : les jouables et le paquet optionnel (Kosovo,
- * Taïwan), comme l'essai du J0 ; jamais un territoire ni une zone contestée.
+ * Ce qu'une série peut demander : les 195 pays jouables (193 membres de l'ONU,
+ * Vatican, Palestine) ; jamais un territoire ni une zone contestée. Le paquet
+ * optionnel (Kosovo, Taïwan : décision « Pays et frontières ») n'est posé que
+ * s'il est activé, réglage qui n'existe pas encore.
  */
-export const estJouable = (p: Pays): boolean => p.statut === 'jouable' || p.statut === 'optionnel';
+export const estJouable = (p: Pays): boolean => p.statut === 'jouable';
 
 const PACIFIQUE = new Set(['Melanesia', 'Micronesia', 'Polynesia']);
 /** Quelques grands pays, pour comparer avec les petits. */
