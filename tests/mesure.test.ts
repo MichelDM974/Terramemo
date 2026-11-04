@@ -234,6 +234,19 @@ describe('à-coups (≥ 21 ms, par seconde de geste) et tenue des 120 i/s', () =
     expect(sansSaccade([compte(2, 300), ...propres])).toBe(false);
   });
 
+  it('statsGeste : un geste jugé sur sa durée brute, pas arrondie à la ms (limite à 666,67 ms pour 2 à-coups)', () => {
+    // 2 à-coups de 25 ms + 36 × 17 ms + un reste : 666,6 ms (3,0003/s, NON) et 666,7 ms (2,9998/s, OK).
+    const geste = (reste: number) => [25, 25, ...rep(36, 17), reste];
+    const juste = statsGeste(geste(4.6), P60);
+    expect(juste.duree_ms).toBe(666.6);
+    expect(juste.acoups).toBe(2);
+    expect(juste.saccade).toBe(true); // arrondie à 667 ms, elle passerait
+    expect(sansSaccade([juste])).toBe(false);
+    const auDessus = statsGeste(geste(4.7), P60);
+    expect(auDessus.duree_ms).toBe(666.7);
+    expect(auDessus.saccade).toBe(false);
+  });
+
   it('gel dès 46 ms, loin de 41,67 et 50 ms : un gel de 50 ms sous ± 2 ms de gigue par horodatage compte toujours, cinq images à 120 Hz jamais', () => {
     expect(SEUIL_GEL_MS).toBe(46);
     for (const d of [46, 46.1, 50, 50.1, 54, 66.7]) expect(estGel(d), `${d}`).toBe(true);

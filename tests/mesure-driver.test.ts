@@ -7,7 +7,11 @@
 // seconde entre 3 et 3,5, en moyenne par type et dans un seul geste, au
 // moins 2 à-coups par geste), sur des durées qui ne tombent pas sur une
 // seconde ronde et sur des cadences mêlées avec gigue ; et la fréquence de
-// l'écran affichée (hz).
+// l'écran affichée (hz). Les rapports v3 à v5 (stats sans gels ni saccade,
+// sans acoups avant la v5) doivent être relus et jugés comme un v6 : le
+// driver recalcule tout depuis les intervalles. Enfin, sur le scénario du
+// driver, le tour du monde a sa ligne (tourner), que la page fond dans
+// glisser ; et le chargement et le relais du webgl, première visite à part.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -42,6 +46,29 @@ interface Cas {
   /** Période de l'écran au repos de chaque rapport (16,67 ms par défaut) et fréquence attendue (hz du driver). */
   periode?: number;
   hz?: number;
+  /** Version des rapports fabriqués (6 par défaut) : leurs stats n'ont que les champs de cette version. */
+  v?: 3 | 4 | 5;
+}
+
+/**
+ * Les stats d'un geste telles qu'un rapport v3 à v5 les donnait
+ * (src/mesure/rapport.ts, changements de version) : v5 sans gels ni saccade
+ * (v6) ; v4 sans acoups, acoups_par_s, duree_ms ni tenue_120 (v5), mais avec
+ * saccades (≥ 24,5 ms), part_saccades, periode_ecran_ms et tenue ; v3 sans
+ * ces quatre-là ni cadence_ips (v4).
+ */
+function statsAnciennes(iv: number[], v: 3 | 4 | 5 | 6): Record<string, unknown> {
+  const s: Record<string, unknown> = { ...statsGeste(iv, P60) };
+  const retirer = (...cles: string[]) => cles.forEach((c) => delete s[c]);
+  if (v === 6) return s;
+  retirer('gels', 'saccade');
+  if (v === 5) return s;
+  retirer('acoups', 'acoups_par_s', 'duree_ms', 'tenue_120');
+  const saccades = iv.filter((d) => d >= 24.5).length;
+  Object.assign(s, { saccades, part_saccades: saccades / iv.length, periode_ecran_ms: s.periode_geste_ms, tenue: 1 });
+  if (v === 4) return s;
+  retirer('saccades', 'part_saccades', 'periode_ecran_ms', 'tenue', 'cadence_ips');
+  return s;
 }
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -161,6 +188,17 @@ const cas: Cas[] = [
   })),
   // Fréquence affichée (hz) : calée à 6 % près sur 144, 120, 90, 60 ou 30 Hz,
   // sinon arrondie. La période du repos est la médiane des rapports, au dixième.
+  // Rapports v3 à v5 : un gel seul dans un long geste (NON par la règle
+  // par geste, que la moyenne laisserait passer : 0,95/s) et 4 à-coups de
+  // 22 ms en ~1 s (NON ; ni « saccades » v4, ≥ 24,5 ms, ni gel). Un driver
+  // qui lirait stats.gels, stats.acoups ou stats.saccade au lieu de les
+  // recalculer jugerait ces deux lignes OK.
+  ...([3, 4, 5] as const).map((v) => ({
+    nom: `rapport v${v}, sans stats.gels ni saccade${v < 5 ? ' ni acoups' : ''} : relu et jugé comme un v6`,
+    rapports: [{ glisser: [[50, ...rep(60, P60)]], pincer: [[22, 22, 22, 22, ...rep(56, P60)]] }],
+    ok: { glisser: false, pincer: false },
+    v,
+  })),
   ...(
     [
       [16.67, 60],
@@ -181,7 +219,7 @@ const cas: Cas[] = [
 
 function fichier(c: Cas) {
   const rapports = c.rapports.map((r) => ({
-    v: 6,
+    v: c.v ?? 6,
     rendu: 'g',
     ecran: { periode_ms: c.periode ?? P60 },
     chargement: null,
@@ -191,7 +229,7 @@ function fichier(c: Cas) {
         type,
         rendu: 'g',
         intervalles_ms: iv,
-        stats: statsGeste(iv, P60),
+        stats: statsAnciennes(iv, c.v ?? 6),
         longues_images: { nombre: 0, max_ms: null, blocage_total_ms: 0 },
         dessin_ms: null,
         fin: { event_timing_etat: 'mesure', event_timing_ms: 20, image_ms: 10, close_par_entree_suivante: false },
@@ -284,5 +322,164 @@ describe('driver.py resumer : critère de saccade et tenue des 120 i/s identique
     const seuils = sortie.resumes[0]!.resume.gestes;
     expect(seuils.glisser!.acoups).toBe(61); // 21,0 à 27,0
     expect(seuils.pincer!.tenue_120.part).toBeCloseTo(26 / 51, 3); // 10,0 à 12,5
+  });
+});
+
+// --- Scénario du driver, chargement et relais du webgl ---------------------
+
+/** Le scénario de mesurer (SCENARIO de driver.py) : le tour du monde (tourner) est un glissé pour la page. */
+const SCENARIO = ['pincer', 'glisser', 'glisser', 'pincer', 'glisser', 'pincer', 'pincer', 'glisser', 'glisser', 'pincer', 'pincer', 'tourner', 'tourner', 'tourner'] as const;
+type Nom = (typeof SCENARIO)[number];
+
+function geste(type: Type, iv: number[], rendu: string) {
+  return {
+    type,
+    rendu,
+    intervalles_ms: iv,
+    stats: statsGeste(iv, P60),
+    longues_images: { nombre: 0, max_ms: null, blocage_total_ms: 0 },
+    dessin_ms: null,
+    fin: { event_timing_etat: 'mesure', event_timing_ms: 20, image_ms: 10, close_par_entree_suivante: false },
+  };
+}
+
+/** Un rapport du scénario : les intervalles de chaque geste selon son nom ; en webgl, l'état du relais. */
+function rapportScenario(iv: Record<Nom, number[]>, total_ms: number, rendu = 'canvas', webgl?: Record<string, unknown>) {
+  return {
+    v: 6,
+    rendu,
+    ecran: { periode_ms: P60 },
+    chargement: { total_ms },
+    touchers: [],
+    gestes: SCENARIO.map((n) => geste(n === 'tourner' ? 'glisser' : n, iv[n], rendu)),
+    ...(webgl ? { webgl } : {}),
+  };
+}
+
+/** L'état du relais (src/map/relais-webgl.ts, EtatRelais) tel que le rapport le copie. */
+function relais(source: 'calcul' | 'cache' | null, cache: string | null, apres: number | null, etapes: [string, number][], repli?: string) {
+  return {
+    etape: repli ? 'repli' : 'webgl',
+    raison: repli ?? null,
+    gpu: 'ANGLE (essai)',
+    logiciel: Boolean(repli),
+    maillage: { source, cache, ecrit: null, worker: source ? { cle_ms: 1, lecture_ms: 1, analyse_ms: 50, maillage_ms: source === 'calcul' ? 250 : 0, total_ms: source === 'calcul' ? 350 : 40 } : null },
+    temps: { apres_affichage_ms: apres, etapes: etapes.map(([nom, ms], i) => ({ nom, a_ms: 100 + i, ms })) },
+  };
+}
+
+// Tour du monde : 3 gestes courts d'un à-coup chacun (25 ms + 17 × 16 ms,
+// 297 ms : 3,37/s), aucun ne saccade seul (moins de 2 à-coups) ; leur
+// moyenne, 3,37/s, fait NON. Fondus dans les glissés (5 × 38 images propres),
+// 0,74/s : OK. Gestes plus courts que le vrai tour du monde (960 ms) : au-delà
+// de ~0,67 s, un geste qui fait dépasser 3/s saccade aussi seul.
+const propres = { pincer: rep(29, P60), glisser: rep(38, P60), tourner: [25, ...rep(17, 16)] };
+const sc = {
+  tour: { v: 6, cible: 'local', criteres: {}, touchers_vises: [], notes: [], rapports: [rapportScenario(propres, 400)] },
+  webgl: {
+    v: 6,
+    cible: 'chrome',
+    criteres: {},
+    touchers_vises: [],
+    notes: [],
+    ralenti: 1,
+    visites: [{ visite: 'premiere' }, { visite: 'suivante' }, { visite: 'suivante' }],
+    rapports: [
+      rapportScenario(propres, 950, 'webgl', relais('calcul', 'absent', 700, [['contexte', 150], ['nom du GPU', 110], ['premiere image', 47]])),
+      rapportScenario(propres, 300, 'webgl', relais('cache', 'lu', 250, [['contexte', 20], ['nom du GPU', 5], ['premiere image', 12]])),
+      rapportScenario(propres, 320, 'webgl', relais('cache', 'lu', 230, [['contexte', 25], ['nom du GPU', 4], ['premiere image', 14]])),
+    ],
+  },
+  // Repli : le webgl demandé a fini en Canvas 2D (rendu canvas, etape repli) ; JSON d'avant les visites, téléphone.
+  repli: {
+    v: 6,
+    cible: 'webview',
+    criteres: {},
+    touchers_vises: [],
+    notes: [],
+    rapports: [rapportScenario(propres, 500, 'canvas', relais(null, null, null, [['contexte', 30]], 'WebGL2 indisponible'))],
+  },
+};
+interface Stats {
+  mediane: number | null;
+  min: number | null;
+  max: number | null;
+  n: number;
+}
+interface ResumeScenario {
+  gestes: Record<string, Ligne & { gestes: number; rendu: string }>;
+  chargement_ms: { ok: boolean; max: number; par_visite: Record<string, Stats> };
+  relais_webgl: {
+    gpu: string[];
+    replis: { repetition: number; raison: string; logiciel: boolean }[];
+    par_visite: Record<string, { n: number; maillage: Record<string, number>; apres_affichage_ms: Stats; etapes_ms: Record<string, Stats>; plus_longue_etape: { nom: string; ms: number } }>;
+  } | null;
+}
+let scenario: Record<keyof typeof sc, ResumeScenario>;
+
+describe('driver.py resumer : scénario du driver, chargement et relais du webgl', () => {
+  beforeAll(() => {
+    const noms = Object.keys(sc) as (keyof typeof sc)[];
+    const chemins = noms.map((n) => {
+      const chemin = join(dossier, `scenario-${n}.json`);
+      writeFileSync(chemin, JSON.stringify(sc[n]));
+      return chemin;
+    });
+    const r = spawnSync('python3', [DRIVER, 'resumer', '--sec', '--json', ...chemins], { encoding: 'utf8' });
+    if (r.status !== 0) throw new Error(`driver.py resumer : code ${r.status}\n${r.stderr}\n${r.stdout}`);
+    const resumes = JSON.parse(r.stdout).resumes as { resume: ResumeScenario }[];
+    scenario = Object.fromEntries(noms.map((n, i) => [n, resumes[i]!.resume])) as typeof scenario;
+  });
+
+  it('le tour du monde a sa ligne (tourner) : seul à dépasser 3 à-coups/s en moyenne, sans geste qui saccade seul, NON ; la page (glisser) dirait OK', () => {
+    const g = scenario.tour.gestes;
+    expect(Object.keys(g).sort()).toEqual(['glisser', 'pincer', 'tourner']);
+    expect([g.pincer!.gestes, g.glisser!.gestes, g.tourner!.gestes]).toEqual([6, 5, 3]);
+    const tours = Array.from({ length: 3 }, () => statsGeste(propres.tourner, P60));
+    const glisses = Array.from({ length: 5 }, () => statsGeste(propres.glisser, P60));
+    expect(tours.some((s) => s.saccade)).toBe(false);
+    expect(g.tourner!.gestes_saccades).toBe(0);
+    expect(g.tourner!.acoups_par_s).toBeGreaterThan(3);
+    expect(g.tourner!.saccade_ok).toBe(sansSaccade(tours));
+    expect(g.tourner!.saccade_ok).toBe(false);
+    expect(g.glisser!.saccade_ok).toBe(true);
+    expect(g.pincer!.saccade_ok).toBe(true);
+    // Le panneau de la page range le tour du monde avec les glissés : OK.
+    expect(sansSaccade([...glisses, ...tours])).toBe(true);
+  });
+
+  it('chargement : première visite et suivantes à part, le critère sur toutes (première comprise)', () => {
+    const c = scenario.webgl.chargement_ms;
+    expect(c.par_visite.premiere).toMatchObject({ n: 1, max: 950 });
+    expect(c.par_visite.suivante).toMatchObject({ n: 2, min: 300, max: 320 });
+    expect(c.ok).toBe(true);
+    // JSON d'avant les visites : la répétition 1 du PC est une première visite (profil neuf).
+    expect(Object.keys(scenario.tour.chargement_ms.par_visite)).toEqual(['premiere']);
+    // … celle du téléphone, inconnue.
+    expect(Object.keys(scenario.repli.chargement_ms.par_visite)).toEqual(['inconnue']);
+  });
+
+  it('relais du webgl par visite : maillage calculé puis lu, apres_affichage_ms, étapes à surveiller', () => {
+    const r = scenario.webgl.relais_webgl!;
+    expect(r.gpu).toEqual(['ANGLE (essai)']);
+    expect(r.replis).toEqual([]);
+    const p = r.par_visite.premiere!;
+    const s = r.par_visite.suivante!;
+    expect(p.maillage).toEqual({ 'calcul/absent': 1 });
+    expect(s.maillage).toEqual({ 'cache/lu': 2 });
+    expect(p.apres_affichage_ms).toMatchObject({ n: 1, max: 700 });
+    expect(s.apres_affichage_ms).toMatchObject({ n: 2, min: 230, max: 250 });
+    expect(p.etapes_ms['contexte']).toMatchObject({ max: 150 });
+    expect(p.etapes_ms['nom du GPU']).toMatchObject({ max: 110 });
+    expect(p.etapes_ms['premiere image']).toMatchObject({ max: 47 });
+    expect(p.plus_longue_etape).toMatchObject({ nom: 'contexte', ms: 150 });
+    expect(scenario.tour.relais_webgl).toBeNull();
+  });
+
+  it('repli du webgl : relevé avec sa raison, lignes du Canvas de repli', () => {
+    const r = scenario.repli.relais_webgl!;
+    expect(r.replis).toEqual([{ repetition: 1, raison: 'WebGL2 indisponible', gpu: 'ANGLE (essai)', logiciel: true }]);
+    expect(Object.keys(scenario.repli.gestes).sort()).toEqual(['glisser', 'pincer', 'tourner']);
+    expect(scenario.repli.gestes.pincer!.rendu).toBe('canvas');
   });
 });
