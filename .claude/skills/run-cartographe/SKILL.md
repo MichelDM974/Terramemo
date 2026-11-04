@@ -263,14 +263,16 @@ Déroulé d'une séance avec le téléphone (l'ordre compte : les mesures
 d'abord, téléphone au calme, puis l'œil, panneau affiché) :
 1. préparer (ci-dessus), `serve --preview` sur le PC, arbre propre
    (`git status`) : le JSON note le commit mesuré ;
-2. mesurer Chrome dans les trois rendus, puis `apk --installer` et
-   mesurer l'APK dans les trois rendus (commandes ci-dessous) ; lire les
-   résumés, regarder les `[ ? ]` ;
+2. mesurer Chrome dans les quatre rendus (css, g, canvas, webgl), puis
+   `apk --installer` et mesurer l'APK dans les quatre (commandes
+   ci-dessous) ; lire les résumés, regarder les `[ ? ]`, et en webgl la
+   ligne du relais (première visite et suivantes) et un éventuel REPLI
+   (« Rendu webgl sur le téléphone » ci-dessous) ;
 3. « À l'œil », point 0 d'abord (le doigt monte-t-il l'écran à 120 Hz
    quand le driver ne le fait pas ?), puis les autres, dont la rotation
-   (point 2) ;
-4. commiter les JSON de `docs/mesures/j0/` et noter au registre ce que
-   l'œil a vu, rendu par rendu ; le verdict des mesures cite chaque ligne
+   (point 2) et le relais du webgl (point 8) ;
+4. commiter les JSON de `docs/mesures/j0/` (les `-repli` aussi) et noter
+   au registre ce que l'œil a vu, rendu par rendu ; le verdict des mesures cite chaque ligne
    (pincer, glisser, tourner = le tour du monde) de chaque critère, pas
    seulement le pincement (une fin lente peut n'être que sur le tour du
    monde) ; `adb shell svc power stayon false`.
@@ -280,9 +282,9 @@ socket DevTools, client WebSocket du driver) :
 
 ```bash
 python3 .claude/skills/run-cartographe/driver.py serve --preview        # en arrière-plan, sur le PC
-for r in css g canvas; do python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu $r; done
+for r in css g canvas webgl; do python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu $r; done
 python3 .claude/skills/run-cartographe/driver.py apk --installer        # APK de debug sur le téléphone
-for r in css g canvas; do python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu $r; done
+for r in css g canvas webgl; do python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu $r; done
 python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu canvas --projection pacifique
 ```
 
@@ -309,13 +311,52 @@ python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu
 - DevTools à la main : `chrome://inspect` sur le Chrome du PC (le
   forward du driver doit être retiré : `adb forward --remove-all`).
 
+#### Rendu webgl sur le téléphone
+
+Chaque mesure vide d'abord le stockage de l'origine (« Première visite »
+plus haut) : répétition 1 = première visite (maillage calculé par le
+Worker), les suivantes lisent le maillage gardé en IndexedDB. Le résumé
+en donne la ligne `[ — ] relais WebGL` ; le détail est dans
+`rapports[].webgl` (`EtatRelais`, `src/map/relais-webgl.ts`) :
+- `etape` : `webgl` (le WebGL a pris le relais), `repli` (Canvas 2D pour
+  de bon) ; `raison` : pourquoi le repli ; `gpu` : le processeur graphique
+  (`UNMASKED_RENDERER_WEBGL`) ; `logiciel` : WebGL refusé parce que
+  logiciel ;
+- `maillage.source` / `maillage.cache` : `calcul` / `absent` à la
+  première visite, `cache` / `lu` ensuite (`perime`, `erreur : …` : à
+  creuser) ; `maillage.ecrit` (« gardé (… ms) » ou l'erreur) ;
+  `maillage.worker` : `cle_ms`, `lecture_ms`, `analyse_ms`, `maillage_ms`,
+  `total_ms` ;
+- `temps.apres_affichage_ms` (du premier affichage en Canvas 2D au
+  relais), `temps.contexte_ms`, `compilation_ms`, `televersement_ms`, et
+  `temps.etapes[]` (`nom`, `a_ms`, `ms` : chaque tâche du fil principal,
+  « contexte », « nom du GPU », « deballage », « televersement N »,
+  « premiere image », « diagnostic » en repli).
+
+À surveiller (relecture de l'assemblage, sur le PC) : **« nom du GPU »**
+(une fois 110 ms au tout premier lancement du PC ; si elle est longue au
+premier lancement de l'APK, piste : ne lire le nom qu'après le relais,
+`lireGpu` de `src/map/relais-webgl.ts`) ;
+**« contexte »** (131 à 181 ms à froid sur le PC, avant le premier
+affichage) ; **« premiere image »** (47 ms à ×4 quand les triangles
+viennent d'être calculés : à découper seulement si elle dépasse 46 ms sur
+le téléphone, un gel). Toute étape ≥ 46 ms après le premier affichage
+fige la carte une image (gel) ; la ligne du relais donne la plus longue.
+
+**WebGL refusé** (REPLI au résumé : WebGL2 absent ou logiciel, shader
+refusé, contexte perdu) : le JSON est écrit quand même, suffixé `-repli`
+(champ `repli`, `webgl.raison`, `webgl.gpu`) ; son résumé est celui du
+Canvas 2D de repli (la carte complète, sans la carte allégée du rendu
+canvas). Noter la raison et le GPU au registre : sur ce téléphone, le
+webgl ne peut pas être jugé, seulement son repli.
+
 ### À l'œil, avec le téléphone (après les mesures)
 
 Noter chaque point (OK, ou ce qui est vu) dans le registre. Chrome
 (`http://localhost:8060` après `adb reverse tcp:8060 tcp:8060`, que le
 driver retire en fin de mesure, ou le site déployé) **puis** l'APK ; rendu
-changé dans ⚙ → Rendu (la page se recharge), les trois : `css`, `g`,
-`canvas`.
+changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
+`canvas`, `webgl`.
 
 0. **Le doigt et le driver voient-ils le même écran ?** ⚙ → « Afficher
    les mesures ». Pincer au doigt de l'Europe à la Suisse, puis glisser :
@@ -323,7 +364,10 @@ changé dans ⚙ → Rendu (la page se recharge), les trois : `css`, `g`,
    à-coup(s) ≥ 21 ms (x/s)[, G gel(s) ≥ 46 ms][ : NON, saccade] · période
    P ms » (P : la période du geste ; « NON » si ce geste seul saccade, et
    sur plusieurs gestes « saccade : glisser OK, pincer NON… », le verdict
-   par type comme le driver),
+   par type ; la page ne sait pas reconnaître un tour du monde fait au
+   doigt et le range dans glisser, quand le driver juge `tourner` à part :
+   leurs verdicts par type peuvent donc différer, **celui du driver fait
+   foi pour le J0**),
    « tenue 120 i/s T %, C i/s » et « ⚠ geste plus rapide que le repos : X Hz
    contre Y Hz » si elle change. Le faire dans Chrome
    puis dans l'APK, et comparer P à `stats.periode_geste_ms` des JSON du
@@ -337,20 +381,21 @@ changé dans ⚙ → Rendu (la page se recharge), les trois : `css`, `g`,
    baissent la tenue des 120 i/s (et comptent en « perdues » sur la période
    du geste, indicatif), mais ce ne sont pas des saccades de l'appli, et le
    compte d'à-coups (≥ 21 ms) ne les voit pas.
-1. **g / css / canvas pendant un pincement** : pincer de l'Europe entière
+1. **g / css / canvas / webgl pendant un pincement** : pincer de l'Europe entière
    jusqu'à la Suisse, doigts posés, puis lever. En css la couche entière
    est agrandie par le compositeur jusqu'au lever du doigt : carte floue,
    disques des pastilles et traits des frontières grossis avec le zoom,
    puis net d'un coup au lever (coût lu dans `fin.event_timing_ms`). En g :
    net tout du long, mais saccades possibles. En canvas : net tout du long
-   (redessinée à chaque image), carte allégée pendant le geste. Dire
-   lequel gêne le plus (tranche `RENDU_DEFAUT`, src/main.ts).
-2. **La carte qui tourne (canvas)** : au zoom 1 puis zoomé (Europe),
+   (redessinée à chaque image), carte allégée pendant le geste. En webgl :
+   net et complet tout du long (aucune carte allégée). Dire lequel gêne le
+   plus (tranche `RENDU_DEFAUT`, src/main.ts).
+2. **La carte qui tourne (canvas, webgl)** : au zoom 1 puis zoomé (Europe),
    glisser horizontalement, long et vite, plusieurs fois dans le même sens
    (le tour du monde), puis lentement. Le globe tourne-t-il sans à-coup,
    le point sous le doigt reste-t-il sous le doigt ? La **carte allégée**
-   se voit-elle pendant le mouvement (côtes simplifiées, petites îles qui
-   changent), et le passage à la carte complète au lever (saut, flou,
+   se voit-elle pendant le mouvement (canvas : côtes simplifiées, petites
+   îles qui changent), et le passage à la carte complète au lever (saut, flou,
    éclair) ? Les frontières (un pixel physique, `--frontiere-fine`) :
    trop marquées, trop fines ? Les hachures (Sahara occidental…) glissent
    sous la carte pendant le geste : gênant ? « Voir » dans la vue Toucher
@@ -372,10 +417,23 @@ changé dans ⚙ → Rendu (la page se recharge), les trois : `css`, `g`,
    batterie et boutons de navigation doivent rester **clairs** sur le fond
    sombre (`style: 'DARK'` du plugin SystemBars), pas sombres sur sombre.
    Remettre le thème d'avant.
-7. **Touchers au doigt** (les trois rendus) : micro-États (Vatican,
+7. **Touchers au doigt** (les quatre rendus) : micro-États (Vatican,
    Saint-Marin, Monaco) et Caraïbes au zoom 1 puis zoomés, dans la vue
    Toucher ; un glissé léger du doigt (moins de 10 px) doit compter comme
    toucher au point visé.
+8. **Le relais du webgl** (Chrome puis l'APK) : à l'ouverture, la carte
+   s'affiche en Canvas 2D puis le WebGL prend le relais. **Le passage se
+   voit-il** (saut, éclair, traits ou couleurs qui changent, image figée) ?
+   D'abord en **première visite** : effacer les données du site (Chrome :
+   paramètres du site, depuis l'icône à gauche de l'adresse ; APK :
+   Paramètres → Applications → Cartographe → Stockage → Effacer les
+   données ; dans Chrome, `?rendu=webgl&maillage=0` recalcule aussi le
+   maillage sans lire le cache), puis ouvrir en webgl : le maillage se calcule,
+   le relais tarde (~0,5 s sur le PC, plus sur le téléphone) ; glisser
+   pendant ce temps : la carte suit-elle, le relais casse-t-il le geste ?
+   Puis les **visites suivantes** (recharger) : relais plus rapide. Si le
+   driver a dit REPLI, faire un pincement et un tour du monde dans le
+   rendu de repli (Canvas 2D complet, sans carte allégée) : fluide ?
 
 ### Essai de saisie (clavier Samsung puis Gboard)
 
