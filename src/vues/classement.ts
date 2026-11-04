@@ -157,6 +157,7 @@ export function blocClassement(epreuve: string, titre: string, apresPartie?: (ps
       }
       garderPseudo(p);
       afficherPseudo();
+      derniere++; // une lecture en cours, d'avant la publication, ne s'affichera pas
       etat.textContent = T.publication;
       try {
         await publierTout(p);
