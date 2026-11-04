@@ -836,31 +836,32 @@ export class CarteCanvas implements CarteAffichee {
     this.hote.dataset.dessin = 'complet';
   }
 
-  /** Disques des pastilles (rayon constant à l'écran) et anneaux. */
+  /**
+   * Disques des pastilles (rayon constant à l'écran) et anneaux. Chaque disque
+   * est rempli puis bordé avant le suivant, qui le recouvre, comme les cercles
+   * du SVG et les instances du WebGL : remplis tous puis bordés tous, leurs
+   * bords passaient sur les disques voisins (en Europe au zoom 1, des anneaux
+   * noirs emmêlés). Une centaine de disques au plus à l'écran : deux appels
+   * chacun.
+   */
   private dessinerPastilles(ctx: CanvasRenderingContext2D): void {
     const { c } = this;
     const t = this.transfo;
     const coul = this.couleurs;
     const r = PASTILLE.rayon_visible_px;
-    const parCouleur = new Map<string, Path2D>();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = coul.bord;
     for (const p of this.pastilles) {
       if (!p.visible) continue;
       const [x, y] = versEcran(t, p.bx, p.by);
       if (x < -r || y < -r || x > c.l + r || y > c.h + r) continue;
-      const classes = this.marques.get(p.id);
       let couleur = coul.pastille;
-      for (const cl of classes ?? []) couleur = coul.marques[cl] ?? couleur;
-      let chemin = parCouleur.get(couleur);
-      if (!chemin) parCouleur.set(couleur, (chemin = new Path2D()));
-      chemin.moveTo(x + r, y);
-      chemin.arc(x, y, r, 0, TOUR);
-    }
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = coul.bord;
-    for (const [couleur, chemin] of parCouleur) {
+      for (const cl of this.marques.get(p.id) ?? []) couleur = coul.marques[cl] ?? couleur;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TOUR);
       ctx.fillStyle = couleur;
-      ctx.fill(chemin);
-      ctx.stroke(chemin);
+      ctx.fill();
+      ctx.stroke();
     }
     for (const a of this.anneaux) {
       const e = this.o.donnees.entites.find((en) => en.pays.id === a.id);
