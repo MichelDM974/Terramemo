@@ -70,7 +70,7 @@ export function panneauMesures(zone: HTMLElement, mesures: Mesures): HTMLElement
         : 'Chargement…',
       `Écran ${r.ecran.hz ?? '—'} Hz (${r.ecran.periode_ms ?? '—'} ms) · rendu ${r.rendu} · ${r.projection} · ${r.gestes.length} geste(s), ${r.touchers.length} toucher(s)`,
       g
-        ? `Geste ${g.type} k ${g.k_debut}→${g.k_fin} : ${g.stats.images} images, méd. ${g.stats.mediane_ms} · p95 ${g.stats.p95_ms} · max ${g.stats.max_ms} ms, ${g.stats.perdues} perdue(s) à ${g.stats.periode_ms ?? r.ecran.periode_ms ?? '—'} ms${g.stats.ecart_periode ? ` (⚠ repos ${r.ecran.periode_ms} ms)` : ''} · longues ${g.longues_images.nombre} · fin : script ${ms(g.fin.script_ms)}, fil principal ${ms(g.fin.image_ms)}, Event Timing ${ms(g.fin.event_timing_ms)} ms`
+        ? `Geste ${g.type} k ${g.k_debut}→${g.k_fin} : ${g.stats.images} images, méd. ${g.stats.mediane_ms} · p95 ${g.stats.p95_ms} · max ${g.stats.max_ms} ms, ${g.stats.perdues} perdue(s) à ${g.stats.periode_ms} ms${g.stats.ecart_periode ? ` (⚠ geste ${g.stats.periode_geste_ms} ms, repos ${r.ecran.periode_ms} ms)` : ''} · longues ${g.longues_images.nombre} · fin : script ${ms(g.fin.script_ms)}, fil principal ${ms(g.fin.image_ms)}, Event Timing ${g.fin.event_timing_etat === 'sous_seuil' ? '< 16' : ms(g.fin.event_timing_ms)} ms`
         : 'Geste : —',
       r.gestes.length > 1 ? resumeGestes(r.gestes) : '',
       t

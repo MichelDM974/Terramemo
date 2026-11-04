@@ -73,26 +73,33 @@ export function periodeGeste(iv: readonly number[]): number | null {
 }
 
 export interface StatsGeste extends StatsImages {
+  /** Période de l'écran estimée sur les intervalles du geste (bas centile) ; null sans intervalle. */
+  periode_geste_ms: number | null;
   /**
-   * Période estimée sur les intervalles du geste (bas centile), base du compte
-   * des images perdues de ce geste ; null sans intervalle (compte fait alors
-   * avec la période du repos).
+   * Base du compte des images perdues de ce geste : la plus courte de la
+   * période du geste et de celle du repos (celle du repos sans intervalle).
    */
-  periode_ms: number | null;
+  periode_ms: number;
   /** La période du geste s'écarte de plus de 25 % de celle du repos (écran à fréquence variable). */
   ecart_periode: boolean;
 }
 
 /**
- * Statistiques d'un geste comptées avec SA période : un écran à 60 Hz au repos
- * et 120 Hz pendant le geste (fréquence adaptative) ne compterait pas, avec la
- * période du repos, une image sautée à 120 Hz (16,7 ms < 25 ms).
+ * Statistiques d'un geste comptées sur la plus courte des deux périodes. Celle
+ * du repos seule ne compterait pas, sur un écran à 60 Hz au repos et 120 Hz
+ * pendant le geste (fréquence adaptative), une image sautée à 120 Hz (16,7 ms
+ * < 25 ms). Celle du geste seule ne verrait pas une appli tenue à 60 images
+ * par seconde sur un écran à 120 Hz (période 16,7 ms, 0 image perdue) :
+ * relecture du J0. Un écran qui ralentit vraiment pendant le geste compte donc
+ * ses images comme perdues ; ecart_periode le signale, à juger.
  */
 export function statsGeste(iv: readonly number[], periode_repos_ms: number): StatsGeste {
   const p = periodeGeste(iv);
+  const base = p == null ? periode_repos_ms : Math.min(p, periode_repos_ms);
   return {
-    ...statsImages(iv, p ?? periode_repos_ms),
-    periode_ms: p,
+    ...statsImages(iv, base),
+    periode_geste_ms: p,
+    periode_ms: arrondi(base, 2) ?? base,
     ecart_periode: p != null && Math.abs(p - periode_repos_ms) > ECART_PERIODE * periode_repos_ms,
   };
 }

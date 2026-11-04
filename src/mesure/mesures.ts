@@ -193,7 +193,7 @@ export class Mesures {
       intervalles_ms: iv,
       stats: statsGeste(iv, this.periode_ms ?? 1000 / 60),
       longues_images: { nombre: 0, max_ms: null, blocage_total_ms: 0 },
-      fin: { script_ms: r1(f.script_ms), image_ms: null, event_timing_ms: null },
+      fin: { script_ms: r1(f.script_ms), image_ms: null, event_timing_ms: null, event_timing_etat: 'sans_evenement_de_fin' },
     };
     this.gestes.push(geste);
     if (f.source && FINS.has(f.source.type)) this.finsGestes.set(geste, { nom: f.source.type, t_ms: f.source.timeStamp });
@@ -261,7 +261,11 @@ export class Mesures {
       return {
         ...g,
         stats: statsGeste(g.intervalles_ms, periode),
-        fin: { ...g.fin, event_timing_ms: et ? et.duree_ms : null },
+        fin: {
+          ...g.fin,
+          event_timing_ms: et ? et.duree_ms : null,
+          event_timing_etat: !src ? ('sans_evenement_de_fin' as const) : et ? ('mesure' as const) : this.capacites.event_timing ? ('sous_seuil' as const) : ('non_pris_en_charge' as const),
+        },
         longues_images: {
           nombre: recouvre.length,
           max_ms: recouvre.length ? Math.max(...recouvre.map((l) => l.duree_ms)) : null,

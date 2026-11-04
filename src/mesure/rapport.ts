@@ -113,9 +113,9 @@ export interface Geste {
   /** Intervalles entre images (requestAnimationFrame) du premier mouvement à la fin. */
   intervalles_ms: number[];
   /**
-   * Calculées avec stats.periode_ms, la période estimée sur les intervalles du
-   * geste (10e centile) ; avec ecran.periode_ms (16,7 ms si non mesurée) si
-   * le geste n'a aucun intervalle.
+   * Calculées avec stats.periode_ms, la plus courte de la période estimée sur
+   * les intervalles du geste (stats.periode_geste_ms, 10e centile) et de
+   * ecran.periode_ms (16,7 ms si non mesurée) : voir statsGeste.
    */
   stats: import('./stats').StatsGeste;
   /** Long Animation Frames qui recouvrent le geste. */
@@ -129,13 +129,19 @@ export interface Geste {
    *   rastérisation ni présentation : il sous-estime ce que l'on voit ;
    * - event_timing_ms : durée Event Timing (de l'entrée à la présentation de
    *   l'image) de l'événement qui finit le geste (touchend, pointerup ou
-   *   mouseup), rattachée au geste par son horodatage ; null si aucune entrée
-   *   (sous 16 ms, API absente, geste fini sans cet événement : molette, ou
-   *   lecture trop tôt). C'est le vrai coût de fin de geste : en mode css, la
-   *   transformation posée au SVG, la nouvelle peinture et la rastérisation de
-   *   toute la carte.
+   *   mouseup), rattachée au geste par son horodatage ; null si aucune entrée.
+   *   C'est le vrai coût de fin de geste : en mode css, la transformation posée
+   *   au SVG, la nouvelle peinture et la rastérisation de toute la carte ;
+   * - event_timing_etat : 'mesure', 'sous_seuil' (API présente, aucune entrée :
+   *   sous 16 ms, ou rapport lu trop tôt), 'non_pris_en_charge', ou
+   *   'sans_evenement_de_fin' (molette).
    */
-  fin: { script_ms: number; image_ms: number | null; event_timing_ms: number | null };
+  fin: {
+    script_ms: number;
+    image_ms: number | null;
+    event_timing_ms: number | null;
+    event_timing_etat: 'mesure' | 'sous_seuil' | 'non_pris_en_charge' | 'sans_evenement_de_fin';
+  };
 }
 
 export interface Toucher {

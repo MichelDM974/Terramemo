@@ -48,14 +48,28 @@ describe('statistiques des mesures', () => {
     expect(statsImages(iv, 16.7).perdues).toBe(0); // avec la seule période du repos : rien
     const s = statsGeste(iv, 16.7);
     expect(s.periode_ms).toBe(8.3);
+    expect(s.periode_geste_ms).toBe(8.3);
     expect(s.perdues).toBe(2);
     expect(s.ecart_periode).toBe(true);
+  });
+
+  it('repos à 120 Hz, appli tenue à 60 images par seconde : toutes perdues, jamais comptées sur 16,7 ms', () => {
+    const iv = Array(30).fill(16.7);
+    const s = statsGeste(iv, 8.33);
+    expect(s.periode_geste_ms).toBe(16.7);
+    expect(s.periode_ms).toBe(8.33);
+    expect(s.perdues).toBe(30);
+    expect(s.ecart_periode).toBe(true);
+  });
+
+  it('repos à 60 Hz, appli tenue à 30 images par seconde : toutes perdues', () => {
+    expect(statsGeste(Array(30).fill(33.3), 16.7)).toMatchObject({ periode_ms: 16.7, perdues: 30 });
   });
 
   it('même période au repos et pendant le geste : pas d’écart ; sans intervalle, la période du repos', () => {
     const s = statsGeste([16.6, 16.7, 16.8, 33.4, 16.7, 16.6], 16.7);
     expect(s.ecart_periode).toBe(false);
     expect(s.perdues).toBe(1);
-    expect(statsGeste([], 16.7)).toMatchObject({ periode_ms: null, ecart_periode: false, perdues: 0 });
+    expect(statsGeste([], 16.7)).toMatchObject({ periode_geste_ms: null, periode_ms: 16.7, ecart_periode: false, perdues: 0 });
   });
 });
