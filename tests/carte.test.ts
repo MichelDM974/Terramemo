@@ -214,6 +214,14 @@ describe('pick', () => {
     expect(pick(ctx, vx + 18, vy)).toMatchObject({ id: 'ITA', via: 'trace' });
   });
 
+  it('le centre de la France au zoom 1 : la France, malgré le disque du Luxembourg à ~5 px ; Andorre près de son disque', () => {
+    const ctx = contexte();
+    const [fx, fy] = ecran(ctx, entite('FRA').pays.point);
+    expect(pick(ctx, fx, fy)?.id).toBe('FRA');
+    const [ax, ay] = ecran(ctx, entite('AND').pays.point);
+    expect(pick(ctx, ax + 1, ay)?.id).toBe('AND');
+  });
+
   it('Paris zoomé : la France par son tracé', () => {
     const proj = creerProjection('monde', L, H);
     const ctx = contexte('monde', centrer(proj, PARIS, 20));
