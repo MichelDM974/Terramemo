@@ -6,6 +6,8 @@ import type { Feature, Geometry, MultiPolygon, Polygon, Position } from 'geojson
 import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
+import { ILE_LEGERE_KM } from '../src/map/carte-canvas';
+import { etendueKm } from '../src/map/dessin';
 
 // Données du J0 (geodata/build.mjs) : tests sans réseau sur les fichiers versionnés.
 
@@ -309,7 +311,7 @@ describe('géométries (monde.topo.json)', () => {
     expect(gzipSync(topoTexte).length).toBeLessThanOrEqual(520_000);
   });
 
-  it('carte allégée (rendu Canvas pendant un geste) : ≤ 60 000 octets compressés, mêmes ids, objets pays et contestees', () => {
+  it('carte allégée (rendu Canvas pendant un geste) : ≤ 60 000 octets compressés, mêmes ids, objets pays et contestees ; vide seulement sans grand polygone', () => {
     const texte = readFileSync('public/geo/monde-leger.topo.json', 'utf8');
     expect(gzipSync(texte).length).toBeLessThanOrEqual(60_000);
     const leger = JSON.parse(texte) as Topology<{ pays: GeometryCollection<Props>; contestees: GeometryCollection<Props> }>;
@@ -317,7 +319,22 @@ describe('géométries (monde.topo.json)', () => {
     const ids = (o: GeometryCollection<Props>) => o.geometries.map((g) => (g.properties as Props | undefined)?.id);
     expect(ids(leger.objects.pays)).toEqual(ids(topo.objects.pays));
     expect(ids(leger.objects.contestees)).toEqual(ids(topo.objects.contestees));
-    for (const f of feature(leger, leger.objects.pays).features) expect(polys(f.geometry).length, f.properties.id).toBeGreaterThan(0);
+    // Elle ne garde que les polygones d'au moins 40 km (geodata/build.mjs) : une
+    // entité n'y est vide que si tous les siens sont plus petits (le rendu prend
+    // alors ses îles dans la complète, sous ILE_LEGERE_KM, carte-canvas.ts).
+    const vides: string[] = [];
+    for (const f of feature(leger, leger.objects.pays).features) {
+      if (polys(f.geometry).length) continue;
+      vides.push(f.properties.id);
+      for (const poly of polys(formes.get(f.properties.id)?.geometry ?? null)) {
+        const lons = (poly[0] ?? []).map((p) => p[0] ?? 0);
+        const lats = (poly[0] ?? []).map((p) => p[1] ?? 0);
+        expect(etendueKm(Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)), f.properties.id).toBeLessThan(ILE_LEGERE_KM);
+      }
+    }
+    // Les micro-États et les archipels de petites îles, jamais un pays continental.
+    expect(vides).toEqual(expect.arrayContaining(['VAT', 'MCO', 'MDV']));
+    expect(vides).not.toContain('FRA');
   });
 
   it('zones contestées : ids uniques, non vides, entités contenantes connues', () => {

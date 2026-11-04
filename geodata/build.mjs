@@ -41,11 +41,17 @@ const SEUIL_MICRO_KM2 = 1000; // plus grand polygone sous ce seuil : pastille se
 const SIMPLIFICATION = 'visvalingam interval=2000 keep-shapes'; // 2 km
 const QUANTIFICATION = 1e6;
 // Carte allégée du rendu Canvas, tracée à chaque image pendant un geste (la complète
-// au repos) : chaque entité simplifiée d'un bloc, ses îles plus petites que la
-// tolérance disparaissent (keep-shapes garde son plus grand polygone : aucun id ne
-// manque). Au zoom 1 du téléphone, 1 px vaut ~100 km : 15 km n'y change rien.
+// au repos). Au zoom 1 du téléphone, 1 px vaut ~100 km : 15 km n'y change rien.
+// Simplifiée d'un bloc par entité, elle perdait les îles sous la tolérance (573
+// polygones gardés sur 4 274 : le Canada arctique, l'Indonésie, les Maldives
+// disparaissaient pendant le geste). Elle ne garde donc que les polygones d'au moins
+// ILE_LEGERE_KM (plus grand côté de l'emprise, etendueKm), chacun simplifié à part
+// comme pour la complète (keep-shapes le garde au pire en triangle) ; le rendu
+// reprend les plus petits dans la carte complète (carte-canvas.ts, ILE_LEGERE_KM =
+// 50 : 10 km de recouvrement). Tous gardés, elle pesait 119 Ko compressés au lieu de 52.
 const SIMPLIFICATION_LEGERE = process.env.LEGER ?? 'visvalingam interval=15000 keep-shapes';
 const QUANTIFICATION_LEGERE = 1e5;
+const ILE_LEGERE_KM = 40;
 
 // --- Sources ----------------------------------------------------------------
 
@@ -311,6 +317,21 @@ function polygones(geom) {
       ? anneaux.map((r) => [...r].reverse())
       : anneaux,
   );
+}
+
+/**
+ * Plus grand côté (km) de l'emprise d'un anneau : longitudes × cos de la latitude
+ * moyenne, ou latitudes. Même calcul que src/map/dessin.ts (etendueKm).
+ */
+function etendueKm(anneau) {
+  let o = Infinity, e = -Infinity, s = Infinity, n = -Infinity;
+  for (const [x, y] of anneau) {
+    if (x < o) o = x;
+    if (x > e) e = x;
+    if (y < s) s = y;
+    if (y > n) n = y;
+  }
+  return Math.max((e - o) * Math.cos(((s + n) / 2) * (Math.PI / 180)), n - s) * 111.2;
 }
 
 /** Polygones (tableaux d'anneaux) d'une géométrie déjà dans le sens de d3. */
@@ -643,25 +664,29 @@ async function main() {
     });
   }
 
-  // Carte allégée : les entités entières, pas leurs polygones un à un (voir plus haut).
-  const entiere = (items) =>
-    JSON.stringify({
-      type: 'FeatureCollection',
-      features: items.map((x) => ({ type: 'Feature', properties: { id: x.id }, geometry: x.geojson.geometry })),
-    });
+  // Carte allégée : les polygones d'au moins ILE_LEGERE_KM, un à un (voir plus haut).
+  // Une entité qui n'en a aucun (micro-État, archipel de petites îles) y est vide
+  // (type null) : le rendu prend toutes ses îles dans la complète.
+  const grandes = (items) =>
+    JSON.stringify({ type: 'FeatureCollection', features: parties(items).filter((f) => etendueKm(f.geometry.coordinates[0]) >= ILE_LEGERE_KM) });
   const sortieLegere = await mapshaper.applyCommands(
     `-i pays.json contestees.json combine-files ` +
       `-simplify ${SIMPLIFICATION_LEGERE} ` +
       `-o monde-leger.topo.json format=topojson quantization=${QUANTIFICATION_LEGERE}`,
-    { 'pays.json': entiere(tous), 'contestees.json': entiere(contestees) },
+    { 'pays.json': grandes(tous), 'contestees.json': grandes(contestees) },
   );
   const topoLeger = JSON.parse(String(sortieLegere['monde-leger.topo.json']));
-  for (const [nom, items] of [
-    ['pays', tous],
-    ['contestees', contestees],
+  if (!topoLeger.objects.pays || !topoLeger.objects.contestees) echec('carte allégée : objets pays/contestees absents');
+  topoLeger.objects.pays.geometries = regrouper(topoLeger.objects.pays.geometries, tous);
+  topoLeger.objects.contestees.geometries = regrouper(topoLeger.objects.contestees.geometries, contestees);
+  for (const [items, geoms] of [
+    [tous, topoLeger.objects.pays.geometries],
+    [contestees, topoLeger.objects.contestees.geometries],
   ]) {
-    const ids = (topoLeger.objects[nom]?.geometries ?? []).filter((g) => g.type).map((g) => g.properties.id);
-    if (ids.join() !== items.map((x) => x.id).join()) echec(`carte allégée : ids de ${nom} différents de la carte complète`);
+    items.forEach((x, i) => {
+      const n = polysDe(x.geojson.geometry).filter((poly) => etendueKm(poly[0]) >= ILE_LEGERE_KM).length;
+      if (nParties(geoms[i]) !== n) echec(`carte allégée : ${x.id}, ${nParties(geoms[i])} polygones sur ${n}`);
+    });
   }
   const topoLegerTexte = JSON.stringify(topoLeger);
 
@@ -770,7 +795,7 @@ async function main() {
     outil: 'mapshaper 0.6.110',
     simplification: `-simplify ${SIMPLIFICATION}, chaque polygone comme une forme à part (aucune île perdue), regroupés par id`,
     quantification: QUANTIFICATION,
-    carte_allegee: `monde-leger.topo.json : -simplify ${SIMPLIFICATION_LEGERE}, chaque entité d'un bloc, quantification ${QUANTIFICATION_LEGERE}`,
+    carte_allegee: `monde-leger.topo.json : polygones d'au moins ${ILE_LEGERE_KM} km (plus grand côté de l'emprise), -simplify ${SIMPLIFICATION_LEGERE} chacun à part, regroupés par id, quantification ${QUANTIFICATION_LEGERE}`,
     // Empreintes des entrées tenues à la main : tests/donnees.test.ts les compare aux
     // fichiers, la CI échoue donc si l'on change le script ou la liste sans relancer.
     entrees: {

@@ -24,6 +24,16 @@
 // région visible (vue.regionVisible) ; un sommet à moins de SEUIL_PX du
 // précédent tracé est sauté (au zoom 1, des milliers de sommets tombent dans
 // le même pixel).
+//
+// Pendant un mouvement (sommets sautés sous SEUIL_MOUVEMENT_PX), une île de
+// moins d'un pixel ou deux se réduisait à un segment ou à un point, sans aire :
+// elle disparaissait pendant le geste et revenait au lâcher. Une partie de
+// moins de TAILLE_POINT_PX (emprise majorée, sans parcourir ses sommets) ou
+// dont le contour s'effondre devient donc un point (tracerPoint). Une partie
+// trop petite pour se voir même au repos (moins de TAILLE_MIN_PX) est sautée.
+// Au zoom 1, la carte allégée trace ainsi ~950 points (les îles de 0,4 à
+// 2 px) : sur le PC (chargé par ailleurs, chiffres bruités), son image passe
+// de 0,8 à 1,0 ms de script, de 2,4-3,5 à 4 ms au processeur ralenti 4×.
 import type { Position } from 'geojson';
 import type { Forme } from './types';
 import { facteurG, normaliserLon, ordonneeBrute, rencontre, type Cadre, type Region, type VueGlobe } from './vue';
@@ -32,6 +42,14 @@ const RAD = Math.PI / 180;
 /** Écart minimal (px, somme des écarts en x et en y) entre deux sommets tracés : au repos, en mouvement. */
 export const SEUIL_PX = 0.5;
 export const SEUIL_MOUVEMENT_PX = 1;
+/**
+ * Pendant un mouvement, une partie dont l'emprise à l'écran (majorée) fait
+ * moins de ce côté n'est pas tracée : au repos, ses sommets tombent à moins de
+ * SEUIL_PX les uns des autres et son tracé n'a pas d'aire non plus.
+ */
+export const TAILLE_MIN_PX = 0.4;
+/** Pendant un mouvement, une partie de moins de ce côté (emprise majorée) est un point. */
+export const TAILLE_POINT_PX = 2;
 /** Marge autour de l'écran (px) : région visible et sommets hors de l'écran (traits, cordes entre sommets). */
 export const MARGE_PX = 4;
 /** Pas du contour de l'ovale : nombre de segments par bord sur la bande visible. */
@@ -48,6 +66,16 @@ export interface Partie {
   anneaux: Float64Array[];
   points: number;
   /**
+   * Côté de l'emprise à l'écran au facteur K = 1 (px / K), majoré : écart de
+   * longitude × G le plus grand sur la bande, plus le cisaillement d'Equal
+   * Earth au bord de l'ovale (π × écart de G), ou hauteur.
+   */
+  taille: number;
+  /** Plus grand côté de l'emprise en km (longitudes × cos de la latitude moyenne) : la carte allégée prend les îles en dessous dans la complète. */
+  km: number;
+  /** Centre de l'emprise : λ (radians), G(φ), ordonnée brute ; le point d'un contour effondré. */
+  centre: [number, number, number];
+  /**
    * Des côtés de la partie suivent l'antiméridien ou un pôle : coutures de
    * Natural Earth (la Russie et les Fidji coupées à 180°, l'Antarctique
    * refermé par le pôle). Une fois la carte tournée, elles passent au milieu
@@ -63,8 +91,13 @@ function estCouture(a: Position, b: Position): boolean {
   return Math.abs(pa) >= 90 - EPS && pa === pb;
 }
 
-/** Les parties d'une forme, précalculées. */
-export function preparer(forme: Forme): Partie[] {
+/**
+ * Les parties d'une forme, précalculées ; marge (px / K) : ajoutée à leur
+ * taille (carte allégée, carte-canvas.ts). Toutes les parties ont la même
+ * forme d'objet : des copies étendues ({ ...p }) en donnaient une seconde, et
+ * le tracé de chaque image, devenu polymorphe, coûtait le double.
+ */
+export function preparer(forme: Forme, marge = 0): Partie[] {
   const g = forme.geometry;
   const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
   return polys.map((coordinates) => {
@@ -89,19 +122,37 @@ export function preparer(forme: Forme): Partie[] {
       points += anneau.length;
       return a;
     });
+    const km = etendueKm(o, s, e, n);
     // Un polygone qui fait le tour du globe (l'Antarctique) entoure le pôle.
     if (e - o > 359) {
       if (s < -60) s = -90;
       if (n > 60) n = 90;
     }
-    return { o, s, e, n, anneaux, points, couture };
+    const gMax = facteurG(s > 0 ? s : n < 0 ? n : 0);
+    const gMin = facteurG(Math.max(Math.abs(s), Math.abs(n)));
+    const taille = Math.max((e - o) * RAD * gMax + Math.PI * (gMax - gMin), Math.abs(ordonneeBrute(n) - ordonneeBrute(s))) + marge;
+    const phi = (s + n) / 2;
+    const centre: [number, number, number] = [((o + e) / 2) * RAD, facteurG(phi), ordonneeBrute(phi)];
+    return { o, s, e, n, anneaux, points, couture, taille, km, centre };
   });
 }
+
+/**
+ * Plus grand côté (km) d'une emprise en degrés : même calcul que
+ * geodata/build.mjs (etendueKm), qui ne met dans la carte allégée que les
+ * polygones d'au moins ILE_LEGERE_KM (carte-canvas.ts).
+ */
+export function etendueKm(o: number, s: number, e: number, n: number): number {
+  return Math.max((e - o) * Math.cos(((s + n) / 2) * RAD), n - s) * KM_PAR_DEGRE;
+}
+const KM_PAR_DEGRE = 111.2;
 
 /** Ce que le tracé demande d'un contexte (CanvasRenderingContext2D en a davantage). */
 export interface ContexteTrace {
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
+  /** Sous-chemin fermé d'un rectangle (Path2D.rect) : les points des contours effondrés. */
+  rect(x: number, y: number, l: number, h: number): void;
 }
 
 /** Ce qu'une image partage entre toutes les parties tracées, et ses compteurs. */
@@ -112,17 +163,30 @@ export interface ImageTrace {
   K: number;
   cx: number;
   y0: number;
+  /** Image d'un mouvement : seuil SEUIL_MOUVEMENT_PX, parties minuscules sautées, contours effondrés en points. */
+  mouvement: boolean;
   /** Sommets plus proches du dernier tracé (px) : sautés. */
   seuil: number;
-  /** Parties tracées, sommets parcourus, sommets émis (moveTo et lineTo), copies d'un tour. */
+  /** Parties tracées, sommets parcourus, sommets émis (moveTo et lineTo), copies d'un tour, points, parties trop petites sautées. */
   parties: number;
   sommets: number;
   emis: number;
   copies: number;
+  points: number;
+  minuscules: number;
+  /** Par chemin, pixels (x + 65 536 · y) qui ont un point dans cette image : 1, ou PIXEL_PLEIN s'il les couvre tous (tracerPoint). */
+  pixels: Map<ContexteTrace, Map<number, number>>;
 }
 
-export function image(v: VueGlobe, c: Cadre, region: Region, seuil = SEUIL_PX): ImageTrace {
-  return { v, c, region, K: v.k * c.s, cx: c.l / 2, y0: v.k * c.ty + v.y, seuil, parties: 0, sommets: 0, emis: 0, copies: 0 };
+export function image(v: VueGlobe, c: Cadre, region: Region, mouvement = false): ImageTrace {
+  const seuil = mouvement ? SEUIL_MOUVEMENT_PX : SEUIL_PX;
+  return { v, c, region, K: v.k * c.s, cx: c.l / 2, y0: v.k * c.ty + v.y, mouvement, seuil, parties: 0, sommets: 0, emis: 0, copies: 0, points: 0, minuscules: 0, pixels: new Map() };
+}
+
+/** Décalage (radians) qui met le milieu d'une partie à moins de 180° du centre. */
+function decalageMilieu(p: Partie, r: number): number {
+  const milieu = (p.o + p.e) / 2;
+  return (normaliserLon(milieu - r) - milieu) * RAD;
 }
 
 /**
@@ -141,7 +205,14 @@ export function decalages(p: Partie, r: number): number[] {
 /** La partie passe-t-elle la coupure (deux copies, sommets ramenés sur le bord) ? */
 export const passeCoupure = (p: Partie, r: number): boolean => decalages(p, r).length > 1;
 
-export function visible(im: ImageTrace, p: Partie): boolean {
+/** Partie sautée pendant un mouvement : moins de TAILLE_MIN_PX (comptée dans im.minuscules). */
+export function minuscule(im: ImageTrace, p: Partie): boolean {
+  if (!im.mouvement || im.K * p.taille >= TAILLE_MIN_PX) return false;
+  im.minuscules++;
+  return true;
+}
+
+export function visible(im: ImageTrace, p: { o: number; s: number; e: number; n: number }): boolean {
   return rencontre(p.o, p.s, p.e, p.n, im.region);
 }
 
@@ -154,7 +225,11 @@ const BAS = 8;
 /**
  * Trace une partie visible (sans beginPath ni remplissage). En mode
  * « contour », les coutures d'une partie sont sautées par des moveTo (à
- * tracer seulement : un remplissage fermerait chaque morceau).
+ * tracer seulement : un remplissage fermerait chaque morceau). Pendant un
+ * mouvement, une partie de moins de TAILLE_MIN_PX est sautée ; une partie de
+ * moins de TAILLE_POINT_PX, ou dont le contour extérieur est réduit par les
+ * sommets sautés à moins de trois sommets (sans aire), devient un point
+ * (tracerPoint).
  *
  * Deux économies, sans rien changer de ce que l'écran montre :
  * - un sommet à moins de SEUIL_PX du dernier tracé est sauté ;
@@ -174,6 +249,10 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
   const yh = -MARGE_PX;
   const yb = im.c.h + MARGE_PX;
   const code = (x: number, y: number) => (x < x0 ? GAUCHE : x > x1 ? DROITE : 0) | (y < yh ? HAUT : y > yb ? BAS : 0);
+  if (im.mouvement && K * p.taille < TAILLE_POINT_PX) {
+    if (!minuscule(im, p)) tracerPoint(ctx, im, p, decalageMilieu(p, im.v.r), x0, x1, yh, yb);
+    return;
+  }
   const sauter = contour && p.couture;
   const ds = decalages(p, im.v.r);
   const borner = ds.length > 1;
@@ -181,10 +260,12 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
   im.parties++;
   im.copies += ds.length - 1;
   for (const delta of ds) {
-    for (const a of p.anneaux) {
+    for (let r = 0; r < p.anneaux.length; r++) {
+      const a = p.anneaux[r] as Float64Array;
       const n = a.length;
       if (n < 9) continue;
       im.sommets += n / 3;
+      const emis0 = im.emis;
       let l0 = (a[0] as number) + delta;
       if (borner) l0 = l0 > PI ? PI : l0 < -PI ? -PI : l0;
       let lx = cx + K * l0 * (a[1] as number);
@@ -240,10 +321,47 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
         ctx.lineTo(ax, ay);
         im.emis++;
       }
+      // Contour extérieur effondré (moveTo et deux lineTo au plus : un segment) : un point, s'il est à l'écran.
+      if (im.mouvement && r === 0 && im.emis - emis0 <= 3) tracerPoint(ctx, im, p, delta, x0, x1, yh, yb);
     }
   }
 }
 
+/**
+ * Un carré centré sur le centre de l'emprise d'une partie (copie décalée de
+ * delta), du côté de son emprise à l'écran, un pixel (px CSS) au plus, s'il
+ * est dans l'écran élargi. Un carré d'un pixel entier rendait les îles de
+ * moins d'un pixel plus visibles pendant le geste qu'au repos (Polynésie au
+ * zoom 4 : des points qui s'allument au toucher). Un seul point par pixel et
+ * par chemin (un pays marqué a le sien) : le second qui tombe dans un pixel
+ * le remplit en entier (il couvre les deux centres), les suivants n'ajoutent
+ * rien (au zoom 1, des îles par dizaines dans le même pixel).
+ */
+function tracerPoint(ctx: ContexteTrace, im: ImageTrace, p: Partie, delta: number, x0: number, x1: number, yh: number, yb: number): void {
+  const [lc, gc, yc] = p.centre;
+  const l = Math.max(-Math.PI, Math.min(Math.PI, lc + delta));
+  const x = im.cx + im.K * l * gc;
+  const y = im.y0 - im.K * yc;
+  if (x < x0 || x > x1 || y < yh || y > yb) return;
+  let pixels = im.pixels.get(ctx);
+  if (!pixels) im.pixels.set(ctx, (pixels = new Map()));
+  const [px, py] = [Math.floor(x), Math.floor(y)];
+  const cle = px + 65_536 * py;
+  const deja = pixels.get(cle);
+  if (deja === PIXEL_PLEIN) return;
+  const cote = Math.min(1, im.K * p.taille);
+  if (deja === undefined && cote < 1) {
+    pixels.set(cle, 1);
+    ctx.rect(x - cote / 2, y - cote / 2, cote, cote);
+  } else {
+    pixels.set(cle, PIXEL_PLEIN);
+    ctx.rect(px, py, 1, 1);
+  }
+  im.emis++;
+  im.points++;
+}
+
+const PIXEL_PLEIN = 2;
 const Y_POLE = ordonneeBrute(90);
 
 /**

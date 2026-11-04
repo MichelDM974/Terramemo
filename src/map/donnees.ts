@@ -74,7 +74,12 @@ export async function chargerDonnees(base = '/geo/'): Promise<{ donnees: Donnees
   };
 }
 
-/** Formes de la carte allégée (monde-leger.topo.json), par id : les mêmes que la complète, moins de sommets. */
+/**
+ * Formes de la carte allégée (monde-leger.topo.json), par id : les polygones
+ * d'au moins 40 km de la complète, moins de sommets. Une entité sans aucun
+ * (micro-État, archipel de petites îles) n'y est pas : le rendu prend ses îles
+ * dans la complète (carte-canvas.ts, calqueLeger).
+ */
 export interface FormesLegeres {
   pays: Map<string, Forme>;
   zones: Map<string, Forme>;

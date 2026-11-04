@@ -17,11 +17,14 @@
 // Dessin : une fois par image au plus (requestAnimationFrame), quand la vue
 // change ; la carte allégée pendant un mouvement si la complète a trop de
 // sommets visibles, la complète au repos (redessinée dans la fin du geste).
+// La carte allégée ne garde que les polygones d'au moins ILE_LEGERE_KM ; les
+// îles plus petites y sont celles de la complète (peu de sommets chacune), si
+// bien qu'aucune île visible au repos ne disparaît pendant le geste.
 import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
-import { image, MARGE_PX, preparer, SEUIL_MOUVEMENT_PX, SEUIL_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
-import { versEcran } from './geo';
+import { image, MARGE_PX, minuscule, preparer, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
+import { RAYON_TERRE_KM, versEcran } from './geo';
 import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
@@ -60,19 +63,115 @@ export const BUDGET_SOMMETS = 20_000;
 /** Fin d'un geste de molette : sans nouvel événement pendant ce délai (comme d3-zoom). */
 const FIN_MOLETTE_MS = 150;
 
+/**
+ * Îles de la carte complète reprises dans l'allégée : celles dont le plus
+ * grand côté fait moins de ce nombre de km. geodata/build.mjs ne met dans
+ * monde-leger.topo.json que les polygones d'au moins 40 km (chacun simplifié
+ * à part, aucun ne s'y perd) : entre 40 et 50 km, une île est dans les deux
+ * (dessinée deux fois, au même endroit), ce qui absorbe l'écart entre les
+ * emprises mesurées par le build (géométrie source) et ici (simplifiée à
+ * 2 km). Les 3 719 polygones de moins de 50 km n'ont que 22 700 sommets ; au
+ * zoom 1, presque tous font moins de TAILLE_MIN_PX et sont sautés.
+ */
+export const ILE_LEGERE_KM = 50;
+/** Majoration de la taille (px / K) d'une partie de la carte allégée : 2 × 15 km / rayon de la Terre. */
+const MARGE_LEGERE = (2 * 15) / RAYON_TERRE_KM;
+
+/**
+ * Les petites îles d'une liste de parties (à partir de l'indice de, triées
+ * par taille décroissante) : leur emprise commune et la plus grande taille.
+ */
+export interface Groupe {
+  de: number;
+  o: number;
+  s: number;
+  e: number;
+  n: number;
+  taille: number;
+}
+
 /** Les parties précalculées d'une carte, alignées sur donnees.entites et donnees.contestees. */
 export interface Calque {
   pays: Partie[][];
   zones: Partie[][];
   sommets: number;
+  /** Carte allégée : le groupe des petites îles de chaque liste (null : aucune). */
+  groupes?: { pays: (Groupe | null)[]; zones: (Groupe | null)[] };
 }
 
-export function calque(donnees: DonneesCarte, formes?: { pays: Map<string, Forme>; zones: Map<string, Forme> }): Calque {
-  const pays = donnees.entites.map((e) => preparer(formes?.pays.get(e.pays.id) ?? e.forme));
-  const zones = donnees.contestees.map((z) => preparer(formes?.zones.get(z.forme.properties.id) ?? z.forme));
+function compter(pays: Partie[][], zones: Partie[][]): Calque {
   let sommets = 0;
   for (const ps of [...pays, ...zones]) for (const p of ps) sommets += p.points;
   return { pays, zones, sommets };
+}
+
+/**
+ * Appelle f(partie, indice de la liste) pour chaque partie à tracer : ni
+ * minuscule (pendant un mouvement) ni hors de l'écran. Les petites îles d'une
+ * liste de la carte allégée sont sautées d'un bloc si leur emprise commune est
+ * hors de l'écran ou leur plus grande minuscule, et la première minuscule
+ * arrête la liste (triée par taille) plutôt que de tester une à une ses
+ * 3 700 îles de moins de 50 km : tracé JS de l'allégée sur le PC (Node, sans
+ * Canvas), 0,50 → 0,41 ms au zoom 1, 0,22 → 0,08 ms zoomé sur la Polynésie.
+ */
+export function parcourir(im: ImageTrace, listes: Partie[][], groupes: (Groupe | null)[] | undefined, f: (p: Partie, i: number) => void): void {
+  for (let i = 0; i < listes.length; i++) {
+    const ps = listes[i] as Partie[];
+    const g = groupes?.[i] ?? null;
+    const de = g ? g.de : ps.length;
+    const fin = g && ((im.mouvement && im.K * g.taille < TAILLE_MIN_PX) || !visible(im, g)) ? de : ps.length;
+    for (let j = 0; j < fin; j++) {
+      const p = ps[j] as Partie;
+      if (minuscule(im, p)) {
+        if (j >= de) break;
+        continue;
+      }
+      if (visible(im, p)) f(p, i);
+    }
+  }
+}
+
+export function calque(donnees: DonneesCarte): Calque {
+  return compter(
+    donnees.entites.map((e) => preparer(e.forme)),
+    donnees.contestees.map((z) => preparer(z.forme)),
+  );
+}
+
+/**
+ * La carte allégée (formes de monde-leger.topo.json), complétée des îles de
+ * moins de ILE_LEGERE_KM de la complète (les mêmes parties, partagées). Une
+ * entité sans forme allégée (toutes ses îles sous 40 km) n'a que celles-là.
+ */
+export function calqueLeger(donnees: DonneesCarte, complet: Calque, formes: { pays: Map<string, Forme>; zones: Map<string, Forme> }): Calque {
+  const petites = (ps: Partie[] | undefined) => (ps ?? []).filter((p) => p.km < ILE_LEGERE_KM).sort((a, b) => b.taille - a.taille);
+  // Une île réduite en triangle peut être plus petite que l'île : sa taille est
+  // majorée de la tolérance de la simplification (15 km, comptée deux fois la
+  // longueur à l'écran d'un arc de 15 km au pire des échelles d'Equal Earth),
+  // pour qu'elle ne soit jamais sautée là où l'île se verrait.
+  const siennes = (f: Forme | undefined) => (f ? preparer(f, MARGE_LEGERE) : []);
+  const listes = (fs: (Forme | undefined)[], completes: Partie[][]) => {
+    const parties: Partie[][] = [];
+    const groupes: (Groupe | null)[] = [];
+    fs.forEach((f, i) => {
+      const grandes = siennes(f);
+      const ps = petites(completes[i]);
+      parties.push([...grandes, ...ps]);
+      if (!ps.length) return groupes.push(null);
+      const g: Groupe = { de: grandes.length, o: Infinity, s: Infinity, e: -Infinity, n: -Infinity, taille: ps[0]?.taille ?? 0 };
+      for (const p of ps) {
+        g.o = Math.min(g.o, p.o);
+        g.s = Math.min(g.s, p.s);
+        g.e = Math.max(g.e, p.e);
+        g.n = Math.max(g.n, p.n);
+      }
+      groupes.push(g);
+    });
+    return { parties, groupes };
+  };
+  const pays = listes(donnees.entites.map((e) => formes.pays.get(e.pays.id)), complet.pays);
+  const zones = listes(donnees.contestees.map((z) => formes.zones.get(z.forme.properties.id)), complet.zones);
+  return { ...compter(pays.parties, zones.parties), groupes: { pays: pays.groupes, zones: zones.groupes } };
 }
 
 /** Sommets des parties visibles : le coût du tracé de ce calque. */
@@ -145,7 +244,7 @@ export class CarteCanvas implements CarteAffichee {
   /** Vol de montrer() en cours, avancé par l'image du dessin (une seule boucle d'images). */
   private vol: { interp: (u: number) => number[]; duree: number; t0: number | null; cible: VueGlobe } | null = null;
   /** Dernier dessin : compteurs, pour le pilote et les mesures. */
-  dernier: { ms: number; trace_ms: number; leger: boolean; parties: number; sommets: number; emis: number; copies: number } | null = null;
+  dernier: { ms: number; trace_ms: number; leger: boolean; parties: number; sommets: number; emis: number; copies: number; points: number; minuscules: number } | null = null;
 
   constructor(private readonly o: OptionsCarte & { leger?: Promise<{ pays: Map<string, Forme>; zones: Map<string, Forme> } | null> }) {
     this.hote = o.hote;
@@ -206,7 +305,8 @@ export class CarteCanvas implements CarteAffichee {
     this.observateur = new ResizeObserver(() => this.redimensionner());
     void o.leger?.then((formes) => {
       if (!formes) return;
-      this.leger = calque(this.o.donnees, formes);
+      this.complet ??= calque(this.o.donnees);
+      this.leger = calqueLeger(this.o.donnees, this.complet, formes);
     });
   }
 
@@ -562,7 +662,7 @@ export class CarteCanvas implements CarteAffichee {
     this.image = 0;
     const t0 = performance.now();
     const { ctx, c, v } = this;
-    const im = image(v, c, regionVisible(v, c, MARGE_PX), this.enMouvement ? SEUIL_MOUVEMENT_PX : SEUIL_PX);
+    const im = image(v, c, regionVisible(v, c, MARGE_PX), this.enMouvement);
     const leger = this.enMouvement && this.leger !== null && sommetsVisibles(im, this.complet) > BUDGET_SOMMETS;
     const cq = leger && this.leger ? this.leger : this.complet;
     const coul = this.couleurs;
@@ -583,30 +683,26 @@ export class CarteCanvas implements CarteAffichee {
     const parClasse = new Map<string, Path2D>();
     const hachures = new Path2D();
     let avecCoutures = false;
-    cq.pays.forEach((ps, i) => {
+    parcourir(im, cq.pays, cq.groupes?.pays, (p, i) => {
       const e = entites[i];
       if (!e) return;
+      if (p.couture) {
+        avecCoutures = true;
+        tracerPartie(coutures, im, p);
+        tracerPartie(couturesContour, im, p, true);
+      } else tracerPartie(terres, im, p);
       const classes = this.marques.get(e.pays.id);
-      const conteste = e.pays.statut === 'conteste';
-      for (const p of ps) {
-        if (!visible(im, p)) continue;
-        if (p.couture) {
-          avecCoutures = true;
-          tracerPartie(coutures, im, p);
-          tracerPartie(couturesContour, im, p, true);
-        } else tracerPartie(terres, im, p);
-        if (classes) {
-          for (const cl of classes) {
-            let chemin = parClasse.get(cl);
-            if (!chemin) parClasse.set(cl, (chemin = new Path2D()));
-            tracerPartie(chemin, im, p);
-          }
+      if (classes) {
+        for (const cl of classes) {
+          let chemin = parClasse.get(cl);
+          if (!chemin) parClasse.set(cl, (chemin = new Path2D()));
+          tracerPartie(chemin, im, p);
         }
-        // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
-        if (conteste) tracerPartie(hachures, im, p);
       }
+      // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
+      if (e.pays.statut === 'conteste') tracerPartie(hachures, im, p);
     });
-    for (const ps of cq.zones) for (const p of ps) if (visible(im, p)) tracerPartie(hachures, im, p);
+    parcourir(im, cq.zones, cq.groupes?.zones, (p) => tracerPartie(hachures, im, p));
     const t1 = performance.now();
 
     ctx.fillStyle = coul.terre;
@@ -636,7 +732,7 @@ export class CarteCanvas implements CarteAffichee {
 
     this.dessinerPastilles();
     const ms = performance.now() - t0;
-    this.dernier = { ms, trace_ms: t1 - t0, leger, parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies };
+    this.dernier = { ms, trace_ms: t1 - t0, leger, parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies, points: im.points, minuscules: im.minuscules };
     this.hote.dataset.dessin = leger ? 'leger' : 'complet';
   }
 

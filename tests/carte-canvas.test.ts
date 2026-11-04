@@ -3,8 +3,8 @@ import { geoContains, geoPath } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
-import { calque, sommetsVisibles } from '../src/map/carte-canvas';
-import { decalages, image, MARGE_PX, preparer, tracerPartie, visible, type ContexteTrace } from '../src/map/dessin';
+import { calque, calqueLeger, ILE_LEGERE_KM, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
+import { decalages, image, MARGE_PX, preparer, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
 import { contient, versLonLat } from '../src/map/geo';
 import { SuiviPointeurs } from '../src/map/geste';
@@ -200,6 +200,13 @@ function enregistreur(remplir = false): ContexteTrace & { segments: [number, num
       segments.push([dernier[0], dernier[1], debut[0], debut[1]]);
       dernier = debut;
     },
+    rect(x, y, l, h) {
+      this.moveTo(x, y);
+      this.lineTo(x + l, y);
+      this.lineTo(x + l, y + h);
+      this.lineTo(x, y + h);
+      this.lineTo(x, y);
+    },
     beginPath() {},
     arc() {},
   };
@@ -291,7 +298,8 @@ describe('dessin : découpage de ce qui est hors de l’écran', () => {
     for (let i = 0; i < 24; i++) {
       const k = i < 6 ? 1 : Math.exp(alea() * Math.log(200));
       const v = centrer([alea() * 360 - 180, alea() * 140 - 70], k);
-      const im = image(v, C, regionVisible(v, C, MARGE_PX), i % 2 ? 1 : 0.5);
+      // Une vue sur deux en mouvement : sommets sautés sous 1 px, minuscules sautées, contours effondrés en points.
+      const im = image(v, C, regionVisible(v, C, MARGE_PX), i % 2 === 1);
       const projEcran = projectionEcran(v, C);
       const rapide = enregistreur(true);
       const d3 = enregistreur(true);
@@ -424,15 +432,198 @@ describe('pick et noter, carte tournée', () => {
 });
 
 describe('carte allégée', () => {
-  const leger = formesLegeres(lire('monde-leger.topo.json'));
-  it('mêmes ids que la carte complète, au moins un polygone chacun', () => {
-    expect([...leger.pays.keys()].sort()).toEqual(donnees.entites.map((e) => e.pays.id).sort());
-    expect([...leger.zones.keys()].sort()).toEqual(donnees.contestees.map((z) => z.forme.properties.id).sort());
+  const formes = formesLegeres(lire('monde-leger.topo.json'));
+  const complet = calque(donnees);
+  const leger = calqueLeger(donnees, complet, formes);
+  const seules = (f: typeof formes): Calque => ({
+    pays: donnees.entites.map((e) => {
+      const forme = f.pays.get(e.pays.id);
+      return forme ? preparer(forme) : [];
+    }),
+    zones: [],
+    sommets: 0,
   });
 
-  it('moins d’un sixième des sommets de la complète', () => {
-    const complet = calque(donnees);
-    const allege = calque(donnees, leger);
-    expect(allege.sommets).toBeLessThan(complet.sommets / 6);
+  it('chaque polygone de la complète est dans l’allégée : le sien (au moins 40 km), ou celui de la complète (moins de 50 km)', () => {
+    const ids = new Set(donnees.entites.map((e) => e.pays.id));
+    for (const id of formes.pays.keys()) expect(ids.has(id), id).toBe(true);
+    const allegees = seules(formes);
+    donnees.entites.forEach((e, i) => {
+      const ps = complet.pays[i] ?? [];
+      const grandes = ps.filter((p) => p.km >= ILE_LEGERE_KM).length;
+      // Les siennes (au moins 40 km à la source) couvrent les grandes de la complète ; les petites en viennent telles quelles.
+      expect(allegees.pays[i]?.length ?? 0, e.pays.id).toBeGreaterThanOrEqual(grandes);
+      expect(leger.pays[i]?.filter((p) => ps.includes(p)).length, e.pays.id).toBe(ps.length - grandes);
+    });
+    // Le Canada, l'Indonésie, les Maldives, la Polynésie : toutes leurs îles.
+    for (const id of ['CAN', 'IDN', 'MDV', 'PYF', 'GRC', 'JPN', 'BHS', 'USA']) {
+      const i = donnees.entites.findIndex((e) => e.pays.id === id);
+      expect(leger.pays[i]?.length ?? 0, id).toBeGreaterThanOrEqual(complet.pays[i]?.length ?? 0);
+    }
+  });
+
+  it('ses grandes parties : moins d’un huitième des sommets de la complète', () => {
+    let n = 0;
+    for (const ps of seules(formes).pays) for (const p of ps) n += p.points;
+    expect(n).toBeLessThan(complet.sommets / 8);
+  });
+});
+
+describe('îles pendant un geste', () => {
+  // Règle : chaque polygone de la carte complète qui fait au moins 0,5 px à
+  // l'écran au zoom k, ce qui est dessiné pendant un geste au zoom k (carte
+  // allégée ou complète) en montre quelque chose au même endroit. Au lâcher,
+  // la complète au repos le redessine ; rien ne doit clignoter entre les deux.
+  const complet = calque(donnees);
+  const formes = formesLegeres(lire('monde-leger.topo.json'));
+  const leger = calqueLeger(donnees, complet, formes);
+
+  /** Sommets à l'écran du contour extérieur (première copie) et leur emprise ; null si la partie passe la coupure. */
+  function emprise(im: ImageTrace, p: Partie): { b: [number, number, number, number]; sommets: [number, number][] } | null {
+    const ds = decalages(p, im.v.r);
+    if (ds.length > 1) return null;
+    const d = ds[0] as number;
+    const a = p.anneaux[0] as Float64Array;
+    const sommets: [number, number][] = [];
+    let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < a.length; i += 3) {
+      const x = im.cx + im.K * ((a[i] as number) + d) * (a[i + 1] as number);
+      const y = im.y0 - im.K * (a[i + 2] as number);
+      sommets.push([x, y]);
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+    }
+    return { b: [x0, y0, x1, y1], sommets };
+  }
+
+  /** Ce qu'un calque tracé montre : remplissage (règle non nulle) et traits, rangés par bandes de 4 px. */
+  function trace(cq: Calque, im: ImageTrace) {
+    const rec = enregistreur(true);
+    parcourir(im, cq.pays, cq.groupes?.pays, (p) => tracerPartie(rec, im, p)); // comme CarteCanvas.dessiner
+    rec.moveTo(0, 0); // referme le dernier sous-chemin
+    const bandes = new Map<number, [number, number, number, number][]>();
+    for (const sg of rec.segments) {
+      const [a, b] = [Math.floor(Math.min(sg[1], sg[3]) / 4), Math.floor(Math.max(sg[1], sg[3]) / 4)];
+      if (b - a > 400) continue; // hors de l'écran
+      for (let r = a; r <= b; r++) {
+        let l = bandes.get(r);
+        if (!l) bandes.set(r, (l = []));
+        l.push(sg);
+      }
+    }
+    const rempli = (x: number, y: number) => {
+      let w = 0;
+      for (const [ax, ay, bx, by] of bandes.get(Math.floor(y / 4)) ?? []) {
+        if (ay <= y) {
+          if (by > y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) > 0) w++;
+        } else if (by <= y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) < 0) w--;
+      }
+      return w !== 0;
+    };
+    // Un trait d'au moins 0,5 px qui passe à moins de 0,25 px (frontière d'un pixel physique).
+    const trait = (x: number, y: number) => {
+      for (const [ax, ay, bx, by] of bandes.get(Math.floor(y / 4)) ?? []) {
+        const [dx, dy] = [bx - ax, by - ay];
+        const l2 = dx * dx + dy * dy;
+        if (l2 < 0.25) continue;
+        const u = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
+        if (Math.hypot(ax + u * dx - x, ay + u * dy - y) < 0.25) return true;
+      }
+      return false;
+    };
+    // Points de l'emprise (grille de 9 × 9) et sommets de l'île (sur son bord : le
+    // bord simplifié de l'allégée garde une partie des mêmes sommets).
+    return (b: [number, number, number, number], sommets: [number, number][]) => {
+      for (let i = 0; i <= 8; i++)
+        for (let j = 0; j <= 8; j++) {
+          const x = b[0] + ((b[2] - b[0]) * i) / 8;
+          const y = b[1] + ((b[3] - b[1]) * j) / 8;
+          if (rempli(x, y) || trait(x, y)) return true;
+        }
+      return sommets.some(([x, y]) => rempli(x, y) || trait(x, y));
+    };
+  }
+
+  /**
+   * Îles de la complète (polygones de 0,5 à 20 px, entièrement à l'écran) que le
+   * tracé de cq en mouvement ne montre pas. Au-delà de 20 px, un polygone est
+   * une terre que l'on voit de toute façon (et que la grille d'échantillons
+   * pourrait manquer : Cuba, mince et en biais).
+   */
+  function perdues(v: VueGlobe, cq: Calque): string[] {
+    const im = image(v, C, regionVisible(v, C, MARGE_PX), true);
+    const voit = trace(cq, im);
+    const res: string[] = [];
+    complet.pays.forEach((ps, i) =>
+      ps.forEach((p, j) => {
+        if (!visible(im, p)) return;
+        const e = emprise(im, p);
+        if (!e) return;
+        const { b } = e;
+        if (b[0] < 0 || b[2] > L || b[1] < 0 || b[3] > H) return;
+        const taille = Math.max(b[2] - b[0], b[3] - b[1]);
+        if (taille < 0.5 || taille > 20) return;
+        if (!voit(b, e.sommets)) res.push(`${donnees.entites[i]?.pays.id}#${j} (${(b[2] - b[0]).toFixed(1)}×${(b[3] - b[1]).toFixed(1)} px)`);
+      }),
+    );
+    return res;
+  }
+
+  const VUES: [string, [number, number]][] = [
+    ['Caraïbes', [-68, 16]],
+    ['Grèce', [24.5, 38]],
+    ['Indonésie', [120, -4]],
+    ['Maldives', [73.4, 3.5]],
+    ['Polynésie', [-146, -16]],
+    ['Canada arctique', [-95, 74]],
+  ];
+
+  it('aucune île de 0,5 px ou plus ne disparaît : carte allégée et complète, archipels aux zooms 1, 2, 4, 8, 30 vues au hasard', () => {
+    const fautes: string[] = [];
+    const vues: [string, VueGlobe][] = [];
+    for (const [nom, ll] of VUES) for (const k of [1, 2, 4, 8]) vues.push([`${nom} k=${k}`, centrer(ll, k)]);
+    for (let i = 0; i < 30; i++) {
+      const k = Math.exp(alea() * Math.log(30));
+      vues.push([`hasard ${i}`, centrer([alea() * 360 - 180, alea() * 160 - 80], k)]);
+    }
+    for (const [nom, v] of vues) {
+      for (const [quoi, cq] of [['allégée', leger], ['complète', complet]] as const) {
+        const p = perdues(v, cq);
+        if (p.length) fautes.push(`${nom} ${quoi} : ${p.slice(0, 5).join(', ')}${p.length > 5 ? ` (${p.length})` : ''}`);
+      }
+    }
+    expect(fautes).toEqual([]);
+  }, 120_000);
+
+  it('le test voit une île perdue : l’allégée sans les îles de la complète en perd aux Maldives, au Canada, en Indonésie', () => {
+    const seules: Calque = {
+      pays: donnees.entites.map((e) => {
+        const f = formes.pays.get(e.pays.id);
+        return f ? preparer(f) : [];
+      }),
+      zones: [],
+      sommets: 0,
+    };
+    for (const [nom, ll] of VUES.filter(([n]) => n !== 'Grèce' && n !== 'Caraïbes')) {
+      expect(perdues(centrer(ll, 4), seules).length, nom).toBeGreaterThan(0);
+    }
+  }, 60_000);
+
+  it('au zoom 1 en mouvement, l’allégée trace peu : la première île minuscule arrête sa liste, les autres en points', () => {
+    const v = centrer([0, 0], 1);
+    const im = image(v, C, regionVisible(v, C, MARGE_PX), true);
+    const rec = enregistreur();
+    let vues = 0;
+    parcourir(im, leger.pays, leger.groupes?.pays, (p) => {
+      vues++;
+      tracerPartie(rec, im, p);
+    });
+    // 707 grandes parties et 3 719 îles de moins de 50 km : environ 1 500 regardées, pas toutes.
+    expect(vues + im.minuscules).toBeLessThan(2000);
+    expect(im.points).toBeGreaterThan(500);
+    expect(im.parties).toBeLessThan(500);
+    expect(im.emis).toBeLessThan(12_000);
   });
 });
