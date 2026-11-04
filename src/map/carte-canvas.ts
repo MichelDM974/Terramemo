@@ -20,6 +20,8 @@
 // La carte allégée ne garde que les polygones d'au moins ILE_LEGERE_KM ; les
 // îles plus petites y sont celles de la complète (peu de sommets chacune), si
 // bien qu'aucune île visible au repos ne disparaît pendant le geste.
+// Avec l'option peintre, un autre rendu dessine dans le même canvas (WebGL :
+// carte-webgl.ts, ?rendu=webgl) ; gestes, vue, pick et noter restent ceux-ci.
 import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
@@ -47,6 +49,49 @@ import {
   type VueGlobe,
 } from './vue';
 import type { GeoProjection } from 'd3-geo';
+
+/** Compteurs d'un dessin (sans sa durée, mesurée par CarteCanvas). */
+export interface StatsDessin {
+  trace_ms: number;
+  leger: boolean;
+  parties: number;
+  sommets: number;
+  /** Canvas : moveTo et lineTo émis ; WebGL : appels de dessin. */
+  emis: number;
+  copies: number;
+  /** Canvas : contours effondrés en un point, parties minuscules sautées pendant un mouvement (dessin.ts). */
+  points?: number;
+  minuscules?: number;
+  /** WebGL : temps GPU d'une image récente (EXT_disjoint_timer_query_webgl2), null sans l'extension. */
+  gpu_ms?: number | null;
+}
+
+/** Ce qu'une image donne à dessiner à un peintre : la vue et ce qui se pose dessus. */
+export interface EtatImage {
+  v: VueGlobe;
+  c: Cadre;
+  t: Transfo;
+  proj: GeoProjection;
+  enMouvement: boolean;
+  pastilles: readonly Pastille[];
+  marques: ReadonlyMap<string, ReadonlySet<string>>;
+  anneaux: readonly { id: string; classe: string; rayon_px: number }[];
+}
+
+/** Un rendu qui dessine dans le canvas de CarteCanvas à la place du Canvas 2D (carte-webgl.ts). */
+export interface Peintre {
+  /** Prépare les géométries (dans chemins_ms du chargement). */
+  preparer(): void;
+  /** Nouvelle taille (px CSS) et densité ; le canvas a déjà sa taille en pixels physiques. */
+  dimensionner(l: number, h: number, dpr: number): void;
+  dessiner(e: EtatImage): StatsDessin;
+  /** Le dessin du mouvement diffère du repos (carte allégée) : la fin du geste redessine. */
+  readonly allegeEnMouvement: boolean;
+  detruire(): void;
+}
+
+/** Crée le peintre sur le canvas de la carte ; redessiner demande une image (contexte WebGL rendu). */
+export type FabriquePeintre = (canvas: HTMLCanvasElement, o: { donnees: DonneesCarte; redessiner: () => void }) => Peintre;
 
 export const ZOOM_MAX = 400;
 const ZOOM_MAX_MONTRER = 40;
@@ -212,7 +257,9 @@ const TOUR = 2 * Math.PI;
 export class CarteCanvas implements CarteAffichee {
   readonly hote: HTMLElement;
   readonly canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  /** Canvas 2D, ou null quand un peintre dessine. */
+  private ctx: CanvasRenderingContext2D | null = null;
+  readonly peintre: Peintre | null = null;
   private c: Cadre = cadre(1, 1);
   private v: VueGlobe;
   private proj: GeoProjection;
@@ -244,20 +291,29 @@ export class CarteCanvas implements CarteAffichee {
   /** Vol de montrer() en cours, avancé par l'image du dessin (une seule boucle d'images). */
   private vol: { interp: (u: number) => number[]; duree: number; t0: number | null; cible: VueGlobe } | null = null;
   /** Dernier dessin : compteurs, pour le pilote et les mesures. */
-  dernier: { ms: number; trace_ms: number; leger: boolean; parties: number; sommets: number; emis: number; copies: number; points: number; minuscules: number } | null = null;
+  dernier: ({ ms: number } & StatsDessin) | null = null;
 
-  constructor(private readonly o: OptionsCarte & { leger?: Promise<{ pays: Map<string, Forme>; zones: Map<string, Forme> } | null> }) {
+  constructor(
+    private readonly o: OptionsCarte & {
+      leger?: Promise<{ pays: Map<string, Forme>; zones: Map<string, Forme> } | null>;
+      /** Un autre rendu que le Canvas 2D (WebGL) ; s'il lève une erreur, rien n'est attaché à l'hôte. */
+      peintre?: FabriquePeintre;
+    },
+  ) {
     this.hote = o.hote;
-    this.hote.classList.add('carte');
-    this.hote.dataset.rendu = 'canvas';
-    this.hote.dataset.projection = o.projection;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'carte-canvas';
     this.canvas.setAttribute('role', 'img');
     this.canvas.setAttribute('aria-label', 'Carte du monde');
-    const ctx = this.canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D indisponible');
-    this.ctx = ctx;
+    if (o.peintre) this.peintre = o.peintre(this.canvas, { donnees: o.donnees, redessiner: () => this.demander() });
+    else {
+      const ctx = this.canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas 2D indisponible');
+      this.ctx = ctx;
+    }
+    this.hote.classList.add('carte');
+    this.hote.dataset.rendu = o.rendu;
+    this.hote.dataset.projection = o.projection;
     this.couleurs = lireCouleurs();
     // Point de départ de la rotation : le segment Projection (Monde 0°, Pacifique 150° E).
     this.v = { r: -ROTATIONS[o.projection][0], k: 1, y: 0 };
@@ -313,7 +369,8 @@ export class CarteCanvas implements CarteAffichee {
   /** Prépare les géométries et dessine la carte entière. */
   rendre(): ChronoRendu {
     const t0 = performance.now();
-    if (!this.complet) this.complet = calque(this.o.donnees);
+    if (this.peintre) this.peintre.preparer();
+    else if (!this.complet) this.complet = calque(this.o.donnees);
     const t1 = performance.now();
     this.dimensionner();
     this.poser(placer(this.c, [this.v.r, 0], this.c.l / 2, this.c.h / 2, 1), true);
@@ -449,6 +506,7 @@ export class CarteCanvas implements CarteAffichee {
     this.vol = null;
     cancelAnimationFrame(this.image);
     for (const [cible, type, l, opts] of this.ecouteurs) cible.removeEventListener(type, l, opts);
+    this.peintre?.detruire();
     this.canvas.remove();
   }
 
@@ -491,6 +549,7 @@ export class CarteCanvas implements CarteAffichee {
     this.canvas.height = Math.round(h * this.dpr);
     this.canvas.style.width = `${l}px`;
     this.canvas.style.height = `${h}px`;
+    this.peintre?.dimensionner(l, h, this.dpr);
     this.motif = this.creerMotif();
     this.proj = projectionDe(this.v.r, this.c);
   }
@@ -559,8 +618,9 @@ export class CarteCanvas implements CarteAffichee {
     this.geste = null;
     const t0 = performance.now();
     // La carte complète, tout de suite : le dessin de la fin est dans script_ms.
+    // Un peintre sans carte allégée n'a rien à refaire : l'image en attente suffit.
     this.enMouvement = false;
-    if (g.aBouge) this.dessiner();
+    if (g.aBouge && (this.peintre?.allegeEnMouvement ?? true)) this.dessiner();
     const script_ms = performance.now() - t0;
     this.o.gestes?.fin?.({ a_bouge: g.aBouge, source, script_ms, image: deuxImages().then(() => performance.now() - t0) });
   }
@@ -636,6 +696,7 @@ export class CarteCanvas implements CarteAffichee {
   }
 
   private creerMotif(): CanvasPattern | null {
+    if (!this.ctx) return null;
     const cote = Math.max(1, Math.round(PAS_HACHURES * this.dpr));
     const m = document.createElement('canvas');
     m.width = cote;
@@ -657,11 +718,14 @@ export class CarteCanvas implements CarteAffichee {
 
   /** Dessine la vue courante (synchrone). */
   private dessiner(): void {
-    if (this.masquee || !this.complet) return;
+    if (this.masquee) return;
+    if (this.peintre) return this.peindre(this.peintre);
+    const ctx = this.ctx;
+    if (!this.complet || !ctx) return;
     cancelAnimationFrame(this.image);
     this.image = 0;
     const t0 = performance.now();
-    const { ctx, c, v } = this;
+    const { c, v } = this;
     const im = image(v, c, regionVisible(v, c, MARGE_PX), this.enMouvement);
     const leger = this.enMouvement && this.leger !== null && sommetsVisibles(im, this.complet) > BUDGET_SOMMETS;
     const cq = leger && this.leger ? this.leger : this.complet;
@@ -747,15 +811,34 @@ export class CarteCanvas implements CarteAffichee {
     ctx.stroke(terres);
     if (avecCoutures) ctx.stroke(couturesContour);
 
-    this.dessinerPastilles();
+    this.dessinerPastilles(ctx);
     const ms = performance.now() - t0;
     this.dernier = { ms, trace_ms: t1 - t0, leger, parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies, points: im.points, minuscules: im.minuscules };
     this.hote.dataset.dessin = leger ? 'leger' : 'complet';
   }
 
+  /** Une image dessinée par le peintre ; sa durée est le script de l'image (mesures). */
+  private peindre(p: Peintre): void {
+    cancelAnimationFrame(this.image);
+    this.image = 0;
+    const t0 = performance.now();
+    const stats = p.dessiner({
+      v: this.v,
+      c: this.c,
+      t: this.transfo,
+      proj: this.proj,
+      enMouvement: this.enMouvement,
+      pastilles: this.pastilles,
+      marques: this.marques,
+      anneaux: this.anneaux,
+    });
+    this.dernier = { ms: performance.now() - t0, ...stats };
+    this.hote.dataset.dessin = 'complet';
+  }
+
   /** Disques des pastilles (rayon constant à l'écran) et anneaux. */
-  private dessinerPastilles(): void {
-    const { ctx, c } = this;
+  private dessinerPastilles(ctx: CanvasRenderingContext2D): void {
+    const { c } = this;
     const t = this.transfo;
     const coul = this.couleurs;
     const r = PASTILLE.rayon_visible_px;
