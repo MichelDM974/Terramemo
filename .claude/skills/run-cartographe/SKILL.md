@@ -136,7 +136,15 @@ foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
   arrivée, l'image de la fin a pris moins de 16 ms) compté 16 ;
   `en_attente` (rien de postérieur : image peut-être pas encore présentée,
   durée inconnue) jamais compté, il met la ligne à `[ ? ]`, comme une fin
-  sans entrée. **Écartée du verdict** (montrée à part) seulement l'artefact
+  sans entrée ; leur total est en tête de ligne (« N/M fins en attente »,
+  « la MAJORITÉ, critère muet » au-delà de la moitié). Ça n'arrive pas sur
+  le PC (toutes `mesure`), mais sur le téléphone à 120 Hz les fins et ce
+  qui les suit peuvent tous passer sous les 16 ms de l'API, sans entrée
+  postérieure pour le prouver. **S'ils dominent** : ne rien conclure de la
+  ligne, ni OK ni NON ; regarder `fin.image_ms` (fil principal, indicatif)
+  et juger la fin à l'œil (point 1, le lever du doigt) ; puis noter au
+  ticket qu'il faut une preuve de présentation de la fin (piste : un
+  toucher en mer du driver juste après chaque geste, rapporté à part). **Écartée du verdict** (montrée à part) seulement l'artefact
   prouvé du rendu g : `rendu` g ET `fin.close_par_entree_suivante` ET
   `image_ms` < 100 ET aucune longue image (la fin ne change aucun pixel,
   son entrée attend la première image présentée ensuite ; en css la fin
@@ -179,7 +187,10 @@ d'abord, téléphone au calme, puis l'œil, panneau affiché) :
    quand le driver ne le fait pas ?), puis les autres, dont la rotation
    (point 2) ;
 4. commiter les JSON de `docs/mesures/j0/` et noter au registre ce que
-   l'œil a vu, rendu par rendu ; `adb shell svc power stayon false`.
+   l'œil a vu, rendu par rendu ; le verdict des mesures cite chaque ligne
+   (pincer, glisser, tourner = le tour du monde) de chaque critère, pas
+   seulement le pincement (une fin lente peut n'être que sur le tour du
+   monde) ; `adb shell svc power stayon false`.
 
 Mesurer (même code, autre transport : `adb forward tcp:8061` vers le
 socket DevTools, client WebSocket du driver) :
@@ -235,7 +246,11 @@ changé dans ⚙ → Rendu (la page se recharge), les trois : `css`, `g`,
    retenir du driver que les fins, les touchers et `dessin_ms`, et juger la
    fluidité au doigt (panneau affiché). Panneau affiché, une fin en g peut
    valoir ~270 ms (sa mise à jour clôt l'entrée) : ne pas la lire comme
-   une vraie fin lente.
+   une vraie fin lente. Au doigt, le geste ralentit à la fin et l'écran
+   peut redescendre à 60 Hz : des intervalles de 16,7 ms en fin de geste
+   baissent la tenue (et comptent en « perdues » sur la période du geste,
+   indicatif), mais ce ne sont pas des saccades de l'appli, et le compte
+   de saccades (≥ 25 ms) ne les voit pas.
 1. **g / css / canvas pendant un pincement** : pincer de l'Europe entière
    jusqu'à la Suisse, doigts posés, puis lever. En css la couche entière
    est agrandie par le compositeur jusqu'au lever du doigt : carte floue,

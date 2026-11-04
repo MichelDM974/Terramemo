@@ -1095,6 +1095,7 @@ def resumer(rapports, vises, journal=None):
     faux = sorted({f"{v['id']}→{v.get('pick')} ({v['vue']})" for v in vises if not v.get("juste")})
     ecarts = {s: sum(e["ecarts_periode"][s] for e in gestes.values()) for s in ("plus_rapide", "plus_lent")}
     dessins = [e["dessin_ms"]["ok"] for e in gestes.values() if e["dessin_ms"]]
+    fins = [e["fin_event_timing_ms"] for e in gestes.values()]
     return {
         "periode_ms": periode,
         "chargement_ms": {"mediane": _med(chargements), "min": min(chargements, default=None),
@@ -1110,6 +1111,10 @@ def resumer(rapports, vises, journal=None):
         # True, False, ou None : à juger (fin en attente ou sans entrée).
         "fin_geste_ok": (_verdict(*(e["fin_event_timing_ms"]["ok"] for e in gestes.values()))
                          if gestes else False),
+        # Fins en attente sur toutes les lignes : si elles dominent sur le
+        # téléphone, le critère de fin est muet (SKILL.md, « fin de geste »).
+        "fins": {"total": sum(f["n"] + f["en_attente"] + f["sans_entree"] + len(f["artefacts"]) for f in fins),
+                 "en_attente": sum(f["en_attente"] for f in fins)},
         "touchers": {"n": len(latences), "verdict_sur": "event_timing",
                      "event_timing_ms": {"mediane": _med(latences), "max": max(latences, default=None),
                                          "mesures": len(mesures), "sous_seuil": sous_seuil, "repli": repli},
@@ -1160,8 +1165,12 @@ def afficher_resume(res, entete):
                 dire(f"      {quoi:8} [{ok(d['ok'])}] {d['images']} images sur {d['gestes']} gestes : médiane "
                      f"{d['mediane']}, p95 {d['p95']} (max des p95 {d['p95_max']}), max {d['max']} ms ; période "
                      f"{d['periode_ms']} ms, {d['p95_au_dessus_periode']} geste(s) au-dessus")
+    fa = res["fins"]
     dire(f"[{ok(res['fin_geste_ok'])}] fin de geste < {CRITERE_FIN_GESTE_MS} ms (Event Timing de l'événement qui "
-         "le finit, jusqu'à la présentation) :")
+         "le finit, jusqu'à la présentation)"
+         + (f" ; {fa['en_attente']}/{fa['total']} fins en attente"
+            + (" : la MAJORITÉ, critère muet (SKILL.md, « fin de geste »)" if 2 * fa["en_attente"] > fa["total"] else "")
+            if fa["en_attente"] else "") + " :")
     for quoi, e in res["gestes"].items():
         f, i = e["fin_event_timing_ms"], e["fin_image_ms"]
         dire(f"      {quoi:8} rendu {e['rendu']} : médiane {f['mediane']}, max {f['max']} ms ({f['n']} fins)"
