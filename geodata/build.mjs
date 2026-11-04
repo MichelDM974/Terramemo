@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Construit les données géographiques versionnées dans public/geo/ :
 //   monde.topo.json  topologie TopoJSON (objets « pays » et « contestees », propriété id seule)
+//   monde-leger.topo.json  la même, allégée : la carte Canvas pendant un geste (mêmes ids)
 //   pays.json        attributs de chaque entité (statut, superficie, point, bbox, voisins,
 //                    revendique_par et note_ne des entités contestées…)
 //   contestees.json  zones contestées dessinées hachurées par-dessus les pays
@@ -39,6 +40,12 @@ const R_TERRE_KM = 6371.0088; // rayon moyen (IUGG)
 const SEUIL_MICRO_KM2 = 1000; // plus grand polygone sous ce seuil : pastille seulement
 const SIMPLIFICATION = 'visvalingam interval=2000 keep-shapes'; // 2 km
 const QUANTIFICATION = 1e6;
+// Carte allégée du rendu Canvas, tracée à chaque image pendant un geste (la complète
+// au repos) : chaque entité simplifiée d'un bloc, ses îles plus petites que la
+// tolérance disparaissent (keep-shapes garde son plus grand polygone : aucun id ne
+// manque). Au zoom 1 du téléphone, 1 px vaut ~100 km : 15 km n'y change rien.
+const SIMPLIFICATION_LEGERE = process.env.LEGER ?? 'visvalingam interval=15000 keep-shapes';
+const QUANTIFICATION_LEGERE = 1e5;
 
 // --- Sources ----------------------------------------------------------------
 
@@ -636,6 +643,28 @@ async function main() {
     });
   }
 
+  // Carte allégée : les entités entières, pas leurs polygones un à un (voir plus haut).
+  const entiere = (items) =>
+    JSON.stringify({
+      type: 'FeatureCollection',
+      features: items.map((x) => ({ type: 'Feature', properties: { id: x.id }, geometry: x.geojson.geometry })),
+    });
+  const sortieLegere = await mapshaper.applyCommands(
+    `-i pays.json contestees.json combine-files ` +
+      `-simplify ${SIMPLIFICATION_LEGERE} ` +
+      `-o monde-leger.topo.json format=topojson quantization=${QUANTIFICATION_LEGERE}`,
+    { 'pays.json': entiere(tous), 'contestees.json': entiere(contestees) },
+  );
+  const topoLeger = JSON.parse(String(sortieLegere['monde-leger.topo.json']));
+  for (const [nom, items] of [
+    ['pays', tous],
+    ['contestees', contestees],
+  ]) {
+    const ids = (topoLeger.objects[nom]?.geometries ?? []).filter((g) => g.type).map((g) => g.properties.id);
+    if (ids.join() !== items.map((x) => x.id).join()) echec(`carte allégée : ids de ${nom} différents de la carte complète`);
+  }
+  const topoLegerTexte = JSON.stringify(topoLeger);
+
   // Voisins sur la topologie finale (arcs partagés).
   const voisins = neighbors(geomsPays);
   const voisinsParId = new Map(
@@ -655,6 +684,7 @@ async function main() {
   console.log('Écriture');
   await mkdir(SORTIE, { recursive: true });
   await ecrire('monde.topo.json', topoTexte);
+  await ecrire('monde-leger.topo.json', topoLegerTexte);
 
   const lignes = tous.map((e) => {
     const [continent, sousRegion] = regionNe(e.props);
@@ -740,6 +770,7 @@ async function main() {
     outil: 'mapshaper 0.6.110',
     simplification: `-simplify ${SIMPLIFICATION}, chaque polygone comme une forme à part (aucune île perdue), regroupés par id`,
     quantification: QUANTIFICATION,
+    carte_allegee: `monde-leger.topo.json : -simplify ${SIMPLIFICATION_LEGERE}, chaque entité d'un bloc, quantification ${QUANTIFICATION_LEGERE}`,
     // Empreintes des entrées tenues à la main : tests/donnees.test.ts les compare aux
     // fichiers, la CI échoue donc si l'on change le script ou la liste sans relancer.
     entrees: {

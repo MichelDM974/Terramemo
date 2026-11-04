@@ -309,6 +309,17 @@ describe('géométries (monde.topo.json)', () => {
     expect(gzipSync(topoTexte).length).toBeLessThanOrEqual(520_000);
   });
 
+  it('carte allégée (rendu Canvas pendant un geste) : ≤ 60 000 octets compressés, mêmes ids, objets pays et contestees', () => {
+    const texte = readFileSync('public/geo/monde-leger.topo.json', 'utf8');
+    expect(gzipSync(texte).length).toBeLessThanOrEqual(60_000);
+    const leger = JSON.parse(texte) as Topology<{ pays: GeometryCollection<Props>; contestees: GeometryCollection<Props> }>;
+    expect(Object.keys(leger.objects).sort()).toEqual(['contestees', 'pays']);
+    const ids = (o: GeometryCollection<Props>) => o.geometries.map((g) => (g.properties as Props | undefined)?.id);
+    expect(ids(leger.objects.pays)).toEqual(ids(topo.objects.pays));
+    expect(ids(leger.objects.contestees)).toEqual(ids(topo.objects.contestees));
+    for (const f of feature(leger, leger.objects.pays).features) expect(polys(f.geometry).length, f.properties.id).toBeGreaterThan(0);
+  });
+
   it('zones contestées : ids uniques, non vides, entités contenantes connues', () => {
     const ids = contestees.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
