@@ -16,7 +16,7 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 | Diffusion | **Le site seul pour le public jusqu'au Play Store** ; l'APK reste pour l'utilisateur dans la release privée d'ici là |
 | Hébergement | **Firebase Hosting** (offre Spark) ; plan B : Cloudflare Pages si le quota de transfert est atteint |
 | Frontières | **De fait** (Natural Earth par défaut), zones contestées hachurées, jamais posées en question |
-| Motivation | **Rien qui culpabilise** : pas de série de jours, des jalons concrets, une notification que l'on active soi-même |
+| Points et classement | **Classement global**, ouvert à tous (choix du 04/11, ticket #14, retire « Motivation ») : épreuves notées, le Chrono d'abord (points selon la justesse et la distance, `docs/etudes/2026-11-04-points-classement.md`) ; les séances de révision restent sans points |
 | Identité | Nom **Cartographe**, accent bleu océan `#3d72f0` ; téléphone de mesure : Android récent (2023+) |
 
 ## Pédagogie
@@ -87,9 +87,13 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
   cache versionné.
 - **Firebase (Spark)** : Auth anonyme au premier lancement, Google ensuite
   (web : flux habituel ; APK : plugin Capacitor natif puis
-  `signInWithCredential` du SDK web). Empreintes SHA-1 : clé de la CI, puis
+  `signInWithCredential` du SDK web). La connexion **lie** le compte
+  anonyme (`linkWithCredential`), qui garde son identifiant, donc ses
+  progrès et ses scores ; un compte Google déjà lié ailleurs demande de
+  fusionner les journaux. Empreintes SHA-1 : clé de la CI, puis
   celle de Play App Signing. Firestore : **un document par séance** (pas par
-  réponse) + un résumé par joueur ; 20 000 écritures et 50 000 lectures par
+  réponse) + un résumé par joueur + son meilleur score par épreuve
+  (classement) ; 20 000 écritures et 50 000 lectures par
   jour → ~10 000 séances par jour (estimé).
 - **Hosting Spark : 360 Mo de transfert par jour** → ~200 nouveaux
   visiteurs par jour à ~2 Mo le premier chargement (estimé) ; plan B
@@ -119,7 +123,7 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 | # | Contenu | Critère de fin | Taille |
 |---|---|---|---|
 | J0 Risques | Script de données (pays, pastilles) ; carte dans Chrome sur le téléphone puis dans un APK Capacitor ; zoom, déplacement, micro-États, Pacifique ; saisie avec Gboard ; projet Firebase créé | Sur le téléphone : aucune saccade visible au déplacement, rendu < 1 s, toucher → réponse < 100 ms ; sinon décision écrite (Canvas, simplification au dézoom) | S |
-| J1a MVP pays | Localiser et nommer (QCM d'apprentissage puis rappel au toucher) ; FSRS ; séances ; rétroaction et distance ; carte colorée ; journal local + Auth anonyme et Firestore ; site déployé, APK (release privée), écran Crédits | 195 pays jouables au doigt ; CI au vert ; une semaine d'usage sans blocage | M-L |
+| J1a MVP pays | Localiser et nommer (QCM d'apprentissage puis rappel au toucher) ; FSRS ; séances ; rétroaction et distance ; carte colorée ; journal local + Auth anonyme et Firestore ; épreuve Chrono et classement global (pseudo, règles Firestore, App Check) ; site déployé, APK (release privée), écran Crédits | 195 pays jouables au doigt ; une épreuve jouée sur deux appareils, les deux scores au classement ; CI au vert ; une semaine d'usage sans blocage | L |
 | J1b Comptes et saisie | Saisie libre tolérante + tests de collision ; connexion Google (site et APK) ; suppression du compte ; politique de confidentialité ; export JSON | Deux appareils, l'un hors ligne, au même état après reconnexion | M |
 | J2 Capitales et drapeaux | Capitales (deux sens, multiples) ; drapeaux ; leurres par confusions ; test de placement ; justesse des prévisions ; objectif quotidien ; notification optionnelle | Capitales et drapeaux vérifiés par test ; écart prévu/réel mesurable dès 300 réponses | M |
 | J3 Play Store | Fiche, formulaire de données, test fermé 14 j, AAB en CI ; anglais possible | Appli en production | M |
@@ -134,7 +138,8 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 | Carte qui saccade dans la WebView | Mesure au J0 ; repli Canvas derrière `pick(x, y)` |
 | Micro-États et Caraïbes intouchables | Pastilles, tolérance, zoom, essai au J0 |
 | Quota Hosting atteint par un public | Cache du service worker ; plan B Cloudflare Pages |
-| Quotas Firestore | Un document par séance, résumé par joueur |
+| Quotas Firestore | Un document par séance, résumé par joueur, un meilleur score par épreuve et par joueur |
+| Triche au classement (pas de serveur sur Spark) | Règles Firestore (bornes, durée par `request.time`), App Check, réponses gardées pour un audit sur le PC |
 | Perte des progrès (origine changée, clé perdue) | Origine figée et testée, Firestore dès J1a, clé de signature sauvegardée hors GitHub |
 | Saisie injuste ou trop large | Alias explicites, test de collision, tolérance selon la longueur |
 | Frontières contestées | De fait + hachures, jamais en question |

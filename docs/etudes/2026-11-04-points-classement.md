@@ -1,9 +1,9 @@
-# Points et classement : proposition (04/11/2026)
+# Points et classement (04/11/2026)
 
 *Réponse à la question de l'utilisateur sur le ticket #14 (« comment on
 calcule les points ? temps imparti pour chaque question, avec des points
 en fonction de la distance, comme GeoGuessr ? il peut y avoir plusieurs
-modes »). Proposition à trancher : quatre questions en fin de fichier. Les
+modes »). Proposition tranchée par l'utilisateur le même jour (§ 5). Les
 chiffres de distance viennent des vraies données de la carte
 (`public/geo`, fonction `distanceAuBordKm` de `src/map/geo.ts`) ; la méthode
 est en fin de fichier.*
@@ -14,7 +14,7 @@ Les séances de répétition espacée ne se prêtent pas à un classement :
 chacun y révise ses propres fiches dues (FSRS choisit ce qu'il est sur le
 point d'oublier), donc deux scores de séance ne se comparent pas, et des
 points y pousseraient à bachoter au lieu d'apprendre (étude « pédagogie »,
-§ 4 ; décision « Motivation »).
+§ 4).
 
 D'où un onglet **Épreuves**, à côté des séances :
 
@@ -29,10 +29,13 @@ D'où un onglet **Épreuves**, à côté des séances :
   révision FSRS : c'est un vrai rappel sans aide, et la carte colorée suit
   ce qu'on sait vraiment. Une épreuve remplace aussi l'« examen » de
   l'étude « pédagogie » (score à suivre dans le temps) ;
-- les séances restent sans points : la décision « Motivation » ne change
-  que pour les épreuves (à trancher, question 1).
+- les séances restent sans points (elles ne se comparent pas) ; la
+  décision « Motivation », qui excluait tout classement, est retirée
+  (§ 5).
 
 ## 2. Les modes
+
+Le Chrono d'abord, dès le J1a ; Sans faute et Minute ensuite.
 
 | Mode | Déroulé | Score | Départage |
 |---|---|---|---|
@@ -124,8 +127,14 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
 - **Un document par épreuve et par joueur** : le meilleur score seul
   (`classements/{epreuve}/scores/{uid}` : pseudo, score, justes, temps,
   date, version du barème). Écrit en fin d'épreuve s'il bat l'ancien.
-  Proposé en plus : un classement « cette semaine » (un document de plus,
-  remis à zéro chaque lundi), pour qu'un nouveau venu ait sa chance.
+  Possible en plus : un classement « cette semaine » (un document de plus,
+  remis à zéro chaque lundi), pour qu'un nouveau venu ait sa chance (à
+  trancher, § 5).
+- **Classement global** (choix de l'utilisateur) : ouvert à tous les
+  joueurs ; ce qui range les joueurs toutes épreuves confondues reste à
+  trancher (§ 5). Le plus simple sans serveur : un document par joueur,
+  la somme de ses records Chrono, que l'appli réécrit quand un record
+  tombe (une écriture de plus).
 - **Coût** : afficher un classement = 20 lectures (les 20 premiers) + 1
   pour son rang (`count()` des meilleurs scores, une lecture par tranche
   de 1 000) ; finir une épreuve = 1 ou 2 écritures. Avec 50 000 lectures et
@@ -154,19 +163,20 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
 - Pseudo et scores publics : à la politique de confidentialité (#3), et
   la suppression du compte efface ses scores.
 
-## 5. À trancher
+## 5. Tranché le 04/11/2026 (utilisateur)
 
-1. **Place des points** : épreuves à part, séances sans points (la
-   décision « Motivation » est révisée pour les seules épreuves) ; ou
-   points partout ; ou épreuves avec record personnel et défis entre
-   proches seulement (#9), sans classement public.
-2. **Modes à faire d'abord** : Chrono, Sans faute, Minute.
-3. **Erreur proche dans le Chrono** : jusqu'à la moitié (proposé),
-   jusqu'à 30 %, ou rien (juste ou faux, la distance seulement affichée).
-4. **Jalon** : épreuves notées en local dès la fin du J1a (elles
-   réutilisent la carte et `noter()`), classement en ligne après le J1b
-   (connexion Google, suppression du compte, politique de
-   confidentialité) ; ou tout dès le J1a ; ou après le Play Store (J3).
+1. **Place des points** : la décision « Motivation » (pas de classement ni
+   de série de jours) est retirée en entier, et le classement est global,
+   ouvert à tous les joueurs. Les séances de révision restent sans points
+   (§ 1 : elles ne se comparent pas d'un joueur à l'autre).
+2. **Mode d'abord** : le Chrono (§ 2, § 3) ; Sans faute et Minute ensuite.
+3. **Erreur proche** : jusqu'à la moitié, `500 × e^(−d / 300 km)` (§ 3).
+4. **Jalon** : épreuve Chrono et classement dès le J1a (#2), sur l'Auth
+   anonyme : les scores d'un invité suivent son compte quand il se
+   connecte à Google (J1b, #3), la connexion gardant son identifiant.
+
+Restent à trancher : ce que range le classement global (par épreuve, total
+des records Chrono, fiches maîtrisées) et le classement de la semaine.
 
 ## Méthode des chiffres
 

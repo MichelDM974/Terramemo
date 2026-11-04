@@ -21,8 +21,9 @@ l'oublier, jusqu'à tenir des mois.
 - Les mauvais choix proposés viennent de **ses propres confusions** (Niger
   et Nigeria, Slovénie et Slovaquie), et les nouveautés arrivent par petits
   groupes de voisins.
-- Rien qui culpabilise : pas de série de jours qui retombe à zéro, des
-  séances courtes qu'on arrête quand on veut.
+- Des **épreuves chronométrées** (tous les pays d'un continent, points
+  selon la justesse et la distance) et un classement de tous les joueurs ;
+  les séances de révision, courtes, s'arrêtent quand on veut.
 
 ## Approche technique
 
