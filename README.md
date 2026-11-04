@@ -32,8 +32,8 @@ l'oublier, jusqu'à tenir des mois.
   ligne.
 - Planification des révisions par FSRS (bibliothèque `ts-fsrs`).
 - Progrès en journal de réponses sur l'appareil, synchronisé par Firebase
-  (compte anonyme d'abord, connexion Google pour retrouver ses progrès
-  ailleurs).
+  (compte anonyme d'abord, connexion Google ou compte e-mail et mot de
+  passe pour retrouver ses progrès ailleurs).
 - Données libres préparées par un script reproductible : frontières de
   Natural Earth (domaine public), noms du référentiel Unicode CLDR,
   capitales et populations de Wikidata (CC0), drapeaux de flag-icons (MIT).

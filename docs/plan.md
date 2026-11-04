@@ -11,7 +11,7 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 |---|---|
 | Public | **Public** (n'importe qui), gratuit, sans pub, code privé |
 | Objectif | **Culture géographique large** ; au départ : pays du monde, capitales, drapeaux |
-| Comptes | Synchronisés entre appareils ; **on joue sans compte** (Firebase Auth anonyme), « Se connecter avec Google » rattache les progrès |
+| Comptes | Synchronisés entre appareils ; **on joue sans compte** (Firebase Auth anonyme), « Se connecter avec Google » ou un compte e-mail et mot de passe (choix du 04/11, #13) rattache les progrès |
 | Langue | **Français, prêt à traduire** (textes et noms dans des fichiers de langue dès le départ) |
 | Diffusion | **Le site seul pour le public jusqu'au Play Store** ; l'APK reste pour l'utilisateur dans la release privée d'ici là |
 | Hébergement | **Firebase Hosting** (offre Spark) ; plan B : Cloudflare Pages si le quota de transfert est atteint |
@@ -87,7 +87,8 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
   cache versionné.
 - **Firebase (Spark)** : Auth anonyme au premier lancement, Google ensuite
   (web : flux habituel ; APK : plugin Capacitor natif puis
-  `signInWithCredential` du SDK web). La connexion **lie** le compte
+  `signInWithCredential` du SDK web), ou e-mail et mot de passe (SDK web
+  partout : mot de passe oublié, adresse vérifiée). La connexion **lie** le compte
   anonyme (`linkWithCredential`), qui garde son identifiant, donc ses
   progrès et ses scores ; un compte Google déjà lié ailleurs demande de
   fusionner les journaux. Empreintes SHA-1 : clé de la CI, puis
@@ -124,7 +125,7 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 |---|---|---|---|
 | J0 Risques | Script de données (pays, pastilles) ; carte dans Chrome sur le téléphone puis dans un APK Capacitor ; zoom, déplacement, micro-États, Pacifique ; saisie avec Gboard ; projet Firebase créé | Sur le téléphone : aucune saccade visible au déplacement, rendu < 1 s, toucher → réponse < 100 ms ; sinon décision écrite (Canvas, simplification au dézoom) | S |
 | J1a MVP pays | Localiser et nommer (QCM d'apprentissage puis rappel au toucher) ; FSRS ; séances ; rétroaction et distance ; carte colorée ; journal local + Auth anonyme et Firestore ; épreuve Chrono et classements par épreuve et général, de toujours et de la semaine (pseudo, règles Firestore, App Check) ; site déployé, APK (release privée), écran Crédits | 195 pays jouables au doigt ; une épreuve jouée sur deux appareils, les deux scores au classement ; CI au vert ; une semaine d'usage sans blocage | L |
-| J1b Comptes et saisie | Saisie libre tolérante + tests de collision ; connexion Google (site et APK) ; suppression du compte ; politique de confidentialité ; export JSON | Deux appareils, l'un hors ligne, au même état après reconnexion | M |
+| J1b Comptes et saisie | Saisie libre tolérante + tests de collision ; connexion Google (site et APK) et compte e-mail et mot de passe (#13) ; suppression du compte ; politique de confidentialité ; export JSON | Deux appareils, l'un hors ligne, au même état après reconnexion | M |
 | J2 Capitales et drapeaux | Capitales (deux sens, multiples) ; drapeaux ; leurres par confusions ; test de placement ; justesse des prévisions ; objectif quotidien ; notification optionnelle | Capitales et drapeaux vérifiés par test ; écart prévu/réel mesurable dès 300 réponses | M |
 | J3 Play Store | Fiche, formulaire de données, test fermé 14 j, AAB en CI ; anglais possible | Appli en production | M |
 | J4 Culture large I | Voisins ; placer une ville (note par distance) ; ordres de grandeur (curseur logarithmique) ; silhouettes (sans rien de quotidien ni de flèche de direction) | Chaque exercice : générateur testé + fiches | M |
