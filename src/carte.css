@@ -130,6 +130,51 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
   margin: 0 auto;
   overflow: auto;
 }
+/* Choix de la série (départ et « Recommencer ») : en bas comme la barre de l'essai,
+   sous le pouce ; une liste, huit choix ne tenant pas dans un .seg sur 384 px. */
+.essai-depart {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  max-width: 560px;
+  max-height: calc(100% - 24px);
+  margin: 0 auto;
+  overflow: auto;
+  background: var(--popup-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 14px 10px;
+  box-shadow: 0 8px 24px var(--shadow);
+}
+.essai-depart h2 { margin: 0 0 2px; font-size: 1.02rem; font-weight: 600; }
+.essai-depart .hint { margin: 0 0 8px; }
+.essai-series { list-style: none; margin: 0; padding: 0; }
+.essai-series li + li { border-top: 1px solid var(--border); }
+/* Une ligne par série, 44 px au moins (cible du doigt) ; la série gardée sur le fond
+   de l'accent atténué (la ligne choisie), le reste neutre. */
+.essai-serie {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  text-align: left;
+  font-size: 0.95rem;
+}
+.essai-serie:hover { background: var(--row-hover); }
+.essai-serie[aria-current="true"] { background: var(--accent-soft); font-weight: 600; }
+.essai-serie-nom { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.essai-serie-detail { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
+.essai-serie-n { flex: none; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
 .essai-rates { margin: 0 0 14px; padding-left: 18px; font-size: 0.88rem; line-height: 1.5; }
 
 /* --- Panneau des mesures (haut) --- */
@@ -174,7 +219,7 @@ body[data-vue="saisie"] .panneau-mesures { display: none; }
 
 @media (max-width: 700px) {
   .vue-saisie { padding: 10px 16px 40px; }
-  .carte-barre { left: 8px; right: 8px; bottom: 8px; }
+  .carte-barre, .essai-depart { left: 8px; right: 8px; bottom: 8px; }
 }
 
 /* Les trois champs de la Saisie (dont type=url) : même allure que input[type="text"] du style commun. */

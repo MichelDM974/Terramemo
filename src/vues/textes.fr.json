@@ -1,0 +1,21 @@
+{
+  "_lisez-moi": "Textes de l'interface des vues, en français (décision « Langue » : une copie par langue, textes.<langue>.json ; les noms des pays sont dans public/geo/noms.<langue>.json). {n} et {serie} sont remplacés à l'affichage.",
+  "continents": {
+    "Africa": "Afrique",
+    "Antarctica": "Antarctique",
+    "Asia": "Asie",
+    "Europe": "Europe",
+    "North America": "Amérique du Nord",
+    "Oceania": "Océanie",
+    "South America": "Amérique du Sud"
+  },
+  "toucher": {
+    "depart_titre": "Toucher",
+    "depart_aide": "Choisis une série : ses pays viennent dans le désordre, un nouveau tirage à chaque partie.",
+    "serie_essai": "Essai J0",
+    "serie_essai_detail": "les plus difficiles : micro-États, Caraïbes, Pacifique et quelques grands",
+    "serie_tous": "Tous les pays",
+    "n_pays": "{n} pays",
+    "bilan_titre": "Bilan · {serie}"
+  }
+}

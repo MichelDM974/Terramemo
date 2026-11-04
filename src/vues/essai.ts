@@ -1,8 +1,11 @@
 // Vue « Toucher » : essai de précision. « Touche : Monaco » ; on zoome, on se
-// déplace, on touche ; juste ou faux sur la carte, essais, temps, bilan.
+// déplace, on touche ; juste ou faux sur la carte, essais, temps, bilan. Au
+// départ (et à « Recommencer »), le choix de la série : l'essai du J0, tous les
+// pays ou un continent ; le dernier choix est gardé dans le navigateur.
 import { mediane } from '../mesure/stats';
-import { ciblesEssai, melanger } from './cibles';
+import { melanger, SERIE_ESSAI, SERIE_TOUS, series, type Serie } from './cibles';
 import { creer, nomDe, type ContexteVue, type Vue } from './commun';
+import { remplir, textes } from './textes';
 
 interface Resultat {
   id: string;
@@ -21,6 +24,28 @@ interface Resultat {
 const fmtS = (ms: number) => `${(ms / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}\u00a0s`;
 const fmtKm = (km: number) => `${Math.round(km).toLocaleString('fr-FR')}\u00a0km`;
 
+const T = textes.toucher;
+const nomContinent = (c: string) => (textes.continents as Record<string, string>)[c] ?? c;
+const nomSerie = (id: string) => (id === SERIE_ESSAI ? T.serie_essai : id === SERIE_TOUS ? T.serie_tous : nomContinent(id));
+
+// Dernière série choisie : une commodité de ce navigateur (rien ne la relit
+// ailleurs) ; sans stockage (navigation privée, données effacées), l'essai.
+const CLE_SERIE = 'cartographe.toucher.serie';
+function lireSerie(): string | null {
+  try {
+    return localStorage.getItem(CLE_SERIE);
+  } catch {
+    return null;
+  }
+}
+function garderSerie(id: string): void {
+  try {
+    localStorage.setItem(CLE_SERIE, id);
+  } catch {
+    // Stockage refusé : le choix vaut pour cette visite seulement.
+  }
+}
+
 export function vueEssai(ctx: ContexteVue): Vue {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
@@ -36,10 +61,36 @@ export function vueEssai(ctx: ContexteVue): Vue {
     creer('div', { class: 'essai-actions' }, voir, passer, terminer),
   );
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'essai-bilan' });
+
+  // Choix de la série : une liste (huit choix ne tiennent pas dans un sélecteur
+  // segmenté sur 384 px), en bas comme la barre de l'essai, sous le pouce.
+  const toutes: Serie[] = series(ctx.donnees.entites.map((e) => e.pays), nomContinent);
+  const boutons = toutes.map((s) =>
+    creer(
+      'button',
+      { type: 'button', class: 'essai-serie', 'data-serie': s.id },
+      creer(
+        'span',
+        { class: 'essai-serie-nom' },
+        nomSerie(s.id),
+        ...(s.id === SERIE_ESSAI ? [creer('span', { class: 'essai-serie-detail' }, T.serie_essai_detail)] : []),
+      ),
+      creer('span', { class: 'essai-serie-n' }, remplir(T.n_pays, { n: s.ids.length })),
+    ),
+  );
+  const depart = creer(
+    'div',
+    { class: 'essai-depart', id: 'essai-depart' },
+    creer('h2', {}, T.depart_titre),
+    creer('p', { class: 'hint' }, T.depart_aide),
+    creer('ul', { class: 'essai-series' }, ...boutons.map((b) => creer('li', {}, b))),
+  );
   barre.hidden = true;
   bilan.hidden = true;
-  ctx.zone.append(barre, bilan);
+  depart.hidden = true;
+  ctx.zone.append(barre, bilan, depart);
 
+  let serie: Serie = toutes.find((s) => s.id === lireSerie()) ?? (toutes[0] as Serie);
   let cibles: string[] = [];
   let i = 0;
   let essais = 0;
@@ -85,20 +136,44 @@ export function vueEssai(ctx: ContexteVue): Vue {
     afficherQuestion();
   }
 
-  function demarrer(): void {
+  function afficherDepart(): void {
     clearTimeout(enAttente);
     enAttente = 0;
     resEnAttente = null;
-    cibles = melanger(ciblesEssai(ctx.donnees.entites.map((e) => e.pays)));
+    cibles = [];
+    barre.hidden = true;
+    bilan.hidden = true;
+    ctx.carte.effacerMarques();
+    // La série gardée en évidence : celle que l'on rejoue d'un toucher.
+    for (const b of boutons) {
+      if (b.dataset.serie === serie.id) b.setAttribute('aria-current', 'true');
+      else b.removeAttribute('aria-current');
+    }
+    depart.hidden = false;
+  }
+
+  function demarrer(s: Serie): void {
+    serie = s;
+    garderSerie(s.id);
+    cibles = melanger(s.ids);
     i = 0;
     resultats = [];
+    depart.hidden = true;
     bilan.hidden = true;
     barre.hidden = false;
     afficherQuestion();
   }
 
+  for (const b of boutons)
+    b.addEventListener('click', () => {
+      const s = toutes.find((t) => t.id === b.dataset.serie);
+      if (s) demarrer(s);
+    });
+
   function finir(): void {
     validerEnAttente();
+    // Partie close (même par « Terminer ») : revenir à la vue ramène au choix.
+    cibles = [];
     barre.hidden = true;
     ctx.carte.effacerMarques();
     const n = resultats.length;
@@ -107,7 +182,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
     const temps = mediane(resultats.filter((r) => r.juste).map((r) => r.temps_ms));
     const rates = resultats.filter((r) => !r.premier);
     bilan.replaceChildren(
-      creer('h2', {}, 'Bilan'),
+      creer('h2', {}, remplir(T.bilan_titre, { serie: nomSerie(serie.id) })),
       creer(
         'p',
         { class: 'hint' },
@@ -128,7 +203,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
       ),
       creer('button', { type: 'button', id: 'essai-recommencer' }, 'Recommencer'),
     );
-    bilan.querySelector('#essai-recommencer')?.addEventListener('click', demarrer);
+    bilan.querySelector('#essai-recommencer')?.addEventListener('click', afficherDepart);
     bilan.hidden = false;
   }
 
@@ -153,7 +228,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
 
   return {
     activer() {
-      if (!cibles.length) demarrer();
+      if (!cibles.length) afficherDepart();
       else if (i >= cibles.length) finir();
       else {
         barre.hidden = false;
@@ -164,6 +239,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
       validerEnAttente();
       barre.hidden = true;
       bilan.hidden = true;
+      depart.hidden = true;
       ctx.carte.effacerMarques();
     },
     toucher(x, y, ev) {
