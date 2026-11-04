@@ -820,6 +820,10 @@ def commande_ui(args):
         capturer("2-pays-touche")
         p.js('location.hash = "#toucher"')
         p.pause(300)
+        # Toucher s'ouvre sur le choix de la série : sans ce choix, pas de
+        # consigne à lire. L'essai J0, la série que visent les mesures.
+        p.js('document.querySelector(\'.essai-serie[data-serie="essai"]\').click()')
+        p.pause(300)
         p.js("window.cartographe.carte.zoomer({k: 1, x: 0, y: 0})")
         cible = p.js('document.querySelector(".essai-consigne").dataset.cible')
         faux = "CAN" if cible == "BRA" else "BRA"
