@@ -248,7 +248,16 @@ cwd `MP` (racine), pas `C/`.
 4. **GitHub** : `gh repo rename Terramemo -R MichelDM974/Cartographe --yes` ;
    `git -C C remote set-url origin https://github.com/MichelDM974/Terramemo.git` ;
    vérif `gh repo view MichelDM974/Terramemo`, `git fetch`, CI verte au push suivant.
-5. **cdc, en une fenêtre courte** (cdc #92 en exemple ; ou la commande de C6) :
+5. **cdc : par sa commande** (C6 tranché le 04/11 : centre-de-controle #273, déployée) :
+   `python3 centre-de-controle/scripts/registre.py renommer cartographe Terramemo` depuis une
+   session ouverte à la racine (le plan, qui bloque tant qu'une session de fond cartographe
+   tourne), puis la même avec `--faire`. Elle fait a à f et h ci-dessous (verrou, hook,
+   compose et `docker compose up -d`, événement `projet` avec `renomme_de`, l'ancien nom
+   restant un alias) ; la synchro fait g seule (fusion, puis retrait de l'ancien registre
+   du Pi un passage plus tard). Code 2 : relancer `docker compose up -d` dans
+   centre-de-controle tout de suite. Ensuite commiter `docker-compose.yml` de cdc, et
+   vérifier qu'aucun registre n'est en double sur le PC ni sur le Pi. Les étapes à la main
+   ci-dessous ne restent que pour mémoire :
    a. `systemctl --user start cdc-sync.service` (dernier passage : rien du téléphone
       n'est laissé sur le Pi), puis `systemctl --user stop cdc-sync.timer` ;
    b. éditer `CDC/docker-compose.yml:50` → `../Terramemo/docs:/projets/terramemo:ro`
@@ -298,7 +307,7 @@ Play Store (pas encore). Renommage GitHub et registre : réversibles.
 - **C5 Projet Firebase** : (a) **garder `cartographe-geo`**, nom d'affichage changé,
   `authDomain` terramemo.web.app au J1b ; (b) nouveau projet maintenant (vide), en
   libérant puis recréant le site `terramemo` (risque de le perdre entre deux). → **(a)**.
-- **C6 cdc** : (a) à la main cette fois (§6 étape 5) ; (b) **commande `registre.py renommer`
+- **C6 cdc** (tranché le 04/11 : (b), centre-de-controle #273) : (a) à la main cette fois (§6 étape 5) ; (b) **commande `registre.py renommer`
   dans cdc (ticket cdc), puis l'utiliser** ; (c) script jetable au scratchpad. → **(b)** :
   hook, compose, verrou et Pi sont les pièges qu'une commande testée évite, et « tout gérer
   depuis cdc » ; (a) acceptable si l'utilisateur veut renommer vite (précédent #92).
