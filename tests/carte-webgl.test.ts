@@ -325,6 +325,8 @@ interface ShaderJs {
   /** Ses in et out (et gl_Position), pour vérifier l'édition des liens entre deux étages. */
   ins: Record<string, Varying>;
   sorties: Record<string, Varying>;
+  /** layout(location = N) de chaque attribut (in d'un vertex shader) : où dessiner() doit le brancher. */
+  locations: Record<string, number>;
   executer(valeurs: Record<string, ValeurGlsl>): Record<string, number | boolean | number[]>;
 }
 
@@ -374,15 +376,21 @@ const RUNTIME_GLSL = (() => {
   };
 })();
 
-/** Fonctions natives : nombre d'arguments et type du résultat. */
-const NATIVES_GLSL: Record<string, { n: number; t: (a: TypeGlsl[]) => TypeGlsl }> = {
-  ...Object.fromEntries(['abs', 'floor', 'sin', 'cos', 'asin'].map((f) => [f, { n: 1, t: (a: TypeGlsl[]) => a[0] as TypeGlsl }])),
-  ...Object.fromEntries(['min', 'max', 'mod'].map((f) => [f, { n: 2, t: (a: TypeGlsl[]) => a[0] as TypeGlsl }])),
-  clamp: { n: 3, t: (a) => a[0] as TypeGlsl },
-  mix: { n: 3, t: (a) => a[0] as TypeGlsl },
-  distance: { n: 2, t: () => 'float' },
-  texelFetch: { n: 3, t: () => 'vec4' },
+/**
+ * Fonctions natives de flottants : leurs signatures en GLSL ES 3.00 (§ 8), G
+ * le genType du premier argument (float, vec2, vec3 ou vec4), f un float. Un
+ * vecteur d'une autre taille ou un entier y est refusé, comme par le
+ * compilateur (abs, min, max et clamp existent aussi sur les entiers : non
+ * traduits ici). Résultat : G, sauf distance (float).
+ */
+const NATIVES_GLSL: Record<string, { signatures: string[]; t?: TypeGlsl }> = {
+  ...Object.fromEntries(['abs', 'floor', 'sin', 'cos', 'asin'].map((f) => [f, { signatures: ['G'] }])),
+  ...Object.fromEntries(['min', 'max', 'mod'].map((f) => [f, { signatures: ['GG', 'Gf'] }])),
+  clamp: { signatures: ['GGG', 'Gff'] },
+  mix: { signatures: ['GGG', 'GGf'] },
+  distance: { signatures: ['GG'], t: 'float' },
 };
+const GENTYPE = new Set<TypeGlsl>(['float', 'vec2', 'vec3', 'vec4']);
 
 function jetonsGlsl(src: string): string[] {
   const s = src.replace(/^\s*#.*$/gm, '').replace(/\/\/.*$/gm, '');
@@ -409,19 +417,27 @@ function traduireGlsl(src: string): ShaderJs {
   const exiger = (ok: boolean, quoi: string) => {
     if (!ok) throw new Error(`GLSL : ${quoi} (jeton ${i} : ${j.slice(Math.max(0, i - 6), i + 2).join(' ')})`);
   };
-  const portees: Map<string, TypeGlsl>[] = [new Map(Object.entries(INTEGREES))];
-  const typeDe = (nom: string): TypeGlsl => {
+  // Chaque nom visible : son type, et s'il est en lecture seule (uniform, in, const, gl_FragCoord, gl_VertexID).
+  type Variable = { t: TypeGlsl; lecture: boolean };
+  const portees: Map<string, Variable>[] = [new Map(Object.entries(INTEGREES).map(([n, t]) => [n, { t, lecture: n !== 'gl_Position' }]))];
+  const variable = (nom: string): Variable => {
     for (let k = portees.length - 1; k >= 0; k--) {
-      const t = portees[k]?.get(nom);
-      if (t) return t;
+      const v = portees[k]?.get(nom);
+      if (v) return v;
     }
     throw new Error(`GLSL : « ${nom} » inconnu`);
   };
-  const declarer = (nom: string, t: TypeGlsl) => (portees[portees.length - 1] as Map<string, TypeGlsl>).set(nom, t);
-  const fonctions = new Map<string, TypeGlsl>();
+  const typeDe = (nom: string): TypeGlsl => variable(nom).t;
+  const declarer = (nom: string, t: TypeGlsl, lecture = false) => (portees[portees.length - 1] as Map<string, Variable>).set(nom, { t, lecture });
+  /** Fonctions du shader : type rendu et types des paramètres (GLSL ES 3.00 ne convertit rien). */
+  const fonctions = new Map<string, { t: TypeGlsl; params: TypeGlsl[] }>();
+  /** Type rendu par la fonction en cours de lecture (return y est vérifié). */
+  let retour: TypeGlsl | null = null;
   const entrees: Record<string, TypeGlsl> = {};
   const ins: Record<string, Varying> = {};
   const sorties: Record<string, Varying> = {};
+  /** layout(location = N) de chaque in (les attributs d'un vertex shader). */
+  const locations: Record<string, number> = {};
   const integrees = new Set<string>();
   const type = (): TypeGlsl => {
     const t = prendre();
@@ -528,17 +544,23 @@ function traduireGlsl(src: string): ShaderJs {
       const t = nom as TypeGlsl;
       return { js: `$ctor(${COMPOSANTES[t]}, ${entier(t)}, ${js})`, t };
     }
+    const types = args.map((a) => a.t);
+    if (nom === 'texelFetch') {
+      exiger(types.join() === 'sampler2D,ivec2,int', `texelFetch(${types.join(', ')}) : texelFetch(sampler2D, ivec2, int) attendu`);
+      return { js: `$texelFetch(${js})`, t: 'vec4' };
+    }
     const nat = NATIVES_GLSL[nom];
     if (nat) {
-      exiger(args.length === nat.n, `${nom} à ${args.length} arguments`);
-      // Les natives de flottants refusent les entiers (texelFetch : coordonnées entières).
-      if (nom !== 'texelFetch') exiger(args.every((a) => !entier(a.t) && a.t !== 'bool'), `${nom} sur des entiers`);
-      else exiger(args.map((a) => a.t).join() === 'sampler2D,ivec2,int', 'texelFetch(sampler2D, ivec2, int)');
-      return { js: `$${nom}(${js})`, t: nat.t(args.map((a) => a.t)) };
+      const g = types[0] as TypeGlsl;
+      const signature = (s: string) => s.length === types.length && [...s].every((k, n) => types[n] === (k === 'G' ? g : 'float'));
+      exiger(GENTYPE.has(g) && nat.signatures.some(signature), `${nom}(${types.join(', ')}) : pas de telle signature (${nat.signatures.join(', ')} ; G = float ou vecN, f = float)`);
+      return { js: `$${nom}(${js})`, t: nat.t ?? g };
     }
     const f = fonctions.get(nom);
-    exiger(f !== undefined, `fonction « ${nom} » inconnue`);
-    return { js: `${nom}(${js})`, t: f as TypeGlsl };
+    exiger(f !== undefined, `fonction « ${nom} » inconnue (ou appelée avant sa fin : récursion refusée)`);
+    const { t, params } = f as { t: TypeGlsl; params: TypeGlsl[] };
+    exiger(types.join() === params.join(), `${nom}(${types.join(', ')}) : ${nom}(${params.join(', ')}) attendu (aucune conversion implicite)`);
+    return { js: `${nom}(${js})`, t };
   }
 
   function declaration(): string {
@@ -552,7 +574,7 @@ function traduireGlsl(src: string): ShaderJs {
       prendre('=');
       const e = expression();
       exiger(e.t === t, `${t} ${nom} = ${e.t}`);
-      declarer(nom, t);
+      declarer(nom, t, constante);
       parts.push(`${nom} = ${e.js}`);
       if (voir() !== ',') break;
       prendre(',');
@@ -585,16 +607,21 @@ function traduireGlsl(src: string): ShaderJs {
     }
     if (t === 'return') {
       prendre();
-      if (voir() === ';') return (prendre(), 'return;');
+      if (voir() === ';') {
+        exiger(retour === 'void', `return; dans une fonction ${retour}`);
+        return (prendre(), 'return;');
+      }
       const e = expression();
       prendre(';');
+      exiger(e.t === retour, `return ${e.t} dans une fonction ${retour}`);
       return `return ${e.js};`;
     }
     if (TYPES_GLSL.has(t) || t === 'const' || PRECISIONS.has(t)) return declaration();
     const nom = prendre();
     exiger(/^[A-Za-z_]\w*$/.test(nom), `instruction « ${nom} » (non traduite)`);
     if (nom in INTEGREES) integrees.add(nom);
-    const tv = typeDe(nom);
+    const { t: tv, lecture } = variable(nom);
+    exiger(!lecture, `${nom} écrit (en lecture seule : uniform, in, const ou variable intégrée)`);
     prendre('=');
     const e = expression();
     prendre(';');
@@ -612,10 +639,14 @@ function traduireGlsl(src: string): ShaderJs {
       if (voir() === ',') prendre(',');
     }
     prendre(')');
-    fonctions.set(nom, t);
-    portees.push(new Map(params));
+    exiger(!fonctions.has(nom) && !NATIVES_GLSL[nom] && nom !== 'texelFetch', `fonction ${nom} déjà définie (surcharge non traduite)`);
+    portees.push(new Map(params.map(([n, pt]) => [n, { t: pt, lecture: false }])));
+    retour = t;
     const corps = bloc();
+    retour = null;
     portees.pop();
+    // Connue seulement après son corps : un appel récursif y est refusé, comme en GLSL ES.
+    fonctions.set(nom, { t, params: params.map((p) => p[1]) });
     return `function ${nom}(${params.map((p) => p[0]).join(', ')}) ${corps}`;
   }
 
@@ -629,32 +660,55 @@ function traduireGlsl(src: string): ShaderJs {
       code.push(declaration());
       continue;
     }
+    let location: number | null = null;
     if (voir() === 'layout') {
       prendre();
       prendre('(');
-      while (prendre() !== ')');
+      prendre('location');
+      prendre('=');
+      const n = prendre();
+      exiger(/^\d+$/.test(n), `layout(location = ${n})`);
+      location = Number(n);
+      prendre(')');
     }
     const quals = new Set<string>();
     while (QUALIFICATIFS.has(voir() as string)) quals.add(prendre());
     const t = type();
     const nom = prendre();
     if (voir() === '(') {
-      exiger(quals.size === 0, `qualificatifs sur la fonction ${nom}`);
+      exiger(quals.size === 0 && location === null, `qualificatifs sur la fonction ${nom}`);
       code.push(fonction(t, nom));
       continue;
     }
     prendre(';');
-    declarer(nom, t);
+    exiger(location === null || quals.has('in'), `layout(location) sur ${nom}, qui n'est pas un in (non traduit)`);
+    declarer(nom, t, quals.has('uniform') || quals.has('in'));
     if (quals.has('uniform') || quals.has('in')) {
       entrees[nom] = t;
       if (quals.has('in')) ins[nom] = { type: t, flat: quals.has('flat') };
+      if (location !== null) {
+        exiger(!Object.values(locations).includes(location), `location ${location} déjà prise (${nom})`);
+        locations[nom] = location;
+      }
     } else {
       exiger(quals.has('out'), `variable globale ${nom} sans uniform, in ni out (non traduite)`);
       sorties[nom] = { type: t, flat: quals.has('flat') };
       code.push(`let ${nom};`);
     }
   }
-  exiger(fonctions.get('main') === 'void', 'pas de void main()');
+  exiger(fonctions.get('main')?.t === 'void' && fonctions.get('main')?.params.length === 0, 'pas de void main()');
+  // Étage : un vertex shader écrit gl_Position ou lit gl_VertexID ; sinon, fragment shader.
+  const vertex = integrees.has('gl_Position') || integrees.has('gl_VertexID');
+  exiger(!(vertex && integrees.has('gl_FragCoord')), 'gl_FragCoord dans un vertex shader');
+  // Interpolation : un in ou out entier entre deux étages doit être flat (GLSL ES 3.00, § 4.3.4 et 4.3.6) ;
+  // ni les attributs d'un vertex shader ni les sorties d'un fragment shader n'en prennent.
+  const entreEtages = vertex ? sorties : ins;
+  const horsEtages = vertex ? ins : sorties;
+  for (const [nom, v] of Object.entries(entreEtages)) exiger(v.flat || !entier(v.type), `${vertex ? 'out' : 'in'} ${v.type} ${nom} sans flat`);
+  for (const [nom, v] of Object.entries(horsEtages)) exiger(!v.flat, `flat sur ${nom}, ${vertex ? 'attribut d’un vertex shader' : 'sortie d’un fragment shader'}`);
+  for (const [nom, v] of [...Object.entries(ins), ...Object.entries(sorties)]) exiger(v.type !== 'bool' && v.type !== 'sampler2D', `in ou out ${v.type} ${nom}`);
+  // Le code dessine avec des locations fixes (vertexAttribPointer(0, …)) : chaque attribut en déclare une.
+  if (vertex) for (const nom of Object.keys(ins)) exiger(nom in locations, `attribut ${nom} sans layout(location)`);
   for (const n of integrees) if (n !== 'gl_Position') entrees[n] = INTEGREES[n] as TypeGlsl;
   if (integrees.has('gl_Position')) sorties.gl_Position = { type: 'vec4', flat: false };
   const corps = [
@@ -669,6 +723,7 @@ function traduireGlsl(src: string): ShaderJs {
     entrees,
     ins,
     sorties,
+    locations,
     executer(valeurs) {
       const args = Object.entries(entrees).map(([nom, t]) => {
         const v = valeurs[nom];
@@ -716,6 +771,47 @@ describe('traducteur GLSL des tests', () => {
     expect(essai('sortie = fract(vec4(1.5));')).toThrow(/fract/);
     const s = essai('int a = 7 / 2; int b = -7 / 2; vec2 v = vec2(a, b) * 0.5; sortie = vec4(v.yx, mod(-1.0, 4.0), float(7 % 4));')().executer({});
     expect(s.sortie).toEqual([-1.5, 1.5, 3, 3]);
+  });
+
+  it('refuse ce que le compilateur GLSL ES 3.00 refuse : types des appels et des return, signatures des natives, flat, écritures en lecture seule', () => {
+    const frag = (corps: string, avant = '') => () => traduireGlsl(`#version 300 es\nprecision highp float;\nout vec4 sortie;\n${avant}\nvoid main() {\n${corps}\n}`);
+    const vert = (decl: string, corps: string) => () => traduireGlsl(`#version 300 es\nprecision highp float;\nlayout(location = 0) in vec2 a;\n${decl}\nvoid main() {\n${corps}\n gl_Position = vec4(a, 0.0, 1.0);\n}`);
+    // Fonctions du shader : ni conversion des arguments, ni return d'un autre type, ni récursion.
+    expect(frag('sortie = vec4(f(1));', 'float f(float x) { return x; }')).toThrow(/f\(int\) : f\(float\) attendu/);
+    expect(frag('sortie = vec4(f(1.0, 2.0));', 'float f(float x) { return x; }')).toThrow(/f\(float\) attendu/);
+    expect(frag('sortie = vec4(g(), 0.0, 0.0);', 'vec2 g() { return 1.0; }')).toThrow(/return float dans une fonction vec2/);
+    expect(frag('sortie = vec4(1.0);', 'void h() { return 1.0; }')).toThrow(/return float dans une fonction void/);
+    expect(frag('sortie = vec4(f(1.0));', 'float f(float x) { return f(x); }')).toThrow(/fonction « f » inconnue/);
+    // Natives : le même genType partout, un float seul là où GLSL le permet.
+    expect(frag('sortie = vec4(distance(vec2(0.0), vec4(3.0, 4.0, 9.0, 9.0)));')).toThrow(/distance\(vec2, vec4\)/);
+    expect(frag('sortie = mix(vec4(1.0), vec2(0.0), 0.5);')).toThrow(/mix\(vec4, vec2, float\)/);
+    expect(frag('sortie = vec4(clamp(vec2(1.0), vec4(0.0), 1.0), 0.0, 0.0);')).toThrow(/clamp\(vec2, vec4, float\)/);
+    expect(frag('sortie = vec4(clamp(1.0, vec2(0.0), vec2(1.0)), 0.0, 0.0);')).toThrow(/clamp\(float, vec2, vec2\)/);
+    expect(frag('sortie = vec4(min(1.0, vec2(0.0)), 0.0, 0.0);')).toThrow(/min\(float, vec2\)/);
+    expect(frag('sortie = vec4(abs(1));')).toThrow(/abs\(int\)/);
+    // Ce qui passe : les formes permises, scalaire diffusé compris.
+    const ok = frag('vec2 v = clamp(vec2(2.0, -1.0), 0.0, 1.0); sortie = vec4(v, mix(vec2(0.0), vec2(4.0), 0.25));')().executer({});
+    expect(ok.sortie).toEqual([1, 0, 1, 1]);
+    // Entiers entre deux étages : flat obligatoire ; nulle part ailleurs.
+    expect(vert('out int v;', 'v = 1;')).toThrow(/out int v sans flat/);
+    expect(vert('out ivec2 v;', 'v = ivec2(1);')).toThrow(/out ivec2 v sans flat/);
+    expect(frag('sortie = vec4(float(v));', 'in int v;')).toThrow(/in int v sans flat/);
+    expect(vert('flat out int v;', 'v = 1;')).not.toThrow();
+    expect(frag('sortie = vec4(1.0);', 'flat in int v;')).not.toThrow();
+    expect(() => traduireGlsl('#version 300 es\nprecision highp float;\nflat out vec4 sortie;\nvoid main() { sortie = vec4(1.0); }')).toThrow(/flat sur sortie/);
+    // Écritures interdites : uniform, in, const, gl_FragCoord, gl_VertexID.
+    expect(frag('gl_FragCoord = vec4(1.0); sortie = vec4(1.0);')).toThrow(/gl_FragCoord écrit/);
+    expect(frag('u = 1.0; sortie = vec4(u);', 'uniform float u;')).toThrow(/u écrit/);
+    expect(frag('v = vec2(1.0); sortie = vec4(v, 0.0, 0.0);', 'in vec2 v;')).toThrow(/v écrit/);
+    expect(frag('K = 2.0; sortie = vec4(K);', 'const float K = 1.0;')).toThrow(/K écrit/);
+    expect(vert('', 'int i = 0; gl_VertexID = i;')).toThrow(/gl_VertexID écrit/);
+    // Une variable locale du même nom se change, elle.
+    expect(frag('float u = 2.0; u = 3.0; sortie = vec4(u);', 'uniform float u;')().executer({ u: 1 }).sortie).toEqual([3, 3, 3, 3]);
+    // Attributs : chacun à sa location, deux jamais à la même.
+    expect(traduireGlsl(VERTEX_CARTE).locations).toEqual({ aLonLat: 0, aMilieu: 1, aForme: 2 });
+    expect(traduireGlsl(VERTEX_DISQUES).locations).toEqual({ aDisque: 0, aCouleur: 1 });
+    expect(vert('in vec2 b;', 'vec2 c = b;')).toThrow(/attribut b sans layout\(location\)/);
+    expect(vert('layout(location = 0) in vec2 b;', 'vec2 c = b;')).toThrow(/location 0 déjà prise/);
   });
 
   it('édition des liens : chaque in d’un fragment shader est un out de son vertex shader, même type, même flat', () => {
