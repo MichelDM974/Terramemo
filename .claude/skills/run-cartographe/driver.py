@@ -912,15 +912,18 @@ def resumer(rapports, vises):
             st = g["stats"]
             e["gestes"] += 1
             e["intervalles"] += len(g["intervalles_ms"])
-            # Comptées par la page avec la période du geste (stats.periode_ms).
+            # Comptées par la page sur stats.periode_ms : la plus courte de la
+            # période du geste et de celle du repos (src/mesure/stats.ts).
             e["perdues"] += st["perdues"]
             e["max_ms"] = max(e["max_ms"], st["max_ms"] or 0)
             e["p95_ms"].append(st["p95_ms"])
-            e["periodes_ms"].append(st.get("periode_ms"))
+            e["periodes_ms"].append(st.get("periode_geste_ms"))
             e["ecarts_periode"] += bool(st.get("ecart_periode"))
             e["longues_images"] += g["longues_images"]["nombre"]
             fin = g["fin"].get("event_timing_ms")
-            if fin is None:
+            if fin is None and g["fin"].get("event_timing_etat") == "sous_seuil":
+                e["fin_et"].append(SEUIL_EVENT_TIMING_MS)  # aucune entrée : sous le seuil de l'API
+            elif fin is None:
                 e["fin_et_absente"] += 1
             elif (suivant and g["fin_ms"] + fin >= suivant["debut_ms"] - 2 * periode_r
                   and (g["fin"]["image_ms"] or 0) < CRITERE_FIN_GESTE_MS and not g["longues_images"]["nombre"]):
@@ -929,7 +932,9 @@ def resumer(rapports, vises):
                 # geste n'a sans doute rien changé à l'écran (vu en rendu g, le
                 # pincement de k 14,5 à 36 : 576 ms dans les 3 répétitions, qui
                 # suivent la pause du scénario, 1592 ms si elle passe à 1,5 s).
-                # Montré à part, hors verdict.
+                # Mais c'est aussi la signature d'une vraie fin lente en css
+                # (rastérisation hors du fil principal) : montré à part et
+                # verdict « à juger » au-delà du seuil, jamais OK d'office.
                 e["fin_et_reportees"].append(fin)
             else:
                 e["fin_et"].append(fin)
@@ -942,10 +947,15 @@ def resumer(rapports, vises):
                            "max": max(periodes, default=None)}
         e["saccade"] = (e["part_perdues"] or 0) > SACCADE_PART or e["max_ms"] > SACCADE_MAX_MS
         fins = e.pop("fin_et")
+        e["fin_et_reportees_"] = list(e["fin_et_reportees"])
         e["fin_event_timing_ms"] = {"mediane": _med(fins), "max": max(fins, default=None),
                                     "sans_entree": e.pop("fin_et_absente"),
                                     "reportees": e.pop("fin_et_reportees"),
-                                    "ok": bool(fins) and max(fins) < CRITERE_FIN_GESTE_MS}
+                                    "ok": (False if fins and max(fins) >= CRITERE_FIN_GESTE_MS
+                                           else None if not fins or any(x >= CRITERE_FIN_GESTE_MS
+                                                                        for x in e["fin_et_reportees_"])
+                                           else True)}
+        e.pop("fin_et_reportees_")
         images = [f for f in e.pop("fin_image") if f is not None]
         e["fin_image_ms"] = {"mediane": _med(images), "max": max(images, default=None)}
     # Toucher : Event Timing partout (de l'entrée à l'image présentée).
@@ -978,7 +988,10 @@ def resumer(rapports, vises):
         "gestes": gestes,
         "saccade": any(e["saccade"] for e in gestes.values()),
         "ecarts_periode": ecarts,
-        "fin_geste_ok": bool(gestes) and all(e["fin_event_timing_ms"]["ok"] for e in gestes.values()),
+        # True, False, ou None : à juger (fin sans mesure, ou présentation reportée au-delà du seuil).
+        "fin_geste_ok": (False if not gestes or any(e["fin_event_timing_ms"]["ok"] is False for e in gestes.values())
+                         else None if any(e["fin_event_timing_ms"]["ok"] is None for e in gestes.values())
+                         else True),
         "touchers": {"n": len(latences), "verdict_sur": "event_timing",
                      "event_timing_ms": {"mediane": _med(latences), "max": max(latences, default=None),
                                          "mesures": len(mesures), "sous_seuil": sous_seuil, "repli": repli},
@@ -989,7 +1002,7 @@ def resumer(rapports, vises):
 
 
 def afficher_resume(res, entete):
-    ok = lambda b: "OK " if b else "NON"
+    ok = lambda b: " ? " if b is None else "OK " if b else "NON"
     dire(f"\n=== {entete} ===")
     dire(f"période de l'écran au repos : {res['periode_ms']} ms ({1000 / res['periode_ms']:.0f} Hz)")
     c = res["chargement_ms"]
@@ -997,13 +1010,15 @@ def afficher_resume(res, entete):
          f"({c['n']} chargements)")
     dire(f"[{ok(not res['ecarts_periode'])}] période des gestes = période du repos (écart ≤ 25 %) : "
          + ("oui" if not res["ecarts_periode"] else
-            f"{res['ecarts_periode']} geste(s) en écart : écran à une autre fréquence pendant les gestes, "
-            "images perdues comptées sur la période de chaque geste"))
+            f"{res['ecarts_periode']} geste(s) en écart : écran à une autre fréquence pendant les gestes, ou "
+            "appli à une autre cadence ; images perdues comptées sur la plus courte des deux périodes"))
     for quoi, e in res["gestes"].items():
         pg = e["periode_ms"]
         dire(f"      {quoi:8} période des gestes : médiane {pg['mediane']} ms (de {pg['min']} à {pg['max']}), "
              f"repos {res['periode_ms']} ms, {e['ecarts_periode']} écart(s)")
-    dire(f"[{ok(not res['saccade'])}] pas de saccade (≤ {SACCADE_PART:.0%} d'images perdues, aucun intervalle "
+    # Un écart de période empêche de conclure OK : un écran qui ralentit vraiment
+    # pendant le geste compterait ses images perdues (à juger à l'œil).
+    dire(f"[{ok(False if res['saccade'] else None if res['ecarts_periode'] else True)}] pas de saccade (≤ {SACCADE_PART:.0%} d'images perdues, aucun intervalle "
          f"> {SACCADE_MAX_MS} ms) :")
     for quoi, e in res["gestes"].items():
         dire(f"      {quoi:8} {e['gestes']:2} gestes, {e['perdues']}/{e['intervalles']} images perdues "
@@ -1015,7 +1030,7 @@ def afficher_resume(res, entete):
         f, i = e["fin_event_timing_ms"], e["fin_image_ms"]
         dire(f"      {quoi:8} rendu {e['rendu']} : médiane {f['mediane']}, max {f['max']} ms"
              + (f" ({f['sans_entree']} sans entrée)" if f["sans_entree"] else "")
-             + (f" ; {len(f['reportees'])} hors verdict, présentation reportée au geste suivant : "
+             + (f" ; {len(f['reportees'])} à part, présentation reportée au geste suivant (à juger) : "
                 f"{', '.join(str(x) for x in f['reportees'])} ms" if f["reportees"] else "")
              + f" ; fil principal seul (image_ms) : médiane {i['mediane']}, max {i['max']} ms")
     t = res["touchers"]
