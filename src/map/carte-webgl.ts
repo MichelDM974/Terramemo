@@ -37,7 +37,7 @@
 // une erreur : main.ts se replie sur le rendu canvas.
 import type { DonneesCarte } from './donnees';
 import { versEcran } from './geo';
-import { mailler, maillerTraits, toursEnPlus, type Maillage, type PartieMaillee } from './maillage';
+import { emprisesAPlat, mailler, maillerTraits, pourChaqueCopie, toursEnPlus, type Maillage, type PartieMaillee } from './maillage';
 import { PASTILLE } from './pastilles';
 import type { EtatImage, Peintre, StatsDessin } from './carte-canvas';
 
@@ -249,6 +249,8 @@ interface MaillageGpu {
   tampons: WebGLBuffer[];
   /** Décalage (octets) des traits dans le tampon d'indices, après les triangles. */
   traits: number;
+  /** Emprises des parties à plat (maillage.pourChaqueCopie : sans allocation à chaque image). */
+  emprises: Float64Array;
 }
 
 /** Instances des disques : centre x, y, rayon, demi-épaisseur, puis RVBA prémultiplié. */
@@ -415,7 +417,7 @@ export class PeintreWebGL implements Peintre {
     indices.set(m.triangles);
     indices.set(m.traits, m.triangles.length);
     tampons.push(this.tampon(gl.ELEMENT_ARRAY_BUFFER, indices));
-    return { m, vao, tampons, traits: m.triangles.length * 4 };
+    return { m, vao, tampons, traits: m.triangles.length * 4, emprises: emprisesAPlat(m.parties) };
   }
 
   dimensionner(l: number, h: number, dpr: number): void {
@@ -482,7 +484,6 @@ export class PeintreWebGL implements Peintre {
     const dessinerMaillage = (p: Programme, mg: MaillageGpu, mode: number, parties: readonly PartieMaillee[] | null) => {
       gl.bindVertexArray(mg.vao);
       const traits = mode === gl.LINES;
-      const ranges = parties ?? mg.m.parties;
       uniformes(p, 0);
       if (parties) {
         for (const pa of parties) {
@@ -496,18 +497,26 @@ export class PeintreWebGL implements Peintre {
         appels++;
       }
       gl.uniform1i(p.loc('uMode'), 1);
-      for (const pa of ranges) {
-        const tours = toursEnPlus(pa, v.r);
-        if (!tours.length) continue;
-        const [a, b] = traits ? [pa.l0, pa.l1] : [pa.t0, pa.t1];
-        if (b <= a) continue;
-        for (const tour of tours) {
-          gl.uniform1f(p.loc('uTour'), tour);
-          gl.drawElements(mode, b - a, gl.UNSIGNED_INT, traits ? mg.traits + a * 4 : a * 4);
-          appels++;
-          copies++;
+      const uTour = p.loc('uTour');
+      const copie = (tour: number, a: number, b: number) => {
+        gl.uniform1f(uTour, tour);
+        gl.drawElements(mode, b - a, gl.UNSIGNED_INT, traits ? mg.traits + a * 4 : a * 4);
+        appels++;
+        copies++;
+      };
+      if (parties) {
+        for (const pa of parties) {
+          const [a, b] = traits ? [pa.l0, pa.l1] : [pa.t0, pa.t1];
+          if (b > a) for (const tour of toursEnPlus(pa, v.r)) copie(tour, a, b);
         }
+        return;
       }
+      const tout = mg.m.parties;
+      pourChaqueCopie(mg.emprises, v.r, (i, tour) => {
+        const pa = tout[i] as PartieMaillee;
+        const [a, b] = traits ? [pa.l0, pa.l1] : [pa.t0, pa.t1];
+        if (b > a) copie(tour, a, b);
+      });
     };
 
     // 1. L'ovale : la mer, et le bit OVALE du stencil.

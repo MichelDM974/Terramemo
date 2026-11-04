@@ -260,6 +260,38 @@ export function toursEnPlus(p: PartieMaillee, r: number): number[] {
   return res;
 }
 
+/** Emprises (o, e) des parties à plat, pour pourChaqueCopie. */
+export function emprisesAPlat(parties: readonly PartieMaillee[]): Float64Array {
+  const em = new Float64Array(parties.length * 2);
+  parties.forEach((p, i) => {
+    em[2 * i] = p.o;
+    em[2 * i + 1] = p.e;
+  });
+  return em;
+}
+
+/**
+ * Les copies de toursEnPlus pour toutes les parties (emprises de
+ * emprisesAPlat), f(index de la partie, tour) pour chacune : le même calcul,
+ * en ligne et sans allocation. Le rendu webgl le fait à chaque image sur
+ * ~10 000 parties (terres, frontières, côtes, zones) : un tableau rendu par
+ * partie coûtait 0,24 ms par image sur le PC (~1 ms au processeur ralenti
+ * 4×), l'essentiel du script de l'image.
+ */
+export function pourChaqueCopie(emprises: Float64Array, r: number, f: (i: number, tour: number) => void): void {
+  for (let i = 0, n = emprises.length / 2; i < n; i++) {
+    const o = emprises[2 * i] as number;
+    const e = emprises[2 * i + 1] as number;
+    const t = tourDe(r, (o + e) / 2);
+    const lo = o + t * 360 - r;
+    const hi = e + t * 360 - r;
+    if (hi <= 180 && lo >= -180) continue;
+    f(i, t);
+    if (hi > 180) f(i, t - 1);
+    if (lo < -180) f(i, t + 1);
+  }
+}
+
 // --- Equal Earth du shader, en TypeScript (Float32 à chaque opération) ----------
 
 const f = Math.fround;

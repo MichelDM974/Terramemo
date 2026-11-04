@@ -3,7 +3,7 @@ import type { Polygon, Position } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
-import { densifier, estCouture, mailler, maillerTraits, triangulerPolygone, PAS_DENSIFIER_DEG, projeterF32, projeterF64, tourDe, toursEnPlus, type Maillage } from '../src/map/maillage';
+import { densifier, emprisesAPlat, estCouture, mailler, maillerTraits, pourChaqueCopie, triangulerPolygone, PAS_DENSIFIER_DEG, projeterF32, projeterF64, tourDe, toursEnPlus, type Maillage } from '../src/map/maillage';
 import { cadre, placer, projectionDe, transfoDe } from '../src/map/vue';
 
 // Rendu WebGL : maillage (triangulation, couture) et projection du shader,
@@ -232,6 +232,17 @@ describe('maillage', () => {
         const n = tourDe(r, (p.o + p.e) / 2);
         expect(Math.abs((p.o + p.e) / 2 + n * 360 - r)).toBeLessThanOrEqual(180 + 1e-9);
       }
+    }
+  });
+
+  it('pourChaqueCopie (chaque image, sans allocation) = toursEnPlus partie par partie', () => {
+    const em = emprisesAPlat(terres.parties);
+    for (const r of [...ROTATIONS, 0.5, -180, 359.9, 1000.3]) {
+      const vite: [number, number][] = [];
+      pourChaqueCopie(em, r, (i, tour) => vite.push([i, tour]));
+      const attendu = terres.parties.flatMap((p, i) => toursEnPlus(p, r).map((t) => [i, t] as [number, number]));
+      expect(vite).toEqual(attendu);
+      if (r === 180) expect(vite.length).toBeGreaterThan(0);
     }
   });
 });
