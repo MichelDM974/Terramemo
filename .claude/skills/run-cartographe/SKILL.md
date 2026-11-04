@@ -33,7 +33,7 @@ relatifs à `Cartographe/`. Contrat de la page avec le pilote :
 python3 .claude/skills/run-cartographe/driver.py serve              # vite (dev) sur 8060, au premier plan
 python3 .claude/skills/run-cartographe/driver.py serve --preview    # build hors de dist/ puis vite preview sur 8060
 python3 .claude/skills/run-cartographe/driver.py serve --lan        # aussi sur le réseau local (0.0.0.0)
-python3 .claude/skills/run-cartographe/driver.py smoke              # page, /geo/*.json, carte peinte ; code ≠ 0 au moindre échec
+python3 .claude/skills/run-cartographe/driver.py smoke              # page, /geo/*.json, carte peinte, shaders webgl compilés ; code ≠ 0 au moindre échec
 python3 .claude/skills/run-cartographe/driver.py ui                 # captures téléphone (384×832, DPR 2.8125, toucher émulé)
 python3 .claude/skills/run-cartographe/driver.py ui --width 1280    # captures PC (souris)
 ```
@@ -45,7 +45,12 @@ python3 .claude/skills/run-cartographe/driver.py ui --width 1280    # captures P
   du site (smoke et mesurer le signalent).
 - `smoke` : `[ok ]`/`[KO ]` par vérification (HTTP 200 et JSON valide des
   cinq fichiers de `/geo/`, `body[data-pret="1"]`, nombre de `path.pays`,
-  aucune exception JS ni requête en échec), puis `smoke : OK`.
+  rendu webgl, aucune exception JS ni requête en échec), puis `smoke : OK`.
+  Le rendu webgl (`?rendu=webgl&logiciel=1`) doit finir en `data-relais="webgl"` :
+  **seule vérification où le vrai compilateur voit les shaders** (`npm test`
+  les traduit en JS, un shader refusé par le pilote y passerait) ; un refus
+  y sort en `[KO ]` avec le journal du compilateur (sinon la carte retombe
+  sans bruit sur le Canvas 2D). Smoke après tout changement de shader.
 - `ui` écrit `1-carte`, `2-pays-touche` (Suisse), `3-toucher-faux`,
   `4-toucher-juste`, `5-saisie` (« sai » dans le champ réglé), `6-reglages`
   (⚙) dans `--out` (`/tmp/cartographe-captures`), et affiche les textes lus

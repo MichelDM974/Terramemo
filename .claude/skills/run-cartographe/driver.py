@@ -4,7 +4,8 @@ MESURE, sur le PC (chromium local) et sur le téléphone (Chrome ou l'APK, par
 adb). Python stdlib seule ; à lancer depuis Cartographe/ :
 
     serve [--preview] [--lan]   Vite sur le port 8060 (au premier plan)
-    smoke                       page, fichiers /geo/*.json, carte peinte
+    smoke                       page, fichiers /geo/*.json, carte peinte,
+                                shaders du rendu webgl compilés
     ui [--width 384]            captures des vues (téléphone ou PC)
     mesurer --cible local|chrome|webview [--rendu css|g|canvas|webgl]
                                 gestes et touchers rejoués par DevTools,
@@ -788,6 +789,21 @@ def commande_smoke(args):
             verifier("tracés des pays", n[0] > 150, f"{n[0]} path.pays, {n[1]} pastilles visibles, version {n[2]}, rendu {n[3]}")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
+        # Rendu webgl : les shaders compilés et liés par le vrai navigateur (les tests
+        # ne font que les traduire en JS). Un shader refusé ne casse rien de visible :
+        # la carte reste en Canvas 2D (data-relais="repli"), d'où cette vérification.
+        # ?logiciel=1 : sans --gpu, le WebGL du PC est SwiftShader, refusé sinon.
+        try:
+            p.goto(base + "?rendu=webgl&logiciel=1&mesures=0")
+            p.attendre_carte(args.budget)
+            fin = time.monotonic() + args.budget
+            while p.js("document.querySelector('#carte').dataset.relais") == "attente" and time.monotonic() < fin:
+                p.pause(100)
+            w = p.js("window.cartographe.carte && window.cartographe.carte.webgl()") or {}
+            verifier("rendu webgl (shaders compilés et liés)", w.get("etape") == "webgl",
+                     f"relais {w.get('etape')}, GPU {w.get('renderer')}" + (f", raison : {w.get('raison')}" if w.get("raison") else ""))
+        except RuntimeError as e:
+            verifier("rendu webgl (shaders compilés et liés)", False, str(e))
         verifier("aucune erreur JS", not p.erreurs, "; ".join(p.erreurs)[:300])
         verifier("aucune requête en échec", not p.echecs, "; ".join(p.echecs)[:300])
     dire("\nsmoke : " + ("OK" if not echecs else f"{echecs} échec(s)"))
