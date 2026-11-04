@@ -25,7 +25,7 @@
 import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
-import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
+import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
 import { RAYON_TERRE_KM, versEcran } from './geo';
 import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
@@ -171,6 +171,12 @@ export function parcourir(im: ImageTrace, listes: Partie[][], groupes: (Groupe |
         if (j >= de) break;
         continue;
       }
+      // Une île que le repos ne montre pas (dessin.ts, cotePoint), écartée sans
+      // appeler f : un millier au zoom 1, ni triées ni groupées par ce critère.
+      if (im.mouvement && im.K * (p.source ?? p).ecart < SEUIL_PX) {
+        im.minuscules++;
+        continue;
+      }
       if (visible(im, p)) f(p, i);
     }
   }
@@ -194,12 +200,16 @@ export function calqueLeger(donnees: DonneesCarte, complet: Calque, formes: { pa
   // majorée de la tolérance de la simplification (15 km, comptée deux fois la
   // longueur à l'écran d'un arc de 15 km au pire des échelles d'Equal Earth),
   // pour qu'elle ne soit jamais sautée là où l'île se verrait.
-  const siennes = (f: Forme | undefined) => (f ? preparer(f, MARGE_LEGERE) : []);
+  const siennes = (f: Forme | undefined, completes: Partie[] | undefined) => {
+    const ps = f ? preparer(f, MARGE_LEGERE) : [];
+    for (const p of ps) p.source = sourceDe(p, completes ?? []);
+    return ps;
+  };
   const listes = (fs: (Forme | undefined)[], completes: Partie[][]) => {
     const parties: Partie[][] = [];
     const groupes: (Groupe | null)[] = [];
     fs.forEach((f, i) => {
-      const grandes = siennes(f);
+      const grandes = siennes(f, completes[i]);
       const ps = petites(completes[i]);
       parties.push([...grandes, ...ps]);
       if (!ps.length) return groupes.push(null);
@@ -217,6 +227,27 @@ export function calqueLeger(donnees: DonneesCarte, complet: Calque, formes: { pa
   const pays = listes(donnees.entites.map((e) => formes.pays.get(e.pays.id)), complet.pays);
   const zones = listes(donnees.contestees.map((z) => formes.zones.get(z.forme.properties.id)), complet.zones);
   return { ...compter(pays.parties, zones.parties), groupes: { pays: pays.groupes, zones: zones.groupes } };
+}
+
+/**
+ * La partie de la complète qu'une partie de l'allégée remplace : parmi les
+ * parties de la même entité, celle dont l'emprise ressemble le plus à la
+ * sienne (aire commune sur aire réunie ; chaque polygone de l'allégée est
+ * simplifié à part, il en a une). Le plus grand recouvrement ne suffit pas :
+ * l'emprise du continent contient celle d'une île voisine. null si aucune ne
+ * la rencontre.
+ */
+function sourceDe(p: Partie, completes: readonly Partie[]): Partie | null {
+  const aire = (q: Partie) => (q.e - q.o) * (q.n - q.s);
+  let meilleure: Partie | null = null;
+  let score = -1;
+  for (const q of completes) {
+    if (p.o > q.e || q.o > p.e || p.s > q.n || q.s > p.n) continue;
+    const a = Math.max(0, Math.min(p.e, q.e) - Math.max(p.o, q.o)) * Math.max(0, Math.min(p.n, q.n) - Math.max(p.s, q.s));
+    const sc = a / (aire(p) + aire(q) - a + 1e-12);
+    if (sc > score) [meilleure, score] = [q, sc];
+  }
+  return meilleure;
 }
 
 /** Sommets des parties visibles : le coût du tracé de ce calque. */

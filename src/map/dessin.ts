@@ -34,12 +34,20 @@
 // Pendant un mouvement (sommets sautés sous SEUIL_MOUVEMENT_PX), une île de
 // moins d'un pixel ou deux se réduisait à un segment ou à un point, sans aire :
 // elle disparaissait pendant le geste et revenait au lâcher. Une partie de
-// moins de TAILLE_POINT_PX (emprise majorée, sans parcourir ses sommets) ou
-// dont le contour s'effondre devient donc un point (tracerPoint). Une partie
-// trop petite pour se voir même au repos (moins de TAILLE_MIN_PX) est sautée.
-// Au zoom 1, la carte allégée trace ainsi ~950 points (les îles de 0,4 à
-// 2 px) : sur le PC (chargé par ailleurs, chiffres bruités), son image passe
-// de 0,8 à 1,0 ms de script, de 2,4-3,5 à 4 ms au processeur ralenti 4×.
+// moins de TAILLE_POINT_PX (emprise majorée) ou dont le contour s'effondre
+// devient donc un point (tracerPoint), à deux conditions pour ne montrer que
+// ce que montre le repos : la partie y laisse un trait (un sommet à SEUIL_PX
+// ou plus du premier), et le point a le côté de son emprise réelle à l'écran
+// (un pixel au plus). Sans elles (taille majorée, cisaillement d'Equal Earth
+// compris), des îlots invisibles au repos devenaient de petits carrés qui
+// s'allumaient pendant le geste. Le point garde le trait des frontières,
+// comme l'île au repos : une île de moins d'un pixel ne se voit que par ce
+// trait clair, et un point sans contour, couleur de la terre, ne se voyait
+// presque plus. Taches du repos absentes pendant le geste et taches du geste
+// absentes au repos, 16 vues d'archipels aux zooms 2, 4 et 8 : 49, 60, 29 et
+// 259, 169, 53 avec les carrés majorés ; 116, 179, 44 et 0 sans contour ; 1,
+// 4, 8 et 3, 1, 1 ainsi. Une partie de moins de TAILLE_MIN_PX (emprise
+// majorée) est sautée sans regarder ses sommets.
 import type { Position } from 'geojson';
 import type { Forme } from './types';
 import { facteurG, normaliserLon, ordonneeBrute, rencontre, type Cadre, type Region, type VueGlobe } from './vue';
@@ -50,10 +58,13 @@ export const SEUIL_PX = 0.5;
 export const SEUIL_MOUVEMENT_PX = 1;
 /**
  * Pendant un mouvement, une partie dont l'emprise à l'écran (majorée) fait
- * moins de ce côté n'est pas tracée : au repos, ses sommets tombent à moins de
- * SEUIL_PX les uns des autres et son tracé n'a pas d'aire non plus.
+ * moins de ce côté n'est pas tracée : ses sommets sont à moins de 2 × 0,25 =
+ * SEUIL_PX les uns des autres (somme des écarts en x et en y, celle du seuil),
+ * si bien qu'au repos tracerPartie n'en émet que le premier et le dernier, le
+ * même : ni trait ni aire. À 0,4 px, des îlots qui laissaient au repos un trait
+ * de près d'un pixel étaient sautés pendant le geste (une dizaine par vue).
  */
-export const TAILLE_MIN_PX = 0.4;
+export const TAILLE_MIN_PX = SEUIL_PX / 2;
 /** Pendant un mouvement, une partie de moins de ce côté (emprise majorée) est un point. */
 export const TAILLE_POINT_PX = 2;
 /** Marge autour de l'écran (px) : région visible et sommets hors de l'écran (traits, cordes entre sommets). */
@@ -79,6 +90,19 @@ export interface Partie {
   taille: number;
   /** Plus grand côté de l'emprise en km (longitudes × cos de la latitude moyenne) : la carte allégée prend les îles en dessous dans la complète. */
   km: number;
+  /**
+   * Partie de la carte allégée (simplifiée à 15 km, au pire en triangle) : la
+   * partie de la complète qu'elle remplace, que le repos montre ; son point
+   * pendant un geste en vient (tracerPoint). null ailleurs (calqueLeger).
+   */
+  source: Partie | null;
+  /**
+   * Contour extérieur, en px / K : majorant de l'écart (somme des écarts en x
+   * et en y) du sommet le plus loin du premier, quelle que soit la place du
+   * premier dans l'ovale. En dessous de SEUIL_PX, le repos ne montre pas la
+   * partie (cotePoint).
+   */
+  ecart: number;
   /** Centre de l'emprise : λ (radians), G(φ), ordonnée brute ; le point d'un contour effondré. */
   centre: [number, number, number];
   /**
@@ -139,8 +163,27 @@ export function preparer(forme: Forme, marge = 0): Partie[] {
     const taille = Math.max((e - o) * RAD * gMax + Math.PI * (gMax - gMin), Math.abs(ordonneeBrute(n) - ordonneeBrute(s))) + marge;
     const phi = (s + n) / 2;
     const centre: [number, number, number] = [((o + e) / 2) * RAD, facteurG(phi), ordonneeBrute(phi)];
-    return { o, s, e, n, anneaux, points, couture, taille, km, centre };
+    const ecart = majorerEcart(anneaux[0]);
+    return { o, s, e, n, anneaux, points, couture, taille, km, ecart, centre, source: null as Partie | null };
   });
+}
+
+/**
+ * Pour un contour (triplets λ, G, ordonnée brute), à l'écran au facteur K = 1,
+ * le premier sommet à λ'0 (sa longitude depuis le centre de la vue) : un
+ * sommet est à x − x0 = (λ − λ0)·G + λ'0·(G − G0), y − y0 = −(Y − Y0). Majorant,
+ * sur |λ'0| ≤ π, de l'écart (somme des écarts en x et en y) du sommet le plus
+ * loin du premier.
+ */
+function majorerEcart(a: Float64Array | undefined): number {
+  if (!a || a.length < 3) return 0;
+  const [l0, g0, y0] = [a[0] as number, a[1] as number, a[2] as number];
+  let ecart = 0;
+  for (let i = 3; i < a.length; i += 3) {
+    const g = a[i + 1] as number;
+    ecart = Math.max(ecart, Math.abs(((a[i] as number) - l0) * g) + Math.PI * Math.abs(g - g0) + Math.abs((a[i + 2] as number) - y0));
+  }
+  return ecart;
 }
 
 /**
@@ -376,15 +419,20 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
 
 /**
  * Un carré centré sur le centre de l'emprise d'une partie (copie décalée de
- * delta), du côté de son emprise à l'écran, un pixel (px CSS) au plus, s'il
- * est dans l'écran élargi. Un carré d'un pixel entier rendait les îles de
- * moins d'un pixel plus visibles pendant le geste qu'au repos (Polynésie au
- * zoom 4 : des points qui s'allument au toucher). Un seul point par pixel et
- * par chemin (un pays marqué a le sien) : le second qui tombe dans un pixel
- * le remplit en entier (il couvre les deux centres), les suivants n'ajoutent
- * rien (au zoom 1, des îles par dizaines dans le même pixel).
+ * delta), du côté de son emprise réelle à l'écran (cotePoint), un pixel (px
+ * CSS) au plus, s'il est dans l'écran élargi et si le repos montre la partie.
+ * Une partie de la carte allégée prend centre et emprise de sa source : son
+ * triangle peut faire moins de la moitié de l'île (Karpathos : 19 km pour
+ * 45), et ce que le repos montre vient de la complète.
+ * Un carré d'un pixel entier rendait les îles de moins d'un pixel plus
+ * visibles pendant le geste qu'au repos (Polynésie au zoom 4 : des points qui
+ * s'allument au toucher). Un seul point par pixel et par chemin (un pays
+ * marqué a le sien) : le second qui tombe dans un pixel le remplit en entier
+ * (il couvre les deux centres), les suivants n'ajoutent rien (au zoom 1, des
+ * îles par dizaines dans le même pixel).
  */
-function tracerPoint(ctx: ContexteTrace, im: ImageTrace, p: Partie, delta: number, x0: number, x1: number, yh: number, yb: number): void {
+function tracerPoint(ctx: ContexteTrace, im: ImageTrace, partie: Partie, delta: number, x0: number, x1: number, yh: number, yb: number): void {
+  const p = partie.source ?? partie;
   const [lc, gc, yc] = p.centre;
   const l = Math.max(-Math.PI, Math.min(Math.PI, lc + delta));
   const x = im.cx + im.K * l * gc;
@@ -396,7 +444,11 @@ function tracerPoint(ctx: ContexteTrace, im: ImageTrace, p: Partie, delta: numbe
   const cle = px + 65_536 * py;
   const deja = pixels.get(cle);
   if (deja === PIXEL_PLEIN) return;
-  const cote = Math.min(1, im.K * p.taille);
+  const cote = Math.min(1, cotePoint(im, p, delta));
+  if (cote === 0) {
+    im.minuscules++;
+    return;
+  }
   if (deja === undefined && cote < 1) {
     pixels.set(cle, 1);
     ctx.rect(x - cote / 2, y - cote / 2, cote, cote);
@@ -409,6 +461,42 @@ function tracerPoint(ctx: ContexteTrace, im: ImageTrace, p: Partie, delta: numbe
 }
 
 const PIXEL_PLEIN = 2;
+
+/**
+ * Côté (px) de l'emprise réelle à l'écran d'une partie (copie décalée de
+ * delta), d'après les sommets de son contour extérieur, à la rotation de
+ * l'image ; 0 si le repos ne la montre pas : aucun sommet à SEUIL_PX ou plus
+ * du premier (somme des écarts en x et en y), tracerPartie n'émettant alors
+ * qu'un segment nul. Le majorant
+ * Partie.ecart écarte sans parcourir leurs sommets la plupart des îles que le
+ * repos ne montre pas (parcourir, carte-canvas.ts, avant même tracerPartie) :
+ * parcourir les sommets de toutes les îles candidates doublait le tracé JS
+ * de l'allégée au zoom 1 (0,38 → 0,73 ms sur le PC, Node ; 0,56 ainsi).
+ */
+function cotePoint(im: ImageTrace, p: Partie, delta: number): number {
+  const a = p.anneaux[0];
+  if (!a || a.length < 3 || im.K * p.ecart < SEUIL_PX) return 0;
+  const { K, cx, y0 } = im;
+  const PI = Math.PI;
+  let x0 = Infinity, x1 = -Infinity, ya = Infinity, yb = -Infinity;
+  let ecart = 0;
+  let px = 0;
+  let py = 0;
+  for (let i = 0; i < a.length; i += 3) {
+    let l = (a[i] as number) + delta;
+    l = l > PI ? PI : l < -PI ? -PI : l;
+    const x = cx + K * l * (a[i + 1] as number);
+    const y = y0 - K * (a[i + 2] as number);
+    if (i === 0) [px, py] = [x, y];
+    else ecart = Math.max(ecart, Math.abs(x - px) + Math.abs(y - py));
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < ya) ya = y;
+    if (y > yb) yb = y;
+  }
+  return ecart < SEUIL_PX ? 0 : Math.max(x1 - x0, yb - ya);
+}
+
 const Y_POLE = ordonneeBrute(90);
 
 /**
