@@ -272,7 +272,12 @@ Préparer, une fois :
 Déroulé d'une séance avec le téléphone (l'ordre compte : les mesures
 d'abord, téléphone au calme, puis l'œil, panneau affiché) :
 1. préparer (ci-dessus), `serve --preview` sur le PC, arbre propre
-   (`git status`) : le JSON note le commit mesuré ;
+   (`git status`) : le JSON note le commit mesuré ; **d'abord, avec
+   l'utilisateur** : l'A37 a-t-il un mode 90 Hz (Paramètres → Affichage →
+   Fluidité des mouvements, ou un mode adaptatif qui y passe) ? Si oui,
+   s'arrêter avant de mesurer : à 90 Hz les seuils de 21 et 46 ms comptent
+   au hasard (« pas de saccade » ci-dessus), à revoir avec lui (décision
+   « Critère de saccade ») ; le noter au registre dans tous les cas ;
 2. mesurer Chrome dans les quatre rendus (css, g, canvas, webgl), puis
    `apk --installer` et mesurer l'APK dans les quatre (commandes
    ci-dessous) ; lire les résumés, regarder les `[ ? ]`, et en webgl la
