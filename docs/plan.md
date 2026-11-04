@@ -63,7 +63,7 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 - Pas de tuiles : tout dessiné par le code, rien d'externe.
 - Script `geodata/build.mjs` (Node), sorties versionnées, `sources.json`
   daté (mention de source et de date obligatoire pour la Licence Ouverte
-  d'IGN au J6).
+  d'IGN, dès les communes de La Réunion, J1c).
 
 ## Technique
 
@@ -126,11 +126,12 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 | J0 Risques | Script de données (pays, pastilles) ; carte dans Chrome sur le téléphone puis dans un APK Capacitor ; zoom, déplacement, micro-États, Pacifique ; saisie avec Gboard ; projet Firebase créé | Sur le téléphone : aucune saccade visible au déplacement, rendu < 1 s, toucher → réponse < 100 ms ; sinon décision écrite (Canvas, simplification au dézoom) | S |
 | J1a MVP pays | Localiser et nommer (QCM d'apprentissage puis rappel au toucher) ; FSRS ; séances ; rétroaction et distance ; carte colorée ; journal local + Auth anonyme et Firestore ; épreuve Chrono et classements par épreuve et général, de toujours et de la semaine (pseudo, règles Firestore, App Check) ; site déployé, APK (release privée), écran Crédits | 195 pays jouables au doigt ; une épreuve jouée sur deux appareils, les deux scores au classement ; CI au vert ; une semaine d'usage sans blocage | L |
 | J1b Comptes et saisie | Saisie libre tolérante + tests de collision ; connexion Google (site et APK) et compte e-mail et mot de passe (#13) ; suppression du compte ; politique de confidentialité ; export JSON | Deux appareils, l'un hors ligne, au même état après reconnexion | M |
+| J1c La Réunion | Les 24 communes de La Réunion (IGN Admin Express, Licence Ouverte, source et date affichées) ; localiser et nommer avec le moteur du J1a, sur une carte de l'île ; dès le J1a fini, sans attendre le J1b (choix du 04/11, #15) | 24 communes jouables au doigt, site et APK ; données vérifiées par test en CI | S |
 | J2 Capitales et drapeaux | Capitales (deux sens, multiples) ; drapeaux ; leurres par confusions ; test de placement ; justesse des prévisions ; objectif quotidien ; notification optionnelle | Capitales et drapeaux vérifiés par test ; écart prévu/réel mesurable dès 300 réponses | M |
 | J3 Play Store | Fiche, formulaire de données, test fermé 14 j, AAB en CI ; anglais possible | Appli en production | M |
 | J4 Culture large I | Voisins ; placer une ville (note par distance) ; ordres de grandeur (curseur logarithmique) ; silhouettes (sans rien de quotidien ni de flèche de direction) | Chaque exercice : générateur testé + fiches | M |
 | J5 Géographie physique | Mers, détroits, montagnes, déserts, puis une centaine de fleuves | Poids dans le budget, aucun nom manquant | L |
-| J6 France et DROM | Régions, départements, La Réunion (IGN Admin Express, Licence Ouverte) | 101 départements jouables, encarts compris | M |
+| J6 France et DROM | Régions, départements, DROM en encarts (IGN Admin Express, Licence Ouverte) ; les communes de La Réunion sont au J1c | 101 départements jouables, encarts compris | M |
 
 ## Risques
 
