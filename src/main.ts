@@ -24,8 +24,8 @@ const debutScript = performance.now();
  * canvas / webgl se tranche (?rendu=g, ?rendu=css, ?rendu=canvas ou
  * ?rendu=webgl force l'un d'eux).
  * - canvas : la carte qui tourne (décision du 04/11), redessinée à chaque
- *   image dans un Canvas 2D (src/map/carte-canvas.ts) ; mesures du PC dans
- *   le message du commit qui l'ajoute, à refaire sur le téléphone.
+ *   image dans un Canvas 2D (src/map/carte-canvas.ts), carte allégée pendant
+ *   les gestes.
  * - webgl : la même carte qui tourne (mêmes gestes, pick et noter), dessinée
  *   par la carte graphique (src/map/carte-webgl.ts), toujours complète, sans
  *   carte allégée. Affichée d'abord en Canvas 2D, le WebGL prend le relais
@@ -41,32 +41,28 @@ const debutScript = performance.now();
  *   rastérisée de la carte ; la transformation n'est posée au SVG qu'au lever
  *   du doigt, qui paie alors la nouvelle peinture et la rastérisation de
  *   toute la carte.
- * Mesures du PC commitées dans docs/mesures/j0/2026-11-04-local-*.json
- * (driver run-cartographe, commit 9fcbd35 ; chrome-headless-shell 153,
- * 384 × 832, DPR 2,8125, écran à 60 Hz, toucher émulé ; 3 répétitions de
- * 6 pincements et 5 glissés ; PC très chargé par une autre session, charge
- * 14 à 17, donc ×4 bruité). Fin de geste = Event Timing de l'événement qui
- * le finit, jusqu'à la présentation ; médiane / max :
- * - processeur normal : aucune image perdue dans les deux modes ; fin d'un
- *   pincement css 64 / 96 ms, g 48 / 72 ms ; d'un glissé css 48 / 80, g 40 / 64 ;
- * - ralenti 4× : pincements css 4 images perdues sur 514, g 37 sur 473
- *   (7,8 %, intervalle max 83 ms) ; fin d'un pincement css 112 / 152 ms,
- *   g 56 / 120 ms ; d'un glissé css 72 / 112, g 48 / 88.
- * En g, un même pincement (k 14,5 → 36) finit à ~600 ms dans 2 répétitions
- * sur 3 à ×1 et 1 sur 3 à ×4 : cette fin ne change aucun pixel (captures
- * identiques), aucune image n'est présentée, et l'entrée Event Timing ne se
- * clôt qu'à la première image présentée ensuite. Un artefact : rien de
- * visible n'attend ; le driver la montre à part. fin.image_ms (deux requestAnimationFrame) s'arrête avant la
- * rastérisation et la présentation : il sous-estime la fin.
- * Donc css garde le geste fluide mais fige l'écran au lever du doigt (plus
- * de 100 ms à 4×, une douzaine d'images à 120 Hz) ; g perd des images pendant
- * les pincements mais finit plus vite en médiane (son maximum à 4× atteint
- * pourtant 120 ms). Sur le téléphone : comparer
- * gestes[].stats.perdues et gestes[].fin.event_timing_ms dans les deux modes.
+ * Mesures du PC : docs/mesures/j0/2026-11-04-local-<rendu>-monde[-x4]-gpu.json
+ * (driver run-cartographe, commit e373889 : chrome-headless-shell, vrai GPU
+ * du PC par --gpu, écran à 60 Hz, 384 × 832, toucher émulé, 3 répétitions ;
+ * relire par `driver.py resumer --sec`). Au critère de saccade du registre :
+ * - processeur normal : canvas et webgl sans un à-coup ; css saccade au
+ *   pincement (9 gels, jusqu'à 83 ms), g aux trois gestes (pincer 4,8
+ *   à-coups/s, un gel de 67 ms en glissant, deux tours du monde) ; fin d'un
+ *   pincement css 88 / 184 ms (médiane / max), g 72 / 104, canvas 32 / 40,
+ *   webgl 24 / 32 ; premier affichage 263 à 485 ms en webgl (485 : première
+ *   visite, maillage calculé), 293 à 386 ms en canvas ;
+ * - ralenti 4× : seul webgl tient (un à-coup en 18 pincements) ; canvas
+ *   saccade au pincement et au tour du monde (dessin au-delà de la période),
+ *   css et g au pincement ; premier affichage jusqu'à 921 ms en webgl, 913
+ *   en canvas. Le ralenti ne touche pas le Web Worker du maillage : le relais
+ *   du webgl à 4× est trop optimiste.
+ * En g, une fin de pincement à ~570-650 ms ne change aucun pixel : l'entrée
+ * Event Timing ne se clôt qu'à l'image présentée ensuite (artefact, écarté à
+ * part par le driver). Le PC (60 Hz, GPU de bureau) ne tranche rien : seul le
+ * téléphone le fait (SKILL.md, séance du téléphone).
  * À juger à l'œil aussi : en css, pendant un pincement, toute la couche est
  * mise à l'échelle par le compositeur : pastilles et frontières grossissent
- * avec le zoom (vu sur une capture : pincement de k 2 à 20, disques et traits
- * dix fois plus gros) et la carte est floue jusqu'au lever du doigt, puis tout
+ * avec le zoom et la carte est floue jusqu'au lever du doigt, puis tout
  * revient d'un coup. Si css est retenu, piste : masquer la couche des
  * pastilles pendant le geste (ou décider d'accepter le flou).
  */
