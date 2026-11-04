@@ -13,6 +13,7 @@ import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
 import type { Vue } from './vues/commun';
+import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { vueExplorer } from './vues/explorer';
 import { vueSaisie } from './vues/saisie';
@@ -153,10 +154,10 @@ caseMesures?.addEventListener('change', () => {
 });
 appliquerMesures();
 
-// --- Vues : sélecteur segmenté de l'en-tête, par l'ancre (#carte, #toucher, #saisie) ---
+// --- Vues : sélecteur segmenté de l'en-tête, par l'ancre (#carte, #toucher, #saisie, #chrono) ---
 
-type NomVue = 'carte' | 'toucher' | 'saisie';
-const VUES: NomVue[] = ['carte', 'toucher', 'saisie'];
+type NomVue = 'carte' | 'toucher' | 'saisie' | 'chrono';
+const VUES: NomVue[] = ['carte', 'toucher', 'saisie', 'chrono'];
 const vues = new Map<NomVue, Vue>();
 let vueActive: Vue | null = null;
 
@@ -375,6 +376,7 @@ async function demarrer(): Promise<void> {
   vues.set('carte', vueExplorer(ctx));
   vues.set('toucher', vueEssai(ctx));
   vues.set('saisie', vueSaisie(ctx));
+  vues.set('chrono', vueChrono(ctx));
   panneauMesures(zone, mesures);
   appliquerMesures();
   router();

@@ -879,6 +879,31 @@ def commande_ui(args):
         p.pause(200)
         p.js('document.getElementById("settings-btn").click()')
         capturer("6-reglages")
+        p.js('document.getElementById("settings-btn").click()')
+        # Chrono : l'Amérique du Sud (12 pays) jouée jusqu'au bilan, la
+        # première question fausse (le Brésil, ou l'Argentine s'il est demandé).
+        p.js('location.hash = "#chrono"')
+        p.pause(300)
+        capturer("7-chrono-depart")
+        p.js('document.querySelector(\'#chrono-depart .essai-serie[data-serie="South America"]\').click()')
+        p.pause(300)
+        p.js("window.cartographe.carte.zoomer({k: 1, x: 0, y: 0})")
+        consigne = 'document.querySelector("#barre-chrono .essai-consigne").dataset.cible'
+        retro = 'document.querySelector("#barre-chrono .essai-retro").textContent'
+        cible = p.js(consigne)
+        pt = position(p, "ARG" if cible == "BRA" else "BRA")
+        p.toucher(pt["x"], pt["y"])
+        p.pause(300)
+        dire(f"  Chrono, faux ({cible}) : {p.js(retro)!r}")
+        capturer("8-chrono-faux")
+        for _ in range(20):
+            p.pause(1900)
+            if p.js('!document.getElementById("chrono-bilan").hidden'):
+                break
+            pt = position(p, p.js(consigne))
+            p.toucher(pt["x"], pt["y"])
+        dire(f"  Chrono, bilan : {p.js('document.getElementById(\"chrono-bilan\").innerText')!r}")
+        capturer("9-chrono-bilan")
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")

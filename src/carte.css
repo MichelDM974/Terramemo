@@ -120,6 +120,17 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 .essai-actions { display: flex; gap: 8px; }
 .essai-actions button { padding: 6px 12px; font-size: 0.85rem; }
 
+/* Chrono : jauge du temps de la question (neutre : l'accent reste aux pages et au
+   bouton principal), score et record du bilan. */
+.chrono-temps { display: flex; align-items: center; gap: 8px; }
+.chrono-jauge { flex: 1; height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
+.chrono-jauge-reste { display: block; height: 100%; background: var(--muted); transform-origin: left center; }
+.chrono-secondes { min-width: 2.6em; text-align: right; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.chrono-statut { margin: 0 0 8px; }
+.chrono-score { margin: 2px 0; font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chrono-record { margin: 0 0 12px; font-size: 0.9rem; }
+.chrono-record.nouveau { color: var(--good); }
+
 .essai-bilan {
   position: absolute;
   left: 12px;

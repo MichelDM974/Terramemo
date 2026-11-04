@@ -1,5 +1,5 @@
 {
-  "_lisez-moi": "Textes de l'interface des vues, en français (décision « Langue » : une copie par langue, textes.<langue>.json ; les noms des pays sont dans public/geo/noms.<langue>.json). {n} et {serie} sont remplacés à l'affichage.",
+  "_lisez-moi": "Textes de l'interface des vues, en français (décision « Langue » : une copie par langue, textes.<langue>.json ; les noms des pays sont dans public/geo/noms.<langue>.json). Les {clés} entre accolades sont remplacées à l'affichage.",
   "continents": {
     "Africa": "Afrique",
     "Antarctica": "Antarctique",
@@ -17,5 +17,29 @@
     "serie_tous": "Tous les pays",
     "n_pays": "{n} pays",
     "bilan_titre": "Bilan · {serie}"
+  },
+  "chrono": {
+    "depart_titre": "Chrono",
+    "depart_aide": "Tous les pays de la série, {s} s par question, un seul toucher : 1 000 points si juste, jusqu'à 500 selon la distance sinon. Le temps total départage.",
+    "serie_tous_detail": "le marathon",
+    "record": "record {points} pts",
+    "consigne": "Touche : ",
+    "points": "{points} pts",
+    "juste": "Juste · +{points}",
+    "faux": "Faux : {touche}, à {km} du bord · +{points}",
+    "la_mer": "la mer",
+    "expire": "Temps écoulé · +0. Le bon pays est en vert.",
+    "abandonner": "Abandonner",
+    "abandon": "Partie abandonnée : elle ne compte pas.",
+    "bilan_titre": "Chrono · {serie}",
+    "bilan_score": "{points} points sur {max}",
+    "bilan_detail": "{justes} / {n} justes · {temps}",
+    "premier_record": "Premier record pour cette série.",
+    "nouveau_record_bat": "Nouveau record ! L'ancien : {points} points.",
+    "record_a_battre": "Record à battre : {points} points en {temps}.",
+    "bilan_faux": "{pays} → {touche}, à {km} · +{points}",
+    "bilan_expire": "{pays} : temps écoulé",
+    "rejouer": "Rejouer",
+    "autre_serie": "Autre série"
   }
 }

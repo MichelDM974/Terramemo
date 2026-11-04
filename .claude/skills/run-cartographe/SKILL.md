@@ -53,8 +53,12 @@ python3 .claude/skills/run-cartographe/driver.py ui --width 1280    # captures P
   sans bruit sur le Canvas 2D). Smoke après tout changement de shader.
 - `ui` écrit `1-carte`, `2-pays-touche` (Suisse), `3-toucher-faux`,
   `4-toucher-juste`, `5-saisie` (« sai » dans le champ réglé), `6-reglages`
-  (⚙) dans `--out` (`/tmp/cartographe-captures`), et affiche les textes lus
-  (barre, rétroaction, liste de la Saisie). **Regarder les captures.**
+  (⚙), `7-chrono-depart`, `8-chrono-faux` et `9-chrono-bilan` (l'Amérique
+  du Sud jouée jusqu'au bilan, ~25 s) dans `--out`
+  (`/tmp/cartographe-captures`), et affiche les textes lus (barre,
+  rétroaction, liste de la Saisie, bilan du Chrono). **Regarder les
+  captures.** Le record du Chrono vit dans le `localStorage` : le profil
+  neuf du driver repart sans record.
 - Option `--url` partout (ex. `https://cartographe-geo.web.app/`) : smoke
   et ui marchent aussi sur le site déployé.
 
