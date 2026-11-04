@@ -356,7 +356,7 @@ export class Mesures {
     });
     const carte = this.ctx.carte();
     return {
-      v: 5,
+      v: 6,
       version: this.ctx.version,
       date: new Date().toISOString(),
       agent: navigator.userAgent,

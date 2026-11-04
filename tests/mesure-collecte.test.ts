@@ -80,7 +80,7 @@ describe('fin de geste : état Event Timing et entrée suivante', () => {
   it('sans entrée ni rien de postérieur : en attente, jamais sous le seuil', () => {
     const m = mesures();
     geste(m, 1000);
-    expect(m.rapport().v).toBe(5);
+    expect(m.rapport().v).toBe(6);
     expect(m.rapport().gestes[0]?.fin).toMatchObject({
       event_timing_etat: 'en_attente',
       event_timing_ms: null,

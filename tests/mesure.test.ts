@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ACOUPS_MIN_GESTE,
   ACOUPS_PAR_S_MAX,
   acoupsParSeconde,
   estAcoup,
+  estGel,
+  gesteSaccade,
   intervalles,
   mediane,
   periodeGeste,
@@ -10,6 +13,7 @@ import {
   sansSaccade,
   SEUIL_120_MS,
   SEUIL_ACOUP_MS,
+  SEUIL_GEL_MS,
   statsGeste,
   statsImages,
   tenue120,
@@ -143,11 +147,12 @@ describe('statsGeste, cas du téléphone (relecture V2)', () => {
 });
 
 // Critère de saccade de l'utilisateur (04/11/2026, registre) : à-coup dès
-// 21 ms, NON au-delà de 3 à-coups par seconde de geste ou d'un intervalle
-// > 50 ms ; tenue des 120 i/s sur un seuil fixe de 12,5 ms. Cas de la
-// relecture VM du J0 (cadences mêlées) et de la relecture du critère v4
-// (tolérance par intervalle, seuil sur la grille, tenue non monotone,
-// mutants survivants).
+// 21 ms, NON au-delà de 3 à-coups par seconde de geste en moyenne par type
+// ou dans un seul geste (au moins 2 à-coups), ou dès un gel (≥ 46 ms) ;
+// tenue des 120 i/s sur un seuil fixe de 12,5 ms. Cas de la relecture VM du
+// J0 (cadences mêlées) et des relectures des critères v4 et v5 (tolérance
+// par intervalle, seuils sur la grille, tenue non monotone, dilution d'un
+// geste qui saccade, mutants survivants).
 describe('à-coups (≥ 21 ms, par seconde de geste) et tenue des 120 i/s', () => {
   const rep = (n: number, v: number): number[] => Array(n).fill(v);
   const P120 = 8.33;
@@ -170,7 +175,9 @@ describe('à-coups (≥ 21 ms, par seconde de geste) et tenue des 120 i/s', () =
     const alea = () => (s = (s * 16807) % 2147483647) / 2147483647;
     return iv.map((v, i) => Math.round((v + (i % 2 ? a : -a) * alea()) * 10) / 10);
   };
-  const verdict = (s: StatsGeste) => sansSaccade(s.acoups, s.duree_ms, s.max_ms);
+  const verdict = (s: StatsGeste) => sansSaccade([s]);
+  /** Un compte de verdict : k à-coups (dont gels) en duree ms. */
+  const compte = (acoups: number, duree_ms: number, gels = 0) => ({ acoups, duree_ms, gels });
   const parts = Array.from({ length: 101 }, (_, i) => i / 100);
 
   it('seuil à 21 ms, loin de 16,67 et 25 ms : 25 ms et ses arrondis comptent, 16,7 et sa gigue non', () => {
@@ -184,18 +191,74 @@ describe('à-coups (≥ 21 ms, par seconde de geste) et tenue des 120 i/s', () =
     }
   });
 
-  it('verdict : NON au-delà de 3 à-coups par seconde de geste, ou dès un intervalle de plus de 50 ms', () => {
+  it('verdict : NON au-delà de 3 à-coups par seconde de geste, limite entre 3 et 3,5 comprise', () => {
     expect(ACOUPS_PAR_S_MAX).toBe(3);
-    expect(sansSaccade(3, 1000, 33.3)).toBe(true);
-    expect(sansSaccade(4, 1000, 33.3)).toBe(false);
-    expect(sansSaccade(6, 2000, 33.3)).toBe(true);
-    expect(sansSaccade(7, 2000, 33.3)).toBe(false);
-    expect(sansSaccade(3, 999, 33.3)).toBe(false); // 3,003 par seconde
-    expect(sansSaccade(1, 1000, 50)).toBe(true);
-    expect(sansSaccade(1, 1000, 50.1)).toBe(false);
-    expect(sansSaccade(0, 1000, 50.1)).toBe(false);
-    expect(sansSaccade(0, 0, null)).toBe(true);
+    expect(sansSaccade([compte(3, 1000)])).toBe(true);
+    expect(sansSaccade([compte(4, 1000)])).toBe(false);
+    expect(sansSaccade([compte(6, 2000)])).toBe(true);
+    expect(sansSaccade([compte(7, 2000)])).toBe(false);
+    expect(sansSaccade([compte(3, 999)])).toBe(false); // 3,003 par seconde
+    expect(sansSaccade([compte(4, 1290)])).toBe(false); // 3,10 par seconde
+    expect(sansSaccade([compte(4, 1380)])).toBe(true); // 2,90 par seconde
+    expect(sansSaccade([])).toBe(true);
+    expect(sansSaccade([compte(0, 0)])).toBe(true);
     expect(acoupsParSeconde(2, 0)).toBe(0);
+  });
+
+  it('moyenne par type : sur la somme des durées, qui ne tombe pas sur une seconde ronde', () => {
+    // Gestes d'un seul à-coup (exemptés seuls) : la moyenne tranche. 8548 ms :
+    // 25 à-coups, 2,92/s, OK ; 26, 3,04/s, NON (arrondie à 8 ou 9 s, la durée
+    // inverserait l'un ou l'autre).
+    const uns = (n: number, duree: number) => Array.from({ length: n }, (_, i) => compte(1, i ? Math.floor(duree / n) : duree - (n - 1) * Math.floor(duree / n)));
+    expect(uns(25, 8548).reduce((a, g) => a + g.duree_ms, 0)).toBe(8548);
+    expect(sansSaccade(uns(25, 8548))).toBe(true);
+    expect(sansSaccade(uns(26, 8548))).toBe(false);
+    expect(uns(26, 8548).some(gesteSaccade)).toBe(false);
+  });
+
+  it('un seul geste : NON au-delà de 3 à-coups par seconde avec au moins 2 ; un à-coup isolé dans un geste court ne compte pas', () => {
+    expect(ACOUPS_MIN_GESTE).toBe(2);
+    expect(gesteSaccade(compte(1, 300))).toBe(false); // 3,3/s, mais un seul
+    expect(gesteSaccade(compte(2, 600))).toBe(true); // 3,3/s
+    expect(gesteSaccade(compte(2, 667))).toBe(false); // 2,999/s
+    expect(gesteSaccade(compte(4, 1290))).toBe(true); // 3,10/s
+    expect(gesteSaccade(compte(4, 1380))).toBe(false); // 2,90/s
+    expect(gesteSaccade(compte(0, 0, 1))).toBe(true); // un gel
+    const propres = Array.from({ length: 14 }, () => compte(0, 567));
+    // Un geste entier à 30 i/s (17 à-coups de 33,3 ms, 30/s) parmi 14 propres :
+    // 2/s en moyenne, NON par ce geste seul (v5 : OK).
+    expect(acoupsParSeconde(17, 15 * 567)).toBeLessThan(3);
+    expect(sansSaccade([compte(17, 567), ...propres])).toBe(false);
+    // Un à-coup isolé dans un geste de 0,3 s parmi les mêmes : OK ; deux : NON.
+    expect(sansSaccade([compte(1, 300), ...propres])).toBe(true);
+    expect(sansSaccade([compte(2, 300), ...propres])).toBe(false);
+  });
+
+  it('gel dès 46 ms, loin de 41,67 et 50 ms : un gel de 50 ms sous ± 2 ms de gigue par horodatage compte toujours, cinq images à 120 Hz jamais', () => {
+    expect(SEUIL_GEL_MS).toBe(46);
+    for (const d of [46, 46.1, 50, 50.1, 54, 66.7]) expect(estGel(d), `${d}`).toBe(true);
+    for (const d of [33.3, 41.7, 44.4, 45.9]) expect(estGel(d), `${d}`).toBe(false);
+    // Horodatages à 16,67 ms puis un trou de 50 ms, chacun décalé de ± 2 ms
+    // au plus, intervalles arrondis au dixième comme les mesures : de 46 à
+    // 54 ms, toujours un gel ; les images voisines (12,67 à 20,67 ms) jamais.
+    let s = 5;
+    const alea = () => ((s = (s * 16807) % 2147483647) / 2147483647) * 4 - 2;
+    const base = [0, P60, 2 * P60, 2 * P60 + 50, 3 * P60 + 50, 4 * P60 + 50];
+    const extremes = [[2, -2], [-2, 2], [0, 0]]; // trous de 46, 54 et 50 ms
+    for (let essai = 0; essai < 2000; essai++) {
+      const [e2, e3] = extremes[essai] ?? [alea(), alea()];
+      const t = base.map((v, i) => v + (i === 2 ? (e2 as number) : i === 3 ? (e3 as number) : alea()));
+      const iv = intervalles(t).map((v) => Math.round(v * 10) / 10);
+      const g = statsGeste(iv, P60);
+      expect(g.gels, `${iv}`).toBe(1);
+      expect(g.saccade, `${iv}`).toBe(true);
+      expect(verdict(g), `${iv}`).toBe(false);
+    }
+    // Cinq images à 120 Hz (41,67 ms) sous ± 2 ms par horodatage : jamais un gel.
+    for (const e of [-4, -2, 0, 2, 4]) expect(estGel(Math.round((41.67 + e) * 10) / 10)).toBe(false);
+    // Sans gel, max_ms n'entre plus dans le verdict (v5 : NON dès 50,1 ms).
+    expect(verdict(statsGeste([45.9, ...rep(60, P60)], P60))).toBe(true);
+    expect(verdict(statsGeste([46, ...rep(60, P60)], P60))).toBe(false);
   });
 
   it('même nombre d’à-coups sur une base à 60 et à 120 i/s, même durée : même verdict (v4 : 120 i/s en tolérait deux fois plus)', () => {

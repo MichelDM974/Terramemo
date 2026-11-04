@@ -60,31 +60,39 @@ CRITERE_FIN_GESTE_MS = 100
 # Event Timing ne garde que les entrées de 16 ms et plus (durationThreshold).
 SEUIL_EVENT_TIMING_MS = 16
 # Saccade (décision de l'utilisateur du 04/11/2026, registre, ticket #1) :
-# recopie de src/mesure/stats.ts (SEUIL_ACOUP_MS, estAcoup, sansSaccade,
-# SEUIL_120_MS), recalculée ici sur les intervalles bruts pour relire aussi
-# les rapports v3 et v4 ; tests/mesure-driver.test.ts la confronte à stats.ts.
+# recopie de src/mesure/stats.ts (SEUIL_ACOUP_MS, SEUIL_GEL_MS, estAcoup,
+# estGel, gesteSaccade, sansSaccade, SEUIL_120_MS), recalculée ici sur les
+# intervalles bruts pour relire aussi les rapports v3 à v5 ;
+# tests/mesure-driver.test.ts la confronte à stats.ts.
 # Un à-coup est une image qui tarde 25 ms ou plus (trois rafraîchissements à
 # 120 Hz, un et demi à 60 i/s), compté dès 21 ms : loin des valeurs exactes de
 # l'écran (16,67 et 25 ms), l'arrondi et la gigue ne le font pas compter au
-# hasard. Verdict par type de geste, sur toutes les répétitions : [NON]
-# au-delà de 3 à-coups par seconde de geste (à-coups × 1000 / somme des
-# intervalles), compté par seconde pour ne pas avantager le rendu le plus
-# rapide (5 % des intervalles à 60 i/s), ou dès un intervalle de plus de
-# 50 ms (trois images à 60 i/s : un gel isolé, que la moyenne par seconde
-# laisserait passer). Monotone : à durée fixe, des images plus rapides ne
-# changent ni le compte, ni la durée, ni le plus long. La tenue des 120 i/s
-# (part des intervalles ≤ 12,5 ms, seuil fixe) est rapportée à part, sans
-# verdict.
+# hasard. Un gel est une image qui tarde 50 ms (trois images à 60 Hz), compté
+# dès 46 ms, loin de 41,67 (cinq images à 120 Hz) et de 50 ms. Verdict par
+# type de geste, quel que soit le rendu : [NON] au-delà de 3 à-coups par
+# seconde de geste en moyenne sur toutes les répétitions (à-coups × 1000 /
+# somme des intervalles), compté par seconde pour ne pas avantager le rendu
+# le plus rapide (5 % des intervalles à 60 i/s), ou si un seul geste saccade :
+# un gel (visible seul, que la moyenne laisserait passer), ou plus de 3
+# à-coups par seconde de ce geste avec au moins 2 (un geste qui saccade
+# franchement, que les gestes propres dilueraient ; un à-coup isolé dans un
+# geste court ne compte pas). Monotone : à durée fixe, des images plus
+# rapides ne changent ni les comptes, ni la durée. La tenue des 120 i/s (part
+# des intervalles ≤ 12,5 ms, seuil fixe) est rapportée à part, sans verdict.
 SEUIL_ACOUP_MS = 21
 ACOUPS_PAR_S_MAX = 3
-SACCADE_MAX_MS = 50
+ACOUPS_MIN_GESTE = 2
+SEUIL_GEL_MS = 46
 SEUIL_120_MS = 12.5
 FREQUENCES_CONNUES = (144, 120, 90, 60, 30)  # Hz, comme PERIODES_CONNUES de stats.ts
-VERSION_RAPPORT = 5  # src/mesure/rapport.ts ; resumer relit aussi la v3 et la v4
+VERSION_RAPPORT = 6  # src/mesure/rapport.ts ; resumer relit aussi les v3 à v5
 
 
 CRITERE_SACCADE = {"acoup_des_ms": SEUIL_ACOUP_MS, "acoups_par_s_max": ACOUPS_PAR_S_MAX,
-                   "max_ms": SACCADE_MAX_MS, "tenue_120_ms": SEUIL_120_MS,
+                   "acoups_min_geste": ACOUPS_MIN_GESTE, "gel_des_ms": SEUIL_GEL_MS,
+                   "tenue_120_ms": SEUIL_120_MS,
+                   "verdict": "NON si, par type de geste, plus de 3 à-coups par seconde en moyenne, ou un seul "
+                              "geste avec un gel, ou plus de 3 à-coups par seconde avec au moins 2",
                    "tenue": "part des intervalles ≤ 12,5 ms (120 i/s), et images/s ; sans verdict"}
 
 
@@ -92,12 +100,24 @@ def est_acoup(d):
     return d >= SEUIL_ACOUP_MS
 
 
+def est_gel(d):
+    return d >= SEUIL_GEL_MS
+
+
 def acoups_par_s(acoups, duree_ms):
     return acoups * 1000 / duree_ms if duree_ms > 0 else 0
 
 
-def sans_saccade(acoups, duree_ms, max_ms):
-    return not (acoups_par_s(acoups, duree_ms) > ACOUPS_PAR_S_MAX or (max_ms or 0) > SACCADE_MAX_MS)
+def geste_saccade(acoups, duree_ms, gels):
+    """Ce geste, à lui seul, fait dire NON : un gel, ou plus de 3 à-coups par
+    seconde avec au moins 2."""
+    return gels > 0 or (acoups >= ACOUPS_MIN_GESTE and acoups_par_s(acoups, duree_ms) > ACOUPS_PAR_S_MAX)
+
+
+def sans_saccade(acoups, duree_ms, gestes_saccades):
+    """Verdict d'un type de geste : à-coups et durée de toutes ses
+    répétitions, et nombre de gestes qui saccadent seuls."""
+    return not (acoups_par_s(acoups, duree_ms) > ACOUPS_PAR_S_MAX or gestes_saccades)
 
 
 # Fin de geste écartée du verdict (artefact prouvé, src/mesure/rapport.ts,
@@ -980,9 +1000,9 @@ def _verdict(*oks):
 
 
 def resumer(rapports, vises, journal=None):
-    """Résumé face aux critères du J0, sur toutes les répétitions (rapports v4,
-    ou v3 relus par `resumer`,
-    src/mesure/rapport.ts : chaque règle ci-dessous y est décrite)."""
+    """Résumé face aux critères du J0, sur toutes les répétitions (rapports v6,
+    ou v3 à v5 relus par `resumer`, src/mesure/rapport.ts : chaque règle
+    ci-dessous y est décrite)."""
     chargements = [r["chargement"]["total_ms"] for r in rapports if r.get("chargement")]
     periode = _med([r["ecran"]["periode_ms"] for r in rapports]) or 1000 / 60
     gestes = {}
@@ -994,7 +1014,8 @@ def resumer(rapports, vises, journal=None):
             # Un fichier = un rendu ; la clé le garde quand même (rapports mêlés).
             cle = quoi if rendu == r["rendu"] else f"{quoi} ({rendu})"
             e = gestes.setdefault(cle, {"rendu": rendu, "gestes": 0, "intervalles": 0, "acoups": 0,
-                                        "duree_ms": 0, "a_120": 0, "perdues": 0,
+                                        "duree_ms": 0, "gels": 0, "gestes_saccades": 0,
+                                        "geste_max_acoups_par_s": None, "a_120": 0, "perdues": 0,
                                         "perdues_repos": 0, "bascule_images": 0, "max_ms": 0, "p95_ms": [],
                                         "longues_images": 0, "periodes_ms": [],
                                         "ecarts_periode": {"plus_rapide": 0, "plus_lent": 0},
@@ -1004,8 +1025,15 @@ def resumer(rapports, vises, journal=None):
             iv = g["intervalles_ms"]
             e["gestes"] += 1
             e["intervalles"] += len(iv)
-            e["acoups"] += sum(est_acoup(d) for d in iv)
-            e["duree_ms"] += sum(iv)
+            acoups, gels, duree_g = sum(est_acoup(d) for d in iv), sum(est_gel(d) for d in iv), sum(iv)
+            e["acoups"] += acoups
+            e["duree_ms"] += duree_g
+            e["gels"] += gels
+            # Règle par geste : un gel, ou plus de 3/s avec au moins 2 à-coups.
+            e["gestes_saccades"] += geste_saccade(acoups, duree_g, gels)
+            if acoups >= ACOUPS_MIN_GESTE:
+                taux = round(acoups_par_s(acoups, duree_g), 2)
+                e["geste_max_acoups_par_s"] = max(e["geste_max_acoups_par_s"] or 0, taux)
             e["a_120"] += sum(d <= SEUIL_120_MS for d in iv)
             # Informatifs (plus la base du verdict depuis le rapport v4) :
             # perdues sur la période du geste (bascule de tête sur celle du
@@ -1063,8 +1091,9 @@ def resumer(rapports, vises, journal=None):
                            "max": max(periodes, default=None)}
         # À-coups ≥ 21 ms par seconde de geste, sans période estimée (une
         # cadence plus lente que l'écran n'en est pas une : elle se lit dans
-        # la tenue, sans verdict). Sur la durée brute, comme stats.ts.
-        e["saccade_ok"] = sans_saccade(e["acoups"], duree, e["max_ms"])
+        # la tenue, sans verdict), et gestes qui saccadent seuls. Sur la
+        # durée brute, comme stats.ts. max_ms : informatif (v5 : > 50 ms).
+        e["saccade_ok"] = sans_saccade(e["acoups"], duree, e["gestes_saccades"])
         dessins = e.pop("dessins")
         au_dessus = sum(d["p95"] >= d["periode_ms"] for d in dessins)
         e["dessin_ms"] = None if not dessins else {
@@ -1150,12 +1179,16 @@ def afficher_resume(res, entete):
     dire(f"[{ok(c['ok'])}] rendu < {CRITERE_RENDU_MS} ms : médiane {c['mediane']}, de {c['min']} à {c['max']} "
          f"({c['n']} chargements)")
     dire(f"[{ok(res['saccade_ok'])}] pas de saccade (à-coup : intervalle ≥ {SEUIL_ACOUP_MS} ms, une image qui "
-         f"tarde 25 ms ou plus ; [NON] au-delà de {ACOUPS_PAR_S_MAX} à-coups par seconde de geste ou d'un "
-         f"intervalle > {SACCADE_MAX_MS} ms) :")
+         f"tarde 25 ms ou plus ; gel : ≥ {SEUIL_GEL_MS} ms, une image qui tarde 50 ms ; [NON] au-delà de "
+         f"{ACOUPS_PAR_S_MAX} à-coups par seconde en moyenne par type de geste, ou si un seul geste a un gel ou "
+         f"plus de {ACOUPS_PAR_S_MAX} à-coups par seconde avec au moins {ACOUPS_MIN_GESTE}) :")
     for quoi, e in res["gestes"].items():
+        pire = e.get("geste_max_acoups_par_s")
         dire(f"      {quoi:8} [{ok(e['saccade_ok'])}] {e['gestes']:2} gestes, {e['acoups']} à-coup(s) en "
-             f"{e['duree_ms'] / 1000:.1f} s ({e['acoups_par_s']:g}/s, {e['intervalles']} intervalles), le plus long "
-             f"{e['max_ms']} ms, p95 {e['p95_ms']} ms, {e['longues_images']} longue(s) image(s)")
+             f"{e['duree_ms'] / 1000:.1f} s ({e['acoups_par_s']:g}/s, {e['intervalles']} intervalles), "
+             f"{e['gels']} gel(s), {e['gestes_saccades']} geste(s) qui saccadent seuls"
+             + (f" (le pire à {pire:g}/s)" if pire is not None else "")
+             + f" ; le plus long {e['max_ms']} ms, p95 {e['p95_ms']} ms, {e['longues_images']} longue(s) image(s)")
     ec = res["ecarts_periode"]
     # Sans verdict : pour comparer les rendus. Seuil fixe de 12,5 ms, aucune
     # période estimée : la part suit celle des images à 120 i/s.
@@ -1324,7 +1357,7 @@ def commande_mesurer(args):
 
 def commande_resumer(args):
     """Recalcule le résumé d'un JSON de `mesurer` sur ses rapports bruts
-    (rapports v3 à v5, touchers visés), aux critères actuels du driver : un
+    (rapports v3 à v6, touchers visés), aux critères actuels du driver : un
     critère qui change n'oblige pas à refaire les mesures. Réécrit le fichier,
     rapports bruts intacts, et note le recalcul dans `resume_recalcule`.
     --json : les résumés et le critère de saccade en JSON sur la sortie, au
@@ -1334,7 +1367,7 @@ def commande_resumer(args):
         fichier = pathlib.Path(chemin)
         d = json.loads(fichier.read_text())
         versions = {r.get("v") for r in d["rapports"]}
-        if not versions <= {3, 4, VERSION_RAPPORT}:
+        if not versions <= {3, 4, 5, VERSION_RAPPORT}:
             dire(f"ECHEC : {fichier} : rapports v{sorted(versions)}, le driver relit les v3 à v{VERSION_RAPPORT}")
             return 1
         journal = []

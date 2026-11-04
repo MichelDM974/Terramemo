@@ -1,5 +1,5 @@
 /**
- * Rapport des mesures du J0 (v: 5), rendu par window.cartographe.rapport() et
+ * Rapport des mesures du J0 (v: 6), rendu par window.cartographe.rapport() et
  * par « Copier le rapport » (⚙ → mesures). Contrat lu par le driver du skill
  * run-cartographe : chaque champ est documenté sur son type ci-dessous. Toutes
  * les durées sont en millisecondes, les instants en ms depuis
@@ -7,17 +7,21 @@
  *
  * Critères du J0 (plan) et champs qui les tranchent :
  * - « rendu < 1 s » → chargement.total_ms ;
- * - « pas de saccade au déplacement » → gestes[].stats.acoups_par_s et
- *   max_ms (décision de l'utilisateur du 04/11/2026, registre) : un à-coup
- *   est une image qui tarde 25 ms ou plus (trois rafraîchissements à 120 Hz,
- *   un et demi à 60 i/s), compté dès 21 ms (SEUIL_ACOUP_MS, loin des valeurs
- *   exactes de l'écran, 16,67 et 25 ms, pour ne pas compter au hasard), quelle
- *   que soit la fréquence de l'écran ; verdict sansSaccade (stats.ts) : NON
- *   au-delà de 3 à-coups par seconde de geste sur un type de geste, ou d'un
- *   intervalle de plus de 50 ms. Compté par seconde pour ne pas avantager le
- *   rendu le plus rapide ; monotone : à durée de geste fixe, des images plus
- *   rapides ne changent rien. Aussi p95_ms, longues_images, et dessin_ms
- *   (rendu Canvas : script de chaque image) ;
+ * - « pas de saccade au déplacement » → gestes[].stats.acoups, duree_ms,
+ *   gels et saccade (décision de l'utilisateur du 04/11/2026, registre) : un
+ *   à-coup est une image qui tarde 25 ms ou plus (trois rafraîchissements à
+ *   120 Hz, un et demi à 60 i/s), compté dès 21 ms (SEUIL_ACOUP_MS, loin des
+ *   valeurs exactes de l'écran, 16,67 et 25 ms, pour ne pas compter au
+ *   hasard) ; un gel, une image qui tarde 50 ms, compté dès 46 ms
+ *   (SEUIL_GEL_MS, loin de 41,67 et 50 ms) ; quelle que soit la fréquence de
+ *   l'écran et quel que soit le rendu. Verdict sansSaccade (stats.ts), par
+ *   type de geste : NON au-delà de 3 à-coups par seconde de geste en moyenne
+ *   sur toutes ses répétitions, ou si un seul geste saccade (stats.saccade :
+ *   un gel, ou plus de 3 à-coups par seconde avec au moins 2 à-coups ; un
+ *   à-coup isolé dans un geste court ne compte pas). Compté par seconde pour
+ *   ne pas avantager le rendu le plus rapide ; monotone : à durée de geste
+ *   fixe, des images plus rapides ne changent rien. Aussi p95_ms, max_ms,
+ *   longues_images, et dessin_ms (rendu Canvas : script de chaque image) ;
  * - tenue des 120 i/s, rapportée à part, SANS verdict, pour comparer les
  *   rendus → stats.tenue_120 (part des intervalles ≤ 12,5 ms, seuil fixe :
  *   monotone avec la part d'images à 120 i/s) et stats.cadence_ips (images
@@ -32,6 +36,16 @@
  *   gestionnaires), selon touchers[].event_timing_etat. fin_fil_principal_ms
  *   ne vaut pas mesure de ce critère : il s'arrête avant rastérisation et
  *   présentation (voir Toucher).
+ *
+ * Changements de v5 à v6 (décision de l'utilisateur sur le critère de
+ * saccade, relecture du critère v5 : la règle des 50 ms tombait sur la
+ * grille de l'écran et tranchait au hasard ; la moyenne par type de geste
+ * diluait un geste qui saccade parmi des gestes propres) :
+ * - gestes[].stats.max_ms : n'entre plus dans le verdict (v5 : NON au-delà de
+ *   50 ms), informatif ;
+ * - gestes[].stats.gels (intervalles ≥ 46 ms) et saccade (ce geste seul fait
+ *   dire NON : un gel, ou plus de 3 à-coups par seconde avec au moins 2)
+ *   ajoutés, base du verdict avec acoups et duree_ms.
  *
  * Changements de v4 à v5 (critère de saccade compté par seconde, relecture
  * du critère v4 : 5 % des intervalles laissaient passer deux fois plus
@@ -113,7 +127,7 @@ import type { Rendu } from '../map/types';
 export type RenduMesure = Rendu | 'canvas';
 
 export interface Rapport {
-  v: 5;
+  v: 6;
   /** Version de l'appli (package.json). */
   version: string;
   /** Date ISO de la production du rapport. */
@@ -205,8 +219,9 @@ export interface Geste {
    *   periode_repos_ms ; ecart_sens : 'plus_rapide', 'plus_lent' ou null ;
    * - duree_ms : somme des intervalles ; acoups : intervalles ≥ 21 ms, sans
    *   période estimée ; acoups_par_s : acoups × 1000 / duree_ms (au
-   *   centième) : la base du verdict « pas de saccade » avec max_ms (voir
-   *   l'en-tête) ;
+   *   centième) ; gels : intervalles ≥ 46 ms ; saccade : ce geste seul fait
+   *   dire NON (un gel, ou acoups_par_s > 3 avec au moins 2 à-coups). La base
+   *   du verdict « pas de saccade » (voir l'en-tête) ;
    * - tenue_120 : part des intervalles ≤ 12,5 ms (de 0 à 1), seuil fixe ;
    *   cadence_ips : intervalles × 1000 / leur somme (null sans intervalle).
    *   Sans verdict.

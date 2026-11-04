@@ -89,17 +89,17 @@ zoom 1, Italie zoomée, Caraïbes au zoom 8 ; coordonnées lues dans le DOM :
 `circle.pastille[data-id]`, sinon `cartographe.carte.ecran(id)`, seul
 chemin en canvas). En canvas, la carte reste tournée par le tour du monde :
 les touchers au zoom 1 éprouvent `ecran` et `pick` sur un globe tourné
-(`touchers_vises[].rotation`). Enfin `cartographe.rapport()` (v5).
+(`touchers_vises[].rotation`). Enfin `cartographe.rapport()` (v6).
 
 Sortie : un résumé `[OK ]`/`[NON]`/`[ ? ]` (à juger) par critère et le JSON
-complet (v5 : rapports v5 bruts, touchers visés, scénario et pas de rejeu,
+complet (v6 : rapports v6 bruts, touchers visés, scénario et pas de rejeu,
 navigateur et binaire, `code` : commit, arbre modifié ou non, et pour la
 WebView les dates de l'APK installé et du fichier) dans
 `docs/mesures/j0/AAAA-MM-JJ-<cible>-<rendu>-<projection>[-x<ralenti>].json`
 (réécrit si relancé le même jour). **Les commiter** : ce sont les preuves
 du J0. Critère changé dans le driver : `driver.py resumer FICHIER.json…
 [--pourquoi …] [--sec] [--json]` recalcule le résumé sur les rapports bruts
-(v3 à v5) sans refaire les mesures, réécrit le fichier (rapports intacts) et
+(v3 à v6) sans refaire les mesures, réécrit le fichier (rapports intacts) et
 le note dans `resume_recalcule` ; `--sec` affiche sans écrire, `--json` donne
 les résumés en JSON (`tests/mesure-driver.test.ts` s'en sert pour confronter
 le critère recopié dans le driver à `src/mesure/stats.ts` : changer l'un
@@ -112,14 +112,24 @@ foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
   120 Hz, un et demi à 60 i/s), compté dès 21 ms (`SEUIL_ACOUP_MS` : loin de
   16,67 et 25 ms, les valeurs exactes de l'écran, l'arrondi et la gigue ne
   le font pas compter au hasard), quelle que soit la fréquence de l'écran
-  (`stats.acoups`, recalculé par le driver sur les intervalles bruts).
-  `[NON]` au-delà de 3 à-coups par seconde de geste sur un type de geste
-  (toutes répétitions : à-coups × 1000 / somme des intervalles), ou dès un
-  intervalle > 50 ms (un gel isolé, que la moyenne laisserait passer) ;
-  sinon `[OK ]`, jamais `[ ? ]`. Compté par seconde, pas par intervalle,
-  pour ne pas avantager le rendu le plus rapide (3/s, ce sont les 5 % des
-  intervalles à 60 i/s) ; monotone : à durée fixe, plus d'images à 120 i/s
-  ne change rien.
+  (`stats.acoups`, recalculé par le driver sur les intervalles bruts). Un
+  gel est une image qui tarde 50 ms (trois images à 60 Hz), compté dès
+  46 ms (`SEUIL_GEL_MS`, loin de 41,67 et 50 ms ; `stats.gels`). `[NON]`,
+  par type de geste et quel que soit le rendu, si :
+  - plus de 3 à-coups par seconde de geste en moyenne sur toutes les
+    répétitions (à-coups × 1000 / somme des intervalles) ;
+  - ou un seul geste saccade (`stats.saccade`, colonne « geste(s) qui
+    saccadent seuls », le pire taux entre parenthèses) : un gel (visible
+    seul, que la moyenne laisserait passer), ou plus de 3 à-coups par
+    seconde de ce geste avec au moins 2 (un geste qui saccade franchement,
+    que les gestes propres dilueraient ; un à-coup isolé dans un geste
+    court, 1 en 0,3 s, ne compte pas).
+
+  Sinon `[OK ]`, jamais `[ ? ]`. Le plus long (`max_ms`) est affiché, hors
+  verdict. Un type d'un seul geste court se juge aussi sur sa moyenne : un
+  à-coup en 0,3 s, seul de son type, y fait NON (3,3/s). Compté par seconde, pas par intervalle, pour ne pas avantager le
+  rendu le plus rapide (3/s, ce sont les 5 % des intervalles à 60 i/s) ;
+  monotone : à durée fixe, plus d'images à 120 i/s ne change rien.
 - **tenue des 120 i/s** (`[ — ]`, sans verdict, pour comparer les rendus) :
   images/s de chaque type de geste et part des intervalles ≤ 12,5 ms
   (1,5 × 8,33, seuil fixe, `stats.tenue_120` : elle suit exactement la part
@@ -250,7 +260,10 @@ changé dans ⚙ → Rendu (la page se recharge), les trois : `css`, `g`,
 0. **Le doigt et le driver voient-ils le même écran ?** ⚙ → « Afficher
    les mesures ». Pincer au doigt de l'Europe à la Suisse, puis glisser :
    le panneau donne `Écran … Hz (… ms)` (repos) et, par geste, « N
-   à-coup(s) ≥ 21 ms (x/s) · période P ms » (P : la période du geste),
+   à-coup(s) ≥ 21 ms (x/s)[, G gel(s) ≥ 46 ms][ : NON, saccade] · période
+   P ms » (P : la période du geste ; « NON » si ce geste seul saccade, et
+   sur plusieurs gestes « saccade : glisser OK, pincer NON… », le verdict
+   par type comme le driver),
    « tenue 120 i/s T %, C i/s » et « ⚠ geste plus rapide que le repos : X Hz
    contre Y Hz » si elle change. Le faire dans Chrome
    puis dans l'APK, et comparer P à `stats.periode_geste_ms` des JSON du

@@ -38,32 +38,71 @@ export const FACTEUR_PERDUE = 1.5;
  * visé ne tourne à 144 Hz. Aucune période estimée n'y entre.
  */
 export const SEUIL_ACOUP_MS = 21;
-/** Verdict « pas de saccade » : NON au-delà de 3 à-coups par seconde de geste… */
+/** Verdict « pas de saccade » : NON au-delà de 3 à-coups par seconde, en moyenne par type de geste ou dans un seul geste… */
 export const ACOUPS_PAR_S_MAX = 3;
-/** … ou dès un intervalle de plus de 50 ms (trois images à 60 i/s). */
-export const SACCADE_MAX_MS = 50;
+/**
+ * … dans un seul geste à partir de 2 à-coups : un à-coup isolé dans un geste
+ * court (1 en 0,3 s : 3,3/s) ne compte pas (décision de l'utilisateur).
+ */
+export const ACOUPS_MIN_GESTE = 2;
+/**
+ * … ou dès un gel : une image qui tarde 50 ms (trois images à 60 Hz, six à
+ * 120 Hz), visible seule (décision de l'utilisateur). Seuil posé vers 46 ms,
+ * loin des valeurs exactes de l'écran, comme celui des à-coups : 41,67 ms
+ * (cinq images à 120 Hz) et 50 ms. À 50 ms pile (v5 : « plus de 50 ms »), un
+ * gel tranchait au hasard, une fois sur deux sous ± 0,5 ms de gigue
+ * (relecture du critère v5 : seul, un intervalle de 50,1 ms faisait NON le
+ * rendu canvas). À 46 ms, un gel de 50 ms sous ± 2 ms de gigue par
+ * horodatage (46 à 54 ms) compte toujours, cinq images à 120 Hz (41,67 ±
+ * 4 ms) jamais. 44,4 ms (quatre images à 90 Hz) est à 1,6 ms du seuil, mais
+ * aucun écran visé ne tourne à 90 Hz.
+ */
+export const SEUIL_GEL_MS = 46;
 
 /** Un intervalle est un à-coup : ≥ SEUIL_ACOUP_MS. */
 export const estAcoup = (d: number) => d >= SEUIL_ACOUP_MS;
 
+/** Un intervalle est un gel : ≥ SEUIL_GEL_MS (c'est aussi un à-coup). */
+export const estGel = (d: number) => d >= SEUIL_GEL_MS;
+
 /** À-coups par seconde de geste : à-coups × 1000 / durée (somme des intervalles) ; 0 sans durée. */
 export const acoupsParSeconde = (acoups: number, duree_ms: number) => (duree_ms > 0 ? (acoups * 1000) / duree_ms : 0);
 
+/** Ce qu'un geste apporte au verdict : à-coups, durée (somme des intervalles), gels. */
+export interface CompteSaccade {
+  acoups: number;
+  duree_ms: number;
+  gels: number;
+}
+
 /**
- * Verdict « pas de saccade » sur un ensemble d'intervalles (un geste, ou tous
- * ceux d'un type de geste) de durée totale duree_ms (somme des intervalles) :
- * faux au-delà de 3 à-coups par seconde de geste, ou si le plus long dépasse
- * 50 ms. Compté par seconde et non par intervalle (v4 : 5 % des intervalles),
- * pour ne pas avantager le rendu le plus rapide : à 120 i/s, 5 % des
- * intervalles laissaient passer deux fois plus d'à-coups visibles par
- * seconde qu'à 60 i/s. 3 par seconde, c'est ces 5 % à 60 i/s. Monotone : à
- * durée fixe, des images plus rapides ne changent ni le compte, ni la durée,
- * ni le plus long. Recopié par le driver (run-cartographe : est_acoup,
- * sans_saccade, tenue des 120 i/s), confronté à celui-ci par
+ * Un geste qui, à lui seul, fait dire NON : un gel, ou plus de 3 à-coups par
+ * seconde de ce geste avec au moins 2 à-coups. Sans cette règle, les gestes
+ * propres d'un type diluaient un geste qui saccade franchement (relecture du
+ * critère v5 : un geste entier à 30 i/s parmi 14 gestes propres, 2 à-coups
+ * par seconde en moyenne, passait).
+ */
+export const gesteSaccade = (g: CompteSaccade) =>
+  g.gels > 0 || (g.acoups >= ACOUPS_MIN_GESTE && acoupsParSeconde(g.acoups, g.duree_ms) > ACOUPS_PAR_S_MAX);
+
+/**
+ * Verdict « pas de saccade » sur un type de geste (toutes ses répétitions,
+ * quel que soit le rendu) : faux au-delà de 3 à-coups par seconde de geste en
+ * moyenne (à-coups × 1000 / somme des durées), ou si un seul geste saccade
+ * (gesteSaccade : un gel ≥ 46 ms, ou plus de 3 à-coups par seconde de ce geste
+ * avec au moins 2). Compté par seconde et non par intervalle (v4 : 5 % des
+ * intervalles), pour ne pas avantager le rendu le plus rapide : à 120 i/s,
+ * 5 % des intervalles laissaient passer deux fois plus d'à-coups visibles
+ * par seconde qu'à 60 i/s. 3 par seconde, c'est ces 5 % à 60 i/s. Monotone :
+ * à durée fixe, des images plus rapides ne changent ni les comptes, ni la
+ * durée. Recopié par le driver (run-cartographe : est_acoup, est_gel,
+ * geste_saccade, sans_saccade, tenue des 120 i/s), confronté à celui-ci par
  * tests/mesure-driver.test.ts.
  */
-export function sansSaccade(acoups: number, duree_ms: number, max_ms: number | null): boolean {
-  return !(acoupsParSeconde(acoups, duree_ms) > ACOUPS_PAR_S_MAX) && !((max_ms ?? 0) > SACCADE_MAX_MS);
+export function sansSaccade(gestes: readonly CompteSaccade[]): boolean {
+  const acoups = gestes.reduce((a, g) => a + g.acoups, 0);
+  const duree = gestes.reduce((a, g) => a + g.duree_ms, 0);
+  return !(acoupsParSeconde(acoups, duree) > ACOUPS_PAR_S_MAX) && !gestes.some(gesteSaccade);
 }
 
 /**
@@ -204,8 +243,17 @@ export interface StatsGeste extends StatsImages {
   duree_ms: number;
   /** À-coups : intervalles ≥ 21 ms (estAcoup), base du verdict « pas de saccade ». */
   acoups: number;
-  /** À-coups par seconde de geste : acoups × 1000 / duree_ms (0 sans durée), arrondi au centième. Le plus long : max_ms. */
+  /** À-coups par seconde de geste : acoups × 1000 / duree_ms (0 sans durée), arrondi au centième. */
   acoups_par_s: number;
+  /** Gels : intervalles ≥ 46 ms (estGel), comptés aussi dans acoups. */
+  gels: number;
+  /**
+   * Ce geste, à lui seul, fait dire NON (gesteSaccade) : un gel, ou plus de
+   * 3 à-coups par seconde avec au moins 2 à-coups. Le verdict d'un type de
+   * geste y ajoute la moyenne par seconde sur toutes ses répétitions
+   * (sansSaccade).
+   */
+  saccade: boolean;
   /**
    * Tenue des 120 i/s : part des intervalles ≤ 12,5 ms (tenue120), de 0 à 1,
    * bascule de tête comprise. Seuil fixe : monotone avec la part d'images à
@@ -217,10 +265,10 @@ export interface StatsGeste extends StatsImages {
 }
 
 /**
- * Statistiques d'un geste. Le verdict « pas de saccade » se lit sur
- * acoups par seconde de geste et max_ms (≥ 21 ms, sans période estimée :
- * sansSaccade) ; la tenue des 120 i/s (tenue_120, cadence_ips) se rapporte à
- * part, sans verdict.
+ * Statistiques d'un geste. Le verdict « pas de saccade » se lit sur acoups,
+ * duree_ms et gels (≥ 21 et ≥ 46 ms, sans période estimée : saccade pour ce
+ * geste seul, sansSaccade pour un type de geste) ; la tenue des 120 i/s
+ * (tenue_120, cadence_ips) se rapporte à part, sans verdict.
  * Restent, informatifs, deux comptes d'images perdues (plus d'une période et
  * demie). perdues : sur la période du geste, sauf la bascule de tête (sur
  * celle du repos) ; il voit une image sautée à 120 Hz sur un écran à 60 Hz au
@@ -244,6 +292,7 @@ export function statsGeste(iv: readonly number[], periode_repos_ms: number): Sta
   }
   const repos = statsImages(iv, periode_repos_ms);
   const acoups = iv.filter(estAcoup).length;
+  const gels = iv.filter(estGel).length;
   const somme = iv.reduce((a, d) => a + d, 0);
   return {
     ...statsImages(iv, p, tete, periode_repos_ms),
@@ -257,6 +306,8 @@ export function statsGeste(iv: readonly number[], periode_repos_ms: number): Sta
     duree_ms: arrondi(somme) ?? 0,
     acoups,
     acoups_par_s: arrondi(acoupsParSeconde(acoups, somme), 2) ?? 0,
+    gels,
+    saccade: gesteSaccade({ acoups, duree_ms: somme, gels }),
     tenue_120: arrondi(tenue120(iv), 3) ?? 0,
     cadence_ips: somme > 0 ? arrondi((iv.length * 1000) / somme) : null,
   };
