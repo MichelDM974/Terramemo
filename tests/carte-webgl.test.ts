@@ -1361,7 +1361,9 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
   });
 
   it('pastilles et anneaux (VERTEX_DISQUES, FRAG_DISQUES) = les disques du Canvas : couleur au centre, bord de 1 px au rayon, rien au-delà ; le carré les contient', () => {
-    const couleurs: Couleurs = { ...couleursEssai, pastille: [142, 147, 157, 255], bord: [8, 8, 9, 255] };
+    // Marque (pastille de Malte) et anneau translucides : une couleur d'instance non prémultipliée se verrait.
+    // Le bord reste opaque (--bg) : le Canvas trace le trait par-dessus le disque, translucide il s'y mêlerait.
+    const couleurs: Couleurs = { ...couleursEssai, pastille: [142, 147, 157, 255], bord: [8, 8, 9, 255], marques: { ...couleursEssai.marques, faux: [240, 104, 107, 180], juste: [52, 199, 123, 150] } };
     const { p, f } = peintre(couleurs);
     const e = etat(10, 4, new Map([['MLT', new Set(['faux'])]]), 45);
     const base = (id: string) => e.proj(donnees.entites.find((x) => x.pays.id === id)?.pays.point as [number, number]) as [number, number];
@@ -1407,7 +1409,8 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
       const dansLeCarre = (q: readonly number[]) => dansTriangle(q, c0, c1, c2) || dansTriangle(q, c1, c2, c3);
       // Tout ce que le Canvas peint (jusqu'au bord extérieur du trait, plus l'antialiasing) tient dans le carré.
       for (let a = 0; a < 360; a += 5) {
-        const q = [x.centre[0] + (x.rayon + x.demiTrait + flou) * Math.cos(a), x.centre[1] + (x.rayon + x.demiTrait + flou) * Math.sin(a)];
+        const ang = (a * Math.PI) / 180;
+        const q = [x.centre[0] + (x.rayon + x.demiTrait + flou) * Math.cos(ang), x.centre[1] + (x.rayon + x.demiTrait + flou) * Math.sin(ang)];
         if (!dansLeCarre(q)) ecarts.push(`instance ${k} : (${q.map((v) => v.toFixed(2))}) hors du carré`);
       }
       // Pixel par pixel : la sortie du fragment shader (rien hors du carré) = la couleur du Canvas, hors antialiasing.
@@ -1432,6 +1435,10 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
       // Chaque cas vu : couleur pleine (pastille), trait, transparent dans le carré, hors du carré.
       expect(Math.min(vus.bord, vus.vide, vus.horsCarre, x.plein ? vus.plein : Infinity)).toBeGreaterThan(10);
     });
+    // Le bord passe prémultiplié lui aussi (FRAG_DISQUES le mêle tel quel) : vu sur un bord translucide.
+    const translucide = peintre({ ...couleurs, bord: [8, 8, 9, 200] });
+    translucide.p.dessiner({ ...e, pastilles, anneaux: [] });
+    expect(translucide.f.dessins.find((d) => d.mode === f.constante('TRIANGLE_STRIP'))?.u.uBord).toEqual(premultipliee([8, 8, 9, 200]));
   });
 });
 
