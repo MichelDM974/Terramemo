@@ -8,8 +8,10 @@ interface Resultat {
   id: string;
   essais: number;
   juste: boolean;
-  /** Juste au premier toucher. */
+  /** Juste au premier toucher, sans avoir demandé « Voir ». */
   premier: boolean;
+  /** « Voir » demandé avant de trouver. */
+  vu: boolean;
   temps_ms: number;
   /** Distance au bord au premier toucher faux (km). */
   distance_km: number | null;
@@ -42,6 +44,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
   let i = 0;
   let essais = 0;
   let premierFaux: number | null = null;
+  let vu = false;
   let debut = 0;
   let enAttente = 0;
   let resultats: Resultat[] = [];
@@ -59,6 +62,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
     retro.className = 'essai-retro';
     essais = 0;
     premierFaux = null;
+    vu = false;
     debut = performance.now();
   }
 
@@ -102,7 +106,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
           creer(
             'li',
             {},
-            `${nomDe(ctx, r.id)} : ${r.juste ? `${r.essais} essais` : 'passé'}${r.distance_km != null ? `, premier toucher à ${fmtKm(r.distance_km)}` : ''}, ${fmtS(r.temps_ms)}`,
+            `${nomDe(ctx, r.id)} : ${r.juste ? `${r.essais} essai${r.essais > 1 ? 's' : ''}${r.vu ? ' après « Voir »' : ''}` : 'passé'}${r.distance_km != null ? `, premier toucher à ${fmtKm(r.distance_km)}` : ''}, ${fmtS(r.temps_ms)}`,
           ),
         ),
       ),
@@ -112,15 +116,23 @@ export function vueEssai(ctx: ContexteVue): Vue {
     bilan.hidden = false;
   }
 
+  // « Voir » : la cible en vert, et la carte vole jusqu'à elle (en reculant
+  // d'abord, pour voir où elle est). Une réponse trouvée ensuite ne compte pas
+  // comme juste du premier coup.
   voir.addEventListener('click', () => {
     const id = courante();
-    if (id) ctx.carte.zoomerSur(id);
+    if (!id || enAttente) return;
+    vu = true;
+    ctx.carte.effacerMarques();
+    ctx.carte.marquer(id, 'juste');
+    ctx.carte.anneau(id, 'juste');
+    ctx.carte.montrer(id);
   });
   passer.addEventListener('click', () => {
     const id = courante();
     if (!id) return;
     clearTimeout(enAttente);
-    suivante({ id, essais, juste: false, premier: false, temps_ms: performance.now() - debut, distance_km: premierFaux });
+    suivante({ id, essais, juste: false, premier: false, vu, temps_ms: performance.now() - debut, distance_km: premierFaux });
   });
   terminer.addEventListener('click', finir);
 
@@ -151,7 +163,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
           ctx.carte.marquer(id, 'juste');
           retro.className = 'essai-retro juste';
           retro.textContent = `Juste${note.via === 'pastille' ? ' (pastille)' : note.via === 'proche' ? ' (au plus près)' : ''} · ${essais} essai${essais > 1 ? 's' : ''} · ${fmtS(performance.now() - debut)}`;
-          const res: Resultat = { id, essais, juste: true, premier: essais === 1, temps_ms: performance.now() - debut, distance_km: premierFaux };
+          const res: Resultat = { id, essais, juste: true, premier: essais === 1 && !vu, vu, temps_ms: performance.now() - debut, distance_km: premierFaux };
           enAttente = window.setTimeout(() => {
             enAttente = 0;
             suivante(res);

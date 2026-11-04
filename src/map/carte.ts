@@ -2,7 +2,9 @@
 // Tout ce qui décide (pick, noter, pastilles, seuil du toucher) est pur, dans
 // les modules voisins ; ce fichier ne fait que le DOM.
 import { geoPath, type GeoProjection } from 'd3-geo';
+import { interpolateZoom } from 'd3-interpolate';
 import { select } from 'd3-selection';
+import 'd3-transition'; // selection.transition(), pour le vol de montrer()
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom';
 import type { DonneesCarte } from './donnees';
 import { versEcran } from './geo';
@@ -15,6 +17,14 @@ import type { Entite, NomProjection, Rendu, Transfo } from './types';
 
 const SVG = 'http://www.w3.org/2000/svg';
 export const ZOOM_MAX = 400;
+/**
+ * Zoom maximal de montrer() : le pays reste entouré de ses voisins (au zoom
+ * 40, ~1 000 km tiennent sur la largeur du téléphone). Le Vatican, visé au
+ * quart de l'écran, irait au zoom 400, où l'on ne voit plus que Rome.
+ */
+const ZOOM_MAX_MONTRER = 40;
+/** Durée du vol de montrer() (ms) : celle de l'interpolation de van Wijk et Nuij, bornée. */
+const DUREE_MONTRER_MS = { min: 600, max: 2000 } as const;
 /** Chiffres après la virgule du contour de la sphère (px de base). */
 const DECIMALES = 2;
 /** Pas des hachures à l'écran (px). */
@@ -233,12 +243,37 @@ export class Carte {
 
   /** Centre la vue sur un pays, son plus grand polygone sur environ un quart de l'écran. */
   zoomerSur(id: string): void {
+    const t = this.vise(id, ZOOM_MAX);
+    if (t) this.zoomer(t);
+  }
+
+  /**
+   * Montre un pays (« Voir » de la vue Toucher) par un vol animé de d3-zoom :
+   * l'interpolation de van Wijk et Nuij recule puis avance, on voit donc où
+   * il est avant d'arriver dessus. Zoom borné à 40 (voisins à l'écran). Un
+   * geste interrompt le vol ; sans animation si le système la réduit.
+   */
+  montrer(id: string): void {
+    const t = this.vise(id, ZOOM_MAX_MONTRER);
+    if (!t) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.zoomer(t);
+    const { l, h } = this.taille;
+    const vue = (v: Transfo): [number, number, number] => [(l / 2 - v.x) / v.k, (h / 2 - v.y) / v.k, Math.max(l, h) / v.k];
+    const duree = interpolateZoom(vue(this.t), vue(t)).duration;
+    select(this.hote)
+      .transition()
+      .duration(Math.min(DUREE_MONTRER_MS.max, Math.max(DUREE_MONTRER_MS.min, duree)))
+      .call(this.comportement.transform, zoomIdentity.translate(t.x, t.y).scale(t.k));
+  }
+
+  /** La transformation qui centre un pays, son plus grand polygone sur un quart de l'écran, au zoom kMax au plus. */
+  private vise(id: string, kMax: number): Transfo | null {
     const e = this.o.donnees.entites.find((en) => en.pays.id === id);
     const b = e && this.proj(e.pays.point);
-    if (!e || !b) return;
+    if (!e || !b) return null;
     const taille1 = Math.max(tailleEcranPx(e.pays, this.proj.scale(), 1), 1e-6);
-    const k = Math.min(ZOOM_MAX, Math.max(1, Math.min(this.taille.l, this.taille.h) / 4 / taille1));
-    this.zoomer({ k, x: this.taille.l / 2 - k * b[0], y: this.taille.h / 2 - k * b[1] });
+    const k = Math.min(kMax, Math.max(1, Math.min(this.taille.l, this.taille.h) / 4 / taille1));
+    return { k, x: this.taille.l / 2 - k * b[0], y: this.taille.h / 2 - k * b[1] };
   }
 
   /** Pose une transformation (sans geste : non comptée dans les mesures). */
