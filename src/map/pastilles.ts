@@ -25,9 +25,8 @@ export const PASTILLE = {
    */
   visible_sous_px: 4,
   /**
-   * Sur le tracé d'un pays assez grand pour n'avoir pas de pastille, une cible
-   * voisine ne gagne qu'à moins de 11 px de son centre : sinon toucher le Brésil
-   * au zoom 1 donnait le Paraguay (cible à 16,6 px), ou Rome le Vatican.
+   * Sur un tracé, un disque dessiné ne gagne qu'à moins de 11 px de son centre
+   * (le Vatican dans Rome) ; une cible invisible, jamais (pick.ts).
    */
   rayon_sur_trace_px: 11,
 } as const;

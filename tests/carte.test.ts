@@ -243,7 +243,9 @@ describe('noter', () => {
   it('le Vatican au zoom 1 : juste en son point, faux sur la pastille plus proche d’un autre pays', () => {
     const ctx = contexte();
     const [x, y] = ecran(ctx, entite('VAT').pays.point);
-    expect(noter(ctx, 'VAT', x, y)).toMatchObject({ juste: true, via: 'pastille' });
+    expect(noter(ctx, 'VAT', x, y)).toMatchObject({ juste: true, via: 'trace' });
+    // Hors de son tracé (0,01 km²) mais sur son disque : juste par la pastille.
+    expect(noter(ctx, 'VAT', x + 3, y)).toMatchObject({ juste: true, via: 'pastille' });
     // À 15 px, dans sa cible de 22 px mais plus près de celle de la Bulgarie : la carte désigne la Bulgarie.
     const voisin = noter(ctx, 'VAT', x + 15, y);
     expect(voisin.pick?.id).not.toBe('VAT');
@@ -262,10 +264,10 @@ describe('noter', () => {
     expect(n.distance_km).toBeLessThan(1400);
   });
 
-  it('essai du J0 : juste si et seulement si pick() désigne la cible (zooms 1, 2, 4, 8)', () => {
+  it('essai du J0 : juste si et seulement si le point est dans la cible ou que pick() la désigne (zooms 1, 2, 4, 8)', () => {
     // Points visés : le point de chaque autre pays jouable (sa pastille ou son
     // point d'étiquette), et des couronnes autour de la cible (5 à 30 px). Un
-    // point que pick() attribue à un autre pays n'est jamais juste.
+    // point hors de la cible que pick() attribue à un autre pays n'est jamais juste.
     const cibles = ciblesEssai(donnees.entites.map((e) => e.pays));
     const autres = donnees.entites.filter((e) => e.pays.statut === 'jouable' || e.pays.statut === 'optionnel');
     let autrePays = 0;
@@ -286,7 +288,9 @@ describe('noter', () => {
           const n = noter(ctx, c, x, y);
           expect(n.pick).toEqual(p);
           if (p && p.id !== c) autrePays++;
-          if (n.juste !== (p?.id === c)) throw new Error(`k=${k}, cible ${c}, (${x.toFixed(1)}, ${y.toFixed(1)}) : pick ${p?.id ?? 'mer'}, noté ${n.juste ? 'juste' : 'faux'}`);
+          const ll = versLonLat(ctx.proj, ctx.t, x, y);
+          const dedans = ll !== null && contient(entite(c).forme, entite(c).pays.bbox, ll);
+          if (n.juste !== (dedans || p?.id === c)) throw new Error(`k=${k}, cible ${c}, (${x.toFixed(1)}, ${y.toFixed(1)}) : pick ${p?.id ?? 'mer'}, noté ${n.juste ? 'juste' : 'faux'}`);
         }
         // Le point où l'on touche la cible (celui de window.cartographe.carte.ecran) est juste.
         expect(noter(ctx, c, px, py).juste, `k=${k}, ${c} touché en son point`).toBe(true);
@@ -295,13 +299,49 @@ describe('noter', () => {
     expect(autrePays).toBeGreaterThan(1000); // le test touche bien d'autres pays
   }, 60_000);
 
-  it('dans le tracé de l’Italie, sur la pastille du Vatican : faux, distance 0 (la carte désigne le Vatican)', () => {
+  it('dans le tracé de l’Italie, sur le disque du Vatican : juste pour l’Italie (plan : « dedans »), la carte désigne le Vatican', () => {
     const ctx = contexte('monde', centrer(proj, [12.45, 41.9], 60));
     const [vx, vy] = ecran(ctx, entite('VAT').pays.point);
     const n = noter(ctx, 'ITA', vx + 8, vy);
     expect(n.pick?.id).toBe('VAT');
-    expect(n).toMatchObject({ juste: false, via: null, distance_km: 0 });
-    expect(noter(ctx, 'ITA', vx + 18, vy)).toMatchObject({ juste: true, via: 'trace' });
+    expect(n).toMatchObject({ juste: true, via: 'trace', distance_km: 0 });
+    expect(noter(ctx, 'VAT', vx + 8, vy)).toMatchObject({ juste: true, via: 'pastille' });
+  });
+
+  it('un toucher dans le tracé de la cible est toujours juste (cibles de l’essai, zooms 1, 2, 4, 8)', () => {
+    // Relecture du J0 : quand noter() suivait pick(), la cible invisible du Maroc
+    // prenait le centre de l'Algérie au zoom 1 (2 406 points sur 3 632 notés faux).
+    const cibles = ciblesEssai(donnees.entites.map((e) => e.pays));
+    for (const k of [1, 2, 4, 8]) {
+      const ctx = contexte('monde', { k, x: 0, y: 0 });
+      for (const c of cibles) {
+        const e = entite(c);
+        const [o, s, est, n] = e.pays.bbox;
+        const larg = (est < o ? est + 360 : est) - o;
+        for (let i = 0; i <= 20; i++) {
+          for (let j = 0; j <= 20; j++) {
+            const lon = ((o + (larg * i) / 20 + 540) % 360) - 180;
+            const ll: [number, number] = [lon, s + ((n - s) * j) / 20];
+            if (!contient(e.forme, e.pays.bbox, ll)) continue;
+            const [x, y] = ecran(ctx, ll);
+            if (!noter(ctx, c, x, y).juste) throw new Error(`k=${k}, ${c} touché en (${ll[0].toFixed(2)}, ${ll[1].toFixed(2)}) : noté faux (pick ${pick(ctx, x, y)?.id})`);
+          }
+        }
+      }
+    }
+  }, 60_000);
+
+  it('une cible invisible ne prend pas le tracé d’un autre pays : Algérie, Venezuela, Papouasie indonésienne', () => {
+    const z1 = contexte();
+    const [ax, ay] = ecran(z1, [2, 28]); // centre de l'Algérie, à ~10 px de la cible du Maroc
+    expect(pick(z1, ax, ay)).toMatchObject({ id: 'DZA', via: 'trace' });
+    const [ix, iy] = ecran(z1, [139, -4.5]); // Papouasie (Indonésie), voisine de la Papouasie-Nouvelle-Guinée
+    expect(pick(z1, ix, iy)?.id).toBe('IDN');
+    expect(noter(z1, 'PNG', ix, iy).juste).toBe(false);
+    const k8 = contexte('monde', centrer(proj, [-61.5, 10.4], 8));
+    const [vx, vy] = ecran(k8, [-62.6, 10]); // delta de l'Orénoque, face à Trinité (cible invisible à 22 px)
+    expect(pick(k8, vx, vy)?.id).toBe('VEN');
+    expect(noter(k8, 'TTO', vx, vy).juste).toBe(false);
   });
 
   it('un point dans la Russie : juste, distance nulle', () => {
