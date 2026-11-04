@@ -47,6 +47,8 @@ export function vueEssai(ctx: ContexteVue): Vue {
   let vu = false;
   let debut = 0;
   let enAttente = 0;
+  /** Le « juste » affiché pendant enAttente, avant la question suivante. */
+  let resEnAttente: Resultat | null = null;
   let resultats: Resultat[] = [];
 
   const courante = () => cibles[i];
@@ -66,6 +68,17 @@ export function vueEssai(ctx: ContexteVue): Vue {
     debut = performance.now();
   }
 
+  // Un « juste » encore affiché quand on quitte la vue ou termine compte quand
+  // même : il était perdu, et la question revenait (bloquée, enAttente restant vrai).
+  function validerEnAttente(): void {
+    clearTimeout(enAttente);
+    enAttente = 0;
+    if (!resEnAttente) return;
+    resultats.push(resEnAttente);
+    resEnAttente = null;
+    i++;
+  }
+
   function suivante(r: Resultat): void {
     resultats.push(r);
     i++;
@@ -73,6 +86,9 @@ export function vueEssai(ctx: ContexteVue): Vue {
   }
 
   function demarrer(): void {
+    clearTimeout(enAttente);
+    enAttente = 0;
+    resEnAttente = null;
     cibles = melanger(ciblesEssai(ctx.donnees.entites.map((e) => e.pays)));
     i = 0;
     resultats = [];
@@ -82,7 +98,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
   }
 
   function finir(): void {
-    clearTimeout(enAttente);
+    validerEnAttente();
     barre.hidden = true;
     ctx.carte.effacerMarques();
     const n = resultats.length;
@@ -130,22 +146,22 @@ export function vueEssai(ctx: ContexteVue): Vue {
   });
   passer.addEventListener('click', () => {
     const id = courante();
-    if (!id) return;
-    clearTimeout(enAttente);
+    if (!id || enAttente) return;
     suivante({ id, essais, juste: false, premier: false, vu, temps_ms: performance.now() - debut, distance_km: premierFaux });
   });
   terminer.addEventListener('click', finir);
 
   return {
     activer() {
-      if (!cibles.length || i >= cibles.length) demarrer();
+      if (!cibles.length) demarrer();
+      else if (i >= cibles.length) finir();
       else {
         barre.hidden = false;
         afficherQuestion();
       }
     },
     desactiver() {
-      clearTimeout(enAttente);
+      validerEnAttente();
       barre.hidden = true;
       bilan.hidden = true;
       ctx.carte.effacerMarques();
@@ -164,8 +180,10 @@ export function vueEssai(ctx: ContexteVue): Vue {
           retro.className = 'essai-retro juste';
           retro.textContent = `Juste${note.via === 'pastille' ? ' (pastille)' : note.via === 'proche' ? ' (au plus près)' : ''} · ${essais} essai${essais > 1 ? 's' : ''} · ${fmtS(performance.now() - debut)}`;
           const res: Resultat = { id, essais, juste: true, premier: essais === 1 && !vu, vu, temps_ms: performance.now() - debut, distance_km: premierFaux };
+          resEnAttente = res;
           enAttente = window.setTimeout(() => {
             enAttente = 0;
+            resEnAttente = null;
             suivante(res);
           }, 1200);
         } else {
