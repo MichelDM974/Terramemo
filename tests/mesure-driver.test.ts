@@ -399,6 +399,44 @@ const sc = {
     notes: [],
     rapports: [rapportScenario(propres, 500, 'canvas', relais(null, null, null, [['contexte', 30]], 'WebGL2 indisponible'))],
   },
+  // Seule la première visite dépasse 1 s : le critère « rendu < 1 s » doit dire NON.
+  lente: {
+    v: 6,
+    cible: 'chrome',
+    criteres: {},
+    touchers_vises: [],
+    notes: [],
+    visites: [{ visite: 'premiere' }, { visite: 'suivante' }, { visite: 'suivante' }],
+    rapports: [
+      rapportScenario(propres, 1050, 'webgl', relais('calcul', 'absent', 700, [['contexte', 150]])),
+      rapportScenario(propres, 300, 'webgl', relais('cache', 'lu', 250, [['contexte', 20]])),
+      rapportScenario(propres, 320, 'webgl', relais('cache', 'lu', 230, [['contexte', 25]])),
+    ],
+  },
+  // Repli en cours de série : deux répétitions en webgl, la troisième en Canvas de repli.
+  partiel: {
+    v: 6,
+    cible: 'chrome',
+    criteres: {},
+    touchers_vises: [],
+    notes: [],
+    visites: [{ visite: 'premiere' }, { visite: 'suivante' }, { visite: 'suivante' }],
+    rapports: [
+      rapportScenario(propres, 450, 'webgl', relais('calcul', 'absent', 600, [['contexte', 150]])),
+      rapportScenario(propres, 300, 'webgl', relais('cache', 'lu', 250, [['contexte', 20]])),
+      rapportScenario(propres, 310, 'canvas', relais(null, null, null, [['contexte', 30]], 'contexte perdu')),
+    ],
+  },
+  // Première visite d'après le stockage vidé, mais maillage lu dans le cache : à signaler.
+  cacheLu: {
+    v: 6,
+    cible: 'chrome',
+    criteres: {},
+    touchers_vises: [],
+    notes: [],
+    visites: [{ visite: 'premiere' }],
+    rapports: [rapportScenario(propres, 300, 'webgl', relais('cache', 'lu', 200, [['contexte', 20]]))],
+  },
 };
 interface Stats {
   mediane: number | null;
@@ -416,6 +454,7 @@ interface ResumeScenario {
   } | null;
 }
 let scenario: Record<keyof typeof sc, ResumeScenario>;
+let notesScenario: Record<keyof typeof sc, string[]>;
 
 describe('driver.py resumer : scénario du driver, chargement et relais du webgl', () => {
   beforeAll(() => {
@@ -427,8 +466,9 @@ describe('driver.py resumer : scénario du driver, chargement et relais du webgl
     });
     const r = spawnSync('python3', [DRIVER, 'resumer', '--sec', '--json', ...chemins], { encoding: 'utf8' });
     if (r.status !== 0) throw new Error(`driver.py resumer : code ${r.status}\n${r.stderr}\n${r.stdout}`);
-    const resumes = JSON.parse(r.stdout).resumes as { resume: ResumeScenario }[];
+    const resumes = JSON.parse(r.stdout).resumes as { resume: ResumeScenario; notes: string[] }[];
     scenario = Object.fromEntries(noms.map((n, i) => [n, resumes[i]!.resume])) as typeof scenario;
+    notesScenario = Object.fromEntries(noms.map((n, i) => [n, resumes[i]!.notes])) as typeof notesScenario;
   });
 
   it('le tour du monde a sa ligne (tourner) : seul à dépasser 3 à-coups/s en moyenne, sans geste qui saccade seul, NON ; la page (glisser) dirait OK', () => {
@@ -457,6 +497,25 @@ describe('driver.py resumer : scénario du driver, chargement et relais du webgl
     expect(Object.keys(scenario.tour.chargement_ms.par_visite)).toEqual(['premiere']);
     // … celle du téléphone, inconnue.
     expect(Object.keys(scenario.repli.chargement_ms.par_visite)).toEqual(['inconnue']);
+    // Seule la première visite dépasse 1 s : NON (le critère la compte).
+    const l = scenario.lente.chargement_ms;
+    expect(l.par_visite.premiere).toMatchObject({ n: 1, max: 1050 });
+    expect(l.par_visite.suivante).toMatchObject({ n: 2, max: 320 });
+    expect(l.ok).toBe(false);
+  });
+
+  it('repli en cours de série : les gestes du Canvas de repli ont leurs lignes à part', () => {
+    const g = scenario.partiel.gestes;
+    expect(Object.keys(g).sort()).toEqual(['glisser', 'glisser (canvas)', 'pincer', 'pincer (canvas)', 'tourner', 'tourner (canvas)']);
+    expect(g.pincer!.rendu).toBe('webgl');
+    expect(g['pincer (canvas)']!.rendu).toBe('canvas');
+    expect([g.pincer!.gestes, g['pincer (canvas)']!.gestes]).toEqual([12, 6]);
+    expect(scenario.partiel.relais_webgl!.replis).toEqual([{ repetition: 3, raison: 'contexte perdu', gpu: 'ANGLE (essai)', logiciel: true }]);
+  });
+
+  it('première visite au maillage lu dans le cache : signalée (stockage pas vidé ?)', () => {
+    expect(notesScenario.cacheLu.some((n) => n.includes('première visite, mais maillage lu dans le cache'))).toBe(true);
+    expect(notesScenario.webgl.some((n) => n.includes('maillage lu dans le cache'))).toBe(false);
   });
 
   it('relais du webgl par visite : maillage calculé puis lu, apres_affichage_ms, étapes à surveiller', () => {

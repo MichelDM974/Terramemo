@@ -11,16 +11,18 @@
  *   gels et saccade (décision de l'utilisateur du 04/11/2026, registre) : un
  *   à-coup est une image qui tarde 25 ms ou plus (trois rafraîchissements à
  *   120 Hz, un et demi à 60 i/s), compté dès 21 ms (SEUIL_ACOUP_MS, loin des
- *   valeurs exactes de l'écran, 16,67 et 25 ms, pour ne pas compter au
- *   hasard) ; un gel, une image qui tarde 50 ms, compté dès 46 ms
+ *   valeurs exactes d'un écran à 60 ou 120 Hz, 16,67 et 25 ms, pour ne pas
+ *   compter au hasard) ; un gel, une image qui tarde 50 ms, compté dès 46 ms
  *   (SEUIL_GEL_MS, loin de 41,67 et 50 ms) ; quelle que soit la fréquence de
- *   l'écran et quel que soit le rendu. Verdict sansSaccade (stats.ts), par
+ *   l'écran et quel que soit le rendu. À 90 Hz, 22,2 et 44,4 ms tombent près
+ *   des seuils et comptent au hasard (SEUIL_ACOUP_MS dans stats.ts). Verdict sansSaccade (stats.ts), par
  *   type de geste : NON au-delà de 3 à-coups par seconde de geste en moyenne
  *   sur toutes ses répétitions, ou si un seul geste saccade (stats.saccade :
  *   un gel, ou plus de 3 à-coups par seconde avec au moins 2 à-coups ; un
  *   à-coup isolé dans un geste court ne compte pas). Compté par seconde pour
- *   ne pas avantager le rendu le plus rapide ; monotone : à durée de geste
- *   fixe, des images plus rapides ne changent rien. Aussi p95_ms, max_ms,
+ *   ne pas avantager le rendu le plus rapide ; monotone à 60 et 120 Hz : à
+ *   durée de geste fixe, des images plus rapides ne changent rien (pas à
+ *   90 Hz, voir stats.ts). Aussi p95_ms, max_ms,
  *   longues_images, et dessin_ms (rendu Canvas : script de chaque image) ;
  * - tenue des 120 i/s, rapportée à part, SANS verdict, pour comparer les
  *   rendus → stats.tenue_120 (part des intervalles ≤ 12,5 ms, seuil fixe :

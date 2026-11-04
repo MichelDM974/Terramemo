@@ -82,13 +82,16 @@ les shaders compilés gardés sur disque ; pas le `localStorage`, réglages de
 l'utilisateur sans effet sur le chargement). Sur le téléphone, Chrome et
 l'APK gardent sinon leurs données d'une séance à l'autre et après `adb
 install -r` : la répétition 1 lirait le maillage du cache. La répétition 1
-est donc une **première visite** (cache HTTP coupé, rien de gardé), les
+est donc une **première visite** (cache HTTP coupé, rien de gardé ; avec
+`--cache` sur le téléphone, le cache HTTP des séances d'avant reste : la
+répétition 1 y est « visite inconnue »), les
 suivantes des **visites suivantes** (en webgl : maillage lu dans le cache
 écrit à la première). Sur le PC, le profil du chromium est neuf à chaque
 lancement : la répétition 1 y est toujours une première visite. Le vidage
 efface TOUT l'IndexedDB de l'origine (`https://localhost` pour l'APK) : le
 jour où l'appli y garde des données de l'utilisateur, `--garder-stockage`
-(la répétition 1 devient « visite inconnue »). Le cache des shaders en
+(sur le téléphone, la répétition 1 devient « visite inconnue » ; sur le PC,
+profil neuf, elle reste une première visite). Le cache des shaders en
 mémoire du processus GPU, lui, survit tant que le navigateur tourne : pour
 un premier lancement à froid, fermer Chrome ou l'APK avant (`adb shell am
 force-stop com.android.chrome`, ou `io.github.micheldm974.cartographe`).
@@ -140,7 +143,9 @@ navigateur et binaire, `code` : commit, arbre modifié ou non, et pour la
 WebView les dates de l'APK installé et du fichier ; `stockage` : vidé ou
 non, origine, types, erreur ; `visites` : par répétition, `premiere`,
 `suivante` ou `inconnue`, le maillage du webgl (`calcul/absent`,
-`cache/lu`), le rendu et la raison d'un repli ; `logiciel` ; `repli`) dans
+`cache/lu`), le rendu et la raison d'un repli ; `logiciel_accepte` :
+l'adresse porte `logiciel=1`, à ne pas confondre avec `webgl.logiciel` des
+rapports, WebGL refusé parce que logiciel ; `repli`) dans
 `docs/mesures/j0/AAAA-MM-JJ-<cible>-<rendu>-<projection>[-x<ralenti>][-gpu][-logiciel][-repli].json`
 (`-gpu` : vrai GPU du PC ; `-logiciel` : l'adresse porte `logiciel=1`,
 WebGL SwiftShader accepté ; `-repli` : le webgl demandé a fini en Canvas

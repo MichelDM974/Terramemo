@@ -1502,7 +1502,9 @@ def commande_mesurer(args):
                 dire(f"  ATTENTION : stockage de {stockage['origine']} non vidé ({e}) : la répétition 1 n'est "
                      "peut-être pas une première visite")
         # Sur le PC, profil neuf à chaque lancement : première visite même sans vider.
-        premiere = stockage["vide"] or args.cible == "local"
+        # Sur le téléphone, --cache garde le cache HTTP des séances d'avant (aucun
+        # type de STOCKAGE_VIDE ne le vide) : la répétition 1 n'est alors pas sûre.
+        premiere = (stockage["vide"] and not args.cache) or args.cible == "local"
         dire(f"navigateur : {s.navigateur}" + (f" ({chromium_binaire()})" if args.cible == "local" else ""))
         dire(f"code : {code['commit']}{' (arbre modifié)' if code['arbre_modifie'] else ''}"
              + (f" ; APK du {code['apk']['installe_le']}" if code.get("apk") else ""))
@@ -1576,7 +1578,9 @@ def commande_mesurer(args):
         # Stockage de l'origine vidé avant la répétition 1 (STOCKAGE_VIDE) ; visite de
         # chaque répétition et, en webgl, source du maillage (rapports[].webgl.maillage).
         "stockage": stockage, "visites": visites,
-        "logiciel": logiciel,
+        # L'adresse porte logiciel=1 (WebGL logiciel accepté) ; à ne pas confondre
+        # avec rapports[].webgl.logiciel (WebGL refusé parce que logiciel).
+        "logiciel_accepte": logiciel,
         "repli": [{"repetition": v["repetition"], "raison": v["repli"]} for v in repli] or None,
         "ecran_emule": TELEPHONE if args.cible == "local" else None,
         "scenario": {"gestes": SCENARIO, "duree_glisser_ms": DUREE_GLISSER_MS, "duree_pincer_ms": DUREE_PINCER_MS,
@@ -1632,7 +1636,7 @@ def commande_resumer(args):
         if not args.sec:
             fichier.write_text(json.dumps(d, ensure_ascii=False, indent=1) + "\n")
         if args.json:
-            sortie.append({"fichier": str(fichier), "resume": res})
+            sortie.append({"fichier": str(fichier), "resume": res, "notes": d["notes"]})
         else:
             afficher_resume(res, f"{fichier.name} (recalculé{', non écrit' if args.sec else ''})",
                             d.get("ralenti") or 1)
