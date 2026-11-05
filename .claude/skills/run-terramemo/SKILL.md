@@ -68,12 +68,15 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   Nommer (#15) : `10-reunion` (Toucher → La Réunion : l'île entière, barre
   en bas, mention de l'IGN), `11-reunion-faux` (Saint-Paul touché pour
   Saint-Denis : « Passer » jusqu'à Saint-Denis, l'ordre étant tiré au
-  hasard), `12-nommer-monde` (Nommer, Europe : zone en accent, 4 boutons),
+  hasard), `12-nommer-monde` (Nommer, Europe : zone en accent, 4 boutons,
+  prise une fois le vol fini : `attendre_fin_vol`, transformation stable),
   `13-nommer-reunion-retro` (mauvais choix rouge, bon vert),
   `14-chrono-reunion` (première question, jauge) ; il remet Localiser et
   vérifie le monde au retour (onglet Carte, `pick` sur la Suisse = CHE).
   `DÉFAUT : …` et code 1 si l'île sort de l'écran ou passe sous la barre,
-  si la mention manque, couvre l'île ou fait deux lignes à 384 px, si les
+  si la mention manque, couvre l'île ou fait deux lignes à 384 px, si la
+  zone de Nommer n'est pas au-dessus de sa barre (monde et île), si l'île
+  a bougé du zoom 1 ou passe sous la barre de Nommer, si les
   boutons de Nommer n'ont pas un rouge et un vert, si un code INSEE
   (`974xx`) s'affiche ou si le monde a changé. **Regarder les
   captures.** Le record du Chrono vit dans le `localStorage` : le profil

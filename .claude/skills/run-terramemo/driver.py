@@ -883,6 +883,45 @@ def cadre_ile(page, barre):
     }})()""")
 
 
+def attendre_fin_vol(p, carte="carte", max_ms=4000):
+    """Attend la fin du vol de montrer() : 700 ms (la transition peut ne pas
+    avoir commencé, ses premières images bougent à peine), puis deux lectures
+    égales de la transformation à 100 ms d'écart (4 s au plus ; le vol dure
+    2 s au plus, DUREE_MONTRER_MS de carte.ts). Une durée fixe capturait le
+    vol en cours (disques du zoom 1 sur l'Europe)."""
+    lire = f"(() => {{ const t = window.terramemo.{carte}.transfo(); return [t.k, t.x, t.y, t.r ?? 0].map(v => Math.round(v * 1000)).join(); }})()"
+    p.pause(700)
+    avant = p.js(lire)
+    for _ in range(max_ms // 100):
+        p.pause(100)
+        apres = p.js(lire)
+        if apres == avant:
+            return
+        avant = apres
+
+
+def cible_cadree(p, carte="carte"):
+    """La question de Nommer : son point est-il à l'écran, au-dessus de la barre
+    (comme doitCadrer) ? Rend (cible, point, haut visible, largeur)."""
+    return p.js(f"""(() => {{
+      const cible = document.querySelector('#barre-nommer .essai-consigne').dataset.cible;
+      const c = window.terramemo.{carte};
+      const r = c.rect();
+      const haut = document.getElementById('barre-nommer').getBoundingClientRect().top - r.y;
+      const p = c.ecran(cible);
+      return {{ cible, e: p && [p.x - r.x, p.y - r.y], haut, l: r.largeur, k: c.transfo().k }};
+    }})()""")
+
+
+def verifier_cadrage(p, defauts, quoi, carte="carte"):
+    m = cible_cadree(p, carte)
+    e = m["e"]
+    dire(f"  {quoi} : {m['cible']} à {e and [round(v) for v in e]}, partie visible {m['l']:.0f} × {m['haut']:.0f}, zoom {m['k']:.2f}")
+    if not e or not (0 <= e[0] <= m["l"] and 0 <= e[1] <= m["haut"]):
+        defauts.append(f"{quoi} : {m['cible']} hors de la partie visible au-dessus de la barre ({e})")
+    return m
+
+
 def ui_reunion(p, capturer, defauts):
     """Captures 10 à 14 (#15) : La Réunion en Localiser (juste puis faux),
     Nommer dans le monde et sur l'île, Chrono de l'île ; puis le mode
@@ -941,7 +980,8 @@ def ui_reunion(p, capturer, defauts):
     cliquer(p, '#essai-mode [data-mode="nommer"]')
     cliquer(p, '#essai-depart .essai-serie[data-serie="Europe"]')
     attendre_visible(p, "#barre-nommer")
-    p.pause(1200)  # le vol éventuel jusqu'à la zone
+    attendre_fin_vol(p)  # le vol éventuel jusqu'à la zone
+    verifier_cadrage(p, defauts, "Nommer, Europe")
     lire("Nommer, Europe", "#barre-nommer")
     capturer("12-nommer-monde")
     # Nommer sur l'île : un mauvais choix, rouge et vert.
@@ -949,7 +989,13 @@ def ui_reunion(p, capturer, defauts):
     cliquer(p, '#essai-depart .essai-serie[data-serie="reunion"]')
     attendre_visible(p, "#barre-nommer")
     p.pause(300)
-    cible = p.js('document.querySelector("#barre-nommer .essai-consigne").dataset.cible')
+    m = verifier_cadrage(p, defauts, "Nommer, La Réunion", "ile")
+    if abs(m["k"] - 1) > 1e-6:
+        defauts.append(f"Nommer, La Réunion : la carte de l'île a bougé (zoom {m['k']:.2f}) au lieu de rester au zoom 1")
+    sud = p.js("Math.max(...[...document.querySelectorAll('#carte-ile path.pays')].map(e => e.getBoundingClientRect().bottom)) - window.terramemo.ile.rect().y")
+    if sud > m["haut"]:
+        defauts.append(f"Nommer, La Réunion : le sud de l'île ({sud:.0f}) passe sous la barre ({m['haut']:.0f})")
+    cible = m["cible"]
     faux = p.js(f'[...document.querySelectorAll(".nommer-choix")].map(b => b.dataset.id).find(i => i !== "{cible}")')
     cliquer(p, f'.nommer-choix[data-id="{faux}"]')
     p.pause(200)
