@@ -87,6 +87,19 @@ describe('projection de l’île', () => {
     expect(remplit).toBe(true);
   });
 
+  it.each([
+    [384, 723],
+    [375, 667],
+    [360, 640],
+    [320, 560],
+  ])('%i × %i : le sud de l’île reste au-dessus de la barre de Nommer (~211 px + 8)', (l, h) => {
+    const BARRE_NOMMER = 219;
+    const [[x0], [x1, y1]] = geoPath(projectionLocale(l, h, emprise)).bounds(emprise);
+    expect(y1).toBeLessThanOrEqual(h - BARRE_NOMMER);
+    // Toujours par la largeur : la marge basse remonte l'île sans la rétrécir.
+    expect(x1 - x0).toBeCloseTo(l - 2 * MARGES.cotes, 0);
+  });
+
   it('384 × 723 : l’île tient par la largeur, ~5,6 px/km, ~320 px de haut', () => {
     const [[x0, y0], [x1, y1]] = geoPath(projectionLocale(L, H, emprise)).bounds(emprise);
     expect(x1 - x0).toBeCloseTo(L - 2 * MARGES.cotes, 0);

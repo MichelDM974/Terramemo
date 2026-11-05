@@ -34,11 +34,14 @@ export const REUNION: DefTerrain = {
 
 /**
  * Marges du cadre (px) : en haut la mention de la source (div.carte-credit,
- * une ligne de 0,7rem) ; en bas la barre des vues, Toucher ~120 px, Nommer
- * ~210, Chrono ~130 (30 % de 723 = 217 px sur le téléphone) : le sud de
- * l'île (Saint-Pierre, Saint-Joseph, Saint-Philippe) reste au-dessus.
+ * une ligne de 0,7rem) ; en bas la barre des vues, Toucher ~120 px, Chrono
+ * ~130, Nommer ~211 plus ses 8 px d'écart au bas de l'écran : basMin la
+ * couvre à toute hauteur (sous ~750 px, 30 % n'y suffisent plus : à 375 × 667
+ * le sud de l'île passait sous la barre et Nommer volait vers Petite-Île).
+ * Le sud (Saint-Pierre, Saint-Joseph, Saint-Philippe) reste au-dessus ; sur
+ * un petit écran l'île, qui tient par la largeur, remonte sans rétrécir.
  */
-export const MARGES = { haut: 28, cotes: 12, basMin: 120, basPart: 0.3 } as const;
+export const MARGES = { haut: 28, cotes: 12, basMin: 225, basPart: 0.3 } as const;
 
 /**
  * Mercator ajustée à l'emprise, dans le cadre moins les marges. Conforme ; sur
