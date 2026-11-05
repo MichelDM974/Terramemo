@@ -12,8 +12,18 @@ export const POINTS_JUSTE = 1000;
  */
 export const POINTS_PROCHE_MAX = 500;
 
-/** Échelle de la distance : 500 × e^(−d / 300 km) (Lituanie pour Lettonie, 106 km : 351). */
-export const ECHELLE_KM = 300;
+/**
+ * Échelle de la distance par terrain : 500 × e^(−d / échelle). Le monde :
+ * 300 km (Lituanie pour Lettonie, 106 km : 351). L'île (décision « Quiz de
+ * La Réunion ») : 5 km, à la mesure de communes de 10 à 30 km de large (la
+ * voisine à 1 km : 409, à 5 km : 184, à 10 km : 68) ; à 300 km, toute erreur
+ * sur l'île vaudrait ~490 points. La formule du monde ne change pas : la
+ * version du barème reste la même (chrono.ts, VERSION_BAREME).
+ */
+export const ECHELLES_KM = { monde: 300, reunion: 5 } as const;
+
+/** Échelle du monde, par défaut partout où l'appelant n'en donne pas. */
+export const ECHELLE_KM = ECHELLES_KM.monde;
 
 /** Délai par question du Chrono, en ms (à caler à l'essai sur le téléphone). */
 export const DELAI_CHRONO_MS = { localiser: 15_000, nommer: 10_000 } as const;
@@ -26,12 +36,12 @@ export interface ReponseChrono {
   temps_ms: number | null;
 }
 
-/** Points d'une question : 1 000 si juste, jusqu'à 500 selon la distance sinon, 0 hors délai. */
-export function pointsQuestion(r: ReponseChrono, delai_ms: number): number {
+/** Points d'une question : 1 000 si juste, jusqu'à 500 selon la distance (à l'échelle du terrain) sinon, 0 hors délai. */
+export function pointsQuestion(r: ReponseChrono, delai_ms: number, echelle_km: number = ECHELLE_KM): number {
   if (r.temps_ms == null || r.temps_ms > delai_ms) return 0;
   if (r.juste) return POINTS_JUSTE;
   if (r.distance_km == null) return 0;
-  return Math.round(POINTS_PROCHE_MAX * Math.exp(-r.distance_km / ECHELLE_KM));
+  return Math.round(POINTS_PROCHE_MAX * Math.exp(-r.distance_km / echelle_km));
 }
 
 export interface ScoreEpreuve {
@@ -42,12 +52,12 @@ export interface ScoreEpreuve {
   temps_ms: number;
 }
 
-export function scoreEpreuve(reponses: readonly ReponseChrono[], delai_ms: number): ScoreEpreuve {
+export function scoreEpreuve(reponses: readonly ReponseChrono[], delai_ms: number, echelle_km: number = ECHELLE_KM): ScoreEpreuve {
   let points = 0;
   let justes = 0;
   let temps_ms = 0;
   for (const r of reponses) {
-    const p = pointsQuestion(r, delai_ms);
+    const p = pointsQuestion(r, delai_ms, echelle_km);
     points += p;
     if (r.juste && p > 0) justes++;
     temps_ms += r.temps_ms == null ? delai_ms : Math.min(r.temps_ms, delai_ms);

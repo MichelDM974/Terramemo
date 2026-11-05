@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   comparerScores,
   DELAI_CHRONO_MS,
+  ECHELLE_KM,
+  ECHELLES_KM,
   pointsQuestion,
   scoreEpreuve,
   semaine,
@@ -34,6 +36,25 @@ describe('pointsQuestion', () => {
     expect(pointsQuestion(faux(5000), D)).toBe(0);
   });
 
+  it('échelle de l’île : 500 × e^(−d/5 km) (décision « Quiz de La Réunion »)', () => {
+    const R = ECHELLES_KM.reunion;
+    expect(R).toBe(5);
+    expect(pointsQuestion(faux(0), D, R)).toBe(500);
+    expect(pointsQuestion(faux(1), D, R)).toBe(409);
+    expect(pointsQuestion(faux(5), D, R)).toBe(184);
+    expect(pointsQuestion(faux(10), D, R)).toBe(68);
+    // Juste, hors délai, sans toucher : l'échelle n'y change rien.
+    expect(pointsQuestion({ juste: true, distance_km: 0, temps_ms: 500 }, D, R)).toBe(1000);
+    expect(pointsQuestion(faux(null), D, R)).toBe(0);
+  });
+
+  it('le défaut reste le monde (300 km), inchangé', () => {
+    expect(ECHELLE_KM).toBe(ECHELLES_KM.monde);
+    expect(ECHELLES_KM.monde).toBe(300);
+    expect(pointsQuestion(faux(106), D, ECHELLES_KM.monde)).toBe(pointsQuestion(faux(106), D));
+    expect(pointsQuestion(faux(106), D)).toBe(351);
+  });
+
   it('faux hors de la sphère (toucher dans le vide) : 0', () => {
     expect(pointsQuestion(faux(null), D)).toBe(0);
   });
@@ -46,6 +67,12 @@ describe('scoreEpreuve et comparerScores', () => {
       D,
     );
     expect(s).toEqual({ points: 1351, justes: 1, questions: 3, temps_ms: 2000 + 4000 + D });
+  });
+
+  it('l’échelle passe à chaque question', () => {
+    const r = [{ juste: true, distance_km: 0, temps_ms: 2000 }, faux(5, 4000)];
+    expect(scoreEpreuve(r, D, ECHELLES_KM.reunion).points).toBe(1184);
+    expect(scoreEpreuve(r, D).points).toBe(1000 + 492);
   });
 
   it('plus de points d’abord, puis le temps le plus court', () => {
