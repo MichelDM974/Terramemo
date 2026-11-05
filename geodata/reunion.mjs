@@ -85,10 +85,15 @@ const N_COMMUNES = 24;
 // projection fausse ou des axes inversés.
 const ILE = { ouest: 55.1, est: 56.0, sud: -21.5, nord: -20.8 };
 
-// Simplification : 40 m ≈ 2 px au zoom 8 de l'île, 0,2 px au zoom 1 (5,6 px/km sur le
-// téléphone). Topologie d'un seul calque : les frontières sont des arcs partagés, donc
-// ni trou ni recouvrement entre communes.
-const SIMPLIFICATION = 'visvalingam interval=40 keep-shapes';
+// Simplification : Douglas-Peucker, qui borne l'écart au tracé de l'IGN à 40 m ≈ 2 px au
+// zoom 8 de l'île, 0,2 px au zoom 1 (5,6 px/km sur le téléphone) ; contrôlé sur chaque
+// sommet source (ECART_SIMPLIFICATION_M). Visvalingam (interval = seuil d'aire, pas
+// d'écart) s'en éloignait de 191 m sur la côte (jetée de Saint-Pierre) et de 74 m sur
+// une frontière. Topologie d'un seul calque : les frontières sont des arcs partagés,
+// donc ni trou ni recouvrement entre communes.
+const SIMPLIFICATION = 'dp interval=40 keep-shapes';
+// Écart maximal toléré d'un sommet source au tracé simplifié : 40 m, plus la quantification.
+const ECART_SIMPLIFICATION_M = 41;
 const QUANTIFICATION = 1e5; // ≈ 0,7 m sur l'emprise de l'île
 // Écart toléré entre la reprojection de mapshaper et la série de Krüger (outils.mjs).
 const ECART_PROJECTION_M = 0.01;
@@ -98,6 +103,42 @@ const ECART_PROJECTION_M = 0.01;
 function echec(message) {
   console.error(`geodata:reunion : ${message}`);
   process.exit(1);
+}
+
+/**
+ * Plus grand écart (m) d'un sommet des polygones source au contour simplifié de la même
+ * commune (tous ses anneaux), dans un repère métrique local (cos de la latitude moyenne :
+ * moins de 0,1 m d'erreur sur l'île).
+ */
+function ecartSimplification(polysSource, formeSimplifiee) {
+  const g = formeSimplifiee.geometry;
+  const anneaux = (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).flat();
+  const M = 111_195;
+  const cosLat = Math.cos((-21.1 * Math.PI) / 180);
+  const xy = ([lon, lat]) => [lon * cosLat * M, lat * M];
+  const segments = [];
+  for (const a of anneaux) for (let i = 1; i < a.length; i++) segments.push([xy(a[i - 1]), xy(a[i])]);
+  let max = 0;
+  let ou = null;
+  for (const p of polysSource)
+    for (const r of p)
+      for (const s of r) {
+        const [px, py] = xy(s);
+        let d = Infinity;
+        for (const [[ax, ay], [bx, by]] of segments) {
+          const dx = bx - ax;
+          const dy = by - ay;
+          const l2 = dx * dx + dy * dy;
+          const t = l2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2)) : 0;
+          d = Math.min(d, Math.hypot(px - ax - t * dx, py - ay - t * dy));
+          if (d === 0) break;
+        }
+        if (d > max) {
+          max = d;
+          ou = s;
+        }
+      }
+  return { max, ou };
 }
 
 async function lireJson(chemin) {
@@ -325,8 +366,8 @@ async function main() {
   // Un seul calque, une entité par commune : les frontières sont des arcs partagés,
   // simplifiés une fois pour les deux communes, sans trou ni recouvrement. keep-shapes
   // protège le plus grand anneau de chaque commune ; les îlots de Petite-Île et de
-  // Saint-Paul n'en sont pas, d'où le compte des polygones plus bas (à 40 m, ils restent,
-  // en quadrilatère et en triangle : gardés, un toucher dessus compte pour leur commune).
+  // Saint-Paul n'en sont pas, d'où le compte des polygones plus bas (à 40 m, ils restent :
+  // gardés, un toucher dessus compte pour leur commune).
   console.log('Simplification');
   const sortie = await mapshaper.applyCommands(
     `-i communes.json -simplify ${SIMPLIFICATION} -o communes.topo.json format=topojson quantization=${QUANTIFICATION}`,
@@ -353,6 +394,13 @@ async function main() {
     if (!geoContains(formes[i], c.point)) echec(`${c.id} : point d'étiquette hors de la forme simplifiée`);
   });
   for (const p of perdus) console.log(`  note : ${p}`);
+  let ecart = { max: 0, id: '' };
+  communes.forEach((c, i) => {
+    const e = ecartSimplification(c.polys, formes[i]);
+    if (e.max > ECART_SIMPLIFICATION_M) echec(`${c.id} : sommet ${e.ou} à ${e.max.toFixed(1)} m du tracé simplifié`);
+    if (e.max > ecart.max) ecart = { max: e.max, id: c.id };
+  });
+  console.log(`  écart maximal au tracé de l'IGN : ${ecart.max.toFixed(1)} m (${ecart.id})`);
 
   // Voisins sur la topologie finale (arcs partagés).
   const voisins = neighbors(geoms);
@@ -408,7 +456,8 @@ async function main() {
         `EPSG:${SOURCE.srs} (RGR92 / UTM 40S) → WGS84 par mapshaper -proj, contrôlée sur chaque sommet par la série de ` +
         `Krüger (écart toléré ${ECART_PROJECTION_M * 1000} mm) et par le chef-lieu de chaque commune`,
       simplification:
-        `-simplify ${SIMPLIFICATION}, un seul calque (frontières en arcs partagés)` +
+        `-simplify ${SIMPLIFICATION} (Douglas-Peucker : écart au tracé de l'IGN borné à 40 m, ` +
+        `${ecart.max.toFixed(1)} m mesurés sur les sommets source), un seul calque (frontières en arcs partagés)` +
         (perdus.length ? ` ; ${perdus.join(' ; ')}` : ' ; aucun polygone perdu'),
       quantification: QUANTIFICATION,
       noms: 'nom_officiel de l’IGN, apostrophe droite remplacée par l’apostrophe typographique',

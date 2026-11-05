@@ -186,7 +186,7 @@ describe('géométries (communes.topo.json)', () => {
 
   it('îlots : Petite-Île (l’îlet, 0,02 km²) et Saint-Paul (0,008 km²) gardés à la simplification', () => {
     // Deux parties dans la source ; keep-shapes ne protège que le plus grand anneau, mais
-    // à 40 m ils survivent (en quadrilatère et en triangle). Trop petits pour une cible
+    // à 40 m (Douglas-Peucker) ils survivent, réduits à quelques sommets. Trop petits pour une cible
     // au doigt, inoffensifs : un toucher dessus compte pour leur commune.
     const multi = communes.filter((c) => polys(forme(c.id).geometry).length > 1).map((c) => c.id);
     expect(multi).toEqual(['97405', '97415']);
