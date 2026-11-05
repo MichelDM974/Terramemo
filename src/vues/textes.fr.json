@@ -41,7 +41,7 @@
     "rate_passe": "passé",
     "rate_distance": ", premier toucher à {km}",
     "nommer_juste": "Juste · {temps}",
-    "nommer_faux": "Faux : c'est {cible}.",
+    "nommer_faux": "Faux · bonne réponse : {cible}",
     "bilan_nommer_titre": "Nommer · {serie}",
     "bilan_nommer": "{justes} / {n} justes du premier coup",
     "bilan_nommer_temps": "temps médian {temps}",
