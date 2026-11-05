@@ -199,6 +199,12 @@ button.lien:hover { background: none; text-decoration: underline; }
   margin: 0 auto;
   overflow: auto;
 }
+/* Sur l'île, le bilan (Toucher, Nommer, Chrono) passe sous la mention de l'IGN
+   (une ou deux lignes, .carte-credit) au lieu de la couper à mi-hauteur. */
+body[data-terrain="reunion"] .essai-bilan {
+  top: 40px;
+  max-height: calc(100% - 52px);
+}
 /* Choix de la série (départ et « Recommencer ») : en bas comme la barre de l'essai,
    sous le pouce ; une liste, huit choix ne tenant pas dans un .seg sur 384 px. */
 .essai-depart {
