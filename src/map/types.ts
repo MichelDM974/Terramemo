@@ -3,13 +3,13 @@ import type { Feature, MultiPolygon, Polygon } from 'geojson';
 
 export type Statut = 'jouable' | 'optionnel' | 'territoire' | 'conteste' | 'autre';
 
-/** Une entité de pays.json (une par ligne, triées par id). */
-export interface Pays {
+/**
+ * Ce que la carte demande d'une zone, pays ou commune : pick, noter,
+ * pastilles, cadrage (pays.json du monde, communes.json d'un terrain local).
+ */
+export interface Lieu {
   id: string;
   statut: Statut;
-  a2?: string;
-  continent: string;
-  sous_region: string;
   superficie_km2: number;
   /** Superficie du plus grand polygone : décide de la pastille. */
   partie_max_km2: number;
@@ -19,6 +19,13 @@ export interface Pays {
   bbox: [number, number, number, number];
   micro: boolean;
   voisins: string[];
+}
+
+/** Une entité de pays.json (une par ligne, triées par id). */
+export interface Pays extends Lieu {
+  a2?: string;
+  continent: string;
+  sous_region: string;
 }
 
 /** Une zone de contestees.json (couche hachurée, jamais touchée). */
@@ -35,11 +42,18 @@ export interface Contestee {
 
 export type Forme = Feature<Polygon | MultiPolygon, { id: string }>;
 
-/** Une entité prête pour la carte : ses données et sa géométrie (sens de d3). */
-export interface Entite {
-  pays: Pays;
+/**
+ * Une entité prête pour la carte : ses données et sa géométrie (sens de d3).
+ * `pays` porte la zone, pays ou commune : nom de champ gardé (~140 usages),
+ * le code du monde garde le défaut Pays.
+ */
+export interface Entite<L extends Lieu = Pays> {
+  pays: L;
   forme: Forme;
 }
+
+/** Terrain de jeu : le monde, ou une carte locale (src/map/terrain.ts). */
+export type NomTerrain = 'monde' | 'reunion';
 
 /**
  * Transformation de la carte : écran = k × base + (x, y), la base étant la

@@ -12,8 +12,7 @@
 // contient porte scale(1 / UNITE).
 import { geoPath, type GeoPermissibleObjects, type GeoProjection } from 'd3-geo';
 import type { Position } from 'geojson';
-import { creerProjection } from './projection';
-import type { Forme, NomProjection } from './types';
+import type { Forme } from './types';
 
 /** Unités de tracé par px de base : 0,01 px, soit 4 px d'écran au zoom 400. */
 export const UNITE = 100;
@@ -66,10 +65,13 @@ export function traceDirect(proj: GeoProjection, forme: Forme): string | null {
 
 /**
  * Fabrique de tracés (en UNITE) pour une projection : directe si possible,
- * geoPath sinon, sur une copie de la projection agrandie UNITE fois.
+ * geoPath sinon, sur une copie de la projection agrandie UNITE fois. La copie
+ * vient de creer(1, 1) (d3-geo n'a pas de copy()), échelle et translation
+ * reposées ensuite : le monde passe (l, h) => creerProjection(nom, l, h), un
+ * terrain local sa Mercator ajustée (terrain.ts).
  */
-export function fabriqueTraces(nom: NomProjection, proj: GeoProjection): (forme: Forme) => string {
-  const grande = creerProjection(nom, 1, 1);
+export function fabriqueTraces(creer: (l: number, h: number) => GeoProjection, proj: GeoProjection): (forme: Forme) => string {
+  const grande = creer(1, 1);
   const [tx, ty] = proj.translate();
   grande.scale(proj.scale() * UNITE).translate([tx * UNITE, ty * UNITE]);
   const chemin = geoPath(grande).digits(0);

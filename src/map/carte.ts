@@ -1,7 +1,7 @@
 // Carte SVG au doigt : rendu, zoom et déplacement (d3-zoom), pastilles, touchers.
 // Tout ce qui décide (pick, noter, pastilles, seuil du toucher) est pur, dans
 // les modules voisins ; ce fichier ne fait que le DOM.
-import { geoPath, type GeoProjection } from 'd3-geo';
+import { geoPath, type GeoPermissibleObjects, type GeoProjection } from 'd3-geo';
 import { interpolateZoom } from 'd3-interpolate';
 import { select } from 'd3-selection';
 import 'd3-transition'; // selection.transition(), pour le vol de montrer()
@@ -13,7 +13,7 @@ import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from '.
 import { creerProjection, garderVue } from './projection';
 import { fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
-import type { Entite, NomProjection, Rendu, Transfo } from './types';
+import type { Entite, Lieu, NomProjection, Pays, Rendu, Transfo } from './types';
 
 const SVG = 'http://www.w3.org/2000/svg';
 export const ZOOM_MAX = 400;
@@ -86,14 +86,57 @@ export interface CarteAffichee {
   detruire(): void;
 }
 
-export interface OptionsCarte {
+/**
+ * Ce qui lie une Carte SVG à son terrain : le monde (cadre absent : cadreMonde)
+ * ou une carte locale (cadreLocal, terrain.ts : l'île de La Réunion).
+ */
+export interface CadreCarte {
+  /** Projection de base (zoom 1) d'une carte de l × h px. */
+  projection(l: number, h: number): GeoProjection;
+  /** Contour dessiné en .sphere sous les zones ; null : le fond vient du CSS de l'hôte. */
+  fond: GeoPermissibleObjects | null;
+  /** Ce que le déplacement ne doit pas quitter (bounds projetés, élargis à l'écran en largeur). */
+  borne: GeoPermissibleObjects;
+  /**
+   * La borne s'élargit aussi à l'écran en hauteur. Le monde : non (le globe
+   * reste centré dans les bandes vides d'un écran en hauteur). Une carte
+   * locale ajustée sous des marges inégales : oui, sinon d3-zoom la
+   * recentrerait au zoom 1 (le sud sous la barre) et l'on ne pourrait pas
+   * remonter ses bords au-dessus de la barre en zoomant.
+   */
+  borneHauteurEcran: boolean;
+  zoomMax: number;
+  zoomMaxMontrer: number;
+  pastilles: boolean;
+  libelle: string;
+}
+
+/** Options d'une carte ; Carte (SVG) accepte toute zone (Lieu), CarteCanvas et le WebGL le monde seul. */
+export interface OptionsCarte<L extends Lieu = Pays> {
   hote: HTMLElement;
-  donnees: DonneesCarte;
+  donnees: DonneesCarte<L>;
+  /** Projection du monde ; ignorée avec un cadre. */
   projection: NomProjection;
   rendu: Rendu;
   /** Un toucher : (x, y) est le point de la carte visé à la pose, dans le repère de la transformation courante. */
   surToucher?: (x: number, y: number, ev: PointerEvent) => void;
   gestes?: EcouteGestes;
+  /** Absent : le monde, comme avant les terrains (rendus g et css). */
+  cadre?: CadreCarte;
+}
+
+/** Le cadre du monde : la sphère en fond et en borne, zoom 400, pastilles. */
+export function cadreMonde(projection: NomProjection): CadreCarte {
+  return {
+    projection: (l, h) => creerProjection(projection, l, h),
+    fond: { type: 'Sphere' },
+    borne: { type: 'Sphere' },
+    borneHauteurEcran: false,
+    zoomMax: ZOOM_MAX,
+    zoomMaxMontrer: ZOOM_MAX_MONTRER,
+    pastilles: true,
+    libelle: 'Carte du monde',
+  };
 }
 
 const deuxImages = () => new Promise<number>((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
@@ -132,19 +175,27 @@ export class Carte implements CarteAffichee {
   private masquee = false;
   private observateur: ResizeObserver;
   private ecouteurs: [string, EventListener][] = [];
+  private readonly cadre: CadreCarte;
+  /**
+   * Id du motif des hachures : unique dans la page (le monde et l'île y ont
+   * chacun leur SVG ; deux ids égaux, url(#…) prendrait le premier).
+   */
+  private readonly idMotif: string;
 
-  constructor(private readonly o: OptionsCarte) {
+  constructor(private readonly o: OptionsCarte<Lieu>) {
+    this.cadre = o.cadre ?? cadreMonde(o.projection);
+    this.idMotif = o.cadre ? `hachures-${o.hote.id || 'cadre'}` : 'hachures';
     this.hote = o.hote;
     this.hote.classList.add('carte');
     this.hote.dataset.rendu = o.rendu;
-    this.hote.dataset.projection = o.projection;
+    if (!o.cadre) this.hote.dataset.projection = o.projection;
     this.enveloppe = document.createElement('div');
     this.enveloppe.className = 'carte-enveloppe';
-    this.svg = el('svg', { class: 'carte-svg', role: 'img', 'aria-label': 'Carte du monde' });
+    this.svg = el('svg', { class: 'carte-svg', role: 'img', 'aria-label': this.cadre.libelle });
     this.enveloppe.append(this.svg);
 
     this.comportement = zoom<HTMLElement, unknown>()
-      .scaleExtent([1, ZOOM_MAX])
+      .scaleExtent([1, this.cadre.zoomMax])
       .on('start', (e: D3ZoomEvent<HTMLElement, unknown>) => this.debut(e))
       .on('zoom', (e: D3ZoomEvent<HTMLElement, unknown>) => this.mouvement(e))
       .on('end', (e: D3ZoomEvent<HTMLElement, unknown>) => this.fin(e));
@@ -182,10 +233,11 @@ export class Carte implements CarteAffichee {
     const avant = this.proj ? { proj: this.proj, ...this.taille } : null;
     this.taille = { l, h };
     const t0 = performance.now();
-    this.proj = creerProjection(this.o.projection, l, h);
-    const vise = avant ? garderVue(this.t, avant, { proj: this.proj, l, h }, ZOOM_MAX) : { k: 1, x: 0, y: 0 };
-    const d = fabriqueTraces(this.o.projection, this.proj);
-    const sphere = geoPath(this.proj).digits(DECIMALES)({ type: 'Sphere' }) ?? '';
+    const cadre = this.cadre;
+    this.proj = cadre.projection(l, h);
+    const vise = avant ? garderVue(this.t, avant, { proj: this.proj, l, h }, cadre.zoomMax) : { k: 1, x: 0, y: 0 };
+    const d = fabriqueTraces((l1, h1) => cadre.projection(l1, h1), this.proj);
+    const sphere = cadre.fond ? (geoPath(this.proj).digits(DECIMALES)(cadre.fond) ?? '') : '';
     const traces = this.o.donnees.entites.map((e) => d(e.forme));
     const zones = this.o.donnees.contestees.map((z) => d(z.forme));
     const t1 = performance.now();
@@ -197,25 +249,25 @@ export class Carte implements CarteAffichee {
     this.svg.setAttribute('width', String(l));
     this.svg.setAttribute('height', String(h));
     const defs = el('defs');
-    this.motif = el('pattern', { id: 'hachures', patternUnits: 'userSpaceOnUse', width: PAS_HACHURES, height: PAS_HACHURES });
+    this.motif = el('pattern', { id: this.idMotif, patternUnits: 'userSpaceOnUse', width: PAS_HACHURES, height: PAS_HACHURES });
     this.motif.append(el('line', { class: 'hachure-trait', x1: 1, y1: 0, x2: 1, y2: PAS_HACHURES }));
     defs.append(this.motif);
     this.vue = el('g', { class: 'vue' });
-    this.vue.append(el('path', { class: 'sphere', d: sphere }));
+    if (cadre.fond) this.vue.append(el('path', { class: 'sphere', d: sphere }));
     // Tracés en centièmes de px (traces.ts) : ce <g> les ramène en px de base.
     const echelle = el('g', { class: 'unite', transform: `scale(${1 / UNITE})` });
     const pays = el('g', { class: 'couche-pays' });
     const hachures = el('g', { class: 'couche-hachures' });
-    this.o.donnees.entites.forEach((e: Entite, i) => {
+    this.o.donnees.entites.forEach((e: Entite<Lieu>, i) => {
       const p = el('path', { class: 'pays', 'data-id': e.pays.id, 'data-statut': e.pays.statut, d: traces[i] ?? '' });
       for (const classe of this.marques.get(e.pays.id) ?? []) p.classList.add(classe); // après un redimensionnement
       this.chemins.set(e.pays.id, p);
       pays.append(p);
       // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
-      if (e.pays.statut === 'conteste') hachures.append(el('path', { class: 'hachure', 'data-id': e.pays.id, d: traces[i] ?? '', fill: 'url(#hachures)' }));
+      if (e.pays.statut === 'conteste') hachures.append(el('path', { class: 'hachure', 'data-id': e.pays.id, d: traces[i] ?? '', fill: `url(#${this.idMotif})` }));
     });
     this.o.donnees.contestees.forEach((z, i) => {
-      hachures.append(el('path', { class: 'hachure zone-contestee', 'data-id': z.forme.properties.id, d: zones[i] ?? '', fill: 'url(#hachures)' }));
+      hachures.append(el('path', { class: 'hachure zone-contestee', 'data-id': z.forme.properties.id, d: zones[i] ?? '', fill: `url(#${this.idMotif})` }));
     });
     this.coucheMarques = el('g', { class: 'couche-marques' });
     this.couchePastilles = el('g', { class: 'couche-pastilles' });
@@ -272,18 +324,19 @@ export class Carte implements CarteAffichee {
 
   /** Centre la vue sur un pays, son plus grand polygone sur environ un quart de l'écran. */
   zoomerSur(id: string): void {
-    const t = this.vise(id, ZOOM_MAX);
+    const t = this.vise(id, this.cadre.zoomMax);
     if (t) this.zoomer(t);
   }
 
   /**
    * Montre un pays (« Voir » de la vue Toucher) par un vol animé de d3-zoom :
    * l'interpolation de van Wijk et Nuij recule puis avance, on voit donc où
-   * il est avant d'arriver dessus. Zoom borné à 40 (voisins à l'écran). Un
-   * geste interrompt le vol ; sans animation si le système la réduit.
+   * il est avant d'arriver dessus. Zoom borné à 40 dans le monde (voisins à
+   * l'écran), zoomMaxMontrer du cadre ailleurs. Un geste interrompt le vol ;
+   * sans animation si le système la réduit.
    */
   montrer(id: string): void {
-    const t = this.vise(id, ZOOM_MAX_MONTRER);
+    const t = this.vise(id, this.cadre.zoomMaxMontrer);
     if (!t) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.zoomer(t);
     const { l, h } = this.taille;
@@ -418,7 +471,7 @@ export class Carte implements CarteAffichee {
   /** Recalcule l'ensemble des pastilles pour le zoom courant (fin de geste). */
   private majPastilles(): void {
     const k = this.applique.k;
-    this.pastilles = calculerPastilles(this.o.donnees.entites, this.proj, k);
+    this.pastilles = this.cadre.pastilles ? calculerPastilles(this.o.donnees.entites, this.proj, k) : [];
     const voulues = new Set(this.pastilles.filter((p) => p.visible).map((p) => p.id));
     for (const [id, disque] of this.cerclesPastilles) {
       if (!voulues.has(id)) {
@@ -468,10 +521,12 @@ export class Carte implements CarteAffichee {
 
   /**
    * Le déplacement s'arrête aux bords de la sphère (pas aux bandes vides
-   * au-dessus et au-dessous du monde sur un écran en hauteur).
+   * au-dessus et au-dessous du monde sur un écran en hauteur) ; sur une carte
+   * locale, aux bords de sa borne élargie à l'écran (rien ne bouge au zoom 1).
    */
   private limiter(l: number, h: number): void {
-    const [[x0, y0], [x1, y1]] = geoPath(this.proj).bounds({ type: 'Sphere' });
-    this.comportement.extent([[0, 0], [l, h]]).translateExtent([[Math.min(0, x0), y0], [Math.max(l, x1), y1]]);
+    const [[x0, y0], [x1, y1]] = geoPath(this.proj).bounds(this.cadre.borne);
+    const [haut, bas] = this.cadre.borneHauteurEcran ? [Math.min(0, y0), Math.max(h, y1)] : [y0, y1];
+    this.comportement.extent([[0, 0], [l, h]]).translateExtent([[Math.min(0, x0), haut], [Math.max(l, x1), bas]]);
   }
 }

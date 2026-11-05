@@ -2,7 +2,7 @@
 // cible invisible de 44 px (taille de toucher minimale usuelle).
 import type { GeoProjection } from 'd3-geo';
 import { RAYON_TERRE_KM, versEcran } from './geo';
-import type { Entite, Pays, Transfo } from './types';
+import type { Entite, Lieu, Transfo } from './types';
 
 export const PASTILLE = {
   /** Rayon du disque visible (px CSS) : 7 px de diamètre, lisible sans couvrir les Caraïbes. */
@@ -40,12 +40,14 @@ const AVEC_PASTILLE = new Set(['jouable', 'optionnel']);
 /**
  * Taille à l'écran (px) du plus grand polygone. Equal Earth conserve les aires :
  * aire projetée = stéradians × échelle² (vérifié à 1e-4 près sur les données).
+ * En Mercator (terrain local), elle sous-estime de cos φ (6,6 % sur l'île de
+ * La Réunion) : une borne basse, ce que demandent les seuils.
  */
-export function tailleEcranPx(pays: Pays, echelle: number, k: number): number {
+export function tailleEcranPx(pays: Lieu, echelle: number, k: number): number {
   return (Math.sqrt(pays.partie_max_km2) / RAYON_TERRE_KM) * echelle * k;
 }
 
-export function aPastille(pays: Pays, echelle: number, k: number): boolean {
+export function aPastille(pays: Lieu, echelle: number, k: number): boolean {
   if (!AVEC_PASTILLE.has(pays.statut)) return false;
   const taille = tailleEcranPx(pays, echelle, k);
   return taille < PASTILLE.seuil_px || (pays.micro && taille < PASTILLE.micro_jusqua_px);
@@ -60,7 +62,7 @@ export interface Pastille {
   visible: boolean;
 }
 
-export function calculerPastilles(entites: readonly Entite[], proj: GeoProjection, k: number): Pastille[] {
+export function calculerPastilles(entites: readonly Entite<Lieu>[], proj: GeoProjection, k: number): Pastille[] {
   const echelle = proj.scale();
   const res: Pastille[] = [];
   for (const { pays } of entites) {

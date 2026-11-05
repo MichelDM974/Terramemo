@@ -3,10 +3,11 @@
 import type { Position } from 'geojson';
 import { feature, mesh } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
-import type { Contestee, Entite, Forme, Pays } from './types';
+import type { Contestee, Entite, Forme, Lieu, Pays } from './types';
 
-export interface DonneesCarte {
-  entites: Entite[];
+/** Données d'une carte : le monde (défaut Pays) ou un terrain local (Lieu, donnees-terrain.ts). */
+export interface DonneesCarte<L extends Lieu = Pays> {
+  entites: Entite<L>[];
   /** Zones de la couche contestees (hachurées par-dessus, jamais touchées). */
   contestees: { info: Contestee | undefined; forme: Forme }[];
   noms: Record<string, string>;
