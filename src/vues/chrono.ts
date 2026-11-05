@@ -63,7 +63,7 @@ export function vueChrono(ctx: ContexteVue): Vue {
     creer('div', { class: 'essai-actions' }, abandonner),
   );
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'chrono-bilan' });
-  const statut = creer('p', { class: 'hint chrono-statut' });
+  const statut = creer('p', { class: 'hint chrono-statut', 'aria-live': 'polite' });
   const liste = creer('ul', { class: 'essai-series' });
   const general = creer('button', { type: 'button', class: 'secondary chrono-general', id: 'chrono-general' }, T.general_bouton);
   const depart = creer(
