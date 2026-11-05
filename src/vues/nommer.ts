@@ -8,7 +8,7 @@ import { anneauPrincipal, empriseEcran, versEcran, type Rect } from '../map/geo'
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
-import { creer, fmtS, nomDe, type ContexteVue } from './commun';
+import { ANNEAU_SOUS_PX, creer, fmtS, nomDe, type ContexteVue } from './commun';
 import { choix, doitCadrer, NB_CHOIX, PartieNommer } from './qcm';
 import { remplir, textes } from './textes';
 
@@ -16,8 +16,6 @@ const T = textes.toucher;
 /** Durée de la rétroaction avant la question suivante (ms) : les pauses du Chrono. */
 const PAUSE_JUSTE_MS = 900;
 const PAUSE_FAUX_MS = 1800;
-/** Sous ce côté à l'écran (px CSS), un anneau entoure la zone (micro-États, petites îles). */
-const ANNEAU_SOUS_PX = 12;
 
 export interface Nommer {
   /** Une partie sur ce terrain : cibles dans l'ordre donné (déjà mélangées). */

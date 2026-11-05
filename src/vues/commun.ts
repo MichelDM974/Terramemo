@@ -1,4 +1,5 @@
 import type { CarteAffichee } from '../map/carte';
+import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
 import type { Statut } from '../map/types';
 import type { Mesures } from '../mesure/mesures';
@@ -70,6 +71,24 @@ export function fmtKm(km: number): string {
       ? dixiemes.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
       : Math.round(km).toLocaleString('fr-FR');
   return `${txt}\u00a0km`;
+}
+
+/** Sous ce côté à l'écran (px CSS), un anneau entoure la zone (micro-États, petites îles). */
+export const ANNEAU_SOUS_PX = 12;
+
+/** La zone fait-elle moins de ANNEAU_SOUS_PX à l'écran, au zoom courant de la carte ? */
+export function estPetite(t: Pick<Terrain, 'carte' | 'donnees'>, id: string): boolean {
+  const e = t.donnees.entites.find((en) => en.pays.id === id);
+  return !!e && tailleEcranPx(e.pays, t.carte.projection.scale(), t.carte.transfo.k) < ANNEAU_SOUS_PX;
+}
+
+/**
+ * Un anneau autour de la zone si elle est petite à l'écran (le Vatican, Petite-Île
+ * vue de loin) ; au-dessus, la zone colorée se voit seule, et l'anneau (16 px de
+ * rayon) ne ferait que déborder sur ses voisines.
+ */
+export function anneauSiPetite(t: Pick<Terrain, 'carte' | 'donnees'>, id: string, classe: string): void {
+  if (estPetite(t, id)) t.carte.anneau(id, classe);
 }
 
 /** Les cibles d'une série dans son terrain chargé : les siennes (monde), ou toutes les zones jouables (l'île). */

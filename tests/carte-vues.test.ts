@@ -4,7 +4,9 @@ import type { Pays } from '../src/map/types';
 import { normaliser, suggestions } from '../src/texte';
 import { REUNION } from '../src/map/terrain';
 import { ciblesEssai, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, series, serieTerrain, seriesToucher } from '../src/vues/cibles';
-import { fmtKm, fmtS, idsSerie, nomDe } from '../src/vues/commun';
+import { anneauSiPetite, estPetite, fmtKm, fmtS, idsSerie, nomDe } from '../src/vues/commun';
+import { projectionLocale } from '../src/map/terrain';
+import { creerProjection } from '../src/map/projection';
 import { remplir, textes } from '../src/vues/textes';
 
 // Vues d'essai du J0 : cibles de l'essai « Toucher », suggestions de la « Saisie ».
@@ -145,5 +147,32 @@ describe('séries de l’île et textes des terrains', () => {
     expect(nomDe({ noms: nomsIle }, '97407')).toBe('Le Port');
     expect(nomDe({ noms }, 'CHE')).toBe('Suisse');
     expect(nomDe({ noms }, 'ZZZ')).toBe('ZZZ');
+  });
+});
+
+describe('anneau seulement autour d’une zone petite à l’écran', () => {
+  // L'île au zoom 1 (384 × 723) : toutes les communes ≥ 15 px, aucun anneau (Petite-Île
+  // en aurait un qui déborde sur la mer et Saint-Pierre) ; au monde, le Vatican en a un.
+  const communes = JSON.parse(readFileSync('public/geo/reunion/communes.json', 'utf8')) as Pays[];
+  const proj = projectionLocale(384, 723, { type: 'MultiPoint', coordinates: [[55.21, -21.39], [55.84, -20.87]] });
+  function terrain(lieux: Pays[], echelle: number, k: number) {
+    const poses: string[] = [];
+    const carte = { projection: { scale: () => echelle }, transfo: { k, x: 0, y: 0 }, anneau: (id: string) => poses.push(id) };
+    const t = { carte, donnees: { entites: lieux.map((l) => ({ pays: l })) } } as unknown as Parameters<typeof estPetite>[0];
+    return { t, poses };
+  }
+  it('île au zoom 1 : aucune commune petite, aucun anneau posé', () => {
+    const { t, poses } = terrain(communes, proj.scale(), 1);
+    for (const c of communes) {
+      expect(estPetite(t, c.id), c.id).toBe(false);
+      anneauSiPetite(t, c.id, 'juste');
+    }
+    expect(poses).toEqual([]);
+  });
+  it('monde au zoom 1 : le Vatican a son anneau, la Russie non', () => {
+    const { t, poses } = terrain(pays, creerProjection('monde', 384, 723).scale(), 1);
+    anneauSiPetite(t, 'VAT', 'juste');
+    anneauSiPetite(t, 'RUS', 'juste');
+    expect(poses).toEqual(['VAT']);
   });
 });

@@ -11,7 +11,7 @@ import { REUNION } from '../map/terrain';
 import type { Terrain } from '../terrains';
 import { melanger, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, series, serieTerrain, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
-import { avecTerrain, creer, fmtKm, nomDe, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, avecTerrain, creer, fmtKm, nomDe, type ContexteVue, type Vue } from './commun';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -223,7 +223,7 @@ export function vueChrono(ctx: ContexteVue): Vue {
     secondes.textContent = '0 s';
     t.carte.effacerMarques();
     t.carte.marquer(id, 'juste');
-    t.carte.anneau(id, 'juste');
+    anneauSiPetite(t, id, 'juste');
     retro.className = 'essai-retro faux';
     retro.textContent = textes.terrains[t.nom].expire;
     apres(q);
@@ -332,7 +332,7 @@ export function vueChrono(ctx: ContexteVue): Vue {
           retro.textContent = remplir(T.juste, { points: fmtPts(q.points) });
         } else {
           if (r && r.id !== id) carte.marquer(r.id, 'faux');
-          carte.anneau(id, 'juste');
+          anneauSiPetite(t, id, 'juste');
           retro.className = 'essai-retro faux';
           retro.textContent = remplir(T.faux, {
             touche: r ? nomDe(d, r.id) : T.la_mer,

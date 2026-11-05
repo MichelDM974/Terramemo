@@ -7,7 +7,7 @@
 import { mediane } from '../mesure/stats';
 import type { Terrain } from '../terrains';
 import { melanger, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, seriesToucher, type Serie } from './cibles';
-import { avecTerrain, creer, fmtKm, fmtS, nomDe, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, avecTerrain, creer, fmtKm, fmtS, nomDe, type ContexteVue, type Vue } from './commun';
 import { vueNommer } from './nommer';
 import { remplir, textes } from './textes';
 
@@ -290,7 +290,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
     vu = true;
     t.carte.effacerMarques();
     t.carte.marquer(id, 'juste');
-    t.carte.anneau(id, 'juste');
+    anneauSiPetite(t, id, 'juste');
     t.carte.montrer(id, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
   });
   passer.addEventListener('click', () => {
@@ -351,7 +351,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
           if (premierFaux == null && note.distance_km != null) premierFaux = note.distance_km;
           if (r && r.id !== id) carte.marquer(r.id, 'faux');
           carte.marquer(id, 'juste');
-          carte.anneau(id, 'juste');
+          anneauSiPetite(t, id, 'juste');
           retro.className = 'essai-retro faux';
           retro.textContent = remplir(T.faux, {
             touche: r ? nomDe(t.donnees, r.id) : T.la_mer,
