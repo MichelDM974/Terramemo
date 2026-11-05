@@ -72,6 +72,21 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertFails(setDoc(place(a, 'ana'), score({ points: 11_000.5 })));
   });
 
+  it('épreuve de l’île : 24 communes, mêmes bornes du barème', async () => {
+    const a = db('ana');
+    const I = 'chrono:localiser:reunion';
+    // 23 justes et une erreur : 23 000 à 23 500 points (l'échelle de 5 km ne
+    // change pas le plafond de 500 par erreur).
+    const ile = (o: Record<string, unknown> = {}) => score({ questions: 24, justes: 23, points: 23_500, temps_ms: 120_000, ...o });
+    await assertSucceeds(setDoc(place(a, 'ana', 'toujours', I), ile()));
+    await env.clearFirestore();
+    await assertFails(setDoc(place(a, 'ana', 'toujours', I), ile({ points: 23_501 })));
+    await assertFails(setDoc(place(a, 'ana', 'toujours', I), ile({ points: 22_999 })));
+    await assertFails(setDoc(place(a, 'ana', 'toujours', I), ile({ questions: 23, justes: 22, points: 22_000 })));
+    await assertFails(setDoc(place(a, 'ana', 'toujours', I), ile({ questions: 25 })));
+    await assertSucceeds(setDoc(place(a, 'ana', 'toujours', I), ile({ points: 23_000 })));
+  });
+
   it('forme du document : champs, pseudo, date du serveur, version du barème', async () => {
     const a = db('ana');
     await assertFails(setDoc(place(a, 'ana'), { ...score(), triche: true }));
@@ -93,11 +108,11 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertSucceeds(setDoc(place(a, 'ana'), score({ points: 11_200, temps_ms: 90_000 })));
   });
 
-  it('général : la somme de toutes les épreuves, 390 questions au plus', async () => {
+  it('général : la somme de toutes les épreuves, 414 questions au plus (390 du monde + 24 de l’île)', async () => {
     const a = db('ana');
-    await assertSucceeds(setDoc(place(a, 'ana', 'toujours', 'general'), score({ questions: 390, justes: 300, points: 300_000, temps_ms: 3_000_000 })));
+    await assertSucceeds(setDoc(place(a, 'ana', 'toujours', 'general'), score({ questions: 414, justes: 300, points: 300_000, temps_ms: 3_000_000 })));
     await env.clearFirestore();
-    await assertFails(setDoc(place(a, 'ana', 'toujours', 'general'), score({ questions: 391, justes: 300, points: 300_000, temps_ms: 3_000_000 })));
+    await assertFails(setDoc(place(a, 'ana', 'toujours', 'general'), score({ questions: 415, justes: 300, points: 300_000, temps_ms: 3_000_000 })));
   });
 
   it('chacun peut retirer sa place ; le reste de la base est fermé', async () => {
