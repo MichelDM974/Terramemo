@@ -8,15 +8,17 @@ import { prechauffer } from './map/geo';
 import type { ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
-import type { NomProjection, Rendu, Transfo } from './map/types';
+import type { NomProjection, NomTerrain, Rendu, Transfo } from './map/types';
 import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
+import { creerTerrains, idsJouables, type Terrains } from './terrains';
 import type { Vue } from './vues/commun';
 import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { vueExplorer } from './vues/explorer';
 import { vueSaisie } from './vues/saisie';
+import { textes } from './vues/textes';
 
 const debutScript = performance.now();
 
@@ -91,6 +93,12 @@ let mesuresAffichees = lireMesures();
 
 // --- Roue ⚙ : popup unique, refermée par un clic ailleurs ou Échap ---
 
+// Crédits des données (décision « Langue » : le texte vit dans textes.fr.json).
+// Sans date : elle demanderait de charger l'île au démarrage ; la carte de
+// l'île porte la sienne (terrains.ts, div.carte-credit).
+const credits = document.getElementById('credits');
+if (credits) credits.textContent = textes.credits.reglages;
+
 const bouton = document.getElementById('settings-btn');
 const popup = document.getElementById('settings-popup');
 if (bouton && popup) {
@@ -160,6 +168,8 @@ type NomVue = 'carte' | 'toucher' | 'saisie' | 'chrono';
 const VUES: NomVue[] = ['carte', 'toucher', 'saisie', 'chrono'];
 const vues = new Map<NomVue, Vue>();
 let vueActive: Vue | null = null;
+/** Le monde et l'île (src/terrains.ts), une fois le monde chargé. */
+let terrains: Terrains | null = null;
 
 function vueDemandee(): NomVue {
   const h = location.hash.slice(1);
@@ -179,6 +189,8 @@ function router(): void {
   if (!v || v === vueActive) return;
   vueActive?.desactiver();
   vueActive = v;
+  // Toute vue part du monde ; celle qui joue l'île la remontre dans son activer().
+  terrains?.montrer('monde');
   v.activer();
 }
 window.addEventListener('hashchange', router);
@@ -243,7 +255,12 @@ export interface Terramemo {
   repos: Promise<number>;
   rapport(): RapportTerramemo;
   reinitialiser(): void;
+  /** La carte du monde, toujours (contrat du pilote de mesure), même quand l'île est montrée. */
   carte: AideCarte | null;
+  /** Le terrain montré. */
+  terrain(): NomTerrain;
+  /** La carte de l'île une fois chargée (rendu g, sans pastilles : pastilles [], dessin et webgl null). */
+  ile: AideCarte | null;
 }
 
 declare global {
@@ -265,7 +282,39 @@ window.terramemo = {
   },
   reinitialiser: () => mesures.reinitialiser(),
   carte: null,
+  terrain: () => terrains?.actif ?? 'monde',
+  ile: null,
 };
+
+/** Ce qui ne vaut que pour les rendus canvas et webgl du monde : rien pour une carte SVG. */
+type AideRendu = Pick<AideCarte, 'dessin' | 'webgl' | 'perdreContexte'>;
+const SANS_RENDU: AideRendu = { dessin: () => null, webgl: () => null, perdreContexte: () => false };
+
+/** Les aides au pilote d'une carte, coordonnées de la fenêtre (rect de son hôte). */
+function aide(carte: CarteAffichee, h: HTMLElement, rendus: AideRendu = SANS_RENDU): AideCarte {
+  const local = (x: number, y: number): [number, number] => {
+    const r = h.getBoundingClientRect();
+    return [x - r.left, y - r.top];
+  };
+  return {
+    pick: (x, y) => carte.pick(...local(x, y)),
+    ecran: (id) => {
+      const p = carte.ecran(id);
+      if (!p) return null;
+      const r = h.getBoundingClientRect();
+      return { x: p[0] + r.left, y: p[1] + r.top };
+    },
+    rect: () => {
+      const r = h.getBoundingClientRect();
+      return { x: r.left, y: r.top, largeur: r.width, hauteur: r.height };
+    },
+    transfo: () => carte.transfo,
+    zoomer: (t) => carte.zoomer(t),
+    zoomerSur: (id) => carte.zoomerSur(id),
+    pastilles: () => carte.contexte().pastilles.map((p) => ({ id: p.id, visible: p.visible })),
+    ...rendus,
+  };
+}
 
 const deuxImages = () => new Promise<void>((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok())));
 
@@ -309,12 +358,14 @@ async function demarrer(): Promise<void> {
   relais?.preparer();
   const { donnees, chrono, textes } = await chargement;
   relais?.envoyer(textes);
+  // Les touchers des deux cartes (monde, île) vont à la vue active : seule la carte visible en reçoit.
+  const surToucher = (x: number, y: number, ev: PointerEvent) => vueActive?.toucher?.(x, y, ev);
   const options = {
     hote,
     donnees,
     projection,
     rendu,
-    surToucher: (x: number, y: number, ev: PointerEvent) => vueActive?.toucher?.(x, y, ev),
+    surToucher,
     gestes: mesures.ecouteGestes(),
   };
   // En webgl, le Canvas 2D d'abord (sans carte allégée, sauf repli déjà connu), le WebGL ensuite (relais).
@@ -342,37 +393,27 @@ async function demarrer(): Promise<void> {
     pastilles: carte.nbPastilles,
   };
 
-  const local = (x: number, y: number): [number, number] => {
-    const r = hote.getBoundingClientRect();
-    return [x - r.left, y - r.top];
-  };
-  window.terramemo.carte = {
-    pick: (x, y) => carte.pick(...local(x, y)),
-    ecran: (id) => {
-      const p = carte.ecran(id);
-      if (!p) return null;
-      const r = hote.getBoundingClientRect();
-      return { x: p[0] + r.left, y: p[1] + r.top };
-    },
-    rect: () => {
-      const r = hote.getBoundingClientRect();
-      return { x: r.left, y: r.top, largeur: r.width, hauteur: r.height };
-    },
-    transfo: () => carte.transfo,
-    zoomer: (t) => carte.zoomer(t),
-    zoomerSur: (id) => carte.zoomerSur(id),
-    pastilles: () => carte.contexte().pastilles.map((p) => ({ id: p.id, visible: p.visible })),
+  window.terramemo.carte = aide(carte, hote, {
     dessin: () => (carte instanceof CarteCanvas ? carte.dernier : null),
     webgl: () =>
       relais ? { renderer: relais.lireGpu(), perdu: relais.peintre?.contextePerdu ?? false, etape: relais.etat.etape, raison: relais.etat.raison } : null,
     perdreContexte: (retour_ms) => (relais?.etat.etape === 'webgl' && relais.peintre?.perdreContexte(retour_ms)) || false,
-  };
+  });
   document.body.dataset.pret = '1';
   pretOk();
   // Contexte et shaders du WebGL dès la carte affichée, pendant que le Worker maille.
   const relaye = relais && carte instanceof CarteCanvas ? relais.relayer(carte, donnees, peinte) : null;
 
-  const ctx = { carte, donnees, mesures, zone };
+  // Le monde reste celui de ctx.carte et ctx.donnees ; l'île ne se charge qu'au choix de sa série.
+  terrains = creerTerrains({
+    monde: { nom: 'monde', carte, donnees, jouables: idsJouables(donnees), credit: null },
+    hoteMonde: hote,
+    surToucher,
+    surCharge: (t) => {
+      window.terramemo.ile = aide(t.carte, t.carte.hote);
+    },
+  });
+  const ctx = { carte, donnees, mesures, zone, terrains };
   vues.set('carte', vueExplorer(ctx));
   vues.set('toucher', vueEssai(ctx));
   vues.set('saisie', vueSaisie(ctx));
