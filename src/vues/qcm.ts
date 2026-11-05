@@ -2,6 +2,7 @@
 // et quand amener la zone à l'écran (décision « Nommer », conception
 // docs/etudes/2026-11-06-reunion.md § 5). Sert le monde comme l'île.
 import { geoDistance } from 'd3-geo';
+import { partVisible, type Rect } from '../map/geo';
 
 /** Quatre boutons : une grille 2 × 2 sous le pouce. */
 export const NB_CHOIX = 4;
@@ -18,6 +19,8 @@ export interface LieuQcm {
 
 /** Sous ce côté (px CSS), la zone est trop petite pour être vue : on vole vers elle. */
 const TAILLE_MIN_PX = 8;
+/** Part de l'emprise à l'écran de la zone qui doit être visible (au-dessus de la barre) : sinon on vole vers elle. */
+export const PART_VISIBLE_MIN = 0.9;
 
 function melanger<T>(t: readonly T[], aleatoire: () => number): T[] {
   const r = [...t];
@@ -126,14 +129,18 @@ export class PartieNommer {
 }
 
 /**
- * La zone doit-elle être amenée à l'écran : hors de la partie visible (au-dessus de la barre) ou plus petite que 8 px.
+ * La zone doit-elle être amenée à l'écran : hors de la partie visible
+ * (au-dessus de la barre), en partie cachée (moins de 90 % de son emprise
+ * visible : la Sicile sous la barre) ou plus petite que 8 px.
  * p : son point à l'écran (px CSS relatifs à la carte, `carte.ecran`), null
  * s'il n'est pas projetable ; l × hVisible : la carte jusqu'au haut de la
- * barre de Nommer. Les bords comptent comme visibles.
+ * barre de Nommer ; emprise : celle de son polygone principal à l'écran
+ * (`empriseEcran`), absente : le point seul décide. Les bords comptent comme visibles.
  */
-export function doitCadrer(p: [number, number] | null, taille_px: number, l: number, hVisible: number): boolean {
+export function doitCadrer(p: [number, number] | null, taille_px: number, l: number, hVisible: number, emprise?: Rect | null): boolean {
   if (!p) return true;
   const [x, y] = p;
   if (!(x >= 0 && x <= l && y >= 0 && y <= hVisible)) return true;
+  if (emprise && partVisible(emprise, l, hVisible) < PART_VISIBLE_MIN) return true;
   return taille_px < TAILLE_MIN_PX;
 }

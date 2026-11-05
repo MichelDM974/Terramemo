@@ -276,8 +276,8 @@ export function vueEssai(ctx: ContexteVue): Vue {
   }
 
   // « Voir » : la cible en vert, et la carte vole jusqu'à elle (en reculant
-  // d'abord, pour voir où elle est). Une réponse trouvée ensuite ne compte pas
-  // comme juste du premier coup.
+  // d'abord, pour voir où elle est), centrée au-dessus de la barre. Une
+  // réponse trouvée ensuite ne compte pas comme juste du premier coup.
   voir.addEventListener('click', () => {
     const id = courante();
     if (!id || enAttente) return;
@@ -285,7 +285,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
     t.carte.effacerMarques();
     t.carte.marquer(id, 'juste');
     t.carte.anneau(id, 'juste');
-    t.carte.montrer(id);
+    t.carte.montrer(id, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
   });
   passer.addEventListener('click', () => {
     const id = courante();

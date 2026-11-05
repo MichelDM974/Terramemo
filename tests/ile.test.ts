@@ -12,6 +12,8 @@ import { creerProjection, garderVue } from '../src/map/projection';
 import { cadreLocal, MARGES, projectionLocale, REUNION } from '../src/map/terrain';
 import { fabriqueTraces } from '../src/map/traces';
 import type { Entite, Lieu, Transfo } from '../src/map/types';
+import { anneauPrincipal, empriseEcran, partVisible, versEcran, viser } from '../src/map/geo';
+import { doitCadrer } from '../src/vues/qcm';
 import { fmtKm, nomDe } from '../src/vues/commun';
 import { remplir, textes } from '../src/vues/textes';
 
@@ -322,5 +324,58 @@ describe('crédits et textes', () => {
     expect(fmtKm(9.96)).toBe('10 km');
     expect(fmtKm(12.4)).toBe('12 km');
     expect(fmtKm(106.2)).toBe('106 km');
+  });
+});
+
+describe('cadrage de Nommer : la zone allumée au-dessus de la barre', () => {
+  // allumer() (nommer.ts) sans DOM : au zoom 1, doitCadrer avec l'emprise du
+  // polygone principal ; s'il le faut, la vue de montrer(id, hVisible)
+  // (viser, centrée au-dessus de la barre). La barre de Nommer : ~211 px + 8.
+  const BARRE_NOMMER = 219;
+  type Proj = ReturnType<typeof projectionLocale>;
+  function apres(proj: Proj, e: Entite<Lieu>, l: number, h: number, kMax: number): { vole: boolean; part: number; k: number } {
+    const hV = h - BARRE_NOMMER;
+    const anneau = anneauPrincipal(e.forme, e.pays.point);
+    const emp = (t: Transfo) =>
+      empriseEcran(anneau, (ll) => {
+        const b = proj(ll);
+        return b ? versEcran(t, b[0], b[1]) : null;
+      });
+    const b = proj(e.pays.point)!;
+    let t: Transfo = { k: 1, x: 0, y: 0 };
+    const vole = doitCadrer(versEcran(t, b[0], b[1]), tailleEcranPx(e.pays, proj.scale(), 1), l, hV, emp(t));
+    if (vole) t = viser([b[0], b[1]], tailleEcranPx(e.pays, proj.scale(), 1), l, hV, kMax, emp({ k: 1, x: 0, y: 0 }));
+    return { vole, part: partVisible(emp(t)!, l, hV), k: t.k };
+  }
+
+  it.each([
+    [384, 723],
+    [375, 667],
+    [360, 640],
+  ])('île %i × %i : au zoom 1 aucune commune ne fait voler la carte, chacune entière au-dessus de la barre', (l, h) => {
+    const proj = projectionLocale(l, h, emprise);
+    for (const e of ile.entites) {
+      const r = apres(proj, e, l, h, REUNION.zoomMaxMontrer);
+      expect(r.vole, e.pays.id).toBe(false);
+      expect(r.part, e.pays.id).toBe(1);
+    }
+  });
+
+  const lireMonde = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
+  const monde = assembler(lireMonde('monde.topo.json') as Topology<never>, lireMonde('pays.json'), lireMonde('contestees.json'), lireMonde('noms.fr.json'));
+  const europe = monde.entites.filter((e) => e.pays.continent === 'Europe' && e.pays.statut === 'jouable');
+
+  it.each([
+    [384, 723],
+    [360, 640],
+  ])('Europe %i × %i : au moins 90 %% du pays allumé au-dessus de la barre (Italie, Grèce, Croatie comprises)', (l, h) => {
+    const proj = creerProjection('monde', l, h);
+    expect(europe.length).toBeGreaterThan(40);
+    for (const e of europe) {
+      const r = apres(proj, e as Entite<Lieu>, l, h, 40);
+      expect(r.part, `${e.pays.id} k=${r.k.toFixed(1)}`).toBeGreaterThanOrEqual(0.9);
+    }
+    // L'Italie : la Sicile et les Pouilles étaient sous la barre (vol centré sur toute la hauteur).
+    expect(apres(proj, monde.entites.find((e) => e.pays.id === 'ITA') as Entite<Lieu>, l, h, 40).vole).toBe(true);
   });
 });

@@ -546,8 +546,8 @@ export class CarteCanvas implements CarteAffichee {
    * longitude du centre est déroulée (le plus court chemin autour du globe) :
    * sur un long trajet, elle recule d'abord. Carte allégée pendant le vol.
    */
-  montrer(id: string): void {
-    const cible = this.vise(id, ZOOM_MAX_MONTRER);
+  montrer(id: string, hVisible?: number): void {
+    const cible = this.vise(id, ZOOM_MAX_MONTRER, hVisible);
     if (!cible) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible);
     this.arreterVol();
@@ -577,13 +577,14 @@ export class CarteCanvas implements CarteAffichee {
     this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX));
   }
 
-  /** La vue qui met le point d'un pays au centre, son plus grand polygone sur un quart de l'écran. */
-  private vise(id: string, kMax: number): VueGlobe | null {
+  /** La vue qui met le point d'un pays au centre de l × h (h : la partie visible), son plus grand polygone sur un quart de l'écran. */
+  private vise(id: string, kMax: number, hVisible = this.c.h): VueGlobe | null {
     const e = this.o.donnees.entites.find((en) => en.pays.id === id);
     if (!e) return null;
+    const h = Math.max(1, Math.min(hVisible, this.c.h));
     const taille1 = Math.max(tailleEcranPx(e.pays, this.c.s, 1), 1e-6);
-    const k = bornerK(Math.min(this.c.l, this.c.h) / 4 / taille1, kMax);
-    return placer(this.c, e.pays.point, this.c.l / 2, this.c.h / 2, k);
+    const k = bornerK(Math.min(this.c.l, h) / 4 / taille1, kMax);
+    return placer(this.c, e.pays.point, this.c.l / 2, h / 2, k);
   }
 
   /**

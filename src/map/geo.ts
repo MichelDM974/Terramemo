@@ -16,6 +16,65 @@ export function versEcran(t: Transfo, bx: number, by: number): [number, number] 
   return [t.k * bx + t.x, t.k * by + t.y];
 }
 
+/** Rectangle [x0, y0, x1, y1], à l'écran (px CSS relatifs à la carte) ou en coordonnées de base. */
+export type Rect = [number, number, number, number];
+
+/** L'emprise d'un contour à l'écran (ou en base, selon versEcran) ; null s'il est vide ou qu'aucun sommet n'est projetable. */
+export function empriseEcran(anneau: readonly (readonly number[])[], versEcran: (ll: [number, number]) => [number, number] | null): Rect | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of anneau) {
+    const e = versEcran([p[0] ?? 0, p[1] ?? 0]);
+    if (!e || !Number.isFinite(e[0]) || !Number.isFinite(e[1])) continue;
+    if (e[0] < x0) x0 = e[0];
+    if (e[0] > x1) x1 = e[0];
+    if (e[1] < y0) y0 = e[1];
+    if (e[1] > y1) y1 = e[1];
+  }
+  return x0 <= x1 ? [x0, y0, x1, y1] : null;
+}
+
+/** Part (0 à 1) de l'aire d'une emprise dans [0, l] × [0, hVisible] ; une emprise plate compte par sa longueur. */
+export function partVisible(r: Rect, l: number, hVisible: number): number {
+  const [x0, y0, x1, y1] = r;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const vx = Math.max(0, Math.min(x1, l) - Math.max(x0, 0));
+  const vy = Math.max(0, Math.min(y1, hVisible) - Math.max(y0, 0));
+  const fx = dx > 0 ? vx / dx : x0 >= 0 && x0 <= l ? 1 : 0;
+  const fy = dy > 0 ? vy / dy : y0 >= 0 && y0 <= hVisible ? 1 : 0;
+  return fx * fy;
+}
+
+/** Part de l'écran laissée autour d'une zone longue que viser() fait tenir (la Norvège jusqu'au cap Nord). */
+const AJUSTE = 0.9;
+
+/** Décale t (translation d'un axe) pour que [a, b] (déjà × k) tienne dans [0, L] s'il le peut, au plus près. */
+function recaler(t: number, a: number, b: number, L: number): number {
+  if (b - a > L) return t;
+  const marge = Math.min(8, (L - (b - a)) / 2);
+  if (t + a < marge) t = marge - a;
+  if (t + b > L - marge) t = L - marge - b;
+  return t;
+}
+
+/**
+ * La transformation qui met le point de base b au centre de l × h px, la zone
+ * (côté taille1 au zoom 1) sur un quart du plus petit côté, au zoom kMax au
+ * plus et 1 au moins. h : la partie visible de la carte (au-dessus d'une
+ * barre), pas forcément toute sa hauteur. boite (en base) : l'emprise de son
+ * polygone principal, qui doit tenir à l'écran : une zone longue (la
+ * Norvège, le Chili) fait baisser le zoom, et la vue se décale du point
+ * d'étiquette juste assez pour qu'elle tienne.
+ */
+export function viser(b: readonly [number, number], taille1: number, l: number, h: number, kMax: number, boite?: Rect | null): Transfo {
+  let k = Math.min(kMax, Math.max(1, Math.min(l, h) / 4 / Math.max(taille1, 1e-6)));
+  if (!boite) return { k, x: l / 2 - k * b[0], y: h / 2 - k * b[1] };
+  const [x0, y0, x1, y1] = boite;
+  const ajuste = AJUSTE * Math.min(x1 > x0 ? l / (x1 - x0) : Infinity, y1 > y0 ? h / (y1 - y0) : Infinity);
+  if (ajuste < k) k = Math.max(1, ajuste);
+  return { k, x: recaler(l / 2 - k * b[0], k * x0, k * x1, l), y: recaler(h / 2 - k * b[1], k * y0, k * y1, h) };
+}
+
 /**
  * Point écran → [lon, lat], ou null hors de la sphère. L'inverse d'Equal Earth
  * rend des valeurs fausses hors du contour : on vérifie par l'aller-retour.
@@ -77,6 +136,19 @@ function partiesDe(forme: Forme): Partie[] {
   });
   parties.set(forme, res);
   return res;
+}
+
+/**
+ * Le contour extérieur du polygone principal d'une forme : celui qui contient
+ * le point d'étiquette (il est dans le plus grand polygone : la France
+ * métropolitaine, pas la Guyane), à défaut celui de plus grande emprise.
+ */
+export function anneauPrincipal(forme: Forme, point: readonly [number, number]): readonly Position[] {
+  const ps = partiesDe(forme);
+  const [lon, lat] = point;
+  const dedans = ps.find((p) => lon >= p.o && lon <= p.e && lat >= p.s && lat <= p.n && geoContains(p.polygone, [lon, lat]));
+  const p = dedans ?? ps.reduce<Partie | undefined>((a, q) => (!a || (q.e - q.o) * (q.n - q.s) > (a.e - a.o) * (a.n - a.s) ? q : a), undefined);
+  return p?.polygone.coordinates[0] ?? [];
 }
 
 /** Prépare l'index des polygones et chauffe geoContains (après la première image : le premier toucher n'en paie pas le prix). */

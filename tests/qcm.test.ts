@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { geoDistance } from 'd3-geo';
 import { describe, expect, it } from 'vitest';
+import { empriseEcran, partVisible } from '../src/map/geo';
 import { choix, doitCadrer, NB_CHOIX, PartieNommer, type LieuQcm } from '../src/vues/qcm';
 
 // QCM de Nommer (src/vues/qcm.ts) sur les vraies données : pays.json du monde
@@ -216,5 +217,37 @@ describe('doitCadrer', () => {
     expect(doitCadrer([200, h + 1], 30, l, h)).toBe(true);
     expect(doitCadrer([200, 250], 7.9, l, h)).toBe(true);
     expect(doitCadrer([NaN, 250], 30, l, h)).toBe(true);
+  });
+});
+
+describe('emprise de la zone à l’écran', () => {
+  const l = 384;
+  const h = 500;
+  it('partVisible : part de l’aire dans [0, l] × [0, h]', () => {
+    expect(partVisible([10, 10, 110, 110], l, h)).toBe(1);
+    expect(partVisible([10, 450, 110, 550], l, h)).toBeCloseTo(0.5, 9);
+    expect(partVisible([-50, 450, 50, 550], l, h)).toBeCloseTo(0.25, 9);
+    expect(partVisible([10, 600, 110, 700], l, h)).toBe(0);
+    // Plate : par sa longueur.
+    expect(partVisible([10, 100, 110, 100], l, h)).toBe(1);
+    expect(partVisible([10, 600, 110, 600], l, h)).toBe(0);
+  });
+  it('empriseEcran : min et max des sommets projetables', () => {
+    const anneau = [
+      [0, 0],
+      [2, 1],
+      [1, 3],
+      [9, 9],
+    ];
+    expect(empriseEcran(anneau, ([x, y]) => (x === 9 ? null : [10 * x, 10 * y]))).toEqual([0, 0, 20, 30]);
+    expect(empriseEcran([], () => [0, 0])).toBeNull();
+    expect(empriseEcran(anneau, () => null)).toBeNull();
+  });
+  it('doitCadrer : point visible mais emprise cachée à plus de 10 % (la Sicile sous la barre) : oui', () => {
+    expect(doitCadrer([200, 250], 30, l, h, [150, 200, 250, 300])).toBe(false);
+    expect(doitCadrer([200, 250], 30, l, h, [150, 200, 250, 509])).toBe(false);
+    expect(doitCadrer([200, 250], 30, l, h, [150, 200, 250, 560])).toBe(true);
+    expect(doitCadrer([200, 250], 30, l, h, [150, -60, 250, 300])).toBe(true);
+    expect(doitCadrer([200, 250], 30, l, h, null)).toBe(false);
   });
 });

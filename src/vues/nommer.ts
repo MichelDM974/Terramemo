@@ -4,7 +4,8 @@
 // en vert, puis la question suivante) ; bilan des justes du premier coup.
 // Vaut pour toutes les séries, le monde comme l'île. Les touchers sur la carte
 // n'y répondent pas (Toucher les ignore) ; glisser et pincer restent libres.
-import type { Lieu } from '../map/types';
+import { anneauPrincipal, empriseEcran, versEcran, type Rect } from '../map/geo';
+import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
 import { creer, fmtS, nomDe, type ContexteVue } from './commun';
@@ -53,6 +54,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; recommencer
   let serie = '';
   let n = 0;
   let lieux = new Map<string, Lieu>();
+  let formes = new Map<string, Forme>();
   let jouables = new Set<string>();
   /** Les choix tirés pour la question `pour` : les mêmes au retour dans la vue. */
   let choixCourants: string[] = [];
@@ -67,19 +69,41 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; recommencer
     attente = 0;
   }
 
+  /** L'emprise à l'écran du polygone principal de la zone (la Sicile comprise, la Guyane non). */
+  function emprise(carte: Terrain['carte'], id: string): Rect | null {
+    const lieu = lieux.get(id);
+    const forme = formes.get(id);
+    if (!lieu || !forme) return null;
+    const c = carte.contexte();
+    return empriseEcran(anneauPrincipal(forme, lieu.point), (ll) => {
+      const b = c.proj(ll);
+      return b ? versEcran(c.t, b[0], b[1]) : null;
+    });
+  }
+
   // La zone en accent, un anneau si elle est minuscule, et la carte vole
-  // jusqu'à elle si elle est hors de la partie visible (au-dessus de la barre)
-  // ou trop petite pour être vue. Sur l'île au zoom 1 rien ne bouge.
-  function allumer(carte: Terrain['carte'], id: string): void {
+  // jusqu'à elle (centrée au-dessus de la barre) si elle est hors de la
+  // partie visible, en partie sous la barre ou trop petite pour être vue.
+  // Sur l'île au zoom 1 rien ne bouge (toute l'île est au-dessus de la
+  // barre, chaque commune ≥ 15 px) ; zoomée par un geste ou un vol, elle y
+  // revient quand la zone n'est pas visible, plutôt que de voler encore :
+  // sinon un vol laissait toute la suite de la partie zoomée.
+  function allumer(carte: Terrain['carte'], id: string, local: boolean): void {
     carte.effacerMarques();
     carte.marquer(id, 'choisi');
     const lieu = lieux.get(id);
-    const taille = lieu ? tailleEcranPx(lieu, carte.projection.scale(), carte.transfo.k) : 0;
-    petite = taille < ANNEAU_SOUS_PX;
-    if (petite) carte.anneau(id, 'choisi');
     const r = carte.hote.getBoundingClientRect();
     const haut = barre.getBoundingClientRect().top - r.top;
-    if (doitCadrer(carte.ecran(id), taille, r.width, haut)) carte.montrer(id);
+    const taille = () => (lieu ? tailleEcranPx(lieu, carte.projection.scale(), carte.transfo.k) : 0);
+    const cadrer = () => doitCadrer(carte.ecran(id), taille(), r.width, haut, emprise(carte, id));
+    let vole = cadrer();
+    if (vole && local && carte.transfo.k !== 1) {
+      carte.zoomer({ k: 1, x: 0, y: 0 });
+      vole = cadrer();
+    }
+    petite = taille() < ANNEAU_SOUS_PX;
+    if (petite) carte.anneau(id, 'choisi');
+    if (vole) carte.montrer(id, haut);
   }
 
   function poser(): void {
@@ -105,7 +129,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; recommencer
       b.disabled = false;
     });
     barre.hidden = false;
-    allumer(t.carte, id);
+    allumer(t.carte, id, t.nom !== 'monde');
     debut = performance.now();
   }
 
@@ -180,6 +204,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; recommencer
       n = cibles.length;
       // Les leurres viennent de tout le terrain, pas de la série (qcm.ts).
       lieux = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.pays]));
+      formes = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.forme]));
       jouables = new Set(terrain.jouables);
       partie = new PartieNommer(cibles);
       pour = undefined;

@@ -7,7 +7,7 @@ import { select } from 'd3-selection';
 import 'd3-transition'; // selection.transition(), pour le vol de montrer()
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom';
 import type { DonneesCarte } from './donnees';
-import { versEcran } from './geo';
+import { anneauPrincipal, empriseEcran, versEcran, viser } from './geo';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
 import { creerProjection, garderVue } from './projection';
@@ -77,7 +77,8 @@ export interface CarteAffichee {
   noter(cible: string, x: number, y: number): Note;
   ecran(id: string): [number, number] | null;
   zoomerSur(id: string): void;
-  montrer(id: string): void;
+  /** hVisible : la hauteur visible de la carte (au-dessus d'une barre), toute la carte par défaut. */
+  montrer(id: string, hVisible?: number): void;
   zoomer(t: Transfo): void;
   marquer(id: string, classe: string): void;
   effacerMarques(): void;
@@ -332,11 +333,12 @@ export class Carte implements CarteAffichee {
    * Montre un pays (« Voir » de la vue Toucher) par un vol animé de d3-zoom :
    * l'interpolation de van Wijk et Nuij recule puis avance, on voit donc où
    * il est avant d'arriver dessus. Zoom borné à 40 dans le monde (voisins à
-   * l'écran), zoomMaxMontrer du cadre ailleurs. Un geste interrompt le vol ;
-   * sans animation si le système la réduit.
+   * l'écran), zoomMaxMontrer du cadre ailleurs. Centré dans la partie
+   * visible (hVisible : au-dessus de la barre de Nommer), pas sous elle. Un
+   * geste interrompt le vol ; sans animation si le système la réduit.
    */
-  montrer(id: string): void {
-    const t = this.vise(id, this.cadre.zoomMaxMontrer);
+  montrer(id: string, hVisible?: number): void {
+    const t = this.vise(id, this.cadre.zoomMaxMontrer, hVisible, true);
     if (!t) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.zoomer(t);
     const { l, h } = this.taille;
@@ -348,14 +350,17 @@ export class Carte implements CarteAffichee {
       .call(this.comportement.transform, zoomIdentity.translate(t.x, t.y).scale(t.k));
   }
 
-  /** La transformation qui centre un pays, son plus grand polygone sur un quart de l'écran, au zoom kMax au plus. */
-  private vise(id: string, kMax: number): Transfo | null {
+  /**
+   * La transformation qui centre un pays dans l × h (h : la partie visible),
+   * son plus grand polygone sur un quart de l'écran, au zoom kMax au plus ;
+   * entier (ce polygone tient à l'écran) si demandé, pour montrer().
+   */
+  private vise(id: string, kMax: number, h = this.taille.h, entier = false): Transfo | null {
     const e = this.o.donnees.entites.find((en) => en.pays.id === id);
     const b = e && this.proj(e.pays.point);
     if (!e || !b) return null;
-    const taille1 = Math.max(tailleEcranPx(e.pays, this.proj.scale(), 1), 1e-6);
-    const k = Math.min(kMax, Math.max(1, Math.min(this.taille.l, this.taille.h) / 4 / taille1));
-    return { k, x: this.taille.l / 2 - k * b[0], y: this.taille.h / 2 - k * b[1] };
+    const boite = entier ? empriseEcran(anneauPrincipal(e.forme, e.pays.point), (ll) => this.proj(ll) as [number, number] | null) : null;
+    return viser([b[0], b[1]], tailleEcranPx(e.pays, this.proj.scale(), 1), this.taille.l, Math.max(1, Math.min(h, this.taille.h)), kMax, boite);
   }
 
   /** Pose une transformation (sans geste : non comptée dans les mesures). */
