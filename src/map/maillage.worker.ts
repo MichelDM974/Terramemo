@@ -40,7 +40,7 @@ export type ReponseMaillage =
   | { type: 'ecrit'; ok: boolean; ms: number; detail: string }
   | { type: 'erreur'; erreur: string };
 
-const BASE = 'cartographe';
+const BASE = 'terramemo';
 const MAGASIN = 'maillages';
 const CLE_ENREGISTREMENT = 'webgl';
 

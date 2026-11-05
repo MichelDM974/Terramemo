@@ -6,14 +6,14 @@
 import type { ScoreEpreuve } from './bareme';
 import { VERSION_BAREME } from './chrono';
 
-/** Configuration publique de l'appli web du projet cartographe-geo (rien de secret). */
+/** Configuration publique de l'appli web du projet terramemo-geo (rien de secret). */
 const CONFIG = {
-  apiKey: 'AIzaSyBvmZT2-UyBtnRJkQFCU0IfbeZ-D0vSzxI',
-  authDomain: 'cartographe-geo.firebaseapp.com',
-  projectId: 'cartographe-geo',
-  storageBucket: 'cartographe-geo.firebasestorage.app',
-  messagingSenderId: '407589806458',
-  appId: '1:407589806458:web:4981c44f7d89a1e133b6c3',
+  apiKey: 'AIzaSyDfBmTsvoNUg77tjTCVYrfPcWa610B8YiM',
+  authDomain: 'terramemo-geo.firebaseapp.com',
+  projectId: 'terramemo-geo',
+  storageBucket: 'terramemo-geo.firebasestorage.app',
+  messagingSenderId: '982564163014',
+  appId: '1:982564163014:web:756f89b5b0f6428700b6c7',
 };
 
 /** Épreuve du classement général (somme des records de toutes les épreuves). */

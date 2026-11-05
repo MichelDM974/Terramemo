@@ -105,7 +105,7 @@ export const gesteSaccade = (g: CompteSaccade) =>
  * par seconde qu'à 60 i/s. 3 par seconde, c'est ces 5 % à 60 i/s. Monotone
  * sur un écran à 60 ou 120 Hz : à durée fixe, des images plus rapides ne
  * changent ni les comptes, ni la durée (pas à 90 Hz : SEUIL_ACOUP_MS).
- * Recopié par le driver (run-cartographe : est_acoup, est_gel,
+ * Recopié par le driver (run-terramemo : est_acoup, est_gel,
  * geste_saccade, sans_saccade, tenue des 120 i/s), confronté à celui-ci par
  * tests/mesure-driver.test.ts.
  */

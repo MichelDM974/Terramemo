@@ -1,6 +1,6 @@
 {
  "v": 6,
- "outil": ".claude/skills/run-cartographe/driver.py mesurer",
+ "outil": ".claude/skills/run-terramemo/driver.py mesurer",
  "date": "2026-11-04T14:26:05+04:00",
  "code": {
   "commit": "e373889",
@@ -124,7 +124,7 @@
     "r": 71.77946999999995
    }
   ],
-  "cadence": "un touchMove par période de l'écran au repos (window.cartographe.repos) ; sur le téléphone, au plus 8,33 ms (120 Hz)",
+  "cadence": "un touchMove par période de l'écran au repos (window.terramemo.repos) ; sur le téléphone, au plus 8,33 ms (120 Hz)",
   "pas_ms": [
    16.7,
    16.7,

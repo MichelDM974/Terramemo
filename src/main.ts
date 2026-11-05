@@ -44,7 +44,7 @@ const debutScript = performance.now();
  *   du doigt, qui paie alors la nouvelle peinture et la rastérisation de
  *   toute la carte.
  * Mesures du PC : docs/mesures/j0/2026-11-04-local-<rendu>-monde[-x4]-gpu.json
- * (driver run-cartographe, commit e373889 : chrome-headless-shell, vrai GPU
+ * (driver run-terramemo, commit e373889 : chrome-headless-shell, vrai GPU
  * du PC par --gpu, écran à 60 Hz, 384 × 832, toucher émulé, 3 répétitions ;
  * relire par `driver.py resumer --sec`). Au critère de saccade du registre :
  * - processeur normal : canvas et webgl sans un à-coup ; css saccade au
@@ -77,7 +77,7 @@ const pRendu = params.get('rendu');
 const rendu: Rendu = pRendu === 'g' || pRendu === 'css' || pRendu === 'canvas' || pRendu === 'webgl' ? pRendu : RENDU_DEFAUT;
 const pProj = params.get('projection');
 const projection: NomProjection = estNomProjection(pProj) ? pProj : 'monde';
-const CLE_MESURES = 'cartographe.mesures';
+const CLE_MESURES = 'terramemo.mesures';
 function lireMesures(): boolean {
   const p = params.get('mesures');
   if (p !== null) return p === '1';
@@ -204,7 +204,7 @@ const contexteMesures = {
 };
 const mesures = new Mesures(contexteMesures);
 
-/** Aides au pilote (skill run-cartographe) : coordonnées dans la fenêtre (clientX, clientY). */
+/** Aides au pilote (skill run-terramemo) : coordonnées dans la fenêtre (clientX, clientY). */
 export interface AideCarte {
   /** pick() au point (clientX, clientY) de la fenêtre. */
   pick(x: number, y: number): ResultatPick | null;
@@ -235,26 +235,26 @@ export interface AideCarte {
 }
 
 /** Le rapport des mesures, et en webgl l'état du relais (src/map/relais-webgl.ts). */
-export type RapportCartographe = Rapport & { webgl?: EtatRelais };
+export type RapportTerramemo = Rapport & { webgl?: EtatRelais };
 
-export interface Cartographe {
+export interface Terramemo {
   version: string;
   pret: Promise<void>;
   repos: Promise<number>;
-  rapport(): RapportCartographe;
+  rapport(): RapportTerramemo;
   reinitialiser(): void;
   carte: AideCarte | null;
 }
 
 declare global {
   interface Window {
-    cartographe: Cartographe;
+    terramemo: Terramemo;
   }
 }
 
 let pretOk!: () => void;
 let reposOk!: (p: number) => void;
-window.cartographe = {
+window.terramemo = {
   version: VERSION,
   pret: new Promise<void>((ok) => (pretOk = ok)),
   repos: new Promise<number>((ok) => (reposOk = ok)),
@@ -346,7 +346,7 @@ async function demarrer(): Promise<void> {
     const r = hote.getBoundingClientRect();
     return [x - r.left, y - r.top];
   };
-  window.cartographe.carte = {
+  window.terramemo.carte = {
     pick: (x, y) => carte.pick(...local(x, y)),
     ecran: (id) => {
       const p = carte.ecran(id);

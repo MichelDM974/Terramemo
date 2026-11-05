@@ -432,7 +432,7 @@ describe('noter', () => {
           const dedans = ll !== null && contient(entite(c).forme, entite(c).pays.bbox, ll);
           if (n.juste !== (dedans || p?.id === c)) throw new Error(`k=${k}, cible ${c}, (${x.toFixed(1)}, ${y.toFixed(1)}) : pick ${p?.id ?? 'mer'}, noté ${n.juste ? 'juste' : 'faux'}`);
         }
-        // Le point où l'on touche la cible (celui de window.cartographe.carte.ecran) est juste.
+        // Le point où l'on touche la cible (celui de window.terramemo.carte.ecran) est juste.
         expect(noter(ctx, c, px, py).juste, `k=${k}, ${c} touché en son point`).toBe(true);
       }
     }

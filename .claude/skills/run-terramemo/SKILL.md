@@ -1,9 +1,9 @@
 ---
-name: run-cartographe
-description: Lancer, piloter, photographier et MESURER Cartographe (site TypeScript + Vite et APK Capacitor, carte du monde en SVG, en Canvas ou en WebGL). À utiliser pour servir le site, vérifier qu'un changement marche dans un vrai navigateur, prendre des captures des vues, rejouer gestes et touchers et mesurer chargement, saccades et latence (chromium du PC, Chrome du téléphone ou APK par adb), construire et installer l'APK, déployer sur Firebase Hosting.
+name: run-terramemo
+description: Lancer, piloter, photographier et MESURER Terramemo (site TypeScript + Vite et APK Capacitor, carte du monde en SVG, en Canvas ou en WebGL). À utiliser pour servir le site, vérifier qu'un changement marche dans un vrai navigateur, prendre des captures des vues, rejouer gestes et touchers et mesurer chargement, saccades et latence (chromium du PC, Chrome du téléphone ou APK par adb), construire et installer l'APK, déployer sur Firebase Hosting.
 ---
 
-# Lancer, piloter et mesurer Cartographe
+# Lancer, piloter et mesurer Terramemo
 
 Site statique TypeScript + Vite sans framework (`src/`, carte d3-geo : SVG
 en rendus `g` et `css` ; la carte qui tourne en Canvas 2D (rendu `canvas`)
@@ -16,9 +16,9 @@ Auth anonyme de Firebase (`src/epreuve/classement.ts`, règles
 `firestore.rules`), chargés seulement à l'ouverture d'un classement. Le
 driver (`ui`) y lit les vrais classements sans publier ni créer de
 compte ; pour publier, les émulateurs (ci-dessous). Tout passe par
-`.claude/skills/run-cartographe/driver.py` (Python stdlib seule) ; chemins
-relatifs à `Cartographe/`. Contrat de la page avec le pilote :
-`window.cartographe` (`src/main.ts`, `src/mesure/rapport.ts`).
+`.claude/skills/run-terramemo/driver.py` (Python stdlib seule) ; chemins
+relatifs à `Terramemo/`. Contrat de la page avec le pilote :
+`window.terramemo` (`src/main.ts`, `src/mesure/rapport.ts`).
 
 ## Prérequis
 
@@ -34,16 +34,16 @@ relatifs à `Cartographe/`. Contrat de la page avec le pilote :
 ## Chemin agent
 
 ```bash
-python3 .claude/skills/run-cartographe/driver.py serve              # vite (dev) sur 8060, au premier plan
-python3 .claude/skills/run-cartographe/driver.py serve --preview    # build hors de dist/ puis vite preview sur 8060
-python3 .claude/skills/run-cartographe/driver.py serve --lan        # aussi sur le réseau local (0.0.0.0)
-python3 .claude/skills/run-cartographe/driver.py smoke              # page, /geo/*.json, carte peinte, shaders webgl compilés ; code ≠ 0 au moindre échec
-python3 .claude/skills/run-cartographe/driver.py ui                 # captures téléphone (384×832, DPR 2.8125, toucher émulé)
-python3 .claude/skills/run-cartographe/driver.py ui --width 1280    # captures PC (souris)
+python3 .claude/skills/run-terramemo/driver.py serve              # vite (dev) sur 8060, au premier plan
+python3 .claude/skills/run-terramemo/driver.py serve --preview    # build hors de dist/ puis vite preview sur 8060
+python3 .claude/skills/run-terramemo/driver.py serve --lan        # aussi sur le réseau local (0.0.0.0)
+python3 .claude/skills/run-terramemo/driver.py smoke              # page, /geo/*.json, carte peinte, shaders webgl compilés ; code ≠ 0 au moindre échec
+python3 .claude/skills/run-terramemo/driver.py ui                 # captures téléphone (384×832, DPR 2.8125, toucher émulé)
+python3 .claude/skills/run-terramemo/driver.py ui --width 1280    # captures PC (souris)
 ```
 
 - `serve` en arrière-plan, puis les autres. `--preview` construit dans
-  `/tmp/cartographe-preview` (`--sortie`), jamais dans `dist/` (celui de
+  `/tmp/terramemo-preview` (`--sortie`), jamais dans `dist/` (celui de
   l'APK et de Firebase). **Pour mesurer, toujours `--preview`** : le
   serveur de dev sert des modules non groupés, son chargement ne dit rien
   du site (smoke et mesurer le signalent).
@@ -59,20 +59,20 @@ python3 .claude/skills/run-cartographe/driver.py ui --width 1280    # captures P
   `4-toucher-juste`, `5-saisie` (« sai » dans le champ réglé), `6-reglages`
   (⚙), `7-chrono-depart`, `8-chrono-faux` et `9-chrono-bilan` (l'Amérique
   du Sud jouée jusqu'au bilan, ~25 s) dans `--out`
-  (`/tmp/cartographe-captures`), et affiche les textes lus (barre,
+  (`/tmp/terramemo-captures`), et affiche les textes lus (barre,
   rétroaction, liste de la Saisie, bilan du Chrono). **Regarder les
   captures.** Le record du Chrono vit dans le `localStorage` : le profil
   neuf du driver repart sans record.
-- Option `--url` partout (ex. `https://cartographe-geo.web.app/`) : smoke
+- Option `--url` partout (ex. `https://terramemo-geo.web.app/`) : smoke
   et ui marchent aussi sur le site déployé.
 
 ### Mesurer (critères du J0)
 
 ```bash
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible local --rendu css               # PC, vitesse réelle
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible local --rendu canvas --ralenti 4  # processeur ralenti 4×
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu canvas           # Chrome du téléphone (adb)
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu canvas          # l'APK (adb)
+python3 .claude/skills/run-terramemo/driver.py mesurer --cible local --rendu css               # PC, vitesse réelle
+python3 .claude/skills/run-terramemo/driver.py mesurer --cible local --rendu canvas --ralenti 4  # processeur ralenti 4×
+python3 .claude/skills/run-terramemo/driver.py mesurer --cible chrome --rendu canvas           # Chrome du téléphone (adb)
+python3 .claude/skills/run-terramemo/driver.py mesurer --cible webview --rendu canvas          # l'APK (adb)
 ```
 
 Options : `--rendu css|g|canvas|webgl` (défaut css ; `g` et `css` : carte
@@ -107,7 +107,7 @@ jour où l'appli y garde des données de l'utilisateur, `--garder-stockage`
 profil neuf, elle reste une première visite). Le cache des shaders en
 mémoire du processus GPU, lui, survit tant que le navigateur tourne : pour
 un premier lancement à froid, fermer Chrome ou l'APK avant (`adb shell am
-force-stop com.android.chrome`, ou `io.github.micheldm974.cartographe`).
+force-stop com.android.chrome`, ou `io.github.micheldm974.terramemo`).
 
 **Rendu webgl** : la carte s'affiche d'abord en Canvas 2D, le WebGL prend
 le relais quand le maillage est prêt (`src/map/relais-webgl.ts`). Le
@@ -131,7 +131,7 @@ refusé), sauf avec `?logiciel=1`.
 
 Chaque répétition : chargement de `?rendu=…&projection=…&mesures=0` (sans
 panneau : sa mise à jour présenterait une image et fausserait les fins, cf.
-`rapport.ts`), attente de `window.cartographe.repos` (période de l'écran
+`rapport.ts`), attente de `window.terramemo.repos` (période de l'écran
 mesurée), puis 14 gestes par `Input.dispatchTouchEvent` (un `touchMove` par
 période d'écran au repos — sur le téléphone au plus 8,33 ms, la cadence
 d'un écran 120 Hz, car il peut tenir 60 Hz au repos et 120 Hz pendant un
@@ -145,10 +145,10 @@ geste) :
 
 Puis des touchers sur des pays et des pastilles (micro-États, Caraïbes au
 zoom 1, Italie zoomée, Caraïbes au zoom 8 ; coordonnées lues dans le DOM :
-`circle.pastille[data-id]`, sinon `cartographe.carte.ecran(id)`, seul
+`circle.pastille[data-id]`, sinon `terramemo.carte.ecran(id)`, seul
 chemin en canvas). En canvas, la carte reste tournée par le tour du monde :
 les touchers au zoom 1 éprouvent `ecran` et `pick` sur un globe tourné
-(`touchers_vises[].rotation`). Enfin `cartographe.rapport()` (v6).
+(`touchers_vises[].rotation`). Enfin `terramemo.rapport()` (v6).
 
 Sortie : un résumé `[OK ]`/`[NON]`/`[ ? ]` (à juger) par critère et le JSON
 complet (v6 : rapports v6 bruts, touchers visés, scénario et pas de rejeu,
@@ -260,8 +260,8 @@ foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
 
 ## Chemin humain
 
-« Lance Cartographe » = ouvrir https://cartographe-geo.web.app (une fois
-déployé) ou l'appli Cartographe sur le téléphone : **rien à démarrer**,
+« Lance Terramemo » = ouvrir https://terramemo-geo.web.app (une fois
+déployé) ou l'appli Terramemo sur le téléphone : **rien à démarrer**,
 pas de serveur. Pour essayer le code non déployé sur le PC : `serve`, puis
 http://localhost:8060.
 
@@ -304,21 +304,21 @@ Mesurer (même code, autre transport : `adb forward tcp:8061` vers le
 socket DevTools, client WebSocket du driver) :
 
 ```bash
-python3 .claude/skills/run-cartographe/driver.py serve --preview        # en arrière-plan, sur le PC
-for r in css g canvas webgl; do python3 .claude/skills/run-cartographe/driver.py mesurer --cible chrome --rendu $r; done
-python3 .claude/skills/run-cartographe/driver.py apk --installer        # APK de debug sur le téléphone
-for r in css g canvas webgl; do python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu $r; done
-python3 .claude/skills/run-cartographe/driver.py mesurer --cible webview --rendu canvas --projection pacifique
+python3 .claude/skills/run-terramemo/driver.py serve --preview        # en arrière-plan, sur le PC
+for r in css g canvas webgl; do python3 .claude/skills/run-terramemo/driver.py mesurer --cible chrome --rendu $r; done
+python3 .claude/skills/run-terramemo/driver.py apk --installer        # APK de debug sur le téléphone
+for r in css g canvas webgl; do python3 .claude/skills/run-terramemo/driver.py mesurer --cible webview --rendu $r; done
+python3 .claude/skills/run-terramemo/driver.py mesurer --cible webview --rendu canvas --projection pacifique
 ```
 
 - `chrome` : `adb forward tcp:8061 localabstract:chrome_devtools_remote`
   (Chrome lancé par `am start` si le socket manque), onglet neuf par
   `PUT /json/new`, page servie par le PC via `adb reverse tcp:8060
   tcp:8060` (`http://localhost:8060` est un contexte sûr sur le
-  téléphone). `--url https://cartographe-geo.web.app/` mesure le site
+  téléphone). `--url https://terramemo-geo.web.app/` mesure le site
   déployé (sans reverse). L'onglet est fermé et les redirections adb
   retirées à la fin.
-- `webview` : `am start -n io.github.micheldm974.cartographe/.MainActivity`,
+- `webview` : `am start -n io.github.micheldm974.terramemo/.MainActivity`,
   pid par `pidof`, `adb forward` vers `webview_devtools_remote_<pid>` ; la
   page est `https://localhost/` (fichiers de l'APK, pas le PC). Seul
   l'**APK de debug** ouvre DevTools.
@@ -450,7 +450,7 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
    voit-il** (saut, éclair, traits ou couleurs qui changent, image figée) ?
    D'abord en **première visite** : effacer les données du site (Chrome :
    paramètres du site, depuis l'icône à gauche de l'adresse ; APK :
-   Paramètres → Applications → Cartographe → Stockage → Effacer les
+   Paramètres → Applications → Terramemo → Stockage → Effacer les
    données ; dans Chrome, `?rendu=webgl&maillage=0` recalcule aussi le
    maillage sans lire le cache), puis ouvrir en webgl : le maillage se calcule,
    le relais tarde (~0,5 s sur le PC, plus sur le téléphone) ; glisser
@@ -476,8 +476,8 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
 ## APK
 
 ```bash
-python3 .claude/skills/run-cartographe/driver.py apk                # npm run build, npx cap sync android, gradlew assembleDebug
-python3 .claude/skills/run-cartographe/driver.py apk --installer    # puis adb install -r
+python3 .claude/skills/run-terramemo/driver.py apk                # npm run build, npx cap sync android, gradlew assembleDebug
+python3 .claude/skills/run-terramemo/driver.py apk --installer    # puis adb install -r
 ```
 
 APK : `android/app/build/outputs/apk/debug/app-debug.apk`. Le driver met
@@ -490,7 +490,7 @@ APK : `android/app/build/outputs/apk/debug/app-debug.apk`. Le driver met
 
 ```bash
 npm run test:regles                                                           # règles Firestore sur l'émulateur (aussi en CI)
-npx firebase emulators:start --only firestore,auth --project cartographe-geo  # Firestore 8062, Auth 8063, en arrière-plan
+npx firebase emulators:start --only firestore,auth --project terramemo-geo  # Firestore 8062, Auth 8063, en arrière-plan
 ```
 
 Puis le site de dev avec `?emulateurs` (`http://localhost:8060/?emulateurs#chrono`) :
@@ -498,14 +498,14 @@ comptes et classements y vont aux émulateurs (serveur de dev seulement ;
 le site construit parle toujours au vrai projet). Les deux ne tournent
 pas ensemble : `test:regles` lance son propre émulateur sur 8062. Base
 d'émulateur vidée par `curl -X DELETE
-"http://127.0.0.1:8062/emulator/v1/projects/cartographe-geo/databases/(default)/documents"`.
+"http://127.0.0.1:8062/emulator/v1/projects/terramemo-geo/databases/(default)/documents"`.
 Java 21+ requis (celui du PC suffit).
 
-## Déploiement (Firebase Hosting, projet `cartographe-geo`)
+## Déploiement (Firebase Hosting, projet `terramemo-geo`)
 
 ```bash
 npm run build && npx firebase deploy --only hosting
-python3 .claude/skills/run-cartographe/driver.py smoke --url https://cartographe-geo.web.app/
+python3 .claude/skills/run-terramemo/driver.py smoke --url https://terramemo-geo.web.app/
 npx firebase deploy --only firestore    # après un changement de firestore.rules ou des index
 ```
 

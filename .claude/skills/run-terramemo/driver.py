@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Driver de Cartographe : lance le site, le vérifie, le photographie et le
+"""Driver de Terramemo : lance le site, le vérifie, le photographie et le
 MESURE, sur le PC (chromium local) et sur le téléphone (Chrome ou l'APK, par
-adb). Python stdlib seule ; à lancer depuis Cartographe/ :
+adb). Python stdlib seule ; à lancer depuis Terramemo/ :
 
     serve [--preview] [--lan]   Vite sur le port 8060 (au premier plan)
     smoke                       page, fichiers /geo/*.json, carte peinte,
@@ -42,7 +42,7 @@ RACINE = pathlib.Path(__file__).resolve().parents[3]
 PORT = 8060  # Vite (dev et preview)
 PORT_CDP = 8061  # DevTools : adb forward vers le téléphone, ou chromium local en --ws
 URL_DEFAUT = f"http://localhost:{PORT}/"
-APPID = "io.github.micheldm974.cartographe"
+APPID = "io.github.micheldm974.terramemo"
 ADB = pathlib.Path.home() / "Android/Sdk/platform-tools/adb"
 JAVA_HOME = "/usr/lib/jvm/java-21-openjdk-amd64"
 APK = RACINE / "android/app/build/outputs/apk/debug/app-debug.apk"
@@ -179,7 +179,7 @@ def commande_serve(args):
     else:
         cmd = [str(vite), "--port", str(PORT), "--strictPort", *hote]
         quoi = "serveur de développement (modules non groupés : chargement plus lent qu'en preview)"
-    dire(f"Cartographe sur {URL_DEFAUT} — {quoi}")
+    dire(f"Terramemo sur {URL_DEFAUT} — {quoi}")
     if args.lan:
         ip = subprocess.run(["hostname", "-I"], capture_output=True, text=True).stdout.split()
         dire(f"  réseau local : http://{ip[0] if ip else '<ip du PC>'}:{PORT}/ (pas un contexte sûr sur le "
@@ -225,7 +225,7 @@ class Tube:
     WebSocket sur ce port (pour éprouver le chemin du téléphone)."""
 
     def __init__(self, binaire, port=None):
-        self.profil = tempfile.TemporaryDirectory(prefix="cartographe-chromium-")
+        self.profil = tempfile.TemporaryDirectory(prefix="terramemo-chromium-")
         self.journal = pathlib.Path(self.profil.name) / "chromium.log"
         lecture, self.vers = os.pipe()
         self.depuis, ecriture = os.pipe()
@@ -536,7 +536,7 @@ class Page:
                 texte = self.js("(document.querySelector('.status.error') || {}).textContent || ''")
                 raise RuntimeError(f"la carte ne s'est pas chargée : {texte}")
             if etat[1] == "1":
-                return self.js("window.cartographe.repos")
+                return self.js("window.terramemo.repos")
             self.pause(100)
         raise RuntimeError(f"carte pas prête en {delai} s (body[data-repos] absent)")
 
@@ -765,7 +765,7 @@ def commande_smoke(args):
     if code == 0:
         dire(f"ECHEC : rien ne répond sur {base} (serve lancé ?)")
         return 1
-    verifier("page", code == 200 and b"<title>Cartographe</title>" in corps, f"-> {code}")
+    verifier("page", code == 200 and b"<title>Terramemo</title>" in corps, f"-> {code}")
     mode = "développement" if serveur_de_dev(base) else "build (preview ou hébergé)"
     dire(f"  serveur : {mode}")
     for nom in FICHIERS_GEO:
@@ -785,7 +785,7 @@ def commande_smoke(args):
             periode = p.attendre_carte(args.budget)
             verifier("carte peinte", True, f"en {time.monotonic() - debut:.1f} s, période {periode} ms")
             n = p.js("[document.querySelectorAll('path.pays').length, document.querySelectorAll('circle.pastille').length,"
-                     " window.cartographe.version, document.querySelector('#carte').dataset.rendu]")
+                     " window.terramemo.version, document.querySelector('#carte').dataset.rendu]")
             verifier("tracés des pays", n[0] > 150, f"{n[0]} path.pays, {n[1]} pastilles visibles, version {n[2]}, rendu {n[3]}")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
@@ -799,7 +799,7 @@ def commande_smoke(args):
             fin = time.monotonic() + args.budget
             while p.js("document.querySelector('#carte').dataset.relais") == "attente" and time.monotonic() < fin:
                 p.pause(100)
-            w = p.js("window.cartographe.carte && window.cartographe.carte.webgl()") or {}
+            w = p.js("window.terramemo.carte && window.terramemo.carte.webgl()") or {}
             verifier("rendu webgl (shaders compilés et liés)", w.get("etape") == "webgl",
                      f"relais {w.get('etape')}, GPU {w.get('renderer')}" + (f", raison : {w.get('raison')}" if w.get("raison") else ""))
         except RuntimeError as e:
@@ -814,11 +814,11 @@ def commande_smoke(args):
 
 def position(page, ident):
     """Point de la fenêtre où toucher `ident` : le centre de sa pastille
-    dessinée (lu dans le DOM), sinon cartographe.carte.ecran()."""
+    dessinée (lu dans le DOM), sinon terramemo.carte.ecran()."""
     return page.js(f"""(() => {{
         const c = document.querySelector('circle.pastille[data-id="{ident}"]');
         if (c) {{ const r = c.getBoundingClientRect(); return {{x: r.x + r.width / 2, y: r.y + r.height / 2, via: 'pastille'}}; }}
-        const p = window.cartographe.carte.ecran("{ident}");
+        const p = window.terramemo.carte.ecran("{ident}");
         return p && {{x: p.x, y: p.y, via: 'carte'}};
     }})()""")
 
@@ -843,7 +843,7 @@ def commande_ui(args):
         p.goto(base + "?mesures=0#carte")
         p.attendre_carte()
         capturer("1-carte")
-        p.js('window.cartographe.carte.zoomerSur("CHE")')
+        p.js('window.terramemo.carte.zoomerSur("CHE")')
         pt = position(p, "CHE")
         p.toucher(pt["x"], pt["y"])
         p.pause(300)
@@ -855,7 +855,7 @@ def commande_ui(args):
         # consigne à lire. L'essai J0, la série que visent les mesures.
         p.js('document.querySelector(\'.essai-serie[data-serie="essai"]\').click()')
         p.pause(300)
-        p.js("window.cartographe.carte.zoomer({k: 1, x: 0, y: 0})")
+        p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
         cible = p.js('document.querySelector(".essai-consigne").dataset.cible')
         faux = "CAN" if cible == "BRA" else "BRA"
         pt = position(p, faux)
@@ -887,7 +887,7 @@ def commande_ui(args):
         capturer("7-chrono-depart")
         p.js('document.querySelector(\'#chrono-depart .essai-serie[data-serie="South America"]\').click()')
         p.pause(300)
-        p.js("window.cartographe.carte.zoomer({k: 1, x: 0, y: 0})")
+        p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
         consigne = 'document.querySelector("#barre-chrono .essai-consigne").dataset.cible'
         retro = 'document.querySelector("#barre-chrono .essai-retro").textContent'
         cible = p.js(consigne)
@@ -947,14 +947,14 @@ def centrer(page, ident, k):
     """Zoom k, centré sur le point de toucher de `ident`. En Canvas, le x qui
     ne centre pas l'ovale devient une rotation (zoomer, src/main.ts) : le pays
     vient au centre par le méridien central."""
-    page.js(f"""(() => {{ const c = window.cartographe.carte; c.zoomer({{k: 1, x: 0, y: 0}});
+    page.js(f"""(() => {{ const c = window.terramemo.carte; c.zoomer({{k: 1, x: 0, y: 0}});
         const r = c.rect(), p = c.ecran("{ident}"), x = p.x - r.x, y = p.y - r.y;
         c.zoomer({{k: {k}, x: r.largeur / 2 - {k} * x, y: r.hauteur / 2 - {k} * y}}); }})()""")
 
 
 def zoomer_au_centre(page, k):
     """Zoom k autour du centre de la carte (rotation gardée en Canvas)."""
-    page.js(f"""(() => {{ const c = window.cartographe.carte, r = c.rect(); c.zoomer({{k: 1, x: 0, y: 0}});
+    page.js(f"""(() => {{ const c = window.terramemo.carte, r = c.rect(); c.zoomer({{k: 1, x: 0, y: 0}});
         c.zoomer({{k: {k}, x: r.largeur / 2 * (1 - {k}), y: r.hauteur / 2 * (1 - {k})}}); }})()""")
 
 
@@ -1032,13 +1032,13 @@ def une_mesure(page, url, journal, cible):
     le pas de rejeu et la transformation après le tour du monde."""
     page.goto(url)
     periode = pas_de_rejeu(page.attendre_carte() or 1000 / 60, cible)
-    page.js("window.cartographe.reinitialiser()")
-    r = page.js("window.cartographe.carte.rect()")
+    page.js("window.terramemo.reinitialiser()")
+    r = page.js("window.terramemo.carte.rect()")
     cx, cy = r["x"] + r["largeur"] / 2, r["y"] + r["hauteur"] / 2
     duree_reelle = []
     for geste in SCENARIO:
         if geste[0] == "zoomerSur":
-            page.js(f'window.cartographe.carte.zoomerSur("{geste[1]}")')
+            page.js(f'window.terramemo.carte.zoomerSur("{geste[1]}")')
             page.pause(500)
             continue
         if geste[0] == "zoomer":
@@ -1058,18 +1058,18 @@ def une_mesure(page, url, journal, cible):
             positions = [[(cx - ecart(i) / 2, cy), (cx + ecart(i) / 2, cy)] for i in range(n + 1)]
         duree_reelle.append(round(page.geste(positions, periode), 1))
         page.pause(500)
-    apres_tour = page.js("window.cartographe.carte.transfo()")
+    apres_tour = page.js("window.terramemo.carte.transfo()")
     vises = []
     for nom, centre, k, pays in TOUCHERS:
         if centre is None:
-            page.js(f"window.cartographe.carte.zoomer({{k: {k}, x: 0, y: 0}})")
+            page.js(f"window.terramemo.carte.zoomer({{k: {k}, x: 0, y: 0}})")
         elif k is None:
-            page.js(f'window.cartographe.carte.zoomerSur("{centre}")')
+            page.js(f'window.terramemo.carte.zoomerSur("{centre}")')
         else:
             centrer(page, centre, k)
         page.pause(400)
-        zone = page.js("window.cartographe.carte.rect()")
-        t = page.js("window.cartographe.carte.transfo()")
+        zone = page.js("window.terramemo.carte.rect()")
+        t = page.js("window.terramemo.carte.transfo()")
         for ident in pays:
             pt = position(page, ident)
             dedans = pt and zone["x"] <= pt["x"] <= zone["x"] + zone["largeur"] and zone["y"] <= pt["y"] <= zone["y"] + zone["hauteur"]
@@ -1084,7 +1084,7 @@ def une_mesure(page, url, journal, cible):
     # Les entrées Event Timing arrivent quelques images après la présentation :
     # au moins 0,5 s après le dernier geste (src/mesure/rapport.ts).
     page.pause(800)
-    rapport = page.js("window.cartographe.rapport()")
+    rapport = page.js("window.terramemo.rapport()")
     if len(rapport["touchers"]) != len(vises):
         journal.append(f"{len(vises)} touchers envoyés, {len(rapport['touchers'])} reçus par la page")
     for v, t in zip(vises, rapport["touchers"]):
@@ -1608,7 +1608,7 @@ def commande_mesurer(args):
     fichier = sortie / f"{nom}.json"
     fichier.write_text(json.dumps({
         "v": VERSION_RAPPORT,
-        "outil": ".claude/skills/run-cartographe/driver.py mesurer",
+        "outil": ".claude/skills/run-terramemo/driver.py mesurer",
         "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "code": code,
         "cible": args.cible, "navigateur": s.navigateur,
@@ -1626,7 +1626,7 @@ def commande_mesurer(args):
         "ecran_emule": TELEPHONE if args.cible == "local" else None,
         "scenario": {"gestes": SCENARIO, "duree_glisser_ms": DUREE_GLISSER_MS, "duree_pincer_ms": DUREE_PINCER_MS,
                      "duree_tourner_ms": DUREE_TOURNER_MS, "transfo_apres_tour": apres_tour,
-                     "cadence": "un touchMove par période de l'écran au repos (window.cartographe.repos) ; "
+                     "cadence": "un touchMove par période de l'écran au repos (window.terramemo.repos) ; "
                                 "sur le téléphone, au plus 8,33 ms (120 Hz)",
                      "pas_ms": pas_ms, "durees_reelles_ms": durees, "touchers": TOUCHERS},
         "criteres": {"rendu_ms": CRITERE_RENDU_MS, "toucher_ms": CRITERE_TOUCHER_MS,
@@ -1667,7 +1667,7 @@ def commande_resumer(args):
         d["notes"] = sorted(set(d.get("notes", [])) | set(journal))
         d["resume_recalcule"] = {
             "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
-            "outil": ".claude/skills/run-cartographe/driver.py resumer",
+            "outil": ".claude/skills/run-terramemo/driver.py resumer",
             "commit": subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=RACINE,
                                      capture_output=True, text=True).stdout.strip() or None,
             # Le driver qui a recalculé diffère-t-il de ce commit (pas encore commité) ?
@@ -1716,7 +1716,7 @@ def main():
     s = sub.add_parser("serve", help="Vite sur le port 8060, au premier plan")
     s.add_argument("--lan", action="store_true", help="écoute aussi sur le réseau local (--host 0.0.0.0)")
     s.add_argument("--preview", action="store_true", help="construit puis sert le build (vite preview)")
-    s.add_argument("--sortie", default="/tmp/cartographe-preview", help="dossier du build de --preview (pas dist/)")
+    s.add_argument("--sortie", default="/tmp/terramemo-preview", help="dossier du build de --preview (pas dist/)")
 
     s = sub.add_parser("smoke", help="page, /geo/*.json et carte peinte")
     s.add_argument("--url", default=URL_DEFAUT)
@@ -1725,7 +1725,7 @@ def main():
     s = sub.add_parser("ui", help="captures des vues")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
-    s.add_argument("--out", default="/tmp/cartographe-captures")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
 
     s = sub.add_parser("mesurer", help="gestes et touchers rejoués, rapport JSON")
     s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")

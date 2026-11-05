@@ -12,7 +12,7 @@ describe('capacitor.config.ts', () => {
 
   it("garde l'identifiant de l'appli", () => {
     // Un autre appId = une autre appli pour Android (et pour le Play Store).
-    expect(config.appId).toBe('io.github.micheldm974.cartographe');
+    expect(config.appId).toBe('io.github.micheldm974.terramemo');
   });
 
   it('emballe le build du site', () => {

@@ -8,7 +8,7 @@ import { creer } from './commun';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
-const CLE_PSEUDO = 'cartographe.pseudo';
+const CLE_PSEUDO = 'terramemo.pseudo';
 
 function stockage(): Storage | null {
   try {

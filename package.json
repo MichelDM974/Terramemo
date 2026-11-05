@@ -1,5 +1,5 @@
 {
-  "name": "cartographe",
+  "name": "terramemo",
   "private": true,
   "version": "0.0.0",
   "description": "Devenir bon en géographie : répétition espacée sur une carte du monde (site + APK).",
@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:regles": "firebase emulators:exec --only firestore --project demo-cartographe \"vitest run tests/regles.test.ts\"",
+    "test:regles": "firebase emulators:exec --only firestore --project demo-terramemo \"vitest run tests/regles.test.ts\"",
     "geodata": "node geodata/build.mjs"
   },
   "dependencies": {

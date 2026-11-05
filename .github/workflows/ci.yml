@@ -16,7 +16,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      # tests/mesure-driver.test.ts lance le driver du skill run-cartographe
+      # tests/mesure-driver.test.ts lance le driver du skill run-terramemo
       # (python3, stdlib seule) : même version que sur le PC.
       - uses: actions/setup-python@v6
         with:

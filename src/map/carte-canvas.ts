@@ -1,6 +1,6 @@
 // Carte Canvas qui tourne (décision « Carte qui tourne ») : la mappemonde garde
 // son ovale (Equal Earth) et tourne sous le doigt comme un globe. Même API que
-// la carte SVG (CarteAffichee) pour les vues et window.cartographe.carte.
+// la carte SVG (CarteAffichee) pour les vues et window.terramemo.carte.
 //
 // Gestes : suivi des doigts écrit ici plutôt que d3-zoom. d3-zoom tient une
 // transformation plane (k, x, y) : son x devrait être converti en rotation et

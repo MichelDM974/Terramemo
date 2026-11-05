@@ -1,4 +1,4 @@
-package io.github.micheldm974.cartographe;
+package io.github.micheldm974.terramemo;
 
 import com.getcapacitor.BridgeActivity;
 

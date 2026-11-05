@@ -63,7 +63,7 @@ export interface EcouteGestes {
 }
 
 /**
- * Ce que les vues, main.ts et window.cartographe.carte demandent d'une carte,
+ * Ce que les vues, main.ts et window.terramemo.carte demandent d'une carte,
  * SVG (Carte : rendus g et css) ou Canvas (CarteCanvas, carte qui tourne).
  */
 export interface CarteAffichee {

@@ -77,9 +77,9 @@ describe('records sur l’appareil', () => {
     expect(enregistrer(null, e, score(1, 1), 1).nouveau).toBe(true);
     expect(enregistrer(stockage(true), e, score(1, 1), 1).nouveau).toBe(true);
     const s = stockage();
-    s.m.set('cartographe.chrono.records', '{pas du json');
+    s.m.set('terramemo.chrono.records', '{pas du json');
     expect(lireRecords(s).size).toBe(0);
-    s.m.set('cartographe.chrono.records', JSON.stringify({ [e]: { ...score(9, 9), date: 1, bareme: VERSION_BAREME + 1 } }));
+    s.m.set('terramemo.chrono.records', JSON.stringify({ [e]: { ...score(9, 9), date: 1, bareme: VERSION_BAREME + 1 } }));
     expect(lireRecords(s).size).toBe(0);
     expect(enregistrer(s, e, score(1, 1), 2).nouveau).toBe(true);
   });

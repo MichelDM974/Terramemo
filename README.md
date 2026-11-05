@@ -1,4 +1,4 @@
-# Cartographe
+# Terramemo
 
 Un site et une appli Android pour devenir bon en géographie : placer chaque
 pays sur la carte, connaître capitales et drapeaux, puis le relief, les
@@ -9,7 +9,7 @@ fleuves et les ordres de grandeur. Gratuit, sans publicité, en français
 
 ## Le concept
 
-Cartographe n'est pas un quiz qu'on enchaîne, mais un entraînement par
+Terramemo n'est pas un quiz qu'on enchaîne, mais un entraînement par
 **répétition espacée sur la carte** : chaque fait (« où est le Pérou ? »,
 « quel est ce pays ? ») revient au moment où l'on est sur le point de
 l'oublier, jusqu'à tenir des mois.

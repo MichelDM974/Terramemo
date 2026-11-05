@@ -30,7 +30,7 @@ const nomSerie = (id: string) => (id === SERIE_ESSAI ? T.serie_essai : id === SE
 
 // Dernière série choisie : une commodité de ce navigateur (rien ne la relit
 // ailleurs) ; sans stockage (navigation privée, données effacées), l'essai.
-const CLE_SERIE = 'cartographe.toucher.serie';
+const CLE_SERIE = 'terramemo.toucher.serie';
 function lireSerie(): string | null {
   try {
     return localStorage.getItem(CLE_SERIE);

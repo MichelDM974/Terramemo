@@ -30,7 +30,7 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
   beforeAll(async () => {
     const [host, port] = (hote ?? '').split(':');
     env = await initializeTestEnvironment({
-      projectId: 'demo-cartographe',
+      projectId: 'demo-terramemo',
       firestore: { rules: readFileSync('firestore.rules', 'utf8'), host, port: Number(port) },
     });
   });

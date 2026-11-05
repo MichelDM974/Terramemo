@@ -74,7 +74,7 @@ export interface RecordChrono extends ScoreEpreuve {
 /** Identifiant d'une épreuve : mode, exercice, série (un continent, ou 'tous'). */
 export const idEpreuve = (serie: string): string => `chrono:localiser:${serie}`;
 
-const CLE_RECORDS = 'cartographe.chrono.records';
+const CLE_RECORDS = 'terramemo.chrono.records';
 
 type Stockage = Pick<Storage, 'getItem' | 'setItem'>;
 

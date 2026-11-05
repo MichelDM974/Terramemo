@@ -3,7 +3,7 @@
 Plan issu de cinq études (`docs/etudes/2026-11-04-*.md` : pédagogie,
 données, technique, synthèse des agents, critique adverse) et des réponses
 de l'utilisateur le même jour. Ce plan fait foi là où les études divergent ;
-les décisions vivantes sont au registre de cdc (`cartographe`).
+les décisions vivantes sont au registre de cdc (`terramemo`).
 
 ## Choix de l'utilisateur (04/11/2026)
 
@@ -17,7 +17,7 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 | Hébergement | **Firebase Hosting** (offre Spark) ; plan B : Cloudflare Pages si le quota de transfert est atteint |
 | Frontières | **De fait** (Natural Earth par défaut), zones contestées hachurées, jamais posées en question |
 | Points et classement | **Classement global**, ouvert à tous (choix du 04/11, ticket #14, retire « Motivation ») : par épreuve et général (somme des records), de toujours et de la semaine ; épreuves notées, le Chrono d'abord (points selon la justesse et la distance, `docs/etudes/2026-11-04-points-classement.md`) ; les séances de révision restent sans points |
-| Identité | Nom **Cartographe**, accent bleu océan `#3d72f0` ; téléphone de mesure : Android récent (2023+) |
+| Identité | Nom **Terramemo**, accent bleu océan `#3d72f0` ; téléphone de mesure : Android récent (2023+) |
 
 ## Pédagogie
 
@@ -106,7 +106,7 @@ les décisions vivantes sont au registre de cdc (`cartographe`).
 - Tests : Vitest (rejeu et fusion du journal, générateurs, normalisation et
   collisions, données : géométries non vides, identifiants uniques, budget
   de poids) ; règles Firestore sur l'émulateur ; UI par le pilote CDP de la
-  convention (skill `run-cartographe`, port 8060, driver 8061).
+  convention (skill `run-terramemo`, port 8060, driver 8061).
 - CI : `ci.yml` à chaque push ; `android.yml` sur tag ou à la demande (APK,
   puis AAB pour le Store).
 

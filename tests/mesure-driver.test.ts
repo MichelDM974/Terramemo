@@ -1,5 +1,5 @@
 // Le critère de saccade et la tenue des 120 i/s recopiés dans le driver
-// (.claude/skills/run-cartographe/driver.py, resumer) ne doivent pas dériver
+// (.claude/skills/run-terramemo/driver.py, resumer) ne doivent pas dériver
 // de src/mesure/stats.ts : c'est le driver qui donne le verdict du J0. Ce test
 // fabrique de petits JSON de `mesurer` (rapports v6, statsGeste), lance
 // `python3 driver.py resumer --sec --json` et confronte chaque ligne aux
@@ -33,7 +33,7 @@ import {
   tenue120,
 } from '../src/mesure/stats';
 
-const DRIVER = fileURLToPath(new URL('../.claude/skills/run-cartographe/driver.py', import.meta.url));
+const DRIVER = fileURLToPath(new URL('../.claude/skills/run-terramemo/driver.py', import.meta.url));
 const P60 = 16.67;
 const P120 = 8.33;
 type Type = 'glisser' | 'pincer';
@@ -258,7 +258,7 @@ let sortie: {
 let dossier: string;
 
 beforeAll(() => {
-  dossier = mkdtempSync(join(tmpdir(), 'cartographe-driver-'));
+  dossier = mkdtempSync(join(tmpdir(), 'terramemo-driver-'));
   const chemins = cas.map((c, i) => {
     const chemin = join(dossier, `cas-${i}.json`);
     writeFileSync(chemin, JSON.stringify(fichier(c)));

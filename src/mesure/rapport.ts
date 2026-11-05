@@ -1,7 +1,7 @@
 /**
- * Rapport des mesures du J0 (v: 6), rendu par window.cartographe.rapport() et
+ * Rapport des mesures du J0 (v: 6), rendu par window.terramemo.rapport() et
  * par « Copier le rapport » (⚙ → mesures). Contrat lu par le driver du skill
- * run-cartographe : chaque champ est documenté sur son type ci-dessous. Toutes
+ * run-terramemo : chaque champ est documenté sur son type ci-dessous. Toutes
  * les durées sont en millisecondes, les instants en ms depuis
  * performance.timeOrigin (l'origine de la navigation), arrondis au dixième.
  *
@@ -108,7 +108,7 @@
  * (au PC, k 14,5 → 36), close_par_entree_suivante faux. Mesurer sans panneau
  * (?mesures=0), comme le driver ; une capture d'écran la clôt de même.
  *
- * window.cartographe (src/main.ts) :
+ * window.terramemo (src/main.ts) :
  *   version: string ;
  *   pret: Promise<void>              carte peinte (aussi document.body.dataset.pret = '1') ;
  *   repos: Promise<number>           période de l'écran mesurée au repos, ~0,5 s après pret

@@ -140,6 +140,6 @@ Les premières changent l'architecture. Pour chacune, l'option marquée ★ est 
 
 **E. Identité**
 
-22. **Nom du projet** : il sert pour le dossier, le dépôt, le projet Firebase et le paquet Android. Idées : *Repère*, *Méridien*, *Boussole*, *Cartographe*. **Couleur d'accent** : par exemple un bleu-vert océan, ou ce que tu préfères.
+22. **Nom du projet** : il sert pour le dossier, le dépôt, le projet Firebase et le paquet Android. Idées : *Repère*, *Méridien*, *Boussole*. **Couleur d'accent** : par exemple un bleu-vert océan, ou ce que tu préfères.
 
 Rien n'est encore créé : aucun dossier, aucun dépôt, aucun registre cdc. Les fichiers d'essai de l'étude données (`ne/`, `out/`, `tools/`) sont dans le scratchpad, qui sera vidé au prochain redémarrage : /tmp/claude-1000/-home-delhomme-Documents-GitHub-Mes-Projets/e204b7b8-1814-4712-ad00-0929e45b0524/scratchpad

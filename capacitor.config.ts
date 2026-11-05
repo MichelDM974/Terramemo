@@ -4,8 +4,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   // Convention des autres applis (io.github.micheldm974.light, .cdc). Changer
   // l'appId fait une autre appli pour Android : désinstaller l'ancienne efface ses données.
-  appId: 'io.github.micheldm974.cartographe',
-  appName: 'Cartographe',
+  appId: 'io.github.micheldm974.terramemo',
+  appName: 'Terramemo',
   webDir: 'dist',
   // Fond de la WebView avant la première peinture de la page (--bg de src/style.css) :
   // sans lui, Capacitor laisse le blanc par défaut entre l'écran de lancement et la carte.
