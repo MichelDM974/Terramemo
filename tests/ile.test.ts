@@ -64,7 +64,7 @@ describe('données de l’île', () => {
   it('noms par nomDe sur les données du terrain (pas « 97407 »)', () => {
     expect(nomDe(ile, LE_PORT)).toBe('Le Port');
     expect(nomDe(ile, '97404')).toBe('L’Étang-Salé');
-    expect(nomDe({ donnees: ile }, SAINT_DENIS)).toBe('Saint-Denis');
+    expect(nomDe(ile, SAINT_DENIS)).toBe('Saint-Denis');
     expect(nomDe(ile, 'XXX')).toBe('XXX');
   });
 });

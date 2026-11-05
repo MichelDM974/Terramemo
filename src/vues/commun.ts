@@ -2,7 +2,9 @@ import type { CarteAffichee } from '../map/carte';
 import type { DonneesCarte } from '../map/donnees';
 import type { Statut } from '../map/types';
 import type { Mesures } from '../mesure/mesures';
-import type { Terrains } from '../terrains';
+import type { Terrain, Terrains } from '../terrains';
+import type { Serie } from './cibles';
+import { textes } from './textes';
 
 export interface ContexteVue {
   /** La carte du monde, toujours (explorer, saisie, pilote de mesure) ; un terrain : terrains. */
@@ -48,13 +50,14 @@ export function creer<K extends keyof HTMLElementTagNameMap>(
 /**
  * Nom d'une zone dans les données de son terrain : t.donnees pour une vue qui
  * joue un terrain, ctx.donnees pour le monde (sinon une commune s'affiche
- * « 97407 »). Le contexte entier est encore accepté (noms du monde) tant
- * qu'essai.ts et chrono.ts ne passent pas les données de leur terrain.
+ * « 97407 »).
  */
-export function nomDe(d: { noms: Record<string, string> } | { donnees: { noms: Record<string, string> } }, id: string): string {
-  const noms = 'noms' in d ? d.noms : d.donnees.noms;
-  return noms[id] ?? id;
+export function nomDe(d: { noms: Record<string, string> }, id: string): string {
+  return d.noms[id] ?? id;
 }
+
+/** Durée lisible : « 1,2 s », espace insécable avant l'unité. */
+export const fmtS = (ms: number): string => `${(ms / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}\u00a0s`;
 
 /**
  * Distance lisible : une décimale sous 10 km (« 2,4 km » : sur l'île, « 0 km »
@@ -67,4 +70,46 @@ export function fmtKm(km: number): string {
       ? dixiemes.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
       : Math.round(km).toLocaleString('fr-FR');
   return `${txt}\u00a0km`;
+}
+
+/** Les cibles d'une série dans son terrain chargé : les siennes (monde), ou toutes les zones jouables (l'île). */
+export const idsSerie = (s: Serie, t: Terrain): string[] => (s.ids.length ? [...s.ids] : [...t.jouables]);
+
+/**
+ * Le terrain d'une série choisie au départ, puis `suite` (avec ses cibles).
+ * Déjà chargé (le monde, l'île au second choix) : tout de suite. Sinon
+ * (l'île au premier choix) : boutons du départ désactivés et statut le temps
+ * du chargement (un double clic ne lance pas deux parties) ; un échec (hors
+ * ligne) l'écrit au statut, on reste sur le monde. `encore()` faux à
+ * l'arrivée (vue quittée, autre choix) : pas de suite.
+ */
+export function avecTerrain(
+  ctx: ContexteVue,
+  s: Serie,
+  o: { boutons: readonly HTMLButtonElement[]; statut: HTMLElement; encore: () => boolean },
+  suite: (t: Terrain, ids: string[]) => void,
+): void {
+  const dire = (m: string) => {
+    o.statut.textContent = m;
+    o.statut.hidden = !m;
+  };
+  const deja = s.terrain === 'monde' ? ctx.terrains.monde : ctx.terrains.deja(s.terrain);
+  if (deja) {
+    dire('');
+    return suite(deja, idsSerie(s, deja));
+  }
+  const actifs = o.boutons.filter((b) => !b.disabled);
+  for (const b of actifs) b.disabled = true;
+  dire(textes.toucher.chargement_terrain);
+  const fin = (m: string) => {
+    for (const b of actifs) b.disabled = false;
+    dire(m);
+  };
+  ctx.terrains.charger(s.terrain).then(
+    (t) => {
+      fin('');
+      if (o.encore()) suite(t, idsSerie(s, t));
+    },
+    () => fin(textes.toucher.echec_terrain),
+  );
 }

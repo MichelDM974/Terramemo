@@ -143,6 +143,18 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 .essai-actions { display: flex; gap: 8px; }
 .essai-actions button { padding: 6px 12px; font-size: 0.85rem; }
 
+/* Nommer : quatre noms en grille 2 × 2 sous le pouce, 48 px au moins, deux lignes
+   au besoin (« Saint-Vincent-et-les Grenadines » sur ~166 px) ; après le choix,
+   le bon en vert, le mauvais en rouge (désactivés, ils gardent leur couleur). */
+.nommer-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 2px; }
+.nommer-choix { min-height: 48px; min-width: 0; padding: 6px 8px; font-size: 0.92rem; line-height: 1.2; white-space: normal; }
+.nommer-choix.juste, .nommer-choix.juste:disabled { background: var(--good-soft); border-color: var(--good); color: var(--good); font-weight: 600; }
+.nommer-choix.faux, .nommer-choix.faux:disabled { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); font-weight: 600; }
+
+/* Exercice du départ de Toucher (Localiser / Nommer), sous le titre. */
+.essai-mode { margin: 6px 0 8px; }
+.essai-mode button { min-height: 36px; padding: 6px 16px; }
+
 /* Chrono : jauge du temps de la question (neutre : l'accent reste aux pages et au
    bouton principal), score et record du bilan. */
 .chrono-temps { display: flex; align-items: center; gap: 8px; }

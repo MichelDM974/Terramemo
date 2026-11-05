@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { enregistrer, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, totalGeneral, VERSION_BAREME } from '../src/epreuve/chrono';
 import { ECHELLES_KM } from '../src/epreuve/bareme';
 import type { Pays } from '../src/map/types';
-import { SERIE_TOUS, series } from '../src/vues/cibles';
+import { SERIE_REUNION, SERIE_TOUS, series, seriesToucher } from '../src/vues/cibles';
 import { seriesChrono } from '../src/vues/chrono';
 import { textes } from '../src/vues/textes';
 
@@ -106,14 +106,25 @@ describe('séries du Chrono', () => {
   const continents = textes.continents as Record<string, string>;
   const s = seriesChrono(series(pays, (c) => continents[c] ?? c));
 
-  it('les six continents, puis tous les pays ; pas l’essai du J0', () => {
-    expect(s.map((x) => x.id)).toEqual(['Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania', SERIE_TOUS]);
-    expect(s.at(-1)?.ids.length).toBe(195);
+  it('les six continents, tous les pays, puis l’île ; pas l’essai du J0', () => {
+    expect(s.map((x) => x.id)).toEqual(['Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania', SERIE_TOUS, SERIE_REUNION]);
+    expect(s.find((x) => x.id === SERIE_TOUS)?.ids.length).toBe(195);
+    // L'île : ses 24 communes viennent du terrain chargé ; son épreuve et son échelle.
+    const ile = s.at(-1);
+    expect([ile?.terrain, ile?.ids.length, ile?.n]).toEqual(['reunion', 0, 24]);
+    expect(idEpreuve(ile!.id)).toBe('chrono:localiser:reunion');
+    expect(ECHELLES_KM[ile!.terrain]).toBe(5);
+    for (const x of s.slice(0, -1)) expect(ECHELLES_KM[x.terrain], x.id).toBe(300);
+  });
+
+  it('seriesChrono garde l’île une seule fois, même si la liste reçue la porte déjà', () => {
+    expect(seriesChrono(seriesToucher(pays, (c) => continents[c] ?? c)).filter((x) => x.id === SERIE_REUNION)).toHaveLength(1);
   });
 
   it('textes du Chrono : toutes les clés remplies par la vue existent', () => {
     for (const k of ['depart_aide', 'record', 'points', 'juste', 'faux', 'bilan_score', 'bilan_detail', 'bilan_faux', 'bilan_expire', 'record_a_battre', 'nouveau_record_bat'])
       expect(textes.chrono[k as keyof typeof textes.chrono], k).toBeTruthy();
+    for (const t of ['monde', 'reunion'] as const) expect(textes.terrains[t].expire, t).toBeTruthy();
   });
 });
 
