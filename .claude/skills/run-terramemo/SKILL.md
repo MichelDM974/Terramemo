@@ -40,6 +40,7 @@ python3 .claude/skills/run-terramemo/driver.py serve --lan        # aussi sur le
 python3 .claude/skills/run-terramemo/driver.py smoke              # page, /geo/*.json, carte peinte, shaders webgl compilés ; code ≠ 0 au moindre échec
 python3 .claude/skills/run-terramemo/driver.py ui                 # captures téléphone (384×832, DPR 2.8125, toucher émulé)
 python3 .claude/skills/run-terramemo/driver.py ui --width 1280    # captures PC (souris)
+python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du monde en webgl (logiciel=1), ou canvas, g, css
 ```
 
 - `serve` en arrière-plan, puis les autres. `--preview` construit dans
@@ -48,8 +49,11 @@ python3 .claude/skills/run-terramemo/driver.py ui --width 1280    # captures PC 
   serveur de dev sert des modules non groupés, son chargement ne dit rien
   du site (smoke et mesurer le signalent).
 - `smoke` : `[ok ]`/`[KO ]` par vérification (HTTP 200 et JSON valide des
-  cinq fichiers de `/geo/`, `body[data-pret="1"]`, nombre de `path.pays`,
-  rendu webgl, aucune exception JS ni requête en échec), puis `smoke : OK`.
+  cinq fichiers de `/geo/` et des quatre de `/geo/reunion/`,
+  `body[data-pret="1"]`, nombre de `path.pays`, **rien de `/geo/reunion/`
+  chargé au premier affichage** (après `pret` et `repos`, décision
+  « Hébergement »), rendu webgl, aucune exception JS ni requête en échec),
+  puis `smoke : OK`.
   Le rendu webgl (`?rendu=webgl&logiciel=1`) doit finir en `data-relais="webgl"` :
   **seule vérification où le vrai compilateur voit les shaders** (`npm test`
   les traduit en JS, un shader refusé par le pilote y passerait) ; un refus
@@ -60,9 +64,28 @@ python3 .claude/skills/run-terramemo/driver.py ui --width 1280    # captures PC 
   (⚙), `7-chrono-depart`, `8-chrono-faux` et `9-chrono-bilan` (l'Amérique
   du Sud jouée jusqu'au bilan, ~25 s) dans `--out`
   (`/tmp/terramemo-captures`), et affiche les textes lus (barre,
-  rétroaction, liste de la Saisie, bilan du Chrono). **Regarder les
+  rétroaction, liste de la Saisie, bilan du Chrono). Puis La Réunion et
+  Nommer (#15) : `10-reunion` (Toucher → La Réunion : l'île entière, barre
+  en bas, mention de l'IGN), `11-reunion-faux` (Saint-Paul touché pour
+  Saint-Denis : « Passer » jusqu'à Saint-Denis, l'ordre étant tiré au
+  hasard), `12-nommer-monde` (Nommer, Europe : zone en accent, 4 boutons),
+  `13-nommer-reunion-retro` (mauvais choix rouge, bon vert),
+  `14-chrono-reunion` (première question, jauge) ; il remet Localiser et
+  vérifie le monde au retour (onglet Carte, `pick` sur la Suisse = CHE).
+  `DÉFAUT : …` et code 1 si l'île sort de l'écran ou passe sous la barre,
+  si la mention manque, couvre l'île ou fait deux lignes à 384 px, si les
+  boutons de Nommer n'ont pas un rouge et un vert, si un code INSEE
+  (`974xx`) s'affiche ou si le monde a changé. **Regarder les
   captures.** Le record du Chrono vit dans le `localStorage` : le profil
   neuf du driver repart sans record.
+- `--rendu` (ui) : rendu de la carte du monde ; l'île est toujours en SVG.
+  `--url` ne peut pas porter `?rendu=` (le pilote y ajoute `?mesures=0`).
+- Contrat de l'île avec le pilote : `window.terramemo.carte` reste **le
+  monde** (mesures, captures 1 à 9) ; `terramemo.terrain()` dit le terrain
+  affiché, `terramemo.ile` (`null` avant le premier choix de l'île) donne
+  `pick`, `ecran(id)` (point d'étiquette d'une commune), `rect`, `transfo`,
+  `zoomer`. Ids des communes : codes INSEE (`97411` Saint-Denis, `97415`
+  Saint-Paul).
 - Option `--url` partout (ex. `https://terramemo-geo.web.app/`) : smoke
   et ui marchent aussi sur le site déployé.
 
@@ -486,6 +509,16 @@ APK : `android/app/build/outputs/apk/debug/app-debug.apk`. Le driver met
 `sdk.dir=/home/delhomme/Android/Sdk`). En CI : `.github/workflows/android.yml`
 (à la demande ou sur tag `v*`, APK en artefact).
 
+## Données de La Réunion
+
+`npm run geodata:reunion` (`geodata/reunion.mjs`, à part de `build.mjs`)
+télécharge l'archive de l'IGN (ADMIN EXPRESS COG CARTO, GeoPackage du
+territoire REU, `.7z`) dans `geodata/raw/ign/` (ignoré par git, absent d'un
+worktree neuf : le script la retélécharge), la vérifie contre
+`geodata/reunion.lock.json` et régénère `public/geo/reunion/` (octet pour
+octet). Demande `7z` et Node 24 (`node:sqlite`) ; pas la CI, qui ne lit que
+les sorties versionnées (`tests/donnees-reunion.test.ts`).
+
 ## Classements : émulateurs et règles
 
 ```bash
@@ -499,7 +532,20 @@ le site construit parle toujours au vrai projet). Les deux ne tournent
 pas ensemble : `test:regles` lance son propre émulateur sur 8062. Base
 d'émulateur vidée par `curl -X DELETE
 "http://127.0.0.1:8062/emulator/v1/projects/terramemo-geo/databases/(default)/documents"`.
-Java 21+ requis (celui du PC suffit).
+Java 21+ requis (celui du PC suffit). L'émulateur écrit
+`firestore-debug.log` dans le dossier courant (ignoré par git).
+
+Chrono de l'île jusqu'au classement, par le pilote (vérifié le 06/11) : le
+choix `#chrono-depart .essai-serie[data-serie="reunion"]`, chaque réponse
+juste par `terramemo.ile.ecran(<cible>)` (cible :
+`#barre-chrono .essai-consigne` `data-cible`), puis le pseudo dans
+`#chrono-bilan .chrono-pseudo-form input` et son bouton ; le classement de
+l'épreuve et le général (`#chrono-general`, somme des records de toutes les
+séries) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
+règles refusent moins de 0,2 s par question (`temps_ms >= questions ×
+200`), et le refus est muet (403 sur `documents:commit`, « Personne n'est
+encore classé ») ; il fait tomber tout le lot (les records des autres
+séries et le général avec).
 
 ## Déploiement (Firebase Hosting, projet `terramemo-geo`)
 
@@ -545,7 +591,17 @@ arbre propre (`git status`).
   même par l'adresse.
 - `http://<ip du PC>:8060` (`serve --lan`) n'est pas un contexte sûr sur le
   téléphone (service worker refusé) : préférer `adb reverse`.
-- Arrêter un serveur : `fuser -k -n tcp 8060`, jamais `pkill -f`.
+- Arrêter un serveur : `fuser -k -n tcp 8060`, jamais `pkill -f` (la tâche
+  de fond de `serve` finit alors en code 137 : attendu). Émulateurs :
+  `fuser -k -n tcp 8062 8063`.
+- Le mode Nommer est gardé dans le `localStorage`
+  (`terramemo.toucher.mode`) : un profil réutilisé (téléphone, `--cible
+  chrome`) peut ouvrir Toucher en Nommer ; le profil neuf du driver part en
+  Localiser, et `ui` le remet après ses captures.
+- Petits écrans (320 × 560) : la mention de l'IGN passe sur deux lignes
+  (sous ~370 px) et la barre de Nommer couvre le bas de l'île, d'où un vol
+  vers la commune demandée (`doitCadrer`) ; à 384 px (Galaxy A37), l'île
+  tient entière au-dessus de chaque barre.
 
 ## Dépannage
 
