@@ -60,5 +60,26 @@
     "general_titre": "Classement général",
     "general_aide": "La somme des records de toutes les séries ; « Cette semaine » compte ceux de la semaine (depuis lundi, 4 h à La Réunion).",
     "retour": "Retour"
+  },
+  "terrains": {
+    "monde": {
+      "n": "{n} pays",
+      "consigne_nommer": "Quel est ce pays ?",
+      "faux_suite": "Le bon pays est en vert : touche-le.",
+      "expire": "Temps écoulé · +0. Le bon pays est en vert."
+    },
+    "reunion": {
+      "serie": "La Réunion",
+      "detail": "carte de l'île",
+      "n": "{n} communes",
+      "libelle": "Carte de La Réunion",
+      "consigne_nommer": "Quelle est cette commune ?",
+      "faux_suite": "La bonne commune est en vert : touche-la.",
+      "expire": "Temps écoulé · +0. La bonne commune est en vert."
+    }
+  },
+  "credits": {
+    "reglages": "Fond de carte : Natural Earth ; noms : Unicode CLDR ; communes de La Réunion : IGN, ADMIN EXPRESS (Licence Ouverte 2.0).",
+    "carte": "IGN, ADMIN EXPRESS, à jour au {date} · Licence Ouverte 2.0"
   }
 }

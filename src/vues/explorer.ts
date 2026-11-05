@@ -32,7 +32,7 @@ export function vueExplorer(ctx: ContexteVue): Vue {
         if (r) {
           ctx.carte.marquer(r.id, 'choisi');
           const e = ctx.donnees.entites.find((en) => en.pays.id === r.id);
-          nom.textContent = nomDe(ctx, r.id);
+          nom.textContent = nomDe(ctx.donnees, r.id);
           const statut = e ? LIBELLE_STATUT[e.pays.statut] : '';
           detail.textContent = [statut, r.via === 'trace' ? '' : r.via === 'pastille' ? 'par sa pastille' : 'au plus près'].filter(Boolean).join(' · ');
           barre.dataset.id = r.id;

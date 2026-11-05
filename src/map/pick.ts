@@ -4,12 +4,12 @@
 import type { GeoProjection } from 'd3-geo';
 import { contient, distanceAuBordKm, versEcran, versLonLat } from './geo';
 import { PASTILLE, pastilleLaPlusProche, type Pastille } from './pastilles';
-import type { Entite, Transfo } from './types';
+import type { Entite, Lieu, Transfo } from './types';
 
 export interface ContexteCarte {
   proj: GeoProjection;
   t: Transfo;
-  entites: readonly Entite[];
+  entites: readonly Entite<Lieu>[];
   /** Pastilles affichées au zoom courant. */
   pastilles: readonly Pastille[];
 }
@@ -26,7 +26,7 @@ export interface ResultatPick {
 /** Rayons (px) des sondes autour d'un toucher en mer, et nombre de directions. */
 export const SONDES_PROCHE = { rayons_px: [4, 8, 12], directions: 8 } as const;
 
-function sousLePoint(ctx: ContexteCarte, x: number, y: number): Entite | null {
+function sousLePoint(ctx: ContexteCarte, x: number, y: number): Entite<Lieu> | null {
   const ll = versLonLat(ctx.proj, ctx.t, x, y);
   if (!ll) return null;
   for (const e of ctx.entites) if (contient(e.forme, e.pays.bbox, ll)) return e;

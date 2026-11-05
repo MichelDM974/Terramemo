@@ -47,6 +47,28 @@ body { font-variant-numeric: normal; }
 }
 .carte:active { cursor: grabbing; }
 body[data-vue="saisie"] .carte { visibility: hidden; }
+/* Terrains (src/terrains.ts) : un seul hôte visible. visibility, pas display :
+   l'hôte caché garde sa taille (pas de retracé ni de clientWidth nul au
+   retour) et ne reçoit aucun toucher. */
+.carte.carte-cachee { visibility: hidden; }
+/* L'île de La Réunion : pas de .sphere, la mer est le fond de l'hôte. */
+.carte-ile { background: var(--mer); }
+/* Mention de la source (Licence Ouverte 2.0 : source et date de mise à jour),
+   une ligne dans la marge haute de 28 px du cadre (terrain.ts) : ~353 px à
+   384 px de large ; coupée d'une ellipse sur un écran plus étroit. */
+.carte-credit {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  max-width: calc(100% - 16px);
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
 
 .carte-enveloppe {
   position: absolute;
@@ -87,6 +109,7 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
   pointer-events: none;
 }
 .anneau.juste { stroke: var(--good); }
+.anneau.choisi { stroke: var(--accent); }
 
 /* --- Barres posées sur la carte (bas) --- */
 .carte-barre {
