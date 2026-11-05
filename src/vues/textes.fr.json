@@ -45,7 +45,7 @@
     "bilan_nommer_titre": "Nommer · {serie}",
     "bilan_nommer": "{justes} / {n} justes du premier coup",
     "bilan_nommer_temps": "temps médian {temps}",
-    "bilan_nommer_faux": "{cible} : {choisi} choisi"
+    "bilan_nommer_faux": "{cible} : tu as choisi {choisi}"
   },
   "chrono": {
     "depart_titre": "Chrono",

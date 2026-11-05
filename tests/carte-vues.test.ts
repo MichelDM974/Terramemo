@@ -130,7 +130,7 @@ describe('séries de l’île et textes des terrains', () => {
     expect(remplir(T.faux, { touche: T.la_mer, ou: '', suite: textes.terrains.reunion.faux_suite })).toBe(
       'Faux : la mer. La bonne commune est en vert : touche-la.',
     );
-    expect(remplir(T.bilan_nommer_faux, { cible: 'Saint-Leu', choisi: 'Les Avirons' })).toBe('Saint-Leu : Les Avirons choisi');
+    expect(remplir(T.bilan_nommer_faux, { cible: 'Saint-Leu', choisi: 'Les Avirons' })).toBe('Saint-Leu : tu as choisi Les Avirons');
   });
 
   it('fmtKm : une décimale sous 10 km, l’entier au-delà', () => {
