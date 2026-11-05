@@ -1,0 +1,139 @@
+// QCM de Nommer (pur : ni DOM ni carte) : les choix d'une question, la partie,
+// et quand amener la zone à l'écran (décision « Nommer », conception
+// docs/etudes/2026-11-06-reunion.md § 5). Sert le monde comme l'île.
+import { geoDistance } from 'd3-geo';
+
+/** Quatre boutons : une grille 2 × 2 sous le pouce. */
+export const NB_CHOIX = 4;
+
+/**
+ * Ce dont le QCM a besoin d'une zone : un Pays du monde comme une commune de
+ * l'île le sont déjà (point d'étiquette [lon, lat], voisins par frontière).
+ */
+export interface LieuQcm {
+  id: string;
+  point: [number, number];
+  voisins: readonly string[];
+}
+
+/** Sous ce côté (px CSS), la zone est trop petite pour être vue : on vole vers elle. */
+const TAILLE_MIN_PX = 8;
+
+function melanger<T>(t: readonly T[], aleatoire: () => number): T[] {
+  const r = [...t];
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(aleatoire() * (i + 1));
+    [r[i], r[j]] = [r[j] as T, r[i] as T];
+  }
+  return r;
+}
+
+/**
+ * Les choix d'une question : la cible et 3 leurres, mélangés. Leurres : ses
+ * voisins jouables (3 tirés au hasard s'il y en a plus), complétés par les
+ * jouables les plus proches (geoDistance entre points d'étiquette, puis id)
+ * ; jamais la cible, jamais deux fois le même. Lève si moins de 4 jouables.
+ * Les voisins d'abord : confondre la Slovénie et la Croatie est l'erreur qui
+ * apprend quelque chose ; les plus proches donnent des leurres à une île
+ * sans voisin (Maurice) plutôt que des pays tirés au hasard à l'autre bout
+ * du monde. `jouables` = tout le terrain, pas la série : un voisin hors de
+ * la série reste un bon leurre ; un voisin non jouable (territoire) est sauté.
+ */
+export function choix(
+  cible: string,
+  lieux: ReadonlyMap<string, LieuQcm>,
+  jouables: ReadonlySet<string>,
+  aleatoire: () => number = Math.random,
+): string[] {
+  const lieu = lieux.get(cible);
+  if (!lieu) throw new Error(`choix : lieu inconnu ${cible}`);
+  const candidats = [...jouables].filter((id) => id !== cible && lieux.has(id));
+  if (candidats.length < NB_CHOIX - 1) throw new Error(`choix : ${candidats.length + 1} jouables, il en faut ${NB_CHOIX}`);
+  const voisins = [...new Set(lieu.voisins)].filter((id) => id !== cible && jouables.has(id) && lieux.has(id));
+  const leurres = melanger(voisins, aleatoire).slice(0, NB_CHOIX - 1);
+  if (leurres.length < NB_CHOIX - 1) {
+    const pris = new Set(leurres);
+    // Distance angulaire : le classement seul compte ; id en second pour un ordre stable.
+    const proches = candidats
+      .filter((id) => !pris.has(id))
+      .map((id) => ({ id, d: geoDistance(lieu.point, (lieux.get(id) as LieuQcm).point) }))
+      .sort((a, b) => a.d - b.d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    for (const p of proches.slice(0, NB_CHOIX - 1 - leurres.length)) leurres.push(p.id);
+  }
+  return melanger([cible, ...leurres], aleatoire);
+}
+
+/** Réponse donnée à une question. */
+interface Reponse {
+  id: string;
+  choisi: string;
+  temps_ms: number;
+}
+
+/**
+ * Partie de Nommer : un seul essai par question, le bilan compte les justes du premier coup.
+ * Un seul essai : avec quatre boutons, réessayer jusqu'au bon ferait toujours
+ * « juste » au bout du compte, le bilan ne dirait rien.
+ */
+export class PartieNommer {
+  private readonly cibles: readonly string[];
+  private readonly reponses: Reponse[] = [];
+
+  constructor(cibles: readonly string[]) {
+    this.cibles = [...cibles];
+  }
+
+  /** La question en cours ; undefined une fois la partie finie. */
+  get courante(): string | undefined {
+    return this.cibles[this.reponses.length];
+  }
+
+  /** Numéro de la question en cours, à partir de 1 (« 3 / 24 ») ; n + 1 une fois finie. */
+  get numero(): number {
+    return this.reponses.length + 1;
+  }
+
+  get finie(): boolean {
+    return this.reponses.length >= this.cibles.length;
+  }
+
+  /** Répond à la question en cours et passe à la suivante. Lève si la partie est finie. */
+  repondre(choisi: string, temps_ms: number): { juste: boolean } {
+    const id = this.courante;
+    if (id === undefined) throw new Error('PartieNommer : partie finie');
+    this.reponses.push({ id, choisi, temps_ms });
+    return { juste: choisi === id };
+  }
+
+  /**
+   * Justes sur questions répondues (une partie terminée avant la fin compte ce
+   * qui a été répondu, comme l'essai) ; temps médian des justes seules, comme
+   * le bilan de Toucher (une faute rapide n'est pas un temps à retenir) ; null
+   * sans juste. Fautes dans l'ordre de la partie.
+   */
+  bilan(): { justes: number; n: number; temps_median_ms: number | null; fautes: { id: string; choisi: string }[] } {
+    const justes = this.reponses.filter((r) => r.choisi === r.id);
+    const t = justes.map((r) => r.temps_ms).sort((a, b) => a - b);
+    const m = t.length / 2;
+    const temps_median_ms = t.length === 0 ? null : t.length % 2 ? (t[Math.floor(m)] as number) : ((t[m - 1] as number) + (t[m] as number)) / 2;
+    return {
+      justes: justes.length,
+      n: this.reponses.length,
+      temps_median_ms,
+      fautes: this.reponses.filter((r) => r.choisi !== r.id).map(({ id, choisi }) => ({ id, choisi })),
+    };
+  }
+}
+
+/**
+ * La zone doit-elle être amenée à l'écran : hors de la partie visible (au-dessus de la barre) ou plus petite que 8 px.
+ * p : son point à l'écran (px CSS relatifs à la carte, `carte.ecran`), null
+ * s'il n'est pas projetable ; l × hVisible : la carte jusqu'au haut de la
+ * barre de Nommer. Les bords comptent comme visibles.
+ */
+export function doitCadrer(p: [number, number] | null, taille_px: number, l: number, hVisible: number): boolean {
+  if (!p) return true;
+  const [x, y] = p;
+  if (!(x >= 0 && x <= l && y >= 0 && y <= hVisible)) return true;
+  return taille_px < TAILLE_MIN_PX;
+}
