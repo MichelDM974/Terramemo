@@ -95,6 +95,11 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 .pays.choisi, .pastille.choisi { fill: var(--accent); }
 .pays.juste, .pastille.juste { fill: var(--good); }
 .pays.faux, .pastille.faux { fill: var(--danger); }
+/* Le faux se distingue du juste autrement que par la teinte : en deutéranopie, le
+   vert et le rouge deviennent deux kakis (contraste 1,15). Un contour clair épais
+   (3 px : la moitié extérieure peut passer sous une voisine tracée après). Rendus
+   SVG (g, css : l'île toujours) ; le Canvas garde la teinte seule. */
+.pays.faux, .pastille.faux { stroke: var(--text); stroke-width: 3px; }
 .hachure { stroke: none; pointer-events: none; }
 .hachure-trait { stroke: var(--hachure); stroke-width: 1.2; }
 .pastille {
@@ -151,6 +156,9 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 .nommer-choix { min-height: 48px; min-width: 0; padding: 6px 8px; font-size: 0.92rem; line-height: 1.2; white-space: normal; }
 .nommer-choix.juste, .nommer-choix.juste:disabled { background: var(--good-soft); border-color: var(--good); color: var(--good); font-weight: 600; }
 .nommer-choix.faux, .nommer-choix.faux:disabled { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); font-weight: 600; }
+/* Un signe en plus de la couleur (daltonisme : vert et rouge se confondent). */
+.nommer-choix.juste::before { content: "✓\00a0"; }
+.nommer-choix.faux::before { content: "✗\00a0"; }
 
 /* Exercice du départ de Toucher (Localiser / Nommer), sous le titre. */
 .essai-mode { margin: 6px 0 8px; }
