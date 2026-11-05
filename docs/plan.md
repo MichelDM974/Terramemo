@@ -5,6 +5,9 @@ données, technique, synthèse des agents, critique adverse) et des réponses
 de l'utilisateur le même jour. Ce plan fait foi là où les études divergent ;
 les décisions vivantes sont au registre de cdc (`terramemo`).
 
+Mis à jour le 06/11/2026 (décision « Contenu ») : le J1c (La Réunion) passe
+avant le J1a ; conception `docs/etudes/2026-11-06-reunion.md`.
+
 ## Choix de l'utilisateur (04/11/2026)
 
 | Sujet | Choix |
@@ -124,9 +127,9 @@ les décisions vivantes sont au registre de cdc (`terramemo`).
 | # | Contenu | Critère de fin | Taille |
 |---|---|---|---|
 | J0 Risques | Script de données (pays, pastilles) ; carte dans Chrome sur le téléphone puis dans un APK Capacitor ; zoom, déplacement, micro-États, Pacifique ; saisie avec Gboard ; projet Firebase créé | Sur le téléphone : aucune saccade visible au déplacement, rendu < 1 s, toucher → réponse < 100 ms ; sinon décision écrite (Canvas, simplification au dézoom) | S |
+| J1c La Réunion | **Avant le J1a** (décision « Contenu » du 06/11, #15). Les 24 communes (IGN ADMIN EXPRESS COG CARTO, Licence Ouverte 2.0, source et date affichées sur la carte de l'île), série « La Réunion » de Toucher et du Chrono (classement propre, compte dans le général, barème 500 × e^(−d/5 km)) ; Nommer (zone allumée, 4 noms, un seul essai) pour toutes les séries, pays compris ; la répétition espacée leur viendra avec le J1a. **Fait le 06/11** (branche `reunion`) : données et tests, carte de l'île, Toucher, Nommer, Chrono, règles, pilote ; reste l'essai sur le téléphone (Chrome puis APK) | 24 communes jouables au doigt, site et APK ; données vérifiées par test en CI | S |
 | J1a MVP pays | Localiser et nommer (QCM d'apprentissage puis rappel au toucher) ; FSRS ; séances ; rétroaction et distance ; carte colorée ; journal local + Auth anonyme et Firestore ; App Check (l'épreuve Chrono et ses classements sont en ligne depuis le 04/11, avant le J1a) ; site déployé, APK (release privée), écran Crédits | 195 pays jouables au doigt ; CI au vert ; une semaine d'usage sans blocage | L |
 | J1b Comptes et saisie | Saisie libre tolérante + tests de collision ; connexion Google (site et APK) et compte e-mail et mot de passe (#13) ; suppression du compte ; politique de confidentialité ; export JSON | Deux appareils, l'un hors ligne, au même état après reconnexion | M |
-| J1c La Réunion | Les 24 communes de La Réunion (IGN Admin Express, Licence Ouverte, source et date affichées) ; localiser et nommer avec le moteur du J1a, sur une carte de l'île ; dès le J1a fini, sans attendre le J1b (choix du 04/11, #15) | 24 communes jouables au doigt, site et APK ; données vérifiées par test en CI | S |
 | J2 Capitales et drapeaux | Capitales (deux sens, multiples) ; drapeaux ; leurres par confusions ; test de placement ; justesse des prévisions ; objectif quotidien ; notification optionnelle | Capitales et drapeaux vérifiés par test ; écart prévu/réel mesurable dès 300 réponses | M |
 | J3 Play Store | Fiche, formulaire de données, test fermé 14 j, AAB en CI ; anglais possible | Appli en production | M |
 | J4 Culture large I | Voisins ; placer une ville (note par distance) ; ordres de grandeur (curseur logarithmique) ; silhouettes (sans rien de quotidien ni de flèche de direction) | Chaque exercice : générateur testé + fiches | M |

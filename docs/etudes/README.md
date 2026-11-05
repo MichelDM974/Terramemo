@@ -14,5 +14,12 @@ Faites avant toute ligne de code, par un workflow de cinq agents :
   par la distance, chiffré sur la carte) et classement sur Firebase
   (proposition, à trancher, ticket #14).
 
+Conception, faite seule (06/11/2026) :
+
+- `2026-11-06-reunion.md` : quiz des communes de La Réunion (J1c, avancé
+  avant le J1a) et Nommer : données de l'IGN, carte de l'île, bascule de
+  terrain, séries, QCM à 4 choix, Chrono de l'île, crédits, unités
+  d'implémentation et vérifications (ticket #15).
+
 Le plan arrêté, qui tient compte des réponses de l'utilisateur et de la
 critique, est `../plan.md` : il fait foi là où ces études divergent.

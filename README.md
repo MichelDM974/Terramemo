@@ -24,6 +24,11 @@ l'oublier, jusqu'à tenir des mois.
 - Des **épreuves chronométrées** (tous les pays d'un continent, points
   selon la justesse et la distance) et un classement de tous les joueurs ;
   les séances de révision, courtes, s'arrêtent quand on veut.
+- Deux exercices pour chaque série : **Localiser** (toucher la zone nommée)
+  et **Nommer** (la zone s'allume, choisir son nom parmi quatre, ses
+  voisines en leurres).
+- **La Réunion** : ses 24 communes sur une carte de l'île, en série de
+  Toucher et du Chrono (avec son classement).
 
 ## Approche technique
 
@@ -58,9 +63,15 @@ npm run build        # site statique dans dist/ (servi par Firebase Hosting)
   régénère `public/geo/` ; deux lancements donnent des fichiers identiques
   octet pour octet. La liste des pays (193 membres de l'ONU, Vatican,
   Palestine, et un paquet optionnel) est dans `geodata/liste.json`.
+- **Communes de La Réunion** : `npm run geodata:reunion` régénère
+  `public/geo/reunion/` depuis l'archive de l'IGN (empreinte dans
+  `geodata/reunion.lock.json`, archive gardée dans `geodata/raw/ign/`).
 - **APK de débogage** : `npm run build && npx cap sync android`, puis
   `./gradlew assembleDebug` dans `android/` avec `JAVA_HOME` sur un JDK 21 ;
   la CI le construit aussi à la demande (workflow « Android »).
 - **Crédits** : frontières Natural Earth (domaine public), noms Unicode
-  CLDR (Unicode License v3), police Inter (SIL OFL 1.1) ; le détail des
-  sources est dans `public/geo/sources.json`.
+  CLDR (Unicode License v3), police Inter (SIL OFL 1.1), communes de La
+  Réunion : IGN, ADMIN EXPRESS COG CARTO (Licence Ouverte 2.0 d'Etalab :
+  source et date de mise à jour affichées sur la carte de l'île) ; le
+  détail des sources est dans `public/geo/sources.json` et
+  `public/geo/reunion/sources.json`.
