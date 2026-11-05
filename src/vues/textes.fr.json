@@ -107,7 +107,7 @@
     }
   },
   "credits": {
-    "reglages": "Fond de carte : Natural Earth ; noms : Unicode CLDR ; communes de La Réunion : IGN, ADMIN EXPRESS (Licence Ouverte 2.0).",
-    "carte": "IGN, ADMIN EXPRESS, à jour au {date} · Licence Ouverte 2.0"
+    "reglages": "Fond de carte : Natural Earth ; noms : Unicode CLDR ; communes de La Réunion : IGN, ADMIN EXPRESS (Licence Ouverte 2.0).",
+    "carte": "IGN, ADMIN EXPRESS, à jour au {date} · Licence Ouverte 2.0"
   }
 }

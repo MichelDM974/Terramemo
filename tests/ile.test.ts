@@ -307,12 +307,18 @@ describe('crédits et textes', () => {
 
   it('mention sur la carte : source, date et licence, une ligne courte', () => {
     const m = remplir(textes.credits.carte, { date: '30/06/2026' });
-    expect(m).toBe('IGN, ADMIN EXPRESS, à jour au 30/06/2026 · Licence Ouverte 2.0');
+    expect(m).toBe('IGN, ADMIN\u00a0EXPRESS, à jour au\u00a030/06/2026\u00a0· Licence\u00a0Ouverte\u00a02.0');
     // ~353 px en Inter à 0,7rem (11,2 px) : tient à 384 px moins 2 × 8 px.
     // Au-delà de 62 caractères, à remesurer (fontTools sur InterVariable.woff2).
     expect(m.length).toBeLessThanOrEqual(62);
     expect(textes.credits.reglages).toContain('Natural Earth');
     expect(textes.credits.reglages).toContain('IGN');
+    // Insécables : jamais « : IGN » en début de ligne ni « Licence » / « Ouverte 2.0 » coupés.
+    for (const t of [textes.credits.carte, textes.credits.reglages]) {
+      expect(t).not.toMatch(/ [:;]/);
+      expect(t).toContain('Licence\u00a0Ouverte\u00a02.0');
+      expect(t).toContain('ADMIN\u00a0EXPRESS');
+    }
   });
 
   it('bloc terrains : monde et reunion ont les mêmes clés, sauf serie, detail, libelle', () => {
