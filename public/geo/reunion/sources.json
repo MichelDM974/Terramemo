@@ -1,0 +1,38 @@
+{
+  "sources": [
+    {
+      "nom": "IGN, ADMIN EXPRESS COG CARTO 4.0, communes de La Réunion (territoire REU)",
+      "url": "https://data.geopf.fr/telechargement/resource/ADMIN-EXPRESS-COG-CARTO",
+      "version": "2026-01-01",
+      "edition": "2026-01-01",
+      "mise_a_jour": "2026-06-30",
+      "concedant": "IGN (Institut national de l’information géographique et forestière)",
+      "licence": "Licence Ouverte 2.0 (Etalab) : mention de la source (IGN) et de la date de dernière mise à jour",
+      "telecharge_le": "2026-11-06",
+      "fichiers": [
+        {
+          "url": "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG-CARTO/ADMIN-EXPRESS-COG-CARTO_4-0__GPKG_RGR92UTM40S_REU_2026-01-01/ADMIN-EXPRESS-COG-CARTO_4-0__GPKG_RGR92UTM40S_REU_2026-01-01.7z",
+          "sha256": "224472eb1bfaf318a6d88eee2b911b64a79ed61f1fd3b3d32a7324520a0ec6c8"
+        }
+      ]
+    }
+  ],
+  "traitement": {
+    "outil": "mapshaper 0.6.110",
+    "lecture": "GeoPackage lu par node:sqlite (table commune, code_insee, nom_officiel), WKB décodé par geodata/outils.mjs",
+    "projection": "EPSG:2975 (RGR92 / UTM 40S) → WGS84 par mapshaper -proj, contrôlée sur chaque sommet par la série de Krüger (écart toléré 10 mm) et par le chef-lieu de chaque commune",
+    "simplification": "-simplify visvalingam interval=40 keep-shapes, un seul calque (frontières en arcs partagés) ; aucun polygone perdu",
+    "quantification": 100000,
+    "noms": "nom_officiel de l’IGN, apostrophe droite remplacée par l’apostrophe typographique",
+    "superficies": "aire de la géométrie IGN de fait, pas la superficie officielle : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée. superficie_cadastrale (en hectares) n’est pas reprise : elle s’écarte du tracé (Entre-Deux 66,8 km² cadastraux contre 51,6 tracés, Le Tampon 165,4 contre 181,7)",
+    "poids_gzip_octets": {
+      "communes.topo.json": 13289,
+      "communes.json": 1114,
+      "noms.fr.json": 299
+    },
+    "entrees": {
+      "geodata/reunion.mjs": "596b8b88bddfd9a3c81890a21d65c5b2d8b6d1068223b7b0836ee5cd805ec83f",
+      "geodata/outils.mjs": "dd815bdcf4edafa5ca4b5c4bae3925084339c264b396c52cc8d48241c90d4117"
+    }
+  }
+}
