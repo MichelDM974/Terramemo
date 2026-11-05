@@ -4,9 +4,12 @@ MESURE, sur le PC (chromium local) et sur le téléphone (Chrome ou l'APK, par
 adb). Python stdlib seule ; à lancer depuis Terramemo/ :
 
     serve [--preview] [--lan]   Vite sur le port 8060 (au premier plan)
-    smoke                       page, fichiers /geo/*.json, carte peinte,
-                                shaders du rendu webgl compilés
-    ui [--width 384]            captures des vues (téléphone ou PC)
+    smoke                       page, fichiers /geo/*.json et /geo/reunion/,
+                                rien de l'île au premier affichage, carte
+                                peinte, shaders du rendu webgl compilés
+    ui [--width 384] [--rendu r]
+                                captures des vues (téléphone ou PC), île
+                                de La Réunion et Nommer compris
     mesurer --cible local|chrome|webview [--rendu css|g|canvas|webgl]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
@@ -26,6 +29,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import select
 import socket
 import statistics
@@ -47,6 +51,9 @@ ADB = pathlib.Path.home() / "Android/Sdk/platform-tools/adb"
 JAVA_HOME = "/usr/lib/jvm/java-21-openjdk-amd64"
 APK = RACINE / "android/app/build/outputs/apk/debug/app-debug.apk"
 FICHIERS_GEO = ("monde.topo.json", "pays.json", "contestees.json", "noms.fr.json", "sources.json")
+# La Réunion (#15) : chargée au choix de la série seulement, jamais au premier
+# affichage (décision « Hébergement ») ; smoke vérifie l'un et l'autre.
+FICHIERS_GEO_REUNION = ("communes.topo.json", "communes.json", "noms.fr.json", "sources.json")
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
 TELEPHONE = {"largeur": 384, "hauteur": 832, "dpr": 2.8125}
@@ -768,7 +775,7 @@ def commande_smoke(args):
     verifier("page", code == 200 and b"<title>Terramemo</title>" in corps, f"-> {code}")
     mode = "développement" if serveur_de_dev(base) else "build (preview ou hébergé)"
     dire(f"  serveur : {mode}")
-    for nom in FICHIERS_GEO:
+    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION):
         code, _, corps = http(base + "geo/" + nom)
         try:
             json.loads(corps)
@@ -787,6 +794,8 @@ def commande_smoke(args):
             n = p.js("[document.querySelectorAll('path.pays').length, document.querySelectorAll('circle.pastille').length,"
                      " window.terramemo.version, document.querySelector('#carte').dataset.rendu]")
             verifier("tracés des pays", n[0] > 150, f"{n[0]} path.pays, {n[1]} pastilles visibles, version {n[2]}, rendu {n[3]}")
+            ile = p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/reunion/'))")
+            verifier("rien de l'île au premier affichage", not ile, ", ".join(ile) or "aucune ressource /geo/reunion/ après pret et repos")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
         # Rendu webgl : les shaders compilés et liés par le vrai navigateur (les tests
@@ -823,13 +832,168 @@ def position(page, ident):
     }})()""")
 
 
+def visible(page, selecteur):
+    return page.js(f"(() => {{ const e = document.querySelector({json.dumps(selecteur)}); return !!e && !e.hidden; }})()")
+
+
+def attendre_visible(page, selecteur, delai_s=15):
+    fin = time.monotonic() + delai_s
+    while not visible(page, selecteur):
+        if time.monotonic() > fin:
+            raise RuntimeError(f"{selecteur} pas affiché en {delai_s} s")
+        page.pause(100)
+
+
+def cliquer(page, selecteur):
+    if not page.js(f"(() => {{ const e = document.querySelector({json.dumps(selecteur)}); if (!e) return false; e.click(); return true; }})()"):
+        raise RuntimeError(f"rien à cliquer : {selecteur}")
+
+
+def texte(page, selecteur):
+    return page.js(f"(document.querySelector({json.dumps(selecteur)}) || {{}}).innerText || ''")
+
+
+def depart_toucher(page):
+    """Le départ de Toucher, la partie en cours (Localiser ou Nommer) terminée."""
+    page.js('location.hash = "#toucher"')
+    page.pause(300)
+    for barre, bouton in (("#barre-essai", "#essai-terminer"), ("#barre-nommer", "#nommer-terminer")):
+        if visible(page, barre):
+            cliquer(page, bouton)
+            page.pause(200)
+    if visible(page, "#essai-bilan"):
+        cliquer(page, "#essai-recommencer")
+        page.pause(200)
+    attendre_visible(page, "#essai-depart")
+
+
+def cadre_ile(page, barre):
+    """L'île à l'écran (union des communes) et le haut de la barre, en px CSS."""
+    return page.js(f"""(() => {{
+        const rs = [...document.querySelectorAll('#carte-ile path.pays')].map(e => e.getBoundingClientRect());
+        const b = document.querySelector({json.dumps(barre)}).getBoundingClientRect();
+        const c = document.querySelector('#carte-ile .carte-credit');
+        const cr = c && c.getBoundingClientRect();
+        const lh = c && parseFloat(getComputedStyle(c).lineHeight);
+        return {{ x0: Math.min(...rs.map(r => r.left)), x1: Math.max(...rs.map(r => r.right)),
+                 y0: Math.min(...rs.map(r => r.top)), y1: Math.max(...rs.map(r => r.bottom)),
+                 n: rs.length, largeur: innerWidth, barre: b.top,
+                 credit: c ? c.textContent : null, credit_h: cr ? cr.height : 0, credit_lh: lh || 0,
+                 credit_x0: cr ? cr.left : 0, credit_bas: cr ? cr.bottom : 0 }};
+    }})()""")
+
+
+def ui_reunion(p, capturer, defauts):
+    """Captures 10 à 14 (#15) : La Réunion en Localiser (juste puis faux),
+    Nommer dans le monde et sur l'île, Chrono de l'île ; puis le mode
+    Localiser remis et le monde vérifié inchangé. Ajoute à `defauts` ce qui
+    est faux (l'île coupée, la mention sur deux lignes, un code INSEE à
+    l'écran…)."""
+    textes_lus = []
+
+    def lire(nom, selecteur):
+        t = texte(p, selecteur)
+        textes_lus.append(t)
+        dire(f"  {nom} : {t!r}")
+        return t
+
+    depart_toucher(p)
+    avant = p.js("performance.getEntriesByType('resource').filter(r => r.name.includes('/geo/reunion/')).length")
+    if avant:
+        defauts.append(f"{avant} ressource(s) /geo/reunion/ avant le choix de l'île")
+    if p.js("localStorage.getItem('terramemo.toucher.mode')") not in (None, "localiser"):
+        cliquer(p, '#essai-mode [data-mode="localiser"]')
+    cliquer(p, '#essai-depart .essai-serie[data-serie="reunion"]')
+    attendre_visible(p, "#barre-essai")
+    if p.js("window.terramemo.terrain()") != "reunion":
+        defauts.append("Toucher → La Réunion : terrain() n'est pas reunion")
+    lire("La Réunion, consigne", "#barre-essai .essai-consigne")
+    c = cadre_ile(p, "#barre-essai")
+    dire(f"  île : x {c['x0']:.0f}–{c['x1']:.0f} sur {c['largeur']}, y {c['y0']:.0f}–{c['y1']:.0f}, "
+         f"barre à y {c['barre']:.0f}, {c['n']} communes ; mention : {c['credit']!r} "
+         f"({c['credit_h']:.0f} px de haut, ligne {c['credit_lh']:.0f} px, bas à y {c['credit_bas']:.0f})")
+    if c["n"] != 24:
+        defauts.append(f"{c['n']} communes tracées au lieu de 24")
+    if c["x0"] < 0 or c["x1"] > c["largeur"] or c["y0"] < 0:
+        defauts.append("l'île sort de l'écran")
+    if c["y1"] > c["barre"]:
+        defauts.append(f"le sud de l'île ({c['y1']:.0f}) passe sous la barre ({c['barre']:.0f})")
+    if not c["credit"] or "IGN" not in c["credit"]:
+        defauts.append("mention de l'IGN absente de la carte de l'île")
+    elif c["credit_bas"] > c["y0"]:
+        defauts.append("mention de l'IGN sur l'île")
+    elif c["largeur"] >= TELEPHONE["largeur"] and c["credit_h"] > 1.5 * c["credit_lh"]:
+        defauts.append("mention de l'IGN sur deux lignes à la largeur du téléphone")
+    capturer("10-reunion")
+    # Saint-Denis demandé (« Passer » jusqu'à lui), Saint-Paul touché.
+    for _ in range(24):
+        if p.js('document.querySelector("#barre-essai .essai-consigne").dataset.cible') == "97411":
+            break
+        cliquer(p, "#essai-passer")
+        p.pause(50)
+    pt = p.js('window.terramemo.ile.ecran("97415")')
+    p.toucher(pt["x"], pt["y"])
+    p.pause(300)
+    lire("La Réunion, faux (Saint-Paul pour Saint-Denis)", "#barre-essai .essai-retro")
+    capturer("11-reunion-faux")
+    # Nommer, l'Europe : la zone allumée, quatre boutons.
+    depart_toucher(p)
+    cliquer(p, '#essai-mode [data-mode="nommer"]')
+    cliquer(p, '#essai-depart .essai-serie[data-serie="Europe"]')
+    attendre_visible(p, "#barre-nommer")
+    p.pause(1200)  # le vol éventuel jusqu'à la zone
+    lire("Nommer, Europe", "#barre-nommer")
+    capturer("12-nommer-monde")
+    # Nommer sur l'île : un mauvais choix, rouge et vert.
+    depart_toucher(p)
+    cliquer(p, '#essai-depart .essai-serie[data-serie="reunion"]')
+    attendre_visible(p, "#barre-nommer")
+    p.pause(300)
+    cible = p.js('document.querySelector("#barre-nommer .essai-consigne").dataset.cible')
+    faux = p.js(f'[...document.querySelectorAll(".nommer-choix")].map(b => b.dataset.id).find(i => i !== "{cible}")')
+    cliquer(p, f'.nommer-choix[data-id="{faux}"]')
+    p.pause(200)
+    lire("Nommer, La Réunion, faux", "#barre-nommer")
+    marques = p.js("[...document.querySelectorAll('.nommer-choix')].map(b => b.className.replace('secondary nommer-choix', '').trim())")
+    dire(f"  boutons après le choix : {marques}")
+    if sorted(m for m in marques if m) != ["faux", "juste"]:
+        defauts.append(f"Nommer : boutons après un mauvais choix {marques} (attendu un faux et un juste)")
+    capturer("13-nommer-reunion-retro")
+    depart_toucher(p)
+    cliquer(p, '#essai-mode [data-mode="localiser"]')
+    # Chrono de l'île : la première question et la jauge.
+    p.js('location.hash = "#chrono"')
+    p.pause(300)
+    cliquer(p, '#chrono-depart .essai-serie[data-serie="reunion"]')
+    attendre_visible(p, "#barre-chrono")
+    p.pause(600)
+    lire("Chrono, La Réunion", "#barre-chrono")
+    capturer("14-chrono-reunion")
+    cliquer(p, "#chrono-abandonner")
+    p.pause(200)
+    # Le monde au retour : l'onglet Carte, la Suisse au toucher.
+    p.js('location.hash = "#carte"')
+    p.pause(300)
+    monde = p.js("""(() => { const c = window.terramemo.carte, e = c.ecran("CHE"), r = e && c.pick(e.x, e.y);
+        return [window.terramemo.terrain(), r && r.id]; })()""")
+    dire(f"  retour sur la Carte : terrain {monde[0]}, pick sur la Suisse {monde[1]}")
+    if monde != ["monde", "CHE"]:
+        defauts.append(f"le monde a changé au retour : {monde}")
+    codes = [t for t in textes_lus if re.search(r"\b974\d\d\b", t)]
+    if codes:
+        defauts.append(f"code INSEE à l'écran : {codes}")
+
+
 def commande_ui(args):
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     telephone = args.width < 700
     ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
     base = args.url.rstrip("/") + "/"
+    # --rendu : la carte du monde dans ce rendu (l'île est toujours en SVG).
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
     faites = []
+    defauts = []
     with Session("local") as s:
         p = s.page
         p.emuler(ecran, tactile=telephone)
@@ -840,7 +1004,7 @@ def commande_ui(args):
             p.capture(chemin)
             faites.append(chemin)
 
-        p.goto(base + "?mesures=0#carte")
+        p.goto(base + "?mesures=0" + rendu + "#carte")
         p.attendre_carte()
         capturer("1-carte")
         p.js('window.terramemo.carte.zoomerSur("CHE")')
@@ -904,12 +1068,15 @@ def commande_ui(args):
             p.toucher(pt["x"], pt["y"])
         dire(f"  Chrono, bilan : {p.js('document.getElementById(\"chrono-bilan\").innerText')!r}")
         capturer("9-chrono-bilan")
+        ui_reunion(p, capturer, defauts)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
     dire(f"  {len(faites)} captures ({ecran['largeur']}×{ecran['hauteur']}, DPR {ecran['dpr']}) dans {out} — "
          "à regarder : carte vide, pays non marqué ou texte coupé = échec")
-    return 1 if erreurs else 0
+    return 1 if erreurs or defauts else 0
 
 
 # --- mesurer -----------------------------------------------------------
@@ -1718,7 +1885,7 @@ def main():
     s.add_argument("--preview", action="store_true", help="construit puis sert le build (vite preview)")
     s.add_argument("--sortie", default="/tmp/terramemo-preview", help="dossier du build de --preview (pas dist/)")
 
-    s = sub.add_parser("smoke", help="page, /geo/*.json et carte peinte")
+    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île au premier affichage, carte peinte")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--budget", type=int, default=60, help="secondes au plus pour que la carte se peigne")
 
@@ -1726,6 +1893,8 @@ def main():
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
     s.add_argument("--out", default="/tmp/terramemo-captures")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"),
+                   help="rendu de la carte du monde (?rendu=, webgl avec logiciel=1) ; défaut : celui de la page")
 
     s = sub.add_parser("mesurer", help="gestes et touchers rejoués, rapport JSON")
     s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")
