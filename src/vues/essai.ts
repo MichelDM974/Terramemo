@@ -135,8 +135,6 @@ export function vueEssai(ctx: ContexteVue): Vue {
   let serie: Serie = toutes.find((s) => s.id === lireSerie()) ?? (toutes[0] as Serie);
   /** Le terrain de la partie : sa carte reçoit marques et notes, ses données donnent les noms. */
   let t: Terrain = ctx.terrains.monde;
-  /** Change à chaque départ ou sortie : un chargement d'île arrivé après ne lance rien. */
-  let jeton = 0;
   let cibles: string[] = [];
   let i = 0;
   let essais = 0;
@@ -187,7 +185,6 @@ export function vueEssai(ctx: ContexteVue): Vue {
     enAttente = 0;
     resEnAttente = null;
     cibles = [];
-    jeton++;
     nommer.arreter();
     barre.hidden = true;
     bilan.hidden = true;
@@ -197,6 +194,13 @@ export function vueEssai(ctx: ContexteVue): Vue {
     for (const b of boutons) {
       if (b.dataset.serie === serie.id) b.setAttribute('aria-current', 'true');
       else b.removeAttribute('aria-current');
+    }
+    // Le statut d'un chargement fini (échec hors ligne compris) ne survit pas au
+    // retour : l'île a pu se charger depuis (Chrono). Un chargement en cours (boutons
+    // grisés par avecTerrain) garde le sien : sa partie partira à l'arrivée.
+    if (!boutons.some((b) => b.disabled)) {
+      statut.textContent = '';
+      statut.hidden = true;
     }
     depart.hidden = false;
   }
@@ -217,13 +221,15 @@ export function vueEssai(ctx: ContexteVue): Vue {
   }
 
   // Le monde part tout de suite ; l'île au premier choix se charge d'abord
-  // (boutons désactivés, statut), et rien ne part si l'on a quitté le départ.
+  // (boutons désactivés, statut). À l'arrivée, la partie part si le départ est
+  // affiché, y compris après un aller-retour vers une autre vue (le départ
+  // annonçait « Chargement… ») ; hors de la vue, rien ne part. Aucune autre
+  // série ne peut être choisie pendant ce temps : tous les boutons sont grisés.
   for (const b of boutons)
     b.addEventListener('click', () => {
       const s = toutes.find((x) => x.id === b.dataset.serie);
       if (!s) return;
-      const j = ++jeton;
-      avecTerrain(ctx, s, { boutons, statut, encore: () => j === jeton && !depart.hidden }, (terrain, ids) => demarrer(s, terrain, ids));
+      avecTerrain(ctx, s, { boutons, statut, encore: () => !depart.hidden }, (terrain, ids) => demarrer(s, terrain, ids));
     });
 
   function finir(): void {
@@ -307,7 +313,6 @@ export function vueEssai(ctx: ContexteVue): Vue {
       }
     },
     desactiver() {
-      jeton++;
       validerEnAttente();
       nommer.quitter();
       barre.hidden = true;
