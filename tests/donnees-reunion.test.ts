@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { geoArea, geoContains } from 'd3-geo';
 import type { Feature, Geometry, MultiPolygon, Polygon, Position } from 'geojson';
-import { feature, merge } from 'topojson-client';
+import { feature, merge, neighbors } from 'topojson-client';
 import type { GeometryCollection, MultiPolygon as TopoMulti, Polygon as TopoPoly, Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import { normaliser } from '../src/texte';
@@ -184,6 +184,106 @@ describe('géométries (communes.topo.json)', () => {
     }
   });
 
+  it('chefs-lieux de l’IGN reprojetés : chacun dans sa commune et dans aucune autre, les 24', () => {
+    // Contrôle de la reprojection et de la correspondance code ↔ géométrie (pas
+    // indépendant de la source : ce sont les mairies de la table chef_lieu_de_commune,
+    // reprojetées à part par la formule de Snyder). Deux communes dont on échangerait
+    // les géométries (Saint-André / Sainte-Suzanne, Saint-Leu / Les Trois-Bassins),
+    // hors des repères ci-dessus, sont prises ici. Le plus proche du bord en est à
+    // ~90 m (Saint-Leu), plus que l'écart de la simplification (40 m).
+    const chefs: [string, [number, number]][] = [
+      ['97401', [55.3334, -21.2419]],
+      ['97402', [55.6762, -20.9952]],
+      ['97403', [55.4703, -21.2488]],
+      ['97404', [55.3669, -21.266]],
+      ['97405', [55.566, -21.3558]],
+      ['97406', [55.6258, -21.135]],
+      ['97407', [55.2903, -20.9353]],
+      ['97408', [55.3359, -20.9265]],
+      ['97409', [55.6505, -20.9604]],
+      ['97410', [55.7126, -21.034]],
+      ['97411', [55.4478, -20.8794]],
+      ['97412', [55.6193, -21.3786]],
+      ['97413', [55.2869, -21.1662]],
+      ['97414', [55.4092, -21.2866]],
+      ['97415', [55.2696, -21.0097]],
+      ['97416', [55.4778, -21.3418]],
+      ['97417', [55.7677, -21.3594]],
+      ['97418', [55.5493, -20.8969]],
+      ['97419', [55.7933, -21.1276]],
+      ['97420', [55.6075, -20.9056]],
+      ['97421', [55.5391, -21.0276]],
+      ['97422', [55.5153, -21.2782]],
+      ['97423', [55.2949, -21.1058]],
+      ['97424', [55.471, -21.1353]],
+    ];
+    expect(chefs.map(([id]) => id)).toEqual(communes.map((c) => c.id));
+    for (const [id, p] of chefs) {
+      expect(geoContains(forme(id), p), `${NOMS[id]} dans ${id}`).toBe(true);
+      for (const autre of communes) if (autre.id !== id) expect(geoContains(forme(autre.id), p), `${NOMS[id]} hors de ${autre.id}`).toBe(false);
+    }
+  });
+
+  it('points d’étiquette figés (pôle d’inaccessibilité du plus grand polygone source, à 1e-4° près)', () => {
+    // Le point centre montrer(), sert de cible proche (pick.ts) et départage les leurres
+    // de repli du QCM : un point décalé de 500 m resterait dans sa commune sans ce relevé.
+    const attendus: [string, [number, number]][] = [
+      ['97401', [55.34168, -21.23896]],
+      ['97402', [55.58837, -21.03576]],
+      ['97403', [55.48626, -21.21513]],
+      ['97404', [55.37294, -21.25504]],
+      ['97405', [55.56514, -21.34913]],
+      ['97406', [55.64788, -21.14053]],
+      ['97407', [55.30279, -20.94346]],
+      ['97408', [55.36175, -20.94651]],
+      ['97409', [55.6631, -20.95775]],
+      ['97410', [55.68652, -21.0728]],
+      ['97411', [55.4493, -20.92846]],
+      ['97412', [55.64233, -21.33456]],
+      ['97413', [55.33058, -21.15895]],
+      ['97414', [55.42466, -21.22667]],
+      ['97415', [55.32692, -21.03428]],
+      ['97416', [55.47812, -21.30954]],
+      ['97417', [55.74742, -21.30132]],
+      ['97418', [55.53176, -20.9512]],
+      ['97419', [55.76596, -21.2015]],
+      ['97420', [55.60444, -20.93467]],
+      ['97421', [55.50007, -21.04569]],
+      ['97422', [55.55289, -21.24907]],
+      ['97423', [55.28035, -21.11767]],
+      ['97424', [55.45762, -21.14738]],
+    ];
+    expect(attendus.map(([id]) => id)).toEqual(communes.map((c) => c.id));
+    for (const [id, [x, y]] of attendus) {
+      const p = parId.get(id)?.point ?? [NaN, NaN];
+      expect(Math.abs(p[0] - x), id).toBeLessThanOrEqual(1e-4);
+      expect(Math.abs(p[1] - y), id).toBeLessThanOrEqual(1e-4);
+    }
+  });
+
+  it('bbox : l’emprise de la forme, à l’arrondi et à l’écart de la simplification près', () => {
+    // bbox vient de la géométrie source, arrondie à 1e-4° (~11 m) ; la forme simplifiée
+    // (Douglas-Peucker, sommets source) s'en écarte de 40 m au plus vers l'intérieur.
+    // Elle sert de préfiltre à pick et contient (geo.ts) : réduite, un toucher juste y
+    // serait compté faux ; étendue, elle ne filtrerait plus rien.
+    for (const c of communes) {
+      let [o, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
+      for (const p of polys(forme(c.id).geometry))
+        for (const [x = 0, y = 0] of p[0] ?? []) {
+          o = Math.min(o, x);
+          e = Math.max(e, x);
+          s = Math.min(s, y);
+          n = Math.max(n, y);
+        }
+      // Écart positif : la bbox déborde de la forme (vers l'extérieur).
+      const ecarts = [o - c.bbox[0], s - c.bbox[1], c.bbox[2] - e, c.bbox[3] - n];
+      for (const d of ecarts) {
+        expect(d, c.id).toBeGreaterThanOrEqual(-1e-4);
+        expect(d, c.id).toBeLessThanOrEqual(5e-4);
+      }
+    }
+  });
+
   it('îlots : Petite-Île (l’îlet, 0,02 km²) et Saint-Paul (0,008 km²) gardés à la simplification', () => {
     // Deux parties dans la source ; keep-shapes ne protège que le plus grand anneau, mais
     // à 40 m (Douglas-Peucker) ils survivent, réduits à quelques sommets. Trop petits pour une cible
@@ -246,6 +346,18 @@ describe('voisins', () => {
     }
   });
 
+  it('égaux au recalcul par neighbors() sur la topologie, 50 paires', () => {
+    // Nommer tire ses leurres des voisines (décision « Nommer ») : un voisinage retiré
+    // des deux côtés passerait le test de symétrie.
+    const geoms = topo.objects.communes.geometries;
+    const ids = geoms.map((g) => (g.properties as Props | undefined)?.id ?? '');
+    expect(ids).toEqual(communes.map((c) => c.id));
+    const n = neighbors(geoms as Parameters<typeof neighbors>[0]);
+    n.forEach((js, i) => expect(js.map((j) => ids[j]).sort(), ids[i]).toEqual(voisins(ids[i] ?? '')));
+    // Relevé sur la géométrie source (COG CARTO comme COG complet) : 50 paires partagent un segment.
+    expect(communes.reduce((s, c) => s + c.voisins.length, 0) / 2).toBe(50);
+  });
+
   it('voisins connus', () => {
     expect(voisins('97407')).toEqual(['97408', '97415']); // Le Port : La Possession, Saint-Paul
     expect(voisins('97411')).toEqual(['97408', '97418', '97421']); // Saint-Denis : La Possession, Sainte-Marie, Salazie
@@ -285,6 +397,10 @@ describe('sources', () => {
     // La Licence Ouverte 2.0 demande la source et la date de dernière mise à jour.
     for (const d of [s.edition, s.mise_a_jour, s.telecharge_le]) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(s.version).toBe(s.edition);
+    // Dates relues dans les métadonnées ISO de l'archive (creation, editionDate) : la CI
+    // ne relance pas le script, et la carte affiche mise_a_jour (Licence Ouverte).
+    expect(s.edition).toBe('2026-01-01');
+    expect(s.mise_a_jour).toBe('2026-06-30');
     expect(s.mise_a_jour >= s.edition).toBe(true);
     expect(s.telecharge_le >= s.mise_a_jour).toBe(true);
     for (const f of s.fichiers) {
