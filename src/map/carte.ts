@@ -344,9 +344,14 @@ export class Carte implements CarteAffichee {
     const { l, h } = this.taille;
     const vue = (v: Transfo): [number, number, number] => [(l / 2 - v.x) / v.k, (h / 2 - v.y) / v.k, Math.max(l, h) / v.k];
     const duree = interpolateZoom(vue(this.t), vue(t)).duration;
+    // Pendant le vol, les disques du zoom de départ ne sont pas recalculés (fin()) :
+    // ils couvriraient l'Europe d'un départ au zoom 1. Cachés jusqu'à l'arrivée
+    // (ou au geste qui interrompt le vol). Posé au début de la transition, après
+    // l'interruption d'un vol précédent, dont la fin retire la classe.
     select(this.hote)
       .transition()
       .duration(Math.min(DUREE_MONTRER_MS.max, Math.max(DUREE_MONTRER_MS.min, duree)))
+      .on('start', () => this.hote.classList.add('en-vol'))
       .call(this.comportement.transform, zoomIdentity.translate(t.x, t.y).scale(t.k));
   }
 
@@ -444,6 +449,7 @@ export class Carte implements CarteAffichee {
       this.majPastilles();
       this.majHachures(this.t.k);
     }
+    this.hote.classList.remove('en-vol');
     const script_ms = performance.now() - t0;
     if (this.parUtilisateur) {
       this.o.gestes?.fin?.({

@@ -108,6 +108,8 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
   stroke-width: 1px;
   vector-effect: non-scaling-stroke;
 }
+/* Vol de montrer() : les disques, calculés au zoom de départ, attendent l'arrivée (carte.ts). */
+.en-vol .couche-pastilles { visibility: hidden; }
 .anneau {
   fill: none;
   stroke-width: 2px;
