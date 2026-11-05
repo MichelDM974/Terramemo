@@ -9,7 +9,7 @@ import { assemblerTerrain, dateCredit, type SourcesTerrain } from '../src/map/do
 import { calculerPastilles, tailleEcranPx } from '../src/map/pastilles';
 import { noter, pick, type ContexteCarte } from '../src/map/pick';
 import { creerProjection, garderVue } from '../src/map/projection';
-import { cadreLocal, MARGES, projectionLocale, REUNION } from '../src/map/terrain';
+import { cadreLocal, margeHaute, MARGES, projectionLocale, REUNION } from '../src/map/terrain';
 import { fabriqueTraces } from '../src/map/traces';
 import type { Entite, Lieu, Transfo } from '../src/map/types';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran, viser } from '../src/map/geo';
@@ -78,7 +78,7 @@ describe('projection de l’île', () => {
     [320, 560],
   ])('%i × %i : l’emprise tient dans le cadre moins les marges, centrée, et le remplit dans un sens', (l, h) => {
     const [[x0, y0], [x1, y1]] = geoPath(projectionLocale(l, h, emprise)).bounds(emprise);
-    const cadre = { x0: MARGES.cotes, y0: MARGES.haut, x1: l - MARGES.cotes, y1: h - Math.max(MARGES.basMin, MARGES.basPart * h) };
+    const cadre = { x0: MARGES.cotes, y0: margeHaute(l), x1: l - MARGES.cotes, y1: h - Math.max(MARGES.basMin, MARGES.basPart * h) };
     expect(x0).toBeGreaterThanOrEqual(cadre.x0 - 0.5);
     expect(x1).toBeLessThanOrEqual(cadre.x1 + 0.5);
     expect(y0).toBeGreaterThanOrEqual(cadre.y0 - 0.5);
@@ -89,17 +89,20 @@ describe('projection de l’île', () => {
     expect(remplit).toBe(true);
   });
 
+  // Hôtes de la carte (écran moins l'en-tête de ~109 px) : Galaxy A37, puis
+  // 375 × 667, 360 × 640 et 320 × 560 d'écran.
   it.each([
     [384, 723],
-    [375, 667],
-    [360, 640],
-    [320, 560],
-  ])('%i × %i : le sud de l’île reste au-dessus de la barre de Nommer (~211 px + 8)', (l, h) => {
+    [375, 558],
+    [360, 531],
+    [320, 451],
+  ])('hôte %i × %i : l’île sous la mention de la source et au-dessus de la barre de Nommer (~211 px + 8)', (l, h) => {
     const BARRE_NOMMER = 219;
-    const [[x0], [x1, y1]] = geoPath(projectionLocale(l, h, emprise)).bounds(emprise);
+    // Bas de la mention : 6 px + 14,6 px par ligne (0,7rem × 1,3).
+    const CREDIT = l < MARGES.creditUneLigneDes ? 6 + 2 * 14.6 : 6 + 14.6;
+    const [[, y0], [, y1]] = geoPath(projectionLocale(l, h, emprise)).bounds(emprise);
+    expect(y0).toBeGreaterThanOrEqual(CREDIT + 4);
     expect(y1).toBeLessThanOrEqual(h - BARRE_NOMMER);
-    // Toujours par la largeur : la marge basse remonte l'île sans la rétrécir.
-    expect(x1 - x0).toBeCloseTo(l - 2 * MARGES.cotes, 0);
   });
 
   it('384 × 723 : l’île tient par la largeur, ~5,6 px/km, ~320 px de haut', () => {
@@ -139,6 +142,8 @@ describe('tailles au zoom 1 : pas de pastilles', () => {
   it.each([
     [384, 723],
     [320, 560],
+    [375, 558],
+    [360, 531],
   ])('%i × %i : chaque commune fait au moins 15 px (Le Port ~21)', (l, h) => {
     const p = projectionLocale(l, h, emprise);
     const tailles = ile.entites.map((e) => [e.pays.id, tailleEcranPx(e.pays, p.scale(), 1)] as const);

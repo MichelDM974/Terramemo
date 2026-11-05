@@ -64,8 +64,9 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
   font-size: 0.7rem;
   line-height: 1.3;
   color: var(--muted);
-  /* Sur deux lignes sous ~370 px plutôt que coupée : la source et la date
-     sont ce que demande la Licence Ouverte (l'île garde 28 px au-dessus). */
+  /* Sur deux lignes sous ~380 px plutôt que coupée : la source et la date
+     sont ce que demande la Licence Ouverte (l'île garde 28 px au-dessus, 42
+     sur deux lignes : margeHaute, src/map/terrain.ts). */
   text-align: right;
   pointer-events: none;
 }

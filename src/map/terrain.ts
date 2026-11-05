@@ -34,14 +34,20 @@ export const REUNION: DefTerrain = {
 
 /**
  * Marges du cadre (px) : en haut la mention de la source (div.carte-credit,
- * une ligne de 0,7rem) ; en bas la barre des vues, Toucher ~120 px, Chrono
+ * une ligne de 0,7rem, deux sous ~380 px de large : hautDeuxLignes sous
+ * creditUneLigneDes, sinon l'île, remontée par basMin, passait dessous) ; en bas la barre des vues, Toucher ~120 px, Chrono
  * ~130, Nommer ~211 plus ses 8 px d'écart au bas de l'écran : basMin la
  * couvre à toute hauteur (sous ~750 px, 30 % n'y suffisent plus : à 375 × 667
  * le sud de l'île passait sous la barre et Nommer volait vers Petite-Île).
  * Le sud (Saint-Pierre, Saint-Joseph, Saint-Philippe) reste au-dessus ; sur
  * un petit écran l'île, qui tient par la largeur, remonte sans rétrécir.
  */
-export const MARGES = { haut: 28, cotes: 12, basMin: 225, basPart: 0.3 } as const;
+export const MARGES = { haut: 28, hautDeuxLignes: 42, creditUneLigneDes: 380, cotes: 12, basMin: 225, basPart: 0.3 } as const;
+
+/** Marge haute d'une carte de l px de large : la mention de la source y tient sur une ou deux lignes. */
+export function margeHaute(l: number): number {
+  return l < MARGES.creditUneLigneDes ? MARGES.hautDeuxLignes : MARGES.haut;
+}
 
 /**
  * Mercator ajustée à l'emprise, dans le cadre moins les marges. Conforme ; sur
@@ -52,7 +58,7 @@ export const MARGES = { haut: 28, cotes: 12, basMin: 225, basPart: 0.3 } as cons
  */
 export function projectionLocale(l: number, h: number, emprise: GeoPermissibleObjects): GeoProjection {
   const x0 = MARGES.cotes;
-  const y0 = MARGES.haut;
+  const y0 = margeHaute(l);
   // Bornes d'un cadre minuscule (copie à 1 × 1 de fabriqueTraces, hôte sans taille) : jamais négatives.
   const x1 = Math.max(x0 + 1, l - MARGES.cotes);
   const y1 = Math.max(y0 + 1, h - Math.max(MARGES.basMin, MARGES.basPart * h));
