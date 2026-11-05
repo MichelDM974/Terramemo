@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { enregistrer, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, totalGeneral, VERSION_BAREME } from '../src/epreuve/chrono';
+import { ECHELLES_KM } from '../src/epreuve/bareme';
 import type { Pays } from '../src/map/types';
 import { SERIE_TOUS, series } from '../src/vues/cibles';
 import { seriesChrono } from '../src/vues/chrono';
@@ -44,6 +45,17 @@ describe('PartieChrono', () => {
     expect(p.score()).toEqual({ points: 1178, justes: 1, questions: 3, temps_ms: 3000 + 5000 + D });
   });
 
+  it('à l’échelle du terrain : l’île à 5 km, le monde par défaut', () => {
+    const ile = new PartieChrono(['97411', '97416'], D, ECHELLES_KM.reunion);
+    expect(ile.echelle_km).toBe(5);
+    expect(ile.repondre('97415', false, 1, 3000).points).toBe(409);
+    expect(ile.repondre('97407', false, 10, 4000).points).toBe(68);
+    expect(ile.score()).toEqual({ points: 477, justes: 0, questions: 2, temps_ms: 7000 });
+    const monde = new PartieChrono(['LVA'], D);
+    expect(monde.echelle_km).toBe(300);
+    expect(monde.repondre('LTU', false, 106, 3000).points).toBe(351);
+  });
+
   it('un toucher juste arrivé après le délai ne compte pas', () => {
     const p = new PartieChrono(['FRA'], D);
     expect(p.repondre('FRA', true, 0, D + 50).points).toBe(0);
@@ -71,6 +83,10 @@ describe('records sur l’appareil', () => {
     enregistrer(s, idEpreuve('Africa'), score(50_000, 1), 1);
     enregistrer(s, e, score(10_000, 1), 1);
     expect([...lireRecords(s).keys()].sort()).toEqual([idEpreuve('Africa'), e].sort());
+  });
+
+  it('l’île a son épreuve, celle des règles Firestore', () => {
+    expect(idEpreuve('reunion')).toBe('chrono:localiser:reunion');
   });
 
   it('stockage absent, plein, illisible ou d’un autre barème : rien ne casse', () => {

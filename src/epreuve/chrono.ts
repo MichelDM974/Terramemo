@@ -1,7 +1,7 @@
-// Partie de Chrono (pur) : les pays d'une série, une question à la fois, un
+// Partie de Chrono (pur) : les lieux d'une série (pays ou communes), une question à la fois, un
 // seul toucher, des points au barème (bareme.ts). Les records se gardent sur
 // l'appareil (de toujours et de la semaine) ; classement.ts les publie.
-import { comparerScores, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
+import { comparerScores, ECHELLE_KM, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
 
 /** Version du barème : un changement de formule repart de records vides. */
 export const VERSION_BAREME = 1;
@@ -17,10 +17,14 @@ export class PartieChrono {
   private i = 0;
   readonly jouees: QuestionJouee[] = [];
 
-  /** `cibles` dans l'ordre où les poser (la vue les mélange). */
+  /**
+   * `cibles` dans l'ordre où les poser (la vue les mélange) ; `echelle_km`,
+   * celle du terrain de la série (bareme.ts, ECHELLES_KM), le monde par défaut.
+   */
   constructor(
     readonly cibles: readonly string[],
     readonly delai_ms: number,
+    readonly echelle_km: number = ECHELLE_KM,
   ) {}
 
   get courante(): string | undefined {
@@ -42,7 +46,7 @@ export class PartieChrono {
   private jouer(q: Omit<QuestionJouee, 'id' | 'points'>): QuestionJouee {
     const id = this.courante;
     if (id === undefined) throw new Error('partie finie');
-    const jouee = { id, ...q, points: pointsQuestion(q, this.delai_ms) };
+    const jouee = { id, ...q, points: pointsQuestion(q, this.delai_ms, this.echelle_km) };
     this.jouees.push(jouee);
     this.i++;
     return jouee;
@@ -59,7 +63,7 @@ export class PartieChrono {
   }
 
   score(): ScoreEpreuve {
-    return scoreEpreuve(this.jouees, this.delai_ms);
+    return scoreEpreuve(this.jouees, this.delai_ms, this.echelle_km);
   }
 }
 
@@ -71,7 +75,7 @@ export interface RecordChrono extends ScoreEpreuve {
   bareme: number;
 }
 
-/** Identifiant d'une épreuve : mode, exercice, série (un continent, ou 'tous'). */
+/** Identifiant d'une épreuve : mode, exercice, série (un continent, 'tous' ou 'reunion' : `chrono:localiser:reunion`). */
 export const idEpreuve = (serie: string): string => `chrono:localiser:${serie}`;
 
 const CLE_RECORDS = 'terramemo.chrono.records';

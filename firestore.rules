@@ -10,7 +10,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Nombre de questions de chaque épreuve (src/vues/cibles.ts : 195 pays
-    // jouables, répartis en six continents).
+    // jouables, répartis en six continents ; les 24 communes de La Réunion,
+    // public/geo/reunion/communes.json).
     function tailles() {
       return {
         'chrono:localiser:Africa': 54,
@@ -19,14 +20,16 @@ service cloud.firestore {
         'chrono:localiser:North America': 23,
         'chrono:localiser:Oceania': 14,
         'chrono:localiser:South America': 12,
-        'chrono:localiser:tous': 195
+        'chrono:localiser:tous': 195,
+        'chrono:localiser:reunion': 24
       };
     }
 
-    // Le général additionne les records de toutes les épreuves : 390 questions au plus.
+    // Le général additionne les records de toutes les épreuves : 414 questions
+    // au plus (195 pays deux fois, par continent et tous, + 24 communes).
     function questionsValides(epreuve, n) {
       return epreuve == 'general'
-        ? n >= 1 && n <= 390
+        ? n >= 1 && n <= 414
         : epreuve in tailles() && n == tailles()[epreuve];
     }
 
