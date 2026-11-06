@@ -20,10 +20,14 @@ describe('icône', () => {
       for (const f of ['ic_launcher.png', 'ic_launcher_round.png']) expect(statSync(`${RES}/mipmap-${d}/${f}`).size, `${d}/${f}`).toBeGreaterThan(500);
   });
 
-  it('le site : l’icône en favicon et en logo de l’en-tête, sous 12 Ko', () => {
+  it('le site : l’icône en favicon et en logo de l’en-tête, par Vite (adresse à empreinte), sous 12 Ko', () => {
     const html = readFileSync('index.html', 'utf8');
-    expect(html).toContain('href="/favicon.svg"');
-    expect(html).toMatch(/<img class="logo" src="\/favicon\.svg"/);
-    expect(statSync('public/favicon.svg').size).toBeLessThan(12 * 1024);
+    expect(html).toContain('<link rel="icon" type="image/svg+xml" href="/src/icone.svg"');
+    expect(html).toMatch(/<img class="logo" src="\/src\/icone\.svg"/);
+    // Dans public/, elle garderait la même adresse et resterait en cache (vu le 06/11).
+    expect(existsSync('public/favicon.svg')).toBe(false);
+    // Plus de 4 Ko : Vite en fait un fichier, pas une data: URL recopiée dans la page.
+    expect(statSync('src/icone.svg').size).toBeGreaterThan(4096);
+    expect(statSync('src/icone.svg').size).toBeLessThan(12 * 1024);
   });
 });

@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#080809" />
   <title>Terramemo</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <!-- L'icône passe par Vite (src/icone.svg → /assets/icone-<empreinte>.svg) : une
+       nouvelle icône a une nouvelle adresse, que les navigateurs ne servent pas de leur cache. -->
+  <link rel="icon" type="image/svg+xml" href="/src/icone.svg" />
   <link rel="preload" href="/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
   <!-- Données de la carte : téléchargées pendant le chargement du script (lues par fetch dans src/map/donnees.ts). -->
   <link rel="preload" href="/geo/monde.topo.json" as="fetch" crossorigin />
@@ -16,7 +18,7 @@
 <body>
   <header>
     <div class="header-title">
-      <h1><a href="#carte" title="La carte"><img class="logo" src="/favicon.svg" width="40" height="40" alt=""><span class="titre-nom">Terramemo</span></a></h1>
+      <h1><a href="#carte" title="La carte"><img class="logo" src="/src/icone.svg" width="40" height="40" alt=""><span class="titre-nom">Terramemo</span></a></h1>
       <p class="tagline">La géographie du monde, au doigt.</p>
     </div>
     <!-- Recherche : branchée par src/vues/recherche.ts (liste des lieux, texte d'aide selon la largeur). -->
