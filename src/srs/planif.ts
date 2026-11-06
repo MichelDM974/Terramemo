@@ -78,6 +78,8 @@ export function grappesCommencees(etat: Etat, j: number, grappes: readonly Grapp
 }
 
 export interface Nouveautes {
+  /** Le domaine de la grappe (pays, communes). */
+  domaine: Domaine;
   grappe: Grappe;
   /** Entités jamais introduites de la grappe, dans son ordre (superficie décroissante). */
   ids: string[];
@@ -88,7 +90,7 @@ export interface Nouveautes {
 /** La grappe réduite à ses entités jamais introduites ; null si toutes le sont. */
 function reste(etat: Etat, g: Grappe, domaine: Domaine): Nouveautes | null {
   const ids = g.membres.filter((id) => !introduite(etat, domaine, id));
-  return ids.length ? { grappe: g, ids, fiches: ids.flatMap((id) => fichesDe(domaine, id)) } : null;
+  return ids.length ? { domaine, grappe: g, ids, fiches: ids.flatMap((id) => fichesDe(domaine, id)) } : null;
 }
 
 /**
@@ -118,6 +120,40 @@ export function grappeEntamee(etat: Etat, j: number, grappes: readonly Grappe[],
     if (r) return r;
   }
   return null;
+}
+
+/**
+ * Entités d'un domaine entrées dans la mémoire le jour j (fiche d'entrée,
+ * localiser, introduite ce jour-là) : seule une grappe en fait entrer, donc
+ * plus de 0 dit qu'une grappe de ce domaine a été commencée ce jour, même
+ * sans connaître ses grappes (l'île pas encore chargée).
+ */
+export function entreesDuJour(etat: Etat, j: number, domaine: Domaine): number {
+  let n = 0;
+  for (const e of etat.values()) {
+    const f = analyser(e.fiche);
+    if (f && f.domaine === domaine && f.sens === SENS_ENTREE && e.introduite_jour === j) n++;
+  }
+  return n;
+}
+
+/**
+ * Un autre domaine du même budget de nouveautés (décision « Apprendre et
+ * Révision du jour » : une grappe de lieux nouveaux par jour, tous domaines
+ * confondus ; défaut D6 pour les communes). `grappes` null : pas connues
+ * (l'île pas chargée) ; une entrée du jour y compte alors pour une grappe
+ * commencée, sans savoir si elle est finie.
+ */
+export interface AutreDomaine {
+  domaine: Domaine;
+  grappes: readonly Grappe[] | null;
+}
+
+export interface OptionsProgramme {
+  /** Les autres domaines du budget commun (une grappe par jour en tout). */
+  autres?: readonly AutreDomaine[];
+  /** Révisions déjà prises dans la même séance par un bloc précédent (les communes après les pays) : retirées des deux plafonds. */
+  prises?: number;
 }
 
 /**
@@ -176,7 +212,12 @@ export interface Programme {
  * sur une autre série la renvoie : 'grappe_entamee'). `grappes` donne
  * l'ordre des nouveautés (celles d'une série pour Apprendre) ; le compte des
  * grappes commencées se fait sur `toutes` (par défaut les mêmes), pour
- * qu'un Apprendre lancé depuis une série ne contourne pas le budget.
+ * qu'un Apprendre lancé depuis une série ne contourne pas le budget, et
+ * sur les `autres` domaines (o.autres : les communes pour les pays, et
+ * inversement) pour qu'Apprendre sous La Réunion ne le contourne pas non
+ * plus. Les révisions dues d'abord valent dans le domaine : celles des
+ * communes ne retiennent pas la grappe de pays (la Révision du jour, qui fait
+ * les deux, le vérifie elle-même : src/vues/seance.ts).
  */
 export function programme(
   etat: Etat,
@@ -184,25 +225,34 @@ export function programme(
   grappes: readonly Grappe[],
   domaine: Domaine,
   toutes: readonly Grappe[] = grappes,
+  o: OptionsProgramme = {},
 ): Programme {
   const d = dues(etat, j, domaine);
-  const permis = Math.min(REVISIONS_PAR_SEANCE, revisionsPermises(etat, j));
+  const prises = o.prises ?? 0;
+  const duJour = Math.max(0, revisionsPermises(etat, j) - prises);
+  const permis = Math.min(Math.max(0, REVISIONS_PAR_SEANCE - prises), duJour);
   const revisions = d.slice(0, permis);
   const restantes = d.length - revisions.length;
   const intro = introductions(etat, j, domaine);
   let sansNouveautes: SansNouveautes | null = null;
   let nouveautes: Nouveautes | null = null;
   let entamee: Nouveautes | null = null;
-  if (restantes > 0) sansNouveautes = permis === 0 ? 'plafond' : 'dues';
+  const autres = o.autres ?? [];
+  if (restantes > 0) sansNouveautes = duJour === 0 ? 'plafond' : 'dues';
   else {
     const g = grappeSuivante(etat, grappes, domaine);
-    const e = grappeEntamee(etat, j, toutes, domaine);
-    if (e && grappes.includes(e.grappe)) nouveautes = e;
+    // La grappe commencée ce jour et pas finie, dans ce domaine ou un autre du budget commun : elle passe avant.
+    let e = grappeEntamee(etat, j, toutes, domaine);
+    for (const a of autres) e ??= a.grappes ? grappeEntamee(etat, j, a.grappes, a.domaine) : null;
+    const commencees =
+      grappesCommencees(etat, j, toutes, domaine) +
+      autres.reduce((n, a) => n + (a.grappes ? grappesCommencees(etat, j, a.grappes, a.domaine) : entreesDuJour(etat, j, a.domaine) > 0 ? 1 : 0), 0);
+    if (e && e.domaine === domaine && grappes.includes(e.grappe)) nouveautes = e;
     else if (!g) sansNouveautes = 'tout_appris';
     else if (e) {
       sansNouveautes = 'grappe_entamee';
       entamee = e;
-    } else if (grappesCommencees(etat, j, toutes, domaine) < GRAPPES_PAR_JOUR) nouveautes = g;
+    } else if (commencees < GRAPPES_PAR_JOUR) nouveautes = g;
     else sansNouveautes = 'grappe_faite';
   }
   return { revisions, introductions: intro, restantes, nouveautes, sansNouveautes, entamee };

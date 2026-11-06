@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Pays } from '../src/map/types';
 import type { CarteFsrs } from '../src/srs/fsrs';
-import { grappesPays, type Grappe } from '../src/srs/grappes';
+import { grappesCommunes, grappesPays, type Grappe } from '../src/srs/grappes';
+import type { Lieu } from '../src/map/types';
 import type { Evenement } from '../src/srs/journal';
 import { AGAIN, GOOD, type Note } from '../src/srs/note';
 import {
   dues,
+  entreesDuJour,
+  memoireEntite,
   GRAPPES_PAR_JOUR,
   grappeSuivante,
   introductions,
@@ -208,5 +211,61 @@ describe('seaux de la carte de la mémoire', () => {
   it('sur un vrai rejeu : Again → seau 0, Good → 1, Easy → 3', () => {
     const m = etat([rep('pays:FRA:localiser', D0, AGAIN, 'rappel'), rep('pays:BEL:localiser', D0, GOOD, 'rappel'), rep('pays:DEU:localiser', D0, 4, 'rappel')]);
     expect(Object.fromEntries(seauxEntites(m, 'pays'))).toEqual({ FRA: 0, BEL: 1, DEU: 3 });
+  });
+});
+
+describe('budget commun aux pays et aux communes (décision « Apprendre et Révision du jour », D6)', () => {
+  const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
+  const communes = JSON.parse(readFileSync('public/geo/reunion/communes.json', 'utf8')) as Lieu[];
+  const gp = grappesPays(pays);
+  const gc = grappesCommunes(communes);
+  const c0 = gc[0]!;
+  const p0 = gp[0]!;
+  const autresP = [{ domaine: 'communes' as const, grappes: gc }];
+  const autresC = [{ domaine: 'pays' as const, grappes: gp }];
+
+  it('4 grappes de 6 communes ; une seule grappe de lieux nouveaux par jour, tous domaines confondus', () => {
+    expect(gc.map((g) => g.membres.length)).toEqual([6, 6, 6, 6]);
+    // Journal vide : chaque domaine a sa grappe à prendre.
+    expect(programme(new Map(), D0, gc, 'communes', gc, { autres: autresC }).nouveautes?.grappe).toBe(c0);
+    expect(programme(new Map(), D0, gp, 'pays', gp, { autres: autresP }).nouveautes?.domaine).toBe('pays');
+    // Une grappe de communes faite ce jour : pas de grappe de pays (et inversement), même grappes de l'île inconnues.
+    const communesFaites = etat(c0.membres.map((id) => rep(`communes:${id}:localiser`, D0, GOOD, 'rappel')));
+    expect(entreesDuJour(communesFaites, D0, 'communes')).toBe(6);
+    expect(programme(communesFaites, D0, gp, 'pays', gp, { autres: autresP }).sansNouveautes).toBe('grappe_faite');
+    expect(programme(communesFaites, D0, gp, 'pays', gp, { autres: [{ domaine: 'communes', grappes: null }] }).sansNouveautes).toBe('grappe_faite');
+    // Sans les autres domaines (lot 5a), chacun le sien : le contournement que le budget commun ferme.
+    expect(programme(communesFaites, D0, gp, 'pays').nouveautes?.grappe).toBe(p0);
+    const paysFaits = etat(p0.membres.map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel')));
+    expect(programme(paysFaits, D0, gc, 'communes', gc, { autres: autresC }).sansNouveautes).toBe('grappe_faite');
+    // Le lendemain, la suivante de chaque domaine.
+    expect(programme(paysFaits, D0 + 1, gc, 'communes', gc, { autres: autresC }).nouveautes?.grappe).toBe(c0);
+  });
+
+  it('une grappe entamée dans l’autre domaine passe avant : refus « grappe_entamee » avec son domaine ; sans ses grappes, « grappe_faite »', () => {
+    const entamee = etat(c0.membres.slice(0, 2).map((id) => rep(`communes:${id}:localiser`, D0, GOOD, 'rappel')));
+    const p = programme(entamee, D0, gp, 'pays', gp, { autres: autresP });
+    expect(p.sansNouveautes).toBe('grappe_entamee');
+    expect(p.entamee?.domaine).toBe('communes');
+    expect(p.entamee?.ids).toEqual(c0.membres.slice(2));
+    expect(programme(entamee, D0, gp, 'pays', gp, { autres: [{ domaine: 'communes', grappes: null }] }).sansNouveautes).toBe('grappe_faite');
+    // Dans son domaine, elle se reprend.
+    expect(programme(entamee, D0, gc, 'communes', gc, { autres: autresC }).nouveautes?.ids).toEqual(c0.membres.slice(2));
+  });
+
+  it('prises : les révisions d’un bloc précédent de la séance retirées des plafonds (séance, jour)', () => {
+    const m = etat(c0.membres.map((id) => rep(`communes:${id}:localiser`, D0, AGAIN, 'rappel')));
+    expect(programme(m, D0 + 1, gc, 'communes', gc, { prises: 0 }).revisions.length).toBe(6);
+    const p = programme(m, D0 + 1, gc, 'communes', gc, { prises: REVISIONS_PAR_SEANCE - 2 });
+    expect(p.revisions.length).toBe(2);
+    expect([p.restantes, p.sansNouveautes]).toEqual([4, 'dues']);
+    expect(programme(m, D0 + 1, gc, 'communes', gc, { prises: REVISIONS_PAR_JOUR }).sansNouveautes).toBe('plafond');
+  });
+
+  it('memoireEntite : notes des deux sens, plus proche échéance ; null jamais vu', () => {
+    const m = etat([rep('pays:FRA:localiser', D0, GOOD, 'rappel'), rep('pays:FRA:nommer', D0 + 1, AGAIN, 'rappel')]);
+    expect(memoireEntite(m, 'pays', 'FRA', D0 + 1)).toEqual({ vu: 2, dans: 1 });
+    expect(memoireEntite(m, 'pays', 'ESP', D0 + 1)).toBeNull();
+    expect(memoireEntite(m, 'communes', 'FRA', D0 + 1)).toBeNull();
   });
 });
