@@ -496,6 +496,14 @@ table vide en première vague (code mort, conflits avec 5a).
 
 ## 12. Décisions en attente de l'utilisateur
 
+**Tranchées le 06/11** (registre : « Apprendre et Révision du jour »,
+« Sens "quel est ce pays ?" », « Zones contestées et enclaves », « Cadrage et
+disques en séance ») : D2 a, D1 c (carte retournée), Q1 B et Q2 B (épreuves
+à partir du lundi 09/11, D13 a), Q4 B (cadrage de la grappe, étendu au
+premier QCM), Q5 2 000 km², Q3 A (mesurer d'abord). Codées dans les lots
+5a, 4 et 5b ; D3 à D7 et D11 gardent leur défaut. Restent ouvertes : D8,
+D9, D14, D15 (synchro, clé de l'APK) et D12 (lot 7).
+
 Rangées par ce qu'elles bloquent. Chaque réponse se note au registre ; une
 réponse qui contredit une décision actée la **remplace** (`noter_decision`,
 `remplace`). Q1 à Q7 : faits chiffrés dans `../questions-j1a.md`.
