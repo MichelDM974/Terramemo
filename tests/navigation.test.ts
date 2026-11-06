@@ -71,6 +71,7 @@ function monter() {
     marquer() {},
     anneau() {},
     zoomer() {},
+    cadrer() {},
     montrer() {},
     noter: (id: string) => ({ pick: { id }, juste: true, distance_km: 0 }),
     projection: { scale: () => 1 },
@@ -107,7 +108,27 @@ function monter() {
   let nav!: Navigation<VueNavigable>;
   const versJouer = (cible: string, message?: string) => nav.versJouer(cible, message);
   const chrono = vueChrono(ctx as never, { versJouer });
-  const toucher = vueEssai(ctx as never, { versJouer });
+  // La Révision du jour : une séance d'une question de Trouver (la France), son bilan avec « Carte ».
+  let finie = false;
+  const seances = {
+    ouvrir: () => {
+      finie = false;
+      return {
+        question: () => (finie ? null : { id: 'FRA', forme: 'trouver' as const, cadrer: 'monde' as const, connu: false }),
+        compte: () => '1 / 1',
+        repondre: () => ((finie = true), 'Revient dans 3 j'),
+        connu: () => undefined,
+        terminer: () => void (finie = true),
+        bilan: (el: HTMLElement, a: { carte(): void }) => {
+          const b = new El('button');
+          b.id = 'seance-carte';
+          b.addEventListener('click', a.carte);
+          (el as unknown as El).replaceChildren(b);
+        },
+      };
+    },
+  };
+  const toucher = vueEssai(ctx as never, { versJouer, seances, versCarte: () => nav.remonter('carte') });
   const vues = new Map<string, VueNavigable>([
     ['carte', carteVue],
     ['jouer', jouer],
@@ -169,13 +190,18 @@ function monter() {
     nav.ouvrirPartie('toucher');
     toucher.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'localiser' }, s, monde as never, s.ids.slice(0, 2));
   };
+  /** Comme main.ts : la Révision du jour s'ouvre comme une partie, sans adresse dans l'arbre. */
+  const lancerRevision = () => {
+    nav.ouvrirPartie('toucher');
+    toucher.reviser();
+  };
   /** La carte, puis Jouer par l'en-tête, puis l'arbre au doigt jusqu'à ces segments. */
   const descendre = (...segs: string[]) => {
     lien('carte');
     lien('jouer');
     for (let k = 1; k <= segs.length; k++) faire(() => nav.pousser(['jouer', ...segs.slice(0, k)].join('/')));
   };
-  return { h, nav, zone, jouer, carteVue, classement, ici, lien, retourNavigateur, faire, lancerChrono, lancerToucher, descendre };
+  return { h, nav, zone, jouer, carteVue, classement, ici, lien, retourNavigateur, faire, lancerChrono, lancerToucher, lancerRevision, descendre };
 }
 
 beforeEach(() => {
@@ -298,5 +324,38 @@ describe('navigation : les parties et le « × » de Jouer', () => {
     expect(m.h.gos).toEqual([-1]);
     expect(m.ici()).toBe(EXERCICES_AMS);
     expect(m.jouer.statut).toBe(textes.chrono.abandon);
+  });
+});
+
+describe('navigation : la Révision du jour, ouverte comme une partie', () => {
+  it('pas d’adresse dans l’arbre : #toucher ; le retour arrière revient à Entraînement ; « × » de Jouer la reprend', () => {
+    const m = monter();
+    m.descendre('entrainement');
+    m.lancerRevision();
+    expect(m.ici()).toBe('toucher');
+    expect(m.zone.querySelector('#barre-essai')?.hidden).toBe(false);
+    // Jouer par l'en-tête en pleine séance, puis « × » : la séance reprend.
+    m.lien('jouer');
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('toucher');
+    expect(m.zone.querySelector('#barre-essai')?.hidden).toBe(false);
+    // « × » a remonté l'historique jusqu'à la séance : le retour arrière revient à Entraînement.
+    m.retourNavigateur();
+    expect(m.ici()).toBe('jouer/entrainement');
+  });
+
+  it('le bilan, « Carte » : l’accueil, en remontant l’historique ; #toucher ensuite mène à Jouer', () => {
+    const m = monter();
+    m.descendre('entrainement');
+    m.lancerRevision();
+    m.faire(() => m.zone.querySelector('#essai-terminer')?.click());
+    expect(m.zone.querySelector('#essai-bilan')?.hidden).toBe(false);
+    const n = m.h.entrees.length;
+    m.faire(() => m.zone.querySelector('#seance-carte')?.click());
+    expect(m.ici()).toBe('carte');
+    expect(m.carteVue.active).toBe(true);
+    expect(m.h.entrees.length).toBe(n);
+    m.lien('toucher');
+    expect(m.ici()).toBe('jouer');
   });
 });

@@ -44,9 +44,67 @@ export function cadrageNommer(
   return { vole: doitCadrer(ecran(lieu.point), taille, l, hVisible, emprise), taille };
 }
 
+/** Une réponse au QCM, dès qu'elle est donnée (journal : partie libre ou séance). */
+export interface ReponseNommer {
+  id: string;
+  choisi: string;
+  juste: boolean;
+  temps_ms: number;
+  /** Échelle de la carte au moment du choix. */
+  zoom: number;
+}
+
+/**
+ * Crochets d'une partie (journal du J1a) et mode piloté (une question de
+ * séance : src/vues/seance.ts) : avec surFin, la partie finie ne montre pas
+ * le bilan de Reconnaître, elle rend la main.
+ */
+export interface CrochetsNommer {
+  /** Chaque réponse ; une ligne rendue s'ajoute à la rétroaction. */
+  surReponse?(r: ReponseNommer): string | void;
+  /** Mode piloté : la partie finie (sa dernière rétroaction passée), à la place du bilan. */
+  surFin?(): void;
+  /** Le compte affiché (« 3 / 14 » de la séance), au lieu de celui de la partie. */
+  compte?(): string;
+  /** « Je connais déjà » proposé ; touché : la question est sautée sans réponse. */
+  connu?(): void;
+  /** « Terminer » : à la place du bilan de Reconnaître (celui de la séance). */
+  terminer?(): void;
+}
+
+/**
+ * Allume la zone d'une question (Reconnaître, carte retournée) : en accent,
+ * un anneau si elle est minuscule, et la carte vole jusqu'à elle (centrée
+ * au-dessus de la barre) si elle est hors de la partie visible, en partie
+ * sous la barre ou trop petite pour être vue. Sur l'île au zoom 1 rien ne
+ * bouge (toute l'île est au-dessus de la barre, chaque commune ≥ 15 px) ;
+ * zoomée par un geste ou un vol, elle y revient quand la zone n'est pas
+ * visible, plutôt que de voler encore : sinon un vol laissait toute la
+ * suite de la partie zoomée. Jugé sur l'arrivée d'un vol en cours
+ * (cadrageNommer) : s'il n'y a pas à voler, il continue jusqu'à elle ;
+ * sinon le nouveau vol part d'où il en est. Rend vrai si la zone est petite
+ * (anneau posé).
+ */
+export function allumerZone(carte: Terrain['carte'], id: string, lieu: Lieu | undefined, forme: Forme | undefined, barre: HTMLElement, local: boolean): boolean {
+  carte.effacerMarques();
+  carte.marquer(id, 'choisi');
+  const r = carte.hote.getBoundingClientRect();
+  const haut = barre.getBoundingClientRect().top - r.top;
+  const cadrer = () => (lieu ? cadrageNommer(carte, lieu, forme, r.width, haut) : { vole: true, taille: 0 });
+  let c = cadrer();
+  if (c.vole && local && carte.contexteFinal().t.k !== 1) {
+    carte.zoomer({ k: 1, x: 0, y: 0 });
+    c = cadrer();
+  }
+  const petite = c.taille < ANNEAU_SOUS_PX;
+  if (petite) carte.anneau(id, 'choisi');
+  if (c.vole) carte.montrer(id, haut);
+  return petite;
+}
+
 export interface Nommer {
-  /** Une partie sur ce terrain : cibles dans l'ordre donné (déjà mélangées). */
-  demarrer(t: Terrain, nomSerie: string, cibles: readonly string[]): void;
+  /** Une partie sur ce terrain : cibles dans l'ordre donné (déjà mélangées) ; crochets du journal ou du mode piloté. */
+  demarrer(t: Terrain, nomSerie: string, cibles: readonly string[], crochets?: CrochetsNommer): void;
   /** Une partie est en cours (pas encore au bilan). */
   readonly enCours: boolean;
   /** Retour dans la vue : le terrain remontré, la question en cours reposée. */
@@ -64,19 +122,22 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
   const boutons = Array.from({ length: NB_CHOIX }, () => creer('button', { type: 'button', class: 'secondary nommer-choix' }));
   const terminer = creer('button', { type: 'button', class: 'secondary', id: 'nommer-terminer' }, T.terminer);
+  const connu = creer('button', { type: 'button', class: 'secondary', id: 'nommer-connu' }, textes.seance.connais);
   const barre = creer(
     'div',
     { class: 'carte-barre essai', id: 'barre-nommer' },
     creer('div', { class: 'essai-ligne' }, consigne, compte),
     creer('div', { class: 'nommer-grille' }, ...boutons),
     retro,
-    creer('div', { class: 'essai-actions' }, terminer),
+    creer('div', { class: 'essai-actions' }, connu, terminer),
   );
   barre.hidden = true;
+  connu.hidden = true;
   ctx.zone.append(barre);
 
   let t: Terrain | null = null;
   let partie: PartieNommer | null = null;
+  let crochets: CrochetsNommer = {};
   let serie = '';
   let n = 0;
   let lieux = new Map<string, Lieu>();
@@ -95,30 +156,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     attente = 0;
   }
 
-  // La zone en accent, un anneau si elle est minuscule, et la carte vole
-  // jusqu'à elle (centrée au-dessus de la barre) si elle est hors de la
-  // partie visible, en partie sous la barre ou trop petite pour être vue.
-  // Sur l'île au zoom 1 rien ne bouge (toute l'île est au-dessus de la
-  // barre, chaque commune ≥ 15 px) ; zoomée par un geste ou un vol, elle y
-  // revient quand la zone n'est pas visible, plutôt que de voler encore :
-  // sinon un vol laissait toute la suite de la partie zoomée. Jugé sur
-  // l'arrivée d'un vol en cours (cadrageNommer) : s'il n'y a pas à voler, il
-  // continue jusqu'à elle ; sinon le nouveau vol part d'où il en est.
   function allumer(carte: Terrain['carte'], id: string, local: boolean): void {
-    carte.effacerMarques();
-    carte.marquer(id, 'choisi');
-    const lieu = lieux.get(id);
-    const r = carte.hote.getBoundingClientRect();
-    const haut = barre.getBoundingClientRect().top - r.top;
-    const cadrer = () => (lieu ? cadrageNommer(carte, lieu, formes.get(id), r.width, haut) : { vole: true, taille: 0 });
-    let c = cadrer();
-    if (c.vole && local && carte.contexteFinal().t.k !== 1) {
-      carte.zoomer({ k: 1, x: 0, y: 0 });
-      c = cadrer();
-    }
-    petite = c.taille < ANNEAU_SOUS_PX;
-    if (petite) carte.anneau(id, 'choisi');
-    if (c.vole) carte.montrer(id, haut);
+    petite = allumerZone(carte, id, lieux.get(id), formes.get(id), barre, local);
   }
 
   function poser(): void {
@@ -133,7 +172,9 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     const d = t.donnees;
     consigne.textContent = textes.terrains[t.nom].consigne_nommer;
     consigne.dataset.cible = id;
-    compte.textContent = `${partie.numero} / ${n}`;
+    compte.textContent = crochets.compte?.() ?? `${partie.numero} / ${n}`;
+    connu.hidden = !crochets.connu;
+    connu.disabled = false;
     retro.textContent = '';
     retro.className = 'essai-retro';
     boutons.forEach((b, k) => {
@@ -153,6 +194,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     const id = partie.courante as string;
     const temps_ms = performance.now() - debut;
     const { juste } = partie.repondre(choisi, temps_ms);
+    connu.disabled = true;
     for (const b of boutons) {
       b.disabled = true;
       if (b.dataset.id === id) b.classList.add('juste');
@@ -166,7 +208,9 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     if (!juste) carte.marquer(choisi, 'faux');
     retro.className = `essai-retro ${juste ? 'juste' : 'faux'}`;
     retro.textContent = juste ? remplir(T.nommer_juste, { temps: fmtS(temps_ms) }) : remplir(T.nommer_faux, { cible: nomDe(t.donnees, id) });
-    compte.textContent = `${partie.numero - 1} / ${n}`;
+    if (!crochets.compte) compte.textContent = `${partie.numero - 1} / ${n}`;
+    const ligne = crochets.surReponse?.({ id, choisi, juste, temps_ms, zoom: carte.transfo.k });
+    if (ligne) retro.append(creer('span', { class: 'seance-ligne' }, ` · ${ligne}`));
     attente = window.setTimeout(poser, juste ? PAUSE_JUSTE_MS : PAUSE_FAUX_MS);
   }
 
@@ -180,6 +224,11 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     barre.hidden = true;
     if (!partie || !t) return;
     t.carte.effacerMarques();
+    if (crochets.surFin) {
+      partie = null;
+      pour = undefined;
+      return crochets.surFin();
+    }
     const d = t.donnees;
     const b = partie.bilan();
     partie = null;
@@ -203,7 +252,15 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     o.bilan.hidden = false;
   }
 
-  terminer.addEventListener('click', finir);
+  terminer.addEventListener('click', () => (crochets.terminer ? crochets.terminer() : finir()));
+  connu.addEventListener('click', () => {
+    if (!partie || attente || partie.finie || !crochets.connu) return;
+    const c = crochets.connu;
+    quitter();
+    partie = null;
+    pour = undefined;
+    c();
+  });
 
   function quitter(): void {
     arreterAttente();
@@ -212,8 +269,9 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   }
 
   return {
-    demarrer(terrain, nomSerie, cibles) {
+    demarrer(terrain, nomSerie, cibles, c = {}) {
       t = terrain;
+      crochets = c;
       serie = nomSerie;
       n = cibles.length;
       // Les leurres viennent de tout le terrain, pas de la série (qcm.ts).

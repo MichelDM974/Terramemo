@@ -15,13 +15,17 @@ import { nomSerie, type Serie } from './cibles';
 import { nomMode } from './scores';
 import { remplir, textes } from './textes';
 
-/** Exercice d'une partie : Trouver (localiser), Reconnaître (nommer) ou une épreuve classée. Ids des records et du classement, inchangés. */
-export type ModeJeu = 'localiser' | 'nommer' | ModeEpreuve;
+/**
+ * Exercice d'une partie : Apprendre (une séance sur la grappe suivante de la
+ * série, J1a), Trouver (localiser), Reconnaître (nommer) ou une épreuve
+ * classée. Ids des records et du classement, inchangés.
+ */
+export type ModeJeu = 'apprendre' | 'localiser' | 'nommer' | ModeEpreuve;
 
 /** Le mode est une épreuve classée (la vue des épreuves, chrono.ts) ; sinon un exercice de Toucher. */
 export const estEpreuve = (m: ModeJeu): m is ModeEpreuve => (MODES_EPREUVE as readonly string[]).includes(m);
 
-/** Nom affiché d'un exercice : « Trouver », « Reconnaître », « Chrono », « Sans faute », « Minute ». */
+/** Nom affiché d'un exercice : « Apprendre », « Trouver », « Reconnaître », « Chrono », « Sans faute », « Minute ». */
 export const nomExercice = (m: ModeJeu): string => (estEpreuve(m) ? nomMode(m) : textes.toucher[m]);
 
 /** Les deux branches du premier écran (décision « Noms des modes ») : sans points, ou notée au classement. */
@@ -41,11 +45,17 @@ export interface DefSujet {
 
 /** Les exercices qui se jouent en touchant la carte : ceux des pays et des communes. */
 const SUR_LA_CARTE: DefSujet['modes'] = { entrainement: ['localiser', 'nommer'], classe: MODES_EPREUVE };
+/**
+ * Les pays apprennent en plus (décision « Apprendre et Révision du jour » :
+ * Apprendre, exercice de chaque série, sa grappe suivante) ; les communes au
+ * lot 5b, avec leurs grappes.
+ */
+const PAYS: DefSujet['modes'] = { entrainement: ['apprendre', ...SUR_LA_CARTE.entrainement], classe: MODES_EPREUVE };
 const duTerrain = (t: NomTerrain) => (c: readonly Serie[]) => c.filter((s) => s.terrain === t);
 
 /** Les sujets, dans l'ordre affiché. Aucun sujet « à venir » factice : un sujet existe quand il se joue. */
 export const SUJETS: readonly DefSujet[] = [
-  { id: 'pays', series: duTerrain('monde'), modes: SUR_LA_CARTE },
+  { id: 'pays', series: duTerrain('monde'), modes: PAYS },
   { id: 'communes', series: duTerrain('reunion'), modes: SUR_LA_CARTE },
 ];
 

@@ -6,12 +6,22 @@
 // relance (« Recommencer ») ou ramène aux séries de Jouer (« Autre série ») ;
 // la vue atteinte sans partie (adresse tapée, retour arrière) renvoie à Jouer
 // (redirection(), main.ts).
+//
+// J1a (#2) : chaque question finie part au journal (parties libres, D11 :
+// crochet `libre`) ; Apprendre et la Révision du jour sont des séances
+// (src/vues/seance.ts) qui pilotent cette vue question par question
+// (PiloteSeance) : Trouver ici, le QCM par Nommer, la carte retournée par
+// retournee.ts, le bilan de la séance à la place de celui de la partie. Une
+// séance quittée reprend sa question au retour, comme une partie.
+import type { Emprise } from '../map/geo';
+import type { Via } from '../map/pick';
 import { mediane } from '../mesure/stats';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
 import { creer, estPetite, fmtKm, fmtS, idsSerie, nomDe, type ContexteVue, type Vue } from './commun';
-import { vueNommer } from './nommer';
+import { vueNommer, type ReponseNommer } from './nommer';
+import { vueRetournee } from './retournee';
 import { remplir, textes } from './textes';
 
 interface Resultat {
@@ -25,6 +35,70 @@ interface Resultat {
   temps_ms: number;
   /** Distance au bord au premier toucher faux (km). */
   distance_km: number | null;
+  /** Premier toucher faux : l'id que la carte y désignait (null : la mer, ou juste). */
+  reponse: string | null;
+  /** Premier toucher juste : par quoi (tracé, pastille, au plus près). */
+  via: Via | null;
+  /** Échelle de la carte à la première réponse (toucher, « Voir » ou « Passer »). */
+  zoom: number | null;
+  /** Temps jusqu'à la première réponse (ms). */
+  premier_ms: number;
+}
+
+/**
+ * Une question finie, telle que le journal la garde (src/srs/journal.ts) :
+ * Trouver (localiser), Reconnaître et la carte retournée (nommer). correct :
+ * juste du premier coup, sans aide.
+ */
+export interface ReponseJouee {
+  id: string;
+  sens: 'localiser' | 'nommer';
+  correct: boolean;
+  aide: 'voir' | 'passer' | null;
+  reponse: string | null;
+  via: Via | null;
+  zoom: number | null;
+  distance_km: number | null;
+  duree_ms: number;
+}
+
+/** Une question de séance (src/vues/seance.ts) : Trouver, le QCM de Reconnaître ou la carte retournée. */
+export interface QuestionPilotee {
+  id: string;
+  forme: 'trouver' | 'qcm' | 'retournee';
+  /** Avant la question : la carte au monde entier, cadrée sur cette emprise (rappel d'une grappe), ou laissée au joueur. */
+  cadrer: Emprise | 'monde' | null;
+  /** « Je connais déjà » proposé (QCM d'un pays nouveau). */
+  connu: boolean;
+}
+
+/** Une séance en cours, vue de Toucher : les questions, les réponses et le bilan viennent d'elle. */
+export interface PiloteSeance {
+  /** La question à poser ; null : la séance est finie. */
+  question(): QuestionPilotee | null;
+  /** « 3 / 14 ». */
+  compte(): string;
+  /** La réponse à la question courante (journal, état) ; rend la ligne discrète (« Revient dans 3 j »). */
+  repondre(r: ReponseJouee): string;
+  /** « Je connais déjà » sur la question courante. */
+  connu(): void;
+  /** Fin de la séance (« Terminer » ou file vide). */
+  terminer(): void;
+  /** Le bilan de la séance dans `el` (« Continuer », « Carte »). */
+  bilan(el: HTMLElement, actions: { continuer(): void; carte(): void }): void;
+}
+
+/** Ce que Toucher demande : la Révision du jour, ou Apprendre sur une série. */
+export type DemandeSeance = { sorte: 'revision' } | { sorte: 'apprendre'; serie: Serie };
+
+/** Une séance refusée : pourquoi (« La grappe du jour est déjà apprise… ») et les révisions qui restent. */
+export interface RefusSeance {
+  refus: string;
+  reviser: number;
+}
+
+export interface FabriqueSeances {
+  ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance;
 }
 
 const T = textes.toucher;
@@ -37,14 +111,49 @@ export interface VueEssai extends Vue {
   /**
    * Une partie de cet exercice sur cette série (choisie dans Jouer ou ⚙), son
    * terrain chargé et ses cibles : la partie en cours est abandonnée.
+   * Apprendre : une séance sur la série (sa grappe suivante).
    */
   lancer(l: Lancement, s: Serie, t: Terrain, ids: string[]): void;
+  /** La Révision du jour (Jouer, en tête d'Entraînement) : une séance, sans adresse dans l'arbre. */
+  reviser(): void;
 }
 
 export interface OptionsEssai {
   /** Vers Jouer, à ce niveau (son adresse) : main.ts remonte l'historique s'il y mène. */
   versJouer(cible: string): void;
+  /** « Carte » du bilan d'une séance : l'accueil. */
+  versCarte?(): void;
+  /** Les séances (Apprendre, Révision du jour) ; sans elles, Apprendre ne fait rien. */
+  seances?: FabriqueSeances;
+  /** Parties libres (Trouver, Reconnaître hors séance, D11) : le journal de chaque partie lancée, ou null. */
+  libre?(l: Lancement | null, t: Terrain): ((r: ReponseJouee) => void) | null;
 }
+
+/** Une question de Trouver finie, pour le journal. */
+const deTrouver = (r: Resultat): ReponseJouee => ({
+  id: r.id,
+  sens: 'localiser',
+  correct: r.premier,
+  aide: r.vu ? 'voir' : r.juste ? null : 'passer',
+  reponse: r.premier ? null : r.reponse,
+  via: r.premier ? r.via : null,
+  zoom: r.zoom,
+  distance_km: r.distance_km,
+  duree_ms: r.premier_ms,
+});
+
+/** Une réponse au QCM, pour le journal. */
+const deNommer = (r: ReponseNommer): ReponseJouee => ({
+  id: r.id,
+  sens: 'nommer',
+  correct: r.juste,
+  aide: null,
+  reponse: r.juste ? null : r.choisi,
+  via: null,
+  zoom: r.zoom,
+  distance_km: null,
+  duree_ms: r.temps_ms,
+});
 
 export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   const consigne = creer('div', { class: 'essai-consigne' });
@@ -87,6 +196,13 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     return creer('div', { class: 'essai-actions' }, recommencer, autre);
   }
   const nommer = vueNommer(ctx, { bilan, actions: actionsBilan });
+  const retournee = vueRetournee(ctx);
+  /** La séance en cours (Apprendre, Révision du jour) : elle pose les questions et fait le bilan. */
+  let pilote: PiloteSeance | null = null;
+  /** Ce qui l'a lancée (« Continuer » en relance une). */
+  let demande: DemandeSeance | null = null;
+  /** Le journal de la partie libre en cours (D11), ou null. */
+  let journal: ((r: ReponseJouee) => void) | null = null;
   /** Le terrain de la partie : sa carte reçoit marques et notes, ses données donnent les noms. */
   let t: Terrain = ctx.terrains.monde;
   let cibles: string[] = [];
@@ -94,6 +210,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   let essais = 0;
   let premierFaux: number | null = null;
   let vu = false;
+  /** La première réponse de la question (toucher, « Voir », « Passer ») : ce que le journal en garde. */
+  let premiere: { ms: number; zoom: number; reponse: string | null; via: Via | null } | null = null;
   let debut = 0;
   let enAttente = 0;
   /** Le « juste » affiché pendant enAttente, avant la question suivante. */
@@ -129,16 +247,17 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const id = courante();
     const aRejouer = reprise ? marques : [];
     effacer();
-    if (!id) return finir();
+    if (!id) return pilote ? prochaine() : finir();
     consigne.replaceChildren(T.consigne, creer('strong', {}, nomDe(t.donnees, id)));
     consigne.dataset.cible = id;
-    compte.textContent = `${i + 1} / ${cibles.length}`;
+    compte.textContent = pilote ? pilote.compte() : `${i + 1} / ${cibles.length}`;
     if (!reprise) {
       retro.textContent = '';
       retro.className = 'essai-retro';
       essais = 0;
       premierFaux = null;
       vu = false;
+      premiere = null;
     }
     for (const m of aRejouer) poser(m);
     debut = performance.now();
@@ -158,6 +277,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     essais = 0;
     premierFaux = null;
     vu = false;
+    premiere = null;
     marques = [];
     retro.textContent = '';
     retro.className = 'essai-retro';
@@ -169,6 +289,157 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     afficherQuestion();
   }
 
+  /** La première réponse de la question, une fois : temps, échelle, ce que la carte désignait. */
+  function noterPremiere(reponse: string | null = null, via: Via | null = null): void {
+    premiere ??= { ms: performance.now() - debut, zoom: t.carte.transfo.k, reponse, via };
+  }
+
+  function resultat(id: string, juste: boolean): Resultat {
+    noterPremiere();
+    const p = premiere as NonNullable<typeof premiere>;
+    return {
+      id,
+      essais,
+      juste,
+      premier: juste && essais === 1 && !vu,
+      vu,
+      temps_ms: performance.now() - debut,
+      distance_km: premierFaux,
+      reponse: p.reponse,
+      via: p.via,
+      zoom: p.zoom,
+      premier_ms: p.ms,
+    };
+  }
+
+  /** Une question finie : au journal de la partie libre, ou à la séance (rend sa ligne discrète). */
+  function rapporter(r: Resultat): string {
+    const j = deTrouver(r);
+    if (pilote) return pilote.repondre(j);
+    journal?.(j);
+    return '';
+  }
+
+  // --- Séance (Apprendre, Révision du jour) : les questions viennent du pilote. ---
+
+  function lancerSeance(d: DemandeSeance): void {
+    arreter();
+    bilanAuRetour = false;
+    demande = d;
+    serie = d.sorte === 'apprendre' ? d.serie : null;
+    t = ctx.terrains.monde;
+    ctx.terrains.montrer(t.nom);
+    const r = o.seances?.ouvrir(d);
+    if (!r) return;
+    if ('refus' in r) return refuser(r);
+    pilote = r;
+    resultats = [];
+    prochaine();
+  }
+
+  /** La question suivante de la séance, dans sa forme : Trouver, QCM ou carte retournée ; le bilan à la fin. */
+  function prochaine(): void {
+    const p = pilote;
+    if (!p) return;
+    nommer.arreter();
+    retournee.arreter();
+    barre.hidden = true;
+    cibles = [];
+    i = 0;
+    const q = p.question();
+    if (!q) return finirSeance();
+    if (q.forme === 'trouver') {
+      cibles = [q.id];
+      barre.hidden = false;
+      // Le cadrage de la séance (décision « Cadrage et disques en séance ») : jamais par question.
+      if (q.cadrer === 'monde') t.carte.zoomer({ k: 1, x: 0, y: 0 });
+      else if (q.cadrer) t.carte.cadrer(q.cadrer, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
+      return afficherQuestion();
+    }
+    const terminer = () => finirSeance();
+    if (q.forme === 'qcm')
+      return nommer.demarrer(t, '', [q.id], {
+        compte: () => p.compte(),
+        surReponse: (r) => p.repondre(deNommer(r)),
+        surFin: prochaine,
+        terminer,
+        ...(q.connu
+          ? {
+              connu: () => {
+                p.connu();
+                prochaine();
+              },
+            }
+          : {}),
+      });
+    retournee.poser(t, q.id, {
+      compte: () => p.compte(),
+      surReponse: (r) => p.repondre({ id: r.id, sens: 'nommer', correct: r.savais, aide: null, reponse: null, via: null, zoom: r.zoom, distance_km: null, duree_ms: r.temps_ms }),
+      surFin: prochaine,
+      terminer,
+    });
+  }
+
+  /** Fin de séance (« Terminer », file vide) : les réponses données comptent, son bilan. */
+  function finirSeance(): void {
+    const p = pilote;
+    if (!p) return;
+    validerEnAttente();
+    nommer.arreter();
+    retournee.arreter();
+    p.terminer();
+    pilote = null;
+    cibles = [];
+    barre.hidden = true;
+    effacer();
+    const d = demande;
+    p.bilan(bilan, {
+      continuer: () => {
+        if (d) lancerSeance(d);
+      },
+      carte: () => {
+        arreter();
+        bilanAuRetour = false;
+        o.versCarte?.();
+      },
+    });
+    bilan.hidden = false;
+  }
+
+  /** Apprendre sans rien à apprendre aujourd'hui : le dire, et proposer les révisions qui restent ou Trouver. */
+  function refuser(r: RefusSeance): void {
+    const s = serie;
+    const l = lancement;
+    const boutons: HTMLElement[] = [];
+    if (r.reviser > 0) {
+      const b = creer('button', { type: 'button', id: 'seance-reviser' }, remplir(textes.seance.reviser, { n: r.reviser }));
+      b.addEventListener('click', () => lancerSeance({ sorte: 'revision' }));
+      boutons.push(b);
+    }
+    if (s && l) {
+      const b = creer('button', { type: 'button', class: r.reviser > 0 ? 'secondary' : '', id: 'seance-trouver' }, textes.seance.trouver);
+      b.addEventListener('click', () => {
+        lancement = { ...l, mode: 'localiser' };
+        mode = 'localiser';
+        demarrer(s, ctx.terrains.monde, idsSerie(s, ctx.terrains.monde));
+      });
+      boutons.push(b);
+    }
+    const autre = creer('button', { type: 'button', class: 'secondary', id: 'essai-autre' }, T.autre_serie);
+    autre.addEventListener('click', () => {
+      arreter();
+      bilanAuRetour = false;
+      o.versJouer(lancement ? adresse(niveauDe(lancement, 'series')) : 'jouer');
+    });
+    boutons.push(autre);
+    bilan.replaceChildren(
+      creer('h2', {}, s ? remplir(textes.seance.titre_apprendre, { serie: nomSerie(s.id) }) : textes.seance.titre_revision),
+      creer('p', { class: 'hint' }, r.refus),
+      creer('div', { class: 'essai-actions' }, ...boutons),
+    );
+    bilan.hidden = false;
+  }
+
   /** La partie en cours (ou son bilan) abandonnée : rien à l'écran, la carte du monde. */
   function arreter(): void {
     clearTimeout(enAttente);
@@ -176,6 +447,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     resEnAttente = null;
     cibles = [];
     nommer.arreter();
+    retournee.arreter();
+    pilote = null;
+    journal = null;
     barre.hidden = true;
     bilan.hidden = true;
     effacer();
@@ -188,7 +462,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     serie = s;
     t = terrain;
     ctx.terrains.montrer(t.nom);
-    if (mode === 'nommer') return nommer.demarrer(t, nomSerie(s.id), melanger(ids));
+    const j = o.libre?.(lancement, t) ?? null;
+    journal = j;
+    if (mode === 'nommer') return nommer.demarrer(t, nomSerie(s.id), melanger(ids), { surReponse: (r) => void j?.(deNommer(r)) });
     cibles = melanger(ids);
     i = 0;
     resultats = [];
@@ -197,6 +473,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   }
 
   function finir(): void {
+    if (pilote) return finirSeance();
     validerEnAttente();
     // Partie close (même par « Terminer ») : revenir à la vue ramène au choix.
     cibles = [];
@@ -250,6 +527,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   voir.addEventListener('click', () => {
     const id = courante();
     if (!id || enAttente) return;
+    noterPremiere();
     vu = true;
     effacer();
     marquer(id, 'juste', true);
@@ -258,28 +536,36 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   passer.addEventListener('click', () => {
     const id = courante();
     if (!id || enAttente) return;
-    suivante({ id, essais, juste: false, premier: false, vu, temps_ms: performance.now() - debut, distance_km: premierFaux });
+    const r = resultat(id, false);
+    rapporter(r);
+    suivante(r);
   });
   terminer.addEventListener('click', finir);
 
   return {
     lancer(l, s, terrain, ids) {
       lancement = l;
-      mode = l.mode === 'nommer' ? 'nommer' : 'localiser';
       bilanAuRetour = false;
+      if (l.mode === 'apprendre') return lancerSeance({ sorte: 'apprendre', serie: s });
+      mode = l.mode === 'nommer' ? 'nommer' : 'localiser';
       demarrer(s, terrain, ids);
+    },
+    reviser() {
+      lancement = null;
+      lancerSeance({ sorte: 'revision' });
     },
     // Sans partie en cours ni bilan à remontrer : les exercices de la dernière
     // partie dans Jouer (ou Jouer tout court), au lieu d'un écran vide.
-    aMontrer: () => nommer.enCours || cibles.length > 0 || bilanAuRetour,
+    aMontrer: () => nommer.enCours || retournee.enCours || cibles.length > 0 || bilanAuRetour,
     redirection() {
-      if (nommer.enCours || cibles.length || bilanAuRetour) return null;
+      if (nommer.enCours || retournee.enCours || cibles.length || bilanAuRetour) return null;
       return { cible: lancement ? adresse(niveauDe(lancement, 'exercices')) : 'jouer' };
     },
     activer() {
       // Une partie en cours (île comprise) reprend sur son terrain : le routeur vient de montrer le monde.
       if (nommer.enCours) nommer.reprendre();
-      else if (cibles.length && i >= cibles.length) finir();
+      else if (retournee.enCours) retournee.reprendre();
+      else if (cibles.length && i >= cibles.length) (pilote ? prochaine : finir)();
       else if (cibles.length) {
         ctx.terrains.montrer(t.nom);
         barre.hidden = false;
@@ -293,6 +579,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       validerEnAttente();
       bilanAuRetour = !bilan.hidden;
       nommer.quitter();
+      retournee.quitter();
       barre.hidden = true;
       bilan.hidden = true;
       // La carte seule : `marques` reste, pour les remontrer au retour.
@@ -302,12 +589,13 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     toucher(x, y, ev) {
       // Nommer : les touchers sur la carte ne répondent pas (cibles est vide).
       const id = courante();
-      if (!id || enAttente || nommer.enCours) return;
+      if (!id || enAttente || nommer.enCours || retournee.enCours) return;
       const carte = t.carte;
       ctx.mesures.toucher(ev, x, y, () => {
         // Juste : la cible en vert ; faux : ce que la carte désigne (pick) en rouge.
         const note = carte.noter(id, x, y);
         const r = note.pick;
+        noterPremiere(note.juste ? null : (r?.id ?? null), note.juste ? note.via : null);
         essais++;
         effacer();
         if (note.juste) {
@@ -318,7 +606,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
             essais: nEssais(essais),
             temps: fmtS(performance.now() - debut),
           });
-          const res: Resultat = { id, essais, juste: true, premier: essais === 1 && !vu, vu, temps_ms: performance.now() - debut, distance_km: premierFaux };
+          const res = resultat(id, true);
+          const ligne = rapporter(res);
+          if (ligne) retro.append(creer('span', { class: 'seance-ligne' }, ` · ${ligne}`));
           resEnAttente = res;
           enAttente = window.setTimeout(() => {
             enAttente = 0;

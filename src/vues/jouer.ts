@@ -29,9 +29,11 @@ import {
 import { nomSerie, SERIE_TOUS, type Serie } from './cibles';
 import { avecTerrain, creer, type ContexteVue, type Vue } from './commun';
 import { scoreCourt, secondesMode } from './scores';
+import { texteComptes, type ComptesSeance } from './seance';
 import { remplir, textes } from './textes';
 
 const J = textes.jouer;
+const S = textes.seance;
 const E = textes.epreuves;
 
 function stockage(): Storage | null {
@@ -60,6 +62,18 @@ export interface VueJouer extends Vue {
   aller(segs: readonly string[]): void;
   /** Un message au statut du prochain niveau affiché (partie abandonnée). */
   annoncer(message: string): void;
+  /** Le niveau affiché redessiné (comptes de la Révision du jour une fois la mémoire chargée). */
+  rafraichir(): void;
+}
+
+/** La Révision du jour (J1a), en tête d'Entraînement. */
+export interface RevisionJouer {
+  /** « 12 à revoir · 6 nouveaux » ; null tant que la mémoire se charge (ligne désactivée). */
+  comptes(): ComptesSeance | null;
+  /** Faux : les progrès ne sont pas gardés sur cet appareil (avis discret sous la ligne). */
+  garde(): boolean;
+  /** Lance la séance (main.ts : la vue Toucher s'ouvre comme une partie, sans adresse dans l'arbre). */
+  lancer(): void;
 }
 
 export interface OptionsJouer {
@@ -73,12 +87,18 @@ export interface OptionsJouer {
   remonter(adresse: string): void;
   /** L'adresse affichée remplacée par celle du niveau rendu (sans nouvelle entrée). */
   canoniser(adresse: string): void;
+  /** La Révision du jour ; sans elle, pas de ligne. */
+  revision?: RevisionJouer;
 }
 
-/** Un gros bouton : nom, détail court, et à droite le record. */
-function bouton(attrs: Record<string, string>, nom: string, detail: string, record = ''): HTMLButtonElement {
+/** Un gros bouton : nom, détail court, et à droite le record (ou un compte, sans le mot « record »). */
+function bouton(attrs: Record<string, string>, nom: string, detail: string, record = '', compte = ''): HTMLButtonElement {
   const texte = creer('span', { class: 'jouer-texte' }, creer('span', { class: 'jouer-nom' }, nom), ...(detail ? [creer('span', { class: 'jouer-detail' }, detail)] : []));
-  const droite = record ? [creer('span', { class: 'jouer-record' }, creer('span', { class: 'jouer-record-nom' }, J.record), record)] : [];
+  const droite = record
+    ? [creer('span', { class: 'jouer-record' }, creer('span', { class: 'jouer-record-nom' }, J.record), record)]
+    : compte
+      ? [creer('span', { class: 'jouer-record jouer-compte' }, compte)]
+      : [];
   return creer('button', { type: 'button', ...attrs, class: `jouer-bouton ${attrs.class ?? ''}`.trim() }, texte, ...droite);
 }
 
@@ -89,6 +109,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
 
   /** L'adresse du niveau affiché (null : à redessiner au prochain aller()). */
   let rendue: string | null = null;
+  let niveauRendu: Niveau | null = null;
   /** Change à chaque niveau rendu et à la sortie : un chargement d'île arrivé après ne lance rien. */
   let jeton = 0;
   let aDire = '';
@@ -193,8 +214,19 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
       elements.push(grille(branches));
       return elements;
     }
-    if (n.type === 'sujets')
-      return [grille(arbre.sujets(n.branche).map((s) => choisir(bouton({ 'data-sujet': s.id }, nomSujet(s.id), nombreSujet(s.id, arbre.series(s.id))), s.id)))];
+    if (n.type === 'sujets') {
+      const sujets = grille(arbre.sujets(n.branche).map((s) => choisir(bouton({ 'data-sujet': s.id }, nomSujet(s.id), nombreSujet(s.id, arbre.series(s.id))), s.id)));
+      const r = o.revision;
+      if (n.branche !== 'entrainement' || !r) return [sujets];
+      // La Révision du jour en tête d'Entraînement (décisions « Écran Jouer », « Apprendre et
+      // Révision du jour ») : ses comptes à droite ; désactivée pendant le chargement de la
+      // mémoire, et quand tout est fait (« À jour »).
+      const c = r.comptes();
+      const b = bouton({ id: 'jouer-revision', class: 'jouer-ligne' }, S.revision, r.garde() ? '' : S.non_garde, '', c ? texteComptes(c) : S.chargement);
+      b.disabled = !c || (!c.aRevoir && !c.nouveaux);
+      b.addEventListener('click', () => r.lancer());
+      return [b, sujets];
+    }
     if (n.type === 'series')
       return [
         grille(
@@ -225,6 +257,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
   function rendre(n: Niveau): void {
     jeton++;
     rendue = adresse(n);
+    niveauRendu = n;
     marquerChemin(n);
     // Statut : le chargement de l'île et son échec (avecTerrain), une partie abandonnée.
     const statut = creer('p', { class: 'hint jouer-statut', 'aria-live': 'polite' }, aDire);
@@ -244,6 +277,9 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     },
     annoncer(message) {
       aDire = message;
+    },
+    rafraichir() {
+      if (!panneau.hidden && niveauRendu) rendre(niveauRendu);
     },
     activer() {
       rendue = null;

@@ -53,6 +53,7 @@
       }
     },
     "exercices": {
+      "apprendre": "Les pays voisins suivants : QCM, puis les trouver sur la carte",
       "localiser": "Touche sur la carte le lieu demandé",
       "nommer": "Un lieu s'allume : choisis son nom parmi quatre",
       "chrono": "{s} s par question, un seul toucher",
@@ -62,6 +63,7 @@
     "essai_aide": "(précision, J0)"
   },
   "toucher": {
+    "apprendre": "Apprendre",
     "localiser": "Trouver",
     "nommer": "Reconnaître",
     "chargement_terrain": "Chargement de la carte de l'île…",
@@ -200,5 +202,39 @@
   "credits": {
     "reglages": "Fond de carte : Natural Earth ; noms : Unicode CLDR ; communes de La Réunion : IGN, ADMIN EXPRESS (Licence Ouverte 2.0).",
     "carte": "IGN, ADMIN EXPRESS, à jour au {date} · Licence Ouverte 2.0"
+  },
+  "seance": {
+    "revision": "Révision du jour",
+    "a_revoir": "{n} à revoir",
+    "nouveaux": "{n} nouveaux",
+    "a_jour": "À jour",
+    "chargement": "…",
+    "non_garde": "Progrès non gardés sur cet appareil",
+    "connais": "Je connais déjà",
+    "consigne_retournee": "Quel est ce pays ?",
+    "reveler": "Révéler",
+    "savais": "Je savais",
+    "savais_pas": "Je ne savais pas",
+    "revient": "Revient dans {n} j",
+    "revient_demain": "Revient demain",
+    "a_revoir_aujourdhui": "À revoir aujourd'hui",
+    "titre_revision": "Révision du jour",
+    "titre_apprendre": "Apprendre · {serie}",
+    "bilan_revisions": "Révisions : {premiers}/{n} du premier coup",
+    "bilan_nouveaux": "Nouveaux : {noms}",
+    "bilan_rate_km": "{pays} : touché à {km} du bord",
+    "bilan_rate_trouver": "{pays} : vu ou passé",
+    "bilan_rate_nom": "{pays} : nom oublié",
+    "bilan_encore": "Encore {reste}",
+    "bilan_fini": "Tout est revu pour aujourd'hui.",
+    "bilan_vide": "Aucune réponse donnée.",
+    "continuer": "Continuer",
+    "carte": "Carte",
+    "reviser": "Réviser · {n}",
+    "rien": "Rien à revoir aujourd'hui.",
+    "grappe_faite": "La grappe du jour est déjà apprise : la suivante demain.",
+    "plafond": "Assez de révisions pour aujourd'hui : la suite demain.",
+    "tout_appris": "Tous les pays de cette série sont appris.",
+    "trouver": "Trouver"
   }
 }

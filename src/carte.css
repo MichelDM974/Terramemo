@@ -188,7 +188,19 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 
 /* Une partie en cours (sa barre affichée) : la recherche, qui donnerait la
    réponse, s'efface ; l'en-tête garde sa place. */
-body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:not([hidden])) .recherche { visibility: hidden; }
+body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:not([hidden]), #barre-retournee:not([hidden])) .recherche { visibility: hidden; }
+
+/* Séance (J1a) : la ligne discrète après une réponse (« Revient dans 3 j »),
+   neutre dans la rétroaction verte ou rouge ; la carte retournée (« Quel est
+   ce pays ? ») : « Révéler » pleine largeur, le nom en grand, puis deux
+   réponses sous le pouce, 48 px au moins comme les choix de Nommer. */
+.seance-ligne { color: var(--muted); }
+.retournee-nom { font-size: 1.25rem; font-weight: 700; text-align: center; padding: 2px 0 4px; }
+#retournee-reveler { min-height: 48px; }
+.retournee-reponses { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.retournee-reponses button { min-height: 48px; min-width: 0; padding: 6px 8px; white-space: normal; }
+.seance-resume { margin: 0 0 6px; }
+.seance-avis { color: var(--danger); }
 
 /* Explorer : « Monde » (retour de l'île), à droite de la barre. */
 .barre-monde { margin-left: auto; padding: 4px 12px; font-size: 0.85rem; }

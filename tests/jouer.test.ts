@@ -37,7 +37,9 @@ describe('l’arbre (pur)', () => {
     for (const b of ['entrainement', 'classe'] as const) expect(arbre.choix({ type: 'sujets', branche: b })).toEqual(['pays', 'communes']);
     expect(arbre.choix({ type: 'series', branche: 'classe', sujet: 'pays' })).toEqual(SERIES_PAYS);
     expect(arbre.choix({ type: 'series', branche: 'classe', sujet: 'communes' })).toEqual(['reunion']);
-    expect(arbre.modes('entrainement', 'pays')).toEqual(['localiser', 'nommer']);
+    expect(arbre.modes('entrainement', 'pays')).toEqual(['apprendre', 'localiser', 'nommer']);
+    // Apprendre : les pays seulement au lot 5a (les communes au lot 5b, avec leurs grappes).
+    expect(arbre.modes('entrainement', 'communes')).toEqual(['localiser', 'nommer']);
     expect(arbre.modes('classe', 'communes')).toEqual(['chrono', 'sansfaute', 'minute']);
   });
 
@@ -152,7 +154,7 @@ describe('l’arbre (pur)', () => {
 
 // --- La vue ----------------------------------------------------------------
 
-function monter(o: { charger?: () => Promise<unknown> } = {}) {
+function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['revision'] } = {}) {
   const zone = new El('main');
   const monde = { nom: 'monde', jouables: [] };
   const ile = { nom: 'reunion', jouables: ['97411', '97415'] };
@@ -172,6 +174,7 @@ function monter(o: { charger?: () => Promise<unknown> } = {}) {
     pousser: vi.fn<OptionsJouer['pousser']>(),
     remonter: vi.fn<OptionsJouer['remonter']>(),
     canoniser: vi.fn<OptionsJouer['canoniser']>(),
+    ...(o.revision ? { revision: o.revision } : {}),
   };
   const v = vueJouer(ctx, arbre, opts);
   const panneau = zone.querySelector('#jouer-panneau')!;
@@ -258,7 +261,7 @@ describe('la vue Jouer', () => {
     expect(regles.innerText).toContain('Minute : le plus de lieux justes en 60 s');
     // Ailleurs dans l'arbre (et en entraînement), pas de « ? ».
     j.ouvrir('entrainement', 'pays', 'Africa');
-    expect(j.attr('data-mode')).toEqual(['localiser', 'nommer']);
+    expect(j.attr('data-mode')).toEqual(['apprendre', 'localiser', 'nommer']);
     expect(j.panneau.querySelector('#jouer-aide')).toBeNull();
     expect(j.panneau.innerText).not.toContain('record');
   });
@@ -361,6 +364,68 @@ describe('la vue Jouer', () => {
     expect(j.panneau.querySelector('.jouer-statut')?.textContent).toBe(textes.chrono.abandon);
     j.v.aller(['classe', 'pays']);
     expect(j.panneau.querySelector('.jouer-statut')?.hidden).toBe(true);
+  });
+
+  it('Révision du jour : en tête d’Entraînement avec ses comptes, lancée d’une touche ; absente de Classé', () => {
+    const comptes = { aRevoir: 12, nouveaux: 6 };
+    const revision = { comptes: () => comptes, garde: () => true, lancer: vi.fn() };
+    const j = monter({ revision });
+    j.ouvrir('entrainement');
+    const r = j.panneau.querySelector('#jouer-revision')!;
+    expect(j.panneau.querySelectorAll('button.jouer-bouton')[0]).toBe(r);
+    expect(r.innerText).toContain('Révision du jour');
+    expect(r.innerText).toContain('12 à revoir · 6 nouveaux');
+    expect(r.innerText).not.toContain('record');
+    expect(r.disabled).toBe(false);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'communes']);
+    r.click();
+    expect(revision.lancer).toHaveBeenCalledTimes(1);
+    // Pas d'adresse dans l'arbre : la ligne ne pousse rien.
+    expect(j.opts.pousser).not.toHaveBeenCalled();
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    j.ouvrir('classe');
+    expect(j.panneau.querySelector('#jouer-revision')).toBeNull();
+    j.ouvrir();
+    expect(j.panneau.querySelector('#jouer-revision')).toBeNull();
+  });
+
+  it('Révision du jour : désactivée pendant le chargement de la mémoire, redessinée une fois chargée ; « À jour » ; avis si rien n’est gardé', () => {
+    let comptes: { aRevoir: number; nouveaux: number } | null = null;
+    let garde = true;
+    const revision = { comptes: () => comptes, garde: () => garde, lancer: vi.fn() };
+    const j = monter({ revision });
+    j.ouvrir('entrainement');
+    const ligne = () => j.panneau.querySelector('#jouer-revision')!;
+    expect(ligne().disabled).toBe(true);
+    expect(ligne().innerText).toContain(textes.seance.chargement);
+    ligne().click();
+    expect(revision.lancer).not.toHaveBeenCalled();
+    comptes = { aRevoir: 3, nouveaux: 0 };
+    j.v.rafraichir();
+    expect(ligne().disabled).toBe(false);
+    expect(ligne().innerText).toContain('3 à revoir');
+    expect(ligne().innerText).not.toContain('nouveaux');
+    comptes = { aRevoir: 0, nouveaux: 0 };
+    garde = false;
+    // Au retour dans Jouer (activer) : les comptes relus.
+    j.v.desactiver();
+    j.ouvrir('entrainement');
+    expect(ligne().innerText).toContain(textes.seance.a_jour);
+    expect(ligne().disabled).toBe(true);
+    expect(ligne().innerText).toContain(textes.seance.non_garde);
+  });
+
+  it('Apprendre : un exercice des séries de Pays, lancé comme les autres (Rejouer le relance)', () => {
+    const j = monter();
+    j.ouvrir('entrainement', 'pays', 'Europe');
+    const b = j.panneau.querySelector('[data-mode="apprendre"]')!;
+    expect(b.innerText).toContain('Apprendre');
+    b.click();
+    expect(j.opts.lancer.mock.calls[0]?.[0]).toEqual({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' });
+    const l: Lancement = { branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' };
+    garderDerniere(localStorage, l);
+    expect(lireDerniere(localStorage, arbre)).toEqual(l);
+    expect(arbre.valide({ ...l, sujet: 'communes', serie: 'reunion' })).toBe(false);
   });
 
   it('Jouer quitté : le panneau se cache', () => {

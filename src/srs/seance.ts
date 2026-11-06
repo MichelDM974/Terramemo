@@ -205,6 +205,11 @@ export class Seance {
     return this.repondues + this.file.length + (this.courante_ ? 1 : 0);
   }
 
+  /** La fiche sera-t-elle encore posée dans la séance (reprise à venir) ? */
+  reste(fiche: string): boolean {
+    return this.courante_?.fiche === fiche || this.file.some((e) => e.fiche === fiche);
+  }
+
   /** Les entités de la grappe nouvelle (cadrage du rappel). */
   get nouveaux(): readonly string[] {
     return this.grappe;

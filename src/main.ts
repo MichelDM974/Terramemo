@@ -14,6 +14,10 @@ import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
 import { creerTerrains, idsJouables, type Terrain, type Terrains } from './terrains';
+import { idAppareil } from './journal/appareil';
+import { depotIndexedDb } from './journal/depot';
+import { horlogeAppareil, horlogeDecalee, lireDecalage } from './journal/horloge';
+import { ouvrirMemoire } from './journal/memoire';
 import { creerNavigation } from './navigation';
 import { brancherRetourAndroid } from './retour-android';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
@@ -26,6 +30,7 @@ import { vueGeneral } from './vues/general';
 import { remplirEssaiJ0, vueJouer, type VueJouer } from './vues/jouer';
 import { brancherRecherche } from './vues/recherche';
 import { vueSaisie } from './vues/saisie';
+import { creerSeances } from './vues/seance';
 import { textes } from './vues/textes';
 
 const debutScript = performance.now();
@@ -95,6 +100,14 @@ const projection: NomProjection = estNomProjection(pProj) ? pProj : 'monde';
  * les mesures avant que l'accueil ne la colore. Il reste pendant les parties.
  */
 const teintesDemoDemandees = params.get('teintes') === 'demo';
+/**
+ * Horloge de test du J1a (#2) : `?horloge=1` décale l'heure du journal d'un
+ * jour (le lendemain d'une séance, au pilote), `?horloge=-0.5` d'une
+ * demi-journée en arrière. Serveur de développement seulement : sur le
+ * site, elle fausserait le journal de l'utilisateur.
+ */
+const decalageHorloge = import.meta.env.DEV ? lireDecalage(params.get('horloge')) : null;
+const horloge = decalageHorloge === null ? horlogeAppareil : horlogeDecalee(horlogeAppareil, decalageHorloge);
 const CLE_MESURES = 'terramemo.mesures';
 function lireMesures(): boolean {
   const p = params.get('mesures');
@@ -404,6 +417,19 @@ const relais =
     : null;
 if (relais) hote.dataset.relais = 'attente';
 
+/**
+ * La mémoire de l'appareil (journal du J1a, src/journal/memoire.ts) : lue et
+ * rejouée une fois, en parallèle de la carte ; l'id de l'appareil lu une
+ * fois. Rien ne part au réseau (synchro : lot 6).
+ */
+const memoire = ouvrirMemoire({
+  depot: depotIndexedDb(),
+  appareil: idAppareil(),
+  horloge,
+  surAvis: (e) => console.warn('Journal non gardé sur cet appareil :', e),
+  surCharge: () => jouer?.rafraichir(),
+});
+
 async function demarrer(): Promise<void> {
   const chargement = chargerDonnees();
   // Les fichiers sont demandés : contexte WebGL et shaders pendant que le réseau répond (relais-webgl.ts).
@@ -471,19 +497,31 @@ async function demarrer(): Promise<void> {
   const pays = donnees.entites.map((e) => e.pays);
   arbre = creerArbre(catalogue(pays));
   const explorer = vueExplorer(ctx);
-  const essai = vueEssai(ctx, { versJouer: nav.versJouer });
+  const seances = creerSeances({ memoire, monde: donnees });
+  const essai = vueEssai(ctx, { versJouer: nav.versJouer, versCarte: () => nav.remonter('carte'), seances, libre: seances.libre });
   const epreuve = vueChrono(ctx, { versJouer: nav.versJouer });
   // « Retour » des classements, « × » de Jouer : la vue d'avant, en remontant l'historique.
   const retour = nav.retour;
   // Une partie choisie (Jouer, Rejouer, ⚙) : sa vue s'ouvre (une entrée
   // d'historique), la partie en cours y est abandonnée. Les trois épreuves
   // classées partagent la vue « chrono ». Celle de l'arbre devient « Rejouer ».
-  const lancer = (l: Lancement, s: Serie, t: Terrain, ids: string[]) => {
+  const lancer = (l: Lancement, s: Serie, t: Terrain, ids: string[]): void => {
+    // Apprendre lit la mémoire : lancé pendant sa lecture (quelques ms), il l'attend.
+    if (l.mode === 'apprendre' && !memoire.charge) return void memoire.pret.then(() => lancer(l, s, t, ids));
     if (arbre?.valide(l)) garderDerniere(stockage(), l);
     nav.ouvrirPartie(estEpreuve(l.mode) ? 'chrono' : 'toucher');
     (estEpreuve(l.mode) ? epreuve : essai).lancer(l, s, t, ids);
   };
-  jouer = vueJouer(ctx, arbre, { lancer, fermer: retour, pousser: nav.pousser, remonter: nav.remonter, canoniser: nav.canoniser });
+  // La Révision du jour s'ouvre comme une partie, sans adresse dans l'arbre de Jouer ; « Rejouer » ne la relance pas.
+  const revision = {
+    comptes: () => seances.comptes(),
+    garde: () => memoire.garde,
+    lancer: () => {
+      nav.ouvrirPartie('toucher');
+      essai.reviser();
+    },
+  };
+  jouer = vueJouer(ctx, arbre, { lancer, fermer: retour, pousser: nav.pousser, remonter: nav.remonter, canoniser: nav.canoniser, revision });
   vues.set('carte', explorer);
   vues.set('jouer', jouer);
   vues.set('toucher', essai);

@@ -275,3 +275,184 @@ describe('Toucher : une partie choisie dans Jouer (décision « Écran Jouer »)
     expect(v.retro.textContent).toContain('1 essai ');
   });
 });
+
+// --- Séance (J1a) : Toucher piloté par la séance, quitté puis repris -------
+
+import type { FabriqueSeances, PiloteSeance, QuestionPilotee, ReponseJouee } from '../src/vues/essai';
+
+const IDS5 = ['FRA', 'ESP', 'ITA', 'DEU', 'BEL'];
+
+/** Une séance écrite d'avance : ces questions, dans l'ordre ; ce qu'elle reçoit. */
+function piloteFactice(questions: QuestionPilotee[]) {
+  const recues: ReponseJouee[] = [];
+  let i = 0;
+  let connus = 0;
+  let finie = false;
+  const p: PiloteSeance = {
+    question: () => (finie ? null : (questions[i] ?? null)),
+    compte: () => `${i + 1} / ${questions.length}`,
+    repondre: (r) => {
+      recues.push(r);
+      i++;
+      return r.correct ? 'Revient dans 3 j' : "À revoir aujourd'hui";
+    },
+    connu: () => void (connus++, i++),
+    terminer: () => void (finie = true),
+    bilan: (el, actions) => {
+      const c = new El('button');
+      c.id = 'seance-continuer';
+      c.addEventListener('click', actions.continuer);
+      (el as unknown as El).replaceChildren(`bilan : ${recues.length} réponses`, c);
+    },
+  };
+  return { p, recues, connus: () => connus };
+}
+
+function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
+  const zone = new El('main');
+  const marques: string[] = [];
+  const appels: string[] = [];
+  const carte = {
+    effacerMarques: () => void (marques.length = 0),
+    marquer: (id: string, c: string) => void marques.push(`${id}:${c}`),
+    anneau: () => undefined,
+    montrer: () => void appels.push('montrer'),
+    zoomer: (t: { k: number }) => void appels.push(`zoomer ${t.k}`),
+    cadrer: (e: number[]) => void appels.push(`cadrer ${e.join(',')}`),
+    contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
+    projection: { scale: () => 100 },
+    transfo: { k: 2 },
+    hote: new El('div'),
+    noter: (id: string) => (justeSuivant ? { juste: true, pick: { id }, via: 'trace', distance_km: 0 } : { juste: false, pick: { id: 'ESP' }, via: null, distance_km: 250 }),
+  };
+  const donnees = { entites: IDS5.map((id, k) => ({ pays: { ...pays(id), point: [k, 45], voisins: IDS5.filter((x) => x !== id) } })), noms: { FRA: 'France', ESP: 'Espagne', ITA: 'Italie', DEU: 'Allemagne', BEL: 'Belgique' } };
+  const monde = { nom: 'monde', carte, donnees, jouables: IDS5 };
+  const ctx = {
+    carte,
+    donnees,
+    zone,
+    terrains: { monde, montrer() {}, deja: () => null },
+    mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
+  } as unknown as ContexteVue;
+  const versCarte = vi.fn();
+  const fabrique = { ouvrir: vi.fn(ouvrir) };
+  const vue = vueEssai(ctx, { versJouer: vi.fn(), versCarte, seances: fabrique });
+  const visible = (id: string) => !(zone.querySelector(`#${id}`) as El).hidden;
+  return { vue, zone, appels, marques, fabrique, versCarte, visible, el: (s: string) => zone.querySelector(s) as El };
+}
+
+describe('Toucher : une séance quittée puis reprise', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    installerDom();
+    installerStockage();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  const QUESTIONS: QuestionPilotee[] = [
+    { id: 'FRA', forme: 'trouver', cadrer: 'monde', connu: false },
+    { id: 'ITA', forme: 'qcm', cadrer: null, connu: true },
+    { id: 'DEU', forme: 'retournee', cadrer: null, connu: false },
+    { id: 'BEL', forme: 'trouver', cadrer: [0, 40, 10, 50], connu: false },
+  ];
+
+  it('Trouver, QCM, carte retournée : chaque forme reprise telle quelle, une réponse par question, puis le bilan', () => {
+    const f = piloteFactice(QUESTIONS);
+    const s = monterSeance(() => f.p);
+    s.vue.activer();
+    s.vue.reviser();
+    // Trouver : le monde entier d'abord (cadrage de la séance), sa consigne et le compte de la séance.
+    expect(s.appels).toEqual(['zoomer 1']);
+    expect(s.visible('barre-essai')).toBe(true);
+    expect(s.el('#barre-essai .essai-compte').textContent).toBe('1 / 4');
+    expect(s.vue.redirection?.()).toBeNull();
+    toucher(s.vue, false);
+    s.vue.desactiver();
+    s.vue.activer();
+    toucher(s.vue, true);
+    expect(f.recues).toHaveLength(1);
+    expect(f.recues[0]).toMatchObject({ id: 'FRA', sens: 'localiser', correct: false, reponse: 'ESP', distance_km: 250, zoom: 2 });
+    expect(s.el('#barre-essai .essai-retro').textContent).toContain("À revoir aujourd'hui");
+    // Quittée pendant le « juste » : la réponse ne repart pas, la question suivante vient au retour.
+    s.vue.desactiver();
+    s.vue.activer();
+    expect(f.recues).toHaveLength(1);
+    expect(s.visible('barre-nommer')).toBe(true);
+    expect(s.visible('barre-essai')).toBe(false);
+    const cible = () => s.el('#barre-nommer .essai-consigne').dataset.cible;
+    expect(cible()).toBe('ITA');
+    expect(s.visible('nommer-connu')).toBe(true);
+    // Quittée au QCM : la même question au retour ; « Je connais déjà » la saute.
+    s.vue.desactiver();
+    s.vue.activer();
+    expect(cible()).toBe('ITA');
+    s.el('#nommer-connu').click();
+    expect(f.connus()).toBe(1);
+    expect(f.recues).toHaveLength(1);
+    // Carte retournée : quittée révélée, reprise révélée ; « Je savais ».
+    expect(s.visible('barre-retournee')).toBe(true);
+    expect(s.el('#barre-retournee .essai-consigne').dataset.cible).toBe('DEU');
+    expect(s.el('.retournee-reponses').hidden).toBe(true);
+    s.el('#retournee-reveler').click();
+    s.vue.desactiver();
+    expect(s.vue.aMontrer?.()).toBe(true);
+    s.vue.activer();
+    expect(s.el('.retournee-nom').textContent).toBe('Allemagne');
+    expect(s.el('.retournee-reponses').hidden).toBe(false);
+    s.el('#retournee-savais').click();
+    expect(f.recues[1]).toMatchObject({ id: 'DEU', sens: 'nommer', correct: true });
+    expect(s.el('#barre-retournee .essai-retro').textContent).toBe('Revient dans 3 j');
+    // Quittée pendant sa ligne : la suivante au retour, cadrée sur sa grappe.
+    s.vue.desactiver();
+    s.vue.activer();
+    expect(s.visible('barre-essai')).toBe(true);
+    expect(s.appels.at(-1)).toMatch(/^cadrer 0,40,10,50/);
+    toucher(s.vue, true);
+    vi.advanceTimersByTime(1200);
+    // File vide : le bilan de la séance, qui revient avec la vue ; « Continuer » en relance une.
+    expect(f.recues).toHaveLength(3);
+    expect(s.visible('essai-bilan')).toBe(true);
+    expect(s.el('#essai-bilan').textContent).toContain('bilan : 3 réponses');
+    s.vue.desactiver();
+    expect(s.vue.aMontrer?.()).toBe(true);
+    s.vue.activer();
+    expect(s.visible('essai-bilan')).toBe(true);
+    s.el('#seance-continuer').click();
+    expect(s.fabrique.ouvrir).toHaveBeenCalledTimes(2);
+    expect(s.fabrique.ouvrir.mock.calls[1]![0]).toEqual({ sorte: 'revision' });
+  });
+
+  it('« Terminer » : le bilan tout de suite, les réponses données comptent', () => {
+    const f = piloteFactice(QUESTIONS);
+    const s = monterSeance(() => f.p);
+    s.vue.activer();
+    s.vue.reviser();
+    toucher(s.vue, true);
+    vi.advanceTimersByTime(1200);
+    s.el('#nommer-terminer').click();
+    expect(s.visible('essai-bilan')).toBe(true);
+    expect(s.visible('barre-nommer')).toBe(false);
+    expect(s.el('#essai-bilan').textContent).toContain('bilan : 1 réponses');
+  });
+
+  it('Apprendre refusé (grappe du jour faite) : le dire ; « Trouver » lance la série, « Réviser » la révision', () => {
+    const s = monterSeance((d) => (d.sorte === 'apprendre' ? { refus: 'La grappe du jour est déjà apprise : la suivante demain.', reviser: 3 } : piloteFactice(QUESTIONS).p));
+    s.vue.activer();
+    const serie = { id: 'Europe', terrain: 'monde' as const, ids: IDS5, n: 5 };
+    s.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' }, serie, {} as never, IDS5);
+    expect(s.visible('essai-bilan')).toBe(true);
+    expect(s.el('#essai-bilan').innerText).toContain('Apprendre · Europe');
+    expect(s.el('#essai-bilan').innerText).toContain('déjà apprise');
+    expect(s.el('#seance-reviser').textContent).toBe('Réviser · 3');
+    s.el('#seance-trouver').click();
+    expect(s.visible('barre-essai')).toBe(true);
+    expect(s.el('#barre-essai .essai-compte').textContent).toBe('1 / 5');
+    s.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' }, serie, {} as never, IDS5);
+    s.el('#seance-reviser').click();
+    expect(s.fabrique.ouvrir.mock.calls.at(-1)![0]).toEqual({ sorte: 'revision' });
+    expect(s.visible('barre-essai')).toBe(true);
+  });
+});
