@@ -18,6 +18,8 @@ const pays = (id: string): Pays =>
 let justeSuivant = false;
 /** Un toucher faux désigne-t-il l'autre pays (marqué en rouge) plutôt que la mer ? */
 let fauxSurVoisin = false;
+/** La zone admise que noter() rend au prochain toucher juste (Note.admis : zone contestée, enclave). */
+let admisSuivant: unknown = null;
 
 function monter() {
   const zone = new El('main');
@@ -42,7 +44,7 @@ function monter() {
     hote: new El('div'),
     noter: (id: string) =>
       justeSuivant
-        ? { juste: true, pick: { id }, via: 'forme', distance_km: 0 }
+        ? { juste: true, pick: { id }, via: 'forme', distance_km: 0, admis: admisSuivant }
         : { juste: false, pick: fauxSurVoisin ? { id: id === 'FRA' ? 'ESP' : 'FRA' } : null, distance_km: 250 },
   };
   // ESP minuscule à l'écran (anneau, comme le Vatican), FRA non.
@@ -93,8 +95,23 @@ describe('Toucher : retour dans la vue pendant une question', () => {
   });
   afterEach(() => {
     fauxSurVoisin = false;
+    admisSuivant = null;
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it('juste dans une zone admise : la rétroaction dit pourquoi (zone contestée tenue par un autre, enclave)', () => {
+    const v = monter();
+    v.lancer();
+    const cible = v.cible();
+    const autre = cible === 'FRA' ? 'ESP' : 'FRA';
+    admisSuivant = { zone: 'NE_B89', tenant: autre, sorte: 'contestee' };
+    toucher(v.vue, true);
+    expect(v.retro.textContent).toMatch(new RegExp(`^Juste \\(zone contestée, tenue par ${autre === 'FRA' ? 'France' : 'Espagne'}\\) · 1 essai`));
+    vi.advanceTimersByTime(1200);
+    admisSuivant = { zone: autre, tenant: autre, sorte: 'enclave' };
+    toucher(v.vue, true);
+    expect(v.retro.textContent).toMatch(new RegExp(`^Juste \\(enclave de ${autre === 'FRA' ? 'France' : 'Espagne'} dans ${v.cible() === 'FRA' ? 'France' : 'Espagne'}\\)`));
   });
 
   it('garde les essais déjà faits pour la question', () => {

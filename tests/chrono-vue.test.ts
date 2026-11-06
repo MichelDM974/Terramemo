@@ -31,6 +31,8 @@ let faux = new Set<number>();
 let touchers = 0;
 /** Les options de chaque appel à noter() (règle des zones contestées et des enclaves). */
 let optionsNoter: unknown[] = [];
+/** La zone admise que noter() rend au prochain toucher juste (Note.admis). */
+let admisSuivant: unknown = null;
 
 function contexte(maintenant?: () => number) {
   const zone = new El('main');
@@ -41,11 +43,11 @@ function contexte(maintenant?: () => number) {
     marquer() {},
     anneau() {},
     zoomer() {},
-    noter: (id: string, _x: number, _y: number, o?: unknown) => (optionsNoter.push(o), faux.has(++touchers) ? { pick: { id: 'BRA' }, juste: false, distance_km: 120 } : { pick: { id }, juste: true, distance_km: 0 }),
+    noter: (id: string, _x: number, _y: number, o?: unknown) => (optionsNoter.push(o), faux.has(++touchers) ? { pick: { id: 'BRA' }, juste: false, distance_km: 120 } : { pick: { id }, juste: true, distance_km: 0, admis: admisSuivant }),
     projection: { scale: () => 1 },
     transfo: { k: 1 },
   };
-  const monde = { nom: 'monde', carte, donnees: { noms: {}, entites }, jouables: [], credit: null };
+  const monde = { nom: 'monde', carte, donnees: { noms: { RUS: 'Russie', KAZ: 'Kazakhstan', NE_KAB: 'Baïkonour' }, entites }, jouables: [], credit: null };
   const terrains = { monde, actif: 'monde', montrer: vi.fn(), deja: () => null, charger: vi.fn() };
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
   const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone };
@@ -68,6 +70,7 @@ beforeEach(() => {
   faux = new Set();
   touchers = 0;
   optionsNoter = [];
+  admisSuivant = null;
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -291,5 +294,26 @@ describe('zones contestées et enclaves : à partir du lundi 09/11/2026 0 h UTC'
 
   it('partie lancée à la date ou après : zones contestées et enclaves admises', () => {
     expect(deuxTouchers(DEBUT_ACCEPTES_EPREUVES)).toEqual([{ acceptes: true }, { acceptes: true }]);
+  });
+});
+
+describe('rétroaction d’une zone admise', () => {
+  it('Chrono : « Juste (zone contestée, tenue par Russie) · +1000 » ; Sans faute : « Juste (enclave de Baïkonour dans Kazakhstan) »', () => {
+    const { v, zone, consigne, lancer } = contexte(() => DEBUT_ACCEPTES_EPREUVES);
+    lancer('chrono');
+    admisSuivant = { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' };
+    v.toucher?.(0, 0, {} as PointerEvent);
+    const retro = () => zone.querySelector('#barre-chrono .essai-retro')?.textContent ?? '';
+    expect(retro()).toMatch(/^Juste \(zone contestée, tenue par Russie\) · \+1/);
+    vi.advanceTimersByTime(1_000);
+    admisSuivant = null;
+    v.toucher?.(0, 0, {} as PointerEvent);
+    expect(retro()).toMatch(/^Juste · \+/);
+    const s = lancer as (m: 'sansfaute') => void;
+    s('sansfaute');
+    admisSuivant = { zone: 'NE_KAB', tenant: 'NE_KAB', sorte: 'enclave' };
+    const cible = consigne();
+    v.toucher?.(0, 0, {} as PointerEvent);
+    expect(retro()).toBe(`Juste (enclave de Baïkonour dans ${cible})`);
   });
 });

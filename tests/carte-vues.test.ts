@@ -4,7 +4,7 @@ import type { Pays } from '../src/map/types';
 import { normaliser, suggestions } from '../src/texte';
 import { REUNION } from '../src/map/terrain';
 import { catalogue, ciblesEssai, nomSerie, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, serieEssai, seriesMonde, serieTerrain } from '../src/vues/cibles';
-import { anneauSiPetite, estPetite, fmtKm, fmtS, idsSerie, nomDe } from '../src/vues/commun';
+import { anneauSiPetite, estPetite, fmtKm, fmtS, idsSerie, nomDe, texteAdmis } from '../src/vues/commun';
 import { projectionLocale } from '../src/map/terrain';
 import { creerProjection } from '../src/map/projection';
 import { remplir, textes } from '../src/vues/textes';
@@ -152,6 +152,19 @@ describe('séries de l’île et textes des terrains', () => {
       'Faux : la mer. La bonne commune est en vert : touche-la.',
     );
     expect(remplir(T.bilan_nommer_faux, { cible: 'Saint-Leu', choisi: 'Les Avirons' })).toBe('Saint-Leu : tu as choisi Les Avirons');
+  });
+
+  it('texteAdmis : pourquoi une zone admise est juste (décision « Zones contestées et enclaves »)', () => {
+    const d = { noms };
+    // Crimée (hachure tenue par la Russie) pour l'Ukraine.
+    expect(texteAdmis(d, 'UKR', { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' })).toBe(' (zone contestée, tenue par Russie)');
+    // Une entité contestée se tient elle-même dans les données : son nom.
+    expect(texteAdmis(d, 'SOM', { zone: 'NE_SOL', tenant: 'NE_SOL', sorte: 'contestee' })).toBe(' (zone contestée : Somaliland)');
+    expect(texteAdmis(d, 'KAZ', { zone: 'NE_KAB', tenant: 'NE_KAB', sorte: 'enclave' })).toBe(' (enclave de Baïkonour dans Kazakhstan)');
+    // La cible tient la zone (une île hachurée touchée en mer) : rien à expliquer.
+    expect(texteAdmis(d, 'JPN', { zone: 'NE_B29', tenant: 'JPN', sorte: 'contestee' })).toBe('');
+    expect(texteAdmis(d, 'FRA', null)).toBe('');
+    for (const k of ['admis_contestee', 'admis_contestee_zone', 'admis_enclave'] as const) expect(textes.toucher[k]).toBeTruthy();
   });
 
   it('fmtKm : une décimale sous 10 km, l’entier au-delà', () => {

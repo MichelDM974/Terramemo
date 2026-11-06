@@ -19,7 +19,7 @@ import { mediane } from '../mesure/stats';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { creer, estPetite, fmtKm, fmtS, idsSerie, nomDe, type ContexteVue, type Vue } from './commun';
+import { creer, estPetite, fmtKm, fmtS, idsSerie, nomDe, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { remplir, textes } from './textes';
@@ -616,7 +616,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
           marquer(id, 'juste');
           retro.className = 'essai-retro juste';
           retro.textContent = remplir(T.juste, {
-            via: note.via === 'pastille' ? T.via_pastille : note.via === 'proche' ? T.via_proche : '',
+            // Une zone admise (contestée, enclave) dit pourquoi ; sinon la pastille ou « au plus près ».
+            via: texteAdmis(t.donnees, id, note.admis) || (note.via === 'pastille' ? T.via_pastille : note.via === 'proche' ? T.via_proche : ''),
             essais: nEssais(essais),
             temps: fmtS(performance.now() - debut),
           });

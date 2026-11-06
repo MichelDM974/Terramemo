@@ -79,6 +79,9 @@
     "juste": "Juste{via} · {essais} · {temps}",
     "via_pastille": " (pastille)",
     "via_proche": " (au plus près)",
+    "admis_contestee": " (zone contestée, tenue par {tenant})",
+    "admis_contestee_zone": " (zone contestée : {zone})",
+    "admis_enclave": " (enclave de {zone} dans {cible})",
     "essai_un": "{n} essai",
     "essais": "{n} essais",
     "faux": "Faux : {touche}{ou}. {suite}",
@@ -102,7 +105,7 @@
   "chrono": {
     "consigne": "Touche : ",
     "points": "{points} pts",
-    "juste": "Juste · +{points}",
+    "juste": "Juste{admis} · +{points}",
     "faux": "Faux : {touche}, à {km} du bord · +{points}",
     "la_mer": "la mer",
     "abandonner": "Abandonner",
@@ -177,7 +180,7 @@
     "erreur_1": "{n} erreur",
     "erreurs": "{n} erreurs",
     "en_temps": "{score} en {temps}",
-    "juste": "Juste",
+    "juste": "Juste{admis}",
     "faux": "Faux : {touche}, à {km} du bord",
     "bilan_faux": "{pays} → {touche}, à {km}"
   },

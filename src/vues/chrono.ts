@@ -25,7 +25,7 @@ import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
-import { anneauSiPetite, creer, fmtKm, idsSerie, nomDe, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, creer, fmtKm, idsSerie, nomDe, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong } from './scores';
 import { remplir, textes } from './textes';
 
@@ -376,7 +376,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
         carte.marquer(id, 'juste');
         if (q.juste) {
           retro.className = 'essai-retro juste';
-          retro.textContent = mode === 'chrono' ? remplir(T.juste, { points: fmtPts(q.points) }) : E.juste;
+          const admis = texteAdmis(d, id, note.admis);
+          retro.textContent = mode === 'chrono' ? remplir(T.juste, { admis, points: fmtPts(q.points) }) : remplir(E.juste, { admis });
         } else {
           if (r && r.id !== id) carte.marquer(r.id, 'faux');
           anneauSiPetite(t, id, 'juste');

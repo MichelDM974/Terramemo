@@ -1,3 +1,4 @@
+import type { Admis } from '../map/acceptes';
 import type { CarteAffichee } from '../map/carte';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
@@ -5,7 +6,7 @@ import type { Statut } from '../map/types';
 import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
 import type { Serie } from './cibles';
-import { textes } from './textes';
+import { remplir, textes } from './textes';
 
 export interface ContexteVue {
   /** La carte du monde, toujours (explorer, saisie, pilote de mesure) ; un terrain : terrains. */
@@ -69,6 +70,24 @@ export function creer<K extends keyof HTMLElementTagNameMap>(
  */
 export function nomDe(d: { noms: Record<string, string> }, id: string): string {
   return d.noms[id] ?? id;
+}
+
+/**
+ * Pourquoi un toucher hors du tracé de la cible est juste (décision « Zones
+ * contestées et enclaves », Note.admis de noter()) : « (zone contestée, tenue
+ * par Russie) », « (enclave de Baïkonour dans Kazakhstan) » ; '' sans zone
+ * admise. Une entité contestée se tient elle-même dans les données (tenant =
+ * zone : Somaliland, Malouines, glacier de Siachen…) : son nom à la place
+ * (« zone contestée : Somaliland »). Rien quand la cible la tient : le toucher
+ * est juste sans règle à expliquer.
+ */
+export function texteAdmis(d: { noms: Record<string, string> }, cible: string, admis: Admis | null | undefined): string {
+  if (!admis) return '';
+  const T = textes.toucher;
+  if (admis.sorte === 'enclave') return remplir(T.admis_enclave, { zone: nomDe(d, admis.zone), cible: nomDe(d, cible) });
+  if (admis.tenant === cible) return '';
+  if (admis.tenant === admis.zone) return remplir(T.admis_contestee_zone, { zone: nomDe(d, admis.zone) });
+  return remplir(T.admis_contestee, { tenant: nomDe(d, admis.tenant) });
 }
 
 /** Durée lisible : « 1,2 s », espace insécable avant l'unité. */
