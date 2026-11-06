@@ -36,6 +36,7 @@ interface Contestee {
   superficie_km2: number;
   point: [number, number];
   dans: string[];
+  revendique_par: string[];
   note: string;
 }
 
@@ -351,6 +352,38 @@ describe('géométries (monde.topo.json)', () => {
     expect(contestees.find((c) => c.id === 'NE_B16')?.dans).toEqual(['ISR']);
     expect(contestees.find((c) => c.id === 'NE_B05')?.dans).toEqual(['IND']);
   });
+
+  it('le point de chaque zone est dans sa forme dessinée (Europa, Navassa, Alhucemas, Perejil… repris dans la forme simplifiée)', () => {
+    const formesZ = new Map(feature(topo, topo.objects.contestees).features.map((f) => [f.properties.id, f]));
+    const dehors = contestees.filter((c) => !geoContains(formesZ.get(c.id) as Feature<Geometry, Props>, c.point)).map((c) => c.id);
+    expect(dehors).toEqual([]);
+  });
+
+  it('revendications : chaque zone a un tenant et ses revendiquants (ids connus), source écrite pour chacune', () => {
+    const table = lire<{ zones: Record<string, { revendique_par: string[]; tenu_par?: string[]; source: string }> }>('geodata/revendications.json').zones;
+    expect(Object.keys(table).sort()).toEqual(contestees.map((c) => c.id));
+    for (const c of contestees) {
+      const t = table[c.id]!;
+      expect(c.revendique_par, c.id).toEqual(t.revendique_par);
+      expect(c.dans.length, `${c.id} sans tenant`).toBeGreaterThan(0);
+      if (t.tenu_par) expect(c.dans, c.id).toEqual(t.tenu_par);
+      expect(t.source, c.id).toMatch(/^Natural Earth v5\.1\.2, NOTE_BRK : /);
+      for (const r of c.revendique_par) expect(parId.has(r), `${c.id} → ${r}`).toBe(true);
+      // NE dit « Claimed by » : un revendiquant, sauf deux cas écrits dans la source.
+      if (/claimed by/i.test(c.note) && !['NE_B48', 'NE_B71'].includes(c.id)) expect(c.revendique_par.length, c.id).toBeGreaterThan(0);
+    }
+    // Repères de la décision « Zones contestées et enclaves ».
+    const z = (id: string) => contestees.find((c) => c.id === id);
+    expect([z('NE_B89')?.dans, z('NE_B89')?.revendique_par]).toEqual([['RUS'], ['UKR']]); // Crimée
+    expect([z('NE_B19')?.dans, z('NE_B19')?.revendique_par]).toEqual([['MAR'], ['ESH']]); // Sahara, ouest du mur
+    expect([z('NE_C02')?.dans, z('NE_C02')?.revendique_par]).toEqual([['UKR'], ['UKR']]); // Donetsk (NE v5.1.2)
+    expect([z('NE_B62')?.dans, z('NE_B62')?.revendique_par]).toEqual([['ESP'], ['MAR']]); // Perejil
+    expect(z('NE_B87')?.dans).toEqual(['ERI']); // Doumeira, absente de la couche des pays
+    // Entités entières (pays.json) : Somaliland, Chypre du Nord, Sahara à l'est du mur.
+    expect(parId.get('NE_SOL')?.revendique_par).toEqual(['SOM']);
+    expect(parId.get('NE_CYN')?.revendique_par).toEqual(['CYP']);
+    expect(parId.get('ESH')?.revendique_par).toEqual(['MAR']);
+  });
 });
 
 describe('voisins', () => {
@@ -395,12 +428,14 @@ describe('emprises (bbox)', () => {
 });
 
 describe('micro-États (pastilles)', () => {
-  it('liste figée : plus grand polygone < 1 000 km²', () => {
+  it('liste figée : plus grand polygone < 2 000 km² (décision « Cadrage et disques en séance » : Comores, Maurice, Samoa en plus)', () => {
     expect(jeu.filter((p) => p.micro).map((p) => p.id)).toEqual([
-      'AND', 'ATG', 'BHR', 'BRB', 'CPV', 'DMA', 'FSM', 'GRD', 'KIR', 'KNA', 'LCA', 'LIE', 'MCO',
-      'MDV', 'MHL', 'MLT', 'NRU', 'PLW', 'SGP', 'SMR', 'STP', 'SYC', 'TON', 'TUV', 'VAT', 'VCT',
+      'AND', 'ATG', 'BHR', 'BRB', 'COM', 'CPV', 'DMA', 'FSM', 'GRD', 'KIR', 'KNA', 'LCA', 'LIE', 'MCO',
+      'MDV', 'MHL', 'MLT', 'MUS', 'NRU', 'PLW', 'SGP', 'SMR', 'STP', 'SYC', 'TON', 'TUV', 'VAT', 'VCT', 'WSM',
     ]);
-    for (const p of pays) expect(p.micro, p.id).toBe(p.partie_max_km2 < 1000);
+    for (const p of pays) expect(p.micro, p.id).toBe(p.partie_max_km2 < 2000);
+    // Juste au-dessus du seuil : le Luxembourg (2 600 km²), entouré de voisins, n'a pas de disque d'office.
+    expect(parId.get('LUX')?.micro).toBe(false);
   });
 });
 
@@ -435,7 +470,7 @@ describe('noms et sources', () => {
 
   it('sorties à jour : empreintes du script et de la liste égales aux fichiers (sinon : npm run geodata)', () => {
     const empreinte = (f: string) => createHash('sha256').update(readFileSync(f)).digest('hex');
-    expect(Object.keys(sources.traitement.entrees).sort()).toEqual(['geodata/build.mjs', 'geodata/liste.json']);
+    expect(Object.keys(sources.traitement.entrees).sort()).toEqual(['geodata/build.mjs', 'geodata/liste.json', 'geodata/revendications.json']);
     for (const [f, h] of Object.entries(sources.traitement.entrees)) expect(empreinte(f), f).toBe(h);
   });
 

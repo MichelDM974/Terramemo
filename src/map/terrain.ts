@@ -82,7 +82,7 @@ export function cadreLocal(def: DefTerrain, emprise: GeoPermissibleObjects, libe
     zoomMaxMontrer: def.zoomMaxMontrer,
     // La plus petite commune (Le Port, ~16 km²) fait ~22 px au zoom 1 du
     // téléphone, au-dessus du seuil des pastilles (10 px) : aucune n'en aurait,
-    // et micro: true en donnerait à toutes (seuil de 1 000 km² des pays).
+    // et micro: true en donnerait à toutes (seuil de 2 000 km² des pays).
     pastilles: false,
     libelle,
   };

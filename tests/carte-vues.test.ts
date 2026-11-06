@@ -31,7 +31,8 @@ describe('essai et saisie', () => {
     expect(s.map((x) => nomSerie(x.id))).toEqual(['Tous les pays', 'Afrique', 'Amérique du Nord', 'Amérique du Sud', 'Asie', 'Europe', 'Océanie']);
     // L'essai du J0 à part (un outil, dans ⚙), intact.
     const essai = serieEssai(pays);
-    expect([essai.id, essai.terrain, essai.ids, essai.n]).toEqual([SERIE_ESSAI, 'monde', ciblesEssai(pays), 43]);
+    // 45 : les micro-États à moins de 2 000 km² (Comores et Maurice en plus ; Samoa y était, au Pacifique).
+    expect([essai.id, essai.terrain, essai.ids, essai.n]).toEqual([SERIE_ESSAI, 'monde', ciblesEssai(pays), 45]);
     expect(nomSerie(SERIE_ESSAI)).toBe('Essai J0');
     const jouables = pays.filter((p) => p.statut === 'jouable');
     expect(new Set(s[0]?.ids)).toEqual(new Set(jouables.map((p) => p.id)));

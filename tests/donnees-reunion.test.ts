@@ -111,7 +111,7 @@ describe('communes (communes.json, noms.fr.json)', () => {
     for (const c of communes) {
       expect(Object.keys(c), c.id).toEqual(['id', 'statut', 'superficie_km2', 'partie_max_km2', 'point', 'bbox', 'micro', 'voisins']);
       expect(c.statut, c.id).toBe('jouable');
-      // Le seuil des micro-États (1 000 km²) donnerait une pastille à toutes.
+      // Le seuil des micro-États (2 000 km²) donnerait une pastille à toutes.
       expect(c.micro, c.id).toBe(false);
     }
   });

@@ -26,17 +26,29 @@ export interface Pays extends Lieu {
   a2?: string;
   continent: string;
   sous_region: string;
+  /** Pays qui revendiquent l'entité entière (Somaliland : SOM) ; ids de pays.json. */
+  revendique_par?: string[];
+  /** NOTE_BRK de Natural Earth, pour les entités contestées et les territoires. */
+  note_ne?: string;
 }
 
-/** Une zone de contestees.json (couche hachurée, jamais touchée). */
+/** Une zone de contestees.json (couche hachurée : pick ne la désigne jamais, noter l'admet pour qui la tient ou la revendique). */
 export interface Contestee {
   id: string;
   type: string;
   rang: number;
   superficie_km2: number;
   point: [number, number];
-  /** Entités qui contiennent la zone : ce qu'un toucher y donne. */
+  /**
+   * Qui tient la zone : les entités qui contiennent son point dans les sources
+   * (non simplifiées), ou l'ADMIN de NE pour un îlot absent de la couche des
+   * pays (geodata/revendications.json). Presque toujours ce qu'un toucher y
+   * donne ; pas pour les îlots espagnols au ras du Maroc (NE_B62, NE_B63), que
+   * la carte simplifiée met aussi sous le Maroc.
+   */
   dans: string[];
+  /** Pays qui la revendiquent (geodata/revendications.json) ; vide si personne. */
+  revendique_par: string[];
   note: string;
 }
 

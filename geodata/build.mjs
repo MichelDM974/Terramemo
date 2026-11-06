@@ -24,20 +24,24 @@ import { gzipSync } from 'node:zlib';
 import { geoArea, geoContains, geoDistance } from 'd3-geo';
 import mapshaper from 'mapshaper';
 import polylabel from 'polylabel';
-import { neighbors } from 'topojson-client';
+import { feature, neighbors } from 'topojson-client';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RAW = join(RACINE, 'geodata', 'raw');
 const VERROU = join(RACINE, 'geodata', 'sources.lock.json');
 const LISTE = join(RACINE, 'geodata', 'liste.json');
 const TEMOIN = join(RACINE, 'geodata', 'temoin-polygones.json');
+const REVENDICATIONS_ZONES = join(RACINE, 'geodata', 'revendications.json');
 const SORTIE = join(RACINE, 'public', 'geo');
 
 // Langues des fichiers de noms (décision « Langue » : l'anglais s'ajoutera ici).
 const LANGUES = ['fr'];
 
 const R_TERRE_KM = 6371.0088; // rayon moyen (IUGG)
-const SEUIL_MICRO_KM2 = 1000; // plus grand polygone sous ce seuil : pastille seulement
+// Plus grand polygone sous ce seuil : micro-État, disque toujours dessiné. 2 000 km²
+// depuis la décision « Cadrage et disques en séance » (06/11/2026) : Comores, Samoa et
+// Maurice, archipels lointains qui ne passent 4 px à l'écran qu'au-delà du zoom 8.
+const SEUIL_MICRO_KM2 = 2000;
 const SIMPLIFICATION = 'visvalingam interval=2000 keep-shapes'; // 2 km
 const QUANTIFICATION = 1e6;
 // Carte allégée du rendu Canvas, tracée à chaque image pendant un geste (la complète
@@ -168,9 +172,10 @@ const CONTESTEES_EXCLUES = { B53: 'bande de Gaza (Palestine)', B54: 'Cisjordanie
 
 // Qui revendique une entité entière (ids de pays.json), pour toute entité « conteste » et
 // pour les territoires dont NE note une revendication (NOTE_BRK « Claimed by… », reprise
-// dans pays.json en note_ne). Le choix de notation (un toucher au Somaliland compte-t-il
-// pour la Somalie ?) se fait au J1a, pas ici. Les revendications d'une partie d'entité
-// (Kouriles, Tromelin, Wake…) sont dans contestees.json.
+// dans pays.json en note_ne). La notation (un toucher au Somaliland compte pour la
+// Somalie : décision « Zones contestées et enclaves ») est dans src/map/acceptes.ts. Les
+// revendications d'une partie d'entité (Crimée, Kouriles, Tromelin, Wake…) sont dans
+// geodata/revendications.json, tenu à la main, reportées dans contestees.json.
 const REVENDICATIONS = {
   ESH: ['MAR'], // NE : « Self admin.; Claimed by Morocco » (partie à l'est du mur)
   FLK: ['ARG'],
@@ -486,6 +491,7 @@ async function main() {
 
   console.log('Lecture');
   const liste = (await lireJson(LISTE)).pays;
+  const revendicationsZones = (await lireJson(REVENDICATIONS_ZONES)).zones;
   const ne = await lireShapefile(NE_PAYS);
   const neContestees = await lireShapefile(NE_CONTESTEES);
   const cldr = {};
@@ -602,9 +608,17 @@ async function main() {
       if (a > (aires[iMax] ?? 0)) iMax = i;
     });
     const point = pointInterieur(polys[iMax]);
-    // Entités de la couche des pays qui contiennent la zone (son point intérieur) : ce
-    // que donnerait un toucher dans la zone.
-    const dans = tous.filter((e) => geoContains(e.geojson, point)).map((e) => e.id);
+    // Qui tient la zone : les entités de la couche des pays qui contiennent son point
+    // intérieur (géométrie non simplifiée), ou, pour un îlot absent de cette couche,
+    // tenu_par de revendications.json (l'ADMIN de NE). Ce n'est pas toujours ce que
+    // donne un toucher sur la carte simplifiée : les îlots espagnols au ras de la côte
+    // marocaine (NE_B62, NE_B63) y tombent sous le Maroc.
+    const rev = revendicationsZones[id];
+    if (!rev) echec(`${id} : absente de geodata/revendications.json`);
+    const contenantes = tous.filter((e) => geoContains(e.geojson, point)).map((e) => e.id);
+    if (rev.tenu_par && contenantes.length) echec(`${id} : tenu_par alors que ${contenantes.join(', ')} la contient`);
+    const dans = rev.tenu_par ?? contenantes;
+    if (!dans.length) echec(`${id} : personne ne la tient (tenu_par manque dans revendications.json)`);
     contestees.push({
       id,
       type: p.TYPE,
@@ -612,6 +626,7 @@ async function main() {
       superficie_km2: arrondi(aire, 2),
       point,
       dans,
+      revendique_par: rev.revendique_par,
       note: (p.NOTE_BRK ?? '').trim(),
       props: p,
       geojson: { type: 'Feature', properties: { id }, geometry: geometrie },
@@ -619,6 +634,14 @@ async function main() {
   }
   contestees.sort(parId);
   if (new Set(contestees.map((c) => c.id)).size !== contestees.length) echec('zones contestées en double');
+  for (const id of Object.keys(revendicationsZones)) {
+    if (!contestees.some((c) => c.id === id)) echec(`revendications.json : ${id} n'est pas une zone gardée`);
+  }
+  for (const c of contestees) {
+    for (const r of [...c.dans, ...c.revendique_par]) {
+      if (!tous.some((e) => e.id === r)) echec(`revendications.json : ${c.id} → ${r} inconnu`);
+    }
+  }
 
   // --- Simplification et topologie (mapshaper) ---
   // keep-shapes ne protège que le plus grand anneau de chaque forme : simplifiée d'un
@@ -652,6 +675,22 @@ async function main() {
   topo.objects.contestees.geometries = regrouper(topo.objects.contestees.geometries, contestees);
   const topoTexte = JSON.stringify(topo);
   const geomsPays = topo.objects.pays.geometries;
+  // Point d'une zone : pris sur la géométrie source, il sort de la forme simplifiée de
+  // quelques îlots (Europa NE_B26, Navassa NE_B34, Alhucemas NE_B64, Doumeira NE_B87,
+  // Perejil…) : il est alors repris dans le plus grand polygone simplifié, celui qu'on voit.
+  const formesZones = feature(topo, topo.objects.contestees).features;
+  contestees.forEach((c, i) => {
+    const f = formesZones[i];
+    if (!f.geometry || geoContains(f, c.point)) return;
+    const polys = polysDe(f.geometry);
+    let iMax = 0;
+    const aires = polys.map((poly) => aireSr({ type: 'Polygon', coordinates: poly }));
+    aires.forEach((a, j) => {
+      if (a > (aires[iMax] ?? 0)) iMax = j;
+    });
+    c.point = pointInterieur(polys[iMax]);
+    if (!geoContains(f, c.point)) echec(`${c.id} : point hors de sa forme simplifiée`);
+  });
   // Aucune partie ne doit disparaître (keep-shapes la garde au pire en triangle).
   const nParties = (g) => (g.type === 'Polygon' ? 1 : g.type === 'MultiPolygon' ? g.arcs.length : 0);
   for (const [items, geoms] of [
@@ -752,6 +791,7 @@ async function main() {
       superficie_km2: c.superficie_km2,
       point: c.point,
       dans: c.dans,
+      revendique_par: c.revendique_par,
       note: c.note,
     }),
   );
@@ -801,6 +841,7 @@ async function main() {
     entrees: {
       'geodata/build.mjs': sha256(await readFile(fileURLToPath(import.meta.url))),
       'geodata/liste.json': sha256(await readFile(LISTE)),
+      'geodata/revendications.json': sha256(await readFile(REVENDICATIONS_ZONES)),
     },
     superficies:
       `aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, ` +
