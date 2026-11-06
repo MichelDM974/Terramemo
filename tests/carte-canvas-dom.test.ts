@@ -213,6 +213,44 @@ describe('CarteCanvas : montrer() de Nommer cadre comme le SVG (#16)', () => {
     expect(Math.abs(apres[0] - avant[0]) + Math.abs(apres[1] - avant[1])).toBeLessThan(1e-6);
   });
 
+  // Rotation pendant une question : en paysage (carte de 832 × 300), la vue
+  // libre de montrer tombe dans la borne ; déduite de la vue, sa liberté s'y
+  // perdait et le retour en portrait la bornait, le sud de l'Argentine sous la
+  // barre. En SVG, le retour rend la vue d'avant.
+  it('un aller-retour portrait → paysage → portrait rend la vue de montrer (Argentine)', () => {
+    const c = carte();
+    const prive = c as unknown as { hote: { clientWidth: number; clientHeight: number }; c: Cadre; v: VueGlobe; redimensionner(): void };
+    c.montrer('FRA', HV);
+    jouer(0, 2100);
+    c.montrer('ARG', HV);
+    jouer(3000, 5100);
+    const avant = { ...prive.v };
+    expect(avant.y).toBeLessThan(bornerY(prive.c, avant.k, avant.y) - 100);
+    prive.hote.clientWidth = 832;
+    prive.hote.clientHeight = 300;
+    prive.redimensionner();
+    // Le cas du constat : la vue de paysage est dans la borne.
+    expect(prive.v.y).toBeCloseTo(bornerY(prive.c, prive.v.k, prive.v.y), 6);
+    prive.hote.clientWidth = L;
+    prive.hote.clientHeight = H;
+    prive.redimensionner();
+    expect(prive.v.k).toBeCloseTo(avant.k, 9);
+    expect(prive.v.y).toBeCloseTo(avant.y, 6);
+    expect(prive.v.r).toBeCloseTo(avant.r, 9);
+    expect(partDe(c.contexte(), 'ARG')).toBeGreaterThan(0.99);
+  });
+
+  it('après montrer, une pose bornée (zoomerSur) rend la borne aux changements de taille', () => {
+    const c = carte();
+    const prive = c as unknown as { hote: { clientHeight: number }; c: Cadre; v: VueGlobe; redimensionner(): void };
+    c.montrer('ARG', HV);
+    jouer(0, 2100);
+    c.zoomerSur('ARG');
+    prive.hote.clientHeight = H + 200;
+    prive.redimensionner();
+    expect(prive.v.y).toBeCloseTo(bornerY(prive.c, prive.v.k, prive.v.y), 6);
+  });
+
   it('une vue dans la borne y reste quand la hauteur change', () => {
     const c = carte();
     const prive = c as unknown as { hote: { clientHeight: number }; c: Cadre; v: VueGlobe; redimensionner(): void };

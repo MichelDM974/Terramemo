@@ -37,7 +37,6 @@ import { ROTATIONS } from './projection';
 import type { Forme, Transfo } from './types';
 import {
   bornerK,
-  bornerY,
   cadre,
   dePlan,
   ecartLon,
@@ -312,6 +311,13 @@ export class CarteCanvas implements CarteAffichee {
   private peintreActif: Peintre | null = null;
   private c: Cadre = cadre(1, 1);
   private v: VueGlobe;
+  /**
+   * La vue vient de montrer(), qui ignore la borne verticale : un changement de
+   * taille la replace sans la borner, jusqu'au prochain geste ou pose bornée.
+   * Gardé à part et non déduit de la vue : en paysage, la vue libre peut tomber
+   * dans la borne, et le retour en portrait la bornerait.
+   */
+  private libre = false;
   private proj: GeoProjection;
   private dpr = 1;
   private complet: Calque | null = null;
@@ -568,7 +574,7 @@ export class CarteCanvas implements CarteAffichee {
   montrer(id: string, hVisible?: number): void {
     const cible = this.vise(id, ZOOM_MAX_MONTRER, hVisible, true);
     if (!cible) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible, true);
     this.arreterVol();
     const depart = { ...this.v };
     const arrivee = { ...cible, r: depart.r + ecartLon(depart.r, cible.r) };
@@ -589,11 +595,11 @@ export class CarteCanvas implements CarteAffichee {
     if (u >= 1) {
       this.vol = null;
       this.enMouvement = false;
-      this.poser(vol.cible);
+      this.poser(vol.cible, false, true);
       return;
     }
     this.enMouvement = true;
-    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX, true));
+    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX, true), false, true);
   }
 
   /**
@@ -658,11 +664,15 @@ export class CarteCanvas implements CarteAffichee {
 
   // --- vue -------------------------------------------------------------------
 
-  /** Change la vue : projection tournée et pastilles recalculées (pick et noter les lisent). */
-  private poser(v: VueGlobe, forcer = false): void {
+  /**
+   * Change la vue : projection tournée et pastilles recalculées (pick et noter
+   * les lisent). libre : la vue ignore la borne verticale (montrer).
+   */
+  private poser(v: VueGlobe, forcer = false, libre = false): void {
     const rChange = forcer || v.r !== this.v.r;
     const kChange = v.k !== this.v.k;
     this.v = v;
+    this.libre = libre;
     if (rChange) this.proj = projectionDe(v.r, this.c);
     if (rChange || kChange) {
       this.pastilles = calculerPastilles(this.o.donnees.entites, this.proj, v.k);
@@ -671,10 +681,10 @@ export class CarteCanvas implements CarteAffichee {
     }
   }
 
-  private poserProgramme(v: VueGlobe): void {
+  private poserProgramme(v: VueGlobe, libre = false): void {
     this.arreterVol();
     this.enMouvement = false;
-    this.poser(v);
+    this.poser(v, false, libre);
     this.demander();
   }
 
@@ -703,10 +713,12 @@ export class CarteCanvas implements CarteAffichee {
   /**
    * Nouvelle taille : même point au centre, même échelle à l'écran (k × échelle
    * de la projection), bornée au zoom 1. Un canvas se retrace sans coût de
-   * tracés SVG : pas de seuil de 15 % sur la hauteur ici. Une vue hors de la
-   * borne verticale (laissée libre par montrer) le reste : la barre d'adresse
-   * du téléphone qui va et vient ne ramène pas sous la barre de Nommer la zone
-   * du sud que le vol a montée ; le geste suivant la borne, comme en SVG.
+   * tracés SVG : pas de seuil de 15 % sur la hauteur ici. La vue de montrer
+   * (this.libre) reste hors de la borne verticale : la barre d'adresse du
+   * téléphone qui va et vient, ou un aller-retour en paysage, ne ramène pas
+   * sous la barre de Nommer la zone du sud que le vol a montée (le même centre
+   * sans borne : le retour à la taille d'avant rend la vue d'avant) ; le geste
+   * suivant la borne, comme en SVG.
    */
   private redimensionner(): void {
     if (this.masquee) return;
@@ -716,9 +728,9 @@ export class CarteCanvas implements CarteAffichee {
     const avant = this.c;
     const centre = pointVirtuel(this.v, avant, avant.l / 2, avant.h / 2);
     const echelle = this.v.k * avant.s;
-    const libre = Math.abs(this.v.y - bornerY(avant, this.v.k, this.v.y)) > 1e-6;
+    const libre = this.libre;
     this.dimensionner();
-    this.poser(placer(this.c, centre, this.c.l / 2, this.c.h / 2, bornerK(echelle / this.c.s, ZOOM_MAX), libre), true);
+    this.poser(placer(this.c, centre, this.c.l / 2, this.c.h / 2, bornerK(echelle / this.c.s, ZOOM_MAX), libre), true, libre);
     this.dessiner();
   }
 
