@@ -281,3 +281,72 @@ describe('Carte SVG : les teintes de la carte de la mémoire, à part des marque
     }
   });
 });
+
+describe('Carte (SVG) : boutons de zoom, un cran et toute la carte (#23)', () => {
+  /** Le point de base (px au zoom 1) au centre de la carte. */
+  const auCentre = (t: { k: number; x: number; y: number }): [number, number] => [(L / 2 - t.x) / t.k, (H / 2 - t.y) / t.k];
+
+  it('un cran zoome de 2 en 250 ms, le centre au centre ; deux crans rapprochés : de 4 ; dézoomer revient d’autant', () => {
+    const { c } = carte();
+    c.zoomerSur('ITA');
+    const t0 = c.transfo;
+    const centre = auCentre(t0);
+    c.zoomerDe(2);
+    vi.advanceTimersByTime(120);
+    expect(c.transfo.k).toBeGreaterThan(t0.k);
+    expect(c.transfo.k).toBeLessThan(2 * t0.k);
+    // Le second cran pendant le vol du premier part de son arrivée.
+    expect(c.contexteFinal().t.k).toBeCloseTo(2 * t0.k, 9);
+    c.zoomerDe(2);
+    vi.advanceTimersByTime(400);
+    expect(c.transfo.k).toBeCloseTo(4 * t0.k, 9);
+    const [bx, by] = auCentre(c.transfo);
+    expect(Math.abs(bx - centre[0])).toBeLessThan(1e-6);
+    expect(Math.abs(by - centre[1])).toBeLessThan(1e-6);
+    c.zoomerDe(0.5);
+    vi.advanceTimersByTime(400);
+    expect(c.transfo.k).toBeCloseTo(2 * t0.k, 9);
+  });
+
+  it('dézoomer depuis un bord garde la carte dans la borne des gestes : au zoom 1, la vue du départ', () => {
+    const { c } = carte();
+    // Zoom 2, la carte poussée hors de la borne (zoomer ne la borne pas).
+    c.zoomer({ k: 2, x: -5 * L, y: 3 * H });
+    c.zoomerDe(0.5);
+    vi.advanceTimersByTime(400);
+    const t = c.transfo;
+    expect(t.k).toBe(1);
+    expect(Math.abs(t.x)).toBeLessThan(1e-6);
+    expect(Math.abs(t.y)).toBeLessThan(1e-6);
+  });
+
+  it('au zoom 1, − ne fait rien ; pendant un geste (molette), les boutons non plus', () => {
+    const { c, hote } = carte();
+    c.zoomerDe(0.5);
+    vi.advanceTimersByTime(400);
+    expect(c.transfo).toEqual({ k: 1, x: 0, y: 0 });
+    molette(hote);
+    vi.advanceTimersByTime(50);
+    const t = c.transfo;
+    c.zoomerDe(2);
+    c.vueEntiere();
+    vi.advanceTimersByTime(20);
+    expect(c.contexteFinal().t).toEqual(t);
+    // Le geste fini (150 ms sans molette), un cran repart.
+    vi.advanceTimersByTime(300);
+    c.zoomerDe(2);
+    vi.advanceTimersByTime(400);
+    expect(c.transfo.k).toBeCloseTo(2 * t.k, 9);
+  });
+
+  it('toute la carte : la vue du départ, en vol, depuis n’importe où', () => {
+    const { c } = carte();
+    c.zoomerSur('JPN');
+    c.vueEntiere();
+    vi.advanceTimersByTime(100);
+    expect(c.transfo.k).toBeGreaterThan(1);
+    expect(c.contexteFinal().t).toEqual({ k: 1, x: 0, y: 0 });
+    vi.advanceTimersByTime(1000);
+    expect(c.transfo).toEqual({ k: 1, x: 0, y: 0 });
+  });
+});

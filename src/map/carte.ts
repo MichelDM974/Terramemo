@@ -27,6 +27,14 @@ export const ZOOM_MAX = 400;
 const ZOOM_MAX_MONTRER = 40;
 /** Durée du vol de montrer() (ms) : celle de l'interpolation de van Wijk et Nuij, bornée. */
 const DUREE_MONTRER_MS = { min: 600, max: 2000 } as const;
+/**
+ * Boutons de zoom (#23) : un cran (zoomerDe) dure 250 ms, l'habitude des
+ * cartes en ligne ; le retour à toute la carte (vueEntiere) suit
+ * l'interpolation de van Wijk et Nuij, plus court que le vol de montrer().
+ * Aussi pour la carte Canvas (carte-canvas.ts).
+ */
+export const DUREE_CRAN_MS = { min: 250, max: 250 } as const;
+export const DUREE_TOUT_MS = { min: 300, max: 900 } as const;
 /** Chiffres après la virgule du contour de la sphère (px de base). */
 const DECIMALES = 2;
 /** Pas des hachures à l'écran (px). */
@@ -96,6 +104,16 @@ export interface CarteAffichee {
    */
   cadrer(e: Emprise, hVisible?: number): void;
   zoomer(t: Transfo): void;
+  /**
+   * Boutons + et − et touches du clavier (#23) : un cran de zoom (facteur 2
+   * ou 1/2) autour du centre de la carte, en un court vol, la vue gardée
+   * dans la borne comme après un geste. Pendant un vol, le cran part de son
+   * arrivée : deux appuis rapprochés zooment de 4. Sans effet au zoom
+   * minimal ou maximal, et pendant un geste.
+   */
+  zoomerDe(facteur: number): void;
+  /** Bouton « toute la carte » (#23) : la vue du départ (le monde au zoom 1, ou l'île entière), en vol. */
+  vueEntiere(): void;
   marquer(id: string, classe: string): void;
   effacerMarques(): void;
   anneau(id: string, classe: string, rayon_px?: number): void;
@@ -208,6 +226,8 @@ export class Carte implements CarteAffichee {
   private aBouge = false;
   /** Le geste en cours vient d'un doigt, de la souris ou de la molette (pas de zoomer()). */
   private parUtilisateur = false;
+  /** Entre le start et le end de d3-zoom (geste ou vol). */
+  private enGeste = false;
   private taille = { l: 0, h: 0 };
   private suivi = new SuiviPointeurs();
   /** Carte masquée (vue Saisie) : pas de retracé avant son retour. */
@@ -398,12 +418,39 @@ export class Carte implements CarteAffichee {
     this.voler(viser([b[0], b[1]], 0, this.taille.l, h, this.cadre.zoomMaxMontrer, boite));
   }
 
-  /** Le vol de montrer() et de cadrer() jusqu'à t. */
-  private voler(t: Transfo): void {
+  zoomerDe(facteur: number): void {
+    if (this.gesteEnCours) return;
+    const base = this.arrivee ?? this.t;
+    const k = Math.min(this.cadre.zoomMax, Math.max(1, base.k * facteur));
+    if (k === base.k) return;
+    // Le centre de la carte reste au centre, puis la borne des gestes (translateExtent) :
+    // zoom.transform, que fait voler(), ne l'applique pas.
+    const { l, h } = this.taille;
+    const s = k / base.k;
+    const vise = zoomIdentity.translate(l / 2 - s * (l / 2 - base.x), h / 2 - s * (h / 2 - base.y)).scale(k);
+    const t = this.comportement.constrain()(vise, [[0, 0], [l, h]], this.comportement.translateExtent());
+    this.voler({ k: t.k, x: t.x, y: t.y }, DUREE_CRAN_MS);
+  }
+
+  vueEntiere(): void {
+    if (this.gesteEnCours) return;
+    const base = this.arrivee ?? this.t;
+    if (base.k === 1 && base.x === 0 && base.y === 0) return;
+    // La vue que pose rendre() au départ.
+    this.voler({ k: 1, x: 0, y: 0 }, DUREE_TOUT_MS);
+  }
+
+  /** Un doigt, la souris ou la molette bouge la carte en ce moment (d3-zoom entre start et end). */
+  private get gesteEnCours(): boolean {
+    return this.parUtilisateur && this.enGeste;
+  }
+
+  /** Le vol de montrer(), de cadrer() et des boutons de zoom jusqu'à t, d'une durée bornée par duree (ms). */
+  private voler(t: Transfo, duree: { min: number; max: number } = DUREE_MONTRER_MS): void {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.zoomer(t);
     const { l, h } = this.taille;
     const vue = (v: Transfo): [number, number, number] => [(l / 2 - v.x) / v.k, (h / 2 - v.y) / v.k, Math.max(l, h) / v.k];
-    const duree = interpolateZoom(vue(this.t), vue(t)).duration;
+    const naturelle = interpolateZoom(vue(this.t), vue(t)).duration;
     // Pendant le vol, les disques du zoom de départ ne sont pas recalculés (fin()) :
     // ils couvriraient l'Europe d'un départ au zoom 1. Cachés jusqu'à l'arrivée
     // (ou au geste qui interrompt le vol). Posé au début de la transition, après
@@ -416,7 +463,7 @@ export class Carte implements CarteAffichee {
     };
     select(this.hote)
       .transition()
-      .duration(Math.min(DUREE_MONTRER_MS.max, Math.max(DUREE_MONTRER_MS.min, duree)))
+      .duration(Math.min(duree.max, Math.max(duree.min, naturelle)))
       .on('start', () => this.hote.classList.add('en-vol'))
       .on('end.arrivee interrupt.arrivee cancel.arrivee', fini)
       .call(this.comportement.transform, zoomIdentity.translate(t.x, t.y).scale(t.k));
@@ -519,6 +566,7 @@ export class Carte implements CarteAffichee {
   private debut(e: D3ZoomEvent<HTMLElement, unknown>): void {
     this.aBouge = false;
     this.parUtilisateur = !!e.sourceEvent;
+    this.enGeste = true;
     if (this.parUtilisateur) this.o.gestes?.debut?.({ k: e.transform.k, x: e.transform.x, y: e.transform.y }, e.sourceEvent as Event);
   }
 
@@ -551,6 +599,7 @@ export class Carte implements CarteAffichee {
       this.majHachures(this.t.k);
     }
     this.hote.classList.remove('en-vol');
+    this.enGeste = false;
     const script_ms = performance.now() - t0;
     if (this.parUtilisateur) {
       this.o.gestes?.fin?.({

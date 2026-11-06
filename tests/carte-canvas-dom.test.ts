@@ -595,3 +595,85 @@ describe('CarteCanvas : les teintes de la carte de la mémoire (#2)', () => {
     expect(disque()).toBe(VARS['--good']);
   });
 });
+
+describe('CarteCanvas : boutons de zoom, un cran et toute la carte (#23)', () => {
+  const prive = (c: CarteCanvas) => c as unknown as { c: Cadre; v: VueGlobe };
+
+  it('un cran zoome de 2 en 250 ms, le point du centre au centre ; deux crans rapprochés : de 4', () => {
+    const c = carte();
+    c.zoomerSur('ITA');
+    const k0 = c.transfo.k;
+    c.zoomerDe(2);
+    image(0);
+    image(120);
+    // En plein vol : entre les deux zooms.
+    expect(c.transfo.k).toBeGreaterThan(k0);
+    expect(c.transfo.k).toBeLessThan(2 * k0);
+    jouer(140, 400);
+    expect(c.transfo.k).toBeCloseTo(2 * k0, 9);
+    let p = c.ecran('ITA') as [number, number];
+    expect(Math.abs(p[0] - L / 2)).toBeLessThan(1e-6);
+    expect(Math.abs(p[1] - H / 2)).toBeLessThan(1e-6);
+    // Le second cran pendant le vol du premier part de son arrivée.
+    c.zoomerDe(2);
+    image(500);
+    image(560);
+    c.zoomerDe(2);
+    jouer(600, 1000);
+    expect(c.transfo.k).toBeCloseTo(8 * k0, 9);
+    p = c.ecran('ITA') as [number, number];
+    expect(Math.abs(p[0] - L / 2)).toBeLessThan(1e-6);
+    // Dézoomer revient d'autant.
+    c.zoomerDe(0.5);
+    jouer(1100, 1500);
+    expect(c.transfo.k).toBeCloseTo(4 * k0, 9);
+  });
+
+  it('au zoom 1, − ne fait rien ; au zoom maximal, + non plus', () => {
+    const c = carte();
+    const t0 = c.transfo;
+    c.zoomerDe(0.5);
+    jouer(0, 400);
+    expect(c.transfo).toEqual(t0);
+    c.zoomer({ ...t0, k: 400 });
+    const t1 = c.transfo;
+    c.zoomerDe(2);
+    jouer(500, 900);
+    expect(c.transfo).toEqual(t1);
+  });
+
+  it('dézoomer garde la vue dans la borne, à chaque image (pas de vide au-dessus du pôle)', () => {
+    const c = carte();
+    // La Norvège zoomée, puis la carte poussée au nord autant que la borne le permet.
+    c.zoomerSur('NOR');
+    const { c: cadreCarte } = prive(c);
+    c.zoomer({ ...c.transfo, y: 1e6 });
+    for (let i = 0; i < 6; i++) {
+      c.zoomerDe(0.5);
+      for (let ts = i * 400; ts <= i * 400 + 300; ts += 16) {
+        image(ts);
+        const v = prive(c).v;
+        expect(v.y).toBeCloseTo(bornerY(cadreCarte, v.k, v.y), 6);
+      }
+    }
+    expect(c.transfo.k).toBe(1);
+  });
+
+  it('toute la carte : la vue du départ (méridien du segment Projection, zoom 1), en vol, depuis n’importe où', () => {
+    for (const projection of ['monde', 'pacifique'] as const) {
+      const c = carte({ projection });
+      const depart = c.transfo;
+      c.zoomerSur('JPN');
+      c.vueEntiere();
+      image(0);
+      image(100);
+      expect(c.transfo.k).toBeGreaterThan(1);
+      jouer(120, 1200);
+      const t = c.transfo;
+      expect([projection, t.k]).toEqual([projection, 1]);
+      expect(t.r).toBeCloseTo(depart.r ?? 0, 9);
+      expect(t.y).toBeCloseTo(depart.y, 9);
+      expect(t.x).toBeCloseTo(depart.x, 9);
+    }
+  });
+});

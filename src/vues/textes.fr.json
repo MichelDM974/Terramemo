@@ -18,6 +18,12 @@
     "monde": "Monde",
     "monde_titre": "Revenir à la carte du monde"
   },
+  "zoom": {
+    "groupe": "Zoom de la carte",
+    "plus": "Zoomer (+)",
+    "moins": "Dézoomer (−)",
+    "tout": "Toute la carte"
+  },
   "recherche": {
     "placeholder": "Chercher un pays, une commune…",
     "placeholder_court": "Pays, commune…",

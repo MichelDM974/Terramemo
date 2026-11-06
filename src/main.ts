@@ -20,6 +20,7 @@ import { horlogeAppareil, horlogeDecalee, lireDecalage } from './journal/horloge
 import { ouvrirMemoire } from './journal/memoire';
 import { creerNavigation } from './navigation';
 import { brancherRetourAndroid } from './retour-android';
+import { brancherZoom } from './zoom-carte';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import type { Vue } from './vues/commun';
@@ -584,6 +585,8 @@ async function demarrer(): Promise<void> {
     const s = serieEssai(pays);
     remplirEssaiJ0(essaiJ0, (mode) => lancer({ branche: 'entrainement', sujet: 'pays', serie: s.id, mode }, s, ctx.terrains.monde, [...s.ids]));
   }
+  // Boutons de zoom (#23) : après les vues, donc par-dessus leurs barres ; la carte visible, le monde ou l'île.
+  brancherZoom({ zone, carte: () => (terrains?.deja(terrains.actif) ?? ctx.terrains.monde).carte });
   panneauMesures(zone, mesures);
   appliquerMesures();
   nav.router();

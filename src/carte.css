@@ -177,6 +177,52 @@ body[data-terrain="reunion"] .legende-memoire { top: 44px; }
 .legende-compte { color: var(--text); }
 body[data-vue="saisie"] .legende-memoire { display: none; }
 
+/* --- Boutons de zoom (#23, src/zoom-carte.ts) : +, − et « toute la carte »,
+   en bas à droite, pour qui n'a pas de molette. Sur ordinateur seulement :
+   cachés quand le pointeur principal est un doigt (pointer: coarse, le
+   téléphone, où le pincement suffit), montrés avec une souris ou un pavé
+   tactile (fine), et sans pointeur (none : clavier seul, le Chromium sans
+   écran du pilote). Dans les vues où l'on manipule la carte (VUES_ZOOM).
+   Neutres, comme un bouton secondaire : l'accent reste au bouton Jouer. --- */
+.zoom-carte {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: none;
+  flex-direction: column;
+  background: var(--popup-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px var(--shadow);
+}
+@media not all and (pointer: coarse) {
+  body:is([data-vue="carte"], [data-vue="toucher"], [data-vue="chrono"]) .zoom-carte { display: flex; }
+}
+.zoom-bouton {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.3rem;
+  font-weight: 400;
+  line-height: 1;
+}
+.zoom-bouton + .zoom-bouton { border-top: 1px solid var(--border); }
+.zoom-bouton:hover { background: var(--panel-2); }
+.zoom-bouton:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Fenêtre étroite : la barre du bas (560 px au plus, centrée) atteindrait le
+   coin ; les boutons montent au milieu du bord droit. */
+@media (max-width: 720px) {
+  .zoom-carte { bottom: auto; top: 50%; transform: translateY(-50%); }
+}
+
 /* --- Barres posées sur la carte (bas) --- */
 .carte-barre {
   position: absolute;

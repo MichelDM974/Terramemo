@@ -1315,6 +1315,8 @@ def ui_reunion(p, capturer, defauts):
     elif c["largeur"] >= TELEPHONE["largeur"] and c["credit_h"] > 1.5 * c["credit_lh"]:
         defauts.append("mention de l'IGN sur deux lignes à la largeur du téléphone")
     capturer("10-reunion")
+    # Les boutons de zoom sur la carte de l'île (SVG, #23), qui revient à sa vue de départ.
+    ui_zoom(p, capturer, defauts, p.tactile, "ile")
     # Saint-Denis demandé (« Passer » jusqu'à lui), Saint-Paul touché.
     for _ in range(24):
         if p.js('document.querySelector("#barre-essai .essai-consigne").dataset.cible') == "97411":
@@ -1373,6 +1375,63 @@ def ui_reunion(p, capturer, defauts):
 
 def visibilite_recherche(p):
     return p.js("getComputedStyle(document.querySelector('header .recherche')).visibility")
+
+
+def ui_zoom(p, capturer, defauts, telephone, carte="carte"):
+    """Boutons de zoom (#23) : sur ordinateur, +, − et « toute la carte » en
+    bas à droite de la carte, cliqués à la souris (rien ne les couvre), puis
+    les touches + et − ; cachés sur le téléphone (écran tactile) et hors des
+    vues de la carte (Jouer). carte : l'aide de la carte visible (« ile »
+    pendant une partie à La Réunion)."""
+    lire_k = f"window.terramemo.{carte}.transfo().k"
+    vu = p.js("""(() => { const g = document.getElementById('zoom-carte'), r = g.getBoundingClientRect(),
+        a = document.getElementById('app').getBoundingClientRect();
+        return { affiche: getComputedStyle(g).display !== 'none', droite: a.right - r.right, bas: a.bottom - r.bottom,
+                 l: r.width, h: r.height }; })()""")
+    if telephone:
+        dire(f"  zoom ({carte}) : boutons {'affichés' if vu['affiche'] else 'cachés'} sur l'écran tactile")
+        if vu["affiche"]:
+            defauts.append("boutons de zoom affichés sur le téléphone (écran tactile)")
+        return
+    if not vu["affiche"]:
+        defauts.append(f"boutons de zoom cachés sur ordinateur ({carte})")
+        return
+
+    def clic(ident):
+        # Une vraie souris au centre du bouton : il reçoit le clic s'il n'est pas couvert.
+        c = p.js(f"""(() => {{ const r = document.getElementById('{ident}').getBoundingClientRect();
+            return [r.x + r.width / 2, r.y + r.height / 2]; }})()""")
+        dessus = p.js(f"document.elementFromPoint({c[0]}, {c[1]})?.closest('#{ident}') != null")
+        if not dessus:
+            defauts.append(f"bouton {ident} couvert ({carte})")
+        p.toucher(c[0], c[1])
+        attendre_fin_vol(p, carte)
+        return p.js(lire_k)
+
+    def touche(cle):
+        for t in ("keyDown", "keyUp"):
+            p.cdp("Input.dispatchKeyEvent", type=t, key=cle, text=cle if t == "keyDown" else "")
+        attendre_fin_vol(p, carte)
+        return p.js(lire_k)
+
+    k0 = p.js(lire_k)
+    ks = [clic("zoom-plus"), clic("zoom-plus"), clic("zoom-moins"), touche("+"), touche("-")]
+    capturer("1b-zoom" if carte == "carte" else "10b-zoom-ile")
+    ks.append(clic("zoom-tout"))
+    vus = " → ".join(f"{k:.2f}" for k in [k0, *ks])
+    dire(f"  zoom ({carte}) : boutons {vu['l']:.0f}×{vu['h']:.0f} px à {vu['droite']:.0f} px du bord droit, "
+         f"{vu['bas']:.0f} du bas ; zoom {vus}")
+    attendus = [2 * k0, 4 * k0, 2 * k0, 4 * k0, 2 * k0, 1]
+    if any(abs(k - a) > 1e-3 * a for k, a in zip(ks, attendus)):
+        defauts.append(f"zoom ({carte}) : {vus}, attendu {' → '.join(f'{a:.2f}' for a in [k0, *attendus])}")
+    if carte == "carte":
+        # Hors des vues de la carte (Jouer, son panneau en bas) : cachés.
+        p.js('location.hash = "#jouer"')
+        attendre_visible(p, "#jouer-panneau")
+        if p.js("getComputedStyle(document.getElementById('zoom-carte')).display") != "none":
+            defauts.append("boutons de zoom affichés dans Jouer")
+        p.js('location.hash = "#carte"')
+        p.pause(300)
 
 
 def ui_entete(p, capturer, defauts, telephone):
@@ -1484,6 +1543,7 @@ def commande_ui(args):
         p.goto(base + "?mesures=0" + rendu + "#carte")
         p.attendre_carte()
         capturer("1-carte")
+        ui_zoom(p, capturer, defauts, telephone)
         p.js('window.terramemo.carte.zoomerSur("CHE")')
         pt = position(p, "CHE")
         p.toucher(pt["x"], pt["y"])

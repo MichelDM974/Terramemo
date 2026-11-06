@@ -63,7 +63,10 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   les traduit en JS, un shader refusé par le pilote y passerait) ; un refus
   y sort en `[KO ]` avec le journal du compilateur (sinon la carte retombe
   sans bruit sur le Canvas 2D). Smoke après tout changement de shader.
-- `ui` écrit `1-carte`, `2-pays-touche` (Suisse), `3-toucher-faux` et
+- `ui` écrit `1-carte`, `1b-zoom` (`ui_zoom`, #23 : sur PC, +, +, − à la
+  vraie souris puis les touches + et −, zoom attendu 1 → 2 → 4 → 2 → 4 → 2,
+  « toute la carte » ramène à 1 ; cachés dans Jouer ; sur le téléphone,
+  seulement « cachés »), `2-pays-touche` (Suisse), `3-toucher-faux` et
   `4-toucher-juste` (l'Essai J0, lancé depuis ⚙ : `#reglage-essai
   [data-mode=localiser]`), `5-saisie` (« sai » dans le champ réglé),
   `6-reglages` (⚙, avec l'Essai J0), `6b-credits` et `6c-credits-bas`
@@ -77,7 +80,7 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   (`/tmp/terramemo-captures`), et affiche les textes lus (barre,
   rétroaction, liste de la Saisie, bilan du Chrono). Puis La Réunion et
   Nommer (#15) : `10-reunion` (Toucher → La Réunion : l'île entière, barre
-  en bas, mention de l'IGN), `11-reunion-faux` (Saint-Paul touché pour
+  en bas, mention de l'IGN), `10b-zoom-ile` (`ui_zoom` sur l'île, en SVG), `11-reunion-faux` (Saint-Paul touché pour
   Saint-Denis : « Passer » jusqu'à Saint-Denis, l'ordre étant tiré au
   hasard), `12-nommer-monde` (Nommer, Europe : zone en accent, 4 boutons,
   prise une fois le vol fini : `attendre_fin_vol`, transformation stable),
@@ -114,7 +117,9 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   l'index de Minute (`firestore.indexes.json`), « Classement indisponible ».
   Faites après l'île : le premier usage de la recherche demande
   `/geo/reunion/noms.fr.json`, que `10-reunion` veut absent avant son choix.
-  `DÉFAUT : …` et code 1 si l'en-tête du téléphone dépasse une ligne (64 px),
+  `DÉFAUT : …` et code 1 si les boutons de zoom manquent sur PC, se montrent
+  sur le téléphone ou dans Jouer, sont couverts ou ne zooment pas comme
+  attendu (monde et île), si l'en-tête du téléphone dépasse une ligne (64 px),
   si le champ de recherche fait moins de 140 px ou coupe son texte d'aide,
   s'il reste visible pendant
   une partie ou ne revient pas après, si la recherche ne montre pas le

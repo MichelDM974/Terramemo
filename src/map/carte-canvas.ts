@@ -26,7 +26,7 @@
 // (relais-webgl.ts) à la même vue, geste en cours compris : seul l'élément
 // canvas change, l'état de la carte reste ici.
 import { interpolateZoom } from 'd3-interpolate';
-import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
+import { DUREE_CRAN_MS, DUREE_TOUT_MS, type ChronoRendu, type CarteAffichee, type OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
 import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
 import { anneauPrincipal, RAYON_TERRE_KM, versEcran, type Emprise } from './geo';
@@ -39,6 +39,7 @@ import { seau, VARIABLES_MEMOIRE, type Teintes } from './teintes';
 import type { Forme, Transfo } from './types';
 import {
   bornerK,
+  bornerY,
   cadre,
   dePlan,
   ecartLon,
@@ -393,7 +394,7 @@ export class CarteCanvas implements CarteAffichee {
     molette: number;
   } | null = null;
   /** Vol de montrer() en cours, avancé par l'image du dessin (une seule boucle d'images). */
-  private vol: { interp: (u: number) => number[]; duree: number; t0: number | null; cible: VueGlobe } | null = null;
+  private vol: { interp: (u: number) => number[]; duree: number; t0: number | null; cible: VueGlobe; libre: boolean } | null = null;
   /** Dernier dessin : compteurs, pour le pilote et les mesures. */
   dernier: ({ ms: number } & StatsDessin) | null = null;
 
@@ -654,15 +655,37 @@ export class CarteCanvas implements CarteAffichee {
     this.voler(viserEmprise(this.c, e, ZOOM_MAX_MONTRER, hVisible ?? this.c.h));
   }
 
-  /** Le vol de montrer() et de cadrer() jusqu'à la vue cible. */
-  private voler(cible: VueGlobe): void {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible, true);
+  zoomerDe(facteur: number): void {
+    if (this.geste) return;
+    const base = this.vol?.cible ?? this.v;
+    const k = bornerK(base.k * facteur, ZOOM_MAX);
+    if (k === base.k) return;
+    // Le point au centre de la carte y reste (sur son parallèle, comme la molette), la vue bornée comme après un geste.
+    const centre = pointVirtuel(base, this.c, this.c.l / 2, this.c.h / 2);
+    this.voler(placer(this.c, centre, this.c.l / 2, this.c.h / 2, k), DUREE_CRAN_MS, false);
+  }
+
+  vueEntiere(): void {
+    if (this.geste) return;
+    const base = this.vol?.cible ?? this.v;
+    // La vue du départ (constructeur) : le méridien du segment Projection, au zoom 1.
+    const depart: VueGlobe = { r: -ROTATIONS[this.o.projection][0], k: 1, y: bornerY(this.c, 1, 0) };
+    if (base.k === depart.k && base.y === depart.y && ecartLon(base.r, depart.r) === 0) return;
+    this.voler(depart, DUREE_TOUT_MS, false);
+  }
+
+  /**
+   * Le vol de montrer(), de cadrer() et des boutons de zoom jusqu'à la vue
+   * cible, d'une durée bornée par duree (ms). Libre (montrer, cadrer) : la
+   * vue ignore la borne verticale ; sinon (boutons), bornée à chaque image.
+   */
+  private voler(cible: VueGlobe, duree: { min: number; max: number } = DUREE_MONTRER_MS, libre = true): void {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible, libre);
     this.arreterVol();
     const depart = { ...this.v };
     const arrivee = { ...cible, r: depart.r + ecartLon(depart.r, cible.r) };
     const interp = interpolateZoom(versPlan(depart, this.c), versPlan(arrivee, this.c));
-    const duree = Math.min(DUREE_MONTRER_MS.max, Math.max(DUREE_MONTRER_MS.min, interp.duration));
-    this.vol = { interp, duree, t0: null, cible };
+    this.vol = { interp, duree: Math.min(duree.max, Math.max(duree.min, interp.duration)), t0: null, cible, libre };
     this.demander();
   }
 
@@ -677,11 +700,11 @@ export class CarteCanvas implements CarteAffichee {
     if (u >= 1) {
       this.vol = null;
       this.enMouvement = false;
-      this.poser(vol.cible, false, true);
+      this.poser(vol.cible, false, vol.libre);
       return;
     }
     this.enMouvement = true;
-    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX, true), false, true);
+    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX, vol.libre), false, vol.libre);
   }
 
   /**

@@ -37,6 +37,8 @@ l'oublier, jusqu'à tenir des mois.
   plus de justes en 60 s), chacune avec son record dans la série et ses
   classements ; le 🏆 les montre toutes. **Rejouer**, en tête de Jouer,
   relance la dernière partie d'une touche.
+- Sur ordinateur, des boutons **+**, **−** et « toute la carte » en bas à
+  droite (et les touches + et −) pour zoomer sans molette.
 - **La Réunion** : ses 24 communes sur une carte de l'île, en série de
   Toucher et des épreuves classées (avec leurs classements).
 

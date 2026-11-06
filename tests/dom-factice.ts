@@ -145,7 +145,16 @@ export class El {
 /** Pose un DOM factice ; rend son body. Avec vi.useFakeTimers, poser les minuteries avant. */
 export function installerDom(): El {
   const body = new El('body');
-  vi.stubGlobal('document', { createElement: (t: string) => new El(t.toLowerCase()), body });
+  // Le document écoute comme un élément (keydown des boutons de zoom) : emettre() sur document.
+  const doc = new El('#document');
+  vi.stubGlobal(
+    'document',
+    Object.assign(doc, {
+      createElement: (t: string) => new El(t.toLowerCase()),
+      createElementNS: (_ns: string, t: string) => new El(t),
+      body,
+    }),
+  );
   vi.stubGlobal('window', globalThis);
   vi.stubGlobal('getComputedStyle', () => ({ transform: 'none' }));
   vi.stubGlobal('requestAnimationFrame', (f: (t: number) => void) => setTimeout(() => f(performance.now()), 16));
