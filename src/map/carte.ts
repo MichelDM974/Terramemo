@@ -7,7 +7,7 @@ import { select } from 'd3-selection';
 import 'd3-transition'; // selection.transition(), pour le vol de montrer()
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom';
 import type { DonneesCarte } from './donnees';
-import { anneauPrincipal, empriseEcran, versEcran, viser } from './geo';
+import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, versEcran, viser, type Emprise } from './geo';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
 import { creerProjection, garderVue } from './projection';
@@ -87,6 +87,12 @@ export interface CarteAffichee {
   zoomerSur(id: string): void;
   /** hVisible : la hauteur visible de la carte (au-dessus d'une barre), toute la carte par défaut. */
   montrer(id: string, hVisible?: number): void;
+  /**
+   * Cadre une emprise [ouest, sud, est, nord] (la grappe d'une séance, au
+   * début de son rappel) par un vol comme montrer() : entière dans la partie
+   * visible hVisible, aussi zoomée que possible (ZOOM_MAX_MONTRER au plus).
+   */
+  cadrer(e: Emprise, hVisible?: number): void;
   zoomer(t: Transfo): void;
   marquer(id: string, classe: string): void;
   effacerMarques(): void;
@@ -376,7 +382,20 @@ export class Carte implements CarteAffichee {
    */
   montrer(id: string, hVisible?: number): void {
     const t = this.vise(id, this.cadre.zoomMaxMontrer, hVisible, true);
-    if (!t) return;
+    if (t) this.voler(t);
+  }
+
+  /** Une emprise entière dans la partie visible (carte plane : une emprise à cheval sur le bord de la carte la prend en entier). */
+  cadrer(e: Emprise, hVisible?: number): void {
+    const b = this.proj(centreEmprise(e));
+    if (!b) return;
+    const boite = empriseEcran(contourEmprise(e), (ll) => this.proj(ll) as [number, number] | null);
+    const h = Math.max(1, Math.min(hVisible ?? this.taille.h, this.taille.h));
+    this.voler(viser([b[0], b[1]], 0, this.taille.l, h, this.cadre.zoomMaxMontrer, boite));
+  }
+
+  /** Le vol de montrer() et de cadrer() jusqu'à t. */
+  private voler(t: Transfo): void {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.zoomer(t);
     const { l, h } = this.taille;
     const vue = (v: Transfo): [number, number, number] => [(l / 2 - v.x) / v.k, (h / 2 - v.y) / v.k, Math.max(l, h) / v.k];

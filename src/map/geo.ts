@@ -221,3 +221,106 @@ export function distanceAuBordKm(forme: Forme, ll: [number, number]): number {
   }
   return min * RAYON_TERRE_KM;
 }
+
+/** Emprise [ouest, sud, est, nord] en degrés ; ouest > est : elle passe l'antiméridien (comme Lieu.bbox). */
+export type Emprise = [number, number, number, number];
+
+/**
+ * Union d'emprises (une grappe de pays : le cadrage de son rappel) : en
+ * latitude, de la plus au sud à la plus au nord ; en longitude, le plus
+ * petit arc qui les couvre toutes, donc l'antiméridien franchi si c'est plus
+ * court (l'Océanie : de l'Australie aux Samoa par Fidji, pas par l'Afrique).
+ * null sans emprise.
+ */
+export function unionEmprises(emprises: readonly (readonly [number, number, number, number])[]): Emprise | null {
+  if (!emprises.length) return null;
+  let s = Infinity;
+  let n = -Infinity;
+  // Chaque emprise en arc [début, longueur] sur le cercle [0, 360).
+  const arcs = emprises.map(([o, so, e, no]) => {
+    s = Math.min(s, so);
+    n = Math.max(n, no);
+    const debut = (((o % 360) + 360) % 360);
+    const long = o <= e ? e - o : e + 360 - o;
+    return [debut, Math.min(360, long)] as [number, number];
+  });
+  if (arcs.some(([, l]) => l >= 360)) return [-180, s, 180, n];
+  arcs.sort((a, b) => a[0] - b[0]);
+  // Fusion des arcs qui se touchent, dans l'ordre, puis par-dessus 0° (le dernier sur le premier).
+  const fusion: [number, number][] = [];
+  for (const [d, l] of arcs) {
+    const der = fusion[fusion.length - 1];
+    if (der && d <= der[0] + der[1]) der[1] = Math.max(der[1], d + l - der[0]);
+    else fusion.push([d, l]);
+  }
+  while (fusion.length > 1) {
+    const der = fusion[fusion.length - 1]!;
+    const pre = fusion[0]!;
+    if (der[0] + der[1] - 360 < pre[0]) break;
+    fusion.pop();
+    fusion[0] = [der[0], Math.max(der[0] + der[1], pre[0] + pre[1] + 360) - der[0]];
+  }
+  if (fusion.some(([, l]) => l >= 360)) return [-180, s, 180, n];
+  // Le plus grand trou entre deux arcs : l'union est son complément.
+  let trou = -1;
+  let apres = 0;
+  for (let i = 0; i < fusion.length; i++) {
+    const [d, l] = fusion[i]!;
+    const suivant = fusion[(i + 1) % fusion.length]!;
+    const ecart = fusion.length === 1 ? 360 - l : (((suivant[0] - (d + l)) % 360) + 360) % 360;
+    if (ecart > trou) {
+      trou = ecart;
+      apres = suivant[0];
+    }
+  }
+  const lon = (x: number) => (((x + 180) % 360) + 360) % 360 - 180;
+  const ouest = lon(apres);
+  const est = lon(apres + 360 - trou);
+  return [ouest, s, est === -180 ? 180 : est, n];
+}
+
+/** Le contour d'une emprise (son bord, échantillonné en longitude et en latitude), à projeter pour son emprise à l'écran. */
+export function contourEmprise([o, s, e, n]: Emprise, pas = 24): [number, number][] {
+  const long = o <= e ? e - o : e + 360 - o;
+  const r: [number, number][] = [];
+  for (let i = 0; i <= pas; i++) {
+    const lon = o + (long * i) / pas;
+    r.push([lon, s], [lon, n]);
+  }
+  for (let i = 1; i < pas; i++) {
+    const lat = s + ((n - s) * i) / pas;
+    r.push([o, lat], [o + long, lat]);
+  }
+  return r;
+}
+
+/** Le centre [lon, lat] d'une emprise (au milieu de son arc de longitude, ramené dans [-180, 180]). */
+export function centreEmprise([o, s, e, n]: Emprise): [number, number] {
+  const long = o <= e ? e - o : e + 360 - o;
+  const m = ((((o + long / 2) + 180) % 360) + 360) % 360 - 180;
+  return [m, (s + n) / 2];
+}
+
+/**
+ * Emprise [ouest, sud, est, nord] d'un contour (le polygone principal d'un
+ * pays : anneauPrincipal) ; un contour qui couvre plus de 180° de longitude
+ * est lu par-dessus l'antiméridien (ouest > est). null s'il est vide.
+ */
+export function empriseAnneau(anneau: readonly (readonly number[])[]): Emprise | null {
+  if (!anneau.length) return null;
+  let s = Infinity, n = -Infinity, o = Infinity, e = -Infinity, o2 = Infinity, e2 = -Infinity;
+  for (const p of anneau) {
+    const lon = p[0] ?? 0;
+    const lat = p[1] ?? 0;
+    s = Math.min(s, lat);
+    n = Math.max(n, lat);
+    o = Math.min(o, lon);
+    e = Math.max(e, lon);
+    const l2 = lon < 0 ? lon + 360 : lon;
+    o2 = Math.min(o2, l2);
+    e2 = Math.max(e2, l2);
+  }
+  if (e - o <= 180 || e2 - o2 >= e - o) return [o, s, e, n];
+  const lon = (x: number) => (x > 180 ? x - 360 : x);
+  return [lon(o2), s, lon(e2), n];
+}

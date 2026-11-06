@@ -29,7 +29,7 @@ import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
 import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
-import { anneauPrincipal, RAYON_TERRE_KM, versEcran } from './geo';
+import { anneauPrincipal, RAYON_TERRE_KM, versEcran, type Emprise } from './geo';
 import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
@@ -48,6 +48,7 @@ import {
   suivrePoint,
   transfoDe,
   versPlan,
+  viserEmprise,
   viserVue,
   vueDeTransfo,
   type Cadre,
@@ -644,7 +645,16 @@ export class CarteCanvas implements CarteAffichee {
    */
   montrer(id: string, hVisible?: number): void {
     const cible = this.vise(id, ZOOM_MAX_MONTRER, hVisible, true);
-    if (!cible) return;
+    if (cible) this.voler(cible);
+  }
+
+  /** Une emprise entière dans la partie visible : le globe tourne jusqu'à son milieu (l'Océanie d'un seul tenant). */
+  cadrer(e: Emprise, hVisible?: number): void {
+    this.voler(viserEmprise(this.c, e, ZOOM_MAX_MONTRER, hVisible ?? this.c.h));
+  }
+
+  /** Le vol de montrer() et de cadrer() jusqu'à la vue cible. */
+  private voler(cible: VueGlobe): void {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible, true);
     this.arreterVol();
     const depart = { ...this.v };

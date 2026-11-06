@@ -15,7 +15,7 @@
 // à 30°, 0,75 à 60°, 0,59 au pôle).
 import { geoEqualEarth, geoEqualEarthRaw, type GeoProjection } from 'd3-geo';
 import type { Position } from 'geojson';
-import { empriseEcran, versEcran, viser } from './geo';
+import { centreEmprise, contourEmprise, empriseEcran, versEcran, viser, type Emprise } from './geo';
 import { creerProjection } from './projection';
 import type { Transfo } from './types';
 
@@ -216,6 +216,18 @@ export function viserVue(
   const t = viser([b[0], b[1]], taille1, c.l, h, kMax, boite);
   const [sx, sy] = versEcran(t, b[0], b[1]);
   return placer(c, point, sx, sy, bornerK(t.k, kMax), libre);
+}
+
+/**
+ * La vue qui cadre une emprise [ouest, sud, est, nord] (une grappe de pays)
+ * dans l × hVisible : le méridien de son milieu au centre (une emprise qui
+ * passe l'antiméridien reste d'un seul tenant), aussi zoomée que possible
+ * tant que son contour tient à l'écran (90 %, viser), au zoom kMax au plus et
+ * 1 au moins. Libre : y non borné, comme le vol de montrer().
+ */
+export function viserEmprise(c: Cadre, e: Emprise, kMax: number, hVisible = c.h, libre = true): VueGlobe {
+  // Une taille nulle : viser part de kMax, le contour fait baisser le zoom.
+  return viserVue(c, centreEmprise(e), 0, kMax, hVisible, contourEmprise(e), libre);
 }
 
 /**
