@@ -118,8 +118,12 @@ header .tagline {
   background: var(--panel);
   color: var(--text);
   font-size: 0.95rem;
+  text-overflow: ellipsis;
 }
 .recherche input::placeholder { color: var(--muted); }
+/* Le « × » de Chrome garde sa place même champ vide : retiré tant que le texte
+   d'aide est affiché, qui sinon était coupé (« Pays, commun » à 384 px). */
+.recherche input:placeholder-shown::-webkit-search-cancel-button { display: none; }
 .recherche input:hover { border-color: var(--border-2); }
 .recherche input:focus { outline: none; border-color: var(--muted); background: var(--panel-2); }
 .recherche-liste {
@@ -262,7 +266,7 @@ main {
   }
   .recherche { position: static; }
   .recherche-icone { left: auto; margin-left: 10px; }
-  .recherche input { height: 38px; padding-left: 34px; font-size: 1rem; }
+  .recherche input { height: 38px; padding: 0 8px 0 34px; font-size: 0.95rem; }
   .recherche-liste { top: calc(100% - 4px); left: 12px; right: 12px; }
   .header-actions { gap: 2px; }
   .bouton-jouer { height: 38px; padding: 0 14px; font-size: 0.95rem; margin-right: 4px; }

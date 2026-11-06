@@ -1093,6 +1093,14 @@ def ui_entete(p, capturer, defauts, telephone):
         defauts.append(f"en-tête du téléphone sur plus d'une ligne ({h['haut']:.0f} px)")
     if h["champ"] < 140:
         defauts.append(f"champ de recherche trop étroit ({h['champ']:.0f} px)")
+    # Le texte d'aide du champ tient sans être coupé (« Pays, commun » à 384 px).
+    aide = p.js("""(() => { const c = document.getElementById('recherche-champ'), s = getComputedStyle(c),
+        x = document.createElement('canvas').getContext('2d');
+        x.font = `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+        return [c.placeholder, x.measureText(c.placeholder).width, c.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight)]; })()""")
+    dire(f"  texte d'aide {aide[0]!r} : {aide[1]:.0f} px pour {aide[2]:.0f}")
+    if aide[1] > aide[2]:
+        defauts.append(f"texte d'aide de la recherche coupé : {aide[0]!r} ({aide[1]:.0f} px pour {aide[2]:.0f})")
     cliquer(p, "#jouer-btn")
     attendre_visible(p, "#jouer-depart")
     modes = p.js("[...document.querySelectorAll('#jouer-depart [data-mode]')].map(b => b.dataset.mode)")

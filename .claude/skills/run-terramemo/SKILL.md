@@ -86,7 +86,8 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   Faites après l'île : le premier usage de la recherche demande
   `/geo/reunion/noms.fr.json`, que `10-reunion` veut absent avant son choix.
   `DÉFAUT : …` et code 1 si l'en-tête du téléphone dépasse une ligne (64 px),
-  si le champ de recherche fait moins de 140 px, s'il reste visible pendant
+  si le champ de recherche fait moins de 140 px ou coupe son texte d'aide,
+  s'il reste visible pendant
   une partie ou ne revient pas après, si la recherche ne montre pas le
   Vatican ou Saint-Denis, si l'île sort de l'écran ou passe sous la barre,
   si la mention manque, couvre l'île ou fait deux lignes à 384 px, si la
