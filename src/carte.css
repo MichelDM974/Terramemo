@@ -289,19 +289,19 @@ body[data-terrain="reunion"] .essai-bilan {
 .essai-serie-detail { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
 .essai-serie-n { flex: none; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 
-/* Jouer : les exercices en deux groupes (décision « Noms des modes »), chacun sous
-   un titre en petites capitales neutres, sans cadre ; de l'espace les sépare. */
-.jouer-groupe + .jouer-groupe { margin-top: 8px; }
+/* Jouer : les exercices en deux groupes (décision « Noms des modes »),
+   « Entraînement » et « Classé », chacun sous un titre bien lisible (couleur du
+   texte, gras, capitales espacées), sans cadre ; un filet sépare les groupes. */
 .jouer-groupe h3 {
-  margin: 6px 0 2px;
+  margin: 10px 0 4px;
   padding: 0 10px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--text);
 }
-.jouer-groupe-detail { margin-left: 6px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.jouer-groupe + .jouer-groupe { margin-top: 10px; padding-top: 2px; border-top: 1px solid var(--border-2); }
 
 .essai-rates { margin: 0 0 14px; padding-left: 18px; font-size: 0.88rem; line-height: 1.5; }
 

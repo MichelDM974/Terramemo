@@ -192,8 +192,8 @@ describe('écran Jouer : noms des modes (décision « Noms des modes »)', async
   const { GROUPES_JEU, MODES_JEU } = await import('../src/vues/jouer');
   const { textes } = await import('../src/vues/textes');
 
-  it('entraînement (Trouver, Reconnaître) puis épreuves (Chrono) ; identifiants inchangés', () => {
-    expect(GROUPES_JEU.map((g) => g.titre)).toEqual(['Entraînement', 'Épreuves']);
+  it('« Entraînement » (Trouver, Reconnaître) puis « Classé » (Chrono) ; identifiants inchangés', () => {
+    expect(GROUPES_JEU.map((g) => g.titre)).toEqual(['Entraînement', 'Classé']);
     expect(MODES_JEU).toEqual(['localiser', 'nommer', 'chrono']);
     expect([textes.toucher.localiser, textes.toucher.nommer, textes.jouer.chrono]).toEqual(['Trouver', 'Reconnaître', 'Chrono']);
   });

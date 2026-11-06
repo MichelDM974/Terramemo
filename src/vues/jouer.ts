@@ -2,8 +2,8 @@
 // de l'exercice, puis la série se choisit dans le départ de l'exercice (Toucher
 // pour Trouver et Reconnaître, Chrono), au même endroit, sous le pouce. Choisir
 // un exercice part d'une partie neuve (main.ts : nouvellePartie). Les exercices
-// vont en deux groupes (décision « Noms des modes ») : l'entraînement, sans
-// points, et les épreuves notées du classement. Les identifiants (localiser,
+// vont en deux groupes (décision « Noms des modes ») : « Entraînement », sans
+// points, et « Classé », les épreuves notées du classement. Les identifiants (localiser,
 // nommer, chrono) restent ceux des records et du classement : seuls les noms
 // affichés ont changé.
 import { DELAI_CHRONO_MS } from '../epreuve/bareme';
@@ -15,9 +15,9 @@ export type ModeJeu = 'localiser' | 'nommer' | 'chrono';
 const J = textes.jouer;
 
 /** Les groupes de l'écran Jouer, dans l'ordre affiché. */
-export const GROUPES_JEU: readonly { titre: string; detail: string; modes: readonly ModeJeu[] }[] = [
-  { titre: J.groupe_entrainement, detail: J.groupe_entrainement_detail, modes: ['localiser', 'nommer'] },
-  { titre: J.groupe_epreuves, detail: J.groupe_epreuves_detail, modes: ['chrono'] },
+export const GROUPES_JEU: readonly { titre: string; modes: readonly ModeJeu[] }[] = [
+  { titre: J.groupe_entrainement, modes: ['localiser', 'nommer'] },
+  { titre: J.groupe_classe, modes: ['chrono'] },
 ];
 export const MODES_JEU: readonly ModeJeu[] = GROUPES_JEU.flatMap((g) => g.modes);
 const NOMS: Record<ModeJeu, string> = { localiser: textes.toucher.localiser, nommer: textes.toucher.nommer, chrono: J.chrono };
@@ -41,7 +41,7 @@ export function vueJouer(ctx: ContexteVue, o: { choisir: (m: ModeJeu) => void; f
     creer(
       'section',
       { class: 'jouer-groupe' },
-      creer('h3', {}, g.titre, creer('span', { class: 'jouer-groupe-detail' }, g.detail)),
+      creer('h3', {}, g.titre),
       creer('ul', { class: 'essai-series' }, ...g.modes.map((m) => creer('li', {}, bouton(m)))),
     ),
   );
