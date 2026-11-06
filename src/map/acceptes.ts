@@ -17,7 +17,14 @@ export type SorteAdmise = 'contestee' | 'enclave';
 export interface Admis {
   /** La zone touchée : une entité de pays.json (NE_SOL, NE_KAB…) ou une zone hachurée de contestees.json (NE_B89…). */
   zone: string;
-  /** Qui la tient de fait : la zone elle-même pour une entité (Somaliland, Baïkonour), dans[0] pour une zone hachurée (RUS pour la Crimée). */
+  /**
+   * Qui la tient de fait : dans[0] pour une zone hachurée (RUS pour la Crimée) ;
+   * pour une entité, la zone elle-même (Somaliland, Baïkonour). Attention, ce
+   * n'est alors pas toujours un pays : NE_KAS (Siachen, tenu par l'Inde), NE_CNM
+   * (zone tampon de l'ONU), FLK (Royaume-Uni), et NE_USG pour la hachure NE_B50.
+   * La rétroaction « Juste (…, tenue par X) » (lot 5b) doit donc soit recevoir
+   * un vrai tenant pour ces entités, soit s'en passer pour elles.
+   */
   tenant: string;
   sorte: SorteAdmise;
 }

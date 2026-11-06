@@ -176,6 +176,11 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     t = terrain;
     const lancer = () => {
       partie = nouvellePartieDe(mode, ids, ECHELLES_KM[s.terrain]);
+      // Une règle par partie, celle de son départ. Le record se range pourtant
+      // dans la semaine de sa fin (enregistrerPartie) : une partie lancée le
+      // dimanche 08/11 avant minuit UTC et finie après compte dans la semaine
+      // du 09/11 avec le de fait strict. Accepté (relecture du lot 4) : une
+      // minute, une fois.
       acceptes = acceptesEnEpreuve(maintenant());
       barre.hidden = false;
       poser();
