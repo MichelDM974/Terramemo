@@ -148,7 +148,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   touché faux (sa reprise en fin de séance), réponses par position
   (`position_visible` : pastille, point d'étiquette, sinon le premier point
   de la partie visible où `pick` le désigne : la Russie cadrée avec
-  l'Europe de l'Est), 0,4 s avant chaque toucher. Le journal se lit dans
+  l'Europe de l'Est), 0,4 s avant chaque toucher, la fin du vol de
+  cadrage attendue avant chaque Trouver (`attendre_fin_vol`). Le journal se lit dans
   la page (`COMPTER_JOURNAL` : `count` du magasin `evenements` de
   `terramemo-journal`). `DÉFAUT` si la ligne manque ou n'a pas ses
   comptes, si Apprendre n'est pas en tête des exercices, si le rappel
@@ -157,7 +158,7 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   journal n'a pas un événement par réponse (QCM, rappel, reprise, carte
   retournée ; « Je connais déjà » n'en écrit pas), si le bilan n'a pas
   son titre et « Nouveaux » / « Révisions : n/m du premier coup » ou parle
-  de points, si « Carte » ne mène pas à l'accueil, si la ligne ne dit pas
+  de points, si le bilan d'Apprendre n'a pas « Autre série », si « Carte » ne mène pas à l'accueil, si la ligne ne dit pas
   « À jour » après la grappe du jour, si « Rejouer » ne relance pas
   Apprendre, si la révision ne s'ouvre pas en `#toucher` ou si le retour
   arrière ne revient pas à Entraînement, et si une requête part vers

@@ -1655,9 +1655,10 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
             p.pause(900)
             reponses += 1
         else:  # trouver
-            k = p.js("window.terramemo.carte.transfo().k")
+            # Le cadrage de la question (monde, région de la grappe) vole : toucher
+            # avant la fin du vol raterait un pays touché à sa position.
+            attendre_fin_vol(p)
             if "rappel" in captures:
-                attendre_fin_vol(p)
                 k = p.js("window.terramemo.carte.transfo().k")
                 dire(f"  {quoi}, premier Trouver : zoom {k:.2f}")
                 if k < 1.5:
@@ -1737,6 +1738,8 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
     dire(f"  Apprendre, bilan : {bilan!r}")
     if "Nouveaux" not in bilan or "Apprendre · Europe" not in bilan or "points" in bilan.lower():
         defauts.append(f"bilan d'Apprendre sans titre ou sans « Nouveaux », ou avec des points : {bilan!r}")
+    if not p.js("!!document.querySelector('#essai-bilan #essai-autre')"):
+        defauts.append("bilan d'Apprendre sans « Autre série »")
     capturer("34-apprendre-bilan")
     n1 = p.js(COMPTER_JOURNAL)
     dire(f"  journal : {n1 - n0} événements pour {n_apprendre} réponses")
