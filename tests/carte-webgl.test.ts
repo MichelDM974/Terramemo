@@ -1161,19 +1161,21 @@ describe('PeintreWebGL.dessiner (faux WebGL2)', () => {
       return [...(f.texels() ?? []).slice(4 * i, 4 * i + 4)];
     };
     const teintes = new Map([['FRA', 3], ['ESP', 0], ['ITA', 4]]);
-    p.dessiner(etat(0, 1, new Map([['ITA', new Set(['juste'])]]), 0, teintes));
+    p.dessiner(etat(0, 1, new Map([['ITA', new Set(['juste'])], ['PRT', new Set(['faux'])]]), 0, teintes));
     expect(texel('FRA')).toEqual(couleursEssai.memoire[3]);
     expect(texel('ESP')).toEqual(couleursEssai.memoire[0]);
     // La marque par-dessus la teinte ; sans teinte, la terre.
     expect(texel('ITA')).toEqual(couleursEssai.marques.juste);
     expect(texel('DEU')).toEqual(couleursEssai.terre);
-    // Mêmes marques, même objet de teintes : pas de nouveau téléversement, ni du contour faux.
+    expect(texel('PRT')).toEqual(couleursEssai.marques.faux);
+    // Mêmes marques, même objet de teintes : pas de nouveau téléversement, ni du contour faux (celui du
+    // Portugal, posé ci-dessus : sans zone fausse, majContourFaux sortirait avant tout createBuffer).
     const avant = f.texture();
     const tampons = vi.spyOn(f.gl as unknown as { createBuffer: () => unknown }, 'createBuffer');
-    p.dessiner(etat(10, 2, new Map([['ITA', new Set(['juste'])]]), 0, teintes));
+    p.dessiner(etat(10, 2, new Map([['ITA', new Set(['juste'])], ['PRT', new Set(['faux'])]]), 0, teintes));
     expect(f.texture()).toBe(avant);
     // Autres teintes (nouvel objet) : la texture seule, le contour faux n'est pas refait.
-    p.dessiner(etat(10, 2, new Map([['ITA', new Set(['juste'])]]), 0, new Map([['FRA', 1]])));
+    p.dessiner(etat(10, 2, new Map([['ITA', new Set(['juste'])], ['PRT', new Set(['faux'])]]), 0, new Map([['FRA', 1]])));
     expect(f.texture()).not.toBe(avant);
     expect(texel('FRA')).toEqual(couleursEssai.memoire[1]);
     expect(texel('ESP')).toEqual(couleursEssai.terre);
