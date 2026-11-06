@@ -175,7 +175,10 @@ et ses fichiers, les shaders compilés gardés sur disque), puis la seule
 base IndexedDB `terramemo` (maillage du webgl, `BASES_VIDEES`) par
 `IndexedDB.deleteDatabase`, qui ferme de force ses connexions et demande
 un document de l'origine : le driver charge d'abord `geo/LICENSE-CLDR.txt`
-(page du site sans script). **Jamais** le type `indexeddb` ni `all` ni le
+(page du site sans script). La connexion à l'origine reste alors ouverte :
+la répétition 1 n'a ni DNS, ni TCP, ni TLS, et son chargement est un peu
+optimiste (négligeable en local, ~100-300 ms de TLS sur le site en ligne
+depuis le téléphone) ; `stockage.connexion_chaude` le note. **Jamais** le type `indexeddb` ni `all` ni le
 `localStorage` : la base `terramemo-journal` (journal des réponses),
 `firebaseLocalStorageDb` (compte anonyme), toute autre base et les clés
 `terramemo.*` (appareil, records, pseudo, réglages) restent ; leur
@@ -245,7 +248,8 @@ complet (v6 : rapports v6 bruts, touchers visés, scénario et pas de rejeu,
 navigateur et binaire, `code` : commit, arbre modifié ou non, et pour la
 WebView les dates de l'APK installé et du fichier ; `stockage` : vidé ou
 non, origine, types, bases supprimées et gardées, nombre de clés du
-`localStorage` gardées, erreur ; `visites` : par répétition, `premiere`,
+`localStorage` gardées, `connexion_chaude` (connexion ouverte par la page
+sans appli avant la répétition 1), erreur ; `visites` : par répétition, `premiere`,
 `suivante` ou `inconnue`, le maillage du webgl (`calcul/absent`,
 `cache/lu`), le rendu et la raison d'un repli ; `logiciel_accepte` :
 l'adresse porte `logiciel=1`, à ne pas confondre avec `webgl.logiciel` des

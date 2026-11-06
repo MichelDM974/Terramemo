@@ -1629,15 +1629,21 @@ def vider_premiere_visite(p, url_base):
     l'utilisateur (BASES_GARDEES, toute autre base, le localStorage) : leur
     disparition est une erreur. Rend le relevé du rapport :
     vide (tout a été vidé), types, bases supprimées et gardées, nombre de
-    clés du localStorage (gardées), erreur."""
+    clés du localStorage (gardées), connexion_chaude (la page sans appli a
+    ouvert la connexion avant la répétition 1), erreur."""
     if set(STOCKAGE_VIDE.split(",")) & set(TYPES_INTERDITS) or set(BASES_VIDEES) & set(BASES_GARDEES):
         raise SystemExit("driver.py : STOCKAGE_VIDE ou BASES_VIDEES viderait des données de l'utilisateur")
     o = origine(url_base)
     stockage = {"vide": False, "origine": o, "types": None, "bases_supprimees": [], "bases_gardees": None,
-                "cles_gardees": None, "erreur": None}
+                "cles_gardees": None, "connexion_chaude": False, "erreur": None}
     cles = "Object.keys(localStorage).sort()"
     try:
         p.goto(urllib.parse.urljoin(url_base, PAGE_SANS_APPLI))
+        # La connexion à l'origine reste ouverte : la répétition 1 n'a plus ni
+        # DNS, ni TCP, ni TLS (négligeable en local, ~100-300 ms de TLS sur le
+        # site en ligne depuis le téléphone) ; son chargement est un peu
+        # optimiste, et le rapport le dit.
+        stockage["connexion_chaude"] = True
         avant = p.cdp("IndexedDB.requestDatabaseNames", securityOrigin=o).get("databaseNames", [])
         cles_avant = p.js(cles)
         p.cdp("Storage.clearDataForOrigin", origin=o, storageTypes=STOCKAGE_VIDE)
@@ -2199,7 +2205,7 @@ def commande_mesurer(args):
         # Première visite : caches de l'origine mesurée vidés (STOCKAGE_VIDE,
         # BASES_VIDEES), données de l'utilisateur gardées.
         stockage = {"vide": False, "origine": origine(url), "types": None, "bases_supprimees": [],
-                    "bases_gardees": None, "cles_gardees": None, "erreur": None}
+                    "bases_gardees": None, "cles_gardees": None, "connexion_chaude": False, "erreur": None}
         if not args.garder_stockage:
             stockage = vider_premiere_visite(p, url_base)
             if stockage["erreur"]:

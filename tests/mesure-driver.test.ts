@@ -594,7 +594,7 @@ print(json.dumps({"stockage": r, "appels": p.appels, "constantes": {
 `;
 
 interface Vidage {
-  stockage: { vide: boolean; origine: string; types: string | null; bases_supprimees: string[]; bases_gardees: string[] | null; cles_gardees: number | null; erreur: string | null };
+  stockage: { vide: boolean; origine: string; types: string | null; bases_supprimees: string[]; bases_gardees: string[] | null; cles_gardees: number | null; connexion_chaude: boolean; erreur: string | null };
   appels: [string, unknown][];
   constantes: { STOCKAGE_VIDE: string; BASES_VIDEES: string[]; BASES_GARDEES: string[]; PAGE_SANS_APPLI: string };
 }
@@ -626,7 +626,7 @@ describe('driver.py mesurer : première visite sans perte des données de l’ut
     const { r, stderr } = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES });
     expect(r, stderr).not.toBeNull();
     const { stockage, appels, constantes } = r!;
-    expect(stockage).toMatchObject({ vide: true, origine: 'http://localhost:8064', erreur: null, bases_supprimees: [BASE_MAILLAGE], cles_gardees: CLES.length });
+    expect(stockage).toMatchObject({ vide: true, origine: 'http://localhost:8064', erreur: null, bases_supprimees: [BASE_MAILLAGE], cles_gardees: CLES.length, connexion_chaude: true });
     expect(stockage.bases_gardees).toEqual([BASE_JOURNAL, 'firebase-heartbeat-database', 'firebaseLocalStorageDb'].sort());
     const types = constantes.STOCKAGE_VIDE.split(',');
     for (const t of ['all', 'indexeddb', 'local_storage', 'cookies']) expect(types).not.toContain(t);
