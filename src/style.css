@@ -226,6 +226,9 @@ header .tagline {
 .settings-popup a { color: var(--accent); }
 .reglage-outil { margin: 0 0 10px; font-size: 0.88rem; }
 .reglage-outil .hint { margin: 0; }
+/* L'Essai J0 (#reglage-essai, boutons de jouer.ts) : l'allure de son voisin
+   « Essai des claviers » (lien souligné, même taille), un peu d'air pour le doigt. */
+.reglage-outil button.lien { font-size: inherit; font-weight: inherit; text-decoration: underline; padding: 4px 0; }
 
 main {
   max-width: 1280px;
