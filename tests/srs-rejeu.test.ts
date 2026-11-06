@@ -203,6 +203,15 @@ describe('rejeu', () => {
     }
   });
 
+  it('même id, ts et appareil mais contenus différents : le même gardé quel que soit l’ordre', () => {
+    const a = rep('pays:PER:localiser', utc(2026, 11, 6, 8), 240, GOOD, { id: 'x' });
+    const b: Evenement = { ...a, correct: false, note: AGAIN };
+    expect(etat([a]).get(a.fiche)!.echeance_jour).not.toBe(etat([b]).get(a.fiche)!.echeance_jour);
+    expect(plat(etat([a, b]))).toBe(plat(etat([b, a])));
+    expect(ordonner([a, b])).toEqual(ordonner([b, a]));
+    expect(ordonner([a, b])).toHaveLength(1);
+  });
+
   it('union de deux journaux = rejeu de l’ensemble', () => {
     const alea = graine(7);
     for (let k = 0; k < 20; k++) {

@@ -28,9 +28,21 @@ export interface EtatFiche {
   echecs: number;
 }
 
-/** Ordre total du rejeu : instant, puis appareil, puis id. */
+const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+/** Contenu d'un événement sous une forme unique (champs triés par nom). */
+function canonique(e: Evenement): string {
+  return JSON.stringify(Object.keys(e).sort().map((k) => [k, (e as unknown as Record<string, unknown>)[k]]));
+}
+
+/**
+ * Ordre total du rejeu : instant, puis appareil, puis id, puis contenu.
+ * Le contenu ne départage que deux événements de même id, ts et appareil
+ * mais différents (corruption, bug d'écriture, union de deux journaux) : le
+ * gardé ne dépend alors pas de l'ordre d'arrivée.
+ */
 export function comparer(a: Evenement, b: Evenement): number {
-  return a.ts - b.ts || (a.appareil < b.appareil ? -1 : a.appareil > b.appareil ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  return a.ts - b.ts || cmp(a.appareil, b.appareil) || cmp(a.id, b.id) || cmp(canonique(a), canonique(b));
 }
 
 /**
