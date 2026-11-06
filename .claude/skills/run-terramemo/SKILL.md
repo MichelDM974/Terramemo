@@ -62,10 +62,13 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   les traduit en JS, un shader refusé par le pilote y passerait) ; un refus
   y sort en `[KO ]` avec le journal du compilateur (sinon la carte retombe
   sans bruit sur le Canvas 2D). Smoke après tout changement de shader.
-- `ui` écrit `1-carte`, `2-pays-touche` (Suisse), `3-toucher-faux`,
-  `4-toucher-juste`, `5-saisie` (« sai » dans le champ réglé), `6-reglages`
-  (⚙), `7-chrono-depart`, `8-chrono-faux` et `9-chrono-bilan` (l'Amérique
-  du Sud jouée jusqu'au bilan, ~25 s) dans `--out`
+- `ui` écrit `1-carte`, `2-pays-touche` (Suisse), `3-toucher-faux` et
+  `4-toucher-juste` (l'Essai J0, lancé depuis ⚙ : `#reglage-essai
+  [data-mode=localiser]`), `5-saisie` (« sai » dans le champ réglé),
+  `6-reglages` (⚙, avec l'Essai J0), `7-classe-ams-epreuves` (Jouer ›
+  Classé › Pays › Amérique du Sud : les trois épreuves, sans record sur le
+  profil neuf), `8-chrono-faux` et `9-chrono-bilan` (l'Amérique du Sud
+  jouée jusqu'au bilan, ~25 s) dans `--out`
   (`/tmp/terramemo-captures`), et affiche les textes lus (barre,
   rétroaction, liste de la Saisie, bilan du Chrono). Puis La Réunion et
   Nommer (#15) : `10-reunion` (Toucher → La Réunion : l'île entière, barre
@@ -74,13 +77,16 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   hasard), `12-nommer-monde` (Nommer, Europe : zone en accent, 4 boutons,
   prise une fois le vol fini : `attendre_fin_vol`, transformation stable),
   `13-nommer-reunion-retro` (mauvais choix rouge, bon vert),
-  `14-chrono-reunion` (première question, jauge) ; il remet Localiser et
-  vérifie le monde au retour (la Carte, `pick` sur la Suisse = CHE).
-  L'exercice se choisit par Jouer (`choisir_exercice` : `#jouer`, puis
-  `#jouer-depart [data-mode=localiser|nommer|chrono|sansfaute|minute]` ; les
-  trois épreuves classées partagent `#chrono-depart`), plus dans le départ
-  de Toucher. Puis l'en-tête (décision « En-tête ») : `15-jouer` (les cinq
-  exercices, en deux groupes), `16-recherche` (« sain » : pays et communes mêlés),
+  `14-chrono-reunion` (première question, jauge) ; il vérifie le monde au
+  retour (la Carte, `pick` sur la Suisse = CHE).
+  Chaque partie se lance par l'arbre de Jouer (décision « Écran Jouer »,
+  `jouer_partie(page, mode, serie)` : `#jouer`, puis dans `#jouer-panneau`
+  `[data-branche=entrainement|classe]`, `[data-sujet=pays|communes]`,
+  `[data-serie=<id>]` (sauf l'île : niveau sauté), et `[data-mode=localiser|
+  nommer|chrono|sansfaute|minute]`, qui lance la partie ; `jouer_jusqua`
+  s'arrête aux exercices). Plus de départ dans Toucher ni dans les épreuves :
+  `#toucher` ou `#chrono` sans partie renvoie à Jouer. Puis l'en-tête
+  (décision « En-tête ») : `16-recherche` (« sain » : pays et communes mêlés),
   `17-recherche-pays` (le Vatican à Entrée : vol, anneau),
   `18-recherche-commune` (Saint-Denis au doigt : la carte de l'île, puis
   « Monde » ramène au monde), `19-classement` (🏆 : mes places par épreuve, « Retour » à la carte).
@@ -89,6 +95,16 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   (« 2 d'affilée »), `22-minute-faux` (une erreur au premier toucher : la
   barre compte justes et erreurs, la jauge est la minute),
   `23-minute-bilan` (tout juste ensuite : « série vidée », « 1 erreur »).
+  Enfin l'arbre de Jouer (#18), après les épreuves pour en avoir les
+  records : `15-jouer` (« Rejouer · Minute · Amérique du Sud » et son
+  record, puis Entraînement et Classé), `15b-classe-sujets` (Pays, Communes),
+  `15c-classe-pays-series` (Tous les pays puis les six continents),
+  `15d-classe-pays-ams-epreuves` (les trois épreuves avec leurs records,
+  les règles ouvertes par `#jouer-aide`), `15e-entrainement-communes`
+  (Trouver et Reconnaître sur La Réunion, le niveau des séries sauté) ; il
+  y vérifie aussi le retour arrière et `#jouer-haut` (« ‹ ») d'un niveau,
+  une adresse invalide (`#jouer/classe/pays/Atlantide` → `#jouer/classe/pays`)
+  et « × » (`#jouer-fermer`) qui ramène à la carte.
   Hors émulateurs, leur bloc de classement lit la base en ligne : sans
   l'index de Minute (`firestore.indexes.json`), « Classement indisponible ».
   Faites après l'île : le premier usage de la recherche demande
@@ -102,9 +118,14 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   zone de Nommer n'est pas au-dessus de sa barre (monde et île), si l'île
   a bougé du zoom 1 ou passe sous la barre de Nommer, si les
   boutons de Nommer n'ont pas un rouge et un vert, si un code INSEE
-  (`974xx`) s'affiche, si le monde a changé, si Jouer n'a pas ses cinq
-  exercices, ou si Sans faute et Minute n'ont pas leur titre ou leur bilan
-  attendu. **Regarder les captures.** Les records des épreuves vivent dans
+  (`974xx`) s'affiche, si le monde a changé, si Sans faute et Minute n'ont
+  pas leur titre ou leur bilan attendu, si ⚙ n'a pas l'Essai J0, si Jouer
+  n'a pas ses deux branches, Classé › Pays ses 7 séries dans l'ordre ou la
+  série ses 3 épreuves (et leurs records), si Communes ne saute pas la série,
+  si une série « essai » s'y montre, si le retour arrière, « ‹ », une
+  adresse invalide ou « × » mènent ailleurs, et si le panneau de Jouer
+  déborde (320 px compris), passe 560 px, a un bouton sous 48 px (« ‹ » et
+  « × » sous 44) ou un bouton en bleu plein (`panneau_jouer`). **Regarder les captures.** Les records des épreuves vivent dans
   le `localStorage` : le profil neuf du driver repart sans record.
 - `--rendu` (ui) : rendu de la carte du monde (sans : celui de la page,
   canvas) ; l'île est toujours en SVG, au-dessus du monde en canvas.
@@ -616,7 +637,7 @@ npm run test:regles                                                           # 
 npx firebase emulators:start --only firestore,auth --project terramemo-geo  # Firestore 8062, Auth 8063, en arrière-plan
 ```
 
-Puis le site de dev avec `?emulateurs` (`http://localhost:8060/?emulateurs#chrono`) :
+Puis le site de dev avec `?emulateurs` (`http://localhost:8060/?emulateurs#jouer/classe`) :
 comptes et classements y vont aux émulateurs (serveur de dev seulement ;
 le site construit parle toujours au vrai projet). Les deux ne tournent
 pas ensemble : `test:regles` lance son propre émulateur sur 8062. Base
@@ -626,7 +647,8 @@ Java 21+ requis (celui du PC suffit). L'émulateur écrit
 `firestore-debug.log` dans le dossier courant (ignoré par git).
 
 Chrono de l'île jusqu'au classement, par le pilote (vérifié le 06/11) : le
-choix `#chrono-depart .essai-serie[data-serie="reunion"]`, chaque réponse
+choix `#jouer/classe/communes/reunion` puis `#jouer-panneau [data-mode="chrono"]`
+(`jouer_partie(p, "chrono", "reunion")`), chaque réponse
 juste par `terramemo.ile.ecran(<cible>)` (cible :
 `#barre-chrono .essai-consigne` `data-cible`), puis le pseudo dans
 `#chrono-bilan .chrono-pseudo-form input` et son bouton ; le classement de
@@ -699,10 +721,20 @@ arbre propre (`git status`).
 - Arrêter un serveur : `fuser -k -n tcp 8060`, jamais `pkill -f` (la tâche
   de fond de `serve` finit alors en code 137 : attendu). Émulateurs :
   `fuser -k -n tcp 8062 8063`.
-- Le mode Nommer est gardé dans le `localStorage`
-  (`terramemo.toucher.mode`) : un profil réutilisé (téléphone, `--cible
-  chrome`) peut ouvrir Toucher en Nommer ; le profil neuf du driver part en
-  Localiser, et `ui` le remet après ses captures.
+- Jouer garde la dernière partie lancée dans le `localStorage`
+  (`terramemo.jouer.derniere` : branche, sujet, série, exercice ; « Rejouer »
+  en tête de Jouer, ignorée si elle n'est plus dans l'arbre). Le profil neuf
+  du pilote part sans elle ; `terramemo.toucher.mode` et
+  `terramemo.toucher.serie` ne servent plus (restes sans effet).
+- Ids de l'arbre de Jouer : branches `entrainement`, `classe` ; sujets
+  `pays`, `communes` ; séries `tous`, les continents en anglais (`South
+  America`, `%20` dans l'adresse), `reunion` ; exercices `localiser`,
+  `nommer`, `chrono`, `sansfaute`, `minute`. L'Essai J0 (série `essai`)
+  n'est que dans ⚙ (`#reglage-essai`).
+- Le retour d'Android dans l'APK ne remonte pas encore l'historique : rien
+  ne branche le bouton retour sur la WebView (ni `@capacitor/app`, ni
+  `MainActivity`), il ferme l'appli (la met en arrière-plan). Le retour
+  arrière du navigateur, lui, remonte Jouer d'un niveau à la fois.
 - Petits écrans (320 × 560) : la mention de l'IGN passe sur deux lignes
   (sous ~370 px) et la barre de Nommer couvre le bas de l'île, d'où un vol
   vers la commune demandée (`doitCadrer`) ; à 384 px (Galaxy A37), l'île

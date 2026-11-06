@@ -889,31 +889,40 @@ def texte(page, selecteur):
     return page.js(f"(document.querySelector({json.dumps(selecteur)}) || {{}}).innerText || ''")
 
 
-def depart_toucher(page):
-    """Le départ de Toucher, la partie en cours (Localiser ou Nommer) terminée."""
-    page.js('location.hash = "#toucher"')
-    page.pause(300)
-    for barre, bouton in (("#barre-essai", "#essai-terminer"), ("#barre-nommer", "#nommer-terminer")):
-        if visible(page, barre):
-            cliquer(page, bouton)
-            page.pause(200)
-    if visible(page, "#essai-bilan"):
-        cliquer(page, "#essai-recommencer")
-        page.pause(200)
-    attendre_visible(page, "#essai-depart")
-
-
 EPREUVES = ("chrono", "sansfaute", "minute")
+# Les séries des pays dans Jouer, dans l'ordre de partout (décision « Écran Jouer »).
+SERIES_PAYS = ["tous", "Africa", "North America", "South America", "Asia", "Europe", "Oceania"]
 
 
-def choisir_exercice(page, mode):
-    """Jouer, puis l'exercice (localiser, nommer, ou une épreuve classée :
-    chrono, sansfaute, minute) : son départ, la partie en cours abandonnée
-    (décision « En-tête »)."""
+def niveau_jouer(page):
+    """Le niveau affiché de Jouer (racine, sujets, series, exercices) ; None s'il est fermé."""
+    return page.js("(() => { const p = document.getElementById('jouer-panneau'); return p && !p.hidden ? p.dataset.niveau : null; })()")
+
+
+def jouer_jusqua(page, mode, serie):
+    """Les exercices de cette série dans l'arbre de Jouer (décision « Écran
+    Jouer »), au doigt : la branche (Entraînement pour localiser et nommer,
+    Classé pour les épreuves), le sujet (Communes pour l'île, Pays sinon), la
+    série (niveau sauté pour l'île)."""
+    branche = "classe" if mode in EPREUVES else "entrainement"
+    sujet = "communes" if serie == "reunion" else "pays"
     page.js('location.hash = "#jouer"')
-    attendre_visible(page, "#jouer-depart")
-    cliquer(page, f'#jouer-depart [data-mode="{mode}"]')
-    attendre_visible(page, "#chrono-depart" if mode in EPREUVES else "#essai-depart")
+    attendre_visible(page, "#jouer-panneau")
+    cliquer(page, f'#jouer-panneau [data-branche="{branche}"]')
+    cliquer(page, f'#jouer-panneau [data-sujet="{sujet}"]')
+    if niveau_jouer(page) == "series":
+        cliquer(page, f'#jouer-panneau [data-serie="{serie}"]')
+    if niveau_jouer(page) != "exercices":
+        raise RuntimeError(f"Jouer : pas d'exercices pour {mode} sur {serie} (niveau {niveau_jouer(page)})")
+
+
+def jouer_partie(page, mode, serie):
+    """Une partie par Jouer (jouer_jusqua, puis l'exercice : localiser, nommer,
+    chrono, sansfaute ou minute), la partie en cours abandonnée ; attend sa
+    barre (l'île se charge au premier choix)."""
+    jouer_jusqua(page, mode, serie)
+    cliquer(page, f'#jouer-panneau [data-mode="{mode}"]')
+    attendre_visible(page, "#barre-chrono" if mode in EPREUVES else "#barre-nommer" if mode == "nommer" else "#barre-essai")
 
 
 def ui_epreuves(p, capturer, defauts):
@@ -936,12 +945,7 @@ def ui_epreuves(p, capturer, defauts):
         while not p.js(bilan) and time.monotonic() < fin:
             p.pause(100)
 
-    choisir_exercice(p, "sansfaute")
-    titre = texte(p, "#chrono-depart h2")
-    if titre != "Sans faute":
-        defauts.append(f"départ de Sans faute titré {titre!r}")
-    cliquer(p, '#chrono-depart .essai-serie[data-serie="South America"]')
-    attendre_visible(p, "#barre-chrono")
+    jouer_partie(p, "sansfaute", "South America")
     p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
     for i in range(3):
         cible = p.js(consigne)
@@ -956,14 +960,12 @@ def ui_epreuves(p, capturer, defauts):
     dire(f"  Sans faute, bilan : {lu!r}")
     if "2 d'affilée" not in lu:
         defauts.append(f"Sans faute : bilan sans « 2 d'affilée » ({lu!r})")
+    titre = texte(p, "#chrono-bilan h2")
+    if titre != "Sans faute · Amérique du Sud":
+        defauts.append(f"bilan de Sans faute titré {titre!r}")
     capturer("21-sansfaute-bilan")
 
-    choisir_exercice(p, "minute")
-    titre = texte(p, "#chrono-depart h2")
-    if titre != "Minute":
-        defauts.append(f"départ de Minute titré {titre!r}")
-    cliquer(p, '#chrono-depart .essai-serie[data-serie="South America"]')
-    attendre_visible(p, "#barre-chrono")
+    jouer_partie(p, "minute", "South America")
     p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
     toucher(faux_de(p.js(consigne)))
     p.pause(300)
@@ -980,7 +982,133 @@ def ui_epreuves(p, capturer, defauts):
     dire(f"  Minute, bilan : {lu!r}")
     if "série vidée" not in lu or "1 erreur" not in lu:
         defauts.append(f"Minute : bilan sans « série vidée » ni « 1 erreur » ({lu!r})")
+    titre = texte(p, "#chrono-bilan h2")
+    if titre != "Minute · Amérique du Sud":
+        defauts.append(f"bilan de Minute titré {titre!r}")
     capturer("23-minute-bilan")
+
+
+def panneau_jouer(p, defauts, quoi):
+    """Le panneau de Jouer tient dans l'écran (rien ne déborde, 560 px au
+    plus), ses gros boutons font 48 px au moins, « ‹ » et « × » 44 px, et
+    aucun n'est en bleu plein (le bleu reste au bouton Jouer de l'en-tête) ;
+    aucune série « essai ». Ajoute à `defauts` ce qui manque."""
+    m = p.js("""(() => { const p = document.getElementById('jouer-panneau'), r = p.getBoundingClientRect(),
+        accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+        sonde = document.createElement('i'); sonde.style.color = accent; document.body.append(sonde);
+        const bleu = getComputedStyle(sonde).color; sonde.remove();
+        const els = [...p.querySelectorAll('button, a')].filter(e => e.getClientRects().length).map(e => {
+            const b = e.getBoundingClientRect(), s = getComputedStyle(e);
+            return { t: e.textContent.trim().slice(0, 32), l: b.left, r: b.right, h: b.height, w: b.width, cls: e.className, fond: s.backgroundColor }; });
+        return { large: p.scrollWidth > p.clientWidth + 1, l: r.left, r: r.right, w: r.width, haut: r.top, largeur: innerWidth, bleu,
+                 hors: els.filter(e => e.l < r.left - 1 || e.r > r.right + 1).map(e => e.t),
+                 petits: els.filter(e => e.cls.includes('jouer-bouton') && e.h < 48).map(e => `${e.t} (${Math.round(e.h)} px)`),
+                 icones: els.filter(e => e.cls.includes('jouer-icone') && (e.h < 44 || e.w < 44)).map(e => e.t),
+                 bleus: els.filter(e => e.fond === bleu).map(e => e.t),
+                 essai: !!p.querySelector('[data-serie="essai"]') || p.innerText.includes('Essai J0') }; })()""")
+    if m["large"] or m["hors"] or m["l"] < 0 or m["r"] > m["largeur"] or m["haut"] < 0:
+        defauts.append(f"{quoi} : le panneau de Jouer déborde ({m['l']:.0f}–{m['r']:.0f} sur {m['largeur']}, en haut à {m['haut']:.0f}) ; hors du panneau : {m['hors']}")
+    if m["w"] > 561:
+        defauts.append(f"{quoi} : panneau de Jouer de {m['w']:.0f} px (560 au plus)")
+    if m["petits"]:
+        defauts.append(f"{quoi} : boutons de Jouer sous 48 px : {m['petits']}")
+    if m["icones"]:
+        defauts.append(f"{quoi} : « ‹ » ou « × » sous 44 px : {m['icones']}")
+    if m["bleus"]:
+        defauts.append(f"{quoi} : bouton bleu dans Jouer : {m['bleus']}")
+    if m["essai"]:
+        defauts.append(f"{quoi} : une série « essai » dans Jouer")
+
+
+def ui_jouer(p, capturer, defauts):
+    """Captures 15 à 15e (décision « Écran Jouer », #18) : l'arbre de Jouer,
+    après les épreuves (records de l'Amérique du Sud, Rejouer : Minute).
+    `15-jouer` (Rejouer, Entraînement et Classé), `15b-classe-sujets`,
+    `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
+    ams-epreuves` (les trois épreuves, leurs records, les règles ouvertes par
+    « ? »), `15e-entrainement-communes` (le niveau des séries sauté) ; le
+    retour arrière et « ‹ » remontent d'un niveau, une adresse invalide
+    retombe sur le niveau le plus proche, « × » ramène à la carte."""
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def ou():
+        return [p.js("decodeURIComponent(location.hash)"), niveau_jouer(p)]
+
+    p.js('location.hash = "#carte"')
+    p.pause(300)
+    cliquer(p, "#jouer-btn")
+    attendre_visible(p, "#jouer-panneau")
+    if lire("data-branche") != ["entrainement", "classe"]:
+        defauts.append(f"Jouer sans ses deux branches : {lire('data-branche')}")
+    rejouer = texte(p, "#jouer-rejouer")
+    dire(f"  Jouer, Rejouer : {rejouer!r}")
+    if "Minute" not in rejouer or "Amérique du Sud" not in rejouer:
+        defauts.append(f"Jouer : « Rejouer » {rejouer!r} au lieu de la dernière partie (Minute, Amérique du Sud)")
+    panneau_jouer(p, defauts, "Jouer")
+    capturer("15-jouer")
+    cliquer(p, '#jouer-panneau [data-branche="classe"]')
+    if lire("data-sujet") != ["pays", "communes"]:
+        defauts.append(f"Classé : sujets {lire('data-sujet')}")
+    panneau_jouer(p, defauts, "Classé")
+    capturer("15b-classe-sujets")
+    cliquer(p, '#jouer-panneau [data-sujet="pays"]')
+    series = lire("data-serie")
+    dire(f"  Classé › Pays : {series}")
+    if series != SERIES_PAYS:
+        defauts.append(f"Classé › Pays sans ses 7 séries dans l'ordre : {series}")
+    panneau_jouer(p, defauts, "Classé › Pays")
+    capturer("15c-classe-pays-series")
+    cliquer(p, '#jouer-panneau [data-serie="South America"]')
+    modes = lire("data-mode")
+    records = p.js("[...document.querySelectorAll('#jouer-panneau [data-mode]')].map(b => (b.querySelector('.jouer-record') || {}).innerText || '')")
+    fil = texte(p, "#jouer-panneau .jouer-fil")
+    dire(f"  Classé › Pays › Amérique du Sud : {modes}, records {records}, fil {fil!r}")
+    if modes != list(EPREUVES):
+        defauts.append(f"Classé › Pays › série sans ses 3 épreuves : {modes}")
+    if not all(records):
+        defauts.append(f"Classé › Pays › Amérique du Sud : un record manque ({records})")
+    if [x.strip() for x in fil.split("›")] != ["Classé", "Pays", "Amérique du Sud"]:
+        defauts.append(f"fil d'Ariane {fil!r} au lieu de « Classé › Pays › Amérique du Sud »")
+    cliquer(p, "#jouer-aide")
+    if not visible(p, "#jouer-regles"):
+        defauts.append("« ? » n'ouvre pas les règles des épreuves")
+    panneau_jouer(p, defauts, "Classé › Pays › Amérique du Sud")
+    capturer("15d-classe-pays-ams-epreuves")
+    # Le retour arrière remonte d'un niveau, « ‹ » aussi.
+    p.js("history.back()")
+    p.pause(400)
+    if ou() != ["#jouer/classe/pays", "series"]:
+        defauts.append(f"retour arrière depuis les épreuves : {ou()} au lieu des séries")
+    cliquer(p, "#jouer-haut")
+    p.pause(400)
+    if ou() != ["#jouer/classe", "sujets"]:
+        defauts.append(f"« ‹ » depuis les séries : {ou()} au lieu des sujets")
+    # Entraînement › Communes : le niveau des séries (La Réunion seule) est sauté, sans entrée d'historique.
+    p.js('location.hash = "#jouer"')
+    p.pause(300)
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    cliquer(p, '#jouer-panneau [data-sujet="communes"]')
+    p.pause(200)
+    dire(f"  Entraînement › Communes : {ou()}, {lire('data-mode')}, fil {texte(p, '#jouer-panneau .jouer-fil')!r}")
+    if ou() != ["#jouer/entrainement/communes/reunion", "exercices"] or lire("data-mode") != ["localiser", "nommer"]:
+        defauts.append(f"Communes ne saute pas la série : {ou()}, {lire('data-mode')}")
+    panneau_jouer(p, defauts, "Entraînement › Communes")
+    capturer("15e-entrainement-communes")
+    p.js("history.back()")
+    p.pause(400)
+    if ou() != ["#jouer/entrainement", "sujets"]:
+        defauts.append(f"retour arrière depuis La Réunion : {ou()} au lieu des sujets (le niveau sauté a une entrée ?)")
+    # Une adresse invalide retombe sur le niveau valide le plus proche.
+    p.js('location.hash = "#jouer/classe/pays/Atlantide"')
+    p.pause(300)
+    if ou() != ["#jouer/classe/pays", "series"]:
+        defauts.append(f"adresse invalide #jouer/classe/pays/Atlantide : {ou()}")
+    # « × » : la vue d'avant Jouer (la carte).
+    cliquer(p, "#jouer-fermer")
+    p.pause(400)
+    if p.js("location.hash") not in ("#carte", "") or not p.js("document.body.dataset.vue === 'carte'"):
+        defauts.append(f"« × » de Jouer : {p.js('location.hash')}, vue {p.js('document.body.dataset.vue')}")
 
 
 def cadre_ile(page, barre):
@@ -1040,8 +1168,8 @@ def verifier_cadrage(p, defauts, quoi, carte="carte"):
 
 def ui_reunion(p, capturer, defauts):
     """Captures 10 à 14 (#15) : La Réunion en Localiser (juste puis faux),
-    Nommer dans le monde et sur l'île, Chrono de l'île ; puis le mode
-    Localiser remis et le monde vérifié inchangé. Ajoute à `defauts` ce qui
+    Nommer dans le monde et sur l'île, Chrono de l'île, chacun lancé par
+    Jouer ; puis le monde vérifié inchangé. Ajoute à `defauts` ce qui
     est faux (l'île coupée, la mention sur deux lignes, un code INSEE à
     l'écran…)."""
     textes_lus = []
@@ -1052,14 +1180,10 @@ def ui_reunion(p, capturer, defauts):
         dire(f"  {nom} : {t!r}")
         return t
 
-    depart_toucher(p)
     avant = p.js("performance.getEntriesByType('resource').filter(r => r.name.includes('/geo/reunion/')).length")
     if avant:
         defauts.append(f"{avant} ressource(s) /geo/reunion/ avant le choix de l'île")
-    if p.js("localStorage.getItem('terramemo.toucher.mode')") not in (None, "localiser"):
-        choisir_exercice(p, "localiser")
-    cliquer(p, '#essai-depart .essai-serie[data-serie="reunion"]')
-    attendre_visible(p, "#barre-essai")
+    jouer_partie(p, "localiser", "reunion")
     if p.js("window.terramemo.terrain()") != "reunion":
         defauts.append("Toucher → La Réunion : terrain() n'est pas reunion")
     lire("La Réunion, consigne", "#barre-essai .essai-consigne")
@@ -1092,17 +1216,13 @@ def ui_reunion(p, capturer, defauts):
     lire("La Réunion, faux (Saint-Paul pour Saint-Denis)", "#barre-essai .essai-retro")
     capturer("11-reunion-faux")
     # Nommer, l'Europe : la zone allumée, quatre boutons.
-    choisir_exercice(p, "nommer")
-    cliquer(p, '#essai-depart .essai-serie[data-serie="Europe"]')
-    attendre_visible(p, "#barre-nommer")
+    jouer_partie(p, "nommer", "Europe")
     attendre_fin_vol(p)  # le vol éventuel jusqu'à la zone
     verifier_cadrage(p, defauts, "Nommer, Europe")
     lire("Nommer, Europe", "#barre-nommer")
     capturer("12-nommer-monde")
     # Nommer sur l'île : un mauvais choix, rouge et vert.
-    depart_toucher(p)
-    cliquer(p, '#essai-depart .essai-serie[data-serie="reunion"]')
-    attendre_visible(p, "#barre-nommer")
+    jouer_partie(p, "nommer", "reunion")
     p.pause(300)
     m = verifier_cadrage(p, defauts, "Nommer, La Réunion", "ile")
     if abs(m["k"] - 1) > 1e-6:
@@ -1120,12 +1240,8 @@ def ui_reunion(p, capturer, defauts):
     if sorted(m for m in marques if m) != ["faux", "juste"]:
         defauts.append(f"Nommer : boutons après un mauvais choix {marques} (attendu un faux et un juste)")
     capturer("13-nommer-reunion-retro")
-    choisir_exercice(p, "localiser")
     # Chrono de l'île : la première question et la jauge.
-    p.js('location.hash = "#chrono"')
-    p.pause(300)
-    cliquer(p, '#chrono-depart .essai-serie[data-serie="reunion"]')
-    attendre_visible(p, "#barre-chrono")
+    jouer_partie(p, "chrono", "reunion")
     p.pause(600)
     lire("Chrono, La Réunion", "#barre-chrono")
     capturer("14-chrono-reunion")
@@ -1149,10 +1265,10 @@ def visibilite_recherche(p):
 
 
 def ui_entete(p, capturer, defauts, telephone):
-    """Captures 15 à 19 (décision « En-tête ») : le choix de Jouer, la
-    recherche (sa liste, un pays montré, une commune qui ouvre l'île), le
-    classement général. Après ui_reunion : le premier usage de la recherche
-    demande les noms des communes (/geo/reunion/noms.fr.json)."""
+    """Captures 16 à 19 (décision « En-tête ») : la recherche (sa liste, un
+    pays montré, une commune qui ouvre l'île), le classement général. Après
+    ui_reunion : le premier usage de la recherche demande les noms des
+    communes (/geo/reunion/noms.fr.json)."""
     p.js('location.hash = "#carte"')
     p.pause(300)
     h = p.js("""(() => { const r = document.querySelector('header').getBoundingClientRect(),
@@ -1172,20 +1288,8 @@ def ui_entete(p, capturer, defauts, telephone):
     dire(f"  texte d'aide {aide[0]!r} : {aide[1]:.0f} px pour {aide[2]:.0f}")
     if aide[1] > aide[2]:
         defauts.append(f"texte d'aide de la recherche coupé : {aide[0]!r} ({aide[1]:.0f} px pour {aide[2]:.0f})")
-    cliquer(p, "#jouer-btn")
-    attendre_visible(p, "#jouer-depart")
-    modes = p.js("[...document.querySelectorAll('#jouer-depart [data-mode]')].map(b => b.dataset.mode)")
-    if modes != ["localiser", "nommer", "chrono", "sansfaute", "minute"]:
-        defauts.append(f"Jouer : exercices {modes}")
-    capturer("15-jouer")
     # Trouver (mode localiser), l'Europe : la recherche s'efface pendant la partie, revient après.
-    cliquer(p, '#jouer-depart [data-mode="localiser"]')
-    attendre_visible(p, "#essai-depart")
-    titre = texte(p, "#essai-depart h2")
-    if titre != "Trouver":
-        defauts.append(f"départ de Trouver titré {titre!r}")
-    cliquer(p, '#essai-depart .essai-serie[data-serie="Europe"]')
-    attendre_visible(p, "#barre-essai")
+    jouer_partie(p, "localiser", "Europe")
     if visibilite_recherche(p) != "hidden":
         defauts.append("recherche visible pendant une partie")
     cliquer(p, "#essai-terminer")
@@ -1275,11 +1379,11 @@ def commande_ui(args):
         p.pause(300)
         dire(f"  pays touché : {p.js('document.getElementById(\"barre-carte\").textContent')!r}")
         capturer("2-pays-touche")
-        p.js('location.hash = "#toucher"')
-        p.pause(300)
-        # Toucher s'ouvre sur le choix de la série : sans ce choix, pas de
-        # consigne à lire. L'essai J0, la série que visent les mesures.
-        p.js('document.querySelector(\'.essai-serie[data-serie="essai"]\').click()')
+        # L'Essai J0 (la série que visent les mesures), lancé depuis ⚙ : hors de
+        # Jouer (décision « Écran Jouer »), Trouver sur la série « essai ».
+        cliquer(p, "#settings-btn")
+        cliquer(p, '#reglage-essai [data-mode="localiser"]')
+        attendre_visible(p, "#barre-essai")
         p.pause(300)
         p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
         cible = p.js('document.querySelector(".essai-consigne").dataset.cible')
@@ -1304,14 +1408,19 @@ def commande_ui(args):
         p.js('location.hash = "#carte"')
         p.pause(200)
         p.js('document.getElementById("settings-btn").click()')
+        essai_j0 = p.js("[...document.querySelectorAll('#settings-popup #reglage-essai button[data-mode]')].map(b => b.dataset.mode + ':' + b.textContent)")
+        dire(f"  ⚙, Essai J0 : {essai_j0}")
+        if essai_j0 != ["localiser:Trouver", "nommer:Reconnaître"]:
+            defauts.append(f"⚙ sans l'Essai J0 (Trouver, Reconnaître) : {essai_j0}")
         capturer("6-reglages")
         p.js('document.getElementById("settings-btn").click()')
         # Chrono : l'Amérique du Sud (12 pays) jouée jusqu'au bilan, la
         # première question fausse (le Brésil, ou l'Argentine s'il est demandé).
-        p.js('location.hash = "#chrono"')
-        p.pause(300)
-        capturer("7-chrono-depart")
-        p.js('document.querySelector(\'#chrono-depart .essai-serie[data-serie="South America"]\').click()')
+        # Ses exercices dans Jouer d'abord (Classé › Pays › Amérique du Sud).
+        jouer_jusqua(p, "chrono", "South America")
+        capturer("7-classe-ams-epreuves")
+        cliquer(p, '#jouer-panneau [data-mode="chrono"]')
+        attendre_visible(p, "#barre-chrono")
         p.pause(300)
         p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
         consigne = 'document.querySelector("#barre-chrono .essai-consigne").dataset.cible'
@@ -1333,6 +1442,7 @@ def commande_ui(args):
         ui_reunion(p, capturer, defauts)
         ui_entete(p, capturer, defauts, telephone)
         ui_epreuves(p, capturer, defauts)
+        ui_jouer(p, capturer, defauts)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
