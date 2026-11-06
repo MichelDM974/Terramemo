@@ -1,7 +1,28 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { clePseudo, enregistrer, enregistrerPartie, EPREUVES, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, VERSION_BAREME, vraisemblable } from '../src/epreuve/chrono';
-import { ECHELLES_KM } from '../src/epreuve/bareme';
+import {
+  clePseudo,
+  DUREE_MINUTE_MS,
+  enregistrer,
+  enregistrerPartie,
+  EPREUVES,
+  EPREUVES_CLASSEES,
+  idEpreuve,
+  lireRecords,
+  modeEpreuve,
+  PartieChrono,
+  PartieMinute,
+  PartieSansFaute,
+  periodeSemaine,
+  pseudoValide,
+  recordDe,
+  recordPubliable,
+  SERIES_EPREUVES,
+  totalGeneral,
+  VERSION_BAREME,
+  vraisemblable,
+} from '../src/epreuve/chrono';
+import { comparerScores, ECHELLES_KM } from '../src/epreuve/bareme';
 import type { Pays } from '../src/map/types';
 import { SERIE_REUNION, SERIE_TOUS, series, seriesToucher } from '../src/vues/cibles';
 import { seriesChrono } from '../src/vues/chrono';
@@ -59,6 +80,65 @@ describe('PartieChrono', () => {
   it('un toucher juste arrivé après le délai ne compte pas', () => {
     const p = new PartieChrono(['FRA'], D);
     expect(p.repondre('FRA', true, 0, D + 50).points).toBe(0);
+  });
+});
+
+describe('PartieSansFaute (décision « Sans faute et Minute »)', () => {
+  it('s’arrête à la première erreur : les justes d’affilée, au temps des justes seules', () => {
+    const p = new PartieSansFaute(['PER', 'BOL', 'CHL', 'ARG']);
+    expect(p.delai_ms).toBe(D);
+    expect(p.repondre('PER', true, 0, 2000).points).toBe(1);
+    expect(p.repondre('BOL', true, 0, 3000).points).toBe(1);
+    expect(p.finie).toBe(false);
+    expect(p.repondre('ARG', false, 40, 4000).points).toBe(0);
+    expect(p.finie).toBe(true);
+    expect(() => p.repondre('ARG', true, 0, 1000)).toThrow();
+    expect(p.score()).toEqual({ points: 2, justes: 2, questions: 3, temps_ms: 5000 });
+  });
+
+  it('le temps écoulé est une erreur ; un toucher juste après le délai aussi', () => {
+    const a = new PartieSansFaute(['PER', 'BOL']);
+    a.repondre('PER', true, 0, 2000);
+    a.expirer();
+    expect([a.finie, a.score()]).toEqual([true, { points: 1, justes: 1, questions: 2, temps_ms: 2000 }]);
+    const b = new PartieSansFaute(['PER', 'BOL']);
+    expect(b.repondre('PER', true, 0, D + 50).points).toBe(0);
+    expect(b.finie).toBe(true);
+    expect(b.score()).toEqual({ points: 0, justes: 0, questions: 1, temps_ms: 0 });
+  });
+
+  it('la série vidée sans erreur : le score maximal', () => {
+    const p = new PartieSansFaute(['PER', 'BOL']);
+    p.repondre('PER', true, 0, 2000);
+    p.repondre('BOL', true, 0, 2500);
+    expect([p.finie, p.score()]).toEqual([true, { points: 2, justes: 2, questions: 2, temps_ms: 4500 }]);
+  });
+});
+
+describe('PartieMinute (décision « Sans faute et Minute »)', () => {
+  it('une erreur passe à la suivante ; la minute terminée, la question posée ne compte pas', () => {
+    const p = new PartieMinute(['PER', 'BOL', 'CHL', 'ARG']);
+    expect([p.duree_ms, p.reste]).toEqual([DUREE_MINUTE_MS, 60_000]);
+    expect(p.repondre('PER', true, 0, 20_000).points).toBe(1);
+    expect(p.repondre('ARG', false, 40, 25_000).points).toBe(0);
+    expect([p.finie, p.reste, p.courante]).toEqual([false, 15_000, 'CHL']);
+    p.terminer();
+    expect(p.finie).toBe(true);
+    expect(p.score()).toEqual({ points: 1, justes: 1, questions: 2, temps_ms: 60_000 });
+    expect(() => new PartieMinute(['PER']).expirer()).toThrow();
+  });
+
+  it('la série vidée avant la fin : la partie s’arrête, au temps passé', () => {
+    const p = new PartieMinute(['PER', 'BOL']);
+    p.repondre('PER', true, 0, 2000);
+    p.repondre('CHL', false, 300, 3000);
+    expect([p.finie, p.score()]).toEqual([true, { points: 1, justes: 1, questions: 2, temps_ms: 5000 }]);
+  });
+
+  it('départage : plus de justes, puis la série vidée plus vite, puis moins d’erreurs', () => {
+    const s = (justes: number, questions: number, temps_ms: number) => ({ points: justes, justes, questions, temps_ms });
+    const tries = [s(20, 25, 60_000), s(20, 22, 60_000), s(24, 24, 45_000), s(24, 24, 50_000), s(21, 30, 60_000)].sort(comparerScores);
+    expect(tries).toEqual([s(24, 24, 45_000), s(24, 24, 50_000), s(21, 30, 60_000), s(20, 22, 60_000), s(20, 25, 60_000)]);
   });
 });
 
@@ -121,10 +201,17 @@ describe('séries du Chrono', () => {
     expect(seriesChrono(seriesToucher(pays, (c) => continents[c] ?? c)).filter((x) => x.id === SERIE_REUNION)).toHaveLength(1);
   });
 
-  it('textes du Chrono : toutes les clés remplies par la vue existent', () => {
-    for (const k of ['depart_aide', 'record', 'points', 'juste', 'faux', 'bilan_score', 'bilan_detail', 'bilan_faux', 'bilan_expire', 'record_a_battre', 'nouveau_record_bat'])
+  it('textes des épreuves : toutes les clés remplies par la vue existent', () => {
+    for (const k of ['record', 'points', 'juste', 'faux', 'bilan_titre', 'bilan_score', 'bilan_detail', 'bilan_faux', 'bilan_expire', 'record_a_battre', 'nouveau_record_bat'])
       expect(textes.chrono[k as keyof typeof textes.chrono], k).toBeTruthy();
-    for (const t of ['monde', 'reunion'] as const) expect(textes.terrains[t].expire, t).toBeTruthy();
+    for (const t of ['monde', 'reunion'] as const) {
+      expect(textes.terrains[t].expire, t).toBeTruthy();
+      expect(textes.terrains[t].expire_sans_points, t).toBeTruthy();
+    }
+    const E = textes.epreuves;
+    for (const m of ['chrono', 'sansfaute', 'minute'] as const) for (const k of ['nom', 'aide'] as const) expect(E[m][k], `${m}.${k}`).toBeTruthy();
+    for (const k of ['compte', 'score', 'parfait', 'detail'] as const) expect(E.sansfaute[k], k).toBeTruthy();
+    for (const k of ['score', 'videe'] as const) expect(E.minute[k], k).toBeTruthy();
   });
 });
 
@@ -177,27 +264,71 @@ describe('records de la semaine et classement général', () => {
     expect(totalGeneral(new Map(), 'toujours', enLigne)?.points).toBe(71_567);
   });
 
-  it('les épreuves du général sont celles des règles Firestore (tailles())', () => {
+  it('les séries des épreuves sont celles des règles Firestore (tailles()) ; trois modes, le général au Chrono seul', () => {
     const regles = readFileSync('firestore.rules', 'utf8');
-    const tailles = [...regles.matchAll(/'(chrono:[^']+)': \d+/g)].map((m) => m[1]);
-    expect([...EPREUVES].sort()).toEqual(tailles.sort());
+    const tailles = [...regles.matchAll(/^\s+'([^']+)': \d+,?$/gm)].map((m) => m[1]);
+    expect([...SERIES_EPREUVES].sort()).toEqual(tailles.sort());
+    expect(EPREUVES).toEqual(SERIES_EPREUVES.map((x) => `chrono:localiser:${x}`));
+    expect(EPREUVES_CLASSEES).toHaveLength(3 * SERIES_EPREUVES.length);
+    expect(EPREUVES_CLASSEES.slice(0, SERIES_EPREUVES.length)).toEqual(EPREUVES);
+    expect([idEpreuve('Africa', 'sansfaute'), idEpreuve('tous', 'minute')]).toEqual(['sansfaute:localiser:Africa', 'minute:localiser:tous']);
+    expect(['general', idEpreuve('Asia'), `${idEpreuve('Asia', 'minute')}@s2914`, idEpreuve('reunion', 'sansfaute')].map(modeEpreuve)).toEqual(['chrono', 'chrono', 'minute', 'sansfaute']);
   });
 
   it('vraisemblable : les bornes de firestore.rules, sur les valeurs arrondies que publier() envoie', () => {
-    expect(vraisemblable(score(11_000, 11, 12, 60_000))).toBe(true);
+    const C = idEpreuve('South America');
+    expect(vraisemblable(score(11_000, 11, 12, 60_000), C)).toBe(true);
     // Au moins 0,2 s par question (4,8 s pour les 24 communes), 15 s au plus.
-    expect(vraisemblable(score(24_000, 24, 24, 4_800))).toBe(true);
-    expect(vraisemblable(score(24_000, 24, 24, 4_799.4))).toBe(false);
-    expect(vraisemblable(score(24_000, 24, 24, 4_799.6))).toBe(true);
-    expect(vraisemblable(score(24_000, 24, 24, 1_433))).toBe(false);
-    expect(vraisemblable(score(0, 0, 12, 180_000))).toBe(true);
-    expect(vraisemblable(score(0, 0, 12, 180_001))).toBe(false);
+    expect(vraisemblable(score(24_000, 24, 24, 4_800), C)).toBe(true);
+    expect(vraisemblable(score(24_000, 24, 24, 4_799.4), C)).toBe(false);
+    expect(vraisemblable(score(24_000, 24, 24, 4_799.6), C)).toBe(true);
+    expect(vraisemblable(score(24_000, 24, 24, 1_433), C)).toBe(false);
+    expect(vraisemblable(score(0, 0, 12, 180_000), C)).toBe(true);
+    expect(vraisemblable(score(0, 0, 12, 180_001), C)).toBe(false);
     // 1 000 par juste, 500 au plus par erreur ; justes entre 0 et questions.
-    expect(vraisemblable(score(11_500, 11, 12, 60_000))).toBe(true);
-    expect(vraisemblable(score(11_501, 11, 12, 60_000))).toBe(false);
-    expect(vraisemblable(score(10_999, 11, 12, 60_000))).toBe(false);
-    expect(vraisemblable(score(13_000, 13, 12, 60_000))).toBe(false);
-    expect(vraisemblable(score(0, 0, 0, 0))).toBe(false);
+    expect(vraisemblable(score(11_500, 11, 12, 60_000), C)).toBe(true);
+    expect(vraisemblable(score(11_501, 11, 12, 60_000), C)).toBe(false);
+    expect(vraisemblable(score(10_999, 11, 12, 60_000), C)).toBe(false);
+    expect(vraisemblable(score(13_000, 13, 12, 60_000), C)).toBe(false);
+    expect(vraisemblable(score(0, 0, 0, 0), C)).toBe(false);
+    // Le général : les bornes du Chrono.
+    expect(vraisemblable(score(11_000, 11, 12, 60_000), 'general')).toBe(true);
+  });
+
+  it('vraisemblable de Sans faute : points = justes, l’erreur de la fin en plus, le temps des justes seules', () => {
+    const S = idEpreuve('Europe', 'sansfaute');
+    expect(vraisemblable(score(17, 17, 18, 60_000), S)).toBe(true);
+    expect(vraisemblable(score(17, 17, 17, 60_000), S)).toBe(true); // la série vidée (sa taille : sur le serveur)
+    expect(vraisemblable(score(0, 0, 1, 0), S)).toBe(true);
+    expect(vraisemblable(score(0, 0, 0, 0), S)).toBe(false);
+    expect(vraisemblable(score(17, 17, 19, 60_000), S)).toBe(false);
+    expect(vraisemblable(score(17_000, 17, 18, 60_000), S)).toBe(false);
+    expect(vraisemblable(score(17, 17, 18, 17 * 200 - 1), S)).toBe(false);
+    expect(vraisemblable(score(17, 17, 18, 17 * 15_000 + 1), S)).toBe(false);
+    // Une clé de record de la semaine juge comme l'épreuve.
+    expect(vraisemblable(score(17, 17, 18, 60_000), `${S}@s2914`)).toBe(true);
+  });
+
+  it('vraisemblable de Minute : points = justes, 60 s au plus, 0,2 s au moins par question', () => {
+    const M = idEpreuve('Africa', 'minute');
+    expect(vraisemblable(score(23, 23, 25, 60_000), M)).toBe(true);
+    expect(vraisemblable(score(12, 11, 12, 30_000), M)).toBe(false);
+    expect(vraisemblable(score(0, 0, 0, 60_000), M)).toBe(true);
+    expect(vraisemblable(score(23, 23, 25, 60_001), M)).toBe(false);
+    expect(vraisemblable(score(23, 23, 25, 25 * 200 - 1), M)).toBe(false);
+    expect(vraisemblable(score(23, 24, 25, 60_000), M)).toBe(false);
+  });
+
+  it('le général n’additionne que le Chrono : Sans faute et Minute n’y comptent pas', () => {
+    const s = stockage();
+    enregistrerPartie(s, idEpreuve('South America'), score(11_000, 11, 12, 60_000), lundi);
+    enregistrerPartie(s, idEpreuve('South America', 'sansfaute'), score(12, 12, 12, 30_000), lundi);
+    enregistrerPartie(s, idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000), lundi);
+    const r = lireRecords(s);
+    expect(r.size).toBe(6);
+    for (const p of ['toujours', periodeSemaine(lundi)]) expect(totalGeneral(r, p)).toEqual(score(11_000, 11, 12, 60_000));
+    // Un record de Sans faute se juge à ses bornes : publiable.
+    expect(recordPubliable(recordDe(r, idEpreuve('South America', 'sansfaute'), 'toujours')!, idEpreuve('South America', 'sansfaute'))).toEqual(score(12, 12, 12, 30_000));
   });
 
   it('un record que les règles refuseraient ne compte pas dans le général (sa somme ne fait pas tomber les autres)', () => {
@@ -227,7 +358,7 @@ describe('records de la semaine et classement général', () => {
     const r = lireRecords(s);
     for (const p of ['toujours', periodeSemaine(lundi)]) {
       expect(totalGeneral(r, p)).toEqual(score(50_000, 50, 50, 11_946 + 7_839 + 9_136));
-      expect(recordPubliable(recordDe(r, ile, p)!)).toEqual(score(24_000, 24, 24, 11_946));
+      expect(recordPubliable(recordDe(r, ile, p)!, ile)).toEqual(score(24_000, 24, 24, 11_946));
     }
   });
 
@@ -241,15 +372,15 @@ describe('records de la semaine et classement général', () => {
     expect([b.toujours.nouveau, b.toujours.progresPubliable]).toEqual([false, true]);
     const r = recordDe(lireRecords(s), ile, 'toujours')!;
     expect(r.temps_ms).toBe(1_100);
-    expect(recordPubliable(r)).toEqual(score(22_000, 22, 24, 50_000));
+    expect(recordPubliable(r, ile)).toEqual(score(22_000, 22, 24, 50_000));
     // Moins bien que les deux : rien ne change.
     const b2 = enregistrerPartie(s, ile, score(21_000, 21, 24, 50_000), lundi);
     expect([b2.toujours.nouveau, b2.toujours.progresPubliable]).toEqual([false, false]);
-    expect(recordPubliable(recordDe(lireRecords(s), ile, 'toujours')!)?.points).toBe(22_000);
+    expect(recordPubliable(recordDe(lireRecords(s), ile, 'toujours')!, ile)?.points).toBe(22_000);
     // Seul et trop rapide : rien de publiable.
     const seul = stockage();
     enregistrerPartie(seul, ile, score(24_000, 24, 24, 1_100), lundi);
-    expect(recordPubliable(recordDe(lireRecords(seul), ile, 'toujours')!)).toBeNull();
+    expect(recordPubliable(recordDe(lireRecords(seul), ile, 'toujours')!, ile)).toBeNull();
   });
 
   it('pseudo : 2 à 20 caractères, espaces resserrés', () => {

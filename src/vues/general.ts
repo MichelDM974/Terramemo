@@ -1,15 +1,18 @@
-// Vue « Classements » (bouton 🏆 de l'en-tête ; décisions « En-tête » et
-// « Classements par épreuve ») : d'abord mes places, le général puis chaque
-// épreuve où mon pseudo est classé, avec rang et points, de toujours ou de la
-// semaine ; « Toutes les épreuves » montre celles où il ne l'est pas encore.
-// Toucher une ligne ouvre ses dix premiers (blocClassement), « ‹ Classements »
-// ramène à la liste. Relu à chaque ouverture ; « Retour » ramène à la vue
-// d'avant (main.ts).
-import { EPREUVES, periodeSemaine } from '../epreuve/chrono';
+// Vue « Classements » (bouton 🏆 de l'en-tête ; décisions « En-tête »,
+// « Classements par épreuve » et « Sans faute et Minute ») : d'abord mes
+// places, le général puis chaque épreuve où mon pseudo est classé, avec rang et
+// score, de toujours ou de la semaine ; « Toutes les épreuves » montre celles
+// où il ne l'est pas encore. Les lignes vont par mode, sous son titre : Chrono
+// (le général en tête, qui n'additionne que lui), Sans faute, Minute. Toucher
+// une ligne ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à
+// la liste. Relu à chaque ouverture ; « Retour » ramène à la vue d'avant
+// (main.ts).
+import { EPREUVES_CLASSEES, modeEpreuve, MODES_EPREUVE, periodeSemaine } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
 import { SERIE_REUNION, SERIE_TOUS } from './cibles';
 import { blocClassement, lirePseudo } from './classement';
 import { creer, type ContexteVue, type Vue } from './commun';
+import { nomMode, scoreCourt } from './scores';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -24,12 +27,15 @@ export function nomEpreuve(epreuve: string): string {
   return (textes.continents as Record<string, string>)[serie] ?? serie;
 }
 
+/** Titre du classement d'une épreuve : « Sans faute · Afrique » ; le général a le sien. */
+export function titreEpreuve(epreuve: string): string {
+  return epreuve === GENERAL ? T.general_titre : remplir(T.bilan_titre, { mode: nomMode(modeEpreuve(epreuve)), serie: nomEpreuve(epreuve) });
+}
+
 /** « 1er sur 3 », « 4e sur 12 ». */
 export function rangSur(rang: number, joueurs: number): string {
   return remplir(T.rang_sur, { rang: rang === 1 ? T.rang_1 : remplir(T.rang_n, { n: rang }), n: joueurs });
 }
-
-const fmtPts = (n: number) => n.toLocaleString('fr-FR');
 
 export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
   const panneau = creer('div', { class: 'essai-bilan panel', id: 'classement-general' });
@@ -50,10 +56,18 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
       'button',
       { type: 'button', class: 'essai-serie', 'data-epreuve': epreuve },
       creer('span', { class: 'essai-serie-nom' }, nomEpreuve(epreuve), creer('span', { class: 'essai-serie-detail' }, p ? rangSur(p.rang, p.joueurs) : T.pas_classe)),
-      creer('span', { class: 'essai-serie-n' }, p ? fmtPts(p.place.points) : ''),
+      creer('span', { class: 'essai-serie-n' }, p ? scoreCourt(modeEpreuve(epreuve), p.place.points) : ''),
     );
     b.addEventListener('click', () => detail(epreuve));
     return creer('li', {}, b);
+  }
+
+  /** Les lignes de ces épreuves, par mode sous son titre (les modes sans ligne sont omis). */
+  function groupes(epreuves: readonly string[], places: ReadonlyMap<string, MaPlace>): HTMLElement[] {
+    return MODES_EPREUVE.flatMap((m) => {
+      const lignes = epreuves.filter((e) => modeEpreuve(e) === m).map((e) => ligne(e, places.get(e) ?? null));
+      return lignes.length ? [creer('section', { class: 'classements-groupe', 'data-mode': m }, creer('h3', {}, nomMode(m)), creer('ul', { class: 'essai-series' }, ...lignes))] : [];
+    });
   }
 
   function liste(): void {
@@ -71,9 +85,9 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
       });
       return b;
     });
-    const mes = creer('ul', { class: 'essai-series', id: 'classements-mes' });
+    const mes = creer('div', { id: 'classements-mes' });
     const etat = creer('p', { class: 'hint chrono-classement-etat' }, T.chargement);
-    const autres = creer('ul', { class: 'essai-series', id: 'classements-autres' });
+    const autres = creer('div', { id: 'classements-autres' });
     autres.hidden = true;
     const plus = creer('button', { type: 'button', class: 'lien', id: 'classements-plus' }, T.toutes_epreuves);
     plus.hidden = true;
@@ -91,12 +105,12 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
       autres,
       creer('div', { class: 'essai-actions' }, boutonRetour()),
     );
-    const toutes = [GENERAL, ...EPREUVES];
+    const toutes = [GENERAL, ...EPREUVES_CLASSEES];
     // Toutes les épreuves d'un coup, sans place (pas de pseudo, hors ligne, aucune place).
     const sansPlaces = (texte: string) => {
       etat.textContent = texte;
       etat.hidden = !texte;
-      mes.replaceChildren(...toutes.map((e) => ligne(e, null)));
+      mes.replaceChildren(...groupes(toutes, new Map()));
     };
     if (!pseudo) return sansPlaces('');
     void (async () => {
@@ -104,11 +118,11 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
         const places = await mesPlaces(periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now()), pseudo);
         if (n !== lecture) return;
         if (!places.length) return sansPlaces(T.classements_aucune);
-        const classees = new Set(places.map((p) => p.epreuve));
-        const reste = toutes.filter((e) => !classees.has(e));
+        const parEpreuve = new Map(places.map((p) => [p.epreuve, p]));
+        const reste = toutes.filter((e) => !parEpreuve.has(e));
         etat.hidden = true;
-        mes.replaceChildren(...places.map((p) => ligne(p.epreuve, p)));
-        autres.replaceChildren(...reste.map((e) => ligne(e, null)));
+        mes.replaceChildren(...groupes(places.map((p) => p.epreuve), parEpreuve));
+        autres.replaceChildren(...groupes(reste, new Map()));
         plus.hidden = !reste.length;
       } catch {
         if (n === lecture) sansPlaces(T.indisponible);
@@ -121,7 +135,7 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
     const versListe = creer('button', { type: 'button', class: 'secondary', id: 'classements-liste' }, T.retour_classements);
     versListe.addEventListener('click', () => liste());
     panneau.replaceChildren(
-      creer('h2', {}, epreuve === GENERAL ? T.general_titre : nomEpreuve(epreuve)),
+      creer('h2', {}, titreEpreuve(epreuve)),
       ...(epreuve === GENERAL ? [creer('p', { class: 'hint' }, T.general_aide)] : []),
       blocClassement(epreuve, T.classement_titre, undefined, periode),
       creer('div', { class: 'essai-actions' }, versListe, boutonRetour()),

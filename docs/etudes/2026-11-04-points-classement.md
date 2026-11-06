@@ -35,13 +35,18 @@ D'où un onglet **Épreuves**, à côté des séances :
 
 ## 2. Les modes
 
-Le Chrono d'abord, dès le J1a ; Sans faute et Minute ensuite.
+Le Chrono d'abord, dès le J1a ; Sans faute et Minute ensuite (en ligne le
+06/11/2026, décision « Sans faute et Minute »).
 
 | Mode | Déroulé | Score | Départage |
 |---|---|---|---|
 | **Chrono** (l'idée de l'utilisateur) | Tout l'ensemble, une question à la fois, **15 s par question** pour localiser (10 s en QCM) ; un seul toucher | Jusqu'à **1 000 points par question** : 1 000 si juste, sinon selon la distance (§ 3), 0 si le temps est écoulé | Temps total le plus court |
-| **Sans faute** | Questions tirées au hasard dans l'ensemble, sans répétition, 10 s chacune, jusqu'à la première erreur | Nombre de justes d'affilée (l'ensemble vidé = score maximal) | Temps total |
-| **Minute** | Le plus de questions justes en 60 s ; une erreur fait passer à la suivante | Nombre de justes | Moins d'erreurs |
+| **Sans faute** | Questions tirées au hasard dans l'ensemble, sans répétition, ~~10 s~~ **15 s** chacune (choix du 06/11 : celui du Chrono au toucher), jusqu'à la première erreur (ou le temps écoulé) | Nombre de justes d'affilée (l'ensemble vidé = score maximal) | Temps des justes seules |
+| **Minute** | Le plus de questions justes en 60 s de réponse (la rétroaction ne compte pas) ; une erreur fait passer à la suivante ; l'ensemble vidé avant la fin arrête la partie (choix du 06/11) | Nombre de justes | Le temps (l'ensemble vidé plus vite), puis moins d'erreurs |
+
+- Les trois se jouent en touchant la carte (choix du 06/11) : avec quatre
+  noms au choix, la Minute récompenserait le tapotement au hasard (environ
+  un quart de justes, les erreurs ne faisant que départager).
 
 - Le Chrono fait le classement « sérieux » (mêmes questions pour tous) ;
   Sans faute et Minute sont plus courts et plus joueurs, avec la part de
@@ -125,7 +130,12 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
 ## 4. Le classement sur Firebase (offre Spark)
 
 - **Quatre classements par épreuve jouée** (choix de l'utilisateur) : un
-  par épreuve et un général, chacun de toujours et de la semaine.
+  par épreuve et un général, chacun de toujours et de la semaine. Sans
+  faute et Minute ont leurs deux classements par épreuve
+  (`sansfaute:localiser:…`, `minute:localiser:…`, points = justes), mais
+  n'entrent pas au général, qui reste celui du Chrono (choix du 06/11).
+  Minute départage en plus au nombre de questions (index composite
+  `points`, `temps_ms`, `questions`).
   - Par épreuve : le meilleur score Chrono de chaque joueur
     (`classements/{epreuve}/periodes/toujours/scores/{pseudo}` : pseudo,
     points, justes, questions, temps, date, version du barème), écrit en
@@ -156,7 +166,10 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
   lectures par total (la place du pseudo dans chaque épreuve). Avec
   50 000 lectures et 20 000 écritures par jour (Spark), ~2 000
   affichages de classement et ~5 000 épreuves finies par jour, partagés
-  avec les séances : à surveiller si le public grandit.
+  avec les séances : à surveiller si le public grandit. L'écran des
+  classements (🏆) lit la place du pseudo dans les 25 classements (24
+  épreuves et le général) : 25 lectures à l'ouverture, plus 3 par place
+  (4 en Minute).
 - **Pseudo public**, choisi à la première entrée au classement, jamais le
   nom du compte Google ; liste de mots refusés et suppression à la main
   par l'utilisateur (le propriétaire). Les invités y figurent avec un
@@ -182,7 +195,9 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
   **Fait le 04/11/2026** (`firestore.rules`, tests sur l'émulateur) : les
   bornes du barème, le nombre de questions de chaque épreuve, au moins
   0,2 s par question, la semaine en cours, le record qui progresse, le
-  pseudo (2 à 20 caractères). Pas encore : le document de début de
+  pseudo (2 à 20 caractères). Le 06/11, Sans faute (points = justes, une
+  erreur au plus, sauf la série vidée) et Minute (points = justes, 60 s au
+  plus, moins seulement si la série est vidée). Pas encore : le document de début de
   partie (durée réelle), App Check, les réponses gardées pour l'audit,
   la liste de mots refusés pour les pseudos.
 - **Version du barème** dans chaque score : changer une formule ouvre un

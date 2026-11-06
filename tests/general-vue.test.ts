@@ -2,7 +2,7 @@
 // dix premiers d'une épreuve. mesPlaces() et lireTableau() remplacés, DOM
 // factice (tests/dom-factice.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EPREUVES, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
+import { EPREUVES_CLASSEES, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
 const mesPlaces = vi.fn();
@@ -15,12 +15,14 @@ vi.mock('../src/epreuve/classement', () => ({
   placesDuPseudo: vi.fn(),
 }));
 
-const { nomEpreuve, rangSur, vueGeneral } = await import('../src/vues/general');
+const { nomEpreuve, rangSur, titreEpreuve, vueGeneral } = await import('../src/vues/general');
 const { textes } = await import('../src/vues/textes');
 const T = textes.chrono;
 
 const ILE = idEpreuve('reunion');
 const AFR = idEpreuve('Africa');
+const SF_EUR = idEpreuve('Europe', 'sansfaute');
+const MIN_ILE = idEpreuve('reunion', 'minute');
 const place = (epreuve: string, points: number, rang = 1, joueurs = 1) => ({
   epreuve,
   place: { cle: 'michel', pseudo: 'Michel', points, justes: 0, questions: 0, temps_ms: 0 },
@@ -40,6 +42,8 @@ function ouvrir(): El {
   return zone.querySelector('#classement-general')!;
 }
 const lignes = (ul: string) => racine.querySelectorAll(`${ul} .essai-serie`).map((b) => b.dataset.epreuve);
+/** Les titres des groupes (un par mode) d'une liste. */
+const groupes = (ul: string) => racine.querySelectorAll(`${ul} .classements-groupe h3`).map((h) => h.textContent);
 
 beforeEach(() => {
   installerDom();
@@ -52,24 +56,34 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('écran des classements', () => {
   it('noms et rangs', () => {
-    expect([nomEpreuve('general'), nomEpreuve(AFR), nomEpreuve(ILE), nomEpreuve(idEpreuve('tous'))]).toEqual(['Général', 'Afrique', 'La Réunion', 'Tous les pays']);
+    expect([nomEpreuve('general'), nomEpreuve(AFR), nomEpreuve(ILE), nomEpreuve(idEpreuve('tous')), nomEpreuve(SF_EUR)]).toEqual(['Général', 'Afrique', 'La Réunion', 'Tous les pays', 'Europe']);
+    expect([titreEpreuve('general'), titreEpreuve(AFR), titreEpreuve(SF_EUR), titreEpreuve(MIN_ILE)]).toEqual([
+      'Classement général',
+      'Chrono · Afrique',
+      'Sans faute · Europe',
+      'Minute · La Réunion',
+    ]);
     expect([rangSur(1, 3), rangSur(4, 12)]).toEqual(['1er sur 3', '4e sur 12']);
   });
 
-  it('mes places d’abord (général, puis les épreuves), les autres derrière « Toutes les épreuves »', async () => {
+  it('mes places d’abord (général, puis les épreuves, par mode), les autres derrière « Toutes les épreuves »', async () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
-    mesPlaces.mockResolvedValue([place('general', 53_277), place(AFR, 31_710), place(ILE, 21_567, 2, 3)]);
+    mesPlaces.mockResolvedValue([place('general', 53_277), place(AFR, 31_710), place(ILE, 21_567, 2, 3), place(SF_EUR, 17), place(MIN_ILE, 1)]);
     const p = ouvrir();
     await attendre();
     expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel');
-    expect(lignes('#classements-mes')).toEqual(['general', AFR, ILE]);
-    expect(p.innerText).toContain((53_277).toLocaleString('fr-FR'));
+    expect(lignes('#classements-mes')).toEqual(['general', AFR, ILE, SF_EUR, MIN_ILE]);
+    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute', 'Minute']);
+    expect(p.innerText).toContain(`${(53_277).toLocaleString('fr-FR')} pts`);
+    expect(p.innerText).toContain("17 d'affilée");
+    expect(p.innerText).toContain('1 juste');
     expect(p.innerText).toContain('2e sur 3');
     const plus = p.querySelector('#classements-plus')!;
     expect(p.querySelector('#classements-autres')!.hidden).toBe(true);
     plus.click();
     expect(p.querySelector('#classements-autres')!.hidden).toBe(false);
-    expect(lignes('#classements-autres')).toEqual(EPREUVES.filter((e) => e !== AFR && e !== ILE));
+    expect(lignes('#classements-autres')).toEqual(EPREUVES_CLASSEES.filter((e) => ![AFR, ILE, SF_EUR, MIN_ILE].includes(e)));
+    expect(groupes('#classements-autres')).toEqual(['Chrono', 'Sans faute', 'Minute']);
     expect(plus.textContent).toBe(T.masquer_epreuves);
   });
 
@@ -80,7 +94,7 @@ describe('écran des classements', () => {
     await attendre();
     p.querySelector(`.essai-serie[data-epreuve="${ILE}"]`)!.click();
     await attendre();
-    expect(p.querySelector('h2')!.textContent).toBe('La Réunion');
+    expect(p.querySelector('h2')!.textContent).toBe('Chrono · La Réunion');
     expect(lireTableau).toHaveBeenCalledWith(ILE, 'toujours', 'Michel');
     p.querySelector('#classements-liste')!.click();
     await attendre();
@@ -107,7 +121,8 @@ describe('écran des classements', () => {
     const p = ouvrir();
     await attendre();
     expect(mesPlaces).not.toHaveBeenCalled();
-    expect(lignes('#classements-mes')).toEqual(['general', ...EPREUVES]);
+    expect(lignes('#classements-mes')).toEqual(['general', ...EPREUVES_CLASSEES]);
+    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute', 'Minute']);
     expect(p.innerText).toContain(T.classements_sans_pseudo);
   });
 
@@ -117,11 +132,11 @@ describe('écran des classements', () => {
     let p = ouvrir();
     await attendre();
     expect(p.innerText).toContain(T.classements_aucune);
-    expect(lignes('#classements-mes')).toHaveLength(EPREUVES.length + 1);
+    expect(lignes('#classements-mes')).toHaveLength(EPREUVES_CLASSEES.length + 1);
     mesPlaces.mockRejectedValue(new Error('hors ligne'));
     p = ouvrir();
     await attendre();
     expect(p.innerText).toContain(T.indisponible);
-    expect(lignes('#classements-mes')).toHaveLength(EPREUVES.length + 1);
+    expect(lignes('#classements-mes')).toHaveLength(EPREUVES_CLASSEES.length + 1);
   });
 });

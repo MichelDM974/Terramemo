@@ -19,7 +19,7 @@ avant le J1a ; conception `docs/etudes/2026-11-06-reunion.md`.
 | Diffusion | **Le site seul pour le public jusqu'au Play Store** ; l'APK reste pour l'utilisateur dans la release privée d'ici là |
 | Hébergement | **Firebase Hosting** (offre Spark) ; plan B : Cloudflare Pages si le quota de transfert est atteint |
 | Frontières | **De fait** (Natural Earth par défaut), zones contestées hachurées, jamais posées en question |
-| Points et classement | **Classement global**, ouvert à tous (choix du 04/11, ticket #14, retire « Motivation ») : par épreuve et général (somme des records), de toujours et de la semaine ; épreuves notées, le Chrono d'abord (points selon la justesse et la distance, `docs/etudes/2026-11-04-points-classement.md`) ; les séances de révision restent sans points |
+| Points et classement | **Classement global**, ouvert à tous (choix du 04/11, ticket #14, retire « Motivation ») : par épreuve et général (somme des records), de toujours et de la semaine ; épreuves notées, le Chrono d'abord (points selon la justesse et la distance, `docs/etudes/2026-11-04-points-classement.md`), puis Sans faute et Minute (06/11 : au toucher, classements par épreuve, hors du général) ; les séances de révision restent sans points |
 | Identité | Nom **Terramemo**, accent bleu océan `#3d72f0` ; téléphone de mesure : Android récent (2023+) |
 
 ## Pédagogie

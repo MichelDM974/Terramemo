@@ -6,7 +6,7 @@ import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestE
 import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
-import { clePseudo, vraisemblable } from '../src/epreuve/chrono';
+import { clePseudo, idEpreuve, vraisemblable } from '../src/epreuve/chrono';
 
 const hote = process.env.FIRESTORE_EMULATOR_HOST;
 const E = 'chrono:localiser:South America';
@@ -122,7 +122,77 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     ];
     for (const [i, c] of cas.entries()) {
       const ecrire = setDoc(place(db('ana'), `joueur ${i}`, 'toujours', I), score({ ...c, pseudo: `Joueur ${i}` }));
-      if (vraisemblable(c)) await assertSucceeds(ecrire);
+      if (vraisemblable(c, I)) await assertSucceeds(ecrire);
+      else await assertFails(ecrire);
+    }
+  });
+
+  it('Sans faute : justes d’affilée (points = justes), l’erreur de la fin en plus, sauf la série vidée', async () => {
+    const a = db('ana');
+    const S = idEpreuve('South America', 'sansfaute');
+    const sf = (o: Record<string, unknown> = {}) => score({ points: 7, justes: 7, questions: 8, temps_ms: 30_000, ...o });
+    const ecrire = (o: Record<string, unknown> = {}, cle = 'michel') => setDoc(place(a, cle, 'toujours', S), sf({ pseudo: cle === 'michel' ? 'Michel' : cle, ...o }));
+    await assertSucceeds(ecrire());
+    await assertSucceeds(ecrire({ points: 12, justes: 12, questions: 12, temps_ms: 40_000 }, 'vide'));
+    await assertSucceeds(ecrire({ points: 0, justes: 0, questions: 1, temps_ms: 0 }, 'zero'));
+    for (const o of [
+      { points: 7_000 }, // les points du Chrono
+      { questions: 9 }, // deux erreurs
+      { questions: 7 }, // sans erreur, sans vider la série
+      { points: 13, justes: 13, questions: 13 }, // plus que la série
+      { temps_ms: 7 * 200 - 1 },
+      { temps_ms: 7 * 15_000 + 1 },
+    ])
+      await assertFails(ecrire(o, 'faux'));
+    await assertFails(setDoc(place(a, 'michel', 'toujours', 'sansfaute:localiser:Atlantide'), sf()));
+    await assertFails(setDoc(place(a, 'michel', 'toujours', 'sansfaute:nommer:Europe'), sf()));
+    // Progresse : plus de justes, ou autant plus vite.
+    await assertFails(ecrire({ points: 6, justes: 6, questions: 7 }));
+    await assertSucceeds(ecrire({ temps_ms: 25_000 }));
+    await assertSucceeds(ecrire({ points: 8, justes: 8, questions: 9, temps_ms: 60_000 }));
+  });
+
+  it('Minute : justes (points = justes) en 60 s ; moins de 60 s seulement la série vidée', async () => {
+    const a = db('ana');
+    const M = idEpreuve('Africa', 'minute');
+    const mi = (o: Record<string, unknown> = {}) => score({ points: 20, justes: 20, questions: 23, temps_ms: 60_000, ...o });
+    const ecrire = (o: Record<string, unknown> = {}, cle = 'michel', e = M) => setDoc(place(a, cle, 'toujours', e), mi({ pseudo: cle === 'michel' ? 'Michel' : cle, ...o }));
+    await assertSucceeds(ecrire());
+    await assertSucceeds(ecrire({ points: 0, justes: 0, questions: 0 }, 'zero'));
+    // La Réunion vidée en 45 s : 24 questions.
+    await assertSucceeds(ecrire({ points: 22, justes: 22, questions: 24, temps_ms: 45_000 }, 'ile', idEpreuve('reunion', 'minute')));
+    for (const o of [
+      { points: 20_000 },
+      { temps_ms: 45_000 }, // arrêtée avant la minute sans vider la série
+      { temps_ms: 60_001 },
+      { questions: 55 }, // plus que l'Afrique
+      { points: 0, justes: 0, questions: 301, temps_ms: 60_000 },
+    ])
+      await assertFails(ecrire(o, 'faux'));
+    // Progresse : plus de justes ; à justes égales, moins de temps, puis moins d'erreurs.
+    await assertFails(ecrire({ questions: 24 }));
+    await assertSucceeds(ecrire({ questions: 22 }));
+    await assertFails(ecrire({ points: 19, justes: 19, questions: 19 }));
+    await assertSucceeds(ecrire({ points: 21, justes: 21, questions: 30 }));
+  });
+
+  it('vraisemblable() du client juge comme les règles pour Sans faute et Minute', async () => {
+    const S = idEpreuve('reunion', 'sansfaute');
+    const M = idEpreuve('reunion', 'minute');
+    const cas: [string, Record<string, number>][] = [
+      [S, { questions: 18, justes: 17, points: 17, temps_ms: 60_000 }],
+      [S, { questions: 18, justes: 17, points: 17, temps_ms: 3_399 }],
+      [S, { questions: 18, justes: 17, points: 17, temps_ms: 255_001 }],
+      [S, { questions: 19, justes: 17, points: 17, temps_ms: 60_000 }],
+      [S, { questions: 1, justes: 0, points: 0, temps_ms: 0 }],
+      [M, { questions: 23, justes: 20, points: 20, temps_ms: 60_000 }],
+      [M, { questions: 23, justes: 20, points: 20, temps_ms: 60_001 }],
+      [M, { questions: 0, justes: 0, points: 0, temps_ms: 60_000 }],
+      [M, { questions: 23, justes: 20, points: 21, temps_ms: 60_000 }],
+    ];
+    for (const [i, [e, c]] of cas.entries()) {
+      const ecrire = setDoc(place(db('ana'), `joueur ${i}`, 'toujours', e), score({ ...c, pseudo: `Joueur ${i}` }));
+      if (vraisemblable(c as never, e)) await assertSucceeds(ecrire);
       else await assertFails(ecrire);
     }
   });
@@ -149,7 +219,7 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertSucceeds(setDoc(place(a), score({ points: 11_200, temps_ms: 90_000 })));
   });
 
-  it('général : la somme de toutes les épreuves, 414 questions au plus (390 du monde + 24 de l’île)', async () => {
+  it('général : la somme des épreuves du Chrono, 414 questions au plus (390 du monde + 24 de l’île)', async () => {
     const a = db('ana');
     await assertSucceeds(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 414, justes: 300, points: 300_000, temps_ms: 3_000_000 })));
     await env.clearFirestore();

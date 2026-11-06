@@ -1,6 +1,8 @@
-// Vue du Chrono (src/vues/chrono.ts) sur un DOM factice : quitter la vue, ou
-// toucher « Abandonner », pendant une partie (#16, défaut 3). La carte, les
-// mesures et le bloc du classement sont remplacés ; chaque toucher est juste.
+// Vue des épreuves (src/vues/chrono.ts) sur un DOM factice : quitter la vue,
+// ou toucher « Abandonner », pendant une partie (#16, défaut 3) ; Sans faute et
+// Minute (#14). La carte, les mesures et le bloc du classement sont remplacés ;
+// chaque toucher est juste, sauf ceux que `faux` désigne. Les minuteries et
+// performance.now() sont factices : le temps de réponse est celui qu'on avance.
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
@@ -17,6 +19,10 @@ const { vueChrono } = await import('../src/vues/chrono');
 const { textes } = await import('../src/vues/textes');
 const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
 
+/** Les touchers à rendre faux (leur numéro, à partir de 1). */
+let faux = new Set<number>();
+let touchers = 0;
+
 function contexte() {
   const zone = new El('main');
   const entites = pays.map((p) => ({ pays: p }));
@@ -26,7 +32,7 @@ function contexte() {
     marquer() {},
     anneau() {},
     zoomer() {},
-    noter: (id: string) => ({ pick: { id }, juste: true, distance_km: 0 }),
+    noter: (id: string) => (faux.has(++touchers) ? { pick: { id: 'BRA' }, juste: false, distance_km: 120 } : { pick: { id }, juste: true, distance_km: 0 }),
     projection: { scale: () => 1 },
     transfo: { k: 1 },
   };
@@ -42,6 +48,8 @@ beforeEach(() => {
   installerDom();
   installerStockage();
   blocClassement.mockClear();
+  faux = new Set();
+  touchers = 0;
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -127,5 +135,101 @@ describe('Chrono : quitter la vue', () => {
     expect(zone.querySelector('#chrono-depart .chrono-statut')?.textContent).toBe(textes.chrono.abandon);
     expect(lireRecords(localStorage).size).toBe(0);
     expect(blocClassement).not.toHaveBeenCalled();
+  });
+});
+
+describe('Sans faute et Minute (décision « Sans faute et Minute »)', () => {
+  const AMS = 'South America';
+  /** L'épreuve choisie dans Jouer, puis l'Amérique du Sud (12 pays). */
+  function partir(mode: 'sansfaute' | 'minute') {
+    const { ctx, zone, consigne } = contexte();
+    const v = vueChrono(ctx);
+    v.activer();
+    v.nouvellePartie(mode);
+    zone.querySelector(`#chrono-depart .essai-serie[data-serie="${AMS}"]`)?.click();
+    const bilan = () => zone.querySelector('#chrono-bilan')!;
+    return { v, zone, consigne, bilan };
+  }
+
+  it('Jouer choisit l’épreuve : le départ prend son nom et son aide', () => {
+    const { ctx, zone } = contexte();
+    const v = vueChrono(ctx);
+    v.activer();
+    expect(zone.querySelector('#chrono-depart h2')?.textContent).toBe('Chrono');
+    v.nouvellePartie('minute');
+    expect(zone.querySelector('#chrono-depart h2')?.textContent).toBe('Minute');
+    expect(zone.querySelector('#chrono-depart .hint')?.textContent).toContain('60 s');
+    v.nouvellePartie('sansfaute');
+    expect(zone.querySelector('#chrono-depart h2')?.textContent).toBe('Sans faute');
+  });
+
+  it('Sans faute s’arrête à la première erreur : les justes d’affilée, record et classement de l’épreuve', () => {
+    faux = new Set([4]);
+    const { v, consigne, bilan } = partir('sansfaute');
+    for (let i = 0; i < 4; i++) {
+      vi.advanceTimersByTime(i ? 900 + 2_000 : 2_000);
+      expect(consigne()).toBeTruthy();
+      v.toucher?.(0, 0, {} as PointerEvent);
+    }
+    expect(bilan().hidden).toBe(true); // la rétroaction de l'erreur d'abord
+    vi.advanceTimersByTime(1_800);
+    expect(bilan().hidden).toBe(false);
+    expect(bilan().innerText).toContain("3 d'affilée sur 12");
+    const e = idEpreuve(AMS, 'sansfaute');
+    expect(lireRecords(localStorage).get(e)).toMatchObject({ points: 3, justes: 3, questions: 4, temps_ms: 6_000 });
+    expect(lireRecords(localStorage).has(idEpreuve(AMS))).toBe(false);
+    expect(blocClassement).toHaveBeenCalledWith(e, expect.any(String), expect.any(Function));
+  });
+
+  it('Sans faute : le temps écoulé finit la partie', () => {
+    const { v, bilan } = partir('sansfaute');
+    vi.advanceTimersByTime(1_000);
+    v.toucher?.(0, 0, {} as PointerEvent);
+    vi.advanceTimersByTime(900 + 15_000 + 1_800);
+    expect(bilan().hidden).toBe(false);
+    expect(lireRecords(localStorage).get(idEpreuve(AMS, 'sansfaute'))).toMatchObject({ points: 1, questions: 2, temps_ms: 1_000 });
+  });
+
+  it('Minute : une erreur passe à la suivante ; la rétroaction ne compte pas dans la minute', () => {
+    faux = new Set([2]);
+    const { v, consigne, bilan } = partir('minute');
+    for (const pause of [0, 900, 1_800]) {
+      vi.advanceTimersByTime(pause + 5_000);
+      expect(consigne()).toBeTruthy();
+      v.toucher?.(0, 0, {} as PointerEvent);
+    }
+    // 15 s de réponses : il reste 45 s, après la rétroaction (0,9 s).
+    vi.advanceTimersByTime(900 + 44_999);
+    expect(bilan().hidden).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(bilan().hidden).toBe(false);
+    expect(bilan().innerText).toContain('2 justes en une minute');
+    expect(bilan().innerText).toContain('1 erreur');
+    const e = idEpreuve(AMS, 'minute');
+    expect(lireRecords(localStorage).get(e)).toMatchObject({ points: 2, justes: 2, questions: 3, temps_ms: 60_000 });
+    expect(blocClassement).toHaveBeenCalledWith(e, expect.any(String), expect.any(Function));
+  });
+
+  it('Minute : la série vidée avant la fin arrête la partie, au temps passé', () => {
+    const { v, consigne, bilan } = partir('minute');
+    for (let i = 0; i < 12; i++) {
+      vi.advanceTimersByTime(i ? 900 + 1_000 : 1_000);
+      expect(consigne()).toBeTruthy();
+      v.toucher?.(0, 0, {} as PointerEvent);
+    }
+    vi.advanceTimersByTime(900);
+    expect(bilan().hidden).toBe(false);
+    expect(bilan().innerText).toContain('série vidée en 12');
+    expect(lireRecords(localStorage).get(idEpreuve(AMS, 'minute'))).toMatchObject({ points: 12, questions: 12, temps_ms: 12_000 });
+  });
+
+  it('Minute quittée en cours : abandonnée, rien n’est gardé', () => {
+    const { v, zone } = partir('minute');
+    vi.advanceTimersByTime(1_000);
+    v.toucher?.(0, 0, {} as PointerEvent);
+    v.desactiver();
+    v.activer();
+    expect(zone.querySelector('#chrono-depart .chrono-statut')?.textContent).toBe(textes.chrono.abandon);
+    expect(lireRecords(localStorage).size).toBe(0);
   });
 });

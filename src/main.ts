@@ -18,7 +18,7 @@ import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { vueExplorer } from './vues/explorer';
 import { vueGeneral } from './vues/general';
-import { vueJouer, type ModeJeu } from './vues/jouer';
+import { estEpreuve, vueJouer, type ModeJeu } from './vues/jouer';
 import { brancherRecherche } from './vues/recherche';
 import { vueSaisie } from './vues/saisie';
 import { textes } from './vues/textes';
@@ -170,8 +170,9 @@ caseMesures?.addEventListener('change', () => {
 appliquerMesures();
 
 // --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
-// recherche montre un lieu), Jouer (choix de l'exercice) puis Toucher ou Chrono,
-// le classement général (🏆), la Saisie (⚙). ---
+// recherche montre un lieu), Jouer (choix de l'exercice) puis Toucher ou une
+// épreuve classée (vue « chrono » : Chrono, Sans faute, Minute), les
+// classements (🏆), la Saisie (⚙). ---
 
 type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie';
 const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie'];
@@ -441,10 +442,11 @@ async function demarrer(): Promise<void> {
   const epreuve = vueChrono(ctx);
   const retour = () => aller(precedente);
   // Un exercice choisi dans Jouer : son départ, une partie en cours abandonnée.
+  // Les trois épreuves classées partagent la vue « chrono ».
   const jouer = (m: ModeJeu) => {
-    if (m === 'chrono') {
+    if (estEpreuve(m)) {
       aller('chrono');
-      epreuve.nouvellePartie();
+      epreuve.nouvellePartie(m);
     } else {
       aller('toucher');
       essai.nouvellePartie(m);

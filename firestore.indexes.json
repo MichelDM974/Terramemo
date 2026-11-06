@@ -15,6 +15,24 @@
         { "fieldPath": "points", "order": "ASCENDING" },
         { "fieldPath": "temps_ms", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "points", "order": "DESCENDING" },
+        { "fieldPath": "temps_ms", "order": "ASCENDING" },
+        { "fieldPath": "questions", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "points", "order": "ASCENDING" },
+        { "fieldPath": "temps_ms", "order": "ASCENDING" },
+        { "fieldPath": "questions", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

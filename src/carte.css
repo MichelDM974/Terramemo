@@ -224,6 +224,8 @@ button.lien:hover { background: none; text-decoration: underline; }
 .chrono-places li.ellipse { display: block; color: var(--muted); text-align: center; padding: 0; }
 .chrono-places .rang, .chrono-places .temps { color: var(--muted); }
 .chrono-places .temps { text-align: right; }
+/* Minute départage aux erreurs (« 2 erreurs », « 45 s · 0 erreur ») : une colonne plus large. */
+.chrono-places.minute li { grid-template-columns: 2.2em 1fr auto 7.6em; }
 .chrono-places .pseudo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chrono-classement-etat { margin: 6px 0 0; }
 .chrono-classement-avis { margin: 6px 0; color: var(--danger); }
@@ -296,8 +298,11 @@ body[data-terrain="reunion"] .essai-bilan {
 
 /* Jouer : les exercices en deux groupes (décision « Noms des modes »),
    « Entraînement » et « Classé », chacun sous un titre bien lisible (couleur du
-   texte, gras, capitales espacées), sans cadre ; un filet sépare les groupes. */
-.jouer-groupe h3 {
+   texte, gras, capitales espacées), sans cadre ; un filet sépare les groupes.
+   Les classements (🏆) rangent de même leurs lignes par épreuve : Chrono, Sans
+   faute, Minute. */
+.jouer-groupe h3,
+.classements-groupe h3 {
   margin: 10px 0 4px;
   padding: 0 10px;
   font-size: 0.82rem;
@@ -306,7 +311,8 @@ body[data-terrain="reunion"] .essai-bilan {
   text-transform: uppercase;
   color: var(--text);
 }
-.jouer-groupe + .jouer-groupe { margin-top: 10px; padding-top: 2px; border-top: 1px solid var(--border-2); }
+.jouer-groupe + .jouer-groupe,
+.classements-groupe + .classements-groupe { margin-top: 10px; padding-top: 2px; border-top: 1px solid var(--border-2); }
 
 .essai-rates { margin: 0 0 14px; padding-left: 18px; font-size: 0.88rem; line-height: 1.5; }
 

@@ -33,8 +33,9 @@
     "groupe_classe": "Classé",
     "localiser_detail": "Touche sur la carte le lieu demandé.",
     "nommer_detail": "Un lieu s'allume : choisis son nom parmi quatre.",
-    "chrono": "Chrono",
-    "chrono_detail": "{s} s par question, un seul toucher : points, records et classement."
+    "chrono_detail": "{s} s par question, un seul toucher : points, records et classement.",
+    "sansfaute_detail": "{s} s par question, jusqu'à la première erreur : records et classement.",
+    "minute_detail": "Le plus de lieux justes en {s} s : records et classement."
   },
   "toucher": {
     "localiser": "Trouver",
@@ -73,10 +74,8 @@
     "bilan_nommer_faux": "{cible} : tu as choisi {choisi}"
   },
   "chrono": {
-    "depart_titre": "Chrono",
-    "depart_aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : 1 000 points si juste, jusqu'à 500 selon la distance sinon. Le temps total départage.",
     "serie_tous_detail": "le marathon",
-    "record": "record {points} pts",
+    "record": "record {score}",
     "consigne": "Touche : ",
     "points": "{points} pts",
     "juste": "Juste · +{points}",
@@ -84,12 +83,12 @@
     "la_mer": "la mer",
     "abandonner": "Abandonner",
     "abandon": "Partie abandonnée : elle ne compte pas.",
-    "bilan_titre": "Chrono · {serie}",
+    "bilan_titre": "{mode} · {serie}",
     "bilan_score": "{points} points sur {max}",
     "bilan_detail": "{justes} / {n} justes · {temps}",
     "premier_record": "Premier record pour cette série.",
-    "nouveau_record_bat": "Nouveau record ! L'ancien : {points} points.",
-    "record_a_battre": "Record à battre : {points} points en {temps}.",
+    "nouveau_record_bat": "Nouveau record ! L'ancien : {score}.",
+    "record_a_battre": "Record à battre : {score}.",
     "bilan_faux": "{pays} → {touche}, à {km} · +{points}",
     "bilan_expire": "{pays} : temps écoulé",
     "rejouer": "Rejouer",
@@ -112,9 +111,9 @@
     "vide": "Personne n'est encore classé : à toi de jouer.",
     "joueurs": "{n} joueur(s) classé(s)",
     "classements_titre": "Classements",
-    "classements_aide": "Ta place dans chaque épreuve du Chrono. Touche une ligne pour voir ses dix premiers.",
-    "classements_sans_pseudo": "Tu n'es pas encore classé : choisis un pseudo à la fin d'une partie de Chrono. Touche une épreuve pour voir ses dix premiers.",
-    "classements_aucune": "Aucune place pour cette période : joue un Chrono pour entrer au classement.",
+    "classements_aide": "Ta place dans chaque épreuve classée. Touche une ligne pour voir ses dix premiers.",
+    "classements_sans_pseudo": "Tu n'es pas encore classé : choisis un pseudo à la fin d'une épreuve classée (Chrono, Sans faute ou Minute). Touche une épreuve pour voir ses dix premiers.",
+    "classements_aucune": "Aucune place pour cette période : joue une épreuve classée pour entrer au classement.",
     "toutes_epreuves": "Toutes les épreuves",
     "masquer_epreuves": "Masquer les autres épreuves",
     "general_nom": "Général",
@@ -124,15 +123,47 @@
     "rang_n": "{n}e",
     "retour_classements": "‹ Classements",
     "general_titre": "Classement général",
-    "general_aide": "La somme des records de toutes les séries ; « Cette semaine » compte ceux de la semaine (depuis lundi, 4 h à La Réunion).",
+    "general_aide": "La somme des records du Chrono de toutes les séries (Sans faute et Minute n'y comptent pas) ; « Cette semaine » compte ceux de la semaine (depuis lundi, 4 h à La Réunion).",
     "retour": "Retour"
+  },
+  "epreuves": {
+    "chrono": {
+      "nom": "Chrono",
+      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : 1 000 points si juste, jusqu'à 500 selon la distance sinon. Le temps total départage."
+    },
+    "sansfaute": {
+      "nom": "Sans faute",
+      "aide": "Les lieux de la série dans le désordre, {s} s par question, un seul toucher : la partie s'arrête à la première erreur. Le plus de justes d'affilée gagne ; à égalité, le plus rapide.",
+      "compte": "{n} d'affilée",
+      "score": "{n} d'affilée sur {total}",
+      "parfait": "Sans faute : {total} sur {total} !",
+      "detail": "Temps des justes : {temps}"
+    },
+    "minute": {
+      "nom": "Minute",
+      "aide": "Le plus de lieux justes en {s} s, un seul toucher par lieu : une erreur passe au suivant, et la correction ne compte pas dans la minute. À égalité, qui a vidé la série le plus vite, puis qui a fait le moins d'erreurs.",
+      "score": "{justes} en une minute",
+      "videe": "{justes} sur {total} · série vidée en {temps}"
+    },
+    "pts": "{n} pts",
+    "points_en": "{points} points en {temps}",
+    "affilee_en": "{n} d'affilée en {temps}",
+    "juste_1": "{n} juste",
+    "justes": "{n} justes",
+    "erreur_1": "{n} erreur",
+    "erreurs": "{n} erreurs",
+    "en_temps": "{score} en {temps}",
+    "juste": "Juste",
+    "faux": "Faux : {touche}, à {km} du bord",
+    "bilan_faux": "{pays} → {touche}, à {km}"
   },
   "terrains": {
     "monde": {
       "n": "{n} pays",
       "consigne_nommer": "Quel est ce pays ?",
       "faux_suite": "Le bon pays est en vert : touche-le.",
-      "expire": "Temps écoulé · +0. Le bon pays est en vert."
+      "expire": "Temps écoulé · +0. Le bon pays est en vert.",
+      "expire_sans_points": "Temps écoulé. Le bon pays est en vert."
     },
     "reunion": {
       "serie": "La Réunion",
@@ -141,7 +172,8 @@
       "libelle": "Carte de La Réunion",
       "consigne_nommer": "Quelle est cette commune ?",
       "faux_suite": "La bonne commune est en vert : touche-la.",
-      "expire": "Temps écoulé · +0. La bonne commune est en vert."
+      "expire": "Temps écoulé · +0. La bonne commune est en vert.",
+      "expire_sans_points": "Temps écoulé. La bonne commune est en vert."
     }
   },
   "credits": {

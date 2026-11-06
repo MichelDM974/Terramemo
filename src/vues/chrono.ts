@@ -1,32 +1,44 @@
-// Vue « Chrono » (#14, décision « Points et classement ») : tous les pays d'une
-// série dans le désordre, 15 s par question, un seul toucher ; 1 000 points si
-// juste, jusqu'à 500 selon la distance sinon (src/epreuve/bareme.ts). Record
-// gardé sur l'appareil, classement en ligne par épreuve et général. Quitter la
-// vue pendant une partie l'abandonne : le temps ne se met pas en pause. Après la
-// dernière réponse (sa rétroaction), la quitter la finit (bilan au retour), et
-// « Abandonner » aussi.
+// Vue des épreuves classées (#14) : Chrono, Sans faute et Minute, choisies dans
+// Jouer (jouer.ts, nouvellePartie). Les lieux d'une série dans le désordre, un
+// seul toucher par question :
+// - Chrono (décision « Points et classement ») : toute la série, 15 s par
+//   question ; 1 000 points si juste, jusqu'à 500 selon la distance sinon
+//   (src/epreuve/bareme.ts) ;
+// - Sans faute (décision « Sans faute et Minute ») : 15 s par question,
+//   jusqu'à la première erreur ; le score est le nombre de justes d'affilée ;
+// - Minute (même décision) : le plus de justes en 60 s de réponse, une erreur
+//   passe à la suivante ; la jauge est la minute, qui s'arrête pendant la
+//   rétroaction (la correction ne compte pas), et la série vidée finit la partie.
+// Record gardé sur l'appareil, classement en ligne par épreuve ; le général
+// n'additionne que le Chrono. Quitter la vue pendant une partie l'abandonne : le
+// temps ne se met pas en pause. Après la dernière réponse (sa rétroaction), la
+// quitter la finit (bilan au retour), et « Abandonner » aussi.
 // La Réunion est une série de plus : sa carte remplace le monde, notée à 5 km.
-// On y vient par Jouer (jouer.ts) ; le classement général a sa vue (general.ts).
-import { DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE } from '../epreuve/bareme';
-import { enregistrerPartie, idEpreuve, lireRecords, PartieChrono, type QuestionJouee } from '../epreuve/chrono';
+// Le classement général et ceux de chaque épreuve ont leur vue (general.ts).
+import { DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE, type ScoreEpreuve } from '../epreuve/bareme';
+import { DUREE_MINUTE_MS, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, PartieMinute, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
 import { REUNION } from '../map/terrain';
 import type { Terrain } from '../terrains';
 import { melanger, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, series, serieTerrain, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
 import { anneauSiPetite, avecTerrain, creer, fmtKm, nomDe, type ContexteVue, type Vue } from './commun';
+import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong, secondesMode } from './scores';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
+const E = textes.epreuves;
+/** Délai d'une question du Chrono et de Sans faute ; Minute n'en a pas, sa jauge est la minute. */
 const DELAI = DELAI_CHRONO_MS.localiser;
 /** Durée de la rétroaction avant la question suivante (ms), hors du temps compté. */
 const PAUSE_JUSTE_MS = 900;
 const PAUSE_FAUX_MS = 1800;
 
-const fmtPts = (n: number) => n.toLocaleString('fr-FR');
-function fmtTemps(ms: number): string {
-  const s = Math.round(ms / 1000);
-  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')}`;
+function nouvellePartieDe(mode: ModeEpreuve, ids: readonly string[], echelle_km: number): PartieChrono {
+  if (mode === 'sansfaute') return new PartieSansFaute(melanger(ids), DELAI);
+  if (mode === 'minute') return new PartieMinute(melanger(ids), DUREE_MINUTE_MS);
+  return new PartieChrono(melanger(ids), DELAI, echelle_km);
 }
+
 const nomContinent = (c: string) => (textes.continents as Record<string, string>)[c] ?? c;
 const nomSerie = (id: string) =>
   id === SERIE_TOUS ? textes.toucher.serie_tous : id === SERIE_REUNION ? textes.terrains.reunion.serie : nomContinent(id);
@@ -50,8 +62,8 @@ export function seriesChrono(toutes: readonly Serie[]): Serie[] {
 }
 
 export interface VueChrono extends Vue {
-  /** Le départ (Chrono choisi dans Jouer), au lieu du bilan d'une partie finie en quittant la vue. */
-  nouvellePartie(): void;
+  /** Le départ de cette épreuve (choisie dans Jouer), au lieu du bilan d'une partie finie en quittant la vue. */
+  nouvellePartie(mode?: ModeEpreuve): void;
 }
 
 export function vueChrono(ctx: ContexteVue): VueChrono {
@@ -72,6 +84,8 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'chrono-bilan' });
   const statut = creer('p', { class: 'hint chrono-statut', 'aria-live': 'polite' });
   const liste = creer('ul', { class: 'essai-series' });
+  const titreDepart = creer('h2', {});
+  const aideDepart = creer('p', { class: 'hint' });
   const depart = creer(
     'div',
     { class: 'essai-depart', id: 'chrono-depart' },
@@ -79,9 +93,9 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
       'div',
       { class: 'depart-tete' },
       creer('a', { class: 'depart-bouton', href: '#jouer', id: 'chrono-exercices', 'aria-label': textes.jouer.changer, title: textes.jouer.changer }, '‹'),
-      creer('h2', {}, T.depart_titre),
+      titreDepart,
     ),
-    creer('p', { class: 'hint' }, remplir(T.depart_aide, { s: DELAI / 1000 })),
+    aideDepart,
     statut,
     liste,
   );
@@ -91,6 +105,8 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
   ctx.zone.append(barre, bilan, depart);
 
   const toutes = seriesChrono(series(ctx.donnees.entites.map((e) => e.pays), nomContinent));
+  /** L'épreuve choisie dans Jouer. */
+  let mode: ModeEpreuve = 'chrono';
   let serie: Serie | null = null;
   /** Le terrain de la partie : sa carte reçoit marques et notes, ses données donnent les noms. */
   let t: Terrain = ctx.terrains.monde;
@@ -121,17 +137,35 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     jauge.style.transform = t === 'none' ? '' : t;
   }
 
-  function lancerJauge(): void {
+  /** Le temps de la question posée (ms) : son délai, ou ce qui reste de la minute. */
+  function limite(): number {
+    return partie instanceof PartieMinute ? partie.reste : DELAI;
+  }
+
+  /** La jauge part de `plein` (1 : pleine) et se vide en `ms`. */
+  function lancerJauge(plein: number, ms: number): void {
     jauge.style.transition = 'none';
-    jauge.style.transform = 'scaleX(1)';
-    jauge.getBoundingClientRect(); // l'état plein s'applique avant la transition
-    jauge.style.transition = `transform ${DELAI}ms linear`;
+    jauge.style.transform = `scaleX(${plein})`;
+    jauge.getBoundingClientRect(); // l'état de départ s'applique avant la transition
+    jauge.style.transition = `transform ${ms}ms linear`;
     jauge.style.transform = 'scaleX(0)';
   }
 
   function afficherSecondes(): void {
-    const reste = Math.max(0, DELAI - (performance.now() - debut));
+    const reste = Math.max(0, limite() - (performance.now() - debut));
     secondes.textContent = `${Math.ceil(reste / 1000)} s`;
+  }
+
+  /** Le compte de la barre ; `repondue` : la question posée a sa réponse (rétroaction en cours). */
+  function afficherCompte(repondue: boolean): void {
+    if (!partie) return;
+    const p = partie;
+    const n = `${p.numero - (repondue ? 1 : 0)} / ${p.cibles.length}`;
+    if (mode === 'minute') {
+      const justes = p.jouees.filter((q) => q.juste).length;
+      compte.textContent = `${fmtJustes(justes)} · ${fmtErreurs(p.jouees.length - justes)}`;
+    } else if (mode === 'sansfaute') compte.textContent = `${n} · ${scoreCourt(mode, p.points)}`;
+    else compte.textContent = `${n} · ${remplir(T.points, { points: fmtPts(p.points) })}`;
   }
 
   function afficherDepart(message = ''): void {
@@ -143,10 +177,12 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     bilan.hidden = true;
     t.carte.effacerMarques();
     ctx.terrains.montrer('monde');
+    titreDepart.textContent = nomMode(mode);
+    aideDepart.textContent = remplir(E[mode].aide, { s: secondesMode(mode) });
     const records = lireRecords(stockage());
     liste.replaceChildren(
       ...toutes.map((s) => {
-        const r = records.get(idEpreuve(s.id));
+        const r = records.get(idEpreuve(s.id, mode));
         const b = creer(
           'button',
           { type: 'button', class: 'essai-serie', 'data-serie': s.id },
@@ -157,7 +193,9 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
             creer(
               'span',
               { class: 'essai-serie-detail' },
-              [s.id === SERIE_TOUS ? T.serie_tous_detail : '', r ? remplir(T.record, { points: fmtPts(r.points) }) : ''].filter(Boolean).join(' · '),
+              [s.id === SERIE_TOUS && mode === 'chrono' ? T.serie_tous_detail : '', r ? remplir(T.record, { score: scoreCourt(mode, r.points) }) : '']
+                .filter(Boolean)
+                .join(' · '),
             ),
           ),
           creer('span', { class: 'essai-serie-n' }, remplir(textes.terrains[s.terrain].n, { n: s.n })),
@@ -186,7 +224,7 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     depart.hidden = true;
     bilan.hidden = true;
     const lancer = () => {
-      partie = new PartieChrono(melanger(ids), DELAI, ECHELLES_KM[s.terrain]);
+      partie = nouvellePartieDe(mode, ids, ECHELLES_KM[s.terrain]);
       barre.hidden = false;
       poser();
     };
@@ -205,18 +243,19 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     arreterMinuteries();
     t.carte.effacerMarques();
     const id = partie?.courante;
-    if (!partie || !id) return finir();
+    if (!partie || partie.finie || !id) return finir();
     consigne.replaceChildren(T.consigne, creer('strong', {}, nomDe(t.donnees, id)));
     consigne.dataset.cible = id;
-    compte.textContent = `${partie.numero} / ${partie.cibles.length} · ${remplir(T.points, { points: fmtPts(partie.points) })}`;
+    afficherCompte(false);
     retro.textContent = '';
     retro.className = 'essai-retro';
     debut = performance.now();
     ouverte = true;
-    lancerJauge();
+    const ms = limite();
+    lancerJauge(partie instanceof PartieMinute ? ms / partie.duree_ms : 1, ms);
     afficherSecondes();
     affichage = window.setInterval(afficherSecondes, 200);
-    minuterie = window.setTimeout(expirer, DELAI);
+    minuterie = window.setTimeout(expirer, ms);
   }
 
   function apres(q: QuestionJouee): void {
@@ -224,21 +263,47 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     clearTimeout(minuterie);
     clearInterval(affichage);
     figerJauge();
-    if (partie) compte.textContent = `${partie.numero - 1} / ${partie.cibles.length} · ${remplir(T.points, { points: fmtPts(partie.points) })}`;
+    afficherCompte(true);
     pause = window.setTimeout(poser, q.juste ? PAUSE_JUSTE_MS : PAUSE_FAUX_MS);
   }
 
+  /** Le temps de la question est écoulé (son délai, ou la minute). */
   function expirer(): void {
     const id = partie?.courante;
     if (!partie || !id || !ouverte) return;
+    if (partie instanceof PartieMinute) {
+      // La minute est finie : la question posée ne compte pas, droit au bilan.
+      partie.terminer();
+      return finir();
+    }
     const q = partie.expirer();
     secondes.textContent = '0 s';
     t.carte.effacerMarques();
     t.carte.marquer(id, 'juste');
     anneauSiPetite(t, id, 'juste');
     retro.className = 'essai-retro faux';
-    retro.textContent = textes.terrains[t.nom].expire;
+    retro.textContent = mode === 'chrono' ? textes.terrains[t.nom].expire : textes.terrains[t.nom].expire_sans_points;
     apres(q);
+  }
+
+  /** Les lignes du score du bilan (titre de score, détail). */
+  function lignesScore(score: ScoreEpreuve, total: number): [string, string] {
+    if (mode === 'sansfaute')
+      return [
+        score.justes === total ? remplir(E.sansfaute.parfait, { total }) : remplir(E.sansfaute.score, { n: fmtPts(score.justes), total }),
+        remplir(E.sansfaute.detail, { temps: fmtTemps(score.temps_ms) }),
+      ];
+    if (mode === 'minute')
+      return [
+        score.temps_ms < DUREE_MINUTE_MS
+          ? remplir(E.minute.videe, { justes: fmtJustes(score.justes), total, temps: fmtTemps(score.temps_ms) })
+          : remplir(E.minute.score, { justes: fmtJustes(score.justes) }),
+        fmtErreurs(score.questions - score.justes),
+      ];
+    return [
+      remplir(T.bilan_score, { points: fmtPts(score.points), max: fmtPts(score.questions * POINTS_JUSTE) }),
+      remplir(T.bilan_detail, { justes: score.justes, n: score.questions, temps: fmtTemps(score.temps_ms) }),
+    ];
   }
 
   function finir(): void {
@@ -249,32 +314,33 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     if (!partie || !serie) return afficherDepart();
     const d = t.donnees;
     const score = partie.score();
-    const epreuve = idEpreuve(serie.id);
+    const epreuve = idEpreuve(serie.id, mode);
     const bp = enregistrerPartie(stockage(), epreuve, score, Date.now());
     const b = bp.toujours;
     const manquees = partie.jouees.filter((q) => !q.juste);
     const ligne = (q: QuestionJouee) =>
       q.temps_ms == null
         ? remplir(T.bilan_expire, { pays: nomDe(d, q.id) })
-        : remplir(T.bilan_faux, {
+        : remplir(mode === 'chrono' ? T.bilan_faux : E.bilan_faux, {
             pays: nomDe(d, q.id),
             touche: q.touche ? nomDe(d, q.touche) : T.la_mer,
             km: q.distance_km == null ? '—' : fmtKm(q.distance_km),
             points: fmtPts(q.points),
           });
     const s = serie;
+    const [ligneScore, detail] = lignesScore(score, partie.cibles.length);
     bilan.replaceChildren(
-      creer('h2', {}, remplir(T.bilan_titre, { serie: nomSerie(s.id) })),
-      creer('p', { class: 'chrono-score' }, remplir(T.bilan_score, { points: fmtPts(score.points), max: fmtPts(score.questions * POINTS_JUSTE) })),
-      creer('p', { class: 'hint' }, remplir(T.bilan_detail, { justes: score.justes, n: score.questions, temps: fmtTemps(score.temps_ms) })),
+      creer('h2', {}, remplir(T.bilan_titre, { mode: nomMode(mode), serie: nomSerie(s.id) })),
+      creer('p', { class: 'chrono-score' }, ligneScore),
+      creer('p', { class: 'hint' }, detail),
       creer(
         'p',
         { class: b.nouveau ? 'chrono-record nouveau' : 'chrono-record' },
         b.nouveau
           ? b.ancien
-            ? remplir(T.nouveau_record_bat, { points: fmtPts(b.ancien.points) })
+            ? remplir(T.nouveau_record_bat, { score: scoreLong(mode, b.ancien) })
             : T.premier_record
-          : remplir(T.record_a_battre, { points: fmtPts(b.record.points), temps: fmtTemps(b.record.temps_ms) }),
+          : remplir(T.record_a_battre, { score: scoreLong(mode, b.record) }),
       ),
       creer(
         'div',
@@ -296,9 +362,13 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
   abandonner.addEventListener('click', () => (partie?.finie ? finir() : afficherDepart(T.abandon)));
 
   return {
-    nouvellePartie() {
-      // Juste après activer() : un départ déjà affiché garde son message (partie abandonnée).
+    nouvellePartie(m: ModeEpreuve = 'chrono') {
+      const autre = m !== mode;
+      mode = m;
+      // Juste après activer() : un départ déjà affiché garde son message (partie
+      // abandonnée), redessiné pour l'épreuve choisie si elle a changé.
       if (depart.hidden) afficherDepart();
+      else if (autre) afficherDepart(statut.textContent ?? '');
     },
     activer() {
       if (bilanAuRetour) {
@@ -334,6 +404,8 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     toucher(x, y, ev) {
       const id = partie?.courante;
       if (!partie || !id || !ouverte) return;
+      // La minuterie a du retard : le temps était écoulé avant ce toucher.
+      if (performance.now() - debut >= limite()) return expirer();
       const carte = t.carte;
       const d = t.donnees;
       ctx.mesures.toucher(ev, x, y, () => {
@@ -345,12 +417,12 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
         carte.marquer(id, 'juste');
         if (q.juste) {
           retro.className = 'essai-retro juste';
-          retro.textContent = remplir(T.juste, { points: fmtPts(q.points) });
+          retro.textContent = mode === 'chrono' ? remplir(T.juste, { points: fmtPts(q.points) }) : E.juste;
         } else {
           if (r && r.id !== id) carte.marquer(r.id, 'faux');
           anneauSiPetite(t, id, 'juste');
           retro.className = 'essai-retro faux';
-          retro.textContent = remplir(T.faux, {
+          retro.textContent = remplir(mode === 'chrono' ? T.faux : E.faux, {
             touche: r ? nomDe(d, r.id) : T.la_mer,
             km: note.distance_km == null ? '—' : fmtKm(note.distance_km),
             points: fmtPts(q.points),

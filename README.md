@@ -29,9 +29,12 @@ l'oublier, jusqu'à tenir des mois.
   voisines en leurres).
 - En haut, une **recherche** (un pays, un territoire, une commune de La
   Réunion : la carte vole jusqu'à lui) et le bouton **Jouer**, qui fait
-  choisir l'exercice (Localiser, Nommer, Chrono), puis la série.
+  choisir l'exercice, puis la série : en entraînement Trouver et
+  Reconnaître, en épreuves classées **Chrono** (points), **Sans faute**
+  (jusqu'à la première erreur) et **Minute** (le plus de justes en 60 s),
+  chacune avec ses classements ; le 🏆 les montre toutes.
 - **La Réunion** : ses 24 communes sur une carte de l'île, en série de
-  Toucher et du Chrono (avec son classement).
+  Toucher et des épreuves classées (avec leurs classements).
 
 ## Approche technique
 

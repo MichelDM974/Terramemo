@@ -1,13 +1,14 @@
-// Bloc « Classement » du Chrono (#14) : de toujours ou de la semaine, les dix
+// Bloc « Classement » d'une épreuve (#14) : de toujours ou de la semaine, les dix
 // premiers, ma place et mon rang ; le pseudo public, choisi une fois (rien
 // n'est publié sans lui) et qui nomme la place : le même pseudo sur deux
 // appareils, c'est une seule place (décision « Une place par pseudo »).
 // Firebase n'est chargé qu'à l'ouverture du bloc.
 import type { BilanPartie } from '../epreuve/chrono';
 import type { ScoreEpreuve } from '../epreuve/bareme';
-import { lireRecords, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
+import { lireRecords, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
 import { creer } from './commun';
+import { departage, fmtPts } from './scores';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -37,12 +38,6 @@ function garderPseudo(p: string): void {
   }
 }
 
-const fmtPts = (n: number) => n.toLocaleString('fr-FR');
-function fmtTemps(ms: number): string {
-  const s = Math.round(ms / 1000);
-  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')}`;
-}
-
 /** Ce qu'a donné un lot de publications : scores refusés (par les règles, ou d'avance), envois échoués (hors ligne). */
 export interface Publication {
   refuses: number;
@@ -60,7 +55,7 @@ type Envoi = [epreuve: string, periode: string, score: ScoreEpreuve];
  * appareils), le meilleur des deux par épreuve (totalGeneral).
  */
 async function envoyer(pseudo: string, envois: readonly Envoi[], generaux: readonly string[]): Promise<Publication> {
-  const ecrire = ([e, p, sc]: Envoi) => (vraisemblable(sc) ? publier(e, p, pseudo, sc) : Promise.resolve(false));
+  const ecrire = ([e, p, sc]: Envoi) => (vraisemblable(sc, e) ? publier(e, p, pseudo, sc) : Promise.resolve(false));
   const res = await Promise.allSettled(envois.map(ecrire));
   const records = lireRecords(stockage());
   res.push(
@@ -78,9 +73,9 @@ async function envoyer(pseudo: string, envois: readonly Envoi[], generaux: reado
 }
 
 /**
- * Publie tous les records de l'appareil (de toujours et de la semaine), pris
- * à leur meilleur score publiable (recordPubliable), et les deux totaux : au
- * choix ou au changement du pseudo.
+ * Publie tous les records de l'appareil (de toujours et de la semaine), de
+ * toutes les épreuves, pris à leur meilleur score publiable (recordPubliable),
+ * et les deux totaux du Chrono : au choix ou au changement du pseudo.
  */
 export async function publierTout(pseudo: string): Promise<Publication> {
   const records = lireRecords(stockage());
@@ -90,17 +85,18 @@ export async function publierTout(pseudo: string): Promise<Publication> {
     const [epreuve, sem] = cle.split('@');
     if (!epreuve) continue;
     const p = sem === undefined ? 'toujours' : sem === periode ? periode : null;
-    if (p) envois.push([epreuve, p, recordPubliable(r) ?? r]);
+    if (p) envois.push([epreuve, p, recordPubliable(r, epreuve) ?? r]);
   }
-  const generaux = ['toujours', periode].filter((p) => envois.some(([, q]) => q === p));
+  const generaux = ['toujours', periode].filter((p) => envois.some(([e, q]) => q === p && modeEpreuve(e) === 'chrono'));
   return envoyer(pseudo, envois, generaux);
 }
 
 /**
  * Après une partie : seulement ce qui a progressé sur l'appareil (jusqu'à 4
- * écritures). Un nouveau record que les règles refuseraient est compté
- * refusé sans être écrit ; un score qui bat le meilleur publiable sans battre
- * le record de l'appareil part quand même.
+ * écritures, 2 hors du Chrono : Sans faute et Minute ne comptent pas au
+ * général). Un nouveau record que les règles refuseraient est compté refusé
+ * sans être écrit ; un score qui bat le meilleur publiable sans battre le
+ * record de l'appareil part quand même.
  */
 export async function publierPartie(pseudo: string, epreuve: string, b: BilanPartie): Promise<Publication> {
   const records = lireRecords(stockage());
@@ -112,10 +108,10 @@ export async function publierPartie(pseudo: string, epreuve: string, b: BilanPar
   ] as const) {
     if (!bilan.nouveau && !bilan.progresPubliable) continue;
     const r = recordDe(records, epreuve, periode);
-    const pub = r && recordPubliable(r);
-    if (r && bilan.nouveau && !vraisemblable(r)) envois.push([epreuve, periode, r]);
+    const pub = r && recordPubliable(r, epreuve);
+    if (r && bilan.nouveau && !vraisemblable(r, epreuve)) envois.push([epreuve, periode, r]);
     if (pub && bilan.progresPubliable) envois.push([epreuve, periode, pub]);
-    generaux.push(periode);
+    if (modeEpreuve(epreuve) === 'chrono') generaux.push(periode);
   }
   return envoyer(pseudo, envois, generaux);
 }
@@ -153,7 +149,8 @@ export function blocClassement(
     avis.textContent = avisPublication(p);
     avis.hidden = !avis.textContent;
   };
-  const liste = creer('ol', { class: 'chrono-places' });
+  const mode = modeEpreuve(epreuve);
+  const liste = creer('ol', { class: `chrono-places ${mode}` });
   const bloc = creer(
     'section',
     { class: 'chrono-classement', 'data-epreuve': epreuve },
@@ -171,7 +168,7 @@ export function blocClassement(
       creer('span', { class: 'rang' }, String(rang)),
       creer('span', { class: 'pseudo' }, p.pseudo),
       creer('span', { class: 'pts' }, fmtPts(p.points)),
-      creer('span', { class: 'temps' }, fmtTemps(p.temps_ms)),
+      creer('span', { class: 'temps' }, departage(mode, p)),
     );
   }
 

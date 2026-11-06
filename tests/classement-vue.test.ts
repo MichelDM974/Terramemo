@@ -1,4 +1,4 @@
-// Publication des scores du Chrono (src/vues/classement.ts) et ce que le bloc
+// Publication des scores des épreuves (src/vues/classement.ts) et ce que le bloc
 // du classement en dit au joueur (#16, défaut 1) : publier(), placesDuPseudo()
 // et lireTableau() remplacés, DOM factice (tests/dom-factice.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -73,6 +73,44 @@ describe('publication d’une partie', () => {
       ['general', 'toujours', 12_000],
       ['general', semaine, 12_000],
     ]);
+  });
+
+  it('Sans faute et Minute : leurs deux records seuls, le général n’est pas touché', async () => {
+    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    publier.mockResolvedValue(true);
+    for (const [e, sc] of [
+      [idEpreuve('Europe', 'sansfaute'), score(17, 17, 18, 60_000)],
+      [idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000)],
+    ] as const) {
+      publier.mockClear();
+      const b = enregistrerPartie(localStorage, e, sc, maintenant);
+      expect(await publierPartie('Ana', e, b)).toEqual({ refuses: 0, echecs: 0 });
+      expect(publier.mock.calls.map(([x, p, , s]) => [x, p, s.points])).toEqual([
+        [e, 'toujours', sc.points],
+        [e, semaine, sc.points],
+      ]);
+    }
+    expect(placesDuPseudo).not.toHaveBeenCalled();
+  });
+
+  it('au choix du pseudo : tous les records partent, et le général n’additionne que le Chrono', async () => {
+    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    enregistrerPartie(localStorage, idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000), maintenant);
+    publier.mockResolvedValue(true);
+    expect(await publierTout('Ana')).toEqual({ refuses: 0, echecs: 0 });
+    const generaux = publier.mock.calls.filter(([e]) => e === 'general').map(([, p, , s]) => [p, s.points]);
+    expect(generaux).toEqual([
+      ['toujours', 12_000],
+      [semaine, 12_000],
+    ]);
+    expect(publier).toHaveBeenCalledTimes(6);
+  });
+
+  it('Minute seule au choix du pseudo : pas de général', async () => {
+    enregistrerPartie(localStorage, idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000), maintenant);
+    publier.mockResolvedValue(true);
+    await publierTout('Ana');
+    expect(publier.mock.calls.map(([e]) => e)).toEqual([idEpreuve('Africa', 'minute'), idEpreuve('Africa', 'minute')]);
   });
 });
 

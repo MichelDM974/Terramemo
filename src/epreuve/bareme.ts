@@ -65,9 +65,15 @@ export function scoreEpreuve(reponses: readonly ReponseChrono[], delai_ms: numbe
   return { points, justes, questions: reponses.length, temps_ms };
 }
 
-/** Ordre du classement : le plus de points d'abord, puis le temps total le plus court. */
+/**
+ * Ordre du classement : le plus de points d'abord, puis le temps total le plus
+ * court, puis le moins de questions. Ce dernier ne départage que Minute (à
+ * justes égales, moins d'erreurs) : le Chrono a le même nombre de questions
+ * pour tous, et Sans faute ne peut pas finir à égalité de justes avec un
+ * nombre de questions différent.
+ */
 export function comparerScores(a: ScoreEpreuve, b: ScoreEpreuve): number {
-  return b.points - a.points || a.temps_ms - b.temps_ms;
+  return b.points - a.points || a.temps_ms - b.temps_ms || a.questions - b.questions;
 }
 
 /** Lundi 5 janvier 1970 à 0 h UTC : début de la semaine 0. */
