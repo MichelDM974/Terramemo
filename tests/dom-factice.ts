@@ -1,4 +1,4 @@
-// DOM factice, juste ce que les vues du Chrono touchent (creer, hidden,
+// DOM factice, juste ce que les vues du Chrono et de Toucher touchent (creer, hidden,
 // textContent, dataset, clics, sélecteurs simples) : l'environnement des
 // tests est node, sans jsdom. installerDom() pose document, window,
 // getComputedStyle et requestAnimationFrame (à retirer par vi.unstubAllGlobals).
@@ -60,6 +60,10 @@ export class El {
   }
   getAttribute(k: string): string | null {
     return this.attrs.get(k) ?? null;
+  }
+  removeAttribute(k: string): void {
+    this.attrs.delete(k);
+    if (k.startsWith('data-')) delete this.dataset[camel(k.slice(5))];
   }
   append(...n: (Enfant | string)[]): void {
     for (const x of n) {

@@ -1,72 +1,12 @@
 // Toucher (Localiser) : quitter la vue pendant une question puis y revenir
 // garde ses essais, son « Voir » et sa distance au premier faux (ticket #16,
-// défaut 2), et remontre son message et ses marques sur la carte. La vue tourne sur un faux DOM minimal (l'environnement des tests
-// est node) : juste ce que vueEssai et vueNommer touchent.
+// défaut 2), et remontre son message et ses marques sur la carte. La vue
+// tourne sur le DOM factice des tests (l'environnement des tests est node).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Pays } from '../src/map/types';
 import type { ContexteVue, Vue } from '../src/vues/commun';
 import { vueEssai } from '../src/vues/essai';
-
-class El {
-  enfants: (El | string)[] = [];
-  attrs = new Map<string, string>();
-  dataset: Record<string, string> = {};
-  className = '';
-  hidden = false;
-  disabled = false;
-  private texte: string | null = null;
-  private ecoutes = new Map<string, (() => void)[]>();
-  constructor(readonly tag: string) {}
-  get id(): string {
-    return this.attrs.get('id') ?? '';
-  }
-  setAttribute(k: string, v: string): void {
-    this.attrs.set(k, v);
-    if (k.startsWith('data-')) this.dataset[k.slice(5).replace(/-(\w)/g, (_, c: string) => c.toUpperCase())] = v;
-  }
-  removeAttribute(k: string): void {
-    this.attrs.delete(k);
-  }
-  append(...e: (El | string)[]): void {
-    this.texte = null;
-    this.enfants.push(...e);
-  }
-  replaceChildren(...e: (El | string)[]): void {
-    this.texte = null;
-    this.enfants = [...e];
-  }
-  set textContent(v: string) {
-    this.enfants = [];
-    this.texte = v;
-  }
-  get textContent(): string {
-    return this.texte ?? this.enfants.map((e) => (typeof e === 'string' ? e : e.textContent)).join('');
-  }
-  classList = {
-    toggle: (c: string, oui?: boolean) => {
-      const l = new Set(this.className.split(' ').filter(Boolean));
-      if (oui ?? !l.has(c)) l.add(c);
-      else l.delete(c);
-      this.className = [...l].join(' ');
-    },
-    add: (c: string) => this.classList.toggle(c, true),
-  };
-  addEventListener(type: string, f: () => void): void {
-    this.ecoutes.set(type, [...(this.ecoutes.get(type) ?? []), f]);
-  }
-  click(): void {
-    for (const f of this.ecoutes.get('click') ?? []) f();
-  }
-  getBoundingClientRect() {
-    return { top: 0, left: 0, width: 400, height: 800 };
-  }
-  tous(): El[] {
-    return [this, ...this.enfants.flatMap((e) => (typeof e === 'string' ? [] : e.tous()))];
-  }
-  querySelector(sel: string): El | null {
-    return this.tous().find((e) => sel.startsWith('#') && e.id === sel.slice(1)) ?? null;
-  }
-}
+import { El, installerDom, installerStockage } from './dom-factice';
 
 const pays = (id: string): Pays =>
   ({ id, statut: 'jouable', superficie_km2: 1e5, partie_max_km2: 1e5, point: [0, 0], bbox: [0, 0, 1, 1], micro: false, voisins: [], continent: 'Europe', sous_region: 'Western Europe' }) as Pays;
@@ -113,18 +53,18 @@ function monter() {
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
   } as unknown as ContexteVue;
   const vue = vueEssai(ctx);
-  const el = (f: (e: El) => boolean) => zone.tous().find(f) as El;
-  const barre = el((e) => e.id === 'barre-essai');
+  const el = (sel: string) => zone.querySelector(sel) as El;
+  const retro = el('#barre-essai .essai-retro');
   return {
     vue,
     marques,
-    cible: () => (barre.tous().find((e) => e.className === 'essai-consigne') as El).dataset.cible as string,
-    serie: (id: string) => el((e) => e.dataset.serie === id),
-    retro: barre.tous().find((e) => e.className.startsWith('essai-retro')) as El,
-    voir: el((e) => e.id === 'essai-voir'),
-    passer: el((e) => e.id === 'essai-passer'),
-    terminer: el((e) => e.id === 'essai-terminer'),
-    bilan: el((e) => e.id === 'essai-bilan'),
+    cible: () => el('#barre-essai .essai-consigne').dataset.cible as string,
+    serie: (id: string) => el(`.essai-serie[data-serie="${id}"]`),
+    retro,
+    voir: el('#essai-voir'),
+    passer: el('#essai-passer'),
+    terminer: el('#essai-terminer'),
+    bilan: el('#essai-bilan'),
   };
 }
 
@@ -136,8 +76,8 @@ function toucher(vue: Vue, juste: boolean): void {
 describe('Toucher : retour dans la vue pendant une question', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.stubGlobal('document', { createElement: (t: string) => new El(t) });
-    vi.stubGlobal('window', globalThis);
+    installerDom();
+    installerStockage();
   });
   afterEach(() => {
     fauxSurVoisin = false;
