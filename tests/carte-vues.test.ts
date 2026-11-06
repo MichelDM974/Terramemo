@@ -111,7 +111,7 @@ describe('séries de l’île et textes des terrains', () => {
 
   it('textes de Toucher et de Nommer : chaque clé lue par les vues existe', () => {
     const cles = [
-      'mode', 'localiser', 'nommer', 'depart_aide', 'chargement_terrain', 'echec_terrain', 'consigne', 'voir', 'passer',
+      'localiser', 'nommer', 'depart_aide', 'chargement_terrain', 'echec_terrain', 'consigne', 'voir', 'passer',
       'terminer', 'recommencer', 'juste', 'via_pastille', 'via_proche', 'essai_un', 'essais', 'faux', 'faux_ou', 'la_mer',
       'bilan_titre', 'bilan_resume', 'bilan_vide', 'rate', 'rate_vu', 'rate_passe', 'rate_distance', 'nommer_juste',
       'nommer_faux', 'bilan_nommer_titre', 'bilan_nommer', 'bilan_nommer_temps', 'bilan_nommer_faux',
@@ -119,6 +119,17 @@ describe('séries de l’île et textes des terrains', () => {
     for (const k of cles) expect(textes.toucher[k as keyof typeof textes.toucher], k).toBeTruthy();
     // Le temps écoulé du Chrono dépend du terrain : il n'est plus dans chrono.
     expect('expire' in textes.chrono).toBe(false);
+  });
+
+  it('textes de Jouer, de la Carte et de la recherche : chaque clé lue par les vues existe', () => {
+    const lues = {
+      jouer: ['titre', 'aide', 'fermer', 'changer', 'localiser_detail', 'nommer_detail', 'chrono', 'chrono_detail'],
+      carte: ['touche', 'touche_ile', 'mer', 'par_pastille', 'au_plus_pres', 'monde', 'monde_titre'],
+      recherche: ['placeholder', 'placeholder_court', 'aucun', 'commune'],
+    } as const;
+    for (const [partie, cles] of Object.entries(lues))
+      for (const k of cles) expect((textes as unknown as Record<string, Record<string, string>>)[partie]?.[k], `${partie}.${k}`).toBeTruthy();
+    expect(remplir(textes.jouer.chrono_detail, { s: 15 })).toBe('Épreuve notée, 15 s par question : records et classement.');
   });
 
   it('textes de Toucher : la rétroaction du monde reste mot pour mot celle d’avant', () => {

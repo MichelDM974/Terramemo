@@ -17,6 +17,9 @@ import type { Vue } from './vues/commun';
 import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { vueExplorer } from './vues/explorer';
+import { vueGeneral } from './vues/general';
+import { vueJouer, type ModeJeu } from './vues/jouer';
+import { brancherRecherche } from './vues/recherche';
 import { vueSaisie } from './vues/saisie';
 import { textes } from './vues/textes';
 
@@ -118,6 +121,8 @@ if (bouton && popup) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') ouvrir(false);
   });
+  // « Essai des claviers » (la vue Saisie) : la popup se referme sur la vue.
+  for (const a of popup.querySelectorAll('a')) a.addEventListener('click', () => ouvrir(false));
 }
 
 /** Rendu et projection : on recharge la page avec le paramètre (mesures d'un chargement propre). */
@@ -164,12 +169,19 @@ caseMesures?.addEventListener('change', () => {
 });
 appliquerMesures();
 
-// --- Vues : sélecteur segmenté de l'en-tête, par l'ancre (#carte, #toucher, #saisie, #chrono) ---
+// --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
+// recherche montre un lieu), Jouer (choix de l'exercice) puis Toucher ou Chrono,
+// le classement général (🏆), la Saisie (⚙). ---
 
-type NomVue = 'carte' | 'toucher' | 'saisie' | 'chrono';
-const VUES: NomVue[] = ['carte', 'toucher', 'saisie', 'chrono'];
+type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie';
+const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie'];
+/** Vues de passage : leur « Retour » ou « × » ramène à la vue d'avant. */
+const PASSAGE: NomVue[] = ['jouer', 'classement'];
 const vues = new Map<NomVue, Vue>();
 let vueActive: Vue | null = null;
+let nomActif: NomVue | null = null;
+/** La dernière vue quittée qui n'était pas de passage. */
+let precedente: NomVue = 'carte';
 /** Le monde et l'île (src/terrains.ts), une fois le monde chargé. */
 let terrains: Terrains | null = null;
 
@@ -181,22 +193,30 @@ function vueDemandee(): NomVue {
 function router(): void {
   const nom = vueDemandee();
   document.body.dataset.vue = nom;
-  for (const a of document.querySelectorAll<HTMLAnchorElement>('.page-nav .nav-link')) {
-    const actif = a.getAttribute('href') === `#${nom}`;
-    a.classList.toggle('active', actif);
+  // Le bouton de la vue affichée (Jouer, 🏆) le dit.
+  for (const a of document.querySelectorAll<HTMLAnchorElement>('header a[data-vue]')) {
+    const actif = a.dataset.vue === nom;
     if (actif) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
   const v = vues.get(nom);
   if (!v || v === vueActive) return;
+  if (nomActif && !PASSAGE.includes(nomActif)) precedente = nomActif;
   vueActive?.desactiver();
   vueActive = v;
+  nomActif = nom;
   // Toute vue part du monde ; celle qui joue l'île la remontre dans son activer().
   terrains?.montrer('monde');
   v.activer();
 }
 window.addEventListener('hashchange', router);
 router();
+
+/** Va à cette vue tout de suite (le hashchange qui suit ne change plus rien). */
+function aller(nom: NomVue): void {
+  if (location.hash !== `#${nom}`) location.hash = nom;
+  router();
+}
 
 // --- Carte et mesures ---
 
@@ -416,10 +436,36 @@ async function demarrer(): Promise<void> {
     },
   });
   const ctx = { carte, donnees, mesures, zone, terrains };
-  vues.set('carte', vueExplorer(ctx));
-  vues.set('toucher', vueEssai(ctx));
+  const explorer = vueExplorer(ctx);
+  const essai = vueEssai(ctx);
+  const epreuve = vueChrono(ctx);
+  const retour = () => aller(precedente);
+  // Un exercice choisi dans Jouer : son départ, une partie en cours abandonnée.
+  const jouer = (m: ModeJeu) => {
+    if (m === 'chrono') {
+      aller('chrono');
+      epreuve.nouvellePartie();
+    } else {
+      aller('toucher');
+      essai.nouvellePartie(m);
+    }
+  };
+  vues.set('carte', explorer);
+  vues.set('jouer', vueJouer(ctx, { choisir: jouer, fermer: retour }));
+  vues.set('toucher', essai);
+  vues.set('chrono', epreuve);
+  vues.set('classement', vueGeneral(ctx, { retour }));
   vues.set('saisie', vueSaisie(ctx));
-  vues.set('chrono', vueChrono(ctx));
+  const champ = document.getElementById('recherche-champ') as HTMLInputElement | null;
+  if (champ)
+    brancherRecherche({
+      champ,
+      monde: donnees,
+      choisir: (l) => {
+        aller('carte');
+        explorer.montrerLieu(l.terrain, l.id);
+      },
+    });
   panneauMesures(zone, mesures);
   appliquerMesures();
   router();

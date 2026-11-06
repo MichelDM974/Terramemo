@@ -75,11 +75,12 @@ body {
 
 button, input, select { font-family: inherit; }
 
-/* En-tête compact : titre à gauche, pages au centre, ⚙ à droite. */
+/* En-tête compact (décision « En-tête » de Terramemo, à la place des pages en
+   sélecteur segmenté) : titre à gauche, recherche au centre, Jouer, 🏆 et ⚙ à droite. */
 header {
   padding: 18px var(--pad) 14px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr minmax(0, 440px) 1fr;
   align-items: center;
   gap: 16px;
 }
@@ -103,30 +104,88 @@ header .tagline {
 
 .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 
-/* Pages : sélecteur segmenté. */
-.page-nav {
-  display: flex;
-  gap: 2px;
-  padding: 4px;
+/* Recherche : un champ sur le fond des panneaux, la liste des lieux flotte dessous. */
+.recherche { position: relative; min-width: 0; }
+.recherche-icone { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.recherche input {
+  display: block;
+  width: 100%;
+  height: 40px;
+  margin: 0;
+  padding: 0 12px 0 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   background: var(--panel);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.recherche input::placeholder { color: var(--muted); }
+.recherche input:hover { border-color: var(--border-2); }
+.recherche input:focus { outline: none; border-color: var(--muted); background: var(--panel-2); }
+.recherche-liste {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: min(60vh, 440px);
+  overflow: auto;
+  background: var(--popup-bg);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 12px;
+  box-shadow: 0 12px 32px var(--shadow);
 }
-
-.nav-link {
-  color: var(--muted);
+.recherche-option {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
   border-radius: 8px;
-  padding: 7px 18px;
-  font-size: 0.9rem;
-  font-weight: 500;
+  cursor: pointer;
+}
+.recherche-option[aria-selected="true"] { background: var(--panel-2); }
+.recherche-option:hover { background: var(--row-hover); }
+.recherche-nom { min-width: 0; }
+.recherche-detail { flex: none; color: var(--muted); font-size: 0.8rem; }
+.recherche-vide { padding: 10px; color: var(--muted); font-size: 0.88rem; }
+
+/* Jouer : le bouton principal, en accent plein, plus grand que les autres. */
+.bouton-jouer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 22px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 1rem;
+  font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
 }
-
-.nav-link:hover { color: var(--text); background: var(--panel-2); }
-.nav-link.active { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+.bouton-jouer:hover { filter: brightness(1.1); }
 
 .settings-menu { position: relative; flex-shrink: 0; }
+
+/* Boutons-icônes de l'en-tête (🏆, ⚙) : neutres, ronds. */
+.icone-btn {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--muted);
+}
+.icone-btn:hover, .icone-btn[aria-current="page"] { background: var(--panel-2); color: var(--text); }
 
 #settings-btn {
   background: transparent;
@@ -160,6 +219,9 @@ header .tagline {
 }
 
 .settings-popup h3 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 600; }
+.settings-popup a { color: var(--accent); }
+.reglage-outil { margin: 0 0 10px; font-size: 0.88rem; }
+.reglage-outil .hint { margin: 0; }
 
 main {
   max-width: 1280px;
@@ -180,16 +242,32 @@ main {
 
 .panel h2 { margin: 0 0 4px; font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
 
-/* Téléphone : en-tête sur deux lignes (titre et ⚙, puis les pages), marges de 16 px. */
+/* Téléphone : l'en-tête sur une ligne, le logo seul (le nom reste lu par les
+   lecteurs d'écran), la liste des lieux sur toute la largeur ; marges de 16 px. */
 @media (max-width: 700px) {
   header {
-    grid-template-columns: 1fr auto;
-    padding: 12px 16px 10px;
-    gap: 10px;
+    position: relative;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 10px 12px;
+    gap: 8px;
   }
-  header .page-nav { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; }
-  header .page-nav .nav-link { flex: 1; text-align: center; padding: 7px 8px; }
   header .tagline { display: none; }
+  header .titre-nom {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .recherche { position: static; }
+  .recherche-icone { left: auto; margin-left: 10px; }
+  .recherche input { height: 38px; padding-left: 34px; font-size: 1rem; }
+  .recherche-liste { top: calc(100% - 4px); left: 12px; right: 12px; }
+  .header-actions { gap: 2px; }
+  .bouton-jouer { height: 38px; padding: 0 14px; font-size: 0.95rem; margin-right: 4px; }
+  .bouton-jouer svg { display: none; }
+  .icone-btn, #settings-btn { width: 34px; height: 34px; }
   main { padding-left: 16px; padding-right: 16px; }
   .panel { padding: 18px 16px; }
 }

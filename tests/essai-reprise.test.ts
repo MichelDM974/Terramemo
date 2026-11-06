@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Pays } from '../src/map/types';
 import type { ContexteVue, Vue } from '../src/vues/commun';
-import { vueEssai } from '../src/vues/essai';
+import { vueEssai, type VueEssai } from '../src/vues/essai';
 import { El, installerDom, installerStockage } from './dom-factice';
 
 const pays = (id: string): Pays =>
@@ -65,6 +65,9 @@ function monter() {
     passer: el('#essai-passer'),
     terminer: el('#essai-terminer'),
     bilan: el('#essai-bilan'),
+    depart: () => el('#essai-depart'),
+    /** La ligne de l'essai du J0 dans la liste des séries. */
+    ligneEssai: () => el('.essai-serie[data-serie="essai"]').parent as El,
   };
 }
 
@@ -204,5 +207,50 @@ describe('Toucher : retour dans la vue pendant une question', () => {
     v.vue.activer();
     expect(v.marques).toEqual([]);
     expect(v.retro.textContent).toBe('');
+  });
+});
+
+describe('Toucher : un exercice choisi dans Jouer (nouvellePartie)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    installerDom();
+    installerStockage();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('ouvre le départ de cet exercice, titré par lui ; l’essai du J0 en Localiser seulement', () => {
+    const v = monter();
+    const vue = v.vue as VueEssai;
+    vue.activer();
+    vue.nouvellePartie('nommer');
+    const depart = v.depart();
+    expect(depart.hidden).toBe(false);
+    expect(depart.querySelector('h2')?.textContent).toBe('Nommer');
+    expect(depart.dataset.mode).toBe('nommer');
+    expect(v.ligneEssai().hidden).toBe(true);
+    vue.nouvellePartie('localiser');
+    expect(depart.querySelector('h2')?.textContent).toBe('Localiser');
+    expect(v.ligneEssai().hidden).toBe(false);
+    // Le choix est gardé : le départ suivant le reprend.
+    expect(localStorage.getItem('terramemo.toucher.mode')).toBe('localiser');
+  });
+
+  it('abandonne la partie en cours : au retour dans la vue, le départ', () => {
+    const v = monter();
+    const vue = v.vue as VueEssai;
+    vue.activer();
+    v.serie('tous').click();
+    expect(v.depart().hidden).toBe(true);
+    vue.desactiver();
+    vue.activer();
+    vue.nouvellePartie('localiser');
+    expect(v.depart().hidden).toBe(false);
+    expect(v.marques).toEqual([]);
+    vue.desactiver();
+    vue.activer();
+    expect(v.depart().hidden).toBe(false);
   });
 });

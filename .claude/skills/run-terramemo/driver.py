@@ -903,6 +903,15 @@ def depart_toucher(page):
     attendre_visible(page, "#essai-depart")
 
 
+def choisir_exercice(page, mode):
+    """Jouer, puis l'exercice (localiser, nommer, chrono) : son départ, la
+    partie en cours abandonnée (décision « En-tête »)."""
+    page.js('location.hash = "#jouer"')
+    attendre_visible(page, "#jouer-depart")
+    cliquer(page, f'#jouer-depart [data-mode="{mode}"]')
+    attendre_visible(page, "#chrono-depart" if mode == "chrono" else "#essai-depart")
+
+
 def cadre_ile(page, barre):
     """L'île à l'écran (union des communes) et le haut de la barre, en px CSS."""
     return page.js(f"""(() => {{
@@ -977,7 +986,7 @@ def ui_reunion(p, capturer, defauts):
     if avant:
         defauts.append(f"{avant} ressource(s) /geo/reunion/ avant le choix de l'île")
     if p.js("localStorage.getItem('terramemo.toucher.mode')") not in (None, "localiser"):
-        cliquer(p, '#essai-mode [data-mode="localiser"]')
+        choisir_exercice(p, "localiser")
     cliquer(p, '#essai-depart .essai-serie[data-serie="reunion"]')
     attendre_visible(p, "#barre-essai")
     if p.js("window.terramemo.terrain()") != "reunion":
@@ -1012,8 +1021,7 @@ def ui_reunion(p, capturer, defauts):
     lire("La Réunion, faux (Saint-Paul pour Saint-Denis)", "#barre-essai .essai-retro")
     capturer("11-reunion-faux")
     # Nommer, l'Europe : la zone allumée, quatre boutons.
-    depart_toucher(p)
-    cliquer(p, '#essai-mode [data-mode="nommer"]')
+    choisir_exercice(p, "nommer")
     cliquer(p, '#essai-depart .essai-serie[data-serie="Europe"]')
     attendre_visible(p, "#barre-nommer")
     attendre_fin_vol(p)  # le vol éventuel jusqu'à la zone
@@ -1041,8 +1049,7 @@ def ui_reunion(p, capturer, defauts):
     if sorted(m for m in marques if m) != ["faux", "juste"]:
         defauts.append(f"Nommer : boutons après un mauvais choix {marques} (attendu un faux et un juste)")
     capturer("13-nommer-reunion-retro")
-    depart_toucher(p)
-    cliquer(p, '#essai-mode [data-mode="localiser"]')
+    choisir_exercice(p, "localiser")
     # Chrono de l'île : la première question et la jauge.
     p.js('location.hash = "#chrono"')
     p.pause(300)
@@ -1053,7 +1060,7 @@ def ui_reunion(p, capturer, defauts):
     capturer("14-chrono-reunion")
     cliquer(p, "#chrono-abandonner")
     p.pause(200)
-    # Le monde au retour : l'onglet Carte, la Suisse au toucher.
+    # Le monde au retour : la Carte, la Suisse au toucher.
     p.js('location.hash = "#carte"')
     p.pause(300)
     monde = p.js("""(() => { const c = window.terramemo.carte, e = c.ecran("CHE"), r = e && c.pick(e.x, e.y);
@@ -1064,6 +1071,100 @@ def ui_reunion(p, capturer, defauts):
     codes = [t for t in textes_lus if re.search(r"\b974\d\d\b", t)]
     if codes:
         defauts.append(f"code INSEE à l'écran : {codes}")
+
+
+def visibilite_recherche(p):
+    return p.js("getComputedStyle(document.querySelector('header .recherche')).visibility")
+
+
+def ui_entete(p, capturer, defauts, telephone):
+    """Captures 15 à 19 (décision « En-tête ») : le choix de Jouer, la
+    recherche (sa liste, un pays montré, une commune qui ouvre l'île), le
+    classement général. Après ui_reunion : le premier usage de la recherche
+    demande les noms des communes (/geo/reunion/noms.fr.json)."""
+    p.js('location.hash = "#carte"')
+    p.pause(300)
+    h = p.js("""(() => { const r = document.querySelector('header').getBoundingClientRect(),
+        c = document.getElementById('recherche-champ').getBoundingClientRect(),
+        j = document.getElementById('jouer-btn').getBoundingClientRect();
+        return { haut: r.height, champ: c.width, champ_y: c.top, jouer_y: j.top, droite: j.right, largeur: innerWidth }; })()""")
+    dire(f"  en-tête : {h['haut']:.0f} px de haut, champ de {h['champ']:.0f} px")
+    if telephone and h["haut"] > 64:
+        defauts.append(f"en-tête du téléphone sur plus d'une ligne ({h['haut']:.0f} px)")
+    if h["champ"] < 140:
+        defauts.append(f"champ de recherche trop étroit ({h['champ']:.0f} px)")
+    cliquer(p, "#jouer-btn")
+    attendre_visible(p, "#jouer-depart")
+    modes = p.js("[...document.querySelectorAll('#jouer-depart [data-mode]')].map(b => b.dataset.mode)")
+    if modes != ["localiser", "nommer", "chrono"]:
+        defauts.append(f"Jouer : exercices {modes}")
+    capturer("15-jouer")
+    # Localiser, l'Europe : la recherche s'efface pendant la partie, revient après.
+    cliquer(p, '#jouer-depart [data-mode="localiser"]')
+    attendre_visible(p, "#essai-depart")
+    titre = texte(p, "#essai-depart h2")
+    if titre != "Localiser":
+        defauts.append(f"départ de Localiser titré {titre!r}")
+    cliquer(p, '#essai-depart .essai-serie[data-serie="Europe"]')
+    attendre_visible(p, "#barre-essai")
+    if visibilite_recherche(p) != "hidden":
+        defauts.append("recherche visible pendant une partie")
+    cliquer(p, "#essai-terminer")
+    p.pause(200)
+    if visibilite_recherche(p) != "visible":
+        defauts.append("recherche cachée après la partie")
+    # La recherche : « sain », pays et communes mêlés.
+    p.js('location.hash = "#carte"')
+    p.pause(200)
+    p.js('document.getElementById("recherche-champ").focus()')
+    p.cdp("Input.insertText", text="sain")
+    p.pause(500)  # les noms des communes, demandés au premier usage
+    lus = p.js("[...document.querySelectorAll('#recherche-liste [role=option]')].map(l => l.dataset.terrain + ':' + l.innerText.replace(/\\s+/g, ' '))")
+    dire(f"  recherche « sain » : {lus}")
+    if not any(x.startswith("reunion:") for x in lus) or not any(x.startswith("monde:") for x in lus):
+        defauts.append(f"recherche « sain » : pays et communes attendus, lu {lus}")
+    capturer("16-recherche")
+    # Le Vatican, à la touche Entrée : la carte vole jusqu'à lui (anneau, minuscule).
+    p.js('document.getElementById("recherche-champ").value = ""')
+    p.cdp("Input.insertText", text="vatican")
+    p.pause(200)
+    p.cdp("Input.dispatchKeyEvent", type="keyDown", key="Enter", code="Enter", windowsVirtualKeyCode=13)
+    p.cdp("Input.dispatchKeyEvent", type="keyUp", key="Enter", code="Enter", windowsVirtualKeyCode=13)
+    attendre_fin_vol(p)
+    barre = texte(p, "#barre-carte")
+    vat = p.js("""(() => { const c = window.terramemo.carte, e = c.ecran("VAT"), r = c.rect();
+        return [document.getElementById('barre-carte').dataset.id, c.transfo().k, !!e && e.x > r.x && e.x < r.x + r.largeur && e.y > r.y && e.y < r.y + r.hauteur]; })()""")
+    dire(f"  recherche → Vatican : barre {barre!r}, zoom {vat[1]:.1f}, à l'écran {vat[2]}")
+    if vat[0] != "VAT" or vat[1] < 2 or not vat[2]:
+        defauts.append(f"recherche → Vatican : {vat}")
+    capturer("17-recherche-pays")
+    # Saint-Denis, la commune (au doigt) : la carte de l'île, puis « Monde ».
+    p.js('document.getElementById("recherche-champ").focus()')
+    p.cdp("Input.insertText", text="saint-denis")
+    p.pause(300)
+    cliquer(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
+    fin = time.monotonic() + 10
+    while p.js("window.terramemo.terrain()") != "reunion" and time.monotonic() < fin:
+        p.pause(100)
+    attendre_fin_vol(p, "ile")
+    barre = texte(p, "#barre-carte")
+    dire(f"  recherche → Saint-Denis : terrain {p.js('window.terramemo.terrain()')}, barre {barre!r}")
+    if p.js("window.terramemo.terrain()") != "reunion" or "Saint-Denis" not in barre:
+        defauts.append(f"recherche → Saint-Denis : terrain {p.js('window.terramemo.terrain()')}, barre {barre!r}")
+    capturer("18-recherche-commune")
+    cliquer(p, "#carte-monde")
+    p.pause(200)
+    if p.js("window.terramemo.terrain()") != "monde":
+        defauts.append("« Monde » ne ramène pas au monde")
+    # Le classement général (🏆), puis « Retour » à la carte.
+    cliquer(p, "#classement-btn")
+    attendre_visible(p, "#classement-general")
+    p.pause(1500)  # le classement se lit en ligne (indisponible sans émulateurs : dit tel quel)
+    capturer("19-classement")
+    cliquer(p, "#classement-retour")
+    p.pause(200)
+    if p.js("location.hash") != "#carte":
+        defauts.append(f"« Retour » du classement : {p.js('location.hash')}")
 
 
 def commande_ui(args):
@@ -1151,6 +1252,7 @@ def commande_ui(args):
         dire(f"  Chrono, bilan : {p.js('document.getElementById(\"chrono-bilan\").innerText')!r}")
         capturer("9-chrono-bilan")
         ui_reunion(p, capturer, defauts)
+        ui_entete(p, capturer, defauts, telephone)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")

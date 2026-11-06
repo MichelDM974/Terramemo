@@ -6,9 +6,9 @@
 // dernière réponse (sa rétroaction), la quitter la finit (bilan au retour), et
 // « Abandonner » aussi.
 // La Réunion est une série de plus : sa carte remplace le monde, notée à 5 km.
+// On y vient par Jouer (jouer.ts) ; le classement général a sa vue (general.ts).
 import { DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE } from '../epreuve/bareme';
 import { enregistrerPartie, idEpreuve, lireRecords, PartieChrono, type QuestionJouee } from '../epreuve/chrono';
-import { GENERAL } from '../epreuve/classement';
 import { REUNION } from '../map/terrain';
 import type { Terrain } from '../terrains';
 import { melanger, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, series, serieTerrain, type Serie } from './cibles';
@@ -49,7 +49,12 @@ export function seriesChrono(toutes: readonly Serie[]): Serie[] {
   return [...continents, ...tous, serieTerrain(REUNION)];
 }
 
-export function vueChrono(ctx: ContexteVue): Vue {
+export interface VueChrono extends Vue {
+  /** Le départ (Chrono choisi dans Jouer), au lieu du bilan d'une partie finie en quittant la vue. */
+  nouvellePartie(): void;
+}
+
+export function vueChrono(ctx: ContexteVue): VueChrono {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const jauge = creer('span', { class: 'chrono-jauge-reste' });
@@ -67,15 +72,18 @@ export function vueChrono(ctx: ContexteVue): Vue {
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'chrono-bilan' });
   const statut = creer('p', { class: 'hint chrono-statut', 'aria-live': 'polite' });
   const liste = creer('ul', { class: 'essai-series' });
-  const general = creer('button', { type: 'button', class: 'secondary chrono-general', id: 'chrono-general' }, T.general_bouton);
   const depart = creer(
     'div',
     { class: 'essai-depart', id: 'chrono-depart' },
-    creer('h2', {}, T.depart_titre),
+    creer(
+      'div',
+      { class: 'depart-tete' },
+      creer('a', { class: 'depart-bouton', href: '#jouer', id: 'chrono-exercices', 'aria-label': textes.jouer.changer, title: textes.jouer.changer }, '‹'),
+      creer('h2', {}, T.depart_titre),
+    ),
     creer('p', { class: 'hint' }, remplir(T.depart_aide, { s: DELAI / 1000 })),
     statut,
     liste,
-    general,
   );
   barre.hidden = true;
   bilan.hidden = true;
@@ -287,22 +295,11 @@ export function vueChrono(ctx: ContexteVue): Vue {
   // à abandonner, la partie va au bilan comme à la fin de la pause.
   abandonner.addEventListener('click', () => (partie?.finie ? finir() : afficherDepart(T.abandon)));
 
-  // Classement général : la somme des records de toutes les séries.
-  general.addEventListener('click', () => {
-    jeton++;
-    depart.hidden = true;
-    const retour = creer('button', { type: 'button', class: 'secondary', id: 'chrono-retour' }, T.retour);
-    retour.addEventListener('click', () => afficherDepart());
-    bilan.replaceChildren(
-      creer('h2', {}, T.general_titre),
-      creer('p', { class: 'hint' }, T.general_aide),
-      blocClassement(GENERAL, T.classement_titre),
-      creer('div', { class: 'essai-actions' }, retour),
-    );
-    bilan.hidden = false;
-  });
-
   return {
+    nouvellePartie() {
+      // Juste après activer() : un départ déjà affiché garde son message (partie abandonnée).
+      if (depart.hidden) afficherDepart();
+    },
     activer() {
       if (bilanAuRetour) {
         bilanAuRetour = false;

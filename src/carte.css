@@ -163,9 +163,36 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 .nommer-choix.juste::before { content: "✓\00a0"; }
 .nommer-choix.faux::before { content: "✗\00a0"; }
 
-/* Exercice du départ de Toucher (Localiser / Nommer), sous le titre. */
-.essai-mode { margin: 6px 0 8px; }
-.essai-mode button { min-height: 36px; padding: 6px 16px; }
+/* En-tête d'un départ : « ‹ » (retour au choix de Jouer) et titre, ou titre et « × ». */
+.depart-tete { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; }
+.depart-tete h2 { flex: 1; }
+.essai-depart .depart-tete h2 { margin: 0; }
+.depart-bouton {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: -4px -6px -4px -8px;
+  padding: 0 0 3px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  text-decoration: none;
+}
+.depart-bouton:hover { background: var(--panel-2); color: var(--text); }
+.depart-tete h2 + .depart-bouton { margin: -4px -8px -4px 0; }
+
+/* Une partie en cours (sa barre affichée) : la recherche, qui donnerait la
+   réponse, s'efface ; l'en-tête garde sa place. */
+body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:not([hidden])) .recherche { visibility: hidden; }
+
+/* Explorer : « Monde » (retour de l'île), à droite de la barre. */
+.barre-monde { margin-left: auto; padding: 4px 12px; font-size: 0.85rem; }
 
 /* Chrono : jauge du temps de la question (neutre : l'accent reste aux pages et au
    bouton principal), score et record du bilan. */
@@ -177,7 +204,6 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 .chrono-score { margin: 2px 0; font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .chrono-record { margin: 0 0 12px; font-size: 0.9rem; }
 .chrono-record.nouveau { color: var(--good); }
-.chrono-general { margin-top: 10px; width: 100%; }
 
 /* Classement : un filet le sépare du bilan (pas de panneau dans le panneau). */
 .chrono-classement { margin: 14px 0; padding-top: 12px; border-top: 1px solid var(--border); }

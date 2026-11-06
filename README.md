@@ -27,6 +27,9 @@ l'oublier, jusqu'à tenir des mois.
 - Deux exercices pour chaque série : **Localiser** (toucher la zone nommée)
   et **Nommer** (la zone s'allume, choisir son nom parmi quatre, ses
   voisines en leurres).
+- En haut, une **recherche** (un pays, un territoire, une commune de La
+  Réunion : la carte vole jusqu'à lui) et le bouton **Jouer**, qui fait
+  choisir l'exercice (Localiser, Nommer, Chrono), puis la série.
 - **La Réunion** : ses 24 communes sur une carte de l'île, en série de
   Toucher et du Chrono (avec son classement).
 

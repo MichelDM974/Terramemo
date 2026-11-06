@@ -75,8 +75,20 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   prise une fois le vol fini : `attendre_fin_vol`, transformation stable),
   `13-nommer-reunion-retro` (mauvais choix rouge, bon vert),
   `14-chrono-reunion` (première question, jauge) ; il remet Localiser et
-  vérifie le monde au retour (onglet Carte, `pick` sur la Suisse = CHE).
-  `DÉFAUT : …` et code 1 si l'île sort de l'écran ou passe sous la barre,
+  vérifie le monde au retour (la Carte, `pick` sur la Suisse = CHE).
+  L'exercice se choisit par Jouer (`choisir_exercice` : `#jouer`, puis
+  `#jouer-depart [data-mode=localiser|nommer|chrono]`), plus dans le départ
+  de Toucher. Puis l'en-tête (décision « En-tête ») : `15-jouer` (les trois
+  exercices), `16-recherche` (« sain » : pays et communes mêlés),
+  `17-recherche-pays` (le Vatican à Entrée : vol, anneau),
+  `18-recherche-commune` (Saint-Denis au doigt : la carte de l'île, puis
+  « Monde » ramène au monde), `19-classement` (🏆, « Retour » à la carte).
+  Faites après l'île : le premier usage de la recherche demande
+  `/geo/reunion/noms.fr.json`, que `10-reunion` veut absent avant son choix.
+  `DÉFAUT : …` et code 1 si l'en-tête du téléphone dépasse une ligne (64 px),
+  si le champ de recherche fait moins de 140 px, s'il reste visible pendant
+  une partie ou ne revient pas après, si la recherche ne montre pas le
+  Vatican ou Saint-Denis, si l'île sort de l'écran ou passe sous la barre,
   si la mention manque, couvre l'île ou fait deux lignes à 384 px, si la
   zone de Nommer n'est pas au-dessus de sa barre (monde et île), si l'île
   a bougé du zoom 1 ou passe sous la barre de Nommer, si les
@@ -589,8 +601,8 @@ choix `#chrono-depart .essai-serie[data-serie="reunion"]`, chaque réponse
 juste par `terramemo.ile.ecran(<cible>)` (cible :
 `#barre-chrono .essai-consigne` `data-cible`), puis le pseudo dans
 `#chrono-bilan .chrono-pseudo-form input` et son bouton ; le classement de
-l'épreuve et le général (`#chrono-general`, somme des records de toutes les
-séries) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
+l'épreuve et le général (`#classement-btn` de l'en-tête, vue `#classement`,
+somme des records de toutes les séries) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
 règles refusent moins de 0,2 s par question (`temps_ms >= questions ×
 200`), et un tel score n'est même pas envoyé (`vraisemblable()`,
 `src/epreuve/chrono.ts`, mêmes bornes que `firestore.rules`) ; il reste

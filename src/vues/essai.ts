@@ -1,9 +1,10 @@
 // Vue « Toucher » : essai de précision. « Touche : Monaco » ; on zoome, on se
-// déplace, on touche ; juste ou faux sur la carte, essais, temps, bilan. Au
-// départ (et à « Recommencer »), l'exercice (Localiser ou Nommer : nommer.ts)
-// et le choix de la série : l'essai du J0, tous les pays, un continent ou
-// l'île de La Réunion (sa carte chargée au premier choix) ; les derniers
-// choix sont gardés dans le navigateur.
+// déplace, on touche ; juste ou faux sur la carte, essais, temps, bilan.
+// L'exercice (Localiser ou Nommer : nommer.ts) se choisit dans Jouer (jouer.ts,
+// nouvellePartie) ; le départ (et « Recommencer ») choisit la série : tous les
+// pays, un continent, l'île de La Réunion (sa carte chargée au premier choix),
+// et en Localiser l'essai du J0 en dernier ; les derniers choix sont gardés
+// dans le navigateur.
 import { mediane } from '../mesure/stats';
 import type { Terrain } from '../terrains';
 import { melanger, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, seriesToucher, type Serie } from './cibles';
@@ -50,8 +51,7 @@ function garderSerie(id: string): void {
 }
 
 /** Exercice : localiser (toucher la zone nommée) ou nommer (la zone allumée, quatre noms). */
-type Mode = 'localiser' | 'nommer';
-const MODES: readonly Mode[] = ['localiser', 'nommer'];
+export type Mode = 'localiser' | 'nommer';
 // Même commodité que la série ; Localiser par défaut (un profil neuf, celui du
 // pilote, reste sur l'exercice que visent les mesures et les captures).
 const CLE_MODE = 'terramemo.toucher.mode';
@@ -70,7 +70,12 @@ function garderMode(m: Mode): void {
   }
 }
 
-export function vueEssai(ctx: ContexteVue): Vue {
+export interface VueEssai extends Vue {
+  /** Le départ de cet exercice (choisi dans Jouer) : une partie en cours est abandonnée. */
+  nouvellePartie(m: Mode): void;
+}
+
+export function vueEssai(ctx: ContexteVue): VueEssai {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
@@ -88,7 +93,9 @@ export function vueEssai(ctx: ContexteVue): Vue {
 
   // Choix de la série : une liste (neuf choix ne tiennent pas dans un sélecteur
   // segmenté sur 384 px), en bas comme la barre de l'essai, sous le pouce.
-  const toutes: Serie[] = seriesToucher(ctx.donnees.entites.map((e) => e.pays), nomContinent);
+  // L'essai du J0 (un outil, celui du pilote de mesure) en dernier.
+  const parOrdre: Serie[] = seriesToucher(ctx.donnees.entites.map((e) => e.pays), nomContinent);
+  const toutes = [...parOrdre.filter((s) => s.id !== SERIE_ESSAI), ...parOrdre.filter((s) => s.id === SERIE_ESSAI)];
   const boutons = toutes.map((s) => {
     const detail = detailSerie(s.id);
     return creer(
@@ -98,33 +105,25 @@ export function vueEssai(ctx: ContexteVue): Vue {
       creer('span', { class: 'essai-serie-n' }, remplir(textes.terrains[s.terrain].n, { n: s.n })),
     );
   });
-  // L'exercice, pour toutes les séries : en tête du départ, au-dessus de la liste.
+  // L'exercice, pour toutes les séries : le titre du départ ; « ‹ » revient au choix de Jouer.
   let mode: Mode = lireMode();
-  const boutonsMode = MODES.map((m) => creer('button', { type: 'button', 'data-mode': m }, T[m]));
-  const afficherMode = () => {
-    for (const b of boutonsMode) {
-      const actif = b.dataset.mode === mode;
-      b.classList.toggle('active', actif);
-      b.setAttribute('aria-pressed', String(actif));
-    }
-  };
-  for (const b of boutonsMode)
-    b.addEventListener('click', () => {
-      mode = b.dataset.mode === 'nommer' ? 'nommer' : 'localiser';
-      garderMode(mode);
-      afficherMode();
-    });
-  afficherMode();
+  const titre = creer('h2', {}, T[mode]);
   const statut = creer('p', { class: 'hint essai-statut', 'aria-live': 'polite' });
   statut.hidden = true;
+  const lignes = boutons.map((b) => creer('li', {}, b));
+  const ligneEssai = lignes[toutes.findIndex((s) => s.id === SERIE_ESSAI)];
   const depart = creer(
     'div',
-    { class: 'essai-depart', id: 'essai-depart' },
-    creer('h2', {}, T.depart_titre),
-    creer('div', { class: 'seg essai-mode', id: 'essai-mode', role: 'group', 'aria-label': T.mode }, ...boutonsMode),
+    { class: 'essai-depart', id: 'essai-depart', 'data-mode': mode },
+    creer(
+      'div',
+      { class: 'depart-tete' },
+      creer('a', { class: 'depart-bouton', href: '#jouer', id: 'essai-exercices', 'aria-label': textes.jouer.changer, title: textes.jouer.changer }, '‹'),
+      titre,
+    ),
     creer('p', { class: 'hint' }, T.depart_aide),
     statut,
-    creer('ul', { class: 'essai-series' }, ...boutons.map((b) => creer('li', {}, b))),
+    creer('ul', { class: 'essai-series' }, ...lignes),
   );
   barre.hidden = true;
   bilan.hidden = true;
@@ -225,11 +224,15 @@ export function vueEssai(ctx: ContexteVue): Vue {
     bilan.hidden = true;
     effacer();
     ctx.terrains.montrer('monde');
+    // L'exercice en titre ; l'essai du J0 en Localiser seulement (celui du pilote).
+    titre.textContent = T[mode];
+    depart.dataset.mode = mode;
     // La série gardée en évidence : celle que l'on rejoue d'un toucher.
     for (const b of boutons) {
       if (b.dataset.serie === serie.id) b.setAttribute('aria-current', 'true');
       else b.removeAttribute('aria-current');
     }
+    if (ligneEssai) ligneEssai.hidden = mode !== 'localiser';
     // Le statut d'un chargement fini (échec hors ligne compris) ne survit pas au
     // retour : l'île a pu se charger depuis (Chrono). Un chargement en cours (boutons
     // grisés par avecTerrain) garde le sien : sa partie partira à l'arrivée.
@@ -335,6 +338,11 @@ export function vueEssai(ctx: ContexteVue): Vue {
   terminer.addEventListener('click', finir);
 
   return {
+    nouvellePartie(m) {
+      mode = m;
+      garderMode(m);
+      afficherDepart();
+    },
     activer() {
       // Une partie en cours (île comprise) reprend sur son terrain : le routeur vient de montrer le monde.
       if (nommer.enCours) nommer.reprendre();

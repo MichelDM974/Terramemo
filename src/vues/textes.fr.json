@@ -9,9 +9,32 @@
     "Oceania": "Océanie",
     "South America": "Amérique du Sud"
   },
+  "carte": {
+    "touche": "Touche un pays",
+    "touche_ile": "Touche une commune",
+    "mer": "Mer",
+    "par_pastille": "par sa pastille",
+    "au_plus_pres": "au plus près",
+    "monde": "Monde",
+    "monde_titre": "Revenir à la carte du monde"
+  },
+  "recherche": {
+    "placeholder": "Chercher un pays, une commune…",
+    "placeholder_court": "Pays, commune…",
+    "aucun": "Aucun lieu trouvé",
+    "commune": "commune de La Réunion"
+  },
+  "jouer": {
+    "titre": "Jouer",
+    "aide": "Choisis un exercice, puis une série.",
+    "fermer": "Fermer",
+    "changer": "Changer d'exercice",
+    "localiser_detail": "Touche sur la carte la zone nommée.",
+    "nommer_detail": "Une zone s'allume : choisis son nom parmi quatre.",
+    "chrono": "Chrono",
+    "chrono_detail": "Épreuve notée, {s} s par question : records et classement."
+  },
   "toucher": {
-    "depart_titre": "Toucher",
-    "mode": "Exercice",
     "localiser": "Localiser",
     "nommer": "Nommer",
     "depart_aide": "Choisis une série : ses questions viennent dans le désordre, un nouveau tirage à chaque partie.",
@@ -86,7 +109,6 @@
     "indisponible": "Classement indisponible (hors ligne ?).",
     "vide": "Personne n'est encore classé : à toi de jouer.",
     "joueurs": "{n} joueur(s) classé(s)",
-    "general_bouton": "Classement général",
     "general_titre": "Classement général",
     "general_aide": "La somme des records de toutes les séries ; « Cette semaine » compte ceux de la semaine (depuis lundi, 4 h à La Réunion).",
     "retour": "Retour"

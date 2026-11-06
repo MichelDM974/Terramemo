@@ -1,5 +1,6 @@
-// Comparaison de noms sans accents ni casse (vue Saisie du J0). Aucun mot n'est
-// retiré : « république de » confondrait les deux Congo (plan, « Données »).
+// Comparaison de noms sans accents ni casse (vue Saisie du J0, recherche de
+// l'en-tête). Aucun mot n'est retiré : « république de » confondrait les deux
+// Congo (plan, « Données »).
 
 export function normaliser(s: string): string {
   return s
@@ -23,4 +24,24 @@ export function suggestions(tape: string, noms: readonly string[], max = MAX_SUG
     .filter((nom) => normaliser(nom).startsWith(n))
     .sort((a, b) => a.localeCompare(b, 'fr'))
     .slice(0, max);
+}
+
+/**
+ * Recherche de lieux (barre de l'en-tête) : ceux dont le nom commence par ce
+ * qui est tapé, puis ceux dont un mot commence ainsi (« congo » : les deux
+ * Congo, « denis » : Saint-Denis, « etang » : L'Étang-Salé), sans accents ni
+ * casse ; à rang égal, l'ordre alphabétique français.
+ */
+export function chercherLieux<T extends { nom: string }>(tape: string, lieux: readonly T[], max = MAX_SUGGESTIONS): T[] {
+  const n = normaliser(tape);
+  if (!n) return [];
+  const debut: T[] = [];
+  const mot: T[] = [];
+  for (const l of lieux) {
+    const nom = normaliser(l.nom);
+    if (nom.startsWith(n)) debut.push(l);
+    else if (nom.includes(` ${n}`) || nom.includes(`'${n}`)) mot.push(l);
+  }
+  const ordre = (a: T, b: T) => a.nom.localeCompare(b.nom, 'fr');
+  return [...debut.sort(ordre), ...mot.sort(ordre)].slice(0, max);
 }
