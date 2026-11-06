@@ -9,6 +9,7 @@ import type { Pays } from '../src/map/types';
 import type { Lancement } from '../src/vues/arbre';
 import type { ContexteVue, Vue } from '../src/vues/commun';
 import { vueEssai } from '../src/vues/essai';
+import { textes } from '../src/vues/textes';
 import { El, installerDom, installerStockage } from './dom-factice';
 
 const pays = (id: string): Pays =>
@@ -533,5 +534,102 @@ describe('Toucher : une séance quittée puis reprise', () => {
     s.el('#seance-finir').click();
     expect(s.fabrique.ouvrir.mock.calls.at(-1)![0]).toEqual({ sorte: 'revision' });
     expect(s.visible('barre-essai')).toBe(true);
+  });
+});
+
+describe('Toucher : une séance qui passe sur l’île (communes, D6)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    installerDom();
+    installerStockage();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function carteFactice(nom: string, notees: string[]) {
+    return {
+      effacerMarques() {},
+      marquer() {},
+      anneau() {},
+      montrer() {},
+      zoomer() {},
+      cadrer() {},
+      projection: { scale: () => 100 },
+      transfo: { k: 1 },
+      hote: new El('div'),
+      noter: (id: string) => (notees.push(`${nom}:${id}`), { juste: true, pick: { id }, via: 'trace', distance_km: 0, admis: null }),
+    };
+  }
+
+  function monterIle(o: { echec?: boolean } = {}) {
+    const zone = new El('main');
+    const notees: string[] = [];
+    const montres: string[] = [];
+    const monde = { nom: 'monde', carte: carteFactice('monde', notees), donnees: { entites: [{ pays: pays('FRA') }], noms: { FRA: 'France' } }, jouables: ['FRA'] };
+    const ile = { nom: 'reunion', carte: carteFactice('reunion', notees), donnees: { entites: [{ pays: pays('97411') }], noms: { '97411': 'Saint-Denis' } }, jouables: ['97411'] };
+    let chargee = false;
+    const charger = vi.fn(() => (o.echec ? Promise.reject(new Error('hors ligne')) : ((chargee = true), Promise.resolve(ile))));
+    const ctx = {
+      carte: monde.carte,
+      donnees: monde.donnees,
+      zone,
+      terrains: { monde, montrer: (n: string) => void montres.push(n), deja: (n: string) => (n === 'reunion' && chargee ? ile : n === 'monde' ? monde : null), charger },
+      mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
+    } as unknown as ContexteVue;
+    const f = piloteFactice([
+      { id: 'FRA', forme: 'trouver', cadrer: 'monde', connu: false, terrain: 'monde' },
+      { id: '97411', forme: 'trouver', cadrer: 'monde', connu: false, terrain: 'reunion' },
+    ]);
+    const fabrique = { ouvrir: vi.fn(() => f.p), besoinIle: vi.fn(() => true) };
+    const vue = vueEssai(ctx, { versJouer: vi.fn(), seances: fabrique });
+    return { vue, zone, notees, montres, charger, fabrique, f, el: (s: string) => zone.querySelector(s) as El };
+  }
+
+  it('l’île chargée d’abord (dit dans le panneau), puis les pays sur le monde et les communes sur l’île', async () => {
+    const s = monterIle();
+    s.vue.activer();
+    s.vue.reviser();
+    expect(s.charger).toHaveBeenCalledWith('reunion');
+    expect(s.el('#essai-bilan').hidden).toBe(false);
+    expect(s.el('#essai-bilan').innerText).toBe(textes.toucher.chargement_terrain);
+    expect(s.fabrique.ouvrir).not.toHaveBeenCalled();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(s.fabrique.ouvrir).toHaveBeenCalledTimes(1);
+    expect(s.el('#essai-bilan').hidden).toBe(true);
+    expect(s.el('#barre-essai .essai-consigne').innerText).toContain('France');
+    justeSuivant = true;
+    s.vue.toucher?.(1, 1, {} as PointerEvent);
+    vi.advanceTimersByTime(1200);
+    expect(s.montres.at(-1)).toBe('reunion');
+    expect(s.el('#barre-essai .essai-consigne').innerText).toContain('Saint-Denis');
+    // Quittée puis reprise : la question de l'île revient sur l'île.
+    s.vue.desactiver();
+    expect(s.montres.at(-1)).toBe('monde');
+    s.vue.activer();
+    expect(s.montres.at(-1)).toBe('reunion');
+    s.vue.toucher?.(1, 1, {} as PointerEvent);
+    expect(s.notees).toEqual(['monde:FRA', 'reunion:97411']);
+  });
+
+  it('l’île hors ligne : la séance part quand même (sans ses communes, que la séance ne pose pas)', async () => {
+    const s = monterIle({ echec: true });
+    s.vue.activer();
+    s.vue.reviser();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(s.fabrique.ouvrir).toHaveBeenCalledTimes(1);
+  });
+
+  it('une séance lancée pendant le chargement de l’île remplace la précédente : une seule ouverte', async () => {
+    const s = monterIle();
+    s.vue.activer();
+    s.vue.reviser();
+    s.vue.reviser();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(s.fabrique.ouvrir).toHaveBeenCalledTimes(1);
   });
 });

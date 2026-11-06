@@ -5,14 +5,18 @@
 // grappe par jour, révisions dues d'abord), le cadrage d'une grappe en
 // emprise de carte, la ligne discrète après une réponse, le bilan (sans
 // points : « Points et classement »), les comptes de la ligne de Jouer, et
-// le journal des parties libres (D11 : mode 'libre', hors FSRS).
+// le journal des parties libres (D11 : mode 'libre', hors FSRS). Les
+// communes de La Réunion (défaut D6) : Apprendre sous La Réunion (4 grappes
+// de 6), le même budget d'une grappe de lieux nouveaux par jour, et leurs
+// révisions en second bloc de la Révision du jour, sur l'île.
 import type { DonneesCarte } from '../map/donnees';
 import { empriseGrappe, type Emprise } from '../map/geo';
+import type { Lieu, NomTerrain } from '../map/types';
 import type { Memoire } from '../journal/memoire';
 import { former, type Domaine } from '../srs/fiches';
-import { grappesPays, type Grappe } from '../srs/grappes';
-import { dues, introductions, programme, revisionsPermises, type Programme } from '../srs/planif';
-import { evenementReponse, Seance } from '../srs/seance';
+import { grappesCommunes, grappesPays, type Grappe } from '../srs/grappes';
+import { dues, entreesDuJour, grappeEntamee, introductions, programme, revisionsPermises, type AutreDomaine, type Programme } from '../srs/planif';
+import { evenementReponse, Seance, type BilanSeance, type PlanSeance } from '../srs/seance';
 import type { Terrain } from '../terrains';
 import type { Lancement } from './arbre';
 import { nomSerie, SERIE_TOUS } from './cibles';
@@ -47,52 +51,132 @@ export interface OptionsSeances {
   memoire: Memoire;
   /** Les données du monde : grappes, emprises, noms. */
   monde: DonneesCarte;
+  /**
+   * Les données de l'île si elle est chargée, null sinon : grappes, emprises
+   * et noms des communes (Apprendre sous La Réunion, bloc des communes de la
+   * Révision du jour). Toucher la charge avant d'ouvrir une séance qui en a
+   * besoin (besoinIle).
+   */
+  ile?: () => DonneesCarte<Lieu> | null;
   /** Hasard du mélange (tests : une graine). */
   hasard?: () => number;
 }
 
-const DOMAINE: Domaine = 'pays';
+/** Ce qu'une séance sait d'un domaine : son terrain, ses données, ses grappes. */
+interface InfoDomaine {
+  domaine: Domaine;
+  terrain: NomTerrain;
+  donnees: DonneesCarte<Lieu>;
+  toutes: Grappe[];
+  /** L'emprise à cadrer au rappel d'une grappe (geo.ts empriseGrappe : les géants réduits à leur bord proche). */
+  emprise(ids: readonly string[]): Emprise | null;
+}
+
+function infoDomaine(domaine: Domaine, terrain: NomTerrain, donnees: DonneesCarte<Lieu>, toutes: Grappe[]): InfoDomaine {
+  const entites = new Map(donnees.entites.map((e) => [e.pays.id, e]));
+  return { domaine, terrain, donnees, toutes, emprise: (ids) => empriseGrappe(ids.flatMap((id) => entites.get(id) ?? [])) };
+}
+
+/** Un bloc de la séance : un domaine, son programme et le séquenceur qui le pose. */
+interface Bloc {
+  info: InfoDomaine;
+  plan: Omit<PlanSeance, 'domaine'>;
+  /** Pourquoi il n'y a pas de grappe nouvelle, et la grappe entamée ailleurs (refus d'Apprendre). */
+  p: Programme;
+}
 
 export function creerSeances(o: OptionsSeances): Seances {
   const m = o.memoire;
   const hasard = o.hasard ?? Math.random;
-  const toutes: Grappe[] = grappesPays(o.monde.entites.map((e) => e.pays));
-  const entites = new Map(o.monde.entites.map((e) => [e.pays.id, e]));
-  /** L'emprise à cadrer au rappel d'une grappe (geo.ts empriseGrappe : les géants réduits à leur bord proche). */
-  const emprise = (ids: readonly string[]): Emprise | null => empriseGrappe(ids.flatMap((id) => entites.get(id) ?? []));
+  const pays = infoDomaine('pays', 'monde', o.monde, grappesPays(o.monde.entites.map((e) => e.pays)));
+  /** Les communes, une fois l'île chargée (grappes calculées une fois par chargement). */
+  let communes: InfoDomaine | null = null;
+  const infoCommunes = (): InfoDomaine | null => {
+    const d = o.ile?.() ?? null;
+    if (!d) return null;
+    if (communes?.donnees !== d) communes = infoDomaine('communes', 'reunion', d, grappesCommunes(d.entites.map((e) => e.pays)));
+    return communes;
+  };
+  /** Les autres domaines du budget commun d'une grappe par jour (planif.ts AutreDomaine). */
+  const autres = (domaine: Domaine): AutreDomaine[] =>
+    domaine === 'pays' ? [{ domaine: 'communes', grappes: infoCommunes()?.toutes ?? null }] : [{ domaine: 'pays', grappes: pays.toutes }];
 
-  /** Les grappes d'une demande : celles de la série d'Apprendre (son continent), toutes sinon. */
-  const grappesDe = (d: DemandeSeance): Grappe[] =>
-    d.sorte === 'apprendre' && d.serie.id !== SERIE_TOUS ? toutes.filter((g) => g.continent === d.serie.id) : toutes;
+  /** Le programme d'un domaine : ses grappes (celles d'une série pour Apprendre), le budget commun, les révisions déjà prises dans la séance. */
+  function bloc(info: InfoDomaine, grappes: readonly Grappe[], prises = 0): Bloc {
+    const p = programme(m.etat(), m.jour(), grappes, info.domaine, info.toutes, { autres: autres(info.domaine), prises });
+    return { info, p, plan: { revisions: p.revisions, introductions: p.introductions, nouveaux: p.nouveautes?.ids ?? [] } };
+  }
 
-  const programmeDe = (d: DemandeSeance): Programme => programme(m.etat(), m.jour(), grappesDe(d), DOMAINE, toutes);
+  /**
+   * Les blocs d'une demande. Apprendre : le domaine de la série (un
+   * continent, ou l'île), ses révisions dues puis sa grappe suivante. La
+   * Révision du jour : les pays (révisions, fiches nommer, grappe suivante),
+   * puis les communes en second bloc (défaut D6 : leurs révisions, et la
+   * grappe de communes commencée ce jour s'il en reste), l'île seulement si
+   * elle est chargée ; la grappe de pays seulement si aucune révision de
+   * communes ne reste après la séance (les révisions dues d'abord, partout).
+   */
+  function blocs(d: DemandeSeance): Bloc[] | null {
+    if (d.sorte === 'apprendre') {
+      const info = d.serie.terrain === 'monde' ? pays : infoCommunes();
+      if (!info) return null;
+      const grappes = info === pays && d.serie.id !== SERIE_TOUS ? pays.toutes.filter((g) => g.continent === d.serie.id) : info.toutes;
+      return [bloc(info, grappes)];
+    }
+    const bp = bloc(pays, pays.toutes);
+    const c = infoCommunes();
+    if (!c) return [bp];
+    const bc = bloc(c, c.toutes, bp.plan.revisions.length);
+    // Les nouveautés des communes : seulement la grappe commencée ce jour (Apprendre sous La Réunion en ouvre une).
+    const entamee = grappeEntamee(m.etat(), m.jour(), c.toutes, 'communes');
+    if (!entamee || bc.p.nouveautes?.grappe !== entamee.grappe) bc.plan = { ...bc.plan, nouveaux: [] };
+    if (bc.p.restantes > 0 && bp.plan.nouveaux.length) bp.plan = { ...bp.plan, nouveaux: [] };
+    return [bp, bc];
+  }
+
+  /** Une demande a-t-elle besoin de l'île (communes dues, grappe de communes commencée ce jour, Apprendre sous La Réunion) ? */
+  function besoinIle(d: DemandeSeance): boolean {
+    if (d.sorte === 'apprendre') return d.serie.terrain !== 'monde';
+    const etat = m.etat();
+    const j = m.jour();
+    return m.charge && (dues(etat, j, 'communes').length > 0 || introductions(etat, j, 'communes').length > 0 || entreesDuJour(etat, j, 'communes') > 0);
+  }
 
   function comptes(d: DemandeSeance = { sorte: 'revision' }): ComptesSeance | null {
     if (!m.charge) return null;
     const etat = m.etat();
     const j = m.jour();
-    const p = programmeDe(d);
-    return {
-      aRevoir: Math.min(dues(etat, j, DOMAINE).length, revisionsPermises(etat, j)) + introductions(etat, j, DOMAINE).length,
-      nouveaux: p.nouveautes?.ids.length ?? 0,
-    };
+    const domaines: Domaine[] = d.sorte === 'apprendre' ? [d.serie.terrain === 'monde' ? 'pays' : 'communes'] : ['pays', 'communes'];
+    const aRevoir =
+      Math.min(
+        domaines.reduce((n, x) => n + dues(etat, j, x).length, 0),
+        revisionsPermises(etat, j),
+      ) + domaines.reduce((n, x) => n + introductions(etat, j, x).length, 0);
+    return { aRevoir, nouveaux: (blocs(d) ?? []).reduce((n, b) => n + b.plan.nouveaux.length, 0) };
   }
 
   function ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance {
-    const p = programmeDe(d);
-    const aFaire = p.revisions.length + p.introductions.length;
-    if (!p.nouveautes && (d.sorte === 'apprendre' ? p.sansNouveautes !== 'dues' : aFaire === 0)) {
-      // Apprendre sur une autre série que la grappe du jour, commencée et pas finie : la Révision du jour la reprend.
-      if (d.sorte === 'apprendre' && p.entamee)
-        return { refus: remplir(S.grappe_entamee, { serie: nomSerie(p.entamee.grappe.continent) }), reviser: aFaire, finir: p.entamee.ids.length };
-      const raison = p.sansNouveautes === 'plafond' ? S.plafond : d.sorte === 'revision' ? S.rien : p.sansNouveautes === 'tout_appris' ? S.tout_appris : S.grappe_faite;
+    const bs = blocs(d);
+    if (!bs) return { refus: textes.toucher.echec_terrain, reviser: 0 };
+    const aFaire = bs.reduce((n, b) => n + b.plan.revisions.length + b.plan.introductions.length, 0);
+    const nouveaux = bs.some((b) => b.plan.nouveaux.length);
+    const p = bs[0]!.p;
+    if (!nouveaux && (d.sorte === 'apprendre' ? p.sansNouveautes !== 'dues' : aFaire === 0)) {
+      // Apprendre sur une autre série (ou l'autre domaine) que la grappe du jour, commencée et pas finie : la Révision du jour la reprend.
+      if (d.sorte === 'apprendre' && p.entamee) {
+        const refus = p.entamee.domaine === 'pays' ? remplir(S.grappe_entamee, { serie: nomSerie(p.entamee.grappe.continent) }) : S.grappe_entamee_communes;
+        return { refus, reviser: aFaire, finir: p.entamee.ids.length };
+      }
+      const toutAppris = bs[0]!.info.domaine === 'pays' ? S.tout_appris : S.tout_appris_communes;
+      const raison = p.sansNouveautes === 'plafond' ? S.plafond : d.sorte === 'revision' ? S.rien : p.sansNouveautes === 'tout_appris' ? toutAppris : S.grappe_faite;
       return { refus: raison, reviser: d.sorte === 'apprendre' ? aFaire : 0 };
     }
-    const seance = new Seance(
-      { domaine: DOMAINE, revisions: p.revisions, introductions: p.introductions, nouveaux: p.nouveautes?.ids ?? [] },
-      { seance: m.nouvelId(), appareil: m.appareil, horloge: m.horloge, nouvelId: () => m.nouvelId(), hasard },
+    const id = m.nouvelId();
+    const ctx = { seance: id, appareil: m.appareil, horloge: m.horloge, nouvelId: () => m.nouvelId(), hasard };
+    return pilote(
+      bs.map((b) => ({ info: b.info, seance: new Seance({ domaine: b.info.domaine, ...b.plan }, ctx) })),
+      d,
     );
-    return pilote(seance, d);
   }
 
   /** La ligne discrète après une réponse notée : quand la fiche revient. */
@@ -104,48 +188,63 @@ export function creerSeances(o: OptionsSeances): Seances {
     return n <= 1 ? S.revient_demain : remplir(S.revient, { n });
   }
 
-  function pilote(seance: Seance, d: DemandeSeance): PiloteSeance {
+  /** Les blocs d'une séance posés l'un après l'autre (les pays, puis les communes sur l'île) comme une seule séance. */
+  function pilote(blocsSeance: { info: InfoDomaine; seance: Seance }[], d: DemandeSeance): PiloteSeance {
+    /** Le bloc en cours : le premier qui n'est pas fini. */
+    const courant = () => blocsSeance.find((b) => !b.seance.finie) ?? null;
     return {
       question() {
-        const e = seance.courante;
-        if (!e) return null;
+        const b = courant();
+        const e = b?.seance.courante;
+        if (!b || !e) return null;
         const c = e.cadrage;
-        const cadrer = !c ? null : c.sorte === 'monde' ? ('monde' as const) : emprise(c.ids);
-        return { id: e.id, forme: e.forme, cadrer, connu: e.etape === 'qcm' && e.passage === 1 };
+        const cadrer = !c ? null : c.sorte === 'monde' ? ('monde' as const) : b.info.emprise(c.ids);
+        return { id: e.id, forme: e.forme, cadrer, connu: e.etape === 'qcm' && e.passage === 1, terrain: b.info.terrain };
       },
-      compte: () => `${seance.numero} / ${seance.total}`,
+      compte() {
+        const b = courant();
+        const avant = b ? blocsSeance.slice(0, blocsSeance.indexOf(b)).reduce((n, x) => n + x.seance.total, 0) : 0;
+        const total = blocsSeance.reduce((n, x) => n + x.seance.total, 0);
+        return `${avant + (b?.seance.numero ?? 0)} / ${total}`;
+      },
       repondre(r) {
-        const e = seance.courante;
-        if (!e) return '';
-        const evt = seance.repondre({ correct: r.correct, aide: r.aide, reponse: r.reponse, via: r.via, zoom: r.zoom, distance_km: r.distance_km, duree_ms: r.duree_ms });
+        const b = courant();
+        const e = b?.seance.courante;
+        if (!b || !e) return '';
+        const evt = b.seance.repondre({ correct: r.correct, aide: r.aide, reponse: r.reponse, via: r.via, zoom: r.zoom, distance_km: r.distance_km, duree_ms: r.duree_ms });
         void m.ecrire([evt]);
         if (e.etape === 'qcm') return '';
-        return ligneApres(e.fiche, r.correct && !r.aide, seance.reste(e.fiche));
+        return ligneApres(e.fiche, r.correct && !r.aide, b.seance.reste(e.fiche));
       },
-      connu: () => seance.connu(),
-      terminer: () => seance.terminer(),
+      connu: () => courant()?.seance.connu(),
+      terminer: () => {
+        for (const b of blocsSeance) b.seance.terminer();
+      },
       bilan(el, actions) {
-        const b = seance.bilan();
-        const nom = (id: string) => nomDe(o.monde, id);
+        const bilans = blocsSeance.map((b) => ({ b: b.seance.bilan(), d: b.info.donnees }));
+        const somme = (f: (x: BilanSeance) => number) => bilans.reduce((n, x) => n + f(x.b), 0);
+        const revisions = { n: somme((x) => x.revisions.n), premiers: somme((x) => x.revisions.premiers) };
+        const nouveaux = bilans.flatMap((x) => x.b.nouveaux.map((id) => nomDe(x.d, id)));
+        const rates = bilans.flatMap((x) => x.b.rates.map((r) => ({ ...r, nom: nomDe(x.d, r.id) })));
         const lignes: HTMLElement[] = [creer('h2', {}, d.sorte === 'apprendre' ? remplir(S.titre_apprendre, { serie: nomSerie(d.serie.id) }) : S.titre_revision)];
         if (!m.garde) lignes.push(creer('p', { class: 'hint seance-avis' }, S.non_garde));
-        if (b.revisions.n) lignes.push(creer('p', { class: 'seance-resume' }, remplir(S.bilan_revisions, { premiers: b.revisions.premiers, n: b.revisions.n })));
-        if (b.nouveaux.length) lignes.push(creer('p', { class: 'seance-resume' }, remplir(S.bilan_nouveaux, { noms: b.nouveaux.map(nom).join(', ') })));
-        if (!b.reponses) lignes.push(creer('p', { class: 'hint' }, S.bilan_vide));
-        if (b.rates.length)
+        if (revisions.n) lignes.push(creer('p', { class: 'seance-resume' }, remplir(S.bilan_revisions, { premiers: revisions.premiers, n: revisions.n })));
+        if (nouveaux.length) lignes.push(creer('p', { class: 'seance-resume' }, remplir(S.bilan_nouveaux, { noms: nouveaux.join(', ') })));
+        if (!somme((x) => x.reponses)) lignes.push(creer('p', { class: 'hint' }, S.bilan_vide));
+        if (rates.length)
           lignes.push(
             creer(
               'ul',
               { class: 'essai-rates' },
-              ...b.rates.map((r) =>
+              ...rates.map((r) =>
                 creer(
                   'li',
                   {},
                   r.fiche.endsWith(':nommer')
-                    ? remplir(S.bilan_rate_nom, { pays: nom(r.id) })
+                    ? remplir(S.bilan_rate_nom, { pays: r.nom })
                     : r.distance_km != null
-                      ? remplir(S.bilan_rate_km, { pays: nom(r.id), km: fmtKm(r.distance_km) })
-                      : remplir(S.bilan_rate_trouver, { pays: nom(r.id) }),
+                      ? remplir(S.bilan_rate_km, { pays: r.nom, km: fmtKm(r.distance_km) })
+                      : remplir(S.bilan_rate_trouver, { pays: r.nom }),
                 ),
               ),
             ),
@@ -185,5 +284,5 @@ export function creerSeances(o: OptionsSeances): Seances {
     };
   }
 
-  return { ouvrir, comptes, libre };
+  return { ouvrir, besoinIle, comptes, libre };
 }

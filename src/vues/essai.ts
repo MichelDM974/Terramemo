@@ -15,6 +15,7 @@
 // séance quittée reprend sa question au retour, comme une partie.
 import type { Emprise } from '../map/geo';
 import type { Via } from '../map/pick';
+import type { NomTerrain } from '../map/types';
 import { mediane } from '../mesure/stats';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
@@ -70,6 +71,8 @@ export interface QuestionPilotee {
   cadrer: Emprise | 'monde' | null;
   /** « Je connais déjà » proposé (QCM d'un pays nouveau). */
   connu: boolean;
+  /** Le terrain de la question (le monde par défaut ; l'île pour les communes, chargée avant la séance : besoinIle). */
+  terrain?: NomTerrain;
 }
 
 /** Une séance en cours, vue de Toucher : les questions, les réponses et le bilan viennent d'elle. */
@@ -101,6 +104,8 @@ export interface RefusSeance {
 
 export interface FabriqueSeances {
   ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance;
+  /** La demande a besoin de l'île (communes) : Toucher la charge avant ouvrir() ; sans réponse, non. */
+  besoinIle?(d: DemandeSeance): boolean;
 }
 
 const T = textes.toucher;
@@ -324,6 +329,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
 
   // --- Séance (Apprendre, Révision du jour) : les questions viennent du pilote. ---
 
+  /** Change à chaque séance lancée et à l'arrêt : un chargement de l'île arrivé après n'ouvre rien. */
+  let jetonSeance = 0;
+
   function lancerSeance(d: DemandeSeance): void {
     arreter();
     bilanAuRetour = false;
@@ -331,6 +339,24 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     serie = d.sorte === 'apprendre' ? d.serie : null;
     t = ctx.terrains.monde;
     ctx.terrains.montrer(t.nom);
+    // Des communes à réviser (ou Apprendre sous La Réunion) : l'île d'abord, son chargement dit dans le panneau.
+    if (o.seances?.besoinIle?.(d) && !ctx.terrains.deja('reunion')) {
+      const j = ++jetonSeance;
+      bilan.replaceChildren(creer('p', { class: 'hint' }, T.chargement_terrain));
+      bilan.hidden = false;
+      const suite = () => {
+        if (j !== jetonSeance) return;
+        bilan.hidden = true;
+        ouvrirSeance(d);
+      };
+      // Hors ligne : la séance sans les communes (elles restent dues).
+      ctx.terrains.charger('reunion').then(suite, suite);
+      return;
+    }
+    ouvrirSeance(d);
+  }
+
+  function ouvrirSeance(d: DemandeSeance): void {
     const r = o.seances?.ouvrir(d);
     if (!r) return;
     if ('refus' in r) return refuser(r);
@@ -350,6 +376,13 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     i = 0;
     const q = p.question();
     if (!q) return finirSeance();
+    // Les communes après les pays (Révision du jour), ou une séance de l'île : la carte de leur terrain.
+    const nt = q.terrain && q.terrain !== t.nom ? ctx.terrains.deja(q.terrain) : null;
+    if (nt) {
+      t.carte.effacerMarques();
+      t = nt;
+      ctx.terrains.montrer(t.nom);
+    }
     if (q.forme === 'trouver') {
       cibles = [q.id];
       barre.hidden = false;
@@ -435,7 +468,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       b.addEventListener('click', () => {
         lancement = { ...l, mode: 'localiser' };
         mode = 'localiser';
-        demarrer(s, ctx.terrains.monde, idsSerie(s, ctx.terrains.monde));
+        const terrain = ctx.terrains.deja(s.terrain) ?? ctx.terrains.monde;
+        demarrer(s, terrain, idsSerie(s, terrain));
       });
       boutons.push(b);
     }
@@ -456,6 +490,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
 
   /** La partie en cours (ou son bilan) abandonnée : rien à l'écran, la carte du monde. */
   function arreter(): void {
+    jetonSeance++;
     clearTimeout(enAttente);
     enAttente = 0;
     resEnAttente = null;

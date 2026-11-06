@@ -46,17 +46,17 @@ export interface DefSujet {
 /** Les exercices qui se jouent en touchant la carte : ceux des pays et des communes. */
 const SUR_LA_CARTE: DefSujet['modes'] = { entrainement: ['localiser', 'nommer'], classe: MODES_EPREUVE };
 /**
- * Les pays apprennent en plus (décision « Apprendre et Révision du jour » :
- * Apprendre, exercice de chaque série, sa grappe suivante) ; les communes au
- * lot 5b, avec leurs grappes.
+ * Pays et communes apprennent en plus (décision « Apprendre et Révision du
+ * jour » : Apprendre, exercice de chaque série, sa grappe suivante ; défaut
+ * D6 : sous La Réunion, ses 4 grappes de 6 communes, même budget).
  */
-const PAYS: DefSujet['modes'] = { entrainement: ['apprendre', ...SUR_LA_CARTE.entrainement], classe: MODES_EPREUVE };
+const AVEC_APPRENDRE: DefSujet['modes'] = { entrainement: ['apprendre', ...SUR_LA_CARTE.entrainement], classe: MODES_EPREUVE };
 const duTerrain = (t: NomTerrain) => (c: readonly Serie[]) => c.filter((s) => s.terrain === t);
 
 /** Les sujets, dans l'ordre affiché. Aucun sujet « à venir » factice : un sujet existe quand il se joue. */
 export const SUJETS: readonly DefSujet[] = [
-  { id: 'pays', series: duTerrain('monde'), modes: PAYS },
-  { id: 'communes', series: duTerrain('reunion'), modes: SUR_LA_CARTE },
+  { id: 'pays', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
+  { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];
 
 /** Un écran de Jouer : la racine (Rejouer, les branches), les sujets, les séries ou les exercices d'une série. */

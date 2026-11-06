@@ -38,7 +38,7 @@ export interface Retournee {
 }
 
 export function vueRetournee(ctx: ContexteVue): Retournee {
-  const consigne = creer('div', { class: 'essai-consigne' }, S.consigne_retournee);
+  const consigne = creer('div', { class: 'essai-consigne' }, textes.terrains.monde.consigne_nommer);
   const compte = creer('span', { class: 'essai-compte' });
   const nom = creer('div', { class: 'retournee-nom', 'aria-live': 'polite' });
   const reveler = creer('button', { type: 'button', id: 'retournee-reveler' }, S.reveler);
@@ -80,6 +80,8 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
   function afficher(): void {
     if (!t || !crochets || !etape) return;
     compte.textContent = crochets.compte();
+    // « Quel est ce pays ? », « Quelle est cette commune ? » : la consigne du terrain.
+    consigne.textContent = textes.terrains[t.nom].consigne_nommer;
     consigne.dataset.cible = id;
     const revele = etape !== 'question';
     nom.textContent = revele ? nomDe(t.donnees, id) : '';

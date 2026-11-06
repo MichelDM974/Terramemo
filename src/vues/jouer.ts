@@ -44,8 +44,9 @@ function stockage(): Storage | null {
   }
 }
 
-/** Phrase courte sous le nom d'un exercice : « 15 s par question, un seul toucher ». */
-export const detailExercice = (m: ModeJeu): string => remplir(J.exercices[m], { s: estEpreuve(m) ? secondesMode(m) : 0 });
+/** Phrase courte sous le nom d'un exercice : « 15 s par question, un seul toucher » ; Apprendre dit pays ou communes selon le sujet. */
+export const detailExercice = (m: ModeJeu, sujet = 'pays'): string =>
+  remplir(m === 'apprendre' && sujet === 'communes' ? J.exercices.apprendre_communes : J.exercices[m], { s: estEpreuve(m) ? secondesMode(m) : 0 });
 
 /** Règles complètes d'une épreuve (barème, départage), derrière « ? » ; '' pour un exercice d'entraînement. */
 export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[m].aide, { s: secondesMode(m) }) : '');
@@ -244,7 +245,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     const records = lireRecords(stockage());
     const boutons: HTMLButtonElement[] = [];
     for (const m of arbre.modes(n.branche, n.sujet)) {
-      const b = marque(bouton({ 'data-mode': m, class: 'jouer-ligne' }, nomExercice(m), detailExercice(m), recordDe(records, m, n.serie)), m);
+      const b = marque(bouton({ 'data-mode': m, class: 'jouer-ligne' }, nomExercice(m), detailExercice(m, n.sujet), recordDe(records, m, n.serie)), m);
       b.addEventListener('click', () => {
         if (rendue) choixFaits.set(rendue, m);
         lancer({ branche: n.branche, sujet: n.sujet, serie: n.serie, mode: m }, boutons, statut);

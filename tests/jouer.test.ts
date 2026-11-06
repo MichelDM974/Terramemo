@@ -38,8 +38,8 @@ describe('l’arbre (pur)', () => {
     expect(arbre.choix({ type: 'series', branche: 'classe', sujet: 'pays' })).toEqual(SERIES_PAYS);
     expect(arbre.choix({ type: 'series', branche: 'classe', sujet: 'communes' })).toEqual(['reunion']);
     expect(arbre.modes('entrainement', 'pays')).toEqual(['apprendre', 'localiser', 'nommer']);
-    // Apprendre : les pays seulement au lot 5a (les communes au lot 5b, avec leurs grappes).
-    expect(arbre.modes('entrainement', 'communes')).toEqual(['localiser', 'nommer']);
+    // Apprendre : les pays et les communes (défaut D6 : sous La Réunion, ses grappes de communes).
+    expect(arbre.modes('entrainement', 'communes')).toEqual(['apprendre', 'localiser', 'nommer']);
     expect(arbre.modes('classe', 'communes')).toEqual(['chrono', 'sansfaute', 'minute']);
   });
 
@@ -425,7 +425,29 @@ describe('la vue Jouer', () => {
     const l: Lancement = { branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' };
     garderDerniere(localStorage, l);
     expect(lireDerniere(localStorage, arbre)).toEqual(l);
-    expect(arbre.valide({ ...l, sujet: 'communes', serie: 'reunion' })).toBe(false);
+    expect(arbre.valide({ ...l, sujet: 'communes', serie: 'reunion' })).toBe(true);
+    expect(arbre.valide({ ...l, branche: 'classe' })).toBe(false);
+  });
+
+  it('Apprendre sous La Réunion : sa phrase dit les communes ; l’île se charge dans Jouer, puis la séance part sur elle', async () => {
+    const j = monter();
+    j.ouvrir('entrainement', 'communes', 'reunion');
+    expect(j.attr('data-mode')).toEqual(['apprendre', 'localiser', 'nommer']);
+    const b = j.panneau.querySelector('[data-mode="apprendre"]')!;
+    expect(b.innerText).toContain(textes.jouer.exercices.apprendre_communes);
+    const pays = (() => {
+      const k = monter();
+      k.ouvrir('entrainement', 'pays', 'Europe');
+      return k.panneau.querySelector('[data-mode="apprendre"]')!.innerText;
+    })();
+    expect(pays).toContain(textes.jouer.exercices.apprendre);
+    b.click();
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    await Promise.resolve();
+    await Promise.resolve();
+    const [l, s, t] = j.opts.lancer.mock.calls[0]!;
+    expect(l).toEqual({ branche: 'entrainement', sujet: 'communes', serie: 'reunion', mode: 'apprendre' });
+    expect([s.id, t]).toEqual(['reunion', j.ile]);
   });
 
   it('Jouer quitté : le panneau se cache', () => {

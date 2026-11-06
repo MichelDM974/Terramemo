@@ -54,6 +54,7 @@
     },
     "exercices": {
       "apprendre": "Les pays voisins suivants : QCM, puis les trouver sur la carte",
+      "apprendre_communes": "Les communes voisines suivantes : QCM, puis les trouver sur la carte",
       "localiser": "Touche sur la carte le lieu demandé",
       "nommer": "Un lieu s'allume : choisis son nom parmi quatre",
       "chrono": "{s} s par question, un seul toucher",
@@ -214,7 +215,6 @@
     "chargement": "…",
     "non_garde": "Progrès non gardés sur cet appareil",
     "connais": "Je connais déjà",
-    "consigne_retournee": "Quel est ce pays ?",
     "reveler": "Révéler",
     "savais": "Je savais",
     "savais_pas": "Je ne savais pas",
@@ -237,9 +237,11 @@
     "rien": "Rien à revoir aujourd'hui.",
     "grappe_faite": "La grappe du jour est déjà apprise : la suivante demain.",
     "grappe_entamee": "Les pays voisins commencés aujourd'hui ({serie}) ne sont pas finis : ils passent avant.",
+    "grappe_entamee_communes": "Les communes voisines commencées aujourd'hui (La Réunion) ne sont pas finies : elles passent avant.",
     "finir": "Les finir · {n}",
     "plafond": "Assez de révisions pour aujourd'hui : la suite demain.",
     "tout_appris": "Tous les pays de cette série sont appris.",
+    "tout_appris_communes": "Toutes les communes sont apprises.",
     "trouver": "Trouver"
   },
   "memoire": {

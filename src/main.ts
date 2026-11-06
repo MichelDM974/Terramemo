@@ -519,7 +519,8 @@ async function demarrer(): Promise<void> {
   arbre = creerArbre(catalogue(pays));
   // ?teintes=demo garde ses teintes partout : l'accueil n'y pose pas celles de la mémoire.
   explorer = vueExplorer(ctx, teintesDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive) });
-  const seances = creerSeances({ memoire, monde: donnees });
+  // Les communes (Apprendre sous La Réunion, leurs révisions) : les données de l'île une fois chargée.
+  const seances = creerSeances({ memoire, monde: donnees, ile: () => terrains?.deja('reunion')?.donnees ?? null });
   const essai = vueEssai(ctx, { versJouer: nav.versJouer, versCarte: () => nav.remonter('carte'), seances, libre: seances.libre });
   const epreuve = vueChrono(ctx, { versJouer: nav.versJouer });
   // « Retour » des classements, « × » de Jouer : la vue d'avant, en remontant l'historique.
