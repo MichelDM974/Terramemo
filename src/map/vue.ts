@@ -14,6 +14,8 @@
 // glisse de dx·G(φ)/G(φ_doigt) (pour un glissé sur l'équateur : 0,94 fois
 // à 30°, 0,75 à 60°, 0,59 au pôle).
 import { geoEqualEarth, geoEqualEarthRaw, type GeoProjection } from 'd3-geo';
+import type { Position } from 'geojson';
+import { empriseEcran, versEcran, viser } from './geo';
 import { creerProjection } from './projection';
 import type { Transfo } from './types';
 
@@ -180,6 +182,34 @@ export function rencontre(o: number, s: number, e: number, n: number, reg: Regio
   const [a, b] = reg.lon;
   if (a <= b) return e >= a && o <= b;
   return e >= a || o <= b; // région à cheval sur l'antiméridien
+}
+
+/**
+ * La vue qui montre une zone (« Voir », montrer de Nommer) : le cadrage de
+ * viser() (geo.ts), celui de la carte SVG, calculé dans la projection tournée
+ * sur la longitude de son point. Son point au centre de l × hVisible (la
+ * partie au-dessus d'une barre), la zone (côté taille1 au zoom 1) sur un
+ * quart du plus petit côté, au zoom kMax au plus ; avec anneau (le contour du
+ * polygone principal), la zone longue fait baisser le zoom et la vue se
+ * décale juste assez pour qu'il tienne. Le décalage horizontal devient une
+ * rotation : le point reste où viser() le met, exactement sur son parallèle.
+ */
+export function viserVue(
+  c: Cadre,
+  point: readonly [number, number],
+  taille1: number,
+  kMax: number,
+  hVisible = c.h,
+  anneau?: readonly Position[] | null,
+): VueGlobe {
+  const h = Math.max(1, Math.min(hVisible, c.h));
+  const lon = normaliserLon(point[0]);
+  const proj = projectionDe(lon, c);
+  const b = proj([point[0], point[1]]) ?? [c.tx, c.ty];
+  const boite = anneau ? empriseEcran(anneau, (ll) => proj(ll)) : null;
+  const t = viser([b[0], b[1]], taille1, c.l, h, kMax, boite);
+  const [sx, sy] = versEcran(t, b[0], b[1]);
+  return placer(c, point, sx, sy, bornerK(t.k, kMax));
 }
 
 /**

@@ -29,7 +29,7 @@ import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
 import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
-import { RAYON_TERRE_KM, versEcran } from './geo';
+import { anneauPrincipal, RAYON_TERRE_KM, versEcran } from './geo';
 import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
@@ -47,6 +47,7 @@ import {
   suivrePoint,
   transfoDe,
   versPlan,
+  viserVue,
   vueDeTransfo,
   type Cadre,
   type VueGlobe,
@@ -541,13 +542,14 @@ export class CarteCanvas implements CarteAffichee {
   }
 
   /**
-   * « Voir » : le globe tourne et zoome en même temps jusqu'au pays (son point
-   * au centre), par l'interpolation de van Wijk et Nuij sur un plan où la
+   * « Voir » : le globe tourne et zoome en même temps jusqu'au pays (cadré
+   * comme en SVG : centré dans la partie visible hVisible, au-dessus de la
+   * barre de Nommer, son polygone principal entier), par l'interpolation de van Wijk et Nuij sur un plan où la
    * longitude du centre est déroulée (le plus court chemin autour du globe) :
    * sur un long trajet, elle recule d'abord. Carte allégée pendant le vol.
    */
   montrer(id: string, hVisible?: number): void {
-    const cible = this.vise(id, ZOOM_MAX_MONTRER, hVisible);
+    const cible = this.vise(id, ZOOM_MAX_MONTRER, hVisible, true);
     if (!cible) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible);
     this.arreterVol();
@@ -577,14 +579,17 @@ export class CarteCanvas implements CarteAffichee {
     this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX));
   }
 
-  /** La vue qui met le point d'un pays au centre de l × h (h : la partie visible), son plus grand polygone sur un quart de l'écran. */
-  private vise(id: string, kMax: number, hVisible = this.c.h): VueGlobe | null {
+  /**
+   * La vue qui met le point d'un pays au centre de l × h (h : la partie
+   * visible), son plus grand polygone sur un quart de l'écran ; entier (ce
+   * polygone tient à l'écran) si demandé, pour montrer() : le cadrage du SVG
+   * (viserVue).
+   */
+  private vise(id: string, kMax: number, hVisible = this.c.h, entier = false): VueGlobe | null {
     const e = this.o.donnees.entites.find((en) => en.pays.id === id);
     if (!e) return null;
-    const h = Math.max(1, Math.min(hVisible, this.c.h));
-    const taille1 = Math.max(tailleEcranPx(e.pays, this.c.s, 1), 1e-6);
-    const k = bornerK(Math.min(this.c.l, h) / 4 / taille1, kMax);
-    return placer(this.c, e.pays.point, this.c.l / 2, h / 2, k);
+    const anneau = entier ? anneauPrincipal(e.forme, e.pays.point) : null;
+    return viserVue(this.c, e.pays.point, tailleEcranPx(e.pays, this.c.s, 1), kMax, hVisible, anneau);
   }
 
   /**
