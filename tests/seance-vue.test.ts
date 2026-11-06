@@ -278,7 +278,7 @@ describe('séance : les communes de La Réunion', () => {
     expect(p.question()?.terrain).toBe('reunion');
   });
 
-  it('le lendemain, Révision du jour : les pays d’abord sur le monde, puis le bloc des communes sur l’île, une seule séance', async () => {
+  it('le lendemain, Révision du jour : les révisions (pays, puis communes sur l’île) avant la grappe de pays nouveaux, de retour sur le monde, une seule séance', async () => {
     let charge: typeof ile | null = ile;
     const m = await monter(undefined, { ile: () => charge });
     const { questions: q0 } = jouer(m.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance, { rate: '' });
@@ -301,10 +301,11 @@ describe('séance : les communes de La Réunion', () => {
     expect(p.compte()).toBe('1 / 16');
     const { questions } = jouer(p);
     const terrains = questions.map((q) => q.terrain);
-    const premiereIle = terrains.indexOf('reunion');
-    expect(premiereIle).toBe(10);
-    expect(terrains.slice(premiereIle).every((t) => t === 'reunion')).toBe(true);
-    const ileQ = questions.slice(premiereIle);
+    // Aucun pays à revoir : le bloc des communes d'abord (la commune ratée, due, et cinq cartes retournées), puis la grappe de pays (5 QCM, 5 rappels).
+    expect(terrains.slice(0, 6).every((t) => t === 'reunion')).toBe(true);
+    expect(terrains.slice(6).every((t) => t === 'monde')).toBe(true);
+    expect(questions.slice(6).map((q) => q.forme)).toEqual([...Array(5).fill('qcm'), ...Array(5).fill('trouver')]);
+    const ileQ = questions.slice(0, 6);
     expect(ileQ.map(cle)).toContain(`reunion:trouver:${raté}`);
     expect(ileQ.filter((q) => q.forme === 'retournee').length).toBe(5);
     await m2.memoire.ecrire([]);

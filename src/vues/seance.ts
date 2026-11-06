@@ -8,7 +8,8 @@
 // le journal des parties libres (D11 : mode 'libre', hors FSRS). Les
 // communes de La Réunion (défaut D6) : Apprendre sous La Réunion (4 grappes
 // de 6), le même budget d'une grappe de lieux nouveaux par jour, et leurs
-// révisions en second bloc de la Révision du jour, sur l'île.
+// révisions en second bloc de la Révision du jour, sur l'île, avant la
+// grappe de pays nouveaux.
 import type { DonneesCarte } from '../map/donnees';
 import { empriseGrappe, type Emprise } from '../map/geo';
 import type { Lieu, NomTerrain } from '../map/types';
@@ -110,11 +111,14 @@ export function creerSeances(o: OptionsSeances): Seances {
   /**
    * Les blocs d'une demande. Apprendre : le domaine de la série (un
    * continent, ou l'île), ses révisions dues puis sa grappe suivante. La
-   * Révision du jour : les pays (révisions, fiches nommer, grappe suivante),
-   * puis les communes en second bloc (défaut D6 : leurs révisions, et la
-   * grappe de communes commencée ce jour s'il en reste), l'île seulement si
-   * elle est chargée ; la grappe de pays seulement si aucune révision de
-   * communes ne reste après la séance (les révisions dues d'abord, partout).
+   * Révision du jour : les pays (révisions, fiches nommer), puis les
+   * communes en second bloc (défaut D6 : leurs révisions, leurs fiches
+   * nommer, et la grappe de communes commencée ce jour s'il en reste), l'île
+   * seulement si elle est chargée, puis la grappe de pays suivante en
+   * troisième bloc, de retour sur le monde, et seulement si aucune révision
+   * de communes ne reste après la séance (décision « Apprendre et Révision
+   * du jour » : les révisions dues d'abord, partout ; quitter la séance
+   * après les pays laisse la grappe pour plus tard, pas les communes dues).
    */
   function blocs(d: DemandeSeance): Bloc[] | null {
     if (d.sorte === 'apprendre') {
@@ -130,8 +134,10 @@ export function creerSeances(o: OptionsSeances): Seances {
     // Les nouveautés des communes : seulement la grappe commencée ce jour (Apprendre sous La Réunion en ouvre une).
     const entamee = grappeEntamee(m.etat(), m.jour(), c.toutes, 'communes');
     if (!entamee || bc.p.nouveautes?.grappe !== entamee.grappe) bc.plan = { ...bc.plan, nouveaux: [] };
-    if (bc.p.restantes > 0 && bp.plan.nouveaux.length) bp.plan = { ...bp.plan, nouveaux: [] };
-    return [bp, bc];
+    const reviser = { ...bp, plan: { ...bp.plan, nouveaux: [] } };
+    if (bc.p.restantes > 0 || !bp.plan.nouveaux.length) return [reviser, bc];
+    // Les révisions dues d'abord, partout : la grappe de pays vient après le bloc des communes, dans un troisième bloc (sur le monde).
+    return [reviser, bc, { ...bp, plan: { revisions: [], introductions: [], nouveaux: bp.plan.nouveaux } }];
   }
 
   /** Une demande a-t-elle besoin de l'île (communes dues, grappe de communes commencée ce jour, Apprendre sous La Réunion) ? */
@@ -188,7 +194,7 @@ export function creerSeances(o: OptionsSeances): Seances {
     return n <= 1 ? S.revient_demain : remplir(S.revient, { n });
   }
 
-  /** Les blocs d'une séance posés l'un après l'autre (les pays, puis les communes sur l'île) comme une seule séance. */
+  /** Les blocs d'une séance posés l'un après l'autre (les pays, les communes sur l'île, la grappe de pays) comme une seule séance. */
   function pilote(blocsSeance: { info: InfoDomaine; seance: Seance }[], d: DemandeSeance): PiloteSeance {
     /** Le bloc en cours : le premier qui n'est pas fini. */
     const courant = () => blocsSeance.find((b) => !b.seance.finie) ?? null;
