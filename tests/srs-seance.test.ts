@@ -92,6 +92,18 @@ describe('séance : la file', () => {
     expect(fra.cadrage).toEqual({ sorte: 'monde' });
   });
 
+  it('après « Voir » : la question suivante repart du monde (révision) ou de la région de la grappe (rappel)', () => {
+    const voir: ReponseSeance = { correct: false, aide: 'voir', duree_ms: 10 };
+    const s = new Seance({ domaine: 'pays', revisions: ['pays:UKR:localiser', 'pays:POL:localiser', 'pays:MDA:localiser'], introductions: [], nouveaux: [] }, ctx());
+    const v = parcourir(s, (e) => (e.passage === 1 ? voir : juste)).vues;
+    expect(v.slice(0, 3).map((x) => x.cadrage)).toEqual([{ sorte: 'monde' }, { sorte: 'monde' }, { sorte: 'monde' }]);
+    // La reprise qui suit une reprise trouvée sans aide : laissée au joueur.
+    expect(v.slice(4).map((x) => x.cadrage)).toEqual([null, null]);
+    const g = new Seance({ domaine: 'pays', revisions: [], introductions: [], nouveaux: ['BEN', 'TGO', 'GHA'] }, ctx());
+    const r = parcourir(g, (e) => (e.etape === 'rappel' && e.passage === 1 ? voir : juste)).vues.filter((x) => x.etape === 'rappel');
+    expect(r.map((x) => x.cadrage)).toEqual([0, 1, 2].map(() => ({ sorte: 'grappe', ids: ['BEN', 'TGO', 'GHA'] })));
+  });
+
   it('séance vide : finie d’emblée', () => {
     const s = new Seance({ domaine: 'pays', revisions: [], introductions: [], nouveaux: [] }, ctx());
     expect(s.finie).toBe(true);

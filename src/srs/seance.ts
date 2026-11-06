@@ -26,8 +26,9 @@ export type FormeEtape = 'trouver' | 'qcm' | 'retournee';
 /**
  * Cadrage de la carte à poser avant une question (décision « Cadrage et
  * disques en séance ») : le monde entier (une question de Trouver après un
- * QCM ou une carte retournée, qui ont volé jusqu'à leur zone, ou au début),
- * ou la région de la grappe au début de son rappel. Les autres questions de
+ * QCM ou une carte retournée, qui ont volé jusqu'à leur zone, ou au début,
+ * ou après « Voir », qui a volé jusqu'à sa cible), ou la région de la grappe
+ * au début de son rappel (et après un « Voir » pendant ce rappel). Les autres questions de
  * Trouver laissent la carte au joueur (un cadrage par question donnerait la
  * réponse).
  */
@@ -161,6 +162,8 @@ export class Seance {
   private readonly connus = new Set<string>();
   /** La forme de la dernière question montrée (cadrage de la suivante). */
   private precedente: FormeEtape | null = null;
+  /** La dernière réponse a pris « Voir » : la carte a volé jusqu'à sa cible (cadrage de la suivante). */
+  private apresVoir = false;
   private rappelCadre = false;
   private repondues = 0;
   private readonly grappe: readonly string[];
@@ -221,9 +224,12 @@ export class Seance {
       if (e.etape === 'rappel' && !this.rappelCadre) {
         e.cadrage = { sorte: 'grappe', ids: this.grappe };
         this.rappelCadre = true;
-      } else if (e.forme === 'trouver' && this.precedente !== 'trouver') e.cadrage = { sorte: 'monde' };
+      } else if (e.forme === 'trouver' && (this.precedente !== 'trouver' || this.apresVoir))
+        // Après « Voir », la carte est au zoom de la cible, souvent un voisin de la suivante : la région du rappel, le monde sinon.
+        e.cadrage = this.apresVoir && e.mode === 'rappel' && this.grappe.includes(e.id) ? { sorte: 'grappe', ids: this.grappe } : { sorte: 'monde' };
       this.precedente = e.forme;
     }
+    this.apresVoir = false;
     this.courante_ = e;
   }
 
@@ -266,6 +272,7 @@ export class Seance {
     }
     // Un raté repasse : en fin de QCM (avant le rappel), ou en fin de séance.
     const rate = !r.correct || r.aide === 'voir' || r.aide === 'passer';
+    this.apresVoir = r.aide === 'voir';
     if (rate && e.etape === 'qcm' && e.passage < PASSAGES_QCM) {
       const apres = this.file.reduce((k, x, i) => (x.etape === 'qcm' ? i + 1 : k), 0);
       this.file.splice(apres, 0, { ...e, passage: e.passage + 1, cadrage: null });
