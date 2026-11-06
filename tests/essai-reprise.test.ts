@@ -581,13 +581,15 @@ describe('Toucher : une séance qui passe sur l’île (communes, D6)', () => {
     const f = piloteFactice([
       { id: 'FRA', forme: 'trouver', cadrer: 'monde', connu: false, terrain: 'monde' },
       { id: '97411', forme: 'trouver', cadrer: 'monde', connu: false, terrain: 'reunion' },
+      // La grappe de pays nouveaux après le bloc des communes (Révision du jour) : de retour sur le monde.
+      { id: 'FRA', forme: 'trouver', cadrer: 'monde', connu: false, terrain: 'monde' },
     ]);
     const fabrique = { ouvrir: vi.fn(() => f.p), besoinIle: vi.fn(() => true) };
     const vue = vueEssai(ctx, { versJouer: vi.fn(), seances: fabrique });
     return { vue, zone, notees, montres, charger, fabrique, f, el: (s: string) => zone.querySelector(s) as El };
   }
 
-  it('l’île chargée d’abord (dit dans le panneau), puis les pays sur le monde et les communes sur l’île', async () => {
+  it('l’île chargée d’abord (dit dans le panneau), puis les pays sur le monde, les communes sur l’île, la grappe de pays de retour sur le monde', async () => {
     const s = monterIle();
     s.vue.activer();
     s.vue.reviser();
@@ -611,7 +613,10 @@ describe('Toucher : une séance qui passe sur l’île (communes, D6)', () => {
     s.vue.activer();
     expect(s.montres.at(-1)).toBe('reunion');
     s.vue.toucher?.(1, 1, {} as PointerEvent);
-    expect(s.notees).toEqual(['monde:FRA', 'reunion:97411']);
+    vi.advanceTimersByTime(1200);
+    expect(s.montres.at(-1)).toBe('monde');
+    s.vue.toucher?.(1, 1, {} as PointerEvent);
+    expect(s.notees).toEqual(['monde:FRA', 'reunion:97411', 'monde:FRA']);
   });
 
   it('l’île hors ligne : la séance part quand même (sans ses communes, que la séance ne pose pas)', async () => {
