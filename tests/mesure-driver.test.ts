@@ -12,8 +12,11 @@
 // driver recalcule tout depuis les intervalles. Enfin, sur le scénario du
 // driver, le tour du monde a sa ligne (tourner), que la page fond dans
 // glisser ; et le chargement et le relais du webgl, première visite à part.
+// Enfin, la première visite de `mesurer` vide les caches du chargement sans
+// jamais toucher aux données de l'utilisateur (journal, compte anonyme,
+// localStorage) : vider_premiere_visite contre une fausse page CDP.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +35,8 @@ import {
   statsGeste,
   tenue120,
 } from '../src/mesure/stats';
+import { CLE_APPAREIL } from '../src/journal/appareil';
+import { BASE_JOURNAL, BASE_MAILLAGE } from '../src/journal/depot';
 
 const DRIVER = fileURLToPath(new URL('../.claude/skills/run-terramemo/driver.py', import.meta.url));
 const P60 = 16.67;
@@ -540,5 +545,136 @@ describe('driver.py resumer : scénario du driver, chargement et relais du webgl
     expect(r.replis).toEqual([{ repetition: 1, raison: 'WebGL2 indisponible', gpu: 'ANGLE (essai)', logiciel: true }]);
     expect(Object.keys(scenario.repli.gestes).sort()).toEqual(['glisser', 'pincer', 'tourner']);
     expect(scenario.repli.gestes.pincer!.rendu).toBe('canvas');
+  });
+});
+
+// Fausse page CDP : IndexedDB.* n'agit que depuis un document de l'origine
+// (« No document for given frame found » sinon, comme Chromium) ;
+// Storage.clearDataForOrigin vide l'IndexedDB ou le localStorage entiers si
+// on le lui demande, comme le vrai.
+const FAUSSE_PAGE = String.raw`
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("driver", sys.argv[1])
+d = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(d)
+cas = json.loads(sys.argv[2])
+for k, v in cas.get("constantes", {}).items():
+    setattr(d, k, tuple(v) if isinstance(v, list) else v)
+class Page:
+    def __init__(s):
+        s.appels, s.bases, s.cles, s.url = [], set(cas["bases"]), list(cas["cles"]), "about:blank"
+    def goto(s, url):
+        s.appels.append(["goto", url])
+        s.url = url
+    def js(s, expression):
+        return sorted(s.cles)
+    def cdp(s, methode, **k):
+        s.appels.append([methode, k])
+        if methode.startswith("IndexedDB.") and not s.url.startswith(k["securityOrigin"] + "/"):
+            raise RuntimeError(methode + " : No document for given frame found")
+        if methode == "IndexedDB.requestDatabaseNames":
+            return {"databaseNames": sorted(s.bases)}
+        if methode == "IndexedDB.deleteDatabase":
+            if not cas.get("suppression_sans_effet"):
+                s.bases.discard(k["databaseName"])
+            return {}
+        if methode == "Storage.clearDataForOrigin":
+            types = k["storageTypes"].split(",")
+            if "all" in types or "indexeddb" in types:
+                s.bases.clear()
+            if "all" in types or "local_storage" in types:
+                s.cles.clear()
+            return {}
+        raise RuntimeError("méthode inattendue " + methode)
+p = Page()
+r = d.vider_premiere_visite(p, cas["url"])
+print(json.dumps({"stockage": r, "appels": p.appels, "constantes": {
+    "STOCKAGE_VIDE": d.STOCKAGE_VIDE, "BASES_VIDEES": d.BASES_VIDEES, "BASES_GARDEES": d.BASES_GARDEES,
+    "PAGE_SANS_APPLI": d.PAGE_SANS_APPLI}}))
+`;
+
+interface Vidage {
+  stockage: { vide: boolean; origine: string; types: string | null; bases_supprimees: string[]; bases_gardees: string[] | null; cles_gardees: number | null; erreur: string | null };
+  appels: [string, unknown][];
+  constantes: { STOCKAGE_VIDE: string; BASES_VIDEES: string[]; BASES_GARDEES: string[]; PAGE_SANS_APPLI: string };
+}
+
+function vider(cas: { url: string; bases: string[]; cles: string[]; suppression_sans_effet?: boolean; constantes?: Record<string, unknown> }): { r: Vidage | null; status: number | null; stderr: string } {
+  const r = spawnSync('python3', ['-c', FAUSSE_PAGE, DRIVER, JSON.stringify(cas)], { encoding: 'utf8' });
+  return { r: r.status === 0 ? (JSON.parse(r.stdout) as Vidage) : null, status: r.status, stderr: r.stderr };
+}
+
+/** Clé de localStorage d'un fichier source (const CLE_… = 'terramemo.…'). */
+const cleDe = (fichier: string, nom: string): string => {
+  const m = readFileSync(fichier, 'utf8').match(new RegExp(`const ${nom} = '([^']+)'`));
+  if (!m) throw new Error(`${nom} introuvable dans ${fichier}`);
+  return m[1]!;
+};
+
+describe('driver.py mesurer : première visite sans perte des données de l’utilisateur', () => {
+  // Les clés de progrès et réglages relues dans le code : un renommage ne passe pas inaperçu.
+  const CLES = [
+    CLE_APPAREIL,
+    cleDe('src/epreuve/chrono.ts', 'CLE_RECORDS'),
+    cleDe('src/vues/classement.ts', 'CLE_PSEUDO'),
+    cleDe('src/vues/arbre.ts', 'CLE_DERNIERE'),
+    cleDe('src/main.ts', 'CLE_MESURES'),
+  ];
+  const BASES = [BASE_MAILLAGE, BASE_JOURNAL, 'firebaseLocalStorageDb', 'firebase-heartbeat-database'];
+
+  it('seule la base du maillage webgl est supprimée, depuis une page du site sans l’appli ; journal, compte et localStorage gardés', () => {
+    const { r, stderr } = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES });
+    expect(r, stderr).not.toBeNull();
+    const { stockage, appels, constantes } = r!;
+    expect(stockage).toMatchObject({ vide: true, origine: 'http://localhost:8064', erreur: null, bases_supprimees: [BASE_MAILLAGE], cles_gardees: CLES.length });
+    expect(stockage.bases_gardees).toEqual([BASE_JOURNAL, 'firebase-heartbeat-database', 'firebaseLocalStorageDb'].sort());
+    const types = constantes.STOCKAGE_VIDE.split(',');
+    for (const t of ['all', 'indexeddb', 'local_storage', 'cookies']) expect(types).not.toContain(t);
+    expect(types).toEqual(expect.arrayContaining(['cache_storage', 'service_workers', 'shader_cache']));
+    const suppressions = appels.filter(([m]) => m === 'IndexedDB.deleteDatabase').map(([, k]) => (k as { databaseName: string }).databaseName);
+    expect(suppressions).toEqual([BASE_MAILLAGE]);
+    // La page sans appli est chargée avant tout appel IndexedDB.
+    expect(appels[0]).toEqual(['goto', `http://localhost:8064/${constantes.PAGE_SANS_APPLI}`]);
+  });
+
+  it('les listes du driver suivent le code : base du maillage du worker, base du journal et compte anonyme gardés, page sans appli publiée', () => {
+    const { r } = vider({ url: 'http://localhost:8064/', bases: [], cles: [] });
+    const c = r!.constantes;
+    expect(c.BASES_VIDEES).toEqual([BASE_MAILLAGE]);
+    expect(readFileSync('src/map/maillage.worker.ts', 'utf8')).toContain(`const BASE = '${BASE_MAILLAGE}';`);
+    expect(c.BASES_GARDEES).toEqual(expect.arrayContaining([BASE_JOURNAL, 'firebaseLocalStorageDb']));
+    expect(existsSync(`public/${c.PAGE_SANS_APPLI}`)).toBe(true);
+    expect(r!.stockage).toMatchObject({ vide: true, bases_supprimees: [], bases_gardees: [] });
+  });
+
+  it('site en ligne sous une adresse avec requête : même origine, page sans appli à côté', () => {
+    const { r } = vider({ url: 'https://terramemo.web.app/?rendu=webgl', bases: [BASE_JOURNAL], cles: CLES });
+    expect(r!.appels[0]).toEqual(['goto', 'https://terramemo.web.app/geo/LICENSE-CLDR.txt']);
+    expect(r!.stockage).toMatchObject({ vide: true, origine: 'https://terramemo.web.app', bases_supprimees: [], bases_gardees: [BASE_JOURNAL] });
+  });
+
+  it('base du maillage restée : pas une première visite sûre, erreur relevée', () => {
+    const { r } = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES, suppression_sans_effet: true });
+    expect(r!.stockage.vide).toBe(false);
+    expect(r!.stockage.erreur).toContain(BASE_MAILLAGE);
+  });
+
+  it('un vidage par type qui emporterait l’IndexedDB ou le localStorage est refusé avant tout appel', () => {
+    for (const STOCKAGE_VIDE of ['indexeddb,shader_cache', 'all', 'local_storage']) {
+      const { r, status, stderr } = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES, constantes: { STOCKAGE_VIDE } });
+      expect(r).toBeNull();
+      expect(status).not.toBe(0);
+      expect(stderr).toContain('données de l\'utilisateur');
+    }
+    const { r } = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES, constantes: { BASES_VIDEES: [BASE_MAILLAGE, BASE_JOURNAL] } });
+    expect(r).toBeNull();
+  });
+
+  it('une base ou une clé de l’utilisateur disparue est signalée (filet si le navigateur vidait plus que demandé)', () => {
+    // Garde-fou levé à dessein : le contrôle d'après coup voit seul la perte.
+    const tout = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES, constantes: { STOCKAGE_VIDE: 'all', TYPES_INTERDITS: [] } }).r!;
+    expect(tout.stockage.vide).toBe(false);
+    expect(tout.stockage.erreur).toContain(BASE_JOURNAL);
+    expect(tout.stockage.erreur).toContain(`localStorage ${CLE_APPAREIL}`);
   });
 });

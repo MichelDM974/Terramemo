@@ -11,8 +11,8 @@ décision « Rendu par défaut » du 06/11) ou en WebGL2 (rendu `webgl`) ; SVG
 en rendus `g` et `css` ; tous au choix dans ⚙ ; l'île toujours en SVG),
 emballé en APK par Capacitor (`android/`). **Pas de serveur à soi** : le
 stockage est dans le navigateur (profil jetable du chromium du driver ;
-sur le téléphone, `mesurer` vide celui de l'origine mesurée, cf.
-« Première visite »), sauf les **classements du Chrono** : Firestore et
+sur le téléphone, `mesurer` vide les caches de l'origine mesurée, jamais
+le journal ni le compte, cf. « Première visite »), sauf les **classements du Chrono** : Firestore et
 Auth anonyme de Firebase (`src/epreuve/classement.ts`, règles
 `firestore.rules`), chargés seulement à l'ouverture d'un classement. Le
 driver (`ui`) y lit les vrais classements sans publier ni créer de
@@ -168,11 +168,20 @@ défaut), `--garder-stockage` (voir ci-dessous), `--ws` (local par HTTP +
 WebSocket, le chemin du téléphone), `--serie` (adb), `--out`, `--binaire`.
 
 **Première visite, puis visites suivantes.** Avant la répétition 1, le
-driver vide le stockage de l'origine mesurée (`Storage.clearDataForOrigin`,
-types `indexeddb,cache_storage,service_workers,shader_cache` : le maillage
-du webgl gardé en IndexedDB, un éventuel service worker et ses fichiers,
-les shaders compilés gardés sur disque ; pas le `localStorage`, réglages de
-l'utilisateur sans effet sur le chargement). Sur le téléphone, Chrome et
+driver vide les caches du chargement pour l'origine mesurée
+(`vider_premiere_visite`) : `Storage.clearDataForOrigin` types
+`cache_storage,service_workers,shader_cache` (un éventuel service worker
+et ses fichiers, les shaders compilés gardés sur disque), puis la seule
+base IndexedDB `terramemo` (maillage du webgl, `BASES_VIDEES`) par
+`IndexedDB.deleteDatabase`, qui ferme de force ses connexions et demande
+un document de l'origine : le driver charge d'abord `geo/LICENSE-CLDR.txt`
+(page du site sans script). **Jamais** le type `indexeddb` ni `all` ni le
+`localStorage` : la base `terramemo-journal` (journal des réponses),
+`firebaseLocalStorageDb` (compte anonyme), toute autre base et les clés
+`terramemo.*` (appareil, records, pseudo, réglages) restent ; leur
+disparition, ou la base du maillage restée, met une erreur dans
+`stockage` (répétition 1 alors « visite inconnue » sur le téléphone).
+`tests/mesure-driver.test.ts` le vérifie. Sur le téléphone, Chrome et
 l'APK gardent sinon leurs données d'une séance à l'autre et après `adb
 install -r` : la répétition 1 lirait le maillage du cache. La répétition 1
 est donc une **première visite** (cache HTTP coupé, rien de gardé ; avec
@@ -180,11 +189,12 @@ est donc une **première visite** (cache HTTP coupé, rien de gardé ; avec
 répétition 1 y est « visite inconnue »), les
 suivantes des **visites suivantes** (en webgl : maillage lu dans le cache
 écrit à la première). Sur le PC, le profil du chromium est neuf à chaque
-lancement : la répétition 1 y est toujours une première visite. Le vidage
-efface TOUT l'IndexedDB de l'origine (`https://localhost` pour l'APK) : le
-jour où l'appli y garde des données de l'utilisateur, `--garder-stockage`
-(sur le téléphone, la répétition 1 devient « visite inconnue » ; sur le PC,
-profil neuf, elle reste une première visite). Le cache des shaders en
+lancement : la répétition 1 y est toujours une première visite.
+`--garder-stockage` ne vide rien du tout (sur le téléphone, la répétition 1
+devient « visite inconnue » ; sur le PC, profil neuf, elle reste une
+première visite). Un nouveau cache qui change le chargement entre dans
+`STOCKAGE_VIDE` ou `BASES_VIDEES` ; une donnée de l'utilisateur, jamais.
+Le cache des shaders en
 mémoire du processus GPU, lui, survit tant que le navigateur tourne : pour
 un premier lancement à froid, fermer Chrome ou l'APK avant (`adb shell am
 force-stop com.android.chrome`, ou `io.github.micheldm974.terramemo`).
@@ -234,7 +244,8 @@ Sortie : un résumé `[OK ]`/`[NON]`/`[ ? ]` (à juger) par critère et le JSON
 complet (v6 : rapports v6 bruts, touchers visés, scénario et pas de rejeu,
 navigateur et binaire, `code` : commit, arbre modifié ou non, et pour la
 WebView les dates de l'APK installé et du fichier ; `stockage` : vidé ou
-non, origine, types, erreur ; `visites` : par répétition, `premiere`,
+non, origine, types, bases supprimées et gardées, nombre de clés du
+`localStorage` gardées, erreur ; `visites` : par répétition, `premiere`,
 `suivante` ou `inconnue`, le maillage du webgl (`calcul/absent`,
 `cache/lu`), le rendu et la raison d'un repli ; `logiciel_accepte` :
 l'adresse porte `logiciel=1`, à ne pas confondre avec `webgl.logiciel` des
@@ -423,7 +434,7 @@ python3 .claude/skills/run-terramemo/driver.py mesurer --cible webview --rendu c
 
 #### Rendu webgl sur le téléphone
 
-Chaque mesure vide d'abord le stockage de l'origine (« Première visite »
+Chaque mesure vide d'abord les caches de l'origine (« Première visite »
 plus haut) : répétition 1 = première visite (maillage calculé par le
 Worker), les suivantes lisent le maillage gardé en IndexedDB. Le résumé
 en donne la ligne `[ — ] relais WebGL` ; le détail est dans
@@ -591,7 +602,9 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
    D'abord en **première visite** : effacer les données du site (Chrome :
    paramètres du site, depuis l'icône à gauche de l'adresse ; APK :
    Paramètres → Applications → Terramemo → Stockage → Effacer les
-   données ; dans Chrome, `?rendu=webgl&maillage=0` recalcule aussi le
+   données ; l'un et l'autre effacent aussi le journal des réponses et le
+   compte anonyme : pendant l'usage réel, `mesurer --rendu webgl`, qui ne
+   vide que le cache du maillage ; dans Chrome, `?rendu=webgl&maillage=0` recalcule aussi le
    maillage sans lire le cache), puis ouvrir en webgl : le maillage se calcule,
    le relais tarde (~0,5 s sur le PC, plus sur le téléphone) ; glisser
    pendant ce temps : la carte suit-elle, le relais casse-t-il le geste ?

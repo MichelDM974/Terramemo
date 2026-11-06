@@ -1578,23 +1578,38 @@ def pas_de_rejeu(periode, cible):
     return min(periode, PAS_TELEPHONE_MS) if cible != "local" else periode
 
 
-# Première visite : avant la répétition 1, le stockage de l'origine mesurée
-# est vidé (Storage.clearDataForOrigin), en plus du cache HTTP coupé. Sur le
+# Première visite : avant la répétition 1, ce qui change le chargement est
+# vidé pour l'origine mesurée, en plus du cache HTTP coupé. Sur le
 # téléphone, Chrome et la WebView gardent leurs données d'une séance à
 # l'autre, et après `adb install -r` : sans cela, le maillage du rendu webgl
 # sortait du cache IndexedDB dès la répétition 1, et la première visite
 # n'était jamais mesurée. Sur le PC, le profil du chromium est neuf à chaque
 # lancement : la répétition 1 y est toujours une première visite.
-# Les types vidés sont ceux qui changent ce que fait le chargement :
-# indexeddb (maillage du webgl, src/map/maillage.worker.ts), cache_storage et
+# Storage.clearDataForOrigin vide des types entiers : cache_storage et
 # service_workers (aucun aujourd'hui ; un site hors ligne y garderait ses
 # fichiers), shader_cache (shaders compilés gardés sur disque par le
 # navigateur : sans lui, le contexte et la compilation de la répétition 1
-# profiteraient d'une séance d'avant). Pas « all » : local_storage garde les
-# réglages de l'utilisateur (série choisie, panneau des mesures), sans effet
-# sur le chargement mesuré (?mesures=0 et ?rendu= sont dans l'adresse).
-# Un nouveau stockage qui change le chargement doit entrer dans la liste.
-STOCKAGE_VIDE = "indexeddb,cache_storage,service_workers,shader_cache"
+# profiteraient d'une séance d'avant). Jamais « indexeddb » ni « all » : ce
+# serait aussi le journal des réponses (base terramemo-journal,
+# src/journal/depot.ts) et le compte anonyme de Firebase
+# (firebaseLocalStorageDb), perdus pendant l'usage réel du téléphone ; ni
+# local_storage (id de l'appareil, records et pseudo des épreuves, réglages :
+# sans effet sur le chargement, ?mesures=0 et ?rendu= sont dans l'adresse).
+# L'IndexedDB se vide donc base par base (BASES_VIDEES : le cache du
+# maillage webgl, src/map/maillage.worker.ts) ; toute autre base est gardée.
+# Un nouveau cache qui change le chargement doit entrer dans l'une des deux
+# listes ; une donnée de l'utilisateur, jamais.
+STOCKAGE_VIDE = "cache_storage,service_workers,shader_cache"
+BASES_VIDEES = ("terramemo",)
+# Bases de l'utilisateur, jamais vidées ; vider_premiere_visite vérifie en
+# outre qu'aucune autre base ni aucune clé du localStorage (terramemo.appareil,
+# records et pseudo des épreuves…) n'a disparu.
+BASES_GARDEES = ("terramemo-journal", "firebaseLocalStorageDb")
+TYPES_INTERDITS = ("all", "indexeddb", "local_storage", "cookies", "websql", "file_systems", "storage_buckets")
+# IndexedDB.deleteDatabase de CDP veut un document de l'origine : une page
+# du site sans script (copiée de public/, dans le site servi comme dans
+# l'APK), pour que rien de l'appli ne tourne ni n'écrive avant la répétition 1.
+PAGE_SANS_APPLI = "geo/LICENSE-CLDR.txt"
 # Les répétitions : la première visite (stockage vidé, ou profil neuf du PC),
 # les suivantes (cache du maillage écrit à la première), ou inconnue
 # (stockage du téléphone gardé, ou non vidé).
@@ -1606,6 +1621,47 @@ def origine(url):
     est vidé."""
     u = urllib.parse.urlsplit(url)
     return f"{u.scheme}://{u.netloc}"
+
+
+def vider_premiere_visite(p, url_base):
+    """Vide pour l'origine de url_base ce qui change le premier chargement
+    (STOCKAGE_VIDE, puis les bases BASES_VIDEES), jamais les données de
+    l'utilisateur (BASES_GARDEES, toute autre base, le localStorage) : leur
+    disparition est une erreur. Rend le relevé du rapport :
+    vide (tout a été vidé), types, bases supprimées et gardées, nombre de
+    clés du localStorage (gardées), erreur."""
+    if set(STOCKAGE_VIDE.split(",")) & set(TYPES_INTERDITS) or set(BASES_VIDEES) & set(BASES_GARDEES):
+        raise SystemExit("driver.py : STOCKAGE_VIDE ou BASES_VIDEES viderait des données de l'utilisateur")
+    o = origine(url_base)
+    stockage = {"vide": False, "origine": o, "types": None, "bases_supprimees": [], "bases_gardees": None,
+                "cles_gardees": None, "erreur": None}
+    cles = "Object.keys(localStorage).sort()"
+    try:
+        p.goto(urllib.parse.urljoin(url_base, PAGE_SANS_APPLI))
+        avant = p.cdp("IndexedDB.requestDatabaseNames", securityOrigin=o).get("databaseNames", [])
+        cles_avant = p.js(cles)
+        p.cdp("Storage.clearDataForOrigin", origin=o, storageTypes=STOCKAGE_VIDE)
+        stockage["types"] = STOCKAGE_VIDE
+        for base in BASES_VIDEES:
+            # Ferme de force les connexions ouvertes (un onglet de l'appli resté
+            # ouvert sur le téléphone) au lieu d'attendre ; sans erreur si absente.
+            p.cdp("IndexedDB.deleteDatabase", securityOrigin=o, databaseName=base)
+            if base in avant:
+                stockage["bases_supprimees"].append(base)
+        apres = p.cdp("IndexedDB.requestDatabaseNames", securityOrigin=o).get("databaseNames", [])
+        stockage["bases_gardees"] = sorted(apres)
+        restees = [b for b in BASES_VIDEES if b in apres]
+        if restees:
+            raise RuntimeError(f"base(s) {', '.join(restees)} toujours là après IndexedDB.deleteDatabase")
+        perdues = [b for b in avant if b not in apres and b not in BASES_VIDEES]
+        perdues += [f"localStorage {k}" for k in cles_avant if k not in p.js(cles)]
+        stockage["cles_gardees"] = len(cles_avant)
+        if perdues:
+            raise RuntimeError(f"données de l'utilisateur disparues : {', '.join(perdues)} (à signaler)")
+        stockage["vide"] = True
+    except RuntimeError as e:
+        stockage["erreur"] = str(e)
+    return stockage
 
 
 def visites_du_fichier(d):
@@ -2140,16 +2196,15 @@ def commande_mesurer(args):
         else:
             p.tactile = True
         p.cdp("Network.setCacheDisabled", cacheDisabled=not args.cache)
-        # Première visite : le stockage de l'origine mesurée vidé (STOCKAGE_VIDE).
-        stockage = {"vide": False, "origine": origine(url), "types": None, "erreur": None}
+        # Première visite : caches de l'origine mesurée vidés (STOCKAGE_VIDE,
+        # BASES_VIDEES), données de l'utilisateur gardées.
+        stockage = {"vide": False, "origine": origine(url), "types": None, "bases_supprimees": [],
+                    "bases_gardees": None, "cles_gardees": None, "erreur": None}
         if not args.garder_stockage:
-            try:
-                p.cdp("Storage.clearDataForOrigin", origin=stockage["origine"], storageTypes=STOCKAGE_VIDE)
-                stockage.update(vide=True, types=STOCKAGE_VIDE)
-            except RuntimeError as e:
-                stockage["erreur"] = str(e)
-                dire(f"  ATTENTION : stockage de {stockage['origine']} non vidé ({e}) : la répétition 1 n'est "
-                     "peut-être pas une première visite")
+            stockage = vider_premiere_visite(p, url_base)
+            if stockage["erreur"]:
+                dire(f"  ATTENTION : caches de {stockage['origine']} non vidés ({stockage['erreur']}) : la "
+                     "répétition 1 n'est peut-être pas une première visite")
         # Sur le PC, profil neuf à chaque lancement : première visite même sans vider.
         # Sur le téléphone, --cache garde le cache HTTP des séances d'avant (aucun
         # type de STOCKAGE_VIDE ne le vide) : la répétition 1 n'est alors pas sûre.
@@ -2160,7 +2215,9 @@ def commande_mesurer(args):
         if args.cible == "local":
             dire("GPU : " + (" ".join(OPTIONS_GPU) if GPU else "défaut du headless (WebGL en SwiftShader)"))
         dire(f"url : {url} ; ralenti ×{args.ralenti:g} ; cache HTTP {'actif' if args.cache else 'désactivé'} ; "
-             + (f"stockage de {stockage['origine']} vidé ({STOCKAGE_VIDE})" if stockage["vide"] else
+             + (f"caches de {stockage['origine']} vidés ({STOCKAGE_VIDE} ; base(s) "
+                f"{', '.join(BASES_VIDEES)} ; gardées : {', '.join(stockage['bases_gardees']) or 'aucune'})"
+                if stockage["vide"] else
                 "stockage gardé" + (" (profil neuf du PC)" if args.cible == "local" else "")))
         if args.ralenti != 1 and args.rendu == "webgl":
             dire(f"  attention : le ralenti ×{args.ralenti:g} ne touche pas le Worker du maillage (SKILL.md, Pièges) : "
@@ -2224,7 +2281,7 @@ def commande_mesurer(args):
         "options_gpu": (OPTIONS_GPU if GPU else []) if args.cible == "local" else None,
         "url": url, "ralenti": args.ralenti,
         "cache": args.cache, "repetitions": args.repetitions,
-        # Stockage de l'origine vidé avant la répétition 1 (STOCKAGE_VIDE) ; visite de
+        # Caches de l'origine vidés avant la répétition 1 (STOCKAGE_VIDE, BASES_VIDEES) ; visite de
         # chaque répétition et, en webgl, source du maillage (rapports[].webgl.maillage).
         "stockage": stockage, "visites": visites,
         # L'adresse porte logiciel=1 (WebGL logiciel accepté) ; à ne pas confondre
@@ -2348,8 +2405,9 @@ def main():
     s.add_argument("--url", help=f"défaut : {URL_DEFAUT} (webview : https://localhost/)")
     s.add_argument("--cache", action="store_true", help="garde le cache HTTP (désactivé par défaut)")
     s.add_argument("--garder-stockage", action="store_true",
-                   help="ne vide pas le stockage de l'origine avant la répétition 1 (IndexedDB… : vidé par "
-                        "défaut, première visite) ; ex. pour garder des données de l'utilisateur sur le téléphone")
+                   help="ne vide pas les caches de l'origine avant la répétition 1 (cache du maillage webgl, "
+                        "shaders… : vidés par défaut, première visite ; les données de l'utilisateur ne sont "
+                        "jamais vidées)")
     s.add_argument("--ws", action="store_true", help="local : passe par HTTP + WebSocket comme le téléphone")
     s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
     s.add_argument("--out", help=f"dossier du rapport (défaut : {MESURES.relative_to(RACINE)})")
