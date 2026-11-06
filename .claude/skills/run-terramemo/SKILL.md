@@ -1,13 +1,14 @@
 ---
 name: run-terramemo
-description: Lancer, piloter, photographier et MESURER Terramemo (site TypeScript + Vite et APK Capacitor, carte du monde en SVG, en Canvas ou en WebGL). À utiliser pour servir le site, vérifier qu'un changement marche dans un vrai navigateur, prendre des captures des vues, rejouer gestes et touchers et mesurer chargement, saccades et latence (chromium du PC, Chrome du téléphone ou APK par adb), construire et installer l'APK, déployer sur Firebase Hosting.
+description: Lancer, piloter, photographier et MESURER Terramemo (site TypeScript + Vite et APK Capacitor, carte du monde en Canvas 2D par défaut, en WebGL ou en SVG). À utiliser pour servir le site, vérifier qu'un changement marche dans un vrai navigateur, prendre des captures des vues, rejouer gestes et touchers et mesurer chargement, saccades et latence (chromium du PC, Chrome du téléphone ou APK par adb), construire et installer l'APK, déployer sur Firebase Hosting.
 ---
 
 # Lancer, piloter et mesurer Terramemo
 
-Site statique TypeScript + Vite sans framework (`src/`, carte d3-geo : SVG
-en rendus `g` et `css` ; la carte qui tourne en Canvas 2D (rendu `canvas`)
-ou en WebGL2 (rendu `webgl`)),
+Site statique TypeScript + Vite sans framework (`src/`, carte d3-geo : la
+carte qui tourne en Canvas 2D (rendu `canvas`, **celui par défaut**,
+décision « Rendu par défaut » du 06/11) ou en WebGL2 (rendu `webgl`) ; SVG
+en rendus `g` et `css` ; tous au choix dans ⚙ ; l'île toujours en SVG),
 emballé en APK par Capacitor (`android/`). **Pas de serveur à soi** : le
 stockage est dans le navigateur (profil jetable du chromium du driver ;
 sur le téléphone, `mesurer` vide celui de l'origine mesurée, cf.
@@ -37,10 +38,10 @@ relatifs à `Terramemo/`. Contrat de la page avec le pilote :
 python3 .claude/skills/run-terramemo/driver.py serve              # vite (dev) sur 8060, au premier plan
 python3 .claude/skills/run-terramemo/driver.py serve --preview    # build hors de dist/ puis vite preview sur 8060
 python3 .claude/skills/run-terramemo/driver.py serve --lan        # aussi sur le réseau local (0.0.0.0)
-python3 .claude/skills/run-terramemo/driver.py smoke              # page, /geo/*.json, carte peinte, shaders webgl compilés ; code ≠ 0 au moindre échec
+python3 .claude/skills/run-terramemo/driver.py smoke              # page, /geo/*.json, carte peinte (canvas, SVG), shaders webgl compilés ; code ≠ 0 au moindre échec
 python3 .claude/skills/run-terramemo/driver.py ui                 # captures téléphone (384×832, DPR 2.8125, toucher émulé)
 python3 .claude/skills/run-terramemo/driver.py ui --width 1280    # captures PC (souris)
-python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du monde en webgl (logiciel=1), ou canvas, g, css
+python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du monde en webgl (logiciel=1), ou g, css (défaut : canvas, celui de la page)
 ```
 
 - `serve` en arrière-plan, puis les autres. `--preview` construit dans
@@ -50,10 +51,12 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   du site (smoke et mesurer le signalent).
 - `smoke` : `[ok ]`/`[KO ]` par vérification (HTTP 200 et JSON valide des
   cinq fichiers de `/geo/` et des quatre de `/geo/reunion/`,
-  `body[data-pret="1"]`, nombre de `path.pays`, **rien de `/geo/reunion/`
-  chargé au premier affichage** (après `pret` et `repos`, décision
-  « Hébergement »), rendu webgl, aucune exception JS ni requête en échec),
-  puis `smoke : OK`.
+  `body[data-pret="1"]`, **rendu par défaut `canvas`** (`#carte[data-rendu]`)
+  et son dessin complet (plus de 150 parties tracées, `terramemo.carte.dessin()`),
+  **rien de `/geo/reunion/` chargé au premier affichage** (après `pret` et
+  `repos`, décision « Hébergement »), nombre de `path.pays` en
+  `?rendu=css` (les rendus SVG), rendu webgl, aucune exception JS ni requête
+  en échec), puis `smoke : OK`.
   Le rendu webgl (`?rendu=webgl&logiciel=1`) doit finir en `data-relais="webgl"` :
   **seule vérification où le vrai compilateur voit les shaders** (`npm test`
   les traduit en JS, un shader refusé par le pilote y passerait) ; un refus
@@ -81,7 +84,8 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   (`974xx`) s'affiche ou si le monde a changé. **Regarder les
   captures.** Le record du Chrono vit dans le `localStorage` : le profil
   neuf du driver repart sans record.
-- `--rendu` (ui) : rendu de la carte du monde ; l'île est toujours en SVG.
+- `--rendu` (ui) : rendu de la carte du monde (sans : celui de la page,
+  canvas) ; l'île est toujours en SVG, au-dessus du monde en canvas.
   `--url` ne peut pas porter `?rendu=` (le pilote y ajoute `?mesures=0`).
 - Contrat de l'île avec le pilote : `window.terramemo.carte` reste **le
   monde** (mesures, captures 1 à 9) ; `terramemo.terrain()` dit le terrain
@@ -95,14 +99,15 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
 ### Mesurer (critères du J0)
 
 ```bash
-python3 .claude/skills/run-terramemo/driver.py mesurer --cible local --rendu css               # PC, vitesse réelle
+python3 .claude/skills/run-terramemo/driver.py mesurer --cible local --rendu canvas            # PC, vitesse réelle
 python3 .claude/skills/run-terramemo/driver.py mesurer --cible local --rendu canvas --ralenti 4  # processeur ralenti 4×
 python3 .claude/skills/run-terramemo/driver.py mesurer --cible chrome --rendu canvas           # Chrome du téléphone (adb)
 python3 .claude/skills/run-terramemo/driver.py mesurer --cible webview --rendu canvas          # l'APK (adb)
 ```
 
-Options : `--rendu css|g|canvas|webgl` (défaut css ; `g` et `css` : carte
-SVG, `canvas` et `webgl` : la carte qui tourne, Canvas 2D ou WebGL2 ; sur
+Options : `--rendu canvas|webgl|g|css` (défaut canvas, celui de la page ;
+`g` et `css` : carte SVG, `canvas` et `webgl` : la carte qui tourne,
+Canvas 2D ou WebGL2 ; sur
 le PC, le WebGL de chrome-headless-shell est SwiftShader, logiciel : ses
 images perdues ne disent rien du GPU du téléphone ; `--gpu` prend le vrai
 GPU du PC, rapport suffixé `-gpu`), `--projection monde|pacifique` (en
@@ -479,7 +484,8 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
    net tout du long, mais saccades possibles. En canvas : net tout du long
    (redessinée à chaque image), carte allégée pendant le geste. En webgl :
    net et complet tout du long (aucune carte allégée). Dire lequel gêne le
-   plus (tranche `RENDU_DEFAUT`, src/main.ts).
+   plus (`RENDU_DEFAUT`, src/main.ts : canvas depuis la séance du 06/11,
+   décision « Rendu par défaut »).
 2. **La carte qui tourne (canvas, webgl)** : au zoom 1 puis zoomé (Europe),
    glisser horizontalement, long et vite, plusieurs fois dans le même sens
    (le tour du monde), puis lentement. Le globe tourne-t-il sans à-coup,

@@ -6,11 +6,12 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
     serve [--preview] [--lan]   Vite sur le port 8060 (au premier plan)
     smoke                       page, fichiers /geo/*.json et /geo/reunion/,
                                 rien de l'île au premier affichage, carte
-                                peinte, shaders du rendu webgl compilés
+                                peinte en canvas (défaut) et en SVG, shaders
+                                du rendu webgl compilés
     ui [--width 384] [--rendu r]
                                 captures des vues (téléphone ou PC), île
                                 de La Réunion et Nommer compris
-    mesurer --cible local|chrome|webview [--rendu css|g|canvas|webgl]
+    mesurer --cible local|chrome|webview [--rendu canvas|webgl|g|css]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
     resumer FICHIER.json… [--sec] [--json]
@@ -812,13 +813,27 @@ def commande_smoke(args):
             p.goto(base + "?mesures=0")
             periode = p.attendre_carte(args.budget)
             verifier("carte peinte", True, f"en {time.monotonic() - debut:.1f} s, période {periode} ms")
-            n = p.js("[document.querySelectorAll('path.pays').length, document.querySelectorAll('circle.pastille').length,"
-                     " window.terramemo.version, document.querySelector('#carte').dataset.rendu]")
-            verifier("tracés des pays", n[0] > 150, f"{n[0]} path.pays, {n[1]} pastilles visibles, version {n[2]}, rendu {n[3]}")
+            # Rendu par défaut : canvas (décision « Rendu par défaut », RENDU_DEFAUT de
+            # src/main.ts). Aucun path.pays : le dernier dessin dit ce qui est tracé.
+            n = p.js("[document.querySelector('#carte').dataset.rendu, document.querySelector('#carte').dataset.dessin,"
+                     " window.terramemo.carte.dessin(), +document.querySelector('#carte').dataset.disques, window.terramemo.version]")
+            d = n[2] or {}
+            verifier("rendu par défaut canvas", n[0] == "canvas", f"rendu {n[0]}, version {n[4]}")
+            verifier("tracés des pays", n[1] == "complet" and (d.get("parties") or 0) > 150,
+                     f"dessin {n[1]}, {d.get('parties')} parties, {d.get('emis')} sommets émis, {n[3]} pastilles visibles")
             ile = p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/reunion/'))")
             verifier("rien de l'île au premier affichage", not ile, ", ".join(ile) or "aucune ressource /geo/reunion/ après pret et repos")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
+        # Rendus SVG (au choix dans ⚙) : un path.pays par entité.
+        try:
+            p.goto(base + "?rendu=css&mesures=0")
+            p.attendre_carte(args.budget)
+            n = p.js("[document.querySelectorAll('path.pays').length, document.querySelectorAll('circle.pastille').length,"
+                     " document.querySelector('#carte').dataset.rendu]")
+            verifier("tracés des pays en SVG (?rendu=css)", n[2] == "css" and n[0] > 150, f"{n[0]} path.pays, {n[1]} pastilles visibles, rendu {n[2]}")
+        except RuntimeError as e:
+            verifier("tracés des pays en SVG (?rendu=css)", False, str(e))
         # Rendu webgl : les shaders compilés et liés par le vrai navigateur (les tests
         # ne font que les traduire en JS). Un shader refusé ne casse rien de visible :
         # la carte reste en Canvas 2D (data-relais="repli"), d'où cette vérification.
@@ -1952,7 +1967,7 @@ def main():
     s.add_argument("--preview", action="store_true", help="construit puis sert le build (vite preview)")
     s.add_argument("--sortie", default="/tmp/terramemo-preview", help="dossier du build de --preview (pas dist/)")
 
-    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île au premier affichage, carte peinte")
+    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île au premier affichage, carte peinte (canvas, SVG, webgl)")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--budget", type=int, default=60, help="secondes au plus pour que la carte se peigne")
 
@@ -1965,8 +1980,9 @@ def main():
 
     s = sub.add_parser("mesurer", help="gestes et touchers rejoués, rapport JSON")
     s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")
-    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), default="css",
-                   help="g et css : carte SVG ; canvas et webgl : la carte qui tourne (Canvas 2D, WebGL2)")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), default="canvas",
+                   help="g et css : carte SVG ; canvas (défaut, celui de la page) et webgl : la carte qui "
+                        "tourne (Canvas 2D, WebGL2)")
     s.add_argument("--projection", choices=("monde", "pacifique"), default="monde")
     s.add_argument("--ralenti", type=float, default=1, help="ralenti du processeur (local seulement)")
     s.add_argument("--repetitions", type=int, default=3)

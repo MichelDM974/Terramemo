@@ -23,9 +23,15 @@ import { textes } from './vues/textes';
 const debutScript = performance.now();
 
 /**
- * Rendu par défaut : « css » en attendant le téléphone, où le choix g / css /
- * canvas / webgl se tranche (?rendu=g, ?rendu=css, ?rendu=canvas ou
- * ?rendu=webgl force l'un d'eux).
+ * Rendu par défaut : « canvas » (décision « Rendu par défaut » du 06/11, au
+ * registre) ; webgl, g et css restent au choix dans ⚙ (?rendu=g, ?rendu=css,
+ * ?rendu=canvas ou ?rendu=webgl force l'un d'eux). Séance du J0 sur le
+ * Galaxy A37 (docs/mesures/j0/2026-11-06-*.json, adaptative/ et doigt/) : le
+ * canvas est le seul rendu sans saccade, au pilote comme au doigt, dans
+ * Chrome et dans l'APK ; le css saccade au pincement (gels jusqu'à 100 ms
+ * dans l'APK) et sa carte ne tourne pas ; le webgl est fluide au doigt, mais
+ * le pilote y relève quelques à-coups et il ne prend le relais qu'après 0,3 à
+ * 0,8 s de canvas. Les mesures du PC ci-dessous ne tranchaient rien.
  * - canvas : la carte qui tourne (décision du 04/11), redessinée à chaque
  *   image dans un Canvas 2D (src/map/carte-canvas.ts), carte allégée pendant
  *   les gestes.
@@ -62,15 +68,11 @@ const debutScript = performance.now();
  *   du webgl à 4× est trop optimiste.
  * En g, une fin de pincement à ~570-650 ms ne change aucun pixel : l'entrée
  * Event Timing ne se clôt qu'à l'image présentée ensuite (artefact, écarté à
- * part par le driver). Le PC (60 Hz, GPU de bureau) ne tranche rien : seul le
- * téléphone le fait (SKILL.md, séance du téléphone).
- * À juger à l'œil aussi : en css, pendant un pincement, toute la couche est
- * mise à l'échelle par le compositeur : pastilles et frontières grossissent
- * avec le zoom et la carte est floue jusqu'au lever du doigt, puis tout
- * revient d'un coup. Si css est retenu, piste : masquer la couche des
- * pastilles pendant le geste (ou décider d'accepter le flou).
+ * part par le driver). En css, pendant un pincement, toute la couche est mise
+ * à l'échelle par le compositeur : pastilles et frontières grossissent avec
+ * le zoom et la carte est floue jusqu'au lever du doigt.
  */
-export const RENDU_DEFAUT: Rendu = 'css';
+export const RENDU_DEFAUT: Rendu = 'canvas';
 
 // --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur) ---
 

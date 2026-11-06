@@ -73,8 +73,12 @@ avant le J1a ; conception `docs/etudes/2026-11-06-reunion.md`.
 - **TypeScript + Vite, sans framework**, une base pour le site et l'APK
   (**Capacitor**). Natif Kotlin écarté : la carte et la logique en double
   (le coût vu dans Light).
-- **Carte SVG, d3-geo + d3-zoom**, projection Equal Earth + projections
-  centrées sur le Pacifique (antiméridien : Fidji, Kiribati).
+- **Carte en Canvas 2D par défaut** (décision « Rendu par défaut » du 06/11,
+  séance du J0 sur le téléphone : seul rendu sans saccade, Chrome et APK),
+  projection Equal Earth qui tourne comme un globe (décision « Carte qui
+  tourne », départ Monde ou Pacifique), carte allégée pendant les gestes ;
+  WebGL2 et SVG (d3-geo + d3-zoom, rendus g et css) au choix dans ⚙ ; la
+  carte de l'île en SVG.
 - **Notation par rapport à la cible demandée** (dedans, ou dans la
   tolérance d'un micro-État) ; `pick(x, y)` sert seulement à la rétroaction
   et aux confusions. Distance au bord le plus proche du bon pays
