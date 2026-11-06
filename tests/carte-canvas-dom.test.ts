@@ -57,11 +57,12 @@ interface Trait {
   arc: [number, number, number] | null;
 }
 
-/** Un faux Canvas 2D : remplissages et traits de la dernière image, notés avec leur style du moment. */
+/** Un faux Canvas 2D : remplissages et traits de la dernière image, notés avec leur style du moment ; images effacées. */
 function fauxCtx() {
   const remplis: { chemin: FauxChemin | 'courant'; style: string }[] = [];
   const traits: Trait[] = [];
   let arc: [number, number, number] | null = null;
+  const etat = { effacees: 0 };
   const ctx = {
     fillStyle: '' as unknown,
     strokeStyle: '',
@@ -72,7 +73,11 @@ function fauxCtx() {
     clearRect: () => {
       remplis.length = 0;
       traits.length = 0;
+      etat.effacees++;
     },
+    save: () => undefined,
+    restore: () => undefined,
+    clip: () => undefined,
     beginPath: () => (arc = null),
     moveTo: () => undefined,
     lineTo: () => undefined,
@@ -85,27 +90,36 @@ function fauxCtx() {
       traits.push({ chemin: chemin ?? 'courant', style: ctx.strokeStyle, largeur: ctx.lineWidth, joint: ctx.lineJoin, arc: chemin ? null : arc });
     },
   };
-  return { ctx, remplis, traits };
+  return { ctx, remplis, traits, etat };
 }
 
 let images: Map<number, FrameRequestCallback>;
 let prochaine: number;
+/** Contextes des canvas créés, dans l'ordre : la carte, sa couche du dessus, puis le motif des hachures. */
+let contextes: ReturnType<typeof fauxCtx>[];
 let ctx2d: ReturnType<typeof fauxCtx>;
+let ctxDessus: ReturnType<typeof fauxCtx>;
 
 beforeEach(() => {
   images = new Map();
   prochaine = 1;
-  ctx2d = fauxCtx();
-  const fauxCanvas = () => ({
-    className: '',
-    style: {},
-    width: 0,
-    height: 0,
-    isConnected: false,
-    setAttribute: () => undefined,
-    getContext: () => ctx2d.ctx,
-    remove: () => undefined,
-  });
+  contextes = [];
+  const fauxCanvas = () => {
+    const f = fauxCtx();
+    contextes.push(f);
+    [ctx2d, ctxDessus] = contextes as [ReturnType<typeof fauxCtx>, ReturnType<typeof fauxCtx>];
+    return {
+      className: '',
+      style: {},
+      width: 0,
+      height: 0,
+      isConnected: false,
+      setAttribute: () => undefined,
+      getContext: () => f.ctx,
+      after: () => undefined,
+      remove: () => undefined,
+    };
+  };
   vi.stubGlobal('document', { documentElement: {}, createElement: fauxCanvas });
   vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (n: string) => ` ${VARS[n] ?? ''} ` }));
   vi.stubGlobal('Path2D', FauxChemin);
@@ -290,18 +304,21 @@ describe('CarteCanvas : la zone fausse a le contour du SVG (daltonisme, #16)', (
     const c = carte();
     c.zoomerSur('FRA');
     image(0);
-    expect(ctx2d.traits.filter((t) => t.style === TEXTE)).toEqual([]);
+    expect(ctxDessus.traits.filter((t) => t.style === TEXTE)).toEqual([]);
     c.marquer('ESP', 'juste');
     c.marquer('FRA', 'faux');
     image(16);
-    const contours = ctx2d.traits.filter((t) => t.style === TEXTE);
+    // Sur la couche du dessus, posée sur la carte (et ses frontières) : rien sur la carte.
+    expect(ctx2d.traits.filter((t) => t.style === TEXTE)).toEqual([]);
+    const contours = ctxDessus.traits.filter((t) => t.style === TEXTE);
     expect(contours.length).toBe(1);
     const [t] = contours as [Trait];
     expect([t.largeur, t.joint]).toEqual([3, 'round']);
-    // Après les frontières (trait de 1 px physique), avant les pastilles.
-    const frontieres = ctx2d.traits.findIndex((x) => x.chemin !== 'courant' && x.style === VARS['--frontiere-fine']);
+    // Après les frontières des zones marquées (trait de 1 px physique), avant les pastilles.
+    const frontieres = ctxDessus.traits.findIndex((x) => x.chemin !== 'courant' && x.style === VARS['--frontiere-fine']);
     expect(frontieres).toBeGreaterThanOrEqual(0);
-    expect(ctx2d.traits.indexOf(t)).toBeGreaterThan(frontieres);
+    expect(ctxDessus.traits.indexOf(t)).toBeGreaterThan(frontieres);
+    expect(ctxDessus.traits.findIndex((x) => x.arc !== null)).toBeGreaterThan(ctxDessus.traits.indexOf(t));
     // Son chemin : la France métropolitaine à l'écran (son point d'étiquette dans la boîte), pas l'Espagne.
     const [x0, y0, x1, y1] = boite(t.chemin as FauxChemin);
     const [fx, fy] = c.ecran('FRA') as [number, number];
@@ -312,7 +329,7 @@ describe('CarteCanvas : la zone fausse a le contour du SVG (daltonisme, #16)', (
     c.effacerMarques();
     c.marquer('FRA', 'juste');
     image(32);
-    expect(ctx2d.traits.filter((x) => x.style === TEXTE)).toEqual([]);
+    expect(ctxDessus.traits.filter((x) => x.style === TEXTE)).toEqual([]);
   });
 
   it('la pastille : bordée de 3 px couleur du texte au lieu du bord de 1 px (Malte au zoom 1)', () => {
@@ -320,12 +337,63 @@ describe('CarteCanvas : la zone fausse a le contour du SVG (daltonisme, #16)', (
     c.marquer('MLT', 'faux');
     image(0);
     const [mx, my] = c.ecran('MLT') as [number, number];
-    const surMalte = ctx2d.traits.filter((t) => t.arc && Math.hypot(t.arc[0] - mx, t.arc[1] - my) < 1e-9);
+    const surMalte = ctxDessus.traits.filter((t) => t.arc && Math.hypot(t.arc[0] - mx, t.arc[1] - my) < 1e-9);
     expect(surMalte.map((t) => [t.style, t.largeur])).toEqual([[TEXTE, 3]]);
     // Les autres pastilles gardent leur bord de 1 px couleur du fond.
-    const autres = ctx2d.traits.filter((t) => t.arc && t.arc[2] < 5 && !surMalte.includes(t));
+    const autres = ctxDessus.traits.filter((t) => t.arc && t.arc[2] < 5 && !surMalte.includes(t));
     expect(autres.length).toBeGreaterThan(10);
     for (const t of autres) expect([t.style, t.largeur]).toEqual([VARS['--bg'], 1]);
+  });
+});
+
+describe('CarteCanvas : un toucher ne redessine que la couche du dessus (J0, #1)', () => {
+  const ACCENT = VARS['--accent'];
+  it('marquer, effacerMarques, anneau : la couche du dessus seule ; la carte ne porte ni marque ni pastille', () => {
+    const c = carte();
+    image(0);
+    const carteAvant = ctx2d.etat.effacees;
+    const dessusAvant = ctxDessus.etat.effacees;
+    expect(carteAvant).toBeGreaterThan(0);
+    // La carte : terres, hachures, frontières ; ni marque, ni pastille (arcs).
+    expect(ctx2d.traits.some((t) => t.arc)).toBe(false);
+    c.effacerMarques();
+    c.marquer('BRA', 'choisi');
+    c.anneau('VAT', 'choisi');
+    image(16);
+    expect(ctx2d.etat.effacees).toBe(carteAvant);
+    expect(ctxDessus.etat.effacees).toBe(dessusAvant + 1);
+    expect(ctx2d.remplis.some((r) => r.style === ACCENT)).toBe(false);
+    expect(ctxDessus.remplis.filter((r) => r.style === ACCENT && r.chemin !== 'courant').length).toBe(1);
+    // Ses frontières par-dessus la couleur, puis pastilles et anneau.
+    const couleur = ctxDessus.remplis.findIndex((r) => r.style === ACCENT);
+    expect(couleur).toBeGreaterThanOrEqual(0);
+    expect(ctxDessus.traits.some((t) => t.chemin !== 'courant' && t.style === VARS['--frontiere-fine'])).toBe(true);
+    expect(ctxDessus.traits.some((t) => t.arc && t.arc[2] === 16)).toBe(true);
+    expect(c.dernier?.carte).toBe(false);
+    // Une nouvelle vue redessine la carte, et la marque reste sur la couche du dessus.
+    c.zoomerSur('BRA');
+    image(32);
+    expect(ctx2d.etat.effacees).toBe(carteAvant + 1);
+    expect(c.dernier?.carte).toBe(true);
+    expect(ctx2d.remplis.some((r) => r.style === ACCENT)).toBe(false);
+    expect(ctxDessus.remplis.some((r) => r.style === ACCENT)).toBe(true);
+  });
+
+  it('la fin d’un geste retrace la carte au repos, même sans carte allégée', () => {
+    const c = carte();
+    c.zoomerSur('CHE');
+    image(0);
+    const avant = ctx2d.etat.effacees;
+    // Une image de geste (enMouvement), puis le repos à la même vue (fin d'un geste dans le budget de la complète).
+    const priv = c as unknown as { enMouvement: boolean; dessiner(): void };
+    priv.enMouvement = true;
+    priv.dessiner();
+    expect(ctx2d.etat.effacees).toBe(avant + 1);
+    // Même vue, au repos : la carte est retracée au seuil du repos (dessin.ts), pas seulement la couche du dessus.
+    priv.enMouvement = false;
+    priv.dessiner();
+    expect(ctx2d.etat.effacees).toBe(avant + 2);
+    expect(c.dernier?.carte).toBe(true);
   });
 });
 

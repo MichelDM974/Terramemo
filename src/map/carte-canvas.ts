@@ -68,6 +68,9 @@ export interface StatsDessin {
   minuscules?: number;
   /** WebGL : temps GPU d'une image récente (EXT_disjoint_timer_query_webgl2), null sans l'extension. */
   gpu_ms?: number | null;
+  /** Canvas : script de la couche du dessus (marques, pastilles) ; carte : la carte a été redessinée (sinon, la couche seule). */
+  dessus_ms?: number;
+  carte?: boolean;
 }
 
 /** Ce qu'une image donne à dessiner à un peintre : la vue et ce qui se pose dessus. */
@@ -308,6 +311,17 @@ export class CarteCanvas implements CarteAffichee {
   /** Canvas 2D (gardé après adopter : revenirAuCanvas2D le remet), ou null quand un peintre dessine dès le départ. */
   private ctx: CanvasRenderingContext2D | null = null;
   private canvas2d: HTMLCanvasElement | null = null;
+  /**
+   * Canvas 2D : la couche du dessus (marques, contour faux, anneaux,
+   * pastilles), posée sur la carte. Un toucher ne change qu'elle : la carte
+   * entière n'est ni retracée ni rastérisée pour colorer un pays (dessiner).
+   */
+  private dessus: HTMLCanvasElement | null = null;
+  private ctxDessus: CanvasRenderingContext2D | null = null;
+  /** Ce que montre la carte dessinée (vue, taille, allégée ou non) : inchangé, seule la couche du dessus est redessinée. */
+  private signature = '';
+  /** Index de chaque entité dans donnees.entites (et dans les calques), par id. */
+  private readonly indices: Map<string, number>;
   private peintreActif: Peintre | null = null;
   private c: Cadre = cadre(1, 1);
   private v: VueGlobe;
@@ -364,7 +378,15 @@ export class CarteCanvas implements CarteAffichee {
       if (!ctx) throw new Error('Canvas 2D indisponible');
       this.ctx = ctx;
       this.canvas2d = this.elt;
+      const dessus = document.createElement('canvas');
+      dessus.className = 'carte-canvas carte-dessus';
+      dessus.setAttribute('aria-hidden', 'true');
+      // Les doigts vont au canvas de la carte (et à l'hôte), jamais à la couche du dessus.
+      dessus.style.pointerEvents = 'none';
+      this.ctxDessus = dessus.getContext('2d');
+      if (this.ctxDessus) this.dessus = dessus;
     }
+    this.indices = new Map(o.donnees.entites.map((e, i) => [e.pays.id, i]));
     this.hote.classList.add('carte');
     this.hote.dataset.rendu = o.rendu;
     this.hote.dataset.projection = o.projection;
@@ -475,6 +497,9 @@ export class CarteCanvas implements CarteAffichee {
         if (this.elt.isConnected) this.elt.after(canvas);
         else this.hote.prepend(canvas);
         masquer(this.elt);
+        // Le peintre dessine aussi marques et pastilles.
+        if (this.dessus) masquer(this.dessus);
+        this.signature = '';
         this.elt = canvas;
         this.peintreActif = peintre;
         this.dessiner();
@@ -498,6 +523,10 @@ export class CarteCanvas implements CarteAffichee {
     masquer(this.elt);
     c2d.style.display = '';
     if (!c2d.isConnected) this.hote.prepend(c2d);
+    if (this.dessus) {
+      this.dessus.style.display = '';
+      c2d.after(this.dessus);
+    }
     this.elt = c2d;
     this.complet ??= calque(this.o.donnees);
     this.dimensionner();
@@ -514,6 +543,7 @@ export class CarteCanvas implements CarteAffichee {
     this.dimensionner();
     this.poser(placer(this.c, [this.v.r, 0], this.c.l / 2, this.c.h / 2, 1), true);
     if (!this.canvas.isConnected) this.hote.prepend(this.canvas);
+    if (this.dessus && !this.peintre && !this.dessus.isConnected) this.canvas.after(this.dessus);
     this.dessiner();
     const t2 = performance.now();
     this.observateur.observe(this.hote);
@@ -660,6 +690,7 @@ export class CarteCanvas implements CarteAffichee {
     this.peintre?.detruire();
     this.canvas.remove();
     this.canvas2d?.remove();
+    this.dessus?.remove();
   }
 
   // --- vue -------------------------------------------------------------------
@@ -705,6 +736,13 @@ export class CarteCanvas implements CarteAffichee {
     this.canvas.height = Math.round(h * this.dpr);
     this.canvas.style.width = `${l}px`;
     this.canvas.style.height = `${h}px`;
+    if (this.dessus && !this.peintre) {
+      this.dessus.width = this.canvas.width;
+      this.dessus.height = this.canvas.height;
+      this.dessus.style.width = `${l}px`;
+      this.dessus.style.height = `${h}px`;
+    }
+    this.signature = '';
     this.peintre?.dimensionner(l, h, this.dpr);
     this.motif = this.creerMotif();
     this.proj = projectionDe(this.v.r, this.c);
@@ -878,7 +916,15 @@ export class CarteCanvas implements CarteAffichee {
     return motif;
   }
 
-  /** Dessine la vue courante (synchrone). */
+  /**
+   * Dessine la vue courante (synchrone) : la carte, si ce qu'elle montre a
+   * changé (vue, taille, allégée ou complète), puis la couche du dessus. Un
+   * toucher (marquer, effacerMarques, anneau) ne change que celle-ci : au
+   * ralenti ×4 sur le PC, retracer et rastériser toute la carte pour colorer
+   * un pays prenait ~16 ms de script et ~55 ms de commit (rastérisation du
+   * canvas), le toucher entier ~80 ms (Event Timing, 06/11) ; sur l'A37,
+   * 112 à 128 ms dans tous les rendus, qui redessinaient tous la carte.
+   */
   private dessiner(): void {
     if (this.masquee) return;
     if (this.peintre) return this.peindre(this.peintre);
@@ -891,9 +937,40 @@ export class CarteCanvas implements CarteAffichee {
     const im = image(v, c, regionVisible(v, c, MARGE_PX), this.enMouvement);
     const leger = this.enMouvement && this.leger !== null && sommetsVisibles(im, this.complet) > BUDGET_SOMMETS;
     const cq = leger && this.leger ? this.leger : this.complet;
+    // En mouvement, la carte est tracée plus grossièrement (dessin.ts) : la fin d'un geste la retrace.
+    const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.dpr} ${leger ? 'leger' : 'complet'} ${im.mouvement}`;
+    const carte = signature !== this.signature || !this.ctxDessus;
+    if (carte) this.dessinerCarte(ctx, im, cq);
+    this.signature = signature;
+    const stats = { parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies, exactes: im.exactes, minuscules: im.minuscules };
+    const t1 = performance.now();
+    // Sans couche du dessus (getContext refusé), tout va sur la carte, par-dessus.
+    const dessus = this.ctxDessus ?? ctx;
+    if (this.ctxDessus) {
+      this.ctxDessus.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.ctxDessus.clearRect(0, 0, c.l, c.h);
+    }
+    this.dessinerMarques(dessus, im, cq);
+    this.dessinerPastilles(dessus);
+    const ms = performance.now() - t0;
+    if (!carte && this.dernier) {
+      // Couche du dessus seule : les compteurs de la carte restent ceux de son dernier dessin.
+      this.dernier = { ...this.dernier, ms, dessus_ms: performance.now() - t1, carte: false };
+      return;
+    }
+    this.dernier = { ms, trace_ms: this.traceCarte_ms, leger, ...stats, dessus_ms: performance.now() - t1, carte: true };
+    this.hote.dataset.dessin = leger ? 'leger' : 'complet';
+  }
+
+  /** Durée du tracé (script, sans le dessin) du dernier dessin de la carte. */
+  private traceCarte_ms = 0;
+
+  /** La carte : mer, terres, hachures et frontières, sans marques ni pastilles (couche du dessus). */
+  private dessinerCarte(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque): void {
+    const t0 = performance.now();
+    const { c, v } = this;
     const coul = this.couleurs;
     const entites = this.o.donnees.entites;
-
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, c.l, c.h);
     const ovale = new Path2D();
@@ -908,20 +985,7 @@ export class CarteCanvas implements CarteAffichee {
     const terres = new Path2D();
     const coutures = new Path2D();
     const couturesContour = new Path2D();
-    const parClasse = new Map<string, Path2D>();
-    // Contour de la zone fausse : sans le côté qui suit l'antiméridien (comme les frontières).
-    let contourFaux: Path2D | null = null;
-    // Hachures : un chemin par entité ou zone, son motif ancré sur elle (ancre).
-    // Une partie de moins d'un demi-pas à l'écran n'en montrerait pas un trait :
-    // sautée (au zoom 1, une trentaine de remplissages en moins).
     const hachures = new Map<string, { chemin: Path2D; ancre: [number, number] | null }>();
-    const complet = this.complet;
-    const hachurer = (cle: string, ps: Partie[] | undefined, p: Partie): void => {
-      if (im.K * p.taille < PAS_HACHURES / 2) return;
-      let h = hachures.get(cle);
-      if (!h) hachures.set(cle, (h = { chemin: new Path2D(), ancre: ancre(im, ps ?? []) }));
-      tracerPartie(h.chemin, im, p);
-    };
     let avecCoutures = false;
     parcourir(im, cq.pays, cq.groupes?.pays, (p, i) => {
       const e = entites[i];
@@ -931,64 +995,137 @@ export class CarteCanvas implements CarteAffichee {
         tracerPartie(coutures, im, p);
         tracerPartie(couturesContour, im, p, true);
       } else tracerPartie(terres, im, p);
-      const classes = this.marques.get(e.pays.id);
-      if (classes) {
-        for (const cl of classes) {
-          let chemin = parClasse.get(cl);
-          if (!chemin) parClasse.set(cl, (chemin = new Path2D()));
-          tracerPartie(chemin, im, p);
-        }
-        if (classes.has('faux')) tracerPartie((contourFaux ??= new Path2D()), im, p, p.couture || passeCoupure(p, v.r));
-      }
       // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
-      if (e.pays.statut === 'conteste') hachurer(`p${i}`, complet.pays[i], p);
+      if (e.pays.statut === 'conteste') this.hachurer(hachures, im, `p${i}`, i, p);
     });
-    parcourir(im, cq.zones, cq.groupes?.zones, (p, i) => hachurer(`z${i}`, complet.zones[i], p));
-    const t1 = performance.now();
+    parcourir(im, cq.zones, cq.groupes?.zones, (p, i) => this.hachurer(hachures, im, `z${i}`, -1 - i, p));
+    this.traceCarte_ms = performance.now() - t0;
 
     ctx.fillStyle = coul.terre;
     ctx.fill(terres);
     if (avecCoutures) ctx.fill(coutures);
-    for (const [cl, chemin] of parClasse) {
-      const couleur = coul.marques[cl];
-      if (!couleur) continue;
-      ctx.fillStyle = couleur;
+    this.peindreHachures(ctx, hachures);
+    this.tracerFrontieres(ctx, terres, avecCoutures ? couturesContour : null);
+  }
+
+  /**
+   * Hachures : un chemin par entité ou zone (cle), son motif ancré sur elle
+   * (ancre ; liste : i ≥ 0 une entité, -1 - i la zone i). Une partie de moins
+   * d'un demi-pas à l'écran n'en montrerait pas un trait : sautée (au zoom 1,
+   * une trentaine de remplissages en moins).
+   */
+  private hachurer(hachures: Map<string, { chemin: Path2D; ancre: [number, number] | null }>, im: ImageTrace, cle: string, liste: number, p: Partie): void {
+    if (im.K * p.taille < PAS_HACHURES / 2 || !this.complet) return;
+    let h = hachures.get(cle);
+    if (!h) {
+      const ps = liste >= 0 ? this.complet.pays[liste] : this.complet.zones[-1 - liste];
+      hachures.set(cle, (h = { chemin: new Path2D(), ancre: ancre(im, ps ?? []) }));
+    }
+    tracerPartie(h.chemin, im, p);
+  }
+
+  /**
+   * Le motif de chaque zone est ancré sur elle (au pixel physique près) : fixe
+   * à l'écran, il glissait sous la carte pendant un geste. Ancré sur la carte
+   * complète, il ne saute pas quand l'allégée prend le relais.
+   */
+  private peindreHachures(ctx: CanvasRenderingContext2D, hachures: Map<string, { chemin: Path2D; ancre: [number, number] | null }>): void {
+    if (!this.motif) return;
+    for (const { chemin, ancre: a } of hachures.values()) {
+      const [ax, ay] = a ? [Math.round(a[0] * this.dpr) / this.dpr, Math.round(a[1] * this.dpr) / this.dpr] : [0, 0];
+      this.motif.setTransform(new DOMMatrix().translateSelf(ax, ay).rotateSelf(45).scaleSelf(1 / this.dpr));
+      ctx.fillStyle = this.motif;
       ctx.fill(chemin);
     }
-    // Le motif de chaque zone est ancré sur elle (au pixel physique près) : fixe
-    // à l'écran, il glissait sous la carte pendant un geste. Ancré sur la carte
-    // complète, il ne saute pas quand l'allégée prend le relais.
-    if (this.motif) {
-      for (const { chemin, ancre: a } of hachures.values()) {
-        const [ax, ay] = a ? [Math.round(a[0] * this.dpr) / this.dpr, Math.round(a[1] * this.dpr) / this.dpr] : [0, 0];
-        this.motif.setTransform(new DOMMatrix().translateSelf(ax, ay).rotateSelf(45).scaleSelf(1 / this.dpr));
-        ctx.fillStyle = this.motif;
-        ctx.fill(chemin);
-      }
-    }
-    // Frontières d'un pixel physique : sous 1 px, Skia trace un trait fin
-    // (hairline) sans calculer d'enveloppe. Le trait de 0,6 px du SVG (1,7 px
-    // physique, joints ronds) faisait perdre la moitié des images d'une
-    // rotation au zoom 1 sur le PC (rastérisation logicielle de
-    // chrome-headless-shell), 1 px aucune. Plus opaque (--frontiere-fine) pour
-    // garder la même encre par unité de longueur.
-    ctx.strokeStyle = coul.frontiere;
+  }
+
+  /**
+   * Frontières d'un pixel physique : sous 1 px, Skia trace un trait fin
+   * (hairline) sans calculer d'enveloppe. Le trait de 0,6 px du SVG (1,7 px
+   * physique, joints ronds) faisait perdre la moitié des images d'une
+   * rotation au zoom 1 sur le PC (rastérisation logicielle de
+   * chrome-headless-shell), 1 px aucune. Plus opaque (--frontiere-fine) pour
+   * garder la même encre par unité de longueur.
+   */
+  private tracerFrontieres(ctx: CanvasRenderingContext2D, chemin: Path2D, coutures: Path2D | null): void {
+    ctx.strokeStyle = this.couleurs.frontiere;
     ctx.lineWidth = 1 / this.dpr;
     ctx.lineJoin = 'miter';
-    ctx.stroke(terres);
-    if (avecCoutures) ctx.stroke(couturesContour);
-    // Par-dessus les frontières : le contour entier (en SVG, sa moitié extérieure peut passer sous une voisine).
+    ctx.stroke(chemin);
+    if (coutures) ctx.stroke(coutures);
+  }
+
+  /**
+   * Couche du dessus, marques : la couleur de chaque marque, les hachures qui
+   * tombent dessus (une entité contestée marquée, ou une zone contestée en
+   * elle : peintes sous ses frontières sur la carte, comme avant la couche du
+   * dessus) et ses frontières, puis le contour de la zone fausse, entier,
+   * par-dessus (en SVG, sa moitié extérieure peut passer sous une voisine).
+   * Au repos comme pendant un geste, les parties sont celles de la carte
+   * dessinée (allégée ou complète).
+   */
+  private dessinerMarques(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque): void {
+    if (!this.marques.size) return;
+    const coul = this.couleurs;
+    const { v } = this;
+    const parClasse = new Map<string, Path2D>();
+    const toutes = new Path2D();
+    const contour = new Path2D();
+    const contourCoutures = new Path2D();
+    let avecCoutures = false;
+    let contourFaux: Path2D | null = null;
+    // Emprise (degrés) des parties marquées : les hachures à repeindre.
+    let [o, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const [id, classes] of this.marques) {
+      const i = this.indices.get(id);
+      if (i === undefined) continue;
+      for (const p of cq.pays[i] ?? []) {
+        // Ce que parcourir écarte : hors de l'écran, minuscule ou que le repos ne montre pas.
+        if (!visible(im, p) || (im.mouvement && (im.K * p.taille < TAILLE_MIN_PX || im.K * (p.source ?? p).ecart < SEUIL_PX))) continue;
+        for (const cl of classes) {
+          if (!coul.marques[cl]) continue;
+          let chemin = parClasse.get(cl);
+          if (!chemin) parClasse.set(cl, (chemin = new Path2D()));
+          tracerPartie(chemin, im, p);
+        }
+        tracerPartie(toutes, im, p);
+        const coupure = p.couture || passeCoupure(p, v.r);
+        if (coupure) {
+          avecCoutures = true;
+          tracerPartie(contourCoutures, im, p, true);
+        } else tracerPartie(contour, im, p);
+        if (classes.has('faux')) tracerPartie((contourFaux ??= new Path2D()), im, p, coupure);
+        [o, s, e, n] = [Math.min(o, p.o), Math.min(s, p.s), Math.max(e, p.e), Math.max(n, p.n)];
+      }
+    }
+    if (o > e) return;
+    for (const [cl, chemin] of parClasse) {
+      ctx.fillStyle = coul.marques[cl] as string;
+      ctx.fill(chemin);
+    }
+    // Hachures sous les marques : seulement dans les parties marquées.
+    const hachures = new Map<string, { chemin: Path2D; ancre: [number, number] | null }>();
+    const rencontre = (p: Partie) => p.o <= e && p.e >= o && p.s <= n && p.n >= s;
+    this.o.donnees.entites.forEach((en, i) => {
+      if (en.pays.statut !== 'conteste') return;
+      for (const p of cq.pays[i] ?? []) if (rencontre(p) && visible(im, p)) this.hachurer(hachures, im, `p${i}`, i, p);
+    });
+    cq.zones.forEach((ps, i) => {
+      for (const p of ps) if (rencontre(p) && visible(im, p)) this.hachurer(hachures, im, `z${i}`, -1 - i, p);
+    });
+    if (hachures.size) {
+      ctx.save();
+      ctx.clip(toutes);
+      this.peindreHachures(ctx, hachures);
+      ctx.restore();
+    }
+    this.tracerFrontieres(ctx, contour, avecCoutures ? contourCoutures : null);
     if (contourFaux) {
       ctx.strokeStyle = coul.texte;
       ctx.lineWidth = TRAIT_FAUX_PX;
       ctx.lineJoin = 'round';
       ctx.stroke(contourFaux);
     }
-
-    this.dessinerPastilles(ctx);
-    const ms = performance.now() - t0;
-    this.dernier = { ms, trace_ms: t1 - t0, leger, parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies, exactes: im.exactes, minuscules: im.minuscules };
-    this.hote.dataset.dessin = leger ? 'leger' : 'complet';
   }
 
   /** Une image dessinée par le peintre ; sa durée est le script de l'image (mesures). */
