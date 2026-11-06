@@ -136,6 +136,17 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
 - `--rendu` (ui) : rendu de la carte du monde (sans : celui de la page,
   canvas) ; l'île est toujours en SVG, au-dessus du monde en canvas.
   `--url` ne peut pas porter `?rendu=` (le pilote y ajoute `?mesures=0`).
+- Carte de la mémoire (#2) : `?teintes=demo` teinte chaque pays jouable
+  du monde d'un seau 0 à 4 tiré de son id (`teintesDemo`,
+  `src/map/teintes.ts` : le même à chaque chargement), dans tout rendu,
+  pour les captures et les mesures de la carte teintée (couleurs
+  `--memoire-0` à `4` de `src/carte.css`). Crochet d'essai : les teintes
+  restent pendant les parties. Au pilote, `terramemo.carte.teinter({FRA: 3})`
+  (ou `null`) et `terramemo.carte.teintesDemo()` ; le dessin qui suit
+  (`dessin()` : `carte: true`, `ms`) est le coût d'un changement de
+  teintes. Mesure : `mesurer --url "http://localhost:8060/?teintes=demo"`
+  (le driver y ajoute `&rendu=…`), avec `--out` à part pour ne pas
+  écraser le rapport du jour sans teintes.
 - Contrat de l'île avec le pilote : `window.terramemo.carte` reste **le
   monde** (mesures, captures 1 à 9) ; `terramemo.terrain()` dit le terrain
   affiché, `terramemo.ile` (`null` avant le premier choix de l'île) donne

@@ -8,6 +8,7 @@ import { prechauffer } from './map/geo';
 import type { ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
+import { teintesDemo } from './map/teintes';
 import type { NomProjection, NomTerrain, Rendu, Transfo } from './map/types';
 import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
@@ -81,13 +82,19 @@ const debutScript = performance.now();
  */
 export const RENDU_DEFAUT: Rendu = 'canvas';
 
-// --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur) ---
+// --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur), ?teintes=demo ---
 
 const params = new URLSearchParams(location.search);
 const pRendu = params.get('rendu');
 const rendu: Rendu = pRendu === 'g' || pRendu === 'css' || pRendu === 'canvas' || pRendu === 'webgl' ? pRendu : RENDU_DEFAUT;
 const pProj = params.get('projection');
 const projection: NomProjection = estNomProjection(pProj) ? pProj : 'monde';
+/**
+ * Crochet d'essai de la carte de la mémoire (#2) : chaque pays jouable du
+ * monde teinté d'un seau tiré de son id (teintesDemo), pour les captures et
+ * les mesures avant que l'accueil ne la colore. Il reste pendant les parties.
+ */
+const teintesDemoDemandees = params.get('teintes') === 'demo';
 const CLE_MESURES = 'terramemo.mesures';
 function lireMesures(): boolean {
   const p = params.get('mesures');
@@ -269,6 +276,12 @@ export interface AideCarte {
    */
   zoomer(t: Transfo): void;
   zoomerSur(id: string): void;
+  /**
+   * Carte de la mémoire : seau 0 à 4 par id (null : aucune teinte), comme
+   * CarteAffichee.teinter ; teintesDemo() (?teintes=demo) donne celles de la démo.
+   */
+  teinter(t: Record<string, number> | null): void;
+  teintesDemo(): Record<string, number>;
   /** Pays qui ont une cible de pastille au zoom courant ; visible : disque dessiné (circle.pastille en SVG). */
   pastilles(): { id: string; visible: boolean }[];
   /** Rendus canvas et webgl : compteurs du dernier dessin (durée du script, carte allégée, parties et sommets tracés). */
@@ -328,7 +341,7 @@ type AideRendu = Pick<AideCarte, 'dessin' | 'webgl' | 'perdreContexte'>;
 const SANS_RENDU: AideRendu = { dessin: () => null, webgl: () => null, perdreContexte: () => false };
 
 /** Les aides au pilote d'une carte, coordonnées de la fenêtre (rect de son hôte). */
-function aide(carte: CarteAffichee, h: HTMLElement, rendus: AideRendu = SANS_RENDU): AideCarte {
+function aide(carte: CarteAffichee, h: HTMLElement, jouables: readonly string[], rendus: AideRendu = SANS_RENDU): AideCarte {
   const local = (x: number, y: number): [number, number] => {
     const r = h.getBoundingClientRect();
     return [x - r.left, y - r.top];
@@ -348,6 +361,8 @@ function aide(carte: CarteAffichee, h: HTMLElement, rendus: AideRendu = SANS_REN
     transfo: () => carte.transfo,
     zoomer: (t) => carte.zoomer(t),
     zoomerSur: (id) => carte.zoomerSur(id),
+    teinter: (t) => carte.teinter(t ? new Map(Object.entries(t)) : null),
+    teintesDemo: () => Object.fromEntries(teintesDemo(jouables)),
     pastilles: () => carte.contexte().pastilles.map((p) => ({ id: p.id, visible: p.visible })),
     ...rendus,
   };
@@ -409,6 +424,8 @@ async function demarrer(): Promise<void> {
   const carte: CarteAffichee = rendu === 'canvas' || rendu === 'webgl' ? new CarteCanvas({ ...options, leger: leger ?? undefined }) : new Carte(options);
   if (carte instanceof CarteCanvas) carteCanvas = carte;
   const cr = carte.rendre();
+  const jouables = idsJouables(donnees);
+  if (teintesDemoDemandees) carte.teinter(teintesDemo(jouables));
   const finInsertion = performance.now();
   await deuxImages();
   const peinte = performance.now();
@@ -430,7 +447,7 @@ async function demarrer(): Promise<void> {
     pastilles: carte.nbPastilles,
   };
 
-  window.terramemo.carte = aide(carte, hote, {
+  window.terramemo.carte = aide(carte, hote, jouables, {
     dessin: () => (carte instanceof CarteCanvas ? carte.dernier : null),
     webgl: () =>
       relais ? { renderer: relais.lireGpu(), perdu: relais.peintre?.contextePerdu ?? false, etape: relais.etat.etape, raison: relais.etat.raison } : null,
@@ -443,11 +460,11 @@ async function demarrer(): Promise<void> {
 
   // Le monde reste celui de ctx.carte et ctx.donnees ; l'île ne se charge qu'au choix de sa série.
   terrains = creerTerrains({
-    monde: { nom: 'monde', carte, donnees, jouables: idsJouables(donnees), credit: null },
+    monde: { nom: 'monde', carte, donnees, jouables, credit: null },
     hoteMonde: hote,
     surToucher,
     surCharge: (t) => {
-      window.terramemo.ile = aide(t.carte, t.carte.hote);
+      window.terramemo.ile = aide(t.carte, t.carte.hote, t.jouables);
     },
   });
   const ctx = { carte, donnees, mesures, zone, terrains };
