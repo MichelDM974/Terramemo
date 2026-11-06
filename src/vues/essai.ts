@@ -386,6 +386,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   function finirSeance(): void {
     const p = pilote;
     if (!p) return;
+    // Un Trouver déjà répondu (toucher faux, « Voir ») et pas encore trouvé : il compte, comme un « Passer » (Again).
+    const id = courante();
+    if (id && premiere && !resEnAttente) rapporter(resultat(id, false));
     validerEnAttente();
     nommer.arreter();
     retournee.arreter();

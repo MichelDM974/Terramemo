@@ -438,6 +438,36 @@ describe('Toucher : une séance quittée puis reprise', () => {
     expect(s.el('#essai-bilan').textContent).toContain('bilan : 1 réponses');
   });
 
+  it('« Terminer » après un toucher faux ou « Voir », avant de trouver : la question compte (raté), une seule fois', () => {
+    for (const aide of ['faux', 'voir'] as const) {
+      const f = piloteFactice(QUESTIONS);
+      const s = monterSeance(() => f.p);
+      s.vue.activer();
+      s.vue.reviser();
+      if (aide === 'faux') toucher(s.vue, false);
+      else s.el('#essai-voir').click();
+      s.el('#essai-terminer').click();
+      expect(s.visible('essai-bilan')).toBe(true);
+      expect(f.recues).toHaveLength(1);
+      expect(f.recues[0]).toMatchObject({ id: 'FRA', sens: 'localiser', correct: false, aide: aide === 'voir' ? 'voir' : 'passer' });
+    }
+    // Rien répondu : rien de rapporté ; juste encore affiché : rapporté une fois.
+    const f = piloteFactice(QUESTIONS);
+    const s = monterSeance(() => f.p);
+    s.vue.activer();
+    s.vue.reviser();
+    s.el('#essai-terminer').click();
+    expect(f.recues).toHaveLength(0);
+    const g = piloteFactice(QUESTIONS);
+    const t = monterSeance(() => g.p);
+    t.vue.activer();
+    t.vue.reviser();
+    toucher(t.vue, true);
+    t.el('#essai-terminer').click();
+    expect(g.recues).toHaveLength(1);
+    expect(g.recues[0]!.correct).toBe(true);
+  });
+
   it('Apprendre refusé (grappe du jour faite) : le dire ; « Trouver » lance la série, « Réviser » la révision', () => {
     const s = monterSeance((d) => (d.sorte === 'apprendre' ? { refus: 'La grappe du jour est déjà apprise : la suivante demain.', reviser: 3 } : piloteFactice(QUESTIONS).p));
     s.vue.activer();
