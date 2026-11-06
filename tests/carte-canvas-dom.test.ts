@@ -169,6 +169,8 @@ describe('CarteCanvas : montrer() de Nommer cadre comme le SVG (#16)', () => {
   // que si le bas de l'ovale quitte le bas de l'écran : comme en SVG, où
   // zoom.transform n'applique pas translateExtent, le vol ignore la borne
   // verticale (bornée, l'Argentine n'était visible qu'à 53 %, l'Australie à 79 %).
+  // Délai propre : ~3,5 s seul (un vol complet dessiné par zone), il passait
+  // parfois les 5 s par défaut de vitest quand la suite entière tourne sur un PC chargé.
   it('au-dessus de la barre, le polygone principal entier : au moins 90 % de lui (Europe, Chili, Norvège, Argentine, Australie…)', () => {
     expect(europe.length).toBeGreaterThan(40);
     const c = carte();
@@ -183,7 +185,7 @@ describe('CarteCanvas : montrer() de Nommer cadre comme le SVG (#16)', () => {
       if (!p || p[0] < 0 || p[0] > L || p[1] < 0 || p[1] > HV) rates.push(`${id} : point hors de la partie visible (${p})`);
     }
     expect(rates).toEqual([]);
-  });
+  }, 30_000);
 
   it('zoomerSur (sans barre) reste centré sur le point, sur toute la hauteur', () => {
     const c = carte();
