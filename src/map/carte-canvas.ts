@@ -32,7 +32,8 @@ import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TA
 import { anneauPrincipal, RAYON_TERRE_KM, versEcran, type Emprise } from './geo';
 import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
-import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
+import { acceptesDe } from './acceptes';
+import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from './pick';
 import { ROTATIONS } from './projection';
 import { seau, VARIABLES_MEMOIRE, type Teintes } from './teintes';
 import type { Forme, Transfo } from './types';
@@ -605,21 +606,21 @@ export class CarteCanvas implements CarteAffichee {
   }
 
   contexte(): ContexteCarte {
-    return { proj: this.proj, t: this.transfo, entites: this.o.donnees.entites, pastilles: this.pastilles };
+    return { proj: this.proj, t: this.transfo, entites: this.o.donnees.entites, pastilles: this.pastilles, acceptes: acceptesDe(this.o.donnees) };
   }
 
   contexteFinal(): ContexteCarte {
     const cible = this.vol?.cible;
     if (!cible) return this.contexte();
-    return { proj: projectionDe(cible.r, this.c), t: transfoDe(cible, this.c), entites: this.o.donnees.entites, pastilles: this.pastilles };
+    return { proj: projectionDe(cible.r, this.c), t: transfoDe(cible, this.c), entites: this.o.donnees.entites, pastilles: this.pastilles, acceptes: acceptesDe(this.o.donnees) };
   }
 
   pick(x: number, y: number): ResultatPick | null {
     return pick(this.contexte(), x, y);
   }
 
-  noter(cible: string, x: number, y: number): Note {
-    return noter(this.contexte(), cible, x, y);
+  noter(cible: string, x: number, y: number, options?: OptionsNoter): Note {
+    return noter(this.contexte(), cible, x, y, options);
   }
 
   ecran(id: string): [number, number] | null {

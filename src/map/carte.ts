@@ -9,7 +9,8 @@ import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom
 import type { DonneesCarte } from './donnees';
 import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, versEcran, viser, type Emprise } from './geo';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
-import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
+import { acceptesDe } from './acceptes';
+import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from './pick';
 import { creerProjection, garderVue } from './projection';
 import { fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
@@ -82,7 +83,8 @@ export interface CarteAffichee {
    */
   contexteFinal(): ContexteCarte;
   pick(x: number, y: number): ResultatPick | null;
-  noter(cible: string, x: number, y: number): Note;
+  /** options.acceptes false : le de fait strict, sans les zones contestées ni les enclaves (épreuves d'avant leur date). */
+  noter(cible: string, x: number, y: number, options?: OptionsNoter): Note;
   ecran(id: string): [number, number] | null;
   zoomerSur(id: string): void;
   /** hVisible : la hauteur visible de la carte (au-dessus d'une barre), toute la carte par défaut. */
@@ -341,7 +343,7 @@ export class Carte implements CarteAffichee {
   }
 
   contexte(): ContexteCarte {
-    return { proj: this.proj, t: this.t, entites: this.o.donnees.entites, pastilles: this.pastilles };
+    return { proj: this.proj, t: this.t, entites: this.o.donnees.entites, pastilles: this.pastilles, acceptes: acceptesDe(this.o.donnees) };
   }
 
   contexteFinal(): ContexteCarte {
@@ -353,8 +355,8 @@ export class Carte implements CarteAffichee {
     return pick(this.contexte(), x, y);
   }
 
-  noter(cible: string, x: number, y: number): Note {
-    return noter(this.contexte(), cible, x, y);
+  noter(cible: string, x: number, y: number, options?: OptionsNoter): Note {
+    return noter(this.contexte(), cible, x, y, options);
   }
 
   /** Point (px relatifs à la carte) où toucher un pays : sa pastille ou son point d'étiquette. */

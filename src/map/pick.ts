@@ -2,6 +2,7 @@
 // (projection, transformation, géométries, pastilles) : un rendu Canvas de
 // repli les réutiliserait telles quelles.
 import type { GeoProjection } from 'd3-geo';
+import type { Acceptes, Admis } from './acceptes';
 import { contient, distanceAuBordKm, versEcran, versLonLat } from './geo';
 import { PASTILLE, pastilleLaPlusProche, type Pastille } from './pastilles';
 import type { Entite, Lieu, Transfo } from './types';
@@ -12,6 +13,11 @@ export interface ContexteCarte {
   entites: readonly Entite<Lieu>[];
   /** Pastilles affichées au zoom courant. */
   pastilles: readonly Pastille[];
+  /**
+   * Zones qui comptent juste pour une cible hors de son tracé (acceptes.ts :
+   * zones contestées, enclaves) ; absent : aucune, le de fait strict.
+   */
+  acceptes?: Acceptes;
 }
 
 export type Via = 'pastille' | 'trace' | 'proche';
@@ -95,6 +101,20 @@ export interface Note {
   lonlat: [number, number] | null;
   /** Ce que la carte désigne en (x, y) : pick(), calculé une fois pour la note et la rétroaction. */
   pick: ResultatPick | null;
+  /**
+   * Juste hors du tracé de la cible : la zone contestée ou l'enclave touchée
+   * qui compte pour elle (rétroaction « Juste (…) ») ; null sinon.
+   */
+  admis: Admis | null;
+}
+
+export interface OptionsNoter {
+  /**
+   * Admettre les zones contestées et les enclaves de ctx.acceptes (défaut :
+   * oui). Non : le de fait strict, pour les épreuves classées d'avant
+   * DEBUT_ACCEPTES_EPREUVES (src/epreuve/bareme.ts).
+   */
+  acceptes?: boolean;
 }
 
 /**
@@ -109,13 +129,34 @@ export interface Note {
  * disque du Vatican, juste pour le Vatican comme pour l'Italie (pick y désigne
  * le Vatican, la rétroaction d'une réponse juste montre la cible) ; à 8 px,
  * l'Italie seule.
+ * Les zones de ctx.acceptes comptent aussi (décision « Zones contestées et
+ * enclaves ») : un toucher en Crimée est juste pour l'Ukraine, à Baïkonour pour
+ * le Kazakhstan, et Note.admis dit pourquoi. Faux, la distance est celle du
+ * bord le plus proche de l'union (la cible et ses zones admises) : le Maroc
+ * s'arrête au bord est du Sahara occidental.
  */
-export function noter(ctx: ContexteCarte, cible: string, x: number, y: number): Note {
+export function noter(ctx: ContexteCarte, cible: string, x: number, y: number, options: OptionsNoter = {}): Note {
   const e = ctx.entites.find((en) => en.pays.id === cible);
   if (!e) throw new Error(`cible inconnue : ${cible}`);
   const ll = versLonLat(ctx.proj, ctx.t, x, y);
   const p = pick(ctx, x, y);
-  if (ll && contient(e.forme, e.pays.bbox, ll)) return { juste: true, via: 'trace', distance_km: 0, lonlat: ll, pick: p };
-  if (p?.id === cible) return { juste: true, via: p.via, distance_km: 0, lonlat: ll, pick: p };
-  return { juste: false, via: null, distance_km: ll ? distanceAuBordKm(e.forme, ll) : null, lonlat: ll, pick: p };
+  const base = { lonlat: ll, pick: p };
+  if (ll && contient(e.forme, e.pays.bbox, ll)) return { juste: true, via: 'trace', distance_km: 0, admis: null, ...base };
+  if (p?.id === cible) return { juste: true, via: p.via, distance_km: 0, admis: null, ...base };
+  const zones = options.acceptes === false ? [] : (ctx.acceptes?.get(cible) ?? []);
+  const admis = (z: (typeof zones)[number]): Admis => ({ zone: z.zone, tenant: z.tenant, sorte: z.sorte });
+  if (ll) {
+    const z = zones.find((zo) => contient(zo.forme, zo.bbox, ll));
+    if (z) return { juste: true, via: z.entite && p?.id === z.zone ? p.via : 'trace', distance_km: 0, admis: admis(z), ...base };
+  }
+  // Une entité admise que la carte désigne sans que le doigt y soit : sa côte
+  // à moins de 12 px (sonde), comme pour la cible elle-même.
+  const z = p ? zones.find((zo) => zo.entite && zo.zone === p.id) : undefined;
+  if (z && p) return { juste: true, via: p.via, distance_km: 0, admis: admis(z), ...base };
+  let distance_km: number | null = null;
+  if (ll) {
+    distance_km = distanceAuBordKm(e.forme, ll);
+    for (const zo of zones) distance_km = Math.min(distance_km, distanceAuBordKm(zo.forme, ll));
+  }
+  return { juste: false, via: null, distance_km, admis: null, ...base };
 }
