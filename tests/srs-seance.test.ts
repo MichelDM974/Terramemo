@@ -132,6 +132,20 @@ describe('séance : QCM d’apprentissage et « Je connais déjà »', () => {
     }
   });
 
+  it('« Je connais déjà » sur un QCM reposé après un échec : sans effet, le rappel juste vaut Good', () => {
+    const s = new Seance(grappe, ctx());
+    const id = s.courante!.id;
+    s.repondre(faux('NGA'));
+    // Le QCM de l'autre pays, puis celui raté, reposé (passage 2).
+    for (let k = 0; k < 5 && !(s.courante?.etape === 'qcm' && s.courante.id === id); k++) s.repondre(juste);
+    expect([s.courante?.etape, s.courante?.id, s.courante?.passage]).toEqual(['qcm', id, 2]);
+    s.connu();
+    expect([s.courante?.etape, s.courante?.id, s.courante?.passage]).toEqual(['qcm', id, 2]);
+    const { evts } = parcourir(s);
+    const r = evts.find((x) => x.fiche === `pays:${id}:localiser` && x.note !== null)!;
+    expect([r.note, r.aide]).toEqual([GOOD, null]);
+  });
+
   it('« Je connais déjà » hors d’un QCM : sans effet', () => {
     const s = new Seance({ domaine: 'pays', revisions: ['pays:FRA:localiser'], introductions: [], nouveaux: [] }, ctx());
     s.connu();

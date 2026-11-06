@@ -108,7 +108,7 @@ export function creerSeances(o: OptionsSeances): Seances {
         if (!e) return null;
         const c = e.cadrage;
         const cadrer = !c ? null : c.sorte === 'monde' ? ('monde' as const) : emprise(c.ids);
-        return { id: e.id, forme: e.forme, cadrer, connu: e.etape === 'qcm' };
+        return { id: e.id, forme: e.forme, cadrer, connu: e.etape === 'qcm' && e.passage === 1 };
       },
       compte: () => `${seance.numero} / ${seance.total}`,
       repondre(r) {

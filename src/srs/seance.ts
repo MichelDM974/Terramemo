@@ -229,12 +229,14 @@ export class Seance {
 
   /**
    * « Je connais déjà » (QCM d'un pays nouveau) : le QCM de ce pays est
-   * sauté, son rappel reste ; juste, il vaudra Easy (note.ts). Sans événement
+   * sauté, son rappel reste ; juste, il vaudra Easy (note.ts). Au premier
+   * passage du QCM seulement (sans effet sur un QCM reposé). Sans événement
    * (le type 'connu' est réservé) : la prétention se vérifie au rappel.
    */
   connu(): void {
     const e = this.courante_;
-    if (!e || e.etape !== 'qcm') return;
+    // Au premier passage seul : un QCM reposé l'est après un échec, et le joueur a montré qu'il ne connaissait pas le pays (pas d'Easy).
+    if (!e || e.etape !== 'qcm' || e.passage > 1) return;
     this.connus.add(e.id);
     this.file = this.file.filter((x) => !(x.etape === 'qcm' && x.id === e.id));
     this.avancer();
