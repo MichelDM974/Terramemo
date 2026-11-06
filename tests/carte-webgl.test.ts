@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import type { Polygon, Position } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { EtatImage } from '../src/map/carte-canvas';
-import { FRAG_DISQUES, FRAG_HACHURES, FRAG_TERRES, lireCouleurs, PeintreWebGL, uniformesVue, VERTEX_CARTE, VERTEX_DISQUES, type Couleurs, type Rvba } from '../src/map/carte-webgl';
+import { TRAIT_FAUX_PX, type EtatImage } from '../src/map/carte-canvas';
+import { FRAG_DISQUES, FRAG_HACHURES, FRAG_TERRES, decalagesTrait, lireCouleurs, PeintreWebGL, uniformesVue, VERTEX_CARTE, VERTEX_DISQUES, type Couleurs, type Rvba } from '../src/map/carte-webgl';
 import { ancre, image, MARGE_PX, preparer, tracerOvale } from '../src/map/dessin';
 import { versEcran } from '../src/map/geo';
 import { PASTILLE } from '../src/map/pastilles';
@@ -1074,6 +1074,7 @@ const couleursEssai: Couleurs = {
   hachure: [5, 5, 5, 255],
   pastille: [9, 9, 9, 255],
   bord: [0, 0, 0, 255],
+  texte: [250, 251, 252, 255],
   marques: { choisi: [0, 0, 255, 255], juste: [0, 255, 0, 255], faux: [255, 0, 0, 255] },
 };
 
@@ -1150,6 +1151,52 @@ describe('PeintreWebGL.dessiner (faux WebGL2)', () => {
     const ovale = f.dessins[0];
     expect(ovale?.u.uMode).toBe(2);
     expect(ovale?.u.uCouleur).toEqual(couleursEssai.mer.map((x) => x / 255));
+  });
+
+  it('zone fausse : ses anneaux en traits couleur du texte, après les côtes, une passe par décalage de decalagesTrait (3 px CSS) ; aucune sans faux (#16)', () => {
+    const fra = donnees.entites.find((x) => x.pays.id === 'FRA') as DonneesCarte['entites'][number];
+    const g = fra.forme.geometry;
+    const anneaux = (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).flat();
+    const contour = maillerTraits(anneaux);
+    expect(contour.traits.length).toBeGreaterThan(100);
+    for (const dpr of [1, 2.8125]) {
+      const { p, f } = peintre(undefined, dpr);
+      const e = etat(2, 8, new Map([['FRA', new Set(['faux'])], ['ESP', new Set(['juste'])]]), 46);
+      p.dessiner(e);
+      const vaos = vaoDe(f, contour.traits.length);
+      expect(vaos.length).toBe(1);
+      const passes = f.dessins.filter((d) => d.vao === vaos[0] && d.mode === f.constante('LINES') && d.u.uMode === 0);
+      const { centre } = uniformesVue(e.v, e.c);
+      const attendus = decalagesTrait(TRAIT_FAUX_PX, dpr).map(([dx, dy]) => [centre[0] + dx, centre[1] + dy]);
+      expect(passes.map((d) => d.u.uCentre)).toEqual(attendus);
+      for (const d of passes) {
+        expect(d.n).toBe(contour.traits.length);
+        expect(d.u.uCouleur).toEqual(couleursEssai.texte.map((x) => x / 255));
+      }
+      // Après les côtes, dans le VAO des anneaux de la France (leurs sommets).
+      const [vaoCotes] = vaoDe(f, tout.cotes.traits.length);
+      expect(f.dessins.indexOf(passes[0] as (typeof f.dessins)[number])).toBeGreaterThan(f.dessins.findIndex((d) => d.vao === vaoCotes));
+      expect(f.attributs(vaos[0] as object, vertexCarte, 7).aLonLat).toEqual([contour.lonlat[14], contour.lonlat[15]]);
+      // Les marques changent : la France juste, plus de contour (ni de passe).
+      f.dessins.length = 0;
+      p.dessiner({ ...e, marques: new Map([['FRA', new Set(['juste'])]]) });
+      expect(f.dessins.filter((d) => d.u.uCouleur && JSON.stringify(d.u.uCouleur) === JSON.stringify(couleursEssai.texte.map((x) => x / 255)))).toEqual([]);
+    }
+  });
+
+  it('decalagesTrait : round(largeur × dpr) pixels de travers dans chaque axe, un disque symétrique, en px CSS', () => {
+    expect(decalagesTrait(3, 1)).toHaveLength(9);
+    for (const dpr of [1, 1.5, 2, 2.625, 2.8125, 3]) {
+      const d = decalagesTrait(3, dpr);
+      const w = Math.round(3 * dpr);
+      const px = d.map(([x, y]) => [Math.round(x * dpr), Math.round(y * dpr)]);
+      d.forEach(([x, y], k) => expect([x * dpr, y * dpr]).toEqual(px[k]));
+      expect(new Set(px.map(([i]) => i)).size).toBe(w);
+      expect(new Set(px.map(([, j]) => j)).size).toBe(w);
+      expect(px.some(([i, j]) => i === 0 && j === 0)).toBe(true);
+      // Disque : pas les coins du carré dès 4 pixels.
+      if (w >= 4) expect(d.length).toBeLessThan(w * w);
+    }
   });
 
   it('attributs : ce que VERTEX_CARTE lit à ses layout(location), dans le VAO de chaque dessin = le maillage (λ, φ ; milieu ; forme)', () => {
@@ -1370,16 +1417,23 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
     const pastilles = ['AND', 'MLT'].map((id) => ({ id, bx: base(id)[0], by: base(id)[1], visible: true }));
     p.dessiner({ ...e, pastilles, anneaux: [{ id: 'CHE', classe: 'juste', rayon_px: 16 }] });
     // Le Canvas (carte-canvas.ts, dessinerPastilles) : disque de rayon_visible_px rempli puis bordé d'un trait
-    // de 1 px couleur du fond ; anneau : trait de 2 px. Dans le même ordre que les instances.
-    const attendus = [
-      ...pastilles.map((pa) => ({ centre: versEcran(e.t, pa.bx, pa.by), rayon: PASTILLE.rayon_visible_px, demiTrait: 0.5, plein: pa.id === 'MLT' ? couleurs.marques.faux : couleurs.pastille })),
+    // de 1 px couleur du fond ; anneau : trait de 2 px. Dans le même ordre que les instances. La pastille
+    // fausse (Malte) : son bord est un trait de TRAIT_FAUX_PX couleur du texte (.pastille.faux du SVG), une
+    // instance d'anneau par-dessus son disque.
+    type Attendu = { centre: [number, number]; rayon: number; demiTrait: number; plein: Rvba | null; trait?: Rvba };
+    const attendus: Attendu[] = [
+      ...pastilles.flatMap((pa): Attendu[] => {
+        const centre = versEcran(e.t, pa.bx, pa.by);
+        const disque = { centre, rayon: PASTILLE.rayon_visible_px, demiTrait: 0.5, plein: pa.id === 'MLT' ? (couleurs.marques.faux as Rvba) : couleurs.pastille };
+        return pa.id === 'MLT' ? [disque, { centre, rayon: PASTILLE.rayon_visible_px, demiTrait: TRAIT_FAUX_PX / 2, plein: null, trait: couleurs.texte }] : [disque];
+      }),
       { centre: versEcran(e.t, ...base('CHE')), rayon: 16, demiTrait: 1, plein: null },
     ];
     const anneau = couleurs.marques.juste as Rvba;
-    const canvas = (x: (typeof attendus)[number], d: number, flou: number) => {
+    const canvas = (x: Attendu, d: number, flou: number) => {
       const bord = Math.abs(d - x.rayon);
       if (x.plein && d <= x.rayon - x.demiTrait - flou) return premultipliee(x.plein as Rvba);
-      if (bord <= x.demiTrait - flou) return premultipliee(x.plein ? couleurs.bord : anneau);
+      if (bord <= x.demiTrait - flou) return premultipliee(x.plein ? couleurs.bord : (x.trait ?? anneau));
       if (bord >= x.demiTrait + flou && (!x.plein || d > x.rayon)) return TRANSPARENT;
       return null;
     };
@@ -1447,7 +1501,7 @@ describe('lireCouleurs (variables de :root)', () => {
   it('chaque couleur de la carte vient de sa variable', () => {
     const vars: Record<string, string> = {
       '--mer': '#010203', '--terre': '#0a141e', '--frontiere-fine': '#c8c8c8', '--hachure': '#050505',
-      '--pastille': '#090909', '--bg': '#000000', '--accent': '#0000ff', '--good': '#00ff00', '--danger': '#ff0000',
+      '--pastille': '#090909', '--bg': '#000000', '--text': '#eff0f3', '--accent': '#0000ff', '--good': '#00ff00', '--danger': '#ff0000',
     };
     const hex = (h: string) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16)).concat(255);
     let style = '';
@@ -1458,6 +1512,7 @@ describe('lireCouleurs (variables de :root)', () => {
     expect(c.mer).toEqual(hex('#010203'));
     expect(c.terre).toEqual(hex('#0a141e'));
     expect(c.frontiere).toEqual(hex('#c8c8c8'));
+    expect(c.texte).toEqual(hex('#eff0f3'));
     expect(c.marques).toEqual({ choisi: hex('#0000ff'), juste: hex('#00ff00'), faux: hex('#ff0000') });
   });
 });

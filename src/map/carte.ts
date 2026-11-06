@@ -73,6 +73,13 @@ export interface CarteAffichee {
   readonly transfo: Transfo;
   readonly nbPastilles: number;
   contexte(): ContexteCarte;
+  /**
+   * La vue où la carte s'arrêtera : l'arrivée du vol de montrer() en cours,
+   * sinon celle du moment (contexte()). Ce que lit une décision qui vaut
+   * pour la suite (le cadrage de Nommer), pas la transformation en plein vol.
+   * Pastilles : celles du moment (leur point est celui de la zone, proj).
+   */
+  contexteFinal(): ContexteCarte;
   pick(x: number, y: number): ResultatPick | null;
   noter(cible: string, x: number, y: number): Note;
   ecran(id: string): [number, number] | null;
@@ -164,6 +171,8 @@ export class Carte implements CarteAffichee {
   private proj!: GeoProjection;
   private comportement: ZoomBehavior<HTMLElement, unknown>;
   private t: Transfo = { k: 1, x: 0, y: 0 };
+  /** Arrivée du vol de montrer() en cours (null : pas de vol). */
+  private arrivee: Transfo | null = null;
   /** Transformation posée sur le <g> (en mode css, elle retarde sur t pendant le geste). */
   private applique: Transfo = { k: 1, x: 0, y: 0 };
   private kRayons = 1;
@@ -305,6 +314,10 @@ export class Carte implements CarteAffichee {
     return { proj: this.proj, t: this.t, entites: this.o.donnees.entites, pastilles: this.pastilles };
   }
 
+  contexteFinal(): ContexteCarte {
+    return this.arrivee ? { ...this.contexte(), t: { ...this.arrivee } } : this.contexte();
+  }
+
   /** Ce qui est sous (x, y), px CSS relatifs au coin de la carte. */
   pick(x: number, y: number): ResultatPick | null {
     return pick(this.contexte(), x, y);
@@ -348,10 +361,17 @@ export class Carte implements CarteAffichee {
     // ils couvriraient l'Europe d'un départ au zoom 1. Cachés jusqu'à l'arrivée
     // (ou au geste qui interrompt le vol). Posé au début de la transition, après
     // l'interruption d'un vol précédent, dont la fin retire la classe.
+    // L'arrivée vaut jusqu'à la fin du vol, son interruption (geste, zoomer, autre vol) ou son annulation avant le départ.
+    const arrivee = { ...t };
+    this.arrivee = arrivee;
+    const fini = () => {
+      if (this.arrivee === arrivee) this.arrivee = null;
+    };
     select(this.hote)
       .transition()
       .duration(Math.min(DUREE_MONTRER_MS.max, Math.max(DUREE_MONTRER_MS.min, duree)))
       .on('start', () => this.hote.classList.add('en-vol'))
+      .on('end.arrivee interrupt.arrivee cancel.arrivee', fini)
       .call(this.comportement.transform, zoomIdentity.translate(t.x, t.y).scale(t.k));
   }
 
@@ -370,6 +390,7 @@ export class Carte implements CarteAffichee {
 
   /** Pose une transformation (sans geste : non comptée dans les mesures). */
   zoomer(t: Transfo): void {
+    this.arrivee = null;
     this.comportement.transform(select(this.hote), zoomIdentity.translate(t.x, t.y).scale(t.k));
   }
 
