@@ -6,7 +6,8 @@
 // par pays : l'icône reste lisible à 48 px.
 //
 // Usage : npm run icone. Lit public/geo/monde-leger.topo.json et pays.json, écrit :
-//   public/favicon.svg                                      onglet du navigateur
+//   public/favicon.svg                                      onglet du navigateur et logo
+//                                                           de l'en-tête
 //   android/app/src/main/res/drawable/ic_launcher_*.xml     icône adaptative (fond,
 //                                                           globe, monochrome d'Android 13+)
 //   android/app/src/main/res/mipmap-*/ic_launcher*.png      icônes d'avant Android 8

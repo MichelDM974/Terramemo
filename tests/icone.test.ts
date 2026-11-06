@@ -20,11 +20,10 @@ describe('icône', () => {
       for (const f of ['ic_launcher.png', 'ic_launcher_round.png']) expect(statSync(`${RES}/mipmap-${d}/${f}`).size, `${d}/${f}`).toBeGreaterThan(500);
   });
 
-  it('le site : favicon (l’icône) et logo de l’en-tête, le favicon sous 12 Ko', () => {
+  it('le site : l’icône en favicon et en logo de l’en-tête, sous 12 Ko', () => {
     const html = readFileSync('index.html', 'utf8');
     expect(html).toContain('href="/favicon.svg"');
-    expect(html).toContain('src="/logo.svg"');
+    expect(html).toMatch(/<img class="logo" src="\/favicon\.svg"/);
     expect(statSync('public/favicon.svg').size).toBeLessThan(12 * 1024);
-    expect(existsSync('public/logo.svg')).toBe(true);
   });
 });
