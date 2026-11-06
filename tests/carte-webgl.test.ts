@@ -1076,6 +1076,7 @@ const couleursEssai: Couleurs = {
   bord: [0, 0, 0, 255],
   texte: [250, 251, 252, 255],
   marques: { choisi: [0, 0, 255, 255], juste: [0, 255, 0, 255], faux: [255, 0, 0, 255] },
+  memoire: [[40, 0, 0, 255], [41, 0, 0, 255], [42, 0, 0, 255], [43, 0, 0, 255], [44, 0, 0, 255]],
 };
 
 const arcs = donnees.traits();
@@ -1089,9 +1090,9 @@ const peintre = (couleurs?: Couleurs, dpr = 2.8125) => {
   p.dimensionner(L, H, dpr);
   return { p, f, canvas };
 };
-const etat = (r: number, k: number, marques = new Map<string, Set<string>>(), lat = 0): EtatImage => {
+const etat = (r: number, k: number, marques = new Map<string, Set<string>>(), lat = 0, teintes: EtatImage['teintes'] = null): EtatImage => {
   const v = placer(C, [r, lat], L / 2, H / 2, k);
-  return { v, c: C, t: transfoDe(v, C), proj: projectionDe(v.r, C), enMouvement: false, pastilles: [], marques, anneaux: [] };
+  return { v, c: C, t: transfoDe(v, C), proj: projectionDe(v.r, C), enMouvement: false, pastilles: [], marques, anneaux: [], teintes };
 };
 const vaoDe = (f: ReturnType<typeof fauxWebGL>, n: number) => [...f.indicesDuVao].filter(([, k]) => k === n).map(([v]) => v);
 
@@ -1151,6 +1152,51 @@ describe('PeintreWebGL.dessiner (faux WebGL2)', () => {
     const ovale = f.dessins[0];
     expect(ovale?.u.uMode).toBe(2);
     expect(ovale?.u.uCouleur).toEqual(couleursEssai.mer.map((x) => x / 255));
+  });
+
+  it('carte de la mémoire : la teinte du seau sous la marque, retirée avec null ; téléversée quand l’objet change, pas à chaque image (#2)', () => {
+    const { p, f } = peintre();
+    const texel = (id: string) => {
+      const i = donnees.entites.findIndex((e) => e.pays.id === id);
+      return [...(f.texels() ?? []).slice(4 * i, 4 * i + 4)];
+    };
+    const teintes = new Map([['FRA', 3], ['ESP', 0], ['ITA', 4]]);
+    p.dessiner(etat(0, 1, new Map([['ITA', new Set(['juste'])]]), 0, teintes));
+    expect(texel('FRA')).toEqual(couleursEssai.memoire[3]);
+    expect(texel('ESP')).toEqual(couleursEssai.memoire[0]);
+    // La marque par-dessus la teinte ; sans teinte, la terre.
+    expect(texel('ITA')).toEqual(couleursEssai.marques.juste);
+    expect(texel('DEU')).toEqual(couleursEssai.terre);
+    // Mêmes marques, même objet de teintes : pas de nouveau téléversement, ni du contour faux.
+    const avant = f.texture();
+    const tampons = vi.spyOn(f.gl as unknown as { createBuffer: () => unknown }, 'createBuffer');
+    p.dessiner(etat(10, 2, new Map([['ITA', new Set(['juste'])]]), 0, teintes));
+    expect(f.texture()).toBe(avant);
+    // Autres teintes (nouvel objet) : la texture seule, le contour faux n'est pas refait.
+    p.dessiner(etat(10, 2, new Map([['ITA', new Set(['juste'])]]), 0, new Map([['FRA', 1]])));
+    expect(f.texture()).not.toBe(avant);
+    expect(texel('FRA')).toEqual(couleursEssai.memoire[1]);
+    expect(texel('ESP')).toEqual(couleursEssai.terre);
+    expect(tampons).not.toHaveBeenCalled();
+    p.dessiner(etat(10, 2, new Map(), 0, null));
+    expect(texel('FRA')).toEqual(couleursEssai.terre);
+    expect(texel('ITA')).toEqual(couleursEssai.terre);
+  });
+
+  it('carte de la mémoire : la pastille d’un micro-État prend la teinte de son pays, sa marque par-dessus (#2)', () => {
+    const { p, f } = peintre();
+    const e = etat(10, 4, new Map([['MLT', new Set(['faux'])]]), 45, new Map([['AND', 2], ['MLT', 4], ['SMR', 1]]));
+    const base = (id: string) => e.proj(donnees.entites.find((x) => x.pays.id === id)?.pays.point as [number, number]) as [number, number];
+    const pastilles = ['AND', 'MLT', 'MCO'].map((id) => ({ id, bx: base(id)[0], by: base(id)[1], visible: true }));
+    p.dessiner({ ...e, pastilles });
+    const dessin = f.dessins.find((d) => d.mode === f.constante('TRIANGLE_STRIP'));
+    const vert = traduireGlsl(VERTEX_DISQUES);
+    const couleur = (k: number) => f.attributs(dessin?.vao as object, vert, 0, k).aCouleur;
+    const pm = (c: Rvba | undefined) => premultipliee(c as Rvba).map(Math.fround);
+    // Andorre, Malte (puis l'anneau de son faux), Monaco sans teinte.
+    expect(couleur(0)).toEqual(pm(couleursEssai.memoire[2]));
+    expect(couleur(1)).toEqual(pm(couleursEssai.marques.faux));
+    expect(couleur(3)).toEqual(pm(couleursEssai.pastille));
   });
 
   it('zone fausse : ses anneaux en traits couleur du texte, après les côtes, une passe par décalage de decalagesTrait (3 px CSS) ; aucune sans faux (#16)', () => {
@@ -1251,8 +1297,11 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
     expect(n).toBeGreaterThan(256);
     const marquees: [number, string][] = [[0, 'choisi'], [100, 'faux'], [254, 'juste'], [255, 'faux'], [256, 'juste'], [n - 1, 'choisi']];
     const marques = new Map(marquees.map(([i, cl]) => [donnees.entites[i]?.pays.id as string, new Set([cl])]));
+    // Carte de la mémoire (#2) : un pays sur trois teinté, marqués compris (la marque par-dessus), sur les deux lignes.
+    const teintes = new Map(donnees.entites.filter((_, i) => i % 3 === 0 || i >= 256).map((e, k) => [e.pays.id, k % 5]));
+    expect([...teintes.keys()].some((id) => donnees.entites.findIndex((e) => e.pays.id === id) >= 256)).toBe(true);
     const { p, f } = peintre(couleurs);
-    p.dessiner(etat(0, 1, marques));
+    p.dessiner(etat(0, 1, marques, 0, teintes));
     // Mélange du WebGL : source prémultipliée (ONE, ONE_MINUS_SRC_ALPHA) ; le Canvas 2D : source-over d'une couleur non prémultipliée.
     expect(f.melange()).toEqual([f.constante('ONE'), f.constante('ONE_MINUS_SRC_ALPHA')]);
     const mer = premultipliee(couleurs.mer);
@@ -1262,9 +1311,10 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
     const frag = traduireGlsl(FRAG_TERRES);
     const ecarts: string[] = [];
     donnees.entites.forEach((e, i) => {
-      // Le Canvas remplit la terre puis, par-dessus, la couleur de chaque classe (opaques : la dernière se voit).
+      // Le Canvas remplit la terre ou la teinte de son seau, puis la couleur de chaque classe sur la couche du dessus (opaques : la dernière se voit).
       const cl = [...(marques.get(e.pays.id) ?? [])].pop();
-      const canvas = surMerCanvas(cl ? (couleurs.marques[cl] as Rvba) : couleurs.terre);
+      const s = teintes.get(e.pays.id);
+      const canvas = surMerCanvas(cl ? (couleurs.marques[cl] as Rvba) : s !== undefined ? (couleurs.memoire[s] as Rvba) : couleurs.terre);
       const webgl = surMerWebGL(frag.executer({ uCouleurs: texture, vForme: i }).sortie as number[]);
       if (ecartMax(webgl, canvas) > 1e-9) ecarts.push(`${i} ${e.pays.id} : ${webgl.map((x) => x.toFixed(3))} au lieu de ${canvas.map((x) => x.toFixed(3))}`);
     });
@@ -1502,6 +1552,7 @@ describe('lireCouleurs (variables de :root)', () => {
     const vars: Record<string, string> = {
       '--mer': '#010203', '--terre': '#0a141e', '--frontiere-fine': '#c8c8c8', '--hachure': '#050505',
       '--pastille': '#090909', '--bg': '#000000', '--text': '#eff0f3', '--accent': '#0000ff', '--good': '#00ff00', '--danger': '#ff0000',
+      '--memoire-0': '#100000', '--memoire-1': '#200000', '--memoire-2': '#300000', '--memoire-3': '#400000', '--memoire-4': '#500000',
     };
     const hex = (h: string) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16)).concat(255);
     let style = '';
@@ -1514,6 +1565,7 @@ describe('lireCouleurs (variables de :root)', () => {
     expect(c.frontiere).toEqual(hex('#c8c8c8'));
     expect(c.texte).toEqual(hex('#eff0f3'));
     expect(c.marques).toEqual({ choisi: hex('#0000ff'), juste: hex('#00ff00'), faux: hex('#ff0000') });
+    expect(c.memoire).toEqual(['#100000', '#200000', '#300000', '#400000', '#500000'].map(hex));
   });
 });
 

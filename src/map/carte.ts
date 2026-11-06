@@ -13,6 +13,7 @@ import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from '.
 import { creerProjection, garderVue } from './projection';
 import { fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
+import { classeSeau, seau, type Teintes } from './teintes';
 import type { Entite, Lieu, NomProjection, Pays, Rendu, Transfo } from './types';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -90,6 +91,14 @@ export interface CarteAffichee {
   marquer(id: string, classe: string): void;
   effacerMarques(): void;
   anneau(id: string, classe: string, rayon_px?: number): void;
+  /**
+   * Carte de la mémoire : chaque zone de t prend la couleur de son seau
+   * (--memoire-<seau>, teintes.ts) ; absente, ou t null, --terre. À part des
+   * marques : effacerMarques ne les retire pas, et les marques, hachures et
+   * contour faux restent par-dessus. Copiées : changer t ensuite ne change
+   * rien sans un nouvel appel.
+   */
+  teinter(t: Teintes | null): void;
   masquer(oui: boolean): void;
   detruire(): void;
 }
@@ -174,6 +183,8 @@ export class Carte implements CarteAffichee {
   private chemins = new Map<string, SVGPathElement>();
   private cerclesPastilles = new Map<string, SVGCircleElement>();
   private marques = new Map<string, Set<string>>();
+  /** Classe de teinte (.s0 à .s4) de chaque zone teintée : à part des marques, reposée sur les tracés et disques recréés. */
+  private teintes = new Map<string, string>();
   private anneaux: { cercle: SVGCircleElement; rayon_px: number }[] = [];
   private pastilles: Pastille[] = [];
   private proj!: GeoProjection;
@@ -279,6 +290,8 @@ export class Carte implements CarteAffichee {
     const hachures = el('g', { class: 'couche-hachures' });
     this.o.donnees.entites.forEach((e: Entite<Lieu>, i) => {
       const p = el('path', { class: 'pays', 'data-id': e.pays.id, 'data-statut': e.pays.statut, d: traces[i] ?? '' });
+      const teinte = this.teintes.get(e.pays.id);
+      if (teinte) p.classList.add(teinte);
       for (const classe of this.marques.get(e.pays.id) ?? []) p.classList.add(classe); // après un redimensionnement
       this.chemins.set(e.pays.id, p);
       pays.append(p);
@@ -414,6 +427,23 @@ export class Carte implements CarteAffichee {
     if (classe === 'faux') this.contourFaux(id);
   }
 
+  teinter(t: Teintes | null): void {
+    const avant = this.teintes;
+    this.teintes = new Map();
+    for (const [id, s] of t ?? []) {
+      const n = seau(s);
+      if (n !== null) this.teintes.set(id, classeSeau(n));
+    }
+    for (const id of new Set([...avant.keys(), ...this.teintes.keys()])) {
+      const [de, vers] = [avant.get(id), this.teintes.get(id)];
+      if (de === vers) continue;
+      for (const elt of [this.chemins.get(id), this.cerclesPastilles.get(id)]) {
+        if (de) elt?.classList.remove(de);
+        if (vers) elt?.classList.add(vers);
+      }
+    }
+  }
+
   /** Le contour de la zone fausse, sur sa couche (coucheContours) ; une fois par zone. */
   private contourFaux(id: string): void {
     const chemin = this.chemins.get(id);
@@ -538,6 +568,8 @@ export class Carte implements CarteAffichee {
       if (!p.visible || this.cerclesPastilles.has(p.id)) continue;
       // La cible de 44 px n'est pas dessinée : pick() la calcule (pastilleLaPlusProche).
       const disque = el('circle', { class: 'pastille', 'data-id': p.id, cx: p.bx, cy: p.by, r: PASTILLE.rayon_visible_px / k });
+      const teinte = this.teintes.get(p.id);
+      if (teinte) disque.classList.add(teinte);
       for (const classe of this.marques.get(p.id) ?? []) disque.classList.add(classe);
       this.couchePastilles.append(disque);
       this.cerclesPastilles.set(p.id, disque);

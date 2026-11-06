@@ -9,6 +9,8 @@ import { aPastille, calculerPastilles, PASTILLE, pastilleLaPlusProche, tailleEcr
 import { noter, pick, type ContexteCarte } from '../src/map/pick';
 import { creerProjection, garderVue } from '../src/map/projection';
 import { traceDirect, UNITE } from '../src/map/traces';
+import { NB_SEAUX, seau, teintesDemo, VARIABLES_MEMOIRE } from '../src/map/teintes';
+import { idsJouables } from '../src/terrains';
 import type { Entite, NomProjection, Transfo } from '../src/map/types';
 import { ciblesEssai } from '../src/vues/cibles';
 
@@ -562,5 +564,22 @@ describe('toucher ou déplacer', () => {
     // Carte immobile (doigt sous la tolérance du système) : le point de la pose.
     s.bas(1, x, y, 1000, t0);
     expect(s.haut(1, x + 8, y, 1100, t0)).toEqual({ x, y });
+  });
+});
+
+describe('teintes de la carte de la mémoire (#2)', () => {
+  it('seau : entier de 0 à NB_SEAUX - 1, sinon pas de teinte ; une variable CSS par seau', () => {
+    expect(NB_SEAUX).toBe(5);
+    expect([0, 4, 5, -1, 1.5, Number.NaN, undefined].map(seau)).toEqual([0, 4, null, null, null, null, null]);
+    expect(VARIABLES_MEMOIRE).toEqual(['--memoire-0', '--memoire-1', '--memoire-2', '--memoire-3', '--memoire-4']);
+  });
+
+  it('teintesDemo (?teintes=demo) : les 195 pays jouables, le même seau à chaque appel, les cinq seaux servis', () => {
+    const ids = idsJouables(donnees);
+    const t = teintesDemo(ids);
+    expect(t.size).toBe(195);
+    expect([...teintesDemo(ids)]).toEqual([...t]);
+    const parSeau = [0, 1, 2, 3, 4].map((s) => [...t.values()].filter((x) => x === s).length);
+    for (const n of parSeau) expect(n).toBeGreaterThan(20);
   });
 });

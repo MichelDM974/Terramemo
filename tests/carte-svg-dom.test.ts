@@ -227,3 +227,57 @@ describe('Carte SVG : le contour de la zone fausse est entier, par-dessus les vo
     expect(css).not.toMatch(/\.pays\.faux[^{]*\{[^}]*stroke-width/);
   });
 });
+
+describe('Carte SVG : les teintes de la carte de la mémoire, à part des marques (#2)', () => {
+  const tous = (e: FauxElement): FauxElement[] => [e, ...e.enfants.flatMap(tous)];
+  const classes = (e: FauxElement | undefined) => (e?.className ?? '').split(' ').filter(Boolean);
+  const pays = (hote: FauxElement, id: string) => tous(hote).find((e) => classes(e).includes('pays') && e.getAttribute('data-id') === id);
+  const pastille = (hote: FauxElement, id: string) => tous(hote).find((e) => classes(e).includes('pastille') && e.getAttribute('data-id') === id);
+
+  it('posées, gardées par effacerMarques, sous la marque, reposées par rendre(), changées puis retirées', () => {
+    const { c, hote } = carte();
+    c.teinter(new Map([['FRA', 3], ['ESP', 0], ['DEU', 7], ['ITA', 1.5]]));
+    expect(classes(pays(hote, 'FRA'))).toContain('s3');
+    expect(classes(pays(hote, 'ESP'))).toContain('s0');
+    // Hors des seaux ou pas entier : pas de teinte.
+    expect(classes(pays(hote, 'DEU')).filter((x) => /^s\d$/.test(x))).toEqual([]);
+    expect(classes(pays(hote, 'ITA')).filter((x) => /^s\d$/.test(x))).toEqual([]);
+    // Une marque s'ajoute sans retirer la teinte ; effacerMarques ne retire qu'elle.
+    c.marquer('FRA', 'juste');
+    expect(classes(pays(hote, 'FRA'))).toEqual(expect.arrayContaining(['s3', 'juste']));
+    c.effacerMarques();
+    expect(classes(pays(hote, 'FRA'))).toContain('s3');
+    expect(classes(pays(hote, 'FRA'))).not.toContain('juste');
+    // rendre() recrée les tracés : la teinte y est reposée.
+    c.rendre();
+    expect(classes(pays(hote, 'FRA'))).toContain('s3');
+    // Nouvelles teintes : l'ancienne classe retirée ; null : toutes.
+    c.teinter(new Map([['FRA', 1]]));
+    expect(classes(pays(hote, 'FRA')).filter((x) => /^s\d$/.test(x))).toEqual(['s1']);
+    expect(classes(pays(hote, 'ESP'))).not.toContain('s0');
+    c.teinter(null);
+    expect(tous(hote).filter((e) => classes(e).some((x) => /^s\d$/.test(x)))).toEqual([]);
+  });
+
+  it('les pastilles des micro-États prennent la teinte de leur pays, aussi quand rendre() les recrée', () => {
+    const { c, hote } = carte();
+    expect(pastille(hote, 'MLT')).toBeDefined();
+    c.teinter(new Map([['MLT', 4]]));
+    expect(classes(pastille(hote, 'MLT'))).toContain('s4');
+    c.marquer('MLT', 'faux');
+    c.effacerMarques();
+    expect(classes(pastille(hote, 'MLT'))).toEqual(['pastille', 's4']);
+    c.rendre();
+    expect(classes(pastille(hote, 'MLT'))).toContain('s4');
+  });
+
+  it('carte.css : --memoire-0 à 4 dans :root, .pays.sN et .pastille.sN déclarées avant les marques (qui l’emportent)', () => {
+    const css = readFileSync('src/carte.css', 'utf8');
+    const racine = css.match(/:root\s*\{[^}]*\}/)?.[0] ?? '';
+    for (let s = 0; s < 5; s++) {
+      expect(racine).toMatch(new RegExp(`--memoire-${s}: #[0-9a-f]{6};`));
+      expect(css).toContain(`.pays.s${s}, .pastille.s${s} { fill: var(--memoire-${s}); }`);
+      expect(css.indexOf(`.pays.s${s},`)).toBeLessThan(css.indexOf('.pays.choisi'));
+    }
+  });
+});

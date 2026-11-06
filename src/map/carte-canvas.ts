@@ -34,6 +34,7 @@ import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
 import { ROTATIONS } from './projection';
+import { seau, VARIABLES_MEMOIRE, type Teintes } from './teintes';
 import type { Forme, Transfo } from './types';
 import {
   bornerK,
@@ -83,6 +84,12 @@ export interface EtatImage {
   pastilles: readonly Pastille[];
   marques: ReadonlyMap<string, ReadonlySet<string>>;
   anneaux: readonly { id: string; classe: string; rayon_px: number }[];
+  /**
+   * Seau de la carte de la mémoire de chaque zone teintée (teintes.ts), null
+   * sans teinte : un nouvel objet à chaque changement (teinter), si bien
+   * qu'un peintre compare l'objet, sans parcourir ses 195 entrées à chaque image.
+   */
+  teintes: Teintes | null;
 }
 
 /** Un rendu qui dessine dans le canvas de CarteCanvas à la place du Canvas 2D (carte-webgl.ts). */
@@ -289,6 +296,8 @@ interface Couleurs {
   /** Contour de la zone fausse (.pays.faux du SVG). */
   texte: string;
   marques: Record<string, string>;
+  /** Seaux de la carte de la mémoire (--memoire-0 à 4). */
+  memoire: string[];
 }
 
 function lireCouleurs(): Couleurs {
@@ -304,6 +313,7 @@ function lireCouleurs(): Couleurs {
     texte: v('--text'),
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
+    memoire: VARIABLES_MEMOIRE.map(v),
   };
 }
 
@@ -354,6 +364,15 @@ export class CarteCanvas implements CarteAffichee {
   private pastilles: Pastille[] = [];
   private marques = new Map<string, Set<string>>();
   private anneaux: { id: string; classe: string; rayon_px: number }[] = [];
+  /**
+   * Carte de la mémoire (teinter) : le seau de chaque zone teintée, et le même
+   * par index d'entité (-1 : --terre), lu par le tracé de chaque partie. Peintes
+   * sur la carte, pas sur la couche du dessus : un toucher ne les redessine
+   * pas ; leur version entre dans la signature de la carte.
+   */
+  private teintes: Teintes | null = null;
+  private seaux: Int8Array | null = null;
+  private versionTeintes = 0;
   private image = 0;
   /** Un mouvement (geste ou vol) est en cours : carte allégée possible. */
   private enMouvement = false;
@@ -696,6 +715,24 @@ export class CarteCanvas implements CarteAffichee {
     this.demander();
   }
 
+  /** Les mêmes teintes qu'avant : rien à redessiner (la carte entière se retrace sinon). */
+  teinter(t: Teintes | null): void {
+    const valides = new Map<string, number>();
+    for (const [id, s] of t ?? []) {
+      const n = seau(s);
+      if (n !== null && this.indices.has(id)) valides.set(id, n);
+    }
+    const avant = this.teintes;
+    if ((avant?.size ?? 0) === valides.size && [...valides].every(([id, n]) => avant?.get(id) === n)) return;
+    if (valides.size) {
+      this.teintes = valides;
+      this.seaux = new Int8Array(this.o.donnees.entites.length).fill(-1);
+      for (const [id, n] of valides) this.seaux[this.indices.get(id) as number] = n;
+    } else [this.teintes, this.seaux] = [null, null];
+    this.versionTeintes++;
+    this.demander();
+  }
+
   masquer(oui: boolean): void {
     this.masquee = oui;
     if (!oui) {
@@ -963,7 +1000,7 @@ export class CarteCanvas implements CarteAffichee {
     const leger = this.enMouvement && this.leger !== null && sommetsVisibles(im, this.complet) > BUDGET_SOMMETS;
     const cq = leger && this.leger ? this.leger : this.complet;
     // En mouvement, la carte est tracée plus grossièrement (dessin.ts) : la fin d'un geste la retrace.
-    const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.dpr} ${leger ? 'leger' : 'complet'} ${im.mouvement}`;
+    const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.dpr} ${leger ? 'leger' : 'complet'} ${im.mouvement} t${this.versionTeintes}`;
     const carte = signature !== this.signature || !this.ctxDessus;
     if (carte) this.dessinerCarte(ctx, im, cq);
     this.signature = signature;
@@ -1006,29 +1043,40 @@ export class CarteCanvas implements CarteAffichee {
     // Terres : un chemin pour tout ce qui n'a pas de couture (rempli puis tracé),
     // les coutures à part (remplies, tracées sans le côté qui suit l'antiméridien),
     // et de même les parties qui passent la coupure (tracées sans leurs segments
-    // ramenés sur le bord de l'ovale, dessin.ts).
-    const terres = new Path2D();
-    const coutures = new Path2D();
+    // ramenés sur le bord de l'ovale, dessin.ts). Un chemin de chaque sorte par
+    // couleur (indice 0 : --terre ; 1 + s : le seau s de la carte de la mémoire),
+    // à la carte complète comme à l'allégée : un remplissage par couleur, et
+    // chaque partie tracée une seule fois, ses frontières comprises (un trait
+    // par chemin plutôt qu'un chemin de plus qui les réunirait : même nombre de
+    // segments, sans retracer en JS les 125 000 sommets du zoom 1).
+    const terres: Path2D[] = [new Path2D()];
+    const coutures: Path2D[] = [];
     const couturesContour = new Path2D();
     const hachures = new Map<string, { chemin: Path2D; ancre: [number, number] | null }>();
+    const seaux = this.seaux;
     let avecCoutures = false;
     parcourir(im, cq.pays, cq.groupes?.pays, (p, i) => {
       const e = entites[i];
       if (!e) return;
+      const s = seaux ? (seaux[i] as number) + 1 : 0;
       if (aCoupure(p, v.r)) {
         avecCoutures = true;
-        tracerPartie(coutures, im, p);
+        tracerPartie((coutures[s] ??= new Path2D()), im, p);
         tracerPartie(couturesContour, im, p, true);
-      } else tracerPartie(terres, im, p);
+      } else tracerPartie((terres[s] ??= new Path2D()), im, p);
       // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
       if (e.pays.statut === 'conteste') this.hachurer(hachures, im, `p${i}`, i, p);
     });
     parcourir(im, cq.zones, cq.groupes?.zones, (p, i) => this.hachurer(hachures, im, `z${i}`, -1 - i, p));
     this.traceCarte_ms = performance.now() - t0;
 
-    ctx.fillStyle = coul.terre;
-    ctx.fill(terres);
-    if (avecCoutures) ctx.fill(coutures);
+    const couleur = (s: number) => (s ? (coul.memoire[s - 1] ?? coul.terre) : coul.terre);
+    for (const chemins of [terres, coutures]) {
+      chemins.forEach((chemin, s) => {
+        ctx.fillStyle = couleur(s);
+        ctx.fill(chemin);
+      });
+    }
     this.peindreHachures(ctx, hachures);
     this.tracerFrontieres(ctx, terres, avecCoutures ? couturesContour : null);
   }
@@ -1072,11 +1120,12 @@ export class CarteCanvas implements CarteAffichee {
    * chrome-headless-shell), 1 px aucune. Plus opaque (--frontiere-fine) pour
    * garder la même encre par unité de longueur.
    */
-  private tracerFrontieres(ctx: CanvasRenderingContext2D, chemin: Path2D, coutures: Path2D | null): void {
+  private tracerFrontieres(ctx: CanvasRenderingContext2D, chemins: readonly Path2D[], coutures: Path2D | null): void {
     ctx.strokeStyle = this.couleurs.frontiere;
     ctx.lineWidth = 1 / this.dpr;
     ctx.lineJoin = 'miter';
-    ctx.stroke(chemin);
+    // forEach saute les trous du tableau (couleurs sans partie à l'écran).
+    chemins.forEach((c) => ctx.stroke(c));
     if (coutures) ctx.stroke(coutures);
   }
 
@@ -1144,7 +1193,7 @@ export class CarteCanvas implements CarteAffichee {
       this.peindreHachures(ctx, hachures);
       ctx.restore();
     }
-    this.tracerFrontieres(ctx, contour, avecCoutures ? contourCoutures : null);
+    this.tracerFrontieres(ctx, [contour], avecCoutures ? contourCoutures : null);
     if (contourFaux) {
       ctx.strokeStyle = coul.texte;
       ctx.lineWidth = TRAIT_FAUX_PX;
@@ -1173,6 +1222,7 @@ export class CarteCanvas implements CarteAffichee {
       pastilles: this.pastilles,
       marques: this.marques,
       anneaux: this.anneaux,
+      teintes: this.teintes,
     };
   }
 
@@ -1195,7 +1245,9 @@ export class CarteCanvas implements CarteAffichee {
       if (!p.visible) continue;
       const [x, y] = versEcran(t, p.bx, p.by);
       if (x < -r || y < -r || x > c.l + r || y > c.h + r) continue;
-      let couleur = coul.pastille;
+      // La pastille d'un micro-État : la teinte de son pays, puis sa marque par-dessus.
+      const s = this.teintes?.get(p.id);
+      let couleur = (s !== undefined && coul.memoire[s]) || coul.pastille;
       const classes = this.marques.get(p.id);
       for (const cl of classes ?? []) couleur = coul.marques[cl] ?? couleur;
       ctx.beginPath();

@@ -14,8 +14,8 @@
 //
 // Une image, dans l'ordre (stencil : 0x80 ovale, 0x40 traits, 0x20 hachures) :
 // 1. l'ovale (la mer), qui marque le stencil : tout ce qui suit y est découpé ;
-// 2. les terres, couleur par pays lue dans une texture (marques choisi,
-//    juste, faux ; demain la carte colorée par stabilité) : la changer ne
+// 2. les terres, couleur par pays lue dans une texture (teinte de la carte de
+//    la mémoire, puis marques choisi, juste, faux par-dessus) : la changer ne
 //    téléverse que la texture, jamais la géométrie ;
 // 3. les hachures des zones contestées, motif à 45° ancré au milieu de chaque
 //    partie : il suit la carte quand elle tourne (en Canvas, il restait fixe
@@ -52,6 +52,7 @@ import type { Position } from 'geojson';
 import { emprisesAPlat, maillerCarte, maillerTraits, pourChaqueCopie, toursEnPlus, type Maillage, type MaillagesCarte, type PartieMaillee } from './maillage';
 import { PASTILLE } from './pastilles';
 import { TRAIT_FAUX_PX, type EtatImage, type Peintre, type StatsDessin } from './carte-canvas';
+import { VARIABLES_MEMOIRE, type Teintes } from './teintes';
 
 /** Côté de la texture des couleurs par pays (texels par ligne). */
 const LARGEUR_COULEURS = 256;
@@ -187,6 +188,8 @@ export interface Couleurs {
   /** Contour de la zone fausse (.pays.faux du SVG). */
   texte: Rvba;
   marques: Record<string, Rvba>;
+  /** Seaux de la carte de la mémoire (--memoire-0 à 4). */
+  memoire: Rvba[];
 }
 
 /** Une couleur CSS quelconque en octets, lue par un canvas 2D d'un pixel (toute syntaxe CSS). */
@@ -218,6 +221,7 @@ export function lireCouleurs(): Couleurs {
     texte: v('--text'),
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
+    memoire: VARIABLES_MEMOIRE.map(v),
   };
 }
 
@@ -378,6 +382,8 @@ export class PeintreWebGL implements Peintre {
   private dpr = 1;
   /** Signature des marques téléversées dans la texture des couleurs (null : à refaire). */
   private signature: string | null = null;
+  /** Les teintes téléversées (EtatImage.teintes : un nouvel objet à chaque changement) ; undefined : à refaire. */
+  private teintesVues: Teintes | null | undefined = undefined;
   private disques = new Float32Array(64 * PAR_DISQUE);
   private chrono: { ext: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number }; q: WebGLQuery | null; actif: boolean; gpu_ms: number | null } | null = null;
   private nom: string | null = null;
@@ -595,6 +601,7 @@ export class PeintreWebGL implements Peintre {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     this.signature = null;
+    this.teintesVues = undefined;
 
     this.g = { ...this.programmes, terres, zones, interieurs, cotes, ovale: { vao: vaoOvale, tampon: tOvale, n: ovale.length / 2 }, instances: { vao: vaoDisques, tampon: tDisques, octets: this.disques.byteLength }, couleurs, contourFaux: null };
     const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
@@ -641,26 +648,38 @@ export class PeintreWebGL implements Peintre {
     this.dpr = dpr;
   }
 
-  /** Couleur de chaque pays (terre, ou sa marque : la dernière classe connue, comme le Canvas). */
+  /**
+   * Couleur de chaque pays : terre, ou la teinte de son seau, puis sa marque
+   * (la dernière classe connue), comme le Canvas. Téléversée quand marques ou
+   * teintes changent ; le contour faux, quand les marques changent.
+   */
   private couleursPays(e: EtatImage): void {
     const g = this.g;
     if (!g) return;
     let sig = '';
     for (const [id, cl] of e.marques) if (cl.size) sig += `${id}:${[...cl].join(',')};`;
-    if (sig === this.signature) return;
+    const marquesChangent = sig !== this.signature;
+    if (!marquesChangent && e.teintes === this.teintesVues) return;
     this.signature = sig;
+    this.teintesVues = e.teintes;
     const { gl } = this;
     const entites = this.donnees.entites;
     const lignes = Math.max(1, Math.ceil(entites.length / LARGEUR_COULEURS));
     const texels = new Uint8Array(LARGEUR_COULEURS * lignes * 4);
     entites.forEach((en, i) => {
-      let c = this.couleurs.terre;
-      for (const cl of e.marques.get(en.pays.id) ?? []) c = this.couleurs.marques[cl] ?? c;
-      texels.set(c, i * 4);
+      texels.set(this.couleurDe(en.pays.id, e, this.couleurs.terre), i * 4);
     });
     gl.bindTexture(gl.TEXTURE_2D, g.couleurs);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, LARGEUR_COULEURS, lignes, 0, gl.RGBA, gl.UNSIGNED_BYTE, texels);
-    this.majContourFaux(e.marques);
+    if (marquesChangent) this.majContourFaux(e.marques);
+  }
+
+  /** Couleur d'un pays ou de sa pastille : base (terre, pastille), sinon sa teinte, puis ses marques par-dessus. */
+  private couleurDe(id: string, e: EtatImage, base: Rvba): Rvba {
+    const s = e.teintes?.get(id);
+    let c = (s !== undefined && this.couleurs.memoire[s]) || base;
+    for (const cl of e.marques.get(id) ?? []) c = this.couleurs.marques[cl] ?? c;
+    return c;
   }
 
   /** Les anneaux (trous compris) des zones marquées « faux », en traits sans les coutures (maillerTraits), téléversés. */
@@ -851,10 +870,9 @@ export class PeintreWebGL implements Peintre {
       if (!p.visible) continue;
       const [x, y] = versEcran(t, p.bx, p.by);
       if (x < -r || y < -r || x > c.l + r || y > c.h + r) continue;
-      let couleur = coul.pastille;
       const classes = e.marques.get(p.id);
-      for (const cl of classes ?? []) couleur = coul.marques[cl] ?? couleur;
-      ajouter(x, y, r, 0, couleur);
+      // La pastille d'un micro-État : la teinte de son pays, sa marque par-dessus.
+      ajouter(x, y, r, 0, this.couleurDe(p.id, e, coul.pastille));
       // La pastille fausse : un anneau de TRAIT_FAUX_PX couleur du texte sur son bord, comme le Canvas.
       if (classes?.has('faux')) ajouter(x, y, r, TRAIT_FAUX_PX / 2, coul.texte);
     }

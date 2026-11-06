@@ -5,6 +5,21 @@
   /* Frontières du rendu canvas : un pixel physique (au lieu de 0,6 px CSS), donc
      plus opaques que --frontiere (0,22 × 1,7 px ≈ 0,37 × 1 px sur le téléphone). */
   --frontiere-fine: rgba(236, 241, 254, 0.37);
+  /* Carte de la mémoire (teinter, src/map/teintes.ts) : un seau par zone, de la
+     plus faible (0) à la maîtrisée (4) ; « jamais vu » garde --terre. Défaut en
+     attente de l'utilisateur, #2 (D7). Une seule teinte, ambre puis or, qui
+     s'éclaircit avec la mémoire (OKLCH L 0,46 → 0,84, C 0,11 → 0,17, h 55 → 88°) ;
+     ni vert, ni rouge, ni bleu d'accent. Skill dataviz, validate_palette.js
+     --ordinal --mode dark --surface (--terre, --mer) : tout PASS (seau 0 à
+     2,06:1 de --terre, plancher 2:1 ; ΔE 22,8 en OKLab ×100). Daltonisme : le
+     seau 2 est le plus proche de --danger, ΔE 7,2 en deutéranopie (plancher 6,
+     cible 8), le seau 4 de --good à 8,7 : le faux garde son contour de 3 px,
+     et les teintes seront effacées en partie (#2, lot 5b). */
+  --memoire-0: #854408;
+  --memoire-1: #a56004;
+  --memoire-2: #c37e00;
+  --memoire-3: #df9f00;
+  --memoire-4: #f8c20d;
 }
 
 /* La page tient dans l'écran : en-tête puis la carte sur toute la hauteur restante. */
@@ -93,6 +108,12 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
+/* Teintes avant les marques : même spécificité, la marque déclarée après l'emporte. */
+.pays.s0, .pastille.s0 { fill: var(--memoire-0); }
+.pays.s1, .pastille.s1 { fill: var(--memoire-1); }
+.pays.s2, .pastille.s2 { fill: var(--memoire-2); }
+.pays.s3, .pastille.s3 { fill: var(--memoire-3); }
+.pays.s4, .pastille.s4 { fill: var(--memoire-4); }
 .pays.choisi, .pastille.choisi { fill: var(--accent); }
 .pays.juste, .pastille.juste { fill: var(--good); }
 .pays.faux, .pastille.faux { fill: var(--danger); }

@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CarteCanvas, TRAIT_FAUX_PX } from '../src/map/carte-canvas';
-import { assembler, type DonneesCarte } from '../src/map/donnees';
+import { aCoupure, calque, CarteCanvas, TRAIT_FAUX_PX } from '../src/map/carte-canvas';
+import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
+import { teintesDemo } from '../src/map/teintes';
+import { idsJouables } from '../src/terrains';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
 import { bornerY, type Cadre, type VueGlobe } from '../src/map/vue';
 import type { ContexteCarte } from '../src/map/pick';
@@ -32,6 +34,7 @@ const entite = (id: string): Entite => {
 const VARS: Record<string, string> = {
   '--mer': '#0e1a2b', '--terre': '#23252b', '--frontiere-fine': '#55575e', '--hachure': '#ecf1fe47',
   '--pastille': '#8e939d', '--bg': '#080809', '--text': '#eff0f3', '--accent': '#6b8afd', '--good': '#34c77b', '--danger': '#f0686b',
+  '--memoire-0': '#854408', '--memoire-1': '#a56004', '--memoire-2': '#c37e00', '--memoire-3': '#df9f00', '--memoire-4': '#f8c20d',
 };
 
 /** Un chemin Path2D : ses sous-chemins (moveTo, lineTo, rect), assez pour compter ce qui est tracé. */
@@ -177,7 +180,7 @@ function jouer(debut: number, fin: number): void {
   for (let ts = debut; ts <= fin; ts += 16) image(ts);
 }
 
-function carte(): CarteCanvas {
+function carte(o: Partial<ConstructorParameters<typeof CarteCanvas>[0]> = {}): CarteCanvas {
   const hote = {
     classList: { add: () => undefined, remove: () => undefined },
     dataset: {},
@@ -187,7 +190,7 @@ function carte(): CarteCanvas {
     removeEventListener: () => undefined,
     prepend: () => undefined,
   };
-  const c = new CarteCanvas({ hote: hote as unknown as HTMLElement, donnees, projection: 'monde', rendu: 'canvas' });
+  const c = new CarteCanvas({ hote: hote as unknown as HTMLElement, donnees, projection: 'monde', rendu: 'canvas', ...o });
   c.rendre();
   return c;
 }
@@ -484,5 +487,111 @@ describe('Nommer : une réponse en plein vol, la question suivante cadrée sur l
     jouer(0, 300);
     c.zoomer({ k: 2, x: 0, y: 0 });
     expect(c.contexteFinal().t).toEqual(c.contexte().t);
+  });
+});
+
+describe('CarteCanvas : les teintes de la carte de la mémoire (#2)', () => {
+  const M = [0, 1, 2, 3, 4].map((s) => VARS[`--memoire-${s}`] as string);
+  const TERRE = VARS['--terre'] as string;
+  const FRONTIERE = VARS['--frontiere-fine'];
+  /** Sommets émis (moveTo, lineTo) par les remplissages de ces couleurs, ou par les frontières de la carte. */
+  const sommets = (rs: { chemin: FauxChemin | 'courant'; style: string }[]) => rs.reduce((n, r) => n + (r.chemin === 'courant' ? 0 : r.chemin.ops.length), 0);
+  const terres = () => ctx2d.remplis.filter((r) => r.style === TERRE || M.includes(r.style));
+  const frontieres = () => ctx2d.traits.filter((t) => t.style === FRONTIERE);
+  const priv = (c: CarteCanvas) => c as unknown as { enMouvement: boolean; dessiner(): void; etatImage(): { teintes: ReadonlyMap<string, number> | null } };
+
+  it('sur la carte, un remplissage par seau : chaque partie tracée une fois, frontières comprises ; un toucher ne les retrace pas, les marques restent par-dessus', () => {
+    const c = carte();
+    image(0);
+    const nues = { terres: sommets(terres()), frontieres: sommets(frontieres()), traits: frontieres().length };
+    expect(terres().map((r) => r.style)).toEqual([TERRE, TERRE]); // terres, coutures (λ0 = 0 : Fidji, Russie)
+    const avant = ctx2d.etat.effacees;
+    c.teinter(teintesDemo(idsJouables(donnees)));
+    image(16);
+    // Une nouvelle version des teintes : la carte est retracée (signature), une fois.
+    expect(ctx2d.etat.effacees).toBe(avant + 1);
+    expect(c.dernier?.carte).toBe(true);
+    // Terre (les non jouables) et les cinq seaux, pour les terres puis pour les coutures.
+    const styles = terres().map((r) => r.style);
+    expect(new Set(styles)).toEqual(new Set([TERRE, ...M]));
+    expect(styles.filter((x) => x === TERRE).length).toBe(2);
+    // Les mêmes sommets qu'une carte nue, répartis entre les couleurs : ni partie en double, ni oubliée.
+    expect(sommets(terres())).toBe(nues.terres);
+    expect(sommets(frontieres())).toBe(nues.frontieres);
+    // Un trait par chemin des terres (--terre et les cinq seaux), plus celui des coutures (sans leur côté sur l'antiméridien).
+    expect(nues.traits).toBe(2);
+    expect(frontieres().length).toBe(1 + M.length + 1);
+    // Rien sur la couche du dessus.
+    expect(ctxDessus.remplis.some((r) => M.includes(r.style) && r.chemin !== 'courant')).toBe(false);
+    // Un toucher : la couche du dessus seule ; la marque y est peinte par-dessus la teinte de la carte.
+    c.marquer('FRA', 'juste');
+    image(32);
+    expect(ctx2d.etat.effacees).toBe(avant + 1);
+    expect(c.dernier?.carte).toBe(false);
+    expect(ctxDessus.remplis.some((r) => r.style === VARS['--good'] && r.chemin !== 'courant')).toBe(true);
+    c.effacerMarques();
+    image(48);
+    expect(ctx2d.etat.effacees).toBe(avant + 1);
+    // Les mêmes teintes (autre objet) : rien à redessiner, pas même une image demandée.
+    const etat = priv(c).etatImage().teintes;
+    c.teinter(new Map(teintesDemo(idsJouables(donnees))));
+    expect(images.size).toBe(0);
+    expect(priv(c).etatImage().teintes).toBe(etat);
+    // Retirées : la carte nue, retracée ; l'état passé aux peintres change d'objet.
+    c.teinter(null);
+    image(64);
+    expect(ctx2d.etat.effacees).toBe(avant + 2);
+    expect(terres().map((r) => r.style)).toEqual([TERRE, TERRE]);
+    expect(priv(c).etatImage().teintes).toBeNull();
+  });
+
+  it('les coutures de l’antiméridien prennent la teinte de leur pays (Fidji à λ0 = 0)', () => {
+    const fji = donnees.entites.findIndex((e) => e.pays.id === 'FJI');
+    const parts = calque(donnees).pays[fji] ?? [];
+    expect(parts.some((p) => aCoupure(p, 0))).toBe(true);
+    const c = carte();
+    c.teinter(new Map([['FJI', 4]]));
+    image(0);
+    // Fidji seule au seau 4 : ses terres et ses coutures ; les coutures de --terre restent (Russie, Kiribati…).
+    const styles = terres().map((r) => r.style);
+    expect(styles.filter((x) => x === M[4]).length).toBe(parts.some((p) => !aCoupure(p, 0)) ? 2 : 1);
+    expect(styles.lastIndexOf(M[4] as string)).toBeGreaterThan(styles.indexOf(TERRE, 1));
+  });
+
+  it('la carte allégée d’un geste est teintée comme la complète', async () => {
+    const leger = Promise.resolve(formesLegeres(lire('monde-leger.topo.json')));
+    const c = carte({ leger });
+    await leger;
+    c.teinter(teintesDemo(idsJouables(donnees)));
+    image(0);
+    priv(c).enMouvement = true;
+    priv(c).dessiner();
+    expect(c.dernier?.leger).toBe(true);
+    expect(new Set(terres().map((r) => r.style))).toEqual(new Set([TERRE, ...M]));
+    // Au repos : la complète, teintée.
+    priv(c).enMouvement = false;
+    priv(c).dessiner();
+    expect(c.dernier?.leger).toBe(false);
+    expect(new Set(terres().map((r) => r.style))).toEqual(new Set([TERRE, ...M]));
+  });
+
+  it('la pastille d’un micro-État prend la teinte de son pays, sa marque par-dessus (Malte au zoom 1)', () => {
+    const c = carte();
+    c.teinter(new Map([['MLT', 2]]));
+    image(0);
+    const [mx, my] = c.ecran('MLT') as [number, number];
+    const disque = () => {
+      const i = ctxDessus.traits.findIndex((t) => t.arc && Math.hypot(t.arc[0] - mx, t.arc[1] - my) < 1e-9);
+      // Chaque disque est rempli (« courant ») juste avant d'être bordé.
+      const remplis = ctxDessus.remplis.filter((r) => r.chemin === 'courant');
+      const disques = ctxDessus.traits.filter((t) => t.arc && t.arc[2] < 5);
+      return remplis[disques.indexOf(ctxDessus.traits[i] as Trait)]?.style;
+    };
+    expect(disque()).toBe(M[2]);
+    // Les autres gardent --pastille.
+    expect(ctxDessus.remplis.filter((r) => r.chemin === 'courant' && r.style === VARS['--pastille']).length).toBeGreaterThan(10);
+    c.marquer('MLT', 'juste');
+    image(16);
+    expect(disque()).toBe(VARS['--good']);
   });
 });
