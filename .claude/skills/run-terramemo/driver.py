@@ -942,6 +942,11 @@ def ui_credits(p, capturer, defauts):
     cliquer(p, "#lien-credits")
     attendre_visible(p, "#vue-credits")
     p.pause(400)
+    # La date de l'IGN arrive par un fetch (sources.json de l'île) : sur le site en
+    # ligne, plus de 400 ms depuis La Réunion. Jusqu'à 8 s avant d'en faire un DÉFAUT.
+    fin = time.monotonic() + 8
+    while "à jour au" not in texte(p, "#vue-credits") and time.monotonic() < fin:
+        p.pause(200)
     vue = p.js("document.body.dataset.vue")
     texte_credits = texte(p, "#vue-credits")
     attendus = ["Natural Earth", "Domaine public", "Unicode CLDR", "Unicode License v3", "ADMIN\u00a0EXPRESS",
