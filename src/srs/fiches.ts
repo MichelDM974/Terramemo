@@ -11,12 +11,19 @@ export const DOMAINES: readonly Domaine[] = ['pays', 'communes'];
 export const SENS: readonly Sens[] = ['localiser', 'nommer'];
 
 /**
- * Sens introduits par les nouveautés. Défaut en attente de l'utilisateur, #2
- * (D1a) : seulement `localiser` au J1a ; `nommer` est modélisé (ids, sœurs,
- * rejeu) mais aucune fiche n'en est créée tant qu'un rappel honnête du nom
- * n'existe pas (saisie au J1b, ou carte retournée « Je savais » : D1c).
+ * Sens révisés au J1a (décision « Sens « quel est ce pays ? » » du 06/11) :
+ * localiser (Trouver) et nommer, qui se révise en carte retournée (la zone
+ * s'allume, on pense au nom, « Révéler », puis « Je savais » ou « Je ne
+ * savais pas ») en attendant la saisie du J1b.
  */
-export const SENS_ACTIFS: readonly Sens[] = ['localiser'];
+export const SENS_ACTIFS: readonly Sens[] = ['localiser', 'nommer'];
+
+/**
+ * Sens par lequel une entité entre dans la mémoire : sa grappe (QCM puis
+ * rappel au toucher) introduit la fiche localiser ; la sœur nommer vient au
+ * plus tôt le lendemain (planif.ts, introductions), jamais le même jour.
+ */
+export const SENS_ENTREE: Sens = 'localiser';
 
 export interface Fiche {
   domaine: Domaine;
@@ -51,7 +58,7 @@ export function soeur(fiche: string): string | null {
   return former(f.domaine, f.id, f.sens === 'localiser' ? 'nommer' : 'localiser');
 }
 
-/** Fiches actives d'une entité (une par sens de SENS_ACTIFS). */
-export function fichesDe(domaine: Domaine, id: string, sens: readonly Sens[] = SENS_ACTIFS): string[] {
+/** Fiches d'une entité dans ces sens (par défaut le sens d'entrée seul : celles qu'une grappe introduit). */
+export function fichesDe(domaine: Domaine, id: string, sens: readonly Sens[] = [SENS_ENTREE]): string[] {
   return sens.map((s) => former(domaine, id, s));
 }

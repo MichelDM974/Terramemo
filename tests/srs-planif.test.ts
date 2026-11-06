@@ -9,6 +9,7 @@ import {
   dues,
   GRAPPES_PAR_JOUR,
   grappeSuivante,
+  introductions,
   maitrises,
   programme,
   REVISIONS_PAR_JOUR,
@@ -79,13 +80,39 @@ describe('programme d’une séance', () => {
     expect(p.nouveautes?.fiches).toEqual(premiere.membres.map((id) => `pays:${id}:localiser`));
   });
 
-  it('une grappe par jour : commencée ce jour, pas d’autre ; le lendemain, le reste de la même', () => {
+  it('une grappe par jour : celle commencée ce jour se finit, pas d’autre ; le lendemain, la suivante après les introductions', () => {
     const debut = premiere.membres.slice(0, 2).map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel'));
-    expect(programme(etat(debut), D0, gs, 'pays').nouveautes).toBeNull();
-    const p = programme(etat(debut), D0 + 1, gs, 'pays');
-    expect(p.revisions).toEqual([]);
-    expect(p.nouveautes?.grappe).toBe(premiere);
-    expect(p.nouveautes?.ids).toEqual(premiere.membres.slice(2));
+    // Quittée en plein rappel : le reste de la même grappe, le même jour (jamais coupée).
+    const p0 = programme(etat(debut), D0, gs, 'pays');
+    expect(p0.nouveautes?.grappe).toBe(premiere);
+    expect(p0.nouveautes?.ids).toEqual(premiere.membres.slice(2));
+    // Toute la grappe faite : pas d'autre ce jour-là.
+    const toute = premiere.membres.map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel'));
+    const p1 = programme(etat(toute), D0, gs, 'pays');
+    expect(p1.nouveautes).toBeNull();
+    expect(p1.sansNouveautes).toBe('grappe_faite');
+    expect(p1.introductions).toEqual([]); // la sœur nommer jamais le même jour
+    // Le lendemain : les fiches nommer de la grappe, puis la grappe suivante.
+    const p2 = programme(etat(toute), D0 + 1, gs, 'pays');
+    expect(p2.revisions).toEqual([]);
+    expect(p2.introductions).toEqual(premiere.membres.map((id) => `pays:${id}:nommer`).sort());
+    expect(p2.nouveautes?.grappe).toBe(gs[1]);
+    expect(p2.sansNouveautes).toBeNull();
+  });
+
+  it('introductions nommer : pas le jour où la sœur localiser est due ou notée', () => {
+    // FRA Again le jour 0 : localiser due le jour 1, nommer attend.
+    const m = etat([rep('pays:FRA:localiser', D0, AGAIN, 'rappel'), rep('pays:BEL:localiser', D0, GOOD, 'rappel')]);
+    expect(introductions(m, D0 + 1)).toEqual(['pays:BEL:nommer']);
+    expect(programme(m, D0 + 1, gs, 'pays').revisions).toEqual(['pays:FRA:localiser']);
+    // FRA revue le jour 1 : sa sœur nommer le jour 2 (BEL nommer reste due d'introduction).
+    const m2 = etat([rep('pays:FRA:localiser', D0, AGAIN, 'rappel'), rep('pays:BEL:localiser', D0, GOOD, 'rappel'), rep('pays:FRA:localiser', D0 + 1, GOOD)]);
+    expect(introductions(m2, D0 + 1)).toEqual(['pays:BEL:nommer']);
+    expect(introductions(m2, D0 + 2)).toEqual(['pays:BEL:nommer', 'pays:FRA:nommer']);
+    // Une fois introduite, la fiche nommer est révisée comme les autres (carte retournée) ; les deux sens dus le même jour : un seul.
+    const m3 = etat([rep('pays:BEL:localiser', D0, AGAIN, 'rappel'), rep('pays:BEL:nommer', D0 + 2, AGAIN, 'rappel'), rep('pays:BEL:localiser', D0 + 2 - 1, AGAIN)]);
+    expect(introductions(m3, D0 + 3)).toEqual([]);
+    expect(dues(m3, D0 + 3)).toEqual(['pays:BEL:localiser']);
   });
 
   it('pas de nouveautés tant qu’une révision due reste ; plafonds par séance et par jour', () => {
@@ -103,9 +130,11 @@ describe('programme d’une séance', () => {
     expect(p2.revisions).toEqual(ids.slice(50, 70).map((id) => `pays:${id}:localiser`).sort().slice(0, 10));
     expect(p2.restantes).toBe(10);
     expect(p2.nouveautes).toBeNull();
+    expect(p2.sansNouveautes).toBe('dues');
     // 60 faites : plus rien ce jour-là, même s'il en reste dues.
     const m3 = etat([...introduits(70), ...ids.slice(0, 60).map((id) => rep(`pays:${id}:localiser`, D0 + 1, GOOD))]);
     expect(programme(m3, D0 + 1, gs, 'pays').revisions).toEqual([]);
+    expect(programme(m3, D0 + 1, gs, 'pays').sansNouveautes).toBe('plafond');
   });
 
   it('une séance qui couvre toutes les dues propose la grappe suivante après elles', () => {
@@ -127,6 +156,7 @@ describe('programme d’une séance', () => {
   it('tout introduit : plus de grappe', () => {
     const tout = ids.map((id) => rep(`pays:${id}:localiser`, D0 - 100, GOOD, 'rappel'));
     expect(grappeSuivante(etat(tout), gs, 'pays')).toBeNull();
+    expect(programme(etat(tout), D0 - 100, gs, 'pays').sansNouveautes).toBe('tout_appris');
   });
 });
 

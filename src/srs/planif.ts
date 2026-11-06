@@ -3,7 +3,7 @@
 // Pur : lit l'état rejoué (rejeu.ts) et le jour local courant (jour.ts).
 // Les plafonds sont des défauts en attente de l'utilisateur, #2 (D5).
 
-import { analyser, fichesDe, former, SENS, soeur, type Domaine } from './fiches';
+import { analyser, fichesDe, former, SENS, SENS_ENTREE, soeur, type Domaine } from './fiches';
 import { stabilite } from './fsrs';
 import type { Grappe } from './grappes';
 import type { EtatFiche } from './rejeu';
@@ -59,18 +59,29 @@ export function introduite(etat: Etat, domaine: Domaine, id: string): boolean {
   return SENS.some((s) => etat.has(former(domaine, id, s)));
 }
 
-/** Grappes dont au moins une entité a été introduite le jour j. */
+/** Révisions encore permises le jour j par le plafond du jour (REVISIONS_PAR_JOUR moins celles faites). */
+export function revisionsPermises(etat: Etat, j: number): number {
+  return Math.max(0, REVISIONS_PAR_JOUR - revisionsFaites(etat, j));
+}
+
+/** Une entité de la grappe a eu sa fiche d'entrée (localiser) introduite le jour j. */
+const commenceeLe = (etat: Etat, g: Grappe, j: number, domaine: Domaine): boolean =>
+  g.membres.some((id) => etat.get(former(domaine, id, SENS_ENTREE))?.introduite_jour === j);
+
+/**
+ * Grappes commencées le jour j : au moins une entité y a eu sa fiche
+ * d'entrée (localiser) introduite ce jour-là. L'introduction d'une fiche
+ * nommer (le lendemain de sa sœur) ne commence pas de grappe.
+ */
 export function grappesCommencees(etat: Etat, j: number, grappes: readonly Grappe[], domaine: Domaine): number {
-  return grappes.filter((g) =>
-    g.membres.some((id) => SENS.some((s) => etat.get(former(domaine, id, s))?.introduite_jour === j)),
-  ).length;
+  return grappes.filter((g) => commenceeLe(etat, g, j, domaine)).length;
 }
 
 export interface Nouveautes {
   grappe: Grappe;
   /** Entités jamais introduites de la grappe, dans son ordre (superficie décroissante). */
   ids: string[];
-  /** Leurs fiches à introduire (sens actifs, fiches.ts SENS_ACTIFS). */
+  /** Leurs fiches à introduire : le sens d'entrée seul (localiser, fiches.ts SENS_ENTREE). */
   fiches: string[];
 }
 
@@ -87,22 +98,58 @@ export function grappeSuivante(etat: Etat, grappes: readonly Grappe[], domaine: 
   return null;
 }
 
-export interface Programme {
-  /** Révisions de la séance, dans l'ordre de dues(), au plus REVISIONS_PAR_SEANCE et ce que permet le plafond du jour. */
-  revisions: string[];
-  /** Fiches dues qui restent après cette séance (autre séance, ou le lendemain une fois le plafond du jour atteint). */
-  restantes: number;
-  /** Nouveautés après les révisions, ou null. */
-  nouveautes: Nouveautes | null;
+/**
+ * Fiches nommer à introduire le jour j (décision « Sens « quel est ce pays
+ * ? » » : au plus tôt le lendemain du sens localiser) : celles des entités
+ * dont la fiche localiser a été introduite un jour antérieur, sans fiche
+ * nommer encore, et dont la sœur localiser n'est ni notée ce jour ni due
+ * (elle passe d'abord ; les deux sens ne se voient jamais le même jour).
+ * Les plus anciennes d'abord, puis par id.
+ */
+export function introductions(etat: Etat, j: number, domaine?: Domaine): string[] {
+  const r: { fiche: string; jour: number }[] = [];
+  for (const e of etat.values()) {
+    const f = analyser(e.fiche);
+    if (!f || f.sens !== SENS_ENTREE || (domaine && f.domaine !== domaine)) continue;
+    const nommer = former(f.domaine, f.id, 'nommer');
+    if (etat.has(nommer) || e.introduite_jour >= j || e.dernier_jour >= j || e.echeance_jour <= j) continue;
+    r.push({ fiche: nommer, jour: e.introduite_jour });
+  }
+  return r.sort((a, b) => a.jour - b.jour || (a.fiche < b.fiche ? -1 : a.fiche > b.fiche ? 1 : 0)).map((x) => x.fiche);
 }
 
 /**
- * Programme d'une séance le jour j. Les révisions dues d'abord ; une
- * nouvelle grappe seulement si la séance couvre toutes les révisions dues
- * (aucune ne reste après elle) et si moins de GRAPPES_PAR_JOUR grappes ont
- * été commencées ce jour-là. `grappes` donne l'ordre des nouveautés ; le
- * compte des grappes commencées se fait sur `toutes` (par défaut les mêmes),
- * pour qu'un Apprendre lancé depuis une série ne contourne pas le budget.
+ * Pourquoi un programme n'a pas de nouveautés : des révisions restent après
+ * la séance ('dues'), le plafond du jour est atteint avec des fiches encore
+ * dues ('plafond'), la grappe du jour est déjà prise ('grappe_faite'), ou
+ * tout est introduit ('tout_appris').
+ */
+export type SansNouveautes = 'dues' | 'plafond' | 'grappe_faite' | 'tout_appris';
+
+export interface Programme {
+  /** Révisions de la séance (les deux sens), dans l'ordre de dues(), au plus REVISIONS_PAR_SEANCE et ce que permet le plafond du jour. */
+  revisions: string[];
+  /** Fiches nommer à introduire après les révisions (introductions()), toutes : une grappe par jour au plus les borne. */
+  introductions: string[];
+  /** Fiches dues qui restent après cette séance (autre séance, ou le lendemain une fois le plafond du jour atteint). */
+  restantes: number;
+  /** Nouveautés après les révisions et les introductions, ou null. */
+  nouveautes: Nouveautes | null;
+  /** Pourquoi nouveautes est null (null s'il y en a). */
+  sansNouveautes: SansNouveautes | null;
+}
+
+/**
+ * Programme d'une séance le jour j (décision « Apprendre et Révision du jour
+ * » : un seul budget). Les révisions dues d'abord (les deux sens, plafonds,
+ * sœurs), puis les fiches nommer à introduire, puis une nouvelle grappe
+ * seulement si la séance couvre toutes les révisions dues (aucune ne reste
+ * après elle) et si moins de GRAPPES_PAR_JOUR grappes ont été commencées ce
+ * jour-là ; la grappe commencée ce jour même se finit (elle n'est jamais
+ * coupée : une séance quittée en plein rappel la reprend). `grappes` donne
+ * l'ordre des nouveautés (celles d'une série pour Apprendre) ; le compte des
+ * grappes commencées se fait sur `toutes` (par défaut les mêmes), pour
+ * qu'un Apprendre lancé depuis une série ne contourne pas le budget.
  */
 export function programme(
   etat: Etat,
@@ -111,13 +158,21 @@ export function programme(
   domaine: Domaine,
   toutes: readonly Grappe[] = grappes,
 ): Programme {
-  const d = dues(etat, j);
-  const permis = Math.max(0, Math.min(REVISIONS_PAR_SEANCE, REVISIONS_PAR_JOUR - revisionsFaites(etat, j)));
+  const d = dues(etat, j, domaine);
+  const permis = Math.min(REVISIONS_PAR_SEANCE, revisionsPermises(etat, j));
   const revisions = d.slice(0, permis);
   const restantes = d.length - revisions.length;
-  const nouveautes =
-    restantes === 0 && grappesCommencees(etat, j, toutes, domaine) < GRAPPES_PAR_JOUR ? grappeSuivante(etat, grappes, domaine) : null;
-  return { revisions, restantes, nouveautes };
+  const intro = introductions(etat, j, domaine);
+  let sansNouveautes: SansNouveautes | null = null;
+  let nouveautes: Nouveautes | null = null;
+  if (restantes > 0) sansNouveautes = permis === 0 ? 'plafond' : 'dues';
+  else {
+    const g = grappeSuivante(etat, grappes, domaine);
+    if (!g) sansNouveautes = 'tout_appris';
+    else if (grappesCommencees(etat, j, toutes, domaine) < GRAPPES_PAR_JOUR || commenceeLe(etat, g.grappe, j, domaine)) nouveautes = g;
+    else sansNouveautes = 'grappe_faite';
+  }
+  return { revisions, introductions: intro, restantes, nouveautes, sansNouveautes };
 }
 
 // Carte de la mémoire.

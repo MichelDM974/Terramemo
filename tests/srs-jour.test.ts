@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyser, fichesDe, former, SENS_ACTIFS, soeur } from '../src/srs/fiches';
+import { analyser, fichesDe, former, SENS_ACTIFS, SENS_ENTREE, soeur } from '../src/srs/fiches';
 import { jour, jourDe } from '../src/srs/jour';
 
 // Vecteurs écrits à la main : l'heure UTC de chaque instant est convertie de
@@ -61,8 +61,10 @@ describe('fiches', () => {
     expect(soeur('n’importe quoi')).toBeNull();
   });
 
-  it('défaut D1a : seul le sens localiser est introduit', () => {
-    expect(SENS_ACTIFS).toEqual(['localiser']);
+  it('les deux sens se révisent ; une grappe introduit le sens d’entrée, localiser (décision « Sens « quel est ce pays ? » »)', () => {
+    expect(SENS_ACTIFS).toEqual(['localiser', 'nommer']);
+    expect(SENS_ENTREE).toBe('localiser');
     expect(fichesDe('pays', 'BEN')).toEqual(['pays:BEN:localiser']);
+    expect(fichesDe('pays', 'BEN', SENS_ACTIFS)).toEqual(['pays:BEN:localiser', 'pays:BEN:nommer']);
   });
 });
