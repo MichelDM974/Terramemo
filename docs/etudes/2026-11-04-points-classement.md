@@ -127,25 +127,33 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
 - **Quatre classements par épreuve jouée** (choix de l'utilisateur) : un
   par épreuve et un général, chacun de toujours et de la semaine.
   - Par épreuve : le meilleur score Chrono de chaque joueur
-    (`classements/{epreuve}/periodes/toujours/scores/{uid}` : pseudo,
+    (`classements/{epreuve}/periodes/toujours/scores/{pseudo}` : pseudo,
     points, justes, questions, temps, date, version du barème), écrit en
     fin d'épreuve s'il bat l'ancien.
   - Général : la somme des records Chrono de toutes les épreuves du
-    joueur (`classements/general/periodes/toujours/scores/{uid}`), réécrite par l'appli
+    joueur (`classements/general/periodes/toujours/scores/{pseudo}`), réécrite par l'appli
     quand un record tombe. Chaque pays y compte deux fois (dans son
     continent et dans le Monde) : le marathon du Monde pèse autant que
     tous les continents réunis, et une épreuve ajoutée (capitales,
     drapeaux) fait monter le total possible de tous.
-  - De la semaine : les mêmes, sous `periodes/s{n}/scores/{uid}`, remis à
+  - De la semaine : les mêmes, sous `periodes/s{n}/scores/{pseudo}`, remis à
     zéro le lundi à 0 h UTC (4 h à La Réunion), pour qu'un nouveau venu
     ait sa chance ; `n` = numéro de semaine entier depuis le lundi
     5 janvier 1970, `⌊(t − 345 600 000 ms) / 604 800 000 ms⌋`, que les
     règles recalculent depuis `request.time` (une semaine passée ne se
     réécrit pas). Les anciennes semaines restent (quelques Ko).
+- **Une place par pseudo** (06/11, choix de l'utilisateur, décision du
+  même nom) : le document porte le pseudo en minuscules, plus le compte
+  anonyme de l'appareil, qui donnait une ligne par appareil (« Michel »
+  trois fois : Chrome, APK, PC). Tout compte qui joue sous ce pseudo
+  améliore la place ; le général prend, par épreuve, le meilleur de
+  l'appareil et de la place en ligne (lue avant de l'écrire). Le pseudo
+  n'est pas réservé : qui le choisit partage la place.
 - **Coût** : afficher un classement = 10 lectures (les 10 premiers) + 1
   pour le nombre de joueurs, + 3 pour sa place et son rang s'il est hors
   des 10 (`count()`, une lecture par tranche de 1 000) ; finir une épreuve = jusqu'à 4 écritures (les deux records
-  de l'épreuve, les deux totaux), seulement pour ce qui progresse. Avec
+  de l'épreuve, les deux totaux), seulement pour ce qui progresse, et 8
+  lectures par total (la place du pseudo dans chaque épreuve). Avec
   50 000 lectures et 20 000 écritures par jour (Spark), ~2 000
   affichages de classement et ~5 000 épreuves finies par jour, partagés
   avec les séances : à surveiller si le public grandit.
@@ -156,7 +164,8 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
 - **Triche** : sans serveur (les Cloud Functions demandent l'offre Blaze,
   exclue par la décision « Hébergement »), c'est l'appli qui écrit son
   score. Parades possibles sans payer :
-  - règles Firestore : uid du joueur seul, score ≤ 1 000 × nombre de
+  - règles Firestore : uid du joueur seul (abandonné le 06/11 : une place
+    par pseudo), score ≤ 1 000 × nombre de
     questions, durée déclarée ≥ écart réel entre le document de début et
     celui de fin (`request.time`), une écriture qui n'améliore pas le
     score refusée. Le total général ne se vérifie que par ses bornes :

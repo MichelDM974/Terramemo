@@ -591,10 +591,19 @@ règles refusent moins de 0,2 s par question (`temps_ms >= questions ×
 le record de l'appareil, mais le général et un nouveau pseudo prennent
 pour sa série le meilleur score publiable (`recordPubliable`), et l'avis
 `.chrono-classement-avis` (sous le pseudo) dit « Score refusé par le
-classement… ». Chaque score part seul : un refus (celui-là, ou un 403 sur
-`documents:commit` pour un score qui ne bat pas celui publié) n'emporte ni
-les autres séries ni le général ; un envoi échoué (hors ligne) a son propre
-avis, « Score non publié (hors ligne ?)… ».
+classement… ». Chaque score part seul : un refus n'emporte ni les autres
+séries ni le général ; un envoi échoué (hors ligne) a son propre avis,
+« Score non publié (hors ligne ?)… ». Un 403 sur `documents:commit` pour
+un score qui ne bat pas la place n'est pas un refus : la place est celle
+du **pseudo** (en minuscules), partagée par tous ses appareils, et
+`publier()` relit la place pour s'en assurer.
+
+Publier sans jouer (serveur de dev seulement) : les modules s'importent
+depuis la page, `await import('/src/vues/classement.ts')` (et
+`/src/epreuve/chrono.ts`, `/src/epreuve/classement.ts`) ; un record posé
+par `enregistrerPartie(localStorage, …)` part par `publierTout(pseudo)`.
+Chaque `driver.Session('local')` a un profil neuf, donc un autre compte
+anonyme : deux sessions sous le même pseudo = deux appareils, une place.
 
 ## Déploiement (Firebase Hosting, projet `terramemo-geo`)
 
