@@ -9,7 +9,7 @@
 // ni de leur ordre, ni de leurs doublons, ni de l'appareil qui rejoue ; deux
 // journaux s'unissent donc sans conflit (synchro du J1b).
 
-import { echeance, planificateur, PARAMS_FSRS, type CarteFsrs, type ParamsFsrs } from './fsrs';
+import { echeance, planificateur, PARAMS_FSRS, type CarteFsrs, type ParamsFsrs, type Planificateur } from './fsrs';
 import { valider, type Evenement } from './journal';
 import { jour } from './jour';
 
@@ -68,25 +68,31 @@ export function ordonner(evenements: Iterable<unknown>): Evenement[] {
 export function etat(evenements: Iterable<unknown>, params: ParamsFsrs = PARAMS_FSRS): Map<string, EtatFiche> {
   const p = planificateur(params);
   const fiches = new Map<string, EtatFiche>();
-  for (const e of ordonner(evenements)) {
-    if (e.type === 'reinitialiser') {
-      fiches.delete(e.fiche);
-      continue;
-    }
-    if (e.type !== 'reponse' || e.note == null) continue;
-    const j = jour(e.ts, e.tz);
-    const avant = fiches.get(e.fiche);
-    if (avant && j <= avant.dernier_jour) continue;
-    const carte = p.noter(avant?.carte ?? p.neuve(j), j, e.note);
-    fiches.set(e.fiche, {
-      fiche: e.fiche,
-      carte,
-      introduite_jour: avant?.introduite_jour ?? j,
-      dernier_jour: j,
-      echeance_jour: echeance(carte),
-      notes: (avant?.notes ?? 0) + 1,
-      echecs: (avant?.echecs ?? 0) + (e.note === 1 ? 1 : 0),
-    });
-  }
+  for (const e of ordonner(evenements)) appliquer(fiches, e, p);
   return fiches;
+}
+
+/**
+ * Applique un événement à l'état (modifié en place), avec les règles du
+ * rejeu ; rend vrai s'il a changé quelque chose. Pour les événements écrits
+ * pendant la session, plus récents que tout le journal rejoué : l'état reste
+ * celui qu'un rejeu complet donnerait, sans le refaire à chaque réponse.
+ */
+export function appliquer(fiches: Map<string, EtatFiche>, e: Evenement, p: Planificateur): boolean {
+  if (e.type === 'reinitialiser') return fiches.delete(e.fiche);
+  if (e.type !== 'reponse' || e.note == null) return false;
+  const j = jour(e.ts, e.tz);
+  const avant = fiches.get(e.fiche);
+  if (avant && j <= avant.dernier_jour) return false;
+  const carte = p.noter(avant?.carte ?? p.neuve(j), j, e.note);
+  fiches.set(e.fiche, {
+    fiche: e.fiche,
+    carte,
+    introduite_jour: avant?.introduite_jour ?? j,
+    dernier_jour: j,
+    echeance_jour: echeance(carte),
+    notes: (avant?.notes ?? 0) + 1,
+    echecs: (avant?.echecs ?? 0) + (e.note === 1 ? 1 : 0),
+  });
+  return true;
 }
