@@ -165,6 +165,7 @@ export class Seance {
   /** La dernière réponse a pris « Voir » : la carte a volé jusqu'à sa cible (cadrage de la suivante). */
   private apresVoir = false;
   private rappelCadre = false;
+  private qcmCadre = false;
   private repondues = 0;
   private readonly grappe: readonly string[];
   private readonly b: BilanSeance = { revisions: { n: 0, premiers: 0 }, nouveaux: [], qcm: { n: 0, justes: 0 }, rates: [], reponses: 0 };
@@ -221,7 +222,11 @@ export class Seance {
   private avancer(): void {
     const e = this.file.shift() ?? null;
     if (e) {
-      if (e.etape === 'rappel' && !this.rappelCadre) {
+      if (e.etape === 'qcm' && !this.qcmCadre) {
+        // Le QCM d'une grappe s'ouvre sur sa région (voisins compris) : au monde entier, un pays moyen n'y faisait que quelques pixels.
+        e.cadrage = { sorte: 'grappe', ids: this.grappe };
+        this.qcmCadre = true;
+      } else if (e.etape === 'rappel' && !this.rappelCadre) {
         e.cadrage = { sorte: 'grappe', ids: this.grappe };
         this.rappelCadre = true;
       } else if (e.forme === 'trouver' && (this.precedente !== 'trouver' || this.apresVoir))

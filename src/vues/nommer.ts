@@ -5,7 +5,7 @@
 // Vaut pour toutes les séries, le monde comme l'île. Les touchers sur la carte
 // n'y répondent pas (Toucher les ignore) ; glisser et pincer restent libres.
 import type { CarteAffichee } from '../map/carte';
-import { anneauPrincipal, empriseEcran, versEcran } from '../map/geo';
+import { anneauPrincipal, empriseEcran, versEcran, type Emprise } from '../map/geo';
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
@@ -70,6 +70,8 @@ export interface CrochetsNommer {
   connu?(): void;
   /** « Terminer » : à la place du bilan de Reconnaître (celui de la séance). */
   terminer?(): void;
+  /** Avant la première question : la carte cadrée sur cette emprise (QCM d'une grappe, décision « Cadrage et disques en séance »). */
+  cadrer?: Emprise;
 }
 
 /**
@@ -185,6 +187,11 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       b.disabled = false;
     });
     barre.hidden = false;
+    if (crochets.cadrer) {
+      // Une fois : au retour dans la vue, la carte reste où le joueur l'a laissée.
+      t.carte.cadrer(crochets.cadrer, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
+      crochets = { ...crochets, cadrer: undefined };
+    }
     allumer(t.carte, id, t.nom !== 'monde');
     debut = performance.now();
   }

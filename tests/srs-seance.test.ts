@@ -71,7 +71,7 @@ describe('séance : la file', () => {
     expect(new Set(autres).size).toBeGreaterThan(1);
   });
 
-  it('cadrages : le monde avant le premier Trouver et après une carte retournée ou un QCM, la grappe au premier rappel, rien sinon', () => {
+  it('cadrages : le monde avant le premier Trouver et après une carte retournée ou un QCM, la grappe au premier QCM et au premier rappel, rien sinon', () => {
     const s = new Seance({ domaine: 'pays', revisions: ['pays:FRA:localiser', 'pays:ITA:localiser'], introductions: ['pays:ESP:nommer'], nouveaux: ['BEN', 'TGO'] }, ctx());
     const { vues } = parcourir(s);
     const c = vues.map((v) => [v.etape, v.cadrage?.sorte ?? null]);
@@ -79,11 +79,12 @@ describe('séance : la file', () => {
       ['revision', 'monde'],
       ['revision', null],
       ['retournee', null],
-      ['qcm', null],
+      ['qcm', 'grappe'],
       ['qcm', null],
       ['rappel', 'grappe'],
       ['rappel', null],
     ]);
+    expect(vues[3]!.cadrage).toEqual({ sorte: 'grappe', ids: ['BEN', 'TGO'] });
     expect(vues[5]!.cadrage).toEqual({ sorte: 'grappe', ids: ['BEN', 'TGO'] });
     // Une révision Trouver après une carte retournée repart du monde.
     const t = new Seance({ domaine: 'pays', revisions: ['pays:DEU:nommer', 'pays:FRA:localiser'], introductions: [], nouveaux: [] }, ctx(3));

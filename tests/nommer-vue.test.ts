@@ -22,6 +22,7 @@ function monter() {
     anneau: (id: string, c: string) => void marques.push(`anneau ${id}:${c}`),
     montrer: vi.fn(),
     zoomer: vi.fn(),
+    cadrer: vi.fn(),
     // Tout est à l'écran, grand : pas de vol.
     contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
   };
@@ -70,6 +71,19 @@ describe('Reconnaître : la vue', () => {
     expect(v.bilan.hidden).toBe(false);
     expect(v.bilan.innerText).toContain('1 / 2 justes du premier coup');
     expect(v.n.enCours).toBe(false);
+  });
+
+  it('crochet cadrer (QCM d’une grappe) : la carte cadrée sur la région avant la zone, une seule fois, pas au retour dans la vue', () => {
+    const v = monter();
+    v.n.demarrer(v.terrain, '', ['ITA'], { cadrer: [5, 40, 20, 50], surFin: () => {} });
+    expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
+    expect(v.carte.cadrer.mock.calls[0]![0]).toEqual([5, 40, 20, 50]);
+    expect(v.marques).toContain('ITA:choisi');
+    v.n.quitter();
+    v.n.reprendre();
+    expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
+    v.n.demarrer(v.terrain, '', ['ESP'], { surFin: () => {} });
+    expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
   });
 
   it('crochet surReponse : chaque réponse (choix, justesse, temps, échelle) ; sa ligne s’ajoute à la rétroaction', () => {

@@ -398,6 +398,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         surReponse: (r) => p.repondre(deNommer(r)),
         surFin: prochaine,
         terminer,
+        ...(q.cadrer && q.cadrer !== 'monde' ? { cadrer: q.cadrer } : {}),
         ...(q.connu
           ? {
               connu: () => {
