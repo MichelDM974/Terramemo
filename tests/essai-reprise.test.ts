@@ -252,11 +252,13 @@ describe('Toucher : une partie choisie dans Jouer (décision « Écran Jouer »)
     v.lancer();
     v.terminer.click();
     v.vue.desactiver();
+    expect(v.vue.aMontrer?.()).toBe(true);
     expect(v.vue.redirection?.()).toBeNull();
     v.vue.activer();
     expect(v.bilan.hidden).toBe(false);
     (v.bilan.querySelector('#essai-autre') as El).click();
     v.vue.desactiver();
+    expect(v.vue.aMontrer?.()).toBe(false);
     expect(v.vue.redirection?.()).toEqual({ cible: 'jouer/entrainement/pays/tous' });
   });
 

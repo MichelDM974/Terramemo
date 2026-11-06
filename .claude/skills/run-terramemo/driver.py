@@ -1119,6 +1119,64 @@ def ui_jouer(p, capturer, defauts):
         defauts.append(f"« × » de Jouer : {p.js('location.hash')}, vue {p.js('document.body.dataset.vue')}")
 
 
+def ui_jouer_parties(p, defauts):
+    """Jouer et les parties, de bout en bout (relecture de #18 : src/navigation.ts,
+    tests/navigation.test.ts pour le détail) : « Abandonner » ramène aux
+    exercices de la série, qui disent « Partie abandonnée » ; « Autre série »
+    de Toucher mène aux séries, et sur l'île à ses exercices (niveau des
+    séries sauté) ; ensuite, #chrono et #toucher tapés (plus de partie ni de
+    bilan) mènent à Jouer ; après chacun, « × » ferme Jouer (la carte) au
+    lieu de rouvrir la partie, qui renvoyait à Jouer. Sans capture ; DÉFAUT
+    à chaque écart. Avant, un bilan resté affiché se remontre (pas Jouer)."""
+    def ou():
+        return [p.js("decodeURIComponent(location.hash)"), p.js("document.body.dataset.vue"), niveau_jouer(p)]
+
+    def fermer(quoi):
+        cliquer(p, "#jouer-fermer")
+        p.pause(400)
+        if ou()[:2] != ["#carte", "carte"]:
+            defauts.append(f"« × » de Jouer après {quoi} : {ou()} au lieu de la carte")
+
+    jouer_partie(p, "chrono", "South America")
+    cliquer(p, "#chrono-abandonner")
+    p.pause(500)
+    statut = texte(p, "#jouer-panneau .jouer-statut")
+    dire(f"  Abandonner : {ou()}, statut {statut!r}")
+    if ou() != ["#jouer/classe/pays/South America", "jouer", "exercices"] or "abandonnée" not in statut:
+        defauts.append(f"« Abandonner » : {ou()}, statut {statut!r}, au lieu des exercices de l'Amérique du Sud qui disent l'abandon")
+    fermer("« Abandonner »")
+
+    jouer_partie(p, "localiser", "Europe")
+    cliquer(p, "#essai-terminer")
+    attendre_visible(p, "#essai-autre")
+    cliquer(p, "#essai-autre")
+    p.pause(500)
+    dire(f"  Toucher, « Autre série » : {ou()}")
+    if ou() != ["#jouer/entrainement/pays", "jouer", "series"]:
+        defauts.append(f"« Autre série » de Toucher : {ou()} au lieu des séries des pays")
+    fermer("« Autre série »")
+
+    jouer_partie(p, "localiser", "reunion")
+    cliquer(p, "#essai-terminer")
+    attendre_visible(p, "#essai-autre")
+    cliquer(p, "#essai-autre")
+    p.pause(500)
+    dire(f"  La Réunion, « Autre série » : {ou()}")
+    if ou() != ["#jouer/entrainement/communes/reunion", "jouer", "exercices"]:
+        defauts.append(f"« Autre série » sur l'île : {ou()} au lieu de ses exercices (niveau des séries sauté)")
+    fermer("« Autre série » sur l'île")
+
+    # Plus de partie ni de bilan à montrer (abandon, « Autre série ») : l'adresse
+    # tapée mène à Jouer, aux exercices de la dernière partie de la vue.
+    for vue, attendu in (("chrono", "#jouer/classe/pays/South America"), ("toucher", "#jouer/entrainement/communes/reunion")):
+        p.js(f'location.hash = "#{vue}"')
+        p.pause(400)
+        dire(f"  #{vue} sans partie : {ou()}")
+        if ou()[:2] != [attendu, "jouer"]:
+            defauts.append(f"#{vue} sans partie : {ou()} au lieu de Jouer ({attendu})")
+        fermer(f"#{vue} sans partie")
+
+
 def cadre_ile(page, barre):
     """L'île à l'écran (union des communes) et le haut de la barre, en px CSS."""
     return page.js(f"""(() => {{
@@ -1451,6 +1509,7 @@ def commande_ui(args):
         ui_entete(p, capturer, defauts, telephone)
         ui_epreuves(p, capturer, defauts)
         ui_jouer(p, capturer, defauts)
+        ui_jouer_parties(p, defauts)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")

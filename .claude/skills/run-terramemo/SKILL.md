@@ -123,7 +123,11 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   n'a pas ses deux branches, Classé › Pays ses 7 séries dans l'ordre ou la
   série ses 3 épreuves (et leurs records), si Communes ne saute pas la série,
   si une série « essai » s'y montre, si le retour arrière, « ‹ », une
-  adresse invalide ou « × » mènent ailleurs, et si le panneau de Jouer
+  adresse invalide ou « × » mènent ailleurs, si `#chrono` ou `#toucher`
+  tapés ne mènent pas à Jouer, si « Abandonner » ne ramène pas aux
+  exercices de la série avec « Partie abandonnée », si « Autre série » ne
+  mène pas aux séries (sur l'île : à ses exercices), si « × » ne ferme pas
+  Jouer après l'un d'eux (`ui_jouer_parties`), et si le panneau de Jouer
   déborde (320 px compris), passe 560 px, a un bouton sous 48 px (« ‹ » et
   « × » sous 44), un bouton en bleu plein ou un nom coupé au milieu d'un
   mot (`panneau_jouer` ; « Entraînemen / t » à 320 px ne déborde pas : seul
@@ -733,6 +737,15 @@ arbre propre (`git status`).
   America`, `%20` dans l'adresse), `reunion` ; exercices `localiser`,
   `nommer`, `chrono`, `sansfaute`, `minute`. L'Essai J0 (série `essai`)
   n'est que dans ⚙ (`#reglage-essai`).
+- L'historique de Jouer et des parties vit dans `src/navigation.ts`, testé
+  avec un historique factice (`tests/navigation.test.ts`) : chaque entrée
+  garde la pile des adresses d'avant (`history.state`), « ‹ », « × » et
+  les retours des parties remontent l'historique (`history.go`, différé)
+  au lieu d'empiler. Une traversée donne popstate PUIS hashchange (Chromium
+  aussi pour un lien) : le second, qui lit encore l'ancienne ancre, est
+  ignoré quand la navigation vient de demander un `go` (sinon double
+  remontée). « × » ne rouvre une vue de partie que si elle a encore
+  quelque chose à montrer (`aMontrer()`), sinon la carte ou la Saisie.
 - Le retour d'Android dans l'APK ne remonte pas encore l'historique : rien
   ne branche le bouton retour sur la WebView (ni `@capacitor/app`, ni
   `MainActivity`), il ferme l'appli (la met en arrière-plan). Le retour

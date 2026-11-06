@@ -321,6 +321,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     },
     // Sans bilan à remontrer : la partie quittée est abandonnée, Jouer le dit
     // aux exercices de sa série ; atteinte sans partie, Jouer tout court.
+    // La partie quittée est abandonnée (le temps ne se met pas en pause) : seul un bilan reste à montrer.
+    aMontrer: () => bilanAuRetour,
     redirection() {
       if (bilanAuRetour) return null;
       const message = messageRetour;

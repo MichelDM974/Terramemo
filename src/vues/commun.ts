@@ -29,6 +29,13 @@ export interface Vue {
    * la vue s'ouvre.
    */
   redirection?(): { cible: string; message?: string } | null;
+  /**
+   * Une vue de partie (Toucher, épreuves) : a-t-elle, à l'ouverture, quelque
+   * chose à montrer (partie à reprendre, bilan) ? Sans effet de bord, à la
+   * différence de redirection() : le « × » de Jouer le demande à la vue
+   * d'avant (src/navigation.ts), qui n'est pas rouverte si c'est non.
+   */
+  aMontrer?(): boolean;
   /** Un toucher sur la carte (x, y : px CSS relatifs à la carte). */
   toucher?(x: number, y: number, ev: PointerEvent): void;
 }

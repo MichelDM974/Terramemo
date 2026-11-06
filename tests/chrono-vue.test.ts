@@ -91,6 +91,7 @@ describe('Chrono : quitter la vue', () => {
     const { v, zone, versJouer } = jouerJusquaLaDerniere();
     v.desactiver(); // l'onglet Carte, avant la fin de la pause
     vi.advanceTimersByTime(5_000);
+    expect(v.aMontrer?.()).toBe(true);
     expect(v.redirection?.()).toBeNull(); // le bilan est à montrer : pas de renvoi à Jouer
     v.activer();
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
@@ -107,7 +108,8 @@ describe('Chrono : quitter la vue', () => {
     expect(versJouer).toHaveBeenCalledWith('jouer/classe/pays');
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(true);
     v.desactiver();
-    // Revenu sans partie ni bilan : Jouer, aux exercices de la série.
+    // Revenu sans partie ni bilan : Jouer, aux exercices de la série ; rien à montrer (le « × » de Jouer ne la rouvre pas).
+    expect(v.aMontrer?.()).toBe(false);
     expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: '' });
   });
 
@@ -146,6 +148,7 @@ describe('Chrono : quitter la vue', () => {
     v.toucher?.(0, 0, {} as PointerEvent);
     v.desactiver();
     expect(zone.querySelector('#barre-chrono')?.hidden).toBe(true);
+    expect(v.aMontrer?.()).toBe(false); // sans effet de bord : le message reste à dire
     expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: textes.chrono.abandon });
     expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: '' });
     expect(lireRecords(localStorage).size).toBe(0);

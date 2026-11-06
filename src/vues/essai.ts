@@ -271,6 +271,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     },
     // Sans partie en cours ni bilan à remontrer : les exercices de la dernière
     // partie dans Jouer (ou Jouer tout court), au lieu d'un écran vide.
+    aMontrer: () => nommer.enCours || cibles.length > 0 || bilanAuRetour,
     redirection() {
       if (nommer.enCours || cibles.length || bilanAuRetour) return null;
       return { cible: lancement ? adresse(niveauDe(lancement, 'exercices')) : 'jouer' };

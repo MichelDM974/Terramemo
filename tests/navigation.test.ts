@@ -1,0 +1,302 @@
+// Navigation (src/navigation.ts, décision « Écran Jouer », #18) : l'historique
+// de Jouer, les redirections des vues de partie et le « × », enchaînés comme
+// dans le navigateur. L'historique est factice : history.go() est différé
+// (comme dans un vrai navigateur) et chaque traversée donne un popstate puis
+// un hashchange, comme Chromium. Toucher et les épreuves sont les vraies vues
+// (DOM factice), Jouer un double qui canonise son adresse comme VueJouer.aller.
+import { readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Pays } from '../src/map/types';
+import { creerNavigation, type Historique, type Navigation, type VueNavigable } from '../src/navigation';
+import { adresse, creerArbre, depuisAncre, versAncre } from '../src/vues/arbre';
+import { installerDom, installerStockage, El } from './dom-factice';
+
+vi.mock('../src/vues/classement', () => ({ blocClassement: () => new El('section'), publierPartie: vi.fn() }));
+
+const { vueChrono } = await import('../src/vues/chrono');
+const { vueEssai } = await import('../src/vues/essai');
+const { textes } = await import('../src/vues/textes');
+const { catalogue } = await import('../src/vues/cibles');
+const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
+const CATALOGUE = catalogue(pays);
+const arbre = creerArbre(CATALOGUE);
+const AMS = 'South America';
+const EXERCICES_AMS = `jouer/classe/pays/${AMS}`;
+
+/** window.history et location.hash : des entrées, la courante, les go() en attente. */
+class FauxHistorique implements Historique {
+  entrees: { etat: unknown; ancre: string }[] = [{ etat: null, ancre: '' }];
+  i = 0;
+  /** Chaque go() demandé (pour compter les remontées). */
+  gos: number[] = [];
+  private enAttente: number[] = [];
+  get state(): unknown {
+    return this.entrees[this.i]!.etat;
+  }
+  get ancre(): string {
+    return this.entrees[this.i]!.ancre;
+  }
+  pushState(etat: unknown, _u: string, url?: string): void {
+    this.entrees = [...this.entrees.slice(0, this.i + 1), { etat: structuredClone(etat), ancre: url ?? this.ancre }];
+    this.i++;
+  }
+  replaceState(etat: unknown, _u: string, url?: string): void {
+    this.entrees[this.i] = { etat: structuredClone(etat), ancre: url ?? this.ancre };
+  }
+  go(n: number): void {
+    this.gos.push(n);
+    this.enAttente.push(n);
+  }
+  prochain(): number | undefined {
+    return this.enAttente.shift();
+  }
+}
+
+/** Une vue sans partie (la carte, la Saisie, les classements). */
+function vueSimple(): VueNavigable & { active: boolean } {
+  const v = {
+    active: false,
+    activer: () => void (v.active = true),
+    desactiver: () => void (v.active = false),
+  };
+  return v;
+}
+
+function monter() {
+  const h = new FauxHistorique();
+  const zone = new El('main');
+  // La carte et les terrains des parties : juste ce que Toucher et les épreuves demandent.
+  const carte = {
+    effacerMarques() {},
+    marquer() {},
+    anneau() {},
+    zoomer() {},
+    montrer() {},
+    noter: (id: string) => ({ pick: { id }, juste: true, distance_km: 0 }),
+    projection: { scale: () => 1 },
+    transfo: { k: 1 },
+    hote: new El('div'),
+  };
+  const monde = { nom: 'monde', carte, donnees: { noms: {}, entites: pays.map((p) => ({ pays: p })) }, jouables: [], credit: null };
+  const ctx = {
+    carte,
+    donnees: monde.donnees,
+    zone,
+    terrains: { monde, actif: 'monde', montrer() {}, deja: () => null, charger: vi.fn() },
+    mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() },
+  };
+  // Jouer : son niveau canonique (un niveau sauté mène plus bas), l'adresse remplacée sans entrée.
+  const messages: string[] = [];
+  // Comme VueJouer : le niveau déjà rendu ne se redessine pas, sauf message à dire.
+  const jouer = {
+    active: false,
+    rendue: '',
+    statut: '',
+    activer: () => void ((jouer.active = true), (jouer.rendue = '')),
+    desactiver: () => void (jouer.active = false),
+    aller(segs: string[]) {
+      const a = adresse(arbre.resoudre(segs));
+      if (a !== ['jouer', ...segs].join('/')) nav.canoniser(a);
+      if (a === jouer.rendue && !messages.length) return;
+      jouer.rendue = a;
+      jouer.statut = messages.splice(0).join(' ');
+    },
+  };
+  const carteVue = vueSimple();
+  const classement = vueSimple();
+  let nav!: Navigation<VueNavigable>;
+  const versJouer = (cible: string, message?: string) => nav.versJouer(cible, message);
+  const chrono = vueChrono(ctx as never, { versJouer });
+  const toucher = vueEssai(ctx as never, { versJouer });
+  const vues = new Map<string, VueNavigable>([
+    ['carte', carteVue],
+    ['jouer', jouer],
+    ['toucher', toucher],
+    ['chrono', chrono],
+    ['classement', classement],
+  ]);
+  nav = creerNavigation({
+    history: h,
+    ancre: () => h.ancre,
+    noms: ['carte', 'jouer', 'toucher', 'chrono', 'classement'],
+    accueil: 'carte',
+    passage: ['jouer', 'classement'],
+    arbre: 'jouer',
+    vue: (n) => vues.get(n),
+    aller: (segs) => jouer.aller(segs),
+    annoncer: (m) => void messages.push(m),
+    canonique: (c) => adresse(arbre.resoudre(depuisAncre(c).slice(1))),
+  });
+
+  /** Les événements d'une traversée (Chromium : popstate puis hashchange, même pour un lien), puis les go() demandés. */
+  const evenements = () => {
+    nav.router();
+    nav.router();
+    for (let n = h.prochain(); n !== undefined; n = h.prochain()) {
+      h.i = Math.max(0, Math.min(h.entrees.length - 1, h.i + n));
+      nav.router();
+      nav.router();
+    }
+  };
+  /** location.hash = … (un lien, l'adresse tapée). */
+  const lien = (a: string) => {
+    h.pushState(null, '', versAncre(a));
+    evenements();
+  };
+  /** Le bouton retour du navigateur. */
+  const retourNavigateur = () => {
+    h.i--;
+    evenements();
+  };
+  /** Une action de l'appli, puis les traversées qu'elle a demandées. */
+  const faire = (f: () => void) => {
+    f();
+    for (let n = h.prochain(); n !== undefined; n = h.prochain()) {
+      h.i = Math.max(0, Math.min(h.entrees.length - 1, h.i + n));
+      nav.router();
+      nav.router();
+    }
+  };
+  const ici = () => depuisAncre(h.ancre).join('/') || 'carte';
+  /** Comme main.ts : la vue de la partie s'ouvre (une entrée), la partie part. */
+  const lancerChrono = (serie = AMS) => {
+    const s = CATALOGUE.find((x) => x.id === serie)!;
+    nav.ouvrirPartie('chrono');
+    chrono.lancer({ branche: 'classe', sujet: 'pays', serie, mode: 'chrono' }, s, monde as never, [...s.ids]);
+  };
+  const lancerToucher = () => {
+    const s = CATALOGUE.find((x) => x.id === 'Europe')!;
+    nav.ouvrirPartie('toucher');
+    toucher.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'localiser' }, s, monde as never, s.ids.slice(0, 2));
+  };
+  /** La carte, puis Jouer par l'en-tête, puis l'arbre au doigt jusqu'à ces segments. */
+  const descendre = (...segs: string[]) => {
+    lien('carte');
+    lien('jouer');
+    for (let k = 1; k <= segs.length; k++) faire(() => nav.pousser(['jouer', ...segs.slice(0, k)].join('/')));
+  };
+  return { h, nav, zone, jouer, carteVue, classement, ici, lien, retourNavigateur, faire, lancerChrono, lancerToucher, descendre };
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  installerDom();
+  installerStockage();
+});
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe('navigation : les niveaux de Jouer dans l’historique', () => {
+  it('un niveau par entrée ; le retour arrière et « ‹ » remontent d’un niveau, sans redescendre', () => {
+    const m = monter();
+    m.descendre('classe', 'pays', 'Africa');
+    expect(m.ici()).toBe('jouer/classe/pays/Africa');
+    expect(m.jouer.rendue).toBe('jouer/classe/pays/Africa');
+    const n = m.h.entrees.length;
+    m.retourNavigateur();
+    expect(m.ici()).toBe('jouer/classe/pays');
+    m.faire(() => m.nav.remonter('jouer/classe'));
+    expect(m.ici()).toBe('jouer/classe');
+    expect(m.h.gos).toEqual([-1]);
+    expect(m.h.entrees.length).toBe(n); // rien d'empilé en remontant
+  });
+
+  it('un niveau sauté (Communes : La Réunion seule) n’a pas d’entrée : le retour arrière revient aux sujets', () => {
+    const m = monter();
+    m.descendre('entrainement', 'communes');
+    expect(m.ici()).toBe('jouer/entrainement/communes/reunion');
+    m.retourNavigateur();
+    expect(m.ici()).toBe('jouer/entrainement');
+  });
+
+  it('une adresse invalide retombe sur le niveau valide le plus proche, à la place de l’entrée', () => {
+    const m = monter();
+    m.lien('carte');
+    const n = m.h.entrees.length;
+    m.lien('jouer/classe/pays/Atlantide');
+    expect(m.ici()).toBe('jouer/classe/pays');
+    expect(m.h.entrees.length).toBe(n + 1);
+  });
+
+  it('#toucher et #chrono sans partie : Jouer, sans entrée de plus', () => {
+    const m = monter();
+    m.lien('carte');
+    m.lien('chrono');
+    expect(m.ici()).toBe('jouer');
+    expect(m.jouer.active).toBe(true);
+    m.lien('toucher');
+    expect(m.ici()).toBe('jouer');
+  });
+});
+
+describe('navigation : les parties et le « × » de Jouer', () => {
+  it('« Abandonner » : les exercices de la série, qui le disent une fois ; « × » ferme Jouer (la carte)', () => {
+    const m = monter();
+    m.descendre('classe', 'pays', AMS);
+    m.lancerChrono();
+    expect(m.ici()).toBe('chrono'); // pas de redirection au lancement
+    m.faire(() => m.zone.querySelector('#chrono-abandonner')?.click());
+    expect(m.ici()).toBe(EXERCICES_AMS);
+    expect(m.jouer.statut).toBe(textes.chrono.abandon);
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('carte');
+    expect(m.carteVue.active).toBe(true);
+    expect(m.jouer.active).toBe(false);
+  });
+
+  it('Toucher, bilan, « Autre série » : les séries ; « × » ferme Jouer au lieu de redescendre aux exercices', () => {
+    const m = monter();
+    m.descendre('entrainement', 'pays', 'Europe');
+    m.lancerToucher();
+    m.zone.querySelector('#essai-terminer')?.click();
+    m.faire(() => m.zone.querySelector('#essai-autre')?.click());
+    expect(m.ici()).toBe('jouer/entrainement/pays');
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('carte');
+    expect(m.carteVue.active).toBe(true);
+  });
+
+  it('le « Retour » du 🏆 ouvert depuis Jouer après une partie abandonnée : la carte, pas Jouer', () => {
+    const m = monter();
+    m.descendre('classe', 'pays', AMS);
+    m.lancerChrono();
+    m.faire(() => m.zone.querySelector('#chrono-abandonner')?.click());
+    m.lien('classement');
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('carte');
+  });
+
+  it('une partie de Toucher en cours, Jouer par l’en-tête, « × » : la partie, qui reprend', () => {
+    const m = monter();
+    m.descendre('entrainement', 'pays', 'Europe');
+    m.lancerToucher();
+    m.lien('jouer');
+    expect(m.zone.querySelector('#barre-essai')?.hidden).toBe(true);
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('toucher');
+    expect(m.zone.querySelector('#barre-essai')?.hidden).toBe(false);
+  });
+
+  it('une épreuve en cours, Jouer par l’en-tête : elle est abandonnée, « × » ramène à la carte', () => {
+    const m = monter();
+    m.descendre('classe', 'pays', AMS);
+    m.lancerChrono();
+    m.lien('jouer');
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('carte');
+  });
+
+  it('retour arrière vers une épreuve quittée : une seule remontée malgré popstate puis hashchange, aux exercices de la série', () => {
+    const m = monter();
+    m.descendre('classe', 'pays', AMS);
+    m.lancerChrono();
+    m.lien('classement'); // 🏆 en pleine partie : elle est abandonnée
+    m.h.gos.length = 0;
+    m.retourNavigateur(); // vers l'entrée #chrono
+    expect(m.h.gos).toEqual([-1]);
+    expect(m.ici()).toBe(EXERCICES_AMS);
+    expect(m.jouer.statut).toBe(textes.chrono.abandon);
+  });
+});
