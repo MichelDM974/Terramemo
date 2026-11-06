@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CarteCanvas } from '../src/map/carte-canvas';
+import { CarteCanvas, TRAIT_FAUX_PX } from '../src/map/carte-canvas';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
 import type { ContexteCarte } from '../src/map/pick';
@@ -189,5 +189,62 @@ describe('CarteCanvas : montrer() de Nommer cadre comme le SVG (#16)', () => {
     const p = c.ecran('ITA') as [number, number];
     expect(Math.abs(p[0] - L / 2)).toBeLessThan(1e-6);
     expect(Math.abs(p[1] - H / 2)).toBeLessThan(1e-6);
+  });
+});
+
+describe('CarteCanvas : la zone fausse a le contour du SVG (daltonisme, #16)', () => {
+  // carte.css : .pays.faux, .pastille.faux { stroke: var(--text); stroke-width: 3px }.
+  const TEXTE = VARS['--text'];
+  const boite = (ch: FauxChemin): [number, number, number, number] => {
+    const xs = ch.ops.map((o) => o[1]);
+    const ys = ch.ops.map((o) => o[2]);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  };
+
+  it('TRAIT_FAUX_PX = l’épaisseur du contour de carte.css, et sa couleur celle du texte', () => {
+    const css = readFileSync('src/carte.css', 'utf8');
+    expect(css).toContain(`.pays.faux, .pastille.faux { stroke: var(--text); stroke-width: ${TRAIT_FAUX_PX}px; }`);
+  });
+
+  it('le tracé : un trait de 3 px couleur du texte, joints ronds, par-dessus les frontières, autour de la zone fausse seule', () => {
+    const c = carte();
+    c.zoomerSur('FRA');
+    image(0);
+    expect(ctx2d.traits.filter((t) => t.style === TEXTE)).toEqual([]);
+    c.marquer('ESP', 'juste');
+    c.marquer('FRA', 'faux');
+    image(16);
+    const contours = ctx2d.traits.filter((t) => t.style === TEXTE);
+    expect(contours.length).toBe(1);
+    const [t] = contours as [Trait];
+    expect([t.largeur, t.joint]).toEqual([3, 'round']);
+    // Après les frontières (trait de 1 px physique), avant les pastilles.
+    const frontieres = ctx2d.traits.findIndex((x) => x.chemin !== 'courant' && x.style === VARS['--frontiere-fine']);
+    expect(frontieres).toBeGreaterThanOrEqual(0);
+    expect(ctx2d.traits.indexOf(t)).toBeGreaterThan(frontieres);
+    // Son chemin : la France métropolitaine à l'écran (son point d'étiquette dans la boîte), pas l'Espagne.
+    const [x0, y0, x1, y1] = boite(t.chemin as FauxChemin);
+    const [fx, fy] = c.ecran('FRA') as [number, number];
+    const [ex, ey] = c.ecran('ESP') as [number, number];
+    expect(fx > x0 && fx < x1 && fy > y0 && fy < y1).toBe(true);
+    expect(ey > y1).toBe(true);
+    // Juste seule : pas de contour.
+    c.effacerMarques();
+    c.marquer('FRA', 'juste');
+    image(32);
+    expect(ctx2d.traits.filter((x) => x.style === TEXTE)).toEqual([]);
+  });
+
+  it('la pastille : bordée de 3 px couleur du texte au lieu du bord de 1 px (Malte au zoom 1)', () => {
+    const c = carte();
+    c.marquer('MLT', 'faux');
+    image(0);
+    const [mx, my] = c.ecran('MLT') as [number, number];
+    const surMalte = ctx2d.traits.filter((t) => t.arc && Math.hypot(t.arc[0] - mx, t.arc[1] - my) < 1e-9);
+    expect(surMalte.map((t) => [t.style, t.largeur])).toEqual([[TEXTE, 3]]);
+    // Les autres pastilles gardent leur bord de 1 px couleur du fond.
+    const autres = ctx2d.traits.filter((t) => t.arc && t.arc[2] < 5 && !surMalte.includes(t));
+    expect(autres.length).toBeGreaterThan(10);
+    for (const t of autres) expect([t.style, t.largeur]).toEqual([VARS['--bg'], 1]);
   });
 });

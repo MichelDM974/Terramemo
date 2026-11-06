@@ -270,6 +270,8 @@ interface Couleurs {
   hachure: string;
   pastille: string;
   bord: string;
+  /** Contour de la zone fausse (.pays.faux du SVG). */
+  texte: string;
   marques: Record<string, string>;
 }
 
@@ -283,10 +285,18 @@ function lireCouleurs(): Couleurs {
     hachure: v('--hachure'),
     pastille: v('--pastille'),
     bord: v('--bg'),
+    texte: v('--text'),
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
   };
 }
+
+/**
+ * La zone fausse se distingue de la juste autrement que par la teinte
+ * (daltonisme : carte.css, .pays.faux) : un contour couleur du texte, de cette
+ * épaisseur (px CSS), autour de son tracé comme de sa pastille.
+ */
+export const TRAIT_FAUX_PX = 3;
 
 const deuxImages = () => new Promise<number>((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
 const TOUR = 2 * Math.PI;
@@ -875,6 +885,8 @@ export class CarteCanvas implements CarteAffichee {
     const coutures = new Path2D();
     const couturesContour = new Path2D();
     const parClasse = new Map<string, Path2D>();
+    // Contour de la zone fausse : sans le côté qui suit l'antiméridien (comme les frontières).
+    let contourFaux: Path2D | null = null;
     // Hachures : un chemin par entité ou zone, son motif ancré sur elle (ancre).
     // Une partie de moins d'un demi-pas à l'écran n'en montrerait pas un trait :
     // sautée (au zoom 1, une trentaine de remplissages en moins).
@@ -902,6 +914,7 @@ export class CarteCanvas implements CarteAffichee {
           if (!chemin) parClasse.set(cl, (chemin = new Path2D()));
           tracerPartie(chemin, im, p);
         }
+        if (classes.has('faux')) tracerPartie((contourFaux ??= new Path2D()), im, p, p.couture || passeCoupure(p, v.r));
       }
       // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
       if (e.pays.statut === 'conteste') hachurer(`p${i}`, complet.pays[i], p);
@@ -940,6 +953,13 @@ export class CarteCanvas implements CarteAffichee {
     ctx.lineJoin = 'miter';
     ctx.stroke(terres);
     if (avecCoutures) ctx.stroke(couturesContour);
+    // Par-dessus les frontières : le contour entier (en SVG, sa moitié extérieure peut passer sous une voisine).
+    if (contourFaux) {
+      ctx.strokeStyle = coul.texte;
+      ctx.lineWidth = TRAIT_FAUX_PX;
+      ctx.lineJoin = 'round';
+      ctx.stroke(contourFaux);
+    }
 
     this.dessinerPastilles(ctx);
     const ms = performance.now() - t0;
@@ -990,12 +1010,19 @@ export class CarteCanvas implements CarteAffichee {
       const [x, y] = versEcran(t, p.bx, p.by);
       if (x < -r || y < -r || x > c.l + r || y > c.h + r) continue;
       let couleur = coul.pastille;
-      for (const cl of this.marques.get(p.id) ?? []) couleur = coul.marques[cl] ?? couleur;
+      const classes = this.marques.get(p.id);
+      for (const cl of classes ?? []) couleur = coul.marques[cl] ?? couleur;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, TOUR);
       ctx.fillStyle = couleur;
       ctx.fill();
-      ctx.stroke();
+      if (classes?.has('faux')) {
+        ctx.lineWidth = TRAIT_FAUX_PX;
+        ctx.strokeStyle = coul.texte;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = coul.bord;
+      } else ctx.stroke();
     }
     for (const a of this.anneaux) {
       const e = this.o.donnees.entites.find((en) => en.pays.id === a.id);
