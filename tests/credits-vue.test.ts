@@ -43,14 +43,14 @@ describe('écran Crédits', () => {
   it('les données : Natural Earth (domaine public), Unicode CLDR (Unicode License v3), IGN ADMIN EXPRESS (Licence Ouverte 2.0, source et date)', async () => {
     const v = ouvrir();
     expect(v.hidden).toBe(false);
-    const texte = v.querySelector('#credits-donnees')!.innerText;
+    const texte = v.querySelector('#credits-liste-donnees')!.innerText;
     for (const m of ['Natural Earth', 'v5.1.2', 'Domaine public', 'Unicode CLDR', 'Unicode License v3', 'IGN, ADMIN EXPRESS', 'Licence Ouverte 2.0']) expect(texte).toContain(m);
     // La date de mise à jour de l'IGN, lue dans le sources.json de l'île à l'ouverture.
     await new Promise((r) => setTimeout(r, 0));
     expect(fetch).toHaveBeenCalledWith('/geo/reunion/sources.json');
     expect(v.querySelector('li[data-credit="ign"]')!.innerText).toContain('Source : IGN, à jour au 30/06/2026');
     // Les licences qui ont un texte : un lien vers lui (CLDR servi à côté des noms).
-    const liens = v.querySelectorAll('#credits-donnees a').map((a) => a.getAttribute('href'));
+    const liens = v.querySelectorAll('#credits-liste-donnees a').map((a) => a.getAttribute('href'));
     expect(liens).toContain('/geo/LICENSE-CLDR.txt');
     expect(readFileSync('public/geo/LICENSE-CLDR.txt', 'utf8')).toContain('UNICODE LICENSE V3');
   });

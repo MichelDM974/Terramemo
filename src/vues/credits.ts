@@ -77,7 +77,7 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void }): Vue {
       creer('h2', {}, T.titre),
       creer('p', { class: 'hint' }, T.intro),
       creer('h3', {}, T.donnees_titre),
-      creer('ul', { class: 'credits-liste', id: 'credits-donnees' }, ...T.donnees.map((c, i) => ligne(c, i === 2 ? { id: 'ign', auteur: auteurIgn } : {}))),
+      creer('ul', { class: 'credits-liste', id: 'credits-liste-donnees' }, ...T.donnees.map((c, i) => ligne(c, i === 2 ? { id: 'ign', auteur: auteurIgn } : {}))),
       creer('h3', {}, T.bibliotheques_titre),
       creer('p', { class: 'hint' }, T.bibliotheques_aide),
       creer(
