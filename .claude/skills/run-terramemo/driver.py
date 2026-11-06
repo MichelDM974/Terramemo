@@ -622,12 +622,33 @@ def ouvrir_onglet_http(port, url="about:blank", delai=15):
         if time.monotonic() > fin:
             raise RuntimeError(f"DevTools ne répond pas sur {base}/json/version : {corps[:200]!r}")
         time.sleep(0.3)
-    code, _, corps = http(f"{base}/json/new?{urllib.parse.quote(url, safe=':/?=&')}", methode="PUT")
-    if code != 200:
-        code, _, corps = http(f"{base}/json/new?{urllib.parse.quote(url, safe=':/?=&')}")  # anciens Chrome
-    if code != 200:
-        raise RuntimeError(f"/json/new : {code} {corps[:200]!r}")
-    return json.loads(corps)
+    nouveau = f"{base}/json/new?{urllib.parse.quote(url, safe=':/?=&')}"
+    code, _, corps = http(nouveau, methode="PUT")
+    if code == 200:
+        return json.loads(corps)
+    erreur = f"/json/new en PUT : {code} {corps[:200]!r}"
+    code, _, corps = http(nouveau)  # anciens Chrome (GET seul)
+    if code == 200:
+        return json.loads(corps)
+    # Chrome 156 d'Android (A37, 06/11/2026) répond 500 « Could not create
+    # new page » au PUT ; Target.createTarget sur le WebSocket du navigateur
+    # ouvre l'onglet, qui survit à la fermeture de ce WebSocket.
+    version = json.loads(http(f"{base}/json/version", delai=3)[2])
+    lien = WebSocket(version["webSocketDebuggerUrl"])
+    try:
+        cible = Navigateur(lien).commande("Target.createTarget", url=url, delai=15)["targetId"]
+    except RuntimeError as e:
+        raise RuntimeError(f"{erreur} ; Target.createTarget : {e}") from None
+    finally:
+        lien.fermer()
+    fin = time.monotonic() + delai
+    while time.monotonic() < fin:
+        code, _, corps = http(f"{base}/json/list", delai=3)
+        for onglet in (json.loads(corps) if code == 200 else []):
+            if onglet.get("id") == cible and onglet.get("webSocketDebuggerUrl"):
+                return onglet
+        time.sleep(0.3)
+    raise RuntimeError(f"{erreur} ; onglet {cible} ouvert par Target.createTarget, absent de /json/list")
 
 
 class Session:
