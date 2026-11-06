@@ -549,8 +549,9 @@ l'épreuve et le général (`#chrono-general`, somme des records de toutes les
 séries) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
 règles refusent moins de 0,2 s par question (`temps_ms >= questions ×
 200`), et un tel score n'est même pas envoyé (`vraisemblable()`,
-`src/epreuve/chrono.ts`, mêmes bornes que `firestore.rules`) ni compté
-dans le général ; il reste sur l'appareil, et l'avis
+`src/epreuve/chrono.ts`, mêmes bornes que `firestore.rules`) ; il reste
+le record de l'appareil, mais le général et un nouveau pseudo prennent
+pour sa série le meilleur score publiable (`recordPubliable`), et l'avis
 `.chrono-classement-avis` (sous le pseudo) dit « Score refusé par le
 classement… ». Chaque score part seul : un refus (celui-là, ou un 403 sur
 `documents:commit` pour un score qui ne bat pas celui publié) n'emporte ni

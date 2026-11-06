@@ -14,7 +14,7 @@ vi.mock('../src/epreuve/classement', () => ({
   lireTableau: (...a: unknown[]) => lireTableau(...a),
 }));
 
-const { avisPublication, blocClassement, publierPartie } = await import('../src/vues/classement');
+const { avisPublication, blocClassement, publierPartie, publierTout } = await import('../src/vues/classement');
 const { textes } = await import('../src/vues/textes');
 const T = textes.chrono;
 
@@ -69,6 +69,44 @@ describe('publication d’une partie', () => {
       ['general', 'toujours', 12_000],
       ['general', semaine, 12_000],
     ]);
+  });
+});
+
+describe('un score trop rapide sur une série déjà publiée', () => {
+  const OCE = idEpreuve('Oceania');
+  // Le serveur : un score par épreuve et période, accepté s'il bat le précédent (firestore.rules).
+  let base: Map<string, ScoreEpreuve>;
+  beforeEach(() => {
+    base = new Map();
+    publier.mockImplementation(async (e, p, _pseudo, s) => {
+      const avant = base.get(`${e}/${p}`);
+      if (avant && (s.points < avant.points || (s.points === avant.points && s.temps_ms >= avant.temps_ms))) return false;
+      base.set(`${e}/${p}`, s);
+      return true;
+    });
+  });
+  const jouer = (e: string, s: ScoreEpreuve) => publierPartie('Pilote', e, enregistrerPartie(localStorage, e, s, maintenant));
+
+  it('garde la série dans le général : les parties suivantes le font encore progresser', async () => {
+    await jouer(ILE, score(24_000, 24, 24, 11_946));
+    await jouer(AMS, score(12_000, 12, 12, 7_839));
+    expect(base.get('general/toujours')?.points).toBe(36_000);
+    // L'île en 1,1 s : refusée, seule.
+    expect((await jouer(ILE, score(24_000, 24, 24, 1_100))).refuses).toBeGreaterThan(0);
+    expect(base.get(`${ILE}/toujours`)?.temps_ms).toBe(11_946);
+    expect(await jouer(OCE, score(14_000, 14, 14, 9_136))).toEqual({ refuses: 0, echecs: 0 });
+    expect(base.get('general/toujours')?.points).toBe(50_000);
+    expect(base.get(`general/${semaine}`)?.points).toBe(50_000);
+  });
+
+  it('un nouveau pseudo atteint encore le record publiable de la série et le général', async () => {
+    enregistrerPartie(localStorage, ILE, score(24_000, 24, 24, 11_946), maintenant);
+    enregistrerPartie(localStorage, ILE, score(24_000, 24, 24, 1_100), maintenant);
+    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 7_839), maintenant);
+    expect(await publierTout('Pilote')).toEqual({ refuses: 0, echecs: 0 });
+    expect(base.get(`${ILE}/toujours`)).toEqual(score(24_000, 24, 24, 11_946));
+    expect(base.get(`${ILE}/${semaine}`)?.temps_ms).toBe(11_946);
+    expect(base.get('general/toujours')?.points).toBe(36_000);
   });
 });
 

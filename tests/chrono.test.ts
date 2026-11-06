@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { enregistrer, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, totalGeneral, VERSION_BAREME, vraisemblable } from '../src/epreuve/chrono';
+import { enregistrer, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, VERSION_BAREME, vraisemblable } from '../src/epreuve/chrono';
 import { ECHELLES_KM } from '../src/epreuve/bareme';
 import type { Pays } from '../src/map/types';
 import { SERIE_REUNION, SERIE_TOUS, series, seriesToucher } from '../src/vues/cibles';
@@ -188,6 +188,44 @@ describe('records de la semaine et classement général', () => {
     const seul = stockage();
     enregistrerPartie(seul, idEpreuve('reunion'), score(24_000, 24, 24, 1_433), lundi);
     expect(totalGeneral(lireRecords(seul), 'toujours')).toBeNull();
+  });
+
+  it('un score trop rapide qui bat un record vraisemblable ne retire pas la série du général', () => {
+    const s = stockage();
+    const ile = idEpreuve('reunion');
+    enregistrerPartie(s, ile, score(24_000, 24, 24, 11_946), lundi);
+    enregistrerPartie(s, idEpreuve('South America'), score(12_000, 12, 12, 7_839), lundi);
+    // L'île rejouée sans attendre : record de l'appareil, que les règles refuseraient.
+    const vite = enregistrerPartie(s, ile, score(24_000, 24, 24, 1_100), lundi);
+    expect([vite.toujours.nouveau, vite.toujours.progresPubliable]).toEqual([true, false]);
+    expect(recordDe(lireRecords(s), ile, 'toujours')?.temps_ms).toBe(1_100);
+    enregistrerPartie(s, idEpreuve('Oceania'), score(14_000, 14, 14, 9_136), lundi);
+    const r = lireRecords(s);
+    for (const p of ['toujours', periodeSemaine(lundi)]) {
+      expect(totalGeneral(r, p)).toEqual(score(50_000, 50, 50, 11_946 + 7_839 + 9_136));
+      expect(recordPubliable(recordDe(r, ile, p)!)).toEqual(score(24_000, 24, 24, 11_946));
+    }
+  });
+
+  it('un score vraisemblable qui bat le record publiable, sans battre celui de l’appareil, le remplace', () => {
+    const s = stockage();
+    const ile = idEpreuve('reunion');
+    enregistrerPartie(s, ile, score(20_000, 20, 24, 60_000), lundi);
+    enregistrerPartie(s, ile, score(24_000, 24, 24, 1_100), lundi);
+    // Moins bien que le record de l'appareil, mieux que ce que le classement a reçu.
+    const b = enregistrerPartie(s, ile, score(22_000, 22, 24, 50_000), lundi);
+    expect([b.toujours.nouveau, b.toujours.progresPubliable]).toEqual([false, true]);
+    const r = recordDe(lireRecords(s), ile, 'toujours')!;
+    expect(r.temps_ms).toBe(1_100);
+    expect(recordPubliable(r)).toEqual(score(22_000, 22, 24, 50_000));
+    // Moins bien que les deux : rien ne change.
+    const b2 = enregistrerPartie(s, ile, score(21_000, 21, 24, 50_000), lundi);
+    expect([b2.toujours.nouveau, b2.toujours.progresPubliable]).toEqual([false, false]);
+    expect(recordPubliable(recordDe(lireRecords(s), ile, 'toujours')!)?.points).toBe(22_000);
+    // Seul et trop rapide : rien de publiable.
+    const seul = stockage();
+    enregistrerPartie(seul, ile, score(24_000, 24, 24, 1_100), lundi);
+    expect(recordPubliable(recordDe(lireRecords(seul), ile, 'toujours')!)).toBeNull();
   });
 
   it('pseudo : 2 à 20 caractères, espaces resserrés', () => {

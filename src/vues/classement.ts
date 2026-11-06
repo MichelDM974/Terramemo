@@ -3,7 +3,7 @@
 // n'est publié sans lui). Firebase n'est chargé qu'à l'ouverture du bloc.
 import type { BilanPartie } from '../epreuve/chrono';
 import type { ScoreEpreuve } from '../epreuve/bareme';
-import { lireRecords, periodeSemaine, pseudoValide, recordDe, totalGeneral, vraisemblable } from '../epreuve/chrono';
+import { lireRecords, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, publier, type Place } from '../epreuve/classement';
 import { creer } from './commun';
 import { remplir, textes } from './textes';
@@ -62,16 +62,20 @@ async function envoyer(pseudo: string, envois: readonly Envoi[]): Promise<Public
   };
 }
 
-/** Publie tous les records de l'appareil (de toujours et de la semaine) et les deux totaux : au choix ou au changement du pseudo. */
-async function publierTout(pseudo: string): Promise<Publication> {
+/**
+ * Publie tous les records de l'appareil (de toujours et de la semaine), pris
+ * à leur meilleur score publiable (recordPubliable), et les deux totaux : au
+ * choix ou au changement du pseudo.
+ */
+export async function publierTout(pseudo: string): Promise<Publication> {
   const records = lireRecords(stockage());
   const periode = periodeSemaine(Date.now());
   const envois: Envoi[] = [];
   for (const [cle, r] of records) {
     const [epreuve, sem] = cle.split('@');
     if (!epreuve) continue;
-    if (sem === undefined) envois.push([epreuve, 'toujours', r]);
-    else if (sem === periode) envois.push([epreuve, periode, r]);
+    const p = sem === undefined ? 'toujours' : sem === periode ? periode : null;
+    if (p) envois.push([epreuve, p, recordPubliable(r) ?? r]);
   }
   for (const p of ['toujours', periode]) {
     const t = totalGeneral(records, p);
@@ -80,18 +84,25 @@ async function publierTout(pseudo: string): Promise<Publication> {
   return envoyer(pseudo, envois);
 }
 
-/** Après une partie : seulement ce qui a progressé sur l'appareil (jusqu'à 4 écritures). */
+/**
+ * Après une partie : seulement ce qui a progressé sur l'appareil (jusqu'à 4
+ * écritures). Un nouveau record que les règles refuseraient est compté
+ * refusé sans être écrit ; un score qui bat le meilleur publiable sans battre
+ * le record de l'appareil part quand même.
+ */
 export async function publierPartie(pseudo: string, epreuve: string, b: BilanPartie): Promise<Publication> {
   const records = lireRecords(stockage());
   const envois: Envoi[] = [];
-  for (const [nouveau, periode] of [
-    [b.toujours.nouveau, 'toujours'],
-    [b.semaine.nouveau, b.periode],
+  for (const [bilan, periode] of [
+    [b.toujours, 'toujours'],
+    [b.semaine, b.periode],
   ] as const) {
-    if (!nouveau) continue;
+    if (!bilan.nouveau && !bilan.progresPubliable) continue;
     const r = recordDe(records, epreuve, periode);
+    const pub = r && recordPubliable(r);
     const t = totalGeneral(records, periode);
-    if (r) envois.push([epreuve, periode, r]);
+    if (r && bilan.nouveau && !vraisemblable(r)) envois.push([epreuve, periode, r]);
+    if (pub && bilan.progresPubliable) envois.push([epreuve, periode, pub]);
     if (t) envois.push([GENERAL, periode, t]);
   }
   return envoyer(pseudo, envois);
