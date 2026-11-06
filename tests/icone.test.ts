@@ -1,0 +1,30 @@
+// L'icône (geodata/icone.mjs, npm run icone) : ce que l'appli et le site référencent
+// existe, et le favicon reste léger (il part à chaque nouveau visiteur).
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+const RES = 'android/app/src/main/res';
+
+describe('icône', () => {
+  it('l’icône adaptative d’Android ne cite que des ressources présentes', () => {
+    for (const f of ['ic_launcher.xml', 'ic_launcher_round.xml']) {
+      const xml = readFileSync(`${RES}/mipmap-anydpi-v26/${f}`, 'utf8');
+      const refs = [...xml.matchAll(/@(drawable|color)\/(\w+)/g)].map((m) => [m[1], m[2]] as const);
+      expect(refs.map(([, n]) => n).sort()).toEqual(['ic_launcher_fond', 'ic_launcher_foreground', 'ic_launcher_monochrome']);
+      for (const [type, nom] of refs) expect(existsSync(`${RES}/${type}/${nom}.xml`), `${f} : @${type}/${nom}`).toBe(true);
+    }
+  });
+
+  it('PNG d’avant Android 8 dans chaque densité', () => {
+    for (const d of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'])
+      for (const f of ['ic_launcher.png', 'ic_launcher_round.png']) expect(statSync(`${RES}/mipmap-${d}/${f}`).size, `${d}/${f}`).toBeGreaterThan(500);
+  });
+
+  it('le site : favicon (l’icône) et logo de l’en-tête, le favicon sous 12 Ko', () => {
+    const html = readFileSync('index.html', 'utf8');
+    expect(html).toContain('href="/favicon.svg"');
+    expect(html).toContain('src="/logo.svg"');
+    expect(statSync('public/favicon.svg').size).toBeLessThan(12 * 1024);
+    expect(existsSync('public/logo.svg')).toBe(true);
+  });
+});

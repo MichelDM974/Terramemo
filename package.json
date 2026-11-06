@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:regles": "firebase emulators:exec --only firestore --project demo-terramemo \"vitest run tests/regles.test.ts\"",
     "geodata": "node geodata/build.mjs",
-    "geodata:reunion": "node geodata/reunion.mjs"
+    "geodata:reunion": "node geodata/reunion.mjs",
+    "icone": "node geodata/icone.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.6.0",
