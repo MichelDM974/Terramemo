@@ -165,4 +165,25 @@ describe('Toucher : retour dans la vue pendant une question', () => {
     toucher(v.vue, true);
     expect(v.retro.textContent).toContain('1 essai ');
   });
+
+  // Quitter pendant le « juste » affiché (1,2 s) valide la question (validerEnAttente,
+  // i++) : la suivante n'hérite ni de ses essais, ni de « Voir », ni de son premier faux.
+  it('quitter pendant le « juste » affiché : la question suivante repart de zéro', () => {
+    const v = monter();
+    v.vue.activer();
+    v.serie('tous').click();
+    toucher(v.vue, false);
+    toucher(v.vue, false);
+    v.voir.click();
+    toucher(v.vue, true);
+    v.vue.desactiver();
+    v.vue.activer();
+    toucher(v.vue, true);
+    expect(v.retro.textContent).toContain('1 essai ');
+    vi.advanceTimersByTime(1200);
+    v.terminer.click();
+    const bilan = v.bilan.textContent;
+    expect(bilan).toContain('1 / 2 justes du premier coup');
+    expect(bilan.match(/premier toucher à/g)?.length ?? 0).toBe(1);
+  });
 });

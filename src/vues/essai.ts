@@ -176,6 +176,10 @@ export function vueEssai(ctx: ContexteVue): Vue {
     resultats.push(resEnAttente);
     resEnAttente = null;
     i++;
+    // La question suivante part de zéro, même reposée en reprise (afficherQuestion(true)).
+    essais = 0;
+    premierFaux = null;
+    vu = false;
   }
 
   function suivante(r: Resultat): void {
