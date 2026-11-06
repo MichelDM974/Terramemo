@@ -77,12 +77,20 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   `14-chrono-reunion` (première question, jauge) ; il remet Localiser et
   vérifie le monde au retour (la Carte, `pick` sur la Suisse = CHE).
   L'exercice se choisit par Jouer (`choisir_exercice` : `#jouer`, puis
-  `#jouer-depart [data-mode=localiser|nommer|chrono]`), plus dans le départ
-  de Toucher. Puis l'en-tête (décision « En-tête ») : `15-jouer` (les trois
-  exercices), `16-recherche` (« sain » : pays et communes mêlés),
+  `#jouer-depart [data-mode=localiser|nommer|chrono|sansfaute|minute]` ; les
+  trois épreuves classées partagent `#chrono-depart`), plus dans le départ
+  de Toucher. Puis l'en-tête (décision « En-tête ») : `15-jouer` (les cinq
+  exercices, en deux groupes), `16-recherche` (« sain » : pays et communes mêlés),
   `17-recherche-pays` (le Vatican à Entrée : vol, anneau),
   `18-recherche-commune` (Saint-Denis au doigt : la carte de l'île, puis
   « Monde » ramène au monde), `19-classement` (🏆 : mes places par épreuve, « Retour » à la carte).
+  Puis Sans faute et Minute (#14) sur l'Amérique du Sud :
+  `20-sansfaute-faux` (deux justes, puis une erreur), `21-sansfaute-bilan`
+  (« 2 d'affilée »), `22-minute-faux` (une erreur au premier toucher : la
+  barre compte justes et erreurs, la jauge est la minute),
+  `23-minute-bilan` (tout juste ensuite : « série vidée », « 1 erreur »).
+  Hors émulateurs, leur bloc de classement lit la base en ligne : sans
+  l'index de Minute (`firestore.indexes.json`), « Classement indisponible ».
   Faites après l'île : le premier usage de la recherche demande
   `/geo/reunion/noms.fr.json`, que `10-reunion` veut absent avant son choix.
   `DÉFAUT : …` et code 1 si l'en-tête du téléphone dépasse une ligne (64 px),
@@ -94,9 +102,10 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   zone de Nommer n'est pas au-dessus de sa barre (monde et île), si l'île
   a bougé du zoom 1 ou passe sous la barre de Nommer, si les
   boutons de Nommer n'ont pas un rouge et un vert, si un code INSEE
-  (`974xx`) s'affiche ou si le monde a changé. **Regarder les
-  captures.** Le record du Chrono vit dans le `localStorage` : le profil
-  neuf du driver repart sans record.
+  (`974xx`) s'affiche, si le monde a changé, si Jouer n'a pas ses cinq
+  exercices, ou si Sans faute et Minute n'ont pas leur titre ou leur bilan
+  attendu. **Regarder les captures.** Les records des épreuves vivent dans
+  le `localStorage` : le profil neuf du driver repart sans record.
 - `--rendu` (ui) : rendu de la carte du monde (sans : celui de la page,
   canvas) ; l'île est toujours en SVG, au-dessus du monde en canvas.
   `--url` ne peut pas porter `?rendu=` (le pilote y ajoute `?mesures=0`).

@@ -903,13 +903,84 @@ def depart_toucher(page):
     attendre_visible(page, "#essai-depart")
 
 
+EPREUVES = ("chrono", "sansfaute", "minute")
+
+
 def choisir_exercice(page, mode):
-    """Jouer, puis l'exercice (localiser, nommer, chrono) : son départ, la
-    partie en cours abandonnée (décision « En-tête »)."""
+    """Jouer, puis l'exercice (localiser, nommer, ou une épreuve classée :
+    chrono, sansfaute, minute) : son départ, la partie en cours abandonnée
+    (décision « En-tête »)."""
     page.js('location.hash = "#jouer"')
     attendre_visible(page, "#jouer-depart")
     cliquer(page, f'#jouer-depart [data-mode="{mode}"]')
-    attendre_visible(page, "#chrono-depart" if mode == "chrono" else "#essai-depart")
+    attendre_visible(page, "#chrono-depart" if mode in EPREUVES else "#essai-depart")
+
+
+def ui_epreuves(p, capturer, defauts):
+    """Captures 20 à 23 (#14, décision « Sans faute et Minute ») : Sans faute
+    sur l'Amérique du Sud, deux justes puis une erreur, jusqu'au bilan ; Minute
+    sur l'Amérique du Sud, une erreur au premier toucher (rétroaction, jauge de
+    la minute), puis tout juste jusqu'à la série vidée."""
+    consigne = 'document.querySelector("#barre-chrono .essai-consigne").dataset.cible'
+    bilan = '!document.getElementById("chrono-bilan").hidden'
+
+    def toucher(ident):
+        pt = position(p, ident)
+        p.toucher(pt["x"], pt["y"])
+
+    def faux_de(cible):
+        return "ARG" if cible == "BRA" else "BRA"
+
+    def jusqu_au_bilan(fin_s=40):
+        fin = time.monotonic() + fin_s
+        while not p.js(bilan) and time.monotonic() < fin:
+            p.pause(100)
+
+    choisir_exercice(p, "sansfaute")
+    titre = texte(p, "#chrono-depart h2")
+    if titre != "Sans faute":
+        defauts.append(f"départ de Sans faute titré {titre!r}")
+    cliquer(p, '#chrono-depart .essai-serie[data-serie="South America"]')
+    attendre_visible(p, "#barre-chrono")
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+    for i in range(3):
+        cible = p.js(consigne)
+        toucher(cible if i < 2 else faux_de(cible))
+        p.pause(300)
+        if i < 2:
+            p.pause(700)  # la rétroaction d'une juste (0,9 s)
+    dire(f"  Sans faute, erreur : {texte(p, '#barre-chrono .essai-retro')!r}")
+    capturer("20-sansfaute-faux")
+    jusqu_au_bilan(5)
+    lu = p.js('document.getElementById("chrono-bilan").innerText')
+    dire(f"  Sans faute, bilan : {lu!r}")
+    if "2 d'affilée" not in lu:
+        defauts.append(f"Sans faute : bilan sans « 2 d'affilée » ({lu!r})")
+    capturer("21-sansfaute-bilan")
+
+    choisir_exercice(p, "minute")
+    titre = texte(p, "#chrono-depart h2")
+    if titre != "Minute":
+        defauts.append(f"départ de Minute titré {titre!r}")
+    cliquer(p, '#chrono-depart .essai-serie[data-serie="South America"]')
+    attendre_visible(p, "#barre-chrono")
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+    toucher(faux_de(p.js(consigne)))
+    p.pause(300)
+    dire(f"  Minute, erreur : {texte(p, '#barre-chrono')!r}")
+    capturer("22-minute-faux")
+    p.pause(1600)  # la rétroaction d'une erreur (1,8 s)
+    for _ in range(14):
+        if p.js(bilan):
+            break
+        toucher(p.js(consigne))
+        p.pause(1000)
+    jusqu_au_bilan(5)
+    lu = p.js('document.getElementById("chrono-bilan").innerText')
+    dire(f"  Minute, bilan : {lu!r}")
+    if "série vidée" not in lu or "1 erreur" not in lu:
+        defauts.append(f"Minute : bilan sans « série vidée » ni « 1 erreur » ({lu!r})")
+    capturer("23-minute-bilan")
 
 
 def cadre_ile(page, barre):
@@ -1104,7 +1175,7 @@ def ui_entete(p, capturer, defauts, telephone):
     cliquer(p, "#jouer-btn")
     attendre_visible(p, "#jouer-depart")
     modes = p.js("[...document.querySelectorAll('#jouer-depart [data-mode]')].map(b => b.dataset.mode)")
-    if modes != ["localiser", "nommer", "chrono"]:
+    if modes != ["localiser", "nommer", "chrono", "sansfaute", "minute"]:
         defauts.append(f"Jouer : exercices {modes}")
     capturer("15-jouer")
     # Trouver (mode localiser), l'Europe : la recherche s'efface pendant la partie, revient après.
@@ -1261,6 +1332,7 @@ def commande_ui(args):
         capturer("9-chrono-bilan")
         ui_reunion(p, capturer, defauts)
         ui_entete(p, capturer, defauts, telephone)
+        ui_epreuves(p, capturer, defauts)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
