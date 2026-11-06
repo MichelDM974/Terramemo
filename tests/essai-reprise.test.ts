@@ -228,11 +228,11 @@ describe('Toucher : un exercice choisi dans Jouer (nouvellePartie)', () => {
     vue.nouvellePartie('nommer');
     const depart = v.depart();
     expect(depart.hidden).toBe(false);
-    expect(depart.querySelector('h2')?.textContent).toBe('Nommer');
+    expect(depart.querySelector('h2')?.textContent).toBe('Reconnaître');
     expect(depart.dataset.mode).toBe('nommer');
     expect(v.ligneEssai().hidden).toBe(true);
     vue.nouvellePartie('localiser');
-    expect(depart.querySelector('h2')?.textContent).toBe('Localiser');
+    expect(depart.querySelector('h2')?.textContent).toBe('Trouver');
     expect(v.ligneEssai().hidden).toBe(false);
     // Le choix est gardé : le départ suivant le reprend.
     expect(localStorage.getItem('terramemo.toucher.mode')).toBe('localiser');

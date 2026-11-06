@@ -1107,12 +1107,12 @@ def ui_entete(p, capturer, defauts, telephone):
     if modes != ["localiser", "nommer", "chrono"]:
         defauts.append(f"Jouer : exercices {modes}")
     capturer("15-jouer")
-    # Localiser, l'Europe : la recherche s'efface pendant la partie, revient après.
+    # Trouver (mode localiser), l'Europe : la recherche s'efface pendant la partie, revient après.
     cliquer(p, '#jouer-depart [data-mode="localiser"]')
     attendre_visible(p, "#essai-depart")
     titre = texte(p, "#essai-depart h2")
-    if titre != "Localiser":
-        defauts.append(f"départ de Localiser titré {titre!r}")
+    if titre != "Trouver":
+        defauts.append(f"départ de Trouver titré {titre!r}")
     cliquer(p, '#essai-depart .essai-serie[data-serie="Europe"]')
     attendre_visible(p, "#barre-essai")
     if visibilite_recherche(p) != "hidden":

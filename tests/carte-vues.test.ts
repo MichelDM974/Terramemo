@@ -129,7 +129,7 @@ describe('séries de l’île et textes des terrains', () => {
     } as const;
     for (const [partie, cles] of Object.entries(lues))
       for (const k of cles) expect((textes as unknown as Record<string, Record<string, string>>)[partie]?.[k], `${partie}.${k}`).toBeTruthy();
-    expect(remplir(textes.jouer.chrono_detail, { s: 15 })).toBe('Épreuve notée, 15 s par question : records et classement.');
+    expect(remplir(textes.jouer.chrono_detail, { s: 15 })).toBe('15 s par question, un seul toucher : points, records et classement.');
   });
 
   it('textes de Toucher : la rétroaction du monde reste mot pour mot celle d’avant', () => {
@@ -185,5 +185,16 @@ describe('anneau seulement autour d’une zone petite à l’écran', () => {
     anneauSiPetite(t, 'VAT', 'juste');
     anneauSiPetite(t, 'RUS', 'juste');
     expect(poses).toEqual(['VAT']);
+  });
+});
+
+describe('écran Jouer : noms des modes (décision « Noms des modes »)', async () => {
+  const { GROUPES_JEU, MODES_JEU } = await import('../src/vues/jouer');
+  const { textes } = await import('../src/vues/textes');
+
+  it('entraînement (Trouver, Reconnaître) puis épreuves (Chrono) ; identifiants inchangés', () => {
+    expect(GROUPES_JEU.map((g) => g.titre)).toEqual(['Entraînement', 'Épreuves']);
+    expect(MODES_JEU).toEqual(['localiser', 'nommer', 'chrono']);
+    expect([textes.toucher.localiser, textes.toucher.nommer, textes.jouer.chrono]).toEqual(['Trouver', 'Reconnaître', 'Chrono']);
   });
 });

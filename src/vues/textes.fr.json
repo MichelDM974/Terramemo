@@ -29,14 +29,18 @@
     "aide": "Choisis un exercice, puis une série.",
     "fermer": "Fermer",
     "changer": "Changer d'exercice",
-    "localiser_detail": "Touche sur la carte la zone nommée.",
-    "nommer_detail": "Une zone s'allume : choisis son nom parmi quatre.",
+    "groupe_entrainement": "Entraînement",
+    "groupe_entrainement_detail": "pour apprendre, sans points",
+    "groupe_epreuves": "Épreuves",
+    "groupe_epreuves_detail": "notées, au classement",
+    "localiser_detail": "Touche sur la carte le lieu demandé.",
+    "nommer_detail": "Un lieu s'allume : choisis son nom parmi quatre.",
     "chrono": "Chrono",
-    "chrono_detail": "Épreuve notée, {s} s par question : records et classement."
+    "chrono_detail": "{s} s par question, un seul toucher : points, records et classement."
   },
   "toucher": {
-    "localiser": "Localiser",
-    "nommer": "Nommer",
+    "localiser": "Trouver",
+    "nommer": "Reconnaître",
     "depart_aide": "Choisis une série : ses questions viennent dans le désordre, un nouveau tirage à chaque partie.",
     "chargement_terrain": "Chargement de la carte de l'île…",
     "echec_terrain": "La carte de l'île n'a pas pu se charger (hors ligne ?).",
@@ -65,7 +69,7 @@
     "rate_distance": ", premier toucher à {km}",
     "nommer_juste": "Juste · {temps}",
     "nommer_faux": "Faux · bonne réponse : {cible}",
-    "bilan_nommer_titre": "Nommer · {serie}",
+    "bilan_nommer_titre": "Reconnaître · {serie}",
     "bilan_nommer": "{justes} / {n} justes du premier coup",
     "bilan_nommer_temps": "temps médian {temps}",
     "bilan_nommer_faux": "{cible} : tu as choisi {choisi}"
