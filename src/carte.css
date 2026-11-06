@@ -326,8 +326,10 @@ body[data-terrain="reunion"] .essai-bilan {
 .jouer-bouton:hover { background-image: linear-gradient(var(--row-hover), var(--row-hover)); border-color: var(--border-2); }
 .jouer-bouton[aria-current="true"] { background-color: var(--accent-soft); }
 .jouer-bouton:disabled { color: var(--muted); }
-/* Un mot trop long pour sa colonne se coupe à une syllabe, avec un tiret (lang="fr"), jamais au milieu. */
-.jouer-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: break-word; hyphens: auto; }
+/* Les mots passent entiers à la ligne ; seul un mot plus large que toute sa
+   ligne se coupe (filet de sécurité). Pas de hyphens: auto : il coupait aussi
+   les détails qui tenaient (« jusqu'à la pre- / mière erreur » à 384 px). */
+.jouer-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: break-word; }
 .jouer-detail { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
 .jouer-record { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
 .jouer-record-nom { color: var(--muted); font-size: 0.72rem; font-weight: 400; }
