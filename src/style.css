@@ -279,6 +279,24 @@ main {
   .panel { padding: 18px 16px; }
 }
 
+/* Très petit téléphone (#19, 360 px et moins) : Jouer en ▶ seul, toujours en
+   accent plein, son nom gardé pour les lecteurs d'écran ; les ~38 px gagnés
+   vont à la recherche, qui garde 140 px à 320 px, avec un texte d'aide plus
+   court (« Chercher… », src/vues/recherche.ts : « Pays, commune… » en
+   demanderait 167). */
+@media (max-width: 360px) {
+  .bouton-jouer { padding: 0 11px; margin-right: 0; }
+  .bouton-jouer svg { display: block; width: 16px; height: 16px; }
+  .bouton-jouer .jouer-nom {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 button {
   background: var(--accent);
   color: var(--accent-text);

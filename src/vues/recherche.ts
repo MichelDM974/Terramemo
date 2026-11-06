@@ -53,11 +53,16 @@ export function brancherRecherche(o: { champ: HTMLInputElement; monde: DonneesCa
   champ.setAttribute('aria-controls', liste.id);
   champ.setAttribute('aria-expanded', 'false');
 
-  // Libellé court sur le téléphone : la place du champ y est d'environ 160 px.
+  // Libellé court sur le téléphone : la place du champ y est d'environ 170 px
+  // à 384 px ; plus court encore à 360 px et moins (#19), où le champ n'a plus
+  // que ~140 px, Jouer réduit à ▶ compris (style.css).
   const etroit = window.matchMedia?.('(max-width: 700px)');
-  const placeholder = () => (champ.placeholder = etroit?.matches ? T.placeholder_court : T.placeholder);
+  const tresEtroit = window.matchMedia?.('(max-width: 360px)');
+  const placeholder = () =>
+    (champ.placeholder = tresEtroit?.matches ? T.placeholder_tres_court : etroit?.matches ? T.placeholder_court : T.placeholder);
   placeholder();
   etroit?.addEventListener?.('change', placeholder);
+  tresEtroit?.addEventListener?.('change', placeholder);
 
   let lieux = lieuxMonde(o.monde);
   let communes: Promise<void> | null = null;

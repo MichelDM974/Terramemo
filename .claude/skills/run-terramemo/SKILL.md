@@ -122,6 +122,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   sur le téléphone ou dans Jouer, sont couverts ou ne zooment pas comme
   attendu (monde et île), si l'en-tête du téléphone dépasse une ligne (64 px),
   si le champ de recherche fait moins de 140 px ou coupe son texte d'aide,
+  si Jouer n'est pas ▶ seul à 360 px et moins (#19 : nom masqué mais lu ;
+  `ui --width 320` pour l'exercer) ou perd son nom au-delà,
   s'il reste visible pendant
   une partie ou ne revient pas après, si la recherche ne montre pas le
   Vatican ou Saint-Denis, si l'île sort de l'écran ou passe sous la barre,

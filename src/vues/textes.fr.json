@@ -27,6 +27,7 @@
   "recherche": {
     "placeholder": "Chercher un pays, une commune…",
     "placeholder_court": "Pays, commune…",
+    "placeholder_tres_court": "Chercher…",
     "aucun": "Aucun lieu trouvé",
     "commune": "commune de La Réunion"
   },

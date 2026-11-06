@@ -1465,6 +1465,15 @@ def ui_entete(p, capturer, defauts, telephone):
         defauts.append(f"en-tête du téléphone sur plus d'une ligne ({h['haut']:.0f} px)")
     if h["champ"] < 140:
         defauts.append(f"champ de recherche trop étroit ({h['champ']:.0f} px)")
+    # Jouer (#19) : son nom toujours lu ; à 360 px et moins, ▶ seul à l'écran (le nom masqué, pas retiré).
+    j = p.js("""(() => { const b = document.getElementById('jouer-btn'), n = b.querySelector('.jouer-nom'),
+        i = b.querySelector('svg');
+        return { nom: b.textContent.trim(), nom_l: n.getBoundingClientRect().width, icone: getComputedStyle(i).display !== 'none',
+                 l: b.getBoundingClientRect().width }; })()""")
+    dire(f"  Jouer : {j['l']:.0f} px, nom {j['nom']!r} ({j['nom_l']:.0f} px à l'écran), ▶ {'montré' if j['icone'] else 'caché'}")
+    etroit = h["largeur"] <= 360
+    if j["nom"] != "Jouer" or (etroit and (j["nom_l"] > 1 or not j["icone"])) or (not etroit and j["nom_l"] < 20):
+        defauts.append(f"bouton Jouer à {h['largeur']} px : {j}")
     # Le texte d'aide du champ tient sans être coupé (« Pays, commun » à 384 px).
     aide = p.js("""(() => { const c = document.getElementById('recherche-champ'), s = getComputedStyle(c),
         x = document.createElement('canvas').getContext('2d');

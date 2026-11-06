@@ -139,7 +139,7 @@ describe('séries de l’île et textes des terrains', () => {
     const lues = {
       jouer: ['titre', 'fermer', 'remonter', 'fil', 'regles', 'rejouer', 'record', 'essai_aide'],
       carte: ['touche', 'touche_ile', 'mer', 'par_pastille', 'au_plus_pres', 'monde', 'monde_titre'],
-      recherche: ['placeholder', 'placeholder_court', 'aucun', 'commune'],
+      recherche: ['placeholder', 'placeholder_court', 'placeholder_tres_court', 'aucun', 'commune'],
     } as const;
     for (const [partie, cles] of Object.entries(lues))
       for (const k of cles) expect((textes as unknown as Record<string, Record<string, string>>)[partie]?.[k], `${partie}.${k}`).toBeTruthy();

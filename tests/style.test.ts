@@ -25,3 +25,17 @@ describe('feuilles de style', () => {
     expect(horsRacine.match(COULEUR) ?? []).toEqual([]);
   });
 });
+
+describe('en-tête des très petits téléphones (#19)', () => {
+  it('à 360 px et moins, Jouer en ▶ seul : le nom masqué (pas retiré, lu par les lecteurs d’écran), l’icône montrée', () => {
+    const html = readFileSync('index.html', 'utf8');
+    expect(html).toMatch(/id="jouer-btn"[^>]*>.*<span class="jouer-nom">Jouer<\/span><\/a>/);
+    const css = readFileSync('src/style.css', 'utf8');
+    const debut = css.indexOf('@media (max-width: 360px) {');
+    expect(debut).toBeGreaterThan(css.indexOf('@media (max-width: 700px) {'));
+    const bloc = css.slice(debut, css.indexOf('\n}\n', debut));
+    expect(bloc).toMatch(/\.bouton-jouer svg \{[^}]*display: block;/);
+    expect(bloc).toMatch(/\.bouton-jouer \.jouer-nom \{[^}]*clip-path: inset\(50%\);/);
+    expect(bloc).not.toMatch(/display: none/);
+  });
+});
