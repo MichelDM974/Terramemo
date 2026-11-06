@@ -163,6 +163,14 @@ export class Carte implements CarteAffichee {
   private motif!: SVGPatternElement;
   private couchePastilles!: SVGGElement;
   private coucheMarques!: SVGGElement;
+  /**
+   * Contours des zones fausses, par-dessus tous les tracés et les hachures
+   * (le même d que leur path.pays) : tracé sur la zone elle-même, le contour
+   * de 3 px avait sa moitié extérieure sous les voisines tracées après, sur
+   * la carte de l'île comme sur le monde (décision « Nommer », #17).
+   */
+  private coucheContours!: SVGGElement;
+  private contours = new Map<string, SVGPathElement>();
   private chemins = new Map<string, SVGPathElement>();
   private cerclesPastilles = new Map<string, SVGCircleElement>();
   private marques = new Map<string, Set<string>>();
@@ -254,6 +262,7 @@ export class Carte implements CarteAffichee {
 
     this.svg.replaceChildren();
     this.chemins.clear();
+    this.contours.clear();
     this.cerclesPastilles.clear();
     this.anneaux = [];
     this.svg.setAttribute('width', String(l));
@@ -281,7 +290,9 @@ export class Carte implements CarteAffichee {
     });
     this.coucheMarques = el('g', { class: 'couche-marques' });
     this.couchePastilles = el('g', { class: 'couche-pastilles' });
-    echelle.append(pays, hachures);
+    this.coucheContours = el('g', { class: 'couche-contours' });
+    echelle.append(pays, hachures, this.coucheContours);
+    for (const [id, classes] of this.marques) if (classes.has('faux')) this.contourFaux(id); // après un redimensionnement
     this.vue.append(echelle, this.coucheMarques, this.couchePastilles);
     this.majHachures(1);
     this.svg.append(defs, this.vue);
@@ -400,6 +411,16 @@ export class Carte implements CarteAffichee {
     s.add(classe);
     this.chemins.get(id)?.classList.add(classe);
     this.cerclesPastilles.get(id)?.classList.add(classe);
+    if (classe === 'faux') this.contourFaux(id);
+  }
+
+  /** Le contour de la zone fausse, sur sa couche (coucheContours) ; une fois par zone. */
+  private contourFaux(id: string): void {
+    const chemin = this.chemins.get(id);
+    if (!chemin || this.contours.has(id) || !this.coucheContours) return;
+    const c = el('path', { class: 'contour-faux', 'data-id': id, d: chemin.getAttribute('d') ?? '' });
+    this.coucheContours.append(c);
+    this.contours.set(id, c);
   }
 
   effacerMarques(): void {
@@ -408,6 +429,8 @@ export class Carte implements CarteAffichee {
       this.cerclesPastilles.get(id)?.classList.remove(...classes);
     }
     this.marques.clear();
+    for (const c of this.contours.values()) c.remove();
+    this.contours.clear();
     for (const a of this.anneaux) a.cercle.remove();
     this.anneaux = [];
   }

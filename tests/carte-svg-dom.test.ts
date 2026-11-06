@@ -187,3 +187,43 @@ describe('Carte (SVG) : une réponse en plein vol, la question suivante cadrée 
     expect(c.contexte().t).toEqual({ k: 2, x: 0, y: 0 });
   });
 });
+
+describe('Carte SVG : le contour de la zone fausse est entier, par-dessus les voisines (#17)', () => {
+  const tous = (e: FauxElement): FauxElement[] => [e, ...e.enfants.flatMap(tous)];
+  const classe = (e: FauxElement, c: string) => e.className.split(' ').includes(c);
+
+  it('un path.contour-faux, même tracé que la zone, sur une couche après toutes les zones et les hachures ; retiré avec les marques, refait au redessin', () => {
+    const { c, hote } = carte();
+    c.marquer('ESP', 'juste');
+    c.marquer('FRA', 'faux');
+    const elements = tous(hote);
+    const contours = elements.filter((e) => classe(e, 'contour-faux'));
+    expect(contours.length).toBe(1);
+    const [contour] = contours as [FauxElement];
+    const zone = elements.find((e) => classe(e, 'pays') && e.getAttribute('data-id') === 'FRA') as FauxElement;
+    expect(contour.getAttribute('d')).toBe(zone.getAttribute('d'));
+    expect(contour.getAttribute('data-id')).toBe('FRA');
+    // Dans l'ordre du document : après le dernier path.pays et la dernière hachure (donc par-dessus).
+    const ordre = (e: FauxElement) => elements.indexOf(e);
+    const derniere = Math.max(...elements.filter((e) => classe(e, 'pays') || classe(e, 'hachure')).map(ordre));
+    expect(ordre(contour)).toBeGreaterThan(derniere);
+    // Le juste n'a pas de contour ; un second marquer faux n'en ajoute pas.
+    c.marquer('FRA', 'faux');
+    expect(tous(hote).filter((e) => classe(e, 'contour-faux')).length).toBe(1);
+    // Retiré avec les marques.
+    c.effacerMarques();
+    expect(tous(hote).filter((e) => classe(e, 'contour-faux')).length).toBe(0);
+    // Refait quand la carte est redessinée (redimensionnement : rendre() repart de zéro).
+    c.marquer('MAR', 'faux');
+    c.rendre();
+    const apres = tous(hote).filter((e) => classe(e, 'contour-faux'));
+    expect(apres.map((e) => e.getAttribute('data-id'))).toEqual(['MAR']);
+  });
+
+  it('carte.css : le contour sans remplissage, de 3 px (TRAIT_FAUX_PX), joints ronds, sans pointeur ; la zone fausse garde sa frontière', () => {
+    const css = readFileSync('src/carte.css', 'utf8');
+    expect(css).toContain('.pastille.faux, .contour-faux { stroke: var(--text); stroke-width: 3px; }');
+    expect(css).toMatch(/\.contour-faux \{ fill: none; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; \}/);
+    expect(css).not.toMatch(/\.pays\.faux[^{]*\{[^}]*stroke-width/);
+  });
+});

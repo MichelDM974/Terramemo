@@ -97,10 +97,11 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 .pays.faux, .pastille.faux { fill: var(--danger); }
 /* Le faux se distingue du juste autrement que par la teinte : en deutéranopie, le
    vert et le rouge deviennent deux kakis (contraste 1,15). Un contour clair épais
-   (3 px : la moitié extérieure peut passer sous une voisine tracée après). Rendus
-   SVG (g, css : l'île toujours) ; canvas et webgl tracent le même (TRAIT_FAUX_PX,
-   carte-canvas.ts), par-dessus les frontières. */
-.pays.faux, .pastille.faux { stroke: var(--text); stroke-width: 3px; }
+   de 3 px, entier, par-dessus les frontières des voisines : en SVG (g, css : l'île
+   toujours), un path.contour-faux sur sa couche au-dessus des zones (carte.ts) ;
+   canvas et webgl tracent le même (TRAIT_FAUX_PX, carte-canvas.ts). */
+.pastille.faux, .contour-faux { stroke: var(--text); stroke-width: 3px; }
+.contour-faux { fill: none; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
 .hachure { stroke: none; pointer-events: none; }
 .hachure-trait { stroke: var(--hachure); stroke-width: 1.2; }
 .pastille {

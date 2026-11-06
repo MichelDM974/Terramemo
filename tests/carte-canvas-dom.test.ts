@@ -297,7 +297,7 @@ describe('CarteCanvas : la zone fausse a le contour du SVG (daltonisme, #16)', (
 
   it('TRAIT_FAUX_PX = l’épaisseur du contour de carte.css, et sa couleur celle du texte', () => {
     const css = readFileSync('src/carte.css', 'utf8');
-    expect(css).toContain(`.pays.faux, .pastille.faux { stroke: var(--text); stroke-width: ${TRAIT_FAUX_PX}px; }`);
+    expect(css).toContain(`.pastille.faux, .contour-faux { stroke: var(--text); stroke-width: ${TRAIT_FAUX_PX}px; }`);
   });
 
   it('le tracé : un trait de 3 px couleur du texte, joints ronds, par-dessus les frontières, autour de la zone fausse seule', () => {
