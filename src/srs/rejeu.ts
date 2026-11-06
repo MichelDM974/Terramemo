@@ -1,6 +1,11 @@
 // Rejeu du journal : l'état FSRS de chaque fiche se recalcule à partir des
-// événements (journal.ts), sans instantané (~15 000 événements par an, rejoués
-// en quelques ms). Le résultat ne dépend que de l'ensemble des événements :
+// événements (journal.ts), sans instantané. Coût mesuré sur le PC (Ryzen
+// 3600) : ~15 000 notes (un an, 195 fiches) en 55 à 90 ms, dont ~16 ms de
+// validation et tri, le reste dans ts-fsrs ; plusieurs fois plus sur le
+// téléphone, et croissant avec l'âge du journal. Donc rejouer une fois à
+// l'ouverture, puis appliquer chaque nouvelle note à l'état en mémoire (même
+// règle d'une note par fiche et par jour), jamais un rejeu par réponse ; un
+// instantané si le journal passe un an. Le résultat ne dépend que de l'ensemble des événements :
 // ni de leur ordre, ni de leurs doublons, ni de l'appareil qui rejoue ; deux
 // journaux s'unissent donc sans conflit (synchro du J1b).
 
