@@ -25,6 +25,13 @@ const INTERDITS: [string, RegExp][] = [
   ['Math.random()', /\bMath\.random\s*\(/],
   ['crypto', /\bcrypto\b/],
   ['getTimezoneOffset', /\bgetTimezoneOffset\b/],
+  // Lectures et écritures à l'heure locale de la machine : le rejeu
+  // dépendrait du fuseau de l'appareil (la suite ne tourne que dans celui du
+  // PC). Les variantes getUTC…/setUTC… restent permises.
+  ['get/set à l’heure locale', /\.(get|set)(FullYear|Month|Date|Day|Hours|Minutes|Seconds|Milliseconds)\s*\(/],
+  ['toLocale…', /\btoLocale\w*/],
+  ['toDateString/toTimeString', /\.to(Date|Time)String\s*\(/],
+  ['Intl', /\bIntl\b/],
 ];
 
 describe('src/srs/ reste pur', () => {
