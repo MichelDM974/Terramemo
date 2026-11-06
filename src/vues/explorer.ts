@@ -40,8 +40,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   const legende = creer(
     'div',
     { class: 'legende-memoire', id: 'legende-memoire', role: 'note', 'aria-label': M.legende },
-    creer('span', { class: 'legende-case legende-jamais', 'aria-hidden': 'true' }),
+    // La case après son mot, comme l'échelle après « faible » : en tête de ligne, elle passait pour une case à cocher.
     M.jamais_vu,
+    creer('span', { class: 'legende-case legende-jamais', 'aria-hidden': 'true' }),
     ' · ',
     M.faible,
     creer('span', { class: 'legende-echelle', 'aria-hidden': 'true' }, ...Array.from({ length: NB_SEAUX }, (_, k) => creer('span', { class: `legende-case legende-s${k}` }))),

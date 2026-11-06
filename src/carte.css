@@ -168,7 +168,7 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 body[data-terrain="reunion"] .legende-memoire { top: 44px; }
 .legende-case { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
 .legende-echelle { display: inline-flex; gap: 1px; }
-.legende-jamais { background: var(--terre); border: 1px solid var(--frontiere); }
+.legende-jamais { background: var(--terre); filter: brightness(1.4); } /* plein, sans bordure : pas une case à cocher */
 .legende-s0 { background: var(--memoire-0); }
 .legende-s1 { background: var(--memoire-1); }
 .legende-s2 { background: var(--memoire-2); }
