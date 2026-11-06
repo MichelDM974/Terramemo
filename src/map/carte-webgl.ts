@@ -25,7 +25,10 @@
 //    deux traits superposés (le Canvas trace deux fois un trait commun), puis
 //    les côtes, d'un trait. Chaque pixel est peint une fois (bit du stencil) :
 //    sans cela, les sommets serrés d'une côte au zoom 1 (Arctique canadien,
-//    Norvège) s'additionnaient en un liseré blanc ;
+//    Norvège) s'additionnaient en un liseré blanc ; puis le contour de la
+//    zone fausse (TRAIT_FAUX_PX, couleur du texte : daltonisme), ses anneaux
+//    en traits d'un pixel redessinés décalés sur un disque de pixels
+//    (decalagesTrait : gl.LINES n'a qu'un pixel de large) ;
 // 5. pastilles et anneaux : des carrés instanciés, disque calculé au pixel.
 // Une partie à cheval sur le bord de l'ovale est redessinée décalée d'un tour
 // (maillage.toursEnPlus) ; le stencil de l'ovale coupe ce qui déborde.
@@ -45,9 +48,10 @@
 // carte revient au Canvas 2D (CarteCanvas.revenirAuCanvas2D).
 import type { DonneesCarte } from './donnees';
 import { versEcran } from './geo';
-import { emprisesAPlat, maillerCarte, pourChaqueCopie, toursEnPlus, type Maillage, type MaillagesCarte, type PartieMaillee } from './maillage';
+import type { Position } from 'geojson';
+import { emprisesAPlat, maillerCarte, maillerTraits, pourChaqueCopie, toursEnPlus, type Maillage, type MaillagesCarte, type PartieMaillee } from './maillage';
 import { PASTILLE } from './pastilles';
-import type { EtatImage, Peintre, StatsDessin } from './carte-canvas';
+import { TRAIT_FAUX_PX, type EtatImage, type Peintre, type StatsDessin } from './carte-canvas';
 
 /** Côté de la texture des couleurs par pays (texels par ligne). */
 const LARGEUR_COULEURS = 256;
@@ -180,6 +184,8 @@ export interface Couleurs {
   hachure: Rvba;
   pastille: Rvba;
   bord: Rvba;
+  /** Contour de la zone fausse (.pays.faux du SVG). */
+  texte: Rvba;
   marques: Record<string, Rvba>;
 }
 
@@ -209,9 +215,27 @@ export function lireCouleurs(): Couleurs {
     hachure: v('--hachure'),
     pastille: v('--pastille'),
     bord: v('--bg'),
+    texte: v('--text'),
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
   };
+}
+
+/**
+ * Décalages (px CSS) qui font d'un trait d'un pixel physique un trait de
+ * `largeur` px CSS : les pixels entiers d'un disque de largeur × dpr pixels
+ * de diamètre (un trait droit couvre exactement round(largeur × dpr) pixels
+ * de travers, joints et bouts ronds, comme le SVG).
+ */
+export function decalagesTrait(largeur: number, dpr: number): [number, number][] {
+  const w = Math.max(1, Math.round(largeur * dpr));
+  const a = Math.floor((w - 1) / 2);
+  const b = w - 1 - a;
+  const c = (b - a) / 2;
+  const r2 = (w / 2) ** 2 + 1e-9;
+  const res: [number, number][] = [];
+  for (let i = -a; i <= b; i++) for (let j = -a; j <= b; j++) if ((i - c) ** 2 + (j - c) ** 2 <= r2) res.push([i / dpr, j / dpr]);
+  return res;
 }
 
 /** Couleur prémultipliée en flottants (uniformes et instances). */
@@ -344,6 +368,8 @@ export class PeintreWebGL implements Peintre {
     ovale: { vao: WebGLVertexArrayObject; tampon: WebGLBuffer; n: number };
     instances: { vao: WebGLVertexArrayObject; tampon: WebGLBuffer; octets: number };
     couleurs: WebGLTexture;
+    /** Anneaux de la zone fausse en traits (null : aucune), refaits quand les marques changent. */
+    contourFaux: MaillageGpu | null;
   }) | null = null;
   private perdu = false;
   private minuteurPerte = 0;
@@ -570,7 +596,7 @@ export class PeintreWebGL implements Peintre {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     this.signature = null;
 
-    this.g = { ...this.programmes, terres, zones, interieurs, cotes, ovale: { vao: vaoOvale, tampon: tOvale, n: ovale.length / 2 }, instances: { vao: vaoDisques, tampon: tDisques, octets: this.disques.byteLength }, couleurs };
+    this.g = { ...this.programmes, terres, zones, interieurs, cotes, ovale: { vao: vaoOvale, tampon: tOvale, n: ovale.length / 2 }, instances: { vao: vaoDisques, tampon: tDisques, octets: this.disques.byteLength }, couleurs, contourFaux: null };
     const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
     this.chrono = ext ? { ext, q: null, actif: false, gpu_ms: null } : null;
   }
@@ -634,6 +660,31 @@ export class PeintreWebGL implements Peintre {
     });
     gl.bindTexture(gl.TEXTURE_2D, g.couleurs);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, LARGEUR_COULEURS, lignes, 0, gl.RGBA, gl.UNSIGNED_BYTE, texels);
+    this.majContourFaux(e.marques);
+  }
+
+  /** Les anneaux (trous compris) des zones marquées « faux », en traits sans les coutures (maillerTraits), téléversés. */
+  private majContourFaux(marques: EtatImage['marques']): void {
+    const g = this.g;
+    if (!g) return;
+    const { gl } = this;
+    if (g.contourFaux) {
+      for (const t of g.contourFaux.tampons) gl.deleteBuffer(t);
+      gl.deleteVertexArray(g.contourFaux.vao);
+      g.contourFaux = null;
+    }
+    const anneaux: Position[][] = [];
+    for (const en of this.donnees.entites) {
+      if (!marques.get(en.pays.id)?.has('faux')) continue;
+      const geo = en.forme.geometry;
+      for (const poly of geo.type === 'Polygon' ? [geo.coordinates] : geo.coordinates) anneaux.push(...poly);
+    }
+    if (!anneaux.length) return;
+    const etapes = this.televerser(maillerTraits(anneaux));
+    let r = etapes.next();
+    while (!r.done) r = etapes.next();
+    gl.bindVertexArray(null);
+    g.contourFaux = r.value;
   }
 
   dessiner(e: EtatImage): StatsDessin {
@@ -649,6 +700,8 @@ export class PeintreWebGL implements Peintre {
     const haut = this.canvas.height;
     let appels = 0;
     let copies = 0;
+    /** Décalage (px CSS) du centre de l'ovale : les passes du contour de la zone fausse. */
+    let decalage: [number, number] = [0, 0];
 
     this.couleursPays(e);
     gl.viewport(0, 0, larg, haut);
@@ -665,7 +718,7 @@ export class PeintreWebGL implements Peintre {
       gl.uniform1f(p.loc('uR'), v.r);
       gl.uniform1i(p.loc('uMode'), mode);
       gl.uniform1f(p.loc('uK'), K);
-      gl.uniform2f(p.loc('uCentre'), centre[0], centre[1]);
+      gl.uniform2f(p.loc('uCentre'), centre[0] + decalage[0], centre[1] + decalage[1]);
       gl.uniform2f(p.loc('uTaille'), c.l, c.h);
     };
     /** Le maillage entier (tour choisi par le shader), puis les copies des parties à cheval sur le bord. */
@@ -749,6 +802,19 @@ export class PeintreWebGL implements Peintre {
     gl.uniform4fv(g.carte.loc('uCouleur'), f);
     dessinerMaillage(g.carte, g.cotes, gl.LINES, null);
 
+    // 4 bis. Contour de la zone fausse, par-dessus les frontières, dans l'ovale : opaque, peint autant de fois qu'il le faut.
+    if (g.contourFaux) {
+      gl.stencilFunc(gl.EQUAL, OVALE, OVALE);
+      gl.stencilMask(0);
+      for (const d of decalagesTrait(TRAIT_FAUX_PX, this.dpr)) {
+        decalage = d;
+        gl.useProgram(g.carte.p);
+        gl.uniform4fv(g.carte.loc('uCouleur'), premult(this.couleurs.texte));
+        dessinerMaillage(g.carte, g.contourFaux, gl.LINES, null);
+      }
+      decalage = [0, 0];
+    }
+
     // 5. Pastilles et anneaux, par-dessus tout (hors stencil, comme le Canvas).
     gl.disable(gl.STENCIL_TEST);
     appels += this.dessinerDisques(e);
@@ -786,8 +852,11 @@ export class PeintreWebGL implements Peintre {
       const [x, y] = versEcran(t, p.bx, p.by);
       if (x < -r || y < -r || x > c.l + r || y > c.h + r) continue;
       let couleur = coul.pastille;
-      for (const cl of e.marques.get(p.id) ?? []) couleur = coul.marques[cl] ?? couleur;
+      const classes = e.marques.get(p.id);
+      for (const cl of classes ?? []) couleur = coul.marques[cl] ?? couleur;
       ajouter(x, y, r, 0, couleur);
+      // La pastille fausse : un anneau de TRAIT_FAUX_PX couleur du texte sur son bord, comme le Canvas.
+      if (classes?.has('faux')) ajouter(x, y, r, TRAIT_FAUX_PX / 2, coul.texte);
     }
     for (const a of e.anneaux) {
       const en = this.donnees.entites.find((x) => x.pays.id === a.id);

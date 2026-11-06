@@ -7,7 +7,7 @@
 import { mediane } from '../mesure/stats';
 import type { Terrain } from '../terrains';
 import { melanger, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, seriesToucher, type Serie } from './cibles';
-import { anneauSiPetite, avecTerrain, creer, fmtKm, fmtS, nomDe, type ContexteVue, type Vue } from './commun';
+import { avecTerrain, creer, estPetite, fmtKm, fmtS, nomDe, type ContexteVue, type Vue } from './commun';
 import { vueNommer } from './nommer';
 import { remplir, textes } from './textes';
 
@@ -145,21 +145,48 @@ export function vueEssai(ctx: ContexteVue): Vue {
   /** Le « juste » affiché pendant enAttente, avant la question suivante. */
   let resEnAttente: Resultat | null = null;
   let resultats: Resultat[] = [];
+  /**
+   * Les marques de la question en cours, telles que posées : rejouées au retour
+   * dans la vue, que les autres vues ont effacées entre-temps (la cible révélée
+   * par « Voir » ou par un faux reste montrée, comme vu reste vrai). L'anneau
+   * aussi tel quel : jugé de nouveau après le vol de « Voir », la zone n'est
+   * plus petite et il disparaîtrait.
+   */
+  let marques: { id: string; classe: string; anneau: boolean }[] = [];
 
   const courante = () => cibles[i];
 
-  function afficherQuestion(): void {
-    const id = courante();
+  function effacer(): void {
     t.carte.effacerMarques();
+    marques = [];
+  }
+  function poser(m: (typeof marques)[number]): void {
+    marques.push(m);
+    t.carte.marquer(m.id, m.classe);
+    if (m.anneau) t.carte.anneau(m.id, m.classe);
+  }
+  /** `anneau` : un anneau autour de la zone si elle est petite à l'écran (anneauSiPetite). */
+  const marquer = (id: string, classe: string, anneau = false) => poser({ id, classe, anneau: anneau && estPetite(t, id) });
+
+  // `reprise` (retour dans la vue) : la même question, ses essais, son « Voir »
+  // et son premier faux gardés (ils font la note), son message et ses marques
+  // remontrés ; le temps repart, comme Nommer.
+  function afficherQuestion(reprise = false): void {
+    const id = courante();
+    const aRejouer = reprise ? marques : [];
+    effacer();
     if (!id) return finir();
     consigne.replaceChildren(T.consigne, creer('strong', {}, nomDe(t.donnees, id)));
     consigne.dataset.cible = id;
     compte.textContent = `${i + 1} / ${cibles.length}`;
-    retro.textContent = '';
-    retro.className = 'essai-retro';
-    essais = 0;
-    premierFaux = null;
-    vu = false;
+    if (!reprise) {
+      retro.textContent = '';
+      retro.className = 'essai-retro';
+      essais = 0;
+      premierFaux = null;
+      vu = false;
+    }
+    for (const m of aRejouer) poser(m);
     debut = performance.now();
   }
 
@@ -172,6 +199,14 @@ export function vueEssai(ctx: ContexteVue): Vue {
     resultats.push(resEnAttente);
     resEnAttente = null;
     i++;
+    // La question suivante part de zéro, même reposée en reprise (afficherQuestion(true)) :
+    // ni essais, ni « Voir », ni premier faux, ni le « juste » et sa marque.
+    essais = 0;
+    premierFaux = null;
+    vu = false;
+    marques = [];
+    retro.textContent = '';
+    retro.className = 'essai-retro';
   }
 
   function suivante(r: Resultat): void {
@@ -188,7 +223,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
     nommer.arreter();
     barre.hidden = true;
     bilan.hidden = true;
-    t.carte.effacerMarques();
+    effacer();
     ctx.terrains.montrer('monde');
     // La série gardée en évidence : celle que l'on rejoue d'un toucher.
     for (const b of boutons) {
@@ -237,7 +272,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
     // Partie close (même par « Terminer ») : revenir à la vue ramène au choix.
     cibles = [];
     barre.hidden = true;
-    t.carte.effacerMarques();
+    effacer();
     const d = t.donnees;
     const n = resultats.length;
     const premiers = resultats.filter((r) => r.premier).length;
@@ -288,9 +323,8 @@ export function vueEssai(ctx: ContexteVue): Vue {
     const id = courante();
     if (!id || enAttente) return;
     vu = true;
-    t.carte.effacerMarques();
-    t.carte.marquer(id, 'juste');
-    anneauSiPetite(t, id, 'juste');
+    effacer();
+    marquer(id, 'juste', true);
     t.carte.montrer(id, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
   });
   passer.addEventListener('click', () => {
@@ -309,7 +343,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
       else {
         ctx.terrains.montrer(t.nom);
         barre.hidden = false;
-        afficherQuestion();
+        afficherQuestion(true);
       }
     },
     desactiver() {
@@ -318,6 +352,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
       barre.hidden = true;
       bilan.hidden = true;
       depart.hidden = true;
+      // La carte seule : `marques` reste, pour les remontrer au retour.
       t.carte.effacerMarques();
       ctx.terrains.montrer('monde');
     },
@@ -331,9 +366,9 @@ export function vueEssai(ctx: ContexteVue): Vue {
         const note = carte.noter(id, x, y);
         const r = note.pick;
         essais++;
-        carte.effacerMarques();
+        effacer();
         if (note.juste) {
-          carte.marquer(id, 'juste');
+          marquer(id, 'juste');
           retro.className = 'essai-retro juste';
           retro.textContent = remplir(T.juste, {
             via: note.via === 'pastille' ? T.via_pastille : note.via === 'proche' ? T.via_proche : '',
@@ -349,9 +384,8 @@ export function vueEssai(ctx: ContexteVue): Vue {
           }, 1200);
         } else {
           if (premierFaux == null && note.distance_km != null) premierFaux = note.distance_km;
-          if (r && r.id !== id) carte.marquer(r.id, 'faux');
-          carte.marquer(id, 'juste');
-          anneauSiPetite(t, id, 'juste');
+          if (r && r.id !== id) marquer(r.id, 'faux');
+          marquer(id, 'juste', true);
           retro.className = 'essai-retro faux';
           retro.textContent = remplir(T.faux, {
             touche: r ? nomDe(t.donnees, r.id) : T.la_mer,

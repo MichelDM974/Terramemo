@@ -1,7 +1,7 @@
 // Partie de Chrono (pur) : les lieux d'une série (pays ou communes), une question à la fois, un
 // seul toucher, des points au barème (bareme.ts). Les records se gardent sur
 // l'appareil (de toujours et de la semaine) ; classement.ts les publie.
-import { comparerScores, ECHELLE_KM, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
+import { comparerScores, ECHELLE_KM, POINTS_JUSTE, POINTS_PROCHE_MAX, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
 
 /** Version du barème : un changement de formule repart de records vides. */
 export const VERSION_BAREME = 1;
@@ -73,6 +73,22 @@ export interface RecordChrono extends ScoreEpreuve {
   /** Date du record (ms depuis 1970). */
   date: number;
   bareme: number;
+  /**
+   * Quand ce record n'est pas vraisemblable (les règles le refuseraient) : le
+   * meilleur score de l'épreuve qui l'est, celui que le classement peut
+   * recevoir, que le général additionne et qu'un nouveau pseudo republie.
+   */
+  publiable?: ScoreEpreuve & { date: number };
+}
+
+const sansDate = ({ points, justes, questions, temps_ms }: ScoreEpreuve): ScoreEpreuve => ({ points, justes, questions, temps_ms });
+
+const publiableDate = (r: RecordChrono): (ScoreEpreuve & { date: number }) | null => (vraisemblable(r) ? { ...sansDate(r), date: r.date } : (r.publiable ?? null));
+
+/** Le meilleur score publiable d'un record : lui-même s'il est vraisemblable ; null s'il n'y en a pas. */
+export function recordPubliable(r: RecordChrono): ScoreEpreuve | null {
+  const p = publiableDate(r);
+  return p && sansDate(p);
 }
 
 /** Identifiant d'une épreuve : mode, exercice, série (un continent, 'tous' ou 'reunion' : `chrono:localiser:reunion`). */
@@ -98,26 +114,37 @@ export interface Bilan {
   /** Le score bat l'ancien record (ou il n'y en avait pas). */
   nouveau: boolean;
   ancien: RecordChrono | null;
+  /** Le score bat le meilleur score publiable de l'épreuve (recordPubliable) : il est à publier. */
+  progresPubliable: boolean;
 }
 
 /**
  * Garde le score s'il bat le record de l'épreuve (plus de points, puis moins
- * de temps). Une partie abandonnée ne passe pas ici. Sans stockage, le bilan
- * reste juste pour cette partie.
+ * de temps). Un record que les règles refuseraient (vraisemblable) garde
+ * à côté le meilleur score publiable, qu'un score vraisemblable peut encore
+ * battre sans battre le record : sinon la série sortirait du général et le
+ * général publié ne pourrait plus progresser. Une partie abandonnée ne passe
+ * pas ici. Sans stockage, le bilan reste juste pour cette partie.
  */
 export function enregistrer(stockage: Stockage | null, epreuve: string, score: ScoreEpreuve, date: number): Bilan {
   const records = lireRecords(stockage);
   const ancien = records.get(epreuve) ?? null;
-  const candidat: RecordChrono = { ...score, date, bareme: VERSION_BAREME };
+  const publiableAvant = ancien && publiableDate(ancien);
   const nouveau = ancien === null || comparerScores(score, ancien) < 0;
-  if (!nouveau) return { record: ancien, nouveau, ancien };
-  records.set(epreuve, candidat);
+  const progresPubliable = vraisemblable(score) && (!publiableAvant || comparerScores(score, publiableAvant) < 0);
+  if (ancien && !nouveau && !progresPubliable) return { record: ancien, nouveau, ancien, progresPubliable };
+  let record: RecordChrono;
+  if (nouveau) {
+    record = { ...sansDate(score), date, bareme: VERSION_BAREME };
+    if (!progresPubliable && publiableAvant) record.publiable = publiableAvant;
+  } else record = { ...ancien!, publiable: { ...sansDate(score), date } };
+  records.set(epreuve, record);
   try {
     stockage?.setItem(CLE_RECORDS, JSON.stringify(Object.fromEntries(records)));
   } catch {
     // Stockage plein ou refusé : le record vaut pour cette visite seulement.
   }
-  return { record: candidat, nouveau, ancien };
+  return { record, nouveau, ancien, progresPubliable };
 }
 
 // --- Semaine et classement général ------------------------------------------
@@ -160,12 +187,44 @@ export function recordDe(records: Map<string, RecordChrono>, epreuve: string, pe
   return records.get(periode === 'toujours' ? epreuve : cleSemaine(epreuve, periode)) ?? null;
 }
 
+/** Bornes du temps par question que firestore.rules impose à un score publié (ms). */
+export const TEMPS_MIN_QUESTION_MS = 200;
+export const TEMPS_MAX_QUESTION_MS = 15_000;
+
+/**
+ * Le score passerait-il les bornes de firestore.rules (scoreValide), arrondi
+ * comme publier() l'envoie ? Faux : les règles le refuseraient, inutile de
+ * l'écrire, et le général prend à sa place le meilleur score publiable de
+ * l'épreuve (recordPubliable). La taille de l'épreuve et la progression se
+ * jugent sur le serveur seulement.
+ */
+export function vraisemblable(s: ScoreEpreuve): boolean {
+  const points = Math.round(s.points);
+  const temps = Math.round(s.temps_ms);
+  const { justes, questions: q } = s;
+  return (
+    Number.isInteger(justes) &&
+    Number.isInteger(q) &&
+    q >= 1 &&
+    justes >= 0 &&
+    justes <= q &&
+    points >= justes * POINTS_JUSTE &&
+    points <= justes * POINTS_JUSTE + (q - justes) * POINTS_PROCHE_MAX &&
+    temps >= q * TEMPS_MIN_QUESTION_MS &&
+    temps <= q * TEMPS_MAX_QUESTION_MS
+  );
+}
+
 /**
  * Le score du classement général : la somme des records de toutes les
- * épreuves pour la période (décision « Classements ») ; null sans record.
+ * épreuves pour la période (décision « Classements »), chacun pris à son
+ * meilleur score publiable (recordPubliable) ; null sans record publiable.
  */
 export function totalGeneral(records: Map<string, RecordChrono>, periode: string): ScoreEpreuve | null {
-  const choisis = [...records].filter(([k]) => (periode === 'toujours' ? !k.includes('@') : k.endsWith(`@${periode}`))).map(([, r]) => r);
+  const choisis = [...records]
+    .filter(([k]) => (periode === 'toujours' ? !k.includes('@') : k.endsWith(`@${periode}`)))
+    .map(([, r]) => recordPubliable(r))
+    .filter((r): r is ScoreEpreuve => r !== null);
   if (!choisis.length) return null;
   return choisis.reduce(
     (t, r) => ({ points: t.points + r.points, justes: t.justes + r.justes, questions: t.questions + r.questions, temps_ms: t.temps_ms + r.temps_ms }),

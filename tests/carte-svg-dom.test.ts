@@ -1,0 +1,189 @@
+import { readFileSync } from 'node:fs';
+import type { Topology } from 'topojson-specification';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Carte } from '../src/map/carte';
+import { assembler, type DonneesCarte } from '../src/map/donnees';
+import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
+import type { ContexteCarte } from '../src/map/pick';
+import type { Entite } from '../src/map/types';
+import { cadrageNommer } from '../src/vues/nommer';
+
+// Carte (le rendu SVG, g par défaut, et css) sur un faux DOM : des éléments
+// qui retiennent leurs attributs, d3-zoom et d3-transition tels quels, leur
+// horloge (d3-timer : setTimeout, sans fenêtre au chargement, et
+// performance.now) avancée par les faux minuteurs de vitest. Au format du téléphone de mesure,
+// barre de Nommer comprise, comme tests/carte-canvas-dom.test.ts.
+
+const lire = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
+const donnees: DonneesCarte = assembler(lire('monde.topo.json') as Topology<never>, lire('pays.json'), lire('contestees.json'), lire('noms.fr.json'));
+const L = 384;
+const H = 723;
+const HV = H - 219;
+const entite = (id: string): Entite => {
+  const e = donnees.entites.find((en) => en.pays.id === id);
+  if (!e) throw new Error(id);
+  return e;
+};
+
+/** Un élément : attributs, classes, enfants, écouteurs ; assez pour Carte, d3-selection et d3-zoom. */
+class FauxElement {
+  attrs = new Map<string, string>();
+  enfants: FauxElement[] = [];
+  parent: FauxElement | null = null;
+  dataset: Record<string, string> = {};
+  style = { transform: '', setProperty: () => undefined, removeProperty: () => undefined };
+  clientWidth = L;
+  clientHeight = H;
+  clientLeft = 0;
+  clientTop = 0;
+  ecouteurs: [string, (ev: unknown) => void][] = [];
+  private classes = new Set<string>();
+  classList = {
+    add: (...c: string[]) => c.forEach((x) => this.classes.add(x)),
+    remove: (...c: string[]) => c.forEach((x) => this.classes.delete(x)),
+    contains: (c: string) => this.classes.has(c),
+  };
+  get className() {
+    return [...this.classes].join(' ');
+  }
+  set className(v: string) {
+    this.classes = new Set(v.split(' ').filter(Boolean));
+  }
+  get isConnected() {
+    return this.parent !== null;
+  }
+  setAttribute(k: string, v: string) {
+    if (k === 'class') this.className = v;
+    else this.attrs.set(k, v);
+  }
+  getAttribute(k: string) {
+    return this.attrs.get(k) ?? null;
+  }
+  append(...es: FauxElement[]) {
+    for (const e of es) {
+      e.parent = this;
+      this.enfants.push(e);
+    }
+  }
+  prepend(...es: FauxElement[]) {
+    for (const e of es) e.parent = this;
+    this.enfants.unshift(...es);
+  }
+  replaceChildren() {
+    this.enfants = [];
+  }
+  remove() {
+    if (this.parent) this.parent.enfants = this.parent.enfants.filter((e) => e !== this);
+    this.parent = null;
+  }
+  addEventListener(type: string, l: (ev: unknown) => void) {
+    this.ecouteurs.push([type, l]);
+  }
+  removeEventListener(type: string, l: (ev: unknown) => void) {
+    this.ecouteurs = this.ecouteurs.filter(([t, x]) => t !== type || x !== l);
+  }
+  getBoundingClientRect() {
+    return { left: 0, top: 0, width: L, height: H };
+  }
+}
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+  // d3-timer a gardé l'objet performance du chargement : son now suit la fausse horloge.
+  vi.spyOn(performance, 'now').mockImplementation(() => Date.now());
+  vi.stubGlobal('document', { createElement: () => new FauxElement(), createElementNS: () => new FauxElement() });
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
+  vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  vi.stubGlobal('window', { devicePixelRatio: 1, innerWidth: L, innerHeight: H });
+});
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+function carte(): { c: Carte; hote: FauxElement } {
+  const hote = new FauxElement();
+  const c = new Carte({ hote: hote as unknown as HTMLElement, donnees, projection: 'monde', rendu: 'g' });
+  c.rendre();
+  return { c, hote };
+}
+
+/** Un cran de molette au centre de la carte : un geste de d3-zoom (il interrompt un vol). */
+function molette(hote: FauxElement): void {
+  const ev = { type: 'wheel', deltaY: -100, deltaMode: 0, clientX: L / 2, clientY: H / 2, currentTarget: hote, button: 0, ctrlKey: false, preventDefault() {}, stopImmediatePropagation() {} };
+  for (const [t, l] of hote.ecouteurs) if (t === 'wheel') l.call(hote, ev);
+}
+
+/** Part de l'emprise du polygone principal dans la partie visible (au-dessus de la barre), dans le contexte ctx. */
+function partDe(ctx: ContexteCarte, id: string): number {
+  const e = entite(id);
+  const emp = empriseEcran(anneauPrincipal(e.forme, e.pays.point), (ll) => {
+    const b = ctx.proj(ll);
+    return b ? versEcran(ctx.t, b[0], b[1]) : null;
+  });
+  return emp ? partVisible(emp, L, HV) : 0;
+}
+
+describe('Carte (SVG) : une réponse en plein vol, la question suivante cadrée sur l’arrivée (#16)', () => {
+  // Comme en Canvas : l'Italie demandée au zoom 1, la carte vole jusqu'à elle ;
+  // répondue en moins d'une seconde, la question suivante s'allume en plein vol.
+  it('la vue d’arrivée décide : la France (cachée à l’arrivée) fait voler, la Suisse (visible) non ; à la fin, chacune est à l’écran', () => {
+    for (const [id, vole] of [
+      ['FRA', true],
+      ['CHE', false],
+    ] as const) {
+      const { c } = carte();
+      c.montrer('ITA', HV);
+      vi.advanceTimersByTime(900);
+      // Le vol est bien en cours : la vue du moment n'est pas celle d'arrivée.
+      expect(c.contexte().t.k).toBeGreaterThan(1);
+      expect(c.contexteFinal().t).not.toEqual(c.contexte().t);
+      const e = entite(id);
+      const r = cadrageNommer(c, e.pays, e.forme, L, HV);
+      expect([id, r.vole]).toEqual([id, vole]);
+      if (r.vole) c.montrer(id, HV);
+      vi.advanceTimersByTime(4000);
+      expect(c.contexteFinal().t).toEqual(c.contexte().t);
+      expect([id, partDe(c.contexte(), id) >= 0.9]).toEqual([id, true]);
+      expect(cadrageNommer(c, e.pays, e.forme, L, HV).vole).toBe(false);
+    }
+  });
+
+  it('l’arrivée s’efface à la fin du vol, quand un geste l’interrompt et quand zoomer() l’interrompt', () => {
+    const { c, hote } = carte();
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+    c.montrer('NOR', HV);
+    vi.advanceTimersByTime(300);
+    const arrivee = c.contexteFinal().t;
+    expect(arrivee).not.toEqual(c.contexte().t);
+    vi.advanceTimersByTime(4000);
+    // Arrivé : la vue est celle annoncée, puis un geste la déplace (sans vol à interrompre).
+    expect(c.contexte().t).toEqual(arrivee);
+    molette(hote);
+    vi.advanceTimersByTime(500);
+    expect(Number.isFinite(c.contexte().t.x)).toBe(true);
+    expect(c.contexte().t.k).toBeGreaterThan(arrivee.k);
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+    // Un geste en plein vol : la carte reste où le geste la met.
+    c.montrer('ESP', HV);
+    vi.advanceTimersByTime(300);
+    expect(c.contexteFinal().t).not.toEqual(c.contexte().t);
+    molette(hote);
+    vi.advanceTimersByTime(500);
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+    // zoomer() en plein vol.
+    c.montrer('GRC', HV);
+    vi.advanceTimersByTime(300);
+    c.zoomer({ k: 2, x: 0, y: 0 });
+    expect(c.contexteFinal().t).toEqual({ k: 2, x: 0, y: 0 });
+    vi.advanceTimersByTime(4000);
+    expect(c.contexte().t).toEqual({ k: 2, x: 0, y: 0 });
+  });
+});

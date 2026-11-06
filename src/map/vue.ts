@@ -14,6 +14,8 @@
 // glisse de dx·G(φ)/G(φ_doigt) (pour un glissé sur l'équateur : 0,94 fois
 // à 30°, 0,75 à 60°, 0,59 au pôle).
 import { geoEqualEarth, geoEqualEarthRaw, type GeoProjection } from 'd3-geo';
+import type { Position } from 'geojson';
+import { empriseEcran, versEcran, viser } from './geo';
 import { creerProjection } from './projection';
 import type { Transfo } from './types';
 
@@ -124,11 +126,12 @@ export function pointVirtuel(v: VueGlobe, c: Cadre, sx: number, sy: number): [nu
 
 /**
  * La vue au zoom k où l'ancre [λ, φ] tombe en (sx, sy) : y la met sur la ligne
- * (puis borné), r la met sur la colonne, exactement sur son parallèle.
+ * (puis borné, sauf libre), r la met sur la colonne, exactement sur son parallèle.
  */
-export function placer(c: Cadre, ancre: readonly [number, number], sx: number, sy: number, k: number): VueGlobe {
+export function placer(c: Cadre, ancre: readonly [number, number], sx: number, sy: number, k: number, libre = false): VueGlobe {
   const [lambda, phi] = ancre;
-  const y = bornerY(c, k, sy - k * baseDeLatitude(c, phi));
+  const y0 = sy - k * baseDeLatitude(c, phi);
+  const y = libre ? y0 : bornerY(c, k, y0);
   const lp = (sx - c.l / 2) / (k * c.s * facteurG(phi)) / RAD;
   return { r: normaliserLon(lambda - lp), k, y };
 }
@@ -183,6 +186,39 @@ export function rencontre(o: number, s: number, e: number, n: number, reg: Regio
 }
 
 /**
+ * La vue qui montre une zone (« Voir », montrer de Nommer) : le cadrage de
+ * viser() (geo.ts), celui de la carte SVG, calculé dans la projection tournée
+ * sur la longitude de son point. Son point au centre de l × hVisible (la
+ * partie au-dessus d'une barre), la zone (côté taille1 au zoom 1) sur un
+ * quart du plus petit côté, au zoom kMax au plus ; avec anneau (le contour du
+ * polygone principal), la zone longue fait baisser le zoom et la vue se
+ * décale juste assez pour qu'il tienne. Le décalage horizontal devient une
+ * rotation : le point reste où viser() le met, exactement sur son parallèle.
+ * Libre (montrer) : y non borné, comme zoom.transform de d3-zoom en SVG, qui
+ * n'applique translateExtent qu'aux gestes ; une zone très au sud (Argentine,
+ * Australie) monte donc au-dessus de la barre, du vide sous l'ovale, et le
+ * geste suivant ramène la vue dans la borne (placer).
+ */
+export function viserVue(
+  c: Cadre,
+  point: readonly [number, number],
+  taille1: number,
+  kMax: number,
+  hVisible = c.h,
+  anneau?: readonly Position[] | null,
+  libre = false,
+): VueGlobe {
+  const h = Math.max(1, Math.min(hVisible, c.h));
+  const lon = normaliserLon(point[0]);
+  const proj = projectionDe(lon, c);
+  const b = proj([point[0], point[1]]) ?? [c.tx, c.ty];
+  const boite = anneau ? empriseEcran(anneau, (ll) => proj(ll)) : null;
+  const t = viser([b[0], b[1]], taille1, c.l, h, kMax, boite);
+  const [sx, sy] = versEcran(t, b[0], b[1]);
+  return placer(c, point, sx, sy, bornerK(t.k, kMax), libre);
+}
+
+/**
  * Coordonnées planes d'une vue pour l'interpolation de van Wijk et Nuij
  * (montrer) : [centre x, centre y, largeur vue], en px de base ; la longitude
  * au centre comptée sur l'équateur, non ramenée (r déroulé par l'appelant).
@@ -191,9 +227,11 @@ export function versPlan(v: VueGlobe, c: Cadre): [number, number, number] {
   return [v.r * RAD * c.s * facteurG(0), (c.h / 2 - v.y) / v.k, Math.max(c.l, c.h) / v.k];
 }
 
-export function dePlan(p: readonly [number, number, number], c: Cadre, kMax: number): VueGlobe {
+/** Libre : y non borné (vol de montrer, comme une transition de d3-zoom). */
+export function dePlan(p: readonly [number, number, number], c: Cadre, kMax: number, libre = false): VueGlobe {
   const k = bornerK(Math.max(c.l, c.h) / p[2], kMax);
-  return { r: normaliserLon(p[0] / (c.s * facteurG(0)) / RAD), k, y: bornerY(c, k, c.h / 2 - k * p[1]) };
+  const y = c.h / 2 - k * p[1];
+  return { r: normaliserLon(p[0] / (c.s * facteurG(0)) / RAD), k, y: libre ? y : bornerY(c, k, y) };
 }
 
 /**

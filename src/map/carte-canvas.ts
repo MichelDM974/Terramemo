@@ -29,7 +29,7 @@ import { interpolateZoom } from 'd3-interpolate';
 import type { ChronoRendu, CarteAffichee, OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
 import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
-import { RAYON_TERRE_KM, versEcran } from './geo';
+import { anneauPrincipal, RAYON_TERRE_KM, versEcran } from './geo';
 import { SuiviPointeurs } from './geste';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { noter, pick, type ContexteCarte, type Note, type ResultatPick } from './pick';
@@ -47,6 +47,7 @@ import {
   suivrePoint,
   transfoDe,
   versPlan,
+  viserVue,
   vueDeTransfo,
   type Cadre,
   type VueGlobe,
@@ -269,6 +270,8 @@ interface Couleurs {
   hachure: string;
   pastille: string;
   bord: string;
+  /** Contour de la zone fausse (.pays.faux du SVG). */
+  texte: string;
   marques: Record<string, string>;
 }
 
@@ -282,10 +285,18 @@ function lireCouleurs(): Couleurs {
     hachure: v('--hachure'),
     pastille: v('--pastille'),
     bord: v('--bg'),
+    texte: v('--text'),
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
   };
 }
+
+/**
+ * La zone fausse se distingue de la juste autrement que par la teinte
+ * (daltonisme : carte.css, .pays.faux) : un contour couleur du texte, de cette
+ * épaisseur (px CSS), autour de son tracé comme de sa pastille.
+ */
+export const TRAIT_FAUX_PX = 3;
 
 const deuxImages = () => new Promise<number>((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
 const TOUR = 2 * Math.PI;
@@ -300,6 +311,13 @@ export class CarteCanvas implements CarteAffichee {
   private peintreActif: Peintre | null = null;
   private c: Cadre = cadre(1, 1);
   private v: VueGlobe;
+  /**
+   * La vue vient de montrer(), qui ignore la borne verticale : un changement de
+   * taille la replace sans la borner, jusqu'au prochain geste ou pose bornée.
+   * Gardé à part et non déduit de la vue : en paysage, la vue libre peut tomber
+   * dans la borne, et le retour en portrait la bornerait.
+   */
+  private libre = false;
   private proj: GeoProjection;
   private dpr = 1;
   private complet: Calque | null = null;
@@ -518,6 +536,12 @@ export class CarteCanvas implements CarteAffichee {
     return { proj: this.proj, t: this.transfo, entites: this.o.donnees.entites, pastilles: this.pastilles };
   }
 
+  contexteFinal(): ContexteCarte {
+    const cible = this.vol?.cible;
+    if (!cible) return this.contexte();
+    return { proj: projectionDe(cible.r, this.c), t: transfoDe(cible, this.c), entites: this.o.donnees.entites, pastilles: this.pastilles };
+  }
+
   pick(x: number, y: number): ResultatPick | null {
     return pick(this.contexte(), x, y);
   }
@@ -541,15 +565,16 @@ export class CarteCanvas implements CarteAffichee {
   }
 
   /**
-   * « Voir » : le globe tourne et zoome en même temps jusqu'au pays (son point
-   * au centre), par l'interpolation de van Wijk et Nuij sur un plan où la
+   * « Voir » : le globe tourne et zoome en même temps jusqu'au pays (cadré
+   * comme en SVG : centré dans la partie visible hVisible, au-dessus de la
+   * barre de Nommer, son polygone principal entier), par l'interpolation de van Wijk et Nuij sur un plan où la
    * longitude du centre est déroulée (le plus court chemin autour du globe) :
    * sur un long trajet, elle recule d'abord. Carte allégée pendant le vol.
    */
   montrer(id: string, hVisible?: number): void {
-    const cible = this.vise(id, ZOOM_MAX_MONTRER, hVisible);
+    const cible = this.vise(id, ZOOM_MAX_MONTRER, hVisible, true);
     if (!cible) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(cible, true);
     this.arreterVol();
     const depart = { ...this.v };
     const arrivee = { ...cible, r: depart.r + ecartLon(depart.r, cible.r) };
@@ -570,21 +595,25 @@ export class CarteCanvas implements CarteAffichee {
     if (u >= 1) {
       this.vol = null;
       this.enMouvement = false;
-      this.poser(vol.cible);
+      this.poser(vol.cible, false, true);
       return;
     }
     this.enMouvement = true;
-    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX));
+    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX, true), false, true);
   }
 
-  /** La vue qui met le point d'un pays au centre de l × h (h : la partie visible), son plus grand polygone sur un quart de l'écran. */
-  private vise(id: string, kMax: number, hVisible = this.c.h): VueGlobe | null {
+  /**
+   * La vue qui met le point d'un pays au centre de l × h (h : la partie
+   * visible), son plus grand polygone sur un quart de l'écran ; entier (ce
+   * polygone tient à l'écran) si demandé, pour montrer() : le cadrage du SVG
+   * (viserVue), sans la borne verticale, que zoom.transform n'applique pas non
+   * plus en SVG.
+   */
+  private vise(id: string, kMax: number, hVisible = this.c.h, entier = false): VueGlobe | null {
     const e = this.o.donnees.entites.find((en) => en.pays.id === id);
     if (!e) return null;
-    const h = Math.max(1, Math.min(hVisible, this.c.h));
-    const taille1 = Math.max(tailleEcranPx(e.pays, this.c.s, 1), 1e-6);
-    const k = bornerK(Math.min(this.c.l, h) / 4 / taille1, kMax);
-    return placer(this.c, e.pays.point, this.c.l / 2, h / 2, k);
+    const anneau = entier ? anneauPrincipal(e.forme, e.pays.point) : null;
+    return viserVue(this.c, e.pays.point, tailleEcranPx(e.pays, this.c.s, 1), kMax, hVisible, anneau, entier);
   }
 
   /**
@@ -635,11 +664,15 @@ export class CarteCanvas implements CarteAffichee {
 
   // --- vue -------------------------------------------------------------------
 
-  /** Change la vue : projection tournée et pastilles recalculées (pick et noter les lisent). */
-  private poser(v: VueGlobe, forcer = false): void {
+  /**
+   * Change la vue : projection tournée et pastilles recalculées (pick et noter
+   * les lisent). libre : la vue ignore la borne verticale (montrer).
+   */
+  private poser(v: VueGlobe, forcer = false, libre = false): void {
     const rChange = forcer || v.r !== this.v.r;
     const kChange = v.k !== this.v.k;
     this.v = v;
+    this.libre = libre;
     if (rChange) this.proj = projectionDe(v.r, this.c);
     if (rChange || kChange) {
       this.pastilles = calculerPastilles(this.o.donnees.entites, this.proj, v.k);
@@ -648,10 +681,10 @@ export class CarteCanvas implements CarteAffichee {
     }
   }
 
-  private poserProgramme(v: VueGlobe): void {
+  private poserProgramme(v: VueGlobe, libre = false): void {
     this.arreterVol();
     this.enMouvement = false;
-    this.poser(v);
+    this.poser(v, false, libre);
     this.demander();
   }
 
@@ -680,7 +713,12 @@ export class CarteCanvas implements CarteAffichee {
   /**
    * Nouvelle taille : même point au centre, même échelle à l'écran (k × échelle
    * de la projection), bornée au zoom 1. Un canvas se retrace sans coût de
-   * tracés SVG : pas de seuil de 15 % sur la hauteur ici.
+   * tracés SVG : pas de seuil de 15 % sur la hauteur ici. La vue de montrer
+   * (this.libre) reste hors de la borne verticale : la barre d'adresse du
+   * téléphone qui va et vient, ou un aller-retour en paysage, ne ramène pas
+   * sous la barre de Nommer la zone du sud que le vol a montée (le même centre
+   * sans borne : le retour à la taille d'avant rend la vue d'avant) ; le geste
+   * suivant la borne, comme en SVG.
    */
   private redimensionner(): void {
     if (this.masquee) return;
@@ -690,8 +728,9 @@ export class CarteCanvas implements CarteAffichee {
     const avant = this.c;
     const centre = pointVirtuel(this.v, avant, avant.l / 2, avant.h / 2);
     const echelle = this.v.k * avant.s;
+    const libre = this.libre;
     this.dimensionner();
-    this.poser(placer(this.c, centre, this.c.l / 2, this.c.h / 2, bornerK(echelle / this.c.s, ZOOM_MAX)), true);
+    this.poser(placer(this.c, centre, this.c.l / 2, this.c.h / 2, bornerK(echelle / this.c.s, ZOOM_MAX), libre), true, libre);
     this.dessiner();
   }
 
@@ -870,6 +909,8 @@ export class CarteCanvas implements CarteAffichee {
     const coutures = new Path2D();
     const couturesContour = new Path2D();
     const parClasse = new Map<string, Path2D>();
+    // Contour de la zone fausse : sans le côté qui suit l'antiméridien (comme les frontières).
+    let contourFaux: Path2D | null = null;
     // Hachures : un chemin par entité ou zone, son motif ancré sur elle (ancre).
     // Une partie de moins d'un demi-pas à l'écran n'en montrerait pas un trait :
     // sautée (au zoom 1, une trentaine de remplissages en moins).
@@ -897,6 +938,7 @@ export class CarteCanvas implements CarteAffichee {
           if (!chemin) parClasse.set(cl, (chemin = new Path2D()));
           tracerPartie(chemin, im, p);
         }
+        if (classes.has('faux')) tracerPartie((contourFaux ??= new Path2D()), im, p, p.couture || passeCoupure(p, v.r));
       }
       // Les entités au statut « conteste » ne sont pas dans la couche contestees : on les hachure aussi.
       if (e.pays.statut === 'conteste') hachurer(`p${i}`, complet.pays[i], p);
@@ -935,6 +977,13 @@ export class CarteCanvas implements CarteAffichee {
     ctx.lineJoin = 'miter';
     ctx.stroke(terres);
     if (avecCoutures) ctx.stroke(couturesContour);
+    // Par-dessus les frontières : le contour entier (en SVG, sa moitié extérieure peut passer sous une voisine).
+    if (contourFaux) {
+      ctx.strokeStyle = coul.texte;
+      ctx.lineWidth = TRAIT_FAUX_PX;
+      ctx.lineJoin = 'round';
+      ctx.stroke(contourFaux);
+    }
 
     this.dessinerPastilles(ctx);
     const ms = performance.now() - t0;
@@ -985,12 +1034,19 @@ export class CarteCanvas implements CarteAffichee {
       const [x, y] = versEcran(t, p.bx, p.by);
       if (x < -r || y < -r || x > c.l + r || y > c.h + r) continue;
       let couleur = coul.pastille;
-      for (const cl of this.marques.get(p.id) ?? []) couleur = coul.marques[cl] ?? couleur;
+      const classes = this.marques.get(p.id);
+      for (const cl of classes ?? []) couleur = coul.marques[cl] ?? couleur;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, TOUR);
       ctx.fillStyle = couleur;
       ctx.fill();
-      ctx.stroke();
+      if (classes?.has('faux')) {
+        ctx.lineWidth = TRAIT_FAUX_PX;
+        ctx.strokeStyle = coul.texte;
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = coul.bord;
+      } else ctx.stroke();
     }
     for (const a of this.anneaux) {
       const e = this.o.donnees.entites.find((en) => en.pays.id === a.id);

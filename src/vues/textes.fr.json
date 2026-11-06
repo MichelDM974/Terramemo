@@ -80,6 +80,8 @@
     "changer": "Changer",
     "publier": "Publier",
     "publication": "Publication…",
+    "publication_refusee": "Score refusé par le classement : il ne compte que sur cet appareil.",
+    "publication_echec": "Score non publié (hors ligne ?) : il reste sur cet appareil.",
     "chargement": "Chargement…",
     "indisponible": "Classement indisponible (hors ligne ?).",
     "vide": "Personne n'est encore classé : à toi de jouer.",
