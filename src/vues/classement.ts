@@ -2,7 +2,8 @@
 // premiers, ma place et mon rang ; le pseudo public, choisi une fois (rien
 // n'est publié sans lui). Firebase n'est chargé qu'à l'ouverture du bloc.
 import type { BilanPartie } from '../epreuve/chrono';
-import { lireRecords, periodeSemaine, pseudoValide, recordDe, totalGeneral } from '../epreuve/chrono';
+import type { ScoreEpreuve } from '../epreuve/bareme';
+import { lireRecords, periodeSemaine, pseudoValide, recordDe, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, publier, type Place } from '../epreuve/classement';
 import { creer } from './commun';
 import { remplir, textes } from './textes';
@@ -40,28 +41,49 @@ function fmtTemps(ms: number): string {
   return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')}`;
 }
 
+/** Ce qu'a donné un lot de publications : scores refusés (par les règles, ou d'avance), envois échoués (hors ligne). */
+export interface Publication {
+  refuses: number;
+  echecs: number;
+}
+
+type Envoi = [epreuve: string, periode: string, score: ScoreEpreuve];
+
+/**
+ * Chaque score part seul : un refus ou un échec n'empêche pas les autres
+ * (allSettled). Un score que les règles refuseraient (vraisemblable) n'est
+ * pas écrit : il compte comme refusé, sans dépenser d'écriture.
+ */
+async function envoyer(pseudo: string, envois: readonly Envoi[]): Promise<Publication> {
+  const res = await Promise.allSettled(envois.map(([e, p, sc]) => (vraisemblable(sc) ? publier(e, p, pseudo, sc) : Promise.resolve(false))));
+  return {
+    refuses: res.filter((r) => r.status === 'fulfilled' && !r.value).length,
+    echecs: res.filter((r) => r.status === 'rejected').length,
+  };
+}
+
 /** Publie tous les records de l'appareil (de toujours et de la semaine) et les deux totaux : au choix ou au changement du pseudo. */
-async function publierTout(pseudo: string): Promise<void> {
+async function publierTout(pseudo: string): Promise<Publication> {
   const records = lireRecords(stockage());
   const periode = periodeSemaine(Date.now());
-  const envois: Promise<boolean>[] = [];
+  const envois: Envoi[] = [];
   for (const [cle, r] of records) {
     const [epreuve, sem] = cle.split('@');
     if (!epreuve) continue;
-    if (sem === undefined) envois.push(publier(epreuve, 'toujours', pseudo, r));
-    else if (sem === periode) envois.push(publier(epreuve, periode, pseudo, r));
+    if (sem === undefined) envois.push([epreuve, 'toujours', r]);
+    else if (sem === periode) envois.push([epreuve, periode, r]);
   }
   for (const p of ['toujours', periode]) {
     const t = totalGeneral(records, p);
-    if (t) envois.push(publier(GENERAL, p, pseudo, t));
+    if (t) envois.push([GENERAL, p, t]);
   }
-  await Promise.all(envois);
+  return envoyer(pseudo, envois);
 }
 
 /** Après une partie : seulement ce qui a progressé sur l'appareil (jusqu'à 4 écritures). */
-export async function publierPartie(pseudo: string, epreuve: string, b: BilanPartie): Promise<void> {
+export async function publierPartie(pseudo: string, epreuve: string, b: BilanPartie): Promise<Publication> {
   const records = lireRecords(stockage());
-  const envois: Promise<boolean>[] = [];
+  const envois: Envoi[] = [];
   for (const [nouveau, periode] of [
     [b.toujours.nouveau, 'toujours'],
     [b.semaine.nouveau, b.periode],
@@ -69,17 +91,22 @@ export async function publierPartie(pseudo: string, epreuve: string, b: BilanPar
     if (!nouveau) continue;
     const r = recordDe(records, epreuve, periode);
     const t = totalGeneral(records, periode);
-    if (r) envois.push(publier(epreuve, periode, pseudo, r));
-    if (t) envois.push(publier(GENERAL, periode, pseudo, t));
+    if (r) envois.push([epreuve, periode, r]);
+    if (t) envois.push([GENERAL, periode, t]);
   }
-  await Promise.all(envois);
+  return envoyer(pseudo, envois);
+}
+
+/** Ce que le bloc dit au joueur d'une publication ('' : tout est passé). */
+export function avisPublication(p: Publication): string {
+  return [p.refuses ? T.publication_refusee : '', p.echecs ? T.publication_echec : ''].filter(Boolean).join(' ');
 }
 
 /**
  * Le bloc d'un classement (une épreuve, ou GENERAL). `apresPartie` publie la
  * partie qui vient de finir avant de lire le classement, si le pseudo existe.
  */
-export function blocClassement(epreuve: string, titre: string, apresPartie?: (pseudo: string) => Promise<void>): HTMLElement {
+export function blocClassement(epreuve: string, titre: string, apresPartie?: (pseudo: string) => Promise<Publication>): HTMLElement {
   let periode = 'toujours';
   const boutons = (
     [
@@ -90,12 +117,20 @@ export function blocClassement(epreuve: string, titre: string, apresPartie?: (ps
   const seg = creer('div', { class: 'seg', role: 'group', 'aria-label': T.periode }, ...boutons);
   const pseudoZone = creer('div', { class: 'chrono-pseudo' });
   const etat = creer('p', { class: 'hint chrono-classement-etat' });
+  // Le sort de la dernière publication (refus, hors ligne), qui reste quand le classement se charge.
+  const avis = creer('p', { class: 'hint chrono-classement-avis', 'aria-live': 'polite' });
+  avis.hidden = true;
+  const direAvis = (p: Publication) => {
+    avis.textContent = avisPublication(p);
+    avis.hidden = !avis.textContent;
+  };
   const liste = creer('ol', { class: 'chrono-places' });
   const bloc = creer(
     'section',
     { class: 'chrono-classement', 'data-epreuve': epreuve },
     creer('div', { class: 'chrono-classement-tete' }, creer('h3', {}, titre), seg),
     pseudoZone,
+    avis,
     liste,
     etat,
   );
@@ -159,12 +194,7 @@ export function blocClassement(epreuve: string, titre: string, apresPartie?: (ps
       afficherPseudo();
       derniere++; // une lecture en cours, d'avant la publication, ne s'affichera pas
       etat.textContent = T.publication;
-      try {
-        await publierTout(p);
-      } catch {
-        etat.textContent = T.indisponible;
-        return;
-      }
+      direAvis(await publierTout(p));
       await charger();
     };
     ok.addEventListener('click', () => void envoyer());
@@ -184,11 +214,9 @@ export function blocClassement(epreuve: string, titre: string, apresPartie?: (ps
   void (async () => {
     if (pseudo && apresPartie) {
       etat.textContent = T.publication;
-      try {
-        await apresPartie(pseudo);
-      } catch {
-        // Hors ligne : le record reste sur l'appareil, publié à la prochaine partie qui le bat.
-      }
+      // Hors ligne ou refusé : le record reste sur l'appareil (publié à la
+      // prochaine partie qui le bat, ou au changement du pseudo).
+      direAvis(await apresPartie(pseudo));
     }
     await charger();
   })();

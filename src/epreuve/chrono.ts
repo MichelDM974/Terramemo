@@ -1,7 +1,7 @@
 // Partie de Chrono (pur) : les lieux d'une série (pays ou communes), une question à la fois, un
 // seul toucher, des points au barème (bareme.ts). Les records se gardent sur
 // l'appareil (de toujours et de la semaine) ; classement.ts les publie.
-import { comparerScores, ECHELLE_KM, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
+import { comparerScores, ECHELLE_KM, POINTS_JUSTE, POINTS_PROCHE_MAX, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
 
 /** Version du barème : un changement de formule repart de records vides. */
 export const VERSION_BAREME = 1;
@@ -160,12 +160,44 @@ export function recordDe(records: Map<string, RecordChrono>, epreuve: string, pe
   return records.get(periode === 'toujours' ? epreuve : cleSemaine(epreuve, periode)) ?? null;
 }
 
+/** Bornes du temps par question que firestore.rules impose à un score publié (ms). */
+export const TEMPS_MIN_QUESTION_MS = 200;
+export const TEMPS_MAX_QUESTION_MS = 15_000;
+
+/**
+ * Le score passerait-il les bornes de firestore.rules (scoreValide), arrondi
+ * comme publier() l'envoie ? Faux : les règles le refuseraient, inutile de
+ * l'écrire, et il ne compte pas dans le général (que sa somme ferait refuser
+ * ou fausserait). La taille de l'épreuve et la progression se jugent sur le
+ * serveur seulement.
+ */
+export function vraisemblable(s: ScoreEpreuve): boolean {
+  const points = Math.round(s.points);
+  const temps = Math.round(s.temps_ms);
+  const { justes, questions: q } = s;
+  return (
+    Number.isInteger(justes) &&
+    Number.isInteger(q) &&
+    q >= 1 &&
+    justes >= 0 &&
+    justes <= q &&
+    points >= justes * POINTS_JUSTE &&
+    points <= justes * POINTS_JUSTE + (q - justes) * POINTS_PROCHE_MAX &&
+    temps >= q * TEMPS_MIN_QUESTION_MS &&
+    temps <= q * TEMPS_MAX_QUESTION_MS
+  );
+}
+
 /**
  * Le score du classement général : la somme des records de toutes les
- * épreuves pour la période (décision « Classements ») ; null sans record.
+ * épreuves pour la période (décision « Classements »), sauf ceux que les
+ * règles refuseraient (vraisemblable) ; null sans record.
  */
 export function totalGeneral(records: Map<string, RecordChrono>, periode: string): ScoreEpreuve | null {
-  const choisis = [...records].filter(([k]) => (periode === 'toujours' ? !k.includes('@') : k.endsWith(`@${periode}`))).map(([, r]) => r);
+  const choisis = [...records]
+    .filter(([k]) => (periode === 'toujours' ? !k.includes('@') : k.endsWith(`@${periode}`)))
+    .map(([, r]) => r)
+    .filter(vraisemblable);
   if (!choisis.length) return null;
   return choisis.reduce(
     (t, r) => ({ points: t.points + r.points, justes: t.justes + r.justes, questions: t.questions + r.questions, temps_ms: t.temps_ms + r.temps_ms }),

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { enregistrer, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, totalGeneral, VERSION_BAREME } from '../src/epreuve/chrono';
+import { enregistrer, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, totalGeneral, VERSION_BAREME, vraisemblable } from '../src/epreuve/chrono';
 import { ECHELLES_KM } from '../src/epreuve/bareme';
 import type { Pays } from '../src/map/types';
 import { SERIE_REUNION, SERIE_TOUS, series, seriesToucher } from '../src/vues/cibles';
@@ -157,6 +157,37 @@ describe('records de la semaine et classement général', () => {
     expect(totalGeneral(r, periodeSemaine(lundi))).toEqual(score(23_300, 23, 26, 150_000));
     expect(totalGeneral(r, periodeSemaine(lundiSuivant))).toBeNull();
     expect(totalGeneral(new Map(), 'toujours')).toBeNull();
+  });
+
+  it('vraisemblable : les bornes de firestore.rules, sur les valeurs arrondies que publier() envoie', () => {
+    expect(vraisemblable(score(11_000, 11, 12, 60_000))).toBe(true);
+    // Au moins 0,2 s par question (4,8 s pour les 24 communes), 15 s au plus.
+    expect(vraisemblable(score(24_000, 24, 24, 4_800))).toBe(true);
+    expect(vraisemblable(score(24_000, 24, 24, 4_799.4))).toBe(false);
+    expect(vraisemblable(score(24_000, 24, 24, 4_799.6))).toBe(true);
+    expect(vraisemblable(score(24_000, 24, 24, 1_433))).toBe(false);
+    expect(vraisemblable(score(0, 0, 12, 180_000))).toBe(true);
+    expect(vraisemblable(score(0, 0, 12, 180_001))).toBe(false);
+    // 1 000 par juste, 500 au plus par erreur ; justes entre 0 et questions.
+    expect(vraisemblable(score(11_500, 11, 12, 60_000))).toBe(true);
+    expect(vraisemblable(score(11_501, 11, 12, 60_000))).toBe(false);
+    expect(vraisemblable(score(10_999, 11, 12, 60_000))).toBe(false);
+    expect(vraisemblable(score(13_000, 13, 12, 60_000))).toBe(false);
+    expect(vraisemblable(score(0, 0, 0, 0))).toBe(false);
+  });
+
+  it('un record que les règles refuseraient ne compte pas dans le général (sa somme ne fait pas tomber les autres)', () => {
+    const s = stockage();
+    enregistrerPartie(s, idEpreuve('South America'), score(12_000, 12, 12, 7_789), lundi);
+    // L'île jouée par le pilote sans attendre : 1,4 s pour 24 questions, sous les 4,8 s des règles.
+    enregistrerPartie(s, idEpreuve('reunion'), score(24_000, 24, 24, 1_433), lundi);
+    const r = lireRecords(s);
+    expect(totalGeneral(r, 'toujours')).toEqual(score(12_000, 12, 12, 7_789));
+    expect(totalGeneral(r, periodeSemaine(lundi))).toEqual(score(12_000, 12, 12, 7_789));
+    // Seul et refusé : pas de général du tout.
+    const seul = stockage();
+    enregistrerPartie(seul, idEpreuve('reunion'), score(24_000, 24, 24, 1_433), lundi);
+    expect(totalGeneral(lireRecords(seul), 'toujours')).toBeNull();
   });
 
   it('pseudo : 2 à 20 caractères, espaces resserrés', () => {

@@ -199,6 +199,7 @@ button.lien:hover { background: none; text-decoration: underline; }
 .chrono-places .temps { text-align: right; }
 .chrono-places .pseudo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chrono-classement-etat { margin: 6px 0 0; }
+.chrono-classement-avis { margin: 6px 0; color: var(--danger); }
 
 .essai-bilan {
   position: absolute;

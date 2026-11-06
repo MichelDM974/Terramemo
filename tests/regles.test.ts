@@ -6,6 +6,7 @@ import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestE
 import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
+import { vraisemblable } from '../src/epreuve/chrono';
 
 const hote = process.env.FIRESTORE_EMULATOR_HOST;
 const E = 'chrono:localiser:South America';
@@ -85,6 +86,26 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertFails(setDoc(place(a, 'ana', 'toujours', I), ile({ questions: 23, justes: 22, points: 22_000 })));
     await assertFails(setDoc(place(a, 'ana', 'toujours', I), ile({ questions: 25 })));
     await assertSucceeds(setDoc(place(a, 'ana', 'toujours', I), ile({ points: 23_000 })));
+  });
+
+  it('vraisemblable() du client juge comme les règles (un score qu’il écarte serait refusé, et inversement)', async () => {
+    const I = 'chrono:localiser:reunion';
+    const cas = [
+      { questions: 24, justes: 24, points: 24_000, temps_ms: 4_800 },
+      { questions: 24, justes: 24, points: 24_000, temps_ms: 4_799 },
+      { questions: 24, justes: 24, points: 24_000, temps_ms: 1_433 },
+      { questions: 24, justes: 0, points: 0, temps_ms: 360_000 },
+      { questions: 24, justes: 0, points: 0, temps_ms: 360_001 },
+      { questions: 24, justes: 23, points: 23_500, temps_ms: 120_000 },
+      { questions: 24, justes: 23, points: 23_501, temps_ms: 120_000 },
+      { questions: 24, justes: 23, points: 22_999, temps_ms: 120_000 },
+    ];
+    for (const [i, c] of cas.entries()) {
+      const uid = `j${i}`;
+      const ecrire = setDoc(place(db(uid), uid, 'toujours', I), score(c));
+      if (vraisemblable(c)) await assertSucceeds(ecrire);
+      else await assertFails(ecrire);
+    }
   });
 
   it('forme du document : champs, pseudo, date du serveur, version du barème', async () => {
