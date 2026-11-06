@@ -2,7 +2,8 @@
 // contestées et enclaves », 06/11/2026) : la carte suit les frontières de fait
 // (Natural Earth), mais un toucher dans une zone contestée est juste pour qui la
 // tient ET pour chaque pays qui la revendique (Crimée : Russie et Ukraine ;
-// Somaliland : Somalie ; Chypre du Nord : Chypre ; Sahara occidental : Maroc),
+// Somaliland : Somalie ; Chypre du Nord : Chypre ; Sahara occidental : Maroc ;
+// Taïwan : Chine ; Kosovo : Serbie, pays du paquet optionnel, réponse du 06/11),
 // et une enclave compte pour le pays qui l'entoure (Baïkonour, Guantánamo,
 // Akrotiri, Dhekelia). Préféré au de fait strict, qui prend parti.
 // Pur : tiré des données (pays.json : revendique_par ; contestees.json : dans,

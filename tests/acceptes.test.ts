@@ -106,10 +106,24 @@ describe('zones contestées : juste pour qui la tient et pour chaque revendiquan
     }
   });
 
-  it('un pays qui ne revendique rien n’y gagne rien ; Kosovo et Taïwan restent des pays du paquet optionnel', () => {
+  it('un pays qui ne revendique rien n’y gagne rien', () => {
     expect(noteEn('POL', zone('NE_B89').point).juste).toBe(false);
-    expect(acceptes.get('SRB')?.some((z) => z.zone === 'XKX')).toBeFalsy();
-    expect(acceptes.get('CHN')?.some((z) => z.zone === 'TWN')).toBeFalsy();
+  });
+
+  it.each([
+    ['TWN', 'CHN', 'JPN'], // Taïwan : juste pour la Chine, faux pour le Japon
+    ['XKX', 'SRB', 'ALB'], // Kosovo : juste pour la Serbie, faux pour l'Albanie
+  ])('%s, pays du paquet optionnel revendiqué en entier : juste pour %s comme le Somaliland pour la Somalie, faux pour %s', (id, rev, voisin) => {
+    expect(entite(id).pays).toMatchObject({ statut: 'optionnel', revendique_par: [rev] });
+    const p = entite(id).pays.point;
+    const n = noteEn(rev, p);
+    expect(n).toMatchObject({ juste: true, distance_km: 0, admis: { zone: id, tenant: id, sorte: 'contestee' } });
+    expect(n.pick?.id).toBe(id);
+    // La question sur le pays lui-même reste juste par son tracé, sans règle à dire.
+    expect(noteEn(id, p)).toMatchObject({ juste: true, via: 'trace', admis: null });
+    expect(noteEn(voisin, p).juste).toBe(false);
+    // Épreuve classée d'avant la date d'effet (acceptesEnEpreuve faux) : le de fait strict.
+    expect(noteEn(rev, p, { acceptes: false })).toMatchObject({ juste: false, admis: null });
   });
 });
 

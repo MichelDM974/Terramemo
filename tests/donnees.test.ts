@@ -170,7 +170,8 @@ describe('entités (pays.json)', () => {
         expect(v).not.toBe(p.id);
       }
     }
-    for (const p of pays) if (p.revendique_par) expect(['conteste', 'territoire'], p.id).toContain(p.statut);
+    // Taïwan et le Kosovo, pays du paquet optionnel, aussi (réponse de l'utilisateur du 06/11).
+    for (const p of pays) if (p.revendique_par) expect(['conteste', 'territoire', 'optionnel'], p.id).toContain(p.statut);
     for (const [id, par] of [
       ['NE_SOL', ['SOM']],
       ['NE_CYN', ['CYP']],
@@ -179,6 +180,8 @@ describe('entités (pays.json)', () => {
       ['NE_BRT', []],
       ['FLK', ['ARG']],
       ['GIB', ['ESP']],
+      ['TWN', ['CHN']],
+      ['XKX', ['SRB']],
     ] as const) {
       expect(parId.get(id)?.revendique_par, id).toEqual(par);
     }

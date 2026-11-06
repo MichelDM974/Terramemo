@@ -20,9 +20,9 @@ questions ne bloque le code : chacune a un défaut réversible.
    77 zones hachurées (tenant `dans`, revendiquants `revendique_par` de
    `contestees.json`, tenus à la main dans `geodata/revendications.json`
    avec leur source) et pour les entités revendiquées entières
-   (`revendique_par` de `pays.json`). Kosovo et Taïwan, pays du paquet
-   optionnel, ne sont pas des zones : ils ne comptent pas pour la Serbie ni
-   la Chine. Donetsk et Louhansk suivent Natural Earth v5.1.2 (revendiqués
+   (`revendique_par` de `pays.json`), Taïwan et le Kosovo compris (pays du
+   paquet optionnel : un toucher sur eux est juste pour la Chine et pour
+   la Serbie, « Juste (zone contestée : Taïwan) »). Donetsk et Louhansk suivent Natural Earth v5.1.2 (revendiqués
    par l'Ukraine seule, l'annexion russe de 2022 n'y est pas). Faits
    d'origine ci-dessous.* Natural Earth suit les
    frontières de fait, mais pas partout dans le même sens (toucher testé
@@ -64,26 +64,26 @@ questions ne bloque le code : chacune a un défaut réversible.
    Quatre îlots absents de la couche des pays (`dans` vide : Bassas da India,
    Matthew et Hunter, Sapodilla, Doumeira) ont leur tenant (`tenu_par`).
 
-   **À faire valider (relecture du lot 4).** Codé ainsi, en attente de
-   l'utilisateur :
-   - *Taïwan et Kosovo, exception à la règle.* Natural Earth note Taïwan
-     (`NE_B77`) « Self admin.; Claimed by China », exactement comme le
-     Somaliland (`NE_B30`, « Claimed by Somalia ») ; le Kosovo (`NE_B57`)
-     sans note. Le Somaliland compte pour la Somalie, mais Taïwan ne compte
-     pas pour la Chine ni le Kosovo pour la Serbie : ce sont des pays du
-     paquet optionnel (décision « Pays et frontières »), pas des zones. Pour
-     appliquer la règle à la lettre : `TWN: ['CHN']`, `XKX: ['SRB']` dans
-     `REVENDICATIONS` (`geodata/build.mjs`), éventuellement seulement quand
-     le paquet optionnel est désactivé. Sinon, écrire l'exception dans la
-     décision « Zones contestées et enclaves ».
+   **Relecture du lot 4.**
+   - *Taïwan et Kosovo.* *Tranché : la règle telle quelle, sans exception
+     (« Juste, règle telle quelle »), paquet optionnel activé ou non.*
+     Natural Earth note Taïwan (`NE_B77`) « Self admin.; Claimed by
+     China », exactement comme le Somaliland (`NE_B30`, « Claimed by
+     Somalia ») ; le Kosovo (`NE_B57`) sans note, revendiqué par la Serbie
+     (Constitution de 2006). Codé : `TWN: ['CHN']`, `XKX: ['SRB']` dans
+     `REVENDICATIONS` (`geodata/build.mjs`, reportés dans `pays.json`) ;
+     épreuves classées à partir du lundi 09/11/2026 0 h UTC, comme le
+     reste.
    - *Six revendications que Natural Earth ne nomme pas* (note vide), tirées
-     des connaissances des auteurs : sud du Belize → Guatemala (`NE_B51`,
-     7 984 km²), Ilemi → Kenya (`NE_B74`), Dragonja → Slovénie (`NE_B82`,
+     des connaissances des auteurs. *Gardées le 06/11/2026 (décision
+     « Zones contestées et enclaves » : juste pour chaque pays qui
+     revendique la zone) :* sud du Belize → Guatemala (`NE_B51`, 7 984
+     km²), Ilemi → Kenya (`NE_B74`), Dragonja → Slovénie (`NE_B82`,
      état du litige depuis la sentence de 2017 non vérifié), îles du Danube
      → Croatie (`NE_B95`, `NE_B96`), et surtout Sabah → Philippines
      (`NE_C04`, 38 737 km² de Malaisie justes pour les Philippines, une
-     revendication officielle mais peu active). À défaut de validation :
-     `revendique_par` vide pour ces six zones (`geodata/revendications.json`).
+     revendication officielle mais peu active), toutes avec leur source
+     dans `geodata/revendications.json`.
    - *Ceuta et Melilla* (`NE_B60`, `NE_B61`), « Geo subunit » de l'Espagne
      sans note chez Natural Earth, sont gardées à la main
      (`CONTESTEES_AJOUTEES`) et comptent pour le Maroc, comme Perejil et

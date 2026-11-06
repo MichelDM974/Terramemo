@@ -177,9 +177,9 @@ const CONTESTEES_EXCLUES = { B53: 'bande de Gaza (Palestine)', B54: 'Cisjordanie
 // (relecture du lot 4).
 const CONTESTEES_AJOUTEES = { B60: 'Ceuta', B61: 'Melilla' };
 
-// Qui revendique une entité entière (ids de pays.json), pour toute entité « conteste » et
+// Qui revendique une entité entière (ids de pays.json), pour toute entité « conteste »,
 // pour les territoires dont NE note une revendication (NOTE_BRK « Claimed by… », reprise
-// dans pays.json en note_ne). La notation (un toucher au Somaliland compte pour la
+// dans pays.json en note_ne) et pour Taïwan et le Kosovo (paquet optionnel). La notation (un toucher au Somaliland compte pour la
 // Somalie : décision « Zones contestées et enclaves ») est dans src/map/acceptes.ts. Les
 // revendications d'une partie d'entité (Crimée, Kouriles, Tromelin, Wake…) sont dans
 // geodata/revendications.json, tenu à la main, reportées dans contestees.json.
@@ -201,6 +201,10 @@ const REVENDICATIONS = {
   NE_SPI: ['ARG', 'CHL'], // frontière non tracée, les deux le revendiquent en partie
   NE_USG: ['CUB'],
   SGS: ['ARG'], // NE le note sur ses deux parties (B32, B33), pas sur l'entité
+  // Pays du paquet optionnel, revendiqués en entier (réponse de l'utilisateur du 06/11 :
+  // « juste, règle telle quelle ») : un toucher sur eux compte aussi pour le revendiquant.
+  TWN: ['CHN'], // NE v5.1.2, zone disputée NE_B77 : « Self admin.; Claimed by China »
+  XKX: ['SRB'], // NE v5.1.2, NE_B57 sans note ; la Serbie revendique le Kosovo (Constitution de 2006, préambule)
 };
 
 // Point (pastille, étiquette) pris dans le polygone le plus proche de « lieu » au lieu du

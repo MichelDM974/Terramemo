@@ -169,6 +169,9 @@ describe('séries de l’île et textes des terrains', () => {
     expect(texteAdmis(d, 'UKR', { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' })).toBe(' (zone contestée, tenue par Russie)');
     // Une entité contestée se tient elle-même dans les données : son nom.
     expect(texteAdmis(d, 'SOM', { zone: 'NE_SOL', tenant: 'NE_SOL', sorte: 'contestee' })).toBe(' (zone contestée : Somaliland)');
+    // Taïwan pour la Chine, le Kosovo pour la Serbie : de même.
+    expect(texteAdmis(d, 'CHN', { zone: 'TWN', tenant: 'TWN', sorte: 'contestee' })).toBe(' (zone contestée : Taïwan)');
+    expect(texteAdmis(d, 'SRB', { zone: 'XKX', tenant: 'XKX', sorte: 'contestee' })).toBe(' (zone contestée : Kosovo)');
     expect(texteAdmis(d, 'KAZ', { zone: 'NE_KAB', tenant: 'NE_KAB', sorte: 'enclave' })).toBe(' (enclave : Baïkonour)');
     // La cible tient la zone (une île hachurée touchée en mer) : rien à expliquer.
     expect(texteAdmis(d, 'JPN', { zone: 'NE_B29', tenant: 'JPN', sorte: 'contestee' })).toBe('');
