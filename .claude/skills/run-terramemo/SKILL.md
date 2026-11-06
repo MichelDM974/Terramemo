@@ -308,7 +308,12 @@ foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
   16 ms) compté 16 ; 'non_pris_en_charge' : repli sur
   `fin_fil_principal_ms`, signalé `REPLI` (il sous-estime : ni
   rastérisation ni présentation). `fin_fil_principal_ms` reste affiché en
-  indicatif.
+  indicatif. Verdict sur le maximum, **indicatif sur le téléphone** (décision
+  « Critère du toucher », 06/11) : un toucher injecté par DevTools est
+  horodaté à sa réception, puis le navigateur attend ~17 à 20 ms (réponse
+  mojo) avant `ForwardEmulatedTouchEvent`, attente qu'un doigt n'a pas. Le
+  critère du J0 est la médiane < 100 ms par le vrai chemin d'Android :
+  `outils/touchers_reels.py` (APK 72 ms, Chrome 80 le 06/11, canvas, 60 Hz).
 - **pays touchés justes** : `pick` de la page = pays visé.
 
 ## Chemin humain
@@ -466,6 +471,11 @@ localabstract:chrome_devtools_remote` ; APK : `…webview_devtools_remote_<pid>`
   renforcées (un îlot qui s'allume pendant le geste) ; à 0 partout depuis le
   06/11 sauf une côte de l'allégée au bord de la carte au zoom 4
   (src/map/dessin.ts) ;
+- `outils/touchers_reels.py <chrome|webview> <sortie.json> [--url …]` :
+  les touchers du pilote (vue Carte, zoom 1) par `adb shell input tap`, le
+  vrai chemin d'un doigt, et leur Event Timing lu dans la page ; verdict
+  « Critère du toucher » (médiane < 100 ms). Mesures du 06/11 :
+  `docs/mesures/j0/toucher/` (avant et après la couche du dessus) ;
 - `outils/images_video.py <video.mp4> [dossier]` : luminance de chaque image
   d'un `adb shell screenrecord` (H.264, lu par le chromium de playwright ;
   le ffmpeg de playwright ne lit pas le H.264), pour l'éclair blanc au
