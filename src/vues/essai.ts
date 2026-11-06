@@ -84,8 +84,8 @@ export interface PiloteSeance {
   connu(): void;
   /** Fin de la séance (« Terminer » ou file vide). */
   terminer(): void;
-  /** Le bilan de la séance dans `el` (« Continuer », « Carte »). */
-  bilan(el: HTMLElement, actions: { continuer(): void; carte(): void }): void;
+  /** Le bilan de la séance dans `el` (« Continuer », « Carte », « Autre série »). */
+  bilan(el: HTMLElement, actions: { continuer(): void; carte(): void; autre(): void }): void;
 }
 
 /** Ce que Toucher demande : la Révision du jour, ou Apprendre sur une série. */
@@ -406,6 +406,12 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         arreter();
         bilanAuRetour = false;
         o.versCarte?.();
+      },
+      // Comme le bilan d'une partie : les séries de Jouer (Apprendre), Entraînement pour la Révision du jour.
+      autre: () => {
+        arreter();
+        bilanAuRetour = false;
+        o.versJouer(adresse(lancement ? niveauDe(lancement, 'series') : { type: 'sujets', branche: 'entrainement' }));
       },
     });
     bilan.hidden = false;

@@ -112,7 +112,7 @@ describe('séance : du programme au journal', () => {
     // Bilan : sans points, les nouveaux, le raté et sa distance ; plus rien à faire aujourd'hui.
     p.terminer();
     const el = new El('div');
-    const actions = { continuer: vi.fn(), carte: vi.fn() };
+    const actions = { continuer: vi.fn(), carte: vi.fn(), autre: vi.fn() };
     p.bilan(el as never, actions);
     const txt = el.innerText;
     expect(txt).toContain('Révision du jour');
@@ -123,6 +123,8 @@ describe('séance : du programme au journal', () => {
     expect(el.querySelector('#seance-continuer')).toBeNull();
     el.querySelector('#seance-carte')!.click();
     expect(actions.carte).toHaveBeenCalled();
+    el.querySelector('#essai-autre')!.click();
+    expect(actions.autre).toHaveBeenCalled();
     expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 0 });
   });
 

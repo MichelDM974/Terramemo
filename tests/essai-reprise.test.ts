@@ -302,7 +302,10 @@ function piloteFactice(questions: QuestionPilotee[]) {
       const c = new El('button');
       c.id = 'seance-continuer';
       c.addEventListener('click', actions.continuer);
-      (el as unknown as El).replaceChildren(`bilan : ${recues.length} réponses`, c);
+      const a = new El('button');
+      a.id = 'essai-autre';
+      a.addEventListener('click', actions.autre);
+      (el as unknown as El).replaceChildren(`bilan : ${recues.length} réponses`, c, a);
     },
   };
   return { p, recues, connus: () => connus };
@@ -336,9 +339,10 @@ function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
   } as unknown as ContexteVue;
   const versCarte = vi.fn();
   const fabrique = { ouvrir: vi.fn(ouvrir) };
-  const vue = vueEssai(ctx, { versJouer: vi.fn(), versCarte, seances: fabrique });
+  const versJouer = vi.fn<(cible: string) => void>();
+  const vue = vueEssai(ctx, { versJouer, versCarte, seances: fabrique });
   const visible = (id: string) => !(zone.querySelector(`#${id}`) as El).hidden;
-  return { vue, zone, appels, marques, fabrique, versCarte, visible, el: (s: string) => zone.querySelector(s) as El };
+  return { vue, zone, appels, marques, fabrique, versCarte, versJouer, visible, el: (s: string) => zone.querySelector(s) as El };
 }
 
 describe('Toucher : une séance quittée puis reprise', () => {
@@ -466,6 +470,21 @@ describe('Toucher : une séance quittée puis reprise', () => {
     t.el('#essai-terminer').click();
     expect(g.recues).toHaveLength(1);
     expect(g.recues[0]!.correct).toBe(true);
+  });
+
+  it('bilan de séance, « Autre série » : Entraînement pour la Révision du jour, les séries de Jouer pour Apprendre', () => {
+    const s = monterSeance(() => piloteFactice(QUESTIONS).p);
+    s.vue.activer();
+    s.vue.reviser();
+    s.el('#essai-terminer').click();
+    s.el('#essai-bilan #essai-autre').click();
+    expect(s.versJouer).toHaveBeenLastCalledWith('jouer/entrainement');
+    expect(s.visible('essai-bilan')).toBe(false);
+    const serie = { id: 'Europe', terrain: 'monde' as const, ids: IDS5, n: 5 };
+    s.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' }, serie, {} as never, IDS5);
+    s.el('#essai-terminer').click();
+    s.el('#essai-bilan #essai-autre').click();
+    expect(s.versJouer).toHaveBeenLastCalledWith('jouer/entrainement/pays');
   });
 
   it('Apprendre refusé (grappe du jour faite) : le dire ; « Trouver » lance la série, « Réviser » la révision', () => {

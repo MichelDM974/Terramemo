@@ -162,6 +162,9 @@ export function creerSeances(o: OptionsSeances): Seances {
         const carte = creer('button', { type: 'button', class: encore ? 'secondary' : '', id: 'seance-carte' }, S.carte);
         carte.addEventListener('click', actions.carte);
         boutons.push(carte);
+        const autre = creer('button', { type: 'button', class: 'secondary', id: 'essai-autre' }, textes.toucher.autre_serie);
+        autre.addEventListener('click', actions.autre);
+        boutons.push(autre);
         el.replaceChildren(...lignes, creer('div', { class: 'essai-actions' }, ...boutons));
         el.dataset.seance = d.sorte;
       },
