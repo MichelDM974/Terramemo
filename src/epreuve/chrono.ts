@@ -96,10 +96,11 @@ export const idEpreuve = (serie: string): string => `chrono:localiser:${serie}`;
 
 /**
  * Toutes les épreuves du Chrono, celles que firestore.rules connaît
- * (tailles()) : les six continents, tous les pays et l'île. Le général d'un
- * pseudo se lit dans chacune (classement.ts, placesDuPseudo).
+ * (tailles()) : les six continents (dans l'ordre des listes de séries), tous
+ * les pays et l'île. Le général d'un pseudo se lit dans chacune
+ * (classement.ts, placesDuPseudo), l'écran des classements les liste ainsi.
  */
-export const EPREUVES: readonly string[] = ['Africa', 'Asia', 'Europe', 'North America', 'Oceania', 'South America', 'tous', 'reunion'].map(idEpreuve);
+export const EPREUVES: readonly string[] = ['Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania', 'tous', 'reunion'].map(idEpreuve);
 
 const CLE_RECORDS = 'terramemo.chrono.records';
 

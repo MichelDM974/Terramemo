@@ -289,6 +289,11 @@ body[data-terrain="reunion"] .essai-bilan {
 .essai-serie-detail { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
 .essai-serie-n { flex: none; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 
+/* Classements (🏆) : une ligne par épreuve où je suis classé, mes points en clair
+   à droite (le rang en détail sous le nom) ; « Toutes les épreuves » en lien. */
+#classement-general .essai-serie-n { color: var(--text); font-weight: 600; }
+#classements-plus { margin: 6px 10px 2px; }
+
 /* Jouer : les exercices en deux groupes (décision « Noms des modes »),
    « Entraînement » et « Classé », chacun sous un titre bien lisible (couleur du
    texte, gras, capitales espacées), sans cadre ; un filet sépare les groupes. */

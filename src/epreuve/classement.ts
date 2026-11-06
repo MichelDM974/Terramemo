@@ -147,6 +147,48 @@ function enPlace(id: string, d: Record<string, unknown>): Place {
   };
 }
 
+type Scores = ReturnType<typeof scores>;
+
+/** Le rang d'une place (1 = premier) : ceux qui ont plus de points, puis autant en moins de temps. Deux comptes. */
+async function rangDe(s: Service, col: Scores, moi: Place): Promise<number> {
+  const { fs } = s.m;
+  const [devant, egaux] = await Promise.all([
+    fs.getCount(fs.query(col, fs.where('points', '>', moi.points))),
+    fs.getCount(fs.query(col, fs.where('points', '==', moi.points), fs.where('temps_ms', '<', moi.temps_ms))),
+  ]);
+  return devant.data().count + egaux.data().count + 1;
+}
+
+/** Ma place dans un classement : la place, son rang et le nombre de joueurs classés. */
+export interface MaPlace {
+  epreuve: string;
+  place: Place;
+  rang: number;
+  joueurs: number;
+}
+
+/**
+ * Les places de mon pseudo pour une période : le général puis chaque épreuve
+ * (ordre de EPREUVES), seulement celles où il est classé. Coût : 9 lectures,
+ * plus 3 par place (deux comptes pour le rang, un pour le nombre de joueurs).
+ */
+export async function mesPlaces(periode: string, pseudo: string): Promise<MaPlace[]> {
+  const s = await charger();
+  const { fs } = s.m;
+  const cle = clePseudo(pseudo);
+  const lues = await Promise.all(
+    [GENERAL, ...EPREUVES].map(async (epreuve): Promise<MaPlace | null> => {
+      const col = scores(s, epreuve, periode);
+      const d = await fs.getDoc(fs.doc(col, cle));
+      if (!d.exists()) return null;
+      const place = enPlace(d.id, d.data());
+      const [rang, total] = await Promise.all([rangDe(s, col, place), fs.getCount(col)]);
+      return { epreuve, place, rang, joueurs: total.data().count };
+    }),
+  );
+  return lues.filter((x): x is MaPlace => x !== null);
+}
+
 /**
  * Les `n` premiers d'un classement, la place de mon pseudo et son rang (sans
  * pseudo : les premiers seuls). Coût : n lectures, plus 1 pour le nombre de
@@ -168,9 +210,5 @@ export async function lireTableau(epreuve: string, periode: string, pseudo: stri
   const mien = await fs.getDoc(fs.doc(col, cle));
   if (!mien.exists()) return { places, moi: null, rang: null, joueurs: total.data().count };
   const moi = enPlace(mien.id, mien.data());
-  const [devant, egaux] = await Promise.all([
-    fs.getCount(fs.query(col, fs.where('points', '>', moi.points))),
-    fs.getCount(fs.query(col, fs.where('points', '==', moi.points), fs.where('temps_ms', '<', moi.temps_ms))),
-  ]);
-  return { places, moi, rang: devant.data().count + egaux.data().count + 1, joueurs: total.data().count };
+  return { places, moi, rang: await rangDe(s, col, moi), joueurs: total.data().count };
 }

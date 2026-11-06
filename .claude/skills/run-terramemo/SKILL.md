@@ -82,7 +82,7 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   exercices), `16-recherche` (« sain » : pays et communes mêlés),
   `17-recherche-pays` (le Vatican à Entrée : vol, anneau),
   `18-recherche-commune` (Saint-Denis au doigt : la carte de l'île, puis
-  « Monde » ramène au monde), `19-classement` (🏆, « Retour » à la carte).
+  « Monde » ramène au monde), `19-classement` (🏆 : mes places par épreuve, « Retour » à la carte).
   Faites après l'île : le premier usage de la recherche demande
   `/geo/reunion/noms.fr.json`, que `10-reunion` veut absent avant son choix.
   `DÉFAUT : …` et code 1 si l'en-tête du téléphone dépasse une ligne (64 px),

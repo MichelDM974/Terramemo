@@ -127,10 +127,16 @@ export function avisPublication(p: Publication): string {
 
 /**
  * Le bloc d'un classement (une épreuve, ou GENERAL). `apresPartie` publie la
- * partie qui vient de finir avant de lire le classement, si le pseudo existe.
+ * partie qui vient de finir avant de lire le classement, si le pseudo existe ;
+ * `periodeInitiale` : 'semaine' pour ouvrir sur la semaine.
  */
-export function blocClassement(epreuve: string, titre: string, apresPartie?: (pseudo: string) => Promise<Publication>): HTMLElement {
-  let periode = 'toujours';
+export function blocClassement(
+  epreuve: string,
+  titre: string,
+  apresPartie?: (pseudo: string) => Promise<Publication>,
+  periodeInitiale: 'toujours' | 'semaine' = 'toujours',
+): HTMLElement {
+  let periode: string = periodeInitiale;
   const boutons = (
     [
       ['toujours', T.toujours],

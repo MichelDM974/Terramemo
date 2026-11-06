@@ -1164,7 +1164,7 @@ def ui_entete(p, capturer, defauts, telephone):
     p.pause(200)
     if p.js("window.terramemo.terrain()") != "monde":
         defauts.append("« Monde » ne ramène pas au monde")
-    # Le classement général (🏆), puis « Retour » à la carte.
+    # Les classements (🏆 : mes places, le général et chaque épreuve), puis « Retour » à la carte.
     cliquer(p, "#classement-btn")
     attendre_visible(p, "#classement-general")
     p.pause(1500)  # le classement se lit en ligne (indisponible sans émulateurs : dit tel quel)
