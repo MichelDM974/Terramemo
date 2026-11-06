@@ -934,11 +934,12 @@ def jouer_partie(page, mode, serie):
 
 
 def ui_credits(p, capturer, defauts):
-    """Captures 6b et 6c (J1a) : l'écran Crédits ouvert par « Crédits et
-    licences » de ⚙ (popup ouverte en entrant), en haut puis en bas, et
-    « Retour » qui ramène à la carte. DÉFAUT s'il manque une donnée, une
-    bibliothèque, la police, la date de l'IGN, ou si « Retour » ne ramène
-    pas à la carte."""
+    """Captures 6b à 6d (J1a, #20) : l'écran Crédits ouvert par « Crédits et
+    licences » de ⚙ (popup ouverte en entrant), en haut puis en bas, les
+    textes des licences dépliés, et « Retour » qui ramène à la carte. DÉFAUT
+    s'il manque une donnée, une bibliothèque (AndroidX compris), la police,
+    la date de l'IGN, si les textes des licences ne viennent pas, ou si
+    « Retour » ne ramène pas à la carte."""
     cliquer(p, "#lien-credits")
     attendre_visible(p, "#vue-credits")
     p.pause(400)
@@ -951,7 +952,7 @@ def ui_credits(p, capturer, defauts):
     texte_credits = texte(p, "#vue-credits")
     attendus = ["Natural Earth", "Domaine public", "Unicode CLDR", "Unicode License v3", "ADMIN\u00a0EXPRESS",
                 "Licence\u00a0Ouverte\u00a02.0", "à jour au", "ts-fsrs", "d3-geo", "topojson-client", "earcut",
-                "firebase", "@capacitor/core", "Inter", "SIL Open Font License 1.1"]
+                "firebase", "@capacitor/core", "AndroidX", "Apache Cordova", "Inter", "SIL Open Font License 1.1"]
     manque = [m for m in attendus if m not in texte_credits]
     dire(f"  Crédits : vue {vue!r}, {len(texte_credits)} caractères, manque {manque}")
     if vue != "credits" or manque:
@@ -962,6 +963,20 @@ def ui_credits(p, capturer, defauts):
     p.js("document.getElementById('vue-credits').scrollTop = 1e6")
     p.pause(300)
     capturer("6c-credits-bas")
+    # Les textes des licences (#20), dépliés : téléchargés à l'ouverture (licences-tierces.txt).
+    cliquer(p, "#credits-licences summary")
+    fin = time.monotonic() + 8
+    while "END OF TERMS AND CONDITIONS" not in texte(p, "#credits-licences-texte") and time.monotonic() < fin:
+        p.pause(200)
+    lu = texte(p, "#credits-licences-texte")
+    manque = [m for m in ("ts-fsrs", "Charles Karney", "org.apache.cordova:framework", "Apache Cordova\nCopyright",
+                          "END OF TERMS AND CONDITIONS") if m not in lu]
+    dire(f"  Crédits, textes des licences : {len(lu)} caractères, manque {manque}")
+    if manque:
+        defauts.append(f"textes des licences : {len(lu)} caractères, manque {manque} ({lu[:80]!r})")
+    p.js("document.getElementById('credits-licences').scrollIntoView()")
+    p.pause(300)
+    capturer("6d-credits-licences")
     cliquer(p, "#credits-retour")
     p.pause(400)
     if p.js("document.body.dataset.vue") != "carte":
@@ -2921,7 +2936,9 @@ def commande_apk(args):
         dire(f"attention : pas de clé ({SIGNATURE} absent) : APK signé par la clé de débogage, "
              "installation refusée")
     debut = time.monotonic()
+    # Après cap sync, le relevé des bibliothèques Android (#20) : le fichier des licences du build les liste.
     for cmd, dossier in ((["npm", "run", "build"], RACINE), (["npx", "cap", "sync", "android"], RACINE),
+                         (["node", "licences/android.mjs", "--verifier"], RACINE),
                          (["./gradlew", "assembleDebug"], RACINE / "android")):
         dire(f"$ {' '.join(cmd)}")
         if subprocess.run(cmd, cwd=dossier, env=env).returncode:

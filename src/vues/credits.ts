@@ -2,8 +2,12 @@
 // « écran Crédits ») : les données (Natural Earth, Unicode CLDR, IGN ADMIN
 // EXPRESS, avec la date de mise à jour de l'IGN lue dans son sources.json),
 // les bibliothèques que le site et l'APK embarquent (vérifiées sur le build :
-// les outils de développement n'y sont pas) et la police, chacune avec sa
-// licence et son auteur. Les versions des dépendances directes viennent de
+// les outils de développement n'y sont pas), celles de l'APK seul (AndroidX,
+// Kotlin…) et la police, chacune avec sa licence et son auteur ; puis, dépliés
+// à la demande, les textes des licences et les avis de copyright (#20 :
+// licences-tierces.txt, produit au build par licences/tierces.ts). Dépliés sur
+// place plutôt qu'un lien vers le fichier : dans l'APK, on ne quitte pas
+// l'appli (choix du 06/11). Les versions des dépendances directes viennent de
 // package.json, pour ne pas vieillir. Textes : textes.fr.json (credits).
 import { dependencies } from '../../package.json';
 import { dateCredit, type SourcesTerrain } from '../map/donnees-terrain';
@@ -13,6 +17,8 @@ import { remplir, textes } from './textes';
 
 const T = textes.credits;
 const VERSIONS: Readonly<Record<string, string>> = dependencies;
+/** Le fichier des licences tierces, à la racine (FICHIER_LICENCES de licences/tierces.ts, lu par Node seul). */
+export const URL_LICENCES = '/licences-tierces.txt';
 
 interface Credit {
   nom: string | HTMLElement;
@@ -66,6 +72,25 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void }): Vue {
       });
   };
 
+  // Les textes des licences (~27 ko), téléchargés à la première ouverture du dépliant ; un échec se retente à la suivante.
+  const texteLicences = creer('pre', { class: 'credits-licences-texte', id: 'credits-licences-texte' }, T.licences_chargement);
+  const licences = creer('details', { class: 'credits-licences', id: 'credits-licences' }, creer('summary', {}, T.licences_resume), texteLicences);
+  let licencesLues = false;
+  licences.addEventListener('toggle', () => {
+    if (!licences.open || licencesLues) return;
+    licencesLues = true;
+    texteLicences.textContent = T.licences_chargement;
+    fetch(URL_LICENCES)
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+      .then((t) => {
+        texteLicences.textContent = t;
+      })
+      .catch(() => {
+        licencesLues = false;
+        texteLicences.textContent = T.licences_erreur;
+      });
+  });
+
   const retour = creer('button', { type: 'button', class: 'secondary', id: 'credits-retour' }, T.retour);
   retour.addEventListener('click', () => o.retour());
   const section = creer(
@@ -85,6 +110,10 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void }): Vue {
         { class: 'credits-liste', id: 'credits-bibliotheques' },
         ...T.bibliotheques.map((b) => ligne({ ...b, nom: nomsInsecables(b.paquets) }, { id: b.paquets.join(' ') })),
       ),
+      creer('h3', {}, T.android_titre),
+      creer('p', { class: 'hint' }, T.android_aide),
+      creer('ul', { class: 'credits-liste', id: 'credits-android' }, ...T.android.map((a) => ligne(a, { id: a.groupes.join(' ') }))),
+      licences,
       creer('h3', {}, T.police_titre),
       creer('ul', { class: 'credits-liste', id: 'credits-police' }, ligne(T.police)),
       creer('div', { class: 'essai-actions' }, retour),

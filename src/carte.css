@@ -558,6 +558,22 @@ body[data-vue="credits"] .panneau-mesures { display: none; }
 .credits-paquet { white-space: nowrap; }
 .credits-detail { margin: 0; font-size: 0.85rem; }
 .credits-detail a { color: var(--accent); }
+/* Textes des licences (#20) : un dépliant en lien du contenu, le texte brut
+   dessous, séparé d'un filet (pas de cadre dans le panneau), en chasse fixe
+   pour les bannières des NOTICE ; il fait défiler la vue, sans ascenseur à lui. */
+.credits-licences { margin: 14px 0 0; }
+.credits-licences summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; padding: 6px 0; }
+.credits-licences-texte {
+  margin: 8px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
 
 /* --- Réglages (⚙) --- */
 .reglage { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; }

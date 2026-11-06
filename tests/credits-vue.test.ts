@@ -7,7 +7,9 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { nomPaquets, vueCredits } from '../src/vues/credits';
+import { artefacts } from '../licences/android.mjs';
+import { AVIS_ANDROID, artefactsAndroid, FICHIER_LICENCES, ligneAndroid, texteLicence, texteLicences } from '../licences/tierces';
+import { nomPaquets, URL_LICENCES, vueCredits } from '../src/vues/credits';
 import { textes } from '../src/vues/textes';
 import { installerDom, type El } from './dom-factice';
 
@@ -57,9 +59,19 @@ function ouvrir(): El {
   return zone.querySelector('#vue-credits')!;
 }
 
+/** Ce que rend le fetch factice pour le fichier des licences : le texte, ou un échec (hors ligne). */
+let licencesServies: string | null = 'TEXTES DES LICENCES';
+
 beforeEach(() => {
   installerDom();
-  fetch = vi.fn(async () => ({ ok: true, json: async () => JSON.parse(readFileSync('public/geo/reunion/sources.json', 'utf8')) }));
+  licencesServies = 'TEXTES DES LICENCES';
+  fetch = vi.fn(async (url: string) =>
+    url === URL_LICENCES
+      ? licencesServies === null
+        ? Promise.reject(new TypeError('Failed to fetch'))
+        : { ok: true, text: async () => licencesServies }
+      : { ok: true, json: async () => JSON.parse(readFileSync('public/geo/reunion/sources.json', 'utf8')) },
+  );
   vi.stubGlobal('fetch', fetch);
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -125,3 +137,111 @@ describe('écran Crédits', () => {
     expect(popup).toContain('id="credits-donnees"');
   });
 });
+
+describe('licences tierces (#20)', () => {
+  const version = (p: string) => (JSON.parse(readFileSync(`node_modules/${p}/package.json`, 'utf8')) as { version: string }).version;
+  let fichier = '';
+  beforeAll(() => {
+    fichier = readFileSync(join(sortie, FICHIER_LICENCES), 'utf8');
+  });
+
+  it('le build sert le fichier à la racine, celui de texteLicences(), à l’adresse que l’écran demande', () => {
+    expect(URL_LICENCES).toBe(`/${FICHIER_LICENCES}`);
+    expect(fichier).toBe(texteLicences());
+    expect(fichier.startsWith(T.fichier_titre)).toBe(true);
+  });
+
+  it('chaque paquet embarqué (et celui de l’APK) avec sa version et le texte entier de son LICENSE ; Firebase, sans LICENSE, renvoie au texte d’Apache', () => {
+    for (const p of [...embarques, ...HORS_SITE]) {
+      expect(fichier, p).toContain(`${p} ${version(p)}`);
+      const texte = texteLicence(`node_modules/${p}`);
+      if (texte) expect(fichier, p).toContain(texte);
+      else expect(licence(p), p).toBe('Apache-2.0');
+    }
+    expect(texteLicence('node_modules/firebase')).toBeNull();
+    expect(fichier).toContain(`firebase ${version('firebase')} (et ses paquets @firebase/*)\nLicence\u202f: Apache-2.0`);
+    // Les avis que le test des Crédits exigeait à l'écran sont dans les textes : GeographicLib, Robert Penner.
+    expect(fichier).toContain('Copyright 2008-2012 Charles Karney');
+    expect(fichier).toContain('Copyright 2001 Robert Penner');
+    // Un exemplaire par texte : les d3 sous la licence de Mike Bostock ne la répètent pas
+    // (elle ne revient qu'à l'intérieur d'un autre texte, celui de d3-geo, qui la complète de GeographicLib).
+    const isc = texteLicence('node_modules/d3-zoom')!;
+    const textes = new Set([...embarques, ...HORS_SITE].map((p) => texteLicence(`node_modules/${p}`)).filter((t) => t?.includes(isc)));
+    expect(textes.size).toBe(2);
+    expect(fichier.split(isc).length - 1).toBe(textes.size);
+  });
+
+  it('le texte d’Apache 2.0 une fois, en fin de fichier', () => {
+    const apache = readFileSync('licences/apache-2.0.txt', 'utf8').trimEnd();
+    expect(apache).toContain('Apache License');
+    expect(apache).toContain('END OF TERMS AND CONDITIONS');
+    expect(fichier.split(apache).length - 1).toBe(1);
+    expect(fichier.trimEnd().endsWith(apache)).toBe(true);
+  });
+
+  it('chaque bibliothèque Android relevée, sous une seule ligne des Crédits, avec les avis (NOTICE) de Cordova et de Kotlin', () => {
+    const liste = artefactsAndroid();
+    expect(liste).toContain('org.apache.cordova:framework:14.0.1');
+    expect(liste.some((a) => a.startsWith('androidx.webkit:webkit:'))).toBe(true);
+    for (const a of liste) {
+      const lignes = T.android.filter((l) => ligneAndroid(a, [l]) === 0);
+      expect([a, lignes.length]).toEqual([a, 1]);
+      expect(fichier).toContain(`\n${a}\n`);
+    }
+    // Chaque ligne couvre au moins un artefact, toutes sous Apache-2.0 (texte en fin de fichier).
+    for (const [i, l] of T.android.entries()) {
+      expect([l.nom, liste.some((a) => ligneAndroid(a) === i)]).toEqual([l.nom, true]);
+      expect(l.licence).toBe('Apache-2.0');
+    }
+    for (const f of Object.values(AVIS_ANDROID)) expect(fichier).toContain(readFileSync(`licences/${f}`, 'utf8').trimEnd());
+    expect(fichier).toContain('Apache Cordova\nCopyright 2015-2020 The Apache Software Foundation');
+  });
+
+  it('le relevé de Gradle : artefacts résolus, sans contrainte, BOM ni projet', () => {
+    const arbre = [
+      '+--- androidx.appcompat:appcompat:1.7.1',
+      '|    +--- androidx.core:core:1.13.0 -> 1.17.0 (*)',
+      '|    +--- org.jetbrains.kotlin:kotlin-stdlib -> 2.0.21 (*)',
+      '|    +--- org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.8.1',
+      '|    \\--- androidx.appcompat:appcompat-resources:1.7.1 (c)',
+      '+--- project :capacitor-android',
+      '|    +--- androidx.core:core:1.17.0 (*)',
+    ].join('\n');
+    expect(artefacts(arbre)).toEqual(['androidx.appcompat:appcompat:1.7.1', 'androidx.core:core:1.17.0', 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21']);
+  });
+
+  it('l’écran : les bibliothèques de l’APK, puis les textes dépliés à la demande, téléchargés une fois ; un échec se retente', async () => {
+    const v = ouvrir();
+    const android = v.querySelectorAll('#credits-android li');
+    expect(android.length).toBe(T.android.length);
+    expect(v.querySelector('li[data-credit="androidx.*"]')!.innerText).toContain('Apache-2.0');
+    const details = v.querySelector('#credits-licences') as El & { open?: boolean };
+    const texte = v.querySelector('#credits-licences-texte')!;
+    expect(details.querySelector('summary')!.textContent).toBe(T.licences_resume);
+    const lus = () => fetch.mock.calls.filter(([u]) => u === URL_LICENCES).length;
+    // Fermé : rien n'est demandé.
+    details.emettre('toggle');
+    expect(lus()).toBe(0);
+    // Hors ligne : le message, puis un nouvel essai à la réouverture.
+    licencesServies = null;
+    details.open = true;
+    details.emettre('toggle');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(texte.textContent).toBe(T.licences_erreur);
+    licencesServies = 'MIT License\nCopyright (c) Exemple';
+    details.open = false;
+    details.emettre('toggle');
+    details.open = true;
+    details.emettre('toggle');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(texte.textContent).toBe('MIT License\nCopyright (c) Exemple');
+    expect(lus()).toBe(2);
+    // Lus : refermer et rouvrir ne les redemande pas.
+    details.open = false;
+    details.emettre('toggle');
+    details.open = true;
+    details.emettre('toggle');
+    expect(lus()).toBe(2);
+  });
+});
+

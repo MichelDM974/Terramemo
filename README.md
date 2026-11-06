@@ -89,4 +89,9 @@ npm run build        # site statique dans dist/ (servi par Firebase Hosting)
   détail des sources est dans `public/geo/sources.json` et
   `public/geo/reunion/sources.json`. L'écran Crédits de l'appli (⚙ ›
   Crédits et licences) les reprend, avec les bibliothèques que le site
-  embarque et leurs licences (MIT, ISC, BSD-3-Clause, Apache-2.0, 0BSD).
+  et l'APK embarquent et leurs licences (MIT, ISC, BSD-3-Clause,
+  Apache-2.0, 0BSD), dont il déplie les textes et avis de copyright :
+  `licences-tierces.txt`, produit à chaque build (`licences/tierces.ts`).
+  Les bibliothèques Android y viennent de `licences/android.json`, relevé
+  par Gradle : `npm run licences:android` (JDK 21) après une mise à jour de
+  Capacitor ou d'AndroidX, que la CI Android et `driver.py apk` vérifient.

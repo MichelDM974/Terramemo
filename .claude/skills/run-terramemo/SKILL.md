@@ -69,7 +69,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   seulement « cachés »), `2-pays-touche` (Suisse), `3-toucher-faux` et
   `4-toucher-juste` (l'Essai J0, lancé depuis ⚙ : `#reglage-essai
   [data-mode=localiser]`), `5-saisie` (« sai » dans le champ réglé),
-  `6-reglages` (⚙, avec l'Essai J0), `6b-credits` et `6c-credits-bas`
+  `6-reglages` (⚙, avec l'Essai J0), `6b-credits`, `6c-credits-bas` et
+  `6d-credits-licences` (#20 : textes des licences dépliés, lus en entier)
   (`ui_credits` : l'écran Crédits par « Crédits et licences » de ⚙, en
   haut puis en bas ; `DÉFAUT` s'il manque une donnée, une bibliothèque,
   la police ou la date de l'IGN, ou si « Retour » ne ramène pas à la
@@ -706,7 +707,7 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
 ## APK
 
 ```bash
-python3 .claude/skills/run-terramemo/driver.py apk                # npm run build, npx cap sync android, gradlew assembleDebug
+python3 .claude/skills/run-terramemo/driver.py apk                # npm run build, npx cap sync android, relevé Android vérifié, gradlew assembleDebug
 python3 .claude/skills/run-terramemo/driver.py apk --installer    # puis adb install -r
 ```
 
@@ -878,3 +879,5 @@ arbre propre (`git status`).
 | `aucune page dans la WebView` | APK de release (pas de DevTools) ou appli fermée : `apk --installer`. |
 | Mesure du téléphone figée, `pas de réponse du navigateur` | Écran éteint ou verrouillé : `adb shell svc power stayon usb`, déverrouiller. |
 | Gradle : `JAVA_COMPILER` ou SDK introuvable | Passer par `driver.py apk` (JDK 21, `ANDROID_HOME`). |
+| `licences/android.json périmé` (`apk`, CI Android) | Capacitor ou AndroidX a changé ses bibliothèques : `npm run licences:android`, puis `npm test` (un nouveau groupe Maven va sous une ligne de `credits.android`, sa licence vérifiée). |
+| Build : `… n'est sous aucune ligne de textes.credits.android` | Même cause : ranger le groupe sous une ligne de `credits.android` (`textes.fr.json`), après avoir vérifié sa licence. |

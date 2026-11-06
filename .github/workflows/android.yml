@@ -41,6 +41,11 @@ jobs:
       - name: Construire le site et le copier dans android/
         run: npm run build && npx cap sync android
 
+      # Le fichier des licences tierces (#20) liste les bibliothèques Android de
+      # licences/android.json : le relevé doit être celui de Gradle.
+      - name: Bibliothèques Android relevées à jour (licences/android.json)
+        run: node licences/android.mjs --verifier
+
       - name: Clé de signature (secrets du dépôt)
         env:
           JKS_B64: ${{ secrets.TERRAMEMO_KEYSTORE_B64 }}

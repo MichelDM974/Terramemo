@@ -348,6 +348,58 @@
         "auteur": "© Drifty Co. (Ionic)"
       }
     ],
+    "android_titre": "Dans l'appli Android",
+    "android_aide": "Bibliothèques de l'APK seulement, embarquées par Capacitor.",
+    "android": [
+      {
+        "nom": "AndroidX (Jetpack)",
+        "groupes": [
+          "androidx.*"
+        ],
+        "detail": "Interface et WebView de l'appli",
+        "licence": "Apache-2.0",
+        "auteur": "© The Android Open Source Project"
+      },
+      {
+        "nom": "Kotlin, kotlinx.coroutines",
+        "groupes": [
+          "org.jetbrains.kotlin",
+          "org.jetbrains.kotlinx"
+        ],
+        "detail": "Embarquées par AndroidX",
+        "licence": "Apache-2.0",
+        "auteur": "© JetBrains s.r.o. et les contributeurs de Kotlin"
+      },
+      {
+        "nom": "Apache Cordova",
+        "groupes": [
+          "org.apache.cordova"
+        ],
+        "detail": "Compatibilité des greffons, embarquée par Capacitor",
+        "licence": "Apache-2.0",
+        "auteur": "© The Apache Software Foundation"
+      },
+      {
+        "nom": "JSpecify, JetBrains Annotations, ListenableFuture",
+        "groupes": [
+          "org.jspecify",
+          "org.jetbrains",
+          "com.google.guava"
+        ],
+        "detail": "Annotations, embarquées par AndroidX",
+        "licence": "Apache-2.0",
+        "auteur": "© The JSpecify Authors, © JetBrains s.r.o., © The Guava Authors"
+      }
+    ],
+    "licences_resume": "Textes des licences et avis de copyright",
+    "licences_chargement": "Chargement…",
+    "licences_erreur": "Textes indisponibles (hors ligne ?) : refermer puis rouvrir pour réessayer.",
+    "fichier_titre": "Terramemo : licences des bibliothèques tierces",
+    "fichier_intro": "Le site et l'appli Android embarquent ces bibliothèques. Pour chacune : sa version, sa licence et son texte, avec les avis de copyright de ses auteurs. Les données et la police ont leurs licences dans l'écran Crédits.",
+    "fichier_android": "Dans l'appli Android seulement",
+    "fichier_apache": "Texte de la licence Apache 2.0, commun aux bibliothèques qui la citent",
+    "fichier_voir_apache": "texte en fin de fichier",
+    "fichier_avis": "Avis (NOTICE)",
     "police_titre": "Police",
     "police": {
       "nom": "Inter",
