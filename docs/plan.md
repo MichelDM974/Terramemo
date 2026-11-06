@@ -10,6 +10,9 @@ avant le J1a ; conception `docs/etudes/2026-11-06-reunion.md`.
 
 Conception du J1a (06/11/2026, #2) : `docs/etudes/2026-11-06-j1a-conception.md`
 (décisions en attente au § 12, faits chiffrés dans `docs/questions-j1a.md`).
+Le 06/11 (décision « Comptes ») : la synchro Firestore des séances passe du J1a
+au J1b, avec la relecture sur un autre appareil, la page de confidentialité et
+la suppression des données ; au J1a, les progrès restent sur l'appareil.
 
 ## Choix de l'utilisateur (04/11/2026)
 

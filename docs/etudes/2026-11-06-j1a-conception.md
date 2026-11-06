@@ -364,6 +364,11 @@ classement »).
 
 ## 8. Synchro Firestore
 
+**Reportée au J1b le 06/11** (décision « Comptes ») : sans relecture sur un
+autre appareil, un envoi n'aurait aucun lecteur, et l'identifiant anonyme se
+perd avec l'appareil. La conception ci-dessous sert au J1b (#3, #13), avec la
+page de confidentialité et la suppression des données.
+
 **Module** : `charger()` et `compte()` sortent de
 `src/epreuve/classement.ts` vers `src/sync/firebase.ts` (exporte `uid()`) ;
 le classement l'importe sans changer de comportement.
@@ -501,8 +506,11 @@ table vide en première vague (code mort, conflits avec 5a).
 disques en séance ») : D2 a, D1 c (carte retournée), Q1 B et Q2 B (épreuves
 à partir du lundi 09/11, D13 a), Q4 B (cadrage de la grappe, étendu au
 premier QCM), Q5 2 000 km², Q3 A (mesurer d'abord). Codées dans les lots
-5a, 4 et 5b ; D3 à D7 et D11 gardent leur défaut. Restent ouvertes : D8,
-D9, D14, D15 (synchro, clé de l'APK) et D12 (lot 7).
+5a, 4 et 5b ; D3 à D7 et D11 gardent leur défaut. Puis, le 06/11 : D14 a (clé
+unique, décision « Signature de l'APK »), synchro au J1b (D8, D9, D15 passent
+au J1b, décision « Comptes »), un budget de grappe par sorte de lieu (pays,
+communes), Taïwan et Kosovo dans la règle des zones. Reste ouverte : D12
+(App Check, service worker).
 
 Rangées par ce qu'elles bloquent. Chaque réponse se note au registre ; une
 réponse qui contredit une décision actée la **remplace** (`noter_decision`,
