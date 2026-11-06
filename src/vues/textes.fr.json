@@ -53,8 +53,8 @@
       }
     },
     "exercices": {
-      "localiser": "Touche sur la carte le lieu demandé.",
-      "nommer": "Un lieu s'allume : choisis son nom parmi quatre.",
+      "localiser": "Touche sur la carte le lieu demandé",
+      "nommer": "Un lieu s'allume : choisis son nom parmi quatre",
       "chrono": "{s} s par question, un seul toucher",
       "sansfaute": "{s} s par question, jusqu'à la première erreur",
       "minute": "Le plus de justes en {s} s"
