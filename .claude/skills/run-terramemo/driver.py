@@ -992,7 +992,9 @@ def panneau_jouer(p, defauts, quoi):
     """Le panneau de Jouer tient dans l'écran (rien ne déborde, 560 px au
     plus), ses gros boutons font 48 px au moins, « ‹ » et « × » 44 px, et
     aucun n'est en bleu plein (le bleu reste au bouton Jouer de l'en-tête) ;
-    aucune série « essai ». Ajoute à `defauts` ce qui manque."""
+    aucune série « essai » ; aucun nom coupé au milieu d'un mot (un .jouer-nom
+    sur plus de lignes qu'il n'a de mots : « Entraînemen / t » à 320 px, que
+    le contrôle du débordement ne voit pas). Ajoute à `defauts` ce qui manque."""
     m = p.js("""(() => { const p = document.getElementById('jouer-panneau'), r = p.getBoundingClientRect(),
         accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
         sonde = document.createElement('i'); sonde.style.color = accent; document.body.append(sonde);
@@ -1005,7 +1007,11 @@ def panneau_jouer(p, defauts, quoi):
                  petits: els.filter(e => e.cls.includes('jouer-bouton') && e.h < 48).map(e => `${e.t} (${Math.round(e.h)} px)`),
                  icones: els.filter(e => e.cls.includes('jouer-icone') && (e.h < 44 || e.w < 44)).map(e => e.t),
                  bleus: els.filter(e => e.fond === bleu).map(e => e.t),
-                 essai: !!p.querySelector('[data-serie="essai"]') || p.innerText.includes('Essai J0') }; })()""")
+                 essai: !!p.querySelector('[data-serie="essai"]') || p.innerText.includes('Essai J0'),
+                 coupes: [...p.querySelectorAll('.jouer-nom')].filter(e => {
+                     const g = document.createRange(); g.selectNodeContents(e);
+                     const lignes = new Set([...g.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top))).size;
+                     return lignes > e.textContent.trim().split(/\\s+/).length; }).map(e => e.textContent.trim()) }; })()""")
     if m["large"] or m["hors"] or m["l"] < 0 or m["r"] > m["largeur"] or m["haut"] < 0:
         defauts.append(f"{quoi} : le panneau de Jouer déborde ({m['l']:.0f}–{m['r']:.0f} sur {m['largeur']}, en haut à {m['haut']:.0f}) ; hors du panneau : {m['hors']}")
     if m["w"] > 561:
@@ -1018,6 +1024,8 @@ def panneau_jouer(p, defauts, quoi):
         defauts.append(f"{quoi} : bouton bleu dans Jouer : {m['bleus']}")
     if m["essai"]:
         defauts.append(f"{quoi} : une série « essai » dans Jouer")
+    if m["coupes"]:
+        defauts.append(f"{quoi} : nom coupé au milieu d'un mot dans Jouer : {m['coupes']}")
 
 
 def ui_jouer(p, capturer, defauts):

@@ -26,7 +26,7 @@ import {
   type ModeJeu,
   type Niveau,
 } from './arbre';
-import { nomSerie, type Serie } from './cibles';
+import { nomSerie, SERIE_TOUS, type Serie } from './cibles';
 import { avecTerrain, creer, type ContexteVue, type Vue } from './commun';
 import { scoreCourt, secondesMode } from './scores';
 import { remplir, textes } from './textes';
@@ -127,21 +127,22 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     haut.addEventListener('click', () => o.remonter(adresse(parent)));
     // Le fil : chaque choix mène à son niveau (lien) ; ceux qui mènent ici sont
     // du texte, le dernier en clair, un choix dont le niveau suivant est sauté
-    // (Communes) discret comme les liens.
+    // (Communes) discret comme les liens. Chaque « › » colle au nom qui le suit
+    // (.jouer-fil-pas) : un fil qui passe à la ligne n'en laisse pas en bout de ligne.
     const choix = arbre.fil(n);
-    const fil: (HTMLElement | string)[] = [];
+    const fil: HTMLElement[] = [];
     for (const c of choix) {
       const a = adresse(c.niveau);
-      if (fil.length) fil.push(creer('span', { class: 'jouer-fil-sep', 'aria-hidden': 'true' }, '›'));
-      if (a === rendue) fil.push(creer('span', { class: c === choix.at(-1) ? 'jouer-fil-ici' : 'jouer-fil-saute' }, c.nom));
+      let nom: HTMLElement;
+      if (a === rendue) nom = creer('span', { class: c === choix.at(-1) ? 'jouer-fil-ici' : 'jouer-fil-saute' }, c.nom);
       else {
-        const lien = creer('a', { href: versAncre(a) }, c.nom);
-        lien.addEventListener('click', (ev) => {
+        nom = creer('a', { href: versAncre(a) }, c.nom);
+        nom.addEventListener('click', (ev) => {
           (ev as Event).preventDefault?.();
           o.remonter(a);
         });
-        fil.push(lien);
       }
+      fil.push(fil.length ? creer('span', { class: 'jouer-fil-pas' }, creer('span', { class: 'jouer-fil-sep', 'aria-hidden': 'true' }, '›'), nom) : nom);
     }
     const titre = creer('h2', { class: 'jouer-fil', 'aria-label': `${J.fil} : ${choix.map((c) => c.nom).join(', ')}` }, ...fil);
     const regles = n.type === 'exercices' ? arbre.modes(n.branche, n.sujet).filter((m) => regleExercice(m)) : [];
@@ -164,7 +165,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     return [creer('div', { class: 'jouer-tete' }, haut, titre, aide, fermer), texte];
   }
 
-  /** Les boutons d'un niveau de choix, en grille (deux colonnes ; le premier sur toute la largeur s'ils sont en nombre impair). */
+  /** Les boutons d'un niveau de choix, en grille à deux colonnes (la série « tous » d'un sujet, .jouer-large, sur toute la largeur). */
   const grille = (boutons: HTMLButtonElement[]) => creer('div', { class: 'jouer-grille' }, ...boutons);
 
   function corps(n: Niveau, statut: HTMLElement): HTMLElement[] {
@@ -199,7 +200,12 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
         grille(
           arbre
             .series(n.sujet)
-            .map((s) => choisir(bouton({ 'data-serie': s.id }, nomSerie(s.id), remplir(textes.terrains[s.terrain].n, { n: s.n })), s.id)),
+            .map((s) =>
+              choisir(
+                bouton({ 'data-serie': s.id, ...(s.id === SERIE_TOUS ? { class: 'jouer-large' } : {}) }, nomSerie(s.id), remplir(textes.terrains[s.terrain].n, { n: s.n })),
+                s.id,
+              ),
+            ),
         ),
       ];
     // Les exercices, en dernier : une ligne pleine largeur chacun, son record dans la série à droite.

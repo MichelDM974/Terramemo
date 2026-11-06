@@ -244,11 +244,29 @@ body[data-terrain="reunion"] .essai-bilan {
   box-shadow: 0 8px 24px var(--shadow);
 }
 /* En-tête : « ‹ » (un niveau plus haut), le titre ou le fil d'Ariane, « ? »
-   (règles des épreuves), « × » ; « ‹ » et « × » de 44 px (cibles du doigt). */
-.jouer-tete { display: flex; align-items: center; gap: 2px; margin: 0 -8px 6px; min-height: 44px; }
+   (règles des épreuves), « × » ; « ‹ » et « × » de 44 px (cibles du doigt).
+   Collé en haut du panneau quand il défile (règles ouvertes à 320 × 568) :
+   « ? » et « × » restent à portée. top: -8px, le padding du haut du panneau ;
+   fond opaque (--panel) jusqu'aux bords du panneau (marges négatives) : le
+   contenu qui passe dessous ne se lit pas au travers. */
+.jouer-tete {
+  position: sticky;
+  top: -8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: -8px -14px 6px;
+  padding: 8px 6px 0;
+  min-height: 44px;
+  background: var(--panel);
+}
 .jouer-tete h2 { flex: 1; min-width: 0; margin: 0; padding: 0 6px; font-size: 1.02rem; font-weight: 600; }
 .jouer-tete h2:first-child { padding-left: 8px; }
 .jouer-icone {
+  /* Au-dessus des halos (« ? », liens du fil) qui débordent sur eux. */
+  position: relative;
+  z-index: 1;
   width: 44px;
   height: 44px;
   flex: none;
@@ -265,13 +283,21 @@ body[data-terrain="reunion"] .essai-bilan {
 }
 .jouer-icone:hover { background: var(--panel-2); color: var(--text); }
 /* Le fil : les choix d'avant en liens discrets (chacun mène à son niveau), celui
-   d'ici en texte ; il passe à la ligne plutôt que de déborder (320 px). */
-.jouer-fil { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; }
-.jouer-fil a, .jouer-fil-saute { display: inline-flex; align-items: center; min-height: 32px; color: var(--muted); font-weight: 500; text-decoration: none; }
+   d'ici en texte ; il passe à la ligne plutôt que de déborder (320 px), en
+   lignes serrées (line-height), chaque « › » avec le nom qui le suit. Les liens
+   portent leur cible à 44 px par un halo de 12 px au-dessus et au-dessous, que
+   le padding du fil (12 px) garde dans l'en-tête : un fil d'une ligne y fait
+   juste 44 px. */
+.jouer-tete h2.jouer-fil { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; padding-block: 12px; line-height: 1.25; }
+.jouer-fil-pas { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.jouer-fil a, .jouer-fil-saute { color: var(--muted); font-weight: 500; text-decoration: none; }
+.jouer-fil a { position: relative; }
+.jouer-fil a::after { content: ""; position: absolute; inset: -12px 0; }
 .jouer-fil a:hover { color: var(--text); text-decoration: underline; }
 .jouer-fil-sep { color: var(--muted); font-weight: 400; }
 .jouer-fil-ici { color: var(--text); }
-/* « ? » : le motif du style commun (20 px), sa cible portée à 44 px par un halo invisible. */
+/* « ? » : le motif du style commun (20 px), sa cible portée à 44 px par un halo
+   invisible, qui mord de 4 px sur « × » : celui-ci passe au-dessus (.jouer-icone). */
 .jouer-tete .help-btn { position: relative; flex: none; margin: 0 6px; vertical-align: 0; }
 .jouer-tete .help-btn::after { content: ""; position: absolute; inset: -12px; }
 .jouer-panneau .help-text { margin: -2px 0 10px; }
@@ -300,17 +326,23 @@ body[data-terrain="reunion"] .essai-bilan {
 .jouer-bouton:hover { background-image: linear-gradient(var(--row-hover), var(--row-hover)); border-color: var(--border-2); }
 .jouer-bouton[aria-current="true"] { background-color: var(--accent-soft); }
 .jouer-bouton:disabled { color: var(--muted); }
-.jouer-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+/* Un mot trop long pour sa colonne se coupe à une syllabe, avec un tiret (lang="fr"), jamais au milieu. */
+.jouer-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: break-word; hyphens: auto; }
 .jouer-detail { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
 .jouer-record { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
 .jouer-record-nom { color: var(--muted); font-size: 0.72rem; font-weight: 400; }
-/* Entraînement et Classé : plus hauts. */
+/* Entraînement et Classé : plus hauts. Sous 340 px (320 : 107 px de texte par
+   colonne), un peu plus petits pour qu'« Entraînement » tienne sur une ligne. */
 .jouer-branche { min-height: 64px; font-size: 1.02rem; }
+@media (max-width: 340px) {
+  .jouer-branche { font-size: 0.92rem; padding-inline: 10px; }
+}
 /* Deux colonnes, même à 320 px : « Amérique du Nord » y passe sur deux lignes, et
    les sept séries tiennent sans faire défiler le panneau (une colonne l'aurait
-   fait à 320 × 568). En nombre impair, le premier (Tous les pays) prend la largeur. */
+   fait à 320 × 568). Seule la série « tous » d'un sujet (Tous les pays) prend la
+   largeur, marquée par jouer.ts : un troisième sujet (Drapeaux) ne la prendra pas. */
 .jouer-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.jouer-grille > :first-child:nth-last-child(odd) { grid-column: 1 / -1; }
+.jouer-grille > .jouer-large { grid-column: 1 / -1; }
 /* Les exercices, et « Rejouer » : une ligne pleine largeur chacun. */
 .jouer-lignes { display: flex; flex-direction: column; gap: 8px; }
 #jouer-rejouer { margin-bottom: 8px; }

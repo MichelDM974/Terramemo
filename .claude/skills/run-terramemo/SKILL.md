@@ -125,7 +125,9 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   si une série « essai » s'y montre, si le retour arrière, « ‹ », une
   adresse invalide ou « × » mènent ailleurs, et si le panneau de Jouer
   déborde (320 px compris), passe 560 px, a un bouton sous 48 px (« ‹ » et
-  « × » sous 44) ou un bouton en bleu plein (`panneau_jouer`). **Regarder les captures.** Les records des épreuves vivent dans
+  « × » sous 44), un bouton en bleu plein ou un nom coupé au milieu d'un
+  mot (`panneau_jouer` ; « Entraînemen / t » à 320 px ne déborde pas : seul
+  ce contrôle le voit, `ui --width 320` pour l'exercer). **Regarder les captures.** Les records des épreuves vivent dans
   le `localStorage` : le profil neuf du driver repart sans record.
 - `--rendu` (ui) : rendu de la carte du monde (sans : celui de la page,
   canvas) ; l'île est toujours en SVG, au-dessus du monde en canvas.
