@@ -592,20 +592,21 @@ export class CarteCanvas implements CarteAffichee {
       return;
     }
     this.enMouvement = true;
-    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX));
+    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX, true));
   }
 
   /**
    * La vue qui met le point d'un pays au centre de l × h (h : la partie
    * visible), son plus grand polygone sur un quart de l'écran ; entier (ce
    * polygone tient à l'écran) si demandé, pour montrer() : le cadrage du SVG
-   * (viserVue).
+   * (viserVue), sans la borne verticale, que zoom.transform n'applique pas non
+   * plus en SVG.
    */
   private vise(id: string, kMax: number, hVisible = this.c.h, entier = false): VueGlobe | null {
     const e = this.o.donnees.entites.find((en) => en.pays.id === id);
     if (!e) return null;
     const anneau = entier ? anneauPrincipal(e.forme, e.pays.point) : null;
-    return viserVue(this.c, e.pays.point, tailleEcranPx(e.pays, this.c.s, 1), kMax, hVisible, anneau);
+    return viserVue(this.c, e.pays.point, tailleEcranPx(e.pays, this.c.s, 1), kMax, hVisible, anneau, entier);
   }
 
   /**

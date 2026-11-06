@@ -165,14 +165,15 @@ function partDe(ctx: ContexteCarte, id: string): number {
 describe('CarteCanvas : montrer() de Nommer cadre comme le SVG (#16)', () => {
   const europe = donnees.entites.filter((e) => e.pays.continent === 'Europe' && e.pays.statut === 'jouable').map((e) => e.pays.id);
 
-  // Hors de la liste : l'Argentine (53 %) et l'Australie (79 %), trop au sud
-  // pour monter au-dessus de la barre : le bas de l'ovale ne quitte pas le bas
-  // de l'écran (bornerY ; translateExtent de la sphère en SVG, la même borne).
-  it('au-dessus de la barre, le polygone principal entier : au moins 90 % de lui (Europe, Chili, Norvège, Russie, Indonésie…)', () => {
+  // L'Argentine et l'Australie, très au sud, ne montent au-dessus de la barre
+  // que si le bas de l'ovale quitte le bas de l'écran : comme en SVG, où
+  // zoom.transform n'applique pas translateExtent, le vol ignore la borne
+  // verticale (bornée, l'Argentine n'était visible qu'à 53 %, l'Australie à 79 %).
+  it('au-dessus de la barre, le polygone principal entier : au moins 90 % de lui (Europe, Chili, Norvège, Argentine, Australie…)', () => {
     expect(europe.length).toBeGreaterThan(40);
     const c = carte();
     const rates: string[] = [];
-    for (const id of [...europe, 'CHL', 'NOR', 'RUS', 'IDN', 'NZL', 'JPN', 'VNM']) {
+    for (const id of [...europe, 'CHL', 'NOR', 'RUS', 'IDN', 'NZL', 'JPN', 'VNM', 'ARG', 'AUS', 'ZAF']) {
       c.montrer(id, HV);
       jouer(0, 2100);
       const part = partDe(c.contexte(), id);
