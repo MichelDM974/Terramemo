@@ -82,14 +82,21 @@ export function pick(ctx: ContexteCarte, x: number, y: number): ResultatPick | n
   }
   const p = pastilleLaPlusProche(ctx.pastilles, ctx.t, x, y);
   if (p) return { id: p.id, via: 'pastille', distance_px: p.distance_px };
+  for (const [sx, sy, r] of sondes(x, y)) {
+    const voisin = sousLePoint(ctx, sx, sy);
+    if (voisin) return { id: voisin.pays.id, via: 'proche', distance_px: r };
+  }
+  return null;
+}
+
+/** Les points des sondes autour de (x, y), dans l'ordre où pick() les essaie : [x, y, rayon]. */
+function* sondes(x: number, y: number): Generator<[number, number, number]> {
   for (const r of SONDES_PROCHE.rayons_px) {
     for (let i = 0; i < SONDES_PROCHE.directions; i++) {
       const a = (2 * Math.PI * i) / SONDES_PROCHE.directions;
-      const voisin = sousLePoint(ctx, x + r * Math.cos(a), y + r * Math.sin(a));
-      if (voisin) return { id: voisin.pays.id, via: 'proche', distance_px: r };
+      yield [x + r * Math.cos(a), y + r * Math.sin(a), r];
     }
   }
-  return null;
 }
 
 export interface Note {
@@ -153,6 +160,21 @@ export function noter(ctx: ContexteCarte, cible: string, x: number, y: number, o
   // à moins de 12 px (sonde), comme pour la cible elle-même.
   const z = p ? zones.find((zo) => zo.entite && zo.zone === p.id) : undefined;
   if (z && p) return { juste: true, via: p.via, distance_km: 0, admis: admis(z), ...base };
+  // En mer (rien sous le doigt ni disque), une zone hachurée admise que la
+  // première sonde touche compte comme la côte du tenant (relecture du lot 4) :
+  // une île des Kouriles à 3 px du doigt au zoom 8, que pick désigne « proche »
+  // pour la Russie, est juste aussi pour le Japon, Mayotte pour les Comores.
+  // Mêmes sondes, même ordre : à chaque point, la zone d'abord, puis le tracé
+  // d'un autre pays, qui arrête (c'est lui que la carte désigne).
+  if (zones.length > 0 && (!p || p.via === 'proche')) {
+    for (const [sx, sy] of sondes(x, y)) {
+      const lls = versLonLat(ctx.proj, ctx.t, sx, sy);
+      if (!lls) continue;
+      const zs = zones.find((zo) => !zo.entite && contient(zo.forme, zo.bbox, lls));
+      if (zs) return { juste: true, via: 'proche', distance_km: 0, admis: admis(zs), ...base };
+      if (ctx.entites.some((en) => contient(en.forme, en.pays.bbox, lls))) break;
+    }
+  }
   let distance_km: number | null = null;
   if (ll) {
     distance_km = distanceAuBordKm(e.forme, ll);

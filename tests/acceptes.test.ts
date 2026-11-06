@@ -152,6 +152,30 @@ describe('hors des zones admises', () => {
     expect(noter(ctx, 'SOM', x, y)).toMatchObject({ juste: true, via: 'proche', admis: { zone: 'NE_SOL' } });
   });
 
+  it('île hachurée touchée en mer près de sa côte : juste pour le revendiquant dès qu’elle l’est pour le tenant (Kouriles, Mayotte)', () => {
+    const cas: [string, string, string, number, number][] = [
+      ['NE_B29', 'RUS', 'JPN', 8, 3], // Kouriles du Sud, zoom 8, doigt à 3 px
+      ['NE_B22', 'FRA', 'COM', 40, 4], // Mayotte, zoom 40, doigt à 4 px
+    ];
+    for (const [id, tenant, rev, k, d] of cas) {
+      const { ctx, x, y } = au(zone(id).point, k);
+      let justes = 0;
+      for (let i = 0; i < 8; i++) {
+        const a = (2 * Math.PI * i) / 8;
+        const [xx, yy] = [x + d * Math.cos(a), y + d * Math.sin(a)];
+        const t = noter(ctx, tenant, xx, yy);
+        const r = noter(ctx, rev, xx, yy);
+        if (t.juste) expect(r.juste, `${id} ${rev} direction ${i}`).toBe(true);
+        if (r.juste) justes++;
+        if (r.juste && r.via === 'proche') expect(r.admis).toMatchObject({ zone: id, tenant, sorte: 'contestee' });
+      }
+      expect(justes, id).toBeGreaterThanOrEqual(6);
+      // Loin de toute côte (40 px), faux, et le de fait strict ne doit rien à la sonde.
+      expect(noter(ctx, rev, x + 40, y + 40).juste).toBe(false);
+      expect(noter(ctx, rev, x + d, y, { acceptes: false }).juste).toBe(false);
+    }
+  });
+
   it('sans ctx.acceptes (tests, terrains locaux), le de fait strict', () => {
     const { ctx, x, y } = au(zone('NE_B89').point);
     expect(noter({ ...ctx, acceptes: undefined }, 'UKR', x, y).juste).toBe(false);
