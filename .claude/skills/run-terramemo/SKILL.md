@@ -339,7 +339,9 @@ python3 .claude/skills/run-terramemo/driver.py mesurer --cible webview --rendu c
 
 - `chrome` : `adb forward tcp:8061 localabstract:chrome_devtools_remote`
   (Chrome lancé par `am start` si le socket manque), onglet neuf par
-  `PUT /json/new`, page servie par le PC via `adb reverse tcp:8060
+  `PUT /json/new`, à défaut `Target.createTarget` sur le WebSocket du
+  navigateur (Chrome 156 de l'A37 répond 500 « Could not create new
+  page » au PUT), page servie par le PC via `adb reverse tcp:8060
   tcp:8060` (`http://localhost:8060` est un contexte sûr sur le
   téléphone). `--url https://terramemo-geo.web.app/` mesure le site
   déployé (sans reverse). L'onglet est fermé et les redirections adb
