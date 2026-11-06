@@ -247,12 +247,19 @@
       },
       {
         "paquets": [
-          "d3-geo",
+          "d3-geo"
+        ],
+        "detail": "Projection de la carte, avec du code dérivé de GeographicLib (MIT)",
+        "licence": "ISC",
+        "auteur": "© Mike Bostock, © 2008-2012 Charles Karney"
+      },
+      {
+        "paquets": [
           "d3-selection",
           "d3-transition",
           "d3-zoom"
         ],
-        "detail": "Projection de la carte, zoom et vols",
+        "detail": "Zoom et vols",
         "licence": "ISC",
         "auteur": "© Mike Bostock"
       },

@@ -69,6 +69,10 @@ describe('écran Crédits', () => {
     expect(fsrs).toContain(`ts-fsrs ${pkg.dependencies['ts-fsrs']}`);
     expect(fsrs).toContain('MIT');
     expect(v.querySelector('li[data-credit="firebase"]')!.innerText).toContain('Apache-2.0');
+    // d3-geo embarque du code dérivé de GeographicLib (MIT, Charles Karney), avis présent dans son LICENSE.
+    expect(readFileSync('node_modules/d3-geo/LICENSE', 'utf8')).toContain('Charles Karney');
+    const geo = v.querySelector('li[data-credit="d3-geo"]')!.innerText;
+    for (const m of ['ISC', 'Mike Bostock', 'Charles Karney', 'GeographicLib (MIT)']) expect(geo).toContain(m);
     expect(nomPaquets(['d3-geo', 'd3-array'])).toBe(`d3-geo ${pkg.dependencies['d3-geo']}, d3-array`);
   });
 
