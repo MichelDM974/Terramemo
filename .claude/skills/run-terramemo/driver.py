@@ -53,6 +53,11 @@ URL_DEFAUT = f"http://localhost:{PORT}/"
 APPID = "io.github.micheldm974.terramemo"
 ADB = pathlib.Path.home() / "Android/Sdk/platform-tools/adb"
 JAVA_HOME = "/usr/lib/jvm/java-21-openjdk-amd64"
+# Clé de signature unique de l'APK (décision « Signature de l'APK ») : jamais dans le
+# dépôt ; son certificat (public) est vérifié avant toute installation, car un APK signé
+# autrement ne peut remplacer l'appli qu'en la désinstallant, journal et compte compris.
+SIGNATURE = pathlib.Path.home() / "Sauvegardes/terramemo/cle-apk/cle.properties"
+EMPREINTE_APK = "4F9CD6CEBAC6D2202F03BB03F6FB09F8EE69DA8CC956C03B3590302D7A98B8CB"  # SHA-256 du certificat
 APK = RACINE / "android/app/build/outputs/apk/debug/app-debug.apk"
 FICHIERS_GEO = ("monde.topo.json", "pays.json", "contestees.json", "noms.fr.json", "sources.json")
 # La Réunion (#15) : chargée au choix de la série seulement, jamais au premier
@@ -2798,9 +2803,27 @@ def commande_resumer(args):
 
 # --- apk ---------------------------------------------------------------
 
+def empreinte_apk(apk, env):
+    """SHA-256 du certificat qui signe l'APK (apksigner du SDK), en hexadécimal majuscule."""
+    outils = sorted((pathlib.Path(env["ANDROID_HOME"]) / "build-tools").glob("*/apksigner"))
+    if not outils:
+        raise RuntimeError("apksigner introuvable dans $ANDROID_HOME/build-tools")
+    r = subprocess.run([str(outils[-1]), "verify", "--print-certs", str(apk)], env=env,
+                       capture_output=True, text=True)
+    m = re.search(r"certificate SHA-256 digest: ([0-9a-fA-F]{64})", r.stdout)
+    if r.returncode or not m:
+        raise RuntimeError(f"signature illisible : {(r.stderr or r.stdout).strip()[:300]}")
+    return m.group(1).upper()
+
+
 def commande_apk(args):
     env = dict(os.environ, JAVA_HOME=JAVA_HOME)
     env.setdefault("ANDROID_HOME", str(pathlib.Path.home() / "Android/Sdk"))
+    if "TERRAMEMO_SIGNATURE" not in env and SIGNATURE.exists():
+        env["TERRAMEMO_SIGNATURE"] = str(SIGNATURE)
+    if "TERRAMEMO_SIGNATURE" not in env:
+        dire(f"attention : pas de clé ({SIGNATURE} absent) : APK signé par la clé de débogage, "
+             "installation refusée")
     debut = time.monotonic()
     for cmd, dossier in ((["npm", "run", "build"], RACINE), (["npx", "cap", "sync", "android"], RACINE),
                          (["./gradlew", "assembleDebug"], RACINE / "android")):
@@ -2809,7 +2832,18 @@ def commande_apk(args):
             dire(f"ECHEC : {' '.join(cmd)}")
             return 1
     dire(f"APK : {APK} ({APK.stat().st_size / 1e6:.2f} Mo) en {time.monotonic() - debut:.0f} s")
+    try:
+        empreinte = empreinte_apk(APK, env)
+    except RuntimeError as e:
+        dire(f"ECHEC : {e}")
+        return 1
+    stable = empreinte == EMPREINTE_APK
+    dire(f"signature : {'clé stable' if stable else 'AUTRE clé'} (SHA-256 {empreinte[:16]}…)")
     if args.installer:
+        if not stable:
+            dire("ECHEC : APK non signé par la clé stable : l'installer exigerait de désinstaller "
+                 "l'appli (journal et compte perdus). Clé : " + str(SIGNATURE))
+            return 1
         try:
             adb_appareil(args.serie)
             dire(adb(args.serie, "install", "-r", str(APK), delai=300).strip())

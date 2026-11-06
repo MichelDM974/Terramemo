@@ -1,5 +1,21 @@
 apply plugin: 'com.android.application'
 
+// Clé de signature unique (décision « Signature de l'APK », 06/11/2026) : tous les
+// APK, du PC comme de la CI, sont signés par elle, pour qu'une mise à jour n'impose
+// jamais de désinstaller (ce qui effacerait le journal et le compte de l'appareil).
+// Elle n'est jamais dans le dépôt : TERRAMEMO_SIGNATURE donne le chemin d'un fichier
+// de propriétés (storeFile, storePassword, keyAlias, keyPassword), posé par le driver
+// (copie de ~/Sauvegardes/terramemo/cle-apk/) ou par la CI (secrets du dépôt).
+// Sans elle, la clé de débogage de la machine : le driver refuse alors d'installer.
+def signature = null
+def cheminSignature = System.getenv('TERRAMEMO_SIGNATURE')
+if (cheminSignature) {
+    def f = file(cheminSignature)
+    if (!f.exists()) throw new GradleException("TERRAMEMO_SIGNATURE : ${cheminSignature} introuvable")
+    signature = new Properties()
+    f.withInputStream { signature.load(it) }
+}
+
 android {
     namespace = "io.github.micheldm974.terramemo"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +32,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (signature) {
+            stable {
+                storeFile file(signature['storeFile'])
+                storePassword signature['storePassword']
+                keyAlias signature['keyAlias']
+                keyPassword signature['keyPassword']
+            }
+        }
+    }
     buildTypes {
+        // L'APK de l'utilisateur est le « debug » (WebView inspectable par le pilote), signé par la clé stable.
+        debug {
+            if (signature) signingConfig signingConfigs.stable
+        }
         release {
+            if (signature) signingConfig signingConfigs.stable
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

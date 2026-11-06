@@ -705,6 +705,24 @@ APK : `android/app/build/outputs/apk/debug/app-debug.apk`. Le driver met
 `sdk.dir=/home/delhomme/Android/Sdk`). En CI : `.github/workflows/android.yml`
 (à la demande ou sur tag `v*`, APK en artefact).
 
+**Signature** (décision « Signature de l'APK », 06/11) : une seule clé signe
+tous les APK, le « debug » compris (WebView inspectable, signé par elle). Elle
+n'est jamais dans le dépôt : `~/Sauvegardes/terramemo/cle-apk/` (`terramemo.jks`,
+`cle.properties`, droits 600). Le driver passe ce fichier à Gradle par
+`TERRAMEMO_SIGNATURE` (`android/app/build.gradle`, `signingConfigs.stable`),
+puis vérifie le certificat de l'APK (`apksigner`, `EMPREINTE_APK` du driver,
+SHA-256 `4F9CD6CE…98B8CB`) et **refuse `--installer`** si ce n'est pas la clé
+stable : un APK signé autrement ne remplace l'appli qu'après une
+désinstallation, qui efface le journal (IndexedDB) et le compte anonyme. La CI
+lit les secrets `TERRAMEMO_KEYSTORE_B64` (le `.jks` en base64) et
+`TERRAMEMO_KEYSTORE_PASSWORD` (magasin et clé, alias `terramemo`), échoue s'ils
+manquent et vérifie le même certificat. Les poser (depuis `Terramemo/`) :
+`base64 -w0 ~/Sauvegardes/terramemo/cle-apk/terramemo.jks | gh secret set
+TERRAMEMO_KEYSTORE_B64` puis `grep ^storePassword= ~/Sauvegardes/terramemo/cle-apk/cle.properties
+| cut -d= -f2 | tr -d '\n' | gh secret set TERRAMEMO_KEYSTORE_PASSWORD`. Clé
+perdue = plus de mise à jour sans désinstaller : garder la copie de
+`~/Sauvegardes` ailleurs que sur ce PC.
+
 ## Données de La Réunion
 
 `npm run geodata:reunion` (`geodata/reunion.mjs`, à part de `build.mjs`)

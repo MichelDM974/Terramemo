@@ -9,3 +9,8 @@ android/.gradle/
 coverage/
 __pycache__/
 firestore-debug.log
+
+# Clé de signature de l'APK : jamais dans le dépôt (décision « Signature de l'APK »)
+*.jks
+*.keystore
+signature.properties

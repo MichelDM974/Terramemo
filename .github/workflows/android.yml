@@ -1,9 +1,12 @@
 name: Android
 
-# APK de débogage du site emballé par Capacitor. Seulement à la demande ou sur un tag
-# « v* », jamais à chaque push : toute modification du site change l'APK, et ce job
-# coûterait des minutes Actions à chaque commit (plan, « Technique »). La signature de
-# release et la release « android » viendront au J1a.
+# APK du site emballé par Capacitor. Seulement à la demande ou sur un tag « v* »,
+# jamais à chaque push : toute modification du site change l'APK, et ce job coûterait
+# des minutes Actions à chaque commit (plan, « Technique »). Signé par la clé unique
+# du projet (décision « Signature de l'APK ») : secrets TERRAMEMO_KEYSTORE_B64 (le .jks
+# en base64) et TERRAMEMO_KEYSTORE_PASSWORD (mot de passe du magasin et de la clé,
+# alias « terramemo ») ; sans eux, le job échoue plutôt que de produire un APK signé
+# autrement, qui ne pourrait remplacer l'appli installée qu'en effaçant ses données.
 on:
   workflow_dispatch:
   push:
@@ -38,13 +41,35 @@ jobs:
       - name: Construire le site et le copier dans android/
         run: npm run build && npx cap sync android
 
-      - name: Compiler l'APK de débogage
+      - name: Clé de signature (secrets du dépôt)
+        env:
+          JKS_B64: ${{ secrets.TERRAMEMO_KEYSTORE_B64 }}
+          JKS_MDP: ${{ secrets.TERRAMEMO_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$JKS_B64" ] || [ -z "$JKS_MDP" ]; then
+            echo "::error::secrets TERRAMEMO_KEYSTORE_B64 et TERRAMEMO_KEYSTORE_PASSWORD absents (décision « Signature de l'APK »)"
+            exit 1
+          fi
+          echo "$JKS_B64" | base64 -d > "$RUNNER_TEMP/terramemo.jks"
+          umask 077
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=terramemo\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/terramemo.jks" "$JKS_MDP" "$JKS_MDP" > "$RUNNER_TEMP/signature.properties"
+          echo "TERRAMEMO_SIGNATURE=$RUNNER_TEMP/signature.properties" >> "$GITHUB_ENV"
+
+      - name: Compiler l'APK (débogage inspectable, signé par la clé stable)
         working-directory: android
         run: ./gradlew assembleDebug
 
+      # Le certificat attendu (public) : un APK signé autrement ne doit jamais sortir.
+      - name: Vérifier la signature
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk \
+            | grep -qi "certificate SHA-256 digest: 4f9cd6cebac6d2202f03bb03f6fb09f8ee69da8cc956c03b3590302d7a98b8cb"
+
       - uses: actions/upload-artifact@v7
         with:
-          name: terramemo-debug-${{ github.sha }}
+          name: terramemo-${{ github.sha }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
