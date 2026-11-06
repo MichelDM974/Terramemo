@@ -1,6 +1,6 @@
-// Vue du Chrono (src/vues/chrono.ts) sur un DOM factice : quitter la vue
-// pendant une partie (#16, défaut 3). La carte, les mesures et le bloc du
-// classement sont remplacés ; chaque toucher est juste.
+// Vue du Chrono (src/vues/chrono.ts) sur un DOM factice : quitter la vue, ou
+// toucher « Abandonner », pendant une partie (#16, défaut 3). La carte, les
+// mesures et le bloc du classement sont remplacés ; chaque toucher est juste.
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
@@ -83,6 +83,35 @@ describe('Chrono : quitter la vue', () => {
     v.activer();
     expect(zone.querySelector('#chrono-depart')?.hidden).toBe(false);
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(true);
+  });
+
+  it('« Abandonner » pendant la pause qui suit la dernière réponse : la partie va au bilan, au lieu d’être jetée', () => {
+    const { v, zone } = jouerJusquaLaDerniere();
+    expect(zone.querySelector('#barre-chrono')?.hidden).toBe(false); // le bouton est encore à portée
+    zone.querySelector('#chrono-abandonner')?.click();
+    expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
+    expect(zone.querySelector('#chrono-depart')?.hidden).toBe(true);
+    expect(zone.querySelector('#chrono-bilan')?.innerText).toContain('12 000');
+    expect(lireRecords(localStorage).get(idEpreuve('South America'))?.points).toBe(12_000);
+    expect(blocClassement).toHaveBeenCalledWith(idEpreuve('South America'), expect.any(String), expect.any(Function));
+    // La fin de la pause ne repose rien : le bilan reste.
+    vi.advanceTimersByTime(5_000);
+    expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
+    v.desactiver();
+  });
+
+  it('« Abandonner » avec une question encore à poser : la partie est abandonnée', () => {
+    const { ctx, zone } = contexte();
+    const v = vueChrono(ctx);
+    v.activer();
+    zone.querySelector('#chrono-depart .essai-serie[data-serie="South America"]')?.click();
+    vi.advanceTimersByTime(100);
+    v.toucher?.(0, 0, {} as PointerEvent);
+    zone.querySelector('#chrono-abandonner')?.click();
+    expect(zone.querySelector('#chrono-depart')?.hidden).toBe(false);
+    expect(zone.querySelector('#chrono-depart .chrono-statut')?.textContent).toBe(textes.chrono.abandon);
+    expect(lireRecords(localStorage).size).toBe(0);
+    expect(blocClassement).not.toHaveBeenCalled();
   });
 
   it('une question encore à poser : la partie quittée reste abandonnée', () => {

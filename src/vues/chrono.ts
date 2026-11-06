@@ -2,8 +2,9 @@
 // série dans le désordre, 15 s par question, un seul toucher ; 1 000 points si
 // juste, jusqu'à 500 selon la distance sinon (src/epreuve/bareme.ts). Record
 // gardé sur l'appareil, classement en ligne par épreuve et général. Quitter la
-// vue pendant une partie l'abandonne : le temps ne se met pas en pause ; la
-// quitter après la dernière réponse (sa rétroaction) la finit, bilan au retour.
+// vue pendant une partie l'abandonne : le temps ne se met pas en pause. Après la
+// dernière réponse (sa rétroaction), la quitter la finit (bilan au retour), et
+// « Abandonner » aussi.
 // La Réunion est une série de plus : sa carte remplace le monde, notée à 5 km.
 import { DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE } from '../epreuve/bareme';
 import { enregistrerPartie, idEpreuve, lireRecords, PartieChrono, type QuestionJouee } from '../epreuve/chrono';
@@ -282,7 +283,9 @@ export function vueChrono(ctx: ContexteVue): Vue {
     bilan.hidden = false;
   }
 
-  abandonner.addEventListener('click', () => afficherDepart(T.abandon));
+  // La dernière réponse donnée (pause de sa rétroaction) : il n'y a plus rien
+  // à abandonner, la partie va au bilan comme à la fin de la pause.
+  abandonner.addEventListener('click', () => (partie?.finie ? finir() : afficherDepart(T.abandon)));
 
   // Classement général : la somme des records de toutes les séries.
   general.addEventListener('click', () => {
