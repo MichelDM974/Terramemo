@@ -1102,7 +1102,7 @@ def ui_jouer(p, capturer, defauts):
     cliquer(p, '#jouer-panneau [data-sujet="communes"]')
     p.pause(200)
     dire(f"  Entraînement › Communes : {ou()}, {lire('data-mode')}, fil {texte(p, '#jouer-panneau .jouer-fil')!r}")
-    if ou() != ["#jouer/entrainement/communes/reunion", "exercices"] or lire("data-mode") != ["localiser", "nommer"]:
+    if ou() != ["#jouer/entrainement/communes/reunion", "exercices"] or lire("data-mode") != ["apprendre", "localiser", "nommer"]:
         defauts.append(f"Communes ne saute pas la série : {ou()}, {lire('data-mode')}")
     panneau_jouer(p, defauts, "Entraînement › Communes")
     capturer("15e-entrainement-communes")
@@ -1539,6 +1539,8 @@ COMPTER_JOURNAL = """new Promise(async ok => {
 # Une requête vers Firestore ou l'Auth de Firebase (la séance n'envoie rien au J1a).
 MOTIF_FIREBASE = re.compile(r"firestore\.googleapis|identitytoolkit|securetoken|firebaseinstallations|googleapis\.com/google\.firestore")
 PAUSE_AVANT_TOUCHER_MS = 400  # consigne : jamais un toucher sans 0,4 s d'attente
+# Zones teintées par la carte de la mémoire, monde et île (0 hors de l'accueil).
+TEINTES_POSEES = "(window.terramemo.carte.teintes() + (window.terramemo.ile ? window.terramemo.ile.teintes() : 0))"
 
 
 def seance_question(p):
@@ -1570,9 +1572,10 @@ def position_visible(p, ident, barre="#barre-essai"):
     barre) : sa position (pastille ou point d'étiquette) si elle y est, sinon
     le premier point d'une grille de 10 px où pick() le désigne (la Russie
     cadrée avec l'Europe de l'Est : son point d'étiquette, en Sibérie, est
-    hors de l'écran) ; None s'il n'est pas à l'écran."""
+    hors de l'écran) ; None s'il n'est pas à l'écran. Sur l'île (communes),
+    la carte de l'île."""
     return p.js(f"""(() => {{
-      const c = window.terramemo.carte, r = c.rect();
+      const c = window.terramemo.terrain() === 'reunion' ? window.terramemo.ile : window.terramemo.carte, r = c.rect();
       const b = document.querySelector({json.dumps(barre)});
       const bas = b && !b.hidden ? b.getBoundingClientRect().top : r.y + r.hauteur;
       const dans = q => q && q.x >= r.x && q.x <= r.x + r.largeur && q.y >= r.y && q.y <= bas;
@@ -1615,12 +1618,18 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
         forme, cible = q
         if forme in (None, "bilan"):
             break
+        # La carte de la question : celle de l'île pour les communes (bloc de la Révision du jour, Apprendre sous La Réunion).
+        carte = "ile" if p.js("window.terramemo.terrain()") == "reunion" else "carte"
+        # Jamais de teinte de la carte de la mémoire pendant une séance (elle trahirait les lieux jamais vus).
+        teintes = p.js(TEINTES_POSEES)
+        if teintes:
+            defauts.append(f"{quoi} : {teintes} zone(s) teintée(s) pendant la séance ({forme} {cible})")
         if forme == "qcm":
             if arret_qcm:
                 cliquer_apres_pause(p, "#nommer-terminer")
                 q = attendre_question(p, q)
                 continue
-            attendre_fin_vol(p)
+            attendre_fin_vol(p, carte)
             if "qcm" in captures:
                 capturer(captures.pop("qcm"))
             if connu and not deja_connu:
@@ -1641,7 +1650,7 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
                 p.pause(1000)
             reponses += 1
         elif forme == "retournee":
-            attendre_fin_vol(p)
+            attendre_fin_vol(p, carte)
             cliquer_apres_pause(p, "#retournee-reveler")
             p.pause(200)
             if "retournee" in captures:
@@ -1657,11 +1666,11 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
         else:  # trouver
             # Le cadrage de la question (monde, région de la grappe) vole : toucher
             # avant la fin du vol raterait un pays touché à sa position.
-            attendre_fin_vol(p)
+            attendre_fin_vol(p, carte)
             if "rappel" in captures:
-                k = p.js("window.terramemo.carte.transfo().k")
+                k = p.js(f"window.terramemo.{carte}.transfo().k")
                 dire(f"  {quoi}, premier Trouver : zoom {k:.2f}")
-                if k < 1.5:
+                if carte == "carte" and k < 1.5:
                     defauts.append(f"{quoi} : le rappel de la grappe n'est pas cadré sur sa région (zoom {k:.2f})")
                 capturer(captures.pop("rappel"))
             if rater_rappel and not deja_rate:
@@ -1757,6 +1766,16 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
     rejouer = (p.js('location.hash = "#jouer"'), p.pause(300), texte(p, "#jouer-rejouer"))[2]
     if "Apprendre" not in rejouer:
         defauts.append(f"« Rejouer » ne relance pas Apprendre : {rejouer!r}")
+    # La carte de la mémoire à l'accueil, après cette séance (et absente d'une partie).
+    ui_memoire(p, capturer, defauts)
+    # Le même jour, Apprendre sous La Réunion : la grappe du jour est prise (un seul budget, tous domaines).
+    jouer_jusqua(p, "apprendre", "reunion")
+    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
+    attendre_visible(p, "#essai-bilan")
+    refus = texte(p, "#essai-bilan")
+    dire(f"  même jour, Apprendre La Réunion : {refus!r}")
+    if "déjà apprise" not in refus:
+        defauts.append(f"Apprendre sous La Réunion le jour d'une grappe de pays : pas refusé ({refus!r})")
     # Le lendemain, par l'horloge de test (serveur de développement seulement).
     if not serveur_de_dev(base):
         dire("  lendemain : sauté (?horloge= n'agit qu'en serveur de développement)")
@@ -1788,9 +1807,125 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
         p.pause(500)
         if not p.js("location.hash").startswith("#jouer/entrainement"):
             defauts.append(f"retour arrière depuis la révision : {p.js('location.hash')} au lieu d'Entraînement")
+        # La révision arrêtée au QCM : aucune grappe commencée ce jour, celle des communes est permise.
+        ui_apprendre_reunion(p, capturer, defauts)
     reseau = [u for u in list(p.requetes.values())[requetes_avant:] if MOTIF_FIREBASE.search(u)]
     if reseau:
         defauts.append(f"requêtes vers Firebase pendant une séance : {reseau[:3]}")
+
+
+def etat_memoire(p, carte="carte"):
+    """La carte de la mémoire telle qu'affichée : (texte de la légende ou None si cachée, zones teintées de cette carte)."""
+    return p.js(f"""(() => {{ const l = document.getElementById('legende-memoire');
+      return [l && !l.hidden ? l.innerText.replace(/\\s+/g, ' ').trim() : null, window.terramemo.{carte}.teintes()]; }})()""")
+
+
+def regler_memoire(p, actif):
+    """Le réglage « Carte de la mémoire » de ⚙ mis à `actif`, la popup refermée."""
+    cliquer(p, "#settings-btn")
+    if p.js("document.getElementById('reglage-memoire').checked") != actif:
+        cliquer(p, "#reglage-memoire")
+    p.js('document.getElementById("settings-btn").click()')
+    p.pause(300)
+
+
+def ui_memoire(p, capturer, defauts):
+    """Captures 38 à 40 (J1a, étude § 7, D7) : l'accueil teinté après la
+    séance d'Apprendre (légende « Jamais vu · faible → maîtrisé · N/195
+    maîtrisés »), un pays appris touché (« Vu N fois · revient dans N j »),
+    le réglage de ⚙ coupé puis remis, et une partie (Trouver) sans aucune
+    teinte. DÉFAUT si la légende manque, si rien n'est teinté, ou si une
+    teinte reste visible pendant la partie."""
+    p.js('location.hash = "#carte"')
+    p.pause(400)
+    legende, n = etat_memoire(p)
+    dire(f"  accueil après Apprendre : légende {legende!r}, {n} pays teintés")
+    if not legende or "maîtrisés" not in legende or "Jamais vu" not in legende:
+        defauts.append(f"accueil sans la légende de la carte de la mémoire : {legende!r}")
+    if n < 1:
+        defauts.append("accueil après une séance d'Apprendre : aucun pays teinté")
+    capturer("38-accueil-memoire")
+    # Un pays de la grappe apprise (l'Europe de l'Est), touché sur l'accueil.
+    for ident in ("POL", "UKR", "BLR"):
+        pt = position_visible(p, ident, "#barre-carte")
+        if pt:
+            break
+    if not pt:
+        defauts.append("accueil : aucun pays de la grappe apprise à l'écran")
+    else:
+        p.pause(PAUSE_AVANT_TOUCHER_MS)
+        p.toucher(pt["x"], pt["y"])
+        p.pause(300)
+        barre = texte(p, "#barre-carte")
+        dire(f"  accueil, {ident} touché : {barre!r}")
+        if not re.search(r"Vu \d+ fois · (revient|à revoir)", barre):
+            defauts.append(f"accueil : {ident} appris touché sans « Vu N fois · revient dans N j » ({barre!r})")
+        capturer("39-accueil-pays-vu")
+    # Le réglage de ⚙ : coupé, ni teinte ni légende ; remis, les teintes reviennent.
+    regler_memoire(p, False)
+    coupe = etat_memoire(p)
+    regler_memoire(p, True)
+    remis = etat_memoire(p)
+    dire(f"  ⚙ « Carte de la mémoire » coupée : {coupe} ; remise : {remis[1]} pays teintés")
+    if coupe[0] is not None or coupe[1]:
+        defauts.append(f"réglage « Carte de la mémoire » coupé : légende ou teintes restées ({coupe})")
+    if remis[1] != n or not remis[0]:
+        defauts.append(f"réglage « Carte de la mémoire » remis : {remis} au lieu de {n} pays teintés")
+    # Une partie : la carte sans teinte (elle trahirait les pays jamais vus).
+    jouer_partie(p, "localiser", "Europe")
+    p.pause(300)
+    legende, n = etat_memoire(p)
+    teintes = p.js(TEINTES_POSEES)
+    dire(f"  Trouver, Europe : légende {legende!r}, {teintes} zones teintées")
+    if teintes or legende:
+        defauts.append(f"teinte de la carte de la mémoire pendant une partie : {teintes} zones, légende {legende!r}")
+    capturer("40-partie-sans-teinte")
+    cliquer(p, "#essai-terminer")
+    p.pause(200)
+
+
+def ui_apprendre_reunion(p, capturer, defauts):
+    """Captures 41 à 44 (J1a, défaut D6) : Apprendre sous La Réunion
+    (Entraînement › Communes) jusqu'au bilan, un événement du journal par
+    réponse, puis l'île teintée à l'accueil quand on y va par la recherche.
+    Le jour d'une grappe de pays déjà prise, Apprendre sous La Réunion est
+    refusé (un seul budget) : à jouer un jour sans grappe commencée."""
+    n0 = p.js(COMPTER_JOURNAL)
+    jouer_jusqua(p, "apprendre", "reunion")
+    modes = p.js("[...document.querySelectorAll('#jouer-panneau [data-mode]')].map(b => b.dataset.mode)")
+    if modes[:1] != ["apprendre"]:
+        defauts.append(f"Entraînement › Communes sans Apprendre en tête : {modes}")
+    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
+    n = jouer_seance(p, capturer, defauts, "Apprendre La Réunion", captures={"qcm": "41-reunion-qcm", "rappel": "42-reunion-rappel"})
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Apprendre La Réunion, bilan : {bilan!r}")
+    if "Apprendre · La Réunion" not in bilan or "Nouveaux" not in bilan or re.search(r"\b974\d\d\b", bilan):
+        defauts.append(f"bilan d'Apprendre sous La Réunion sans titre ou sans « Nouveaux », ou un code INSEE : {bilan!r}")
+    capturer("43-reunion-bilan")
+    n1 = p.js(COMPTER_JOURNAL)
+    dire(f"  journal : {n1 - n0} événements pour {n} réponses")
+    if n1 - n0 != n or n < 12:
+        defauts.append(f"Apprendre La Réunion : {n1 - n0} événements pour {n} réponses (6 QCM et 6 rappels au moins)")
+    # L'île à l'accueil, par la recherche : ses communes apprises teintées, la légende sur 24.
+    cliquer_apres_pause(p, "#seance-carte")
+    p.pause(400)
+    p.js('document.getElementById("recherche-champ").focus()')
+    p.cdp("Input.insertText", text="saint-denis")
+    p.pause(300)
+    cliquer(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
+    fin = time.monotonic() + 10
+    while p.js("window.terramemo.terrain()") != "reunion" and time.monotonic() < fin:
+        p.pause(100)
+    attendre_fin_vol(p, "ile")
+    legende, teintes = etat_memoire(p, "ile")
+    dire(f"  recherche → Saint-Denis : légende {legende!r}, {teintes} communes teintées")
+    if not legende or "/24 maîtrisés" not in legende or teintes < 6:
+        defauts.append(f"l'île à l'accueil sans ses teintes ou sa légende : {legende!r}, {teintes} communes teintées")
+    capturer("44-ile-memoire")
+    cliquer(p, "#carte-monde")
+    p.pause(300)
+    if p.js("window.terramemo.ile.teintes()"):
+        defauts.append("« Monde » : l'île garde ses teintes")
 
 
 def commande_seance(args):

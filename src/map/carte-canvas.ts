@@ -726,6 +726,10 @@ export class CarteCanvas implements CarteAffichee {
     this.demander();
   }
 
+  get nbTeintes(): number {
+    return this.teintes?.size ?? 0;
+  }
+
   /** Les mêmes teintes qu'avant : rien à redessiner (la carte entière se retrace sinon). */
   teinter(t: Teintes | null): void {
     const valides = new Map<string, number>();

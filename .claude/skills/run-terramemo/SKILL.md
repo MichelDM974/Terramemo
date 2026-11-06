@@ -163,6 +163,24 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   Apprendre, si la révision ne s'ouvre pas en `#toucher` ou si le retour
   arrière ne revient pas à Entraînement, et si une requête part vers
   Firebase (Firestore, Auth) pendant une séance.
+- Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
+  dans `ui_seance`) : `38-accueil-memoire` (l'accueil après Apprendre :
+  légende `#legende-memoire` « Jamais vu · faible → maîtrisé · N/195
+  maîtrisés », pays appris teintés), `39-accueil-pays-vu` (un pays de la
+  grappe touché : « Vu N fois · revient dans N j »), le réglage de ⚙
+  (`#reglage-memoire`) coupé puis remis, `40-partie-sans-teinte` (Trouver
+  sur l'Europe) ; Apprendre sous La Réunion refusé le même jour (un seul
+  budget) ; le lendemain, après la révision : `41-reunion-qcm`,
+  `42-reunion-rappel`, `43-reunion-bilan` (Apprendre sous La Réunion
+  jusqu'au bilan), `44-ile-memoire` (l'île par la recherche, teintée,
+  « N/24 maîtrisés »). Zones teintées lues par
+  `terramemo.carte.teintes()` / `terramemo.ile.teintes()` (`TEINTES_POSEES`,
+  aussi à chaque question de séance). `DÉFAUT` si la légende manque, si
+  rien n'est teinté après Apprendre, si un pays appris touché n'a pas
+  « Vu N fois », si le réglage coupé laisse une teinte, si une teinte
+  reste pendant une partie ou une séance, si Apprendre sous La Réunion
+  n'est pas refusé le jour d'une grappe de pays, si son bilan ou son
+  journal manque, ou si l'île n'est pas teintée à l'accueil.
 - `--rendu` (ui) : rendu de la carte du monde (sans : celui de la page,
   canvas) ; l'île est toujours en SVG, au-dessus du monde en canvas.
   `--url` ne peut pas porter `?rendu=` (le pilote y ajoute `?mesures=0`).

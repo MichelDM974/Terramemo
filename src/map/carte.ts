@@ -107,6 +107,8 @@ export interface CarteAffichee {
    * rien sans un nouvel appel.
    */
   teinter(t: Teintes | null): void;
+  /** Zones teintées en ce moment (pilote : aucune pendant une partie). */
+  readonly nbTeintes: number;
   masquer(oui: boolean): void;
   detruire(): void;
 }
@@ -446,6 +448,10 @@ export class Carte implements CarteAffichee {
     this.chemins.get(id)?.classList.add(classe);
     this.cerclesPastilles.get(id)?.classList.add(classe);
     if (classe === 'faux') this.contourFaux(id);
+  }
+
+  get nbTeintes(): number {
+    return this.teintes.size;
   }
 
   teinter(t: Teintes | null): void {
