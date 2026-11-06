@@ -264,7 +264,7 @@ describe('séance : les communes de La Réunion', () => {
     expect(el.innerText).toContain('Apprendre · La Réunion');
     expect(el.innerText).toContain(ile.noms[rappels[0]!.id]!);
     // Une grappe de lieux nouveaux par jour, tous domaines confondus : pas de pays aujourd'hui, ni d'autre grappe de l'île.
-    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') })).toEqual({ refus: S.grappe_faite, reviser: 0 });
+    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') })).toEqual({ refus: S.grappe_faite_par_communes, reviser: 0 });
     expect(m.seances.ouvrir({ sorte: 'apprendre', serie: reunion })).toEqual({ refus: S.grappe_faite, reviser: 0 });
     expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 0 });
   });
@@ -272,7 +272,7 @@ describe('séance : les communes de La Réunion', () => {
   it('pays d’abord appris : Apprendre sous La Réunion attend le lendemain', async () => {
     const m = await monter(undefined, { ile: () => ile });
     jouer(m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') }) as PiloteSeance);
-    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: reunion })).toEqual({ refus: S.grappe_faite, reviser: 0 });
+    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: reunion })).toEqual({ refus: S.grappe_faite_par_pays, reviser: 0 });
     m.h.ts += JOUR_MS;
     const p = m.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance;
     expect(p.question()?.terrain).toBe('reunion');

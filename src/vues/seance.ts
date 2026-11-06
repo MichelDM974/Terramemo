@@ -161,6 +161,17 @@ export function creerSeances(o: OptionsSeances): Seances {
     return { aRevoir, nouveaux: (blocs(d) ?? []).reduce((n, b) => n + b.plan.nouveaux.length, 0) };
   }
 
+  /**
+   * Le refus « grappe du jour prise » : par une grappe du même domaine, ou de
+   * l'autre (budget commun d'une grappe de lieux nouveaux par jour, choix de
+   * l'auteur à faire confirmer, #2) ; le dire, sinon le refus parle d'une
+   * grappe que le joueur n'a pas apprise.
+   */
+  function grappeFaite(domaine: Domaine): string {
+    if (entreesDuJour(m.etat(), m.jour(), domaine) > 0) return S.grappe_faite;
+    return domaine === 'pays' ? S.grappe_faite_par_communes : S.grappe_faite_par_pays;
+  }
+
   function ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance {
     const bs = blocs(d);
     if (!bs) return { refus: textes.toucher.echec_terrain, reviser: 0 };
@@ -174,7 +185,7 @@ export function creerSeances(o: OptionsSeances): Seances {
         return { refus, reviser: aFaire, finir: p.entamee.ids.length };
       }
       const toutAppris = bs[0]!.info.domaine === 'pays' ? S.tout_appris : S.tout_appris_communes;
-      const raison = p.sansNouveautes === 'plafond' ? S.plafond : d.sorte === 'revision' ? S.rien : p.sansNouveautes === 'tout_appris' ? toutAppris : S.grappe_faite;
+      const raison = p.sansNouveautes === 'plafond' ? S.plafond : d.sorte === 'revision' ? S.rien : p.sansNouveautes === 'tout_appris' ? toutAppris : grappeFaite(bs[0]!.info.domaine);
       return { refus: raison, reviser: d.sorte === 'apprendre' ? aFaire : 0 };
     }
     const id = m.nouvelId();

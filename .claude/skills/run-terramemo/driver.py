@@ -1774,7 +1774,7 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
     attendre_visible(p, "#essai-bilan")
     refus = texte(p, "#essai-bilan")
     dire(f"  même jour, Apprendre La Réunion : {refus!r}")
-    if "déjà apprise" not in refus:
+    if "Des pays nouveaux ont déjà été appris" not in refus:
         defauts.append(f"Apprendre sous La Réunion le jour d'une grappe de pays : pas refusé ({refus!r})")
     # Le lendemain, par l'horloge de test (serveur de développement seulement).
     if not serveur_de_dev(base):

@@ -236,6 +236,8 @@
     "reviser": "Réviser · {n}",
     "rien": "Rien à revoir aujourd'hui.",
     "grappe_faite": "La grappe du jour est déjà apprise : la suivante demain.",
+    "grappe_faite_par_pays": "Des pays nouveaux ont déjà été appris aujourd'hui (une grappe de lieux nouveaux par jour, pays et communes confondus) : les communes suivantes demain.",
+    "grappe_faite_par_communes": "Des communes nouvelles ont déjà été apprises aujourd'hui (une grappe de lieux nouveaux par jour, pays et communes confondus) : les pays suivants demain.",
     "grappe_entamee": "Les pays voisins commencés aujourd'hui ({serie}) ne sont pas finis : ils passent avant.",
     "grappe_entamee_communes": "Les communes voisines commencées aujourd'hui (La Réunion) ne sont pas finies : elles passent avant.",
     "finir": "Les finir · {n}",
