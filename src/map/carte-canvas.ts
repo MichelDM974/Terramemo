@@ -529,6 +529,12 @@ export class CarteCanvas implements CarteAffichee {
     return { proj: this.proj, t: this.transfo, entites: this.o.donnees.entites, pastilles: this.pastilles };
   }
 
+  contexteFinal(): ContexteCarte {
+    const cible = this.vol?.cible;
+    if (!cible) return this.contexte();
+    return { proj: projectionDe(cible.r, this.c), t: transfoDe(cible, this.c), entites: this.o.donnees.entites, pastilles: this.pastilles };
+  }
+
   pick(x: number, y: number): ResultatPick | null {
     return pick(this.contexte(), x, y);
   }

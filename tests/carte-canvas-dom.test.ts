@@ -6,6 +6,7 @@ import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
+import { cadrageNommer } from '../src/vues/nommer';
 
 // CarteCanvas elle-même (pas seulement vue.ts et dessin.ts) sur un faux DOM :
 // un hôte, un Canvas 2D qui note ce qu'on lui demande, requestAnimationFrame
@@ -246,5 +247,42 @@ describe('CarteCanvas : la zone fausse a le contour du SVG (daltonisme, #16)', (
     const autres = ctx2d.traits.filter((t) => t.arc && t.arc[2] < 5 && !surMalte.includes(t));
     expect(autres.length).toBeGreaterThan(10);
     for (const t of autres) expect([t.style, t.largeur]).toEqual([VARS['--bg'], 1]);
+  });
+});
+
+describe('Nommer : une réponse en plein vol, la question suivante cadrée sur l’arrivée (#16)', () => {
+  // L'Italie demandée au zoom 1 : la carte vole jusqu'à elle (~1,6 s). Répondue
+  // en moins d'une seconde, la question suivante s'allume après la pause de
+  // 900 ms, vol en cours : vue reculée, ou pas encore arrivée.
+  it('la vue d’arrivée décide : la France (cachée à l’arrivée) fait voler, la Suisse (visible) non ; à la fin, chacune est à l’écran', () => {
+    for (const [id, vole] of [
+      ['FRA', true],
+      ['CHE', false],
+    ] as const) {
+      const c = carte();
+      c.montrer('ITA', HV);
+      jouer(0, 896);
+      // Le vol est bien en cours : la vue du moment n'est pas celle d'arrivée.
+      expect(c.contexteFinal().t).not.toEqual(c.contexte().t);
+      const e = entite(id);
+      const r = cadrageNommer(c, e.pays, e.forme, L, HV);
+      expect([id, r.vole]).toEqual([id, vole]);
+      // Ce que fait allumer() : le vol en cours continue, ou un nouveau part d'où il en est.
+      if (r.vole) c.montrer(id, HV);
+      jouer(912, 4000);
+      expect(c.contexteFinal().t).toEqual(c.contexte().t);
+      expect([id, partDe(c.contexte(), id) >= 0.9]).toEqual([id, true]);
+      expect(cadrageNommer(c, e.pays, e.forme, L, HV).vole).toBe(false);
+    }
+  });
+
+  it('sans vol, contexteFinal est le contexte du moment', () => {
+    const c = carte();
+    c.zoomerSur('ITA');
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+    c.montrer('NOR', HV);
+    jouer(0, 300);
+    c.zoomer({ k: 2, x: 0, y: 0 });
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
   });
 });

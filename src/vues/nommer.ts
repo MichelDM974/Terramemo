@@ -4,7 +4,8 @@
 // en vert, puis la question suivante) ; bilan des justes du premier coup.
 // Vaut pour toutes les séries, le monde comme l'île. Les touchers sur la carte
 // n'y répondent pas (Toucher les ignore) ; glisser et pincer restent libres.
-import { anneauPrincipal, empriseEcran, versEcran, type Rect } from '../map/geo';
+import type { CarteAffichee } from '../map/carte';
+import { anneauPrincipal, empriseEcran, versEcran } from '../map/geo';
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
@@ -16,6 +17,32 @@ const T = textes.toucher;
 /** Durée de la rétroaction avant la question suivante (ms) : les pauses du Chrono. */
 const PAUSE_JUSTE_MS = 900;
 const PAUSE_FAUX_MS = 1800;
+
+/**
+ * Le cadrage de la zone d'une question : faut-il voler jusqu'à elle
+ * (doitCadrer), et sa taille à l'écran (l'anneau d'une zone minuscule). Jugé
+ * sur la vue où la carte s'arrêtera (contexteFinal) : répondue en moins d'une
+ * seconde, la question précédente laisse son vol en cours, et la vue en plein
+ * vol (reculée, ou pas encore arrivée) disait à tort la zone suivante visible
+ * ou cachée. l × hVisible : la carte jusqu'au haut de la barre.
+ */
+export function cadrageNommer(
+  carte: Pick<CarteAffichee, 'contexteFinal'>,
+  lieu: Lieu,
+  forme: Forme | undefined,
+  l: number,
+  hVisible: number,
+): { vole: boolean; taille: number } {
+  const c = carte.contexteFinal();
+  const ecran = (ll: [number, number]): [number, number] | null => {
+    const b = c.proj(ll);
+    return b ? versEcran(c.t, b[0], b[1]) : null;
+  };
+  const taille = tailleEcranPx(lieu, c.proj.scale(), c.t.k);
+  // L'emprise du polygone principal (la Sicile comprise, la Guyane non).
+  const emprise = forme ? empriseEcran(anneauPrincipal(forme, lieu.point), ecran) : null;
+  return { vole: doitCadrer(ecran(lieu.point), taille, l, hVisible, emprise), taille };
+}
 
 export interface Nommer {
   /** Une partie sur ce terrain : cibles dans l'ordre donné (déjà mélangées). */
@@ -67,41 +94,30 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; recommencer
     attente = 0;
   }
 
-  /** L'emprise à l'écran du polygone principal de la zone (la Sicile comprise, la Guyane non). */
-  function emprise(carte: Terrain['carte'], id: string): Rect | null {
-    const lieu = lieux.get(id);
-    const forme = formes.get(id);
-    if (!lieu || !forme) return null;
-    const c = carte.contexte();
-    return empriseEcran(anneauPrincipal(forme, lieu.point), (ll) => {
-      const b = c.proj(ll);
-      return b ? versEcran(c.t, b[0], b[1]) : null;
-    });
-  }
-
   // La zone en accent, un anneau si elle est minuscule, et la carte vole
   // jusqu'à elle (centrée au-dessus de la barre) si elle est hors de la
   // partie visible, en partie sous la barre ou trop petite pour être vue.
   // Sur l'île au zoom 1 rien ne bouge (toute l'île est au-dessus de la
   // barre, chaque commune ≥ 15 px) ; zoomée par un geste ou un vol, elle y
   // revient quand la zone n'est pas visible, plutôt que de voler encore :
-  // sinon un vol laissait toute la suite de la partie zoomée.
+  // sinon un vol laissait toute la suite de la partie zoomée. Jugé sur
+  // l'arrivée d'un vol en cours (cadrageNommer) : s'il n'y a pas à voler, il
+  // continue jusqu'à elle ; sinon le nouveau vol part d'où il en est.
   function allumer(carte: Terrain['carte'], id: string, local: boolean): void {
     carte.effacerMarques();
     carte.marquer(id, 'choisi');
     const lieu = lieux.get(id);
     const r = carte.hote.getBoundingClientRect();
     const haut = barre.getBoundingClientRect().top - r.top;
-    const taille = () => (lieu ? tailleEcranPx(lieu, carte.projection.scale(), carte.transfo.k) : 0);
-    const cadrer = () => doitCadrer(carte.ecran(id), taille(), r.width, haut, emprise(carte, id));
-    let vole = cadrer();
-    if (vole && local && carte.transfo.k !== 1) {
+    const cadrer = () => (lieu ? cadrageNommer(carte, lieu, formes.get(id), r.width, haut) : { vole: true, taille: 0 });
+    let c = cadrer();
+    if (c.vole && local && carte.contexteFinal().t.k !== 1) {
       carte.zoomer({ k: 1, x: 0, y: 0 });
-      vole = cadrer();
+      c = cadrer();
     }
-    petite = taille() < ANNEAU_SOUS_PX;
+    petite = c.taille < ANNEAU_SOUS_PX;
     if (petite) carte.anneau(id, 'choisi');
-    if (vole) carte.montrer(id, haut);
+    if (c.vole) carte.montrer(id, haut);
   }
 
   function poser(): void {
