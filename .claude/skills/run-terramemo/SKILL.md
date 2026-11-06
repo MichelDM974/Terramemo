@@ -603,13 +603,16 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
 8. **Le relais du webgl** (Chrome puis l'APK) : à l'ouverture, la carte
    s'affiche en Canvas 2D puis le WebGL prend le relais. **Le passage se
    voit-il** (saut, éclair, traits ou couleurs qui changent, image figée) ?
-   D'abord en **première visite** : effacer les données du site (Chrome :
+   D'abord en **première visite**, sans perdre de données pendant l'usage
+   réel : dans Chrome, ouvrir avec `?rendu=webgl&maillage=0` (maillage
+   recalculé sans lire le cache) ; dans l'APK, pas de chemin au doigt sans
+   perte : sa première visite se juge par la répétition 1 de `driver.py
+   mesurer --rendu webgl`, qui ne vide que la base `terramemo` (cache du
+   maillage). Hors usage réel seulement, « Effacer les données » (Chrome :
    paramètres du site, depuis l'icône à gauche de l'adresse ; APK :
-   Paramètres → Applications → Terramemo → Stockage → Effacer les
-   données ; l'un et l'autre effacent aussi le journal des réponses et le
-   compte anonyme : pendant l'usage réel, `mesurer --rendu webgl`, qui ne
-   vide que le cache du maillage ; dans Chrome, `?rendu=webgl&maillage=0` recalcule aussi le
-   maillage sans lire le cache), puis ouvrir en webgl : le maillage se calcule,
+   Paramètres → Applications → Terramemo → Stockage) donne aussi une
+   première visite, mais efface le journal des réponses et le compte
+   anonyme. Puis ouvrir en webgl : le maillage se calcule,
    le relais tarde (~0,5 s sur le PC, plus sur le téléphone) ; glisser
    pendant ce temps : la carte suit-elle, le relais casse-t-il le geste ?
    Puis les **visites suivantes** (recharger) : relais plus rapide. Si le
