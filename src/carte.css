@@ -79,7 +79,8 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 }
 /* Mode css : l'enveloppe est une couche du compositeur, déplacée pendant le geste. */
 .carte[data-rendu="css"] .carte-enveloppe { will-change: transform; }
-/* Rendu canvas : un seul élément, redessiné à chaque image (src/map/carte-canvas.ts). */
+/* Rendu canvas : la carte, redessinée quand la vue change, et sa couche du dessus
+   (.carte-dessus : marques, pastilles), seule redessinée par un toucher (src/map/carte-canvas.ts). */
 .carte-canvas { position: absolute; left: 0; top: 0; display: block; }
 /* Ce qui sort du SVG reste peint : il entre dans l'écran pendant un geste en mode css. */
 .carte-svg { display: block; overflow: visible; }

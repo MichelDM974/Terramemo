@@ -3,7 +3,7 @@ import { geoContains, geoPath } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
-import { calque, calqueLeger, ILE_LEGERE_KM, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
+import { aCoupure, calque, calqueLeger, ILE_LEGERE_KM, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
 import { ancre, decalages, image, MARGE_PX, passeCoupure, preparer, TAILLE_EXACTE_PX, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
 import { contient, versLonLat } from '../src/map/geo';
@@ -677,32 +677,55 @@ describe('îles pendant un geste', () => {
     let petites = 0;
     let effondrees = 0;
     let traits = 0;
+    let contours = 0;
+    // Mêmes segments, autant de fois chacun (un trait émis deux fois cumule son encre).
+    const egaux = (a: [number, number, number, number][], b: [number, number, number, number][]) => {
+      const [ka, kb] = [a.map(cle).sort(), b.map(cle).sort()];
+      return ka.length === kb.length && ka.every((k, n) => k === kb[n]);
+    };
+    const cote = (sg: [number, number, number, number], est: boolean) => (sg[0] + sg[2]) / 2 >= im.cx === est;
     parcourir(im, cq.pays, cq.groupes?.pays, (p, i) => {
       const q = p.source ?? p;
+      // Le seuil de la correction (« moins de 2 px », dessin.ts) écrit ici en dur : changer TAILLE_EXACTE_PX se voit.
+      const petite = im.K * q.taille < 2;
       const geste = enregistreur();
       const avant = im.exactes;
       tracerPartie(geste, im, p);
-      if (im.exactes === avant) return; // tracée au seuil du mouvement
-      const repos = enregistreur();
-      tracerPartie(repos, im0, q);
       const id = `${donnees.entites[i]?.pays.id} (${(im.K * q.taille).toFixed(2)} px)`;
-      const petite = im.K * q.taille < TAILLE_EXACTE_PX;
+      if (im.exactes === avant) {
+        if (petite && im.K * q.taille >= TAILLE_EXACTE_PX / 4) res.push(`${id} : petite, tracée au seuil du mouvement`);
+        return;
+      }
       if (petite) petites++;
       else effondrees++;
-      const egaux = (a: [number, number, number, number][], b: [number, number, number, number][]) => {
-        const [ca, cb] = [new Set(a.map(cle)), new Set(b.map(cle))];
-        return ca.size === cb.size && [...ca].every((c) => cb.has(c));
-      };
-      if (petite || decalages(q, v.r).length === 1) {
-        if (!egaux(geste.segments, repos.segments)) res.push(`${id}${petite ? '' : ', contour effondré'} : tracé différent du repos`);
-      } else {
-        const cote = (sg: [number, number, number, number], est: boolean) => (sg[0] + sg[2]) / 2 >= im.cx === est;
-        const bords = [false, true].filter((est) => egaux(geste.segments.filter((sg) => cote(sg, est)), repos.segments.filter((sg) => cote(sg, est))));
-        if (!bords.length) res.push(`${id}, contour effondré à la coupure : aucun bord tracé comme au repos`);
+      // Remplissage, puis trait des parties à couture ou à la coupure (couturesContour),
+      // dans une même image, comme CarteCanvas : le trait suit le remplissage.
+      const modes = aCoupure(p, v.r) ? [false, true] : [false];
+      const imP = image(v, C, regionVisible(v, C, MARGE_PX), true);
+      for (const contour of modes) {
+        const g = enregistreur();
+        const r = enregistreur();
+        tracerPartie(g, imP, p, contour);
+        tracerPartie(r, im0, q, contour);
+        if (contour) contours++;
+        const quoi = `${id}${petite ? '' : ', contour effondré'}${contour ? ', trait' : ''}`;
+        if (petite || decalages(q, v.r).length === 1) {
+          if (!egaux(g.segments, r.segments)) res.push(`${quoi} : tracé différent du repos`);
+        } else {
+          // À la coupure, seule la copie effondrée est retracée comme au repos ; si
+          // l'allégée n'a qu'une copie, le bord où elle n'est pas ne vient que de la
+          // source, et doit être celui du repos.
+          const bords = [false, true].filter((est) => egaux(g.segments.filter((sg) => cote(sg, est)), r.segments.filter((sg) => cote(sg, est))));
+          if (!bords.length) res.push(`${quoi} à la coupure : aucun bord tracé comme au repos`);
+          if (decalages(p, v.r).length === 1) {
+            const estP = (ancre(imP, [p]) as [number, number])[0] >= im.cx;
+            if (!bords.includes(!estP)) res.push(`${quoi} à la coupure : la copie de la source sans allégée n'est pas celle du repos`);
+          }
+        }
       }
-      if (repos.segments.some((sg) => Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > 1e-9 && toucheEcran(sg))) traits++;
+      if (geste.segments.some((sg) => Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > 1e-9 && toucheEcran(sg))) traits++;
     });
-    return { res, petites, effondrees, traits };
+    return { res, petites, effondrees, traits, contours };
   }
 
   const VUES: [string, [number, number]][] = [
@@ -736,11 +759,11 @@ describe('îles pendant un geste', () => {
 
   it('pendant un geste, une petite île montre exactement ce qu’elle montre au repos : zoom 1 et voisins sous 12 rotations, archipels, 30 vues au hasard', () => {
     const fautes: string[] = [];
-    let [petites, effondrees, traits] = [0, 0, 0];
+    let [petites, effondrees, traits, contours] = [0, 0, 0, 0];
     for (const [nom, v] of [...tour, ...vues]) {
       for (const [quoi, cq] of [['allégée', leger], ['complète', complet]] as const) {
         const e = ecarts(v, cq);
-        [petites, effondrees, traits] = [petites + e.petites, effondrees + e.effondrees, traits + e.traits];
+        [petites, effondrees, traits, contours] = [petites + e.petites, effondrees + e.effondrees, traits + e.traits, contours + e.contours];
         if (e.res.length) fautes.push(`${nom} ${quoi} : ${e.res.slice(0, 3).join(', ')}${e.res.length > 3 ? ` (${e.res.length})` : ''}`);
       }
     }
@@ -749,7 +772,25 @@ describe('îles pendant un geste', () => {
     expect(petites).toBeGreaterThan(50_000);
     expect(traits).toBeGreaterThan(20_000);
     expect(effondrees).toBeGreaterThan(500);
+    expect(contours).toBeGreaterThan(100); // îles à couture ou à la coupure : leur trait comparé aussi
   }, 300_000);
+
+  it('aiguillage aux coutures : une partie de l’allégée dont la source passe la coupure y va aussi (Brunei à λ0 = -66…)', () => {
+    let vus = 0;
+    for (let lon = -180; lon < 180; lon += 3) {
+      const v = centrer([lon, 10], 1);
+      const im = image(v, C, regionVisible(v, C, MARGE_PX), true);
+      parcourir(im, leger.pays, leger.groupes?.pays, (p) => {
+        const q = p.source;
+        if (!q || passeCoupure(p, v.r) || p.couture) return;
+        if (passeCoupure(q, v.r) || q.couture) {
+          vus++;
+          expect(aCoupure(p, v.r)).toBe(true);
+        }
+      });
+    }
+    expect(vus).toBeGreaterThan(10);
+  });
 
   it('le test voit une île perdue : l’allégée sans les îles de la complète en perd aux Maldives, au Canada, en Indonésie', () => {
     const seules: Calque = {

@@ -49,7 +49,10 @@
 // 851, 848, 737, 397 avec les carrés, aucune ainsi ; aucune tache du repos
 // n'y manque pendant le geste. Le comptage d'avant apparie le carré au trait
 // (à 1 px CSS près) et ne voyait pas les îles au zoom 1 (il y prenait le
-// fond de page pour la mer). Tracé JS de l'allégée au zoom 1 (Node sur le
+// fond de page pour la mer). L'outil ne voit pas non plus les îles collées
+// au bord de l'ovale (la coupure, fondues dans le fond de page) : le test
+// « une petite île montre exactement ce qu'elle montre au repos » les
+// compare copie par copie, remplissage et trait. Tracé JS de l'allégée au zoom 1 (Node sur le
 // PC) : ~0,55 ms par image avant comme après, 12 000 → 25 000 sommets
 // parcourus, 7 700 → 10 000 émis. Une partie de moins de TAILLE_MIN_PX
 // (emprise majorée) est sautée sans regarder ses sommets : le repos n'en
@@ -335,24 +338,57 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
     tracerCopies(ctx, im, q, decalages(q, im.v.r), contour, SEUIL_PX);
     return;
   }
-  const effondrees = tracerCopies(ctx, im, p, decalages(p, im.v.r), contour, im.seuil);
+  const dp = decalages(p, im.v.r);
+  let effondrees: number[] | null;
+  if (contour && remplie?.p === p && remplie.im === im) {
+    // Le trait suit le remplissage de la même partie dans cette image (carte-canvas.ts
+    // trace l'un puis l'autre) : levé sur les coutures, le crayon émet d'autres sommets,
+    // et le tampon n'aurait pas pris la même décision (relecture du 06/11).
+    effondrees = remplie.effondrees;
+    const restes = effondrees ? dp.filter((d) => !pres(effondrees as number[], d)) : dp;
+    if (restes.length) tracerCopies(ctx, im, p, dp, true, im.seuil, restes, false);
+  } else {
+    effondrees = tracerCopies(ctx, im, p, dp, contour, im.seuil);
+    if (!contour) remplie = { p, im, effondrees };
+  }
   if (!effondrees) return;
-  // Les mêmes copies de la source : les décalages sont tous -r + 360·n (decalages).
+  // Les mêmes copies de la source (les décalages sont tous -r + 360·n, decalages),
+  // et celles que la source a en plus : la coupure peut passer dans son emprise
+  // et pas dans celle de l'allégée, et le repos montre ses deux copies.
   const ds = decalages(q, im.v.r);
-  const memes = ds.filter((d) => effondrees.some((e) => Math.abs(e - d) < 1e-9));
+  const eff = effondrees;
+  const memes = ds.filter((d) => pres(eff, d) || !pres(dp, d));
   if (!memes.length) return;
   if (!contour) im.exactes++;
   tracerCopies(ctx, im, q, ds, contour, SEUIL_PX, memes);
 }
+
+/** Ce décalage est-il dans la liste (les décalages sont tous -r + 360·n : égaux à l'arrondi près) ? */
+const pres = (l: readonly number[], d: number) => l.some((e) => Math.abs(e - d) < 1e-9);
+
+/** Le dernier remplissage d'une partie pendant un mouvement, et ses copies effondrées : son trait suit la même décision. */
+let remplie: { p: Partie; im: ImageTrace; effondrees: number[] | null } | null = null;
 
 /** Tampon des trois premiers ordres d'un contour extérieur (moveTo 0 ou lineTo 1, x, y), pendant un mouvement. */
 const TAMPON = new Float64Array(9);
 /** Ordres retenus dans TAMPON (0 à 3) ; -1 : émis directement. */
 let tampon = -1;
 
-/** Un ordre (moveTo, ou lineTo si ligne), retenu dans TAMPON tant qu'il y a moins de quatre ordres. */
+/**
+ * Un ordre (moveTo, ou lineTo si ligne), retenu dans TAMPON tant qu'il y a
+ * moins de quatre ordres. Un moveTo qui suit un moveTo retenu le remplace (le
+ * premier ne trace rien) : en mode contour, le crayon levé sur une couture
+ * comptait sinon pour un ordre, et le contour effondré de l'île Wrangel
+ * (moveTo, moveTo, deux lineTo) restait la corde de l'allégée (relecture du
+ * 06/11).
+ */
 function emettre(ctx: ContexteTrace, im: ImageTrace, ligne: boolean, x: number, y: number): void {
   if (tampon >= 0) {
+    if (!ligne && tampon > 0 && !TAMPON[3 * (tampon - 1)]) {
+      TAMPON[3 * (tampon - 1) + 1] = x;
+      TAMPON[3 * (tampon - 1) + 2] = y;
+      return;
+    }
     if (tampon < 3) {
       TAMPON[3 * tampon] = ligne ? 1 : 0;
       TAMPON[3 * tampon + 1] = x;
@@ -383,7 +419,16 @@ function emettre(ctx: ContexteTrace, im: ImageTrace, ligne: boolean, x: number, 
  * entre deux sommets de l'allégée passait jusqu'à un pixel hors du tracé du
  * repos.
  */
-function tracerCopies(ctx: ContexteTrace, im: ImageTrace, p: Partie, ds: readonly number[], contour: boolean, seuil: number, seules: readonly number[] = ds): number[] | null {
+function tracerCopies(
+  ctx: ContexteTrace,
+  im: ImageTrace,
+  p: Partie,
+  ds: readonly number[],
+  contour: boolean,
+  seuil: number,
+  seules: readonly number[] = ds,
+  tamponner = true,
+): number[] | null {
   const { K, cx, y0 } = im;
   const x0 = -MARGE_PX;
   const x1 = im.c.l + MARGE_PX;
@@ -394,7 +439,7 @@ function tracerCopies(ctx: ContexteTrace, im: ImageTrace, p: Partie, ds: readonl
   const borner = ds.length > 1;
   const sauter = contour && (p.couture || borner);
   const PI = Math.PI;
-  const attendre = im.mouvement && seuil > SEUIL_PX;
+  const attendre = tamponner && im.mouvement && seuil > SEUIL_PX;
   let effondrees: number[] | null = null;
   im.parties++;
   im.copies += seules.length - 1;

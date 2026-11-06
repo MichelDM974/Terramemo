@@ -124,8 +124,9 @@ const FIN_MOLETTE_MS = 150;
  * km) devait absorber l'écart, mais chaque polygone de la complète d'au moins
  * 40 km a le sien dans l'allégée (tests/carte-canvas.test.ts le vérifie) ;
  * entre 40 et 50 km, 137 îles étaient dessinées deux fois. Les quelque 3 600
- * polygones de moins de 40 km ont peu de sommets ; au zoom 1, presque tous
- * font moins de TAILLE_MIN_PX et sont sautés.
+ * polygones de moins de 40 km ont peu de sommets ; au zoom 1 en mouvement,
+ * plus de 900 sont sautés (minuscules, ou que le repos ne montre pas) et
+ * environ 790 tracés comme au repos (dessin.ts, tests/carte-canvas.test.ts).
  */
 export const ILE_LEGERE_KM = 40;
 /** Majoration de la taille (px / K) d'une partie de la carte allégée : 2 × 15 km / rayon de la Terre. */
@@ -257,6 +258,18 @@ function sourceDe(p: Partie, completes: readonly Partie[]): Partie | null {
     if (sc > score) [meilleure, score] = [q, sc];
   }
   return meilleure;
+}
+
+/**
+ * La partie va avec les coutures (remplie, son contour tracé sans les côtés
+ * qui suivent l'antiméridien, un pôle ou le bord de l'ovale) : elle, ou sa
+ * source, qu'un geste trace à sa place quand elle est petite (dessin.ts) ; la
+ * coupure peut passer dans l'emprise de l'une et pas de l'autre (relecture du
+ * 06/11 : Brunei à λ0 = -66 prenait un trait le long du bord de l'ovale).
+ */
+export function aCoupure(p: Partie, r: number): boolean {
+  const q = p.source ?? p;
+  return p.couture || passeCoupure(p, r) || (q !== p && (q.couture || passeCoupure(q, r)));
 }
 
 /** Sommets des parties visibles : le coût du tracé de ce calque. */
@@ -433,6 +446,15 @@ export class CarteCanvas implements CarteAffichee {
     sur<TouchEvent>(this.hote, 'touchend', doigts, { passive: true });
     sur<TouchEvent>(this.hote, 'touchcancel', doigts, { passive: true });
     sur<WheelEvent>(this.hote, 'wheel', (ev) => this.molette(ev), { passive: false });
+    // Contexte du Canvas 2D rendu par le navigateur (après une perte : mémoire du GPU
+    // reprise) : ses canvas reviennent vides, la carte entière est à redessiner, et
+    // son motif de hachures à refaire (la signature seule ne le verrait pas).
+    const rendu = () => {
+      this.motif = this.creerMotif();
+      this.signature = '';
+      this.demander();
+    };
+    for (const c of [this.canvas2d, this.dessus]) if (c) sur(c, 'contextrestored', rendu);
 
     this.observateur = new ResizeObserver(() => this.redimensionner());
     if (o.leger) this.prendreLeger(o.leger);
@@ -919,11 +941,14 @@ export class CarteCanvas implements CarteAffichee {
   /**
    * Dessine la vue courante (synchrone) : la carte, si ce qu'elle montre a
    * changé (vue, taille, allégée ou complète), puis la couche du dessus. Un
-   * toucher (marquer, effacerMarques, anneau) ne change que celle-ci : au
+   * toucher (marquer, effacerMarques, anneau) ne change que celle-ci. Au
    * ralenti ×4 sur le PC, retracer et rastériser toute la carte pour colorer
-   * un pays prenait ~16 ms de script et ~55 ms de commit (rastérisation du
-   * canvas), le toucher entier ~80 ms (Event Timing, 06/11) ; sur l'A37,
-   * 112 à 128 ms dans tous les rendus, qui redessinaient tous la carte.
+   * un pays prenait ~16 ms de script et ~55 ms de commit (rastérisation
+   * logicielle du canvas) : toucher 72 → 32 ms (Event Timing, médiane). Sur
+   * l'A37 (GPU), le gain est moindre : par le vrai chemin d'Android (adb
+   * shell input tap), Chrome 96 → 80 ms en médiane, ~15 ms d'entrée et ~45
+   * ms d'affichage à 60 Hz restant après le script (06/11,
+   * docs/mesures/j0/toucher/).
    */
   private dessiner(): void {
     if (this.masquee) return;
@@ -990,7 +1015,7 @@ export class CarteCanvas implements CarteAffichee {
     parcourir(im, cq.pays, cq.groupes?.pays, (p, i) => {
       const e = entites[i];
       if (!e) return;
-      if (p.couture || passeCoupure(p, v.r)) {
+      if (aCoupure(p, v.r)) {
         avecCoutures = true;
         tracerPartie(coutures, im, p);
         tracerPartie(couturesContour, im, p, true);
@@ -1089,7 +1114,7 @@ export class CarteCanvas implements CarteAffichee {
           tracerPartie(chemin, im, p);
         }
         tracerPartie(toutes, im, p);
-        const coupure = p.couture || passeCoupure(p, v.r);
+        const coupure = aCoupure(p, v.r);
         if (coupure) {
           avecCoutures = true;
           tracerPartie(contourCoutures, im, p, true);

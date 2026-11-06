@@ -82,9 +82,10 @@ function fauxCtx() {
     moveTo: () => undefined,
     lineTo: () => undefined,
     arc: (x: number, y: number, r: number) => (arc = [x, y, r]),
-    createPattern: () => null,
+    // Le motif des hachures : un objet (fillStyle non textuel), pour voir où il est peint.
+    createPattern: () => ({ motif: true, setTransform: () => undefined }),
     fill(chemin?: FauxChemin) {
-      remplis.push({ chemin: chemin ?? 'courant', style: String(ctx.fillStyle) });
+      remplis.push({ chemin: chemin ?? 'courant', style: typeof ctx.fillStyle === 'string' ? ctx.fillStyle : 'motif' });
     },
     stroke(chemin?: FauxChemin) {
       traits.push({ chemin: chemin ?? 'courant', style: ctx.strokeStyle, largeur: ctx.lineWidth, joint: ctx.lineJoin, arc: chemin ? null : arc });
@@ -97,6 +98,8 @@ let images: Map<number, FrameRequestCallback>;
 let prochaine: number;
 /** Contextes des canvas créés, dans l'ordre : la carte, sa couche du dessus, puis le motif des hachures. */
 let contextes: ReturnType<typeof fauxCtx>[];
+/** Les canvas créés, dans le même ordre (leurs écouteurs : contextrestored). */
+let toiles: { ecouteurs: Map<string, () => void> }[];
 let ctx2d: ReturnType<typeof fauxCtx>;
 let ctxDessus: ReturnType<typeof fauxCtx>;
 
@@ -104,11 +107,12 @@ beforeEach(() => {
   images = new Map();
   prochaine = 1;
   contextes = [];
+  toiles = [];
   const fauxCanvas = () => {
     const f = fauxCtx();
     contextes.push(f);
     [ctx2d, ctxDessus] = contextes as [ReturnType<typeof fauxCtx>, ReturnType<typeof fauxCtx>];
-    return {
+    const toile = {
       className: '',
       style: {},
       width: 0,
@@ -118,7 +122,14 @@ beforeEach(() => {
       getContext: () => f.ctx,
       after: () => undefined,
       remove: () => undefined,
+      ecouteurs: new Map<string, () => void>(),
+      addEventListener(type: string, l: () => void) {
+        this.ecouteurs.set(type, l);
+      },
+      removeEventListener: () => undefined,
     };
+    toiles.push(toile);
+    return toile;
   };
   vi.stubGlobal('document', { documentElement: {}, createElement: fauxCanvas });
   vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (n: string) => ` ${VARS[n] ?? ''} ` }));
@@ -137,6 +148,20 @@ beforeEach(() => {
   vi.stubGlobal('cancelAnimationFrame', (n: number) => images.delete(n));
   vi.stubGlobal('matchMedia', () => ({ matches: false }));
   vi.stubGlobal('window', { devicePixelRatio: DPR, innerWidth: L, innerHeight: H, setTimeout, clearTimeout });
+  vi.stubGlobal(
+    'DOMMatrix',
+    class {
+      translateSelf() {
+        return this;
+      }
+      rotateSelf() {
+        return this;
+      }
+      scaleSelf() {
+        return this;
+      }
+    },
+  );
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -377,6 +402,34 @@ describe('CarteCanvas : un toucher ne redessine que la couche du dessus (J0, #1)
     expect(c.dernier?.carte).toBe(true);
     expect(ctx2d.remplis.some((r) => r.style === ACCENT)).toBe(false);
     expect(ctxDessus.remplis.some((r) => r.style === ACCENT)).toBe(true);
+  });
+
+  it('une zone contestée marquée : sa couleur, puis ses hachures repeintes par-dessus, puis ses frontières (Sahara occidental)', () => {
+    const c = carte();
+    c.zoomerSur('ESH');
+    image(0);
+    // La carte porte les hachures (motif) sous ses frontières.
+    expect(ctx2d.remplis.some((r) => r.style === 'motif')).toBe(true);
+    c.marquer('ESH', 'choisi');
+    image(16);
+    const i = ctxDessus.remplis.findIndex((r) => r.style === VARS['--accent']);
+    const j = ctxDessus.remplis.findIndex((r) => r.style === 'motif');
+    expect(i).toBeGreaterThanOrEqual(0);
+    expect(j).toBeGreaterThan(i);
+    expect(ctxDessus.traits.some((t) => t.chemin !== 'courant' && t.style === VARS['--frontiere-fine'])).toBe(true);
+  });
+
+  it('contexte du Canvas 2D rendu (après une perte) : la carte est redessinée au toucher suivant', () => {
+    const c = carte();
+    image(0);
+    const avant = ctx2d.etat.effacees;
+    c.marquer('BRA', 'choisi');
+    image(16);
+    expect(ctx2d.etat.effacees).toBe(avant);
+    toiles[0]?.ecouteurs.get('contextrestored')?.();
+    image(32);
+    expect(ctx2d.etat.effacees).toBe(avant + 1);
+    expect(c.dernier?.carte).toBe(true);
   });
 
   it('la fin d’un geste retrace la carte au repos, même sans carte allégée', () => {

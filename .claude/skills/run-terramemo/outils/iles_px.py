@@ -13,7 +13,11 @@ physiques qui ne sont pas la mer) de l'une et de l'autre :
 La mer est la couleur bleutée la plus fréquente (celle de l'ovale) : la plus
 fréquente tout court est au zoom 1 le fond de page autour de l'ovale, et
 l'ovale entier n'y faisait qu'une tache (la relecture du 04/11 ne voyait
-rien au zoom 1).
+rien au zoom 1). Limite : le fond de page autour de l'ovale reste une grande
+tache, et une île collée au bord de l'ovale (la coupure, où une copie est
+ramenée sur le bord) s'y fond : l'outil ne la voit pas. Le test « une petite
+île montre exactement ce qu'elle montre au repos » (tests/carte-canvas.test.ts)
+compare ces copies une à une.
 
   python3 .claude/skills/run-terramemo/outils/iles_px.py [--url http://localhost:8060/] [--ks 1,1.5,2,3,4,8] [--ids DOM,GRC,…] [--dossier D] [-v]
 
