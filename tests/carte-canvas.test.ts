@@ -4,7 +4,7 @@ import type { Polygon } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import { calque, calqueLeger, ILE_LEGERE_KM, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
-import { ancre, decalages, image, MARGE_PX, passeCoupure, preparer, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
+import { ancre, decalages, image, MARGE_PX, passeCoupure, preparer, TAILLE_EXACTE_PX, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
 import { contient, versLonLat } from '../src/map/geo';
 import { SuiviPointeurs } from '../src/map/geste';
@@ -179,20 +179,16 @@ describe('vue qui tourne', () => {
 });
 
 /**
- * Enregistre les segments tracés (sous-chemins de moveTo en lineTo) et les
- * points (rect) ; sert aussi de contexte à geoPath. remplir : chaque
- * sous-chemin est refermé, comme fill().
+ * Enregistre les segments tracés (sous-chemins de moveTo en lineTo) ; sert
+ * aussi de contexte à geoPath. remplir : chaque sous-chemin est refermé, comme
+ * fill().
  */
-function enregistreur(
-  remplir = false,
-): ContexteTrace & { segments: [number, number, number, number][]; rects: [number, number, number, number][]; beginPath(): void; closePath(): void; arc(): void } {
+function enregistreur(remplir = false): ContexteTrace & { segments: [number, number, number, number][]; beginPath(): void; closePath(): void; arc(): void } {
   let dernier: [number, number] = [0, 0];
   let debut: [number, number] = [0, 0];
   const segments: [number, number, number, number][] = [];
-  const rects: [number, number, number, number][] = [];
   return {
     segments,
-    rects,
     moveTo(x, y) {
       if (remplir && (dernier[0] !== debut[0] || dernier[1] !== debut[1])) segments.push([dernier[0], dernier[1], debut[0], debut[1]]);
       dernier = debut = [x, y];
@@ -204,14 +200,6 @@ function enregistreur(
     closePath() {
       segments.push([dernier[0], dernier[1], debut[0], debut[1]]);
       dernier = debut;
-    },
-    rect(x, y, l, h) {
-      rects.push([x, y, l, h]);
-      this.moveTo(x, y);
-      this.lineTo(x + l, y);
-      this.lineTo(x + l, y + h);
-      this.lineTo(x, y + h);
-      this.lineTo(x, y);
     },
     beginPath() {},
     arc() {},
@@ -613,10 +601,15 @@ describe('îles pendant un geste', () => {
     return { rempli, trait };
   }
 
-  /** Ce qu'un calque tracé montre (comme CarteCanvas.dessiner), et les points (rect) émis. */
+  /** Ce qu'un calque tracé montre (comme CarteCanvas.dessiner). */
   function trace(cq: Calque, im: ImageTrace) {
     const rec = enregistreur(true);
     parcourir(im, cq.pays, cq.groupes?.pays, (p) => tracerPartie(rec, im, p));
+    return voyeur(rec);
+  }
+
+  /** Ce que montrent les segments d'un enregistreur (remplir) : voit(emprise, sommets). */
+  function voyeur(rec: ReturnType<typeof enregistreur>) {
     rec.moveTo(0, 0); // referme le dernier sous-chemin
     const { rempli, trait } = parBandes(rec.segments);
     // Points de l'emprise (grille de 9 × 9) et sommets de l'île (sur son bord : le
@@ -628,14 +621,17 @@ describe('îles pendant un geste', () => {
         for (let j = 0; j <= 8; j++) if (montre(b[0] + ((b[2] - b[0]) * i) / 8, b[1] + ((b[3] - b[1]) * j) / 8)) return true;
       return sommets.some(([x, y]) => montre(x, y));
     };
-    return { voit, rects: rec.rects };
+    return { voit };
   }
 
-  /** Le tracé au repos d'une partie seule émet-il un trait (segment non nul) à l'écran ? */
-  function montreeAuRepos(im0: ImageTrace, p: Partie): boolean {
-    const rec = enregistreur();
+  /**
+   * Le tracé au repos d'une partie seule la montre-t-il, vu comme le tracé en
+   * mouvement (même grille, même trait d'au moins 0,5 px) ?
+   */
+  function montreeAuRepos(im0: ImageTrace, p: Partie, e: { b: [number, number, number, number]; sommets: [number, number][] }): boolean {
+    const rec = enregistreur(true);
     tracerPartie(rec, im0, p);
-    return rec.segments.some((sg) => Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > 1e-9 && toucheEcran(sg));
+    return voyeur(rec).voit(e.b, e.sommets);
   }
 
   /**
@@ -656,33 +652,57 @@ describe('îles pendant un geste', () => {
         if (!e) return;
         const { b } = e;
         if (b[0] < 0 || b[2] > L || b[1] < 0 || b[3] > H) return;
-        if (Math.max(b[2] - b[0], b[3] - b[1]) > 20 || !montreeAuRepos(im0, p)) return;
+        if (Math.max(b[2] - b[0], b[3] - b[1]) > 20 || !montreeAuRepos(im0, p, e)) return;
         if (!voit(b, e.sommets)) res.push(`${donnees.entites[i]?.pays.id}#${j} (${(b[2] - b[0]).toFixed(1)}×${(b[3] - b[1]).toFixed(1)} px)`);
       }),
     );
     return res;
   }
 
+  const cle = (sg: [number, number, number, number]) => sg.map((c) => c.toFixed(6)).join(',');
+
   /**
-   * Points dessinés pendant le geste (rect de tracerPoint) loin de tout ce que
-   * le repos montre : ni remplissage à leur centre, ni trait (même plus court
-   * qu'un pixel : un trait d'un pixel physique se voit) à moins d'un pixel du
-   * carré.
+   * Pendant un geste, chaque partie tracée comme au repos (sa source dans la
+   * complète fait moins de TAILLE_EXACTE_PX, ou son contour s'effondre au
+   * seuil du mouvement) émet exactement les segments de sa source au repos,
+   * ni plus ni moins. Une partie qui passe la coupure a deux copies, une à
+   * chaque bord de l'ovale : effondrée, seule sa copie effondrée est retracée
+   * comme au repos (l'autre l'est au seuil du mouvement), et la comparaison
+   * se fait par bord. Rend les écarts, et ce qui a été comparé.
    */
-  function allumes(v: VueGlobe, cq: Calque): string[] {
+  function ecarts(v: VueGlobe, cq: Calque) {
     const im = image(v, C, regionVisible(v, C, MARGE_PX), true);
-    const repos = enregistreur(true);
     const im0 = image(v, C, regionVisible(v, C, MARGE_PX));
-    parcourir(im0, complet.pays, undefined, (p) => tracerPartie(repos, im0, p));
-    repos.moveTo(0, 0);
-    const { rempli, trait } = parBandes(repos.segments);
     const res: string[] = [];
-    for (const [x, y, l] of trace(cq, im).rects) {
-      const [cx, cy] = [x + l / 2, y + l / 2];
-      if (cx < 0 || cx > L || cy < 0 || cy > H) continue;
-      if (!rempli(cx, cy) && !trait(cx, cy, 1 + l / 2, 1e-9)) res.push(`(${cx.toFixed(1)}, ${cy.toFixed(1)}) ${l.toFixed(2)} px`);
-    }
-    return res;
+    let petites = 0;
+    let effondrees = 0;
+    let traits = 0;
+    parcourir(im, cq.pays, cq.groupes?.pays, (p, i) => {
+      const q = p.source ?? p;
+      const geste = enregistreur();
+      const avant = im.exactes;
+      tracerPartie(geste, im, p);
+      if (im.exactes === avant) return; // tracée au seuil du mouvement
+      const repos = enregistreur();
+      tracerPartie(repos, im0, q);
+      const id = `${donnees.entites[i]?.pays.id} (${(im.K * q.taille).toFixed(2)} px)`;
+      const petite = im.K * q.taille < TAILLE_EXACTE_PX;
+      if (petite) petites++;
+      else effondrees++;
+      const egaux = (a: [number, number, number, number][], b: [number, number, number, number][]) => {
+        const [ca, cb] = [new Set(a.map(cle)), new Set(b.map(cle))];
+        return ca.size === cb.size && [...ca].every((c) => cb.has(c));
+      };
+      if (petite || decalages(q, v.r).length === 1) {
+        if (!egaux(geste.segments, repos.segments)) res.push(`${id}${petite ? '' : ', contour effondré'} : tracé différent du repos`);
+      } else {
+        const cote = (sg: [number, number, number, number], est: boolean) => (sg[0] + sg[2]) / 2 >= im.cx === est;
+        const bords = [false, true].filter((est) => egaux(geste.segments.filter((sg) => cote(sg, est)), repos.segments.filter((sg) => cote(sg, est))));
+        if (!bords.length) res.push(`${id}, contour effondré à la coupure : aucun bord tracé comme au repos`);
+      }
+      if (repos.segments.some((sg) => Math.hypot(sg[2] - sg[0], sg[3] - sg[1]) > 1e-9 && toucheEcran(sg))) traits++;
+    });
+    return { res, petites, effondrees, traits };
   }
 
   const VUES: [string, [number, number]][] = [
@@ -695,6 +715,9 @@ describe('îles pendant un geste', () => {
   ];
   const vues: [string, VueGlobe][] = [];
   for (const [nom, ll] of VUES) for (const k of [1, 2, 4, 8]) vues.push([`${nom} k=${k}`, centrer(ll, k)]);
+  // Zoom 1 (le globe entier : un glissé le fait tourner) et ses voisins, toutes les 30°.
+  const tour: [string, VueGlobe][] = [];
+  for (const k of [1, 1.25, 1.5, 2, 3]) for (let lon = -180; lon < 180; lon += 30) tour.push([`tour k=${k} λ0=${lon}`, centrer([lon, 10], k)]);
   for (let i = 0; i < 30; i++) {
     const k = Math.exp(alea() * Math.log(30));
     vues.push([`hasard ${i}`, centrer([alea() * 360 - 180, alea() * 160 - 80], k)]);
@@ -711,49 +734,22 @@ describe('îles pendant un geste', () => {
     expect(fautes).toEqual([]);
   }, 120_000);
 
-  it('aucun point ne s’allume où le repos ne montre rien : mêmes vues', () => {
+  it('pendant un geste, une petite île montre exactement ce qu’elle montre au repos : zoom 1 et voisins sous 12 rotations, archipels, 30 vues au hasard', () => {
     const fautes: string[] = [];
-    let points = 0;
-    for (const [nom, v] of vues) {
+    let [petites, effondrees, traits] = [0, 0, 0];
+    for (const [nom, v] of [...tour, ...vues]) {
       for (const [quoi, cq] of [['allégée', leger], ['complète', complet]] as const) {
-        const p = allumes(v, cq);
-        points += trace(cq, image(v, C, regionVisible(v, C, MARGE_PX), true)).rects.length;
-        if (p.length) fautes.push(`${nom} ${quoi} : ${p.slice(0, 5).join(', ')}${p.length > 5 ? ` (${p.length})` : ''}`);
+        const e = ecarts(v, cq);
+        [petites, effondrees, traits] = [petites + e.petites, effondrees + e.effondrees, traits + e.traits];
+        if (e.res.length) fautes.push(`${nom} ${quoi} : ${e.res.slice(0, 3).join(', ')}${e.res.length > 3 ? ` (${e.res.length})` : ''}`);
       }
     }
     expect(fautes).toEqual([]);
-    expect(points).toBeGreaterThan(5000); // le test regarde bien des points
-  }, 120_000);
-
-  it('le point d’une île : seulement si le repos la montre, du côté de son emprise à l’écran, un pixel au plus (îles de la complète, 12 vues en mouvement)', () => {
-    let vus = 0;
-    let sans = 0;
-    for (const [nom, v] of vues.filter(([n]) => / k=[124]$/.test(n)).slice(0, 12)) {
-      const im = image(v, C, regionVisible(v, C, MARGE_PX), true);
-      const im0 = image(v, C, regionVisible(v, C, MARGE_PX));
-      complet.pays.forEach((ps, i) =>
-        ps.forEach((p, j) => {
-          if (!visible(im, p) || im.K * p.taille >= 2) return;
-          const e = emprise(im, p);
-          if (!e || e.b[0] < 0 || e.b[2] > L || e.b[1] < 0 || e.b[3] > H) return;
-          const rec = enregistreur();
-          tracerPartie(rec, image(v, C, regionVisible(v, C, MARGE_PX), true), p); // image neuve : pas de pixel déjà pris
-          const [r] = rec.rects;
-          if (!!r !== montreeAuRepos(im0, p)) throw new Error(`${nom} ${donnees.entites[i]?.pays.id}#${j} : ${r ? 'point' : 'rien'} pendant le geste, ${r ? 'rien' : 'un trait'} au repos`);
-          if (!r) {
-            sans++;
-            return;
-          }
-          vus++;
-          const cote = Math.max(e.b[2] - e.b[0], e.b[3] - e.b[1]);
-          expect(r[2]).toBeLessThanOrEqual(Math.min(1, cote) + 1e-9);
-          expect(r[2]).toBeGreaterThanOrEqual(Math.min(1, cote) - 1e-9);
-        }),
-      );
-    }
-    expect(vus).toBeGreaterThan(1000);
-    expect(sans).toBeGreaterThan(1000); // des îles que le repos ne montre pas, sans point
-  }, 60_000);
+    // Le test regarde bien des îles, dont des milliers que le repos montre d'un trait, et des contours effondrés.
+    expect(petites).toBeGreaterThan(50_000);
+    expect(traits).toBeGreaterThan(20_000);
+    expect(effondrees).toBeGreaterThan(500);
+  }, 300_000);
 
   it('le test voit une île perdue : l’allégée sans les îles de la complète en perd aux Maldives, au Canada, en Indonésie', () => {
     const seules: Calque = {
@@ -769,7 +765,7 @@ describe('îles pendant un geste', () => {
     }
   }, 60_000);
 
-  it('au zoom 1 en mouvement, l’allégée trace peu : la première île minuscule arrête sa liste, les autres en points', () => {
+  it('au zoom 1 en mouvement, l’allégée trace peu : la première île minuscule arrête sa liste, les petites comme au repos', () => {
     const v = centrer([0, 0], 1);
     const im = image(v, C, regionVisible(v, C, MARGE_PX), true);
     const rec = enregistreur();
@@ -778,13 +774,15 @@ describe('îles pendant un geste', () => {
       vues++;
       tracerPartie(rec, im, p);
     });
-    // 4 289 parties (707 grandes, 3 582 îles de moins de 40 km) : environ 1 100
-    // tracées ; plus d'un millier que le repos ne montre pas, sautées
-    // (minuscules), sans parcourir le reste des listes ; 530 points.
+    // 4 289 parties (707 grandes, 3 582 îles de moins de 40 km) : environ 1 080
+    // vues ; plus de 900 que le repos ne montre pas, sautées (minuscules),
+    // sans parcourir le reste des listes ; environ 790 petites tracées comme
+    // au repos, de quelques sommets chacune (25 000 parcourus, 10 000 émis).
     expect(vues).toBeLessThan(1500);
     expect(vues + im.minuscules).toBeLessThan(2500);
-    expect(im.points).toBeGreaterThan(400);
-    expect(im.parties).toBeLessThan(500);
+    expect(im.exactes).toBeGreaterThan(700);
+    expect(im.parties).toBeLessThan(1300);
+    expect(im.sommets).toBeLessThan(30_000);
     expect(im.emis).toBeLessThan(12_000);
   });
 });

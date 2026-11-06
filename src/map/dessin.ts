@@ -33,21 +33,27 @@
 //
 // Pendant un mouvement (sommets sautés sous SEUIL_MOUVEMENT_PX), une île de
 // moins d'un pixel ou deux se réduisait à un segment ou à un point, sans aire :
-// elle disparaissait pendant le geste et revenait au lâcher. Une partie de
-// moins de TAILLE_POINT_PX (emprise majorée) ou dont le contour s'effondre
-// devient donc un point (tracerPoint), à deux conditions pour ne montrer que
-// ce que montre le repos : la partie y laisse un trait (un sommet à SEUIL_PX
-// ou plus du premier), et le point a le côté de son emprise réelle à l'écran
-// (un pixel au plus). Sans elles (taille majorée, cisaillement d'Equal Earth
-// compris), des îlots invisibles au repos devenaient de petits carrés qui
-// s'allumaient pendant le geste. Le point garde le trait des frontières,
-// comme l'île au repos : une île de moins d'un pixel ne se voit que par ce
-// trait clair, et un point sans contour, couleur de la terre, ne se voyait
-// presque plus. Taches du repos absentes pendant le geste et taches du geste
-// absentes au repos, 16 vues d'archipels aux zooms 2, 4 et 8 : 49, 60, 29 et
-// 259, 169, 53 avec les carrés majorés ; 116, 179, 44 et 0 sans contour ; 1,
-// 4, 8 et 3, 1, 1 ainsi. Une partie de moins de TAILLE_MIN_PX (emprise
-// majorée) est sautée sans regarder ses sommets.
+// elle disparaissait pendant le geste et revenait au lâcher. Une partie dont
+// la source (la partie de la complète, emprise majorée) fait moins de
+// TAILLE_EXACTE_PX, ou dont le contour s'effondre, est donc tracée comme au
+// repos : la géométrie de la complète, au seuil du repos (SEUIL_PX). Pendant
+// le geste, une petite île montre exactement ce qu'elle montre au repos. Elle
+// devenait avant un carré d'un pixel au plus, rempli puis cerclé du trait des
+// frontières : au zoom 1, les Kouriles, les Aléoutiennes et l'Arctique
+// s'allumaient en petits carrés pendant un glissé (vu au doigt le 06/11 sur
+// l'A37), là où le repos ne montre qu'un trait d'un pixel physique. Taches
+// du geste (outils/iles_px.py du skill run-terramemo, 16 vues d'archipels par
+// zoom) aux zooms 1, 1,5, 2, 3, 4 et 8 : absentes au repos 0, 0, 0, 0, 1, 0
+// avant comme après (la tache du zoom 4 est une côte de l'allégée au bord de
+// la carte), mais renforcées (plus de deux fois l'encre du repos) 677, 796,
+// 851, 848, 737, 397 avec les carrés, aucune ainsi ; aucune tache du repos
+// n'y manque pendant le geste. Le comptage d'avant apparie le carré au trait
+// (à 1 px CSS près) et ne voyait pas les îles au zoom 1 (il y prenait le
+// fond de page pour la mer). Tracé JS de l'allégée au zoom 1 (Node sur le
+// PC) : ~0,55 ms par image avant comme après, 12 000 → 25 000 sommets
+// parcourus, 7 700 → 10 000 émis. Une partie de moins de TAILLE_MIN_PX
+// (emprise majorée) est sautée sans regarder ses sommets : le repos n'en
+// montre rien.
 import type { Position } from 'geojson';
 import type { Forme } from './types';
 import { facteurG, normaliserLon, ordonneeBrute, rencontre, type Cadre, type Region, type VueGlobe } from './vue';
@@ -65,8 +71,12 @@ export const SEUIL_MOUVEMENT_PX = 1;
  * de près d'un pixel étaient sautés pendant le geste (une dizaine par vue).
  */
 export const TAILLE_MIN_PX = SEUIL_PX / 2;
-/** Pendant un mouvement, une partie de moins de ce côté (emprise majorée) est un point. */
-export const TAILLE_POINT_PX = 2;
+/**
+ * Pendant un mouvement, une partie dont la source (emprise majorée) fait moins
+ * de ce côté est tracée comme au repos (géométrie de la complète, SEUIL_PX) :
+ * au seuil du mouvement, son contour s'effondrerait.
+ */
+export const TAILLE_EXACTE_PX = 2;
 /** Marge autour de l'écran (px) : région visible et sommets hors de l'écran (traits, cordes entre sommets). */
 export const MARGE_PX = 4;
 /** Pas du contour de l'ovale : nombre de segments par bord sur la bande visible. */
@@ -92,18 +102,19 @@ export interface Partie {
   km: number;
   /**
    * Partie de la carte allégée (simplifiée à 15 km, au pire en triangle) : la
-   * partie de la complète qu'elle remplace, que le repos montre ; son point
-   * pendant un geste en vient (tracerPoint). null ailleurs (calqueLeger).
+   * partie de la complète qu'elle remplace, que le repos montre ; tracée à sa
+   * place pendant un geste quand elle est petite à l'écran (tracerPartie).
+   * null ailleurs (calqueLeger).
    */
   source: Partie | null;
   /**
    * Contour extérieur, en px / K : majorant de l'écart (somme des écarts en x
    * et en y) du sommet le plus loin du premier, quelle que soit la place du
    * premier dans l'ovale. En dessous de SEUIL_PX, le repos ne montre pas la
-   * partie (cotePoint).
+   * partie : parcourir (carte-canvas.ts) l'écarte pendant un geste.
    */
   ecart: number;
-  /** Centre de l'emprise : λ (radians), G(φ), ordonnée brute ; le point d'un contour effondré. */
+  /** Centre de l'emprise : λ (radians), G(φ), ordonnée brute ; l'ancre des hachures. */
   centre: [number, number, number];
   /**
    * Des côtés de la partie suivent l'antiméridien ou un pôle : coutures de
@@ -200,8 +211,6 @@ const KM_PAR_DEGRE = 111.2;
 export interface ContexteTrace {
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
-  /** Sous-chemin fermé d'un rectangle (Path2D.rect) : les points des contours effondrés. */
-  rect(x: number, y: number, l: number, h: number): void;
 }
 
 /** Ce qu'une image partage entre toutes les parties tracées, et ses compteurs. */
@@ -212,24 +221,26 @@ export interface ImageTrace {
   K: number;
   cx: number;
   y0: number;
-  /** Image d'un mouvement : seuil SEUIL_MOUVEMENT_PX, parties minuscules sautées, contours effondrés en points. */
+  /** Image d'un mouvement : seuil SEUIL_MOUVEMENT_PX, parties minuscules sautées, petites parties tracées comme au repos. */
   mouvement: boolean;
   /** Sommets plus proches du dernier tracé (px) : sautés. */
   seuil: number;
-  /** Parties tracées, sommets parcourus, sommets émis (moveTo et lineTo), copies d'un tour, points, parties trop petites sautées. */
+  /**
+   * Parties tracées, sommets parcourus, sommets émis (moveTo et lineTo),
+   * copies d'un tour, parties tracées comme au repos pendant un mouvement
+   * (petites, ou contour effondré), parties trop petites sautées.
+   */
   parties: number;
   sommets: number;
   emis: number;
   copies: number;
-  points: number;
+  exactes: number;
   minuscules: number;
-  /** Par chemin, pixels (x + 65 536 · y) qui ont un point dans cette image : 1, ou PIXEL_PLEIN s'il les couvre tous (tracerPoint). */
-  pixels: Map<ContexteTrace, Map<number, number>>;
 }
 
 export function image(v: VueGlobe, c: Cadre, region: Region, mouvement = false): ImageTrace {
   const seuil = mouvement ? SEUIL_MOUVEMENT_PX : SEUIL_PX;
-  return { v, c, region, K: v.k * c.s, cx: c.l / 2, y0: v.k * c.ty + v.y, mouvement, seuil, parties: 0, sommets: 0, emis: 0, copies: 0, points: 0, minuscules: 0, pixels: new Map() };
+  return { v, c, region, K: v.k * c.s, cx: c.l / 2, y0: v.k * c.ty + v.y, mouvement, seuil, parties: 0, sommets: 0, emis: 0, copies: 0, exactes: 0, minuscules: 0 };
 }
 
 /**
@@ -295,14 +306,14 @@ const BAS = 8;
  * « contour », ce qui n'est pas une frontière est sauté par des moveTo (à
  * tracer seulement : un remplissage fermerait chaque morceau) : les coutures
  * d'une partie, et les segments ramenés sur le bord de l'ovale d'une partie
- * qui passe la coupure ; un contour n'a pas de point. Pendant un mouvement,
- * une partie de moins de TAILLE_MIN_PX est sautée ; une partie de moins de
- * TAILLE_POINT_PX, ou dont le contour extérieur est réduit par les sommets
- * sautés à moins de trois sommets (sans aire), devient un point
- * (tracerPoint).
+ * qui passe la coupure. Pendant un mouvement, une partie dont la source fait
+ * moins de TAILLE_MIN_PX est sautée ; moins de TAILLE_EXACTE_PX, elle est
+ * tracée comme au repos (sa source, au seuil SEUIL_PX), de même qu'une partie
+ * dont le contour extérieur, à l'écran, est réduit par les sommets sautés à
+ * un segment (moveTo et deux lineTo au plus, sans aire).
  *
  * Deux économies, sans rien changer de ce que l'écran montre :
- * - un sommet à moins de SEUIL_PX du dernier tracé est sauté ;
+ * - un sommet à moins du seuil (SEUIL_PX au repos) du dernier tracé est sauté ;
  * - une suite de sommets tous au-delà d'un même bord de l'écran (élargi de
  *   MARGE_PX) est remplacée par son premier et son dernier : la corde et la
  *   suite restent dans le même demi-plan hors de l'écran, le remplissage à
@@ -313,29 +324,86 @@ const BAS = 8;
  * zoom 1 pour 4 500 anneaux, contre 3 ms de tracé).
  */
 export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, contour = false): void {
-  const { K, cx, y0, seuil } = im;
+  if (!im.mouvement) {
+    tracerCopies(ctx, im, p, decalages(p, im.v.r), contour, im.seuil);
+    return;
+  }
+  const q = p.source ?? p;
+  if (im.K * q.taille < TAILLE_EXACTE_PX) {
+    if (minuscule(im, q)) return;
+    if (!contour) im.exactes++;
+    tracerCopies(ctx, im, q, decalages(q, im.v.r), contour, SEUIL_PX);
+    return;
+  }
+  const effondrees = tracerCopies(ctx, im, p, decalages(p, im.v.r), contour, im.seuil);
+  if (!effondrees) return;
+  // Les mêmes copies de la source : les décalages sont tous -r + 360·n (decalages).
+  const ds = decalages(q, im.v.r);
+  const memes = ds.filter((d) => effondrees.some((e) => Math.abs(e - d) < 1e-9));
+  if (!memes.length) return;
+  if (!contour) im.exactes++;
+  tracerCopies(ctx, im, q, ds, contour, SEUIL_PX, memes);
+}
+
+/** Tampon des trois premiers ordres d'un contour extérieur (moveTo 0 ou lineTo 1, x, y), pendant un mouvement. */
+const TAMPON = new Float64Array(9);
+/** Ordres retenus dans TAMPON (0 à 3) ; -1 : émis directement. */
+let tampon = -1;
+
+/** Un ordre (moveTo, ou lineTo si ligne), retenu dans TAMPON tant qu'il y a moins de quatre ordres. */
+function emettre(ctx: ContexteTrace, im: ImageTrace, ligne: boolean, x: number, y: number): void {
+  if (tampon >= 0) {
+    if (tampon < 3) {
+      TAMPON[3 * tampon] = ligne ? 1 : 0;
+      TAMPON[3 * tampon + 1] = x;
+      TAMPON[3 * tampon + 2] = y;
+      tampon++;
+      return;
+    }
+    for (let t = 0; t < 9; t += 3) {
+      if (TAMPON[t]) ctx.lineTo(TAMPON[t + 1] as number, TAMPON[t + 2] as number);
+      else ctx.moveTo(TAMPON[t + 1] as number, TAMPON[t + 2] as number);
+    }
+    im.emis += 3;
+    tampon = -1;
+  }
+  if (ligne) ctx.lineTo(x, y);
+  else ctx.moveTo(x, y);
+  im.emis++;
+}
+
+/**
+ * Trace les copies d'une partie (decalages ds, ou seulement celles de
+ * seules) au seuil donné. Pendant un mouvement, au-dessus du seuil du repos,
+ * les trois premiers ordres du contour extérieur d'une copie dont le premier
+ * sommet est à l'écran (élargi de MARGE_PX) attendent le quatrième : s'il ne
+ * vient pas, le contour s'est effondré en un segment (ou un point), rien de
+ * la copie n'est émis, et son décalage est rendu (la copie est alors
+ * retracée comme au repos) ; null si aucune ne s'effondre. Émis, ce segment
+ * entre deux sommets de l'allégée passait jusqu'à un pixel hors du tracé du
+ * repos.
+ */
+function tracerCopies(ctx: ContexteTrace, im: ImageTrace, p: Partie, ds: readonly number[], contour: boolean, seuil: number, seules: readonly number[] = ds): number[] | null {
+  const { K, cx, y0 } = im;
   const x0 = -MARGE_PX;
   const x1 = im.c.l + MARGE_PX;
   const yh = -MARGE_PX;
   const yb = im.c.h + MARGE_PX;
   const code = (x: number, y: number) => (x < x0 ? GAUCHE : x > x1 ? DROITE : 0) | (y < yh ? HAUT : y > yb ? BAS : 0);
-  if (im.mouvement && K * p.taille < TAILLE_POINT_PX) {
-    if (!contour && !minuscule(im, p)) tracerPoint(ctx, im, p, decalageMilieu(p, im.v.r), x0, x1, yh, yb);
-    return;
-  }
-  const ds = decalages(p, im.v.r);
+  // Sommets ramenés sur le bord de l'ovale dès que la partie passe la coupure, même si une seule copie est tracée.
   const borner = ds.length > 1;
   const sauter = contour && (p.couture || borner);
   const PI = Math.PI;
+  const attendre = im.mouvement && seuil > SEUIL_PX;
+  let effondrees: number[] | null = null;
   im.parties++;
-  im.copies += ds.length - 1;
-  for (const delta of ds) {
+  im.copies += seules.length - 1;
+  copies: for (const delta of seules) {
     for (let r = 0; r < p.anneaux.length; r++) {
       const a = p.anneaux[r] as Float64Array;
       const n = a.length;
       if (n < 9) continue;
       im.sommets += n / 3;
-      const emis0 = im.emis;
       let l0 = (a[0] as number) + delta;
       // Bord de l'ovale où le sommet précédent est ramené : 1 à l'est, -1 à l'ouest, 0 dans l'ovale.
       let bord = 0;
@@ -345,14 +413,14 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
       }
       let lx = cx + K * l0 * (a[1] as number);
       let ly = y0 - K * (a[2] as number);
-      ctx.moveTo(lx, ly);
-      im.emis++;
+      // Bords communs au dernier sommet tracé et aux sommets sautés depuis.
+      let masque = code(lx, ly);
+      tampon = attendre && r === 0 && masque === 0 ? 0 : -1;
+      emettre(ctx, im, false, lx, ly);
       // Contour : crayon levé sur ce qui n'est pas une frontière ; le moveTo
       // attend le prochain trait (la copie ramenée sur le bord de la Russie ou
       // de l'Antarctique : des milliers de sommets, aucun moveTo).
       let leve = false;
-      // Bords communs au dernier sommet tracé et aux sommets sautés depuis.
-      let masque = code(lx, ly);
       let attente = false;
       let ax = 0;
       let ay = 0;
@@ -380,8 +448,7 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
             continue;
           }
           if (leve) {
-            ctx.moveTo(lx, ly);
-            im.emis++;
+            emettre(ctx, im, false, lx, ly);
             leve = false;
           }
         }
@@ -394,107 +461,27 @@ export function tracerPartie(ctx: ContexteTrace, im: ImageTrace, p: Partie, cont
           continue;
         }
         if (attente) {
-          ctx.lineTo(ax, ay);
-          im.emis++;
+          emettre(ctx, im, true, ax, ay);
           lx = ax;
           ly = ay;
           attente = false;
         }
         if (i < n - 3 && Math.abs(x - lx) + Math.abs(y - ly) < seuil) continue;
-        ctx.lineTo(x, y);
-        im.emis++;
+        emettre(ctx, im, true, x, y);
         lx = x;
         ly = y;
         masque = cd;
       }
-      if (attente) {
-        ctx.lineTo(ax, ay);
-        im.emis++;
+      if (attente) emettre(ctx, im, true, ax, ay);
+      if (tampon >= 0) {
+        // Effondré : ni ce contour ni ses trous (plus petits encore).
+        (effondrees ??= []).push(delta);
+        tampon = -1;
+        continue copies;
       }
-      // Contour extérieur effondré (moveTo et deux lineTo au plus : un segment) : un point, s'il est à l'écran.
-      if (im.mouvement && !contour && r === 0 && im.emis - emis0 <= 3) tracerPoint(ctx, im, p, delta, x0, x1, yh, yb);
     }
   }
-}
-
-/**
- * Un carré centré sur le centre de l'emprise d'une partie (copie décalée de
- * delta), du côté de son emprise réelle à l'écran (cotePoint), un pixel (px
- * CSS) au plus, s'il est dans l'écran élargi et si le repos montre la partie.
- * Une partie de la carte allégée prend centre et emprise de sa source : son
- * triangle peut faire moins de la moitié de l'île (Karpathos : 19 km pour
- * 45), et ce que le repos montre vient de la complète.
- * Un carré d'un pixel entier rendait les îles de moins d'un pixel plus
- * visibles pendant le geste qu'au repos (Polynésie au zoom 4 : des points qui
- * s'allument au toucher). Un seul point par pixel et par chemin (un pays
- * marqué a le sien) : le second qui tombe dans un pixel le remplit en entier
- * (il couvre les deux centres), les suivants n'ajoutent rien (au zoom 1, des
- * îles par dizaines dans le même pixel).
- */
-function tracerPoint(ctx: ContexteTrace, im: ImageTrace, partie: Partie, delta: number, x0: number, x1: number, yh: number, yb: number): void {
-  const p = partie.source ?? partie;
-  const [lc, gc, yc] = p.centre;
-  const l = Math.max(-Math.PI, Math.min(Math.PI, lc + delta));
-  const x = im.cx + im.K * l * gc;
-  const y = im.y0 - im.K * yc;
-  if (x < x0 || x > x1 || y < yh || y > yb) return;
-  let pixels = im.pixels.get(ctx);
-  if (!pixels) im.pixels.set(ctx, (pixels = new Map()));
-  const [px, py] = [Math.floor(x), Math.floor(y)];
-  const cle = px + 65_536 * py;
-  const deja = pixels.get(cle);
-  if (deja === PIXEL_PLEIN) return;
-  const cote = Math.min(1, cotePoint(im, p, delta));
-  if (cote === 0) {
-    im.minuscules++;
-    return;
-  }
-  if (deja === undefined && cote < 1) {
-    pixels.set(cle, 1);
-    ctx.rect(x - cote / 2, y - cote / 2, cote, cote);
-  } else {
-    pixels.set(cle, PIXEL_PLEIN);
-    ctx.rect(px, py, 1, 1);
-  }
-  im.emis++;
-  im.points++;
-}
-
-const PIXEL_PLEIN = 2;
-
-/**
- * Côté (px) de l'emprise réelle à l'écran d'une partie (copie décalée de
- * delta), d'après les sommets de son contour extérieur, à la rotation de
- * l'image ; 0 si le repos ne la montre pas : aucun sommet à SEUIL_PX ou plus
- * du premier (somme des écarts en x et en y), tracerPartie n'émettant alors
- * qu'un segment nul. Le majorant
- * Partie.ecart écarte sans parcourir leurs sommets la plupart des îles que le
- * repos ne montre pas (parcourir, carte-canvas.ts, avant même tracerPartie) :
- * parcourir les sommets de toutes les îles candidates doublait le tracé JS
- * de l'allégée au zoom 1 (0,38 → 0,73 ms sur le PC, Node ; 0,56 ainsi).
- */
-function cotePoint(im: ImageTrace, p: Partie, delta: number): number {
-  const a = p.anneaux[0];
-  if (!a || a.length < 3 || im.K * p.ecart < SEUIL_PX) return 0;
-  const { K, cx, y0 } = im;
-  const PI = Math.PI;
-  let x0 = Infinity, x1 = -Infinity, ya = Infinity, yb = -Infinity;
-  let ecart = 0;
-  let px = 0;
-  let py = 0;
-  for (let i = 0; i < a.length; i += 3) {
-    let l = (a[i] as number) + delta;
-    l = l > PI ? PI : l < -PI ? -PI : l;
-    const x = cx + K * l * (a[i + 1] as number);
-    const y = y0 - K * (a[i + 2] as number);
-    if (i === 0) [px, py] = [x, y];
-    else ecart = Math.max(ecart, Math.abs(x - px) + Math.abs(y - py));
-    if (x < x0) x0 = x;
-    if (x > x1) x1 = x;
-    if (y < ya) ya = y;
-    if (y > yb) yb = y;
-  }
-  return ecart < SEUIL_PX ? 0 : Math.max(x1 - x0, yb - ya);
+  return effondrees;
 }
 
 const Y_POLE = ordonneeBrute(90);

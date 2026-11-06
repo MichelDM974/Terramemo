@@ -63,8 +63,8 @@ export interface StatsDessin {
   /** Canvas : moveTo et lineTo émis ; WebGL : appels de dessin. */
   emis: number;
   copies: number;
-  /** Canvas : contours effondrés en un point, parties minuscules sautées pendant un mouvement (dessin.ts). */
-  points?: number;
+  /** Canvas, pendant un mouvement : parties tracées comme au repos (petites, ou contour effondré), parties minuscules sautées (dessin.ts). */
+  exactes?: number;
   minuscules?: number;
   /** WebGL : temps GPU d'une image récente (EXT_disjoint_timer_query_webgl2), null sans l'extension. */
   gpu_ms?: number | null;
@@ -177,8 +177,8 @@ export function parcourir(im: ImageTrace, listes: Partie[][], groupes: (Groupe |
         if (j >= de) break;
         continue;
       }
-      // Une île que le repos ne montre pas (dessin.ts, cotePoint), écartée sans
-      // appeler f : un millier au zoom 1, ni triées ni groupées par ce critère.
+      // Une île que le repos ne montre pas (Partie.ecart, dessin.ts), écartée
+      // sans appeler f : un millier au zoom 1, ni triées ni groupées par ce critère.
       if (im.mouvement && im.K * (p.source ?? p).ecart < SEUIL_PX) {
         im.minuscules++;
         continue;
@@ -987,7 +987,7 @@ export class CarteCanvas implements CarteAffichee {
 
     this.dessinerPastilles(ctx);
     const ms = performance.now() - t0;
-    this.dernier = { ms, trace_ms: t1 - t0, leger, parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies, points: im.points, minuscules: im.minuscules };
+    this.dernier = { ms, trace_ms: t1 - t0, leger, parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies, exactes: im.exactes, minuscules: im.minuscules };
     this.hote.dataset.dessin = leger ? 'leger' : 'complet';
   }
 

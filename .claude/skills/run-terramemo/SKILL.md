@@ -450,6 +450,13 @@ localabstract:chrome_devtools_remote` ; APK : `…webview_devtools_remote_<pid>`
 - `outils/glisses_apk.py <rendu> <sortie.json>` : glissés par l'écran
   tactile (`adb shell input swipe`, le vrai chemin du toucher : il fait
   monter l'écran à 120 Hz, DevTools non ; pas de pincement) dans l'APK ;
+- `outils/iles_px.py [--url …] [--ks 1,1.5,2,3,4,8] [-v]` (sur le PC, pas
+  le téléphone ; numpy, scipy et Pillow) : en canvas, captures pendant un
+  glissé et au repos de 16 vues d'archipels par zoom, et les petites taches
+  du geste absentes au repos, du repos absentes du geste, et du geste
+  renforcées (un îlot qui s'allume pendant le geste) ; à 0 partout depuis le
+  06/11 sauf une côte de l'allégée au bord de la carte au zoom 4
+  (src/map/dessin.ts) ;
 - `outils/images_video.py <video.mp4> [dossier]` : luminance de chaque image
   d'un `adb shell screenrecord` (H.264, lu par le chromium de playwright ;
   le ffmpeg de playwright ne lit pas le H.264), pour l'éclair blanc au
@@ -503,8 +510,10 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
    glisser horizontalement, long et vite, plusieurs fois dans le même sens
    (le tour du monde), puis lentement. Le globe tourne-t-il sans à-coup,
    le point sous le doigt reste-t-il sous le doigt ? La **carte allégée**
-   se voit-elle pendant le mouvement (canvas : côtes simplifiées, petites
-   îles qui changent), et le passage à la carte complète au lever (saut, flou,
+   se voit-elle pendant le mouvement (canvas : côtes simplifiées ; les
+   petites îles y sont tracées comme au repos depuis le 06/11 : un îlot qui
+   s'allume pendant le geste est un défaut, `outils/iles_px.py`), et le
+   passage à la carte complète au lever (saut, flou,
    éclair) ? Les frontières (un pixel physique, `--frontiere-fine`) :
    trop marquées, trop fines ? Les hachures (Sahara occidental…) glissent
    sous la carte pendant le geste : gênant ? « Voir » dans la vue Toucher
