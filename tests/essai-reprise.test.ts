@@ -112,7 +112,7 @@ describe('Toucher : retour dans la vue pendant une question', () => {
     vi.advanceTimersByTime(1200);
     admisSuivant = { zone: autre, tenant: autre, sorte: 'enclave' };
     toucher(v.vue, true);
-    expect(v.retro.textContent).toMatch(new RegExp(`^Juste \\(enclave de ${autre === 'FRA' ? 'France' : 'Espagne'} dans ${v.cible() === 'FRA' ? 'France' : 'Espagne'}\\)`));
+    expect(v.retro.textContent).toMatch(new RegExp(`^Juste \\(enclave : ${autre === 'FRA' ? 'France' : 'Espagne'}\\)`));
   });
 
   it('garde les essais déjà faits pour la question', () => {

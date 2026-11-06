@@ -75,7 +75,8 @@ export function nomDe(d: { noms: Record<string, string> }, id: string): string {
 /**
  * Pourquoi un toucher hors du tracé de la cible est juste (décision « Zones
  * contestées et enclaves », Note.admis de noter()) : « (zone contestée, tenue
- * par Russie) », « (enclave de Baïkonour dans Kazakhstan) » ; '' sans zone
+ * par Russie) » (libellé de l'étude, option B ; sans article, les noms n'en
+ * ont pas), « (enclave : Baïkonour) » ; '' sans zone
  * admise. Une entité contestée se tient elle-même dans les données (tenant =
  * zone : Somaliland, Malouines, glacier de Siachen…) : son nom à la place
  * (« zone contestée : Somaliland »). Rien quand la cible la tient : le toucher
@@ -84,7 +85,7 @@ export function nomDe(d: { noms: Record<string, string> }, id: string): string {
 export function texteAdmis(d: { noms: Record<string, string> }, cible: string, admis: Admis | null | undefined): string {
   if (!admis) return '';
   const T = textes.toucher;
-  if (admis.sorte === 'enclave') return remplir(T.admis_enclave, { zone: nomDe(d, admis.zone), cible: nomDe(d, cible) });
+  if (admis.sorte === 'enclave') return remplir(T.admis_enclave, { zone: nomDe(d, admis.zone) });
   if (admis.tenant === cible) return '';
   if (admis.tenant === admis.zone) return remplir(T.admis_contestee_zone, { zone: nomDe(d, admis.zone) });
   return remplir(T.admis_contestee, { tenant: nomDe(d, admis.tenant) });

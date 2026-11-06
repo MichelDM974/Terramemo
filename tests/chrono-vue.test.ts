@@ -298,7 +298,7 @@ describe('zones contestées et enclaves : à partir du lundi 09/11/2026 0 h UTC'
 });
 
 describe('rétroaction d’une zone admise', () => {
-  it('Chrono : « Juste (zone contestée, tenue par Russie) · +1000 » ; Sans faute : « Juste (enclave de Baïkonour dans Kazakhstan) »', () => {
+  it('Chrono : « Juste (zone contestée, tenue par Russie) · +1000 » ; Sans faute : « Juste (enclave : Baïkonour) »', () => {
     const { v, zone, consigne, lancer } = contexte(() => DEBUT_ACCEPTES_EPREUVES);
     lancer('chrono');
     admisSuivant = { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' };
@@ -312,8 +312,7 @@ describe('rétroaction d’une zone admise', () => {
     const s = lancer as (m: 'sansfaute') => void;
     s('sansfaute');
     admisSuivant = { zone: 'NE_KAB', tenant: 'NE_KAB', sorte: 'enclave' };
-    const cible = consigne();
     v.toucher?.(0, 0, {} as PointerEvent);
-    expect(retro()).toBe(`Juste (enclave de Baïkonour dans ${cible})`);
+    expect(retro()).toBe('Juste (enclave : Baïkonour)');
   });
 });

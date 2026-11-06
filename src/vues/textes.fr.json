@@ -82,7 +82,7 @@
     "via_proche": " (au plus près)",
     "admis_contestee": " (zone contestée, tenue par {tenant})",
     "admis_contestee_zone": " (zone contestée : {zone})",
-    "admis_enclave": " (enclave de {zone} dans {cible})",
+    "admis_enclave": " (enclave : {zone})",
     "essai_un": "{n} essai",
     "essais": "{n} essais",
     "faux": "Faux : {touche}{ou}. {suite}",
