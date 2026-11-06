@@ -265,6 +265,10 @@ Sous-régions des 195 jouables et grappes obtenues :
 - **Communes de La Réunion** (décision « Contenu » : FSRS avec le J1a) :
   `grappes(communes)` donne 4 grappes de 6 communes voisines (même
   découpe par `voisins`, sans sous-région). D6.
+  Budget à part (réponse du 06/11, décision « Apprendre et Révision du
+  jour ») : une grappe de communes et une grappe de pays nouvelles
+  possibles le même jour ; une grappe entamée d'un domaine ne retient ni
+  ne précède l'autre.
 - Ordre des grappes : D4 (`ORDRE_CONTINENTS`).
 
 ## 6. Interface

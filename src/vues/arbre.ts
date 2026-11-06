@@ -48,7 +48,7 @@ const SUR_LA_CARTE: DefSujet['modes'] = { entrainement: ['localiser', 'nommer'],
 /**
  * Pays et communes apprennent en plus (décision « Apprendre et Révision du
  * jour » : Apprendre, exercice de chaque série, sa grappe suivante ; défaut
- * D6 : sous La Réunion, ses 4 grappes de 6 communes, même budget).
+ * D6 : sous La Réunion, ses 4 grappes de 6 communes, leur propre budget).
  */
 const AVEC_APPRENDRE: DefSujet['modes'] = { entrainement: ['apprendre', ...SUR_LA_CARTE.entrainement], classe: MODES_EPREUVE };
 const duTerrain = (t: NomTerrain) => (c: readonly Serie[]) => c.filter((s) => s.terrain === t);

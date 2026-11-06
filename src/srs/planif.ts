@@ -14,8 +14,10 @@ export const REVISIONS_PAR_SEANCE = 25;
 export const REVISIONS_PAR_JOUR = 60;
 /**
  * Défaut en attente de l'utilisateur, #2 (D5) : grappes de nouveautés au plus
- * par jour. L'unité est la grappe entière (5 à 9 entités), quelle que soit sa
- * taille : le budget ne coupe jamais une grappe.
+ * par jour et par domaine (décision « Apprendre et Révision du jour » : les
+ * pays et les communes ont chacun le leur). L'unité est la grappe entière (5
+ * à 9 entités), quelle que soit sa taille : le budget ne coupe jamais une
+ * grappe.
  */
 export const GRAPPES_PAR_JOUR = 1;
 
@@ -126,7 +128,8 @@ export function grappeEntamee(etat: Etat, j: number, grappes: readonly Grappe[],
  * Entités d'un domaine entrées dans la mémoire le jour j (fiche d'entrée,
  * localiser, introduite ce jour-là) : seule une grappe en fait entrer, donc
  * plus de 0 dit qu'une grappe de ce domaine a été commencée ce jour, même
- * sans connaître ses grappes (l'île pas encore chargée).
+ * sans connaître ses grappes (l'île pas encore chargée : src/vues/seance.ts
+ * la fait charger pour savoir s'il reste des communes à finir).
  */
 export function entreesDuJour(etat: Etat, j: number, domaine: Domaine): number {
   let n = 0;
@@ -137,21 +140,7 @@ export function entreesDuJour(etat: Etat, j: number, domaine: Domaine): number {
   return n;
 }
 
-/**
- * Un autre domaine du même budget de nouveautés (décision « Apprendre et
- * Révision du jour » : une grappe de lieux nouveaux par jour, tous domaines
- * confondus ; défaut D6 pour les communes). `grappes` null : pas connues
- * (l'île pas chargée) ; une entrée du jour y compte alors pour une grappe
- * commencée, sans savoir si elle est finie.
- */
-export interface AutreDomaine {
-  domaine: Domaine;
-  grappes: readonly Grappe[] | null;
-}
-
 export interface OptionsProgramme {
-  /** Les autres domaines du budget commun (une grappe par jour en tout). */
-  autres?: readonly AutreDomaine[];
   /** Révisions déjà prises dans la même séance par un bloc précédent (les communes après les pays) : retirées des deux plafonds. */
   prises?: number;
 }
@@ -202,22 +191,23 @@ export interface Programme {
 }
 
 /**
- * Programme d'une séance le jour j (décision « Apprendre et Révision du jour
- * » : un seul budget). Les révisions dues d'abord (les deux sens, plafonds,
- * sœurs), puis les fiches nommer à introduire, puis une nouvelle grappe
- * seulement si la séance couvre toutes les révisions dues (aucune ne reste
- * après elle) et si moins de GRAPPES_PAR_JOUR grappes ont été commencées ce
- * jour-là ; la grappe commencée ce jour même se finit d'abord (elle n'est
- * jamais coupée : une séance quittée en plein rappel la reprend ; Apprendre
+ * Programme d'une séance le jour j dans un domaine (décision « Apprendre et
+ * Révision du jour » : un budget par domaine, pays et communes ; une grappe
+ * de chaque le même jour). Les révisions dues d'abord (les deux sens,
+ * plafonds, sœurs), puis les fiches nommer à introduire, puis une nouvelle
+ * grappe seulement si la séance couvre toutes les révisions dues (aucune ne
+ * reste après elle) et si moins de GRAPPES_PAR_JOUR grappes du domaine ont
+ * été commencées ce jour-là ; la grappe commencée ce jour même se finit
+ * d'abord (elle n'est jamais coupée : une séance quittée en plein rappel la reprend ; Apprendre
  * sur une autre série la renvoie : 'grappe_entamee'). `grappes` donne
  * l'ordre des nouveautés (celles d'une série pour Apprendre) ; le compte des
  * grappes commencées se fait sur `toutes` (par défaut les mêmes), pour
- * qu'un Apprendre lancé depuis une série ne contourne pas le budget, et
- * sur les `autres` domaines (o.autres : les communes pour les pays, et
- * inversement) pour qu'Apprendre sous La Réunion ne le contourne pas non
- * plus. Les révisions dues d'abord valent dans le domaine : celles des
- * communes ne retiennent pas la grappe de pays (la Révision du jour, qui fait
- * les deux, le vérifie elle-même : src/vues/seance.ts).
+ * qu'un Apprendre lancé depuis une série ne contourne pas le budget. L'autre
+ * domaine n'y entre pas : une grappe de communes, commencée ou finie, ne
+ * retient ni ne précède celle des pays, et inversement. Les révisions dues
+ * d'abord valent dans le domaine : celles des communes ne retiennent pas la
+ * grappe de pays d'Apprendre (la Révision du jour, qui fait les deux, les
+ * fait passer avant elle-même : src/vues/seance.ts).
  */
 export function programme(
   etat: Etat,
@@ -237,22 +227,17 @@ export function programme(
   let sansNouveautes: SansNouveautes | null = null;
   let nouveautes: Nouveautes | null = null;
   let entamee: Nouveautes | null = null;
-  const autres = o.autres ?? [];
   if (restantes > 0) sansNouveautes = duJour === 0 ? 'plafond' : 'dues';
   else {
     const g = grappeSuivante(etat, grappes, domaine);
-    // La grappe commencée ce jour et pas finie, dans ce domaine ou un autre du budget commun : elle passe avant.
-    let e = grappeEntamee(etat, j, toutes, domaine);
-    for (const a of autres) e ??= a.grappes ? grappeEntamee(etat, j, a.grappes, a.domaine) : null;
-    const commencees =
-      grappesCommencees(etat, j, toutes, domaine) +
-      autres.reduce((n, a) => n + (a.grappes ? grappesCommencees(etat, j, a.grappes, a.domaine) : entreesDuJour(etat, j, a.domaine) > 0 ? 1 : 0), 0);
-    if (e && e.domaine === domaine && grappes.includes(e.grappe)) nouveautes = e;
+    // La grappe du domaine commencée ce jour et pas finie : elle passe avant.
+    const e = grappeEntamee(etat, j, toutes, domaine);
+    if (e && grappes.includes(e.grappe)) nouveautes = e;
     else if (!g) sansNouveautes = 'tout_appris';
     else if (e) {
       sansNouveautes = 'grappe_entamee';
       entamee = e;
-    } else if (commencees < GRAPPES_PAR_JOUR) nouveautes = g;
+    } else if (grappesCommencees(etat, j, toutes, domaine) < GRAPPES_PAR_JOUR) nouveautes = g;
     else sansNouveautes = 'grappe_faite';
   }
   return { revisions, introductions: intro, restantes, nouveautes, sansNouveautes, entamee };

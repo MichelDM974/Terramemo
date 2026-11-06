@@ -1,13 +1,14 @@
 // La séance vue de l'appli (étude J1a § 4 et 6) : le lien entre la mémoire de
 // l'appareil (src/journal/memoire.ts), le séquenceur pur (src/srs/seance.ts)
 // et Toucher (essai.ts, qui pose les questions). Ici : le programme du jour
-// (Révision du jour, ou Apprendre sur une série : un seul budget d'une
-// grappe par jour, révisions dues d'abord), le cadrage d'une grappe en
+// (Révision du jour, ou Apprendre sur une série : une grappe par jour et par
+// domaine, révisions dues d'abord), le cadrage d'une grappe en
 // emprise de carte, la ligne discrète après une réponse, le bilan (sans
 // points : « Points et classement »), les comptes de la ligne de Jouer, et
 // le journal des parties libres (D11 : mode 'libre', hors FSRS). Les
 // communes de La Réunion (défaut D6) : Apprendre sous La Réunion (4 grappes
-// de 6), le même budget d'une grappe de lieux nouveaux par jour, et leurs
+// de 6), leur propre budget d'une grappe par jour (décision « Apprendre et
+// Révision du jour » : une de pays et une de communes le même jour), et leurs
 // révisions en second bloc de la Révision du jour, sur l'île, avant la
 // grappe de pays nouveaux.
 import type { DonneesCarte } from '../map/donnees';
@@ -16,7 +17,7 @@ import type { Lieu, NomTerrain } from '../map/types';
 import type { Memoire } from '../journal/memoire';
 import { former, type Domaine } from '../srs/fiches';
 import { grappesCommunes, grappesPays, type Grappe } from '../srs/grappes';
-import { dues, entreesDuJour, grappeEntamee, introductions, programme, revisionsPermises, type AutreDomaine, type Programme } from '../srs/planif';
+import { dues, entreesDuJour, grappeEntamee, introductions, programme, revisionsPermises, type Programme } from '../srs/planif';
 import { evenementReponse, Seance, type BilanSeance, type PlanSeance } from '../srs/seance';
 import type { Terrain } from '../terrains';
 import type { Lancement } from './arbre';
@@ -100,13 +101,9 @@ export function creerSeances(o: OptionsSeances): Seances {
     if (communes?.donnees !== d) communes = infoDomaine('communes', 'reunion', d, grappesCommunes(d.entites.map((e) => e.pays)));
     return communes;
   };
-  /** Les autres domaines du budget commun d'une grappe par jour (planif.ts AutreDomaine). */
-  const autres = (domaine: Domaine): AutreDomaine[] =>
-    domaine === 'pays' ? [{ domaine: 'communes', grappes: infoCommunes()?.toutes ?? null }] : [{ domaine: 'pays', grappes: pays.toutes }];
-
-  /** Le programme d'un domaine : ses grappes (celles d'une série pour Apprendre), le budget commun, les révisions déjà prises dans la séance. */
+  /** Le programme d'un domaine : ses grappes (celles d'une série pour Apprendre), son budget, les révisions déjà prises dans la séance. */
   function bloc(info: InfoDomaine, grappes: readonly Grappe[], prises = 0): Bloc {
-    const p = programme(m.etat(), m.jour(), grappes, info.domaine, info.toutes, { autres: autres(info.domaine), prises });
+    const p = programme(m.etat(), m.jour(), grappes, info.domaine, info.toutes, { prises });
     return { info, p, plan: { revisions: p.revisions, introductions: p.introductions, nouveaux: p.nouveautes?.ids ?? [] } };
   }
 
@@ -145,16 +142,16 @@ export function creerSeances(o: OptionsSeances): Seances {
   /**
    * Une grappe de communes est commencée ce jour mais l'île n'est pas
    * chargée (page rouverte en pleine grappe) : sans ses grappes, on ne sait
-   * pas si elle est finie ; les comptes de la ligne de Jouer et le refus
-   * d'Apprendre sur les pays (renvoi vers les communes à finir) en dépendent.
+   * pas si elle est finie ; les comptes de la ligne de Jouer (les communes à
+   * finir) en dépendent.
    */
   function ileIncertaine(): boolean {
     return m.charge && !o.ile?.() && entreesDuJour(m.etat(), m.jour(), 'communes') > 0;
   }
 
-  /** Une demande a-t-elle besoin de l'île (communes dues, grappe de communes commencée ce jour, Apprendre sous La Réunion, ou sur les pays quand la grappe de communes du jour est peut-être entamée) ? */
+  /** Une demande a-t-elle besoin de l'île (communes dues, grappe de communes commencée ce jour, Apprendre sous La Réunion) ? */
   function besoinIle(d: DemandeSeance): boolean {
-    if (d.sorte === 'apprendre') return d.serie.terrain !== 'monde' || ileIncertaine();
+    if (d.sorte === 'apprendre') return d.serie.terrain !== 'monde';
     const etat = m.etat();
     const j = m.jour();
     return m.charge && (dues(etat, j, 'communes').length > 0 || introductions(etat, j, 'communes').length > 0 || entreesDuJour(etat, j, 'communes') > 0);
@@ -173,17 +170,6 @@ export function creerSeances(o: OptionsSeances): Seances {
     return { aRevoir, nouveaux: (blocs(d) ?? []).reduce((n, b) => n + b.plan.nouveaux.length, 0) };
   }
 
-  /**
-   * Le refus « grappe du jour prise » : par une grappe du même domaine, ou de
-   * l'autre (budget commun d'une grappe de lieux nouveaux par jour, choix de
-   * l'auteur à faire confirmer, #2) ; le dire, sinon le refus parle d'une
-   * grappe que le joueur n'a pas apprise.
-   */
-  function grappeFaite(domaine: Domaine): string {
-    if (entreesDuJour(m.etat(), m.jour(), domaine) > 0) return S.grappe_faite;
-    return domaine === 'pays' ? S.grappe_faite_par_communes : S.grappe_faite_par_pays;
-  }
-
   function ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance {
     const bs = blocs(d);
     if (!bs) return { refus: textes.toucher.echec_terrain, reviser: 0 };
@@ -191,13 +177,13 @@ export function creerSeances(o: OptionsSeances): Seances {
     const nouveaux = bs.some((b) => b.plan.nouveaux.length);
     const p = bs[0]!.p;
     if (!nouveaux && (d.sorte === 'apprendre' ? p.sansNouveautes !== 'dues' : aFaire === 0)) {
-      // Apprendre sur une autre série (ou l'autre domaine) que la grappe du jour, commencée et pas finie : la Révision du jour la reprend.
+      // Apprendre sur une autre série que la grappe de pays du jour, commencée et pas finie : la Révision du jour la reprend.
+      // (Les communes n'ont qu'une série, La Réunion : leur grappe entamée s'y reprend toujours.)
       if (d.sorte === 'apprendre' && p.entamee) {
-        const refus = p.entamee.domaine === 'pays' ? remplir(S.grappe_entamee, { serie: nomSerie(p.entamee.grappe.continent) }) : S.grappe_entamee_communes;
-        return { refus, reviser: aFaire, finir: p.entamee.ids.length };
+        return { refus: remplir(S.grappe_entamee, { serie: nomSerie(p.entamee.grappe.continent) }), reviser: aFaire, finir: p.entamee.ids.length };
       }
       const toutAppris = bs[0]!.info.domaine === 'pays' ? S.tout_appris : S.tout_appris_communes;
-      const raison = p.sansNouveautes === 'plafond' ? S.plafond : d.sorte === 'revision' ? S.rien : p.sansNouveautes === 'tout_appris' ? toutAppris : grappeFaite(bs[0]!.info.domaine);
+      const raison = p.sansNouveautes === 'plafond' ? S.plafond : d.sorte === 'revision' ? S.rien : p.sansNouveautes === 'tout_appris' ? toutAppris : S.grappe_faite;
       return { refus: raison, reviser: d.sorte === 'apprendre' ? aFaire : 0 };
     }
     const id = m.nouvelId();

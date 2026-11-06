@@ -214,43 +214,50 @@ describe('seaux de la carte de la mémoire', () => {
   });
 });
 
-describe('budget commun aux pays et aux communes (décision « Apprendre et Révision du jour », D6)', () => {
+describe('un budget par domaine, pays et communes (décision « Apprendre et Révision du jour », D6)', () => {
   const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
   const communes = JSON.parse(readFileSync('public/geo/reunion/communes.json', 'utf8')) as Lieu[];
   const gp = grappesPays(pays);
   const gc = grappesCommunes(communes);
   const c0 = gc[0]!;
   const p0 = gp[0]!;
-  const autresP = [{ domaine: 'communes' as const, grappes: gc }];
-  const autresC = [{ domaine: 'pays' as const, grappes: gp }];
 
-  it('4 grappes de 6 communes ; une seule grappe de lieux nouveaux par jour, tous domaines confondus', () => {
+  it('4 grappes de 6 communes ; une grappe de pays et une grappe de communes nouvelles le même jour, chacune son budget', () => {
     expect(gc.map((g) => g.membres.length)).toEqual([6, 6, 6, 6]);
     // Journal vide : chaque domaine a sa grappe à prendre.
-    expect(programme(new Map(), D0, gc, 'communes', gc, { autres: autresC }).nouveautes?.grappe).toBe(c0);
-    expect(programme(new Map(), D0, gp, 'pays', gp, { autres: autresP }).nouveautes?.domaine).toBe('pays');
-    // Une grappe de communes faite ce jour : pas de grappe de pays (et inversement), même grappes de l'île inconnues.
+    expect(programme(new Map(), D0, gc, 'communes').nouveautes?.grappe).toBe(c0);
+    expect(programme(new Map(), D0, gp, 'pays').nouveautes?.domaine).toBe('pays');
+    // Une grappe de communes faite ce jour : la grappe de pays reste ouverte ; une seconde de communes, non.
     const communesFaites = etat(c0.membres.map((id) => rep(`communes:${id}:localiser`, D0, GOOD, 'rappel')));
     expect(entreesDuJour(communesFaites, D0, 'communes')).toBe(6);
-    expect(programme(communesFaites, D0, gp, 'pays', gp, { autres: autresP }).sansNouveautes).toBe('grappe_faite');
-    expect(programme(communesFaites, D0, gp, 'pays', gp, { autres: [{ domaine: 'communes', grappes: null }] }).sansNouveautes).toBe('grappe_faite');
-    // Sans les autres domaines (lot 5a), chacun le sien : le contournement que le budget commun ferme.
     expect(programme(communesFaites, D0, gp, 'pays').nouveautes?.grappe).toBe(p0);
-    const paysFaits = etat(p0.membres.map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel')));
-    expect(programme(paysFaits, D0, gc, 'communes', gc, { autres: autresC }).sansNouveautes).toBe('grappe_faite');
+    expect(programme(communesFaites, D0, gc, 'communes').sansNouveautes).toBe('grappe_faite');
+    // Les deux faites ce jour : chaque domaine a pris la sienne.
+    const lesDeux = etat([
+      ...c0.membres.map((id) => rep(`communes:${id}:localiser`, D0, GOOD, 'rappel')),
+      ...p0.membres.map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel')),
+    ]);
+    expect(programme(lesDeux, D0, gp, 'pays').sansNouveautes).toBe('grappe_faite');
+    expect(programme(lesDeux, D0, gc, 'communes').sansNouveautes).toBe('grappe_faite');
     // Le lendemain, la suivante de chaque domaine.
-    expect(programme(paysFaits, D0 + 1, gc, 'communes', gc, { autres: autresC }).nouveautes?.grappe).toBe(c0);
+    expect(programme(lesDeux, D0 + 1, gc, 'communes').nouveautes?.grappe).toBe(gc[1]);
+    expect(programme(lesDeux, D0 + 1, gp, 'pays').nouveautes?.grappe).toBe(gp[1]);
   });
 
-  it('une grappe entamée dans l’autre domaine passe avant : refus « grappe_entamee » avec son domaine ; sans ses grappes, « grappe_faite »', () => {
+  it('une grappe entamée dans l’autre domaine ne retient ni ne précède : elle se reprend dans le sien', () => {
     const entamee = etat(c0.membres.slice(0, 2).map((id) => rep(`communes:${id}:localiser`, D0, GOOD, 'rappel')));
-    const p = programme(entamee, D0, gp, 'pays', gp, { autres: autresP });
-    expect(p.sansNouveautes).toBe('grappe_entamee');
-    expect(p.entamee?.domaine).toBe('communes');
-    expect(p.entamee?.ids).toEqual(c0.membres.slice(2));
-    expect(programme(entamee, D0, gp, 'pays', gp, { autres: [{ domaine: 'communes', grappes: null }] }).sansNouveautes).toBe('grappe_faite');
-    // Dans son domaine, elle se reprend.
-    expect(programme(entamee, D0, gc, 'communes', gc, { autres: autresC }).nouveautes?.ids).toEqual(c0.membres.slice(2));
+    const p = programme(entamee, D0, gp, 'pays');
+    expect([p.nouveautes?.grappe, p.sansNouveautes, p.entamee]).toEqual([p0, null, null]);
+    expect(programme(entamee, D0, gc, 'communes').nouveautes?.ids).toEqual(c0.membres.slice(2));
+    // Et inversement : des pays entamés n'empêchent pas la grappe de communes.
+    const paysEntames = etat(p0.membres.slice(0, 2).map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel')));
+    expect(programme(paysEntames, D0, gc, 'communes').nouveautes?.grappe).toBe(c0);
+  });
+
+  it('les révisions dues d’abord, dans le domaine : des communes dues ne retiennent pas la grappe de pays d’Apprendre', () => {
+    const m = etat(c0.membres.map((id) => rep(`communes:${id}:localiser`, D0, AGAIN, 'rappel')));
+    expect(dues(m, D0 + 1, 'communes').length).toBe(6);
+    expect(programme(m, D0 + 1, gp, 'pays').nouveautes?.grappe).toBe(p0);
   });
 
   it('prises : les révisions d’un bloc précédent de la séance retirées des plafonds (séance, jour)', () => {

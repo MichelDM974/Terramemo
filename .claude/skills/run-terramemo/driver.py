@@ -1725,9 +1725,11 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
     séance ») : la ligne « Révision du jour » et ses comptes ; Apprendre sur
     l'Europe jusqu'au bilan (QCM, « Je connais déjà » sur un pays, un QCM
     raté, rappel cadré sur la grappe, un rappel faux puis sa reprise,
-    réponses par position) ; les comptes à jour au retour ; puis le
-    lendemain (?horloge=1, serveur de développement) : une révision avec des
-    cartes retournées, arrêtée au QCM de la grappe suivante. DÉFAUT si le
+    réponses par position) ; les comptes à jour au retour ; le même jour,
+    Apprendre sous La Réunion (ui_apprendre_reunion : sa propre grappe) ;
+    puis le lendemain (?horloge=1, serveur de développement) : une révision
+    avec des cartes retournées (pays, puis communes sur l'île), arrêtée au
+    QCM de la grappe suivante. DÉFAUT si le
     journal (terramemo-journal) n'a pas un événement par réponse ou si une
     requête part vers Firebase pendant une séance."""
     requetes_avant = len(p.requetes)
@@ -1773,14 +1775,13 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
         defauts.append(f"« Rejouer » ne relance pas Apprendre : {rejouer!r}")
     # La carte de la mémoire à l'accueil, après cette séance (et absente d'une partie).
     ui_memoire(p, capturer, defauts)
-    # Le même jour, Apprendre sous La Réunion : la grappe du jour est prise (un seul budget, tous domaines).
-    jouer_jusqua(p, "apprendre", "reunion")
-    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
-    attendre_visible(p, "#essai-bilan")
-    refus = texte(p, "#essai-bilan")
-    dire(f"  même jour, Apprendre La Réunion : {refus!r}")
-    if "Des pays nouveaux ont déjà été appris" not in refus:
-        defauts.append(f"Apprendre sous La Réunion le jour d'une grappe de pays : pas refusé ({refus!r})")
+    # Le même jour, Apprendre sous La Réunion : sa propre grappe (un budget par domaine,
+    # décision « Apprendre et Révision du jour »), puis la Révision du jour à jour (elle n'en ouvre pas d'autre).
+    ui_apprendre_reunion(p, capturer, defauts)
+    ligne, desactivee = revision_du_jour(p)
+    dire(f"  Révision du jour après les deux grappes : {ligne!r} (désactivée : {desactivee})")
+    if "À jour" not in ligne:
+        defauts.append(f"Révision du jour après une grappe de pays et une de communes : {ligne!r} au lieu de « À jour »")
     # Le lendemain, par l'horloge de test (serveur de développement seulement).
     if not serveur_de_dev(base):
         dire("  lendemain : sauté (?horloge= n'agit qu'en serveur de développement)")
@@ -1812,8 +1813,6 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
         p.pause(500)
         if not p.js("location.hash").startswith("#jouer/entrainement"):
             defauts.append(f"retour arrière depuis la révision : {p.js('location.hash')} au lieu d'Entraînement")
-        # La révision arrêtée au QCM : aucune grappe commencée ce jour, celle des communes est permise.
-        ui_apprendre_reunion(p, capturer, defauts)
     reseau = [u for u in list(p.requetes.values())[requetes_avant:] if MOTIF_FIREBASE.search(u)]
     if reseau:
         defauts.append(f"requêtes vers Firebase pendant une séance : {reseau[:3]}")
@@ -1893,8 +1892,8 @@ def ui_apprendre_reunion(p, capturer, defauts):
     """Captures 41 à 44 (J1a, défaut D6) : Apprendre sous La Réunion
     (Entraînement › Communes) jusqu'au bilan, un événement du journal par
     réponse, puis l'île teintée à l'accueil quand on y va par la recherche.
-    Le jour d'une grappe de pays déjà prise, Apprendre sous La Réunion est
-    refusé (un seul budget) : à jouer un jour sans grappe commencée."""
+    Joué le jour même d'une grappe de pays (ui_seance) : les communes ont
+    leur propre budget, Apprendre sous La Réunion n'est pas refusé."""
     n0 = p.js(COMPTER_JOURNAL)
     jouer_jusqua(p, "apprendre", "reunion")
     modes = p.js("[...document.querySelectorAll('#jouer-panneau [data-mode]')].map(b => b.dataset.mode)")

@@ -141,8 +141,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   `32-apprendre-rappel-cadre` (rappel cadré sur la grappe, zoom ≥ 1,5),
   `33-apprendre-rappel-faux`, `34-apprendre-bilan` ; puis
   `?horloge=1` (le lendemain : **serveur de développement seulement**,
-  sauté en `--preview`) : `35-lendemain-revision` (« 5 à revoir · 9
-  nouveaux »), `36-carte-retournee` (« Révéler » touché), `37-revision-bilan`
+  sauté en `--preview`) : `35-lendemain-revision` (« 11 à revoir · 9
+  nouveaux » : 5 pays, 6 communes), `36-carte-retournee` (« Révéler » touché), `37-revision-bilan`
   (arrêtée par « Terminer » au QCM de la grappe suivante). « Je connais
   déjà » au premier QCM, un QCM raté exprès (il revient), le premier rappel
   touché faux (sa reprise en fin de séance), réponses par position
@@ -169,18 +169,20 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   maîtrisés », pays appris teintés), `39-accueil-pays-vu` (un pays de la
   grappe touché : « Vu N fois · revient dans N j »), le réglage de ⚙
   (`#reglage-memoire`) coupé puis remis, `40-partie-sans-teinte` (Trouver
-  sur l'Europe) ; Apprendre sous La Réunion refusé le même jour (un seul
-  budget) ; le lendemain, après la révision : `41-reunion-qcm`,
-  `42-reunion-rappel`, `43-reunion-bilan` (Apprendre sous La Réunion
-  jusqu'au bilan), `44-ile-memoire` (l'île par la recherche, teintée,
+  sur l'Europe) ; le même jour (les communes ont leur propre budget, une
+  grappe de pays et une de communes possibles le même jour) :
+  `41-reunion-qcm`, `42-reunion-rappel`, `43-reunion-bilan` (Apprendre
+  sous La Réunion jusqu'au bilan), `44-ile-memoire` (l'île par la recherche, teintée,
   « N/24 maîtrisés »). Zones teintées lues par
   `terramemo.carte.teintes()` / `terramemo.ile.teintes()` (`TEINTES_POSEES`,
   aussi à chaque question de séance). `DÉFAUT` si la légende manque, si
   rien n'est teinté après Apprendre, si un pays appris touché n'a pas
   « Vu N fois », si le réglage coupé laisse une teinte, si une teinte
-  reste pendant une partie ou une séance, si Apprendre sous La Réunion
-  n'est pas refusé le jour d'une grappe de pays, si son bilan ou son
-  journal manque, ou si l'île n'est pas teintée à l'accueil.
+  reste pendant une partie ou une séance, si Apprendre sous La Réunion ne
+  va pas au bilan le jour d'une grappe de pays, si son bilan ou son
+  journal manque, si l'île n'est pas teintée à l'accueil, ou si la
+  Révision du jour n'est pas « À jour » après les deux grappes (elle ne
+  finit qu'une grappe de communes commencée, sans en ouvrir une).
 - `--rendu` (ui) : rendu de la carte du monde (sans : celui de la page,
   canvas) ; l'île est toujours en SVG, au-dessus du monde en canvas.
   `--url` ne peut pas porter `?rendu=` (le pilote y ajoute `?mesures=0`).
