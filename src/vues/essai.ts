@@ -148,7 +148,9 @@ export function vueEssai(ctx: ContexteVue): Vue {
 
   const courante = () => cibles[i];
 
-  function afficherQuestion(): void {
+  // `reprise` (retour dans la vue) : la même question, ses essais, son « Voir »
+  // et son premier faux gardés (ils font la note) ; le temps repart, comme Nommer.
+  function afficherQuestion(reprise = false): void {
     const id = courante();
     t.carte.effacerMarques();
     if (!id) return finir();
@@ -157,9 +159,11 @@ export function vueEssai(ctx: ContexteVue): Vue {
     compte.textContent = `${i + 1} / ${cibles.length}`;
     retro.textContent = '';
     retro.className = 'essai-retro';
-    essais = 0;
-    premierFaux = null;
-    vu = false;
+    if (!reprise) {
+      essais = 0;
+      premierFaux = null;
+      vu = false;
+    }
     debut = performance.now();
   }
 
@@ -309,7 +313,7 @@ export function vueEssai(ctx: ContexteVue): Vue {
       else {
         ctx.terrains.montrer(t.nom);
         barre.hidden = false;
-        afficherQuestion();
+        afficherQuestion(true);
       }
     },
     desactiver() {
