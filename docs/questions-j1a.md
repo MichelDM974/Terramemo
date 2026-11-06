@@ -13,7 +13,18 @@ questions ne bloque le code : chacune a un défaut réversible.
 
 ## Notation
 
-1. **Zones contestées et entités de fait.** Natural Earth suit les
+1. **Zones contestées et entités de fait.** *Tranché le 06/11/2026
+   (décision « Zones contestées et enclaves ») : option B, codée au lot 4
+   (`src/map/acceptes.ts`, `noter()` ; épreuves classées à partir du lundi
+   09/11/2026 0 h UTC, `DEBUT_ACCEPTES_EPREUVES`). La règle vaut pour les
+   75 zones hachurées (tenant `dans`, revendiquants `revendique_par` de
+   `contestees.json`, tenus à la main dans `geodata/revendications.json`
+   avec leur source) et pour les entités revendiquées entières
+   (`revendique_par` de `pays.json`). Kosovo et Taïwan, pays du paquet
+   optionnel, ne sont pas des zones : ils ne comptent pas pour la Serbie ni
+   la Chine. Donetsk et Louhansk suivent Natural Earth v5.1.2 (revendiqués
+   par l'Ukraine seule, l'annexion russe de 2022 n'y est pas). Faits
+   d'origine ci-dessous.* Natural Earth suit les
    frontières de fait, mais pas partout dans le même sens (toucher testé
    par `geoContains` sur `monde.topo.json`) :
 
@@ -44,8 +55,17 @@ questions ne bloque le code : chacune a un défaut réversible.
    ["ESP"]` alors que leur point d'étiquette tombe sous le Maroc. Même cas
    pour `NE_B64` (ESP), `NE_B26` (ATF) et `NE_B34` (UMI) : de minuscules
    îlots dont le point sort de la forme. Sans effet tant que `dans` n'est
-   pas lu ; à corriger si Q1 vaut B.
-2. **Enclaves de fait.** Toutes de statut `territoire`, donc sans disque
+   pas lu ; à corriger si Q1 vaut B. *Corrigé au lot 4 :* `dans` était juste
+   (Perejil et Vélez sont tenus par l'Espagne d'après les sources), c'est la
+   carte simplifiée qui les met aussi sous le Maroc ; le type le dit
+   désormais. Le point de huit zones (Europa, Navassa, Perejil, Vélez,
+   Alhucemas, Doumeira, fermes de Chebaa, Dragonja) sortait de leur forme
+   simplifiée : `geodata/build.mjs` le reprend dans la forme dessinée.
+   Quatre îlots absents de la couche des pays (`dans` vide : Bassas da India,
+   Matthew et Hunter, Sapodilla, Doumeira) ont leur tenant (`tenu_par`).
+2. **Enclaves de fait.** *Tranché le 06/11/2026 : option B (table
+   `ENCLAVES` de `src/map/acceptes.ts`, même date d'effet pour les
+   épreuves). Faits d'origine ci-dessous.* Toutes de statut `territoire`, donc sans disque
    (seuls les `jouable` et `optionnel` en ont) :
 
    | Enclave | km² | Hôte |
@@ -97,7 +117,14 @@ questions ne bloque le code : chacune a un défaut réversible.
    donnerait la réponse) ; C, le monde au zoom 1 à chaque question.
    Recommandation : B (le cadrage ne montre rien de plus que la région vue
    au QCM). Défaut codé : A, en constante.
-5. **Seuil des micro-États.** Disque toujours dessiné si le plus grand
+5. **Seuil des micro-États.** *Tranché le 06/11/2026 (décision « Cadrage
+   et disques en séance ») : option B, 2 000 km². Appliqué à la génération
+   (`SEUIL_MICRO_KM2`, `geodata/build.mjs`) plutôt qu'au chargement : les
+   sources verrouillées regénèrent les données à l'identique, et `micro`
+   garde un seul sens ; Comores, Maurice et Samoa ont leur disque, 29
+   micro-États jouables (l'essai du J0, qui les reprend tous, passe de 43 à
+   45 cibles). Les disques posés sur un voisin ne changent pas (Q3). Faits
+   d'origine ci-dessous.* Disque toujours dessiné si le plus grand
    polygone fait moins de 1 000 km² (`geodata/build.mjs`, 26 jouables).
    Au-dessus, un pays a un disque sous 4 px à l'écran, une cible invisible
    seule entre 4 et 10 px. Jouables entre 1 000 et 5 000 km² :
