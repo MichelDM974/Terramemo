@@ -14,6 +14,7 @@ import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
 import { creerTerrains, idsJouables, type Terrain, type Terrains } from './terrains';
 import { creerNavigation } from './navigation';
+import { brancherRetourAndroid } from './retour-android';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import type { Vue } from './vues/commun';
@@ -229,6 +230,8 @@ const nav = creerNavigation({
 window.addEventListener('hashchange', () => nav.router());
 window.addEventListener('popstate', () => nav.router());
 nav.router();
+// APK : le bouton retour d'Android remonte cet historique (src/retour-android.ts).
+brancherRetourAndroid();
 
 // --- Carte et mesures ---
 

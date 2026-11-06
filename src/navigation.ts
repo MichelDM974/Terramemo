@@ -9,9 +9,9 @@
 // pas), et chaque entrée garde la pile des adresses d'avant (history.state),
 // pour que « ‹ », « × », « Autre série » et le retour d'une partie remontent
 // l'historique (pasVers) au lieu d'y empiler une entrée : le retour du
-// navigateur (et celui d'Android, une fois branché sur l'historique de la
-// WebView : rien ne le fait encore dans l'APK) remonte alors l'arbre d'un
-// niveau à la fois, sans jamais y redescendre. Une entrée sans état (le
+// navigateur (et celui d'Android dans l'APK : src/retour-android.ts) remonte
+// alors l'arbre d'un niveau à la fois, sans jamais y redescendre. Une entrée
+// sans état (le
 // chargement, un lien de l'en-tête) reçoit la pile de l'entrée d'avant, plus
 // l'adresse d'avant.
 import { depuisAncre, pasVers, versAncre } from './vues/arbre';

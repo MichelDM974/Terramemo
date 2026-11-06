@@ -746,10 +746,12 @@ arbre propre (`git status`).
   ignoré quand la navigation vient de demander un `go` (sinon double
   remontée). « × » ne rouvre une vue de partie que si elle a encore
   quelque chose à montrer (`aMontrer()`), sinon la carte ou la Saisie.
-- Le retour d'Android dans l'APK ne remonte pas encore l'historique : rien
-  ne branche le bouton retour sur la WebView (ni `@capacitor/app`, ni
-  `MainActivity`), il ferme l'appli (la met en arrière-plan). Le retour
-  arrière du navigateur, lui, remonte Jouer d'un niveau à la fois.
+- Le retour d'Android dans l'APK remonte l'historique de la WebView, donc
+  Jouer d'un niveau à la fois, comme le retour du navigateur ; à la racine
+  (la carte), l'appli passe en arrière-plan (`src/retour-android.ts`,
+  plugin `@capacitor/app` : sans écouteur, il ne ferait rien à la racine,
+  et sans plugin le retour fermait l'appli à tout niveau). Le pilote ne le
+  joue pas : à essayer au doigt sur l'A37 après un `apk --installer`.
 - Petits écrans (320 × 560) : la mention de l'IGN passe sur deux lignes
   (sous ~370 px) et la barre de Nommer couvre le bas de l'île, d'où un vol
   vers la commune demandée (`doitCadrer`) ; à 384 px (Galaxy A37), l'île
