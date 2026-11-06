@@ -548,9 +548,14 @@ juste par `terramemo.ile.ecran(<cible>)` (cible :
 l'épreuve et le général (`#chrono-general`, somme des records de toutes les
 séries) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
 règles refusent moins de 0,2 s par question (`temps_ms >= questions ×
-200`), et le refus est muet (403 sur `documents:commit`, « Personne n'est
-encore classé ») ; il fait tomber tout le lot (les records des autres
-séries et le général avec).
+200`), et un tel score n'est même pas envoyé (`vraisemblable()`,
+`src/epreuve/chrono.ts`, mêmes bornes que `firestore.rules`) ni compté
+dans le général ; il reste sur l'appareil, et l'avis
+`.chrono-classement-avis` (sous le pseudo) dit « Score refusé par le
+classement… ». Chaque score part seul : un refus (celui-là, ou un 403 sur
+`documents:commit` pour un score qui ne bat pas celui publié) n'emporte ni
+les autres séries ni le général ; un envoi échoué (hors ligne) a son propre
+avis, « Score non publié (hors ligne ?)… ».
 
 ## Déploiement (Firebase Hosting, projet `terramemo-geo`)
 
