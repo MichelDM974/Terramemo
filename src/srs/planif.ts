@@ -246,3 +246,24 @@ export function maitrises(seaux: ReadonlyMap<string, Seau>): number {
   for (const s of seaux.values()) if (s === SEAU_MAITRISE) n++;
   return n;
 }
+
+/** Ce que la carte de la mémoire dit d'une entité touchée : ses notes FSRS (les deux sens), et dans combien de jours elle revient. */
+export interface MemoireEntite {
+  /** Notes FSRS reçues, tous sens confondus (une par fiche et par jour au plus). */
+  vu: number;
+  /** Jours jusqu'à la plus proche échéance de ses fiches (0 ou moins : due). */
+  dans: number;
+}
+
+/** La mémoire d'une entité le jour j ; null si elle n'a jamais été notée (« Jamais vu »). */
+export function memoireEntite(etat: Etat, domaine: Domaine, id: string, j: number): MemoireEntite | null {
+  let vu = 0;
+  let echeance = Infinity;
+  for (const s of SENS) {
+    const e = etat.get(former(domaine, id, s));
+    if (!e) continue;
+    vu += e.notes;
+    echeance = Math.min(echeance, e.echeance_jour);
+  }
+  return vu ? { vu, dans: echeance - j } : null;
+}

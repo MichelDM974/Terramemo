@@ -25,7 +25,8 @@ import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import type { Vue } from './vues/commun';
 import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
-import { vueExplorer } from './vues/explorer';
+import { carteMemoire, garderReglageMemoire, lireReglageMemoire } from './vues/carte-memoire';
+import { vueExplorer, type VueExplorer } from './vues/explorer';
 import { vueGeneral } from './vues/general';
 import { remplirEssaiJ0, vueJouer, type VueJouer } from './vues/jouer';
 import { brancherRecherche } from './vues/recherche';
@@ -204,6 +205,21 @@ caseMesures?.addEventListener('change', () => {
 });
 appliquerMesures();
 
+// Carte de la mémoire (J1a, D7) : activée par défaut, gardée dans le navigateur ; l'accueil se reteinte au changement.
+let carteMemoireActive = lireReglageMemoire(stockage());
+const caseMemoire = document.getElementById('reglage-memoire') as HTMLInputElement | null;
+const nomMemoire = document.getElementById('reglage-memoire-nom');
+if (nomMemoire) nomMemoire.textContent = textes.memoire.reglage;
+document.getElementById('reglage-memoire-case')?.setAttribute('title', textes.memoire.reglage_detail);
+if (caseMemoire) {
+  caseMemoire.checked = carteMemoireActive;
+  caseMemoire.addEventListener('change', () => {
+    carteMemoireActive = caseMemoire.checked;
+    garderReglageMemoire(stockage(), carteMemoireActive);
+    explorer?.rafraichir();
+  });
+}
+
 // --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
 // recherche montre un lieu), Jouer (l'arbre des choix : #jouer/classe/pays/Africa,
 // décision « Écran Jouer ») puis Toucher ou une épreuve classée (vue « chrono » :
@@ -220,6 +236,8 @@ let terrains: Terrains | null = null;
 /** Jouer et son arbre, une fois le monde chargé (les séries viennent de pays.json). */
 let jouer: VueJouer | null = null;
 let arbre: Arbre | null = null;
+/** La vue Carte (l'accueil), une fois le monde chargé : ses teintes suivent la mémoire et le réglage. */
+let explorer: VueExplorer | null = null;
 
 const nav = creerNavigation({
   history,
@@ -427,7 +445,10 @@ const memoire = ouvrirMemoire({
   appareil: idAppareil(),
   horloge,
   surAvis: (e) => console.warn('Journal non gardé sur cet appareil :', e),
-  surCharge: () => jouer?.rafraichir(),
+  surCharge: () => {
+    jouer?.rafraichir();
+    explorer?.rafraichir();
+  },
 });
 
 async function demarrer(): Promise<void> {
@@ -496,7 +517,8 @@ async function demarrer(): Promise<void> {
   const ctx = { carte, donnees, mesures, zone, terrains };
   const pays = donnees.entites.map((e) => e.pays);
   arbre = creerArbre(catalogue(pays));
-  const explorer = vueExplorer(ctx);
+  // ?teintes=demo garde ses teintes partout : l'accueil n'y pose pas celles de la mémoire.
+  explorer = vueExplorer(ctx, teintesDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive) });
   const seances = creerSeances({ memoire, monde: donnees });
   const essai = vueEssai(ctx, { versJouer: nav.versJouer, versCarte: () => nav.remonter('carte'), seances, libre: seances.libre });
   const epreuve = vueChrono(ctx, { versJouer: nav.versJouer });
@@ -536,7 +558,7 @@ async function demarrer(): Promise<void> {
       choisir: (l) => {
         // Tout de suite (pas en remontant l'historique, qui attendrait le popstate) : le lieu se montre sur la carte affichée.
         nav.pousser('carte');
-        explorer.montrerLieu(l.terrain, l.id);
+        explorer?.montrerLieu(l.terrain, l.id);
       },
     });
   // L'Essai J0 (⚙) : la série des plus difficiles, celle du pilote de mesure, hors de Jouer.

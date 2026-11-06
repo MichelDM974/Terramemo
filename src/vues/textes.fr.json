@@ -241,5 +241,19 @@
     "plafond": "Assez de révisions pour aujourd'hui : la suite demain.",
     "tout_appris": "Tous les pays de cette série sont appris.",
     "trouver": "Trouver"
+  },
+  "memoire": {
+    "reglage": "Carte de la mémoire",
+    "reglage_detail": "À l'accueil, les pays et les communes teintés selon ta mémoire (jamais pendant une partie)",
+    "legende": "Carte de la mémoire",
+    "jamais_vu": "Jamais vu",
+    "faible": "faible",
+    "maitrise": "maîtrisé",
+    "maitrises": "{n}/{total} maîtrisés",
+    "vu": "Vu {n} fois",
+    "vu_une": "Vu 1 fois",
+    "revient": "revient dans {n} j",
+    "revient_demain": "revient demain",
+    "a_revoir": "à revoir aujourd'hui"
   }
 }

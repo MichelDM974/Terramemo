@@ -1,5 +1,14 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { depotMemoire } from '../src/journal/depot';
+import { ouvrirMemoire } from '../src/journal/memoire';
+import type { Evenement } from '../src/srs/journal';
+import { evenementReponse } from '../src/srs/seance';
+import { CARTE_MEMOIRE_PAR_DEFAUT, carteMemoire, CLE_CARTE_MEMOIRE, garderReglageMemoire, lireReglageMemoire, type CarteMemoire } from '../src/vues/carte-memoire';
+import type { ContexteVue } from '../src/vues/commun';
+import { vueEssai } from '../src/vues/essai';
+import { vueExplorer } from '../src/vues/explorer';
+import { El, installerDom, installerStockage } from './dom-factice';
 import type { Pays } from '../src/map/types';
 import { normaliser, suggestions } from '../src/texte';
 import { REUNION } from '../src/map/terrain';
@@ -206,5 +215,168 @@ describe('anneau seulement autour d’une zone petite à l’écran', () => {
     anneauSiPetite(t, 'VAT', 'juste');
     anneauSiPetite(t, 'RUS', 'juste');
     expect(poses).toEqual(['VAT']);
+  });
+});
+
+// Carte de la mémoire à l'accueil (J1a, étude § 7, D7) : teintes posées par la
+// vue Carte, retirées en partant (aucune partie ne les voit), légende, ligne
+// de la zone touchée, réglage de ⚙.
+describe('carte de la mémoire à l’accueil', () => {
+  beforeEach(() => installerDom());
+  afterEach(() => vi.unstubAllGlobals());
+
+  const T0 = Date.UTC(2026, 10, 9, 8);
+  const JOUR_MS = 86_400_000;
+
+  /** Une mémoire où FRA a été appris (rappel juste) il y a 10 jours puis revu juste il y a 4 jours, ESP raté aujourd'hui. */
+  async function memoire(h = { ts: T0 }) {
+    let n = 0;
+    const m = ouvrirMemoire({
+      depot: depotMemoire(),
+      appareil: '00000000-0000-4000-8000-00000000a001',
+      horloge: () => ({ ts: h.ts, tz: 240 }),
+      nouvelId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`,
+    });
+    await m.pret;
+    const evt = (fiche: string, ts: number, note: 1 | 3) =>
+      evenementReponse({ seance: null, appareil: m.appareil, horloge: () => ({ ts, tz: 240 }), nouvelId: () => m.nouvelId() }, fiche, 'rappel', { correct: note > 1, duree_ms: 1000 }, note);
+    await m.ecrire([evt('pays:FRA:localiser', T0 - 10 * JOUR_MS, 3), evt('pays:FRA:localiser', T0 - 4 * JOUR_MS, 3), evt('pays:ESP:localiser', T0, 1)]);
+    return m;
+  }
+
+  function monter(o: { memoire?: CarteMemoire } = {}) {
+    const zone = new El('main');
+    const teintes: (Map<string, number> | null)[] = [];
+    const carte = {
+      effacerMarques() {},
+      marquer() {},
+      anneau() {},
+      teinter(t: Map<string, number> | null) {
+        teintes.push(t);
+      },
+      pick: (_x: number, _y: number) => ({ id: pickSuivant, via: 'trace' }),
+      hote: new El('div'),
+      montrer() {},
+      contexteFinal: () => ({ proj: { scale: () => 100 }, t: { k: 1 } }),
+      projection: { scale: () => 100 },
+      transfo: { k: 1 },
+    };
+    const entites = (['FRA', 'ESP', 'ITA', 'GIB'] as const).map((id) => ({ pays: { id, statut: id === 'GIB' ? 'territoire' : 'jouable', partie_max_km2: 1e5 } }));
+    const donnees = { entites, noms: { FRA: 'France', ESP: 'Espagne', ITA: 'Italie', GIB: 'Gibraltar' } };
+    const monde = { nom: 'monde', carte, donnees, jouables: ['FRA', 'ESP', 'ITA'] };
+    const ctx = {
+      carte,
+      donnees,
+      zone,
+      terrains: { monde, montrer() {}, deja: () => null },
+      mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
+    } as unknown as ContexteVue;
+    const vue = vueExplorer(ctx, o);
+    const legende = zone.querySelector('#legende-memoire')!;
+    const detail = () => zone.querySelector('#barre-carte .barre-detail')!.textContent;
+    return { vue, teintes, derniere: () => teintes.at(-1), legende, detail, ctx, monde };
+  }
+  let pickSuivant = 'FRA';
+
+  it('posées à l’activer (la fiche la plus faible décide), retirées au desactiver ; légende et maîtrisés', async () => {
+    const m = await memoire();
+    const v = monter({ memoire: carteMemoire(m, () => true) });
+    v.vue.activer();
+    const t = v.derniere()!;
+    expect(t).toBeInstanceOf(Map);
+    // FRA : S de plusieurs jours (seau 1 ou plus) ; ESP raté aujourd'hui : seau 0 ; ITA jamais vu : sans teinte.
+    expect(t.get('ESP')).toBe(0);
+    expect(t.get('FRA')).toBeGreaterThan(0);
+    expect(t.has('ITA')).toBe(false);
+    expect(v.legende.hidden).toBe(false);
+    expect(v.legende.innerText).toBe(`${textes.memoire.jamais_vu} · ${textes.memoire.faible}${textes.memoire.maitrise} · 0/3 maîtrisés`);
+    v.vue.desactiver();
+    expect(v.derniere()).toBeNull();
+    expect(v.legende.hidden).toBe(true);
+  });
+
+  it('toucher un pays : « Vu N fois · revient dans N j », « Jamais vu » ; rien pour un territoire', async () => {
+    const m = await memoire();
+    const v = monter({ memoire: carteMemoire(m, () => true) });
+    v.vue.activer();
+    pickSuivant = 'FRA';
+    v.vue.toucher?.(1, 1, {} as PointerEvent);
+    expect(v.detail()).toMatch(/^Vu 2 fois · revient (dans \d+ j|demain)$/);
+    pickSuivant = 'ESP';
+    v.vue.toucher?.(1, 1, {} as PointerEvent);
+    expect(v.detail()).toMatch(/^Vu 1 fois · revient (dans \d+ j|demain)$/);
+    pickSuivant = 'ITA';
+    v.vue.toucher?.(1, 1, {} as PointerEvent);
+    expect(v.detail()).toBe(textes.memoire.jamais_vu);
+    pickSuivant = 'GIB';
+    v.vue.toucher?.(1, 1, {} as PointerEvent);
+    expect(v.detail()).not.toContain('Vu');
+    expect(v.detail()).not.toContain(textes.memoire.jamais_vu);
+  });
+
+  it('absentes en partie : Toucher (Trouver) trouve la carte sans teinte, et n’en pose aucune', async () => {
+    const m = await memoire();
+    const v = monter({ memoire: carteMemoire(m, () => true) });
+    v.vue.activer();
+    expect(v.derniere()).not.toBeNull();
+    // Le routeur : la vue Carte part, Toucher arrive.
+    v.vue.desactiver();
+    const n = v.teintes.length;
+    const essai = vueEssai(v.ctx, { versJouer: () => {} });
+    essai.activer();
+    essai.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'tous', mode: 'localiser' }, { id: 'tous', terrain: 'monde', ids: ['FRA'], n: 1 }, v.monde as never, ['FRA']);
+    expect(v.derniere()).toBeNull();
+    expect(v.teintes.length).toBe(n);
+  });
+
+  it('réglage de ⚙ : activé par défaut, gardé ; coupé, ni teinte ni légende ni ligne ; rafraichir() suit', async () => {
+    const s = installerStockage();
+    expect(CARTE_MEMOIRE_PAR_DEFAUT).toBe(true);
+    expect(lireReglageMemoire(localStorage)).toBe(true);
+    expect(lireReglageMemoire(null)).toBe(true);
+    garderReglageMemoire(localStorage, false);
+    expect(s.get(CLE_CARTE_MEMOIRE)).toBe('0');
+    expect(lireReglageMemoire(localStorage)).toBe(false);
+    const m = await memoire();
+    let actif = false;
+    const v = monter({ memoire: carteMemoire(m, () => actif) });
+    v.vue.activer();
+    expect(v.derniere()).toBeNull();
+    expect(v.legende.hidden).toBe(true);
+    pickSuivant = 'FRA';
+    v.vue.toucher?.(1, 1, {} as PointerEvent);
+    expect(v.detail()).toBe('');
+    actif = true;
+    v.vue.rafraichir();
+    expect(v.derniere()?.get('ESP')).toBe(0);
+    expect(v.detail()).toMatch(/^Vu 2 fois/);
+    expect(v.legende.hidden).toBe(false);
+    // Hors de l'accueil, rafraichir() ne pose rien.
+    v.vue.desactiver();
+    const n = v.teintes.length;
+    v.vue.rafraichir();
+    expect(v.teintes.length).toBe(n);
+  });
+
+  it('mémoire en lecture : rien, puis les teintes une fois chargée', async () => {
+    let lire!: () => void;
+    const depot = depotMemoire();
+    const lent = { tous: () => new Promise<Evenement[]>((ok) => (lire = () => void depot.tous().then(ok))), ajouter: depot.ajouter };
+    const m = ouvrirMemoire({ depot: lent, appareil: '00000000-0000-4000-8000-00000000a001', horloge: () => ({ ts: T0, tz: 240 }) });
+    const v = monter({ memoire: carteMemoire(m, () => true) });
+    v.vue.activer();
+    expect(v.derniere()).toBeNull();
+    lire();
+    await m.pret;
+    v.vue.rafraichir();
+    expect(v.derniere()).toEqual(new Map());
+    expect(v.legende.innerText).toContain('0/3 maîtrisés');
+  });
+
+  it('sans mémoire (?teintes=demo, anciens tests) : la vue ne touche pas aux teintes', () => {
+    const v = monter();
+    v.vue.activer();
+    v.vue.desactiver();
+    expect(v.teintes).toEqual([]);
   });
 });
