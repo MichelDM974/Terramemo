@@ -1,5 +1,5 @@
 {
-  "_": "Revendications des zones contestées (contestees.json), tenues à la main : NOTE_BRK de Natural Earth ne nomme pas les pays par leur id (« Azer. », « multiple ») ou se tait. revendique_par : ids de pays.json qui revendiquent la zone ; tenu_par : qui la tient, seulement pour un îlot absent de la couche des pays (sinon : dans, calculé). geodata/build.mjs les vérifie et les reporte dans contestees.json. Décision « Zones contestées et enclaves » (06/11/2026) : un toucher dans la zone est juste pour qui la tient et pour chaque revendiquant (src/map/acceptes.ts). Les entités entières revendiquées (Somaliland, Chypre du Nord…) sont dans REVENDICATIONS (build.mjs).",
+  "_": "Revendications des zones contestées (contestees.json), tenues à la main : NOTE_BRK de Natural Earth ne nomme pas les pays par leur id (« Azer. », « multiple ») ou se tait. revendique_par : ids de pays.json qui revendiquent la zone ; tenu_par : qui la tient, seulement pour un îlot absent de la couche des pays (sinon : dans, calculé). geodata/build.mjs les vérifie et les reporte dans contestees.json. Décision « Zones contestées et enclaves » (06/11/2026) : un toucher dans la zone est juste pour qui la tient et pour chaque revendiquant (src/map/acceptes.ts). Ceuta et Melilla (NE_B60, NE_B61), que NE ne note pas comme litiges, sont gardées par CONTESTEES_AJOUTEES (build.mjs). Les entités entières revendiquées (Somaliland, Chypre du Nord…) sont dans REVENDICATIONS (build.mjs).",
   "zones": {
     "NE_B00": {"revendique_par": ["CHN"], "source": "Natural Earth v5.1.2, NOTE_BRK : « Admin. by India; Claimed by China »"},
     "NE_B01": {"revendique_par": ["CHN"], "source": "Natural Earth v5.1.2, NOTE_BRK : « Admin. by India; Claimed by China »"},
@@ -46,6 +46,8 @@
     "NE_B56": {"revendique_par": ["VEN"], "source": "Natural Earth v5.1.2, NOTE_BRK : « Admin. by Guyana; Claimed by Venezuela »"},
     "NE_B58": {"revendique_par": ["LBN"], "source": "Natural Earth v5.1.2, NOTE_BRK : « Admin. By Israel; Claimed by Lebanon »"},
     "NE_B59": {"revendique_par": ["MHL"], "source": "Natural Earth v5.1.2, NOTE_BRK : « Admin. by U.S.A.; Claimed by Marshall Islands »"},
+    "NE_B60": {"revendique_par": ["MAR"], "source": "Natural Earth v5.1.2, NOTE_BRK : vide (« Ceuta », Geo subunit de l'Espagne, gardée par CONTESTEES_AJOUTEES de build.mjs) ; revendiquée par le Maroc comme les îlots NE_B62 à B65"},
+    "NE_B61": {"revendique_par": ["MAR"], "source": "Natural Earth v5.1.2, NOTE_BRK : vide (« Melilla », Geo subunit de l'Espagne, gardée par CONTESTEES_AJOUTEES de build.mjs) ; revendiquée par le Maroc comme les îlots NE_B62 à B65"},
     "NE_B62": {"revendique_par": ["MAR"], "source": "Natural Earth v5.1.2, NOTE_BRK : « Admin. by Spain; Claimed by Morocco »"},
     "NE_B63": {"revendique_par": ["MAR"], "source": "Natural Earth v5.1.2, NOTE_BRK : « Admin. by Spain; Claimed by Morocco »"},
     "NE_B64": {"revendique_par": ["MAR"], "source": "Natural Earth v5.1.2, NOTE_BRK : « Admin. by Spain; Claimed by Morocco »"},

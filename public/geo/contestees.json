@@ -44,6 +44,8 @@
 {"id":"NE_B56","type":"Disputed","rang":6,"superficie_km2":143018.48,"point":[-59.69371,6.16892],"dans":["GUY"],"revendique_par":["VEN"],"note":"Admin. by Guyana; Claimed by Venezuela"},
 {"id":"NE_B58","type":"Disputed","rang":0,"superficie_km2":17.95,"point":[35.65178,33.27513],"dans":["ISR"],"revendique_par":["LBN"],"note":"Admin. By Israel; Claimed by Lebanon"},
 {"id":"NE_B59","type":"Geo unit","rang":6,"superficie_km2":3.93,"point":[166.64496,19.28581],"dans":["UMI"],"revendique_par":["MHL"],"note":"Admin. by U.S.A.; Claimed by Marshall Islands"},
+{"id":"NE_B60","type":"Geo subunit","rang":0,"superficie_km2":42.72,"point":[-5.34618,35.88596],"dans":["ESP"],"revendique_par":["MAR"],"note":""},
+{"id":"NE_B61","type":"Geo subunit","rang":0,"superficie_km2":18.1,"point":[-2.93139,35.28271],"dans":["ESP"],"revendique_par":["MAR"],"note":""},
 {"id":"NE_B62","type":"Disputed","rang":6,"superficie_km2":0.14,"point":[-5.41733,35.91332],"dans":["ESP"],"revendique_par":["MAR"],"note":"Admin. by Spain; Claimed by Morocco"},
 {"id":"NE_B63","type":"Disputed","rang":6,"superficie_km2":0.04,"point":[-4.29788,35.17204],"dans":["ESP"],"revendique_par":["MAR"],"note":"Admin. by Spain; Claimed by Morocco"},
 {"id":"NE_B64","type":"Disputed","rang":6,"superficie_km2":0.01,"point":[-3.90254,35.21516],"dans":["ESP"],"revendique_par":["MAR"],"note":"Admin. by Spain; Claimed by Morocco"},

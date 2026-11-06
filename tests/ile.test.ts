@@ -265,12 +265,12 @@ describe('le monde ne change pas', () => {
   const sha = (s: string) => createHash('sha256').update(s).digest('hex');
   const ATTENDU = {
     monde: {
-      tout: 'e84b73e4882d4fe7434991fabd9e9f627493bea495eab16ed8e55cc3e7a549c2',
+      tout: '48ee466d4cea67c3052938f90e7fd8ff879d7f2bb3f845cebae2afe192576eb7', // + Ceuta et Melilla (NE_B60, B61), tracés des pays inchangés
       FRA: '0af5f2a104322c1bb4c4ed3aa275f53ab0414944f2178ac7d49c66ae9e76219f',
       GRL: '8f0b754916c19a1c4f98ec0007aec7bd50353c8a14319752b51dd1c17bbd6f08',
     },
     pacifique: {
-      tout: 'a080c66ae7d04b4fd7ff265ca5b48c66823b649b9e7eb1a9741c1928379190a1',
+      tout: 'd322f359ee75a52be92ed9da001e59977e795d6e4535ff3e517833c8c9c8c73d', // idem
       FRA: 'd0a4ca7617edb6ce74a35fa53bdb2f24e5ac8394ad061e1f7f60057a45146ad9',
       GRL: '52e861fc4f23406711b0243c07587b3e71cab583cd66cae35505a354b2fed63b',
     },

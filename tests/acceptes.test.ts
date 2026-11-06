@@ -96,6 +96,16 @@ describe('zones contestées : juste pour qui la tient et pour chaque revendiquan
     expect(noteEn('MAR', p, undefined, 20_000).juste).toBe(true);
   });
 
+  it('Ceuta et Melilla (« Geo subunit » sans note chez NE, gardées à la main) : justes pour l’Espagne et pour le Maroc', () => {
+    for (const id of ['NE_B60', 'NE_B61']) {
+      expect(zone(id)).toMatchObject({ dans: ['ESP'], revendique_par: ['MAR'] });
+      const p = zone(id).point;
+      expect(noteEn('ESP', p, undefined, 2_000).juste, id).toBe(true);
+      expect(noteEn('MAR', p, undefined, 2_000), id).toMatchObject({ juste: true, admis: { zone: id, tenant: 'ESP' } });
+      expect(noteEn('DZA', p, undefined, 2_000).juste, id).toBe(false);
+    }
+  });
+
   it('un pays qui ne revendique rien n’y gagne rien ; Kosovo et Taïwan restent des pays du paquet optionnel', () => {
     expect(noteEn('POL', zone('NE_B89').point).juste).toBe(false);
     expect(acceptes.get('SRB')?.some((z) => z.zone === 'XKX')).toBeFalsy();

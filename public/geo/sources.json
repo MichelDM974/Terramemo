@@ -73,9 +73,9 @@
     "quantification": 1000000,
     "carte_allegee": "monde-leger.topo.json : polygones d'au moins 40 km (plus grand côté de l'emprise), -simplify visvalingam interval=15000 keep-shapes chacun à part, regroupés par id, quantification 100000",
     "entrees": {
-      "geodata/build.mjs": "01539625e2fc2d816e818dbc0769fa99f45cd3b3156699018e2965fcf936e82d",
+      "geodata/build.mjs": "3755f02c5272a59b55160ce1aae8503fd470f093d72a8e56eca90dfc09fb1779",
       "geodata/liste.json": "588b387d44d605a3f2aacc875eb7c51c90f388a883afd18a3ebaa18ce4bb255a",
-      "geodata/revendications.json": "35c7367f0fc1c6b19bf8d9bbc0109db272da96122fe39f0272341e6ca17d8f9b"
+      "geodata/revendications.json": "6d57155ff9b36e496c88a518b4550a9055d1e84a903f23b0b1027ec27e5f0303"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée"
   }

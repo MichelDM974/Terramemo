@@ -170,6 +170,13 @@ const PART_ENTITE_ENTIERE = 0.9;
 // revendique : la Palestine est un pays du jeu, pas une zone hachurée.
 const CONTESTEES_EXCLUES = { B53: 'bande de Gaza (Palestine)', B54: 'Cisjordanie (Palestine)' };
 
+// Litiges que NE range en « Geo subunit » sans « Claimed by », gardés quand même :
+// Ceuta et Melilla, revendiquées par le Maroc comme Perejil, Vélez, Alhucemas et les
+// Chafarinas (NE_B62 à B65, que NE note « Claimed by Morocco ») ; sans elles, un
+// toucher sur Perejil comptait pour le Maroc, et pas un toucher sur Ceuta, à côté
+// (relecture du lot 4).
+const CONTESTEES_AJOUTEES = { B60: 'Ceuta', B61: 'Melilla' };
+
 // Qui revendique une entité entière (ids de pays.json), pour toute entité « conteste » et
 // pour les territoires dont NE note une revendication (NOTE_BRK « Claimed by… », reprise
 // dans pays.json en note_ne). La notation (un toucher au Somaliland compte pour la
@@ -586,7 +593,9 @@ async function main() {
   for (const f of neContestees) {
     const p = f.properties;
     const litige =
-      ['Disputed', 'Indeterminate', 'Breakaway'].includes(p.TYPE) || /claimed by/i.test(p.NOTE_BRK ?? '');
+      ['Disputed', 'Indeterminate', 'Breakaway'].includes(p.TYPE) ||
+      /claimed by/i.test(p.NOTE_BRK ?? '') ||
+      Boolean(CONTESTEES_AJOUTEES[p.BRK_A3]);
     if (!litige || !f.geometry) continue;
     const id = `NE_${p.BRK_A3}`;
     if (CONTESTEES_EXCLUES[p.BRK_A3]) {
