@@ -127,7 +127,7 @@ export class El {
   }
   /** Sélecteurs simples, éventuellement descendants (« #a .b »). */
   querySelectorAll(sel: string): El[] {
-    const parts = sel.trim().split(/\s+/);
+    const parts = sel.match(/(?:[^\s[]+|\[[^\]]*\])+/g) ?? [];
     let courants: El[] = [this];
     for (const p of parts) courants = [...new Set(courants.flatMap((c) => [...c.descendants()].filter((d) => d.correspond(p))))];
     return courants;

@@ -2,8 +2,9 @@
 // série dans le désordre, 15 s par question, un seul toucher ; 1 000 points si
 // juste, jusqu'à 500 selon la distance sinon (src/epreuve/bareme.ts). Record
 // gardé sur l'appareil, classement en ligne par épreuve et général. Quitter la
-// vue pendant une partie l'abandonne : le temps ne se met pas en pause. La
-// Réunion est une série de plus : sa carte remplace le monde, notée à 5 km.
+// vue pendant une partie l'abandonne : le temps ne se met pas en pause ; la
+// quitter après la dernière réponse (sa rétroaction) la finit, bilan au retour.
+// La Réunion est une série de plus : sa carte remplace le monde, notée à 5 km.
 import { DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE } from '../epreuve/bareme';
 import { enregistrerPartie, idEpreuve, lireRecords, PartieChrono, type QuestionJouee } from '../epreuve/chrono';
 import { GENERAL } from '../epreuve/classement';
@@ -95,6 +96,8 @@ export function vueChrono(ctx: ContexteVue): Vue {
   let pause = 0;
   /** Message du départ au retour dans la vue (partie abandonnée en la quittant). */
   let messageRetour = '';
+  /** Partie finie en quittant la vue (pendant la pause de sa dernière réponse) : son bilan au retour. */
+  let bilanAuRetour = false;
 
   function arreterMinuteries(): void {
     clearTimeout(minuterie);
@@ -298,10 +301,23 @@ export function vueChrono(ctx: ContexteVue): Vue {
 
   return {
     activer() {
+      if (bilanAuRetour) {
+        bilanAuRetour = false;
+        ctx.terrains.montrer(t.nom);
+        depart.hidden = true;
+        bilan.hidden = false;
+        return;
+      }
       afficherDepart(messageRetour);
       messageRetour = '';
     },
     desactiver() {
+      // La dernière réponse donnée (pause de sa rétroaction) : la partie est
+      // finie, elle va au bilan (record, publication) comme sans la sortie.
+      if (partie?.finie) {
+        finir();
+        bilanAuRetour = true;
+      } else bilanAuRetour = false;
       // Le temps ne se met pas en pause : une partie quittée est abandonnée.
       const enCours = partie !== null;
       arreterMinuteries();
