@@ -2,8 +2,11 @@
 // les bibliothèques embarquées et la police, chacune avec sa licence ; DOM
 // factice (tests/dom-factice.ts). Les licences sont relues dans node_modules :
 // une mise à jour qui en change une fait tomber le test.
-import { readFileSync } from 'node:fs';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nomPaquets, vueCredits } from '../src/vues/credits';
 import { textes } from '../src/vues/textes';
 import { installerDom, type El } from './dom-factice';
@@ -12,11 +15,33 @@ const T = textes.credits;
 const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
 const licence = (p: string) => (JSON.parse(readFileSync(`node_modules/${p}/package.json`, 'utf8')) as { license: string }).license;
 /**
- * Paquets que le build met dans le site (sources des cartes de `vite build
- * --sourcemap`, relevées le 06/11/2026) au-delà des dépendances directes : ceux
- * que d3 et Firebase embarquent. Firebase compte pour tous ses @firebase/*.
+ * Paquets que le build met réellement dans le site, relus à chaque passage dans
+ * les sources des cartes d'un `vite build --sourcemap` (dossier temporaire,
+ * moins d'une seconde) : une mise à jour de d3 ou de Firebase qui tire un
+ * nouveau paquet fait tomber le test tant qu'il n'est pas crédité. Pour un
+ * chemin node_modules imbriqué, le paquet est le dernier ; Firebase compte pour
+ * tous ses @firebase/*.
  */
-const EMBARQUES_INDIRECTS = ['d3-array', 'd3-color', 'd3-dispatch', 'd3-drag', 'd3-ease', 'd3-interpolate', 'd3-timer', 'idb', 'tslib'];
+let embarques: string[] = [];
+let sortie = '';
+beforeAll(() => {
+  sortie = mkdtempSync(join(tmpdir(), 'terramemo-credits-'));
+  execFileSync(process.execPath, ['node_modules/vite/bin/vite.js', 'build', '--sourcemap', '--outDir', sortie, '--emptyOutDir', '--logLevel', 'error'], { stdio: 'pipe' });
+  const paquets = new Set<string>();
+  const assets = join(sortie, 'assets');
+  for (const f of readdirSync(assets).filter((f) => f.endsWith('.map'))) {
+    for (const src of (JSON.parse(readFileSync(join(assets, f), 'utf8')) as { sources: string[] }).sources) {
+      const p = [...src.matchAll(/node_modules\/((?:@[^/]+\/)?[^/]+)/g)].at(-1)?.[1];
+      if (p) paquets.add(p.startsWith('@firebase/') ? 'firebase' : p);
+    }
+  }
+  embarques = [...paquets].sort();
+}, 120_000);
+afterAll(() => {
+  if (sortie) rmSync(sortie, { recursive: true, force: true });
+});
+/** Crédités sans être dans le site : le paquet natif de l'APK (ligne « Dans l'appli Android seulement »). */
+const HORS_SITE = ['@capacitor/android'];
 
 let zone: El;
 let retour: ReturnType<typeof vi.fn<() => void>>;
@@ -59,7 +84,10 @@ describe('écran Crédits', () => {
     const v = ouvrir();
     const credites = T.bibliotheques.flatMap((b) => b.paquets.map((p) => [p, b.licence] as const));
     const noms = credites.map(([p]) => p);
-    expect(noms.sort()).toEqual([...Object.keys(pkg.dependencies), ...EMBARQUES_INDIRECTS].sort());
+    // Ce que le build embarque, rien de plus (hors l'APK), et chaque dépendance directe.
+    expect(embarques).toContain('d3-geo');
+    expect([...noms].sort()).toEqual([...embarques, ...HORS_SITE].sort());
+    for (const p of Object.keys(pkg.dependencies)) expect(noms, p).toContain(p);
     for (const [p, l] of credites) expect(l, p).toBe(licence(p));
     for (const p of Object.keys(pkg.devDependencies)) expect(noms, p).not.toContain(p);
     // Une ligne par groupe, ses paquets avec leur version (dépendances directes) et sa licence.
