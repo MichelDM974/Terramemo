@@ -455,4 +455,17 @@ describe('Toucher : une séance quittée puis reprise', () => {
     expect(s.fabrique.ouvrir.mock.calls.at(-1)![0]).toEqual({ sorte: 'revision' });
     expect(s.visible('barre-essai')).toBe(true);
   });
+
+  it('Apprendre refusé (grappe du jour entamée ailleurs) : « Les finir » lance la Révision du jour', () => {
+    const s = monterSeance((d) => (d.sorte === 'apprendre' ? { refus: 'Les pays voisins commencés aujourd’hui (Europe) ne sont pas finis : ils passent avant.', reviser: 0, finir: 3 } : piloteFactice(QUESTIONS).p));
+    s.vue.activer();
+    const serie = { id: 'Africa', terrain: 'monde' as const, ids: IDS5, n: 5 };
+    s.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Africa', mode: 'apprendre' }, serie, {} as never, IDS5);
+    expect(s.el('#essai-bilan').innerText).toContain('ne sont pas finis');
+    expect(s.el('#seance-finir').textContent).toBe('Les finir · 3');
+    expect(s.el('#seance-trouver').className).toBe('secondary');
+    s.el('#seance-finir').click();
+    expect(s.fabrique.ouvrir.mock.calls.at(-1)![0]).toEqual({ sorte: 'revision' });
+    expect(s.visible('barre-essai')).toBe(true);
+  });
 });

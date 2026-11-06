@@ -85,15 +85,37 @@ export interface Nouveautes {
   fiches: string[];
 }
 
+/** La grappe réduite à ses entités jamais introduites ; null si toutes le sont. */
+function reste(etat: Etat, g: Grappe, domaine: Domaine): Nouveautes | null {
+  const ids = g.membres.filter((id) => !introduite(etat, domaine, id));
+  return ids.length ? { grappe: g, ids, fiches: ids.flatMap((id) => fichesDe(domaine, id)) } : null;
+}
+
 /**
- * Grappe suivante : la première (dans l'ordre reçu, celui de grappes.ts, D4)
- * qui a une entité jamais introduite, réduite à ces entités ; null si tout
- * est introduit. Ne regarde pas le budget du jour (programme() le fait).
+ * Grappe suivante : d'abord une grappe entamée (une entité introduite, une
+ * autre pas : une grappe n'est jamais coupée, celle quittée un jour se finit
+ * avant d'en ouvrir une autre), sinon la première (dans l'ordre reçu, celui
+ * de grappes.ts, D4) qui a une entité jamais introduite ; réduite à ces
+ * entités ; null si tout est introduit. Ne regarde pas le budget du jour
+ * (programme() le fait).
  */
 export function grappeSuivante(etat: Etat, grappes: readonly Grappe[], domaine: Domaine): Nouveautes | null {
+  let premiere: Nouveautes | null = null;
   for (const g of grappes) {
-    const ids = g.membres.filter((id) => !introduite(etat, domaine, id));
-    if (ids.length) return { grappe: g, ids, fiches: ids.flatMap((id) => fichesDe(domaine, id)) };
+    const r = reste(etat, g, domaine);
+    if (!r) continue;
+    if (r.ids.length < g.membres.length) return r;
+    premiere ??= r;
+  }
+  return premiere;
+}
+
+/** La grappe commencée le jour j et pas finie (parmi `grappes`), réduite à ses entités restantes ; null s'il n'y en a pas. */
+export function grappeEntamee(etat: Etat, j: number, grappes: readonly Grappe[], domaine: Domaine): Nouveautes | null {
+  for (const g of grappes) {
+    if (!commenceeLe(etat, g, j, domaine)) continue;
+    const r = reste(etat, g, domaine);
+    if (r) return r;
   }
   return null;
 }
@@ -121,10 +143,12 @@ export function introductions(etat: Etat, j: number, domaine?: Domaine): string[
 /**
  * Pourquoi un programme n'a pas de nouveautés : des révisions restent après
  * la séance ('dues'), le plafond du jour est atteint avec des fiches encore
- * dues ('plafond'), la grappe du jour est déjà prise ('grappe_faite'), ou
- * tout est introduit ('tout_appris').
+ * dues ('plafond'), la grappe du jour est déjà prise ('grappe_faite'), la
+ * grappe du jour est commencée, pas finie, hors des grappes demandées (une
+ * autre série d'Apprendre : 'grappe_entamee', elle passe avant), ou tout est
+ * introduit ('tout_appris').
  */
-export type SansNouveautes = 'dues' | 'plafond' | 'grappe_faite' | 'tout_appris';
+export type SansNouveautes = 'dues' | 'plafond' | 'grappe_faite' | 'grappe_entamee' | 'tout_appris';
 
 export interface Programme {
   /** Révisions de la séance (les deux sens), dans l'ordre de dues(), au plus REVISIONS_PAR_SEANCE et ce que permet le plafond du jour. */
@@ -137,6 +161,8 @@ export interface Programme {
   nouveautes: Nouveautes | null;
   /** Pourquoi nouveautes est null (null s'il y en a). */
   sansNouveautes: SansNouveautes | null;
+  /** 'grappe_entamee' : la grappe du jour, ce qu'il en reste (la Révision du jour la reprend). */
+  entamee: Nouveautes | null;
 }
 
 /**
@@ -145,8 +171,9 @@ export interface Programme {
  * sœurs), puis les fiches nommer à introduire, puis une nouvelle grappe
  * seulement si la séance couvre toutes les révisions dues (aucune ne reste
  * après elle) et si moins de GRAPPES_PAR_JOUR grappes ont été commencées ce
- * jour-là ; la grappe commencée ce jour même se finit (elle n'est jamais
- * coupée : une séance quittée en plein rappel la reprend). `grappes` donne
+ * jour-là ; la grappe commencée ce jour même se finit d'abord (elle n'est
+ * jamais coupée : une séance quittée en plein rappel la reprend ; Apprendre
+ * sur une autre série la renvoie : 'grappe_entamee'). `grappes` donne
  * l'ordre des nouveautés (celles d'une série pour Apprendre) ; le compte des
  * grappes commencées se fait sur `toutes` (par défaut les mêmes), pour
  * qu'un Apprendre lancé depuis une série ne contourne pas le budget.
@@ -165,14 +192,20 @@ export function programme(
   const intro = introductions(etat, j, domaine);
   let sansNouveautes: SansNouveautes | null = null;
   let nouveautes: Nouveautes | null = null;
+  let entamee: Nouveautes | null = null;
   if (restantes > 0) sansNouveautes = permis === 0 ? 'plafond' : 'dues';
   else {
     const g = grappeSuivante(etat, grappes, domaine);
-    if (!g) sansNouveautes = 'tout_appris';
-    else if (grappesCommencees(etat, j, toutes, domaine) < GRAPPES_PAR_JOUR || commenceeLe(etat, g.grappe, j, domaine)) nouveautes = g;
+    const e = grappeEntamee(etat, j, toutes, domaine);
+    if (e && grappes.includes(e.grappe)) nouveautes = e;
+    else if (!g) sansNouveautes = 'tout_appris';
+    else if (e) {
+      sansNouveautes = 'grappe_entamee';
+      entamee = e;
+    } else if (grappesCommencees(etat, j, toutes, domaine) < GRAPPES_PAR_JOUR) nouveautes = g;
     else sansNouveautes = 'grappe_faite';
   }
-  return { revisions, introductions: intro, restantes, nouveautes, sansNouveautes };
+  return { revisions, introductions: intro, restantes, nouveautes, sansNouveautes, entamee };
 }
 
 // Carte de la mémoire.

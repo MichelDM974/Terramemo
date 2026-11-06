@@ -95,6 +95,8 @@ export type DemandeSeance = { sorte: 'revision' } | { sorte: 'apprendre'; serie:
 export interface RefusSeance {
   refus: string;
   reviser: number;
+  /** Pays de la grappe du jour, commencée et pas finie, qui restent : la Révision du jour les reprend (« Les finir · n »). */
+  finir?: number;
 }
 
 export interface FabriqueSeances {
@@ -411,13 +413,16 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const s = serie;
     const l = lancement;
     const boutons: HTMLElement[] = [];
-    if (r.reviser > 0) {
-      const b = creer('button', { type: 'button', id: 'seance-reviser' }, remplir(textes.seance.reviser, { n: r.reviser }));
+    // La Révision du jour fait les révisions puis reprend la grappe entamée : un seul bouton.
+    if (r.finir || r.reviser > 0) {
+      const b = r.finir
+        ? creer('button', { type: 'button', id: 'seance-finir' }, remplir(textes.seance.finir, { n: r.finir }))
+        : creer('button', { type: 'button', id: 'seance-reviser' }, remplir(textes.seance.reviser, { n: r.reviser }));
       b.addEventListener('click', () => lancerSeance({ sorte: 'revision' }));
       boutons.push(b);
     }
     if (s && l) {
-      const b = creer('button', { type: 'button', class: r.reviser > 0 ? 'secondary' : '', id: 'seance-trouver' }, textes.seance.trouver);
+      const b = creer('button', { type: 'button', class: r.finir || r.reviser > 0 ? 'secondary' : '', id: 'seance-trouver' }, textes.seance.trouver);
       b.addEventListener('click', () => {
         lancement = { ...l, mode: 'localiser' };
         mode = 'localiser';

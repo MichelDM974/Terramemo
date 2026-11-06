@@ -82,6 +82,9 @@ export function creerSeances(o: OptionsSeances): Seances {
     const p = programmeDe(d);
     const aFaire = p.revisions.length + p.introductions.length;
     if (!p.nouveautes && (d.sorte === 'apprendre' ? p.sansNouveautes !== 'dues' : aFaire === 0)) {
+      // Apprendre sur une autre série que la grappe du jour, commencée et pas finie : la Révision du jour la reprend.
+      if (d.sorte === 'apprendre' && p.entamee)
+        return { refus: remplir(S.grappe_entamee, { serie: nomSerie(p.entamee.grappe.continent) }), reviser: aFaire, finir: p.entamee.ids.length };
       const raison = p.sansNouveautes === 'plafond' ? S.plafond : d.sorte === 'revision' ? S.rien : p.sansNouveautes === 'tout_appris' ? S.tout_appris : S.grappe_faite;
       return { refus: raison, reviser: d.sorte === 'apprendre' ? aFaire : 0 };
     }

@@ -13,7 +13,7 @@ import { etat } from '../src/srs/rejeu';
 import { catalogue } from '../src/vues/cibles';
 import type { PiloteSeance, RefusSeance, ReponseJouee } from '../src/vues/essai';
 import { creerSeances, texteComptes } from '../src/vues/seance';
-import { textes } from '../src/vues/textes';
+import { remplir, textes } from '../src/vues/textes';
 import { El, installerDom } from './dom-factice';
 
 const lire = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
@@ -168,6 +168,28 @@ describe('séance : du programme au journal', () => {
     const q = jouer(europe).questions;
     expect(q.filter((x) => x.forme === 'retournee').length).toBe(ids.size);
     expect(q.filter((x) => x.forme === 'qcm').every((x) => continent.get(x.id) === 'Europe')).toBe(true);
+  });
+
+  it('grappe du jour quittée en plein rappel : Apprendre sur une autre série renvoie à elle, la Révision du jour la reprend', async () => {
+    const m = await monter();
+    const continent = new Map(monde.entites.map((e) => [e.pays.id, e.pays.continent]));
+    const eu = m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') }) as PiloteSeance;
+    let rappels = 0;
+    for (let q = eu.question(); q && rappels < 2; q = eu.question()) {
+      if (q.forme === 'trouver') rappels++;
+      eu.repondre(juste(q.id, q.forme === 'trouver' ? 'localiser' : 'nommer'));
+    }
+    eu.terminer();
+    const refus = m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Africa') }) as RefusSeance;
+    expect(refus.refus).toBe(remplir(S.grappe_entamee, { serie: 'Europe' }));
+    expect(refus.reviser).toBe(0);
+    expect(refus.finir).toBeGreaterThan(0);
+    expect(m.seances.comptes()?.nouveaux).toBe(refus.finir);
+    const { questions } = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance);
+    const rappel = questions.filter((x) => x.forme === 'trouver');
+    expect(rappel.length).toBe(refus.finir);
+    expect(rappel.every((x) => continent.get(x.id) === 'Europe')).toBe(true);
+    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Africa') })).toEqual({ refus: S.grappe_faite, reviser: 0 });
   });
 
   it('parties libres (D11) : chaque réponse au journal, mode libre, hors FSRS, une séance par partie', async () => {

@@ -233,6 +233,8 @@
     "reviser": "Réviser · {n}",
     "rien": "Rien à revoir aujourd'hui.",
     "grappe_faite": "La grappe du jour est déjà apprise : la suivante demain.",
+    "grappe_entamee": "Les pays voisins commencés aujourd'hui ({serie}) ne sont pas finis : ils passent avant.",
+    "finir": "Les finir · {n}",
     "plafond": "Assez de révisions pour aujourd'hui : la suite demain.",
     "tout_appris": "Tous les pays de cette série sont appris.",
     "trouver": "Trouver"

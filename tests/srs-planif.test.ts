@@ -150,7 +150,28 @@ describe('programme d’une séance', () => {
     const debut = [rep(`pays:${premiere.membres[0]}:localiser`, D0, GOOD, 'rappel')];
     const afrique: Grappe[] = gs.filter((g) => g.continent === 'Africa');
     expect(programme(etat(debut), D0, afrique, 'pays').nouveautes?.grappe).toBe(afrique[0]);
-    expect(programme(etat(debut), D0, afrique, 'pays', gs).nouveautes).toBeNull();
+    const p = programme(etat(debut), D0, afrique, 'pays', gs);
+    expect(p.nouveautes).toBeNull();
+    // La grappe du jour (Europe) commencée, pas finie : elle passe avant, Apprendre Afrique le dit.
+    expect(p.sansNouveautes).toBe('grappe_entamee');
+    expect(p.entamee?.grappe).toBe(premiere);
+    expect(p.entamee?.ids).toEqual(premiere.membres.slice(1));
+    // Toute la grappe d'Europe faite : la grappe du jour est prise.
+    const toute = premiere.membres.map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel'));
+    expect(programme(etat(toute), D0, afrique, 'pays', gs).sansNouveautes).toBe('grappe_faite');
+  });
+
+  it('une grappe entamée hors de la première série se finit : le jour même et le lendemain, la Révision du jour la reprend', () => {
+    const afrique = gs.filter((g) => g.continent === 'Africa')[0]!;
+    expect(gs[0]!.continent).not.toBe('Africa');
+    const debut = afrique.membres.slice(0, 2).map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel'));
+    const p0 = programme(etat(debut), D0, gs, 'pays');
+    expect(p0.nouveautes?.grappe).toBe(afrique);
+    expect(p0.nouveautes?.ids).toEqual(afrique.membres.slice(2));
+    const p1 = programme(etat(debut), D0 + 1, gs, 'pays');
+    expect(p1.nouveautes?.grappe).toBe(afrique);
+    expect(p1.nouveautes?.ids).toEqual(afrique.membres.slice(2));
+    expect(grappeSuivante(etat(debut), gs, 'pays')?.grappe).toBe(afrique);
   });
 
   it('tout introduit : plus de grappe', () => {
