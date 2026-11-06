@@ -524,6 +524,13 @@ async function demarrer(): Promise<void> {
   explorer = vueExplorer(ctx, teintesDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive) });
   // Les communes (Apprendre sous La Réunion, leurs révisions) : les données de l'île une fois chargée.
   const seances = creerSeances({ memoire, monde: donnees, ile: () => terrains?.deja('reunion')?.donnees ?? null });
+  // Page rouverte en pleine grappe de communes : l'île chargée en fond, pour que la ligne de Jouer compte les communes à finir.
+  void memoire.pret.then(
+    () => {
+      if (seances.ileIncertaine()) terrains?.charger('reunion').then(() => jouer?.rafraichir(), () => undefined);
+    },
+    () => undefined,
+  );
   const essai = vueEssai(ctx, { versJouer: nav.versJouer, versCarte: () => nav.remonter('carte'), seances, libre: seances.libre });
   const epreuve = vueChrono(ctx, { versJouer: nav.versJouer });
   // « Retour » des classements, « × » de Jouer : la vue d'avant, en remontant l'historique.

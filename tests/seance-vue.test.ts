@@ -340,6 +340,30 @@ describe('séance : les communes de La Réunion', () => {
     expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 0 });
   });
 
+  it('page rouverte en pleine grappe de communes, l’île pas encore chargée : incertaine, Apprendre sur les pays la charge d’abord', async () => {
+    const depot = depotMemoire();
+    const m = await monter(depot, { ile: () => ile });
+    const p = m.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance;
+    let rappels = 0;
+    for (let q = p.question(); q && rappels < 2; q = p.question()) {
+      if (q.forme === 'trouver') rappels++;
+      p.repondre(juste(q.id, q.forme === 'trouver' ? 'localiser' : 'nommer'));
+    }
+    p.terminer();
+    await m.memoire.ecrire([]);
+    let charge: typeof ile | null = null;
+    const m2 = await monter(depot, { ile: () => charge });
+    expect(m2.seances.ileIncertaine()).toBe(true);
+    expect(m2.seances.besoinIle!({ sorte: 'apprendre', serie: serie('Europe') })).toBe(true);
+    expect(m2.seances.besoinIle!({ sorte: 'revision' })).toBe(true);
+    // Une fois l'île chargée (main.ts la charge en fond, Toucher avant d'ouvrir) : les communes à finir comptées, le renvoi vers elles.
+    charge = ile;
+    expect(m2.seances.ileIncertaine()).toBe(false);
+    expect(m2.seances.besoinIle!({ sorte: 'apprendre', serie: serie('Europe') })).toBe(false);
+    expect(m2.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 4 });
+    expect(m2.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') })).toEqual({ refus: S.grappe_entamee_communes, reviser: 0, finir: 4 });
+  });
+
   it('textes des communes : refus et phrase d’Apprendre', () => {
     for (const k of ['grappe_entamee_communes', 'tout_appris_communes'] as const) expect(S[k]).toBeTruthy();
   });

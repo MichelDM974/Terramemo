@@ -44,6 +44,8 @@ export function texteComptes(c: ComptesSeance): string {
 export interface Seances extends FabriqueSeances {
   /** Les comptes de cette demande aujourd'hui ; null tant que la mémoire n'est pas chargée. */
   comptes(d?: DemandeSeance): ComptesSeance | null;
+  /** Une grappe de communes commencée ce jour, l'île pas chargée : la charger pour savoir si elle est finie (main.ts, puis rafraîchir Jouer). */
+  ileIncertaine(): boolean;
   /** Le journal d'une partie libre (Trouver, Reconnaître hors séance : D11). */
   libre(l: Lancement | null, t: Terrain): ((r: ReponseJouee) => void) | null;
 }
@@ -140,9 +142,19 @@ export function creerSeances(o: OptionsSeances): Seances {
     return [reviser, bc, { ...bp, plan: { revisions: [], introductions: [], nouveaux: bp.plan.nouveaux } }];
   }
 
-  /** Une demande a-t-elle besoin de l'île (communes dues, grappe de communes commencée ce jour, Apprendre sous La Réunion) ? */
+  /**
+   * Une grappe de communes est commencée ce jour mais l'île n'est pas
+   * chargée (page rouverte en pleine grappe) : sans ses grappes, on ne sait
+   * pas si elle est finie ; les comptes de la ligne de Jouer et le refus
+   * d'Apprendre sur les pays (renvoi vers les communes à finir) en dépendent.
+   */
+  function ileIncertaine(): boolean {
+    return m.charge && !o.ile?.() && entreesDuJour(m.etat(), m.jour(), 'communes') > 0;
+  }
+
+  /** Une demande a-t-elle besoin de l'île (communes dues, grappe de communes commencée ce jour, Apprendre sous La Réunion, ou sur les pays quand la grappe de communes du jour est peut-être entamée) ? */
   function besoinIle(d: DemandeSeance): boolean {
-    if (d.sorte === 'apprendre') return d.serie.terrain !== 'monde';
+    if (d.sorte === 'apprendre') return d.serie.terrain !== 'monde' || ileIncertaine();
     const etat = m.etat();
     const j = m.jour();
     return m.charge && (dues(etat, j, 'communes').length > 0 || introductions(etat, j, 'communes').length > 0 || entreesDuJour(etat, j, 'communes') > 0);
@@ -301,5 +313,5 @@ export function creerSeances(o: OptionsSeances): Seances {
     };
   }
 
-  return { ouvrir, besoinIle, comptes, libre };
+  return { ouvrir, besoinIle, ileIncertaine, comptes, libre };
 }
