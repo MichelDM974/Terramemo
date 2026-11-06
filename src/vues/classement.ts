@@ -1,10 +1,12 @@
 // Bloc « Classement » du Chrono (#14) : de toujours ou de la semaine, les dix
 // premiers, ma place et mon rang ; le pseudo public, choisi une fois (rien
-// n'est publié sans lui). Firebase n'est chargé qu'à l'ouverture du bloc.
+// n'est publié sans lui) et qui nomme la place : le même pseudo sur deux
+// appareils, c'est une seule place (décision « Une place par pseudo »).
+// Firebase n'est chargé qu'à l'ouverture du bloc.
 import type { BilanPartie } from '../epreuve/chrono';
 import type { ScoreEpreuve } from '../epreuve/bareme';
 import { lireRecords, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
-import { GENERAL, lireTableau, publier, type Place } from '../epreuve/classement';
+import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
 import { creer } from './commun';
 import { remplir, textes } from './textes';
 
@@ -52,10 +54,23 @@ type Envoi = [epreuve: string, periode: string, score: ScoreEpreuve];
 /**
  * Chaque score part seul : un refus ou un échec n'empêche pas les autres
  * (allSettled). Un score que les règles refuseraient (vraisemblable) n'est
- * pas écrit : il compte comme refusé, sans dépenser d'écriture.
+ * pas écrit : il compte comme refusé, sans dépenser d'écriture. Puis le
+ * général de chaque période de `generaux`, une fois les scores publiés : les
+ * records de l'appareil et les places en ligne du pseudo (ses autres
+ * appareils), le meilleur des deux par épreuve (totalGeneral).
  */
-async function envoyer(pseudo: string, envois: readonly Envoi[]): Promise<Publication> {
-  const res = await Promise.allSettled(envois.map(([e, p, sc]) => (vraisemblable(sc) ? publier(e, p, pseudo, sc) : Promise.resolve(false))));
+async function envoyer(pseudo: string, envois: readonly Envoi[], generaux: readonly string[]): Promise<Publication> {
+  const ecrire = ([e, p, sc]: Envoi) => (vraisemblable(sc) ? publier(e, p, pseudo, sc) : Promise.resolve(false));
+  const res = await Promise.allSettled(envois.map(ecrire));
+  const records = lireRecords(stockage());
+  res.push(
+    ...(await Promise.allSettled(
+      generaux.map(async (p) => {
+        const t = totalGeneral(records, p, await placesDuPseudo(p, pseudo));
+        return t ? ecrire([GENERAL, p, t]) : true;
+      }),
+    )),
+  );
   return {
     refuses: res.filter((r) => r.status === 'fulfilled' && !r.value).length,
     echecs: res.filter((r) => r.status === 'rejected').length,
@@ -77,11 +92,8 @@ export async function publierTout(pseudo: string): Promise<Publication> {
     const p = sem === undefined ? 'toujours' : sem === periode ? periode : null;
     if (p) envois.push([epreuve, p, recordPubliable(r) ?? r]);
   }
-  for (const p of ['toujours', periode]) {
-    const t = totalGeneral(records, p);
-    if (t) envois.push([GENERAL, p, t]);
-  }
-  return envoyer(pseudo, envois);
+  const generaux = ['toujours', periode].filter((p) => envois.some(([, q]) => q === p));
+  return envoyer(pseudo, envois, generaux);
 }
 
 /**
@@ -93,6 +105,7 @@ export async function publierTout(pseudo: string): Promise<Publication> {
 export async function publierPartie(pseudo: string, epreuve: string, b: BilanPartie): Promise<Publication> {
   const records = lireRecords(stockage());
   const envois: Envoi[] = [];
+  const generaux: string[] = [];
   for (const [bilan, periode] of [
     [b.toujours, 'toujours'],
     [b.semaine, b.periode],
@@ -100,12 +113,11 @@ export async function publierPartie(pseudo: string, epreuve: string, b: BilanPar
     if (!bilan.nouveau && !bilan.progresPubliable) continue;
     const r = recordDe(records, epreuve, periode);
     const pub = r && recordPubliable(r);
-    const t = totalGeneral(records, periode);
     if (r && bilan.nouveau && !vraisemblable(r)) envois.push([epreuve, periode, r]);
     if (pub && bilan.progresPubliable) envois.push([epreuve, periode, pub]);
-    if (t) envois.push([GENERAL, periode, t]);
+    generaux.push(periode);
   }
-  return envoyer(pseudo, envois);
+  return envoyer(pseudo, envois, generaux);
 }
 
 /** Ce que le bloc dit au joueur d'une publication ('' : tout est passé). */
@@ -166,9 +178,9 @@ export function blocClassement(epreuve: string, titre: string, apresPartie?: (ps
     for (const b of boutons) b.classList.toggle('active', (b.dataset.v === 'toujours') === (periode === 'toujours'));
     etat.textContent = T.chargement;
     try {
-      const t = await lireTableau(epreuve, periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now()));
+      const t = await lireTableau(epreuve, periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now()), lirePseudo());
       if (n !== derniere) return;
-      const lignes = t.places.map((p, i) => ligne(p, i + 1, p.uid === t.moi?.uid));
+      const lignes = t.places.map((p, i) => ligne(p, i + 1, p.cle === t.moi?.cle));
       if (t.moi && t.rang && t.rang > t.places.length) lignes.push(creer('li', { class: 'ellipse' }, '…'), ligne(t.moi, t.rang, true));
       liste.replaceChildren(...lignes);
       etat.textContent = t.joueurs ? remplir(T.joueurs, { n: t.joueurs }) : T.vide;

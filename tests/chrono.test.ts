@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { enregistrer, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, VERSION_BAREME, vraisemblable } from '../src/epreuve/chrono';
+import { clePseudo, enregistrer, enregistrerPartie, EPREUVES, idEpreuve, lireRecords, PartieChrono, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, VERSION_BAREME, vraisemblable } from '../src/epreuve/chrono';
 import { ECHELLES_KM } from '../src/epreuve/bareme';
 import type { Pays } from '../src/map/types';
 import { SERIE_REUNION, SERIE_TOUS, series, seriesToucher } from '../src/vues/cibles';
@@ -159,6 +159,30 @@ describe('records de la semaine et classement général', () => {
     expect(totalGeneral(new Map(), 'toujours')).toBeNull();
   });
 
+  it('le général d’un pseudo prend, par épreuve, le meilleur de l’appareil et de sa place en ligne (ses autres appareils)', () => {
+    const s = stockage();
+    const ams = idEpreuve('South America');
+    const ile = idEpreuve('reunion');
+    enregistrerPartie(s, ams, score(11_000, 11, 12, 60_000), lundi);
+    enregistrerPartie(s, ile, score(17_087, 16, 24, 93_240), lundi);
+    const r = lireRecords(s);
+    // En ligne : l'île mieux jouée sur un autre appareil, l'Europe jouée seulement là-bas, l'Amérique du Sud moins bien.
+    const enLigne = new Map([
+      [ile, score(21_567, 21, 24, 92_501)],
+      [idEpreuve('Europe'), score(40_000, 40, 44, 200_000)],
+      [ams, score(10_000, 10, 12, 50_000)],
+    ]);
+    expect(totalGeneral(r, 'toujours', enLigne)).toEqual(score(11_000 + 21_567 + 40_000, 11 + 21 + 40, 12 + 24 + 44, 60_000 + 92_501 + 200_000));
+    // Rien sur l'appareil : les places en ligne seules.
+    expect(totalGeneral(new Map(), 'toujours', enLigne)?.points).toBe(71_567);
+  });
+
+  it('les épreuves du général sont celles des règles Firestore (tailles())', () => {
+    const regles = readFileSync('firestore.rules', 'utf8');
+    const tailles = [...regles.matchAll(/'(chrono:[^']+)': \d+/g)].map((m) => m[1]);
+    expect([...EPREUVES].sort()).toEqual(tailles.sort());
+  });
+
   it('vraisemblable : les bornes de firestore.rules, sur les valeurs arrondies que publier() envoie', () => {
     expect(vraisemblable(score(11_000, 11, 12, 60_000))).toBe(true);
     // Au moins 0,2 s par question (4,8 s pour les 24 communes), 15 s au plus.
@@ -234,5 +258,16 @@ describe('records de la semaine et classement général', () => {
     expect(pseudoValide(' '.repeat(5))).toBeNull();
     expect(pseudoValide('x'.repeat(20))).toBe('x'.repeat(20));
     expect(pseudoValide('x'.repeat(21))).toBeNull();
+  });
+
+  it('pseudo : il nomme la place, donc sans « / » ni nom refusé par Firestore ; la casse ne compte pas', () => {
+    expect(pseudoValide('A/B')).toBeNull();
+    expect(pseudoValide('..')).toBeNull();
+    expect(pseudoValide('__ab__')).toBeNull();
+    expect(pseudoValide('_ab_')).toBe('_ab_');
+    // é composé (e + accent) ou d'un seul caractère : le même pseudo.
+    expect(pseudoValide('He\u0301le\u0300ne')).toBe('Hélène');
+    expect(clePseudo('Michel')).toBe(clePseudo('MICHEL'));
+    expect(clePseudo(pseudoValide('  Hélène   D ')!)).toBe('hélène d');
   });
 });

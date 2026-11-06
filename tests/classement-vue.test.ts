@@ -1,16 +1,18 @@
 // Publication des scores du Chrono (src/vues/classement.ts) et ce que le bloc
-// du classement en dit au joueur (#16, défaut 1) : publier() et lireTableau()
-// remplacés, DOM factice (tests/dom-factice.ts).
+// du classement en dit au joueur (#16, défaut 1) : publier(), placesDuPseudo()
+// et lireTableau() remplacés, DOM factice (tests/dom-factice.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScoreEpreuve } from '../src/epreuve/bareme';
 import { enregistrerPartie, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
 const publier = vi.fn<(epreuve: string, periode: string, pseudo: string, s: ScoreEpreuve) => Promise<boolean>>();
+const placesDuPseudo = vi.fn<(periode: string, pseudo: string) => Promise<Map<string, ScoreEpreuve>>>();
 const lireTableau = vi.fn();
 vi.mock('../src/epreuve/classement', () => ({
   GENERAL: 'general',
   publier: (...a: Parameters<typeof publier>) => publier(...a),
+  placesDuPseudo: (...a: Parameters<typeof placesDuPseudo>) => placesDuPseudo(...a),
   lireTableau: (...a: unknown[]) => lireTableau(...a),
 }));
 
@@ -31,6 +33,8 @@ beforeEach(() => {
   installerDom();
   installerStockage();
   publier.mockReset();
+  placesDuPseudo.mockReset();
+  placesDuPseudo.mockResolvedValue(new Map());
   lireTableau.mockReset();
   lireTableau.mockResolvedValue({ places: [], moi: null, rang: null, joueurs: 0 });
 });
@@ -74,15 +78,23 @@ describe('publication d’une partie', () => {
 
 describe('un score trop rapide sur une série déjà publiée', () => {
   const OCE = idEpreuve('Oceania');
-  // Le serveur : un score par épreuve et période, accepté s'il bat le précédent (firestore.rules).
+  // Le serveur : la place du pseudo par épreuve et période, réécrite si le
+  // score la bat (firestore.rules) ; publier() dit true quand elle a déjà mieux.
   let base: Map<string, ScoreEpreuve>;
   beforeEach(() => {
     base = new Map();
     publier.mockImplementation(async (e, p, _pseudo, s) => {
       const avant = base.get(`${e}/${p}`);
-      if (avant && (s.points < avant.points || (s.points === avant.points && s.temps_ms >= avant.temps_ms))) return false;
-      base.set(`${e}/${p}`, s);
+      if (!avant || s.points > avant.points || (s.points === avant.points && s.temps_ms < avant.temps_ms)) base.set(`${e}/${p}`, s);
       return true;
+    });
+    placesDuPseudo.mockImplementation(async (periode) => {
+      const places = new Map<string, ScoreEpreuve>();
+      for (const [k, s] of base) {
+        const [e, p] = k.split('/');
+        if (e && e !== 'general' && p === periode) places.set(e, s);
+      }
+      return places;
     });
   });
   const jouer = (e: string, s: ScoreEpreuve) => publierPartie('Pilote', e, enregistrerPartie(localStorage, e, s, maintenant));
@@ -97,6 +109,25 @@ describe('un score trop rapide sur une série déjà publiée', () => {
     expect(await jouer(OCE, score(14_000, 14, 14, 9_136))).toEqual({ refuses: 0, echecs: 0 });
     expect(base.get('general/toujours')?.points).toBe(50_000);
     expect(base.get(`general/${semaine}`)?.points).toBe(50_000);
+  });
+
+  it('deux appareils, un pseudo : une place qui garde le meilleur, un général qui additionne les deux appareils', async () => {
+    await jouer(ILE, score(21_567, 21, 24, 92_501));
+    // L'autre appareil (stockage neuf), sous le même pseudo : l'île moins bien, puis l'Amérique du Sud.
+    installerStockage();
+    expect(await jouer(ILE, score(17_087, 16, 24, 93_240))).toEqual({ refuses: 0, echecs: 0 });
+    expect(base.get(`${ILE}/toujours`)?.points).toBe(21_567);
+    expect(base.get('general/toujours')?.points).toBe(21_567);
+    await jouer(AMS, score(12_000, 12, 12, 7_839));
+    expect(base.get('general/toujours')?.points).toBe(33_567);
+    expect(base.get(`general/${semaine}`)?.points).toBe(33_567);
+  });
+
+  it('places en ligne illisibles (hors ligne) : les scores partent, le général compte un échec', async () => {
+    placesDuPseudo.mockRejectedValue(Object.assign(new Error('hors ligne'), { code: 'unavailable' }));
+    expect(await jouer(AMS, score(12_000, 12, 12, 7_839))).toEqual({ refuses: 0, echecs: 2 });
+    expect(base.get(`${AMS}/toujours`)?.points).toBe(12_000);
+    expect(base.has('general/toujours')).toBe(false);
   });
 
   it('un nouveau pseudo atteint encore le record publiable de la série et le général', async () => {

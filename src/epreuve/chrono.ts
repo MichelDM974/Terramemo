@@ -94,6 +94,13 @@ export function recordPubliable(r: RecordChrono): ScoreEpreuve | null {
 /** Identifiant d'une épreuve : mode, exercice, série (un continent, 'tous' ou 'reunion' : `chrono:localiser:reunion`). */
 export const idEpreuve = (serie: string): string => `chrono:localiser:${serie}`;
 
+/**
+ * Toutes les épreuves du Chrono, celles que firestore.rules connaît
+ * (tailles()) : les six continents, tous les pays et l'île. Le général d'un
+ * pseudo se lit dans chacune (classement.ts, placesDuPseudo).
+ */
+export const EPREUVES: readonly string[] = ['Africa', 'Asia', 'Europe', 'North America', 'Oceania', 'South America', 'tous', 'reunion'].map(idEpreuve);
+
 const CLE_RECORDS = 'terramemo.chrono.records';
 
 type Stockage = Pick<Storage, 'getItem' | 'setItem'>;
@@ -219,21 +226,43 @@ export function vraisemblable(s: ScoreEpreuve): boolean {
  * Le score du classement général : la somme des records de toutes les
  * épreuves pour la période (décision « Classements »), chacun pris à son
  * meilleur score publiable (recordPubliable) ; null sans record publiable.
+ * `enLigne` (épreuve → place du pseudo au classement de la période) : les
+ * records des autres appareils du même pseudo (décision « Une place par
+ * pseudo ») ; chaque épreuve compte le meilleur des deux.
  */
-export function totalGeneral(records: Map<string, RecordChrono>, periode: string): ScoreEpreuve | null {
-  const choisis = [...records]
-    .filter(([k]) => (periode === 'toujours' ? !k.includes('@') : k.endsWith(`@${periode}`)))
-    .map(([, r]) => recordPubliable(r))
-    .filter((r): r is ScoreEpreuve => r !== null);
-  if (!choisis.length) return null;
-  return choisis.reduce(
+export function totalGeneral(records: Map<string, RecordChrono>, periode: string, enLigne: ReadonlyMap<string, ScoreEpreuve> = new Map()): ScoreEpreuve | null {
+  const meilleurs = new Map<string, ScoreEpreuve>();
+  for (const [k, r] of records) {
+    const [epreuve, sem] = k.split('@');
+    if (!epreuve || (periode === 'toujours' ? sem !== undefined : sem !== periode)) continue;
+    const p = recordPubliable(r);
+    if (p) meilleurs.set(epreuve, p);
+  }
+  for (const [epreuve, s] of enLigne) {
+    const ici = meilleurs.get(epreuve);
+    if (!ici || comparerScores(s, ici) < 0) meilleurs.set(epreuve, sansDate(s));
+  }
+  if (!meilleurs.size) return null;
+  return [...meilleurs.values()].reduce(
     (t, r) => ({ points: t.points + r.points, justes: t.justes + r.justes, questions: t.questions + r.questions, temps_ms: t.temps_ms + r.temps_ms }),
     { points: 0, justes: 0, questions: 0, temps_ms: 0 },
   );
 }
 
-/** Pseudo public : espaces resserrés, 2 à 20 caractères ; null sinon. */
+/**
+ * Pseudo public : espaces resserrés, 2 à 20 caractères ; null sinon. Il nomme
+ * aussi la place au classement (clePseudo) : pas de « / », ni de nom que
+ * Firestore refuse pour un document (« .. », « __…__ »).
+ */
 export function pseudoValide(brut: string): string | null {
-  const p = brut.trim().replace(/\s+/g, ' ');
-  return p.length >= 2 && p.length <= 20 ? p : null;
+  const p = brut.normalize('NFC').trim().replace(/\s+/g, ' ');
+  if (p.length < 2 || p.length > 20 || p.includes('/') || p === '..' || /^__.*__$/.test(p)) return null;
+  return p;
 }
+
+/**
+ * La place d'un pseudo au classement (nom de son document Firestore) : un
+ * pseudo, une place, quel que soit l'appareil ; la casse ne compte pas.
+ * firestore.rules exige la même clé (pseudo.lower()).
+ */
+export const clePseudo = (pseudo: string): string => pseudo.toLowerCase();

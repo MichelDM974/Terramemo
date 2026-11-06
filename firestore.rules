@@ -4,8 +4,10 @@ rules_version = '2';
 // « Classements », docs/etudes/2026-11-04-points-classement.md § 4).
 // Sans serveur (offre Spark) : c'est l'appli qui écrit son score ; ces règles
 // n'en vérifient que la vraisemblance (bornes du barème, taille de l'épreuve,
-// semaine en cours, record qui progresse). Tests : tests/regles.test.ts, sur
-// l'émulateur. Tout le reste de la base est fermé.
+// semaine en cours, record qui progresse). Une place par pseudo (décision du
+// même nom) : le document porte le nom du pseudo en minuscules, et tout
+// compte qui joue sous ce pseudo peut l'améliorer. Tests :
+// tests/regles.test.ts, sur l'émulateur. Tout le reste de la base est fermé.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -66,15 +68,23 @@ service cloud.firestore {
         || (n.points == a.points && n.temps_ms == a.temps_ms && n.justes == a.justes && n.questions == a.questions);
     }
 
-    match /classements/{epreuve}/periodes/{periode}/scores/{uid} {
+    // La place d'un pseudo : son nom en minuscules (src/epreuve/chrono.ts,
+    // clePseudo). Les règles n'en vérifient que la longueur : leur lower()
+    // échoue sur une majuscule accentuée (« É », « Œ », « Ñ » : émulateur,
+    // 06/11/2026). Cela suffit à refuser l'appli d'avant, qui nommait la place
+    // par le compte (28 caractères, plus qu'un pseudo). Écrire demande un
+    // compte (anonyme suffit). Personne ne la retire depuis l'appli : elle est
+    // à tous ceux qui jouent ce pseudo.
+    match /classements/{epreuve}/periodes/{periode}/scores/{cle} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == uid
+      allow create: if request.auth != null
+        && cle.size() == request.resource.data.pseudo.size()
         && (periode == 'toujours' || periode == semaineCourante())
         && scoreValide(epreuve);
-      allow update: if request.auth != null && request.auth.uid == uid
+      allow update: if request.auth != null
+        && cle.size() == request.resource.data.pseudo.size()
         && (periode == 'toujours' || periode == semaineCourante())
         && scoreValide(epreuve) && progresse();
-      allow delete: if request.auth != null && request.auth.uid == uid;
     }
   }
 }
