@@ -8,6 +8,9 @@ les décisions vivantes sont au registre de cdc (`terramemo`).
 Mis à jour le 06/11/2026 (décision « Contenu ») : le J1c (La Réunion) passe
 avant le J1a ; conception `docs/etudes/2026-11-06-reunion.md`.
 
+Conception du J1a (06/11/2026, #2) : `docs/etudes/2026-11-06-j1a-conception.md`
+(décisions en attente au § 12, faits chiffrés dans `docs/questions-j1a.md`).
+
 ## Choix de l'utilisateur (04/11/2026)
 
 | Sujet | Choix |
