@@ -402,6 +402,44 @@ décision « Chargement du rendu WebGL »), servie aux gestes dès qu'elle
 arrive, comme en rendu canvas. Noter la raison et le GPU au registre : sur
 ce téléphone, le webgl ne peut pas être jugé, seulement son repli.
 
+#### Réglages de l'A37 qui changent les mesures (séance du 06/11)
+
+- **Économie d'énergie** (`settings get global low_power` = 1, celle de
+  l'utilisateur) : écran bloqué à 60 Hz (« Fluidité des mouvements » grisée)
+  et processeur bridé (dessin canvas p95 9 ms contre 5 ms sans). La couper
+  pour mesurer (`settings put global low_power 0`), la remettre après (`1`).
+- **Fluidité des mouvements** (`settings get secure refresh_rate_mode` :
+  0 Standard 60 Hz, 1 Adaptative jusqu'à 120 Hz ; l'utilisateur est en
+  Standard) : à changer par l'interface (Paramètres → Écran → Fluidité des
+  mouvements → Appliquer), puis la remettre.
+- À 120 Hz, les gestes injectés par DevTools restent à 60 Hz dans Chrome ;
+  dans l'APK ils passent à 120 Hz mais le driver y compte des à-coups (≈ 2/s,
+  un gel) que le doigt n'a pas (canvas : 0 à-coup, 100 % à 120 Hz) : à
+  120 Hz, juger au doigt ou par l'écran tactile, pas au driver.
+- Noter les réglages d'avant et tout remettre à la fin (veille
+  `screen_off_timeout`, `svc power stayon`, thème `cmd uimode night`). Le
+  téléphone peut couper le débogage USB : il faut alors le réactiver à la
+  main (Options de développement).
+
+#### Au doigt, sans recopier le panneau (`outils/`)
+
+Les gestes de l'utilisateur sont lus par DevTools pendant qu'il les fait
+(page avec `?mesures=1` ; Chrome : `adb forward tcp:8061
+localabstract:chrome_devtools_remote` ; APK : `…webview_devtools_remote_<pid>`) :
+- `outils/lire_apk.py <sortie.json> [rendu]` : rapport de l'APK résumé par
+  type de geste (période, à-coups, gels, tenue des 120 i/s), puis recharge
+  la page dans `rendu` pour l'essai suivant ;
+- `outils/glisses_apk.py <rendu> <sortie.json>` : glissés par l'écran
+  tactile (`adb shell input swipe`, le vrai chemin du toucher : il fait
+  monter l'écran à 120 Hz, DevTools non ; pas de pincement) dans l'APK ;
+- `outils/images_video.py <video.mp4> [dossier]` : luminance de chaque image
+  d'un `adb shell screenrecord` (H.264, lu par le chromium de playwright ;
+  le ffmpeg de playwright ne lit pas le H.264), pour l'éclair blanc au
+  lancement (point 4) sans l'œil de l'utilisateur.
+Rapports du 06/11 : `docs/mesures/j0/doigt/` (`doigt-` : doigt de
+l'utilisateur, `tactile-` : `input swipe`) et `docs/mesures/j0/adaptative/`
+(driver à 120 Hz, sans économie d'énergie).
+
 ### À l'œil, avec le téléphone (après les mesures)
 
 Noter chaque point (OK, ou ce qui est vu) dans le registre. Chrome
