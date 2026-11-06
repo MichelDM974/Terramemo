@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CarteCanvas, TRAIT_FAUX_PX } from '../src/map/carte-canvas';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
+import { bornerY, type Cadre, type VueGlobe } from '../src/map/vue';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
 import { cadrageNommer } from '../src/vues/nommer';
@@ -186,6 +187,43 @@ describe('CarteCanvas : montrer() de Nommer cadre comme le SVG (#16)', () => {
     }
     expect(rates).toEqual([]);
   }, 30_000);
+
+  // La barre d'adresse du téléphone qui apparaît puis disparaît (56 px) : la
+  // vue libre de montrer le reste, comme en SVG où d3-zoom ne la borne qu'au
+  // geste suivant ; bornée, l'Argentine retombait à 53 % sous la barre.
+  it('un changement de hauteur ne remet pas dans la borne la vue libre de montrer (Argentine)', () => {
+    const c = carte();
+    const hote = (c as unknown as { hote: { clientHeight: number } }).hote;
+    const redimensionner = () => (c as unknown as { redimensionner(): void }).redimensionner();
+    c.montrer('FRA', HV);
+    jouer(0, 2100);
+    c.montrer('ARG', HV);
+    jouer(3000, 5100);
+    expect(partDe(c.contexte(), 'ARG')).toBeGreaterThan(0.99);
+    const avant = c.ecran('ARG') as [number, number];
+    hote.clientHeight = H - 56;
+    redimensionner();
+    const p = c.ecran('ARG') as [number, number];
+    // Le même point au centre : la zone reste au milieu de la partie visible, plus basse de 28 px.
+    expect(Math.abs(p[1] - (avant[1] - 28))).toBeLessThan(1e-6);
+    hote.clientHeight = H;
+    redimensionner();
+    expect(partDe(c.contexte(), 'ARG')).toBeGreaterThan(0.99);
+    const apres = c.ecran('ARG') as [number, number];
+    expect(Math.abs(apres[0] - avant[0]) + Math.abs(apres[1] - avant[1])).toBeLessThan(1e-6);
+  });
+
+  it('une vue dans la borne y reste quand la hauteur change', () => {
+    const c = carte();
+    const prive = c as unknown as { hote: { clientHeight: number }; c: Cadre; v: VueGlobe; redimensionner(): void };
+    // L'Argentine au zoom de zoomerSur : le bas de l'ovale au bas de l'écran.
+    c.zoomerSur('ARG');
+    expect(prive.v.y).toBeCloseTo(bornerY(prive.c, prive.v.k, prive.v.y - 1000), 6);
+    prive.hote.clientHeight = H + 200;
+    prive.redimensionner();
+    // Le centre gardé seul laisserait 100 px de vide sous l'ovale.
+    expect(prive.v.y).toBeCloseTo(bornerY(prive.c, prive.v.k, prive.v.y), 6);
+  });
 
   it('zoomerSur (sans barre) reste centré sur le point, sur toute la hauteur', () => {
     const c = carte();

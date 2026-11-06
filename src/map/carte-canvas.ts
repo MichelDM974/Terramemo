@@ -37,6 +37,7 @@ import { ROTATIONS } from './projection';
 import type { Forme, Transfo } from './types';
 import {
   bornerK,
+  bornerY,
   cadre,
   dePlan,
   ecartLon,
@@ -702,7 +703,10 @@ export class CarteCanvas implements CarteAffichee {
   /**
    * Nouvelle taille : même point au centre, même échelle à l'écran (k × échelle
    * de la projection), bornée au zoom 1. Un canvas se retrace sans coût de
-   * tracés SVG : pas de seuil de 15 % sur la hauteur ici.
+   * tracés SVG : pas de seuil de 15 % sur la hauteur ici. Une vue hors de la
+   * borne verticale (laissée libre par montrer) le reste : la barre d'adresse
+   * du téléphone qui va et vient ne ramène pas sous la barre de Nommer la zone
+   * du sud que le vol a montée ; le geste suivant la borne, comme en SVG.
    */
   private redimensionner(): void {
     if (this.masquee) return;
@@ -712,8 +716,9 @@ export class CarteCanvas implements CarteAffichee {
     const avant = this.c;
     const centre = pointVirtuel(this.v, avant, avant.l / 2, avant.h / 2);
     const echelle = this.v.k * avant.s;
+    const libre = Math.abs(this.v.y - bornerY(avant, this.v.k, this.v.y)) > 1e-6;
     this.dimensionner();
-    this.poser(placer(this.c, centre, this.c.l / 2, this.c.h / 2, bornerK(echelle / this.c.s, ZOOM_MAX)), true);
+    this.poser(placer(this.c, centre, this.c.l / 2, this.c.h / 2, bornerK(echelle / this.c.s, ZOOM_MAX), libre), true);
     this.dessiner();
   }
 
