@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  acceptesEnEpreuve,
   comparerScores,
+  DEBUT_ACCEPTES_EPREUVES,
   DELAI_CHRONO_MS,
   ECHELLE_KM,
   ECHELLES_KM,
@@ -129,5 +131,14 @@ describe('barème sur les vraies frontières', () => {
     const km = distanceAuBordKm(c.forme, t.pays.point as [number, number]);
     // L'étude arrondit la distance au km : un point d'écart au plus.
     expect(Math.abs(pointsQuestion(faux(km), D) - attendu)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('zones contestées et enclaves dans les épreuves : date d’effet', () => {
+  it('lundi 09/11/2026 à 0 h UTC, début d’une semaine du classement', () => {
+    expect(new Date(DEBUT_ACCEPTES_EPREUVES).toISOString()).toBe('2026-11-09T00:00:00.000Z');
+    expect(semaine(DEBUT_ACCEPTES_EPREUVES)).toBe(semaine(DEBUT_ACCEPTES_EPREUVES - 1) + 1);
+    expect(acceptesEnEpreuve(DEBUT_ACCEPTES_EPREUVES - 1)).toBe(false);
+    expect(acceptesEnEpreuve(DEBUT_ACCEPTES_EPREUVES)).toBe(true);
   });
 });

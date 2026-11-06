@@ -88,3 +88,16 @@ const SEMAINE_MS = 604_800_000;
 export function semaine(t_ms: number): number {
   return Math.floor((t_ms - LUNDI_0_MS) / SEMAINE_MS);
 }
+
+/**
+ * Lundi 9 novembre 2026 à 0 h UTC (4 h à La Réunion), début d'une semaine du
+ * classement : à partir de là, les épreuves classées notent aussi les zones
+ * contestées et les enclaves (décision « Zones contestées et enclaves » ;
+ * src/map/acceptes.ts). Avant, le de fait strict d'avant la décision, pour
+ * que les scores d'une même semaine se comparent. Le barème ne change pas
+ * (VERSION_BAREME) : les records gardés restent.
+ */
+export const DEBUT_ACCEPTES_EPREUVES = Date.UTC(2026, 10, 9);
+
+/** Une épreuve partie à t_ms admet-elle les zones contestées et les enclaves ? */
+export const acceptesEnEpreuve = (t_ms: number): boolean => t_ms >= DEBUT_ACCEPTES_EPREUVES;

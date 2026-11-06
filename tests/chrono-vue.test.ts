@@ -7,6 +7,7 @@
 // celui qu'on avance.
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEBUT_ACCEPTES_EPREUVES } from '../src/epreuve/bareme';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
 import type { Pays } from '../src/map/types';
 import { installerDom, installerStockage, El } from './dom-factice';
@@ -28,8 +29,10 @@ const EXERCICES_AMS = `jouer/classe/pays/${AMS}`;
 /** Les touchers à rendre faux (leur numéro, à partir de 1). */
 let faux = new Set<number>();
 let touchers = 0;
+/** Les options de chaque appel à noter() (règle des zones contestées et des enclaves). */
+let optionsNoter: unknown[] = [];
 
-function contexte() {
+function contexte(maintenant?: () => number) {
   const zone = new El('main');
   const entites = pays.map((p) => ({ pays: p }));
   const consigne = () => zone.querySelector('#barre-chrono .essai-consigne')?.dataset.cible;
@@ -38,7 +41,7 @@ function contexte() {
     marquer() {},
     anneau() {},
     zoomer() {},
-    noter: (id: string) => (faux.has(++touchers) ? { pick: { id: 'BRA' }, juste: false, distance_km: 120 } : { pick: { id }, juste: true, distance_km: 0 }),
+    noter: (id: string, _x: number, _y: number, o?: unknown) => (optionsNoter.push(o), faux.has(++touchers) ? { pick: { id: 'BRA' }, juste: false, distance_km: 120 } : { pick: { id }, juste: true, distance_km: 0 }),
     projection: { scale: () => 1 },
     transfo: { k: 1 },
   };
@@ -47,7 +50,7 @@ function contexte() {
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
   const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone };
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
-  const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer });
+  const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer, maintenant });
   /** L'épreuve et sa série choisies dans Jouer : la vue s'ouvre, la partie part. */
   const lancer = (mode: 'chrono' | 'sansfaute' | 'minute' = 'chrono', serie = AMS) => {
     const s = catalogue(pays).find((x) => x.id === serie)!;
@@ -64,6 +67,7 @@ beforeEach(() => {
   blocClassement.mockClear();
   faux = new Set();
   touchers = 0;
+  optionsNoter = [];
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -265,5 +269,27 @@ describe('Sans faute et Minute (décision « Sans faute et Minute »)', () => {
     v.desactiver();
     expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: textes.chrono.abandon });
     expect(lireRecords(localStorage).size).toBe(0);
+  });
+});
+
+describe('zones contestées et enclaves : à partir du lundi 09/11/2026 0 h UTC', () => {
+  /** Une partie partie à t (horloge injectée), deux touchers dont le second après la date. */
+  function deuxTouchers(t0: number) {
+    let t = t0;
+    const { v, lancer } = contexte(() => t);
+    lancer();
+    v.toucher?.(0, 0, {} as PointerEvent);
+    t = DEBUT_ACCEPTES_EPREUVES + 3_600_000;
+    vi.advanceTimersByTime(1_000);
+    v.toucher?.(0, 0, {} as PointerEvent);
+    return optionsNoter;
+  }
+
+  it('partie lancée avant : notée de fait strict, jusqu’au bout (une seule règle par partie)', () => {
+    expect(deuxTouchers(DEBUT_ACCEPTES_EPREUVES - 60_000)).toEqual([{ acceptes: false }, { acceptes: false }]);
+  });
+
+  it('partie lancée à la date ou après : zones contestées et enclaves admises', () => {
+    expect(deuxTouchers(DEBUT_ACCEPTES_EPREUVES)).toEqual([{ acceptes: true }, { acceptes: true }]);
   });
 });

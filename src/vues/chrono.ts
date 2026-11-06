@@ -19,7 +19,7 @@
 // de Jouer (« Autre série »).
 // La Réunion est une série de plus : sa carte remplace le monde, notée à 5 km.
 // Le classement général et ceux de chaque épreuve ont leur vue (general.ts).
-import { DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE, type ScoreEpreuve } from '../epreuve/bareme';
+import { acceptesEnEpreuve, DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE, type ScoreEpreuve } from '../epreuve/bareme';
 import { DUREE_MINUTE_MS, enregistrerPartie, idEpreuve, PartieChrono, PartieMinute, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
 import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
@@ -59,6 +59,8 @@ export interface VueChrono extends Vue {
 export interface OptionsChrono {
   /** Vers Jouer, à ce niveau (son adresse), ce message à son statut : main.ts remonte l'historique s'il y mène. */
   versJouer(cible: string, message?: string): void;
+  /** L'horloge (ms depuis 1970) : date du record, et règle de notation de la partie (acceptesEnEpreuve). Défaut : Date.now. */
+  maintenant?: () => number;
 }
 
 export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
@@ -90,6 +92,13 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   /** Change à chaque départ ou sortie : un chargement d'île (ou ses deux images) arrivé après ne lance rien. */
   let jeton = 0;
   let partie: PartieChrono | null = null;
+  const maintenant = o.maintenant ?? (() => Date.now());
+  /**
+   * La partie admet-elle les zones contestées et les enclaves (décision « Zones
+   * contestées et enclaves ») ? Fixé à son départ, pour toutes ses réponses :
+   * une partie à cheval sur le lundi 09/11/2026 0 h UTC se note d'une seule règle.
+   */
+  let acceptes = true;
   let debut = 0;
   /** Une question est posée et attend son toucher. */
   let ouverte = false;
@@ -167,6 +176,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     t = terrain;
     const lancer = () => {
       partie = nouvellePartieDe(mode, ids, ECHELLES_KM[s.terrain]);
+      acceptes = acceptesEnEpreuve(maintenant());
       barre.hidden = false;
       poser();
     };
@@ -257,7 +267,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const d = t.donnees;
     const score = partie.score();
     const epreuve = idEpreuve(serie.id, mode);
-    const bp = enregistrerPartie(stockage(), epreuve, score, Date.now());
+    const bp = enregistrerPartie(stockage(), epreuve, score, maintenant());
     const b = bp.toujours;
     const manquees = partie.jouees.filter((q) => !q.juste);
     const ligne = (q: QuestionJouee) =>
@@ -354,7 +364,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       const d = t.donnees;
       ctx.mesures.toucher(ev, x, y, () => {
         const temps_ms = performance.now() - debut;
-        const note = carte.noter(id, x, y);
+        const note = carte.noter(id, x, y, { acceptes });
         const r = note.pick;
         const q = partie!.repondre(r?.id ?? null, note.juste, note.distance_km, temps_ms);
         carte.effacerMarques();
