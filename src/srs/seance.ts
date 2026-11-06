@@ -125,7 +125,7 @@ export function evenementReponse(
   ctx: Pick<ContexteSeance, 'appareil' | 'horloge' | 'nouvelId'> & { seance: string | null },
   fiche: string,
   mode: ModeEvenement,
-  r: ReponseSeance & { aide?: Aide | null },
+  r: Omit<ReponseSeance, 'aide'> & { aide?: Aide | null },
   note: Note | null,
 ): Evenement {
   const { ts, tz } = ctx.horloge();
