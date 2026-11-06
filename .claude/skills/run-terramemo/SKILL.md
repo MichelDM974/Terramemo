@@ -42,6 +42,7 @@ python3 .claude/skills/run-terramemo/driver.py smoke              # page, /geo/*
 python3 .claude/skills/run-terramemo/driver.py ui                 # captures téléphone (384×832, DPR 2.8125, toucher émulé)
 python3 .claude/skills/run-terramemo/driver.py ui --width 1280    # captures PC (souris)
 python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du monde en webgl (logiciel=1), ou g, css (défaut : canvas, celui de la page)
+python3 .claude/skills/run-terramemo/driver.py seance             # la séance du J1a seule (ui_seance), sur un journal vide
 ```
 
 - `serve` en arrière-plan, puis les autres. `--preview` construit dans
@@ -133,6 +134,34 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
   mot (`panneau_jouer` ; « Entraînemen / t » à 320 px ne déborde pas : seul
   ce contrôle le voit, `ui --width 320` pour l'exercer). **Regarder les captures.** Les records des épreuves vivent dans
   le `localStorage` : le profil neuf du driver repart sans record.
+- Séance du J1a (#2), en dernier dans `ui` (`ui_seance`) ou seule :
+  `driver.py seance [--width 384] [--out …]` (profil neuf, journal vide).
+  `30-revision-du-jour` (Entraînement : `#jouer-revision`, « 5 nouveaux »),
+  `31-apprendre-qcm` (Apprendre sur l'Europe : QCM, `#nommer-connu`),
+  `32-apprendre-rappel-cadre` (rappel cadré sur la grappe, zoom ≥ 1,5),
+  `33-apprendre-rappel-faux`, `34-apprendre-bilan` ; puis
+  `?horloge=1` (le lendemain : **serveur de développement seulement**,
+  sauté en `--preview`) : `35-lendemain-revision` (« 5 à revoir · 9
+  nouveaux »), `36-carte-retournee` (« Révéler » touché), `37-revision-bilan`
+  (arrêtée par « Terminer » au QCM de la grappe suivante). « Je connais
+  déjà » au premier QCM, un QCM raté exprès (il revient), le premier rappel
+  touché faux (sa reprise en fin de séance), réponses par position
+  (`position_visible` : pastille, point d'étiquette, sinon le premier point
+  de la partie visible où `pick` le désigne : la Russie cadrée avec
+  l'Europe de l'Est), 0,4 s avant chaque toucher. Le journal se lit dans
+  la page (`COMPTER_JOURNAL` : `count` du magasin `evenements` de
+  `terramemo-journal`). `DÉFAUT` si la ligne manque ou n'a pas ses
+  comptes, si Apprendre n'est pas en tête des exercices, si le rappel
+  n'est pas cadré, si un pays touché à sa position n'est pas juste, s'il
+  manque la ligne « Revient dans… » / « À revoir aujourd'hui », si le
+  journal n'a pas un événement par réponse (QCM, rappel, reprise, carte
+  retournée ; « Je connais déjà » n'en écrit pas), si le bilan n'a pas
+  son titre et « Nouveaux » / « Révisions : n/m du premier coup » ou parle
+  de points, si « Carte » ne mène pas à l'accueil, si la ligne ne dit pas
+  « À jour » après la grappe du jour, si « Rejouer » ne relance pas
+  Apprendre, si la révision ne s'ouvre pas en `#toucher` ou si le retour
+  arrière ne revient pas à Entraînement, et si une requête part vers
+  Firebase (Firestore, Auth) pendant une séance.
 - `--rendu` (ui) : rendu de la carte du monde (sans : celui de la page,
   canvas) ; l'île est toujours en SVG, au-dessus du monde en canvas.
   `--url` ne peut pas porter `?rendu=` (le pilote y ajoute `?mesures=0`).

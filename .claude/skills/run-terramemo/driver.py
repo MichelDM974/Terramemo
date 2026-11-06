@@ -10,7 +10,10 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
                                 du rendu webgl compilés
     ui [--width 384] [--rendu r]
                                 captures des vues (téléphone ou PC), île
-                                de La Réunion et Nommer compris
+                                de La Réunion et Nommer compris, séance
+                                du J1a en dernier
+    seance [--width 384]        la séance du J1a seule (Révision du jour,
+                                Apprendre, le lendemain par ?horloge=1)
     mesurer --cible local|chrome|webview [--rendu canvas|webgl|g|css]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
@@ -1510,6 +1513,7 @@ def commande_ui(args):
         ui_epreuves(p, capturer, defauts)
         ui_jouer(p, capturer, defauts)
         ui_jouer_parties(p, defauts)
+        ui_seance(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -1517,6 +1521,303 @@ def commande_ui(args):
         dire(f"  DÉFAUT : {d}")
     dire(f"  {len(faites)} captures ({ecran['largeur']}×{ecran['hauteur']}, DPR {ecran['dpr']}) dans {out} — "
          "à regarder : carte vide, pays non marqué ou texte coupé = échec")
+    return 1 if erreurs or defauts else 0
+
+
+# --- Séance du J1a (#2) : Révision du jour, Apprendre, carte retournée ------
+
+COMPTER_JOURNAL = """new Promise(async ok => {
+  const bases = indexedDB.databases ? await indexedDB.databases() : [];
+  if (!bases.some(b => b.name === 'terramemo-journal')) return ok(0);
+  const r = indexedDB.open('terramemo-journal');
+  r.onerror = () => ok(-1);
+  r.onsuccess = () => { const db = r.result;
+    if (!db.objectStoreNames.contains('evenements')) { db.close(); return ok(-1); }
+    const c = db.transaction('evenements').objectStore('evenements').count();
+    c.onsuccess = () => { ok(c.result); db.close(); }; c.onerror = () => { ok(-1); db.close(); }; };
+})"""
+# Une requête vers Firestore ou l'Auth de Firebase (la séance n'envoie rien au J1a).
+MOTIF_FIREBASE = re.compile(r"firestore\.googleapis|identitytoolkit|securetoken|firebaseinstallations|googleapis\.com/google\.firestore")
+PAUSE_AVANT_TOUCHER_MS = 400  # consigne : jamais un toucher sans 0,4 s d'attente
+
+
+def seance_question(p):
+    """La question de séance affichée : (forme, cible) ; forme trouver, qcm,
+    retournee, bilan ou None (rien encore)."""
+    return p.js("""(() => {
+      const vis = id => { const e = document.getElementById(id); return e && !e.hidden ? e : null; };
+      let b;
+      if ((b = vis('barre-retournee'))) return ['retournee', b.querySelector('.essai-consigne').dataset.cible];
+      if ((b = vis('barre-nommer'))) return ['qcm', b.querySelector('.essai-consigne').dataset.cible];
+      if ((b = vis('barre-essai'))) return ['trouver', b.querySelector('.essai-consigne').dataset.cible];
+      if (vis('essai-bilan')) return ['bilan', null];
+      return [null, null]; })()""")
+
+
+def attendre_question(p, avant=None, delai_s=8):
+    """Attend une nouvelle question (autre cible ou autre forme que `avant`) ou le bilan."""
+    fin = time.monotonic() + delai_s
+    while time.monotonic() < fin:
+        q = seance_question(p)
+        if q[0] and q != avant:
+            return q
+        p.pause(100)
+    return seance_question(p)
+
+
+def position_visible(p, ident, barre="#barre-essai"):
+    """Où toucher `ident` dans la partie visible de la carte (au-dessus de la
+    barre) : sa position (pastille ou point d'étiquette) si elle y est, sinon
+    le premier point d'une grille de 10 px où pick() le désigne (la Russie
+    cadrée avec l'Europe de l'Est : son point d'étiquette, en Sibérie, est
+    hors de l'écran) ; None s'il n'est pas à l'écran."""
+    return p.js(f"""(() => {{
+      const c = window.terramemo.carte, r = c.rect();
+      const b = document.querySelector({json.dumps(barre)});
+      const bas = b && !b.hidden ? b.getBoundingClientRect().top : r.y + r.hauteur;
+      const dans = q => q && q.x >= r.x && q.x <= r.x + r.largeur && q.y >= r.y && q.y <= bas;
+      const cercle = document.querySelector('circle.pastille[data-id="{ident}"]');
+      let q = null;
+      if (cercle) {{ const e = cercle.getBoundingClientRect(); q = {{x: e.x + e.width / 2, y: e.y + e.height / 2}}; }}
+      else q = c.ecran("{ident}");
+      if (dans(q)) return q;
+      for (let y = r.y + 5; y < bas; y += 10)
+        for (let x = r.x + 5; x < r.x + r.largeur; x += 10)
+          if (c.pick(x, y)?.id === "{ident}") return {{x, y}};
+      return null; }})()""")
+
+
+def toucher_pays(p, ident):
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    pt = position_visible(p, ident)
+    if not pt:
+        raise RuntimeError(f"pas de position pour {ident}")
+    p.toucher(pt["x"], pt["y"])
+
+
+def cliquer_apres_pause(p, selecteur):
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    cliquer(p, selecteur)
+
+
+def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, arret_qcm=False, captures=None):
+    """Joue la séance affichée jusqu'au bilan ; rend le nombre de réponses
+    (une par question finie : le journal en a autant). connu : « Je connais
+    déjà » au premier QCM ; rater_rappel : premier rappel touché faux (puis
+    juste) ; arret_qcm : « Terminer » au premier QCM (la grappe suivante
+    n'est pas jouée). captures : {forme ou 'rappel': nom} prises une fois."""
+    captures = dict(captures or {})
+    reponses = 0
+    deja_connu = deja_rate = False
+    premier_qcm_rate = False
+    q = attendre_question(p)
+    for _ in range(80):
+        forme, cible = q
+        if forme in (None, "bilan"):
+            break
+        if forme == "qcm":
+            if arret_qcm:
+                cliquer_apres_pause(p, "#nommer-terminer")
+                q = attendre_question(p, q)
+                continue
+            attendre_fin_vol(p)
+            if "qcm" in captures:
+                capturer(captures.pop("qcm"))
+            if connu and not deja_connu:
+                deja_connu = True
+                dire(f"  {quoi} : « Je connais déjà » sur {cible}")
+                cliquer_apres_pause(p, "#nommer-connu")
+                q = attendre_question(p, q)
+                continue
+            choix = p.js("[...document.querySelectorAll('#barre-nommer .nommer-choix')].map(b => b.dataset.id)")
+            if not premier_qcm_rate and deja_connu:
+                # Un QCM raté exprès : il revient en fin de QCM.
+                premier_qcm_rate = True
+                autre = next(c for c in choix if c != cible)
+                cliquer_apres_pause(p, f'#barre-nommer .nommer-choix[data-id="{autre}"]')
+                p.pause(1900)
+            else:
+                cliquer_apres_pause(p, f'#barre-nommer .nommer-choix[data-id="{cible}"]')
+                p.pause(1000)
+            reponses += 1
+        elif forme == "retournee":
+            attendre_fin_vol(p)
+            cliquer_apres_pause(p, "#retournee-reveler")
+            p.pause(200)
+            if "retournee" in captures:
+                capturer(captures.pop("retournee"))
+            dire(f"  {quoi}, carte retournée : {texte(p, '#barre-retournee')!r}")
+            cliquer_apres_pause(p, "#retournee-savais")
+            p.pause(250)
+            ligne = texte(p, "#barre-retournee .essai-retro")
+            if not re.search(r"Revient|revoir", ligne):
+                defauts.append(f"{quoi} : carte retournée sans ligne « Revient dans… » ({ligne!r})")
+            p.pause(900)
+            reponses += 1
+        else:  # trouver
+            k = p.js("window.terramemo.carte.transfo().k")
+            if "rappel" in captures:
+                attendre_fin_vol(p)
+                k = p.js("window.terramemo.carte.transfo().k")
+                dire(f"  {quoi}, premier Trouver : zoom {k:.2f}")
+                if k < 1.5:
+                    defauts.append(f"{quoi} : le rappel de la grappe n'est pas cadré sur sa région (zoom {k:.2f})")
+                capturer(captures.pop("rappel"))
+            if rater_rappel and not deja_rate:
+                deja_rate = True
+                # Un autre pays de la grappe de l'Europe de l'Est, à l'écran une fois cadrée.
+                autre = next(i for i in ("UKR", "POL", "BLR") if i != cible)
+                toucher_pays(p, autre)
+                p.pause(300)
+                retro = texte(p, "#barre-essai .essai-retro")
+                dire(f"  {quoi}, rappel faux ({cible} touché en {autre}) : {retro!r}")
+                if "Faux" not in retro:
+                    defauts.append(f"{quoi} : un toucher faux au rappel ne dit pas « Faux » ({retro!r})")
+                if "faux" in captures:
+                    capturer(captures.pop("faux"))
+            toucher_pays(p, cible)
+            p.pause(250)
+            retro = texte(p, "#barre-essai .essai-retro")
+            if "Juste" not in retro:
+                # Une question sur une zone mal placée à l'écran : Passer, pour ne pas bloquer.
+                defauts.append(f"{quoi} : {cible} touché à sa position, pas juste ({retro!r})")
+                cliquer_apres_pause(p, "#essai-passer")
+            elif not re.search(r"Revient|revoir", retro):
+                defauts.append(f"{quoi} : pas de ligne « Revient dans… » après {cible} ({retro!r})")
+            else:
+                dire(f"  {quoi}, {cible} : {retro!r}")
+            p.pause(1300)
+            reponses += 1
+        q = attendre_question(p, q)
+    if seance_question(p)[0] != "bilan":
+        defauts.append(f"{quoi} : pas de bilan au bout de la séance ({seance_question(p)})")
+    return reponses
+
+
+def revision_du_jour(p):
+    """La ligne « Révision du jour » d'Entraînement : (texte, désactivée)."""
+    p.js('location.hash = "#jouer/entrainement"')
+    attendre_visible(p, "#jouer-panneau")
+    fin = time.monotonic() + 5
+    while time.monotonic() < fin and "…" in texte(p, "#jouer-revision"):
+        p.pause(100)
+    return texte(p, "#jouer-revision"), p.js("document.getElementById('jouer-revision')?.disabled ?? null")
+
+
+def ui_seance(p, capturer, defauts, base, parametres=""):
+    """Captures 30 à 37 (J1a, #2 ; décisions « Apprendre et Révision du
+    jour », « Sens « quel est ce pays ? » », « Cadrage et disques en
+    séance ») : la ligne « Révision du jour » et ses comptes ; Apprendre sur
+    l'Europe jusqu'au bilan (QCM, « Je connais déjà » sur un pays, un QCM
+    raté, rappel cadré sur la grappe, un rappel faux puis sa reprise,
+    réponses par position) ; les comptes à jour au retour ; puis le
+    lendemain (?horloge=1, serveur de développement) : une révision avec des
+    cartes retournées, arrêtée au QCM de la grappe suivante. DÉFAUT si le
+    journal (terramemo-journal) n'a pas un événement par réponse ou si une
+    requête part vers Firebase pendant une séance."""
+    requetes_avant = len(p.requetes)
+    n0 = p.js(COMPTER_JOURNAL)
+    ligne, desactivee = revision_du_jour(p)
+    dire(f"  Révision du jour : {ligne!r} (désactivée : {desactivee})")
+    if "Révision du jour" not in ligne or "nouveaux" not in ligne or desactivee:
+        defauts.append(f"Entraînement sans « Révision du jour » active ni ses nouveaux : {ligne!r}, désactivée {desactivee}")
+    panneau_jouer(p, defauts, "Entraînement (Révision du jour)")
+    capturer("30-revision-du-jour")
+    # Apprendre sur l'Europe.
+    cliquer(p, '#jouer-panneau [data-sujet="pays"]')
+    cliquer(p, '#jouer-panneau [data-serie="Europe"]')
+    modes = p.js("[...document.querySelectorAll('#jouer-panneau [data-mode]')].map(b => b.dataset.mode)")
+    if modes[:1] != ["apprendre"]:
+        defauts.append(f"Entraînement › Pays › Europe sans Apprendre en tête : {modes}")
+    panneau_jouer(p, defauts, "Entraînement › Pays › Europe")
+    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
+    n_apprendre = jouer_seance(p, capturer, defauts, "Apprendre", connu=True, rater_rappel=True,
+                               captures={"qcm": "31-apprendre-qcm", "rappel": "32-apprendre-rappel-cadre", "faux": "33-apprendre-rappel-faux"})
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Apprendre, bilan : {bilan!r}")
+    if "Nouveaux" not in bilan or "Apprendre · Europe" not in bilan or "points" in bilan.lower():
+        defauts.append(f"bilan d'Apprendre sans titre ou sans « Nouveaux », ou avec des points : {bilan!r}")
+    capturer("34-apprendre-bilan")
+    n1 = p.js(COMPTER_JOURNAL)
+    dire(f"  journal : {n1 - n0} événements pour {n_apprendre} réponses")
+    if n1 - n0 != n_apprendre:
+        defauts.append(f"Apprendre : {n1 - n0} événements dans terramemo-journal pour {n_apprendre} réponses")
+    # « Carte » : l'accueil ; au retour dans Entraînement, les comptes à jour (grappe du jour prise).
+    cliquer_apres_pause(p, "#seance-carte")
+    p.pause(400)
+    if p.js("document.body.dataset.vue") != "carte":
+        defauts.append(f"« Carte » du bilan : vue {p.js('document.body.dataset.vue')}")
+    ligne, desactivee = revision_du_jour(p)
+    dire(f"  Révision du jour après Apprendre : {ligne!r} (désactivée : {desactivee})")
+    if "À jour" not in ligne:
+        defauts.append(f"Révision du jour après la grappe du jour : {ligne!r} au lieu de « À jour »")
+    rejouer = (p.js('location.hash = "#jouer"'), p.pause(300), texte(p, "#jouer-rejouer"))[2]
+    if "Apprendre" not in rejouer:
+        defauts.append(f"« Rejouer » ne relance pas Apprendre : {rejouer!r}")
+    # Le lendemain, par l'horloge de test (serveur de développement seulement).
+    if not serveur_de_dev(base):
+        dire("  lendemain : sauté (?horloge= n'agit qu'en serveur de développement)")
+    else:
+        p.goto(base + "?mesures=0&horloge=1" + parametres + "#carte")
+        p.attendre_carte()
+        n2 = p.js(COMPTER_JOURNAL)
+        requetes_avant = len(p.requetes)
+        ligne, desactivee = revision_du_jour(p)
+        dire(f"  lendemain, Révision du jour : {ligne!r}")
+        if "à revoir" not in ligne or desactivee:
+            defauts.append(f"le lendemain, rien à revoir : {ligne!r}")
+        capturer("35-lendemain-revision")
+        cliquer_apres_pause(p, "#jouer-revision")
+        p.pause(300)
+        if p.js("location.hash") != "#toucher":
+            defauts.append(f"la Révision du jour ne s'ouvre pas comme une partie : {p.js('location.hash')}")
+        n_rev = jouer_seance(p, capturer, defauts, "Révision", arret_qcm=True, captures={"retournee": "36-carte-retournee"})
+        bilan = texte(p, "#essai-bilan")
+        dire(f"  Révision, bilan : {bilan!r}")
+        if "Révisions :" not in bilan or "du premier coup" not in bilan:
+            defauts.append(f"bilan de la révision sans « Révisions : n/m du premier coup » : {bilan!r}")
+        capturer("37-revision-bilan")
+        n3 = p.js(COMPTER_JOURNAL)
+        dire(f"  journal : {n3 - n2} événements pour {n_rev} réponses")
+        if n3 - n2 != n_rev:
+            defauts.append(f"Révision : {n3 - n2} événements dans terramemo-journal pour {n_rev} réponses")
+        p.js("history.back()")
+        p.pause(500)
+        if not p.js("location.hash").startswith("#jouer/entrainement"):
+            defauts.append(f"retour arrière depuis la révision : {p.js('location.hash')} au lieu d'Entraînement")
+    reseau = [u for u in list(p.requetes.values())[requetes_avant:] if MOTIF_FIREBASE.search(u)]
+    if reseau:
+        defauts.append(f"requêtes vers Firebase pendant une séance : {reseau[:3]}")
+
+
+def commande_seance(args):
+    """ui_seance seul, sur un profil neuf (journal vide)."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
+    faites, defauts = [], []
+    with Session("local") as s:
+        p = s.page
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        p.goto(base + "?mesures=0" + rendu + "#carte")
+        p.attendre_carte()
+        ui_seance(p, capturer, defauts, base, rendu)
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
     return 1 if erreurs or defauts else 0
 
 
@@ -2400,6 +2701,12 @@ def main():
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"),
                    help="rendu de la carte du monde (?rendu=, webgl avec logiciel=1) ; défaut : celui de la page")
 
+    s = sub.add_parser("seance", help="la séance du J1a seule (ui_seance) : Révision du jour, Apprendre, carte retournée")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+
     s = sub.add_parser("mesurer", help="gestes et touchers rejoués, rapport JSON")
     s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), default="canvas",
@@ -2428,7 +2735,7 @@ def main():
     s.add_argument("--installer", action="store_true", help="puis adb install -r")
     s.add_argument("--serie")
 
-    for nom in ("smoke", "ui", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -2441,7 +2748,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk}
     try:
         return commandes[args.commande](args) or 0
