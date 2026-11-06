@@ -1,7 +1,7 @@
 // Géométrie pure (sans DOM) : passage écran ↔ sphère, appartenance, distance au bord.
-import { geoContains, type GeoProjection } from 'd3-geo';
+import { geoContains, geoDistance, type GeoProjection } from 'd3-geo';
 import type { Polygon, Position } from 'geojson';
-import type { Forme, Transfo } from './types';
+import type { Forme, Lieu, Transfo } from './types';
 
 export const RAYON_TERRE_KM = 6371.0088;
 const RAD = Math.PI / 180;
@@ -323,4 +323,45 @@ export function empriseAnneau(anneau: readonly (readonly number[])[]): Emprise |
   if (e - o <= 180 || e2 - o2 >= e - o) return [o, s, e, n];
   const lon = (x: number) => (x > 180 ? x - 360 : x);
   return [lon(o2), s, lon(e2), n];
+}
+
+/** Au-delà de cette superficie, un pays ne fait pas le cadrage de sa grappe (la Russie, le Canada, la Chine…). */
+export const GEANT_KM2 = 3_000_000;
+/** Ce qu'on garde d'un géant autour de son point le plus proche du reste de la grappe (demi-largeur, demi-hauteur, degrés). */
+const BOITE_GEANT: readonly [number, number] = [8, 6];
+
+/**
+ * L'emprise à cadrer pour une grappe (rappel des pays nouveaux) : l'union
+ * des polygones principaux de ses pays, sauf les géants, dont on ne garde
+ * qu'un morceau, autour du point de leur contour le plus proche des autres :
+ * la Russie de l'Europe de l'Est s'étend jusqu'au détroit de Béring, et
+ * l'ovale entier s'afficherait avec la Pologne au bord. Un géant reste
+ * touchable à l'écran ; ses voisins restent grands. Une grappe de géants
+ * seuls : leurs polygones entiers.
+ */
+export function empriseGrappe(membres: readonly { forme: Forme; pays: Lieu }[]): Emprise | null {
+  const emprise = (m: { forme: Forme; pays: Lieu }) => empriseAnneau(anneauPrincipal(m.forme, m.pays.point));
+  const petits = membres.filter((m) => m.pays.superficie_km2 < GEANT_KM2);
+  const tout = (ms: readonly { forme: Forme; pays: Lieu }[]) => unionEmprises(ms.map(emprise).filter((e): e is Emprise => e !== null));
+  const base = tout(petits);
+  if (!base) return tout(membres);
+  const c = centreEmprise(base);
+  const boites: Emprise[] = [base];
+  for (const g of membres) {
+    if (g.pays.superficie_km2 < GEANT_KM2) continue;
+    let mieux: readonly number[] | null = null;
+    let d = Infinity;
+    for (const p of anneauPrincipal(g.forme, g.pays.point)) {
+      const x = geoDistance([p[0] ?? 0, p[1] ?? 0], c);
+      if (x < d) {
+        d = x;
+        mieux = p;
+      }
+    }
+    if (!mieux) continue;
+    const [lon, lat] = [mieux[0] ?? 0, mieux[1] ?? 0];
+    const [dl, dp] = BOITE_GEANT;
+    boites.push([lon - dl < -180 ? lon - dl + 360 : lon - dl, Math.max(-90, lat - dp), lon + dl > 180 ? lon + dl - 360 : lon + dl, Math.min(90, lat + dp)]);
+  }
+  return unionEmprises(boites);
 }

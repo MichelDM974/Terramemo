@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { assembler } from '../src/map/donnees';
-import { anneauPrincipal, empriseAnneau, unionEmprises } from '../src/map/geo';
+import { anneauPrincipal, empriseAnneau, empriseGrappe, GEANT_KM2, unionEmprises } from '../src/map/geo';
 import type { Pays } from '../src/map/types';
 import { cadre, projectionEcran, viserEmprise } from '../src/map/vue';
 import { grappesPays } from '../src/srs/grappes';
@@ -54,6 +54,25 @@ describe('emprises', () => {
       }
       expect(v.k, g.id).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  it('cadrage d’une grappe : les pays entiers à l’écran, les géants par un morceau ; l’Europe de l’Est sans la Sibérie', () => {
+    const c = cadre(384, 723);
+    const hVisible = 500;
+    const dans = (p: [number, number] | null) => !!p && p[0] >= -1 && p[0] <= 385 && p[1] >= -1 && p[1] <= hVisible + 1;
+    for (const g of grappesPays(donnees.entites.map((e) => e.pays))) {
+      const ms = g.membres.map((id) => entite.get(id)!);
+      const v = viserEmprise(c, empriseGrappe(ms)!, 40, hVisible);
+      const proj = projectionEcran(v, c);
+      for (const m of ms) {
+        if (m.pays.superficie_km2 < GEANT_KM2 || ms.every((x) => x.pays.superficie_km2 >= GEANT_KM2)) expect(dans(proj(m.pays.point)), `${g.id} ${m.pays.id}`).toBe(true);
+        else expect(anneauPrincipal(m.forme, m.pays.point).some((q) => dans(proj([q[0]!, q[1]!]))), `${g.id} ${m.pays.id} (géant)`).toBe(true);
+      }
+    }
+    const est = grappesPays(donnees.entites.map((e) => e.pays)).find((g) => g.membres.includes('RUS'))!;
+    const e = empriseGrappe(est.membres.map((id) => entite.get(id)!))!;
+    expect(e[2]).toBeLessThan(60); // pas jusqu'à Béring
+    expect(viserEmprise(cadre(384, 723), e, 40, 500).k).toBeGreaterThan(5);
   });
 
   it('l’Océanie : le globe tourné vers le Pacifique, plus zoomé que le monde entier', () => {

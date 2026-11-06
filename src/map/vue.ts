@@ -225,9 +225,20 @@ export function viserVue(
  * tant que son contour tient à l'écran (90 %, viser), au zoom kMax au plus et
  * 1 au moins. Libre : y non borné, comme le vol de montrer().
  */
-export function viserEmprise(c: Cadre, e: Emprise, kMax: number, hVisible = c.h, libre = true): VueGlobe {
+export function viserEmprise(c: Cadre, e: Emprise, kMax: number, hVisible = c.h): VueGlobe {
   // Une taille nulle : viser part de kMax, le contour fait baisser le zoom.
-  return viserVue(c, centreEmprise(e), 0, kMax, hVisible, contourEmprise(e), libre);
+  const contour = contourEmprise(e);
+  const borne = viserVue(c, centreEmprise(e), 0, kMax, hVisible, contour, false);
+  // D'abord la carte bornée comme après un geste (pas de vide au-dessus du
+  // pôle quand la largeur décide du zoom : la Russie) ; libre seulement si
+  // la borne pousserait l'emprise sous la barre.
+  const h = Math.min(hVisible, c.h);
+  const proj = projectionEcran(borne, c);
+  const tient = contour.every((ll) => {
+    const p = proj(ll);
+    return !p || (p[1] >= -1 && p[1] <= h + 1);
+  });
+  return tient ? borne : viserVue(c, centreEmprise(e), 0, kMax, hVisible, contour, true);
 }
 
 /**
