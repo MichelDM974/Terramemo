@@ -53,11 +53,12 @@ export interface Nommer {
   reprendre(): void;
   /** Vue quittée : la réponse donnée compte déjà, la partie attend le retour. */
   quitter(): void;
-  /** Retour au départ : la partie est abandonnée. */
+  /** Une autre partie lancée (ou la même relancée) : celle-ci est abandonnée. */
   arreter(): void;
 }
 
-export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; recommencer: () => void }): Nommer {
+/** `actions` : les boutons du bilan (Recommencer, Autre série), ceux de Toucher. */
+export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: () => HTMLElement }): Nommer {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
@@ -197,9 +198,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; recommencer
         { class: 'essai-rates' },
         ...b.fautes.map((f) => creer('li', {}, remplir(T.bilan_nommer_faux, { cible: nomDe(d, f.id), choisi: nomDe(d, f.choisi) }))),
       ),
-      creer('button', { type: 'button', id: 'essai-recommencer' }, T.recommencer),
+      o.actions(),
     );
-    o.bilan.querySelector('#essai-recommencer')?.addEventListener('click', o.recommencer);
     o.bilan.hidden = false;
   }
 

@@ -26,21 +26,44 @@
   },
   "jouer": {
     "titre": "Jouer",
-    "aide": "Choisis un exercice, puis une série.",
     "fermer": "Fermer",
-    "changer": "Changer d'exercice",
-    "groupe_entrainement": "Entraînement",
-    "groupe_classe": "Classé",
-    "localiser_detail": "Touche sur la carte le lieu demandé.",
-    "nommer_detail": "Un lieu s'allume : choisis son nom parmi quatre.",
-    "chrono_detail": "{s} s par question, un seul toucher : points, records et classement.",
-    "sansfaute_detail": "{s} s par question, jusqu'à la première erreur : records et classement.",
-    "minute_detail": "Le plus de lieux justes en {s} s : records et classement."
+    "remonter": "Revenir au choix d'avant",
+    "fil": "Choix faits",
+    "regles": "Règles des épreuves",
+    "rejouer": "↻ Rejouer · {mode} · {serie}",
+    "record": "record",
+    "branches": {
+      "entrainement": {
+        "nom": "Entraînement",
+        "detail": "Pour apprendre, sans points"
+      },
+      "classe": {
+        "nom": "Classé",
+        "detail": "Points et classement"
+      }
+    },
+    "sujets": {
+      "pays": {
+        "nom": "Pays",
+        "n": "{n} pays"
+      },
+      "communes": {
+        "nom": "Communes",
+        "n": "{n} communes"
+      }
+    },
+    "exercices": {
+      "localiser": "Touche sur la carte le lieu demandé.",
+      "nommer": "Un lieu s'allume : choisis son nom parmi quatre.",
+      "chrono": "{s} s par question, un seul toucher",
+      "sansfaute": "{s} s par question, jusqu'à la première erreur",
+      "minute": "Le plus de justes en {s} s"
+    },
+    "essai_aide": "(précision, J0)"
   },
   "toucher": {
     "localiser": "Trouver",
     "nommer": "Reconnaître",
-    "depart_aide": "Choisis une série : ses questions viennent dans le désordre, un nouveau tirage à chaque partie.",
     "chargement_terrain": "Chargement de la carte de l'île…",
     "echec_terrain": "La carte de l'île n'a pas pu se charger (hors ligne ?).",
     "serie_essai": "Essai J0",
@@ -71,11 +94,10 @@
     "bilan_nommer_titre": "Reconnaître · {serie}",
     "bilan_nommer": "{justes} / {n} justes du premier coup",
     "bilan_nommer_temps": "temps médian {temps}",
-    "bilan_nommer_faux": "{cible} : tu as choisi {choisi}"
+    "bilan_nommer_faux": "{cible} : tu as choisi {choisi}",
+    "autre_serie": "Autre série"
   },
   "chrono": {
-    "serie_tous_detail": "le marathon",
-    "record": "record {score}",
     "consigne": "Touche : ",
     "points": "{points} pts",
     "juste": "Juste · +{points}",
@@ -167,7 +189,6 @@
     },
     "reunion": {
       "serie": "La Réunion",
-      "detail": "carte de l'île",
       "n": "{n} communes",
       "libelle": "Carte de La Réunion",
       "consigne_nommer": "Quelle est cette commune ?",

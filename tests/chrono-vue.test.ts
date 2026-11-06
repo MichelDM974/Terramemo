@@ -1,8 +1,10 @@
 // Vue des épreuves (src/vues/chrono.ts) sur un DOM factice : quitter la vue,
 // ou toucher « Abandonner », pendant une partie (#16, défaut 3) ; Sans faute et
-// Minute (#14). La carte, les mesures et le bloc du classement sont remplacés ;
-// chaque toucher est juste, sauf ceux que `faux` désigne. Les minuteries et
-// performance.now() sont factices : le temps de réponse est celui qu'on avance.
+// Minute (#14) ; la partie lancée depuis Jouer et les retours vers lui (#18,
+// décision « Écran Jouer »). La carte, les mesures et le bloc du classement
+// sont remplacés ; chaque toucher est juste, sauf ceux que `faux` désigne. Les
+// minuteries et performance.now() sont factices : le temps de réponse est
+// celui qu'on avance.
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
@@ -17,7 +19,11 @@ vi.mock('../src/vues/classement', () => ({
 
 const { vueChrono } = await import('../src/vues/chrono');
 const { textes } = await import('../src/vues/textes');
+const { catalogue } = await import('../src/vues/cibles');
 const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
+const AMS = 'South America';
+/** Ses exercices dans Jouer : là où ramène l'abandon. */
+const EXERCICES_AMS = `jouer/classe/pays/${AMS}`;
 
 /** Les touchers à rendre faux (leur numéro, à partir de 1). */
 let faux = new Set<number>();
@@ -40,7 +46,15 @@ function contexte() {
   const terrains = { monde, actif: 'monde', montrer: vi.fn(), deja: () => null, charger: vi.fn() };
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
   const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone };
-  return { ctx: ctx as unknown as Parameters<typeof vueChrono>[0], zone, consigne };
+  const versJouer = vi.fn<(cible: string, message?: string) => void>();
+  const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer });
+  /** L'épreuve et sa série choisies dans Jouer : la vue s'ouvre, la partie part. */
+  const lancer = (mode: 'chrono' | 'sansfaute' | 'minute' = 'chrono', serie = AMS) => {
+    const s = catalogue(pays).find((x) => x.id === serie)!;
+    v.activer();
+    v.lancer({ branche: 'classe', sujet: 'pays', serie, mode }, s, monde as never, [...s.ids]);
+  };
+  return { v, zone, consigne, versJouer, lancer };
 }
 
 beforeEach(() => {
@@ -59,10 +73,8 @@ afterEach(() => {
 describe('Chrono : quitter la vue', () => {
   /** L'Amérique du Sud (12 pays) jouée juste, jusqu'à la dernière réponse (pause de sa rétroaction en cours). */
   function jouerJusquaLaDerniere() {
-    const { ctx, zone, consigne } = contexte();
-    const v = vueChrono(ctx);
-    v.activer();
-    zone.querySelector('#chrono-depart .essai-serie[data-serie="South America"]')?.click();
+    const { v, zone, consigne, versJouer, lancer } = contexte();
+    lancer();
     const vues = new Set<string>();
     for (let i = 0; i < 12; i++) {
       vi.advanceTimersByTime(i ? 1_000 : 0); // la pause (0,9 s) de la réponse d'avant, puis 0,1 s pour répondre
@@ -72,95 +84,115 @@ describe('Chrono : quitter la vue', () => {
       v.toucher?.(0, 0, {} as PointerEvent);
     }
     expect(vues.size).toBe(12);
-    return { v, zone };
+    return { v, zone, versJouer };
   }
 
   it('pendant la pause qui suit la dernière réponse : la partie va au bilan et se publie, au lieu d’être abandonnée', () => {
-    const { v, zone } = jouerJusquaLaDerniere();
+    const { v, zone, versJouer } = jouerJusquaLaDerniere();
     v.desactiver(); // l'onglet Carte, avant la fin de la pause
     vi.advanceTimersByTime(5_000);
+    expect(v.redirection?.()).toBeNull(); // le bilan est à montrer : pas de renvoi à Jouer
     v.activer();
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
-    expect(zone.querySelector('#chrono-depart')?.hidden).toBe(true);
     expect(zone.querySelector('#chrono-bilan')?.innerText).toContain('12 000');
     // Le record est gardé, et le bloc du classement a de quoi publier la partie.
-    expect(lireRecords(localStorage).get(idEpreuve('South America'))?.points).toBe(12_000);
-    expect(blocClassement).toHaveBeenCalledWith(idEpreuve('South America'), expect.any(String), expect.any(Function));
-    // Au retour suivant, le départ comme d'habitude.
+    expect(lireRecords(localStorage).get(idEpreuve(AMS))?.points).toBe(12_000);
+    expect(blocClassement).toHaveBeenCalledWith(idEpreuve(AMS), expect.any(String), expect.any(Function));
+    // Au retour suivant, le bilan encore (il était affiché) ; « Autre série » ramène aux séries des pays.
     v.desactiver();
+    expect(v.redirection?.()).toBeNull();
     v.activer();
-    expect(zone.querySelector('#chrono-depart')?.hidden).toBe(false);
+    expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
+    zone.querySelector('#chrono-autre')?.click();
+    expect(versJouer).toHaveBeenCalledWith('jouer/classe/pays');
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(true);
+    v.desactiver();
+    // Revenu sans partie ni bilan : Jouer, aux exercices de la série.
+    expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: '' });
   });
 
   it('« Abandonner » pendant la pause qui suit la dernière réponse : la partie va au bilan, au lieu d’être jetée', () => {
-    const { v, zone } = jouerJusquaLaDerniere();
+    const { v, zone, versJouer } = jouerJusquaLaDerniere();
     expect(zone.querySelector('#barre-chrono')?.hidden).toBe(false); // le bouton est encore à portée
     zone.querySelector('#chrono-abandonner')?.click();
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
-    expect(zone.querySelector('#chrono-depart')?.hidden).toBe(true);
+    expect(versJouer).not.toHaveBeenCalled();
     expect(zone.querySelector('#chrono-bilan')?.innerText).toContain('12 000');
-    expect(lireRecords(localStorage).get(idEpreuve('South America'))?.points).toBe(12_000);
-    expect(blocClassement).toHaveBeenCalledWith(idEpreuve('South America'), expect.any(String), expect.any(Function));
+    expect(lireRecords(localStorage).get(idEpreuve(AMS))?.points).toBe(12_000);
+    expect(blocClassement).toHaveBeenCalledWith(idEpreuve(AMS), expect.any(String), expect.any(Function));
     // La fin de la pause ne repose rien : le bilan reste.
     vi.advanceTimersByTime(5_000);
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
     v.desactiver();
   });
 
-  it('« Abandonner » avec une question encore à poser : la partie est abandonnée', () => {
-    const { ctx, zone } = contexte();
-    const v = vueChrono(ctx);
-    v.activer();
-    zone.querySelector('#chrono-depart .essai-serie[data-serie="South America"]')?.click();
+  it('« Abandonner » avec une question encore à poser : la partie est abandonnée, retour aux exercices de la série dans Jouer, qui le dit', () => {
+    const { v, zone, versJouer, lancer } = contexte();
+    lancer();
     vi.advanceTimersByTime(100);
     v.toucher?.(0, 0, {} as PointerEvent);
     zone.querySelector('#chrono-abandonner')?.click();
-    expect(zone.querySelector('#chrono-depart')?.hidden).toBe(false);
-    expect(zone.querySelector('#chrono-depart .chrono-statut')?.textContent).toBe(textes.chrono.abandon);
+    expect(versJouer).toHaveBeenCalledWith(EXERCICES_AMS, textes.chrono.abandon);
+    expect(zone.querySelector('#barre-chrono')?.hidden).toBe(true);
+    expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(true);
     expect(lireRecords(localStorage).size).toBe(0);
     expect(blocClassement).not.toHaveBeenCalled();
   });
 
-  it('une question encore à poser : la partie quittée reste abandonnée', () => {
-    const { ctx, zone } = contexte();
-    const v = vueChrono(ctx);
-    v.activer();
-    zone.querySelector('#chrono-depart .essai-serie[data-serie="South America"]')?.click();
+  it('une question encore à poser : la partie quittée reste abandonnée ; y revenir renvoie à Jouer, qui le dit (une fois)', () => {
+    const { v, zone, lancer } = contexte();
+    lancer();
     vi.advanceTimersByTime(100);
     v.toucher?.(0, 0, {} as PointerEvent);
     v.desactiver();
-    v.activer();
-    expect(zone.querySelector('#chrono-depart')?.hidden).toBe(false);
-    expect(zone.querySelector('#chrono-depart .chrono-statut')?.textContent).toBe(textes.chrono.abandon);
+    expect(zone.querySelector('#barre-chrono')?.hidden).toBe(true);
+    expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: textes.chrono.abandon });
+    expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: '' });
     expect(lireRecords(localStorage).size).toBe(0);
     expect(blocClassement).not.toHaveBeenCalled();
+  });
+
+  it('atteinte sans aucune partie (adresse tapée) : Jouer', () => {
+    const { v } = contexte();
+    expect(v.redirection?.()).toEqual({ cible: 'jouer', message: '' });
   });
 });
 
 describe('Sans faute et Minute (décision « Sans faute et Minute »)', () => {
-  const AMS = 'South America';
-  /** L'épreuve choisie dans Jouer, puis l'Amérique du Sud (12 pays). */
+  /** L'épreuve et l'Amérique du Sud (12 pays) choisies dans Jouer. */
   function partir(mode: 'sansfaute' | 'minute') {
-    const { ctx, zone, consigne } = contexte();
-    const v = vueChrono(ctx);
-    v.activer();
-    v.nouvellePartie(mode);
-    zone.querySelector(`#chrono-depart .essai-serie[data-serie="${AMS}"]`)?.click();
+    const { v, zone, consigne, lancer } = contexte();
+    lancer(mode);
     const bilan = () => zone.querySelector('#chrono-bilan')!;
     return { v, zone, consigne, bilan };
   }
 
-  it('Jouer choisit l’épreuve : le départ prend son nom et son aide', () => {
-    const { ctx, zone } = contexte();
-    const v = vueChrono(ctx);
-    v.activer();
-    expect(zone.querySelector('#chrono-depart h2')?.textContent).toBe('Chrono');
-    v.nouvellePartie('minute');
-    expect(zone.querySelector('#chrono-depart h2')?.textContent).toBe('Minute');
-    expect(zone.querySelector('#chrono-depart .hint')?.textContent).toContain('60 s');
-    v.nouvellePartie('sansfaute');
-    expect(zone.querySelector('#chrono-depart h2')?.textContent).toBe('Sans faute');
+  it('Jouer choisit l’épreuve et la série : la partie part tout de suite, comptée à la façon de l’épreuve', () => {
+    const { zone, consigne, lancer } = contexte();
+    const compte = () => zone.querySelector('#barre-chrono .essai-compte')?.textContent;
+    lancer('chrono');
+    expect(zone.querySelector('#barre-chrono')?.hidden).toBe(false);
+    expect(consigne()).toBeTruthy();
+    expect(compte()).toBe('1 / 12 · 0 pts');
+    lancer('minute');
+    expect(compte()).toBe('0 juste · 0 erreur');
+    lancer('sansfaute');
+    expect(compte()).toBe("1 / 12 · 0 d'affilée");
+  });
+
+  it('« Rejouer » du bilan relance la même épreuve sur la même série', () => {
+    faux = new Set([1]);
+    const { zone, bilan, consigne, v } = partir('sansfaute');
+    vi.advanceTimersByTime(1_000);
+    v.toucher?.(0, 0, {} as PointerEvent);
+    vi.advanceTimersByTime(1_800);
+    expect(bilan().hidden).toBe(false);
+    expect(bilan().querySelector('h2')?.textContent).toBe('Sans faute · Amérique du Sud');
+    zone.querySelector('#chrono-rejouer')?.click();
+    expect(bilan().hidden).toBe(true);
+    expect(zone.querySelector('#barre-chrono')?.hidden).toBe(false);
+    expect(consigne()).toBeTruthy();
+    expect(zone.querySelector('#barre-chrono .essai-compte')?.textContent).toBe("1 / 12 · 0 d'affilée");
   });
 
   it('Sans faute s’arrête à la première erreur : les justes d’affilée, record et classement de l’épreuve', () => {
@@ -224,12 +256,11 @@ describe('Sans faute et Minute (décision « Sans faute et Minute »)', () => {
   });
 
   it('Minute quittée en cours : abandonnée, rien n’est gardé', () => {
-    const { v, zone } = partir('minute');
+    const { v } = partir('minute');
     vi.advanceTimersByTime(1_000);
     v.toucher?.(0, 0, {} as PointerEvent);
     v.desactiver();
-    v.activer();
-    expect(zone.querySelector('#chrono-depart .chrono-statut')?.textContent).toBe(textes.chrono.abandon);
+    expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: textes.chrono.abandon });
     expect(lireRecords(localStorage).size).toBe(0);
   });
 });

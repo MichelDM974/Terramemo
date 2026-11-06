@@ -165,30 +165,6 @@ body[data-vue="saisie"] .carte { visibility: hidden; }
 .nommer-choix.juste::before { content: "✓\00a0"; }
 .nommer-choix.faux::before { content: "✗\00a0"; }
 
-/* En-tête d'un départ : « ‹ » (retour au choix de Jouer) et titre, ou titre et « × ». */
-.depart-tete { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; }
-.depart-tete h2 { flex: 1; }
-.essai-depart .depart-tete h2 { margin: 0; }
-.depart-bouton {
-  width: 36px;
-  height: 36px;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: -4px -6px -4px -8px;
-  padding: 0 0 3px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.5rem;
-  line-height: 1;
-  text-decoration: none;
-}
-.depart-bouton:hover { background: var(--panel-2); color: var(--text); }
-.depart-tete h2 + .depart-bouton { margin: -4px -8px -4px 0; }
-
 /* Une partie en cours (sa barre affichée) : la recherche, qui donnerait la
    réponse, s'efface ; l'en-tête garde sa place. */
 body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:not([hidden])) .recherche { visibility: hidden; }
@@ -202,7 +178,6 @@ body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:
 .chrono-jauge { flex: 1; height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
 .chrono-jauge-reste { display: block; height: 100%; background: var(--muted); transform-origin: left center; }
 .chrono-secondes { min-width: 2.6em; text-align: right; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-.chrono-statut { margin: 0 0 8px; }
 .chrono-score { margin: 2px 0; font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .chrono-record { margin: 0 0 12px; font-size: 0.9rem; }
 .chrono-record.nouveau { color: var(--good); }
@@ -248,9 +223,11 @@ body[data-terrain="reunion"] .essai-bilan {
   top: 40px;
   max-height: calc(100% - 52px);
 }
-/* Choix de la série (départ et « Recommencer ») : en bas comme la barre de l'essai,
-   sous le pouce ; une liste, huit choix ne tenant pas dans un .seg sur 384 px. */
-.essai-depart {
+/* Jouer (décision « Écran Jouer ») : un panneau en bas comme les barres des
+   parties, sous le pouce ; il flotte sur la carte (son ombre). Dedans, un choix
+   par écran en gros boutons neutres (le bleu reste au bouton Jouer de
+   l'en-tête), sans panneau dans le panneau. */
+.jouer-panneau {
   position: absolute;
   left: 12px;
   right: 12px;
@@ -263,15 +240,84 @@ body[data-terrain="reunion"] .essai-bilan {
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 14px 14px 10px;
+  padding: 8px 14px 14px;
   box-shadow: 0 8px 24px var(--shadow);
 }
-.essai-depart h2 { margin: 0 0 2px; font-size: 1.02rem; font-weight: 600; }
-.essai-depart .hint { margin: 0 0 8px; }
+/* En-tête : « ‹ » (un niveau plus haut), le titre ou le fil d'Ariane, « ? »
+   (règles des épreuves), « × » ; « ‹ » et « × » de 44 px (cibles du doigt). */
+.jouer-tete { display: flex; align-items: center; gap: 2px; margin: 0 -8px 6px; min-height: 44px; }
+.jouer-tete h2 { flex: 1; min-width: 0; margin: 0; padding: 0 6px; font-size: 1.02rem; font-weight: 600; }
+.jouer-tete h2:first-child { padding-left: 8px; }
+.jouer-icone {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 3px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.jouer-icone:hover { background: var(--panel-2); color: var(--text); }
+/* Le fil : les choix d'avant en liens discrets (chacun mène à son niveau), celui
+   d'ici en texte ; il passe à la ligne plutôt que de déborder (320 px). */
+.jouer-fil { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; }
+.jouer-fil a, .jouer-fil-saute { display: inline-flex; align-items: center; min-height: 32px; color: var(--muted); font-weight: 500; text-decoration: none; }
+.jouer-fil a:hover { color: var(--text); text-decoration: underline; }
+.jouer-fil-sep { color: var(--muted); font-weight: 400; }
+.jouer-fil-ici { color: var(--text); }
+/* « ? » : le motif du style commun (20 px), sa cible portée à 44 px par un halo invisible. */
+.jouer-tete .help-btn { position: relative; flex: none; margin: 0 6px; vertical-align: 0; }
+.jouer-tete .help-btn::after { content: ""; position: absolute; inset: -12px; }
+.jouer-panneau .help-text { margin: -2px 0 10px; }
+.jouer-panneau .help-text p { margin: 0 0 6px; }
+.jouer-statut { margin: 0 0 8px; }
+/* Gros boutons neutres : fond à peine plus clair, filet, 48 px au moins ; le
+   dernier choix du niveau sur le fond de l'accent atténué (la ligne choisie). */
+.jouer-bouton {
+  width: 100%;
+  min-height: 48px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.jouer-bouton:hover { background-image: linear-gradient(var(--row-hover), var(--row-hover)); border-color: var(--border-2); }
+.jouer-bouton[aria-current="true"] { background-color: var(--accent-soft); }
+.jouer-bouton:disabled { color: var(--muted); }
+.jouer-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.jouer-detail { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
+.jouer-record { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.jouer-record-nom { color: var(--muted); font-size: 0.72rem; font-weight: 400; }
+/* Entraînement et Classé : plus hauts. */
+.jouer-branche { min-height: 64px; font-size: 1.02rem; }
+/* Deux colonnes, même à 320 px : « Amérique du Nord » y passe sur deux lignes, et
+   les sept séries tiennent sans faire défiler le panneau (une colonne l'aurait
+   fait à 320 × 568). En nombre impair, le premier (Tous les pays) prend la largeur. */
+.jouer-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.jouer-grille > :first-child:nth-last-child(odd) { grid-column: 1 / -1; }
+/* Les exercices, et « Rejouer » : une ligne pleine largeur chacun. */
+.jouer-lignes { display: flex; flex-direction: column; gap: 8px; }
+#jouer-rejouer { margin-bottom: 8px; }
+
+/* Les lignes des classements (🏆) : 44 px au moins (cible du doigt), neutres. */
 .essai-series { list-style: none; margin: 0; padding: 0; }
 .essai-series li + li { border-top: 1px solid var(--border); }
-/* Une ligne par série, 44 px au moins (cible du doigt) ; la série gardée sur le fond
-   de l'accent atténué (la ligne choisie), le reste neutre. */
 .essai-serie {
   width: 100%;
   min-height: 44px;
@@ -288,7 +334,6 @@ body[data-terrain="reunion"] .essai-bilan {
   font-size: 0.95rem;
 }
 .essai-serie:hover { background: var(--row-hover); }
-.essai-serie[aria-current="true"] { background: var(--accent-soft); font-weight: 600; }
 .essai-serie-nom { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .essai-serie-detail { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
 .essai-serie-n { flex: none; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
@@ -298,12 +343,9 @@ body[data-terrain="reunion"] .essai-bilan {
 #classement-general .essai-serie-n { color: var(--text); font-weight: 600; }
 #classements-plus { margin: 6px 10px 2px; }
 
-/* Jouer : les exercices en deux groupes (décision « Noms des modes »),
-   « Entraînement » et « Classé », chacun sous un titre bien lisible (couleur du
-   texte, gras, capitales espacées), sans cadre ; un filet sépare les groupes.
-   Les classements (🏆) rangent de même leurs lignes par épreuve : Chrono, Sans
-   faute, Minute. */
-.jouer-groupe h3,
+/* Classements (🏆) : les lignes par épreuve (Chrono, Sans faute, Minute), chacune
+   sous un titre bien lisible (couleur du texte, gras, capitales espacées), sans
+   cadre ; un filet sépare les groupes. */
 .classements-groupe h3 {
   margin: 10px 0 4px;
   padding: 0 10px;
@@ -313,7 +355,6 @@ body[data-terrain="reunion"] .essai-bilan {
   text-transform: uppercase;
   color: var(--text);
 }
-.jouer-groupe + .jouer-groupe,
 .classements-groupe + .classements-groupe { margin-top: 10px; padding-top: 2px; border-top: 1px solid var(--border-2); }
 
 .essai-rates { margin: 0 0 14px; padding-left: 18px; font-size: 0.88rem; line-height: 1.5; }
@@ -360,7 +401,7 @@ body[data-vue="saisie"] .panneau-mesures { display: none; }
 
 @media (max-width: 700px) {
   .vue-saisie { padding: 10px 16px 40px; }
-  .carte-barre, .essai-depart { left: 8px; right: 8px; bottom: 8px; }
+  .carte-barre, .jouer-panneau { left: 8px; right: 8px; bottom: 8px; }
 }
 
 /* Les trois champs de la Saisie (dont type=url) : même allure que input[type="text"] du style commun. */

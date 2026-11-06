@@ -3,7 +3,7 @@
 // choix de leur série. Chaque terrain a son hôte posé sur #app, le même
 // rectangle ; un seul est visible à la fois. ctx.carte et ctx.donnees des vues
 // restent le monde (explorer, saisie, pilote de mesure) : seules les vues qui
-// connaissent les terrains (Toucher, Chrono) passent par ce service.
+// connaissent les terrains (Jouer, qui charge l'île, Toucher, Chrono) passent par ce service.
 import { Carte, type CarteAffichee, type OptionsCarte } from './map/carte';
 import type { DonneesCarte } from './map/donnees';
 import { chargerTerrain, dateCredit, type SourcesTerrain } from './map/donnees-terrain';

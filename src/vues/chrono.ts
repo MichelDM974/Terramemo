@@ -1,6 +1,7 @@
-// Vue des épreuves classées (#14) : Chrono, Sans faute et Minute, choisies dans
-// Jouer (jouer.ts, nouvellePartie). Les lieux d'une série dans le désordre, un
-// seul toucher par question :
+// Vue des épreuves classées (#14) : Chrono, Sans faute et Minute, choisies avec
+// leur série dans Jouer (décision « Écran Jouer » : jouer.ts, puis lancer(), le
+// terrain déjà chargé). Les lieux d'une série dans le désordre, un seul toucher
+// par question :
 // - Chrono (décision « Points et classement ») : toute la série, 15 s par
 //   question ; 1 000 points si juste, jusqu'à 500 selon la distance sinon
 //   (src/epreuve/bareme.ts) ;
@@ -11,18 +12,21 @@
 //   rétroaction (la correction ne compte pas), et la série vidée finit la partie.
 // Record gardé sur l'appareil, classement en ligne par épreuve ; le général
 // n'additionne que le Chrono. Quitter la vue pendant une partie l'abandonne : le
-// temps ne se met pas en pause. Après la dernière réponse (sa rétroaction), la
-// quitter la finit (bilan au retour), et « Abandonner » aussi.
+// temps ne se met pas en pause, et y revenir ramène à Jouer, qui le dit
+// (redirection) ; « Abandonner » aussi. Après la dernière réponse (sa
+// rétroaction), la quitter la finit (bilan au retour), et « Abandonner »
+// aussi. Le bilan relance la même partie (« Rejouer ») ou ramène aux séries
+// de Jouer (« Autre série »).
 // La Réunion est une série de plus : sa carte remplace le monde, notée à 5 km.
 // Le classement général et ceux de chaque épreuve ont leur vue (general.ts).
 import { DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE, type ScoreEpreuve } from '../epreuve/bareme';
-import { DUREE_MINUTE_MS, enregistrerPartie, idEpreuve, lireRecords, PartieChrono, PartieMinute, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
-import { REUNION } from '../map/terrain';
+import { DUREE_MINUTE_MS, enregistrerPartie, idEpreuve, PartieChrono, PartieMinute, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
 import type { Terrain } from '../terrains';
-import { melanger, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, series, serieTerrain, type Serie } from './cibles';
+import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
+import { melanger, nomSerie, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
-import { anneauSiPetite, avecTerrain, creer, fmtKm, nomDe, type ContexteVue, type Vue } from './commun';
-import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong, secondesMode } from './scores';
+import { anneauSiPetite, creer, fmtKm, idsSerie, nomDe, type ContexteVue, type Vue } from './commun';
+import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong } from './scores';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -39,10 +43,6 @@ function nouvellePartieDe(mode: ModeEpreuve, ids: readonly string[], echelle_km:
   return new PartieChrono(melanger(ids), DELAI, echelle_km);
 }
 
-const nomContinent = (c: string) => (textes.continents as Record<string, string>)[c] ?? c;
-const nomSerie = (id: string) =>
-  id === SERIE_TOUS ? textes.toucher.serie_tous : id === SERIE_REUNION ? textes.terrains.reunion.serie : nomContinent(id);
-
 function stockage(): Storage | null {
   try {
     return localStorage;
@@ -51,22 +51,17 @@ function stockage(): Storage | null {
   }
 }
 
-/**
- * Les séries du Chrono : les continents, puis tous les pays (le marathon), puis
- * l'île (son épreuve, chrono:localiser:reunion) ; pas l'essai du J0.
- */
-export function seriesChrono(toutes: readonly Serie[]): Serie[] {
-  const continents = toutes.filter((s) => s.terrain === 'monde' && s.id !== SERIE_ESSAI && s.id !== SERIE_TOUS);
-  const tous = toutes.filter((s) => s.id === SERIE_TOUS);
-  return [...continents, ...tous, serieTerrain(REUNION)];
-}
-
 export interface VueChrono extends Vue {
-  /** Le départ de cette épreuve (choisie dans Jouer), au lieu du bilan d'une partie finie en quittant la vue. */
-  nouvellePartie(mode?: ModeEpreuve): void;
+  /** Une partie de cette épreuve sur cette série (choisie dans Jouer), son terrain chargé et ses cibles. */
+  lancer(l: Lancement, s: Serie, t: Terrain, ids: string[]): void;
 }
 
-export function vueChrono(ctx: ContexteVue): VueChrono {
+export interface OptionsChrono {
+  /** Vers Jouer, à ce niveau (son adresse), ce message à son statut : main.ts remonte l'historique s'il y mène. */
+  versJouer(cible: string, message?: string): void;
+}
+
+export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const jauge = creer('span', { class: 'chrono-jauge-reste' });
@@ -82,30 +77,12 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     creer('div', { class: 'essai-actions' }, abandonner),
   );
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'chrono-bilan' });
-  const statut = creer('p', { class: 'hint chrono-statut', 'aria-live': 'polite' });
-  const liste = creer('ul', { class: 'essai-series' });
-  const titreDepart = creer('h2', {});
-  const aideDepart = creer('p', { class: 'hint' });
-  const depart = creer(
-    'div',
-    { class: 'essai-depart', id: 'chrono-depart' },
-    creer(
-      'div',
-      { class: 'depart-tete' },
-      creer('a', { class: 'depart-bouton', href: '#jouer', id: 'chrono-exercices', 'aria-label': textes.jouer.changer, title: textes.jouer.changer }, '‹'),
-      titreDepart,
-    ),
-    aideDepart,
-    statut,
-    liste,
-  );
   barre.hidden = true;
   bilan.hidden = true;
-  depart.hidden = true;
-  ctx.zone.append(barre, bilan, depart);
+  ctx.zone.append(barre, bilan);
 
-  const toutes = seriesChrono(series(ctx.donnees.entites.map((e) => e.pays), nomContinent));
-  /** L'épreuve choisie dans Jouer. */
+  /** La partie lancée dans Jouer : son épreuve, sa série et sa place dans l'arbre (retours à Jouer). */
+  let lancement: Lancement | null = null;
   let mode: ModeEpreuve = 'chrono';
   let serie: Serie | null = null;
   /** Le terrain de la partie : sa carte reçoit marques et notes, ses données donnent les noms. */
@@ -119,10 +96,12 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
   let minuterie = 0;
   let affichage = 0;
   let pause = 0;
-  /** Message du départ au retour dans la vue (partie abandonnée en la quittant). */
+  /** Message de Jouer au retour dans la vue (partie abandonnée en la quittant). */
   let messageRetour = '';
-  /** Partie finie en quittant la vue (pendant la pause de sa dernière réponse) : son bilan au retour. */
+  /** Le bilan au retour : affiché en quittant la vue, ou partie finie en la quittant (pendant la pause de sa dernière réponse). */
   let bilanAuRetour = false;
+  /** Les exercices de la série de la partie, dans Jouer (Jouer tout court sans partie lancée). */
+  const exercices = () => (lancement ? adresse(niveauDe(lancement, 'exercices')) : 'jouer');
 
   function arreterMinuteries(): void {
     clearTimeout(minuterie);
@@ -168,7 +147,8 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     else compte.textContent = `${n} · ${remplir(T.points, { points: fmtPts(p.points) })}`;
   }
 
-  function afficherDepart(message = ''): void {
+  /** Plus de partie ni de bilan : la carte du monde, rien par-dessus. */
+  function arreter(): void {
     arreterMinuteries();
     jeton++;
     partie = null;
@@ -177,52 +157,14 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     bilan.hidden = true;
     t.carte.effacerMarques();
     ctx.terrains.montrer('monde');
-    titreDepart.textContent = nomMode(mode);
-    aideDepart.textContent = remplir(E[mode].aide, { s: secondesMode(mode) });
-    const records = lireRecords(stockage());
-    liste.replaceChildren(
-      ...toutes.map((s) => {
-        const r = records.get(idEpreuve(s.id, mode));
-        const b = creer(
-          'button',
-          { type: 'button', class: 'essai-serie', 'data-serie': s.id },
-          creer(
-            'span',
-            { class: 'essai-serie-nom' },
-            nomSerie(s.id),
-            creer(
-              'span',
-              { class: 'essai-serie-detail' },
-              [s.id === SERIE_TOUS && mode === 'chrono' ? T.serie_tous_detail : '', r ? remplir(T.record, { score: scoreCourt(mode, r.points) }) : '']
-                .filter(Boolean)
-                .join(' · '),
-            ),
-          ),
-          creer('span', { class: 'essai-serie-n' }, remplir(textes.terrains[s.terrain].n, { n: s.n })),
-        );
-        if (s.id === serie?.id) b.setAttribute('aria-current', 'true');
-        b.addEventListener('click', () => choisir(s));
-        return creer('li', {}, b);
-      }),
-    );
-    statut.textContent = message;
-    statut.hidden = !message;
-    depart.hidden = false;
   }
 
-  // Le monde part tout de suite ; l'île au premier choix se charge d'abord
-  // (boutons désactivés, statut), et rien ne part si l'on a quitté le départ.
-  function choisir(s: Serie): void {
-    const j = ++jeton;
-    const boutons = [...liste.querySelectorAll('button')];
-    avecTerrain(ctx, s, { boutons, statut, encore: () => j === jeton }, (terrain, ids) => demarrer(s, terrain, ids, j));
-  }
-
-  function demarrer(s: Serie, terrain: Terrain, ids: string[], j: number): void {
+  /** Une partie neuve de l'épreuve sur cette série (un nouveau tirage). */
+  function demarrer(s: Serie, terrain: Terrain, ids: string[]): void {
+    arreter();
+    const j = jeton;
     serie = s;
     t = terrain;
-    depart.hidden = true;
-    bilan.hidden = true;
     const lancer = () => {
       partie = nouvellePartieDe(mode, ids, ECHELLES_KM[s.terrain]);
       barre.hidden = false;
@@ -311,7 +253,7 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
     ouverte = false;
     barre.hidden = true;
     t.carte.effacerMarques();
-    if (!partie || !serie) return afficherDepart();
+    if (!partie || !serie) return arreter();
     const d = t.donnees;
     const score = partie.score();
     const epreuve = idEpreuve(serie.id, mode);
@@ -351,55 +293,55 @@ export function vueChrono(ctx: ContexteVue): VueChrono {
       blocClassement(epreuve, T.classement_titre, (pseudo) => publierPartie(pseudo, epreuve, bp)),
       ...(manquees.length ? [creer('ul', { class: 'essai-rates' }, ...manquees.map((q) => creer('li', {}, ligne(q))))] : []),
     );
-    bilan.querySelector('#chrono-rejouer')?.addEventListener('click', () => choisir(s));
-    bilan.querySelector('#chrono-autre')?.addEventListener('click', () => afficherDepart());
+    bilan.querySelector('#chrono-rejouer')?.addEventListener('click', () => demarrer(s, t, idsSerie(s, t)));
+    bilan.querySelector('#chrono-autre')?.addEventListener('click', () => {
+      arreter();
+      o.versJouer(lancement ? adresse(niveauDe(lancement, 'series')) : 'jouer');
+    });
     partie = null;
     bilan.hidden = false;
   }
 
   // La dernière réponse donnée (pause de sa rétroaction) : il n'y a plus rien
-  // à abandonner, la partie va au bilan comme à la fin de la pause.
-  abandonner.addEventListener('click', () => (partie?.finie ? finir() : afficherDepart(T.abandon)));
+  // à abandonner, la partie va au bilan comme à la fin de la pause. Sinon,
+  // retour aux exercices de la série dans Jouer, qui dit l'abandon.
+  abandonner.addEventListener('click', () => {
+    if (partie?.finie) return finir();
+    arreter();
+    o.versJouer(exercices(), T.abandon);
+  });
 
   return {
-    nouvellePartie(m: ModeEpreuve = 'chrono') {
-      const autre = m !== mode;
-      mode = m;
-      // Juste après activer() : un départ déjà affiché garde son message (partie
-      // abandonnée), redessiné pour l'épreuve choisie si elle a changé.
-      if (depart.hidden) afficherDepart();
-      else if (autre) afficherDepart(statut.textContent ?? '');
+    lancer(l, s, terrain, ids) {
+      lancement = l;
+      mode = estEpreuve(l.mode) ? l.mode : 'chrono';
+      messageRetour = '';
+      bilanAuRetour = false;
+      demarrer(s, terrain, ids);
+    },
+    // Sans bilan à remontrer : la partie quittée est abandonnée, Jouer le dit
+    // aux exercices de sa série ; atteinte sans partie, Jouer tout court.
+    redirection() {
+      if (bilanAuRetour) return null;
+      const message = messageRetour;
+      messageRetour = '';
+      return { cible: exercices(), message };
     },
     activer() {
-      if (bilanAuRetour) {
-        bilanAuRetour = false;
-        ctx.terrains.montrer(t.nom);
-        depart.hidden = true;
-        bilan.hidden = false;
-        return;
-      }
-      afficherDepart(messageRetour);
-      messageRetour = '';
+      if (!bilanAuRetour) return;
+      bilanAuRetour = false;
+      ctx.terrains.montrer(t.nom);
+      bilan.hidden = false;
     },
     desactiver() {
       // La dernière réponse donnée (pause de sa rétroaction) : la partie est
       // finie, elle va au bilan (record, publication) comme sans la sortie.
-      if (partie?.finie) {
-        finir();
-        bilanAuRetour = true;
-      } else bilanAuRetour = false;
+      if (partie?.finie) finir();
+      bilanAuRetour = !bilan.hidden;
       // Le temps ne se met pas en pause : une partie quittée est abandonnée.
       const enCours = partie !== null;
-      arreterMinuteries();
-      jeton++;
-      partie = null;
-      ouverte = false;
-      barre.hidden = true;
-      depart.hidden = true;
-      bilan.hidden = true;
+      arreter();
       messageRetour = enCours ? T.abandon : '';
-      t.carte.effacerMarques();
-      ctx.terrains.montrer('monde');
     },
     toucher(x, y, ev) {
       const id = partie?.courante;

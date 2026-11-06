@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Pays } from '../src/map/types';
 import { normaliser, suggestions } from '../src/texte';
 import { REUNION } from '../src/map/terrain';
-import { ciblesEssai, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, series, serieTerrain, seriesToucher } from '../src/vues/cibles';
+import { catalogue, ciblesEssai, nomSerie, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, serieEssai, seriesMonde, serieTerrain } from '../src/vues/cibles';
 import { anneauSiPetite, estPetite, fmtKm, fmtS, idsSerie, nomDe } from '../src/vues/commun';
 import { projectionLocale } from '../src/map/terrain';
 import { creerProjection } from '../src/map/projection';
@@ -24,15 +24,18 @@ describe('essai et saisie', () => {
     for (const id of c) expect(statut(id)).toBe('jouable');
   });
 
-  it('séries de Toucher : l’essai intact, les 195 pays sans le paquet optionnel, un continent par nom du fichier de langue', () => {
+  it('séries du monde : tous les pays en tête (195, sans le paquet optionnel), puis un continent par nom du fichier de langue, dans l’ordre alphabétique', () => {
     const continents = textes.continents as Record<string, string>;
-    const s = series(pays, (c) => continents[c] ?? c);
-    expect(s.map((x) => x.id)).toEqual([SERIE_ESSAI, SERIE_TOUS, 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania']);
-    expect(s[0]?.ids).toEqual(ciblesEssai(pays));
-    expect(s[0]?.ids.length).toBe(43);
+    const s = seriesMonde(pays, (c) => continents[c] ?? c);
+    expect(s.map((x) => x.id)).toEqual([SERIE_TOUS, 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania']);
+    expect(s.map((x) => nomSerie(x.id))).toEqual(['Tous les pays', 'Afrique', 'Amérique du Nord', 'Amérique du Sud', 'Asie', 'Europe', 'Océanie']);
+    // L'essai du J0 à part (un outil, dans ⚙), intact.
+    const essai = serieEssai(pays);
+    expect([essai.id, essai.terrain, essai.ids, essai.n]).toEqual([SERIE_ESSAI, 'monde', ciblesEssai(pays), 43]);
+    expect(nomSerie(SERIE_ESSAI)).toBe('Essai J0');
     const jouables = pays.filter((p) => p.statut === 'jouable');
-    expect(new Set(s[1]?.ids)).toEqual(new Set(jouables.map((p) => p.id)));
-    expect(s[1]?.ids.length).toBe(195);
+    expect(new Set(s[0]?.ids)).toEqual(new Set(jouables.map((p) => p.id)));
+    expect(s[0]?.ids.length).toBe(195);
     // Kosovo et Taïwan (paquet optionnel) ne sont posés dans aucune série.
     for (const id of ['XKX', 'TWN']) {
       expect(statut(id)).toBe('optionnel');
@@ -40,9 +43,9 @@ describe('essai et saisie', () => {
     }
     expect(s.find((x) => x.id === 'Africa')?.ids.length).toBe(54);
     // Les continents se partagent tous les pays, sans territoire ni zone contestée.
-    const parContinent = s.slice(2).flatMap((x) => x.ids);
+    const parContinent = s.slice(1).flatMap((x) => x.ids);
     expect(parContinent.length).toBe(195);
-    expect(new Set(parContinent)).toEqual(new Set(s[1]?.ids));
+    expect(new Set(parContinent)).toEqual(new Set(s[0]?.ids));
     // Chaque continent de pays.json a son nom en français.
     for (const p of pays) expect(continents[p.continent], p.continent).toBeTruthy();
   });
@@ -74,15 +77,16 @@ describe('séries de l’île et textes des terrains', () => {
   const nomsIle = JSON.parse(readFileSync('public/geo/reunion/noms.fr.json', 'utf8')) as Record<string, string>;
 
   it('les séries du monde portent leur terrain et leur nombre', () => {
-    for (const x of series(pays, nomContinent)) {
+    for (const x of seriesMonde(pays, nomContinent)) {
       expect(x.terrain, x.id).toBe('monde');
       expect(x.n, x.id).toBe(x.ids.length);
     }
   });
 
-  it('Toucher : les 8 séries du monde, puis l’île en dernier, ids résolus au départ', () => {
-    const s = seriesToucher(pays, nomContinent);
-    expect(s.map((x) => x.id)).toEqual([...series(pays, nomContinent).map((x) => x.id), SERIE_REUNION]);
+  it('le catalogue : les 7 séries du monde, puis l’île en dernier (ids résolus au départ), sans l’essai', () => {
+    const s = catalogue(pays, nomContinent);
+    expect(s.map((x) => x.id)).toEqual([...seriesMonde(pays, nomContinent).map((x) => x.id), SERIE_REUNION]);
+    expect(s.map((x) => x.id)).not.toContain(SERIE_ESSAI);
     const ile = s.at(-1);
     expect(ile).toEqual({ id: 'reunion', terrain: 'reunion', ids: [], n: 24 });
     expect(serieTerrain(REUNION)).toEqual(ile);
@@ -90,29 +94,29 @@ describe('séries de l’île et textes des terrains', () => {
   });
 
   it('les cibles d’une série : les siennes dans le monde, toutes les zones jouables de l’île', () => {
-    const monde = series(pays, nomContinent)[0]!;
+    const monde = seriesMonde(pays, nomContinent)[0]!;
     const t = { jouables: ['A', 'B'] } as unknown as Parameters<typeof idsSerie>[1];
     expect(idsSerie(monde, t)).toEqual(monde.ids);
     expect(idsSerie(serieTerrain(REUNION), t)).toEqual(['A', 'B']);
   });
 
-  it('textes : le monde et l’île ont les mêmes clés (sauf série, détail, libellé), toutes remplies', () => {
+  it('textes : le monde et l’île ont les mêmes clés (sauf série, libellé), toutes remplies', () => {
     const { monde, reunion } = textes.terrains;
-    const propres = new Set(['serie', 'detail', 'libelle']);
+    const propres = new Set(['serie', 'libelle']);
     expect(Object.keys(reunion).filter((k) => !propres.has(k)).sort()).toEqual(Object.keys(monde).sort());
     for (const k of ['n', 'consigne_nommer', 'faux_suite', 'expire']) {
       expect(monde[k as keyof typeof monde], `monde.${k}`).toBeTruthy();
       expect(reunion[k as keyof typeof reunion], `reunion.${k}`).toBeTruthy();
     }
-    for (const k of ['serie', 'detail', 'libelle']) expect(reunion[k as keyof typeof reunion], k).toBeTruthy();
+    for (const k of ['serie', 'libelle']) expect(reunion[k as keyof typeof reunion], k).toBeTruthy();
     expect(remplir(reunion.n, { n: 24 })).toBe('24 communes');
     expect(remplir(monde.n, { n: 195 })).toBe('195 pays');
   });
 
   it('textes de Toucher et de Nommer : chaque clé lue par les vues existe', () => {
     const cles = [
-      'localiser', 'nommer', 'depart_aide', 'chargement_terrain', 'echec_terrain', 'consigne', 'voir', 'passer',
-      'terminer', 'recommencer', 'juste', 'via_pastille', 'via_proche', 'essai_un', 'essais', 'faux', 'faux_ou', 'la_mer',
+      'localiser', 'nommer', 'chargement_terrain', 'echec_terrain', 'serie_essai', 'serie_essai_detail', 'consigne', 'voir', 'passer',
+      'terminer', 'recommencer', 'autre_serie', 'juste', 'via_pastille', 'via_proche', 'essai_un', 'essais', 'faux', 'faux_ou', 'la_mer',
       'bilan_titre', 'bilan_resume', 'bilan_vide', 'rate', 'rate_vu', 'rate_passe', 'rate_distance', 'nommer_juste',
       'nommer_faux', 'bilan_nommer_titre', 'bilan_nommer', 'bilan_nommer_temps', 'bilan_nommer_faux',
     ];
@@ -123,14 +127,16 @@ describe('séries de l’île et textes des terrains', () => {
 
   it('textes de Jouer, de la Carte et de la recherche : chaque clé lue par les vues existe', () => {
     const lues = {
-      jouer: ['titre', 'aide', 'fermer', 'changer', 'localiser_detail', 'nommer_detail', 'chrono_detail', 'sansfaute_detail', 'minute_detail'],
+      jouer: ['titre', 'fermer', 'remonter', 'fil', 'regles', 'rejouer', 'record', 'essai_aide'],
       carte: ['touche', 'touche_ile', 'mer', 'par_pastille', 'au_plus_pres', 'monde', 'monde_titre'],
       recherche: ['placeholder', 'placeholder_court', 'aucun', 'commune'],
     } as const;
     for (const [partie, cles] of Object.entries(lues))
       for (const k of cles) expect((textes as unknown as Record<string, Record<string, string>>)[partie]?.[k], `${partie}.${k}`).toBeTruthy();
-    expect(remplir(textes.jouer.chrono_detail, { s: 15 })).toBe('15 s par question, un seul toucher : points, records et classement.');
-    expect(remplir(textes.jouer.minute_detail, { s: 60 })).toBe('Le plus de lieux justes en 60 s : records et classement.');
+    for (const m of ['localiser', 'nommer', 'chrono', 'sansfaute', 'minute'] as const) expect(textes.jouer.exercices[m], m).toBeTruthy();
+    for (const b of ['entrainement', 'classe'] as const) expect([textes.jouer.branches[b].nom, textes.jouer.branches[b].detail].every(Boolean), b).toBe(true);
+    expect(remplir(textes.jouer.exercices.chrono, { s: 15 })).toBe('15 s par question, un seul toucher');
+    expect(remplir(textes.jouer.exercices.minute, { s: 60 })).toBe('Le plus de justes en 60 s');
   });
 
   it('textes de Toucher : la rétroaction du monde reste mot pour mot celle d’avant', () => {
@@ -186,21 +192,5 @@ describe('anneau seulement autour d’une zone petite à l’écran', () => {
     anneauSiPetite(t, 'VAT', 'juste');
     anneauSiPetite(t, 'RUS', 'juste');
     expect(poses).toEqual(['VAT']);
-  });
-});
-
-describe('écran Jouer : noms des modes (décision « Noms des modes »)', async () => {
-  const { GROUPES_JEU, MODES_JEU } = await import('../src/vues/jouer');
-  const { textes } = await import('../src/vues/textes');
-
-  it('« Entraînement » (Trouver, Reconnaître) puis « Classé » (Chrono, Sans faute, Minute) ; identifiants inchangés', () => {
-    expect(GROUPES_JEU.map((g) => g.titre)).toEqual(['Entraînement', 'Classé']);
-    expect(GROUPES_JEU.map((g) => g.modes)).toEqual([
-      ['localiser', 'nommer'],
-      ['chrono', 'sansfaute', 'minute'],
-    ]);
-    expect(MODES_JEU).toEqual(['localiser', 'nommer', 'chrono', 'sansfaute', 'minute']);
-    const E = textes.epreuves;
-    expect([textes.toucher.localiser, textes.toucher.nommer, E.chrono.nom, E.sansfaute.nom, E.minute.nom]).toEqual(['Trouver', 'Reconnaître', 'Chrono', 'Sans faute', 'Minute']);
   });
 });

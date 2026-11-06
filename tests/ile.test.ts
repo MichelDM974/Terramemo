@@ -321,10 +321,10 @@ describe('crédits et textes', () => {
     }
   });
 
-  it('bloc terrains : monde et reunion ont les mêmes clés, sauf serie, detail, libelle', () => {
+  it('bloc terrains : monde et reunion ont les mêmes clés, sauf serie, libelle', () => {
     const cles = (o: object) => Object.keys(o).sort();
-    const { serie, detail, libelle, ...reste } = textes.terrains.reunion;
-    expect([serie, detail, libelle]).toEqual(['La Réunion', "carte de l'île", 'Carte de La Réunion']);
+    const { serie, libelle, ...reste } = textes.terrains.reunion;
+    expect([serie, libelle]).toEqual(['La Réunion', 'Carte de La Réunion']);
     expect(cles(reste)).toEqual(cles(textes.terrains.monde));
     expect(remplir(textes.terrains.reunion.n, { n: REUNION.n })).toBe('24 communes');
   });

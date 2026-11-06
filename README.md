@@ -24,15 +24,19 @@ l'oublier, jusqu'à tenir des mois.
 - Des **épreuves chronométrées** (tous les pays d'un continent, points
   selon la justesse et la distance) et un classement de tous les joueurs ;
   les séances de révision, courtes, s'arrêtent quand on veut.
-- Deux exercices pour chaque série : **Localiser** (toucher la zone nommée)
-  et **Nommer** (la zone s'allume, choisir son nom parmi quatre, ses
+- Deux exercices pour chaque série : **Trouver** (toucher la zone nommée)
+  et **Reconnaître** (la zone s'allume, choisir son nom parmi quatre, ses
   voisines en leurres).
 - En haut, une **recherche** (un pays, un territoire, une commune de La
-  Réunion : la carte vole jusqu'à lui) et le bouton **Jouer**, qui fait
-  choisir l'exercice, puis la série : en entraînement Trouver et
-  Reconnaître, en épreuves classées **Chrono** (points), **Sans faute**
-  (jusqu'à la première erreur) et **Minute** (le plus de justes en 60 s),
-  chacune avec ses classements ; le 🏆 les montre toutes.
+  Réunion : la carte vole jusqu'à lui) et le bouton **Jouer**, qui ouvre
+  un arbre de gros boutons, un choix par écran : **Entraînement** ou
+  **Classé**, puis le sujet (Pays, Communes), la série (tous les pays, un
+  continent ; La Réunion), et l'exercice en dernier, qui lance la partie :
+  en entraînement Trouver et Reconnaître, en épreuves classées **Chrono**
+  (points), **Sans faute** (jusqu'à la première erreur) et **Minute** (le
+  plus de justes en 60 s), chacune avec son record dans la série et ses
+  classements ; le 🏆 les montre toutes. **Rejouer**, en tête de Jouer,
+  relance la dernière partie d'une touche.
 - **La Réunion** : ses 24 communes sur une carte de l'île, en série de
   Toucher et des épreuves classées (avec leurs classements).
 

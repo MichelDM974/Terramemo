@@ -22,6 +22,13 @@ export interface ContexteVue {
 export interface Vue {
   activer(): void;
   desactiver(): void;
+  /**
+   * Au moment d'ouvrir la vue (router de main.ts) : rien à y montrer, aller
+   * plutôt à cette adresse de Jouer, avec ce message à son statut (Toucher et
+   * les épreuves atteintes sans partie : adresse tapée, retour arrière). null :
+   * la vue s'ouvre.
+   */
+  redirection?(): { cible: string; message?: string } | null;
   /** Un toucher sur la carte (x, y : px CSS relatifs à la carte). */
   toucher?(x: number, y: number, ev: PointerEvent): void;
 }
@@ -95,12 +102,12 @@ export function anneauSiPetite(t: Pick<Terrain, 'carte' | 'donnees'>, id: string
 export const idsSerie = (s: Serie, t: Terrain): string[] => (s.ids.length ? [...s.ids] : [...t.jouables]);
 
 /**
- * Le terrain d'une série choisie au départ, puis `suite` (avec ses cibles).
+ * Le terrain d'une série choisie dans Jouer, puis `suite` (avec ses cibles).
  * Déjà chargé (le monde, l'île au second choix) : tout de suite. Sinon
- * (l'île au premier choix) : boutons du départ désactivés et statut le temps
+ * (l'île au premier choix) : boutons du niveau désactivés et statut le temps
  * du chargement (un double clic ne lance pas deux parties) ; un échec (hors
- * ligne) l'écrit au statut, on reste sur le monde. `encore()` faux à
- * l'arrivée (vue quittée, autre choix) : pas de suite.
+ * ligne) l'écrit au statut, on reste sur ce niveau. `encore()` faux à
+ * l'arrivée (vue quittée, autre niveau) : pas de suite.
  */
 export function avecTerrain(
   ctx: ContexteVue,

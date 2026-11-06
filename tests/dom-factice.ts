@@ -120,16 +120,17 @@ export class El {
       }
   }
   private correspond(sel: string): boolean {
-    const m = /^([a-z0-9]+)?(?:#([\w-]+))?((?:\.[\w-]+)*)(?:\[([\w-]+)="([^"]*)"\])?$/i.exec(sel);
+    const m = /^([a-z0-9]+)?(?:#([\w-]+))?((?:\.[\w-]+)*)(?:\[([\w-]+)(?:="([^"]*)")?\])?$/i.exec(sel);
     if (!m) throw new Error(`sélecteur non pris en charge : ${sel}`);
     const [, tag, id, classes, attr, val] = m;
     if (tag && this.tagName !== tag.toLowerCase()) return false;
     if (id && this.id !== id) return false;
     for (const c of (classes ?? '').split('.').filter(Boolean)) if (!this.classList.contains(c)) return false;
-    if (attr && this.getAttribute(attr) !== val) return false;
+    // [attr] : l'attribut présent ; [attr="v"] : de cette valeur.
+    if (attr && (val === undefined ? this.getAttribute(attr) === null : this.getAttribute(attr) !== val)) return false;
     return true;
   }
-  /** Sélecteurs simples, éventuellement descendants (« #a .b »). */
+  /** Sélecteurs simples, éventuellement descendants (« #a .b », « button[data-mode] »). */
   querySelectorAll(sel: string): El[] {
     const parts = sel.match(/(?:[^\s[]+|\[[^\]]*\])+/g) ?? [];
     let courants: El[] = [this];

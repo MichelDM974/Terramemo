@@ -12,13 +12,15 @@ import type { NomProjection, NomTerrain, Rendu, Transfo } from './map/types';
 import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
-import { creerTerrains, idsJouables, type Terrains } from './terrains';
+import { creerTerrains, idsJouables, type Terrain, type Terrains } from './terrains';
+import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, pasVers, versAncre, type Arbre, type Lancement } from './vues/arbre';
+import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import type { Vue } from './vues/commun';
 import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { vueExplorer } from './vues/explorer';
 import { vueGeneral } from './vues/general';
-import { estEpreuve, vueJouer, type ModeJeu } from './vues/jouer';
+import { remplirEssaiJ0, vueJouer, type VueJouer } from './vues/jouer';
 import { brancherRecherche } from './vues/recherche';
 import { vueSaisie } from './vues/saisie';
 import { textes } from './vues/textes';
@@ -96,6 +98,15 @@ function lireMesures(): boolean {
 }
 let mesuresAffichees = lireMesures();
 
+/** Le stockage du navigateur, null s'il est refusé (navigation privée, données bloquées). */
+function stockage(): Storage | null {
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
 // --- Roue ⚙ : popup unique, refermée par un clic ailleurs ou Échap ---
 
 // Crédits des données (décision « Langue » : le texte vit dans textes.fr.json).
@@ -121,8 +132,10 @@ if (bouton && popup) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') ouvrir(false);
   });
-  // « Essai des claviers » (la vue Saisie) : la popup se referme sur la vue.
-  for (const a of popup.querySelectorAll('a')) a.addEventListener('click', () => ouvrir(false));
+  // « Essai des claviers » (la vue Saisie), l'Essai J0 : la popup se referme sur la vue.
+  popup.addEventListener('click', (e) => {
+    if ((e.target as Element).closest('a, #reglage-essai button')) ouvrir(false);
+  });
 }
 
 /** Rendu et projection : on recharge la page avec le paramètre (mesures d'un chargement propre). */
@@ -170,9 +183,9 @@ caseMesures?.addEventListener('change', () => {
 appliquerMesures();
 
 // --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
-// recherche montre un lieu), Jouer (choix de l'exercice) puis Toucher ou une
-// épreuve classée (vue « chrono » : Chrono, Sans faute, Minute), les
-// classements (🏆), la Saisie (⚙). ---
+// recherche montre un lieu), Jouer (l'arbre des choix : #jouer/classe/pays/Africa,
+// décision « Écran Jouer ») puis Toucher ou une épreuve classée (vue « chrono » :
+// Chrono, Sans faute, Minute), les classements (🏆), la Saisie (⚙). ---
 
 type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie';
 const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie'];
@@ -185,14 +198,52 @@ let nomActif: NomVue | null = null;
 let precedente: NomVue = 'carte';
 /** Le monde et l'île (src/terrains.ts), une fois le monde chargé. */
 let terrains: Terrains | null = null;
+/** Jouer et son arbre, une fois le monde chargé (les séries viennent de pays.json). */
+let jouer: VueJouer | null = null;
+let arbre: Arbre | null = null;
+/** Une partie se lance (main.ts : lancer) : sa vue s'ouvre sans redirection, la partie suit. */
+let enLancement = false;
 
-function vueDemandee(): NomVue {
-  const h = location.hash.slice(1);
-  return (VUES as string[]).includes(h) ? (h as NomVue) : 'carte';
+/**
+ * L'historique (décision « Écran Jouer ») : chaque niveau de Jouer est une
+ * entrée (un niveau sauté n'en a pas), et chaque entrée garde la pile des
+ * adresses d'avant (history.state), pour que « ‹ », « × », « Autre série » et
+ * le retour d'une partie remontent l'historique (pasVers) au lieu d'y empiler
+ * une entrée : le retour du navigateur (et celui d'Android, une fois branché
+ * sur l'historique de la WebView : rien ne le fait encore dans l'APK) remonte
+ * alors l'arbre d'un niveau à la fois, sans jamais y redescendre. Une entrée
+ * sans état (le chargement, un lien de l'en-tête) reçoit la pile de l'entrée
+ * d'avant, plus l'adresse d'avant.
+ */
+interface EtatHistorique {
+  pile: string[];
+}
+const PILE_MAX = 40;
+/** L'adresse affichée (sans « # ») et la pile de son entrée. */
+let adresseRendue: string | null = null;
+let pileRendue: string[] = [];
+
+function etatHistorique(): EtatHistorique | null {
+  const e = history.state as Partial<EtatHistorique> | null;
+  return e && Array.isArray(e.pile) ? (e as EtatHistorique) : null;
+}
+
+/** L'adresse demandée : la vue (premier segment), et pour Jouer ses segments ; une vue inconnue est la carte. */
+function demandee(): { nom: NomVue; segs: string[] } {
+  const [tete = '', ...reste] = depuisAncre(location.hash);
+  const nom = (VUES as string[]).includes(tete) ? (tete as NomVue) : 'carte';
+  return { nom, segs: nom === 'jouer' ? reste : [] };
 }
 
 function router(): void {
-  const nom = vueDemandee();
+  const e = etatHistorique();
+  if (e) pileRendue = e.pile;
+  else {
+    pileRendue = adresseRendue === null ? [] : [...pileRendue, adresseRendue].slice(-PILE_MAX);
+    history.replaceState({ pile: pileRendue } satisfies EtatHistorique, '');
+  }
+  const { nom, segs } = demandee();
+  adresseRendue = [nom, ...segs].join('/');
   document.body.dataset.vue = nom;
   // Le bouton de la vue affichée (Jouer, 🏆) le dit.
   for (const a of document.querySelectorAll<HTMLAnchorElement>('header a[data-vue]')) {
@@ -201,23 +252,58 @@ function router(): void {
     else a.removeAttribute('aria-current');
   }
   const v = vues.get(nom);
-  if (!v || v === vueActive) return;
-  if (nomActif && !PASSAGE.includes(nomActif)) precedente = nomActif;
-  vueActive?.desactiver();
-  vueActive = v;
-  nomActif = nom;
-  // Toute vue part du monde ; celle qui joue l'île la remontre dans son activer().
-  terrains?.montrer('monde');
-  v.activer();
+  if (!v) return;
+  if (v !== vueActive) {
+    // Toucher ou une épreuve sans partie à montrer : Jouer à sa place.
+    const r = enLancement ? null : (v.redirection?.() ?? null);
+    if (r) return versJouer(r.cible, r.message);
+    if (nomActif && !PASSAGE.includes(nomActif)) precedente = nomActif;
+    vueActive?.desactiver();
+    vueActive = v;
+    nomActif = nom;
+    // Toute vue part du monde ; celle qui joue l'île la remontre dans son activer().
+    terrains?.montrer('monde');
+    v.activer();
+  }
+  if (nom === 'jouer') jouer?.aller(segs);
 }
+// Un lien (ancre) donne un hashchange, un retour arrière un popstate et un
+// hashchange : le router ne refait rien pour l'adresse déjà affichée.
 window.addEventListener('hashchange', router);
+window.addEventListener('popstate', router);
 router();
 
-/** Va à cette vue tout de suite (le hashchange qui suit ne change plus rien). */
-function aller(nom: NomVue): void {
-  if (location.hash !== `#${nom}`) location.hash = nom;
+/** Va à cette adresse (vue, ou niveau de Jouer) : une entrée d'historique de plus. */
+function pousser(a: string): void {
+  if (a === adresseRendue) return router();
+  history.pushState({ pile: [...pileRendue, adresseRendue ?? 'carte'].slice(-PILE_MAX) } satisfies EtatHistorique, '', versAncre(a));
   router();
 }
+
+/**
+ * Remonte à cette adresse : l'historique, si elle est dans la pile (le
+ * popstate rend la vue), sinon à la place de l'entrée affichée.
+ */
+function remonter(a: string): void {
+  if (a === adresseRendue) return router();
+  const n = pasVers(pileRendue, a);
+  if (n) return history.go(-n);
+  history.replaceState(history.state, '', versAncre(a));
+  router();
+}
+
+/** Vers ce niveau de Jouer (adresse remise à sa forme canonique : un niveau sauté mène plus bas), ce message à son statut. */
+function versJouer(cible: string, message = ''): void {
+  if (message) jouer?.annoncer(message);
+  remonter(arbre ? adresse(arbre.resoudre(depuisAncre(cible).slice(1))) : 'jouer');
+}
+
+/** L'adresse affichée remise à sa forme canonique (Jouer : niveau sauté, adresse invalide), sans nouvelle entrée. */
+function canoniser(a: string): void {
+  history.replaceState(history.state, '', versAncre(a));
+  adresseRendue = a;
+}
+
 
 // --- Carte et mesures ---
 
@@ -437,23 +523,29 @@ async function demarrer(): Promise<void> {
     },
   });
   const ctx = { carte, donnees, mesures, zone, terrains };
+  const pays = donnees.entites.map((e) => e.pays);
+  arbre = creerArbre(catalogue(pays));
   const explorer = vueExplorer(ctx);
-  const essai = vueEssai(ctx);
-  const epreuve = vueChrono(ctx);
-  const retour = () => aller(precedente);
-  // Un exercice choisi dans Jouer : son départ, une partie en cours abandonnée.
-  // Les trois épreuves classées partagent la vue « chrono ».
-  const jouer = (m: ModeJeu) => {
-    if (estEpreuve(m)) {
-      aller('chrono');
-      epreuve.nouvellePartie(m);
-    } else {
-      aller('toucher');
-      essai.nouvellePartie(m);
+  const essai = vueEssai(ctx, { versJouer });
+  const epreuve = vueChrono(ctx, { versJouer });
+  // « Retour » des classements, « × » de Jouer : la vue d'avant, en remontant l'historique.
+  const retour = () => remonter(precedente);
+  // Une partie choisie (Jouer, Rejouer, ⚙) : sa vue s'ouvre (une entrée
+  // d'historique), la partie en cours y est abandonnée. Les trois épreuves
+  // classées partagent la vue « chrono ». Celle de l'arbre devient « Rejouer ».
+  const lancer = (l: Lancement, s: Serie, t: Terrain, ids: string[]) => {
+    if (arbre?.valide(l)) garderDerniere(stockage(), l);
+    enLancement = true;
+    try {
+      pousser(estEpreuve(l.mode) ? 'chrono' : 'toucher');
+    } finally {
+      enLancement = false;
     }
+    (estEpreuve(l.mode) ? epreuve : essai).lancer(l, s, t, ids);
   };
+  jouer = vueJouer(ctx, arbre, { lancer, fermer: retour, pousser, remonter, canoniser });
   vues.set('carte', explorer);
-  vues.set('jouer', vueJouer(ctx, { choisir: jouer, fermer: retour }));
+  vues.set('jouer', jouer);
   vues.set('toucher', essai);
   vues.set('chrono', epreuve);
   vues.set('classement', vueGeneral(ctx, { retour }));
@@ -464,10 +556,17 @@ async function demarrer(): Promise<void> {
       champ,
       monde: donnees,
       choisir: (l) => {
-        aller('carte');
+        // Tout de suite (pas en remontant l'historique, qui attendrait le popstate) : le lieu se montre sur la carte affichée.
+        pousser('carte');
         explorer.montrerLieu(l.terrain, l.id);
       },
     });
+  // L'Essai J0 (⚙) : la série des plus difficiles, celle du pilote de mesure, hors de Jouer.
+  const essaiJ0 = document.getElementById('reglage-essai');
+  if (essaiJ0) {
+    const s = serieEssai(pays);
+    remplirEssaiJ0(essaiJ0, (mode) => lancer({ branche: 'entrainement', sujet: 'pays', serie: s.id, mode }, s, ctx.terrains.monde, [...s.ids]));
+  }
   panneauMesures(zone, mesures);
   appliquerMesures();
   router();

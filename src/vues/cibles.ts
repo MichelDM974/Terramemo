@@ -1,6 +1,8 @@
-// Cibles de la vue « Toucher » (pur) : l'essai de précision du J0 et les autres séries.
+// Séries des parties (pur) : le catalogue des séries jouables (tous les pays,
+// les continents, l'île), leurs noms, et l'essai de précision du J0 (un outil).
 import { REUNION, type DefTerrain } from '../map/terrain';
 import type { NomTerrain, Pays } from '../map/types';
+import { textes } from './textes';
 
 /**
  * Ce qu'une série peut demander : les 195 pays jouables (193 membres de l'ONU,
@@ -35,7 +37,7 @@ export function melanger<T>(t: readonly T[], aleatoire: () => number = Math.rand
 }
 
 /**
- * Série de Toucher et du Chrono : 'essai', 'tous' ou un continent (champ
+ * Série de Toucher et des épreuves : 'essai', 'tous' ou un continent (champ
  * continent de pays.json) dans le monde ; un terrain local (l'île) sinon.
  */
 export interface Serie {
@@ -51,13 +53,26 @@ export const SERIE_ESSAI = 'essai';
 export const SERIE_TOUS = 'tous';
 export const SERIE_REUNION = 'reunion';
 
+/** Nom affiché d'un continent (fichier de langue) ; l'id anglais de pays.json sinon. */
+export const nomContinent = (c: string): string => (textes.continents as Record<string, string>)[c] ?? c;
+
+/** Nom affiché d'une série : « Tous les pays », un continent, « La Réunion », « Essai J0 ». */
+export function nomSerie(id: string): string {
+  if (id === SERIE_ESSAI) return textes.toucher.serie_essai;
+  if (id === SERIE_TOUS) return textes.toucher.serie_tous;
+  if (id === SERIE_REUNION) return textes.terrains.reunion.serie;
+  return nomContinent(id);
+}
+
+const serieMonde = (id: string, ids: string[]): Serie => ({ id, terrain: 'monde', ids, n: ids.length });
+
 /**
- * Les séries proposées : l'essai du J0 (ce que vise le pilote de mesure), tous
- * les pays, puis chaque continent qui a au moins un pays, dans l'ordre de leur
- * nom affiché (nomContinent : fichier de langue). Les ids gardent l'ordre de
- * pays.json ; la partie les mélange au départ.
+ * Les séries du monde : tous les pays en tête, puis chaque continent qui a au
+ * moins un pays, dans l'ordre alphabétique de son nom affiché (Afrique,
+ * Amérique du Nord… Océanie). Les ids gardent l'ordre de pays.json ; la
+ * partie les mélange au départ.
  */
-export function series(pays: readonly Pays[], nomContinent: (c: string) => string): Serie[] {
+export function seriesMonde(pays: readonly Pays[], nom: (c: string) => string = nomContinent): Serie[] {
   const jouables = pays.filter(estJouable);
   const parContinent = new Map<string, string[]>();
   for (const p of jouables) {
@@ -65,13 +80,15 @@ export function series(pays: readonly Pays[], nomContinent: (c: string) => strin
     if (l) l.push(p.id);
     else parContinent.set(p.continent, [p.id]);
   }
-  const continents = [...parContinent]
-    .sort(([a], [b]) => nomContinent(a).localeCompare(nomContinent(b), 'fr'))
-    .map(([id, ids]) => serieMonde(id, ids));
-  return [serieMonde(SERIE_ESSAI, ciblesEssai(pays)), serieMonde(SERIE_TOUS, jouables.map((p) => p.id)), ...continents];
+  const continents = [...parContinent].sort(([a], [b]) => nom(a).localeCompare(nom(b), 'fr')).map(([id, ids]) => serieMonde(id, ids));
+  return [serieMonde(SERIE_TOUS, jouables.map((p) => p.id)), ...continents];
 }
 
-const serieMonde = (id: string, ids: string[]): Serie => ({ id, terrain: 'monde', ids, n: ids.length });
+/**
+ * L'essai du J0 : un outil de mesure (celui du pilote), lancé depuis ⚙ et
+ * jamais proposé dans Jouer (décision « Écran Jouer »).
+ */
+export const serieEssai = (pays: readonly Pays[]): Serie => serieMonde(SERIE_ESSAI, ciblesEssai(pays));
 
 /**
  * La série d'un terrain local : toutes ses zones jouables, dans le désordre au
@@ -81,7 +98,11 @@ export function serieTerrain(def: DefTerrain): Serie {
   return { id: def.nom, terrain: def.nom, ids: [], n: def.n };
 }
 
-/** Les séries de Toucher : celles du monde, puis l'île (une série de plus, en dernier). */
-export function seriesToucher(pays: readonly Pays[], nomContinent: (c: string) => string): Serie[] {
-  return [...series(pays, nomContinent), serieTerrain(REUNION)];
+/**
+ * Le catalogue des séries jouables, dans l'ordre de partout (décision « Écran
+ * Jouer » : Jouer, 🏆 et ses « Toutes les épreuves », SERIES_EPREUVES) : tous
+ * les pays, les continents, puis l'île. Sans l'essai du J0.
+ */
+export function catalogue(pays: readonly Pays[], nom: (c: string) => string = nomContinent): Serie[] {
+  return [...seriesMonde(pays, nom), serieTerrain(REUNION)];
 }

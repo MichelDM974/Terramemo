@@ -5,11 +5,13 @@
 // où il ne l'est pas encore. Les lignes vont par mode, sous son titre : Chrono
 // (le général en tête, qui n'additionne que lui), Sans faute, Minute. Toucher
 // une ligne ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à
-// la liste. Relu à chaque ouverture ; « Retour » ramène à la vue d'avant
-// (main.ts).
+// la liste. Les séries de chaque mode viennent dans l'ordre de partout
+// (décision « Écran Jouer », EPREUVES_CLASSEES) : tous les pays, les
+// continents, l'île. Relu à chaque ouverture ; « Retour » ramène à la vue
+// d'avant (main.ts).
 import { EPREUVES_CLASSEES, modeEpreuve, MODES_EPREUVE, periodeSemaine } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
-import { SERIE_REUNION, SERIE_TOUS } from './cibles';
+import { nomSerie } from './cibles';
 import { blocClassement, lirePseudo } from './classement';
 import { creer, type ContexteVue, type Vue } from './commun';
 import { nomMode, scoreCourt } from './scores';
@@ -20,11 +22,7 @@ type Periode = 'toujours' | 'semaine';
 
 /** Nom affiché d'une épreuve : « Général », un continent, « Tous les pays », « La Réunion ». */
 export function nomEpreuve(epreuve: string): string {
-  if (epreuve === GENERAL) return T.general_nom;
-  const serie = epreuve.split(':')[2] ?? epreuve;
-  if (serie === SERIE_TOUS) return textes.toucher.serie_tous;
-  if (serie === SERIE_REUNION) return textes.terrains.reunion.serie;
-  return (textes.continents as Record<string, string>)[serie] ?? serie;
+  return epreuve === GENERAL ? T.general_nom : nomSerie(epreuve.split(':')[2] ?? epreuve);
 }
 
 /** Titre du classement d'une épreuve : « Sans faute · Afrique » ; le général a le sien. */

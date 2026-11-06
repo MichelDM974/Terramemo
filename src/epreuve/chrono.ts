@@ -213,11 +213,12 @@ export function modeEpreuve(epreuve: string): ModeEpreuve {
 }
 
 /**
- * Les séries des épreuves, celles que firestore.rules connaît (tailles()) :
- * les six continents (dans l'ordre des listes de séries), tous les pays et
- * l'île.
+ * Les séries des épreuves, celles que firestore.rules connaît (tailles()),
+ * dans l'ordre de partout (décision « Écran Jouer », le catalogue de
+ * src/vues/cibles.ts) : tous les pays, les six continents (ordre alphabétique
+ * de leur nom français), puis l'île.
  */
-export const SERIES_EPREUVES: readonly string[] = ['Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania', 'tous', 'reunion'];
+export const SERIES_EPREUVES: readonly string[] = ['tous', 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania', 'reunion'];
 
 /**
  * Les épreuves du Chrono, celles que le général additionne : il se lit dans
