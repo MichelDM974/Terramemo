@@ -464,7 +464,7 @@ describe('l’Essai J0 dans ⚙', () => {
 
   it('index.html lui donne sa place dans la popup des réglages, à côté de l’Essai des claviers', () => {
     const html = readFileSync('index.html', 'utf8');
-    const popup = html.slice(html.indexOf('id="settings-popup"'), html.indexOf('</div>', html.indexOf('id="credits"')));
+    const popup = html.slice(html.indexOf('id="settings-popup"'), html.indexOf('</div>', html.indexOf('id="credits-donnees"')));
     expect(popup).toContain('id="lien-saisie"');
     expect(popup).toContain('id="reglage-essai"');
   });

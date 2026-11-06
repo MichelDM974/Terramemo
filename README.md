@@ -85,4 +85,6 @@ npm run build        # site statique dans dist/ (servi par Firebase Hosting)
   Réunion : IGN, ADMIN EXPRESS COG CARTO (Licence Ouverte 2.0 d'Etalab :
   source et date de mise à jour affichées sur la carte de l'île) ; le
   détail des sources est dans `public/geo/sources.json` et
-  `public/geo/reunion/sources.json`.
+  `public/geo/reunion/sources.json`. L'écran Crédits de l'appli (⚙ ›
+  Crédits et licences) les reprend, avec les bibliothèques que le site
+  embarque et leurs licences (MIT, ISC, BSD-3-Clause, Apache-2.0, 0BSD).

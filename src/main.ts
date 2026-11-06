@@ -31,6 +31,7 @@ import { vueGeneral } from './vues/general';
 import { remplirEssaiJ0, vueJouer, type VueJouer } from './vues/jouer';
 import { brancherRecherche } from './vues/recherche';
 import { vueSaisie } from './vues/saisie';
+import { vueCredits } from './vues/credits';
 import { creerSeances } from './vues/seance';
 import { textes } from './vues/textes';
 
@@ -132,11 +133,15 @@ function stockage(): Storage | null {
 
 // --- Roue ⚙ : popup unique, refermée par un clic ailleurs ou Échap ---
 
-// Crédits des données (décision « Langue » : le texte vit dans textes.fr.json).
-// Sans date : elle demanderait de charger l'île au démarrage ; la carte de
-// l'île porte la sienne (terrains.ts, div.carte-credit).
-const credits = document.getElementById('credits');
+// Crédits des données (décision « Langue » : le texte vit dans textes.fr.json),
+// en une ligne, et le lien vers l'écran Crédits (src/vues/credits.ts, qui lit
+// la date de l'IGN à son ouverture). Sans date ici : elle demanderait de
+// charger l'île au démarrage ; la carte de l'île porte la sienne (terrains.ts,
+// div.carte-credit).
+const credits = document.getElementById('credits-donnees');
 if (credits) credits.textContent = textes.credits.reglages;
+const lienCredits = document.getElementById('lien-credits');
+if (lienCredits) lienCredits.textContent = textes.credits.lien;
 
 const bouton = document.getElementById('settings-btn');
 const popup = document.getElementById('settings-popup');
@@ -223,13 +228,13 @@ if (caseMemoire) {
 // --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
 // recherche montre un lieu), Jouer (l'arbre des choix : #jouer/classe/pays/Africa,
 // décision « Écran Jouer ») puis Toucher ou une épreuve classée (vue « chrono » :
-// Chrono, Sans faute, Minute), les classements (🏆), la Saisie (⚙). Historique,
+// Chrono, Sans faute, Minute), les classements (🏆), la Saisie et les Crédits (⚙). Historique,
 // redirections et « × » : src/navigation.ts. ---
 
-type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie';
-const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie'];
+type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie' | 'credits';
+const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie', 'credits'];
 /** Vues de passage : leur « Retour » ou « × » ramène à la vue d'avant. */
-const PASSAGE: NomVue[] = ['jouer', 'classement'];
+const PASSAGE: NomVue[] = ['jouer', 'classement', 'credits'];
 const vues = new Map<string, Vue>();
 /** Le monde et l'île (src/terrains.ts), une fois le monde chargé. */
 let terrains: Terrains | null = null;
@@ -561,6 +566,7 @@ async function demarrer(): Promise<void> {
   vues.set('chrono', epreuve);
   vues.set('classement', vueGeneral(ctx, { retour }));
   vues.set('saisie', vueSaisie(ctx));
+  vues.set('credits', vueCredits(ctx, { retour }));
   const champ = document.getElementById('recherche-champ') as HTMLInputElement | null;
   if (champ)
     brancherRecherche({

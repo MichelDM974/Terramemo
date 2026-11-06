@@ -66,7 +66,11 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
 - `ui` écrit `1-carte`, `2-pays-touche` (Suisse), `3-toucher-faux` et
   `4-toucher-juste` (l'Essai J0, lancé depuis ⚙ : `#reglage-essai
   [data-mode=localiser]`), `5-saisie` (« sai » dans le champ réglé),
-  `6-reglages` (⚙, avec l'Essai J0), `7-classe-ams-epreuves` (Jouer ›
+  `6-reglages` (⚙, avec l'Essai J0), `6b-credits` et `6c-credits-bas`
+  (`ui_credits` : l'écran Crédits par « Crédits et licences » de ⚙, en
+  haut puis en bas ; `DÉFAUT` s'il manque une donnée, une bibliothèque,
+  la police ou la date de l'IGN, ou si « Retour » ne ramène pas à la
+  carte), `7-classe-ams-epreuves` (Jouer ›
   Classé › Pays › Amérique du Sud : les trois épreuves, sans record sur le
   profil neuf), `8-chrono-faux` et `9-chrono-bilan` (l'Amérique du Sud
   jouée jusqu'au bilan, ~25 s) dans `--out`

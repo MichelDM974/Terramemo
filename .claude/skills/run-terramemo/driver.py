@@ -933,6 +933,36 @@ def jouer_partie(page, mode, serie):
     attendre_visible(page, "#barre-chrono" if mode in EPREUVES else "#barre-nommer" if mode == "nommer" else "#barre-essai")
 
 
+def ui_credits(p, capturer, defauts):
+    """Captures 6b et 6c (J1a) : l'écran Crédits ouvert par « Crédits et
+    licences » de ⚙ (popup ouverte en entrant), en haut puis en bas, et
+    « Retour » qui ramène à la carte. DÉFAUT s'il manque une donnée, une
+    bibliothèque, la police, la date de l'IGN, ou si « Retour » ne ramène
+    pas à la carte."""
+    cliquer(p, "#lien-credits")
+    attendre_visible(p, "#vue-credits")
+    p.pause(400)
+    vue = p.js("document.body.dataset.vue")
+    texte_credits = texte(p, "#vue-credits")
+    attendus = ["Natural Earth", "Domaine public", "Unicode CLDR", "Unicode License v3", "ADMIN\u00a0EXPRESS",
+                "Licence\u00a0Ouverte\u00a02.0", "à jour au", "ts-fsrs", "d3-geo", "topojson-client", "earcut",
+                "firebase", "@capacitor/core", "Inter", "SIL Open Font License 1.1"]
+    manque = [m for m in attendus if m not in texte_credits]
+    dire(f"  Crédits : vue {vue!r}, {len(texte_credits)} caractères, manque {manque}")
+    if vue != "credits" or manque:
+        defauts.append(f"écran Crédits : vue {vue!r}, manque {manque}")
+    if p.js("!document.getElementById('settings-popup').hidden"):
+        defauts.append("⚙ › Crédits : la popup reste ouverte sur l'écran")
+    capturer("6b-credits")
+    p.js("document.getElementById('vue-credits').scrollTop = 1e6")
+    p.pause(300)
+    capturer("6c-credits-bas")
+    cliquer(p, "#credits-retour")
+    p.pause(400)
+    if p.js("document.body.dataset.vue") != "carte":
+        defauts.append(f"« Retour » des Crédits : vue {p.js('document.body.dataset.vue')} au lieu de la carte")
+
+
 def ui_epreuves(p, capturer, defauts):
     """Captures 20 à 23 (#14, décision « Sans faute et Minute ») : Sans faute
     sur l'Amérique du Sud, deux justes puis une erreur, jusqu'au bilan ; Minute
@@ -1254,7 +1284,9 @@ def ui_reunion(p, capturer, defauts):
         dire(f"  {nom} : {t!r}")
         return t
 
-    avant = p.js("performance.getEntriesByType('resource').filter(r => r.name.includes('/geo/reunion/')).length")
+    # Sauf le sources.json de l'île, que l'écran Crédits lit à son ouverture (ui_credits, plus tôt) pour
+    # la date de l'IGN ; l'île chargée trop tôt se verrait aux trois autres fichiers, lus avec lui.
+    avant = p.js("performance.getEntriesByType('resource').filter(r => r.name.includes('/geo/reunion/') && !r.name.endsWith('/sources.json')).length")
     if avant:
         defauts.append(f"{avant} ressource(s) /geo/reunion/ avant le choix de l'île")
     jouer_partie(p, "localiser", "reunion")
@@ -1487,7 +1519,7 @@ def commande_ui(args):
         if essai_j0 != ["localiser:Trouver", "nommer:Reconnaître"]:
             defauts.append(f"⚙ sans l'Essai J0 (Trouver, Reconnaître) : {essai_j0}")
         capturer("6-reglages")
-        p.js('document.getElementById("settings-btn").click()')
+        ui_credits(p, capturer, defauts)
         # Chrono : l'Amérique du Sud (12 pays) jouée jusqu'au bilan, la
         # première question fausse (le Brésil, ou l'Argentine s'il est demandé).
         # Ses exercices dans Jouer d'abord (Classé › Pays › Amérique du Sud).
