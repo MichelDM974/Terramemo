@@ -134,7 +134,7 @@
     "semaine": "Cette semaine",
     "pseudo_aide": "Publie tes records au classement : choisis un pseudo, visible de tous. Un pseudo, une place : prends le même sur chaque appareil (il n'est pas réservé, qui le choisit la partage).",
     "pseudo_placeholder": "Pseudo (2 à 20 caractères)",
-    "pseudo_invalide": "Le pseudo fait de 2 à 20 caractères, sans « / ».",
+    "pseudo_invalide": "Le pseudo fait de 2 à 20 caractères, en lettres ordinaires, sans « / ».",
     "pseudo_actuel": "Pseudo : {pseudo}",
     "changer": "Changer",
     "publier": "Publier",
