@@ -117,13 +117,13 @@ export async function principal(argv = process.argv.slice(2), env = process.env,
   const taches = await import('./taches.mjs');
   const json = !!options.json;
   const dire = json ? () => {} : sortie;
+  const sdk = await ouvrir(c);
   dire(phraseCible(c));
   dire(
     options.appliquer
       ? `Mode : --appliquer (le plan ci-dessous est exécuté s'il a l'empreinte ${options.attendu}).`
       : 'Mode : à blanc (rien ne change ; relire le plan, puis --appliquer --attendu <son empreinte>).',
   );
-  const sdk = await ouvrir(c);
   const ctx = { ...sdk, maintenant };
   const aFaire =
     commande === 'tournee'

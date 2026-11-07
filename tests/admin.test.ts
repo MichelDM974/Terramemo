@@ -12,7 +12,7 @@ import { execFile } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deleteApp, initializeApp, type App } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
@@ -91,6 +91,34 @@ describe('outil du propriétaire : cible', () => {
     expect(sansEmpreinte.code).toBe(2);
     expect(sansEmpreinte.stderr).toContain('--appliquer --attendu <empreinte>');
   }, 30_000);
+});
+
+describe('outil du propriétaire : le SDK suit la cible', () => {
+  /** Du JavaScript brut, sans types : importé par un chemin calculé. */
+  const module = async <T>(nom: string) => (await import(pathToFileURL(join(RACINE, 'scripts', 'admin', nom)).href)) as T;
+  type Ouvrir = (c: object) => Promise<{ app: { delete(): Promise<void> } }>;
+
+  it('refuse d’ouvrir le SDK si process.env ne vise pas la cible lue (env injecté)', async () => {
+    const { ouvrir } = await module<{ ouvrir: Ouvrir }>('connexion.mjs');
+    const { principal } = await module<{ principal: (argv: string[], env: object, sortie: (s: string) => void) => Promise<number> }>('outil.mjs');
+    const ailleurs = { FIRESTORE_EMULATOR_HOST: '127.0.0.1:1', FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:2' };
+    // Des émulateurs que process.env ne nomme pas : le SDK irait ailleurs (au vrai projet, sans émulateurs posés).
+    await expect(ouvrir({ emulateurs: true, projet: PROJET, hotes: { firestore: ailleurs.FIRESTORE_EMULATOR_HOST, auth: ailleurs.FIREBASE_AUTH_EMULATOR_HOST } })).rejects.toThrow('ne vise pas la cible');
+    const dit: string[] = [];
+    await expect(principal(['inactifs', '--appliquer', '--attendu', '0123456789ab'], ailleurs, (l) => dit.push(l))).rejects.toThrow('ne vise pas la cible');
+    expect(dit).toEqual([]); // pas même « aux émulateurs : rien ne touche le vrai projet »
+    // Le vrai projet alors que process.env pose les émulateurs.
+    const garde = { ...process.env };
+    Object.assign(process.env, ailleurs);
+    try {
+      await expect(ouvrir({ emulateurs: false, projet: 'terramemo-geo', cle: join(MAISON_VIDE, 'absente.json') })).rejects.toThrow('ne vise pas la cible');
+    } finally {
+      for (const k of Object.keys(ailleurs)) {
+        if (garde[k] === undefined) delete process.env[k];
+        else process.env[k] = garde[k];
+      }
+    }
+  });
 });
 
 describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth et Firestore)', () => {

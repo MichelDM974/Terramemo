@@ -95,8 +95,27 @@ export function phraseCible(c) {
     : `Projet : ${c.projet}, le VRAI projet (clé ${c.cle}).`;
 }
 
+/**
+ * Le SDK Admin choisit émulateurs ou vrai projet d'après process.env, pas
+ * d'après l'environnement que `cible` a lu (injectable) : les deux doivent
+ * dire la même chose, sinon une cible « aux émulateurs » irait au vrai
+ * projet (identifiants par défaut du PC), ou l'inverse.
+ */
+function verifierProcessus(c) {
+  const fs = process.env.FIRESTORE_EMULATOR_HOST;
+  const auth = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  const accord = c.emulateurs ? fs === c.hotes.firestore && auth === c.hotes.auth : !fs && !auth;
+  if (!accord) {
+    throw new ErreurUsage(
+      `Le processus (FIRESTORE_EMULATOR_HOST=${fs ?? ''}, FIREBASE_AUTH_EMULATOR_HOST=${auth ?? ''}) ne vise pas la cible ` +
+        `(${c.emulateurs ? `émulateurs ${c.hotes.firestore} et ${c.hotes.auth}` : 'le vrai projet, sans émulateur'}) : le SDK Admin suivrait le processus. Rien n'est ouvert.`,
+    );
+  }
+}
+
 /** Ouvre le SDK Admin sur la cible : `{auth, db}`. Chargé ici seulement, pour qu'une erreur d'usage n'attende pas le SDK. */
 export async function ouvrir(c) {
+  verifierProcessus(c);
   // Pas de recherche du serveur de métadonnées de Google Cloud (PC, pas GCE) :
   // elle attend plusieurs secondes et avertit pour rien.
   process.env.METADATA_SERVER_DETECTION ??= 'none';
