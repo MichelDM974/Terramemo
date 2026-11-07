@@ -302,4 +302,34 @@ describe('lecture des lots et union', () => {
     expect((await aRelire.tous('autre')).length).toBe(1);
     await expect(a.envoi.effacer([UID], () => Promise.reject(new Error('non')))).rejects.toThrow('non');
   });
+
+  it('(P4) le contrôle de l’ouverture, différé par une séance active, se fait à la passe qui lit', async () => {
+    const s = fauxServeur();
+    const lots = depotLotsMemoire();
+    const a = appareil({ serveur: s, lots });
+    await a.memoire.ecrire([evt(A, uuid(), T0 - 3_600_000)]);
+    a.memoire.clore();
+    await a.envoi.declencher('cloture');
+    // Journal perdu, marque gardée ; à l'ouverture, une séance est déjà en cours.
+    const b = appareil({ serveur: s, lots, marques: { lire: async () => T0 + 10_000, poser: async () => undefined } });
+    await b.memoire.ecrire([evt(A, uuid(), T0)]);
+    const r = await b.envoi.declencher('ouverture');
+    expect(r.lecture).toBeNull();
+    b.memoire.clore();
+    const r2 = await b.envoi.declencher('cloture');
+    expect(r2.lecture).toMatchObject({ mode: 'complete', lots: 1 });
+  });
+
+  it('(P1) compter : un lot en attente dont les événements manquent à la lecture du journal compte quand même', async () => {
+    const s = fauxServeur();
+    const a = appareil({ serveur: s });
+    await a.memoire.ecrire([evt(A, uuid(), T0 - 3000)]);
+    a.memoire.clore();
+    s.hors = true;
+    await a.envoi.declencher('cloture');
+    expect((await a.envoi.compter(UID)).nonEnvoyees).toBe(1);
+    await a.memoire.effacer();
+    expect((await a.envoi.compter(UID)).nonEnvoyees).toBe(1);
+  });
 });
+

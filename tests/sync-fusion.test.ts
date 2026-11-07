@@ -76,14 +76,14 @@ function fauxAppareil(o: { reponses?: number; nonEnvoyees?: number; reste?: { no
   } satisfies AppareilComptes;
 }
 
-function monter(o: { appareil?: ReturnType<typeof fauxAppareil>; session?: Session | null; t?: () => number } = {}) {
+function monter(o: { appareil?: ReturnType<typeof fauxAppareil>; session?: Session | null; t?: () => number; coupee?: boolean } = {}) {
   const f = faux();
   const session = depotSessionMemoire(o.session ?? null);
   const stockage = new Stockage();
   const appareil = o.appareil ?? fauxAppareil();
   const jetons: string[] = [];
   // Synchro coupée : le profil ne se lit pas (pas de Firestore dans ce faux SDK).
-  const c = creerComptes({ session, service: f.service, stockage: () => stockage, coupee: () => true, appareil, version: 'v1', republier: async () => undefined, ...(o.t ? { maintenant: o.t } : {}) });
+  const c = creerComptes({ session, service: f.service, stockage: () => stockage, coupee: () => o.coupee ?? true, appareil, version: 'v1', republier: async () => undefined, ...(o.t ? { maintenant: o.t } : {}) });
   c.surJeton((q) => jetons.push(q));
   return { ...f, session, stockage, appareil, c, jetons };
 }
@@ -255,6 +255,66 @@ describe('déconnexion reprenable (D24 a)', () => {
     await mq.poser('uid-bob', 9);
     await mq.poser('uid-ana', 7);
     expect((await m.session.lire())?.marque).toBe(7);
+  });
+});
+
+describe('relectures du lot 4 : rien ne part sans réponse, rien ne s’efface sans être parti', () => {
+  const perdueX = (): Session => ({ ...sessionVide('v1'), uid: 'uid-x', adresse: 'x@exemple.fr', profil_a_ecrire: true });
+
+  it('(C1) un record pendant la question : le profil du compte pas encore pris n’est ni lu ni écrit', async () => {
+    // Synchro non coupée : sans la garde, la passe du profil irait au Firestore (absent du faux SDK : « echec »).
+    const m = monter({ appareil: fauxAppareil({ reponses: 3 }), session: perdueX(), coupee: false });
+    let pendant: unknown = null;
+    await m.c.connecter('ana@exemple.fr', 'motdepasse', async () => {
+      pendant = await m.c.profilModifie('records');
+      return 'annuler';
+    }).catch(() => undefined);
+    expect(pendant).toMatchObject({ etat: 'sans_compte' });
+    expect((await m.session.lire())?.profil_a_ecrire).toBe(true);
+  });
+
+  it('(C2) un échec après la connexion (effacement) : le compte est lâché, jamais pris par la réparation', async () => {
+    const appareil = fauxAppareil({ reponses: 3, effacer: () => Promise.reject(new Error('base bloquée')) });
+    const m = monter({ appareil, session: perdueX() });
+    await expect(m.c.connecter('ana@exemple.fr', 'motdepasse', async () => 'effacer')).rejects.toThrow('base bloquée');
+    expect(m.a.currentUser).toBeNull();
+    expect(await m.c.etat()).toMatchObject({ etat: 'perdue', uid: 'uid-x' });
+    expect(await m.c.pourSynchro()).toBeNull();
+  });
+
+  it('(C2) « Effacer cet appareil » après une question tuée : le compte resté connecté est lâché', async () => {
+    const m = monter({ session: { ...perdueX(), connexion: Date.now() } });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    expect(await m.c.etat()).toMatchObject({ etat: 'perdue', uid: 'uid-x' });
+    await m.c.effacerAppareil();
+    expect(m.signOut).toHaveBeenCalled();
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+  });
+
+  it('(C3) un effacement resté en route est fini avant de prendre un compte ; s’il échoue encore, pas de connexion', async () => {
+    let echouer = true;
+    const appareil = fauxAppareil({ effacer: async () => (echouer ? Promise.reject(new Error('base bloquée')) : undefined) });
+    const m = monter({ appareil, session: { ...sessionVide('v1'), uid: 'uid-ana', adresse: 'ana@exemple.fr', fournisseurs: ['password'] } });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    await expect(m.c.deconnecter()).rejects.toMatchObject({ code: 'terramemo/effacement-inacheve' });
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+    expect((await m.session.lire())?.effacement).toBe('uid-ana');
+    await expect(m.c.connecter('bob@exemple.fr', 'motdepasse')).rejects.toMatchObject({ code: 'terramemo/effacement-inacheve' });
+    expect(m.a.currentUser).toBeNull();
+    echouer = false;
+    await m.c.connecter('bob@exemple.fr', 'motdepasse');
+    expect(appareil.effacer).toHaveBeenLastCalledWith(['uid-ana']);
+    expect(await m.session.lire()).toMatchObject({ uid: 'uid-bob', effacement: null });
+    expect(await m.c.pourSynchro()).toMatchObject({ uid: 'uid-bob' });
+  });
+
+  it('(C4) après une question tuée, « Créer un compte » lâche le compte resté connecté au lieu de refuser', async () => {
+    const m = monter({ session: { ...perdueX(), connexion: Date.now() } });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    const r = await m.c.creer('neuf@exemple.fr', 'motdepasse', async () => 'ajouter');
+    expect(r.adresse).toBe('neuf@exemple.fr');
+    expect(m.signOut).toHaveBeenCalled();
+    expect(await m.session.lire()).toMatchObject({ uid: 'uid-neuf' });
   });
 });
 

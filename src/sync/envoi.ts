@@ -315,6 +315,15 @@ export async function compter(journal: Pick<JournalEnvoi, 'tous'>, lots: DepotLo
   const refusees = new Set<string>();
   let horsLots = 0;
   let reponsesHorsLots = 0;
+  // Un lot en attente ou refusé dont des événements manquent à la lecture du journal compte quand
+  // même : il n'est pas en ligne (une lecture partielle ne vaut jamais « rien à envoyer »).
+  const lus = new Set(evts.map((e) => e.id));
+  for (const f of fiches)
+    if ((f.etat === 'a_envoyer' || f.etat === 'refuse') && f.ids.some((id) => !lus.has(id))) {
+      const cle = f.seance ?? `hors:${f.appareil}`;
+      if (f.etat === 'refuse' && f.cause === 'regles') refusees.add(cle);
+      else attente.add(cle);
+    }
   for (const e of evts) {
     const f = ficheDe.get(e.id);
     if (!f) horsLots++;
@@ -404,6 +413,8 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
   const rapport: RapportEnvoi = { derniere: null, erreurs: [], horsLigne: false, quota: null, lecture: null, lectureDue: null };
   /** Une lecture qui n'a pas pu se faire (séance active, réseau, quota) : la passe suivante la fait. */
   let lectureDue: ModeLecture | null = null;
+  /** Le contrôle de l'ouverture (un id en ligne absent du journal), gardé jusqu'à la passe qui lit vraiment. */
+  let controleDu = false;
   const abonnes = new Set<() => void>();
   /** Dernier envoi en arrière-plan de chaque séance en cours. */
   const fond = new Map<string, number>();
@@ -759,11 +770,19 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     const lu: ResultatLecture = { mode: 'incrementale', lots: 0, evenements: 0, illisibles: 0, relus: 0, arret: null };
     await relireARelire(c.uid, lu);
     let mode = plusComplete(d.lecture, lectureDue);
+    const controle = d.controle || controleDu;
     if (mode && c.serveur.lister) {
-      // Pendant l'attente du quota (sauf « Réessayer »), ou pendant une séance active : à la passe suivante.
-      if ((rapport.quota !== null && rapport.quota > t && !d.force) || (mode === 'incrementale' && journal.seanceEnCours())) lectureDue = mode;
-      else {
-        if (mode === 'incrementale' && d.controle && (await manqueAuJournal(c.uid))) mode = 'complete';
+      // Pendant l'attente du quota (sauf « Réessayer »), ou pendant une séance active : à la passe
+      // suivante, contrôle compris.
+      if ((rapport.quota !== null && rapport.quota > t && !d.force) || (mode === 'incrementale' && journal.seanceEnCours())) {
+        lectureDue = mode;
+        controleDu = controle;
+      } else {
+        // Un échec du contrôle (journal illisible) ne perd ni la lecture ni le contrôle.
+        lectureDue = mode;
+        controleDu = controle;
+        if (mode === 'incrementale' && controle && (await manqueAuJournal(c.uid))) mode = 'complete';
+        controleDu = false;
         lectureDue = null;
         await lire(c, mode, lu);
         // Un refus des règles n'est pas relu à chaque passe : à la prochaine ouverture ou connexion.
@@ -990,6 +1009,7 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
         connues = new Map([...connues].filter(([, f]) => !uids.includes(f.uid)));
         fond.clear();
         lectureDue = null;
+        controleDu = false;
         rapport.lectureDue = null;
         planifier();
       }),

@@ -725,6 +725,9 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       void rafraichir();
     },
     desactiver() {
+      // La vue quittée pendant la question de fusion : « Annuler » (le compte n'est pas pris, et
+      // l'appel des comptes ne reste pas suspendu).
+      repondre?.('annuler');
       active = false;
       section.hidden = true;
       ctx.carte.masquer(false);

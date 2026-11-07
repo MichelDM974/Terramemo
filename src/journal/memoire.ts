@@ -59,9 +59,11 @@ export interface Memoire {
   /**
    * Tout le journal : celui du dépôt, plus les événements écrits par la page
    * qu'il n'a pas (file en cours, dépôt en échec, repli en mémoire). Attend
-   * le chargement ; ne rejette pas (dépôt illisible : ceux de la page).
+   * le chargement ; ne rejette pas (dépôt illisible : ceux de la page), sauf
+   * `strict` : l'envoi et les comptes, pour qui une lecture ratée ne vaut
+   * jamais « rien à envoyer » (une déconnexion effacerait des séances).
    */
-  tous(): Promise<Evenement[]>;
+  tous(o?: { strict?: boolean }): Promise<Evenement[]>;
   /**
    * La séance de la page en cours : celle du dernier événement écrit, tant
    * qu'elle n'est pas close (clore). Toute autre séance est close (étude du
@@ -117,8 +119,16 @@ export interface OptionsMemoire {
   auRepos?: (f: () => void) => void;
 }
 
-/** Message des onglets : un journal effacé, ou un journal qui a changé (séance close, union). */
-type MessageCanal = { type: 'efface' } | { type: 'journal' };
+/**
+ * Message des onglets : un effacement qui commence (les autres n'écrivent
+ * plus), fini, ou abandonné ; un journal qui a changé (séance close, union).
+ */
+type MessageCanal = { type: 'effacement' } | { type: 'efface' } | { type: 'reprise' } | { type: 'journal' };
+
+/** Un rejeu complet qui n'a pas pu lire le journal réessaie au bout de ce délai. */
+export const REJEU_REESSAI_MS = 5000;
+/** Un effacement annoncé par un autre onglet, jamais fini ni abandonné (onglet fermé) : les écritures reprennent. */
+export const GEL_MAX_MS = 30_000;
 
 function reposParDefaut(f: () => void): void {
   const ric = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => unknown }).requestIdleCallback;
@@ -160,6 +170,29 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
   let rejeuDu = false;
   let rejeu: Promise<void> | null = null;
   const auRepos = o.auRepos ?? reposParDefaut;
+  /**
+   * Un autre onglet efface le journal : cette page n'écrit plus au dépôt
+   * (l'écriture passerait après le vidage et survivrait) jusqu'à « efface »
+   * (la page se recharge, ou ses écritures en attente sont abandonnées) ou
+   * « reprise ». `generation` : les écritures d'avant un effacement fini ne
+   * partent pas.
+   */
+  let gel: { fin: Promise<void>; lever: () => void; minuterie: ReturnType<typeof setTimeout> } | null = null;
+  let generation = 0;
+  const geler = () => {
+    if (gel) return;
+    let lever!: () => void;
+    const fin = new Promise<void>((ok) => (lever = ok));
+    const minuterie = setTimeout(() => degeler(), GEL_MAX_MS);
+    (minuterie as { unref?: () => void }).unref?.();
+    gel = { fin, lever, minuterie };
+  };
+  const degeler = () => {
+    if (!gel) return;
+    clearTimeout(gel.minuterie);
+    gel.lever();
+    gel = null;
+  };
 
   const echec = (e: unknown) => {
     garde = false;
@@ -174,11 +207,16 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
   /** L'état refait du journal entier : dépôt ∪ page (un événement en mémoire seulement n'est pas perdu). */
   async function rejouerTout(): Promise<void> {
     rejeuDu = false;
-    let gardes: Evenement[] = [];
+    let gardes: Evenement[];
     try {
       gardes = await depot.tous();
     } catch {
-      // Dépôt illisible après coup : ceux de la page seulement.
+      // Journal illisible un instant : l'état d'avant reste (le remplacer par la page seule le
+      // viderait), et le rejeu réessaie plus tard.
+      rejeuDu = true;
+      const t = setTimeout(() => void planifierRejeu(), REJEU_REESSAI_MS);
+      (t as { unref?: () => void }).unref?.();
+      return;
     }
     // Synchrone dès ici : une écriture de la page venue pendant la lecture est dans `page`.
     const tout = [...gardes, ...page.values()];
@@ -213,12 +251,18 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
     try {
       const c = new BroadcastChannel(o.canal);
       c.onmessage = (ev: MessageEvent<MessageCanal>) => {
-        if (ev.data?.type === 'efface') {
+        const t = ev.data?.type;
+        if (t === 'effacement') geler();
+        else if (t === 'reprise') degeler();
+        else if (t === 'efface') {
+          // Les écritures gelées pendant l'effacement ne partent plus : elles sont au compte d'avant.
+          generation++;
+          degeler();
           if (o.surEffaceAilleurs) return o.surEffaceAilleurs();
           page.clear();
           enAttente = [];
           void rejouerTout();
-        } else if (ev.data?.type === 'journal') void planifierRejeu();
+        } else if (t === 'journal') void planifierRejeu();
       };
       // Node (tests) : le canal ne retient pas le processus.
       (c as { unref?: () => void }).unref?.();
@@ -271,13 +315,14 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
     get ecrits() {
       return ecrits;
     },
-    async tous() {
+    async tous(opt) {
       await pret;
       let gardes: Evenement[] = [];
       try {
         gardes = await depot.tous();
-      } catch {
-        // Dépôt illisible après coup : ceux de la page seulement.
+      } catch (e) {
+        // Dépôt illisible après coup : ceux de la page seulement, sauf pour qui doit le savoir.
+        if (opt?.strict) throw e;
       }
       const tout = new Map(gardes.map((e) => [e.id, e]));
       // Un événement que le dépôt refuserait (invalide) ne sort pas non plus d'ici.
@@ -309,10 +354,13 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
         }
       else enAttente.push(...evts);
       const lot = [...evts];
-      // Après le chargement : un dépôt remplacé par le repli reçoit les écrits.
+      const gen = generation;
+      // Après le chargement : un dépôt remplacé par le repli reçoit les écrits. Pendant l'effacement
+      // d'un autre onglet, l'écriture attend ; un effacement fini l'abandonne (la page se recharge).
       file = file
         .then(() => (charge ? undefined : pret))
-        .then(() => depot.ajouter(lot))
+        .then(() => gel?.fin)
+        .then(() => (gen === generation ? depot.ajouter(lot) : undefined))
         .catch(echec);
       return file;
     },
@@ -321,7 +369,7 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
       // Une copie, et rien de ce que la page connaît déjà (le rejeu ne bougerait pas).
       const nouveaux = ordonner(evts.filter((e) => !ids.has(e.id))).map((e) => structuredClone(e));
       if (!nouveaux.length) return;
-      const ecriture = file.then(() => depot.ajouter(nouveaux));
+      const ecriture = file.then(() => gel?.fin).then(() => depot.ajouter(nouveaux));
       file = ecriture.catch(() => undefined);
       await ecriture;
       diffuser({ type: 'journal' });
@@ -339,6 +387,9 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
     },
     async effacer() {
       const avant = new Set(page.keys());
+      // Les autres onglets cessent d'écrire avant le vidage : une réponse écrite juste après lui
+      // survivrait, et partirait au compte suivant.
+      diffuser({ type: 'effacement' });
       const vidage = file
         .then(() => pret)
         .then(async () => {
@@ -352,7 +403,12 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
           if (depot !== depotReel) await depot.vider?.();
         });
       file = vidage.catch(() => undefined);
-      await vidage;
+      try {
+        await vidage;
+      } catch (e) {
+        diffuser({ type: 'reprise' });
+        throw e;
+      }
       // Ce que la page a écrit depuis le début de l'effacement est passé après lui dans la file : gardé.
       for (const id of avant) page.delete(id);
       const reste = [...page.values()];

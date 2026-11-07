@@ -194,3 +194,71 @@ describe('onglets (BroadcastChannel)', () => {
     b.fermer();
   });
 });
+
+describe('relectures du lot 4 : journal illisible un instant, onglets pendant un effacement', () => {
+  it('(P1) tous({ strict }) rejette quand le journal est illisible ; sans strict, ceux de la page', async () => {
+    const d = depotMemoire();
+    await d.ajouter([ev('pays:FRA:localiser', J, 3)]);
+    let casse = false;
+    const depot: Depot = { tous: () => (casse ? Promise.reject(new ErreurDepot('echec', 'fermée')) : d.tous()), ajouter: (e) => d.ajouter(e), vider: () => d.vider!() };
+    const m = ouvrirMemoire({ depot, appareil: 'app', horloge: () => ({ ts: J, tz: 240 }) });
+    await m.pret;
+    casse = true;
+    await expect(m.tous({ strict: true })).rejects.toThrow('fermée');
+    expect(await m.tous()).toEqual([]);
+  });
+
+  it('(P2) un rejeu complet sur un journal illisible garde l’état d’avant, puis réessaie', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const d = depotMemoire();
+      await d.ajouter([ev('pays:FRA:localiser', J + JOUR, 3), ev('pays:ITA:localiser', J + JOUR, 3)]);
+      let casse = false;
+      const depot: Depot = { tous: () => (casse ? Promise.reject(new ErreurDepot('echec', 'fermée')) : d.tous()), ajouter: (e) => d.ajouter(e) };
+      const m = ouvrirMemoire({ depot, appareil: 'app', horloge: () => ({ ts: J, tz: 240 }), auRepos: immediat });
+      await m.pret;
+      casse = true;
+      // Une union plus ancienne : rejeu complet, qui ne peut pas lire.
+      await m.fusionner([ev('pays:DEU:localiser', J, 3, { appareil: 'autre' })]);
+      expect(m.etat().size).toBe(2);
+      casse = false;
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(m.etat().size).toBe(3);
+      await egalAuRejeu(m, d);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('(P3) pendant l’effacement d’un autre onglet, les écritures attendent, puis sont abandonnées', async () => {
+    const nom = `terramemo-essai-${++canaux}`;
+    const d = depotMemoire();
+    const h = () => ({ ts: J, tz: 240 });
+    const a = ouvrirMemoire({ depot: d, appareil: 'app', horloge: h, canal: nom });
+    const efface = vi.fn();
+    const b = ouvrirMemoire({ depot: d, appareil: 'app', horloge: h, canal: nom, surEffaceAilleurs: efface });
+    await Promise.all([a.pret, b.pret]);
+    // L'annonce arrive avant le vidage : l'écriture de B attend.
+    const canal = new BroadcastChannel(nom);
+    canal.postMessage({ type: 'effacement' });
+    await vi.waitFor(() => new Promise((r) => setTimeout(r, 10)));
+    const ecrit = b.ecrire([ev('pays:FRA:localiser', J, 3)]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(await d.tous()).toEqual([]);
+    await a.effacer();
+    await vi.waitFor(() => expect(efface).toHaveBeenCalled());
+    await ecrit;
+    expect(await d.tous()).toEqual([]);
+    // « reprise » (effacement abandonné) : les écritures repartent.
+    canal.postMessage({ type: 'effacement' });
+    await new Promise((r) => setTimeout(r, 10));
+    const e2 = ev('pays:ITA:localiser', J, 3);
+    const ecrit2 = b.ecrire([e2]);
+    canal.postMessage({ type: 'reprise' });
+    await ecrit2;
+    expect((await d.tous()).map((x) => x.id)).toEqual([e2.id]);
+    canal.close();
+    a.fermer();
+    b.fermer();
+  });
+});

@@ -105,11 +105,14 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
     console.info(`S16 (émulateur) : sign_in_provider après le lien = ${j.sign_in_provider}`);
   });
 
-  it('se déconnecte puis se reconnecte au même compte ; le journal n’est pas touché', async () => {
+  it('se déconnecte (ce qui n’est pas parti d’abord dit, lot 4) puis se reconnecte au même compte', async () => {
     const a = adresse();
     await comptes.creer(a, 'motdepasse');
     const { uid } = (await comptes.etat()) as { uid: string };
-    await comptes.deconnecter();
+    // Le profil n'a pas pu partir (joueurs/ fermé par les règles de ces essais) : la déconnexion le dit (§ 3.4).
+    expect(await comptes.deconnecter()).toMatchObject({ fait: false, profil: false });
+    expect(await comptes.etat()).toMatchObject({ etat: 'compte', uid });
+    expect(await comptes.deconnecter({ quandMeme: true })).toEqual({ fait: true });
     expect(await comptes.etat()).toEqual({ etat: 'invite', anonyme: false });
     expect((await session.lire())?.uid).toBeNull();
     expect(await comptes.connecter(a, 'motdepasse')).toMatchObject({ adresse: a });
@@ -119,7 +122,7 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
   it('mot de passe oublié : l’e-mail part, et une adresse inconnue répond pareil', async () => {
     const a = adresse();
     await comptes.creer(a, 'motdepasse');
-    await comptes.deconnecter();
+    await comptes.deconnecter({ quandMeme: true });
     await comptes.oublier(a);
     expect(await emails()).toContainEqual(expect.objectContaining({ email: a, requestType: 'PASSWORD_RESET' }));
     await expect(comptes.oublier('personne@exemple.fr')).resolves.toBeUndefined();
@@ -137,7 +140,7 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
   it('chaque erreur atteignable est traduite, jamais le message anglais', async () => {
     const a = adresse();
     await comptes.creer(a, 'motdepasse');
-    await comptes.deconnecter();
+    await comptes.deconnecter({ quandMeme: true });
     expect(await texte(comptes.connecter(a, 'mauvais-mdp'))).toBe('Adresse ou mot de passe incorrect');
     // Le message brut (anglais) va au pilote seulement.
     const brut = comptes.rapport().erreurs.at(-1)!;

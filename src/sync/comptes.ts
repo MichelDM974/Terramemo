@@ -422,6 +422,36 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     effacerJoueurLocal(stockage() as Pick<Storage, 'removeItem'> | null);
   }
 
+  /**
+   * Avant de prendre un compte : un effacement resté en route (déconnexion
+   * ou « Effacer cet appareil » dont le journal n'a pas pu être vidé) est
+   * fini d'abord. Sinon le compte pris n'enverrait rien (pourSynchro) et le
+   * démarrage suivant effacerait ce qu'il aurait joué. Lève
+   * terramemo/effacement-inacheve s'il échoue encore. Rend la session à jour.
+   */
+  async function finirEffacement(): Promise<Session> {
+    const ses = await lireSession();
+    if (!ses.effacement) return ses;
+    try {
+      await effacerTout([ses.effacement]);
+    } catch (e) {
+      noter(e);
+      throw new ErreurCompte('terramemo/effacement-inacheve');
+    }
+    await ecrireSession({ ...APRES_EFFACEMENT, deconnexion: null });
+    return lireSession();
+  }
+
+  /**
+   * Un compte connecté dans Firebase que la session n'a pas pris (question de
+   * fusion tuée en route) : déconnecté, pour ne jamais le prendre sans réponse
+   * ni lier un compte à un autre.
+   */
+  async function lacherCompteNonPris(s: Service, ses: Session): Promise<void> {
+    const u = s.a.currentUser;
+    if (estCompte(u) && u!.uid !== ses.uid) await s.m.auth.signOut(s.a);
+  }
+
   // --- Profil (§ 5.4) ---
 
   /** Incrémenté à chaque changement noté : une synchro ne lève le drapeau que si rien n'est venu depuis son début. */
@@ -481,6 +511,10 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     }
     const u = s.a.currentUser;
     if (!u || !estCompte(u)) return fini('sans_compte');
+    // Le compte de la session seulement, comme pourSynchro : un compte connecté pendant la question
+    // de fusion (D22), ou resté d'une question tuée, ne reçoit rien de l'appareil avant la réponse.
+    const ses = await lireSession();
+    if (ses.uid !== u.uid || ses.connexion !== null || ses.deconnexion || ses.effacement || ses.suppression) return fini('sans_compte');
     const o = { pseudoLocal: pseudoChangeIci(local.pseudo, base, u.uid), periode };
     const calculer = (lu: ProfilLu) => (lu.supprime ? null : { ...fusionner(lu, local, o), cree: !lu.existe });
     try {
@@ -626,11 +660,13 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         const s = await service();
         surveiller(s);
         const { auth } = s.m;
+        const ses = await finirEffacement();
+        if (estCompte(s.a.currentUser) && s.a.currentUser!.uid === ses.uid && !ses.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
+        // Un compte d'une question tuée : lâché, jamais lié (linkWithCredential ne vaut que pour un anonyme).
+        await lacherCompteNonPris(s, ses);
         const avant = s.a.currentUser;
-        if (estCompte(avant)) throw new ErreurCompte('terramemo/deja-connecte');
         // Un invité lie son journal au compte neuf, sans question (lien, pas copie : § 2.2). Une session
         // perdue d'un autre compte : la question d'abord (§ 2.5), avant de rien créer.
-        const ses = await lireSession();
         let fusion: ResultatFusion = 'sans_question';
         if (ses.uid) {
           const q = await question(null, ses);
@@ -661,7 +697,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         if (!mdp) throw new ErreurCompte('auth/missing-password');
         const s = await service();
         surveiller(s);
-        const avant = await lireSession();
+        const avant = await finirEffacement();
         const courant = s.a.currentUser;
         if (estCompte(courant) && avant.uid === courant!.uid && !avant.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
         // § 2.3 : le compte est connecté pour connaître son uid, mais la session ne le prend qu'après
@@ -671,19 +707,24 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         try {
           await ecrireSession({ connexion: maintenant() });
           const { user } = await s.m.auth.signInWithEmailAndPassword(s.a, a, mdp);
-          const q = await question(user.uid, avant);
-          const choix = q ? (choisir ? await choisir(q) : 'ajouter') : 'ajouter';
-          if (choix === 'annuler') {
+          try {
+            const q = await question(user.uid, avant);
+            const choix = q ? (choisir ? await choisir(q) : 'ajouter') : 'ajouter';
             // L'état d'avant revient (invité, session perdue) : rien n'est parti, rien n'est effacé.
-            await s.m.auth.signOut(s.a);
-            throw new ErreurCompte('terramemo/connexion-annulee');
+            if (choix === 'annuler') throw new ErreurCompte('terramemo/connexion-annulee');
+            // « Ne pas les ajouter » : effacés maintenant, avant la restauration (§ 2.3, étape 3).
+            if (choix === 'effacer') await effacerTout([avant.uid, user.uid]);
+            const profil = await connecte(user);
+            prevenir();
+            const fusion: ResultatFusion = !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute';
+            return { adresse: user.email ?? a, profil, fusion, reponses: q && choix === 'ajouter' ? q.reponses : 0 };
+          } catch (e) {
+            // « Annuler », ou un échec avant que la session ait pris le compte (effacement, lecture du
+            // journal) : le compte est lâché, comme s'il n'avait jamais été connecté. Sans quoi la
+            // réparation d'etat() le prendrait sans réponse.
+            if ((await lireSession()).uid !== user.uid) await s.m.auth.signOut(s.a).catch(noter);
+            throw e;
           }
-          // « Ne pas les ajouter » : effacés maintenant, avant la restauration (§ 2.3, étape 3).
-          if (choix === 'effacer') await effacerTout([avant.uid, user.uid]);
-          const profil = await connecte(user);
-          prevenir();
-          const fusion: ResultatFusion = !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute';
-          return { adresse: user.email ?? a, profil, fusion, reponses: q && choix === 'ajouter' ? q.reponses : 0 };
         } finally {
           questionIci = false;
           await modifierSession((x) => (x.connexion !== null ? { connexion: null } : null));
@@ -784,6 +825,9 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         const ses = await lireSession();
         const s = await service();
         if (estCompte(s.a.currentUser) && s.a.currentUser!.uid === ses.uid && !ses.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
+        // Un compte d'une question tuée, encore connecté : lâché d'abord (sinon, la question levée,
+        // la réparation d'etat() le prendrait sans réponse).
+        await lacherCompteNonPris(s, ses);
         // Reprenable comme la déconnexion : `effacement` posé d'abord.
         if (ses.uid) await ecrireSession({ effacement: ses.uid });
         try {

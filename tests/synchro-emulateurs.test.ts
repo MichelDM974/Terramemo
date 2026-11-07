@@ -116,7 +116,7 @@ function appareil(nom: string, o: { decalage?: number } = {}) {
     const appareilComptes: AppareilComptes = {
       async reponsesHorsCompte(uid) {
         if (uid) return (await envoi!.compter(uid)).reponsesHorsLots;
-        return (await memoire.tous()).filter((e) => e.type === 'reponse').length;
+        return (await memoire.tous({ strict: true })).filter((e) => e.type === 'reponse').length;
       },
       nonEnvoyees: async (uid) => (await envoi!.compter(uid)).nonEnvoyees,
       async envoyerTout(uid) {
@@ -136,7 +136,7 @@ function appareil(nom: string, o: { decalage?: number } = {}) {
       appareil: appareilComptes,
     });
     envoi = creerEnvoi({
-      journal: { tous: () => memoire.tous(), attendre: () => memoire.ecrire([]), seanceEnCours: () => memoire.seanceEnCours(), fusionner: (e) => memoire.fusionner(e) },
+      journal: { tous: () => memoire.tous({ strict: true }), attendre: () => memoire.ecrire([]), seanceEnCours: () => memoire.seanceEnCours(), fusionner: (e) => memoire.fusionner(e) },
       lots,
       aRelire,
       marques: comptes.marques(),

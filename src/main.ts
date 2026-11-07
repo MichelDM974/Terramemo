@@ -720,7 +720,7 @@ function chargerComptes(): Promise<typeof import('./sync/comptes')> {
 const appareilComptes: AppareilComptes = {
   async reponsesHorsCompte(uid) {
     if (uid) return (await (await chargerEnvoi()).compter(uid)).reponsesHorsLots;
-    return (await memoire.tous()).filter((e) => e.type === 'reponse').length;
+    return (await memoire.tous({ strict: true })).filter((e) => e.type === 'reponse').length;
   },
   nonEnvoyees: async (uid) => (await (await chargerEnvoi()).compter(uid)).nonEnvoyees,
   async envoyerTout(uid) {
@@ -760,7 +760,8 @@ function demarrerCompte(): void {
 
 /** Le journal tel que l'envoi le lit : tout, la file d'écriture, la séance en cours. */
 const journalEnvoi = {
-  tous: () => memoire.tous(),
+  // Strict : un journal illisible un instant arrête la passe (et une déconnexion), jamais « rien à envoyer ».
+  tous: () => memoire.tous({ strict: true }),
   attendre: () => memoire.ecrire([]),
   seanceEnCours: () => memoire.seanceEnCours(),
   // Les lots lus en ligne (lot 4) : au journal, l'état rejoué au repos, hors d'une séance active.
