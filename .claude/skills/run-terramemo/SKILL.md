@@ -1081,7 +1081,11 @@ Firebase les supprime 30 jours après leur création) :
   et leur profil, puis `deleteUsers` par 1 000. Un compte bloqué pour abus
   y passe aussi, au bout de 2 ans ;
 - `tombes [--finir]` : pierres tombales de plus d'un jour. Compte parti et
-  lots vides : effacée. Compte parti, lots restants : les lots, puis la
+  lots vides : effacée si l'outil l'a déjà vue sans compte il y a plus
+  d'un jour (`vu_sans_compte`, écrit par l'outil seul), sinon redatée
+  (`maj` date la pierre tombale, pas le départ du compte, qui peut n'avoir
+  que quelques minutes après une suppression reprise des jours plus tard).
+  Compte parti, lots restants : les lots, puis la
   pierre tombale redatée. Compte encore dans Auth : « suppression restée en
   route », signalée ; `--finir` la finit (lots, puis le compte), pierre
   tombale redatée. Redatée, elle a moins d'un jour : effacée à la tournée

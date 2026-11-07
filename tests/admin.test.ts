@@ -193,7 +193,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
   }
 
   /** Applique une commande et vérifie que l'état d'après est l'état d'avant moins le plan ; puis qu'une relance n'a rien à faire. */
-  async function exactEtIdempotent(args: string[], env: Record<string, string> = {}) {
+  async function exactEtIdempotent(args: string[], env: Record<string, string> = {}, relance = true) {
     const avant = await etat();
     const r = await appliquer(args, env);
     expect(r.stderr).toBe('');
@@ -211,6 +211,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     }
     expect(reel.comptes).toEqual(attendu.comptes);
     expect(reel.docs).toEqual(attendu.docs);
+    if (!relance) return { actions, notes: rendu.taches.flatMap((t) => t.notes), avant, apres: reel };
     const encore = await appliquer(args, env);
     expect(encore.code).toBe(0);
     const rendu2 = JSON.parse(encore.stdout) as Rendu;
@@ -269,10 +270,15 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     expect(chemins(actions)).toEqual([...[0, 1, 2].map((i) => `joueurs/fantome/lots/${String(i).padStart(36, '0')}`), 'doc:joueurs/fantome', `joueurs/fantome2/lots/${'0'.repeat(36)}`]);
   }, 60_000);
 
-  it('tombes : effacée si compte parti et lots vides ; lots d’abord sinon ; en route signalée, puis finie par --finir', async () => {
+  it('tombes : compte parti et lots vides, redatée à la première vue, effacée à la suivante ; lots d’abord sinon ; en route signalée, puis finie par --finir', async () => {
     await monde();
     const { actions, notes, apres: e } = await exactEtIdempotent(['tombes']);
-    expect(chemins(actions)).toEqual(['doc:joueurs/parti', ...[0, 1].map((i) => `joueurs/parti2/lots/${String(i).padStart(36, '0')}`), 'dater:joueurs/parti2']);
+    // « parti » : pierre tombale de deux jours, mais le compte peut n'être parti que depuis quelques minutes (un jeton vaut encore).
+    expect(chemins(actions)).toEqual(['dater:joueurs/parti', ...[0, 1].map((i) => `joueurs/parti2/lots/${String(i).padStart(36, '0')}`), 'dater:joueurs/parti2']);
+    expect(e.docs['joueurs/parti']).toBeDefined();
+    const vue = await db.doc('joueurs/parti').get();
+    expect(vue.get('supprime')).toBe(true);
+    expect(vue.get('vu_sans_compte')).toBeInstanceOf(Timestamp);
     expect(notes.some((n) => n.startsWith('joueurs/enroute : suppression restée en route'))).toBe(true);
     expect(e.docs['joueurs/recent']).toBeDefined();
     expect(e.docs['joueurs/enroute']).toBeDefined();
@@ -281,8 +287,11 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     expect(chemins(fini.actions)).toEqual([`joueurs/enroute/lots/${'0'.repeat(36)}`, 'compte:enroute', 'dater:joueurs/enroute']);
     // Redatées : effacées à la tournée suivante (plus d'un jour après).
     const plusTard = new Date(Date.now() + 2 * JOUR).toISOString();
-    const suivante = await exactEtIdempotent(['tombes'], { TERRAMEMO_MAINTENANT: plusTard });
-    expect(chemins(suivante.actions)).toEqual(['doc:joueurs/enroute', 'doc:joueurs/parti2', 'doc:joueurs/recent']);
+    // (Pas de relance à la même heure simulée : « recent », redatée à l'heure réelle du serveur, y aurait déjà plus d'un jour.)
+    const suivante = await exactEtIdempotent(['tombes'], { TERRAMEMO_MAINTENANT: plusTard }, false);
+    expect(chemins(suivante.actions)).toEqual(['doc:joueurs/enroute', 'doc:joueurs/parti', 'doc:joueurs/parti2', 'dater:joueurs/recent']);
+    const encore = await exactEtIdempotent(['tombes'], { TERRAMEMO_MAINTENANT: new Date(Date.now() + 4 * JOUR).toISOString() });
+    expect(chemins(encore.actions)).toEqual(['doc:joueurs/recent']);
   }, 90_000);
 
   it('demandes : les places à la clé exacte du pseudo, chaque épreuve et période, jamais un pseudo voisin', async () => {

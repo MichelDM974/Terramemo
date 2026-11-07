@@ -1612,7 +1612,14 @@ visible en production.
   `lastRefreshTime`, à défaut `lastSignInTime`, puis `creationTime` ;
   2 ans calendaires. Un compte bloqué pour abus est purgé aussi au bout de
   2 ans (son adresse n'est pas gardée à vie) ;
-- pierres tombales : « plus d'un jour » d'après `maj`. Compte parti mais
+- pierres tombales : « plus d'un jour » d'après `maj`. Compte parti et
+  lots vides : effacée seulement si l'outil l'a déjà vue sans compte plus
+  d'un jour avant (`vu_sans_compte`, posé par l'outil en la redatant, que
+  `profilValide` ne laisse pas écrire au client) ; sinon redatée d'abord :
+  `maj` date la pierre tombale, pas le départ du compte, et une
+  suppression reprise des jours après (appli tuée, connexion trop
+  ancienne) laisse un compte parti depuis quelques minutes, dont un jeton
+  vaut encore une heure (profil recréé, lots poussés). Compte parti mais
   lots restants (compte supprimé hors de l'appli), ou suppression finie
   par `--finir` : les lots (et le compte), puis la pierre tombale
   **redatée** à l'heure du serveur, effacée à la tournée suivante. Un
