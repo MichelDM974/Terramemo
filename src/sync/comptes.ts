@@ -120,7 +120,7 @@ export interface Comptes {
    * perdue comprise, sans charger Firebase pour un invité. Lève si le service
    * ne se charge pas (hors ligne).
    */
-  pourSynchro(): Promise<{ uid: string; service: Service } | null>;
+  pourSynchro(): Promise<{ uid: string; service: Service; verifiee: boolean } | null>;
   /** Le jeton du compte vient de changer (création, lien, connexion, adresse vérifiée). */
   surJeton(f: () => void): () => void;
   /** Démarrage d'un compte ou d'une session perdue : SDK chargé, état surveillé. */
@@ -622,7 +622,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         }
         await verifierJeton(u);
       }
-      return s.a.currentUser === u ? { uid: u.uid, service: s } : null;
+      return s.a.currentUser === u ? { uid: u.uid, service: s, verifiee: u.emailVerified } : null;
     },
 
     surJeton(f) {

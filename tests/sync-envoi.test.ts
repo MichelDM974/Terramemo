@@ -68,18 +68,18 @@ function fauxJournal(evts: Evenement[] = []) {
   return j satisfies JournalEnvoi;
 }
 
-function monter(o: { journal?: ReturnType<typeof fauxJournal>; lots?: DepotLots; version?: string; compte?: boolean; coupee?: boolean; serveur?: ReturnType<typeof fauxServeur> } = {}) {
+function monter(o: { journal?: ReturnType<typeof fauxJournal>; lots?: DepotLots; version?: string; compte?: boolean; coupee?: boolean; serveur?: ReturnType<typeof fauxServeur>; verifiee?: boolean } = {}) {
   const journal = o.journal ?? fauxJournal();
   const serveur = o.serveur ?? fauxServeur();
   const lots = o.lots ?? depotLotsMemoire();
   const horloge = { t: Date.UTC(2026, 10, 7, 8, 0, 0) };
   const minuteries: { f: () => void; ms: number }[] = [];
-  const etat = { compte: o.compte ?? true, coupee: o.coupee ?? false };
+  const etat = { compte: o.compte ?? true, coupee: o.coupee ?? false, verifiee: o.verifiee };
   const envoi = creerEnvoi({
     journal,
     lots,
     version: o.version ?? 'v1',
-    compte: async () => (etat.compte ? { uid: UID, serveur: serveur as Serveur } : null),
+    compte: async () => (etat.compte ? { uid: UID, serveur: serveur as Serveur, verifiee: etat.verifiee } : null),
     coupee: () => etat.coupee,
     maintenant: () => horloge.t,
     verrou: (f) => f(),
@@ -362,10 +362,19 @@ describe('envoi des séances', () => {
     expect(await m.envoi.declencher('reseau')).toMatchObject({ envoyes: 1 });
   });
 
-  it('relance des refusés : un seul essai (la sonde) tant que les règles refusent, les autres à la relance suivante, en tournant', async () => {
+  it('règles qui refusent : une sonde par passe, lots neufs compris ; les refusés relancés en tournant, puis tous quand elle passe', async () => {
     const m = monter({ journal: fauxJournal([evt(S1), evt(S2), evt(null)]) });
     m.serveur.accepte = false;
+    // Le premier lot refusé retient les deux autres, jamais essayés : un seul essai par passe.
     await m.envoi.declencher('cloture');
+    expect(m.serveur.creer).toHaveBeenCalledTimes(1);
+    expect((await etats(m.lots)).sort()).toEqual(['a_envoyer', 'a_envoyer', 'refuse:regles']);
+    await m.envoi.declencher('cloture');
+    await m.envoi.declencher('cloture');
+    expect(m.serveur.creer).toHaveBeenCalledTimes(3);
+    expect(await etats(m.lots)).toEqual(['refuse:regles', 'refuse:regles', 'refuse:regles']);
+    // Les déclencheurs ordinaires laissent les refusés ; chaque relance en sonde un autre.
+    await m.envoi.declencher('premier_plan');
     expect(m.serveur.creer).toHaveBeenCalledTimes(3);
     const sondes: string[] = [];
     for (let i = 0; i < 3; i++) {
@@ -374,12 +383,106 @@ describe('envoi des séances', () => {
       expect(m.serveur.creer.mock.calls.length).toBe(n + 1);
       sondes.push(m.serveur.creer.mock.calls.at(-1)![1]);
     }
-    // Chaque relance sonde un autre lot : un lot refusé à part ne bloque pas les autres.
+    // Un lot refusé à part ne bloque donc pas les autres.
     expect(new Set(sondes).size).toBe(3);
-    // Les règles acceptent : la sonde passe, et tous les refusés suivent.
     m.serveur.accepte = true;
     expect(await m.envoi.declencher('reessayer')).toMatchObject({ envoyes: 3 });
     expect(await m.envoi.etat(UID)).toMatchObject({ refusees: 0, attente: 0 });
+  });
+
+  it('refusé quand l’adresse n’était pas vérifiée : relancé dès qu’elle l’est, sans attendre le jour', async () => {
+    const m = monter({ journal: fauxJournal([evt(S1)]), verifiee: false });
+    m.serveur.accepte = false;
+    await m.envoi.declencher('cloture');
+    expect((await fiches(m.lots))[0]).toMatchObject({ etat: 'refuse', adresse_verifiee: false });
+    m.serveur.accepte = true;
+    expect(await m.envoi.declencher('ouverture')).toMatchObject({ envoyes: 0 });
+    m.etat.verifiee = true;
+    expect(await m.envoi.declencher('ouverture')).toMatchObject({ envoyes: 1 });
+  });
+
+  it('état perdu, ids dans n’importe quel ordre et horloge qui recule : aucun doublon en ligne, rien hors des lots', async () => {
+    const ordres: Record<string, (i: number) => number> = {
+      croissant: (i) => i * 1000,
+      recul: (i) => (i < 150 ? 1_000_000 + i * 1000 : i * 1000),
+      entrelace: (i) => (i % 2 ? i * 1000 : 900_000 - i * 1000),
+    };
+    for (const [nom, tsDe] of Object.entries(ordres))
+      for (let essai = 0; essai < 8; essai++) {
+        // De vrais uuid : leur ordre n'a rien à voir avec celui du temps.
+        const e = Array.from({ length: 350 }, (_, i) => evt(S1, { id: crypto.randomUUID(), ts: 1_762_500_000_000 + tsDe(i) }));
+        const j = fauxJournal(e.slice(0, 150));
+        j.enCours = S1;
+        const m = monter({ journal: j });
+        await m.envoi.declencher('fond');
+        j.evts.push(...e.slice(150));
+        j.enCours = null;
+        await m.envoi.declencher('cloture');
+        expect(m.serveur.creations, nom).toBe(2);
+        const m2 = monter({ journal: j, lots: depotLotsMemoire(), serveur: m.serveur });
+        expect(await m2.envoi.declencher('ouverture'), nom).toMatchObject({ envoyes: 0, refuses: 0 });
+        const enLigne = m.serveur.ids();
+        expect(enLigne.length, `${nom} ${essai}`).toBe(350);
+        expect(new Set(enLigne).size).toBe(350);
+        expect((await m2.envoi.compter(UID)).horsLots).toBe(0);
+        expect((await m2.envoi.etat(UID)).attente, nom).toBe(0);
+      }
+  });
+
+  it('le quota levé par une écriture acceptée : la séance suivante part', async () => {
+    const m = monter({ journal: fauxJournal([evt(S1)]) });
+    m.serveur.panne = 'resource-exhausted';
+    await m.envoi.declencher('cloture');
+    m.serveur.panne = null;
+    expect(await m.envoi.declencher('reessayer')).toMatchObject({ envoyes: 1 });
+    m.journal.evts.push(evt(S2));
+    m.horloge.t += 60_000;
+    expect(await m.envoi.declencher('cloture')).toMatchObject({ envoyes: 1, arret: null });
+    expect(m.envoi.rapport().quota).toBeNull();
+  });
+
+  it('une échéance du quota au-delà de la prochaine remise (horloge en avance de plus d’un jour, puis corrigée) : périmée', async () => {
+    // Limite connue : une avance de moins d'un jour qui passe minuit à Los Angeles donne l'échéance de
+    // la prochaine remise vue de l'horloge corrigée, indiscernable d'un vrai quota ; « Réessayer » passe outre.
+    const m = monter({ journal: fauxJournal([evt(S1)]) });
+    // Quota vu à 20 h à Los Angeles avec l'horloge en avance de 30 h : échéance deux minuits plus loin.
+    m.horloge.t = Date.UTC(2026, 10, 9, 4, 0, 0) + 30 * 3_600_000;
+    m.serveur.panne = 'resource-exhausted';
+    await m.envoi.declencher('cloture');
+    m.serveur.panne = null;
+    // Horloge corrigée, rouverte à 1 h à Los Angeles, après la vraie remise.
+    const m2 = monter({ journal: m.journal, lots: m.lots, serveur: m.serveur });
+    m2.horloge.t = Date.UTC(2026, 10, 9, 9, 0, 0);
+    expect(await m2.envoi.declencher('ouverture')).toMatchObject({ envoyes: 1, arret: null });
+  });
+
+  it('les fiches illisibles un instant : la passe s’arrête sans rien recomposer ; relues à la suivante', async () => {
+    const e = [evt(S1), evt(S1)];
+    const m = monter({ journal: fauxJournal(e) });
+    await m.envoi.declencher('cloture');
+    let casse = true;
+    const lots: DepotLots = { tous: (uid) => (casse ? Promise.reject(new DOMException('passager', 'UnknownError')) : m.lots.tous(uid)), ecrire: (f) => m.lots.ecrire(f) };
+    const m2 = monter({ journal: m.journal, lots, serveur: m.serveur });
+    expect(await m2.envoi.declencher('ouverture')).toMatchObject({ etat: 'echec' });
+    casse = false;
+    expect(await m2.envoi.declencher('ouverture')).toMatchObject({ composes: 0, envoyes: 0, presents: 0 });
+    expect(m.serveur.creer).toHaveBeenCalledTimes(1);
+  });
+
+  it('une écriture des fiches ratée : gardée par-dessus le dépôt le temps de la page, et réécrite ensuite', async () => {
+    const vrai = depotLotsMemoire();
+    let refuser = true;
+    const lots: DepotLots = { tous: (uid) => vrai.tous(uid), ecrire: (f) => (refuser ? Promise.reject(new DOMException('plein', 'QuotaExceededError')) : vrai.ecrire(f)) };
+    const m = monter({ journal: fauxJournal([evt(S1)]), lots });
+    expect(await m.envoi.declencher('cloture')).toMatchObject({ envoyes: 1 });
+    expect(await vrai.tous(UID)).toEqual([]);
+    // La page sait le lot envoyé : rien ne repart.
+    expect(await m.envoi.declencher('ouverture')).toMatchObject({ composes: 0, envoyes: 0 });
+    refuser = false;
+    m.journal.evts.push(evt(S2));
+    await m.envoi.declencher('cloture');
+    expect((await vrai.tous(UID)).length).toBe(1);
+    expect(m.serveur.creations).toBe(2);
   });
 
   it('un lot invalide n’est pas « refusé par le serveur » : il attend une nouvelle version', async () => {

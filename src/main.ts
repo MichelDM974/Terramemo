@@ -692,7 +692,10 @@ function demarrerCompte(): void {
       // Provisoire, avant le chargement de Firebase : la zone du pseudo d'un classement ouvert
       // tout de suite voit déjà un compte (etat() corrige, session perdue comprise).
       if (!s.deconnexion) poserEtatCompte('compte');
-      return chargerComptes()
+      // L'envoi d'abord, pour qu'il soit abonné aux changements de jeton que demarrer() peut émettre
+      // (adresse vérifiée pendant que l'appli était fermée : les lots refusés se relancent).
+      return chargerEnvoi()
+        .then(() => chargerComptes())
         .then((m) => m.comptes(VERSION).demarrer())
         .then((e) => {
           // À l'ouverture : ce qui attend part (séances closes, lots en attente du réseau).
@@ -725,7 +728,7 @@ function chargerEnvoi(): Promise<Envoi> {
       version: VERSION,
       compte: async () => {
         const x = await c.pourSynchro();
-        return x && { uid: x.uid, serveur: me.serveurFirestore(x.service) };
+        return x && { uid: x.uid, serveur: me.serveurFirestore(x.service), verifiee: x.verifiee };
       },
     });
     // Création, lien, connexion, adresse vérifiée : le journal part, les lots refusés se relancent.

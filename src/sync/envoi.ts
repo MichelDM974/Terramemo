@@ -27,7 +27,7 @@
 // service déjà chargé par les comptes.
 import type { Evenement } from '../srs/journal';
 import type { EtatFiche } from '../srs/rejeu';
-import { depotLotsIndexedDb, depotLotsMemoire, type DepotLots, type EtatLot, type FicheLot } from './depot-lots';
+import { depotLotsIndexedDb, type DepotLots, type EtatLot, type FicheLot } from './depot-lots';
 import { synchroCoupee } from './drapeaux';
 import { codeErreur, remiseQuota } from './erreurs';
 import type { Service } from './firebase';
@@ -41,10 +41,12 @@ export const DELAIS_RESEAU: readonly number[] = [30_000, 120_000, 600_000, 3_600
 /** Un lot refusé par les règles se relance de lui-même au plus une fois par jour. */
 export const RELANCE_REGLES = 86_400_000;
 /**
- * Une échéance à plus d'un jour vient d'une horloge qui a reculé depuis (elle
- * était en avance) : elle est tenue pour échue, sinon elle bloquerait l'envoi.
+ * Une échéance (réseau, relance des refusés) à plus de deux jours vient d'une
+ * horloge qui a reculé depuis (elle était en avance) : elle est tenue pour
+ * échue, sinon elle bloquerait l'envoi. Celle du quota se juge à la remise
+ * vue de l'horloge actuelle (remiseQuota).
  */
-export const ECHEANCE_MAX = 86_400_000;
+export const ECHEANCE_MAX = 2 * 86_400_000;
 /** Une requête au serveur sans réponse dans ce délai est un échec du réseau : elle ne garde pas le verrou. */
 export const DELAI_REQUETE = 30_000;
 /** Le chargement du service (Firebase, compte) : plus long, le SDK pouvant se télécharger. */
@@ -87,8 +89,13 @@ export interface JournalEnvoi {
   seanceEnCours(): string | null;
 }
 
-/** Le compte à qui envoyer, ou null (invité, anonyme, session perdue, déconnexion ou suppression en cours). */
-export type CompteEnvoi = { uid: string; serveur: Serveur } | null;
+/**
+ * Le compte à qui envoyer, ou null (invité, anonyme, session perdue,
+ * déconnexion ou suppression en cours). `verifiee` : l'adresse du compte est
+ * vérifiée ; un lot refusé quand elle ne l'était pas se relance dès qu'elle
+ * l'est (règles d'essai des lots 6 et 7, D18 a), sans attendre le jour.
+ */
+export type CompteEnvoi = { uid: string; serveur: Serveur; verifiee?: boolean } | null;
 
 export interface OptionsEnvoi {
   journal: JournalEnvoi;
@@ -239,7 +246,7 @@ interface Drapeaux {
 export function creerEnvoi(o: OptionsEnvoi): Envoi {
   const journal = o.journal;
   const version = o.version;
-  let lots = o.lots ?? depotLotsIndexedDb();
+  const lots = o.lots ?? depotLotsIndexedDb();
   const coupee = o.coupee ?? (() => synchroCoupee());
   const maintenant = o.maintenant ?? Date.now;
   const verrou = o.verrou ?? verrouParDefaut;
@@ -258,18 +265,33 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     rapport.erreurs.splice(0, Math.max(0, rapport.erreurs.length - 10));
   };
 
-  /** Écrit des fiches ; IndexedDB qui refuse (quota plein) : le dépôt passe en mémoire pour la page (§ 5.1). */
+  /**
+   * Fiches qu'IndexedDB n'a pas pu écrire (quota plein, erreur passagère),
+   * gardées le temps de la page par-dessus celles du dépôt (§ 5.1, repli) ;
+   * chaque écriture suivante retente IndexedDB.
+   */
+  const repli = new Map<string, FicheLot>();
+  const cleRepli = (f: Pick<FicheLot, 'uid' | 'id'>) => JSON.stringify([f.uid, f.id]);
+
   async function ecrireFiches(fs: readonly FicheLot[]): Promise<void> {
     if (!fs.length) return;
     try {
       await lots.ecrire(fs);
+      for (const f of fs) repli.delete(cleRepli(f));
     } catch (e) {
       noter(e);
-      lots = depotLotsMemoire([...connues.values()]);
-      await lots.ecrire(fs);
+      for (const f of fs) repli.set(cleRepli(f), structuredClone(f));
     }
     for (const f of fs) connues.set(f.id, structuredClone(f));
   }
+
+  /** Les fiches du compte : celles du dépôt, et celles du repli par-dessus. Lève si le dépôt est illisible. */
+  async function lireFiches(uid: string): Promise<FicheLot[]> {
+    const m = new Map((await lots.tous(uid)).map((f) => [f.id, f]));
+    for (const f of repli.values()) if (f.uid === uid) m.set(f.id, structuredClone(f));
+    return [...m.values()];
+  }
+  const vue: DepotLots = { tous: lireFiches, ecrire: ecrireFiches };
 
   /** La fiche d'un lot composé : à envoyer, ou refusée d'avance si les règles le refuseraient. */
   function fiche(uid: string, l: Lot): FicheLot {
@@ -291,14 +313,22 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
   /** L'échéance est-elle passée (ou trop lointaine : horloge reculée depuis) ? */
   const echue = (f: FicheLot, t: number) => t >= f.prochain || f.prochain > t + ECHEANCE_MAX;
 
-  /** Le lot vaut-il un essai dans cette passe ? */
-  function aEssayer(f: FicheLot, d: Drapeaux, t: number): boolean {
+  /**
+   * Une échéance du quota est-elle passée, ou périmée ? Au-delà de la prochaine
+   * remise vue de l'horloge actuelle, elle vient d'une horloge qui était en
+   * avance (la seconde de marge : remiseQuota garde les millisecondes).
+   */
+  const quotaEchu = (q: number, t: number) => t >= q || q > remiseQuota(new Date(t)).getTime() + 1000;
+
+  /** Le lot vaut-il un essai dans cette passe ? `verifiee` : l'adresse du compte l'est maintenant. */
+  function aEssayer(f: FicheLot, d: Drapeaux, t: number, verifiee: boolean): boolean {
     if (f.etat === 'a_envoyer') {
-      if (f.cause === 'quota') return d.force || echue(f, t);
+      if (f.cause === 'quota') return d.force || quotaEchu(f.prochain, t);
       if (f.cause === 'reseau' && d.minuterie) return echue(f, t);
       return true;
     }
-    if (f.etat === 'refuse' && f.cause === 'regles') return d.relancer || f.version !== version || echue(f, t);
+    if (f.etat === 'refuse' && f.cause === 'regles')
+      return d.relancer || f.version !== version || echue(f, t) || (verifiee && f.adresse_verifiee === false);
     return false;
   }
 
@@ -322,14 +352,15 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
   }
 
   /** Un lot envoyé, et ses issues (§ 5.2). Rend ce qui arrête la passe. */
-  async function envoyer(uid: string, s: Serveur, f: FicheLot, parId: ReadonlyMap<string, Evenement>, r: ResultatEnvoi, t: number): Promise<Arret> {
+  async function envoyer(c: NonNullable<CompteEnvoi>, f: FicheLot, parId: ReadonlyMap<string, Evenement>, r: ResultatEnvoi, t: number): Promise<Arret> {
+    const { uid, serveur: s } = c;
     if (!f.doc) return null;
     try {
       await avecDelai(s.creer(uid, f.id, f.doc), delais.requete);
     } catch (e) {
       noter(e);
       const code = codeErreur(e);
-      if (code === 'permission-denied') return relire(uid, s, f, parId, r, t);
+      if (code === 'permission-denied') return relire(c, f, parId, r, t);
       if (code === 'resource-exhausted') return attendreQuota(f, t);
       if (code === 'invalid-argument') {
         await ecrireFiches([{ ...f, etat: 'refuse', cause: 'invalide', essais: 0, prochain: 0, version, doc: null }]);
@@ -339,7 +370,9 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
       // Réseau (unavailable, deadline-exceeded, fetch qui échoue), ou toute autre erreur : plus tard.
       return attendreReseau(f, t);
     }
+    // Le serveur a accepté une écriture : ni le réseau ni le quota ne bloquent plus.
     rapport.horsLigne = false;
+    rapport.quota = null;
     await ecrireFiches([{ ...f, etat: 'envoye', cause: null, essais: 0, prochain: 0, version, doc: null }]);
     r.envoyes++;
     return null;
@@ -354,9 +387,11 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
    * recomposés autrement qu'en ligne) : sans quoi ils partiraient en double.
    * Les lots recomposés partent dans la même passe (file de passe()).
    */
-  async function relire(uid: string, s: Serveur, f: FicheLot, parId: ReadonlyMap<string, Evenement>, r: ResultatEnvoi, t: number): Promise<Arret> {
+  async function relire(c: NonNullable<CompteEnvoi>, f: FicheLot, parId: ReadonlyMap<string, Evenement>, r: ResultatEnvoi, t: number): Promise<Arret> {
+    const { uid, serveur: s } = c;
     const refuser = async (): Promise<Arret> => {
-      await ecrireFiches([{ ...f, etat: 'refuse', cause: 'regles', essais: 0, prochain: t + RELANCE_REGLES, version }]);
+      const adresse = c.verifiee === undefined ? {} : { adresse_verifiee: c.verifiee };
+      await ecrireFiches([{ ...f, etat: 'refuse', cause: 'regles', essais: 0, prochain: t + RELANCE_REGLES, version, ...adresse }]);
       r.refuses++;
       return null;
     };
@@ -383,17 +418,22 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     }
     r.presents++;
     const enLigne = new Set(ids);
+    // Ce qui est déjà en ligne : ce lot, et les lots que l'appareil sait envoyés.
+    const envoyes = new Set(ids);
+    for (const g of connues.values()) if (g.id !== f.id && (g.etat === 'envoye' || g.etat === 'en_ligne')) for (const id of g.ids) envoyes.add(id);
+    /** Le reste d'une fiche (ses ids pas encore en ligne), recomposé à part : sous son id, s'il en est. */
+    const reste = (x: FicheLot) => composer(x.ids.filter((id) => !envoyes.has(id)).flatMap((id) => parId.get(id) ?? [])).map((l) => fiche(uid, l));
     const maj: FicheLot[] = [{ ...f, ids, etat: 'envoye', cause: null, essais: 0, prochain: 0, version, doc: null }];
-    const restants = f.ids.filter((id) => !enLigne.has(id));
+    const suite = reste(f);
     for (const g of connues.values()) {
       if (g.id === f.id || (g.etat !== 'a_envoyer' && g.etat !== 'refuse')) continue;
-      const communs = g.ids.filter((id) => enLigne.has(id));
-      if (!communs.length) continue;
-      // Sa partie déjà en ligne est envoyée ; le reste est recomposé (sous son id s'il n'est pas en ligne).
-      if (enLigne.has(g.id)) maj.push({ ...g, ids: communs, etat: 'envoye', cause: null, essais: 0, prochain: 0, version, doc: null });
-      restants.push(...g.ids.filter((id) => !enLigne.has(id)));
+      if (!g.ids.some((id) => enLigne.has(id))) continue;
+      const r2 = reste(g);
+      // Sa fiche ne doit plus envoyer son document d'origine : remplacée par son reste (même id),
+      // ou envoyée pour sa partie déjà en ligne.
+      if (!r2.some((x) => x.id === g.id)) maj.push({ ...g, ids: g.ids.filter((id) => envoyes.has(id)), etat: 'envoye', cause: null, essais: 0, prochain: 0, version, doc: null });
+      suite.push(...r2);
     }
-    const suite = composer(restants.flatMap((id) => parId.get(id) ?? [])).map((l) => fiche(uid, l));
     await ecrireFiches([...maj, ...suite]);
     r.composes += suite.length;
     return null;
@@ -439,18 +479,14 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
       return fini('echec');
     }
     if (!c) return fini('sans_compte');
-    const { uid, serveur } = c;
+    const { uid } = c;
+    const verifiee = c.verifiee ?? false;
     await journal.attendre();
     const evts = await journal.tous();
     const parId = new Map(evts.map((e) => [e.id, e]));
-    let fiches: FicheLot[];
-    try {
-      fiches = await lots.tous(uid);
-    } catch (e) {
-      noter(e);
-      lots = depotLotsMemoire();
-      fiches = [];
-    }
+    // Une lecture ratée ne vaut pas « aucune fiche » (tout le journal repartirait) : la passe s'arrête,
+    // la suivante relira. Sans IndexedDB du tout, le dépôt est en mémoire depuis le début.
+    const fiches = await lireFiches(uid);
     connues = new Map(fiches.map((f) => [f.id, f]));
     const dansUnLot = new Set(fiches.flatMap((f) => f.ids));
 
@@ -468,9 +504,9 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     r.composes = nouvelles.length + recomposees.filter((f) => f.etat === 'a_envoyer').length;
 
     // Le quota du jour atteint (vu dans cette page, ou gardé par une fiche) : rien avant sa remise,
-    // sauf « Réessayer ». Une échéance à plus d'un jour vient d'une horloge en avance : ignorée.
+    // sauf « Réessayer ». Une échéance périmée (horloge qui était en avance) ne compte pas.
     const echeances = [rapport.quota ?? 0, ...[...connues.values()].filter((f) => f.etat === 'a_envoyer' && f.cause === 'quota').map((f) => f.prochain)];
-    const quota = Math.max(0, ...echeances.filter((q) => q <= t + ECHEANCE_MAX));
+    const quota = Math.max(0, ...echeances.filter((q) => !quotaEchu(q, t)));
     rapport.quota = quota > t ? quota : null;
     if (rapport.quota !== null && !d.force) r.arret = 'quota';
     else {
@@ -483,30 +519,34 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
       // un autre lot : aucun ne bloque les autres pour toujours).
       const tentes = new Set<string>();
       const rang = (f: FicheLot) => (f.cause === 'reseau' ? 0 : f.etat === 'a_envoyer' ? 1 : 2);
+      // Les lots jamais essayés dans l'ordre de leur premier événement (celui de composer()) : après un
+      // état perdu, la suite d'un lot relu (ses événements les plus anciens) part avant un lot qui
+      // commence plus loin et que la relecture aurait couvert.
+      const ts = (f: FicheLot) => parId.get(f.id)?.ts ?? 0;
+      const avant = (f: FicheLot, m: FicheLot) => {
+        if (rang(f) !== rang(m)) return rang(f) < rang(m);
+        if (rang(f) === 1 ? ts(f) !== ts(m) : f.prochain !== m.prochain) return rang(f) === 1 ? ts(f) < ts(m) : f.prochain < m.prochain;
+        return f.id < m.id;
+      };
       const prochainLot = (): FicheLot | null => {
         let meilleur: FicheLot | null = null;
-        for (const f of connues.values()) {
-          if (tentes.has(f.id) || !aEssayer(f, d, t)) continue;
-          const avant =
-            !meilleur ||
-            rang(f) < rang(meilleur) ||
-            (rang(f) === rang(meilleur) && (rang(f) !== 1 && f.prochain !== meilleur.prochain ? f.prochain < meilleur.prochain : f.id < meilleur.id));
-          if (avant) meilleur = f;
-        }
+        for (const f of connues.values()) if (!tentes.has(f.id) && aEssayer(f, d, t, verifiee) && (!meilleur || avant(f, meilleur))) meilleur = f;
         return meilleur;
       };
       const reportes: FicheLot[] = [];
       let sonde: string | null = null;
-      let f = d.minuterie && !(prochainLot()?.cause === 'reseau') ? null : prochainLot();
+      let f = d.minuterie && prochainLot()?.cause !== 'reseau' ? null : prochainLot();
       for (; f; f = prochainLot()) {
         tentes.add(f.id);
-        if (f.etat === 'refuse' && sonde) {
+        if (sonde && f.etat === 'refuse') {
           reportes.push(f);
           continue;
         }
-        const relance = f.etat === 'refuse';
-        const a = await envoyer(uid, serveur, f, parId, r, t);
-        if (relance && connues.get(f.id)?.etat === 'refuse') sonde = f.id;
+        // Les règles refusent : un lot jamais essayé attend aussi la passe suivante (une sonde par passe).
+        if (sonde && f.etat === 'a_envoyer' && f.cause === null) continue;
+        const a = await envoyer(c, f, parId, r, t);
+        const apres = connues.get(f.id);
+        if (apres?.etat === 'refuse' && apres.cause === 'regles') sonde = f.id;
         if (a) {
           r.arret = a;
           break;
@@ -554,9 +594,9 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
 
   return {
     declencher,
-    compter: (uid) => compter(journal, lots, uid),
+    compter: (uid) => compter(journal, vue, uid),
     async etat(uid) {
-      const c = await compter(journal, lots, uid);
+      const c = await compter(journal, vue, uid);
       return { coupee: coupee(), attente: c.attente, refusees: c.refusees, horsLigne: rapport.horsLigne };
     },
     surPasse(f) {

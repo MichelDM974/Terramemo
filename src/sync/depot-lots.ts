@@ -43,6 +43,8 @@ export interface FicheLot {
   version: string;
   /** Le document composé, gardé jusqu'à son acceptation (un renvoi envoie le même) ; null ensuite. */
   doc: DocLot | null;
+  /** Refus des règles : l'adresse du compte était-elle vérifiée ? Faux : relancé dès qu'elle l'est. */
+  adresse_verifiee?: boolean;
 }
 
 export interface DepotLots {
@@ -75,16 +77,30 @@ function fabrique(idb?: IDBFactory): IDBFactory | undefined {
   }
 }
 
+/** IndexedDB inutilisable pour de bon (navigation privée stricte, accès refusé), pas une erreur passagère. */
+const inutilisable = (e: unknown) => ['InvalidStateError', 'SecurityError'].includes(String((e as { name?: unknown } | null)?.name));
+
 /**
  * Les fiches dans `terramemo-synchro`. Base ouverte à chaque opération et
- * refermée : quelques opérations par passe d'envoi. Sans IndexedDB : en
- * mémoire, le temps de la page.
+ * refermée : quelques opérations par passe d'envoi. Sans IndexedDB, ou si
+ * elle refuse de s'ouvrir pour de bon : en mémoire, le temps de la page. Une
+ * erreur passagère remonte (l'envoi s'arrête et relira à la passe suivante).
  */
 export function depotLotsIndexedDb(idb?: IDBFactory): DepotLots {
   const f = fabrique(idb);
   if (!f) return depotLotsMemoire();
-  async function avec<T>(mode: IDBTransactionMode, faire: (m: IDBObjectStore) => () => T): Promise<T> {
-    const db = await ouvrirBaseSynchro(f!);
+  let memoire: DepotLots | null = null;
+  /** Une transaction sur le magasin ; `repli` si la base est inutilisable (pour cette page). */
+  async function avec<T>(mode: IDBTransactionMode, faire: (m: IDBObjectStore) => () => T, repli: (m: DepotLots) => Promise<T>): Promise<T> {
+    if (memoire) return repli(memoire);
+    let db: IDBDatabase;
+    try {
+      db = await ouvrirBaseSynchro(f!);
+    } catch (e) {
+      if (!inutilisable(e)) throw e;
+      memoire = depotLotsMemoire();
+      return repli(memoire);
+    }
     try {
       return await new Promise<T>((ok, ko) => {
         const tx = db.transaction(MAGASIN_LOTS, mode);
@@ -99,17 +115,25 @@ export function depotLotsIndexedDb(idb?: IDBFactory): DepotLots {
   return {
     tous(uid) {
       // [uid] < [uid, id] < [uid, []] : un tableau vient après toute chaîne dans l'ordre des clés.
-      return avec('readonly', (m) => {
-        const r = m.getAll(IDBKeyRange.bound([uid], [uid, []]));
-        return () => r.result as FicheLot[];
-      });
+      return avec(
+        'readonly',
+        (m) => {
+          const r = m.getAll(IDBKeyRange.bound([uid], [uid, []]));
+          return () => r.result as FicheLot[];
+        },
+        (x) => x.tous(uid),
+      );
     },
     async ecrire(fiches) {
       if (!fiches.length) return;
-      await avec('readwrite', (m) => {
-        for (const x of fiches) m.put(structuredClone(x));
-        return () => undefined;
-      });
+      await avec(
+        'readwrite',
+        (m) => {
+          for (const x of fiches) m.put(structuredClone(x));
+          return () => undefined;
+        },
+        (x) => x.ecrire(fiches),
+      );
     },
   };
 }

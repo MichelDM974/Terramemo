@@ -167,7 +167,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('envoi des séances (émulateurs Auth et F
       verrou: (f) => f(),
       compte: async () => {
         const x = await pc.comptes.pourSynchro();
-        return x && { uid: x.uid, serveur: serveurFirestore(x.service) };
+        return x && { uid: x.uid, serveur: serveurFirestore(x.service), verifiee: x.verifiee };
       },
     });
     const s2 = await pc.jouer(2);
