@@ -270,7 +270,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     expect(chemins(actions)).toEqual([...[0, 1, 2].map((i) => `joueurs/fantome/lots/${String(i).padStart(36, '0')}`), 'doc:joueurs/fantome', `joueurs/fantome2/lots/${'0'.repeat(36)}`]);
   }, 60_000);
 
-  it('tombes : compte parti et lots vides, redatée à la première vue, effacée à la suivante ; lots d’abord sinon ; en route signalée, puis finie par --finir', async () => {
+  it('tombes : compte parti et lots vides, marquée à la première vue, effacée 2 h après ; lots d’abord sinon ; en route signalée, puis finie par --finir', async () => {
     await monde();
     const { actions, notes, apres: e } = await exactEtIdempotent(['tombes']);
     // « parti » : pierre tombale de deux jours, mais le compte peut n'être parti que depuis quelques minutes (un jeton vaut encore).
@@ -285,13 +285,15 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     expect(e.comptes.enroute).toBe(false);
     const fini = await exactEtIdempotent(['tombes', '--finir']);
     expect(chemins(fini.actions)).toEqual([`joueurs/enroute/lots/${'0'.repeat(36)}`, 'compte:enroute', 'dater:joueurs/enroute']);
-    // Redatées : effacées à la tournée suivante (plus d'un jour après).
-    const plusTard = new Date(Date.now() + 2 * JOUR).toISOString();
-    // (Pas de relance à la même heure simulée : « recent », redatée à l'heure réelle du serveur, y aurait déjà plus d'un jour.)
-    const suivante = await exactEtIdempotent(['tombes'], { TERRAMEMO_MAINTENANT: plusTard }, false);
-    expect(chemins(suivante.actions)).toEqual(['doc:joueurs/enroute', 'doc:joueurs/parti', 'doc:joueurs/parti2', 'dater:joueurs/recent']);
-    const encore = await exactEtIdempotent(['tombes'], { TERRAMEMO_MAINTENANT: new Date(Date.now() + 4 * JOUR).toISOString() });
-    expect(chemins(encore.actions)).toEqual(['doc:joueurs/recent']);
+    // Marquées : laissées moins de 2 h après, effacées ensuite (le même jour).
+    const bientot = await lancer(['tombes', '--json'], { TERRAMEMO_MAINTENANT: new Date(Date.now() + HEURE).toISOString() });
+    expect((JSON.parse(bientot.stdout) as Rendu).taches[0]!.actions).toEqual([]);
+    const suivante = await exactEtIdempotent(['tombes'], { TERRAMEMO_MAINTENANT: new Date(Date.now() + 3 * HEURE).toISOString() });
+    expect(chemins(suivante.actions)).toEqual(['doc:joueurs/enroute', 'doc:joueurs/parti', 'doc:joueurs/parti2']);
+    expect(suivante.apres.docs['joueurs/recent']).toBeDefined();
+    // « recent » (moins d'un jour) : marquée à son tour plus tard.
+    const jourSuivant = await exactEtIdempotent(['tombes'], { TERRAMEMO_MAINTENANT: new Date(Date.now() + 2 * JOUR).toISOString() }, false);
+    expect(chemins(jourSuivant.actions)).toEqual(['dater:joueurs/recent']);
   }, 90_000);
 
   it('demandes : les places à la clé exacte du pseudo, chaque épreuve et période, jamais un pseudo voisin', async () => {

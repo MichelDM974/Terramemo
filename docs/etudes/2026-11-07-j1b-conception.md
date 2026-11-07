@@ -1433,9 +1433,9 @@ n'y touche pas.
   Sinon c'est une suppression restée en route (deleteUser raté, appli
   tuée) : l'outil la signale, ou la finit (lots, puis `deleteUser`) avec
   `--finir`. L'effacer avant rouvrirait l'écriture du compte à ses autres
-  appareils (règle `!tombe(uid)`). Après des lots ou un compte supprimés
-  par l'outil, elle est redatée et reste jusqu'à la tournée suivante
-  (§ 9, précisions du lot 5b) ;
+  appareils (règle `!tombe(uid)`). Vue sans compte pour la première fois,
+  ou après des lots ou un compte supprimés par l'outil, elle est marquée,
+  et effacée 2 h après au plus tôt (§ 9, précisions du lot 5b) ;
 - lots sans compte (orphelins) ;
 - `demandes/` (D27 b) : places du pseudo retirées (chaque épreuve,
   toujours et chaque semaine, à la clé exacte `clePseudo(pseudo)`), puis
@@ -1614,17 +1614,19 @@ visible en production.
   2 ans (son adresse n'est pas gardée à vie) ;
 - pierres tombales : « plus d'un jour » d'après `maj`. Compte parti et
   lots vides : effacée seulement si l'outil l'a déjà vue sans compte plus
-  d'un jour avant (`vu_sans_compte`, posé par l'outil en la redatant, que
-  `profilValide` ne laisse pas écrire au client) ; sinon redatée d'abord :
-  `maj` date la pierre tombale, pas le départ du compte, et une
+  de 2 h avant (`vu_sans_compte`, heure du serveur, posé par le SDK Admin,
+  que `profilValide` ne laisse pas écrire au client) ; sinon **marquée**
+  d'abord : `maj` date la pierre tombale, pas le départ du compte, et une
   suppression reprise des jours après (appli tuée, connexion trop
   ancienne) laisse un compte parti depuis quelques minutes, dont un jeton
   vaut encore une heure (profil recréé, lots poussés). Compte parti mais
   lots restants (compte supprimé hors de l'appli), ou suppression finie
   par `--finir` : les lots (et le compte), puis la pierre tombale
-  **redatée** à l'heure du serveur, effacée à la tournée suivante. Un
-  jeton du compte vaut encore une heure après `deleteUser` ; et la tâche
-  relancée aussitôt n'a plus rien à faire (idempotente). `supprime` n'étant
+  marquée. Un jeton du compte vaut une heure au plus après `deleteUser`
+  (2 h : la marge) ; `tombes` relancée 2 h après, le jour de la tournée,
+  les efface, ce qui tient les 30 jours de la politique (un jour plutôt
+  que 2 h, elles attendraient la tournée suivante) ; relancée aussitôt,
+  la tâche n'a plus rien à faire (idempotente). `supprime` n'étant
   pas indexé, la tâche lit tout `joueurs/` ;
 - orphelins : un uid sous `joueurs/` (profil, ou lots seuls :
   `listDocuments` voit les profils absents) qui n'est pas dans Auth ; ses

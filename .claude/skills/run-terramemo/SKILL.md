@@ -1081,15 +1081,16 @@ Firebase les supprime 30 jours après leur création) :
   et leur profil, puis `deleteUsers` par 1 000. Un compte bloqué pour abus
   y passe aussi, au bout de 2 ans ;
 - `tombes [--finir]` : pierres tombales de plus d'un jour. Compte parti et
-  lots vides : effacée si l'outil l'a déjà vue sans compte il y a plus
-  d'un jour (`vu_sans_compte`, écrit par l'outil seul), sinon redatée
-  (`maj` date la pierre tombale, pas le départ du compte, qui peut n'avoir
-  que quelques minutes après une suppression reprise des jours plus tard).
-  Compte parti, lots restants : les lots, puis la
-  pierre tombale redatée. Compte encore dans Auth : « suppression restée en
-  route », signalée ; `--finir` la finit (lots, puis le compte), pierre
-  tombale redatée. Redatée, elle a moins d'un jour : effacée à la tournée
-  suivante, quand plus aucun jeton du compte ne vaut ;
+  lots vides : effacée si l'outil l'a déjà vue sans compte il y a plus de
+  2 h (`vu_sans_compte`, écrit par l'outil seul), sinon **marquée** :
+  `maj` date la pierre tombale, pas le départ du compte, qui peut n'avoir
+  que quelques minutes après une suppression reprise des jours plus tard,
+  et un jeton vaut encore une heure. Compte parti, lots restants : les
+  lots, puis la pierre tombale marquée. Compte encore dans Auth :
+  « suppression restée en route », signalée ; `--finir` la finit (lots,
+  puis le compte), pierre tombale marquée. Marquée, elle est effacée par
+  `tombes` relancée 2 h après au plus tôt, quand plus aucun jeton du
+  compte ne vaut ;
 - `orphelins` : lots et profil d'un uid absent de Auth (une pierre tombale
   est laissée à `tombes`) ;
 - `demandes [--uid U] [--avec-a-juger | --garder-a-juger]` (D27 b) : pour
@@ -1120,7 +1121,10 @@ Firebase les supprime 30 jours après leur création) :
 - **mensuelle** (la politique promet 30 jours au plus pour les demandes) :
   `tournee` à blanc, lire, puis `demandes`, `tombes` et `orphelins`, chacune
   `--appliquer --attendu <son empreinte>` (la tournée donne celle de chaque
-  tâche, la même que la commande seule) ; trancher les places « à juger » et
+  tâche, la même que la commande seule) ; **2 h après au moins, le même
+  jour**, `tombes` encore (à blanc, puis `--appliquer --attendu`) : il
+  efface les pierres tombales marquées le matin (sinon elles attendraient
+  un mois, au-delà des 30 jours promis) ; trancher les places « à juger » et
   les suppressions restées en route (`tombes --finir --appliquer`) ;
   regarder le relevé (un uid qui grossit hors de proportion : `abus`) ;
 - **trimestrielle** (2 ans et 3 mois d'inactivité au plus) : `tournee

@@ -32,6 +32,12 @@ const PAR_LECTURE_COMPTES = 100;
 const PAGE = 1000;
 const JOUR_MS = 86_400_000;
 const HEURE_MS = 3_600_000;
+/**
+ * Délai entre la pierre tombale vue sans compte et son effacement : un jeton
+ * d'identité vaut une heure au plus, et ne se rafraîchit plus le compte
+ * parti ; la seconde heure est une marge (horloges).
+ */
+export const DELAI_SANS_COMPTE_MS = 2 * HEURE_MS;
 
 /**
  * La place d'un pseudo au classement : src/epreuve/chrono.ts, clePseudo
@@ -113,10 +119,10 @@ async function lireDocs(db, chemins) {
  *   écriture lue) : seulement s'il n'a pas changé depuis ;
  * - `{type: 'comptes', uids}` : supprimer ces comptes d'Auth (deleteUsers) ;
  * - `{type: 'bloquer', uid}` : updateUser(uid, {disabled: true}) ;
- * - `{type: 'dater', chemin, pre}` : `maj` et `vu_sans_compte` de la pierre
- *   tombale à l'heure du serveur, si elle n'a pas changé depuis la lecture
- *   (le compte n'est plus dans Auth à ce moment : action après sa
- *   suppression, ou constatée à la lecture).
+ * - `{type: 'dater', chemin, pre}` : `vu_sans_compte` de la pierre tombale
+ *   à l'heure du serveur, si elle n'a pas changé depuis la lecture (le
+ *   compte n'est plus dans Auth à ce moment : action après sa suppression,
+ *   ou constatée à la lecture).
  */
 export function decrire(a) {
   switch (a.type) {
@@ -129,7 +135,7 @@ export function decrire(a) {
     case 'bloquer':
       return `bloquer le compte ${a.uid} (disabled)`;
     case 'dater':
-      return `redater la pierre tombale ${a.chemin}, vue sans compte (effacée à la tournée suivante, un jour au plus tôt)`;
+      return `marquer la pierre tombale ${a.chemin} vue sans compte (effacée par tombes 2 h après, au plus tôt)`;
     default:
       throw new Error(`action inconnue : ${a.type}`);
   }
@@ -169,7 +175,7 @@ export async function executer({ auth, db }, actions, fait = () => {}) {
       await auth.updateUser(a.uid, { disabled: true });
     } else if (a.type === 'dater') {
       try {
-        await db.doc(a.chemin).update({ maj: FieldValue.serverTimestamp(), vu_sans_compte: FieldValue.serverTimestamp() }, { lastUpdateTime: a.pre });
+        await db.doc(a.chemin).update({ vu_sans_compte: FieldValue.serverTimestamp() }, { lastUpdateTime: a.pre });
       } catch (e) {
         if (e.code === 9) throw new Error(`${a.chemin} a changé depuis la lecture : rien de ce qui suit n'est fait. Relancer.`);
         throw e;
@@ -222,24 +228,24 @@ export async function inactifs({ auth, db, maintenant }) {
 /**
  * Pierres tombales de plus d'un jour (§ 7.1) : effacée seulement si le compte
  * n'est plus dans Auth, si ses lots sont vides, et si l'outil l'a déjà vue
- * sans compte il y a plus d'un jour (`vu_sans_compte`) ; l'effacer avant
+ * sans compte il y a plus de 2 heures (`vu_sans_compte`) ; l'effacer avant
  * rouvrirait l'écriture du compte à ses autres appareils (règle
  * `!tombe(uid)`, profil en `create`). `maj` date la pierre tombale, pas la
  * suppression du compte : une suppression reprise des jours après (appli
  * tuée, connexion trop ancienne) laisse un compte parti depuis quelques
  * minutes sous une pierre tombale ancienne, et un jeton du compte vaut
- * encore jusqu'à une heure après deleteUser. Donc vue sans compte pour la
- * première fois : redatée. Compte parti, lots restants : les lots, puis la
- * pierre tombale redatée. Compte encore là : suppression restée en route,
+ * encore jusqu'à une heure après deleteUser. Donc, vue sans compte pour la
+ * première fois : marquée. Compte parti, lots restants : les lots, puis la
+ * pierre tombale marquée. Compte encore là : suppression restée en route,
  * signalée ; `finir` la finit (lots, puis le compte), pierre tombale
- * redatée. Redatée (`maj` et `vu_sans_compte` à l'heure du serveur), elle a
- * moins d'un jour : elle reste jusqu'à la tournée suivante, quand plus aucun
- * jeton du compte ne vaut, et la tâche relancée tout de suite n'a plus rien
- * à faire. Une lecture par profil : `supprime` n'est pas indexé
- * (firestore.indexes.json), on lit tout joueurs/.
+ * marquée. Marquée, elle est effacée par `tombes` relancée 2 heures après au
+ * plus tôt (le même jour : la politique promet 30 jours au plus) ; relancée
+ * tout de suite, la tâche n'a rien à faire. Une lecture par profil :
+ * `supprime` n'est pas indexé (firestore.indexes.json), on lit tout joueurs/.
  */
 export async function tombes({ auth, db, maintenant }, { finir = false } = {}) {
   const limite = new Date(maintenant.getTime() - JOUR_MS);
+  const limiteVu = new Date(maintenant.getTime() - DELAI_SANS_COMPTE_MS);
   const profils = (await documents(db.collection('joueurs'), ['supprime', 'maj', 'vu_sans_compte'])).filter((d) => d.get('supprime') === true);
   const anciennes = [];
   let recentes = 0;
@@ -251,22 +257,25 @@ export async function tombes({ auth, db, maintenant }, { finir = false } = {}) {
   const existants = await comptesExistants(auth, anciennes.map(({ d }) => d.id));
   const actions = [];
   const notes = [`${des(profils.length, 'pierre tombale', 'pierres tombales')}, dont ${nombre(recentes)} de moins d'un jour (laissées).`];
+  const ensuite = 'pierre tombale effacée par tombes relancée 2 h après, au plus tôt';
   for (const { d, maj } of anciennes) {
     const uid = d.id;
     const lots = await cheminsLots(db, uid);
     const compte = existants.get(uid);
-    const dater = { type: 'dater', chemin: d.ref.path, pre: d.updateTime };
     const vu = d.get('vu_sans_compte')?.toDate?.() ?? null;
-    if (!compte && !lots.length && vu && vu < limite) {
+    const dater = { type: 'dater', chemin: d.ref.path, pre: d.updateTime };
+    if (!compte && !lots.length && vu && vu < limiteVu) {
       actions.push({ type: 'doc', quoi: 'la pierre tombale', chemin: d.ref.path, detail: `du ${iso(maj)}, vue sans compte le ${iso(vu)}`, pre: d.updateTime });
+    } else if (!compte && !lots.length && vu) {
+      notes.push(`joueurs/${uid} : vue sans compte le ${iso(vu)} ; effacée à partir du ${iso(new Date(vu.getTime() + DELAI_SANS_COMPTE_MS))}.`);
     } else if (!compte && !lots.length) {
-      notes.push(`joueurs/${uid} : compte parti, lots vides, vue sans compte pour la première fois (le compte peut n'être parti que depuis quelques minutes) ; pierre tombale effacée à la tournée suivante.`);
+      notes.push(`joueurs/${uid} : compte parti, lots vides, vue sans compte pour la première fois (il peut n'être parti que depuis quelques minutes) ; ${ensuite}.`);
       actions.push(dater);
     } else if (!compte) {
-      notes.push(`joueurs/${uid} : compte parti, ${des(lots.length, 'lot restant', 'lots restants')} ; pierre tombale effacée à la tournée suivante.`);
+      notes.push(`joueurs/${uid} : compte parti, ${des(lots.length, 'lot restant', 'lots restants')} ; ${ensuite}.`);
       actions.push({ type: 'lots', uid, chemins: lots }, dater);
     } else if (finir) {
-      notes.push(`joueurs/${uid} : suppression finie ici (lots, puis le compte) ; pierre tombale effacée à la tournée suivante.`);
+      notes.push(`joueurs/${uid} : suppression finie ici (lots, puis le compte) ; ${ensuite}.`);
       if (lots.length) actions.push({ type: 'lots', uid, chemins: lots });
       actions.push({ type: 'comptes', uids: [uid] }, dater);
     } else {
