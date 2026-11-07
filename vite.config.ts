@@ -26,7 +26,10 @@ function licencesTierces(): Plugin {
 // du skill run-terramemo prend 8061.
 export default defineConfig({
   plugins: [licencesTierces()],
-  server: { port: 8060, strictPort: true },
+  // android/ (des milliers de fichiers de build Gradle) et dist/ ne se surveillent pas : ils
+  // épuisaient la limite d'inotify du PC (ENOSPC), et le serveur de dev servait alors
+  // des modules périmés sans le dire.
+  server: { port: 8060, strictPort: true, watch: { ignored: ['**/android/**', '**/dist/**'] } },
   preview: { port: 8060, strictPort: true },
   // Web Worker du maillage webgl (src/map/maillage.worker.ts) en module ES, comme
   // le reste : son nom construit porte le hachage de son contenu, qui sert de

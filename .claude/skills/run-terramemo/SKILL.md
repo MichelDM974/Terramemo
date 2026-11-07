@@ -861,6 +861,13 @@ arbre propre (`git status`).
 
 ## Pièges
 
+- **Serveur de dev qui sert des modules périmés** : si sa sortie dit
+  `ENOSPC: System limit for number of file watchers reached`, la limite
+  d'inotify du PC (`fs.inotify.max_user_watches`, 65 536, partagée avec
+  VS Code et les autres sessions) est atteinte, et Vite ne voit plus les
+  changements (vu le 07/11 : un `main.ts` d'avant servi sans erreur).
+  `android/` et `dist/` ne sont plus surveillés (`vite.config.ts`) ; si ça
+  revient, relancer `serve` après chaque modification.
 - **Event Timing est faussé par `chromium-*` en nouveau headless**, pas
   par le headless en général : sur nos touchers (Caraïbes au zoom 1), la
   présentation n'y est signalée qu'au prochain événement, d'où des
