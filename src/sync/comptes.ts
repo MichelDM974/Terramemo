@@ -115,9 +115,10 @@ export interface Comptes {
   surChangement(f: () => void): () => void;
   /**
    * Le compte à qui envoyer les lots (src/sync/envoi.ts) : un compte connecté
-   * (pas un invité, anonyme compris : D16), sans déconnexion, effacement ni
-   * suppression en cours ; null sinon, session perdue comprise. Lève si le
-   * service ne se charge pas (hors ligne).
+   * (pas un invité, anonyme compris : D16), connu de la session, sans
+   * déconnexion, effacement ni suppression en cours ; null sinon, session
+   * perdue comprise, sans charger Firebase pour un invité. Lève si le service
+   * ne se charge pas (hors ligne).
    */
   pourSynchro(): Promise<{ uid: string; service: Service } | null>;
   /** Le jeton du compte vient de changer (création, lien, connexion, adresse vérifiée). */
@@ -180,8 +181,6 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   const maintenant = o.maintenant ?? Date.now;
   const abonnes = new Set<() => void>();
   const jetons = new Set<() => void>();
-  /** Le compte vu avec une adresse non vérifiée : sa vérification change le jeton (règles d'essai, § 6). */
-  let nonVerifie: string | null = null;
   const rapport: RapportComptes = { etat: null, jeton: null, erreurs: [], profil: null, profil_a_ecrire: null };
   let surveille = false;
   let reseauEcoute = false;
@@ -254,6 +253,24 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   }
 
   /**
+   * Adresse vérifiée (lien de l'e-mail, ouvert ailleurs ou appli fermée) mais
+   * jeton d'avant : `reload()` ne rafraîchit pas l'ID token. Il est rafraîchi,
+   * puis les lots refusés se relancent (§ 5.2 ; règles d'essai des lots 6 et
+   * 7, qui exigent email_verified). Comparé à chaque appel, sans état de page :
+   * une page neuve le voit, et un rafraîchissement raté se refait au suivant.
+   */
+  async function verifierJeton(u: import('firebase/auth').User): Promise<void> {
+    if (!u.emailVerified) return;
+    try {
+      if ((await u.getIdTokenResult()).claims.email_verified === true) return;
+      await rafraichir(u);
+      jetonChange();
+    } catch (e) {
+      noter(e);
+    }
+  }
+
+  /**
    * Après un lien, une création ou une connexion réussis : la session d'abord
    * (l'appli peut être tuée juste après), puis le jeton rafraîchi (§ 2.2 :
    * claims à jour). Un rafraîchissement raté (réseau) ne défait rien : le
@@ -280,7 +297,6 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     } catch (e) {
       noter(e);
     }
-    nonVerifie = u.emailVerified ? null : u.uid;
     // Les lots refusés se relancent avec ce jeton ; le journal de l'appareil part (§ 2.2).
     jetonChange();
     return assurerProfil();
@@ -433,17 +449,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       if (ses.uid !== u.uid && !ses.deconnexion && s.a.currentUser === u)
         await ecrireSession({ uid: u.uid, fournisseurs: fournisseursDe(u), adresse: u.email, deconnexion: null });
       e = { etat: 'compte', uid: u.uid, adresse: u.email, verifiee: u.emailVerified, fournisseurs: fournisseursDe(u) };
-      // Adresse vérifiée depuis (lien de l'e-mail, ouvert ailleurs) : le jeton rafraîchi la porte.
-      if (!u.emailVerified) nonVerifie = u.uid;
-      else if (nonVerifie === u.uid) {
-        nonVerifie = null;
-        try {
-          await rafraichir(u);
-          jetonChange();
-        } catch (err) {
-          noter(err);
-        }
-      }
+      await verifierJeton(u);
     } else if (ses.uid && ses.deconnexion === 'voulue') {
       // Déconnexion interrompue après le signOut (appli fermée) : on la termine.
       await ecrireSession({ uid: null, fournisseurs: [], adresse: null, deconnexion: null });
@@ -601,10 +607,22 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
 
     async pourSynchro() {
       const ses = await lireSession();
-      if (ses.deconnexion || ses.effacement || ses.suppression) return null;
+      // Sans compte dans la session (invité), rien à charger : la connexion l'écrit avant tout envoi.
+      if (!ses.uid || ses.deconnexion || ses.effacement || ses.suppression) return null;
       const s = await service();
       const u = s.a.currentUser;
-      return u && estCompte(u) ? { uid: u.uid, service: s } : null;
+      if (!u || !estCompte(u)) return null;
+      // Adresse pas encore vérifiée : relue à chaque passe (une requête à Auth, pas à Firestore),
+      // pour qu'une vérification faite ailleurs relance les lots refusés sans ouvrir la vue Compte.
+      if (!u.emailVerified) {
+        try {
+          await u.reload();
+        } catch (e) {
+          noter(e);
+        }
+        await verifierJeton(u);
+      }
+      return s.a.currentUser === u ? { uid: u.uid, service: s } : null;
     },
 
     surJeton(f) {

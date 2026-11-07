@@ -217,6 +217,31 @@ describe.skipIf(!hoteAuth || !hoteFs)('envoi des séances (émulateurs Auth et F
     expect(await pc.envoi.etat(uid)).toMatchObject({ refusees: 0, attente: 0 });
   });
 
+  it('adresse vérifiée ailleurs (règles d’essai : adresse vérifiée exigée) : le jeton rafraîchi, les lots refusés relancés et acceptés', async () => {
+    const mail = adresse();
+    const pc = appareil();
+    await pc.comptes.creer(mail, 'motdepasse');
+    await pc.attendreJetons();
+    const uid = pc.a.currentUser!.uid;
+    await charger(reglesAvecEssai(`return request.auth.token.email_verified == true && request.auth.token.email in ['${mail}'];`));
+    try {
+      await pc.jouer(2);
+      expect(await pc.envoi.declencher('cloture')).toMatchObject({ refuses: 1 });
+      // Le lien de l'e-mail ouvert ailleurs (dans Gmail) : l'adresse est vérifiée côté Auth.
+      const codes = (await (await fetch(`http://${hoteAuth}/emulator/v1/projects/${PROJET}/oobCodes`)).json()) as { oobCodes: { email: string; requestType: string; oobLink: string }[] };
+      const lien = codes.oobCodes.find((c) => c.email === mail && c.requestType === 'VERIFY_EMAIL')!.oobLink;
+      expect((await fetch(lien)).ok).toBe(true);
+      // Le retour au premier plan : la passe relit le compte, voit l'adresse vérifiée, rafraîchit le jeton
+      // et relance les lots refusés (passe « jeton »), sans ouvrir la vue Compte.
+      await pc.envoi.declencher('premier_plan');
+      await pc.attendreJetons();
+      expect((await enLigne(uid)).length).toBe(1);
+      expect(await pc.envoi.etat(uid)).toMatchObject({ refusees: 0 });
+    } finally {
+      await charger(reglesOuvertes);
+    }
+  });
+
   it('session perdue (mot de passe changé ailleurs) : rien ne part, les séances sont comptées', async () => {
     const mail = adresse();
     const pc = appareil();

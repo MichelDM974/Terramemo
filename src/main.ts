@@ -738,9 +738,18 @@ function chargerEnvoi(): Promise<Envoi> {
   return p;
 }
 
-/** Une passe d'envoi ; rien pour un invité (D16), qui ne charge aucun morceau des comptes. */
+/**
+ * Une passe d'envoi ; rien pour un invité (D16), qui ne charge aucun morceau
+ * des comptes. Les comptes déjà chargés suffisent : sans IndexedDB (§ 5.1,
+ * repli), la session ne vit que dans leur mémoire, et la base lue ici est vide.
+ */
 async function envoyer(d: Declencheur): Promise<void> {
-  if (!envoiCharge && !(await depotSessionIndexedDb().lire())?.uid) return;
+  if (!envoiCharge && !comptesCharges) {
+    const uid = await depotSessionIndexedDb()
+      .lire()
+      .then((s) => s?.uid ?? null, () => null);
+    if (!uid) return;
+  }
   await (await chargerEnvoi()).declencher(d);
 }
 function lancerEnvoi(d: Declencheur): void {

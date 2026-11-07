@@ -561,23 +561,30 @@ describe.skipIf(!hote)('lots joueurs/{uid}/lots/{lot} (J1b, lot 3 ; essai() ouve
 
   it('problemeLot (client) juge comme les règles ce qu’elles voient', async () => {
     const d = db('ana');
-    const cas: [string, Partial<DocLot>][] = [
+    const cas: [string, Partial<DocLot>, ((id: string) => string)?][] = [
       ['juste', {}],
       ['n = 0', { n: 0 }],
       ['n = 201', { n: 201 }],
+      ['n = 1,5', { n: 1.5 }],
       ['v = 2', { v: 2 }],
       ['appareil court', { appareil: 'x'.repeat(35) }],
       ['séance longue', { seance: 'x'.repeat(37) }],
       ['séance nulle', { seance: null }],
+      ['chaîne de 160', {}, undefined],
+      ['chaîne de 161', {}, undefined],
+      ['id de 35', {}, (id) => id.slice(1)],
     ];
-    for (const [nom, o] of cas) {
+    for (const [nom, o, idDe] of cas) {
       const l = lot(1, o);
+      // La chaîne allongée d'espaces en tête (JSON.parse les ignore) : seule sa longueur change.
+      if (nom.startsWith('chaîne')) l.doc.evenements = (l.doc.evenements as string).padStart(Number(nom.slice(-3)), ' ');
+      const id = idDe ? idDe(l.id) : l.id;
       const { fin: _, ...sansFin } = l.doc;
-      // Les cartes ne sont pas relues par les règles : seule la forme du document compte ici.
-      const client = problemeLot(l.id, sansFin as unknown as DocLot);
+      const client = problemeLot(id, sansFin as unknown as DocLot);
+      // Seulement ce que les règles voient : la forme du document (elles ne relisent pas les cartes).
       const visible = client === null || ['n', 'v', 'appareil', 'seance', 'evenements', 'id'].includes(client);
       expect(visible, `${nom} : ${client}`).toBe(true);
-      const accepte = await setDoc(ref(d, l.id), l.doc).then(() => true, () => false);
+      const accepte = await setDoc(ref(d, id), l.doc).then(() => true, () => false);
       expect(accepte, `${nom} : ${client}`).toBe(client === null);
     }
   });

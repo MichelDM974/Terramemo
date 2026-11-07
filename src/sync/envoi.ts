@@ -40,6 +40,15 @@ export type Declencheur = 'ouverture' | 'cloture' | 'fond' | 'premier_plan' | 'r
 export const DELAIS_RESEAU: readonly number[] = [30_000, 120_000, 600_000, 3_600_000];
 /** Un lot refusé par les règles se relance de lui-même au plus une fois par jour. */
 export const RELANCE_REGLES = 86_400_000;
+/**
+ * Une échéance à plus d'un jour vient d'une horloge qui a reculé depuis (elle
+ * était en avance) : elle est tenue pour échue, sinon elle bloquerait l'envoi.
+ */
+export const ECHEANCE_MAX = 86_400_000;
+/** Une requête au serveur sans réponse dans ce délai est un échec du réseau : elle ne garde pas le verrou. */
+export const DELAI_REQUETE = 30_000;
+/** Le chargement du service (Firebase, compte) : plus long, le SDK pouvant se télécharger. */
+export const DELAI_COMPTE = 60_000;
 /** En arrière-plan, la séance en cours n'est pas envoyée plus d'une fois toutes les 2 min. */
 export const FOND_MIN = 120_000;
 /** Le verrou des passes, partagé par les onglets de l'origine. */
@@ -96,6 +105,8 @@ export interface OptionsEnvoi {
   verrou?: <T>(f: () => Promise<T>) => Promise<T>;
   /** Défaut : setTimeout et clearTimeout. */
   minuterie?: { poser(f: () => void, ms: number): unknown; retirer(id: unknown): void };
+  /** Délais d'une requête et du chargement du compte (tests). */
+  delais?: { requete: number; compte: number };
 }
 
 export interface ResultatEnvoi {
@@ -128,7 +139,11 @@ export interface ComptesSynchro {
   evenements: number;
   /** Ids du journal dans aucun lot du compte. */
   horsLots: number;
-  /** Séances en attente, refusées, et les deux ensemble (« reconnecte-toi pour envoyer {n} séances »). */
+  /**
+   * Séances en attente (pas encore dans un lot, lot pas encore accepté, ou
+   * invalide jusqu'à la prochaine version), refusées par le serveur (cause
+   * `regles`), et les deux ensemble (« reconnecte-toi pour envoyer {n} séances »).
+   */
   attente: number;
   refusees: number;
   nonEnvoyees: number;
@@ -161,20 +176,22 @@ const cleSeance = (e: Pick<Evenement, 'seance' | 'appareil'>) => e.seance ?? `ho
 /** Les comptes d'un compte : le journal confronté à ses fiches de lots. */
 export async function compter(journal: Pick<JournalEnvoi, 'tous'>, lots: DepotLots, uid: string): Promise<ComptesSynchro> {
   const [evts, fiches] = await Promise.all([journal.tous(), lots.tous(uid)]);
-  const etatDe = new Map<string, EtatLot>();
+  const ficheDe = new Map<string, FicheLot>();
   const parEtat: Record<EtatLot, number> = { a_envoyer: 0, envoye: 0, en_ligne: 0, refuse: 0 };
   for (const f of fiches) {
     parEtat[f.etat]++;
-    for (const id of f.ids) etatDe.set(id, f.etat);
+    for (const id of f.ids) ficheDe.set(id, f);
   }
   const attente = new Set<string>();
   const refusees = new Set<string>();
   let horsLots = 0;
   for (const e of evts) {
-    const etat = etatDe.get(e.id);
-    if (!etat) horsLots++;
-    if (!etat || etat === 'a_envoyer') attente.add(cleSeance(e));
-    else if (etat === 'refuse') refusees.add(cleSeance(e));
+    const f = ficheDe.get(e.id);
+    if (!f) horsLots++;
+    // Refusé par le serveur : cause `regles` seulement. Un lot invalide n'est jamais parti : il
+    // attend une nouvelle version, comme un lot en attente (et « Réessayer » n'y peut rien).
+    if (f?.etat === 'refuse' && f.cause === 'regles') refusees.add(cleSeance(e));
+    else if (!f || f.etat === 'a_envoyer' || f.etat === 'refuse') attente.add(cleSeance(e));
   }
   return { evenements: evts.length, horsLots, attente: attente.size, refusees: refusees.size, nonEnvoyees: new Set([...attente, ...refusees]).size, lots: parEtat };
 }
@@ -193,6 +210,15 @@ export function empreinte(etat: ReadonlyMap<string, EtatFiche>): string {
   return h.toString(16).padStart(8, '0');
 }
 
+/** La promesse, ou un échec `deadline-exceeded` (traité comme le réseau) si elle tarde au-delà de `ms`. */
+function avecDelai<T>(p: Promise<T>, ms: number): Promise<T> {
+  let id: ReturnType<typeof setTimeout> | undefined;
+  const delai = new Promise<never>((_, ko) => {
+    id = setTimeout(() => ko(Object.assign(new Error(`sans réponse après ${ms} ms`), { code: 'deadline-exceeded' })), ms);
+  });
+  return Promise.race([p, delai]).finally(() => clearTimeout(id));
+}
+
 function verrouParDefaut<T>(f: () => Promise<T>): Promise<T> {
   const locks = typeof navigator !== 'undefined' ? (navigator as Navigator & { locks?: LockManager }).locks : undefined;
   return locks?.request ? (locks.request(NOM_VERROU, f) as Promise<T>) : f();
@@ -204,6 +230,8 @@ interface Drapeaux {
   fond: boolean;
   /** Changement de jeton, « Réessayer » : les lots refusés par les règles se relancent. */
   relancer: boolean;
+  /** « Réessayer » : même pendant l'attente du quota (un essai de plus, demandé). */
+  force: boolean;
   /** La minuterie seule : un lot en attente du réseau attend son heure. */
   minuterie: boolean;
 }
@@ -216,6 +244,7 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
   const maintenant = o.maintenant ?? Date.now;
   const verrou = o.verrou ?? verrouParDefaut;
   const minuterie = o.minuterie ?? { poser: (f: () => void, ms: number) => setTimeout(f, ms), retirer: (id: unknown) => clearTimeout(id as ReturnType<typeof setTimeout>) };
+  const delais = o.delais ?? { requete: DELAI_REQUETE, compte: DELAI_COMPTE };
   const rapport: RapportEnvoi = { derniere: null, erreurs: [], horsLigne: false, quota: null };
   const abonnes = new Set<() => void>();
   /** Dernier envoi en arrière-plan de chaque séance en cours. */
@@ -259,41 +288,56 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     return fiche(f.uid, { id: tries[0]!.id, appareil: f.appareil, seance: f.seance, evenements: tries });
   }
 
+  /** L'échéance est-elle passée (ou trop lointaine : horloge reculée depuis) ? */
+  const echue = (f: FicheLot, t: number) => t >= f.prochain || f.prochain > t + ECHEANCE_MAX;
+
   /** Le lot vaut-il un essai dans cette passe ? */
   function aEssayer(f: FicheLot, d: Drapeaux, t: number): boolean {
-    if (f.etat === 'a_envoyer') return f.cause === 'quota' || (f.cause === 'reseau' && d.minuterie) ? t >= f.prochain : true;
-    if (f.etat === 'refuse' && f.cause === 'regles') return d.relancer || f.version !== version || t >= f.prochain;
+    if (f.etat === 'a_envoyer') {
+      if (f.cause === 'quota') return d.force || echue(f, t);
+      if (f.cause === 'reseau' && d.minuterie) return echue(f, t);
+      return true;
+    }
+    if (f.etat === 'refuse' && f.cause === 'regles') return d.relancer || f.version !== version || echue(f, t);
     return false;
   }
 
   type Arret = 'reseau' | 'quota' | null;
 
+  /** Erreur du réseau (ou sans réponse) : nouvel essai à 30 s, 2 min, 10 min, puis 1 h. Un lot refusé garde son état. */
+  async function attendreReseau(f: FicheLot, t: number): Promise<Arret> {
+    rapport.horsLigne = true;
+    if (f.etat === 'a_envoyer') {
+      const essais = f.essais + 1;
+      await ecrireFiches([{ ...f, cause: 'reseau', essais, prochain: t + DELAIS_RESEAU[Math.min(essais, DELAIS_RESEAU.length) - 1]! }]);
+    }
+    return 'reseau';
+  }
+
+  /** Quota de Spark (écritures ou lectures) : rien avant minuit à Los Angeles. */
+  async function attendreQuota(f: FicheLot, t: number): Promise<Arret> {
+    rapport.quota = remiseQuota(new Date(t)).getTime();
+    if (f.etat === 'a_envoyer') await ecrireFiches([{ ...f, cause: 'quota', essais: f.essais + 1, prochain: rapport.quota }]);
+    return 'quota';
+  }
+
   /** Un lot envoyé, et ses issues (§ 5.2). Rend ce qui arrête la passe. */
   async function envoyer(uid: string, s: Serveur, f: FicheLot, parId: ReadonlyMap<string, Evenement>, r: ResultatEnvoi, t: number): Promise<Arret> {
     if (!f.doc) return null;
     try {
-      await s.creer(uid, f.id, f.doc);
+      await avecDelai(s.creer(uid, f.id, f.doc), delais.requete);
     } catch (e) {
       noter(e);
       const code = codeErreur(e);
       if (code === 'permission-denied') return relire(uid, s, f, parId, r, t);
-      if (code === 'resource-exhausted') {
-        rapport.quota = remiseQuota(new Date(t)).getTime();
-        if (f.etat === 'a_envoyer') await ecrireFiches([{ ...f, cause: 'quota', essais: f.essais + 1, prochain: rapport.quota }]);
-        return 'quota';
-      }
+      if (code === 'resource-exhausted') return attendreQuota(f, t);
       if (code === 'invalid-argument') {
         await ecrireFiches([{ ...f, etat: 'refuse', cause: 'invalide', essais: 0, prochain: 0, version, doc: null }]);
         r.refuses++;
         return null;
       }
       // Réseau (unavailable, deadline-exceeded, fetch qui échoue), ou toute autre erreur : plus tard.
-      rapport.horsLigne = true;
-      if (f.etat === 'a_envoyer') {
-        const essais = f.essais + 1;
-        await ecrireFiches([{ ...f, cause: 'reseau', essais, prochain: t + DELAIS_RESEAU[Math.min(essais, DELAIS_RESEAU.length) - 1]! }]);
-      }
-      return 'reseau';
+      return attendreReseau(f, t);
     }
     rapport.horsLigne = false;
     await ecrireFiches([{ ...f, etat: 'envoye', cause: null, essais: 0, prochain: 0, version, doc: null }]);
@@ -305,7 +349,10 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
    * Après un refus des règles, le lot relu : présent (un renvoi d'un lot déjà
    * accepté), ses ids sont envoyés, et ceux de la fiche qui n'y sont pas
    * forment un nouveau lot ; absent, ou lecture refusée (qui ne vaut jamais
-   * « absent ») : refusé par les règles.
+   * « absent ») : refusé par les règles. Les ids trouvés en ligne sortent
+   * aussi des autres lots en attente (état de la synchro perdu, puis lots
+   * recomposés autrement qu'en ligne) : sans quoi ils partiraient en double.
+   * Les lots recomposés partent dans la même passe (file de passe()).
    */
   async function relire(uid: string, s: Serveur, f: FicheLot, parId: ReadonlyMap<string, Evenement>, r: ResultatEnvoi, t: number): Promise<Arret> {
     const refuser = async (): Promise<Arret> => {
@@ -315,17 +362,20 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     };
     let lu: Record<string, unknown> | null;
     try {
-      lu = await s.lire(uid, f.id);
+      lu = await avecDelai(s.lire(uid, f.id), delais.requete);
     } catch (e) {
       noter(e);
-      if (codeErreur(e) === 'permission-denied') return refuser();
-      rapport.horsLigne = true;
-      return 'reseau';
+      const code = codeErreur(e);
+      if (code === 'permission-denied') return refuser();
+      if (code === 'resource-exhausted') return attendreQuota(f, t);
+      return attendreReseau(f, t);
     }
     if (!lu) return refuser();
     let ids: string[];
     try {
       ids = idsDuLot(lu);
+      // Un lot écrit par cette appli commence par l'événement qui lui donne son id.
+      if (!ids.includes(f.id)) throw new Error(`lot ${f.id} en ligne sans sa première carte`);
     } catch (e) {
       // Un lot à cet id, que cette version ne sait pas lire : relancé à la prochaine version.
       noter(e, 'terramemo/lot-illisible');
@@ -333,29 +383,40 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     }
     r.presents++;
     const enLigne = new Set(ids);
-    const restants = f.ids.filter((id) => !enLigne.has(id)).flatMap((id) => parId.get(id) ?? []);
-    const suite = composer(restants).map((l) => fiche(uid, l));
-    await ecrireFiches([{ ...f, ids, etat: 'envoye', cause: null, essais: 0, prochain: 0, version, doc: null }, ...suite]);
-    r.composes += suite.length;
-    for (const n of suite) {
-      if (n.etat !== 'a_envoyer') continue;
-      const a = await envoyer(uid, s, n, parId, r, t);
-      if (a) return a;
+    const maj: FicheLot[] = [{ ...f, ids, etat: 'envoye', cause: null, essais: 0, prochain: 0, version, doc: null }];
+    const restants = f.ids.filter((id) => !enLigne.has(id));
+    for (const g of connues.values()) {
+      if (g.id === f.id || (g.etat !== 'a_envoyer' && g.etat !== 'refuse')) continue;
+      const communs = g.ids.filter((id) => enLigne.has(id));
+      if (!communs.length) continue;
+      // Sa partie déjà en ligne est envoyée ; le reste est recomposé (sous son id s'il n'est pas en ligne).
+      if (enLigne.has(g.id)) maj.push({ ...g, ids: communs, etat: 'envoye', cause: null, essais: 0, prochain: 0, version, doc: null });
+      restants.push(...g.ids.filter((id) => !enLigne.has(id)));
     }
+    const suite = composer(restants.flatMap((id) => parId.get(id) ?? [])).map((l) => fiche(uid, l));
+    await ecrireFiches([...maj, ...suite]);
+    r.composes += suite.length;
     return null;
   }
 
-  /** La minuterie du prochain essai après une erreur de réseau. */
+  /**
+   * La minuterie du prochain essai après une erreur de réseau. Rien pendant
+   * l'attente du quota (le premier déclencheur après sa remise relance), et
+   * jamais moins d'une seconde : une passe qui n'essaie rien ne repart pas
+   * aussitôt.
+   */
   function planifier(): void {
     if (reveil !== null) minuterie.retirer(reveil);
     reveil = null;
+    const t = maintenant();
+    if (rapport.quota !== null && rapport.quota > t) return;
     let quand = Infinity;
-    for (const f of connues.values()) if (f.etat === 'a_envoyer' && f.cause === 'reseau') quand = Math.min(quand, f.prochain);
+    for (const f of connues.values()) if (f.etat === 'a_envoyer' && f.cause === 'reseau') quand = Math.min(quand, echue(f, t) ? t : f.prochain);
     if (quand === Infinity) return;
     reveil = minuterie.poser(() => {
       reveil = null;
       void declencher('minuterie');
-    }, Math.max(0, quand - maintenant()));
+    }, Math.max(1000, quand - t));
   }
 
   async function passe(d: Drapeaux): Promise<ResultatEnvoi> {
@@ -369,7 +430,7 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     if (coupee()) return fini('coupee');
     let c: CompteEnvoi;
     try {
-      c = await o.compte();
+      c = await avecDelai(o.compte(), delais.compte);
     } catch (e) {
       // Le service ne se charge pas (site hors ligne, sans service worker : § 5.5).
       noter(e);
@@ -406,29 +467,55 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     await ecrireFiches([...nouvelles, ...recomposees]);
     r.composes = nouvelles.length + recomposees.filter((f) => f.etat === 'a_envoyer').length;
 
-    // Le quota du jour atteint (vu dans cette page, ou gardé par une fiche) : rien avant sa remise.
-    const quota = Math.max(rapport.quota ?? 0, ...[...connues.values()].filter((f) => f.etat === 'a_envoyer' && f.cause === 'quota').map((f) => f.prochain));
-    if (quota > t) {
-      rapport.quota = quota;
-      r.arret = 'quota';
-    } else {
-      rapport.quota = null;
-      // Les lots en attente du réseau d'abord : la minuterie n'essaie rien si aucun n'est à son
-      // heure, et les autres ne partent qu'après un succès (le premier échec arrête la passe).
-      const essayer = [...connues.values()].filter((f) => aEssayer(f, d, t));
-      const dus = essayer.filter((f) => f.cause === 'reseau').sort((a, b) => a.prochain - b.prochain);
-      const autres = essayer.filter((f) => f.cause !== 'reseau').sort((a, b) => (a.id < b.id ? -1 : 1));
-      const file = d.minuterie && !dus.length ? [] : [...dus, ...autres];
-      for (const f of file) {
-        // Une fiche mise à jour par un lot relu plus tôt dans la passe : sa dernière version.
-        const actuelle = connues.get(f.id) ?? f;
-        if (!aEssayer(actuelle, d, t)) continue;
-        const a = await envoyer(uid, serveur, actuelle, parId, r, t);
+    // Le quota du jour atteint (vu dans cette page, ou gardé par une fiche) : rien avant sa remise,
+    // sauf « Réessayer ». Une échéance à plus d'un jour vient d'une horloge en avance : ignorée.
+    const echeances = [rapport.quota ?? 0, ...[...connues.values()].filter((f) => f.etat === 'a_envoyer' && f.cause === 'quota').map((f) => f.prochain)];
+    const quota = Math.max(0, ...echeances.filter((q) => q <= t + ECHEANCE_MAX));
+    rapport.quota = quota > t ? quota : null;
+    if (rapport.quota !== null && !d.force) r.arret = 'quota';
+    else {
+      // Une file relue à chaque tour : un lot recomposé pendant la passe (relire) y entre, aucun
+      // n'est essayé deux fois. Les lots en attente du réseau d'abord : la minuterie n'essaie rien si
+      // aucun n'est à son heure, et les autres ne partent qu'après un succès (le premier échec du
+      // réseau arrête la passe). Puis les lots jamais essayés, enfin les refusés, les plus anciens
+      // relancés d'abord. Une relance refusée sert de sonde : les autres refusés attendent la
+      // prochaine relance, dans leur ordre, et la sonde passe derrière eux (chaque relance sonde
+      // un autre lot : aucun ne bloque les autres pour toujours).
+      const tentes = new Set<string>();
+      const rang = (f: FicheLot) => (f.cause === 'reseau' ? 0 : f.etat === 'a_envoyer' ? 1 : 2);
+      const prochainLot = (): FicheLot | null => {
+        let meilleur: FicheLot | null = null;
+        for (const f of connues.values()) {
+          if (tentes.has(f.id) || !aEssayer(f, d, t)) continue;
+          const avant =
+            !meilleur ||
+            rang(f) < rang(meilleur) ||
+            (rang(f) === rang(meilleur) && (rang(f) !== 1 && f.prochain !== meilleur.prochain ? f.prochain < meilleur.prochain : f.id < meilleur.id));
+          if (avant) meilleur = f;
+        }
+        return meilleur;
+      };
+      const reportes: FicheLot[] = [];
+      let sonde: string | null = null;
+      let f = d.minuterie && !(prochainLot()?.cause === 'reseau') ? null : prochainLot();
+      for (; f; f = prochainLot()) {
+        tentes.add(f.id);
+        if (f.etat === 'refuse' && sonde) {
+          reportes.push(f);
+          continue;
+        }
+        const relance = f.etat === 'refuse';
+        const a = await envoyer(uid, serveur, f, parId, r, t);
+        if (relance && connues.get(f.id)?.etat === 'refuse') sonde = f.id;
         if (a) {
           r.arret = a;
           break;
         }
       }
+      const rangs = reportes.map((x, i) => ({ ...x, version, prochain: t + RELANCE_REGLES + i }));
+      const s = sonde ? connues.get(sonde) : undefined;
+      if (s && reportes.length) rangs.push({ ...s, prochain: t + RELANCE_REGLES + reportes.length });
+      await ecrireFiches(rangs);
     }
     planifier();
     return fini('fait');
@@ -438,10 +525,11 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
   let prochaine: { p: Promise<ResultatEnvoi>; d: Drapeaux } | null = null;
 
   function declencher(quoi: Declencheur): Promise<ResultatEnvoi> {
-    const d: Drapeaux = { fond: quoi === 'fond', relancer: quoi === 'jeton' || quoi === 'reessayer', minuterie: quoi === 'minuterie' };
+    const d: Drapeaux = { fond: quoi === 'fond', relancer: quoi === 'jeton' || quoi === 'reessayer', force: quoi === 'reessayer', minuterie: quoi === 'minuterie' };
     if (prochaine) {
       prochaine.d.fond ||= d.fond;
       prochaine.d.relancer ||= d.relancer;
+      prochaine.d.force ||= d.force;
       prochaine.d.minuterie &&= d.minuterie;
       return prochaine.p;
     }

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { FICHIER_LICENCES, texteLicences } from './licences/tierces';
@@ -28,7 +29,8 @@ function licencesTierces(): Plugin {
  * fichiers suivis en diffèrent ; « inconnue » sans git.
  */
 function versionAppli(): string {
-  const git = (...a: string[]) => execFileSync('git', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  const cwd = fileURLToPath(new URL('.', import.meta.url));
+  const git = (...a: string[]) => execFileSync('git', a, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   try {
     const commit = git('rev-parse', '--short=10', 'HEAD');
     let modifie = false;
