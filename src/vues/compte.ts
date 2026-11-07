@@ -15,13 +15,15 @@
 // ajouter » et sa seconde confirmation, « Annuler »), la déconnexion
 // reprenable (ce qui n'est pas parti, « Réessayer l'envoi », « Se déconnecter
 // quand même »), « Effacer cet appareil » pour une session perdue, et la ligne
-// « Mets à jour l'appli » des lots qu'une version ne sait pas lire. Viendront
-// ensuite : export (« Exporter d'abord »), suppression et lien vers la
-// politique (lot 5), Google (lots 6 et 7). Les champs portent autocomplete et inputmode : le remplissage
+// « Mets à jour l'appli » des lots qu'une version ne sait pas lire. Lot 5 :
+// « Supprimer mon compte » (§ 7.1 : le texte de D27 b sur les places du
+// classement, puis « supprimer » et le mot de passe), « Suppression inachevée
+// : reprendre ? », « Ce compte est en cours de suppression ». Viendront
+// ensuite : Google (lots 6 et 7). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
 // textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts.
 import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
-import type { ChoixFusion, Comptes, EtatCompte, QuestionFusion, ResultatDeconnexion, ResultatProfil } from '../sync/comptes';
+import { MOT_SUPPRESSION, type ChoixFusion, type Comptes, type EtatCompte, type QuestionFusion, type ResultatDeconnexion, type ResultatProfil } from '../sync/comptes';
 import { synchroCoupee } from '../sync/drapeaux';
 import type { Envoi, EtatSynchro } from '../sync/envoi';
 import { codeErreur, traduire } from '../sync/erreurs';
@@ -46,10 +48,12 @@ type Ecran =
   | 'fusion-confirmer'
   | 'deconnexion'
   | 'effacer'
+  | 'supprimer'
+  | 'suppression'
   | 'attente';
 
 /** Écrans qui restent tels quels quand l'état est relu (saisie en cours, question posée). */
-const ECRANS_GARDES: ReadonlySet<Ecran> = new Set(['creer', 'connecter', 'mdp', 'pseudo', 'sans-compte', 'fusion', 'fusion-confirmer', 'deconnexion', 'effacer', 'attente']);
+const ECRANS_GARDES: ReadonlySet<Ecran> = new Set(['creer', 'connecter', 'mdp', 'pseudo', 'sans-compte', 'fusion', 'fusion-confirmer', 'deconnexion', 'effacer', 'supprimer', 'suppression', 'attente']);
 /** Les écrans de la question de fusion, réponse comprise : un échec ramène au formulaire d'où l'on venait. */
 const ECRANS_QUESTION: ReadonlySet<Ecran> = new Set(['fusion', 'fusion-confirmer', 'attente']);
 
@@ -111,6 +115,11 @@ export function texteSynchro(e: EtatSynchro): string {
   if (e.attente && e.horsLigne) return T.synchro_hors_ligne;
   if (e.attente) return e.attente === 1 ? T.synchro_attente_une : remplir(T.synchro_attente, { n: e.attente });
   return T.synchro_a_jour;
+}
+
+/** Le texte de D27 b, avant la confirmation d'une suppression (§ 7.1) : les places du pseudo retirées sous 30 jours. */
+export function texteClassementSuppression(pseudo: string | null): string {
+  return pseudo ? remplir(T.supprimer_classement, { pseudo }) : T.supprimer_classement_sans;
 }
 
 /** Le texte d'une session perdue : « {n} séances », au singulier pour une. */
@@ -302,6 +311,60 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
     await apres(c);
   }
 
+  /**
+   * La confirmation d'une suppression (§ 7.1) : « supprimer » à écrire, et le
+   * mot de passe d'un compte `password` encore connecté (réauthentification) ;
+   * pour Google, la fenêtre de Google. `annulable` : « Annuler » ramène au
+   * compte (pas pour une reprise : le drapeau reste).
+   */
+  function formulaireSuppression(adresse: string | null, fournisseurs: readonly string[], connecte: boolean, texte: string, annulable: boolean): Node[] {
+    const mdpDemande = connecte && fournisseurs.includes('password');
+    const mot = champ('compte-supprimer-mot', T.supprimer_mot, { type: 'text', name: 'confirmation', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done', required: '' });
+    const mdp = mdpDemande ? champMdp('compte-supprimer-mdp', T.mdp, 'current-password') : null;
+    // L'identifiant du compte, caché : le gestionnaire de mots de passe propose le bon.
+    const nom = creer('input', { type: 'email', name: 'email', autocomplete: 'username', hidden: '', readonly: '', tabindex: '-1', 'aria-hidden': 'true' });
+    nom.value = adresse ?? '';
+    const envoyer = () => {
+      if (mot.input.value.trim().toLocaleLowerCase('fr') !== MOT_SUPPRESSION) {
+        erreur.textContent = T.erreurs['terramemo/suppression-mot'];
+        return;
+      }
+      void agir(async (c) => {
+        dire(T.suppression_en_cours);
+        try {
+          await c.supprimer({ mot: mot.input.value, ...(mdp ? { mdp: mdp.input.value } : {}) });
+        } catch (err) {
+          // Coupée en route : l'écran de la reprise si le drapeau est posé, l'erreur gardée.
+          message.textContent = '';
+          const e = await c.etat().catch(() => null);
+          if (e && e.etat !== etat?.etat) {
+            etat = e;
+            aller(ecranDe(e));
+          }
+          throw err;
+        }
+        dire(T.supprime);
+        await apres(c);
+      });
+    };
+    return [
+      formulaire(
+        'compte-form-supprimer',
+        envoyer,
+        ...(mdp ? [nom] : []),
+        mot.label,
+        ...(mdp ? [mdp.label] : []),
+        ...(connecte && !mdpDemande && fournisseurs.includes('google.com') ? [creer('p', { class: 'hint', id: 'compte-supprimer-google' }, T.supprimer_google)] : []),
+        creer(
+          'div',
+          { class: 'compte-actions' },
+          bouton('compte-supprimer-ok', texte, envoyer, 'danger', 'submit'),
+          ...(annulable ? [bouton('compte-annuler', T.annuler, () => annuler())] : []),
+        ),
+      ),
+    ];
+  }
+
   function rendre(): void {
     rendreSynchro();
     contenu.replaceChildren(...ecranCourant());
@@ -485,6 +548,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
                 }), 'lien'),
             ),
           );
+        // Une suppression lancée depuis un autre appareil (pierre tombale lue, § 7.1).
+        if (e.supprime) lignes.push(creer('p', { class: 'hint', id: 'compte-en-suppression' }, T.en_suppression));
         lignes.push(
           creer(
             'div',
@@ -495,8 +560,37 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
             })] : []),
             bouton('compte-deconnecter', T.se_deconnecter, () => void agir((c) => deconnecter(c))),
           ),
+          // En bas, à part (§ 3.2).
+          creer(
+            'div',
+            { class: 'compte-actions compte-separe' },
+            bouton('compte-vers-supprimer', T.supprimer_lien, () => {
+              effacerAvis();
+              aller('supprimer');
+            }, 'danger'),
+          ),
         );
         return lignes;
+      }
+      case 'supprimer': {
+        const e = etat?.etat === 'compte' ? etat : null;
+        if (!e) return [];
+        return [
+          creer('h3', {}, T.titre_supprimer),
+          creer('p', { id: 'compte-supprimer-texte' }, T.supprimer_texte),
+          // D27 b, avant la confirmation : les places du pseudo.
+          creer('p', { id: 'compte-supprimer-classement' }, texteClassementSuppression(lirePseudo())),
+          ...formulaireSuppression(e.adresse, e.fournisseurs, true, T.supprimer_bouton, true),
+        ];
+      }
+      case 'suppression': {
+        const e = etat?.etat === 'suppression' ? etat : null;
+        if (!e) return [];
+        return [
+          creer('p', { id: 'compte-suppression-inachevee' }, T.suppression_inachevee),
+          ...(e.connecte ? [] : [creer('p', { class: 'hint', id: 'compte-suppression-appareil' }, T.suppression_appareil)]),
+          ...formulaireSuppression(e.adresse, e.fournisseurs, e.connecte, T.suppression_reprendre, false),
+        ];
       }
       case 'mdp': {
         const e = etat?.etat === 'compte' ? etat : null;
@@ -670,7 +764,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
 
   /** L'écran de l'état du compte (formulaire refermé). */
   function ecranDe(e: EtatCompte): Ecran {
-    return e.etat === 'compte' ? 'compte' : e.etat === 'perdue' ? 'perdue' : 'invite';
+    return e.etat === 'compte' ? 'compte' : e.etat === 'perdue' ? 'perdue' : e.etat === 'suppression' ? 'suppression' : 'invite';
   }
 
   function annuler(): void {

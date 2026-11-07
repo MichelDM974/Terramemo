@@ -1,4 +1,4 @@
-// Vue Compte (src/vues/compte.ts, J1b lots 1 à 4) : écrans et parcours sur un
+// Vue Compte (src/vues/compte.ts, J1b lots 1 à 5) : écrans et parcours sur un
 // DOM factice (tests/dom-factice.ts), avec des comptes remplacés (le vrai
 // src/sync/comptes.ts est éprouvé sur l'émulateur, tests/comptes.test.ts).
 // Puis vueALaDemande (src/vues/a-la-demande.ts) : le morceau chargé à
@@ -25,6 +25,8 @@ let questionConnexion: QuestionFusion | null = null;
 let resteDeconnexion: Extract<ResultatDeconnexion, { fait: false }> | null = null;
 /** L'erreur que lève la connexion ou la création après la réponse à la question (lot 4). */
 let echecApres: Error | null = null;
+/** L'erreur d'une suppression coupée en route (lot 5) : le drapeau reste posé. */
+let coupureSuppression: Error | null = null;
 
 /** Des comptes en mémoire : un état, et chaque méthode espionnée. */
 function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
@@ -67,6 +69,15 @@ function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
     continuerSansCompte: vi.fn(async () => {
       etat = { etat: 'invite', anonyme: false };
     }),
+    /** Lot 5 : une suppression réussie rend l'appareil invité ; `coupureSuppression` la coupe en route. */
+    supprimer: vi.fn(async (_c: { mot: string; mdp?: string }) => {
+      if (coupureSuppression) {
+        const u = etat.etat === 'compte' || etat.etat === 'suppression' ? etat.uid : 'u1';
+        etat = { etat: 'suppression', uid: u, adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true };
+        throw coupureSuppression;
+      }
+      etat = { etat: 'invite', anonyme: false };
+    }),
     surChangement: vi.fn(() => () => true),
     demarrer: vi.fn(async () => etat),
     rapport: vi.fn(() => ({ etat, jeton: null, erreurs: [] })),
@@ -92,6 +103,7 @@ beforeEach(() => {
   questionConnexion = null;
   resteDeconnexion = null;
   echecApres = null;
+  coupureSuppression = null;
   zone = document.createElement('main') as unknown as El;
   masquee = [];
 });
@@ -726,3 +738,124 @@ describe('vue Compte, lot 4 : question de fusion, déconnexion reprenable, effac
   });
 });
 
+describe('vue Compte, lot 5 : suppression du compte', () => {
+  const COMPTE: EtatCompte = { etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] };
+
+  it('« Supprimer mon compte », en bas et à part, en style danger', async () => {
+    const c = fauxComptes(COMPTE);
+    await ouvrir(c);
+    const b = $('#compte-vers-supprimer')!;
+    expect(b.textContent).toBe(T.supprimer_lien);
+    expect(b.className).toBe('danger');
+    expect(b.parent!.className).toBe('compte-actions compte-separe');
+    expect($('#compte-en-suppression')).toBeNull();
+  });
+
+  it('le texte de D27 b avant la confirmation ; « supprimer » et le mot de passe exigés ; puis « Compte supprimé. »', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Michel');
+    const c = fauxComptes(COMPTE);
+    await ouvrir(c);
+    $('#compte-vers-supprimer')!.click();
+    expect($('#compte-supprimer-texte')!.textContent).toBe(T.supprimer_texte);
+    expect($('#compte-supprimer-classement')!.textContent).toBe('Tes places au classement portent ton pseudo, Michel : elles seront retirées sous 30 jours, pour tous ceux qui jouent ce pseudo.');
+    // Le texte vient avant le formulaire de confirmation.
+    const enfants = $('#compte-contenu')!.enfants as El[];
+    expect(enfants.findIndex((x) => x.id === 'compte-supprimer-classement')).toBeLessThan(enfants.findIndex((x) => x.id === 'compte-form-supprimer'));
+    const mot = $('#compte-supprimer-mot')!;
+    expect([mot.getAttribute('autocomplete'), mot.getAttribute('autocapitalize')]).toEqual(['off', 'off']);
+    expect($('#compte-supprimer-mdp')!.getAttribute('autocomplete')).toBe('current-password');
+    expect(zone.querySelector('input[autocomplete="username"]')!.value).toBe('ana@exemple.fr');
+    expect($('#compte-supprimer-ok')!.className).toBe('danger');
+    // Sans le mot : rien ne part.
+    mot.value = 'oui';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    expect(c.supprimer).not.toHaveBeenCalled();
+    expect($('#compte-erreur')!.textContent).toBe('Écris « supprimer » pour confirmer');
+    // Avec la majuscule du clavier du téléphone.
+    mot.value = 'Supprimer';
+    $('#compte-supprimer-mdp')!.value = 'motdepasse';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect(c.supprimer).toHaveBeenCalledWith({ mot: 'Supprimer', mdp: 'motdepasse' });
+    expect($('#compte-message')!.textContent).toBe(T.supprime);
+    expect(contenu()).toContain(T.invite);
+  });
+
+  it('sans pseudo : le même avertissement, sans nom ; « Annuler » ramène au compte', async () => {
+    const c = fauxComptes(COMPTE);
+    await ouvrir(c);
+    $('#compte-vers-supprimer')!.click();
+    expect($('#compte-supprimer-classement')!.textContent).toBe(T.supprimer_classement_sans);
+    $('#compte-annuler')!.click();
+    expect($('#compte-adresse-connectee')!.textContent).toBe('ana@exemple.fr');
+  });
+
+  it('compte Google : pas de mot de passe, la fenêtre de Google le dit', async () => {
+    const c = fauxComptes({ ...COMPTE, fournisseurs: ['google.com'] } as EtatCompte);
+    await ouvrir(c);
+    $('#compte-vers-supprimer')!.click();
+    expect($('#compte-supprimer-mdp')).toBeNull();
+    expect($('#compte-supprimer-google')!.textContent).toBe(T.supprimer_google);
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect(c.supprimer).toHaveBeenCalledWith({ mot: 'supprimer' });
+  });
+
+  it('coupée en route : l’écran de la reprise, l’erreur traduite', async () => {
+    coupureSuppression = err('auth/network-request-failed');
+    const c = fauxComptes(COMPTE);
+    await ouvrir(c);
+    $('#compte-vers-supprimer')!.click();
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    $('#compte-supprimer-mdp')!.value = 'motdepasse';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect($('#compte-suppression-inachevee')!.textContent).toBe(T.suppression_inachevee);
+    expect($('#compte-erreur')!.textContent).toBe('Réseau injoignable');
+    expect($('#compte-message')!.textContent).toBe('');
+    // La reprise : le mot et le mot de passe de nouveau (réauthentification).
+    coupureSuppression = null;
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    $('#compte-supprimer-mdp')!.value = 'motdepasse';
+    expect($('#compte-supprimer-ok')!.textContent).toBe(T.suppression_reprendre);
+    expect($('#compte-annuler')).toBeNull();
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect(c.supprimer).toHaveBeenCalledTimes(2);
+    expect($('#compte-message')!.textContent).toBe(T.supprime);
+  });
+
+  it('suppression inachevée à l’ouverture, compte encore là : « reprendre ? », avec le mot de passe', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true });
+    await ouvrir(c);
+    expect($('#compte-suppression-inachevee')!.textContent).toBe(T.suppression_inachevee);
+    expect($('#compte-supprimer-mdp')).not.toBeNull();
+    expect($('#compte-suppression-appareil')).toBeNull();
+  });
+
+  it('suppression inachevée, compte déjà parti de Auth : il reste à vider l’appareil, sans mot de passe', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: false });
+    await ouvrir(c);
+    expect($('#compte-suppression-appareil')!.textContent).toBe(T.suppression_appareil);
+    expect($('#compte-supprimer-mdp')).toBeNull();
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect(c.supprimer).toHaveBeenCalledWith({ mot: 'supprimer' });
+    expect(contenu()).toContain(T.invite);
+  });
+
+  it('un autre appareil a lancé la suppression : « Ce compte est en cours de suppression », la suppression reste offerte', async () => {
+    const c = fauxComptes({ ...COMPTE, supprime: true } as EtatCompte);
+    await ouvrir(c);
+    expect($('#compte-en-suppression')!.textContent).toBe(T.en_suppression);
+    expect($('#compte-vers-supprimer')).not.toBeNull();
+  });
+});

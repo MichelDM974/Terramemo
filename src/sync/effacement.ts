@@ -1,5 +1,6 @@
-// Ce qu'efface une déconnexion ou « Effacer cet appareil » hors du journal
-// (J1b, lot 4 ; étude docs/etudes/2026-11-07-j1b-conception.md, § 3.4) :
+// Ce qu'efface une déconnexion, « Effacer cet appareil » ou la fin d'une
+// suppression du compte hors du journal (J1b, lots 4 et 5 ; étude
+// docs/etudes/2026-11-07-j1b-conception.md, § 3.4 et § 7.1) :
 // ce qui est au joueur (pseudo, records, file des scores à publier), pas à
 // l'appareil (son id, ses réglages, le dernier jeu de « Rejouer »). Petit
 // module du morceau principal : main.ts finit au démarrage un effacement que
@@ -29,9 +30,11 @@ export function effacerJoueurLocal(stockage: Pick<Storage, 'removeItem'> | null)
 /**
  * La session d'un appareil effacé : invité vierge. Une déconnexion voulue
  * reste notée, pour que les comptes finissent son signOut si l'appli a été
- * tuée avant (comptes.ts, etat()).
+ * tuée avant (comptes.ts, etat()). Une suppression du compte (§ 7.1) finit
+ * aussi par cet effacement : son drapeau est levé avec lui, au démarrage
+ * comme dans la page.
  */
-export const APRES_EFFACEMENT: Readonly<Partial<Session>> = { uid: null, fournisseurs: [], adresse: null, marque: null, profil_a_ecrire: false, effacement: null, connexion: null };
+export const APRES_EFFACEMENT: Readonly<Partial<Session>> = { uid: null, fournisseurs: [], adresse: null, marque: null, profil_a_ecrire: false, effacement: null, connexion: null, suppression: null };
 
 export interface OptionsEffacement {
   session: DepotSession;

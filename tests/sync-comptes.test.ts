@@ -83,3 +83,61 @@ describe('comptes, hors émulateur', () => {
     fiche = null;
   });
 });
+
+describe('suppression d’un compte Google : la réauthentification (§ 7.1, étape 1)', () => {
+  /** Un compte Google connecté, dont la session est celle de l'appareil ; Firestore refuse (on ne teste que l'étape 1). */
+  function google() {
+    const appels: string[] = [];
+    const u = {
+      uid: 'g1',
+      email: 'gael@gmail.com',
+      isAnonymous: false,
+      emailVerified: true,
+      providerData: [{ providerId: 'google.com' }],
+      getIdToken: async () => 'jeton',
+      getIdTokenResult: async () => ({ claims: { email_verified: true } }),
+      reload: async () => undefined,
+    };
+    class GoogleAuthProvider {
+      static credential(idToken: string) {
+        return { idToken };
+      }
+    }
+    const auth = {
+      onAuthStateChanged: () => () => undefined,
+      GoogleAuthProvider,
+      reauthenticateWithPopup: async (_u: unknown, p: unknown) => void appels.push(`popup:${p instanceof GoogleAuthProvider}`),
+      reauthenticateWithCredential: async (_u: unknown, c: { idToken?: string }) => void appels.push(`credential:${c.idToken}`),
+    };
+    // La lecture du profil (étape 3) échoue : la suppression s'arrête là, après la réauthentification.
+    const fs = { doc: () => ({}), getDoc: async () => Promise.reject(err('permission-denied')) };
+    const service = async () => ({ m: { auth, fs }, db: {}, a: { currentUser: u } }) as never;
+    const session = depotSessionMemoire({ uid: 'g1', fournisseurs: ['google.com'], adresse: 'gael@gmail.com', marque: null, profil_a_ecrire: false, deconnexion: null, effacement: null, suppression: null, connexion: null, version: '' });
+    return { appels, service, session };
+  }
+
+  it('sur le site : la fenêtre de Google, pas de mot de passe', async () => {
+    const g = google();
+    const c = creerComptes({ session: g.session, service: g.service, natif: () => false });
+    await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(g.appels).toEqual(['popup:true']);
+    // Réauthentifié : le drapeau est posé, plus rien ne part.
+    expect((await g.session.lire())?.suppression).toBe('g1');
+  });
+
+  it('dans l’APK sans le plugin (lot 7) : « supprime-le depuis le site », rien de commencé', async () => {
+    const g = google();
+    const c = creerComptes({ session: g.session, service: g.service, natif: () => true });
+    const e = await c.supprimer({ mot: 'supprimer' }).catch((x: unknown) => x);
+    expect(traduire(e).texte).toBe("Dans l'appli, un compte Google se supprime depuis le site : terramemo-geo.web.app.");
+    expect(g.appels).toEqual([]);
+    expect((await g.session.lire())?.suppression).toBeNull();
+  });
+
+  it('dans l’APK avec le plugin : un nouvel idToken, par reauthenticateWithCredential', async () => {
+    const g = google();
+    const c = creerComptes({ session: g.session, service: g.service, natif: () => true, jetonGoogle: async () => 'id-token-du-plugin' });
+    await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(g.appels).toEqual(['credential:id-token-du-plugin']);
+  });
+});

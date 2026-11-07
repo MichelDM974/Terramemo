@@ -41,16 +41,28 @@
 // perdue peut aussi « Effacer cet appareil ». L'appareil (journal, envoi)
 // est vu par l'interface AppareilComptes, que main.ts branche.
 //
+// Lot 5 (§ 7.1, D27 b) : suppression du compte, reprenable. Réauthentifier
+// (mot de passe ; Google : popup sur le site, idToken du plugin dans l'APK au
+// lot 7), poser `session.suppression` (plus rien ne part), la demande de
+// retrait des places du pseudo et la pierre tombale d'un coup, les lots
+// supprimés par pages de 400, deleteUser, puis l'appareil effacé comme à la
+// déconnexion. Chaque étape est idempotente : une suppression coupée reprend
+// de l'étape 1 (« Suppression inachevée : reprendre ? »), ou directement à
+// l'effacement si le compte n'est plus dans Auth. Un autre appareil du compte
+// lit la pierre tombale à sa prochaine ouverture (« Ce compte est en cours de
+// suppression »), puis passe en session perdue.
+//
 // Lien, pas copie (décision « Comptes ») : un anonyme devient un compte par
 // linkWithCredential, qui garde son uid ; jamais de signOut avant le lien.
 import { garderPseudoDans, periodeSemaine, poserAvisPseudo, pseudoValide } from '../epreuve/chrono';
 import { synchroCoupee } from './drapeaux';
+import { dansApk } from '../retour-android';
 import { charger, compteDisparu, type Service } from './firebase';
 import { codeErreur } from './erreurs';
 import { APRES_EFFACEMENT, effacerJoueurLocal } from './effacement';
 import type { Marques } from './envoi';
 import { poserEtatCompte, type ChangementProfil } from './pont';
-import { appliquer, ecrireBasePseudo, ecrireProfil, fusionner, lireBasePseudo, lireLocal, lireProfil, pseudoChangeIci, type Fusion, type ProfilLocal, type ProfilLu } from './profil';
+import { appliquer, ecrireBasePseudo, ecrireProfil, fusionner, lireBasePseudo, lireLocal, lireProfil, pseudoChangeIci, V_PROFIL, type Fusion, type ProfilLocal, type ProfilLu } from './profil';
 import { depotSessionIndexedDb, sessionVide, type DepotSession, type Fournisseur, type Session } from './session';
 
 /** Mot de passe : 8 caractères au moins, sans autre exigence (D17, comme Light). */
@@ -61,6 +73,19 @@ export const MDP_MIN = 8;
  * compte connecté n'est pas pris (signOut).
  */
 export const QUESTION_MAX = 10 * 60_000;
+/** Lots supprimés par page (§ 7.1, étape 5) : une lecture puis un lot d'écriture (500 au plus). */
+export const PAGE_SUPPRESSION = 400;
+/** Le mot à saisir pour confirmer la suppression du compte (§ 7.1). */
+export const MOT_SUPPRESSION = 'supprimer';
+
+/**
+ * La confirmation d'une suppression (§ 7.1) : le mot saisi (« supprimer »,
+ * sans tenir compte de la casse), et le mot de passe d'un compte `password`.
+ */
+export interface ConfirmationSuppression {
+  mot: string;
+  mdp?: string;
+}
 
 /**
  * La question de la connexion (§ 2.3, étape 1 ; D22) : `appareil`, les
@@ -111,8 +136,16 @@ const APPAREIL_VIDE: AppareilComptes = {
 
 export type EtatCompte =
   | { etat: 'invite'; anonyme: boolean }
-  | { etat: 'compte'; uid: string; adresse: string | null; verifiee: boolean; fournisseurs: Fournisseur[] }
-  | { etat: 'perdue'; uid: string; adresse: string | null };
+  /** `supprime` : le profil porte la pierre tombale (suppression lancée depuis un autre appareil, § 7.1). */
+  | { etat: 'compte'; uid: string; adresse: string | null; verifiee: boolean; fournisseurs: Fournisseur[]; supprime?: boolean }
+  | { etat: 'perdue'; uid: string; adresse: string | null }
+  /**
+   * Une suppression du compte inachevée sur cet appareil (`session.suppression`,
+   * § 7.1) : `connecte`, le compte est encore là (reprise depuis la
+   * réauthentification) ; sinon, il n'est plus dans Auth (il reste à effacer
+   * l'appareil).
+   */
+  | { etat: 'suppression'; uid: string; adresse: string | null; fournisseurs: Fournisseur[]; connecte: boolean };
 
 /**
  * La dernière synchro du profil (§ 5.4). `etat` : a_jour (rien à écrire),
@@ -172,6 +205,15 @@ export interface Comptes {
    * se finit au démarrage suivant.
    */
   deconnecter(o?: { quandMeme?: boolean }): Promise<ResultatDeconnexion>;
+  /**
+   * Supprime le compte (§ 7.1), ou reprend une suppression inachevée :
+   * réauthentification, `session.suppression`, demande de retrait des places
+   * (D27 b) et pierre tombale, lots, deleteUser, puis l'appareil effacé.
+   * Lève terramemo/suppression-mot sans « supprimer », et
+   * terramemo/effacement-inacheve si l'appareil n'a pas pu être vidé (fini
+   * au démarrage suivant).
+   */
+  supprimer(c: ConfirmationSuppression): Promise<void>;
   /** Session perdue → invité : l'appareil garde son journal (§ 2.5). */
   continuerSansCompte(): Promise<void>;
   /** Session perdue → invité vierge : journal, état d'envoi, pseudo et records effacés (§ 2.5). */
@@ -234,6 +276,14 @@ export interface OptionsComptes {
   maintenant?: () => number;
   /** Le journal et l'envoi de l'appareil (main.ts) ; défaut : rien (tests des lots 1 à 3). */
   appareil?: AppareilComptes;
+  /** Dans l'APK ? Défaut : dansApk() (pont natif de Capacitor). */
+  natif?: () => boolean;
+  /**
+   * Dans l'APK, un nouvel idToken Google pour réauthentifier un compte Google
+   * avant sa suppression (§ 7.1, étape 1) : le plugin du lot 7. Absent :
+   * terramemo/google-apk (supprimer depuis le site).
+   */
+  jetonGoogle?: () => Promise<string>;
 }
 
 function stockageDeLaPage(): StockageProfil | null {
@@ -269,11 +319,14 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   const republier = o.republier ?? ((p: string) => import('../vues/classement').then((m) => m.publierTout(p)));
   const maintenant = o.maintenant ?? Date.now;
   const appareil = o.appareil ?? APPAREIL_VIDE;
+  const natif = o.natif ?? (() => typeof window !== 'undefined' && dansApk());
   const abonnes = new Set<() => void>();
   const jetons = new Set<(quoi: 'connexion' | 'jeton') => void>();
   /** Cette page pose la question de fusion, ou se déconnecte : etat() ne la prend pas pour une appli tuée en route. */
   let questionIci = false;
   let deconnexionIci = false;
+  /** Le compte dont le profil porte la pierre tombale, vu par la dernière synchro du profil (§ 7.1). */
+  let tombeVue: string | null = null;
   const rapport: RapportComptes = { etat: null, jeton: null, erreurs: [], profil: null, profil_a_ecrire: null };
   let surveille = false;
   let reseauEcoute = false;
@@ -542,7 +595,12 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       // La transaction relit le profil et refait la fusion : un autre appareil a pu écrire entre-temps.
       let f = ecrire ? await ecrireProfil(s, u.uid, calculer) : calculer(await lireProfil(s, u.uid));
       if (f && !ecrire && f.doc) f = await ecrireProfil(s, u.uid, calculer);
-      if (!f) return fini('supprime');
+      if (!f) {
+        // Supprimé depuis un autre appareil : la vue Compte le dit (« en cours de suppression »).
+        tombeVue = u.uid;
+        return fini('supprime');
+      }
+      if (tombeVue === u.uid) tombeVue = null;
       const a = appliquer(st, f, local, periode);
       if (a.ancienPseudo) poserAvisPseudo(st, a.ancienPseudo);
       if (f.tropGros) {
@@ -617,6 +675,13 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       u = s.a.currentUser;
     }
     let ses = await lireSession();
+    // Une suppression du compte inachevée sur cet appareil (§ 7.1) : elle prime, rien d'autre ne se répare.
+    if (ses.suppression) {
+      const e: EtatCompte = { etat: 'suppression', uid: ses.suppression, adresse: ses.adresse, fournisseurs: ses.fournisseurs, connecte: !!u && estCompte(u) && u.uid === ses.suppression };
+      rapport.etat = e;
+      poserEtatCompte('perdue');
+      return e;
+    }
     // Une question de fusion laissée en route (appli tuée, § 2.3) : le compte connecté n'est pas pris.
     // Récente, elle peut être celle d'un autre onglet : le compte attend sa réponse, sans être pris ici.
     let enQuestion = false;
@@ -647,7 +712,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       if (ses.uid !== u.uid && !ses.deconnexion && ses.connexion === null && s.a.currentUser === u)
         await ecrireSession({ uid: u.uid, fournisseurs: fournisseursDe(u), adresse: u.email, deconnexion: null });
       if (ses.uid !== u.uid && questionIci) e = ses.uid ? { etat: 'perdue', uid: ses.uid, adresse: ses.adresse } : { etat: 'invite', anonyme: false };
-      else e = { etat: 'compte', uid: u.uid, adresse: u.email, verifiee: u.emailVerified, fournisseurs: fournisseursDe(u) };
+      else e = { etat: 'compte', uid: u.uid, adresse: u.email, verifiee: u.emailVerified, fournisseurs: fournisseursDe(u), ...(tombeVue === u.uid ? { supprime: true } : {}) };
       if (e.etat === 'compte') await verifierJeton(u);
     } else if (enQuestion) {
       e = ses.uid ? { etat: 'perdue', uid: ses.uid, adresse: ses.adresse } : { etat: 'invite', anonyme: false };
@@ -676,6 +741,74 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     if (mdp.length < MDP_MIN) throw new ErreurCompte('terramemo/mdp-court');
   };
 
+  // --- Suppression du compte (§ 7.1) ---
+
+  /** Une suppression inachevée sur l'appareil : rien d'autre ne commence avant elle (connexion, création). */
+  async function sansSuppression(): Promise<void> {
+    if ((await lireSession()).suppression) throw new ErreurCompte('terramemo/suppression-inachevee');
+  }
+
+  /**
+   * Étape 1 : réauthentifier, toujours, plutôt que d'attendre
+   * requires-recent-login. Mot de passe ; Google sur le site, la popup ; dans
+   * l'APK, un nouvel idToken du plugin (lot 7).
+   */
+  async function reauthentifier(s: Service, u: import('firebase/auth').User, mdp: string | undefined): Promise<void> {
+    const { auth } = s.m;
+    const f = fournisseursDe(u);
+    if (f.includes('password') && u.email) {
+      if (!mdp) throw new ErreurCompte('auth/missing-password');
+      try {
+        await auth.reauthenticateWithCredential(u, auth.EmailAuthProvider.credential(u.email, mdp));
+      } catch (e) {
+        if (['auth/invalid-credential', 'auth/wrong-password'].includes(codeErreur(e))) {
+          noter(e);
+          throw new ErreurCompte('terramemo/mdp-faux');
+        }
+        throw e;
+      }
+      return;
+    }
+    if (!f.includes('google.com')) throw new ErreurCompte('terramemo/sans-compte');
+    if (!natif()) {
+      await auth.reauthenticateWithPopup(u, new auth.GoogleAuthProvider());
+      return;
+    }
+    if (!o.jetonGoogle) throw new ErreurCompte('terramemo/google-apk');
+    await auth.reauthenticateWithCredential(u, auth.GoogleAuthProvider.credential(await o.jetonGoogle()));
+  }
+
+  /**
+   * Étapes 3 et 4 : la demande de retrait des places du pseudo (D27 b) et la
+   * pierre tombale, dans un seul lot d'écriture (les règles de demandes/
+   * exigent la pierre tombale avec elle) ; sautées si la pierre tombale est
+   * déjà posée. Le pseudo : celui du profil, sinon celui de l'appareil.
+   */
+  async function poserTombe(s: Service, uid: string): Promise<void> {
+    const { fs } = s.m;
+    const lu = await lireProfil(s, uid);
+    if (lu.supprime) return;
+    const ici = lireLocal(stockage()).pseudo;
+    const pseudo = (lu.pseudo !== null ? pseudoValide(lu.pseudo) : null) ?? (ici ? pseudoValide(ici) : null);
+    const b = fs.writeBatch(s.db);
+    if (pseudo) b.set(fs.doc(s.db, 'demandes', uid), { pseudo, cree: fs.serverTimestamp() });
+    b.set(fs.doc(s.db, 'joueurs', uid), { v: V_PROFIL, maj: fs.serverTimestamp(), supprime: true });
+    await b.commit();
+  }
+
+  /** Étape 5 : les lots du compte, par pages de 400 (une lecture, puis un lot d'écriture), jusqu'à une page vide. */
+  async function supprimerLots(s: Service, uid: string): Promise<void> {
+    const { fs } = s.m;
+    const lots = fs.collection(s.db, 'joueurs', uid, 'lots');
+    for (;;) {
+      const page = await fs.getDocs(fs.query(lots, fs.limit(PAGE_SUPPRESSION)));
+      if (page.empty) return;
+      const b = fs.writeBatch(s.db);
+      for (const d of page.docs) b.delete(d.ref);
+      await b.commit();
+    }
+  }
+
   return {
     etat: () => suivi(etat),
 
@@ -687,6 +820,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         const s = await service();
         surveiller(s);
         const { auth } = s.m;
+        await sansSuppression();
         const ses = await finirEffacement();
         if (estCompte(s.a.currentUser) && s.a.currentUser!.uid === ses.uid && !ses.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
         // Un compte d'une question tuée : lâché, jamais lié (linkWithCredential ne vaut que pour un anonyme).
@@ -743,6 +877,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         if (!mdp) throw new ErreurCompte('auth/missing-password');
         const s = await service();
         surveiller(s);
+        await sansSuppression();
         const avant = await finirEffacement();
         const courant = s.a.currentUser;
         if (estCompte(courant) && avant.uid === courant!.uid && !avant.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
@@ -902,6 +1037,60 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       poser: (uid, marque) => modifierSession((x) => (x.uid === uid ? { marque } : null)),
     }),
 
+    supprimer: (c) =>
+      suivi(async () => {
+        if (c.mot.trim().toLocaleLowerCase('fr') !== MOT_SUPPRESSION) throw new ErreurCompte('terramemo/suppression-mot');
+        const s = await service();
+        surveiller(s);
+        const ses = await lireSession();
+        const u = s.a.currentUser;
+        // Le compte de la session, ou celui d'une suppression en cours ; jamais un compte pris
+        // pendant une question de fusion (D22), que la session n'a pas.
+        const uid = ses.suppression ?? (estCompte(u) && u!.uid === ses.uid && !ses.deconnexion ? u!.uid : null);
+        if (!uid) throw new ErreurCompte('terramemo/sans-compte');
+        let present = estCompte(u) && u!.uid === uid;
+        if (present) {
+          try {
+            // Déjà supprimé dans Auth (deleteUser fait, appli tuée avant l'effacement) : USER_NOT_FOUND.
+            await u!.reload();
+          } catch (e) {
+            if (!compteDisparu(e)) throw e;
+            noter(e);
+            present = false;
+          }
+        }
+        if (present && s.a.currentUser === u) {
+          // 1. Réauthentifier ; 2. plus rien ne part de cet appareil (pourSynchro, profil).
+          await reauthentifier(s, u!, c.mdp);
+          await ecrireSession({ suppression: uid });
+          prevenir();
+          // 3 et 4. Demande de retrait des places et pierre tombale ; 5. les lots.
+          await poserTombe(s, uid);
+          await supprimerLots(s, uid);
+          // 6. Le compte, dans Auth (le SDK se déconnecte ensuite).
+          try {
+            await s.m.auth.deleteUser(u!);
+          } catch (e) {
+            if (!compteDisparu(e)) throw e;
+            noter(e);
+          }
+        } else if (!ses.suppression) throw new ErreurCompte('terramemo/sans-compte');
+        // 7. L'appareil effacé comme à la déconnexion (§ 3.4), reprenable au démarrage (`effacement`).
+        await ecrireSession({ suppression: uid, effacement: uid });
+        rapport.jeton = null;
+        tombeVue = null;
+        try {
+          await effacerTout([uid]);
+        } catch (e) {
+          noter(e);
+          prevenir();
+          throw new ErreurCompte('terramemo/effacement-inacheve');
+        }
+        await ecrireSession({ ...APRES_EFFACEMENT, deconnexion: null });
+        poserEtatCompte('invite');
+        prevenir();
+      }),
+
     continuerSansCompte: () =>
       suivi(async () => {
         await ecrireSession({ uid: null, fournisseurs: [], adresse: null, deconnexion: null, ...SANS_PROFIL_A_ECRIRE });
@@ -967,9 +1156,11 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       suivi(async () => {
         const e = await etat();
         ecouterReseau();
-        // À chaque ouverture : le profil relu (1 lecture), fusionné, écrit s'il le faut.
-        if (e.etat === 'compte') await synchroniserProfil();
-        return e;
+        // À chaque ouverture : le profil relu (1 lecture), fusionné, écrit s'il le faut. Une pierre
+        // tombale y est vue (suppression lancée ailleurs, § 7.1).
+        if (e.etat !== 'compte') return e;
+        const p = await synchroniserProfil();
+        return p.etat === 'supprime' ? { ...e, supprime: true } : e;
       }),
 
     rapport: () => structuredClone(rapport),

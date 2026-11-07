@@ -396,8 +396,11 @@ export interface RapportSynchro {
   envoi: RapportEnvoi | null;
   /** La dernière lecture des lots en ligne de la page (lot 4), ou null. */
   lecture: ResultatLecture | null;
-  /** Les drapeaux de la session (lot 4) : marque de lecture, déconnexion, effacement, question de fusion, profil à écrire. */
-  session: Pick<Session, 'marque' | 'deconnexion' | 'effacement' | 'connexion' | 'profil_a_ecrire'> | null;
+  /**
+   * Les drapeaux de la session (lots 4 et 5) : marque de lecture, déconnexion, effacement, question de
+   * fusion, profil à écrire, suppression du compte en cours.
+   */
+  session: Pick<Session, 'marque' | 'deconnexion' | 'effacement' | 'connexion' | 'profil_a_ecrire' | 'suppression'> | null;
 }
 
 declare global {
@@ -855,7 +858,9 @@ async function rapportSynchro(): Promise<RapportSynchro> {
     a_relire: lots?.aRelire.lots ?? 0,
     envoi,
     lecture: envoi?.lecture ?? null,
-    session: ses ? { marque: ses.marque ?? null, deconnexion: ses.deconnexion ?? null, effacement: ses.effacement ?? null, connexion: ses.connexion ?? null, profil_a_ecrire: ses.profil_a_ecrire ?? false } : null,
+    session: ses
+      ? { marque: ses.marque ?? null, deconnexion: ses.deconnexion ?? null, effacement: ses.effacement ?? null, connexion: ses.connexion ?? null, profil_a_ecrire: ses.profil_a_ecrire ?? false, suppression: ses.suppression ?? null }
+      : null,
   };
 }
 

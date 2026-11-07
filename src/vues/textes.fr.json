@@ -554,6 +554,20 @@
     "effacer_confirmer_vide": "Ton pseudo et tes records seront effacés de cet appareil.",
     "effacer_bouton": "Effacer",
     "efface": "Cet appareil est effacé : il repart en invité.",
+    "supprimer_lien": "Supprimer mon compte",
+    "titre_supprimer": "Supprimer mon compte",
+    "supprimer_texte": "Ton compte sera supprimé, avec tes séances, ton pseudo et tes records en ligne. Cet appareil sera vidé aussi.",
+    "supprimer_classement": "Tes places au classement portent ton pseudo, {pseudo} : elles seront retirées sous 30 jours, pour tous ceux qui jouent ce pseudo.",
+    "supprimer_classement_sans": "Tes places au classement portent ton pseudo : elles seront retirées sous 30 jours, pour tous ceux qui jouent ce pseudo.",
+    "supprimer_mot": "Pour confirmer, écris « supprimer »",
+    "supprimer_google": "Google te demandera de confirmer ton compte.",
+    "supprimer_bouton": "Supprimer définitivement",
+    "suppression_en_cours": "Suppression…",
+    "supprime": "Compte supprimé.",
+    "suppression_inachevee": "Suppression inachevée : reprendre ?",
+    "suppression_appareil": "Le compte n'est plus en ligne : il reste à vider cet appareil.",
+    "suppression_reprendre": "Reprendre la suppression",
+    "en_suppression": "Ce compte est en cours de suppression.",
     "synchro_coupee": "Synchro coupée (essai)",
     "synchro_a_jour": "Synchro : à jour",
     "synchro_attente": "{n} séances en attente d'envoi",
@@ -600,7 +614,11 @@
       "inattendue": "Erreur inattendue ({code})",
       "terramemo/pseudo-invalide": "Le pseudo fait de 2 à 20 caractères, en lettres ordinaires, sans « / ».",
       "terramemo/profil-trop-gros": "Trop de records pour le compte : ils restent sur cet appareil.",
-      "terramemo/effacement-inacheve": "Cet appareil n'a pas pu être vidé : il le sera au prochain démarrage de l'appli."
+      "terramemo/effacement-inacheve": "Cet appareil n'a pas pu être vidé : il le sera au prochain démarrage de l'appli.",
+      "terramemo/suppression-mot": "Écris « supprimer » pour confirmer",
+      "terramemo/mdp-faux": "Mot de passe incorrect",
+      "terramemo/google-apk": "Dans l'appli, un compte Google se supprime depuis le site : terramemo-geo.web.app.",
+      "terramemo/suppression-inachevee": "Une suppression du compte est inachevée : reprends-la d'abord."
     }
   }
 }
