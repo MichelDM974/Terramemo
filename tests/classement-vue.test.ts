@@ -273,12 +273,98 @@ describe('envois en attente (hors ligne)', () => {
       setTimeout: ((f: () => void) => (minuteries.push(f), 1)) as unknown as Window['setTimeout'],
     });
     expect(minuteries).toHaveLength(1);
+    // Encore hors ligne au démarrage : la file reste.
+    minuteries[0]?.();
+    await attendre();
+    await attendre();
+    expect(cles()).toHaveLength(4);
     reseau = true;
     publier.mockClear();
     ecoutes.get('online')?.();
     await attendre();
     await attendre();
     expect(publier).toHaveBeenCalledTimes(4);
+    expect(lireAttente()).toEqual([]);
+    // Retour au premier plan (APK sorti de l'arrière-plan) : la file repart aussi.
+    reseau = false;
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 50_000), maintenant));
+    reseau = true;
+    publier.mockClear();
+    ecoutes.get('visibilitychange')?.();
+    await attendre();
+    await attendre();
+    expect(publier).toHaveBeenCalledTimes(4);
+  });
+
+  it('une partie trop rapide ne retire pas de la file le record publiable qui attendait', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11_000, 11, 12, 60_000), maintenant));
+    // 12 000 en 1 s : record de l'appareil, mais les règles le refuseraient ; il n'est pas écrit.
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 1_000), maintenant));
+    expect(cles()).toContain(`${AMS}/toujours`);
+    reseau = true;
+    publier.mockClear();
+    await relancerAttente();
+    expect(publier.mock.calls.filter(([e]) => e === AMS).map(([, p, , s]) => [p, s.points]).sort()).toEqual(
+      [
+        ['toujours', 11_000],
+        [semaine, 11_000],
+      ].sort(),
+    );
+    expect(lireAttente()).toEqual([]);
+  });
+
+  it('un renvoi qui aboutit n’efface pas l’échec plus récent d’une meilleure partie', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11_000, 11, 12, 60_000), maintenant));
+    // Le renvoi part (réseau revenu), lent ; une meilleure partie finit pendant ce temps, et son envoi échoue.
+    let liberer = () => {};
+    const bloque = new Promise<void>((r) => (liberer = r));
+    publier.mockImplementation(async () => {
+      await bloque;
+      return true;
+    });
+    const renvoi = relancerAttente();
+    await attendre();
+    publier.mockImplementation(async () => {
+      throw horsLigne();
+    });
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 59_000), maintenant));
+    liberer();
+    await renvoi;
+    expect(cles()).toEqual([`${AMS}/toujours`, `${AMS}/${semaine}`, `general/toujours`, `general/${semaine}`].sort());
+  });
+
+  it('un changement de pseudo attend la fin d’un renvoi sous l’ancien, qui n’efface pas ses échecs', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11_000, 11, 12, 60_000), maintenant));
+    let liberer = () => {};
+    const bloque = new Promise<void>((r) => (liberer = r));
+    publier.mockImplementation(async (_e, _p, ps) => {
+      if (ps === 'Ana') await bloque;
+      else throw horsLigne();
+      return true;
+    });
+    placesDuPseudo.mockResolvedValue(new Map());
+    const renvoi = relancerAttente();
+    await attendre();
+    localStorage.setItem('terramemo.pseudo', 'Bea');
+    const tout = publierTout('Bea');
+    await attendre();
+    expect(publier.mock.calls.some(([, , ps]) => ps === 'Bea')).toBe(false);
+    liberer();
+    await renvoi;
+    expect(await tout).toEqual({ refuses: 0, echecs: 4 });
+    expect(cles()).toHaveLength(4);
+  });
+
+  it('un changement de pseudo vide aussi de la file ce qu’il ne renvoie pas', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    reseau = true;
+    enregistrerPartie(localStorage, idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000), maintenant);
+    localStorage.setItem('terramemo.chrono.attente', JSON.stringify([['general', 'toujours']]));
+    await publierTout('Ana');
+    expect(publier.mock.calls.map(([e]) => e)).not.toContain('general');
     expect(lireAttente()).toEqual([]);
   });
 
@@ -292,12 +378,14 @@ describe('envois en attente (hors ligne)', () => {
     expect(publier).not.toHaveBeenCalled();
     expect(apresEchec.innerText).toContain(T.publication_echec);
     reseau = true;
+    lireTableau.mockClear();
     const ouvert = blocClassement(ILE, 'Classement') as unknown as El;
     for (let i = 0; i < 4; i++) await attendre();
     expect(publier).toHaveBeenCalledTimes(4);
     expect(lireAttente()).toEqual([]);
     expect(ouvert.querySelector('.chrono-classement-avis')?.hidden).toBe(true);
-    expect(lireTableau).toHaveBeenCalled();
+    // Renvoyés avant la lecture du classement, qui les montre.
+    expect(Math.max(...publier.mock.invocationCallOrder)).toBeLessThan(Math.min(...lireTableau.mock.invocationCallOrder));
   });
 });
 

@@ -910,9 +910,12 @@ classement… ». Chaque score part seul : un refus n'emporte ni les autres
 séries ni le général ; un envoi échoué (hors ligne) a son propre avis,
 « Score non publié (hors ligne ?)… », et attend dans la file
 `terramemo.chrono.attente` du `localStorage` ([épreuve, période], sans le
-score : `relancerAttente` renvoie le meilleur record du moment). Elle repart
-3 s après le démarrage, à l'événement `online`, à l'ouverture d'un
-classement (bloc ou 🏆) ; une semaine passée en sort sans envoi. Un 403 sur `documents:commit` pour
+score : `relancerAttente` renvoie le meilleur record publiable du moment).
+Elle repart 3 s après le démarrage, à l'événement `online`, au retour au
+premier plan (`visibilitychange`), à l'ouverture d'un classement (bloc ou
+🏆), un onglet à la fois (Web Locks) ; une semaine passée en sort sans
+envoi. Elle ne bouge que sur la réponse du serveur : un score refusé
+d'avance (trop rapide) n'efface pas l'envoi qui attendait. Un 403 sur `documents:commit` pour
 un score qui ne bat pas la place n'est pas un refus : la place est celle
 du **pseudo** (en minuscules), partagée par tous ses appareils, et
 `publier()` relit la place pour s'en assurer.

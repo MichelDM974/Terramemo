@@ -4,7 +4,7 @@
 // appareils, c'est une seule place (décision « Une place par pseudo »).
 // Firebase n'est chargé qu'à l'ouverture du bloc, ou pour un envoi en attente.
 import type { BilanPartie } from '../epreuve/chrono';
-import type { ScoreEpreuve } from '../epreuve/bareme';
+import { comparerScores, type ScoreEpreuve } from '../epreuve/bareme';
 import { garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
 import { comptesVisibles } from '../sync/drapeaux';
@@ -72,11 +72,25 @@ function ecrireAttente(liste: readonly EnAttente[]): void {
   }
 }
 
-/** Ajoute (échec) ou retire (publié, ou refusé : inutile de le refaire) un envoi de la file. */
-function marquer(epreuve: string, periode: string, enAttente: boolean): void {
+/**
+ * Ajoute un envoi à la file (échec), ou l'en retire (publié, ou refusé par
+ * les règles : inutile de le refaire), sauf si `aJour` dit que l'appareil a
+ * mieux depuis : un envoi plus récent de la même place a pu échouer pendant
+ * celui-ci, qui ne doit pas effacer son entrée.
+ */
+function marquer(epreuve: string, periode: string, echec: boolean, aJour: () => boolean): void {
+  if (!echec && !aJour()) return;
   const reste = lireAttente().filter(([e, p]) => e !== epreuve || p !== periode);
-  ecrireAttente(enAttente ? [...reste, [epreuve, periode]] : reste);
+  ecrireAttente(echec ? [...reste, [epreuve, periode]] : reste);
 }
+
+/** Le meilleur score publiable du record de l'appareil pour cette place (null sans record publiable). */
+function publiableDe(epreuve: string, periode: string): ScoreEpreuve | null {
+  const r = recordDe(lireRecords(stockage()), epreuve, periode);
+  return r && recordPubliable(r, epreuve);
+}
+
+const memeScore = (a: ScoreEpreuve | null, b: ScoreEpreuve | null) => (a === null ? b === null : b !== null && comparerScores(a, b) === 0);
 
 /**
  * Chaque score part seul : un refus ou un échec n'empêche pas les autres
@@ -84,23 +98,32 @@ function marquer(epreuve: string, periode: string, enAttente: boolean): void {
  * pas écrit : il compte comme refusé, sans dépenser d'écriture. Puis le
  * général de chaque période de `generaux`, une fois les scores publiés : les
  * records de l'appareil et les places en ligne du pseudo (ses autres
- * appareils), le meilleur des deux par épreuve (totalGeneral). Un envoi qui
- * échoue (hors ligne) entre dans la file d'attente, refaite au retour du
- * réseau (relancerAttente) ; un envoi qui aboutit, ou que les règles
- * refusent, en sort.
+ * appareils), le meilleur des deux par épreuve (totalGeneral). La file
+ * d'attente ne bouge que sur la réponse du serveur, ou son absence : un
+ * envoi qui échoue (hors ligne) y entre, refait au retour du réseau
+ * (relancerAttente) ; un envoi qui aboutit, ou que les règles refusent, en
+ * sort. Un score refusé d'avance laisse en place l'envoi qui attendait (le
+ * meilleur score publiable de la série, que relancerAttente enverra).
  */
 async function envoyer(pseudo: string, envois: readonly Envoi[], generaux: readonly string[]): Promise<Publication> {
-  const ecrire = ([e, p, sc]: Envoi) => (vraisemblable(sc, e) ? publier(e, p, pseudo, sc) : Promise.resolve(false));
-  const res = await Promise.allSettled(envois.map(ecrire));
-  envois.forEach(([e, p], i) => marquer(e, p, res[i]?.status === 'rejected'));
+  const ecrits = envois.map(([e, , sc]) => vraisemblable(sc, e));
+  const res = await Promise.allSettled(envois.map(([e, p, sc], i) => (ecrits[i] ? publier(e, p, pseudo, sc) : Promise.resolve(false))));
+  envois.forEach(([e, p, sc], i) => {
+    const pub = publiableDe(e, p);
+    if (ecrits[i]) marquer(e, p, res[i]?.status === 'rejected', () => !pub || comparerScores(pub, sc) >= 0);
+  });
   const records = lireRecords(stockage());
   const deGeneraux = await Promise.allSettled(
     generaux.map(async (p) => {
       const t = totalGeneral(records, p, await placesDuPseudo(p, pseudo));
-      return t ? ecrire([GENERAL, p, t]) : true;
+      return t ? (vraisemblable(t, GENERAL) ? publier(GENERAL, p, pseudo, t) : false) : true;
     }),
   );
-  generaux.forEach((p, i) => marquer(GENERAL, p, deGeneraux[i]?.status === 'rejected'));
+  generaux.forEach((p, i) => {
+    // Le total de l'appareil a changé pendant l'envoi (une partie de plus) : son entrée reste.
+    const avant = totalGeneral(records, p);
+    marquer(GENERAL, p, deGeneraux[i]?.status === 'rejected', () => memeScore(avant, totalGeneral(lireRecords(stockage()), p)));
+  });
   res.push(...deGeneraux);
   return {
     refuses: res.filter((r) => r.status === 'fulfilled' && !r.value).length,
@@ -110,47 +133,56 @@ async function envoyer(pseudo: string, envois: readonly Envoi[], generaux: reado
 
 let relance: Promise<Publication | null> | null = null;
 
+async function renvoyer(pseudo: string): Promise<Publication> {
+  const periode = periodeSemaine(Date.now());
+  const envois: Envoi[] = [];
+  const generaux: string[] = [];
+  for (const [e, p] of lireAttente()) {
+    if (p !== 'toujours' && p !== periode) continue;
+    if (e === GENERAL) generaux.push(p);
+    else {
+      const pub = publiableDe(e, p);
+      if (pub) envois.push([e, p, pub]);
+    }
+  }
+  ecrireAttente([...envois.map(([e, p]): EnAttente => [e, p]), ...generaux.map((p): EnAttente => [GENERAL, p])]);
+  return envoyer(pseudo, envois, generaux);
+}
+
 /**
  * Refait les envois en attente sous le pseudo de l'appareil : chaque record
  * repart à son meilleur score publiable du moment (il a pu progresser
  * depuis), et chaque général se recalcule. Une semaine passée sort de la
- * file sans envoi (les règles la refuseraient), comme un record disparu.
- * null : rien à refaire (file vide ou pas de pseudo). Un seul renvoi à la
- * fois : un appel pendant un renvoi rend celui-ci.
+ * file sans envoi (les règles la refuseraient), comme un record disparu ou
+ * sans score publiable. null : rien à refaire (file vide ou pas de pseudo),
+ * ou un autre onglet s'en charge (verrou Web Locks, quand il existe). Un
+ * seul renvoi à la fois : un appel pendant un renvoi rend celui-ci.
  */
 export function relancerAttente(): Promise<Publication | null> {
   if (relance) return relance;
   const pseudo = lirePseudo();
-  const attente = lireAttente();
-  if (!pseudo || !attente.length) return Promise.resolve(null);
-  relance = (async () => {
-    const records = lireRecords(stockage());
-    const periode = periodeSemaine(Date.now());
-    const envois: Envoi[] = [];
-    const generaux: string[] = [];
-    for (const [e, p] of attente) {
-      if (p !== 'toujours' && p !== periode) continue;
-      if (e === GENERAL) generaux.push(p);
-      else {
-        const r = recordDe(records, e, p);
-        if (r) envois.push([e, p, recordPubliable(r, e) ?? r]);
-      }
-    }
-    ecrireAttente([...envois.map(([e, p]): EnAttente => [e, p]), ...generaux.map((p): EnAttente => [GENERAL, p])]);
-    return envoyer(pseudo, envois, generaux);
-  })().finally(() => {
+  if (!pseudo || !lireAttente().length) return Promise.resolve(null);
+  const verrous = (globalThis as { navigator?: { locks?: LockManager } }).navigator?.locks;
+  relance = (
+    verrous ? verrous.request(CLE_ATTENTE, { ifAvailable: true }, (v) => (v ? renvoyer(pseudo) : null)) : renvoyer(pseudo)
+  ).finally(() => {
     relance = null;
   });
   return relance;
 }
 
 /**
- * Quelques secondes après le démarrage de l'appli, puis à chaque retour du réseau
- * (événement online) : les scores faits hors ligne partent d'eux-mêmes.
+ * Quelques secondes après le démarrage de l'appli, à chaque retour du réseau
+ * (événement online) et quand l'appli revient au premier plan (APK sorti de
+ * l'arrière-plan, onglet de nouveau visible) : les scores faits hors ligne
+ * partent d'eux-mêmes. Rien n'est chargé tant que la file est vide.
  */
 export function brancherRelance(cible: Pick<Window, 'addEventListener' | 'setTimeout'> = window, delai_ms = 3000): void {
   const relancer = () => void relancerAttente().catch(() => undefined);
   cible.addEventListener('online', relancer);
+  cible.addEventListener('visibilitychange', () => {
+    if ((globalThis as { document?: { visibilityState?: string } }).document?.visibilityState !== 'hidden') relancer();
+  });
   cible.setTimeout(relancer, delai_ms);
 }
 
@@ -160,6 +192,8 @@ export function brancherRelance(cible: Pick<Window, 'addEventListener' | 'setTim
  * et les deux totaux du Chrono : au choix ou au changement du pseudo.
  */
 export async function publierTout(pseudo: string): Promise<Publication> {
+  // Un renvoi sous l'ancien pseudo finit d'abord : il effacerait sinon les échecs de celui-ci.
+  await relance?.catch(() => null);
   const records = lireRecords(stockage());
   const periode = periodeSemaine(Date.now());
   // Tout repart : la file ne gardera que ce qui échoue cette fois.
