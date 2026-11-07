@@ -1053,6 +1053,101 @@ describe('vue Compte, lot 5 : export des données', () => {
     expect($('#compte-message')!.textContent).toBe(T.connecte_efface.replace('{adresse}', 'ana@exemple.fr'));
   });
 
+  it('dans l’APK, un invité ou une session perdue n’ont pas de renvoi au site (leur journal n’est que dans l’appli)', async () => {
+    await ouvrirExport(fauxComptes(), { natif: true });
+    expect($('#compte-exporter')).toBeNull();
+    expect($('#compte-exporter-site')).toBeNull();
+    zone = document.createElement('main') as unknown as El;
+    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' }), { natif: true });
+    expect($('#compte-exporter')).toBeNull();
+    expect($('#compte-exporter-site')).toBeNull();
+  });
+
+  it('un export partiel (séances en ligne pas toutes lues) : le message le dit', async () => {
+    const telecharger = vi.fn();
+    const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => fauxComptes(COMPTE), exporter: async () => ({ ...FICHIER, complet: false }), telecharger, natif: () => false });
+    v.activer();
+    await attendre();
+    await attendre();
+    $('#compte-exporter')!.click();
+    await attendre();
+    expect(telecharger).toHaveBeenCalledOnce();
+    expect($('#compte-message')!.textContent).toBe(`Export prêt : terramemo-2026-11-07.json, dans les téléchargements. ${T.exporte_partiel}`);
+  });
+
+  it('un export lent : « Ne pas les ajouter », « Se déconnecter quand même » et « Effacer » attendent qu’il ait fini', async () => {
+    let finir: () => void = () => undefined;
+    const ordre: string[] = [];
+    const exporter = vi.fn(
+      () =>
+        new Promise<typeof FICHIER>((ok) => {
+          finir = () => {
+            ordre.push('export');
+            ok(FICHIER);
+          };
+        }),
+    );
+    const ouvrirLent = async (c: Comptes) => {
+      zone = document.createElement('main') as unknown as El;
+      const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => c, exporter, telecharger: vi.fn(), natif: () => false });
+      v.activer();
+      await attendre();
+      await attendre();
+    };
+    // 1. La question de fusion.
+    questionConnexion = Q;
+    const c1 = fauxComptes();
+    c1.connecter.mockImplementationOnce(async (adresse: string, _m?: string, choisir?: (q: QuestionFusion) => Promise<ChoixFusion>) => {
+      const choix = await choisir!(Q);
+      ordre.push(choix);
+      return { adresse, profil: PROFIL, fusion: 'efface', reponses: 0 };
+    });
+    await ouvrirLent(c1);
+    $('#compte-vers-connecter')!.click();
+    $('#compte-adresse')!.value = 'ana@exemple.fr';
+    $('#compte-mdp')!.value = 'motdepasse';
+    envoyer('#compte-form-connecter');
+    await attendre();
+    $('#compte-fusion-ne-pas')!.click();
+    $('#compte-exporter-dabord')!.click();
+    $('#compte-fusion-effacer')!.click();
+    await attendre();
+    expect(ordre).toEqual([]);
+    finir();
+    await attendre();
+    await attendre();
+    expect(ordre).toEqual(['export', 'effacer']);
+    // 2. La déconnexion qui perdrait des séances.
+    ordre.length = 0;
+    questionConnexion = null;
+    resteDeconnexion = { fait: false, nonEnvoyees: 2, refusees: 0, profil: true };
+    const c2 = fauxComptes(COMPTE);
+    await ouvrirLent(c2);
+    $('#compte-deconnecter')!.click();
+    await attendre();
+    $('#compte-exporter-dabord')!.click();
+    $('#compte-deconnexion-quand-meme')!.click();
+    await attendre();
+    expect(c2.deconnecter).toHaveBeenCalledTimes(1);
+    finir();
+    await attendre();
+    await attendre();
+    expect(c2.deconnecter).toHaveBeenLastCalledWith({ quandMeme: true });
+    // 3. « Effacer cet appareil ».
+    const c3 = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' });
+    await ouvrirLent(c3);
+    $('#compte-effacer')!.click();
+    await attendre();
+    $('#compte-exporter-dabord')!.click();
+    $('#compte-effacer-ok')!.click();
+    await attendre();
+    expect(c3.effacerAppareil).not.toHaveBeenCalled();
+    finir();
+    await attendre();
+    await attendre();
+    expect(c3.effacerAppareil).toHaveBeenCalledOnce();
+  });
+
   it('dans l’APK, pas d’« Exporter d’abord » à la question', async () => {
     questionConnexion = Q;
     const c = fauxComptes();

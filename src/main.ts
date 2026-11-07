@@ -757,16 +757,30 @@ const lesComptes = (m: typeof import('./sync/comptes')) => m.comptes(VERSION, { 
  * L'export des données (étude du J1b, § 7.2) : le journal entier (lu en
  * strict : un journal illisible ne s'exporte pas à moitié), les lots à relire
  * du compte, les records et le pseudo de l'appareil, et ce que les comptes
- * savent du compte de la session.
+ * savent du compte de la session. Un compte connecté lit d'abord ses lots en
+ * ligne (une passe de l'envoi) : sans quoi un appareil neuf exporterait un
+ * journal vide. `complet` faux : cette lecture n'est pas allée au bout
+ * (hors ligne, séance en cours, refus), ou la session est perdue ; le
+ * fichier et la vue le disent.
  */
-async function exporterDonnees(): Promise<{ nom: string; contenu: string }> {
+async function exporterDonnees(): Promise<{ nom: string; contenu: string; complet: boolean }> {
   const [x, mc, { depotARelireIndexedDb }] = await Promise.all([import('./sync/export'), chargerComptes(), import('./sync/depot-lots')]);
-  const enLigne = await lesComptes(mc).pourExport();
+  const { connecte, ...enLigne } = await lesComptes(mc).pourExport();
+  let lectureComplete = false;
+  if (connecte && enLigne.compte) {
+    try {
+      const envoi = await chargerEnvoi();
+      const r = await envoi.declencher('premier_plan');
+      lectureComplete = r.etat === 'fait' && !r.lecture?.arret && envoi.rapport().lectureDue === null;
+    } catch (e) {
+      console.warn('Lecture du compte avant l’export :', e);
+    }
+  }
   const [evenements, aRelire] = await Promise.all([memoire.tous({ strict: true }), enLigne.compte ? depotARelireIndexedDb().tous(enLigne.compte.uid).catch(() => []) : []]);
   const st = stockage();
   const maintenant = new Date();
-  const e = x.composerExport({ maintenant, ...enLigne, evenements, aRelire, records: Object.fromEntries(lireRecords(st)), pseudo: lirePseudoDe(st) });
-  return { nom: x.nomExport(maintenant), contenu: x.texteExport(e) };
+  const e = x.composerExport({ maintenant, ...enLigne, lectureComplete, evenements, aRelire, records: Object.fromEntries(lireRecords(st)), pseudo: lirePseudoDe(st) });
+  return { nom: x.nomExport(maintenant), contenu: x.texteExport(e), complet: !enLigne.compte || lectureComplete };
 }
 
 function demarrerCompte(): void {

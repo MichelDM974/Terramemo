@@ -163,18 +163,19 @@ describe.skipIf(!hoteAuth || !hoteFs)('profil des comptes (émulateurs Auth et F
 
   it('export (§ 7.2) : le compte de la session, sa date de création et son profil en ligne ; rien pour un invité', async () => {
     const pc = appareil('Michel', { [AMS]: rec(11_000) });
-    expect(await pc.comptes.pourExport()).toEqual({ compte: null, profil: null });
+    expect(await pc.comptes.pourExport()).toEqual({ compte: null, profil: null, connecte: false });
     const mail = adresse();
     await pc.comptes.creer(mail, 'motdepasse');
     const uid = pc.a.currentUser!.uid;
     const x = await pc.comptes.pourExport();
+    expect(x.connecte).toBe(true);
     expect(x.compte).toMatchObject({ uid, adresse: mail, fournisseurs: ['password'] });
     expect(Date.now() - Date.parse(x.compte!.cree_le!)).toBeLessThan(60_000);
     expect(x.profil?.pseudo).toBe('Michel');
     expect(Object.keys(x.profil!.records)).toEqual([AMS]);
     // Session perdue (compte qui n'est plus connecté) : le dernier compte, sans profil ni date.
     await authM.signOut(pc.a);
-    expect(await pc.comptes.pourExport()).toEqual({ compte: { uid, adresse: mail, fournisseurs: ['password'], cree_le: null }, profil: null });
+    expect(await pc.comptes.pourExport()).toEqual({ compte: { uid, adresse: mail, fournisseurs: ['password'], cree_le: null }, profil: null, connecte: false });
   });
 
   it('règles du dépôt (production jusqu’au lot 6) : profil refusé, drapeau posé, l’appareil garde tout', async () => {

@@ -5,8 +5,11 @@
 // WebView, et la vue Compte renvoie au site (le compte y a tout en ligne).
 // Un invité exporte aussi son journal, sans « compte ».
 //
-// Format (v 1) : {format, v, exporte_le, compte?, profil, evenements,
-// a_relire, records, pseudo}. Les événements y sont entiers, tels que le
+// Format (v 1) : {format, v, exporte_le, compte?, lecture?, profil,
+// evenements, a_relire, records, pseudo}. `lecture`, avec `compte` : les
+// séances en ligne du compte ont-elles toutes été lues sur cet appareil avant
+// l'export (`complete`) ? Sinon le fichier n'a que ce que l'appareil a (hors
+// ligne, session perdue), et la vue le dit. Les événements y sont entiers, tels que le
 // journal les garde (pas l'encodage compact des lots), et `a_relire` contient
 // les lots bruts qu'une version de l'appli ne sait pas encore lire.
 // Pur, sans Firebase : les comptes donnent `compte` et `profil`, main.ts le
@@ -48,6 +51,8 @@ export interface ExportTerramemo {
   exporte_le: string;
   /** Absent pour un invité. */
   compte?: CompteExport;
+  /** Avec `compte` : `complete` faux si des séances en ligne du compte peuvent manquer au fichier. */
+  lecture?: { complete: boolean };
   profil: ProfilExport | null;
   evenements: Evenement[];
   a_relire: LotARelireExport[];
@@ -60,6 +65,8 @@ export interface ExportTerramemo {
 export interface DonneesExport {
   maintenant: Date;
   compte: CompteExport | null;
+  /** La lecture des lots du compte, faite juste avant l'export, est-elle allée au bout ? (ignoré sans compte) */
+  lectureComplete?: boolean;
   profil: ProfilExport | null;
   evenements: readonly Evenement[];
   aRelire: readonly FicheARelire[];
@@ -73,7 +80,7 @@ export function composerExport(d: DonneesExport): ExportTerramemo {
     format: FORMAT_EXPORT,
     v: V_EXPORT,
     exporte_le: d.maintenant.toISOString(),
-    ...(d.compte ? { compte: structuredClone(d.compte) } : {}),
+    ...(d.compte ? { compte: structuredClone(d.compte), lecture: { complete: d.lectureComplete ?? false } } : {}),
     profil: d.profil ? structuredClone(d.profil) : null,
     evenements: d.evenements.map((e) => structuredClone(e)),
     a_relire: d.aRelire.map((f) => ({ id: f.id, fin: new Date(f.fin).toISOString(), doc: structuredClone(f.doc) })),

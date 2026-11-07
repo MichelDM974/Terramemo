@@ -561,6 +561,8 @@
     "exporter_dabord": "Exporter d'abord",
     "exporter_site": "Exporte depuis le site : terramemo-geo.web.app",
     "exporte": "Export prêt : {nom}, dans les téléchargements.",
+    "export_en_cours": "Export…",
+    "exporte_partiel": "Des séances du compte peuvent y manquer (hors ligne, ou session expirée) : refais-le une fois connecté et en ligne.",
     "supprimer_lien": "Supprimer mon compte",
     "titre_supprimer": "Supprimer mon compte",
     "supprimer_texte": "Ton compte sera supprimé, avec tes séances, ton pseudo et tes records en ligne. Cet appareil sera vidé aussi.",

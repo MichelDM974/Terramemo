@@ -37,6 +37,7 @@ describe('export des données (§ 7.2)', () => {
       composerExport({
         maintenant: QUAND,
         compte: { uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], cree_le: '2026-11-07T10:00:00.000Z' },
+        lectureComplete: true,
         profil: { pseudo: 'Michel', records: { 'chrono:localiser:tous': { points: 1000 } } },
         evenements: journal(),
         aRelire: A_RELIRE,
@@ -44,7 +45,8 @@ describe('export des données (§ 7.2)', () => {
         pseudo: 'Michel',
       }),
     );
-    expect(Object.keys(x)).toEqual(['format', 'v', 'exporte_le', 'compte', 'profil', 'evenements', 'a_relire', 'records', 'pseudo']);
+    expect(Object.keys(x)).toEqual(['format', 'v', 'exporte_le', 'compte', 'lecture', 'profil', 'evenements', 'a_relire', 'records', 'pseudo']);
+    expect(x.lecture).toEqual({ complete: true });
     expect(x).toMatchObject({ format: FORMAT_EXPORT, v: V_EXPORT, exporte_le: QUAND.toISOString(), pseudo: 'Michel' });
     expect(x.compte).toEqual({ uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], cree_le: '2026-11-07T10:00:00.000Z' });
     expect(x.profil).toEqual({ pseudo: 'Michel', records: { 'chrono:localiser:tous': { points: 1000 } } });
@@ -59,9 +61,17 @@ describe('export des données (§ 7.2)', () => {
   it('un invité : son journal, sans « compte » ni profil', () => {
     const x = relire(composerExport({ maintenant: QUAND, compte: null, profil: null, evenements: journal(), aRelire: [], records: {}, pseudo: null }));
     expect('compte' in x).toBe(false);
+    expect('lecture' in x).toBe(false);
     expect(x.profil).toBeNull();
     expect(x.evenements).toHaveLength(5);
     expect(x.a_relire).toEqual([]);
+  });
+
+  it('un compte dont la lecture n’est pas allée au bout (hors ligne, session perdue) : le fichier le dit', () => {
+    const compte = { uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password' as const], cree_le: null };
+    expect(relire(composerExport({ maintenant: QUAND, compte, lectureComplete: false, profil: null, evenements: [], aRelire: [], records: {}, pseudo: null })).lecture).toEqual({ complete: false });
+    // Sans rien dire, une lecture n'est pas réputée complète.
+    expect(relire(composerExport({ maintenant: QUAND, compte, profil: null, evenements: [], aRelire: [], records: {}, pseudo: null })).lecture).toEqual({ complete: false });
   });
 
   it('le journal d’une vraie mémoire de l’appareil : exporté puis relu, rien ne manque', async () => {

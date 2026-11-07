@@ -256,9 +256,10 @@ export interface Comptes {
    * Ce que l'export (§ 7.2) dit du compte de la session : le compte connecté
    * (date de création comprise) et son profil en ligne s'il se lit, ou le
    * dernier compte d'une session perdue ; rien pour un invité. Ne rejette pas
-   * hors ligne : l'export se fait avec ce que l'appareil a.
+   * hors ligne : l'export se fait avec ce que l'appareil a. `connecte` : le
+   * compte de la session est connecté (main.ts lit alors ses lots d'abord).
    */
-  pourExport(): Promise<{ compte: CompteExport | null; profil: ProfilExport | null }>;
+  pourExport(): Promise<{ compte: CompteExport | null; profil: ProfilExport | null; connecte: boolean }>;
   /** La marque de lecture des lots, gardée dans la session pour le compte de la session (envoi). */
   marques(): Marques;
   /**
@@ -1127,7 +1128,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     async pourExport() {
       const ses = await lireSession();
       // Un invité (anonyme compris) : son journal seulement, sans « compte ».
-      if (!ses.uid) return { compte: null, profil: null };
+      if (!ses.uid) return { compte: null, profil: null, connecte: false };
       let s: Service | null = null;
       try {
         s = await service();
@@ -1153,7 +1154,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
           noter(e);
         }
       }
-      return { compte, profil };
+      return { compte, profil, connecte };
     },
 
     marques: () => ({

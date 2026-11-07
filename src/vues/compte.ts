@@ -111,8 +111,12 @@ export interface OptionsVueCompte {
    * perdue (§ 2.5).
    */
   envoi?: () => Promise<Pick<Envoi, 'etat' | 'compter' | 'declencher' | 'surPasse'>>;
-  /** L'export des données (§ 7.2, main.ts) : le fichier à proposer. Absent : pas d'export. */
-  exporter?: () => Promise<{ nom: string; contenu: string }>;
+  /**
+   * L'export des données (§ 7.2, main.ts) : le fichier à proposer ; `complet`
+   * faux, des séances en ligne du compte peuvent y manquer. Absent : pas
+   * d'export.
+   */
+  exporter?: () => Promise<{ nom: string; contenu: string; complet?: boolean }>;
   /** Dans l'APK ? (D26 a : un renvoi au site à la place de l'export). Défaut : dansApk(). */
   natif?: () => boolean;
   /** Le fichier proposé au navigateur. Défaut : Blob et <a download> (src/sync/export.ts). */
@@ -166,7 +170,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   let aEffacer: number | null = null;
   let abonne = false;
   let abonneEnvoi = false;
-  let exportEnCours = false;
+  /** L'export en cours : ce qui efface l'appareil l'attend (le fichier lit le journal à la fin). */
+  let exportEnCours: Promise<void> | null = null;
   /** Le pseudo que la demande de retrait des places portera (lu à l'ouverture de « Supprimer mon compte »). */
   let pseudoSuppression: { lu: boolean; pseudo: string | null } | null = null;
   const natif = o.natif ?? (() => typeof window !== 'undefined' && dansApk());
@@ -397,21 +402,33 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
 
   /**
    * L'export (§ 7.2), hors de agir() : « Exporter d'abord » se touche pendant
-   * la question de fusion, quand la connexion est encore en cours.
+   * la question de fusion, quand la connexion est encore en cours. Ce qui
+   * efface l'appareil (avantEffacement) attend qu'il ait fini.
    */
-  async function exporterIci(): Promise<void> {
-    if (!o.exporter || exportEnCours) return;
-    exportEnCours = true;
+  function exporterIci(): Promise<void> {
+    if (!o.exporter) return Promise.resolve();
+    if (exportEnCours) return exportEnCours;
+    const exporter = o.exporter;
     erreur.textContent = '';
-    try {
-      const f = await o.exporter();
-      (o.telecharger ?? telecharger)(f.nom, f.contenu);
-      dire(remplir(T.exporte, { nom: f.nom }));
-    } catch (e) {
-      montrerErreur(e);
-    } finally {
-      exportEnCours = false;
-    }
+    dire(T.export_en_cours);
+    exportEnCours = (async () => {
+      try {
+        const f = await exporter();
+        (o.telecharger ?? telecharger)(f.nom, f.contenu);
+        dire([remplir(T.exporte, { nom: f.nom }), f.complet === false ? T.exporte_partiel : ''].filter(Boolean).join(' '));
+      } catch (e) {
+        message.textContent = '';
+        montrerErreur(e);
+      } finally {
+        exportEnCours = null;
+      }
+    })();
+    return exportEnCours;
+  }
+
+  /** Avant d'effacer l'appareil : un export lancé (« Exporter d'abord ») finit d'abord, sur le journal entier. */
+  async function avantEffacement(): Promise<void> {
+    if (exportEnCours) await exportEnCours;
   }
 
   /**
@@ -421,7 +438,9 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
    */
   function exportDe(id: string, sorte: 'secondaire' | 'lien', dabord = false): Node[] {
     if (!o.exporter) return [];
-    if (natif()) return dabord ? [] : [creer('p', { class: 'hint', id: `${id}-site` }, T.exporter_site)];
+    // Dans l'APK, le renvoi au site ne vaut que pour un compte, qui y a tout en ligne : le journal d'un
+    // invité ou d'une session perdue n'est que dans l'appli (D26 a).
+    if (natif()) return dabord || ecran !== 'compte' ? [] : [creer('p', { class: 'hint', id: `${id}-site` }, T.exporter_site)];
     return [bouton(id, dabord ? T.exporter_dabord : T.exporter, () => void exporterIci(), sorte)];
   }
 
@@ -795,6 +814,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
             ...exportDe('compte-exporter-dabord', 'secondaire', true),
             bouton('compte-effacer-ok', T.effacer_bouton, () =>
               void agir(async (c) => {
+                await avantEffacement();
                 await c.effacerAppareil();
                 dire(T.efface);
                 await apres(c);
@@ -830,7 +850,13 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
             { class: 'compte-actions' },
             // Sur le site, l'export avant l'effacement (§ 2.3, § 7.2).
             ...exportDe('compte-exporter-dabord', 'secondaire', true),
-            bouton('compte-fusion-effacer', T.fusion_effacer, () => repondre?.('effacer'), 'danger'),
+            bouton('compte-fusion-effacer', T.fusion_effacer, () => {
+              // Un export en cours finit d'abord : la réponse efface le journal.
+              const r = repondre;
+              if (!exportEnCours) return r?.('effacer');
+              for (const b of contenu.querySelectorAll('button')) b.disabled = true;
+              void avantEffacement().then(() => r?.('effacer'));
+            }, 'danger'),
             bouton('compte-fusion-retour', T.fusion_retour, () => aller('fusion')),
           ),
         ];
@@ -847,7 +873,11 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
             bouton('compte-deconnexion-reessayer', T.deconnexion_reessayer, () => void agir((c) => deconnecter(c)), 'principal'),
             // Sur le site, l'export de ce qui serait perdu (§ 3.4, étape 2).
             ...exportDe('compte-exporter-dabord', 'secondaire', true),
-            bouton('compte-deconnexion-quand-meme', T.deconnexion_quand_meme, () => void agir((c) => deconnecter(c, true)), 'danger'),
+            bouton('compte-deconnexion-quand-meme', T.deconnexion_quand_meme, () =>
+              void agir(async (c) => {
+                await avantEffacement();
+                await deconnecter(c, true);
+              }), 'danger'),
             bouton('compte-annuler', T.annuler, () => {
               reste = null;
               aller('compte');
