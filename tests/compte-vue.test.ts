@@ -1,14 +1,14 @@
-// Vue Compte (src/vues/compte.ts, J1b lot 1) : écrans et parcours sur un
+// Vue Compte (src/vues/compte.ts, J1b lots 1 à 4) : écrans et parcours sur un
 // DOM factice (tests/dom-factice.ts), avec des comptes remplacés (le vrai
 // src/sync/comptes.ts est éprouvé sur l'émulateur, tests/comptes.test.ts).
 // Puis vueALaDemande (src/vues/a-la-demande.ts) : le morceau chargé à
 // l'ouverture, un avis et « Réessayer » s'il ne vient pas.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Comptes, EtatCompte, ResultatProfil } from '../src/sync/comptes';
+import type { ChoixFusion, Comptes, EtatCompte, QuestionFusion, ResultatDeconnexion, ResultatProfil } from '../src/sync/comptes';
 import { CLE_SANS_SYNCHRO } from '../src/sync/drapeaux';
 import type { ComptesSynchro, EtatSynchro, ResultatEnvoi } from '../src/sync/envoi';
 import { vueALaDemande } from '../src/vues/a-la-demande';
-import { textePerdue, textePseudoDuCompte, texteSynchro, vueCompte } from '../src/vues/compte';
+import { detailProgres, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { textes } from '../src/vues/textes';
 import { installerDom, installerStockage, type El } from './dom-factice';
@@ -20,19 +20,25 @@ const err = (code: string) => Object.assign(new Error(`Firebase: Error (${code})
 const PROFIL: ResultatProfil = { etat: 'a_jour', pseudo: null, ancienPseudo: null, recus: 0, envoyes: 0, quand: 0 };
 let profilConnexion: ResultatProfil = PROFIL;
 let etatChangement: ResultatProfil['etat'] = 'ecrit';
+/** La question de fusion que la prochaine connexion pose (lot 4), et ce qu'une déconnexion n'a pas pu envoyer. */
+let questionConnexion: QuestionFusion | null = null;
+let resteDeconnexion: Extract<ResultatDeconnexion, { fait: false }> | null = null;
 
 /** Des comptes en mémoire : un état, et chaque méthode espionnée. */
 function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
   let etat = depart;
   const c = {
     etat: vi.fn(async () => etat),
-    creer: vi.fn(async (adresse: string) => {
+    creer: vi.fn(async (adresse: string, _mdp?: string, _choisir?: (q: QuestionFusion) => Promise<ChoixFusion>) => {
       etat = { etat: 'compte', uid: 'u1', adresse, verifiee: false, fournisseurs: ['password'] };
-      return { adresse, verification: true };
+      return { adresse, verification: true, fusion: 'sans_question' };
     }),
-    connecter: vi.fn(async (adresse: string) => {
+    connecter: vi.fn(async (adresse: string, _mdp?: string, choisir?: (q: QuestionFusion) => Promise<ChoixFusion>) => {
+      const q = questionConnexion;
+      const choix = q && choisir ? await choisir(q) : 'ajouter';
+      if (choix === 'annuler') throw Object.assign(new Error('annulée'), { code: 'terramemo/connexion-annulee' });
       etat = { etat: 'compte', uid: 'u1', adresse, verifiee: true, fournisseurs: ['password'] };
-      return { adresse, profil: profilConnexion };
+      return { adresse, profil: profilConnexion, fusion: !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute', reponses: q?.reponses ?? 0 };
     }),
     changerPseudo: vi.fn(async (pseudo: string) => {
       localStorage.setItem('terramemo.pseudo', pseudo);
@@ -41,9 +47,15 @@ function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
     oublier: vi.fn(async () => undefined),
     renvoyer: vi.fn(async () => ({ adresse: 'a@exemple.fr' })),
     changerMotDePasse: vi.fn(async () => undefined),
-    deconnecter: vi.fn(async () => {
+    deconnecter: vi.fn(async (o: { quandMeme?: boolean } = {}): Promise<ResultatDeconnexion> => {
+      if (resteDeconnexion && !o.quandMeme) return resteDeconnexion;
+      etat = { etat: 'invite', anonyme: false };
+      return { fait: true };
+    }),
+    effacerAppareil: vi.fn(async () => {
       etat = { etat: 'invite', anonyme: false };
     }),
+    reponsesAppareil: vi.fn(async () => 42),
     continuerSansCompte: vi.fn(async () => {
       etat = { etat: 'invite', anonyme: false };
     }),
@@ -69,6 +81,8 @@ beforeEach(() => {
   installerStockage();
   profilConnexion = PROFIL;
   etatChangement = 'ecrit';
+  questionConnexion = null;
+  resteDeconnexion = null;
   zone = document.createElement('main') as unknown as El;
   masquee = [];
 });
@@ -147,7 +161,7 @@ describe('vue Compte', () => {
     envoyer('#compte-form-creer');
     await attendre();
     await attendre();
-    expect(c.creer).toHaveBeenCalledWith('ana@exemple.fr', 'motdepasse');
+    expect(c.creer).toHaveBeenCalledWith('ana@exemple.fr', 'motdepasse', expect.any(Function));
     expect($('#compte-message')!.textContent).toBe('Compte créé. Un e-mail de vérification est parti à ana@exemple.fr.');
     expect($('#compte-adresse-connectee')!.textContent).toBe('ana@exemple.fr');
     expect($('#compte-non-verifiee')!.innerText).toContain(T.non_verifiee);
@@ -521,5 +535,128 @@ describe('vueALaDemande', () => {
     expect(vraie.activer).toHaveBeenCalled();
     expect(charger).toHaveBeenCalledTimes(2);
     warn.mockRestore();
+  });
+});
+
+describe('vue Compte, lot 4 : question de fusion, déconnexion reprenable, effacer l’appareil', () => {
+  const Q: QuestionFusion = { sorte: 'appareil', reponses: 12, records: 3, seances: 0 };
+
+  async function connecterAvecQuestion(c: Comptes) {
+    $('#compte-vers-connecter')!.click();
+    ($('#compte-adresse') as unknown as HTMLInputElement).value = 'ana@exemple.fr';
+    ($('#compte-mdp') as unknown as HTMLInputElement).value = 'motdepasse';
+    envoyer('#compte-form-connecter');
+    await attendre();
+    void c;
+  }
+
+  it('textes : le détail des progrès, la question, ce qui n’est pas parti', () => {
+    expect(detailProgres(12, 0)).toBe('12 réponses');
+    expect(detailProgres(1, 0)).toBe('1 réponse');
+    expect(detailProgres(0, 3)).toBe('3 records');
+    expect(detailProgres(12, 1)).toBe('12 réponses et 1 record');
+    expect(texteQuestion(Q)).toBe('Ajouter les progrès de cet appareil (12 réponses et 3 records) à ton compte ?');
+    expect(texteQuestion({ ...Q, sorte: 'autre_compte', seances: 2 })).toBe('2 séances d’un autre compte n’ont pas été envoyées. Les ajouter à ce compte ?'.replace(/’/g, "'"));
+    expect(textesDeconnexion({ fait: false, nonEnvoyees: 1, refusees: 0, profil: false })).toEqual([T.deconnexion_seance, T.deconnexion_profil]);
+    expect(textesDeconnexion({ fait: false, nonEnvoyees: 3, refusees: 1, profil: true })).toEqual(['3 séances ne sont pas encore dans ton compte : elles seront perdues.']);
+  });
+
+  it('« Ajouter » : la question, puis le message des progrès reçus par le compte', async () => {
+    questionConnexion = Q;
+    const c = fauxComptes();
+    await ouvrir(c);
+    await connecterAvecQuestion(c);
+    expect($('#compte-fusion-question')!.textContent).toBe(texteQuestion(Q));
+    expect($('#compte-fusion-ajouter')!.className).toBe('');
+    expect($('#compte-fusion-ne-pas')!.className).toBe('danger');
+    expect($('#compte-fusion-annuler')!.className).toBe('secondary');
+    $('#compte-fusion-ajouter')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-message')!.textContent).toBe('Connecté : ana@exemple.fr. Ton compte a reçu les progrès de cet appareil (12 réponses et 3 records).');
+    expect($('#compte-adresse-connectee')!.textContent).toBe('ana@exemple.fr');
+  });
+
+  it('« Ne pas les ajouter » : une seconde confirmation (avec « Retour »), puis l’appareil effacé', async () => {
+    questionConnexion = Q;
+    const c = fauxComptes();
+    await ouvrir(c);
+    await connecterAvecQuestion(c);
+    $('#compte-fusion-ne-pas')!.click();
+    expect($('#compte-fusion-confirmer')!.textContent).toBe('Les progrès de cet appareil (12 réponses et 3 records) seront effacés. Tu retrouveras seulement ce qui est déjà dans ton compte.');
+    $('#compte-fusion-retour')!.click();
+    expect($('#compte-fusion-question')).not.toBeNull();
+    $('#compte-fusion-ne-pas')!.click();
+    expect($('#compte-fusion-effacer')!.className).toBe('danger');
+    $('#compte-fusion-effacer')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-message')!.textContent).toBe(T.connecte_efface.replace('{adresse}', 'ana@exemple.fr'));
+  });
+
+  it('« Annuler » : retour au formulaire, sans message, l’invité reste invité', async () => {
+    questionConnexion = Q;
+    const c = fauxComptes();
+    await ouvrir(c);
+    await connecterAvecQuestion(c);
+    $('#compte-fusion-annuler')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-form-connecter')).not.toBeNull();
+    expect($('#compte-erreur')!.textContent).toBe('');
+    expect(await c.etat()).toEqual({ etat: 'invite', anonyme: false });
+  });
+
+  it('déconnexion : ce qui n’est pas parti est dit ; « Réessayer l’envoi », puis « Se déconnecter quand même »', async () => {
+    resteDeconnexion = { fait: false, nonEnvoyees: 2, refusees: 1, profil: true };
+    const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] });
+    await ouvrir(c);
+    $('#compte-deconnecter')!.click();
+    await attendre();
+    expect($('#compte-deconnexion-0')!.textContent).toBe('2 séances ne sont pas encore dans ton compte : elles seront perdues.');
+    $('#compte-deconnexion-reessayer')!.click();
+    await attendre();
+    expect(c.deconnecter).toHaveBeenCalledTimes(2);
+    expect($('#compte-deconnexion-0')).not.toBeNull();
+    expect($('#compte-deconnexion-quand-meme')!.className).toBe('danger');
+    $('#compte-deconnexion-quand-meme')!.click();
+    await attendre();
+    await attendre();
+    expect(c.deconnecter).toHaveBeenLastCalledWith({ quandMeme: true });
+    expect($('#compte-message')!.textContent).toBe(T.deconnecte_quand_meme);
+    expect(contenu()).toContain(T.invite);
+  });
+
+  it('déconnexion : « Annuler » garde le compte', async () => {
+    resteDeconnexion = { fait: false, nonEnvoyees: 0, refusees: 0, profil: false };
+    const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] });
+    await ouvrir(c);
+    $('#compte-deconnecter')!.click();
+    await attendre();
+    expect($('#compte-deconnexion-0')!.textContent).toBe(T.deconnexion_profil);
+    $('#compte-annuler')!.click();
+    expect($('#compte-adresse-connectee')!.textContent).toBe('ana@exemple.fr');
+  });
+
+  it('session perdue : « Effacer cet appareil » confirme avec le nombre de réponses, puis invité', async () => {
+    const c = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' });
+    await ouvrir(c);
+    expect($('#compte-effacer')!.className).toBe('danger');
+    $('#compte-effacer')!.click();
+    await attendre();
+    expect($('#compte-effacer-texte')!.textContent).toBe('Les progrès de cet appareil (42 réponses), ton pseudo et tes records seront effacés. Les séances non envoyées seront perdues.');
+    $('#compte-effacer-ok')!.click();
+    await attendre();
+    await attendre();
+    expect(c.effacerAppareil).toHaveBeenCalledTimes(1);
+    expect($('#compte-message')!.textContent).toBe(T.efface);
+    expect(contenu()).toContain(T.invite);
+  });
+
+  it('la ligne de la synchro dit les réponses qu’une version plus récente a écrites', () => {
+    const e = (o: Partial<EtatSynchro>): EtatSynchro => ({ coupee: false, attente: 0, refusees: 0, horsLigne: false, aRelire: 0, ...o });
+    expect(texteSynchro(e({ aRelire: 5 }))).toBe('Mets à jour l\'appli : 5 réponses venues d\'un autre appareil attendent');
+    expect(texteSynchro(e({ aRelire: 1 }))).toBe(T.synchro_a_relire_une);
+    expect(texteSynchro(e({ aRelire: 5, refusees: 1 }))).toBe(T.synchro_refusee_une);
   });
 });

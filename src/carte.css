@@ -567,6 +567,13 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
    (aria-live, role=alert : le texte qui arrive est annoncé). */
 .vue-compte .status:empty { margin: 0; min-height: 0; }
 .compte-retour { margin-top: 16px; }
+/* Action qui efface ou perd des données (« Ne pas les ajouter », « Se déconnecter quand même »,
+   « Effacer ») : filet et texte en --danger, jamais en fond plein (l'accent plein reste au
+   bouton principal de l'écran). */
+.vue-compte button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.vue-compte button.danger:hover { background: var(--danger-soft); }
+.vue-compte button.danger:disabled { background: var(--disabled-bg); border-color: var(--disabled-bg); color: var(--muted); }
+.compte-separe { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
 /* --- Crédits (⚙ › Crédits et licences) : une liste par sorte, sans cadre dans le panneau. --- */
 .vue-credits {
   position: absolute;

@@ -75,7 +75,10 @@ describe('comptes, hors émulateur', () => {
     const c = creerComptes({ session: plein, service });
     await c.creer('ana@exemple.fr', 'motdepasse');
     expect(await c.etat()).toMatchObject({ etat: 'compte', uid: 'u1' });
-    await c.deconnecter();
+    // Le profil n'a pas pu partir (faux SDK sans Firestore) : la déconnexion le dit d'abord (§ 3.4).
+    expect(await c.deconnecter()).toMatchObject({ fait: false, profil: false, nonEnvoyees: 0 });
+    expect(await c.etat()).toMatchObject({ etat: 'compte', uid: 'u1' });
+    expect(await c.deconnecter({ quandMeme: true })).toEqual({ fait: true });
     expect(await c.etat()).toEqual({ etat: 'invite', anonyme: false });
     fiche = null;
   });

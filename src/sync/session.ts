@@ -30,7 +30,7 @@ export interface Session {
   fournisseurs: Fournisseur[];
   /** Adresse du compte (vue Compte d'une session perdue, reconnexion pré-remplie). */
   adresse: string | null;
-  /** Lot 4 : instant serveur de la dernière lecture des lots. */
+  /** Lot 4 : instant serveur (`fin`) du dernier lot lu du compte `uid` ; null : tout est à lire. */
   marque: number | null;
   /**
    * Lot 2 : un pseudo ou un record de l'appareil pas encore dans le profil
@@ -47,12 +47,18 @@ export interface Session {
   effacement: string | null;
   /** Lot 5 : uid dont la suppression est en cours (§ 7.1). */
   suppression: string | null;
+  /**
+   * Lot 4 : instant où une connexion à un compte existant a commencé, le
+   * temps de la question de fusion (D22) ; null sinon. Appli tuée pendant la
+   * question : le compte n'est pas pris (comptes.ts, etat()), rien ne part.
+   */
+  connexion: number | null;
   /** Version de l'appli qui a écrit la fiche. */
   version: string;
 }
 
 export function sessionVide(version: string): Session {
-  return { uid: null, fournisseurs: [], adresse: null, marque: null, profil_a_ecrire: false, deconnexion: null, effacement: null, suppression: null, version };
+  return { uid: null, fournisseurs: [], adresse: null, marque: null, profil_a_ecrire: false, deconnexion: null, effacement: null, suppression: null, connexion: null, version };
 }
 
 export interface DepotSession {

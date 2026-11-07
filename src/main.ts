@@ -21,10 +21,11 @@ import { creerNavigation } from './navigation';
 import { brancherRetourAndroid } from './retour-android';
 import { brancherZoom } from './zoom-carte';
 import { comptesVisibles, poserDrapeaux, synchroCoupee } from './sync/drapeaux';
-import type { RapportComptes } from './sync/comptes';
-import type { ComptesSynchro, Declencheur, Envoi, RapportEnvoi } from './sync/envoi';
+import type { AppareilComptes, RapportComptes } from './sync/comptes';
+import { terminerEffacement } from './sync/effacement';
+import type { ComptesSynchro, Declencheur, Envoi, RapportEnvoi, ResultatLecture } from './sync/envoi';
 import { brancherProfil, poserEtatCompte, type ChangementProfil } from './sync/pont';
-import { depotSessionIndexedDb } from './sync/session';
+import { depotSessionIndexedDb, type Session } from './sync/session';
 import { vueALaDemande } from './vues/a-la-demande';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
@@ -393,6 +394,10 @@ export interface RapportSynchro {
   a_relire: number;
   /** L'envoi de la page : dernière passe, erreurs brutes ; null tant qu'il n'est pas chargé. */
   envoi: RapportEnvoi | null;
+  /** La dernière lecture des lots en ligne de la page (lot 4), ou null. */
+  lecture: ResultatLecture | null;
+  /** Les drapeaux de la session (lot 4) : marque de lecture, déconnexion, effacement, question de fusion, profil à écrire. */
+  session: Pick<Session, 'marque' | 'deconnexion' | 'effacement' | 'connexion' | 'profil_a_ecrire'> | null;
 }
 
 declare global {
@@ -419,7 +424,7 @@ window.terramemo = {
   comptes: async () => {
     if (!comptesCharges) return null;
     try {
-      return (await comptesCharges).comptes(VERSION).rapport();
+      return lesComptes(await comptesCharges).rapport();
     } catch {
       return null;
     }
@@ -501,10 +506,34 @@ if (relais) hote.dataset.relais = 'attente';
  * rejouée une fois, en parallèle de la carte ; l'id de l'appareil lu une
  * fois. Une séance close part au compte, s'il y en a un (J1b, lot 3 : envoi).
  */
+const depotJournal = depotIndexedDb();
+/**
+ * Une déconnexion ou un « Effacer cet appareil » que l'appli tuée a laissé en
+ * route (étude du J1b, § 3.4) : fini avant de lire le journal, avant tout le
+ * reste. Rien à faire (le cas courant) : une lecture de la session.
+ */
+const effacementFini = terminerEffacement({
+  session: depotSessionIndexedDb(),
+  viderJournal: () => depotJournal.vider!(),
+  oublier: async (uid) => {
+    const { depotLotsIndexedDb, depotARelireIndexedDb } = await import('./sync/depot-lots');
+    await depotLotsIndexedDb().effacer!(uid);
+    await depotARelireIndexedDb().retirer(uid);
+  },
+  stockage: stockage(),
+  version: VERSION,
+}).catch((e: unknown) => {
+  console.warn('Effacement de l’appareil non fini (repris au prochain démarrage) :', e);
+  return false;
+});
 const memoire = ouvrirMemoire({
-  depot: depotIndexedDb(),
+  depot: depotJournal,
   appareil: idAppareil(),
   horloge,
+  avant: effacementFini,
+  // Les onglets de l'origine se préviennent : un journal effacé ailleurs (déconnexion) recharge la page.
+  canal: 'terramemo',
+  surEffaceAilleurs: () => location.reload(),
   surAvis: (e) => console.warn('Journal non gardé sur cet appareil :', e),
   surCharge: () => {
     jouer?.rafraichir();
@@ -631,8 +660,8 @@ async function demarrer(): Promise<void> {
         { titre: T.titre, chargement: T.chargement, echec: T.chargement_echec, reessayer: T.reessayer, retour: T.retour },
         async () => {
           // L'envoi aussi : une création de compte faite ici relance l'envoi (surJeton).
-          const [{ vueCompte }, { comptes }] = await Promise.all([import('./vues/compte'), chargerComptes(), chargerEnvoi()]);
-          return vueCompte(ctx, { retour, comptes: async () => comptes(VERSION), envoi: chargerEnvoi });
+          const [{ vueCompte }, mc] = await Promise.all([import('./vues/compte'), chargerComptes(), chargerEnvoi()]);
+          return vueCompte(ctx, { retour, comptes: async () => lesComptes(mc), envoi: chargerEnvoi });
         },
         retour,
       ),
@@ -684,9 +713,31 @@ function chargerComptes(): Promise<typeof import('./sync/comptes')> {
   });
   return p;
 }
+/**
+ * Le journal et l'envoi de l'appareil, tels que les comptes les voient
+ * (question de fusion, déconnexion, effacement : étude du J1b, § 2.3 et § 3.4).
+ */
+const appareilComptes: AppareilComptes = {
+  async reponsesHorsCompte(uid) {
+    if (uid) return (await (await chargerEnvoi()).compter(uid)).reponsesHorsLots;
+    return (await memoire.tous()).filter((e) => e.type === 'reponse').length;
+  },
+  nonEnvoyees: async (uid) => (await (await chargerEnvoi()).compter(uid)).nonEnvoyees,
+  async envoyerTout(uid) {
+    const e = await chargerEnvoi();
+    await e.declencher('deconnexion');
+    const c = await e.compter(uid);
+    return { nonEnvoyees: c.nonEnvoyees, refusees: c.refusees };
+  },
+  effacer: async (uids) => (await chargerEnvoi()).effacer(uids, () => memoire.effacer()),
+};
+/** Les comptes de la page, branchés sur l'appareil (le premier appel fixe les options). */
+const lesComptes = (m: typeof import('./sync/comptes')) => m.comptes(VERSION, { appareil: appareilComptes });
+
 function demarrerCompte(): void {
-  depotSessionIndexedDb()
-    .lire()
+  // Après un effacement laissé en route : la session est alors celle d'un invité.
+  void effacementFini
+    .then(() => depotSessionIndexedDb().lire())
     .then((s) => {
       if (!s?.uid) return;
       // Provisoire, avant le chargement de Firebase : la zone du pseudo d'un classement ouvert
@@ -696,7 +747,7 @@ function demarrerCompte(): void {
       // (adresse vérifiée pendant que l'appli était fermée : les lots refusés se relancent).
       return chargerEnvoi()
         .then(() => chargerComptes())
-        .then((m) => m.comptes(VERSION).demarrer())
+        .then((m) => lesComptes(m).demarrer())
         .then((e) => {
           // À l'ouverture : ce qui attend part (séances closes, lots en attente du réseau).
           if (e.etat === 'compte') lancerEnvoi('ouverture');
@@ -712,6 +763,8 @@ const journalEnvoi = {
   tous: () => memoire.tous(),
   attendre: () => memoire.ecrire([]),
   seanceEnCours: () => memoire.seanceEnCours(),
+  // Les lots lus en ligne (lot 4) : au journal, l'état rejoué au repos, hors d'une séance active.
+  fusionner: (evts: readonly import('./srs/journal').Evenement[]) => memoire.fusionner(evts),
 };
 
 /**
@@ -722,17 +775,20 @@ const journalEnvoi = {
 let envoiCharge: Promise<Envoi> | null = null;
 function chargerEnvoi(): Promise<Envoi> {
   const p = (envoiCharge ??= Promise.all([chargerComptes(), import('./sync/envoi')]).then(([mc, me]) => {
-    const c = mc.comptes(VERSION);
+    const c = lesComptes(mc);
     const e = me.creerEnvoi({
       journal: journalEnvoi,
       version: VERSION,
+      // La marque de lecture des lots, dans la session (une écriture à la fois, par les comptes).
+      marques: c.marques(),
       compte: async () => {
         const x = await c.pourSynchro();
         return x && { uid: x.uid, serveur: me.serveurFirestore(x.service), verifiee: x.verifiee };
       },
     });
-    // Création, lien, connexion, adresse vérifiée : le journal part, les lots refusés se relancent.
-    c.surJeton(() => void e.declencher('jeton'));
+    // Création, lien, connexion : le compte se relit, puis le journal part ; adresse vérifiée : les
+    // lots refusés se relancent.
+    c.surJeton((quoi) => void e.declencher(quoi));
     return e;
   }));
   p.catch(() => {
@@ -776,15 +832,19 @@ addEventListener('online', () => lancerEnvoi('reseau'));
 async function rapportSynchro(): Promise<RapportSynchro> {
   const [ses, evts, m] = await Promise.all([depotSessionIndexedDb().lire().catch(() => null), memoire.tous(), import('./sync/envoi')]);
   const uid = ses?.uid ?? null;
-  const { depotLotsIndexedDb } = await import('./sync/depot-lots');
+  const { depotLotsIndexedDb, depotARelireIndexedDb } = await import('./sync/depot-lots');
+  const lots = uid ? await m.compter(journalEnvoi, depotLotsIndexedDb(), uid, depotARelireIndexedDb()) : null;
+  const envoi = envoiCharge ? ((await envoiCharge.catch(() => null))?.rapport() ?? null) : null;
   return {
     uid,
     coupee: synchroCoupee(),
     evenements: evts.length,
     empreinte: m.empreinte(memoire.etat()),
-    lots: uid ? await m.compter(journalEnvoi, depotLotsIndexedDb(), uid) : null,
-    a_relire: 0,
-    envoi: envoiCharge ? (await envoiCharge.catch(() => null))?.rapport() ?? null : null,
+    lots,
+    a_relire: lots?.aRelire.lots ?? 0,
+    envoi,
+    lecture: envoi?.lecture ?? null,
+    session: ses ? { marque: ses.marque ?? null, deconnexion: ses.deconnexion ?? null, effacement: ses.effacement ?? null, connexion: ses.connexion ?? null, profil_a_ecrire: ses.profil_a_ecrire ?? false } : null,
   };
 }
 
@@ -799,7 +859,7 @@ async function noterProfil(c: ChangementProfil): Promise<void> {
   const depot = depotSessionIndexedDb();
   if (!comptesCharges && !(await depot.lire())?.uid) return;
   try {
-    await (await chargerComptes()).comptes(VERSION).profilModifie(c);
+    await lesComptes(await chargerComptes()).profilModifie(c);
   } catch {
     const s = await depot.lire();
     if (s?.uid) await depot.ecrire({ ...s, profil_a_ecrire: true });

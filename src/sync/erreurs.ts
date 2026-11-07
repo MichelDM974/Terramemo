@@ -17,6 +17,8 @@ const SILENCIEUX: ReadonlySet<string> = new Set([
   'auth/cancelled-popup-request',
   'auth/credential-already-in-use',
   'auth/user-token-expired',
+  // « Annuler » à la question de fusion (§ 2.3) : retour au formulaire, sans message.
+  'terramemo/connexion-annulee',
 ]);
 
 /** Message par défaut du plugin Google à l'annulation par l'utilisateur (§ 3.3) : silencieux. */

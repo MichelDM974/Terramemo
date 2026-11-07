@@ -1,0 +1,298 @@
+// Question de fusion (D22), déconnexion reprenable (D24 a), effacement de
+// l'appareil (J1b, lot 4 ; étude § 2.3, § 2.5, § 3.4), sur un faux SDK
+// minimal : ce que l'émulateur ne sait pas provoquer (appli tuée pendant la
+// question ou entre le drapeau et le signOut, effacement qui échoue). Le
+// vrai SDK et deux appareils : tests/synchro-emulateurs.test.ts.
+import { readFileSync } from 'node:fs';
+import { describe, expect, it, vi } from 'vitest';
+import { enregistrer, garderPseudoDans, lirePseudoDe, lireRecords, poserAvisPseudo, prendreAvisPseudo } from '../src/epreuve/chrono';
+import { creerComptes, QUESTION_MAX, type AppareilComptes, type ChoixFusion, type QuestionFusion } from '../src/sync/comptes';
+import { CLES_DU_JOUEUR, effacerJoueurLocal, terminerEffacement } from '../src/sync/effacement';
+import { ecrireBasePseudo, lireBasePseudo } from '../src/sync/profil';
+import { depotSessionMemoire, sessionVide, type Session } from '../src/sync/session';
+
+class Stockage {
+  readonly m = new Map<string, string>();
+  getItem(k: string) {
+    return this.m.get(k) ?? null;
+  }
+  setItem(k: string, v: string) {
+    this.m.set(k, v);
+  }
+  removeItem(k: string) {
+    this.m.delete(k);
+  }
+}
+
+interface FauxUtilisateur {
+  uid: string;
+  email: string;
+  isAnonymous: boolean;
+  emailVerified: boolean;
+  providerData: { providerId: string }[];
+  getIdToken: () => Promise<string>;
+  getIdTokenResult: () => Promise<{ claims: Record<string, unknown> }>;
+  reload: () => Promise<void>;
+}
+
+/** Un faux Auth : un compte par adresse (uid tiré de l'adresse), signIn et signOut. */
+function faux() {
+  const a = { currentUser: null as FauxUtilisateur | null };
+  const utilisateur = (email: string): FauxUtilisateur => ({
+    uid: `uid-${email.split('@')[0]}`,
+    email,
+    isAnonymous: false,
+    emailVerified: true,
+    providerData: [{ providerId: 'password' }],
+    getIdToken: async () => 'jeton',
+    getIdTokenResult: async () => ({ claims: { email_verified: true, firebase: { identities: { email: [email] }, sign_in_provider: 'password' } } }),
+    reload: async () => undefined,
+  });
+  const signOut = vi.fn(async () => {
+    a.currentUser = null;
+  });
+  const auth = {
+    onAuthStateChanged: () => () => undefined,
+    signInWithEmailAndPassword: vi.fn(async (_a: unknown, email: string) => {
+      a.currentUser = utilisateur(email);
+      return { user: a.currentUser };
+    }),
+    createUserWithEmailAndPassword: async (_a: unknown, email: string) => {
+      a.currentUser = utilisateur(email);
+      return { user: a.currentUser };
+    },
+    sendEmailVerification: async () => undefined,
+    signOut,
+  };
+  return { service: async () => ({ m: { auth, fs: {} }, db: {}, a }) as never, a, signOut, utilisateur };
+}
+
+function fauxAppareil(o: { reponses?: number; nonEnvoyees?: number; reste?: { nonEnvoyees: number; refusees: number }; effacer?: () => Promise<void> } = {}) {
+  return {
+    reponsesHorsCompte: vi.fn(async (_uid: string | null) => o.reponses ?? 0),
+    nonEnvoyees: vi.fn(async (_uid: string) => o.nonEnvoyees ?? 0),
+    envoyerTout: vi.fn(async (_uid: string) => o.reste ?? { nonEnvoyees: 0, refusees: 0 }),
+    effacer: vi.fn(async (_uids: readonly string[]) => o.effacer?.()),
+  } satisfies AppareilComptes;
+}
+
+function monter(o: { appareil?: ReturnType<typeof fauxAppareil>; session?: Session | null; t?: () => number } = {}) {
+  const f = faux();
+  const session = depotSessionMemoire(o.session ?? null);
+  const stockage = new Stockage();
+  const appareil = o.appareil ?? fauxAppareil();
+  const jetons: string[] = [];
+  // Synchro coupée : le profil ne se lit pas (pas de Firestore dans ce faux SDK).
+  const c = creerComptes({ session, service: f.service, stockage: () => stockage, coupee: () => true, appareil, version: 'v1', republier: async () => undefined, ...(o.t ? { maintenant: o.t } : {}) });
+  c.surJeton((q) => jetons.push(q));
+  return { ...f, session, stockage, appareil, c, jetons };
+}
+
+describe('question de fusion à la connexion (D22)', () => {
+  it('des progrès sur l’appareil : la question avant tout envoi, le compte pas encore dans la session ; « Ajouter »', async () => {
+    const m = monter({ appareil: fauxAppareil({ reponses: 5 }) });
+    let vue: { q: QuestionFusion; pendant: unknown; session: Session | null } | null = null;
+    const r = await m.c.connecter('ana@exemple.fr', 'motdepasse', async (q) => {
+      vue = { q, pendant: await m.c.pourSynchro(), session: await m.session.lire() };
+      return 'ajouter';
+    });
+    expect(vue!.q).toEqual({ sorte: 'appareil', reponses: 5, records: 0, seances: 0 });
+    // Pendant la question : rien ne part, la session ne connaît pas le compte, mais note la question.
+    expect(vue!.pendant).toBeNull();
+    expect(vue!.session).toMatchObject({ uid: null });
+    expect(vue!.session!.connexion).toEqual(expect.any(Number));
+    expect(m.appareil.reponsesHorsCompte).toHaveBeenCalledWith('uid-ana');
+    expect(r).toMatchObject({ fusion: 'ajoute', reponses: 5 });
+    expect(await m.session.lire()).toMatchObject({ uid: 'uid-ana', connexion: null, marque: null });
+    expect(m.jetons).toEqual(['connexion']);
+    expect(m.appareil.effacer).not.toHaveBeenCalled();
+    expect(await m.c.pourSynchro()).toMatchObject({ uid: 'uid-ana' });
+  });
+
+  it('« Annuler » : déconnecté du compte, la session d’avant intacte, rien n’est parti ni effacé', async () => {
+    const m = monter({ appareil: fauxAppareil({ reponses: 5 }) });
+    const e = await m.c.connecter('ana@exemple.fr', 'motdepasse', async () => 'annuler').catch((x: unknown) => x);
+    expect((e as { code?: string }).code).toBe('terramemo/connexion-annulee');
+    expect(m.signOut).toHaveBeenCalledTimes(1);
+    expect(m.a.currentUser).toBeNull();
+    expect(await m.session.lire()).toMatchObject({ uid: null, connexion: null });
+    expect(m.jetons).toEqual([]);
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+  });
+
+  it('« Ne pas les ajouter » : journal, pseudo et records de l’appareil effacés avant la restauration', async () => {
+    const m = monter({ appareil: fauxAppareil({ reponses: 0 }) });
+    garderPseudoDans(m.stockage, 'Bob');
+    enregistrer(m.stockage, 'chrono:localiser:afrique', { points: 3000, justes: 3, questions: 54, temps_ms: 400_000 }, Date.UTC(2026, 10, 2));
+    expect(lireRecords(m.stockage).size).toBeGreaterThan(0);
+    const choisir = vi.fn(async (_q: QuestionFusion): Promise<ChoixFusion> => 'effacer');
+    const r = await m.c.connecter('ana@exemple.fr', 'motdepasse', choisir);
+    // Pas de réponse au journal, mais un record : c'est un progrès.
+    expect(choisir.mock.calls[0]![0]).toMatchObject({ reponses: 0, records: expect.any(Number) });
+    expect(choisir.mock.calls[0]![0].records).toBeGreaterThan(0);
+    expect(r.fusion).toBe('efface');
+    expect(m.appareil.effacer).toHaveBeenCalledWith(['uid-ana']);
+    expect([lirePseudoDe(m.stockage), lireRecords(m.stockage).size]).toEqual([null, 0]);
+    expect(m.jetons).toEqual(['connexion']);
+  });
+
+  it('pas de question : rien sur l’appareil, ou la session perdue de ce même compte (reprise)', async () => {
+    const m = monter();
+    const choisir = vi.fn(async (): Promise<ChoixFusion> => 'ajouter');
+    expect((await m.c.connecter('ana@exemple.fr', 'motdepasse', choisir)).fusion).toBe('sans_question');
+    const p = monter({ appareil: fauxAppareil({ reponses: 9 }), session: { ...sessionVide('v1'), uid: 'uid-ana', adresse: 'ana@exemple.fr', marque: 123 } });
+    expect((await p.c.connecter('ana@exemple.fr', 'motdepasse', choisir)).fusion).toBe('sans_question');
+    expect(choisir).not.toHaveBeenCalled();
+    // Le même compte : sa marque de lecture reste (lecture incrémentale).
+    expect(await p.session.lire()).toMatchObject({ uid: 'uid-ana', marque: 123 });
+  });
+
+  it('session perdue d’un autre compte avec des séances non envoyées : la question à part, et « Ne pas les ajouter » efface les deux', async () => {
+    const appareil = fauxAppareil({ reponses: 7, nonEnvoyees: 2 });
+    const m = monter({ appareil, session: { ...sessionVide('v1'), uid: 'uid-bob', adresse: 'bob@exemple.fr', marque: 99 } });
+    const choisir = vi.fn(async (_q: QuestionFusion): Promise<ChoixFusion> => 'effacer');
+    await m.c.connecter('ana@exemple.fr', 'motdepasse', choisir);
+    expect(choisir.mock.calls[0]![0]).toEqual({ sorte: 'autre_compte', reponses: 7, records: 0, seances: 2 });
+    expect(appareil.nonEnvoyees).toHaveBeenCalledWith('uid-bob');
+    expect(appareil.effacer).toHaveBeenCalledWith(['uid-bob', 'uid-ana']);
+    // Un autre compte : sa marque ne vaut pas (tout sera relu).
+    expect(await m.session.lire()).toMatchObject({ uid: 'uid-ana', marque: null });
+  });
+
+  it('création depuis la session perdue d’un autre compte : la question avant de rien créer', async () => {
+    const m = monter({ appareil: fauxAppareil({ reponses: 3 }), session: { ...sessionVide('v1'), uid: 'uid-bob', adresse: 'bob@exemple.fr' } });
+    const e = await m.c.creer('ana@exemple.fr', 'motdepasse', async () => 'annuler').catch((x: unknown) => x);
+    expect((e as { code?: string }).code).toBe('terramemo/connexion-annulee');
+    expect(m.a.currentUser).toBeNull();
+    expect((await m.c.creer('ana@exemple.fr', 'motdepasse', async () => 'ajouter')).fusion).toBe('ajoute');
+    // Un invité qui crée un compte : jamais de question (lien, pas copie).
+    const g = monter({ appareil: fauxAppareil({ reponses: 3 }) });
+    const choisir = vi.fn(async (): Promise<ChoixFusion> => 'annuler');
+    expect((await g.c.creer('ana@exemple.fr', 'motdepasse', choisir)).fusion).toBe('sans_question');
+    expect(choisir).not.toHaveBeenCalled();
+  });
+
+  it('appli tuée pendant la question : une page suivante ne prend pas le compte (déconnecté une fois la question périmée)', async () => {
+    let t = 1_000_000;
+    const m = monter({ session: { ...sessionVide('v1'), connexion: t }, t: () => t });
+    // Firebase a gardé le compte connecté (persistance d'Auth), la session ne l'a jamais pris.
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    // Récente : peut-être la question d'un autre onglet ; le compte n'est pas pris, rien ne part.
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+    expect(m.signOut).not.toHaveBeenCalled();
+    expect(await m.c.pourSynchro()).toBeNull();
+    expect((await m.session.lire())?.uid).toBeNull();
+    t += QUESTION_MAX + 1;
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+    expect(m.signOut).toHaveBeenCalledTimes(1);
+    expect(await m.session.lire()).toMatchObject({ uid: null, connexion: null });
+  });
+});
+
+describe('déconnexion reprenable (D24 a)', () => {
+  const connecte = (): Session => ({ ...sessionVide('v1'), uid: 'uid-ana', adresse: 'ana@exemple.fr', fournisseurs: ['password'], marque: 5 });
+
+  it('ce qui n’est pas parti est dit, sans rien faire ; « quand même » : signOut, appareil effacé, invité vierge', async () => {
+    const appareil = fauxAppareil({ reste: { nonEnvoyees: 2, refusees: 1 } });
+    const m = monter({ appareil, session: connecte() });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    garderPseudoDans(m.stockage, 'Ana');
+    expect(await m.c.deconnecter()).toEqual({ fait: false, nonEnvoyees: 2, refusees: 1, profil: true });
+    expect(appareil.envoyerTout).toHaveBeenCalledWith('uid-ana');
+    expect(m.signOut).not.toHaveBeenCalled();
+    expect(await m.c.deconnecter({ quandMeme: true })).toEqual({ fait: true });
+    expect(m.signOut).toHaveBeenCalledTimes(1);
+    expect(appareil.effacer).toHaveBeenCalledWith(['uid-ana']);
+    expect(lirePseudoDe(m.stockage)).toBeNull();
+    expect(await m.session.lire()).toMatchObject({ uid: null, deconnexion: null, effacement: null, marque: null, profil_a_ecrire: false });
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+  });
+
+  it('tout est parti : déconnecté sans question', async () => {
+    const m = monter({ session: connecte() });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    expect(await m.c.deconnecter()).toEqual({ fait: true });
+    expect(m.appareil.effacer).toHaveBeenCalledWith(['uid-ana']);
+  });
+
+  it('effacement qui échoue : déconnecté quand même, le drapeau reste pour le démarrage suivant', async () => {
+    const appareil = fauxAppareil({ effacer: () => Promise.reject(new Error('base bloquée')) });
+    const m = monter({ appareil, session: connecte() });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    const e = await m.c.deconnecter().catch((x: unknown) => x);
+    expect((e as { code?: string }).code).toBe('terramemo/effacement-inacheve');
+    expect(m.a.currentUser).toBeNull();
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+    expect(await m.session.lire()).toMatchObject({ effacement: 'uid-ana' });
+  });
+
+  it('appli tuée entre le drapeau et le signOut : la page suivante finit le signOut', async () => {
+    const m = monter({ session: { ...connecte(), deconnexion: 'voulue', effacement: 'uid-ana' } });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+    expect(m.signOut).toHaveBeenCalledTimes(1);
+    expect(await m.c.pourSynchro()).toBeNull();
+  });
+
+  it('session perdue : « Effacer cet appareil » efface journal, état d’envoi, pseudo et records', async () => {
+    const appareil = fauxAppareil({ reponses: 4 });
+    const m = monter({ appareil, session: connecte() });
+    expect(await m.c.etat()).toMatchObject({ etat: 'perdue', uid: 'uid-ana' });
+    expect(await m.c.reponsesAppareil()).toBe(4);
+    expect(appareil.reponsesHorsCompte).toHaveBeenCalledWith(null);
+    garderPseudoDans(m.stockage, 'Ana');
+    await m.c.effacerAppareil();
+    expect(appareil.effacer).toHaveBeenCalledWith(['uid-ana']);
+    expect(lirePseudoDe(m.stockage)).toBeNull();
+    expect(await m.c.etat()).toEqual({ etat: 'invite', anonyme: false });
+  });
+
+  it('marque de lecture : lue et posée pour le compte de la session seulement', async () => {
+    const m = monter({ session: connecte() });
+    const mq = m.c.marques();
+    expect(await mq.lire('uid-ana')).toBe(5);
+    expect(await mq.lire('uid-bob')).toBeNull();
+    await mq.poser('uid-bob', 9);
+    await mq.poser('uid-ana', 7);
+    expect((await m.session.lire())?.marque).toBe(7);
+  });
+});
+
+describe('effacement au démarrage, clés du joueur', () => {
+  it('terminerEffacement : rien sans drapeau ; avec, journal, état d’envoi, clés du joueur, puis la session levée', async () => {
+    const vider = vi.fn(async () => undefined);
+    const oublier = vi.fn(async (_uid: string) => undefined);
+    const st = new Stockage();
+    const rien = depotSessionMemoire({ ...sessionVide('v1'), uid: 'uid-ana' });
+    expect(await terminerEffacement({ session: rien, viderJournal: vider, oublier, stockage: st, version: 'v2' })).toBe(false);
+    expect(vider).not.toHaveBeenCalled();
+    garderPseudoDans(st, 'Ana');
+    const s = depotSessionMemoire({ ...sessionVide('v1'), uid: 'uid-ana', deconnexion: 'voulue', effacement: 'uid-ana', marque: 4 });
+    expect(await terminerEffacement({ session: s, viderJournal: vider, oublier, stockage: st, version: 'v2' })).toBe(true);
+    expect(oublier).toHaveBeenCalledWith('uid-ana');
+    expect(lirePseudoDe(st)).toBeNull();
+    // La déconnexion voulue reste : les comptes finiront le signOut s'il n'a pas eu lieu.
+    expect(await s.lire()).toMatchObject({ uid: null, effacement: null, marque: null, deconnexion: 'voulue', version: 'v2' });
+    const casse = depotSessionMemoire({ ...sessionVide('v1'), effacement: 'uid-ana' });
+    await expect(terminerEffacement({ session: casse, viderJournal: () => Promise.reject(new Error('non')), oublier, stockage: st, version: 'v2' })).rejects.toThrow('non');
+    expect((await casse.lire())?.effacement).toBe('uid-ana');
+  });
+
+  it('CLES_DU_JOUEUR : les clés des modules qui les écrivent, et plus rien à relire après l’effacement', () => {
+    const source = (f: string) => readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
+    const cles = [
+      ...source('epreuve/chrono.ts').matchAll(/const CLE_(?:RECORDS|PSEUDO|PSEUDO_REMPLACE) = '([^']+)'/g),
+      ...source('sync/profil.ts').matchAll(/const CLE_PSEUDO_COMPTE = '([^']+)'/g),
+      ...source('vues/classement.ts').matchAll(/const CLE_ATTENTE = '([^']+)'/g),
+    ].map((x) => x[1]);
+    expect([...cles].sort()).toEqual([...CLES_DU_JOUEUR].sort());
+    const st = new Stockage();
+    garderPseudoDans(st, 'Ana');
+    ecrireBasePseudo(st, { uid: 'u', pseudo: 'Ana' });
+    poserAvisPseudo(st, 'Bob');
+    st.setItem('terramemo.appareil', 'garde');
+    effacerJoueurLocal(st);
+    expect([lirePseudoDe(st), lireBasePseudo(st), prendreAvisPseudo(st)]).toEqual([null, null, null]);
+    expect(st.getItem('terramemo.appareil')).toBe('garde');
+  });
+});

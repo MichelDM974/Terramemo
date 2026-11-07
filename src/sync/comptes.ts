@@ -23,8 +23,23 @@
 // Lot 3, envoi des séances (src/sync/envoi.ts, branché par main.ts) : les
 // comptes lui disent à qui envoyer (pourSynchro) et quand le jeton change
 // (surJeton : création, lien, connexion, adresse vérifiée), pour relancer les
-// lots refusés par les règles. Comme les records, le journal d'un appareil
-// part au compte à toute connexion, jusqu'à la question D22 du lot 4.
+// lots refusés par les règles.
+//
+// Lot 4 (§ 2.3, § 2.5, § 3.4) : à la connexion d'un compte existant, si
+// l'appareil a des progrès qui ne sont pas déjà à ce compte, la question D22
+// (« Ajouter », « Ne pas les ajouter », « Annuler ») vient avant que rien ne
+// parte : ni lots, ni records. Le compte est connecté pour connaître son uid,
+// mais la session ne le prend qu'après la réponse (pourSynchro n'envoie qu'au
+// compte de la session) ; « Annuler » le déconnecte, et une appli tuée
+// pendant la question ne le garde pas (`session.connexion`). Après la
+// réponse : restauration du compte (lecture complète, déclencheur
+// `connexion`), puis envoi de ce qui n'est pas en ligne. Déconnexion
+// reprenable (D24 a) : tout ce qui attend part d'abord ; s'il reste quelque
+// chose, rien ne se fait sans « Se déconnecter quand même » ; puis
+// `deconnexion` et `effacement` posés, signOut, journal, état d'envoi,
+// pseudo et records effacés, l'appareil repart en invité vierge. Une session
+// perdue peut aussi « Effacer cet appareil ». L'appareil (journal, envoi)
+// est vu par l'interface AppareilComptes, que main.ts branche.
 //
 // Lien, pas copie (décision « Comptes ») : un anonyme devient un compte par
 // linkWithCredential, qui garde son uid ; jamais de signOut avant le lien.
@@ -32,12 +47,67 @@ import { garderPseudoDans, periodeSemaine, poserAvisPseudo, pseudoValide } from 
 import { synchroCoupee } from './drapeaux';
 import { charger, type Service } from './firebase';
 import { codeErreur } from './erreurs';
+import { APRES_EFFACEMENT, effacerJoueurLocal } from './effacement';
+import type { Marques } from './envoi';
 import { poserEtatCompte, type ChangementProfil } from './pont';
 import { appliquer, ecrireBasePseudo, ecrireProfil, fusionner, lireBasePseudo, lireLocal, lireProfil, pseudoChangeIci, type Fusion, type ProfilLocal, type ProfilLu } from './profil';
 import { depotSessionIndexedDb, sessionVide, type DepotSession, type Fournisseur, type Session } from './session';
 
 /** Mot de passe : 8 caractères au moins, sans autre exigence (D17, comme Light). */
 export const MDP_MIN = 8;
+/**
+ * Une question de fusion plus vieille que ça, trouvée dans la session par une
+ * page qui ne la pose pas : l'appli a été tuée pendant la question ; le
+ * compte connecté n'est pas pris (signOut).
+ */
+export const QUESTION_MAX = 10 * 60_000;
+
+/**
+ * La question de la connexion (§ 2.3, étape 1 ; D22) : `appareil`, les
+ * progrès de cet appareil (invité, ou session perdue d'un autre compte qui a
+ * tout envoyé) ; `autre_compte`, des séances d'une session perdue d'un autre
+ * compte, pas encore envoyées. `reponses` : celles du journal que le compte
+ * n'a pas déjà ; `records` : records de l'appareil ; `seances` : séances non
+ * envoyées de l'autre compte.
+ */
+export interface QuestionFusion {
+  sorte: 'appareil' | 'autre_compte';
+  reponses: number;
+  records: number;
+  seances: number;
+}
+/** « Ajouter » ; « Ne pas les ajouter », confirmé (effacer l'appareil) ; « Annuler » (pas de connexion). */
+export type ChoixFusion = 'ajouter' | 'effacer' | 'annuler';
+
+/** Ce que la question a donné : pas de question, progrès ajoutés au compte, ou effacés de l'appareil. */
+export type ResultatFusion = 'sans_question' | 'ajoute' | 'efface';
+
+/**
+ * Ce que la déconnexion (§ 3.4) a fait : `fait`, ou ce qui n'est pas parti
+ * (séances, dont refusées par le serveur ; profil : pseudo ou records), qui
+ * demande « Se déconnecter quand même ».
+ */
+export type ResultatDeconnexion = { fait: true } | { fait: false; nonEnvoyees: number; refusees: number; profil: boolean };
+
+/** Le journal et l'état d'envoi de l'appareil, tels que les comptes en ont besoin (main.ts : la mémoire et l'envoi). */
+export interface AppareilComptes {
+  /** Réponses du journal dans aucun lot du compte (toutes si `uid` est null, ou pour un compte que l'appareil n'a jamais vu). */
+  reponsesHorsCompte(uid: string | null): Promise<number>;
+  /** Séances du journal pas encore dans ce compte (session perdue d'un autre compte : § 2.3). */
+  nonEnvoyees(uid: string): Promise<number>;
+  /** Tout ce qui attend part (§ 3.4, étape 1) ; rend ce qui n'est pas parti. */
+  envoyerTout(uid: string): Promise<{ nonEnvoyees: number; refusees: number }>;
+  /** Le journal vidé, puis l'état d'envoi de ces comptes ; rejette si le journal ne l'est pas. */
+  effacer(uids: readonly string[]): Promise<void>;
+}
+
+/** Sans appareil branché (tests des lots 1 à 3) : rien à demander, rien à envoyer, rien à effacer. */
+const APPAREIL_VIDE: AppareilComptes = {
+  reponsesHorsCompte: async () => 0,
+  nonEnvoyees: async () => 0,
+  envoyerTout: async () => ({ nonEnvoyees: 0, refusees: 0 }),
+  effacer: async () => undefined,
+};
 
 export type EtatCompte =
   | { etat: 'invite'; anonyme: boolean }
@@ -81,22 +151,35 @@ export interface Comptes {
    * verification : l'e-mail est parti ; profil : son premier envoi (pseudo
    * et records de l'appareil).
    */
-  creer(adresse: string, mdp: string): Promise<{ adresse: string; verification: boolean; profil: ResultatProfil }>;
-  /** Se connecte ; profil : pseudo et records du compte fusionnés avec ceux de l'appareil. */
-  connecter(adresse: string, mdp: string): Promise<{ adresse: string; profil: ResultatProfil }>;
+  creer(adresse: string, mdp: string, choisir?: (q: QuestionFusion) => Promise<ChoixFusion>): Promise<{ adresse: string; verification: boolean; profil: ResultatProfil; fusion: ResultatFusion }>;
+  /**
+   * Se connecte à un compte existant ; `choisir` pose la question de fusion
+   * (D22) s'il le faut (sans lui : « Ajouter »). « Annuler » lève
+   * terramemo/connexion-annulee, sans rien changer. profil : pseudo et
+   * records du compte fusionnés avec ceux de l'appareil (s'ils sont gardés).
+   */
+  connecter(adresse: string, mdp: string, choisir?: (q: QuestionFusion) => Promise<ChoixFusion>): Promise<{ adresse: string; profil: ResultatProfil; fusion: ResultatFusion; reponses: number }>;
   /** Mot de passe oublié : sans dire si l'adresse a un compte (message générique). */
   oublier(adresse: string): Promise<void>;
   /** Renvoie l'e-mail de vérification. */
   renvoyer(): Promise<{ adresse: string }>;
   changerMotDePasse(ancien: string, nouveau: string): Promise<void>;
   /**
-   * Lot 1 : déconnexion simple, le journal reste sur l'appareil (rien n'est
-   * encore envoyé : l'effacer le perdrait). Le lot 4 la remplace par la
-   * déconnexion reprenable du § 3.4 (D24 a).
+   * Déconnexion reprenable (§ 3.4, D24 a) : ce qui attend part d'abord ; s'il
+   * reste quelque chose, rien n'est fait (`fait: false`) sauf `quandMeme`.
+   * Puis signOut, et l'appareil effacé (journal, état d'envoi, pseudo,
+   * records) ; un effacement inachevé lève terramemo/effacement-inacheve et
+   * se finit au démarrage suivant.
    */
-  deconnecter(): Promise<void>;
+  deconnecter(o?: { quandMeme?: boolean }): Promise<ResultatDeconnexion>;
   /** Session perdue → invité : l'appareil garde son journal (§ 2.5). */
   continuerSansCompte(): Promise<void>;
+  /** Session perdue → invité vierge : journal, état d'envoi, pseudo et records effacés (§ 2.5). */
+  effacerAppareil(): Promise<void>;
+  /** Réponses du journal de l'appareil (confirmation d'un effacement). */
+  reponsesAppareil(): Promise<number>;
+  /** La marque de lecture des lots, gardée dans la session pour le compte de la session (envoi). */
+  marques(): Marques;
   /**
    * Le profil relu, fusionné avec l'appareil, et écrit s'il le faut (§ 5.4) ;
    * ne rejette jamais. 'ecrire' : par transaction d'emblée (un changement à
@@ -121,15 +204,19 @@ export interface Comptes {
    * ne se charge pas (hors ligne).
    */
   pourSynchro(): Promise<{ uid: string; service: Service; verifiee: boolean } | null>;
-  /** Le jeton du compte vient de changer (création, lien, connexion, adresse vérifiée). */
-  surJeton(f: () => void): () => void;
+  /**
+   * Le jeton du compte vient de changer : `connexion` (création, lien,
+   * connexion : le compte se relit, puis l'appareil envoie), `jeton` (adresse
+   * vérifiée : les lots refusés se relancent).
+   */
+  surJeton(f: (quoi: 'connexion' | 'jeton') => void): () => void;
   /** Démarrage d'un compte ou d'une session perdue : SDK chargé, état surveillé. */
   demarrer(): Promise<EtatCompte>;
   rapport(): RapportComptes;
 }
 
 /** Ce que le profil lit et écrit sur l'appareil (pseudo, records) : le localStorage de la page. */
-export type StockageProfil = Pick<Storage, 'getItem' | 'setItem'>;
+export type StockageProfil = Pick<Storage, 'getItem' | 'setItem'> & Partial<Pick<Storage, 'removeItem'>>;
 
 export interface OptionsComptes {
   session?: DepotSession;
@@ -145,6 +232,8 @@ export interface OptionsComptes {
    */
   republier?: (pseudo: string) => Promise<unknown>;
   maintenant?: () => number;
+  /** Le journal et l'envoi de l'appareil (main.ts) ; défaut : rien (tests des lots 1 à 3). */
+  appareil?: AppareilComptes;
 }
 
 function stockageDeLaPage(): StockageProfil | null {
@@ -179,8 +268,12 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   const coupee = o.coupee ?? (() => synchroCoupee());
   const republier = o.republier ?? ((p: string) => import('../vues/classement').then((m) => m.publierTout(p)));
   const maintenant = o.maintenant ?? Date.now;
+  const appareil = o.appareil ?? APPAREIL_VIDE;
   const abonnes = new Set<() => void>();
-  const jetons = new Set<() => void>();
+  const jetons = new Set<(quoi: 'connexion' | 'jeton') => void>();
+  /** Cette page pose la question de fusion, ou se déconnecte : etat() ne la prend pas pour une appli tuée en route. */
+  let questionIci = false;
+  let deconnexionIci = false;
   const rapport: RapportComptes = { etat: null, jeton: null, erreurs: [], profil: null, profil_a_ecrire: null };
   let surveille = false;
   let reseauEcoute = false;
@@ -188,7 +281,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   let sessionPage: Session | null = null;
 
   const prevenir = () => abonnes.forEach((f) => f());
-  const jetonChange = () => jetons.forEach((f) => f());
+  const jetonChange = (quoi: 'connexion' | 'jeton') => jetons.forEach((f) => f(quoi));
   const noter = (e: unknown) => {
     rapport.erreurs.push({ code: codeErreur(e), message: e instanceof Error ? e.message : String(e), quand: Date.now() });
     rapport.erreurs.splice(0, Math.max(0, rapport.erreurs.length - 10));
@@ -264,7 +357,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     try {
       if ((await u.getIdTokenResult()).claims.email_verified === true) return;
       await rafraichir(u);
-      jetonChange();
+      jetonChange('jeton');
     } catch (e) {
       noter(e);
     }
@@ -279,11 +372,14 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   async function connecte(u: import('firebase/auth').User, nouveau = false): Promise<ResultatProfil> {
     // Un autre compte que celui de la session : son drapeau du profil ne vaut pas pour celui-ci.
     // Un compte neuf (création, lien) : tout ce que l'appareil a est à lui envoyer.
+    // Un autre compte que celui de la session : sa marque de lecture ne vaut pas non plus (tout est à lire).
     await modifierSession((s) => ({
       uid: u.uid,
       fournisseurs: fournisseursDe(u),
       adresse: u.email,
       deconnexion: null,
+      connexion: null,
+      ...(s.uid === u.uid ? {} : { marque: null }),
       ...(nouveau ? { profil_a_ecrire: true } : s.uid === u.uid ? {} : SANS_PROFIL_A_ECRIRE),
     }));
     // La base vide d'un compte neuf : le pseudo du créateur sera celui du compte, même si sa
@@ -297,9 +393,33 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     } catch (e) {
       noter(e);
     }
-    // Les lots refusés se relancent avec ce jeton ; le journal de l'appareil part (§ 2.2).
-    jetonChange();
+    // Le compte se relit (restauration, § 5.3), puis le journal de l'appareil part ; les lots refusés
+    // se relancent avec ce jeton (§ 2.2, § 2.3).
+    jetonChange('connexion');
     return assurerProfil();
+  }
+
+  // --- Question de fusion (§ 2.3, D22) et effacement de l'appareil (§ 3.4) ---
+
+  /**
+   * La question à poser avant que l'appareil ne rejoigne le compte `uid`, ou
+   * null : session perdue de ce même compte (reprise sans question), ou rien
+   * sur l'appareil que le compte n'ait déjà. `avant` : la session d'avant la
+   * connexion ; `nouveau` : un compte qui vient d'être créé (il n'a rien).
+   */
+  async function question(uid: string | null, avant: Session): Promise<QuestionFusion | null> {
+    if (uid !== null && avant.uid === uid) return null;
+    const reponses = await appareil.reponsesHorsCompte(uid);
+    const records = lireLocal(stockage()).records.size;
+    if (!reponses && !records) return null;
+    const seances = avant.uid ? await appareil.nonEnvoyees(avant.uid) : 0;
+    return { sorte: seances > 0 ? 'autre_compte' : 'appareil', reponses, records, seances };
+  }
+
+  /** Le journal, l'état d'envoi de ces comptes, le pseudo et les records effacés de l'appareil. */
+  async function effacerTout(uids: readonly (string | null)[]): Promise<void> {
+    await appareil.effacer([...new Set(uids.filter((x): x is string => !!x))]);
+    effacerJoueurLocal(stockage() as Pick<Storage, 'removeItem'> | null);
   }
 
   // --- Profil (§ 5.4) ---
@@ -441,18 +561,43 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       }
       u = s.a.currentUser;
     }
-    const ses = await lireSession();
+    let ses = await lireSession();
+    // Une question de fusion laissée en route (appli tuée, § 2.3) : le compte connecté n'est pas pris.
+    // Récente, elle peut être celle d'un autre onglet : le compte attend sa réponse, sans être pris ici.
+    let enQuestion = false;
+    if (u && estCompte(u) && ses.connexion !== null && u.uid !== ses.uid && !questionIci) {
+      if (maintenant() - ses.connexion > QUESTION_MAX || ses.connexion > maintenant()) {
+        await s.m.auth.signOut(s.a).catch(noter);
+        await ecrireSession({ connexion: null });
+        u = s.a.currentUser;
+        ses = await lireSession();
+      } else enQuestion = true;
+    }
+    // Une déconnexion voulue que l'appli n'a pas finie avant le signOut : finie maintenant.
+    if (u && estCompte(u) && ses.deconnexion === 'voulue' && !deconnexionIci) {
+      await s.m.auth.signOut(s.a).catch(noter);
+      u = s.a.currentUser;
+    }
     let e: EtatCompte;
-    if (u && estCompte(u)) {
+    if (u && estCompte(u) && !enQuestion && !(ses.deconnexion === 'voulue' && !deconnexionIci)) {
       // Réparation d'une session pas écrite (échec d'IndexedDB). Jamais pendant une déconnexion
-      // voulue : un autre onglet peut l'avoir lancée, et ce currentUser n'est pas encore à jour.
-      if (ses.uid !== u.uid && !ses.deconnexion && s.a.currentUser === u)
+      // voulue (un autre onglet peut l'avoir lancée, et ce currentUser n'est pas encore à jour),
+      // ni pendant la question de fusion de cette page (le compte n'est pas encore pris).
+      if (ses.uid !== u.uid && !ses.deconnexion && ses.connexion === null && s.a.currentUser === u)
         await ecrireSession({ uid: u.uid, fournisseurs: fournisseursDe(u), adresse: u.email, deconnexion: null });
-      e = { etat: 'compte', uid: u.uid, adresse: u.email, verifiee: u.emailVerified, fournisseurs: fournisseursDe(u) };
-      await verifierJeton(u);
+      if (ses.uid !== u.uid && questionIci) e = ses.uid ? { etat: 'perdue', uid: ses.uid, adresse: ses.adresse } : { etat: 'invite', anonyme: false };
+      else e = { etat: 'compte', uid: u.uid, adresse: u.email, verifiee: u.emailVerified, fournisseurs: fournisseursDe(u) };
+      if (e.etat === 'compte') await verifierJeton(u);
+    } else if (enQuestion) {
+      e = ses.uid ? { etat: 'perdue', uid: ses.uid, adresse: ses.adresse } : { etat: 'invite', anonyme: false };
+    } else if (!ses.uid && ses.deconnexion && !deconnexionIci) {
+      // Déconnexion finie (appareil effacé au démarrage), drapeau resté : levé.
+      await ecrireSession({ deconnexion: null });
+      e = { etat: 'invite', anonyme: !!u?.isAnonymous };
     } else if (ses.uid && ses.deconnexion === 'voulue') {
-      // Déconnexion interrompue après le signOut (appli fermée) : on la termine.
-      await ecrireSession({ uid: null, fournisseurs: [], adresse: null, deconnexion: null });
+      // Déconnexion interrompue après le signOut (appli fermée) : on la termine. L'effacement de
+      // l'appareil, s'il reste, se finit au démarrage suivant (main.ts, drapeau `effacement`).
+      if (!deconnexionIci) await ecrireSession({ uid: null, fournisseurs: [], adresse: null, deconnexion: null });
       e = { etat: 'invite', anonyme: !!u?.isAnonymous };
     } else if (ses.uid) {
       // Plus de compte, sans déconnexion voulue : session perdue (§ 2.5). Un anonyme créé
@@ -473,7 +618,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   return {
     etat: () => suivi(etat),
 
-    creer: (adresse, mdp) =>
+    creer: (adresse, mdp, choisir) =>
       suivi(async () => {
         const a = adresse.trim();
         if (!a) throw new ErreurCompte('auth/missing-email');
@@ -483,6 +628,17 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         const { auth } = s.m;
         const avant = s.a.currentUser;
         if (estCompte(avant)) throw new ErreurCompte('terramemo/deja-connecte');
+        // Un invité lie son journal au compte neuf, sans question (lien, pas copie : § 2.2). Une session
+        // perdue d'un autre compte : la question d'abord (§ 2.5), avant de rien créer.
+        const ses = await lireSession();
+        let fusion: ResultatFusion = 'sans_question';
+        if (ses.uid) {
+          const q = await question(null, ses);
+          const choix = q ? (choisir ? await choisir(q) : 'ajouter') : 'ajouter';
+          if (choix === 'annuler') throw new ErreurCompte('terramemo/connexion-annulee');
+          if (q) fusion = choix === 'effacer' ? 'efface' : 'ajoute';
+          if (choix === 'effacer') await effacerTout([ses.uid]);
+        }
         // Lien de l'anonyme : même uid (§ 2.2) ; sans anonyme, la création donne un uid.
         const u = avant ? (await auth.linkWithCredential(avant, auth.EmailAuthProvider.credential(a, mdp))).user : (await auth.createUserWithEmailAndPassword(s.a, a, mdp)).user;
         const profil = await connecte(u, true);
@@ -495,20 +651,44 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
           verification = false;
         }
         prevenir();
-        return { adresse: u.email ?? a, verification, profil };
+        return { adresse: u.email ?? a, verification, profil, fusion };
       }),
 
-    connecter: (adresse, mdp) =>
+    connecter: (adresse, mdp, choisir) =>
       suivi(async () => {
         const a = adresse.trim();
         if (!a) throw new ErreurCompte('auth/missing-email');
         if (!mdp) throw new ErreurCompte('auth/missing-password');
         const s = await service();
         surveiller(s);
-        const { user } = await s.m.auth.signInWithEmailAndPassword(s.a, a, mdp);
-        const profil = await connecte(user);
-        prevenir();
-        return { adresse: user.email ?? a, profil };
+        const avant = await lireSession();
+        const courant = s.a.currentUser;
+        if (estCompte(courant) && avant.uid === courant!.uid && !avant.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
+        // § 2.3 : le compte est connecté pour connaître son uid, mais la session ne le prend qu'après
+        // la réponse (pourSynchro n'envoie qu'au compte de la session). Appli tuée pendant la
+        // question : `connexion` dit à la page suivante de ne pas le prendre.
+        questionIci = true;
+        try {
+          await ecrireSession({ connexion: maintenant() });
+          const { user } = await s.m.auth.signInWithEmailAndPassword(s.a, a, mdp);
+          const q = await question(user.uid, avant);
+          const choix = q ? (choisir ? await choisir(q) : 'ajouter') : 'ajouter';
+          if (choix === 'annuler') {
+            // L'état d'avant revient (invité, session perdue) : rien n'est parti, rien n'est effacé.
+            await s.m.auth.signOut(s.a);
+            throw new ErreurCompte('terramemo/connexion-annulee');
+          }
+          // « Ne pas les ajouter » : effacés maintenant, avant la restauration (§ 2.3, étape 3).
+          if (choix === 'effacer') await effacerTout([avant.uid, user.uid]);
+          const profil = await connecte(user);
+          prevenir();
+          const fusion: ResultatFusion = !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute';
+          return { adresse: user.email ?? a, profil, fusion, reponses: q && choix === 'ajouter' ? q.reponses : 0 };
+        } finally {
+          questionIci = false;
+          await modifierSession((x) => (x.connexion !== null ? { connexion: null } : null));
+          prevenir();
+        }
       }),
 
     oublier: (adresse) =>
@@ -562,21 +742,71 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         await rafraichir(u);
       }),
 
-    deconnecter: () =>
-      suivi(async () => {
+    deconnecter: (o = {}) =>
+      suivi(async (): Promise<ResultatDeconnexion> => {
         const s = await service();
-        // Ce qui attend part d'abord, si possible (§ 3.4, étape 1). Sinon il reste sur l'appareil
-        // (lot 2 : rien n'est effacé) : les records se refusionnent à la reconnexion, et un pseudo
-        // changé ici l'emporte encore sur ce compte (base du pseudo gardée). L'avertissement de ce
-        // qui n'est pas parti vient avec la déconnexion reprenable (§ 3.4, lot 4).
-        if ((await lireSession()).profil_a_ecrire) await synchroniserProfil('ecrire');
-        await ecrireSession({ deconnexion: 'voulue' });
-        await s.m.auth.signOut(s.a);
-        await ecrireSession({ uid: null, fournisseurs: [], adresse: null, deconnexion: null, ...SANS_PROFIL_A_ECRIRE });
-        rapport.jeton = null;
+        const ses = await lireSession();
+        const u = s.a.currentUser;
+        const uid = ses.uid ?? (estCompte(u) ? u!.uid : null);
+        // 1. Ce qui attend part d'abord (lots, profil) ; 2. s'il reste quelque chose, rien sans « quand même ».
+        if (!o.quandMeme && uid && estCompte(u) && u!.uid === uid) {
+          const reste = await appareil.envoyerTout(uid);
+          if ((await lireSession()).profil_a_ecrire) await synchroniserProfil('ecrire');
+          const profil = !(await lireSession()).profil_a_ecrire;
+          if (reste.nonEnvoyees > 0 || !profil) return { fait: false, nonEnvoyees: reste.nonEnvoyees, refusees: reste.refusees, profil };
+        }
+        deconnexionIci = true;
+        try {
+          // 3. Reprenable : appli tuée après ici, la page suivante finit le signOut (etat()) et
+          // l'effacement (main.ts, avant de lire le journal).
+          await ecrireSession({ deconnexion: 'voulue', effacement: uid });
+          await s.m.auth.signOut(s.a);
+          rapport.jeton = null;
+          poserEtatCompte('invite');
+          // 5. Le journal, l'état d'envoi de ce compte, le pseudo et les records.
+          try {
+            await effacerTout([uid]);
+          } catch (e) {
+            noter(e);
+            throw new ErreurCompte('terramemo/effacement-inacheve');
+          }
+          // 6. Invité vierge.
+          await ecrireSession({ ...APRES_EFFACEMENT, deconnexion: null });
+        } finally {
+          deconnexionIci = false;
+          prevenir();
+        }
+        return { fait: true };
+      }),
+
+    effacerAppareil: () =>
+      suivi(async () => {
+        const ses = await lireSession();
+        const s = await service();
+        if (estCompte(s.a.currentUser) && s.a.currentUser!.uid === ses.uid && !ses.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
+        // Reprenable comme la déconnexion : `effacement` posé d'abord.
+        if (ses.uid) await ecrireSession({ effacement: ses.uid });
+        try {
+          await effacerTout([ses.uid]);
+        } catch (e) {
+          noter(e);
+          throw new ErreurCompte('terramemo/effacement-inacheve');
+        }
+        await ecrireSession({ ...APRES_EFFACEMENT, deconnexion: null });
         poserEtatCompte('invite');
         prevenir();
       }),
+
+    reponsesAppareil: () => appareil.reponsesHorsCompte(null),
+
+    marques: () => ({
+      lire: async (uid) => {
+        const ses = await lireSession();
+        return ses.uid === uid ? ses.marque : null;
+      },
+      // Seulement pour le compte de la session : un autre compte a pu se connecter pendant la lecture.
+      poser: (uid, marque) => modifierSession((x) => (x.uid === uid ? { marque } : null)),
+    }),
 
     continuerSansCompte: () =>
       suivi(async () => {
@@ -611,7 +841,8 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       if (!ses.uid || ses.deconnexion || ses.effacement || ses.suppression) return null;
       const s = await service();
       const u = s.a.currentUser;
-      if (!u || !estCompte(u)) return null;
+      // Un compte connecté que la session n'a pas pris (question de fusion en cours, D22) : rien ne part.
+      if (!u || !estCompte(u) || u.uid !== ses.uid) return null;
       // Adresse pas encore vérifiée : relue à chaque passe (une requête à Auth, pas à Firestore),
       // pour qu'une vérification faite ailleurs relance les lots refusés sans ouvrir la vue Compte.
       if (!u.emailVerified) {
@@ -653,8 +884,11 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
 
 let unique: Comptes | null = null;
 
-/** Les comptes de la page (une instance, la session de terramemo-synchro). */
-export function comptes(version = ''): Comptes {
-  unique ??= creerComptes({ version });
+/**
+ * Les comptes de la page (une instance, la session de terramemo-synchro). Le
+ * premier appel fixe les options (main.ts : l'appareil, toujours le même).
+ */
+export function comptes(version = '', o: Omit<OptionsComptes, 'version'> = {}): Comptes {
+  unique ??= creerComptes({ ...o, version });
   return unique;
 }

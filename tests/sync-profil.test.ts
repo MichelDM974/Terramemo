@@ -383,17 +383,22 @@ describe('synchro du profil (faux Firebase)', () => {
     expect(prendreAvisPseudo(tel.stockage)).toBeNull();
   });
 
-  it('déconnexion hors ligne avec un pseudo pas encore parti : à la reconnexion au même compte, il l’emporte encore', async () => {
+  it('déconnexion hors ligne avec un pseudo pas encore parti : dite d’abord ; « quand même » l’efface de l’appareil, le compte garde le sien', async () => {
     const ff = fauxFirestore();
     ff.docs.set('joueurs/u1', { v: 1, pseudo: 'Michel' });
     const d = appareil(ff, { stockage: avecRecords({}, 'Michel', { uid: 'u1', pseudo: 'Michel' }) });
     ff.etat.panne = 'unavailable';
     expect(await d.comptes.changerPseudo('Neo')).toMatchObject({ etat: 'echec' });
-    await d.comptes.deconnecter();
+    // § 3.4 : ce qui n'est pas parti est dit, rien n'est fait.
+    expect(await d.comptes.deconnecter()).toMatchObject({ fait: false, profil: false });
+    expect(d.stockage.getItem('terramemo.pseudo')).toBe('Neo');
+    expect(await d.comptes.deconnecter({ quandMeme: true })).toEqual({ fait: true });
+    // L'appareil repart en invité vierge : pseudo, base du pseudo et records effacés.
+    expect(['terramemo.pseudo', 'terramemo.pseudo.compte', 'terramemo.chrono.records'].map((k) => d.stockage.getItem(k))).toEqual([null, null, null]);
     ff.etat.panne = null;
     const r = await d.comptes.connecter('ana@exemple.fr', 'motdepasse');
-    expect(r.profil).toMatchObject({ etat: 'ecrit', pseudo: 'Neo', ancienPseudo: null });
-    expect(profilEnLigne(ff)).toMatchObject({ pseudo: 'Neo' });
+    expect(r.profil).toMatchObject({ pseudo: 'Michel' });
+    expect(profilEnLigne(ff)).toMatchObject({ pseudo: 'Michel' });
   });
 
   it('un pseudo remplacé par celui du compte à une ouverture : l’ancien est gardé pour être dit une fois', async () => {

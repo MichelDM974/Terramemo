@@ -10,14 +10,18 @@
 // l'appareil remplacé par celui du compte est dit une fois (§ 2.3, étape 7).
 // Lot 3 : l'état de la synchro du compte (§ 3.2, une ligne : à jour, séances
 // en attente, hors ligne, séances refusées · « Réessayer »), et le nombre de
-// séances pas encore envoyées d'une session perdue. Viendront ensuite :
-// question de fusion, déconnexion reprenable et « Effacer cet appareil » (lot 4),
-// export, suppression et lien vers la politique (lot 5), Google (lots 6 et
-// 7). Les champs portent autocomplete et inputmode : le remplissage
+// séances pas encore envoyées d'une session perdue. Lot 4 : la question de
+// fusion à la connexion d'un compte existant (D22 : « Ajouter », « Ne pas les
+// ajouter » et sa seconde confirmation, « Annuler »), la déconnexion
+// reprenable (ce qui n'est pas parti, « Réessayer l'envoi », « Se déconnecter
+// quand même »), « Effacer cet appareil » pour une session perdue, et la ligne
+// « Mets à jour l'appli » des lots qu'une version ne sait pas lire. Viendront
+// ensuite : export (« Exporter d'abord »), suppression et lien vers la
+// politique (lot 5), Google (lots 6 et 7). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
 // textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts.
 import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
-import type { Comptes, EtatCompte, ResultatProfil } from '../sync/comptes';
+import type { ChoixFusion, Comptes, EtatCompte, QuestionFusion, ResultatDeconnexion, ResultatProfil } from '../sync/comptes';
 import { synchroCoupee } from '../sync/drapeaux';
 import type { Envoi, EtatSynchro } from '../sync/envoi';
 import { codeErreur, traduire } from '../sync/erreurs';
@@ -27,7 +31,46 @@ import { remplir, textes } from './textes';
 
 const T = textes.compte;
 
-type Ecran = 'chargement' | 'echec' | 'invite' | 'creer' | 'connecter' | 'compte' | 'mdp' | 'pseudo' | 'perdue' | 'sans-compte';
+type Ecran =
+  | 'chargement'
+  | 'echec'
+  | 'invite'
+  | 'creer'
+  | 'connecter'
+  | 'compte'
+  | 'mdp'
+  | 'pseudo'
+  | 'perdue'
+  | 'sans-compte'
+  | 'fusion'
+  | 'fusion-confirmer'
+  | 'deconnexion'
+  | 'effacer';
+
+/** Écrans qui restent tels quels quand l'état est relu (saisie en cours, question posée). */
+const ECRANS_GARDES: ReadonlySet<Ecran> = new Set(['creer', 'connecter', 'mdp', 'pseudo', 'sans-compte', 'fusion', 'fusion-confirmer', 'deconnexion', 'effacer']);
+
+/** « 12 réponses », « 1 record », « 12 réponses et 3 records ». */
+export function detailProgres(reponses: number, records: number): string {
+  const r = reponses === 1 ? T.detail_reponse : remplir(T.detail_reponses, { n: reponses });
+  const k = records === 1 ? T.detail_record : remplir(T.detail_records, { n: records });
+  if (reponses && records) return remplir(T.detail_et, { a: r, b: k });
+  return records && !reponses ? k : r;
+}
+
+/** Le texte de la question de fusion (§ 2.3, étape 1). */
+export function texteQuestion(q: QuestionFusion): string {
+  if (q.sorte === 'autre_compte') return q.seances === 1 ? T.fusion_autre_compte_une : remplir(T.fusion_autre_compte, { n: q.seances });
+  return remplir(T.fusion_question, { detail: detailProgres(q.reponses, q.records) });
+}
+
+/** Ce que dit une déconnexion qui n'a pas pu tout envoyer (§ 3.4, étape 2). */
+export function textesDeconnexion(r: Extract<ResultatDeconnexion, { fait: false }>): string[] {
+  const l: string[] = [];
+  if (r.nonEnvoyees) l.push(r.nonEnvoyees === 1 ? T.deconnexion_seance : remplir(T.deconnexion_seances, { n: r.nonEnvoyees }));
+  if (!r.profil) l.push(T.deconnexion_profil);
+  return l;
+}
 
 /** Ce que dit la connexion du pseudo : celui de l'appareil remplacé par celui du compte, dit une fois. */
 export function textePseudoDuCompte(p: ResultatProfil | null | undefined): string {
@@ -61,6 +104,7 @@ export interface OptionsVueCompte {
 export function texteSynchro(e: EtatSynchro): string {
   if (e.coupee) return T.synchro_coupee;
   if (e.refusees) return e.refusees === 1 ? T.synchro_refusee_une : remplir(T.synchro_refusees, { n: e.refusees });
+  if (e.aRelire) return e.aRelire === 1 ? T.synchro_a_relire_une : remplir(T.synchro_a_relire, { n: e.aRelire });
   if (e.attente && e.horsLigne) return T.synchro_hors_ligne;
   if (e.attente) return e.attente === 1 ? T.synchro_attente_une : remplir(T.synchro_attente, { n: e.attente });
   return T.synchro_a_jour;
@@ -81,6 +125,13 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   let adresseSaisie = '';
   let seancesPerdue: number | null = null;
   let synchroLue: EtatSynchro | null = null;
+  /** La question de fusion posée (§ 2.3), et sa réponse à rendre aux comptes. */
+  let question: QuestionFusion | null = null;
+  let repondre: ((c: ChoixFusion) => void) | null = null;
+  /** Ce qu'une déconnexion n'a pas pu envoyer (§ 3.4, étape 2). */
+  let reste: Extract<ResultatDeconnexion, { fait: false }> | null = null;
+  /** Les réponses qu'« Effacer cet appareil » effacerait. */
+  let aEffacer: number | null = null;
   let abonne = false;
   let abonneEnvoi = false;
 
@@ -113,9 +164,10 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   /** L'avis d'un pseudo remplacé par celui du compte : dit par le message de la connexion, il ne se redit pas ailleurs. */
   const avisPseudoDit = () => void prendreAvisPseudo(stockageDeLaPage());
 
-  /** Un bouton ; `principal` : le seul en accent plein de l'écran. */
-  function bouton(id: string, texte: string, faire: () => void, sorte: 'principal' | 'secondaire' | 'lien' = 'secondaire', type: 'button' | 'submit' = 'button'): HTMLButtonElement {
-    const b = creer('button', { type, id, ...(sorte === 'principal' ? {} : { class: sorte === 'lien' ? 'lien' : 'secondary' }) }, texte);
+  /** Un bouton ; `principal` : le seul en accent plein de l'écran ; `danger` : une action qui efface. */
+  function bouton(id: string, texte: string, faire: () => void, sorte: 'principal' | 'secondaire' | 'lien' | 'danger' = 'secondaire', type: 'button' | 'submit' = 'button'): HTMLButtonElement {
+    const classe = { principal: null, secondaire: 'secondary', lien: 'lien', danger: 'danger' }[sorte];
+    const b = creer('button', { type, id, ...(classe ? { class: classe } : {}) }, texte);
     if (type === 'button') b.addEventListener('click', () => faire());
     return b;
   }
@@ -185,6 +237,56 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   function aller(e: Ecran): void {
     ecran = e;
     rendre();
+  }
+
+  /**
+   * La question de fusion (comptes.connecter, comptes.creer) : l'écran
+   * « fusion » montré, la réponse rendue au premier choix. « Annuler » ramène
+   * au formulaire d'où l'on venait.
+   */
+  function demander(depuis: Ecran): (q: QuestionFusion) => Promise<ChoixFusion> {
+    return (q) =>
+      new Promise<ChoixFusion>((ok) => {
+        question = q;
+        repondre = (c) => {
+          repondre = null;
+          question = null;
+          if (c === 'annuler') aller(depuis);
+          ok(c);
+        };
+        effacerAvis();
+        aller('fusion');
+      });
+  }
+
+  /** Le message d'une connexion réussie, selon la réponse à la question. */
+  function texteConnexion(r: { adresse: string; fusion: string; reponses?: number }, q: QuestionFusion | null): string {
+    if (r.fusion === 'efface') return remplir(T.connecte_efface, { adresse: r.adresse });
+    if (r.fusion === 'ajoute' && q) return remplir(T.connecte_ajoute, { adresse: r.adresse, detail: detailProgres(q.reponses, q.records) });
+    return remplir(T.connecte, { adresse: r.adresse });
+  }
+
+  /** Déconnexion (§ 3.4) : faite, ou l'écran de ce qui n'est pas parti. */
+  async function deconnecter(c: Comptes, quandMeme = false): Promise<void> {
+    let r: ResultatDeconnexion;
+    try {
+      r = await c.deconnecter({ quandMeme });
+    } catch (e) {
+      // Déconnecté, mais l'appareil n'est pas vidé : il le sera au prochain démarrage.
+      montrerErreur(e);
+      const t = erreur.textContent;
+      await apres(c);
+      erreur.textContent = t;
+      return;
+    }
+    if (!r.fait) {
+      reste = r;
+      aller('deconnexion');
+      return;
+    }
+    reste = null;
+    dire(quandMeme ? T.deconnecte_quand_meme : T.deconnecte);
+    await apres(c);
   }
 
   function rendre(): void {
@@ -265,9 +367,10 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         const envoyer = () => {
           adresseSaisie = a.input.value;
           void agir(async (c) => {
-            const r = await c.creer(a.input.value, m.input.value);
+            const r = await c.creer(a.input.value, m.input.value, demander('creer'));
             avisPseudoDit();
-            dire([r.verification ? remplir(T.cree, { adresse: r.adresse }) : T.cree_sans_email, textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
+            const fusion = r.fusion === 'efface' ? T.cree_efface : '';
+            dire([r.verification ? remplir(T.cree, { adresse: r.adresse }) : T.cree_sans_email, fusion, textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
             await apres(c);
           });
         };
@@ -298,9 +401,10 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         const envoyer = () => {
           adresseSaisie = a.input.value;
           void agir(async (c) => {
-            const r = await c.connecter(a.input.value, m.input.value);
+            let posee: QuestionFusion | null = null;
+            const r = await c.connecter(a.input.value, m.input.value, (q) => ((posee = q), demander('connecter')(q)));
             avisPseudoDit();
-            dire([remplir(T.connecte, { adresse: r.adresse }), textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
+            dire([texteConnexion(r, posee), textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
             await apres(c);
           });
         };
@@ -376,12 +480,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
               effacerAvis();
               aller('mdp');
             })] : []),
-            bouton('compte-deconnecter', T.se_deconnecter, () =>
-              void agir(async (c) => {
-                await c.deconnecter();
-                dire(T.deconnecte);
-                await apres(c);
-              })),
+            bouton('compte-deconnecter', T.se_deconnecter, () => void agir((c) => deconnecter(c))),
           ),
         );
         return lignes;
@@ -462,7 +561,80 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
               aller('sans-compte');
             }),
           ),
+          creer(
+            'div',
+            { class: 'compte-actions compte-separe' },
+            bouton('compte-effacer', T.effacer_appareil, () =>
+              void agir(async (c) => {
+                effacerAvis();
+                aEffacer = await c.reponsesAppareil();
+                aller('effacer');
+              }), 'danger'),
+          ),
         ];
+      case 'effacer':
+        return [
+          creer('h3', {}, T.effacer_appareil),
+          creer('p', { id: 'compte-effacer-texte' }, aEffacer ? remplir(T.effacer_confirmer, { detail: detailProgres(aEffacer, 0) }) : T.effacer_confirmer_vide),
+          creer(
+            'div',
+            { class: 'compte-actions' },
+            bouton('compte-effacer-ok', T.effacer_bouton, () =>
+              void agir(async (c) => {
+                await c.effacerAppareil();
+                dire(T.efface);
+                await apres(c);
+              }), 'danger'),
+            bouton('compte-annuler', T.annuler, () => aller('perdue')),
+          ),
+        ];
+      case 'fusion': {
+        const q = question;
+        if (!q) return [];
+        return [
+          creer('h3', {}, T.titre_fusion),
+          creer('p', { id: 'compte-fusion-question' }, texteQuestion(q)),
+          creer(
+            'div',
+            { class: 'compte-actions' },
+            bouton('compte-fusion-ajouter', T.fusion_ajouter, () => repondre?.('ajouter'), 'principal'),
+            bouton('compte-fusion-ne-pas', T.fusion_ne_pas, () => aller('fusion-confirmer'), 'danger'),
+            bouton('compte-fusion-annuler', T.annuler, () => repondre?.('annuler')),
+          ),
+        ];
+      }
+      case 'fusion-confirmer': {
+        const q = question;
+        if (!q) return [];
+        return [
+          creer('h3', {}, T.fusion_ne_pas),
+          creer('p', { id: 'compte-fusion-confirmer' }, remplir(T.fusion_confirmer, { detail: detailProgres(q.reponses, q.records) })),
+          creer(
+            'div',
+            { class: 'compte-actions' },
+            bouton('compte-fusion-effacer', T.fusion_effacer, () => repondre?.('effacer'), 'danger'),
+            bouton('compte-fusion-retour', T.fusion_retour, () => aller('fusion')),
+          ),
+        ];
+      }
+      case 'deconnexion': {
+        const r = reste;
+        if (!r) return [];
+        return [
+          creer('h3', {}, T.titre_deconnexion),
+          ...textesDeconnexion(r).map((t, i) => creer('p', { class: 'compte-deconnexion-reste', id: `compte-deconnexion-${i}` }, t)),
+          creer(
+            'div',
+            { class: 'compte-actions' },
+            bouton('compte-deconnexion-reessayer', T.deconnexion_reessayer, () => void agir((c) => deconnecter(c)), 'principal'),
+            bouton('compte-deconnexion-quand-meme', T.deconnexion_quand_meme, () => void agir((c) => deconnecter(c, true)), 'danger'),
+            bouton('compte-annuler', T.annuler, () => {
+              reste = null;
+              aller('compte');
+            }),
+          ),
+        ];
+      }
       case 'sans-compte':
         return [
           creer('p', {}, T.continuer_sans_confirmer),
@@ -530,7 +702,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       if (ancien) dire(remplir(T.pseudo_du_compte, { pseudo: lirePseudo() ?? '' }));
       // Un formulaire ouvert reste tel quel, saisie comprise (retour d'une autre appli), sauf
       // si l'état a changé sous lui.
-      const formulaireOuvert = ecran === 'creer' || ecran === 'connecter' || ecran === 'mdp' || ecran === 'pseudo' || ecran === 'sans-compte';
+      const formulaireOuvert = ECRANS_GARDES.has(ecran);
       if (!formulaireOuvert || avant !== etat.etat) aller(ecranDe(etat));
       else rendreSynchro();
     } catch (e) {
