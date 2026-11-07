@@ -21,6 +21,7 @@ import { ouvrirMemoire } from './journal/memoire';
 import { creerNavigation } from './navigation';
 import { brancherRetourAndroid } from './retour-android';
 import { brancherZoom } from './zoom-carte';
+import { poserDrapeaux } from './sync/drapeaux';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import type { Vue } from './vues/commun';
@@ -93,6 +94,8 @@ export const RENDU_DEFAUT: Rendu = 'canvas';
 // --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur), ?teintes=demo ---
 
 const params = new URLSearchParams(location.search);
+// Drapeaux du J1b (src/sync/drapeaux.ts) : ?comptes, ?comptes=0 et ?sans-synchro=0, gardés dans le navigateur.
+poserDrapeaux(params);
 const pRendu = params.get('rendu');
 const rendu: Rendu = pRendu === 'g' || pRendu === 'css' || pRendu === 'canvas' || pRendu === 'webgl' ? pRendu : RENDU_DEFAUT;
 const pProj = params.get('projection');

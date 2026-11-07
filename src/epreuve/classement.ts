@@ -1,23 +1,13 @@
 // Classements en ligne des épreuves (#14, décisions « Classements », « Sans
-// faute et Minute ») : Firestore
-// (version lite : requêtes simples, sans cache ni temps réel, ~6 fois plus
-// légère) et Auth anonyme de Firebase, chargés à la demande (import
-// dynamique) pour que la carte n'attende jamais le SDK. Règles : firestore.rules. Chemin d'un
+// faute et Minute ») : Firestore lite et Auth anonyme de Firebase, chargés à
+// la demande par src/sync/firebase.ts (charger, compte), pour que la carte
+// n'attende jamais le SDK. Règles : firestore.rules. Chemin d'un
 // score : classements/{epreuve}/periodes/{toujours | sNNNN}/scores/{clé du pseudo}.
 // Une place par pseudo (décision du même nom) : tous les appareils qui jouent
 // sous un pseudo partagent sa place, qui garde le meilleur score.
+import { charger, compte, type Service } from '../sync/firebase';
 import { comparerScores, type ScoreEpreuve } from './bareme';
 import { clePseudo, EPREUVES, EPREUVES_CLASSEES, modeEpreuve, VERSION_BAREME } from './chrono';
-
-/** Configuration publique de l'appli web du projet terramemo-geo (rien de secret). */
-const CONFIG = {
-  apiKey: 'AIzaSyDfBmTsvoNUg77tjTCVYrfPcWa610B8YiM',
-  authDomain: 'terramemo-geo.firebaseapp.com',
-  projectId: 'terramemo-geo',
-  storageBucket: 'terramemo-geo.firebasestorage.app',
-  messagingSenderId: '982564163014',
-  appId: '1:982564163014:web:756f89b5b0f6428700b6c7',
-};
 
 /** Épreuve du classement général (somme des records de toutes les épreuves du Chrono). */
 export const GENERAL = 'general';
@@ -40,60 +30,6 @@ export interface Tableau {
   rang: number | null;
   /** Nombre de joueurs classés. */
   joueurs: number;
-}
-
-type Modules = {
-  auth: typeof import('firebase/auth');
-  fs: typeof import('firebase/firestore/lite');
-};
-interface Service {
-  m: Modules;
-  db: import('firebase/firestore/lite').Firestore;
-  a: import('firebase/auth').Auth;
-}
-
-let service: Promise<Service> | null = null;
-
-/**
- * Firebase prêt (SDK chargé à la première demande). `?emulateurs` (serveur
- * de dev seulement) : les émulateurs de firebase.json (Auth 8063, Firestore 8062).
- */
-function charger(): Promise<Service> {
-  service ??= (async () => {
-    const [{ initializeApp }, auth, fs] = await Promise.all([import('firebase/app'), import('firebase/auth'), import('firebase/firestore/lite')]);
-    const app = initializeApp(CONFIG);
-    const a = auth.getAuth(app);
-    const db = fs.getFirestore(app);
-    if (import.meta.env.DEV && new URLSearchParams(location.search).has('emulateurs')) {
-      auth.connectAuthEmulator(a, 'http://127.0.0.1:8063', { disableWarnings: true });
-      fs.connectFirestoreEmulator(db, '127.0.0.1', 8062);
-    }
-    await a.authStateReady();
-    return { m: { auth, fs }, db, a };
-  })();
-  // Un échec (hors ligne) ne reste pas en cache : la prochaine demande réessaie.
-  service.catch(() => {
-    service = null;
-  });
-  return service;
-}
-
-let creation: Promise<string> | null = null;
-
-/**
- * Le compte du joueur : celui que le navigateur garde, sinon un compte
- * anonyme créé seulement pour publier (lire un classement n'en crée pas) ;
- * les règles n'acceptent un score que d'un compte. Une seule création à la
- * fois : les publications d'une partie partent ensemble, et chacune créait
- * son compte.
- */
-async function compte(s: Service): Promise<string> {
-  if (s.a.currentUser) return s.a.currentUser.uid;
-  creation ??= s.m.auth.signInAnonymously(s.a).then((c) => c.user.uid);
-  creation.catch(() => {
-    creation = null;
-  });
-  return creation;
 }
 
 const scores = (s: Service, epreuve: string, periode: string) => s.m.fs.collection(s.db, 'classements', epreuve, 'periodes', periode, 'scores');
