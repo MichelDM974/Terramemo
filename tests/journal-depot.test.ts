@@ -71,6 +71,16 @@ describe.each(IMPLEMENTATIONS)('contrat du dépôt : %s', (_, fabrique) => {
     expect(await d.tous()).toEqual([]);
   });
 
+  it('vider() retire tout (J1b, lot 4 : déconnexion), et le dépôt reprend ensuite', async () => {
+    const d = fabrique();
+    const evts = journal();
+    await d.ajouter(evts.slice(0, 5));
+    await d.vider!();
+    expect(await d.tous()).toEqual([]);
+    await d.ajouter(evts.slice(0, 2));
+    expect(parId(await d.tous())).toEqual(parId(evts.slice(0, 2)));
+  });
+
   it('rend ce qui a été ajouté, à l’identique', async () => {
     const d = fabrique();
     const evts = journal();

@@ -20,6 +20,12 @@ export interface Depot {
   ajouter(evts: readonly Evenement[]): Promise<void>;
   /** Tous les événements gardés, valides, dans un ordre quelconque (le rejeu trie). */
   tous(): Promise<Evenement[]>;
+  /**
+   * Vide le journal (J1b, lot 4 : déconnexion, « Ne pas les ajouter »,
+   * « Effacer cet appareil » ; étude du J1b, § 3.4). Le seul retrait permis :
+   * le journal reste en ajout seul pour tout le reste.
+   */
+  vider?(): Promise<void>;
 }
 
 /**
@@ -65,6 +71,9 @@ export function depotMemoire(): Depot {
     },
     async tous() {
       return [...evenements.values()].map((e) => structuredClone(e));
+    },
+    async vider() {
+      evenements.clear();
     },
   };
 }
@@ -202,6 +211,12 @@ export function depotIndexedDb(nom: string = BASE_JOURNAL, options: OptionsIndex
       return transaction('readonly', 'lecture du journal', (m) => {
         const r = m.getAll();
         return () => (r.result as unknown[]).filter(valider);
+      });
+    },
+    async vider() {
+      await transaction('readwrite', 'effacement du journal', (m) => {
+        m.clear();
+        return () => undefined;
       });
     },
   };
