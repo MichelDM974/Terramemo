@@ -63,7 +63,7 @@ suit en reste. Chaque point se clôt par un correctif avec son test, ou par un
 
 5. **La branche masquée de `cleDuPseudo` en production.** Elle juge les
    pseudos à majuscule non ASCII (« Élodie »). Elle n'est vérifiée que sur
-   l'émulateur : 38 couples clé–pseudo confrontés aux règles et à
+   l'émulateur : 37 couples clé–pseudo confrontés aux règles et à
    `clePermise`. En production, le 07/11, la clé fausse et le renommage à
    score égal ont été refusés, et la republication de « Michel » acceptée.
    Mais aucun pseudo en ligne n'est accentué (« Michel », « Wiwi »). Le
