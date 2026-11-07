@@ -4,9 +4,11 @@
 // comptes, `joueurs/{uid}` (J1b, lot 2, étude § 6), règles chargées avec
 // essai() ouvert (tests/regles-essai.ts) : celles du dépôt le gardent fermé.
 // Enfin les lots de la synchro, `joueurs/{uid}/lots/{lot}` (lot 3, § 5.2 et
-// § 6), et la copie client de lotValide (problemeLot) confrontée aux règles.
+// § 6), et la copie client de lotValide (problemeLot) confrontée aux règles ;
+// les demandes de retrait des places d'un compte supprimé, `demandes/{uid}`
+// (lot 5, § 7.1, D27 b).
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, type Firestore } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
 import { clePermise, clePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
@@ -329,6 +331,10 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     const l = lot();
     await assertFails(setDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id), l.doc));
     await assertFails(getDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id)));
+    const b = writeBatch(ana);
+    b.set(doc(ana, 'demandes', 'ana'), { pseudo: 'Michel', cree: serverTimestamp() });
+    b.set(doc(ana, 'joueurs', 'ana'), { v: 1, maj: serverTimestamp(), supprime: true });
+    await assertFails(b.commit());
   });
 });
 
@@ -432,12 +438,59 @@ describe.skipIf(!hote)('profil joueurs/{uid} (J1b, lot 2 ; essai() ouvert)', () 
     await assertFails(setDoc(moi(db('lia'), 'lia'), profil()));
   });
 
-  it('pas de suppression du profil par le client ; pas de liste de joueurs/ ; demandes/ fermé', async () => {
+  it('pas de suppression du profil par le client ; pas de liste de joueurs/ ; demandes/ sans pierre tombale refusé', async () => {
     await assertSucceeds(setDoc(moi(db('ana')), profil()));
     await assertFails(deleteDoc(moi(db('ana'))));
     await assertFails(getDocs(collection(db('ana'), 'joueurs')));
     await assertFails(getDocs(collection(db(null), 'joueurs')));
     await assertFails(setDoc(doc(db('ana'), 'demandes', 'ana'), { pseudo: 'Michel', cree: serverTimestamp() }));
+  });
+
+  describe('demandes/{uid} (D27 b) : écrite avec la pierre tombale, en création seule', () => {
+    const tombe = () => ({ v: 1, maj: serverTimestamp(), supprime: true });
+    const demande = (o: Record<string, unknown> = {}) => ({ pseudo: 'Michel', cree: serverTimestamp(), ...o });
+    /** La suppression du compte (§ 7.1, étapes 3 et 4) : la demande et la pierre tombale d'un coup. */
+    function supprimer(d: Firestore, uid = 'ana', dem: Record<string, unknown> = demande()) {
+      const b = writeBatch(d);
+      b.set(doc(d, 'demandes', uid), dem);
+      b.set(moi(d, uid), tombe());
+      return b.commit();
+    }
+
+    it('le compte lui-même, avec sa pierre tombale : accepté (profil présent ou absent)', async () => {
+      await assertSucceeds(setDoc(moi(db('ana')), profil()));
+      await assertSucceeds(supprimer(db('ana')));
+      await assertSucceeds(supprimer(db('lia', jetonCompte({ email: 'lia@exemple.fr' })), 'lia', demande({ pseudo: 'x'.repeat(20) })));
+    });
+
+    it('sans compte, un autre uid, un anonyme : refusé', async () => {
+      await assertFails(supprimer(db(null)));
+      await assertFails(supprimer(db('bob'), 'ana'));
+      await assertFails(supprimer(db('ana', JETON_ANONYME)));
+    });
+
+    it('forme : pseudo de 2 à 20 caractères, heure du serveur, rien d’autre', async () => {
+      for (const faux of [
+        demande({ pseudo: 'M' }),
+        demande({ pseudo: 'x'.repeat(21) }),
+        demande({ pseudo: 42 }),
+        demande({ cree: Timestamp.fromMillis(Date.now()) }),
+        demande({ uid: 'ana' }),
+        { pseudo: 'Michel' },
+        { cree: serverTimestamp() },
+      ])
+        await assertFails(supprimer(db('ana'), 'ana', faux));
+    });
+
+    it('ni lecture, ni mise à jour, ni suppression ; pas de liste', async () => {
+      await assertSucceeds(supprimer(db('ana')));
+      const d = doc(db('ana'), 'demandes', 'ana');
+      await assertFails(getDoc(d));
+      await assertFails(setDoc(d, demande({ pseudo: 'Autre' })));
+      await assertFails(updateDoc(d, { pseudo: 'Autre' }));
+      await assertFails(deleteDoc(d));
+      await assertFails(getDocs(collection(db('ana'), 'demandes')));
+    });
   });
 
   it('les classements ne changent pas pour un compte : sa place s’écrit comme celle d’un anonyme', async () => {

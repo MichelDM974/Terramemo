@@ -245,5 +245,24 @@ service cloud.firestore {
         allow create: if moi(uid) && lotValide(lot) && !tombe(uid);
       }
     }
+
+    // Demande de retrait des places du pseudo (D27 b, § 7.1) : écrite par le
+    // compte lui-même quand il se supprime, dans le même lot d'écriture que
+    // sa pierre tombale (getAfter la voit), puis traitée par l'outil du
+    // propriétaire (SDK Admin, hors des règles). Création seule, bornée : le
+    // pseudo (2 à 20 caractères, comme scoreValide) et l'heure du serveur.
+    // Ni lecture, ni mise à jour, ni suppression par le client.
+    function demandeValide(uid) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['pseudo', 'cree'])
+        && d.keys().hasAll(['pseudo', 'cree'])
+        && d.pseudo is string && d.pseudo.size() >= 2 && d.pseudo.size() <= 20
+        && d.cree == request.time
+        && getAfter(/databases/$(database)/documents/joueurs/$(uid)).data.get('supprime', false) == true;
+    }
+
+    match /demandes/{uid} {
+      allow create: if moi(uid) && demandeValide(uid);
+    }
   }
 }
