@@ -1223,6 +1223,14 @@ confirmation, le texte de D27 sur les places du classement.
    appareil.
 3. Lire le profil (le pseudo). Si D27 b : créer
    `demandes/{uid} = {pseudo, cree}`.
+   - Le pseudo est celui du profil en ligne, tel quel : les règles exigent
+     qu'il soit égal au `pseudo` du profil d'avant le lot (`get`), sans
+     repli sur celui de l'appareil. Sans pseudo au profil, pas de demande
+     (relecture du lot 5).
+   - La vue le lit avant la confirmation (`pseudoDemande`, qui envoie
+     d'abord un pseudo de l'appareil pas encore parti) : le texte de D27
+     dit le pseudo qui ira dans la demande. Les places d'un pseudo quitté
+     plus tôt restent, et les textes le disent.
 4. **Pierre tombale** : `setDoc(joueurs/{uid}, {v: 1, maj, supprime: true})`,
    étape sautée si elle est déjà posée.
    - Dès lors, les règles refusent toute écriture de lots ou de profil, de
@@ -1236,16 +1244,35 @@ confirmation, le texte de D27 sur les places du classement.
 
 **Pierre tombale** :
 - elle ne contient que l'uid et la date ;
-- l'outil du propriétaire l'efface au bout d'un jour (D33) ; sans lui,
-  elle reste ;
+- l'outil du propriétaire l'efface à sa tournée mensuelle (30 jours au
+  plus, § 7.5), une fois le compte parti de Auth et ses lots vides ; sans
+  lui, elle reste. « Un jour » (D33 a) ne se tenait pas avec un outil
+  lancé à la main (relecture du lot 5) ;
 - elle ne porte aucune donnée personnelle hors de l'uid, et Play permet de
   garder ce qui sert à la sécurité.
 
 **Reprise** :
-- si le drapeau est resté, l'ouverture propose « Suppression inachevée :
-  reprendre ? » ;
+- si le drapeau est resté, ⚙ › Compte propose « Suppression inachevée :
+  reprendre ? » (pas d'avis à l'ouverture de l'appli) ;
 - on repart de l'étape 1 : les étapes sont idempotentes ;
-- un compte déjà supprimé dans Auth passe directement à l'étape 7.
+- un échec avant l'étape 4 (lecture du profil refusée, réseau) lève le
+  drapeau posé par l'appel : rien d'irréversible n'est fait, l'appareil
+  reprend sa synchro. Un drapeau resté (appli tuée) s'annule tant que la
+  pierre tombale n'est pas posée (« Annuler la suppression ») ;
+- seul l'appareil qui a fait deleteUser sait que le compte n'est plus
+  dans Auth : il pose `effacement = uid` juste après, et la reprise passe
+  alors à l'étape 7 ;
+- sans cette preuve et sans compte connecté, c'est une session perdue en
+  route (jetons révoqués par un mot de passe changé ailleurs : le SDK
+  répond `auth/user-token-expired`, comme pour un compte supprimé). La
+  reprise se reconnecte par l'adresse de la session (mot de passe,
+  « Mot de passe oublié ? »). Seuls `auth/user-not-found` ou un autre uid
+  à cette adresse prouvent la suppression. Sinon, « Effacer cet appareil »
+  vide l'appareil en disant que le compte reste en ligne s'il existe
+  encore (écrire au contact) ;
+- pendant une suppression, ni déconnexion, ni effacement, ni « Continuer
+  sans compte » (un autre onglet peut la mener) ; seule sa fin lève le
+  drapeau.
 
 **Autre appareil connecté au même compte** :
 - dès l'étape 4, ses lots et son profil sont refusés (refus des règles,
@@ -1276,10 +1303,18 @@ n'y touche pas.
     (MIT) ;
   - défaut : au J1b, export sur le site seulement. Le compte a tout en
     ligne, il suffit de se connecter sur le site. Dans l'APK, le bouton
-    dit « Exporte depuis le site : terramemo-geo.web.app » ;
+    dit « Exporte depuis le site : terramemo-geo.web.app », pour un compte
+    seulement : le journal d'un invité ou d'une session perdue n'est que
+    dans l'appli, qui ne propose alors rien ;
   - les plugins viennent au J3 si Play le demande.
 - Un invité peut aussi exporter son journal local sur le site (même code,
   sans `compte`).
+- Un compte connecté lit d'abord ses lots en ligne (une passe de l'envoi),
+  sans quoi un appareil neuf exporterait un journal vide. Le fichier porte
+  `lecture: {complete}` avec `compte` ; la vue dit quand des séances
+  peuvent manquer (hors ligne, séance en cours, session perdue).
+- Ce qui efface l'appareil (« Ne pas les ajouter », « Se déconnecter quand
+  même », « Effacer cet appareil ») attend la fin d'un export lancé.
 - L'export est proposé avant « Ne pas les ajouter » (§ 2.3) et avant une
   déconnexion qui perdrait des séances (§ 3.4).
 
@@ -1300,7 +1335,7 @@ n'y touche pas.
     Une telle demande n'est traitée que si elle vient de l'adresse du
     compte ;
   - elle dit ce qui est supprimé et ce qui est gardé : places (D27),
-    pierre tombale (un jour), sauvegardes de Google (180 jours).
+    pierre tombale (30 jours au plus), sauvegardes de Google (180 jours).
 - **Dans l'appli**, une vue `#confidentialite` :
   - elle télécharge la même page et insère son `<main>`, comme les
     licences tierces (décision « Licences tierces »). Dans l'APK, la page
@@ -1336,10 +1371,12 @@ n'y touche pas.
    - aucune publicité, aucune mesure d'audience.
 4. **Durées** (D33) :
    - compte et séances : jusqu'à leur suppression, ou au bout de 2 ans
-     sans activité ;
+     sans activité (purge trimestrielle : 2 ans et 3 mois au plus) ;
    - comptes anonymes : supprimés par Firebase 30 jours après leur
      création, sans outil qui les purge ;
-   - pierre tombale : 1 jour ;
+   - pierre tombale : 30 jours au plus (tournée mensuelle de l'outil) ;
+   - demandes de retrait des places : traitées sous 30 jours (décision
+     « Confidentialité et ouverture des comptes ») ;
    - sauvegardes de Google : effacées sous 180 jours ;
    - adresses IP : quelques semaines pour Auth, quelques mois pour Hosting
      (vérifié au lot 5 dans la doc de Firebase) ;
@@ -1391,9 +1428,21 @@ n'y touche pas.
     `lastSignInTime`, qui ne bouge pas tant que la session dure : un
     joueur fidèle connecté une seule fois serait purgé ;
   - leurs lots et leur profil d'abord, puis `deleteUsers` (par 1 000) ;
-- pierres tombales de plus d'un jour ;
+- pierres tombales : effacée seulement si `getUser(uid)` répond
+  `auth/user-not-found` **et** si `joueurs/{uid}/lots` est vide. Sinon
+  c'est une suppression restée en route (deleteUser raté, appli tuée) :
+  l'outil la signale, ou la finit (lots, puis `deleteUser`) après
+  confirmation. L'effacer avant rouvrirait l'écriture du compte à ses
+  autres appareils (règle `!tombe(uid)`) ;
 - lots sans compte (orphelins) ;
-- `demandes/` (D27 b) : places du pseudo retirées, puis la demande ;
+- `demandes/` (D27 b) : places du pseudo retirées, puis la demande. Le
+  pseudo n'est pas réservé (« Une place par pseudo ») : un compte peut
+  prendre le pseudo d'un autre dans son profil puis se supprimer. Donc,
+  à blanc, l'outil liste chaque demande, son pseudo et les places
+  touchées (rang, points, date), et ne retire rien sans confirmation à la
+  main ; une seule demande par pseudo et par tournée ; une place dont le
+  record est antérieur à la création du compte, ou qui n'a rien de commun
+  avec ses records, est à juger à la main ;
 - uid abusif : ses lots et son profil, puis
   `updateUser(uid, {disabled: true})` ;
 - relevé du nombre de lots et de leur taille par uid, les plus gros
@@ -1402,8 +1451,10 @@ n'y touche pas.
 **Coût** : des appels ordinaires de Spark (lectures, suppressions), sans
 facturation ni Cloud Functions.
 
-**Tournée** : trimestrielle, notée au skill `run-terramemo`. La politique
-en annonce les durées.
+**Tournée** : mensuelle pour les demandes et les pierres tombales (la
+politique promet 30 jours au plus), trimestrielle pour les comptes sans
+activité (2 ans et 3 mois au plus) ; notée au skill `run-terramemo` avec
+l'outil (lot 5b). La politique en annonce les durées.
 
 ## 8. Sûreté pendant la semaine d'usage (jusqu'au 13/11), et après
 

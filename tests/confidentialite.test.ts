@@ -41,6 +41,10 @@ describe('pages statiques (public/)', () => {
     expect(toutes[0]).toMatch(/^[^@\s]+@[^@\s]+\.[a-z]+$/i);
     // Le texte du lien est l'adresse elle-même.
     expect(texteDe(PAGES.confidentialite)).toContain(toutes[0]);
+    // La vue Compte la donne aussi (suppression qu'on ne peut plus finir) : la même.
+    const dansLesTextes = JSON.stringify(textes).match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
+    expect(dansLesTextes.length).toBeGreaterThanOrEqual(1);
+    expect(new Set([...dansLesTextes, toutes[0]]).size).toBe(1);
   });
 
   it('politique : le responsable, les faits vérifiés (firebase.json, docs de Firebase), les durées de D33', () => {
@@ -56,8 +60,13 @@ describe('pages statiques (public/)', () => {
     // Invités : supprimés par Firebase 30 jours après leur création, pas par Terramemo.
     expect(t).toContain('supprimé par Firebase 30 jours après sa création');
     expect(t).toContain('Terramemo ne le supprime pas lui-même');
-    expect(t).toContain('ou au bout de 2 ans sans activité');
+    expect(t).toContain('ou au bout de 2 ans sans activité (vérifiés chaque trimestre : 2 ans et 3 mois au plus)');
     expect(t).toContain('retirées sous 30 jours');
+    // Des durées que l'outil du propriétaire tient à sa tournée mensuelle (§ 7.5), pas « un jour ».
+    expect(t).toContain('gardés 30 jours au plus');
+    expect(t).not.toContain('un jour');
+    // L'export, caché avec la vue Compte jusqu'à l'ouverture des comptes : en attendant, par e-mail.
+    expect(t).toContain('Cette entrée arrive avec l\'ouverture des comptes');
     expect(t).toContain('180 jours');
     expect(t).toContain('ne fixe pas d\'âge minimum');
     expect(t).toContain('CNIL');
@@ -78,7 +87,11 @@ describe('pages statiques (public/)', () => {
     expect(t).toContain('Écris « supprimer »');
     expect(t).toContain('n\'est traitée que si elle vient de l\'adresse du compte');
     expect(t).toContain('retirées sous 30 jours');
-    expect(t).toContain('un jour');
+    expect(t).toContain('30 jours au plus');
+    expect(t).not.toContain('un jour');
+    // La reprise d'une suppression coupée : dans ⚙ › Compte, pas d'avis à l'ouverture de l'appli.
+    expect(t).toContain(`ouvre de nouveau ⚙ › Compte : « ${C.suppression_inachevee} » la finit`);
+    expect(t).not.toContain('ouverture suivante');
     expect(t).toContain('180 jours');
     expect(t).toContain(`« ${C.effacer_appareil} »`);
   });
