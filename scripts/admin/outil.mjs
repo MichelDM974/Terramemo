@@ -2,11 +2,14 @@
 // Outil du propriétaire de Terramemo (J1b, lot 5b ; étude
 // docs/etudes/2026-11-07-j1b-conception.md, § 7.5 ; D33 a). Lancé à la main,
 // sur le PC, jamais sur le Pi ni en CI. À blanc par défaut : il dit ce qu'il
-// ferait ; --appliquer le fait, exactement. Mode d'emploi et tournées :
+// ferait, et l'empreinte de ce plan ; --appliquer --attendu <empreinte> le
+// fait, exactement : le plan recalculé doit avoir l'empreinte du plan relu,
+// sinon rien n'est fait. Mode d'emploi et tournées :
 // .claude/skills/run-terramemo/SKILL.md, « Outil du propriétaire ».
 //
 //   npm run admin -- <commande> [options]
 //   node scripts/admin/outil.mjs <commande> [options]
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { cible, ErreurUsage, ouvrir, phraseCible } from './connexion.mjs';
 
@@ -26,13 +29,14 @@ Commandes :
   tournee [--trimestrielle]
                         à blanc seulement : demandes, tombes, orphelins, relevé (et inactifs si --trimestrielle)
 
-Options : --appliquer (agir), --json (sortie lisible par un programme).
+Options : --appliquer --attendu E (exécuter le plan relu à blanc, d'empreinte E ; refusé s'il a changé depuis),
+--json (sortie lisible par un programme).
 Cible : les émulateurs si FIRESTORE_EMULATOR_HOST et FIREBASE_AUTH_EMULATOR_HOST sont posés, sinon le
 vrai projet terramemo-geo, par la clé de ~/Sauvegardes/terramemo/admin/ (ou TERRAMEMO_CLE_ADMIN).`;
 
 const COMMANDES = ['inactifs', 'tombes', 'orphelins', 'demandes', 'abus', 'releve', 'tournee'];
 const DRAPEAUX = { '--appliquer': 'appliquer', '--json': 'json', '--finir': 'finir', '--avec-a-juger': 'avecAJuger', '--garder-a-juger': 'garderAJuger', '--trimestrielle': 'trimestrielle', '--taille': 'taille', '--aide': 'aide', '-h': 'aide', '--help': 'aide' };
-const AVEC_VALEUR = { '--uid': 'uid', '--n': 'n', '--max-lectures': 'maxLectures' };
+const AVEC_VALEUR = { '--uid': 'uid', '--n': 'n', '--max-lectures': 'maxLectures', '--attendu': 'attendu' };
 
 /** Les arguments : `{commande, uid?, options}` ; ErreurUsage si un mot est inconnu ou mal placé. */
 export function lireArguments(argv) {
@@ -54,6 +58,11 @@ export function lireArguments(argv) {
   if (!COMMANDES.includes(commande)) throw new ErreurUsage(`Commande inconnue : ${commande}`);
   if (commande === 'abus' ? reste.length !== 1 : reste.length) throw new ErreurUsage(commande === 'abus' ? 'abus attend un uid, un seul.' : `De trop : ${reste.join(' ')}`);
   if (commande === 'tournee' && o.appliquer) throw new ErreurUsage('tournee est à blanc seulement : appliquer ensuite chaque commande, après lecture.');
+  if (commande === 'releve' && o.appliquer) throw new ErreurUsage('releve ne change rien : pas de --appliquer.');
+  if (o.appliquer && o.attendu === undefined) {
+    throw new ErreurUsage("--appliquer exécute un plan relu : lancer d'abord la commande à blanc, qui affiche le plan et son empreinte, puis --appliquer --attendu <empreinte>.");
+  }
+  if (o.attendu !== undefined && (!o.appliquer || !/^[0-9a-f]{12}$/.test(o.attendu))) throw new ErreurUsage('--attendu : l’empreinte (12 caractères) que donne la commande à blanc, avec --appliquer.');
   if (o.finir && commande !== 'tombes') throw new ErreurUsage('--finir ne va qu’avec tombes.');
   if (o.uid && commande !== 'demandes' && commande !== 'releve') throw new ErreurUsage('--uid ne va qu’avec demandes ou releve.');
   if ((o.avecAJuger || o.garderAJuger) && commande !== 'demandes') throw new ErreurUsage('--avec-a-juger et --garder-a-juger ne vont qu’avec demandes.');
@@ -75,6 +84,16 @@ function heure(env) {
 }
 
 const nombre = (n) => n.toLocaleString('fr-FR');
+
+/**
+ * L'empreinte d'un plan : ce qu'il touche (cible, tâche, chemins, comptes,
+ * heure lue de chaque document), pas ses textes (un rang qui bouge parce
+ * qu'un autre joueur a joué ne change pas ce qui serait supprimé).
+ */
+export function empreinte(c, tache, actions) {
+  const effet = actions.map(({ type, uid, uids, chemin, chemins, pre }) => ({ type, uid, uids, chemin, chemins, pre: pre ? pre.toDate().toISOString() : undefined }));
+  return createHash('sha256').update(JSON.stringify({ projet: c.projet, emulateurs: c.emulateurs, tache, effet })).digest('hex').slice(0, 12);
+}
 
 function tableau(lignes, n) {
   const l = lignes.slice(0, n).map(
@@ -99,7 +118,11 @@ export async function principal(argv = process.argv.slice(2), env = process.env,
   const json = !!options.json;
   const dire = json ? () => {} : sortie;
   dire(phraseCible(c));
-  dire(options.appliquer ? 'Mode : --appliquer (le plan ci-dessous est exécuté).' : 'Mode : à blanc (rien ne change ; --appliquer pour agir).');
+  dire(
+    options.appliquer
+      ? `Mode : --appliquer (le plan ci-dessous est exécuté s'il a l'empreinte ${options.attendu}).`
+      : 'Mode : à blanc (rien ne change ; relire le plan, puis --appliquer --attendu <son empreinte>).',
+  );
   const sdk = await ouvrir(c);
   const ctx = { ...sdk, maintenant };
   const aFaire =
@@ -124,8 +147,22 @@ export async function principal(argv = process.argv.slice(2), env = process.env,
         for (const a of plan.actions) dire(`  - ${taches.decrire(a)}`);
       }
       const entree = { tache: t, notes: plan.notes, actions: plan.actions.map(taches.enJson), faites: 0 };
+      if (t !== 'releve') {
+        entree.empreinte = empreinte(c, t, plan.actions);
+        dire(`Empreinte du plan : ${entree.empreinte}`);
+        if (!options.appliquer && plan.actions.length) {
+          const commandeSeule = commande === 'tournee' ? [t] : argv.filter((a) => a !== '--json');
+          dire(`Pour l'exécuter tel quel : npm run admin -- ${commandeSeule.join(' ')} --appliquer --attendu ${entree.empreinte}`);
+        }
+      }
       if (plan.releve) entree.releve = plan.releve;
       rendu.taches.push(entree);
+      if (options.appliquer && entree.empreinte !== options.attendu) {
+        throw new Error(
+          `le plan a changé depuis sa lecture (empreinte ${entree.empreinte}, attendue ${options.attendu}) : rien n'est fait. ` +
+            `Relire ce plan, puis --appliquer --attendu ${entree.empreinte}.`,
+        );
+      }
       if (options.appliquer && plan.actions.length) {
         await taches.executer(ctx, plan.actions, (a) => {
           entree.faites++;

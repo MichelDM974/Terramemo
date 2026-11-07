@@ -2,8 +2,9 @@
 // lancé tel qu'à la main (node scripts/admin/outil.mjs … --json) sur les
 // émulateurs Auth et Firestore (`npm run test:admin`). Le monde est écrit par
 // le SDK Admin (hors des règles). Quatre preuves : à blanc, rien ne change ;
-// --appliquer fait exactement le plan affiché (l'état d'après = l'état
-// d'avant moins ce plan) ; un pseudo voisin (casse, accents, masque des
+// --appliquer --attendu <empreinte> fait exactement le plan affiché à blanc
+// (l'état d'après = l'état d'avant moins ce plan), et rien si le plan a
+// changé depuis ; un pseudo voisin (casse, accents, masque des
 // règles) garde sa place ; relancée, une commande n'a plus rien à faire.
 // Plus les refus de cible (un seul émulateur, CI, clé absente, clé du dépôt,
 // clé d'un autre projet), sans émulateurs, donc aussi dans npm test.
@@ -56,7 +57,7 @@ interface Rendu {
   emulateurs: boolean;
   applique: boolean;
   erreur?: string;
-  taches: { tache: string; notes: string[]; actions: Action[]; faites: number; releve?: { uid: string; lots: number; octets?: number; compte: string; tombe?: boolean }[] }[];
+  taches: { tache: string; notes: string[]; actions: Action[]; faites: number; empreinte?: string; releve?: { uid: string; lots: number; octets?: number; compte: string; tombe?: boolean }[] }[];
 }
 
 describe('outil du propriétaire : cible', () => {
@@ -82,9 +83,13 @@ describe('outil du propriétaire : cible', () => {
     const horloge = await lancer(['releve'], { ...sans, TERRAMEMO_MAINTENANT: '2030-01-01' });
     expect(horloge.code).toBe(2);
     expect(horloge.stderr).toContain('TERRAMEMO_MAINTENANT');
-    const tournee = await lancer(['tournee', '--appliquer'], sans);
+    const tournee = await lancer(['tournee', '--appliquer', '--attendu', '0123456789ab'], sans);
     expect(tournee.code).toBe(2);
     expect(tournee.stderr).toContain('à blanc seulement');
+    // --appliquer sans l'empreinte du plan relu : refusé avant toute lecture.
+    const sansEmpreinte = await lancer(['demandes', '--appliquer'], sans);
+    expect(sansEmpreinte.code).toBe(2);
+    expect(sansEmpreinte.stderr).toContain('--appliquer --attendu <empreinte>');
   }, 30_000);
 });
 
@@ -177,10 +182,20 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     return { docs, comptes, redatees };
   }
 
+  /** Comme à la main : la commande à blanc (son plan et son empreinte), puis --appliquer --attendu <empreinte>. */
+  async function appliquer(args: string[], env: Record<string, string> = {}) {
+    const blanc = JSON.parse((await lancer([...args, '--json'], env)).stdout) as Rendu;
+    expect(blanc.taches).toHaveLength(1);
+    const r = await lancer([...args, '--appliquer', '--attendu', blanc.taches[0]!.empreinte!, '--json'], env);
+    const rendu = JSON.parse(r.stdout) as Rendu;
+    expect(rendu.taches.map((t) => t.actions)).toEqual(blanc.taches.map((t) => t.actions));
+    return r;
+  }
+
   /** Applique une commande et vérifie que l'état d'après est l'état d'avant moins le plan ; puis qu'une relance n'a rien à faire. */
   async function exactEtIdempotent(args: string[], env: Record<string, string> = {}) {
     const avant = await etat();
-    const r = await lancer([...args, '--appliquer', '--json'], env);
+    const r = await appliquer(args, env);
     expect(r.stderr).toBe('');
     expect(r.code).toBe(0);
     const rendu = JSON.parse(r.stdout) as Rendu;
@@ -196,7 +211,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     }
     expect(reel.comptes).toEqual(attendu.comptes);
     expect(reel.docs).toEqual(attendu.docs);
-    const encore = await lancer([...args, '--appliquer', '--json'], env);
+    const encore = await appliquer(args, env);
     expect(encore.code).toBe(0);
     const rendu2 = JSON.parse(encore.stdout) as Rendu;
     expect(rendu2.taches.flatMap((t) => t.actions)).toEqual([]);
@@ -222,6 +237,31 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     }
     expect(await etat()).toEqual(avant);
   }, 120_000);
+
+  it('--appliquer --attendu : rien n’est fait si le plan a changé depuis la lecture à blanc', async () => {
+    await monde();
+    const blanc = JSON.parse((await lancer(['demandes', '--json'])).stdout) as Rendu;
+    const vue = blanc.taches[0]!.empreinte!;
+    expect(vue).toMatch(/^[0-9a-f]{12}$/);
+    const humain = await lancer(['demandes']);
+    expect(humain.stdout).toContain(`Empreinte du plan : ${vue}`);
+    expect(humain.stdout).toContain(`npm run admin -- demandes --appliquer --attendu ${vue}`);
+    // Une demande arrivée après la lecture : son pseudo serait retiré sans avoir été montré.
+    await place('general', 'toujours', 'actif', 'Actif', 2500, T - 3 * JOUR);
+    await db.doc('demandes/fantome').set({ pseudo: 'Actif', cree: ts(T - 2 * JOUR) });
+    const avant = await etat();
+    const r = await lancer(['demandes', '--appliquer', '--attendu', vue, '--json']);
+    expect(r.code).toBe(1);
+    const rendu = JSON.parse(r.stdout) as Rendu;
+    expect(rendu.erreur).toContain('le plan a changé depuis sa lecture');
+    expect(rendu.taches[0]!.faites).toBe(0);
+    expect(rendu.taches[0]!.empreinte).not.toBe(vue);
+    expect(await etat()).toEqual(avant);
+    // Une autre empreinte (d'une autre commande) ne vaut pas non plus.
+    const tombes = JSON.parse((await lancer(['tombes', '--json'])).stdout) as Rendu;
+    expect((await lancer(['demandes', '--appliquer', '--attendu', tombes.taches[0]!.empreinte!, '--json'])).code).toBe(1);
+    expect(await etat()).toEqual(avant);
+  }, 60_000);
 
   it('orphelins : lots et profil sans compte, pas les pierres tombales', async () => {
     await monde();

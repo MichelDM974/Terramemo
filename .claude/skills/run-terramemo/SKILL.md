@@ -1039,16 +1039,23 @@ anonyme : deux sessions sous le même pseudo = deux appareils, une place.
 
 Purge, demandes de retrait et abus, sur le SDK Admin (étude § 7.5, D33 a).
 **Sur le PC, à la main** : jamais sur le Pi, jamais en CI (refusé), jamais
-par un agent de workflow sur le vrai projet. À blanc par défaut ; il faut
-`--appliquer` pour agir, et il exécute alors exactement le plan affiché
-(une place ou une pierre tombale réécrite entre-temps arrête tout : relancer).
-Sa première ligne dit sur quoi il travaille.
+par un agent de workflow sur le vrai projet. À blanc par défaut : il
+affiche le plan et son **empreinte** (12 caractères, et la commande qui
+l'exécute). `--appliquer --attendu <empreinte>` recalcule le plan et ne
+l'exécute que s'il a cette empreinte, donc exactement le plan relu : une
+demande, une pierre tombale, un compte inactif de plus, ou une place
+réécrite entre-temps, et rien n'est fait (relire le nouveau plan, avec sa
+nouvelle empreinte). `--appliquer` sans `--attendu` est refusé.
+L'empreinte porte sur ce qui serait supprimé (chemins, comptes, heure lue
+de chaque document), pas sur les rangs affichés. Pendant l'exécution, un
+document réécrit arrête tout (`lastUpdateTime`). Sa première ligne dit sur
+quoi il travaille.
 
 ```bash
 npm run admin -- --aide
 npm run admin -- tournee                    # à blanc : demandes, tombes, orphelins, relevé
 npm run admin -- tournee --trimestrielle    # … et les comptes inactifs
-npm run admin -- demandes                   # puis, après lecture : demandes --appliquer
+npm run admin -- demandes                   # puis, après lecture : demandes --appliquer --attendu <empreinte>
 npm run test:admin                          # tests aux émulateurs (8062 et 8063 libres), aussi en CI
 ```
 
@@ -1091,7 +1098,7 @@ Firebase les supprime 30 jours après leur création) :
   plus d'une heure après la demande n'est pas du compte supprimé : « à
   juger », gardée avec sa demande, jusqu'à `--uid U --avec-a-juger` (la
   retirer aussi) ou `--garder-a-juger` (la garder, retirer la demande).
-  **Lire le plan avant `--appliquer`** : le pseudo n'est pas réservé, et un
+  **Lire le plan avant `--appliquer --attendu`** : le pseudo n'est pas réservé, et un
   compte peut avoir pris celui d'un autre avant de se supprimer ;
 - `abus <uid>` : ses lots et son profil, puis `updateUser(uid, {disabled:
   true})`. Le jeton déjà donné vaut encore une heure : relancer une heure
@@ -1107,12 +1114,13 @@ Firebase les supprime 30 jours après leur création) :
 
 **Tournée** :
 - **mensuelle** (la politique promet 30 jours au plus pour les demandes) :
-  `tournee` à blanc, lire, puis `demandes --appliquer`, `tombes
-  --appliquer`, `orphelins --appliquer` ; trancher les places « à juger » et
+  `tournee` à blanc, lire, puis `demandes`, `tombes` et `orphelins`, chacune
+  `--appliquer --attendu <son empreinte>` (la tournée donne celle de chaque
+  tâche, la même que la commande seule) ; trancher les places « à juger » et
   les suppressions restées en route (`tombes --finir --appliquer`) ;
   regarder le relevé (un uid qui grossit hors de proportion : `abus`) ;
 - **trimestrielle** (2 ans et 3 mois d'inactivité au plus) : `tournee
-  --trimestrielle`, puis `inactifs --appliquer`.
+  --trimestrielle`, puis `inactifs --appliquer --attendu <empreinte>`.
 
 Coût : des appels ordinaires de Spark, sur le quota de 50 000 lectures
 par jour **partagé avec l'appli** (dépassé, la synchro et les classements

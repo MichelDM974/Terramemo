@@ -1419,7 +1419,7 @@ n'y touche pas.
   dépendance de développement) ;
 - lancé à la main **sur le PC**, jamais sur le Pi ni en CI ;
 - clé du compte de service dans `~/Sauvegardes/terramemo/admin/` ;
-- à blanc par défaut : il faut `--appliquer` pour agir.
+- à blanc par défaut : il faut `--appliquer --attendu <empreinte du plan relu>` pour agir.
 
 **Tâches** (aucune ne touche aux invités anonymes : Firebase les supprime
 30 jours après leur création, § 4.4) :
@@ -1443,7 +1443,7 @@ n'y touche pas.
   compte peut prendre le pseudo d'un autre dans son profil puis se
   supprimer. Donc, à blanc, l'outil liste chaque demande, son pseudo et
   les places touchées (rang, points, date), et ne retire rien sans
-  `--appliquer` après lecture ; les demandes d'un même pseudo vont
+  `--appliquer --attendu` l'empreinte du plan lu ; les demandes d'un même pseudo vont
   ensemble, une fois par tournée ; une place écrite plus d'une heure après
   la demande est à juger à la main (§ 9, précisions du lot 5b) ;
 - uid abusif : ses lots et son profil, puis
@@ -1591,11 +1591,17 @@ visible en production.
   complète avec 401 lots, coupure à chaque étape, 2e appareil).
 
 **Précisions du lot 5b** (08/11, codé ; écarts assumés au texte d'avant) :
-- un plan par tâche, affiché à blanc et exécuté tel quel avec
-  `--appliquer`, dans l'ordre, arrêté à la première erreur. Une place, une
-  pierre tombale ou une demande ne se supprime que si elle n'a pas changé
-  depuis sa lecture (`lastUpdateTime`). « Confirmation à la main » (§ 7.5)
-  = relire le plan à blanc, puis `--appliquer` ;
+- un plan par tâche, affiché à blanc avec son empreinte (sha-256 de ce
+  qu'il touche : cible, tâche, chemins, comptes, heure lue de chaque
+  document ; pas les rangs ni les textes). `--appliquer --attendu
+  <empreinte>` recalcule le plan et ne l'exécute que s'il a l'empreinte
+  relue, dans l'ordre, arrêté à la première erreur ; sans `--attendu`,
+  refusé. Sans elle, `--appliquer` lancé une heure ou un jour après la
+  lecture exécutait un plan jamais montré (une demande arrivée entre-temps,
+  la limite des 2 ans qui a bougé). Une place, une pierre tombale ou une
+  demande ne se supprime que si elle n'a pas changé depuis sa lecture
+  (`lastUpdateTime`). « Confirmation à la main » (§ 7.5) = relire le plan
+  à blanc, puis `--appliquer --attendu` son empreinte ;
 - cible : les émulateurs si `FIRESTORE_EMULATOR_HOST` **et**
   `FIREBASE_AUTH_EMULATOR_HOST` sont posés ; un seul des deux est refusé
   (une base serait le vrai projet). Sinon `terramemo-geo` par la clé de
@@ -1643,7 +1649,7 @@ visible en production.
   indexé : pas de somme par agrégation ;
 - critère du tableau (« à blanc sur le vrai projet ») : à faire par
   l'utilisateur, l'outil n'a tourné qu'aux émulateurs. `test:admin`
-  prouve : à blanc rien ne change ; `--appliquer` fait exactement le plan ;
+  prouve : à blanc rien ne change ; `--appliquer --attendu` fait exactement le plan relu, et rien s'il a changé ;
   aucun pseudo voisin n'est retiré ; une relance n'a rien à faire ;
   `lastRefreshTime` et non `lastSignInTime` (un fidèle connecté une fois
   reste).
