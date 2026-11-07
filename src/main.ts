@@ -31,6 +31,7 @@ import type { Vue } from './vues/commun';
 import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { carteMemoire, garderReglageMemoire, lireReglageMemoire } from './vues/carte-memoire';
+import { brancherRelance } from './vues/classement';
 import { vueExplorer, type VueExplorer } from './vues/explorer';
 import { vueGeneral } from './vues/general';
 import { remplirEssaiJ0, vueJouer, type VueJouer } from './vues/jouer';
@@ -291,6 +292,8 @@ window.addEventListener('popstate', () => nav.router());
 nav.router();
 // APK : le bouton retour d'Android remonte cet historique (src/retour-android.ts).
 brancherRetourAndroid();
+// Les scores faits hors ligne repartent d'eux-mêmes (démarrage, retour du réseau).
+brancherRelance();
 
 // --- Carte et mesures ---
 

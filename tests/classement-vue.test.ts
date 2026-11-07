@@ -16,7 +16,7 @@ vi.mock('../src/epreuve/classement', () => ({
   lireTableau: (...a: unknown[]) => lireTableau(...a),
 }));
 
-const { avisPublication, blocClassement, publierPartie, publierTout } = await import('../src/vues/classement');
+const { avisPublication, blocClassement, brancherRelance, lireAttente, publierPartie, publierTout, relancerAttente } = await import('../src/vues/classement');
 const { textes } = await import('../src/vues/textes');
 const T = textes.chrono;
 
@@ -176,6 +176,127 @@ describe('un score trop rapide sur une série déjà publiée', () => {
     expect(base.get(`${ILE}/toujours`)).toEqual(score(24_000, 24, 24, 11_946));
     expect(base.get(`${ILE}/${semaine}`)?.temps_ms).toBe(11_946);
     expect(base.get('general/toujours')?.points).toBe(36_000);
+  });
+});
+
+describe('envois en attente (hors ligne)', () => {
+  const horsLigne = () => Object.assign(new Error('hors ligne'), { code: 'unavailable' });
+  // Le réseau : coupé, puis rendu ; publier() lève hors ligne.
+  let reseau = false;
+  beforeEach(() => {
+    reseau = false;
+    publier.mockImplementation(async () => {
+      if (!reseau) throw horsLigne();
+      return true;
+    });
+    placesDuPseudo.mockImplementation(async () => {
+      if (!reseau) throw horsLigne();
+      return new Map();
+    });
+  });
+  const cles = () => lireAttente().map(([e, p]) => `${e}/${p}`).sort();
+
+  it('un record fait hors ligne attend, puis part seul au retour du réseau, à son meilleur score du moment', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const b = enregistrerPartie(localStorage, AMS, score(11_000, 11, 12, 60_000), maintenant);
+    expect(await publierPartie('Ana', AMS, b)).toEqual({ refuses: 0, echecs: 4 });
+    expect(cles()).toEqual([`${AMS}/toujours`, `${AMS}/${semaine}`, `general/toujours`, `general/${semaine}`].sort());
+    // Toujours hors ligne : rien ne part, rien ne sort de la file.
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 4 });
+    expect(cles()).toHaveLength(4);
+    // Une meilleure partie, hors ligne aussi : c'est elle qui partira.
+    publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 59_000), maintenant));
+    await attendre();
+    reseau = true;
+    publier.mockClear();
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0 });
+    expect(publier.mock.calls.map(([e, p, ps, s]) => [e, p, ps, s.points]).sort()).toEqual(
+      [
+        [AMS, 'toujours', 'Ana', 12_000],
+        [AMS, semaine, 'Ana', 12_000],
+        ['general', 'toujours', 'Ana', 12_000],
+        ['general', semaine, 'Ana', 12_000],
+      ].sort(),
+    );
+    expect(lireAttente()).toEqual([]);
+    expect(localStorage.getItem('terramemo.chrono.attente')).toBeNull();
+    // Plus rien à refaire.
+    publier.mockClear();
+    expect(await relancerAttente()).toBeNull();
+    expect(publier).not.toHaveBeenCalled();
+  });
+
+  it('un refus des règles n’attend pas ; une semaine passée sort de la file sans envoi', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    reseau = true;
+    publier.mockResolvedValue(false);
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant));
+    expect(lireAttente()).toEqual([]);
+    publier.mockReset();
+    publier.mockResolvedValue(true);
+    // Une semaine passée, une entrée abîmée et un doublon : un seul envoi.
+    localStorage.setItem('terramemo.chrono.attente', JSON.stringify([[AMS, 's1'], ['general', 's1'], [AMS, 'toujours'], 'abîmé', [AMS, 'toujours']]));
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0 });
+    expect(publier.mock.calls.map(([e, p]) => `${e}/${p}`)).toEqual([`${AMS}/toujours`]);
+    expect(lireAttente()).toEqual([]);
+  });
+
+  it('sans pseudo, rien ne part ; un changement de pseudo refait tout et vide la file', async () => {
+    const b = enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    await publierPartie('Ana', AMS, b);
+    expect(await relancerAttente()).toBeNull();
+    reseau = true;
+    localStorage.setItem('terramemo.pseudo', 'Bea');
+    expect(await publierTout('Bea')).toEqual({ refuses: 0, echecs: 0 });
+    expect(lireAttente()).toEqual([]);
+  });
+
+  it('un seul renvoi à la fois', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant));
+    reseau = true;
+    publier.mockClear();
+    const [a, b] = [relancerAttente(), relancerAttente()];
+    expect(a).toBe(b);
+    await a;
+    expect(publier).toHaveBeenCalledTimes(4);
+  });
+
+  it('au démarrage et à chaque retour du réseau (online), la file repart', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant));
+    const ecoutes = new Map<string, () => void>();
+    const minuteries: (() => void)[] = [];
+    brancherRelance({
+      addEventListener: ((type: string, f: () => void) => void ecoutes.set(type, f)) as Window['addEventListener'],
+      setTimeout: ((f: () => void) => (minuteries.push(f), 1)) as unknown as Window['setTimeout'],
+    });
+    expect(minuteries).toHaveLength(1);
+    reseau = true;
+    publier.mockClear();
+    ecoutes.get('online')?.();
+    await attendre();
+    await attendre();
+    expect(publier).toHaveBeenCalledTimes(4);
+    expect(lireAttente()).toEqual([]);
+  });
+
+  it('le bloc d’un classement refait la file avant de lire, sauf juste après un envoi échoué', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant));
+    publier.mockClear();
+    const apresEchec = blocClassement(ILE, 'Classement', async () => ({ refuses: 0, echecs: 1 })) as unknown as El;
+    await attendre();
+    await attendre();
+    expect(publier).not.toHaveBeenCalled();
+    expect(apresEchec.innerText).toContain(T.publication_echec);
+    reseau = true;
+    const ouvert = blocClassement(ILE, 'Classement') as unknown as El;
+    for (let i = 0; i < 4; i++) await attendre();
+    expect(publier).toHaveBeenCalledTimes(4);
+    expect(lireAttente()).toEqual([]);
+    expect(ouvert.querySelector('.chrono-classement-avis')?.hidden).toBe(true);
+    expect(lireTableau).toHaveBeenCalled();
   });
 });
 

@@ -12,7 +12,7 @@
 import { EPREUVES_CLASSEES, modeEpreuve, MODES_EPREUVE, periodeSemaine } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
 import { nomSerie } from './cibles';
-import { blocClassement, lirePseudo } from './classement';
+import { blocClassement, lirePseudo, relancerAttente } from './classement';
 import { creer, type ContexteVue, type Vue } from './commun';
 import { nomMode, scoreCourt } from './scores';
 import { remplir, textes } from './textes';
@@ -113,6 +113,8 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
     if (!pseudo) return sansPlaces('');
     void (async () => {
       try {
+        // Les scores faits hors ligne d'abord, pour que mes places les montrent.
+        await relancerAttente().catch(() => null);
         const places = await mesPlaces(periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now()), pseudo);
         if (n !== lecture) return;
         if (!places.length) return sansPlaces(T.classements_aucune);

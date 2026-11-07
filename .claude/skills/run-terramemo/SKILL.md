@@ -879,7 +879,11 @@ pour sa série le meilleur score publiable (`recordPubliable`), et l'avis
 `.chrono-classement-avis` (sous le pseudo) dit « Score refusé par le
 classement… ». Chaque score part seul : un refus n'emporte ni les autres
 séries ni le général ; un envoi échoué (hors ligne) a son propre avis,
-« Score non publié (hors ligne ?)… ». Un 403 sur `documents:commit` pour
+« Score non publié (hors ligne ?)… », et attend dans la file
+`terramemo.chrono.attente` du `localStorage` ([épreuve, période], sans le
+score : `relancerAttente` renvoie le meilleur record du moment). Elle repart
+3 s après le démarrage, à l'événement `online`, à l'ouverture d'un
+classement (bloc ou 🏆) ; une semaine passée en sort sans envoi. Un 403 sur `documents:commit` pour
 un score qui ne bat pas la place n'est pas un refus : la place est celle
 du **pseudo** (en minuscules), partagée par tous ses appareils, et
 `publier()` relit la place pour s'en assurer.
