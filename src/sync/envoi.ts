@@ -239,6 +239,8 @@ interface Drapeaux {
   relancer: boolean;
   /** « Réessayer » : même pendant l'attente du quota (un essai de plus, demandé). */
   force: boolean;
+  /** Posé dans la passe à la première création acceptée. */
+  acceptee?: boolean;
   /** La minuterie seule : un lot en attente du réseau attend son heure. */
   minuterie: boolean;
 }
@@ -267,28 +269,49 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
 
   /**
    * Fiches qu'IndexedDB n'a pas pu écrire (quota plein, erreur passagère),
-   * gardées le temps de la page par-dessus celles du dépôt (§ 5.1, repli) ;
-   * chaque écriture suivante retente IndexedDB.
+   * gardées le temps de la page par-dessus celles du dépôt (§ 5.1, repli),
+   * puis réécrites dès qu'une écriture passe. Une fiche du repli garde aussi
+   * les ids que le dépôt sait en ligne sous le même id (un autre onglet a pu
+   * y écrire le lot envoyé entre-temps) : sans quoi ils sembleraient hors de
+   * tout lot, et repartiraient en double.
    */
   const repli = new Map<string, FicheLot>();
   const cleRepli = (f: Pick<FicheLot, 'uid' | 'id'>) => JSON.stringify([f.uid, f.id]);
+  /** La fiche du repli, enrichie des ids que celle du dépôt sait en ligne. */
+  const fusion = (x: FicheLot, d: FicheLot | undefined): FicheLot =>
+    d && (d.etat === 'envoye' || d.etat === 'en_ligne') ? { ...structuredClone(x), ids: [...new Set([...x.ids, ...d.ids])] } : structuredClone(x);
 
   async function ecrireFiches(fs: readonly FicheLot[]): Promise<void> {
     if (!fs.length) return;
+    let ecrites = false;
     try {
       await lots.ecrire(fs);
-      for (const f of fs) repli.delete(cleRepli(f));
+      ecrites = true;
     } catch (e) {
       noter(e);
       for (const f of fs) repli.set(cleRepli(f), structuredClone(f));
     }
     for (const f of fs) connues.set(f.id, structuredClone(f));
+    if (!ecrites) return;
+    for (const f of fs) repli.delete(cleRepli(f));
+    // Le reste du repli, à part : son échec n'a rien à voir avec ces fiches-là, déjà écrites.
+    if (repli.size) await viderRepli().catch(noter);
   }
 
-  /** Les fiches du compte : celles du dépôt, et celles du repli par-dessus. Lève si le dépôt est illisible. */
+  /** IndexedDB répond de nouveau : le repli y est réécrit (ce qui ne recule pas devant le dépôt). */
+  async function viderRepli(): Promise<void> {
+    for (const uid of new Set([...repli.values()].map((f) => f.uid))) {
+      const depot = new Map((await lots.tous(uid)).map((f) => [f.id, f]));
+      const a = [...repli.values()].filter((f) => f.uid === uid);
+      await lots.ecrire(a.map((f) => fusion(f, depot.get(f.id))));
+      for (const f of a) repli.delete(cleRepli(f));
+    }
+  }
+
+  /** Les fiches du compte : celles du dépôt, et celles du repli par-dessus (fusion). Lève si le dépôt est illisible. */
   async function lireFiches(uid: string): Promise<FicheLot[]> {
     const m = new Map((await lots.tous(uid)).map((f) => [f.id, f]));
-    for (const f of repli.values()) if (f.uid === uid) m.set(f.id, structuredClone(f));
+    for (const f of repli.values()) if (f.uid === uid) m.set(f.id, fusion(f, m.get(f.id)));
     return [...m.values()];
   }
   const vue: DepotLots = { tous: lireFiches, ecrire: ecrireFiches };
@@ -305,7 +328,8 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
   /** Un lot invalide recomposé à une nouvelle version (le format ou les règles du client ont pu changer). */
   function recomposer(f: FicheLot, parId: ReadonlyMap<string, Evenement>): FicheLot {
     const evts = f.ids.map((id) => parId.get(id));
-    if (evts.some((e) => !e)) return { ...f, version };
+    // Journal lu en partie (dépôt illisible un instant) : rien n'est posé, la passe suivante recompose.
+    if (evts.some((e) => !e)) return f;
     const tries = trier(evts as Evenement[]);
     return fiche(f.uid, { id: tries[0]!.id, appareil: f.appareil, seance: f.seance, evenements: tries });
   }
@@ -320,7 +344,13 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
    */
   const quotaEchu = (q: number, t: number) => t >= q || q > remiseQuota(new Date(t)).getTime() + 1000;
 
-  /** Le lot vaut-il un essai dans cette passe ? `verifiee` : l'adresse du compte l'est maintenant. */
+  /**
+   * Le lot vaut-il un essai dans cette passe ? `verifiee` : l'adresse du compte
+   * l'est maintenant. `d.acceptee` : une création vient de passer dans cette
+   * passe, les règles acceptent donc de nouveau ; les refusés suivent (sinon un
+   * lot refusé attendrait un jour derrière les lots plus récents de son groupe,
+   * et une recomposition après un état perdu les renverrait en double).
+   */
   function aEssayer(f: FicheLot, d: Drapeaux, t: number, verifiee: boolean): boolean {
     if (f.etat === 'a_envoyer') {
       if (f.cause === 'quota') return d.force || quotaEchu(f.prochain, t);
@@ -328,7 +358,7 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
       return true;
     }
     if (f.etat === 'refuse' && f.cause === 'regles')
-      return d.relancer || f.version !== version || echue(f, t) || (verifiee && f.adresse_verifiee === false);
+      return d.relancer || d.acceptee || f.version !== version || echue(f, t) || (verifiee && f.adresse_verifiee === false);
     return false;
   }
 
@@ -453,10 +483,11 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
     let quand = Infinity;
     for (const f of connues.values()) if (f.etat === 'a_envoyer' && f.cause === 'reseau') quand = Math.min(quand, echue(f, t) ? t : f.prochain);
     if (quand === Infinity) return;
+    // Une échéance déjà passée (passe en échec) : le premier délai, pas une boucle.
     reveil = minuterie.poser(() => {
       reveil = null;
       void declencher('minuterie');
-    }, Math.max(1000, quand - t));
+    }, quand > t ? quand - t : DELAIS_RESEAU[0]!);
   }
 
   async function passe(d: Drapeaux): Promise<ResultatEnvoi> {
@@ -476,6 +507,7 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
       noter(e);
       rapport.horsLigne = true;
       r.arret = 'reseau';
+      planifier();
       return fini('echec');
     }
     if (!c) return fini('sans_compte');
@@ -498,7 +530,10 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
       fond.set(enCours, t);
     }
     const nouvelles = composer(evts.filter((e) => !dansUnLot.has(e.id) && (gardee === null || e.seance !== gardee))).map((l) => fiche(uid, l));
-    const recomposees = fiches.filter((f) => f.etat === 'refuse' && f.cause === 'invalide' && f.version !== version).map((f) => recomposer(f, parId));
+    const recomposees = fiches
+      .filter((f) => f.etat === 'refuse' && f.cause === 'invalide' && f.version !== version)
+      .map((f) => recomposer(f, parId))
+      .filter((f) => f.version === version);
     // La composition est écrite avant l'envoi : un renvoi envoie le même document.
     await ecrireFiches([...nouvelles, ...recomposees]);
     r.composes = nouvelles.length + recomposees.filter((f) => f.etat === 'a_envoyer').length;
@@ -535,6 +570,7 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
       };
       const reportes: FicheLot[] = [];
       let sonde: string | null = null;
+      d.acceptee = false;
       let f = d.minuterie && prochainLot()?.cause !== 'reseau' ? null : prochainLot();
       for (; f; f = prochainLot()) {
         tentes.add(f.id);
@@ -544,7 +580,9 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
         }
         // Les règles refusent : un lot jamais essayé attend aussi la passe suivante (une sonde par passe).
         if (sonde && f.etat === 'a_envoyer' && f.cause === null) continue;
+        const avant = r.envoyes;
         const a = await envoyer(c, f, parId, r, t);
+        if (r.envoyes > avant) d.acceptee = true;
         const apres = connues.get(f.id);
         if (apres?.etat === 'refuse' && apres.cause === 'regles') sonde = f.id;
         if (a) {
@@ -582,6 +620,7 @@ export function creerEnvoi(o: OptionsEnvoi): Envoi {
       .catch((e: unknown) => {
         // Journal ou dépôt illisibles : rien n'est perdu, la passe suivante recommence.
         noter(e);
+        planifier();
         const r: ResultatEnvoi = { etat: 'echec', composes: 0, envoyes: 0, presents: 0, refuses: 0, arret: null, quand: maintenant() };
         rapport.derniere = r;
         return r;

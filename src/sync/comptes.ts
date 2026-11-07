@@ -622,7 +622,15 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         }
         await verifierJeton(u);
       }
-      return s.a.currentUser === u ? { uid: u.uid, service: s, verifiee: u.emailVerified } : null;
+      if (s.a.currentUser !== u) return null;
+      // Vérifiée au sens des règles : d'après le jeton (rafraîchi par verifierJeton, ou pas encore).
+      let verifiee = false;
+      try {
+        verifiee = (await u.getIdTokenResult()).claims.email_verified === true;
+      } catch (e) {
+        noter(e);
+      }
+      return { uid: u.uid, service: s, verifiee };
     },
 
     surJeton(f) {

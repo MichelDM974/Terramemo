@@ -74,12 +74,15 @@ function monter(o: { journal?: ReturnType<typeof fauxJournal>; lots?: DepotLots;
   const lots = o.lots ?? depotLotsMemoire();
   const horloge = { t: Date.UTC(2026, 10, 7, 8, 0, 0) };
   const minuteries: { f: () => void; ms: number }[] = [];
-  const etat = { compte: o.compte ?? true, coupee: o.coupee ?? false, verifiee: o.verifiee };
+  const etat = { compte: o.compte ?? true, coupee: o.coupee ?? false, verifiee: o.verifiee, leve: false };
   const envoi = creerEnvoi({
     journal,
     lots,
     version: o.version ?? 'v1',
-    compte: async () => (etat.compte ? { uid: UID, serveur: serveur as Serveur, verifiee: etat.verifiee } : null),
+    compte: async () => {
+      if (etat.leve) throw new Error('session illisible');
+      return etat.compte ? { uid: UID, serveur: serveur as Serveur, verifiee: etat.verifiee } : null;
+    },
     coupee: () => etat.coupee,
     maintenant: () => horloge.t,
     verrou: (f) => f(),
@@ -481,8 +484,116 @@ describe('envoi des séances', () => {
     refuser = false;
     m.journal.evts.push(evt(S2));
     await m.envoi.declencher('cloture');
-    expect((await vrai.tous(UID)).length).toBe(1);
+    // IndexedDB répond : le repli y est réécrit avec la fiche nouvelle.
+    expect((await vrai.tous(UID)).map((f) => f.etat)).toEqual(['envoye', 'envoye']);
     expect(m.serveur.creations).toBe(2);
+  });
+
+  it('deux onglets, une écriture ratée : le repli ne masque pas un lot que l’autre onglet a envoyé depuis', async () => {
+    const vrai = depotLotsMemoire();
+    let refuser = true;
+    const lots: DepotLots = { tous: (uid) => vrai.tous(uid), ecrire: (f) => (refuser ? Promise.reject(new DOMException('plein', 'QuotaExceededError')) : vrai.ecrire(f)) };
+    const e1 = evt(S1);
+    const a = monter({ journal: fauxJournal([e1]), lots });
+    a.serveur.accepte = false;
+    await a.envoi.declencher('cloture');
+    // L'onglet B, sur IndexedDB : la séance continue et part en un lot e1 de trois réponses.
+    const [e2, e3] = [evt(S1), evt(S1)];
+    a.serveur.accepte = true;
+    const b = monter({ journal: fauxJournal([e1, e2, e3]), lots: vrai, serveur: a.serveur });
+    await b.envoi.declencher('cloture');
+    expect(a.serveur.creations).toBe(1);
+    refuser = false;
+    a.journal.evts.push(e2, e3);
+    await a.envoi.declencher('cloture');
+    expect(a.serveur.creations).toBe(1);
+    expect(a.serveur.ids().length).toBe(3);
+    expect((await vrai.tous(UID)).map((f) => f.etat)).toEqual(['envoye']);
+  });
+
+  it('les règles rouvertes (sans jeton ni version) : la première création acceptée relance aussitôt les refusés', async () => {
+    const m = monter({ journal: fauxJournal([evt(null), evt(null)]) });
+    m.serveur.accepte = false;
+    await m.envoi.declencher('cloture');
+    expect(await etats(m.lots)).toEqual(['refuse:regles']);
+    m.serveur.accepte = true;
+    m.journal.evts.push(evt(null));
+    expect(await m.envoi.declencher('cloture')).toMatchObject({ envoyes: 2, refuses: 0 });
+    expect(await m.envoi.etat(UID)).toMatchObject({ refusees: 0, attente: 0 });
+  });
+
+  it('un lot invalide à une nouvelle version, journal lu en partie : rien n’est posé, recomposé à la passe suivante', async () => {
+    const e = evt('seance-ancienne');
+    const m = monter({ journal: fauxJournal([e]) });
+    await m.envoi.declencher('cloture');
+    const m2 = monter({ journal: fauxJournal([]), lots: m.lots, serveur: m.serveur, version: 'v2' });
+    await m2.envoi.declencher('ouverture');
+    expect((await fiches(m.lots))[0]!.version).toBe('v1');
+    m2.journal.evts.push(e);
+    await m2.envoi.declencher('ouverture');
+    expect((await fiches(m.lots))[0]!.version).toBe('v2');
+  });
+
+  it('une passe de la minuterie en échec (compte illisible un instant) : la minuterie est reposée, au premier délai', async () => {
+    const m = monter({ journal: fauxJournal([evt(S1)]) });
+    m.serveur.panne = 'unavailable';
+    await m.envoi.declencher('cloture');
+    const n = m.minuteries.length;
+    m.horloge.t += DELAIS_RESEAU[0]!;
+    m.etat.leve = true;
+    expect(await m.envoi.declencher('minuterie')).toMatchObject({ etat: 'echec' });
+    expect(m.minuteries.length).toBe(n + 1);
+    expect(m.minuteries.at(-1)!.ms).toBe(DELAIS_RESEAU[0]);
+    // Au réveil suivant, le compte répond : le lot part.
+    m.etat.leve = false;
+    m.serveur.panne = null;
+    m.horloge.t += DELAIS_RESEAU[0]!;
+    expect(await m.envoi.declencher('minuterie')).toMatchObject({ envoyes: 1 });
+  });
+
+  it('deux onglets, une écriture ratée : le repli ne masque pas un lot que l’autre onglet a envoyé depuis', async () => {
+    const vrai = depotLotsMemoire();
+    let refuser = true;
+    const lots: DepotLots = { tous: (uid) => vrai.tous(uid), ecrire: (f) => (refuser ? Promise.reject(new DOMException('plein', 'QuotaExceededError')) : vrai.ecrire(f)) };
+    const e1 = evt(S1);
+    const a = monter({ journal: fauxJournal([e1]), lots });
+    a.serveur.accepte = false;
+    await a.envoi.declencher('cloture');
+    // L'onglet B, sur IndexedDB : la séance continue et part en un lot e1 de trois réponses.
+    const [e2, e3] = [evt(S1), evt(S1)];
+    a.serveur.accepte = true;
+    const b = monter({ journal: fauxJournal([e1, e2, e3]), lots: vrai, serveur: a.serveur });
+    await b.envoi.declencher('cloture');
+    expect(a.serveur.creations).toBe(1);
+    refuser = false;
+    a.journal.evts.push(e2, e3);
+    await a.envoi.declencher('cloture');
+    expect(a.serveur.creations).toBe(1);
+    expect(a.serveur.ids().length).toBe(3);
+    expect((await vrai.tous(UID)).map((f) => f.etat)).toEqual(['envoye']);
+  });
+
+  it('les règles rouvertes (sans jeton ni version) : la première création acceptée relance aussitôt les refusés', async () => {
+    const m = monter({ journal: fauxJournal([evt(null), evt(null)]) });
+    m.serveur.accepte = false;
+    await m.envoi.declencher('cloture');
+    expect(await etats(m.lots)).toEqual(['refuse:regles']);
+    m.serveur.accepte = true;
+    m.journal.evts.push(evt(null));
+    expect(await m.envoi.declencher('cloture')).toMatchObject({ envoyes: 2, refuses: 0 });
+    expect(await m.envoi.etat(UID)).toMatchObject({ refusees: 0, attente: 0 });
+  });
+
+  it('un lot invalide à une nouvelle version, journal lu en partie : rien n’est posé, recomposé à la passe suivante', async () => {
+    const e = evt('seance-ancienne');
+    const m = monter({ journal: fauxJournal([e]) });
+    await m.envoi.declencher('cloture');
+    const m2 = monter({ journal: fauxJournal([]), lots: m.lots, serveur: m.serveur, version: 'v2' });
+    await m2.envoi.declencher('ouverture');
+    expect((await fiches(m.lots))[0]!.version).toBe('v1');
+    m2.journal.evts.push(e);
+    await m2.envoi.declencher('ouverture');
+    expect((await fiches(m.lots))[0]!.version).toBe('v2');
   });
 
   it('un lot invalide n’est pas « refusé par le serveur » : il attend une nouvelle version', async () => {
