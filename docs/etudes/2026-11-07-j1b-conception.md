@@ -1431,6 +1431,36 @@ visible en production.
 | 8. Ouverture | `essai()` → vrai, règles déployées ; Hosting ; `COMPTES_OUVERTS = true` ; consentement Google en production ; `smoke` et `ui` en ligne, avec `sans-synchro` ; APK sur l'A37 | **critère de #13** à la main (§ 5.8, 3) ; politique et page de suppression en ligne | lots 5 et 7 ; D15, D20, D25, D27, D31, D33, D34 ; étape D de la console |
 | 9. Saisie libre (#3), jalon à part | saisie tolérante, collisions des noms, claviers de l'A37, fiches `nommer` en saisie | conçue à part, après le lot 8 | lot 4 au moins : `a_relire` doit être en place avant que le site écrive un mode ou un champ nouveau. De préférence, APK mis à jour avant le site |
 
+**Précisions du lot 4** (07/11, fait ; écarts assumés au texte d'avant) :
+- question D22 (§ 2.3) : le compte est connecté *avant* la question,
+  seul moyen de connaître son uid (une session perdue du même compte
+  reprend sans question). La session ne le prend qu'après la réponse :
+  `pourSynchro` et la passe du profil ne servent que le compte de la
+  session. `session.connexion` (instant) dit à une page suivante qu'une
+  question a été tuée en route : le compte n'est pas pris, puis il est
+  déconnecté au bout de 10 min. « Annuler », ou un échec avant la prise
+  (effacement, lecture du journal), le déconnectent ;
+- la question compte aussi les records de l'appareil (« 12 réponses et
+  3 records ») : un appareil qui n'a joué que des Chrono a des progrès ;
+- « Créer un compte » depuis une session perdue d'un autre compte pose la
+  même question, avant la création ; « Ne pas les ajouter » n'efface
+  qu'une fois le compte créé ;
+- déconnexion (§ 3.4) : un effacement inachevé (journal qui ne se vide
+  pas) se finit au démarrage, avant la lecture du journal, et avant toute
+  nouvelle connexion ; l'envoi et les comptes lisent le journal en
+  strict (une lecture ratée ne vaut jamais « rien à envoyer ») ; les
+  autres onglets gèlent leurs écritures pendant l'effacement
+  (BroadcastChannel `terramemo`), puis se rechargent ;
+- « Exporter d'abord » (question et déconnexion) vient avec l'export, au
+  lot 5 ;
+- `a_relire` (§ 5.3) se relit par lot, quand la version qui l'a lu n'est
+  plus celle de l'appli, plutôt que par `session.version` ;
+- `test:synchro` (§ 5.8, 1) : « hors ligne » = les appels Firestore de
+  l'appareil échouent comme un fetch coupé. Un faux `fetch` global
+  couperait les deux appareils, qui tournent dans le même processus.
+  Les 10 scénarios y sont, plus « Ne pas les ajouter », la déconnexion
+  suivie d'un retour, et la pagination réelle de la lecture.
+
 Ordre et parallélisme :
 - 0, puis 1, puis 2, puis 3, puis 4, puis 5 : en série ;
 - 6 : la partie aux émulateurs commence dès le lot 1 ; l'essai réel
