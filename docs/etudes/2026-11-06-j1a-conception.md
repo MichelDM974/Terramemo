@@ -12,9 +12,11 @@ semaine d'usage sans blocage.
 Les choix qui reviennent à l'utilisateur sont au § 12 (D1 à D15) et dans
 `../questions-j1a.md` (Q1 à Q7). En attendant, le code prend un **défaut
 réversible** : une constante nommée, commentée « défaut en attente de
-l'utilisateur, #2 ». Rien de visible pour le public avant les réponses :
-pas de déploiement ni d'envoi depuis le site tant que D2 (noms), D9, D14
-et D15 sont ouvertes.
+l'utilisateur, #2 ». Rien n'était visible pour le public avant les
+réponses : ni déploiement ni envoi depuis le site tant que D2 (noms), D9,
+D14 et D15 restaient ouvertes. Le 06/11, D2 et D14 sont tranchées, et D9 et
+D15 passent au J1b avec la synchro (décision « Comptes ») : le site est en
+ligne depuis le 06/11 au soir, et rien des séances n'est envoyé.
 
 Résumé des choix :
 
@@ -472,8 +474,8 @@ compte ; export JSON.
 | Écran Crédits | J1a, petit. `#credits` (⚙) et le crédit de l'île existent (#15) ; compléter : Natural Earth (domaine public), CLDR (Unicode), IGN (Licence Ouverte 2.0, source et date), ts-fsrs (MIT), d3, topojson, earcut (ISC), Firebase (Apache-2.0), Capacitor (MIT) |
 | APK, release privée signée | J1a, avancé au lot 2 (§ 9). L'utilisateur crée la clé et les secrets du dépôt, sauvegarde hors GitHub (D14) |
 | `androidScheme`, `hostname` | Déjà fait |
-| App Check | Au J1a dans le tableau des jalons de `plan.md` : à trancher avant le lot 7 (D12), pas de défaut |
-| Service worker web | Hors du J1a dans les jalons ; D12 |
+| App Check | Hors du J1a (D12 b, 06/11) : #21, avec le Play Store (#5) |
+| Service worker web | Hors du J1a (D12 b, 06/11) : #22 |
 | Budget du JS | Mesurer `dist/` avant et après ts-fsrs (lot 1) ; test de budget seulement si l'écart est notable |
 
 ## 11. Lots
@@ -513,8 +515,10 @@ premier QCM), Q5 2 000 km², Q3 A (mesurer d'abord). Codées dans les lots
 5a, 4 et 5b ; D3 à D7 et D11 gardent leur défaut. Puis, le 06/11 : D14 a (clé
 unique, décision « Signature de l'APK »), synchro au J1b (D8, D9, D15 passent
 au J1b, décision « Comptes »), un budget de grappe par sorte de lieu (pays,
-communes), Taïwan et Kosovo dans la règle des zones. Reste ouverte : D12
-(App Check, service worker).
+communes), Taïwan et Kosovo dans la règle des zones. Enfin, le 06/11 à
+19 h 10, D12 b pour les deux (décision « App Check et service worker hors
+du J1a ») : App Check au #21, avec le Play Store (#5), et le service worker
+au #22. Plus rien n'est ouvert au J1a.
 
 Rangées par ce qu'elles bloquent. Chaque réponse se note au registre ; une
 réponse qui contredit une décision actée la **remplace** (`noter_decision`,
@@ -578,8 +582,8 @@ suppression du compte comme conséquences ; le plan les met au J1b.
   l'appliquer trop tôt casse l'APK installé. Le service worker ménage le
   quota Hosting, au risque d'un cache périmé.
 - Recommandation : b pour les deux.
-- Défaut : aucun (App Check est au J1a dans `plan.md`) ; à trancher avant
-  le lot 7.
+- **Tranchée le 06/11 : b pour les deux** (décision « App Check et service
+  worker hors du J1a ») : App Check au #21, le service worker au #22.
 
 ### Bloquent la mise en ligne de la séance (lots 5a, 5b)
 

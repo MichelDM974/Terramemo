@@ -5,7 +5,9 @@ pays sur la carte, connaître capitales et drapeaux, puis le relief, les
 fleuves et les ordres de grandeur. Gratuit, sans publicité, en français
 (prêt à traduire).
 
-*En construction : aucune version n'est encore publiée.*
+*En construction. Le site est en ligne sur https://terramemo-geo.web.app
+(J1a, depuis le 06/11/2026) ; l'appli Android n'est pas encore sur le Play
+Store (son APK sert aux essais).*
 
 ## Le concept
 
@@ -49,9 +51,11 @@ l'oublier, jusqu'à tenir des mois.
   un globe, dessinée en Canvas 2D (d3-geo pour les données ; WebGL et SVG
   au choix dans ⚙), hors ligne.
 - Planification des révisions par FSRS (bibliothèque `ts-fsrs`).
-- Progrès en journal de réponses sur l'appareil, synchronisé par Firebase
-  (compte anonyme d'abord, connexion Google ou compte e-mail et mot de
-  passe pour retrouver ses progrès ailleurs).
+- Progrès en journal de réponses, sur l'appareil seulement pour l'instant.
+  On joue sans compte ; la synchro par Firebase arrive au J1b, pour les
+  comptes Google ou e-mail et mot de passe (retrouver ses progrès
+  ailleurs). Le compte anonyme ne sert qu'à publier ses scores au
+  classement.
 - Données libres préparées par un script reproductible : frontières de
   Natural Earth (domaine public), noms du référentiel Unicode CLDR,
   capitales et populations de Wikidata (CC0), drapeaux de flag-icons (MIT).
@@ -67,9 +71,17 @@ Prérequis : Node 24 (`.nvmrc`) ; pour l'APK, le SDK Android et un JDK 21.
 npm ci               # dépendances, versions figées (package-lock.json)
 npm run dev          # site en développement sur http://localhost:8060
 npm test             # tests (Vitest), aussi lancés par la CI à chaque push
+npm run test:regles  # règles Firestore sur l'émulateur (JDK 21), aussi en CI
 npm run typecheck    # vérification des types (TypeScript)
 npm run build        # site statique dans dist/ (servi par Firebase Hosting)
 ```
+
+- **Déploiement** (projet Firebase `terramemo-geo`) : depuis le PC, juste
+  après le commit, sur un arbre propre, `npm run build` puis
+  `npx firebase deploy --only hosting` ; `--only firestore` après un
+  changement de `firestore.rules` ou des index. La vérification sur le
+  site en ligne et le reste de la procédure sont dans le skill
+  `run-terramemo` (`.claude/skills/run-terramemo/SKILL.md`).
 
 - **Données de la carte** : `npm run geodata` télécharge les sources
   épinglées (version et empreinte dans `geodata/sources.lock.json`) et
