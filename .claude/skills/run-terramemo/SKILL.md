@@ -438,6 +438,59 @@ déployé) ou l'appli Terramemo sur le téléphone : **rien à démarrer**,
 pas de serveur. Pour essayer le code non déployé sur le PC : `serve`, puis
 http://localhost:8060.
 
+## Journal de l'appareil : sauver, restaurer
+
+```bash
+python3 .claude/skills/run-terramemo/driver.py sauver_journal                 # APK (WebView) par adb : ~/Sauvegardes/terramemo/journal-{date}.json
+python3 .claude/skills/run-terramemo/driver.py sauver_journal --cible chrome  # le site (terramemo-geo.web.app) dans Chrome du téléphone
+python3 .claude/skills/run-terramemo/driver.py restaurer_journal [FICHIER]    # ajoute les événements valides (défaut : la sauvegarde la plus récente)
+```
+
+(`sauver-journal` et `restaurer-journal` marchent aussi.) Étude du J1b, § 8 :
+**avant toute installation d'APK sur l'A37**, et `apk --installer` le fait
+de lui-même pour une appli déjà installée (pas d'installation si la
+sauvegarde échoue ; `--sans-sauvegarde` seulement si l'appli en place ne
+démarre plus). De jour, l'utilisateur présent : l'A37 est verrouillé par
+code la nuit (`-s RFGL606Q5WM` s'il y a plusieurs appareils).
+
+- **Lecture brute** de la base `terramemo-journal` de l'origine
+  (`Runtime.evaluate`, `getAll` sans filtre) : l'APK de debug a la WebView
+  inspectable ; Chrome lit depuis `geo/LICENSE-CLDR.txt` de l'origine, où
+  rien de l'appli ne tourne. La base est ouverte **sans version**, et
+  jamais créée si elle manque (`onupgradeneeded` annulé) : une base vide
+  sans magasin casserait l'appli. Texte transféré en morceaux de 400 000
+  caractères, en JSON ASCII (rien ne se coupe au milieu d'un caractère).
+- **Invalides comptés** par la vraie règle de l'appli, `probleme()` de
+  `src/srs/journal.ts`, appliquée sur le PC
+  (`outils/valider_journal.mjs`, empaquetée à la volée par rolldown, celui
+  de Vite) : l'APK d'avant le lot 0 ne l'expose pas. Ils restent dans la
+  sauvegarde.
+- Fichier : `journal-{date}.json`, puis `-2`, `-3`… le même jour, **jamais
+  écrasé**, droits 600, relu après écriture. Il garde aussi l'origine, la
+  version de l'appli et de la base, les noms des bases et le localStorage
+  de l'origine (pseudo, records, id de l'appareil), pour mémoire : la
+  restauration ne remet que les événements.
+- **Restauration** : chaque événement valide dans sa propre transaction
+  (un échec n'emporte pas les autres), `add` seul (un id déjà gardé n'est
+  pas réécrit) ; elle liste les écartés et leur raison, puis recharge
+  l'appli (WebView), qui rejoue son journal. Base absente (appli jamais
+  ouverte depuis l'installation) : l'ouvrir une fois, puis relancer.
+- « aucun téléphone prêt » juste après une installation : le débogage USB
+  décroche parfois ; le rallumer sur le téléphone.
+
+**Drapeau `terramemo.sans-synchro`** (`src/sync/drapeaux.ts`) : chaque
+commande qui ouvre une page (smoke, ui, seance, mesurer, sauver_journal,
+restaurer_journal) le pose sur l'origine qu'elle pilote, avant toute
+action (`Session.couper_synchro`), et le retire à la fin, même après une
+erreur, un Ctrl-C ou un `kill` (SIGTERM). Il coupe envois et lectures de
+`joueurs/` (J1b, à partir du lot 3). S'il n'a pas pu être retiré (USB
+débranché en cours), le driver écrit « ATTENTION : … RESTÉ POSÉ » : relancer
+une commande sur l'appareil (`sauver_journal` suffit), ou, dans Chrome,
+ouvrir l'adresse avec `?sans-synchro=0`. `?sans-synchro` dans l'adresse
+coupe la page seule, sans rien garder. Comptes cachés (jusqu'au lot 8) :
+`?comptes` les montre et s'en souvient (`terramemo.comptes`), `?comptes=0`
+les recache ; toujours visibles au serveur de dev.
+
 ## Téléphone (Galaxy A37, Chrome et APK)
 
 Préparer, une fois :
@@ -710,8 +763,11 @@ changé dans ⚙ → Rendu (la page se recharge), les quatre : `css`, `g`,
 
 ```bash
 python3 .claude/skills/run-terramemo/driver.py apk                # npm run build, npx cap sync android, relevé Android vérifié, gradlew assembleDebug
-python3 .claude/skills/run-terramemo/driver.py apk --installer    # puis adb install -r
+python3 .claude/skills/run-terramemo/driver.py apk --installer    # puis sauver_journal de l'appli en place, et adb install -r
 ```
+
+**Aucune installation sur l'A37 avant le 13/11/2026** (semaine d'usage du
+J1a, ticket #2 ; étude du J1b, § 8).
 
 APK : `android/app/build/outputs/apk/debug/app-debug.apk`. Le driver met
 `JAVA_HOME` sur le JDK 21 et `ANDROID_HOME` sur `~/Android/Sdk` (ou

@@ -20,9 +20,18 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
     resumer FICHIER.json… [--sec] [--json]
                                 résumé recalculé sur les rapports bruts
                                 d'un JSON de mesurer (critères changés)
-    apk [--installer]           APK de débogage, installé par adb
+    apk [--installer]           APK de débogage, installé par adb (après
+                                sauver_journal de l'appli en place)
+    sauver_journal [--cible webview|chrome|local]
+                                journal de l'appareil lu brut, sauvé dans
+                                ~/Sauvegardes/terramemo/journal-{date}.json
+    restaurer_journal [FICHIER] [--cible …]
+                                ajoute les événements valides d'une
+                                sauvegarde, un à un
 
-Pas de données serveur au J0 : tout le stockage est dans le navigateur.
+Chaque commande pose le drapeau terramemo.sans-synchro sur l'origine
+qu'elle pilote (aucun envoi au vrai projet pendant un essai) et le retire à
+la fin, même après une erreur.
 Mode d'emploi, pièges et dépannage : SKILL.md à côté.
 """
 import argparse
@@ -35,6 +44,7 @@ import os
 import pathlib
 import re
 import select
+import signal
 import socket
 import statistics
 import struct
@@ -59,6 +69,17 @@ JAVA_HOME = "/usr/lib/jvm/java-21-openjdk-amd64"
 SIGNATURE = pathlib.Path.home() / "Sauvegardes/terramemo/cle-apk/cle.properties"
 EMPREINTE_APK = "4F9CD6CEBAC6D2202F03BB03F6FB09F8EE69DA8CC956C03B3590302D7A98B8CB"  # SHA-256 du certificat
 APK = RACINE / "android/app/build/outputs/apk/debug/app-debug.apk"
+# Synchro coupée pendant un essai (src/sync/drapeaux.ts, étude du J1b § 8) :
+# posé par Session.couper_synchro au début de chaque commande, retiré à la fin.
+DRAPEAU_SANS_SYNCHRO = "terramemo.sans-synchro"
+ATTENTE_STOCKAGE_MS = 6000  # localStorage de la WebView écrit sur disque (~5 s de délai de Chromium)
+SIGNAUX_ARRET = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+# Journal des réponses de l'appareil (src/journal/depot.ts : base, version, magasin).
+BASE_JOURNAL, VERSION_JOURNAL, MAGASIN_JOURNAL = "terramemo-journal", 1, "evenements"
+SAUVEGARDES = pathlib.Path.home() / "Sauvegardes/terramemo"  # journal-{date}.json de sauver_journal
+URL_SITE = "https://terramemo-geo.web.app/"  # les données de l'utilisateur dans Chrome
+URL_APK = "https://localhost/"  # origine de l'APK (Capacitor)
+VALIDER_JOURNAL = pathlib.Path(__file__).resolve().parent / "outils/valider_journal.mjs"
 FICHIERS_GEO = ("monde.topo.json", "pays.json", "contestees.json", "noms.fr.json", "sources.json")
 # La Réunion (#15) : chargée au choix de la série seulement, jamais au premier
 # affichage (décision « Hébergement ») ; smoke vérifie l'un et l'autre.
@@ -661,7 +682,9 @@ def ouvrir_onglet_http(port, url="about:blank", delai=15):
 
 
 class Session:
-    """Un onglet piloté, ouvert selon la cible ; ferme tout à la sortie."""
+    """Un onglet piloté, ouvert selon la cible ; ferme tout à la sortie, et
+    retire d'abord le drapeau de synchro coupée (`couper_synchro`), même
+    après une erreur."""
 
     def __init__(self, cible, serie=None, ws_local=False):
         self.cible, self.serie, self.ws_local = cible, serie, ws_local
@@ -669,6 +692,7 @@ class Session:
         self.onglet = None
         self.a_retirer = []  # (forward|reverse, port) à défaire à la fin
         self.navigateur = ""
+        self.drapeau = None  # origine où couper_synchro a posé DRAPEAU_SANS_SYNCHRO
 
     def __enter__(self):
         try:
@@ -744,7 +768,94 @@ class Session:
             adb(self.serie, "reverse", f"tcp:{port}", f"tcp:{port}")
             self.a_retirer.append(("reverse", f"tcp:{port}"))
 
+    def couper_synchro(self, url):
+        """Pose DRAPEAU_SANS_SYNCHRO (src/sync/drapeaux.ts) sur l'origine de
+        `url`, avant toute action du driver : un essai n'envoie rien au vrai
+        projet et n'y lit rien (étude du J1b, § 8). __exit__ le retire, même
+        après une erreur : resté posé, il couperait la synchro de
+        l'utilisateur sans qu'il le sache. Chrome et le PC passent par
+        PAGE_SANS_APPLI de l'origine, où rien de l'appli ne tourne ; dans
+        l'APK, la page est l'appli elle-même, jamais quittée : on attend
+        qu'elle soit à son origine (au démarrage à froid, la WebView est
+        d'abord sur about:blank). L'appli relit le drapeau à chaque envoi :
+        pas de rechargement. Sur le téléphone, appeler après `reverse`."""
+        o = origine(url)
+        if self.cible == "webview":
+            self._attendre_origine(o)
+        elif self._origine_page() != o:
+            self.page.goto(urllib.parse.urljoin(o + "/", PAGE_SANS_APPLI))
+        self.drapeau = o
+        cle = json.dumps(DRAPEAU_SANS_SYNCHRO)
+        avant = self.page.js(f"(() => {{ const a = localStorage.getItem({cle}); localStorage.setItem({cle}, '1'); "
+                             "return a; })()")
+        if self.cible != "local":
+            dire(f"synchro coupée sur {o} ({DRAPEAU_SANS_SYNCHRO}, retiré à la fin)"
+                 + (" ; il l'était déjà : resté d'une commande interrompue ?" if avant is not None else ""))
+
+    def _origine_page(self, delai=30):
+        try:
+            return self.page.js("location.origin", delai=delai)
+        except RuntimeError:  # contexte détruit pendant une navigation
+            return None
+
+    def _attendre_origine(self, o, secondes=20):
+        fin = time.monotonic() + secondes
+        while self._origine_page(delai=5) != o:
+            if time.monotonic() > fin:
+                raise RuntimeError(f"la page n'arrive pas à {o} en {secondes} s (appli qui ne démarre pas ?)")
+            self.page.pause(250)
+
+    def _rendre_synchro(self):
+        """Retire le drapeau ; délais courts (une page figée ne bloque pas la
+        sortie). Dans la WebView, jamais de navigation (l'appli resterait sur
+        un fichier texte), puis 6 s d'attente : Chromium n'écrit le
+        localStorage sur disque qu'avec un délai (~5 s), et une installation ou
+        une appli fermée juste après garderait le drapeau."""
+        o, self.drapeau = self.drapeau, None
+        cle = json.dumps(DRAPEAU_SANS_SYNCHRO)
+        try:
+            if self._origine_page(delai=5) != o:
+                if self.cible == "webview":
+                    raise RuntimeError(f"la WebView n'est plus sur {o}")
+                self.page.goto(urllib.parse.urljoin(o + "/", PAGE_SANS_APPLI), delai=10)
+            if self.page.js(f"(localStorage.removeItem({cle}), localStorage.getItem({cle}))", delai=5) is not None:
+                raise RuntimeError("toujours là après removeItem")
+            if self.cible == "webview":
+                self.page.pause(ATTENTE_STOCKAGE_MS)
+            if self.cible != "local":
+                dire(f"synchro rendue sur {o} ({DRAPEAU_SANS_SYNCHRO} retiré)")
+        except Exception as e:  # nettoyage : jamais d'exception par-dessus celle de la commande
+            if self.cible == "local":
+                return  # profil neuf du PC, effacé à la fermeture
+            dire(f"ATTENTION : {DRAPEAU_SANS_SYNCHRO} est RESTÉ POSÉ sur {o} ({self.cible}) : la synchro de "
+                 f"l'utilisateur y reste coupée ({e}). Le retirer : relancer une commande du driver sur "
+                 "l'appareil (sauver_journal suffit, elle le retire à la fin)"
+                 + (f", ou ouvrir {o}/?sans-synchro=0 dans Chrome" if self.cible == "chrome" else "")
+                 + ". Débogage USB coupé ? Le rallumer sur le téléphone.")
+
     def __exit__(self, *exc):
+        # Un Ctrl-C ou un SIGTERM pendant le nettoyage attend sa fin (drapeau
+        # retiré, forwards défaits), puis s'applique.
+        recus, anciens = [], {}
+        for sig in SIGNAUX_ARRET:
+            try:
+                anciens[sig] = signal.signal(sig, lambda n, _f: recus.append(n))
+            except (ValueError, OSError):
+                pass
+        try:
+            self._nettoyer()
+        finally:
+            for sig, h in anciens.items():
+                signal.signal(sig, h)
+        if recus:
+            dire("interruption reçue pendant le nettoyage : appliquée après lui")
+            if signal.SIGINT in recus:
+                raise KeyboardInterrupt
+            raise SystemExit(143)
+
+    def _nettoyer(self):
+        if self.drapeau and self.page:
+            self._rendre_synchro()
         if self.nav:
             try:
                 self.nav.fermer()
@@ -814,6 +925,7 @@ def commande_smoke(args):
             valide = False
         verifier(f"geo/{nom}", code == 200 and valide, f"-> {code}, {len(corps)} octets, JSON {'valide' if valide else 'INVALIDE'}")
     with Session("local") as s:
+        s.couper_synchro(base)
         p = s.page
         p.emuler(TELEPHONE, tactile=True)
         debut = time.monotonic()
@@ -1555,6 +1667,7 @@ def commande_ui(args):
     faites = []
     defauts = []
     with Session("local") as s:
+        s.couper_synchro(base)
         p = s.page
         p.emuler(ecran, tactile=telephone)
 
@@ -2063,6 +2176,7 @@ def commande_seance(args):
     rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
     faites, defauts = [], []
     with Session("local") as s:
+        s.couper_synchro(base)
         p = s.page
         p.emuler(ecran, tactile=telephone)
 
@@ -2167,8 +2281,9 @@ STOCKAGE_VIDE = "cache_storage,service_workers,shader_cache"
 BASES_VIDEES = ("terramemo",)
 # Bases de l'utilisateur, jamais vidées ; vider_premiere_visite vérifie en
 # outre qu'aucune autre base ni aucune clé du localStorage (terramemo.appareil,
-# records et pseudo des épreuves…) n'a disparu.
-BASES_GARDEES = ("terramemo-journal", "firebaseLocalStorageDb")
+# records et pseudo des épreuves…) n'a disparu. terramemo-synchro : l'état
+# d'envoi du J1b (étude du J1b, § 5.1), nommé ici pour la trace.
+BASES_GARDEES = ("terramemo-journal", "terramemo-synchro", "firebaseLocalStorageDb")
 TYPES_INTERDITS = ("all", "indexeddb", "local_storage", "cookies", "websql", "file_systems", "storage_buckets")
 # IndexedDB.deleteDatabase de CDP veut un document de l'origine : une page
 # du site sans script (copiée de public/, dans le site servi comme dans
@@ -2761,6 +2876,7 @@ def commande_mesurer(args):
     with Session(args.cible, serie=args.serie, ws_local=args.ws) as s:
         p = s.page
         s.reverse(url_base)
+        s.couper_synchro(url_base)
         if args.cible == "local":
             p.emuler(TELEPHONE, tactile=True, ralenti=args.ralenti)
         else:
@@ -2923,6 +3039,317 @@ def commande_resumer(args):
 
 # --- apk ---------------------------------------------------------------
 
+# --- journal de l'appareil : sauver_journal, restaurer_journal ---------
+#
+# Étude du J1b, § 8 : avant toute installation d'APK, le journal des
+# réponses (base terramemo-journal de l'origine, src/journal/depot.ts) est
+# lu BRUT par Runtime.evaluate (getAll sans filtre : un événement que
+# l'appli refuserait est gardé aussi, et compté) et écrit dans
+# ~/Sauvegardes/terramemo/journal-{date}.json, jamais par-dessus une
+# sauvegarde existante. La WebView de l'APK est inspectable (build
+# « debug ») ; Chrome lit le site (URL_SITE) depuis une page sans appli.
+# La règle des invalides est celle de l'appli (outils/valider_journal.mjs),
+# appliquée sur le PC : l'APK d'avant le lot 0 ne l'expose pas.
+# restaurer_journal ajoute les événements valides un à un, chacun dans sa
+# transaction (un échec n'emporte pas les autres), sans jamais rien
+# effacer ni réécrire : un id déjà gardé est laissé tel quel.
+
+# Ouvre la base SANS version, comme elle est : si elle n'existe pas,
+# onupgradeneeded l'annulerait plutôt que de la créer vide (sans magasin),
+# ce qui casserait l'appli (son open en version 1 ne la monterait plus).
+_OUVRIR_JOURNAL = """
+const NOM = %(nom)s, MAGASIN = %(magasin)s;
+const bases = indexedDB.databases ? (await indexedDB.databases()).map((b) => b.name) : null;
+if (bases && !bases.includes(NOM)) return { absente: true, bases };
+const db = await new Promise((ok, ko) => {
+  const r = indexedDB.open(NOM);
+  let neuve = false;
+  r.onupgradeneeded = () => { neuve = true; r.transaction.abort(); };
+  r.onsuccess = () => ok(r.result);
+  r.onerror = () => ko(neuve ? 'absente' : String(r.error && r.error.name));
+  r.onblocked = () => ko('bloquee');
+}).catch((e) => ({ erreur: e }));
+if (db.erreur === 'absente') return { absente: true, bases };
+if (db.erreur) return { erreur: 'ouverture de ' + NOM + ' : ' + db.erreur };
+if (!db.objectStoreNames.contains(MAGASIN)) {
+  const magasins = [...db.objectStoreNames];
+  db.close();
+  return { erreur: NOM + ' v' + db.version + ' sans magasin ' + MAGASIN + ' (' + (magasins.join(', ') || 'aucun') + ')' };
+}
+"""
+
+_LIRE_JOURNAL = """(async () => {
+%(ouvrir)s
+const tous = await new Promise((ok, ko) => {
+  const r = db.transaction(MAGASIN, 'readonly').objectStore(MAGASIN).getAll();
+  r.onsuccess = () => ok(r.result);
+  r.onerror = () => ko(r.error);
+});
+const version = db.version;
+db.close();
+// Ce que JSON ne sait pas écrire (NaN, ±Infinity, BigInt, Date, Map…) n'est jamais changé en
+// silence (null, {}) : marqué {"__non_json__": "…"} et l'événement relevé. undefined reste
+// retiré, comme un champ absent (l'appli les lit pareil).
+const nonJson = [];
+let courant = -1;
+const marquer = (genre) => { if (nonJson[nonJson.length - 1] !== courant) nonJson.push(courant); return { __non_json__: genre }; };
+const remplacer = function (cle, v) {
+  if (this === tous) courant = Number(cle);
+  const o = this[cle]; // la valeur gardée, avant son toJSON (une Date arrive ici en chaîne)
+  if (typeof o === 'number' && !Number.isFinite(o)) return marquer(String(o));
+  if (typeof o === 'bigint') return marquer('bigint ' + o);
+  if (typeof o === 'function' || typeof o === 'symbol') return marquer(typeof o);
+  if (o !== null && typeof o === 'object' && !Array.isArray(o)) {
+    const proto = Object.getPrototypeOf(o);
+    if (proto !== Object.prototype && proto !== null) return marquer(Object.prototype.toString.call(o));
+  }
+  return v;
+};
+// JSON en ASCII seul : le texte se découpe et se recolle à l'identique de part et d'autre.
+const texte = JSON.stringify(tous, remplacer).replace(/[\\u007f-\\uffff]/g, (c) => '\\\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+window.__terramemoSauvegarde = texte;
+const local = {};
+try { for (const k of Object.keys(localStorage)) local[k] = localStorage.getItem(k); } catch (e) { /* refusé */ }
+return { n: tous.length, longueur: texte.length, version, origine: location.origin, bases, non_json: nonJson,
+         appli: (window.terramemo && window.terramemo.version) || null, local };
+})()"""
+
+_AJOUTER_JOURNAL = """(async () => {
+%(ouvrir)s
+const evts = window.__terramemoRestauration || [];
+delete window.__terramemoRestauration;
+const res = { ajoutes: 0, presents: 0, echecs: [] };
+for (const e of evts) {
+  await new Promise((fin) => {
+    let tx;
+    try { tx = db.transaction(MAGASIN, 'readwrite'); } catch (err) { res.echecs.push({ id: e.id, erreur: String(err && err.name) }); return fin(); }
+    const r = tx.objectStore(MAGASIN).add(e);
+    let present = false;
+    r.onerror = (ev) => {
+      if (r.error && r.error.name === 'ConstraintError') { present = true; ev.preventDefault(); ev.stopPropagation(); }
+    };
+    tx.oncomplete = () => { if (present) res.presents++; else res.ajoutes++; fin(); };
+    tx.onabort = () => { res.echecs.push({ id: e.id, erreur: String(tx.error && tx.error.name) }); fin(); };
+  });
+}
+db.close();
+return res;
+})()"""
+
+MORCEAU_JOURNAL = 400_000  # caractères par Runtime.evaluate (le texte est en ASCII)
+LOT_RESTAURATION = 300  # événements envoyés à la page par Runtime.evaluate
+
+
+def _script_journal(modele):
+    ouvrir = _OUVRIR_JOURNAL % {"nom": json.dumps(BASE_JOURNAL), "magasin": json.dumps(MAGASIN_JOURNAL)}
+    return modele % {"ouvrir": ouvrir}
+
+
+def problemes_journal(evenements):
+    """Les événements que refuse probleme() de src/srs/journal.ts, en
+    [{i, id, probleme}] (outils/valider_journal.mjs, node du PC)."""
+    r = subprocess.run(["node", str(VALIDER_JOURNAL)], input=json.dumps(evenements), capture_output=True,
+                       text=True, cwd=RACINE, timeout=180)
+    if r.returncode:
+        raise RuntimeError(f"valider_journal.mjs : {(r.stderr or r.stdout).strip()[-300:]}")
+    return json.loads(r.stdout)
+
+
+def lire_journal(p):
+    """Le journal de l'origine de la page, brut : (relevé, événements). Le
+    relevé dit l'origine, la version de la base et de l'appli, les bases et
+    le localStorage de l'origine. Lève si la base manque ou ne s'ouvre pas."""
+    info = p.js(_script_journal(_LIRE_JOURNAL), delai=180)
+    if info.get("absente"):
+        raise RuntimeError(f"aucune base {BASE_JOURNAL} sur {p.js('location.origin')} (bases : "
+                           f"{', '.join(info.get('bases') or []) or 'aucune'}) : l'appli n'y a jamais tourné ?")
+    if info.get("erreur"):
+        raise RuntimeError(info["erreur"])
+    morceaux = []
+    try:
+        for debut in range(0, info["longueur"], MORCEAU_JOURNAL):
+            morceaux.append(p.js(f"window.__terramemoSauvegarde.slice({debut}, {debut + MORCEAU_JOURNAL})", delai=120))
+    finally:
+        try:
+            p.js("delete window.__terramemoSauvegarde")
+        except RuntimeError:
+            pass
+    texte = "".join(morceaux)
+    if len(texte) != info["longueur"]:
+        raise RuntimeError(f"journal lu en partie : {len(texte)} caractères sur {info['longueur']}")
+    evenements = json.loads(texte)
+    if len(evenements) != info["n"]:
+        raise RuntimeError(f"journal relu : {len(evenements)} événements sur {info['n']}")
+    return info, evenements
+
+
+def _ecrire_sans_ecraser(dossier, nom, contenu):
+    """dossier/nom.json, ou nom-2.json, nom-3.json… : jamais par-dessus une
+    sauvegarde. Écrit à côté puis lié d'un coup (pas de fichier à moitié
+    écrit sous le nom final), lisible par l'utilisateur seul."""
+    dossier.mkdir(parents=True, exist_ok=True)
+    temporaire = dossier / f".{nom}.{os.getpid()}.tmp"
+    fd = os.open(temporaire, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(contenu)
+            f.flush()
+            os.fsync(f.fileno())
+        k = 1
+        while True:
+            chemin = dossier / (f"{nom}.json" if k == 1 else f"{nom}-{k}.json")
+            try:
+                os.link(temporaire, chemin)
+                return chemin
+            except FileExistsError:
+                k += 1
+    finally:
+        temporaire.unlink(missing_ok=True)
+
+
+def _quand(ts_ms):
+    return datetime.datetime.fromtimestamp(ts_ms / 1000).strftime("%d/%m/%Y %H:%M")
+
+
+def _decrire(evenements):
+    ts = [e["ts"] for e in evenements if isinstance(e, dict) and isinstance(e.get("ts"), (int, float))]
+    seances = {e.get("seance") for e in evenements if isinstance(e, dict) and e.get("seance")}
+    if not ts:
+        return "vide"
+    return f"{len(seances)} séance(s), du {_quand(min(ts))} au {_quand(max(ts))}"
+
+
+def url_journal(cible, url):
+    if cible == "webview":
+        return URL_APK
+    return url or (URL_SITE if cible == "chrome" else URL_DEFAUT)
+
+
+def ouvrir_journal(s, cible, url):
+    """L'onglet à l'origine du journal : dans l'APK, l'appli elle-même,
+    jamais quittée ; ailleurs, PAGE_SANS_APPLI de l'origine (rien de l'appli
+    n'y tourne). couper_synchro y mène déjà."""
+    s.reverse(url)
+    s.couper_synchro(url)
+    if s.page.js("location.origin") != origine(url):
+        raise RuntimeError(f"la page n'est pas sur {origine(url)}")
+
+
+def sauver_journal(cible="webview", serie=None, url=None):
+    """Sauve le journal de l'appareil ; rend le chemin du fichier écrit."""
+    url = url_journal(cible, url)
+    with Session(cible, serie=serie) as s:
+        ouvrir_journal(s, cible, url)
+        info, evenements = lire_journal(s.page)
+        navigateur = s.navigateur
+    try:
+        refuses = problemes_journal(evenements)
+        erreur_validation = None
+    except (RuntimeError, OSError, subprocess.TimeoutExpired, ValueError) as e:
+        refuses, erreur_validation = None, str(e)
+    maintenant = datetime.datetime.now().astimezone()
+    sauvegarde = {
+        "format": 1,
+        "sauve_le": maintenant.isoformat(timespec="seconds"),
+        "cible": cible, "serie": serie, "origine": info["origine"], "navigateur": navigateur,
+        "appli": info["appli"], "base": BASE_JOURNAL, "version_base": info["version"], "magasin": MAGASIN_JOURNAL,
+        "bases": info.get("bases"),
+        "n": len(evenements),
+        # Événements dont une valeur n'avait pas d'écriture JSON (NaN, Date…), marquée {"__non_json__"} :
+        "non_json": info.get("non_json") or [],
+        "invalides": refuses,
+        **({"invalides_erreur": erreur_validation} if erreur_validation else {}),
+        "stockage_local": info.get("local") or {},
+        "evenements": evenements,
+    }
+    # En ASCII : un demi-surrogate isolé (texte abîmé) s'écrit quand même, échappé.
+    texte = json.dumps(sauvegarde, ensure_ascii=True, indent=1)
+    chemin = _ecrire_sans_ecraser(SAUVEGARDES, f"journal-{maintenant.date().isoformat()}", texte)
+    relu = json.loads(chemin.read_text(encoding="utf-8"))
+    if relu["evenements"] != evenements:
+        raise RuntimeError(f"{chemin} relu différent de ce qui a été lu sur l'appareil")
+    invalides = "non comptés (" + erreur_validation + ")" if refuses is None else str(len(refuses))
+    dire(f"journal sauvé : {len(evenements)} événement(s), dont {invalides} invalide(s), {_decrire(evenements)}")
+    dire(f"  {info['origine']}, appli {info['appli'] or '?'}, base v{info['version']} -> {chemin} "
+         f"({len(texte.encode()) / 1024:.0f} Ko)")
+    for r in (refuses or [])[:10]:
+        dire(f"  invalide n° {r['i']} ({r['id'] or 'sans id'}) : {r['probleme']}")
+    if info.get("non_json"):
+        dire(f"  {len(info['non_json'])} événement(s) avec une valeur sans écriture JSON (marquée __non_json__) : "
+             f"n° {', '.join(map(str, info['non_json'][:10]))}")
+    return chemin
+
+
+def derniere_sauvegarde():
+    fichiers = sorted(SAUVEGARDES.glob("journal-*.json"), key=lambda f: f.stat().st_mtime)
+    if not fichiers:
+        raise RuntimeError(f"aucune sauvegarde journal-*.json dans {SAUVEGARDES}")
+    return fichiers[-1]
+
+
+def restaurer_journal(fichier=None, cible="webview", serie=None, url=None):
+    """Ajoute au journal de l'appareil les événements valides d'une
+    sauvegarde (défaut : la plus récente), un à un ; rend les comptes."""
+    chemin = pathlib.Path(fichier) if fichier else derniere_sauvegarde()
+    sauvegarde = json.loads(chemin.read_text(encoding="utf-8"))
+    evenements = sauvegarde["evenements"] if isinstance(sauvegarde, dict) else sauvegarde
+    refuses = problemes_journal(evenements)
+    ecartes = {r["i"] for r in refuses}
+    valides = [e for i, e in enumerate(evenements) if i not in ecartes]
+    dire(f"sauvegarde {chemin} : {len(evenements)} événement(s), {len(refuses)} écarté(s) (invalides)")
+    for r in refuses:
+        dire(f"  écarté n° {r['i']} ({r['id'] or 'sans id'}) : {r['probleme']}")
+    url = url_journal(cible, url)
+    with Session(cible, serie=serie) as s:
+        ouvrir_journal(s, cible, url)
+        p = s.page
+        o = p.js("location.origin")
+        if isinstance(sauvegarde, dict) and sauvegarde.get("origine") not in (None, o):
+            dire(f"  attention : sauvegarde de {sauvegarde['origine']}, restaurée sur {o}")
+        p.js("window.__terramemoRestauration = []")
+        for debut in range(0, len(valides), LOT_RESTAURATION):
+            lot = json.dumps(valides[debut:debut + LOT_RESTAURATION])
+            p.js(f"window.__terramemoRestauration.push(...{lot}), window.__terramemoRestauration.length", delai=60)
+        res = p.js(_script_journal(_AJOUTER_JOURNAL), delai=600)
+        if res.get("absente"):
+            raise RuntimeError(f"aucune base {BASE_JOURNAL} sur {o} : ouvrir l'appli une fois (elle la crée), "
+                               "puis relancer")
+        if res.get("erreur"):
+            raise RuntimeError(res["erreur"])
+        if cible == "webview":
+            # L'appli relit son journal au démarrage (src/journal/memoire.ts).
+            p.goto(URL_APK)
+    dire(f"journal restauré sur {o} : {res['ajoutes']} ajouté(s), {res['presents']} déjà là, "
+         f"{len(refuses)} écarté(s), {len(res['echecs'])} échec(s)")
+    for e in res["echecs"][:20]:
+        dire(f"  échec {e['id']} : {e['erreur']}")
+    if cible != "webview":
+        dire("  un onglet de l'appli déjà ouvert ne les voit qu'après un rechargement")
+    return {"ajoutes": res["ajoutes"], "presents": res["presents"], "ecartes": refuses, "echecs": res["echecs"]}
+
+
+AIDE_USB = ("téléphone branché, déverrouillé, débogage USB actif ? Il décroche parfois après une installation : "
+            "le rallumer sur le téléphone (Options de développement › Débogage USB)")
+
+
+def commande_sauver_journal(args):
+    try:
+        sauver_journal(args.cible, args.serie, args.url)
+    except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as e:
+        dire(f"ECHEC : {e}" + (f" ({AIDE_USB})" if args.cible != "local" else ""))
+        return 1
+    return 0
+
+
+def commande_restaurer_journal(args):
+    try:
+        restaurer_journal(args.fichier, args.cible, args.serie, args.url)
+    except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as e:
+        dire(f"ECHEC : {e}" + (f" ({AIDE_USB})" if args.cible != "local" else ""))
+        return 1
+    return 0
+
+
 def empreinte_apk(apk, env):
     """SHA-256 du certificat qui signe l'APK (apksigner du SDK), en hexadécimal majuscule."""
     outils = sorted((pathlib.Path(env["ANDROID_HOME"]) / "build-tools").glob("*/apksigner"))
@@ -2968,10 +3395,28 @@ def commande_apk(args):
             return 1
         try:
             adb_appareil(args.serie)
+            # Étude du J1b, § 8 : avant toute installation, le journal de l'appli
+            # en place est sauvé ; sans sauvegarde, pas d'installation.
+            if adb(args.serie, "shell", "pm", "path", APPID, verifier=False).strip() and not args.sans_sauvegarde:
+                dire("journal de l'appli installée d'abord (sauver_journal) :")
+                try:
+                    sauver_journal("webview", args.serie)
+                except (RuntimeError, OSError, ValueError, subprocess.TimeoutExpired) as e:
+                    dire(f"ECHEC : journal non sauvé ({e}) : rien n'a été installé (--sans-sauvegarde pour "
+                         f"passer outre si l'appli en place ne démarre plus ; {AIDE_USB})")
+                    return 1
             dire(adb(args.serie, "install", "-r", str(APK), delai=300).strip())
         except RuntimeError as e:
             dire(f"ECHEC : {e}")
             return 1
+        # L'installation a tué l'appli : un retrait du drapeau pas encore écrit sur disque
+        # serait perdu. L'appli relancée est vérifiée (et le drapeau retiré s'il est revenu).
+        try:
+            with Session("webview", serie=args.serie) as s:
+                s.couper_synchro(URL_APK)
+        except RuntimeError as e:
+            dire(f"ATTENTION : appli installée, drapeau {DRAPEAU_SANS_SYNCHRO} non vérifié ({e}) : relancer "
+                 f"sauver_journal pour le retirer s'il est resté ({AIDE_USB})")
     return 0
 
 
@@ -3026,8 +3471,22 @@ def main():
     s.add_argument("--json", action="store_true", help="résumés et critère de saccade en JSON (tests)")
 
     s = sub.add_parser("apk", help="APK de débogage (npm run build, cap sync, gradlew)")
-    s.add_argument("--installer", action="store_true", help="puis adb install -r")
+    s.add_argument("--installer", action="store_true",
+                   help="puis adb install -r, après sauver_journal de l'appli déjà installée")
+    s.add_argument("--sans-sauvegarde", action="store_true",
+                   help="installe sans sauver d'abord le journal (appli en place qui ne démarre plus)")
     s.add_argument("--serie")
+
+    for nom, aide in (("sauver_journal", f"journal de l'appareil, lu brut, dans {SAUVEGARDES}/journal-{{date}}.json"),
+                      ("restaurer_journal", "ajoute au journal de l'appareil les événements valides d'une sauvegarde")):
+        s = sub.add_parser(nom, aliases=[nom.replace("_", "-")], help=aide)
+        if nom == "restaurer_journal":
+            s.add_argument("fichier", nargs="?", help="sauvegarde à restaurer (défaut : la plus récente)")
+        s.add_argument("--cible", choices=("webview", "chrome", "local"), default="webview",
+                       help="webview (défaut) : l'APK ; chrome : le site dans Chrome du téléphone ; local : chromium du PC")
+        s.add_argument("--url", help=f"origine du journal (chrome : {URL_SITE} ; local : {URL_DEFAUT}) ; "
+                                     "sans effet en webview")
+        s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
     for nom in ("smoke", "ui", "seance", "mesurer"):
         sub.choices[nom].add_argument(
@@ -3043,7 +3502,13 @@ def main():
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
     commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance,
-                 "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk}
+                 "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
+                 "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
+    commandes.update({k.replace("_", "-"): v for k, v in commandes.items() if "_" in k})
+    # Un arrêt demandé (kill, délai d'un outil, terminal fermé) défait les
+    # sessions comme une erreur : drapeau sans-synchro retiré, adb forward défaits.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+    signal.signal(signal.SIGHUP, lambda *_: sys.exit(129))  # terminal ou onglet fermé
     try:
         return commandes[args.commande](args) or 0
     except RuntimeError as e:
