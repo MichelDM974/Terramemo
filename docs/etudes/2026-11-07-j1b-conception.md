@@ -683,7 +683,9 @@ Base IndexedDB **à part**, en version 1. Trois magasins :
   - `etat` vaut `a_envoyer` (composé, pas encore accepté), `envoye`
     (accepté, ou trouvé en ligne avec ces ids), `en_ligne` (lu en ligne)
     ou `refuse` (cause `regles` ou `invalide`) ;
-  - `version` = la version de l'appli qui a composé ou refusé le lot ;
+  - `version` = la version de l'appli qui a composé ou refusé le lot
+    (`src/version.ts` : le commit du build, posé par `vite.config.ts` ;
+    celle de `package.json` restait à 0.0.0, précision du lot 3) ;
 - **`a_relire`** (clé `[uid, id]`) : un lot lu en ligne que cette version
   ne sait pas lire en entier (`v` inconnu, carte refusée par `valider()`).
   Il est gardé **brut** ;

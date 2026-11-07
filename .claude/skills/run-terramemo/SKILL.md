@@ -865,7 +865,7 @@ projet passé à `emulators:start`, pas celui de la config du site).
 `npm run test:comptes` lance ses propres émulateurs Auth et Firestore
 (projet `demo-terramemo`) : 8062 et 8063 doivent être libres (donc jamais
 en même temps que `test:regles`), et il vide comptes et base à chaque
-test ; ses deux fichiers passent l'un après l'autre
+test ; ses fichiers (comptes, profil, envoi) passent l'un après l'autre
 (`--no-file-parallelism`), car chacun vide les comptes de l'émulateur.
 `window.terramemo.comptes()` rend l'état, les claims du dernier jeton
 (`identities`, `sign_in_provider`, S16) et les dix dernières erreurs brutes
@@ -900,6 +900,27 @@ au dernier envoi ; un pseudo de l'appareil qui en diffère l'emporte, sinon
 celui du compte. `terramemo.pseudo.remplace` garde l'ancien pseudo remplacé
 par celui du compte, dit une fois (vue Compte ou zone du pseudo). `?sans-synchro` coupe aussi
 le profil (aucune lecture de `joueurs/`).
+
+**Envoi des séances (J1b, lot 3)** : les événements du journal qu'aucun lot
+du compte ne contient partent en lots `joueurs/{uid}/lots/{lotId}`
+(`src/sync/envoi.ts`, `src/sync/lots.ts`), en création seule, pour un
+compte seulement (un invité ne charge rien). Une séance close (bilan,
+« Terminer », vue Toucher quittée, autre partie) part aussitôt ; la séance
+en cours seulement au passage en arrière-plan. Aussi à l'ouverture, au
+retour du réseau, au premier plan (5 min au plus), après une connexion et
+au « Réessayer » de la vue Compte. L'état de chaque lot est dans
+`terramemo-synchro` (magasin `lots`). Avec les règles du dépôt (`essai()`
+fermé), chaque lot est « refusé par les règles » et reste sur l'appareil ;
+au site de dev, charger les règles d'essai ouvertes (commande ci-dessus).
+`window.terramemo.synchro()` (sans Firebase) rend l'uid de la session,
+`coupee`, le nombre d'événements, l'empreinte de l'état FSRS, les comptes
+des lots (`horsLots`, séances en attente, refusées, fiches par état) et le
+rapport de l'envoi de la page (dernière passe, erreurs brutes, `horsLigne`,
+`quota`). Vérifié le 07/11 au site de dev avec `?emulateurs` : compte créé
+dans la vue Compte, une séance Apprendre jouée par le pilote, un lot de 10
+réponses en ligne au bilan, « Synchro : à jour ». `window.terramemo.version`
+est le commit du build (`src/version.ts`, « +modifie » si l'arbre de
+travail diffère) : les lots refusés se relancent à chaque nouvelle version.
 
 Chrono de l'île jusqu'au classement, par le pilote (vérifié le 06/11) : le
 choix `#jouer/classe/communes/reunion` puis `#jouer-panneau [data-mode="chrono"]`
