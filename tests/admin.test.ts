@@ -6,8 +6,12 @@
 // (l'état d'après = l'état d'avant moins ce plan), et rien si le plan a
 // changé depuis ; un pseudo voisin (casse, accents, masque des
 // règles) garde sa place ; relancée, une commande n'a plus rien à faire.
-// Plus les refus de cible (un seul émulateur, CI, clé absente, clé du dépôt,
-// clé d'un autre projet), sans émulateurs, donc aussi dans npm test.
+// Plus executer seul : un document réécrit depuis sa lecture arrête tout
+// (lastUpdateTime), les lots vont par écritures de 400, et un uid de 1 001
+// lots (deux pages de lecture) est vidé en entier. Et les refus de cible (un
+// seul émulateur, l'un ou l'autre, CI, clé absente, clé d'un dépôt git,
+// clé d'un autre projet, process.env qui ne vise pas la cible), sans
+// émulateurs, donc aussi dans npm test.
 import { execFile } from 'node:child_process';
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -66,6 +70,9 @@ describe('outil du propriétaire : cible', () => {
     const seul = await lancer(['releve'], { ...sans, FIRESTORE_EMULATOR_HOST: '127.0.0.1:1' });
     expect(seul.code).toBe(2);
     expect(seul.stderr).toContain('sans FIREBASE_AUTH_EMULATOR_HOST');
+    const seulAuth = await lancer(['releve'], { ...sans, FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:1' });
+    expect(seulAuth.code).toBe(2);
+    expect(seulAuth.stderr).toContain('FIREBASE_AUTH_EMULATOR_HOST est posé sans FIRESTORE_EMULATOR_HOST');
     const ci = await lancer(['releve'], { ...sans, CI: 'true' });
     expect(ci.code).toBe(2);
     expect(ci.stderr).toContain('Pas de vrai projet en CI');
@@ -111,9 +118,10 @@ describe('outil du propriétaire : cible', () => {
   }, 30_000);
 });
 
+/** Un module de l'outil (du JavaScript brut, sans types) : importé par un chemin calculé. */
+const module = async <T>(nom: string) => (await import(pathToFileURL(join(RACINE, 'scripts', 'admin', nom)).href)) as T;
+
 describe('outil du propriétaire : le SDK suit la cible', () => {
-  /** Du JavaScript brut, sans types : importé par un chemin calculé. */
-  const module = async <T>(nom: string) => (await import(pathToFileURL(join(RACINE, 'scripts', 'admin', nom)).href)) as T;
   type Ouvrir = (c: object) => Promise<{ app: { delete(): Promise<void> } }>;
 
   it('refuse d’ouvrir le SDK si process.env ne vise pas la cible lue (env injecté)', async () => {
@@ -309,6 +317,67 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     expect((await lancer(['demandes', '--appliquer', '--attendu', tombes.taches[0]!.empreinte!, '--json'])).code).toBe(1);
     expect(await etat()).toEqual(avant);
   }, 60_000);
+
+  it('executer : un document réécrit depuis sa lecture arrête tout (lastUpdateTime) ; les lots vont par écritures de 400', async () => {
+    type Executer = (ctx: { auth: Auth; db: unknown }, actions: object[], fait?: (a: object) => void) => Promise<void>;
+    const { executer } = await module<{ executer: Executer }>('taches.mjs');
+    const ctx = { auth, db };
+    const lu = async (chemin: string) => (await db.doc(chemin).get()).updateTime!;
+    const existe = async (chemin: string) => (await db.doc(chemin).get()).exists;
+    await place('general', 'toujours', 'michel', 'Michel', 6000, T - 3 * JOUR);
+    await db.doc('demandes/parti').set({ pseudo: 'Michel', cree: ts(T - 2 * JOUR) });
+    await tombe('parti', T - 2 * JOUR);
+    const chPlace = 'classements/general/periodes/toujours/scores/michel';
+    const lus = { place: await lu(chPlace), demande: await lu('demandes/parti'), tombe: await lu('joueurs/parti') };
+    // Réécrits entre la lecture et l'exécution (un joueur qui rejoue, une nouvelle demande, une pierre tombale reposée).
+    await place('general', 'toujours', 'michel', 'Michel', 7000, T);
+    await db.doc('demandes/parti').set({ pseudo: 'Michel', cree: ts(T) });
+    await tombe('parti', T);
+    const faites: object[] = [];
+    const suite = { type: 'doc', quoi: 'la demande', chemin: 'demandes/parti', pre: await lu('demandes/parti') };
+    for (const [a, chemin] of [
+      [{ type: 'doc', quoi: 'la place', chemin: chPlace, pre: lus.place }, chPlace],
+      [{ type: 'doc', quoi: 'la demande', chemin: 'demandes/parti', pre: lus.demande }, 'demandes/parti'],
+      [{ type: 'doc', quoi: 'la pierre tombale', chemin: 'joueurs/parti', pre: lus.tombe }, 'joueurs/parti'],
+      [{ type: 'dater', chemin: 'joueurs/parti', pre: lus.tombe }, 'joueurs/parti'],
+    ] as const) {
+      const avant = await lu(chemin);
+      await expect(executer(ctx, [a, suite], (x) => faites.push(x)), a.type).rejects.toThrow(`${chemin} a changé depuis la lecture`);
+      expect(await existe(chemin)).toBe(true);
+      expect((await lu(chemin)).isEqual(avant)).toBe(true);
+      expect(await existe('demandes/parti')).toBe(true); // l'action suivante n'est pas faite
+    }
+    expect(faites).toEqual([]);
+    expect((await db.doc('joueurs/parti').get()).get('vu_sans_compte')).toBeUndefined();
+    // Lue à jour : faite.
+    await executer(ctx, [{ type: 'doc', quoi: 'la place', chemin: chPlace, pre: await lu(chPlace) }], (x) => faites.push(x));
+    expect(await existe(chPlace)).toBe(false);
+    expect(faites).toHaveLength(1);
+    // 1 001 lots : trois écritures (400, 400, 201), toutes faites.
+    const chemins = Array.from({ length: 1001 }, (_, i) => `joueurs/gros/lots/${String(i).padStart(36, '0')}`);
+    for (let i = 0; i < chemins.length; i += 500) {
+      const b = db.batch();
+      for (const c of chemins.slice(i, i + 500)) b.set(db.doc(c), { v: 1, n: 1 });
+      await b.commit();
+    }
+    let ecritures = 0;
+    const compteur = { doc: (c: string) => db.doc(c), batch: () => (ecritures++, db.batch()) };
+    await executer({ auth, db: compteur }, [{ type: 'lots', uid: 'gros', chemins }]);
+    expect(ecritures).toBe(3);
+    expect((await db.collection('joueurs/gros/lots').count().get()).data().count).toBe(0);
+  }, 60_000);
+
+  it('orphelins : un uid à 1 001 lots (plus d’une page de lecture) est vidé en entier', async () => {
+    const ids = Array.from({ length: 1001 }, (_, i) => String(i).padStart(36, '0'));
+    for (let i = 0; i < ids.length; i += 500) {
+      const b = db.batch();
+      for (const id of ids.slice(i, i + 500)) b.set(db.doc(`joueurs/gros/lots/${id}`), { v: 1, appareil: 'a'.repeat(36), seance: null, fin: ts(T), n: 1, evenements: 'x' });
+      await b.commit();
+    }
+    const { actions } = await exactEtIdempotent(['orphelins']);
+    expect(chemins(actions)).toEqual(ids.map((id) => `joueurs/gros/lots/${id}`));
+    expect((await db.collection('joueurs/gros/lots').count().get()).data().count).toBe(0);
+  }, 90_000);
 
   it('orphelins : lots et profil sans compte, pas les pierres tombales', async () => {
     await monde();
