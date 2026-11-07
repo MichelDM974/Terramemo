@@ -841,7 +841,7 @@ les sorties versionnées (`tests/donnees-reunion.test.ts`).
 
 ```bash
 npm run test:regles                                                           # règles Firestore sur l'émulateur (aussi en CI)
-npm run test:comptes                                                          # comptes e-mail et profil (J1b) sur les émulateurs Auth et Firestore (aussi en CI)
+npm run test:comptes                                                          # comptes e-mail, profil, envoi et suppression (J1b) sur les émulateurs Auth et Firestore (aussi en CI)
 npx firebase emulators:start --only firestore,auth --project terramemo-geo  # Firestore 8062, Auth 8063, en arrière-plan
 ```
 
@@ -865,7 +865,7 @@ projet passé à `emulators:start`, pas celui de la config du site).
 `npm run test:comptes` lance ses propres émulateurs Auth et Firestore
 (projet `demo-terramemo`) : 8062 et 8063 doivent être libres (donc jamais
 en même temps que `test:regles`), et il vide comptes et base à chaque
-test ; ses fichiers (comptes, profil, envoi) passent l'un après l'autre
+test ; ses fichiers (comptes, profil, envoi, suppression) passent l'un après l'autre
 (`--no-file-parallelism`), car chacun vide les comptes de l'émulateur.
 `window.terramemo.comptes()` rend l'état, les claims du dernier jeton
 (`identities`, `sign_in_provider`, S16) et les dix dernières erreurs brutes
@@ -943,6 +943,40 @@ l'appareil : la question D22 (`#compte-fusion-ajouter`,
 `#compte-deconnexion-quand-meme` s'il reste quelque chose) ; session
 perdue : `#compte-effacer`. Les onglets se préviennent par
 `BroadcastChannel('terramemo')` : une déconnexion recharge les autres.
+
+**Suppression, export, confidentialité (J1b, lot 5)** : vue Compte,
+`#compte-vers-supprimer` (en bas), puis `#compte-supprimer-mot`
+(« supprimer », casse ignorée), `#compte-supprimer-mdp` (compte
+`password`) et `#compte-supprimer-ok` ; une suppression coupée laisse
+`session.suppression` (`window.terramemo.synchro().session.suppression`)
+et l'état `suppression` (`window.terramemo.comptes().etat`, `connecte`) :
+« Suppression inachevée : reprendre ? », même formulaire. Rien ne part
+pendant ce temps (ni lots, ni profil). Avec les règles du dépôt
+(`joueurs/` fermé), la suppression s'arrête à la lecture du profil
+(« Action non autorisée. ») : à essayer avec les règles d'essai ouvertes
+(commande ci-dessus). Export : `#compte-exporter` (invité, compte, session
+perdue) et `#compte-exporter-dabord` (seconde confirmation de « Ne pas les
+ajouter », déconnexion qui n'a pas tout envoyé, « Effacer cet appareil ») ;
+le fichier part par un Blob et un `<a download>` (`src/sync/export.ts`) ;
+dans l'APK, un renvoi au site à la place (D26 a). Politique et page de suppression :
+`public/confidentialite.html` et `public/suppression.html`, statiques
+(`public/documents.css`), servies à la racine ; la vue `#confidentialite`
+(⚙, Crédits, création de compte) insère le `<main>` de la première.
+Vérifier une page construite : `npm run build && npx vite preview --port
+8065 --strictPort`, puis `curl` sur `/confidentialite.html` **et son
+contenu** (vite preview rend `index.html`, en 200, à toute adresse
+inconnue). L'adresse de contact y est provisoire
+(`CONTACT_A_REMPLIR@googlegroups.invalid`) jusqu'au groupe Google de D20.
+
+Supprimer un compte à l'émulateur Auth (invité anonyme que Firebase
+supprimerait au bout de 30 jours, compte d'essai) : `curl -X POST -H
+'Authorization: Bearer owner' -H 'Content-Type: application/json' -d
+'{"localId":"<uid>"}'
+http://127.0.0.1:8063/identitytoolkit.googleapis.com/v1/projects/<projet>/accounts:delete`.
+Piège : le jeton d'un compte supprimé s'y rafraîchit en
+INVALID_REFRESH_TOKEN, et le SDK **reste connecté** ; en production
+(USER_NOT_FOUND → `auth/user-token-expired`) il se déconnecte. Le code
+traite les deux (`compteDisparu`, `src/sync/firebase.ts`).
 
 ```bash
 npm run test:synchro    # critère de #3 : deux appareils aux émulateurs (ports 8062 et 8063 libres), aussi en CI

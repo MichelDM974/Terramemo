@@ -201,7 +201,8 @@ Comment le reconnaître :
    - `signInWithCredential(cred)` ou `signInWithEmailAndPassword` ;
    - `currentUser.uid` devient A, puis `getIdToken(true)` ;
    - l'anonyme B reste orphelin dans Auth. Il ne porte rien (D16), et
-     l'outil du propriétaire le retire au bout de 30 jours (D33).
+     Firebase le supprime 30 jours après sa création (Identity Platform,
+     § 4.4).
 3. Si « Ne pas les ajouter » est confirmé : `memoire.effacer()`
    **maintenant**, avant la restauration. Plus tard, l'effacement viderait
    aussi le journal restauré.
@@ -228,7 +229,7 @@ Ce qui arrive aux données :
 | Séances déjà envoyées sous `uidAvant` | aucune avec D16 a. Avec D16 b, elles restent orphelines sous `joueurs/B` ; le journal local les contient et les renvoie sous A |
 | Places du classement | rien ne change : elles appartiennent au pseudo, pas à l'uid (D23) |
 | Records de B | fusionnés au maximum dans le profil de A. Ceux qui progressent sont republiés sous le pseudo du compte par le `publierTout` existant |
-| Anonyme B dans Auth | orphelin : l'outil du propriétaire le retire au bout de 30 jours sans donnée (D33), sinon il est gardé. Le nettoyage à 30 jours de Firebase exige Identity Platform, refusé (§ 4.4) |
+| Anonyme B dans Auth | orphelin, sans donnée : Firebase le supprime 30 jours après sa création (Identity Platform, déjà actif, § 4.4) ; l'outil du propriétaire n'y touche pas |
 
 Le lien (« lien, pas copie ») ne vaut que pour le premier appareil.
 Firebase ne fusionne pas deux comptes : un second appareil se connecte, et
@@ -238,8 +239,12 @@ son journal s'unit à celui du compte.
 
 - **Mot de passe** : 8 caractères au moins, comme dans Light (D17).
   - Validation locale : « Mot de passe : 8 caractères au moins ».
-  - Politique Firebase au même minimum (mode Require, § 4.3), si la
-    console le permet sans Identity Platform.
+  - Politique du projet au même minimum, posée le 07/11 par l'API
+    d'administration v2 d'Identity Toolkit : mode **ENFORCE**, 8
+    caractères. En dessous, le serveur répond
+    PASSWORD_DOES_NOT_MEET_REQUIREMENTS
+    (`auth/password-does-not-meet-requirements`), traduit comme la
+    validation locale. Le projet est déjà sous Identity Platform (§ 4.4).
 - **Vérification d'adresse** : `sendEmailVerification` à l'inscription et
   au lien. Elle **ne bloque pas** la synchro (D18 b).
   - La vue Compte affiche « Adresse non vérifiée · Renvoyer l'e-mail ».
@@ -557,10 +562,9 @@ pour S15, au plus tard au début du lot 6) :
    - activer la première case seulement, pas « Lien envoyé par e-mail » ;
    - **Enregistrer** ;
    - **Anonyme** reste activé.
-2. **Politique de mot de passe**. Onglet **Settings** › **Password
-   policy** : longueur minimale 8, mode **Require**, aucune autre
-   exigence. Si la console demande de passer à Identity Platform pour ce
-   réglage : refuser et ne rien régler, la validation locale suffit
+2. **Politique de mot de passe**. Fait le 07/11 par l'API
+   d'administration v2 (mode ENFORCE, 8 caractères au moins, aucune autre
+   exigence), sans la console : le projet est déjà sous Identity Platform
    (§ 4.4).
 3. **Énumération**. Settings › **User actions** : vérifier que **Email
    enumeration protection** est active (c'est le défaut des projets
@@ -664,9 +668,16 @@ C'est déconseillé.
 
 ### 4.4 Ce qu'on n'active pas
 
-- **Identity Platform** : non. Il impose un plafond de 3 000 utilisateurs
-  actifs par jour sur Spark, et on ne sait pas si le passage est
-  réversible.
+- **Identity Platform** : la question ne se pose plus. Le projet
+  `terramemo-geo` y est **déjà** (constaté le 07/11 par l'API
+  d'administration v2 d'Identity Toolkit : subtype `IDENTITY_PLATFORM`).
+  - Plafond de Spark : 3 000 utilisateurs actifs par jour.
+  - `autodeleteAnonymousUsers` est actif, réglage gardé par l'utilisateur :
+    Firebase supprime chaque invité anonyme 30 jours après sa création.
+    Un invité qui publie encore reçoit alors un anonyme neuf (lot 5,
+    `compte()`) ; rien n'est perdu, puisqu'il n'a rien en ligne (D16) et
+    que ses places sont celles du pseudo.
+  - Politique de mot de passe : ENFORCE, 8 caractères (§ 2.4, D17).
 - **SMTP personnalisé** : non. Rien ne dit qu'il lève le plafond de 150
   réinitialisations par jour.
 - **Lien de connexion par e-mail** : non (5 par jour sur Spark).
@@ -1139,8 +1150,8 @@ l'API publique (100 comptes par heure et par IP).
 
 App Check (#21, avec le Play Store) protégera Firestore, donc ce vecteur.
 Il ne protège pas la création de comptes : pour Auth, la doc ne décrit
-cette protection qu'avec Identity Platform, et l'étude ne tranche pas ce
-point.
+cette protection qu'avec Identity Platform. Le projet y étant déjà
+(§ 4.4), elle est possible ; l'étude ne tranche pas ce point.
 
 **Urgence** :
 - `essai()` → `false`, puis `npx firebase deploy --only firestore`, ferme
@@ -1247,9 +1258,9 @@ confirmation, le texte de D27 sur les places du classement.
 **Places du classement** : elles portent le pseudo, pas l'uid, et sont
 partagées par tous ceux qui jouent ce pseudo (D27).
 
-**Anonymes orphelins** : sans données. L'outil du propriétaire les retire
-au bout de 30 jours (D33) ; sinon, ils restent dans Auth, sous forme d'un
-uid sans donnée personnelle.
+**Anonymes orphelins** : sans données. Firebase les supprime 30 jours
+après leur création (Identity Platform, § 4.4) ; l'outil du propriétaire
+n'y touche pas.
 
 ### 7.2 Export JSON
 
@@ -1326,10 +1337,12 @@ uid sans donnée personnelle.
 4. **Durées** (D33) :
    - compte et séances : jusqu'à leur suppression, ou au bout de 2 ans
      sans activité ;
-   - comptes anonymes sans donnée : 30 jours ;
+   - comptes anonymes : supprimés par Firebase 30 jours après leur
+     création, sans outil qui les purge ;
    - pierre tombale : 1 jour ;
    - sauvegardes de Google : effacées sous 180 jours ;
-   - adresses IP : gardées quelques semaines ;
+   - adresses IP : quelques semaines pour Auth, quelques mois pour Hosting
+     (vérifié au lot 5 dans la doc de Firebase) ;
    - places du classement : selon D27.
 5. **Droits** :
    - accès et portabilité (export JSON), rectification (pseudo),
@@ -1371,13 +1384,13 @@ uid sans donnée personnelle.
 - clé du compte de service dans `~/Sauvegardes/terramemo/admin/` ;
 - à blanc par défaut : il faut `--appliquer` pour agir.
 
-**Tâches** :
+**Tâches** (aucune ne touche aux invités anonymes : Firebase les supprime
+30 jours après leur création, § 4.4) :
 - comptes sans activité depuis 2 ans :
   - critère : `metadata.lastRefreshTime` (dernier jeton rafraîchi). **Pas**
     `lastSignInTime`, qui ne bouge pas tant que la session dure : un
     joueur fidèle connecté une seule fois serait purgé ;
   - leurs lots et leur profil d'abord, puis `deleteUsers` (par 1 000) ;
-- anonymes sans fournisseur ni donnée depuis 30 jours ;
 - pierres tombales de plus d'un jour ;
 - lots sans compte (orphelins) ;
 - `demandes/` (D27 b) : places du pseudo retirées, puis la demande ;
@@ -1460,6 +1473,62 @@ visible en production.
   couperait les deux appareils, qui tournent dans le même processus.
   Les 10 scénarios y sont, plus « Ne pas les ajouter », la déconnexion
   suivie d'un retour, et la pagination réelle de la lecture.
+
+**Précisions du lot 5** (07/11, codé ; écarts assumés au texte d'avant) :
+- invités supprimés par Firebase (§ 4.4) : vérifié aux émulateurs (compte
+  supprimé par l'API d'administration). Un invité n'entre jamais en
+  session perdue (la session n'a pas d'uid). Son jeton encore valable
+  suffit à Firestore ; périmé, il ne se rafraîchit plus : USER_NOT_FOUND
+  en production (`user-token-expired`, le SDK se déconnecte), mais
+  INVALID_REFRESH_TOKEN à l'émulateur (le SDK reste connecté). `compte()`
+  remplace donc l'invité par un anonyme neuf dès que son jeton échoue
+  ainsi. Le lien d'un invité disparu échouait sans message
+  (`user-token-expired` est silencieux) : la création de compte crée
+  alors un compte neuf ;
+- demande de retrait des places (D27 b) et pierre tombale (§ 7.1, étapes
+  3 et 4) : **un seul lot d'écriture**. La règle de `demandes/` exige la
+  pierre tombale par `getAfter` : une demande ne vient qu'avec une vraie
+  suppression, et la reprise n'a pas à savoir si la demande existe (elle
+  ne se lit pas). Le pseudo de la demande : celui du profil, sinon celui
+  de l'appareil ; sans pseudo, pas de demande ;
+- reprise : `EtatCompte` gagne l'état `suppression` (`connecte` : le
+  compte est encore là). « supprimer » est redemandé à la reprise, avec le
+  mot de passe si le compte est encore là ; ni connexion ni création
+  avant. Un compte qui n'est plus dans Auth (`reload()` en USER_NOT_FOUND,
+  ou plus d'utilisateur) passe à l'effacement de l'appareil. Limite
+  acceptée : une session perdue pendant la suppression (mot de passe
+  changé ailleurs) se prend pour un compte supprimé. L'appareil est vidé,
+  et le compte se finit depuis un autre appareil, où « Supprimer mon
+  compte » reste offert, même pierre tombale posée ;
+- l'effacement de l'appareil (étape 7) pose `effacement` comme une
+  déconnexion : une appli tuée là le finit au démarrage, et
+  `APRES_EFFACEMENT` lève aussi `suppression` ;
+- « Suppression inachevée : reprendre ? » est dans la vue Compte, pas en
+  invite à l'ouverture de l'appli. « Ce compte est en cours de
+  suppression » vient de la synchro du profil (ouverture de l'appli,
+  record, pseudo), pas d'une lecture à chaque ouverture de la vue ;
+- Google dans l'APK : point d'entrée `jetonGoogle` des comptes (lot 7) ;
+  sans lui, « supprime-le depuis le site » ;
+- export : `profil` = pseudo et records lus en ligne ; `a_relire` =
+  `{id, fin, doc}` ; le compte d'une session perdue n'a pas de `cree_le`.
+  « Exporter mes données » est aussi offert à l'invité et à la session
+  perdue ; « Exporter d'abord » est dans la seconde confirmation de « Ne
+  pas les ajouter » (pendant la question, sans y répondre), avant « Se
+  déconnecter quand même » et, en plus, avant « Effacer cet appareil ».
+  Rien de tout cela dans l'APK, qui renvoie au site ;
+- confidentialité : le lien de ⚙ est visible de tous, pas seulement avec
+  `comptesVisibles()` (§ 3.1) : le classement en demande déjà une. Le
+  formulaire de création dit « Ce que deviennent tes données : politique
+  de confidentialité », pas « tu acceptes la politique » : la base est le
+  service demandé, pas un consentement. La page dit que les comptes ne
+  sont pas encore ouverts à tous. Les adresses IP sont gardées quelques
+  semaines par Auth, mais **quelques mois** par Hosting (doc de Firebase,
+  vérifiée au lot 5). Les pages statiques n'ont pas d'icône d'onglet
+  (celle de l'appli a une adresse hachée par Vite). L'adresse de contact
+  y est provisoire (`CONTACT_A_REMPLIR@googlegroups.invalid`), en
+  attendant le groupe Google de D20 ;
+- `npm run test:comptes` gagne `tests/suppression.test.ts` (suppression
+  complète avec 401 lots, coupure à chaque étape, 2e appareil).
 
 Ordre et parallélisme :
 - 0, puis 1, puis 2, puis 3, puis 4, puis 5 : en série ;
@@ -1707,8 +1776,9 @@ tranche pas.
 **D17. Mot de passe.**
 - Options : a) 8 caractères au moins, sans autre exigence (Light) ; b) 6
   (défaut de Firebase) ; c) avec majuscule, chiffre et symbole.
-- Recommandation et défaut : **a**, mode Require, si la console le permet
-  sans Identity Platform.
+- Recommandation et défaut : **a**. Fait le 07/11 : politique du projet
+  en mode ENFORCE, 8 caractères (Identity Platform était déjà actif,
+  § 4.4).
 
 **D18. Vérification d'adresse.**
 - Options :
@@ -1877,8 +1947,8 @@ réponse ».
 - **Un document par séance, complété par la suite** : D32 b.
 - **Supprimer l'anonyme abandonné avant de quitter sa session** : il ne
   porte rien (D16). Un `deleteUser` d'anonyme ancien peut exiger une
-  connexion récente impossible à refaire, et l'outil du propriétaire le
-  retire au bout de 30 jours (D33).
+  connexion récente impossible à refaire, et Firebase le supprime 30
+  jours après sa création (§ 4.4).
 - **Redirection Google avec `authDomain` sur `web.app`** : la popup
   suffit. À reprendre si elle est trop souvent bloquée sur mobile.
 - **`initializeAuth` sans résolveur dans l'APK au J1b** : gain non
@@ -1887,8 +1957,8 @@ réponse ».
   jour est un cas rare et sans dommage.
 - **Changement d'adresse e-mail** (`verifyBeforeUpdateEmail`) : à
   reprendre si quelqu'un le demande.
-- **Identity Platform, SMTP personnalisé, lien de connexion par e-mail,
-  logo sur le consentement** (§ 4.4).
+- **SMTP personnalisé, lien de connexion par e-mail, logo sur le
+  consentement** (§ 4.4). Identity Platform était déjà actif.
 - **`deploy --only auth`** (D29).
 - **Connexion Apple** : 99 $ par an, déjà refusée dans Light.
 
