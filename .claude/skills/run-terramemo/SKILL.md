@@ -488,19 +488,28 @@ python3 .claude/skills/run-terramemo/outils/pastilles.py FICHIER... --depuis 07/
 ```
 
 Q3 (`docs/questions-j1a.md`, « A, mesurer d'abord ») : après la semaine
-d'usage (13/11), la part des réponses justes « par pastille » au zoom
-faible dit s'il faut B (disque plus petit sur un voisin) ou C (zoom minimal
-en séance). L'outil lit les sauvegardes de `sauver_journal` (une de plus à
-chaque `--sauver`, jamais écrasée ; seule, elle s'ajoute à la dernière des
-autres origines, APK et site fusionnés sans doublon d'id) et compte les
-réponses « où est » au toucher : séances (rappel et révision, notées par
-FSRS) et parties libres à part ; ni QCM ni carte retournée. Par tranche de
-zoom (`--tranches 1.5,3,6,12`, l'échelle de la carte au toucher : 1 = le
-monde, ou l'île pour les communes, à part) : réponses, % de justes, et la
-part de chaque `via` (tracé, pastille, proche) parmi les justes ; puis la
-ligne « => Q3 » (justes par pastille sous `--faible`, 3 par défaut) et les
-fiches justes par pastille (micro-États), avec leur part au zoom faible et
-le zoom médian. Le seuil qui ferait choisir B ou C reste à l'utilisateur.
+d'usage (13/11), la part des réponses justes « par pastille » des
+micro-États au zoom faible dit s'il faut B (disque plus petit quand il est
+posé sur un voisin) ou C (zoom minimal en séance). L'outil lit les
+sauvegardes de `sauver_journal` (une de plus à chaque `--sauver`, jamais
+écrasée ; sans fichier nommé, la plus récente de chaque origine par
+`sauve_le`, APK et site fusionnés sans doublon d'id, celles du PC, cible
+`local`, écartées) et compte les réponses « où est » au toucher, en trois
+groupes : notées par FSRS (rappel, révision), reprises (note null, la fiche
+revenue en fin de séance), parties libres ; ni QCM ni carte retournée
+(fiches `:nommer`), communes à part, invalides de la sauvegarde écartés.
+Par tranche de zoom (`--tranches 1.5,3,6,12` ; 1 = le monde entier à
+l'écran, plus de pixels en paysage, d'où le compte par appareil) :
+réponses, % de justes, part de chaque `via` parmi les justes. La ligne
+« => Q3 » ne compte que les micro-États (`micro` de `public/geo/pays.json`)
+sous `--faible` (3), en deux groupes : disque posé sur un pays (micro-État
+à voisins terrestres : Vatican, Saint-Marin, Monaco, Liechtenstein…), le
+biais que vise B, et disque en mer (îles, où « par pastille » est la règle ;
+Malte y est rangée) ; tous les pays en repère. Puis chaque micro-État
+répondu, sa part par pastille au zoom faible et son zoom médian. Le seuil
+qui ferait choisir B ou C reste à l'utilisateur. `--depuis JJ/MM` : jour
+local de chaque réponse (ts + tz). Essayé sur l'A37 le 07/11 (APK : 10
+événements ; site dans Chrome : vide).
 Testé par `tests/pastilles-outil.test.ts` (journal fabriqué).
 
 **Drapeau `terramemo.sans-synchro`** (`src/sync/drapeaux.ts`) : chaque
