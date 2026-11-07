@@ -966,7 +966,11 @@ Vérifier une page construite : `npm run build && npx vite preview --port
 8065 --strictPort`, puis `curl` sur `/confidentialite.html` **et son
 contenu** (vite preview rend `index.html`, en 200, à toute adresse
 inconnue). L'adresse de contact y est provisoire
-(`CONTACT_A_REMPLIR@googlegroups.invalid`) jusqu'au groupe Google de D20.
+(`CONTACT_A_REMPLIR@googlegroups.invalid`) jusqu'au groupe Google de D20 :
+tant qu'il reste dans `dist/`, le `predeploy` de Hosting (`firebase.json`)
+fait échouer `npx firebase deploy --only hosting`, pour qu'aucune page
+publique ne parte avec. Le remplacer partout (`grep -rl CONTACT_A_REMPLIR`),
+puis `npm run build` et déployer.
 
 Supprimer un compte à l'émulateur Auth (invité anonyme que Firebase
 supprimerait au bout de 30 jours, compte d'essai) : `curl -X POST -H

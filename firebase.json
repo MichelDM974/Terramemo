@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "predeploy": ["! grep -rl CONTACT_A_REMPLIR \"$PROJECT_DIR/dist\""],
     "public": "dist",
     "ignore": ["firebase.json", "**/.*"],
     "headers": [
