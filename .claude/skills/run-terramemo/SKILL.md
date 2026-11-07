@@ -922,6 +922,50 @@ réponses en ligne au bilan, « Synchro : à jour ». `window.terramemo.version`
 est le commit du build (`src/version.ts`, « +modifie » si l'arbre de
 travail diffère) : les lots refusés se relancent à chaque nouvelle version.
 
+**Lecture et union (J1b, lot 4)** : dans la même passe, sous le même
+verrou et avant de composer, l'envoi lit les lots du compte
+(`orderBy('fin')`, pages de 100) : depuis la marque moins 5 min
+(`session.marque`) à l'ouverture et au premier plan, tout à la connexion
+d'un autre compte, à la reconnexion après une déconnexion, ou quand un id
+en ligne manque au journal (contrôle à l'ouverture). Les événements vont
+au journal par `Memoire.fusionner` (fiches `en_ligne` et marque seulement
+après) ; l'état se rejoue au repos, jamais pendant une séance active. Un
+lot que la version ne sait pas lire va brut dans `a_relire`
+(`terramemo-synchro`) et se relit à la version suivante, sans réseau.
+`window.terramemo.synchro()` rend aussi `a_relire` (lots), `lecture`
+(dernière lecture : mode, lots, événements, illisibles, relus, arrêt) et
+`session` (marque, `deconnexion`, `effacement`, `connexion`,
+`profil_a_ecrire`). Connexion à un compte existant avec des progrès sur
+l'appareil : la question D22 (`#compte-fusion-ajouter`,
+`#compte-fusion-ne-pas` puis `#compte-fusion-effacer`,
+`#compte-fusion-annuler`) avant que rien ne parte ; déconnexion reprenable
+(`#compte-deconnecter`, puis `#compte-deconnexion-reessayer` ou
+`#compte-deconnexion-quand-meme` s'il reste quelque chose) ; session
+perdue : `#compte-effacer`. Les onglets se préviennent par
+`BroadcastChannel('terramemo')` : une déconnexion recharge les autres.
+
+```bash
+npm run test:synchro    # critère de #3 : deux appareils aux émulateurs (ports 8062 et 8063 libres), aussi en CI
+python3 .claude/skills/run-terramemo/driver.py synchro --out /tmp/terramemo-synchro   # pilote ui_synchro
+```
+
+`synchro` (pilote `ui_synchro`, critère de #3 au navigateur) demande le
+serveur de dev (`driver.py serve`) et les émulateurs lancés à part
+(`npx firebase emulators:start --only firestore,auth --project
+terramemo-geo`) ; il charge lui-même dans l'émulateur les règles avec
+`essai()` ouvert et vide base et comptes de l'émulateur (jamais le vrai
+projet), sans poser `sans-synchro`. Deux chromium sans stockage partagé :
+l'appareil 1 crée un compte et joue la Révision du jour ; l'appareil 2
+joue Apprendre sous La Réunion en invité, se connecte, répond « Ajouter »
+à la question ; le lendemain (`?horloge=1`) il passe hors ligne
+(`Network.emulateNetworkConditions`), joue une Révision, revient ;
+l'appareil 1 rouvert relit. Verdict : `synchro()` égal des deux côtés
+(empreinte, événements, lots en attente et refusés, `a_relire`, uid,
+drapeaux), puis la déconnexion de l'appareil 2 le vide. Captures 50 à 52.
+Vérifié le 07/11 : 27 événements et la même empreinte des deux côtés.
+Piège : `goto` vers l'adresse de la page au fragment près ne recharge pas
+(navigation dans le document) ; changer un paramètre pour rouvrir.
+
 Chrono de l'île jusqu'au classement, par le pilote (vérifié le 06/11) : le
 choix `#jouer/classe/communes/reunion` puis `#jouer-panneau [data-mode="chrono"]`
 (`jouer_partie(p, "chrono", "reunion")`), chaque réponse

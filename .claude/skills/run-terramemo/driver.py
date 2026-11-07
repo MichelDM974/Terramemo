@@ -2198,6 +2198,216 @@ def commande_seance(args):
     return 1 if erreurs or defauts else 0
 
 
+# --- synchro (J1b, lot 4 : pilote ui_synchro) ----------------------------
+
+PORT_FIRESTORE, PORT_AUTH = 8062, 8063
+# Le projet passé à `emulators:start` (celui de la config du site avec ?emulateurs).
+PROJET_EMULATEURS = "terramemo-geo"
+# Le corps fermé d'essai() dans firestore.rules (jusqu'au lot 6) : ouvert sur l'émulateur seulement.
+ESSAI_FERME = re.compile(r"function essai\(\) \{\n\s*return false;\n\s*\}")
+
+
+def preparer_emulateurs():
+    """Règles du dépôt avec essai() ouvert, chargées dans l'émulateur
+    Firestore (jamais le vrai projet), puis base et comptes de l'émulateur
+    vidés : chaque pilote part de zéro."""
+    regles = (RACINE / "firestore.rules").read_text()
+    ouvertes, n = ESSAI_FERME.subn("function essai() { return true; }", regles)
+    if not n:
+        raise RuntimeError("essai() fermé introuvable dans firestore.rules")
+    corps = json.dumps({"rules": {"files": [{"content": ouvertes}]}}).encode()
+    base_fs = f"http://127.0.0.1:{PORT_FIRESTORE}/emulator/v1/projects/{PROJET_EMULATEURS}"
+    req = urllib.request.Request(base_fs + ":securityRules", data=corps, method="PUT", headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        if r.status != 200:
+            raise RuntimeError(f"règles d'essai refusées par l'émulateur : {r.status}")
+    for url in (base_fs + "/databases/(default)/documents",
+                f"http://127.0.0.1:{PORT_AUTH}/emulator/v1/projects/{PROJET_EMULATEURS}/accounts"):
+        code, _, corps = http(url, methode="DELETE", delai=20)
+        if code != 200:
+            raise RuntimeError(f"émulateur pas vidé ({url}) : {code} {corps[:200]!r}")
+
+
+def synchro_de(p):
+    """window.terramemo.synchro() (sans Firebase), son empreinte et ses comptes."""
+    return p.js("window.terramemo.synchro()")
+
+
+def attendre_synchro(p, condition, quoi, delai_s=40):
+    """Attend que synchro() vérifie `condition` ; rend le dernier rapport (RuntimeError sinon)."""
+    fin = time.monotonic() + delai_s
+    r = None
+    while time.monotonic() < fin:
+        r = synchro_de(p)
+        if condition(r):
+            return r
+        p.pause(500)
+    raise RuntimeError(f"{quoi} : pas atteint en {delai_s} s ; synchro() = {json.dumps(r, ensure_ascii=False)[:600]}")
+
+
+def resume_synchro(r):
+    """Ce que ui_synchro compare d'un appareil à l'autre (étude du J1b, § 5.8, 2)."""
+    lots = r.get("lots") or {}
+    ses = r.get("session") or {}
+    return {
+        "uid": r.get("uid"), "coupee": r.get("coupee"), "evenements": r.get("evenements"), "empreinte": r.get("empreinte"),
+        "attente": lots.get("attente"), "refusees": lots.get("refusees"), "a_relire": r.get("a_relire"),
+        "drapeaux": {k: ses.get(k) for k in ("deconnexion", "effacement", "connexion", "profil_a_ecrire")},
+    }
+
+
+def formulaire_compte(p, quoi, adresse, mdp):
+    """Vue Compte : « Créer un compte » ou « Se connecter par e-mail », champs remplis, envoyé."""
+    p.js('location.hash = "#compte"')
+    attendre_visible(p, "#vue-compte")
+    attendre_visible(p, "#compte-vers-creer" if quoi == "creer" else "#compte-vers-connecter")
+    cliquer(p, "#compte-vers-creer" if quoi == "creer" else "#compte-vers-connecter")
+    attendre_visible(p, "#compte-adresse")
+    p.js(f"document.getElementById('compte-adresse').value = {json.dumps(adresse)}; "
+         f"document.getElementById('compte-mdp').value = {json.dumps(mdp)};")
+    cliquer_apres_pause(p, "#compte-creer-ok" if quoi == "creer" else "#compte-connecter-ok")
+
+
+def ui_synchro(p1, p2, capturer, defauts, base):
+    """Le pilote du critère de #3 (étude du J1b, § 5.8, 2), sur deux
+    navigateurs sans stockage partagé, au site de dev avec ?emulateurs :
+    1. l'appareil 1 crée un compte (vue Compte) et joue la Révision du jour ;
+    2. l'appareil 2 joue Apprendre sous La Réunion en invité, puis se connecte :
+       la question D22, « Ajouter » ; il reçoit la séance de l'appareil 1 ;
+    3. l'appareil 2, le lendemain (?horloge=1), passe hors ligne
+       (Network.emulateNetworkConditions), joue une Révision, puis revient ;
+    4. l'appareil 1 rouvert relit les lots (lecture incrémentale) ;
+    verdict : window.terramemo.synchro() égal des deux côtés (empreinte de
+    l'état FSRS, événements, lots en attente et refusés, a_relire, uid,
+    drapeaux) ; 5. l'appareil 2 se déconnecte (D24 a) : son journal est vidé."""
+    url = base + "?emulateurs&mesures=0"
+    adresse, mdp = f"pilote{int(time.time())}@exemple.fr", "motdepasse-pilote"
+    # 1. Appareil 1 : le compte, puis la Révision du jour (la grappe de pays du jour).
+    p1.goto(url + "#carte")
+    p1.attendre_carte()
+    formulaire_compte(p1, "creer", adresse, mdp)
+    attendre_visible(p1, "#compte-adresse-connectee", 30)
+    uid = attendre_synchro(p1, lambda r: r.get("uid"), "appareil 1 : compte dans la session")["uid"]
+    dire(f"  appareil 1 : compte {adresse} ({uid})")
+    ligne, desactivee = revision_du_jour(p1)
+    if desactivee:
+        raise RuntimeError(f"appareil 1 : Révision du jour désactivée ({ligne!r})")
+    cliquer_apres_pause(p1, "#jouer-revision")
+    n1 = jouer_seance(p1, capturer, defauts, "Appareil 1, Révision du jour")
+    cliquer_apres_pause(p1, "#seance-carte")
+    r1 = attendre_synchro(p1, lambda r: r["evenements"] == n1 and (r.get("lots") or {}).get("attente") == 0, "appareil 1 : séance envoyée")
+    dire(f"  appareil 1 : {n1} réponses, en ligne ({r1['lots']['lots']})")
+    # 2. Appareil 2 : une grappe de communes en invité, puis la connexion et la question D22.
+    p2.goto(url + "#carte")
+    p2.attendre_carte()
+    jouer_jusqua(p2, "apprendre", "reunion")
+    cliquer_apres_pause(p2, '#jouer-panneau [data-mode="apprendre"]')
+    n2 = jouer_seance(p2, capturer, defauts, "Appareil 2 (invité), Apprendre La Réunion")
+    cliquer_apres_pause(p2, "#seance-carte")
+    p2.pause(500)
+    formulaire_compte(p2, "connecter", adresse, mdp)
+    attendre_visible(p2, "#compte-fusion-question", 30)
+    question = texte(p2, "#compte-fusion-question")
+    dire(f"  appareil 2 : {question!r}")
+    if f"({n2} réponses)" not in question:
+        defauts.append(f"question D22 sans les {n2} réponses de l'appareil : {question!r}")
+    capturer("50-question-fusion")
+    cliquer_apres_pause(p2, "#compte-fusion-ajouter")
+    attendre_visible(p2, "#compte-adresse-connectee", 30)
+    message = texte(p2, "#compte-message")
+    if "Ton compte a reçu les progrès de cet appareil" not in message:
+        defauts.append(f"connexion après « Ajouter » sans le message des progrès reçus : {message!r}")
+    r2 = attendre_synchro(p2, lambda r: r["evenements"] == n1 + n2 and (r.get("lots") or {}).get("attente") == 0, "appareil 2 : union et envoi")
+    p2.pause(800)
+    capturer("51-compte-a-jour")
+    synchro_ligne = texte(p2, "#compte-synchro")
+    if "à jour" not in synchro_ligne.lower():
+        defauts.append(f"vue Compte de l'appareil 2 : la synchro n'est pas « À jour » ({synchro_ligne!r})")
+    # 3. Le lendemain, hors ligne : une Révision (cartes dues des deux grappes), puis le réseau revient.
+    p2.goto(url + "&horloge=1#carte")
+    p2.attendre_carte()
+    attendre_synchro(p2, lambda r: r["evenements"] == n1 + n2, "appareil 2 rouvert le lendemain")
+    hors = dict(offline=True, latency=0, downloadThroughput=-1, uploadThroughput=-1)
+    p2.cdp("Network.emulateNetworkConditions", **hors)
+    if p2.js("navigator.onLine"):
+        defauts.append("hors ligne émulé, mais navigator.onLine reste vrai")
+    ligne, desactivee = revision_du_jour(p2)
+    dire(f"  appareil 2, hors ligne, le lendemain : {ligne!r}")
+    if desactivee or "à revoir" not in ligne:
+        raise RuntimeError(f"appareil 2 : rien à revoir le lendemain ({ligne!r})")
+    cliquer_apres_pause(p2, "#jouer-revision")
+    n3 = jouer_seance(p2, capturer, defauts, "Appareil 2 (hors ligne), Révision", arret_qcm=True)
+    cliquer_apres_pause(p2, "#seance-carte")
+    r2 = attendre_synchro(p2, lambda r: r["evenements"] == n1 + n2 + n3 and (r.get("lots") or {}).get("attente", 0) >= 1,
+                          "appareil 2 : la séance hors ligne attend")
+    dire(f"  appareil 2 : {n3} réponses hors ligne, {r2['lots']['attente']} séance(s) en attente")
+    p2.cdp("Network.emulateNetworkConditions", **dict(hors, offline=False))
+    r2 = attendre_synchro(p2, lambda r: (r.get("lots") or {}).get("attente") == 0, "appareil 2 : envoi au retour du réseau", 60)
+    # 4. Appareil 1 rouvert (une autre adresse : la même, au fragment près, ne recharge pas la page) :
+    # la lecture incrémentale apporte les séances de l'appareil 2.
+    p1.goto(url + "&rouvert=1#carte")
+    p1.attendre_carte()
+    r1 = attendre_synchro(p1, lambda r: r["evenements"] == r2["evenements"], "appareil 1 : lecture des lots de l'appareil 2")
+    a, b = resume_synchro(r1), resume_synchro(r2)
+    dire(f"  appareil 1 : {json.dumps(a, ensure_ascii=False)}")
+    dire(f"  appareil 2 : {json.dumps(b, ensure_ascii=False)}")
+    if a != b:
+        defauts.append(f"synchro() diffère d'un appareil à l'autre : {a} ≠ {b}")
+    if a["coupee"] or a["attente"] or a["refusees"] or a["a_relire"] or any(a["drapeaux"].values()):
+        defauts.append(f"état de synchro inattendu : {a}")
+    # 5. Déconnexion de l'appareil 2 (D24 a) : tout est parti, il repart vierge.
+    p2.js('location.hash = "#compte"')
+    attendre_visible(p2, "#compte-deconnecter", 30)
+    cliquer_apres_pause(p2, "#compte-deconnecter")
+    fin = time.monotonic() + 30
+    while "Déconnecté" not in texte(p2, "#compte-message") and time.monotonic() < fin:
+        p2.pause(200)
+    capturer("52-deconnecte")
+    r = synchro_de(p2)
+    dire(f"  appareil 2 déconnecté : {texte(p2, '#compte-message')!r}, {r['evenements']} événements, uid {r['uid']}")
+    if r["evenements"] or r["uid"]:
+        defauts.append(f"déconnexion : l'appareil n'est pas vidé ({r['evenements']} événements, uid {r['uid']})")
+
+
+def commande_synchro(args):
+    """ui_synchro : deux navigateurs au site de dev avec ?emulateurs (Vite sur
+    8060, émulateurs Firestore 8062 et Auth 8063 lancés à part)."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    if not serveur_de_dev(base):
+        raise RuntimeError(f"{base} n'est pas le serveur de dev (`driver.py serve`) : ?emulateurs et ?horloge n'y agissent pas")
+    for port, nom in ((PORT_FIRESTORE, "Firestore"), (PORT_AUTH, "Auth")):
+        if not port_ouvert(port):
+            raise RuntimeError(f"émulateur {nom} absent du port {port} : "
+                               f"npx firebase emulators:start --only firestore,auth --project {PROJET_EMULATEURS}")
+    preparer_emulateurs()
+    faites, defauts = [], []
+    # Pas de couper_synchro : la synchro est ce qu'on éprouve, et tout va aux émulateurs.
+    with Session("local") as s1, Session("local") as s2:
+        p1, p2 = s1.page, s2.page
+        for p in (p1, p2):
+            p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p2.pause(350)
+            p2.capture(chemin)
+            faites.append(chemin)
+
+        ui_synchro(p1, p2, capturer, defauts, base)
+        erreurs = p1.erreurs + p2.erreurs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    dire("  ui_synchro : " + ("ÉCHEC" if erreurs or defauts else "OK, les deux appareils au même état"))
+    return 1 if erreurs or defauts else 0
+
+
 # --- mesurer -----------------------------------------------------------
 
 # Scénario de gestes (celui des premières mesures de l'agent de la carte,
@@ -3446,6 +3656,11 @@ def main():
     s.add_argument("--out", default="/tmp/terramemo-captures")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
+    s = sub.add_parser("synchro", help="ui_synchro (J1b) : deux navigateurs aux émulateurs, l'un hors ligne, au même état")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+
     s = sub.add_parser("mesurer", help="gestes et touchers rejoués, rapport JSON")
     s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), default="canvas",
@@ -3488,7 +3703,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "synchro", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -3501,7 +3716,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "synchro": commande_synchro,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
     commandes.update({k.replace("_", "-"): v for k, v in commandes.items() if "_" in k})
