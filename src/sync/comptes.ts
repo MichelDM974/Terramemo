@@ -62,7 +62,8 @@ import { codeErreur } from './erreurs';
 import { APRES_EFFACEMENT, effacerJoueurLocal } from './effacement';
 import type { Marques } from './envoi';
 import { poserEtatCompte, type ChangementProfil } from './pont';
-import { appliquer, ecrireBasePseudo, ecrireProfil, fusionner, lireBasePseudo, lireLocal, lireProfil, pseudoChangeIci, V_PROFIL, type Fusion, type ProfilLocal, type ProfilLu } from './profil';
+import type { CompteExport, ProfilExport } from './export';
+import { appliquer, ecrireBasePseudo, ecrireProfil, fusionner, lireBasePseudo, lireLocal, lireProfil, lireRecordsProfil, pseudoChangeIci, V_PROFIL, type Fusion, type ProfilLocal, type ProfilLu } from './profil';
 import { depotSessionIndexedDb, sessionVide, type DepotSession, type Fournisseur, type Session } from './session';
 
 /** Mot de passe : 8 caractères au moins, sans autre exigence (D17, comme Light). */
@@ -220,6 +221,13 @@ export interface Comptes {
   effacerAppareil(): Promise<void>;
   /** Réponses du journal de l'appareil (confirmation d'un effacement). */
   reponsesAppareil(): Promise<number>;
+  /**
+   * Ce que l'export (§ 7.2) dit du compte de la session : le compte connecté
+   * (date de création comprise) et son profil en ligne s'il se lit, ou le
+   * dernier compte d'une session perdue ; rien pour un invité. Ne rejette pas
+   * hors ligne : l'export se fait avec ce que l'appareil a.
+   */
+  pourExport(): Promise<{ compte: CompteExport | null; profil: ProfilExport | null }>;
   /** La marque de lecture des lots, gardée dans la session pour le compte de la session (envoi). */
   marques(): Marques;
   /**
@@ -1027,6 +1035,38 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       }),
 
     reponsesAppareil: () => appareil.reponsesHorsCompte(null),
+
+    async pourExport() {
+      const ses = await lireSession();
+      // Un invité (anonyme compris) : son journal seulement, sans « compte ».
+      if (!ses.uid) return { compte: null, profil: null };
+      let s: Service | null = null;
+      try {
+        s = await service();
+      } catch (e) {
+        noter(e);
+      }
+      const u = s?.a.currentUser ?? null;
+      const connecte = !!s && estCompte(u) && u!.uid === ses.uid && !ses.deconnexion;
+      const creation = connecte ? new Date(u!.metadata.creationTime ?? '') : null;
+      const compte: CompteExport = {
+        uid: ses.uid,
+        adresse: connecte ? u!.email : ses.adresse,
+        fournisseurs: connecte ? fournisseursDe(u!) : [...ses.fournisseurs],
+        cree_le: creation && !Number.isNaN(creation.getTime()) ? creation.toISOString() : null,
+      };
+      let profil: ProfilExport | null = null;
+      if (connecte && !coupee()) {
+        try {
+          const lu = await lireProfil(s!, ses.uid);
+          if (lu.existe && !lu.supprime) profil = { pseudo: lu.pseudo, records: Object.fromEntries(lireRecordsProfil(lu.records)) };
+        } catch (e) {
+          // Hors ligne, ou joueurs/ fermé par les règles : l'export se fait sans le profil en ligne.
+          noter(e);
+        }
+      }
+      return { compte, profil };
+    },
 
     marques: () => ({
       lire: async (uid) => {

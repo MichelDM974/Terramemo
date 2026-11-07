@@ -859,3 +859,116 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     expect($('#compte-vers-supprimer')).not.toBeNull();
   });
 });
+
+describe('vue Compte, lot 5 : export des données', () => {
+  const COMPTE: EtatCompte = { etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] };
+  const Q: QuestionFusion = { sorte: 'appareil', reponses: 12, records: 3, seances: 0 };
+  const FICHIER = { nom: 'terramemo-2026-11-07.json', contenu: '{"format":"terramemo-export"}\n' };
+
+  async function ouvrirExport(c: Comptes, o: { natif?: boolean; echec?: Error } = {}) {
+    const exporter = vi.fn(async () => {
+      if (o.echec) throw o.echec;
+      return FICHIER;
+    });
+    const telecharger = vi.fn();
+    const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => c, exporter, telecharger, natif: () => o.natif ?? false });
+    v.activer();
+    await attendre();
+    await attendre();
+    return { v, exporter, telecharger };
+  }
+
+  it('compte : « Exporter mes données », le fichier proposé, puis le message', async () => {
+    const { exporter, telecharger } = await ouvrirExport(fauxComptes(COMPTE));
+    expect($('#compte-exporter')!.textContent).toBe(T.exporter);
+    $('#compte-exporter')!.click();
+    await attendre();
+    expect(exporter).toHaveBeenCalledOnce();
+    expect(telecharger).toHaveBeenCalledWith(FICHIER.nom, FICHIER.contenu);
+    expect($('#compte-message')!.textContent).toBe('Export prêt : terramemo-2026-11-07.json, dans les téléchargements.');
+  });
+
+  it('un invité exporte aussi ; une session perdue aussi', async () => {
+    await ouvrirExport(fauxComptes());
+    expect($('#compte-exporter')!.textContent).toBe(T.exporter);
+    expect($('#compte-exporter')!.className).toBe('lien');
+    zone = document.createElement('main') as unknown as El;
+    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' }));
+    expect($('#compte-exporter')).not.toBeNull();
+  });
+
+  it('un échec : l’erreur traduite, rien de proposé', async () => {
+    const { telecharger } = await ouvrirExport(fauxComptes(COMPTE), { echec: err('auth/network-request-failed') });
+    $('#compte-exporter')!.click();
+    await attendre();
+    expect(telecharger).not.toHaveBeenCalled();
+    expect($('#compte-erreur')!.textContent).toBe('Réseau injoignable');
+  });
+
+  it('dans l’APK (D26 a) : le renvoi au site, à la place du bouton', async () => {
+    const { exporter } = await ouvrirExport(fauxComptes(COMPTE), { natif: true });
+    expect($('#compte-exporter')).toBeNull();
+    expect($('#compte-exporter-site')!.textContent).toBe('Exporte depuis le site : terramemo-geo.web.app');
+    expect(exporter).not.toHaveBeenCalled();
+  });
+
+  it('« Ne pas les ajouter » : « Exporter d’abord » avant l’effacement, pendant la question', async () => {
+    questionConnexion = Q;
+    const c = fauxComptes();
+    const { telecharger } = await ouvrirExport(c);
+    $('#compte-vers-connecter')!.click();
+    $('#compte-adresse')!.value = 'ana@exemple.fr';
+    $('#compte-mdp')!.value = 'motdepasse';
+    envoyer('#compte-form-connecter');
+    await attendre();
+    $('#compte-fusion-ne-pas')!.click();
+    const boutons = $('#compte-contenu')!.querySelectorAll('button').map((b) => b.id);
+    expect(boutons).toEqual(['compte-exporter-dabord', 'compte-fusion-effacer', 'compte-fusion-retour']);
+    expect($('#compte-exporter-dabord')!.textContent).toBe(T.exporter_dabord);
+    $('#compte-exporter-dabord')!.click();
+    await attendre();
+    expect(telecharger).toHaveBeenCalledOnce();
+    // La question reste posée : l'export n'y répond pas.
+    expect($('#compte-fusion-confirmer')).not.toBeNull();
+    $('#compte-fusion-effacer')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-message')!.textContent).toBe(T.connecte_efface.replace('{adresse}', 'ana@exemple.fr'));
+  });
+
+  it('dans l’APK, pas d’« Exporter d’abord » à la question', async () => {
+    questionConnexion = Q;
+    const c = fauxComptes();
+    await ouvrirExport(c, { natif: true });
+    $('#compte-vers-connecter')!.click();
+    $('#compte-adresse')!.value = 'ana@exemple.fr';
+    $('#compte-mdp')!.value = 'motdepasse';
+    envoyer('#compte-form-connecter');
+    await attendre();
+    $('#compte-fusion-ne-pas')!.click();
+    expect($('#compte-exporter-dabord')).toBeNull();
+    expect($('#compte-exporter-dabord-site')).toBeNull();
+    $('#compte-fusion-retour')!.click();
+    $('#compte-fusion-annuler')!.click();
+    await attendre();
+  });
+
+  it('une déconnexion qui perdrait des séances : « Exporter d’abord », avant « Se déconnecter quand même »', async () => {
+    resteDeconnexion = { fait: false, nonEnvoyees: 2, refusees: 0, profil: true };
+    const { telecharger } = await ouvrirExport(fauxComptes(COMPTE));
+    $('#compte-deconnecter')!.click();
+    await attendre();
+    const boutons = $('#compte-contenu')!.querySelectorAll('button').map((b) => b.id);
+    expect(boutons).toEqual(['compte-deconnexion-reessayer', 'compte-exporter-dabord', 'compte-deconnexion-quand-meme', 'compte-annuler']);
+    $('#compte-exporter-dabord')!.click();
+    await attendre();
+    expect(telecharger).toHaveBeenCalledOnce();
+  });
+
+  it('« Effacer cet appareil » (session perdue) : « Exporter d’abord » aussi', async () => {
+    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' }));
+    $('#compte-effacer')!.click();
+    await attendre();
+    expect($('#compte-contenu')!.querySelectorAll('button').map((b) => b.id)).toEqual(['compte-exporter-dabord', 'compte-effacer-ok', 'compte-annuler']);
+  });
+});

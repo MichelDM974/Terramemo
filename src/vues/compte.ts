@@ -18,15 +18,21 @@
 // « Mets à jour l'appli » des lots qu'une version ne sait pas lire. Lot 5 :
 // « Supprimer mon compte » (§ 7.1 : le texte de D27 b sur les places du
 // classement, puis « supprimer » et le mot de passe), « Suppression inachevée
-// : reprendre ? », « Ce compte est en cours de suppression ». Viendront
+// : reprendre ? », « Ce compte est en cours de suppression » ; « Exporter mes
+// données » (§ 7.2 : sur le site ; dans l'APK, un renvoi au site, D26 a), et
+// « Exporter d'abord » avant ce qui effacerait des progrès (seconde
+// confirmation de « Ne pas les ajouter », déconnexion qui n'a pas tout
+// envoyé, « Effacer cet appareil »). Viendront
 // ensuite : Google (lots 6 et 7). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
 // textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts.
 import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
 import { MOT_SUPPRESSION, type ChoixFusion, type Comptes, type EtatCompte, type QuestionFusion, type ResultatDeconnexion, type ResultatProfil } from '../sync/comptes';
+import { dansApk } from '../retour-android';
 import { synchroCoupee } from '../sync/drapeaux';
 import type { Envoi, EtatSynchro } from '../sync/envoi';
 import { codeErreur, traduire } from '../sync/erreurs';
+import { telecharger } from '../sync/export';
 import { lirePseudo } from './classement';
 import { creer, type ContexteVue, type Vue } from './commun';
 import { remplir, textes } from './textes';
@@ -105,6 +111,12 @@ export interface OptionsVueCompte {
    * perdue (§ 2.5).
    */
   envoi?: () => Promise<Pick<Envoi, 'etat' | 'compter' | 'declencher' | 'surPasse'>>;
+  /** L'export des données (§ 7.2, main.ts) : le fichier à proposer. Absent : pas d'export. */
+  exporter?: () => Promise<{ nom: string; contenu: string }>;
+  /** Dans l'APK ? (D26 a : un renvoi au site à la place de l'export). Défaut : dansApk(). */
+  natif?: () => boolean;
+  /** Le fichier proposé au navigateur. Défaut : Blob et <a download> (src/sync/export.ts). */
+  telecharger?: (nom: string, contenu: string) => void;
 }
 
 /** La ligne de l'état de la synchro d'un compte (§ 3.2), sans « Réessayer ». */
@@ -148,6 +160,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   let aEffacer: number | null = null;
   let abonne = false;
   let abonneEnvoi = false;
+  let exportEnCours = false;
+  const natif = o.natif ?? (() => typeof window !== 'undefined' && dansApk());
 
   const message = creer('p', { class: 'status', id: 'compte-message', 'aria-live': 'polite' });
   const erreur = creer('p', { class: 'status error', id: 'compte-erreur', role: 'alert' });
@@ -365,6 +379,36 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
     ];
   }
 
+  /**
+   * L'export (§ 7.2), hors de agir() : « Exporter d'abord » se touche pendant
+   * la question de fusion, quand la connexion est encore en cours.
+   */
+  async function exporterIci(): Promise<void> {
+    if (!o.exporter || exportEnCours) return;
+    exportEnCours = true;
+    erreur.textContent = '';
+    try {
+      const f = await o.exporter();
+      (o.telecharger ?? telecharger)(f.nom, f.contenu);
+      dire(remplir(T.exporte, { nom: f.nom }));
+    } catch (e) {
+      montrerErreur(e);
+    } finally {
+      exportEnCours = false;
+    }
+  }
+
+  /**
+   * « Exporter mes données » sur le site ; dans l'APK, le renvoi au site
+   * (D26 a). `dabord` : « Exporter d'abord », avant ce qui efface, sur le site
+   * seulement. Rien sans export branché.
+   */
+  function exportDe(id: string, sorte: 'secondaire' | 'lien', dabord = false): Node[] {
+    if (!o.exporter) return [];
+    if (natif()) return dabord ? [] : [creer('p', { class: 'hint', id: `${id}-site` }, T.exporter_site)];
+    return [bouton(id, dabord ? T.exporter_dabord : T.exporter, () => void exporterIci(), sorte)];
+  }
+
   function rendre(): void {
     rendreSynchro();
     contenu.replaceChildren(...ecranCourant());
@@ -436,6 +480,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
               aller('creer');
             }),
           ),
+          // Un invité exporte aussi son journal (§ 7.2), sans « compte ».
+          creer('div', { class: 'compte-liens' }, ...exportDe('compte-exporter', 'lien')),
         ];
       case 'creer': {
         const a = champAdresse(adresseSaisie);
@@ -554,6 +600,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer(
             'div',
             { class: 'compte-actions' },
+            ...exportDe('compte-exporter', 'secondaire'),
             ...(motDePasse ? [bouton('compte-vers-mdp', T.changer_mdp, () => {
               effacerAvis();
               aller('mdp');
@@ -668,6 +715,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
               aller('sans-compte');
             }),
           ),
+          creer('div', { class: 'compte-liens' }, ...exportDe('compte-exporter', 'lien')),
           creer(
             'div',
             { class: 'compte-actions compte-separe' },
@@ -686,6 +734,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer(
             'div',
             { class: 'compte-actions' },
+            ...exportDe('compte-exporter-dabord', 'secondaire', true),
             bouton('compte-effacer-ok', T.effacer_bouton, () =>
               void agir(async (c) => {
                 await c.effacerAppareil();
@@ -721,6 +770,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer(
             'div',
             { class: 'compte-actions' },
+            // Sur le site, l'export avant l'effacement (§ 2.3, § 7.2).
+            ...exportDe('compte-exporter-dabord', 'secondaire', true),
             bouton('compte-fusion-effacer', T.fusion_effacer, () => repondre?.('effacer'), 'danger'),
             bouton('compte-fusion-retour', T.fusion_retour, () => aller('fusion')),
           ),
@@ -736,6 +787,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
             'div',
             { class: 'compte-actions' },
             bouton('compte-deconnexion-reessayer', T.deconnexion_reessayer, () => void agir((c) => deconnecter(c)), 'principal'),
+            // Sur le site, l'export de ce qui serait perdu (§ 3.4, étape 2).
+            ...exportDe('compte-exporter-dabord', 'secondaire', true),
             bouton('compte-deconnexion-quand-meme', T.deconnexion_quand_meme, () => void agir((c) => deconnecter(c, true)), 'danger'),
             bouton('compte-annuler', T.annuler, () => {
               reste = null;

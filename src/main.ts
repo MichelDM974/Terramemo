@@ -13,6 +13,7 @@ import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
 import { creerTerrains, idsJouables, type Terrain, type Terrains } from './terrains';
+import { lirePseudoDe, lireRecords } from './epreuve/chrono';
 import { idAppareil } from './journal/appareil';
 import { depotIndexedDb } from './journal/depot';
 import { horlogeAppareil, horlogeDecalee, lireDecalage } from './journal/horloge';
@@ -674,7 +675,7 @@ async function demarrer(): Promise<void> {
         async () => {
           // L'envoi aussi : une création de compte faite ici relance l'envoi (surJeton).
           const [{ vueCompte }, mc] = await Promise.all([import('./vues/compte'), chargerComptes(), chargerEnvoi()]);
-          return vueCompte(ctx, { retour, comptes: async () => lesComptes(mc), envoi: chargerEnvoi });
+          return vueCompte(ctx, { retour, comptes: async () => lesComptes(mc), envoi: chargerEnvoi, exporter: exporterDonnees });
         },
         retour,
       ),
@@ -746,6 +747,22 @@ const appareilComptes: AppareilComptes = {
 };
 /** Les comptes de la page, branchés sur l'appareil (le premier appel fixe les options). */
 const lesComptes = (m: typeof import('./sync/comptes')) => m.comptes(VERSION, { appareil: appareilComptes });
+
+/**
+ * L'export des données (étude du J1b, § 7.2) : le journal entier (lu en
+ * strict : un journal illisible ne s'exporte pas à moitié), les lots à relire
+ * du compte, les records et le pseudo de l'appareil, et ce que les comptes
+ * savent du compte de la session.
+ */
+async function exporterDonnees(): Promise<{ nom: string; contenu: string }> {
+  const [x, mc, { depotARelireIndexedDb }] = await Promise.all([import('./sync/export'), chargerComptes(), import('./sync/depot-lots')]);
+  const enLigne = await lesComptes(mc).pourExport();
+  const [evenements, aRelire] = await Promise.all([memoire.tous({ strict: true }), enLigne.compte ? depotARelireIndexedDb().tous(enLigne.compte.uid).catch(() => []) : []]);
+  const st = stockage();
+  const maintenant = new Date();
+  const e = x.composerExport({ maintenant, ...enLigne, evenements, aRelire, records: Object.fromEntries(lireRecords(st)), pseudo: lirePseudoDe(st) });
+  return { nom: x.nomExport(maintenant), contenu: x.texteExport(e) };
+}
 
 function demarrerCompte(): void {
   // Après un effacement laissé en route : la session est alors celle d'un invité.
