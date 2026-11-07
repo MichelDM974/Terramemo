@@ -14,3 +14,12 @@ firestore-debug.log
 *.jks
 *.keystore
 signature.properties
+
+# Clé du compte de service de l'outil du propriétaire (scripts/admin/) : dans
+# ~/Sauvegardes/terramemo/admin/, jamais dans le dépôt (décision
+# « Confidentialité et ouverture des comptes »). Noms des clés de Google
+# (projet-hash.json, *-firebase-adminsdk-*.json) et tout .json de scripts/admin/.
+*firebase-adminsdk*.json
+terramemo-geo-*.json
+service-account*.json
+scripts/admin/*.json

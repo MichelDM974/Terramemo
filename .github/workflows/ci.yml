@@ -34,4 +34,6 @@ jobs:
       - run: npm run test:comptes
       # Critère de #3 : deux appareils, l'un hors ligne, au même état (tests/synchro-emulateurs.test.ts, J1b lot 4).
       - run: npm run test:synchro
+      # Outil du propriétaire sur les émulateurs (tests/admin.test.ts, J1b lot 5b) : à blanc, plan exact, pseudos voisins, idempotence.
+      - run: npm run test:admin
       - run: npm run build
