@@ -26,5 +26,15 @@ Conception, faite seule (06/11/2026) :
   l'utilisateur avec leur défaut codé (ticket #2) ; faite par un workflow
   (plan, relecture adverse, carte du code).
 
+Conception du J1b (07/11/2026) :
+
+- `2026-11-07-j1b-conception.md` : comptes et synchro (Google sur le
+  site et dans l'APK, e-mail et mot de passe, lien de l'invité, envoi
+  par lots, union du journal, session perdue), suppression du compte,
+  export, confidentialité, outil du propriétaire, étapes de la console,
+  lots 0 à 9 et décisions D15 à D35 (tickets #3 et #13). La saisie libre
+  n'y est pas conçue. Faite par un workflow : trois relevés, un jet,
+  trois relectures adverses, une synthèse.
+
 Le plan arrêté, qui tient compte des réponses de l'utilisateur et de la
 critique, est `../plan.md` : il fait foi là où ces études divergent.
