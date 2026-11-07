@@ -92,34 +92,70 @@ service cloud.firestore {
     }
 
     // Un record ne se réécrit que s'il progresse (plus de points, puis moins de
-    // temps, puis moins de questions : en Minute, moins d'erreurs), ou pour
-    // changer de pseudo à score égal.
-    function progresse() {
+    // temps, puis, en Minute, moins de questions, c'est-à-dire moins
+    // d'erreurs). Ailleurs, le classement ne départage pas aux questions
+    // (src/epreuve/classement.ts, parQuestions) : moins de questions à points
+    // et temps égaux, ou le même score, ne passe qu'en gardant le pseudo
+    // stocké. Un autre appareil ne renomme donc la place qu'en annonçant un
+    // meilleur score (07/11/2026) ; les scores étant déclarés par l'appli,
+    // sans serveur, cela n'arrête que la republication honnête.
+    function progresse(epreuve) {
       let n = request.resource.data;
       let a = resource.data;
       return n.points > a.points
         || (n.points == a.points && n.temps_ms < a.temps_ms)
-        || (n.points == a.points && n.temps_ms == a.temps_ms && n.questions < a.questions)
-        || (n.points == a.points && n.temps_ms == a.temps_ms && n.justes == a.justes && n.questions == a.questions);
+        || (n.points == a.points && n.temps_ms == a.temps_ms && n.questions < a.questions
+          && (epreuve.split(':')[0] == 'minute' || n.pseudo == a.pseudo))
+        || (n.points == a.points && n.temps_ms == a.temps_ms && n.justes == a.justes && n.questions == a.questions
+          && n.pseudo == a.pseudo);
     }
 
     // La place d'un pseudo : son nom en minuscules (src/epreuve/chrono.ts,
-    // clePseudo). Les règles n'en vérifient que la longueur : leur lower()
-    // échoue sur une majuscule accentuée (« É », « Œ », « Ñ » : émulateur,
-    // 06/11/2026). Cela suffit à refuser l'appli d'avant, qui nommait la place
-    // par le compte (28 caractères, plus qu'un pseudo). Écrire demande un
-    // compte (anonyme suffit). Personne ne la retire depuis l'appli : elle est
-    // à tous ceux qui jouent ce pseudo.
+    // clePseudo, le toLowerCase de JavaScript ; clePermise y est la copie de
+    // cette règle, que tests/regles.test.ts confronte à l'émulateur). Le
+    // lower() des règles ne baisse que les lettres ASCII (émulateur,
+    // 07/11/2026 : « Élodie ».lower() reste « Élodie », sans erreur) ; il
+    // n'est appliqué ici qu'à de l'ASCII, pour ne pas dépendre de ce qu'il
+    // fait d'autre en production. La clé n'a aucune majuscule ; ses
+    // caractères ASCII sont ceux du pseudo baissé, à la même place
+    // (caractères non ASCII masqués deux fois, par « _ » puis par « ~ » : un
+    // vrai « _ » ou « ~ » de la clé ne tient pas lieu d'un caractère non
+    // ASCII) ; ses caractères non ASCII sont ceux du pseudo, dans l'ordre.
+    // Seule exception : si le pseudo a une majuscule non ASCII (« Élodie »,
+    // « Œil », « Ñandú »), chacune de ses lettres non ASCII répond à une
+    // minuscule de la clé, sans la comparer : « ölodie » passe pour
+    // « Élodie », comme passent les homoglyphes, inévitables. Une place à clé
+    // ASCII (« michel ») ne reçoit ainsi que ce pseudo, à la casse près ;
+    // l'appli d'avant, qui nommait la place par le compte, est refusée.
+    // (?s) : « . » prend aussi un saut de ligne.
+    function majuscule() {
+      return '(?s).*[\\p{Lu}\\p{Lt}].*';
+    }
+    function asciiDuPseudo(cle, pseudo) {
+      return cle.replace('[^ -~]', '_') == pseudo.replace('[^ -~]', '_').lower()
+        && cle.replace('[^ -~]', '~') == pseudo.replace('[^ -~]', '~').lower();
+    }
+    function cleDuPseudo(cle, pseudo) {
+      let horsAscii = pseudo.replace('[ -~]', '');
+      let autres = cle.replace('[ -~]', '');
+      return !cle.matches(majuscule()) && asciiDuPseudo(cle, pseudo)
+        && (horsAscii.matches(majuscule())
+          ? autres.replace('\\p{Ll}', '?') == horsAscii.replace('[\\p{Lu}\\p{Lt}\\p{Ll}]', '?')
+          : autres == horsAscii);
+    }
+
+    // Écrire demande un compte (anonyme suffit). Personne ne retire une place
+    // depuis l'appli : elle est à tous ceux qui jouent ce pseudo.
     match /classements/{epreuve}/periodes/{periode}/scores/{cle} {
       allow read: if true;
       allow create: if request.auth != null
-        && cle.size() == request.resource.data.pseudo.size()
         && (periode == 'toujours' || periode == semaineCourante())
-        && scoreValide(epreuve);
+        && scoreValide(epreuve)
+        && cleDuPseudo(cle, request.resource.data.pseudo);
       allow update: if request.auth != null
-        && cle.size() == request.resource.data.pseudo.size()
         && (periode == 'toujours' || periode == semaineCourante())
-        && scoreValide(epreuve) && progresse();
+        && scoreValide(epreuve) && progresse(epreuve)
+        && cleDuPseudo(cle, request.resource.data.pseudo);
     }
   }
 }

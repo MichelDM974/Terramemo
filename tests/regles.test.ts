@@ -6,7 +6,7 @@ import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestE
 import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
-import { clePseudo, idEpreuve, vraisemblable } from '../src/epreuve/chrono';
+import { clePermise, clePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
 
 const hote = process.env.FIRESTORE_EMULATOR_HOST;
 const E = 'chrono:localiser:South America';
@@ -54,6 +54,62 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertSucceeds(setDoc(place(db('ana')), score()));
   });
 
+  it('la clé est le pseudo en minuscules, sans autre place possible ; clePermise (pseudoValide) juge comme les règles', async () => {
+    // [clé, pseudo, acceptée] : chaque essai est une création sur une base vide (seule la clé peut la refuser).
+    const cas: [string, string, boolean][] = [
+      ['michel', 'MICHEL', true],
+      ['michel', 'Michou', false], // la place d'un autre, même longueur
+      ['xxxxxx', 'Michel', false],
+      ['Michel', 'Michel', false], // une majuscule dans la clé
+      ['hélène', 'Hélène', true],
+      ['hölène', 'Hélène', false],
+      ['helene', 'Hélène', false],
+      ['michel', 'Michél', false],
+      // Majuscule non ASCII, que lower() des règles ne baisse pas.
+      ['élodie', 'Élodie', true],
+      ['œil de lynx', 'Œil de Lynx', true],
+      ['ñandú 42', 'Ñandú 42', true],
+      ['Élodie', 'Élodie', false],
+      ['elodie', 'Élodie', false],
+      ['élodiz', 'Élodie', false],
+      ['michel', 'Ḿichel', false],
+      // Un vrai « _ » ou « ~ » de la clé ne tient pas lieu d'un caractère non ASCII.
+      ['_lodie', 'Élodie', false],
+      ['~lodie', 'Élodie', false],
+      ['jean_luc', 'JeanÉLuc', false],
+      // À une place non ASCII, seule une lettre minuscule (sans la comparer) : ni emoji, ni contrôle, ni combinant.
+      ['ölodie', 'Élodie', true],
+      ['😀lodie', 'Élodie', false],
+      ['́lodie', 'Élodie', false],
+      ['‮lodie', 'Élodie', false],
+      [' lodie', 'Élodie', false],
+      ['\nlodie', 'Élodie', false],
+      ['é\nÉ', 'É\nÉ', false], // un saut de ligne ne cache pas une majuscule
+      ['é\né', 'É\nÉ', true],
+      // Sans majuscule non ASCII, les caractères non ASCII sont ceux du pseudo.
+      ['李明', '李明', true],
+      ['李朋', '李明', false],
+      ['राम', 'राम', true],
+      ['michel ★', 'Michel ★', true],
+      ['michel ☆', 'Michel ★', false],
+      // Lettres de fantaisie et İ turc : la clé de l'appli est refusée, pseudoValide le dit d'avance.
+      [clePseudo('Ⓜichel'), 'Ⓜichel', false],
+      [clePseudo('𝐌𝐢𝐜𝐡𝐞𝐥'), '𝐌𝐢𝐜𝐡𝐞𝐥', false],
+      [clePseudo('İrem'), 'İrem', false],
+      [clePseudo('ΟΔΟΣ'), 'ΟΔΟΣ', true],
+      [clePseudo('ǅemal'), 'ǅemal', true],
+      [clePseudo('Straße'), 'Straße', true],
+    ];
+    for (const [cle, pseudo, acceptee] of cas) {
+      await env.clearFirestore();
+      const ecrire = setDoc(place(db('ana'), cle), score({ pseudo }));
+      if (acceptee) await assertSucceeds(ecrire);
+      else await assertFails(ecrire);
+      expect([cle, pseudo, clePermise(cle, pseudo)]).toEqual([cle, pseudo, acceptee]);
+    }
+    for (const p of ['Ⓜichel', '𝐌𝐢𝐜𝐡𝐞𝐥', 'İrem']) expect(pseudoValide(p)).toBeNull();
+  });
+
   it('une place par pseudo : deux comptes (deux appareils) du même pseudo la partagent, le meilleur reste', async () => {
     await assertSucceeds(setDoc(place(db('telephone')), score({ points: 7_540, justes: 6, temps_ms: 98_000, questions: 12 })));
     await assertSucceeds(setDoc(place(db('pc')), score({ points: 11_000, justes: 11 })));
@@ -65,7 +121,8 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
   });
 
   it('accents et majuscules : la clé du client (toLowerCase) passe les règles', async () => {
-    for (const pseudo of ['Hélène', 'ÉLODIE', 'Œdipe ÇA', 'Zoë-María', 'ÀÂÄÈÊËÎÏÔÖÙÛÜŸ', 'Ñandú 42']) {
+    for (const pseudo of ['Hélène', 'ÉLODIE', 'Œdipe ÇA', 'Zoë-María', 'ÀÂÄÈÊËÎÏÔÖÙÛÜŸ', 'Ñandú 42', 'Straße', 'Ève-Marie B', 'Jean_Luc ~2', 'Ζωή']) {
+      expect(pseudoValide(pseudo)).toBe(pseudo);
       await assertSucceeds(setDoc(place(db('ana'), clePseudo(pseudo)), score({ pseudo })));
     }
   });
@@ -208,15 +265,37 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertFails(setDoc(place(a), score({ date: Timestamp.fromMillis(Date.now()) })));
   });
 
-  it('un record ne se réécrit que s’il progresse, ou pour changer la casse du pseudo', async () => {
+  it('un record ne se réécrit que s’il progresse ; à score égal, le pseudo stocké reste', async () => {
     const a = db('ana');
+    const bob = db('bob');
     await assertSucceeds(setDoc(place(a), score()));
     await assertFails(setDoc(place(a), score({ points: 10_500, justes: 10 })));
     await assertFails(setDoc(place(a), score({ temps_ms: 61_000 })));
-    await assertSucceeds(setDoc(place(a), score({ pseudo: 'MICHEL' })));
+    // Le même score, réécrit tel quel (republication d'un appareil) : rien ne change.
+    await assertSucceeds(setDoc(place(a), score()));
+    // Un autre appareil ne renomme pas la place sans la battre, même à la casse près.
+    await assertFails(setDoc(place(bob), score({ pseudo: 'MICHEL' })));
+    await assertFails(setDoc(place(bob), score({ pseudo: 'Michou' })));
     await assertFails(setDoc(place(a), score({ pseudo: 'Michel D' })));
-    await assertSucceeds(setDoc(place(a), score({ temps_ms: 50_000 })));
+    expect((await getDoc(place(a))).data()?.pseudo).toBe('Michel');
+    // En la battant, il y met sa casse.
+    await assertSucceeds(setDoc(place(bob), score({ pseudo: 'MICHEL', temps_ms: 50_000 })));
+    expect((await getDoc(place(a))).data()?.pseudo).toBe('MICHEL');
+    await assertFails(setDoc(place(bob), score({ pseudo: 'Michou', points: 11_200, temps_ms: 90_000 })));
     await assertSucceeds(setDoc(place(a), score({ points: 11_200, temps_ms: 90_000 })));
+  });
+
+  it('moins de questions à points et temps égaux : un progrès en Minute seulement, ailleurs le pseudo stocké reste', async () => {
+    const a = db('ana');
+    const general = (o: Record<string, unknown>) => setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 414, justes: 300, points: 300_000, temps_ms: 3_000_000, ...o }));
+    await assertSucceeds(general({}));
+    // Égalité visible au classement (points, puis temps) : pas de nouveau nom.
+    await assertFails(general({ questions: 300, pseudo: 'MICHEL' }));
+    await assertSucceeds(general({ questions: 300 }));
+    // Minute départage aux questions (moins d'erreurs) : c'est un vrai progrès.
+    const M = idEpreuve('reunion', 'minute');
+    await assertSucceeds(setDoc(place(a, 'michel', 'toujours', M), score({ questions: 23, justes: 20, points: 20, temps_ms: 60_000 })));
+    await assertSucceeds(setDoc(place(a, 'michel', 'toujours', M), score({ questions: 22, justes: 20, points: 20, temps_ms: 60_000, pseudo: 'MICHEL' })));
   });
 
   it('général : la somme des épreuves du Chrono, 414 questions au plus (390 du monde + 24 de l’île)', async () => {

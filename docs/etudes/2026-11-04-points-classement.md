@@ -158,7 +158,13 @@ l'épreuve (~300 km sur le monde, ~50 km sur la France). À caler au J4
   trois fois : Chrome, APK, PC). Tout compte qui joue sous ce pseudo
   améliore la place ; le général prend, par épreuve, le meilleur de
   l'appareil et de la place en ligne (lue avant de l'écrire). Le pseudo
-  n'est pas réservé : qui le choisit partage la place.
+  n'est pas réservé : qui le choisit partage la place. Le 07/11 (audit),
+  les règles n'acceptent que cette clé, sans majuscule (`cleDuPseudo`,
+  recopiée dans l'appli par `clePermise`, qui refuse d'avance les pseudos
+  dont la clé ne passerait pas), et une réécriture à score égal garde le
+  pseudo stocké : un autre appareil ne renomme la place qu'en annonçant un
+  meilleur score. Les scores étant déclarés par l'appli, cela n'arrête que
+  la republication honnête, pas un client modifié.
 - **Coût** : afficher un classement = 10 lectures (les 10 premiers) + 1
   pour le nombre de joueurs, + 3 pour sa place et son rang s'il est hors
   des 10 (`count()`, une lecture par tranche de 1 000) ; finir une épreuve = jusqu'à 4 écritures (les deux records

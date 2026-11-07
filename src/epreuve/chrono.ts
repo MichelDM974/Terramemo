@@ -386,17 +386,42 @@ export function totalGeneral(records: Map<string, RecordChrono>, periode: string
 /**
  * Pseudo public : espaces resserrés, 2 à 20 caractères ; null sinon. Il nomme
  * aussi la place au classement (clePseudo) : pas de « / », ni de nom que
- * Firestore refuse pour un document (« .. », « __…__ »).
+ * Firestore refuse pour un document (« .. », « __…__ »), ni de pseudo dont
+ * les règles refuseraient la clé (clePermise : lettres de fantaisie « 𝐌 »,
+ * « Ⓜ », « Ⅻ », « İ » turc), que le joueur apprend ainsi tout de suite
+ * plutôt qu'à chaque publication refusée.
  */
 export function pseudoValide(brut: string): string | null {
   const p = brut.normalize('NFC').trim().replace(/\s+/g, ' ');
   if (p.length < 2 || p.length > 20 || p.includes('/') || p === '..' || /^__.*__$/.test(p)) return null;
+  if (!clePermise(clePseudo(p), p)) return null;
   return p;
 }
 
 /**
  * La place d'un pseudo au classement (nom de son document Firestore) : un
  * pseudo, une place, quel que soit l'appareil ; la casse ne compte pas.
- * firestore.rules exige la même clé (pseudo.lower()).
+ * firestore.rules (cleDuPseudo) n'accepte que cette clé, à peu de chose
+ * près : clePermise.
  */
 export const clePseudo = (pseudo: string): string => pseudo.toLowerCase();
+
+const MAJUSCULE = /[\p{Lu}\p{Lt}]/u;
+const masquer = (s: string, m: string) => s.replace(/[^ -~]/gu, m);
+const horsAscii = (s: string) => s.replace(/[ -~]/gu, '');
+
+/**
+ * La règle cleDuPseudo de firestore.rules, recopiée (tests/regles.test.ts
+ * les confronte sur l'émulateur) : la clé n'a aucune majuscule ; ses
+ * caractères ASCII sont ceux du pseudo baissé (lower() des règles ne baisse
+ * que l'ASCII), à la même place ; ses caractères non ASCII sont ceux du
+ * pseudo, sauf si le pseudo a une majuscule non ASCII : chacune de ses
+ * lettres non ASCII répond alors à une minuscule de la clé, quelle qu'elle soit.
+ */
+export function clePermise(cle: string, pseudo: string): boolean {
+  if (MAJUSCULE.test(cle)) return false;
+  for (const m of ['_', '~']) if (masquer(cle, m) !== masquer(pseudo, m).toLowerCase()) return false;
+  const h = horsAscii(pseudo);
+  const autres = horsAscii(cle);
+  return MAJUSCULE.test(h) ? autres.replace(/\p{Ll}/gu, '?') === h.replace(/[\p{Lu}\p{Lt}\p{Ll}]/gu, '?') : autres === h;
+}
