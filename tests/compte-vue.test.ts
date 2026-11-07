@@ -6,8 +6,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Comptes, EtatCompte, ResultatProfil } from '../src/sync/comptes';
 import { CLE_SANS_SYNCHRO } from '../src/sync/drapeaux';
+import type { ComptesSynchro, EtatSynchro, ResultatEnvoi } from '../src/sync/envoi';
 import { vueALaDemande } from '../src/vues/a-la-demande';
-import { textePerdue, textePseudoDuCompte, vueCompte } from '../src/vues/compte';
+import { textePerdue, textePseudoDuCompte, texteSynchro, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { textes } from '../src/vues/textes';
 import { installerDom, installerStockage, type El } from './dom-factice';
@@ -75,8 +76,34 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function ouvrir(c: Comptes, seances?: () => Promise<number>): Promise<Vue> {
-  const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => c, seances });
+/** Un envoi en mémoire (lot 3) : l'état de la synchro, les séances non envoyées, « Réessayer » qui relance tout. */
+function fauxEnvoi(depart: Partial<EtatSynchro> = {}, nonEnvoyees = 0) {
+  let etat: EtatSynchro = { coupee: false, attente: 0, refusees: 0, horsLigne: false, ...depart };
+  const abonnes = new Set<() => void>();
+  const passe = () => abonnes.forEach((f) => f());
+  const fini: ResultatEnvoi = { etat: 'fait', composes: 0, envoyes: 1, presents: 0, refuses: 0, arret: null, quand: 0 };
+  return {
+    etat: vi.fn(async (_uid: string) => etat),
+    compter: vi.fn(async (_uid: string): Promise<ComptesSynchro> => ({ evenements: 9, horsLots: 0, attente: 0, refusees: 0, nonEnvoyees, lots: { a_envoyer: 0, envoye: 0, en_ligne: 0, refuse: 0 } })),
+    declencher: vi.fn(async () => {
+      etat = { ...etat, refusees: 0, attente: 0, horsLigne: false };
+      passe();
+      return fini;
+    }),
+    surPasse: vi.fn((f: () => void) => {
+      abonnes.add(f);
+      return () => abonnes.delete(f);
+    }),
+    /** Une passe venue d'ailleurs (clôture d'une séance) : l'état change, les abonnés sont prévenus. */
+    poser(e: Partial<EtatSynchro>) {
+      etat = { ...etat, ...e };
+      passe();
+    },
+  };
+}
+
+async function ouvrir(c: Comptes, envoi?: ReturnType<typeof fauxEnvoi>): Promise<Vue> {
+  const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => c, envoi: envoi && (async () => envoi) });
   v.activer();
   await attendre();
   await attendre();
@@ -284,7 +311,9 @@ describe('vue Compte', () => {
 
   it('session perdue : le nombre de séances, se reconnecter (adresse pré-remplie) ou continuer sans compte', async () => {
     const c = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' });
-    await ouvrir(c, async () => 3);
+    const e = fauxEnvoi({}, 3);
+    await ouvrir(c, e);
+    expect(e.compter).toHaveBeenCalledWith('u1');
     expect($('#compte-perdue')!.textContent).toBe('Session expirée : reconnecte-toi pour envoyer 3 séances.');
     $('#compte-reconnecter')!.click();
     expect($('#compte-adresse')!.value).toBe('ana@exemple.fr');
@@ -325,6 +354,49 @@ describe('vue Compte', () => {
     await attendre();
     await attendre();
     expect(contenu()).toContain(T.invite);
+  });
+
+  it('état de la synchro du compte (lot 3) : à jour, en attente, hors ligne, refusées · Réessayer', async () => {
+    const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] });
+    const e = fauxEnvoi();
+    await ouvrir(c, e);
+    expect(e.etat).toHaveBeenCalledWith('u1');
+    const ligne = $('#compte-synchro')!;
+    expect(ligne.hidden).toBe(false);
+    expect(ligne.textContent).toBe(T.synchro_a_jour);
+    e.poser({ attente: 2 });
+    await attendre();
+    expect(ligne.textContent).toBe("2 séances en attente d'envoi");
+    e.poser({ horsLigne: true });
+    await attendre();
+    expect(ligne.textContent).toBe(T.synchro_hors_ligne);
+    e.poser({ refusees: 1 });
+    await attendre();
+    expect(ligne.textContent).toBe(`${T.synchro_refusee_une} · ${T.synchro_reessayer}`);
+    $('#compte-synchro-reessayer')!.click();
+    await attendre();
+    await attendre();
+    expect(e.declencher).toHaveBeenCalledWith('reessayer');
+    expect(ligne.textContent).toBe(T.synchro_a_jour);
+    expect($('#compte-synchro-reessayer')).toBeNull();
+  });
+
+  it('la ligne de la synchro ne se montre que sur l’écran du compte (sauf « Synchro coupée »)', async () => {
+    const e = fauxEnvoi({ attente: 4 });
+    await ouvrir(fauxComptes(), e);
+    expect($('#compte-synchro')!.hidden).toBe(true);
+    expect(e.etat).not.toHaveBeenCalled();
+  });
+
+  it('texteSynchro : singulier, pluriel, et l’ordre des cas', () => {
+    const e = (o: Partial<EtatSynchro>): EtatSynchro => ({ coupee: false, attente: 0, refusees: 0, horsLigne: false, ...o });
+    expect(texteSynchro(e({}))).toBe(T.synchro_a_jour);
+    expect(texteSynchro(e({ attente: 1 }))).toBe(T.synchro_attente_une);
+    expect(texteSynchro(e({ attente: 3 }))).toBe("3 séances en attente d'envoi");
+    expect(texteSynchro(e({ horsLigne: true }))).toBe(T.synchro_a_jour);
+    expect(texteSynchro(e({ attente: 3, horsLigne: true }))).toBe(T.synchro_hors_ligne);
+    expect(texteSynchro(e({ attente: 3, refusees: 2 }))).toBe('2 séances refusées par le serveur, gardées sur cet appareil');
+    expect(texteSynchro(e({ refusees: 2, coupee: true }))).toBe(T.synchro_coupee);
   });
 
   it('synchro coupée (drapeau du driver) : dit dans la vue', async () => {

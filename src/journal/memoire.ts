@@ -9,10 +9,12 @@
 // privée stricte, base qui ne s'ouvre pas), le journal vit en mémoire
 // (depotMemoire) et `garde` passe à faux, que les vues disent par un avis
 // discret ; l'état en mémoire suit quand même la séance. Rien n'est envoyé
-// au réseau ici (synchro : lot 6).
+// au réseau ici : l'envoi des lots (J1b, lot 3, src/sync/envoi.ts) lit le
+// journal par tous(), et n'envoie la séance en cours de la page qu'en
+// arrière-plan (seanceEnCours, clore : étude du J1b, § 5.2, « Séance close »).
 
 import { jourDe, type Horloge } from '../srs/jour';
-import type { Evenement } from '../srs/journal';
+import { valider, type Evenement } from '../srs/journal';
 import { PARAMS_FSRS, planificateur, type ParamsFsrs } from '../srs/fsrs';
 import { appliquer, etat as rejouer, ordonner, type EtatFiche } from '../srs/rejeu';
 import { depotMemoire, type Depot } from './depot';
@@ -42,6 +44,20 @@ export interface Memoire {
   ecrire(evts: readonly Evenement[]): Promise<void>;
   /** Événements écrits depuis l'ouverture (pilote, tests). */
   readonly ecrits: number;
+  /**
+   * Tout le journal : celui du dépôt, plus les événements écrits par la page
+   * qu'il n'a pas (file en cours, dépôt en échec, repli en mémoire). Attend
+   * le chargement ; ne rejette pas (dépôt illisible : ceux de la page).
+   */
+  tous(): Promise<Evenement[]>;
+  /**
+   * La séance de la page en cours : celle du dernier événement écrit, tant
+   * qu'elle n'est pas close (clore). Toute autre séance est close (étude du
+   * J1b, § 5.2). null hors séance.
+   */
+  seanceEnCours(): string | null;
+  /** La séance en cours est finie (bilan, « Terminer », vue quittée) : elle devient envoyable. */
+  clore(): void;
 }
 
 export interface OptionsMemoire {
@@ -55,6 +71,8 @@ export interface OptionsMemoire {
   surAvis?: (e: unknown) => void;
   /** Le journal est chargé (Jouer redessine ses comptes). */
   surCharge?: () => void;
+  /** Une séance vient d'être close (clore) : l'envoi peut partir. */
+  surCloture?: (seance: string) => void;
 }
 
 export function ouvrirMemoire(o: OptionsMemoire): Memoire {
@@ -69,6 +87,10 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
   /** Les écritures se suivent dans l'ordre (un lot attend le précédent). */
   let file: Promise<void> = Promise.resolve();
   let averti = false;
+  /** Les événements écrits par la page, dans l'ordre (tous() les ajoute à ceux du dépôt). */
+  const page = new Map<string, Evenement>();
+  let enCours: string | null = null;
+  let close = true;
 
   const echec = (e: unknown) => {
     garde = false;
@@ -110,9 +132,35 @@ export function ouvrirMemoire(o: OptionsMemoire): Memoire {
     get ecrits() {
       return ecrits;
     },
+    async tous() {
+      await pret;
+      let gardes: Evenement[] = [];
+      try {
+        gardes = await depot.tous();
+      } catch {
+        // Dépôt illisible après coup : ceux de la page seulement.
+      }
+      const tout = new Map(gardes.map((e) => [e.id, e]));
+      // Un événement que le dépôt refuserait (invalide) ne sort pas non plus d'ici.
+      for (const [id, e] of page) if (!tout.has(id) && valider(e)) tout.set(id, structuredClone(e));
+      return [...tout.values()];
+    },
+    seanceEnCours: () => (close ? null : enCours),
+    clore() {
+      if (close || !enCours) return;
+      close = true;
+      o.surCloture?.(enCours);
+    },
     ecrire(evts) {
       if (!evts.length) return file;
       ecrits += evts.length;
+      for (const e of evts) {
+        page.set(e.id, structuredClone(e));
+        if (e.seance !== null) {
+          enCours = e.seance;
+          close = false;
+        }
+      }
       if (charge) for (const e of evts) appliquer(fiches, e, p);
       else enAttente.push(...evts);
       const lot = [...evts];

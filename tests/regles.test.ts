@@ -3,11 +3,15 @@
 // Sans émulateur (npm test), ces tests sont sautés. Puis le profil des
 // comptes, `joueurs/{uid}` (J1b, lot 2, étude § 6), règles chargées avec
 // essai() ouvert (tests/regles-essai.ts) : celles du dépôt le gardent fermé.
+// Enfin les lots de la synchro, `joueurs/{uid}/lots/{lot}` (lot 3, § 5.2 et
+// § 6), et la copie client de lotValide (problemeLot) confrontée aux règles.
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
 import { clePermise, clePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
+import type { Evenement } from '../src/srs/journal';
+import { docDuLot, problemeLot, type DocLot } from '../src/sync/lots';
 import { ESSAI_DU_DEPOT, REGLES, reglesAvecEssai } from './regles-essai';
 
 const hote = process.env.FIRESTORE_EMULATOR_HOST;
@@ -322,6 +326,9 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     const ana = env.authenticatedContext('ana', jetonCompte() as never).firestore() as unknown as Firestore;
     await assertFails(setDoc(doc(ana, 'joueurs', 'ana'), { v: 1, maj: serverTimestamp() }));
     await assertFails(getDoc(doc(ana, 'joueurs', 'ana')));
+    const l = lot();
+    await assertFails(setDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id), l.doc));
+    await assertFails(getDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id)));
   });
 });
 
@@ -425,19 +432,166 @@ describe.skipIf(!hote)('profil joueurs/{uid} (J1b, lot 2 ; essai() ouvert)', () 
     await assertFails(setDoc(moi(db('lia'), 'lia'), profil()));
   });
 
-  it('pas de suppression du profil par le client ; pas de liste de joueurs/ ; les lots fermés jusqu’au lot 3', async () => {
+  it('pas de suppression du profil par le client ; pas de liste de joueurs/ ; demandes/ fermé', async () => {
     await assertSucceeds(setDoc(moi(db('ana')), profil()));
     await assertFails(deleteDoc(moi(db('ana'))));
     await assertFails(getDocs(collection(db('ana'), 'joueurs')));
     await assertFails(getDocs(collection(db(null), 'joueurs')));
-    await assertFails(setDoc(doc(db('ana'), 'joueurs', 'ana', 'lots', 'x'.repeat(36)), { v: 1 }));
-    await assertFails(getDoc(doc(db('ana'), 'joueurs', 'ana', 'lots', 'x'.repeat(36))));
     await assertFails(setDoc(doc(db('ana'), 'demandes', 'ana'), { pseudo: 'Michel', cree: serverTimestamp() }));
   });
 
   it('les classements ne changent pas pour un compte : sa place s’écrit comme celle d’un anonyme', async () => {
     await assertSucceeds(setDoc(place(db('ana')), score()));
     await assertSucceeds(setDoc(place(db('bob', JETON_ANONYME), 'lea'), score({ pseudo: 'Lea' })));
+  });
+});
+
+let k = 0;
+const APPAREIL = '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b';
+const SEANCE = '0a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d';
+/** n réponses d'une séance, comme le journal les écrit (ids uuid croissants). */
+function reponses(n: number): Evenement[] {
+  return Array.from({ length: n }, (_, i) => ({
+    v: 1 as const,
+    id: `${(++k).toString(16).padStart(8, '0')}-3333-4444-8555-${String(i).padStart(12, '0')}`,
+    appareil: APPAREIL,
+    ts: 1_762_500_000_000 + i * 1000,
+    tz: 240,
+    seance: SEANCE,
+    type: 'reponse' as const,
+    fiche: 'communes:97411:localiser',
+    mode: 'revision' as const,
+    reponse: '97424',
+    via: null,
+    zoom: 0.00012345678901234567,
+    correct: false,
+    aide: 'passer' as const,
+    duree_ms: 86_400_000,
+    distance_km: 20_099.123456789012,
+    note: 1 as const,
+  }));
+}
+/** Un lot composé (src/sync/lots.ts) de n réponses, `fin` à l'heure du serveur. */
+function lot(n = 1, o: Partial<DocLot> & Record<string, unknown> = {}): { id: string; doc: Record<string, unknown> } {
+  const e = reponses(n);
+  const d = docDuLot({ id: e[0]!.id, appareil: APPAREIL, seance: SEANCE, evenements: e });
+  return { id: e[0]!.id, doc: { ...d, fin: serverTimestamp(), ...o } };
+}
+
+describe.skipIf(!hote)('lots joueurs/{uid}/lots/{lot} (J1b, lot 3 ; essai() ouvert)', () => {
+  let env: RulesTestEnvironment;
+  type Jeton = Record<string, unknown> | null;
+  const db = (uid: string | null, jeton: Jeton = jetonCompte()) =>
+    (uid ? env.authenticatedContext(uid, (jeton ?? undefined) as never).firestore() : env.unauthenticatedContext().firestore()) as unknown as Firestore;
+  const ref = (d: Firestore, id: string, uid = 'ana') => doc(d, 'joueurs', uid, 'lots', id);
+
+  beforeAll(async () => {
+    const [host, port] = (hote ?? '').split(':');
+    env = await initializeTestEnvironment({ projectId: 'demo-terramemo', firestore: { rules: reglesAvecEssai('return true;'), host, port: Number(port) } });
+  });
+  afterAll(async () => env?.cleanup());
+  beforeEach(async () => env.clearFirestore());
+
+  it('compte e-mail, compte Google, anonyme lié : ses lots (création, lecture, liste, suppression)', async () => {
+    for (const [uid, j] of [
+      ['ana', jetonCompte()],
+      ['gael', jetonCompte({ fournisseur: 'google.com', identites: { 'google.com': ['1'] } })],
+      ['lia', jetonCompte({ fournisseur: 'anonymous' })],
+    ] as const) {
+      const d = db(uid, j);
+      const l = lot();
+      await assertSucceeds(setDoc(ref(d, l.id, uid), l.doc));
+      await assertSucceeds(getDoc(ref(d, l.id, uid)));
+      await assertSucceeds(getDocs(collection(d, 'joueurs', uid, 'lots')));
+      await assertSucceeds(deleteDoc(ref(d, l.id, uid)));
+    }
+  });
+
+  it('sans compte, un autre uid, un anonyme : rien (lecture, création, suppression) ; pas de liste de tous les lots', async () => {
+    const l = lot();
+    await env.withSecurityRulesDisabled(async (c) => void (await setDoc(ref(c.firestore() as unknown as Firestore, l.id), { ...l.doc, fin: Timestamp.now() })));
+    const autre = lot();
+    for (const d of [db(null), db('bob'), db('ana', JETON_ANONYME)]) {
+      await assertFails(getDoc(ref(d, l.id)));
+      await assertFails(getDocs(collection(d, 'joueurs', 'ana', 'lots')));
+      await assertFails(setDoc(ref(d, autre.id), autre.doc));
+      await assertFails(deleteDoc(ref(d, l.id)));
+    }
+    await assertFails(setDoc(ref(db('bob', JETON_ANONYME), autre.id, 'bob'), autre.doc));
+  });
+
+  it('création seule : un lot qui existe ne se réécrit pas, même à l’identique (renvoi)', async () => {
+    const d = db('ana');
+    const l = lot(2);
+    await assertSucceeds(setDoc(ref(d, l.id), l.doc));
+    await assertFails(setDoc(ref(d, l.id), l.doc));
+    await assertFails(setDoc(ref(d, l.id), { n: 2 }, { merge: true }));
+  });
+
+  it('bornes : 1 et 200 réponses aux champs les plus longs passent ; n, chaîne, champs, heure, id refusés', async () => {
+    const d = db('ana');
+    for (const n of [1, 200]) {
+      const l = lot(n);
+      expect((l.doc.evenements as string).length).toBeLessThanOrEqual(n * 160);
+      await assertSucceeds(setDoc(ref(d, l.id), l.doc));
+    }
+    const l = lot();
+    const s = l.doc.evenements as string;
+    for (const faux of [
+      { n: 0 },
+      { n: 201 },
+      { n: 1.5 },
+      { evenements: ' '.repeat(161 - s.length) + s },
+      { evenements: [s] },
+      { evenements: { cartes: s } },
+      { v: 2 },
+      { appareil: APPAREIL.slice(1) },
+      { seance: 'courte' },
+      { fin: Timestamp.now() },
+      { triche: true },
+    ])
+      await assertFails(setDoc(ref(d, l.id), { ...l.doc, ...faux }));
+    const manque = { ...l.doc };
+    delete manque.seance;
+    await assertFails(setDoc(ref(d, l.id), manque));
+    await assertFails(setDoc(ref(d, l.id.slice(1)), l.doc));
+    // Une séance nulle passe ; la chaîne à 160 caractères juste aussi.
+    await assertSucceeds(setDoc(ref(d, l.id), { ...l.doc, seance: null, evenements: ' '.repeat(160 - s.length) + s }));
+  });
+
+  it('problemeLot (client) juge comme les règles ce qu’elles voient', async () => {
+    const d = db('ana');
+    const cas: [string, Partial<DocLot>][] = [
+      ['juste', {}],
+      ['n = 0', { n: 0 }],
+      ['n = 201', { n: 201 }],
+      ['v = 2', { v: 2 }],
+      ['appareil court', { appareil: 'x'.repeat(35) }],
+      ['séance longue', { seance: 'x'.repeat(37) }],
+      ['séance nulle', { seance: null }],
+    ];
+    for (const [nom, o] of cas) {
+      const l = lot(1, o);
+      const { fin: _, ...sansFin } = l.doc;
+      // Les cartes ne sont pas relues par les règles : seule la forme du document compte ici.
+      const client = problemeLot(l.id, sansFin as unknown as DocLot);
+      const visible = client === null || ['n', 'v', 'appareil', 'seance', 'evenements', 'id'].includes(client);
+      expect(visible, `${nom} : ${client}`).toBe(true);
+      const accepte = await setDoc(ref(d, l.id), l.doc).then(() => true, () => false);
+      expect(accepte, `${nom} : ${client}`).toBe(client === null);
+    }
+  });
+
+  it('pierre tombale : plus aucun lot nouveau, même d’un 2e appareil du compte ; les lots se lisent et se suppriment', async () => {
+    const l = lot();
+    await assertSucceeds(setDoc(ref(db('ana'), l.id), l.doc));
+    await assertSucceeds(setDoc(doc(db('ana'), 'joueurs', 'ana'), { v: 1, maj: serverTimestamp(), supprime: true }));
+    for (const d of [db('ana'), db('ana', jetonCompte({ fournisseur: 'google.com', identites: { 'google.com': ['9'], email: ['ana@exemple.fr'] } }))]) {
+      const n = lot();
+      await assertFails(setDoc(ref(d, n.id), n.doc));
+      await assertSucceeds(getDoc(ref(d, l.id)));
+    }
+    await assertSucceeds(deleteDoc(ref(db('ana'), l.id)));
   });
 });
 
@@ -457,5 +611,13 @@ describe.skipIf(!hote)('règles d’essai des lots 6 et 7 : les adresses vérifi
     await assertFails(setDoc(d('b', jetonCompte({ email: 'moi@exemple.fr', verifiee: false })), profil()));
     await assertSucceeds(setDoc(d('c', jetonCompte({ email: 'moi@exemple.fr', verifiee: true })), profil()));
     await assertSucceeds(getDoc(d('c', jetonCompte({ email: 'moi@exemple.fr', verifiee: true }))));
+    // Les lots, de même.
+    const lotDe = (uid: string, j: Record<string, unknown>) => {
+      const l = lot();
+      return setDoc(doc(env.authenticatedContext(uid, j as never).firestore() as unknown as Firestore, 'joueurs', uid, 'lots', l.id), l.doc);
+    };
+    await assertFails(lotDe('a', jetonCompte({ email: 'autre@exemple.fr', verifiee: true })));
+    await assertFails(lotDe('b', jetonCompte({ email: 'moi@exemple.fr', verifiee: false })));
+    await assertSucceeds(lotDe('c', jetonCompte({ email: 'moi@exemple.fr', verifiee: true })));
   });
 });

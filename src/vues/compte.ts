@@ -8,8 +8,10 @@
 // Lot 2 : le pseudo du compte, modifiable (pseudoValide), écrit dans le
 // profil `joueurs/{uid}` avec les records ; à la connexion, un pseudo de
 // l'appareil remplacé par celui du compte est dit une fois (§ 2.3, étape 7).
-// Viendront ensuite : état de la synchro (lot 3), question de
-// fusion, déconnexion reprenable et « Effacer cet appareil » (lot 4),
+// Lot 3 : l'état de la synchro du compte (§ 3.2, une ligne : à jour, séances
+// en attente, hors ligne, séances refusées · « Réessayer »), et le nombre de
+// séances pas encore envoyées d'une session perdue. Viendront ensuite :
+// question de fusion, déconnexion reprenable et « Effacer cet appareil » (lot 4),
 // export, suppression et lien vers la politique (lot 5), Google (lots 6 et
 // 7). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
@@ -17,6 +19,7 @@
 import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
 import type { Comptes, EtatCompte, ResultatProfil } from '../sync/comptes';
 import { synchroCoupee } from '../sync/drapeaux';
+import type { Envoi, EtatSynchro } from '../sync/envoi';
 import { codeErreur, traduire } from '../sync/erreurs';
 import { lirePseudo } from './classement';
 import { creer, type ContexteVue, type Vue } from './commun';
@@ -46,8 +49,21 @@ export interface OptionsVueCompte {
   retour: () => void;
   /** Les comptes de la page (Firebase chargé au premier appel). */
   comptes: () => Promise<Comptes>;
-  /** Séances du journal pas encore envoyées (session perdue, § 2.5) ; au lot 1, toutes celles du journal. */
-  seances?: () => Promise<number>;
+  /**
+   * L'envoi des séances (src/sync/envoi.ts, chargé avec les comptes) : état
+   * de la synchro, « Réessayer », séances pas encore envoyées d'une session
+   * perdue (§ 2.5).
+   */
+  envoi?: () => Promise<Pick<Envoi, 'etat' | 'compter' | 'declencher' | 'surPasse'>>;
+}
+
+/** La ligne de l'état de la synchro d'un compte (§ 3.2), sans « Réessayer ». */
+export function texteSynchro(e: EtatSynchro): string {
+  if (e.coupee) return T.synchro_coupee;
+  if (e.refusees) return e.refusees === 1 ? T.synchro_refusee_une : remplir(T.synchro_refusees, { n: e.refusees });
+  if (e.attente && e.horsLigne) return T.synchro_hors_ligne;
+  if (e.attente) return e.attente === 1 ? T.synchro_attente_une : remplir(T.synchro_attente, { n: e.attente });
+  return T.synchro_a_jour;
 }
 
 /** Le texte d'une session perdue : « {n} séances », au singulier pour une. */
@@ -64,7 +80,9 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   /** Adresse gardée d'un formulaire à l'autre (création → connexion, session perdue → reconnexion). */
   let adresseSaisie = '';
   let seancesPerdue: number | null = null;
+  let synchroLue: EtatSynchro | null = null;
   let abonne = false;
+  let abonneEnvoi = false;
 
   const message = creer('p', { class: 'status', id: 'compte-message', 'aria-live': 'polite' });
   const erreur = creer('p', { class: 'status error', id: 'compte-erreur', role: 'alert' });
@@ -170,8 +188,53 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   }
 
   function rendre(): void {
-    synchro.hidden = !synchroCoupee();
+    rendreSynchro();
     contenu.replaceChildren(...ecranCourant());
+  }
+
+  /** La ligne de la synchro : l'état d'un compte sur son écran ; ailleurs, seulement « Synchro coupée ». */
+  function rendreSynchro(): void {
+    const e = ecran === 'compte' ? synchroLue : null;
+    if (!e) {
+      synchro.hidden = !synchroCoupee();
+      synchro.replaceChildren(T.synchro_coupee);
+      return;
+    }
+    synchro.hidden = false;
+    synchro.replaceChildren(texteSynchro({ ...e, coupee: e.coupee || synchroCoupee() }));
+    if (e.refusees && !e.coupee) synchro.append(' · ', bouton('compte-synchro-reessayer', T.synchro_reessayer, () => void reessayer(), 'lien'));
+  }
+
+  async function lireSynchro(): Promise<void> {
+    if (etat?.etat !== 'compte' || !o.envoi) {
+      synchroLue = null;
+      return;
+    }
+    try {
+      const e = await o.envoi();
+      if (!abonneEnvoi) {
+        abonneEnvoi = true;
+        // Après chaque passe (clôture d'une séance, retour du réseau) : la ligne suit.
+        e.surPasse(() => {
+          if (active) void lireSynchro().then(rendreSynchro);
+        });
+      }
+      synchroLue = etat?.etat === 'compte' ? await e.etat(etat.uid) : null;
+    } catch {
+      synchroLue = null;
+    }
+  }
+
+  /** « Réessayer » : les lots refusés relancés, puis la ligne relue. */
+  async function reessayer(): Promise<void> {
+    if (!o.envoi) return;
+    try {
+      await (await o.envoi()).declencher('reessayer');
+    } catch (e) {
+      montrerErreur(e);
+    }
+    await lireSynchro();
+    rendreSynchro();
   }
 
   function ecranCourant(): Node[] {
@@ -432,13 +495,15 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   async function apres(c: Comptes): Promise<void> {
     etat = await c.etat();
     await lirePerdue();
+    await lireSynchro();
     aller(ecranDe(etat));
   }
 
+  /** Les séances pas encore acceptées du dernier compte (sans réseau : le journal et les lots de l'appareil). */
   async function lirePerdue(): Promise<void> {
-    if (etat?.etat !== 'perdue' || !o.seances) return;
+    if (etat?.etat !== 'perdue' || !o.envoi) return;
     try {
-      seancesPerdue = await o.seances();
+      seancesPerdue = (await (await o.envoi()).compter(etat.uid)).nonEnvoyees;
     } catch {
       seancesPerdue = null;
     }
@@ -459,6 +524,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       const avant = etat?.etat;
       etat = await c.etat();
       await lirePerdue();
+      await lireSynchro();
       // Un pseudo remplacé par celui du compte à une ouverture de l'appli, que personne n'a lu : dit ici, une fois.
       const ancien = etat.etat === 'compte' && !message.textContent ? prendreAvisPseudo(stockageDeLaPage()) : null;
       if (ancien) dire(remplir(T.pseudo_du_compte, { pseudo: lirePseudo() ?? '' }));
@@ -466,7 +532,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       // si l'état a changé sous lui.
       const formulaireOuvert = ecran === 'creer' || ecran === 'connecter' || ecran === 'mdp' || ecran === 'pseudo' || ecran === 'sans-compte';
       if (!formulaireOuvert || avant !== etat.etat) aller(ecranDe(etat));
-      else synchro.hidden = !synchroCoupee();
+      else rendreSynchro();
     } catch (e) {
       montrerErreur(e);
       if (!etat) aller('echec');

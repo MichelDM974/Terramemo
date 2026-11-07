@@ -2,8 +2,8 @@ rules_version = '2';
 
 // Classements des épreuves (#14, décisions « Points et classement »,
 // « Classements » et « Sans faute et Minute »,
-// docs/etudes/2026-11-04-points-classement.md § 4), puis profil des comptes
-// (J1b, docs/etudes/2026-11-07-j1b-conception.md § 6, en bas).
+// docs/etudes/2026-11-04-points-classement.md § 4), puis profil et lots des
+// comptes (J1b, docs/etudes/2026-11-07-j1b-conception.md § 6, en bas).
 // Sans serveur (offre Spark) : c'est l'appli qui écrit son score ; ces règles
 // n'en vérifient que la vraisemblance (bornes du barème, taille de l'épreuve,
 // semaine en cours, record qui progresse). Une place par pseudo (décision du
@@ -201,6 +201,33 @@ service cloud.firestore {
         && (!('supprime' in d) || (d.supprime == true && !('pseudo' in d) && !('records' in d)));
     }
 
+    // Pierre tombale (§ 7.1) : plus aucun lot nouveau, de cet appareil comme
+    // des autres du compte. Une lecture de plus par création de lot.
+    function tombe(uid) {
+      let p = /databases/$(database)/documents/joueurs/$(uid);
+      return exists(p) && get(p).data.get('supprime', false) == true;
+    }
+
+    // Un lot de la synchro (§ 5.2, src/sync/lots.ts, problemeLot en est la
+    // copie, que tests/regles.test.ts confronte) : son id est celui de son
+    // premier événement (un uuid), l'appareil et la séance aussi ; 1 à 200
+    // événements encodés par position dans une chaîne, bornée à 160
+    // caractères par événement (les règles ne savent pas borner une carte
+    // d'une liste : D34) ; l'heure du serveur. Que la première carte porte
+    // l'id du lot, seul le client le vérifie (la carte est dans la chaîne).
+    function lotValide(lot) {
+      let d = request.resource.data;
+      return lot.size() == 36
+        && d.keys().hasOnly(['v', 'appareil', 'seance', 'fin', 'n', 'evenements'])
+        && d.keys().hasAll(['v', 'appareil', 'seance', 'fin', 'n', 'evenements'])
+        && d.v == 1
+        && d.appareil is string && d.appareil.size() == 36
+        && (d.seance == null || (d.seance is string && d.seance.size() == 36))
+        && d.fin == request.time
+        && d.n is int && d.n >= 1 && d.n <= 200
+        && d.evenements is string && d.evenements.size() <= d.n * 160;
+    }
+
     match /joueurs/{uid} {
       allow read: if moi(uid);
       allow create: if moi(uid) && profilValide();
@@ -208,8 +235,15 @@ service cloud.firestore {
       // de cet appareil comme des autres du compte.
       allow update: if moi(uid) && profilValide()
         && resource.data.get('supprime', false) != true;
-      // Pas de delete par le client : la pierre tombale reste (§ 7.1). Les
-      // lots (joueurs/{uid}/lots, lot 3) restent fermés d'ici là.
+      // Pas de delete par le client : la pierre tombale reste (§ 7.1).
+
+      // Les lots du compte : en création seule (un renvoi d'un lot déjà là
+      // est refusé, et l'appli le relit), lus et supprimés (§ 7.1) par le
+      // compte seul.
+      match /lots/{lot} {
+        allow read, delete: if moi(uid);
+        allow create: if moi(uid) && lotValide(lot) && !tombe(uid);
+      }
     }
   }
 }

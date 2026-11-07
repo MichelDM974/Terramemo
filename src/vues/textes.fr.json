@@ -525,6 +525,13 @@
     "continuer_sans_bouton": "Oui, continuer sans compte",
     "sans_compte": "Cet appareil est redevenu invité : ses progrès y restent.",
     "synchro_coupee": "Synchro coupée (essai)",
+    "synchro_a_jour": "Synchro : à jour",
+    "synchro_attente": "{n} séances en attente d'envoi",
+    "synchro_attente_une": "1 séance en attente d'envoi",
+    "synchro_hors_ligne": "Hors ligne : envoi à la reconnexion",
+    "synchro_refusees": "{n} séances refusées par le serveur, gardées sur cet appareil",
+    "synchro_refusee_une": "1 séance refusée par le serveur, gardée sur cet appareil",
+    "synchro_reessayer": "Réessayer",
     "erreurs": {
       "auth/invalid-credential": "Adresse ou mot de passe incorrect",
       "auth/user-not-found": "Adresse ou mot de passe incorrect",

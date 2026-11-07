@@ -97,6 +97,52 @@ describe('mémoire de l’appareil', () => {
   });
 });
 
+describe('mémoire et envoi (J1b, lot 3)', () => {
+  const S1 = '0a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d';
+  const S2 = '1a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d';
+  const dans = (seance: string | null, e: Evenement): Evenement => ({ ...e, seance });
+
+  it('tous() : le journal du dépôt, plus les écrits de la page qu’il n’a pas (écriture refusée), sans doublon', async () => {
+    const d = depotMemoire();
+    const gardes = [ev('pays:FRA:localiser', J, 3, 'rappel')];
+    await d.ajouter(gardes);
+    let refuser = false;
+    const depot: Depot = { tous: () => d.tous(), ajouter: (e) => (refuser ? Promise.reject(new ErreurDepot('quota', 'plein')) : d.ajouter(e)) };
+    const m = ouvrirMemoire({ depot, appareil: 'app', horloge: () => ({ ts: J, tz: 240 }) });
+    const a = ev('pays:BEL:localiser', J + 1, 3, 'rappel');
+    await m.ecrire([a]);
+    refuser = true;
+    const b = ev('pays:DEU:localiser', J + 2, 3, 'rappel');
+    await m.ecrire([b]);
+    expect(m.garde).toBe(false);
+    expect((await m.tous()).map((e) => e.id).sort()).toEqual([gardes[0]!.id, a.id, b.id].sort());
+  });
+
+  it('seanceEnCours() : celle du dernier événement écrit, jusqu’à clore() ; une autre séance la remplace', async () => {
+    const surCloture = vi.fn();
+    const m = ouvrirMemoire({ depot: depotMemoire(), appareil: 'app', horloge: () => ({ ts: J, tz: 240 }), surCloture });
+    await m.pret;
+    expect(m.seanceEnCours()).toBeNull();
+    m.clore();
+    expect(surCloture).not.toHaveBeenCalled();
+    await m.ecrire([dans(S1, ev('pays:FRA:localiser', J, 3, 'rappel'))]);
+    expect(m.seanceEnCours()).toBe(S1);
+    // Un événement hors séance (réinitialisation) ne la change pas.
+    await m.ecrire([dans(null, ev('pays:BEL:localiser', J, 3, 'rappel'))]);
+    expect(m.seanceEnCours()).toBe(S1);
+    await m.ecrire([dans(S2, ev('pays:DEU:localiser', J, 3, 'rappel'))]);
+    expect(m.seanceEnCours()).toBe(S2);
+    m.clore();
+    expect(m.seanceEnCours()).toBeNull();
+    expect(surCloture).toHaveBeenCalledExactlyOnceWith(S2);
+    m.clore();
+    expect(surCloture).toHaveBeenCalledTimes(1);
+    // Reprise de la même séance : de nouveau en cours.
+    await m.ecrire([dans(S2, ev('pays:ITA:localiser', J, 3, 'rappel'))]);
+    expect(m.seanceEnCours()).toBe(S2);
+  });
+});
+
 describe('horloge de test', () => {
   it('?horloge= : un décalage en jours, lu seulement s’il est un nombre', () => {
     expect([lireDecalage('1'), lireDecalage('-2'), lireDecalage('+0.5'), lireDecalage(null), lireDecalage('demain'), lireDecalage('1e9')]).toEqual([1, -2, 0.5, null, null, null]);

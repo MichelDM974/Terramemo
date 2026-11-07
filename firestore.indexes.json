@@ -40,6 +40,12 @@
     { "collectionGroup": "joueurs", "fieldPath": "pseudo", "ttl": false, "indexes": [] },
     { "collectionGroup": "joueurs", "fieldPath": "maj", "ttl": false, "indexes": [] },
     { "collectionGroup": "joueurs", "fieldPath": "v", "ttl": false, "indexes": [] },
-    { "collectionGroup": "joueurs", "fieldPath": "supprime", "ttl": false, "indexes": [] }
+    { "collectionGroup": "joueurs", "fieldPath": "supprime", "ttl": false, "indexes": [] },
+    { "collectionGroup": "lots", "fieldPath": "evenements", "ttl": false, "indexes": [] },
+    { "collectionGroup": "lots", "fieldPath": "appareil", "ttl": false, "indexes": [] },
+    { "collectionGroup": "lots", "fieldPath": "seance", "ttl": false, "indexes": [] },
+    { "collectionGroup": "lots", "fieldPath": "n", "ttl": false, "indexes": [] },
+    { "collectionGroup": "lots", "fieldPath": "v", "ttl": false, "indexes": [] },
+    { "collectionGroup": "lots", "fieldPath": "fin", "ttl": false, "indexes": [{ "order": "ASCENDING", "queryScope": "COLLECTION" }] }
   ]
 }

@@ -1,6 +1,5 @@
 import './style.css';
 import './carte.css';
-import { version as VERSION } from '../package.json';
 import { Carte, type CarteAffichee } from './map/carte';
 import { CarteCanvas } from './map/carte-canvas';
 import { chargerDonnees, chargerLeger } from './map/donnees';
@@ -21,8 +20,9 @@ import { ouvrirMemoire } from './journal/memoire';
 import { creerNavigation } from './navigation';
 import { brancherRetourAndroid } from './retour-android';
 import { brancherZoom } from './zoom-carte';
-import { comptesVisibles, poserDrapeaux } from './sync/drapeaux';
+import { comptesVisibles, poserDrapeaux, synchroCoupee } from './sync/drapeaux';
 import type { RapportComptes } from './sync/comptes';
+import type { ComptesSynchro, Declencheur, Envoi, RapportEnvoi } from './sync/envoi';
 import { brancherProfil, poserEtatCompte, type ChangementProfil } from './sync/pont';
 import { depotSessionIndexedDb } from './sync/session';
 import { vueALaDemande } from './vues/a-la-demande';
@@ -41,6 +41,7 @@ import { vueSaisie } from './vues/saisie';
 import { vueCredits } from './vues/credits';
 import { creerSeances } from './vues/seance';
 import { textes } from './vues/textes';
+import { VERSION } from './version';
 
 const debutScript = performance.now();
 
@@ -374,6 +375,24 @@ export interface Terramemo {
    * null tant que le module n'est pas chargé (invité qui n'a pas ouvert #compte).
    */
   comptes(): Promise<RapportComptes | null>;
+  /** Synchro (J1b, lot 3) : ce que le pilote compare d'un appareil à l'autre ; ne charge pas Firebase. */
+  synchro(): Promise<RapportSynchro>;
+}
+
+/** Ce que window.terramemo.synchro() rend (étude du J1b, § 5.8, 2). */
+export interface RapportSynchro {
+  /** Le dernier compte connecté de la session (null : invité). */
+  uid: string | null;
+  coupee: boolean;
+  /** Événements du journal, et l'empreinte de l'état FSRS rejoué. */
+  evenements: number;
+  empreinte: string;
+  /** Les comptes des lots du compte (null pour un invité). */
+  lots: ComptesSynchro | null;
+  /** Lots lus en ligne que cette version ne sait pas lire (lot 4). */
+  a_relire: number;
+  /** L'envoi de la page : dernière passe, erreurs brutes ; null tant qu'il n'est pas chargé. */
+  envoi: RapportEnvoi | null;
 }
 
 declare global {
@@ -405,6 +424,7 @@ window.terramemo = {
       return null;
     }
   },
+  synchro: () => rapportSynchro(),
 };
 
 /** Ce qui ne vaut que pour les rendus canvas et webgl du monde : rien pour une carte SVG. */
@@ -479,7 +499,7 @@ if (relais) hote.dataset.relais = 'attente';
 /**
  * La mémoire de l'appareil (journal du J1a, src/journal/memoire.ts) : lue et
  * rejouée une fois, en parallèle de la carte ; l'id de l'appareil lu une
- * fois. Rien ne part au réseau (synchro : lot 6).
+ * fois. Une séance close part au compte, s'il y en a un (J1b, lot 3 : envoi).
  */
 const memoire = ouvrirMemoire({
   depot: depotIndexedDb(),
@@ -490,6 +510,7 @@ const memoire = ouvrirMemoire({
     jouer?.rafraichir();
     explorer?.rafraichir();
   },
+  surCloture: () => lancerEnvoi('cloture'),
 });
 
 async function demarrer(): Promise<void> {
@@ -609,10 +630,9 @@ async function demarrer(): Promise<void> {
         'compte',
         { titre: T.titre, chargement: T.chargement, echec: T.chargement_echec, reessayer: T.reessayer, retour: T.retour },
         async () => {
-          const [{ vueCompte }, { comptes }] = await Promise.all([import('./vues/compte'), chargerComptes()]);
-          // Le nombre de séances de la session perdue (« pour envoyer {n} séances ») revient
-          // avec l'envoi (lot 3) : d'ici là, rien ne part, même après la reconnexion.
-          return vueCompte(ctx, { retour, comptes: async () => comptes(VERSION) });
+          // L'envoi aussi : une création de compte faite ici relance l'envoi (surJeton).
+          const [{ vueCompte }, { comptes }] = await Promise.all([import('./vues/compte'), chargerComptes(), chargerEnvoi()]);
+          return vueCompte(ctx, { retour, comptes: async () => comptes(VERSION), envoi: chargerEnvoi });
         },
         retour,
       ),
@@ -672,9 +692,88 @@ function demarrerCompte(): void {
       // Provisoire, avant le chargement de Firebase : la zone du pseudo d'un classement ouvert
       // tout de suite voit déjà un compte (etat() corrige, session perdue comprise).
       if (!s.deconnexion) poserEtatCompte('compte');
-      return chargerComptes().then((m) => m.comptes(VERSION).demarrer());
+      return chargerComptes()
+        .then((m) => m.comptes(VERSION).demarrer())
+        .then((e) => {
+          // À l'ouverture : ce qui attend part (séances closes, lots en attente du réseau).
+          if (e.etat === 'compte') lancerEnvoi('ouverture');
+        });
     })
     .catch((e: unknown) => console.warn('Compte non relu au démarrage :', e));
+}
+
+// --- Envoi des séances (J1b, lot 3 ; étude § 5.2) ---
+
+/** Le journal tel que l'envoi le lit : tout, la file d'écriture, la séance en cours. */
+const journalEnvoi = {
+  tous: () => memoire.tous(),
+  attendre: () => memoire.ecrire([]),
+  seanceEnCours: () => memoire.seanceEnCours(),
+};
+
+/**
+ * L'envoi de la page, avec les comptes : chargé seulement si la session
+ * connaît un compte, ou à l'ouverture de la vue Compte. Un échec (site hors
+ * ligne) n'est pas gardé.
+ */
+let envoiCharge: Promise<Envoi> | null = null;
+function chargerEnvoi(): Promise<Envoi> {
+  const p = (envoiCharge ??= Promise.all([chargerComptes(), import('./sync/envoi')]).then(([mc, me]) => {
+    const c = mc.comptes(VERSION);
+    const e = me.creerEnvoi({
+      journal: journalEnvoi,
+      version: VERSION,
+      compte: async () => {
+        const x = await c.pourSynchro();
+        return x && { uid: x.uid, serveur: me.serveurFirestore(x.service) };
+      },
+    });
+    // Création, lien, connexion, adresse vérifiée : le journal part, les lots refusés se relancent.
+    c.surJeton(() => void e.declencher('jeton'));
+    return e;
+  }));
+  p.catch(() => {
+    if (envoiCharge === p) envoiCharge = null;
+  });
+  return p;
+}
+
+/** Une passe d'envoi ; rien pour un invité (D16), qui ne charge aucun morceau des comptes. */
+async function envoyer(d: Declencheur): Promise<void> {
+  if (!envoiCharge && !(await depotSessionIndexedDb().lire())?.uid) return;
+  await (await chargerEnvoi()).declencher(d);
+}
+function lancerEnvoi(d: Declencheur): void {
+  envoyer(d).catch((e: unknown) => console.warn('Envoi non lancé :', e));
+}
+
+/** Retour au premier plan : un envoi toutes les 5 min au plus (§ 5.2). */
+const PREMIER_PLAN_MIN = 5 * 60_000;
+let dernierPremierPlan = 0;
+document.addEventListener('visibilitychange', () => {
+  // Arrière-plan : le seul moment sûr sur Android, où l'appli est souvent tuée ; la séance en cours part aussi.
+  if (document.visibilityState === 'hidden') return lancerEnvoi('fond');
+  const t = Date.now();
+  if (t - dernierPremierPlan < PREMIER_PLAN_MIN) return;
+  dernierPremierPlan = t;
+  lancerEnvoi('premier_plan');
+});
+addEventListener('online', () => lancerEnvoi('reseau'));
+
+/** window.terramemo.synchro() : sans Firebase ; l'envoi n'est chargé que pour un compte. */
+async function rapportSynchro(): Promise<RapportSynchro> {
+  const [ses, evts, m] = await Promise.all([depotSessionIndexedDb().lire().catch(() => null), memoire.tous(), import('./sync/envoi')]);
+  const uid = ses?.uid ?? null;
+  const { depotLotsIndexedDb } = await import('./sync/depot-lots');
+  return {
+    uid,
+    coupee: synchroCoupee(),
+    evenements: evts.length,
+    empreinte: m.empreinte(memoire.etat()),
+    lots: uid ? await m.compter(journalEnvoi, depotLotsIndexedDb(), uid) : null,
+    a_relire: 0,
+    envoi: envoiCharge ? (await envoiCharge.catch(() => null))?.rapport() ?? null : null,
+  };
 }
 
 /**

@@ -44,11 +44,10 @@ function messageBrut(err: unknown): string {
 }
 
 /**
- * Minuit à Los Angeles (remise à zéro des quotas de Firebase, § 3.3), en
- * heure de l'appareil : « 12 h » à La Réunion l'hiver boréal, « 11 h » l'été.
- * `fuseau` : celui de l'affichage (défaut : celui de l'appareil).
+ * Le prochain minuit à Los Angeles : la remise à zéro des quotas de Firebase
+ * (§ 3.3 et § 5.2), 12 h à La Réunion l'hiver boréal, 11 h l'été.
  */
-export function heureRemiseQuota(maintenant: Date = new Date(), fuseau?: string): string {
+export function remiseQuota(maintenant: Date = new Date()): Date {
   const la = (d: Date) => {
     const p = Object.fromEntries(
       new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -62,6 +61,16 @@ export function heureRemiseQuota(maintenant: Date = new Date(), fuseau?: string)
   let minuit = new Date(maintenant.getTime() + (86400 - la(maintenant)) * 1000);
   const ecart = la(minuit);
   if (ecart !== 0) minuit = new Date(minuit.getTime() + (ecart > 43200 ? 86400 - ecart : -ecart) * 1000);
+  return minuit;
+}
+
+/**
+ * Minuit à Los Angeles en heure de l'appareil : « 12 h » à La Réunion l'hiver
+ * boréal, « 11 h » l'été. `fuseau` : celui de l'affichage (défaut : celui de
+ * l'appareil).
+ */
+export function heureRemiseQuota(maintenant: Date = new Date(), fuseau?: string): string {
+  const minuit = remiseQuota(maintenant);
   const p = Object.fromEntries(
     new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', ...(fuseau ? { timeZone: fuseau } : {}) })
       .formatToParts(minuit)

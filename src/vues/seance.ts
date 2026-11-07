@@ -234,6 +234,8 @@ export function creerSeances(o: OptionsSeances): Seances {
       connu: () => courant()?.seance.connu(),
       terminer: () => {
         for (const b of blocsSeance) b.seance.terminer();
+        // Son bilan suit : la séance devient envoyable (§ 5.2).
+        m.clore();
       },
       bilan(el, actions) {
         const bilans = blocsSeance.map((b) => ({ b: b.seance.bilan(), d: b.info.donnees }));
@@ -299,5 +301,5 @@ export function creerSeances(o: OptionsSeances): Seances {
     };
   }
 
-  return { ouvrir, besoinIle, ileIncertaine, comptes, libre };
+  return { ouvrir, besoinIle, ileIncertaine, comptes, libre, clore: () => m.clore() };
 }

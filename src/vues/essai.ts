@@ -106,6 +106,11 @@ export interface FabriqueSeances {
   ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance;
   /** La demande a besoin de l'île (communes) : Toucher la charge avant ouvrir() ; sans réponse, non. */
   besoinIle?(d: DemandeSeance): boolean;
+  /**
+   * La partie de la page est finie ou quittée (bilan, abandon, vue quittée) :
+   * sa séance devient envoyable (synchro du J1b, § 5.2). Sans effet hors séance.
+   */
+  clore?(): void;
 }
 
 const T = textes.toucher;
@@ -491,6 +496,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
 
   /** La partie en cours (ou son bilan) abandonnée : rien à l'écran, la carte du monde. */
   function arreter(): void {
+    o.seances?.clore?.();
     jetonSeance++;
     clearTimeout(enAttente);
     enAttente = 0;
@@ -525,6 +531,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   function finir(): void {
     if (pilote) return finirSeance();
     validerEnAttente();
+    o.seances?.clore?.();
     // Partie close (même par « Terminer ») : revenir à la vue ramène au choix.
     cibles = [];
     barre.hidden = true;
@@ -627,6 +634,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     },
     desactiver() {
       validerEnAttente();
+      // Une partie reprise au retour écrit de nouveau sous sa séance : un lot de plus (§ 5.2).
+      o.seances?.clore?.();
       bilanAuRetour = !bilan.hidden;
       nommer.quitter();
       retournee.quitter();

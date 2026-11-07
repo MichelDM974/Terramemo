@@ -130,7 +130,7 @@ export type RenduMesure = Rendu | 'canvas';
 
 export interface Rapport {
   v: 6;
-  /** Version de l'appli (package.json). */
+  /** Version de l'appli (src/version.ts : le commit du build). */
   version: string;
   /** Date ISO de la production du rapport. */
   date: string;

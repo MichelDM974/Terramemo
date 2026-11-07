@@ -16,9 +16,15 @@
 // (profilModifie, par le pont du morceau principal). `session.profil_a_ecrire`
 // garde ce qui n'est pas parti (hors ligne, refus des règles : `joueurs/` est
 // fermé en production jusqu'au lot 6). Rien pour un invité, anonyme compris
-// (D16), ni quand la synchro est coupée. Envoi des séances (lot 3), lecture,
-// union et question de fusion (lot 4) : la question D22 dira au lot 4 si les
-// records de l'appareil vont au compte ; d'ici là, ils y vont.
+// (D16), ni quand la synchro est coupée. Lecture, union et question de fusion
+// (lot 4) : la question D22 dira au lot 4 si les records de l'appareil vont
+// au compte ; d'ici là, ils y vont.
+//
+// Lot 3, envoi des séances (src/sync/envoi.ts, branché par main.ts) : les
+// comptes lui disent à qui envoyer (pourSynchro) et quand le jeton change
+// (surJeton : création, lien, connexion, adresse vérifiée), pour relancer les
+// lots refusés par les règles. Comme les records, le journal d'un appareil
+// part au compte à toute connexion, jusqu'à la question D22 du lot 4.
 //
 // Lien, pas copie (décision « Comptes ») : un anonyme devient un compte par
 // linkWithCredential, qui garde son uid ; jamais de signOut avant le lien.
@@ -107,6 +113,15 @@ export interface Comptes {
   changerPseudo(pseudo: string): Promise<ResultatProfil>;
   /** Appelé quand l'état peut avoir changé (connexion, session perdue en cours de route). */
   surChangement(f: () => void): () => void;
+  /**
+   * Le compte à qui envoyer les lots (src/sync/envoi.ts) : un compte connecté
+   * (pas un invité, anonyme compris : D16), sans déconnexion, effacement ni
+   * suppression en cours ; null sinon, session perdue comprise. Lève si le
+   * service ne se charge pas (hors ligne).
+   */
+  pourSynchro(): Promise<{ uid: string; service: Service } | null>;
+  /** Le jeton du compte vient de changer (création, lien, connexion, adresse vérifiée). */
+  surJeton(f: () => void): () => void;
   /** Démarrage d'un compte ou d'une session perdue : SDK chargé, état surveillé. */
   demarrer(): Promise<EtatCompte>;
   rapport(): RapportComptes;
@@ -164,6 +179,9 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   const republier = o.republier ?? ((p: string) => import('../vues/classement').then((m) => m.publierTout(p)));
   const maintenant = o.maintenant ?? Date.now;
   const abonnes = new Set<() => void>();
+  const jetons = new Set<() => void>();
+  /** Le compte vu avec une adresse non vérifiée : sa vérification change le jeton (règles d'essai, § 6). */
+  let nonVerifie: string | null = null;
   const rapport: RapportComptes = { etat: null, jeton: null, erreurs: [], profil: null, profil_a_ecrire: null };
   let surveille = false;
   let reseauEcoute = false;
@@ -171,6 +189,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   let sessionPage: Session | null = null;
 
   const prevenir = () => abonnes.forEach((f) => f());
+  const jetonChange = () => jetons.forEach((f) => f());
   const noter = (e: unknown) => {
     rapport.erreurs.push({ code: codeErreur(e), message: e instanceof Error ? e.message : String(e), quand: Date.now() });
     rapport.erreurs.splice(0, Math.max(0, rapport.erreurs.length - 10));
@@ -261,6 +280,9 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     } catch (e) {
       noter(e);
     }
+    nonVerifie = u.emailVerified ? null : u.uid;
+    // Les lots refusés se relancent avec ce jeton ; le journal de l'appareil part (§ 2.2).
+    jetonChange();
     return assurerProfil();
   }
 
@@ -411,6 +433,17 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       if (ses.uid !== u.uid && !ses.deconnexion && s.a.currentUser === u)
         await ecrireSession({ uid: u.uid, fournisseurs: fournisseursDe(u), adresse: u.email, deconnexion: null });
       e = { etat: 'compte', uid: u.uid, adresse: u.email, verifiee: u.emailVerified, fournisseurs: fournisseursDe(u) };
+      // Adresse vérifiée depuis (lien de l'e-mail, ouvert ailleurs) : le jeton rafraîchi la porte.
+      if (!u.emailVerified) nonVerifie = u.uid;
+      else if (nonVerifie === u.uid) {
+        nonVerifie = null;
+        try {
+          await rafraichir(u);
+          jetonChange();
+        } catch (err) {
+          noter(err);
+        }
+      }
     } else if (ses.uid && ses.deconnexion === 'voulue') {
       // Déconnexion interrompue après le signOut (appli fermée) : on la termine.
       await ecrireSession({ uid: null, fournisseurs: [], adresse: null, deconnexion: null });
@@ -564,6 +597,19 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     surChangement(f) {
       abonnes.add(f);
       return () => abonnes.delete(f);
+    },
+
+    async pourSynchro() {
+      const ses = await lireSession();
+      if (ses.deconnexion || ses.effacement || ses.suppression) return null;
+      const s = await service();
+      const u = s.a.currentUser;
+      return u && estCompte(u) ? { uid: u.uid, service: s } : null;
+    },
+
+    surJeton(f) {
+      jetons.add(f);
+      return () => jetons.delete(f);
     },
 
     demarrer: () =>

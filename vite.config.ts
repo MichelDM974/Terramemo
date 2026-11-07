@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { FICHIER_LICENCES, texteLicences } from './licences/tierces';
@@ -22,10 +23,31 @@ function licencesTierces(): Plugin {
   };
 }
 
+/**
+ * La version de l'appli (src/version.ts) : le commit, « +modifie » si des
+ * fichiers suivis en diffèrent ; « inconnue » sans git.
+ */
+function versionAppli(): string {
+  const git = (...a: string[]) => execFileSync('git', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  try {
+    const commit = git('rev-parse', '--short=10', 'HEAD');
+    let modifie = false;
+    try {
+      git('diff', '--quiet', 'HEAD', '--');
+    } catch {
+      modifie = true;
+    }
+    return modifie ? `${commit}+modifie` : commit;
+  } catch {
+    return 'inconnue';
+  }
+}
+
 // Port 8060 : dizaine réservée à Terramemo (skill nouveau-projet), le driver
 // du skill run-terramemo prend 8061.
 export default defineConfig({
   plugins: [licencesTierces()],
+  define: { __VERSION_APPLI__: JSON.stringify(versionAppli()) },
   // android/ (des milliers de fichiers de build Gradle) et dist/ ne se surveillent pas : ils
   // épuisaient la limite d'inotify du PC (ENOSPC), et le serveur de dev servait alors
   // des modules périmés sans le dire.
