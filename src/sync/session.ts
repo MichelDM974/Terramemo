@@ -45,7 +45,10 @@ export interface Session {
   deconnexion: 'voulue' | null;
   /** Lot 4 : uid dont l'effacement est en cours (déconnexion reprenable, § 3.4). */
   effacement: string | null;
-  /** Lot 5 : uid dont la suppression est en cours (§ 7.1). */
+  /**
+   * Lot 5 : uid dont la suppression est en cours (§ 7.1). Avec `effacement`
+   * égal, l'étape 7 : deleteUser a abouti, il reste à vider l'appareil.
+   */
   suppression: string | null;
   /**
    * Lot 4 : instant où une connexion à un compte existant a commencé, le

@@ -75,12 +75,18 @@ function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
     supprimer: vi.fn(async (_c: { mot: string; mdp?: string }) => {
       if (coupureSuppression) {
         const u = etat.etat === 'compte' || etat.etat === 'suppression' ? etat.uid : 'u1';
-        etat = { etat: 'suppression', uid: u, adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true };
+        etat = { etat: 'suppression', uid: u, adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true, horsAuth: false };
         throw coupureSuppression;
       }
       etat = { etat: 'invite', anonyme: false };
     }),
     pseudoDemande: vi.fn(async () => pseudoEnLigne),
+    annulerSuppression: vi.fn(async () => {
+      if (etat.etat === 'suppression') etat = { etat: 'compte', uid: etat.uid, adresse: etat.adresse, verifiee: true, fournisseurs: etat.fournisseurs };
+    }),
+    abandonnerSuppression: vi.fn(async () => {
+      etat = { etat: 'invite', anonyme: false };
+    }),
     surChangement: vi.fn(() => () => true),
     demarrer: vi.fn(async () => etat),
     rapport: vi.fn(() => ({ etat, jeton: null, erreurs: [] })),
@@ -851,6 +857,7 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     $('#compte-supprimer-mdp')!.value = 'motdepasse';
     expect($('#compte-supprimer-ok')!.textContent).toBe(T.suppression_reprendre);
     expect($('#compte-annuler')).toBeNull();
+    expect($('#compte-suppression-annuler')!.textContent).toBe(T.suppression_annuler);
     envoyer('#compte-form-supprimer');
     await attendre();
     await attendre();
@@ -858,16 +865,99 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     expect($('#compte-message')!.textContent).toBe(T.supprime);
   });
 
-  it('suppression inachevée à l’ouverture, compte encore là : « reprendre ? », avec le mot de passe', async () => {
-    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true });
+  it('suppression inachevée à l’ouverture, compte encore là : « reprendre ? », avec le mot de passe, et « Annuler la suppression »', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true, horsAuth: false });
     await ouvrir(c);
     expect($('#compte-suppression-inachevee')!.textContent).toBe(T.suppression_inachevee);
     expect($('#compte-supprimer-mdp')).not.toBeNull();
     expect($('#compte-suppression-appareil')).toBeNull();
+    expect($('#compte-suppression-vider')).toBeNull();
+    $('#compte-suppression-annuler')!.click();
+    await attendre();
+    await attendre();
+    expect(c.annulerSuppression).toHaveBeenCalledOnce();
+    expect($('#compte-message')!.textContent).toBe(T.suppression_annulee);
+    expect($('#compte-adresse-connectee')!.textContent).toBe('ana@exemple.fr');
   });
 
-  it('suppression inachevée, compte déjà parti de Auth : il reste à vider l’appareil, sans mot de passe', async () => {
-    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: false });
+  it('« Annuler la suppression » refusée (pierre tombale posée) : l’erreur, l’écran de la reprise reste', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true, horsAuth: false });
+    c.annulerSuppression.mockRejectedValueOnce(err('terramemo/suppression-engagee'));
+    await ouvrir(c);
+    $('#compte-suppression-annuler')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-erreur')!.textContent).toBe(T.erreurs['terramemo/suppression-engagee']);
+    expect($('#compte-suppression-inachevee')).not.toBeNull();
+  });
+
+  it('suppression inachevée, session perdue en route : se reconnecter (mot de passe, « Mot de passe oublié ? »), « Effacer cet appareil » sans rien promettre', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: false, horsAuth: false });
+    await ouvrir(c);
+    // Pas « Le compte n'est plus en ligne » : rien ne le prouve.
+    expect($('#compte-suppression-appareil')).toBeNull();
+    expect($('#compte-suppression-reconnecter')!.textContent).toBe(T.suppression_reconnecter);
+    expect($('#compte-supprimer-mdp')).not.toBeNull();
+    expect(zone.querySelector('input[autocomplete="username"]')!.value).toBe('ana@exemple.fr');
+    $('#compte-oubli')!.click();
+    await attendre();
+    expect(c.oublier).toHaveBeenCalledWith('ana@exemple.fr');
+    expect($('#compte-suppression-vider-aide')!.textContent).toContain('le compte reste en ligne s');
+    expect($('#compte-suppression-vider')!.className).toBe('danger');
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    $('#compte-supprimer-mdp')!.value = 'motdepasse';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect(c.supprimer).toHaveBeenCalledWith({ mot: 'supprimer', mdp: 'motdepasse' });
+    expect($('#compte-message')!.textContent).toBe(T.supprime);
+  });
+
+  it('session perdue en route : « Effacer cet appareil » abandonne la suppression, le message ne dit pas « Compte supprimé. »', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: false, horsAuth: false });
+    await ouvrir(c);
+    $('#compte-suppression-vider')!.click();
+    await attendre();
+    await attendre();
+    expect(c.abandonnerSuppression).toHaveBeenCalledOnce();
+    expect(c.supprimer).not.toHaveBeenCalled();
+    expect($('#compte-message')!.textContent).toBe(T.suppression_videe);
+    expect(contenu()).toContain(T.invite);
+  });
+
+  it('une session perdue pendant la reprise : l’écran passe à la reconnexion', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true, horsAuth: false });
+    c.supprimer.mockImplementationOnce(async () => {
+      c.poser({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: false, horsAuth: false });
+      throw err('terramemo/mdp-faux');
+    });
+    await ouvrir(c);
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    $('#compte-supprimer-mdp')!.value = 'ancien-mdp';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect($('#compte-suppression-reconnecter')).not.toBeNull();
+    expect($('#compte-erreur')!.textContent).toBe('Mot de passe incorrect');
+  });
+
+  it('une suppression menée dans un autre onglet : « Se déconnecter » refusé mène à sa reprise', async () => {
+    const c = fauxComptes(COMPTE);
+    c.deconnecter.mockImplementationOnce(async () => {
+      c.poser({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: true, horsAuth: false });
+      throw err('terramemo/suppression-inachevee');
+    });
+    await ouvrir(c);
+    $('#compte-deconnecter')!.click();
+    await attendre();
+    await attendre();
+    await attendre();
+    expect($('#compte-suppression-inachevee')).not.toBeNull();
+    expect($('#compte-erreur')!.textContent).toBe(T.erreurs['terramemo/suppression-inachevee']);
+  });
+
+  it('suppression inachevée, deleteUser abouti ici : il reste à vider l’appareil, sans mot de passe', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: false, horsAuth: true });
     await ouvrir(c);
     expect($('#compte-suppression-appareil')!.textContent).toBe(T.suppression_appareil);
     expect($('#compte-supprimer-mdp')).toBeNull();

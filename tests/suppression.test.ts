@@ -33,6 +33,8 @@ const hoteFs = process.env.FIRESTORE_EMULATOR_HOST;
 const PROJET = 'demo-terramemo';
 const MDP = 'motdepasse';
 const pause = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+/** Un mot de passe changé ne révoque que les jetons émis avant sa seconde (validSince) : une seconde d'écart. */
+const seconde = () => new Promise((r) => setTimeout(r, 1100));
 
 class Stockage {
   readonly m = new Map<string, string>();
@@ -48,7 +50,7 @@ class Stockage {
 }
 
 /** Les étapes où une suppression peut être coupée (réseau, appli tuée). */
-type Etape = 'reauth' | 'profil' | 'tombe' | 'lots' | 'compte' | 'effacer';
+type Etape = 'reauth' | 'profil' | 'tombe' | 'lots' | 'compte' | 'apres-compte' | 'effacer';
 const coupure = (quoi: string) => Object.assign(new TypeError(`coupure : ${quoi}`), { code: 'unavailable' });
 
 let napps = 0;
@@ -65,17 +67,24 @@ function appareil(nom: string) {
   const id = uuid();
   const stockage = new Stockage();
   /** L'étape coupée à la prochaine suppression (une fois). */
-  const panne: { etape: Etape | null } = { etape: null };
+  const panne: { etape: Etape | null; code?: string } = { etape: null };
   const couper = (e: Etape) => {
     if (panne.etape !== e) return;
     panne.etape = null;
-    throw coupure(e);
+    const code = panne.code;
+    delete panne.code;
+    throw code ? Object.assign(coupure(e), { code }) : coupure(e);
   };
   // Le SDK, avec une coupure possible à chaque étape de la suppression (§ 7.1).
   const auth: typeof authM = {
     ...authM,
     reauthenticateWithCredential: async (...x: Parameters<typeof authM.reauthenticateWithCredential>) => (couper('reauth'), authM.reauthenticateWithCredential(...x)),
-    deleteUser: async (u: authM.User) => (couper('compte'), authM.deleteUser(u)),
+    deleteUser: async (u: authM.User) => {
+      couper('compte');
+      await authM.deleteUser(u);
+      // Appli tuée juste après deleteUser, avant que la session le note.
+      couper('apres-compte');
+    },
   };
   const fs: typeof fsM = {
     ...fsM,
@@ -320,32 +329,125 @@ describe.skipIf(!hoteAuth || !hoteFs)('suppression du compte (émulateurs Auth e
       }
       await p2.memoire.pret;
       const e = await p2.comptes.etat();
-      if (etape === 'reauth') expect(e).toMatchObject({ etat: 'compte', uid });
-      // Le drapeau est resté, le compte encore là : « Suppression inachevée : reprendre ? ».
-      else expect(e).toEqual({ etat: 'suppression', uid, adresse: expect.any(String), fournisseurs: ['password'], connecte: true });
-      // Rien ne part plus d'un appareil en suppression : ni lots, ni profil.
-      if (etape !== 'reauth') expect(await p2.comptes.pourSynchro()).toBeNull();
+      // Coupée avant la pierre tombale : rien d'irréversible, le drapeau est levé, le compte reste entier
+      // et sa synchro reprend.
+      if (etape === 'reauth' || etape === 'profil' || etape === 'tombe') {
+        expect(e).toMatchObject({ etat: 'compte', uid });
+        expect(await p2.comptes.pourSynchro()).toMatchObject({ uid });
+        expect(await lire('joueurs', uid)).not.toMatchObject({ supprime: true });
+      } else {
+        // Le drapeau est resté, le compte encore là : « Suppression inachevée : reprendre ? ».
+        expect(e).toEqual({ etat: 'suppression', uid, adresse: expect.any(String), fournisseurs: ['password'], connecte: true, horsAuth: false });
+        // Rien ne part plus d'un appareil en suppression : ni lots, ni profil.
+        expect(await p2.comptes.pourSynchro()).toBeNull();
+        // La pierre tombale posée : la suppression ne s'annule plus.
+        await expect(p2.comptes.annulerSuppression()).rejects.toMatchObject({ code: 'terramemo/suppression-engagee' });
+      }
       await p2.comptes.supprimer({ mot: 'supprimer', mdp: MDP });
       await toutSupprime(x, p2, uid);
     });
   }
 
-  it('une suppression déjà faite dans Auth (appli tuée juste après deleteUser) : la reprise vide l’appareil, sans mot de passe', async () => {
+  it('appli tuée juste après deleteUser : la reprise le prouve par la reconnexion (auth/user-not-found), puis vide l’appareil', async () => {
     const x = appareil('apres-auth');
-    const { p, uid } = await compteAvecLots(x);
-    // Ce que la page avait fait avant d'être tuée : drapeau, pierre tombale, lots, compte.
-    await p.session.ecrire({ ...(await p.session.lire())!, suppression: uid });
-    await authM.deleteUser(x.a.currentUser!);
+    const { p, uid } = await compteAvecLots(x, 3);
+    x.panne.etape = 'apres-compte';
+    await expect(p.comptes.supprimer({ mot: 'supprimer', mdp: MDP })).rejects.toBeTruthy();
+    // Ce que la page avait fait : drapeau, demande, pierre tombale, lots, compte dans Auth ; pas l'effacement.
+    expect(await dansAuth(uid)).toBe(false);
+    expect(await nbLots(uid)).toBe(0);
+    p.fermer();
     const p2 = x.page();
     await p2.memoire.pret;
-    expect(await p2.comptes.etat()).toMatchObject({ etat: 'suppression', uid, connecte: false });
-    // Pas de connexion ni de création tant que la suppression attend.
-    await expect(p2.comptes.connecter(adresse(), MDP)).rejects.toMatchObject({ code: 'terramemo/suppression-inachevee' });
-    await expect(p2.comptes.creer(adresse(), MDP)).rejects.toMatchObject({ code: 'terramemo/suppression-inachevee' });
-    await p2.comptes.supprimer({ mot: 'supprimer' });
+    // Rien dans la session ne prouve que deleteUser a abouti : pas « il reste à vider l'appareil ».
+    expect(await p2.comptes.etat()).toMatchObject({ etat: 'suppression', uid, connecte: false, horsAuth: false });
+    // Pas de connexion, de création, de déconnexion ni d'effacement tant que la suppression attend.
+    for (const f of [() => p2.comptes.connecter(adresse(), MDP), () => p2.comptes.creer(adresse(), MDP), () => p2.comptes.deconnecter({ quandMeme: true }), () => p2.comptes.effacerAppareil(), () => p2.comptes.continuerSansCompte()])
+      await expect(f()).rejects.toMatchObject({ code: 'terramemo/suppression-inachevee' });
+    // Sans mot de passe : rien n'est effacé.
+    await expect(p2.comptes.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'auth/missing-password' });
+    expect(await p2.depot.tous()).toHaveLength(5);
+    await p2.comptes.supprimer({ mot: 'supprimer', mdp: MDP });
+    await toutSupprime(x, p2, uid);
+  });
+
+  it('session révoquée pendant une suppression inachevée, compte entier en ligne : rien n’est vidé sans reconnexion', async () => {
+    const x = appareil('revoquee');
+    const { p, uid } = await compteAvecLots(x, 2);
+    const mail = (await p.session.lire())!.adresse!;
+    // Appli tuée juste après le drapeau (avant la pierre tombale).
+    await p.session.ecrire({ ...(await p.session.lire())!, suppression: uid });
+    p.fermer();
+    // Le mot de passe réinitialisé depuis un autre appareil : les jetons de celui-ci sont révoqués.
+    const autre = appareil('revoquee-pc');
+    await authM.signInWithEmailAndPassword(autre.a, mail, MDP);
+    await seconde();
+    await authM.updatePassword(autre.a.currentUser!, 'nouveaumdp');
+    const p2 = x.page();
+    await p2.memoire.pret;
+    expect(await p2.comptes.etat()).toMatchObject({ etat: 'suppression', uid, connecte: false, horsAuth: false });
+    // Ni sans mot de passe, ni avec l'ancien : l'appareil n'est pas vidé, le compte reste entier.
+    await expect(p2.comptes.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'auth/missing-password' });
+    await expect(p2.comptes.supprimer({ mot: 'supprimer', mdp: MDP })).rejects.toMatchObject({ code: 'terramemo/mdp-faux' });
+    expect(await p2.depot.tous()).toHaveLength(5);
+    expect(await dansAuth(uid)).toBe(true);
+    expect(await nbLots(uid)).toBe(3);
+    expect(await lire('joueurs', uid)).not.toMatchObject({ supprime: true });
+    expect((await p2.session.lire())?.suppression).toBe(uid);
+    // Avec le nouveau : reconnecté au même compte, la suppression reprend de l'étape 1 et aboutit.
+    await p2.comptes.supprimer({ mot: 'supprimer', mdp: 'nouveaumdp' });
+    await toutSupprime(x, p2, uid);
+  });
+
+  it('session révoquée, mot de passe oublié : « Effacer cet appareil » vide l’appareil, le compte reste en ligne', async () => {
+    const x = appareil('abandon');
+    const { p, uid } = await compteAvecLots(x);
+    const mail = (await p.session.lire())!.adresse!;
+    await p.session.ecrire({ ...(await p.session.lire())!, suppression: uid });
+    p.fermer();
+    const autre = appareil('abandon-pc');
+    await authM.signInWithEmailAndPassword(autre.a, mail, MDP);
+    await seconde();
+    await authM.updatePassword(autre.a.currentUser!, 'nouveaumdp');
+    const p2 = x.page();
+    await p2.memoire.pret;
+    expect(await p2.comptes.etat()).toMatchObject({ etat: 'suppression', horsAuth: false });
+    await p2.comptes.abandonnerSuppression();
     expect(await p2.depot.tous()).toEqual([]);
     expect(await p2.session.lire()).toMatchObject({ uid: null, suppression: null, effacement: null });
     expect(await p2.comptes.etat()).toEqual({ etat: 'invite', anonyme: false });
+    // Rien n'est dit supprimé : le compte est entier en ligne.
+    expect(await dansAuth(uid)).toBe(true);
+    expect(await nbLots(uid)).toBe(1);
+  });
+
+  it('un drapeau resté avant la pierre tombale (appli tuée) : « Annuler la suppression » rend le compte et sa synchro', async () => {
+    const x = appareil('annuler');
+    const { p, uid } = await compteAvecLots(x);
+    await p.session.ecrire({ ...(await p.session.lire())!, suppression: uid });
+    p.fermer();
+    const p2 = x.page();
+    await p2.memoire.pret;
+    expect(await p2.comptes.etat()).toMatchObject({ etat: 'suppression', connecte: true });
+    expect(await p2.comptes.pourSynchro()).toBeNull();
+    await p2.comptes.annulerSuppression();
+    expect(await p2.comptes.etat()).toMatchObject({ etat: 'compte', uid });
+    expect(await p2.comptes.pourSynchro()).toMatchObject({ uid });
+    expect(await dansAuth(uid)).toBe(true);
+    expect(await p2.depot.tous()).toHaveLength(5);
+  });
+
+  it('refus des règles à la lecture du profil (joueurs/ fermé) : le drapeau est levé, l’appareil revient à l’état compte', async () => {
+    const x = appareil('refus');
+    const { p, uid } = await compteAvecLots(x);
+    x.panne.etape = 'profil';
+    x.panne.code = 'permission-denied';
+    await expect(p.comptes.supprimer({ mot: 'supprimer', mdp: MDP })).rejects.toMatchObject({ code: 'permission-denied' });
+    expect((await p.session.lire())?.suppression).toBeNull();
+    expect(await p.comptes.etat()).toMatchObject({ etat: 'compte', uid });
+    expect(await p.comptes.pourSynchro()).toMatchObject({ uid });
+    // La déconnexion n'est plus bloquée.
+    expect(await p.comptes.deconnecter({ quandMeme: true })).toEqual({ fait: true });
   });
 
   it('un 2e appareil du compte : écritures refusées après la pierre tombale, « en cours de suppression », puis session perdue', async () => {

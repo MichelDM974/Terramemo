@@ -30,11 +30,15 @@ export function effacerJoueurLocal(stockage: Pick<Storage, 'removeItem'> | null)
 /**
  * La session d'un appareil effacé : invité vierge. Une déconnexion voulue
  * reste notée, pour que les comptes finissent son signOut si l'appli a été
- * tuée avant (comptes.ts, etat()). Une suppression du compte (§ 7.1) finit
- * aussi par cet effacement : son drapeau est levé avec lui, au démarrage
- * comme dans la page.
+ * tuée avant (comptes.ts, etat()). Le drapeau d'une suppression du compte
+ * (§ 7.1) n'est pas levé ici : seulement à la fin de cette suppression
+ * (FIN_SUPPRESSION), jamais par une déconnexion ou un effacement d'un autre
+ * onglet, qui en perdraient la trace.
  */
-export const APRES_EFFACEMENT: Readonly<Partial<Session>> = { uid: null, fournisseurs: [], adresse: null, marque: null, profil_a_ecrire: false, effacement: null, connexion: null, suppression: null };
+export const APRES_EFFACEMENT: Readonly<Partial<Session>> = { uid: null, fournisseurs: [], adresse: null, marque: null, profil_a_ecrire: false, effacement: null, connexion: null };
+
+/** La fin d'une suppression du compte : son effacement fait, le drapeau levé. */
+export const FIN_SUPPRESSION: Readonly<Partial<Session>> = { suppression: null };
 
 export interface OptionsEffacement {
   session: DepotSession;
@@ -66,7 +70,9 @@ export async function terminerEffacement(o: OptionsEffacement): Promise<boolean>
     await o.viderJournal();
     await o.oublier(s.effacement);
     effacerJoueurLocal(o.stockage);
-    await o.session.ecrire({ ...s, ...APRES_EFFACEMENT, version: o.version });
+    // L'effacement de l'étape 7 d'une suppression (`effacement` égal à `suppression`, posé après
+    // deleteUser, ou par « Vider cet appareil ») : la suppression est finie avec lui.
+    await o.session.ecrire({ ...s, ...APRES_EFFACEMENT, ...(s.suppression && s.suppression === s.effacement ? FIN_SUPPRESSION : {}), version: o.version });
   } catch (e) {
     o.diffuser?.({ type: 'reprise' });
     throw e;

@@ -35,6 +35,8 @@ describe('traduire', () => {
       'auth/account-exists-with-different-credential': 'Ce compte se connecte par mot de passe : connecte-toi avec ton adresse',
       'auth/operation-not-allowed': "Ce moyen de connexion n'est pas encore ouvert",
       'auth/unauthorized-domain': 'Connexion impossible depuis cette adresse du site',
+      // Réauthentification Google avant une suppression (§ 7.1) : un autre compte Google choisi dans la fenêtre.
+      'auth/user-mismatch': "Ce n'est pas le compte connecté : choisis celui-là.",
       NO_CREDENTIAL_AVAILABLE: 'Aucun compte Google sur ce téléphone.',
       PROVIDER_CONFIGURATION_ERROR: 'Services Google Play absents ou à mettre à jour.',
     };
@@ -73,6 +75,7 @@ describe('traduire', () => {
     expect(traduire(err('terramemo/mdp-court')).texte).toBe('Mot de passe : 8 caractères au moins');
     expect(traduire(err('terramemo/mdp-actuel-faux')).texte).toBe('Mot de passe actuel incorrect');
     expect(traduire(err('terramemo/mdp-google')).texte).toBe('Ce compte se connecte avec Google, sans mot de passe');
+    expect(traduire(err('terramemo/suppression-engagee')).texte).toBe("La suppression est déjà engagée : elle ne s'annule plus, reprends-la.");
   });
 
   it('chaque texte de compte.erreurs est atteint par son code', () => {

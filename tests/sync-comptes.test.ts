@@ -121,8 +121,9 @@ describe('suppression d’un compte Google : la réauthentification (§ 7.1, ét
     const c = creerComptes({ session: g.session, service: g.service, natif: () => false });
     await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
     expect(g.appels).toEqual(['popup:true']);
-    // Réauthentifié : le drapeau est posé, plus rien ne part.
-    expect((await g.session.lire())?.suppression).toBe('g1');
+    // Réauthentifié, puis le profil refusé avant la pierre tombale : rien d'irréversible, le drapeau
+    // posé par cet appel est levé (sans quoi l'appareil resterait bloqué tant que les règles refusent).
+    expect((await g.session.lire())?.suppression).toBeNull();
   });
 
   it('dans l’APK sans le plugin (lot 7) : « supprime-le depuis le site », rien de commencé', async () => {

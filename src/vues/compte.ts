@@ -264,6 +264,17 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         aller(fusionDepuis);
         erreur.textContent = t;
       }
+      if (codeErreur(e) === 'terramemo/suppression-inachevee') {
+        // Une suppression menée ailleurs (autre onglet) : l'écran de sa reprise, l'erreur gardée.
+        const t = erreur.textContent;
+        try {
+          etat = await (await o.comptes()).etat();
+          aller(ecranDe(etat));
+        } catch {
+          // L'état relu plus tard (premier plan).
+        }
+        erreur.textContent = t;
+      }
       if (codeErreur(e) === 'auth/email-already-in-use' && ecran === 'creer') {
         // Ce compte existe déjà (§ 2.3) : vers « Se connecter », adresse pré-remplie, l'erreur gardée.
         const t = erreur.textContent;
@@ -335,12 +346,13 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
 
   /**
    * La confirmation d'une suppression (§ 7.1) : « supprimer » à écrire, et le
-   * mot de passe d'un compte `password` encore connecté (réauthentification) ;
-   * pour Google, la fenêtre de Google. `annulable` : « Annuler » ramène au
-   * compte (pas pour une reprise : le drapeau reste).
+   * mot de passe d'un compte `password` (réauthentification, ou reconnexion
+   * d'une session perdue en route : `motDePasse`) ; pour Google connecté, la
+   * fenêtre de Google. `annuler` : le bouton à côté (« Annuler » vers le
+   * compte, « Annuler la suppression » d'une reprise), ou aucun.
    */
-  function formulaireSuppression(adresse: string | null, fournisseurs: readonly string[], connecte: boolean, texte: string, annulable: boolean): Node[] {
-    const mdpDemande = connecte && fournisseurs.includes('password');
+  function formulaireSuppression(adresse: string | null, fournisseurs: readonly string[], motDePasse: boolean, google: boolean, texte: string, annuler: HTMLButtonElement | null): Node[] {
+    const mdpDemande = motDePasse && fournisseurs.includes('password');
     const mot = champ('compte-supprimer-mot', T.supprimer_mot, { type: 'text', name: 'confirmation', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done', required: '' });
     const mdp = mdpDemande ? champMdp('compte-supprimer-mdp', T.mdp, 'current-password') : null;
     // L'identifiant du compte, caché : le gestionnaire de mots de passe propose le bon.
@@ -356,10 +368,11 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         try {
           await c.supprimer({ mot: mot.input.value, ...(mdp ? { mdp: mdp.input.value } : {}) });
         } catch (err) {
-          // Coupée en route : l'écran de la reprise si le drapeau est posé, l'erreur gardée.
+          // Coupée en route : l'écran de l'état d'après (reprise, reconnexion, compte si le drapeau
+          // est levé), l'erreur gardée ; le même état garde l'écran (mot de passe faux).
           message.textContent = '';
           const e = await c.etat().catch(() => null);
-          if (e && e.etat !== etat?.etat) {
+          if (e && JSON.stringify(e) !== JSON.stringify(etat)) {
             etat = e;
             aller(ecranDe(e));
           }
@@ -376,13 +389,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         ...(mdp ? [nom] : []),
         mot.label,
         ...(mdp ? [mdp.label] : []),
-        ...(connecte && !mdpDemande && fournisseurs.includes('google.com') ? [creer('p', { class: 'hint', id: 'compte-supprimer-google' }, T.supprimer_google)] : []),
-        creer(
-          'div',
-          { class: 'compte-actions' },
-          bouton('compte-supprimer-ok', texte, envoyer, 'danger', 'submit'),
-          ...(annulable ? [bouton('compte-annuler', T.annuler, () => annuler())] : []),
-        ),
+        ...(google && !mdpDemande && fournisseurs.includes('google.com') ? [creer('p', { class: 'hint', id: 'compte-supprimer-google' }, T.supprimer_google)] : []),
+        creer('div', { class: 'compte-actions' }, bouton('compte-supprimer-ok', texte, envoyer, 'danger', 'submit'), ...(annuler ? [annuler] : [])),
       ),
     ];
   }
@@ -641,16 +649,52 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer('p', { id: 'compte-supprimer-texte' }, T.supprimer_texte),
           // D27 b, avant la confirmation : les places du pseudo.
           creer('p', { id: 'compte-supprimer-classement' }, texteClassementSuppression(pseudoSuppression)),
-          ...formulaireSuppression(e.adresse, e.fournisseurs, true, T.supprimer_bouton, true),
+          ...formulaireSuppression(e.adresse, e.fournisseurs, true, true, T.supprimer_bouton, bouton('compte-annuler', T.annuler, () => annuler())),
         ];
       }
       case 'suppression': {
         const e = etat?.etat === 'suppression' ? etat : null;
         if (!e) return [];
+        const titre = creer('p', { id: 'compte-suppression-inachevee' }, T.suppression_inachevee);
+        // Compte connecté : la reprise depuis la réauthentification, ou « Annuler la suppression »
+        // tant que la pierre tombale n'est pas posée.
+        if (e.connecte)
+          return [
+            titre,
+            ...formulaireSuppression(e.adresse, e.fournisseurs, true, true, T.suppression_reprendre, bouton('compte-suppression-annuler', T.suppression_annuler, () =>
+              void agir(async (c) => {
+                await c.annulerSuppression();
+                dire(T.suppression_annulee);
+                await apres(c);
+              }))),
+          ];
+        // deleteUser a abouti ici : il reste à vider l'appareil, sans mot de passe.
+        if (e.horsAuth)
+          return [titre, creer('p', { class: 'hint', id: 'compte-suppression-appareil' }, T.suppression_appareil), ...formulaireSuppression(e.adresse, e.fournisseurs, false, false, T.suppression_reprendre, null)];
+        // Session perdue en route : rien ne dit que le compte est parti. Se reconnecter pour finir ;
+        // « Vider cet appareil » en dernier recours, sans rien promettre du compte.
         return [
-          creer('p', { id: 'compte-suppression-inachevee' }, T.suppression_inachevee),
-          ...(e.connecte ? [] : [creer('p', { class: 'hint', id: 'compte-suppression-appareil' }, T.suppression_appareil)]),
-          ...formulaireSuppression(e.adresse, e.fournisseurs, e.connecte, T.suppression_reprendre, false),
+          titre,
+          creer('p', { class: 'hint', id: 'compte-suppression-reconnecter' }, e.fournisseurs.includes('password') ? T.suppression_reconnecter : T.suppression_reconnecter_site),
+          ...formulaireSuppression(e.adresse, e.fournisseurs, true, false, T.suppression_reprendre, null),
+          ...(e.fournisseurs.includes('password') && e.adresse
+            ? [creer('div', { class: 'compte-liens' }, bouton('compte-oubli', T.oubli, () =>
+                void agir(async (c) => {
+                  await c.oublier(e.adresse ?? '');
+                  dire(T.oubli_envoye);
+                }), 'lien'))]
+            : []),
+          creer(
+            'div',
+            { class: 'compte-actions compte-separe' },
+            creer('p', { class: 'hint', id: 'compte-suppression-vider-aide' }, T.suppression_vider_aide),
+            bouton('compte-suppression-vider', T.effacer_appareil, () =>
+              void agir(async (c) => {
+                await c.abandonnerSuppression();
+                dire(T.suppression_videe);
+                await apres(c);
+              }), 'danger'),
+          ),
         ];
       }
       case 'mdp': {
@@ -870,6 +914,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         });
       }
       const avant = etat?.etat;
+      const avantSuppression = etat?.etat === 'suppression' ? JSON.stringify(etat) : null;
       etat = await c.etat();
       await lirePerdue();
       await lireSynchro();
@@ -879,7 +924,9 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       // Un formulaire ouvert reste tel quel, saisie comprise (retour d'une autre appli), sauf
       // si l'état a changé sous lui.
       const formulaireOuvert = ECRANS_GARDES.has(ecran);
-      if (!formulaireOuvert || avant !== etat.etat) aller(ecranDe(etat));
+      // Une reprise de suppression dont la session vient de se perdre (ou de revenir) : son écran change.
+      const suppressionChangee = avantSuppression !== null && avantSuppression !== JSON.stringify(etat);
+      if (!formulaireOuvert || avant !== etat.etat || suppressionChangee) aller(ecranDe(etat));
       else rendreSynchro();
     } catch (e) {
       montrerErreur(e);
