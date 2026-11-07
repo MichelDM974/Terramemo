@@ -32,4 +32,6 @@ jobs:
       - run: npm run test:regles
       # Comptes e-mail sur l'émulateur Auth (tests/comptes.test.ts, J1b lot 1).
       - run: npm run test:comptes
+      # Critère de #3 : deux appareils, l'un hors ligne, au même état (tests/synchro-emulateurs.test.ts, J1b lot 4).
+      - run: npm run test:synchro
       - run: npm run build
