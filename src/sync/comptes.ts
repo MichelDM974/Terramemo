@@ -45,7 +45,7 @@
 // linkWithCredential, qui garde son uid ; jamais de signOut avant le lien.
 import { garderPseudoDans, periodeSemaine, poserAvisPseudo, pseudoValide } from '../epreuve/chrono';
 import { synchroCoupee } from './drapeaux';
-import { charger, type Service } from './firebase';
+import { charger, compteDisparu, type Service } from './firebase';
 import { codeErreur } from './erreurs';
 import { APRES_EFFACEMENT, effacerJoueurLocal } from './effacement';
 import type { Marques } from './envoi';
@@ -452,6 +452,26 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     if (estCompte(u) && u!.uid !== ses.uid) await s.m.auth.signOut(s.a);
   }
 
+  /**
+   * Le lien de l'invité anonyme à un compte e-mail (§ 2.2), qui garde son
+   * uid. Un anonyme que Firebase a supprimé (30 jours après sa création,
+   * Identity Platform) ne se lie plus : USER_NOT_FOUND au lien, ou jeton qui
+   * ne se rafraîchit plus. Il n'avait rien en ligne (D16) : le compte est
+   * créé neuf, sans message d'erreur, et le journal de l'appareil part à lui
+   * comme au lien.
+   */
+  async function lier(s: Service, avant: import('firebase/auth').User, adresse: string, mdp: string): Promise<import('firebase/auth').User> {
+    const { auth } = s.m;
+    try {
+      return (await auth.linkWithCredential(avant, auth.EmailAuthProvider.credential(adresse, mdp))).user;
+    } catch (e) {
+      if (!avant.isAnonymous || !compteDisparu(e)) throw e;
+      noter(e);
+      if (s.a.currentUser === avant) await auth.signOut(s.a);
+      return (await auth.createUserWithEmailAndPassword(s.a, adresse, mdp)).user;
+    }
+  }
+
   // --- Profil (§ 5.4) ---
 
   /** Incrémenté à chaque changement noté : une synchro ne lève le drapeau que si rien n'est venu depuis son début. */
@@ -691,7 +711,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
           // Appli tuée entre la création et la prise du compte : la page suivante ne le prend pas.
           if (q) await ecrireSession({ connexion: maintenant() });
           // Lien de l'anonyme : même uid (§ 2.2) ; sans anonyme, la création donne un uid.
-          u = avant ? (await auth.linkWithCredential(avant, auth.EmailAuthProvider.credential(a, mdp))).user : (await auth.createUserWithEmailAndPassword(s.a, a, mdp)).user;
+          u = avant ? await lier(s, avant, a, mdp) : (await auth.createUserWithEmailAndPassword(s.a, a, mdp)).user;
           try {
             if (choix === 'effacer') await effacerTout([ses.uid]);
             profil = await connecte(u, true);

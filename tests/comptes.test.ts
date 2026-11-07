@@ -29,6 +29,24 @@ async function viderComptes(): Promise<void> {
   await fetch(`${AUTH}/emulator/v1/projects/${PROJET}/accounts`, { method: 'DELETE' });
 }
 
+/**
+ * Un compte supprimé côté serveur, comme le fait Firebase d'un invité
+ * anonyme 30 jours après sa création (Identity Platform, autodeleteAnonymousUsers) :
+ * l'API d'administration de l'émulateur (« Bearer owner »).
+ */
+async function supprimerDansAuth(uid: string): Promise<void> {
+  const r = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/projects/${PROJET}/accounts:delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ localId: uid }),
+  });
+  if (!r.ok) throw new Error(`suppression de ${uid} : ${r.status} ${await r.text()}`);
+}
+
+/** Un score de Chrono valide pour les règles (La Réunion, 24 justes en 24 s). */
+const SCORE = { points: 24_000, justes: 24, questions: 24, temps_ms: 24_000 };
+const EPREUVE = 'chrono:localiser:reunion';
+
 describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
   let C: typeof import('../src/sync/comptes');
   let F: typeof import('../src/sync/firebase');
@@ -197,6 +215,95 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
     await signOut(s.a); // appli fermée ici
     expect(await comptes.etat()).toEqual({ etat: 'invite', anonyme: false });
     expect((await session.lire())?.uid).toBeNull();
+  });
+
+  describe('invité anonyme supprimé par Firebase (30 jours après sa création)', () => {
+    /** Le jeton de la page tenu pour périmé : l'horloge avance de 2 h (le jeton vaut 1 h). */
+    function plusTard(): () => void {
+      const vrai = Date.now.bind(Date);
+      const espion = vi.spyOn(Date, 'now').mockImplementation(() => vrai() + 2 * 3_600_000);
+      return () => espion.mockRestore();
+    }
+
+    it('pas de session perdue : un invité, avant comme après que le SDK l’a vu', async () => {
+      const s = await F.charger();
+      const uid = await F.compte(s);
+      await supprimerDansAuth(uid);
+      // La page ne le sait pas encore : toujours un invité anonyme.
+      expect(await comptes.etat()).toEqual({ etat: 'invite', anonyme: true });
+      // Le rafraîchissement du jeton échoue : en production USER_NOT_FOUND (user-token-expired, le SDK se
+      // déconnecte), à l'émulateur INVALID_REFRESH_TOKEN (le SDK reste connecté).
+      const refus = await s.a.currentUser!.getIdToken(true).then(
+        () => null,
+        (e: { code?: string }) => e.code,
+      );
+      expect(F.compteDisparu({ code: refus })).toBe(true);
+      console.info(`Anonyme supprimé, jeton rafraîchi (émulateur) : ${refus}`);
+      expect((await comptes.etat()).etat).toBe('invite');
+      // Comme le SDK de production, ou la page rouverte (authStateReady l'oublie) : plus d'utilisateur.
+      await signOut(s.a);
+      expect(await comptes.etat()).toEqual({ etat: 'invite', anonyme: false });
+      // La session n'a jamais eu d'uid : rien à perdre, rien à reprendre.
+      expect((await session.lire())?.uid ?? null).toBeNull();
+    });
+
+    it('la publication suivante d’un score recrée un invité et passe', async () => {
+      const { publier } = await import('../src/epreuve/classement');
+      const s = await F.charger();
+      const ancien = await F.compte(s);
+      await supprimerDansAuth(ancien);
+      // Jeton encore valable (moins d'une heure) : Firestore ne demande pas si le compte existe.
+      expect(await publier(EPREUVE, 'toujours', 'Lia', SCORE)).toBe(true);
+      // Jeton périmé, qui ne se rafraîchit plus : compte() remplace l'invité par un neuf, qui publie.
+      const remettre = plusTard();
+      try {
+        expect(await publier(EPREUVE, 'toujours', 'Lia', { ...SCORE, temps_ms: 23_000 })).toBe(true);
+      } finally {
+        remettre();
+      }
+      expect(s.a.currentUser?.isAnonymous).toBe(true);
+      expect(s.a.currentUser?.uid).not.toBe(ancien);
+      expect(await comptes.etat()).toEqual({ etat: 'invite', anonyme: true });
+    });
+
+    it('créer un compte depuis un invité disparu, page pas encore au courant : un compte neuf, sans erreur', async () => {
+      const s = await F.charger();
+      const ancien = await F.compte(s);
+      await supprimerDansAuth(ancien);
+      const a = adresse();
+      expect(await comptes.creer(a, 'motdepasse')).toMatchObject({ adresse: a, verification: true, fusion: 'sans_question' });
+      const e = await comptes.etat();
+      expect(e).toMatchObject({ etat: 'compte', adresse: a, fournisseurs: ['password'] });
+      expect((e as { uid: string }).uid).not.toBe(ancien);
+      expect((await session.lire())?.uid).toBe((e as { uid: string }).uid);
+      console.info(`Lien d'un anonyme supprimé (émulateur) : ${comptes.rapport().erreurs.map((x) => x.code).join(', ') || 'aucune erreur'}`);
+    });
+
+    it('créer un compte depuis un invité disparu au jeton périmé : un compte neuf, sans erreur', async () => {
+      const s = await F.charger();
+      const ancien = await F.compte(s);
+      await supprimerDansAuth(ancien);
+      const remettre = plusTard();
+      try {
+        const a = adresse();
+        expect(await comptes.creer(a, 'motdepasse')).toMatchObject({ adresse: a, fusion: 'sans_question' });
+        expect(await comptes.etat()).toMatchObject({ etat: 'compte', adresse: a });
+        expect(s.a.currentUser?.uid).not.toBe(ancien);
+      } finally {
+        remettre();
+      }
+    });
+
+    it('créer un compte quand le SDK a déjà oublié l’invité disparu : simple création', async () => {
+      const s = await F.charger();
+      const ancien = await F.compte(s);
+      await supprimerDansAuth(ancien);
+      // Ce que fait le SDK de production à USER_NOT_FOUND, ou authStateReady à la réouverture.
+      await signOut(s.a);
+      const a = adresse();
+      expect(await comptes.creer(a, 'motdepasse')).toMatchObject({ adresse: a });
+      expect(await comptes.etat()).toMatchObject({ etat: 'compte', adresse: a });
+    });
   });
 
   it('un anonyme créé pour publier pendant une session perdue n’y change rien', async () => {

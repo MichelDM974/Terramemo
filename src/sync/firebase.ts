@@ -65,6 +65,20 @@ export function charger(): Promise<Service> {
 let creation: Promise<string> | null = null;
 
 /**
+ * Un compte qui n'existe plus côté serveur, vu au rafraîchissement de son
+ * jeton ou à son lien : USER_NOT_FOUND donne `auth/user-token-expired` (le
+ * SDK se déconnecte alors seul) ; l'émulateur Auth répond
+ * INVALID_REFRESH_TOKEN (le SDK reste connecté, à un compte qui ne sert
+ * plus). Pas `auth/network-request-failed` : hors ligne, le compte reste.
+ */
+const CODES_COMPTE_DISPARU: ReadonlySet<string> = new Set(['auth/user-token-expired', 'auth/invalid-refresh-token', 'auth/user-not-found', 'auth/invalid-user-token']);
+
+export function compteDisparu(e: unknown): boolean {
+  const c = (e as { code?: unknown } | null)?.code;
+  return typeof c === 'string' && CODES_COMPTE_DISPARU.has(c);
+}
+
+/**
  * Le compte du joueur : celui que le navigateur garde, sinon un compte
  * anonyme créé seulement pour publier (lire un classement n'en crée pas) ;
  * les règles n'acceptent un score que d'un compte. Une seule création à la
@@ -72,8 +86,28 @@ let creation: Promise<string> | null = null;
  * son compte. La création finie (currentUser posé) ou échouée n'est pas
  * gardée : après une déconnexion, la publication suivante crée un anonyme
  * neuf au lieu de rendre l'uid d'avant, sans session.
+ *
+ * Un invité anonyme supprimé par Firebase (30 jours après sa création :
+ * Identity Platform, autodeleteAnonymousUsers) : son jeton périmé ne se
+ * rafraîchit plus, et il est remplacé par un anonyme neuf. Rien n'est en
+ * ligne sous son uid (D16), et ses places au classement sont celles du
+ * pseudo. Encore valable (moins d'une heure), son jeton suffit à Firestore,
+ * qui ne demande pas si le compte existe. Un jeton en cache ne coûte aucune
+ * requête ; un échec du réseau remonte (hors ligne).
  */
 export async function compte(s: Service): Promise<string> {
+  const u = s.a.currentUser;
+  if (u && !u.isAnonymous) return u.uid;
+  if (u) {
+    try {
+      await u.getIdToken();
+      return u.uid;
+    } catch (e) {
+      if (!compteDisparu(e)) throw e;
+      if (s.a.currentUser === u) await s.m.auth.signOut(s.a);
+    }
+  }
+  // Une autre publication a pu recréer l'invité pendant ce temps.
   if (s.a.currentUser) return s.a.currentUser.uid;
   const p = (creation ??= s.m.auth.signInAnonymously(s.a).then((c) => c.user.uid));
   const oublier = () => {

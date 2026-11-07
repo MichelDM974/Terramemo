@@ -20,6 +20,10 @@ describe('traduire', () => {
       'auth/missing-email': 'Saisis ton adresse e-mail',
       'auth/email-already-in-use': 'Un compte existe déjà avec cette adresse : connecte-toi',
       'auth/weak-password': 'Mot de passe trop faible (8 caractères au moins)',
+      // Politique de mot de passe du projet (ENFORCE, 8 caractères au moins) : PASSWORD_DOES_NOT_MEET_REQUIREMENTS,
+      // dit comme la vérification locale (terramemo/mdp-court).
+      'auth/password-does-not-meet-requirements': 'Mot de passe : 8 caractères au moins',
+      'terramemo/mdp-court': 'Mot de passe : 8 caractères au moins',
       'auth/too-many-requests': 'Trop de tentatives : réessaie dans quelques minutes.',
       'auth/network-request-failed': 'Réseau injoignable',
       'auth/popup-blocked': 'Fenêtre de connexion Google bloquée par le navigateur',

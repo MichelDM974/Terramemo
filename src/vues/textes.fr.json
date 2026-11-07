@@ -573,7 +573,7 @@
       "auth/missing-password": "Saisis ton mot de passe",
       "auth/email-already-in-use": "Un compte existe déjà avec cette adresse : connecte-toi",
       "auth/weak-password": "Mot de passe trop faible (8 caractères au moins)",
-      "auth/password-does-not-meet-requirements": "Mot de passe trop faible (8 caractères au moins)",
+      "auth/password-does-not-meet-requirements": "Mot de passe : 8 caractères au moins",
       "auth/too-many-requests": "Trop de tentatives : réessaie dans quelques minutes.",
       "auth/network-request-failed": "Réseau injoignable",
       "auth/popup-blocked": "Fenêtre de connexion Google bloquée par le navigateur",

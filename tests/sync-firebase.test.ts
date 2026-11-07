@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 interface Utilisateur {
   uid: string;
+  isAnonymous?: boolean;
+  /** Le jeton : rendu, ou l'erreur du rafraîchissement (compte supprimé côté serveur, hors ligne). */
+  getIdToken?: () => Promise<string>;
 }
 const etat = {
   courant: null as Utilisateur | null,
@@ -48,8 +51,11 @@ vi.mock('firebase/auth', () => ({
       throw Object.assign(new Error('hors ligne'), { code: 'auth/network-request-failed' });
     }
     etat.creations++;
-    etat.courant = { uid: `anonyme-${etat.creations}` };
+    etat.courant = { uid: `anonyme-${etat.creations}`, isAnonymous: true, getIdToken: async () => 'jeton' };
     return { user: etat.courant };
+  },
+  signOut: async () => {
+    etat.courant = null;
   },
   connectAuthEmulator: (_a: unknown, url: string) => etat.emulateurs.push(url),
 }));
@@ -139,6 +145,43 @@ describe('compte', () => {
     const s = await charger();
     await expect(compte(s)).rejects.toThrow('hors ligne');
     expect(await compte(s)).toBe('anonyme-1');
+  });
+});
+
+describe('compte : invité anonyme supprimé par Firebase (30 jours)', () => {
+  const refus = (code: string) => async () => Promise.reject(Object.assign(new Error(code), { code }));
+
+  it('son jeton ne se rafraîchit plus : un anonyme neuf le remplace', async () => {
+    const { charger, compte } = await module();
+    const s = await charger();
+    for (const code of ['auth/user-token-expired', 'auth/invalid-refresh-token']) {
+      etat.courant = { uid: 'disparu', isAnonymous: true, getIdToken: refus(code) };
+      const avant = etat.creations;
+      expect(await compte(s), code).toBe(`anonyme-${avant + 1}`);
+    }
+  });
+
+  it('jeton en cache : l’anonyme reste, sans création', async () => {
+    etat.courant = { uid: 'garde', isAnonymous: true, getIdToken: async () => 'jeton' };
+    const { charger, compte } = await module();
+    expect(await compte(await charger())).toBe('garde');
+    expect(etat.creations).toBe(0);
+  });
+
+  it('hors ligne : l’anonyme n’est pas remplacé, l’échec remonte', async () => {
+    etat.courant = { uid: 'garde', isAnonymous: true, getIdToken: refus('auth/network-request-failed') };
+    const { charger, compte } = await module();
+    await expect(compte(await charger())).rejects.toMatchObject({ code: 'auth/network-request-failed' });
+    expect(etat.courant?.uid).toBe('garde');
+    expect(etat.creations).toBe(0);
+  });
+
+  it('des publications parties ensemble : un seul anonyme neuf', async () => {
+    etat.courant = { uid: 'disparu', isAnonymous: true, getIdToken: refus('auth/user-token-expired') };
+    const { charger, compte } = await module();
+    const s = await charger();
+    expect(await Promise.all([compte(s), compte(s), compte(s)])).toEqual(['anonyme-1', 'anonyme-1', 'anonyme-1']);
+    expect(etat.creations).toBe(1);
   });
 });
 
