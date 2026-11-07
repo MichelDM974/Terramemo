@@ -40,6 +40,7 @@ import { vueGeneral } from './vues/general';
 import { remplirEssaiJ0, vueJouer, type VueJouer } from './vues/jouer';
 import { brancherRecherche } from './vues/recherche';
 import { vueSaisie } from './vues/saisie';
+import { vueConfidentialite } from './vues/confidentialite';
 import { vueCredits } from './vues/credits';
 import { creerSeances } from './vues/seance';
 import { textes } from './vues/textes';
@@ -157,6 +158,9 @@ const credits = document.getElementById('credits-donnees');
 if (credits) credits.textContent = textes.credits.reglages;
 const lienCredits = document.getElementById('lien-credits');
 if (lienCredits) lienCredits.textContent = textes.credits.lien;
+// Politique de confidentialité (J1b, § 7.3) : à côté de Crédits, pour tous (le classement en demande déjà une).
+const lienConfidentialite = document.getElementById('lien-confidentialite');
+if (lienConfidentialite) lienConfidentialite.textContent = textes.confidentialite.lien;
 // Compte (J1b, étude § 3.1) : au-dessus de Crédits, caché du public jusqu'au lot 8.
 const lienCompte = document.getElementById('lien-compte');
 if (lienCompte) lienCompte.textContent = TEXTES_COMPTE.lien;
@@ -251,11 +255,11 @@ if (caseMemoire) {
 // Chrono, Sans faute, Minute), les classements (🏆), la Saisie et les Crédits (⚙). Historique,
 // redirections et « × » : src/navigation.ts. ---
 
-type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie' | 'credits' | 'compte';
+type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie' | 'credits' | 'confidentialite' | 'compte';
 /** #compte n'existe que si les comptes se montrent : sinon l'adresse mène à l'accueil. */
-const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie', 'credits', ...(COMPTES ? (['compte'] as const) : [])];
+const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie', 'credits', 'confidentialite', ...(COMPTES ? (['compte'] as const) : [])];
 /** Vues de passage : leur « Retour » ou « × » ramène à la vue d'avant. */
-const PASSAGE: NomVue[] = ['jouer', 'classement', 'credits', 'compte'];
+const PASSAGE: NomVue[] = ['jouer', 'classement', 'credits', 'confidentialite', 'compte'];
 const vues = new Map<string, Vue>();
 /** Le monde et l'île (src/terrains.ts), une fois le monde chargé. */
 let terrains: Terrains | null = null;
@@ -664,6 +668,7 @@ async function demarrer(): Promise<void> {
   vues.set('classement', vueGeneral(ctx, { retour }));
   vues.set('saisie', vueSaisie(ctx));
   vues.set('credits', vueCredits(ctx, { retour }));
+  vues.set('confidentialite', vueConfidentialite(ctx, { retour }));
   if (COMPTES) {
     const T = TEXTES_COMPTE;
     vues.set(

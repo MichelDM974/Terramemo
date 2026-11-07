@@ -101,6 +101,8 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void }): Vue {
       { class: 'panel' },
       creer('h2', {}, T.titre),
       creer('p', { class: 'hint' }, T.intro),
+      // La politique de confidentialité (J1b, § 7.3) : la vue #confidentialite.
+      creer('p', { class: 'credits-confidentialite' }, creer('a', { href: '#confidentialite', id: 'credits-confidentialite' }, T.confidentialite)),
       creer('h3', {}, T.donnees_titre),
       creer('ul', { class: 'credits-liste', id: 'credits-liste-donnees' }, ...T.donnees.map((c, i) => ligne(c, i === 2 ? { id: 'ign', auteur: auteurIgn } : {}))),
       creer('h3', {}, T.bibliotheques_titre),

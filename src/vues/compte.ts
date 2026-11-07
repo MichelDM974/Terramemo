@@ -510,6 +510,9 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
               bouton('compte-annuler', T.annuler, () => annuler()),
             ),
           ),
+          // La politique de confidentialité, avant de créer le compte (§ 3.2, § 7.3) : la vue #confidentialite,
+          // d'où « Retour » ramène au formulaire, saisie gardée.
+          creer('p', { class: 'hint', id: 'compte-politique' }, T.politique, creer('a', { href: '#confidentialite', id: 'compte-lien-politique' }, T.politique_lien)),
           bouton('compte-deja', T.deja_compte, () => {
             adresseSaisie = a.input.value;
             effacerAvis();

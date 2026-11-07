@@ -171,6 +171,9 @@ describe('vue Compte', () => {
     expect($('#compte-mdp-voir')!.textContent).toBe(T.masquer);
     $('#compte-mdp-voir')!.click();
     expect(m.getAttribute('type')).toBe('password');
+    // La politique de confidentialité, avant de créer le compte (lot 5, § 3.2).
+    expect($('#compte-politique')!.textContent).toBe(`${T.politique}${T.politique_lien}`);
+    expect($('#compte-lien-politique')!.getAttribute('href')).toBe('#confidentialite');
   });
 
   it('créer : le compte, le message de l’e-mail parti, puis l’écran du compte (adresse non vérifiée)', async () => {

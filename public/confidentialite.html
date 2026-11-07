@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080809">
+  <title>Terramemo — Politique de confidentialité</title>
+  <meta name="description" content="Les données que traite Terramemo, pourquoi, où, combien de temps, et tes droits.">
+  <link rel="preload" href="/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/documents.css">
+</head>
+<body>
+  <!-- Politique de confidentialité (étude du J1b, § 7.3) : page statique, la même
+       dans l'appli (vue #confidentialite, qui n'en prend que le <main>). Faits
+       vérifiés le 07/11/2026 : firebase.json (Firestore eur3), docs de Firebase
+       (firebase.google.com/support/privacy : Auth aux États-Unis, IP, sous-traitant,
+       DPF ; firebase.google.com/docs/firestore/locations : eur3), docs de Google
+       Cloud (docs.cloud.google.com/docs/security/deletion : sauvegardes). -->
+  <header>
+    <p class="marque"><a href="/">Terramemo</a></p>
+    <p class="accroche">La géographie du monde, au doigt.</p>
+  </header>
+  <main id="document">
+    <h1>Politique de confidentialité</h1>
+    <p class="version">Version du 07/11/2026</p>
+
+    <p>Terramemo est un jeu gratuit pour apprendre la géographie, sur le site
+      terramemo-geo.web.app et dans son appli Android. Il n'a ni publicité, ni
+      achat, ni mesure d'audience. Cette page dit quelles données il traite,
+      pourquoi, où, combien de temps, et comment exercer tes droits.</p>
+    <p class="note">Les comptes (connexion par e-mail, plus tard par Google) ne
+      sont pas encore ouverts à tous : cette page les décrit d'avance. En
+      attendant, on joue en invité.</p>
+
+    <h2>1. Responsable et contact</h2>
+    <p>Le responsable du traitement est Michel D., qui fait Terramemo à titre
+      personnel. Pour toute question ou demande sur tes données :
+      <a href="mailto:CONTACT_A_REMPLIR@googlegroups.invalid">CONTACT_A_REMPLIR@googlegroups.invalid</a>.</p>
+
+    <h2>2. Données et finalités</h2>
+    <div class="tableau">
+      <table>
+        <thead>
+          <tr><th>Donnée</th><th>Pourquoi</th><th>Base légale (RGPD)</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Le journal de tes réponses (fiche, réponse, durée, moment), tes records et ton pseudo, sur ton appareil</td>
+            <td data-titre="Pourquoi">La répétition espacée, les records</td>
+            <td data-titre="Base">Aucune : pour un invité, ils restent sur l'appareil</td>
+          </tr>
+          <tr>
+            <td>Ton pseudo et tes scores des épreuves classées, publics ; un compte anonyme (un identifiant au hasard) pour les publier</td>
+            <td data-titre="Pourquoi">Le classement</td>
+            <td data-titre="Base">Le service que tu demandes (art. 6.1.b) ; intérêt légitime contre les abus (art. 6.1.f)</td>
+          </tr>
+          <tr>
+            <td>Avec un compte : ton adresse e-mail, ton mot de passe (que Firebase ne garde que haché), l'identifiant du compte et son moyen de connexion</td>
+            <td data-titre="Pourquoi">Ton compte</td>
+            <td data-titre="Base">Le service que tu demandes (art. 6.1.b)</td>
+          </tr>
+          <tr>
+            <td>Avec un compte : tes séances (réponses horodatées, fuseau horaire, identifiant de l'appareil), ton pseudo et tes records</td>
+            <td data-titre="Pourquoi">Les retrouver sur tes autres appareils</td>
+            <td data-titre="Base">Le service que tu demandes (art. 6.1.b)</td>
+          </tr>
+          <tr>
+            <td>Ton adresse IP et ton navigateur, vus par Google à chaque échange avec le service</td>
+            <td data-titre="Pourquoi">Le fonctionnement et la sécurité du service</td>
+            <td data-titre="Base">Intérêt légitime (art. 6.1.f)</td>
+          </tr>
+          <tr>
+            <td>Dans l'appli Android, quand la connexion Google sera ouverte : le gestionnaire d'identifiants et les services Google Play du téléphone</td>
+            <td data-titre="Pourquoi">La connexion par Google</td>
+            <td data-titre="Base">Le service que tu demandes (art. 6.1.b) ; traitement de Google, sous sa propre politique</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Terramemo ne vend tes données à personne, ne les partage pas à des fins
+      publicitaires et ne fait aucun profilage.</p>
+
+    <h2>3. Destinataires et lieux</h2>
+    <ul>
+      <li>Google (Firebase) est le sous-traitant de Terramemo : il héberge le site
+        (Firebase Hosting), les comptes (Firebase Authentication) et les données en
+        ligne (Cloud Firestore), pour le compte de Terramemo.</li>
+      <li>Firebase Authentication fonctionne depuis des centres de données aux
+        États-Unis. Google adhère au cadre de protection des données UE–États-Unis
+        (Data Privacy Framework), qui encadre ce transfert.</li>
+      <li>Cloud Firestore (séances, profils, classement) est en Europe : emplacement
+        eur3, en Belgique et aux Pays-Bas (une réplique témoin, sans copie complète,
+        en Finlande).</li>
+      <li>Le site est servi par le réseau de diffusion mondial de Firebase Hosting.</li>
+      <li>Aucun autre destinataire : ni publicité, ni mesure d'audience.</li>
+    </ul>
+
+    <h2>4. Durées de conservation</h2>
+    <ul>
+      <li>Ton compte, tes séances, ton pseudo et tes records : jusqu'à la
+        suppression du compte, ou au bout de 2 ans sans activité.</li>
+      <li>Invités : le compte anonyme qui sert à publier un score est supprimé par
+        Firebase 30 jours après sa création ; la publication suivante en crée un
+        nouveau. Il ne porte aucune donnée en ligne, et Terramemo ne le supprime pas
+        lui-même.</li>
+      <li>Places du classement : publiques tant que le classement existe (de
+        toujours, et de chaque semaine). Celles du pseudo d'un compte supprimé sont
+        retirées sous 30 jours.</li>
+      <li>Compte supprimé : son identifiant et la date sont gardés un jour, pour que
+        ses autres appareils n'écrivent plus rien ; la demande de retrait de ses
+        places (le pseudo et la date), jusqu'à son traitement.</li>
+      <li>Sauvegardes de Google : une donnée supprimée disparaît des systèmes actifs
+        en deux mois environ, et des sauvegardes sous six mois (180 jours au
+        plus).</li>
+      <li>Adresses IP : quelques semaines pour Firebase Authentication, quelques
+        mois pour Firebase Hosting.</li>
+    </ul>
+
+    <h2>5. Tes droits</h2>
+    <ul>
+      <li>Accès et portabilité : « Exporter mes données » (⚙ › Compte, sur le site)
+        te donne un fichier JSON avec ton journal, tes records, ton pseudo et le
+        profil de ton compte.</li>
+      <li>Rectification : ton pseudo se change dans ⚙ › Compte ; pour le reste,
+        écris à l'adresse de contact.</li>
+      <li>Effacement : « Supprimer mon compte » (⚙ › Compte), la page
+        <a href="suppression.html">Supprimer son compte</a>, ou un e-mail à
+        l'adresse de contact.</li>
+      <li>Limitation et opposition : par e-mail, à l'adresse de contact.</li>
+      <li>Réponse sous un mois.</li>
+      <li>Réclamation : auprès de la CNIL,
+        <a href="https://www.cnil.fr/fr/plaintes">cnil.fr</a>.</li>
+    </ul>
+
+    <h2>6. Supprimer ton compte</h2>
+    <p>Dans l'appli ou sur le site : ⚙ › Compte › Supprimer mon compte. La page
+      <a href="suppression.html">Supprimer son compte Terramemo</a> donne les
+      étapes, ce qui est supprimé et ce qui est gardé, et comment le demander sans
+      te connecter.</p>
+
+    <h2>7. Stockage sur ton appareil</h2>
+    <p>Terramemo garde ton journal, tes réglages, ton pseudo et tes records dans le
+      stockage de ton navigateur ou de l'appli (IndexedDB et localStorage), et
+      Firebase y garde ta session de connexion. Ce stockage est strictement
+      nécessaire au jeu : sans cookie publicitaire ni mesure d'audience, il n'y a
+      pas de bandeau de consentement.</p>
+
+    <h2>8. Mineurs</h2>
+    <p>Terramemo ne fixe pas d'âge minimum : on joue sans compte, et un compte ne
+      sert qu'à retrouver ses progrès, sans consentement demandé (la base est le
+      service demandé). Il ne s'adresse pas aux enfants en particulier.</p>
+
+    <h2>9. Changements</h2>
+    <p>Cette page porte la date de sa version. Une nouvelle version la remplace, à
+      la même adresse, avec sa date.</p>
+  </main>
+</body>
+</html>

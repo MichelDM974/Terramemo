@@ -218,6 +218,7 @@
     "lien": "Crédits et licences",
     "titre": "Crédits",
     "intro": "Terramemo est fait avec ces données et ces logiciels libres.",
+    "confidentialite": "Politique de confidentialité",
     "donnees_titre": "Données",
     "donnees": [
       {
@@ -489,6 +490,8 @@
     "creer_bouton": "Créer",
     "connecter_bouton": "Se connecter",
     "changer_bouton": "Changer",
+    "politique": "Ce que deviennent tes données : ",
+    "politique_lien": "politique de confidentialité",
     "deja_compte": "J'ai déjà un compte",
     "pas_de_compte": "Pas encore de compte ? En créer un",
     "oubli": "Mot de passe oublié ?",
@@ -624,5 +627,13 @@
       "terramemo/google-apk": "Dans l'appli, un compte Google se supprime depuis le site : terramemo-geo.web.app.",
       "terramemo/suppression-inachevee": "Une suppression du compte est inachevée : reprends-la d'abord."
     }
+  },
+  "confidentialite": {
+    "lien": "Confidentialité",
+    "titre": "Confidentialité",
+    "chargement": "Chargement…",
+    "erreur": "Politique indisponible (hors ligne ?) : réessaie.",
+    "reessayer": "Réessayer",
+    "retour": "Retour"
   }
 }
