@@ -478,6 +478,31 @@ code la nuit (`-s RFGL606Q5WM` s'il y a plusieurs appareils).
 - « aucun téléphone prêt » juste après une installation : le débogage USB
   décroche parfois ; le rallumer sur le téléphone.
 
+### Mesure des pastilles (Q3 du J1a, #2)
+
+```bash
+python3 .claude/skills/run-terramemo/outils/pastilles.py --sauver                 # APK : sauver_journal, puis la mesure
+python3 .claude/skills/run-terramemo/outils/pastilles.py --sauver --cible chrome  # le site dans Chrome du téléphone
+python3 .claude/skills/run-terramemo/outils/pastilles.py                          # sans téléphone : la dernière sauvegarde de chaque origine
+python3 .claude/skills/run-terramemo/outils/pastilles.py FICHIER... --depuis 07/11 --json
+```
+
+Q3 (`docs/questions-j1a.md`, « A, mesurer d'abord ») : après la semaine
+d'usage (13/11), la part des réponses justes « par pastille » au zoom
+faible dit s'il faut B (disque plus petit sur un voisin) ou C (zoom minimal
+en séance). L'outil lit les sauvegardes de `sauver_journal` (une de plus à
+chaque `--sauver`, jamais écrasée ; seule, elle s'ajoute à la dernière des
+autres origines, APK et site fusionnés sans doublon d'id) et compte les
+réponses « où est » au toucher : séances (rappel et révision, notées par
+FSRS) et parties libres à part ; ni QCM ni carte retournée. Par tranche de
+zoom (`--tranches 1.5,3,6,12`, l'échelle de la carte au toucher : 1 = le
+monde, ou l'île pour les communes, à part) : réponses, % de justes, et la
+part de chaque `via` (tracé, pastille, proche) parmi les justes ; puis la
+ligne « => Q3 » (justes par pastille sous `--faible`, 3 par défaut) et les
+fiches justes par pastille (micro-États), avec leur part au zoom faible et
+le zoom médian. Le seuil qui ferait choisir B ou C reste à l'utilisateur.
+Testé par `tests/pastilles-outil.test.ts` (journal fabriqué).
+
 **Drapeau `terramemo.sans-synchro`** (`src/sync/drapeaux.ts`) : chaque
 commande qui ouvre une page (smoke, ui, seance, mesurer, sauver_journal,
 restaurer_journal) le pose sur l'origine qu'elle pilote, avant toute
