@@ -1606,8 +1606,9 @@ visible en production.
   `FIREBASE_AUTH_EMULATOR_HOST` sont posés ; un seul des deux est refusé
   (une base serait le vrai projet). Sinon `terramemo-geo` par la clé de
   `~/Sauvegardes/terramemo/admin/` (un seul `.json`) ou
-  `TERRAMEMO_CLE_ADMIN` ; refus en CI, d'une clé du dépôt ou d'un autre
-  projet. `firebase-admin` 14.5.0, figé ;
+  `TERRAMEMO_CLE_ADMIN` ; refus en CI, d'une clé dans un dépôt git
+  (n'importe lequel, liens suivis) ou d'un autre projet ; le SDK ne s'ouvre
+  que si `process.env` vise la cible lue. `firebase-admin` 14.5.0, figé ;
 - invités : un compte sans fournisseur (`providerData` vide). Inactivité :
   `lastRefreshTime`, à défaut `lastSignInTime`, puis `creationTime` ;
   2 ans calendaires. Un compte bloqué pour abus est purgé aussi au bout de

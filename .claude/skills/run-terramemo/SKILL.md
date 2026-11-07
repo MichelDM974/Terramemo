@@ -1064,8 +1064,10 @@ posés (tous les deux), les émulateurs, sans clé (projet `GCLOUD_PROJECT`,
 sinon `demo-terramemo`) ; un seul des deux est refusé. Sinon le vrai projet
 `terramemo-geo`, par la clé du compte de service : le seul `.json` de
 `~/Sauvegardes/terramemo/admin/`, ou le chemin de `TERRAMEMO_CLE_ADMIN` ;
-une clé dans le dépôt ou d'un autre projet est refusée, et `.gitignore`
-ignore les noms des clés de Google. Aux émulateurs lancés à part
+une clé dans un dépôt git (celui-ci, un autre clone ou worktree, ou
+atteinte par un lien, suivi) ou d'un autre projet est refusée, et
+`.gitignore` ignore les noms des clés de Google. Le SDK ne s'ouvre que si
+`process.env` vise la même cible. Aux émulateurs lancés à part
 (`npx firebase emulators:start --only firestore,auth --project
 terramemo-geo`) : `FIRESTORE_EMULATOR_HOST=127.0.0.1:8062
 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:8063 GCLOUD_PROJECT=terramemo-geo npm

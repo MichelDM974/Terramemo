@@ -8,11 +8,11 @@
 //   Auth au vrai projet (ou l'inverse).
 // - Aucun des deux : le vrai projet terramemo-geo, par la clé du compte de
 //   service, lue dans ~/Sauvegardes/terramemo/admin/ (un seul .json) ou au
-//   chemin de TERRAMEMO_CLE_ADMIN ; jamais une clé du dépôt, jamais en CI.
-import { readdirSync, readFileSync } from 'node:fs';
+//   chemin de TERRAMEMO_CLE_ADMIN ; jamais une clé d'un dépôt git (celui-ci,
+//   un autre clone ou worktree, ou atteinte par un lien), jamais en CI.
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, relative, resolve, isAbsolute } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
 
 /** Le vrai projet, le seul que la clé puisse viser. */
 export const PROJET_REEL = 'terramemo-geo';
@@ -20,8 +20,6 @@ export const PROJET_REEL = 'terramemo-geo';
 export const PROJET_EMULATEURS = 'demo-terramemo';
 /** Le dossier de la clé (décision « Confidentialité et ouverture des comptes »). */
 export const DOSSIER_CLE = join(homedir(), 'Sauvegardes', 'terramemo', 'admin');
-
-const DEPOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** Erreur d'usage ou de configuration : message en français, code de sortie 2, rien n'a été lu ni écrit. */
 export class ErreurUsage extends Error {}
@@ -68,11 +66,26 @@ function cheminCle(env) {
     chemin = join(DOSSIER_CLE, fichiers[0]);
   }
   const absolu = resolve(chemin);
-  const rel = relative(DEPOT, absolu);
-  if (!rel.startsWith('..') && !isAbsolute(rel)) {
-    throw new ErreurUsage(`La clé ${absolu} est dans le dépôt : la ranger dans ${DOSSIER_CLE}, jamais dans le dépôt.`);
+  let reel;
+  try {
+    reel = realpathSync(absolu);
+  } catch {
+    throw new ErreurUsage(`Clé introuvable : ${absolu}.`);
   }
-  return absolu;
+  // Le chemin donné et le fichier qu'il désigne (liens suivis) : ni l'un ni l'autre dans un dépôt git.
+  for (const c of new Set([absolu, reel])) {
+    const depot = depotDe(c);
+    if (depot) throw new ErreurUsage(`La clé ${c} est dans le dépôt git ${depot} : la ranger dans ${DOSSIER_CLE}, jamais dans un dépôt.`);
+  }
+  return reel;
+}
+
+/** Le dépôt git qui contient ce fichier (un dossier parent avec un `.git`, dossier ou fichier d'un worktree), ou null. */
+function depotDe(fichier) {
+  for (let d = dirname(fichier); ; d = dirname(d)) {
+    if (existsSync(join(d, '.git'))) return d;
+    if (dirname(d) === d) return null;
+  }
 }
 
 /** La clé lue et vérifiée : un compte de service du vrai projet. */

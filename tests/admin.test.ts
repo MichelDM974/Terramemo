@@ -9,7 +9,7 @@
 // Plus les refus de cible (un seul émulateur, CI, clé absente, clé du dépôt,
 // clé d'un autre projet), sans émulateurs, donc aussi dans npm test.
 import { execFile } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -74,7 +74,25 @@ describe('outil du propriétaire : cible', () => {
     expect(absente.stderr).toContain('Aucune clé du compte de service');
     const depot = await lancer(['releve'], { ...sans, TERRAMEMO_CLE_ADMIN: join(RACINE, 'package.json') });
     expect(depot.code).toBe(2);
-    expect(depot.stderr).toContain('est dans le dépôt');
+    expect(depot.stderr).toContain('est dans le dépôt git');
+    // Un autre dépôt (le clone principal vu d'un worktree, par exemple) : refusé aussi.
+    const autreDepot = join(MAISON_VIDE, 'autre-depot');
+    mkdirSync(join(autreDepot, '.git'), { recursive: true });
+    mkdirSync(join(autreDepot, 'scripts'));
+    const cleAutreDepot = join(autreDepot, 'scripts', 'admin-cle.json');
+    writeFileSync(cleAutreDepot, JSON.stringify({ type: 'service_account', project_id: 'terramemo-geo' }));
+    const ailleurs = await lancer(['releve'], { ...sans, TERRAMEMO_CLE_ADMIN: cleAutreDepot });
+    expect(ailleurs.code).toBe(2);
+    expect(ailleurs.stderr).toContain(`est dans le dépôt git ${autreDepot}`);
+    // Un lien hors de tout dépôt vers une clé d'un dépôt : refusé (le lien est suivi).
+    const lien = join(MAISON_VIDE, 'lien.json');
+    symlinkSync(cleAutreDepot, lien);
+    const parLien = await lancer(['releve'], { ...sans, TERRAMEMO_CLE_ADMIN: lien });
+    expect(parLien.code).toBe(2);
+    expect(parLien.stderr).toContain(`est dans le dépôt git ${autreDepot}`);
+    const introuvable = await lancer(['releve'], { ...sans, TERRAMEMO_CLE_ADMIN: join(MAISON_VIDE, 'absente.json') });
+    expect(introuvable.code).toBe(2);
+    expect(introuvable.stderr).toContain('Clé introuvable');
     const autre = join(MAISON_VIDE, 'autre.json');
     writeFileSync(autre, JSON.stringify({ type: 'service_account', project_id: 'autre-projet' }));
     const etrangere = await lancer(['releve'], { ...sans, TERRAMEMO_CLE_ADMIN: autre });
