@@ -129,9 +129,15 @@ export function texteSynchro(e: EtatSynchro): string {
   return T.synchro_a_jour;
 }
 
-/** Le texte de D27 b, avant la confirmation d'une suppression (§ 7.1) : les places du pseudo retirées sous 30 jours. */
-export function texteClassementSuppression(pseudo: string | null): string {
-  return pseudo ? remplir(T.supprimer_classement, { pseudo }) : T.supprimer_classement_sans;
+/**
+ * Le texte de D27 b, avant la confirmation d'une suppression (§ 7.1) : les
+ * places du pseudo du profil en ligne, celui que la demande portera
+ * (comptes.pseudoDemande), retirées sous 30 jours ; aucune sans pseudo en
+ * ligne ; un texte sans nom si le profil ne s'est pas lu.
+ */
+export function texteClassementSuppression(p: { lu: boolean; pseudo: string | null } | null): string {
+  if (p?.lu && p.pseudo) return remplir(T.supprimer_classement, { pseudo: p.pseudo });
+  return p?.lu ? T.supprimer_classement_aucun : T.supprimer_classement_sans;
 }
 
 /** Le texte d'une session perdue : « {n} séances », au singulier pour une. */
@@ -161,6 +167,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   let abonne = false;
   let abonneEnvoi = false;
   let exportEnCours = false;
+  /** Le pseudo que la demande de retrait des places portera (lu à l'ouverture de « Supprimer mon compte »). */
+  let pseudoSuppression: { lu: boolean; pseudo: string | null } | null = null;
   const natif = o.natif ?? (() => typeof window !== 'undefined' && dansApk());
 
   const message = creer('p', { class: 'status', id: 'compte-message', 'aria-live': 'polite' });
@@ -614,10 +622,13 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer(
             'div',
             { class: 'compte-actions compte-separe' },
-            bouton('compte-vers-supprimer', T.supprimer_lien, () => {
-              effacerAvis();
-              aller('supprimer');
-            }, 'danger'),
+            bouton('compte-vers-supprimer', T.supprimer_lien, () =>
+              void agir(async (c) => {
+                effacerAvis();
+                // Le pseudo de la demande (celui du profil en ligne), montré avant la confirmation.
+                pseudoSuppression = await c.pseudoDemande();
+                aller('supprimer');
+              }), 'danger'),
           ),
         );
         return lignes;
@@ -629,7 +640,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer('h3', {}, T.titre_supprimer),
           creer('p', { id: 'compte-supprimer-texte' }, T.supprimer_texte),
           // D27 b, avant la confirmation : les places du pseudo.
-          creer('p', { id: 'compte-supprimer-classement' }, texteClassementSuppression(lirePseudo())),
+          creer('p', { id: 'compte-supprimer-classement' }, texteClassementSuppression(pseudoSuppression)),
           ...formulaireSuppression(e.adresse, e.fournisseurs, true, T.supprimer_bouton, true),
         ];
       }

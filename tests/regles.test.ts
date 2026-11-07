@@ -457,10 +457,27 @@ describe.skipIf(!hote)('profil joueurs/{uid} (J1b, lot 2 ; essai() ouvert)', () 
       return b.commit();
     }
 
-    it('le compte lui-même, avec sa pierre tombale : accepté (profil présent ou absent)', async () => {
+    it('le compte lui-même, avec sa pierre tombale et le pseudo de son profil : accepté', async () => {
       await assertSucceeds(setDoc(moi(db('ana')), profil()));
       await assertSucceeds(supprimer(db('ana')));
-      await assertSucceeds(supprimer(db('lia', jetonCompte({ email: 'lia@exemple.fr' })), 'lia', demande({ pseudo: 'x'.repeat(20) })));
+      const lia = db('lia', jetonCompte({ email: 'lia@exemple.fr' }));
+      await assertSucceeds(setDoc(moi(lia, 'lia'), profil({ pseudo: 'x'.repeat(20) })));
+      await assertSucceeds(supprimer(lia, 'lia', demande({ pseudo: 'x'.repeat(20) })));
+    });
+
+    it('un pseudo que le profil ne porte pas : refusé (profil d’un autre pseudo, sans pseudo, absent) ; la pierre tombale seule passe', async () => {
+      await assertSucceeds(setDoc(moi(db('ana')), profil({ pseudo: 'Ana' })));
+      // Le pseudo d'un autre joueur, à la casse près comme tout autre.
+      await assertFails(supprimer(db('ana'), 'ana', demande({ pseudo: 'Michel' })));
+      await assertFails(supprimer(db('ana'), 'ana', demande({ pseudo: 'ana' })));
+      const { pseudo: _p, ...sansPseudo } = profil();
+      await assertSucceeds(setDoc(moi(db('lia', jetonCompte({ email: 'lia@exemple.fr' })), 'lia'), sansPseudo));
+      await assertFails(supprimer(db('lia', jetonCompte({ email: 'lia@exemple.fr' })), 'lia'));
+      // Profil absent (jamais écrit) : pas de demande possible ; la pierre tombale seule, si.
+      await assertFails(supprimer(db('zoe'), 'zoe'));
+      await assertSucceeds(setDoc(moi(db('zoe'), 'zoe'), tombe()));
+      // Le profil d'avant le lot (la pierre tombale, qui efface le pseudo, est dans le même lot).
+      await assertSucceeds(supprimer(db('ana'), 'ana', demande({ pseudo: 'Ana' })));
     });
 
     it('sans compte, un autre uid, un anonyme : refusé', async () => {
@@ -470,6 +487,7 @@ describe.skipIf(!hote)('profil joueurs/{uid} (J1b, lot 2 ; essai() ouvert)', () 
     });
 
     it('forme : pseudo de 2 à 20 caractères, heure du serveur, rien d’autre', async () => {
+      await assertSucceeds(setDoc(moi(db('ana')), profil()));
       for (const faux of [
         demande({ pseudo: 'M' }),
         demande({ pseudo: 'x'.repeat(21) }),
@@ -483,6 +501,7 @@ describe.skipIf(!hote)('profil joueurs/{uid} (J1b, lot 2 ; essai() ouvert)', () 
     });
 
     it('ni lecture, ni mise à jour, ni suppression ; pas de liste', async () => {
+      await assertSucceeds(setDoc(moi(db('ana')), profil()));
       await assertSucceeds(supprimer(db('ana')));
       const d = doc(db('ana'), 'demandes', 'ana');
       await assertFails(getDoc(d));

@@ -251,14 +251,21 @@ service cloud.firestore {
     // sa pierre tombale (getAfter la voit), puis traitée par l'outil du
     // propriétaire (SDK Admin, hors des règles). Création seule, bornée : le
     // pseudo (2 à 20 caractères, comme scoreValide) et l'heure du serveur.
-    // Ni lecture, ni mise à jour, ni suppression par le client.
+    // Le pseudo est celui du profil du compte avant le lot (get : l'état
+    // d'avant la pierre tombale, qui l'efface) : un compte ne demande pas le
+    // retrait d'un pseudo que son profil ne porte pas. Sans pseudo au profil,
+    // pas de demande (l'appli l'omet). Le pseudo n'étant pas réservé (« Une
+    // place par pseudo »), l'outil ne retire rien sans le montrer d'abord
+    // (§ 7.5). Ni lecture, ni mise à jour, ni suppression par le client.
     function demandeValide(uid) {
       let d = request.resource.data;
+      let profil = /databases/$(database)/documents/joueurs/$(uid);
       return d.keys().hasOnly(['pseudo', 'cree'])
         && d.keys().hasAll(['pseudo', 'cree'])
         && d.pseudo is string && d.pseudo.size() >= 2 && d.pseudo.size() <= 20
         && d.cree == request.time
-        && getAfter(/databases/$(database)/documents/joueurs/$(uid)).data.get('supprime', false) == true;
+        && exists(profil) && get(profil).data.get('pseudo', null) == d.pseudo
+        && getAfter(profil).data.get('supprime', false) == true;
     }
 
     match /demandes/{uid} {

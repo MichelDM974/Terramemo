@@ -215,6 +215,14 @@ export interface Comptes {
    * au démarrage suivant).
    */
   supprimer(c: ConfirmationSuppression): Promise<void>;
+  /**
+   * Avant la confirmation d'une suppression (§ 7.1, D27 b) : le pseudo que
+   * la demande de retrait des places portera, celui du profil en ligne (un
+   * pseudo de l'appareil pas encore parti y est d'abord envoyé). `lu` faux :
+   * le profil ne s'est pas lu (hors ligne, règles fermées) ; `pseudo` null
+   * et `lu` vrai : le compte n'a pas de pseudo en ligne, rien ne sera retiré.
+   */
+  pseudoDemande(): Promise<{ lu: boolean; pseudo: string | null }>;
   /** Session perdue → invité : l'appareil garde son journal (§ 2.5). */
   continuerSansCompte(): Promise<void>;
   /** Session perdue → invité vierge : journal, état d'envoi, pseudo et records effacés (§ 2.5). */
@@ -751,6 +759,9 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
 
   // --- Suppression du compte (§ 7.1) ---
 
+  /** Le pseudo du profil que la demande de retrait portera (règles : 2 à 20 caractères, égal à celui du profil). */
+  const pseudoDuProfil = (lu: ProfilLu): string | null => (typeof lu.pseudo === 'string' && lu.pseudo.length >= 2 && lu.pseudo.length <= 20 ? lu.pseudo : null);
+
   /** Une suppression inachevée sur l'appareil : rien d'autre ne commence avant elle (connexion, création). */
   async function sansSuppression(): Promise<void> {
     if ((await lireSession()).suppression) throw new ErreurCompte('terramemo/suppression-inachevee');
@@ -790,14 +801,15 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
    * Étapes 3 et 4 : la demande de retrait des places du pseudo (D27 b) et la
    * pierre tombale, dans un seul lot d'écriture (les règles de demandes/
    * exigent la pierre tombale avec elle) ; sautées si la pierre tombale est
-   * déjà posée. Le pseudo : celui du profil, sinon celui de l'appareil.
+   * déjà posée. Le pseudo : celui du profil en ligne, tel quel (les règles
+   * l'exigent, et la vue l'a montré avant la confirmation : pseudoDemande) ;
+   * sans pseudo au profil, pas de demande.
    */
   async function poserTombe(s: Service, uid: string): Promise<void> {
     const { fs } = s.m;
     const lu = await lireProfil(s, uid);
     if (lu.supprime) return;
-    const ici = lireLocal(stockage()).pseudo;
-    const pseudo = (lu.pseudo !== null ? pseudoValide(lu.pseudo) : null) ?? (ici ? pseudoValide(ici) : null);
+    const pseudo = pseudoDuProfil(lu);
     const b = fs.writeBatch(s.db);
     if (pseudo) b.set(fs.doc(s.db, 'demandes', uid), { pseudo, cree: fs.serverTimestamp() });
     b.set(fs.doc(s.db, 'joueurs', uid), { v: V_PROFIL, maj: fs.serverTimestamp(), supprime: true });
@@ -1076,6 +1088,22 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       // Seulement pour le compte de la session : un autre compte a pu se connecter pendant la lecture.
       poser: (uid, marque) => modifierSession((x) => (x.uid === uid ? { marque } : null)),
     }),
+
+    async pseudoDemande() {
+      try {
+        if (coupee()) return { lu: false, pseudo: null };
+        const s = await service();
+        const ses = await lireSession();
+        const u = s.a.currentUser;
+        if (!estCompte(u) || u!.uid !== (ses.suppression ?? ses.uid)) return { lu: false, pseudo: null };
+        if (ses.profil_a_ecrire && !ses.suppression) await synchroniserProfil('ecrire');
+        const lu = await lireProfil(s, u!.uid);
+        return { lu: !lu.supprime, pseudo: lu.supprime ? null : pseudoDuProfil(lu) };
+      } catch (e) {
+        noter(e);
+        return { lu: false, pseudo: null };
+      }
+    },
 
     supprimer: (c) =>
       suivi(async () => {

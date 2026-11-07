@@ -274,6 +274,33 @@ describe.skipIf(!hoteAuth || !hoteFs)('suppression du compte (émulateurs Auth e
     await toutSupprime(x, p, uid);
   });
 
+  it('la demande porte le pseudo du profil en ligne, celui que pseudoDemande montre (un pseudo de l’appareil pas encore parti y va d’abord)', async () => {
+    const x = appareil('pseudo');
+    const { p, uid } = await compteAvecLots(x);
+    expect(await p.comptes.pseudoDemande()).toEqual({ lu: true, pseudo: 'Michel' });
+    // Le pseudo changé sur l'appareil sans être parti (hors ligne) : envoyé avant d'être montré.
+    x.stockage.setItem('terramemo.pseudo', 'Ana');
+    await p.session.ecrire({ ...(await p.session.lire())!, profil_a_ecrire: true });
+    expect(await p.comptes.pseudoDemande()).toEqual({ lu: true, pseudo: 'Ana' });
+    expect(await lire('joueurs', uid)).toMatchObject({ pseudo: 'Ana' });
+    await p.comptes.supprimer({ mot: 'supprimer', mdp: MDP });
+    expect(await lire('demandes', uid)).toMatchObject({ pseudo: 'Ana' });
+  });
+
+  it('un compte sans pseudo en ligne : pas de demande, la suppression aboutit', async () => {
+    const x = appareil('sans-pseudo');
+    const p = x.page();
+    await p.memoire.pret;
+    await p.comptes.creer(adresse(), MDP);
+    await p.fini();
+    const uid = x.a.currentUser!.uid;
+    expect(await p.comptes.pseudoDemande()).toEqual({ lu: true, pseudo: null });
+    await p.comptes.supprimer({ mot: 'supprimer', mdp: MDP });
+    expect(await dansAuth(uid)).toBe(false);
+    expect(await lire('joueurs', uid)).toMatchObject({ supprime: true });
+    expect(await lire('demandes', uid)).toBeNull();
+  });
+
   for (const etape of ['reauth', 'profil', 'tombe', 'lots', 'compte', 'effacer'] as const) {
     it(`reprise après une coupure à l’étape « ${etape} » : la page suivante finit la suppression`, async () => {
       const x = appareil(`reprise-${etape}`);

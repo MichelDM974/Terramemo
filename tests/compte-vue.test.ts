@@ -27,6 +27,8 @@ let resteDeconnexion: Extract<ResultatDeconnexion, { fait: false }> | null = nul
 let echecApres: Error | null = null;
 /** L'erreur d'une suppression coupée en route (lot 5) : le drapeau reste posé. */
 let coupureSuppression: Error | null = null;
+/** Le pseudo du profil en ligne que la demande de retrait portera (lot 5, comptes.pseudoDemande). */
+let pseudoEnLigne: { lu: boolean; pseudo: string | null } = { lu: true, pseudo: null };
 
 /** Des comptes en mémoire : un état, et chaque méthode espionnée. */
 function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
@@ -78,6 +80,7 @@ function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
       }
       etat = { etat: 'invite', anonyme: false };
     }),
+    pseudoDemande: vi.fn(async () => pseudoEnLigne),
     surChangement: vi.fn(() => () => true),
     demarrer: vi.fn(async () => etat),
     rapport: vi.fn(() => ({ etat, jeton: null, erreurs: [] })),
@@ -104,6 +107,7 @@ beforeEach(() => {
   resteDeconnexion = null;
   echecApres = null;
   coupureSuppression = null;
+  pseudoEnLigne = { lu: true, pseudo: null };
   zone = document.createElement('main') as unknown as El;
   masquee = [];
 });
@@ -755,12 +759,19 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
   });
 
   it('le texte de D27 b avant la confirmation ; « supprimer » et le mot de passe exigés ; puis « Compte supprimé. »', async () => {
-    localStorage.setItem('terramemo.pseudo', 'Michel');
+    // Le pseudo de l'appareil n'est pas celui de la demande : le texte dit celui du profil en ligne.
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    pseudoEnLigne = { lu: true, pseudo: 'Michel' };
     const c = fauxComptes(COMPTE);
     await ouvrir(c);
     $('#compte-vers-supprimer')!.click();
+    await attendre();
+    await attendre();
     expect($('#compte-supprimer-texte')!.textContent).toBe(T.supprimer_texte);
-    expect($('#compte-supprimer-classement')!.textContent).toBe('Tes places au classement portent ton pseudo, Michel : elles seront retirées sous 30 jours, pour tous ceux qui jouent ce pseudo.');
+    expect(c.pseudoDemande).toHaveBeenCalledOnce();
+    expect($('#compte-supprimer-classement')!.textContent).toBe(
+      "Tes places au classement portent le pseudo de ton compte, Michel : elles seront retirées sous 30 jours, pour tous ceux qui jouent ce pseudo. Celles d'un pseudo que tu as quitté restent.",
+    );
     // Le texte vient avant le formulaire de confirmation.
     const enfants = $('#compte-contenu')!.enfants as El[];
     expect(enfants.findIndex((x) => x.id === 'compte-supprimer-classement')).toBeLessThan(enfants.findIndex((x) => x.id === 'compte-form-supprimer'));
@@ -786,10 +797,19 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     expect(contenu()).toContain(T.invite);
   });
 
-  it('sans pseudo : le même avertissement, sans nom ; « Annuler » ramène au compte', async () => {
+  it('sans pseudo en ligne : aucune place retirée ; profil illisible : l’avertissement sans nom ; « Annuler » ramène au compte', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
     const c = fauxComptes(COMPTE);
     await ouvrir(c);
     $('#compte-vers-supprimer')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-supprimer-classement')!.textContent).toBe(T.supprimer_classement_aucun);
+    $('#compte-annuler')!.click();
+    pseudoEnLigne = { lu: false, pseudo: null };
+    $('#compte-vers-supprimer')!.click();
+    await attendre();
+    await attendre();
     expect($('#compte-supprimer-classement')!.textContent).toBe(T.supprimer_classement_sans);
     $('#compte-annuler')!.click();
     expect($('#compte-adresse-connectee')!.textContent).toBe('ana@exemple.fr');
@@ -799,6 +819,8 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     const c = fauxComptes({ ...COMPTE, fournisseurs: ['google.com'] } as EtatCompte);
     await ouvrir(c);
     $('#compte-vers-supprimer')!.click();
+    await attendre();
+    await attendre();
     expect($('#compte-supprimer-mdp')).toBeNull();
     expect($('#compte-supprimer-google')!.textContent).toBe(T.supprimer_google);
     $('#compte-supprimer-mot')!.value = 'supprimer';
@@ -813,6 +835,8 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     const c = fauxComptes(COMPTE);
     await ouvrir(c);
     $('#compte-vers-supprimer')!.click();
+    await attendre();
+    await attendre();
     $('#compte-supprimer-mot')!.value = 'supprimer';
     $('#compte-supprimer-mdp')!.value = 'motdepasse';
     envoyer('#compte-form-supprimer');
