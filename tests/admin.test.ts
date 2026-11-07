@@ -56,7 +56,7 @@ interface Rendu {
   emulateurs: boolean;
   applique: boolean;
   erreur?: string;
-  taches: { tache: string; notes: string[]; actions: Action[]; faites: number; releve?: { uid: string; lots: number; octets: number; compte: string }[] }[];
+  taches: { tache: string; notes: string[]; actions: Action[]; faites: number; releve?: { uid: string; lots: number; octets?: number; compte: string; tombe?: boolean }[] }[];
 }
 
 describe('outil du propriétaire : cible', () => {
@@ -287,17 +287,42 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     expect(e.comptes.abuseur).toBe(true);
   }, 60_000);
 
-  it('releve : lots et taille par uid, les plus gros d’abord ; rien n’est écrit', async () => {
+  it('releve : lots comptés sans être lus, puis taille par uid avec --taille, les plus gros d’abord ; plafond des lectures ; rien n’est écrit', async () => {
     await monde();
     const avant = await etat();
-    const r = JSON.parse((await lancer(['releve', '--json'])).stdout) as Rendu;
-    const lignes = r.taches[0]!.releve!;
-    expect(lignes.map((l) => l.uid).sort()).toEqual(['abuseur', 'actif', 'enroute', 'fantome', 'fantome2', 'parti', 'parti2', 'recent']);
-    expect(lignes[0]).toMatchObject({ uid: 'fantome', lots: 3, compte: 'absent' });
-    expect(lignes.find((l) => l.uid === 'actif')).toMatchObject({ lots: 2, compte: 'actif' });
-    for (let i = 1; i < lignes.length; i++) expect(lignes[i - 1]!.octets).toBeGreaterThanOrEqual(lignes[i]!.octets);
+    type Ligne = NonNullable<Rendu['taches'][number]['releve']>[number];
+    const releve = async (args: string[]) => {
+      const r = JSON.parse((await lancer(['releve', ...args, '--json'])).stdout) as Rendu;
+      return { lignes: r.taches[0]?.releve as (Ligne & { evenements?: number })[] | undefined, notes: r.taches[0]?.notes ?? [], erreur: r.erreur };
+    };
+    const uids = ['abuseur', 'actif', 'enroute', 'fantome', 'fantome2', 'parti', 'parti2', 'recent'];
+    // Sans --taille (et dans la tournée) : le nombre de lots, ni événements ni octets.
+    const compte = await releve([]);
+    if (!compte.lignes) throw new Error(compte.erreur);
+    expect(compte.lignes.map((l) => l.uid).sort()).toEqual(uids);
+    expect(compte.lignes[0]).toMatchObject({ uid: 'fantome', lots: 3, compte: 'absent' });
+    expect(compte.lignes.find((l) => l.uid === 'actif')).toMatchObject({ lots: 2, compte: 'actif' });
+    expect(compte.lignes.find((l) => l.uid === 'parti')).toMatchObject({ lots: 0, tombe: true });
+    expect(compte.lignes.every((l) => l.octets === undefined && l.evenements === undefined)).toBe(true);
+    expect(compte.notes.join('\n')).toContain('Lectures : ≈');
+    const tournee = JSON.parse((await lancer(['tournee', '--json'])).stdout) as Rendu;
+    const deTournee = tournee.taches.find((t) => t.tache === 'releve')!.releve!;
+    expect(deTournee.map((l) => [l.uid, l.lots])).toEqual(compte.lignes.map((l) => [l.uid, l.lots]));
+    expect(deTournee.every((l) => l.octets === undefined)).toBe(true);
+    // --taille : chaque lot lu.
+    const { lignes } = await releve(['--taille']);
+    if (!lignes) throw new Error('releve --taille');
+    expect(lignes.map((l) => l.uid).sort()).toEqual(uids);
+    expect(lignes[0]).toMatchObject({ uid: 'fantome', lots: 3, evenements: 6, compte: 'absent' });
+    for (let i = 1; i < lignes.length; i++) expect(lignes[i - 1]!.octets!).toBeGreaterThanOrEqual(lignes[i]!.octets!);
+    // 11 lots en tout : refusé sous ce plafond, avant de lire un seul lot ; un seul uid passe.
+    const refus = await releve(['--taille', '--max-lectures', '10']);
+    expect(refus.erreur).toContain('lirait 11 lots');
+    expect(refus.lignes).toBeUndefined();
+    const seul = await releve(['--taille', '--max-lectures', '10', '--uid', 'fantome']);
+    expect(seul.lignes).toEqual([lignes[0]]);
     expect(await etat()).toEqual(avant);
-  }, 30_000);
+  }, 60_000);
 
   it('inactifs : 2 ans sans jeton rafraîchi (pas la dernière connexion), invités exclus', async () => {
     const vieux = new Date(Date.UTC(2023, 0, 1)).toUTCString();

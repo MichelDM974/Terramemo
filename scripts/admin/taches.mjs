@@ -414,28 +414,57 @@ export function tailleDoc(chemin, data) {
   return nom(chemin) + valeur(data) + 32;
 }
 
-/** Relevé du nombre de lots et de leur taille par uid, les plus gros d'abord (surveillance du Gio, D34). Une lecture par lot. */
-export async function releve({ auth, db }) {
-  const uids = await uidsJoueurs(db);
+/** Plafond des lectures de `releve --taille` (une par lot) sans --max-lectures : le quota Spark est de 50 000 lectures par jour, partagé avec l'appli. */
+export const MAX_LECTURES = 5000;
+
+/**
+ * Relevé par uid, les plus gros d'abord (surveillance du Gio, D34). Sans
+ * `taille` : le nombre de lots par agrégation count() (une lecture par
+ * tranche de 1 000 lots), jamais leur contenu ; `n` n'étant pas indexé
+ * (firestore.indexes.json), les événements ne se comptent pas ainsi. Avec
+ * `taille` : chaque lot lu (une lecture par lot) pour ses événements et ses
+ * octets, refusé avant toute lecture des lots au-delà de `maxLectures`
+ * lots ; `uid` : un seul compte.
+ */
+export async function releve({ auth, db }, { taille = false, uid = null, maxLectures = MAX_LECTURES } = {}) {
+  const uids = uid ? [uid] : await uidsJoueurs(db);
   const existants = await comptesExistants(auth, uids);
-  const lignes = [];
-  for (const uid of uids) {
-    const lots = await documents(db.collection('joueurs').doc(uid).collection('lots'), null);
-    const [profil] = await lireDocs(db, [`joueurs/${uid}`]);
-    const octetsLots = lots.reduce((n, d) => n + tailleDoc(d.ref.path, d.data()), 0);
-    const octetsProfil = profil.exists ? tailleDoc(profil.ref.path, profil.data()) : 0;
-    const u = existants.get(uid);
-    lignes.push({
-      uid,
-      compte: !u ? 'absent' : u.disabled ? 'bloqué' : 'actif',
-      lots: lots.length,
-      evenements: lots.reduce((n, d) => n + Number(d.get('n') ?? 0), 0),
-      octets_lots: octetsLots,
-      octets: octetsLots + octetsProfil,
-      tombe: profil.exists && profil.get('supprime') === true,
-    });
+  const profils = [];
+  for (const lot of morceaux(uids, PAGE)) profils.push(...(await lireDocs(db, lot.map((u) => `joueurs/${u}`))));
+  const colLots = (u) => db.collection('joueurs').doc(u).collection('lots');
+  const nbLots = [];
+  for (const u of uids) nbLots.push((await colLots(u).count().get()).data().count);
+  const totalLots = nbLots.reduce((a, b) => a + b, 0);
+  // listDocuments, profils, puis count() : une lecture au moins chacun.
+  const lectures = 2 * uids.length + nbLots.reduce((n, c) => n + Math.max(1, Math.ceil(c / 1000)), 0);
+  const notes = [];
+  if (taille && totalLots > maxLectures) {
+    throw new Error(
+      `releve --taille lirait ${des(totalLots, 'lot')}, une lecture chacun, plus que le plafond de ${nombre(maxLectures)} (quota Spark : 50 000 lectures par jour, partagé avec l'appli). ` +
+        'Le relevé sans --taille compte les lots sans les lire ; --uid U pour un seul compte, ou --max-lectures N.',
+    );
   }
-  lignes.sort((a, b) => b.octets - a.octets || b.lots - a.lots || a.uid.localeCompare(b.uid));
-  const total = lignes.reduce((n, l) => n + l.octets, 0);
-  return { actions: [], notes: [`${des(uids.length, 'uid', 'uid')}, ${des(lignes.reduce((n, l) => n + l.lots, 0), 'lot')}, ≈ ${nombre(total)} octets en tout.`], releve: lignes };
+  const lignes = [];
+  for (const [i, u] of uids.entries()) {
+    const c = existants.get(u);
+    const profil = profils[i];
+    const ligne = { uid: u, compte: !c ? 'absent' : c.disabled ? 'bloqué' : 'actif', lots: nbLots[i], tombe: profil.exists && profil.get('supprime') === true };
+    if (taille) {
+      const lots = nbLots[i] ? await documents(colLots(u), null) : [];
+      const octetsLots = lots.reduce((n, d) => n + tailleDoc(d.ref.path, d.data()), 0);
+      ligne.lots = lots.length;
+      ligne.evenements = lots.reduce((n, d) => n + Number(d.get('n') ?? 0), 0);
+      ligne.octets_lots = octetsLots;
+      ligne.octets = octetsLots + (profil.exists ? tailleDoc(profil.ref.path, profil.data()) : 0);
+    }
+    lignes.push(ligne);
+  }
+  lignes.sort((a, b) => (b.octets ?? 0) - (a.octets ?? 0) || b.lots - a.lots || a.uid.localeCompare(b.uid));
+  const total = lignes.reduce((n, l) => n + l.lots, 0);
+  notes.push(
+    `${des(uids.length, 'uid', 'uid')}, ${des(total, 'lot')}` +
+      (taille ? `, ≈ ${nombre(lignes.reduce((n, l) => n + l.octets, 0))} octets en tout.` : ' (comptés sans être lus ; --taille pour leurs événements et leurs octets).'),
+    `Lectures : ≈ ${nombre(lectures + (taille ? totalLots : 0))}${taille ? ` (dont ${nombre(totalLots)} pour lire les lots)` : ''}.`,
+  );
+  return { actions: [], notes, releve: lignes };
 }

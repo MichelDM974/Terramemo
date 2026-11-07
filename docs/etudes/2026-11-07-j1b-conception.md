@@ -1632,9 +1632,15 @@ visible en production.
   seule ;
 - abus : lots, profil, puis `disabled`, comme prévu ; relancer une heure
   après, le jeton déjà donné valant encore jusque-là ;
-- relevé : lots, événements (`n`) et octets par uid (calcul de taille des
-  documents de Firestore), compte actif, bloqué ou absent ; une lecture
-  par lot ;
+- relevé : par uid, le nombre de lots compté par agrégation `count()`
+  (une lecture par tranche de 1 000, jamais le contenu), compte actif,
+  bloqué ou absent : c'est ce que lit la tournée. Lire chaque lot (une
+  lecture par lot) pour ses événements (`n`) et ses octets (calcul de
+  taille des documents de Firestore) coûterait le quota Spark du jour
+  (50 000 lectures, partagé avec l'appli) dès ≈ 100 comptes d'un an
+  (≈ 500 lots chacun, § 6) : seulement par `releve --taille`, refusé
+  au-delà de 5 000 lots sans `--max-lectures`, ou `--uid U`. `n` n'est pas
+  indexé : pas de somme par agrégation ;
 - critère du tableau (« à blanc sur le vrai projet ») : à faire par
   l'utilisateur, l'outil n'a tourné qu'aux émulateurs. `test:admin`
   prouve : à blanc rien ne change ; `--appliquer` fait exactement le plan ;

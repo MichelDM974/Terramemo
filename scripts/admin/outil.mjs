@@ -19,7 +19,10 @@ Commandes :
   demandes [--uid U] [--avec-a-juger | --garder-a-juger]
                         retire les places du pseudo de chaque demande (clé exacte), puis la demande
   abus <uid>            lots et profil de cet uid, puis son compte bloqué
-  releve [--n N]        nombre de lots et taille par uid, les plus gros d'abord (N lignes, 20 par défaut)
+  releve [--n N] [--uid U] [--taille [--max-lectures M]]
+                        nombre de lots par uid (comptés sans être lus), les plus gros d'abord (N lignes, 20 par
+                        défaut) ; --taille lit chaque lot (une lecture chacun) pour ses événements et ses octets,
+                        refusé au-delà de M lots (5 000 par défaut)
   tournee [--trimestrielle]
                         à blanc seulement : demandes, tombes, orphelins, relevé (et inactifs si --trimestrielle)
 
@@ -28,8 +31,8 @@ Cible : les émulateurs si FIRESTORE_EMULATOR_HOST et FIREBASE_AUTH_EMULATOR_HOS
 vrai projet terramemo-geo, par la clé de ~/Sauvegardes/terramemo/admin/ (ou TERRAMEMO_CLE_ADMIN).`;
 
 const COMMANDES = ['inactifs', 'tombes', 'orphelins', 'demandes', 'abus', 'releve', 'tournee'];
-const DRAPEAUX = { '--appliquer': 'appliquer', '--json': 'json', '--finir': 'finir', '--avec-a-juger': 'avecAJuger', '--garder-a-juger': 'garderAJuger', '--trimestrielle': 'trimestrielle', '--aide': 'aide', '-h': 'aide', '--help': 'aide' };
-const AVEC_VALEUR = { '--uid': 'uid', '--n': 'n' };
+const DRAPEAUX = { '--appliquer': 'appliquer', '--json': 'json', '--finir': 'finir', '--avec-a-juger': 'avecAJuger', '--garder-a-juger': 'garderAJuger', '--trimestrielle': 'trimestrielle', '--taille': 'taille', '--aide': 'aide', '-h': 'aide', '--help': 'aide' };
+const AVEC_VALEUR = { '--uid': 'uid', '--n': 'n', '--max-lectures': 'maxLectures' };
 
 /** Les arguments : `{commande, uid?, options}` ; ErreurUsage si un mot est inconnu ou mal placé. */
 export function lireArguments(argv) {
@@ -52,7 +55,10 @@ export function lireArguments(argv) {
   if (commande === 'abus' ? reste.length !== 1 : reste.length) throw new ErreurUsage(commande === 'abus' ? 'abus attend un uid, un seul.' : `De trop : ${reste.join(' ')}`);
   if (commande === 'tournee' && o.appliquer) throw new ErreurUsage('tournee est à blanc seulement : appliquer ensuite chaque commande, après lecture.');
   if (o.finir && commande !== 'tombes') throw new ErreurUsage('--finir ne va qu’avec tombes.');
-  if ((o.uid || o.avecAJuger || o.garderAJuger) && commande !== 'demandes') throw new ErreurUsage('--uid, --avec-a-juger et --garder-a-juger ne vont qu’avec demandes.');
+  if (o.uid && commande !== 'demandes' && commande !== 'releve') throw new ErreurUsage('--uid ne va qu’avec demandes ou releve.');
+  if ((o.avecAJuger || o.garderAJuger) && commande !== 'demandes') throw new ErreurUsage('--avec-a-juger et --garder-a-juger ne vont qu’avec demandes.');
+  if (o.taille && commande !== 'releve') throw new ErreurUsage('--taille ne va qu’avec releve (tournee compte les lots sans les lire).');
+  if (o.maxLectures !== undefined && (!o.taille || !/^[1-9]\d*$/.test(o.maxLectures))) throw new ErreurUsage('--max-lectures : un entier positif, avec releve --taille.');
   if ((o.avecAJuger || o.garderAJuger) && !o.uid) throw new ErreurUsage('--avec-a-juger et --garder-a-juger se donnent pour une demande à la fois : --uid <uid>.');
   if (o.avecAJuger && o.garderAJuger) throw new ErreurUsage('--avec-a-juger ou --garder-a-juger, pas les deux.');
   if (o.trimestrielle && commande !== 'tournee') throw new ErreurUsage('--trimestrielle ne va qu’avec tournee.');
@@ -71,7 +77,12 @@ function heure(env) {
 const nombre = (n) => n.toLocaleString('fr-FR');
 
 function tableau(lignes, n) {
-  const l = lignes.slice(0, n).map((x) => `  ${x.uid.padEnd(28)} ${x.compte.padEnd(7)} ${String(x.lots).padStart(6)} lots ${String(x.evenements).padStart(7)} évts ${nombre(x.octets).padStart(11)} octets${x.tombe ? '  pierre tombale' : ''}`);
+  const l = lignes.slice(0, n).map(
+    (x) =>
+      `  ${x.uid.padEnd(28)} ${x.compte.padEnd(7)} ${String(x.lots).padStart(6)} lots` +
+      (x.octets === undefined ? '' : ` ${String(x.evenements).padStart(7)} évts ${nombre(x.octets).padStart(11)} octets`) +
+      (x.tombe ? '  pierre tombale' : ''),
+  );
   if (lignes.length > n) l.push(`  … et ${lignes.length - n} autres (--n pour en voir plus).`);
   return l;
 }
@@ -103,6 +114,7 @@ export async function principal(argv = process.argv.slice(2), env = process.env,
         t === 'abus' ? await taches.abus(ctx, uid)
         : t === 'tombes' ? await taches.tombes(ctx, { finir: !!options.finir })
         : t === 'demandes' ? await taches.demandes(ctx, { uid: options.uid ?? null, avecAJuger: !!options.avecAJuger, garderAJuger: !!options.garderAJuger })
+        : t === 'releve' ? await taches.releve(ctx, { taille: !!options.taille, uid: options.uid ?? null, maxLectures: Number(options.maxLectures ?? taches.MAX_LECTURES) })
         : await taches[t](ctx);
       dire(`\n== ${t} ==`);
       for (const n of plan.notes) dire(n);

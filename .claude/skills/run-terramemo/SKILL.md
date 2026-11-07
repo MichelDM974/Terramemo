@@ -1096,9 +1096,14 @@ Firebase les supprime 30 jours après leur création) :
 - `abus <uid>` : ses lots et son profil, puis `updateUser(uid, {disabled:
   true})`. Le jeton déjà donné vaut encore une heure : relancer une heure
   après (il ne refait que ce qui reste) ;
-- `releve [--n N]` : par uid, lots, événements et octets (calcul de taille
-  de Firestore), les plus gros d'abord, compte actif, bloqué ou absent.
-  Une lecture par lot.
+- `releve [--n N] [--uid U] [--taille [--max-lectures M]]` : par uid, le
+  nombre de lots, **compté sans les lire** (agrégation `count()`, une
+  lecture par tranche de 1 000), les plus gros d'abord, compte actif,
+  bloqué ou absent ; c'est ce que fait la tournée. `--taille` lit chaque
+  lot (une lecture chacun) pour ses événements et ses octets (calcul de
+  taille de Firestore) : refusé avant toute lecture au-delà de M lots
+  (5 000 par défaut) ; `--uid U` pour un seul compte (`n` n'est pas
+  indexé : pas de somme par agrégation). Le relevé affiche ses lectures.
 
 **Tournée** :
 - **mensuelle** (la politique promet 30 jours au plus pour les demandes) :
@@ -1109,8 +1114,11 @@ Firebase les supprime 30 jours après leur création) :
 - **trimestrielle** (2 ans et 3 mois d'inactivité au plus) : `tournee
   --trimestrielle`, puis `inactifs --appliquer`.
 
-Coût : des appels ordinaires de Spark. `tombes` lit tout `joueurs/`
-(`supprime` n'est pas indexé), `releve` chaque lot, `demandes` une place
+Coût : des appels ordinaires de Spark, sur le quota de 50 000 lectures
+par jour **partagé avec l'appli** (dépassé, la synchro et les classements
+de tous les joueurs échouent jusqu'à 11 h, heure de La Réunion). `tombes`
+lit tout `joueurs/` (`supprime` n'est pas indexé), `releve` un profil et
+un comptage par uid (`--taille` : chaque lot), `demandes` une place
 par épreuve et par période (les semaines s'accumulent) et deux ou trois
 comptes par place trouvée.
 
