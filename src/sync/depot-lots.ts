@@ -6,7 +6,7 @@
 // est écrite ici (a_envoyer) avant l'envoi : un renvoi envoie le même
 // document. Sans IndexedDB, le même dépôt vit en mémoire le temps de la page.
 import type { DocLot } from './lots';
-import { MAGASIN_LOTS, ouvrirBaseSynchro } from './session';
+import { MAGASIN_A_RELIRE, MAGASIN_LOTS, ouvrirBaseSynchro } from './session';
 
 /**
  * a_envoyer : composé, pas encore accepté ; envoye : accepté, ou trouvé en
@@ -52,21 +52,63 @@ export interface DepotLots {
   tous(uid: string): Promise<FicheLot[]>;
   /** Écrit (remplace) ces fiches, toutes ou aucune. */
   ecrire(fiches: readonly FicheLot[]): Promise<void>;
+  /** Retire toutes les fiches d'un compte (déconnexion, effacement de l'appareil : lot 4, § 3.4). */
+  effacer?(uid: string): Promise<void>;
+}
+
+/**
+ * Un lot lu en ligne que cette version de l'appli ne sait pas lire en entier
+ * (`v` inconnu, carte refusée par valider() : lot 4, § 5.3), magasin
+ * `a_relire`, gardé brut et relu sans réseau à chaque nouvelle version.
+ */
+export interface FicheARelire {
+  uid: string;
+  id: string;
+  /** Heure du serveur à son écriture (ms). */
+  fin: number;
+  /** Le document tel qu'il est en ligne, sans `fin`. */
+  doc: Record<string, unknown>;
+  /** La version de l'appli qui l'a lu sans le comprendre : relu dès qu'elle change. */
+  version: string;
+  /** Ce qui n'allait pas (pilote). */
+  probleme: string;
+}
+
+export interface DepotARelire {
+  tous(uid: string): Promise<FicheARelire[]>;
+  ecrire(fiches: readonly FicheARelire[]): Promise<void>;
+  /** Retire ces lots (relus), ou tous ceux du compte (ids absent : effacement de l'appareil). */
+  retirer(uid: string, ids?: readonly string[]): Promise<void>;
+}
+
+/** Un magasin [uid, id] en mémoire (tests, repli sans IndexedDB) : copies, comme IndexedDB. */
+function magasinMemoire<F extends { uid: string; id: string }>(depart: readonly F[] = []) {
+  const m = new Map<string, F>();
+  const cle = (f: Pick<F, 'uid' | 'id'>) => JSON.stringify([f.uid, f.id]);
+  for (const f of depart) m.set(cle(f), structuredClone(f));
+  return {
+    async tous(uid: string): Promise<F[]> {
+      return [...m.values()].filter((f) => f.uid === uid).map((f) => structuredClone(f));
+    },
+    async ecrire(fiches: readonly F[]): Promise<void> {
+      for (const f of fiches) m.set(cle(f), structuredClone(f));
+    },
+    async retirer(uid: string, ids?: readonly string[]): Promise<void> {
+      if (ids) for (const id of ids) m.delete(cle({ uid, id } as Pick<F, 'uid' | 'id'>));
+      else for (const [k, f] of m) if (f.uid === uid) m.delete(k);
+    },
+  };
 }
 
 /** Dépôt en mémoire (tests, repli sans IndexedDB) : copies, comme IndexedDB. */
 export function depotLotsMemoire(depart: readonly FicheLot[] = []): DepotLots {
-  const m = new Map<string, FicheLot>();
-  const cle = (f: Pick<FicheLot, 'uid' | 'id'>) => JSON.stringify([f.uid, f.id]);
-  for (const f of depart) m.set(cle(f), structuredClone(f));
-  return {
-    async tous(uid) {
-      return [...m.values()].filter((f) => f.uid === uid).map((f) => structuredClone(f));
-    },
-    async ecrire(fiches) {
-      for (const f of fiches) m.set(cle(f), structuredClone(f));
-    },
-  };
+  const m = magasinMemoire(depart);
+  return { tous: m.tous, ecrire: m.ecrire, effacer: (uid) => m.retirer(uid) };
+}
+
+/** Lots à relire en mémoire (tests, repli sans IndexedDB). */
+export function depotARelireMemoire(depart: readonly FicheARelire[] = []): DepotARelire {
+  return magasinMemoire(depart);
 }
 
 function fabrique(idb?: IDBFactory): IDBFactory | undefined {
@@ -80,31 +122,32 @@ function fabrique(idb?: IDBFactory): IDBFactory | undefined {
 /** IndexedDB inutilisable pour de bon (navigation privée stricte, accès refusé), pas une erreur passagère. */
 const inutilisable = (e: unknown) => ['InvalidStateError', 'SecurityError'].includes(String((e as { name?: unknown } | null)?.name));
 
+/** Les clés [uid, id] d'un compte : [uid] < [uid, id] < [uid, []] (un tableau vient après toute chaîne). */
+const duCompte = (uid: string) => IDBKeyRange.bound([uid], [uid, []]);
+
 /**
- * Les fiches dans `terramemo-synchro`. Base ouverte à chaque opération et
- * refermée : quelques opérations par passe d'envoi. Sans IndexedDB, ou si
- * elle refuse de s'ouvrir pour de bon : en mémoire, le temps de la page. Une
- * erreur passagère remonte (l'envoi s'arrête et relira à la passe suivante).
+ * Un magasin [uid, id] de `terramemo-synchro`. Base ouverte à chaque
+ * opération et refermée : quelques opérations par passe. Sans IndexedDB, ou
+ * si elle refuse de s'ouvrir pour de bon : en mémoire, le temps de la page.
+ * Une erreur passagère remonte (la passe s'arrête et relira à la suivante).
  */
-export function depotLotsIndexedDb(idb?: IDBFactory): DepotLots {
+function magasinIndexedDb<F extends { uid: string; id: string }>(nom: string, idb?: IDBFactory) {
   const f = fabrique(idb);
-  if (!f) return depotLotsMemoire();
-  let memoire: DepotLots | null = null;
-  /** Une transaction sur le magasin ; `repli` si la base est inutilisable (pour cette page). */
-  async function avec<T>(mode: IDBTransactionMode, faire: (m: IDBObjectStore) => () => T, repli: (m: DepotLots) => Promise<T>): Promise<T> {
+  let memoire: ReturnType<typeof magasinMemoire<F>> | null = f ? null : magasinMemoire<F>();
+  async function avec<T>(mode: IDBTransactionMode, faire: (m: IDBObjectStore) => () => T, repli: (m: ReturnType<typeof magasinMemoire<F>>) => Promise<T>): Promise<T> {
     if (memoire) return repli(memoire);
     let db: IDBDatabase;
     try {
       db = await ouvrirBaseSynchro(f!);
     } catch (e) {
       if (!inutilisable(e)) throw e;
-      memoire = depotLotsMemoire();
+      memoire = magasinMemoire<F>();
       return repli(memoire);
     }
     try {
       return await new Promise<T>((ok, ko) => {
-        const tx = db.transaction(MAGASIN_LOTS, mode);
-        const r = faire(tx.objectStore(MAGASIN_LOTS));
+        const tx = db.transaction(nom, mode);
+        const r = faire(tx.objectStore(nom));
         tx.oncomplete = () => ok(r());
         tx.onabort = () => ko(tx.error ?? new Error('transaction annulée'));
       });
@@ -113,18 +156,17 @@ export function depotLotsIndexedDb(idb?: IDBFactory): DepotLots {
     }
   }
   return {
-    tous(uid) {
-      // [uid] < [uid, id] < [uid, []] : un tableau vient après toute chaîne dans l'ordre des clés.
+    tous(uid: string): Promise<F[]> {
       return avec(
         'readonly',
         (m) => {
-          const r = m.getAll(IDBKeyRange.bound([uid], [uid, []]));
-          return () => r.result as FicheLot[];
+          const r = m.getAll(duCompte(uid));
+          return () => r.result as F[];
         },
         (x) => x.tous(uid),
       );
     },
-    async ecrire(fiches) {
+    async ecrire(fiches: readonly F[]): Promise<void> {
       if (!fiches.length) return;
       await avec(
         'readwrite',
@@ -135,5 +177,28 @@ export function depotLotsIndexedDb(idb?: IDBFactory): DepotLots {
         (x) => x.ecrire(fiches),
       );
     },
+    async retirer(uid: string, ids?: readonly string[]): Promise<void> {
+      if (ids && !ids.length) return;
+      await avec(
+        'readwrite',
+        (m) => {
+          if (ids) for (const id of ids) m.delete([uid, id]);
+          else m.delete(duCompte(uid));
+          return () => undefined;
+        },
+        (x) => x.retirer(uid, ids),
+      );
+    },
   };
+}
+
+/** Les fiches des lots dans `terramemo-synchro` (magasin `lots`). */
+export function depotLotsIndexedDb(idb?: IDBFactory): DepotLots {
+  const m = magasinIndexedDb<FicheLot>(MAGASIN_LOTS, idb);
+  return { tous: m.tous, ecrire: m.ecrire, effacer: (uid) => m.retirer(uid) };
+}
+
+/** Les lots à relire dans `terramemo-synchro` (magasin `a_relire`). */
+export function depotARelireIndexedDb(idb?: IDBFactory): DepotARelire {
+  return magasinIndexedDb<FicheARelire>(MAGASIN_A_RELIRE, idb);
 }

@@ -78,13 +78,13 @@ afterEach(() => {
 
 /** Un envoi en mémoire (lot 3) : l'état de la synchro, les séances non envoyées, « Réessayer » qui relance tout. */
 function fauxEnvoi(depart: Partial<EtatSynchro> = {}, nonEnvoyees = 0) {
-  let etat: EtatSynchro = { coupee: false, attente: 0, refusees: 0, horsLigne: false, ...depart };
+  let etat: EtatSynchro = { coupee: false, attente: 0, refusees: 0, horsLigne: false, aRelire: 0, ...depart };
   const abonnes = new Set<() => void>();
   const passe = () => abonnes.forEach((f) => f());
-  const fini: ResultatEnvoi = { etat: 'fait', composes: 0, envoyes: 1, presents: 0, refuses: 0, arret: null, quand: 0 };
+  const fini: ResultatEnvoi = { etat: 'fait', composes: 0, envoyes: 1, presents: 0, refuses: 0, arret: null, quand: 0, lecture: null };
   return {
     etat: vi.fn(async (_uid: string) => etat),
-    compter: vi.fn(async (_uid: string): Promise<ComptesSynchro> => ({ evenements: 9, horsLots: 0, attente: 0, refusees: 0, nonEnvoyees, lots: { a_envoyer: 0, envoye: 0, en_ligne: 0, refuse: 0 } })),
+    compter: vi.fn(async (_uid: string): Promise<ComptesSynchro> => ({ evenements: 9, horsLots: 0, attente: 0, refusees: 0, nonEnvoyees, reponsesHorsLots: 0, lots: { a_envoyer: 0, envoye: 0, en_ligne: 0, refuse: 0 }, aRelire: { lots: 0, reponses: 0 } })),
     declencher: vi.fn(async () => {
       etat = { ...etat, refusees: 0, attente: 0, horsLigne: false };
       passe();
@@ -389,7 +389,7 @@ describe('vue Compte', () => {
   });
 
   it('texteSynchro : singulier, pluriel, et l’ordre des cas', () => {
-    const e = (o: Partial<EtatSynchro>): EtatSynchro => ({ coupee: false, attente: 0, refusees: 0, horsLigne: false, ...o });
+    const e = (o: Partial<EtatSynchro>): EtatSynchro => ({ coupee: false, attente: 0, refusees: 0, horsLigne: false, aRelire: 0, ...o });
     expect(texteSynchro(e({}))).toBe(T.synchro_a_jour);
     expect(texteSynchro(e({ attente: 1 }))).toBe(T.synchro_attente_une);
     expect(texteSynchro(e({ attente: 3 }))).toBe("3 séances en attente d'envoi");

@@ -659,7 +659,9 @@ describe('envoi des séances', () => {
       attente: 2,
       refusees: 1,
       nonEnvoyees: 3,
+      reponsesHorsLots: 2,
       lots: { a_envoyer: 0, envoye: 1, en_ligne: 0, refuse: 1 },
+      aRelire: { lots: 0, reponses: 0 },
     });
   });
 });
