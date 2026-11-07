@@ -1428,21 +1428,24 @@ n'y touche pas.
     `lastSignInTime`, qui ne bouge pas tant que la session dure : un
     joueur fidèle connecté une seule fois serait purgé ;
   - leurs lots et leur profil d'abord, puis `deleteUsers` (par 1 000) ;
-- pierres tombales : effacée seulement si `getUser(uid)` répond
-  `auth/user-not-found` **et** si `joueurs/{uid}/lots` est vide. Sinon
-  c'est une suppression restée en route (deleteUser raté, appli tuée) :
-  l'outil la signale, ou la finit (lots, puis `deleteUser`) après
-  confirmation. L'effacer avant rouvrirait l'écriture du compte à ses
-  autres appareils (règle `!tombe(uid)`) ;
+- pierres tombales de plus d'un jour : effacée seulement si `getUser(uid)`
+  répond `auth/user-not-found` **et** si `joueurs/{uid}/lots` est vide.
+  Sinon c'est une suppression restée en route (deleteUser raté, appli
+  tuée) : l'outil la signale, ou la finit (lots, puis `deleteUser`) avec
+  `--finir`. L'effacer avant rouvrirait l'écriture du compte à ses autres
+  appareils (règle `!tombe(uid)`). Après des lots ou un compte supprimés
+  par l'outil, elle est redatée et reste jusqu'à la tournée suivante
+  (§ 9, précisions du lot 5b) ;
 - lots sans compte (orphelins) ;
-- `demandes/` (D27 b) : places du pseudo retirées, puis la demande. Le
-  pseudo n'est pas réservé (« Une place par pseudo ») : un compte peut
-  prendre le pseudo d'un autre dans son profil puis se supprimer. Donc,
-  à blanc, l'outil liste chaque demande, son pseudo et les places
-  touchées (rang, points, date), et ne retire rien sans confirmation à la
-  main ; une seule demande par pseudo et par tournée ; une place dont le
-  record est antérieur à la création du compte, ou qui n'a rien de commun
-  avec ses records, est à juger à la main ;
+- `demandes/` (D27 b) : places du pseudo retirées (chaque épreuve,
+  toujours et chaque semaine, à la clé exacte `clePseudo(pseudo)`), puis
+  la demande. Le pseudo n'est pas réservé (« Une place par pseudo ») : un
+  compte peut prendre le pseudo d'un autre dans son profil puis se
+  supprimer. Donc, à blanc, l'outil liste chaque demande, son pseudo et
+  les places touchées (rang, points, date), et ne retire rien sans
+  `--appliquer` après lecture ; les demandes d'un même pseudo vont
+  ensemble, une fois par tournée ; une place écrite plus d'une heure après
+  la demande est à juger à la main (§ 9, précisions du lot 5b) ;
 - uid abusif : ses lots et son profil, puis
   `updateUser(uid, {disabled: true})` ;
 - relevé du nombre de lots et de leur taille par uid, les plus gros
@@ -1453,8 +1456,14 @@ facturation ni Cloud Functions.
 
 **Tournée** : mensuelle pour les demandes et les pierres tombales (la
 politique promet 30 jours au plus), trimestrielle pour les comptes sans
-activité (2 ans et 3 mois au plus) ; notée au skill `run-terramemo` avec
-l'outil (lot 5b). La politique en annonce les durées.
+activité (2 ans et 3 mois au plus) ; notée au skill `run-terramemo`
+(« Outil du propriétaire »), avec chaque commande. La politique en
+annonce les durées.
+
+**Fait au lot 5b** : `scripts/admin/outil.mjs` (`npm run admin -- …`),
+commandes `inactifs`, `tombes [--finir]`, `orphelins`, `demandes`,
+`abus <uid>`, `releve`, et `tournee` (à blanc seulement) ; tests aux
+émulateurs `npm run test:admin`, en CI.
 
 ## 8. Sûreté pendant la semaine d'usage (jusqu'au 13/11), et après
 
@@ -1580,6 +1589,58 @@ visible en production.
   attendant le groupe Google de D20 ;
 - `npm run test:comptes` gagne `tests/suppression.test.ts` (suppression
   complète avec 401 lots, coupure à chaque étape, 2e appareil).
+
+**Précisions du lot 5b** (08/11, codé ; écarts assumés au texte d'avant) :
+- un plan par tâche, affiché à blanc et exécuté tel quel avec
+  `--appliquer`, dans l'ordre, arrêté à la première erreur. Une place, une
+  pierre tombale ou une demande ne se supprime que si elle n'a pas changé
+  depuis sa lecture (`lastUpdateTime`). « Confirmation à la main » (§ 7.5)
+  = relire le plan à blanc, puis `--appliquer` ;
+- cible : les émulateurs si `FIRESTORE_EMULATOR_HOST` **et**
+  `FIREBASE_AUTH_EMULATOR_HOST` sont posés ; un seul des deux est refusé
+  (une base serait le vrai projet). Sinon `terramemo-geo` par la clé de
+  `~/Sauvegardes/terramemo/admin/` (un seul `.json`) ou
+  `TERRAMEMO_CLE_ADMIN` ; refus en CI, d'une clé du dépôt ou d'un autre
+  projet. `firebase-admin` 14.5.0, figé ;
+- invités : un compte sans fournisseur (`providerData` vide). Inactivité :
+  `lastRefreshTime`, à défaut `lastSignInTime`, puis `creationTime` ;
+  2 ans calendaires. Un compte bloqué pour abus est purgé aussi au bout de
+  2 ans (son adresse n'est pas gardée à vie) ;
+- pierres tombales : « plus d'un jour » d'après `maj`. Compte parti mais
+  lots restants (compte supprimé hors de l'appli), ou suppression finie
+  par `--finir` : les lots (et le compte), puis la pierre tombale
+  **redatée** à l'heure du serveur, effacée à la tournée suivante. Un
+  jeton du compte vaut encore une heure après `deleteUser` ; et la tâche
+  relancée aussitôt n'a plus rien à faire (idempotente). `supprime` n'étant
+  pas indexé, la tâche lit tout `joueurs/` ;
+- orphelins : un uid sous `joueurs/` (profil, ou lots seuls :
+  `listDocuments` voit les profils absents) qui n'est pas dans Auth ; ses
+  lots, puis son profil. Une pierre tombale reste à `tombes` ;
+- demandes : clé exacte `pseudo.toLowerCase()`, comme `clePseudo` ; un
+  voisin de casse ou d'accent (« elodie », « ölodie », que le masque de
+  `cleDuPseudo` laisse écrire sous « Élodie », « MICHEL », « michél »)
+  garde sa place. Périodes trouvées par `listDocuments` (épreuves et
+  semaines existantes, les documents parents n'existant pas). « Antérieur
+  à la création du compte » et « rien de commun avec ses records » ne se
+  vérifient pas : le compte est parti de Auth et la pierre tombale a
+  effacé ses records. À la place : une place écrite plus d'une heure
+  après la demande (le dernier jeton du compte valait une heure au plus)
+  est « à juger », gardée avec sa demande jusqu'à `--uid U` et
+  `--avec-a-juger` ou `--garder-a-juger`. Les demandes d'un même pseudo
+  sont traitées ensemble (« une seule par tournée » : les mêmes places).
+  Une clé qui ne peut nommer aucun document (« / », « .. ») : la demande
+  seule ;
+- abus : lots, profil, puis `disabled`, comme prévu ; relancer une heure
+  après, le jeton déjà donné valant encore jusque-là ;
+- relevé : lots, événements (`n`) et octets par uid (calcul de taille des
+  documents de Firestore), compte actif, bloqué ou absent ; une lecture
+  par lot ;
+- critère du tableau (« à blanc sur le vrai projet ») : à faire par
+  l'utilisateur, l'outil n'a tourné qu'aux émulateurs. `test:admin`
+  prouve : à blanc rien ne change ; `--appliquer` fait exactement le plan ;
+  aucun pseudo voisin n'est retiré ; une relance n'a rien à faire ;
+  `lastRefreshTime` et non `lastSignInTime` (un fidèle connecté une fois
+  reste).
 
 Ordre et parallélisme :
 - 0, puis 1, puis 2, puis 3, puis 4, puis 5 : en série ;

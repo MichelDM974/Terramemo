@@ -1035,6 +1035,85 @@ par `enregistrerPartie(localStorage, …)` part par `publierTout(pseudo)`.
 Chaque `driver.Session('local')` a un profil neuf, donc un autre compte
 anonyme : deux sessions sous le même pseudo = deux appareils, une place.
 
+## Outil du propriétaire (`scripts/admin/`, J1b lot 5b)
+
+Purge, demandes de retrait et abus, sur le SDK Admin (étude § 7.5, D33 a).
+**Sur le PC, à la main** : jamais sur le Pi, jamais en CI (refusé), jamais
+par un agent de workflow sur le vrai projet. À blanc par défaut ; il faut
+`--appliquer` pour agir, et il exécute alors exactement le plan affiché
+(une place ou une pierre tombale réécrite entre-temps arrête tout : relancer).
+Sa première ligne dit sur quoi il travaille.
+
+```bash
+npm run admin -- --aide
+npm run admin -- tournee                    # à blanc : demandes, tombes, orphelins, relevé
+npm run admin -- tournee --trimestrielle    # … et les comptes inactifs
+npm run admin -- demandes                   # puis, après lecture : demandes --appliquer
+npm run test:admin                          # tests aux émulateurs (8062 et 8063 libres), aussi en CI
+```
+
+**Cible** : avec `FIRESTORE_EMULATOR_HOST` et `FIREBASE_AUTH_EMULATOR_HOST`
+posés (tous les deux), les émulateurs, sans clé (projet `GCLOUD_PROJECT`,
+sinon `demo-terramemo`) ; un seul des deux est refusé. Sinon le vrai projet
+`terramemo-geo`, par la clé du compte de service : le seul `.json` de
+`~/Sauvegardes/terramemo/admin/`, ou le chemin de `TERRAMEMO_CLE_ADMIN` ;
+une clé dans le dépôt ou d'un autre projet est refusée, et `.gitignore`
+ignore les noms des clés de Google. Aux émulateurs lancés à part
+(`npx firebase emulators:start --only firestore,auth --project
+terramemo-geo`) : `FIRESTORE_EMULATOR_HOST=127.0.0.1:8062
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:8063 GCLOUD_PROJECT=terramemo-geo npm
+run admin -- …`. `TERRAMEMO_MAINTENANT` (une date ISO) déplace l'heure de
+référence, aux émulateurs seulement (tests). `--json` : la sortie d'un
+programme (plan, notes, actions faites).
+
+**Commandes** (aucune ne touche aux invités anonymes, sans fournisseur :
+Firebase les supprime 30 jours après leur création) :
+- `inactifs` : comptes sans activité depuis 2 ans, d'après
+  `metadata.lastRefreshTime` (dernier jeton rafraîchi ; à défaut la dernière
+  connexion, puis la création), jamais `lastSignInTime` seul ; leurs lots
+  et leur profil, puis `deleteUsers` par 1 000. Un compte bloqué pour abus
+  y passe aussi, au bout de 2 ans ;
+- `tombes [--finir]` : pierres tombales de plus d'un jour. Compte parti et
+  lots vides : effacée. Compte parti, lots restants : les lots, puis la
+  pierre tombale redatée. Compte encore dans Auth : « suppression restée en
+  route », signalée ; `--finir` la finit (lots, puis le compte), pierre
+  tombale redatée. Redatée, elle a moins d'un jour : effacée à la tournée
+  suivante, quand plus aucun jeton du compte ne vaut ;
+- `orphelins` : lots et profil d'un uid absent de Auth (une pierre tombale
+  est laissée à `tombes`) ;
+- `demandes [--uid U] [--avec-a-juger | --garder-a-juger]` (D27 b) : pour
+  chaque pseudo demandé, ses places dans chaque épreuve et chaque période
+  (toujours, chaque semaine passée), **à la clé exacte**
+  `pseudo.toLowerCase()` (`clePseudo`), avec rang, points et date, puis la
+  demande. « Élodie » ne retire ni `elodie`, ni `ölodie` (que le masque des
+  règles laisse écrire sous « Élodie »), « Michel » ni `michél` ni
+  `MICHEL`. Les demandes d'un même pseudo vont ensemble. Une place écrite
+  plus d'une heure après la demande n'est pas du compte supprimé : « à
+  juger », gardée avec sa demande, jusqu'à `--uid U --avec-a-juger` (la
+  retirer aussi) ou `--garder-a-juger` (la garder, retirer la demande).
+  **Lire le plan avant `--appliquer`** : le pseudo n'est pas réservé, et un
+  compte peut avoir pris celui d'un autre avant de se supprimer ;
+- `abus <uid>` : ses lots et son profil, puis `updateUser(uid, {disabled:
+  true})`. Le jeton déjà donné vaut encore une heure : relancer une heure
+  après (il ne refait que ce qui reste) ;
+- `releve [--n N]` : par uid, lots, événements et octets (calcul de taille
+  de Firestore), les plus gros d'abord, compte actif, bloqué ou absent.
+  Une lecture par lot.
+
+**Tournée** :
+- **mensuelle** (la politique promet 30 jours au plus pour les demandes) :
+  `tournee` à blanc, lire, puis `demandes --appliquer`, `tombes
+  --appliquer`, `orphelins --appliquer` ; trancher les places « à juger » et
+  les suppressions restées en route (`tombes --finir --appliquer`) ;
+  regarder le relevé (un uid qui grossit hors de proportion : `abus`) ;
+- **trimestrielle** (2 ans et 3 mois d'inactivité au plus) : `tournee
+  --trimestrielle`, puis `inactifs --appliquer`.
+
+Coût : des appels ordinaires de Spark. `tombes` lit tout `joueurs/`
+(`supprime` n'est pas indexé), `releve` chaque lot, `demandes` une place
+par épreuve et par période (les semaines s'accumulent) et deux ou trois
+comptes par place trouvée.
+
 ## Déploiement (Firebase Hosting, projet `terramemo-geo`)
 
 ```bash
