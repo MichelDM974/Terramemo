@@ -61,7 +61,7 @@ body { font-variant-numeric: normal; }
   cursor: grab;
 }
 .carte:active { cursor: grabbing; }
-body[data-vue="saisie"] .carte { visibility: hidden; }
+body[data-vue="saisie"] .carte, body[data-vue="compte"] .carte { visibility: hidden; }
 /* Terrains (src/terrains.ts) : un seul hôte visible. visibility, pas display :
    l'hôte caché garde sa taille (pas de retracé ni de clientWidth nul au
    retour) et ne reçoit aucun toucher. */
@@ -175,7 +175,7 @@ body[data-terrain="reunion"] .legende-memoire { top: 44px; }
 .legende-s3 { background: var(--memoire-3); }
 .legende-s4 { background: var(--memoire-4); }
 .legende-compte { color: var(--text); }
-body[data-vue="saisie"] .legende-memoire { display: none; }
+body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoire { display: none; }
 
 /* --- Boutons de zoom (#23, src/zoom-carte.ts) : +, − et « toute la carte »,
    en bas à droite, pour qui n'a pas de molette. Sur ordinateur seulement :
@@ -525,7 +525,8 @@ body[data-terrain="reunion"] .essai-bilan {
 .mesures-actions { display: flex; gap: 6px; margin-top: 6px; }
 .mesures-actions button { padding: 4px 10px; font-size: 0.75rem; }
 body[data-vue="saisie"] .panneau-mesures,
-body[data-vue="credits"] .panneau-mesures { display: none; }
+body[data-vue="credits"] .panneau-mesures,
+body[data-vue="compte"] .panneau-mesures { display: none; }
 
 /* --- Saisie --- */
 .vue-saisie {
@@ -541,6 +542,31 @@ body[data-vue="credits"] .panneau-mesures { display: none; }
 .saisie-statut { margin: 4px 0 0; min-height: 1.2em; }
 .saisie-liste { margin: 6px 0 0; padding-left: 18px; line-height: 1.6; min-height: 1.6em; }
 
+/* --- Compte (⚙ › Compte, J1b) : un panneau, des formulaires sans cadre dedans ; l'accent
+   au seul bouton principal de chaque écran. Même place que les Crédits. --- */
+.vue-compte, .vue-a-la-demande {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 10px 32px 56px;
+}
+.vue-compte .panel, .vue-a-la-demande .panel { max-width: 480px; margin: 0 auto; }
+.vue-compte h3 { margin: 4px 0 10px; font-size: 0.95rem; font-weight: 600; color: var(--text); }
+.compte-form { display: flex; flex-direction: column; gap: 12px; }
+.compte-champ { display: flex; flex-direction: column; gap: 4px; }
+.compte-champ > label { font-size: 0.85rem; color: var(--muted); }
+.compte-ligne { display: flex; align-items: center; gap: 8px; }
+.compte-ligne input { flex: 1 1 auto; min-width: 0; width: 100%; margin: 0; }
+.compte-voir { flex: none; padding: 6px 10px; font-size: 0.8rem; }
+.compte-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0; }
+.compte-liens { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 0; }
+.compte-liens button.lien, .vue-compte > .panel > button.lien { padding: 8px 0; }
+.compte-adresse { color: var(--text); font-weight: 600; margin: 0 0 4px; overflow-wrap: anywhere; }
+.vue-compte .status { margin: 12px 0 0; }
+/* Vides, les avis ne prennent pas de place mais restent dans l'arbre d'accessibilité
+   (aria-live, role=alert : le texte qui arrive est annoncé). */
+.vue-compte .status:empty { margin: 0; min-height: 0; }
+.compte-retour { margin-top: 16px; }
 /* --- Crédits (⚙ › Crédits et licences) : une liste par sorte, sans cadre dans le panneau. --- */
 .vue-credits {
   position: absolute;
@@ -582,7 +608,7 @@ body[data-vue="credits"] .panneau-mesures { display: none; }
 .settings-popup .seg { align-self: auto; }
 
 @media (max-width: 700px) {
-  .vue-saisie, .vue-credits { padding: 10px 16px 40px; }
+  .vue-saisie, .vue-credits, .vue-compte, .vue-a-la-demande { padding: 10px 16px 40px; }
   .carte-barre, .jouer-panneau { left: 8px; right: 8px; bottom: 8px; }
 }
 

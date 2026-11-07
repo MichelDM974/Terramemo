@@ -1,0 +1,90 @@
+// Erreurs des comptes en français (étude du J1b, § 3.3) : textes de
+// textes.fr.json (compte.erreurs), repris de l'AUTH_MESSAGES de Light clé par
+// clé, plus ceux du J1b. Le message anglais brut n'est jamais affiché : il va
+// au pilote (window.terramemo.comptes()). Sans dépendance à Firebase : la vue
+// Compte et les tests s'en servent sans charger le SDK.
+import { remplir, textes } from '../vues/textes';
+
+const E: Readonly<Record<string, string>> = textes.compte.erreurs;
+
+/**
+ * Codes qui ne s'affichent pas : un retour silencieux (fenêtre Google fermée)
+ * ou un cas que l'appelant traite lui-même (lien Google à un compte qui
+ * existe, § 2.3 ; session perdue, § 2.5).
+ */
+const SILENCIEUX: ReadonlySet<string> = new Set([
+  'auth/popup-closed-by-user',
+  'auth/cancelled-popup-request',
+  'auth/credential-already-in-use',
+  'auth/user-token-expired',
+]);
+
+/** Message par défaut du plugin Google à l'annulation par l'utilisateur (§ 3.3) : silencieux. */
+const ANNULATION_PLUGIN = 'The user canceled the sign-in flow.';
+
+export interface ErreurTraduite {
+  /** Le texte à montrer ; null : rien à montrer. */
+  texte: string | null;
+  /** Le code d'origine (`auth/…`, `permission-denied`, code du plugin), ou '' sans code. */
+  code: string;
+  /** Le message brut, pour le pilote seulement. */
+  brut: string;
+}
+
+/** Code d'une erreur de Firebase (Auth : « auth/… » ; Firestore lite : « permission-denied »…) ou du plugin. */
+export function codeErreur(err: unknown): string {
+  const c = (err as { code?: unknown } | null)?.code;
+  return typeof c === 'string' ? c : '';
+}
+
+function messageBrut(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  const m = (err as { message?: unknown } | null)?.message;
+  return typeof m === 'string' ? m : String(err);
+}
+
+/**
+ * Minuit à Los Angeles (remise à zéro des quotas de Firebase, § 3.3), en
+ * heure de l'appareil : « 12 h » à La Réunion l'hiver boréal, « 11 h » l'été.
+ * `fuseau` : celui de l'affichage (défaut : celui de l'appareil).
+ */
+export function heureRemiseQuota(maintenant: Date = new Date(), fuseau?: string): string {
+  const la = (d: Date) => {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        .formatToParts(d)
+        .map((x) => [x.type, x.value]),
+    );
+    return Number(p.hour) * 3600 + Number(p.minute) * 60 + Number(p.second);
+  };
+  // Les secondes écoulées depuis minuit à Los Angeles, puis la même chose au minuit visé :
+  // un changement d'heure dans l'intervalle décale d'une heure, corrigé une fois.
+  let minuit = new Date(maintenant.getTime() + (86400 - la(maintenant)) * 1000);
+  const ecart = la(minuit);
+  if (ecart !== 0) minuit = new Date(minuit.getTime() + (ecart > 43200 ? 86400 - ecart : -ecart) * 1000);
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', ...(fuseau ? { timeZone: fuseau } : {}) })
+      .formatToParts(minuit)
+      .map((x) => [x.type, x.value]),
+  );
+  const h = Number(p.hour);
+  return p.minute === '00' ? `${h} h` : `${h} h ${p.minute}`;
+}
+
+/**
+ * Le texte d'une erreur : `auth/*`, puis Firestore, puis le plugin Google,
+ * puis « Erreur inattendue ({code}) ». `quand` et `fuseau` : pour l'heure de
+ * remise du quota (tests).
+ */
+export function traduire(err: unknown, quand: Date = new Date(), fuseau?: string): ErreurTraduite {
+  const code = codeErreur(err);
+  const brut = messageBrut(err);
+  if (SILENCIEUX.has(code)) return { texte: null, code, brut };
+  if (code === 'SIGN_IN_CANCELED' && brut === ANNULATION_PLUGIN) return { texte: null, code, brut };
+  const modele = E[code] ?? E[code.replace(/^firestore\//, '')];
+  if (modele !== undefined) return { texte: remplir(modele, { heure: heureRemiseQuota(quand, fuseau) }), code, brut };
+  // Un code du plugin Google (en capitales, NO_CREDENTIAL_AVAILABLE…) sans texte à lui :
+  // un texte générique, le code au pilote seulement.
+  if (/^[A-Z][A-Z_]+$/.test(code)) return { texte: E.plugin!, code, brut };
+  return { texte: remplir(E.inattendue!, { code: code || 'sans code' }), code, brut };
+}

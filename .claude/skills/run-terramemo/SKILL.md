@@ -803,10 +803,11 @@ worktree neuf : le script la retélécharge), la vérifie contre
 octet). Demande `7z` et Node 24 (`node:sqlite`) ; pas la CI, qui ne lit que
 les sorties versionnées (`tests/donnees-reunion.test.ts`).
 
-## Classements : émulateurs et règles
+## Classements et comptes : émulateurs et règles
 
 ```bash
 npm run test:regles                                                           # règles Firestore sur l'émulateur (aussi en CI)
+npm run test:comptes                                                          # comptes e-mail (J1b) sur l'émulateur Auth (aussi en CI)
 npx firebase emulators:start --only firestore,auth --project terramemo-geo  # Firestore 8062, Auth 8063, en arrière-plan
 ```
 
@@ -818,6 +819,24 @@ d'émulateur vidée par `curl -X DELETE
 "http://127.0.0.1:8062/emulator/v1/projects/terramemo-geo/databases/(default)/documents"`.
 Java 21+ requis (celui du PC suffit). L'émulateur écrit
 `firestore-debug.log` dans le dossier courant (ignoré par git).
+
+**Comptes (J1b, lot 1)** : `src/sync/comptes.ts` (création, lien de
+l'anonyme, connexion, oubli, mot de passe, session perdue), vue
+`src/vues/compte.ts` chargée à la demande (⚙ › Compte, `#compte`), visible
+au serveur de dev ou avec `?comptes` (`src/sync/drapeaux.ts`). Au site de
+dev avec `?emulateurs` et l'émulateur Auth lancé, tout passe à
+l'émulateur ; e-mails « envoyés » lisibles par `curl
+http://127.0.0.1:8063/emulator/v1/projects/terramemo-geo/oobCodes` (le
+projet passé à `emulators:start`, pas celui de la config du site).
+`npm run test:comptes` lance son propre émulateur (projet `demo-terramemo`) :
+8063 doit être libre, et il vide les comptes de l'émulateur à chaque test.
+`window.terramemo.comptes()` rend l'état, les claims du dernier jeton
+(`identities`, `sign_in_provider`, S16) et les dix dernières erreurs brutes
+(le message anglais ne s'affiche jamais) ; `null` tant qu'un invité n'a pas
+ouvert `#compte` (Firebase pas chargé). Un mot de passe changé ne révoque
+que les jetons émis avant sa seconde : dans un essai, attendre 1 s entre la
+connexion et le changement, sinon l'autre appareil ne passe pas en session
+perdue.
 
 Chrono de l'île jusqu'au classement, par le pilote (vérifié le 06/11) : le
 choix `#jouer/classe/communes/reunion` puis `#jouer-panneau [data-mode="chrono"]`
@@ -868,6 +887,7 @@ arbre propre (`git status`).
   changements (vu le 07/11 : un `main.ts` d'avant servi sans erreur).
   `android/` et `dist/` ne sont plus surveillés (`vite.config.ts`) ; si ça
   revient, relancer `serve` après chaque modification.
+
 - **Event Timing est faussé par `chromium-*` en nouveau headless**, pas
   par le headless en général : sur nos touchers (Caraïbes au zoom 1), la
   présentation n'y est signalée qu'au prochain événement, d'où des

@@ -30,4 +30,6 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:regles
+      # Comptes e-mail sur l'émulateur Auth (tests/comptes.test.ts, J1b lot 1).
+      - run: npm run test:comptes
       - run: npm run build

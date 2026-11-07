@@ -56,6 +56,9 @@
           <!-- Essai J0 (Trouver ou Reconnaître sur la série des plus difficiles, celle du
                pilote de mesure), hors des listes de Jouer : rempli par src/main.ts (remplirEssaiJ0). -->
           <p class="reglage-outil" id="reglage-essai"></p>
+          <!-- Compte (J1b) : rempli par src/main.ts (textes.compte.lien), caché tant que
+               comptesVisibles() est faux (src/sync/drapeaux.ts) ; ouvre la vue Compte. -->
+          <p class="reglage-outil" id="reglage-compte" hidden><a href="#compte" id="lien-compte"></a></p>
           <!-- Crédits : rempli par src/main.ts (textes.credits.lien, textes.credits.reglages) ;
                le lien ouvre l'écran Crédits (src/vues/credits.ts). -->
           <p class="reglage-outil"><a href="#credits" id="lien-credits"></a></p>

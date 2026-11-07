@@ -1,0 +1,101 @@
+// Erreurs des comptes en français (src/sync/erreurs.ts, étude du J1b § 3.3) :
+// chaque code du tableau a son texte, les cas silencieux ne montrent rien, le
+// message anglais n'est jamais affiché, et l'heure de remise du quota est
+// minuit à Los Angeles dans le fuseau de l'appareil.
+import { describe, expect, it } from 'vitest';
+import { heureRemiseQuota, traduire } from '../src/sync/erreurs';
+import { textes } from '../src/vues/textes';
+
+const err = (code: string, message = `Firebase: Error (${code}).`) => Object.assign(new Error(message), { code });
+const HIVER = new Date(Date.UTC(2026, 10, 7, 6)); // 7/11/2026, 10 h à La Réunion (Los Angeles en PST)
+const ETE = new Date(Date.UTC(2026, 6, 7, 6)); // juillet (Los Angeles en PDT)
+
+describe('traduire', () => {
+  it('le tableau du § 3.3, repris de Light', () => {
+    const attendus: Record<string, string> = {
+      'auth/invalid-credential': 'Adresse ou mot de passe incorrect',
+      'auth/user-not-found': 'Adresse ou mot de passe incorrect',
+      'auth/wrong-password': 'Adresse ou mot de passe incorrect',
+      'auth/invalid-email': 'Adresse e-mail invalide',
+      'auth/missing-email': 'Saisis ton adresse e-mail',
+      'auth/email-already-in-use': 'Un compte existe déjà avec cette adresse : connecte-toi',
+      'auth/weak-password': 'Mot de passe trop faible (8 caractères au moins)',
+      'auth/too-many-requests': 'Trop de tentatives : réessaie dans quelques minutes.',
+      'auth/network-request-failed': 'Réseau injoignable',
+      'auth/popup-blocked': 'Fenêtre de connexion Google bloquée par le navigateur',
+      'auth/user-disabled': 'Compte désactivé',
+      'permission-denied': 'Action non autorisée.',
+      unavailable: 'Serveur injoignable',
+      'auth/requires-recent-login': 'Pour ta sécurité, reconnecte-toi avant de continuer',
+      'auth/provider-already-linked': 'Ce compte est déjà relié à ce moyen de connexion',
+      'auth/account-exists-with-different-credential': 'Ce compte se connecte par mot de passe : connecte-toi avec ton adresse',
+      'auth/operation-not-allowed': "Ce moyen de connexion n'est pas encore ouvert",
+      'auth/unauthorized-domain': 'Connexion impossible depuis cette adresse du site',
+      NO_CREDENTIAL_AVAILABLE: 'Aucun compte Google sur ce téléphone.',
+      PROVIDER_CONFIGURATION_ERROR: 'Services Google Play absents ou à mettre à jour.',
+    };
+    for (const [code, texte] of Object.entries(attendus)) expect(traduire(err(code)).texte, code).toBe(texte);
+  });
+
+  it('les cas silencieux ne montrent rien, mais gardent le code et le message brut', () => {
+    for (const code of ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/credential-already-in-use', 'auth/user-token-expired']) {
+      const t = traduire(err(code));
+      expect(t.texte, code).toBeNull();
+      expect(t.code).toBe(code);
+      expect(t.brut).toMatch(/Firebase/);
+    }
+  });
+
+  it('plugin Google : l’annulation par défaut est silencieuse, un autre message dit le réglage', () => {
+    expect(traduire(err('SIGN_IN_CANCELED', 'The user canceled the sign-in flow.')).texte).toBeNull();
+    expect(traduire(err('SIGN_IN_CANCELED', 'Account reauth failed.')).texte).toBe("Connexion Google impossible (réglage de l'appli).");
+    expect(traduire(err('UNKNOWN_ERROR', 'boom')).texte).toBe('Connexion Google impossible : réessaie plus tard.');
+  });
+
+  it('quota du jour : l’heure de remise à La Réunion, 12 h l’hiver boréal et 11 h l’été', () => {
+    expect(traduire(err('auth/quota-exceeded'), HIVER, 'Indian/Reunion').texte).toBe('Limite du jour atteinte : réessaie après 12 h.');
+    expect(traduire(err('resource-exhausted'), ETE, 'Indian/Reunion').texte).toBe('Limite du jour atteinte : réessaie après 11 h.');
+  });
+
+  it('un code inconnu : « Erreur inattendue (code) », jamais le message anglais', () => {
+    const t = traduire(err('auth/internal-error', 'Firebase: something broke'));
+    expect(t.texte).toBe('Erreur inattendue (auth/internal-error)');
+    expect(t.texte).not.toMatch(/broke/);
+    expect(traduire(new Error('sans code')).texte).toBe('Erreur inattendue (sans code)');
+    expect(traduire(err('not-found')).texte).toBe('Erreur inattendue (not-found)');
+  });
+
+  it('les codes propres à l’appli', () => {
+    expect(traduire(err('terramemo/mdp-court')).texte).toBe('Mot de passe : 8 caractères au moins');
+    expect(traduire(err('terramemo/mdp-actuel-faux')).texte).toBe('Mot de passe actuel incorrect');
+    expect(traduire(err('terramemo/mdp-google')).texte).toBe('Ce compte se connecte avec Google, sans mot de passe');
+  });
+
+  it('chaque texte de compte.erreurs est atteint par son code', () => {
+    for (const code of Object.keys(textes.compte.erreurs).filter((c) => c !== 'inattendue' && c !== 'plugin'))
+      expect(traduire(err(code)).texte, code).not.toMatch(/inattendue/);
+  });
+});
+
+describe('heureRemiseQuota', () => {
+  it('minuit à Los Angeles, dans le fuseau donné', () => {
+    expect(heureRemiseQuota(HIVER, 'Indian/Reunion')).toBe('12 h');
+    expect(heureRemiseQuota(ETE, 'Indian/Reunion')).toBe('11 h');
+    expect(heureRemiseQuota(HIVER, 'America/Los_Angeles')).toBe('0 h');
+    expect(heureRemiseQuota(HIVER, 'Asia/Kolkata')).toBe('13 h 30');
+  });
+
+  it('juste avant et juste après minuit à Los Angeles', () => {
+    // 23 h 59 à Los Angeles (PST) : remise dans une minute, à 12 h à La Réunion.
+    expect(heureRemiseQuota(new Date(Date.UTC(2026, 10, 8, 7, 59)), 'Indian/Reunion')).toBe('12 h');
+    // 0 h 01 : la prochaine est le lendemain, toujours 12 h.
+    expect(heureRemiseQuota(new Date(Date.UTC(2026, 10, 8, 8, 1)), 'Indian/Reunion')).toBe('12 h');
+  });
+
+  it('le jour du changement d’heure à Los Angeles', () => {
+    // 1/11/2026 : passage à l'heure d'hiver (PDT → PST) ; la remise suivante est à 8 h UTC, 12 h à La Réunion.
+    expect(heureRemiseQuota(new Date(Date.UTC(2026, 10, 1, 12)), 'Indian/Reunion')).toBe('12 h');
+    // 8/03/2026 : passage à l'heure d'été ; minuit du 9 est à 7 h UTC, 11 h à La Réunion.
+    expect(heureRemiseQuota(new Date(Date.UTC(2026, 2, 8, 12)), 'Indian/Reunion')).toBe('11 h');
+  });
+});

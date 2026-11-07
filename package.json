@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:regles": "firebase emulators:exec --only firestore --project demo-terramemo \"vitest run tests/regles.test.ts\"",
+    "test:comptes": "firebase emulators:exec --only auth --project demo-terramemo \"vitest run tests/comptes.test.ts\"",
     "geodata": "node geodata/build.mjs",
     "geodata:reunion": "node geodata/reunion.mjs",
     "icone": "node geodata/icone.mjs",

@@ -21,7 +21,10 @@ import { ouvrirMemoire } from './journal/memoire';
 import { creerNavigation } from './navigation';
 import { brancherRetourAndroid } from './retour-android';
 import { brancherZoom } from './zoom-carte';
-import { poserDrapeaux } from './sync/drapeaux';
+import { comptesVisibles, poserDrapeaux } from './sync/drapeaux';
+import type { RapportComptes } from './sync/comptes';
+import { depotSessionIndexedDb } from './sync/session';
+import { vueALaDemande } from './vues/a-la-demande';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import type { Vue } from './vues/commun';
@@ -96,6 +99,9 @@ export const RENDU_DEFAUT: Rendu = 'canvas';
 const params = new URLSearchParams(location.search);
 // Drapeaux du J1b (src/sync/drapeaux.ts) : ?comptes, ?comptes=0 et ?sans-synchro=0, gardés dans le navigateur.
 poserDrapeaux(params);
+/** Comptes montrés (⚙ › Compte, vue #compte) : en DEV, avec ?comptes, ou une fois ouverts au public (lot 8). */
+const COMPTES = comptesVisibles(params);
+const TEXTES_COMPTE = textes.compte;
 const pRendu = params.get('rendu');
 const rendu: Rendu = pRendu === 'g' || pRendu === 'css' || pRendu === 'canvas' || pRendu === 'webgl' ? pRendu : RENDU_DEFAUT;
 const pProj = params.get('projection');
@@ -146,6 +152,11 @@ const credits = document.getElementById('credits-donnees');
 if (credits) credits.textContent = textes.credits.reglages;
 const lienCredits = document.getElementById('lien-credits');
 if (lienCredits) lienCredits.textContent = textes.credits.lien;
+// Compte (J1b, étude § 3.1) : au-dessus de Crédits, caché du public jusqu'au lot 8.
+const lienCompte = document.getElementById('lien-compte');
+if (lienCompte) lienCompte.textContent = TEXTES_COMPTE.lien;
+const reglageCompte = document.getElementById('reglage-compte');
+if (reglageCompte) reglageCompte.hidden = !COMPTES;
 
 const bouton = document.getElementById('settings-btn');
 const popup = document.getElementById('settings-popup');
@@ -235,10 +246,11 @@ if (caseMemoire) {
 // Chrono, Sans faute, Minute), les classements (🏆), la Saisie et les Crédits (⚙). Historique,
 // redirections et « × » : src/navigation.ts. ---
 
-type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie' | 'credits';
-const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie', 'credits'];
+type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie' | 'credits' | 'compte';
+/** #compte n'existe que si les comptes se montrent : sinon l'adresse mène à l'accueil. */
+const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie', 'credits', ...(COMPTES ? (['compte'] as const) : [])];
 /** Vues de passage : leur « Retour » ou « × » ramène à la vue d'avant. */
-const PASSAGE: NomVue[] = ['jouer', 'classement', 'credits'];
+const PASSAGE: NomVue[] = ['jouer', 'classement', 'credits', 'compte'];
 const vues = new Map<string, Vue>();
 /** Le monde et l'île (src/terrains.ts), une fois le monde chargé. */
 let terrains: Terrains | null = null;
@@ -353,6 +365,11 @@ export interface Terramemo {
   terrain(): NomTerrain;
   /** La carte de l'île une fois chargée (rendu g, sans pastilles : pastilles [], dessin et webgl null). */
   ile: AideCarte | null;
+  /**
+   * Comptes (J1b) : état, claims du dernier jeton (S16) et erreurs brutes ;
+   * null tant que le module n'est pas chargé (invité qui n'a pas ouvert #compte).
+   */
+  comptes(): Promise<RapportComptes | null>;
 }
 
 declare global {
@@ -376,6 +393,14 @@ window.terramemo = {
   carte: null,
   terrain: () => terrains?.actif ?? 'monde',
   ile: null,
+  comptes: async () => {
+    if (!comptesCharges) return null;
+    try {
+      return (await comptesCharges).comptes(VERSION).rapport();
+    } catch {
+      return null;
+    }
+  },
 };
 
 /** Ce qui ne vaut que pour les rendus canvas et webgl du monde : rien pour une carte SVG. */
@@ -571,6 +596,24 @@ async function demarrer(): Promise<void> {
   vues.set('classement', vueGeneral(ctx, { retour }));
   vues.set('saisie', vueSaisie(ctx));
   vues.set('credits', vueCredits(ctx, { retour }));
+  if (COMPTES) {
+    const T = TEXTES_COMPTE;
+    vues.set(
+      'compte',
+      vueALaDemande(
+        ctx,
+        'compte',
+        { titre: T.titre, chargement: T.chargement, echec: T.chargement_echec, reessayer: T.reessayer, retour: T.retour },
+        async () => {
+          const [{ vueCompte }, { comptes }] = await Promise.all([import('./vues/compte'), chargerComptes()]);
+          // Le nombre de séances de la session perdue (« pour envoyer {n} séances ») revient
+          // avec l'envoi (lot 3) : d'ici là, rien ne part, même après la reconnexion.
+          return vueCompte(ctx, { retour, comptes: async () => comptes(VERSION) });
+        },
+        retour,
+      ),
+    );
+  }
   const champ = document.getElementById('recherche-champ') as HTMLInputElement | null;
   if (champ)
     brancherRecherche({
@@ -600,6 +643,31 @@ async function demarrer(): Promise<void> {
   prechauffer(donnees.entites.map((e) => e.forme));
   document.body.dataset.repos = '1';
   reposOk(periode);
+  demarrerCompte();
+}
+
+/**
+ * Un compte ou une session perdue (dernier uid gardé dans terramemo-synchro,
+ * étude du J1b § 2.1 et 3.1) : Firebase chargé au démarrage, après la carte,
+ * pour surveiller la session ; un invité ne charge rien.
+ */
+let comptesCharges: Promise<typeof import('./sync/comptes')> | null = null;
+/** Le morceau des comptes ; un échec (site hors ligne) n'est pas gardé : « Réessayer » le redemande. */
+function chargerComptes(): Promise<typeof import('./sync/comptes')> {
+  const p = (comptesCharges ??= import('./sync/comptes'));
+  p.catch(() => {
+    if (comptesCharges === p) comptesCharges = null;
+  });
+  return p;
+}
+function demarrerCompte(): void {
+  depotSessionIndexedDb()
+    .lire()
+    .then((s) => {
+      if (!s?.uid) return;
+      return chargerComptes().then((m) => m.comptes(VERSION).demarrer());
+    })
+    .catch((e: unknown) => console.warn('Compte non relu au démarrage :', e));
 }
 
 demarrer().catch((e: unknown) => {
