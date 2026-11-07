@@ -514,7 +514,8 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     // Le compte de la session seulement, comme pourSynchro : un compte connecté pendant la question
     // de fusion (D22), ou resté d'une question tuée, ne reçoit rien de l'appareil avant la réponse.
     const ses = await lireSession();
-    if (ses.uid !== u.uid || ses.connexion !== null || ses.deconnexion || ses.effacement || ses.suppression) return fini('sans_compte');
+    // (Pas `connexion` : une question ne se pose que vers un autre compte que celui de la session.)
+    if (ses.uid !== u.uid || ses.deconnexion || ses.effacement || ses.suppression) return fini('sans_compte');
     const o = { pseudoLocal: pseudoChangeIci(local.pseudo, base, u.uid), periode };
     const calculer = (lu: ProfilLu) => (lu.supprime ? null : { ...fusionner(lu, local, o), cree: !lu.existe });
     try {
@@ -611,6 +612,12 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     if (u && estCompte(u) && ses.deconnexion === 'voulue' && !deconnexionIci) {
       await s.m.auth.signOut(s.a).catch(noter);
       u = s.a.currentUser;
+    }
+    // Une connexion au compte de la session laissée en route (appli tuée avant que connecte() lève le
+    // marqueur) : rien à attendre, levé.
+    if (u && estCompte(u) && ses.connexion !== null && u.uid === ses.uid && !questionIci) {
+      await ecrireSession({ connexion: null });
+      ses = await lireSession();
     }
     let e: EtatCompte;
     if (u && estCompte(u) && !enQuestion && !(ses.deconnexion === 'voulue' && !deconnexionIci)) {
@@ -719,6 +726,10 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         const avant = await finirEffacement();
         const courant = s.a.currentUser;
         if (estCompte(courant) && avant.uid === courant!.uid && !avant.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
+        // Un compte d'une question tuée, encore connecté : lâché d'abord. Sinon un signIn raté (mot de
+        // passe faux, réseau) le laisserait connecté, la question levée, et la réparation d'etat() le
+        // prendrait sans réponse.
+        await lacherCompteNonPris(s, avant);
         // § 2.3 : le compte est connecté pour connaître son uid, mais la session ne le prend qu'après
         // la réponse (pourSynchro n'envoie qu'au compte de la session). Appli tuée pendant la
         // question : `connexion` dit à la page suivante de ne pas le prendre.

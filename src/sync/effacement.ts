@@ -41,6 +41,12 @@ export interface OptionsEffacement {
   oublier: (uid: string) => Promise<void>;
   stockage: Pick<Storage, 'removeItem'> | null;
   version: string;
+  /**
+   * Prévient les autres onglets (BroadcastChannel 'terramemo', comme
+   * Memoire.effacer) : `effacement` avant le vidage (ils cessent d'écrire),
+   * `efface` après (ils se rechargent), `reprise` sur un échec.
+   */
+  diffuser?: (m: { type: 'effacement' | 'efface' | 'reprise' }) => void;
 }
 
 /**
@@ -52,9 +58,16 @@ export interface OptionsEffacement {
 export async function terminerEffacement(o: OptionsEffacement): Promise<boolean> {
   const s = await o.session.lire();
   if (!s?.effacement) return false;
-  await o.viderJournal();
-  await o.oublier(s.effacement);
-  effacerJoueurLocal(o.stockage);
-  await o.session.ecrire({ ...s, ...APRES_EFFACEMENT, version: o.version });
+  o.diffuser?.({ type: 'effacement' });
+  try {
+    await o.viderJournal();
+    await o.oublier(s.effacement);
+    effacerJoueurLocal(o.stockage);
+    await o.session.ecrire({ ...s, ...APRES_EFFACEMENT, version: o.version });
+  } catch (e) {
+    o.diffuser?.({ type: 'reprise' });
+    throw e;
+  }
+  o.diffuser?.({ type: 'efface' });
   return true;
 }

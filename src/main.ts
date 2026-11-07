@@ -522,6 +522,16 @@ const effacementFini = terminerEffacement({
   },
   stockage: stockage(),
   version: VERSION,
+  // Les autres onglets, comme pour Memoire.effacer : ils cessent d'écrire, puis se rechargent.
+  diffuser: (m) => {
+    try {
+      const c = new BroadcastChannel('terramemo');
+      c.postMessage(m);
+      c.close();
+    } catch {
+      // Pas de BroadcastChannel : les autres onglets verront le journal vidé à leur prochaine ouverture.
+    }
+  },
 }).catch((e: unknown) => {
   console.warn('Effacement de l’appareil non fini (repris au prochain démarrage) :', e);
   return false;

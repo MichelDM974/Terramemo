@@ -314,6 +314,27 @@ describe('relectures du lot 4 : rien ne part sans réponse, rien ne s’efface s
     expect(await m.c.pourSynchro()).toMatchObject({ uid: 'uid-bob' });
   });
 
+  it('(vérif. C1) après une question tuée, une connexion ratée (mot de passe faux) ne laisse pas prendre le compte resté connecté', async () => {
+    const m = monter({ appareil: fauxAppareil({ reponses: 3 }), session: { ...perdueX(), connexion: Date.now() - 60_000 } });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    expect(await m.c.etat()).toMatchObject({ etat: 'perdue', uid: 'uid-x' });
+    const s = await (m.service as () => Promise<{ m: { auth: { signInWithEmailAndPassword: { mockRejectedValueOnce: (e: unknown) => void } } } }>)();
+    s.m.auth.signInWithEmailAndPassword.mockRejectedValueOnce(Object.assign(new Error('faux'), { code: 'auth/wrong-password' }));
+    await expect(m.c.connecter('x@exemple.fr', 'mauvais')).rejects.toMatchObject({ code: 'auth/wrong-password' });
+    expect(m.a.currentUser).toBeNull();
+    expect(await m.c.etat()).toMatchObject({ etat: 'perdue', uid: 'uid-x' });
+    expect(await m.c.pourSynchro()).toBeNull();
+  });
+
+  it('(vérif. C2) une reconnexion au même compte laissée en route : le marqueur est levé, le profil repart', async () => {
+    const m = monter({ session: { ...sessionVide('v1'), uid: 'uid-ana', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connexion: Date.now() - 1000 }, coupee: false });
+    m.a.currentUser = m.utilisateur('ana@exemple.fr');
+    expect(await m.c.etat()).toMatchObject({ etat: 'compte', uid: 'uid-ana' });
+    expect((await m.session.lire())?.connexion).toBeNull();
+    // La passe du profil essaie bien d'écrire (faute de Firestore dans le faux SDK : « echec », pas « sans_compte »).
+    expect((await m.c.synchroniserProfil('ecrire')).etat).toBe('echec');
+  });
+
   it('(C4) après une question tuée, « Créer un compte » lâche le compte resté connecté au lieu de refuser', async () => {
     const m = monter({ session: { ...perdueX(), connexion: Date.now() } });
     m.a.currentUser = m.utilisateur('ana@exemple.fr');
@@ -363,8 +384,14 @@ describe('effacement au démarrage, clés du joueur', () => {
     // La déconnexion voulue reste : les comptes finiront le signOut s'il n'a pas eu lieu.
     expect(await s.lire()).toMatchObject({ uid: null, effacement: null, marque: null, deconnexion: 'voulue', version: 'v2' });
     const casse = depotSessionMemoire({ ...sessionVide('v1'), effacement: 'uid-ana' });
-    await expect(terminerEffacement({ session: casse, viderJournal: () => Promise.reject(new Error('non')), oublier, stockage: st, version: 'v2' })).rejects.toThrow('non');
+    const messages: string[] = [];
+    await expect(terminerEffacement({ session: casse, viderJournal: () => Promise.reject(new Error('non')), oublier, stockage: st, version: 'v2', diffuser: (x) => messages.push(x.type) })).rejects.toThrow('non');
     expect((await casse.lire())?.effacement).toBe('uid-ana');
+    // Les autres onglets : gelés, puis repris sur l'échec ; gelés, puis rechargés sur la réussite.
+    expect(messages).toEqual(['effacement', 'reprise']);
+    messages.length = 0;
+    await terminerEffacement({ session: casse, viderJournal: vider, oublier, stockage: st, version: 'v2', diffuser: (x) => messages.push(x.type) });
+    expect(messages).toEqual(['effacement', 'efface']);
   });
 
   it('CLES_DU_JOUEUR : les clés des modules qui les écrivent, et plus rien à relire après l’effacement', () => {
