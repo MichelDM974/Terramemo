@@ -331,5 +331,72 @@ describe('lecture des lots et union', () => {
     await a.memoire.effacer();
     expect((await a.envoi.compter(UID)).nonEnvoyees).toBe(1);
   });
+
+  it('(T5) des déclencheurs fondus dans une passe en file : la lecture et le contrôle de chacun y sont', async () => {
+    const s = fauxServeur();
+    s.poser(UID, [evt(B, uuid(), T0 - 86_400_000)]);
+    const depot = depotMemoire();
+    const memoire = ouvrirMemoire({ depot, appareil: A, horloge: () => ({ ts: T0, tz: 240 }), auRepos: (f) => f() });
+    let bloque: (() => void) | null = null;
+    let premier = true;
+    const lots = depotLotsMemoire([{ uid: UID, id: 'perdu', seance: null, appareil: A, ids: ['perdu'], etat: 'envoye', cause: null, essais: 0, prochain: 0, version: 'v1', doc: null }]);
+    const envoi = creerEnvoi({
+      journal: {
+        tous: () => memoire.tous({ strict: true }),
+        attendre: async () => {
+          if (premier) {
+            premier = false;
+            await new Promise<void>((ok) => (bloque = ok));
+          }
+          await memoire.ecrire([]);
+        },
+        seanceEnCours: () => memoire.seanceEnCours(),
+        fusionner: (e) => memoire.fusionner(e),
+      },
+      lots,
+      aRelire: depotARelireMemoire(),
+      marques: { lire: async () => T0 + 10_000, poser: async () => undefined },
+      version: 'v1',
+      compte: async () => ({ uid: UID, serveur: s as unknown as Serveur }),
+      coupee: () => false,
+      maintenant: () => T0,
+      verrou: (f) => f(),
+      minuterie: { poser: () => 0, retirer: () => undefined },
+      delais: { requete: 200, compte: 200 },
+    });
+    const p1 = envoi.declencher('cloture');
+    await vi.waitFor(() => expect(bloque).not.toBeNull());
+    const p2 = envoi.declencher('fond');
+    const p3 = envoi.declencher('ouverture');
+    expect(p3).toBe(p2);
+    bloque!();
+    expect((await p1).lecture).toBeNull();
+    // Le contrôle de l'ouverture fondue : un id en ligne manque au journal, tout est relu.
+    expect((await p2).lecture).toMatchObject({ mode: 'complete', lots: 1 });
+    memoire.fermer();
+  });
+
+  it('(T6) une version qui relit a_relire sans pouvoir écrire au journal garde le lot à relire', async () => {
+    const s = fauxServeur();
+    const se = uuid();
+    s.poser(UID, [evt(B, se, T0 - 86_400_000, { fiche: 'pays:DEU:localiser' })]);
+    const aRelire = depotARelireMemoire();
+    const lots = depotLotsMemoire();
+    const d = depotMemoire();
+    let refuser = false;
+    const depot: Depot = { tous: () => d.tous(), ajouter: (e) => (refuser ? Promise.reject(new ErreurDepot('quota', 'plein')) : d.ajouter(e)), vider: () => d.vider!() };
+    const ancien = (x: Record<string, unknown>) => ({ ok: false as const, probleme: `illisible ${String(x.v)}` });
+    const v1 = appareil({ serveur: s, depot, lots, aRelire, deplier: ancien });
+    await v1.envoi.declencher('connexion');
+    expect((await aRelire.tous(UID)).length).toBe(1);
+    v1.memoire.fermer();
+    refuser = true;
+    const v2 = appareil({ serveur: s, depot, lots, aRelire, version: 'v2' });
+    expect((await v2.envoi.declencher('cloture')).lecture?.relus ?? 0).toBe(0);
+    expect((await aRelire.tous(UID)).length).toBe(1);
+    refuser = false;
+    expect((await v2.envoi.declencher('cloture')).lecture).toMatchObject({ relus: 1 });
+    expect(await aRelire.tous(UID)).toEqual([]);
+  });
 });
 

@@ -45,10 +45,13 @@ type Ecran =
   | 'fusion'
   | 'fusion-confirmer'
   | 'deconnexion'
-  | 'effacer';
+  | 'effacer'
+  | 'attente';
 
 /** Écrans qui restent tels quels quand l'état est relu (saisie en cours, question posée). */
-const ECRANS_GARDES: ReadonlySet<Ecran> = new Set(['creer', 'connecter', 'mdp', 'pseudo', 'sans-compte', 'fusion', 'fusion-confirmer', 'deconnexion', 'effacer']);
+const ECRANS_GARDES: ReadonlySet<Ecran> = new Set(['creer', 'connecter', 'mdp', 'pseudo', 'sans-compte', 'fusion', 'fusion-confirmer', 'deconnexion', 'effacer', 'attente']);
+/** Les écrans de la question de fusion, réponse comprise : un échec ramène au formulaire d'où l'on venait. */
+const ECRANS_QUESTION: ReadonlySet<Ecran> = new Set(['fusion', 'fusion-confirmer', 'attente']);
 
 /** « 12 réponses », « 1 record », « 12 réponses et 3 records ». */
 export function detailProgres(reponses: number, records: number): string {
@@ -128,6 +131,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   /** La question de fusion posée (§ 2.3), et sa réponse à rendre aux comptes. */
   let question: QuestionFusion | null = null;
   let repondre: ((c: ChoixFusion) => void) | null = null;
+  /** Le formulaire d'où vient la question (connexion, création) : un échec y ramène. */
+  let fusionDepuis: Ecran = 'connecter';
   /** Ce qu'une déconnexion n'a pas pu envoyer (§ 3.4, étape 2). */
   let reste: Extract<ResultatDeconnexion, { fait: false }> | null = null;
   /** Les réponses qu'« Effacer cet appareil » effacerait. */
@@ -222,6 +227,12 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       await faire(await o.comptes());
     } catch (e) {
       montrerErreur(e);
+      if (ECRANS_QUESTION.has(ecran)) {
+        // Un échec après la réponse à la question : retour au formulaire, l'erreur gardée.
+        const t = erreur.textContent;
+        aller(fusionDepuis);
+        erreur.textContent = t;
+      }
       if (codeErreur(e) === 'auth/email-already-in-use' && ecran === 'creer') {
         // Ce compte existe déjà (§ 2.3) : vers « Se connecter », adresse pré-remplie, l'erreur gardée.
         const t = erreur.textContent;
@@ -248,10 +259,12 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
     return (q) =>
       new Promise<ChoixFusion>((ok) => {
         question = q;
+        fusionDepuis = depuis;
         repondre = (c) => {
           repondre = null;
           question = null;
-          if (c === 'annuler') aller(depuis);
+          // La réponse donnée : plus de choix à l'écran ; « Connexion… » pendant la suite de l'appel.
+          aller(c === 'annuler' ? depuis : 'attente');
           ok(c);
         };
         effacerAvis();
@@ -588,6 +601,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
             bouton('compte-annuler', T.annuler, () => aller('perdue')),
           ),
         ];
+      case 'attente':
+        return [creer('p', { class: 'hint', id: 'compte-attente' }, T.connexion_en_cours)];
       case 'fusion': {
         const q = question;
         if (!q) return [];
@@ -728,6 +743,13 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       // La vue quittée pendant la question de fusion : « Annuler » (le compte n'est pas pris, et
       // l'appel des comptes ne reste pas suspendu).
       repondre?.('annuler');
+      // Les nombres de ces écrans vieillissent (une séance jouée, un envoi fait) : à la réouverture,
+      // l'écran du compte, et ils seront recomptés.
+      if (ecran === 'deconnexion' || ecran === 'effacer') {
+        reste = null;
+        aEffacer = null;
+        ecran = etat ? ecranDe(etat) : 'chargement';
+      }
       active = false;
       section.hidden = true;
       ctx.carte.masquer(false);

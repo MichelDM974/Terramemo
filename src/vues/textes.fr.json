@@ -509,6 +509,7 @@
     "fusion_confirmer": "Les progrès de cet appareil ({detail}) seront effacés. Tu retrouveras seulement ce qui est déjà dans ton compte.",
     "fusion_effacer": "Effacer et me connecter",
     "fusion_retour": "Retour",
+    "connexion_en_cours": "Connexion…",
     "detail_reponses": "{n} réponses",
     "detail_reponse": "1 réponse",
     "detail_records": "{n} records",

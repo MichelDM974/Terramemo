@@ -666,18 +666,37 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         await lacherCompteNonPris(s, ses);
         const avant = s.a.currentUser;
         // Un invité lie son journal au compte neuf, sans question (lien, pas copie : § 2.2). Une session
-        // perdue d'un autre compte : la question d'abord (§ 2.5), avant de rien créer.
+        // perdue d'un autre compte : la question d'abord (§ 2.5), avant de rien créer ; l'effacement de
+        // « Ne pas les ajouter » seulement une fois le compte créé (une création ratée laisse l'appareil
+        // intact), comme dans connecter().
         let fusion: ResultatFusion = 'sans_question';
-        if (ses.uid) {
-          const q = await question(null, ses);
-          const choix = q ? (choisir ? await choisir(q) : 'ajouter') : 'ajouter';
+        let choix: ChoixFusion = 'ajouter';
+        const q = ses.uid ? await question(null, ses) : null;
+        if (q) {
+          choix = choisir ? await choisir(q) : 'ajouter';
           if (choix === 'annuler') throw new ErreurCompte('terramemo/connexion-annulee');
-          if (q) fusion = choix === 'effacer' ? 'efface' : 'ajoute';
-          if (choix === 'effacer') await effacerTout([ses.uid]);
+          fusion = choix === 'effacer' ? 'efface' : 'ajoute';
         }
-        // Lien de l'anonyme : même uid (§ 2.2) ; sans anonyme, la création donne un uid.
-        const u = avant ? (await auth.linkWithCredential(avant, auth.EmailAuthProvider.credential(a, mdp))).user : (await auth.createUserWithEmailAndPassword(s.a, a, mdp)).user;
-        const profil = await connecte(u, true);
+        let u: import('firebase/auth').User;
+        let profil: ResultatProfil;
+        questionIci = !!q;
+        try {
+          // Appli tuée entre la création et la prise du compte : la page suivante ne le prend pas.
+          if (q) await ecrireSession({ connexion: maintenant() });
+          // Lien de l'anonyme : même uid (§ 2.2) ; sans anonyme, la création donne un uid.
+          u = avant ? (await auth.linkWithCredential(avant, auth.EmailAuthProvider.credential(a, mdp))).user : (await auth.createUserWithEmailAndPassword(s.a, a, mdp)).user;
+          try {
+            if (choix === 'effacer') await effacerTout([ses.uid]);
+            profil = await connecte(u, true);
+          } catch (e) {
+            // Après une question, un échec avant que la session ait pris le compte neuf : lâché.
+            if (q && (await lireSession()).uid !== u.uid) await auth.signOut(s.a).catch(noter);
+            throw e;
+          }
+        } finally {
+          questionIci = false;
+          if (q) await modifierSession((x) => (x.connexion !== null ? { connexion: null } : null));
+        }
         let verification = true;
         try {
           await auth.sendEmailVerification(u);

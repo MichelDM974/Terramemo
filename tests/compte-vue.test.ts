@@ -23,13 +23,20 @@ let etatChangement: ResultatProfil['etat'] = 'ecrit';
 /** La question de fusion que la prochaine connexion pose (lot 4), et ce qu'une déconnexion n'a pas pu envoyer. */
 let questionConnexion: QuestionFusion | null = null;
 let resteDeconnexion: Extract<ResultatDeconnexion, { fait: false }> | null = null;
+/** L'erreur que lève la connexion ou la création après la réponse à la question (lot 4). */
+let echecApres: Error | null = null;
 
 /** Des comptes en mémoire : un état, et chaque méthode espionnée. */
 function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
   let etat = depart;
   const c = {
     etat: vi.fn(async () => etat),
-    creer: vi.fn(async (adresse: string, _mdp?: string, _choisir?: (q: QuestionFusion) => Promise<ChoixFusion>) => {
+    creer: vi.fn(async (adresse: string, _mdp?: string, choisir?: (q: QuestionFusion) => Promise<ChoixFusion>) => {
+      if (questionConnexion && choisir) {
+        const choix = await choisir(questionConnexion);
+        if (choix === 'annuler') throw Object.assign(new Error('annulée'), { code: 'terramemo/connexion-annulee' });
+      }
+      if (echecApres) throw echecApres;
       etat = { etat: 'compte', uid: 'u1', adresse, verifiee: false, fournisseurs: ['password'] };
       return { adresse, verification: true, fusion: 'sans_question' };
     }),
@@ -37,6 +44,7 @@ function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
       const q = questionConnexion;
       const choix = q && choisir ? await choisir(q) : 'ajouter';
       if (choix === 'annuler') throw Object.assign(new Error('annulée'), { code: 'terramemo/connexion-annulee' });
+      if (echecApres) throw echecApres;
       etat = { etat: 'compte', uid: 'u1', adresse, verifiee: true, fournisseurs: ['password'] };
       return { adresse, profil: profilConnexion, fusion: !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute', reponses: q?.reponses ?? 0 };
     }),
@@ -83,6 +91,7 @@ beforeEach(() => {
   etatChangement = 'ecrit';
   questionConnexion = null;
   resteDeconnexion = null;
+  echecApres = null;
   zone = document.createElement('main') as unknown as El;
   masquee = [];
 });
@@ -659,4 +668,61 @@ describe('vue Compte, lot 4 : question de fusion, déconnexion reprenable, effac
     expect(texteSynchro(e({ aRelire: 1 }))).toBe(T.synchro_a_relire_une);
     expect(texteSynchro(e({ aRelire: 5, refusees: 1 }))).toBe(T.synchro_refusee_une);
   });
+
+  it('(V1) la réponse donnée : « Connexion… » sans boutons ; un échec ramène au formulaire avec l’erreur', async () => {
+    questionConnexion = Q;
+    let finir!: () => void;
+    echecApres = null;
+    const c = fauxComptes();
+    const attente = new Promise<void>((ok) => (finir = ok));
+    c.connecter.mockImplementationOnce(async (_a: string, _m?: string, choisir?: (q: QuestionFusion) => Promise<ChoixFusion>) => {
+      await choisir!(Q);
+      await attente;
+      throw err('auth/network-request-failed');
+    });
+    await ouvrir(c);
+    await connecterAvecQuestion(c);
+    $('#compte-fusion-ajouter')!.click();
+    expect($('#compte-attente')!.textContent).toBe(T.connexion_en_cours);
+    expect($('#compte-contenu')!.querySelectorAll('button').length).toBe(0);
+    finir();
+    await attendre();
+    await attendre();
+    expect($('#compte-form-connecter')).not.toBeNull();
+    expect($('#compte-erreur')!.textContent).toBe('Réseau injoignable');
+  });
+
+  it('(V1) création après la question, adresse déjà prise : bascule vers « Se connecter », l’erreur gardée', async () => {
+    questionConnexion = { sorte: 'autre_compte', reponses: 3, records: 0, seances: 1 };
+    echecApres = err('auth/email-already-in-use');
+    const c = fauxComptes({ etat: 'perdue', uid: 'ux', adresse: 'x@exemple.fr' });
+    await ouvrir(c);
+    $('#compte-reconnecter')!.click();
+    $('#compte-vers-creer')!.click();
+    ($('#compte-adresse') as unknown as HTMLInputElement).value = 'x@exemple.fr';
+    ($('#compte-mdp') as unknown as HTMLInputElement).value = 'motdepasse';
+    envoyer('#compte-form-creer');
+    await attendre();
+    $('#compte-fusion-ajouter')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-form-connecter')).not.toBeNull();
+    expect($('#compte-erreur')!.textContent).toBe('Un compte existe déjà avec cette adresse : connecte-toi');
+  });
+
+  it('(V3) l’écran de la déconnexion ne garde pas son nombre d’une ouverture à l’autre', async () => {
+    resteDeconnexion = { fait: false, nonEnvoyees: 2, refusees: 0, profil: true };
+    const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] });
+    const v = await ouvrir(c);
+    $('#compte-deconnecter')!.click();
+    await attendre();
+    expect($('#compte-deconnexion-0')).not.toBeNull();
+    v.desactiver();
+    v.activer();
+    await attendre();
+    await attendre();
+    expect($('#compte-deconnexion-0')).toBeNull();
+    expect($('#compte-adresse-connectee')!.textContent).toBe('ana@exemple.fr');
+  });
 });
+

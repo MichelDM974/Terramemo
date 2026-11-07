@@ -34,7 +34,7 @@ import { etat as rejouer } from '../src/srs/rejeu';
 import { creerComptes, type AppareilComptes, type ChoixFusion } from '../src/sync/comptes';
 import { depotARelireIndexedDb, depotLotsIndexedDb } from '../src/sync/depot-lots';
 import { creerEnvoi, serveurFirestore, type Envoi, type Serveur } from '../src/sync/envoi';
-import { deplier, type DocLot } from '../src/sync/lots';
+import { composer, deplier, docDuLot, type DocLot } from '../src/sync/lots';
 import { depotSessionIndexedDb } from '../src/sync/session';
 import { REGLES, reglesAvecEssai } from './regles-essai';
 
@@ -331,13 +331,15 @@ describe.skipIf(!hoteAuth || !hoteFs)('synchro de deux appareils (émulateurs Au
       const uid = await compteSur(pa, mail);
       await pb.comptes.connecter(mail, 'motdepasse');
       await pb.fini();
-      const t = Date.now();
+      // Hier à 9 h et 10 h, heure de La Réunion (tz 240 : le jour local commence à 0 h UTC) : le même
+      // jour local à toute heure du test.
+      const veille = (Math.floor(Date.now() / JOUR) - 1) * JOUR;
       A.reseau.coupe = true;
-      await pa.jouer([1], { fiches: ['pays:FRA:localiser'], ts: t - 2 * 3_600_000 });
+      await pa.jouer([1], { fiches: ['pays:FRA:localiser'], ts: veille + 5 * 3_600_000 });
       await pa.fini();
       expect(await pa.envoi.etat(uid)).toMatchObject({ attente: 1, horsLigne: true });
       B.reseau.coupe = ordre === 'B puis A';
-      await pb.jouer([3, 4], { fiches: ['pays:FRA:localiser', 'pays:DEU:localiser'], ts: t - 3_600_000 });
+      await pb.jouer([3, 4], { fiches: ['pays:FRA:localiser', 'pays:DEU:localiser'], ts: veille + 6 * 3_600_000 });
       await pb.fini();
       const premier = ordre === 'A puis B' ? [A, pa] as const : [B, pb] as const;
       const second = ordre === 'A puis B' ? [B, pb] as const : [A, pa] as const;
@@ -502,6 +504,32 @@ describe.skipIf(!hoteAuth || !hoteFs)('synchro de deux appareils (émulateurs Au
     await memeEtat(uid, pa, pb);
     pa.fermer();
     pb.fermer();
+  });
+
+  it('lecture par pages sur le vrai Firestore : curseur (startAfter), ordre de fin, filtre depuis', async () => {
+    const A = appareil('a');
+    const pa = A.page();
+    const uid = await compteSur(pa);
+    const s = serveurFirestore({ m: { auth: authM, fs: fsM }, db: A.db, a: A.a } as never);
+    for (let i = 0; i < 5; i++) {
+      const [e] = await pa.jouer([3], { ouverte: true });
+      const l = composer([e!])[0]!;
+      await s.creer(uid, l.id, docDuLot(l));
+    }
+    const pages: { id: string; fin: number }[][] = [];
+    let apres: unknown = null;
+    do {
+      const p = await s.lister!(uid, { depuis: null, apres, n: 2 });
+      pages.push(p.lots.map((l) => ({ id: l.id, fin: l.fin })));
+      apres = p.suite;
+    } while (apres);
+    expect(pages.map((p) => p.length)).toEqual([2, 2, 1]);
+    const tous = pages.flat();
+    expect(new Set(tous.map((l) => l.id)).size).toBe(5);
+    for (let i = 1; i < tous.length; i++) expect(tous[i]!.fin).toBeGreaterThanOrEqual(tous[i - 1]!.fin);
+    const apresLe2e = await s.lister!(uid, { depuis: tous[1]!.fin, apres: null, n: 10 });
+    expect(apresLe2e.lots.map((l) => l.id)).toEqual(tous.slice(2).map((l) => l.id));
+    pa.fermer();
   });
 
   it('(j) refus des règles (règles d’essai fermées), puis acceptation à une nouvelle version', async () => {

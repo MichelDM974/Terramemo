@@ -2347,7 +2347,11 @@ def ui_synchro(p1, p2, capturer, defauts, base):
     # la lecture incrémentale apporte les séances de l'appareil 2.
     p1.goto(url + "&rouvert=1#carte")
     p1.attendre_carte()
-    r1 = attendre_synchro(p1, lambda r: r["evenements"] == r2["evenements"], "appareil 1 : lecture des lots de l'appareil 2")
+    # Le même rapport des deux côtés, attendu (événements, puis fiches en ligne : deux écritures d'IndexedDB).
+    try:
+        r1 = attendre_synchro(p1, lambda r: resume_synchro(r) == resume_synchro(r2), "appareil 1 : lecture des lots de l'appareil 2")
+    except RuntimeError:
+        r1 = synchro_de(p1)
     a, b = resume_synchro(r1), resume_synchro(r2)
     dire(f"  appareil 1 : {json.dumps(a, ensure_ascii=False)}")
     dire(f"  appareil 2 : {json.dumps(b, ensure_ascii=False)}")

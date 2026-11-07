@@ -150,8 +150,14 @@ describe('question de fusion à la connexion (D22)', () => {
   it('session perdue d’un autre compte avec des séances non envoyées : la question à part, et « Ne pas les ajouter » efface les deux', async () => {
     const appareil = fauxAppareil({ reponses: 7, nonEnvoyees: 2 });
     const m = monter({ appareil, session: { ...sessionVide('v1'), uid: 'uid-bob', adresse: 'bob@exemple.fr', marque: 99 } });
-    const choisir = vi.fn(async (_q: QuestionFusion): Promise<ChoixFusion> => 'effacer');
+    let pendant: unknown = 'pas appelé';
+    const choisir = vi.fn(async (_q: QuestionFusion): Promise<ChoixFusion> => {
+      // La session est celle de bob, le compte connecté celui d'ana : rien ne part vers ana.
+      pendant = await m.c.pourSynchro();
+      return 'effacer';
+    });
     await m.c.connecter('ana@exemple.fr', 'motdepasse', choisir);
+    expect(pendant).toBeNull();
     expect(choisir.mock.calls[0]![0]).toEqual({ sorte: 'autre_compte', reponses: 7, records: 0, seances: 2 });
     expect(appareil.nonEnvoyees).toHaveBeenCalledWith('uid-bob');
     expect(appareil.effacer).toHaveBeenCalledWith(['uid-bob', 'uid-ana']);
@@ -252,8 +258,8 @@ describe('déconnexion reprenable (D24 a)', () => {
     const mq = m.c.marques();
     expect(await mq.lire('uid-ana')).toBe(5);
     expect(await mq.lire('uid-bob')).toBeNull();
-    await mq.poser('uid-bob', 9);
     await mq.poser('uid-ana', 7);
+    await mq.poser('uid-bob', 9);
     expect((await m.session.lire())?.marque).toBe(7);
   });
 });
@@ -315,6 +321,29 @@ describe('relectures du lot 4 : rien ne part sans réponse, rien ne s’efface s
     expect(r.adresse).toBe('neuf@exemple.fr');
     expect(m.signOut).toHaveBeenCalled();
     expect(await m.session.lire()).toMatchObject({ uid: 'uid-neuf' });
+  });
+});
+
+describe('relectures du lot 4 : création de compte depuis une session perdue', () => {
+  it('(V2) « Ne pas les ajouter », puis la création échoue (adresse prise) : l’appareil reste intact', async () => {
+    const appareil = fauxAppareil({ reponses: 3, nonEnvoyees: 1 });
+    const m = monter({ appareil, session: { ...sessionVide('v1'), uid: 'uid-x', adresse: 'x@exemple.fr' } });
+    // La création refuse l'adresse.
+    const s = await (m.service as () => Promise<{ m: { auth: Record<string, unknown> } }>)();
+    s.m.auth.createUserWithEmailAndPassword = async () => Promise.reject(Object.assign(new Error('pris'), { code: 'auth/email-already-in-use' }));
+    await expect(m.c.creer('x@exemple.fr', 'motdepasse', async () => 'effacer')).rejects.toMatchObject({ code: 'auth/email-already-in-use' });
+    expect(appareil.effacer).not.toHaveBeenCalled();
+    expect(await m.session.lire()).toMatchObject({ uid: 'uid-x', connexion: null });
+    expect(await m.c.etat()).toMatchObject({ etat: 'perdue', uid: 'uid-x' });
+  });
+
+  it('(V2) création réussie après « Ne pas les ajouter » : effacé après la création, puis le compte pris', async () => {
+    const appareil = fauxAppareil({ reponses: 3 });
+    const m = monter({ appareil, session: { ...sessionVide('v1'), uid: 'uid-x', adresse: 'x@exemple.fr' } });
+    const r = await m.c.creer('neuf@exemple.fr', 'motdepasse', async () => 'effacer');
+    expect(r.fusion).toBe('efface');
+    expect(appareil.effacer).toHaveBeenCalledWith(['uid-x']);
+    expect(await m.session.lire()).toMatchObject({ uid: 'uid-neuf', connexion: null });
   });
 });
 
