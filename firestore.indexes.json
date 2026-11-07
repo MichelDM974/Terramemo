@@ -35,5 +35,11 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    { "collectionGroup": "joueurs", "fieldPath": "records", "ttl": false, "indexes": [] },
+    { "collectionGroup": "joueurs", "fieldPath": "pseudo", "ttl": false, "indexes": [] },
+    { "collectionGroup": "joueurs", "fieldPath": "maj", "ttl": false, "indexes": [] },
+    { "collectionGroup": "joueurs", "fieldPath": "v", "ttl": false, "indexes": [] },
+    { "collectionGroup": "joueurs", "fieldPath": "supprime", "ttl": false, "indexes": [] }
+  ]
 }

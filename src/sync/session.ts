@@ -32,7 +32,14 @@ export interface Session {
   adresse: string | null;
   /** Lot 4 : instant serveur de la dernière lecture des lots. */
   marque: number | null;
-  /** Lot 2 : profil à écrire (pseudo ou record nouveau hors ligne). */
+  /**
+   * Lot 2 : un pseudo ou un record de l'appareil pas encore dans le profil
+   * du compte (hors ligne, refus des règles) ; levé après une synchro du
+   * profil réussie (§ 5.4). Qui l'emporte pour le pseudo ne se lit pas ici,
+   * mais dans le localStorage, à côté du pseudo (src/sync/profil.ts,
+   * lireBasePseudo) : un drapeau écrit après le pseudo laisserait une passe
+   * partir entre les deux.
+   */
   profil_a_ecrire: boolean;
   /** 'voulue' pendant une déconnexion demandée : ce n'est pas une session perdue (§ 2.5, § 3.4). */
   deconnexion: 'voulue' | null;

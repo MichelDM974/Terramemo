@@ -4,10 +4,10 @@
 // Puis vueALaDemande (src/vues/a-la-demande.ts) : le morceau chargé à
 // l'ouverture, un avis et « Réessayer » s'il ne vient pas.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Comptes, EtatCompte } from '../src/sync/comptes';
+import type { Comptes, EtatCompte, ResultatProfil } from '../src/sync/comptes';
 import { CLE_SANS_SYNCHRO } from '../src/sync/drapeaux';
 import { vueALaDemande } from '../src/vues/a-la-demande';
-import { textePerdue, vueCompte } from '../src/vues/compte';
+import { textePerdue, textePseudoDuCompte, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { textes } from '../src/vues/textes';
 import { installerDom, installerStockage, type El } from './dom-factice';
@@ -15,6 +15,10 @@ import { installerDom, installerStockage, type El } from './dom-factice';
 const T = textes.compte;
 const attendre = () => new Promise((r) => setTimeout(r, 0));
 const err = (code: string) => Object.assign(new Error(`Firebase: Error (${code}).`), { code });
+
+const PROFIL: ResultatProfil = { etat: 'a_jour', pseudo: null, ancienPseudo: null, recus: 0, envoyes: 0, quand: 0 };
+let profilConnexion: ResultatProfil = PROFIL;
+let etatChangement: ResultatProfil['etat'] = 'ecrit';
 
 /** Des comptes en mémoire : un état, et chaque méthode espionnée. */
 function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
@@ -27,7 +31,11 @@ function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
     }),
     connecter: vi.fn(async (adresse: string) => {
       etat = { etat: 'compte', uid: 'u1', adresse, verifiee: true, fournisseurs: ['password'] };
-      return { adresse };
+      return { adresse, profil: profilConnexion };
+    }),
+    changerPseudo: vi.fn(async (pseudo: string) => {
+      localStorage.setItem('terramemo.pseudo', pseudo);
+      return { ...PROFIL, pseudo, etat: etatChangement };
     }),
     oublier: vi.fn(async () => undefined),
     renvoyer: vi.fn(async () => ({ adresse: 'a@exemple.fr' })),
@@ -58,6 +66,8 @@ const envoyer = (id: string) => $(id)!.emettre('submit', { preventDefault() {} }
 beforeEach(() => {
   installerDom();
   installerStockage();
+  profilConnexion = PROFIL;
+  etatChangement = 'ecrit';
   zone = document.createElement('main') as unknown as El;
   masquee = [];
 });
@@ -197,6 +207,71 @@ describe('vue Compte', () => {
     await attendre();
     expect($('#compte-message')!.textContent).toBe(T.deconnecte);
     expect(contenu()).toContain(T.invite);
+  });
+
+  it('compte : le pseudo du compte, changé depuis la vue (pseudoValide), puis enregistré ou gardé sur l’appareil', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Michel');
+    const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] });
+    await ouvrir(c);
+    expect($('#compte-pseudo-actuel')!.innerText).toContain('Pseudo : Michel');
+    $('#compte-vers-pseudo')!.click();
+    expect($('#compte-pseudo')!.value).toBe('Michel');
+    expect($('#compte-pseudo')!.getAttribute('maxlength')).toBe('20');
+    $('#compte-pseudo')!.value = 'M';
+    envoyer('#compte-form-pseudo');
+    await attendre();
+    expect(c.changerPseudo).not.toHaveBeenCalled();
+    expect($('#compte-erreur')!.textContent).toBe(textes.chrono.pseudo_invalide);
+    $('#compte-pseudo')!.value = '  Michel   D ';
+    envoyer('#compte-form-pseudo');
+    await attendre();
+    await attendre();
+    expect(c.changerPseudo).toHaveBeenCalledWith('Michel D');
+    expect($('#compte-message')!.textContent).toBe('Pseudo enregistré dans ton compte : Michel D.');
+    expect($('#compte-pseudo-actuel')!.innerText).toContain('Pseudo : Michel D');
+    // Hors ligne, ou joueurs/ encore fermé : gardé sur l'appareil, il partira plus tard.
+    etatChangement = 'refuse';
+    $('#compte-vers-pseudo')!.click();
+    $('#compte-pseudo')!.value = 'Zoé';
+    envoyer('#compte-form-pseudo');
+    await attendre();
+    await attendre();
+    expect($('#compte-message')!.textContent).toBe(T.pseudo_garde);
+  });
+
+  it('un pseudo remplacé par celui du compte à une ouverture de l’appli : dit à l’ouverture de la vue, une fois', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Michel');
+    localStorage.setItem('terramemo.pseudo.remplace', 'Bob');
+    const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] });
+    const v = await ouvrir(c);
+    expect($('#compte-message')!.textContent).toBe('Ton pseudo est maintenant Michel (celui du compte).');
+    expect(localStorage.getItem('terramemo.pseudo.remplace')).toBeNull();
+    v.desactiver();
+    v.activer();
+    await attendre();
+    await attendre();
+    expect($('#compte-message')!.textContent).toBe('');
+  });
+
+  it('compte sans pseudo : « Pas encore de pseudo », à choisir', async () => {
+    const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] });
+    await ouvrir(c);
+    expect($('#compte-pseudo-actuel')!.innerText).toContain(T.pseudo_aucun);
+    expect($('#compte-vers-pseudo')!.textContent).toBe(T.pseudo_choisir);
+  });
+
+  it('connexion : le pseudo de l’appareil remplacé par celui du compte est dit, une fois', async () => {
+    profilConnexion = { ...PROFIL, etat: 'ecrit', pseudo: 'Michel', ancienPseudo: 'Bob' };
+    const c = fauxComptes();
+    await ouvrir(c);
+    $('#compte-vers-connecter')!.click();
+    $('#compte-adresse')!.value = 'ana@exemple.fr';
+    $('#compte-mdp')!.value = 'motdepasse';
+    envoyer('#compte-form-connecter');
+    await attendre();
+    await attendre();
+    expect($('#compte-message')!.textContent).toBe('Connecté : ana@exemple.fr. Ton pseudo est maintenant Michel (celui du compte).');
+    expect(textePseudoDuCompte({ ...PROFIL, pseudo: 'Michel' })).toBe('');
   });
 
   it('compte Google seul : ni mot de passe à changer ni adresse à vérifier', async () => {

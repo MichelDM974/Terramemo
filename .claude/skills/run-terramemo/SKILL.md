@@ -508,7 +508,7 @@ commande qui ouvre une page (smoke, ui, seance, mesurer, sauver_journal,
 restaurer_journal) le pose sur l'origine qu'elle pilote, avant toute
 action (`Session.couper_synchro`), et le retire à la fin, même après une
 erreur, un Ctrl-C ou un `kill` (SIGTERM). Il coupe envois et lectures de
-`joueurs/` (J1b, à partir du lot 3). S'il n'a pas pu être retiré (USB
+`joueurs/` (J1b : le profil dès le lot 2, les lots des séances au lot 3). S'il n'a pas pu être retiré (USB
 débranché en cours), le driver écrit « ATTENTION : … RESTÉ POSÉ » : relancer
 une commande sur l'appareil (`sauver_journal` suffit), ou, dans Chrome,
 ouvrir l'adresse avec `?sans-synchro=0`. `?sans-synchro` dans l'adresse
@@ -832,7 +832,7 @@ les sorties versionnées (`tests/donnees-reunion.test.ts`).
 
 ```bash
 npm run test:regles                                                           # règles Firestore sur l'émulateur (aussi en CI)
-npm run test:comptes                                                          # comptes e-mail (J1b) sur l'émulateur Auth (aussi en CI)
+npm run test:comptes                                                          # comptes e-mail et profil (J1b) sur les émulateurs Auth et Firestore (aussi en CI)
 npx firebase emulators:start --only firestore,auth --project terramemo-geo  # Firestore 8062, Auth 8063, en arrière-plan
 ```
 
@@ -853,8 +853,11 @@ dev avec `?emulateurs` et l'émulateur Auth lancé, tout passe à
 l'émulateur ; e-mails « envoyés » lisibles par `curl
 http://127.0.0.1:8063/emulator/v1/projects/terramemo-geo/oobCodes` (le
 projet passé à `emulators:start`, pas celui de la config du site).
-`npm run test:comptes` lance son propre émulateur (projet `demo-terramemo`) :
-8063 doit être libre, et il vide les comptes de l'émulateur à chaque test.
+`npm run test:comptes` lance ses propres émulateurs Auth et Firestore
+(projet `demo-terramemo`) : 8062 et 8063 doivent être libres (donc jamais
+en même temps que `test:regles`), et il vide comptes et base à chaque
+test ; ses deux fichiers passent l'un après l'autre
+(`--no-file-parallelism`), car chacun vide les comptes de l'émulateur.
 `window.terramemo.comptes()` rend l'état, les claims du dernier jeton
 (`identities`, `sign_in_provider`, S16) et les dix dernières erreurs brutes
 (le message anglais ne s'affiche jamais) ; `null` tant qu'un invité n'a pas
@@ -862,6 +865,32 @@ ouvert `#compte` (Firebase pas chargé). Un mot de passe changé ne révoque
 que les jetons émis avant sa seconde : dans un essai, attendre 1 s entre la
 connexion et le changement, sinon l'autre appareil ne passe pas en session
 perdue.
+
+**Profil (J1b, lot 2)** : `joueurs/{uid}` (pseudo et records du compte,
+`src/sync/profil.ts`), lu et fusionné à chaque connexion et à chaque
+ouverture de l'appli d'un compte, écrit par transaction quand l'appareil a
+mieux, et à chaque record ou pseudo nouveau (pont `src/sync/pont.ts` :
+rien pour un invité, anonyme compris). Les règles du dépôt gardent
+`joueurs/` **fermé** (`essai()` rend faux jusqu'au lot 6) : sur le vrai
+site comme à l'émulateur lancé par `emulators:start`, la synchro répond
+« refuse » et garde `profil_a_ecrire` dans la session, sans rien perdre sur
+l'appareil. Pour l'essayer au site de dev, charger dans l'émulateur
+Firestore lancé les règles avec `essai()` ouvert (à refaire après chaque
+redémarrage de l'émulateur ; jamais sur le vrai projet) :
+
+```bash
+node -e "const r=require('fs').readFileSync('firestore.rules','utf8').replace(/function essai\(\) \{\n\s*return false;\n\s*\}/,'function essai() { return true; }');fetch('http://127.0.0.1:8062/emulator/v1/projects/terramemo-geo:securityRules',{method:'PUT',body:JSON.stringify({rules:{files:[{content:r}]}})}).then(x=>console.log(x.status))"
+```
+
+`window.terramemo.comptes()` rend aussi `profil` (dernière synchro :
+`etat` a_jour, cree, ecrit, refuse, echec, coupee, sans_compte, supprime ou
+trop_gros ; pseudo retenu, ancien pseudo remplacé, records reçus et
+envoyés) et `profil_a_ecrire` (drapeau de la session). Le pseudo se fusionne
+à trois : `terramemo.pseudo.compte` (localStorage) garde le pseudo du compte
+au dernier envoi ; un pseudo de l'appareil qui en diffère l'emporte, sinon
+celui du compte. `terramemo.pseudo.remplace` garde l'ancien pseudo remplacé
+par celui du compte, dit une fois (vue Compte ou zone du pseudo). `?sans-synchro` coupe aussi
+le profil (aucune lecture de `joueurs/`).
 
 Chrono de l'île jusqu'au classement, par le pilote (vérifié le 06/11) : le
 choix `#jouer/classe/communes/reunion` puis `#jouer-panneau [data-mode="chrono"]`

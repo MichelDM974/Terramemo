@@ -21,6 +21,7 @@
 // Le classement général et ceux de chaque épreuve ont leur vue (general.ts).
 import { acceptesEnEpreuve, DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE, type ScoreEpreuve } from '../epreuve/bareme';
 import { DUREE_MINUTE_MS, enregistrerPartie, idEpreuve, PartieChrono, PartieMinute, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
+import { profilModifie } from '../sync/pont';
 import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
@@ -273,6 +274,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const score = partie.score();
     const epreuve = idEpreuve(serie.id, mode);
     const bp = enregistrerPartie(stockage(), epreuve, score, maintenant());
+    // Un record nouveau va au profil du compte (J1b, § 5.4 ; rien pour un invité).
+    if (bp.toujours.nouveau || bp.semaine.nouveau) profilModifie('records');
     const b = bp.toujours;
     const manquees = partie.jouees.filter((q) => !q.juste);
     const ligne = (q: QuestionJouee) =>

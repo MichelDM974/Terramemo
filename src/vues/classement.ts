@@ -5,14 +5,15 @@
 // Firebase n'est chargé qu'à l'ouverture du bloc, ou pour un envoi en attente.
 import type { BilanPartie } from '../epreuve/chrono';
 import type { ScoreEpreuve } from '../epreuve/bareme';
-import { lireRecords, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
+import { garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
+import { comptesVisibles } from '../sync/drapeaux';
+import { etatCompteConnu, profilModifie } from '../sync/pont';
 import { creer } from './commun';
 import { departage, fmtPts } from './scores';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
-const CLE_PSEUDO = 'terramemo.pseudo';
 /** Les envois échoués (hors ligne), à refaire : [épreuve, période], sans le score (relu des records au renvoi). */
 const CLE_ATTENTE = 'terramemo.chrono.attente';
 
@@ -25,19 +26,16 @@ function stockage(): Storage | null {
 }
 
 export function lirePseudo(): string | null {
-  try {
-    return pseudoValide(stockage()?.getItem(CLE_PSEUDO) ?? '');
-  } catch {
-    return null;
-  }
+  return lirePseudoDe(stockage());
 }
 
+/**
+ * Le pseudo choisi sur l'appareil (formulaire du classement) : gardé, et
+ * porté au profil s'il y a un compte (J1b, § 5.4 ; rien pour un invité).
+ */
 function garderPseudo(p: string): void {
-  try {
-    stockage()?.setItem(CLE_PSEUDO, p);
-  } catch {
-    // Sans stockage, le pseudo vaut pour cette visite.
-  }
+  garderPseudoDans(stockage(), p);
+  profilModifie('pseudo');
 }
 
 /** Ce qu'a donné un lot de publications : scores refusés (par les règles, ou d'avance), envois échoués (hors ligne). */
@@ -280,13 +278,36 @@ export function blocClassement(
     }
   }
 
+  /**
+   * Le pseudo, ou le formulaire pour en choisir un. Pour un compte (J1b,
+   * § 3.1), le pseudo est celui du compte et se change depuis la vue Compte ;
+   * un invité y lit qu'un compte garderait pseudo et records (comptes
+   * visibles seulement : cachés du public jusqu'au lot 8).
+   */
   function afficherPseudo(): void {
     const pseudo = lirePseudo();
-    if (pseudo) {
+    const visibles = comptesVisibles();
+    const etatCompte = etatCompteConnu();
+    if (pseudo && visibles && etatCompte === 'compte') {
+      pseudoZone.replaceChildren(
+        creer('span', { class: 'hint' }, remplir(T.pseudo_compte, { pseudo })),
+        creer('a', { href: '#compte', class: 'lien chrono-pseudo-compte' }, T.changer),
+      );
+    } else if (pseudo) {
       const changer = creer('button', { type: 'button', class: 'lien' }, T.changer);
       changer.addEventListener('click', () => formulaire(pseudo));
       pseudoZone.replaceChildren(creer('span', { class: 'hint' }, remplir(T.pseudo_actuel, { pseudo })), changer);
-    } else formulaire('');
+    } else return formulaire('');
+    // Le pseudo de l'appareil remplacé par celui du compte (J1b, § 2.3, étape 7) : dit une fois.
+    const ancien = pseudo && prendreAvisPseudo(stockage());
+    if (ancien) pseudoZone.append(creer('p', { class: 'hint chrono-pseudo-avis', 'aria-live': 'polite' }, remplir(textes.compte.pseudo_du_compte, { pseudo })));
+    inviterAuCompte();
+  }
+
+  /** Invité, comptes visibles : un lien discret vers la vue Compte, jamais une fenêtre qui s'impose. */
+  function inviterAuCompte(): void {
+    if (!comptesVisibles() || etatCompteConnu() !== 'invite') return;
+    pseudoZone.append(creer('p', { class: 'hint chrono-invite-compte' }, creer('a', { href: '#compte', class: 'lien' }, T.avec_compte)));
   }
 
   function formulaire(valeur: string): void {
@@ -296,6 +317,7 @@ export function blocClassement(
     const aide = creer('p', { class: 'hint' }, T.pseudo_aide);
     const form = creer('div', { class: 'chrono-pseudo-form' }, champ, ok);
     pseudoZone.replaceChildren(aide, form);
+    inviterAuCompte();
     const envoyer = async () => {
       const p = pseudoValide(champ.value);
       if (!p) {

@@ -23,6 +23,7 @@ import { brancherRetourAndroid } from './retour-android';
 import { brancherZoom } from './zoom-carte';
 import { comptesVisibles, poserDrapeaux } from './sync/drapeaux';
 import type { RapportComptes } from './sync/comptes';
+import { brancherProfil, poserEtatCompte, type ChangementProfil } from './sync/pont';
 import { depotSessionIndexedDb } from './sync/session';
 import { vueALaDemande } from './vues/a-la-demande';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
@@ -668,10 +669,32 @@ function demarrerCompte(): void {
     .lire()
     .then((s) => {
       if (!s?.uid) return;
+      // Provisoire, avant le chargement de Firebase : la zone du pseudo d'un classement ouvert
+      // tout de suite voit déjà un compte (etat() corrige, session perdue comprise).
+      if (!s.deconnexion) poserEtatCompte('compte');
       return chargerComptes().then((m) => m.comptes(VERSION).demarrer());
     })
     .catch((e: unknown) => console.warn('Compte non relu au démarrage :', e));
 }
+
+/**
+ * Un record ou un pseudo nouveau (pont des vues, src/sync/pont.ts) : porté au
+ * profil du compte (J1b, § 5.4). Un invité ne charge rien (D9 b) : les
+ * comptes ne sont chargés que s'ils le sont déjà, ou si la session connaît un
+ * compte. Si leur morceau ne vient pas (site hors ligne), le drapeau est
+ * posé dans la session directement : la prochaine synchro le verra.
+ */
+async function noterProfil(c: ChangementProfil): Promise<void> {
+  const depot = depotSessionIndexedDb();
+  if (!comptesCharges && !(await depot.lire())?.uid) return;
+  try {
+    await (await chargerComptes()).comptes(VERSION).profilModifie(c);
+  } catch {
+    const s = await depot.lire();
+    if (s?.uid) await depot.ecrire({ ...s, profil_a_ecrire: true });
+  }
+}
+brancherProfil((c) => void noterProfil(c).catch((e: unknown) => console.warn('Profil non noté :', e)));
 
 demarrer().catch((e: unknown) => {
   const p = document.createElement('p');

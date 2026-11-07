@@ -61,7 +61,8 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
     await signOut(autre);
     await viderComptes();
     session = S.depotSessionMemoire();
-    comptes = C.creerComptes({ session, version: 'essai' });
+    // Le profil (lot 2) a son propre test, tests/profil.test.ts : ici, synchro coupée.
+    comptes = C.creerComptes({ session, version: 'essai', coupee: () => true });
   });
 
   /** Le texte français d'un rejet. */
@@ -77,7 +78,7 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
   it('crée un compte sans invité : un uid, la session gardée, l’e-mail de vérification parti', async () => {
     const a = adresse();
     const r = await comptes.creer(a, 'motdepasse');
-    expect(r).toEqual({ adresse: a, verification: true });
+    expect(r).toMatchObject({ adresse: a, verification: true });
     const e = await comptes.etat();
     expect(e).toMatchObject({ etat: 'compte', adresse: a, verifiee: false, fournisseurs: ['password'] });
     const s = await session.lire();
@@ -111,7 +112,7 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
     await comptes.deconnecter();
     expect(await comptes.etat()).toEqual({ etat: 'invite', anonyme: false });
     expect((await session.lire())?.uid).toBeNull();
-    expect(await comptes.connecter(a, 'motdepasse')).toEqual({ adresse: a });
+    expect(await comptes.connecter(a, 'motdepasse')).toMatchObject({ adresse: a });
     expect(await comptes.etat()).toMatchObject({ etat: 'compte', uid });
   });
 

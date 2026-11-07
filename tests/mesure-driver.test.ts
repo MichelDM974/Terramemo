@@ -616,7 +616,7 @@ describe('driver.py mesurer : première visite sans perte des données de l’ut
   const CLES = [
     CLE_APPAREIL,
     cleDe('src/epreuve/chrono.ts', 'CLE_RECORDS'),
-    cleDe('src/vues/classement.ts', 'CLE_PSEUDO'),
+    cleDe('src/epreuve/chrono.ts', 'CLE_PSEUDO'),
     cleDe('src/vues/arbre.ts', 'CLE_DERNIERE'),
     cleDe('src/main.ts', 'CLE_MESURES'),
   ];

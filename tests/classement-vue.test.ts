@@ -18,6 +18,7 @@ vi.mock('../src/epreuve/classement', () => ({
 
 const { avisPublication, blocClassement, brancherRelance, lireAttente, publierPartie, publierTout, relancerAttente } = await import('../src/vues/classement');
 const { textes } = await import('../src/vues/textes');
+const { brancherProfil, poserEtatCompte } = await import('../src/sync/pont');
 const T = textes.chrono;
 
 const score = (points: number, justes: number, questions: number, temps_ms: number) => ({ points, justes, questions, temps_ms });
@@ -326,5 +327,79 @@ describe('bloc du classement après une partie', () => {
     expect(b.querySelector('.chrono-classement-avis')?.hidden).toBe(true);
     expect(avisPublication({ refuses: 0, echecs: 0 })).toBe('');
     expect(avisPublication({ refuses: 1, echecs: 1 })).toBe(`${T.publication_refusee} ${T.publication_echec}`);
+  });
+});
+
+describe('zone du pseudo et comptes (J1b, § 3.1)', () => {
+  afterEach(() => {
+    poserEtatCompte('invite');
+    brancherProfil(null);
+    vi.unstubAllEnvs();
+  });
+  const zone = async () => {
+    const b = blocClassement(ILE, 'Classement') as unknown as El;
+    await attendre();
+    return b.querySelector('.chrono-pseudo')!;
+  };
+
+  it('compte : le pseudo du compte, et « Changer » mène à la vue Compte', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    poserEtatCompte('compte');
+    const z = await zone();
+    expect(z.innerText).toContain('Pseudo du compte : Ana');
+    expect(z.querySelector('a.chrono-pseudo-compte')?.getAttribute('href')).toBe('#compte');
+    expect(z.querySelector('.chrono-invite-compte')).toBeNull();
+  });
+
+  it('invité : une invitation discrète vers la vue Compte, sous le pseudo comme sous le formulaire', async () => {
+    const sansPseudo = await zone();
+    expect(sansPseudo.querySelector('input')).not.toBeNull();
+    expect(sansPseudo.querySelector('.chrono-invite-compte a')?.getAttribute('href')).toBe('#compte');
+    expect(sansPseudo.innerText).toContain(T.avec_compte);
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const avecPseudo = await zone();
+    expect(avecPseudo.innerText).toContain('Pseudo : Ana');
+    expect(avecPseudo.querySelectorAll('.chrono-invite-compte')).toHaveLength(1);
+  });
+
+  it('session perdue : le pseudo de l’appareil se change ici, sans invitation', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    poserEtatCompte('perdue');
+    const z = await zone();
+    expect(z.innerText).toContain('Pseudo : Ana');
+    expect(z.querySelector('a.chrono-pseudo-compte')).toBeNull();
+    expect(z.querySelector('.chrono-invite-compte')).toBeNull();
+  });
+
+  it('un pseudo choisi au classement prévient le profil du compte (pont du morceau principal)', async () => {
+    const relais = vi.fn();
+    brancherProfil(relais);
+    publier.mockResolvedValue(true);
+    const z = await zone();
+    z.querySelector('input')!.value = 'Ana';
+    z.querySelectorAll('button').find((b) => b.innerText === T.publier)!.click();
+    await attendre();
+    expect(relais).toHaveBeenCalledWith('pseudo');
+    expect(localStorage.getItem('terramemo.pseudo')).toBe('Ana');
+  });
+
+  it('un pseudo remplacé par celui du compte : dit une fois sous le pseudo', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Michel');
+    localStorage.setItem('terramemo.pseudo.remplace', 'Bob');
+    poserEtatCompte('compte');
+    const z = await zone();
+    expect(z.querySelector('.chrono-pseudo-avis')?.textContent).toBe('Ton pseudo est maintenant Michel (celui du compte).');
+    expect(localStorage.getItem('terramemo.pseudo.remplace')).toBeNull();
+    expect((await zone()).querySelector('.chrono-pseudo-avis')).toBeNull();
+  });
+
+  it('comptes cachés (le public, jusqu’au lot 8) : rien ne change, même pour un compte', async () => {
+    vi.stubEnv('DEV', false);
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    poserEtatCompte('compte');
+    const z = await zone();
+    expect(z.innerText).toContain('Pseudo : Ana');
+    expect(z.querySelector('a')).toBeNull();
+    expect(z.innerText).not.toContain(T.avec_compte);
   });
 });

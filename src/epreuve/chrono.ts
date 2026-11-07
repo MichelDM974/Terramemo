@@ -230,6 +230,8 @@ export const EPREUVES: readonly string[] = SERIES_EPREUVES.map((s) => idEpreuve(
 export const EPREUVES_CLASSEES: readonly string[] = MODES_EPREUVE.flatMap((m) => SERIES_EPREUVES.map((s) => idEpreuve(s, m)));
 
 const CLE_RECORDS = 'terramemo.chrono.records';
+/** Le pseudo public de l'appareil (pour un compte, la copie de celui du profil : J1b, § 2.1). */
+const CLE_PSEUDO = 'terramemo.pseudo';
 
 type Stockage = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -244,6 +246,59 @@ export function lireRecords(stockage: Stockage | null): Map<string, RecordChrono
   }
 }
 
+/** Écrit les records de l'appareil ; stockage plein ou refusé : ils valent pour cette visite seulement. */
+export function ecrireRecords(stockage: Stockage | null, records: ReadonlyMap<string, RecordChrono>): void {
+  try {
+    stockage?.setItem(CLE_RECORDS, JSON.stringify(Object.fromEntries(records)));
+  } catch {
+    // Stockage plein ou refusé : le record vaut pour cette visite seulement.
+  }
+}
+
+/** Le pseudo de l'appareil, s'il est encore valide (pseudoValide) ; null sinon. */
+export function lirePseudoDe(stockage: Pick<Storage, 'getItem'> | null): string | null {
+  try {
+    return pseudoValide(stockage?.getItem(CLE_PSEUDO) ?? '');
+  } catch {
+    return null;
+  }
+}
+
+export function garderPseudoDans(stockage: Pick<Storage, 'setItem'> | null, pseudo: string): void {
+  try {
+    stockage?.setItem(CLE_PSEUDO, pseudo);
+  } catch {
+    // Sans stockage, le pseudo vaut pour cette visite.
+  }
+}
+
+/**
+ * L'ancien pseudo de l'appareil, remplacé par celui du compte (J1b, § 2.3,
+ * étape 7) : dit une fois, là où l'on regarde son pseudo (vue Compte, zone
+ * du pseudo d'un classement), même quand le remplacement s'est fait à une
+ * ouverture de l'appli, sans personne pour le lire.
+ */
+const CLE_PSEUDO_REMPLACE = 'terramemo.pseudo.remplace';
+
+export function poserAvisPseudo(stockage: Pick<Storage, 'setItem'> | null, ancien: string): void {
+  try {
+    stockage?.setItem(CLE_PSEUDO_REMPLACE, ancien);
+  } catch {
+    // Sans stockage, l'avis n'est pas gardé.
+  }
+}
+
+/** L'ancien pseudo à dire, retiré du stockage (dit une fois) ; null s'il n'y en a pas. */
+export function prendreAvisPseudo(stockage: Pick<Storage, 'getItem' | 'removeItem'> | null): string | null {
+  try {
+    const a = stockage?.getItem(CLE_PSEUDO_REMPLACE) ?? null;
+    if (a !== null) stockage?.removeItem(CLE_PSEUDO_REMPLACE);
+    return a;
+  } catch {
+    return null;
+  }
+}
+
 export interface Bilan {
   record: RecordChrono;
   /** Le score bat l'ancien record (ou il n'y en avait pas). */
@@ -254,15 +309,15 @@ export interface Bilan {
 }
 
 /**
- * Garde le score s'il bat le record de l'épreuve (plus de points, puis moins
- * de temps). Un record que les règles refuseraient (vraisemblable) garde
- * à côté le meilleur score publiable, qu'un score vraisemblable peut encore
- * battre sans battre le record : sinon la série sortirait du général et le
- * général publié ne pourrait plus progresser. Une partie abandonnée ne passe
- * pas ici. Sans stockage, le bilan reste juste pour cette partie.
+ * Garde le score dans `records` (modifiés sur place) s'il bat le record de
+ * l'épreuve (plus de points, puis moins de temps). Un record que les règles
+ * refuseraient (vraisemblable) garde à côté le meilleur score publiable,
+ * qu'un score vraisemblable peut encore battre sans battre le record : sinon
+ * la série sortirait du général et le général publié ne pourrait plus
+ * progresser. Pur : enregistrer() l'écrit, la fusion du profil d'un compte
+ * (src/sync/profil.ts) s'en sert pour les records venus d'un autre appareil.
  */
-export function enregistrer(stockage: Stockage | null, epreuve: string, score: ScoreEpreuve, date: number): Bilan {
-  const records = lireRecords(stockage);
+export function garder(records: Map<string, RecordChrono>, epreuve: string, score: ScoreEpreuve, date: number): Bilan {
   const ancien = records.get(epreuve) ?? null;
   const publiableAvant = ancien && publiableDate(ancien, epreuve);
   const nouveau = ancien === null || comparerScores(score, ancien) < 0;
@@ -274,12 +329,19 @@ export function enregistrer(stockage: Stockage | null, epreuve: string, score: S
     if (!progresPubliable && publiableAvant) record.publiable = publiableAvant;
   } else record = { ...ancien!, publiable: { ...sansDate(score), date } };
   records.set(epreuve, record);
-  try {
-    stockage?.setItem(CLE_RECORDS, JSON.stringify(Object.fromEntries(records)));
-  } catch {
-    // Stockage plein ou refusé : le record vaut pour cette visite seulement.
-  }
   return { record, nouveau, ancien, progresPubliable };
+}
+
+/**
+ * Garde le score s'il bat le record de l'épreuve (garder), sur l'appareil.
+ * Une partie abandonnée ne passe pas ici. Sans stockage, le bilan reste juste
+ * pour cette partie.
+ */
+export function enregistrer(stockage: Stockage | null, epreuve: string, score: ScoreEpreuve, date: number): Bilan {
+  const records = lireRecords(stockage);
+  const b = garder(records, epreuve, score, date);
+  if (b.nouveau || b.progresPubliable) ecrireRecords(stockage, records);
+  return b;
 }
 
 // --- Semaine et classement général ------------------------------------------
@@ -305,16 +367,15 @@ export function enregistrerPartie(stockage: Stockage | null, epreuve: string, sc
   const toujours = enregistrer(stockage, epreuve, score, date);
   const sem = enregistrer(stockage, cleSemaine(epreuve, periode), score, date);
   const records = lireRecords(stockage);
-  const anciens = [...records.keys()].filter((k) => k.includes('@') && !k.endsWith(`@${periode}`));
-  if (anciens.length) {
-    for (const k of anciens) records.delete(k);
-    try {
-      stockage?.setItem(CLE_RECORDS, JSON.stringify(Object.fromEntries(records)));
-    } catch {
-      // Sans stockage, rien à oublier.
-    }
-  }
+  if (oublierSemainesPassees(records, periode)) ecrireRecords(stockage, records);
   return { toujours, semaine: sem, periode };
+}
+
+/** Retire (sur place) les records des semaines autres que `periode` ; vrai s'il y en avait. */
+export function oublierSemainesPassees(records: Map<string, unknown>, periode: string): boolean {
+  const anciens = [...records.keys()].filter((k) => k.includes('@') && !k.endsWith(`@${periode}`));
+  for (const k of anciens) records.delete(k);
+  return anciens.length > 0;
 }
 
 /** Le record d'une épreuve pour une période ('toujours' ou la semaine). */

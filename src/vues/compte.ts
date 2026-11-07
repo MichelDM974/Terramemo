@@ -5,21 +5,42 @@
 // la demande avec src/sync/comptes.ts (vueCompteALaDemande, main.ts) : un
 // invité ne charge jamais Firebase au démarrage (D9 b).
 //
-// Viendront ensuite : pseudo (lot 2), état de la synchro (lot 3), question de
+// Lot 2 : le pseudo du compte, modifiable (pseudoValide), écrit dans le
+// profil `joueurs/{uid}` avec les records ; à la connexion, un pseudo de
+// l'appareil remplacé par celui du compte est dit une fois (§ 2.3, étape 7).
+// Viendront ensuite : état de la synchro (lot 3), question de
 // fusion, déconnexion reprenable et « Effacer cet appareil » (lot 4),
 // export, suppression et lien vers la politique (lot 5), Google (lots 6 et
 // 7). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
 // textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts.
-import type { Comptes, EtatCompte } from '../sync/comptes';
+import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
+import type { Comptes, EtatCompte, ResultatProfil } from '../sync/comptes';
 import { synchroCoupee } from '../sync/drapeaux';
 import { codeErreur, traduire } from '../sync/erreurs';
+import { lirePseudo } from './classement';
 import { creer, type ContexteVue, type Vue } from './commun';
 import { remplir, textes } from './textes';
 
 const T = textes.compte;
 
-type Ecran = 'chargement' | 'echec' | 'invite' | 'creer' | 'connecter' | 'compte' | 'mdp' | 'perdue' | 'sans-compte';
+type Ecran = 'chargement' | 'echec' | 'invite' | 'creer' | 'connecter' | 'compte' | 'mdp' | 'pseudo' | 'perdue' | 'sans-compte';
+
+/** Ce que dit la connexion du pseudo : celui de l'appareil remplacé par celui du compte, dit une fois. */
+export function textePseudoDuCompte(p: ResultatProfil | null | undefined): string {
+  return p?.ancienPseudo && p.pseudo ? remplir(T.pseudo_du_compte, { pseudo: p.pseudo }) : '';
+}
+
+function stockageDeLaPage(): Storage | null {
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Le profil a reçu le pseudo (ou l'avait déjà) ; sinon il attend sur l'appareil. */
+const profilAJour = (p: ResultatProfil) => p.etat === 'a_jour' || p.etat === 'cree' || p.etat === 'ecrit';
 
 export interface OptionsVueCompte {
   retour: () => void;
@@ -71,6 +92,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
     message.textContent = '';
     erreur.textContent = '';
   };
+  /** L'avis d'un pseudo remplacé par celui du compte : dit par le message de la connexion, il ne se redit pas ailleurs. */
+  const avisPseudoDit = () => void prendreAvisPseudo(stockageDeLaPage());
 
   /** Un bouton ; `principal` : le seul en accent plein de l'écran. */
   function bouton(id: string, texte: string, faire: () => void, sorte: 'principal' | 'secondaire' | 'lien' = 'secondaire', type: 'button' | 'submit' = 'button'): HTMLButtonElement {
@@ -180,7 +203,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           adresseSaisie = a.input.value;
           void agir(async (c) => {
             const r = await c.creer(a.input.value, m.input.value);
-            dire(r.verification ? remplir(T.cree, { adresse: r.adresse }) : T.cree_sans_email);
+            avisPseudoDit();
+            dire([r.verification ? remplir(T.cree, { adresse: r.adresse }) : T.cree_sans_email, textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
             await apres(c);
           });
         };
@@ -212,7 +236,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           adresseSaisie = a.input.value;
           void agir(async (c) => {
             const r = await c.connecter(a.input.value, m.input.value);
-            dire(remplir(T.connecte, { adresse: r.adresse }));
+            avisPseudoDit();
+            dire([remplir(T.connecte, { adresse: r.adresse }), textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
             await apres(c);
           });
         };
@@ -254,6 +279,19 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         const motDePasse = e.fournisseurs.includes('password');
         const nom = motDePasse ? (e.adresse ?? '') : remplir(T.compte_google, { adresse: e.adresse ?? '' });
         const lignes: Node[] = [creer('p', { class: 'compte-adresse', id: 'compte-adresse-connectee' }, nom)];
+        // Le pseudo du compte (§ 3.2) : celui du profil, recopié sur l'appareil.
+        const pseudo = lirePseudo();
+        lignes.push(
+          creer(
+            'p',
+            { class: 'hint', id: 'compte-pseudo-actuel' },
+            `${pseudo ? remplir(T.pseudo, { pseudo }) : T.pseudo_aucun} · `,
+            bouton('compte-vers-pseudo', pseudo ? T.pseudo_changer : T.pseudo_choisir, () => {
+              effacerAvis();
+              aller('pseudo');
+            }, 'lien'),
+          ),
+        );
         if (!e.verifiee && motDePasse)
           lignes.push(
             creer(
@@ -310,6 +348,36 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
               'div',
               { class: 'compte-actions' },
               bouton('compte-mdp-ok', T.changer_bouton, envoyer, 'principal', 'submit'),
+              bouton('compte-annuler', T.annuler, () => annuler()),
+            ),
+          ),
+        ];
+      }
+      case 'pseudo': {
+        const p = champ('compte-pseudo', T.pseudo_libelle, { type: 'text', name: 'pseudo', maxlength: '20', autocomplete: 'nickname', autocapitalize: 'words', spellcheck: 'false', required: '' }, lirePseudo() ?? '');
+        const envoyer = () => {
+          const v = pseudoValide(p.input.value);
+          if (!v) {
+            erreur.textContent = textes.chrono.pseudo_invalide;
+            return;
+          }
+          void agir(async (c) => {
+            const r = await c.changerPseudo(v);
+            dire(profilAJour(r) ? remplir(T.pseudo_change, { pseudo: v }) : T.pseudo_garde);
+            await apres(c);
+          });
+        };
+        return [
+          creer('h3', {}, T.titre_pseudo),
+          creer('p', { class: 'hint' }, T.pseudo_aide),
+          formulaire(
+            'compte-form-pseudo',
+            envoyer,
+            p.label,
+            creer(
+              'div',
+              { class: 'compte-actions' },
+              bouton('compte-pseudo-ok', T.pseudo_bouton, envoyer, 'principal', 'submit'),
               bouton('compte-annuler', T.annuler, () => annuler()),
             ),
           ),
@@ -391,9 +459,12 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       const avant = etat?.etat;
       etat = await c.etat();
       await lirePerdue();
+      // Un pseudo remplacé par celui du compte à une ouverture de l'appli, que personne n'a lu : dit ici, une fois.
+      const ancien = etat.etat === 'compte' && !message.textContent ? prendreAvisPseudo(stockageDeLaPage()) : null;
+      if (ancien) dire(remplir(T.pseudo_du_compte, { pseudo: lirePseudo() ?? '' }));
       // Un formulaire ouvert reste tel quel, saisie comprise (retour d'une autre appli), sauf
       // si l'état a changé sous lui.
-      const formulaireOuvert = ecran === 'creer' || ecran === 'connecter' || ecran === 'mdp' || ecran === 'sans-compte';
+      const formulaireOuvert = ecran === 'creer' || ecran === 'connecter' || ecran === 'mdp' || ecran === 'pseudo' || ecran === 'sans-compte';
       if (!formulaireOuvert || avant !== etat.etat) aller(ecranDe(etat));
       else synchro.hidden = !synchroCoupee();
     } catch (e) {

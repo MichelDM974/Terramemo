@@ -60,7 +60,7 @@ describe('comptes, hors émulateur', () => {
     const { service } = faux({ jeton: async () => Promise.reject(err('auth/network-request-failed')) });
     const session = depotSessionMemoire();
     const c = creerComptes({ session, service });
-    await expect(c.creer('ana@exemple.fr', 'motdepasse')).resolves.toEqual({ adresse: 'ana@exemple.fr', verification: true });
+    await expect(c.creer('ana@exemple.fr', 'motdepasse')).resolves.toMatchObject({ adresse: 'ana@exemple.fr', verification: true });
     expect((await session.lire())?.uid).toBe('u1');
     expect(c.rapport().erreurs.map((x) => x.code)).toContain('auth/network-request-failed');
   });

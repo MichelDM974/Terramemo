@@ -1,12 +1,14 @@
 // Règles Firestore des classements (firestore.rules), sur l'émulateur :
 // `npm run test:regles` (firebase emulators:exec pose FIRESTORE_EMULATOR_HOST).
-// Sans émulateur (npm test), ces tests sont sautés.
-import { readFileSync } from 'node:fs';
+// Sans émulateur (npm test), ces tests sont sautés. Puis le profil des
+// comptes, `joueurs/{uid}` (J1b, lot 2, étude § 6), règles chargées avec
+// essai() ouvert (tests/regles-essai.ts) : celles du dépôt le gardent fermé.
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
 import { clePermise, clePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
+import { ESSAI_DU_DEPOT, REGLES, reglesAvecEssai } from './regles-essai';
 
 const hote = process.env.FIRESTORE_EMULATOR_HOST;
 const E = 'chrono:localiser:South America';
@@ -33,7 +35,7 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     const [host, port] = (hote ?? '').split(':');
     env = await initializeTestEnvironment({
       projectId: 'demo-terramemo',
-      firestore: { rules: readFileSync('firestore.rules', 'utf8'), host, port: Number(port) },
+      firestore: { rules: REGLES, host, port: Number(port) },
     });
   });
   afterAll(async () => env?.cleanup());
@@ -311,5 +313,149 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertFails(deleteDoc(place(db('ana'))));
     await assertFails(setDoc(doc(db('ana'), 'joueurs', 'ana'), { a: 1 }));
     await assertFails(getDoc(doc(db(null), 'joueurs', 'ana')));
+    await assertFails(setDoc(doc(db('ana'), 'ailleurs', 'x'), { a: 1 }));
+    await assertFails(getDoc(doc(db('ana'), 'ailleurs', 'x')));
+  });
+
+  it('version du dépôt : joueurs/ reste fermé jusqu’au lot 6 (essai() faux), même pour son compte', async () => {
+    expect(REGLES).toMatch(ESSAI_DU_DEPOT);
+    const ana = env.authenticatedContext('ana', jetonCompte() as never).firestore() as unknown as Firestore;
+    await assertFails(setDoc(doc(ana, 'joueurs', 'ana'), { v: 1, maj: serverTimestamp() }));
+    await assertFails(getDoc(doc(ana, 'joueurs', 'ana')));
+  });
+});
+
+/**
+ * Les claims d'un compte (étude du J1b, § 6) : `firebase.identities` dit ce
+ * que le compte possède, `sign_in_provider` la méthode de la session (que les
+ * règles ne regardent pas). Par défaut, un compte e-mail non vérifié.
+ */
+function jetonCompte(o: { fournisseur?: string; identites?: Record<string, string[]>; email?: string; verifiee?: boolean } = {}) {
+  const email = o.email ?? 'ana@exemple.fr';
+  return {
+    email,
+    email_verified: o.verifiee ?? false,
+    firebase: { sign_in_provider: o.fournisseur ?? 'password', identities: o.identites ?? { email: [email] } },
+  };
+}
+/** Un invité anonyme : aucune identité. */
+const JETON_ANONYME = { firebase: { sign_in_provider: 'anonymous', identities: {} } };
+
+const profil = (o: Record<string, unknown> = {}) => ({ v: 1, pseudo: 'Michel', records: '{"chrono:localiser:tous":{"points":1000}}', maj: serverTimestamp(), ...o });
+
+describe.skipIf(!hote)('profil joueurs/{uid} (J1b, lot 2 ; essai() ouvert)', () => {
+  let env: RulesTestEnvironment;
+  type Jeton = Record<string, unknown> | null;
+  const db = (uid: string | null, jeton: Jeton = jetonCompte()) =>
+    (uid ? env.authenticatedContext(uid, (jeton ?? undefined) as never).firestore() : env.unauthenticatedContext().firestore()) as unknown as Firestore;
+  const moi = (d: Firestore, uid = 'ana') => doc(d, 'joueurs', uid);
+
+  beforeAll(async () => {
+    const [host, port] = (hote ?? '').split(':');
+    env = await initializeTestEnvironment({ projectId: 'demo-terramemo', firestore: { rules: reglesAvecEssai('return true;'), host, port: Number(port) } });
+  });
+  afterAll(async () => env?.cleanup());
+  beforeEach(async () => env.clearFirestore());
+
+  it('les claims voulus arrivent aux règles (S8) : identités et méthode de la session', async () => {
+    // Un compte Google sans identité « email » passe ; un anonyme, qui n'en a aucune, non.
+    await assertSucceeds(setDoc(moi(db('ana', jetonCompte({ fournisseur: 'google.com', identites: { 'google.com': ['1234'] } }))), profil()));
+    await assertFails(setDoc(moi(db('bob', JETON_ANONYME), 'bob'), profil()));
+  });
+
+  it('sans compte, un autre uid, un anonyme : rien (lecture, création, mise à jour, suppression)', async () => {
+    await env.withSecurityRulesDisabled(async (c) => void (await setDoc(doc(c.firestore() as unknown as Firestore, 'joueurs', 'ana'), profil({ maj: Timestamp.now() }))));
+    for (const d of [db(null), db('bob'), db('ana', JETON_ANONYME)]) {
+      await assertFails(getDoc(moi(d)));
+      await assertFails(setDoc(moi(d), profil()));
+      await assertFails(deleteDoc(moi(d)));
+    }
+    await assertFails(setDoc(moi(db('bob', JETON_ANONYME), 'bob'), profil()));
+  });
+
+  it('compte e-mail, compte Google, anonyme lié (session « anonymous » avec l’identité email) : son profil', async () => {
+    await assertSucceeds(setDoc(moi(db('ana')), profil()));
+    await assertSucceeds(getDoc(moi(db('ana'))));
+    await assertSucceeds(setDoc(moi(db('gael', jetonCompte({ fournisseur: 'google.com', identites: { 'google.com': ['1'], email: ['g@gmail.com'] }, verifiee: true })), 'gael'), profil()));
+    // La règle ne dépend pas de la méthode de la session : un lien la laisse peut-être à « anonymous » (S16).
+    await assertSucceeds(setDoc(moi(db('lia', jetonCompte({ fournisseur: 'anonymous' })), 'lia'), profil({ pseudo: 'Lia' })));
+    // Mise à jour : pseudo changé, records sans pseudo, profil nu.
+    await assertSucceeds(setDoc(moi(db('ana')), profil({ pseudo: 'Ana' })));
+    await assertSucceeds(setDoc(moi(db('ana')), { v: 1, maj: serverTimestamp(), records: '{}' }));
+    await assertSucceeds(setDoc(moi(db('ana')), { v: 1, maj: serverTimestamp() }));
+  });
+
+  it('forme du profil : champs, version, heure du serveur, pseudo de 2 à 20, records en chaîne de 32 768 au plus', async () => {
+    const d = moi(db('ana'));
+    for (const faux of [
+      profil({ triche: true }),
+      profil({ v: 2 }),
+      profil({ v: '1' }),
+      profil({ maj: Timestamp.fromMillis(Date.now()) }),
+      { v: 1, pseudo: 'Michel' },
+      { maj: serverTimestamp(), pseudo: 'Michel' },
+      profil({ pseudo: 'M' }),
+      profil({ pseudo: 'x'.repeat(21) }),
+      profil({ pseudo: 42 }),
+      profil({ records: 'x'.repeat(32_769) }),
+      profil({ records: { 'chrono:localiser:tous': { points: 1000 } } }),
+      profil({ records: ['un', 'deux'] }),
+      profil({ supprime: false }),
+      profil({ supprime: true }),
+    ])
+      await assertFails(setDoc(d, faux));
+    await assertSucceeds(setDoc(d, profil({ records: 'x'.repeat(32_768), pseudo: 'x'.repeat(20) })));
+    await assertSucceeds(setDoc(d, profil({ pseudo: 'Mi' })));
+  });
+
+  it('pierre tombale : posée par le propriétaire, puis plus aucune écriture du profil, même d’un 2e appareil du compte', async () => {
+    await assertSucceeds(setDoc(moi(db('ana')), profil()));
+    const tombe = { v: 1, maj: serverTimestamp(), supprime: true };
+    await assertFails(setDoc(moi(db('bob'), 'ana'), tombe));
+    await assertSucceeds(setDoc(moi(db('ana')), tombe));
+    // Deux contextes du même uid : le téléphone et le PC du compte.
+    for (const d of [db('ana'), db('ana', jetonCompte({ fournisseur: 'google.com', identites: { 'google.com': ['9'], email: ['ana@exemple.fr'] } }))]) {
+      await assertFails(setDoc(moi(d), profil()));
+      await assertFails(setDoc(moi(d), tombe));
+      await assertFails(deleteDoc(moi(d)));
+      await assertSucceeds(getDoc(moi(d)));
+    }
+    // Posée sur un profil absent (suppression reprise) : une création.
+    await assertSucceeds(setDoc(moi(db('lia'), 'lia'), tombe));
+    await assertFails(setDoc(moi(db('lia'), 'lia'), profil()));
+  });
+
+  it('pas de suppression du profil par le client ; pas de liste de joueurs/ ; les lots fermés jusqu’au lot 3', async () => {
+    await assertSucceeds(setDoc(moi(db('ana')), profil()));
+    await assertFails(deleteDoc(moi(db('ana'))));
+    await assertFails(getDocs(collection(db('ana'), 'joueurs')));
+    await assertFails(getDocs(collection(db(null), 'joueurs')));
+    await assertFails(setDoc(doc(db('ana'), 'joueurs', 'ana', 'lots', 'x'.repeat(36)), { v: 1 }));
+    await assertFails(getDoc(doc(db('ana'), 'joueurs', 'ana', 'lots', 'x'.repeat(36))));
+    await assertFails(setDoc(doc(db('ana'), 'demandes', 'ana'), { pseudo: 'Michel', cree: serverTimestamp() }));
+  });
+
+  it('les classements ne changent pas pour un compte : sa place s’écrit comme celle d’un anonyme', async () => {
+    await assertSucceeds(setDoc(place(db('ana')), score()));
+    await assertSucceeds(setDoc(place(db('bob', JETON_ANONYME), 'lea'), score({ pseudo: 'Lea' })));
+  });
+});
+
+describe.skipIf(!hote)('règles d’essai des lots 6 et 7 : les adresses vérifiées de l’utilisateur seules', () => {
+  let env: RulesTestEnvironment;
+  const LISTE = 'return request.auth.token.email_verified == true && request.auth.token.email in [\'moi@exemple.fr\'];';
+  beforeAll(async () => {
+    const [host, port] = (hote ?? '').split(':');
+    env = await initializeTestEnvironment({ projectId: 'demo-terramemo', firestore: { rules: reglesAvecEssai(LISTE), host, port: Number(port) } });
+  });
+  afterAll(async () => env?.cleanup());
+  beforeEach(async () => env.clearFirestore());
+
+  it('adresse hors de la liste, ou non vérifiée : refusé ; l’adresse vérifiée de la liste : son profil', async () => {
+    const d = (uid: string, j: Record<string, unknown>) => doc(env.authenticatedContext(uid, j as never).firestore() as unknown as Firestore, 'joueurs', uid);
+    await assertFails(setDoc(d('a', jetonCompte({ email: 'autre@exemple.fr', verifiee: true })), profil()));
+    await assertFails(setDoc(d('b', jetonCompte({ email: 'moi@exemple.fr', verifiee: false })), profil()));
+    await assertSucceeds(setDoc(d('c', jetonCompte({ email: 'moi@exemple.fr', verifiee: true })), profil()));
+    await assertSucceeds(getDoc(d('c', jetonCompte({ email: 'moi@exemple.fr', verifiee: true }))));
   });
 });
