@@ -1,6 +1,7 @@
 // Vue « Jouer » (décision « Écran Jouer », ticket #18) : l'arbre de src/vues/arbre.ts
 // en gros boutons neutres, un choix par écran (le bleu reste au bouton Jouer de
-// l'en-tête), dans le panneau du bas, sous le pouce. En tête : « Rejouer »
+// l'en-tête), dans un panneau qui couvre presque toute la carte (carte.css,
+// choix du 09/11 : il était en bas, sous le pouce). En tête : « Rejouer »
 // (la dernière partie, d'une touche), puis Entraînement ou Classé ; ensuite le
 // sujet, la série, et l'exercice en dernier, chacun avec son record dans la
 // série choisie et, pour les épreuves, leurs règles derrière « ? ». Toucher

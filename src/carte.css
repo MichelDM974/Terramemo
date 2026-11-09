@@ -336,45 +336,76 @@ body[data-terrain="reunion"] .essai-bilan {
   top: 40px;
   max-height: calc(100% - 52px);
 }
-/* Jouer (décision « Écran Jouer ») : un panneau en bas comme les barres des
-   parties, sous le pouce ; il flotte sur la carte (son ombre). Dedans, un choix
-   par écran en gros boutons neutres (le bleu reste au bouton Jouer de
-   l'en-tête), sans panneau dans le panneau. */
+/* Jouer (décision « Écran Jouer ») : un panneau qui couvre la carte presque en
+   entier (choix du 09/11, au lieu d'un panneau en bas de 560 px), 1 100 px de
+   large au plus sur un grand écran ; il flotte sur la carte (son ombre). Dedans,
+   un choix par écran en gros boutons neutres (le bleu reste au bouton Jouer de
+   l'en-tête), sans panneau dans le panneau. En colonne : l'en-tête, les règles,
+   le statut, puis la grille des choix, qui prend la hauteur restante. Les
+   tailles (texte, hauteur des rangées) sont des variables, plus grandes sur PC. */
 .jouer-panneau {
+  --j-pad: 14px;
+  --j-pad-haut: 8px;
+  --j-nom: 1.1rem;
+  --j-detail: 0.88rem;
+  --j-record: 1rem;
+  --j-titre: 1.12rem;
+  --j-ligne: 64px;
+  --j-ligne-max: 140px;
+  --j-tuile: 72px;
+  --j-tuile-max: 176px;
+  --j-branche: 96px;
+  --j-branche-max: 240px;
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  max-width: 560px;
-  max-height: calc(100% - 24px);
+  inset: 12px;
+  max-width: 1100px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
   overflow: auto;
   background: var(--popup-bg);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 8px 14px 14px;
+  padding: var(--j-pad-haut) var(--j-pad) var(--j-pad);
   box-shadow: 0 8px 24px var(--shadow);
+}
+@media (min-width: 701px) {
+  .jouer-panneau {
+    --j-pad: 24px;
+    --j-pad-haut: 12px;
+    --j-nom: 1.3rem;
+    --j-detail: 1rem;
+    --j-record: 1.15rem;
+    --j-titre: 1.3rem;
+    --j-ligne: 80px;
+    --j-ligne-max: 160px;
+    --j-tuile: 96px;
+    --j-tuile-max: 220px;
+    --j-branche: 140px;
+    --j-branche-max: 320px;
+  }
 }
 /* En-tête : « ‹ » (un niveau plus haut), le titre ou le fil d'Ariane, « ? »
    (règles des épreuves), « × » ; « ‹ » et « × » de 44 px (cibles du doigt).
    Collé en haut du panneau quand il défile (règles ouvertes à 320 × 568) :
-   « ? » et « × » restent à portée. top: -8px, le padding du haut du panneau ;
+   « ? » et « × » restent à portée. top : moins le padding du haut du panneau ;
    fond opaque (--panel) jusqu'aux bords du panneau (marges négatives) : le
    contenu qui passe dessous ne se lit pas au travers. */
 .jouer-tete {
   position: sticky;
-  top: -8px;
+  top: calc(-1 * var(--j-pad-haut));
   z-index: 2;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 2px;
-  margin: -8px -14px 6px;
-  padding: 8px 6px 0;
+  margin: calc(-1 * var(--j-pad-haut)) calc(-1 * var(--j-pad)) 6px;
+  padding: var(--j-pad-haut) calc(var(--j-pad) - 8px) 0;
   min-height: 44px;
   background: var(--panel);
 }
-.jouer-tete h2 { flex: 1; min-width: 0; margin: 0; padding: 0 6px; font-size: 1.02rem; font-weight: 600; }
+.jouer-tete h2 { flex: 1; min-width: 0; margin: 0; padding: 0 6px; font-size: var(--j-titre); font-weight: 600; }
 .jouer-tete h2:first-child { padding-left: 8px; }
 .jouer-icone {
   /* Au-dessus des halos (« ? », liens du fil) qui débordent sur eux. */
@@ -413,7 +444,7 @@ body[data-terrain="reunion"] .essai-bilan {
    invisible, qui mord de 4 px sur « × » : celui-ci passe au-dessus (.jouer-icone). */
 .jouer-tete .help-btn { position: relative; flex: none; margin: 0 6px; vertical-align: 0; }
 .jouer-tete .help-btn::after { content: ""; position: absolute; inset: -12px; }
-.jouer-panneau .help-text { margin: -2px 0 10px; }
+.jouer-panneau .help-text { margin: -2px 0 10px; font-size: var(--j-detail); }
 .jouer-panneau .help-text p { margin: 0 0 6px; }
 .jouer-statut { margin: 0 0 8px; }
 /* Gros boutons neutres : fond à peine plus clair, filet, 48 px au moins ; le
@@ -426,15 +457,18 @@ body[data-terrain="reunion"] .essai-bilan {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--text);
   text-align: left;
-  font-size: 0.95rem;
+  font-size: var(--j-nom);
   font-weight: 600;
   line-height: 1.25;
+}
+@media (min-width: 701px) {
+  .jouer-bouton { padding: 14px 20px; }
 }
 .jouer-bouton:hover { background-image: linear-gradient(var(--row-hover), var(--row-hover)); border-color: var(--border-2); }
 .jouer-bouton[aria-current="true"] { background-color: var(--accent-soft); }
@@ -443,24 +477,45 @@ body[data-terrain="reunion"] .essai-bilan {
    ligne se coupe (filet de sécurité). Pas de hyphens: auto : il coupait aussi
    les détails qui tenaient (« jusqu'à la pre- / mière erreur » à 384 px). */
 .jouer-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: break-word; }
-.jouer-detail { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
-.jouer-record { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
-.jouer-record-nom { color: var(--muted); font-size: 0.72rem; font-weight: 400; }
-/* Entraînement et Classé : plus hauts. Sous 340 px (320 : 107 px de texte par
-   colonne), un peu plus petits pour qu'« Entraînement » tienne sur une ligne. */
-.jouer-branche { min-height: 64px; font-size: 1.02rem; }
-@media (max-width: 340px) {
-  .jouer-branche { font-size: 0.92rem; padding-inline: 10px; }
+.jouer-detail { color: var(--muted); font-size: var(--j-detail); font-weight: 400; }
+.jouer-record { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: var(--j-record); font-variant-numeric: tabular-nums; }
+.jouer-record-nom { color: var(--muted); font-size: 0.75em; font-weight: 400; }
+/* Entraînement et Classé : un peu plus gros (leurs rangées sont plus hautes,
+   plus bas). */
+.jouer-branche { font-size: calc(var(--j-nom) * 1.12); }
+/* La grille des choix prend la hauteur restante du panneau : ses rangées
+   grandissent de leur minimum (cible du doigt) à leur maximum, sans quoi deux
+   boutons en rempliraient tout l'écran ; au-delà, le vide reste dessous. Sur un
+   petit écran, elle rétrécit jusqu'au minimum des rangées, puis le panneau défile
+   (min-height: 0 : sa taille de contenu est celle des rangées au maximum).
+   Deux colonnes, même à 320 px : « Amérique du Nord » y passe sur deux lignes, et
+   les sept séries tiennent sans faire défiler le panneau. Seule la série « tous »
+   d'un sujet (Tous les pays) prend la largeur, marquée par jouer.ts : un troisième
+   sujet (Drapeaux) ne la prendra pas. */
+.jouer-grille, .jouer-lignes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
 }
-/* Deux colonnes, même à 320 px : « Amérique du Nord » y passe sur deux lignes, et
-   les sept séries tiennent sans faire défiler le panneau (une colonne l'aurait
-   fait à 320 × 568). Seule la série « tous » d'un sujet (Tous les pays) prend la
-   largeur, marquée par jouer.ts : un troisième sujet (Drapeaux) ne la prendra pas. */
-.jouer-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.jouer-grille { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(var(--j-tuile), var(--j-tuile-max)); }
 .jouer-grille > .jouer-large { grid-column: 1 / -1; }
-/* Les exercices, et « Rejouer » : une ligne pleine largeur chacun. */
-.jouer-lignes { display: flex; flex-direction: column; gap: 8px; }
-#jouer-rejouer { margin-bottom: 8px; }
+.jouer-panneau[data-niveau="racine"] .jouer-grille { grid-auto-rows: minmax(var(--j-branche), var(--j-branche-max)); }
+/* Entraînement et Classé, et les sujets : l'un sous l'autre sur le téléphone
+   (ils remplissent l'écran sans être des colonnes étroites et hautes), côte à
+   côte sur PC ; les séries restent en deux colonnes. */
+@media (max-width: 700px) {
+  .jouer-panneau:is([data-niveau="racine"], [data-niveau="sujets"]) .jouer-grille { grid-template-columns: minmax(0, 1fr); }
+}
+/* Les exercices : une ligne pleine largeur chacun. « Rejouer » et la Révision du
+   jour, au-dessus d'une grille, gardent la hauteur d'une ligne. */
+.jouer-lignes { grid-auto-rows: minmax(var(--j-ligne), var(--j-ligne-max)); }
+.jouer-panneau > .jouer-ligne { flex: none; min-height: var(--j-ligne); margin-bottom: 8px; }
+@media (min-width: 701px) {
+  .jouer-grille, .jouer-lignes { gap: 12px; }
+  .jouer-panneau > .jouer-ligne { margin-bottom: 12px; }
+}
 
 /* Les lignes des classements (🏆) : 44 px au moins (cible du doigt), neutres. */
 .essai-series { list-style: none; margin: 0; padding: 0; }
@@ -651,7 +706,8 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
   .document td { padding: 2px 0; border-bottom: none; }
   .document td:first-child { font-weight: 600; }
   .document td[data-titre]::before { content: attr(data-titre) " : "; color: var(--muted); }
-  .carte-barre, .jouer-panneau { left: 8px; right: 8px; bottom: 8px; }
+  .carte-barre { left: 8px; right: 8px; bottom: 8px; }
+  .jouer-panneau { inset: 8px; }
 }
 
 /* Les trois champs de la Saisie (dont type=url) : même allure que input[type="text"] du style commun. */

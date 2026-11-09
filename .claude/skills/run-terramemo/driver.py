@@ -1159,8 +1159,9 @@ def ui_epreuves(p, capturer, defauts):
 
 
 def panneau_jouer(p, defauts, quoi):
-    """Le panneau de Jouer tient dans l'écran (rien ne déborde, 560 px au
-    plus), ses gros boutons font 48 px au moins, « ‹ » et « × » 44 px, et
+    """Le panneau de Jouer tient dans l'écran (rien ne déborde, 1 100 px au
+    plus) et couvre la carte presque en entier (12 px de marge, 8 sur le
+    téléphone : choix du 09/11), ses gros boutons font 48 px au moins, « ‹ » et « × » 44 px, et
     aucun n'est en bleu plein (le bleu reste au bouton Jouer de l'en-tête) ;
     aucune série « essai » ; aucun nom coupé au milieu d'un mot (un .jouer-nom
     sur plus de lignes qu'il n'a de mots : « Entraînemen / t » à 320 px, que
@@ -1172,7 +1173,9 @@ def panneau_jouer(p, defauts, quoi):
         const els = [...p.querySelectorAll('button, a')].filter(e => e.getClientRects().length).map(e => {
             const b = e.getBoundingClientRect(), s = getComputedStyle(e);
             return { t: e.textContent.trim().slice(0, 32), l: b.left, r: b.right, h: b.height, w: b.width, cls: e.className, fond: s.backgroundColor }; });
+        const z = p.parentElement.getBoundingClientRect();
         return { large: p.scrollWidth > p.clientWidth + 1, l: r.left, r: r.right, w: r.width, haut: r.top, largeur: innerWidth, bleu,
+                 vide: Math.max(r.top - z.top, z.bottom - r.bottom), zl: z.width,
                  hors: els.filter(e => e.l < r.left - 1 || e.r > r.right + 1).map(e => e.t),
                  petits: els.filter(e => e.cls.includes('jouer-bouton') && e.h < 48).map(e => `${e.t} (${Math.round(e.h)} px)`),
                  icones: els.filter(e => e.cls.includes('jouer-icone') && (e.h < 44 || e.w < 44)).map(e => e.t),
@@ -1184,8 +1187,10 @@ def panneau_jouer(p, defauts, quoi):
                      return lignes > e.textContent.trim().split(/\\s+/).length; }).map(e => e.textContent.trim()) }; })()""")
     if m["large"] or m["hors"] or m["l"] < 0 or m["r"] > m["largeur"] or m["haut"] < 0:
         defauts.append(f"{quoi} : le panneau de Jouer déborde ({m['l']:.0f}–{m['r']:.0f} sur {m['largeur']}, en haut à {m['haut']:.0f}) ; hors du panneau : {m['hors']}")
-    if m["w"] > 561:
-        defauts.append(f"{quoi} : panneau de Jouer de {m['w']:.0f} px (560 au plus)")
+    if m["w"] > 1101:
+        defauts.append(f"{quoi} : panneau de Jouer de {m['w']:.0f} px (1 100 au plus)")
+    if m["vide"] > 13 or (m["zl"] <= 1124 and m["w"] < m["zl"] - 25):
+        defauts.append(f"{quoi} : le panneau de Jouer ne couvre pas la carte ({m['w']:.0f} px de large sur {m['zl']:.0f}, {m['vide']:.0f} px de vide en haut ou en bas)")
     if m["petits"]:
         defauts.append(f"{quoi} : boutons de Jouer sous 48 px : {m['petits']}")
     if m["icones"]:

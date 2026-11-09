@@ -141,7 +141,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   exercices de la série avec « Partie abandonnée », si « Autre série » ne
   mène pas aux séries (sur l'île : à ses exercices), si « × » ne ferme pas
   Jouer après l'un d'eux (`ui_jouer_parties`), et si le panneau de Jouer
-  déborde (320 px compris), passe 560 px, a un bouton sous 48 px (« ‹ » et
+  déborde (320 px compris), passe 1 100 px ou ne couvre pas la carte
+  (12 px de marge, 8 sur le téléphone), a un bouton sous 48 px (« ‹ » et
   « × » sous 44), un bouton en bleu plein ou un nom coupé au milieu d'un
   mot (`panneau_jouer` ; « Entraînemen / t » à 320 px ne déborde pas : seul
   ce contrôle le voit, `ui --width 320` pour l'exercer). **Regarder les captures.** Les records des épreuves vivent dans
