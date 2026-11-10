@@ -107,6 +107,11 @@ describe('rendu du sujet Capitales (§ 5.2)', () => {
     expect(r.touche(null)).toBe('la mer');
   });
 
+  it('carte.css : l’énoncé sur deux lignes met l’objet sous l’invite (consigne-deux-lignes)', () => {
+    const css = readFileSync('src/carte.css', 'utf8');
+    expect(css).toMatch(/\.essai-consigne\.consigne-deux-lignes strong \{[^}]*display: block/);
+  });
+
   it('D38 a : hors épreuve, une capitale juste au hasard, fixée pour la question (le même rendu la redonne)', () => {
     const vues = new Set<string>();
     for (let s = 1; s <= 40; s++) {
