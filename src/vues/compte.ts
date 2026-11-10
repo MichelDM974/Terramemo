@@ -44,7 +44,7 @@
 // (pointeur sur Google, formulaire ouvert) ; un compte connecté choisit son
 // pseudo s'il n'en a pas (« Plus tard » possible), puis le panneau se ferme
 // (AccueilDuCompte.fini).
-import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
+import { prendreAvisPseudo } from '../epreuve/chrono';
 import { MOT_SUPPRESSION, type ChoixFusion, type Comptes, type EtatCompte, type QuestionFusion, type ResultatDeconnexion, type ResultatFusion, type ResultatProfil } from '../sync/comptes';
 import { dansApk } from '../retour-android';
 import { COMPTES_OUVERTS, synchroCoupee } from '../sync/drapeaux';
@@ -53,6 +53,7 @@ import { adresseErreur, codeErreur, traduire } from '../sync/erreurs';
 import { telecharger } from '../sync/export';
 import { lirePseudo } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
+import { champPseudo } from './pseudo';
 import { remplir, textes } from './textes';
 
 const T = textes.compte;
@@ -272,7 +273,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   retour.addEventListener('click', () => o.retour());
   const section = creer(
     'section',
-    { class: 'vue-compte', id: 'vue-compte' },
+    { class: 'vue-compte ecrans-compte', id: 'vue-compte' },
     creer('div', { class: 'panel' }, ...(o.versCarte ? [croix(o.versCarte)] : []), creer('h2', {}, T.titre), m.contenu, m.message, m.erreur, m.synchro, creer('div', { class: 'essai-actions compte-retour' }, retour)),
   );
   section.hidden = true;
@@ -1004,13 +1005,10 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
         ];
       }
       case 'pseudo': {
-        const p = champ(ident('pseudo'), T.pseudo_libelle, { type: 'text', name: 'pseudo', maxlength: '20', autocomplete: 'nickname', autocapitalize: 'words', spellcheck: 'false', required: '' }, lirePseudo() ?? '');
+        const p = champPseudo({ id: ident('pseudo'), libelle: T.pseudo_libelle, aide: T.pseudo_aide, valeur: lirePseudo() ?? '', erreur, entree: 'done' });
         const envoyer = () => {
-          const v = pseudoValide(p.input.value);
-          if (!v) {
-            erreur.textContent = textes.chrono.pseudo_invalide;
-            return;
-          }
+          const v = p.valider();
+          if (!v) return;
           void agir(async (c) => {
             const r = await c.changerPseudo(v);
             // Au panneau, le pseudo choisi ferme le panneau sans rien de plus à lire (le message de la connexion était au-dessus).
@@ -1021,11 +1019,10 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
         };
         return [
           creer('h3', {}, T.titre_pseudo),
-          creer('p', { class: 'hint' }, T.pseudo_aide),
           formulaire(
             ident('form-pseudo'),
             envoyer,
-            p.label,
+            p.bloc,
             creer(
               'div',
               { class: 'compte-actions' },

@@ -679,28 +679,29 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
   padding: 10px 32px 56px;
 }
 .vue-compte .panel, .vue-a-la-demande .panel { max-width: 480px; margin: 0 auto; }
-.vue-compte h3, .accueil h3 { margin: 4px 0 10px; font-size: 0.95rem; font-weight: 600; color: var(--text); }
+.ecrans-compte h3 { margin: 4px 0 10px; font-size: 0.95rem; font-weight: 600; color: var(--text); }
 .compte-form { display: flex; flex-direction: column; gap: 12px; }
 .compte-champ { display: flex; flex-direction: column; gap: 4px; }
 .compte-champ > label { font-size: 0.85rem; color: var(--muted); }
 .compte-ligne { display: flex; align-items: center; gap: 8px; }
 .compte-ligne input { flex: 1 1 auto; min-width: 0; width: 100%; margin: 0; }
+.compte-champ .compte-champ-aide { margin: 2px 0 0; }
 .compte-voir { flex: none; padding: 6px 10px; font-size: 0.8rem; }
 .compte-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0; }
 .compte-liens { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 0; }
 .compte-liens button.lien, .vue-compte > .panel > button.lien { padding: 8px 0; }
 .compte-adresse { color: var(--text); font-weight: 600; margin: 0 0 4px; overflow-wrap: anywhere; }
-.vue-compte .status, .accueil .status { margin: 12px 0 0; }
+.ecrans-compte .status { margin: 12px 0 0; }
 /* Vides, les avis ne prennent pas de place mais restent dans l'arbre d'accessibilité
    (aria-live, role=alert : le texte qui arrive est annoncé). */
-.vue-compte .status:empty, .accueil .status:empty { margin: 0; min-height: 0; }
+.ecrans-compte .status:empty { margin: 0; min-height: 0; }
 .compte-retour { margin-top: 16px; }
 /* Action qui efface ou perd des données (« Ne pas les ajouter », « Se déconnecter quand même »,
    « Effacer ») : filet et texte en --danger, jamais en fond plein (l'accent plein reste au
    bouton principal de l'écran). */
-.vue-compte button.danger, .accueil button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
-.vue-compte button.danger:hover, .accueil button.danger:hover { background: var(--danger-soft); }
-.vue-compte button.danger:disabled, .accueil button.danger:disabled { background: var(--disabled-bg); border-color: var(--disabled-bg); color: var(--muted); }
+.ecrans-compte button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.ecrans-compte button.danger:hover { background: var(--danger-soft); }
+.ecrans-compte button.danger:disabled { background: var(--disabled-bg); border-color: var(--disabled-bg); color: var(--muted); }
 .compte-separe { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
 
 /* --- Écran de connexion de la première ouverture (src/vues/accueil.ts, décision « Écran de
@@ -749,8 +750,6 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
 /* « ou » entre les comptes et l'invité : un filet de chaque côté. */
 .accueil-ou { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; color: var(--muted); font-size: 0.82rem; }
 .accueil-ou::before, .accueil-ou::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
-.accueil-form-invite .compte-champ input { width: 100%; }
-.accueil-form-invite .compte-champ .hint { margin: 2px 0 0; }
 .accueil-liens { margin: 16px 0 0; text-align: center; font-size: 0.85rem; }
 .accueil-liens a { color: var(--accent); }
 /* --- Crédits (⚙ › Crédits et licences) : une liste par sorte, sans cadre dans le panneau. --- */

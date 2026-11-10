@@ -1568,10 +1568,17 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     expect($('#accueil-compte-pseudo')!.getAttribute('autocomplete')).toBe('nickname');
     expect($('#accueil-compte-pseudo-plus-tard')!.textContent).toBe(T.pseudo_plus_tard);
     expect($('#accueil-compte-annuler')).toBeNull();
-    $('#accueil-compte-pseudo')!.value = 'a/b';
+    // Le champ du panneau de l'invité (src/vues/pseudo.ts) : aide lue avec lui, Entrée « done », avis effacé à la saisie.
+    const champ = $('#accueil-compte-pseudo')!;
+    expect([champ.getAttribute('aria-describedby'), champ.getAttribute('enterkeyhint')]).toEqual(['accueil-compte-pseudo-aide', 'done']);
+    expect($('#accueil-compte-pseudo-aide')!.textContent).toBe(T.pseudo_aide);
+    champ.value = 'a/b';
     envoyer('#accueil-compte-form-pseudo');
     expect($('#accueil-compte-erreur')!.textContent).toBe(textes.chrono.pseudo_invalide);
+    expect(champ.getAttribute('aria-invalid')).toBe('true');
     expect(c.changerPseudo).not.toHaveBeenCalled();
+    champ.emettre('input');
+    expect([$('#accueil-compte-erreur')!.textContent, champ.getAttribute('aria-invalid')]).toEqual(['', null]);
     $('#accueil-compte-pseudo')!.value = '  Ana   Lou ';
     envoyer('#accueil-compte-form-pseudo');
     await attendre();

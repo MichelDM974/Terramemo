@@ -31,9 +31,10 @@
 // publication, décision « Comptes »), ni publication de ses records sous le
 // pseudo donné ici (ils partent avec les prochains, ou par « Changer » du
 // classement).
-import { garderPseudoDans, lirePseudoDe, pseudoValide } from '../epreuve/chrono';
+import { garderPseudoDans, lirePseudoDe } from '../epreuve/chrono';
 import { surEffacementJoueur } from '../sync/effacement';
 import { creer } from './commun';
+import { champPseudo } from './pseudo';
 import { textes } from './textes';
 
 const T = textes.accueil;
@@ -200,21 +201,10 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     const partieInvite = creer('div', { class: 'accueil-partie-invite', id: 'accueil-partie-invite' }, creer('p', { class: 'accueil-ou', 'aria-hidden': 'true' }, T.ou), invite);
     const choix = creer('div', { class: 'accueil-choix', id: 'accueil-choix' }, zoneComptes, partieInvite);
 
-    // L'invité : son pseudo (celui de l'appareil pré-rempli : un joueur qui a déjà des progrès).
-    const champ = creer('input', {
-      type: 'text',
-      id: 'accueil-pseudo',
-      name: 'pseudo',
-      maxlength: '20',
-      autocomplete: 'nickname',
-      autocapitalize: 'words',
-      spellcheck: 'false',
-      enterkeyhint: 'go',
-      required: '',
-      'aria-describedby': 'accueil-pseudo-aide',
-    });
-    champ.value = lirePseudoDe(st) ?? '';
+    // L'invité : son pseudo (celui de l'appareil pré-rempli : un joueur qui a déjà des progrès), validé comme au classement.
     const erreur = creer('p', { class: 'status error', id: 'accueil-erreur', role: 'alert' });
+    const pseudo = champPseudo({ id: 'accueil-pseudo', libelle: T.pseudo_libelle, aide: T.pseudo_aide, valeur: lirePseudoDe(st) ?? '', erreur, entree: 'go' });
+    const champ = pseudo.input;
     const commencer = creer('button', { type: 'submit', id: 'accueil-commencer' }, T.commencer);
     const retour = creer('button', { type: 'button', class: 'secondary', id: 'accueil-retour' }, T.retour);
     const formInvite = creer(
@@ -222,7 +212,7 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       { class: 'compte-form accueil-form-invite', id: 'accueil-form-invite', novalidate: '' },
       creer('h3', {}, T.invite_titre),
       creer('p', { class: 'hint', id: 'accueil-invite-texte' }, T.invite_texte),
-      creer('div', { class: 'compte-champ' }, creer('label', { for: 'accueil-pseudo' }, T.pseudo_libelle), champ, creer('p', { class: 'hint', id: 'accueil-pseudo-aide' }, T.pseudo_aide)),
+      pseudo.bloc,
       erreur,
       creer('div', { class: 'compte-actions' }, commencer, retour),
     );
@@ -230,7 +220,7 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
 
     const lien = creer('a', { href: '#confidentialite', id: 'accueil-confidentialite' }, textes.confidentialite.lien);
     const panneau = creer('div', { class: 'panel accueil-panneau' }, titre, accroche, choix, formInvite, creer('p', { class: 'accueil-liens' }, lien));
-    const s = creer('section', { class: 'accueil', id: 'accueil', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'accueil-titre', 'aria-describedby': 'accueil-accroche' }, panneau);
+    const s = creer('section', { class: 'accueil ecrans-compte', id: 'accueil', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'accueil-titre', 'aria-describedby': 'accueil-accroche' }, panneau);
 
     invite.addEventListener('click', () => {
       choix.hidden = true;
@@ -243,21 +233,10 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       choix.hidden = false;
       focaliser(invite);
     });
-    // L'avis d'un pseudo refusé s'efface dès qu'on le corrige.
-    champ.addEventListener('input', () => {
-      erreur.textContent = '';
-      champ.removeAttribute('aria-invalid');
-    });
     formInvite.addEventListener('submit', (e) => {
       (e as Event).preventDefault?.();
-      const p = pseudoValide(champ.value);
-      if (!p) {
-        erreur.textContent = textes.chrono.pseudo_invalide;
-        champ.setAttribute('aria-invalid', 'true');
-        focaliser(champ);
-        return;
-      }
-      champ.removeAttribute('aria-invalid');
+      const p = pseudo.valider();
+      if (!p) return;
       // Là où le classement le lit (lirePseudo) ; rien n'est publié d'ici (aucun appel à Firebase).
       garderPseudoDans(o.stockage(), p);
       fermer('invite');
