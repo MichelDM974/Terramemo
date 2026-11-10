@@ -220,6 +220,13 @@ export interface OptionsProgramme {
   /** Introductions déjà prises dans la même séance par un bloc précédent : retirées du plafond du jour (INTRODUCTIONS_PAR_JOUR). */
   introsPrises?: number;
   /**
+   * Les introductions que ce bloc peut prendre, le plafond du jour déjà
+   * réparti entre les blocs d'une séance (la Révision du jour : les plus
+   * anciennes de tous ses domaines, monde et île confondus, puis chacune à
+   * son bloc) ; remplace introsPrises.
+   */
+  introsPermises?: ReadonlySet<string>;
+  /**
    * Les domaines dont la séance prend les révisions et les introductions,
    * mêlés, les plus anciennes d'abord (la Révision du jour : les jouables du
    * monde, étude J2 § 6.3) ; par défaut le seul `domaine`. Les nouveautés
@@ -332,9 +339,11 @@ export function programme(
   const revisions = d.slice(0, permis);
   const restantes = d.length - revisions.length;
   const aIntroduire = introductions(etat, j, domaines);
-  const intro = aIntroduire.slice(0, Math.max(0, introductionsPermises(etat, j) - (o.introsPrises ?? 0)));
+  const permises = o.introsPermises;
+  const intro = permises ? aIntroduire.filter((f) => permises.has(f)) : aIntroduire.slice(0, Math.max(0, introductionsPermises(etat, j) - (o.introsPrises ?? 0)));
   // Le reliquat du domaine : ses introductions qui attendent le lendemain (celles des autres domaines mêlés ne retiennent pas sa grappe).
-  const reliquat = aIntroduire.slice(intro.length).some((f) => analyser(f)?.domaine === domaine);
+  const prisesIntro = new Set(intro);
+  const reliquat = aIntroduire.some((f) => !prisesIntro.has(f) && analyser(f)?.domaine === domaine);
   let sansNouveautes: SansNouveautes | null = null;
   let nouveautes: Nouveautes | null = null;
   let entamee: Nouveautes | null = null;

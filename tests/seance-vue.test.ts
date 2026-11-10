@@ -894,4 +894,18 @@ describe('séance : le sujet Capitales (lot 1)', () => {
     const qs = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions.filter((q) => q.forme === 'retournee');
     expect(qs.map((q) => q.id).sort()).toEqual(['BEL', 'FRA']);
   });
+
+  it('plafond par âge (D46 d) : les 15 plus anciennes de tous les domaines, monde et île confondus, puis réparties ; deux sujets du monde n’affament pas les communes', async () => {
+    const m = await monter(undefined, { ile: () => ile });
+    // Les communes apprises l'avant-veille ; 10 pays et 10 capitales la veille : 26 fiches nommer à introduire.
+    await noter(m, idsCommunes.slice(0, 6).map((id) => `communes:${id}:localiser`), T0 - 2 * JOUR_MS);
+    const monde10 = grappes.flatMap((g) => g.membres).filter((id) => !['DJI', 'GTM', 'KWT', 'LUX', 'MCO', 'PAN', 'SGP', 'SMR', 'VAT'].includes(id)).slice(0, 10);
+    await noter(m, [...monde10.map((id) => `pays:${id}:localiser`), ...monde10.map((id) => `capitales:${id}:localiser`)], T0 - JOUR_MS);
+    expect(m.seances.comptes()?.aRevoir).toBe(INTRODUCTIONS_PAR_JOUR);
+    const qs = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions.filter((q) => q.forme === 'retournee') as { terrain?: string; domaine?: string }[];
+    expect(qs).toHaveLength(INTRODUCTIONS_PAR_JOUR);
+    // Les 6 communes, les plus anciennes, toutes ; puis 9 du monde (à âge égal, les pays d'abord).
+    expect(qs.filter((q) => q.terrain === 'reunion')).toHaveLength(6);
+    expect(qs.filter((q) => q.terrain === 'monde').map((q) => q.domaine)).toEqual(Array(9).fill('pays'));
+  });
 });

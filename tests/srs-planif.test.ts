@@ -339,6 +339,19 @@ describe('plusieurs sujets : plafonds communs, reliquat, préférence (lot 0c)',
     expect(programme(m, D0 + 1, gs, 'pays', gs, { introsPrises: 12 }).introductions.length).toBe(3);
   });
 
+  it('introsPermises : le plafond déjà réparti entre les blocs ; le bloc ne prend que les siennes, le reste de son domaine fait son reliquat', () => {
+    const m = etat([...appris('pays', 10), ...appris('capitales', 10, D0 - 1, 50)]);
+    const toutes = introductions(m, D0 + 1, ['pays', 'capitales']);
+    const permises = new Set(toutes.filter((f) => f.startsWith('pays:')).slice(0, 4));
+    const p = programme(m, D0 + 1, gs, 'pays', gs, { domaines: ['pays', 'capitales'], introsPermises: permises });
+    expect(p.introductions).toEqual([...permises]);
+    expect(p.introRestantes).toBe(toutes.length - 4);
+    expect(p.sansNouveautes).toBe('introductions');
+    // Toutes celles du domaine permises : pas de reliquat du domaine, sa grappe peut s'ouvrir.
+    const pays = new Set(toutes.filter((f) => f.startsWith('pays:')));
+    expect(programme(m, D0 + 1, gs, 'pays', gs, { domaines: ['pays', 'capitales'], introsPermises: pays }).sansNouveautes).toBeNull();
+  });
+
   it('à âge égal, les pays d’abord (ordre de DOMAINES), pas l’ordre alphabétique des ids : dans les introductions comme dans les révisions', () => {
     // 10 capitales, 10 drapeaux et 10 pays appris le même jour : le lendemain, 30 fiches nommer du même âge.
     const m = etat([...appris('capitales', 10, D0, 50), ...appris('drapeaux', 10, D0, 80), ...appris('pays', 10)]);

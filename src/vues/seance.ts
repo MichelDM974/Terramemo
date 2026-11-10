@@ -230,8 +230,12 @@ export function creerSeances(o: OptionsSeances): Seances {
     }
     const duMonde = jouablesDu('monde', jouables).flatMap((x) => infoDe(x) ?? []);
     const c = estJouable('communes') ? infoCommunes() : null;
-    const b1 = bloc(pays, pays.toutes, { domaines: duMonde.map((i) => i.domaine) });
-    const prises = { prises: b1.plan.revisions.length, introsPrises: b1.plan.introductions.length };
+    // Le plafond commun des introductions (D46 d) : les plus anciennes de tous les domaines de la séance, monde et île
+    // confondus, puis chacune à son bloc. Sinon le monde se servait d'abord, et ses sujets affamaient les communes.
+    const domainesSeance = [...duMonde.map((i) => i.domaine), ...(c ? [c.domaine] : [])];
+    const introsPermises = new Set(introductions(etat, j, domainesSeance).slice(0, introductionsPermises(etat, j)));
+    const b1 = bloc(pays, pays.toutes, { domaines: duMonde.map((i) => i.domaine), introsPermises });
+    const prises = { prises: b1.plan.revisions.length, introsPermises };
     // 2. La grappe qu'Apprendre a ouverte ce jour dans un autre sujet du monde, à finir : un bloc par grappe (Seance ne forme les nouveautés que d'un domaine).
     const entamees: Bloc[] = duMonde
       .filter((i) => i !== pays)
