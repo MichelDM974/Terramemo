@@ -40,7 +40,7 @@ export interface OptionsNavigation<V extends VueNavigable> {
   noms: readonly string[];
   /** L'accueil (la carte) : une vue inconnue, et la vue d'avant tant qu'il n'y en a pas d'autre. */
   accueil: string;
-  /** Vues de passage (Jouer, 🏆) : leur « × » ou « Retour » ramène à la vue d'avant elles. */
+  /** Vues de passage (Jouer, 🏆) : leur « Retour » ramène à la vue d'avant elles. */
   passage: readonly string[];
   /** La vue à segments (Jouer) : ses segments vont à aller(). */
   arbre: string;
@@ -68,7 +68,7 @@ export interface Navigation<V extends VueNavigable> {
   versJouer(cible: string, message?: string): void;
   /** L'adresse affichée remise à sa forme canonique, sans nouvelle entrée. */
   canoniser(a: string): void;
-  /** « × » de Jouer, « Retour » des classements : la vue d'avant, en remontant l'historique. */
+  /** « Retour » des classements, de Crédits… : la vue d'avant, en remontant l'historique (les « × » vont à la carte : remonter('carte'), #18). */
   retour(): void;
   /** Ouvre la vue d'une partie qu'on lance : sans redirection (elle n'a pas encore sa partie). */
   ouvrirPartie(nom: string): void;

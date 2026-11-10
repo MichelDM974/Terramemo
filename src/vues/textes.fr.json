@@ -9,6 +9,10 @@
     "Oceania": "Océanie",
     "South America": "Amérique du Sud"
   },
+  "croix": {
+    "carte": "Retour à la carte",
+    "reglages": "Fermer les paramètres"
+  },
   "carte": {
     "touche": "Touche un pays",
     "touche_ile": "Touche une commune",

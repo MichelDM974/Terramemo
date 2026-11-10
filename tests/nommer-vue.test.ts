@@ -31,7 +31,8 @@ function monter() {
   const ctx = { zone, terrains: { montrer() {} } } as unknown as ContexteVue;
   const bilan = new El('div');
   const actions = () => new El('div');
-  const n = vueNommer(ctx, { bilan: bilan as never, actions: actions as never });
+  const croix = () => Object.assign(new El('button'), { className: 'croix' });
+  const n = vueNommer(ctx, { bilan: bilan as never, actions: actions as never, croix: croix as never });
   const barre = zone.querySelector('#barre-nommer')!;
   const choix = () => barre.querySelectorAll('.nommer-choix');
   const cible = () => barre.querySelector('.essai-consigne')!.dataset.cible!;
@@ -70,6 +71,8 @@ describe('Reconnaître : la vue', () => {
     expect(v.barre.hidden).toBe(true);
     expect(v.bilan.hidden).toBe(false);
     expect(v.bilan.innerText).toContain('1 / 2 justes du premier coup');
+    // La « × » du bilan (#18), en tête, au-dessus du titre.
+    expect(v.bilan.querySelector('.croix')).not.toBeNull();
     expect(v.n.enCours).toBe(false);
   });
 

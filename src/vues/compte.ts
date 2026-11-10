@@ -34,7 +34,7 @@ import type { Envoi, EtatSynchro } from '../sync/envoi';
 import { codeErreur, traduire } from '../sync/erreurs';
 import { telecharger } from '../sync/export';
 import { lirePseudo } from './classement';
-import { creer, type ContexteVue, type Vue } from './commun';
+import { creer, croix, type ContexteVue, type Vue } from './commun';
 import { remplir, textes } from './textes';
 
 const T = textes.compte;
@@ -103,6 +103,8 @@ const profilAJour = (p: ResultatProfil) => p.etat === 'a_jour' || p.etat === 'cr
 
 export interface OptionsVueCompte {
   retour: () => void;
+  /** « × » (#18) : la carte ; sans elle, pas de « × ». */
+  versCarte?: () => void;
   /** Les comptes de la page (Firebase chargé au premier appel). */
   comptes: () => Promise<Comptes>;
   /**
@@ -185,7 +187,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   const section = creer(
     'section',
     { class: 'vue-compte', id: 'vue-compte' },
-    creer('div', { class: 'panel' }, creer('h2', {}, T.titre), contenu, message, erreur, synchro, creer('div', { class: 'essai-actions compte-retour' }, retour)),
+    creer('div', { class: 'panel' }, ...(o.versCarte ? [croix(o.versCarte)] : []), creer('h2', {}, T.titre), contenu, message, erreur, synchro, creer('div', { class: 'essai-actions compte-retour' }, retour)),
   );
   section.hidden = true;
   ctx.zone.append(section);

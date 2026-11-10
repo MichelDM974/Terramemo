@@ -22,7 +22,7 @@ import { evenementReponse, Seance, type BilanSeance, type PlanSeance } from '../
 import type { Terrain } from '../terrains';
 import type { Lancement } from './arbre';
 import { nomSerie, SERIE_TOUS } from './cibles';
-import { creer, fmtKm, nomDe } from './commun';
+import { creer, croix, fmtKm, nomDe } from './commun';
 import type { DemandeSeance, FabriqueSeances, PiloteSeance, RefusSeance, ReponseJouee } from './essai';
 import { remplir, textes } from './textes';
 
@@ -243,7 +243,7 @@ export function creerSeances(o: OptionsSeances): Seances {
         const revisions = { n: somme((x) => x.revisions.n), premiers: somme((x) => x.revisions.premiers) };
         const nouveaux = bilans.flatMap((x) => x.b.nouveaux.map((id) => nomDe(x.d, id)));
         const rates = bilans.flatMap((x) => x.b.rates.map((r) => ({ ...r, nom: nomDe(x.d, r.id) })));
-        const lignes: HTMLElement[] = [creer('h2', {}, d.sorte === 'apprendre' ? remplir(S.titre_apprendre, { serie: nomSerie(d.serie.id) }) : S.titre_revision)];
+        const lignes: HTMLElement[] = [croix(actions.carte), creer('h2', {}, d.sorte === 'apprendre' ? remplir(S.titre_apprendre, { serie: nomSerie(d.serie.id) }) : S.titre_revision)];
         if (!m.garde) lignes.push(creer('p', { class: 'hint seance-avis' }, S.non_garde));
         if (revisions.n) lignes.push(creer('p', { class: 'seance-resume' }, remplir(S.bilan_revisions, { premiers: revisions.premiers, n: revisions.n })));
         if (nouveaux.length) lignes.push(creer('p', { class: 'seance-resume' }, remplir(S.bilan_nouveaux, { noms: nouveaux.join(', ') })));

@@ -33,11 +33,13 @@ const attendre = () => new Promise((r) => setTimeout(r, 0));
 
 let racine: El;
 let retour: ReturnType<typeof vi.fn<() => void>>;
+let versCarte: ReturnType<typeof vi.fn<() => void>>;
 function ouvrir(): El {
   retour = vi.fn<() => void>();
+  versCarte = vi.fn<() => void>();
   const zone = document.createElement('div') as unknown as El;
   racine = zone;
-  const v = vueGeneral({ zone } as never, { retour });
+  const v = vueGeneral({ zone } as never, { retour, versCarte });
   v.activer();
   return zone.querySelector('#classement-general')!;
 }
@@ -101,6 +103,19 @@ describe('écran des classements', () => {
     expect(p.querySelector('h2')!.textContent).toBe(T.classements_titre);
     p.querySelector('#classement-retour')!.click();
     expect(retour).toHaveBeenCalled();
+  });
+
+  it('« × » (#18), sur la liste comme sur le détail d’une épreuve : la carte, pas la vue d’avant', async () => {
+    const p = ouvrir();
+    await attendre();
+    const x = p.querySelector('.croix')!;
+    expect([x.textContent, x.getAttribute('aria-label'), x.getAttribute('title')]).toEqual(['×', textes.croix.carte, textes.croix.carte]);
+    x.click();
+    p.querySelector(`.essai-serie[data-epreuve="${ILE}"]`)!.click();
+    await attendre();
+    p.querySelector('.croix')!.click();
+    expect(versCarte).toHaveBeenCalledTimes(2);
+    expect(retour).not.toHaveBeenCalled();
   });
 
   it('« Cette semaine » relit mes places de la semaine, et l’épreuve ouverte s’y ouvre aussi', async () => {

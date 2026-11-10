@@ -249,6 +249,45 @@ main {
 
 .panel h2 { margin: 0 0 4px; font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
 
+/* « × » des écrans qui couvrent la carte (#18, commun.ts : croix) : l'allure de
+   celle de Jouer (.jouer-icone), cible ronde de 44 px. Premier enfant du
+   panneau, elle flotte en haut à droite, à 8 px des bords (marges négatives :
+   le padding du panneau) : le titre et ce qui suit passent à côté, une rangée
+   flex (titre et période des classements) lui laisse sa place (marge) ; rien
+   n'est dessous. Collée en haut quand l'écran défile (sticky : Crédits rouverts
+   en bas, long bilan), sur fond opaque : on la retrouve sans remonter. Le
+   « top » de sticky se compte depuis le contenu de l'élément qui défile (son
+   padding déduit) : -2 px sous les 10 px des vues pleine page (.vue-credits…),
+   la marge du haut dans un bilan, qui défile lui-même : 8 px du bord, partout. */
+.croix {
+  float: right;
+  position: sticky;
+  top: -2px;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  margin: -16px -20px 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 3px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1;
+}
+.croix:hover { background: var(--panel-2); color: var(--text); }
+.essai-bilan > .croix { top: -16px; }
+/* Une rangée flex (titre et période des classements) ne s'écarte pas d'elle-même
+   du flottant : sa marge, la place que la « × » prend dans le contenu (42 px sur
+   le téléphone), et la période passe à la ligne s'il le faut (320 px). */
+.croix + .chrono-classement-tete { margin-right: 42px; flex-wrap: wrap; }
+/* ⚙ : en face de « Paramètres », dans le padding de 16 px de la popup. */
+.settings-popup > .croix { margin: -10px -10px 0 8px; background: transparent; }
+
 /* Téléphone : l'en-tête sur une ligne, le logo seul (le nom reste lu par les
    lecteurs d'écran), la liste des lieux sur toute la largeur ; marges de 16 px. */
 @media (max-width: 700px) {
@@ -277,6 +316,8 @@ main {
   .icone-btn, #settings-btn { width: 34px; height: 34px; }
   main { padding-left: 16px; padding-right: 16px; }
   .panel { padding: 18px 16px; }
+  .panel > .croix { margin: -12px -10px 0 8px; }
+  .essai-bilan > .croix { top: -12px; }
 }
 
 /* Très petit téléphone (#19, 360 px et moins) : Jouer en ▶ seul, toujours en

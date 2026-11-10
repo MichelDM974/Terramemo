@@ -107,7 +107,9 @@ function monter() {
   const classement = vueSimple();
   let nav!: Navigation<VueNavigable>;
   const versJouer = (cible: string, message?: string) => nav.versJouer(cible, message);
-  const chrono = vueChrono(ctx as never, { versJouer });
+  // « × » (#18) : comme main.ts, l'accueil en remontant l'historique.
+  const versCarte = () => nav.remonter('carte');
+  const chrono = vueChrono(ctx as never, { versJouer, versCarte });
   // La Révision du jour : une séance d'une question de Trouver (la France), son bilan avec « Carte ».
   let finie = false;
   const seances = {
@@ -128,7 +130,7 @@ function monter() {
       };
     },
   };
-  const toucher = vueEssai(ctx as never, { versJouer, seances, versCarte: () => nav.remonter('carte') });
+  const toucher = vueEssai(ctx as never, { versJouer, seances, versCarte });
   const vues = new Map<string, VueNavigable>([
     ['carte', carteVue],
     ['jouer', jouer],
@@ -201,7 +203,7 @@ function monter() {
     lien('jouer');
     for (let k = 1; k <= segs.length; k++) faire(() => nav.pousser(['jouer', ...segs.slice(0, k)].join('/')));
   };
-  return { h, nav, zone, jouer, carteVue, classement, ici, lien, retourNavigateur, faire, lancerChrono, lancerToucher, lancerRevision, descendre };
+  return { h, nav, zone, jouer, chrono, carteVue, classement, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre };
 }
 
 beforeEach(() => {
@@ -357,5 +359,59 @@ describe('navigation : la Révision du jour, ouverte comme une partie', () => {
     expect(m.h.entrees.length).toBe(n);
     m.lien('toucher');
     expect(m.ici()).toBe('jouer');
+  });
+});
+
+describe('navigation : « × » ramène à la carte (#18)', () => {
+  it('« × » de Jouer, au fond de l’arbre : la carte, en remontant l’historique (pas d’entrée de plus)', () => {
+    const m = monter();
+    m.descendre('classe', 'pays', AMS);
+    const n = m.h.entrees.length;
+    m.faire(m.versCarte);
+    expect(m.ici()).toBe('carte');
+    expect(m.carteVue.active).toBe(true);
+    expect(m.h.entrees.length).toBe(n);
+  });
+
+  it('une partie de Toucher en cours, Jouer par l’en-tête, « × » : la carte, pas la partie (que le retour arrière reprend)', () => {
+    const m = monter();
+    m.descendre('entrainement', 'pays', 'Europe');
+    m.lancerToucher();
+    m.lien('jouer');
+    m.faire(m.versCarte);
+    expect(m.ici()).toBe('carte');
+    expect(m.zone.querySelector('#barre-essai')?.hidden).toBe(true);
+  });
+
+  it('bilan de Toucher, « × » : #carte, le bilan fermé pour de bon (#toucher ensuite mène à Jouer)', () => {
+    const m = monter();
+    m.descendre('entrainement', 'pays', 'Europe');
+    m.lancerToucher();
+    m.zone.querySelector('#essai-terminer')?.click();
+    const x = m.zone.querySelector('#essai-bilan .croix');
+    expect(x?.getAttribute('aria-label')).toBe(textes.croix.carte);
+    m.faire(() => x?.click());
+    expect(m.ici()).toBe('carte');
+    expect(m.h.ancre).toBe('#carte');
+    expect(m.zone.querySelector('#essai-bilan')?.hidden).toBe(true);
+    m.lien('toucher');
+    expect(m.ici()).toBe('jouer/entrainement/pays/Europe');
+  });
+
+  it('bilan d’une épreuve, « × » : #carte, le bilan fermé pour de bon', () => {
+    const m = monter();
+    m.descendre('classe', 'pays', AMS);
+    m.lancerChrono();
+    for (let i = 0; i < 12; i++) {
+      vi.advanceTimersByTime(i ? 1_000 : 0);
+      m.chrono.toucher?.(0, 0, {} as PointerEvent);
+    }
+    vi.advanceTimersByTime(5_000);
+    expect(m.zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
+    m.faire(() => m.zone.querySelector('#chrono-bilan .croix')?.click());
+    expect(m.ici()).toBe('carte');
+    expect(m.h.ancre).toBe('#carte');
+    expect(m.zone.querySelector('#chrono-bilan')?.hidden).toBe(true);
+    expect(m.chrono.aMontrer?.()).toBe(false);
   });
 });

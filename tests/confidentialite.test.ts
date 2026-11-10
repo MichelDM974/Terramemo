@@ -165,8 +165,9 @@ describe('vue #confidentialite', () => {
 
   function ouvrir(lire: () => Promise<Node[]>) {
     const retour = vi.fn();
-    const v = vueConfidentialite({ zone, carte: { masquer: (m: boolean) => masquee.push(m) } } as never, { retour, lire });
-    return { v, retour };
+    const versCarte = vi.fn();
+    const v = vueConfidentialite({ zone, carte: { masquer: (m: boolean) => masquee.push(m) } } as never, { retour, versCarte, lire });
+    return { v, retour, versCarte };
   }
 
   it('à la première ouverture : « Chargement… », puis le contenu de la page ; lue une fois', async () => {
@@ -186,6 +187,16 @@ describe('vue #confidentialite', () => {
     expect(lire).toHaveBeenCalledOnce();
     zone.querySelector('#confidentialite-retour')!.click();
     expect(retour).toHaveBeenCalled();
+  });
+
+  it('« × » (#18) : la carte, pas la vue d’avant', () => {
+    const { v, retour, versCarte } = ouvrir(() => new Promise<Node[]>(() => undefined));
+    v.activer();
+    const x = zone.querySelector('.panel .croix')!;
+    expect(x.getAttribute('aria-label')).toBe(textes.croix.carte);
+    x.click();
+    expect(versCarte).toHaveBeenCalledOnce();
+    expect(retour).not.toHaveBeenCalled();
   });
 
   it('hors ligne : un avis et « Réessayer », qui relit la page', async () => {
@@ -208,7 +219,7 @@ describe('vue #confidentialite', () => {
     const html = readFileSync('index.html', 'utf8');
     expect(html).toMatch(/<a href="#credits" id="lien-credits"><\/a><\/p>\s*<!--[\s\S]*?-->\s*<p class="reglage-outil"><a href="#confidentialite" id="lien-confidentialite"><\/a><\/p>/);
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
-    vueCredits({ zone, carte: { masquer: () => undefined } } as never, { retour: () => undefined });
+    vueCredits({ zone, carte: { masquer: () => undefined } } as never, { retour: () => undefined, versCarte: () => undefined });
     const a = zone.querySelector('#credits-confidentialite')!;
     expect([a.getAttribute('href'), a.textContent]).toEqual(['#confidentialite', textes.credits.confidentialite]);
   });

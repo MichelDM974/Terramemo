@@ -47,13 +47,15 @@ const HORS_SITE = ['@capacitor/android'];
 
 let zone: El;
 let retour: ReturnType<typeof vi.fn<() => void>>;
+let versCarte: ReturnType<typeof vi.fn<() => void>>;
 let fetch: ReturnType<typeof vi.fn>;
 
 function ouvrir(): El {
   retour = vi.fn<() => void>();
+  versCarte = vi.fn<() => void>();
   zone = document.createElement('div') as unknown as El;
   const masquer = vi.fn();
-  const v = vueCredits({ zone, carte: { masquer } } as never, { retour });
+  const v = vueCredits({ zone, carte: { masquer } } as never, { retour, versCarte });
   v.activer();
   expect(masquer).toHaveBeenCalledWith(true);
   return zone.querySelector('#vue-credits')!;
@@ -123,6 +125,15 @@ describe('écran Crédits', () => {
     expect(readFileSync('public/vendor/inter/LICENSE.txt', 'utf8')).toContain('SIL OPEN FONT LICENSE Version 1.1');
     v.querySelector('#credits-retour')!.click();
     expect(retour).toHaveBeenCalledOnce();
+  });
+
+  it('« × » (#18) : la carte, pas la vue d’avant', () => {
+    const v = ouvrir();
+    const x = v.querySelector('.panel .croix')!;
+    expect(x.getAttribute('aria-label')).toBe(textes.croix.carte);
+    x.click();
+    expect(versCarte).toHaveBeenCalledOnce();
+    expect(retour).not.toHaveBeenCalled();
   });
 
   it('textes : espaces insécables avant « : » et « ; », comme la mention de la carte', () => {

@@ -7,7 +7,7 @@
 // tierces »). Dans l'APK, la page est locale : elle s'affiche hors ligne. Un
 // lien direct vers le fichier remplacerait la page de l'appli dans l'APK ;
 // les liens de la page vers une autre page du site s'ouvrent donc à part.
-import { creer, type ContexteVue, type Vue } from './commun';
+import { creer, croix, type ContexteVue, type Vue } from './commun';
 import { textes } from './textes';
 
 const T = textes.confidentialite;
@@ -61,7 +61,7 @@ async function lirePolitique(): Promise<Node[]> {
   return c;
 }
 
-export function vueConfidentialite(ctx: ContexteVue, o: { retour: () => void; lire?: () => Promise<Node[]> }): Vue {
+export function vueConfidentialite(ctx: ContexteVue, o: { retour: () => void; versCarte: () => void; lire?: () => Promise<Node[]> }): Vue {
   const lire = o.lire ?? lirePolitique;
   const texte = creer('div', { class: 'document', id: 'confidentialite-texte' }, creer('p', { class: 'hint' }, T.chargement));
   const avis = creer('p', { class: 'status error', id: 'confidentialite-erreur', role: 'alert' });
@@ -72,7 +72,7 @@ export function vueConfidentialite(ctx: ContexteVue, o: { retour: () => void; li
   const section = creer(
     'section',
     { class: 'vue-confidentialite', id: 'vue-confidentialite' },
-    creer('div', { class: 'panel' }, texte, avis, creer('div', { class: 'essai-actions' }, reessayer, retour)),
+    creer('div', { class: 'panel' }, croix(o.versCarte), texte, avis, creer('div', { class: 'essai-actions' }, reessayer, retour)),
   );
   section.hidden = true;
   ctx.zone.append(section);

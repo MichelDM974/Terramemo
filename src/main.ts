@@ -184,10 +184,13 @@ if (bouton && popup) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') ouvrir(false);
   });
-  // « Essai des claviers » (la vue Saisie), l'Essai J0 : la popup se referme sur la vue.
+  // « Essai des claviers » (la vue Saisie), l'Essai J0 : la popup se referme sur la vue ; « × » (#18) aussi.
   popup.addEventListener('click', (e) => {
-    if ((e.target as Element).closest('a, #reglage-essai button')) ouvrir(false);
+    if ((e.target as Element).closest('a, #reglage-essai button, #settings-fermer')) ouvrir(false);
   });
+  const fermer = document.getElementById('settings-fermer');
+  fermer?.setAttribute('aria-label', textes.croix.reglages);
+  fermer?.setAttribute('title', textes.croix.reglages);
 }
 
 /** Rendu et projection : on recharge la page avec le paramètre (mesures d'un chargement propre). */
@@ -258,7 +261,7 @@ if (caseMemoire) {
 type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie' | 'credits' | 'confidentialite' | 'compte';
 /** #compte n'existe que si les comptes se montrent : sinon l'adresse mène à l'accueil. */
 const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie', 'credits', 'confidentialite', ...(COMPTES ? (['compte'] as const) : [])];
-/** Vues de passage : leur « Retour » ou « × » ramène à la vue d'avant. */
+/** Vues de passage : leur « Retour » ramène à la vue d'avant (leur « × », à la carte). */
 const PASSAGE: NomVue[] = ['jouer', 'classement', 'credits', 'confidentialite', 'compte'];
 const vues = new Map<string, Vue>();
 /** Le monde et l'île (src/terrains.ts), une fois le monde chargé. */
@@ -637,9 +640,11 @@ async function demarrer(): Promise<void> {
     },
     () => undefined,
   );
-  const essai = vueEssai(ctx, { versJouer: nav.versJouer, versCarte: () => nav.remonter('carte'), seances, libre: seances.libre });
-  const epreuve = vueChrono(ctx, { versJouer: nav.versJouer });
-  // « Retour » des classements, « × » de Jouer : la vue d'avant, en remontant l'historique.
+  // « × » de Jouer et des écrans qui couvrent la carte (#18), « Carte » d'un bilan de séance : l'accueil, en remontant l'historique.
+  const versCarte = () => nav.remonter('carte');
+  const essai = vueEssai(ctx, { versJouer: nav.versJouer, versCarte, seances, libre: seances.libre });
+  const epreuve = vueChrono(ctx, { versJouer: nav.versJouer, versCarte });
+  // « Retour » des classements, de Crédits… : la vue d'avant, en remontant l'historique.
   const retour = nav.retour;
   // Une partie choisie (Jouer, Rejouer, ⚙) : sa vue s'ouvre (une entrée
   // d'historique), la partie en cours y est abandonnée. Les trois épreuves
@@ -660,15 +665,15 @@ async function demarrer(): Promise<void> {
       essai.reviser();
     },
   };
-  jouer = vueJouer(ctx, arbre, { lancer, fermer: retour, pousser: nav.pousser, remonter: nav.remonter, canoniser: nav.canoniser, revision });
+  jouer = vueJouer(ctx, arbre, { lancer, fermer: versCarte, pousser: nav.pousser, remonter: nav.remonter, canoniser: nav.canoniser, revision });
   vues.set('carte', explorer);
   vues.set('jouer', jouer);
   vues.set('toucher', essai);
   vues.set('chrono', epreuve);
-  vues.set('classement', vueGeneral(ctx, { retour }));
-  vues.set('saisie', vueSaisie(ctx));
-  vues.set('credits', vueCredits(ctx, { retour }));
-  vues.set('confidentialite', vueConfidentialite(ctx, { retour }));
+  vues.set('classement', vueGeneral(ctx, { retour, versCarte }));
+  vues.set('saisie', vueSaisie(ctx, { versCarte }));
+  vues.set('credits', vueCredits(ctx, { retour, versCarte }));
+  vues.set('confidentialite', vueConfidentialite(ctx, { retour, versCarte }));
   if (COMPTES) {
     const T = TEXTES_COMPTE;
     vues.set(
@@ -680,9 +685,10 @@ async function demarrer(): Promise<void> {
         async () => {
           // L'envoi aussi : une création de compte faite ici relance l'envoi (surJeton).
           const [{ vueCompte }, mc] = await Promise.all([import('./vues/compte'), chargerComptes(), chargerEnvoi()]);
-          return vueCompte(ctx, { retour, comptes: async () => lesComptes(mc), envoi: chargerEnvoi, exporter: exporterDonnees });
+          return vueCompte(ctx, { retour, versCarte, comptes: async () => lesComptes(mc), envoi: chargerEnvoi, exporter: exporterDonnees });
         },
         retour,
+        versCarte,
       ),
     );
   }

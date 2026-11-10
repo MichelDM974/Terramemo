@@ -26,7 +26,7 @@ import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
-import { anneauSiPetite, creer, fmtKm, idsSerie, nomDe, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, creer, croix, fmtKm, idsSerie, nomDe, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong } from './scores';
 import { remplir, textes } from './textes';
 
@@ -60,6 +60,8 @@ export interface VueChrono extends Vue {
 export interface OptionsChrono {
   /** Vers Jouer, à ce niveau (son adresse), ce message à son statut : main.ts remonte l'historique s'il y mène. */
   versJouer(cible: string, message?: string): void;
+  /** « × » du bilan (#18) : la carte ; sans elle, pas de « × ». */
+  versCarte?(): void;
   /** L'horloge (ms depuis 1970) : date du record, et règle de notation de la partie (acceptesEnEpreuve). Défaut : Date.now. */
   maintenant?: () => number;
 }
@@ -289,7 +291,17 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
           });
     const s = serie;
     const [ligneScore, detail] = lignesScore(score, partie.cibles.length);
+    const versCarte = o.versCarte;
     bilan.replaceChildren(
+      // « × » : le bilan fermé pour de bon (comme « Autre série »), puis la carte.
+      ...(versCarte
+        ? [
+            croix(() => {
+              arreter();
+              versCarte();
+            }),
+          ]
+        : []),
       creer('h2', {}, remplir(T.bilan_titre, { mode: nomMode(mode), serie: nomSerie(s.id) })),
       creer('p', { class: 'chrono-score' }, ligneScore),
       creer('p', { class: 'hint' }, detail),

@@ -64,6 +64,20 @@ export function creer<K extends keyof HTMLElementTagNameMap>(
 }
 
 /**
+ * La « × » des écrans qui couvrent la carte (#18 : « toujours moyen de revenir
+ * à la carte depuis un menu ») : bouton rond de 44 px, premier enfant du
+ * panneau, flottant en haut à droite (.croix, style.css) ; titres et boutons
+ * passent à côté, jamais dessous. `versCarte` : l'accueil (main.ts :
+ * nav.remonter('carte')), après ce que l'écran a à fermer (un bilan). Les
+ * « Retour » restent à côté : eux mènent à la vue d'avant.
+ */
+export function croix(versCarte: () => void, libelle: string = textes.croix.carte): HTMLButtonElement {
+  const b = creer('button', { type: 'button', class: 'croix', 'aria-label': libelle, title: libelle }, '×');
+  b.addEventListener('click', () => versCarte());
+  return b;
+}
+
+/**
  * Nom d'une zone dans les données de son terrain : t.donnees pour une vue qui
  * joue un terrain, ctx.donnees pour le monde (sinon une commune s'affiche
  * « 97407 »).

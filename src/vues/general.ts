@@ -8,12 +8,12 @@
 // la liste. Les séries de chaque mode viennent dans l'ordre de partout
 // (décision « Écran Jouer », EPREUVES_CLASSEES) : tous les pays, les
 // continents, l'île. Relu à chaque ouverture ; « Retour » ramène à la vue
-// d'avant (main.ts).
+// d'avant, « × » à la carte (main.ts).
 import { EPREUVES_CLASSEES, modeEpreuve, MODES_EPREUVE, periodeSemaine } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
 import { nomSerie } from './cibles';
 import { blocClassement, lirePseudo, relancerAttente } from './classement';
-import { creer, type ContexteVue, type Vue } from './commun';
+import { creer, croix, type ContexteVue, type Vue } from './commun';
 import { nomMode, scoreCourt } from './scores';
 import { remplir, textes } from './textes';
 
@@ -35,7 +35,7 @@ export function rangSur(rang: number, joueurs: number): string {
   return remplir(T.rang_sur, { rang: rang === 1 ? T.rang_1 : remplir(T.rang_n, { n: rang }), n: joueurs });
 }
 
-export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
+export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte: () => void }): Vue {
   const panneau = creer('div', { class: 'essai-bilan panel', id: 'classement-general' });
   panneau.hidden = true;
   ctx.zone.append(panneau);
@@ -95,6 +95,7 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
     });
     const pseudo = lirePseudo();
     panneau.replaceChildren(
+      croix(o.versCarte),
       creer('div', { class: 'chrono-classement-tete' }, creer('h2', {}, T.classements_titre), creer('div', { class: 'seg', role: 'group', 'aria-label': T.periode }, ...boutons)),
       creer('p', { class: 'hint' }, pseudo ? T.classements_aide : T.classements_sans_pseudo),
       mes,
@@ -135,6 +136,7 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void }): Vue {
     const versListe = creer('button', { type: 'button', class: 'secondary', id: 'classements-liste' }, T.retour_classements);
     versListe.addEventListener('click', () => liste());
     panneau.replaceChildren(
+      croix(o.versCarte),
       creer('h2', {}, titreEpreuve(epreuve)),
       ...(epreuve === GENERAL ? [creer('p', { class: 'hint' }, T.general_aide)] : []),
       blocClassement(epreuve, T.classement_titre, undefined, periode),

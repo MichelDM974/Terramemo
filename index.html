@@ -32,6 +32,8 @@
       <div class="settings-menu">
         <button type="button" id="settings-btn" title="Paramètres" aria-label="Paramètres" aria-expanded="false">⚙</button>
         <div id="settings-popup" class="settings-popup" hidden>
+          <!-- « × » (#18) : ferme le menu, la carte est dessous ; libellé rempli par src/main.ts (textes.croix.reglages). -->
+          <button type="button" class="croix" id="settings-fermer">×</button>
           <h3>Paramètres</h3>
           <div class="reglage">
             <span class="reglage-nom">Rendu</span>

@@ -3,7 +3,7 @@
 // coupe souvent les suggestions sur ce type), pour comparer demain sur le
 // téléphone avec le clavier Samsung et Gboard.
 import { MAX_SUGGESTIONS, suggestions } from '../texte';
-import { creer, type ContexteVue, type Vue } from './commun';
+import { creer, croix, type ContexteVue, type Vue } from './commun';
 
 const SANS_SUGGESTIONS: Record<string, string> = {
   type: 'text',
@@ -16,7 +16,7 @@ const SANS_SUGGESTIONS: Record<string, string> = {
   'data-gramm': 'false',
 };
 
-export function vueSaisie(ctx: ContexteVue): Vue {
+export function vueSaisie(ctx: ContexteVue, o: { versCarte: () => void }): Vue {
   const noms = ctx.donnees.entites
     .filter((e) => e.pays.statut === 'jouable' || e.pays.statut === 'optionnel')
     .map((e) => ctx.donnees.noms[e.pays.id] ?? e.pays.id);
@@ -42,6 +42,7 @@ export function vueSaisie(ctx: ContexteVue): Vue {
     creer(
       'div',
       { class: 'panel' },
+      croix(o.versCarte),
       creer('h2', {}, 'Saisie'),
       creer(
         'p',

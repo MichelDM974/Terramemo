@@ -128,7 +128,10 @@ describe('séance : du programme au journal', () => {
     expect(txt.toLowerCase()).not.toContain('point');
     expect(el.querySelector('#seance-continuer')).toBeNull();
     el.querySelector('#seance-carte')!.click();
-    expect(actions.carte).toHaveBeenCalled();
+    expect(actions.carte).toHaveBeenCalledOnce();
+    // « × » (#18) : comme « Carte ».
+    el.querySelector('.croix')!.click();
+    expect(actions.carte).toHaveBeenCalledTimes(2);
     el.querySelector('#essai-autre')!.click();
     expect(actions.autre).toHaveBeenCalled();
     expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 0 });

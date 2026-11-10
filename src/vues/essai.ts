@@ -20,7 +20,7 @@ import { mediane } from '../mesure/stats';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { creer, estPetite, fmtKm, fmtS, idsSerie, nomDe, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, nomDe, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { remplir, textes } from './textes';
@@ -133,7 +133,7 @@ export interface VueEssai extends Vue {
 export interface OptionsEssai {
   /** Vers Jouer, à ce niveau (son adresse) : main.ts remonte l'historique s'il y mène. */
   versJouer(cible: string): void;
-  /** « Carte » du bilan d'une séance : l'accueil. */
+  /** « Carte » du bilan d'une séance, « × » des bilans (#18) : l'accueil. */
   versCarte?(): void;
   /** Les séances (Apprendre, Révision du jour) ; sans elles, Apprendre ne fait rien. */
   seances?: FabriqueSeances;
@@ -207,7 +207,14 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     });
     return creer('div', { class: 'essai-actions' }, recommencer, autre);
   }
-  const nommer = vueNommer(ctx, { bilan, actions: actionsBilan });
+  /** « × » des bilans (#18) : le bilan fermé pour de bon (comme « Carte » d'une séance), puis la carte. */
+  function versCarte(): void {
+    arreter();
+    bilanAuRetour = false;
+    o.versCarte?.();
+  }
+  const croixBilan = (): HTMLElement[] => (o.versCarte ? [croix(versCarte)] : []);
+  const nommer = vueNommer(ctx, { bilan, actions: actionsBilan, ...(o.versCarte ? { croix: () => croix(versCarte) } : {}) });
   const retournee = vueRetournee(ctx);
   /** La séance en cours (Apprendre, Révision du jour) : elle pose les questions et fait le bilan. */
   let pilote: PiloteSeance | null = null;
@@ -441,11 +448,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       continuer: () => {
         if (d) lancerSeance(d);
       },
-      carte: () => {
-        arreter();
-        bilanAuRetour = false;
-        o.versCarte?.();
-      },
+      carte: versCarte,
       // Comme le bilan d'une partie : les séries de Jouer (Apprendre), Entraînement pour la Révision du jour.
       autre: () => {
         arreter();
@@ -487,6 +490,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     });
     boutons.push(autre);
     bilan.replaceChildren(
+      ...croixBilan(),
       creer('h2', {}, s ? remplir(textes.seance.titre_apprendre, { serie: nomSerie(s.id) }) : textes.seance.titre_revision),
       creer('p', { class: 'hint' }, r.refus),
       creer('div', { class: 'essai-actions' }, ...boutons),
@@ -543,6 +547,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const temps = mediane(resultats.filter((r) => r.juste).map((r) => r.temps_ms));
     const rates = resultats.filter((r) => !r.premier);
     bilan.replaceChildren(
+      ...croixBilan(),
       creer('h2', {}, remplir(T.bilan_titre, { serie: nomSerie(serie?.id ?? '') })),
       creer(
         'p',

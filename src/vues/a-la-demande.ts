@@ -2,9 +2,9 @@
 // Compte du J1b, qui emporte Firebase (étude du J1b, § 3.1 : jamais au
 // démarrage d'un invité, D9 b). À l'ouverture, un « Chargement… » tout de
 // suite ; si le morceau ne vient pas (site hors ligne sans service worker,
-// #22), un avis, « Réessayer » et « Retour ». Seul ce petit fichier est dans
+// #22), un avis, « Réessayer », « Retour » et « × » (la carte). Seul ce petit fichier est dans
 // le morceau principal.
-import { creer, type ContexteVue, type Vue } from './commun';
+import { creer, croix, type ContexteVue, type Vue } from './commun';
 
 export interface TextesALaDemande {
   titre: string;
@@ -14,7 +14,7 @@ export interface TextesALaDemande {
   retour: string;
 }
 
-export function vueALaDemande(ctx: ContexteVue, id: string, t: TextesALaDemande, charger: () => Promise<Vue>, retour: () => void): Vue {
+export function vueALaDemande(ctx: ContexteVue, id: string, t: TextesALaDemande, charger: () => Promise<Vue>, retour: () => void, versCarte?: () => void): Vue {
   let vue: Vue | null = null;
   let chargement: Promise<Vue> | null = null;
   let active = false;
@@ -26,7 +26,7 @@ export function vueALaDemande(ctx: ContexteVue, id: string, t: TextesALaDemande,
   const attente = creer(
     'section',
     { class: 'vue-a-la-demande', id: `${id}-attente` },
-    creer('div', { class: 'panel' }, creer('h2', {}, t.titre), avis, creer('div', { class: 'essai-actions' }, reessayer, boutonRetour)),
+    creer('div', { class: 'panel' }, ...(versCarte ? [croix(versCarte)] : []), creer('h2', {}, t.titre), avis, creer('div', { class: 'essai-actions' }, reessayer, boutonRetour)),
   );
   attente.hidden = true;
   ctx.zone.append(attente);

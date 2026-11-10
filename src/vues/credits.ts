@@ -12,7 +12,7 @@
 import { dependencies } from '../../package.json';
 import { dateCredit, type SourcesTerrain } from '../map/donnees-terrain';
 import { REUNION } from '../map/terrain';
-import { creer, type ContexteVue, type Vue } from './commun';
+import { creer, croix, type ContexteVue, type Vue } from './commun';
 import { remplir, textes } from './textes';
 
 const T = textes.credits;
@@ -54,7 +54,7 @@ function ligne(c: Credit, o: { id?: string; auteur?: HTMLElement } = {}): HTMLLI
   );
 }
 
-export function vueCredits(ctx: ContexteVue, o: { retour: () => void }): Vue {
+export function vueCredits(ctx: ContexteVue, o: { retour: () => void; versCarte: () => void }): Vue {
   // L'IGN demande la date de dernière mise à jour : lue à la première ouverture (le sources.json de l'île, ~2 ko).
   const auteurIgn = creer('span', {}, T.donnees[2]!.auteur);
   let dateLue = false;
@@ -99,6 +99,7 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void }): Vue {
     creer(
       'div',
       { class: 'panel' },
+      croix(o.versCarte),
       creer('h2', {}, T.titre),
       creer('p', { class: 'hint' }, T.intro),
       // La politique de confidentialité (J1b, § 7.3) : la vue #confidentialite.

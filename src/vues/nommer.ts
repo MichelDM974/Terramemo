@@ -117,8 +117,8 @@ export interface Nommer {
   arreter(): void;
 }
 
-/** `actions` : les boutons du bilan (Recommencer, Autre série), ceux de Toucher. */
-export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: () => HTMLElement }): Nommer {
+/** `actions` : les boutons du bilan (Recommencer, Autre série), `croix` sa « × » (#18), ceux de Toucher. */
+export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: () => HTMLElement; croix?: () => HTMLElement }): Nommer {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
@@ -241,6 +241,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     partie = null;
     pour = undefined;
     o.bilan.replaceChildren(
+      ...(o.croix ? [o.croix()] : []),
       creer('h2', {}, remplir(T.bilan_nommer_titre, { serie })),
       creer(
         'p',
