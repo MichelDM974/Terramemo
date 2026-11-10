@@ -11,6 +11,9 @@ import type { ContexteVue, Vue } from '../src/vues/commun';
 import { vueEssai, type OptionsEssai } from '../src/vues/essai';
 import { textes } from '../src/vues/textes';
 import { El, installerDom, installerStockage } from './dom-factice';
+import { code, FACTICE, sansBrut } from './sujet-factice';
+
+vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).avecFactice(await orig()));
 
 const pays = (id: string): Pays =>
   ({ id, statut: 'jouable', superficie_km2: 1e5, partie_max_km2: 1e5, point: [0, 0], bbox: [0, 0, 1, 1], micro: false, voisins: [], continent: 'Europe', sous_region: 'Western Europe' }) as Pays;
@@ -372,7 +375,7 @@ function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
   const versJouer = vi.fn<(cible: string) => void>();
   const vue = vueEssai(ctx, { versJouer, versCarte, seances: fabrique });
   const visible = (id: string) => !(zone.querySelector(`#${id}`) as El).hidden;
-  return { vue, zone, appels, marques, fabrique, versCarte, versJouer, visible, el: (s: string) => zone.querySelector(s) as El };
+  return { vue, zone, monde, appels, marques, fabrique, versCarte, versJouer, visible, el: (s: string) => zone.querySelector(s) as El };
 }
 
 describe('Toucher : une séance quittée puis reprise', () => {
@@ -660,5 +663,121 @@ describe('Toucher : une séance qui passe sur l’île (communes, D6)', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(s.fabrique.ouvrir).toHaveBeenCalledTimes(1);
+  });
+});
+
+// --- Rendu par sujet (étude J2 § 5.1) : Trouver, Reconnaître, carte retournée et bilans par le rendu du sujet ---
+
+describe('Toucher : le rendu du sujet', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    installerDom();
+    installerStockage();
+  });
+  afterEach(() => {
+    fauxSurVoisin = false;
+    admisSuivant = null;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  const NOMS_FE: Record<string, string> = { FRA: 'France', ESP: 'Espagne' };
+
+  it('pays et communes : « Touche : » et le nom, la suite d’un faux de leur sujet, le bilan par le nom', () => {
+    for (const [sujet, suite] of [
+      ['pays', 'Le bon pays est en vert : touche-le.'],
+      ['communes', 'La bonne commune est en vert : touche-la.'],
+    ] as const) {
+      const v = monter();
+      v.lancer({ sujet });
+      const id = v.cible();
+      expect(v.zone.querySelector('#barre-essai .essai-consigne')?.textContent).toBe(`Touche : ${NOMS_FE[id]}`);
+      toucher(v.vue, false);
+      expect(v.retro.textContent).toBe(`Faux : la mer, à 250\u00a0km du bord. ${suite}`);
+      v.passer.click();
+      v.terminer.click();
+      expect(v.bilan.textContent).toContain(`${NOMS_FE[id]} : passé, premier toucher à 250`);
+    }
+  });
+
+  it('un sujet factice en Trouver : énoncé, « tu as touché », zone admise et ratés du bilan par son rendu, aucun id brut affiché', () => {
+    const v = monter();
+    const vus: string[] = [];
+    v.lancer({ sujet: FACTICE });
+    const id = v.cible();
+    const autre = id === 'FRA' ? 'ESP' : 'FRA';
+    expect(v.zone.querySelector('#barre-essai .essai-consigne')?.textContent).toBe(`Cherche : énoncé ${code(id)}`);
+    vus.push(v.barre.innerText);
+    fauxSurVoisin = true;
+    toucher(v.vue, false);
+    expect(v.retro.textContent).toBe(`Faux : touché ${code(autre)}, à 250\u00a0km du bord. suite ${code(id)}.`);
+    vus.push(v.barre.innerText);
+    admisSuivant = { zone: 'NE_B89', tenant: autre, sorte: 'contestee' };
+    toucher(v.vue, true);
+    expect(v.retro.textContent).toMatch(new RegExp(`^Juste \\(zone contestée, tenue par lieu ${code(autre)}\\) · 2 essais`));
+    vus.push(v.barre.innerText);
+    vi.advanceTimersByTime(1200);
+    v.passer.click();
+    expect(v.bilan.hidden).toBe(false);
+    expect(v.bilan.textContent).toContain(`bilan-localiser ${code(id)} : 2 essais`);
+    expect(v.bilan.textContent).toContain(`bilan-localiser ${code(autre)} : passé`);
+    vus.push(v.bilan.innerText);
+    for (const t of vus) sansBrut(t, ['FRA', 'ESP', 'France', 'Espagne']);
+  });
+
+  it('un sujet factice en Reconnaître lancé de Jouer : consigne, boutons, rétroaction et bilan par son rendu, aucun id brut affiché', () => {
+    const s = monterSeance(() => ({ refus: '', reviser: 0 }));
+    const vus: string[] = [];
+    s.vue.activer();
+    s.vue.lancer({ branche: 'entrainement', sujet: FACTICE, serie: 'Europe', mode: 'nommer' }, { id: 'Europe', terrain: 'monde', ids: IDS5, n: 5 }, s.monde as never, IDS5);
+    const cible = () => s.el('#barre-nommer .essai-consigne').dataset.cible!;
+    const fautes: [string, string][] = [];
+    for (let k = 0; k < IDS5.length; k++) {
+      expect(s.el('#barre-nommer .essai-consigne').textContent).toBe('Quelle est cette énigme ?');
+      const boutons = s.zone.querySelectorAll('#barre-nommer .nommer-choix');
+      expect(boutons.map((b) => b.textContent).sort()).toEqual(boutons.map((b) => `bouton ${code(b.dataset.id!)}`).sort());
+      const id = cible();
+      // La première faute, les autres justes.
+      const b = k === 0 ? boutons.find((x) => x.dataset.id !== id)! : boutons.find((x) => x.dataset.id === id)!;
+      if (k === 0) fautes.push([id, b.dataset.id!]);
+      b.click();
+      vus.push(s.el('#barre-nommer').innerText);
+      vi.advanceTimersByTime(1800);
+    }
+    const [[id, choisi]] = fautes as [[string, string]];
+    expect(vus[0]).toContain(`bonne réponse : choix ${code(id)}`);
+    expect(s.el('#essai-bilan').innerText).toContain(`bilan-nommer ${code(id)} : tu as choisi choix ${code(choisi)}`);
+    vus.push(s.el('#essai-bilan').innerText);
+    for (const t of vus) sansBrut(t, [...IDS5, 'France', 'Espagne', 'Italie', 'Allemagne', 'Belgique']);
+  });
+
+  it('une séance d’un sujet factice (QuestionPilotee.domaine) : Trouver, QCM et carte retournée par son rendu, aucun id brut affiché', () => {
+    const f = piloteFactice([
+      { id: 'FRA', forme: 'trouver', cadrer: null, connu: false, domaine: FACTICE as never },
+      { id: 'ITA', forme: 'qcm', cadrer: null, connu: true, domaine: FACTICE as never },
+      { id: 'DEU', forme: 'retournee', cadrer: null, connu: false, domaine: FACTICE as never },
+    ]);
+    const s = monterSeance(() => f.p);
+    const vus: string[] = [];
+    s.vue.activer();
+    s.vue.reviser();
+    expect(s.el('#barre-essai .essai-consigne').textContent).toBe(`Cherche : énoncé ${code('FRA')}`);
+    toucher(s.vue, false);
+    expect(s.el('#barre-essai .essai-retro').textContent).toBe(`Faux : touché ${code('ESP')}, à 250\u00a0km du bord. suite ${code('FRA')}.`);
+    vus.push(s.el('#barre-essai').innerText);
+    toucher(s.vue, true);
+    vi.advanceTimersByTime(1200);
+    expect(s.el('#barre-nommer .essai-consigne').textContent).toBe('Quelle est cette énigme ?');
+    const boutons = s.zone.querySelectorAll('#barre-nommer .nommer-choix');
+    expect(boutons.map((b) => b.textContent).sort()).toEqual(boutons.map((b) => `bouton ${code(b.dataset.id!)}`).sort());
+    (boutons.find((b) => b.dataset.id !== 'ITA') as El).click();
+    expect(s.el('#barre-nommer .essai-retro').textContent).toContain(`bonne réponse : choix ${code('ITA')}`);
+    vus.push(s.el('#barre-nommer').innerText);
+    vi.advanceTimersByTime(1800);
+    expect(s.el('#barre-retournee .essai-consigne').textContent).toBe('Quelle est cette énigme ?');
+    s.el('#retournee-reveler').click();
+    expect(s.el('.retournee-nom').textContent).toBe(`révélé ${code('DEU')}`);
+    vus.push(s.el('#barre-retournee').innerText);
+    for (const t of vus) sansBrut(t, [...IDS5, 'France', 'Espagne', 'Italie', 'Allemagne', 'Belgique']);
   });
 });

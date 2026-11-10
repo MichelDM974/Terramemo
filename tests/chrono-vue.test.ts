@@ -11,12 +11,14 @@ import { DEBUT_ACCEPTES_EPREUVES } from '../src/epreuve/bareme';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
 import type { Pays } from '../src/map/types';
 import { installerDom, installerStockage, El } from './dom-factice';
+import { code, FACTICE, sansBrut } from './sujet-factice';
 
 const blocClassement = vi.fn((_epreuve: string, _titre: string, _apres?: (pseudo: string) => Promise<unknown>) => new El('section'));
 vi.mock('../src/vues/classement', () => ({
   blocClassement: (...a: Parameters<typeof blocClassement>) => blocClassement(...a),
   publierPartie: vi.fn(),
 }));
+vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).avecFactice(await orig()));
 
 const { vueChrono } = await import('../src/vues/chrono');
 const { textes } = await import('../src/vues/textes');
@@ -54,10 +56,10 @@ function contexte(maintenant?: () => number) {
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
   const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer, maintenant });
   /** L'épreuve et sa série choisies dans Jouer : la vue s'ouvre, la partie part. */
-  const lancer = (mode: 'chrono' | 'sansfaute' | 'minute' = 'chrono', serie = AMS) => {
+  const lancer = (mode: 'chrono' | 'sansfaute' | 'minute' = 'chrono', serie = AMS, sujet = 'pays') => {
     const s = catalogue(pays).find((x) => x.id === serie)!;
     v.activer();
-    v.lancer({ branche: 'classe', sujet: 'pays', serie, mode }, s, monde as never, [...s.ids]);
+    v.lancer({ branche: 'classe', sujet, serie, mode }, s, monde as never, [...s.ids]);
   };
   return { v, zone, consigne, versJouer, lancer };
 }
@@ -314,5 +316,59 @@ describe('rétroaction d’une zone admise', () => {
     admisSuivant = { zone: 'NE_KAB', tenant: 'NE_KAB', sorte: 'enclave' };
     v.toucher?.(0, 0, {} as PointerEvent);
     expect(retro()).toBe('Juste (enclave : Baïkonour)');
+  });
+});
+
+describe('rendu par sujet (étude J2 § 5.1)', () => {
+  const retro = (zone: El) => zone.querySelector('#barre-chrono .essai-retro')?.textContent ?? '';
+  const barre = (zone: El) => zone.querySelector('#barre-chrono')?.innerText ?? '';
+
+  it('pays et communes : « Touche : » et le nom, le temps écoulé de leur sujet', () => {
+    for (const [sujet, fin] of [
+      ['pays', 'Le bon pays est en vert.'],
+      ['communes', 'La bonne commune est en vert.'],
+    ] as const) {
+      const { zone, consigne, lancer } = contexte();
+      lancer('chrono', AMS, sujet);
+      const id = consigne()!;
+      expect(zone.querySelector('#barre-chrono .essai-consigne')?.textContent).toBe(`Touche : ${id}`);
+      vi.advanceTimersByTime(15_000);
+      expect(retro(zone)).toBe(`Temps écoulé · +0. ${fin}`);
+    }
+  });
+
+  it('un sujet factice : énoncé, « tu as touché », temps écoulé et bilan par son rendu, aucun id brut affiché', () => {
+    const { v, zone, consigne, lancer } = contexte();
+    faux = new Set([1]);
+    lancer('chrono', AMS, FACTICE);
+    const vus: string[] = [];
+    // 1re question : un toucher faux (BRA désigné).
+    const q1 = consigne()!;
+    expect(zone.querySelector('#barre-chrono .essai-consigne')?.textContent).toBe(`Cherche : énoncé ${code(q1)}`);
+    vi.advanceTimersByTime(100);
+    v.toucher?.(0, 0, {} as PointerEvent);
+    expect(retro(zone)).toMatch(new RegExp(`^Faux : touché ${code('BRA')}, à 120`));
+    vus.push(barre(zone));
+    // 2e : le temps écoulé.
+    vi.advanceTimersByTime(1_800);
+    const q2 = consigne()!;
+    vus.push(barre(zone));
+    vi.advanceTimersByTime(15_000);
+    expect(retro(zone)).toBe(`sablier compté ${code(q2)}`);
+    vus.push(barre(zone));
+    vi.advanceTimersByTime(1_800);
+    // Les 10 autres, justes.
+    for (let i = 0; i < 10; i++) {
+      vus.push(barre(zone));
+      v.toucher?.(0, 0, {} as PointerEvent);
+      vi.advanceTimersByTime(900);
+    }
+    const bilan = zone.querySelector('#chrono-bilan')!;
+    expect(bilan.hidden).toBe(false);
+    expect(bilan.innerText).toContain(`bilan-localiser ${code(q1)} → touché ${code('BRA')}, à 120`);
+    expect(bilan.innerText).toContain(`bilan-localiser ${code(q2)} : temps écoulé`);
+    vus.push(bilan.innerText);
+    const ids = catalogue(pays).find((x) => x.id === AMS)!.ids;
+    for (const t of vus) sansBrut(t, [...ids, 'BRA']);
   });
 });

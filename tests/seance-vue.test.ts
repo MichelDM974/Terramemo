@@ -17,6 +17,9 @@ import { carteMemoire } from '../src/vues/carte-memoire';
 import { creerSeances, texteComptes } from '../src/vues/seance';
 import { remplir, textes } from '../src/vues/textes';
 import { El, installerDom } from './dom-factice';
+import { code, remplaces, sansBrut } from './sujet-factice';
+
+vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).avecFactice(await orig()));
 
 const lire = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
 const monde = assembler(lire('monde.topo.json'), lire('pays.json') as Pays[], lire('contestees.json'), lire('noms.fr.json'));
@@ -469,5 +472,69 @@ describe('séance : le sujet de bout en bout', () => {
     expect(teintes.size).toBeGreaterThan(0);
     expect([...teintes.keys()].some((id) => /^m[a-z]/.test(id))).toBe(false);
     expect(carte.detail('monde', mer('POL'), true)).toBe(textes.memoire.jamais_vu);
+  });
+});
+
+// Le bilan de séance nomme chaque lieu par le rendu du sujet de sa fiche (étude
+// J2 § 5.1 et 6.3). La séance ne pose que des domaines jouables : le sujet
+// factice y prend la place des pays.
+describe('séance : le bilan par le rendu du sujet', () => {
+  beforeEach(() => installerDom());
+  afterEach(() => {
+    remplaces.clear();
+    vi.unstubAllGlobals();
+  });
+
+  const bilan = (p: PiloteSeance) => {
+    p.terminer();
+    const el = new El('div');
+    p.bilan(el as never, { continuer: vi.fn(), carte: vi.fn(), autre: vi.fn() });
+    return el.innerText;
+  };
+
+  it('pays : nouveaux, touché à 300 km, vu ou passé, nom oublié', async () => {
+    const m = await monter();
+    const p1 = m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance;
+    const { questions } = jouer(p1, { rate: 'POL' });
+    const t1 = bilan(p1);
+    expect(t1).toMatch(/Nouveaux : [^,]+(, [^,]+)+/);
+    for (const q of questions) expect(t1).toContain(monde.noms[q.id]);
+    expect(t1).toContain(`${monde.noms.POL} : touché à 300\u00a0km du bord`);
+    m.h.ts += JOUR_MS;
+    const p2 = m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance;
+    let oublie = '';
+    for (let q = p2.question(); q && q.forme !== 'qcm'; q = p2.question()) {
+      if (q.forme === 'trouver') p2.repondre({ ...faux(q.id, 'localiser'), aide: 'passer', distance_km: null });
+      else if (!oublie) (oublie = q.id), p2.repondre({ ...faux(q.id, 'nommer'), reponse: null, distance_km: null });
+      else p2.repondre(juste(q.id, 'nommer'));
+    }
+    const t2 = bilan(p2);
+    expect(t2).toContain(`${monde.noms.POL} : vu ou passé`);
+    expect(t2).toContain(`${monde.noms[oublie]} : nom oublié`);
+  });
+
+  it('un sujet factice : nouveaux, ratés de Trouver et carte retournée oubliée par son rendu, aucun id ni nom affiché', async () => {
+    remplaces.add('pays');
+    const m = await monter();
+    const p1 = m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance;
+    const { questions } = jouer(p1, { rate: 'POL' });
+    const ids = [...new Set(questions.map((q) => q.id))];
+    const t1 = bilan(p1);
+    expect(t1).toMatch(/Nouveaux : bilan-localiser [\d-]+(, bilan-localiser [\d-]+)+/);
+    for (const id of ids) expect(t1).toContain(`bilan-localiser ${code(id)}`);
+    expect(t1).toContain(`bilan-localiser ${code('POL')} : manquée de 300\u00a0km`);
+    m.h.ts += JOUR_MS;
+    const p2 = m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance;
+    let oublie = '';
+    for (let q = p2.question(); q && q.forme !== 'qcm'; q = p2.question()) {
+      ids.push(q.id);
+      if (q.forme === 'trouver') p2.repondre({ ...faux(q.id, 'localiser'), aide: 'passer', distance_km: null });
+      else if (!oublie) (oublie = q.id), p2.repondre({ ...faux(q.id, 'nommer'), reponse: null, distance_km: null });
+      else p2.repondre(juste(q.id, 'nommer'));
+    }
+    const t2 = bilan(p2);
+    expect(t2).toContain(`bilan-localiser ${code('POL')} : énigme vue ou passée`);
+    expect(t2).toContain(`bilan-nommer ${code(oublie)} : énigme oubliée`);
+    for (const t of [t1, t2]) sansBrut(t, [...ids, ...ids.map((id) => monde.noms[id]!)]);
   });
 });

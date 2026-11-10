@@ -6,10 +6,15 @@ import type { Pays } from '../src/map/types';
 import type { ContexteVue } from '../src/vues/commun';
 import { vueNommer, type ReponseNommer } from '../src/vues/nommer';
 import { El, installerDom } from './dom-factice';
+import { code, FACTICE, sansBrut } from './sujet-factice';
+
+vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).avecFactice(await orig()));
 
 const IDS = ['FRA', 'ESP', 'ITA', 'DEU', 'BEL'];
 const pays = (id: string, i: number): Pays =>
   ({ id, statut: 'jouable', superficie_km2: 5e5, partie_max_km2: 5e5, point: [i * 5, 45], bbox: [0, 40, 1, 50], micro: false, voisins: IDS.filter((x) => x !== id), continent: 'Europe', sous_region: 'Western Europe' }) as Pays;
+
+const NOMS: Record<string, string> = { FRA: 'France', ESP: 'Espagne', ITA: 'Italie', DEU: 'Allemagne', BEL: 'Belgique' };
 
 function monter() {
   const zone = new El('main');
@@ -26,7 +31,7 @@ function monter() {
     // Tout est à l'écran, grand : pas de vol.
     contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
   };
-  const donnees = { entites: IDS.map((id, i) => ({ pays: pays(id, i), forme: undefined })), noms: { FRA: 'France', ESP: 'Espagne', ITA: 'Italie', DEU: 'Allemagne', BEL: 'Belgique' } };
+  const donnees = { entites: IDS.map((id, i) => ({ pays: pays(id, i), forme: undefined })), noms: NOMS };
   const terrain = { nom: 'monde', carte, donnees, jouables: IDS };
   const ctx = { zone, terrains: { montrer() {} } } as unknown as ContexteVue;
   const bilan = new El('div');
@@ -74,6 +79,38 @@ describe('Reconnaître : la vue', () => {
     // La « × » du bilan (#18), en tête, au-dessus du titre.
     expect(v.bilan.querySelector('.croix')).not.toBeNull();
     expect(v.n.enCours).toBe(false);
+  });
+
+  it('textes par sujet : la consigne des pays, celle des communes ; les boutons portent les noms', () => {
+    const v = monter();
+    v.n.demarrer(v.terrain, 'pays', 'Europe', ['FRA']);
+    expect(v.barre.querySelector('.essai-consigne')?.textContent).toBe('Quel est ce pays ?');
+    expect(v.choix().map((b) => b.textContent).sort()).toEqual(v.choix().map((b) => NOMS[b.dataset.id!]).sort());
+    v.n.demarrer(v.terrain, 'communes', 'La Réunion', ['FRA']);
+    expect(v.barre.querySelector('.essai-consigne')?.textContent).toBe('Quelle est cette commune ?');
+    expect(v.choix().every((b) => b.textContent === NOMS[b.dataset.id!])).toBe(true);
+  });
+
+  it('un sujet factice : consigne, boutons, rétroaction et bilan par son rendu, aucun id ni nom de pays affiché', () => {
+    const v = monter();
+    const vus: string[] = [];
+    const voir = () => vus.push(v.barre.innerText);
+    v.n.demarrer(v.terrain, FACTICE, 'Europe', ['FRA', 'ESP']);
+    expect(v.barre.querySelector('.essai-consigne')?.textContent).toBe('Quelle est cette énigme ?');
+    expect(v.choix().map((b) => b.textContent).sort()).toEqual(v.choix().map((b) => `bouton ${code(b.dataset.id!)}`).sort());
+    voir();
+    v.repondre(true);
+    voir();
+    vi.advanceTimersByTime(900);
+    voir();
+    const choisi = v.choix().find((b) => b.dataset.id !== 'ESP')!.dataset.id!;
+    v.repondre(false);
+    expect(v.barre.querySelector('.essai-retro')?.textContent).toContain(`bonne réponse : choix ${code('ESP')}`);
+    voir();
+    vi.advanceTimersByTime(1800);
+    expect(v.bilan.innerText).toContain(`bilan-nommer ${code('ESP')} : tu as choisi choix ${code(choisi)}`);
+    vus.push(v.bilan.innerText);
+    for (const t of vus) sansBrut(t, [...IDS, ...Object.values(NOMS)]);
   });
 
   it('crochet cadrer (QCM d’une grappe) : la carte cadrée sur la région avant la zone, une seule fois, pas au retour dans la vue', () => {
