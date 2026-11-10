@@ -1521,7 +1521,11 @@ test:regles`), puis Hosting. Sinon chaque publication des nouvelles
 classement »). Les épreuves des capitales s'ouvrent seules le lundi
 16/11/2026 à 0 h UTC (4 h à La Réunion), par la bascule datée du code
 (`EPREUVES_OUVERTES`, décision « Ouverture des épreuves d'un sujet ») :
-règles et site en ligne avant, rien à faire ce jour-là. Le général des
+règles et site en ligne avant, rien à faire ce jour-là pour le site. Un
+APK bâti avec ce code bascule de lui-même ; un plus ancien ignore les
+capitales et publie un général plus bas, refusé sans bruit (étude J2
+§ 3.2) : rebâtir l'APK de l'utilisateur, de jour, après `sauver_journal`
+(pas sur l'A37 avant la fin de la semaine d'usage du J1a, le 13/11). Le général des
 règles monte à chaque sujet ouvert (804 avec les capitales :
 `BORNE_GENERAL`, que `tests/chrono.test.ts` compare aux règles).
 
