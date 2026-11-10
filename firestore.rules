@@ -170,16 +170,15 @@ service cloud.firestore {
     }
 
     // Lots 2 à 5 : `return false;` (rien d'ouvert si les règles partent pour
-    // une autre raison). Lots 6 et 7 : les adresses vérifiées de
-    // l'utilisateur seulement,
-    //   return request.auth.token.email_verified == true
-    //     && request.auth.token.email in ['…'];
+    // une autre raison). Lots 6 et 7 (depuis le 10/11) : les adresses
+    // vérifiées que l'utilisateur a données pour ses essais, ci-dessous.
     // Lot 8 : `return true;`. Urgence : `return false;` ferme tout joueurs/
     // (npx firebase deploy --only firestore). tests/regles.test.ts remplace
-    // ce corps au chargement (vrai, puis la liste d'essai) et vérifie que
-    // celui du dépôt reste fermé.
+    // ce corps au chargement (vrai, ou une liste d'essai de test) et vérifie
+    // que celui du dépôt n'ouvre que ces adresses, vérifiées.
     function essai() {
-      return false;
+      return request.auth.token.email_verified == true
+        && request.auth.token.email in ['micheldm0301@gmail.com', 'micheldm974@yahoo.fr'];
     }
 
     function moi(uid) {

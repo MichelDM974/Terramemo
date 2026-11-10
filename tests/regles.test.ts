@@ -14,7 +14,7 @@ import { semaine } from '../src/epreuve/bareme';
 import { clePermise, clePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
 import type { Evenement } from '../src/srs/journal';
 import { docDuLot, problemeLot, type DocLot } from '../src/sync/lots';
-import { ESSAI_DU_DEPOT, REGLES, reglesAvecEssai } from './regles-essai';
+import { ADRESSES_D_ESSAI, ESSAI_DU_DEPOT, REGLES, reglesAvecEssai } from './regles-essai';
 
 const hote = process.env.FIRESTORE_EMULATOR_HOST;
 const E = 'chrono:localiser:South America';
@@ -323,18 +323,35 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertFails(getDoc(doc(db('ana'), 'ailleurs', 'x')));
   });
 
-  it('version du dépôt : joueurs/ reste fermé jusqu’au lot 6 (essai() faux), même pour son compte', async () => {
-    expect(REGLES).toMatch(ESSAI_DU_DEPOT);
-    const ana = env.authenticatedContext('ana', jetonCompte() as never).firestore() as unknown as Firestore;
-    await assertFails(setDoc(doc(ana, 'joueurs', 'ana'), { v: 1, maj: serverTimestamp() }));
-    await assertFails(getDoc(doc(ana, 'joueurs', 'ana')));
-    const l = lot();
-    await assertFails(setDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id), l.doc));
-    await assertFails(getDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id)));
-    const b = writeBatch(ana);
-    b.set(doc(ana, 'demandes', 'ana'), { pseudo: 'Michel', cree: serverTimestamp() });
-    b.set(doc(ana, 'joueurs', 'ana'), { v: 1, maj: serverTimestamp(), supprime: true });
-    await assertFails(b.commit());
+  it('version du dépôt (lots 6 et 7) : joueurs/ n’est ouvert qu’aux adresses d’essai, vérifiées', async () => {
+    // Le corps d'essai() : la liste exacte de l'utilisateur, adresse vérifiée exigée, jamais `return true;` avant le lot 8.
+    const corps = REGLES.match(ESSAI_DU_DEPOT)?.[0] ?? '';
+    expect(corps).toContain('request.auth.token.email_verified == true');
+    expect(corps).not.toMatch(/return\s+true\s*;/);
+    const liste = (corps.match(/in \[([^\]]*)\]/)?.[1] ?? '').split(',').map((s) => s.trim().replace(/^'|'$/g, ''));
+    expect(liste.sort()).toEqual([...ADRESSES_D_ESSAI].sort());
+    // Un compte hors de la liste, vérifié ou non : tout refusé.
+    for (const verifiee of [false, true]) {
+      const ana = env.authenticatedContext('ana', jetonCompte({ verifiee }) as never).firestore() as unknown as Firestore;
+      await assertFails(setDoc(doc(ana, 'joueurs', 'ana'), profil()));
+      await assertFails(getDoc(doc(ana, 'joueurs', 'ana')));
+      const l = lot();
+      await assertFails(setDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id), l.doc));
+      await assertFails(getDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id)));
+      const b = writeBatch(ana);
+      b.set(doc(ana, 'demandes', 'ana'), { pseudo: 'Michel', cree: serverTimestamp() });
+      b.set(doc(ana, 'joueurs', 'ana'), { v: 1, maj: serverTimestamp(), supprime: true });
+      await assertFails(b.commit());
+    }
+    // Une adresse d'essai : refusée tant qu'elle n'est pas vérifiée, puis son profil et ses lots.
+    for (const email of ADRESSES_D_ESSAI) {
+      const moi = (verifiee: boolean) => env.authenticatedContext('moi', jetonCompte({ email, verifiee }) as never).firestore() as unknown as Firestore;
+      await assertFails(setDoc(doc(moi(false), 'joueurs', 'moi'), profil()));
+      await assertSucceeds(setDoc(doc(moi(true), 'joueurs', 'moi'), profil()));
+      const l = lot();
+      await assertSucceeds(setDoc(doc(moi(true), 'joueurs', 'moi', 'lots', l.id), l.doc));
+      await env.clearFirestore();
+    }
   });
 });
 
