@@ -17,6 +17,7 @@
     "test:comptes": "firebase emulators:exec --only auth,firestore --project demo-terramemo \"vitest run --no-file-parallelism tests/comptes.test.ts tests/google.test.ts tests/profil.test.ts tests/envoi.test.ts tests/suppression.test.ts\"",
     "test:synchro": "firebase emulators:exec --only auth,firestore --project demo-terramemo \"vitest run tests/synchro-emulateurs.test.ts\"",
     "test:admin": "firebase emulators:exec --only auth,firestore --project demo-terramemo \"vitest run tests/admin.test.ts\"",
+    "sim:charge": "SIM_CHARGE=1 vitest run tests/sim-charge.test.ts",
     "admin": "node scripts/admin/outil.mjs",
     "geodata": "node geodata/build.mjs",
     "geodata:reunion": "node geodata/reunion.mjs",
