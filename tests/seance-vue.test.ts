@@ -12,7 +12,7 @@ import { ouvrirMemoire } from '../src/journal/memoire';
 import type { Evenement } from '../src/srs/journal';
 import { etat } from '../src/srs/rejeu';
 import { catalogue } from '../src/vues/cibles';
-import type { PiloteSeance, RefusSeance, ReponseJouee } from '../src/vues/essai';
+import type { DemandeSeance, PiloteSeance, RefusSeance, ReponseJouee } from '../src/vues/essai';
 import { carteMemoire } from '../src/vues/carte-memoire';
 import { creerSeances, texteComptes } from '../src/vues/seance';
 import { remplir, textes } from '../src/vues/textes';
@@ -476,8 +476,9 @@ describe('séance : le sujet de bout en bout', () => {
 });
 
 // Le bilan de séance nomme chaque lieu par le rendu du sujet de sa fiche (étude
-// J2 § 5.1 et 6.3). La séance ne pose que des domaines jouables : le sujet
-// factice y prend la place des pays.
+// J2 § 5.1 et 6.3), sur les données du terrain de son bloc ; le refus « tout
+// appris » dit le sujet de la série. La séance ne pose que des domaines
+// jouables : le sujet factice y prend la place des pays, ou des communes seules.
 describe('séance : le bilan par le rendu du sujet', () => {
   beforeEach(() => installerDom());
   afterEach(() => {
@@ -536,5 +537,69 @@ describe('séance : le bilan par le rendu du sujet', () => {
     expect(t2).toContain(`bilan-localiser ${code('POL')} : énigme vue ou passée`);
     expect(t2).toContain(`bilan-nommer ${code(oublie)} : énigme oubliée`);
     for (const t of [t1, t2]) sansBrut(t, [...ids, ...ids.map((id) => monde.noms[id]!)]);
+  });
+
+  /**
+   * La Révision du jour qui mêle les deux domaines : la grappe de communes
+   * entamée (deux rappels faits la veille) puis la grappe de pays ; une commune
+   * touchée à 300 km. Rend le bilan et les ids de chaque domaine.
+   */
+  async function bilanMixte() {
+    const m = await monter(undefined, { ile: () => ile });
+    const a = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: serie('reunion') }) as PiloteSeance;
+    let rappels = 0;
+    for (let q = a.question(); q && rappels < 2; q = a.question()) {
+      if (q.forme === 'trouver') rappels++;
+      a.repondre(juste(q.id, q.forme === 'trouver' ? 'localiser' : 'nommer'));
+    }
+    a.terminer();
+    const p = m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance;
+    const ids = { monde: new Set<string>(), reunion: new Set<string>() };
+    let rate = '';
+    for (let q = p.question(); q; q = p.question()) {
+      const terrain = (q.terrain ?? 'monde') as 'monde' | 'reunion';
+      ids[terrain].add(q.id);
+      const sens = q.forme === 'trouver' ? 'localiser' : 'nommer';
+      if (!rate && terrain === 'reunion' && q.forme === 'trouver') (rate = q.id), p.repondre(faux(q.id, sens));
+      else p.repondre(juste(q.id, sens));
+    }
+    expect(ids.monde.size).toBeGreaterThan(0);
+    expect(ids.reunion.size).toBeGreaterThan(0);
+    expect(rate).toBeTruthy();
+    return { texte: bilan(p), ids, rate };
+  }
+
+  it('pays et communes dans la même séance : chaque lieu nommé par le rendu de son domaine, sur les données de son terrain', async () => {
+    const { texte, ids, rate } = await bilanMixte();
+    for (const id of ids.monde) expect(texte).toContain(monde.noms[id]!);
+    for (const id of ids.reunion) expect(texte).toContain(ile.noms[id]!);
+    expect(texte).toContain(remplir(textes.sujets.communes.rate_km, { nom: ile.noms[rate]!, km: '300\u00a0km' }));
+    sansBrut(texte, [...ids.monde, ...ids.reunion]);
+  });
+
+  it('un sujet factice à la place des communes seules : les communes par son rendu, les pays par le leur', async () => {
+    remplaces.add('communes');
+    const { texte, ids, rate } = await bilanMixte();
+    for (const id of ids.monde) expect(texte).toContain(monde.noms[id]!);
+    for (const id of ids.reunion) expect(texte).toContain(`bilan-localiser ${code(id)}`);
+    expect(texte).toContain(`bilan-localiser ${code(rate)} : manquée de 300\u00a0km`);
+    sansBrut(texte, [...ids.monde, ...ids.reunion, ...[...ids.reunion].map((id) => ile.noms[id]!)]);
+  });
+
+  /** Apprendre sur cette série, jour après jour, jusqu'à un refus autre que « grappe du jour faite ». */
+  async function jusquauRefus(d: Extract<DemandeSeance, { sorte: 'apprendre' }>) {
+    const m = await monter(undefined, { ile: () => ile });
+    for (let k = 0; k < 40; k++) {
+      const r = m.seances.ouvrir(d);
+      if (!('refus' in r)) jouer(r);
+      else if (r.refus === S.grappe_faite) m.h.ts += JOUR_MS;
+      else return r.refus;
+    }
+    throw new Error('jamais tout appris');
+  }
+
+  it('tout appris : le refus d’Apprendre dit le sujet de la série (communes, pays)', async () => {
+    expect(await jusquauRefus({ sorte: 'apprendre', sujet: 'communes', serie: serie('reunion') })).toBe(textes.sujets.communes.tout_appris);
+    expect(await jusquauRefus({ sorte: 'apprendre', sujet: 'pays', serie: serie('South America') })).toBe(textes.sujets.pays.tout_appris);
   });
 });
