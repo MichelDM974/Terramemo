@@ -114,6 +114,13 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   y vérifie aussi le retour arrière et `#jouer-haut` (« ‹ ») d'un niveau,
   une adresse invalide (`#jouer/classe/pays/Atlantide` → `#jouer/classe/pays`)
   et « × » (`#jouer-fermer`) qui ramène à la carte.
+  Puis les « × » (#18, `ui_croix`) : `60-croix-reglages` à
+  `65-croix-reconnaitre-bilan` ; chaque écran qui couvre la carte (⚙,
+  Saisie, Crédits, Confidentialité, Compte, 🏆 liste et épreuve, bilans de
+  Trouver, Reconnaître et des épreuves) a une `.croix` visible de 44 px,
+  sous le doigt, sans chevaucher titre ni bouton, et la toucher mène à
+  `#carte` (⚙ : la popup se ferme) ; bilans des séances : la « × » seule ;
+  Crédits défilés en bas (`61b`) : la « × », collée en haut, reste à portée.
   Hors émulateurs, leur bloc de classement lit la base en ligne : sans
   l'index de Minute (`firestore.indexes.json`), « Classement indisponible ».
   Faites après l'île : le premier usage de la recherche demande
@@ -136,7 +143,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   n'a pas ses deux branches, Classé › Pays ses 7 séries dans l'ordre ou la
   série ses 3 épreuves (et leurs records), si Communes ne saute pas la série,
   si une série « essai » s'y montre, si le retour arrière, « ‹ », une
-  adresse invalide ou « × » mènent ailleurs, si `#chrono` ou `#toucher`
+  adresse invalide ou « × » mènent ailleurs, si un écran de la liste de
+  `ui_croix` n'a pas sa « × » ou si elle ne mène pas à la carte, si `#chrono` ou `#toucher`
   tapés ne mènent pas à Jouer, si « Abandonner » ne ramène pas aux
   exercices de la série avec « Partie abandonnée », si « Autre série » ne
   mène pas aux séries (sur l'île : à ses exercices), si « × » ne ferme pas

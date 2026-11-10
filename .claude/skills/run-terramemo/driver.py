@@ -1134,6 +1134,7 @@ def ui_epreuves(p, capturer, defauts):
     if titre != "Sans faute · Amérique du Sud":
         defauts.append(f"bilan de Sans faute titré {titre!r}")
     capturer("21-sansfaute-bilan")
+    croix_vers_carte(p, defauts, "bilan de Sans faute", "#chrono-bilan")
 
     jouer_partie(p, "minute", "South America")
     p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
@@ -1156,6 +1157,7 @@ def ui_epreuves(p, capturer, defauts):
     if titre != "Minute · Amérique du Sud":
         defauts.append(f"bilan de Minute titré {titre!r}")
     capturer("23-minute-bilan")
+    croix_vers_carte(p, defauts, "bilan de Minute", "#chrono-bilan")
 
 
 def panneau_jouer(p, defauts, quoi):
@@ -1204,6 +1206,135 @@ def panneau_jouer(p, defauts, quoi):
         defauts.append(f"{quoi} : une série « essai » dans Jouer")
     if m["coupes"]:
         defauts.append(f"{quoi} : nom coupé au milieu d'un mot dans Jouer : {m['coupes']}")
+
+
+LIBELLE_CROIX = "Retour à la carte"  # textes.croix.carte
+LIBELLE_CROIX_REGLAGES = "Fermer les paramètres"  # textes.croix.reglages
+
+
+def croix_de(p, conteneur):
+    """La « × » visible de ce conteneur (#18) et ce qui l'entoure : centre,
+    taille, libellé, si elle est bien sous le doigt en son centre
+    (elementFromPoint), et ce qu'elle chevauche : le texte des titres,
+    paragraphes, libellés (rectangles de leurs lignes, pas de leur boîte : le
+    titre passe à côté d'elle, sa boîte non) et les boutons, liens, champs ;
+    None sans « × » visible."""
+    return p.js(f"""(() => {{ const c = document.querySelector({json.dumps(conteneur)});
+      const x = c && [...c.querySelectorAll('.croix')].find(e => e.getClientRects().length);
+      if (!x) return null;
+      const r = x.getBoundingClientRect(), cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+      const sous = document.elementFromPoint(cx, cy);
+      const chevauche = q => q.width > 0 && q.left < r.right - 1 && r.left < q.right - 1 && q.top < r.bottom - 1 && r.top < q.bottom - 1;
+      const nom = e => (e.id ? '#' + e.id : e.tagName.toLowerCase()) + ' ' + e.textContent.trim().slice(0, 24);
+      const lignes = e => {{ const g = document.createRange(); g.selectNodeContents(e); return [...g.getClientRects()]; }};
+      const vis = e => e !== x && !x.contains(e) && e.getClientRects().length;
+      const textes = [...c.querySelectorAll('h1, h2, h3, p, li, label, summary')].filter(vis).filter(e => lignes(e).some(chevauche)).map(nom);
+      const commandes = [...c.querySelectorAll('button, a, input, select, .seg')].filter(vis).filter(e => [...e.getClientRects()].some(chevauche)).map(nom);
+      return {{ x: cx, y: cy, l: r.width, h: r.height, gauche: r.left, droite: r.right, haut: r.top, largeur: innerWidth,
+               libelle: x.getAttribute('aria-label'), titre: x.getAttribute('title'), texte: x.textContent.trim(),
+               sous_le_doigt: !!sous && x.contains(sous), chevauche: [...textes, ...commandes] }}; }})()""")
+
+
+def verifier_croix(p, defauts, quoi, conteneur, libelle=LIBELLE_CROIX, chevauchement=True):
+    """La « × » de cet écran (#18) : visible, 44 px, dans l'écran, sous le
+    doigt en son centre, libellée, sans rien chevaucher (chevauchement faux :
+    écran défilé, où le texte passe sous la « × » collée en haut). Rend son
+    centre, ou None (DÉFAUT) s'il n'y en a pas."""
+    m = croix_de(p, conteneur)
+    if not m:
+        defauts.append(f"{quoi} : pas de « × » visible ({conteneur} .croix)")
+        return None
+    dire(f"  {quoi}, « × » : {m['l']:.0f}×{m['h']:.0f} px à ({m['gauche']:.0f}, {m['haut']:.0f}), chevauche {m['chevauche']}")
+    if m["l"] < 44 or m["h"] < 44:
+        defauts.append(f"{quoi} : « × » de {m['l']:.0f}×{m['h']:.0f} px (44 au moins)")
+    if m["gauche"] < 0 or m["droite"] > m["largeur"] or m["haut"] < 0:
+        defauts.append(f"{quoi} : « × » hors de l'écran ({m['gauche']:.0f}–{m['droite']:.0f} sur {m['largeur']}, en haut à {m['haut']:.0f})")
+    if not m["sous_le_doigt"]:
+        defauts.append(f"{quoi} : « × » couverte en son centre")
+    if chevauchement and m["chevauche"]:
+        defauts.append(f"{quoi} : « × » sur {m['chevauche']}")
+    if m["texte"] != "×" or m["libelle"] != libelle or m["titre"] != libelle:
+        defauts.append(f"{quoi} : « × » {m['texte']!r} libellée {m['libelle']!r} / {m['titre']!r} au lieu de {libelle!r}")
+    return m
+
+
+def croix_vers_carte(p, defauts, quoi, conteneur, capturer=None, capture=None):
+    """La « × » de cet écran (verifier_croix), puis touchée au doigt (à la
+    souris sur PC) : la carte (#carte, vue carte), l'écran fermé. DÉFAUT
+    sinon. `capture` : prise avant le toucher."""
+    m = verifier_croix(p, defauts, quoi, conteneur)
+    if capture:
+        capturer(capture)
+    if not m:
+        return
+    p.toucher(m["x"], m["y"])
+    p.pause(500)
+    ou = [p.js("location.hash"), p.js("document.body.dataset.vue")]
+    ouvert = p.js(f"(() => {{ const c = document.querySelector({json.dumps(conteneur)}); return !!c && c.getClientRects().length > 0; }})()")
+    if ou != ["#carte", "carte"] or ouvert:
+        defauts.append(f"{quoi} : « × » mène à {ou}{', écran encore ouvert' if ouvert else ''} au lieu de la carte")
+
+
+def ui_croix(p, capturer, defauts):
+    """Captures 60 à 65 (#18 : « toujours moyen de revenir à la carte depuis
+    un menu ») : chaque écran qui couvre la carte a sa « × » (verifier_croix),
+    qui mène à la carte (croix_vers_carte) : ⚙ (la popup se ferme, la carte
+    est dessous), la Saisie, Crédits, Confidentialité, Compte (s'il se
+    montre), 🏆 (liste, puis le détail d'une épreuve), les bilans de Toucher
+    et de Reconnaître. Ceux des épreuves (9, 21, 23) se vérifient à leur
+    capture, ceux des séances (34, 37) dans ui_seance ; la « × » de Jouer
+    dans ui_jouer et ui_jouer_parties."""
+    p.js('location.hash = "#carte"')
+    p.pause(300)
+    cliquer(p, "#settings-btn")
+    p.pause(200)
+    m = verifier_croix(p, defauts, "⚙", "#settings-popup", LIBELLE_CROIX_REGLAGES)
+    capturer("60-croix-reglages")
+    if m:
+        p.toucher(m["x"], m["y"])
+        p.pause(300)
+        if not p.js("document.getElementById('settings-popup').hidden") or p.js("document.body.dataset.vue") != "carte":
+            defauts.append(f"⚙ : « × » ne ferme pas la popup sur la carte (vue {p.js('document.body.dataset.vue')})")
+    for vue, conteneur, capture in (("saisie", "#vue-saisie", None), ("credits", "#vue-credits", None),
+                                    ("confidentialite", "#vue-confidentialite", "61-croix-confidentialite")):
+        p.js(f'location.hash = "#{vue}"')
+        attendre_visible(p, conteneur)
+        p.pause(400)
+        if vue == "credits":
+            # Défilés jusqu'en bas (licences dépliées par ui_credits) : la « × » reste à portée, collée en haut.
+            p.js("document.getElementById('vue-credits').scrollTop = 1e6")
+            p.pause(300)
+            verifier_croix(p, defauts, "Crédits, en bas", conteneur, chevauchement=False)
+            capturer("61b-croix-credits-bas")
+            p.js("document.getElementById('vue-credits').scrollTop = 0")
+            p.pause(300)
+        croix_vers_carte(p, defauts, vue, conteneur, capturer, capture)
+    if p.js("!document.getElementById('reglage-compte').hidden"):
+        p.js('location.hash = "#compte"')
+        fin = time.monotonic() + 15
+        while not visible(p, "#vue-compte") and time.monotonic() < fin:
+            p.pause(200)
+        p.pause(400)
+        croix_vers_carte(p, defauts, "Compte", "#vue-compte" if visible(p, "#vue-compte") else "#compte-attente", capturer, "62-croix-compte")
+    else:
+        dire("  Compte : caché (comptes fermés au public), sans « × » à vérifier")
+    cliquer(p, "#classement-btn")
+    attendre_visible(p, "#classement-general")
+    p.pause(800)
+    croix_vers_carte(p, defauts, "🏆", "#classement-general")
+    cliquer(p, "#classement-btn")
+    attendre_visible(p, "#classement-general .essai-serie")
+    cliquer(p, "#classement-general .essai-serie")
+    p.pause(1200)  # les dix premiers se lisent en ligne
+    croix_vers_carte(p, defauts, "🏆, une épreuve", "#classement-general", capturer, "63-croix-classement-epreuve")
+    jouer_partie(p, "localiser", "Europe")
+    cliquer(p, "#essai-terminer")
+    attendre_visible(p, "#essai-bilan")
+    croix_vers_carte(p, defauts, "bilan de Trouver", "#essai-bilan", capturer, "64-croix-trouver-bilan")
+    jouer_partie(p, "nommer", "Europe")
+    cliquer(p, "#nommer-terminer")
+    attendre_visible(p, "#essai-bilan")
+    croix_vers_carte(p, defauts, "bilan de Reconnaître", "#essai-bilan", capturer, "65-croix-reconnaitre-bilan")
 
 
 def ui_jouer(p, capturer, defauts):
@@ -1753,11 +1884,13 @@ def commande_ui(args):
             p.toucher(pt["x"], pt["y"])
         dire(f"  Chrono, bilan : {p.js('document.getElementById(\"chrono-bilan\").innerText')!r}")
         capturer("9-chrono-bilan")
+        croix_vers_carte(p, defauts, "bilan du Chrono", "#chrono-bilan")
         ui_reunion(p, capturer, defauts)
         ui_entete(p, capturer, defauts, telephone)
         ui_epreuves(p, capturer, defauts)
         ui_jouer(p, capturer, defauts)
         ui_jouer_parties(p, defauts)
+        ui_croix(p, capturer, defauts)
         ui_seance(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
@@ -1997,6 +2130,7 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
     if not p.js("!!document.querySelector('#essai-bilan #essai-autre')"):
         defauts.append("bilan d'Apprendre sans « Autre série »")
     capturer("34-apprendre-bilan")
+    verifier_croix(p, defauts, "bilan d'Apprendre", "#essai-bilan")
     n1 = p.js(COMPTER_JOURNAL)
     dire(f"  journal : {n1 - n0} événements pour {n_apprendre} réponses")
     if n1 - n0 != n_apprendre:
@@ -2042,6 +2176,7 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
         if "Révisions :" not in bilan or "du premier coup" not in bilan:
             defauts.append(f"bilan de la révision sans « Révisions : n/m du premier coup » : {bilan!r}")
         capturer("37-revision-bilan")
+        verifier_croix(p, defauts, "bilan de la Révision du jour", "#essai-bilan")
         n3 = p.js(COMPTER_JOURNAL)
         dire(f"  journal : {n3 - n2} événements pour {n_rev} réponses")
         if n3 - n2 != n_rev:
