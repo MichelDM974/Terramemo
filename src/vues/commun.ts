@@ -1,7 +1,9 @@
-import type { Admis } from '../map/acceptes';
+import { acceptesEnPlus, type Admis } from '../map/acceptes';
+import { capitalesChargees, chargerCapitales } from '../map/capitales';
 import type { CarteAffichee } from '../map/carte';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
+import type { OptionsNoter } from '../map/pick';
 import type { Statut } from '../map/types';
 import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
@@ -110,7 +112,9 @@ export type AdmisDit = Admis | { zone: string; tenant: string; sorte: 'jumeau' |
  * zone : Somaliland, Malouines, glacier de Siachen…) : son nom à la place
  * (« zone contestée : Somaliland »). Rien quand la cible la tient : le toucher
  * est juste sans règle à expliquer. Les zones nommées par le rendu du sujet
- * joué (RenduSujet.lieu).
+ * joué (RenduSujet.lieu). Sous Capitales, Jérusalem touchée en Palestine (ou
+ * Jérusalem-Est en Israël, D36 i) : « (capitale revendiquée aussi par
+ * Palestine) ».
  */
 export function texteAdmis(r: Pick<RenduSujet, 'lieu'>, cible: string, admis: AdmisDit | null | undefined): string {
   if (!admis) return '';
@@ -118,6 +122,7 @@ export function texteAdmis(r: Pick<RenduSujet, 'lieu'>, cible: string, admis: Ad
   if (admis.sorte === 'enclave') return remplir(T.admis_enclave, { zone: r.lieu(admis.zone) });
   if (admis.sorte === 'jumeau') return remplir(T.admis_jumeau, { zone: r.lieu(admis.zone) });
   if (admis.sorte === 'partie') return remplir(T.admis_partie, { zone: r.lieu(admis.zone), cible: r.lieu(cible) });
+  if (admis.sorte === 'capitale') return remplir(T.admis_capitale, { zone: r.lieu(admis.zone) });
   if (admis.tenant === cible) return '';
   if (admis.tenant === admis.zone) return remplir(T.admis_contestee_zone, { zone: r.lieu(admis.zone) });
   return remplir(T.admis_contestee, { tenant: r.lieu(admis.tenant) });
@@ -161,16 +166,29 @@ export function anneauSiPetite(t: Pick<Terrain, 'carte' | 'donnees'>, id: string
 export const idsSerie = (s: Serie, t: Terrain): string[] => (s.ids.length ? [...s.ids] : [...t.jouables]);
 
 /**
- * Le terrain d'une série choisie dans Jouer, puis `suite` (avec ses cibles).
- * Déjà chargé (le monde, l'île au second choix) : tout de suite. Sinon
- * (l'île au premier choix) : boutons du niveau désactivés et statut le temps
- * du chargement (un double clic ne lance pas deux parties) ; un échec (hors
- * ligne) l'écrit au statut, on reste sur ce niveau. `encore()` faux à
- * l'arrivée (vue quittée, autre niveau) : pas de suite.
+ * Les données propres d'un sujet, hors de son terrain (étude J2 § 4.2) :
+ * null si elles sont déjà là ou qu'il n'en a pas (pays, communes), sinon
+ * la promesse de leur chargement (capitales.json et son fichier de langue).
  */
-export function avecTerrain(
+export function chargementSujet(sujet: string): Promise<unknown> | null {
+  if (sujet === 'capitales') return capitalesChargees() ? null : chargerCapitales();
+  return null;
+}
+
+/**
+ * Le terrain d'une série choisie dans Jouer, puis les données de son sujet
+ * (étude J2 § 4.2 : une partie attend le sujet, pas seulement le terrain ;
+ * sinon une capitale s'afficherait par son Qid), puis `suite` (avec ses
+ * cibles). Tout déjà là (le monde, l'île au second choix, les capitales
+ * déjà lues) : tout de suite. Sinon : boutons du niveau désactivés et statut
+ * le temps du chargement (un double clic ne lance pas deux parties) ; un
+ * échec (hors ligne) l'écrit au statut, on reste sur ce niveau. `encore()`
+ * faux à l'arrivée (vue quittée, autre niveau) : pas de suite.
+ */
+export function avecSujet(
   ctx: ContexteVue,
   s: Serie,
+  sujet: string,
   o: { boutons: readonly HTMLButtonElement[]; statut: HTMLElement; encore: () => boolean },
   suite: (t: Terrain, ids: string[]) => void,
 ): void {
@@ -179,22 +197,43 @@ export function avecTerrain(
     o.statut.hidden = !m;
   };
   const deja = s.terrain === 'monde' ? ctx.terrains.monde : ctx.terrains.deja(s.terrain);
-  if (deja) {
+  const donnees = chargementSujet(sujet);
+  if (deja && !donnees) {
     dire('');
     return suite(deja, idsSerie(s, deja));
   }
   const actifs = o.boutons.filter((b) => !b.disabled);
   for (const b of actifs) b.disabled = true;
-  dire(textes.toucher.chargement_terrain);
+  dire(deja ? textes.toucher.chargement_sujet : textes.toucher.chargement_terrain);
   const fin = (m: string) => {
     for (const b of actifs) b.disabled = false;
     dire(m);
   };
-  ctx.terrains.charger(s.terrain).then(
-    (t) => {
-      fin('');
-      if (o.encore()) suite(t, idsSerie(s, t));
-    },
-    () => fin(textes.toucher.echec_terrain),
-  );
+  const partir = (t: Terrain) => {
+    fin('');
+    if (o.encore()) suite(t, idsSerie(s, t));
+  };
+  // Le terrain, puis le sujet : chaque échec a son message (la carte de l'île, ou les données du sujet).
+  const avecDonnees = (t: Terrain) => {
+    const d = donnees ?? chargementSujet(sujet);
+    if (!d) return partir(t);
+    d.then(
+      () => partir(t),
+      () => fin(textes.toucher.echec_sujet),
+    );
+  };
+  if (deja) return avecDonnees(deja);
+  ctx.terrains.charger(s.terrain).then(avecDonnees, () => fin(textes.toucher.echec_terrain));
+}
+
+/**
+ * Les options de noter() pour la question de ce lieu dans ce sujet : les
+ * zones admises de la carte (`base` : faux, le de fait strict des épreuves
+ * d'avant leur date), plus celles du sujet (D36 i : Jérusalem ↔
+ * Jérusalem-Est sous Capitales), jamais dans la table commune.
+ */
+export function optionsNoter(r: Pick<RenduSujet, 'admisEnPlus'>, t: Pick<Terrain, 'donnees'>, id: string, base = true): OptionsNoter {
+  const plus = base ? r.admisEnPlus(id) : null;
+  const table = plus ? acceptesEnPlus(t.donnees, id, plus.zones, plus.sorte) : null;
+  return { acceptes: table ?? base };
 }

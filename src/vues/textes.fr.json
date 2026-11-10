@@ -55,18 +55,28 @@
       "pays": {
         "nom": "Pays"
       },
+      "capitales": {
+        "nom": "Capitales"
+      },
       "communes": {
         "nom": "Communes"
       }
     },
     "exercices": {
       "apprendre": "Les pays voisins suivants : QCM, puis les trouver sur la carte",
-      "apprendre_communes": "Les communes voisines suivantes : QCM, puis les trouver sur la carte",
       "localiser": "Touche sur la carte le lieu demandé",
       "nommer": "Un lieu s'allume : choisis son nom parmi quatre",
       "chrono": "{s} s par question, un seul toucher",
       "sansfaute": "{s} s par question, jusqu'à la première erreur",
-      "minute": "Le plus de justes en {s} s"
+      "minute": "Le plus de justes en {s} s",
+      "capitales": {
+        "apprendre": "Les capitales des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
+        "localiser": "Une capitale est donnée : touche son pays sur la carte",
+        "nommer": "Un pays s'allume : choisis sa capitale parmi quatre"
+      },
+      "communes": {
+        "apprendre": "Les communes voisines suivantes : QCM, puis les trouver sur la carte"
+      }
     },
     "essai_aide": "(précision, J0)"
   },
@@ -76,6 +86,8 @@
     "nommer": "Reconnaître",
     "chargement_terrain": "Chargement de la carte de l'île…",
     "echec_terrain": "La carte de l'île n'a pas pu se charger (hors ligne ?).",
+    "chargement_sujet": "Chargement…",
+    "echec_sujet": "Les données n'ont pas pu se charger (hors ligne ?).",
     "serie_essai": "Essai J0",
     "serie_essai_detail": "les plus difficiles : micro-États, Caraïbes, Pacifique et quelques grands",
     "serie_tous": "Tous les pays",
@@ -84,6 +96,7 @@
     "terminer": "Terminer",
     "recommencer": "Recommencer",
     "juste": "Juste{via} · {essais} · {temps}",
+    "juste_lieu": "Juste{via} : {lieu} · {essais} · {temps}",
     "via_pastille": " (pastille)",
     "via_proche": " (au plus près)",
     "admis_contestee": " (zone contestée, tenue par {tenant})",
@@ -91,6 +104,7 @@
     "admis_enclave": " (enclave : {zone})",
     "admis_jumeau": " (même drapeau : {zone})",
     "admis_partie": " ({zone}, dans {cible})",
+    "admis_capitale": " (capitale revendiquée aussi par {zone})",
     "essai_un": "{n} essai",
     "essais": "{n} essais",
     "faux": "Faux : {touche}{ou}. {suite}",
@@ -103,6 +117,7 @@
     "rate_passe": "passé",
     "rate_distance": ", premier toucher à {km}",
     "nommer_juste": "Juste · {temps}",
+    "nommer_juste_lieu": "Juste : {lieu} · {temps}",
     "nommer_faux": "Faux · bonne réponse : {cible}",
     "bilan_nommer_titre": "Reconnaître · {serie}",
     "bilan_nommer": "{justes} / {n} justes du premier coup",
@@ -221,6 +236,27 @@
         "vu_une": "vu 1 fois"
       }
     },
+    "capitales": {
+      "n": "{n} capitales",
+      "enonce": "Pays dont la capitale est : ",
+      "consigne_nommer": "Quelle est sa capitale ?",
+      "faux_suite": "Le bon pays est en vert : touche-le.",
+      "expire": "Temps écoulé · +0. Le bon pays est en vert.",
+      "expire_sans_points": "Temps écoulé. Le bon pays est en vert.",
+      "la_mer": "la mer",
+      "rate_km": "{nom} : touché à {km} du bord",
+      "rate_trouver": "{nom} : vu ou passé",
+      "rate_oublie": "{nom} : capitale oubliée",
+      "tout_appris": "Toutes les capitales de cette série sont apprises.",
+      "grappe_entamee": "Les capitales commencées aujourd'hui ({serie}) ne sont pas finies : elles passent avant.",
+      "conseil": "Les capitales de cette région ne sont pas encore apprises : {chemin}",
+      "memoire": {
+        "nom": "Capitale",
+        "jamais": "jamais vue",
+        "vu": "vue {n} fois",
+        "vu_une": "vue 1 fois"
+      }
+    },
     "communes": {
       "n": "{n} communes",
       "enonce": "Touche : ",
@@ -242,6 +278,17 @@
         "vu_une": "vue 1 fois"
       }
     }
+  },
+  "capitales": {
+    "roles": {
+      "officielle": "capitale",
+      "siege": "siège du gouvernement",
+      "economique": "capitale économique"
+    },
+    "avec_pays": "{ville} ({pays})",
+    "avec_role": "{ville}, {role} ({pays})",
+    "revele_role": "{ville} ({role})",
+    "recherche": "{role} ({pays})"
   },
   "credits": {
     "reglages": "Fond de carte : Natural Earth ; noms : Unicode CLDR ; communes de La Réunion : IGN, ADMIN EXPRESS (Licence Ouverte 2.0).",

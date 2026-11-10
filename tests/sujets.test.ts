@@ -49,11 +49,13 @@ describe('rendu par sujet', () => {
   it('chaque sujet de Jouer et chaque domaine jouable a son rendu ; un sujet sans rendu lève, plutôt que d’afficher un pays', () => {
     for (const s of SUJETS) expect(estSujetRendu(s.id), s.id).toBe(true);
     for (const d of DOMAINES_JOUABLES) expect(estSujetRendu(d), d).toBe(true);
-    expect(Object.keys(textes.sujets).sort()).toEqual(['communes', 'pays']);
+    expect(Object.keys(textes.sujets)).toEqual(['pays', 'capitales', 'communes']);
     // Le sujet factice des tests n'existe pas dans le code livré.
     expect(estSujetRendu('factice')).toBe(false);
     expect(estSujetRendu('toString')).toBe(false);
-    expect(() => rendu('capitales', { noms })).toThrow(/sujet sans rendu/);
+    expect(() => rendu('drapeaux', { noms })).toThrow(/sujet sans rendu/);
+    // Les capitales sans leurs données : une erreur, jamais un pays ni un Qid à leur place.
+    expect(() => rendu('capitales', { noms })).toThrow(/capitales : données pas chargées/);
     expect(() => compteSerie('mers', 50)).toThrow(/sujet sans rendu/);
     expect(SUJET_CARTE).toEqual({ monde: 'pays', reunion: 'communes' });
   });

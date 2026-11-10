@@ -119,9 +119,13 @@ export interface OptionsNoter {
   /**
    * Admettre les zones contestées et les enclaves de ctx.acceptes (défaut :
    * oui). Non : le de fait strict, pour les épreuves classées d'avant
-   * DEBUT_ACCEPTES_EPREUVES (src/epreuve/bareme.ts).
+   * DEBUT_ACCEPTES_EPREUVES (src/epreuve/bareme.ts). Une table : celles de
+   * ctx.acceptes, puis ces zones en plus, passées par la vue du sujet joué
+   * (étude J2 § 2.2) et jamais mises dans la table commune : Jérusalem ↔
+   * Jérusalem-Est sous Capitales (D36 i), plus tard les jumeaux d'un drapeau,
+   * les parties d'une mer.
    */
-  acceptes?: boolean;
+  acceptes?: boolean | Acceptes;
 }
 
 /**
@@ -150,7 +154,8 @@ export function noter(ctx: ContexteCarte, cible: string, x: number, y: number, o
   const base = { lonlat: ll, pick: p };
   if (ll && contient(e.forme, e.pays.bbox, ll)) return { juste: true, via: 'trace', distance_km: 0, admis: null, ...base };
   if (p?.id === cible) return { juste: true, via: p.via, distance_km: 0, admis: null, ...base };
-  const zones = options.acceptes === false ? [] : (ctx.acceptes?.get(cible) ?? []);
+  const enPlus = typeof options.acceptes === 'object' ? (options.acceptes.get(cible) ?? []) : [];
+  const zones = options.acceptes === false ? [] : [...(ctx.acceptes?.get(cible) ?? []), ...enPlus];
   const admis = (z: (typeof zones)[number]): Admis => ({ zone: z.zone, tenant: z.tenant, sorte: z.sorte });
   if (ll) {
     const z = zones.find((zo) => contient(zo.forme, zo.bbox, ll));

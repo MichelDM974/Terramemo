@@ -50,6 +50,12 @@ export function renduFactice(): RenduSujet {
     touche: (id) => (id ? `touché ${code(id)}` : TEXTES_FACTICES.la_mer),
     fauxSuite: (id) => `suite ${code(id)}.`,
     expire: (id, points) => `${points ? 'sablier compté' : 'sablier'} ${code(id)}`,
+    retro: () => '',
+    point: () => null,
+    points: () => [],
+    qcmPosable: () => true,
+    qcmExclus: () => new Set(),
+    admisEnPlus: () => null,
   };
 }
 

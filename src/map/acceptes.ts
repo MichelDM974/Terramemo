@@ -12,7 +12,12 @@ import { geoBounds } from 'd3-geo';
 import type { DonneesCarte } from './donnees';
 import type { Entite, Forme, Lieu } from './types';
 
-export type SorteAdmise = 'contestee' | 'enclave';
+/**
+ * contestee, enclave : la table commune (construireAcceptes). capitale : une
+ * zone en plus du seul sujet Capitales (D36 i : Jérusalem juste aussi en
+ * Palestine, Jérusalem-Est aussi en Israël), passée par OptionsNoter.acceptes.
+ */
+export type SorteAdmise = 'contestee' | 'enclave' | 'capitale';
 
 /** Pourquoi un toucher hors du tracé de la cible est juste (Note.admis, pick.ts). */
 export interface Admis {
@@ -116,4 +121,17 @@ export function acceptesDe(d: DonneesAcceptes): Acceptes {
   let a = cache.get(d.entites);
   if (!a) cache.set(d.entites, (a = construireAcceptes(d)));
   return a;
+}
+
+/**
+ * Des zones admises en plus pour une cible (OptionsNoter.acceptes) : les
+ * entités `zones` du terrain, de cette sorte, chacune tenue par elle-même.
+ * Une zone absente des données est sautée. Vide : aucune table (null).
+ */
+export function acceptesEnPlus(d: Pick<DonneesAcceptes, 'entites'>, cible: string, zones: readonly string[], sorte: SorteAdmise): Acceptes | null {
+  const l: ZoneAdmise[] = zones.flatMap((z) => {
+    const e = d.entites.find((en) => en.pays.id === z);
+    return e ? [{ zone: z, tenant: z, sorte, forme: e.forme, bbox: e.pays.bbox, entite: true }] : [];
+  });
+  return l.length ? new Map([[cible, l]]) : null;
 }

@@ -450,7 +450,7 @@ describe('la vue Jouer', () => {
     j.ouvrir('entrainement', 'communes', 'reunion');
     expect(j.attr('data-mode')).toEqual(['apprendre', 'localiser', 'nommer']);
     const b = j.panneau.querySelector('[data-mode="apprendre"]')!;
-    expect(b.innerText).toContain(textes.jouer.exercices.apprendre_communes);
+    expect(b.innerText).toContain(textes.jouer.exercices.communes.apprendre);
     const pays = (() => {
       const k = monter();
       k.ouvrir('entrainement', 'pays', 'Europe');

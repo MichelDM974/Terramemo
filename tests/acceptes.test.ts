@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import type { GeoProjection } from 'd3-geo';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
-import { acceptesDe, construireAcceptes, ENCLAVES } from '../src/map/acceptes';
+import { acceptesDe, acceptesEnPlus, construireAcceptes, ENCLAVES } from '../src/map/acceptes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { distanceAuBordKm } from '../src/map/geo';
 import { calculerPastilles } from '../src/map/pastilles';
@@ -222,5 +222,30 @@ describe('construction', () => {
     expect(zonesDe('ARG')).toEqual(expect.arrayContaining(['FLK', 'SGS', 'NE_B12']));
     expect(zonesDe('ISL')).toEqual(['NE_B31']); // Rockall
     expect(acceptes.get('BEL')).toBeUndefined();
+  });
+});
+
+describe('zones en plus d’un sujet (OptionsNoter.acceptes, étude J2 § 2.2) : Jérusalem sous Capitales (D36 i)', () => {
+  const RAMALLAH: [number, number] = [35.2, 31.9];
+  const TEL_AVIV: [number, number] = [34.78, 32.08];
+
+  it('Israël (« Jérusalem ») : un toucher en Palestine juste avec la table du sujet, et dit ; faux sans elle', () => {
+    const plus = acceptesEnPlus(donnees, 'ISR', ['PSE'], 'capitale')!;
+    expect(noteEn('ISR', RAMALLAH).juste).toBe(false);
+    const n = noter(au(RAMALLAH).ctx, 'ISR', L / 2, H / 2, { acceptes: plus });
+    expect(n).toMatchObject({ juste: true, distance_km: 0, admis: { zone: 'PSE', tenant: 'PSE', sorte: 'capitale' } });
+    // La table du sujet s'ajoute à celle de la carte, sans la remplacer : la Crimée reste juste pour l'Ukraine.
+    const crimee = au([34.1, 45.0]);
+    expect(noter(crimee.ctx, 'UKR', crimee.x, crimee.y, { acceptes: acceptesEnPlus(donnees, 'UKR', ['PSE'], 'capitale')! }).juste).toBe(true);
+  });
+
+  it('Palestine (« Jérusalem-Est ») : Israël juste ; la table commune n’en sait rien (Pays, Chrono classé)', () => {
+    expect(noteEn('PSE', TEL_AVIV).juste).toBe(false);
+    const n = noter(au(TEL_AVIV).ctx, 'PSE', L / 2, H / 2, { acceptes: acceptesEnPlus(donnees, 'PSE', ['ISR'], 'capitale')! });
+    expect(n).toMatchObject({ juste: true, admis: { zone: 'ISR', sorte: 'capitale' } });
+    expect(acceptes.get('PSE')?.some((z) => z.zone === 'ISR') ?? false).toBe(false);
+    expect(acceptes.get('ISR')?.some((z) => z.zone === 'PSE') ?? false).toBe(false);
+    // Une table pour une autre cible ne change rien.
+    expect(noter(au(TEL_AVIV).ctx, 'PSE', L / 2, H / 2, { acceptes: acceptesEnPlus(donnees, 'JOR', ['ISR'], 'capitale')! }).juste).toBe(false);
   });
 });

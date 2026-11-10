@@ -8,9 +8,10 @@
 // ou d'un sujet, une icône sinon). « Rejouer » n'est plus ici (choix du 10/11) :
 // il reste au bilan de chaque partie. Toucher
 // un exercice lance la partie (main.ts : Toucher ou la vue des épreuves) ; la
-// carte de l'île se charge ici d'abord (avecTerrain : statut, échec hors
-// ligne). « ‹ » et le fil d'Ariane remontent, « × » ferme (main.ts) ; chaque
-// niveau a son adresse, que main.ts donne à aller().
+// carte de l'île et les données d'un sujet (les capitales) se chargent ici
+// d'abord (avecSujet : statut, échec hors ligne). « ‹ » et le fil d'Ariane
+// remontent, « × » ferme (main.ts) ; chaque niveau a son adresse, que
+// main.ts donne à aller().
 import { idEpreuve, lireRecords, type RecordChrono } from '../epreuve/chrono';
 import { estDomaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
@@ -31,7 +32,7 @@ import {
   type Niveau,
 } from './arbre';
 import { nomSerie, SERIE_TOUS, type Serie } from './cibles';
-import { avecTerrain, creer, type ContexteVue, type Vue } from './commun';
+import { avecSujet, creer, type ContexteVue, type Vue } from './commun';
 import { scoreCourt, secondesMode } from './scores';
 import { texteComptes, type ComptesSeance } from './seance';
 import { compteSerie } from './sujets';
@@ -50,9 +51,13 @@ function stockage(): Storage | null {
   }
 }
 
-/** Phrase courte sous le nom d'un exercice : « 15 s par question, un seul toucher » ; Apprendre dit pays ou communes selon le sujet. */
+/**
+ * Phrase courte sous le nom d'un exercice : « 15 s par question, un seul
+ * toucher » ; celle du sujet s'il en a une (jouer.exercices.<sujet>.<mode> :
+ * Apprendre dit pays, capitales ou communes), la phrase générique sinon.
+ */
 export const detailExercice = (m: ModeJeu, sujet = 'pays'): string =>
-  remplir(m === 'apprendre' && sujet === 'communes' ? J.exercices.apprendre_communes : J.exercices[m], { s: estEpreuve(m) ? secondesMode(m) : 0 });
+  remplir((J.exercices as unknown as Record<string, Partial<Record<ModeJeu, string>> | undefined>)[sujet]?.[m] ?? J.exercices[m], { s: estEpreuve(m) ? secondesMode(m) : 0 });
 
 /** Règles complètes d'une épreuve (barème, départage), derrière « ? » ; '' pour un exercice d'entraînement. */
 export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[m].aide, { s: secondesMode(m) }) : '');
@@ -158,7 +163,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     const s = arbre.serie(l.sujet, l.serie);
     if (!s) return;
     const j = jeton;
-    avecTerrain(ctx, s, { boutons, statut, encore: () => j === jeton && !panneau.hidden }, (t, ids) => o.lancer(l, s, t, ids));
+    avecSujet(ctx, s, l.sujet, { boutons, statut, encore: () => j === jeton && !panneau.hidden }, (t, ids) => o.lancer(l, s, t, ids));
   }
 
   function entete(n: Niveau): HTMLElement[] {
@@ -278,7 +283,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     rendue = adresse(n);
     niveauRendu = n;
     marquerChemin(n);
-    // Statut : le chargement de l'île et son échec (avecTerrain), une partie abandonnée.
+    // Statut : le chargement de l'île ou d'un sujet et son échec (avecSujet), une partie abandonnée.
     const statut = creer('p', { class: 'hint jouer-statut', 'aria-live': 'polite' }, aDire);
     statut.hidden = !aDire;
     aDire = '';

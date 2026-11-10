@@ -50,6 +50,22 @@ export const jouablesDu = (t: NomTerrain, jouables: readonly Domaine[] = DOMAINE
 export const SENS: readonly Sens[] = ['localiser', 'nommer'];
 
 /**
+ * Les entités d'un domaine qui n'ont jamais de fiche nommer : D37 c, les 9
+ * pays dont la capitale porte le nom (Reconnaître serait gratuit : Luxembourg
+ * allumé, « Luxembourg » parmi 4). Ni introduites ni posées en QCM (Apprendre,
+ * Reconnaître), ni prises en leurre ; elles restent en Trouver, dans les
+ * séries et dans les épreuves. Écrites ici pour que la planification (pure)
+ * les connaisse sans charger capitales.json ; le test les confronte à ses
+ * lignes m: 1.
+ */
+export const SANS_NOMMER: Readonly<Partial<Record<Domaine, ReadonlySet<string>>>> = {
+  capitales: new Set(['DJI', 'GTM', 'KWT', 'LUX', 'MCO', 'PAN', 'SGP', 'SMR', 'VAT']),
+};
+
+/** L'entité a-t-elle une fiche nommer dans ce domaine (posée en QCM, en carte retournée) ? */
+export const nommerPose = (domaine: Domaine, id: string): boolean => !SANS_NOMMER[domaine]?.has(id);
+
+/**
  * Sens révisés au J1a (décision « Sens « quel est ce pays ? » » du 06/11) :
  * localiser (Trouver) et nommer, qui se révise en carte retournée (la zone
  * s'allume, on pense au nom, « Révéler », puis « Je savais » ou « Je ne

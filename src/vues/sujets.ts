@@ -9,19 +9,24 @@
 // endroit par sujet. Un endroit oublié afficherait le nom du pays dans une
 // partie de capitales, ou l'id brut (« medit ») d'une mer.
 //
-// Pays et communes : le nom du lieu partout (nomDe). Les sujets suivants
-// ajoutent ici leur rendu : capitales (énoncé sur deux lignes, « Pays dont la
-// capitale est : » puis « La Paz » ; révélation « Sucre · La Paz (siège du
-// gouvernement) »), drapeaux (une image dans la barre et dans chaque bouton)
-// et mers (« mer Égée, à 300 km » au bilan). Ce que cette interface n'a pas
-// encore rouvrira les vues à leur lot (étude J2 § 11) : le pays dit dans la
-// rétroaction juste des capitales (« La Paz · capitale de la Bolivie »,
-// § 5.2 : essai.ts, vues/chrono.ts, nommer.ts), le choix fait dans la
-// rétroaction fausse des drapeaux (« tu avais choisi celui de la Roumanie »,
-// § 5.3 : nommer.ts), et leurs données hors de t.donnees (capitales,
-// manifeste des drapeaux, noms des mers).
+// Pays et communes : le nom du lieu partout (nomDe). Capitales (§ 5.2) :
+// « Pays dont la capitale est : » puis « La Paz » (deux lignes) ; un pays
+// allumé, « Quelle est sa capitale ? », quatre noms de capitales ; « Révéler »
+// donne « Sucre · La Paz (siège du gouvernement) » ; la rétroaction nomme le
+// pays (« La Paz, siège du gouvernement (Bolivie) ») et un anneau marque la
+// ville (D53 c) ; les bilans « Porto-Novo (Bénin) », « Bénin : capitale
+// oubliée ». La capitale montrée d'un pays qui en a plusieurs (D38) : tirée au
+// hasard parmi les justes hors épreuve, et fixée pour la question (le même
+// rendu la redonne : une reprise de la question garde la même) ; en épreuve,
+// celle de l'épreuve (e: 1), la même pour tous. Ses données (capitales.json)
+// ne sont pas dans t.donnees : chargées avant la partie (commun.ts avecSujet,
+// la séance), lues ici. Le Qid ne s'affiche jamais. Viendront à leur lot :
+// drapeaux (une image dans la barre et dans chaque bouton) et mers (« mer
+// Égée, à 300 km » au bilan).
+import type { SorteAdmise } from '../map/acceptes';
+import { ADMET_EN_PLUS, capitalesChargees, type Capitale, type DonneesCapitales } from '../map/capitales';
 import type { NomTerrain } from '../map/types';
-import type { Sens } from '../srs/fiches';
+import { nommerPose, SANS_NOMMER, type Sens } from '../srs/fiches';
 import { remplir, textes, type Textes } from './textes';
 
 /** Les sujets qui ont leur rendu : ceux qui ont leurs textes (textes.sujets). */
@@ -59,10 +64,14 @@ export interface RenduSujet {
   enonce(id: string): Enonce;
   /** La consigne de Reconnaître et de la carte retournée, la zone allumée (« Quel est ce pays ? »). */
   readonly consigneQcm: string;
-  /** Le contenu du bouton de ce lieu dans Reconnaître. */
-  choix(id: string): Contenu;
-  /** Ce même choix dit en texte : la bonne réponse de la rétroaction, « tu as choisi … » au bilan. */
-  nomChoix(id: string): string;
+  /**
+   * Le contenu du bouton de ce lieu dans Reconnaître ; `question` : le lieu
+   * demandé, quand ce bouton est un leurre (une capitale leurre montre la
+   * principale de son pays, § 2.1).
+   */
+  choix(id: string, question?: string): Contenu;
+  /** Ce même choix dit en texte : la bonne réponse de la rétroaction, « tu as choisi … » au bilan (`question` : comme choix()). */
+  nomChoix(id: string, question?: string): string;
   /** Ce que « Révéler » montre sur la carte retournée. */
   revelation(id: string): Contenu;
   /** Le lieu d'une question dans les bilans (ratés, fautes, nouveaux), selon le sens de la question. */
@@ -75,11 +84,32 @@ export interface RenduSujet {
   fauxSuite(id: string): string;
   /** Le temps d'une question d'épreuve écoulé ; `points` : le Chrono, qui le compte « +0 ». */
   expire(id: string, points: boolean): string;
+  /**
+   * La rétroaction d'une réponse juste dit le lieu de la question, quand
+   * l'énoncé ne le nommait pas (« La Paz, siège du gouvernement (Bolivie) ») ;
+   * '' pour les pays et les communes (l'énoncé l'a nommé).
+   */
+  retro(id: string): string;
+  /** Le point [lon, lat] marqué d'un anneau à la rétroaction (la ville montrée, D53 c) ; null sans point. */
+  point(id: string): [number, number] | null;
+  /** Les points de tout ce que « Révéler » montre (les capitales justes) ; [] sans point. */
+  points(id: string): [number, number][];
+  /** Le lieu se pose-t-il en QCM (Reconnaître, QCM d'Apprendre) ? Non pour les 9 de D37 c. */
+  qcmPosable(id: string): boolean;
+  /** Les lieux jamais leurres pour la question de ce lieu (qcm.choix, option exclus). */
+  qcmExclus(id: string): ReadonlySet<string>;
+  /**
+   * Les zones (entités du terrain) justes en plus pour la question de ce
+   * lieu, selon ce qu'elle montre, et leur sorte (OptionsNoter.acceptes) :
+   * Jérusalem ↔ Jérusalem-Est sous Capitales (D36 i) ; null sans zone.
+   */
+  admisEnPlus(id: string): { zones: readonly string[]; sorte: SorteAdmise } | null;
 }
 
-/** Les données d'un terrain dont un rendu a besoin : les noms de ses zones. */
+/** Les données d'un terrain dont un rendu a besoin : les noms de ses zones ; les capitales (à défaut : celles déjà chargées, src/map/capitales.ts). */
 export interface DonneesSujet {
   noms: Readonly<Record<string, string>>;
+  capitales?: DonneesCapitales | null;
 }
 
 /**
@@ -89,6 +119,8 @@ export interface DonneesSujet {
  */
 export interface OptionsRendu {
   epreuve?: boolean;
+  /** Hasard du tirage d'une capitale parmi les justes (D38 a ; tests : une graine). */
+  hasard?: () => number;
 }
 
 /**
@@ -105,6 +137,16 @@ type Fabrique = (ts: TextesSujet, d: DonneesSujet, o: OptionsRendu) => Omit<Rend
 /** Les textes de chaque sujet : une clé de moins qu'aux pays ne compile pas. */
 const TEXTES: Readonly<Record<SujetRendu, TextesSujet>> = textes.sujets;
 
+/** Rien de propre au sujet : ni rétroaction en plus, ni point, ni exclusion, ni zone admise en plus. */
+const SANS_PLUS = {
+  retro: () => '',
+  point: () => null,
+  points: () => [],
+  qcmPosable: () => true,
+  qcmExclus: () => new Set<string>(),
+  admisEnPlus: () => null,
+} satisfies Partial<RenduSujet>;
+
 /** Le lieu par son nom, partout : les pays et les communes. */
 const parNom: Fabrique = (ts, d) => {
   const nom = (id: string) => nomDe(d, id);
@@ -119,11 +161,79 @@ const parNom: Fabrique = (ts, d) => {
     touche: (id) => (id ? nom(id) : ts.la_mer),
     fauxSuite: () => ts.faux_suite,
     expire: (_id, points) => (points ? ts.expire : ts.expire_sans_points),
+    ...SANS_PLUS,
+  };
+};
+
+const C = textes.capitales;
+
+/**
+ * Les capitales (étude J2 § 5.2) : la cible est le pays ; on montre sa
+ * capitale. Lève si les capitales ne sont pas chargées (une partie de
+ * capitales ne part qu'après elles : commun.ts avecSujet, la séance).
+ */
+const parCapitale: Fabrique = (ts, d, o) => {
+  const donnees = d.capitales ?? capitalesChargees();
+  if (!donnees) throw new Error('capitales : données pas chargées');
+  const hasard = o.hasard ?? Math.random;
+  const pays = (id: string) => nomDe(d, id);
+  const de = (id: string) => donnees.parPays.get(id);
+  /** D38 a : la capitale tirée pour la question de ce pays, gardée tant que dure ce rendu. */
+  const tirees = new Map<string, Capitale>();
+  /** La capitale montrée pour la question de ce pays : celle de l'épreuve (D38 d), ou tirée parmi les justes et fixée (D38 a). */
+  function montree(id: string): Capitale | null {
+    const c = de(id);
+    if (!c) return null;
+    if (o.epreuve) return c.epreuve;
+    let x = tirees.get(id);
+    if (!x) tirees.set(id, (x = c.justes[Math.floor(hasard() * c.justes.length)] ?? c.principale));
+    return x;
+  }
+  /** Ce qu'on a montré pour ce pays (sans tirer), à défaut la principale : les bilans d'une séance, faits d'un rendu neuf. */
+  const montreeOuPrincipale = (id: string): Capitale | null => (o.epreuve ? (de(id)?.epreuve ?? null) : (tirees.get(id) ?? de(id)?.principale ?? null));
+  // À défaut de capitale (un pays sans ligne : jamais un jouable, le test le vérifie), le nom du pays, jamais un Qid.
+  const ville = (id: string) => montree(id)?.nom ?? pays(id);
+  /** Un leurre montre la principale de son pays (§ 2.1) : jamais une autre capitale juste de la cible. */
+  const bouton = (id: string, question?: string) => (question === undefined || question === id ? ville(id) : (de(id)?.principale.nom ?? pays(id)));
+  const role = (c: Capitale) => (c.role === 'officielle' ? '' : C.roles[c.role]);
+  const avecPays = (c: Capitale, id: string) =>
+    role(c) ? remplir(C.avec_role, { ville: c.nom, role: role(c), pays: pays(id) }) : remplir(C.avec_pays, { ville: c.nom, pays: pays(id) });
+  return {
+    enonce: (id) => ({ invite: ts.enonce, objet: { texte: ville(id) }, deuxLignes: true }),
+    consigneQcm: ts.consigne_nommer,
+    choix: (id, question) => ({ texte: bouton(id, question) }),
+    nomChoix: bouton,
+    revelation: (id) => ({
+      texte: (de(id)?.justes ?? []).map((c) => (role(c) ? remplir(C.revele_role, { ville: c.nom, role: role(c) }) : c.nom)).join(' · ') || pays(id),
+    }),
+    // « Porto-Novo (Bénin) » ; une capitale oubliée (sens nommer) : « Bénin », le pays allumé.
+    nomBilan: (id, sens) => {
+      const c = montreeOuPrincipale(id);
+      return sens === 'nommer' || !c ? pays(id) : remplir(C.avec_pays, { ville: c.nom, pays: pays(id) });
+    },
+    lieu: pays,
+    touche: (id) => (id ? pays(id) : ts.la_mer),
+    fauxSuite: () => ts.faux_suite,
+    expire: (_id, points) => (points ? ts.expire : ts.expire_sans_points),
+    retro: (id) => {
+      const c = montree(id);
+      return c ? avecPays(c, id) : '';
+    },
+    point: (id) => montree(id)?.point ?? null,
+    points: (id) => (de(id)?.justes ?? []).map((c) => c.point),
+    qcmPosable: (id) => nommerPose('capitales', id),
+    // Les 9 au nom de leur capitale (D37 c) et le pays de x (Israël ↔ Palestine) : jamais leurres.
+    qcmExclus: (id) => new Set([...(SANS_NOMMER.capitales ?? []), ...(de(id)?.sansLeurre ?? [])]),
+    admisEnPlus: (id) => {
+      const c = montree(id);
+      const zones = c ? (ADMET_EN_PLUS[c.q] ?? []) : [];
+      return zones.length ? { zones, sorte: 'capitale' } : null;
+    },
   };
 };
 
 /** Le rendu de chaque sujet : un sujet qui a ses textes a son rendu, sinon le build ne compile pas. */
-const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, communes: parNom };
+const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, capitales: parCapitale, communes: parNom };
 
 /** Le sujet a-t-il son rendu (ses textes) ? */
 export const estSujetRendu = (s: string): s is SujetRendu => Object.keys(FABRIQUES).includes(s);

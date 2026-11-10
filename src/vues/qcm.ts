@@ -32,28 +32,88 @@ function melanger<T>(t: readonly T[], aleatoire: () => number): T[] {
 }
 
 /**
- * Les choix d'une question : la cible et 3 leurres, mélangés. Leurres : ses
- * voisins jouables (3 tirés au hasard s'il y en a plus), complétés par les
- * jouables les plus proches (geoDistance entre points d'étiquette, puis id)
- * ; jamais la cible, jamais deux fois le même. Lève si moins de 4 jouables.
+ * Une source de leurres d'une stratégie : les lieux qu'elle propose pour la
+ * cible (choix() en retire la cible, les non jouables, les exclus, les noms
+ * proches et ceux déjà pris), dont `n` au plus sont tirés au hasard (à
+ * défaut, autant qu'il reste de places).
+ */
+export interface SourceLeurres {
+  candidats(cible: LieuQcm): Iterable<string>;
+  n?: number;
+}
+
+/**
+ * Une stratégie de leurres (étude J2 § 5.1, 9.2) : ses sources dans l'ordre,
+ * complétées par les jouables les plus proches s'il manque des leurres.
+ * L'Entraînement (Reconnaître, QCM d'Apprendre) prend les voisins d'abord
+ * (décision « Nommer », LEURRES_VOISINS) ; le quiz (lot 4a) compose les
+ * siennes par difficulté : lieux connus du même continent (leurresParmi sur
+ * un niveau et un groupe), un voisin puis deux du niveau, sosies ou drapeaux
+ * éloignés (leurresParmi sur leurs scores).
+ */
+export type StrategieLeurres = readonly SourceLeurres[];
+
+/** Les voisins jouables de la cible, au hasard. */
+export const VOISINS: SourceLeurres = { candidats: (l) => l.voisins };
+/** La stratégie de l'Entraînement : les voisins, puis les plus proches. */
+export const LEURRES_VOISINS: StrategieLeurres = [VOISINS];
+
+/** Une source tirée d'une liste par cible (lieux connus d'un groupe, sosies, éloignés…), `n` au plus. */
+export function leurresParmi(candidats: (cible: string) => Iterable<string>, n?: number): SourceLeurres {
+  return { candidats: (l) => candidats(l.id), ...(n === undefined ? {} : { n }) };
+}
+
+export interface OptionsChoix {
+  /**
+   * Jamais leurres (étude J2 § 5.1) : le pays de x pour Jérusalem, les 9 pays
+   * au nom de leur capitale (D37 c), les jumeaux d'un drapeau, les ancêtres
+   * et descendants d'une mer…
+   */
+  exclus?: ReadonlySet<string>;
+  /** Par sujet et par difficulté ; LEURRES_VOISINS par défaut. */
+  strategie?: StrategieLeurres;
+  /**
+   * Deux lieux dont les noms affichés se confondent (Kingston et Kingstown) :
+   * aucun leurre proche de la cible. Au quiz facile et moyen seulement (§ 2.1) ;
+   * en difficile, ce sont de bons leurres.
+   */
+  proches?: (cible: string, leurre: string) => boolean;
+}
+
+/**
+ * Les choix d'une question : la cible et 3 leurres, mélangés. Leurres : ceux
+ * de la stratégie (par défaut ses voisins jouables, 3 tirés au hasard s'il y
+ * en a plus), complétés par les jouables les plus proches (geoDistance entre
+ * points d'étiquette, puis id) ; jamais la cible, jamais deux fois le même,
+ * jamais un exclu ni un nom proche. Lève si moins de 4 choix possibles.
  * Les voisins d'abord : confondre la Slovénie et la Croatie est l'erreur qui
  * apprend quelque chose ; les plus proches donnent des leurres à une île
  * sans voisin (Maurice) plutôt que des pays tirés au hasard à l'autre bout
  * du monde. `jouables` = tout le terrain, pas la série : un voisin hors de
  * la série reste un bon leurre ; un voisin non jouable (territoire) est sauté.
+ * La réponse reste l'id choisi (choisi === cible) : seul l'affichage d'un
+ * choix change d'un sujet à l'autre (sujets.ts).
  */
 export function choix(
   cible: string,
   lieux: ReadonlyMap<string, LieuQcm>,
   jouables: ReadonlySet<string>,
   aleatoire: () => number = Math.random,
+  o: OptionsChoix = {},
 ): string[] {
   const lieu = lieux.get(cible);
   if (!lieu) throw new Error(`choix : lieu inconnu ${cible}`);
-  const candidats = [...jouables].filter((id) => id !== cible && lieux.has(id));
+  const permis = (id: string) => id !== cible && jouables.has(id) && lieux.has(id) && !o.exclus?.has(id) && !o.proches?.(cible, id);
+  const candidats = [...jouables].filter(permis);
   if (candidats.length < NB_CHOIX - 1) throw new Error(`choix : ${candidats.length + 1} jouables, il en faut ${NB_CHOIX}`);
-  const voisins = [...new Set(lieu.voisins)].filter((id) => id !== cible && jouables.has(id) && lieux.has(id));
-  const leurres = melanger(voisins, aleatoire).slice(0, NB_CHOIX - 1);
+  const leurres: string[] = [];
+  for (const s of o.strategie ?? LEURRES_VOISINS) {
+    const places = NB_CHOIX - 1 - leurres.length;
+    if (places <= 0) break;
+    const pris = new Set(leurres);
+    const proposes = [...new Set(s.candidats(lieu))].filter((id) => permis(id) && !pris.has(id));
+    leurres.push(...melanger(proposes, aleatoire).slice(0, Math.min(places, s.n ?? places)));
+  }
   if (leurres.length < NB_CHOIX - 1) {
     const pris = new Set(leurres);
     // Distance angulaire : le classement seul compte ; id en second pour un ordre stable.
