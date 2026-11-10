@@ -743,7 +743,7 @@ async function demarrer(): Promise<void> {
       choisir: (l) => {
         // Tout de suite (pas en remontant l'historique, qui attendrait le popstate) : le lieu se montre sur la carte affichée.
         nav.pousser('carte');
-        explorer?.montrerLieu(l.terrain, l.id);
+        explorer?.montrerLieu(l.terrain, l.id, l.point);
       },
     });
   // L'Essai J0 (⚙) : la série des plus difficiles, celle du pilote de mesure, hors de Jouer.

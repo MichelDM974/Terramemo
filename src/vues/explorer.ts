@@ -1,6 +1,7 @@
 // Vue « Carte » : explorer, l'accueil. Toucher une zone la met en accent et
 // affiche son nom ; un lieu choisi dans la recherche de l'en-tête (recherche.ts)
-// y est montré : la carte vole jusqu'à lui. Une commune ouvre la carte de l'île
+// y est montré : la carte vole jusqu'à lui (une capitale : son pays, et un
+// anneau à la ville). Une commune ouvre la carte de l'île
 // (chargée au premier choix), où l'on explore de même ; « Monde » ramène au monde.
 // La carte de la mémoire (J1a, étude § 7) : les teintes du terrain montré,
 // posées ici et retirées en partant (aucune autre vue ne les voit), sa légende
@@ -25,8 +26,12 @@ const M = textes.memoire;
 const nomSujet = (d: Domaine): string => (textes.jouer.sujets as Partial<Record<string, { nom: string }>>)[d]?.nom ?? d;
 
 export interface VueExplorer extends Vue {
-  /** Montre ce lieu (recherche) : son terrain, la zone en accent, la carte qui vole jusqu'à elle. */
-  montrerLieu(terrain: NomTerrain, id: string): void;
+  /**
+   * Montre ce lieu (recherche) : son terrain, la zone en accent, la carte qui
+   * vole jusqu'à elle ; `point` : un anneau en plus à ce point (une capitale,
+   * dans son pays, D53 c).
+   */
+  montrerLieu(terrain: NomTerrain, id: string, point?: [number, number]): void;
   /** Teintes, légende et ligne de la zone touchée relues (mémoire chargée, réglage changé) ; sans effet hors de l'accueil. */
   rafraichir(): void;
 }
@@ -143,9 +148,10 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   }
 
   /** La zone en accent, la carte qui vole jusqu'à elle au-dessus de la barre, un anneau si elle reste minuscule. */
-  function montrer(terrain: Terrain, id: string): void {
+  function montrer(terrain: Terrain, id: string, point?: [number, number]): void {
     aller(terrain);
     t.carte.marquer(id, 'choisi');
+    if (point) t.carte.anneauEn(point, 'choisi');
     afficher(id, null);
     const carte = t.carte;
     carte.montrer(id, barre.getBoundingClientRect().top - carte.hote.getBoundingClientRect().top);
@@ -184,9 +190,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       const id = barre.dataset.id;
       if (id) afficher(id, viaAffiche);
     },
-    montrerLieu(terrain, id) {
+    montrerLieu(terrain, id, point) {
       const j = ++jeton;
-      if (terrain === 'monde') return montrer(ctx.terrains.monde, id);
+      if (terrain === 'monde') return montrer(ctx.terrains.monde, id, point);
       const deja = ctx.terrains.deja(terrain);
       if (deja) return montrer(deja, id);
       // L'île au premier choix : son chargement annoncé dans la barre.

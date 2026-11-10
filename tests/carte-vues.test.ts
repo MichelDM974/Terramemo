@@ -254,10 +254,12 @@ describe('carte de la mémoire à l’accueil', () => {
   function monter(o: { memoire?: CarteMemoire } = {}) {
     const zone = new El('main');
     const teintes: (Map<string, number> | null)[] = [];
+    const anneaux: string[] = [];
     const carte = {
       effacerMarques() {},
       marquer() {},
       anneau() {},
+      anneauEn: (p: [number, number], c: string) => void anneaux.push(`${p.join(',')}:${c}`),
       teinter(t: Map<string, number> | null) {
         teintes.push(t);
       },
@@ -281,11 +283,22 @@ describe('carte de la mémoire à l’accueil', () => {
     const vue = vueExplorer(ctx, o);
     const legende = zone.querySelector('#legende-memoire')!;
     const detail = () => zone.querySelector('#barre-carte .barre-detail')!.textContent;
-    return { vue, teintes, derniere: () => teintes.at(-1), legende, detail, ctx, monde };
+    return { vue, teintes, derniere: () => teintes.at(-1), legende, detail, ctx, monde, anneaux, nom: () => zone.querySelector('#barre-carte .barre-nom')!.textContent };
   }
   let pickSuivant = 'FRA';
   /** Un seul sujet jouable par terrain (la légende et la ligne d'avant le lot 1) ; deux sujets : tests/carte-memoire.test.ts. */
   const UN_SUJET = { jouables: ['pays', 'communes'] as const };
+
+  it('un lieu de la recherche : son pays nommé ; une capitale, un anneau à son point (D53 c, étude J2 § 7.3)', () => {
+    const v = monter({});
+    v.vue.activer();
+    v.vue.montrerLieu('monde', 'ITA');
+    expect(v.nom()).toBe('Italie');
+    expect(v.anneaux).toEqual([]);
+    v.vue.montrerLieu('monde', 'ITA', [12.5, 41.9]);
+    expect(v.nom()).toBe('Italie');
+    expect(v.anneaux).toEqual(['12.5,41.9:choisi']);
+  });
 
   it('posées à l’activer (la fiche la plus faible décide), retirées au desactiver ; légende et maîtrisés', async () => {
     const m = await memoire();

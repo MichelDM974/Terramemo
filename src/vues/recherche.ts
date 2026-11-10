@@ -3,21 +3,28 @@
 // (pays, territoires, zones au statut contesté) et les communes de La Réunion.
 // Choisir un lieu le montre sur la carte (vue Carte, explorer.ts). Les noms des
 // communes (620 octets) ne sont demandés qu'au premier usage du champ : rien de
-// /geo/reunion/ au premier affichage (décision « Hébergement »). Capitales et
-// villes s'y ajouteront avec leurs données (J2, J4).
+// /geo/reunion/ au premier affichage (décision « Hébergement »). Les capitales
+// (étude J2 § 7.3) : une ligne par capitale juste, avec ses alias (Kyiv,
+// Beijing), chargées à la première frappe ; choisie, une capitale montre son
+// pays et un anneau au point de la ville (D53 c). Les villes viendront au J4.
+import { chargerCapitales, type DonneesCapitales } from '../map/capitales';
 import type { DonneesCarte } from '../map/donnees';
 import { REUNION } from '../map/terrain';
 import type { NomTerrain } from '../map/types';
 import { chercherLieux } from '../texte';
 import { creer, LIBELLE_STATUT } from './commun';
-import { textes } from './textes';
+import { remplir, textes } from './textes';
 
 export interface LieuTrouve {
   terrain: NomTerrain;
   id: string;
   nom: string;
-  /** Ce qui l'accompagne dans la liste : statut (territoire…), continent, ou « commune de La Réunion ». */
+  /** Ce qui l'accompagne dans la liste : statut (territoire…), continent, « commune de La Réunion », « capitale (Bolivie) ». */
   detail: string;
+  /** Autres graphies cherchées comme le nom (une capitale : Kyiv pour Kiev). */
+  alias?: readonly string[];
+  /** Un point à marquer d'un anneau, en plus de la zone `id` (une capitale : la ville, dans son pays). */
+  point?: [number, number];
 }
 
 const T = textes.recherche;
@@ -37,12 +44,40 @@ export function lieuxReunion(noms: Record<string, string>): LieuTrouve[] {
 }
 
 /**
+ * Les capitales : une ligne par capitale juste (210, Jérusalem et
+ * Jérusalem-Est à part), la zone montrée étant son pays ; detail « capitale
+ * (Bolivie) », « siège du gouvernement (Bolivie) », « capitale économique
+ * (Burundi) » (les noms des pays n'ont pas d'article : textes.capitales).
+ */
+export function lieuxCapitales(c: DonneesCapitales, nomsPays: Readonly<Record<string, string>>): LieuTrouve[] {
+  const C = textes.capitales;
+  return [...c.parPays.values()].flatMap((p) => {
+    const pays = nomsPays[p.pays];
+    if (!pays) return [];
+    return p.justes.map((x) => ({
+      terrain: 'monde' as const,
+      id: p.pays,
+      nom: x.nom,
+      detail: remplir(C.recherche, { role: C.roles[x.role], pays }),
+      alias: x.alias,
+      point: x.point,
+    }));
+  });
+}
+
+/**
  * Branche le champ de l'en-tête (index.html : #recherche-champ dans .recherche) :
  * la liste se remplit à chaque frappe ; flèches, Entrée et Échap au clavier ;
  * un lieu choisi vide le champ et le quitte (le clavier du téléphone se
  * referme sur la carte), puis `choisir` le montre.
  */
-export function brancherRecherche(o: { champ: HTMLInputElement; monde: DonneesCarte; choisir: (l: LieuTrouve) => void }): void {
+export function brancherRecherche(o: {
+  champ: HTMLInputElement;
+  monde: DonneesCarte;
+  choisir: (l: LieuTrouve) => void;
+  /** Les capitales (tests : un chargeur) ; src/map/capitales.ts par défaut. */
+  capitales?: () => Promise<DonneesCapitales>;
+}): void {
   const { champ } = o;
   const boite = champ.closest('.recherche') ?? champ.parentElement!;
   const liste = creer('ul', { class: 'recherche-liste', id: 'recherche-liste', role: 'listbox', 'aria-label': champ.getAttribute('aria-label') ?? '' });
@@ -80,6 +115,20 @@ export function brancherRecherche(o: { champ: HTMLInputElement; monde: DonneesCa
       });
   }
 
+  let capitales: Promise<void> | null = null;
+  /** Les capitales, à la première frappe : un échec (hors ligne) se retente à la suivante. */
+  function chargerLesCapitales(): void {
+    if (capitales) return;
+    capitales = (o.capitales ?? (() => chargerCapitales()))()
+      .then((c) => {
+        lieux = [...lieux, ...lieuxCapitales(c, o.monde.noms)];
+        if (!liste.hidden) afficher();
+      })
+      .catch(() => {
+        capitales = null;
+      });
+  }
+
   let trouves: LieuTrouve[] = [];
   let actif = -1;
 
@@ -111,7 +160,8 @@ export function brancherRecherche(o: { champ: HTMLInputElement; monde: DonneesCa
         ? trouves.map((l, i) =>
             creer(
               'li',
-              { role: 'option', id: `recherche-option-${i}`, class: 'recherche-option', 'data-terrain': l.terrain, 'data-id': l.id },
+              // data-i : la ligne (une capitale et son pays ont le même id de zone).
+              { role: 'option', id: `recherche-option-${i}`, class: 'recherche-option', 'data-terrain': l.terrain, 'data-id': l.id, 'data-i': String(i) },
               creer('span', { class: 'recherche-nom' }, l.nom),
               creer('span', { class: 'recherche-detail' }, l.detail),
             ),
@@ -137,6 +187,7 @@ export function brancherRecherche(o: { champ: HTMLInputElement; monde: DonneesCa
   });
   champ.addEventListener('input', () => {
     chargerCommunes();
+    chargerLesCapitales();
     afficher();
   });
   champ.addEventListener('blur', fermer);
@@ -164,6 +215,6 @@ export function brancherRecherche(o: { champ: HTMLInputElement; monde: DonneesCa
   liste.addEventListener('pointerdown', (e) => e.preventDefault());
   liste.addEventListener('click', (e) => {
     const li = (e.target as Element).closest<HTMLElement>('[role="option"]');
-    if (li) choisir(trouves.find((l) => l.terrain === li.dataset.terrain && l.id === li.dataset.id));
+    if (li) choisir(trouves[Number(li.dataset.i)]);
   });
 }

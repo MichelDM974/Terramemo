@@ -1,11 +1,13 @@
 // Recherche de l'en-tête : la fonction pure (texte.ts) et les lieux qu'elle
 // parcourt (recherche.ts : zones nommées du monde, communes de l'île).
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
 import type { DonneesCarte } from '../src/map/donnees';
 import type { Pays } from '../src/map/types';
 import { chercherLieux, MAX_SUGGESTIONS } from '../src/texte';
-import { lieuxMonde, lieuxReunion } from '../src/vues/recherche';
+import { brancherRecherche, lieuxCapitales, lieuxMonde, lieuxReunion, type LieuTrouve } from '../src/vues/recherche';
+import { El, installerDom } from './dom-factice';
 
 const lieu = (nom: string) => ({ nom });
 const noms = (l: { nom: string }[]) => l.map((x) => x.nom);
@@ -63,5 +65,94 @@ describe('lieux de la recherche', () => {
     expect(ile).toHaveLength(24);
     expect(ile.find((l) => l.id === '97411')).toEqual({ terrain: 'reunion', id: '97411', nom: 'Saint-Denis', detail: 'commune de La Réunion' });
     expect(noms(chercherLieux('saint d', [...monde, ...ile]))).toEqual(['Saint-Denis']);
+  });
+});
+
+// Les capitales (étude J2 § 7.3, lot 1) : une ligne par capitale juste, ses
+// alias, son point ; chargées à la première frappe.
+describe('recherche : les capitales', () => {
+  const nomsMonde = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
+  const cap = lireCapitales(
+    JSON.parse(readFileSync('public/geo/capitales.json', 'utf8')) as LigneCapitales[],
+    JSON.parse(readFileSync('public/geo/capitales.fr.json', 'utf8')) as NomsCapitales,
+  );
+  const lignes = lieuxCapitales(cap, nomsMonde);
+
+  it('210 lignes, chacune sur la zone de son pays ; detail « capitale (Bolivie) », « siège du gouvernement (Bolivie) », « capitale économique (Burundi) »', () => {
+    expect(lignes).toHaveLength(210);
+    const de = (nom: string) => lignes.filter((l) => l.nom === nom);
+    expect(de('Sucre')).toEqual([{ terrain: 'monde', id: 'BOL', nom: 'Sucre', detail: 'capitale (Bolivie)', alias: [], point: [-65.26, -19.05] }]);
+    expect(de('La Paz').map((l) => [l.id, l.detail])).toEqual([['BOL', 'siège du gouvernement (Bolivie)']]);
+    expect(de('Bujumbura').map((l) => l.detail)).toEqual(['capitale économique (Burundi)']);
+    // Jérusalem et Jérusalem-Est : deux lignes, deux pays, deux points.
+    const j = chercherLieux('jerusalem', lignes);
+    expect(j.map((l) => [l.nom, l.id])).toEqual([
+      ['Jérusalem', 'ISR'],
+      ['Jérusalem-Est', 'PSE'],
+    ]);
+    expect(j[0]!.point).not.toEqual(j[1]!.point);
+    // Aucun Qid, nulle part.
+    for (const l of lignes) expect(`${l.nom} ${l.detail}`).not.toMatch(/\bQ\d+\b/);
+  });
+
+  it('les alias sont cherchés : Kyiv trouve Kiev, Beijing Pékin, Tarawa Tarawa-Sud', () => {
+    expect(chercherLieux('kyiv', lignes).map((l) => l.nom)).toEqual(['Kiev']);
+    expect(chercherLieux('beijing', lignes).map((l) => l.nom)).toEqual(['Pékin']);
+    expect(chercherLieux('tarawa', lignes).map((l) => l.nom)).toContain('Tarawa-Sud');
+    expect(chercherLieux('la paz', lignes).map((l) => l.nom)).toEqual(['La Paz', 'Ciudad de la Paz']);
+  });
+
+  describe('dans le champ de l’en-tête', () => {
+    beforeEach(() => installerDom());
+    afterEach(() => vi.unstubAllGlobals());
+
+    function monter() {
+      const boite = new El('div');
+      boite.className = 'recherche';
+      const champ = Object.assign(new El('input'), { blur() {} });
+      boite.append(champ);
+      const choisis: LieuTrouve[] = [];
+      const capitales = vi.fn(async () => cap);
+      // Les communes (fetch) : hors ligne, sans effet ici.
+      vi.stubGlobal('fetch', async () => {
+        throw new TypeError('hors ligne');
+      });
+      const monde = { entites: [{ pays: { id: 'BOL', statut: 'jouable', continent: 'South America' } }], noms: nomsMonde } as unknown as DonneesCarte;
+      brancherRecherche({ champ: champ as unknown as HTMLInputElement, monde, choisir: (l) => void choisis.push(l), capitales });
+      const taper = (t: string) => {
+        champ.value = t;
+        champ.emettre('input');
+      };
+      // Le clic d'une ligne : écouté par la liste (délégation), sur sa cible.
+      const toucher = (o: El) => boite.querySelector('#recherche-liste')!.emettre('click', { target: o });
+      return { boite, champ, choisis, capitales, taper, toucher, options: () => boite.querySelectorAll('[role="option"]') };
+    }
+    const attendre = () => new Promise((r) => setTimeout(r, 0));
+
+    it('rien de chargé au focus ; à la première frappe, une fois ; « La Paz » choisie : son pays et son point', async () => {
+      const r = monter();
+      r.champ.emettre('focus');
+      expect(r.capitales).not.toHaveBeenCalled();
+      r.taper('la p');
+      expect(r.capitales).toHaveBeenCalledTimes(1);
+      await attendre();
+      r.taper('la pa');
+      expect(r.capitales).toHaveBeenCalledTimes(1);
+      const opts = r.options();
+      expect(opts.map((o) => o.innerText)).toEqual(['La Pazsiège du gouvernement (Bolivie)', 'Ciudad de la Pazcapitale (Guinée équatoriale)']);
+      r.toucher(opts[0]!);
+      expect(r.choisis).toEqual([{ terrain: 'monde', id: 'BOL', nom: 'La Paz', detail: 'siège du gouvernement (Bolivie)', alias: [], point: [-68.13, -16.5] }]);
+    });
+
+    it('la ligne choisie est celle touchée, pas la première du même pays (Sucre et La Paz ont la zone BOL)', async () => {
+      const r = monter();
+      r.taper('b');
+      await attendre();
+      r.taper('bolivie');
+      expect(r.options().map((o) => o.dataset.id)).toEqual(['BOL']);
+      r.taper('sucre');
+      r.toucher(r.options()[0]!);
+      expect(r.choisis.at(-1)?.nom).toBe('Sucre');
+    });
   });
 });
