@@ -956,6 +956,16 @@ describe('séance : les capitales pas encore lues (lot 1)', () => {
     expect(m.seances.comptes()?.aRevoir).toBe(2);
   });
 
+  it('Apprendre Capitales hors ligne : le refus dit les données du sujet, pas la carte de l’île', async () => {
+    const m = await monter(undefined, { chargerCapitales: () => Promise.reject(new Error('hors ligne')) });
+    const d = { sorte: 'apprendre' as const, sujet: 'capitales', serie: serie('Europe') };
+    await m.seances.charger!(d);
+    expect(m.seances.ouvrir(d)).toEqual({ refus: textes.toucher.echec_sujet, reviser: 0 });
+    // Les communes sans l'île : son message, comme avant.
+    const reunion = { sorte: 'apprendre' as const, sujet: 'communes', serie: serie('reunion') };
+    expect(m.seances.ouvrir(reunion)).toEqual({ refus: textes.toucher.echec_terrain, reviser: 0 });
+  });
+
   it('l’île et les capitales chargées ensemble : un échec rapide des capitales n’ouvre pas la séance avant l’île', async () => {
     let charge: typeof ile | null = null;
     let finirIle: () => void = () => undefined;

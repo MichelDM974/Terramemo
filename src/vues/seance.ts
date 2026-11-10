@@ -322,7 +322,8 @@ export function creerSeances(o: OptionsSeances): Seances {
     // Un sujet que cette version ne pose pas (Jouer ne le propose pas) : rien à faire, et pas le message de l'île.
     if (d.sorte === 'apprendre' && !estJouable(d.sujet)) return { refus: S.rien, reviser: 0 };
     const bs = blocs(d);
-    if (!bs) return { refus: textes.toucher.echec_terrain, reviser: 0 };
+    // Apprendre sans les données du sujet (hors ligne) : l'île pour les communes, « les données » pour un sujet du monde.
+    if (!bs) return { refus: d.sorte === 'apprendre' && d.sujet !== 'communes' ? textes.toucher.echec_sujet : textes.toucher.echec_terrain, reviser: 0 };
     const aFaire = bs.reduce((n, b) => n + b.plan.revisions.length + b.plan.introductions.length, 0);
     const nouveaux = bs.some((b) => b.plan.nouveaux.length);
     const p = bs[0]!.p;
