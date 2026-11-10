@@ -256,6 +256,13 @@ interface MoteurCompte {
   synchro: HTMLParagraphElement;
   activer(): void;
   desactiver(): void;
+  /**
+   * Le retour d'Android au panneau : le sous-écran ouvert se referme comme
+   * par son bouton (« Annuler » d'un formulaire, de la question D22, « Retour »
+   * de sa confirmation) ; vrai s'il y en avait un, ou si une action tourne
+   * (le retour est alors sans effet). Faux aux entrées, au pseudo, à la fin.
+   */
+  retour(): boolean;
 }
 
 /** Vue « Compte » (#compte) : le moteur dans sa section, son titre, « Retour » et « × ». */
@@ -289,10 +296,10 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
  * l'e-mail (se connecter, créer, mot de passe oublié), la question D22, puis
  * le pseudo d'un compte qui n'en a pas. `element` : ce que le panneau pose.
  */
-export function accueilCompte(o: OptionsAccueilCompte): { element: HTMLDivElement; activer(): void; desactiver(): void } {
+export function accueilCompte(o: OptionsAccueilCompte): { element: HTMLDivElement; activer(): void; desactiver(): void; retour(): boolean } {
   const { fini, surEcran, occupe, prechauffer, ...reste } = o;
   const m = moteurCompte({ ...reste, prefixe: 'accueil-compte', accueil: { fini, surEcran, occupe, prechauffer } });
-  return { element: creer('div', { class: 'accueil-compte' }, m.contenu, m.message, m.erreur), activer: m.activer, desactiver: m.desactiver };
+  return { element: creer('div', { class: 'accueil-compte' }, m.contenu, m.message, m.erreur), activer: m.activer, desactiver: m.desactiver, retour: m.retour };
 }
 
 function moteurCompte(o: OptionsMoteur): MoteurCompte {
@@ -1282,6 +1289,15 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     message,
     erreur,
     synchro,
+    retour() {
+      // La question D22 est posée pendant l'action (connexion en cours) : elle d'abord.
+      if (ecran === 'fusion') repondre?.('annuler');
+      else if (ecran === 'fusion-confirmer') aller('fusion');
+      else if (occupe) return true;
+      else if (ecran === 'connecter' || ecran === 'creer') annuler();
+      else return false;
+      return true;
+    },
     activer() {
       active = true;
       effacerAvis();

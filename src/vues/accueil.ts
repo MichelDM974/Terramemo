@@ -81,6 +81,8 @@ export interface ComptesDuPanneau {
   element: HTMLElement;
   activer(): void;
   desactiver(): void;
+  /** Le retour d'Android : vrai si un sous-écran s'est refermé (formulaire, question D22). */
+  retour?(): boolean;
 }
 
 export interface OptionsAccueil {
@@ -126,6 +128,12 @@ export interface Accueil {
   retient(nom: string): boolean;
   /** La vue montrée : sur Confidentialité, le panneau s'efface (l'en-tête reste inerte) ; ailleurs il revient. */
   suivre(vue: string): void;
+  /**
+   * Le retour d'Android (src/retour-android.ts), le panneau montré : 'fait'
+   * s'il a refermé un sous-écran, 'reduire' à ses entrées ; null sinon
+   * (panneau fermé, ou Confidentialité ouverte : l'historique y ramène).
+   */
+  retour(): 'fait' | 'reduire' | null;
   etat(): EtatAccueil;
 }
 
@@ -361,6 +369,16 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     retient(nom) {
       if (etat === 'ferme' && nom !== 'compte' && nom !== 'confidentialite' && choixCourant() === null && o.etatCompte() === 'invite') ouvrir(false);
       return (etat === 'ouvert' || etat === 'attente') && nom !== 'confidentialite';
+    },
+    retour() {
+      if (etat !== 'ouvert' || !section || suspendu) return null;
+      const retourInvite = section.querySelector<HTMLButtonElement>('#accueil-retour');
+      const formInvite = section.querySelector<HTMLElement>('#accueil-form-invite');
+      if (formInvite && !formInvite.hidden && retourInvite) {
+        retourInvite.click();
+        return 'fait';
+      }
+      return comptes?.retour?.() ? 'fait' : 'reduire';
     },
     suivre(vue) {
       if (etat !== 'ouvert' || !section) return;

@@ -1638,6 +1638,35 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     expect((document as unknown as { activeElement?: El }).activeElement).toBe($('#accueil-compte-pseudo'));
   });
 
+  it('le retour d’Android : formulaire refermé comme par « Annuler », question D22 annulée, rien aux entrées', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    questionConnexion = { sorte: 'appareil', reponses: 3, records: 0, seances: 0 };
+    const c = fauxComptes();
+    const { a, surEcran } = await monter(c);
+    expect(a.retour()).toBe(false);
+    $('#accueil-compte-vers-creer')!.click();
+    expect(a.retour()).toBe(true);
+    expect($('#accueil-compte-vers-creer')).not.toBeNull();
+    expect(derniereEntree(surEcran)).toBe(true);
+    $('#accueil-compte-vers-connecter')!.click();
+    $('#accueil-compte-adresse')!.value = 'ana@exemple.fr';
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-connecter');
+    await attendre();
+    $('#accueil-compte-fusion-ne-pas')!.click();
+    expect($('#accueil-compte-fusion-confirmer')).not.toBeNull();
+    expect(a.retour()).toBe(true);
+    expect($('#accueil-compte-fusion-question')).not.toBeNull();
+    expect(a.retour()).toBe(true);
+    await attendre();
+    await attendre();
+    // « Annuler » de la question : retour au formulaire de connexion, le compte pas pris.
+    expect($('#accueil-compte-form-connecter')).not.toBeNull();
+    expect(c.etat).not.toHaveBeenCalled();
+    expect(a.retour()).toBe(true);
+    expect($('#accueil-compte-vers-connecter')).not.toBeNull();
+  });
+
   it('« Plus tard » : le panneau se ferme, le compte sans pseudo', async () => {
     const c = fauxComptes();
     const { fini } = await monter(c);

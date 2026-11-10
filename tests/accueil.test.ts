@@ -297,6 +297,27 @@ describe('le panneau', () => {
     expect(m.entete.inert).toBe(false);
   });
 
+  it('le retour d’Android : le pseudo de l’invité, puis le sous-écran des comptes, se referment ; aux entrées, réduire', async () => {
+    const m = monter();
+    await demarrer(m);
+    $('#accueil-invite')!.click();
+    expect(m.a.retour()).toBe('fait');
+    expect($('#accueil-form-invite')!.hidden).toBe(true);
+    expect($('#accueil-choix')!.hidden).toBe(false);
+    // Les comptes disent s'ils ont refermé un sous-écran (formulaire, question D22).
+    const retour = vi.fn(() => true);
+    (m.comptes as { retour?: () => boolean }).retour = retour;
+    expect(m.a.retour()).toBe('fait');
+    retour.mockReturnValue(false);
+    expect(m.a.retour()).toBe('reduire');
+    // Confidentialité ouverte : l'historique y ramène ; panneau fermé : rien du panneau.
+    m.a.suivre('confidentialite');
+    expect(m.a.retour()).toBeNull();
+    m.a.suivre('carte');
+    m.ctrl().fini();
+    expect(m.a.retour()).toBeNull();
+  });
+
   it('les comptes ne se chargent pas (hors ligne) : un avis et « Réessayer », l’invité toujours possible', async () => {
     const m = monter({ echecs: 1 });
     await demarrer(m);

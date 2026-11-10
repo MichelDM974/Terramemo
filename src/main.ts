@@ -333,8 +333,8 @@ const nav = creerNavigation({
 window.addEventListener('hashchange', () => nav.router());
 window.addEventListener('popstate', () => nav.router());
 nav.router();
-// APK : le bouton retour d'Android remonte cet historique (src/retour-android.ts).
-brancherRetourAndroid();
+// APK : le bouton retour d'Android remonte cet historique (src/retour-android.ts), après l'écran de connexion.
+brancherRetourAndroid(() => accueil?.retour() ?? null);
 // Les scores faits hors ligne repartent d'eux-mêmes (démarrage, retour du réseau).
 brancherRelance();
 
