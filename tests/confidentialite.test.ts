@@ -30,7 +30,8 @@ describe('pages statiques (public/)', () => {
     expect(html).not.toMatch(/style="/);
     expect(sansCommentaires(html).match(/<main\b/g)).toHaveLength(1);
     expect(html).toMatch(/<title>Terramemo — [^<]+<\/title>/);
-    expect(html).toContain('<p class="version">Version du 07/11/2026</p>');
+    // Une date de version par page : la politique a changé à l'ouverture des comptes (11/11), la page de suppression non.
+    expect(html).toContain(`<p class="version">Version du ${{ confidentialite: '11/11/2026', suppression: '07/11/2026' }[nom]}</p>`);
     expect(nom).toBeTruthy();
   });
 

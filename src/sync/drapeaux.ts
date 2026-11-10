@@ -19,11 +19,12 @@
 // stockage être refusé).
 
 /**
- * Comptes et synchro ouverts au public (lot 8). Pas de défaut : faux
- * jusqu'à la réponse de l'utilisateur à D15 (décision « Confidentialité et
- * ouverture des comptes »).
+ * Comptes et synchro ouverts au public : vrai depuis le 11/11, sur le site
+ * (décision « Confidentialité et ouverture des comptes » : le site dès que
+ * l'écran de connexion est prêt et la politique relue ; l'APK suit au lot 7).
+ * Urgence : faux, avec `essai()` faux dans firestore.rules, referme tout.
  */
-export const COMPTES_OUVERTS = false;
+export const COMPTES_OUVERTS = true;
 
 export const CLE_COMPTES = 'terramemo.comptes';
 export const CLE_SANS_SYNCHRO = 'terramemo.sans-synchro';

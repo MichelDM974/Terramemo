@@ -37,8 +37,8 @@ const refuse: StockageDrapeaux = {
 const adresse = (q: string) => new URLSearchParams(q);
 
 describe('comptesVisibles', () => {
-  it('fermés au public jusqu’au lot 8 (D15 sans défaut)', () => {
-    expect(COMPTES_OUVERTS).toBe(false);
+  it('ouverts au public sur le site depuis le 11/11 (décision « Confidentialité et ouverture des comptes »)', () => {
+    expect(COMPTES_OUVERTS).toBe(true);
   });
 
   it('cachés en production sans drapeau, visibles en DEV ou une fois ouverts', () => {

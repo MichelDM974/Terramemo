@@ -196,12 +196,12 @@ describe.skipIf(!hoteAuth || !hoteFs)('envoi des séances (émulateurs Auth et F
     expect(await pc.envoi.etat(uid)).toMatchObject({ attente: 0, horsLigne: false });
   });
 
-  it('refusé par les règles (celles du dépôt, joueurs/ fermé) : gardé, puis relancé et accepté', async () => {
+  it('refusé par les règles (fermées, essai() faux) : gardé, puis relancé et accepté', async () => {
     const pc = appareil();
     await pc.comptes.creer(adresse(), 'motdepasse');
     await pc.attendreJetons();
     const uid = pc.a.currentUser!.uid;
-    await charger(REGLES);
+    await charger(reglesAvecEssai('return false;'));
     try {
       await pc.jouer(2);
       expect(await pc.envoi.declencher('cloture')).toMatchObject({ refuses: 1, envoyes: 0 });

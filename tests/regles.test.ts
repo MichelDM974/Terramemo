@@ -14,7 +14,7 @@ import { semaine } from '../src/epreuve/bareme';
 import { clePermise, clePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
 import type { Evenement } from '../src/srs/journal';
 import { docDuLot, problemeLot, type DocLot } from '../src/sync/lots';
-import { ADRESSES_D_ESSAI, ESSAI_DU_DEPOT, REGLES, reglesAvecEssai } from './regles-essai';
+import { ESSAI_DU_DEPOT, REGLES, reglesAvecEssai } from './regles-essai';
 
 const hote = process.env.FIRESTORE_EMULATOR_HOST;
 const E = 'chrono:localiser:South America';
@@ -323,35 +323,32 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertFails(getDoc(doc(db('ana'), 'ailleurs', 'x')));
   });
 
-  it('version du dépôt (lots 6 et 7) : joueurs/ n’est ouvert qu’aux adresses d’essai, vérifiées', async () => {
-    // Le corps d'essai() : la liste exacte de l'utilisateur, adresse vérifiée exigée, jamais `return true;` avant le lot 8.
+  it('version du dépôt (ouverture du 11/11) : joueurs/ ouvert à tout compte chez lui, jamais à un invité ni chez un autre', async () => {
     const corps = REGLES.match(ESSAI_DU_DEPOT)?.[0] ?? '';
-    expect(corps).toContain('request.auth.token.email_verified == true');
-    expect(corps).not.toMatch(/return\s+true\s*;/);
-    const liste = (corps.match(/in \[([^\]]*)\]/)?.[1] ?? '').split(',').map((s) => s.trim().replace(/^'|'$/g, ''));
-    expect(liste.sort()).toEqual([...ADRESSES_D_ESSAI].sort());
-    // Un compte hors de la liste, vérifié ou non : tout refusé.
-    for (const verifiee of [false, true]) {
-      const ana = env.authenticatedContext('ana', jetonCompte({ verifiee }) as never).firestore() as unknown as Firestore;
-      await assertFails(setDoc(doc(ana, 'joueurs', 'ana'), profil()));
-      await assertFails(getDoc(doc(ana, 'joueurs', 'ana')));
+    expect(corps).toMatch(/return\s+true\s*;/);
+    // Un compte e-mail vérifié ou non (D18 b : la vérification ne bloque pas), et un compte Google : son profil et ses lots.
+    const comptes: Array<[string, Record<string, unknown>]> = [
+      ['ana', jetonCompte({ verifiee: false })],
+      ['bea', jetonCompte({ email: 'bea@exemple.fr', verifiee: true })],
+      ['gus', jetonCompte({ email: 'gus@gmail.com', verifiee: true, fournisseur: 'google.com', identites: { 'google.com': ['123'], email: ['gus@gmail.com'] } })],
+    ];
+    for (const [uid, jeton] of comptes) {
+      const f = env.authenticatedContext(uid, jeton as never).firestore() as unknown as Firestore;
+      await assertSucceeds(setDoc(doc(f, 'joueurs', uid), profil()));
+      await assertSucceeds(getDoc(doc(f, 'joueurs', uid)));
       const l = lot();
-      await assertFails(setDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id), l.doc));
-      await assertFails(getDoc(doc(ana, 'joueurs', 'ana', 'lots', l.id)));
-      const b = writeBatch(ana);
-      b.set(doc(ana, 'demandes', 'ana'), { pseudo: 'Michel', cree: serverTimestamp() });
-      b.set(doc(ana, 'joueurs', 'ana'), { v: 1, maj: serverTimestamp(), supprime: true });
-      await assertFails(b.commit());
+      await assertSucceeds(setDoc(doc(f, 'joueurs', uid, 'lots', l.id), l.doc));
+      // Jamais chez un autre.
+      await assertFails(setDoc(doc(f, 'joueurs', 'autre'), profil()));
+      await assertFails(getDoc(doc(f, 'joueurs', uid === 'ana' ? 'bea' : 'ana')));
     }
-    // Une adresse d'essai : refusée tant qu'elle n'est pas vérifiée, puis son profil et ses lots.
-    for (const email of ADRESSES_D_ESSAI) {
-      const moi = (verifiee: boolean) => env.authenticatedContext('moi', jetonCompte({ email, verifiee }) as never).firestore() as unknown as Firestore;
-      await assertFails(setDoc(doc(moi(false), 'joueurs', 'moi'), profil()));
-      await assertSucceeds(setDoc(doc(moi(true), 'joueurs', 'moi'), profil()));
-      const l = lot();
-      await assertSucceeds(setDoc(doc(moi(true), 'joueurs', 'moi', 'lots', l.id), l.doc));
-      await env.clearFirestore();
-    }
+    // Un invité anonyme : rien, ni profil ni lot.
+    const anon = env.authenticatedContext('anon', JETON_ANONYME as never).firestore() as unknown as Firestore;
+    await assertFails(setDoc(doc(anon, 'joueurs', 'anon'), profil()));
+    const l = lot();
+    await assertFails(setDoc(doc(anon, 'joueurs', 'anon', 'lots', l.id), l.doc));
+    // Sans compte : aucune lecture.
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore() as unknown as Firestore, 'joueurs', 'ana')));
   });
 });
 

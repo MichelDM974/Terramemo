@@ -5,7 +5,7 @@
 // l'ouverture, un avis et « Réessayer » s'il ne vient pas.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChoixFusion, Comptes, EtatCompte, QuestionFusion, ResultatDeconnexion, ResultatProfil } from '../src/sync/comptes';
-import { CLE_SANS_SYNCHRO } from '../src/sync/drapeaux';
+import { CLE_SANS_SYNCHRO, COMPTES_OUVERTS } from '../src/sync/drapeaux';
 import type { ComptesSynchro, EtatSynchro, ResultatEnvoi } from '../src/sync/envoi';
 import { vueALaDemande } from '../src/vues/a-la-demande';
 import { accueilCompte, adresseGmail, detailProgres, texteGoogle, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
@@ -453,16 +453,17 @@ describe('vue Compte', () => {
     expect($('#compte-synchro-reessayer')).toBeNull();
   });
 
-  it('avant l’ouverture, une adresse non vérifiée : la ligne dit que la synchro attend sa validation (essai du 10/11)', async () => {
+  it('une adresse non vérifiée : fermés, la ligne attend sa validation (essai du 10/11) ; ouverts, la ligne ordinaire (D18 b)', async () => {
     const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: false, fournisseurs: ['password'] });
     const e = fauxEnvoi({ refusees: 2 });
     await ouvrir(c, e);
     const ligne = $('#compte-synchro')!;
-    expect(ligne.textContent).toBe(`${remplir(T.synchro_attend_verification_n, { n: 2 })} · ${T.synchro_reessayer}`);
+    const refusees = COMPTES_OUVERTS ? remplir(T.synchro_refusees, { n: 2 }) : remplir(T.synchro_attend_verification_n, { n: 2 });
+    expect(ligne.textContent).toBe(`${refusees} · ${T.synchro_reessayer}`);
     e.poser({ refusees: 0, attente: 0 });
     await attendre();
-    // Rien en attente non plus : jamais « à jour » tant que l'adresse n'est pas validée.
-    expect(ligne.textContent).toBe(T.synchro_attend_verification);
+    // Fermés : jamais « à jour » tant que l'adresse n'est pas validée. Ouverts : la vérification ne bloque rien.
+    expect(ligne.textContent).toBe(COMPTES_OUVERTS ? T.synchro_a_jour : T.synchro_attend_verification);
     expect($('#compte-non-verifiee')!.innerText).toContain(T.non_verifiee);
   });
 

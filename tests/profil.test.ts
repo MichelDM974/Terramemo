@@ -178,10 +178,10 @@ describe.skipIf(!hoteAuth || !hoteFs)('profil des comptes (émulateurs Auth et F
     expect(await pc.comptes.pourExport()).toEqual({ compte: { uid, adresse: mail, fournisseurs: ['password'], cree_le: null }, profil: null, connecte: false });
   });
 
-  it('règles du dépôt (production jusqu’au lot 6) : profil refusé, drapeau posé, l’appareil garde tout', async () => {
+  it('règles fermées (essai() faux : avant le lot 6, ou une urgence) : profil refusé, drapeau posé, l’appareil garde tout', async () => {
     const [host, port] = (hoteFs ?? '').split(':');
     await env.cleanup();
-    env = await initializeTestEnvironment({ projectId: PROJET, firestore: { rules: REGLES, host, port: Number(port) } });
+    env = await initializeTestEnvironment({ projectId: PROJET, firestore: { rules: reglesAvecEssai('return false;'), host, port: Number(port) } });
     try {
       const pc = appareil('Michel', { [AMS]: rec(11_000) });
       const r = await pc.comptes.creer(adresse(), 'motdepasse');

@@ -1822,6 +1822,15 @@ visible en production.
   réel de Google »). Il est à faire avec l'utilisateur, une fois le lot
   déployé.
 
+**Ouverture du site** (11/11, choix de l'utilisateur du 10/11, validé le
+11/11 : « ouvrir à tous cette nuit ») : `COMPTES_OUVERTS = true` et `essai()`
+→ `return true;` (tout compte chez lui, jamais un invité), la note « pas
+encore ouverts » retirée de la politique (version du 11/11). Les tests qui
+simulaient un refus avec les règles du dépôt chargent désormais des règles
+fermées explicites (`reglesAvecEssai('return false;')`) ; (k) charge la liste
+d'essai des lots 6 et 7. L'APK suit au lot 7 (Google), et le rappel mensuel
+de l'outil du propriétaire est posé dans cdc.
+
 **Écran de connexion** (11/11, codé ; décision « Écran de connexion » du
 10/11, avant l'ouverture des comptes au public) :
 - Quand : comptes visibles (serveur de dev, `?comptes`, puis

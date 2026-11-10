@@ -540,15 +540,15 @@ describe.skipIf(!hoteAuth || !hoteFs)('synchro de deux appareils (émulateurs Au
     pa.fermer();
   });
 
-  it('(k) compte Google sur deux appareils, règles d’essai du dépôt : lien sur A, B rejoint par Google et « Ajouter », même état ; une autre adresse refusée', async () => {
+  it('(k) compte Google sur deux appareils, règles d’essai des lots 6 et 7 : lien sur A, B rejoint par Google et « Ajouter », même état ; une autre adresse refusée', async () => {
     const A = appareil('a');
     const B = appareil('b');
     const C = appareil('c');
-    // Les adresses d'essai de l'utilisateur (firestore.rules, essai()), vérifiées par Google.
+    // Les adresses d'essai de l'utilisateur (liste d'essai des lots 6 et 7), vérifiées par Google.
     const michel = { sub: 'sub-michel', email: 'micheldm0301@gmail.com', email_verified: true };
     A.google.claims = michel;
     B.google.claims = michel;
-    await charger(REGLES);
+    await charger(reglesAvecEssai("return request.auth.token.email_verified == true && request.auth.token.email in ['micheldm0301@gmail.com', 'micheldm974@yahoo.fr'];"));
     const [pa, pb, pc] = [A.page(), B.page(), C.page()];
     try {
       // A joue en invité, publie un score (anonyme), puis « Continuer avec Google » : le lien.
@@ -590,7 +590,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('synchro de deux appareils (émulateurs Au
     const A = appareil('a');
     let pa = A.page('v1');
     const uid = await compteSur(pa);
-    await charger(REGLES);
+    await charger(reglesAvecEssai('return false;'));
     try {
       const joue = await pa.jouer([3, 1, 2]);
       await pa.fini();

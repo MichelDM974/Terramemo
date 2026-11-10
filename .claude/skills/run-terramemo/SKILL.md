@@ -576,9 +576,12 @@ erreur, un Ctrl-C ou un `kill` (SIGTERM). Il coupe envois et lectures de
 débranché en cours), le driver écrit « ATTENTION : … RESTÉ POSÉ » : relancer
 une commande sur l'appareil (`sauver_journal` suffit), ou, dans Chrome,
 ouvrir l'adresse avec `?sans-synchro=0`. `?sans-synchro` dans l'adresse
-coupe la page seule, sans rien garder. Comptes cachés (jusqu'au lot 8) :
-`?comptes` les montre et s'en souvient (`terramemo.comptes`), `?comptes=0`
-les recache ; toujours visibles au serveur de dev.
+coupe la page seule, sans rien garder. Comptes **ouverts à tous depuis le
+11/11** (`COMPTES_OUVERTS` vrai, `essai()` vrai) : `?comptes` ne sert plus en
+production. Urgence (abus, défaut grave) : `COMPTES_OUVERTS = false` et
+`essai()` → `return false;`, puis `npx firebase deploy --only firestore`
+et Hosting ; les appareils gardent tout, et `?comptes` remontre alors les
+comptes pour les essais.
 
 ## Téléphone (Galaxy A37, Chrome et APK)
 

@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScoreEpreuve } from '../src/epreuve/bareme';
 import { enregistrerPartie, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
+import { COMPTES_OUVERTS } from '../src/sync/drapeaux';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
 const publier = vi.fn<(epreuve: string, periode: string, pseudo: string, s: ScoreEpreuve) => Promise<boolean>>();
@@ -508,13 +509,17 @@ describe('zone du pseudo et comptes (J1b, § 3.1)', () => {
     expect((await zone()).querySelector('.chrono-pseudo-avis')).toBeNull();
   });
 
-  it('comptes cachés (le public, jusqu’au lot 8) : rien ne change, même pour un compte', async () => {
+  it('sans DEV ni drapeau : ouverts (11/11), le pseudo du compte ; fermés (urgence), rien ne change, même pour un compte', async () => {
     vi.stubEnv('DEV', false);
     localStorage.setItem('terramemo.pseudo', 'Ana');
     poserEtatCompte('compte');
     const z = await zone();
-    expect(z.innerText).toContain('Pseudo : Ana');
-    expect(z.querySelector('a')).toBeNull();
-    expect(z.innerText).not.toContain(T.avec_compte);
+    if (COMPTES_OUVERTS) {
+      expect(z.innerText).toContain('Pseudo du compte : Ana');
+    } else {
+      expect(z.innerText).toContain('Pseudo : Ana');
+      expect(z.querySelector('a')).toBeNull();
+      expect(z.innerText).not.toContain(T.avec_compte);
+    }
   });
 });
