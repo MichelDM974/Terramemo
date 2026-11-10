@@ -41,8 +41,9 @@ function monter(m: Montage = {}) {
   const element = new El('div');
   element.id = 'faux-comptes';
   const comptes = { element, activer: vi.fn(), desactiver: vi.fn() };
-  let ctrl: { fini(): void; surEcran(choix: boolean): void } | null = null;
-  const monterComptes = vi.fn(async (a: { fini(): void; surEcran(choix: boolean): void }) => {
+  type Ctrl = { fini(): void; surEcran(choix: boolean): void; occupe(oui: boolean): void };
+  let ctrl: Ctrl | null = null;
+  const monterComptes = vi.fn(async (a: Ctrl) => {
     ctrl = a;
     if (echecs > 0) {
       echecs--;
@@ -260,6 +261,13 @@ describe('le panneau', () => {
     expect($('#accueil-partie-invite')!.hidden).toBe(true);
     m.ctrl().surEcran(true);
     expect($('#accueil-partie-invite')!.hidden).toBe(false);
+    // Une action des comptes en cours (fenêtre de Google) : « Continuer en invité » désactivé.
+    m.ctrl().occupe(true);
+    expect($('#accueil-invite')!.disabled).toBe(true);
+    $('#accueil-invite')!.click();
+    expect($('#accueil-form-invite')!.hidden).toBe(true);
+    m.ctrl().occupe(false);
+    expect($('#accueil-invite')!.disabled).toBe(false);
     m.ctrl().fini();
     expect(stockage.get(CLE_ACCUEIL)).toBe('compte');
     expect($('#accueil')).toBeNull();

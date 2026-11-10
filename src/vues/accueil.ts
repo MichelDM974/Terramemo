@@ -94,7 +94,7 @@ export interface OptionsAccueil {
   /** L'icône de l'en-tête, devant le titre. */
   logo?: string | null;
   /** Monte les écrans des comptes (morceau à la demande) ; rejette s'il ne vient pas. */
-  monterComptes(o: { fini(): void; surEcran(choix: boolean): void }): Promise<ComptesDuPanneau>;
+  monterComptes(o: { fini(): void; surEcran(choix: boolean): void; occupe(oui: boolean): void }): Promise<ComptesDuPanneau>;
   /** La navigation rend l'adresse affichée (nav.router) : le panneau ouvert ou fermé. */
   rendre(): void;
   /** L'état du compte connu de la page (src/sync/pont.ts) : un compte connecté ne revoit pas le panneau. */
@@ -250,6 +250,10 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
         // « Continuer en invité » sous les entrées seulement (pas pendant un formulaire, la question D22, le pseudo).
         surEcran: (c) => {
           partieInvite.hidden = !c;
+        },
+        // Pendant la fenêtre de Google ou une connexion : « Continuer en invité » désactivé (le compte se prendrait derrière).
+        occupe: (oui) => {
+          invite.disabled = oui;
         },
       }).then(
         (c) => {

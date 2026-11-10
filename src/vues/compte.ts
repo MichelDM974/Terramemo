@@ -226,6 +226,12 @@ export interface AccueilDuCompte {
    */
   surEcran?(choix: boolean): void;
   /**
+   * Une action des comptes est en cours (fenêtre de Google, connexion) : le
+   * panneau désactive « Continuer en invité », qui fermerait le panneau en
+   * invité pendant que le compte se prend derrière.
+   */
+  occupe?(oui: boolean): void;
+  /**
    * Le SDK de Firebase demandé d'avance, au premier signe d'intérêt (pointeur
    * ou focus sur Google, formulaire ouvert) : la fenêtre de Google s'ouvre
    * alors dans le geste, et l'invité qui n'y touche pas ne le charge pas.
@@ -284,8 +290,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
  * le pseudo d'un compte qui n'en a pas. `element` : ce que le panneau pose.
  */
 export function accueilCompte(o: OptionsAccueilCompte): { element: HTMLDivElement; activer(): void; desactiver(): void } {
-  const { fini, surEcran, prechauffer, ...reste } = o;
-  const m = moteurCompte({ ...reste, prefixe: 'accueil-compte', accueil: { fini, surEcran, prechauffer } });
+  const { fini, surEcran, occupe, prechauffer, ...reste } = o;
+  const m = moteurCompte({ ...reste, prefixe: 'accueil-compte', accueil: { fini, surEcran, occupe, prechauffer } });
   return { element: creer('div', { class: 'accueil-compte' }, m.contenu, m.message, m.erreur), activer: m.activer, desactiver: m.desactiver };
 }
 
@@ -410,6 +416,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     occupe = true;
     erreur.textContent = '';
     for (const b of contenu.querySelectorAll('button')) b.disabled = true;
+    accueil?.occupe?.(true);
     try {
       await faire(await o.comptes());
     } catch (e) {
@@ -447,6 +454,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     } finally {
       occupe = false;
       for (const b of contenu.querySelectorAll('button')) b.disabled = false;
+      accueil?.occupe?.(false);
     }
   }
 

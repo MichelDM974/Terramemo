@@ -1492,13 +1492,14 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
   async function monter(c: Comptes, o: { natif?: boolean } = {}) {
     const fini = vi.fn();
     const surEcran = vi.fn();
+    const occupe = vi.fn();
     const prechauffer = vi.fn();
-    const a = accueilCompte({ comptes: async () => c, fini, surEcran, prechauffer, natif: () => !!o.natif, exporter: async () => ({ nom: 'x.json', contenu: '{}' }) });
+    const a = accueilCompte({ comptes: async () => c, fini, surEcran, occupe, prechauffer, natif: () => !!o.natif, exporter: async () => ({ nom: 'x.json', contenu: '{}' }) });
     zone.append(a.element as unknown as El);
     a.activer();
     await attendre();
     await attendre();
-    return { a, fini, surEcran, prechauffer };
+    return { a, fini, surEcran, occupe, prechauffer };
   }
   const derniereEntree = (f: ReturnType<typeof vi.fn>) => f.mock.calls.at(-1)?.[0];
 
@@ -1577,6 +1578,25 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     await attendre();
     expect(c.changerPseudo).toHaveBeenCalledWith('Ana Lou');
     expect(fini).toHaveBeenCalledOnce();
+  });
+
+  it('pendant la fenêtre de Google : le panneau le sait (occupe), « Continuer en invité » ne fermera pas en invité derrière', async () => {
+    const c = fauxComptes();
+    let rendre!: () => void;
+    const fenetre = new Promise<void>((r) => (rendre = r));
+    const google = c.google.getMockImplementation()!;
+    c.google.mockImplementationOnce(async (...a: Parameters<typeof google>) => {
+      await fenetre;
+      return google(...a);
+    });
+    const { occupe } = await monter(c);
+    $('#accueil-compte-google')!.click();
+    await attendre();
+    expect(occupe.mock.calls).toEqual([[true]]);
+    rendre();
+    await attendre();
+    await attendre();
+    expect(occupe.mock.calls).toEqual([[true], [false]]);
   });
 
   it('« Plus tard » : le panneau se ferme, le compte sans pseudo', async () => {
