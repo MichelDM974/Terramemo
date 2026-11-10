@@ -36,5 +36,15 @@ Conception du J1b (07/11/2026) :
   n'y est pas conçue. Faite par un workflow : trois relevés, un jet,
   trois relectures adverses, une synthèse.
 
+Conception du J2 (10/11/2026) :
+
+- `2026-11-10-j2-conception.md` : capitales, drapeaux, océans et mers, quiz
+  général (tickets #4, #27 et #26) : données (Wikidata, flag-icons, zones
+  marines de Natural Earth, notoriété), modèle, couche marine de la carte,
+  exercices, mémoire à plusieurs sujets, Jouer, classements, quiz à quatre
+  difficultés, lots 0a à 6 et décisions D36 à D55. Faite par un workflow :
+  six relevés, une rédaction, deux relectures adverses (code existant ;
+  produit, pédagogie et données), une correction.
+
 Le plan arrêté, qui tient compte des réponses de l'utilisateur et de la
 critique, est `../plan.md` : il fait foi là où ces études divergent.
