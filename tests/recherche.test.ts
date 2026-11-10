@@ -106,18 +106,20 @@ describe('recherche : les capitales', () => {
     beforeEach(() => installerDom());
     afterEach(() => vi.unstubAllGlobals());
 
-    function monter() {
+    function monter(capitales = vi.fn(async () => cap)) {
       const boite = new El('div');
       boite.className = 'recherche';
       const champ = Object.assign(new El('input'), { blur() {} });
       boite.append(champ);
       const choisis: LieuTrouve[] = [];
-      const capitales = vi.fn(async () => cap);
       // Les communes (fetch) : hors ligne, sans effet ici.
       vi.stubGlobal('fetch', async () => {
         throw new TypeError('hors ligne');
       });
-      const monde = { entites: [{ pays: { id: 'BOL', statut: 'jouable', continent: 'South America' } }], noms: nomsMonde } as unknown as DonneesCarte;
+      const monde = {
+        entites: ['BOL', 'LUX'].map((id) => ({ pays: { id, statut: 'jouable', continent: id === 'BOL' ? 'South America' : 'Europe' } })),
+        noms: nomsMonde,
+      } as unknown as DonneesCarte;
       brancherRecherche({ champ: champ as unknown as HTMLInputElement, monde, choisir: (l) => void choisis.push(l), capitales });
       const taper = (t: string) => {
         champ.value = t;
@@ -153,6 +155,27 @@ describe('recherche : les capitales', () => {
       r.taper('sucre');
       r.toucher(r.options()[0]!);
       expect(r.choisis.at(-1)?.nom).toBe('Sucre');
+      // Deux lignes de la même zone dans la liste : le pays Luxembourg et sa capitale ; la seconde touchée, c'est elle.
+      r.taper('luxembourg');
+      const opts = r.options();
+      expect(opts.map((o) => o.dataset.id)).toEqual(['LUX', 'LUX']);
+      const i = r.options().findIndex((o) => o.innerText.includes('capitale'));
+      expect(i).toBe(1);
+      r.toucher(opts[i]!);
+      expect(r.choisis.at(-1)).toMatchObject({ id: 'LUX', nom: 'Luxembourg', detail: 'capitale (Luxembourg)' });
+      expect(r.choisis.at(-1)?.point).toBeDefined();
+    });
+
+    it('capitales hors ligne à la première frappe : rien de plus que les pays ; la frappe suivante les relit', async () => {
+      const capitales = vi.fn<() => Promise<typeof cap>>().mockRejectedValueOnce(new Error('hors ligne')).mockResolvedValue(cap);
+      const r = monter(capitales);
+      r.taper('la p');
+      await attendre();
+      expect(r.options().map((o) => o.innerText)).not.toContain('La Pazsiège du gouvernement (Bolivie)');
+      r.taper('la pa');
+      expect(capitales).toHaveBeenCalledTimes(2);
+      await attendre();
+      expect(r.options().map((o) => o.innerText)).toContain('La Pazsiège du gouvernement (Bolivie)');
     });
   });
 });
