@@ -603,6 +603,9 @@
     "synchro_refusees": "{n} séances refusées par le serveur, gardées sur cet appareil",
     "synchro_refusee_une": "1 séance refusée par le serveur, gardée sur cet appareil",
     "synchro_reessayer": "Réessayer",
+    "synchro_attend_verification": "Synchro en attente : valide ton adresse avec le lien reçu par e-mail (regarde aussi dans les spams)",
+    "synchro_attend_verification_une": "1 séance gardée sur cet appareil : elle partira quand tu auras validé ton adresse avec le lien reçu par e-mail (regarde aussi dans les spams)",
+    "synchro_attend_verification_n": "{n} séances gardées sur cet appareil : elles partiront quand tu auras validé ton adresse avec le lien reçu par e-mail (regarde aussi dans les spams)",
     "synchro_a_relire": "Mets à jour l'appli : {n} réponses venues d'un autre appareil attendent",
     "synchro_a_relire_une": "Mets à jour l'appli : 1 réponse venue d'un autre appareil attend",
     "erreurs": {

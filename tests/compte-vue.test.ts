@@ -10,7 +10,7 @@ import type { ComptesSynchro, EtatSynchro, ResultatEnvoi } from '../src/sync/env
 import { vueALaDemande } from '../src/vues/a-la-demande';
 import { adresseGmail, detailProgres, texteGoogle, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
-import { textes } from '../src/vues/textes';
+import { remplir, textes } from '../src/vues/textes';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
 const T = textes.compte;
@@ -451,6 +451,28 @@ describe('vue Compte', () => {
     expect(e.declencher).toHaveBeenCalledWith('reessayer');
     expect(ligne.textContent).toBe(T.synchro_a_jour);
     expect($('#compte-synchro-reessayer')).toBeNull();
+  });
+
+  it('avant l’ouverture, une adresse non vérifiée : la ligne dit que la synchro attend sa validation (essai du 10/11)', async () => {
+    const c = fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: false, fournisseurs: ['password'] });
+    const e = fauxEnvoi({ refusees: 2 });
+    await ouvrir(c, e);
+    const ligne = $('#compte-synchro')!;
+    expect(ligne.textContent).toBe(`${remplir(T.synchro_attend_verification_n, { n: 2 })} · ${T.synchro_reessayer}`);
+    e.poser({ refusees: 0, attente: 0 });
+    await attendre();
+    // Rien en attente non plus : jamais « à jour » tant que l'adresse n'est pas validée.
+    expect(ligne.textContent).toBe(T.synchro_attend_verification);
+    expect($('#compte-non-verifiee')!.innerText).toContain(T.non_verifiee);
+  });
+
+  it('texteSynchro : l’attente de la validation passe avant « refusées » et « à jour », jamais avant « coupée »', () => {
+    const base = { coupee: false, attente: 0, refusees: 0, horsLigne: false, aRelire: 0 };
+    expect(texteSynchro({ ...base, refusees: 1 }, true)).toBe(T.synchro_attend_verification_une);
+    expect(texteSynchro({ ...base, refusees: 2, attente: 1 }, true)).toBe(remplir(T.synchro_attend_verification_n, { n: 3 }));
+    expect(texteSynchro(base, true)).toBe(T.synchro_attend_verification);
+    expect(texteSynchro({ ...base, coupee: true }, true)).toBe(T.synchro_coupee);
+    expect(texteSynchro({ ...base, refusees: 1 })).toBe(T.synchro_refusee_une);
   });
 
   it('la ligne de la synchro ne se montre que sur l’écran du compte (sauf « Synchro coupée »)', async () => {

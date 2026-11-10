@@ -34,7 +34,7 @@
 import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
 import { MOT_SUPPRESSION, type ChoixFusion, type Comptes, type EtatCompte, type QuestionFusion, type ResultatDeconnexion, type ResultatFusion, type ResultatProfil } from '../sync/comptes';
 import { dansApk } from '../retour-android';
-import { synchroCoupee } from '../sync/drapeaux';
+import { COMPTES_OUVERTS, synchroCoupee } from '../sync/drapeaux';
 import type { Envoi, EtatSynchro } from '../sync/envoi';
 import { adresseErreur, codeErreur, traduire } from '../sync/erreurs';
 import { telecharger } from '../sync/export';
@@ -160,9 +160,19 @@ export interface OptionsVueCompte {
   telecharger?: (nom: string, contenu: string) => void;
 }
 
-/** La ligne de l'état de la synchro d'un compte (§ 3.2), sans « Réessayer ». */
-export function texteSynchro(e: EtatSynchro): string {
+/**
+ * La ligne de l'état de la synchro d'un compte (§ 3.2), sans « Réessayer ».
+ * `attendVerification` : avant l'ouverture (règles d'essai), un compte à mot
+ * de passe dont l'adresse n'est pas vérifiée ne peut rien envoyer ; la ligne
+ * le dit au lieu de « refusées par le serveur » ou « à jour » (essai du 10/11).
+ */
+export function texteSynchro(e: EtatSynchro, attendVerification = false): string {
   if (e.coupee) return T.synchro_coupee;
+  if (attendVerification) {
+    const n = e.refusees + e.attente;
+    if (!n) return T.synchro_attend_verification;
+    return n === 1 ? T.synchro_attend_verification_une : remplir(T.synchro_attend_verification_n, { n });
+  }
   if (e.refusees) return e.refusees === 1 ? T.synchro_refusee_une : remplir(T.synchro_refusees, { n: e.refusees });
   if (e.aRelire) return e.aRelire === 1 ? T.synchro_a_relire_une : remplir(T.synchro_a_relire, { n: e.aRelire });
   if (e.attente && e.horsLigne) return T.synchro_hors_ligne;
@@ -534,7 +544,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       return;
     }
     synchro.hidden = false;
-    synchro.replaceChildren(texteSynchro({ ...e, coupee: e.coupee || synchroCoupee() }));
+    const attendVerification = !COMPTES_OUVERTS && etat?.etat === 'compte' && !etat.verifiee && etat.fournisseurs.includes('password');
+    synchro.replaceChildren(texteSynchro({ ...e, coupee: e.coupee || synchroCoupee() }, attendVerification));
     if (e.refusees && !e.coupee) synchro.append(' · ', bouton('compte-synchro-reessayer', T.synchro_reessayer, () => void reessayer(), 'lien'));
   }
 
