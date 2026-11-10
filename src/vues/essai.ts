@@ -17,6 +17,7 @@ import type { Emprise } from '../map/geo';
 import type { Via } from '../map/pick';
 import type { NomTerrain } from '../map/types';
 import { mediane } from '../mesure/stats';
+import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
@@ -73,6 +74,8 @@ export interface QuestionPilotee {
   connu: boolean;
   /** Le terrain de la question (le monde par défaut ; l'île pour les communes, chargée avant la séance : besoinIle). */
   terrain?: NomTerrain;
+  /** Le domaine de sa fiche (pays par défaut) : la vue pose la question selon son sujet (étude J2 § 6.5). */
+  domaine?: Domaine;
 }
 
 /** Une séance en cours, vue de Toucher : les questions, les réponses et le bilan viennent d'elle. */
@@ -91,8 +94,11 @@ export interface PiloteSeance {
   bilan(el: HTMLElement, actions: { continuer(): void; carte(): void; autre(): void }): void;
 }
 
-/** Ce que Toucher demande : la Révision du jour, ou Apprendre sur une série. */
-export type DemandeSeance = { sorte: 'revision' } | { sorte: 'apprendre'; serie: Serie };
+/**
+ * Ce que Toucher demande : la Révision du jour, ou Apprendre sur une série
+ * d'un sujet (Lancement.sujet : le domaine des fiches, jamais tiré du terrain).
+ */
+export type DemandeSeance = { sorte: 'revision' } | { sorte: 'apprendre'; sujet: string; serie: Serie };
 
 /** Une séance refusée : pourquoi (« La grappe du jour est déjà apprise… ») et les révisions qui restent. */
 export interface RefusSeance {
@@ -608,7 +614,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     lancer(l, s, terrain, ids) {
       lancement = l;
       bilanAuRetour = false;
-      if (l.mode === 'apprendre') return lancerSeance({ sorte: 'apprendre', serie: s });
+      if (l.mode === 'apprendre') return lancerSeance({ sorte: 'apprendre', sujet: l.sujet, serie: s });
       mode = l.mode === 'nommer' ? 'nommer' : 'localiser';
       demarrer(s, terrain, ids);
     },

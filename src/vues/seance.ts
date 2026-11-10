@@ -11,11 +11,16 @@
 // Révision du jour » : une de pays et une de communes le même jour), et leurs
 // révisions en second bloc de la Révision du jour, sur l'île, avant la
 // grappe de pays nouveaux.
+//
+// Le domaine d'une réponse vient du sujet lancé, jamais du terrain (étude J2
+// § 6.5) : un Trouver de capitale, sur le monde, s'écrit `capitales:…`, pas
+// `pays:…`. Seuls les domaines jouables de la version (DOMAINES_JOUABLES)
+// se comptent et se posent ; les autres restent au journal.
 import type { DonneesCarte } from '../map/donnees';
 import { empriseGrappe, type Emprise } from '../map/geo';
 import type { Lieu, NomTerrain } from '../map/types';
 import type { Memoire } from '../journal/memoire';
-import { former, type Domaine } from '../srs/fiches';
+import { DOMAINES_JOUABLES, domaineJouable, estDomaine, former, jouablesDu, type Domaine } from '../srs/fiches';
 import { grappesCommunes, grappesPays, type Grappe } from '../srs/grappes';
 import { dues, entreesDuJour, grappeEntamee, introductions, programme, revisionsPermises, type Programme } from '../srs/planif';
 import { evenementReponse, Seance, type BilanSeance, type PlanSeance } from '../srs/seance';
@@ -47,7 +52,11 @@ export interface Seances extends FabriqueSeances {
   comptes(d?: DemandeSeance): ComptesSeance | null;
   /** Une grappe de communes commencée ce jour, l'île pas chargée : la charger pour savoir si elle est finie (main.ts, puis rafraîchir Jouer). */
   ileIncertaine(): boolean;
-  /** Le journal d'une partie libre (Trouver, Reconnaître hors séance : D11). */
+  /**
+   * Le journal d'une partie libre (Trouver, Reconnaître hors séance : D11),
+   * dans le domaine du sujet lancé ; sans Lancement (Essai J0 de ⚙), celui
+   * du terrain. null pour un sujet qui n'est pas un domaine.
+   */
   libre(l: Lancement | null, t: Terrain): ((r: ReponseJouee) => void) | null;
 }
 
@@ -107,9 +116,15 @@ export function creerSeances(o: OptionsSeances): Seances {
     return { info, p, plan: { revisions: p.revisions, introductions: p.introductions, nouveaux: p.nouveautes?.ids ?? [] } };
   }
 
+  /** Ce que la séance sait du domaine d'un sujet jouable ; null pour un autre (ou l'île pas chargée). */
+  function infoDe(sujet: string): InfoDomaine | null {
+    if (!domaineJouable(sujet)) return null;
+    return sujet === 'pays' ? pays : sujet === 'communes' ? infoCommunes() : null;
+  }
+
   /**
-   * Les blocs d'une demande. Apprendre : le domaine de la série (un
-   * continent, ou l'île), ses révisions dues puis sa grappe suivante. La
+   * Les blocs d'une demande. Apprendre : le domaine du sujet lancé (sur une
+   * série : un continent, ou l'île), ses révisions dues puis sa grappe suivante. La
    * Révision du jour : les pays (révisions, fiches nommer), puis les
    * communes en second bloc (défaut D6 : leurs révisions, leurs fiches
    * nommer, et la grappe de communes commencée ce jour s'il en reste), l'île
@@ -121,7 +136,7 @@ export function creerSeances(o: OptionsSeances): Seances {
    */
   function blocs(d: DemandeSeance): Bloc[] | null {
     if (d.sorte === 'apprendre') {
-      const info = d.serie.terrain === 'monde' ? pays : infoCommunes();
+      const info = infoDe(d.sujet);
       if (!info) return null;
       const grappes = info === pays && d.serie.id !== SERIE_TOUS ? pays.toutes.filter((g) => g.continent === d.serie.id) : info.toutes;
       return [bloc(info, grappes)];
@@ -161,7 +176,8 @@ export function creerSeances(o: OptionsSeances): Seances {
     if (!m.charge) return null;
     const etat = m.etat();
     const j = m.jour();
-    const domaines: Domaine[] = d.sorte === 'apprendre' ? [d.serie.terrain === 'monde' ? 'pays' : 'communes'] : ['pays', 'communes'];
+    // Les domaines jouables seuls : des fiches d'un sujet que cette version ne pose pas (venues d'une plus récente) ne se comptent pas.
+    const domaines: readonly Domaine[] = d.sorte === 'apprendre' ? (domaineJouable(d.sujet) ? [d.sujet] : []) : DOMAINES_JOUABLES;
     const aRevoir =
       Math.min(
         domaines.reduce((n, x) => n + dues(etat, j, x).length, 0),
@@ -171,6 +187,8 @@ export function creerSeances(o: OptionsSeances): Seances {
   }
 
   function ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance {
+    // Un sujet que cette version ne pose pas (Jouer ne le propose pas) : rien à faire, et pas le message de l'île.
+    if (d.sorte === 'apprendre' && !domaineJouable(d.sujet)) return { refus: S.rien, reviser: 0 };
     const bs = blocs(d);
     if (!bs) return { refus: textes.toucher.echec_terrain, reviser: 0 };
     const aFaire = bs.reduce((n, b) => n + b.plan.revisions.length + b.plan.introductions.length, 0);
@@ -214,7 +232,7 @@ export function creerSeances(o: OptionsSeances): Seances {
         if (!b || !e) return null;
         const c = e.cadrage;
         const cadrer = !c ? null : c.sorte === 'monde' ? ('monde' as const) : b.info.emprise(c.ids);
-        return { id: e.id, forme: e.forme, cadrer, connu: e.etape === 'qcm' && e.passage === 1, terrain: b.info.terrain };
+        return { id: e.id, forme: e.forme, cadrer, connu: e.etape === 'qcm' && e.passage === 1, terrain: b.info.terrain, domaine: e.domaine };
       },
       compte() {
         const b = courant();
@@ -287,8 +305,10 @@ export function creerSeances(o: OptionsSeances): Seances {
     };
   }
 
-  function libre(_l: Lancement | null, t: Terrain): ((r: ReponseJouee) => void) | null {
-    const domaine: Domaine = t.nom === 'monde' ? 'pays' : 'communes';
+  function libre(l: Lancement | null, t: Terrain): ((r: ReponseJouee) => void) | null {
+    // Le sujet lancé, même pas encore jouable en séance : la partie libre est hors FSRS (D11), et l'écrire sous le domaine du terrain fausserait une autre mémoire.
+    const domaine: Domaine | null = l ? (estDomaine(l.sujet) ? l.sujet : null) : (jouablesDu(t.nom)[0] ?? null);
+    if (!domaine) return null;
     const seance = m.nouvelId();
     return (r) => {
       let fiche: string;

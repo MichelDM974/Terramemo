@@ -40,6 +40,8 @@ export interface Etape {
   fiche: string;
   /** Id de l'entité. */
   id: string;
+  /** Domaine de la fiche : la vue pose la question selon son sujet (étude J2 § 6.5), même dans un bloc qui en mêle plusieurs. */
+  domaine: Domaine;
   forme: FormeEtape;
   /** Mode du journal : qcm, rappel (première note d'une fiche), revision (une reprise garde celui de l'étape reprise). */
   mode: ModeEvenement;
@@ -179,7 +181,7 @@ export class Seance {
       const f = analyser(fiche);
       if (!f) return null;
       const forme: FormeEtape = sorte === 'qcm' ? 'qcm' : f.sens === 'nommer' ? 'retournee' : 'trouver';
-      return { etape: sorte === 'revision' && forme === 'retournee' ? 'retournee' : sorte, fiche, id: f.id, forme, mode, passage: 1, cadrage: null };
+      return { etape: sorte === 'revision' && forme === 'retournee' ? 'retournee' : sorte, fiche, id: f.id, domaine: f.domaine, forme, mode, passage: 1, cadrage: null };
     };
     const ok = (e: Etape | null): e is Etape => e !== null;
     this.grappe = [...plan.nouveaux];

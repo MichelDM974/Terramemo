@@ -55,6 +55,7 @@ describe('séance : la file', () => {
     expect(new Set(vues.slice(4, 7).map((v) => v.id))).toEqual(new Set(PLAN.nouveaux));
     expect(vues.slice(7).map((v) => [v.etape, v.forme, v.mode])).toEqual(Array(3).fill(['rappel', 'trouver', 'rappel']));
     expect(s.finie).toBe(true);
+    expect(vues.every((v) => v.domaine === 'pays')).toBe(true);
     // Une révision nommer est une carte retournée, notée en mode revision.
     const deu = vues.find((v) => v.fiche === 'pays:DEU:nommer')!;
     expect([deu.etape, deu.forme, deu.mode]).toEqual(['retournee', 'retournee', 'revision']);
@@ -110,6 +111,25 @@ describe('séance : la file', () => {
     expect(s.finie).toBe(true);
     expect(s.courante).toBeNull();
     expect(() => s.repondre(juste)).toThrow();
+  });
+
+  it('chaque étape porte le domaine de sa fiche : la grappe celui du plan, une révision le sien, même mêlés (étude J2 § 6.5)', () => {
+    const plan: PlanSeance = { domaine: 'capitales', revisions: ['pays:FRA:localiser', 'capitales:DEU:nommer'], introductions: ['capitales:ESP:nommer'], nouveaux: ['BEN', 'TGO'] };
+    const { vues, evts } = parcourir(new Seance(plan, ctx()));
+    expect(new Map(vues.map((v) => [v.fiche, v.domaine]))).toEqual(
+      new Map([
+        ['pays:FRA:localiser', 'pays'],
+        ['capitales:DEU:nommer', 'capitales'],
+        ['capitales:ESP:nommer', 'capitales'],
+        ['capitales:BEN:nommer', 'capitales'],
+        ['capitales:TGO:nommer', 'capitales'],
+        ['capitales:BEN:localiser', 'capitales'],
+        ['capitales:TGO:localiser', 'capitales'],
+      ]),
+    );
+    // Les nouveautés d'une grappe de capitales s'écrivent capitales:, jamais pays:.
+    expect(evts.filter((e) => e.fiche.startsWith('pays:')).map((e) => e.fiche)).toEqual(['pays:FRA:localiser']);
+    expect(evts.every((e) => probleme(e) === null)).toBe(true);
   });
 });
 

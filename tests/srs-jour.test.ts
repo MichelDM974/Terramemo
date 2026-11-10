@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyser, fichesDe, former, SENS_ACTIFS, SENS_ENTREE, soeur } from '../src/srs/fiches';
+import { analyser, DOMAINES, DOMAINES_JOUABLES, domaineJouable, estDomaine, fichesDe, former, jouablesDu, SENS_ACTIFS, SENS_ENTREE, soeur, TERRAIN_DOMAINE } from '../src/srs/fiches';
 import { jour, jourDe } from '../src/srs/jour';
 
 // Vecteurs écrits à la main : l'heure UTC de chaque instant est convertie de
@@ -59,6 +59,31 @@ describe('fiches', () => {
     expect(soeur('pays:FRA:localiser')).toBe('pays:FRA:nommer');
     expect(soeur('pays:FRA:nommer')).toBe('pays:FRA:localiser');
     expect(soeur('n’importe quoi')).toBeNull();
+  });
+
+  it('les domaines du J2 se lisent dès le socle : capitales et drapeaux à l’id du pays, mers à leur id (étude J2 § 3.1, 3.3)', () => {
+    expect(DOMAINES).toEqual(['pays', 'communes', 'capitales', 'drapeaux', 'mers']);
+    expect(former('capitales', 'BOL', 'localiser')).toBe('capitales:BOL:localiser');
+    expect(analyser('capitales:BOL:localiser')).toEqual({ domaine: 'capitales', id: 'BOL', sens: 'localiser' });
+    expect(analyser('drapeaux:TCD:nommer')).toEqual({ domaine: 'drapeaux', id: 'TCD', sens: 'nommer' });
+    expect(analyser('mers:medit:localiser')).toEqual({ domaine: 'mers', id: 'medit', sens: 'localiser' });
+    // La sœur reste dans son domaine : jamais la fiche du pays.
+    expect(soeur('capitales:BOL:localiser')).toBe('capitales:BOL:nommer');
+    expect(soeur('drapeaux:TCD:nommer')).toBe('drapeaux:TCD:localiser');
+    expect(soeur('mers:medit:nommer')).toBe('mers:medit:localiser');
+    expect(fichesDe('mers', 'medit', SENS_ACTIFS)).toEqual(['mers:medit:localiser', 'mers:medit:nommer']);
+    // Toujours refusés : un domaine inconnu, un nom proche, la casse.
+    for (const x of ['villes:FRA:localiser', 'capitale:BOL:localiser', 'Capitales:BOL:localiser', 'mer:medit:localiser', 'quiz:general:facile']) expect(analyser(x)).toBeNull();
+    expect(estDomaine('villes')).toBe(false);
+  });
+
+  it('lire n’est pas savoir poser : seuls pays et communes sont jouables au socle, chacun sur son terrain (étude J2 § 3.1)', () => {
+    expect(DOMAINES_JOUABLES).toEqual(['pays', 'communes']);
+    expect(DOMAINES.filter(domaineJouable)).toEqual(['pays', 'communes']);
+    expect(['capitales', 'drapeaux', 'mers', 'villes'].some(domaineJouable)).toBe(false);
+    expect(jouablesDu('monde')).toEqual(['pays']);
+    expect(jouablesDu('reunion')).toEqual(['communes']);
+    expect(DOMAINES.map((d) => TERRAIN_DOMAINE[d])).toEqual(['monde', 'reunion', 'monde', 'monde', 'monde']);
   });
 
   it('les deux sens se révisent ; une grappe introduit le sens d’entrée, localiser (décision « Sens « quel est ce pays ? » »)', () => {

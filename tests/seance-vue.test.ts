@@ -13,6 +13,7 @@ import type { Evenement } from '../src/srs/journal';
 import { etat } from '../src/srs/rejeu';
 import { catalogue } from '../src/vues/cibles';
 import type { PiloteSeance, RefusSeance, ReponseJouee } from '../src/vues/essai';
+import { carteMemoire } from '../src/vues/carte-memoire';
 import { creerSeances, texteComptes } from '../src/vues/seance';
 import { remplir, textes } from '../src/vues/textes';
 import { El, installerDom } from './dom-factice';
@@ -162,20 +163,20 @@ describe('séance : du programme au journal', () => {
 
   it('Apprendre : la grappe suivante de CETTE série ; grappe du jour déjà faite : refus, et les révisions proposées', async () => {
     const m = await monter();
-    const afrique = m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Africa') }) as PiloteSeance;
-    expect(m.seances.comptes({ sorte: 'apprendre', serie: serie('Africa') })?.nouveaux).toBeGreaterThan(4);
+    const afrique = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Africa') }) as PiloteSeance;
+    expect(m.seances.comptes({ sorte: 'apprendre', sujet: 'pays', serie: serie('Africa') })?.nouveaux).toBeGreaterThan(4);
     const { questions } = jouer(afrique);
     const ids = new Set(questions.map((q) => q.id));
     const continent = new Map(monde.entites.map((e) => [e.pays.id, e.pays.continent]));
     expect([...ids].every((id) => continent.get(id) === 'Africa')).toBe(true);
     // Même jour, autre série : la grappe du jour est prise.
-    const refus = m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') }) as RefusSeance;
+    const refus = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') }) as RefusSeance;
     expect(refus).toEqual({ refus: S.grappe_faite, reviser: 0 });
     // Révision du jour : rien à faire.
     expect(m.seances.ouvrir({ sorte: 'revision' })).toEqual({ refus: S.rien, reviser: 0 });
     // Le lendemain, Apprendre sur l'Europe : les introductions d'abord, puis la grappe d'Europe.
     m.h.ts += JOUR_MS;
-    const europe = m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') }) as PiloteSeance;
+    const europe = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') }) as PiloteSeance;
     const q = jouer(europe).questions;
     expect(q.filter((x) => x.forme === 'retournee').length).toBe(ids.size);
     expect(q.filter((x) => x.forme === 'qcm').every((x) => continent.get(x.id) === 'Europe')).toBe(true);
@@ -184,14 +185,14 @@ describe('séance : du programme au journal', () => {
   it('grappe du jour quittée en plein rappel : Apprendre sur une autre série renvoie à elle, la Révision du jour la reprend', async () => {
     const m = await monter();
     const continent = new Map(monde.entites.map((e) => [e.pays.id, e.pays.continent]));
-    const eu = m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') }) as PiloteSeance;
+    const eu = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') }) as PiloteSeance;
     let rappels = 0;
     for (let q = eu.question(); q && rappels < 2; q = eu.question()) {
       if (q.forme === 'trouver') rappels++;
       eu.repondre(juste(q.id, q.forme === 'trouver' ? 'localiser' : 'nommer'));
     }
     eu.terminer();
-    const refus = m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Africa') }) as RefusSeance;
+    const refus = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Africa') }) as RefusSeance;
     expect(refus.refus).toBe(remplir(S.grappe_entamee, { serie: 'Europe' }));
     expect(refus.reviser).toBe(0);
     expect(refus.finir).toBeGreaterThan(0);
@@ -200,7 +201,7 @@ describe('séance : du programme au journal', () => {
     const rappel = questions.filter((x) => x.forme === 'trouver');
     expect(rappel.length).toBe(refus.finir);
     expect(rappel.every((x) => continent.get(x.id) === 'Europe')).toBe(true);
-    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Africa') })).toEqual({ refus: S.grappe_faite, reviser: 0 });
+    expect(m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Africa') })).toEqual({ refus: S.grappe_faite, reviser: 0 });
   });
 
   it('parties libres (D11) : chaque réponse au journal, mode libre, hors FSRS, une séance par partie', async () => {
@@ -247,10 +248,10 @@ describe('séance : les communes de La Réunion', () => {
 
   it('Apprendre sous La Réunion : 6 communes voisines sur l’île (QCM, rappel cadré) ; les pays gardent leur grappe du jour', async () => {
     const m = await monter(undefined, { ile: () => ile });
-    expect(m.seances.besoinIle!({ sorte: 'apprendre', serie: reunion })).toBe(true);
+    expect(m.seances.besoinIle!({ sorte: 'apprendre', sujet: 'communes', serie: reunion })).toBe(true);
     expect(m.seances.besoinIle!({ sorte: 'revision' })).toBe(false);
-    expect(m.seances.comptes({ sorte: 'apprendre', serie: reunion })).toEqual({ aRevoir: 0, nouveaux: 6 });
-    const p = m.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance;
+    expect(m.seances.comptes({ sorte: 'apprendre', sujet: 'communes', serie: reunion })).toEqual({ aRevoir: 0, nouveaux: 6 });
+    const p = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: reunion }) as PiloteSeance;
     expect(p.compte()).toBe('1 / 12');
     const { questions, lignes } = jouer(p);
     expect(questions.every((q) => q.terrain === 'reunion' && communes.has(q.id))).toBe(true);
@@ -268,35 +269,35 @@ describe('séance : les communes de La Réunion', () => {
     expect(el.innerText).toContain('Apprendre · La Réunion');
     expect(el.innerText).toContain(ile.noms[rappels[0]!.id]!);
     // Une grappe par jour et par domaine : plus d'autre grappe de l'île aujourd'hui, mais celle des pays reste à prendre.
-    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: reunion })).toEqual({ refus: S.grappe_faite, reviser: 0 });
+    expect(m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: reunion })).toEqual({ refus: S.grappe_faite, reviser: 0 });
     expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 5 });
-    const pp = m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') }) as PiloteSeance;
+    const pp = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') }) as PiloteSeance;
     const { questions: qp } = jouer(pp);
     expect(qp.length).toBeGreaterThan(0);
     expect(qp.every((q) => q.terrain === 'monde')).toBe(true);
-    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') })).toEqual({ refus: S.grappe_faite, reviser: 0 });
+    expect(m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') })).toEqual({ refus: S.grappe_faite, reviser: 0 });
     expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 0 });
   });
 
   it('pays d’abord appris : Apprendre sous La Réunion le même jour, sa grappe de communes', async () => {
     const m = await monter(undefined, { ile: () => ile });
-    jouer(m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') }) as PiloteSeance);
-    expect(m.seances.comptes({ sorte: 'apprendre', serie: reunion })).toEqual({ aRevoir: 0, nouveaux: 6 });
-    const p = m.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance;
+    jouer(m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') }) as PiloteSeance);
+    expect(m.seances.comptes({ sorte: 'apprendre', sujet: 'communes', serie: reunion })).toEqual({ aRevoir: 0, nouveaux: 6 });
+    const p = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: reunion }) as PiloteSeance;
     const { questions } = jouer(p);
     expect(questions.every((q) => q.terrain === 'reunion' && communes.has(q.id))).toBe(true);
     expect(questions.filter((q) => q.forme === 'trouver').length).toBe(6);
-    expect(m.seances.ouvrir({ sorte: 'apprendre', serie: reunion })).toEqual({ refus: S.grappe_faite, reviser: 0 });
+    expect(m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: reunion })).toEqual({ refus: S.grappe_faite, reviser: 0 });
   });
 
   it('le lendemain, Révision du jour : les révisions (pays, puis communes sur l’île) avant la grappe de pays nouveaux, de retour sur le monde, une seule séance', async () => {
     let charge: typeof ile | null = ile;
     const m = await monter(undefined, { ile: () => charge });
-    const { questions: q0 } = jouer(m.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance, { rate: '' });
+    const { questions: q0 } = jouer(m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: reunion }) as PiloteSeance, { rate: '' });
     const raté = q0.find((q) => q.forme === 'trouver')!.id;
     // Refaite avec un raté : une autre mémoire, la première commune du rappel ratée.
     const m2 = await monter(undefined, { ile: () => charge });
-    jouer(m2.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance, { rate: raté });
+    jouer(m2.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: reunion }) as PiloteSeance, { rate: raté });
     m2.h.ts += JOUR_MS;
     // La commune ratée due, les cinq autres : leur fiche nommer à introduire ; les pays : leur première grappe (5).
     expect(m2.seances.comptes()).toEqual({ aRevoir: 6, nouveaux: 5 });
@@ -334,7 +335,7 @@ describe('séance : les communes de La Réunion', () => {
 
   it('grappe de communes quittée en plein rappel : Apprendre sur les pays ne l’attend pas, la Révision du jour la finit sur l’île sans en ouvrir une autre', async () => {
     const m = await monter(undefined, { ile: () => ile });
-    const p = m.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance;
+    const p = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: reunion }) as PiloteSeance;
     let rappels = 0;
     for (let q = p.question(); q && rappels < 2; q = p.question()) {
       if (q.forme === 'trouver') rappels++;
@@ -344,7 +345,7 @@ describe('séance : les communes de La Réunion', () => {
     expect(m.seances.besoinIle!({ sorte: 'revision' })).toBe(true);
     // La Révision du jour : les 4 communes à finir, puis la grappe de pays nouveaux (5).
     expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 9 });
-    const { questions: qp } = jouer(m.seances.ouvrir({ sorte: 'apprendre', serie: serie('Europe') }) as PiloteSeance);
+    const { questions: qp } = jouer(m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') }) as PiloteSeance);
     expect(qp.every((q) => q.terrain === 'monde')).toBe(true);
     expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 4 });
     const { questions } = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance);
@@ -357,7 +358,7 @@ describe('séance : les communes de La Réunion', () => {
   it('page rouverte en pleine grappe de communes, l’île pas encore chargée : incertaine, la Révision du jour la charge d’abord', async () => {
     const depot = depotMemoire();
     const m = await monter(depot, { ile: () => ile });
-    const p = m.seances.ouvrir({ sorte: 'apprendre', serie: reunion }) as PiloteSeance;
+    const p = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: reunion }) as PiloteSeance;
     let rappels = 0;
     for (let q = p.question(); q && rappels < 2; q = p.question()) {
       if (q.forme === 'trouver') rappels++;
@@ -370,7 +371,7 @@ describe('séance : les communes de La Réunion', () => {
     expect(m2.seances.ileIncertaine()).toBe(true);
     expect(m2.seances.besoinIle!({ sorte: 'revision' })).toBe(true);
     // Apprendre sur les pays n'en dépend pas (un budget par domaine).
-    expect(m2.seances.besoinIle!({ sorte: 'apprendre', serie: serie('Europe') })).toBe(false);
+    expect(m2.seances.besoinIle!({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') })).toBe(false);
     // Sans l'île, la ligne de Jouer ne compte que la grappe de pays : main.ts charge l'île en fond, puis la rafraîchit.
     expect(m2.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 5 });
     charge = ile;
@@ -383,3 +384,90 @@ describe('séance : les communes de La Réunion', () => {
   });
 });
 
+
+// Le piège principal du J2 (étude J2 § 6.5) : le domaine d'une réponse vient
+// du sujet lancé, jamais du terrain (un Trouver de capitale, sur le monde,
+// ne s'écrit pas pays:), et seuls les domaines jouables de la version se
+// comptent, se posent et se teintent (§ 3.1) ; les autres restent au journal.
+describe('séance : le sujet de bout en bout', () => {
+  beforeEach(() => installerDom());
+  afterEach(() => vi.unstubAllGlobals());
+  const monde_ = { nom: 'monde' } as never;
+
+  it('une partie libre lancée sous Capitales écrit capitales:, jamais pays: ; sous Pays et Communes, inchangé', async () => {
+    const m = await monter();
+    const sous = (sujet: string, serie: string) => ({ branche: 'entrainement' as const, sujet, serie, mode: 'localiser' as const });
+    const capitales = m.seances.libre(sous('capitales', 'Africa'), monde_)!;
+    capitales(juste('BOL', 'localiser'));
+    capitales(faux('TCD', 'nommer'));
+    m.seances.libre(sous('pays', 'Europe'), monde_)!(juste('FRA', 'localiser'));
+    m.seances.libre(sous('communes', 'reunion'), { nom: 'reunion' } as never)!(juste('97411', 'localiser'));
+    // Un sujet qui n'a pas de fiches : pas de journal, plutôt qu'un domaine pris au terrain.
+    expect(m.seances.libre(sous('villes', 'Europe'), monde_)).toBeNull();
+    await m.memoire.ecrire([]);
+    expect((await m.depot.tous()).map((e) => [e.fiche, e.mode])).toEqual([
+      ['capitales:BOL:localiser', 'libre'],
+      ['capitales:TCD:nommer', 'libre'],
+      ['pays:FRA:localiser', 'libre'],
+      ['communes:97411:localiser', 'libre'],
+    ]);
+  });
+
+  /** Les événements d'une première Révision du jour (POL ratée), recopiés sous d'autres domaines (l'id de l'entité changé par `ent`), puis le lendemain. */
+  async function journalMixte(domaines: { domaine: string; ent?: (id: string) => string }[]) {
+    const m = await monter();
+    jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance, { rate: 'POL' });
+    await m.memoire.ecrire([]);
+    // Des ids neufs, partout : la mémoire du lendemain (monter) refait les mêmes ids que celle-ci.
+    let n = 0;
+    const pays = (await m.depot.tous()).map((e) => ({ ...e, id: `00000000-0000-4000-b000-${String(++n).padStart(12, '0')}` }));
+    const copies = domaines.flatMap(({ domaine, ent = (x) => x }) =>
+      pays.map((e) => {
+        const [, id, sens] = e.fiche.split(':');
+        return { ...e, id: `00000000-0000-4000-9000-${String(++n).padStart(12, '0')}`, fiche: `${domaine}:${ent(id!)}:${sens}` };
+      }),
+    );
+    const depot = depotMemoire();
+    await depot.ajouter([...pays, ...copies]);
+    const m2 = await monter(depot);
+    m2.h.ts += JOUR_MS;
+    // Le même journal sans les copies : ce que les comptes doivent rester.
+    const seulDepot = depotMemoire();
+    await seulDepot.ajouter(pays);
+    const seul = await monter(seulDepot);
+    seul.h.ts += JOUR_MS;
+    return { m2, seul, copies };
+  }
+
+  it('des fiches capitales:, drapeaux: et mers: au journal : lues, mais ni comptées, ni posées, ni teintées', async () => {
+    const mer = (id: string) => `m${id.toLowerCase()}`;
+    const { m2, seul, copies } = await journalMixte([{ domaine: 'capitales' }, { domaine: 'drapeaux' }, { domaine: 'mers', ent: mer }]);
+    // Lues : au journal et dans l'état (une version qui sait poser le sujet les reprendra telles quelles).
+    const notees = copies.filter((e) => e.note !== null);
+    expect(notees.length).toBeGreaterThan(0);
+    expect(notees.every((e) => m2.memoire.etat().has(e.fiche))).toBe(true);
+    // Comptées : les pays seuls, comme sans elles (le test « le lendemain » ci-dessus).
+    expect(m2.seances.comptes()).toEqual({ aRevoir: 5, nouveaux: 9 });
+    for (const d of [{ sorte: 'revision' as const }, { sorte: 'apprendre' as const, sujet: 'pays', serie: serie('Europe') }, { sorte: 'apprendre' as const, sujet: 'pays', serie: serie('tous') }])
+      expect(m2.seances.comptes(d)).toEqual(seul.seances.comptes(d));
+    // Un sujet que cette version ne pose pas : ni compte, ni séance.
+    for (const sujet of ['capitales', 'drapeaux', 'mers']) {
+      expect(m2.seances.comptes({ sorte: 'apprendre', sujet, serie: serie('tous') })).toEqual({ aRevoir: 0, nouveaux: 0 });
+      expect(m2.seances.ouvrir({ sorte: 'apprendre', sujet, serie: serie('tous') })).toEqual({ refus: S.rien, reviser: 0 });
+    }
+    // Posées : la Révision du jour ne pose que des fiches de pays, et n'écrit que pays:.
+    const { questions } = jouer(m2.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance);
+    expect(questions.length).toBeGreaterThan(0);
+    expect(questions.every((q) => (q as { domaine?: string }).domaine === 'pays' && q.terrain === 'monde')).toBe(true);
+    await m2.memoire.ecrire([]);
+    const ecrits = (await m2.depot.tous()).filter((e) => e.ts > T0 + JOUR_MS / 2);
+    expect(ecrits.length).toBe(questions.length);
+    expect(ecrits.every((e) => e.fiche.startsWith('pays:'))).toBe(true);
+    // Teintées : la carte de la mémoire du monde montre les pays seuls, aucune mer.
+    const carte = carteMemoire(m2.memoire, () => true);
+    const teintes = carte.teintes('monde')!;
+    expect(teintes.size).toBeGreaterThan(0);
+    expect([...teintes.keys()].some((id) => /^m[a-z]/.test(id))).toBe(false);
+    expect(carte.detail('monde', mer('POL'), true)).toBe(textes.memoire.jamais_vu);
+  });
+});

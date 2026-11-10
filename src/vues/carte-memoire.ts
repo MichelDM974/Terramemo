@@ -9,8 +9,8 @@
 // pays jamais vus).
 import type { Memoire } from '../journal/memoire';
 import type { NomTerrain } from '../map/types';
-import type { Domaine } from '../srs/fiches';
-import { maitrises, memoireEntite, seauxEntites } from '../srs/planif';
+import { jouablesDu, type Domaine } from '../srs/fiches';
+import { maitrises, memoireEntite, seauxEntites, type Seau } from '../srs/planif';
 import { remplir, textes } from './textes';
 
 const M = textes.memoire;
@@ -38,8 +38,13 @@ export function garderReglageMemoire(s: Pick<Storage, 'setItem'> | null, actif: 
   }
 }
 
-/** Le domaine des fiches d'un terrain : les pays du monde, les communes de l'île. */
-export const domaineDe = (t: NomTerrain): Domaine => (t === 'monde' ? 'pays' : 'communes');
+/**
+ * Le domaine que la carte de la mémoire montre sur un terrain : le premier
+ * jouable (DOMAINES_JOUABLES : les pays du monde, les communes de l'île),
+ * jamais un sujet que cette version ne pose pas (étude J2 § 3.1, 6.5) ; le
+ * choix du sujet viendra au lot 0c (D47). null : aucun sujet jouable là.
+ */
+export const domaineDe = (t: NomTerrain): Domaine | null => jouablesDu(t)[0] ?? null;
 
 /** Ce que la vue Carte lit de la mémoire ; null partout quand le réglage est coupé ou la mémoire pas encore chargée. */
 export interface CarteMemoire {
@@ -53,16 +58,22 @@ export interface CarteMemoire {
 
 export function carteMemoire(m: Memoire, actif: () => boolean): CarteMemoire {
   const pret = () => actif() && m.charge;
+  /** Les seaux du domaine montré sur ce terrain (vides sans domaine jouable). */
+  const seaux = (t: NomTerrain) => {
+    const d = domaineDe(t);
+    return d ? seauxEntites(m.etat(), d) : new Map<string, Seau>();
+  };
   return {
     teintes(t) {
-      return pret() ? seauxEntites(m.etat(), domaineDe(t)) : null;
+      return pret() ? seaux(t) : null;
     },
     maitrises(t, total) {
-      return pret() ? remplir(M.maitrises, { n: maitrises(seauxEntites(m.etat(), domaineDe(t))), total }) : null;
+      return pret() ? remplir(M.maitrises, { n: maitrises(seaux(t)), total }) : null;
     },
     detail(t, id, jouable) {
-      if (!pret() || !jouable) return null;
-      const e = memoireEntite(m.etat(), domaineDe(t), id, m.jour());
+      const d = domaineDe(t);
+      if (!pret() || !jouable || !d) return null;
+      const e = memoireEntite(m.etat(), d, id, m.jour());
       if (!e) return M.jamais_vu;
       const quand = e.dans <= 0 ? M.a_revoir : e.dans === 1 ? M.revient_demain : remplir(M.revient, { n: e.dans });
       return `${remplir(e.vu > 1 ? M.vu : M.vu_une, { n: e.vu })} · ${quand}`;
