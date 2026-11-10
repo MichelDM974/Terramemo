@@ -160,7 +160,8 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
   }
 
   function entete(n: Niveau): HTMLElement[] {
-    const fermer = creer('button', { type: 'button', class: 'jouer-icone', id: 'jouer-fermer', 'aria-label': J.fermer, title: J.fermer }, '×');
+    // Libellé commun à toutes les « × » (#18) : elle mène à la carte.
+    const fermer = creer('button', { type: 'button', class: 'jouer-icone', id: 'jouer-fermer', 'aria-label': textes.croix.carte, title: textes.croix.carte }, '×');
     fermer.addEventListener('click', () => o.fermer());
     const parent = arbre.parent(n);
     if (!parent) return [creer('div', { class: 'jouer-tete' }, creer('h2', {}, J.titre), fermer)];
