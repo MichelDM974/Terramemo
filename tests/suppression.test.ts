@@ -7,6 +7,9 @@
 // « page » neuve sur les mêmes bases et la même session Auth, comme une appli
 // rouverte) ; écriture d'un 2e appareil du compte refusée après la pierre
 // tombale, qui dit « en cours de suppression » puis passe en session perdue.
+// Lot 6 : un compte Google (faux idToken de l'émulateur, googleParJeton), sa
+// réauthentification (le même compte, ou auth/user-mismatch), et la reprise
+// d'une suppression par Google quand l'appli a été tuée après deleteUser.
 // Sauté sans émulateurs (npm test).
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { IDBFactory, IDBKeyRange as FauxIDBKeyRange } from 'fake-indexeddb';
@@ -22,6 +25,8 @@ import { creerComptes, PAGE_SUPPRESSION, type AppareilComptes } from '../src/syn
 import { depotARelireIndexedDb, depotLotsIndexedDb } from '../src/sync/depot-lots';
 import { terminerEffacement } from '../src/sync/effacement';
 import { creerEnvoi, serveurFirestore, type Envoi } from '../src/sync/envoi';
+import { codeErreur, traduire } from '../src/sync/erreurs';
+import { googleParJeton } from '../src/sync/google';
 import { composer, docDuLot } from '../src/sync/lots';
 import { depotSessionIndexedDb } from '../src/sync/session';
 import { reglesAvecEssai } from './regles-essai';
@@ -66,6 +71,8 @@ function appareil(nom: string) {
   fsM.connectFirestoreEmulator(db, host!, Number(port));
   const id = uuid();
   const stockage = new Stockage();
+  /** Le compte Google que la « fenêtre » rend (faux idToken de l'émulateur, S9). */
+  const choisi = { claims: { sub: `sub-${nom}-${napps}`, email: `${nom}-${napps}@gmail.com`, email_verified: true } };
   /** L'étape coupée à la prochaine suppression (une fois). */
   const panne: { etape: Etape | null; code?: string } = { etape: null };
   const couper = (e: Etape) => {
@@ -128,7 +135,16 @@ function appareil(nom: string) {
         return envoi!.effacer(uids, () => memoire.effacer());
       },
     };
-    const comptes = creerComptes({ session, version: 'v1', service, stockage: () => stockage, coupee: () => false, republier: async () => undefined, appareil: appareilComptes });
+    const comptes = creerComptes({
+      session,
+      version: 'v1',
+      service,
+      stockage: () => stockage,
+      coupee: () => false,
+      republier: async () => undefined,
+      appareil: appareilComptes,
+      google: googleParJeton(async () => JSON.stringify(choisi.claims)),
+    });
     envoi = creerEnvoi({
       journal: { tous: () => memoire.tous({ strict: true }), attendre: () => memoire.ecrire([]), seanceEnCours: () => memoire.seanceEnCours(), fusionner: (e) => memoire.fusionner(e) },
       lots,
@@ -177,7 +193,7 @@ function appareil(nom: string) {
     }
     return { memoire, depot, lots, session, comptes, envoi, fini, jouer, fermer: () => memoire.fermer() };
   }
-  return { nom, idb, a, db, id, stockage, panne, page };
+  return { nom, idb, a, db, id, stockage, panne, choisi, page };
 }
 
 describe.skipIf(!hoteAuth || !hoteFs)('suppression du compte (émulateurs Auth et Firestore)', () => {
@@ -238,6 +254,32 @@ describe.skipIf(!hoteAuth || !hoteFs)('suppression du compte (émulateurs Auth e
     return ((await r.json()) as { users?: unknown[] }).users?.length === 1;
   }
 
+  /** Les comptes de Auth à cette adresse (API d'administration de l'émulateur). */
+  async function comptesA(email: string): Promise<string[]> {
+    const r = await fetch(`http://${hoteAuth}/identitytoolkit.googleapis.com/v1/projects/${PROJET}/accounts:query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+      body: JSON.stringify({ returnUserInfo: true }),
+    });
+    return (((await r.json()) as { userInfo?: { localId: string; email?: string }[] }).userInfo ?? []).filter((u) => u.email === email).map((u) => u.localId);
+  }
+
+  /** Un compte Google sur l'appareil (lien de son invité anonyme), sous le pseudo Michel, une séance partie. */
+  async function compteGoogleAvecLots(x: ReturnType<typeof appareil>) {
+    x.stockage.setItem('terramemo.pseudo', 'Michel');
+    const p = x.page();
+    await p.memoire.pret;
+    const anonyme = (await authM.signInAnonymously(x.a)).user.uid;
+    expect(await p.comptes.google()).toMatchObject({ nouveau: true });
+    await p.fini();
+    await p.jouer(5);
+    await p.fini();
+    const uid = x.a.currentUser!.uid;
+    expect(uid).toBe(anonyme);
+    expect(await nbLots(uid)).toBe(1);
+    return { p, uid };
+  }
+
   /** Un compte créé sur l'appareil, sous le pseudo Michel, avec une séance partie et `semes` lots de plus en ligne. */
   async function compteAvecLots(x: ReturnType<typeof appareil>, semes = 0) {
     x.stockage.setItem('terramemo.pseudo', 'Michel');
@@ -294,6 +336,56 @@ describe.skipIf(!hoteAuth || !hoteFs)('suppression du compte (émulateurs Auth e
     expect(await lire('joueurs', uid)).toMatchObject({ pseudo: 'Ana' });
     await p.comptes.supprimer({ mot: 'supprimer', mdp: MDP });
     expect(await lire('demandes', uid)).toMatchObject({ pseudo: 'Ana' });
+  });
+
+  it('compte Google : réauthentifié par Google (sans mot de passe), puis tout supprimé', async () => {
+    const x = appareil('google');
+    const { p, uid } = await compteGoogleAvecLots(x);
+    expect(await p.comptes.etat()).toMatchObject({ etat: 'compte', fournisseurs: ['google.com'] });
+    await p.comptes.supprimer({ mot: 'supprimer' });
+    await toutSupprime(x, p, uid);
+  });
+
+  it('compte Google, un autre compte choisi à la réauthentification : auth/user-mismatch traduit, rien de commencé', async () => {
+    const x = appareil('google-intrus');
+    const { p, uid } = await compteGoogleAvecLots(x);
+    const bon = x.choisi.claims;
+    x.choisi.claims = { sub: 'sub-intrus', email: 'intrus@gmail.com', email_verified: true };
+    const e = await p.comptes.supprimer({ mot: 'supprimer' }).catch((z: unknown) => z);
+    expect(codeErreur(e)).toBe('auth/user-mismatch');
+    expect(traduire(e).texte).toBe("Ce n'est pas le compte connecté : choisis celui-là.");
+    expect((await p.session.lire())?.suppression).toBeNull();
+    expect(await dansAuth(uid)).toBe(true);
+    expect(await nbLots(uid)).toBe(1);
+    expect(await p.comptes.etat()).toMatchObject({ etat: 'compte', uid });
+    x.choisi.claims = bon;
+    await p.comptes.supprimer({ mot: 'supprimer' });
+    await toutSupprime(x, p, uid);
+  });
+
+  it('compte Google, appli tuée juste après deleteUser : la reprise passe par Google, le compte neuf de la fenêtre supprimé, l’appareil vidé', async () => {
+    const x = appareil('google-apres');
+    const { p, uid } = await compteGoogleAvecLots(x);
+    x.panne.etape = 'apres-compte';
+    await expect(p.comptes.supprimer({ mot: 'supprimer' })).rejects.toBeTruthy();
+    expect(await dansAuth(uid)).toBe(false);
+    p.fermer();
+    const p2 = x.page();
+    await p2.memoire.pret;
+    expect(await p2.comptes.etat()).toMatchObject({ etat: 'suppression', uid, fournisseurs: ['google.com'], connecte: false, horsAuth: false });
+    // Un autre compte Google choisi dans la fenêtre ne prouve rien : rien n'est vidé ; le compte que la
+    // fenêtre vient de lui créer est supprimé.
+    const bon = x.choisi.claims;
+    x.choisi.claims = { sub: 'sub-autre', email: 'autre@gmail.com', email_verified: true };
+    await expect(p2.comptes.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'terramemo/google-autre-compte' });
+    expect(await p2.depot.tous()).toHaveLength(5);
+    expect(await comptesA('autre@gmail.com')).toEqual([]);
+    expect((await p2.session.lire())?.suppression).toBe(uid);
+    // Le bon compte Google : il ne mène plus au compte supprimé (un compte neuf, aussitôt supprimé) : parti.
+    x.choisi.claims = bon;
+    await p2.comptes.supprimer({ mot: 'supprimer' });
+    expect(await comptesA(bon.email)).toEqual([]);
+    await toutSupprime(x, p2, uid);
   });
 
   it('un compte sans pseudo en ligne : pas de demande, la suppression aboutit', async () => {

@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:regles": "firebase emulators:exec --only firestore --project demo-terramemo \"vitest run tests/regles.test.ts\"",
-    "test:comptes": "firebase emulators:exec --only auth,firestore --project demo-terramemo \"vitest run --no-file-parallelism tests/comptes.test.ts tests/profil.test.ts tests/envoi.test.ts tests/suppression.test.ts\"",
+    "test:comptes": "firebase emulators:exec --only auth,firestore --project demo-terramemo \"vitest run --no-file-parallelism tests/comptes.test.ts tests/google.test.ts tests/profil.test.ts tests/envoi.test.ts tests/suppression.test.ts\"",
     "test:synchro": "firebase emulators:exec --only auth,firestore --project demo-terramemo \"vitest run tests/synchro-emulateurs.test.ts\"",
     "test:admin": "firebase emulators:exec --only auth,firestore --project demo-terramemo \"vitest run tests/admin.test.ts\"",
     "admin": "node scripts/admin/outil.mjs",

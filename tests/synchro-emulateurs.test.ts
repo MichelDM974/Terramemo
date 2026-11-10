@@ -15,6 +15,10 @@
 // Firebase est chargé. Une « page » est une ouverture de l'appli sur les
 // mêmes bases (redémarrage, nouvelle version, second onglet).
 //
+// Lot 6 : (k) un compte Google sur les deux appareils, avec les règles d'essai
+// du dépôt (adresse d'essai de l'utilisateur) ; Google y passe par le faux
+// idToken de l'émulateur (googleParJeton, S9).
+//
 // Attendu (§ 5.8) : sur chaque appareil, memoire.etat() ≡ rejouer(journal) ;
 // entre appareils, mêmes états et mêmes ids ; en ligne, chaque id local dans
 // un lot, sans doublon ; après « Ne pas les ajouter », le journal égale les
@@ -34,6 +38,7 @@ import { etat as rejouer } from '../src/srs/rejeu';
 import { creerComptes, type AppareilComptes, type ChoixFusion } from '../src/sync/comptes';
 import { depotARelireIndexedDb, depotLotsIndexedDb } from '../src/sync/depot-lots';
 import { creerEnvoi, serveurFirestore, type Envoi, type Serveur } from '../src/sync/envoi';
+import { googleParJeton } from '../src/sync/google';
 import { composer, deplier, docDuLot, type DocLot } from '../src/sync/lots';
 import { depotSessionIndexedDb } from '../src/sync/session';
 import { REGLES, reglesAvecEssai } from './regles-essai';
@@ -78,6 +83,8 @@ function appareil(nom: string, o: { decalage?: number } = {}) {
   const stockage = new Stockage();
   const reseau = { coupe: false };
   const horloge = { decalage: o.decalage ?? 0 };
+  /** Le compte Google que la « fenêtre » de cet appareil rend (faux idToken de l'émulateur). */
+  const google = { claims: { sub: `sub-${nom}-${napps}`, email: `${nom}-${napps}@gmail.com`, email_verified: true } };
   const verrou = `synchro-${nom}-${napps}`;
   const canal = `terramemo-${nom}-${napps}`;
 
@@ -134,6 +141,7 @@ function appareil(nom: string, o: { decalage?: number } = {}) {
       coupee: () => false,
       republier: async () => undefined,
       appareil: appareilComptes,
+      google: googleParJeton(async () => JSON.stringify(google.claims)),
     });
     envoi = creerEnvoi({
       journal: { tous: () => memoire.tous({ strict: true }), attendre: () => memoire.ecrire([]), seanceEnCours: () => memoire.seanceEnCours(), fusionner: (e) => memoire.fusionner(e) },
@@ -188,7 +196,7 @@ function appareil(nom: string, o: { decalage?: number } = {}) {
     }
     return { memoire, depot, lots, aRelire, session, comptes, envoi, declencher, fini, jouer, fermer: () => memoire.fermer() };
   }
-  return { nom, idb, a, db, id, stockage, reseau, horloge, page };
+  return { nom, idb, a, db, id, stockage, reseau, horloge, google, page };
 }
 
 type Page = ReturnType<ReturnType<typeof appareil>['page']>;
@@ -530,6 +538,52 @@ describe.skipIf(!hoteAuth || !hoteFs)('synchro de deux appareils (émulateurs Au
     const apresLe2e = await s.lister!(uid, { depuis: tous[1]!.fin, apres: null, n: 10 });
     expect(apresLe2e.lots.map((l) => l.id)).toEqual(tous.slice(2).map((l) => l.id));
     pa.fermer();
+  });
+
+  it('(k) compte Google sur deux appareils, règles d’essai du dépôt : lien sur A, B rejoint par Google et « Ajouter », même état ; une autre adresse refusée', async () => {
+    const A = appareil('a');
+    const B = appareil('b');
+    const C = appareil('c');
+    // Les adresses d'essai de l'utilisateur (firestore.rules, essai()), vérifiées par Google.
+    const michel = { sub: 'sub-michel', email: 'micheldm0301@gmail.com', email_verified: true };
+    A.google.claims = michel;
+    B.google.claims = michel;
+    await charger(REGLES);
+    const [pa, pb, pc] = [A.page(), B.page(), C.page()];
+    try {
+      // A joue en invité, publie un score (anonyme), puis « Continuer avec Google » : le lien.
+      const joueA = await pa.jouer([3, 3, 1]);
+      const anonyme = (await authM.signInAnonymously(A.a)).user.uid;
+      expect(await pa.comptes.google()).toMatchObject({ nouveau: true, fusion: 'sans_question' });
+      await pa.fini();
+      const uid = A.a.currentUser!.uid;
+      expect(uid).toBe(anonyme);
+      expect(pa.comptes.rapport().jeton!.identities).toHaveProperty(['google.com']);
+      expect(trier(await idsEnLigne(uid))).toEqual(trier(joueA.map((e) => e.id)));
+      // B joue aussi en invité, puis « Continuer avec Google », le même compte : le lien est refusé
+      // (credential-already-in-use), B se connecte au compte et répond « Ajouter ».
+      await pb.jouer([1, 3]);
+      await authM.signInAnonymously(B.a);
+      let question: unknown = null;
+      const r = await pb.comptes.google(async (q) => ((question = q), 'ajouter'));
+      expect(question).toEqual({ sorte: 'appareil', reponses: 2, records: 0, seances: 0 });
+      expect(r).toMatchObject({ nouveau: false, fusion: 'ajoute', reponses: 2 });
+      expect(B.a.currentUser!.uid).toBe(uid);
+      await pb.fini();
+      await pa.declencher('premier_plan');
+      await memeEtat(uid, pa, pb);
+      expect(await pb.envoi.etat(uid)).toMatchObject({ refusees: 0, attente: 0 });
+      // Un compte Google hors des adresses d'essai : ses lots refusés par les règles, gardés sur l'appareil.
+      await pc.jouer([3]);
+      await pc.comptes.google();
+      await pc.fini();
+      const autre = C.a.currentUser!.uid;
+      expect(await pc.envoi.etat(autre)).toMatchObject({ refusees: 1 });
+      expect(await enLigne(autre)).toEqual([]);
+    } finally {
+      await charger(ouvertes);
+      for (const p of [pa, pb, pc]) p.fermer();
+    }
   });
 
   it('(j) refus des règles (règles d’essai fermées), puis acceptation à une nouvelle version', async () => {
