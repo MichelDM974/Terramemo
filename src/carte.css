@@ -738,6 +738,8 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
 }
 /* Le titre reçoit le focus à l'ouverture (lecteur d'écran) : ce n'est pas une commande. */
 .accueil-panneau .accueil-titre:focus { outline: none; }
+/* De même, le titre d'un écran des comptes, ou leur zone, où le focus suit l'écran (compte.ts, placerFocus). */
+.accueil h3[tabindex="-1"]:focus, .accueil .compte-contenu:focus { outline: none; }
 .accueil-titre .logo { width: 0.95em; height: 0.95em; flex: none; }
 .accueil-accroche { margin: 4px 0 18px; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
 .accueil .compte-actions { flex-direction: column; align-items: stretch; gap: 10px; }

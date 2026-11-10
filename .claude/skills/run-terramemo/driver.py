@@ -2518,11 +2518,18 @@ def ui_accueil(p, capturer, defauts, base, parametres="", avant=None):
     champs = p.js("['accueil-compte-adresse', 'accueil-compte-mdp'].map((i) => document.getElementById(i).autocomplete)")
     if champs != ["email", "current-password"] or visible(p, "#accueil-partie-invite"):
         defaut(f"formulaire de connexion : autocomplete {champs}, ou « Continuer en invité » montré dessous")
+    # Le focus suit l'écran dans le dialogue (le bouton activé a disparu) : le champ Adresse.
+    actif = p.js("document.activeElement && document.activeElement.id")
+    if actif != "accueil-compte-adresse":
+        defaut(f"« Se connecter par e-mail » : focus sur {actif!r} (attendu le champ Adresse)")
     capturer("73-accueil-email")
     cliquer(p, "#accueil-compte-annuler")
     p.pause(200)
     if not visible(p, "#accueil-compte-vers-connecter") or not visible(p, "#accueil-partie-invite"):
         defaut("« Annuler » ne ramène pas aux entrées")
+    actif = p.js("document.activeElement && document.activeElement.id")
+    if actif != "accueil-compte-vers-connecter":
+        defaut(f"« Annuler » : focus sur {actif!r} (attendu « Se connecter par e-mail »)")
     p.js(f"localStorage.setItem({json.dumps(CLE_ACCUEIL)}, 'invite'); localStorage.removeItem('terramemo.pseudo')")
 
 

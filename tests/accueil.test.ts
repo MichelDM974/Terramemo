@@ -34,6 +34,9 @@ interface Montage {
 /** Le panneau sur le DOM factice ; `echecs` : les premiers montages des comptes qui échouent (hors ligne). */
 function monter(m: Montage = {}) {
   const entete = new El('header');
+  const jouer = new El('a');
+  jouer.id = 'jouer-btn';
+  entete.append(jouer);
   const zone = new El('main');
   const rendre = vi.fn();
   let etatCompte: 'invite' | 'compte' | 'perdue' = 'invite';
@@ -228,6 +231,8 @@ describe('le panneau', () => {
     expect([m.entete.inert, m.zone.inert, body.dataset.accueil]).toEqual([false, false, undefined]);
     expect(m.comptes.desactiver).toHaveBeenCalledOnce();
     expect(m.rendre).toHaveBeenCalledTimes(2); // ouverture, fermeture : l'adresse affichée rendue
+    // Le panneau parti avec le focus : le bouton Jouer de l'en-tête.
+    expect((document as unknown as { activeElement?: El }).activeElement).toBe(m.entete.querySelector('#jouer-btn'));
     expect(m.a.retient('jouer')).toBe(false);
   });
 
@@ -298,6 +303,19 @@ describe('le panneau', () => {
     expect($('#accueil')!.hidden).toBe(false);
     expect([m.entete.inert, m.zone.inert, body.dataset.accueil]).toEqual([true, true, 'ouvert']);
     expect((document as unknown as { activeElement?: El }).activeElement).toBe($('#accueil-confidentialite'));
+  });
+
+  it('Confidentialité suivie du formulaire « Créer » : au retour, le focus sur ce lien, pas sur celui du pied', async () => {
+    const m = monter();
+    await demarrer(m);
+    const lien = new El('a');
+    lien.setAttribute('href', '#confidentialite');
+    lien.id = 'accueil-compte-lien-politique';
+    m.comptes.element.append(lien);
+    $('#accueil')!.emettre('click', { target: lien });
+    m.a.suivre('confidentialite');
+    m.a.suivre('carte');
+    expect((document as unknown as { activeElement?: El }).activeElement).toBe(lien);
   });
 
   it('une déconnexion (choix retiré avec le pseudo) : le panneau revient à la vue suivante, pas sur Compte ni Confidentialité', async () => {

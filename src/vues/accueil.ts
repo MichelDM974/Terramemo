@@ -133,6 +133,8 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
   let section: HTMLElement | null = null;
   let comptes: ComptesDuPanneau | null = null;
   let suspendu = false;
+  /** Le lien de Confidentialité suivi (pied du panneau, ou celui du formulaire « Créer ») : le focus y revient. */
+  let lienSuivi: HTMLElement | null = null;
 
   const choixCourant = (): ChoixAccueil | null | undefined => {
     const c = lireChoix(o.stockage());
@@ -270,6 +272,12 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       );
     };
     reessayer.addEventListener('click', monter);
+    // Le lien de Confidentialité suivi, quel qu'il soit : son retour y ramène le focus.
+    s.addEventListener('click', (ev) => {
+      const t = (ev as Event).target as HTMLElement | null;
+      const a = t?.closest?.('a[href="#confidentialite"]') as HTMLElement | null | undefined;
+      if (a) lienSuivi = a;
+    });
     monter();
     return s;
   }
@@ -292,11 +300,14 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     comptes = null;
     section?.remove();
     section = null;
+    lienSuivi = null;
     etat = 'ferme';
     suspendu = false;
     marquer(null);
     inertes(false, false);
     o.rendre();
+    // Le panneau parti avec le focus : le bouton Jouer de l'en-tête, rendu utilisable.
+    focaliser(o.entete?.querySelector<HTMLElement>('#jouer-btn'));
   }
 
   // Sans choix gardé, l'en-tête attend la lecture de la session (quelques ms) : rien ne se joue avant.
@@ -344,8 +355,8 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       section.hidden = s;
       marquer(s ? 'suspendu' : 'ouvert');
       inertes(true, !s);
-      // Au retour de Confidentialité, le lien d'où l'on venait.
-      if (!s) focaliser(section.querySelector<HTMLElement>('#accueil-confidentialite'));
+      // Au retour de Confidentialité, le lien d'où l'on venait (pied du panneau, ou formulaire « Créer »).
+      if (!s) focaliser(lienSuivi && section.contains(lienSuivi) ? lienSuivi : section.querySelector<HTMLElement>('#accueil-confidentialite'));
     },
     etat: () => etat,
   };

@@ -1599,6 +1599,45 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     expect(occupe.mock.calls).toEqual([[true], [false]]);
   });
 
+  it('le focus suit l’écran dans le dialogue : premier champ, titre, bouton principal, et « Annuler » rend le bouton qui avait ouvert', async () => {
+    const actif = () => (document as unknown as { activeElement?: El }).activeElement;
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    questionConnexion = { sorte: 'appareil', reponses: 3, records: 0, seances: 0 };
+    await monter(fauxComptes());
+    // Les entrées montées : le focus reste où le panneau l'a mis (son titre).
+    expect(actif()).toBeUndefined();
+    $('#accueil-compte-vers-connecter')!.click();
+    expect(actif()).toBe($('#accueil-compte-adresse'));
+    $('#accueil-compte-annuler')!.click();
+    expect(actif()).toBe($('#accueil-compte-vers-connecter'));
+    $('#accueil-compte-vers-creer')!.click();
+    expect(actif()).toBe($('#accueil-compte-adresse'));
+    $('#accueil-compte-annuler')!.click();
+    expect(actif()).toBe($('#accueil-compte-vers-creer'));
+    // La question D22 : son titre ; puis l'écran « fini » : « Continuer ».
+    $('#accueil-compte-vers-connecter')!.click();
+    $('#accueil-compte-adresse')!.value = 'ana@exemple.fr';
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-connecter');
+    await attendre();
+    expect(actif()!.tagName).toBe('h3');
+    expect(actif()!.getAttribute('tabindex')).toBe('-1');
+    expect(actif()!.textContent).toBe(T.titre_fusion);
+    $('#accueil-compte-fusion-ajouter')!.click();
+    await attendre();
+    await attendre();
+    expect(actif()).toBe($('#accueil-compte-continuer'));
+  });
+
+  it('l’écran du pseudo d’un compte qui n’en a pas : le focus sur son champ', async () => {
+    const c = fauxComptes();
+    await monter(c);
+    $('#accueil-compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect((document as unknown as { activeElement?: El }).activeElement).toBe($('#accueil-compte-pseudo'));
+  });
+
   it('« Plus tard » : le panneau se ferme, le compte sans pseudo', async () => {
     const c = fauxComptes();
     const { fini } = await monter(c);

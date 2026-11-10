@@ -115,6 +115,16 @@ export class El {
   getBoundingClientRect() {
     return { x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0 };
   }
+  /** Cet élément ou l'un de ses ancêtres. */
+  contains(o: El | null): boolean {
+    for (let e = o; e; e = e.parent) if (e === this) return true;
+    return false;
+  }
+  /** Le plus proche ancêtre (lui compris) qui répond au sélecteur simple. */
+  closest(sel: string): El | null {
+    for (let e: El | null = this; e; e = e.parent) if (e.correspond(sel)) return e;
+    return null;
+  }
   /** Descendants, dans l'ordre du document. */
   private *descendants(): Generator<El> {
     for (const e of this.enfants)

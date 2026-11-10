@@ -458,7 +458,29 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     }
   }
 
+  /**
+   * Au panneau (dialogue modal), le focus suit l'écran : le bouton activé
+   * disparaît avec l'écran d'avant, et le focus retomberait sur body, hors
+   * du dialogue. Le premier champ, sinon le titre, sinon le bouton principal ;
+   * « Annuler » d'un formulaire ramène au bouton qui l'avait ouvert.
+   */
+  function placerFocus(avant: Ecran): void {
+    const ouvreur: Partial<Record<Ecran, string>> = { connecter: 'vers-connecter', creer: 'vers-creer' };
+    const o = ecran === 'invite' && ouvreur[avant] ? contenu.querySelector<HTMLElement>(`#${ident(ouvreur[avant])}`) : null;
+    const champ = Array.from(contenu.querySelectorAll<HTMLInputElement>('input')).find((i) => !i.hidden && i.getAttribute('hidden') === null && i.getAttribute('readonly') === null);
+    const titre = contenu.querySelector<HTMLElement>('h3');
+    titre?.setAttribute('tabindex', '-1');
+    const principal = Array.from(contenu.querySelectorAll<HTMLButtonElement>('button')).find((b) => !b.className && !b.disabled);
+    const cible = o ?? champ ?? titre ?? principal ?? contenu;
+    if (cible === contenu) contenu.setAttribute('tabindex', '-1');
+    if (typeof cible.focus === 'function') cible.focus();
+  }
+
   function aller(e: Ecran): void {
+    const avant = ecran;
+    // Le focus dans l'écran qu'on remplace : il le suivra (au panneau).
+    const actif = typeof document !== 'undefined' ? (document.activeElement as Node | null) : null;
+    const focusDedans = !!actif && actif !== contenu && typeof contenu.contains === 'function' && contenu.contains(actif);
     ecran = e;
     // Au panneau : « Continuer en invité » sous l'écran des entrées seulement (et tant qu'il charge).
     accueil?.surEcran?.(e === 'invite' || e === 'chargement' || e === 'echec');
@@ -475,6 +497,8 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
       }
     }
     rendre();
+    // Pas au premier rendu des entrées (le panneau a posé le focus sur son titre).
+    if (accueil && active && avant !== 'chargement' && (avant !== e || focusDedans)) placerFocus(avant);
   }
 
   /**
