@@ -125,8 +125,25 @@ function utilisateur(uid: string, o: { email?: string | null; anonyme?: boolean;
   };
 }
 
-/** Un faux SDK et un faux Google : `fenetre` dit ce que donne la fenêtre (compte, neuf ou non, ou une erreur). */
-function monter(o: { anonyme?: FauxUtilisateur; session?: Session; reponses?: number; natif?: boolean; jetonGoogle?: () => Promise<string>; google?: Google | null } = {}) {
+/** Un espion : chaque appel d'une méthode de `cible` noté « nom:méthode » dans `ordre`, puis fait (ou rien, sans méthode). */
+function espionner<T extends object>(nom: string, cible: T, ordre: string[]): T {
+  return new Proxy(cible, {
+    get: (t, k) => {
+      const v = (t as Record<string | symbol, unknown>)[k];
+      if (v !== undefined && typeof v !== 'function') return v;
+      return (...args: unknown[]) => {
+        ordre.push(`${nom}:${String(k)}`);
+        return typeof v === 'function' ? (v as (...x: unknown[]) => unknown)(...args) : {};
+      };
+    },
+  });
+}
+
+/**
+ * Un faux SDK et un faux Google : `fenetre` dit ce que donne la fenêtre (compte, neuf ou non, ou une
+ * erreur). `ordre` : les appels au SDK (auth, Firestore) et l'ouverture de la fenêtre, dans l'ordre.
+ */
+function monter(o: { anonyme?: FauxUtilisateur; session?: Session; reponses?: number; natif?: boolean; jetonGoogle?: () => Promise<string>; google?: Google | null; ordre?: string[] } = {}) {
   const a = { currentUser: (o.anonyme ?? null) as FauxUtilisateur | null };
   const journal: string[] = [];
   const session = depotSessionMemoire(o.session ?? null);
@@ -158,12 +175,14 @@ function monter(o: { anonyme?: FauxUtilisateur; session?: Session; reponses?: nu
   };
   const google: Google = {
     connecter: vi.fn(async () => {
+      o.ordre?.push('fenetre');
       pendant.push(await session.lire());
       const c = await fenetre.connecter();
       a.currentUser = c.user;
       return c as never;
     }),
     lier: vi.fn(async (_s, u) => {
+      o.ordre?.push('fenetre');
       pendant.push(await session.lire());
       return (await fenetre.lier(u as never)) as never;
     }),
@@ -178,7 +197,7 @@ function monter(o: { anonyme?: FauxUtilisateur; session?: Session; reponses?: nu
   };
   const c = creerComptes({
     session,
-    service: async () => ({ m: { auth, fs: {} }, db: {}, a }) as never,
+    service: async () => ({ m: o.ordre ? { auth: espionner('auth', auth, o.ordre), fs: espionner('fs', {}, o.ordre) } : { auth, fs: {} }, db: {}, a }) as never,
     stockage: () => null,
     coupee: () => true,
     appareil,
@@ -323,6 +342,30 @@ describe('comptes.google() : lien, création, compte existant (faux SDK)', () =>
     expect(m.auth.deleteUser).not.toHaveBeenCalled();
     expect(m.auth.signOut).toHaveBeenCalled();
     expect(m.a.currentUser).toBeNull();
+  });
+
+  it('rien de réseau avant la fenêtre (le navigateur ne l’ouvre que peu après le geste) : ni reload, ni jeton forcé, ni Auth, ni Firestore', async () => {
+    // Ce qui précède la fenêtre, sans l'abonnement à onAuthStateChanged (local, sans réseau).
+    const avant = (o: string[]) => o.slice(0, o.indexOf('fenetre')).filter((x) => x !== 'auth:onAuthStateChanged');
+    // Avec un invité : seul son jeton, sans forceRefresh (en cache s'il vaut encore), avant la fenêtre.
+    const ordre: string[] = [];
+    const anonyme = utilisateur('anon', { anonyme: true, email: null });
+    anonyme.getIdToken = async (...x: unknown[]) => (ordre.push(`jeton:${x.length ? String(x[0]) : 'cache'}`), 'jeton');
+    anonyme.reload = async () => void ordre.push('reload');
+    const m = monter({ anonyme, ordre });
+    await m.c.google();
+    expect(ordre).toContain('fenetre');
+    expect(avant(ordre)).toEqual(['jeton:cache']);
+    // Sans invité, ni session : la fenêtre d'abord.
+    const sans: string[] = [];
+    await monter({ ordre: sans }).c.google();
+    expect(sans).toContain('fenetre');
+    expect(avant(sans)).toEqual([]);
+    // Session perdue (reconnexion) : de même.
+    const perdue: string[] = [];
+    await monter({ ordre: perdue, session: { ...sessionVide('v1'), uid: 'g1', fournisseurs: ['google.com'], adresse: 'g1@gmail.com' } }).c.google();
+    expect(perdue).toContain('fenetre');
+    expect(avant(perdue)).toEqual([]);
   });
 
   it('un compte déjà connecté sur l’appareil : refusé', async () => {
