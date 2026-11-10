@@ -14,6 +14,8 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
                                 du J1a en dernier
     seance [--width 384]        la séance du J1a seule (Révision du jour,
                                 Apprendre, le lendemain par ?horloge=1)
+    accueil [--width 384]       l'écran de connexion de la première ouverture
+                                seul (ui_accueil, aussi en fin de ui)
     mesurer --cible local|chrome|webview [--rendu canvas|webgl|g|css]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
@@ -32,6 +34,9 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
 Chaque commande pose le drapeau terramemo.sans-synchro sur l'origine
 qu'elle pilote (aucun envoi au vrai projet pendant un essai) et le retire à
 la fin, même après une erreur.
+Sur le profil neuf du PC, ui, seance, synchro et mesurer passent l'écran
+de connexion en invité (terramemo.accueil posé, sans pseudo : rien n'est
+publié) ; ui_accueil l'éprouve à part.
 Mode d'emploi, pièges et dépannage : SKILL.md à côté.
 """
 import argparse
@@ -72,6 +77,11 @@ APK = RACINE / "android/app/build/outputs/apk/debug/app-debug.apk"
 # Synchro coupée pendant un essai (src/sync/drapeaux.ts, étude du J1b § 8) :
 # posé par Session.couper_synchro au début de chaque commande, retiré à la fin.
 DRAPEAU_SANS_SYNCHRO = "terramemo.sans-synchro"
+# Choix gardé de l'écran de connexion de la première ouverture (src/vues/accueil.ts) :
+# posé à « invite » sur le profil neuf du PC par Session.passer_accueil (le pilote
+# arrive alors sur la carte, comme un joueur qui a déjà choisi) ; ui_accueil le
+# retire pour éprouver le panneau. Jamais posé sur un appareil de l'utilisateur.
+CLE_ACCUEIL = "terramemo.accueil"
 ATTENTE_STOCKAGE_MS = 6000  # localStorage de la WebView écrit sur disque (~5 s de délai de Chromium)
 SIGNAUX_ARRET = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
 # Journal des réponses de l'appareil (src/journal/depot.ts : base, version, magasin).
@@ -791,6 +801,21 @@ class Session:
         if self.cible != "local":
             dire(f"synchro coupée sur {o} ({DRAPEAU_SANS_SYNCHRO}, retiré à la fin)"
                  + (" ; il l'était déjà : resté d'une commande interrompue ?" if avant is not None else ""))
+
+    def passer_accueil(self, url):
+        """L'écran de connexion de la première ouverture passé en invité, sur le
+        profil neuf du PC seulement : le choix gardé (CLE_ACCUEIL = invite) posé
+        sur l'origine de `url` avant le premier chargement, sans pseudo (le
+        pilote ne publie rien au classement). Pas de drapeau à part : c'est la
+        clé qu'un joueur garde en choisissant « Continuer en invité ». Sur le
+        téléphone (chrome, webview), rien : le choix est celui de l'utilisateur,
+        et mesurer s'arrête si le panneau est ouvert."""
+        if self.cible != "local":
+            return
+        o = origine(url)
+        if self._origine_page() != o:
+            self.page.goto(urllib.parse.urljoin(o + "/", PAGE_SANS_APPLI))
+        self.page.js(f"localStorage.setItem({json.dumps(CLE_ACCUEIL)}, 'invite')")
 
     def _origine_page(self, delai=30):
         try:
@@ -1805,6 +1830,7 @@ def commande_ui(args):
     defauts = []
     with Session("local") as s:
         s.couper_synchro(base)
+        s.passer_accueil(base)
         p = s.page
         p.emuler(ecran, tactile=telephone)
 
@@ -1892,6 +1918,8 @@ def commande_ui(args):
         ui_jouer_parties(p, defauts)
         ui_croix(p, capturer, defauts)
         ui_seance(p, capturer, defauts, base, rendu)
+        # En dernier : il donne un pseudo à l'invité (retiré ensuite), qu'aucune partie ne doit publier.
+        ui_accueil(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -2315,6 +2343,7 @@ def commande_seance(args):
     faites, defauts = [], []
     with Session("local") as s:
         s.couper_synchro(base)
+        s.passer_accueil(base)
         p = s.page
         p.emuler(ecran, tactile=telephone)
 
@@ -2333,6 +2362,198 @@ def commande_seance(args):
     for d in defauts:
         dire(f"  DÉFAUT : {d}")
     dire(f"  {len(faites)} captures dans {out}")
+    return 1 if erreurs or defauts else 0
+
+
+# --- Écran de connexion de la première ouverture (#3, décision « Écran de connexion ») ---
+
+ETAT_ACCUEIL = """(() => {
+  const s = document.getElementById('accueil');
+  if (!s || s.hidden) return null;
+  const r = s.querySelector('.accueil-panneau').getBoundingClientRect();
+  const sous = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && !!e.closest('#accueil'); };
+  const j = document.getElementById('jouer-btn').getBoundingClientRect();
+  const visibles = [...s.querySelectorAll('button, input, a')].filter((e) => e.getClientRects().length);
+  return {
+    role: s.getAttribute('role'), modal: s.getAttribute('aria-modal'),
+    titre: document.getElementById('accueil-titre').innerText,
+    entete: document.querySelector('header').inert, zone: document.getElementById('app').inert,
+    marque: document.body.dataset.accueil || '', vue: document.body.dataset.vue || '',
+    focus: !!document.activeElement && !!document.activeElement.closest('#accueil'),
+    actif: document.activeElement ? document.activeElement.id || document.activeElement.tagName : null,
+    gauche: r.left, droite: innerWidth - r.right, largeur: r.width,
+    deborde: document.documentElement.scrollWidth > innerWidth || s.scrollWidth > s.clientWidth,
+    jouer_couvert: sous(j.x + j.width / 2, j.y + j.height / 2),
+    carte_couverte: sous(6, innerHeight - 6),
+    carte_visible: getComputedStyle(document.getElementById('carte')).visibility === 'visible',
+    petits: visibles.filter((e) => e.tagName === 'BUTTON' && !e.classList.contains('compte-voir')
+      && e.getBoundingClientRect().height < 44).map((e) => e.id),
+    google: !!document.getElementById('accueil-compte-google'),
+    invite: !!document.getElementById('accueil-invite') && !document.getElementById('accueil-partie-invite').hidden,
+  };
+})()"""
+
+
+def ui_accueil(p, capturer, defauts, base, parametres="", avant=None):
+    """L'écran de connexion de la première ouverture (décision « Écran de
+    connexion »), sur un appareil qui n'a pas choisi : le choix gardé et le
+    pseudo retirés, la page rechargée. `70-accueil` (le panneau par-dessus
+    la carte), les adresses retenues (#jouer, #compte : la carte sous le
+    panneau), les touches de zoom sans effet, Confidentialité lisible et son
+    « Retour » au panneau ; `71-accueil-invite` (le pseudo), refusé (« a »),
+    puis « Pilote » : le panneau fermé, le choix et le pseudo gardés, aucune
+    requête vers Firebase, la carte de nouveau touchable (`72-accueil-carte`) ;
+    rechargée, pas de panneau ; le choix retiré de nouveau, « Se connecter par
+    e-mail » (`73-accueil-email`, champs pour le remplissage automatique).
+    `avant` : une capture de la carte d'abord, le choix posé (la première
+    ouverture sans panneau, pour comparer). À la fin, le choix « invite »
+    reposé et le pseudo retiré (aucune partie ne doit le publier)."""
+    def defaut(quoi):
+        defauts.append(f"écran de connexion : {quoi}")
+
+    chargements = iter(range(1, 100))
+    # Une adresse neuve à chaque chargement : la même, au fragment près, ne recharge pas la page.
+    url = lambda: base + f"?mesures=0&accueil={next(chargements)}" + parametres + "#carte"
+    if avant:
+        p.js(f"localStorage.setItem({json.dumps(CLE_ACCUEIL)}, 'invite')")
+        p.goto(url())
+        p.attendre_carte()
+        capturer(avant)
+    p.js(f"localStorage.removeItem({json.dumps(CLE_ACCUEIL)}); localStorage.removeItem('terramemo.pseudo')")
+    requetes_avant = len(p.requetes)
+    p.goto(url())
+    p.attendre_carte()
+    attendre_visible(p, "#accueil")
+    attendre_visible(p, "#accueil-compte-vers-connecter")  # les écrans des comptes, montés
+    e = p.js(ETAT_ACCUEIL)
+    dire(f"  écran de connexion : {json.dumps(e, ensure_ascii=False)}")
+    if not e:
+        raise RuntimeError("écran de connexion absent à la première ouverture")
+    attendu = {"role": "dialog", "modal": "true", "titre": "Terramemo", "entete": True, "zone": True,
+               "marque": "ouvert", "vue": "carte", "focus": True, "deborde": False, "jouer_couvert": True,
+               "carte_couverte": True, "carte_visible": True, "invite": True}
+    for k, v in attendu.items():
+        if e[k] != v:
+            defaut(f"{k} = {e[k]!r} (attendu {v!r})")
+    if e["gauche"] < 7 or e["droite"] < 7:
+        defaut(f"panneau collé au bord ({e['gauche']:.0f} / {e['droite']:.0f} px)")
+    if e["largeur"] > 441:
+        defaut(f"panneau de {e['largeur']:.0f} px (440 au plus)")
+    if e["petits"]:
+        defaut(f"boutons sous 44 px : {e['petits']}")
+    if serveur_de_dev(base) and not e["google"]:
+        defaut("pas de « Continuer avec Google » sur le site")
+    capturer("70-accueil")
+    # Les adresses de l'en-tête (tapées ou d'un lien) restent sous le panneau.
+    for ancre in ("#jouer", "#compte", "#classement"):
+        p.js(f'location.hash = "{ancre}"')
+        p.pause(250)
+        vue = p.js("document.body.dataset.vue")
+        if vue != "carte" or not visible(p, "#accueil") or visible(p, "#vue-compte") or visible(p, "#jouer-panneau"):
+            defaut(f"{ancre} contourne le panneau (vue {vue!r})")
+    p.js('location.hash = "#carte"')
+    p.pause(200)
+    k = p.js("window.terramemo.carte.transfo().k")
+    p.cdp("Input.dispatchKeyEvent", type="keyDown", key="+", text="+")
+    p.cdp("Input.dispatchKeyEvent", type="keyUp", key="+")
+    p.pause(300)
+    if p.js("window.terramemo.carte.transfo().k") != k:
+        defaut("la touche + zoome la carte sous le panneau")
+    # Confidentialité se lit sans avoir choisi ; son « Retour » ramène au panneau.
+    cliquer(p, "#accueil-confidentialite")
+    attendre_visible(p, "#vue-confidentialite")
+    if visible(p, "#accueil") or not p.js("document.querySelector('header').inert"):
+        defaut("Confidentialité : le panneau reste dessus, ou l'en-tête redevient utilisable")
+    cliquer(p, "#confidentialite-retour")
+    p.pause(400)
+    if not visible(p, "#accueil") or visible(p, "#vue-confidentialite"):
+        defaut("le « Retour » de Confidentialité ne ramène pas au panneau")
+    # L'invité : son pseudo, refusé puis accepté.
+    cliquer(p, "#accueil-invite")
+    attendre_visible(p, "#accueil-form-invite")
+    champ = p.js("[document.activeElement.id, document.getElementById('accueil-pseudo').autocomplete]")
+    if champ != ["accueil-pseudo", "nickname"]:
+        defaut(f"pseudo de l'invité : focus ou autocomplete inattendus ({champ})")
+    p.js("document.getElementById('accueil-pseudo').value = 'a'")
+    cliquer(p, "#accueil-commencer")
+    p.pause(200)
+    erreur = texte(p, "#accueil-erreur")
+    if "2 à 20 caractères" not in erreur or not visible(p, "#accueil"):
+        defaut(f"un pseudo d'un caractère n'est pas refusé ({erreur!r})")
+    p.js("document.getElementById('accueil-pseudo').value = 'Pilote'")
+    capturer("71-accueil-invite")
+    cliquer(p, "#accueil-commencer")
+    p.pause(400)
+    apres = p.js(f"""[!!document.getElementById('accueil'), document.querySelector('header').inert,
+        document.getElementById('app').inert, document.body.dataset.accueil || '',
+        localStorage.getItem({json.dumps(CLE_ACCUEIL)}), localStorage.getItem('terramemo.pseudo')]""")
+    dire(f"  invité choisi : {apres}")
+    if apres != [False, False, False, "", "invite", "Pilote"]:
+        defaut(f"après « Commencer » : {apres} (attendu panneau fermé, en-tête rendu, choix et pseudo gardés)")
+    reseau = [u for u in list(p.requetes.values())[requetes_avant:] if MOTIF_FIREBASE.search(u)]
+    if reseau:
+        defaut(f"l'invité a appelé Firebase : {reseau[:3]}")
+    p.js('window.terramemo.carte.zoomerSur("CHE")')
+    p.pause(600)
+    pt = position(p, "CHE")
+    p.toucher(pt["x"], pt["y"])
+    p.pause(300)
+    barre = texte(p, "#barre-carte")
+    if "Suisse" not in barre:
+        defaut(f"la carte ne répond pas après le choix ({barre!r})")
+    capturer("72-accueil-carte")
+    # Le choix gardé : plus de panneau.
+    p.goto(url())
+    p.attendre_carte()
+    p.pause(300)
+    if visible(p, "#accueil"):
+        defaut("le panneau revient alors que le choix est gardé")
+    # Les entrées des comptes : « Se connecter par e-mail ».
+    p.js(f"localStorage.removeItem({json.dumps(CLE_ACCUEIL)})")
+    p.goto(url())
+    p.attendre_carte()
+    attendre_visible(p, "#accueil-compte-vers-connecter")
+    cliquer(p, "#accueil-compte-vers-connecter")
+    attendre_visible(p, "#accueil-compte-form-connecter")
+    champs = p.js("['accueil-compte-adresse', 'accueil-compte-mdp'].map((i) => document.getElementById(i).autocomplete)")
+    if champs != ["email", "current-password"] or visible(p, "#accueil-partie-invite"):
+        defaut(f"formulaire de connexion : autocomplete {champs}, ou « Continuer en invité » montré dessous")
+    capturer("73-accueil-email")
+    cliquer(p, "#accueil-compte-annuler")
+    p.pause(200)
+    if not visible(p, "#accueil-compte-vers-connecter") or not visible(p, "#accueil-partie-invite"):
+        defaut("« Annuler » ne ramène pas aux entrées")
+    p.js(f"localStorage.setItem({json.dumps(CLE_ACCUEIL)}, 'invite'); localStorage.removeItem('terramemo.pseudo')")
+
+
+def commande_accueil(args):
+    """ui_accueil seul, sur un profil neuf : la carte d'abord (le choix posé,
+    `69-carte-avant`), puis le panneau."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    faites, defauts = [], []
+    with Session("local") as s:
+        s.couper_synchro(base)
+        p = s.page
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        ui_accueil(p, capturer, defauts, base, avant="69-carte-avant")
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures ({ecran['largeur']}×{ecran['hauteur']}) dans {out}")
+    dire("  ui_accueil : " + ("ÉCHEC" if erreurs or defauts else "OK"))
     return 1 if erreurs or defauts else 0
 
 
@@ -2530,6 +2751,8 @@ def commande_synchro(args):
     # Pas de couper_synchro : la synchro est ce qu'on éprouve, et tout va aux émulateurs.
     with Session("local") as s1, Session("local") as s2:
         p1, p2 = s1.page, s2.page
+        for s in (s1, s2):
+            s.passer_accueil(base)
         for p in (p1, p2):
             p.emuler(ecran, tactile=telephone)
 
@@ -2733,6 +2956,11 @@ def une_mesure(page, url, journal, cible):
     le pas de rejeu et la transformation après le tour du monde."""
     page.goto(url)
     periode = pas_de_rejeu(page.attendre_carte() or 1000 / 60, cible)
+    # L'écran de connexion de la première ouverture figerait la carte : sur le téléphone, le choix est
+    # celui de l'utilisateur (passer_accueil n'y touche pas).
+    if page.js("document.body.dataset.accueil || ''") in ("ouvert", "attente"):
+        raise RuntimeError("écran de connexion ouvert : choisir d'abord sur l'appareil (« Continuer en invité » "
+                           "ou un compte), puis relancer")
     page.js("window.terramemo.reinitialiser()")
     r = page.js("window.terramemo.carte.rect()")
     cx, cy = r["x"] + r["largeur"] / 2, r["y"] + r["hauteur"] / 2
@@ -3229,6 +3457,7 @@ def commande_mesurer(args):
         p = s.page
         s.reverse(url_base)
         s.couper_synchro(url_base)
+        s.passer_accueil(url_base)
         if args.cible == "local":
             p.emuler(TELEPHONE, tactile=True, ralenti=args.ralenti)
         else:
@@ -3798,6 +4027,11 @@ def main():
     s.add_argument("--out", default="/tmp/terramemo-captures")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
+    s = sub.add_parser("accueil", help="l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+
     s = sub.add_parser("synchro", help="ui_synchro (J1b) : deux navigateurs aux émulateurs, l'un hors ligne, au même état")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
@@ -3845,7 +4079,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "synchro", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "synchro", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -3858,7 +4092,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "synchro": commande_synchro,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "synchro": commande_synchro,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
     commandes.update({k.replace("_", "-"): v for k, v in commandes.items() if "_" in k})

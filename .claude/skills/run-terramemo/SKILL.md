@@ -43,6 +43,7 @@ python3 .claude/skills/run-terramemo/driver.py ui                 # captures té
 python3 .claude/skills/run-terramemo/driver.py ui --width 1280    # captures PC (souris)
 python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du monde en webgl (logiciel=1), ou g, css (défaut : canvas, celui de la page)
 python3 .claude/skills/run-terramemo/driver.py seance             # la séance du J1a seule (ui_seance), sur un journal vide
+python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord
 ```
 
 - `serve` en arrière-plan, puis les autres. `--preview` construit dans
@@ -184,6 +185,46 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   « À jour » après la grappe du jour, si la révision ne s'ouvre pas en `#toucher` ou si le retour
   arrière ne revient pas à Entraînement, et si une requête part vers
   Firebase (Firestore, Auth) pendant une séance.
+- **Écran de connexion de la première ouverture** (#3, décision « Écran de
+  connexion », `src/vues/accueil.ts`) : un panneau par-dessus la carte,
+  dès que les comptes se montrent (serveur de dev, `?comptes`, puis
+  l'ouverture), tant qu'aucun choix n'est gardé dans la clé
+  **`terramemo.accueil`** (`invite` ou `compte`) et que la session ne
+  connaît aucun compte. Pendant qu'il est ouvert, l'en-tête et `#app` sont
+  `inert`, `body[data-accueil="ouvert"]`, et toute adresse rend la carte
+  dessous (`#jouer`, `#compte`, `#toucher`…), sauf `#confidentialite`.
+  **Le pilote le passe sans drapeau de plus** : `ui`, `seance`, `synchro`
+  et `mesurer` (PC) posent `terramemo.accueil=invite` sur le profil neuf
+  avant le premier chargement (`Session.passer_accueil`), comme un joueur
+  qui a déjà choisi, **sans pseudo** : le pilote ne publie toujours rien
+  au classement. Sur le téléphone (chrome, webview), rien n'est posé (le
+  choix est celui de l'utilisateur) et `mesurer` s'arrête si le panneau est
+  ouvert (« choisir d'abord sur l'appareil »). Un autre script : la même
+  clé avant de charger la page, ou au doigt `#accueil-invite`,
+  `#accueil-pseudo`, `#accueil-commencer`. Les entrées des comptes sont
+  les écrans de la vue Compte, id préfixés : `#accueil-compte-google`,
+  `#accueil-compte-vers-connecter`, `#accueil-compte-vers-creer`, puis
+  `#accueil-compte-adresse`, `#accueil-compte-mdp`,
+  `#accueil-compte-form-connecter`… ; `formulaire_compte` passe toujours
+  par `#compte` (choix posé). `ui_accueil`, en fin de `ui` ou seul
+  (`driver.py accueil [--width 360]`, avec `69-carte-avant` : la carte, le
+  choix posé, pour comparer) retire la clé et le pseudo, recharge (une
+  adresse neuve à chaque fois : la même, au fragment près, ne recharge
+  pas), et écrit `70-accueil`, `71-accueil-invite` (pseudo « a » refusé,
+  puis « Pilote »), `72-accueil-carte` (la Suisse touchée après le choix),
+  `73-accueil-email` (« Se connecter par e-mail »). `DÉFAUT` si le
+  panneau manque, n'est pas `role=dialog`/`aria-modal`, n'a pas le focus,
+  laisse l'en-tête ou la carte utilisables (`elementFromPoint` sur Jouer et
+  un coin de la carte), déborde, colle au bord ou passe 440 px, a un
+  bouton sous 44 px, n'a pas Google au serveur de dev, si `#jouer`,
+  `#compte` ou `#classement` le contournent, si la touche + zoome dessous,
+  si Confidentialité ne s'ouvre pas par-dessus ou si son « Retour » ne
+  ramène pas au panneau, si le pseudo « a » passe, si le choix, le pseudo,
+  l'en-tête rendu ou la carte touchable manquent après « Commencer », si
+  une requête part vers Firebase (Auth, Firestore) pendant le chemin de
+  l'invité, si le panneau revient au rechargement, ou si le formulaire
+  e-mail n'a pas `email` / `current-password`. À la fin, le choix
+  « invite » reposé et le pseudo retiré.
 - Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
   dans `ui_seance`) : `38-accueil-memoire` (l'accueil après Apprendre :
   légende `#legende-memoire` « Jamais vu · faible → maîtrisé · N/195
@@ -1116,7 +1157,14 @@ vrais progrès de l'utilisateur ni à son pseudo. Une fenêtre de navigation
 privée sert de repli. Une fenêtre de Google qui n'y revient pas, ou
 `auth/web-storage-unsupported`, est en soi un constat à noter.
 
-Toujours ouvrir `https://terramemo-geo.web.app/?comptes`.
+Toujours ouvrir `https://terramemo-geo.web.app/?comptes`. Sur un profil
+neuf, l'écran de connexion de la première ouverture vient d'abord : pour
+le lien d'un invité (étape 1), « Continuer en invité » avec le pseudo
+« Essai6 ». Ses entrées Google et e-mail sont le même code que ⚙ ›
+Compte ; y noter en plus, au tout premier toucher de « Continuer avec
+Google » sur un profil neuf (SDK pas encore en cache, préchauffé au
+survol ou à l'appui), si la fenêtre s'ouvre ou si « Fenêtre de Google
+bloquée : touche encore le bouton » vient.
 
 **Pseudo d'essai : jamais « Michel ».** Supprimer le compte d'essai
 demande le retrait des places de son pseudo (D27 b). Prendre « Essai6 »,
