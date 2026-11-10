@@ -74,7 +74,9 @@ const texteFr = readFileSync('public/geo/capitales.fr.json', 'utf8');
 const capitales = JSON.parse(texteCapitales) as Ligne[];
 const { noms, alias } = JSON.parse(texteFr) as { noms: Record<string, string>; alias: Record<string, string[]> };
 const main = lire<Main>('geodata/capitales-main.json');
-const extrait = lire<{ extrait_le: string; date: string; requetes_sha256: string }>('geodata/wikidata/capitales.json');
+const extrait = lire<{ extrait_le: string; date: string; requetes_sha256: string; vues: { du: string; au: string; mois: number } }>(
+  'geodata/wikidata/capitales.json',
+);
 const sources = lire<Sources>('public/geo/sources.json');
 const pays = lire<{ id: string; statut: string; revendique_par?: string[] }[]>('public/geo/pays.json');
 const nomsPays = lire<Record<string, string>>('public/geo/noms.fr.json');
@@ -624,6 +626,12 @@ describe('fichiers, sources et reproduction', () => {
     expect(extrait.requetes_sha256).toBe(s.requetes.sha256);
     expect(s.fichiers).toEqual([{ chemin: 'geodata/wikidata/capitales.json', sha256: empreinte('geodata/wikidata/capitales.json') }]);
     for (const f of ['geodata/capitales.mjs', 'geodata/capitales-main.json']) expect(sources.traitement.entrees[f], f).toBe(empreinte(f));
+  });
+
+  it('vues de l’extrait sur les 12 derniers mois complets avant l’extrait (D38 d : « rang de D48 », D48 b)', () => {
+    const [a, m] = extrait.extrait_le.split('-').map(Number) as [number, number];
+    const mois = (n: number) => new Date(Date.UTC(a, m - 1 + n, 1)).toISOString().slice(0, 10);
+    expect(extrait.vues).toMatchObject({ du: mois(-12), au: new Date(Date.UTC(a, m - 1, 0)).toISOString().slice(0, 10), mois: 12 });
   });
 
   it('crédits : Wikidata, CC0, à la date de l’extrait', () => {

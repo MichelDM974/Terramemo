@@ -7,16 +7,17 @@
 //   2. API wbgetentities : libellés (fr, en), titre de la Wikipédia en français et nombre
 //      de Wikipédias (sitelinks *wiki, hors Commons, Wikispecies, Meta, Wikidata et les
 //      autres wikis de service) des pays et des villes ;
-//   3. vues de la Wikipédia en français sur les 60 derniers jours (API Action
-//      prop=pageviews : l'API REST répond 429 à un User-Agent générique), pour le rang
-//      combiné de la notoriété (§ 2.4 ; D38 d : la capitale montrée en épreuve).
+//   3. vues de la Wikipédia en français sur les 12 derniers mois complets (API REST
+//      per-article, mensuelle, lecteurs humains), pour le rang combiné de la notoriété
+//      (§ 2.4 ; D38 d : la capitale montrée en épreuve, « rang de D48 », vues sur 12
+//      mois : 60 jours, la limite de l'API Action prop=pageviews, sont bruités).
 //
 // Usage : npm run wikidata. Seul script à toucher Wikidata, lancé à la main ; on relit
 // le diff de l'extrait avant de le commettre, puis npm run geodata -- --seulement capitales.
 // Portage en Node des scripts du relevé (wikidata.py, wikidata_sieges.py, vues.py,
 // ~/Sauvegardes/terramemo/j2-conception/capitales/scripts/). User-Agent générique, sans
 // adresse ni nom. Le point SPARQL était bridé à une requête par minute le 10/11/2026 :
-// 65 s d'attente quand il le dit (429), 4 s entre deux requêtes de vues (429 au-delà).
+// 65 s d'attente quand il le dit (429), 4 s entre deux requêtes de vues (§ 2.5).
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -33,10 +34,10 @@ const PAYS = join(RACINE, 'public', 'geo', 'pays.json');
 const UA = 'Terramemo-geodata/1.0 (+https://terramemo-geo.web.app)';
 const SPARQL = 'https://query.wikidata.org/sparql';
 const API = 'https://www.wikidata.org/w/api.php';
-const API_FR = 'https://fr.wikipedia.org/w/api.php';
+const VUES = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/fr.wikipedia/all-access/user';
 const ATTENTE_SPARQL_MS = 65_000;
 const ATTENTE_VUES_MS = 4_000;
-const JOURS_VUES = 60;
+const MOIS_VUES = 12;
 // Sitelinks en « wiki » qui ne sont pas une Wikipédia (§ 2.4 : ne compter que les Wikipédias).
 const PAS_WIKIPEDIA = new Set([
   'commonswiki', 'specieswiki', 'metawiki', 'wikidatawiki', 'mediawikiwiki', 'sourceswiki',
@@ -53,8 +54,11 @@ function echec(message) {
   process.exit(1);
 }
 
-/** GET JSON, réessayé (429, 5xx, réseau) ; attente d'au moins `pause` ms sur un 429. */
-async function lireJson(url, { pause, essais = 6, entetes = {} }) {
+/**
+ * GET JSON, réessayé (429, 5xx, réseau) ; attente d'au moins `pause` ms sur un 429.
+ * absent : la valeur rendue sur un 404 (l'API des vues n'a rien pour la page), échec sinon.
+ */
+async function lireJson(url, { pause, essais = 6, entetes = {}, absent }) {
   for (let essai = 1; essai <= essais; essai++) {
     let rep;
     try {
@@ -65,6 +69,7 @@ async function lireJson(url, { pause, essais = 6, entetes = {} }) {
       continue;
     }
     if (rep.ok) return rep.json();
+    if (rep.status === 404 && absent !== undefined) return absent;
     const reessayer = Number(rep.headers.get('retry-after')) * 1000 || 0;
     console.log(`  essai ${essai} : HTTP ${rep.status}`);
     if (rep.status !== 429 && rep.status < 500) echec(`${url.slice(0, 120)}… : HTTP ${rep.status}`);
@@ -108,45 +113,38 @@ async function entites(ids, props) {
   return res;
 }
 
-/** Vues de la Wikipédia en français par titre (somme sur JOURS_VUES jours) et période lue. */
-async function vues(titres) {
+/**
+ * Les MOIS_VUES derniers mois complets avant `maintenant` (UTC) : premier jour du premier
+ * mois et dernier jour du dernier, au format AAAAMMJJ de l'API des vues.
+ */
+function periodeVues(maintenant) {
+  const p = (n) => String(n).padStart(2, '0');
+  const a = maintenant.getUTCFullYear();
+  const m = maintenant.getUTCMonth(); // 0-11 : le mois en cours, exclu
+  const debut = new Date(Date.UTC(a, m - MOIS_VUES, 1));
+  const fin = new Date(Date.UTC(a, m, 0)); // jour 0 : dernier jour du mois précédent
+  const f = (d) => `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}`;
+  return { du: f(debut), au: f(fin) };
+}
+
+/**
+ * Vues de la Wikipédia en français par titre (somme des MOIS_VUES derniers mois complets,
+ * lecteurs humains, tous accès), une requête par titre espacée de ATTENTE_VUES_MS ; null
+ * pour une page sans vues connues. Les titres sont ceux des sitelinks : pas de redirection.
+ */
+async function vues(titres, maintenant) {
+  const { du, au } = periodeVues(maintenant);
   const res = new Map();
-  const jours = new Set();
-  const uniques = [...new Set(titres)].sort();
-  for (let i = 0; i < uniques.length; i += 50) {
-    const lot = uniques.slice(i, i + 50);
-    const pages = new Map(); // titre normalisé → { jour: vues }
-    const renvois = new Map();
-    let suite = {};
-    for (;;) {
-      await attendre(ATTENTE_VUES_MS);
-      const url = `${API_FR}?${new URLSearchParams({
-        action: 'query', prop: 'pageviews', pvipdays: String(JOURS_VUES), titles: lot.join('|'),
-        redirects: '1', format: 'json', formatversion: '2', ...suite,
-      })}`;
-      const j = await lireJson(url, { pause: 60_000 });
-      for (const r of [...(j.query?.normalized ?? []), ...(j.query?.redirects ?? [])]) renvois.set(r.from, r.to);
-      for (const p of j.query?.pages ?? []) {
-        if (!p.pageviews) continue;
-        const v = pages.get(p.title) ?? {};
-        for (const [jour, n] of Object.entries(p.pageviews)) {
-          jours.add(jour);
-          if (n !== null) v[jour] = n;
-        }
-        pages.set(p.title, v);
-      }
-      if (!j.continue) break;
-      suite = j.continue;
-    }
-    for (const t of lot) {
-      let cible = t;
-      for (let k = 0; k < 3 && renvois.has(cible); k++) cible = renvois.get(cible);
-      const v = pages.get(cible);
-      res.set(t, v ? Object.values(v).reduce((s, n) => s + n, 0) : null);
-    }
+  const mois = new Set();
+  for (const t of [...new Set(titres)].sort()) {
+    await attendre(ATTENTE_VUES_MS);
+    const url = `${VUES}/${encodeURIComponent(t.replaceAll(' ', '_'))}/monthly/${du}/${au}`;
+    const j = await lireJson(url, { pause: 60_000, absent: { items: [] } });
+    for (const it of j.items) mois.add(it.timestamp.slice(0, 6));
+    res.set(t, j.items.length ? j.items.reduce((s, it) => s + it.views, 0) : null);
   }
-  const tri = [...jours].sort();
-  return { parTitre: res, du: tri[0], au: tri[tri.length - 1], jours: tri.length };
+  const iso = (x) => `${x.slice(0, 4)}-${x.slice(4, 6)}-${x.slice(6, 8)}`;
+  return { parTitre: res, du: iso(du), au: iso(au), mois: mois.size };
 }
 
 const wikipedias = (e) => Object.keys(e?.sitelinks ?? {}).filter((s) => s.endsWith('wiki') && !PAS_WIKIPEDIA.has(s)).length;
@@ -214,7 +212,7 @@ async function main() {
 
   console.log('Vues de la Wikipédia en français');
   const titres = [...villesIds].map((q) => frwiki(ent[q])).filter(Boolean);
-  const v = await vues(titres);
+  const v = await vues(titres, new Date(extraitLe));
 
   const pays = {};
   for (const q of [...itemsPays].sort()) {
@@ -245,7 +243,7 @@ async function main() {
   const texte =
     `{\n"extrait_le":${JSON.stringify(extraitLe)},\n"date":${JSON.stringify(aujourdhui())},\n"api_le":${JSON.stringify(apiLe)},\n` +
     `"requetes_sha256":${JSON.stringify(sha256(texteRequetes))},\n` +
-    `"vues":${JSON.stringify({ du: v.du, au: v.au, jours: v.jours, source: 'fr.wikipedia.org, API Action prop=pageviews' })},\n` +
+    `"vues":${JSON.stringify({ du: v.du, au: v.au, mois: v.mois, source: 'fr.wikipedia.org, API REST des vues (per-article, mensuelle, lecteurs humains)' })},\n` +
     `"items_par_code":${objet(Object.fromEntries(Object.entries(itemsParCode).sort(([a], [b]) => (a < b ? -1 : 1))))},\n` +
     `"pays":${objet(pays)},\n` +
     `"declarations":[\n${declarations.map((d) => JSON.stringify(d)).join(',\n')}\n],\n` +

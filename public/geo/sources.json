@@ -69,7 +69,7 @@
     {
       "nom": "Wikidata, capitales des pays (P36), sièges du gouvernement et notoriété des capitales (nombre de Wikipédias, vues de la Wikipédia en français)",
       "url": "https://www.wikidata.org",
-      "version": "extrait du 2026-11-10T21:22:43Z (SPARQL), API du 2026-11-10T21:22:48Z, vues du 2026-09-11 au 2026-11-09",
+      "version": "extrait du 2026-11-10T21:42:26Z (SPARQL), API du 2026-11-10T21:42:31Z, vues du 2025-11-01 au 2026-10-31",
       "licence": "CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), aucune mention obligatoire : citée par courtoisie",
       "telecharge_le": "2026-11-11",
       "requetes": {
@@ -79,7 +79,7 @@
       "fichiers": [
         {
           "chemin": "geodata/wikidata/capitales.json",
-          "sha256": "609f89de4ae4750e35eddc5cfa11d5729e7790c8e2ffedc1f27c0714d7d2bb2f"
+          "sha256": "866ebd2fba79fa7a1bb262a5be72a34cf2017f41992ce37820258692c052a81b"
         }
       ]
     }
@@ -94,7 +94,7 @@
       "geodata/liste.json": "588b387d44d605a3f2aacc875eb7c51c90f388a883afd18a3ebaa18ce4bb255a",
       "geodata/revendications.json": "6d57155ff9b36e496c88a518b4550a9055d1e84a903f23b0b1027ec27e5f0303",
       "geodata/capitales.mjs": "8c04d8289ea3e05c2d2e1195c5b46e660121c58e7384fc263bed705ae0813d38",
-      "geodata/capitales-main.json": "ca64e7e577d9bc0592d17f62939844e7b3810c5c953800003d868046965bf902"
+      "geodata/capitales-main.json": "733e41cfea13a07884389ca697d6b95e4efb5b23bf11b49ad27097c08fffc00e"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée"
   }
