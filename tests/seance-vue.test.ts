@@ -3,7 +3,8 @@
 // rejeu, ligne discrète, cadrage de la grappe, bilan, comptes de Jouer, refus
 // d'Apprendre, parties libres (D11).
 import { readFileSync } from 'node:fs';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { chargerCapitales } from '../src/map/capitales';
 import { assembler } from '../src/map/donnees';
 import { assemblerTerrain } from '../src/map/donnees-terrain';
 import type { Lieu, NomTerrain, Pays } from '../src/map/types';
@@ -34,6 +35,13 @@ const serie = (id: string) => CATALOGUE.find((s) => s.id === id)!;
 const S = textes.seance;
 
 const JOUR_MS = 86_400_000;
+/** Une version d'avant le lot 1 : les capitales lues au journal, pas posées. */
+const SANS_CAPITALES: readonly Domaine[] = ['pays', 'communes'];
+
+// Les capitales lues une fois (src/map/capitales.ts), comme après le choix du sujet : la séance les pose.
+beforeAll(async () => {
+  await chargerCapitales(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+});
 const T0 = Date.UTC(2026, 10, 9, 8); // 12 h à La Réunion
 
 function graine(s: number): () => number {
@@ -421,7 +429,7 @@ describe('séance : le sujet de bout en bout', () => {
   });
 
   /** Les événements d'une première Révision du jour (POL ratée), recopiés sous d'autres domaines (l'id de l'entité changé par `ent`), puis le lendemain. */
-  async function journalMixte(domaines: { domaine: string; ent?: (id: string) => string }[]) {
+  async function journalMixte(domaines: { domaine: string; ent?: (id: string) => string }[], jouables?: readonly Domaine[]) {
     const m = await monter();
     jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance, { rate: 'POL' });
     await m.memoire.ecrire([]);
@@ -436,19 +444,19 @@ describe('séance : le sujet de bout en bout', () => {
     );
     const depot = depotMemoire();
     await depot.ajouter([...pays, ...copies]);
-    const m2 = await monter(depot);
+    const m2 = await monter(depot, jouables ? { jouables } : {});
     m2.h.ts += JOUR_MS;
     // Le même journal sans les copies : ce que les comptes doivent rester.
     const seulDepot = depotMemoire();
     await seulDepot.ajouter(pays);
-    const seul = await monter(seulDepot);
+    const seul = await monter(seulDepot, jouables ? { jouables } : {});
     seul.h.ts += JOUR_MS;
     return { m2, seul, copies };
   }
 
-  it('des fiches capitales:, drapeaux: et mers: au journal : lues, mais ni comptées, ni posées, ni teintées', async () => {
+  it('des fiches capitales: (version d’avant le lot 1), drapeaux: et mers: au journal : lues, mais ni comptées, ni posées, ni teintées', async () => {
     const mer = (id: string) => `m${id.toLowerCase()}`;
-    const { m2, seul, copies } = await journalMixte([{ domaine: 'capitales' }, { domaine: 'drapeaux' }, { domaine: 'mers', ent: mer }]);
+    const { m2, seul, copies } = await journalMixte([{ domaine: 'capitales' }, { domaine: 'drapeaux' }, { domaine: 'mers', ent: mer }], SANS_CAPITALES);
     // Lues : au journal et dans l'état (une version qui sait poser le sujet les reprendra telles quelles).
     const notees = copies.filter((e) => e.note !== null);
     expect(notees.length).toBeGreaterThan(0);
@@ -471,7 +479,7 @@ describe('séance : le sujet de bout en bout', () => {
     expect(ecrits.length).toBe(questions.length);
     expect(ecrits.every((e) => e.fiche.startsWith('pays:'))).toBe(true);
     // Teintées : la carte de la mémoire du monde montre les pays seuls, aucune mer.
-    const carte = carteMemoire(m2.memoire, () => true);
+    const carte = carteMemoire(m2.memoire, () => true, { jouables: SANS_CAPITALES });
     const teintes = carte.teintes('monde')!;
     expect(teintes.size).toBeGreaterThan(0);
     expect([...teintes.keys()].some((id) => /^m[a-z]/.test(id))).toBe(false);
@@ -833,5 +841,57 @@ describe('séance : plusieurs sujets du monde (lot 0c)', () => {
     expect(chargeur).toHaveBeenCalledWith('reunion');
     expect(m.seances.charger!(reunion)).toBeNull();
     expect(m.seances.ouvrir(reunion)).toHaveProperty('question');
+  });
+});
+
+// Le sujet Capitales jouable (lot 1) : ses vraies données (chargées plus haut)
+// et son vrai rendu ; les jouables de la version, sans injection.
+describe('séance : le sujet Capitales (lot 1)', () => {
+  beforeEach(() => installerDom());
+  afterEach(() => vi.unstubAllGlobals());
+  const grappes = grappesPays(monde.entites.map((e) => e.pays));
+  const idsCommunes = ile.entites.map((e) => e.pays.id);
+  const noter = (m: Awaited<ReturnType<typeof monter>>, fiches: string[], ts: number) =>
+    m.memoire.ecrire(fiches.map((f) => evenementReponse({ seance: null, appareil: m.memoire.appareil, horloge: () => ({ ts, tz: 240 }), nouvelId: () => m.memoire.nouvelId() }, f, 'rappel', { correct: true, duree_ms: 1000 }, 3)));
+
+  it('Apprendre Capitales écrit capitales: seulement ; le bilan nomme ville et pays, jamais un Qid ni un id', async () => {
+    const m = await monter();
+    const p = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'capitales', serie: serie('Europe') }) as PiloteSeance;
+    const { questions } = jouer(p, { rate: grappes.find((g) => g.continent === 'Europe')!.membres[0] });
+    expect(questions.length).toBeGreaterThan(0);
+    expect(questions.every((q) => (q as { domaine?: string }).domaine === 'capitales')).toBe(true);
+    await m.memoire.ecrire([]);
+    const evts = await m.depot.tous();
+    expect(evts.length).toBe(questions.length);
+    expect(evts.every((e) => e.fiche.startsWith('capitales:'))).toBe(true);
+    p.terminer();
+    const el = new El('div');
+    p.bilan(el as never, { continuer: vi.fn(), carte: vi.fn(), autre: vi.fn() });
+    const txt = el.innerText;
+    // « Nouveaux : Kiev (Ukraine), … » : la principale (le bilan est fait d'un rendu neuf), puis le pays.
+    expect(txt).toMatch(/Nouveaux : [^,]+ \([^)]+\)/);
+    expect(txt).toContain('Kiev (Ukraine)');
+    expect(txt).toMatch(/touché à 300/);
+    expect(txt).not.toMatch(/\bQ\d+\b/);
+    sansBrut(txt, [...questions.map((q) => q.id)]);
+  });
+
+  it('D39 b : le conseil dit à l’ouverture d’Apprendre (avant la première question) quand les pays ne sont pas appris ; aucun sinon', async () => {
+    const m = await monter();
+    const p = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'capitales', serie: serie('Africa') }) as PiloteSeance;
+    expect(p.conseil).toBe(remplir(textes.sujets.pays.conseil, { chemin: 'Pays › Afrique › Apprendre' }));
+    // Pays ou communes : jamais de conseil.
+    expect((m.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Africa') }) as PiloteSeance).conseil).toBeNull();
+    // Les pays de la première grappe d'Afrique appris la veille : la grappe est prête, sans conseil.
+    const m2 = await monter();
+    await noter(m2, grappes.find((g) => g.continent === 'Africa')!.membres.map((id) => `pays:${id}:localiser`), T0 - JOUR_MS);
+    expect((m2.seances.ouvrir({ sorte: 'apprendre', sujet: 'capitales', serie: serie('Africa') }) as PiloteSeance).conseil).toBeNull();
+  });
+
+  it('D37 c : un pays au nom de sa capitale (Luxembourg) appris sous Capitales n’a jamais de fiche Reconnaître à introduire', async () => {
+    const m = await monter();
+    await noter(m, ['LUX', 'BEL', 'MCO', 'FRA'].map((id) => `capitales:${id}:localiser`), T0 - JOUR_MS);
+    const qs = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions.filter((q) => q.forme === 'retournee');
+    expect(qs.map((q) => q.id).sort()).toEqual(['BEL', 'FRA']);
   });
 });

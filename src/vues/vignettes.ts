@@ -1,12 +1,15 @@
 // Vignettes des tuiles de Jouer (choix du 10/11, « Tuiles illustrées ») : une
 // petite carte par série (sa région, ses pays éclairés sur le fond des autres)
-// et par sujet (le monde pour Pays, l'île pour Communes), une icône pour le
-// reste (Entraînement, Classé, la Révision du jour, chaque exercice).
+// et par sujet (le monde pour Pays, l'île pour Communes, le monde et ses
+// capitales en points pour Capitales, D53 a), une icône pour le reste
+// (Entraînement, Classé, la Révision du jour, chaque exercice).
 //
 // Les cartes viennent des données du monde déjà en mémoire : rien de plus à
 // télécharger (décision « Hébergement »). L'île, dont les données ne se
 // chargent qu'au choix de sa série, a sa vignette toute faite dans le code
-// (vignette-ile.ts, produit par geodata/vignette-ile.mjs). Chaque vignette a sa projection (Equal Earth, centrée sur sa
+// (vignette-ile.ts, produit par geodata/vignette-ile.mjs) ; les capitales
+// aussi (vignette-capitales.ts, geodata/vignette-capitales.mjs), pour ne rien
+// charger de capitales* à l'ouverture de Jouer. Chaque vignette a sa projection (Equal Earth, centrée sur sa
 // région, comme la carte) et ne trace que ce qui tombe près de son cadre, en
 // unités de 600 de large, points à moins d'une unité du précédent sautés et
 // anneaux de moins d'une unité carrée retirés : ~3 000 à 8 000 points par
@@ -20,6 +23,7 @@ import type { Feature, MultiPoint } from 'geojson';
 import type { DonneesCarte } from '../map/donnees';
 import type { Pays } from '../map/types';
 import { estJouable, SERIE_REUNION, SERIE_TOUS, type Serie } from './cibles';
+import { POINTS_CAPITALES } from './vignette-capitales';
 import { VIGNETTE_ILE } from './vignette-ile';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -126,8 +130,13 @@ function coins(p: Pays): [number, number][] {
 }
 
 export interface Vignettes {
-  /** La vignette d'une série (le monde, un continent, l'île) ; null si elle n'en a pas. */
-  serie(id: string): SVGSVGElement | null;
+  /**
+   * La vignette d'une série (le monde, un continent, l'île) dans un sujet ;
+   * null si elle n'en a pas. Les séries des capitales reprennent celles des
+   * pays (le même tracé) ; « tous » y porte en plus les capitales en points,
+   * et sert de vignette au sujet.
+   */
+  serie(id: string, sujet?: string): SVGSVGElement | null;
   /** Calcule d'avance les tracés de ces séries, une par moment libre. */
   prechauffer(ids: readonly string[]): void;
 }
@@ -203,7 +212,14 @@ export function creerVignettes(donnees: DonneesCarte, series: readonly Serie[]):
     return traces.get(id) ?? null;
   }
 
-  function serie(id: string): SVGSVGElement | null {
+  /** Les capitales en points (une ligne de longueur nulle chacune, bouts ronds : un disque à toute taille). */
+  const points = (): string => {
+    let d = '';
+    for (let i = 0; i + 1 < POINTS_CAPITALES.length; i += 2) d += `M${POINTS_CAPITALES[i]} ${POINTS_CAPITALES[i + 1]}h0`;
+    return d;
+  };
+
+  function serie(id: string, sujet = 'pays'): SVGSVGElement | null {
     const t = trace(id);
     if (!t) return null;
     const svg = document.createElementNS(NS, 'svg');
@@ -217,6 +233,7 @@ export function creerVignettes(donnees: DonneesCarte, series: readonly Serie[]):
       ['vignette-fond', t.fond],
       ['vignette-serie', t.serie],
       ['vignette-limites', t.limites ?? ''],
+      ['vignette-points', sujet === 'capitales' && id === SERIE_TOUS ? points() : ''],
     ] as const) {
       if (!d) continue;
       const chemin = document.createElementNS(NS, 'path');

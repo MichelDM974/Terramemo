@@ -77,11 +77,11 @@ describe('fiches', () => {
     expect(estDomaine('villes')).toBe(false);
   });
 
-  it('lire n’est pas savoir poser : seuls pays et communes sont jouables au socle, chacun sur son terrain (étude J2 § 3.1)', () => {
-    expect(DOMAINES_JOUABLES).toEqual(['pays', 'communes']);
-    expect(DOMAINES.filter(domaineJouable)).toEqual(['pays', 'communes']);
-    expect(['capitales', 'drapeaux', 'mers', 'villes'].some(domaineJouable)).toBe(false);
-    expect(jouablesDu('monde')).toEqual(['pays']);
+  it('lire n’est pas savoir poser : pays, capitales (lot 1) et communes sont jouables, chacun sur son terrain (étude J2 § 3.1)', () => {
+    expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'communes']);
+    expect(DOMAINES.filter(domaineJouable)).toEqual(['pays', 'communes', 'capitales']);
+    expect(['drapeaux', 'mers', 'villes'].some(domaineJouable)).toBe(false);
+    expect(jouablesDu('monde')).toEqual(['pays', 'capitales']);
     expect(jouablesDu('reunion')).toEqual(['communes']);
     expect(DOMAINES.map((d) => TERRAIN_DOMAINE[d])).toEqual(['monde', 'reunion', 'monde', 'monde', 'monde']);
   });

@@ -98,6 +98,8 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
     retro.textContent = etape === 'repondu' ? ligne : '';
     barre.hidden = false;
     allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde');
+    // Révélée : un anneau à chaque ville révélée (D53 c : les capitales justes) ; rien pour un pays.
+    if (revele) for (const p of rs.points(id)) t.carte.anneauEn(p, 'juste');
   }
 
   function suivante(): void {

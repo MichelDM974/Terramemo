@@ -24,6 +24,7 @@
     "wikidata": "node geodata/wikidata.mjs",
     "icone": "node geodata/icone.mjs",
     "vignette-ile": "node geodata/vignette-ile.mjs",
+    "vignette-capitales": "node geodata/vignette-capitales.mjs",
     "licences:android": "node licences/android.mjs"
   },
   "dependencies": {

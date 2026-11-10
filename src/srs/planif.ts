@@ -3,7 +3,7 @@
 // Pur : lit l'état rejoué (rejeu.ts) et le jour local courant (jour.ts).
 // Les plafonds sont des défauts en attente de l'utilisateur, #2 (D5).
 
-import { analyser, DOMAINES, fichesDe, former, SENS, SENS_ENTREE, soeur, type Domaine } from './fiches';
+import { analyser, DOMAINES, fichesDe, former, nommerPose, SENS, SENS_ENTREE, soeur, type Domaine } from './fiches';
 import { stabilite } from './fsrs';
 import type { Grappe } from './grappes';
 import type { EtatFiche } from './rejeu';
@@ -244,7 +244,8 @@ export function introductions(etat: Etat, j: number, domaine?: Domaines): string
   const r: { fiche: string; jour: number }[] = [];
   for (const e of etat.values()) {
     const f = analyser(e.fiche);
-    if (!f || f.sens !== SENS_ENTREE || !parmi(domaine, f.domaine)) continue;
+    // Une entité sans fiche nommer (D37 c : les 9 pays au nom de leur capitale, sous Capitales) n'en introduit jamais.
+    if (!f || f.sens !== SENS_ENTREE || !parmi(domaine, f.domaine) || !nommerPose(f.domaine, f.id)) continue;
     const nommer = former(f.domaine, f.id, 'nommer');
     if (etat.has(nommer) || e.introduite_jour >= j || e.dernier_jour >= j || e.echeance_jour <= j) continue;
     r.push({ fiche: nommer, jour: e.introduite_jour });

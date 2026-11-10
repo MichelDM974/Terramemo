@@ -175,7 +175,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     const id = partie.courante;
     if (id === undefined) return finir();
     if (pour !== id) {
-      choixCourants = choix(id, lieux, jouables);
+      // Les leurres du sujet (étude J2 § 5.1) : jamais un exclu (D37 c, Israël ↔ Palestine sous Capitales).
+      choixCourants = choix(id, lieux, jouables, Math.random, { exclus: rs.qcmExclus(id) });
       pour = id;
     }
     const r = rs;
@@ -188,7 +189,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     retro.className = 'essai-retro';
     boutons.forEach((b, k) => {
       const c = choixCourants[k] ?? '';
-      poserContenu(b, c ? r.choix(c) : { texte: '' });
+      // Un leurre montre ce que son lieu montrerait en leurre (la capitale principale de son pays), le bon bouton ce que la question montre.
+      poserContenu(b, c ? r.choix(c, id) : { texte: '' });
       b.dataset.id = c;
       b.className = 'secondary nommer-choix';
       b.disabled = false;
@@ -219,9 +221,16 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     carte.effacerMarques();
     carte.marquer(id, 'juste');
     if (petite) carte.anneau(id, 'juste');
+    // La ville de la bonne réponse, d'un anneau (D53 c : la capitale, en Entraînement) ; rien pour un pays.
+    const point = rs.point(id);
+    if (point) carte.anneauEn(point, 'juste');
     if (!juste) carte.marquer(choisi, 'faux');
     retro.className = `essai-retro ${juste ? 'juste' : 'faux'}`;
-    retro.textContent = juste ? remplir(T.nommer_juste, { temps: fmtS(temps_ms) }) : remplir(T.nommer_faux, { cible: rs.nomChoix(id) });
+    // Le pays de la question, que la consigne ne nommait pas (« La Paz, siège du gouvernement (Bolivie) ») : rs.retro.
+    const lieu = rs.retro(id);
+    retro.textContent = juste
+      ? remplir(lieu ? T.nommer_juste_lieu : T.nommer_juste, { lieu, temps: fmtS(temps_ms) })
+      : remplir(T.nommer_faux, { cible: lieu || rs.nomChoix(id, id) });
     if (!crochets.compte) compte.textContent = `${partie.numero - 1} / ${n}`;
     const ligne = crochets.surReponse?.({ id, choisi, juste, temps_ms, zoom: carte.transfo.k });
     if (ligne) retro.append(creer('span', { class: 'seance-ligne' }, ` · ${ligne}`));
@@ -260,7 +269,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       creer(
         'ul',
         { class: 'essai-rates' },
-        ...b.fautes.map((f) => creer('li', {}, remplir(T.bilan_nommer_faux, { cible: r.nomBilan(f.id, 'nommer'), choisi: r.nomChoix(f.choisi) }))),
+        // La bonne réponse et son lieu (« Porto-Novo (Bénin) » ; le nom pour un pays), puis le leurre choisi tel qu'il était montré.
+        ...b.fautes.map((f) => creer('li', {}, remplir(T.bilan_nommer_faux, { cible: r.nomBilan(f.id, 'localiser'), choisi: r.nomChoix(f.choisi, f.id) }))),
       ),
       o.actions(),
     );

@@ -29,7 +29,7 @@ import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
-import { anneauSiPetite, creer, croix, fmtKm, idsSerie, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong } from './scores';
 import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -391,7 +391,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       const carte = t.carte;
       ctx.mesures.toucher(ev, x, y, () => {
         const temps_ms = performance.now() - debut;
-        const note = carte.noter(id, x, y, { acceptes });
+        // Les zones admises de la carte selon la date de l'épreuve, plus celles du sujet (D36 i sous Capitales).
+        const note = carte.noter(id, x, y, optionsNoter(rs, t, id, acceptes));
         const r = note.pick;
         const q = partie!.repondre(r?.id ?? null, note.juste, note.distance_km, temps_ms);
         carte.effacerMarques();
@@ -399,7 +400,9 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
         if (q.juste) {
           retro.className = 'essai-retro juste';
           const admis = texteAdmis(rs, id, note.admis);
-          retro.textContent = mode === 'chrono' ? remplir(T.juste, { admis, points: fmtPts(q.points) }) : remplir(E.juste, { admis });
+          // Le pays de la question, que l'énoncé ne nommait pas (« La Paz (Bolivie) ») ; sans anneau en épreuve (D53 c).
+          const lieu = rs.retro(id);
+          retro.textContent = `${mode === 'chrono' ? remplir(T.juste, { admis, points: fmtPts(q.points) }) : remplir(E.juste, { admis })}${lieu ? ` · ${lieu}` : ''}`;
         } else {
           if (r && r.id !== id) carte.marquer(r.id, 'faux');
           anneauSiPetite(t, id, 'juste');

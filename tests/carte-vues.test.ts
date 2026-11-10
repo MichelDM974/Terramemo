@@ -284,10 +284,12 @@ describe('carte de la mémoire à l’accueil', () => {
     return { vue, teintes, derniere: () => teintes.at(-1), legende, detail, ctx, monde };
   }
   let pickSuivant = 'FRA';
+  /** Un seul sujet jouable par terrain (la légende et la ligne d'avant le lot 1) ; deux sujets : tests/carte-memoire.test.ts. */
+  const UN_SUJET = { jouables: ['pays', 'communes'] as const };
 
   it('posées à l’activer (la fiche la plus faible décide), retirées au desactiver ; légende et maîtrisés', async () => {
     const m = await memoire();
-    const v = monter({ memoire: carteMemoire(m, () => true) });
+    const v = monter({ memoire: carteMemoire(m, () => true, UN_SUJET) });
     v.vue.activer();
     const t = v.derniere()!;
     expect(t).toBeInstanceOf(Map);
@@ -304,7 +306,7 @@ describe('carte de la mémoire à l’accueil', () => {
 
   it('toucher un pays : « Vu N fois · revient dans N j », « Jamais vu » ; rien pour un territoire', async () => {
     const m = await memoire();
-    const v = monter({ memoire: carteMemoire(m, () => true) });
+    const v = monter({ memoire: carteMemoire(m, () => true, UN_SUJET) });
     v.vue.activer();
     pickSuivant = 'FRA';
     v.vue.toucher?.(1, 1, {} as PointerEvent);
@@ -323,7 +325,7 @@ describe('carte de la mémoire à l’accueil', () => {
 
   it('absentes en partie : Toucher (Trouver) trouve la carte sans teinte, et n’en pose aucune', async () => {
     const m = await memoire();
-    const v = monter({ memoire: carteMemoire(m, () => true) });
+    const v = monter({ memoire: carteMemoire(m, () => true, UN_SUJET) });
     v.vue.activer();
     expect(v.derniere()).not.toBeNull();
     // Le routeur : la vue Carte part, Toucher arrive.
@@ -346,7 +348,7 @@ describe('carte de la mémoire à l’accueil', () => {
     expect(lireReglageMemoire(localStorage)).toBe(false);
     const m = await memoire();
     let actif = false;
-    const v = monter({ memoire: carteMemoire(m, () => actif) });
+    const v = monter({ memoire: carteMemoire(m, () => actif, UN_SUJET) });
     v.vue.activer();
     expect(v.derniere()).toBeNull();
     expect(v.legende.hidden).toBe(true);
@@ -370,7 +372,7 @@ describe('carte de la mémoire à l’accueil', () => {
     const depot = depotMemoire();
     const lent = { tous: () => new Promise<Evenement[]>((ok) => (lire = () => void depot.tous().then(ok))), ajouter: depot.ajouter };
     const m = ouvrirMemoire({ depot: lent, appareil: '00000000-0000-4000-8000-00000000a001', horloge: () => ({ ts: T0, tz: 240 }) });
-    const v = monter({ memoire: carteMemoire(m, () => true) });
+    const v = monter({ memoire: carteMemoire(m, () => true, UN_SUJET) });
     v.vue.activer();
     expect(v.derniere()).toBeNull();
     lire();

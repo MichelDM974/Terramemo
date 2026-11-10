@@ -6,7 +6,8 @@
 // minuteries et performance.now() sont factices : le temps de réponse est
 // celui qu'on avance.
 import { readFileSync } from 'node:fs';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { chargerCapitales } from '../src/map/capitales';
 import { DEBUT_ACCEPTES_EPREUVES } from '../src/epreuve/bareme';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
 import type { Pays } from '../src/map/types';
@@ -36,7 +37,7 @@ let optionsNoter: unknown[] = [];
 /** La zone admise que noter() rend au prochain toucher juste (Note.admis). */
 let admisSuivant: unknown = null;
 
-function contexte(maintenant?: () => number) {
+function contexte(maintenant?: () => number, noms: Record<string, string> = { RUS: 'Russie', KAZ: 'Kazakhstan', NE_KAB: 'Baïkonour' }) {
   const zone = new El('main');
   const entites = pays.map((p) => ({ pays: p }));
   const consigne = () => zone.querySelector('#barre-chrono .essai-consigne')?.dataset.cible;
@@ -49,7 +50,7 @@ function contexte(maintenant?: () => number) {
     projection: { scale: () => 1 },
     transfo: { k: 1 },
   };
-  const monde = { nom: 'monde', carte, donnees: { noms: { RUS: 'Russie', KAZ: 'Kazakhstan', NE_KAB: 'Baïkonour' }, entites }, jouables: [], credit: null };
+  const monde = { nom: 'monde', carte, donnees: { noms, entites }, jouables: [], credit: null };
   const terrains = { monde, actif: 'monde', montrer: vi.fn(), deja: () => null, charger: vi.fn() };
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
   const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone };
@@ -386,5 +387,44 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
     const q = consigne()!;
     vi.advanceTimersByTime(15_000);
     expect(retro(zone)).toBe(`sablier ${code(q)}`);
+  });
+});
+
+// Le sujet Capitales en épreuve (D38 d) : ses épreuves classées ne sont pas
+// dans Jouer avant la partie C, mais la vue sait déjà les poser.
+describe('le sujet Capitales en épreuve', () => {
+  const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
+  const EPREUVE: Record<string, string> = { BOL: 'La Paz', ARG: 'Buenos Aires', PER: 'Lima' };
+  beforeAll(async () => {
+    await chargerCapitales(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+  });
+
+  it('la capitale de l’épreuve, la même à chaque partie (La Paz pour la Bolivie) ; la rétroaction nomme le pays, sans anneau ; bilan « ville (pays) »', () => {
+    for (let k = 0; k < 3; k++) {
+      const { v, zone, consigne, lancer } = contexte(undefined, NOMS_FR);
+      faux = new Set([1]);
+      touchers = 0;
+      lancer('chrono', AMS, 'capitales');
+      const vus: string[] = [];
+      for (let q = 0; q < 12; q++) {
+        const id = consigne();
+        if (!id) break;
+        const c = zone.querySelector('#barre-chrono .essai-consigne')!;
+        expect(c.textContent!.startsWith('Pays dont la capitale est : ')).toBe(true);
+        expect(c.classList.contains('consigne-deux-lignes')).toBe(true);
+        if (EPREUVE[id]) expect(c.querySelector('strong')!.textContent).toBe(EPREUVE[id]);
+        vi.advanceTimersByTime(100);
+        v.toucher?.(0, 0, {} as PointerEvent);
+        const r = zone.querySelector('#barre-chrono .essai-retro')!.textContent!;
+        if (id === 'BOL' && q > 0) expect(r).toMatch(/^Juste · \+[\d\u202f]+ · La Paz, siège du gouvernement \(Bolivie\)$/);
+        if (q === 0) expect(r).toMatch(/^Faux : Brésil, à 120/);
+        vus.push(zone.querySelector('#barre-chrono')!.innerText);
+        vi.advanceTimersByTime(2_000);
+      }
+      const bilan = zone.querySelector('#chrono-bilan')?.innerText ?? zone.innerText;
+      vus.push(bilan);
+      expect(bilan).toMatch(/\S+ \([^)]+\) → Brésil/);
+      for (const t of vus) expect(t).not.toMatch(/\bQ\d+\b/);
+    }
   });
 });

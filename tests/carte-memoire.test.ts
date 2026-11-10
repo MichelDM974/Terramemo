@@ -2,8 +2,10 @@
 // le choix du sujet dans la légende, parmi les jouables du terrain, caché tant
 // qu'il n'y en a qu'un ; gardé sur l'appareil, Pays par défaut ; teintes et
 // maîtrisés dans le sujet choisi ; au toucher, le détail de chaque sujet à
-// partir de deux. Les capitales, pas encore livrées, sont injectées dans les
-// jouables et rendues par le sujet factice (sujet-factice.ts).
+// partir de deux. Les capitales, jouables depuis le lot 1, sont retirées des
+// jouables injectés pour le cas d'un seul sujet (SANS_CAPITALES : une
+// version d'avant), et rendues ici par le sujet factice (sujet-factice.ts) ;
+// le vrai rendu des capitales : tests/capitales-vues.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { depotMemoire } from '../src/journal/depot';
 import { ouvrirMemoire, type Memoire } from '../src/journal/memoire';
@@ -12,7 +14,7 @@ import { evenementReponse } from '../src/srs/seance';
 import { carteMemoire, CLE_SUJET_MEMOIRE, domaineDe, garderSujetMemoire, lireSujetMemoire, type CarteMemoire } from '../src/vues/carte-memoire';
 import type { ContexteVue } from '../src/vues/commun';
 import { vueExplorer } from '../src/vues/explorer';
-import { textes } from '../src/vues/textes';
+import { remplir, textes } from '../src/vues/textes';
 import { El, installerDom } from './dom-factice';
 import { remplaces, TEXTES_FACTICES } from './sujet-factice';
 
@@ -21,6 +23,8 @@ vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).
 const T0 = Date.UTC(2026, 10, 9, 8);
 const JOUR_MS = 86_400_000;
 const AVEC_CAPITALES: readonly Domaine[] = ['pays', 'communes', 'capitales'];
+/** Une version d'avant le lot 1 : un seul sujet jouable par terrain. */
+const SANS_CAPITALES: readonly Domaine[] = ['pays', 'communes'];
 const M = textes.memoire;
 
 /** FRA appris en pays il y a 10 jours puis revu il y a 4 ; ESP raté aujourd'hui en pays ; ITA appris en capitales aujourd'hui (Again), et ESP en capitales (Good). */
@@ -57,7 +61,8 @@ describe('carte de la mémoire : le sujet montré', () => {
   it('domaineDe : le choix s’il est jouable sur le terrain, sinon le premier jouable', () => {
     expect(domaineDe('monde')).toBe('pays');
     expect(domaineDe('reunion')).toBe('communes');
-    expect(domaineDe('monde', 'capitales')).toBe('pays'); // pas jouable dans cette version
+    expect(domaineDe('monde', 'capitales', SANS_CAPITALES)).toBe('pays'); // pas jouable dans cette version
+    expect(domaineDe('monde', 'capitales')).toBe('capitales'); // jouable depuis le lot 1
     expect(domaineDe('monde', 'capitales', AVEC_CAPITALES)).toBe('capitales');
     expect(domaineDe('monde', 'communes', AVEC_CAPITALES)).toBe('pays'); // pas sur ce terrain
     expect(domaineDe('reunion', 'capitales', AVEC_CAPITALES)).toBe('communes');
@@ -85,7 +90,7 @@ describe('carte de la mémoire : le sujet montré', () => {
 
   it('choix caché tant qu’un terrain n’a qu’un sujet jouable ; détail au toucher inchangé', async () => {
     const m = await memoire();
-    const seul = carteMemoire(m, () => true);
+    const seul = carteMemoire(m, () => true, { jouables: SANS_CAPITALES });
     expect(seul.sujets('monde')).toEqual([]);
     expect(seul.sujets('reunion')).toEqual([]);
     // Les fiches capitales: au journal ne teintent rien sans le sujet jouable.
@@ -121,7 +126,7 @@ describe('carte de la mémoire : le sujet montré', () => {
     // Relu par une autre page (une nouvelle carte de la mémoire, même stockage).
     expect(carteMemoire(m, () => true, { jouables: AVEC_CAPITALES, stockage: () => s }).sujet('monde')).toBe('capitales');
     // Une version où le sujet gardé n'est plus jouable : Pays.
-    expect(carteMemoire(m, () => true, { stockage: () => s }).sujet('monde')).toBe('pays');
+    expect(carteMemoire(m, () => true, { jouables: SANS_CAPITALES, stockage: () => s }).sujet('monde')).toBe('pays');
     // Stockage refusé.
     const refuse = {
       getItem: () => {
@@ -185,7 +190,7 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
   }
 
   it('un seul sujet jouable : pas de choix dans la légende', async () => {
-    const v = monter(carteMemoire(await memoire(), () => true));
+    const v = monter(carteMemoire(await memoire(), () => true, { jouables: SANS_CAPITALES }));
     v.vue.activer();
     expect(v.choix()).toBeNull();
     expect(v.legende.innerText).toBe(`${M.jamais_vu} · ${M.faible}${M.maitrise} · 0/3 maîtrisés`);
@@ -199,7 +204,7 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
     const choix = v.choix()!;
     expect(choix).not.toBeNull();
     expect(choix.querySelectorAll('option').map((o) => o.getAttribute('value'))).toEqual(['pays', 'capitales']);
-    expect(choix.innerText).toBe(`${textes.jouer.sujets.pays.nom}capitales`);
+    expect(choix.innerText).toBe(`${textes.jouer.sujets.pays.nom}${textes.jouer.sujets.capitales.nom}`);
     expect(choix.value).toBe('pays');
     expect([...v.derniere()!.keys()].sort()).toEqual(['ESP', 'FRA']);
     v.toucher('ITA');
@@ -214,5 +219,25 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
     v.vue.desactiver();
     v.vue.activer();
     expect(v.choix()!.value).toBe('capitales');
+  });
+});
+
+describe('carte de la mémoire : capitales réellement jouables (lot 1)', () => {
+  beforeEach(() => installerDom());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('par défaut, le monde a deux sujets (Pays, Capitales) ; teintes, maîtrisés et détail des vraies capitales', async () => {
+    const m = await memoire();
+    const c = carteMemoire(m, () => true);
+    expect(c.sujets('monde')).toEqual(['pays', 'capitales']);
+    expect(c.sujets('reunion')).toEqual([]);
+    expect(c.sujet('monde')).toBe('pays');
+    c.choisir('monde', 'capitales');
+    expect([...c.teintes('monde')!.keys()].sort()).toEqual(['ESP', 'ITA']);
+    expect(c.maitrises('monde', 195)).toBe('0/195 maîtrisés');
+    const P = textes.sujets.pays.memoire;
+    const K = textes.sujets.capitales.memoire;
+    expect(c.detail('monde', 'ITA', true)).toBe(`${P.nom} : ${P.jamais} · ${K.nom} : ${remplir(K.vu_une, { n: 1 })} · ${M.revient_demain}`);
+    expect(c.detail('monde', 'FRA', true)).toMatch(new RegExp(`^${P.nom} : vu 2 fois · revient (dans \\d+ j|demain) · ${K.nom} : ${K.jamais}$`));
   });
 });

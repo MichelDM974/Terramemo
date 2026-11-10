@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Pays } from '../src/map/types';
 import type { CarteFsrs } from '../src/srs/fsrs';
+import { nommerPose, type Domaine } from '../src/srs/fiches';
 import { grappesCommunes, grappesPays, type Grappe } from '../src/srs/grappes';
 import type { Lieu } from '../src/map/types';
 import type { Evenement } from '../src/srs/journal';
@@ -290,8 +291,15 @@ describe('plusieurs sujets : plafonds communs, reliquat, préférence (lot 0c)',
   const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
   const gs = grappesPays(pays);
   const ids = gs.flatMap((g) => g.membres);
-  /** k entités du domaine apprises (rappel Good) le jour j : leur fiche nommer à introduire dès j + 1 (échéance à j + 3). */
-  const appris = (domaine: string, k: number, j = D0, depuis = 0): Evenement[] => ids.slice(depuis, depuis + k).map((id) => rep(`${domaine}:${id}:localiser`, j, GOOD, 'rappel'));
+  /**
+   * k entités du domaine apprises (rappel Good) le jour j : leur fiche nommer à introduire dès j + 1 (échéance à j + 3).
+   * Sans celles qui n'ont pas de fiche nommer dans ce domaine (D37 c : les 9 pays au nom de leur capitale).
+   */
+  const appris = (domaine: string, k: number, j = D0, depuis = 0): Evenement[] =>
+    ids
+      .filter((id) => nommerPose(domaine as Domaine, id))
+      .slice(depuis, depuis + k)
+      .map((id) => rep(`${domaine}:${id}:localiser`, j, GOOD, 'rappel'));
 
   it('plafond d’introductions de D46 : 15 par jour, les plus anciennes d’abord ; le reliquat le lendemain, en tête', () => {
     expect(INTRODUCTIONS_PAR_JOUR).toBe(15);
@@ -410,5 +418,17 @@ describe('plusieurs sujets : plafonds communs, reliquat, préférence (lot 0c)',
     // Une grappe entamée se finit avant, prête ou non.
     const entamee = etat([...a1.membres.map((id) => rep(`pays:${id}:localiser`, D0 - 2, GOOD, 'rappel')), rep(`capitales:${a0.membres[0]}:localiser`, D0 - 1, GOOD, 'rappel')]);
     expect(grappeSuivante(entamee, afrique, 'capitales', pretSelon(entamee, D0, 'capitales'))?.grappe).toBe(a0);
+  });
+});
+
+describe('D37 c : les 9 pays au nom de leur capitale n’ont pas de fiche capitales:…:nommer', () => {
+  const gs = grappesPays(JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[]);
+  it('leur fiche localiser apprise, jamais d’introduction nommer ; les autres capitales et les pays, si', () => {
+    const D = 20_400;
+    const m = etat(['LUX', 'MCO', 'VAT', 'BEL', 'FRA'].flatMap((id) => [rep(`capitales:${id}:localiser`, D, GOOD, 'rappel'), rep(`pays:${id}:localiser`, D, GOOD, 'rappel')]));
+    const intro = introductions(m, D + 1);
+    expect(intro.filter((f) => f.startsWith('capitales:')).sort()).toEqual(['capitales:BEL:nommer', 'capitales:FRA:nommer']);
+    expect(intro.filter((f) => f.startsWith('pays:'))).toHaveLength(5);
+    expect(programme(m, D + 1, gs, 'capitales', gs, { domaines: ['capitales'] }).introductions.sort()).toEqual(['capitales:BEL:nommer', 'capitales:FRA:nommer']);
   });
 });

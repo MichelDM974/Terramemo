@@ -1,6 +1,6 @@
 // L'arbre de l'écran « Jouer » (pur ; décision « Écran Jouer », ticket #18) :
 // un choix par écran, d'abord la branche (Entraînement ou Classé), puis le
-// sujet (Pays, Communes ; plus tard Drapeaux, Capitales, Départements…), la
+// sujet (Pays, Capitales, Communes ; plus tard Drapeaux, Océans et mers…), la
 // série (Tous les pays puis les continents ; La Réunion), et l'exercice en
 // dernier. Déclaratif : un sujet de plus est une entrée de SUJETS (ses séries,
 // ses exercices par branche), son nom (textes.jouer.sujets) et son rendu
@@ -54,9 +54,22 @@ const SUR_LA_CARTE: DefSujet['modes'] = { entrainement: ['localiser', 'nommer'],
 const AVEC_APPRENDRE: DefSujet['modes'] = { entrainement: ['apprendre', ...SUR_LA_CARTE.entrainement], classe: MODES_EPREUVE };
 const duTerrain = (t: NomTerrain) => (c: readonly Serie[]) => c.filter((s) => s.terrain === t);
 
-/** Les sujets, dans l'ordre affiché. Aucun sujet « à venir » factice : un sujet existe quand il se joue. */
+/**
+ * Capitales (étude J2 § 7.2, lot 1) : les séries des pays, tailles comprises
+ * (D37 c : les 9 pays au nom de leur capitale restent en Trouver) ; ses
+ * épreuves classées attendent leur ouverture (la bascule datée du lundi
+ * 16/11, décision « Ouverture des épreuves d'un sujet ») : rien sous Classé.
+ */
+const ENTRAINEMENT_SEUL: DefSujet['modes'] = { entrainement: AVEC_APPRENDRE.entrainement, classe: [] };
+
+/**
+ * Les sujets, dans l'ordre affiché (D53 b, décision « Ordre des sujets ») :
+ * les sujets du monde ensemble, Communes en dernier. Aucun sujet « à venir »
+ * factice : un sujet existe quand il se joue.
+ */
 export const SUJETS: readonly DefSujet[] = [
   { id: 'pays', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
+  { id: 'capitales', series: duTerrain('monde'), modes: ENTRAINEMENT_SEUL },
   { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];
 

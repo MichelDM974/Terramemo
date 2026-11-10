@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enregistrerPartie, EPREUVES_CLASSEES, idEpreuve, SERIES_EPREUVES } from '../src/epreuve/chrono';
+import { capitalesChargees, oublierCapitales } from '../src/map/capitales';
 import type { Pays } from '../src/map/types';
 import {
   adresse,
@@ -33,9 +34,16 @@ const SERIES_PAYS = ['tous', 'Africa', 'North America', 'South America', 'Asia',
 const a = (segs: string[]) => adresse(arbre.resoudre(segs));
 
 describe('l’arbre (pur)', () => {
-  it('niveaux : deux branches, deux sujets, les séries des pays, les exercices de chaque branche', () => {
+  it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier ; Capitales sous Entraînement seulement), les séries des pays, les exercices de chaque branche', () => {
     expect(arbre.choix({ type: 'racine' })).toEqual(['entrainement', 'classe']);
-    for (const b of ['entrainement', 'classe'] as const) expect(arbre.choix({ type: 'sujets', branche: b })).toEqual(['pays', 'communes']);
+    expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'communes']);
+    expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'communes']);
+    // Capitales : les séries des pays, tailles comprises (D37 c) ; ses épreuves classées à la partie C (bascule du 16/11).
+    expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'capitales' })).toEqual(SERIES_PAYS);
+    expect(arbre.series('capitales').map((x) => x.n)).toEqual(arbre.series('pays').map((x) => x.n));
+    expect(arbre.modes('entrainement', 'capitales')).toEqual(['apprendre', 'localiser', 'nommer']);
+    expect(arbre.modes('classe', 'capitales')).toEqual([]);
+    expect(arbre.valide({ branche: 'classe', sujet: 'capitales', serie: 'Africa', mode: 'chrono' })).toBe(false);
     expect(arbre.choix({ type: 'series', branche: 'classe', sujet: 'pays' })).toEqual(SERIES_PAYS);
     expect(arbre.choix({ type: 'series', branche: 'classe', sujet: 'communes' })).toEqual(['reunion']);
     expect(arbre.modes('entrainement', 'pays')).toEqual(['apprendre', 'localiser', 'nommer']);
@@ -393,7 +401,7 @@ describe('la vue Jouer', () => {
     expect(r.innerText).toContain('12 à revoir · 6 nouveaux');
     expect(r.innerText).not.toContain('record');
     expect(r.disabled).toBe(false);
-    expect(j.attr('data-sujet')).toEqual(['pays', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'communes']);
     r.click();
     expect(revision.lancer).toHaveBeenCalledTimes(1);
     // Pas d'adresse dans l'arbre : la ligne ne pousse rien.
@@ -496,5 +504,94 @@ describe('l’Essai J0 dans ⚙', () => {
     ]);
     p.querySelector('button[data-mode="nommer"]')!.click();
     expect(lancer).toHaveBeenCalledWith('nommer');
+  });
+});
+
+// Le sujet Capitales (lot 1) : sous Entraînement seulement, ses séries (celles
+// des pays), ses phrases, sa vignette (rangée dans le code), et ses données
+// chargées au lancement d'une partie, pas avant (avecSujet, étude J2 § 4.2).
+describe('la vue Jouer : le sujet Capitales', () => {
+  /** Les réponses du réseau : null, hors ligne. */
+  let reseau: Record<string, unknown> | null = null;
+  const demandes: string[] = [];
+  beforeEach(() => {
+    installerDom();
+    installerStockage();
+    oublierCapitales();
+    demandes.length = 0;
+    reseau = {
+      '/geo/capitales.json': JSON.parse(readFileSync('public/geo/capitales.json', 'utf8')),
+      '/geo/capitales.fr.json': JSON.parse(readFileSync('public/geo/capitales.fr.json', 'utf8')),
+    };
+    vi.stubGlobal('fetch', async (url: string) => {
+      demandes.push(url);
+      if (!reseau) throw new TypeError('Failed to fetch');
+      return { ok: url in reseau, status: url in reseau ? 200 : 404, json: async () => reseau![url] };
+    });
+  });
+  afterEach(() => {
+    oublierCapitales();
+    vi.unstubAllGlobals();
+  });
+  const attendre = () => new Promise((r) => setTimeout(r, 0));
+
+  it('Entraînement : Pays, Capitales, Communes ; sa vignette (le monde et ses capitales en points) sans rien charger ; ses séries « 54 capitales »', () => {
+    const j = monter();
+    j.ouvrir('entrainement');
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'communes']);
+    expect(j.panneau.querySelector('[data-sujet="capitales"]')!.innerText).toContain('Capitales');
+    expect(j.panneau.querySelector('[data-sujet="capitales"]')!.innerText).toContain('195 capitales');
+    expect(j.panneau.querySelector('[data-sujet="capitales"] .vignette-carte .vignette-points')).not.toBeNull();
+    expect(j.panneau.querySelector('[data-sujet="pays"] .vignette-points')).toBeNull();
+    j.ouvrir('entrainement', 'capitales');
+    expect(j.attr('data-serie')).toEqual(SERIES_PAYS);
+    expect(j.panneau.innerText).toContain('54 capitales');
+    expect(j.panneau.querySelector('[data-serie="tous"] .vignette-points')).not.toBeNull();
+    j.ouvrir('entrainement', 'capitales', 'Africa');
+    expect(j.attr('data-mode')).toEqual(['apprendre', 'localiser', 'nommer']);
+    for (const m of ['apprendre', 'localiser', 'nommer'] as const) expect(j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText).toContain(textes.jouer.exercices.capitales[m]);
+    // Pas sous Classé avant l'ouverture de ses épreuves (partie C).
+    j.ouvrir('classe');
+    expect(j.attr('data-sujet')).toEqual(['pays', 'communes']);
+    // Rien de capitales* demandé pour afficher Jouer.
+    expect(demandes).toEqual([]);
+    expect(capitalesChargees()).toBeNull();
+  });
+
+  it('chargement puis lancement : « Chargement… », boutons désactivés, puis la partie part ; la seconde fois, tout de suite', async () => {
+    const j = monter();
+    j.ouvrir('entrainement', 'capitales', 'Africa');
+    const statut = () => j.panneau.querySelector('.jouer-statut')!;
+    j.panneau.querySelector('[data-mode="localiser"]')!.click();
+    expect(statut().textContent).toBe(textes.toucher.chargement_sujet);
+    expect(j.panneau.querySelector('[data-mode="nommer"]')!.disabled).toBe(true);
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    await attendre();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(1);
+    expect(j.opts.lancer.mock.calls[0]![0]).toEqual({ branche: 'entrainement', sujet: 'capitales', serie: 'Africa', mode: 'localiser' });
+    expect(statut().hidden).toBe(true);
+    expect(demandes.sort()).toEqual(['/geo/capitales.fr.json', '/geo/capitales.json']);
+    j.panneau.querySelector('[data-mode="nommer"]')!.click();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(2);
+    expect(demandes).toHaveLength(2);
+  });
+
+  it('échec puis message : hors ligne, rien ne part, on reste au niveau, boutons rendus ; le prochain choix réessaie', async () => {
+    reseau = null;
+    const j = monter();
+    j.ouvrir('entrainement', 'capitales', 'Africa');
+    j.panneau.querySelector('[data-mode="localiser"]')!.click();
+    await attendre();
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    expect(j.panneau.querySelector('.jouer-statut')!.textContent).toBe(textes.toucher.echec_sujet);
+    expect(j.panneau.querySelector('[data-mode="localiser"]')!.disabled).toBe(false);
+    expect(j.panneau.dataset.niveau).toBe('exercices');
+    reseau = {
+      '/geo/capitales.json': JSON.parse(readFileSync('public/geo/capitales.json', 'utf8')),
+      '/geo/capitales.fr.json': JSON.parse(readFileSync('public/geo/capitales.fr.json', 'utf8')),
+    };
+    j.panneau.querySelector('[data-mode="localiser"]')!.click();
+    await attendre();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(1);
   });
 });

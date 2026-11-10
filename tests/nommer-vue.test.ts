@@ -1,7 +1,9 @@
 // Reconnaître (src/vues/nommer.ts) sur le DOM factice : premier test de la
 // vue (décision « Nommer ») et de ses crochets du J1a (journal, mode piloté
 // d'une séance, « Je connais déjà »).
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { chargerCapitales } from '../src/map/capitales';
 import type { Pays } from '../src/map/types';
 import type { ContexteVue } from '../src/vues/commun';
 import { vueNommer, type ReponseNommer } from '../src/vues/nommer';
@@ -16,7 +18,8 @@ const pays = (id: string, i: number): Pays =>
 
 const NOMS: Record<string, string> = { FRA: 'France', ESP: 'Espagne', ITA: 'Italie', DEU: 'Allemagne', BEL: 'Belgique' };
 
-function monter() {
+function monter(o: { ids?: readonly string[]; noms?: Record<string, string> } = {}) {
+  const ids = o.ids ?? IDS;
   const zone = new El('main');
   const marques: string[] = [];
   const carte = {
@@ -25,14 +28,15 @@ function monter() {
     effacerMarques: () => void (marques.length = 0),
     marquer: (id: string, c: string) => void marques.push(`${id}:${c}`),
     anneau: (id: string, c: string) => void marques.push(`anneau ${id}:${c}`),
+    anneauEn: (p: [number, number], c: string) => void marques.push(`anneauEn ${p.join(',')}:${c}`),
     montrer: vi.fn(),
     zoomer: vi.fn(),
     cadrer: vi.fn(),
     // Tout est à l'écran, grand : pas de vol.
     contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
   };
-  const donnees = { entites: IDS.map((id, i) => ({ pays: pays(id, i), forme: undefined })), noms: NOMS };
-  const terrain = { nom: 'monde', carte, donnees, jouables: IDS };
+  const donnees = { entites: ids.map((id, i) => ({ pays: { ...pays(id, i), voisins: ids.filter((x) => x !== id) }, forme: undefined })), noms: o.noms ?? NOMS };
+  const terrain = { nom: 'monde', carte, donnees, jouables: ids };
   const ctx = { zone, terrains: { montrer() {} } } as unknown as ContexteVue;
   const bilan = new El('div');
   const actions = () => new El('div');
@@ -108,7 +112,7 @@ describe('Reconnaître : la vue', () => {
     expect(v.barre.querySelector('.essai-retro')?.textContent).toContain(`bonne réponse : choix ${code('ESP')}`);
     voir();
     vi.advanceTimersByTime(1800);
-    expect(v.bilan.innerText).toContain(`bilan-nommer ${code('ESP')} : tu as choisi choix ${code(choisi)}`);
+    expect(v.bilan.innerText).toContain(`bilan-localiser ${code('ESP')} : tu as choisi choix ${code(choisi)}`);
     vus.push(v.bilan.innerText);
     for (const t of vus) sansBrut(t, [...IDS, ...Object.values(NOMS)]);
   });
@@ -177,5 +181,53 @@ describe('Reconnaître : la vue', () => {
     v.n.reprendre();
     expect(surFin).toHaveBeenCalledTimes(1);
     expect(surReponse).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Reconnaître sous Capitales (étude J2 § 5.2) : ses vraies données, son vrai rendu.
+describe('Reconnaître : le sujet Capitales', () => {
+  const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
+  const EUROPE = ['NLD', 'BEL', 'LUX', 'FRA', 'DEU', 'ESP', 'ITA', 'CHE'];
+  beforeAll(async () => {
+    await chargerCapitales(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+  });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    installerDom();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('« Quelle est sa capitale ? », 4 capitales ; le Luxembourg (D37 c) jamais leurre ; le bouton juste fixé à la reprise ; rétroaction, anneau et bilan', () => {
+    for (let k = 0; k < 12; k++) {
+      const v = monter({ ids: EUROPE, noms: NOMS_FR });
+      v.n.demarrer(v.terrain, 'capitales', 'Europe', ['NLD', 'BEL']);
+      expect(v.barre.querySelector('.essai-consigne')?.textContent).toBe('Quelle est sa capitale ?');
+      expect(v.choix().map((b) => b.dataset.id)).not.toContain('LUX');
+      const juste = () => v.choix().find((b) => b.dataset.id === 'NLD')!.textContent;
+      const montre = juste();
+      expect(['Amsterdam', 'La Haye']).toContain(montre);
+      // Les leurres : la principale de leur pays.
+      for (const b of v.choix().filter((x) => x.dataset.id !== 'NLD')) expect(b.textContent).toBe({ BEL: 'Bruxelles', FRA: 'Paris', DEU: 'Berlin', ESP: 'Madrid', ITA: 'Rome', CHE: 'Berne' }[b.dataset.id!]);
+      // D38 a : quitter puis reprendre la question garde la même capitale.
+      v.n.quitter();
+      v.n.reprendre();
+      expect(juste()).toBe(montre);
+      v.repondre(true);
+      const retro = v.barre.querySelector('.essai-retro')!.textContent;
+      expect(retro).toBe(montre === 'La Haye' ? `Juste : La Haye, siège du gouvernement (Pays-Bas) · ${retro.split(' · ').at(-1)}` : `Juste : Amsterdam (Pays-Bas) · ${retro.split(' · ').at(-1)}`);
+      // L'anneau au point de la ville (D53 c).
+      expect(v.marques).toContain(montre === 'La Haye' ? 'anneauEn 4.31,52.08:juste' : 'anneauEn 4.88,52.37:juste');
+      vi.advanceTimersByTime(900);
+      const choisi = v.choix().find((b) => b.dataset.id !== 'BEL')!;
+      const choisiTexte = choisi.textContent;
+      v.repondre(false);
+      expect(v.barre.querySelector('.essai-retro')?.textContent).toBe('Faux · bonne réponse : Bruxelles (Belgique)');
+      vi.advanceTimersByTime(1800);
+      expect(v.bilan.innerText).toContain(`Bruxelles (Belgique) : tu as choisi ${choisiTexte}`);
+      expect(`${v.barre.innerText}${v.bilan.innerText}`).not.toMatch(/\bQ\d+\b/);
+    }
   });
 });

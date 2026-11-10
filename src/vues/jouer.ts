@@ -127,10 +127,10 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
   const sujetsDe = (b: (typeof BRANCHES)[number]) => arbre.sujets(b).map((s) => s.id);
   const lesSeries = [...new Map(BRANCHES.flatMap(sujetsDe).flatMap((s) => arbre.series(s)).map((s) => [s.id, s])).values()];
   const vignettes = creerVignettes(ctx.donnees, lesSeries);
-  /** La vignette d'un sujet : celle de sa première série (Tous les pays, La Réunion). */
+  /** La vignette d'un sujet : celle de sa première série dans ce sujet (Tous les pays, le monde et ses capitales, La Réunion). */
   const vignetteSujet = (sujet: string) => {
     const s = arbre.series(sujet)[0];
-    return s ? vignettes.serie(s.id) : null;
+    return s ? vignettes.serie(s.id, sujet) : null;
   };
   let prechauffe = false;
 
@@ -257,7 +257,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
                   compteSerie(n.sujet, s.n),
                   '',
                   '',
-                  vignettes.serie(s.id),
+                  vignettes.serie(s.id, n.sujet),
                 ),
                 s.id,
               ),

@@ -13,7 +13,7 @@
 // (rappel, révision, carte retournée) revient en fin de séance (reprise),
 // sans nouvelle note : une note par fiche et par jour.
 
-import { analyser, former, type Domaine } from './fiches';
+import { analyser, former, nommerPose, type Domaine } from './fiches';
 import type { Horloge } from './jour';
 import type { Aide, Evenement, ModeEvenement, Via } from './journal';
 import { noteEtape, type Note } from './note';
@@ -188,7 +188,8 @@ export class Seance {
     this.file = [
       ...melanger(plan.revisions, ctx.hasard).map((f) => etape(f, 'revision', 'revision')),
       ...plan.introductions.map((f) => etape(f, 'retournee', 'rappel')),
-      ...melanger(plan.nouveaux, ctx.hasard).map((id) => etape(former(d, id, 'nommer'), 'qcm', 'qcm')),
+      // Pas de QCM pour une entité sans fiche nommer (D37 c : les 9 pays au nom de leur capitale, sous Capitales) : son rappel seul.
+      ...melanger(plan.nouveaux.filter((id) => nommerPose(d, id)), ctx.hasard).map((id) => etape(former(d, id, 'nommer'), 'qcm', 'qcm')),
       ...melanger(plan.nouveaux, ctx.hasard).map((id) => etape(former(d, id, 'localiser'), 'rappel', 'rappel')),
     ].filter(ok);
     this.avancer();

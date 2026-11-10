@@ -25,7 +25,7 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { rendu, type RenduSujet } from './sujets';
@@ -97,6 +97,12 @@ export interface PiloteSeance {
   terminer(): void;
   /** Le bilan de la séance dans `el` (« Continuer », « Carte », « Autre série »). */
   bilan(el: HTMLElement, actions: { continuer(): void; carte(): void; autre(): void }): void;
+  /**
+   * Un conseil d'Apprendre (D39 b, étude J2 § 6.2 : « Les pays de cette
+   * région ne sont pas encore appris : Pays › Afrique › Apprendre ») : dit à
+   * l'ouverture, avant la première question, et redit au bilan.
+   */
+  readonly conseil?: string | null;
 }
 
 /**
@@ -261,9 +267,10 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
    * dans la vue, que les autres vues ont effacées entre-temps (la cible révélée
    * par « Voir » ou par un faux reste montrée, comme vu reste vrai). L'anneau
    * aussi tel quel : jugé de nouveau après le vol de « Voir », la zone n'est
-   * plus petite et il disparaîtrait.
+   * plus petite et il disparaîtrait. `point` : un anneau en ce point, sans
+   * zone (la capitale montrée, D53 c).
    */
-  let marques: { id: string; classe: string; anneau: boolean }[] = [];
+  let marques: { id: string; classe: string; anneau: boolean; point?: [number, number] }[] = [];
 
   const courante = () => cibles[i];
 
@@ -273,11 +280,17 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   }
   function poser(m: (typeof marques)[number]): void {
     marques.push(m);
+    if (m.point) return t.carte.anneauEn(m.point, m.classe);
     t.carte.marquer(m.id, m.classe);
     if (m.anneau) t.carte.anneau(m.id, m.classe);
   }
   /** `anneau` : un anneau autour de la zone si elle est petite à l'écran (anneauSiPetite). */
   const marquer = (id: string, classe: string, anneau = false) => poser({ id, classe, anneau: anneau && estPetite(t, id) });
+  /** La réponse montrée : un anneau au point de ce que l'énoncé nommait (la capitale, D53 c, en Entraînement seulement) ; rien pour un pays. */
+  const marquerPoint = (id: string) => {
+    const p = rs.point(id);
+    if (p) poser({ id, classe: 'juste', anneau: false, point: p });
+  };
 
   // `reprise` (retour dans la vue) : la même question, ses essais, son « Voir »
   // et son premier faux gardés (ils font la note), son message et ses marques
@@ -395,7 +408,35 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     if ('refus' in r) return refuser(r);
     pilote = r;
     resultats = [];
+    if (r.conseil) return conseiller(r.conseil);
     prochaine();
+  }
+
+  /**
+   * D39 b : le conseil d'Apprendre avant la première question (la grappe
+   * prise n'a pas ses pays appris) ; « Commencer » la lance quand même (une
+   * préférence, jamais un blocage), « Autre série » ramène aux séries.
+   */
+  function conseiller(texte: string): void {
+    const s = serie;
+    const commencer = creer('button', { type: 'button', id: 'seance-commencer' }, textes.seance.commencer);
+    commencer.addEventListener('click', () => {
+      bilan.hidden = true;
+      prochaine();
+    });
+    const autre = creer('button', { type: 'button', class: 'secondary', id: 'essai-autre' }, T.autre_serie);
+    autre.addEventListener('click', () => {
+      arreter();
+      bilanAuRetour = false;
+      o.versJouer(lancement ? adresse(niveauDe(lancement, 'series')) : 'jouer');
+    });
+    bilan.replaceChildren(
+      ...croixBilan(),
+      creer('h2', {}, s ? remplir(textes.seance.titre_apprendre, { serie: nomSerie(s.id) }) : textes.seance.titre_revision),
+      creer('p', { class: 'hint seance-conseil' }, texte),
+      creer('div', { class: 'essai-actions' }, commencer, autre),
+    );
+    bilan.hidden = false;
   }
 
   /** La question suivante de la séance, dans sa forme : Trouver, QCM ou carte retournée ; le bilan à la fin. */
@@ -547,7 +588,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     ctx.terrains.montrer(t.nom);
     const j = o.libre?.(lancement, t) ?? null;
     journal = j;
-    if (mode === 'nommer') return nommer.demarrer(t, rs.sujet, nomSerie(s.id), melanger(ids), { surReponse: (r) => void j?.(deNommer(r)) });
+    // Reconnaître : seuls les lieux qui se posent en QCM (D37 c : sous Capitales, pas les 9 pays au nom de leur capitale).
+    if (mode === 'nommer') return nommer.demarrer(t, rs.sujet, nomSerie(s.id), melanger(ids.filter((id) => rs.qcmPosable(id))), { surReponse: (r) => void j?.(deNommer(r)) });
     cibles = melanger(ids);
     i = 0;
     resultats = [];
@@ -679,17 +721,22 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       const carte = t.carte;
       ctx.mesures.toucher(ev, x, y, () => {
         // Juste : la cible en vert ; faux : ce que la carte désigne (pick) en rouge.
-        const note = carte.noter(id, x, y);
+        // Les zones admises de la carte, plus celles du sujet (D36 i : Jérusalem ↔ Jérusalem-Est sous Capitales).
+        const note = carte.noter(id, x, y, optionsNoter(rs, t, id));
         const r = note.pick;
         noterPremiere(note.juste ? null : (r?.id ?? null), note.juste ? note.via : null);
         essais++;
         effacer();
         if (note.juste) {
           marquer(id, 'juste');
+          marquerPoint(id);
           retro.className = 'essai-retro juste';
-          retro.textContent = remplir(T.juste, {
+          // Le lieu de la question, quand l'énoncé ne le nommait pas (« La Paz, siège du gouvernement (Bolivie) ») : rs.retro.
+          const lieu = rs.retro(id);
+          retro.textContent = remplir(lieu ? T.juste_lieu : T.juste, {
             // Une zone admise (contestée, enclave) dit pourquoi ; sinon la pastille ou « au plus près ».
             via: texteAdmis(rs, id, note.admis) || (note.via === 'pastille' ? T.via_pastille : note.via === 'proche' ? T.via_proche : ''),
+            lieu,
             essais: nEssais(essais),
             temps: fmtS(performance.now() - debut),
           });
@@ -706,6 +753,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
           if (premierFaux == null && note.distance_km != null) premierFaux = note.distance_km;
           if (r && r.id !== id) marquer(r.id, 'faux');
           marquer(id, 'juste', true);
+          marquerPoint(id);
           retro.className = 'essai-retro faux';
           retro.textContent = remplir(T.faux, {
             touche: rs.touche(r?.id ?? null),

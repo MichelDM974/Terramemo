@@ -25,6 +25,7 @@
 // comme avant ; 4. la grappe de pays nouvelle, s'il ne reste aucune révision.
 // Les grappes nouvelles des autres sujets ne s'ouvrent que par Apprendre.
 // Tant que le monde n'a qu'un sujet jouable, les blocs sont ceux d'avant.
+import { capitalesChargees, chargerCapitales } from '../map/capitales';
 import type { DonneesCarte } from '../map/donnees';
 import { empriseGrappe, type Emprise } from '../map/geo';
 import type { Lieu, NomTerrain } from '../map/types';
@@ -177,6 +178,8 @@ export function creerSeances(o: OptionsSeances): Seances {
       case 'pays':
         return toujoursLa(() => pays);
       case 'capitales':
+        // Les grappes des pays, sur le monde ; ce que montrent ses questions (capitales.json) se charge avant la séance.
+        return { info: () => (capitalesChargees() ? commePays(d) : null), aCharger: true, charger: () => chargerCapitales() };
       case 'drapeaux':
         return toujoursLa(() => commePays(d));
       case 'communes':
@@ -226,6 +229,7 @@ export function creerSeances(o: OptionsSeances): Seances {
       return [bloc(info, grappes, pret ? { pret } : {})];
     }
     const duMonde = jouablesDu('monde', jouables).flatMap((x) => infoDe(x) ?? []);
+    const c = estJouable('communes') ? infoCommunes() : null;
     const b1 = bloc(pays, pays.toutes, { domaines: duMonde.map((i) => i.domaine) });
     const prises = { prises: b1.plan.revisions.length, introsPrises: b1.plan.introductions.length };
     // 2. La grappe qu'Apprendre a ouverte ce jour dans un autre sujet du monde, à finir : un bloc par grappe (Seance ne forme les nouveautés que d'un domaine).
@@ -237,7 +241,6 @@ export function creerSeances(o: OptionsSeances): Seances {
         const p: Programme = { revisions: [], introductions: [], restantes: 0, introRestantes: 0, nouveautes: e, sansNouveautes: null, entamee: null };
         return [{ info: i, p, plan: { revisions: [], introductions: [], nouveaux: e.ids } }];
       });
-    const c = estJouable('communes') ? infoCommunes() : null;
     if (!c && !entamees.length) return [b1];
     const reviser = { ...b1, plan: { ...b1.plan, nouveaux: [] } };
     const ile: Bloc[] = [];
@@ -358,6 +361,7 @@ export function creerSeances(o: OptionsSeances): Seances {
     /** Le bloc en cours : le premier qui n'est pas fini. */
     const courant = () => blocsSeance.find((b) => !b.seance.finie) ?? null;
     return {
+      conseil,
       question() {
         const b = courant();
         const e = b?.seance.courante;

@@ -65,6 +65,15 @@ describe('séance : la file', () => {
     expect(evts.every((e) => e.seance === 'seance-1' && e.appareil === 'app-1' && e.tz === 240)).toBe(true);
   });
 
+  it('D37 c : sous Capitales, un pays au nom de sa capitale (Luxembourg) n’a pas de QCM dans sa grappe, seulement son rappel', () => {
+    const { vues } = parcourir(new Seance({ domaine: 'capitales', revisions: [], introductions: [], nouveaux: ['BEL', 'LUX', 'NLD'] }, ctx()));
+    expect(vues.filter((v) => v.etape === 'qcm').map((v) => v.id).sort()).toEqual(['BEL', 'NLD']);
+    expect(vues.filter((v) => v.etape === 'rappel').map((v) => v.id).sort()).toEqual(['BEL', 'LUX', 'NLD']);
+    expect(vues.every((v) => v.domaine === 'capitales')).toBe(true);
+    // Sous Pays, le Luxembourg a son QCM.
+    expect(parcourir(new Seance({ domaine: 'pays', revisions: [], introductions: [], nouveaux: ['BEL', 'LUX'] }, ctx())).vues.filter((v) => v.etape === 'qcm')).toHaveLength(2);
+  });
+
   it('même graine, même file ; une autre graine mélange autrement', () => {
     const f = (g: number) => parcourir(new Seance(PLAN, ctx(g))).vues.map((v) => `${v.etape}:${v.fiche}`);
     expect(f(7)).toEqual(f(7));

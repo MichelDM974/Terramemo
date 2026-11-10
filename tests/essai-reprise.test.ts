@@ -4,7 +4,9 @@
 // lancée depuis Jouer, son bilan et les retours vers Jouer (#18, décision
 // « Écran Jouer »). La vue tourne sur le DOM factice des tests
 // (l'environnement des tests est node).
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { chargerCapitales } from '../src/map/capitales';
 import type { Pays } from '../src/map/types';
 import type { Lancement } from '../src/vues/arbre';
 import type { ContexteVue, Vue } from '../src/vues/commun';
@@ -25,7 +27,10 @@ let fauxSurVoisin = false;
 /** La zone admise que noter() rend au prochain toucher juste (Note.admis : zone contestée, enclave). */
 let admisSuivant: unknown = null;
 
-function monter(o: Partial<OptionsEssai> = {}) {
+/** Les options de chaque appel à noter() (zones admises du sujet, D36 i). */
+let optionsNotees: unknown[] = [];
+
+function monter(o: Partial<OptionsEssai> = {}, terrain: { ids: string[]; noms: Record<string, string> } = { ids: ['FRA', 'ESP'], noms: { FRA: 'France', ESP: 'Espagne' } }) {
   const zone = new El('main');
   /** Ce que la carte montre : « id:classe », « anneau id:classe » pour un anneau. */
   const marques: string[] = [];
@@ -39,6 +44,9 @@ function monter(o: Partial<OptionsEssai> = {}) {
     anneau(id: string, classe: string) {
       marques.push(`anneau ${id}:${classe}`);
     },
+    anneauEn(p: [number, number], classe: string) {
+      marques.push(`anneauEn ${p.join(',')}:${classe}`);
+    },
     // Le vol de « Voir » : de près, plus rien n'est petit à l'écran.
     montrer() {
       carte.transfo.k = 1e6;
@@ -46,14 +54,18 @@ function monter(o: Partial<OptionsEssai> = {}) {
     projection: { scale: () => 100 },
     transfo: { k: 1 },
     hote: new El('div'),
-    noter: (id: string) =>
+    // Reconnaître : tout est à l'écran, grand, pas de vol.
+    contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
+    noter: (id: string, _x: number, _y: number, opt?: unknown) => (
+      optionsNotees.push(opt),
       justeSuivant
         ? { juste: true, pick: { id }, via: 'forme', distance_km: 0, admis: admisSuivant }
-        : { juste: false, pick: fauxSurVoisin ? { id: id === 'FRA' ? 'ESP' : 'FRA' } : null, distance_km: 250 },
+        : { juste: false, pick: fauxSurVoisin ? { id: id === 'FRA' ? 'ESP' : 'FRA' } : null, distance_km: 250 }
+    ),
   };
   // ESP minuscule à l'écran (anneau, comme le Vatican), FRA non.
-  const donnees = { entites: [pays('FRA'), { ...pays('ESP'), superficie_km2: 1, partie_max_km2: 1 }].map((p) => ({ pays: p })), noms: { FRA: 'France', ESP: 'Espagne' } };
-  const monde = { nom: 'monde', carte, donnees, jouables: ['FRA', 'ESP'] };
+  const donnees = { entites: terrain.ids.map((id) => (id === 'ESP' ? { ...pays('ESP'), superficie_km2: 1, partie_max_km2: 1 } : pays(id))).map((p) => ({ pays: p })), noms: terrain.noms };
+  const monde = { nom: 'monde', carte, donnees, jouables: terrain.ids };
   const ctx = {
     carte,
     donnees,
@@ -68,7 +80,7 @@ function monter(o: Partial<OptionsEssai> = {}) {
   /** Trouver (ou cet exercice) sur « tous » (FRA, ESP), choisi dans Jouer : la vue s'ouvre, la partie part. */
   const lancer = (l: Partial<Lancement> = {}) => {
     vue.activer();
-    vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'tous', mode: 'localiser', ...l }, { id: 'tous', terrain: 'monde', ids: ['FRA', 'ESP'], n: 2 }, monde as never, ['FRA', 'ESP']);
+    vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'tous', mode: 'localiser', ...l }, { id: 'tous', terrain: 'monde', ids: terrain.ids, n: terrain.ids.length }, monde as never, terrain.ids);
   };
   return {
     vue,
@@ -746,7 +758,7 @@ describe('Toucher : le rendu du sujet', () => {
     }
     const [[id, choisi]] = fautes as [[string, string]];
     expect(vus[0]).toContain(`bonne réponse : choix ${code(id)}`);
-    expect(s.el('#essai-bilan').innerText).toContain(`bilan-nommer ${code(id)} : tu as choisi choix ${code(choisi)}`);
+    expect(s.el('#essai-bilan').innerText).toContain(`bilan-localiser ${code(id)} : tu as choisi choix ${code(choisi)}`);
     vus.push(s.el('#essai-bilan').innerText);
     for (const t of vus) sansBrut(t, [...IDS5, 'France', 'Espagne', 'Italie', 'Allemagne', 'Belgique']);
   });
@@ -779,5 +791,105 @@ describe('Toucher : le rendu du sujet', () => {
     expect(s.el('.retournee-nom').textContent).toBe(`révélé ${code('DEU')}`);
     vus.push(s.el('#barre-retournee').innerText);
     for (const t of vus) sansBrut(t, [...IDS5, 'France', 'Espagne', 'Italie', 'Allemagne', 'Belgique']);
+  });
+});
+
+// Trouver et Reconnaître sous Capitales (étude J2 § 5.2) : les vraies données
+// des capitales et les vrais noms des pays.
+describe('Toucher : le sujet Capitales', () => {
+  const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
+  beforeAll(async () => {
+    await chargerCapitales(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+  });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    installerDom();
+    installerStockage();
+    optionsNotees = [];
+  });
+  afterEach(() => {
+    admisSuivant = null;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  const consigne = (v: ReturnType<typeof monter>) => v.zone.querySelector('#barre-essai .essai-consigne')!;
+
+  it('Trouver : « Pays dont la capitale est : » puis la ville (deux lignes) ; D38 a fixée à la reprise ; juste avec le pays et l’anneau ; bilan « ville (pays) »', () => {
+    const vus = new Set<string>();
+    for (let k = 0; k < 16; k++) {
+      const v = monter({}, { ids: ['NLD'], noms: NOMS_FR });
+      v.lancer({ sujet: 'capitales' });
+      const c = consigne(v);
+      const ville = c.querySelector('strong')!.textContent;
+      vus.add(ville);
+      expect(['Amsterdam', 'La Haye']).toContain(ville);
+      expect(c.textContent).toBe(`Pays dont la capitale est : ${ville}`);
+      expect(c.classList.contains('consigne-deux-lignes')).toBe(true);
+      // Reprise de la question (vue quittée puis rouverte) : la même capitale.
+      toucher(v.vue, false);
+      expect(v.marques).toContain(ville === 'La Haye' ? 'anneauEn 4.31,52.08:juste' : 'anneauEn 4.88,52.37:juste');
+      v.vue.desactiver();
+      v.vue.activer();
+      expect(consigne(v).querySelector('strong')!.textContent).toBe(ville);
+      toucher(v.vue, true);
+      expect(v.retro.textContent).toMatch(new RegExp(`^Juste : ${ville === 'La Haye' ? 'La Haye, siège du gouvernement \\(Pays-Bas\\)' : 'Amsterdam \\(Pays-Bas\\)'} · 2 essais`));
+      expect(v.marques.some((m) => m.startsWith('anneauEn '))).toBe(true);
+      vi.advanceTimersByTime(1200);
+      expect(v.bilan.textContent).toContain(`${ville} (Pays-Bas) : 2 essais`);
+      expect(`${v.barre.innerText}${v.bilan.innerText}`).not.toMatch(/\bQ\d+\b|\bNLD\b/);
+    }
+    expect([...vus].sort()).toEqual(['Amsterdam', 'La Haye']);
+  });
+
+  it('D36 i : Israël (« Jérusalem ») noté avec la Palestine en zone admise du sujet, et dit ; sous Pays, aucune', () => {
+    const v = monter({}, { ids: ['ISR', 'PSE'], noms: NOMS_FR });
+    v.lancer({ sujet: 'capitales' });
+    if (v.cible() === 'PSE') v.passer.click();
+    expect(v.cible()).toBe('ISR');
+    expect(consigne(v).textContent).toBe('Pays dont la capitale est : Jérusalem');
+    admisSuivant = { zone: 'PSE', tenant: 'PSE', sorte: 'capitale' };
+    toucher(v.vue, true);
+    expect(v.retro.textContent).toMatch(/^Juste \(capitale revendiquée aussi par Palestine\) : Jérusalem \(Israël\) · 1 essai/);
+    const o = optionsNotees.at(-1) as { acceptes: ReadonlyMap<string, { zone: string; sorte: string }[]> };
+    expect([...o.acceptes.get('ISR')!].map((z) => [z.zone, z.sorte])).toEqual([['PSE', 'capitale']]);
+    const p = monter({}, { ids: ['ISR'], noms: NOMS_FR });
+    p.lancer({ sujet: 'pays' });
+    toucher(p.vue, true);
+    expect(optionsNotees.at(-1)).toEqual({ acceptes: true });
+  });
+
+  it('Reconnaître sous Capitales : les 9 pays au nom de leur capitale jamais posés (D37 c)', () => {
+    const v = monter({}, { ids: ['BEL', 'LUX', 'NLD', 'FRA', 'DEU', 'MCO'], noms: NOMS_FR });
+    v.lancer({ sujet: 'capitales', mode: 'nommer' });
+    const poses: string[] = [];
+    for (let k = 0; k < 6; k++) {
+      const id = v.zone.querySelector('#barre-nommer .essai-consigne')?.dataset.cible;
+      if (!id || v.zone.querySelector('#barre-nommer')!.hidden) break;
+      poses.push(id);
+      expect(v.zone.querySelectorAll('#barre-nommer .nommer-choix').map((b) => b.dataset.id)).not.toContain('LUX');
+      v.zone.querySelectorAll('#barre-nommer .nommer-choix').find((b) => b.dataset.id === id)!.click();
+      vi.advanceTimersByTime(900);
+    }
+    expect(poses.sort()).toEqual(['BEL', 'DEU', 'FRA', 'NLD']);
+  });
+
+  it('D39 b : le conseil d’Apprendre avant la première question ; « Commencer » la pose', () => {
+    const f = piloteFactice([{ id: 'FRA', forme: 'trouver', cadrer: null, connu: false }]);
+    const conseil = 'Les pays de cette région ne sont pas encore appris : Pays › Europe › Apprendre';
+    const s = monterSeance(() => ({ ...f.p, conseil }));
+    s.vue.activer();
+    s.vue.lancer({ branche: 'entrainement', sujet: 'capitales', serie: 'Europe', mode: 'apprendre' }, { id: 'Europe', terrain: 'monde', ids: IDS5, n: 5 }, s.monde as never, IDS5);
+    expect(s.visible('essai-bilan')).toBe(true);
+    expect(s.el('#essai-bilan').innerText).toContain(conseil);
+    expect(s.visible('barre-essai')).toBe(false);
+    s.el('#seance-commencer').click();
+    expect(s.visible('essai-bilan')).toBe(false);
+    expect(s.visible('barre-essai')).toBe(true);
+    // Sans conseil (pays, ou pays appris) : la première question tout de suite.
+    const g = piloteFactice([{ id: 'FRA', forme: 'trouver', cadrer: null, connu: false }]);
+    const t = monterSeance(() => g.p);
+    t.vue.activer();
+    t.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' }, { id: 'Europe', terrain: 'monde', ids: IDS5, n: 5 }, t.monde as never, IDS5);
+    expect(t.visible('barre-essai')).toBe(true);
   });
 });
