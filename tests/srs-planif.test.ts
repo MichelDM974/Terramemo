@@ -331,6 +331,21 @@ describe('plusieurs sujets : plafonds communs, reliquat, préférence (lot 0c)',
     expect(programme(m, D0 + 1, gs, 'pays', gs, { introsPrises: 12 }).introductions.length).toBe(3);
   });
 
+  it('à âge égal, les pays d’abord (ordre de DOMAINES), pas l’ordre alphabétique des ids : dans les introductions comme dans les révisions', () => {
+    // 10 capitales, 10 drapeaux et 10 pays appris le même jour : le lendemain, 30 fiches nommer du même âge.
+    const m = etat([...appris('capitales', 10, D0, 50), ...appris('drapeaux', 10, D0, 80), ...appris('pays', 10)]);
+    const p = programme(m, D0 + 1, gs, 'pays', gs, { domaines: ['pays', 'capitales', 'drapeaux'] });
+    expect(p.introductions.slice(0, 10).every((f) => f.startsWith('pays:'))).toBe(true);
+    expect(p.introductions.slice(10).every((f) => f.startsWith('capitales:'))).toBe(true);
+    // Les pays tiennent dans le plafond : pas de reliquat des pays, leur grappe s'ouvre.
+    expect(p.sansNouveautes).toBeNull();
+    expect(p.nouveautes?.domaine).toBe('pays');
+    // Révisions : même échéance, les pays d'abord.
+    const again = (domaine: string, depuis: number) => ids.slice(depuis, depuis + 3).map((id) => rep(`${domaine}:${id}:localiser`, D0, AGAIN, 'rappel'));
+    const d = dues(etat([...again('drapeaux', 80), ...again('capitales', 50), ...again('pays', 0)]), D0 + 1, ['pays', 'capitales', 'drapeaux']);
+    expect(d.map((f) => f.split(':')[0])).toEqual([...Array(3).fill('pays'), ...Array(3).fill('capitales'), ...Array(3).fill('drapeaux')]);
+  });
+
   it('reliquat : un domaine dont des introductions attendent n’ouvre pas de grappe ; un autre, si', () => {
     const m = etat([...appris('pays', 10), ...appris('capitales', 10, D0 - 1, 50)]);
     const p = programme(m, D0 + 1, gs, 'pays', gs, { domaines: ['pays', 'capitales'] });

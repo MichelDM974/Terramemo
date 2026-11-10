@@ -3,7 +3,7 @@
 // Pur : lit l'état rejoué (rejeu.ts) et le jour local courant (jour.ts).
 // Les plafonds sont des défauts en attente de l'utilisateur, #2 (D5).
 
-import { analyser, fichesDe, former, SENS, SENS_ENTREE, soeur, type Domaine } from './fiches';
+import { analyser, DOMAINES, fichesDe, former, SENS, SENS_ENTREE, soeur, type Domaine } from './fiches';
 import { stabilite } from './fsrs';
 import type { Grappe } from './grappes';
 import type { EtatFiche } from './rejeu';
@@ -50,6 +50,24 @@ function parmi(d: Domaines | undefined, x: Domaine): boolean {
   return d === undefined || (typeof d === 'string' ? d === x : d.includes(x));
 }
 
+/** Rang du domaine d'une fiche dans DOMAINES (les pays d'abord) ; une fiche illisible après tous. */
+function rangDomaine(fiche: string): number {
+  const f = analyser(fiche);
+  return f ? DOMAINES.indexOf(f.domaine) : DOMAINES.length;
+}
+
+/**
+ * Ordre de deux fiches à âge égal (même échéance, ou même jour
+ * d'introduction) : par domaine dans l'ordre de DOMAINES, puis par id. Les
+ * domaines mêlés de la Révision du jour ne se départagent pas par le préfixe
+ * de l'id (capitales < drapeaux < mers < pays) : les pays passeraient
+ * toujours après les autres sujets, dans les plafonds de révisions et
+ * d'introductions, à rebours de l'ordre pays d'abord (étude J2 § 6.2).
+ */
+function departager(a: string, b: string): number {
+  return rangDomaine(a) - rangDomaine(b) || (a < b ? -1 : a > b ? 1 : 0);
+}
+
 /** Vrai si la sœur de la fiche a reçu une note FSRS ou a été introduite le jour j : les deux sens ne se révisent jamais le même jour. */
 function soeurOccupee(etat: Etat, fiche: string, j: number): boolean {
   const s = soeur(fiche);
@@ -60,9 +78,10 @@ function soeurOccupee(etat: Etat, fiche: string, j: number): boolean {
 /**
  * Fiches dues le jour local j : échéance au plus tard ce jour-là, sauf celles
  * dont la sœur a été notée ou introduite ce jour ; les plus en retard
- * d'abord, puis par id. Si deux sœurs sont dues, seule la première l'est ce
- * jour (l'autre attend le lendemain). `domaine` restreint à un domaine, ou
- * à plusieurs (mêlés, toujours les plus en retard d'abord).
+ * d'abord, puis par domaine (les pays d'abord, departager) et par id. Si
+ * deux sœurs sont dues, seule la première l'est ce jour (l'autre attend le
+ * lendemain). `domaine` restreint à un domaine, ou à plusieurs (mêlés,
+ * toujours les plus en retard d'abord).
  */
 export function dues(etat: Etat, j: number, domaine?: Domaines): string[] {
   const candidates = [...etat.values()]
@@ -72,7 +91,7 @@ export function dues(etat: Etat, j: number, domaine?: Domaines): string[] {
       const f = analyser(e.fiche);
       return !!f && parmi(domaine, f.domaine);
     })
-    .sort((a, b) => a.echeance_jour - b.echeance_jour || (a.fiche < b.fiche ? -1 : a.fiche > b.fiche ? 1 : 0));
+    .sort((a, b) => a.echeance_jour - b.echeance_jour || departager(a.fiche, b.fiche));
   const prises = new Set<string>();
   for (const e of candidates) {
     const s = soeur(e.fiche);
@@ -217,8 +236,9 @@ export interface OptionsProgramme {
  * dont la fiche localiser a été introduite un jour antérieur, sans fiche
  * nommer encore, et dont la sœur localiser n'est ni notée ce jour ni due
  * (elle passe d'abord ; les deux sens ne se voient jamais le même jour).
- * Les plus anciennes d'abord, puis par id : toutes, sans le plafond du jour
- * (programme() le pose ; le reliquat attend le lendemain, en tête).
+ * Les plus anciennes d'abord, puis par domaine (les pays d'abord) et par
+ * id : toutes, sans le plafond du jour (programme() le pose ; le reliquat
+ * attend le lendemain, en tête).
  */
 export function introductions(etat: Etat, j: number, domaine?: Domaines): string[] {
   const r: { fiche: string; jour: number }[] = [];
@@ -229,7 +249,7 @@ export function introductions(etat: Etat, j: number, domaine?: Domaines): string
     if (etat.has(nommer) || e.introduite_jour >= j || e.dernier_jour >= j || e.echeance_jour <= j) continue;
     r.push({ fiche: nommer, jour: e.introduite_jour });
   }
-  return r.sort((a, b) => a.jour - b.jour || (a.fiche < b.fiche ? -1 : a.fiche > b.fiche ? 1 : 0)).map((x) => x.fiche);
+  return r.sort((a, b) => a.jour - b.jour || departager(a.fiche, b.fiche)).map((x) => x.fiche);
 }
 
 /** Introductions déjà faites le jour j : fiches nommer notées pour la première fois ce jour, tous domaines confondus (le plafond est commun, D46 d). */
