@@ -10,10 +10,16 @@
 // partie de capitales, ou l'id brut (« medit ») d'une mer.
 //
 // Pays et communes : le nom du lieu partout (nomDe). Les sujets suivants
-// s'ajoutent ici sans toucher aux vues : capitales (énoncé sur deux lignes,
-// « Pays dont la capitale est : » puis « La Paz » ; révélation « Sucre · La
-// Paz (siège du gouvernement) »), drapeaux (une image dans la barre et dans
-// chaque bouton) et mers (« mer Égée, à 300 km » au bilan).
+// ajoutent ici leur rendu : capitales (énoncé sur deux lignes, « Pays dont la
+// capitale est : » puis « La Paz » ; révélation « Sucre · La Paz (siège du
+// gouvernement) »), drapeaux (une image dans la barre et dans chaque bouton)
+// et mers (« mer Égée, à 300 km » au bilan). Ce que cette interface n'a pas
+// encore rouvrira les vues à leur lot (étude J2 § 11) : le pays dit dans la
+// rétroaction juste des capitales (« La Paz · capitale de la Bolivie »,
+// § 5.2 : essai.ts, vues/chrono.ts, nommer.ts), le choix fait dans la
+// rétroaction fausse des drapeaux (« tu avais choisi celui de la Roumanie »,
+// § 5.3 : nommer.ts), et leurs données hors de t.donnees (capitales,
+// manifeste des drapeaux, noms des mers).
 import type { NomTerrain } from '../map/types';
 import type { Sens } from '../srs/fiches';
 import { remplir, textes, type Textes } from './textes';
