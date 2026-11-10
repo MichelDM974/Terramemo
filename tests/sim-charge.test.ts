@@ -11,12 +11,18 @@
 // D39 b) et l'état rejoué de src/srs/rejeu.ts (appliquer, ts-fsrs aux
 // paramètres de fsrs.ts). Le joueur, lui, est un modèle (estimé) :
 // - assidu : chaque jour la Révision du jour, séance après séance jusqu'à
-//   « À jour » (les blocs de src/vues/seance.ts : révisions des domaines du
-//   monde mêlées, leurs introductions, puis la grappe de pays), puis
-//   Apprendre dans chaque autre sujet (variante : sous Pays aussi) ;
+//   « À jour », puis Apprendre dans chaque autre sujet (variante : sous Pays
+//   aussi). La Révision du jour est rejouée par programme() seul, comme son
+//   bloc 1 et son bloc 4 (révisions des domaines du monde mêlées, leurs
+//   introductions, puis la grappe de pays) : pas blocs() de
+//   src/vues/seance.ts, donc ni les communes (bloc 3) ni la reprise d'une
+//   grappe entamée (bloc 2 : Apprendre les finit ici d'une traite) ;
+// - les mers sont mêlées aux domaines du monde par anticipation (posables
+//   au lot 3b seulement : aujourd'hui, la séance ne les prend pas) ;
 // - une révision juste avec la probabilité de rappel de FSRS ce jour-là
 //   (Good, sinon Again) ; une grappe apprise et une fiche nommer introduite
-//   notées Good (comme le script d'origine) ;
+//   notées Good par hypothèse (comme le script d'origine) : les Again, et
+//   leurs reprises, sont sous-estimés ;
 // - temps : 6 s par question (estimé) ; une grappe compte deux questions par
 //   entité (QCM puis rappel), un Again une reprise de plus.
 // Grappes : celles des pays (195) pour pays, capitales (D37 c : séries et
