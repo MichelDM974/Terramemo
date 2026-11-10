@@ -873,6 +873,20 @@ describe('Toucher : le sujet Capitales', () => {
     expect(poses.sort()).toEqual(['BEL', 'DEU', 'FRA', 'NLD']);
   });
 
+  it('une séance qui attend les capitales seules : « Chargement… », pas le message de l’île ; avec les communes, celui de l’île', () => {
+    for (const [besoins, attendu] of [
+      [['capitales'], textes.toucher.chargement_sujet],
+      [['communes', 'capitales'], textes.toucher.chargement_terrain],
+    ] as const) {
+      const f = piloteFactice([{ id: 'FRA', forme: 'trouver', cadrer: null, connu: false }]);
+      const s = monterSeance(() => f.p);
+      Object.assign(s.fabrique, { charger: () => new Promise(() => undefined), besoins: () => besoins });
+      s.vue.activer();
+      s.vue.reviser();
+      expect(s.el('#essai-bilan').innerText).toBe(attendu);
+    }
+  });
+
   it('D39 b : le conseil d’Apprendre avant la première question ; « Commencer » la pose', () => {
     const f = piloteFactice([{ id: 'FRA', forme: 'trouver', cadrer: null, connu: false }]);
     const conseil = 'Les pays de cette région ne sont pas encore appris : Pays › Europe › Apprendre';

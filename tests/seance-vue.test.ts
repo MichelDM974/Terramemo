@@ -617,9 +617,8 @@ describe('séance : le bilan par le rendu du sujet', () => {
 });
 
 // Mémoire à plusieurs sujets (étude J2 § 6.1 à 6.3, lot 0c) : les jouables
-// injectés (capitales en plus des pays et des communes, sans changer la
-// version), le rendu factice à la place des capitales, qui n'ont pas encore le
-// leur. La Révision du jour mêle les révisions du monde, n'ouvre que la
+// injectés (capitales en plus des pays et des communes), le rendu factice à
+// la place du leur (le vrai : « séance : le sujet Capitales », plus bas). La Révision du jour mêle les révisions du monde, n'ouvre que la
 // grappe de pays, et finit la grappe qu'Apprendre a ouverte dans un autre
 // sujet ; le plafond commun d'introductions étale le reliquat.
 describe('séance : plusieurs sujets du monde (lot 0c)', () => {

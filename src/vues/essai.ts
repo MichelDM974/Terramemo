@@ -122,11 +122,13 @@ export interface RefusSeance {
 export interface FabriqueSeances {
   ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance;
   /**
-   * Charge les données qui manquent à la demande (l'île des communes ; plus
-   * tard la couche marine, les capitales, les drapeaux) : Toucher attend la
+   * Charge les données qui manquent à la demande (l'île des communes, les
+   * capitales ; plus tard la couche marine, les drapeaux) : Toucher attend la
    * promesse avant ouvrir(), même en échec. null, ou sans réponse : rien à charger.
    */
   charger?(d: DemandeSeance): Promise<unknown> | null;
+  /** Les domaines dont la demande a besoin des données (le message du chargement : l'île, ou les autres). */
+  besoins?(d: DemandeSeance): readonly string[];
   /**
    * La partie de la page est finie ou quittée (bilan, abandon, vue quittée) :
    * sa séance devient envoyable (synchro du J1b, § 5.2). Sans effet hors séance.
@@ -388,7 +390,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const chargement = o.seances?.charger?.(d) ?? null;
     if (chargement) {
       const j = ++jetonSeance;
-      bilan.replaceChildren(creer('p', { class: 'hint' }, T.chargement_terrain));
+      // L'île : son message d'avant ; les capitales seules : « Chargement… ».
+      const ile = o.seances?.besoins?.(d).includes('communes') ?? true;
+      bilan.replaceChildren(creer('p', { class: 'hint' }, ile ? T.chargement_terrain : T.chargement_sujet));
       bilan.hidden = false;
       const suite = () => {
         if (j !== jetonSeance) return;

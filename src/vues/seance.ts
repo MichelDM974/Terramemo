@@ -78,8 +78,8 @@ export interface Seances extends FabriqueSeances {
   /**
    * Les domaines dont la demande a besoin des données, hors du monde
    * toujours là (chargées ou non) : les communes (Apprendre sous La Réunion,
-   * communes dues, à introduire ou grappe de communes commencée ce jour) ;
-   * plus tard la couche marine, les capitales, les drapeaux.
+   * communes dues, à introduire ou grappe de communes commencée ce jour), les
+   * capitales (de même) ; plus tard la couche marine, les drapeaux.
    */
   besoins(d: DemandeSeance): Domaine[];
   /**
@@ -132,8 +132,8 @@ function infoDomaine(domaine: Domaine, terrain: NomTerrain, donnees: DonneesCart
 /**
  * D'où une séance tient l'InfoDomaine d'un domaine : info() (null tant que
  * ses données manquent) et charger(), qui les charge (généralise l'île des
- * communes ; plus tard la couche marine, les capitales, les drapeaux,
- * préchargés pour la séance). `aCharger` : ses données ne sont pas celles
+ * communes, et les capitales, lues pour ce que montrent leurs questions ;
+ * plus tard la couche marine, les drapeaux, préchargés pour la séance). `aCharger` : ses données ne sont pas celles
  * du monde, toujours là.
  */
 interface SourceDomaine {

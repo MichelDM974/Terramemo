@@ -5,7 +5,8 @@
 // partir de deux. Les capitales, jouables depuis le lot 1, sont retirées des
 // jouables injectés pour le cas d'un seul sujet (SANS_CAPITALES : une
 // version d'avant), et rendues ici par le sujet factice (sujet-factice.ts) ;
-// le vrai rendu des capitales : tests/capitales-vues.test.ts.
+// le vrai rendu des capitales : tests/capitales.test.ts et les tests des vues
+// (nommer-vue, essai-reprise, chrono-vue, seance-vue : « sujet Capitales »).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { depotMemoire } from '../src/journal/depot';
 import { ouvrirMemoire, type Memoire } from '../src/journal/memoire';
