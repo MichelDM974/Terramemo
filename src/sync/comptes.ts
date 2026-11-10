@@ -73,8 +73,10 @@
 // Google l'emporte alors sur le mot de passe (même uid) si Google est le
 // fournisseur de confiance de l'adresse, sinon
 // auth/account-exists-with-different-credential (« connecte-toi avec ton
-// adresse »). Pas de mot de passe ajouté à un compte Google (D19). Dans
-// l'APK, rien de Google avant le plugin du lot 7 (googleOffert() faux).
+// adresse »). Pas de mot de passe ajouté à un compte Google (D19). La
+// réauthentification (suppression) et la reprise d'une suppression dont la
+// session est perdue passent aussi par Google. Dans l'APK, rien de Google
+// avant le plugin du lot 7 (googleOffert() faux).
 //
 // Lien, pas copie (décision « Comptes ») : un anonyme devient un compte par
 // linkWithCredential, qui garde son uid ; jamais de signOut avant le lien.
@@ -883,7 +885,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   /**
    * Étape 1 : réauthentifier, toujours, plutôt que d'attendre
    * requires-recent-login. Mot de passe ; Google sur le site, la popup ; dans
-   * l'APK, un nouvel idToken du plugin (lot 7).
+   * l'APK, un nouvel idToken du plugin (lot 7) ; sans lui, terramemo/google-apk.
    */
   async function reauthentifier(s: Service, u: import('firebase/auth').User, mdp: string | undefined): Promise<void> {
     const { auth } = s.m;
@@ -902,12 +904,10 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       return;
     }
     if (!f.includes('google.com')) throw new ErreurCompte('terramemo/sans-compte');
-    if (!natif()) {
-      await auth.reauthenticateWithPopup(u, new auth.GoogleAuthProvider());
-      return;
-    }
-    if (!o.jetonGoogle) throw new ErreurCompte('terramemo/google-apk');
-    await auth.reauthenticateWithCredential(u, auth.GoogleAuthProvider.credential(await o.jetonGoogle()));
+    // Un autre compte Google choisi dans la fenêtre : auth/user-mismatch, rien n'est commencé.
+    const g = sourceGoogle();
+    if (!g) throw new ErreurCompte('terramemo/google-apk');
+    await g.reauthentifier(s, u);
   }
 
   /**
@@ -934,11 +934,12 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
    * mot de passe réinitialisé ailleurs) : reconnexion au même compte, par
    * l'adresse de la session. Rend le compte reconnecté, ou null s'il est
    * prouvé parti de Auth (auth/user-not-found ; l'adresse est maintenant
-   * celle d'un autre compte). Google : depuis le site, au lot 6.
+   * celle d'un autre compte). Un compte Google seul : par Google (lot 6 ; sur
+   * le site, la fenêtre).
    */
   async function reconnecterPourSupprimer(s: Service, ses: Session, uid: string, mdp: string | undefined): Promise<import('firebase/auth').User | null> {
     const { auth } = s.m;
-    if (!ses.adresse || !ses.fournisseurs.includes('password')) throw new ErreurCompte('terramemo/suppression-reconnexion');
+    if (!ses.adresse || !ses.fournisseurs.includes('password')) return reconnecterGooglePourSupprimer(s, ses, uid);
     if (!mdp) throw new ErreurCompte('auth/missing-password');
     let user: import('firebase/auth').User;
     try {
@@ -959,6 +960,29 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     if (user.uid === uid) return user;
     // Une adresse est à un seul compte : celui de la suppression n'existe plus.
     await auth.signOut(s.a).catch(noter);
+    return null;
+  }
+
+  /**
+   * La reconnexion d'un compte Google seul, pour reprendre sa suppression : la
+   * fenêtre de Google (l'idToken du plugin dans l'APK). Le même compte :
+   * rendu. Un autre : neuf (la fenêtre vient de le créer, puisque le compte
+   * Google ne mène plus à aucun), il est supprimé aussitôt, sinon lâché ; à la
+   * même adresse que la session, il prouve que le compte de la suppression est
+   * parti (null) ; à une autre, c'est un autre compte Google choisi dans la
+   * fenêtre, qui ne prouve rien (terramemo/google-autre-compte).
+   */
+  async function reconnecterGooglePourSupprimer(s: Service, ses: Session, uid: string): Promise<import('firebase/auth').User | null> {
+    const { auth } = s.m;
+    const g = ses.fournisseurs.includes('google.com') ? sourceGoogle() : null;
+    if (!g) throw new ErreurCompte('terramemo/suppression-reconnexion');
+    const cred = await g.connecter(s);
+    const user = cred.user;
+    if (user.uid === uid) return user;
+    if (auth.getAdditionalUserInfo(cred)?.isNewUser) await auth.deleteUser(user).catch(noter);
+    else await auth.signOut(s.a).catch(noter);
+    const meme = !!ses.adresse && (user.email ?? '').toLowerCase() === ses.adresse.toLowerCase();
+    if (!meme) throw new ErreurCompte('terramemo/google-autre-compte');
     return null;
   }
 

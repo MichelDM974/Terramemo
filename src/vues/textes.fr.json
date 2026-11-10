@@ -642,7 +642,8 @@
       "auth/user-mismatch": "Ce n'est pas le compte connecté : choisis celui-là.",
       "auth/web-storage-unsupported": "Ce navigateur refuse la fenêtre de Google (données de sites bloquées ?) : passe par l'e-mail.",
       "terramemo/google-reessayer": "Connexion Google interrompue : touche encore « Continuer avec Google ».",
-      "terramemo/google-apk-bientot": "Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site."
+      "terramemo/google-apk-bientot": "Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site.",
+      "terramemo/google-autre-compte": "Ce n'est pas le compte à supprimer : choisis le sien dans la fenêtre de Google."
     }
   },
   "confidentialite": {

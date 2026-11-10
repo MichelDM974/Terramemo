@@ -141,4 +141,16 @@ describe('suppression d’un compte Google : la réauthentification (§ 7.1, ét
     await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
     expect(g.appels).toEqual(['credential:id-token-du-plugin']);
   });
+
+  it('une suppression inachevée dont la session est perdue, dans l’APK sans le plugin : « reconnecte-toi sur le site », rien de vidé', async () => {
+    const effacer = vi.fn(async () => undefined);
+    const session = depotSessionMemoire({ uid: 'g1', fournisseurs: ['google.com'], adresse: 'gael@gmail.com', marque: null, profil_a_ecrire: false, deconnexion: null, effacement: null, suppression: 'g1', connexion: null, version: '' });
+    const service = async () => ({ m: { auth: { onAuthStateChanged: () => () => undefined }, fs: {} }, db: {}, a: { currentUser: null } }) as never;
+    const c = creerComptes({ session, service, natif: () => true, appareil: { reponsesHorsCompte: async () => 0, nonEnvoyees: async () => 0, envoyerTout: async () => ({ nonEnvoyees: 0, refusees: 0 }), effacer } });
+    expect(await c.etat()).toMatchObject({ etat: 'suppression', uid: 'g1', connecte: false, horsAuth: false });
+    const e = await c.supprimer({ mot: 'supprimer' }).catch((x: unknown) => x);
+    expect(traduire(e).texte).toBe('Ce compte se reconnecte sur le site : terramemo-geo.web.app.');
+    expect(effacer).not.toHaveBeenCalled();
+    expect((await session.lire())?.suppression).toBe('g1');
+  });
 });
