@@ -73,8 +73,16 @@ export function texteComptes(c: ComptesSeance): string {
 export interface Seances extends FabriqueSeances {
   /** Les comptes de cette demande aujourd'hui ; null tant que la mémoire n'est pas chargée. */
   comptes(d?: DemandeSeance): ComptesSeance | null;
-  /** Une grappe de communes commencée ce jour, l'île pas chargée : la charger pour savoir si elle est finie (main.ts, puis rafraîchir Jouer). */
-  ileIncertaine(): boolean;
+  /**
+   * Les domaines à données propres dont une grappe est commencée ce jour
+   * sans leurs données (page rouverte en pleine grappe) : les communes sans
+   * l'île, les capitales pas lues. Les comptes de la ligne de Jouer (la
+   * grappe à finir) en dépendent : main.ts les charge en fond (completer),
+   * puis rafraîchit Jouer.
+   */
+  incertains(): Domaine[];
+  /** Charge les données des domaines incertains, tous ensemble (un échec n'arrête pas les autres) ; null s'il n'en manque aucune. */
+  completer(): Promise<unknown> | null;
   /**
    * Les domaines dont la demande a besoin des données, hors du monde
    * toujours là (chargées ou non) : les communes (Apprendre sous La Réunion,
@@ -104,6 +112,8 @@ export interface OptionsSeances {
   ile?: () => DonneesCarte<Lieu> | null;
   /** Charge un terrain (main.ts : terrains.charger) ; sans lui, une séance qui a besoin de l'île s'ouvre sans elle. */
   charger?: (t: NomTerrain) => Promise<unknown>;
+  /** Lit les capitales (chargerCapitales par défaut ; les tests : un échec, une attente). */
+  chargerCapitales?: () => Promise<unknown>;
   /**
    * Les domaines jouables (DOMAINES_JOUABLES par défaut) : les tests y
    * mettent un sujet pas encore livré, pour mêler des domaines du monde sans
@@ -179,7 +189,7 @@ export function creerSeances(o: OptionsSeances): Seances {
         return toujoursLa(() => pays);
       case 'capitales':
         // Les grappes des pays, sur le monde ; ce que montrent ses questions (capitales.json) se charge avant la séance.
-        return { info: () => (capitalesChargees() ? commePays(d) : null), aCharger: true, charger: () => chargerCapitales() };
+        return { info: () => (capitalesChargees() ? commePays(d) : null), aCharger: true, charger: () => (o.chargerCapitales ?? chargerCapitales)() };
       case 'drapeaux':
         return toujoursLa(() => commePays(d));
       case 'communes':
@@ -261,13 +271,21 @@ export function creerSeances(o: OptionsSeances): Seances {
   }
 
   /**
-   * Une grappe de communes est commencée ce jour mais l'île n'est pas
-   * chargée (page rouverte en pleine grappe) : sans ses grappes, on ne sait
-   * pas si elle est finie ; les comptes de la ligne de Jouer (les communes à
-   * finir) en dépendent.
+   * Les domaines dont une grappe est commencée ce jour mais les données pas
+   * chargées (page rouverte en pleine grappe) : sans elles, blocs() ne les
+   * voit pas, et la ligne de Jouer ne compte pas leur grappe à finir (l'île
+   * des communes ; les capitales, dont la séance attend les données).
    */
-  function ileIncertaine(): boolean {
-    return m.charge && !o.ile?.() && entreesDuJour(m.etat(), m.jour(), 'communes') > 0;
+  function incertains(): Domaine[] {
+    if (!m.charge) return [];
+    const etat = m.etat();
+    const j = m.jour();
+    return jouables.filter((x) => !!source(x)?.aCharger && !source(x)?.info() && entreesDuJour(etat, j, x) > 0);
+  }
+
+  /** Charge ensemble les données des sources : attend la fin de toutes (allSettled), pour ne pas ouvrir sans l'une au premier échec de l'autre. */
+  function chargerTout(sources: SourceDomaine[]): Promise<unknown> | null {
+    return sources.length ? Promise.allSettled(sources.map((s) => s.charger())) : null;
   }
 
   /**
@@ -286,8 +304,7 @@ export function creerSeances(o: OptionsSeances): Seances {
 
   /** Charge les données qui manquent à la demande (InfoDomaine) ; null s'il n'en manque aucune. */
   function charger(d: DemandeSeance): Promise<unknown> | null {
-    const manquent = besoins(d).flatMap((x) => source(x) ?? []).filter((s) => !s.info());
-    return manquent.length ? Promise.all(manquent.map((s) => s.charger())) : null;
+    return chargerTout(besoins(d).flatMap((x) => source(x) ?? []).filter((s) => !s.info()));
   }
 
   function comptes(d: DemandeSeance = { sorte: 'revision' }): ComptesSeance | null {
@@ -470,5 +487,5 @@ export function creerSeances(o: OptionsSeances): Seances {
     };
   }
 
-  return { ouvrir, charger, besoins, ileIncertaine, comptes, libre, clore: () => m.clore() };
+  return { ouvrir, charger, besoins, incertains, completer: () => chargerTout(incertains().flatMap((x) => source(x) ?? [])), comptes, libre, clore: () => m.clore() };
 }

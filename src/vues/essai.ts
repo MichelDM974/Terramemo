@@ -399,7 +399,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         bilan.hidden = true;
         ouvrirSeance(d);
       };
-      // Hors ligne : la séance sans les communes (elles restent dues).
+      // Hors ligne : la séance sans ce qui n'a pu se charger (communes, capitales : elles restent dues).
       chargement.then(suite, suite);
       return;
     }

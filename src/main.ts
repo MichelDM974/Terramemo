@@ -680,11 +680,9 @@ async function demarrer(): Promise<void> {
     ile: () => terrains?.deja('reunion')?.donnees ?? null,
     charger: (t) => terrains?.charger(t) ?? Promise.reject(new Error('terrains pas prêts')),
   });
-  // Page rouverte en pleine grappe de communes : l'île chargée en fond, pour que la ligne de Jouer compte les communes à finir.
+  // Page rouverte en pleine grappe de communes ou de capitales : l'île, les capitales chargées en fond, pour que la ligne de Jouer compte la grappe à finir.
   void memoire.pret.then(
-    () => {
-      if (seances.ileIncertaine()) terrains?.charger('reunion').then(() => jouer?.rafraichir(), () => undefined);
-    },
+    () => seances.completer()?.then(() => jouer?.rafraichir()),
     () => undefined,
   );
   // « × » de Jouer et des écrans qui couvrent la carte (#18), « Carte » d'un bilan de séance : l'accueil, en remontant l'historique.

@@ -4,7 +4,7 @@
 // d'Apprendre, parties libres (D11).
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { chargerCapitales } from '../src/map/capitales';
+import { chargerCapitales, oublierCapitales } from '../src/map/capitales';
 import { assembler } from '../src/map/donnees';
 import { assemblerTerrain } from '../src/map/donnees-terrain';
 import type { Lieu, NomTerrain, Pays } from '../src/map/types';
@@ -38,9 +38,11 @@ const JOUR_MS = 86_400_000;
 /** Une version d'avant le lot 1 : les capitales lues au journal, pas posées. */
 const SANS_CAPITALES: readonly Domaine[] = ['pays', 'communes'];
 
+/** Les capitales lues des fichiers de public/geo (au lieu du réseau). */
+const lireCapitales = () => chargerCapitales(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
 // Les capitales lues une fois (src/map/capitales.ts), comme après le choix du sujet : la séance les pose.
 beforeAll(async () => {
-  await chargerCapitales(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+  await lireCapitales();
 });
 const T0 = Date.UTC(2026, 10, 9, 8); // 12 h à La Réunion
 
@@ -53,7 +55,10 @@ function graine(s: number): () => number {
   };
 }
 
-async function monter(depot: Depot = depotMemoire(), o: { ile?: () => typeof ile | null; jouables?: readonly Domaine[]; charger?: (t: NomTerrain) => Promise<unknown> } = {}) {
+async function monter(
+  depot: Depot = depotMemoire(),
+  o: { ile?: () => typeof ile | null; jouables?: readonly Domaine[]; charger?: (t: NomTerrain) => Promise<unknown>; chargerCapitales?: () => Promise<unknown> } = {},
+) {
   let lectures = 0;
   const compte: Depot = { tous: () => (lectures++, depot.tous()), ajouter: (e) => depot.ajouter(e) };
   const h = { ts: T0 };
@@ -65,7 +70,9 @@ async function monter(depot: Depot = depotMemoire(), o: { ile?: () => typeof ile
     nouvelId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`,
   });
   await memoire.pret;
-  const seances = creerSeances({ memoire, monde, hasard: graine(3), ...(o.ile ? { ile: o.ile } : {}), ...(o.jouables ? { jouables: o.jouables } : {}), ...(o.charger ? { charger: o.charger } : {}) });
+  const seances = creerSeances({ memoire, monde, hasard: graine(3), ...(o.ile ? { ile: o.ile } : {}), ...(o.jouables ? { jouables: o.jouables } : {}), ...(o.charger ? { charger: o.charger } : {}),
+    ...(o.chargerCapitales ? { chargerCapitales: o.chargerCapitales } : {}),
+  });
   return { memoire, seances, depot, h, lectures: () => lectures };
 }
 
@@ -383,14 +390,15 @@ describe('séance : les communes de La Réunion', () => {
     await m.memoire.ecrire([]);
     let charge: typeof ile | null = null;
     const m2 = await monter(depot, { ile: () => charge });
-    expect(m2.seances.ileIncertaine()).toBe(true);
+    expect(m2.seances.incertains()).toEqual(['communes']);
     expect(m2.seances.besoins({ sorte: 'revision' })).toEqual(['communes']);
     // Apprendre sur les pays n'en dépend pas (un budget par domaine).
     expect(m2.seances.besoins({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') })).toEqual([]);
     // Sans l'île, la ligne de Jouer ne compte que la grappe de pays : main.ts charge l'île en fond, puis la rafraîchit.
     expect(m2.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 5 });
     charge = ile;
-    expect(m2.seances.ileIncertaine()).toBe(false);
+    expect(m2.seances.incertains()).toEqual([]);
+    expect(m2.seances.completer()).toBeNull();
     expect(m2.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 9 });
   });
 
@@ -906,5 +914,90 @@ describe('séance : le sujet Capitales (lot 1)', () => {
     // Les 6 communes, les plus anciennes, toutes ; puis 9 du monde (à âge égal, les pays d'abord).
     expect(qs.filter((q) => q.terrain === 'reunion')).toHaveLength(6);
     expect(qs.filter((q) => q.terrain === 'monde').map((q) => q.domaine)).toEqual(Array(9).fill('pays'));
+  });
+});
+
+// Les capitales pas encore lues (page neuve) : le chemin réel d'une séance,
+// besoins() puis charger(), hors ligne compris ; et la page rouverte en
+// pleine grappe de capitales, qui les charge en fond (main.ts : completer).
+describe('séance : les capitales pas encore lues (lot 1)', () => {
+  beforeEach(() => {
+    installerDom();
+    oublierCapitales();
+  });
+  afterEach(async () => {
+    vi.unstubAllGlobals();
+    await lireCapitales();
+  });
+  const noter = (m: Awaited<ReturnType<typeof monter>>, fiches: string[], ts: number) =>
+    m.memoire.ecrire(fiches.map((f) => evenementReponse({ seance: null, appareil: m.memoire.appareil, horloge: () => ({ ts, tz: 240 }), nouvelId: () => m.memoire.nouvelId() }, f, 'rappel', { correct: true, duree_ms: 1000 }, 3)));
+  const capitalesDe = (p: PiloteSeance) => (jouer(p).questions as { id: string; domaine?: string }[]).filter((q) => q.domaine === 'capitales').map((q) => q.id);
+
+  it('Révision du jour avec des capitales à introduire : besoins() les demande, charger() les lit, puis la séance les pose', async () => {
+    const lecteur = vi.fn(lireCapitales);
+    const m = await monter(undefined, { chargerCapitales: lecteur });
+    await noter(m, ['BEL', 'FRA'].map((id) => `capitales:${id}:localiser`), T0 - JOUR_MS);
+    expect(m.seances.besoins({ sorte: 'revision' })).toEqual(['capitales']);
+    expect(m.seances.besoins({ sorte: 'apprendre', sujet: 'capitales', serie: serie('Europe') })).toEqual(['capitales']);
+    const chargement = m.seances.charger!({ sorte: 'revision' });
+    expect(chargement).not.toBeNull();
+    await chargement;
+    expect(lecteur).toHaveBeenCalledTimes(1);
+    expect(m.seances.charger!({ sorte: 'revision' })).toBeNull();
+    expect(capitalesDe(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).sort()).toEqual(['BEL', 'FRA']);
+  });
+
+  it('hors ligne : la séance s’ouvre sans les capitales (elles restent à introduire), sans lever', async () => {
+    const m = await monter(undefined, { chargerCapitales: () => Promise.reject(new Error('hors ligne')) });
+    await noter(m, ['BEL', 'FRA'].map((id) => `capitales:${id}:localiser`), T0 - JOUR_MS);
+    await expect(m.seances.charger!({ sorte: 'revision' })).resolves.toBeDefined();
+    const p = m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance;
+    expect(capitalesDe(p)).toEqual([]);
+    expect(m.seances.comptes()?.aRevoir).toBe(2);
+  });
+
+  it('l’île et les capitales chargées ensemble : un échec rapide des capitales n’ouvre pas la séance avant l’île', async () => {
+    let charge: typeof ile | null = null;
+    let finirIle: () => void = () => undefined;
+    const chargeur = vi.fn(() => new Promise<void>((ok) => (finirIle = () => ((charge = ile), ok()))));
+    const m = await monter(undefined, { ile: () => charge, charger: chargeur, chargerCapitales: () => Promise.reject(new Error('hors ligne')) });
+    const idsCommunes = ile.entites.map((e) => e.pays.id);
+    await noter(m, [...idsCommunes.slice(0, 2).map((id) => `communes:${id}:localiser`), 'capitales:BEL:localiser'], T0 - JOUR_MS);
+    expect(m.seances.besoins({ sorte: 'revision' }).sort()).toEqual(['capitales', 'communes']);
+    let fini = false;
+    const fin = () => void (fini = true);
+    m.seances.charger!({ sorte: 'revision' })!.then(fin, fin);
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    expect(fini).toBe(false);
+    finirIle();
+    await vi.waitFor(() => expect(fini).toBe(true));
+    const qs = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions as { terrain?: string }[];
+    expect(qs.filter((q) => q.terrain === 'reunion').length).toBe(2);
+  });
+
+  it('page rouverte en pleine grappe de capitales, pas encore lues : incertaine, chargée en fond, la ligne de Jouer compte la grappe à finir', async () => {
+    await lireCapitales();
+    const depot = depotMemoire();
+    const m = await monter(depot);
+    const a = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'capitales', serie: serie('Europe') }) as PiloteSeance;
+    let rappels = 0;
+    for (let q = a.question(); q && rappels < 2; q = a.question()) {
+      if (q.forme === 'trouver') rappels++;
+      a.repondre(juste(q.id, q.forme === 'trouver' ? 'localiser' : 'nommer'));
+    }
+    a.terminer();
+    await m.memoire.ecrire([]);
+    // Les 3 capitales à finir, puis la grappe de pays (5).
+    expect(m.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 8 });
+    expect(m.seances.incertains()).toEqual([]);
+    oublierCapitales();
+    const m2 = await monter(depot, { chargerCapitales: lireCapitales });
+    expect(m2.seances.incertains()).toEqual(['capitales']);
+    // Sans les capitales, la ligne de Jouer ne compte que la grappe de pays : main.ts les charge en fond, puis la rafraîchit.
+    expect(m2.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 5 });
+    await m2.seances.completer();
+    expect(m2.seances.incertains()).toEqual([]);
+    expect(m2.seances.completer()).toBeNull();
+    expect(m2.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 8 });
   });
 });
