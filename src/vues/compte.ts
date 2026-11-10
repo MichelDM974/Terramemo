@@ -22,16 +22,21 @@
 // données » (§ 7.2 : sur le site ; dans l'APK, un renvoi au site, D26 a), et
 // « Exporter d'abord » avant ce qui effacerait des progrès (seconde
 // confirmation de « Ne pas les ajouter », déconnexion qui n'a pas tout
-// envoyé, « Effacer cet appareil »). Viendront
-// ensuite : Google (lots 6 et 7). Les champs portent autocomplete et inputmode : le remplissage
+// envoyé, « Effacer cet appareil »). Lot 6 : « Continuer avec Google » en
+// premier pour un invité (bouton principal ; la fenêtre de Google sur le site),
+// « Se reconnecter avec Google » pour la session perdue d'un compte Google, la
+// même question de fusion qu'à la connexion par e-mail, et le formulaire de
+// connexion, adresse pré-remplie, quand l'adresse est celle d'un compte à mot
+// de passe. Dans l'APK, rien de Google avant le plugin du lot 7 : une ligne le
+// dit (googleOffert). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
 // textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts.
 import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
-import { MOT_SUPPRESSION, type ChoixFusion, type Comptes, type EtatCompte, type QuestionFusion, type ResultatDeconnexion, type ResultatProfil } from '../sync/comptes';
+import { MOT_SUPPRESSION, type ChoixFusion, type Comptes, type EtatCompte, type QuestionFusion, type ResultatDeconnexion, type ResultatFusion, type ResultatProfil } from '../sync/comptes';
 import { dansApk } from '../retour-android';
 import { synchroCoupee } from '../sync/drapeaux';
 import type { Envoi, EtatSynchro } from '../sync/envoi';
-import { codeErreur, traduire } from '../sync/erreurs';
+import { adresseErreur, codeErreur, traduire } from '../sync/erreurs';
 import { telecharger } from '../sync/export';
 import { lirePseudo } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
@@ -75,6 +80,23 @@ export function detailProgres(reponses: number, records: number): string {
 export function texteQuestion(q: QuestionFusion): string {
   if (q.sorte === 'autre_compte') return q.seances === 1 ? T.fusion_autre_compte_une : remplir(T.fusion_autre_compte, { n: q.seances });
   return remplir(T.fusion_question, { detail: detailProgres(q.reponses, q.records) });
+}
+
+/** Le message d'une connexion réussie à un compte existant, selon la réponse à la question. */
+export function texteConnexion(r: { adresse: string; fusion: string; reponses?: number }, q: QuestionFusion | null): string {
+  if (r.fusion === 'efface') return remplir(T.connecte_efface, { adresse: r.adresse });
+  if (r.fusion === 'ajoute' && q) return remplir(T.connecte_ajoute, { adresse: r.adresse, detail: detailProgres(q.reponses, q.records) });
+  return remplir(T.connecte, { adresse: r.adresse });
+}
+
+/**
+ * Le message de « Continuer avec Google » (§ 3.5) : un compte neuf (lien de
+ * l'invité, ou premier passage) reçoit les progrès de l'appareil, sauf
+ * « Ne pas les ajouter » ; un compte qui existait, comme à la connexion.
+ */
+export function texteGoogle(r: { adresse: string; fusion: ResultatFusion; reponses?: number; nouveau: boolean }, q: QuestionFusion | null): string {
+  if (!r.nouveau) return texteConnexion(r, q);
+  return r.fusion === 'efface' ? `${remplir(T.connecte, { adresse: r.adresse })} ${T.cree_efface}` : remplir(T.google_connecte, { adresse: r.adresse });
 }
 
 /** Ce que dit une déconnexion qui n'a pas pu tout envoyer (§ 3.4, étape 2). */
@@ -177,6 +199,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   /** Le pseudo que la demande de retrait des places portera (lu à l'ouverture de « Supprimer mon compte »). */
   let pseudoSuppression: { lu: boolean; pseudo: string | null } | null = null;
   const natif = o.natif ?? (() => typeof window !== 'undefined' && dansApk());
+  /** Google se propose (comptes.googleOffert : le site ; l'APK une fois le plugin branché, lot 7). */
+  let googleOffert = false;
 
   const message = creer('p', { class: 'status', id: 'compte-message', 'aria-live': 'polite' });
   const erreur = creer('p', { class: 'status error', id: 'compte-erreur', role: 'alert' });
@@ -282,6 +306,13 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         }
         erreur.textContent = t;
       }
+      if (codeErreur(e) === 'auth/account-exists-with-different-credential') {
+        // Un compte à mot de passe à l'adresse de ce compte Google, dont Google n'est pas le fournisseur
+        // de confiance (§ 2.3) : vers « Se connecter », adresse pré-remplie (continuerGoogle), l'erreur gardée.
+        const t = erreur.textContent;
+        aller('connecter');
+        erreur.textContent = t;
+      }
       if (codeErreur(e) === 'auth/email-already-in-use' && ecran === 'creer') {
         // Ce compte existe déjà (§ 2.3) : vers « Se connecter », adresse pré-remplie, l'erreur gardée.
         const t = erreur.textContent;
@@ -321,11 +352,35 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       });
   }
 
-  /** Le message d'une connexion réussie, selon la réponse à la question. */
-  function texteConnexion(r: { adresse: string; fusion: string; reponses?: number }, q: QuestionFusion | null): string {
-    if (r.fusion === 'efface') return remplir(T.connecte_efface, { adresse: r.adresse });
-    if (r.fusion === 'ajoute' && q) return remplir(T.connecte_ajoute, { adresse: r.adresse, detail: detailProgres(q.reponses, q.records) });
-    return remplir(T.connecte, { adresse: r.adresse });
+  /**
+   * « Continuer avec Google » (invité) ou « Se reconnecter avec Google »
+   * (session perdue d'un compte Google) : la fenêtre de Google, puis la
+   * question de fusion s'il le faut (D22), comme à la connexion par e-mail.
+   * Fenêtre fermée : rien ne s'affiche. Appelé dans le geste (clic) : le
+   * navigateur n'ouvre la fenêtre que peu après lui.
+   */
+  function continuerGoogle(depuis: Ecran): void {
+    void agir(async (c) => {
+      dire(T.google_en_cours);
+      let posee: QuestionFusion | null = null;
+      let r: Awaited<ReturnType<Comptes['google']>>;
+      try {
+        r = await c.google((q) => ((posee = q), demander(depuis)(q)));
+      } catch (e) {
+        message.textContent = '';
+        // Un compte à mot de passe à cette adresse : le formulaire de connexion la reprendra (agir).
+        adresseSaisie = adresseErreur(e) ?? adresseSaisie;
+        throw e;
+      }
+      avisPseudoDit();
+      dire([texteGoogle(r, posee), textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
+      await apres(c);
+    });
+  }
+
+  /** La ligne sous le bouton de Google : ce que montrera la fenêtre (marque non vérifiée, D30) ; dans l'APK sans plugin, qu'il vient. */
+  function aideGoogle(): Node {
+    return creer('p', { class: 'hint', id: 'compte-google-aide' }, !googleOffert ? T.google_bientot : natif() ? T.google_apk : T.google_site);
   }
 
   /** Déconnexion (§ 3.4) : faite, ou l'écran de ce qui n'est pas parti. */
@@ -508,15 +563,18 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer(
             'div',
             { class: 'compte-actions' },
+            // Google en premier (§ 2.4, § 3.2) : ni mot de passe, ni e-mail à envoyer.
+            ...(googleOffert ? [bouton('compte-google', T.google, () => continuerGoogle('invite'), 'principal')] : []),
             bouton('compte-vers-connecter', T.se_connecter_email, () => {
               effacerAvis();
               aller('connecter');
-            }, 'principal'),
+            }, googleOffert ? 'secondaire' : 'principal'),
             bouton('compte-vers-creer', T.creer, () => {
               effacerAvis();
               aller('creer');
             }),
           ),
+          aideGoogle(),
           // Un invité exporte aussi son journal (§ 7.2), sans « compte ».
           creer('div', { class: 'compte-liens' }, ...exportDe('compte-exporter', 'lien')),
         ];
@@ -696,7 +754,15 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         // « Vider cet appareil » en dernier recours, sans rien promettre du compte.
         return [
           titre,
-          creer('p', { class: 'hint', id: 'compte-suppression-reconnecter' }, e.fournisseurs.includes('password') ? T.suppression_reconnecter : T.suppression_reconnecter_site),
+          creer(
+            'p',
+            { class: 'hint', id: 'compte-suppression-reconnecter' },
+            e.fournisseurs.includes('password')
+              ? T.suppression_reconnecter
+              : e.fournisseurs.includes('google.com') && googleOffert
+                ? remplir(T.suppression_reconnecter_google, { adresse: e.adresse ?? '' })
+                : T.suppression_reconnecter_site,
+          ),
           ...formulaireSuppression(e.adresse, e.fournisseurs, true, false, T.suppression_reprendre, null),
           ...(e.fournisseurs.includes('password') && e.adresse
             ? [creer('div', { class: 'compte-liens' }, bouton('compte-oubli', T.oubli, () =>
@@ -778,22 +844,33 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           ),
         ];
       }
-      case 'perdue':
+      case 'perdue': {
+        // Un compte Google seul se reconnecte par Google ; un compte à mot de passe (Google en plus
+        // ou non), par son adresse d'abord.
+        const f = etat?.etat === 'perdue' ? etat.fournisseurs : [];
+        const parGoogle = f.includes('google.com') && !f.includes('password');
         return [
           creer('p', { id: 'compte-perdue' }, textePerdue(seancesPerdue)),
           creer(
             'div',
             { class: 'compte-actions' },
-            bouton('compte-reconnecter', T.se_reconnecter, () => {
-              adresseSaisie = etat?.etat === 'perdue' ? (etat.adresse ?? '') : adresseSaisie;
-              effacerAvis();
-              aller('connecter');
-            }, 'principal'),
+            ...(parGoogle
+              ? []
+              : [
+                  bouton('compte-reconnecter', T.se_reconnecter, () => {
+                    adresseSaisie = etat?.etat === 'perdue' ? (etat.adresse ?? '') : adresseSaisie;
+                    effacerAvis();
+                    aller('connecter');
+                  }, 'principal'),
+                ]),
+            ...(f.includes('google.com') && googleOffert ? [bouton('compte-google', T.google_reconnecter, () => continuerGoogle('perdue'), parGoogle ? 'principal' : 'secondaire')] : []),
             bouton('compte-sans-compte', T.continuer_sans, () => {
               effacerAvis();
               aller('sans-compte');
             }),
           ),
+          // Dans l'APK sans le plugin (lot 7) : un compte Google ne s'y reconnecte pas encore.
+          ...(parGoogle && !googleOffert ? [aideGoogle()] : []),
           creer('div', { class: 'compte-liens' }, ...exportDe('compte-exporter', 'lien')),
           creer(
             'div',
@@ -806,6 +883,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
               }), 'danger'),
           ),
         ];
+      }
       case 'effacer':
         return [
           creer('h3', {}, T.effacer_appareil),
@@ -939,6 +1017,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
     if (!etat) aller('chargement');
     try {
       const c = await o.comptes();
+      googleOffert = c.googleOffert();
       if (!abonne) {
         abonne = true;
         c.surChangement(() => {

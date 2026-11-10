@@ -1,4 +1,4 @@
-// Vue Compte (src/vues/compte.ts, J1b lots 1 à 5) : écrans et parcours sur un
+// Vue Compte (src/vues/compte.ts, J1b lots 1 à 6) : écrans et parcours sur un
 // DOM factice (tests/dom-factice.ts), avec des comptes remplacés (le vrai
 // src/sync/comptes.ts est éprouvé sur l'émulateur, tests/comptes.test.ts).
 // Puis vueALaDemande (src/vues/a-la-demande.ts) : le morceau chargé à
@@ -8,7 +8,7 @@ import type { ChoixFusion, Comptes, EtatCompte, QuestionFusion, ResultatDeconnex
 import { CLE_SANS_SYNCHRO } from '../src/sync/drapeaux';
 import type { ComptesSynchro, EtatSynchro, ResultatEnvoi } from '../src/sync/envoi';
 import { vueALaDemande } from '../src/vues/a-la-demande';
-import { detailProgres, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
+import { detailProgres, texteGoogle, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { textes } from '../src/vues/textes';
 import { installerDom, installerStockage, type El } from './dom-factice';
@@ -29,6 +29,10 @@ let echecApres: Error | null = null;
 let coupureSuppression: Error | null = null;
 /** Le pseudo du profil en ligne que la demande de retrait portera (lot 5, comptes.pseudoDemande). */
 let pseudoEnLigne: { lu: boolean; pseudo: string | null } = { lu: true, pseudo: null };
+/** Lot 6 : Google se propose (site ; APK une fois le plugin branché), et ce que donne sa fenêtre. */
+let googleOffert = true;
+let googleNouveau = true;
+let echecGoogle: Error | null = null;
 
 /** Des comptes en mémoire : un état, et chaque méthode espionnée. */
 function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
@@ -52,6 +56,18 @@ function fauxComptes(depart: EtatCompte = { etat: 'invite', anonyme: false }) {
       etat = { etat: 'compte', uid: 'u1', adresse, verifiee: true, fournisseurs: ['password'] };
       return { adresse, profil: profilConnexion, fusion: !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute', reponses: q?.reponses ?? 0 };
     }),
+    /** Lot 6 : « Continuer avec Google » ; `echecGoogle` à la fenêtre, puis la question comme connecter. */
+    google: vi.fn(async (choisir?: (q: QuestionFusion) => Promise<ChoixFusion>) => {
+      if (echecGoogle) throw echecGoogle;
+      const q = questionConnexion;
+      const choix = q && choisir ? await choisir(q) : 'ajouter';
+      if (choix === 'annuler') throw Object.assign(new Error('annulée'), { code: 'terramemo/connexion-annulee' });
+      if (echecApres) throw echecApres;
+      etat = { etat: 'compte', uid: 'g1', adresse: 'ana@gmail.com', verifiee: true, fournisseurs: ['google.com'] };
+      const fusion = !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute';
+      return { adresse: 'ana@gmail.com', profil: profilConnexion, fusion, reponses: q && choix === 'ajouter' ? q.reponses : 0, nouveau: googleNouveau };
+    }),
+    googleOffert: vi.fn(() => googleOffert),
     changerPseudo: vi.fn(async (pseudo: string) => {
       localStorage.setItem('terramemo.pseudo', pseudo);
       return { ...PROFIL, pseudo, etat: etatChangement };
@@ -114,6 +130,9 @@ beforeEach(() => {
   echecApres = null;
   coupureSuppression = null;
   pseudoEnLigne = { lu: true, pseudo: null };
+  googleOffert = true;
+  googleNouveau = true;
+  echecGoogle = null;
   zone = document.createElement('main') as unknown as El;
   masquee = [];
 });
@@ -156,15 +175,20 @@ async function ouvrir(c: Comptes, envoi?: ReturnType<typeof fauxEnvoi>): Promise
 }
 
 describe('vue Compte', () => {
-  it('invité : ses progrès restent sur l’appareil, se connecter ou créer un compte ; pas de Google au lot 1', async () => {
+  it('invité : ses progrès restent sur l’appareil ; Google en premier (lot 6), se connecter par e-mail ou créer un compte', async () => {
     const c = fauxComptes();
     await ouvrir(c);
     expect(masquee).toEqual([true]);
     expect(contenu()).toContain(T.invite);
+    const boutons = $('.compte-actions')!.querySelectorAll('button');
+    expect(boutons.map((b) => b.id)).toEqual(['compte-google', 'compte-vers-connecter', 'compte-vers-creer']);
+    expect($('#compte-google')!.textContent).toBe(T.google);
+    expect($('#compte-google')!.className).toBe(''); // le seul bouton principal, en accent
     expect($('#compte-vers-connecter')!.textContent).toBe(T.se_connecter_email);
-    expect($('#compte-vers-connecter')!.className).toBe(''); // le bouton principal, en accent
+    expect($('#compte-vers-connecter')!.className).toBe('secondary');
     expect($('#compte-vers-creer')!.className).toBe('secondary');
-    expect(contenu()).not.toContain(T.google);
+    // La fenêtre de Google nomme le domaine de Firebase, pas Terramemo (marque non vérifiée, D30).
+    expect($('#compte-google-aide')!.textContent).toBe(T.google_site);
     expect($('#compte-synchro')!.hidden).toBe(true);
   });
 
@@ -503,6 +527,204 @@ describe('vue Compte', () => {
     (document as unknown as El).emettre('visibilitychange');
     await attendre();
     expect(c.etat).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('vue Compte, lot 6 : Google', () => {
+  it('dans l’APK sans le plugin (lot 7) : pas de bouton Google, une ligne le dit ; l’e-mail redevient le bouton principal', async () => {
+    googleOffert = false;
+    const c = fauxComptes();
+    const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => c, natif: () => true });
+    v.activer();
+    await attendre();
+    await attendre();
+    expect($('#compte-google')).toBeNull();
+    expect($('#compte-vers-connecter')!.className).toBe('');
+    expect($('#compte-google-aide')!.textContent).toBe(T.google_bientot);
+  });
+
+  it('dans l’APK avec le plugin (lot 7) : le bouton, et la ligne du nom du projet (S18)', async () => {
+    const c = fauxComptes();
+    const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => c, natif: () => true });
+    v.activer();
+    await attendre();
+    await attendre();
+    expect($('#compte-google')!.textContent).toBe(T.google);
+    expect($('#compte-google-aide')!.textContent).toBe(T.google_apk);
+  });
+
+  it('un compte neuf (lien de l’invité) : « Fenêtre de Google ouverte… », puis « Connecté avec Google », puis l’écran du compte', async () => {
+    const c = fauxComptes();
+    let pendant: { message: string; desactives: boolean } | null = null;
+    c.google.mockImplementationOnce(async () => {
+      pendant = { message: $('#compte-message')!.textContent, desactives: $('#compte-contenu')!.querySelectorAll('button').every((b) => b.disabled) };
+      c.poser({ etat: 'compte', uid: 'g1', adresse: 'ana@gmail.com', verifiee: true, fournisseurs: ['google.com'] });
+      return { adresse: 'ana@gmail.com', profil: PROFIL, fusion: 'sans_question', reponses: 0, nouveau: true };
+    });
+    await ouvrir(c);
+    $('#compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect(c.google).toHaveBeenCalledWith(expect.any(Function));
+    expect(pendant).toEqual({ message: T.google_en_cours, desactives: true });
+    expect($('#compte-message')!.textContent).toBe('Connecté avec Google : ana@gmail.com. Tes progrès vont dans ton compte.');
+    expect($('#compte-adresse-connectee')!.textContent).toBe('Compte Google (ana@gmail.com)');
+    expect($('#compte-vers-mdp')).toBeNull();
+  });
+
+  it('un compte Google qui existait : la même question qu’à la connexion par e-mail, « Ajouter »', async () => {
+    googleNouveau = false;
+    questionConnexion = { sorte: 'appareil', reponses: 12, records: 0, seances: 0 };
+    const c = fauxComptes();
+    await ouvrir(c);
+    $('#compte-google')!.click();
+    await attendre();
+    expect($('#compte-fusion-question')!.textContent).toBe('Ajouter les progrès de cet appareil (12 réponses) à ton compte ?');
+    expect($('#compte-message')!.textContent).toBe('');
+    $('#compte-fusion-ajouter')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-message')!.textContent).toBe('Connecté : ana@gmail.com. Ton compte a reçu les progrès de cet appareil (12 réponses).');
+    expect($('#compte-adresse-connectee')!.textContent).toBe('Compte Google (ana@gmail.com)');
+  });
+
+  it('« Ne pas les ajouter », confirmé : « Effacer et me connecter » ; « Annuler » ramène à l’écran de l’invité, sans message', async () => {
+    googleNouveau = false;
+    questionConnexion = { sorte: 'appareil', reponses: 3, records: 1, seances: 0 };
+    const c = fauxComptes();
+    await ouvrir(c);
+    $('#compte-google')!.click();
+    await attendre();
+    $('#compte-fusion-annuler')!.click();
+    await attendre();
+    await attendre();
+    expect(contenu()).toContain(T.invite);
+    expect($('#compte-message')!.textContent).toBe('');
+    expect($('#compte-erreur')!.textContent).toBe('');
+    $('#compte-google')!.click();
+    await attendre();
+    $('#compte-fusion-ne-pas')!.click();
+    expect($('#compte-fusion-confirmer')!.textContent).toContain('3 réponses et 1 record');
+    $('#compte-fusion-effacer')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-message')!.textContent).toBe('Connecté : ana@gmail.com. Les progrès de cet appareil sont effacés, ceux du compte arrivent.');
+  });
+
+  it('un échec après la réponse : retour à l’écran de l’invité, l’erreur traduite', async () => {
+    googleNouveau = false;
+    questionConnexion = { sorte: 'appareil', reponses: 3, records: 0, seances: 0 };
+    echecApres = err('auth/network-request-failed');
+    const c = fauxComptes();
+    await ouvrir(c);
+    $('#compte-google')!.click();
+    await attendre();
+    $('#compte-fusion-ajouter')!.click();
+    await attendre();
+    await attendre();
+    expect(contenu()).toContain(T.invite);
+    expect($('#compte-erreur')!.textContent).toBe('Réseau injoignable');
+  });
+
+  it('fenêtre fermée : rien ne s’affiche, les boutons reviennent', async () => {
+    for (const code of ['auth/popup-closed-by-user', 'auth/cancelled-popup-request']) {
+      echecGoogle = err(code);
+      const c = fauxComptes();
+      zone = document.createElement('main') as unknown as El;
+      await ouvrir(c);
+      $('#compte-google')!.click();
+      await attendre();
+      await attendre();
+      expect($('#compte-message')!.textContent, code).toBe('');
+      expect($('#compte-erreur')!.textContent, code).toBe('');
+      expect(contenu()).toContain(T.invite);
+      expect($('#compte-google')!.disabled).toBe(false);
+    }
+  });
+
+  it('fenêtre bloquée, domaine non autorisé, navigateur qui refuse la fenêtre : expliqués', async () => {
+    const attendus: Record<string, string> = {
+      'auth/popup-blocked': 'Fenêtre de connexion Google bloquée par le navigateur',
+      'auth/unauthorized-domain': 'Connexion impossible depuis cette adresse du site',
+      'auth/web-storage-unsupported': T.erreurs['auth/web-storage-unsupported']!,
+      'terramemo/google-reessayer': 'Connexion Google interrompue : touche encore « Continuer avec Google ».',
+    };
+    for (const [code, texte] of Object.entries(attendus)) {
+      echecGoogle = err(code);
+      zone = document.createElement('main') as unknown as El;
+      await ouvrir(fauxComptes());
+      $('#compte-google')!.click();
+      await attendre();
+      await attendre();
+      expect($('#compte-erreur')!.textContent, code).toBe(texte);
+      expect($('#compte-message')!.textContent, code).toBe('');
+      expect(contenu(), code).toContain(T.invite);
+    }
+  });
+
+  it('l’adresse d’un compte à mot de passe (Google pas de confiance pour elle) : le formulaire de connexion, adresse pré-remplie', async () => {
+    echecGoogle = Object.assign(err('auth/account-exists-with-different-credential'), { customData: { email: 'ana@yahoo.fr' } });
+    await ouvrir(fauxComptes());
+    $('#compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-form-connecter')).not.toBeNull();
+    expect($('#compte-adresse')!.value).toBe('ana@yahoo.fr');
+    expect($('#compte-erreur')!.textContent).toBe('Ce compte se connecte par mot de passe : connecte-toi avec ton adresse');
+  });
+
+  it('session perdue d’un compte Google : « Se reconnecter avec Google », sans formulaire d’e-mail', async () => {
+    googleNouveau = false;
+    const c = fauxComptes({ etat: 'perdue', uid: 'g1', adresse: 'ana@gmail.com', fournisseurs: ['google.com'] });
+    await ouvrir(c);
+    expect($('#compte-reconnecter')).toBeNull();
+    expect($('#compte-google')!.textContent).toBe(T.google_reconnecter);
+    expect($('#compte-google')!.className).toBe('');
+    $('#compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect(c.google).toHaveBeenCalledOnce();
+    expect($('#compte-message')!.textContent).toBe('Connecté : ana@gmail.com.');
+    expect($('#compte-adresse-connectee')!.textContent).toBe('Compte Google (ana@gmail.com)');
+  });
+
+  it('session perdue d’un compte à mot de passe et Google : l’adresse d’abord, Google en second', async () => {
+    await ouvrir(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@gmail.com', fournisseurs: ['password', 'google.com'] }));
+    expect($('.compte-actions')!.querySelectorAll('button').map((b) => b.id)).toEqual(['compte-reconnecter', 'compte-google', 'compte-sans-compte']);
+    expect($('#compte-reconnecter')!.className).toBe('');
+    expect($('#compte-google')!.className).toBe('secondary');
+  });
+
+  it('session perdue d’un compte Google dans l’APK sans le plugin : pas de reconnexion, la ligne le dit', async () => {
+    googleOffert = false;
+    await ouvrir(fauxComptes({ etat: 'perdue', uid: 'g1', adresse: 'ana@gmail.com', fournisseurs: ['google.com'] }));
+    expect($('#compte-google')).toBeNull();
+    expect($('#compte-reconnecter')).toBeNull();
+    expect($('#compte-google-aide')!.textContent).toBe(T.google_bientot);
+    expect($('#compte-sans-compte')).not.toBeNull();
+  });
+
+  it('suppression inachevée d’un compte Google, session perdue : la fenêtre de Google sur le site, le renvoi au site dans l’APK', async () => {
+    const e: EtatCompte = { etat: 'suppression', uid: 'g1', adresse: 'ana@gmail.com', fournisseurs: ['google.com'], connecte: false, horsAuth: false };
+    const c = fauxComptes(e);
+    await ouvrir(c);
+    expect($('#compte-suppression-reconnecter')!.textContent).toBe('Ta session a expiré en route : « Reprendre la suppression » ouvre la fenêtre de Google, où choisir ana@gmail.com.');
+    expect($('#compte-supprimer-mdp')).toBeNull();
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect(c.supprimer).toHaveBeenCalledWith({ mot: 'supprimer' });
+    googleOffert = false;
+    zone = document.createElement('main') as unknown as El;
+    await ouvrir(fauxComptes(e));
+    expect($('#compte-suppression-reconnecter')!.textContent).toBe(T.suppression_reconnecter_site);
+  });
+
+  it('texteGoogle : compte neuf, neuf vidé, compte qui existait', () => {
+    expect(texteGoogle({ adresse: 'a@gmail.com', fusion: 'sans_question', nouveau: true }, null)).toBe('Connecté avec Google : a@gmail.com. Tes progrès vont dans ton compte.');
+    expect(texteGoogle({ adresse: 'a@gmail.com', fusion: 'efface', nouveau: true }, null)).toBe('Connecté : a@gmail.com. Les progrès de cet appareil sont effacés.');
+    expect(texteGoogle({ adresse: 'a@gmail.com', fusion: 'sans_question', nouveau: false }, null)).toBe('Connecté : a@gmail.com.');
   });
 });
 
