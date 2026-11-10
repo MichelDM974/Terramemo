@@ -2147,7 +2147,7 @@ def ressources_capitales(p):
 
 
 def ui_capitales(p, capturer, defauts, base, parametres=""):
-    """Captures 80 à 90 (lot 1 du J2, #4 ; étude § 5.2, 7.2, 7.3) : le sujet
+    """Captures 80 à 91 (lot 1 du J2, #4 ; étude § 5.2, 7.2, 7.3) : le sujet
     Capitales en Entraînement, sur une page rechargée. Jouer : Pays,
     Capitales, Communes, la vignette des capitales en points, rien de
     capitales* chargé avant le choix d'un exercice ; Trouver sur l'Océanie
