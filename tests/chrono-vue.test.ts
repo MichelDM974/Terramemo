@@ -7,7 +7,7 @@
 // celui qu'on avance.
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { chargerCapitales } from '../src/map/capitales';
+import { capitalesChargees, chargerCapitales } from '../src/map/capitales';
 import { DEBUT_ACCEPTES_EPREUVES } from '../src/epreuve/bareme';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
 import type { Pays } from '../src/map/types';
@@ -390,8 +390,8 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
   });
 });
 
-// Le sujet Capitales en épreuve (D38 d) : ses épreuves classées ne sont pas
-// dans Jouer avant la partie C, mais la vue sait déjà les poser.
+// Le sujet Capitales en épreuve (D38 d) : Classé › Capitales à partir du
+// lundi 16/11/2026 (bascule datée de src/epreuve/chrono.ts) ; la vue les pose.
 describe('le sujet Capitales en épreuve', () => {
   const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
   const EPREUVE: Record<string, string> = { BOL: 'La Paz', ARG: 'Buenos Aires', PER: 'Lima' };
@@ -426,5 +426,69 @@ describe('le sujet Capitales en épreuve', () => {
       expect(bilan).toMatch(/\S+ \([^)]+\) → Brésil/);
       for (const t of vus) expect(t).not.toMatch(/\bQ\d+\b/);
     }
+  });
+  /** Une partie entière du Chrono des capitales sur cette série, chaque toucher juste : la capitale montrée pour chaque pays. */
+  function partieEntiere(serie: string, maintenant?: () => number) {
+    const ctx = contexte(maintenant, NOMS_FR);
+    ctx.lancer('chrono', serie, 'capitales');
+    const montrees = new Map<string, string>();
+    const options = new Map<string, unknown>();
+    for (let q = 0; q < 200; q++) {
+      const id = ctx.consigne();
+      if (!id) break;
+      montrees.set(id, ctx.zone.querySelector('#barre-chrono .essai-consigne strong')!.textContent!);
+      vi.advanceTimersByTime(100);
+      const avant = optionsNoter.length;
+      ctx.v.toucher?.(0, 0, {} as PointerEvent);
+      options.set(id, optionsNoter[avant]);
+      vi.advanceTimersByTime(1_000);
+    }
+    return { ...ctx, montrees, options };
+  }
+
+  it('D38 d : deux parties du Chrono des capitales (Tous les pays) montrent les mêmes indices pour les 12 pays à plusieurs capitales, ceux de l’épreuve (e: 1)', () => {
+    const cap = capitalesChargees()!;
+    const plusieurs = [...cap.parPays.values()].filter((c) => c.justes.length > 1).map((c) => c.pays);
+    const tous = catalogue(pays).find((x) => x.id === 'tous')!.ids;
+    const douze = plusieurs.filter((id) => tous.includes(id));
+    expect(douze).toHaveLength(12);
+    // Deux tirages de l'ordre différents, et un hasard qui, hors épreuve, ferait varier la capitale montrée.
+    const aleas = [0.01, 0.99];
+    const parties = aleas.map((x) => {
+      vi.spyOn(Math, 'random').mockReturnValue(x);
+      try {
+        return partieEntiere('tous');
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+    for (const p of parties) expect(p.montrees.size).toBe(195);
+    const [a, b] = parties.map((p) => douze.map((id) => p.montrees.get(id)));
+    expect(a).toEqual(b);
+    expect(a).toEqual(douze.map((id) => cap.parPays.get(id)!.epreuve.nom));
+    // La plus connue (La Paz, Abidjan), sauf la Palestine : la principale (Jérusalem-Est).
+    const de = (id: string) => parties[0]!.montrees.get(id);
+    expect([de('BOL'), de('CIV'), de('PSE')]).toEqual(['La Paz', 'Abidjan', 'Jérusalem-Est']);
+    // Chaque pays, ses 195 indices : les mêmes d'une partie à l'autre.
+    expect([...parties[0]!.montrees].sort()).toEqual([...parties[1]!.montrees].sort());
+  });
+
+  it('D36 i au Chrono des capitales : Jérusalem admet la Palestine, Jérusalem-Est Israël (zones admises de la question)', () => {
+    const { options, montrees } = partieEntiere('Asia', () => Date.parse('2026-11-16T00:00:00Z'));
+    expect([montrees.get('ISR'), montrees.get('PSE')]).toEqual(['Jérusalem', 'Jérusalem-Est']);
+    const zones = (id: string) => ((options.get(id) as { acceptes: Map<string, { zone: string; sorte: string }[]> }).acceptes.get(id) ?? []).filter((z) => z.sorte === 'capitale').map((z) => z.zone);
+    expect(zones('ISR')).toEqual(['PSE']);
+    expect(zones('PSE')).toEqual(['ISR']);
+    // Un pays à une seule capitale : aucune zone admise de plus pour le sujet.
+    expect((options.get('JPN') as { acceptes: unknown }).acceptes).toBe(true);
+  });
+
+  it('bilan d’une épreuve des capitales : « Chrono · Capitales · Océanie » (nomEpreuve), son record sous chrono:capitales:Oceania, son classement', () => {
+    const { zone } = partieEntiere('Oceania');
+    expect(zone.querySelector('#chrono-bilan h2')!.textContent).toBe('Chrono · Capitales · Océanie');
+    const e = idEpreuve('Oceania', 'chrono', 'capitales');
+    expect(lireRecords(localStorage).get(e)?.questions).toBe(14);
+    expect(lireRecords(localStorage).has(idEpreuve('Oceania'))).toBe(false);
+    expect(blocClassement.mock.calls.at(-1)![0]).toBe(e);
   });
 });

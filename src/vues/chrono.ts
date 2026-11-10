@@ -27,9 +27,10 @@ import { estDomaine } from '../srs/fiches';
 import { profilModifie } from '../sync/pont';
 import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
-import { melanger, nomSerie, type Serie } from './cibles';
+import { melanger, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
 import { anneauSiPetite, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { nomEpreuve } from './general';
 import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong } from './scores';
 import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -310,7 +311,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
             }),
           ]
         : []),
-      creer('h2', {}, remplir(T.bilan_titre, { mode: nomMode(mode), serie: nomSerie(s.id) })),
+      // « Chrono · Afrique », « Chrono · Capitales · Afrique » (nomEpreuve, étude J2 § 3.2).
+      creer('h2', {}, remplir(T.bilan_titre, { mode: nomMode(mode), serie: nomEpreuve(epreuve) })),
       creer('p', { class: 'chrono-score' }, ligneScore),
       creer('p', { class: 'hint' }, detail),
       creer(

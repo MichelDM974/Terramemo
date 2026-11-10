@@ -5,7 +5,7 @@
 // Firebase n'est chargé qu'à l'ouverture du bloc, ou pour un envoi en attente.
 import type { BilanPartie } from '../epreuve/chrono';
 import { comparerScores, type ScoreEpreuve } from '../epreuve/bareme';
-import { EPREUVES, EPREUVES_CLASSEES, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
+import { epreuvesClassees, epreuvesDuGeneral, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
 import { comptesVisibles } from '../sync/drapeaux';
 import { etatCompteConnu, profilModifie } from '../sync/pont';
@@ -188,15 +188,18 @@ export function brancherRelance(cible: Pick<Window, 'addEventListener' | 'setTim
 
 /**
  * Publie tous les records de l'appareil (de toujours et de la semaine), des
- * épreuves que cette version classe elle-même (EPREUVES_CLASSEES), pris à
- * leur meilleur score publiable (recordPubliable), et les deux totaux du
- * Chrono : au choix ou au changement du pseudo.
+ * épreuves que cette version classe elle-même et qui sont ouvertes
+ * (epreuvesClassees), pris à leur meilleur score publiable
+ * (recordPubliable), et les deux totaux du Chrono : au choix ou au
+ * changement du pseudo.
  */
 export async function publierTout(pseudo: string): Promise<Publication> {
   // Un renvoi sous l'ancien pseudo finit d'abord : il effacerait sinon les échecs de celui-ci.
   await relance?.catch(() => null);
   const records = lireRecords(stockage());
   const periode = periodeSemaine(Date.now());
+  const classees = epreuvesClassees();
+  const duGeneral = epreuvesDuGeneral();
   // Tout repart : la file ne gardera que ce qui échoue cette fois.
   ecrireAttente([]);
   const envois: Envoi[] = [];
@@ -204,19 +207,19 @@ export async function publierTout(pseudo: string): Promise<Publication> {
     const [epreuve, sem] = cle.split('@');
     // Une épreuve que cette version ne classe pas, venue par le profil d'une plus récente : ni envoi, ni refus annoncé
     // (étude J2 § 3.2). Un mode inconnu, mais aussi le quiz avant l'ouverture de son classement (§ 9.5, D50 c) ou les
-    // épreuves d'un sujet pas encore ouvertes : les règles les refuseraient. La version qui les classe les republie
-    // elle-même sous le pseudo du profil (sync/comptes.ts, pseudoPris).
-    if (!epreuve || !EPREUVES_CLASSEES.includes(epreuve)) continue;
+    // épreuves d'un sujet pas encore ouvertes (EPREUVES_OUVERTES) : rien ne les classe encore. La version qui les classe
+    // les republie elle-même sous le pseudo du profil (sync/comptes.ts, pseudoPris).
+    if (!epreuve || !classees.includes(epreuve)) continue;
     const p = sem === undefined ? 'toujours' : sem === periode ? periode : null;
     if (p) envois.push([epreuve, p, recordPubliable(r, epreuve) ?? r]);
   }
-  const generaux = ['toujours', periode].filter((p) => envois.some(([e, q]) => q === p && EPREUVES.includes(e)));
+  const generaux = ['toujours', periode].filter((p) => envois.some(([e, q]) => q === p && duGeneral.includes(e)));
   return envoyer(pseudo, envois, generaux);
 }
 
 /**
  * Après une partie : seulement ce qui a progressé sur l'appareil (jusqu'à 4
- * écritures, 2 hors des épreuves du général, EPREUVES : Sans faute et Minute
+ * écritures, 2 hors des épreuves du général, epreuvesDuGeneral : Sans faute et Minute
  * n'y comptent pas). Un nouveau record que les règles refuseraient est compté refusé
  * sans être écrit ; un score qui bat le meilleur publiable sans battre le
  * record de l'appareil part quand même.
@@ -234,7 +237,7 @@ export async function publierPartie(pseudo: string, epreuve: string, b: BilanPar
     const pub = r && recordPubliable(r, epreuve);
     if (r && bilan.nouveau && !vraisemblable(r, epreuve)) envois.push([epreuve, periode, r]);
     if (pub && bilan.progresPubliable) envois.push([epreuve, periode, pub]);
-    if (EPREUVES.includes(epreuve)) generaux.push(periode);
+    if (epreuvesDuGeneral().includes(epreuve)) generaux.push(periode);
   }
   return envoyer(pseudo, envois, generaux);
 }

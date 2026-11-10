@@ -2,7 +2,7 @@
 // dix premiers d'une épreuve. mesPlaces() et lireTableau() remplacés, DOM
 // factice (tests/dom-factice.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EPREUVES_CLASSEES, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
+import { epreuvesClassees, idEpreuve, periodeSemaine, reglerHorlogeEpreuves } from '../src/epreuve/chrono';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
 const mesPlaces = vi.fn();
@@ -20,6 +20,10 @@ const { remplir, textes } = await import('../src/vues/textes');
 const { nomSujet } = await import('../src/vues/arbre');
 const T = textes.chrono;
 
+/** La veille de la bascule des épreuves des capitales (lundi 16/11/2026, 0 h UTC). */
+const AVANT = Date.parse('2026-11-16T00:00:00Z') - 1;
+reglerHorlogeEpreuves(() => AVANT);
+const EPREUVES_CLASSEES = epreuvesClassees(AVANT);
 const ILE = idEpreuve('reunion');
 const AFR = idEpreuve('Africa');
 const SF_EUR = idEpreuve('Europe', 'sansfaute');
@@ -84,7 +88,7 @@ describe('écran des classements', () => {
     mesPlaces.mockResolvedValue([place('general', 53_277), place(AFR, 31_710), place(ILE, 21_567, 2, 3), place(SF_EUR, 17), place(MIN_ILE, 1)]);
     const p = ouvrir();
     await attendre();
-    expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel');
+    expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel', ['general', ...EPREUVES_CLASSEES]);
     expect(lignes('#classements-mes')).toEqual(['general', AFR, ILE, SF_EUR, MIN_ILE]);
     expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute', 'Minute']);
     expect(p.innerText).toContain(`${(53_277).toLocaleString('fr-FR')} pts`);
@@ -137,7 +141,7 @@ describe('écran des classements', () => {
     p.querySelector('button[data-v="semaine"]')!.click();
     await attendre();
     const semaine = periodeSemaine(Date.now());
-    expect(mesPlaces).toHaveBeenLastCalledWith(semaine, 'Michel');
+    expect(mesPlaces).toHaveBeenLastCalledWith(semaine, 'Michel', ['general', ...EPREUVES_CLASSEES]);
     p.querySelector(`.essai-serie[data-epreuve="${AFR}"]`)!.click();
     await attendre();
     expect(lireTableau).toHaveBeenCalledWith(AFR, semaine, 'Michel');

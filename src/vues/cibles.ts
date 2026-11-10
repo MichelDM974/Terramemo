@@ -100,7 +100,7 @@ export function serieTerrain(def: DefTerrain): Serie {
 
 /**
  * Le catalogue des séries jouables, dans l'ordre de partout (décision « Écran
- * Jouer » : Jouer, 🏆 et ses « Toutes les épreuves », SERIES_EPREUVES) : tous
+ * Jouer » : Jouer, 🏆 et ses « Toutes les épreuves », EPREUVES_SUJETS) : tous
  * les pays, les continents, puis l'île. Sans l'essai du J0.
  */
 export function catalogue(pays: readonly Pays[], nom: (c: string) => string = nomContinent): Serie[] {

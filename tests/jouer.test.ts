@@ -4,7 +4,7 @@
 // sur le DOM factice (tests/dom-factice.ts), et l'Essai J0 dans ⚙.
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { enregistrerPartie, EPREUVES_CLASSEES, idEpreuve, SERIES_EPREUVES } from '../src/epreuve/chrono';
+import { enregistrerPartie, epreuvesClassees, EPREUVES_SUJETS, idEpreuve, reglerHorlogeEpreuves } from '../src/epreuve/chrono';
 import { capitalesChargees, oublierCapitales } from '../src/map/capitales';
 import type { Pays } from '../src/map/types';
 import {
@@ -29,7 +29,15 @@ import { El, installerDom, installerStockage } from './dom-factice';
 
 const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
 const CATALOGUE = catalogue(pays);
+/** La bascule des épreuves des capitales (décision « Ouverture des épreuves d'un sujet ») : avant, après. */
+const OUVERTURE = Date.parse('2026-11-16T00:00:00Z');
+const AVANT = OUVERTURE - 1;
+const APRES = OUVERTURE;
+// Les tests d'avant la partie C : la veille de la bascule, quel que soit le jour où ils tournent.
+reglerHorlogeEpreuves(() => AVANT);
 const arbre = creerArbre(CATALOGUE);
+/** Le même arbre, les épreuves des capitales ouvertes. */
+const arbreApres = creerArbre(CATALOGUE, SUJETS, () => APRES);
 const SERIES_PAYS = ['tous', 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania'];
 const a = (segs: string[]) => adresse(arbre.resoudre(segs));
 
@@ -54,10 +62,36 @@ describe('l’arbre (pur)', () => {
 
   it('même ordre des séries partout : tous, les continents (ordre alphabétique français), l’île ; celui des épreuves et du 🏆', () => {
     expect(CATALOGUE.map((s) => s.id)).toEqual([...SERIES_PAYS, 'reunion']);
-    expect(SERIES_EPREUVES).toEqual(CATALOGUE.map((s) => s.id));
-    // 🏆 « Toutes les épreuves » : mode par mode, chacun dans cet ordre.
-    expect(EPREUVES_CLASSEES.slice(0, 8)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id)));
-    expect(EPREUVES_CLASSEES.slice(8, 16)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id, 'sansfaute')));
+    expect(EPREUVES_SUJETS.filter((p) => p.sujet !== 'capitales').map((p) => p.serie)).toEqual(CATALOGUE.map((s) => s.id));
+    // 🏆 « Toutes les épreuves » : mode par mode, chacun dans cet ordre (avant l'ouverture des capitales).
+    expect(epreuvesClassees(AVANT).slice(0, 8)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id)));
+    expect(epreuvesClassees(AVANT).slice(8, 16)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id, 'sansfaute')));
+    // Après : les capitales entre les pays et les communes (D53 b), dans l'ordre des séries.
+    expect(epreuvesClassees(APRES).slice(0, 15)).toEqual([
+      ...SERIES_PAYS.map((x) => idEpreuve(x)),
+      ...SERIES_PAYS.map((x) => idEpreuve(x, 'chrono', 'capitales')),
+      idEpreuve('reunion'),
+    ]);
+  });
+
+  it('Classé › Capitales à l’ouverture de ses épreuves (lundi 16/11/2026, 0 h UTC) : les séries des pays (D37 c), les trois épreuves', () => {
+    expect(arbreApres.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'communes']);
+    expect(arbreApres.choix({ type: 'series', branche: 'classe', sujet: 'capitales' })).toEqual(SERIES_PAYS);
+    expect(arbreApres.modes('classe', 'capitales')).toEqual(['chrono', 'sansfaute', 'minute']);
+    expect(arbreApres.valide({ branche: 'classe', sujet: 'capitales', serie: 'Oceania', mode: 'chrono' })).toBe(true);
+    expect(arbreApres.modes('entrainement', 'capitales')).toEqual(['apprendre', 'localiser', 'nommer']);
+    expect(adresse(arbreApres.resoudre(['classe', 'capitales', 'Oceania']))).toBe('jouer/classe/capitales/Oceania');
+    // Avant : l'adresse retombe sur Classé.
+    expect(a(['classe', 'capitales', 'Oceania'])).toBe('jouer/classe');
+    // L'heure se relit à chaque question : le même arbre bascule sans être refait.
+    let t = AVANT;
+    const vivant = creerArbre(CATALOGUE, SUJETS, () => t);
+    expect(vivant.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'communes']);
+    t = APRES;
+    expect(vivant.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'communes']);
+    // Un sujet qui n'est pas un domaine (essai) n'attend aucune date.
+    const essai: DefSujet[] = [{ id: 'essai', series: (c) => c.slice(0, 1), modes: { entrainement: [], classe: ['chrono'] } }];
+    expect(creerArbre(CATALOGUE, essai, () => 0).choix({ type: 'sujets', branche: 'classe' })).toEqual(['essai']);
   });
 
   it('l’Essai J0 n’est dans aucune liste de Jouer', () => {
@@ -165,7 +199,7 @@ describe('l’arbre (pur)', () => {
 
 // --- La vue ----------------------------------------------------------------
 
-function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['revision'] } = {}) {
+function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['revision']; arbre?: typeof arbre } = {}) {
   const zone = new El('main');
   const monde = { nom: 'monde', jouables: [] };
   const ile = { nom: 'reunion', jouables: ['97411', '97415'] };
@@ -188,7 +222,7 @@ function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['
     canoniser: vi.fn<OptionsJouer['canoniser']>(),
     ...(o.revision ? { revision: o.revision } : {}),
   };
-  const v = vueJouer(ctx, arbre, opts);
+  const v = vueJouer(ctx, o.arbre ?? arbre, opts);
   const panneau = zone.querySelector('#jouer-panneau')!;
   /** Ouvre Jouer à cette adresse (segments après « jouer »), comme le routeur de main.ts. */
   const ouvrir = (...segs: string[]) => {
@@ -593,5 +627,59 @@ describe('la vue Jouer : le sujet Capitales', () => {
     j.panneau.querySelector('[data-mode="localiser"]')!.click();
     await attendre();
     expect(j.opts.lancer).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Les épreuves classées des capitales (lot 1, partie C) : Classé › Capitales
+// une fois la bascule passée, ses séries, ses trois épreuves avec leurs
+// records, leurs phrases et leurs règles, et la partie lancée après le
+// chargement des capitales.
+describe('la vue Jouer : Classé › Capitales', () => {
+  beforeEach(() => {
+    installerDom();
+    installerStockage();
+    oublierCapitales();
+    vi.stubGlobal('fetch', async (url: string) => ({ ok: true, status: 200, json: async () => JSON.parse(readFileSync(`public${url}`, 'utf8')) }));
+  });
+  afterEach(() => {
+    oublierCapitales();
+    vi.unstubAllGlobals();
+  });
+
+  it('avant la bascule : Classé n’a que Pays et Communes ; après : Pays, Capitales, Communes', () => {
+    const avant = monter();
+    avant.ouvrir('classe');
+    expect(avant.attr('data-sujet')).toEqual(['pays', 'communes']);
+    const apres = monter({ arbre: arbreApres });
+    apres.ouvrir('classe');
+    expect(apres.attr('data-sujet')).toEqual(['pays', 'capitales', 'communes']);
+    expect(apres.panneau.querySelector('[data-sujet="capitales"] .vignette-points')).not.toBeNull();
+  });
+
+  it('Classé › Capitales › Océanie : Chrono, Sans faute, Minute, leur phrase, leur record (celui des capitales, pas des pays), « ? »', () => {
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'capitales'), { points: 12_400, justes: 12, questions: 14, temps_ms: 70_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'sansfaute'), { points: 9, justes: 9, questions: 10, temps_ms: 30_000 }, 1);
+    const j = monter({ arbre: arbreApres });
+    j.ouvrir('classe', 'capitales', 'Oceania');
+    expect(j.panneau.dataset.niveau).toBe('exercices');
+    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute', 'minute']);
+    const ligne = (m: string) => j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText;
+    expect(ligne('chrono')).toContain('15 s par question, un seul toucher');
+    expect(ligne('chrono')).toContain(`${(12_400).toLocaleString('fr-FR')} pts`);
+    expect(ligne('sansfaute')).not.toContain("9 d'affilée");
+    expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé›Capitales›Océanie');
+    j.panneau.querySelector('#jouer-aide')!.click();
+    expect(j.panneau.querySelector('#jouer-regles')!.innerText).toContain('Minute : le plus de lieux justes');
+  });
+
+  it('un Chrono des capitales : les capitales chargées dans Jouer, puis la partie part (branche classe, sujet capitales)', async () => {
+    const j = monter({ arbre: arbreApres });
+    j.ouvrir('classe', 'capitales', 'Oceania');
+    j.panneau.querySelector('[data-mode="chrono"]')!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(j.opts.lancer).toHaveBeenCalledTimes(1);
+    expect(j.opts.lancer.mock.calls[0]![0]).toEqual({ branche: 'classe', sujet: 'capitales', serie: 'Oceania', mode: 'chrono' });
+    expect(j.opts.lancer.mock.calls[0]![3]).toHaveLength(14);
+    expect(capitalesChargees()).not.toBeNull();
   });
 });

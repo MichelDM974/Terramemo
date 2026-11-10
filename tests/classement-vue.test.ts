@@ -3,7 +3,7 @@
 // et lireTableau() remplacés, DOM factice (tests/dom-factice.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScoreEpreuve } from '../src/epreuve/bareme';
-import { enregistrerPartie, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
+import { enregistrerPartie, idEpreuve, periodeSemaine, reglerHorlogeEpreuves } from '../src/epreuve/chrono';
 import { COMPTES_OUVERTS } from '../src/sync/drapeaux';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
@@ -27,6 +27,10 @@ const AMS = idEpreuve('South America');
 const ILE = idEpreuve('reunion');
 const maintenant = Date.now();
 const semaine = periodeSemaine(maintenant);
+/** La bascule des épreuves des capitales (lundi 16/11/2026, 0 h UTC) : ces tests la veille, sauf ceux qui la passent. */
+const OUVERTURE = Date.parse('2026-11-16T00:00:00Z');
+const AVANT = OUVERTURE - 1;
+reglerHorlogeEpreuves(() => AVANT);
 
 /** Laisse passer les promesses en attente (publication, puis lecture du classement). */
 const attendre = () => new Promise((r) => setTimeout(r, 0));
@@ -121,7 +125,7 @@ describe('publication d’une partie', () => {
     expect(lireAttente()).toEqual([]);
   });
 
-  it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ou d’un Chrono hors de EPREUVES_CLASSEES ne part pas, sans refus annoncé', async () => {
+  it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ou d’un Chrono pas encore ouvert (les capitales avant le 16/11) ne part pas, sans refus annoncé', async () => {
     enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
     // Reçus par le profil d'une version plus récente, vraisemblables tous deux : les règles de cette version les refuseraient.
     const QUIZ = 'quiz:general:facile';
@@ -133,6 +137,30 @@ describe('publication d’une partie', () => {
     expect(r).toEqual({ refuses: 0, echecs: 0 });
     expect(avisPublication(r)).toBe('');
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
+  });
+
+  it('après la bascule du 16/11 : les records des capitales partent au choix du pseudo, et le général les compte (D40 a)', async () => {
+    reglerHorlogeEpreuves(() => OUVERTURE);
+    try {
+      enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+      const CAP = idEpreuve('Oceania', 'chrono', 'capitales');
+      const SF_CAP = idEpreuve('Oceania', 'sansfaute', 'capitales');
+      enregistrerPartie(localStorage, CAP, score(13_500, 13, 14, 80_000), maintenant);
+      enregistrerPartie(localStorage, SF_CAP, score(9, 9, 10, 30_000), maintenant);
+      publier.mockResolvedValue(true);
+      const r = await publierTout('Ana');
+      expect(r).toEqual({ refuses: 0, echecs: 0 });
+      expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, CAP, CAP, SF_CAP, SF_CAP, 'general', 'general'].sort());
+      const general = publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s);
+      expect(general).toEqual([score(25_500, 25, 26, 140_000), score(25_500, 25, 26, 140_000)]);
+      // Une partie des capitales : son général aussi.
+      publier.mockClear();
+      const b = enregistrerPartie(localStorage, CAP, score(14_000, 14, 14, 70_000), maintenant);
+      await publierPartie('Ana', CAP, b);
+      expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([CAP, CAP, 'general', 'general'].sort());
+    } finally {
+      reglerHorlogeEpreuves(() => AVANT);
+    }
   });
 
   it('Minute seule au choix du pseudo : pas de général', async () => {

@@ -6,10 +6,12 @@
 // (le général en tête, qui n'additionne que lui), Sans faute, Minute. Toucher
 // une ligne ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à
 // la liste. Les séries de chaque mode viennent dans l'ordre de partout
-// (décision « Écran Jouer », EPREUVES_CLASSEES) : tous les pays, les
-// continents, l'île. Relu à chaque ouverture ; « Retour » ramène à la vue
+// (décision « Écran Jouer », epreuvesClassees) : tous les pays, les
+// continents, l'île ; les épreuves d'un sujet pas encore ouvert
+// (EPREUVES_OUVERTES) n'y sont pas. Relu à chaque ouverture (la bascule
+// datée comprise) ; « Retour » ramène à la vue
 // d'avant, « × » à la carte (main.ts).
-import { EPREUVES_CLASSEES, modeEpreuve, MODES_EPREUVE, periodeSemaine, type ModeEpreuve } from '../epreuve/chrono';
+import { epreuvesClassees, maintenantEpreuves, modeEpreuve, MODES_EPREUVE, periodeSemaine, type ModeEpreuve } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
 import { nomSujet } from './arbre';
 import { nomSerie } from './cibles';
@@ -117,7 +119,7 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
       autres,
       creer('div', { class: 'essai-actions' }, boutonRetour()),
     );
-    const toutes = [GENERAL, ...EPREUVES_CLASSEES];
+    const toutes = [GENERAL, ...epreuvesClassees(maintenantEpreuves())];
     // Toutes les épreuves d'un coup, sans place (pas de pseudo, hors ligne, aucune place).
     const sansPlaces = (texte: string) => {
       etat.textContent = texte;
@@ -129,7 +131,7 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
       try {
         // Les scores faits hors ligne d'abord, pour que mes places les montrent.
         await relancerAttente().catch(() => null);
-        const places = await mesPlaces(periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now()), pseudo);
+        const places = await mesPlaces(periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now()), pseudo, toutes);
         if (n !== lecture) return;
         if (!places.length) return sansPlaces(T.classements_aucune);
         const parEpreuve = new Map(places.map((p) => [p.epreuve, p]));

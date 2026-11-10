@@ -9,7 +9,8 @@
 // (#jouer, #jouer/classe, #jouer/classe/pays, #jouer/classe/pays/Africa) :
 // le retour du navigateur et celui d'Android remontent l'historique d'un
 // niveau à la fois (src/main.ts), un niveau sauté n'y laissant pas d'entrée.
-import { MODES_EPREUVE, type ModeEpreuve } from '../epreuve/chrono';
+import { maintenantEpreuves, MODES_EPREUVE, sujetOuvert, type ModeEpreuve } from '../epreuve/chrono';
+import { estDomaine } from '../srs/fiches';
 import type { NomTerrain } from '../map/types';
 import { nomSerie, type Serie } from './cibles';
 import { nomMode } from './scores';
@@ -55,21 +56,15 @@ const AVEC_APPRENDRE: DefSujet['modes'] = { entrainement: ['apprendre', ...SUR_L
 const duTerrain = (t: NomTerrain) => (c: readonly Serie[]) => c.filter((s) => s.terrain === t);
 
 /**
- * Capitales (étude J2 § 7.2, lot 1) : les séries des pays, tailles comprises
- * (D37 c : les 9 pays au nom de leur capitale restent en Trouver) ; ses
- * épreuves classées attendent leur ouverture (la bascule datée du lundi
- * 16/11, décision « Ouverture des épreuves d'un sujet ») : rien sous Classé.
- */
-const ENTRAINEMENT_SEUL: DefSujet['modes'] = { entrainement: AVEC_APPRENDRE.entrainement, classe: [] };
-
-/**
  * Les sujets, dans l'ordre affiché (D53 b, décision « Ordre des sujets ») :
  * les sujets du monde ensemble, Communes en dernier. Aucun sujet « à venir »
  * factice : un sujet existe quand il se joue.
  */
 export const SUJETS: readonly DefSujet[] = [
   { id: 'pays', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
-  { id: 'capitales', series: duTerrain('monde'), modes: ENTRAINEMENT_SEUL },
+  // Capitales (étude J2 § 7.2, lot 1) : les séries des pays, tailles comprises (D37 c : les 9 pays au nom de leur
+  // capitale restent en Trouver et en épreuve) ; ses épreuves classées à leur ouverture (creerArbre, sujetOuvert).
+  { id: 'capitales', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];
 
@@ -164,17 +159,28 @@ export function nombreSujet(id: string, series: readonly Serie[]): string {
   return estSujetRendu(id) ? compteSerie(id, Math.max(0, ...series.map((s) => s.n))) : '';
 }
 
-/** L'arbre de ce catalogue de séries (src/vues/cibles.ts, catalogue()) et de ces sujets. */
-export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSujet[] = SUJETS): Arbre {
+/**
+ * L'arbre de ce catalogue de séries (src/vues/cibles.ts, catalogue()) et de
+ * ces sujets. Sous Classé, un sujet n'a ses épreuves qu'une fois ouvertes
+ * (EPREUVES_OUVERTES, src/epreuve/chrono.ts : la bascule datée du lundi qui
+ * suit sa livraison) : avant, il n'y est pas. `maintenant` (ms) se relit à
+ * chaque question posée à l'arbre : Jouer bascule au plus tard à son
+ * prochain affichage. Un sujet qui n'est pas un domaine (essais) n'attend rien.
+ */
+export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSujet[] = SUJETS, maintenant: () => number = maintenantEpreuves): Arbre {
   const seriesDe = new Map(sujets.map((s) => [s.id, s.series(catalogue)]));
-  const proposes = (b: Branche) => sujets.filter((s) => s.modes[b].length > 0 && (seriesDe.get(s.id)?.length ?? 0) > 0);
+  const modesDe = (s: DefSujet, b: Branche) => (b === 'classe' && estDomaine(s.id) && !sujetOuvert(s.id, maintenant()) ? [] : s.modes[b]);
+  const proposes = (b: Branche) => sujets.filter((s) => modesDe(s, b).length > 0 && (seriesDe.get(s.id)?.length ?? 0) > 0);
   const estBranche = (b: string): b is Branche => (BRANCHES as readonly string[]).includes(b);
 
   const arbre: Arbre = {
     sujets: proposes,
     series: (sujet) => seriesDe.get(sujet) ?? [],
     serie: (sujet, id) => seriesDe.get(sujet)?.find((s) => s.id === id),
-    modes: (b, sujet) => (proposes(b).find((s) => s.id === sujet)?.modes[b] ?? []),
+    modes: (b, sujet) => {
+      const s = proposes(b).find((x) => x.id === sujet);
+      return s ? modesDe(s, b) : [];
+    },
     choix(n) {
       if (n.type === 'racine') return BRANCHES;
       if (n.type === 'sujets') return proposes(n.branche).map((s) => s.id);

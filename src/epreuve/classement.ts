@@ -7,7 +7,7 @@
 // sous un pseudo partagent sa place, qui garde le meilleur score.
 import { charger, compte, type Service } from '../sync/firebase';
 import { comparerScores, type ScoreEpreuve } from './bareme';
-import { clePseudo, EPREUVES, EPREUVES_CLASSEES, modeEpreuve, VERSION_BAREME } from './chrono';
+import { clePseudo, epreuvesDuGeneral, modeEpreuve, VERSION_BAREME } from './chrono';
 
 /** Épreuve du classement général (somme des records de toutes les épreuves du Chrono). */
 export const GENERAL = 'general';
@@ -58,12 +58,13 @@ export async function publier(epreuve: string, periode: string, pseudo: string, 
 /**
  * Les places d'un pseudo dans chaque épreuve du Chrono pour une période
  * (épreuve → score) : ce que ses autres appareils ont publié, que le général
- * additionne (totalGeneral). Une lecture par épreuve. Lève hors ligne.
+ * additionne (totalGeneral). Une lecture par épreuve du général, celles des
+ * sujets ouverts à l'heure de l'appel (epreuvesDuGeneral). Lève hors ligne.
  */
 export async function placesDuPseudo(periode: string, pseudo: string): Promise<Map<string, ScoreEpreuve>> {
   const s = await charger();
   const cle = clePseudo(pseudo);
-  const lus = await Promise.all(EPREUVES.map(async (e) => [e, await s.m.fs.getDoc(s.m.fs.doc(scores(s, e, periode), cle))] as const));
+  const lus = await Promise.all(epreuvesDuGeneral().map(async (e) => [e, await s.m.fs.getDoc(s.m.fs.doc(scores(s, e, periode), cle))] as const));
   const places = new Map<string, ScoreEpreuve>();
   for (const [e, d] of lus) {
     if (!d.exists()) continue;
@@ -119,17 +120,19 @@ export interface MaPlace {
 }
 
 /**
- * Les places de mon pseudo pour une période : le général puis chaque épreuve
- * (ordre de EPREUVES_CLASSEES, mode par mode), seulement celles où il est
- * classé. Coût : 25 lectures, plus 3 par place (deux comptes pour le rang,
- * un pour le nombre de joueurs), 4 en Minute.
+ * Les places de mon pseudo pour une période dans ces classements (le général,
+ * des épreuves), dans leur ordre, seulement ceux où il est classé. L'écran
+ * des classements choisit lesquels lire (src/vues/general.ts). Coût : 1
+ * lecture par classement demandé, plus 3 par place
+ * (deux comptes pour le rang, un pour le nombre de joueurs), 4 en Minute.
  */
-export async function mesPlaces(periode: string, pseudo: string): Promise<MaPlace[]> {
+export async function mesPlaces(periode: string, pseudo: string, epreuves: readonly string[]): Promise<MaPlace[]> {
+  if (!epreuves.length) return [];
   const s = await charger();
   const { fs } = s.m;
   const cle = clePseudo(pseudo);
   const lues = await Promise.all(
-    [GENERAL, ...EPREUVES_CLASSEES].map(async (epreuve): Promise<MaPlace | null> => {
+    epreuves.map(async (epreuve): Promise<MaPlace | null> => {
       const col = scores(s, epreuve, periode);
       const d = await fs.getDoc(fs.doc(col, cle));
       if (!d.exists()) return null;

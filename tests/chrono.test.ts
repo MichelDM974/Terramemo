@@ -6,8 +6,11 @@ import {
   DUREE_MINUTE_MS,
   enregistrer,
   enregistrerPartie,
-  EPREUVES,
-  EPREUVES_CLASSEES,
+  BORNE_GENERAL,
+  epreuvesClassees,
+  epreuvesDuGeneral,
+  EPREUVES_OUVERTES,
+  EPREUVES_SUJETS,
   idEpreuve,
   lireRecords,
   modeEpreuve,
@@ -18,7 +21,8 @@ import {
   pseudoValide,
   recordDe,
   recordPubliable,
-  SERIES_EPREUVES,
+  sujetEpreuve,
+  sujetOuvert,
   totalGeneral,
   VERSION_BAREME,
   vraisemblable,
@@ -29,6 +33,12 @@ import { catalogue, SERIE_REUNION, SERIE_TOUS } from '../src/vues/cibles';
 import { textes } from '../src/vues/textes';
 
 const D = 15_000;
+/** La bascule des épreuves des capitales (décision « Ouverture des épreuves d'un sujet ») : avant, après. */
+const OUVERTURE = Date.parse('2026-11-16T00:00:00Z');
+const AVANT = OUVERTURE - 1;
+const APRES = OUVERTURE;
+/** Les séries des épreuves des pays et des communes, dans l'ordre de partout. */
+const SERIES_PAYS_ILE = ['tous', 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania', 'reunion'];
 
 /** Un localStorage en mémoire ; `plein` refuse les écritures. */
 function stockage(plein = false) {
@@ -186,9 +196,10 @@ describe('séries des épreuves', () => {
   const continents = textes.continents as Record<string, string>;
   const s = catalogue(pays, (c) => continents[c] ?? c);
 
-  it('tous les pays, les six continents, puis l’île, dans l’ordre de partout (SERIES_EPREUVES) ; pas l’essai du J0', () => {
+  it('tous les pays, les six continents, puis l’île, dans l’ordre de partout (EPREUVES_SUJETS) ; pas l’essai du J0', () => {
     expect(s.map((x) => x.id)).toEqual([SERIE_TOUS, 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania', SERIE_REUNION]);
-    expect(s.map((x) => x.id)).toEqual(SERIES_EPREUVES);
+    expect(s.map((x) => x.id)).toEqual(SERIES_PAYS_ILE);
+    expect(EPREUVES_SUJETS.filter((p) => p.sujet !== 'capitales').map((p) => p.serie)).toEqual(s.map((x) => x.id));
     expect(s.find((x) => x.id === SERIE_TOUS)?.ids.length).toBe(195);
     // L'île : ses 24 communes viennent du terrain chargé ; son épreuve et son échelle.
     const ile = s.at(-1);
@@ -261,13 +272,11 @@ describe('records de la semaine et classement général', () => {
     expect(totalGeneral(new Map(), 'toujours', enLigne)?.points).toBe(71_567);
   });
 
-  it('les séries des épreuves sont celles des règles Firestore (tailles()) ; trois modes, le général au Chrono seul', () => {
-    const regles = readFileSync('firestore.rules', 'utf8');
-    const tailles = [...regles.matchAll(/^\s+'([^']+)': \d+,?$/gm)].map((m) => m[1]);
-    expect([...SERIES_EPREUVES].sort()).toEqual(tailles.sort());
-    expect(EPREUVES).toEqual(SERIES_EPREUVES.map((x) => `chrono:localiser:${x}`));
-    expect(EPREUVES_CLASSEES).toHaveLength(3 * SERIES_EPREUVES.length);
-    expect(EPREUVES_CLASSEES.slice(0, SERIES_EPREUVES.length)).toEqual(EPREUVES);
+  it('les épreuves ouvertes avant la bascule : celles des pays et des communes, inchangées ; trois modes, le général au Chrono seul', () => {
+    const EPREUVES = SERIES_PAYS_ILE.map((x) => `chrono:localiser:${x}`);
+    expect(epreuvesDuGeneral(AVANT)).toEqual(EPREUVES);
+    expect(epreuvesClassees(AVANT)).toHaveLength(3 * SERIES_PAYS_ILE.length);
+    expect(epreuvesClassees(AVANT).slice(0, SERIES_PAYS_ILE.length)).toEqual(EPREUVES);
     expect([idEpreuve('Africa', 'sansfaute'), idEpreuve('tous', 'minute')]).toEqual(['sansfaute:localiser:Africa', 'minute:localiser:tous']);
     expect(['general', idEpreuve('Asia'), `${idEpreuve('Asia', 'minute')}@s2914`, idEpreuve('reunion', 'sansfaute')].map(modeEpreuve)).toEqual(['chrono', 'chrono', 'minute', 'sansfaute']);
   });
@@ -288,8 +297,13 @@ describe('records de la semaine et classement général', () => {
     expect(vraisemblable(score(10_999, 11, 12, 60_000), C)).toBe(false);
     expect(vraisemblable(score(13_000, 13, 12, 60_000), C)).toBe(false);
     expect(vraisemblable(score(0, 0, 0, 0), C)).toBe(false);
-    // Le général : les bornes du Chrono.
+    // Le général : les bornes du Chrono, BORNE_GENERAL questions au plus (chronoValide(d, 0)).
     expect(vraisemblable(score(11_000, 11, 12, 60_000), 'general')).toBe(true);
+    expect(vraisemblable(score(600_000, 600, 804, 3_000_000), 'general')).toBe(true);
+    expect(vraisemblable(score(600_000, 600, 805, 3_000_000), 'general')).toBe(false);
+    expect(vraisemblable(score(600_000, 600, 805, 3_000_000), `general@s2914`)).toBe(false);
+    // Une épreuve n'a pas cette borne (sa taille se juge sur le serveur).
+    expect(vraisemblable(score(600_000, 600, 805, 3_000_000), idEpreuve('tous'))).toBe(true);
   });
 
   it('vraisemblable de Sans faute : points = justes, l’erreur de la fin en plus, le temps des justes seules', () => {
@@ -324,9 +338,9 @@ describe('records de la semaine et classement général', () => {
       'sansfaute:drapeaux:tous',
       'minute:mers:mers',
     ]);
-    // Le socle n'ouvre aucune épreuve : celles des pays et des communes, seules et inchangées.
-    expect(EPREUVES.every((e) => e.split(':')[1] === 'localiser')).toBe(true);
-    expect(EPREUVES_CLASSEES.every((e) => e.split(':')[1] === 'localiser')).toBe(true);
+    // Avant la bascule du 16/11 : celles des pays et des communes, seules et inchangées.
+    expect(epreuvesDuGeneral(AVANT).every((e) => e.split(':')[1] === 'localiser')).toBe(true);
+    expect(epreuvesClassees(AVANT).every((e) => e.split(':')[1] === 'localiser')).toBe(true);
   });
 
   it('modeEpreuve : le quiz à part, le général au Chrono, null pour un préfixe inconnu (étude J2 § 3.2, 9.4)', () => {
@@ -338,23 +352,28 @@ describe('records de la semaine et classement général', () => {
     for (const e of ['xyz:localiser:Africa', 'xyz:capitales:tous@s2914', 'Chrono:localiser:Africa', '', 'generale']) expect(modeEpreuve(e)).toBeNull();
   });
 
-  it('le général n’additionne que les épreuves de EPREUVES : ni un Chrono hors liste, ni le quiz, ni un mode inconnu', () => {
+  it('le général n’additionne que les épreuves de epreuvesDuGeneral : ni un Chrono pas encore ouvert, ni le quiz, ni un mode inconnu', () => {
     const s = stockage();
     enregistrerPartie(s, idEpreuve('South America'), score(11_000, 11, 12, 60_000), lundi);
     // Reçus par le profil d'une version plus récente.
     enregistrerPartie(s, idEpreuve('tous', 'chrono', 'capitales'), score(150_000, 150, 186, 900_000), lundi);
     enregistrerPartie(s, 'quiz:general:facile', score(18_000, 18, 20, 100_000), lundi);
     enregistrerPartie(s, 'xyz:localiser:Africa', score(20_000, 20, 54, 300_000), lundi);
+    enregistrerPartie(s, idEpreuve('tous', 'chrono', 'drapeaux'), score(150_000, 150, 195, 900_000), lundi);
     const r = lireRecords(s);
-    expect(r.size).toBe(8);
-    for (const p of ['toujours', periodeSemaine(lundi)]) expect(totalGeneral(r, p)).toEqual(score(11_000, 11, 12, 60_000));
+    expect(r.size).toBe(10);
+    // Avant l'ouverture des capitales : ni elles, ni le quiz, ni un mode inconnu, ni les drapeaux (pas de date).
+    for (const p of ['toujours', periodeSemaine(lundi)]) expect(totalGeneral(r, p, new Map(), AVANT)).toEqual(score(11_000, 11, 12, 60_000));
     // Les places en ligne du pseudo aussi : celles des épreuves listées seules.
     const enLigne = new Map([
       [idEpreuve('tous', 'chrono', 'capitales'), score(150_000, 150, 186, 900_000)],
       ['quiz:general:moyen', score(15_000, 15, 20, 100_000)],
     ]);
-    expect(totalGeneral(r, 'toujours', enLigne)).toEqual(score(11_000, 11, 12, 60_000));
-    expect(totalGeneral(new Map(), 'toujours', enLigne)).toBeNull();
+    expect(totalGeneral(r, 'toujours', enLigne, AVANT)).toEqual(score(11_000, 11, 12, 60_000));
+    expect(totalGeneral(new Map(), 'toujours', enLigne, AVANT)).toBeNull();
+    // Après la bascule : le Chrono des capitales compte (D40 a), le reste toujours pas.
+    expect(totalGeneral(r, 'toujours', new Map(), APRES)).toEqual(score(161_000, 161, 198, 960_000));
+    expect(totalGeneral(new Map(), 'toujours', enLigne, APRES)).toEqual(score(150_000, 150, 186, 900_000));
   });
 
   it('vraisemblable : le quiz aux bornes de quizValide (20 questions, barème du Chrono), un mode inconnu jamais', () => {
@@ -454,5 +473,67 @@ describe('records de la semaine et classement général', () => {
     expect(pseudoValide('He\u0301le\u0300ne')).toBe('Hélène');
     expect(clePseudo('Michel')).toBe(clePseudo('MICHEL'));
     expect(clePseudo(pseudoValide('  Hélène   D ')!)).toBe('hélène d');
+  });
+});
+
+describe('catalogue des épreuves et ouverture datée des capitales (étude J2 § 3.2, décision « Ouverture des épreuves d’un sujet »)', () => {
+  const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
+  const tailleDe = new Map(catalogue(pays).map((x) => [x.id, x.n]));
+
+  it('EPREUVES_SUJETS : Pays, Capitales (les séries des pays, D37 c), puis Communes (D53 b) ; chaque sujet retrouvé par son id', () => {
+    const SERIES_PAYS = SERIES_PAYS_ILE.slice(0, -1);
+    expect(EPREUVES_SUJETS.map((p) => `${p.sujet}:${p.serie}`)).toEqual([...SERIES_PAYS.map((x) => `pays:${x}`), ...SERIES_PAYS.map((x) => `capitales:${x}`), 'communes:reunion']);
+    for (const p of EPREUVES_SUJETS) for (const m of ['chrono', 'sansfaute', 'minute'] as const) expect(sujetEpreuve(idEpreuve(p.serie, m, p.sujet))).toBe(p.sujet);
+    expect([sujetEpreuve(`${idEpreuve('Africa', 'chrono', 'capitales')}@s2914`), sujetEpreuve('general'), sujetEpreuve('quiz:general:facile'), sujetEpreuve('chrono:capitales:reunion')]).toEqual([
+      'capitales',
+      null,
+      null,
+      null,
+    ]);
+  });
+
+  it('une table sujet → date : les capitales le lundi 16/11/2026 à 0 h UTC (4 h à La Réunion), début d’une semaine du classement ; ni drapeaux ni mers', () => {
+    expect(new Date(EPREUVES_OUVERTES.capitales!).toISOString()).toBe('2026-11-16T00:00:00.000Z');
+    expect(periodeSemaine(OUVERTURE)).not.toBe(periodeSemaine(OUVERTURE - 1));
+    expect([sujetOuvert('capitales', AVANT), sujetOuvert('capitales', APRES)]).toEqual([false, true]);
+    for (const su of ['pays', 'communes']) expect([sujetOuvert(su, 0), sujetOuvert(su, AVANT), sujetOuvert(su, APRES)]).toEqual([true, true, true]);
+    for (const su of ['drapeaux', 'mers', 'quiz', 'xyz']) expect(sujetOuvert(su, APRES + 1e12)).toBe(false);
+  });
+
+  it('avant : rien des capitales (ni au général, ni classé) ; après : leurs 21 épreuves, le Chrono au général', () => {
+    const cap = (e: string) => e.split(':')[1] === 'capitales';
+    expect(epreuvesDuGeneral(AVANT).filter(cap)).toEqual([]);
+    expect(epreuvesClassees(AVANT).filter(cap)).toEqual([]);
+    expect(epreuvesDuGeneral(APRES)).toEqual([
+      ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x)),
+      ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x, 'chrono', 'capitales')),
+      idEpreuve('reunion'),
+    ]);
+    expect(epreuvesClassees(APRES)).toHaveLength(3 * 15);
+    expect(epreuvesClassees(APRES).filter(cap)).toHaveLength(21);
+    // Mode par mode, puis sujet par sujet (§ 8.3).
+    expect(epreuvesClassees(APRES).slice(0, 15)).toEqual(epreuvesDuGeneral(APRES));
+    expect(epreuvesClassees(APRES).slice(15, 30).every((e) => modeEpreuve(e) === 'sansfaute')).toBe(true);
+  });
+
+  it('BORNE_GENERAL : la somme des tailles des Chrono ouverts (804 = 390 + 24 + 390)', () => {
+    const somme = (t: number) => epreuvesDuGeneral(t).reduce((n, e) => n + (tailleDe.get(e.split(':')[2]!) ?? NaN), 0);
+    expect(somme(AVANT)).toBe(414);
+    expect(somme(APRES)).toBe(804);
+    expect(BORNE_GENERAL).toBe(somme(APRES));
+  });
+
+  it('l’horloge de la bascule se lit au moment du calcul : réglée (tests, ?horloge= au serveur de développement), elle change tout de suite les listes', async () => {
+    const { reglerHorlogeEpreuves, maintenantEpreuves } = await import('../src/epreuve/chrono');
+    try {
+      reglerHorlogeEpreuves(() => AVANT);
+      expect(maintenantEpreuves()).toBe(AVANT);
+      expect(epreuvesDuGeneral()).toHaveLength(8);
+      reglerHorlogeEpreuves(() => APRES);
+      expect(epreuvesDuGeneral()).toHaveLength(15);
+      expect(sujetOuvert('capitales')).toBe(true);
+    } finally {
+      reglerHorlogeEpreuves(() => Date.now());
+    }
   });
 });
