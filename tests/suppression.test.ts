@@ -483,7 +483,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('suppression du compte (émulateurs Auth e
     // Le PC finit la suppression ; le téléphone passe en session perdue, son journal gardé.
     await p.comptes.supprimer({ mot: 'supprimer', mdp: MDP });
     expect(await dansAuth(uid)).toBe(false);
-    expect(await t2.comptes.etat()).toEqual({ etat: 'perdue', uid, adresse: mail });
+    expect(await t2.comptes.etat()).toEqual({ etat: 'perdue', uid, adresse: mail, fournisseurs: ['password'] });
     expect(await t2.depot.tous()).toHaveLength(lus + 3);
   });
 });

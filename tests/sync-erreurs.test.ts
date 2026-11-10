@@ -3,7 +3,7 @@
 // message anglais n'est jamais affiché, et l'heure de remise du quota est
 // minuit à Los Angeles dans le fuseau de l'appareil.
 import { describe, expect, it } from 'vitest';
-import { heureRemiseQuota, traduire } from '../src/sync/erreurs';
+import { adresseErreur, heureRemiseQuota, traduire } from '../src/sync/erreurs';
 import { textes } from '../src/vues/textes';
 
 const err = (code: string, message = `Firebase: Error (${code}).`) => Object.assign(new Error(message), { code });
@@ -76,6 +76,19 @@ describe('traduire', () => {
     expect(traduire(err('terramemo/mdp-actuel-faux')).texte).toBe('Mot de passe actuel incorrect');
     expect(traduire(err('terramemo/mdp-google')).texte).toBe('Ce compte se connecte avec Google, sans mot de passe');
     expect(traduire(err('terramemo/suppression-engagee')).texte).toBe("La suppression est déjà engagée : elle ne s'annule plus, reprends-la.");
+  });
+
+  it('Google sur le site (lot 6) : navigateur qui refuse la fenêtre, lien à refaire, APK sans plugin', () => {
+    expect(traduire(err('auth/web-storage-unsupported')).texte).toBe("Ce navigateur refuse la fenêtre de Google (données de sites bloquées ?) : passe par l'e-mail.");
+    expect(traduire(err('terramemo/google-reessayer')).texte).toBe('Connexion Google interrompue : touche encore « Continuer avec Google ».');
+    expect(traduire(err('terramemo/google-apk-bientot')).texte).toBe("Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site.");
+  });
+
+  it('adresseErreur : l’adresse que Firebase met dans l’erreur (compte à mot de passe rencontré par Google)', () => {
+    const e = Object.assign(err('auth/account-exists-with-different-credential'), { customData: { appName: '[DEFAULT]', email: 'ana@yahoo.fr' } });
+    expect(adresseErreur(e)).toBe('ana@yahoo.fr');
+    expect(adresseErreur(err('auth/popup-blocked'))).toBeNull();
+    expect(adresseErreur(null)).toBeNull();
   });
 
   it('chaque texte de compte.erreurs est atteint par son code', () => {

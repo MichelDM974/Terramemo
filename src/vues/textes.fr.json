@@ -639,7 +639,10 @@
       "terramemo/suppression-inachevee": "Une suppression du compte est inachevée : reprends-la d'abord.",
       "terramemo/suppression-engagee": "La suppression est déjà engagée : elle ne s'annule plus, reprends-la.",
       "terramemo/suppression-reconnexion": "Ce compte se reconnecte sur le site : terramemo-geo.web.app.",
-      "auth/user-mismatch": "Ce n'est pas le compte connecté : choisis celui-là."
+      "auth/user-mismatch": "Ce n'est pas le compte connecté : choisis celui-là.",
+      "auth/web-storage-unsupported": "Ce navigateur refuse la fenêtre de Google (données de sites bloquées ?) : passe par l'e-mail.",
+      "terramemo/google-reessayer": "Connexion Google interrompue : touche encore « Continuer avec Google ».",
+      "terramemo/google-apk-bientot": "Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site."
     }
   },
   "confidentialite": {

@@ -61,6 +61,21 @@
 // ouverture (« Ce compte est en cours de suppression »), puis passe en
 // session perdue.
 //
+// Lot 6 (§ 2.2, § 2.3, § 4.1) : Google sur le site, par la fenêtre de Google
+// (src/sync/google.ts, remplacée dans les tests par un faux idToken de
+// l'émulateur). « Continuer avec Google » lie l'invité anonyme (uid gardé) ;
+// sans anonyme, se connecte au compte Google, créé s'il n'existe pas. Un
+// compte Google qui existe déjà (auth/credential-already-in-use au lien), ou
+// dont l'adresse est celle d'un compte à mot de passe
+// (auth/email-already-in-use) : connexion à ce compte par le credential de
+// l'erreur, puis la même question D22 qu'à la connexion par e-mail (rejoindre),
+// l'invité laissé à Firebase. Firebase est réglé sur un compte par adresse :
+// Google l'emporte alors sur le mot de passe (même uid) si Google est le
+// fournisseur de confiance de l'adresse, sinon
+// auth/account-exists-with-different-credential (« connecte-toi avec ton
+// adresse »). Pas de mot de passe ajouté à un compte Google (D19). Dans
+// l'APK, rien de Google avant le plugin du lot 7 (googleOffert() faux).
+//
 // Lien, pas copie (décision « Comptes ») : un anonyme devient un compte par
 // linkWithCredential, qui garde son uid ; jamais de signOut avant le lien.
 import { garderPseudoDans, periodeSemaine, poserAvisPseudo, pseudoValide } from '../epreuve/chrono';
@@ -68,6 +83,7 @@ import { synchroCoupee } from './drapeaux';
 import { dansApk } from '../retour-android';
 import { charger, compteDisparu, type Service } from './firebase';
 import { codeErreur } from './erreurs';
+import { googleParJeton, googlePopup, type Google } from './google';
 import { APRES_EFFACEMENT, effacerJoueurLocal, FIN_SUPPRESSION } from './effacement';
 import type { Marques } from './envoi';
 import { poserEtatCompte, type ChangementProfil } from './pont';
@@ -148,7 +164,8 @@ export type EtatCompte =
   | { etat: 'invite'; anonyme: boolean }
   /** `supprime` : le profil porte la pierre tombale (suppression lancée depuis un autre appareil, § 7.1). */
   | { etat: 'compte'; uid: string; adresse: string | null; verifiee: boolean; fournisseurs: Fournisseur[]; supprime?: boolean }
-  | { etat: 'perdue'; uid: string; adresse: string | null }
+  /** `fournisseurs` : ceux du compte perdu (Google : se reconnecter par la fenêtre de Google). */
+  | { etat: 'perdue'; uid: string; adresse: string | null; fournisseurs: Fournisseur[] }
   /**
    * Une suppression du compte inachevée sur cet appareil (`session.suppression`,
    * § 7.1) : `connecte`, le compte est connecté (reprise depuis la
@@ -203,6 +220,18 @@ export interface Comptes {
    * records du compte fusionnés avec ceux de l'appareil (s'ils sont gardés).
    */
   connecter(adresse: string, mdp: string, choisir?: (q: QuestionFusion) => Promise<ChoixFusion>): Promise<{ adresse: string; profil: ResultatProfil; fusion: ResultatFusion; reponses: number }>;
+  /**
+   * « Continuer avec Google » (lot 6, § 2.2 et § 2.3) : le lien de l'invité
+   * anonyme (uid gardé), ou la connexion au compte Google, créé s'il n'existe
+   * pas. Un compte qui existait déjà pose la question de fusion (D22) comme
+   * connecter() ; un compte neuf ne la pose que pour les séances d'une session
+   * perdue d'un autre compte, comme creer(). « Annuler » lève
+   * terramemo/connexion-annulee (un compte neuf est alors supprimé). `nouveau` :
+   * le compte vient d'être créé (lien ou création).
+   */
+  google(choisir?: (q: QuestionFusion) => Promise<ChoixFusion>): Promise<{ adresse: string; profil: ResultatProfil; fusion: ResultatFusion; reponses: number; nouveau: boolean }>;
+  /** Google se propose ici : sur le site (fenêtre de Google) ; dans l'APK, une fois le plugin branché (lot 7). */
+  googleOffert(): boolean;
   /** Mot de passe oublié : sans dire si l'adresse a un compte (message générique). */
   oublier(adresse: string): Promise<void>;
   /** Renvoie l'e-mail de vérification. */
@@ -319,11 +348,18 @@ export interface OptionsComptes {
   /** Dans l'APK ? Défaut : dansApk() (pont natif de Capacitor). */
   natif?: () => boolean;
   /**
-   * Dans l'APK, un nouvel idToken Google pour réauthentifier un compte Google
-   * avant sa suppression (§ 7.1, étape 1) : le plugin du lot 7. Absent :
-   * terramemo/google-apk (supprimer depuis le site).
+   * Dans l'APK, un nouvel idToken Google (le plugin du lot 7) : Google par ce
+   * jeton (connexion, lien, réauthentification avant une suppression, § 7.1).
+   * Absent : pas de Google dans l'APK (googleOffert() faux ; une suppression
+   * lève terramemo/google-apk, « supprime-le depuis le site »).
    */
   jetonGoogle?: () => Promise<string>;
+  /**
+   * Google remplacé (tests : googleParJeton et un faux idToken de l'émulateur,
+   * S9), ou null pour aucun. Défaut : la fenêtre de Google sur le site ; dans
+   * l'APK, googleParJeton(jetonGoogle) s'il est branché.
+   */
+  google?: Google | null;
 }
 
 function stockageDeLaPage(): StockageProfil | null {
@@ -372,6 +408,15 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
   let reseauEcoute = false;
   /** Repli du § 5.1 : une session que IndexedDB n'a pas pu écrire (quota plein) prime le temps de la page. */
   let sessionPage: Session | null = null;
+  let popup: Google | null = null;
+  let parJeton: Google | null = null;
+
+  /** Google ici : la fenêtre sur le site ; dans l'APK, l'idToken du plugin (lot 7) ; null sans lui. */
+  function sourceGoogle(): Google | null {
+    if (o.google !== undefined) return o.google;
+    if (!natif()) return (popup ??= googlePopup());
+    return o.jetonGoogle ? (parJeton ??= googleParJeton(o.jetonGoogle)) : null;
+  }
 
   const prevenir = () => abonnes.forEach((f) => f());
   const jetonChange = (quoi: 'connexion' | 'jeton') => jetons.forEach((f) => f(quoi));
@@ -565,6 +610,46 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     }
   }
 
+  /**
+   * L'appareil rejoint le compte `user`, déjà connecté (e-mail, Google) mais
+   * pas encore pris par la session (§ 2.3) : la question D22 s'il le faut,
+   * l'effacement de « Ne pas les ajouter », puis la session prend le compte
+   * (connecte). `nouveau` : un compte que ce passage vient de créer (lien de
+   * l'invité, premier passage par Google) n'a rien en ligne ; la question ne
+   * se pose alors que pour les séances d'une session perdue d'un autre compte,
+   * comme dans creer(). « Annuler », ou un échec avant que la session ait pris
+   * le compte (effacement, lecture du journal) : il est lâché, comme s'il
+   * n'avait jamais été connecté, sans quoi la réparation d'etat() le prendrait
+   * sans réponse ; neuf et « Annuler », il est supprimé : rien ne reste de ce
+   * passage.
+   */
+  async function rejoindre(
+    s: Service,
+    user: import('firebase/auth').User,
+    avant: Session,
+    choisir: ((q: QuestionFusion) => Promise<ChoixFusion>) | undefined,
+    nouveau: boolean,
+  ): Promise<{ profil: ResultatProfil; fusion: ResultatFusion; reponses: number }> {
+    try {
+      const q = nouveau ? (avant.uid ? await question(null, avant) : null) : await question(user.uid, avant);
+      const choix = q ? (choisir ? await choisir(q) : 'ajouter') : 'ajouter';
+      // L'état d'avant revient (invité, session perdue) : rien n'est parti, rien n'est effacé.
+      if (choix === 'annuler') throw new ErreurCompte('terramemo/connexion-annulee');
+      // « Ne pas les ajouter » : effacés maintenant, avant la restauration (§ 2.3, étape 3).
+      if (choix === 'effacer') await effacerTout([avant.uid, user.uid]);
+      const profil = await connecte(user, nouveau);
+      prevenir();
+      const fusion: ResultatFusion = !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute';
+      return { profil, fusion, reponses: q && choix === 'ajouter' ? q.reponses : 0 };
+    } catch (e) {
+      if ((await lireSession()).uid !== user.uid) {
+        if (nouveau && codeErreur(e) === 'terramemo/connexion-annulee') await s.m.auth.deleteUser(user).catch(noter);
+        if (s.a.currentUser) await s.m.auth.signOut(s.a).catch(noter);
+      }
+      throw e;
+    }
+  }
+
   // --- Profil (§ 5.4) ---
 
   /** Incrémenté à chaque changement noté : une synchro ne lève le drapeau que si rien n'est venu depuis son début. */
@@ -701,6 +786,9 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     });
   }
 
+  /** L'état d'une session perdue : le dernier compte de la session (§ 2.5). */
+  const perdue = (ses: Session): EtatCompte => ({ etat: 'perdue', uid: ses.uid!, adresse: ses.adresse, fournisseurs: [...ses.fournisseurs] });
+
   async function etat(): Promise<EtatCompte> {
     const s = await service();
     surveiller(s);
@@ -752,11 +840,11 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       // ni pendant la question de fusion de cette page (le compte n'est pas encore pris).
       if (ses.uid !== u.uid && !ses.deconnexion && ses.connexion === null && s.a.currentUser === u)
         await ecrireSession({ uid: u.uid, fournisseurs: fournisseursDe(u), adresse: u.email, deconnexion: null });
-      if (ses.uid !== u.uid && questionIci) e = ses.uid ? { etat: 'perdue', uid: ses.uid, adresse: ses.adresse } : { etat: 'invite', anonyme: false };
+      if (ses.uid !== u.uid && questionIci) e = ses.uid ? perdue(ses) : { etat: 'invite', anonyme: false };
       else e = { etat: 'compte', uid: u.uid, adresse: u.email, verifiee: u.emailVerified, fournisseurs: fournisseursDe(u), ...(tombeVue === u.uid ? { supprime: true } : {}) };
       if (e.etat === 'compte') await verifierJeton(u);
     } else if (enQuestion) {
-      e = ses.uid ? { etat: 'perdue', uid: ses.uid, adresse: ses.adresse } : { etat: 'invite', anonyme: false };
+      e = ses.uid ? perdue(ses) : { etat: 'invite', anonyme: false };
     } else if (!ses.uid && ses.deconnexion && !deconnexionIci) {
       // Déconnexion finie (appareil effacé au démarrage), drapeau resté : levé.
       await ecrireSession({ deconnexion: null });
@@ -769,7 +857,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     } else if (ses.uid) {
       // Plus de compte, sans déconnexion voulue : session perdue (§ 2.5). Un anonyme créé
       // depuis pour publier un score n'y change rien.
-      e = { etat: 'perdue', uid: ses.uid, adresse: ses.adresse };
+      e = perdue(ses);
     } else {
       e = { etat: 'invite', anonyme: !!u?.isAnonymous };
     }
@@ -986,30 +1074,90 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         try {
           await ecrireSession({ connexion: maintenant() });
           const { user } = await s.m.auth.signInWithEmailAndPassword(s.a, a, mdp);
-          try {
-            const q = await question(user.uid, avant);
-            const choix = q ? (choisir ? await choisir(q) : 'ajouter') : 'ajouter';
-            // L'état d'avant revient (invité, session perdue) : rien n'est parti, rien n'est effacé.
-            if (choix === 'annuler') throw new ErreurCompte('terramemo/connexion-annulee');
-            // « Ne pas les ajouter » : effacés maintenant, avant la restauration (§ 2.3, étape 3).
-            if (choix === 'effacer') await effacerTout([avant.uid, user.uid]);
-            const profil = await connecte(user);
-            prevenir();
-            const fusion: ResultatFusion = !q ? 'sans_question' : choix === 'effacer' ? 'efface' : 'ajoute';
-            return { adresse: user.email ?? a, profil, fusion, reponses: q && choix === 'ajouter' ? q.reponses : 0 };
-          } catch (e) {
-            // « Annuler », ou un échec avant que la session ait pris le compte (effacement, lecture du
-            // journal) : le compte est lâché, comme s'il n'avait jamais été connecté. Sans quoi la
-            // réparation d'etat() le prendrait sans réponse.
-            if ((await lireSession()).uid !== user.uid) await s.m.auth.signOut(s.a).catch(noter);
-            throw e;
-          }
+          return { adresse: user.email ?? a, ...(await rejoindre(s, user, avant, choisir, false)) };
         } finally {
           questionIci = false;
           await modifierSession((x) => (x.connexion !== null ? { connexion: null } : null));
           prevenir();
         }
       }),
+
+    google: (choisir) =>
+      suivi(async () => {
+        const g = sourceGoogle();
+        // Dans l'APK sans le plugin (lot 7) : la vue ne propose pas Google.
+        if (!g) throw new ErreurCompte('terramemo/google-apk-bientot');
+        const s = await service();
+        surveiller(s);
+        // Rien de long avant la fenêtre de Google : le navigateur ne l'ouvre que peu après le geste
+        // (quelques secondes dans Chrome). Ici, la session (IndexedDB), et au pire le jeton de l'invité.
+        await sansSuppression();
+        const avant = await finirEffacement();
+        const { auth } = s.m;
+        const courant = s.a.currentUser;
+        if (estCompte(courant) && avant.uid === courant!.uid && !avant.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
+        // Un compte d'une question tuée, encore connecté : lâché d'abord, jamais lié.
+        await lacherCompteNonPris(s, avant);
+        let anonyme = s.a.currentUser?.isAnonymous ? s.a.currentUser : null;
+        if (anonyme) {
+          // Un invité que Firebase a supprimé (30 jours après sa création) ne se lie plus : son jeton,
+          // en cache s'il vaut encore (sans réseau), le dit ; il est oublié, et Google crée le compte.
+          try {
+            await anonyme.getIdToken();
+          } catch (e) {
+            if (!compteDisparu(e)) throw e;
+            noter(e);
+            if (s.a.currentUser === anonyme) await auth.signOut(s.a);
+            anonyme = null;
+          }
+        }
+        questionIci = true;
+        try {
+          // Une question est possible après la fenêtre (compte existant ; séances d'une session perdue
+          // d'un autre compte) : `connexion` dit à une page suivante, l'appli tuée pendant la question, de
+          // ne pas prendre le compte. Le lien d'un invité sans session n'en pose pas : l'appli tuée juste
+          // après, la page suivante prend le compte lié (réparation d'etat()), comme après creer().
+          if (!anonyme || avant.uid) await ecrireSession({ connexion: maintenant() });
+          let cred: import('firebase/auth').UserCredential;
+          let lie = false;
+          if (anonyme) {
+            try {
+              cred = await g.lier(s, anonyme);
+              lie = true;
+            } catch (e) {
+              const code = codeErreur(e);
+              if (code !== 'auth/credential-already-in-use' && code !== 'auth/email-already-in-use') {
+                // L'invité supprimé par Firebase entre-temps, son jeton encore valable : oublié. La fenêtre
+                // ne se rouvre pas d'elle-même (sans nouveau geste, le navigateur la bloquerait).
+                if (compteDisparu(e)) {
+                  noter(e);
+                  if (s.a.currentUser === anonyme) await auth.signOut(s.a).catch(noter);
+                  throw new ErreurCompte('terramemo/google-reessayer');
+                }
+                throw e;
+              }
+              // Le compte Google existe déjà, ou son adresse est celle d'un compte à mot de passe : connexion
+              // à ce compte par le credential de l'erreur ; l'invité est laissé à Firebase (§ 2.3), qui le
+              // supprime 30 jours après sa création. Un compte à mot de passe dont Google n'est pas le
+              // fournisseur de confiance répond auth/account-exists-with-different-credential.
+              noter(e);
+              const c = g.credentialDe(s, e);
+              if (!c) throw new ErreurCompte('terramemo/google-reessayer');
+              if (!avant.uid) await ecrireSession({ connexion: maintenant() });
+              cred = await auth.signInWithCredential(s.a, c);
+            }
+          } else cred = await g.connecter(s);
+          // Un compte neuf : le lien, ou le premier passage par Google (sans anonyme).
+          const nouveau = lie || auth.getAdditionalUserInfo(cred)?.isNewUser === true;
+          return { adresse: cred.user.email ?? '', ...(await rejoindre(s, cred.user, avant, choisir, nouveau)), nouveau };
+        } finally {
+          questionIci = false;
+          await modifierSession((x) => (x.connexion !== null ? { connexion: null } : null));
+          prevenir();
+        }
+      }),
+
+    googleOffert: () => sourceGoogle() !== null,
 
     oublier: (adresse) =>
       suivi(async () => {

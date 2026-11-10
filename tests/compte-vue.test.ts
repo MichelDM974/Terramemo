@@ -358,7 +358,7 @@ describe('vue Compte', () => {
   });
 
   it('session perdue : le nombre de séances, se reconnecter (adresse pré-remplie) ou continuer sans compte', async () => {
-    const c = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' });
+    const c = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] });
     const e = fauxEnvoi({}, 3);
     await ouvrir(c, e);
     expect(e.compter).toHaveBeenCalledWith('u1');
@@ -673,7 +673,7 @@ describe('vue Compte, lot 4 : question de fusion, déconnexion reprenable, effac
   });
 
   it('session perdue : « Effacer cet appareil » confirme avec le nombre de réponses, puis invité', async () => {
-    const c = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' });
+    const c = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] });
     await ouvrir(c);
     expect($('#compte-effacer')!.className).toBe('danger');
     $('#compte-effacer')!.click();
@@ -720,7 +720,7 @@ describe('vue Compte, lot 4 : question de fusion, déconnexion reprenable, effac
   it('(V1) création après la question, adresse déjà prise : bascule vers « Se connecter », l’erreur gardée', async () => {
     questionConnexion = { sorte: 'autre_compte', reponses: 3, records: 0, seances: 1 };
     echecApres = err('auth/email-already-in-use');
-    const c = fauxComptes({ etat: 'perdue', uid: 'ux', adresse: 'x@exemple.fr' });
+    const c = fauxComptes({ etat: 'perdue', uid: 'ux', adresse: 'x@exemple.fr', fournisseurs: ['password'] });
     await ouvrir(c);
     $('#compte-reconnecter')!.click();
     $('#compte-vers-creer')!.click();
@@ -1010,7 +1010,7 @@ describe('vue Compte, lot 5 : export des données', () => {
     expect($('#compte-exporter')!.textContent).toBe(T.exporter);
     expect($('#compte-exporter')!.className).toBe('lien');
     zone = document.createElement('main') as unknown as El;
-    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' }));
+    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] }));
     expect($('#compte-exporter')).not.toBeNull();
   });
 
@@ -1058,7 +1058,7 @@ describe('vue Compte, lot 5 : export des données', () => {
     expect($('#compte-exporter')).toBeNull();
     expect($('#compte-exporter-site')).toBeNull();
     zone = document.createElement('main') as unknown as El;
-    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' }), { natif: true });
+    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] }), { natif: true });
     expect($('#compte-exporter')).toBeNull();
     expect($('#compte-exporter-site')).toBeNull();
   });
@@ -1134,7 +1134,7 @@ describe('vue Compte, lot 5 : export des données', () => {
     await attendre();
     expect(c2.deconnecter).toHaveBeenLastCalledWith({ quandMeme: true });
     // 3. « Effacer cet appareil ».
-    const c3 = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' });
+    const c3 = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] });
     await ouvrirLent(c3);
     $('#compte-effacer')!.click();
     await attendre();
@@ -1178,7 +1178,7 @@ describe('vue Compte, lot 5 : export des données', () => {
   });
 
   it('« Effacer cet appareil » (session perdue) : « Exporter d’abord » aussi', async () => {
-    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr' }));
+    await ouvrirExport(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] }));
     $('#compte-effacer')!.click();
     await attendre();
     expect($('#compte-contenu')!.querySelectorAll('button').map((b) => b.id)).toEqual(['compte-exporter-dabord', 'compte-effacer-ok', 'compte-annuler']);

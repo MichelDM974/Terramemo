@@ -39,6 +39,16 @@ export function codeErreur(err: unknown): string {
   return typeof c === 'string' ? c : '';
 }
 
+/**
+ * L'adresse qu'une erreur de Firebase Auth porte (`customData.email`) :
+ * auth/account-exists-with-different-credential, celle du compte à mot de
+ * passe qu'un compte Google rencontre (§ 2.3). null sans adresse.
+ */
+export function adresseErreur(err: unknown): string | null {
+  const a = (err as { customData?: { email?: unknown } } | null)?.customData?.email;
+  return typeof a === 'string' && a ? a : null;
+}
+
 function messageBrut(err: unknown): string {
   if (err instanceof Error) return err.message;
   const m = (err as { message?: unknown } | null)?.message;

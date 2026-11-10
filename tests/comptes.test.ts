@@ -186,7 +186,7 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
     const vu = vi.fn();
     comptes.surChangement(vu);
     const e = await comptes.etat();
-    expect(e).toEqual({ etat: 'perdue', uid, adresse: a });
+    expect(e).toEqual({ etat: 'perdue', uid, adresse: a, fournisseurs: ['password'] });
     expect(comptes.rapport().erreurs.map((x) => x.code)).toContain('auth/user-token-expired');
     expect((await session.lire())?.uid).toBe(uid);
     // Reconnexion au même compte, avec le nouveau mot de passe : reprise.
@@ -315,6 +315,6 @@ describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {
     await updatePassword(autre.currentUser!, 'nouveaumdp');
     expect((await comptes.etat()).etat).toBe('perdue');
     await F.compte(await F.charger()); // une publication de score
-    expect(await comptes.etat()).toEqual({ etat: 'perdue', uid, adresse: a });
+    expect(await comptes.etat()).toEqual({ etat: 'perdue', uid, adresse: a, fournisseurs: ['password'] });
   });
 });
