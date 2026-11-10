@@ -1606,7 +1606,63 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     $('#accueil-compte-fusion-ajouter')!.click();
     await attendre();
     await attendre();
+    // Ce que la connexion a fait se lit avant la fermeture : « Continuer » ferme le panneau.
+    expect(fini).not.toHaveBeenCalled();
+    expect($('#accueil-compte-fini')!.textContent).toBe('Connecté : ana@exemple.fr. Ton compte a reçu les progrès de cet appareil (12 réponses).');
+    expect($('#accueil-compte-continuer')!.getAttribute('aria-describedby')).toBe('accueil-compte-fini');
+    expect($('#accueil-compte-message')!.textContent).toBe('');
+    expect(derniereEntree(surEcran)).toBe(false);
+    $('#accueil-compte-continuer')!.click();
     expect(fini).toHaveBeenCalledOnce();
+  });
+
+  it('le pseudo de l’appareil remplacé par celui du compte : dit avant la fermeture, pas perdu avec le panneau', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Michel');
+    localStorage.setItem('terramemo.pseudo.remplace', 'Bob');
+    profilConnexion = { ...PROFIL, pseudo: 'Michel', ancienPseudo: 'Bob' };
+    const c = fauxComptes();
+    const { fini } = await monter(c);
+    $('#accueil-compte-vers-connecter')!.click();
+    $('#accueil-compte-adresse')!.value = 'ana@exemple.fr';
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-connecter');
+    await attendre();
+    await attendre();
+    expect(fini).not.toHaveBeenCalled();
+    expect($('#accueil-compte-fini')!.textContent).toBe(`Connecté : ana@exemple.fr. ${remplir(T.pseudo_du_compte, { pseudo: 'Michel' })}`);
+    $('#accueil-compte-continuer')!.click();
+    expect(fini).toHaveBeenCalledOnce();
+  });
+
+  it('un compte créé par un joueur qui a un pseudo : « e-mail de vérification parti » lu avant la fermeture', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const c = fauxComptes();
+    const { fini } = await monter(c);
+    $('#accueil-compte-vers-creer')!.click();
+    $('#accueil-compte-adresse')!.value = 'ana@exemple.fr';
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-creer');
+    await attendre();
+    await attendre();
+    expect(fini).not.toHaveBeenCalled();
+    expect($('#accueil-compte-fini')!.textContent).toBe('Compte créé. Un e-mail de vérification est parti à ana@exemple.fr.');
+    $('#accueil-compte-continuer')!.click();
+    expect(fini).toHaveBeenCalledOnce();
+  });
+
+  it('e-mail de vérification pas parti : au panneau, on le renvoie depuis ⚙ › Compte (pas « ci-dessous »)', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const c = fauxComptes();
+    const cree = c.creer.getMockImplementation()!;
+    c.creer.mockImplementationOnce(async (...a: Parameters<typeof cree>) => ({ ...(await cree(...a)), verification: false }));
+    await monter(c);
+    $('#accueil-compte-vers-creer')!.click();
+    $('#accueil-compte-adresse')!.value = 'ana@exemple.fr';
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-creer');
+    await attendre();
+    await attendre();
+    expect($('#accueil-compte-fini')!.textContent).toBe(T.cree_sans_email_panneau);
   });
 
   it('dans l’APK sans le plugin (lot 7) : l’e-mail seul, en bouton principal, et la ligne « Google arrive bientôt »', async () => {

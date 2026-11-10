@@ -336,6 +336,22 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
   const effacerAvis = () => {
     message.textContent = '';
     erreur.textContent = '';
+    aRetenir = false;
+  };
+  /**
+   * Au panneau, le message d'une connexion ou d'une création qui dit plus que
+   * « Connecté : … » (e-mail de vérification, progrès ajoutés ou effacés,
+   * pseudo remplacé par celui du compte, mot de passe retiré) : il se lit sur
+   * l'écran « fini » avant que le panneau se ferme, sinon il se perdrait avec
+   * lui (et l'avis du pseudo remplacé, déjà pris, ne se redirait plus).
+   */
+  let aRetenir = false;
+  /** Le texte de l'écran « fini » (panneau), et « Continuer ». */
+  let texteFini = '';
+  /** Le message d'une connexion réussie ; `simple` : le texte qui ne dit que la connexion (null : jamais simple). */
+  const direConnexion = (t: string, simple: string | null) => {
+    dire(t);
+    aRetenir = t !== simple;
   };
   /** L'avis d'un pseudo remplacé par celui du compte : dit par le message de la connexion, il ne se redit pas ailleurs. */
   const avisPseudoDit = () => void prendreAvisPseudo(stockageDeLaPage());
@@ -439,9 +455,16 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     // Au panneau : « Continuer en invité » sous l'écran des entrées seulement (et tant qu'il charge).
     accueil?.surEcran?.(e === 'invite' || e === 'chargement' || e === 'echec');
     if (e === 'fini') {
-      contenu.replaceChildren();
-      accueil?.fini();
-      return;
+      // Un message à lire (aRetenir) : l'écran « fini » et « Continuer » ; sinon le panneau se ferme.
+      if (accueil && aRetenir && message.textContent) {
+        texteFini = message.textContent;
+        effacerAvis();
+      }
+      if (!texteFini) {
+        contenu.replaceChildren();
+        accueil?.fini();
+        return;
+      }
     }
     rendre();
   }
@@ -492,7 +515,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
         throw e;
       }
       avisPseudoDit();
-      dire([texteGoogle(r, posee), textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
+      direConnexion([texteGoogle(r, posee), textePseudoDuCompte(r.profil)].filter(Boolean).join(' '), remplir(T.connecte, { adresse: r.adresse }));
       await apres(c);
     });
   }
@@ -712,7 +735,9 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
             const r = await c.creer(a.input.value, m.input.value, demander('creer'));
             avisPseudoDit();
             const fusion = r.fusion === 'efface' ? T.cree_efface : '';
-            dire([r.verification ? remplir(T.cree, { adresse: r.adresse }) : T.cree_sans_email, fusion, textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
+            // Au panneau, pas de « Renvoyer » ci-dessous : il est dans ⚙ › Compte.
+            const sansEmail = accueil ? T.cree_sans_email_panneau : T.cree_sans_email;
+            direConnexion([r.verification ? remplir(T.cree, { adresse: r.adresse }) : sansEmail, fusion, textePseudoDuCompte(r.profil)].filter(Boolean).join(' '), null);
             await apres(c);
           });
         };
@@ -749,7 +774,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
             let posee: QuestionFusion | null = null;
             const r = await c.connecter(a.input.value, m.input.value, (q) => ((posee = q), demander('connecter')(q)));
             avisPseudoDit();
-            dire([texteConnexion(r, posee), textePseudoDuCompte(r.profil)].filter(Boolean).join(' '));
+            direConnexion([texteConnexion(r, posee), textePseudoDuCompte(r.profil)].filter(Boolean).join(' '), remplir(T.connecte, { adresse: r.adresse }));
             await apres(c);
           });
         };
@@ -949,7 +974,9 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
           }
           void agir(async (c) => {
             const r = await c.changerPseudo(v);
-            dire(profilAJour(r) ? remplir(T.pseudo_change, { pseudo: v }) : T.pseudo_garde);
+            // Au panneau, le pseudo choisi ferme le panneau sans rien de plus à lire (le message de la connexion était au-dessus).
+            if (accueil) effacerAvis();
+            else dire(profilAJour(r) ? remplir(T.pseudo_change, { pseudo: v }) : T.pseudo_garde);
             await apres(c);
           });
         };
@@ -965,13 +992,26 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
               { class: 'compte-actions' },
               bouton(ident('pseudo-ok'), T.pseudo_bouton, envoyer, 'principal', 'submit'),
               // Au panneau, le compte est connecté : « Plus tard » mène à la carte (le pseudo se choisit ensuite dans ⚙ › Compte).
-              accueil ? bouton(ident('pseudo-plus-tard'), T.pseudo_plus_tard, () => aller('fini')) : bouton(ident('annuler'), T.annuler, () => annuler()),
+              accueil
+                ? bouton(ident('pseudo-plus-tard'), T.pseudo_plus_tard, () => {
+                    effacerAvis();
+                    aller('fini');
+                  })
+                : bouton(ident('annuler'), T.annuler, () => annuler()),
             ),
           ),
         ];
       }
-      case 'fini':
-        return [];
+      case 'fini': {
+        // Au panneau : ce que la connexion a fait (aRetenir), lu avant la fermeture.
+        if (!texteFini) return [];
+        const continuer = bouton(ident('continuer'), T.continuer, () => {
+          texteFini = '';
+          accueil?.fini();
+        }, 'principal');
+        continuer.setAttribute('aria-describedby', ident('fini'));
+        return [creer('p', { id: ident('fini') }, texteFini), creer('div', { class: 'compte-actions' }, continuer)];
+      }
       case 'perdue': {
         // Un compte Google seul se reconnecte par Google ; un compte à mot de passe (Google en plus
         // ou non), par son adresse d'abord. Google en second aussi pour une adresse Gmail : Google a pu
