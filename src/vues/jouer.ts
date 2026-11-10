@@ -12,6 +12,7 @@
 // ligne). « ‹ » et le fil d'Ariane remontent, « × » ferme (main.ts) ; chaque
 // niveau a son adresse, que main.ts donne à aller().
 import { idEpreuve, lireRecords, type RecordChrono } from '../epreuve/chrono';
+import { estDomaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import {
   adresse,
@@ -55,10 +56,10 @@ export const detailExercice = (m: ModeJeu, sujet = 'pays'): string =>
 /** Règles complètes d'une épreuve (barème, départage), derrière « ? » ; '' pour un exercice d'entraînement. */
 export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[m].aide, { s: secondesMode(m) }) : '');
 
-/** Le record de cet exercice dans cette série (« 12 450 pts », « 17 d'affilée ») ; '' s'il n'y en a pas (ou en entraînement). */
-export function recordDe(records: ReadonlyMap<string, RecordChrono>, m: ModeJeu, serie: string): string {
-  if (!estEpreuve(m)) return '';
-  const r = records.get(idEpreuve(serie, m));
+/** Le record de cet exercice dans cette série du sujet (« 12 450 pts », « 17 d'affilée ») ; '' s'il n'y en a pas (ou en entraînement, ou pour un sujet sans fiches). */
+export function recordDe(records: ReadonlyMap<string, RecordChrono>, m: ModeJeu, serie: string, sujet = 'pays'): string {
+  if (!estEpreuve(m) || !estDomaine(sujet)) return '';
+  const r = records.get(idEpreuve(serie, m, sujet));
   return r ? scoreCourt(m, r.points) : '';
 }
 
@@ -261,7 +262,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     const records = lireRecords(stockage());
     const boutons: HTMLButtonElement[] = [];
     for (const m of arbre.modes(n.branche, n.sujet)) {
-      const b = marque(bouton({ 'data-mode': m, class: 'jouer-ligne' }, nomExercice(m), detailExercice(m, n.sujet), recordDe(records, m, n.serie), '', icone(m)), m);
+      const b = marque(bouton({ 'data-mode': m, class: 'jouer-ligne' }, nomExercice(m), detailExercice(m, n.sujet), recordDe(records, m, n.serie, n.sujet), '', icone(m)), m);
       b.addEventListener('click', () => {
         if (rendue) choixFaits.set(rendue, m);
         lancer({ branche: n.branche, sujet: n.sujet, serie: n.serie, mode: m }, boutons, statut);

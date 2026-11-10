@@ -21,7 +21,7 @@ import {
   type Niveau,
 } from '../src/vues/arbre';
 import { catalogue, SERIE_ESSAI } from '../src/vues/cibles';
-import { remplirEssaiJ0, vueJouer, type OptionsJouer } from '../src/vues/jouer';
+import { recordDe, remplirEssaiJ0, vueJouer, type OptionsJouer } from '../src/vues/jouer';
 import { textes } from '../src/vues/textes';
 import { El, installerDom, installerStockage } from './dom-factice';
 
@@ -253,6 +253,9 @@ describe('la vue Jouer', () => {
     expect(ligne('chrono')).toContain(`${(31_710).toLocaleString('fr-FR')} pts`);
     expect(ligne('minute')).toContain('23 justes');
     expect(ligne('sansfaute')).not.toContain('record'); // pas encore de record
+    // Le record d'un autre sujet sur la même série n'est pas celui des pays (étude J2 § 3.2).
+    expect(recordDe(new Map([[idEpreuve('Africa', 'chrono', 'capitales'), { points: 9, justes: 9, questions: 9, temps_ms: 9_000, date: 1, bareme: 1 }]]), 'chrono', 'Africa', 'pays')).toBe('');
+    expect(recordDe(new Map([[idEpreuve('Africa', 'chrono', 'capitales'), { points: 9, justes: 9, questions: 9, temps_ms: 9_000, date: 1, bareme: 1 }]]), 'chrono', 'Africa', 'capitales')).toBe('9 pts');
     expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé›Pays›Afrique');
     const regles = j.panneau.querySelector('#jouer-regles')!;
     expect(regles.hidden).toBe(true);

@@ -156,6 +156,7 @@
     "toutes_epreuves": "Toutes les épreuves",
     "masquer_epreuves": "Masquer les autres épreuves",
     "general_nom": "Général",
+    "epreuve_sujet": "{sujet} · {serie}",
     "pas_classe": "pas encore classé",
     "rang_sur": "{rang} sur {n}",
     "rang_1": "1er",

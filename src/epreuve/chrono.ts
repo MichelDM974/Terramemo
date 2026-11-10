@@ -3,6 +3,7 @@
 // (bareme.ts) ; Sans faute et Minute comptent les justes (décision « Sans
 // faute et Minute »). Les records se gardent sur l'appareil (de toujours et de
 // la semaine) ; classement.ts les publie.
+import type { Domaine } from '../srs/fiches';
 import { comparerScores, DELAI_CHRONO_MS, ECHELLE_KM, POINTS_JUSTE, POINTS_PROCHE_MAX, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
 
 /** Version du barème : un changement de formule repart de records vides. */
@@ -21,6 +22,14 @@ export interface QuestionJouee extends ReponseChrono {
  */
 export type ModeEpreuve = 'chrono' | 'sansfaute' | 'minute';
 export const MODES_EPREUVE: readonly ModeEpreuve[] = ['chrono', 'sansfaute', 'minute'];
+
+/**
+ * Le mode d'un classement : une épreuve, ou le quiz général
+ * (`quiz:general:<difficulté>`, étude J2 § 9.4), classé à part et hors du
+ * général. MODES_EPREUVE ne change pas : il fait les exercices classés de
+ * chaque série (src/vues/arbre.ts).
+ */
+export type ModeClasse = ModeEpreuve | 'quiz';
 
 /** Délai par question de Sans faute : celui du Chrono au toucher. */
 export const DELAI_SANS_FAUTE_MS = DELAI_CHRONO_MS.localiser;
@@ -198,18 +207,34 @@ export function recordPubliable(r: RecordChrono, epreuve: string): ScoreEpreuve 
 }
 
 /**
- * Identifiant d'une épreuve : mode, exercice, série (un continent, 'tous' ou
- * 'reunion') : `chrono:localiser:reunion`, `minute:localiser:Africa`.
+ * La clé d'un sujet dans l'id de ses épreuves (étude J2 § 3.2) : `localiser`
+ * pour les pays et les communes, inchangé (records, profils et classements
+ * en dépendent), le nom du sujet pour les autres. Figée à vie, comme les
+ * règles Firestore qui la lisent.
  */
-export const idEpreuve = (serie: string, mode: ModeEpreuve = 'chrono'): string => `${mode}:localiser:${serie}`;
+export const CLE_SUJET: Readonly<Record<Domaine, string>> = { pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' };
 
 /**
- * Le mode d'une épreuve, ou d'une clé de record (`…@s2914`). Le général
- * (`general`) est du Chrono : il additionne ses records.
+ * Identifiant d'une épreuve : mode, clé du sujet, série (un continent, 'tous',
+ * 'reunion', 'mers') : `chrono:localiser:reunion`, `minute:localiser:Africa`,
+ * `chrono:capitales:Africa`.
  */
-export function modeEpreuve(epreuve: string): ModeEpreuve {
-  const m = epreuve.split(':')[0];
-  return m === 'sansfaute' || m === 'minute' ? m : 'chrono';
+export const idEpreuve = (serie: string, mode: ModeEpreuve = 'chrono', sujet: Domaine = 'pays'): string => `${mode}:${CLE_SUJET[sujet]}:${serie}`;
+
+/** Le classement général : la somme des records des épreuves de EPREUVES (src/epreuve/classement.ts, GENERAL). */
+const ID_GENERAL = 'general';
+
+/**
+ * Le mode d'un classement, ou d'une clé de record (`…@s2914`) : le général
+ * (`general`) est du Chrono (il additionne ses records), `quiz:…` est le
+ * quiz ; null pour un préfixe inconnu (une épreuve d'une version plus
+ * récente), que rien ne publie ni n'additionne.
+ */
+export function modeEpreuve(epreuve: string): ModeClasse | null {
+  const id = epreuve.split('@')[0] ?? '';
+  if (id === ID_GENERAL) return 'chrono';
+  const m = id.split(':')[0] ?? '';
+  return m === 'quiz' || (MODES_EPREUVE as readonly string[]).includes(m) ? (m as ModeClasse) : null;
 }
 
 /**
@@ -225,6 +250,7 @@ export const SERIES_EPREUVES: readonly string[] = ['tous', 'Africa', 'North Amer
  * chacune (classement.ts, placesDuPseudo).
  */
 export const EPREUVES: readonly string[] = SERIES_EPREUVES.map((s) => idEpreuve(s));
+const DANS_LE_GENERAL: ReadonlySet<string> = new Set(EPREUVES);
 
 /** Toutes les épreuves classées, mode par mode : l'écran des classements les liste ainsi. */
 export const EPREUVES_CLASSEES: readonly string[] = MODES_EPREUVE.flatMap((m) => SERIES_EPREUVES.map((s) => idEpreuve(s, m)));
@@ -386,13 +412,17 @@ export function recordDe(records: Map<string, RecordChrono>, epreuve: string, pe
 /** Bornes du temps par question que firestore.rules impose à un score publié (ms). */
 export const TEMPS_MIN_QUESTION_MS = 200;
 export const TEMPS_MAX_QUESTION_MS = 15_000;
+/** Questions d'une partie du quiz général (quizValide de firestore.rules, étude J2 § 8.2). */
+export const QUESTIONS_QUIZ = 20;
 
 /**
  * Le score de cette épreuve (ou clé de record) passerait-il les bornes de
  * firestore.rules (scoreValide), arrondi comme publier() l'envoie ? Faux : les
  * règles le refuseraient, inutile de l'écrire, et le général prend à sa place
  * le meilleur score publiable de l'épreuve (recordPubliable). La taille de
- * l'épreuve et la progression se jugent sur le serveur seulement.
+ * l'épreuve et la progression se jugent sur le serveur seulement. Le quiz :
+ * les bornes de quizValide (étude J2 § 8.2 : 20 questions, barème du Chrono) ;
+ * un mode inconnu : faux.
  */
 export function vraisemblable(s: ScoreEpreuve, epreuve: string): boolean {
   const points = Math.round(s.points);
@@ -406,21 +436,34 @@ export function vraisemblable(s: ScoreEpreuve, epreuve: string): boolean {
     case 'minute':
       return points === justes && temps >= q * TEMPS_MIN_QUESTION_MS && temps <= DUREE_MINUTE_MS;
     case 'chrono':
-      return (
-        q >= 1 &&
-        points >= justes * POINTS_JUSTE &&
-        points <= justes * POINTS_JUSTE + (q - justes) * POINTS_PROCHE_MAX &&
-        temps >= q * TEMPS_MIN_QUESTION_MS &&
-        temps <= q * TEMPS_MAX_QUESTION_MS
-      );
+      return baremeChrono(points, justes, q, temps);
+    case 'quiz':
+      // Les bornes du Chrono, sur 20 questions.
+      return q === QUESTIONS_QUIZ && baremeChrono(points, justes, q, temps);
+    case null:
+      return false;
   }
 }
 
+/** Les bornes du barème du Chrono (scoreValide de firestore.rules) : 1 000 par juste, 500 au plus par erreur, 0,2 à 15 s par question. */
+function baremeChrono(points: number, justes: number, q: number, temps: number): boolean {
+  return (
+    q >= 1 &&
+    points >= justes * POINTS_JUSTE &&
+    points <= justes * POINTS_JUSTE + (q - justes) * POINTS_PROCHE_MAX &&
+    temps >= q * TEMPS_MIN_QUESTION_MS &&
+    temps <= q * TEMPS_MAX_QUESTION_MS
+  );
+}
+
 /**
- * Le score du classement général : la somme des records de toutes les
- * épreuves du Chrono pour la période (décisions « Classements », « Sans
- * faute et Minute » : ni Sans faute ni Minute n'y comptent), chacun pris à son
+ * Le score du classement général : la somme des records des épreuves de
+ * EPREUVES pour la période (décisions « Classements », « Sans faute et
+ * Minute » : ni Sans faute ni Minute n'y comptent), chacun pris à son
  * meilleur score publiable (recordPubliable) ; null sans record publiable.
+ * Les seules listées (étude J2 § 3.2) : ni le quiz, ni un Chrono que cette
+ * version ne connaît pas (venu par le profil d'une version plus récente),
+ * que les règles ne sauraient borner.
  * `enLigne` (épreuve → place du pseudo au classement de la période) : les
  * records des autres appareils du même pseudo (décision « Une place par
  * pseudo ») ; chaque épreuve compte le meilleur des deux.
@@ -429,11 +472,12 @@ export function totalGeneral(records: Map<string, RecordChrono>, periode: string
   const meilleurs = new Map<string, ScoreEpreuve>();
   for (const [k, r] of records) {
     const [epreuve, sem] = k.split('@');
-    if (!epreuve || modeEpreuve(epreuve) !== 'chrono' || (periode === 'toujours' ? sem !== undefined : sem !== periode)) continue;
+    if (!epreuve || !DANS_LE_GENERAL.has(epreuve) || (periode === 'toujours' ? sem !== undefined : sem !== periode)) continue;
     const p = recordPubliable(r, epreuve);
     if (p) meilleurs.set(epreuve, p);
   }
   for (const [epreuve, s] of enLigne) {
+    if (!DANS_LE_GENERAL.has(epreuve)) continue;
     const ici = meilleurs.get(epreuve);
     if (!ici || comparerScores(s, ici) < 0) meilleurs.set(epreuve, sansDate(s));
   }

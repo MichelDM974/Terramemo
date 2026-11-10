@@ -9,8 +9,9 @@
 // (décision « Écran Jouer », EPREUVES_CLASSEES) : tous les pays, les
 // continents, l'île. Relu à chaque ouverture ; « Retour » ramène à la vue
 // d'avant, « × » à la carte (main.ts).
-import { EPREUVES_CLASSEES, modeEpreuve, MODES_EPREUVE, periodeSemaine } from '../epreuve/chrono';
+import { EPREUVES_CLASSEES, modeEpreuve, MODES_EPREUVE, periodeSemaine, type ModeEpreuve } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
+import { nomSujet } from './arbre';
 import { nomSerie } from './cibles';
 import { blocClassement, lirePseudo, relancerAttente } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
@@ -20,14 +21,26 @@ import { remplir, textes } from './textes';
 const T = textes.chrono;
 type Periode = 'toujours' | 'semaine';
 
-/** Nom affiché d'une épreuve : « Général », un continent, « Tous les pays », « La Réunion ». */
+/**
+ * Nom affiché d'une épreuve : « Général », un continent, « Tous les pays »,
+ * « La Réunion » pour les pays et les communes (clé `localiser`, inchangé) ;
+ * le sujet devant la série pour les autres : « Capitales · Afrique » (étude
+ * J2 § 3.2).
+ */
 export function nomEpreuve(epreuve: string): string {
-  return epreuve === GENERAL ? T.general_nom : nomSerie(epreuve.split(':')[2] ?? epreuve);
+  if (epreuve === GENERAL) return T.general_nom;
+  const [, cle, serie] = epreuve.split(':');
+  if (serie === undefined) return nomSerie(epreuve);
+  return cle === 'localiser' ? nomSerie(serie) : remplir(T.epreuve_sujet, { sujet: nomSujet(cle ?? ''), serie: nomSerie(serie) });
 }
 
-/** Titre du classement d'une épreuve : « Sans faute · Afrique » ; le général a le sien. */
+const estModeEpreuve = (m: string | null): m is ModeEpreuve => (MODES_EPREUVE as readonly (string | null)[]).includes(m);
+
+/** Titre du classement d'une épreuve : « Sans faute · Afrique » ; le général a le sien (le quiz, au lot 4b : son nom seul d'ici là). */
 export function titreEpreuve(epreuve: string): string {
-  return epreuve === GENERAL ? T.general_titre : remplir(T.bilan_titre, { mode: nomMode(modeEpreuve(epreuve)), serie: nomEpreuve(epreuve) });
+  if (epreuve === GENERAL) return T.general_titre;
+  const mode = modeEpreuve(epreuve);
+  return estModeEpreuve(mode) ? remplir(T.bilan_titre, { mode: nomMode(mode), serie: nomEpreuve(epreuve) }) : nomEpreuve(epreuve);
 }
 
 /** « 1er sur 3 », « 4e sur 12 ». */

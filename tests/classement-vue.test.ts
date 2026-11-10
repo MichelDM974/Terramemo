@@ -107,6 +107,27 @@ describe('publication d’une partie', () => {
     expect(publier).toHaveBeenCalledTimes(6);
   });
 
+  it('au choix du pseudo : un record d’épreuve inconnue (mode null, venu d’une version plus récente) ne part pas, et aucun refus n’est annoncé (étude J2 § 3.2)', async () => {
+    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    // Reçus par le profil du compte : l'un passerait les bornes du Chrono, l'autre non.
+    enregistrerPartie(localStorage, 'xyz:localiser:Africa', score(20_000, 20, 54, 300_000), maintenant);
+    enregistrerPartie(localStorage, 'xyz:capitales:tous', score(186_000, 186, 186, 1_000), maintenant);
+    publier.mockResolvedValue(true);
+    const r = await publierTout('Ana');
+    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(avisPublication(r)).toBe('');
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
+    expect(lireAttente()).toEqual([]);
+  });
+
+  it('au choix du pseudo : un Chrono hors de EPREUVES part seul, sans entrer au général', async () => {
+    const CAP = idEpreuve('tous', 'chrono', 'capitales');
+    enregistrerPartie(localStorage, CAP, score(150_000, 150, 186, 900_000), maintenant);
+    publier.mockResolvedValue(true);
+    expect(await publierTout('Ana')).toEqual({ refuses: 0, echecs: 0 });
+    expect(publier.mock.calls.map(([e]) => e)).toEqual([CAP, CAP]);
+  });
+
   it('Minute seule au choix du pseudo : pas de général', async () => {
     enregistrerPartie(localStorage, idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000), maintenant);
     publier.mockResolvedValue(true);

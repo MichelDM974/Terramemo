@@ -16,7 +16,8 @@ vi.mock('../src/epreuve/classement', () => ({
 }));
 
 const { nomEpreuve, rangSur, titreEpreuve, vueGeneral } = await import('../src/vues/general');
-const { textes } = await import('../src/vues/textes');
+const { remplir, textes } = await import('../src/vues/textes');
+const { nomSujet } = await import('../src/vues/arbre');
 const T = textes.chrono;
 
 const ILE = idEpreuve('reunion');
@@ -66,6 +67,16 @@ describe('écran des classements', () => {
       'Minute · La Réunion',
     ]);
     expect([rangSur(1, 3), rangSur(4, 12)]).toEqual(['1er sur 3', '4e sur 12']);
+  });
+
+  it('noms avec le sujet : pays et communes inchangés, les autres sujets devant la série (étude J2 § 3.2)', () => {
+    expect(nomEpreuve(idEpreuve('Africa', 'chrono', 'pays'))).toBe('Afrique');
+    expect(nomEpreuve(idEpreuve('reunion', 'minute', 'communes'))).toBe('La Réunion');
+    // Le nom du sujet vient de textes.jouer.sujets, qui l'aura au lot de chaque sujet ; d'ici là, son id.
+    expect(nomEpreuve(idEpreuve('Africa', 'chrono', 'capitales'))).toBe(remplir(textes.chrono.epreuve_sujet, { sujet: nomSujet('capitales'), serie: 'Afrique' }));
+    // Un mode que l'écran ne sait pas titrer (le quiz, au lot 4b) : son nom seul, sans planter.
+    expect(titreEpreuve('quiz:general:facile')).toBe(nomEpreuve('quiz:general:facile'));
+    expect(titreEpreuve(idEpreuve('Africa', 'sansfaute', 'capitales'))).toBe(`Sans faute · ${nomEpreuve(idEpreuve('Africa', 'chrono', 'capitales'))}`);
   });
 
   it('mes places d’abord (général, puis les épreuves, par mode), les autres derrière « Toutes les épreuves »', async () => {

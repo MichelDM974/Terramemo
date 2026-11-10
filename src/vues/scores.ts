@@ -4,7 +4,7 @@
 // champ `points` les porte tous (src/epreuve/chrono.ts) ; seul l'affichage
 // change, ici.
 import { DELAI_CHRONO_MS, type ScoreEpreuve } from '../epreuve/bareme';
-import { DUREE_MINUTE_MS, type ModeEpreuve } from '../epreuve/chrono';
+import { DUREE_MINUTE_MS, type ModeClasse, type ModeEpreuve } from '../epreuve/chrono';
 import { remplir, textes } from './textes';
 
 const E = textes.epreuves;
@@ -28,8 +28,12 @@ const nombre = (n: number, un: string, plusieurs: string) => remplir(n >= 2 ? pl
 export const fmtJustes = (n: number): string => nombre(n, E.juste_1, E.justes);
 export const fmtErreurs = (n: number): string => nombre(n, E.erreur_1, E.erreurs);
 
-/** Le score en bref (départ, écran des classements) : « 12 450 pts », « 17 d'affilée », « 23 justes ». */
-export function scoreCourt(mode: ModeEpreuve, points: number): string {
+/**
+ * Le score en bref (départ, écran des classements) : « 12 450 pts », « 17
+ * d'affilée », « 23 justes ». Le quiz, et un mode inconnu, comptent des
+ * points comme le Chrono.
+ */
+export function scoreCourt(mode: ModeClasse | null, points: number): string {
   if (mode === 'sansfaute') return remplir(E.sansfaute.compte, { n: fmtPts(points) });
   if (mode === 'minute') return fmtJustes(points);
   return remplir(E.pts, { n: fmtPts(points) });
@@ -54,7 +58,7 @@ export function scoreLong(mode: ModeEpreuve, s: ScoreEpreuve): string {
  * Dernière colonne d'une ligne de classement, ce qui départage : le temps ; en
  * Minute, les erreurs (précédées du temps quand la série est vidée avant la minute).
  */
-export function departage(mode: ModeEpreuve, s: ScoreEpreuve): string {
+export function departage(mode: ModeClasse | null, s: ScoreEpreuve): string {
   if (mode !== 'minute') return fmtTemps(s.temps_ms);
   const erreurs = fmtErreurs(s.questions - s.justes);
   return s.temps_ms < DUREE_MINUTE_MS ? `${fmtTemps(s.temps_ms)} · ${erreurs}` : erreurs;

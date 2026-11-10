@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  CLE_SUJET,
   clePseudo,
   DUREE_MINUTE_MS,
   enregistrer,
@@ -313,6 +314,63 @@ describe('records de la semaine et classement général', () => {
     expect(vraisemblable(score(23, 23, 25, 60_001), M)).toBe(false);
     expect(vraisemblable(score(23, 23, 25, 25 * 200 - 1), M)).toBe(false);
     expect(vraisemblable(score(23, 24, 25, 60_000), M)).toBe(false);
+  });
+
+  it('ids avec le sujet : pays et communes gardent `localiser` (inchangés), les autres sujets leur nom (étude J2 § 3.2)', () => {
+    expect(CLE_SUJET).toEqual({ pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' });
+    expect([idEpreuve('Africa'), idEpreuve('Africa', 'chrono', 'pays'), idEpreuve('reunion', 'minute', 'communes')]).toEqual(['chrono:localiser:Africa', 'chrono:localiser:Africa', 'minute:localiser:reunion']);
+    expect([idEpreuve('Africa', 'chrono', 'capitales'), idEpreuve('tous', 'sansfaute', 'drapeaux'), idEpreuve('mers', 'minute', 'mers')]).toEqual([
+      'chrono:capitales:Africa',
+      'sansfaute:drapeaux:tous',
+      'minute:mers:mers',
+    ]);
+    // Le socle n'ouvre aucune épreuve : celles des pays et des communes, seules et inchangées.
+    expect(EPREUVES.every((e) => e.split(':')[1] === 'localiser')).toBe(true);
+    expect(EPREUVES_CLASSEES.every((e) => e.split(':')[1] === 'localiser')).toBe(true);
+  });
+
+  it('modeEpreuve : le quiz à part, le général au Chrono, null pour un préfixe inconnu (étude J2 § 3.2, 9.4)', () => {
+    expect(modeEpreuve('quiz:general:facile')).toBe('quiz');
+    expect(modeEpreuve('quiz:general:expert@s2914')).toBe('quiz');
+    expect(modeEpreuve('general')).toBe('chrono');
+    expect(modeEpreuve('general@s2914')).toBe('chrono');
+    expect(modeEpreuve('chrono:capitales:tous')).toBe('chrono');
+    for (const e of ['xyz:localiser:Africa', 'xyz:capitales:tous@s2914', 'Chrono:localiser:Africa', '', 'generale']) expect(modeEpreuve(e)).toBeNull();
+  });
+
+  it('le général n’additionne que les épreuves de EPREUVES : ni un Chrono hors liste, ni le quiz, ni un mode inconnu', () => {
+    const s = stockage();
+    enregistrerPartie(s, idEpreuve('South America'), score(11_000, 11, 12, 60_000), lundi);
+    // Reçus par le profil d'une version plus récente.
+    enregistrerPartie(s, idEpreuve('tous', 'chrono', 'capitales'), score(150_000, 150, 186, 900_000), lundi);
+    enregistrerPartie(s, 'quiz:general:facile', score(18_000, 18, 20, 100_000), lundi);
+    enregistrerPartie(s, 'xyz:localiser:Africa', score(20_000, 20, 54, 300_000), lundi);
+    const r = lireRecords(s);
+    expect(r.size).toBe(8);
+    for (const p of ['toujours', periodeSemaine(lundi)]) expect(totalGeneral(r, p)).toEqual(score(11_000, 11, 12, 60_000));
+    // Les places en ligne du pseudo aussi : celles des épreuves listées seules.
+    const enLigne = new Map([
+      [idEpreuve('tous', 'chrono', 'capitales'), score(150_000, 150, 186, 900_000)],
+      ['quiz:general:moyen', score(15_000, 15, 20, 100_000)],
+    ]);
+    expect(totalGeneral(r, 'toujours', enLigne)).toEqual(score(11_000, 11, 12, 60_000));
+    expect(totalGeneral(new Map(), 'toujours', enLigne)).toBeNull();
+  });
+
+  it('vraisemblable : le quiz aux bornes de quizValide (20 questions, barème du Chrono), un mode inconnu jamais', () => {
+    const Q = 'quiz:general:facile';
+    expect(vraisemblable(score(18_000, 18, 20, 100_000), Q)).toBe(true);
+    expect(vraisemblable(score(19_000, 18, 20, 100_000), Q)).toBe(true);
+    expect(vraisemblable(score(19_001, 18, 20, 100_000), Q)).toBe(false);
+    expect(vraisemblable(score(18_000, 18, 19, 100_000), Q)).toBe(false);
+    expect(vraisemblable(score(18_000, 18, 21, 100_000), Q)).toBe(false);
+    expect(vraisemblable(score(18_000, 18, 20, 20 * 200 - 1), Q)).toBe(false);
+    expect(vraisemblable(score(18_000, 18, 20, 20 * 15_000 + 1), Q)).toBe(false);
+    expect(vraisemblable(score(18_000, 18, 20, 100_000), `${Q}@s2914`)).toBe(true);
+    // Un mode inconnu : refusé, quelles que soient les valeurs (les règles ne le connaissent pas).
+    expect(vraisemblable(score(11_000, 11, 12, 60_000), 'xyz:localiser:Africa')).toBe(false);
+    // Un Chrono d'un autre sujet : les bornes du Chrono (sa série se juge sur le serveur).
+    expect(vraisemblable(score(11_000, 11, 12, 60_000), idEpreuve('Africa', 'chrono', 'capitales'))).toBe(true);
   });
 
   it('le général n’additionne que le Chrono : Sans faute et Minute n’y comptent pas', () => {
