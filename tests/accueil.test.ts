@@ -361,7 +361,7 @@ describe('le panneau', () => {
     expect($('#accueil')).toBeNull();
   });
 
-  it('stockage plein : le choix vaut pour la page, le panneau ne revient pas', async () => {
+  it('stockage plein : le choix vaut pour la page, le panneau ne revient pas, sauf après un effacement', async () => {
     const m = monter({ st: { getItem: (k) => stockage.get(k) ?? null, setItem: () => { throw new Error('QuotaExceededError'); } } });
     await demarrer(m);
     $('#accueil-invite')!.click();
@@ -370,5 +370,9 @@ describe('le panneau', () => {
     expect($('#accueil')).toBeNull();
     expect(stockage.has(CLE_ACCUEIL)).toBe(false);
     expect(m.a.retient('carte')).toBe(false);
+    // Une déconnexion dans la même page : le choix en mémoire s'oublie aussi, le panneau revient.
+    effacerJoueurLocal(localStorage);
+    expect(m.a.retient('carte')).toBe(true);
+    expect($('#accueil')).not.toBeNull();
   });
 });

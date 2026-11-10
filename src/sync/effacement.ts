@@ -18,6 +18,19 @@ import type { DepotSession, Session } from './session';
  */
 export const CLES_DU_JOUEUR: readonly string[] = ['terramemo.pseudo', 'terramemo.chrono.records', 'terramemo.pseudo.compte', 'terramemo.pseudo.remplace', 'terramemo.chrono.attente', 'terramemo.accueil'];
 
+const apresEffacement = new Set<() => void>();
+
+/**
+ * Prévenu à chaque effacement de ce qui est au joueur, pour ce que la page
+ * en garde hors du stockage : le choix de l'écran de connexion tenu en
+ * mémoire quand le stockage est plein (src/vues/accueil.ts). Rend de quoi se
+ * désabonner.
+ */
+export function surEffacementJoueur(f: () => void): () => void {
+  apresEffacement.add(f);
+  return () => void apresEffacement.delete(f);
+}
+
 export function effacerJoueurLocal(stockage: Pick<Storage, 'removeItem'> | null): void {
   for (const k of CLES_DU_JOUEUR) {
     try {
@@ -26,6 +39,7 @@ export function effacerJoueurLocal(stockage: Pick<Storage, 'removeItem'> | null)
       // Stockage refusé : rien à effacer.
     }
   }
+  for (const f of apresEffacement) f();
 }
 
 /**

@@ -24,13 +24,15 @@
 // Compte et Confidentialité), comme sur un appareil neuf. Stockage illisible
 // (refusé, absent) : pas de panneau, le jeu s'ouvre comme avant (un choix
 // qu'on ne peut pas garder reviendrait à chaque ouverture) ; illisible
-// seulement en écriture (plein) : le choix vaut pour la page.
+// seulement en écriture (plein) : le choix vaut pour la page, jusqu'à un
+// effacement (surEffacementJoueur), qui l'oublie aussi.
 //
 // L'invité n'appelle rien de Firebase : ni compte anonyme (créé à la première
 // publication, décision « Comptes »), ni publication de ses records sous le
 // pseudo donné ici (ils partent avec les prochains, ou par « Changer » du
 // classement).
 import { garderPseudoDans, lirePseudoDe, pseudoValide } from '../epreuve/chrono';
+import { surEffacementJoueur } from '../sync/effacement';
 import { creer } from './commun';
 import { textes } from './textes';
 
@@ -138,6 +140,10 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
   let section: HTMLElement | null = null;
   let comptes: ComptesDuPanneau | null = null;
   let suspendu = false;
+  // Le choix tenu en mémoire s'oublie avec ce qui est au joueur (déconnexion, « Effacer cet appareil », suppression).
+  surEffacementJoueur(() => {
+    memoire = null;
+  });
   /** Le lien de Confidentialité suivi (pied du panneau, ou celui du formulaire « Créer ») : le focus y revient. */
   let lienSuivi: HTMLElement | null = null;
 
