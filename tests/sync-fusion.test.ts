@@ -401,6 +401,7 @@ describe('effacement au démarrage, clés du joueur', () => {
       ...source('epreuve/chrono.ts').matchAll(/const CLE_(?:RECORDS|PSEUDO|PSEUDO_REMPLACE) = '([^']+)'/g),
       ...source('sync/profil.ts').matchAll(/const CLE_PSEUDO_COMPTE = '([^']+)'/g),
       ...source('vues/classement.ts').matchAll(/const CLE_ATTENTE = '([^']+)'/g),
+      ...source('vues/general.ts').matchAll(/const CLE_VUES = '([^']+)'/g),
       ...source('vues/accueil.ts').matchAll(/const CLE_ACCUEIL = '([^']+)'/g),
     ].map((x) => x[1]);
     expect([...cles].sort()).toEqual([...CLES_DU_JOUEUR].sort());
