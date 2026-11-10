@@ -48,6 +48,8 @@ const PAS_WIKIPEDIA = new Set([
 
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 const qid = (uri) => uri.slice(uri.lastIndexOf('/') + 1);
+// Lignes d'une section de la table à la main, sans sa note « _ » (comme capitales.mjs).
+const sansNotes = (o) => Object.entries(o ?? {}).filter(([k]) => k !== '_');
 
 function echec(message) {
   console.error(`wikidata : ${message}`);
@@ -163,11 +165,14 @@ async function main() {
 
   console.log('SPARQL : items des pays (P298)');
   const extraitLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  // Date locale (La Réunion) prise au même instant : celle des crédits et de enCours
+  // (capitales.mjs), pas celle de l'écriture, une vingtaine de minutes plus tard.
+  const date = aujourdhui();
   const lignesPays = await sparql(req.pays.replace('{{codes}}', ids.map((c) => `"${c}"`).join(' ')));
   const itemsParCode = {};
   for (const b of lignesPays) (itemsParCode[b.code.value] ??= []).push(qid(b.pays.value));
   for (const v of Object.values(itemsParCode)) v.sort();
-  const itemsPays = new Set([...Object.values(itemsParCode).flat(), ...Object.values(main.items_pays).map((x) => x.q)]);
+  const itemsPays = new Set([...Object.values(itemsParCode).flat(), ...sansNotes(main.items_pays).map(([, x]) => x.q)]);
 
   console.log(`SPARQL : capitales (P36) de ${itemsPays.size} items`);
   await attendre(Math.max(0, derniereSparql + 2000 - Date.now()));
@@ -192,8 +197,8 @@ async function main() {
   // Villes : toutes les capitales déclarées (même finies, pour voir ce qui change), et
   // celles que nomme la table à la main (ajouts, noms, alias, écartées).
   const villesIds = new Set(declarations.map((d) => d.capitale));
-  for (const p of Object.values(main.pays)) for (const q of Object.keys(p.ajouter ?? {})) villesIds.add(q);
-  for (const s of ['noms', 'alias', 'points', 'non_retenues']) for (const q of Object.keys(main[s] ?? {})) villesIds.add(q);
+  for (const [, p] of sansNotes(main.pays)) for (const q of Object.keys(p.ajouter ?? {})) villesIds.add(q);
+  for (const s of ['noms', 'alias', 'points', 'non_retenues']) for (const [q] of sansNotes(main[s])) villesIds.add(q);
   console.log(`SPARQL : coordonnées de ${villesIds.size} villes`);
   await attendre(Math.max(0, derniereSparql + 2000 - Date.now()));
   const lignesCoord = await sparql(req.coordonnees.replace('{{villes}}', [...villesIds].sort().map((q) => `wd:${q}`).join(' ')));
@@ -241,7 +246,7 @@ async function main() {
   // Écriture : une ligne par entrée, pour que le diff d'un nouvel extrait se relise.
   const objet = (o) => `{\n${Object.entries(o).map(([k, x]) => `${JSON.stringify(k)}:${JSON.stringify(x)}`).join(',\n')}\n}`;
   const texte =
-    `{\n"extrait_le":${JSON.stringify(extraitLe)},\n"date":${JSON.stringify(aujourdhui())},\n"api_le":${JSON.stringify(apiLe)},\n` +
+    `{\n"extrait_le":${JSON.stringify(extraitLe)},\n"date":${JSON.stringify(date)},\n"api_le":${JSON.stringify(apiLe)},\n` +
     `"requetes_sha256":${JSON.stringify(sha256(texteRequetes))},\n` +
     `"vues":${JSON.stringify({ du: v.du, au: v.au, mois: v.mois, source: 'fr.wikipedia.org, API REST des vues (per-article, mensuelle, lecteurs humains)' })},\n` +
     `"items_par_code":${objet(Object.fromEntries(Object.entries(itemsParCode).sort(([a], [b]) => (a < b ? -1 : 1))))},\n` +
