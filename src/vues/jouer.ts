@@ -1,10 +1,12 @@
 // Vue « Jouer » (décision « Écran Jouer », ticket #18) : l'arbre de src/vues/arbre.ts
 // en gros boutons neutres, un choix par écran (le bleu reste au bouton Jouer de
 // l'en-tête), dans un panneau qui couvre presque toute la carte (carte.css,
-// choix du 09/11 : il était en bas, sous le pouce). En tête : « Rejouer »
-// (la dernière partie, d'une touche), puis Entraînement ou Classé ; ensuite le
-// sujet, la série, et l'exercice en dernier, chacun avec son record dans la
-// série choisie et, pour les épreuves, leurs règles derrière « ? ». Toucher
+// choix du 09/11 : il était en bas, sous le pouce). D'abord Entraînement ou
+// Classé ; ensuite le sujet, la série, et l'exercice en dernier, chacun avec son
+// record dans la série choisie et, pour les épreuves, leurs règles derrière
+// « ? ». Les tuiles portent une vignette (vignettes.ts : la carte d'une série
+// ou d'un sujet, une icône sinon). « Rejouer » n'est plus ici (choix du 10/11) :
+// il reste au bilan de chaque partie. Toucher
 // un exercice lance la partie (main.ts : Toucher ou la vue des épreuves) ; la
 // carte de l'île se charge ici d'abord (avecTerrain : statut, échec hors
 // ligne). « ‹ » et le fil d'Ariane remontent, « × » ferme (main.ts) ; chaque
@@ -32,6 +34,7 @@ import { avecTerrain, creer, type ContexteVue, type Vue } from './commun';
 import { scoreCourt, secondesMode } from './scores';
 import { texteComptes, type ComptesSeance } from './seance';
 import { remplir, textes } from './textes';
+import { creerVignettes, icone } from './vignettes';
 
 const J = textes.jouer;
 const S = textes.seance;
@@ -93,21 +96,36 @@ export interface OptionsJouer {
   revision?: RevisionJouer;
 }
 
-/** Un gros bouton : nom, détail court, et à droite le record (ou un compte, sans le mot « record »). */
-function bouton(attrs: Record<string, string>, nom: string, detail: string, record = '', compte = ''): HTMLButtonElement {
+/**
+ * Un gros bouton : sa vignette (carte ou icône) s'il en a une, le nom, un
+ * détail court, et à droite le record (ou un compte, sans le mot « record »).
+ * Une tuile (.jouer-tuile) met la vignette au-dessus du texte, ou à sa gauche
+ * quand elle est large (carte.css) ; une ligne (.jouer-ligne) toujours à gauche.
+ */
+function bouton(attrs: Record<string, string>, nom: string, detail: string, record = '', compte = '', vignette: Element | null = null): HTMLButtonElement {
   const texte = creer('span', { class: 'jouer-texte' }, creer('span', { class: 'jouer-nom' }, nom), ...(detail ? [creer('span', { class: 'jouer-detail' }, detail)] : []));
   const droite = record
     ? [creer('span', { class: 'jouer-record' }, creer('span', { class: 'jouer-record-nom' }, J.record), record)]
     : compte
       ? [creer('span', { class: 'jouer-record jouer-compte' }, compte)]
       : [];
-  return creer('button', { type: 'button', ...attrs, class: `jouer-bouton ${attrs.class ?? ''}`.trim() }, texte, ...droite);
+  const image = vignette ? [creer('span', { class: 'jouer-vignette' }, vignette)] : [];
+  return creer('button', { type: 'button', ...attrs, class: `jouer-bouton ${attrs.class ?? ''}`.trim() }, creer('span', { class: 'jouer-corps' }, ...image, texte, ...droite));
 }
 
 export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJouer {
   const panneau = creer('div', { class: 'jouer-panneau', id: 'jouer-panneau' });
   panneau.hidden = true;
   ctx.zone.append(panneau);
+  const sujetsDe = (b: (typeof BRANCHES)[number]) => arbre.sujets(b).map((s) => s.id);
+  const lesSeries = [...new Map(BRANCHES.flatMap(sujetsDe).flatMap((s) => arbre.series(s)).map((s) => [s.id, s])).values()];
+  const vignettes = creerVignettes(ctx.donnees, lesSeries);
+  /** La vignette d'un sujet : celle de sa première série (Tous les pays, La Réunion). */
+  const vignetteSujet = (sujet: string) => {
+    const s = arbre.series(sujet)[0];
+    return s ? vignettes.serie(s.id) : null;
+  };
+  let prechauffe = false;
 
   /** L'adresse du niveau affiché (null : à redessiner au prochain aller()). */
   let rendue: string | null = null;
@@ -199,32 +217,21 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
       });
       return marque(b, id);
     };
-    if (n.type === 'racine') {
-      const elements: HTMLElement[] = [];
-      const boutons: HTMLButtonElement[] = [];
-      // Rejouer : la dernière partie lancée, si elle est encore dans l'arbre (lireDerniere).
-      const l = lireDerniere(stockage(), arbre);
-      if (l) {
-        const r = recordDe(lireRecords(stockage()), l.mode, l.serie);
-        const b = bouton({ id: 'jouer-rejouer', class: 'jouer-ligne' }, remplir(J.rejouer, { mode: nomExercice(l.mode), serie: nomSerie(l.serie) }), '', r);
-        b.addEventListener('click', () => lancer(l, boutons, statut));
-        boutons.push(b);
-        elements.push(b);
-      }
-      const branches = BRANCHES.map((br) => choisir(bouton({ 'data-branche': br, class: 'jouer-branche' }, nomBranche(br), J.branches[br].detail), br));
-      boutons.push(...branches);
-      elements.push(grille(branches));
-      return elements;
-    }
+    if (n.type === 'racine')
+      return [grille(BRANCHES.map((br) => choisir(bouton({ 'data-branche': br, class: 'jouer-tuile jouer-branche' }, nomBranche(br), J.branches[br].detail, '', '', icone(br)), br)))];
     if (n.type === 'sujets') {
-      const sujets = grille(arbre.sujets(n.branche).map((s) => choisir(bouton({ 'data-sujet': s.id }, nomSujet(s.id), nombreSujet(s.id, arbre.series(s.id))), s.id)));
+      const sujets = grille(
+        arbre
+          .sujets(n.branche)
+          .map((s) => choisir(bouton({ 'data-sujet': s.id, class: 'jouer-tuile' }, nomSujet(s.id), nombreSujet(s.id, arbre.series(s.id)), '', '', vignetteSujet(s.id)), s.id)),
+      );
       const r = o.revision;
       if (n.branche !== 'entrainement' || !r) return [sujets];
       // La Révision du jour en tête d'Entraînement (décisions « Écran Jouer », « Apprendre et
       // Révision du jour ») : ses comptes à droite ; désactivée pendant le chargement de la
       // mémoire, et quand tout est fait (« À jour »).
       const c = r.comptes();
-      const b = bouton({ id: 'jouer-revision', class: 'jouer-ligne' }, S.revision, r.garde() ? '' : S.non_garde, '', c ? texteComptes(c) : S.chargement);
+      const b = bouton({ id: 'jouer-revision', class: 'jouer-ligne' }, S.revision, r.garde() ? '' : S.non_garde, '', c ? texteComptes(c) : S.chargement, icone('revision'));
       b.disabled = !c || (!c.aRevoir && !c.nouveaux);
       b.addEventListener('click', () => r.lancer());
       return [b, sujets];
@@ -236,7 +243,14 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
             .series(n.sujet)
             .map((s) =>
               choisir(
-                bouton({ 'data-serie': s.id, ...(s.id === SERIE_TOUS ? { class: 'jouer-large' } : {}) }, nomSerie(s.id), remplir(textes.terrains[s.terrain].n, { n: s.n })),
+                bouton(
+                  { 'data-serie': s.id, class: s.id === SERIE_TOUS ? 'jouer-tuile jouer-large' : 'jouer-tuile' },
+                  nomSerie(s.id),
+                  remplir(textes.terrains[s.terrain].n, { n: s.n }),
+                  '',
+                  '',
+                  vignettes.serie(s.id),
+                ),
                 s.id,
               ),
             ),
@@ -246,7 +260,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     const records = lireRecords(stockage());
     const boutons: HTMLButtonElement[] = [];
     for (const m of arbre.modes(n.branche, n.sujet)) {
-      const b = marque(bouton({ 'data-mode': m, class: 'jouer-ligne' }, nomExercice(m), detailExercice(m, n.sujet), recordDe(records, m, n.serie)), m);
+      const b = marque(bouton({ 'data-mode': m, class: 'jouer-ligne' }, nomExercice(m), detailExercice(m, n.sujet), recordDe(records, m, n.serie), '', icone(m)), m);
       b.addEventListener('click', () => {
         if (rendue) choixFaits.set(rendue, m);
         lancer({ branche: n.branche, sujet: n.sujet, serie: n.serie, mode: m }, boutons, statut);
@@ -286,6 +300,9 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     activer() {
       rendue = null;
       panneau.hidden = false;
+      // Les cartes des tuiles, calculées d'avance pendant qu'on choisit sa branche.
+      if (!prechauffe) vignettes.prechauffer(lesSeries.map((s) => s.id));
+      prechauffe = true;
     },
     desactiver() {
       jeton++;

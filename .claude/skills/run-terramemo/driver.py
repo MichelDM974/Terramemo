@@ -1180,6 +1180,7 @@ def panneau_jouer(p, defauts, quoi):
                  petits: els.filter(e => e.cls.includes('jouer-bouton') && e.h < 48).map(e => `${e.t} (${Math.round(e.h)} px)`),
                  icones: els.filter(e => e.cls.includes('jouer-icone') && (e.h < 44 || e.w < 44)).map(e => e.t),
                  bleus: els.filter(e => e.fond === bleu).map(e => e.t),
+                 sans_vignette: [...p.querySelectorAll('.jouer-bouton')].filter(b => !b.querySelector('.jouer-vignette svg path')).map(b => b.textContent.trim().slice(0, 32)),
                  essai: !!p.querySelector('[data-serie="essai"]') || p.innerText.includes('Essai J0'),
                  coupes: [...p.querySelectorAll('.jouer-nom')].filter(e => {
                      const g = document.createRange(); g.selectNodeContents(e);
@@ -1197,6 +1198,8 @@ def panneau_jouer(p, defauts, quoi):
         defauts.append(f"{quoi} : « ‹ » ou « × » sous 44 px : {m['icones']}")
     if m["bleus"]:
         defauts.append(f"{quoi} : bouton bleu dans Jouer : {m['bleus']}")
+    if m["sans_vignette"]:
+        defauts.append(f"{quoi} : boutons de Jouer sans vignette (carte ou icône) : {m['sans_vignette']}")
     if m["essai"]:
         defauts.append(f"{quoi} : une série « essai » dans Jouer")
     if m["coupes"]:
@@ -1205,8 +1208,8 @@ def panneau_jouer(p, defauts, quoi):
 
 def ui_jouer(p, capturer, defauts):
     """Captures 15 à 15e (décision « Écran Jouer », #18) : l'arbre de Jouer,
-    après les épreuves (records de l'Amérique du Sud, Rejouer : Minute).
-    `15-jouer` (Rejouer, Entraînement et Classé), `15b-classe-sujets`,
+    après les épreuves (records de l'Amérique du Sud).
+    `15-jouer` (Entraînement et Classé, sans Rejouer), `15b-classe-sujets`,
     `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
     ams-epreuves` (les trois épreuves, leurs records, les règles ouvertes par
     « ? »), `15e-entrainement-communes` (le niveau des séries sauté) ; le
@@ -1224,10 +1227,8 @@ def ui_jouer(p, capturer, defauts):
     attendre_visible(p, "#jouer-panneau")
     if lire("data-branche") != ["entrainement", "classe"]:
         defauts.append(f"Jouer sans ses deux branches : {lire('data-branche')}")
-    rejouer = texte(p, "#jouer-rejouer")
-    dire(f"  Jouer, Rejouer : {rejouer!r}")
-    if "Minute" not in rejouer or "Amérique du Sud" not in rejouer:
-        defauts.append(f"Jouer : « Rejouer » {rejouer!r} au lieu de la dernière partie (Minute, Amérique du Sud)")
+    if p.js("!!document.querySelector('#jouer-rejouer')"):
+        defauts.append("Jouer : « Rejouer » en tête de Jouer (choix du 10/11 : il ne vit plus qu'au bilan)")
     panneau_jouer(p, defauts, "Jouer")
     capturer("15-jouer")
     cliquer(p, '#jouer-panneau [data-branche="classe"]')
@@ -2009,9 +2010,6 @@ def ui_seance(p, capturer, defauts, base, parametres=""):
     dire(f"  Révision du jour après Apprendre : {ligne!r} (désactivée : {desactivee})")
     if "À jour" not in ligne:
         defauts.append(f"Révision du jour après la grappe du jour : {ligne!r} au lieu de « À jour »")
-    rejouer = (p.js('location.hash = "#jouer"'), p.pause(300), texte(p, "#jouer-rejouer"))[2]
-    if "Apprendre" not in rejouer:
-        defauts.append(f"« Rejouer » ne relance pas Apprendre : {rejouer!r}")
     # La carte de la mémoire à l'accueil, après cette séance (et absente d'une partie).
     ui_memoire(p, capturer, defauts)
     # Le même jour, Apprendre sous La Réunion : sa propre grappe (un budget par domaine,

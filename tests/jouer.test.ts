@@ -167,7 +167,8 @@ function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['
       }),
   );
   const terrains = { monde, deja: (n: string) => (n === 'reunion' && ileChargee ? ile : null), charger };
-  const ctx = { zone, terrains } as never;
+  // Sans pays : les vignettes des continents manquent, celles du monde et de l'île restent.
+  const ctx = { zone, terrains, donnees: { entites: [] } } as never;
   const opts = {
     lancer: vi.fn<OptionsJouer['lancer']>(),
     fermer: vi.fn<OptionsJouer['fermer']>(),
@@ -322,20 +323,17 @@ describe('la vue Jouer', () => {
     expect(j.opts.lancer).not.toHaveBeenCalled();
   });
 
-  it('Rejouer : en tête de Jouer, la dernière partie et son record, relancée d’une touche ; les derniers choix marqués', () => {
+  it('pas de Rejouer dans Jouer (il reste au bilan, choix du 10/11) ; les choix de la dernière partie marqués', () => {
     localStorage.setItem(CLE_DERNIERE, JSON.stringify({ branche: 'classe', sujet: 'pays', serie: 'Africa', mode: 'chrono' }));
     enregistrerPartie(localStorage, idEpreuve('Africa'), { points: 31_710, justes: 33, questions: 54, temps_ms: 200_000 }, 1);
     const j = monter();
     j.ouvrir();
-    const r = j.panneau.querySelector('#jouer-rejouer')!;
-    expect(r.innerText).toContain('↻ Rejouer · Chrono · Afrique');
-    expect(r.innerText).toContain(`${(31_710).toLocaleString('fr-FR')} pts`);
-    // Le premier bouton du panneau : Rejouer, puis les branches.
-    expect(j.panneau.querySelectorAll('button.jouer-bouton')[0]).toBe(r);
+    expect(j.panneau.querySelector('#jouer-rejouer')).toBeNull();
+    expect(j.panneau.innerText).not.toContain('Rejouer');
+    // Les premiers boutons du panneau : les branches.
+    expect(j.panneau.querySelectorAll('button.jouer-bouton')[0]?.getAttribute('data-branche')).toBe('entrainement');
     expect(j.panneau.querySelector('[data-branche="classe"]')?.getAttribute('aria-current')).toBe('true');
     expect(j.panneau.querySelector('[data-branche="entrainement"]')?.getAttribute('aria-current')).toBeNull();
-    r.click();
-    expect(j.opts.lancer.mock.calls[0]?.[0]).toEqual({ branche: 'classe', sujet: 'pays', serie: 'Africa', mode: 'chrono' });
     j.ouvrir('classe', 'pays');
     expect(j.panneau.querySelector('[data-serie="Africa"]')?.getAttribute('aria-current')).toBe('true');
     j.ouvrir('classe', 'pays', 'Africa');
@@ -348,13 +346,25 @@ describe('la vue Jouer', () => {
     expect(j.panneau.querySelector('[data-serie="Africa"]')?.getAttribute('aria-current')).toBeNull();
   });
 
-  it('Rejouer d’une série disparue ou d’une valeur illisible : pas de ligne', () => {
+  it('dernière partie d’une série disparue ou valeur illisible : rien de marqué', () => {
     for (const v of [JSON.stringify({ branche: 'classe', sujet: 'pays', serie: 'Atlantide', mode: 'chrono' }), '{pas du json']) {
       localStorage.setItem(CLE_DERNIERE, v);
       const j = monter();
       j.ouvrir();
-      expect(j.panneau.querySelector('#jouer-rejouer'), v).toBeNull();
+      expect(j.panneau.querySelector('[aria-current="true"]'), v).toBeNull();
     }
+  });
+
+  it('vignettes : une icône aux branches et aux exercices, une carte aux sujets et aux séries', () => {
+    const j = monter();
+    j.ouvrir();
+    for (const b of j.panneau.querySelectorAll('[data-branche]')) expect(b.querySelector('.jouer-vignette .vignette-icone')).not.toBeNull();
+    j.ouvrir('classe');
+    // Pays : le monde (son ovale) ; Communes : l'île et les limites de ses communes.
+    expect(j.panneau.querySelector('[data-sujet="pays"] .vignette-carte .vignette-mer')).not.toBeNull();
+    expect(j.panneau.querySelector('[data-sujet="communes"] .vignette-carte .vignette-limites')).not.toBeNull();
+    j.ouvrir('classe', 'pays', 'Africa');
+    for (const b of j.panneau.querySelectorAll('[data-mode]')) expect(b.querySelector('.vignette-icone')).not.toBeNull();
   });
 
   it('un message annoncé (partie abandonnée) s’affiche au niveau suivant, une fois', () => {

@@ -20,6 +20,13 @@
   --memoire-2: #c37e00;
   --memoire-3: #df9f00;
   --memoire-4: #f8c20d;
+  /* Vignettes des tuiles de Jouer (vignettes.ts) : les pays de la série, plus
+     clairs que --terre (les autres), au survol, sur la tuile choisie ; leurs
+     traits, un peu plus marqués que --frontiere. */
+  --vignette-serie: #5a6274;
+  --vignette-serie-survol: #687184;
+  --vignette-serie-choisie: #6f86c2;
+  --vignette-trait: rgba(236, 241, 254, 0.35);
 }
 
 /* La page tient dans l'écran : en-tête puis la carte sur toute la hauteur restante. */
@@ -352,8 +359,8 @@ body[data-terrain="reunion"] .essai-bilan {
   --j-titre: 1.12rem;
   --j-ligne: 64px;
   --j-ligne-max: 140px;
-  --j-tuile: 72px;
-  --j-tuile-max: 176px;
+  --j-tuile: 100px;
+  --j-tuile-max: 180px;
   --j-branche: 96px;
   --j-branche-max: 240px;
   position: absolute;
@@ -380,7 +387,7 @@ body[data-terrain="reunion"] .essai-bilan {
     --j-titre: 1.3rem;
     --j-ligne: 80px;
     --j-ligne-max: 160px;
-    --j-tuile: 96px;
+    --j-tuile: 120px;
     --j-tuile-max: 220px;
     --j-branche: 140px;
     --j-branche-max: 320px;
@@ -448,16 +455,15 @@ body[data-terrain="reunion"] .essai-bilan {
 .jouer-panneau .help-text p { margin: 0 0 6px; }
 .jouer-statut { margin: 0 0 8px; }
 /* Gros boutons neutres : fond à peine plus clair, filet, 48 px au moins ; le
-   dernier choix du niveau sur le fond de l'accent atténué (la ligne choisie). */
+   dernier choix du niveau sur le fond de l'accent atténué (la ligne choisie).
+   Le contenu est dans .jouer-corps (jouer.ts) : la vignette, le texte, le record. */
 .jouer-bouton {
   width: 100%;
   min-height: 48px;
   min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
+  padding: 0;
+  overflow: hidden;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -467,8 +473,16 @@ body[data-terrain="reunion"] .essai-bilan {
   font-weight: 600;
   line-height: 1.25;
 }
+.jouer-corps {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+}
 @media (min-width: 701px) {
-  .jouer-bouton { padding: 14px 20px; }
+  .jouer-corps { gap: 16px; padding: 14px 20px; }
 }
 .jouer-bouton:hover { background-image: linear-gradient(var(--row-hover), var(--row-hover)); border-color: var(--border-2); }
 .jouer-bouton[aria-current="true"] { background-color: var(--accent-soft); }
@@ -476,22 +490,67 @@ body[data-terrain="reunion"] .essai-bilan {
 /* Les mots passent entiers à la ligne ; seul un mot plus large que toute sa
    ligne se coupe (filet de sécurité). Pas de hyphens: auto : il coupait aussi
    les détails qui tenaient (« jusqu'à la pre- / mière erreur » à 384 px). */
-.jouer-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: break-word; }
+.jouer-texte { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: break-word; }
 .jouer-detail { color: var(--muted); font-size: var(--j-detail); font-weight: 400; }
 .jouer-record { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: var(--j-record); font-variant-numeric: tabular-nums; }
 .jouer-record-nom { color: var(--muted); font-size: 0.75em; font-weight: 400; }
-/* Entraînement et Classé : un peu plus gros (leurs rangées sont plus hautes,
-   plus bas). */
+
+/* Vignettes (vignettes.ts). Une ligne (Révision du jour, exercices) : l'icône
+   dans un carré sombre à gauche. */
+.jouer-vignette { display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.jouer-ligne .jouer-vignette { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--panel); }
+.jouer-ligne .vignette-icone { width: 24px; height: 24px; }
+@media (min-width: 701px) {
+  .jouer-ligne .jouer-vignette { width: 52px; height: 52px; border-radius: 12px; }
+  .jouer-ligne .vignette-icone { width: 30px; height: 30px; }
+}
+.jouer-bouton:hover .jouer-vignette, .jouer-bouton[aria-current="true"] .jouer-vignette { color: var(--text); }
+/* Une tuile (sujets, séries) : sa carte en haut sur toute la largeur, le texte
+   dessous ; quand la tuile est large (pleine largeur sur le téléphone, deux
+   colonnes sur PC), la carte à gauche et le texte à droite. La carte prend la
+   hauteur que la rangée lui laisse (rangées étirées, plus bas). */
+.jouer-tuile { container-type: inline-size; }
+.jouer-tuile .jouer-corps { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
+.jouer-tuile .jouer-vignette { flex: 1 1 0; min-height: 24px; background: var(--mer); }
+.jouer-tuile .jouer-texte { flex: none; padding: 8px 12px 10px; }
+@container (min-width: 300px) {
+  .jouer-tuile:not(.jouer-branche) .jouer-corps { flex-direction: row; }
+  .jouer-tuile:not(.jouer-branche) .jouer-vignette { flex: 0 0 44%; min-height: 0; }
+  .jouer-tuile:not(.jouer-branche) .jouer-texte { flex: 1; justify-content: center; padding: 10px 16px; }
+}
+@container (min-width: 440px) {
+  .jouer-tuile:not(.jouer-branche) .jouer-texte { padding-inline: 20px; }
+}
+/* Les cartes : la mer (fond de la vignette, ou l'ovale du monde entier), les
+   autres pays en terre, ceux de la série éclairés ; les frontières en traits
+   fins, quelle que soit la taille (non-scaling-stroke). */
+.vignette-carte { display: block; width: 100%; height: 100%; }
+.jouer-tuile .jouer-vignette:has(.vignette-monde) { background: none; padding: 8px; }
+.vignette-mer { fill: var(--mer); }
+.vignette-fond, .vignette-serie { stroke-width: 0.6px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.vignette-fond { fill: var(--terre); stroke: var(--frontiere); }
+.vignette-serie { fill: var(--vignette-serie); stroke: var(--vignette-trait); }
+.vignette-limites { fill: none; stroke: var(--vignette-trait); stroke-width: 0.6px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.jouer-bouton:hover .vignette-serie { fill: var(--vignette-serie-survol); }
+.jouer-bouton[aria-current="true"] .vignette-serie { fill: var(--vignette-serie-choisie); }
+/* Entraînement et Classé : l'icône en grand au-dessus du nom, au centre. */
 .jouer-branche { font-size: calc(var(--j-nom) * 1.12); }
+.jouer-branche .jouer-corps { justify-content: center; gap: 10px; padding: 16px; }
+.jouer-branche .jouer-vignette { flex: 0 1 auto; min-height: 0; background: none; }
+.jouer-branche .vignette-icone { width: 56px; height: 56px; }
+.jouer-branche .jouer-texte { align-items: center; text-align: center; padding: 0; }
+@media (min-width: 701px) {
+  .jouer-branche .vignette-icone { width: 76px; height: 76px; }
+}
 /* La grille des choix prend la hauteur restante du panneau : ses rangées
-   grandissent de leur minimum (cible du doigt) à leur maximum, sans quoi deux
-   boutons en rempliraient tout l'écran ; au-delà, le vide reste dessous. Sur un
-   petit écran, elle rétrécit jusqu'au minimum des rangées, puis le panneau défile
+   grandissent de leur minimum à leur maximum, sans quoi deux tuiles en
+   rempliraient tout l'écran ; au-delà, le vide reste dessous. Sur un petit
+   écran, elle rétrécit jusqu'au minimum des rangées, puis le panneau défile
    (min-height: 0 : sa taille de contenu est celle des rangées au maximum).
    Deux colonnes, même à 320 px : « Amérique du Nord » y passe sur deux lignes, et
-   les sept séries tiennent sans faire défiler le panneau. Seule la série « tous »
-   d'un sujet (Tous les pays) prend la largeur, marquée par jouer.ts : un troisième
-   sujet (Drapeaux) ne la prendra pas. */
+   les sept séries y tiennent presque sans faire défiler le panneau. Seule la
+   série « tous » d'un sujet (Tous les pays) prend la largeur, marquée par
+   jouer.ts : un troisième sujet (Drapeaux) ne la prendra pas. */
 .jouer-grille, .jouer-lignes {
   flex: 1 1 auto;
   min-height: 0;
@@ -508,8 +567,8 @@ body[data-terrain="reunion"] .essai-bilan {
 @media (max-width: 700px) {
   .jouer-panneau:is([data-niveau="racine"], [data-niveau="sujets"]) .jouer-grille { grid-template-columns: minmax(0, 1fr); }
 }
-/* Les exercices : une ligne pleine largeur chacun. « Rejouer » et la Révision du
-   jour, au-dessus d'une grille, gardent la hauteur d'une ligne. */
+/* Les exercices : une ligne pleine largeur chacun. La Révision du jour,
+   au-dessus des sujets, garde la hauteur d'une ligne. */
 .jouer-lignes { grid-auto-rows: minmax(var(--j-ligne), var(--j-ligne-max)); }
 .jouer-panneau > .jouer-ligne { flex: none; min-height: var(--j-ligne); margin-bottom: 8px; }
 @media (min-width: 701px) {

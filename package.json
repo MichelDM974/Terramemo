@@ -21,6 +21,7 @@
     "geodata": "node geodata/build.mjs",
     "geodata:reunion": "node geodata/reunion.mjs",
     "icone": "node geodata/icone.mjs",
+    "vignette-ile": "node geodata/vignette-ile.mjs",
     "licences:android": "node licences/android.mjs"
   },
   "dependencies": {

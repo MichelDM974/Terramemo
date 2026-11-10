@@ -137,7 +137,7 @@ describe('séries de l’île et textes des terrains', () => {
 
   it('textes de Jouer, de la Carte et de la recherche : chaque clé lue par les vues existe', () => {
     const lues = {
-      jouer: ['titre', 'fermer', 'remonter', 'fil', 'regles', 'rejouer', 'record', 'essai_aide'],
+      jouer: ['titre', 'fermer', 'remonter', 'fil', 'regles', 'record', 'essai_aide'],
       carte: ['touche', 'touche_ile', 'mer', 'par_pastille', 'au_plus_pres', 'monde', 'monde_titre'],
       recherche: ['placeholder', 'placeholder_court', 'placeholder_tres_court', 'aucun', 'commune'],
     } as const;

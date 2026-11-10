@@ -105,8 +105,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   barre compte justes et erreurs, la jauge est la minute),
   `23-minute-bilan` (tout juste ensuite : « série vidée », « 1 erreur »).
   Enfin l'arbre de Jouer (#18), après les épreuves pour en avoir les
-  records : `15-jouer` (« Rejouer · Minute · Amérique du Sud » et son
-  record, puis Entraînement et Classé), `15b-classe-sujets` (Pays, Communes),
+  records : `15-jouer` (Entraînement et Classé ; plus de « Rejouer » ici,
+  il ne vit qu'au bilan), `15b-classe-sujets` (Pays, Communes),
   `15c-classe-pays-series` (Tous les pays puis les six continents),
   `15d-classe-pays-ams-epreuves` (les trois épreuves avec leurs records,
   les règles ouvertes par `#jouer-aide`), `15e-entrainement-communes`
@@ -142,7 +142,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   mène pas aux séries (sur l'île : à ses exercices), si « × » ne ferme pas
   Jouer après l'un d'eux (`ui_jouer_parties`), et si le panneau de Jouer
   déborde (320 px compris), passe 1 100 px ou ne couvre pas la carte
-  (12 px de marge, 8 sur le téléphone), a un bouton sous 48 px (« ‹ » et
+  (12 px de marge, 8 sur le téléphone), a un bouton sans vignette (carte
+  ou icône, `vignettes.ts`), un « Rejouer », un bouton sous 48 px (« ‹ » et
   « × » sous 44), un bouton en bleu plein ou un nom coupé au milieu d'un
   mot (`panneau_jouer` ; « Entraînemen / t » à 320 px ne déborde pas : seul
   ce contrôle le voit, `ui --width 320` pour l'exercer). **Regarder les captures.** Les records des épreuves vivent dans
@@ -172,8 +173,7 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
   retournée ; « Je connais déjà » n'en écrit pas), si le bilan n'a pas
   son titre et « Nouveaux » / « Révisions : n/m du premier coup » ou parle
   de points, si le bilan d'Apprendre n'a pas « Autre série », si « Carte » ne mène pas à l'accueil, si la ligne ne dit pas
-  « À jour » après la grappe du jour, si « Rejouer » ne relance pas
-  Apprendre, si la révision ne s'ouvre pas en `#toucher` ou si le retour
+  « À jour » après la grappe du jour, si la révision ne s'ouvre pas en `#toucher` ou si le retour
   arrière ne revient pas à Entraînement, et si une requête part vers
   Firebase (Firestore, Auth) pendant une séance.
 - Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
@@ -1201,8 +1201,8 @@ arbre propre (`git status`).
   de fond de `serve` finit alors en code 137 : attendu). Émulateurs :
   `fuser -k -n tcp 8062 8063`.
 - Jouer garde la dernière partie lancée dans le `localStorage`
-  (`terramemo.jouer.derniere` : branche, sujet, série, exercice ; « Rejouer »
-  en tête de Jouer, ignorée si elle n'est plus dans l'arbre). Le profil neuf
+  (`terramemo.jouer.derniere` : branche, sujet, série, exercice ; ses choix
+  marqués à chaque niveau, ignorée si elle n'est plus dans l'arbre). Le profil neuf
   du pilote part sans elle ; `terramemo.toucher.mode` et
   `terramemo.toucher.serie` ne servent plus (restes sans effet).
 - Ids de l'arbre de Jouer : branches `entrainement`, `classe` ; sujets
