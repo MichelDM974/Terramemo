@@ -209,6 +209,22 @@ describe.skipIf(!hote)('Google (émulateur Auth, faux idToken)', () => {
       expect(await texte(comptes.connecter('gael@gmail.com', 'motdepasse'))).toBe('Adresse ou mot de passe incorrect');
     });
 
+    it('Google l’emporte depuis un autre appareil : la session du premier suit les fournisseurs, et sa session perdue propose Google', async () => {
+      nouveauGoogle('gael@gmail.com');
+      await comptes.creer('gael@gmail.com', 'motdepasse');
+      const { uid } = (await comptes.etat()) as { uid: string };
+      expect(await session.lire()).toMatchObject({ uid, fournisseurs: ['password'] });
+      // L'autre appareil (une autre session, le même Auth dans node) : « Continuer avec Google », même adresse.
+      const autre = page(S.depotSessionMemoire());
+      expect(await autre.google()).toMatchObject({ nouveau: false });
+      // Le premier relit son état : le compte n'a plus de mot de passe, la session le sait.
+      expect(await comptes.etat()).toMatchObject({ etat: 'compte', uid, fournisseurs: ['google.com'] });
+      expect(await session.lire()).toMatchObject({ uid, fournisseurs: ['google.com'], adresse: 'gael@gmail.com' });
+      await new Promise((r) => setTimeout(r, 1100));
+      await admin('accounts:update', { localId: uid, validSince: String(Math.floor(Date.now() / 1000)) });
+      expect(await comptes.etat()).toEqual({ etat: 'perdue', uid, adresse: 'gael@gmail.com', fournisseurs: ['google.com'] });
+    });
+
     it('adresse vérifiée : Google s’ajoute au compte, même uid, le mot de passe gardé', async () => {
       nouveauGoogle('lia@gmail.com');
       const uid = await compteMotDePasse('lia@gmail.com', true);
@@ -246,6 +262,24 @@ describe.skipIf(!hote)('Google (émulateur Auth, faux idToken)', () => {
     await comptes.deconnecter({ quandMeme: true });
     expect(await texte(comptes.creer(choisi.email, 'motdepasse'))).toBe('Un compte existe déjà avec cette adresse : connecte-toi');
     expect(fournisseursAuth(await dansAuth(uid))).toEqual(['google.com']);
+  });
+
+  it('compte Google supprimé ailleurs, session perdue ici : « Se reconnecter avec Google » ne recrée pas de compte à son adresse (« n’existe plus »)', async () => {
+    await comptes.google();
+    const { uid } = (await comptes.etat()) as { uid: string };
+    await admin('accounts:delete', { localId: uid });
+    expect(await comptes.etat()).toEqual({ etat: 'perdue', uid, adresse: choisi.email, fournisseurs: ['google.com'] });
+    reponses = 3;
+    const choisir = vi.fn(async (): Promise<ChoixFusion> => 'ajouter');
+    const e = await comptes.google(choisir).catch((x: unknown) => x);
+    expect(E.codeErreur(e)).toBe('terramemo/compte-parti');
+    expect(E.traduire(e).texte).toBe(`Le compte ${choisi.email} n'existe plus (supprimé ?) : continue sans compte, ou crée-en un.`);
+    expect(choisir).not.toHaveBeenCalled();
+    // Le compte que la fenêtre a créé n'est plus dans Auth, et la session perdue reste (l'appareil n'a rien envoyé).
+    const r = (await admin('accounts:query', { returnUserInfo: true })) as { userInfo?: CompteAuth[] };
+    expect((r.userInfo ?? []).filter((u) => u.email === choisi.email)).toEqual([]);
+    expect(await comptes.etat()).toMatchObject({ etat: 'perdue', uid });
+    expect(reponses).toBe(3);
   });
 
   it('session perdue d’un compte Google (compte désactivé ailleurs), puis reconnexion par Google au même compte, sans question', async () => {

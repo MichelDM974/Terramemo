@@ -8,7 +8,7 @@ import type { ChoixFusion, Comptes, EtatCompte, QuestionFusion, ResultatDeconnex
 import { CLE_SANS_SYNCHRO } from '../src/sync/drapeaux';
 import type { ComptesSynchro, EtatSynchro, ResultatEnvoi } from '../src/sync/envoi';
 import { vueALaDemande } from '../src/vues/a-la-demande';
-import { detailProgres, texteGoogle, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
+import { adresseGmail, detailProgres, texteGoogle, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { textes } from '../src/vues/textes';
 import { installerDom, installerStockage, type El } from './dom-factice';
@@ -694,6 +694,18 @@ describe('vue Compte, lot 6 : Google', () => {
     expect($('.compte-actions')!.querySelectorAll('button').map((b) => b.id)).toEqual(['compte-reconnecter', 'compte-google', 'compte-sans-compte']);
     expect($('#compte-reconnecter')!.className).toBe('');
     expect($('#compte-google')!.className).toBe('secondary');
+  });
+
+  it('session perdue d’un compte à mot de passe : Google en second pour une adresse Gmail (Google a pu y prendre la place du mot de passe), pas pour une autre', async () => {
+    await ouvrir(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'Ana@GMail.com', fournisseurs: ['password'] }));
+    expect($('.compte-actions')!.querySelectorAll('button').map((b) => b.id)).toEqual(['compte-reconnecter', 'compte-google', 'compte-sans-compte']);
+    expect($('#compte-google')!.className).toBe('secondary');
+    zone = document.createElement('main') as unknown as El;
+    await ouvrir(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] }));
+    expect($('#compte-google')).toBeNull();
+    expect(adresseGmail('a@googlemail.com')).toBe(true);
+    expect(adresseGmail('a@gmail.com.fr')).toBe(false);
+    expect(adresseGmail(null)).toBe(false);
   });
 
   it('session perdue d’un compte Google dans l’APK sans le plugin : pas de reconnexion, la ligne le dit', async () => {

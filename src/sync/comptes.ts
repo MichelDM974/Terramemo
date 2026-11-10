@@ -101,6 +101,14 @@ export const MDP_MIN = 8;
  * compte connecté n'est pas pris (signOut).
  */
 export const QUESTION_MAX = 10 * 60_000;
+/**
+ * Un compte que Google vient de créer : isNewUser, et une création à moins de
+ * ça de sa dernière connexion (deux heures du serveur, sans l'horloge de
+ * l'appareil). Le second indice garde de supprimer un compte existant, si le
+ * vrai service disait isNewUser quand Google prend la place d'un mot de passe
+ * non vérifié (S5, que l'émulateur ne dit pas).
+ */
+export const NEUF_MAX = 60_000;
 /** Lots supprimés par page (§ 7.1, étape 5) : une lecture puis un lot d'écriture (500 au plus). */
 export const PAGE_SUPPRESSION = 400;
 /** Le mot à saisir pour confirmer la suppression du compte (§ 7.1). */
@@ -394,6 +402,21 @@ function fournisseursDe(u: { providerData: readonly { providerId: string }[] }):
 /** Un compte au sens du J1b : un fournisseur password ou google.com (un anonyme n'en a aucun). */
 const estCompte = (u: { isAnonymous: boolean; providerData: readonly { providerId: string }[] } | null) => !!u && !u.isAnonymous && fournisseursDe(u).length > 0;
 
+const memeAdresse = (a: string | null | undefined, b: string | null | undefined) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
+
+/** La vue de la session : mêmes fournisseurs (dans l'ordre de fournisseursDe) et même adresse que le compte. */
+const sessionAJour = (ses: { fournisseurs: readonly string[]; adresse: string | null }, u: { providerData: readonly { providerId: string }[]; email: string | null }) =>
+  ses.fournisseurs.join() === fournisseursDe(u).join() && ses.adresse === u.email;
+
+/** Un compte que la connexion vient de créer, prouvé par deux indices (NEUF_MAX). */
+function compteNeuf(auth: Service['m']['auth'], cred: import('firebase/auth').UserCredential): boolean {
+  if (auth.getAdditionalUserInfo(cred)?.isNewUser !== true) return false;
+  const m = cred.user.metadata as { creationTime?: string; lastSignInTime?: string } | undefined;
+  const cree = Date.parse(m?.creationTime ?? '');
+  const vu = Date.parse(m?.lastSignInTime ?? '');
+  return Number.isFinite(cree) && Number.isFinite(vu) && Math.abs(vu - cree) < NEUF_MAX;
+}
+
 export function creerComptes(o: OptionsComptes = {}): Comptes {
   const depot = o.session ?? depotSessionIndexedDb();
   const version = o.version ?? '';
@@ -628,8 +651,8 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
    * comme dans creer(). « Annuler », ou un échec avant que la session ait pris
    * le compte (effacement, lecture du journal) : il est lâché, comme s'il
    * n'avait jamais été connecté, sans quoi la réparation d'etat() le prendrait
-   * sans réponse ; neuf et « Annuler », il est supprimé : rien ne reste de ce
-   * passage.
+   * sans réponse ; `jetable` (créé par ce passage, sans lien d'invité) et
+   * « Annuler », il est supprimé : rien ne reste de ce passage dans Auth.
    */
   async function rejoindre(
     s: Service,
@@ -637,6 +660,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     avant: Session,
     choisir: ((q: QuestionFusion) => Promise<ChoixFusion>) | undefined,
     nouveau: boolean,
+    jetable = false,
   ): Promise<{ profil: ResultatProfil; fusion: ResultatFusion; reponses: number }> {
     try {
       const q = nouveau ? (avant.uid ? await question(null, avant) : null) : await question(user.uid, avant);
@@ -651,7 +675,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       return { profil, fusion, reponses: q && choix === 'ajouter' ? q.reponses : 0 };
     } catch (e) {
       if ((await lireSession()).uid !== user.uid) {
-        if (nouveau && codeErreur(e) === 'terramemo/connexion-annulee') await s.m.auth.deleteUser(user).catch(noter);
+        if (jetable && codeErreur(e) === 'terramemo/connexion-annulee') await s.m.auth.deleteUser(user).catch(noter);
         if (s.a.currentUser) await s.m.auth.signOut(s.a).catch(noter);
       }
       throw e;
@@ -848,6 +872,14 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       // ni pendant la question de fusion de cette page (le compte n'est pas encore pris).
       if (ses.uid !== u.uid && !ses.deconnexion && ses.connexion === null && s.a.currentUser === u)
         await ecrireSession({ uid: u.uid, fournisseurs: fournisseursDe(u), adresse: u.email, deconnexion: null });
+      // Les fournisseurs du compte changés ailleurs (Google qui l'emporte sur un mot de passe, ou s'y
+      // ajoute, sur un autre appareil ; vus par reload()) : la session les suit, pour qu'une session
+      // perdue ou une suppression reprise plus tard propose le bon moyen de se reconnecter.
+      else if (ses.uid === u.uid && !ses.deconnexion && s.a.currentUser === u && !sessionAJour(ses, u)) {
+        const uid = u.uid;
+        const maj = { fournisseurs: fournisseursDe(u), adresse: u.email };
+        await modifierSession((x) => (x.uid === uid ? maj : null));
+      }
       if (ses.uid !== u.uid && questionIci) e = ses.uid ? perdue(ses) : { etat: 'invite', anonyme: false };
       else e = { etat: 'compte', uid: u.uid, adresse: u.email, verifiee: u.emailVerified, fournisseurs: fournisseursDe(u), ...(tombeVue === u.uid ? { supprime: true } : {}) };
       if (e.etat === 'compte') await verifierJeton(u);
@@ -992,9 +1024,9 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     const cred = await g.connecter(s, ses.adresse);
     const user = cred.user;
     if (user.uid === uid) return user;
-    if (auth.getAdditionalUserInfo(cred)?.isNewUser) await auth.deleteUser(user).catch(noter);
+    if (compteNeuf(auth, cred)) await auth.deleteUser(user).catch(noter);
     else await auth.signOut(s.a).catch(noter);
-    const meme = !!ses.adresse && (user.email ?? '').toLowerCase() === ses.adresse.toLowerCase();
+    const meme = memeAdresse(user.email, ses.adresse);
     if (!meme) throw new ErreurCompte('terramemo/google-autre-compte', ses.adresse);
     return null;
   }
@@ -1135,7 +1167,10 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         if (estCompte(courant) && avant.uid === courant!.uid && !avant.deconnexion) throw new ErreurCompte('terramemo/deja-connecte');
         // Un compte d'une question tuée, encore connecté : lâché d'abord, jamais lié.
         await lacherCompteNonPris(s, avant);
-        let anonyme = s.a.currentUser?.isAnonymous ? s.a.currentUser : null;
+        // L'invité anonyme se lie au compte Google (uid gardé). Pas celui d'une session perdue : il ne sert
+        // qu'aux scores, et la reconnexion doit pouvoir dire que le compte de la session n'existe plus
+        // (compte neuf supprimé, plus bas), ce qu'un lien ne laisserait pas défaire.
+        let anonyme = !avant.uid && s.a.currentUser?.isAnonymous ? s.a.currentUser : null;
         if (anonyme) {
           // Un invité que Firebase a supprimé (30 jours après sa création) ne se lie plus : son jeton,
           // en cache s'il vaut encore (sans réseau), le dit ; il est oublié, et Google crée le compte.
@@ -1186,8 +1221,17 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
             // La reconnexion d'une session perdue : son adresse proposée dans la fenêtre.
           } else cred = await g.connecter(s, avant.uid ? avant.adresse : null);
           // Un compte neuf : le lien, ou le premier passage par Google (sans anonyme).
-          const nouveau = lie || auth.getAdditionalUserInfo(cred)?.isNewUser === true;
-          return { adresse: cred.user.email ?? '', ...(await rejoindre(s, cred.user, avant, choisir, nouveau)), nouveau };
+          const cree = !lie && compteNeuf(auth, cred);
+          const nouveau = lie || cree;
+          if (cree && avant.uid && cred.user.uid !== avant.uid && memeAdresse(cred.user.email, avant.adresse)) {
+            // Session perdue, et Google crée un compte neuf à son adresse : un compte par adresse, celui de
+            // la session n'existe plus (supprimé ailleurs). Rien n'est repris en silence : le compte neuf
+            // est supprimé, et l'on choisit (continuer sans compte, ou en créer un, geste à part).
+            await auth.deleteUser(cred.user).catch(noter);
+            if (s.a.currentUser) await auth.signOut(s.a).catch(noter);
+            throw new ErreurCompte('terramemo/compte-parti', avant.adresse);
+          }
+          return { adresse: cred.user.email ?? '', ...(await rejoindre(s, cred.user, avant, choisir, nouveau, cree)), nouveau };
         } finally {
           questionIci = false;
           await modifierSession((x) => (x.connexion !== null ? { connexion: null } : null));
@@ -1408,7 +1452,9 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
           // (pourSynchro, profil).
           if (!reconnecte) await reauthentifier(s, u!, c.mdp);
           const engagee = ses.suppression === uid;
-          await ecrireSession({ suppression: uid });
+          // Les fournisseurs et l'adresse du compte avec le drapeau : une reprise (session perdue en route)
+          // se reconnecte par le moyen qu'a le compte maintenant, pas par celui d'une session d'avant.
+          await ecrireSession({ suppression: uid, fournisseurs: fournisseursDe(u!), adresse: u!.email ?? ses.adresse });
           prevenir();
           // 3 et 4. Demande de retrait des places et pierre tombale. Un échec avant elles : rien
           // d'irréversible n'est fait, le drapeau posé par cet appel est levé (le compte reste entier,

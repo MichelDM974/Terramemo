@@ -101,12 +101,16 @@ interface FauxUtilisateur {
   isAnonymous: boolean;
   emailVerified: boolean;
   providerData: { providerId: string }[];
+  metadata: { creationTime: string; lastSignInTime: string };
   getIdToken: () => Promise<string>;
   getIdTokenResult: () => Promise<{ claims: Record<string, unknown> }>;
   reload: () => Promise<void>;
 }
 
-function utilisateur(uid: string, o: { email?: string | null; anonyme?: boolean; jeton?: () => Promise<string> } = {}): FauxUtilisateur {
+const MAINTENANT = 'Tue, 10 Nov 2026 14:00:00 GMT';
+
+/** `cree` : la date de création du compte (par défaut, celle de sa dernière connexion : un compte que la fenêtre vient de créer). */
+function utilisateur(uid: string, o: { email?: string | null; anonyme?: boolean; jeton?: () => Promise<string>; cree?: string } = {}): FauxUtilisateur {
   const email = o.email === undefined ? `${uid}@gmail.com` : o.email;
   return {
     uid,
@@ -114,6 +118,7 @@ function utilisateur(uid: string, o: { email?: string | null; anonyme?: boolean;
     isAnonymous: !!o.anonyme,
     emailVerified: !o.anonyme,
     providerData: o.anonyme ? [] : [{ providerId: 'google.com' }],
+    metadata: { creationTime: o.cree ?? MAINTENANT, lastSignInTime: MAINTENANT },
     getIdToken: o.jeton ?? (async () => 'jeton'),
     getIdTokenResult: async () => ({ claims: { email_verified: true, firebase: { identities: o.anonyme ? {} : { 'google.com': ['1'] }, sign_in_provider: 'google.com' } } }),
     reload: async () => undefined,
@@ -283,6 +288,41 @@ describe('comptes.google() : lien, création, compte existant (faux SDK)', () =>
     await expect(m.c.google()).rejects.toMatchObject({ code: 'auth/popup-closed-by-user' });
     expect(await m.session.lire()).toMatchObject({ uid: null, connexion: null });
     expect(m.c.rapport().erreurs.at(-1)?.code).toBe('auth/popup-closed-by-user');
+  });
+
+  it('session perdue d’un compte supprimé ailleurs : Google crée un compte neuf à son adresse, supprimé aussitôt, « n’existe plus », rien de repris', async () => {
+    const anonyme = utilisateur('anon', { anonyme: true, email: null });
+    const m = monter({ anonyme, reponses: 4, session: { ...sessionVide('v1'), uid: 'ancien', fournisseurs: ['google.com'], adresse: 'G1@gmail.com' } });
+    const choisir = vi.fn(async (): Promise<ChoixFusion> => 'ajouter');
+    await expect(m.c.google(choisir)).rejects.toMatchObject({ code: 'terramemo/compte-parti', customData: { email: 'G1@gmail.com' } });
+    // L'invité des scores n'est pas lié : la fenêtre se connecte, et son compte neuf ne garde rien.
+    expect(m.google.lier).not.toHaveBeenCalled();
+    expect(m.google.connecter).toHaveBeenCalledWith(expect.anything(), 'G1@gmail.com');
+    expect(m.journal).toEqual(['supprime:g1']);
+    expect(choisir).not.toHaveBeenCalled();
+    expect(await m.session.lire()).toMatchObject({ uid: 'ancien', connexion: null, profil_a_ecrire: false });
+    expect((await m.c.etat()).etat).toBe('perdue');
+  });
+
+  it('session perdue, un autre compte Google (autre adresse) que la fenêtre crée : la question des séances, comme creer()', async () => {
+    const m = monter({ reponses: 4, session: { ...sessionVide('v1'), uid: 'ancien', fournisseurs: ['google.com'], adresse: 'ana@gmail.com' } });
+    let q: QuestionFusion | null = null;
+    const r = await m.c.google(async (x) => ((q = x), 'ajouter'));
+    expect(q).toMatchObject({ reponses: 4 });
+    expect(r).toMatchObject({ adresse: 'g1@gmail.com', nouveau: true, fusion: 'ajoute' });
+    expect(m.journal).toEqual([]);
+  });
+
+  it('isNewUser sans création récente (Google qui prendrait la place d’un compte existant, S5) : pas neuf, « Annuler » le lâche sans le supprimer', async () => {
+    const m = monter({ reponses: 4, session: { ...sessionVide('v1'), uid: 'x', fournisseurs: ['password'], adresse: 'x@exemple.fr' } });
+    m.fenetre.connecter = async () => ({ user: utilisateur('g-existant', { cree: 'Mon, 02 Nov 2026 09:00:00 GMT' }), neuf: true });
+    let q: QuestionFusion | null = null;
+    const e = await m.c.google(async (x) => ((q = x), 'annuler')).catch((z: unknown) => z);
+    expect((e as { code?: string }).code).toBe('terramemo/connexion-annulee');
+    expect(q).not.toBeNull();
+    expect(m.auth.deleteUser).not.toHaveBeenCalled();
+    expect(m.auth.signOut).toHaveBeenCalled();
+    expect(m.a.currentUser).toBeNull();
   });
 
   it('un compte déjà connecté sur l’appareil : refusé', async () => {

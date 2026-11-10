@@ -89,6 +89,9 @@ export function texteConnexion(r: { adresse: string; fusion: string; reponses?: 
   return remplir(T.connecte, { adresse: r.adresse });
 }
 
+/** Une adresse Gmail : la seule dont Google est le fournisseur de confiance (S5), qui peut prendre la place d'un mot de passe. */
+export const adresseGmail = (a: string | null | undefined): boolean => !!a && /@(gmail|googlemail)\.com$/i.test(a.trim());
+
 /**
  * Le message de « Continuer avec Google » (§ 3.5) : un compte neuf (lien de
  * l'invité, ou premier passage) reçoit les progrès de l'appareil, sauf
@@ -846,9 +849,11 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       }
       case 'perdue': {
         // Un compte Google seul se reconnecte par Google ; un compte à mot de passe (Google en plus
-        // ou non), par son adresse d'abord.
+        // ou non), par son adresse d'abord. Google en second aussi pour une adresse Gmail : Google a pu
+        // y prendre la place du mot de passe depuis un autre appareil, sans que celui-ci l'ait vu.
         const f = etat?.etat === 'perdue' ? etat.fournisseurs : [];
         const parGoogle = f.includes('google.com') && !f.includes('password');
+        const googleAussi = f.includes('google.com') || (etat?.etat === 'perdue' && adresseGmail(etat.adresse));
         return [
           creer('p', { id: 'compte-perdue' }, textePerdue(seancesPerdue)),
           creer(
@@ -863,7 +868,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
                     aller('connecter');
                   }, 'principal'),
                 ]),
-            ...(f.includes('google.com') && googleOffert ? [bouton('compte-google', T.google_reconnecter, () => continuerGoogle('perdue'), parGoogle ? 'principal' : 'secondaire')] : []),
+            ...(googleAussi && googleOffert ? [bouton('compte-google', T.google_reconnecter, () => continuerGoogle('perdue'), parGoogle ? 'principal' : 'secondaire')] : []),
             bouton('compte-sans-compte', T.continuer_sans, () => {
               effacerAvis();
               aller('sans-compte');
