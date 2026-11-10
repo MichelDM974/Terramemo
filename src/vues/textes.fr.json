@@ -211,7 +211,15 @@
       "rate_km": "{nom} : touché à {km} du bord",
       "rate_trouver": "{nom} : vu ou passé",
       "rate_oublie": "{nom} : nom oublié",
-      "tout_appris": "Tous les pays de cette série sont appris."
+      "tout_appris": "Tous les pays de cette série sont appris.",
+      "grappe_entamee": "Les pays voisins commencés aujourd'hui ({serie}) ne sont pas finis : ils passent avant.",
+      "conseil": "Les pays de cette région ne sont pas encore appris : {chemin}",
+      "memoire": {
+        "nom": "Pays",
+        "jamais": "jamais vu",
+        "vu": "vu {n} fois",
+        "vu_une": "vu 1 fois"
+      }
     },
     "communes": {
       "n": "{n} communes",
@@ -224,7 +232,15 @@
       "rate_km": "{nom} : touché à {km} du bord",
       "rate_trouver": "{nom} : vu ou passé",
       "rate_oublie": "{nom} : nom oublié",
-      "tout_appris": "Toutes les communes sont apprises."
+      "tout_appris": "Toutes les communes sont apprises.",
+      "grappe_entamee": "Les communes voisines commencées aujourd'hui ({serie}) ne sont pas finies : elles passent avant.",
+      "conseil": "Les communes de cette région ne sont pas encore apprises : {chemin}",
+      "memoire": {
+        "nom": "Commune",
+        "jamais": "jamais vue",
+        "vu": "vue {n} fois",
+        "vu_une": "vue 1 fois"
+      }
     }
   },
   "credits": {
@@ -457,9 +473,9 @@
     "reviser": "Réviser · {n}",
     "rien": "Rien à revoir aujourd'hui.",
     "grappe_faite": "La grappe du jour est déjà apprise : la suivante demain.",
-    "grappe_entamee": "Les pays voisins commencés aujourd'hui ({serie}) ne sont pas finis : ils passent avant.",
     "finir": "Les finir · {n}",
     "plafond": "Assez de révisions pour aujourd'hui : la suite demain.",
+    "introductions": "Assez de nouveautés pour aujourd'hui : la suite demain.",
     "trouver": "Trouver"
   },
   "memoire": {
@@ -474,7 +490,9 @@
     "vu_une": "Vu 1 fois",
     "revient": "revient dans {n} j",
     "revient_demain": "revient demain",
-    "a_revoir": "à revoir aujourd'hui"
+    "a_revoir": "à revoir aujourd'hui",
+    "detail_sujet": "{sujet} : {detail}",
+    "sujet": "Sujet de la carte de la mémoire"
   },
   "compte": {
     "lien": "Compte",

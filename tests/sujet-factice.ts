@@ -30,6 +30,9 @@ export const TEXTES_FACTICES: TextesSujet = {
   rate_trouver: '{nom} : énigme vue ou passée',
   rate_oublie: '{nom} : énigme oubliée',
   tout_appris: 'Toutes les énigmes sont résolues.',
+  grappe_entamee: 'Les énigmes commencées ({serie}) passent avant.',
+  conseil: 'Énigmes pas encore résolues : {chemin}',
+  memoire: { nom: 'Énigme', jamais: 'jamais résolue', vu: 'résolue {n} fois', vu_une: 'résolue 1 fois' },
 };
 
 /** Le rendu du sujet factice : chaque méthode a son mot, puis le code du lieu. */
@@ -58,6 +61,7 @@ export function avecFactice(m: typeof Sujets): typeof Sujets {
   return {
     ...m,
     rendu: (sujet, d, o) => (sujet === FACTICE || remplaces.has(sujet) ? renduFactice() : m.rendu(sujet, d, o)),
+    textesSujet: (sujet) => (sujet === FACTICE || remplaces.has(sujet) ? TEXTES_FACTICES : m.textesSujet(sujet)),
   };
 }
 

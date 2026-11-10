@@ -77,7 +77,7 @@ export interface QuestionPilotee {
   cadrer: Emprise | 'monde' | null;
   /** « Je connais déjà » proposé (QCM d'un pays nouveau). */
   connu: boolean;
-  /** Le terrain de la question (le monde par défaut ; l'île pour les communes, chargée avant la séance : besoinIle). */
+  /** Le terrain de la question (le monde par défaut ; l'île pour les communes, chargée avant la séance : FabriqueSeances.charger). */
   terrain?: NomTerrain;
   /** Le domaine de sa fiche (pays par défaut) : la vue pose la question selon son sujet (étude J2 § 6.5). */
   domaine?: Domaine;
@@ -115,8 +115,12 @@ export interface RefusSeance {
 
 export interface FabriqueSeances {
   ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance;
-  /** La demande a besoin de l'île (communes) : Toucher la charge avant ouvrir() ; sans réponse, non. */
-  besoinIle?(d: DemandeSeance): boolean;
+  /**
+   * Charge les données qui manquent à la demande (l'île des communes ; plus
+   * tard la couche marine, les capitales, les drapeaux) : Toucher attend la
+   * promesse avant ouvrir(), même en échec. null, ou sans réponse : rien à charger.
+   */
+  charger?(d: DemandeSeance): Promise<unknown> | null;
   /**
    * La partie de la page est finie ou quittée (bilan, abandon, vue quittée) :
    * sa séance devient envoyable (synchro du J1b, § 5.2). Sans effet hors séance.
@@ -368,7 +372,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     t = ctx.terrains.monde;
     ctx.terrains.montrer(t.nom);
     // Des communes à réviser (ou Apprendre sous La Réunion) : l'île d'abord, son chargement dit dans le panneau.
-    if (o.seances?.besoinIle?.(d) && !ctx.terrains.deja('reunion')) {
+    const chargement = o.seances?.charger?.(d) ?? null;
+    if (chargement) {
       const j = ++jetonSeance;
       bilan.replaceChildren(creer('p', { class: 'hint' }, T.chargement_terrain));
       bilan.hidden = false;
@@ -378,7 +383,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         ouvrirSeance(d);
       };
       // Hors ligne : la séance sans les communes (elles restent dues).
-      ctx.terrains.charger('reunion').then(suite, suite);
+      chargement.then(suite, suite);
       return;
     }
     ouvrirSeance(d);

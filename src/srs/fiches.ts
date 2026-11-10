@@ -40,8 +40,12 @@ export const estDomaine = (x: string): x is Domaine => (DOMAINES as readonly str
 /** Le domaine se pose-t-il dans cette version (DOMAINES_JOUABLES) ? */
 export const domaineJouable = (d: string): d is Domaine => (DOMAINES_JOUABLES as readonly string[]).includes(d);
 
-/** Les domaines jouables d'un terrain, dans l'ordre de DOMAINES_JOUABLES (le monde : pays ; l'île : communes). */
-export const jouablesDu = (t: NomTerrain): Domaine[] => DOMAINES_JOUABLES.filter((d) => TERRAIN_DOMAINE[d] === t);
+/**
+ * Les domaines jouables d'un terrain, dans l'ordre de DOMAINES_JOUABLES (le
+ * monde : pays ; l'île : communes). `jouables` : une autre liste (tests qui
+ * mêlent un sujet pas encore livré).
+ */
+export const jouablesDu = (t: NomTerrain, jouables: readonly Domaine[] = DOMAINES_JOUABLES): Domaine[] => jouables.filter((d) => TERRAIN_DOMAINE[d] === t);
 
 export const SENS: readonly Sens[] = ['localiser', 'nommer'];
 

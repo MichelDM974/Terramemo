@@ -611,7 +611,7 @@ describe('Toucher : une séance qui passe sur l’île (communes, D6)', () => {
       // La grappe de pays nouveaux après le bloc des communes (Révision du jour) : de retour sur le monde.
       { id: 'FRA', forme: 'trouver', cadrer: 'monde', connu: false, terrain: 'monde' },
     ]);
-    const fabrique = { ouvrir: vi.fn(() => f.p), besoinIle: vi.fn(() => true) };
+    const fabrique = { ouvrir: vi.fn(() => f.p), charger: vi.fn(() => (chargee ? null : ctx.terrains.charger('reunion'))) };
     const vue = vueEssai(ctx, { versJouer: vi.fn(), seances: fabrique });
     return { vue, zone, notees, montres, charger, fabrique, f, el: (s: string) => zone.querySelector(s) as El };
   }

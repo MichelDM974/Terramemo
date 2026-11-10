@@ -632,7 +632,12 @@ async function demarrer(): Promise<void> {
   // ?teintes=demo garde ses teintes partout : l'accueil n'y pose pas celles de la mémoire.
   explorer = vueExplorer(ctx, teintesDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive) });
   // Les communes (Apprendre sous La Réunion, leurs révisions) : les données de l'île une fois chargée.
-  const seances = creerSeances({ memoire, monde: donnees, ile: () => terrains?.deja('reunion')?.donnees ?? null });
+  const seances = creerSeances({
+    memoire,
+    monde: donnees,
+    ile: () => terrains?.deja('reunion')?.donnees ?? null,
+    charger: (t) => terrains?.charger(t) ?? Promise.reject(new Error('terrains pas prêts')),
+  });
   // Page rouverte en pleine grappe de communes : l'île chargée en fond, pour que la ligne de Jouer compte les communes à finir.
   void memoire.pret.then(
     () => {
