@@ -4,7 +4,7 @@
 // (hors ligne, refus des règles, changement pendant un envoi). Le vrai SDK,
 // les vraies règles et deux appareils : tests/profil.test.ts (npm run test:comptes).
 import { describe, expect, it, vi } from 'vitest';
-import { idEpreuve, lireRecords, periodeSemaine, prendreAvisPseudo, VERSION_BAREME, type RecordChrono } from '../src/epreuve/chrono';
+import { epreuvesClassees, idEpreuve, lireRecords, periodeSemaine, prendreAvisPseudo, VERSION_BAREME, type RecordChrono } from '../src/epreuve/chrono';
 import { creerComptes } from '../src/sync/comptes';
 import { appliquer, fusionner, PROFIL_ABSENT, RECORDS_MAX, type ProfilLu } from '../src/sync/profil';
 import { depotSessionMemoire, sessionVide, type Session } from '../src/sync/session';
@@ -120,6 +120,22 @@ describe('fusion du profil (pure)', () => {
     expect(fusionner(lu('a/b', null), local, o)).toMatchObject({ pseudo: 'Bob', doc: { pseudo: 'Bob' } });
     // Sans pseudo nulle part : aucun.
     expect(fusionner(lu(null, null), { pseudo: null, records: new Map() }, o)).toMatchObject({ pseudo: null, doc: null });
+  });
+
+  it('les capitales ouvertes (45 épreuves, de toujours et de la semaine), aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
+    const epreuves = epreuvesClassees(Date.UTC(2026, 10, 16));
+    expect(epreuves).toHaveLength(45);
+    // Le pire : des points et un temps à 17 chiffres (le barème et performance.now()), 195 questions, une date à 13 chiffres.
+    const pire = (): RecordChrono => ({ points: 194_999.99999999997, justes: 194, questions: 195, temps_ms: 2_924_999.9999999995, date: 1_794_787_199_999, bareme: VERSION_BAREME });
+    const records = new Map<string, RecordChrono>();
+    for (const e of epreuves) for (const k of [e, `${e}@${SEMAINE}`]) records.set(k, pire());
+    const f = fusionner(PROFIL_ABSENT, { pseudo: 'Michel', records }, o);
+    expect(f.tropGros).toBe(false);
+    const n = f.doc!.records!.length;
+    expect(Object.keys(recordsDuDoc(f))).toHaveLength(90);
+    expect(n).toBeLessThan(RECORDS_MAX);
+    // Marge pour les sujets suivants (drapeaux, mers, quiz : 73 épreuves au J2) : un peu plus de la moitié de la borne.
+    expect(n).toBeLessThan(RECORDS_MAX * 0.6);
   });
 
   it('au-delà de la borne des règles : rien n’est écrit, l’appareil reçoit quand même', () => {
