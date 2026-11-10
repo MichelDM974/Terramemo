@@ -301,6 +301,8 @@ interface Couleurs {
   marques: Record<string, string>;
   /** Seaux de la carte de la mémoire (--memoire-0 à 4). */
   memoire: string[];
+  /** Épaisseur des frontières à l'arrêt (px CSS, --frontiere-repos) ; 0 : toujours d'un pixel physique. */
+  repos: number;
 }
 
 function lireCouleurs(): Couleurs {
@@ -317,6 +319,7 @@ function lireCouleurs(): Couleurs {
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
     memoire: VARIABLES_MEMOIRE.map(v),
+    repos: parseFloat(v('--frontiere-repos')) || 0,
   };
 }
 
@@ -1116,7 +1119,7 @@ export class CarteCanvas implements CarteAffichee {
       });
     }
     this.peindreHachures(ctx, hachures);
-    this.tracerFrontieres(ctx, terres, avecCoutures ? couturesContour : null);
+    this.tracerFrontieres(ctx, terres, avecCoutures ? couturesContour : null, im.mouvement);
   }
 
   /**
@@ -1156,12 +1159,15 @@ export class CarteCanvas implements CarteAffichee {
    * physique, joints ronds) faisait perdre la moitié des images d'une
    * rotation au zoom 1 sur le PC (rastérisation logicielle de
    * chrome-headless-shell), 1 px aucune. Plus opaque (--frontiere-fine) pour
-   * garder la même encre par unité de longueur.
+   * garder la même encre par unité de longueur. Ce trait fin reste celui du
+   * mouvement ; à l'arrêt, les frontières prennent --frontiere-repos px CSS
+   * (#28 : lisibles en plein soleil), une seule image à la fin du geste.
    */
-  private tracerFrontieres(ctx: CanvasRenderingContext2D, chemins: readonly Path2D[], coutures: Path2D | null): void {
+  private tracerFrontieres(ctx: CanvasRenderingContext2D, chemins: readonly Path2D[], coutures: Path2D | null, mouvement: boolean): void {
+    const epais = !mouvement && this.couleurs.repos * this.dpr > 1;
     ctx.strokeStyle = this.couleurs.frontiere;
-    ctx.lineWidth = 1 / this.dpr;
-    ctx.lineJoin = 'miter';
+    ctx.lineWidth = epais ? this.couleurs.repos : 1 / this.dpr;
+    ctx.lineJoin = epais ? 'round' : 'miter';
     // forEach saute les trous du tableau (couleurs sans partie à l'écran).
     chemins.forEach((c) => ctx.stroke(c));
     if (coutures) ctx.stroke(coutures);
@@ -1231,7 +1237,7 @@ export class CarteCanvas implements CarteAffichee {
       this.peindreHachures(ctx, hachures);
       ctx.restore();
     }
-    this.tracerFrontieres(ctx, [contour], avecCoutures ? contourCoutures : null);
+    this.tracerFrontieres(ctx, [contour], avecCoutures ? contourCoutures : null, im.mouvement);
     if (contourFaux) {
       ctx.strokeStyle = coul.texte;
       ctx.lineWidth = TRAIT_FAUX_PX;

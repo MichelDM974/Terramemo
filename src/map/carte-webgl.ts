@@ -20,7 +20,8 @@
 // 3. les hachures des zones contestées, motif à 45° ancré au milieu de chaque
 //    partie : il suit la carte quand elle tourne (en Canvas, il restait fixe
 //    à l'écran et la carte glissait dessous) ;
-// 4. les frontières en gl.LINES (un pixel physique, comme le Canvas), tirées
+// 4. les frontières en gl.LINES (un pixel physique pendant un geste, comme le
+//    Canvas ; à l'arrêt, --frontiere-repos px CSS par décalages), tirées
 //    des arcs de la topologie : celles entre deux pays d'abord, de l'encre de
 //    deux traits superposés (le Canvas trace deux fois un trait commun), puis
 //    les côtes, d'un trait. Chaque pixel est peint une fois (bit du stencil) :
@@ -190,6 +191,8 @@ export interface Couleurs {
   marques: Record<string, Rvba>;
   /** Seaux de la carte de la mémoire (--memoire-0 à 4). */
   memoire: Rvba[];
+  /** Épaisseur des frontières à l'arrêt (px CSS, --frontiere-repos) ; absente ou 0 : un pixel physique. */
+  repos?: number;
 }
 
 /** Une couleur CSS quelconque en octets, lue par un canvas 2D d'un pixel (toute syntaxe CSS). */
@@ -222,6 +225,7 @@ export function lireCouleurs(): Couleurs {
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
     memoire: VARIABLES_MEMOIRE.map(v),
+    repos: parseFloat(css.getPropertyValue('--frontiere-repos')) || 0,
   };
 }
 
@@ -354,7 +358,10 @@ export interface OptionsWebGL {
 }
 
 export class PeintreWebGL implements Peintre {
-  readonly allegeEnMouvement = false;
+  /** Frontières épaisses à l'arrêt (--frontiere-repos) : la fin d'un geste redessine. */
+  get allegeEnMouvement(): boolean {
+    return (this.couleurs.repos ?? 0) > 0;
+  }
   private gl: WebGL2RenderingContext;
   private couleurs: Couleurs;
   private terres: Maillage | null = null;
@@ -811,15 +818,21 @@ export class PeintreWebGL implements Peintre {
     if (this.contestees.length) dessinerMaillage(g.hachurer, g.terres, gl.TRIANGLES, this.contestees);
 
     // 4. Frontières entre pays (encre de deux traits), puis côtes : un pixel physique, chaque pixel une fois (bit TRAITS).
+    // À l'arrêt, --frontiere-repos px CSS : chaque passe redessinée décalée sur un disque de pixels, comme le contour faux (#28).
     gl.stencilFunc(gl.EQUAL, OVALE, OVALE | TRAITS);
     gl.stencilMask(TRAITS);
-    gl.useProgram(g.carte.p);
     const f = premult(this.couleurs.frontiere);
-    gl.uniform4fv(g.carte.loc('uCouleur'), f.map((x) => x * (2 - f[3])));
-    dessinerMaillage(g.carte, g.interieurs, gl.LINES, null);
-    gl.useProgram(g.carte.p);
-    gl.uniform4fv(g.carte.loc('uCouleur'), f);
-    dessinerMaillage(g.carte, g.cotes, gl.LINES, null);
+    const repos = this.couleurs.repos ?? 0;
+    const passes: [number, number][] = !e.enMouvement && repos * this.dpr > 1 ? decalagesTrait(repos, this.dpr) : [[0, 0]];
+    for (const [mg, encre] of [[g.interieurs, f.map((x) => x * (2 - f[3]))], [g.cotes, f]] as const) {
+      for (const d of passes) {
+        decalage = d;
+        gl.useProgram(g.carte.p);
+        gl.uniform4fv(g.carte.loc('uCouleur'), encre);
+        dessinerMaillage(g.carte, mg, gl.LINES, null);
+      }
+    }
+    decalage = [0, 0];
 
     // 4 bis. Contour de la zone fausse, par-dessus les frontières, dans l'ovale : opaque, peint autant de fois qu'il le faut.
     if (g.contourFaux) {

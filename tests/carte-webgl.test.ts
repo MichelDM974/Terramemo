@@ -1141,6 +1141,30 @@ describe('PeintreWebGL.dessiner (faux WebGL2)', () => {
     expect(lignes.find((d) => d.vao === vaoCotes)?.n).toBe(tout.cotes.traits.length);
   });
 
+  it('frontières et côtes à l’arrêt : une passe par décalage de decalagesTrait (--frontiere-repos) ; en mouvement, une seule ; la fin du geste redessine (#28)', () => {
+    const { p, f } = peintre({ ...couleursEssai, repos: 1 });
+    expect(p.allegeEnMouvement).toBe(true);
+    const e = etat(0, 1);
+    p.dessiner(e);
+    const { centre } = uniformesVue(e.v, e.c);
+    const attendus = decalagesTrait(1, 2.8125).map(([dx, dy]) => [centre[0] + dx, centre[1] + dy]);
+    expect(attendus.length).toBeGreaterThan(1);
+    const [vaoInt] = vaoDe(f, tout.interieurs.traits.length);
+    const [vaoCotes] = vaoDe(f, tout.cotes.traits.length);
+    const passes = (vao: object | undefined) => f.dessins.filter((d) => d.vao === vao && d.mode === f.constante('LINES') && d.u.uMode === 0).map((d) => d.u.uCentre);
+    expect(passes(vaoInt)).toEqual(attendus);
+    expect(passes(vaoCotes)).toEqual(attendus);
+    // Toutes les frontières avant la première côte : l'encre de deux traits garde ses pixels (bit TRAITS).
+    const indices = (vao: object | undefined) => f.dessins.flatMap((d, i) => (d.vao === vao && d.mode === f.constante('LINES') ? [i] : []));
+    expect(Math.max(...indices(vaoInt))).toBeLessThan(Math.min(...indices(vaoCotes)));
+    f.dessins.length = 0;
+    p.dessiner({ ...e, enMouvement: true });
+    expect(passes(vaoInt)).toEqual([[centre[0], centre[1]]]);
+    expect(passes(vaoCotes)).toEqual([[centre[0], centre[1]]]);
+    // Sans --frontiere-repos : un pixel, et pas de dessin de plus à la fin d'un geste.
+    expect(peintre().p.allegeEnMouvement).toBe(false);
+  });
+
   it('couleur de chaque pays : terre, ou sa marque (texture des couleurs)', () => {
     const { p, f } = peintre();
     const i = donnees.entites.findIndex((e) => e.pays.id === 'FRA');

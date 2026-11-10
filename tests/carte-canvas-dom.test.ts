@@ -677,3 +677,36 @@ describe('CarteCanvas : boutons de zoom, un cran et toute la carte (#23)', () =>
     }
   });
 });
+
+describe('CarteCanvas : frontières épaisses à l’arrêt, d’un pixel physique pendant un geste (#28)', () => {
+  const FRONTIERE = VARS['--frontiere-fine'];
+  const priv = (c: CarteCanvas) => c as unknown as { enMouvement: boolean; dessiner(): void };
+  /** Largeur et joint des frontières de la carte (pas des pastilles ni des anneaux). */
+  const traits = () => new Set(ctx2d.traits.filter((t) => t.style === FRONTIERE && t.chemin !== 'courant').map((t) => `${t.largeur} ${t.joint}`));
+  afterEach(() => {
+    delete VARS['--frontiere-repos'];
+  });
+
+  it('--frontiere-repos : à l’arrêt, ce trait en px CSS, joints ronds ; en mouvement, un pixel physique ; à la fin du geste, de nouveau épais', () => {
+    VARS['--frontiere-repos'] = '1';
+    const c = carte();
+    image(0);
+    expect(traits()).toEqual(new Set(['1 round']));
+    priv(c).enMouvement = true;
+    priv(c).dessiner();
+    expect(traits()).toEqual(new Set([`${1 / DPR} miter`]));
+    priv(c).enMouvement = false;
+    priv(c).dessiner();
+    expect(traits()).toEqual(new Set(['1 round']));
+  });
+
+  it('sans --frontiere-repos, ou plus fin qu’un pixel physique : toujours le trait d’un pixel', () => {
+    carte();
+    image(0);
+    expect(traits()).toEqual(new Set([`${1 / DPR} miter`]));
+    VARS['--frontiere-repos'] = '0.3';
+    carte();
+    image(16);
+    expect(traits()).toEqual(new Set([`${1 / DPR} miter`]));
+  });
+});

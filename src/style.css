@@ -29,11 +29,13 @@
   --good-soft: rgba(52, 199, 123, 0.14);
   --danger: #f0686b;
   --danger-soft: rgba(240, 104, 107, 0.14);
-  /* Carte : terres neutres, frontières en filet, zones contestées hachurées. */
-  --terre: #23252b;
-  --terre-survol: #2c2f36;
-  --frontiere: rgba(236, 241, 254, 0.22);
-  --hachure: rgba(236, 241, 254, 0.28);
+  /* Carte : terres neutres, frontières en filet, zones contestées hachurées.
+     Terre assez claire pour se détacher de la mer en plein soleil (#28, décision
+     « Carte en plein soleil » : palette A, 1,98:1 de --mer contre 1,21 avant). */
+  --terre: #3c414c;
+  --terre-survol: #474c58;
+  --frontiere: rgba(236, 241, 254, 0.55);
+  --hachure: rgba(236, 241, 254, 0.34);
   --pastille: #8e939d;
   /* Marge latérale : le contenu de l'en-tête s'aligne sur celui de la page. */
   --pad: max(32px, calc((100% - 1216px) / 2));

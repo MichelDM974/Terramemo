@@ -1,32 +1,36 @@
 :root {
-  /* Carte : la mer, un bleu nuit à peine plus clair que le fond (style commun dans
-     style.css : --terre, --frontiere, --hachure, --pastille, --good, --danger). */
-  --mer: #0b1322;
-  /* Frontières du rendu canvas : un pixel physique (au lieu de 0,6 px CSS), donc
-     plus opaques que --frontiere (0,22 × 1,7 px ≈ 0,37 × 1 px sur le téléphone). */
-  --frontiere-fine: rgba(236, 241, 254, 0.37);
+  /* Carte : la mer, un bleu presque noir, un peu plus clair que le fond pour que
+     l'ovale se voie (style commun dans style.css : --terre, --frontiere,
+     --hachure, --pastille, --good, --danger). Palette A de #28 (décision « Carte
+     en plein soleil ») : terre et mer à 1,98:1, contre 1,21 avant. */
+  --mer: #090e18;
+  /* Frontières des rendus canvas et webgl : d'un pixel physique pendant un geste
+     (le trait fin ne saccade pas), de --frontiere-repos px CSS à l'arrêt (et
+     dans les rendus SVG, l'île comprise). Une seule couleur pour les deux. */
+  --frontiere-fine: rgba(236, 241, 254, 0.62);
+  --frontiere-repos: 1;
   /* Carte de la mémoire (teinter, src/map/teintes.ts) : un seau par zone, de la
      plus faible (0) à la maîtrisée (4) ; « jamais vu » garde --terre. Défaut en
      attente de l'utilisateur, #2 (D7). Une seule teinte, ambre puis or, qui
-     s'éclaircit avec la mémoire (OKLCH L 0,46 → 0,84, C 0,11 → 0,17, h 55 → 88°) ;
-     ni vert, ni rouge, ni bleu d'accent. Skill dataviz, validate_palette.js
-     --ordinal --mode dark --surface (--terre, --mer) : tout PASS (seau 0 à
-     2,06:1 de --terre, plancher 2:1 ; ΔE 22,8 en OKLab ×100). Daltonisme : le
-     seau 2 est le plus proche de --danger, ΔE 7,2 en deutéranopie (plancher 6,
-     cible 8), le seau 4 de --good à 8,7 : le faux garde son contour de 3 px,
-     et les teintes seront effacées en partie (#2, lot 5b). */
-  --memoire-0: #854408;
-  --memoire-1: #a56004;
-  --memoire-2: #c37e00;
-  --memoire-3: #df9f00;
-  --memoire-4: #f8c20d;
+     s'éclaircit avec la mémoire (OKLCH L 0,56 → 0,88, C 0,13 → 0,17, h 65 →
+     100° ; relevée avec --terre, #28) ; ni vert, ni rouge, ni bleu d'accent.
+     Skill dataviz, validate_palette.js --ordinal --mode dark --surface (--terre,
+     --mer) : tout PASS (seau 0 à 2,12:1 de --terre, plancher 2:1). Daltonisme
+     (Machado 2009, ΔE OKLab ×100, pire de protan et deutan) : le seau le plus
+     proche de --danger à 7,5, de --good à 7,5 (plancher 6, cible 8 ; 7,2 et 8,7
+     avec l'ancienne gamme) : le faux garde son contour de 3 px. */
+  --memoire-0: #a76100;
+  --memoire-1: #be7d00;
+  --memoire-2: #d29a00;
+  --memoire-3: #e4b916;
+  --memoire-4: #f2d935;
   /* Vignettes des tuiles de Jouer (vignettes.ts) : les pays de la série, plus
      clairs que --terre (les autres), au survol, sur la tuile choisie ; leurs
      traits, un peu plus marqués que --frontiere. */
-  --vignette-serie: #5a6274;
-  --vignette-serie-survol: #687184;
-  --vignette-serie-choisie: #6f86c2;
-  --vignette-trait: rgba(236, 241, 254, 0.35);
+  --vignette-serie: #798295;
+  --vignette-serie-survol: #8892a6;
+  --vignette-serie-choisie: #90a8e6;
+  --vignette-trait: rgba(236, 241, 254, 0.6);
 }
 
 /* La page tient dans l'écran : en-tête puis la carte sur toute la hauteur restante. */
@@ -111,7 +115,7 @@ body[data-vue="saisie"] .carte, body[data-vue="compte"] .carte { visibility: hid
 .pays {
   fill: var(--terre);
   stroke: var(--frontiere);
-  stroke-width: 0.6px;
+  stroke-width: calc(var(--frontiere-repos) * 1px);
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
