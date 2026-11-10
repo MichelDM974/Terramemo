@@ -118,6 +118,12 @@ export interface CarteAffichee {
   effacerMarques(): void;
   anneau(id: string, classe: string, rayon_px?: number): void;
   /**
+   * Un anneau au point [lon, lat] (la capitale montrée, D53 c ; un lieu choisi
+   * dans la recherche) : comme anneau(), de taille constante, effacé avec les
+   * marques.
+   */
+  anneauEn(point: [number, number], classe: string, rayon_px?: number): void;
+  /**
    * Carte de la mémoire : chaque zone de t prend la couleur de son seau
    * (--memoire-<seau>, teintes.ts) ; absente, ou t null, --terre. À part des
    * marques : effacerMarques ne les retire pas, et les marques, hachures et
@@ -542,7 +548,11 @@ export class Carte implements CarteAffichee {
   /** Un anneau de taille constante autour du point d'un pays (montrer la bonne réponse). */
   anneau(id: string, classe: string, rayon_px = 16): void {
     const e = this.o.donnees.entites.find((en) => en.pays.id === id);
-    const b = e && this.proj(e.pays.point);
+    if (e) this.anneauEn(e.pays.point, classe, rayon_px);
+  }
+
+  anneauEn(point: [number, number], classe: string, rayon_px = 16): void {
+    const b = this.proj(point);
     if (!b) return;
     const c = el('circle', { class: `anneau ${classe}`, cx: b[0], cy: b[1], r: rayon_px / this.applique.k });
     this.coucheMarques.append(c);

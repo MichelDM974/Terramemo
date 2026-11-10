@@ -407,6 +407,25 @@ describe('CarteCanvas : un toucher ne redessine que la couche du dessus (J0, #1)
     expect(ctxDessus.remplis.some((r) => r.style === ACCENT)).toBe(true);
   });
 
+  it('anneauEn (D53 c) : un anneau de 16 px au point donné (La Paz), sur la couche du dessus, effacé avec les marques', () => {
+    const c = carte();
+    image(0);
+    const LA_PAZ: [number, number] = [-68.13, -16.5];
+    c.anneauEn(LA_PAZ, 'juste');
+    image(16);
+    const [bx, by] = c.projection(LA_PAZ) as [number, number];
+    const [x, y] = versEcran(c.transfo, bx, by);
+    const arcs = ctxDessus.traits.filter((t) => t.arc && t.arc[2] === 16).map((t) => t.arc!);
+    expect(arcs).toHaveLength(1);
+    expect(arcs[0]![0]).toBeCloseTo(x, 6);
+    expect(arcs[0]![1]).toBeCloseTo(y, 6);
+    expect(ctx2d.traits.some((t) => t.arc)).toBe(false);
+    c.effacerMarques();
+    ctxDessus.traits.length = 0;
+    image(32);
+    expect(ctxDessus.traits.some((t) => t.arc && t.arc[2] === 16)).toBe(false);
+  });
+
   it('une zone contestée marquée : sa couleur, puis ses hachures repeintes par-dessus, puis ses frontières (Sahara occidental)', () => {
     const c = carte();
     c.zoomerSur('ESH');

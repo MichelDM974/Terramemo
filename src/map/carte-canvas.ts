@@ -77,6 +77,19 @@ export interface StatsDessin {
   carte?: boolean;
 }
 
+/** Un anneau de la couche du dessus : autour du point de la zone `id`, ou de `point` (anneauEn : la ville d'une capitale). */
+export interface AnneauCarte {
+  id: string;
+  classe: string;
+  rayon_px: number;
+  point?: [number, number];
+}
+
+/** Le point [lon, lat] d'un anneau : le sien, ou celui de sa zone ; null si elle est inconnue. */
+export function pointAnneau(a: AnneauCarte, entites: readonly { pays: { id: string; point: [number, number] } }[]): [number, number] | null {
+  return a.point ?? entites.find((en) => en.pays.id === a.id)?.pays.point ?? null;
+}
+
 /** Ce qu'une image donne à dessiner à un peintre : la vue et ce qui se pose dessus. */
 export interface EtatImage {
   v: VueGlobe;
@@ -86,7 +99,8 @@ export interface EtatImage {
   enMouvement: boolean;
   pastilles: readonly Pastille[];
   marques: ReadonlyMap<string, ReadonlySet<string>>;
-  anneaux: readonly { id: string; classe: string; rayon_px: number }[];
+  /** Autour du point de la zone `id`, ou de `point` s'il est donné (anneauEn). */
+  anneaux: readonly AnneauCarte[];
   /**
    * Seau de la carte de la mémoire de chaque zone teintée (teintes.ts), null
    * sans teinte : un nouvel objet à chaque changement (teinter), si bien
@@ -369,7 +383,7 @@ export class CarteCanvas implements CarteAffichee {
   private motif: CanvasPattern | null = null;
   private pastilles: Pastille[] = [];
   private marques = new Map<string, Set<string>>();
-  private anneaux: { id: string; classe: string; rayon_px: number }[] = [];
+  private anneaux: AnneauCarte[] = [];
   /**
    * Carte de la mémoire (teinter) : le seau de chaque zone teintée, et le même
    * par index d'entité (-1 : --terre), lu par le tracé de chaque partie. Peintes
@@ -749,6 +763,11 @@ export class CarteCanvas implements CarteAffichee {
 
   anneau(id: string, classe: string, rayon_px = 16): void {
     this.anneaux.push({ id, classe, rayon_px });
+    this.demander();
+  }
+
+  anneauEn(point: [number, number], classe: string, rayon_px = 16): void {
+    this.anneaux.push({ id: '', classe, rayon_px, point });
     this.demander();
   }
 
@@ -1307,8 +1326,8 @@ export class CarteCanvas implements CarteAffichee {
       } else ctx.stroke();
     }
     for (const a of this.anneaux) {
-      const e = this.o.donnees.entites.find((en) => en.pays.id === a.id);
-      const b = e && this.proj(e.pays.point);
+      const ll = pointAnneau(a, this.o.donnees.entites);
+      const b = ll && this.proj(ll);
       if (!b) continue;
       const [x, y] = versEcran(t, b[0], b[1]);
       ctx.beginPath();

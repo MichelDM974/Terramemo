@@ -52,7 +52,7 @@ import { versEcran } from './geo';
 import type { Position } from 'geojson';
 import { emprisesAPlat, maillerCarte, maillerTraits, pourChaqueCopie, toursEnPlus, type Maillage, type MaillagesCarte, type PartieMaillee } from './maillage';
 import { PASTILLE } from './pastilles';
-import { TRAIT_FAUX_PX, type EtatImage, type Peintre, type StatsDessin } from './carte-canvas';
+import { pointAnneau, TRAIT_FAUX_PX, type EtatImage, type Peintre, type StatsDessin } from './carte-canvas';
 import { VARIABLES_MEMOIRE, type Teintes } from './teintes';
 
 /** Côté de la texture des couleurs par pays (texels par ligne). */
@@ -890,8 +890,8 @@ export class PeintreWebGL implements Peintre {
       if (classes?.has('faux')) ajouter(x, y, r, TRAIT_FAUX_PX / 2, coul.texte);
     }
     for (const a of e.anneaux) {
-      const en = this.donnees.entites.find((x) => x.pays.id === a.id);
-      const b = en && e.proj(en.pays.point);
+      const ll = pointAnneau(a, this.donnees.entites);
+      const b = ll && e.proj(ll);
       if (!b) continue;
       const [x, y] = versEcran(t, b[0], b[1]);
       ajouter(x, y, a.rayon_px, 1, coul.marques[a.classe] ?? coul.marques.juste ?? coul.pastille);

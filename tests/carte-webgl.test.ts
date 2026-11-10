@@ -1483,6 +1483,26 @@ describe('fragment shaders et disques (le texte GLSL, traduit et évalué) = le 
     }
   });
 
+  it('anneauEn (D53 c) : un anneau au point donné est le même disque qu’un anneau de zone au même point', () => {
+    const e = etat(10, 4, new Map(), 45);
+    const che = donnees.entites.find((x) => x.pays.id === 'CHE')!.pays.point;
+    const vert = traduireGlsl(VERTEX_DISQUES);
+    const instance = (anneaux: EtatImage['anneaux']) => {
+      const { p, f } = peintre();
+      p.dessiner({ ...e, anneaux });
+      const d = f.dessins.find((x) => x.mode === f.constante('TRIANGLE_STRIP'));
+      expect(d?.n).toBe(1);
+      return f.attributs(d?.vao as object, vert, 0, 0);
+    };
+    const parZone = instance([{ id: 'CHE', classe: 'juste', rayon_px: 16 }]);
+    expect(instance([{ id: '', classe: 'juste', rayon_px: 16, point: che }])).toEqual(parZone);
+    // Un autre point (Berne, et non le point d'étiquette de la Suisse) : un autre centre.
+    const { p, f } = peintre();
+    p.dessiner({ ...e, anneaux: [{ id: '', classe: 'juste', rayon_px: 16, point: [8.3, 46.8] }] });
+    const d = f.dessins.find((x) => x.mode === f.constante('TRIANGLE_STRIP'));
+    expect(f.attributs(d?.vao as object, vert, 0, 0)).not.toEqual(parZone);
+  });
+
   it('pastilles et anneaux (VERTEX_DISQUES, FRAG_DISQUES) = les disques du Canvas : couleur au centre, bord de 1 px au rayon, rien au-delà ; le carré les contient', () => {
     // Marque (pastille de Malte) et anneau translucides : une couleur d'instance non prémultipliée se verrait.
     // Le bord reste opaque (--bg) : le Canvas trace le trait par-dessus le disque, translucide il s'y mêlerait.

@@ -228,6 +228,25 @@ describe('Carte SVG : le contour de la zone fausse est entier, par-dessus les vo
   });
 });
 
+describe('Carte SVG : anneauEn, un anneau au point d’une ville (D53 c)', () => {
+  const tous = (e: FauxElement): FauxElement[] => [e, ...e.enfants.flatMap(tous)];
+  it('un cercle .anneau au point projeté, comme anneau() autour du point d’une zone ; retiré avec les marques', () => {
+    const { c, hote } = carte();
+    const LA_PAZ: [number, number] = [-68.13, -16.5];
+    c.anneauEn(LA_PAZ, 'juste');
+    c.anneau('BOL', 'choisi');
+    const cercles = tous(hote).filter((e) => e.className.split(' ').includes('anneau'));
+    expect(cercles.map((e) => e.className)).toEqual(['anneau juste', 'anneau choisi']);
+    const [x, y] = c.projection(LA_PAZ) as [number, number];
+    expect(Number(cercles[0]!.getAttribute('cx'))).toBeCloseTo(x, 6);
+    expect(Number(cercles[0]!.getAttribute('cy'))).toBeCloseTo(y, 6);
+    const bol = c.projection(donnees.entites.find((e) => e.pays.id === 'BOL')!.pays.point) as [number, number];
+    expect(Number(cercles[1]!.getAttribute('cx'))).toBeCloseTo(bol[0], 6);
+    c.effacerMarques();
+    expect(tous(hote).filter((e) => e.className.split(' ').includes('anneau'))).toHaveLength(0);
+  });
+});
+
 describe('Carte SVG : les teintes de la carte de la mémoire, à part des marques (#2)', () => {
   const tous = (e: FauxElement): FauxElement[] => [e, ...e.enfants.flatMap(tous)];
   const classes = (e: FauxElement | undefined) => (e?.className ?? '').split(' ').filter(Boolean);
