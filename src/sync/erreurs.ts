@@ -15,6 +15,9 @@ const E: Readonly<Record<string, string>> = textes.compte.erreurs;
 const SILENCIEUX: ReadonlySet<string> = new Set([
   'auth/popup-closed-by-user',
   'auth/cancelled-popup-request',
+  // « Annuler » sur l'écran de consentement de Google (première connexion), ou « Accès bloqué »
+  // refermé : un refus, pas une erreur.
+  'auth/user-cancelled',
   'auth/credential-already-in-use',
   'auth/user-token-expired',
   // « Annuler » à la question de fusion (§ 2.3) : retour au formulaire, sans message.

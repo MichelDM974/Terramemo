@@ -614,7 +614,7 @@
       "auth/password-does-not-meet-requirements": "Mot de passe : 8 caractères au moins",
       "auth/too-many-requests": "Trop de tentatives : réessaie dans quelques minutes.",
       "auth/network-request-failed": "Réseau injoignable",
-      "auth/popup-blocked": "Fenêtre de connexion Google bloquée par le navigateur",
+      "auth/popup-blocked": "Fenêtre de Google bloquée : touche encore le bouton (ou autorise les fenêtres pour ce site).",
       "auth/user-disabled": "Compte désactivé",
       "auth/requires-recent-login": "Pour ta sécurité, reconnecte-toi avant de continuer",
       "auth/provider-already-linked": "Ce compte est déjà relié à ce moyen de connexion",
@@ -647,7 +647,7 @@
       "terramemo/suppression-reconnexion": "Ce compte se reconnecte sur le site : terramemo-geo.web.app.",
       "auth/user-mismatch": "Ce n'est pas le compte connecté : choisis celui-là.",
       "auth/web-storage-unsupported": "Ce navigateur refuse la fenêtre de Google (données de sites bloquées ?) : passe par l'e-mail.",
-      "terramemo/google-reessayer": "Connexion Google interrompue : touche encore « Continuer avec Google ».",
+      "terramemo/google-reessayer": "Connexion Google interrompue : touche encore le bouton de Google.",
       "terramemo/google-apk-bientot": "Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site.",
       "terramemo/google-autre-compte": "Ce n'est pas le compte à supprimer : choisis le sien dans la fenêtre de Google."
     }

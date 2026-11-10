@@ -627,7 +627,8 @@ describe('vue Compte, lot 6 : Google', () => {
   });
 
   it('fenêtre fermée : rien ne s’affiche, les boutons reviennent', async () => {
-    for (const code of ['auth/popup-closed-by-user', 'auth/cancelled-popup-request']) {
+    // auth/user-cancelled : « Annuler » sur l'écran de consentement de Google.
+    for (const code of ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled']) {
       echecGoogle = err(code);
       const c = fauxComptes();
       zone = document.createElement('main') as unknown as El;
@@ -644,10 +645,10 @@ describe('vue Compte, lot 6 : Google', () => {
 
   it('fenêtre bloquée, domaine non autorisé, navigateur qui refuse la fenêtre : expliqués', async () => {
     const attendus: Record<string, string> = {
-      'auth/popup-blocked': 'Fenêtre de connexion Google bloquée par le navigateur',
+      'auth/popup-blocked': 'Fenêtre de Google bloquée : touche encore le bouton (ou autorise les fenêtres pour ce site).',
       'auth/unauthorized-domain': 'Connexion impossible depuis cette adresse du site',
       'auth/web-storage-unsupported': T.erreurs['auth/web-storage-unsupported']!,
-      'terramemo/google-reessayer': 'Connexion Google interrompue : touche encore « Continuer avec Google ».',
+      'terramemo/google-reessayer': 'Connexion Google interrompue : touche encore le bouton de Google.',
     };
     for (const [code, texte] of Object.entries(attendus)) {
       echecGoogle = err(code);

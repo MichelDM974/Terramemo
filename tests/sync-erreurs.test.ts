@@ -26,7 +26,7 @@ describe('traduire', () => {
       'terramemo/mdp-court': 'Mot de passe : 8 caractères au moins',
       'auth/too-many-requests': 'Trop de tentatives : réessaie dans quelques minutes.',
       'auth/network-request-failed': 'Réseau injoignable',
-      'auth/popup-blocked': 'Fenêtre de connexion Google bloquée par le navigateur',
+      'auth/popup-blocked': 'Fenêtre de Google bloquée : touche encore le bouton (ou autorise les fenêtres pour ce site).',
       'auth/user-disabled': 'Compte désactivé',
       'permission-denied': 'Action non autorisée.',
       unavailable: 'Serveur injoignable',
@@ -44,7 +44,7 @@ describe('traduire', () => {
   });
 
   it('les cas silencieux ne montrent rien, mais gardent le code et le message brut', () => {
-    for (const code of ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/credential-already-in-use', 'auth/user-token-expired']) {
+    for (const code of ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled', 'auth/credential-already-in-use', 'auth/user-token-expired']) {
       const t = traduire(err(code));
       expect(t.texte, code).toBeNull();
       expect(t.code).toBe(code);
@@ -80,7 +80,8 @@ describe('traduire', () => {
 
   it('Google sur le site (lot 6) : navigateur qui refuse la fenêtre, lien à refaire, APK sans plugin', () => {
     expect(traduire(err('auth/web-storage-unsupported')).texte).toBe("Ce navigateur refuse la fenêtre de Google (données de sites bloquées ?) : passe par l'e-mail.");
-    expect(traduire(err('terramemo/google-reessayer')).texte).toBe('Connexion Google interrompue : touche encore « Continuer avec Google ».');
+    // Sans nom de bouton : il s'appelle « Se reconnecter avec Google » sur l'écran de la session perdue.
+    expect(traduire(err('terramemo/google-reessayer')).texte).toBe('Connexion Google interrompue : touche encore le bouton de Google.');
     expect(traduire(err('terramemo/google-apk-bientot')).texte).toBe("Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site.");
   });
 
