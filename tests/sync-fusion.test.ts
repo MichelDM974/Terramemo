@@ -9,6 +9,7 @@ import { enregistrer, garderPseudoDans, lirePseudoDe, lireRecords, poserAvisPseu
 import { creerComptes, QUESTION_MAX, type AppareilComptes, type ChoixFusion, type QuestionFusion } from '../src/sync/comptes';
 import { CLES_DU_JOUEUR, effacerJoueurLocal, terminerEffacement } from '../src/sync/effacement';
 import { ecrireBasePseudo, lireBasePseudo } from '../src/sync/profil';
+import { garderChoix, lireChoix } from '../src/vues/accueil';
 import { depotSessionMemoire, sessionVide, type Session } from '../src/sync/session';
 
 class Stockage {
@@ -400,15 +401,17 @@ describe('effacement au démarrage, clés du joueur', () => {
       ...source('epreuve/chrono.ts').matchAll(/const CLE_(?:RECORDS|PSEUDO|PSEUDO_REMPLACE) = '([^']+)'/g),
       ...source('sync/profil.ts').matchAll(/const CLE_PSEUDO_COMPTE = '([^']+)'/g),
       ...source('vues/classement.ts').matchAll(/const CLE_ATTENTE = '([^']+)'/g),
+      ...source('vues/accueil.ts').matchAll(/const CLE_ACCUEIL = '([^']+)'/g),
     ].map((x) => x[1]);
     expect([...cles].sort()).toEqual([...CLES_DU_JOUEUR].sort());
     const st = new Stockage();
     garderPseudoDans(st, 'Ana');
     ecrireBasePseudo(st, { uid: 'u', pseudo: 'Ana' });
     poserAvisPseudo(st, 'Bob');
+    garderChoix(st, 'compte');
     st.setItem('terramemo.appareil', 'garde');
     effacerJoueurLocal(st);
-    expect([lirePseudoDe(st), lireBasePseudo(st), prendreAvisPseudo(st)]).toEqual([null, null, null]);
+    expect([lirePseudoDe(st), lireBasePseudo(st), prendreAvisPseudo(st), lireChoix(st)]).toEqual([null, null, null, null]);
     expect(st.getItem('terramemo.appareil')).toBe('garde');
   });
 });

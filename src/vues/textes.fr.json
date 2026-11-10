@@ -494,6 +494,21 @@
     "detail_sujet": "{sujet} : {detail}",
     "sujet": "Sujet de la carte de la mémoire"
   },
+  "accueil": {
+    "titre": "Terramemo",
+    "accroche": "Apprends la géographie du monde au doigt, et retiens-la pour de bon.",
+    "chargement": "Chargement…",
+    "comptes_echec": "Les comptes ne se chargent pas (hors ligne ?) : continue en invité, ou réessaie.",
+    "reessayer": "Réessayer",
+    "ou": "ou",
+    "invite": "Continuer en invité",
+    "invite_titre": "Continuer en invité",
+    "invite_texte": "Tes progrès restent sur cet appareil seulement. Tu pourras créer un compte plus tard, dans ⚙ › Compte.",
+    "pseudo_libelle": "Ton pseudo au classement",
+    "pseudo_aide": "2 à 20 caractères, visible de tous. Il n'est pas réservé : qui le choisit partage ta place.",
+    "commencer": "Commencer",
+    "retour": "Retour"
+  },
   "compte": {
     "lien": "Compte",
     "titre": "Compte",

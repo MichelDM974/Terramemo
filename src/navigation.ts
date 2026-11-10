@@ -14,6 +14,11 @@
 // sans état (le
 // chargement, un lien de l'en-tête) reçoit la pile de l'entrée d'avant, plus
 // l'adresse d'avant.
+//
+// Une adresse peut être retenue (écran de connexion de la première ouverture,
+// src/vues/accueil.ts) : la carte se montre à sa place, sous le panneau,
+// l'adresse reste affichée et l'historique la garde ; le router() suivant
+// (panneau fermé) la rend telle quelle (#compte : la vue Compte).
 import { depuisAncre, pasVers, versAncre } from './vues/arbre';
 
 /** Ce que la navigation demande à window.history (un historique factice dans les tests). */
@@ -45,7 +50,12 @@ export interface OptionsNavigation<V extends VueNavigable> {
   /** La vue à segments (Jouer) : ses segments vont à aller(). */
   arbre: string;
   vue(nom: string): V | undefined;
-  /** Chaque adresse rendue (body.dataset.vue, bouton de l'en-tête). */
+  /**
+   * L'adresse de cette vue est-elle retenue (écran de connexion ouvert) ?
+   * L'accueil se montre alors à sa place, sans redirection ni niveau de Jouer.
+   */
+  retenue?(nom: string): boolean;
+  /** Chaque adresse rendue : la vue montrée (body.dataset.vue, bouton de l'en-tête). */
   surAdresse?(nom: string): void;
   /** Juste avant d'activer une vue (toute vue part du monde). */
   avantActiver?(): void;
@@ -134,8 +144,10 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
     }
     const { nom, segs } = demandee();
     adresseRendue = [nom, ...segs].join('/');
-    o.surAdresse?.(nom);
-    const v = o.vue(nom);
+    // Retenue : l'accueil à la place de la vue demandée, l'adresse gardée.
+    const montre = o.retenue?.(nom) ? o.accueil : nom;
+    o.surAdresse?.(montre);
+    const v = o.vue(montre);
     if (!v) return;
     if (v !== vueActive) {
       // Toucher ou une épreuve sans partie à montrer : Jouer à sa place.
@@ -147,11 +159,11 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
       }
       vueActive?.desactiver();
       vueActive = v;
-      nomActif = nom;
+      nomActif = montre;
       o.avantActiver?.();
       v.activer();
     }
-    if (nom === o.arbre) o.aller(segs);
+    if (montre === o.arbre) o.aller(segs);
   }
 
   function pousser(a: string): void {

@@ -108,6 +108,10 @@ export class El {
   click(): void {
     if (!this.disabled) this.emettre('click');
   }
+  /** Le focus : document.activeElement (écran de connexion). */
+  focus(): void {
+    (globalThis as unknown as { document: { activeElement?: El } }).document.activeElement = this;
+  }
   getBoundingClientRect() {
     return { x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0 };
   }

@@ -679,7 +679,7 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
   padding: 10px 32px 56px;
 }
 .vue-compte .panel, .vue-a-la-demande .panel { max-width: 480px; margin: 0 auto; }
-.vue-compte h3 { margin: 4px 0 10px; font-size: 0.95rem; font-weight: 600; color: var(--text); }
+.vue-compte h3, .accueil h3 { margin: 4px 0 10px; font-size: 0.95rem; font-weight: 600; color: var(--text); }
 .compte-form { display: flex; flex-direction: column; gap: 12px; }
 .compte-champ { display: flex; flex-direction: column; gap: 4px; }
 .compte-champ > label { font-size: 0.85rem; color: var(--muted); }
@@ -690,18 +690,67 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
 .compte-liens { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 0; }
 .compte-liens button.lien, .vue-compte > .panel > button.lien { padding: 8px 0; }
 .compte-adresse { color: var(--text); font-weight: 600; margin: 0 0 4px; overflow-wrap: anywhere; }
-.vue-compte .status { margin: 12px 0 0; }
+.vue-compte .status, .accueil .status { margin: 12px 0 0; }
 /* Vides, les avis ne prennent pas de place mais restent dans l'arbre d'accessibilité
    (aria-live, role=alert : le texte qui arrive est annoncé). */
-.vue-compte .status:empty { margin: 0; min-height: 0; }
+.vue-compte .status:empty, .accueil .status:empty { margin: 0; min-height: 0; }
 .compte-retour { margin-top: 16px; }
 /* Action qui efface ou perd des données (« Ne pas les ajouter », « Se déconnecter quand même »,
    « Effacer ») : filet et texte en --danger, jamais en fond plein (l'accent plein reste au
    bouton principal de l'écran). */
-.vue-compte button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
-.vue-compte button.danger:hover { background: var(--danger-soft); }
-.vue-compte button.danger:disabled { background: var(--disabled-bg); border-color: var(--disabled-bg); color: var(--muted); }
+.vue-compte button.danger, .accueil button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.vue-compte button.danger:hover, .accueil button.danger:hover { background: var(--danger-soft); }
+.vue-compte button.danger:disabled, .accueil button.danger:disabled { background: var(--disabled-bg); border-color: var(--disabled-bg); color: var(--muted); }
 .compte-separe { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* --- Écran de connexion de la première ouverture (src/vues/accueil.ts, décision « Écran de
+   connexion ») : un panneau par-dessus la carte, au style de celui de Jouer (fond flouté, ombre :
+   il flotte), qui garde la carte visible derrière un voile ; l'en-tête, sous le voile, n'est pas
+   utilisable (inert). Une carte de connexion : titre en accent plein (style commun), boutons
+   l'un sous l'autre sur toute la largeur. Défile s'il dépasse (clavier ouvert, 320 × 568). --- */
+.accueil {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  overflow: auto;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: var(--voile);
+}
+.accueil-panneau {
+  width: 100%;
+  max-width: 440px;
+  margin: auto;
+  background: var(--popup-bg);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 32px var(--shadow);
+}
+/* Plus précis que « .panel h2 » (titre des panneaux, 1.02rem) : la taille du titre de l'en-tête. */
+.accueil-panneau .accueil-titre {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+/* Le titre reçoit le focus à l'ouverture (lecteur d'écran) : ce n'est pas une commande. */
+.accueil-panneau .accueil-titre:focus { outline: none; }
+.accueil-titre .logo { width: 0.95em; height: 0.95em; flex: none; }
+.accueil-accroche { margin: 4px 0 18px; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
+.accueil .compte-actions { flex-direction: column; align-items: stretch; gap: 10px; }
+.accueil .compte-actions button, .accueil-invite { width: 100%; min-height: 44px; }
+.accueil .compte-liens { justify-content: center; }
+.accueil #accueil-compte-google-aide { margin-top: 8px; }
+/* « ou » entre les comptes et l'invité : un filet de chaque côté. */
+.accueil-ou { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; color: var(--muted); font-size: 0.82rem; }
+.accueil-ou::before, .accueil-ou::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+.accueil-form-invite .compte-champ input { width: 100%; }
+.accueil-form-invite .compte-champ .hint { margin: 2px 0 0; }
+.accueil-liens { margin: 16px 0 0; text-align: center; font-size: 0.85rem; }
+.accueil-liens a { color: var(--accent); }
 /* --- Crédits (⚙ › Crédits et licences) : une liste par sorte, sans cadre dans le panneau. --- */
 .vue-credits {
   position: absolute;
@@ -780,6 +829,7 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
   .document td[data-titre]::before { content: attr(data-titre) " : "; color: var(--muted); }
   .carte-barre { left: 8px; right: 8px; bottom: 8px; }
   .jouer-panneau { inset: 8px; }
+  .accueil { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
 }
 
 /* Les trois champs de la Saisie (dont type=url) : même allure que input[type="text"] du style commun. */

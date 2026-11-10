@@ -24,6 +24,7 @@
   --disabled-bg: #34363c;
   --shadow: rgba(0, 0, 0, 0.35);
   --popup-bg: rgba(17, 18, 20, 0.88);  /* --panel, sous ce qui flotte (popup, bulle) */
+  --voile: rgba(8, 8, 9, 0.55);  /* --bg, sous un panneau qui attend un choix (écran de connexion) : la carte se voit derrière */
   /* Statuts : réservés au juste et au faux, jamais à une échelle de couleurs. */
   --good: #34c77b;
   --good-soft: rgba(52, 199, 123, 0.14);

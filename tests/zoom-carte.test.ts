@@ -85,6 +85,17 @@ describe('boutons de zoom (#23)', () => {
     }
   });
 
+  it('l’écran de connexion ouvert (ou attendu) : les touches ne zooment pas la carte figée derrière ; Confidentialité ouverte, rien à zoomer non plus', () => {
+    body.dataset.vue = 'carte';
+    for (const etat of ['attente', 'ouvert']) {
+      body.dataset.accueil = etat;
+      expect([etat, frapper('+')]).toEqual([etat, false]);
+    }
+    delete body.dataset.accueil;
+    expect(frapper('+')).toBe(true);
+    expect(carte!.zoomerDe.mock.calls).toEqual([[2]]);
+  });
+
   it('carte.css : cachés par défaut, montrés hors d’un écran tactile (pas pointer: coarse) dans les vues de VUES_ZOOM seulement', () => {
     const css = readFileSync('src/carte.css', 'utf8');
     expect(css).toMatch(/\.zoom-carte \{[^}]*display: none;/);

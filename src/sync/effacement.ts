@@ -12,10 +12,11 @@ import type { DepotSession, Session } from './session';
  * Les clés du localStorage qui sont au joueur : pseudo (src/epreuve/chrono.ts),
  * records du Chrono et de ses épreuves, base du pseudo du compte
  * (src/sync/profil.ts), avis d'un pseudo remplacé, file des scores à publier
- * (src/vues/classement.ts). tests/sync-effacement.test.ts vérifie qu'après
- * l'effacement les fonctions de ces modules ne les retrouvent plus.
+ * (src/vues/classement.ts), choix de l'écran de connexion (src/vues/accueil.ts :
+ * l'appareil vidé le revoit, comme un appareil neuf). tests/sync-fusion.test.ts
+ * vérifie qu'après l'effacement les fonctions de ces modules ne les retrouvent plus.
  */
-export const CLES_DU_JOUEUR: readonly string[] = ['terramemo.pseudo', 'terramemo.chrono.records', 'terramemo.pseudo.compte', 'terramemo.pseudo.remplace', 'terramemo.chrono.attente'];
+export const CLES_DU_JOUEUR: readonly string[] = ['terramemo.pseudo', 'terramemo.chrono.records', 'terramemo.pseudo.compte', 'terramemo.pseudo.remplace', 'terramemo.chrono.attente', 'terramemo.accueil'];
 
 export function effacerJoueurLocal(stockage: Pick<Storage, 'removeItem'> | null): void {
   for (const k of CLES_DU_JOUEUR) {

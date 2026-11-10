@@ -62,7 +62,8 @@ function vueSimple(): VueNavigable & { active: boolean } {
   return v;
 }
 
-function monter() {
+/** `retenue` : l'écran de connexion (src/vues/accueil.ts : Accueil.retient). */
+function monter(o: { retenue?: (nom: string) => boolean } = {}) {
   const h = new FauxHistorique();
   const zone = new El('main');
   // La carte et les terrains des parties : juste ce que Toucher et les épreuves demandent.
@@ -105,6 +106,8 @@ function monter() {
   };
   const carteVue = vueSimple();
   const classement = vueSimple();
+  const confidentialite = vueSimple();
+  const compte = vueSimple();
   let nav!: Navigation<VueNavigable>;
   const versJouer = (cible: string, message?: string) => nav.versJouer(cible, message);
   // « × » (#18) : comme main.ts, l'accueil en remontant l'historique.
@@ -137,13 +140,16 @@ function monter() {
     ['toucher', toucher],
     ['chrono', chrono],
     ['classement', classement],
+    ['confidentialite', confidentialite],
+    ['compte', compte],
   ]);
   nav = creerNavigation({
     history: h,
     ancre: () => h.ancre,
-    noms: ['carte', 'jouer', 'toucher', 'chrono', 'classement'],
+    noms: ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'confidentialite', 'compte'],
     accueil: 'carte',
-    passage: ['jouer', 'classement'],
+    passage: ['jouer', 'classement', 'confidentialite', 'compte'],
+    retenue: o.retenue,
     arbre: 'jouer',
     vue: (n) => vues.get(n),
     aller: (segs) => jouer.aller(segs),
@@ -203,7 +209,7 @@ function monter() {
     lien('jouer');
     for (let k = 1; k <= segs.length; k++) faire(() => nav.pousser(['jouer', ...segs.slice(0, k)].join('/')));
   };
-  return { h, nav, zone, jouer, chrono, carteVue, classement, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre };
+  return { h, nav, zone, jouer, chrono, carteVue, classement, confidentialite, compte, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre };
 }
 
 beforeEach(() => {
@@ -413,5 +419,44 @@ describe('navigation : « × » ramène à la carte (#18)', () => {
     expect(m.h.ancre).toBe('#carte');
     expect(m.zone.querySelector('#chrono-bilan')?.hidden).toBe(true);
     expect(m.chrono.aMontrer?.()).toBe(false);
+  });
+});
+
+describe('navigation : une adresse retenue par l’écran de connexion', () => {
+  it('la carte à la place de la vue demandée, l’adresse gardée ; rendue telle quelle une fois le panneau fermé', () => {
+    let ouvert = true;
+    const m = monter({ retenue: (n) => ouvert && n !== 'confidentialite' });
+    m.lien('jouer/classe/pays');
+    expect(m.ici()).toBe('jouer/classe/pays');
+    expect(m.carteVue.active).toBe(true);
+    expect(m.jouer.active).toBe(false);
+    expect(m.jouer.rendue).toBe(''); // aucun niveau de Jouer rendu sous le panneau
+    m.lien('compte');
+    expect(m.compte.active).toBe(false);
+    expect(m.carteVue.active).toBe(true);
+    // Le panneau fermé (main.ts : nav.router) : l'adresse affichée, telle quelle.
+    ouvert = false;
+    m.nav.router();
+    expect(m.compte.active).toBe(true);
+    expect(m.carteVue.active).toBe(false);
+  });
+
+  it('Confidentialité se lit sans avoir choisi ; son « Retour » ramène à la carte, sous le panneau', () => {
+    const m = monter({ retenue: (n) => n !== 'confidentialite' });
+    m.lien('carte');
+    m.lien('confidentialite');
+    expect(m.confidentialite.active).toBe(true);
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('carte');
+    expect(m.carteVue.active).toBe(true);
+    expect(m.h.gos).toEqual([-1]);
+  });
+
+  it('#toucher retenu : pas de redirection vers Jouer (la carte, l’adresse gardée)', () => {
+    const m = monter({ retenue: (n) => n !== 'confidentialite' });
+    m.lien('toucher');
+    expect(m.ici()).toBe('toucher');
+    expect(m.carteVue.active).toBe(true);
+    expect(m.jouer.active).toBe(false);
   });
 });

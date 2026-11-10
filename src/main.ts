@@ -25,9 +25,11 @@ import { comptesVisibles, poserDrapeaux, synchroCoupee } from './sync/drapeaux';
 import type { AppareilComptes, RapportComptes } from './sync/comptes';
 import { terminerEffacement } from './sync/effacement';
 import type { ComptesSynchro, Declencheur, Envoi, RapportEnvoi, ResultatLecture } from './sync/envoi';
-import { brancherProfil, poserEtatCompte, type ChangementProfil } from './sync/pont';
+import { charger } from './sync/firebase';
+import { brancherProfil, etatCompteConnu, poserEtatCompte, type ChangementProfil } from './sync/pont';
 import { depotSessionIndexedDb, type Session } from './sync/session';
 import { vueALaDemande } from './vues/a-la-demande';
+import { creerAccueil, type Accueil } from './vues/accueil';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import type { Vue } from './vues/commun';
@@ -272,6 +274,33 @@ let arbre: Arbre | null = null;
 /** La vue Carte (l'accueil), une fois le monde chargé : ses teintes suivent la mémoire et le réglage. */
 let explorer: VueExplorer | null = null;
 
+/**
+ * Écran de connexion de la première ouverture (src/vues/accueil.ts, décision
+ * « Écran de connexion ») : comptes visibles seulement. Créé avant la
+ * navigation, qui lui demande à chaque adresse s'il la retient (la carte à
+ * sa place, sous le panneau ; Confidentialité se lit) ; sans choix gardé,
+ * l'en-tête est inerte dès maintenant, le temps de lire la session
+ * (demarrer, plus bas). Ses entrées des comptes sont les écrans de la vue
+ * Compte, dans leur morceau à la demande (chargerVueCompte), sans le SDK de
+ * Firebase, préchauffé au premier signe d'intérêt.
+ */
+const accueil: Accueil | null = COMPTES
+  ? creerAccueil({
+      hote: document.body,
+      entete: document.querySelector('header'),
+      zone: document.getElementById('app') as HTMLElement,
+      corps: document.body,
+      stockage,
+      logo: document.querySelector('header h1 .logo')?.getAttribute('src'),
+      monterComptes: async (a) => {
+        const [{ accueilCompte }, mc] = await chargerVueCompte();
+        return accueilCompte({ ...a, comptes: async () => lesComptes(mc), envoi: chargerEnvoi, exporter: exporterDonnees, prechauffer: () => void charger().catch(() => undefined) });
+      },
+      rendre: () => nav.router(),
+      etatCompte: etatCompteConnu,
+    })
+  : null;
+
 const nav = creerNavigation({
   history,
   ancre: () => location.hash,
@@ -280,7 +309,10 @@ const nav = creerNavigation({
   passage: PASSAGE,
   arbre: 'jouer',
   vue: (nom) => vues.get(nom),
+  // L'écran de connexion ouvert : la carte sous le panneau, quelle que soit l'adresse (sauf Confidentialité).
+  retenue: (nom) => accueil?.retient(nom) ?? false,
   surAdresse: (nom) => {
+    accueil?.suivre(nom);
     document.body.dataset.vue = nom;
     // Le bouton de la vue affichée (Jouer, 🏆) le dit.
     for (const a of document.querySelectorAll<HTMLAnchorElement>('header a[data-vue]')) {
@@ -547,6 +579,10 @@ const effacementFini = terminerEffacement({
   console.warn('Effacement de l’appareil non fini (repris au prochain démarrage) :', e);
   return false;
 });
+// L'écran de connexion décide une fois l'effacement fini : la session dit alors si l'appareil connaît un compte.
+void accueil?.demarrer(
+  effacementFini.then(() => depotSessionIndexedDb().lire()).then((s) => !!s?.uid),
+);
 const memoire = ouvrirMemoire({
   depot: depotJournal,
   appareil: idAppareil(),
@@ -688,8 +724,7 @@ async function demarrer(): Promise<void> {
         'compte',
         { titre: T.titre, chargement: T.chargement, echec: T.chargement_echec, reessayer: T.reessayer, retour: T.retour },
         async () => {
-          // L'envoi aussi : une création de compte faite ici relance l'envoi (surJeton).
-          const [{ vueCompte }, mc] = await Promise.all([import('./vues/compte'), chargerComptes(), chargerEnvoi()]);
+          const [{ vueCompte }, mc] = await chargerVueCompte();
           return vueCompte(ctx, { retour, versCarte, comptes: async () => lesComptes(mc), envoi: chargerEnvoi, exporter: exporterDonnees });
         },
         retour,
@@ -761,6 +796,15 @@ const appareilComptes: AppareilComptes = {
   },
   effacer: async (uids) => (await chargerEnvoi()).effacer(uids, () => memoire.effacer()),
 };
+/**
+ * La vue Compte et les écrans du panneau de la première ouverture : leur
+ * morceau, les comptes et l'envoi (une création de compte faite là relance
+ * l'envoi : surJeton). Le SDK de Firebase n'en est pas : il vient au premier
+ * appel des comptes.
+ */
+function chargerVueCompte() {
+  return Promise.all([import('./vues/compte'), chargerComptes(), chargerEnvoi()]);
+}
 /** Les comptes de la page, branchés sur l'appareil (le premier appel fixe les options). */
 const lesComptes = (m: typeof import('./sync/comptes')) => m.comptes(VERSION, { appareil: appareilComptes });
 
