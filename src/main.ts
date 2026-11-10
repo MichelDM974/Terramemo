@@ -630,7 +630,7 @@ async function demarrer(): Promise<void> {
   const pays = donnees.entites.map((e) => e.pays);
   arbre = creerArbre(catalogue(pays));
   // ?teintes=demo garde ses teintes partout : l'accueil n'y pose pas celles de la mémoire.
-  explorer = vueExplorer(ctx, teintesDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive) });
+  explorer = vueExplorer(ctx, teintesDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive, { stockage }) });
   // Les communes (Apprendre sous La Réunion, leurs révisions) : les données de l'île une fois chargée.
   const seances = creerSeances({
     memoire,

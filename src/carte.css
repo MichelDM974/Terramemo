@@ -186,6 +186,15 @@ body[data-terrain="reunion"] .legende-memoire { top: 44px; }
 .legende-s3 { background: var(--memoire-3); }
 .legende-s4 { background: var(--memoire-4); }
 .legende-compte { color: var(--text); }
+/* Le choix du sujet (D47 a) : seul élément touchable de la légende, à sa taille de texte. */
+.legende-memoire select.legende-sujet {
+  display: inline-block;
+  margin: 0;
+  padding: 1px 4px;
+  font-size: inherit;
+  border-radius: 4px;
+  pointer-events: auto;
+}
 body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoire { display: none; }
 
 /* --- Boutons de zoom (#23, src/zoom-carte.ts) : +, − et « toute la carte »,

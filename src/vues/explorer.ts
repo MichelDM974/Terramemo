@@ -4,8 +4,11 @@
 // (chargée au premier choix), où l'on explore de même ; « Monde » ramène au monde.
 // La carte de la mémoire (J1a, étude § 7) : les teintes du terrain montré,
 // posées ici et retirées en partant (aucune autre vue ne les voit), sa légende
-// à part et « Vu 4 fois · revient dans 5 j » sous la zone touchée.
+// à part et « Vu 4 fois · revient dans 5 j » sous la zone touchée. Le choix du
+// sujet (étude J2 § 6.4, D47 a) en tête de la légende, seulement quand le
+// terrain a plusieurs sujets jouables.
 import { NB_SEAUX } from '../map/teintes';
+import { estDomaine, type Domaine } from '../srs/fiches';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Via } from '../map/pick';
 import type { NomTerrain } from '../map/types';
@@ -17,6 +20,9 @@ import { textes } from './textes';
 
 const C = textes.carte;
 const M = textes.memoire;
+
+/** Le nom d'un sujet dans le choix de la légende : celui de Jouer (« Pays », « Communes »). */
+const nomSujet = (d: Domaine): string => (textes.jouer.sujets as Partial<Record<string, { nom: string }>>)[d]?.nom ?? d;
 
 export interface VueExplorer extends Vue {
   /** Montre ce lieu (recherche) : son terrain, la zone en accent, la carte qui vole jusqu'à elle. */
@@ -38,19 +44,27 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   barre.hidden = true;
   // La légende de la carte de la mémoire, à elle (#barre-carte est au pays touché) : jamais vu, l'échelle des seaux, les maîtrisés.
   const compteMaitrises = creer('span', { class: 'legende-compte' });
-  const legende = creer(
-    'div',
-    { class: 'legende-memoire', id: 'legende-memoire', role: 'note', 'aria-label': M.legende },
-    // La case après son mot, comme l'échelle après « faible » : en tête de ligne, elle passait pour une case à cocher.
-    M.jamais_vu,
-    creer('span', { class: 'legende-case legende-jamais', 'aria-hidden': 'true' }),
-    ' · ',
-    M.faible,
-    creer('span', { class: 'legende-echelle', 'aria-hidden': 'true' }, ...Array.from({ length: NB_SEAUX }, (_, k) => creer('span', { class: `legende-case legende-s${k}` }))),
-    M.maitrise,
-    ' · ',
-    compteMaitrises,
-  );
+  // Le choix du sujet : dans la légende seulement à partir de deux sujets jouables (sinon rien ne change à l'écran).
+  const choixSujet = creer('select', { class: 'legende-sujet', id: 'legende-sujet', 'aria-label': M.sujet });
+  const caseJamais = creer('span', { class: 'legende-case legende-jamais', 'aria-hidden': 'true' });
+  const echelle = creer('span', { class: 'legende-echelle', 'aria-hidden': 'true' }, ...Array.from({ length: NB_SEAUX }, (_, k) => creer('span', { class: `legende-case legende-s${k}` })));
+  const legende = creer('div', { class: 'legende-memoire', id: 'legende-memoire', role: 'note', 'aria-label': M.legende });
+  /** La légende, avec le choix du sujet en tête s'il y en a plusieurs. */
+  function poserLegende(sujets: readonly Domaine[]): void {
+    legende.replaceChildren(
+      ...(sujets.length ? [choixSujet, ' · '] : []),
+      // La case après son mot, comme l'échelle après « faible » : en tête de ligne, elle passait pour une case à cocher.
+      M.jamais_vu,
+      caseJamais,
+      ' · ',
+      M.faible,
+      echelle,
+      M.maitrise,
+      ' · ',
+      compteMaitrises,
+    );
+  }
+  poserLegende([]);
   legende.hidden = true;
   ctx.zone.append(barre, legende);
 
@@ -77,8 +91,21 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     } else t.carte.teinter(null);
     const compte = seaux ? m.maitrises(t.nom, t.jouables.length) : null;
     compteMaitrises.textContent = compte ?? '';
+    const sujets = compte ? m.sujets(t.nom) : [];
+    if (sujets.length) choixSujet.replaceChildren(...sujets.map((d) => creer('option', { value: d }, nomSujet(d))));
+    choixSujet.value = m.sujet(t.nom) ?? '';
+    poserLegende(sujets);
     legende.hidden = !compte;
   }
+
+  choixSujet.addEventListener('change', () => {
+    const d = choixSujet.value;
+    if (!o.memoire || !estDomaine(d)) return;
+    o.memoire.choisir(t.nom, d);
+    teinter();
+    const id = barre.dataset.id;
+    if (id) afficher(id, viaAffiche);
+  });
 
   function effacerTeintes(): void {
     for (const x of teintes) x.carte.teinter(null);
