@@ -579,6 +579,7 @@
     "supprimer_classement_aucun": "Ton compte n'a pas de pseudo en ligne : aucune place du classement ne sera retirée.",
     "supprimer_mot": "Pour confirmer, écris « supprimer »",
     "supprimer_google": "Google te demandera de confirmer ton compte.",
+    "supprimer_google_ou_mdp": "Sans mot de passe, Google te demandera de confirmer ton compte.",
     "supprimer_bouton": "Supprimer définitivement",
     "suppression_en_cours": "Suppression…",
     "supprime": "Compte supprimé.",

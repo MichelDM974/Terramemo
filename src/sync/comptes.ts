@@ -924,11 +924,14 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
    * Étape 1 : réauthentifier, toujours, plutôt que d'attendre
    * requires-recent-login. Mot de passe ; Google sur le site, la popup ; dans
    * l'APK, un nouvel idToken du plugin (lot 7) ; sans lui, terramemo/google-apk.
+   * Un compte qui a les deux (adresse vérifiée, puis Google ajouté) : le mot
+   * de passe s'il est donné, sinon Google.
    */
   async function reauthentifier(s: Service, u: import('firebase/auth').User, mdp: string | undefined): Promise<void> {
     const { auth } = s.m;
     const f = fournisseursDe(u);
-    if (f.includes('password') && u.email) {
+    const parGoogle = !mdp && f.includes('google.com') && sourceGoogle() !== null;
+    if (f.includes('password') && u.email && !parGoogle) {
       if (!mdp) throw new ErreurCompte('auth/missing-password');
       try {
         await auth.reauthenticateWithCredential(u, auth.EmailAuthProvider.credential(u.email, mdp));
@@ -980,11 +983,12 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
    * l'adresse de la session. Rend le compte reconnecté, ou null s'il est
    * prouvé parti de Auth (auth/user-not-found ; l'adresse est maintenant
    * celle d'un autre compte). Un compte Google seul : par Google (lot 6 ; sur
-   * le site, la fenêtre).
+   * le site, la fenêtre) ; un compte qui a les deux : Google sans mot de passe.
    */
   async function reconnecterPourSupprimer(s: Service, ses: Session, uid: string, mdp: string | undefined): Promise<import('firebase/auth').User | null> {
     const { auth } = s.m;
-    if (!ses.adresse || !ses.fournisseurs.includes('password')) return reconnecterGooglePourSupprimer(s, ses, uid);
+    const parGoogle = !mdp && ses.fournisseurs.includes('google.com') && sourceGoogle() !== null;
+    if (!ses.adresse || !ses.fournisseurs.includes('password') || parGoogle) return reconnecterGooglePourSupprimer(s, ses, uid);
     if (!mdp) throw new ErreurCompte('auth/missing-password');
     let user: import('firebase/auth').User;
     try {

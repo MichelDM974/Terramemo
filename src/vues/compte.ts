@@ -413,11 +413,13 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
    * La confirmation d'une suppression (§ 7.1) : « supprimer » à écrire, et le
    * mot de passe d'un compte `password` (réauthentification, ou reconnexion
    * d'une session perdue en route : `motDePasse`) ; pour Google connecté, la
-   * fenêtre de Google. `annuler` : le bouton à côté (« Annuler » vers le
+   * fenêtre de Google. Un compte qui a les deux : le mot de passe facultatif,
+   * Google sans lui. `annuler` : le bouton à côté (« Annuler » vers le
    * compte, « Annuler la suppression » d'une reprise), ou aucun.
    */
   function formulaireSuppression(adresse: string | null, fournisseurs: readonly string[], motDePasse: boolean, google: boolean, texte: string, annuler: HTMLButtonElement | null): Node[] {
     const mdpDemande = motDePasse && fournisseurs.includes('password');
+    const deuxMoyens = mdpDemande && fournisseurs.includes('google.com') && googleOffert;
     const mot = champ('compte-supprimer-mot', T.supprimer_mot, { type: 'text', name: 'confirmation', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done', required: '' });
     const mdp = mdpDemande ? champMdp('compte-supprimer-mdp', T.mdp, 'current-password') : null;
     // L'identifiant du compte, caché : le gestionnaire de mots de passe propose le bon.
@@ -455,6 +457,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         mot.label,
         ...(mdp ? [mdp.label] : []),
         ...(google && !mdpDemande && fournisseurs.includes('google.com') ? [creer('p', { class: 'hint', id: 'compte-supprimer-google' }, T.supprimer_google)] : []),
+        ...(deuxMoyens ? [creer('p', { class: 'hint', id: 'compte-supprimer-google' }, T.supprimer_google_ou_mdp)] : []),
         creer('div', { class: 'compte-actions' }, bouton('compte-supprimer-ok', texte, envoyer, 'danger', 'submit'), ...(annuler ? [annuler] : [])),
       ),
     ];

@@ -1071,6 +1071,30 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     expect(c.supprimer).toHaveBeenCalledWith({ mot: 'supprimer' });
   });
 
+  it('compte à mot de passe et Google : le mot de passe facultatif, Google sans lui ; dans l’APK sans plugin, le mot de passe seul', async () => {
+    const e = { ...COMPTE, fournisseurs: ['password', 'google.com'] } as EtatCompte;
+    const c = fauxComptes(e);
+    await ouvrir(c);
+    $('#compte-vers-supprimer')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-supprimer-mdp')).not.toBeNull();
+    expect($('#compte-supprimer-google')!.textContent).toBe(T.supprimer_google_ou_mdp);
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect(c.supprimer).toHaveBeenCalledWith({ mot: 'supprimer', mdp: '' });
+    googleOffert = false;
+    zone = document.createElement('main') as unknown as El;
+    await ouvrir(fauxComptes(e));
+    $('#compte-vers-supprimer')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-supprimer-mdp')).not.toBeNull();
+    expect($('#compte-supprimer-google')).toBeNull();
+  });
+
   it('coupée en route : l’écran de la reprise, l’erreur traduite', async () => {
     coupureSuppression = err('auth/network-request-failed');
     const c = fauxComptes(COMPTE);
