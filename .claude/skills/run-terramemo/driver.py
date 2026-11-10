@@ -12,7 +12,8 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
                                 captures des vues (téléphone ou PC), île
                                 de La Réunion et Nommer compris, séance
                                 du J1a, puis les épreuves des capitales
-                                (?horloge= au serveur de dev avant le 16/11)
+                                (?emulateurs&horloge= au serveur de dev
+                                avant le 16/11)
                                 et l'écran de connexion
     seance [--width 384]        la séance du J1a seule (Révision du jour,
                                 Apprendre, le lendemain par ?horloge=1)
@@ -2337,7 +2338,8 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     épreuves d'un sujet ») : les épreuves classées des capitales. Avant la
     bascule (lundi 16/11/2026, 0 h UTC), sur une page rechargée, Classé n'a
     que Pays et Communes. Ensuite (la bascule passée, ou au serveur de
-    développement par `?horloge=` qui l'avance juste après le 16/11 ; sans
+    développement par `?horloge=` et `?emulateurs` qui l'avancent juste
+    après le 16/11 ; sans
     effet sur le site construit, où l'étape s'arrête là) : Classé › Capitales
     (92), ses 7 séries, Océanie et ses trois épreuves (93), un Chrono des
     capitales d'Océanie joué en entier (94 : « Pays dont la capitale est : »,
@@ -2373,8 +2375,10 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
         if not dev:
             dire("  épreuves des capitales : sautées (bascule à venir ; ?horloge= n'agit qu'au serveur de développement)")
             return
-        # Juste après la bascule : le décalage en jours de ?horloge= (main.ts), un peu plus.
-        horloge = f"&horloge={(OUVERTURE_CAPITALES_MS - time.time() * 1000) / 86_400_000 + 0.01:.4f}"
+        # Juste après la bascule : le décalage en jours de ?horloge= (main.ts), un peu plus. Il ne
+        # décale la bascule qu'avec ?emulateurs (sans, le site de dev publie dans le vrai Firebase) :
+        # l'invité ne publie rien, et le classement du bilan, lu aux émulateurs absents, est « indisponible ».
+        horloge = f"&emulateurs&horloge={(OUVERTURE_CAPITALES_MS - time.time() * 1000) / 86_400_000 + 0.01:.4f}"
         recharger(horloge)
         sujets = classe()
         dire(f"  Classé, {horloge} : {sujets}")

@@ -281,8 +281,8 @@ export const EPREUVES_OUVERTES: Readonly<Partial<Record<Domaine, number>>> = {
  * L'horloge de la bascule (ms depuis 1970), lue à chaque calcul : Jouer et
  * le 🏆 la relisent à chaque ouverture (un onglet resté ouvert bascule au
  * plus tard à sa prochaine ouverture de l'un ou de l'autre), le général et
- * la publication à chaque envoi. Date.now ; tests, et `?horloge=` au serveur
- * de développement (main.ts) : reglerHorlogeEpreuves.
+ * la publication à chaque envoi. Date.now ; tests, et `?horloge=` avec
+ * `?emulateurs` au serveur de développement (main.ts) : reglerHorlogeEpreuves.
  */
 let horlogeEpreuves: () => number = () => Date.now();
 

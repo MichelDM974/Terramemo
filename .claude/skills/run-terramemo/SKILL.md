@@ -271,10 +271,14 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   `ui_epreuves_capitales`, après `ui_seance`) : sur une page rechargée,
   Classé n'a que Pays et Communes avant la bascule (lundi 16/11/2026, 0 h
   UTC), Pays, Capitales, Communes ensuite. Avant la bascule, au serveur de
-  développement seulement, la page se recharge avec `?horloge=<jours>`
-  (`main.ts` : il avance aussi l'horloge de la bascule, et le journal ; d'où
-  sa place après la séance, et un rechargement sans lui à la fin) ; sur le
-  site construit, l'étape s'arrête à la vérification de Classé.
+  développement seulement, la page se recharge avec `?emulateurs&horloge=<jours>`
+  (`main.ts` : `?horloge=` avance l'horloge de la bascule seulement avec
+  `?emulateurs`, car sans lui le serveur de dev écrit dans le vrai Firebase
+  et un pseudo y publierait les capitales avant leur ouverture ; il avance
+  aussi le journal, d'où sa place après la séance, et un rechargement sans
+  lui à la fin ; émulateurs absents, le classement du bilan est
+  « indisponible ») ; sur le site construit, l'étape s'arrête à la
+  vérification de Classé.
   `92-classe-capitales` (Classé : Pays, Capitales, Communes),
   `93-classe-capitales-oceanie` (les 7 séries des pays, D37 c ; Océanie :
   Chrono, Sans faute, Minute ; fil « Classé › Capitales › Océanie »),
