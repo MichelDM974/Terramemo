@@ -63,8 +63,9 @@ Décisions actées qui priment en cas d'écart :
 - et « Langue », « Hébergement », « Licences tierces », « Contenu »,
   « Comptes ».
 
-Les choix de l'utilisateur sont au § 13 : D36 à D55. En attendant une
-réponse, le code prend un **défaut réversible** : une constante nommée,
+Les choix de l'utilisateur sont au § 13 : D36 à D55, **tranchés le 10/11
+au soir sauf D46** (tableau en tête du § 13 : le code suit la réponse, pas
+le défaut). En attendant une réponse, le code prend un **défaut réversible** : une constante nommée,
 commentée « défaut en attente de l'utilisateur, #4 » (ou #26, #27). Cinq
 défauts cessent d'être réversibles dès qu'un classement en dépend : la taille
 des épreuves de capitales (D37), l'indice montré en épreuve (D38), la liste
@@ -2088,6 +2089,37 @@ conçu ici (D54). Pistes, pour mémoire :
 
 Chaque réponse se note au registre. Une réponse qui contredit une décision
 actée la **remplace** (`noter_decision`, `remplace`).
+
+**Tranchées le 10/11 au soir, toutes selon la recommandation, sauf D46**
+(après le verdict de #2, le 13/11 ; d'ici là, son défaut). Au registre :
+« Capitales et drapeaux », « Drapeaux contestés et sosies », « Océans et
+mers », « Quiz général », « Répétition espacée des nouveaux sujets »,
+« Général à tous les sujets », « Ordre des sujets », « Objectif quotidien
+et notification ». Là où le défaut écrit plus bas diffère, **le code suit
+la réponse** :
+
+| N° | Réponse |
+|---|---|
+| D36 | les défauts (a à j) |
+| D37 | **c** : les 9 gardés en Trouver et en épreuve, jamais posés ni pris en leurre dans un QCM ; séries et tailles des pays ; général à 1 244 |
+| D38 | **a** hors épreuve (au hasard parmi les justes) ; **d** en épreuve (la plus connue, fixe pour tous ; Palestine : la principale) |
+| D39 | b, préférence |
+| D40 | a, tous les Chrono au général |
+| D41 | Afghanistan : **les deux justes**, le tricolore montré ; Bolivie : **les deux justes**, le civil montré, le Ghana en sosie ; Honduras corrigé ; jumeaux justes sous Drapeaux ; voisins d'abord en leurres |
+| D42 | **d** : rang combiné, seuil de 30 000 km², golfe de Finlande compris ; liste exacte montrée à l'utilisateur avant d'être figée |
+| D43 | la règle du § 4.4, mais la baie d'Hudson **non intérieure** (juste pour l'Arctique et l'Atlantique) ; côte à 12 px ; océan allumé en pleine mer seule |
+| D44 | a, une série de 50 |
+| D45 | a, couche légère seule à l'accueil ; b, aucune frontière |
+| D46 | **en attente** (13/11) ; défaut b et d (15 en commun, règle du reliquat) |
+| D47 | a |
+| D48 | **b** : rang combiné et relecture à la main du facile (remplace la lettre de « Quiz général ») |
+| D49 | a avec d |
+| D50 | c |
+| D51 | non aux deux |
+| D52 | **b** avant l'ouverture au public (ou le J5) ; a d'ici là |
+| D53 | a, b (Communes en dernier), c |
+| D54 | a pour le test de placement et la justesse des prévisions ; **c** pour l'objectif et la notification (abandonnés) |
+| D55 | a, la partie compte dès sa 1re question |
 
 ### Bloquent le lot 1 (capitales)
 

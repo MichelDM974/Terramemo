@@ -16,6 +16,13 @@ la suppression des données ; au J1a, les progrès restent sur l'appareil.
 App Check (avec le Play Store, #21) et le service worker (#22) sortent aussi du
 J1a (décision « App Check et service worker hors du J1a »).
 
+Conception du J2 (10/11/2026, #4, #27, #26) :
+`docs/etudes/2026-11-10-j2-conception.md`, choix tranchés au § 13 le 10/11
+(sauf D46, après le 13/11). Le J2 prend aussi les océans et ~45 mers
+(avancés du J5, décision « Océans et mers ») et le quiz général (« Quiz
+général ») ; objectif quotidien et notification sont abandonnés (« Objectif
+quotidien et notification »).
+
 ## Choix de l'utilisateur (04/11/2026)
 
 | Sujet | Choix |
@@ -142,10 +149,10 @@ J1a (décision « App Check et service worker hors du J1a »).
 | J1c La Réunion | **Avant le J1a** (décision « Contenu » du 06/11, #15). Les 24 communes (IGN ADMIN EXPRESS COG CARTO, Licence Ouverte 2.0, source et date affichées sur la carte de l'île), série « La Réunion » de Toucher et du Chrono (classement propre, compte dans le général, barème 500 × e^(−d/5 km)) ; Nommer (zone allumée, 4 noms, un seul essai) pour toutes les séries, pays compris ; la répétition espacée leur viendra avec le J1a. **Fait le 06/11** (branche `reunion`) : données et tests, carte de l'île, Toucher, Nommer, Chrono, règles, pilote ; reste l'essai sur le téléphone (Chrome puis APK) | 24 communes jouables au doigt, site et APK ; données vérifiées par test en CI | S |
 | J1a MVP pays | Localiser et nommer (QCM d'apprentissage puis rappel au toucher) ; FSRS ; séances ; rétroaction et distance ; carte colorée ; journal sur l'appareil (Firestore et sa synchro au J1b, App Check au #21 : décisions « Comptes » et « App Check et service worker hors du J1a ») ; l'épreuve Chrono et ses classements sont en ligne depuis le 04/11, avant le J1a ; site déployé (06/11), APK (release privée), écran Crédits | 195 pays jouables au doigt ; CI au vert ; une semaine d'usage sans blocage | L |
 | J1b Comptes et saisie | Saisie libre tolérante + tests de collision ; connexion Google (site et APK) et compte e-mail et mot de passe (#13) ; suppression du compte ; politique de confidentialité ; export JSON | Deux appareils, l'un hors ligne, au même état après reconnexion | M |
-| J2 Capitales et drapeaux | Capitales (deux sens, multiples) ; drapeaux ; leurres par confusions ; test de placement ; justesse des prévisions ; objectif quotidien ; notification optionnelle | Capitales et drapeaux vérifiés par test ; écart prévu/réel mesurable dès 300 réponses | M |
+| J2 Capitales, drapeaux, mers, quiz | Socle à plusieurs sujets ; capitales (deux sens, multiples) ; drapeaux ; océans et ~45 mers (avancés du J5, #27) ; quiz général à quatre difficultés (#26) ; puis test de placement et justesse des prévisions (objectif quotidien et notification abandonnés le 10/11). Conception : `docs/etudes/2026-11-10-j2-conception.md` | Capitales et drapeaux vérifiés par test ; chaque mer jouable au doigt ; les quatre niveaux du quiz avec leurs classements ; écart prévu/réel mesurable dès 300 réponses | L |
 | J3 Play Store | Fiche, formulaire de données, test fermé 14 j, AAB en CI ; anglais possible | Appli en production | M |
 | J4 Culture large I | Voisins ; placer une ville (note par distance) ; ordres de grandeur (curseur logarithmique) ; silhouettes (sans rien de quotidien ni de flèche de direction) | Chaque exercice : générateur testé + fiches | M |
-| J5 Géographie physique | Mers, détroits, montagnes, déserts, puis une centaine de fleuves | Poids dans le budget, aucun nom manquant | L |
+| J5 Géographie physique | Détroits, montagnes, déserts, puis une centaine de fleuves (océans et mers avancés au J2) | Poids dans le budget, aucun nom manquant | L |
 | J6 France et DROM | Régions, départements, DROM en encarts (IGN Admin Express, Licence Ouverte) ; les communes de La Réunion sont au J1c | 101 départements jouables, encarts compris | M |
 
 ## Risques
