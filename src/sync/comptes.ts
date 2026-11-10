@@ -136,6 +136,12 @@ export interface QuestionFusion {
   reponses: number;
   records: number;
   seances: number;
+  /**
+   * Google vient de prendre la place du mot de passe de ce compte (adresse
+   * non vérifiée, Google fournisseur de confiance, S5) : c'est fait côté Auth
+   * avant la question, et « Annuler » ne le rend pas.
+   */
+  mdpRetire?: true;
 }
 /** « Ajouter » ; « Ne pas les ajouter », confirmé (effacer l'appareil) ; « Annuler » (pas de connexion). */
 export type ChoixFusion = 'ajouter' | 'effacer' | 'annuler';
@@ -237,9 +243,13 @@ export interface Comptes {
    * connecter() ; un compte neuf ne la pose que pour les séances d'une session
    * perdue d'un autre compte, comme creer(). « Annuler » lève
    * terramemo/connexion-annulee (un compte neuf est alors supprimé). `nouveau` :
-   * le compte vient d'être créé (lien ou création).
+   * le compte vient d'être créé (lien ou création). `mdpRetire` : Google a
+   * pris la place du mot de passe du compte (S5), quand c'est visible d'ici
+   * (lien refusé par auth/email-already-in-use, ou session perdue de ce
+   * compte qui avait un mot de passe) ; la fenêtre seule, sans invité, ne le
+   * dit pas.
    */
-  google(choisir?: (q: QuestionFusion) => Promise<ChoixFusion>): Promise<{ adresse: string; profil: ResultatProfil; fusion: ResultatFusion; reponses: number; nouveau: boolean }>;
+  google(choisir?: (q: QuestionFusion) => Promise<ChoixFusion>): Promise<{ adresse: string; profil: ResultatProfil; fusion: ResultatFusion; reponses: number; nouveau: boolean; mdpRetire: boolean }>;
   /** Google se propose ici : sur le site (fenêtre de Google) ; dans l'APK, une fois le plugin branché (lot 7). */
   googleOffert(): boolean;
   /** Mot de passe oublié : sans dire si l'adresse a un compte (message générique). */
@@ -653,6 +663,9 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
    * n'avait jamais été connecté, sans quoi la réparation d'etat() le prendrait
    * sans réponse ; `jetable` (créé par ce passage, sans lien d'invité) et
    * « Annuler », il est supprimé : rien ne reste de ce passage dans Auth.
+   * Mais une connexion par Google a pu changer le compte existant avant la
+   * question (Google à la place du mot de passe, ou ajouté à lui) : cela,
+   * « Annuler » ne le défait pas ; `mdpRetire` le fait dire par la question.
    */
   async function rejoindre(
     s: Service,
@@ -661,11 +674,14 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     choisir: ((q: QuestionFusion) => Promise<ChoixFusion>) | undefined,
     nouveau: boolean,
     jetable = false,
+    mdpRetire = false,
   ): Promise<{ profil: ResultatProfil; fusion: ResultatFusion; reponses: number }> {
     try {
-      const q = nouveau ? (avant.uid ? await question(null, avant) : null) : await question(user.uid, avant);
+      const posee = nouveau ? (avant.uid ? await question(null, avant) : null) : await question(user.uid, avant);
+      const q: QuestionFusion | null = posee && mdpRetire ? { ...posee, mdpRetire: true } : posee;
       const choix = q ? (choisir ? await choisir(q) : 'ajouter') : 'ajouter';
-      // L'état d'avant revient (invité, session perdue) : rien n'est parti, rien n'est effacé.
+      // L'état d'avant revient (invité, session perdue) : rien n'est parti, rien n'est effacé de
+      // l'appareil ni du compte en ligne (ce que Google a changé dans Auth reste : mdpRetire).
       if (choix === 'annuler') throw new ErreurCompte('terramemo/connexion-annulee');
       // « Ne pas les ajouter » : effacés maintenant, avant la restauration (§ 2.3, étape 3).
       if (choix === 'effacer') await effacerTout([avant.uid, user.uid]);
@@ -1196,6 +1212,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
           if (!anonyme || avant.uid) await ecrireSession({ connexion: maintenant() });
           let cred: import('firebase/auth').UserCredential;
           let lie = false;
+          let rattrape = '';
           if (anonyme) {
             try {
               cred = await g.lier(s, anonyme);
@@ -1217,6 +1234,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
               // supprime 30 jours après sa création. Un compte à mot de passe dont Google n'est pas le
               // fournisseur de confiance répond auth/account-exists-with-different-credential.
               noter(e);
+              rattrape = code;
               const c = g.credentialDe(s, e);
               if (!c) throw new ErreurCompte('terramemo/google-reessayer');
               if (!avant.uid) await ecrireSession({ connexion: maintenant() });
@@ -1235,7 +1253,11 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
             if (s.a.currentUser) await auth.signOut(s.a).catch(noter);
             throw new ErreurCompte('terramemo/compte-parti', avant.adresse);
           }
-          return { adresse: cred.user.email ?? '', ...(await rejoindre(s, cred.user, avant, choisir, nouveau, cree)), nouveau };
+          // Google à la place du mot de passe (S5), fait dans Auth dès la connexion : dit, quand on le voit.
+          const mdpRetire =
+            !fournisseursDe(cred.user).includes('password') &&
+            (rattrape === 'auth/email-already-in-use' || (avant.uid === cred.user.uid && avant.fournisseurs.includes('password')));
+          return { adresse: cred.user.email ?? '', ...(await rejoindre(s, cred.user, avant, choisir, nouveau, cree, mdpRetire)), nouveau, mdpRetire };
         } finally {
           questionIci = false;
           await modifierSession((x) => (x.connexion !== null ? { connexion: null } : null));

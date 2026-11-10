@@ -738,6 +738,8 @@ describe('vue Compte, lot 6 : Google', () => {
     expect(texteGoogle({ adresse: 'a@gmail.com', fusion: 'sans_question', nouveau: true }, null)).toBe('Connecté avec Google : a@gmail.com. Tes progrès vont dans ton compte.');
     expect(texteGoogle({ adresse: 'a@gmail.com', fusion: 'efface', nouveau: true }, null)).toBe('Connecté : a@gmail.com. Les progrès de cet appareil sont effacés.');
     expect(texteGoogle({ adresse: 'a@gmail.com', fusion: 'sans_question', nouveau: false }, null)).toBe('Connecté : a@gmail.com.');
+    // Google à la place du mot de passe (S5) : dit au message, et avant le choix à la question.
+    expect(texteGoogle({ adresse: 'a@gmail.com', fusion: 'sans_question', nouveau: false, mdpRetire: true }, null)).toBe(`Connecté : a@gmail.com. ${T.google_mdp_retire}`);
   });
 });
 
@@ -826,6 +828,7 @@ describe('vue Compte, lot 4 : question de fusion, déconnexion reprenable, effac
     expect(detailProgres(12, 1)).toBe('12 réponses et 1 record');
     expect(texteQuestion(Q)).toBe('Ajouter les progrès de cet appareil (12 réponses et 3 records) à ton compte ?');
     expect(texteQuestion({ ...Q, sorte: 'autre_compte', seances: 2 })).toBe('2 séances d’un autre compte n’ont pas été envoyées. Les ajouter à ce compte ?'.replace(/’/g, "'"));
+    expect(texteQuestion({ ...Q, mdpRetire: true })).toBe(`${T.google_mdp_retire} Ajouter les progrès de cet appareil (12 réponses et 3 records) à ton compte ?`);
     expect(textesDeconnexion({ fait: false, nonEnvoyees: 1, refusees: 0, profil: false })).toEqual([T.deconnexion_seance, T.deconnexion_profil]);
     expect(textesDeconnexion({ fait: false, nonEnvoyees: 3, refusees: 1, profil: true })).toEqual(['3 séances ne sont pas encore dans ton compte : elles seront perdues.']);
   });

@@ -78,8 +78,14 @@ export function detailProgres(reponses: number, records: number): string {
 
 /** Le texte de la question de fusion (§ 2.3, étape 1). */
 export function texteQuestion(q: QuestionFusion): string {
-  if (q.sorte === 'autre_compte') return q.seances === 1 ? T.fusion_autre_compte_une : remplir(T.fusion_autre_compte, { n: q.seances });
-  return remplir(T.fusion_question, { detail: detailProgres(q.reponses, q.records) });
+  const t =
+    q.sorte === 'autre_compte'
+      ? q.seances === 1
+        ? T.fusion_autre_compte_une
+        : remplir(T.fusion_autre_compte, { n: q.seances })
+      : remplir(T.fusion_question, { detail: detailProgres(q.reponses, q.records) });
+  // Fait dans Auth avant la question : « Annuler » ne le rend pas, d'où l'avis avant le choix.
+  return q.mdpRetire ? `${T.google_mdp_retire} ${t}` : t;
 }
 
 /** Le message d'une connexion réussie à un compte existant, selon la réponse à la question. */
@@ -97,9 +103,13 @@ export const adresseGmail = (a: string | null | undefined): boolean => !!a && /@
  * l'invité, ou premier passage) reçoit les progrès de l'appareil, sauf
  * « Ne pas les ajouter » ; un compte qui existait, comme à la connexion.
  */
-export function texteGoogle(r: { adresse: string; fusion: ResultatFusion; reponses?: number; nouveau: boolean }, q: QuestionFusion | null): string {
-  if (!r.nouveau) return texteConnexion(r, q);
-  return r.fusion === 'efface' ? `${remplir(T.connecte, { adresse: r.adresse })} ${T.cree_efface}` : remplir(T.google_connecte, { adresse: r.adresse });
+export function texteGoogle(r: { adresse: string; fusion: ResultatFusion; reponses?: number; nouveau: boolean; mdpRetire?: boolean }, q: QuestionFusion | null): string {
+  const t = !r.nouveau
+    ? texteConnexion(r, q)
+    : r.fusion === 'efface'
+      ? `${remplir(T.connecte, { adresse: r.adresse })} ${T.cree_efface}`
+      : remplir(T.google_connecte, { adresse: r.adresse });
+  return r.mdpRetire ? `${t} ${T.google_mdp_retire}` : t;
 }
 
 /** Ce que dit une déconnexion qui n'a pas pu tout envoyer (§ 3.4, étape 2). */

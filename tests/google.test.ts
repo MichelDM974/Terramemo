@@ -197,8 +197,11 @@ describe.skipIf(!hote)('Google (émulateur Auth, faux idToken)', () => {
       const uid = await compteMotDePasse('gael@gmail.com', false);
       const s = await F.charger();
       await F.compte(s); // un invité, qui tente le lien
-      const r = await comptes.google(async () => 'ajouter');
-      expect(r).toMatchObject({ adresse: 'gael@gmail.com', nouveau: false });
+      reponses = 4; // des progrès : la question D22, qui dit le mot de passe retiré avant le choix
+      let posee: import('../src/sync/comptes').QuestionFusion | null = null;
+      const r = await comptes.google(async (q) => ((posee = q), 'ajouter'));
+      expect(r).toMatchObject({ adresse: 'gael@gmail.com', nouveau: false, mdpRetire: true });
+      expect(posee).toMatchObject({ sorte: 'appareil', mdpRetire: true });
       expect(comptes.rapport().erreurs.map((x) => x.code)).toContain('auth/email-already-in-use');
       expect(await comptes.etat()).toMatchObject({ etat: 'compte', uid, fournisseurs: ['google.com'], verifiee: true });
       const c = await dansAuth(uid);
@@ -216,7 +219,8 @@ describe.skipIf(!hote)('Google (émulateur Auth, faux idToken)', () => {
       expect(await session.lire()).toMatchObject({ uid, fournisseurs: ['password'] });
       // L'autre appareil (une autre session, le même Auth dans node) : « Continuer avec Google », même adresse.
       const autre = page(S.depotSessionMemoire());
-      expect(await autre.google()).toMatchObject({ nouveau: false });
+      // Sans invité ni session, la fenêtre seule ne dit pas que le mot de passe est parti (pas d'avis).
+      expect(await autre.google()).toMatchObject({ nouveau: false, mdpRetire: false });
       // Le premier relit son état : le compte n'a plus de mot de passe, la session le sait.
       expect(await comptes.etat()).toMatchObject({ etat: 'compte', uid, fournisseurs: ['google.com'] });
       expect(await session.lire()).toMatchObject({ uid, fournisseurs: ['google.com'], adresse: 'gael@gmail.com' });
@@ -225,11 +229,25 @@ describe.skipIf(!hote)('Google (émulateur Auth, faux idToken)', () => {
       expect(await comptes.etat()).toEqual({ etat: 'perdue', uid, adresse: 'gael@gmail.com', fournisseurs: ['google.com'] });
     });
 
+    it('session perdue d’un compte à mot de passe, « Se reconnecter avec Google » : le même compte, sans question, le mot de passe retiré dit', async () => {
+      nouveauGoogle('noe@gmail.com');
+      await comptes.creer('noe@gmail.com', 'motdepasse');
+      const { uid } = (await comptes.etat()) as { uid: string };
+      await new Promise((r) => setTimeout(r, 1100));
+      await admin('accounts:update', { localId: uid, validSince: String(Math.floor(Date.now() / 1000)) });
+      expect(await comptes.etat()).toMatchObject({ etat: 'perdue', uid, fournisseurs: ['password'] });
+      reponses = 3;
+      const choisir = vi.fn(async () => 'ajouter' as const);
+      expect(await comptes.google(choisir)).toMatchObject({ nouveau: false, mdpRetire: true, fusion: 'sans_question' });
+      expect(choisir).not.toHaveBeenCalled();
+      expect(await comptes.etat()).toMatchObject({ etat: 'compte', uid, fournisseurs: ['google.com'] });
+    });
+
     it('adresse vérifiée : Google s’ajoute au compte, même uid, le mot de passe gardé', async () => {
       nouveauGoogle('lia@gmail.com');
       const uid = await compteMotDePasse('lia@gmail.com', true);
       const r = await comptes.google();
-      expect(r).toMatchObject({ nouveau: false });
+      expect(r).toMatchObject({ nouveau: false, mdpRetire: false });
       expect(await comptes.etat()).toMatchObject({ etat: 'compte', uid, fournisseurs: ['password', 'google.com'] });
       expect(fournisseursAuth(await dansAuth(uid))).toEqual(['google.com', 'password']);
       await comptes.deconnecter({ quandMeme: true });
