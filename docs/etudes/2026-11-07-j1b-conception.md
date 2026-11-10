@@ -1664,6 +1664,105 @@ visible en production.
   `lastRefreshTime` et non `lastSignInTime` (un fidèle connecté une fois
   reste).
 
+**Précisions du lot 6** (10/11, codé ; écarts assumés au texte d'avant) :
+- Google est derrière une interface, `src/sync/google.ts` :
+  - `googlePopup` sur le site ; connexion et lien proposent le choix du
+    compte (`prompt: select_account`), sinon le seul compte Google du
+    navigateur est pris sans rien demander (appareil partagé) ;
+  - `googleParJeton(jeton)` : l'idToken du plugin de l'APK au lot 7, et
+    celui des tests. La popup ne s'ouvre pas dans node.
+- S9, fait : l'émulateur Auth simule Google par
+  `GoogleAuthProvider.credential('{"sub":"…","email":"…","email_verified":true}')`,
+  les claims en JSON strict, `sub` obligatoire. Il ne regarde pas le
+  domaine de l'adresse : `email_verified` seul décide si Google est « de
+  confiance ».
+- « Continuer avec Google » (`comptes.google()`) :
+  - un invité anonyme est lié, uid gardé ; sans anonyme, connexion, et le
+    compte est créé s'il n'existe pas (`isNewUser`) ;
+  - lien refusé (`credential-already-in-use`, ou `email-already-in-use`
+    pour l'adresse d'un compte à mot de passe) : connexion par le
+    credential de l'erreur (la popup demande `returnIdpCredential`),
+    sinon par le même idToken (S23, vrai à l'émulateur : un lien par
+    `linkWithCredential` ne rend pas l'idToken dans son erreur). L'invité
+    est laissé à Firebase ;
+  - puis la question D22, par le même code que la connexion par e-mail
+    (`rejoindre`).
+- Compte neuf par Google : on ne sait qu'il est neuf qu'après la fenêtre.
+  La question ne se pose alors que pour les séances d'une session perdue
+  d'un autre compte, comme `creer()`, mais après la création ; « Annuler »
+  supprime le compte neuf, et rien ne reste.
+- `session.connexion` n'est posé que si une question est possible. Le lien
+  d'un invité sans session n'en pose pas : appli tuée juste après, la page
+  suivante prend le compte lié, comme après `creer()`.
+- Rien de long avant la fenêtre : la session (IndexedDB) et le jeton de
+  l'invité, en cache s'il vaut encore. Chrome n'ouvre la fenêtre que peu
+  après le geste, et l'ouvrir consomme ce geste.
+  - Un invité supprimé par Firebase, vu à son jeton : oublié, Google crée
+    le compte.
+  - Supprimé pendant le lien (jeton encore valable) : « touche encore »
+    (`terramemo/google-reessayer`), car une seconde fenêtre serait bloquée.
+  - Exception : la suppression fait `reload()` (réseau) avant la fenêtre
+    de réauthentification. Que Chrome l'ouvre encore est à voir à l'essai
+    réel.
+- Même adresse qu'un compte à mot de passe (un compte par adresse, S5),
+  vérifié à l'émulateur :
+  - adresse non vérifiée : Google l'emporte, même uid, mot de passe et
+    fournisseur `password` retirés ;
+  - adresse vérifiée : Google s'ajoute, le compte a les deux fournisseurs ;
+  - Google « pas de confiance » (`email_verified` faux) :
+    `auth/account-exists-with-different-credential`. La vue ouvre
+    « Se connecter », adresse pré-remplie (`customData.email`), avec
+    « connecte-toi avec ton adresse ».
+
+  En production, d'après la doc de Firebase, Google n'est de confiance
+  que pour les adresses Gmail : à confirmer à l'essai réel, avec
+  l'adresse Gmail d'essai.
+- S16 à l'émulateur : après le lien Google d'un anonyme,
+  `sign_in_provider` vaut `google.com`, et `identities` porte `email` et
+  `google.com`.
+- D19 : ni « Changer le mot de passe » ni création de compte à l'adresse
+  d'un compte Google (`email-already-in-use`). Limite non bloquée :
+  « Mot de passe oublié ? » à l'adresse d'un compte Google seul.
+  - À l'émulateur, le code de réinitialisation part (seule l'adresse
+    compte), et sa remise pose un mot de passe en retirant Google.
+  - En production : non vérifié. L'action vient du propriétaire de la
+    boîte, ce n'est pas une faille.
+- Réauthentification (§ 7.1) par la même interface :
+  - un autre compte Google choisi donne `auth/user-mismatch`, traduit, et
+    rien n'est commencé ;
+  - reprise d'une suppression dont la session est perdue, compte Google
+    seul : reconnexion par Google. Un compte neuf que la fenêtre vient de
+    créer est supprimé aussitôt. À la même adresse que la session, il
+    prouve que le compte est parti ; à une autre, c'est un autre compte
+    choisi, qui ne prouve rien (`terramemo/google-autre-compte`).
+- Vue Compte :
+  - invité : « Continuer avec Google » en premier, seul bouton principal ;
+    une ligne dit que la fenêtre nommera
+    `terramemo-geo.firebaseapp.com` (marque non vérifiée, D30 ; à
+    vérifier à l'essai réel) ;
+  - « Fenêtre de Google ouverte… » pendant l'appel, rien à la fenêtre
+    fermée ;
+  - session perdue d'un compte Google : « Se reconnecter avec Google » ;
+  - l'état `perdue` porte les fournisseurs du compte.
+- APK : `googleOffert()` est faux sans le plugin du lot 7. Ni bouton ni
+  reconnexion par Google ; une ligne « Google arrive bientôt dans
+  l'appli ». La suppression d'un compte Google y renvoie au site, comme au
+  lot 5.
+- Morceau principal : +0,27 Ko gzip (117,95 → 118,22), les textes de
+  `textes.fr.json` qu'il porte en entier. Le SDK reste chargé à la
+  demande, avec la vue Compte et les comptes.
+- Tests :
+  - `tests/sync-google.test.ts` : la fenêtre sur un faux SDK, et les cas
+    que l'émulateur ne provoque pas ;
+  - `tests/google.test.ts`, dans `test:comptes` ;
+  - trois cas Google dans `tests/suppression.test.ts` ;
+  - le scénario (k) de `test:synchro` : compte Google sur deux appareils,
+    avec les règles d'essai du dépôt et l'adresse Gmail d'essai ;
+  - tests DOM de la vue.
+- Essai réel : le protocole est dans le skill `run-terramemo` (« Essai
+  réel de Google »). Il est à faire avec l'utilisateur, une fois le lot
+  déployé.
+
 Ordre et parallélisme :
 - 0, puis 1, puis 2, puis 3, puis 4, puis 5 : en série ;
 - 6 : la partie aux émulateurs commence dès le lot 1 ; l'essai réel

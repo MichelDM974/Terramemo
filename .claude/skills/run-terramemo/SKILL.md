@@ -850,7 +850,7 @@ les sorties versionnées (`tests/donnees-reunion.test.ts`).
 
 ```bash
 npm run test:regles                                                           # règles Firestore sur l'émulateur (aussi en CI)
-npm run test:comptes                                                          # comptes e-mail, profil, envoi et suppression (J1b) sur les émulateurs Auth et Firestore (aussi en CI)
+npm run test:comptes                                                          # comptes e-mail et Google, profil, envoi et suppression (J1b) sur les émulateurs Auth et Firestore (aussi en CI)
 npx firebase emulators:start --only firestore,auth --project terramemo-geo  # Firestore 8062, Auth 8063, en arrière-plan
 ```
 
@@ -991,6 +991,38 @@ INVALID_REFRESH_TOKEN, et le SDK **reste connecté** ; en production
 (USER_NOT_FOUND → `auth/user-token-expired`) il se déconnecte. Le code
 traite les deux (`compteDisparu`, `src/sync/firebase.ts`).
 
+**Google sur le site (J1b, lot 6)** : `src/sync/google.ts` met Google
+derrière une interface :
+- `googlePopup` : la fenêtre de Google du site ;
+- `googleParJeton` : un idToken, celui du plugin de l'APK au lot 7, et
+  celui des tests.
+
+Le parcours :
+- vue Compte, `#compte-google` (« Continuer avec Google », invité ; « Se
+  reconnecter avec Google », session perdue d'un compte Google) ;
+- puis la question D22, avec les mêmes boutons qu'à l'e-mail ;
+- `#compte-google-aide` dit ce que montrera la fenêtre, ou, dans l'APK
+  sans plugin, que Google vient bientôt.
+
+`window.terramemo.comptes()` rend `etat.fournisseurs` et les claims du
+jeton (`identities` : `google.com` et `email`). Ses `erreurs` gardent
+`auth/credential-already-in-use` ou `auth/email-already-in-use` quand un
+lien a été refusé, puis rattrapé par la connexion.
+
+Aux tests, la fenêtre ne s'ouvre pas dans node. L'émulateur Auth accepte
+pour idToken les claims en JSON strict :
+`GoogleAuthProvider.credential('{"sub":"s1","email":"a@gmail.com","email_verified":true}')`
+(S9). Il ne regarde pas le domaine de l'adresse : `email_verified` seul
+fait Google « de confiance » face à un compte à mot de passe à la même
+adresse.
+
+Au site de dev avec `?emulateurs`, la fenêtre de Google est celle de
+l'émulateur. Ses comptes sont inventés : « Add new account », une adresse
+et un nom.
+
+`test:synchro` (k) montre qu'un compte Google à l'adresse Gmail d'essai
+passe les règles d'essai du dépôt, et qu'une autre adresse y est refusée.
+
 ```bash
 npm run test:synchro    # critère de #3 : deux appareils aux émulateurs (ports 8062 et 8063 libres), aussi en CI
 python3 .claude/skills/run-terramemo/driver.py synchro --out /tmp/terramemo-synchro   # pilote ui_synchro
@@ -1047,6 +1079,147 @@ depuis la page, `await import('/src/vues/classement.ts')` (et
 par `enregistrerPartie(localStorage, …)` part par `publierTout(pseudo)`.
 Chaque `driver.Session('local')` a un profil neuf, donc un autre compte
 anonyme : deux sessions sous le même pseudo = deux appareils, une place.
+
+### Essai réel de Google (lot 6), avec l'utilisateur
+
+Sur le vrai site, avec les adresses d'essai de l'utilisateur. Il vérifie :
+- le lien d'un invité ;
+- la synchro entre deux navigateurs ;
+- S3, S5, S15 et S16 (étude, § 12) ;
+- la suppression d'un compte Google (réauthentification par la fenêtre).
+
+Il se fait **avec l'utilisateur, de jour**, jamais par un agent : la
+fenêtre de Google demande ses comptes, et le pilote ne la passe pas
+(Google refuse les navigateurs automatisés).
+
+**Avant** :
+- le lot 6 est fusionné et déployé sur Hosting par la session qui fusionne
+  (`npx firebase deploy --only hosting`, § « Déploiement ») ;
+  `terramemo.version` (console F12) en donne le commit ;
+- règles d'essai déjà en ligne (`essai()` : `micheldm0301@gmail.com` et
+  `micheldm974@yahoo.fr`, adresses vérifiées) ;
+- console Firebase › Authentication :
+  - Sign-in method : Google et E-mail/Mot de passe activés ;
+  - Settings › Authorized domains : `terramemo-geo.web.app` présent ;
+- Google Auth Platform › Audience : en Testing, et
+  `micheldm0301@gmail.com` dans les testeurs. Seule cette adresse passe
+  par Google ; l'adresse Yahoo sert à l'e-mail (S15).
+
+**Navigateurs** : Chrome sur le PC, dans **deux profils à part**, « Essai
+A » et « Essai B » (menu du profil › Ajouter). Ainsi, rien ne touche aux
+vrais progrès de l'utilisateur ni à son pseudo. Une fenêtre de navigation
+privée sert de repli. Une fenêtre de Google qui n'y revient pas, ou
+`auth/web-storage-unsupported`, est en soi un constat à noter.
+
+Toujours ouvrir `https://terramemo-geo.web.app/?comptes`.
+
+**Pseudo d'essai : jamais « Michel ».** Supprimer le compte d'essai
+demande le retrait des places de son pseudo (D27 b). Prendre « Essai6 »,
+dont les places seront retirées à la fin par l'outil du propriétaire.
+
+Relevé en console (F12, puis taper `allow pasting` si Chrome le demande) :
+
+```js
+(async () => { const c = await terramemo.comptes(), s = await terramemo.synchro(); console.table({ etat: c?.etat?.etat, uid: c?.jeton?.uid ?? s.uid, fournisseurs: String(c?.etat?.fournisseurs ?? ''), sign_in_provider: c?.jeton?.sign_in_provider, identites: Object.keys(c?.jeton?.identities ?? {}).join(','), evenements: s.evenements, empreinte: s.empreinte, attente: s.lots?.attente, refusees: s.lots?.refusees, erreurs: (c?.erreurs ?? []).map((e) => e.code).join(',') }); })()
+```
+
+L'uid d'un invité anonyme se lit dans l'onglet Application › IndexedDB ›
+`firebaseLocalStorageDb` › `firebaseLocalStorage` (champ `uid`) : le
+noter avant un lien.
+
+1. **Lien d'un invité, par Google (S16)** — profil A :
+   1. Jouer › Entraînement : quelques réponses (Trouver, une série).
+   2. Puis Jouer › Classé › Communes › La Réunion › Chrono, pseudo
+      « Essai6 », jusqu'au bilan : la publication crée l'invité anonyme.
+      Noter son uid.
+   3. ⚙ › Compte. On doit voir « Continuer avec Google » en premier,
+      en accent, et sous lui la ligne « La fenêtre de Google nommera le
+      site terramemo-geo.firebaseapp.com… ».
+   4. Toucher le bouton. **Noter ce que dit la fenêtre** (domaine ou
+      « Terramemo ») ; si la ligne ment, la corriger dans
+      `textes.fr.json` (`google_site`). Choisir `micheldm0301@gmail.com`.
+   5. Attendu : « Connecté avec Google : micheldm0301@gmail.com. Tes
+      progrès vont dans ton compte. », puis « Compte Google (…) » et, peu
+      après, « Synchro : à jour ».
+   6. Relevé :
+      - `uid` = l'uid noté ;
+      - `fournisseurs` = `google.com` ;
+      - `identites` contient `google.com` ;
+      - noter `sign_in_provider` (S16) ;
+      - `attente` 0, `refusees` 0.
+   7. Console Firebase :
+      - Authentication : un compte Google à cet uid ;
+      - Firestore : `joueurs/{uid}` (`v`, `pseudo` « Essai6 », `records`,
+        `maj`) et ses `lots`, un document par séance close.
+2. **Synchro entre deux navigateurs** — profil B :
+   1. Jouer quelques réponses en invité.
+   2. ⚙ › Compte › « Continuer avec Google », le même compte. Attendu :
+      « Ajouter les progrès de cet appareil (n réponses) à ton compte ? ».
+   3. **Ajouter**. Attendu : « Connecté : … Ton compte a reçu les progrès
+      de cet appareil (n réponses). »
+   4. Attendre « Synchro : à jour » sur B, puis recharger A (F5).
+   5. Relevé des deux côtés : même `uid`, même `evenements`, même
+      `empreinte`, `attente` et `refusees` à 0 ; même « Révision du jour ».
+3. **S3, la fenêtre dans Chrome sur l'A37** (facultatif) :
+   - un onglet de navigation privée de Chrome, **pas l'APK**, dont le
+     journal ne doit pas bouger avant le 13/11 ;
+   - ⚙ › Compte › « Continuer avec Google », le compte Gmail. Attendu :
+     la fenêtre s'ouvre en onglet, revient, puis « Connecté : … » ;
+   - Se déconnecter, puis fermer l'onglet ;
+   - noter tout écart (fenêtre bloquée, retour qui n'aboutit pas).
+4. **Suppression d'un compte Google** — profil A :
+   1. ⚙ › Compte › Supprimer mon compte. L'avertissement nomme « Essai6 »
+      (jamais « Michel »).
+   2. Écrire « supprimer », puis « Supprimer définitivement ». **Noter si
+      la fenêtre de Google s'ouvre** : un `reload()` passe sur le réseau
+      avant elle.
+   3. Choisir le même compte. Attendu : « Compte supprimé. », puis l'écran
+      de l'invité.
+   4. Console Firebase :
+      - Authentication : le compte n'y est plus ;
+      - Firestore : `joueurs/{uid}` réduit à la pierre tombale (`v`,
+        `maj`, `supprime`) ;
+      - `demandes/{uid}` = `{pseudo: "Essai6"}`.
+   5. Profil B, rouvert : « Ce compte est en cours de suppression », ou
+      tout de suite la session perdue (le compte n'est plus dans Auth).
+      « Effacer cet appareil » le vide.
+5. **S5, même adresse qu'un compte à mot de passe** — profil A, vidé par
+   la suppression :
+   1. ⚙ › Compte › Créer un compte avec `micheldm0301@gmail.com` et un mot
+      de passe de 8 caractères ou plus. **Ne pas** cliquer le lien de
+      vérification. Noter l'uid (relevé).
+   2. Se déconnecter (« quand même » s'il le demande).
+   3. Un Chrono « Essai6 » : un invité anonyme.
+   4. « Continuer avec Google », le compte Gmail. Attendu : pas d'erreur,
+      « Connecté : micheldm0301@gmail.com. », à la question près si
+      l'appareil a des progrès.
+   5. Relevé :
+      - `uid` = celui du compte à mot de passe ;
+      - `erreurs` contient `auth/email-already-in-use` (le lien refusé,
+        puis rattrapé) ;
+      - `fournisseurs` : `google.com` seul (Google l'a emporté, comme à
+        l'émulateur) ou `password,google.com` ; le noter avec
+        Authentication.
+   6. Supprimer ce compte, comme à l'étape 4.
+6. **S15, lien e-mail d'un invité** — profil B :
+   1. Un Chrono « Essai6 » (invité anonyme), noter son uid.
+   2. ⚙ › Compte › Créer un compte avec `micheldm974@yahoo.fr`.
+   3. Attendu : « Compte créé. Un e-mail de vérification est parti… ».
+   4. Relevé : `uid` = l'uid noté, `identites` contient `email` (S15,
+      S16 pour l'e-mail). « Adresse non vérifiée » ; les lots sont
+      refusés tant qu'elle ne l'est pas (`essai()`).
+   5. Cliquer le lien de l'e-mail (boîte Yahoo), revenir, ⚙ › Compte :
+      plus de ligne « non vérifiée ». « Réessayer » s'il le faut, puis
+      « Synchro : à jour ».
+   6. Supprimer ce compte (mot de passe).
+
+**Après** :
+- les places « Essai6 » du classement partent par l'outil du
+  propriétaire : `npm run admin -- demandes` à blanc, lire, puis
+  `--appliquer --attendu <empreinte>` (§ « Outil du propriétaire ») ;
+- supprimer les profils de Chrome « Essai A » et « Essai B » ;
+- noter les constats au registre de cdc : S3, S5, S15, S16, ce que dit la
+  fenêtre de Google, et la fenêtre de la suppression.
 
 ## Outil du propriétaire (`scripts/admin/`, J1b lot 5b)
 
