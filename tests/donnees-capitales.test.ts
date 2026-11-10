@@ -587,7 +587,7 @@ describe('S38 : chaque capitale dans son pays ou près de lui (monde.topo.json)'
     expect(max).toBeGreaterThan(5); // le seuil reste près de ce qu'il mesure
   });
 
-  it('hors de son tracé et de ses zones admises, une capitale ne tombe dans aucun autre pays, sauf la Cité du Vatican (à 2 décimales, 400 m dans Rome)', () => {
+  it('hors de son tracé et de ses zones admises, une capitale ne tombe dans aucun autre pays, sauf la Cité du Vatican (son point de Wikidata, 12,453 ; 41,904, tombe hors du tracé simplifié du Vatican, dans Rome, même non arrondi)', () => {
     const jouables = pays.filter((p) => p.statut === 'jouable' || p.statut === 'optionnel').map((p) => p.id);
     const chez: string[] = [];
     for (const c of toutes) {
