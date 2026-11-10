@@ -6,6 +6,7 @@ import type { Statut } from '../map/types';
 import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
 import type { Serie } from './cibles';
+import type { Contenu, Enonce, RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
 
 export interface ContexteVue {
@@ -77,14 +78,28 @@ export function croix(versCarte: () => void, libelle: string = textes.croix.cart
   return b;
 }
 
-/**
- * Nom d'une zone dans les données de son terrain : t.donnees pour une vue qui
- * joue un terrain, ctx.donnees pour le monde (sinon une commune s'affiche
- * « 97407 »).
- */
-export function nomDe(d: { noms: Record<string, string> }, id: string): string {
-  return d.noms[id] ?? id;
+/** Un contenu du rendu d'un sujet (sujets.ts) dans `el` : son texte, ou son image (un drapeau), qui ne se glisse pas. */
+export function poserContenu(el: HTMLElement, c: Contenu): void {
+  if ('texte' in c) el.textContent = c.texte;
+  else el.replaceChildren(creer('img', { src: c.image, alt: c.alt, draggable: 'false' }));
 }
+
+/** L'énoncé d'une question (sujets.ts) dans la consigne de la barre : « Touche : » puis l'objet en gras. */
+export function poserEnonce(el: HTMLElement, e: Enonce): void {
+  const objet = creer('strong');
+  poserContenu(objet, e.objet);
+  el.replaceChildren(e.invite, objet);
+  el.classList.toggle('consigne-deux-lignes', !!e.deuxLignes);
+}
+
+/**
+ * Les zones admises que la rétroaction sait dire : celles de la carte
+ * (contestée, enclave), et celles qu'un sujet passera en plus (étude J2
+ * § 2.2), que rien ne produit encore : le jumeau d'un drapeau (Monaco pour
+ * l'Indonésie, sous Drapeaux) et la partie d'une mer (la mer des Caraïbes
+ * pour l'Atlantique).
+ */
+export type AdmisDit = Admis | { zone: string; tenant: string; sorte: 'jumeau' | 'partie' };
 
 /**
  * Pourquoi un toucher hors du tracé de la cible est juste (décision « Zones
@@ -94,15 +109,18 @@ export function nomDe(d: { noms: Record<string, string> }, id: string): string {
  * admise. Une entité contestée se tient elle-même dans les données (tenant =
  * zone : Somaliland, Malouines, glacier de Siachen…) : son nom à la place
  * (« zone contestée : Somaliland »). Rien quand la cible la tient : le toucher
- * est juste sans règle à expliquer.
+ * est juste sans règle à expliquer. Les zones nommées par le rendu du sujet
+ * joué (RenduSujet.lieu).
  */
-export function texteAdmis(d: { noms: Record<string, string> }, cible: string, admis: Admis | null | undefined): string {
+export function texteAdmis(r: Pick<RenduSujet, 'lieu'>, cible: string, admis: AdmisDit | null | undefined): string {
   if (!admis) return '';
   const T = textes.toucher;
-  if (admis.sorte === 'enclave') return remplir(T.admis_enclave, { zone: nomDe(d, admis.zone) });
+  if (admis.sorte === 'enclave') return remplir(T.admis_enclave, { zone: r.lieu(admis.zone) });
+  if (admis.sorte === 'jumeau') return remplir(T.admis_jumeau, { zone: r.lieu(admis.zone) });
+  if (admis.sorte === 'partie') return remplir(T.admis_partie, { zone: r.lieu(admis.zone), cible: r.lieu(cible) });
   if (admis.tenant === cible) return '';
-  if (admis.tenant === admis.zone) return remplir(T.admis_contestee_zone, { zone: nomDe(d, admis.zone) });
-  return remplir(T.admis_contestee, { tenant: nomDe(d, admis.tenant) });
+  if (admis.tenant === admis.zone) return remplir(T.admis_contestee_zone, { zone: r.lieu(admis.zone) });
+  return remplir(T.admis_contestee, { tenant: r.lieu(admis.tenant) });
 }
 
 /** Durée lisible : « 1,2 s », espace insécable avant l'unité. */

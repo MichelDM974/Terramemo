@@ -3,8 +3,8 @@
 // sujet (Pays, Communes ; plus tard Drapeaux, Capitales, Départements…), la
 // série (Tous les pays puis les continents ; La Réunion), et l'exercice en
 // dernier. Déclaratif : un sujet de plus est une entrée de SUJETS (ses séries,
-// ses exercices par branche) et ses textes (textes.jouer.sujets), pas du code
-// de vue. Un niveau de choix à une seule option est sauté (Communes mène
+// ses exercices par branche), son nom (textes.jouer.sujets) et son rendu
+// (src/vues/sujets.ts, textes.sujets), pas du code de vue. Un niveau de choix à une seule option est sauté (Communes mène
 // directement à La Réunion), règle générale ; chaque niveau a son adresse
 // (#jouer, #jouer/classe, #jouer/classe/pays, #jouer/classe/pays/Africa) :
 // le retour du navigateur et celui d'Android remontent l'historique d'un
@@ -13,7 +13,8 @@ import { MODES_EPREUVE, type ModeEpreuve } from '../epreuve/chrono';
 import type { NomTerrain } from '../map/types';
 import { nomSerie, type Serie } from './cibles';
 import { nomMode } from './scores';
-import { remplir, textes } from './textes';
+import { compteSerie, estSujetRendu } from './sujets';
+import { textes } from './textes';
 
 /**
  * Exercice d'une partie : Apprendre (une séance sur la grappe suivante de la
@@ -143,11 +144,11 @@ export const nomSujet = (id: string): string => (textes.jouer.sujets as Record<s
 
 /**
  * Nombre d'un sujet affiché sous son nom : celui de sa plus grande série
- * (« 195 pays », « 24 communes »).
+ * (« 195 pays », « 24 communes »), dit comme le compte d'une série du sujet
+ * (sujets.ts) ; '' pour un sujet sans rendu.
  */
 export function nombreSujet(id: string, series: readonly Serie[]): string {
-  const t = (textes.jouer.sujets as Record<string, { n: string } | undefined>)[id];
-  return t ? remplir(t.n, { n: Math.max(0, ...series.map((s) => s.n)) }) : '';
+  return estSujetRendu(id) ? compteSerie(id, Math.max(0, ...series.map((s) => s.n))) : '';
 }
 
 /** L'arbre de ce catalogue de séries (src/vues/cibles.ts, catalogue()) et de ces sujets. */

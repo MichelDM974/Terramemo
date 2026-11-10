@@ -14,7 +14,8 @@ import { fabriqueTraces } from '../src/map/traces';
 import type { Entite, Lieu, Transfo } from '../src/map/types';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran, viser } from '../src/map/geo';
 import { doitCadrer } from '../src/vues/qcm';
-import { fmtKm, nomDe } from '../src/vues/commun';
+import { fmtKm } from '../src/vues/commun';
+import { compteSerie, nomDe } from '../src/vues/sujets';
 import { remplir, textes } from '../src/vues/textes';
 
 // Carte de l'île (unité C du #15) sur les données réelles de public/geo/reunion/
@@ -321,12 +322,11 @@ describe('crédits et textes', () => {
     }
   });
 
-  it('bloc terrains : monde et reunion ont les mêmes clés, sauf serie, libelle', () => {
-    const cles = (o: object) => Object.keys(o).sort();
+  it('bloc terrains : l’île n’y garde que sa série et son libellé ; ses textes de jeu sont ceux des communes (textes.sujets)', () => {
     const { serie, libelle, ...reste } = textes.terrains.reunion;
     expect([serie, libelle]).toEqual(['La Réunion', 'Carte de La Réunion']);
-    expect(cles(reste)).toEqual(cles(textes.terrains.monde));
-    expect(remplir(textes.terrains.reunion.n, { n: REUNION.n })).toBe('24 communes');
+    expect(reste).toEqual({});
+    expect(compteSerie('communes', REUNION.n)).toBe('24 communes');
   });
 
   it('fmtKm : une décimale sous 10 km, l’entier au-delà', () => {

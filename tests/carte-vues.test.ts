@@ -13,7 +13,8 @@ import type { Pays } from '../src/map/types';
 import { normaliser, suggestions } from '../src/texte';
 import { REUNION } from '../src/map/terrain';
 import { catalogue, ciblesEssai, nomSerie, SERIE_ESSAI, SERIE_REUNION, SERIE_TOUS, serieEssai, seriesMonde, serieTerrain } from '../src/vues/cibles';
-import { anneauSiPetite, estPetite, fmtKm, fmtS, idsSerie, nomDe, texteAdmis } from '../src/vues/commun';
+import { anneauSiPetite, estPetite, fmtKm, fmtS, idsSerie, texteAdmis } from '../src/vues/commun';
+import { compteSerie, nomDe, rendu } from '../src/vues/sujets';
 import { projectionLocale } from '../src/map/terrain';
 import { creerProjection } from '../src/map/projection';
 import { remplir, textes } from '../src/vues/textes';
@@ -61,7 +62,7 @@ describe('essai et saisie', () => {
   });
 
   it('textes : modèles remplis, clé inconnue laissée telle quelle', () => {
-    expect(remplir(textes.terrains.monde.n, { n: 54 })).toBe('54 pays');
+    expect(compteSerie('pays', 54)).toBe('54 pays');
     expect(remplir('{a} et {b}', { a: 1 })).toBe('1 et {b}');
   });
 
@@ -110,29 +111,29 @@ describe('séries de l’île et textes des terrains', () => {
     expect(idsSerie(serieTerrain(REUNION), t)).toEqual(['A', 'B']);
   });
 
-  it('textes : le monde et l’île ont les mêmes clés (sauf série, libellé), toutes remplies', () => {
-    const { monde, reunion } = textes.terrains;
-    const propres = new Set(['serie', 'libelle']);
-    expect(Object.keys(reunion).filter((k) => !propres.has(k)).sort()).toEqual(Object.keys(monde).sort());
-    for (const k of ['n', 'consigne_nommer', 'faux_suite', 'expire']) {
-      expect(monde[k as keyof typeof monde], `monde.${k}`).toBeTruthy();
-      expect(reunion[k as keyof typeof reunion], `reunion.${k}`).toBeTruthy();
+  it('textes : pays et communes ont les mêmes clés, toutes remplies ; l’île garde sa série et son libellé', () => {
+    const { pays: p, communes: c } = textes.sujets;
+    expect(Object.keys(c).sort()).toEqual(Object.keys(p).sort());
+    for (const k of Object.keys(p) as (keyof typeof p)[]) {
+      expect(p[k], `pays.${k}`).toBeTruthy();
+      expect(c[k], `communes.${k}`).toBeTruthy();
     }
-    for (const k of ['serie', 'libelle']) expect(reunion[k as keyof typeof reunion], k).toBeTruthy();
-    expect(remplir(reunion.n, { n: 24 })).toBe('24 communes');
-    expect(remplir(monde.n, { n: 195 })).toBe('195 pays');
+    expect(Object.keys(textes.terrains)).toEqual(['reunion']);
+    for (const k of ['serie', 'libelle'] as const) expect(textes.terrains.reunion[k], k).toBeTruthy();
+    expect(compteSerie('communes', 24)).toBe('24 communes');
+    expect(compteSerie('pays', 195)).toBe('195 pays');
   });
 
   it('textes de Toucher et de Nommer : chaque clé lue par les vues existe', () => {
     const cles = [
-      'localiser', 'nommer', 'chargement_terrain', 'echec_terrain', 'serie_essai', 'serie_essai_detail', 'consigne', 'voir', 'passer',
-      'terminer', 'recommencer', 'autre_serie', 'juste', 'via_pastille', 'via_proche', 'essai_un', 'essais', 'faux', 'faux_ou', 'la_mer',
+      'localiser', 'nommer', 'chargement_terrain', 'echec_terrain', 'serie_essai', 'serie_essai_detail', 'voir', 'passer',
+      'terminer', 'recommencer', 'autre_serie', 'juste', 'via_pastille', 'via_proche', 'essai_un', 'essais', 'faux', 'faux_ou',
       'bilan_titre', 'bilan_resume', 'bilan_vide', 'rate', 'rate_vu', 'rate_passe', 'rate_distance', 'nommer_juste',
       'nommer_faux', 'bilan_nommer_titre', 'bilan_nommer', 'bilan_nommer_temps', 'bilan_nommer_faux',
     ];
     for (const k of cles) expect(textes.toucher[k as keyof typeof textes.toucher], k).toBeTruthy();
-    // Le temps écoulé du Chrono dépend du terrain : il n'est plus dans chrono.
-    expect('expire' in textes.chrono).toBe(false);
+    // Le temps écoulé du Chrono, l'invite « Touche : » et « la mer » dépendent du sujet : textes.sujets.
+    for (const k of ['expire', 'consigne', 'la_mer']) expect(k in textes.chrono || k in textes.toucher, k).toBe(false);
   });
 
   it('textes de Jouer, de la Carte et de la recherche : chaque clé lue par les vues existe', () => {
@@ -152,19 +153,19 @@ describe('séries de l’île et textes des terrains', () => {
   it('textes de Toucher : la rétroaction du monde reste mot pour mot celle d’avant', () => {
     const T = textes.toucher;
     expect(
-      remplir(T.faux, { touche: 'Italie', ou: remplir(T.faux_ou, { km: fmtKm(12.4) }), suite: textes.terrains.monde.faux_suite }),
+      remplir(T.faux, { touche: 'Italie', ou: remplir(T.faux_ou, { km: fmtKm(12.4) }), suite: textes.sujets.pays.faux_suite }),
     ).toBe('Faux : Italie, à 12\u00a0km du bord. Le bon pays est en vert : touche-le.');
     expect(remplir(T.juste, { via: T.via_proche, essais: remplir(T.essais, { n: 2 }), temps: fmtS(1234) })).toBe(
       'Juste (au plus près) · 2 essais · 1,2\u00a0s',
     );
-    expect(remplir(T.faux, { touche: T.la_mer, ou: '', suite: textes.terrains.reunion.faux_suite })).toBe(
+    expect(remplir(T.faux, { touche: textes.sujets.communes.la_mer, ou: '', suite: textes.sujets.communes.faux_suite })).toBe(
       'Faux : la mer. La bonne commune est en vert : touche-la.',
     );
     expect(remplir(T.bilan_nommer_faux, { cible: 'Saint-Leu', choisi: 'Les Avirons' })).toBe('Saint-Leu : tu as choisi Les Avirons');
   });
 
   it('texteAdmis : pourquoi une zone admise est juste (décision « Zones contestées et enclaves »)', () => {
-    const d = { noms };
+    const d = rendu('pays', { noms });
     // Crimée (hachure tenue par la Russie) pour l'Ukraine.
     expect(texteAdmis(d, 'UKR', { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' })).toBe(' (zone contestée, tenue par Russie)');
     // Une entité contestée se tient elle-même dans les données : son nom.
@@ -177,6 +178,9 @@ describe('séries de l’île et textes des terrains', () => {
     expect(texteAdmis(d, 'JPN', { zone: 'NE_B29', tenant: 'JPN', sorte: 'contestee' })).toBe('');
     expect(texteAdmis(d, 'FRA', null)).toBe('');
     for (const k of ['admis_contestee', 'admis_contestee_zone', 'admis_enclave'] as const) expect(textes.toucher[k]).toBeTruthy();
+    // Les sortes qu'un sujet passera en plus (étude J2 § 2.2), que rien ne produit encore : dites par le même rendu.
+    expect(texteAdmis(d, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau : Monaco)');
+    expect(texteAdmis(d, 'FRA', { zone: 'MCO', tenant: 'FRA', sorte: 'partie' })).toBe(' (Monaco, dans France)');
   });
 
   it('fmtKm : une décimale sous 10 km, l’entier au-delà', () => {

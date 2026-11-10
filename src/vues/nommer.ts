@@ -9,8 +9,9 @@ import { anneauPrincipal, empriseEcran, versEcran, type Emprise } from '../map/g
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
-import { ANNEAU_SOUS_PX, creer, fmtS, nomDe, type ContexteVue } from './commun';
+import { ANNEAU_SOUS_PX, creer, fmtS, poserContenu, type ContexteVue } from './commun';
 import { choix, doitCadrer, NB_CHOIX, PartieNommer } from './qcm';
+import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
 
 const T = textes.toucher;
@@ -105,8 +106,12 @@ export function allumerZone(carte: Terrain['carte'], id: string, lieu: Lieu | un
 }
 
 export interface Nommer {
-  /** Une partie sur ce terrain : cibles dans l'ordre donné (déjà mélangées) ; crochets du journal ou du mode piloté. */
-  demarrer(t: Terrain, nomSerie: string, cibles: readonly string[], crochets?: CrochetsNommer): void;
+  /**
+   * Une partie sur ce terrain, dans ce sujet (consigne et boutons : son rendu,
+   * sujets.ts) : cibles dans l'ordre donné (déjà mélangées) ; crochets du
+   * journal ou du mode piloté.
+   */
+  demarrer(t: Terrain, sujet: string, nomSerie: string, cibles: readonly string[], crochets?: CrochetsNommer): void;
   /** Une partie est en cours (pas encore au bilan). */
   readonly enCours: boolean;
   /** Retour dans la vue : le terrain remontré, la question en cours reposée. */
@@ -138,6 +143,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   ctx.zone.append(barre);
 
   let t: Terrain | null = null;
+  /** Le rendu du sujet de la partie : consigne, boutons, rétroaction et bilan. */
+  let rs: RenduSujet | null = null;
   let partie: PartieNommer | null = null;
   let crochets: CrochetsNommer = {};
   let serie = '';
@@ -164,15 +171,15 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
 
   function poser(): void {
     arreterAttente();
-    if (!partie || !t) return;
+    if (!partie || !t || !rs) return;
     const id = partie.courante;
     if (id === undefined) return finir();
     if (pour !== id) {
       choixCourants = choix(id, lieux, jouables);
       pour = id;
     }
-    const d = t.donnees;
-    consigne.textContent = textes.terrains[t.nom].consigne_nommer;
+    const r = rs;
+    consigne.textContent = r.consigneQcm;
     consigne.dataset.cible = id;
     compte.textContent = crochets.compte?.() ?? `${partie.numero} / ${n}`;
     connu.hidden = !crochets.connu;
@@ -181,7 +188,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     retro.className = 'essai-retro';
     boutons.forEach((b, k) => {
       const c = choixCourants[k] ?? '';
-      b.textContent = nomDe(d, c);
+      poserContenu(b, c ? r.choix(c) : { texte: '' });
       b.dataset.id = c;
       b.className = 'secondary nommer-choix';
       b.disabled = false;
@@ -197,7 +204,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   }
 
   function repondre(choisi: string): void {
-    if (!partie || !t || attente || partie.finie) return;
+    if (!partie || !t || !rs || attente || partie.finie) return;
     const id = partie.courante as string;
     const temps_ms = performance.now() - debut;
     const { juste } = partie.repondre(choisi, temps_ms);
@@ -214,7 +221,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     if (petite) carte.anneau(id, 'juste');
     if (!juste) carte.marquer(choisi, 'faux');
     retro.className = `essai-retro ${juste ? 'juste' : 'faux'}`;
-    retro.textContent = juste ? remplir(T.nommer_juste, { temps: fmtS(temps_ms) }) : remplir(T.nommer_faux, { cible: nomDe(t.donnees, id) });
+    retro.textContent = juste ? remplir(T.nommer_juste, { temps: fmtS(temps_ms) }) : remplir(T.nommer_faux, { cible: rs.nomChoix(id) });
     if (!crochets.compte) compte.textContent = `${partie.numero - 1} / ${n}`;
     const ligne = crochets.surReponse?.({ id, choisi, juste, temps_ms, zoom: carte.transfo.k });
     if (ligne) retro.append(creer('span', { class: 'seance-ligne' }, ` · ${ligne}`));
@@ -229,14 +236,14 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   function finir(): void {
     arreterAttente();
     barre.hidden = true;
-    if (!partie || !t) return;
+    if (!partie || !t || !rs) return;
     t.carte.effacerMarques();
     if (crochets.surFin) {
       partie = null;
       pour = undefined;
       return crochets.surFin();
     }
-    const d = t.donnees;
+    const r = rs;
     const b = partie.bilan();
     partie = null;
     pour = undefined;
@@ -253,7 +260,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       creer(
         'ul',
         { class: 'essai-rates' },
-        ...b.fautes.map((f) => creer('li', {}, remplir(T.bilan_nommer_faux, { cible: nomDe(d, f.id), choisi: nomDe(d, f.choisi) }))),
+        ...b.fautes.map((f) => creer('li', {}, remplir(T.bilan_nommer_faux, { cible: r.nomBilan(f.id, 'nommer'), choisi: r.nomChoix(f.choisi) }))),
       ),
       o.actions(),
     );
@@ -277,8 +284,9 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   }
 
   return {
-    demarrer(terrain, nomSerie, cibles, c = {}) {
+    demarrer(terrain, sujet, nomSerie, cibles, c = {}) {
       t = terrain;
+      rs = rendu(sujet, terrain.donnees);
       crochets = c;
       serie = nomSerie;
       n = cibles.length;

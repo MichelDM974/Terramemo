@@ -11,7 +11,8 @@ import type { Via } from '../map/pick';
 import type { NomTerrain } from '../map/types';
 import type { Terrain } from '../terrains';
 import type { CarteMemoire } from './carte-memoire';
-import { ANNEAU_SOUS_PX, creer, LIBELLE_STATUT, nomDe, type ContexteVue, type Vue } from './commun';
+import { ANNEAU_SOUS_PX, creer, LIBELLE_STATUT, type ContexteVue, type Vue } from './commun';
+import { rendu, SUJET_CARTE } from './sujets';
 import { textes } from './textes';
 
 const C = textes.carte;
@@ -99,7 +100,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   function afficher(id: string, via: Via | null): void {
     viaAffiche = via;
     const e = t.donnees.entites.find((en) => en.pays.id === id);
-    nom.textContent = nomDe(t.donnees, id);
+    // Le nom par le sujet qui nomme les zones de ce terrain (sujets.ts) : les pays, les communes.
+    nom.textContent = rendu(SUJET_CARTE[t.nom], t.donnees).lieu(id);
     const statut = e ? LIBELLE_STATUT[e.pays.statut] : '';
     const memoire = o.memoire?.detail(t.nom, id, e?.pays.statut === 'jouable') ?? '';
     detail.textContent = [statut, via === 'pastille' ? C.par_pastille : via === 'proche' ? C.au_plus_pres : '', memoire].filter(Boolean).join(' · ');

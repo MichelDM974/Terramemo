@@ -13,6 +13,10 @@
 // (PiloteSeance) : Trouver ici, le QCM par Nommer, la carte retournée par
 // retournee.ts, le bilan de la séance à la place de celui de la partie. Une
 // séance quittée reprend sa question au retour, comme une partie.
+//
+// J2 : ce qu'une question montre d'un lieu (énoncé, rétroaction, bilan) vient
+// du rendu de son sujet (src/vues/sujets.ts) : celui de la partie lancée, ou
+// le domaine de la fiche en séance ; l'Essai J0 joue les pays.
 import type { Emprise } from '../map/geo';
 import type { Via } from '../map/pick';
 import type { NomTerrain } from '../map/types';
@@ -21,9 +25,10 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, nomDe, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
+import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
 
 interface Resultat {
@@ -230,6 +235,11 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   let journal: ((r: ReponseJouee) => void) | null = null;
   /** Le terrain de la partie : sa carte reçoit marques et notes, ses données donnent les noms. */
   let t: Terrain = ctx.terrains.monde;
+  /**
+   * Ce que montrent les questions, selon le sujet : celui de la partie lancée
+   * (l'Essai J0 : pays), ou le domaine de la fiche en séance (sujets.ts).
+   */
+  let rs: RenduSujet = rendu('pays', t.donnees);
   let cibles: string[] = [];
   let i = 0;
   let essais = 0;
@@ -273,7 +283,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const aRejouer = reprise ? marques : [];
     effacer();
     if (!id) return pilote ? prochaine() : finir();
-    consigne.replaceChildren(T.consigne, creer('strong', {}, nomDe(t.donnees, id)));
+    poserEnonce(consigne, rs.enonce(id));
     consigne.dataset.cible = id;
     compte.textContent = pilote ? pilote.compte() : `${i + 1} / ${cibles.length}`;
     if (!reprise) {
@@ -401,6 +411,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       t = nt;
       ctx.terrains.montrer(t.nom);
     }
+    rs = rendu(q.domaine ?? 'pays', t.donnees);
     if (q.forme === 'trouver') {
       cibles = [q.id];
       barre.hidden = false;
@@ -411,7 +422,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     }
     const terminer = () => finirSeance();
     if (q.forme === 'qcm')
-      return nommer.demarrer(t, '', [q.id], {
+      return nommer.demarrer(t, rs.sujet, '', [q.id], {
         compte: () => p.compte(),
         surReponse: (r) => p.repondre(deNommer(r)),
         surFin: prochaine,
@@ -426,7 +437,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
             }
           : {}),
       });
-    retournee.poser(t, q.id, {
+    retournee.poser(t, rs.sujet, q.id, {
       compte: () => p.compte(),
       surReponse: (r) => p.repondre({ id: r.id, sens: 'nommer', correct: r.savais, aide: null, reponse: null, via: null, zoom: r.zoom, distance_km: null, duree_ms: r.temps_ms }),
       surFin: prochaine,
@@ -527,10 +538,11 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     arreter();
     serie = s;
     t = terrain;
+    rs = rendu(lancement?.sujet ?? 'pays', t.donnees);
     ctx.terrains.montrer(t.nom);
     const j = o.libre?.(lancement, t) ?? null;
     journal = j;
-    if (mode === 'nommer') return nommer.demarrer(t, nomSerie(s.id), melanger(ids), { surReponse: (r) => void j?.(deNommer(r)) });
+    if (mode === 'nommer') return nommer.demarrer(t, rs.sujet, nomSerie(s.id), melanger(ids), { surReponse: (r) => void j?.(deNommer(r)) });
     cibles = melanger(ids);
     i = 0;
     resultats = [];
@@ -546,7 +558,6 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     cibles = [];
     barre.hidden = true;
     effacer();
-    const d = t.donnees;
     const n = resultats.length;
     const premiers = resultats.filter((r) => r.premier).length;
     const justes = resultats.filter((r) => r.juste).length;
@@ -576,7 +587,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
             'li',
             {},
             remplir(T.rate, {
-              pays: nomDe(d, r.id),
+              pays: rs.nomBilan(r.id, 'localiser'),
               detail: r.juste ? `${nEssais(r.essais)}${r.vu ? T.rate_vu : ''}` : T.rate_passe,
               distance: r.distance_km != null ? remplir(T.rate_distance, { km: fmtKm(r.distance_km) }) : '',
               temps: fmtS(r.temps_ms),
@@ -673,7 +684,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
           retro.className = 'essai-retro juste';
           retro.textContent = remplir(T.juste, {
             // Une zone admise (contestée, enclave) dit pourquoi ; sinon la pastille ou « au plus près ».
-            via: texteAdmis(t.donnees, id, note.admis) || (note.via === 'pastille' ? T.via_pastille : note.via === 'proche' ? T.via_proche : ''),
+            via: texteAdmis(rs, id, note.admis) || (note.via === 'pastille' ? T.via_pastille : note.via === 'proche' ? T.via_proche : ''),
             essais: nEssais(essais),
             temps: fmtS(performance.now() - debut),
           });
@@ -692,9 +703,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
           marquer(id, 'juste', true);
           retro.className = 'essai-retro faux';
           retro.textContent = remplir(T.faux, {
-            touche: r ? nomDe(t.donnees, r.id) : T.la_mer,
+            touche: rs.touche(r?.id ?? null),
             ou: note.distance_km != null ? remplir(T.faux_ou, { km: fmtKm(note.distance_km) }) : '',
-            suite: textes.terrains[t.nom].faux_suite,
+            suite: rs.fauxSuite(id),
           });
         }
         return { pick: r, cible: id, juste: note.juste, distance_km: note.distance_km };

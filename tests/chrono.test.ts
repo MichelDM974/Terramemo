@@ -201,9 +201,9 @@ describe('séries des épreuves', () => {
   it('textes des épreuves : toutes les clés remplies par la vue existent', () => {
     for (const k of ['points', 'juste', 'faux', 'bilan_titre', 'bilan_score', 'bilan_detail', 'bilan_faux', 'bilan_expire', 'record_a_battre', 'nouveau_record_bat'])
       expect(textes.chrono[k as keyof typeof textes.chrono], k).toBeTruthy();
-    for (const t of ['monde', 'reunion'] as const) {
-      expect(textes.terrains[t].expire, t).toBeTruthy();
-      expect(textes.terrains[t].expire_sans_points, t).toBeTruthy();
+    for (const t of ['pays', 'communes'] as const) {
+      expect(textes.sujets[t].expire, t).toBeTruthy();
+      expect(textes.sujets[t].expire_sans_points, t).toBeTruthy();
     }
     const E = textes.epreuves;
     for (const m of ['chrono', 'sansfaute', 'minute'] as const) for (const k of ['nom', 'aide'] as const) expect(E[m][k], `${m}.${k}`).toBeTruthy();

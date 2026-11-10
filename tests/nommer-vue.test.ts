@@ -52,7 +52,7 @@ describe('Reconnaître : la vue', () => {
 
   it('quatre noms dont la cible, la zone allumée ; juste en vert, faux en rouge avec la bonne ; puis la suivante ; le bilan', () => {
     const v = monter();
-    v.n.demarrer(v.terrain, 'Europe', ['FRA', 'ESP']);
+    v.n.demarrer(v.terrain, 'pays', 'Europe', ['FRA', 'ESP']);
     expect(v.barre.hidden).toBe(false);
     expect(v.choix().length).toBe(4);
     expect(v.choix().map((b) => b.dataset.id)).toContain('FRA');
@@ -78,21 +78,21 @@ describe('Reconnaître : la vue', () => {
 
   it('crochet cadrer (QCM d’une grappe) : la carte cadrée sur la région avant la zone, une seule fois, pas au retour dans la vue', () => {
     const v = monter();
-    v.n.demarrer(v.terrain, '', ['ITA'], { cadrer: [5, 40, 20, 50], surFin: () => {} });
+    v.n.demarrer(v.terrain, 'pays', '', ['ITA'], { cadrer: [5, 40, 20, 50], surFin: () => {} });
     expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
     expect(v.carte.cadrer.mock.calls[0]![0]).toEqual([5, 40, 20, 50]);
     expect(v.marques).toContain('ITA:choisi');
     v.n.quitter();
     v.n.reprendre();
     expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
-    v.n.demarrer(v.terrain, '', ['ESP'], { surFin: () => {} });
+    v.n.demarrer(v.terrain, 'pays', '', ['ESP'], { surFin: () => {} });
     expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
   });
 
   it('crochet surReponse : chaque réponse (choix, justesse, temps, échelle) ; sa ligne s’ajoute à la rétroaction', () => {
     const v = monter();
     const vues: ReponseNommer[] = [];
-    v.n.demarrer(v.terrain, 'Europe', ['ITA'], { surReponse: (r) => (vues.push(r), 'Revient dans 3 j') });
+    v.n.demarrer(v.terrain, 'pays', 'Europe', ['ITA'], { surReponse: (r) => (vues.push(r), 'Revient dans 3 j') });
     v.repondre(false);
     expect(vues.length).toBe(1);
     expect(vues[0]).toMatchObject({ id: 'ITA', juste: false, zoom: 3 });
@@ -105,7 +105,7 @@ describe('Reconnaître : la vue', () => {
     const surFin = vi.fn();
     const connu = vi.fn();
     const terminer = vi.fn();
-    v.n.demarrer(v.terrain, '', ['DEU'], { compte: () => '4 / 12', surFin, connu, terminer });
+    v.n.demarrer(v.terrain, 'pays', '', ['DEU'], { compte: () => '4 / 12', surFin, connu, terminer });
     expect(v.barre.querySelector('.essai-compte')?.textContent).toBe('4 / 12');
     const bouton = v.barre.querySelector('#nommer-connu')!;
     expect(bouton.hidden).toBe(false);
@@ -117,12 +117,12 @@ describe('Reconnaître : la vue', () => {
     expect(v.n.enCours).toBe(false);
     // « Je connais déjà » : la question sautée sans réponse.
     const surReponse = vi.fn();
-    v.n.demarrer(v.terrain, '', ['BEL'], { surFin, connu, terminer, surReponse });
+    v.n.demarrer(v.terrain, 'pays', '', ['BEL'], { surFin, connu, terminer, surReponse });
     v.barre.querySelector('#nommer-connu')!.click();
     expect(connu).toHaveBeenCalledTimes(1);
     expect(surReponse).not.toHaveBeenCalled();
     expect(v.n.enCours).toBe(false);
-    v.n.demarrer(v.terrain, '', ['BEL'], { surFin, connu, terminer });
+    v.n.demarrer(v.terrain, 'pays', '', ['BEL'], { surFin, connu, terminer });
     v.barre.querySelector('#nommer-terminer')!.click();
     expect(terminer).toHaveBeenCalledTimes(1);
     expect(v.bilan.hidden).toBe(true);
@@ -132,7 +132,7 @@ describe('Reconnaître : la vue', () => {
     const v = monter();
     const surFin = vi.fn();
     const surReponse = vi.fn();
-    v.n.demarrer(v.terrain, '', ['FRA'], { surFin, surReponse });
+    v.n.demarrer(v.terrain, 'pays', '', ['FRA'], { surFin, surReponse });
     v.repondre(true);
     v.n.quitter();
     vi.advanceTimersByTime(5000);

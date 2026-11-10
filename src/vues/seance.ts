@@ -20,15 +20,16 @@ import type { DonneesCarte } from '../map/donnees';
 import { empriseGrappe, type Emprise } from '../map/geo';
 import type { Lieu, NomTerrain } from '../map/types';
 import type { Memoire } from '../journal/memoire';
-import { DOMAINES_JOUABLES, domaineJouable, estDomaine, former, jouablesDu, type Domaine } from '../srs/fiches';
+import { analyser, DOMAINES_JOUABLES, domaineJouable, estDomaine, former, jouablesDu, type Domaine } from '../srs/fiches';
 import { grappesCommunes, grappesPays, type Grappe } from '../srs/grappes';
 import { dues, entreesDuJour, grappeEntamee, introductions, programme, revisionsPermises, type Programme } from '../srs/planif';
 import { evenementReponse, Seance, type BilanSeance, type PlanSeance } from '../srs/seance';
 import type { Terrain } from '../terrains';
 import type { Lancement } from './arbre';
 import { nomSerie, SERIE_TOUS } from './cibles';
-import { creer, croix, fmtKm, nomDe } from './commun';
+import { creer, croix, fmtKm } from './commun';
 import type { DemandeSeance, FabriqueSeances, PiloteSeance, RefusSeance, ReponseJouee } from './essai';
+import { rendu, textesSujet } from './sujets';
 import { remplir, textes } from './textes';
 
 const S = textes.seance;
@@ -201,8 +202,14 @@ export function creerSeances(o: OptionsSeances): Seances {
       if (d.sorte === 'apprendre' && p.entamee) {
         return { refus: remplir(S.grappe_entamee, { serie: nomSerie(p.entamee.grappe.continent) }), reviser: aFaire, finir: p.entamee.ids.length };
       }
-      const toutAppris = bs[0]!.info.domaine === 'pays' ? S.tout_appris : S.tout_appris_communes;
-      const raison = p.sansNouveautes === 'plafond' ? S.plafond : d.sorte === 'revision' ? S.rien : p.sansNouveautes === 'tout_appris' ? toutAppris : S.grappe_faite;
+      const raison =
+        p.sansNouveautes === 'plafond'
+          ? S.plafond
+          : d.sorte === 'revision'
+            ? S.rien
+            : p.sansNouveautes === 'tout_appris'
+              ? textesSujet(bs[0]!.info.domaine).tout_appris
+              : S.grappe_faite;
       return { refus: raison, reviser: d.sorte === 'apprendre' ? aFaire : 0 };
     }
     const id = m.nouvelId();
@@ -257,11 +264,19 @@ export function creerSeances(o: OptionsSeances): Seances {
         m.clore();
       },
       bilan(el, actions) {
-        const bilans = blocsSeance.map((b) => ({ b: b.seance.bilan(), d: b.info.donnees }));
+        const bilans = blocsSeance.map((b) => ({ b: b.seance.bilan(), info: b.info }));
         const somme = (f: (x: BilanSeance) => number) => bilans.reduce((n, x) => n + f(x.b), 0);
         const revisions = { n: somme((x) => x.revisions.n), premiers: somme((x) => x.revisions.premiers) };
-        const nouveaux = bilans.flatMap((x) => x.b.nouveaux.map((id) => nomDe(x.d, id)));
-        const rates = bilans.flatMap((x) => x.b.rates.map((r) => ({ ...r, nom: nomDe(x.d, r.id) })));
+        // Chaque lieu nommé par le rendu de son sujet (sujets.ts) : le domaine de sa fiche, sur les données du terrain du bloc.
+        const nouveaux = bilans.flatMap((x) => x.b.nouveaux.map((id) => rendu(x.info.domaine, x.info.donnees).nomBilan(id, 'localiser')));
+        const rates = bilans.flatMap((x) =>
+          x.b.rates.map((r) => {
+            const f = analyser(r.fiche);
+            const rs = rendu(f?.domaine ?? x.info.domaine, x.info.donnees);
+            const sens = f?.sens ?? 'localiser';
+            return { ...r, sens, nom: rs.nomBilan(r.id, sens), ts: rs.textes };
+          }),
+        );
         const lignes: HTMLElement[] = [croix(actions.carte), creer('h2', {}, d.sorte === 'apprendre' ? remplir(S.titre_apprendre, { serie: nomSerie(d.serie.id) }) : S.titre_revision)];
         if (!m.garde) lignes.push(creer('p', { class: 'hint seance-avis' }, S.non_garde));
         if (revisions.n) lignes.push(creer('p', { class: 'seance-resume' }, remplir(S.bilan_revisions, { premiers: revisions.premiers, n: revisions.n })));
@@ -276,11 +291,11 @@ export function creerSeances(o: OptionsSeances): Seances {
                 creer(
                   'li',
                   {},
-                  r.fiche.endsWith(':nommer')
-                    ? remplir(S.bilan_rate_nom, { pays: r.nom })
+                  r.sens === 'nommer'
+                    ? remplir(r.ts.rate_oublie, { nom: r.nom })
                     : r.distance_km != null
-                      ? remplir(S.bilan_rate_km, { pays: r.nom, km: fmtKm(r.distance_km) })
-                      : remplir(S.bilan_rate_trouver, { pays: r.nom }),
+                      ? remplir(r.ts.rate_km, { nom: r.nom, km: fmtKm(r.distance_km) })
+                      : remplir(r.ts.rate_trouver, { nom: r.nom }),
                 ),
               ),
             ),

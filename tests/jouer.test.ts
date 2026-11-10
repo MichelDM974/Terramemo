@@ -22,6 +22,7 @@ import {
 } from '../src/vues/arbre';
 import { catalogue, SERIE_ESSAI } from '../src/vues/cibles';
 import { recordDe, remplirEssaiJ0, vueJouer, type OptionsJouer } from '../src/vues/jouer';
+import { estSujetRendu } from '../src/vues/sujets';
 import { textes } from '../src/vues/textes';
 import { El, installerDom, installerStockage } from './dom-factice';
 
@@ -148,7 +149,9 @@ describe('l’arbre (pur)', () => {
   });
 
   it('textes : chaque sujet et chaque branche ont leur nom', () => {
-    for (const s of SUJETS) expect((textes.jouer.sujets as Record<string, { nom: string; n: string }>)[s.id]?.nom, s.id).toBeTruthy();
+    for (const s of SUJETS) expect((textes.jouer.sujets as Record<string, { nom: string }>)[s.id]?.nom, s.id).toBeTruthy();
+    // Et son rendu (sujets.ts) : ses textes, le compte de ses séries.
+    for (const s of SUJETS) expect(estSujetRendu(s.id), s.id).toBe(true);
   });
 });
 

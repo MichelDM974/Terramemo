@@ -6,8 +6,9 @@
 // fois, posée par la séance (src/vues/seance.ts, via essai.ts).
 import type { Terrain } from '../terrains';
 import type { Forme, Lieu } from '../map/types';
-import { creer, nomDe, type ContexteVue } from './commun';
+import { creer, poserContenu, type ContexteVue } from './commun';
 import { allumerZone } from './nommer';
+import { rendu, type RenduSujet } from './sujets';
 import { textes } from './textes';
 
 const S = textes.seance;
@@ -27,7 +28,8 @@ export interface CrochetsRetournee {
 }
 
 export interface Retournee {
-  poser(t: Terrain, id: string, c: CrochetsRetournee): void;
+  /** La question de ce lieu, dans ce sujet (consigne et révélation : son rendu, sujets.ts). */
+  poser(t: Terrain, sujet: string, id: string, c: CrochetsRetournee): void;
   /** Une question est posée (pas encore passée à la suivante). */
   readonly enCours: boolean;
   /** Retour dans la vue : la même question, révélée si elle l'était ; répondue, la suivante. */
@@ -38,7 +40,8 @@ export interface Retournee {
 }
 
 export function vueRetournee(ctx: ContexteVue): Retournee {
-  const consigne = creer('div', { class: 'essai-consigne' }, textes.terrains.monde.consigne_nommer);
+  // Remplie à chaque question (afficher), selon le sujet.
+  const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const nom = creer('div', { class: 'retournee-nom', 'aria-live': 'polite' });
   const reveler = creer('button', { type: 'button', id: 'retournee-reveler' }, S.reveler);
@@ -61,6 +64,8 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
   ctx.zone.append(barre);
 
   let t: Terrain | null = null;
+  /** Le rendu du sujet de la question : consigne et révélation. */
+  let rs: RenduSujet | null = null;
   let id = '';
   let crochets: CrochetsRetournee | null = null;
   let etape: 'question' | 'revele' | 'repondu' | null = null;
@@ -78,13 +83,13 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
   }
 
   function afficher(): void {
-    if (!t || !crochets || !etape) return;
+    if (!t || !rs || !crochets || !etape) return;
     compte.textContent = crochets.compte();
-    // « Quel est ce pays ? », « Quelle est cette commune ? » : la consigne du terrain.
-    consigne.textContent = textes.terrains[t.nom].consigne_nommer;
+    // « Quel est ce pays ? », « Quelle est cette commune ? » : la consigne du sujet.
+    consigne.textContent = rs.consigneQcm;
     consigne.dataset.cible = id;
     const revele = etape !== 'question';
-    nom.textContent = revele ? nomDe(t.donnees, id) : '';
+    poserContenu(nom, revele ? rs.revelation(id) : { texte: '' });
     nom.hidden = !revele;
     reveler.hidden = revele;
     reponses.hidden = !revele;
@@ -129,8 +134,9 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
   }
 
   return {
-    poser(terrain, cible, c) {
+    poser(terrain, sujet, cible, c) {
       arreterAttente();
+      rs = rendu(sujet, terrain.donnees);
       if (t !== terrain) {
         lieux = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.pays]));
         formes = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.forme]));

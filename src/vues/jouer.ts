@@ -34,6 +34,7 @@ import { nomSerie, SERIE_TOUS, type Serie } from './cibles';
 import { avecTerrain, creer, type ContexteVue, type Vue } from './commun';
 import { scoreCourt, secondesMode } from './scores';
 import { texteComptes, type ComptesSeance } from './seance';
+import { compteSerie } from './sujets';
 import { remplir, textes } from './textes';
 import { creerVignettes, icone } from './vignettes';
 
@@ -248,7 +249,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
                 bouton(
                   { 'data-serie': s.id, class: s.id === SERIE_TOUS ? 'jouer-tuile jouer-large' : 'jouer-tuile' },
                   nomSerie(s.id),
-                  remplir(textes.terrains[s.terrain].n, { n: s.n }),
+                  compteSerie(n.sujet, s.n),
                   '',
                   '',
                   vignettes.serie(s.id),

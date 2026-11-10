@@ -380,7 +380,7 @@ describe('séance : les communes de La Réunion', () => {
   });
 
   it('textes des communes : refus et phrase d’Apprendre', () => {
-    expect(S.tout_appris_communes).toBeTruthy();
+    expect(textes.sujets.communes.tout_appris).toBeTruthy();
   });
 });
 
