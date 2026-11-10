@@ -48,7 +48,8 @@ interface EntreeListe {
 }
 
 interface Sources {
-  sources: { nom: string; url: string; version: string; licence: string; telecharge_le: string; fichiers: { url: string; sha256: string }[] }[];
+  // url pour une source téléchargée par le build (verrou) ; chemin pour un extrait versionné (Wikidata).
+  sources: { nom: string; url: string; version: string; licence: string; telecharge_le: string; fichiers: { url?: string; chemin?: string; sha256: string }[] }[];
   traitement: { entrees: Record<string, string> };
 }
 
@@ -473,19 +474,29 @@ describe('noms et sources', () => {
 
   it('sorties à jour : empreintes du script et de la liste égales aux fichiers (sinon : npm run geodata)', () => {
     const empreinte = (f: string) => createHash('sha256').update(readFileSync(f)).digest('hex');
-    expect(Object.keys(sources.traitement.entrees).sort()).toEqual(['geodata/build.mjs', 'geodata/liste.json', 'geodata/revendications.json']);
+    expect(Object.keys(sources.traitement.entrees).sort()).toEqual([
+      'geodata/build.mjs',
+      'geodata/capitales-main.json',
+      'geodata/capitales.mjs',
+      'geodata/liste.json',
+      'geodata/revendications.json',
+    ]);
     for (const [f, h] of Object.entries(sources.traitement.entrees)) expect(empreinte(f), f).toBe(h);
   });
 
   it('sources datées, licences et empreintes égales au verrou', () => {
-    expect(sources.sources).toHaveLength(2);
+    // Natural Earth et CLDR, téléchargées par le build ; Wikidata, extrait versionné
+    // (tests/donnees-capitales.test.ts compare ses empreintes aux fichiers).
+    expect(sources.sources).toHaveLength(3);
     for (const s of sources.sources) {
       expect(s.licence).toBeTruthy();
       expect(s.telecharge_le).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       for (const f of s.fichiers) expect(f.sha256).toMatch(/^[0-9a-f]{64}$/);
     }
+    const telechargees = sources.sources.filter((s) => s.fichiers.every((f) => f.url));
+    expect(telechargees).toHaveLength(2);
     const duVerrou = Object.values(verrou).flatMap((v) => Object.values(v.fichiers)).sort();
-    const duFichier = sources.sources.flatMap((s) => s.fichiers.map((f) => f.sha256)).sort();
+    const duFichier = telechargees.flatMap((s) => s.fichiers.map((f) => f.sha256)).sort();
     expect(duFichier).toEqual(duVerrou);
   });
 });

@@ -8,8 +8,13 @@
 //   noms.<langue>.json  { id: nom } pour chaque entité et chaque zone contestée
 //   sources.json     sources, versions, licences, dates et empreintes
 //   LICENSE-CLDR.txt texte de la Unicode License v3, qui doit accompagner noms.<langue>.json
+//   capitales.json, capitales.fr.json  capitales des pays (geodata/capitales.mjs, étude J2 § 2.1),
+//                    tirées d'un extrait figé de Wikidata (npm run wikidata) et d'une table à la main
 //
-// Usage : npm run geodata [-- --maj-empreintes]
+// Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales]
+// --seulement capitales ne refait que les capitales (sans source ni mapshaper : il lit
+// pays.json et noms.fr.json déjà construits) et leur part de sources.json ; tout le build
+// donne les mêmes fichiers.
 // Les sources sont téléchargées dans geodata/raw/ (ignoré par git) puis vérifiées par
 // SHA-256 contre geodata/sources.lock.json ; le script refuse une empreinte différente,
 // sauf avec --maj-empreintes qui réécrit le verrou. Sans réseau si raw/ est rempli.
@@ -25,6 +30,7 @@ import { geoArea, geoContains, geoDistance } from 'd3-geo';
 import mapshaper from 'mapshaper';
 import polylabel from 'polylabel';
 import { feature, neighbors } from 'topojson-client';
+import { construireCapitales, fusionnerSources } from './capitales.mjs';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RAW = join(RACINE, 'geodata', 'raw');
@@ -493,10 +499,43 @@ function regionNe(p) {
   return [p.CONTINENT, p.SUBREGION];
 }
 
+// --- Capitales (geodata/capitales.mjs) -------------------------------------------
+
+// Parties qu'on peut refaire seules (--seulement) ; les mers, les drapeaux et la notoriété
+// s'ajouteront ici (étude J2, § 2.5).
+const PARTIES = ['capitales'];
+
+/** Construit et écrit les capitales ; rend ce qui va dans sources.json. */
+async function capitales() {
+  console.log('Capitales');
+  let res;
+  try {
+    res = await construireCapitales(RACINE);
+  } catch (e) {
+    echec(e.message);
+  }
+  for (const [nom, texte] of Object.entries(res.fichiers)) await ecrire(nom, texte);
+  for (const n of res.notes) console.log(`  ${n}`);
+  return res;
+}
+
+async function ecrireSources(sources) {
+  await ecrire('sources.json', JSON.stringify(sources, null, 2) + '\n');
+}
+
 // --- Programme ------------------------------------------------------------------
 
 async function main() {
   const majEmpreintes = process.argv.includes('--maj-empreintes');
+  const i = process.argv.indexOf('--seulement');
+  if (i >= 0) {
+    const partie = process.argv[i + 1];
+    if (!PARTIES.includes(partie)) echec(`--seulement ${partie ?? ''} : attendu ${PARTIES.join(', ')}`);
+    await mkdir(SORTIE, { recursive: true });
+    const cap = await capitales();
+    await ecrireSources(fusionnerSources(await lireJson(join(SORTIE, 'sources.json')), cap));
+    return;
+  }
   console.log('Sources');
   const verrou = await sources(majEmpreintes);
 
@@ -860,7 +899,8 @@ async function main() {
       `aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, ` +
       `Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = ${R_TERRE_KM} km, sur la géométrie non simplifiée`,
   };
-  await ecrire('sources.json', JSON.stringify({ sources: meta, traitement }, null, 2) + '\n');
+  const cap = await capitales();
+  await ecrireSources(fusionnerSources({ sources: meta, traitement }, cap));
 
   // Résumé.
   const parStatut = {};
