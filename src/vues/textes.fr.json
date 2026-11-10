@@ -272,6 +272,13 @@
         "licence": "Licence Ouverte 2.0",
         "auteur": "Source : IGN",
         "lien": "https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
+      },
+      {
+        "nom": "Wikidata",
+        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026",
+        "licence": "CC0 1.0",
+        "auteur": "Wikidata et ses contributeurs",
+        "lien": "https://creativecommons.org/publicdomain/zero/1.0/deed.fr"
       }
     ],
     "ign_date": "Source : IGN, à jour au {date}",

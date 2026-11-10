@@ -79,11 +79,11 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('écran Crédits', () => {
-  it('les données : Natural Earth (domaine public), Unicode CLDR (Unicode License v3), IGN ADMIN EXPRESS (Licence Ouverte 2.0, source et date)', async () => {
+  it('les données : Natural Earth (domaine public), Unicode CLDR (Unicode License v3), IGN ADMIN EXPRESS (Licence Ouverte 2.0, source et date), Wikidata (CC0, date de l’extrait)', async () => {
     const v = ouvrir();
     expect(v.hidden).toBe(false);
     const texte = v.querySelector('#credits-liste-donnees')!.innerText;
-    for (const m of ['Natural Earth', 'v5.1.2', 'Domaine public', 'Unicode CLDR', 'Unicode License v3', 'IGN, ADMIN EXPRESS', 'Licence Ouverte 2.0']) expect(texte).toContain(m);
+    for (const m of ['Natural Earth', 'v5.1.2', 'Domaine public', 'Unicode CLDR', 'Unicode License v3', 'IGN, ADMIN EXPRESS', 'Licence Ouverte 2.0', 'Wikidata', 'extrait du ', 'CC0 1.0']) expect(texte).toContain(m);
     // La date de mise à jour de l'IGN, lue dans le sources.json de l'île à l'ouverture.
     await new Promise((r) => setTimeout(r, 0));
     expect(fetch).toHaveBeenCalledWith('/geo/reunion/sources.json');
