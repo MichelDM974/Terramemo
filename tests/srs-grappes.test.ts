@@ -169,3 +169,27 @@ describe('règle de découpage', () => {
     expect(gs.find((g) => g.continent === 'Autre')!.membres.length).toBe(2);
   });
 });
+
+// Capitales (étude J2 § 6.1, D37 c, lot 1) : les grappes des pays telles
+// quelles (src/vues/seance.ts, commePays) : aucune exclue en Trouver, donc
+// aucune vide ; les 9 pays au nom de leur capitale n'y ont pas de QCM, mais
+// aucune grappe n'en est faite seulement (son QCM d'Apprendre serait vide).
+describe('grappes des capitales', () => {
+  const gs = grappesPays(pays);
+  const capitales = lire<{ pays: string; m?: 1 }[]>('public/geo/capitales.json');
+  const memeNom = new Set(capitales.filter((l) => l.m === 1).map((l) => l.pays));
+
+  it('celles des pays : toutes les capitales jouables y sont, une fois ; aucune grappe vide', () => {
+    expect(gs.every((g) => g.membres.length > 0)).toBe(true);
+    const membres = gs.flatMap((g) => g.membres);
+    expect(new Set(membres).size).toBe(membres.length);
+    expect(new Set(membres)).toEqual(new Set(jouables.map((p) => p.id)));
+    for (const id of membres) expect(capitales.some((l) => l.pays === id), id).toBe(true);
+  });
+
+  it('les 9 de D37 c dans leurs grappes (Trouver), jamais seuls dans une grappe : chaque grappe garde un QCM', () => {
+    expect(memeNom.size).toBe(9);
+    for (const id of memeNom) expect(gs.some((g) => g.membres.includes(id)), id).toBe(true);
+    for (const g of gs) expect(g.membres.some((id) => !memeNom.has(id)), g.membres.join(',')).toBe(true);
+  });
+});
