@@ -746,7 +746,7 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
 }
 .vue-confidentialite .panel { max-width: 680px; margin: 0 auto; }
 .credits-confidentialite { margin: 0 0 4px; font-size: 0.9rem; }
-.credits-confidentialite a, #compte-politique a { color: var(--accent); }
+.credits-confidentialite a, .compte-politique a { color: var(--accent); }
 .document { line-height: 1.55; overflow-wrap: anywhere; }
 .document h1 { margin: 0 0 2px; font-size: 1.08rem; font-weight: 600; letter-spacing: -0.01em; }
 .document h2 { margin: 20px 0 4px; font-size: 0.92rem; font-weight: 600; color: var(--text); }

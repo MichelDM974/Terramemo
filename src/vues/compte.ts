@@ -31,6 +31,19 @@
 // dit (googleOffert). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
 // textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts.
+//
+// Écran de connexion de la première ouverture (décision « Écran de
+// connexion », src/vues/accueil.ts) : les mêmes écrans, montés dans son
+// panneau par accueilCompte(), sans recopie. Un moteur (moteurCompte) rend
+// les écrans dans des nœuds à lui ; vueCompte() les pose dans sa section,
+// accueilCompte() dans le panneau. Au panneau : les id préfixés
+// (« accueil-compte-… », la vue Compte pouvant être dans la page en même
+// temps), l'écran de l'invité sans la ligne « tes progrès restent… » ni
+// l'export, rien de Firebase à l'ouverture (ni etat() ni SDK : l'invité ne
+// le charge pas, D9 b), le SDK préchauffé au premier signe d'intérêt
+// (pointeur sur Google, formulaire ouvert) ; un compte connecté choisit son
+// pseudo s'il n'en a pas (« Plus tard » possible), puis le panneau se ferme
+// (AccueilDuCompte.fini).
 import { prendreAvisPseudo, pseudoValide } from '../epreuve/chrono';
 import { MOT_SUPPRESSION, type ChoixFusion, type Comptes, type EtatCompte, type QuestionFusion, type ResultatDeconnexion, type ResultatFusion, type ResultatProfil } from '../sync/comptes';
 import { dansApk } from '../retour-android';
@@ -61,7 +74,9 @@ type Ecran =
   | 'effacer'
   | 'supprimer'
   | 'suppression'
-  | 'attente';
+  | 'attente'
+  /** Panneau d'accueil : un compte est connecté, pseudo choisi ou remis à plus tard (AccueilDuCompte.fini). */
+  | 'fini';
 
 /** Écrans qui restent tels quels quand l'état est relu (saisie en cours, question posée). */
 const ECRANS_GARDES: ReadonlySet<Ecran> = new Set(['creer', 'connecter', 'mdp', 'pseudo', 'sans-compte', 'fusion', 'fusion-confirmer', 'deconnexion', 'effacer', 'supprimer', 'suppression', 'attente']);
@@ -197,7 +212,87 @@ export function textePerdue(n: number | null): string {
   return n === 1 ? T.perdue_une : remplir(T.perdue, { n });
 }
 
+/**
+ * Ce que le panneau de la première ouverture (src/vues/accueil.ts) demande
+ * aux écrans des comptes qu'il monte.
+ */
+export interface AccueilDuCompte {
+  /** Un compte est connecté, son pseudo choisi (ou remis à plus tard) : le panneau se ferme. */
+  fini(): void;
+  /**
+   * L'écran change : `choix` vrai sur celui des entrées (Google, e-mail), ou
+   * pendant son chargement ; le panneau n'y montre « Continuer en invité »
+   * qu'alors (pas pendant un formulaire, la question D22 ou le pseudo).
+   */
+  surEcran?(choix: boolean): void;
+  /**
+   * Le SDK de Firebase demandé d'avance, au premier signe d'intérêt (pointeur
+   * ou focus sur Google, formulaire ouvert) : la fenêtre de Google s'ouvre
+   * alors dans le geste, et l'invité qui n'y touche pas ne le charge pas.
+   */
+  prechauffer?(): void;
+}
+
+export type OptionsAccueilCompte = Omit<OptionsVueCompte, 'retour' | 'versCarte'> & AccueilDuCompte;
+
+interface OptionsMoteur extends Omit<OptionsVueCompte, 'retour' | 'versCarte'> {
+  /** Préfixe des id : « compte » (la vue), « accueil-compte » (le panneau). */
+  prefixe: string;
+  /** Monté dans le panneau de la première ouverture. */
+  accueil?: AccueilDuCompte;
+}
+
+/** Les écrans des comptes, rendus dans leurs nœuds ; la vue ou le panneau les posent. */
+interface MoteurCompte {
+  contenu: HTMLDivElement;
+  message: HTMLParagraphElement;
+  erreur: HTMLParagraphElement;
+  synchro: HTMLParagraphElement;
+  activer(): void;
+  desactiver(): void;
+}
+
+/** Vue « Compte » (#compte) : le moteur dans sa section, son titre, « Retour » et « × ». */
 export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
+  const m = moteurCompte({ ...o, prefixe: 'compte' });
+  const retour = creer('button', { type: 'button', class: 'secondary', id: 'compte-retour' }, T.retour);
+  retour.addEventListener('click', () => o.retour());
+  const section = creer(
+    'section',
+    { class: 'vue-compte', id: 'vue-compte' },
+    creer('div', { class: 'panel' }, ...(o.versCarte ? [croix(o.versCarte)] : []), creer('h2', {}, T.titre), m.contenu, m.message, m.erreur, m.synchro, creer('div', { class: 'essai-actions compte-retour' }, retour)),
+  );
+  section.hidden = true;
+  ctx.zone.append(section);
+  return {
+    activer() {
+      section.hidden = false;
+      ctx.carte.masquer(true);
+      m.activer();
+    },
+    desactiver() {
+      m.desactiver();
+      section.hidden = true;
+      ctx.carte.masquer(false);
+    },
+  };
+}
+
+/**
+ * Les écrans des comptes dans le panneau de la première ouverture : Google,
+ * l'e-mail (se connecter, créer, mot de passe oublié), la question D22, puis
+ * le pseudo d'un compte qui n'en a pas. `element` : ce que le panneau pose.
+ */
+export function accueilCompte(o: OptionsAccueilCompte): { element: HTMLDivElement; activer(): void; desactiver(): void } {
+  const { fini, surEcran, prechauffer, ...reste } = o;
+  const m = moteurCompte({ ...reste, prefixe: 'accueil-compte', accueil: { fini, surEcran, prechauffer } });
+  return { element: creer('div', { class: 'accueil-compte' }, m.contenu, m.message, m.erreur), activer: m.activer, desactiver: m.desactiver };
+}
+
+function moteurCompte(o: OptionsMoteur): MoteurCompte {
+  const accueil = o.accueil;
+  /** L'id d'un élément, préfixé : « compte-adresse » dans la vue, « accueil-compte-adresse » au panneau. */
+  const ident = (nom: string) => `${o.prefixe}-${nom}`;
   let ecran: Ecran = 'chargement';
   let etat: EtatCompte | null = null;
   let active = false;
@@ -225,19 +320,10 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   /** Google se propose (comptes.googleOffert : le site ; l'APK une fois le plugin branché, lot 7). */
   let googleOffert = false;
 
-  const message = creer('p', { class: 'status', id: 'compte-message', 'aria-live': 'polite' });
-  const erreur = creer('p', { class: 'status error', id: 'compte-erreur', role: 'alert' });
-  const contenu = creer('div', { class: 'compte-contenu', id: 'compte-contenu' });
-  const synchro = creer('p', { class: 'hint', id: 'compte-synchro', 'aria-live': 'polite' }, T.synchro_coupee);
-  const retour = creer('button', { type: 'button', class: 'secondary', id: 'compte-retour' }, T.retour);
-  retour.addEventListener('click', () => o.retour());
-  const section = creer(
-    'section',
-    { class: 'vue-compte', id: 'vue-compte' },
-    creer('div', { class: 'panel' }, ...(o.versCarte ? [croix(o.versCarte)] : []), creer('h2', {}, T.titre), contenu, message, erreur, synchro, creer('div', { class: 'essai-actions compte-retour' }, retour)),
-  );
-  section.hidden = true;
-  ctx.zone.append(section);
+  const message = creer('p', { class: 'status', id: ident('message'), 'aria-live': 'polite' });
+  const erreur = creer('p', { class: 'status error', id: ident('erreur'), role: 'alert' });
+  const contenu = creer('div', { class: 'compte-contenu', id: ident('contenu') });
+  const synchro = creer('p', { class: 'hint', id: ident('synchro'), 'aria-live': 'polite' }, T.synchro_coupee);
 
   const dire = (m: string) => {
     message.textContent = m;
@@ -290,7 +376,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   }
 
   const champAdresse = (valeur: string): { label: HTMLDivElement; input: HTMLInputElement } =>
-    champ('compte-adresse', T.adresse, { type: 'email', name: 'email', autocomplete: 'email', inputmode: 'email', autocapitalize: 'off', spellcheck: 'false', required: '' }, valeur);
+    champ(ident('adresse'), T.adresse, { type: 'email', name: 'email', autocomplete: 'email', inputmode: 'email', autocapitalize: 'off', spellcheck: 'false', required: '' }, valeur);
 
   /** Un formulaire : Entrée l'envoie, le gestionnaire de mots de passe le reconnaît. */
   function formulaire(id: string, envoyer: () => void, ...enfants: Node[]): HTMLFormElement {
@@ -350,6 +436,13 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
 
   function aller(e: Ecran): void {
     ecran = e;
+    // Au panneau : « Continuer en invité » sous l'écran des entrées seulement (et tant qu'il charge).
+    accueil?.surEcran?.(e === 'invite' || e === 'chargement' || e === 'echec');
+    if (e === 'fini') {
+      contenu.replaceChildren();
+      accueil?.fini();
+      return;
+    }
     rendre();
   }
 
@@ -406,7 +499,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
 
   /** La ligne sous le bouton de Google : ce que montrera la fenêtre (marque non vérifiée, D30) ; dans l'APK sans plugin, qu'il vient. */
   function aideGoogle(): Node {
-    return creer('p', { class: 'hint', id: 'compte-google-aide' }, !googleOffert ? T.google_bientot : natif() ? T.google_apk : T.google_site);
+    return creer('p', { class: 'hint', id: ident('google-aide') }, !googleOffert ? T.google_bientot : natif() ? T.google_apk : T.google_site);
   }
 
   /** Déconnexion (§ 3.4) : faite, ou l'écran de ce qui n'est pas parti. */
@@ -443,8 +536,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   function formulaireSuppression(adresse: string | null, fournisseurs: readonly string[], motDePasse: boolean, google: boolean, texte: string, annuler: HTMLButtonElement | null): Node[] {
     const mdpDemande = motDePasse && fournisseurs.includes('password');
     const deuxMoyens = mdpDemande && fournisseurs.includes('google.com') && googleOffert;
-    const mot = champ('compte-supprimer-mot', T.supprimer_mot, { type: 'text', name: 'confirmation', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done', required: '' });
-    const mdp = mdpDemande ? champMdp('compte-supprimer-mdp', T.mdp, 'current-password') : null;
+    const mot = champ(ident('supprimer-mot'), T.supprimer_mot, { type: 'text', name: 'confirmation', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'done', required: '' });
+    const mdp = mdpDemande ? champMdp(ident('supprimer-mdp'), T.mdp, 'current-password') : null;
     // L'identifiant du compte, caché : le gestionnaire de mots de passe propose le bon.
     const nom = creer('input', { type: 'email', name: 'email', autocomplete: 'username', hidden: '', readonly: '', tabindex: '-1', 'aria-hidden': 'true' });
     nom.value = adresse ?? '';
@@ -474,14 +567,14 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
     };
     return [
       formulaire(
-        'compte-form-supprimer',
+        ident('form-supprimer'),
         envoyer,
         ...(mdp ? [nom] : []),
         mot.label,
         ...(mdp ? [mdp.label] : []),
-        ...(google && !mdpDemande && fournisseurs.includes('google.com') ? [creer('p', { class: 'hint', id: 'compte-supprimer-google' }, T.supprimer_google)] : []),
-        ...(deuxMoyens ? [creer('p', { class: 'hint', id: 'compte-supprimer-google' }, T.supprimer_google_ou_mdp)] : []),
-        creer('div', { class: 'compte-actions' }, bouton('compte-supprimer-ok', texte, envoyer, 'danger', 'submit'), ...(annuler ? [annuler] : [])),
+        ...(google && !mdpDemande && fournisseurs.includes('google.com') ? [creer('p', { class: 'hint', id: ident('supprimer-google') }, T.supprimer_google)] : []),
+        ...(deuxMoyens ? [creer('p', { class: 'hint', id: ident('supprimer-google') }, T.supprimer_google_ou_mdp)] : []),
+        creer('div', { class: 'compte-actions' }, bouton(ident('supprimer-ok'), texte, envoyer, 'danger', 'submit'), ...(annuler ? [annuler] : [])),
       ),
     ];
   }
@@ -546,7 +639,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
     synchro.hidden = false;
     const attendVerification = !COMPTES_OUVERTS && etat?.etat === 'compte' && !etat.verifiee && etat.fournisseurs.includes('password');
     synchro.replaceChildren(texteSynchro({ ...e, coupee: e.coupee || synchroCoupee() }, attendVerification));
-    if (e.refusees && !e.coupee) synchro.append(' · ', bouton('compte-synchro-reessayer', T.synchro_reessayer, () => void reessayer(), 'lien'));
+    if (e.refusees && !e.coupee) synchro.append(' · ', bouton(ident('synchro-reessayer'), T.synchro_reessayer, () => void reessayer(), 'lien'));
   }
 
   async function lireSynchro(): Promise<void> {
@@ -586,31 +679,33 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       case 'chargement':
         return [creer('p', { class: 'hint' }, T.chargement)];
       case 'echec':
-        return [creer('p', { class: 'hint' }, T.chargement_echec), creer('div', { class: 'essai-actions' }, bouton('compte-recharger', T.reessayer, () => void rafraichir(), 'principal'))];
-      case 'invite':
+        return [creer('p', { class: 'hint' }, T.chargement_echec), creer('div', { class: 'essai-actions' }, bouton(ident('recharger'), T.reessayer, () => void rafraichir(), 'principal'))];
+      case 'invite': {
+        // Google en premier (§ 2.4, § 3.2) : ni mot de passe, ni e-mail à envoyer.
+        const google = googleOffert ? bouton(ident('google'), T.google, () => continuerGoogle('invite'), 'principal') : null;
+        const versConnecter = bouton(ident('vers-connecter'), T.se_connecter_email, () => {
+          effacerAvis();
+          accueil?.prechauffer?.();
+          aller('connecter');
+        }, googleOffert ? 'secondaire' : 'principal');
+        const versCreer = bouton(ident('vers-creer'), T.creer, () => {
+          effacerAvis();
+          accueil?.prechauffer?.();
+          aller('creer');
+        });
+        // Au panneau, le SDK au premier signe d'intérêt pour Google : la fenêtre s'ouvre ainsi dans le geste.
+        if (google && accueil?.prechauffer) for (const ev of ['pointerenter', 'pointerdown', 'focus']) google.addEventListener(ev, () => accueil.prechauffer?.());
         return [
-          creer('p', { class: 'hint' }, T.invite),
-          creer(
-            'div',
-            { class: 'compte-actions' },
-            // Google en premier (§ 2.4, § 3.2) : ni mot de passe, ni e-mail à envoyer.
-            ...(googleOffert ? [bouton('compte-google', T.google, () => continuerGoogle('invite'), 'principal')] : []),
-            bouton('compte-vers-connecter', T.se_connecter_email, () => {
-              effacerAvis();
-              aller('connecter');
-            }, googleOffert ? 'secondaire' : 'principal'),
-            bouton('compte-vers-creer', T.creer, () => {
-              effacerAvis();
-              aller('creer');
-            }),
-          ),
+          ...(accueil ? [] : [creer('p', { class: 'hint' }, T.invite)]),
+          creer('div', { class: 'compte-actions' }, ...(google ? [google] : []), versConnecter, versCreer),
           aideGoogle(),
-          // Un invité exporte aussi son journal (§ 7.2), sans « compte ».
-          creer('div', { class: 'compte-liens' }, ...exportDe('compte-exporter', 'lien')),
+          // Un invité exporte aussi son journal (§ 7.2), sans « compte » ; pas au panneau de la première ouverture.
+          ...(accueil ? [] : [creer('div', { class: 'compte-liens' }, ...exportDe(ident('exporter'), 'lien'))]),
         ];
+      }
       case 'creer': {
         const a = champAdresse(adresseSaisie);
-        const m = champMdp('compte-mdp', T.mdp, 'new-password');
+        const m = champMdp(ident('mdp'), T.mdp, 'new-password');
         const envoyer = () => {
           adresseSaisie = a.input.value;
           void agir(async (c) => {
@@ -624,21 +719,21 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         return [
           creer('h3', {}, T.titre_creer),
           formulaire(
-            'compte-form-creer',
+            ident('form-creer'),
             envoyer,
             a.label,
             m.label,
             creer(
               'div',
               { class: 'compte-actions' },
-              bouton('compte-creer-ok', T.creer_bouton, envoyer, 'principal', 'submit'),
-              bouton('compte-annuler', T.annuler, () => annuler()),
+              bouton(ident('creer-ok'), T.creer_bouton, envoyer, 'principal', 'submit'),
+              bouton(ident('annuler'), T.annuler, () => annuler()),
             ),
           ),
           // La politique de confidentialité, avant de créer le compte (§ 3.2, § 7.3) : la vue #confidentialite,
           // d'où « Retour » ramène au formulaire, saisie gardée.
-          creer('p', { class: 'hint', id: 'compte-politique' }, T.politique, creer('a', { href: '#confidentialite', id: 'compte-lien-politique' }, T.politique_lien)),
-          bouton('compte-deja', T.deja_compte, () => {
+          creer('p', { class: 'hint compte-politique', id: ident('politique') }, T.politique, creer('a', { href: '#confidentialite', id: ident('lien-politique') }, T.politique_lien)),
+          bouton(ident('deja'), T.deja_compte, () => {
             adresseSaisie = a.input.value;
             effacerAvis();
             aller('connecter');
@@ -647,7 +742,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       }
       case 'connecter': {
         const a = champAdresse(adresseSaisie);
-        const m = champMdp('compte-mdp', T.mdp, 'current-password');
+        const m = champMdp(ident('mdp'), T.mdp, 'current-password');
         const envoyer = () => {
           adresseSaisie = a.input.value;
           void agir(async (c) => {
@@ -661,28 +756,28 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         return [
           creer('h3', {}, T.titre_connecter),
           formulaire(
-            'compte-form-connecter',
+            ident('form-connecter'),
             envoyer,
             a.label,
             m.label,
             creer(
               'div',
               { class: 'compte-actions' },
-              bouton('compte-connecter-ok', T.connecter_bouton, envoyer, 'principal', 'submit'),
-              bouton('compte-annuler', T.annuler, () => annuler()),
+              bouton(ident('connecter-ok'), T.connecter_bouton, envoyer, 'principal', 'submit'),
+              bouton(ident('annuler'), T.annuler, () => annuler()),
             ),
           ),
           creer(
             'div',
             { class: 'compte-liens' },
-            bouton('compte-oubli', T.oubli, () => {
+            bouton(ident('oubli'), T.oubli, () => {
               adresseSaisie = a.input.value;
               void agir(async (c) => {
                 await c.oublier(a.input.value);
                 dire(T.oubli_envoye);
               });
             }, 'lien'),
-            bouton('compte-vers-creer', T.pas_de_compte, () => {
+            bouton(ident('vers-creer'), T.pas_de_compte, () => {
               adresseSaisie = a.input.value;
               effacerAvis();
               aller('creer');
@@ -695,15 +790,15 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         if (!e) return [];
         const motDePasse = e.fournisseurs.includes('password');
         const nom = motDePasse ? (e.adresse ?? '') : remplir(T.compte_google, { adresse: e.adresse ?? '' });
-        const lignes: Node[] = [creer('p', { class: 'compte-adresse', id: 'compte-adresse-connectee' }, nom)];
+        const lignes: Node[] = [creer('p', { class: 'compte-adresse', id: ident('adresse-connectee') }, nom)];
         // Le pseudo du compte (§ 3.2) : celui du profil, recopié sur l'appareil.
         const pseudo = lirePseudo();
         lignes.push(
           creer(
             'p',
-            { class: 'hint', id: 'compte-pseudo-actuel' },
+            { class: 'hint', id: ident('pseudo-actuel') },
             `${pseudo ? remplir(T.pseudo, { pseudo }) : T.pseudo_aucun} · `,
-            bouton('compte-vers-pseudo', pseudo ? T.pseudo_changer : T.pseudo_choisir, () => {
+            bouton(ident('vers-pseudo'), pseudo ? T.pseudo_changer : T.pseudo_choisir, () => {
               effacerAvis();
               aller('pseudo');
             }, 'lien'),
@@ -713,9 +808,9 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           lignes.push(
             creer(
               'p',
-              { class: 'hint', id: 'compte-non-verifiee' },
+              { class: 'hint', id: ident('non-verifiee') },
               `${T.non_verifiee} · `,
-              bouton('compte-renvoyer', T.renvoyer, () =>
+              bouton(ident('renvoyer'), T.renvoyer, () =>
                 void agir(async (c) => {
                   const r = await c.renvoyer();
                   dire(remplir(T.renvoye, { adresse: r.adresse }));
@@ -723,23 +818,23 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
             ),
           );
         // Une suppression lancée depuis un autre appareil (pierre tombale lue, § 7.1).
-        if (e.supprime) lignes.push(creer('p', { class: 'hint', id: 'compte-en-suppression' }, T.en_suppression));
+        if (e.supprime) lignes.push(creer('p', { class: 'hint', id: ident('en-suppression') }, T.en_suppression));
         lignes.push(
           creer(
             'div',
             { class: 'compte-actions' },
-            ...exportDe('compte-exporter', 'secondaire'),
-            ...(motDePasse ? [bouton('compte-vers-mdp', T.changer_mdp, () => {
+            ...exportDe(ident('exporter'), 'secondaire'),
+            ...(motDePasse ? [bouton(ident('vers-mdp'), T.changer_mdp, () => {
               effacerAvis();
               aller('mdp');
             })] : []),
-            bouton('compte-deconnecter', T.se_deconnecter, () => void agir((c) => deconnecter(c))),
+            bouton(ident('deconnecter'), T.se_deconnecter, () => void agir((c) => deconnecter(c))),
           ),
           // En bas, à part (§ 3.2).
           creer(
             'div',
             { class: 'compte-actions compte-separe' },
-            bouton('compte-vers-supprimer', T.supprimer_lien, () =>
+            bouton(ident('vers-supprimer'), T.supprimer_lien, () =>
               void agir(async (c) => {
                 effacerAvis();
                 // Le pseudo de la demande (celui du profil en ligne), montré avant la confirmation.
@@ -755,22 +850,22 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         if (!e) return [];
         return [
           creer('h3', {}, T.titre_supprimer),
-          creer('p', { id: 'compte-supprimer-texte' }, T.supprimer_texte),
+          creer('p', { id: ident('supprimer-texte') }, T.supprimer_texte),
           // D27 b, avant la confirmation : les places du pseudo.
-          creer('p', { id: 'compte-supprimer-classement' }, texteClassementSuppression(pseudoSuppression)),
-          ...formulaireSuppression(e.adresse, e.fournisseurs, true, true, T.supprimer_bouton, bouton('compte-annuler', T.annuler, () => annuler())),
+          creer('p', { id: ident('supprimer-classement') }, texteClassementSuppression(pseudoSuppression)),
+          ...formulaireSuppression(e.adresse, e.fournisseurs, true, true, T.supprimer_bouton, bouton(ident('annuler'), T.annuler, () => annuler())),
         ];
       }
       case 'suppression': {
         const e = etat?.etat === 'suppression' ? etat : null;
         if (!e) return [];
-        const titre = creer('p', { id: 'compte-suppression-inachevee' }, T.suppression_inachevee);
+        const titre = creer('p', { id: ident('suppression-inachevee') }, T.suppression_inachevee);
         // Compte connecté : la reprise depuis la réauthentification, ou « Annuler la suppression »
         // tant que la pierre tombale n'est pas posée.
         if (e.connecte)
           return [
             titre,
-            ...formulaireSuppression(e.adresse, e.fournisseurs, true, true, T.suppression_reprendre, bouton('compte-suppression-annuler', T.suppression_annuler, () =>
+            ...formulaireSuppression(e.adresse, e.fournisseurs, true, true, T.suppression_reprendre, bouton(ident('suppression-annuler'), T.suppression_annuler, () =>
               void agir(async (c) => {
                 await c.annulerSuppression();
                 dire(T.suppression_annulee);
@@ -779,14 +874,14 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           ];
         // deleteUser a abouti ici : il reste à vider l'appareil, sans mot de passe.
         if (e.horsAuth)
-          return [titre, creer('p', { class: 'hint', id: 'compte-suppression-appareil' }, T.suppression_appareil), ...formulaireSuppression(e.adresse, e.fournisseurs, false, false, T.suppression_reprendre, null)];
+          return [titre, creer('p', { class: 'hint', id: ident('suppression-appareil') }, T.suppression_appareil), ...formulaireSuppression(e.adresse, e.fournisseurs, false, false, T.suppression_reprendre, null)];
         // Session perdue en route : rien ne dit que le compte est parti. Se reconnecter pour finir ;
         // « Vider cet appareil » en dernier recours, sans rien promettre du compte.
         return [
           titre,
           creer(
             'p',
-            { class: 'hint', id: 'compte-suppression-reconnecter' },
+            { class: 'hint', id: ident('suppression-reconnecter') },
             e.fournisseurs.includes('password')
               ? T.suppression_reconnecter
               : e.fournisseurs.includes('google.com') && googleOffert
@@ -795,7 +890,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           ),
           ...formulaireSuppression(e.adresse, e.fournisseurs, true, false, T.suppression_reprendre, null),
           ...(e.fournisseurs.includes('password') && e.adresse
-            ? [creer('div', { class: 'compte-liens' }, bouton('compte-oubli', T.oubli, () =>
+            ? [creer('div', { class: 'compte-liens' }, bouton(ident('oubli'), T.oubli, () =>
                 void agir(async (c) => {
                   await c.oublier(e.adresse ?? '');
                   dire(T.oubli_envoye);
@@ -804,8 +899,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer(
             'div',
             { class: 'compte-actions compte-separe' },
-            creer('p', { class: 'hint', id: 'compte-suppression-vider-aide' }, T.suppression_vider_aide),
-            bouton('compte-suppression-vider', T.effacer_appareil, () =>
+            creer('p', { class: 'hint', id: ident('suppression-vider-aide') }, T.suppression_vider_aide),
+            bouton(ident('suppression-vider'), T.effacer_appareil, () =>
               void agir(async (c) => {
                 await c.abandonnerSuppression();
                 dire(T.suppression_videe);
@@ -819,8 +914,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         // L'identifiant du compte, caché : le gestionnaire de mots de passe met à jour le bon.
         const nom = creer('input', { type: 'email', name: 'email', autocomplete: 'username', hidden: '', readonly: '', tabindex: '-1', 'aria-hidden': 'true' });
         nom.value = e?.adresse ?? '';
-        const ancien = champMdp('compte-mdp-actuel', T.mdp_actuel, 'current-password');
-        const nouveau = champMdp('compte-mdp-nouveau', T.mdp_nouveau, 'new-password');
+        const ancien = champMdp(ident('mdp-actuel'), T.mdp_actuel, 'current-password');
+        const nouveau = champMdp(ident('mdp-nouveau'), T.mdp_nouveau, 'new-password');
         const envoyer = () =>
           void agir(async (c) => {
             await c.changerMotDePasse(ancien.input.value, nouveau.input.value);
@@ -830,7 +925,7 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         return [
           creer('h3', {}, T.titre_mdp),
           formulaire(
-            'compte-form-mdp',
+            ident('form-mdp'),
             envoyer,
             nom,
             ancien.label,
@@ -838,14 +933,14 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
             creer(
               'div',
               { class: 'compte-actions' },
-              bouton('compte-mdp-ok', T.changer_bouton, envoyer, 'principal', 'submit'),
-              bouton('compte-annuler', T.annuler, () => annuler()),
+              bouton(ident('mdp-ok'), T.changer_bouton, envoyer, 'principal', 'submit'),
+              bouton(ident('annuler'), T.annuler, () => annuler()),
             ),
           ),
         ];
       }
       case 'pseudo': {
-        const p = champ('compte-pseudo', T.pseudo_libelle, { type: 'text', name: 'pseudo', maxlength: '20', autocomplete: 'nickname', autocapitalize: 'words', spellcheck: 'false', required: '' }, lirePseudo() ?? '');
+        const p = champ(ident('pseudo'), T.pseudo_libelle, { type: 'text', name: 'pseudo', maxlength: '20', autocomplete: 'nickname', autocapitalize: 'words', spellcheck: 'false', required: '' }, lirePseudo() ?? '');
         const envoyer = () => {
           const v = pseudoValide(p.input.value);
           if (!v) {
@@ -862,18 +957,21 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer('h3', {}, T.titre_pseudo),
           creer('p', { class: 'hint' }, T.pseudo_aide),
           formulaire(
-            'compte-form-pseudo',
+            ident('form-pseudo'),
             envoyer,
             p.label,
             creer(
               'div',
               { class: 'compte-actions' },
-              bouton('compte-pseudo-ok', T.pseudo_bouton, envoyer, 'principal', 'submit'),
-              bouton('compte-annuler', T.annuler, () => annuler()),
+              bouton(ident('pseudo-ok'), T.pseudo_bouton, envoyer, 'principal', 'submit'),
+              // Au panneau, le compte est connecté : « Plus tard » mène à la carte (le pseudo se choisit ensuite dans ⚙ › Compte).
+              accueil ? bouton(ident('pseudo-plus-tard'), T.pseudo_plus_tard, () => aller('fini')) : bouton(ident('annuler'), T.annuler, () => annuler()),
             ),
           ),
         ];
       }
+      case 'fini':
+        return [];
       case 'perdue': {
         // Un compte Google seul se reconnecte par Google ; un compte à mot de passe (Google en plus
         // ou non), par son adresse d'abord. Google en second aussi pour une adresse Gmail : Google a pu
@@ -882,32 +980,32 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         const parGoogle = f.includes('google.com') && !f.includes('password');
         const googleAussi = f.includes('google.com') || (etat?.etat === 'perdue' && adresseGmail(etat.adresse));
         return [
-          creer('p', { id: 'compte-perdue' }, textePerdue(seancesPerdue)),
+          creer('p', { id: ident('perdue') }, textePerdue(seancesPerdue)),
           creer(
             'div',
             { class: 'compte-actions' },
             ...(parGoogle
               ? []
               : [
-                  bouton('compte-reconnecter', T.se_reconnecter, () => {
+                  bouton(ident('reconnecter'), T.se_reconnecter, () => {
                     adresseSaisie = etat?.etat === 'perdue' ? (etat.adresse ?? '') : adresseSaisie;
                     effacerAvis();
                     aller('connecter');
                   }, 'principal'),
                 ]),
-            ...(googleAussi && googleOffert ? [bouton('compte-google', T.google_reconnecter, () => continuerGoogle('perdue'), parGoogle ? 'principal' : 'secondaire')] : []),
-            bouton('compte-sans-compte', T.continuer_sans, () => {
+            ...(googleAussi && googleOffert ? [bouton(ident('google'), T.google_reconnecter, () => continuerGoogle('perdue'), parGoogle ? 'principal' : 'secondaire')] : []),
+            bouton(ident('sans-compte'), T.continuer_sans, () => {
               effacerAvis();
               aller('sans-compte');
             }),
           ),
           // Dans l'APK sans le plugin (lot 7) : un compte Google ne s'y reconnecte pas encore.
           ...(parGoogle && !googleOffert ? [aideGoogle()] : []),
-          creer('div', { class: 'compte-liens' }, ...exportDe('compte-exporter', 'lien')),
+          creer('div', { class: 'compte-liens' }, ...exportDe(ident('exporter'), 'lien')),
           creer(
             'div',
             { class: 'compte-actions compte-separe' },
-            bouton('compte-effacer', T.effacer_appareil, () =>
+            bouton(ident('effacer'), T.effacer_appareil, () =>
               void agir(async (c) => {
                 effacerAvis();
                 aEffacer = await c.reponsesAppareil();
@@ -919,35 +1017,35 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       case 'effacer':
         return [
           creer('h3', {}, T.effacer_appareil),
-          creer('p', { id: 'compte-effacer-texte' }, aEffacer ? remplir(T.effacer_confirmer, { detail: detailProgres(aEffacer, 0) }) : T.effacer_confirmer_vide),
+          creer('p', { id: ident('effacer-texte') }, aEffacer ? remplir(T.effacer_confirmer, { detail: detailProgres(aEffacer, 0) }) : T.effacer_confirmer_vide),
           creer(
             'div',
             { class: 'compte-actions' },
-            ...exportDe('compte-exporter-dabord', 'secondaire', true),
-            bouton('compte-effacer-ok', T.effacer_bouton, () =>
+            ...exportDe(ident('exporter-dabord'), 'secondaire', true),
+            bouton(ident('effacer-ok'), T.effacer_bouton, () =>
               void agir(async (c) => {
                 await avantEffacement();
                 await c.effacerAppareil();
                 dire(T.efface);
                 await apres(c);
               }), 'danger'),
-            bouton('compte-annuler', T.annuler, () => aller('perdue')),
+            bouton(ident('annuler'), T.annuler, () => aller('perdue')),
           ),
         ];
       case 'attente':
-        return [creer('p', { class: 'hint', id: 'compte-attente' }, T.connexion_en_cours)];
+        return [creer('p', { class: 'hint', id: ident('attente') }, T.connexion_en_cours)];
       case 'fusion': {
         const q = question;
         if (!q) return [];
         return [
           creer('h3', {}, T.titre_fusion),
-          creer('p', { id: 'compte-fusion-question' }, texteQuestion(q)),
+          creer('p', { id: ident('fusion-question') }, texteQuestion(q)),
           creer(
             'div',
             { class: 'compte-actions' },
-            bouton('compte-fusion-ajouter', T.fusion_ajouter, () => repondre?.('ajouter'), 'principal'),
-            bouton('compte-fusion-ne-pas', T.fusion_ne_pas, () => aller('fusion-confirmer'), 'danger'),
-            bouton('compte-fusion-annuler', T.annuler, () => repondre?.('annuler')),
+            bouton(ident('fusion-ajouter'), T.fusion_ajouter, () => repondre?.('ajouter'), 'principal'),
+            bouton(ident('fusion-ne-pas'), T.fusion_ne_pas, () => aller('fusion-confirmer'), 'danger'),
+            bouton(ident('fusion-annuler'), T.annuler, () => repondre?.('annuler')),
           ),
         ];
       }
@@ -956,20 +1054,20 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         if (!q) return [];
         return [
           creer('h3', {}, T.fusion_ne_pas),
-          creer('p', { id: 'compte-fusion-confirmer' }, remplir(T.fusion_confirmer, { detail: detailProgres(q.reponses, q.records) })),
+          creer('p', { id: ident('fusion-confirmer') }, remplir(T.fusion_confirmer, { detail: detailProgres(q.reponses, q.records) })),
           creer(
             'div',
             { class: 'compte-actions' },
             // Sur le site, l'export avant l'effacement (§ 2.3, § 7.2).
-            ...exportDe('compte-exporter-dabord', 'secondaire', true),
-            bouton('compte-fusion-effacer', T.fusion_effacer, () => {
+            ...exportDe(ident('exporter-dabord'), 'secondaire', true),
+            bouton(ident('fusion-effacer'), T.fusion_effacer, () => {
               // Un export en cours finit d'abord : la réponse efface le journal.
               const r = repondre;
               if (!exportEnCours) return r?.('effacer');
               for (const b of contenu.querySelectorAll('button')) b.disabled = true;
               void avantEffacement().then(() => r?.('effacer'));
             }, 'danger'),
-            bouton('compte-fusion-retour', T.fusion_retour, () => aller('fusion')),
+            bouton(ident('fusion-retour'), T.fusion_retour, () => aller('fusion')),
           ),
         ];
       }
@@ -978,19 +1076,19 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         if (!r) return [];
         return [
           creer('h3', {}, T.titre_deconnexion),
-          ...textesDeconnexion(r).map((t, i) => creer('p', { class: 'compte-deconnexion-reste', id: `compte-deconnexion-${i}` }, t)),
+          ...textesDeconnexion(r).map((t, i) => creer('p', { class: 'compte-deconnexion-reste', id: ident(`deconnexion-${i}`) }, t)),
           creer(
             'div',
             { class: 'compte-actions' },
-            bouton('compte-deconnexion-reessayer', T.deconnexion_reessayer, () => void agir((c) => deconnecter(c)), 'principal'),
+            bouton(ident('deconnexion-reessayer'), T.deconnexion_reessayer, () => void agir((c) => deconnecter(c)), 'principal'),
             // Sur le site, l'export de ce qui serait perdu (§ 3.4, étape 2).
-            ...exportDe('compte-exporter-dabord', 'secondaire', true),
-            bouton('compte-deconnexion-quand-meme', T.deconnexion_quand_meme, () =>
+            ...exportDe(ident('exporter-dabord'), 'secondaire', true),
+            bouton(ident('deconnexion-quand-meme'), T.deconnexion_quand_meme, () =>
               void agir(async (c) => {
                 await avantEffacement();
                 await deconnecter(c, true);
               }), 'danger'),
-            bouton('compte-annuler', T.annuler, () => {
+            bouton(ident('annuler'), T.annuler, () => {
               reste = null;
               aller('compte');
             }),
@@ -1003,20 +1101,26 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
           creer(
             'div',
             { class: 'compte-actions' },
-            bouton('compte-sans-compte-ok', T.continuer_sans_bouton, () =>
+            bouton(ident('sans-compte-ok'), T.continuer_sans_bouton, () =>
               void agir(async (c) => {
                 await c.continuerSansCompte();
                 dire(T.sans_compte);
                 await apres(c);
               }), 'principal'),
-            bouton('compte-annuler', T.annuler, () => aller('perdue')),
+            bouton(ident('annuler'), T.annuler, () => aller('perdue')),
           ),
         ];
     }
   }
 
-  /** L'écran de l'état du compte (formulaire refermé). */
+  /**
+   * L'écran de l'état du compte (formulaire refermé). Au panneau, un compte
+   * n'a pas d'écran à lui : son pseudo s'il n'en a pas, puis la fin (le
+   * panneau se ferme) ; une session perdue ou une suppression, que le panneau
+   * ne voit pas d'ordinaire (une autre page), se règlent dans ⚙ › Compte.
+   */
   function ecranDe(e: EtatCompte): Ecran {
+    if (accueil && e.etat !== 'invite') return e.etat === 'compte' && !lirePseudo() ? 'pseudo' : 'fini';
     return e.etat === 'compte' ? 'compte' : e.etat === 'perdue' ? 'perdue' : e.etat === 'suppression' ? 'suppression' : 'invite';
   }
 
@@ -1043,9 +1147,29 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
     }
   }
 
+  /**
+   * Au panneau, à l'ouverture : l'écran des entrées, sans rien demander à
+   * Firebase (ni etat() ni SDK, D9 b : l'appareil n'a pas de session, sinon
+   * le panneau ne vient pas). Pas d'abonnement aux changements : après une
+   * connexion, apres() mène au pseudo ou à la fin, jamais à l'écran du compte.
+   */
+  async function ouvrirAccueil(): Promise<void> {
+    if (etat) return aller(ecran);
+    aller('chargement');
+    try {
+      googleOffert = (await o.comptes()).googleOffert();
+    } catch (e) {
+      montrerErreur(e);
+      return aller('echec');
+    }
+    etat = { etat: 'invite', anonyme: false };
+    aller('invite');
+  }
+
   /** L'état relu (ouverture, retour au premier plan, session perdue en cours de route). */
   async function rafraichir(): Promise<void> {
     if (occupe) return;
+    if (accueil) return ouvrirAccueil();
     if (!etat) aller('chargement');
     try {
       const c = await o.comptes();
@@ -1082,12 +1206,15 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
   };
 
   return {
+    contenu,
+    message,
+    erreur,
+    synchro,
     activer() {
       active = true;
       effacerAvis();
-      section.hidden = false;
-      ctx.carte.masquer(true);
-      document.addEventListener('visibilitychange', premierPlan);
+      // Au panneau, rien à relire au retour au premier plan : il n'a pas d'écran de compte.
+      if (!accueil) document.addEventListener('visibilitychange', premierPlan);
       void rafraichir();
     },
     desactiver() {
@@ -1102,8 +1229,6 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
         ecran = etat ? ecranDe(etat) : 'chargement';
       }
       active = false;
-      section.hidden = true;
-      ctx.carte.masquer(false);
       document.removeEventListener('visibilitychange', premierPlan);
     },
   };

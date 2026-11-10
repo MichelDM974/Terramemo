@@ -8,7 +8,7 @@ import type { ChoixFusion, Comptes, EtatCompte, QuestionFusion, ResultatDeconnex
 import { CLE_SANS_SYNCHRO } from '../src/sync/drapeaux';
 import type { ComptesSynchro, EtatSynchro, ResultatEnvoi } from '../src/sync/envoi';
 import { vueALaDemande } from '../src/vues/a-la-demande';
-import { adresseGmail, detailProgres, texteGoogle, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
+import { accueilCompte, adresseGmail, detailProgres, texteGoogle, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { remplir, textes } from '../src/vues/textes';
 import { installerDom, installerStockage, type El } from './dom-factice';
@@ -1482,5 +1482,150 @@ describe('vue Compte, lot 5 : export des données', () => {
     $('#compte-effacer')!.click();
     await attendre();
     expect($('#compte-contenu')!.querySelectorAll('button').map((b) => b.id)).toEqual(['compte-exporter-dabord', 'compte-effacer-ok', 'compte-annuler']);
+  });
+});
+
+// Écran de connexion de la première ouverture (src/vues/accueil.ts) : les
+// écrans des comptes montés dans son panneau par accueilCompte(), sans
+// recopie ; ce qui change au panneau.
+describe('écrans des comptes au panneau de la première ouverture', () => {
+  async function monter(c: Comptes, o: { natif?: boolean } = {}) {
+    const fini = vi.fn();
+    const surEcran = vi.fn();
+    const prechauffer = vi.fn();
+    const a = accueilCompte({ comptes: async () => c, fini, surEcran, prechauffer, natif: () => !!o.natif, exporter: async () => ({ nom: 'x.json', contenu: '{}' }) });
+    zone.append(a.element as unknown as El);
+    a.activer();
+    await attendre();
+    await attendre();
+    return { a, fini, surEcran, prechauffer };
+  }
+  const derniereEntree = (f: ReturnType<typeof vi.fn>) => f.mock.calls.at(-1)?.[0];
+
+  it('les entrées sans rien demander à Firebase : ni etat(), ni SDK ; id préfixés, ni « tes progrès restent… » ni export', async () => {
+    const c = fauxComptes();
+    const { surEcran, prechauffer } = await monter(c);
+    expect(c.etat).not.toHaveBeenCalled();
+    expect(prechauffer).not.toHaveBeenCalled();
+    expect($('.accueil-compte .compte-actions')!.querySelectorAll('button').map((b) => b.id)).toEqual(['accueil-compte-google', 'accueil-compte-vers-connecter', 'accueil-compte-vers-creer']);
+    expect($('#accueil-compte-google')!.className).toBe('');
+    expect($('#accueil-compte-google-aide')!.textContent).toBe(T.google_site);
+    expect($('#accueil-compte-contenu')!.innerText).not.toContain(T.invite);
+    expect($('#accueil-compte-exporter')).toBeNull();
+    expect($('#compte-contenu')).toBeNull();
+    expect(derniereEntree(surEcran)).toBe(true);
+  });
+
+  it('le SDK préchauffé au premier signe d’intérêt : pointeur ou focus sur Google, formulaire ouvert', async () => {
+    const { prechauffer, surEcran } = await monter(fauxComptes());
+    $('#accueil-compte-google')!.emettre('pointerdown');
+    expect(prechauffer).toHaveBeenCalledTimes(1);
+    $('#accueil-compte-google')!.emettre('focus');
+    expect(prechauffer).toHaveBeenCalledTimes(2);
+    $('#accueil-compte-vers-connecter')!.click();
+    expect(prechauffer).toHaveBeenCalledTimes(3);
+    expect(derniereEntree(surEcran)).toBe(false); // « Continuer en invité » caché pendant le formulaire
+    const a = $('#accueil-compte-adresse')!;
+    expect([a.getAttribute('type'), a.getAttribute('autocomplete'), a.getAttribute('inputmode')]).toEqual(['email', 'email', 'email']);
+    expect($('#accueil-compte-mdp')!.getAttribute('autocomplete')).toBe('current-password');
+    expect($('label')!.getAttribute('for')).toBe('accueil-compte-adresse');
+    expect($('#accueil-compte-oubli')).not.toBeNull();
+    $('#accueil-compte-annuler')!.click();
+    expect($('#accueil-compte-vers-creer')).not.toBeNull();
+    expect(derniereEntree(surEcran)).toBe(true);
+  });
+
+  it('connexion d’un compte qui a un pseudo : le panneau se ferme (fini), sans écran de compte', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const c = fauxComptes();
+    const { fini } = await monter(c);
+    $('#accueil-compte-vers-connecter')!.click();
+    $('#accueil-compte-adresse')!.value = 'ana@exemple.fr';
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-connecter');
+    await attendre();
+    await attendre();
+    expect(c.connecter).toHaveBeenCalledWith('ana@exemple.fr', 'motdepasse', expect.any(Function));
+    expect(fini).toHaveBeenCalledOnce();
+    expect($('#accueil-compte-adresse-connectee')).toBeNull();
+    expect($('#accueil-compte-deconnecter')).toBeNull();
+  });
+
+  it('un compte créé sans pseudo le choisit aussitôt (le message de la création gardé), validé comme au classement', async () => {
+    const c = fauxComptes();
+    const { fini, surEcran } = await monter(c);
+    $('#accueil-compte-vers-creer')!.click();
+    $('#accueil-compte-adresse')!.value = 'ana@exemple.fr';
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-creer');
+    await attendre();
+    await attendre();
+    expect(fini).not.toHaveBeenCalled();
+    expect($('#accueil-compte-form-pseudo')).not.toBeNull();
+    expect(derniereEntree(surEcran)).toBe(false);
+    expect($('#accueil-compte-message')!.textContent).toBe('Compte créé. Un e-mail de vérification est parti à ana@exemple.fr.');
+    expect($('#accueil-compte-pseudo')!.getAttribute('autocomplete')).toBe('nickname');
+    expect($('#accueil-compte-pseudo-plus-tard')!.textContent).toBe(T.pseudo_plus_tard);
+    expect($('#accueil-compte-annuler')).toBeNull();
+    $('#accueil-compte-pseudo')!.value = 'a/b';
+    envoyer('#accueil-compte-form-pseudo');
+    expect($('#accueil-compte-erreur')!.textContent).toBe(textes.chrono.pseudo_invalide);
+    expect(c.changerPseudo).not.toHaveBeenCalled();
+    $('#accueil-compte-pseudo')!.value = '  Ana   Lou ';
+    envoyer('#accueil-compte-form-pseudo');
+    await attendre();
+    await attendre();
+    expect(c.changerPseudo).toHaveBeenCalledWith('Ana Lou');
+    expect(fini).toHaveBeenCalledOnce();
+  });
+
+  it('« Plus tard » : le panneau se ferme, le compte sans pseudo', async () => {
+    const c = fauxComptes();
+    const { fini } = await monter(c);
+    $('#accueil-compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect(c.google).toHaveBeenCalledOnce();
+    $('#accueil-compte-pseudo-plus-tard')!.click();
+    expect(fini).toHaveBeenCalledOnce();
+    expect(c.changerPseudo).not.toHaveBeenCalled();
+  });
+
+  it('la question D22 au panneau aussi : « Ajouter », puis la fin', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    questionConnexion = { sorte: 'appareil', reponses: 12, records: 0, seances: 0 };
+    const c = fauxComptes();
+    const { fini, surEcran } = await monter(c);
+    $('#accueil-compte-vers-connecter')!.click();
+    $('#accueil-compte-adresse')!.value = 'ana@exemple.fr';
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-connecter');
+    await attendre();
+    expect($('#accueil-compte-fusion-question')!.textContent).toBe('Ajouter les progrès de cet appareil (12 réponses) à ton compte ?');
+    expect(derniereEntree(surEcran)).toBe(false);
+    $('#accueil-compte-fusion-ajouter')!.click();
+    await attendre();
+    await attendre();
+    expect(fini).toHaveBeenCalledOnce();
+  });
+
+  it('dans l’APK sans le plugin (lot 7) : l’e-mail seul, en bouton principal, et la ligne « Google arrive bientôt »', async () => {
+    googleOffert = false;
+    await monter(fauxComptes(), { natif: true });
+    expect($('#accueil-compte-google')).toBeNull();
+    expect($('#accueil-compte-vers-connecter')!.className).toBe('');
+    expect($('#accueil-compte-google-aide')!.textContent).toBe(T.google_bientot);
+  });
+
+  it('la vue Compte et le panneau dans la même page : aucun id en double', async () => {
+    const c = fauxComptes();
+    await ouvrir(c);
+    await monter(c);
+    $('#compte-vers-connecter')!.click();
+    $('#accueil-compte-vers-connecter')!.click();
+    const ids = zone.querySelectorAll('[id]').map((e) => e.id);
+    expect(ids).toContain('compte-adresse');
+    expect(ids).toContain('accueil-compte-adresse');
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

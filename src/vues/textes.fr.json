@@ -561,6 +561,7 @@
     "pseudo_libelle": "Pseudo public (2 à 20 caractères)",
     "pseudo_aide": "Il nomme ta place au classement, sur tous tes appareils. Il n'est pas réservé : qui le choisit partage la place.",
     "pseudo_bouton": "Enregistrer",
+    "pseudo_plus_tard": "Plus tard",
     "pseudo_change": "Pseudo enregistré dans ton compte : {pseudo}.",
     "pseudo_garde": "Pseudo gardé sur cet appareil : il partira dans ton compte plus tard.",
     "pseudo_du_compte": "Ton pseudo est maintenant {pseudo} (celui du compte).",
