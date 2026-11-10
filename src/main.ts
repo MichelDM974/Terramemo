@@ -381,6 +381,8 @@ export interface AideCarte {
   teinter(t: Record<string, number> | null): void;
   /** Zones teintées en ce moment (carte de la mémoire à l'accueil ; 0 pendant une partie). */
   teintes(): number;
+  /** Anneaux posés en ce moment (l'anneau d'une capitale à la rétroaction et dans la recherche, D53 c). */
+  anneaux(): number;
   teintesDemo(): Record<string, number>;
   /** Pays qui ont une cible de pastille au zoom courant ; visible : disque dessiné (circle.pastille en SVG). */
   pastilles(): { id: string; visible: boolean }[];
@@ -505,6 +507,7 @@ function aide(carte: CarteAffichee, h: HTMLElement, jouables: readonly string[],
     zoomerSur: (id) => carte.zoomerSur(id),
     teinter: (t) => carte.teinter(t ? new Map(Object.entries(t)) : null),
     teintes: () => carte.nbTeintes,
+    anneaux: () => carte.nbAnneaux,
     teintesDemo: () => Object.fromEntries(teintesDemo(jouables)),
     pastilles: () => carte.contexte().pastilles.map((p) => ({ id: p.id, visible: p.visible })),
     ...rendus,

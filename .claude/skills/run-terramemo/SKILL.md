@@ -52,11 +52,12 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   serveur de dev sert des modules non groupés, son chargement ne dit rien
   du site (smoke et mesurer le signalent).
 - `smoke` : `[ok ]`/`[KO ]` par vérification (HTTP 200 et JSON valide des
-  cinq fichiers de `/geo/` et des quatre de `/geo/reunion/`,
+  cinq fichiers de `/geo/`, des quatre de `/geo/reunion/` et des deux des
+  capitales, `capitales.json` et `capitales.fr.json`,
   `body[data-pret="1"]`, **rendu par défaut `canvas`** (`#carte[data-rendu]`)
   et son dessin complet (plus de 150 parties tracées, `terramemo.carte.dessin()`),
-  **rien de `/geo/reunion/` chargé au premier affichage** (après `pret` et
-  `repos`, décision « Hébergement »), nombre de `path.pays` en
+  **rien de `/geo/reunion/` ni de `/geo/capitales*` chargé au premier
+  affichage** (après `pret` et `repos`, décision « Hébergement »), nombre de `path.pays` en
   `?rendu=css` (les rendus SVG), rendu webgl, aucune exception JS ni requête
   en échec), puis `smoke : OK`.
   Le rendu webgl (`?rendu=webgl&logiciel=1`) doit finir en `data-relais="webgl"` :
@@ -91,10 +92,14 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   retour (la Carte, `pick` sur la Suisse = CHE).
   Chaque partie se lance par l'arbre de Jouer (décision « Écran Jouer »,
   `jouer_partie(page, mode, serie)` : `#jouer`, puis dans `#jouer-panneau`
-  `[data-branche=entrainement|classe]`, `[data-sujet=pays|communes]`,
-  `[data-serie=<id>]` (sauf l'île : niveau sauté), et `[data-mode=localiser|
-  nommer|chrono|sansfaute|minute]`, qui lance la partie ; `jouer_jusqua`
-  s'arrête aux exercices). Plus de départ dans Toucher ni dans les épreuves :
+  `[data-branche=entrainement|classe]`, `[data-sujet=pays|capitales|communes]`
+  (dans cet ordre, D53 b ; `capitales` sous Entraînement seulement tant que
+  ses épreuves ne sont pas ouvertes), `[data-serie=<id>]` (sauf l'île :
+  niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute|
+  minute]`, qui lance la partie ; `jouer_jusqua(page, mode, serie, sujet)`
+  s'arrête aux exercices, le sujet déduit de la série à défaut). Une
+  partie de capitales attend leurs données (`avecSujet` : « Chargement… »
+  au statut `.jouer-statut`, puis la barre). Plus de départ dans Toucher ni dans les épreuves :
   `#toucher` ou `#chrono` sans partie renvoie à Jouer. Puis l'en-tête
   (décision « En-tête ») : `16-recherche` (« sain » : pays et communes mêlés),
   `17-recherche-pays` (le Vatican à Entrée : vol, anneau),
@@ -107,7 +112,8 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   `23-minute-bilan` (tout juste ensuite : « série vidée », « 1 erreur »).
   Enfin l'arbre de Jouer (#18), après les épreuves pour en avoir les
   records : `15-jouer` (Entraînement et Classé ; plus de « Rejouer » ici,
-  il ne vit qu'au bilan), `15b-classe-sujets` (Pays, Communes),
+  il ne vit qu'au bilan ; `DÉFAUT` si Entraînement n'a pas Pays, Capitales,
+  Communes dans cet ordre), `15b-classe-sujets` (Pays, Communes),
   `15c-classe-pays-series` (Tous les pays puis les six continents),
   `15d-classe-pays-ams-epreuves` (les trois épreuves avec leurs records,
   les règles ouvertes par `#jouer-aide`), `15e-entrainement-communes`
@@ -230,11 +236,39 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   e-mail n'a pas `email` / `current-password`, ou si le focus n'y va pas au
   champ Adresse puis, après « Annuler », à « Se connecter par e-mail ». À la fin, le choix
   « invite » reposé et le pseudo retiré.
+- Le sujet Capitales (lot 1 du J2, #4, `ui_capitales`, avant `ui_seance`,
+  sur une page rechargée) : `80-capitales-sujets` (Entraînement : Pays,
+  Capitales, Communes ; la vignette des capitales en points,
+  `.vignette-points`, rangée dans le code), `81-capitales-series` (les 7
+  séries des pays, « 54 capitales »), `82-capitales-oceanie-exercices`
+  (Apprendre, Trouver, Reconnaître ; toujours rien de `/geo/capitales*`
+  chargé), `83-capitales-trouver` (« Pays dont la capitale est : » puis la
+  ville, sur deux lignes), `84-capitales-trouver-juste` (« Juste : ville
+  (pays) · … » et l'anneau à la ville : `terramemo.carte.anneaux()` ≥ 1),
+  l'Océanie jouée jusqu'au bilan ; `85-capitales-reconnaitre` (« Quelle
+  est sa capitale ? », quatre capitales), `86-capitales-reconnaitre-faux`
+  (une faute, « bonne réponse : ville (pays) »), puis « Terminer » et son
+  bilan ; Apprendre sur l'Océanie : `87-capitales-apprendre-conseil` (D39
+  b : « Les pays de cette région ne sont pas encore appris : Pays › Océanie
+  › Apprendre » avant la première question, `#seance-commencer`),
+  `88-capitales-apprendre-qcm`, `89-capitales-apprendre-bilan` (le journal
+  ne gagne que des fiches `capitales:`, lues par `FICHES_JOURNAL`) ;
+  `90-capitales-recherche` (« La Paz » : « siège du gouvernement
+  (Bolivie) ») et `91-capitales-recherche-la-paz` (la Bolivie montrée,
+  l'anneau à la ville). `DÉFAUT` si un Qid (`Q\d+`) s'affiche, si
+  `capitales*` est chargé au premier affichage ou à l'ouverture de Jouer,
+  si une rétroaction juste ne nomme pas le pays, s'il manque l'anneau, le
+  conseil ou un bilan, ou si une fiche hors `capitales:` est écrite.
+  Comme la Révision du jour d'après n'ouvre que la grappe de pays, sa
+  grappe de capitales finie la laisse « À jour » pour `ui_seance`.
 - Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
   dans `ui_seance`) : `38-accueil-memoire` (l'accueil après Apprendre :
   légende `#legende-memoire` « Jamais vu · faible → maîtrisé · N/195
   maîtrisés », pays appris teintés), `39-accueil-pays-vu` (un pays de la
-  grappe touché : « Vu N fois · revient dans N j »), le réglage de ⚙
+  grappe touché : « Vu N fois · revient dans N j » ; à deux sujets jouables
+  sur le monde, depuis le lot 1, « Pays : vu N fois · revient dans N j ·
+  Capitale : jamais vue », et le choix du sujet `#legende-sujet` en tête de
+  la légende), le réglage de ⚙
   (`#reglage-memoire`) coupé puis remis, `40-partie-sans-teinte` (Trouver
   sur l'Europe) ; le même jour (les communes ont leur propre budget, une
   grappe de pays et une de communes possibles le même jour) :

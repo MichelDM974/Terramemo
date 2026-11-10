@@ -133,6 +133,8 @@ export interface CarteAffichee {
   teinter(t: Teintes | null): void;
   /** Zones teintées en ce moment (pilote : aucune pendant une partie). */
   readonly nbTeintes: number;
+  /** Anneaux posés en ce moment (pilote : l'anneau d'une capitale, D53 c). */
+  readonly nbAnneaux: number;
   masquer(oui: boolean): void;
   detruire(): void;
 }
@@ -505,6 +507,10 @@ export class Carte implements CarteAffichee {
 
   get nbTeintes(): number {
     return this.teintes.size;
+  }
+
+  get nbAnneaux(): number {
+    return this.anneaux.length;
   }
 
   teinter(t: Teintes | null): void {

@@ -41,6 +41,7 @@ Mode d'emploi, pièges et dépannage : SKILL.md à côté.
 """
 import argparse
 import base64
+import collections
 import datetime
 import fcntl
 import hashlib
@@ -94,6 +95,11 @@ FICHIERS_GEO = ("monde.topo.json", "pays.json", "contestees.json", "noms.fr.json
 # La Réunion (#15) : chargée au choix de la série seulement, jamais au premier
 # affichage (décision « Hébergement ») ; smoke vérifie l'un et l'autre.
 FICHIERS_GEO_REUNION = ("communes.topo.json", "communes.json", "noms.fr.json", "sources.json")
+# Les capitales (lot 1 du J2, #4) : chargées au lancement d'une partie de
+# capitales, à la première frappe dans la recherche ou pour une séance qui en
+# a, jamais au premier affichage ni à l'ouverture de Jouer (sa vignette est
+# rangée dans le code) ; smoke et ui_capitales le vérifient.
+FICHIERS_GEO_CAPITALES = ("capitales.json", "capitales.fr.json")
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
 TELEPHONE = {"largeur": 384, "hauteur": 832, "dpr": 2.8125}
@@ -941,7 +947,7 @@ def commande_smoke(args):
     verifier("page", code == 200 and b"<title>Terramemo</title>" in corps, f"-> {code}")
     mode = "développement" if serveur_de_dev(base) else "build (preview ou hébergé)"
     dire(f"  serveur : {mode}")
-    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION):
+    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES:
         code, _, corps = http(base + "geo/" + nom)
         try:
             json.loads(corps)
@@ -968,6 +974,8 @@ def commande_smoke(args):
                      f"dessin {n[1]}, {d.get('parties')} parties, {d.get('emis')} sommets émis, {n[3]} pastilles visibles")
             ile = p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/reunion/'))")
             verifier("rien de l'île au premier affichage", not ile, ", ".join(ile) or "aucune ressource /geo/reunion/ après pret et repos")
+            capitales = p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/capitales'))")
+            verifier("rien des capitales au premier affichage", not capitales, ", ".join(capitales) or "aucune ressource /geo/capitales* après pret et repos")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
         # Rendus SVG (au choix dans ⚙) : un path.pays par entité.
@@ -1044,13 +1052,13 @@ def niveau_jouer(page):
     return page.js("(() => { const p = document.getElementById('jouer-panneau'); return p && !p.hidden ? p.dataset.niveau : null; })()")
 
 
-def jouer_jusqua(page, mode, serie):
+def jouer_jusqua(page, mode, serie, sujet=None):
     """Les exercices de cette série dans l'arbre de Jouer (décision « Écran
     Jouer »), au doigt : la branche (Entraînement pour localiser et nommer,
-    Classé pour les épreuves), le sujet (Communes pour l'île, Pays sinon), la
-    série (niveau sauté pour l'île)."""
+    Classé pour les épreuves), le sujet (`sujet`, sinon Communes pour l'île,
+    Pays ailleurs), la série (niveau sauté pour l'île)."""
     branche = "classe" if mode in EPREUVES else "entrainement"
-    sujet = "communes" if serie == "reunion" else "pays"
+    sujet = sujet or ("communes" if serie == "reunion" else "pays")
     page.js('location.hash = "#jouer"')
     attendre_visible(page, "#jouer-panneau")
     cliquer(page, f'#jouer-panneau [data-branche="{branche}"]')
@@ -1061,11 +1069,11 @@ def jouer_jusqua(page, mode, serie):
         raise RuntimeError(f"Jouer : pas d'exercices pour {mode} sur {serie} (niveau {niveau_jouer(page)})")
 
 
-def jouer_partie(page, mode, serie):
+def jouer_partie(page, mode, serie, sujet=None):
     """Une partie par Jouer (jouer_jusqua, puis l'exercice : localiser, nommer,
     chrono, sansfaute ou minute), la partie en cours abandonnée ; attend sa
-    barre (l'île se charge au premier choix)."""
-    jouer_jusqua(page, mode, serie)
+    barre (l'île, les capitales se chargent au premier choix)."""
+    jouer_jusqua(page, mode, serie, sujet)
     cliquer(page, f'#jouer-panneau [data-mode="{mode}"]')
     attendre_visible(page, "#barre-chrono" if mode in EPREUVES else "#barre-nommer" if mode == "nommer" else "#barre-essai")
 
@@ -1364,7 +1372,8 @@ def ui_croix(p, capturer, defauts):
 
 def ui_jouer(p, capturer, defauts):
     """Captures 15 à 15e (décision « Écran Jouer », #18) : l'arbre de Jouer,
-    après les épreuves (records de l'Amérique du Sud).
+    après les épreuves (records de l'Amérique du Sud). Sujets : Pays,
+    Capitales, Communes sous Entraînement ; Pays, Communes sous Classé.
     `15-jouer` (Entraînement et Classé, sans Rejouer), `15b-classe-sujets`,
     `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
     ams-epreuves` (les trois épreuves, leurs records, les règles ouvertes par
@@ -1387,9 +1396,15 @@ def ui_jouer(p, capturer, defauts):
         defauts.append("Jouer : « Rejouer » en tête de Jouer (choix du 10/11 : il ne vit plus qu'au bilan)")
     panneau_jouer(p, defauts, "Jouer")
     capturer("15-jouer")
+    # Les sujets, dans l'ordre de D53 b (Communes en dernier) ; Capitales sous Entraînement seulement (ses épreuves : partie C du lot 1).
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    if lire("data-sujet") != ["pays", "capitales", "communes"]:
+        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de Pays, Capitales, Communes")
+    cliquer(p, "#jouer-haut")
+    p.pause(300)
     cliquer(p, '#jouer-panneau [data-branche="classe"]')
     if lire("data-sujet") != ["pays", "communes"]:
-        defauts.append(f"Classé : sujets {lire('data-sujet')}")
+        defauts.append(f"Classé : sujets {lire('data-sujet')} au lieu de Pays, Communes")
     panneau_jouer(p, defauts, "Classé")
     capturer("15b-classe-sujets")
     cliquer(p, '#jouer-panneau [data-sujet="pays"]')
@@ -1917,6 +1932,8 @@ def commande_ui(args):
         ui_jouer(p, capturer, defauts)
         ui_jouer_parties(p, defauts)
         ui_croix(p, capturer, defauts)
+        # Avant la séance : sa grappe de capitales (Océanie) finie, la Révision du jour reste « À jour » après celle des pays.
+        ui_capitales(p, capturer, defauts, base, rendu)
         ui_seance(p, capturer, defauts, base, rendu)
         # En dernier : il donne un pseudo à l'invité (retiré ensuite), qu'aucune partie ne doit publier.
         ui_accueil(p, capturer, defauts, base, rendu)
@@ -2110,6 +2127,189 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
     return reponses
 
 
+# Les fiches du journal (terramemo-journal), toutes ; null si la base est illisible.
+FICHES_JOURNAL = """new Promise(async ok => {
+  const bases = indexedDB.databases ? await indexedDB.databases() : [];
+  if (!bases.some(b => b.name === 'terramemo-journal')) return ok([]);
+  const r = indexedDB.open('terramemo-journal');
+  r.onerror = () => ok(null);
+  r.onsuccess = () => { const db = r.result;
+    if (!db.objectStoreNames.contains('evenements')) { db.close(); return ok([]); }
+    const q = db.transaction('evenements').objectStore('evenements').getAll();
+    q.onsuccess = () => { ok(q.result.map(e => e.fiche)); db.close(); }; q.onerror = () => { ok(null); db.close(); }; };
+})"""
+# Un Qid de Wikidata (capitales.json) : jamais affiché.
+MOTIF_QID = re.compile(r"\bQ\d+\b")
+
+
+def ressources_capitales(p):
+    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/capitales'))")
+
+
+def ui_capitales(p, capturer, defauts, base, parametres=""):
+    """Captures 80 à 90 (lot 1 du J2, #4 ; étude § 5.2, 7.2, 7.3) : le sujet
+    Capitales en Entraînement, sur une page rechargée. Jouer : Pays,
+    Capitales, Communes, la vignette des capitales en points, rien de
+    capitales* chargé avant le choix d'un exercice ; Trouver sur l'Océanie
+    joué jusqu'au bilan (« Pays dont la capitale est : », rétroaction
+    « ville (pays) » et l'anneau à la ville) ; Reconnaître (« Quelle est sa
+    capitale ? », quatre capitales, une faute, bilan) ; Apprendre sur
+    l'Océanie (le conseil de D39 b avant la première question, puis la
+    grappe jusqu'au bilan, le journal en capitales: seulement) ; la recherche
+    « La Paz » (siège du gouvernement, la Bolivie montrée et l'anneau).
+    DÉFAUT si un Qid ou une fiche pays: apparaît, ou si capitales* est chargé
+    au premier affichage."""
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    if ressources_capitales(p):
+        defauts.append(f"capitales* chargé au premier affichage : {ressources_capitales(p)}")
+    fiches_avant = collections.Counter(p.js(FICHES_JOURNAL) or [])
+
+    def sans_qid(quoi, t):
+        if MOTIF_QID.search(t or ""):
+            defauts.append(f"{quoi} : un Qid affiché ({t!r})")
+
+    # Jouer › Entraînement : les sujets, la vignette des capitales (rangée dans le code).
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    sujets = p.js("[...document.querySelectorAll('#jouer-panneau [data-sujet]')].map(b => b.dataset.sujet)")
+    if sujets != ["pays", "capitales", "communes"]:
+        defauts.append(f"Entraînement : sujets {sujets} au lieu de Pays, Capitales, Communes")
+    if not p.js("!!document.querySelector('#jouer-panneau [data-sujet=\"capitales\"] .vignette-points')"):
+        defauts.append("Capitales sans sa vignette (le monde et ses capitales en points)")
+    panneau_jouer(p, defauts, "Entraînement (Capitales)")
+    capturer("80-capitales-sujets")
+    cliquer(p, '#jouer-panneau [data-sujet="capitales"]')
+    series = p.js("[...document.querySelectorAll('#jouer-panneau [data-serie]')].map(b => b.dataset.serie)")
+    if series != SERIES_PAYS or "54 capitales" not in texte(p, "#jouer-panneau"):
+        defauts.append(f"Capitales : séries {series}, sans « 54 capitales » ?")
+    capturer("81-capitales-series")
+    cliquer(p, '#jouer-panneau [data-serie="Oceania"]')
+    modes = p.js("[...document.querySelectorAll('#jouer-panneau [data-mode]')].map(b => b.dataset.mode)")
+    if modes != ["apprendre", "localiser", "nommer"]:
+        defauts.append(f"Capitales › Océanie : exercices {modes}")
+    if ressources_capitales(p):
+        defauts.append(f"capitales* chargé à l'ouverture de Jouer : {ressources_capitales(p)}")
+    capturer("82-capitales-oceanie-exercices")
+
+    # Trouver sur l'Océanie, jusqu'au bilan.
+    cliquer(p, '#jouer-panneau [data-mode="localiser"]')
+    attendre_visible(p, "#barre-essai", 20)
+    p.pause(300)
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+    consigne = texte(p, "#barre-essai .essai-consigne")
+    dire(f"  Capitales, Trouver : {consigne!r}")
+    if not consigne.startswith("Pays dont la capitale est"):
+        defauts.append(f"Trouver sous Capitales : consigne {consigne!r}")
+    capturer("83-capitales-trouver")
+    premier = True
+    for _ in range(20):
+        if visible(p, "#essai-bilan"):
+            break
+        cible = p.js('document.querySelector("#barre-essai .essai-consigne").dataset.cible')
+        sans_qid("Trouver", texte(p, "#barre-essai"))
+        toucher_pays(p, cible)
+        p.pause(250)
+        retro = texte(p, "#barre-essai .essai-retro")
+        # « Juste : Wellington (Nouvelle-Zélande) · 1 essai · … », « Juste (pastille) : Majuro (Îles Marshall) · … ».
+        if not re.match(r"Juste( \([^)]*\))? : [^·]+\(", retro):
+            defauts.append(f"Trouver sous Capitales, {cible} : rétroaction {retro!r} sans « Juste : ville (pays) »")
+            cliquer_apres_pause(p, "#essai-passer")
+        elif p.js("window.terramemo.carte.anneaux()") < 1:
+            defauts.append(f"Trouver sous Capitales, {cible} : pas d'anneau à la ville (D53 c)")
+        if premier:
+            dire(f"  Capitales, Trouver, juste ({cible}) : {retro!r}")
+            capturer("84-capitales-trouver-juste")
+            premier = False
+        p.pause(1300)
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Capitales, Trouver, bilan : {bilan!r}")
+    sans_qid("bilan de Trouver", bilan)
+    if not visible(p, "#essai-bilan"):
+        defauts.append("Trouver sous Capitales : pas de bilan au bout de l'Océanie")
+
+    # Reconnaître : trois questions (une faute), puis « Terminer ».
+    jouer_partie(p, "nommer", "Oceania", "capitales")
+    fautes = 0
+    for k in range(3):
+        attendre_fin_vol(p)
+        consigne = texte(p, "#barre-nommer .essai-consigne")
+        if consigne != "Quelle est sa capitale ?":
+            defauts.append(f"Reconnaître sous Capitales : consigne {consigne!r}")
+        boutons = p.js("[...document.querySelectorAll('#barre-nommer .nommer-choix')].map(b => [b.dataset.id, b.innerText])")
+        sans_qid("Reconnaître", " ".join(t for _, t in boutons))
+        cible = p.js('document.querySelector("#barre-nommer .essai-consigne").dataset.cible')
+        if k == 0:
+            dire(f"  Capitales, Reconnaître ({cible}) : {[t for _, t in boutons]}")
+            capturer("85-capitales-reconnaitre")
+        choisi = next(i for i, _ in boutons if i != cible) if k == 1 else cible
+        fautes += choisi != cible
+        cliquer_apres_pause(p, f'#barre-nommer .nommer-choix[data-id="{choisi}"]')
+        p.pause(200)
+        retro = texte(p, "#barre-nommer .essai-retro")
+        if choisi == cible and not retro.startswith("Juste :"):
+            defauts.append(f"Reconnaître sous Capitales : rétroaction juste {retro!r} sans « Juste : ville (pays) »")
+        if k == 1:
+            dire(f"  Capitales, Reconnaître, faux : {retro!r}")
+            capturer("86-capitales-reconnaitre-faux")
+        p.pause(1900)
+    cliquer_apres_pause(p, "#nommer-terminer")
+    attendre_visible(p, "#essai-bilan")
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Capitales, Reconnaître, bilan : {bilan!r}")
+    sans_qid("bilan de Reconnaître", bilan)
+    if fautes and "tu as choisi" not in bilan:
+        defauts.append(f"bilan de Reconnaître sous Capitales sans sa faute : {bilan!r}")
+
+    # Apprendre sur l'Océanie : le conseil (pays pas appris) avant la première question.
+    jouer_jusqua(p, "apprendre", "Oceania", "capitales")
+    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
+    attendre_visible(p, "#essai-bilan", 20)
+    conseil = texte(p, "#essai-bilan")
+    dire(f"  Capitales, Apprendre, ouverture : {conseil!r}")
+    if not p.js("!!document.getElementById('seance-commencer')") or "Pays › Océanie › Apprendre" not in conseil:
+        defauts.append(f"Apprendre sous Capitales sans le conseil de D39 b à l'ouverture : {conseil!r}")
+    else:
+        capturer("87-capitales-apprendre-conseil")
+        cliquer_apres_pause(p, "#seance-commencer")
+    jouer_seance(p, capturer, defauts, "Apprendre Capitales", captures={"qcm": "88-capitales-apprendre-qcm"})
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Capitales, Apprendre, bilan : {bilan!r}")
+    sans_qid("bilan d'Apprendre", bilan)
+    if "Apprendre · Océanie" not in bilan or "Nouveaux" not in bilan:
+        defauts.append(f"bilan d'Apprendre sous Capitales sans titre ou sans « Nouveaux » : {bilan!r}")
+    capturer("89-capitales-apprendre-bilan")
+    nouvelles = collections.Counter(p.js(FICHES_JOURNAL) or []) - fiches_avant
+    hors = [f for f in nouvelles.elements() if not f.startswith("capitales:")]
+    dire(f"  journal : {sum(nouvelles.values())} événements de capitales, {len(hors)} hors capitales:")
+    if hors or not nouvelles:
+        defauts.append(f"journal des parties de capitales : {hors[:5]} hors capitales: ({sum(nouvelles.values())} événements)")
+    cliquer_apres_pause(p, "#seance-carte")
+    p.pause(400)
+
+    # La recherche « La Paz » : siège du gouvernement, la Bolivie montrée et l'anneau à la ville.
+    p.js('document.getElementById("recherche-champ").focus()')
+    p.cdp("Input.insertText", text="La Paz")
+    fin = time.monotonic() + 8
+    while time.monotonic() < fin and "Bolivie" not in texte(p, "#recherche-liste"):
+        p.pause(100)
+    liste = texte(p, "#recherche-liste")
+    dire(f"  recherche « La Paz » : {liste!r}")
+    if "siège du gouvernement (Bolivie)" not in liste:
+        defauts.append(f"recherche « La Paz » sans « siège du gouvernement (Bolivie) » : {liste!r}")
+    sans_qid("recherche", liste)
+    capturer("90-capitales-recherche")
+    p.js("""[...document.querySelectorAll('#recherche-liste [role="option"]')].find(o => o.innerText.includes('Bolivie'))?.click()""")
+    attendre_fin_vol(p)
+    barre = texte(p, "#barre-carte")
+    anneaux = p.js("window.terramemo.carte.anneaux()")
+    dire(f"  recherche → La Paz : {barre!r}, {anneaux} anneau(x)")
+    if "Bolivie" not in barre or anneaux < 1:
+        defauts.append(f"recherche « La Paz » : {barre!r}, {anneaux} anneau (la Bolivie et l'anneau à la ville attendus)")
+    capturer("91-capitales-recherche-la-paz")
+
+
 def revision_du_jour(p):
     """La ligne « Révision du jour » d'Entraînement : (texte, désactivée)."""
     p.js('location.hash = "#jouer/entrainement"')
@@ -2262,7 +2462,8 @@ def ui_memoire(p, capturer, defauts):
         p.pause(300)
         barre = texte(p, "#barre-carte")
         dire(f"  accueil, {ident} touché : {barre!r}")
-        if not re.search(r"Vu \d+ fois · (revient|à revoir)", barre):
+        # Deux sujets jouables sur le monde (Pays, Capitales, lot 1) : « Pays : vu 1 fois · revient demain · Capitale : jamais vue ».
+        if not re.search(r"[Vv]u \d+ fois · (revient|à revoir)", barre):
             defauts.append(f"accueil : {ident} appris touché sans « Vu N fois · revient dans N j » ({barre!r})")
         capturer("39-accueil-pays-vu")
     # Le réglage de ⚙ : coupé, ni teinte ni légende ; remis, les teintes reviennent.
