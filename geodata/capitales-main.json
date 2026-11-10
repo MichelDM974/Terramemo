@@ -1,0 +1,112 @@
+{
+  "_": "Capitales des pays, table tenue à la main (étude J2, § 2.1 ; décision « Capitales et drapeaux » du 10/11/2026 : est juste toute capitale que le pays se déclare, plus le siège du gouvernement ; Israël : Jérusalem seule ; Palestine : Jérusalem-Est et Ramallah). geodata/capitales.mjs la lit avec l'extrait Wikidata figé (geodata/wikidata/capitales.json) et échoue si une ligne ne s'applique plus (item absent, capitale déjà là, rôle d'une capitale que Wikidata n'a pas). Une source par ligne. Sections : items_pays (l'item Wikidata d'un pays, quand son code ISO P298 en donne plusieurs ou aucun) ; pays (retirer, ajouter avec son rôle, rôles des capitales de Wikidata, principale, notes sans changement) ; doublons (pays dont Wikidata déclare deux fois la même capitale) ; noms et alias (usage français, graphies étrangères pour la recherche) ; points (coordonnées propres, gardées telles quelles) ; non_retenues (capitales d'autres sources écartées, absentes des sorties) ; meme_nom (D37 : capitale au nom du pays) ; sans_leurre (x : pays dont la capitale n'est jamais un leurre) ; epreuve (D38 d, pays à plusieurs capitales : la capitale montrée en épreuve, fixe pour tous ; la plus connue par le rang combiné du § 2.4, moyenne du rang par nombre de Wikipédias et du rang par vues de la Wikipédia en français sur 60 jours, parmi les 205 capitales des pays jouables dont l'item n'est pas celui du pays, à égalité la principale ; Palestine : la principale ; mesures de l'extrait figées ici, un nouvel extrait ne change pas le choix). Rôles : officielle (capitale que le pays se déclare), siege (siège du gouvernement distinct), economique (capitale économique déclarée par la loi). Une capitale de Wikidata sans ligne ici est officielle.",
+  "items_pays": {
+    "NLD": {"q": "Q55", "source": "Wikidata : P298 « NLD » est porté par le royaume des Pays-Bas (Q29999), Aruba, Curaçao et Saint-Martin compris ; le pays jouable est la partie européenne (Natural Earth NLD), les Pays-Bas (Q55), qui déclarent aussi Amsterdam"},
+    "PSE": {"q": "Q219060", "source": "Wikidata : P298 « PSE » est porté par l'État de Palestine (Q219060) et les Territoires palestiniens occupés (Q407199) ; le pays jouable est l'État de Palestine"},
+    "XKX": {"q": "Q1246", "source": "Wikidata : le Kosovo n'a pas de P298 (XK est un code provisoire, hors de la norme ISO 3166-1) ; item du pays, Q1246"}
+  },
+  "pays": {
+    "BDI": {"ajouter": {"Q3854": "economique"}, "principale": "Q167551", "source": "D36 a, défaut : Gitega, capitale politique depuis la loi de 2019 ; Bujumbura, capitale économique par la même loi (absente du P36 de Wikidata), juste (« toute capitale que le pays se déclare »)"},
+    "BEN": {"roles": {"Q43595": "siege"}, "principale": "Q3799", "source": "Porto-Novo, capitale constitutionnelle ; Cotonou, siège du gouvernement (Wikidata : qualificatif P3831 « siège du gouvernement »)"},
+    "BOL": {"roles": {"Q1491": "siege"}, "principale": "Q2907", "source": "D36 h, défaut : Sucre, capitale constitutionnelle, principale ; La Paz, siège du gouvernement et du parlement"},
+    "CHE": {"source": "D36 g, défaut : Berne, « ville fédérale » de la Constitution (siège des autorités fédérales), comptée comme capitale"},
+    "CIV": {"ajouter": {"Q1515": "siege"}, "principale": "Q3768", "source": "Yamoussoukro, capitale politique depuis 1983 ; Abidjan, siège de fait du gouvernement (son P36 dans Wikidata finit en 1983 : ajoutée à la main)"},
+    "EGY": {"source": "D36 f et j, défaut : Le Caire seule ; la Nouvelle capitale administrative accueille des ministères mais n'est pas déclarée capitale (absente du P36), à revoir quand elle aura un nom propre (S37)"},
+    "GNQ": {"ajouter": {"Q3818": "siege"}, "principale": "Q1140136", "source": "D36 c, défaut : Ciudad de la Paz, capitale depuis le 03/01/2026 (Wikidata), principale ; Malabo, dont le P36 finit à la même date, gardée comme siège (déménagement des institutions non vérifié, S37)"},
+    "IDN": {"source": "D36 f, défaut : Jakarta seule ; Nusantara (Q110601629, « future capital of Indonesia ») n'est pas déclarée : le décret présidentiel de transfert n'est pas signé (S37), à revoir s'il l'est"},
+    "ISR": {"source": "Décision « Capitales et drapeaux » : Jérusalem seule ; Tel Aviv (Natural Earth : capitale « alt ») n'est pas juste"},
+    "KIR": {"source": "D36 g, défaut : Tarawa-Sud (Wikidata), Natural Earth dit « Tarawa » (alias)"},
+    "LKA": {"roles": {"Q35381": "siege"}, "principale": "Q41963", "source": "Sri Jayawardenapura Kotte, capitale officielle (parlement) ; Colombo, siège de l'exécutif (Wikidata : de facto, pouvoir exécutif)"},
+    "MMR": {"source": "D36 f, défaut : Naypyidaw seule, capitale depuis 2005 ; Rangoun (Natural Earth : « Former capital ») n'est pas juste"},
+    "MNE": {"source": "D36 j, défaut : Podgorica seule ; Cetinje, « vieille capitale royale » (Constitution, art. 5), titre honorifique, n'est pas juste"},
+    "MYS": {"roles": {"Q182378": "siege"}, "principale": "Q1865", "source": "Kuala Lumpur, capitale (et parlement) ; Putrajaya, siège administratif du gouvernement fédéral"},
+    "NIC": {"retirer": ["Q131546626"], "ajouter": {"Q3274": "officielle"}, "source": "Le P36 de Wikidata pointe un item presque vide (Q131546626, un seul sitelink), remplacé par Managua (Q3274)"},
+    "NLD": {"ajouter": {"Q36600": "siege"}, "principale": "Q727", "source": "Amsterdam, capitale (Constitution, art. 32) ; La Haye, siège du gouvernement, du parlement et du roi (son P36 dans Wikidata est déprécié : ajoutée à la main)"},
+    "NRU": {"source": "D36 g, défaut : Nauru n'a pas de capitale officielle ; Yaren (district du parlement et du gouvernement) en tient lieu (Wikidata : « officieux »)"},
+    "PSE": {"roles": {"Q158119": "siege"}, "principale": "Q212938", "source": "Décision « Capitales et drapeaux » : Jérusalem-Est (capitale déclarée), principale, et Ramallah (siège de l'Autorité palestinienne) sont justes"},
+    "SWZ": {"principale": "Q3904", "source": "Deux capitales officielles : Mbabane (administrative, exécutif), principale, et Lobamba (royale et législative)"},
+    "TZA": {"source": "D36 b, défaut : Dodoma seule, capitale officielle depuis 1996, où le gouvernement siégerait depuis 2019 environ (S37) ; Dar es Salaam (Natural Earth : capitale de fait) n'est pas juste"},
+    "UKR": {"source": "D36 e, défaut : Kiev (Wikidata, Wikipédia en français) à l'affichage, Kyiv (graphie de l'État français depuis 2022) en alias"},
+    "YEM": {"roles": {"Q131694": "siege"}, "principale": "Q2471", "source": "Sanaa, capitale constitutionnelle, tenue par les Houthis, principale ; Aden, capitale temporaire, siège du gouvernement reconnu (juste pour qui tient et pour qui revendique)"},
+    "ZAF": {"principale": "Q3926", "source": "Trois capitales officielles : Pretoria (exécutif), principale, Le Cap (parlement), Bloemfontein (justice d'appel) ; Johannesbourg (Cour constitutionnelle, capitale chez Natural Earth) n'est pas retenue"}
+  },
+  "doublons": {
+    "DEU": "Wikidata déclare deux fois Berlin (deux déclarations P36 sans fin) : une seule capitale",
+    "GRC": "Wikidata déclare deux fois Athènes (deux déclarations P36 sans fin) : une seule capitale"
+  },
+  "noms": {
+    "Q237": {"nom": "Cité du Vatican", "source": "La capitale du Vatican est l'État lui-même (Q237, libellé français « Vatican ») : le nom de la ville"},
+    "Q3854": {"nom": "Bujumbura", "source": "Libellé français de Wikidata : « Bujumbura-Mairie » (la province) ; titre de la Wikipédia en français"},
+    "Q41963": {"nom": "Sri Jayawardenapura Kotte", "source": "Libellé français de Wikidata : « Sri Jayawardenapura » ; titre de la Wikipédia en français"},
+    "Q585": {"nom": "Oslo", "source": "Wikidata n'a pas de libellé français pour Oslo (titre de la Wikipédia en français)"}
+  },
+  "alias": {
+    "Q1354": {"alias": ["Dhaka"], "source": "Graphie anglaise et locale, pour la recherche"},
+    "Q1519": {"alias": ["Abu Dhabi"], "source": "Graphie anglaise, pour la recherche"},
+    "Q1555": {"alias": ["Guatemala-Ville"], "source": "Nom d'usage pour distinguer la ville du pays (Natural Earth : « Guatemala-Ville »)"},
+    "Q1899": {"alias": ["Kyiv"], "source": "D36 e, défaut : graphie de l'État français depuis 2022, trouvée par la recherche"},
+    "Q1947": {"alias": ["Juba"], "source": "Graphie anglaise, pour la recherche"},
+    "Q2471": {"alias": ["Sana'a"], "source": "Graphie anglaise, pour la recherche"},
+    "Q3238": {"alias": ["Comayagüela"], "source": "D36 j, défaut : Comayagüela, capitale « conjointement » avec Tegucigalpa (même agglomération), alias de Tegucigalpa"},
+    "Q3659": {"alias": ["Ndjamena"], "source": "Graphie sans apostrophe, pour la recherche"},
+    "Q3692": {"alias": ["Riyadh"], "source": "Graphie anglaise, pour la recherche"},
+    "Q37400": {"alias": ["Nay Pyi Taw", "Naypyitaw"], "source": "Graphies officielle et anglaise, pour la recherche"},
+    "Q38834": {"alias": ["Nuku'alofa"], "source": "Graphie anglaise, pour la recherche"},
+    "Q39178": {"alias": ["Port of Spain"], "source": "Graphie anglaise, pour la recherche"},
+    "Q41963": {"alias": ["Kotte", "Sri Jayawardenepura Kotte"], "source": "Nom court et graphie anglaise, pour la recherche"},
+    "Q61": {"alias": ["Washington D.C."], "source": "Nom anglais complet, pour la recherche"},
+    "Q9270": {"alias": ["Thimphu"], "source": "Graphie anglaise, pour la recherche"},
+    "Q9361": {"alias": ["Bishkek"], "source": "Graphie anglaise, pour la recherche"},
+    "Q9365": {"alias": ["Duchanbé"], "source": "Graphie française ancienne, pour la recherche"},
+    "Q956": {"alias": ["Beijing"], "source": "Graphie pinyin, pour la recherche"},
+    "Q131233": {"alias": ["Tarawa"], "source": "D36 g, défaut : Natural Earth dit « Tarawa »"},
+    "Q23430": {"alias": ["Oulan-Baatar"], "source": "Graphie française courante, pour la recherche"},
+    "Q23438": {"alias": ["Achkhabad", "Ashgabat"], "source": "Graphies française ancienne et anglaise, pour la recherche"},
+    "Q237": {"alias": ["Vatican"], "source": "Nom court, pour la recherche"}
+  },
+  "points": {
+    "Q212938": {"lon": 35.235, "lat": 31.777, "source": "Point propre à Jérusalem-Est (vieille ville) : à 2 décimales, Wikidata lui donne le point de Jérusalem (35,23 ; 31,78), et la recherche comme l'anneau de D53 c tomberaient au même endroit"}
+  },
+  "non_retenues": {
+    "Q1822": {"pays": "PHL", "nom": "Baguio", "source": "Natural Earth v5.1.2 : capitale « alt » (ancienne capitale d'été) ; Manille seule"},
+    "Q173338": {"pays": "MNE", "nom": "Cetinje", "source": "D36 j, défaut : « vieille capitale royale », titre honorifique"},
+    "Q19588497": {"pays": "EGY", "nom": "Nouvelle capitale administrative", "source": "D36 j, défaut : pas de nom propre, pas déclarée capitale (S37)"},
+    "Q1960": {"pays": "TZA", "nom": "Dar es Salaam", "source": "D36 b, défaut : capitale de fait pour Natural Earth, finie en 1996 pour Wikidata"},
+    "Q33935": {"pays": "ISR", "nom": "Tel Aviv", "source": "Décision « Capitales et drapeaux » : Jérusalem seule (Natural Earth : capitale « alt »)"},
+    "Q33986": {"pays": "CHL", "nom": "Valparaíso", "source": "D36 d, défaut : siège du Congrès, pas du gouvernement (Natural Earth : capitale « alt »)"},
+    "Q34600": {"pays": "JPN", "nom": "Kyoto", "source": "Natural Earth v5.1.2 : capitale « alt » (ancienne capitale impériale) ; Tokyo seule"},
+    "Q34647": {"pays": "ZAF", "nom": "Johannesbourg", "source": "Natural Earth v5.1.2 : capitale (Cour constitutionnelle) ; pas une capitale déclarée"},
+    "Q37995": {"pays": "MMR", "nom": "Rangoun", "source": "D36 f, défaut : ancienne capitale (Natural Earth : « Former capital »)"},
+    "Q47837": {"pays": "MAR", "nom": "Laâyoune", "source": "Natural Earth v5.1.2 : capitale « alt » revendiquée (Sahara occidental) ; Rabat seule"},
+    "Q8673": {"pays": "NGA", "nom": "Lagos", "source": "Natural Earth v5.1.2 : capitale « alt » (« Former capital ») ; Abuja seule"}
+  },
+  "meme_nom": {
+    "DJI": "D37 c : Djibouti, capitale au nom du pays",
+    "GTM": "D37 c : Guatemala, capitale au nom du pays",
+    "KWT": "D37 c : Koweït, capitale au nom du pays",
+    "LUX": "D37 c : Luxembourg, capitale au nom du pays",
+    "MCO": "D37 c : Monaco, capitale au nom du pays (cité-État : l'item de la capitale est le pays)",
+    "PAN": "D37 c : Panama, capitale au nom du pays",
+    "SGP": "D37 c : Singapour, capitale au nom du pays (cité-État : l'item de la capitale est le pays)",
+    "SMR": "D37 c : Saint-Marin, capitale au nom du pays",
+    "VAT": "D37 c : Cité du Vatican, capitale au nom du pays (État de la Cité du Vatican)"
+  },
+  "sans_leurre": {
+    "ISR": {"x": ["PSE"], "source": "§ 2.1 : Jérusalem-Est n'est jamais un leurre pour Israël"},
+    "PSE": {"x": ["ISR"], "source": "§ 2.1 : Jérusalem n'est jamais un leurre pour la Palestine"}
+  },
+  "epreuve": {
+    "BDI": {"q": "Q3854", "mesures": {"Q167551": {"wikipedias": 92, "rang_wikipedias": 202, "vues_fr": 1785, "rang_vues": 169}, "Q3854": {"wikipedias": 145, "rang_wikipedias": 141, "vues_fr": 4562, "rang_vues": 109}}, "source": "D38 d : Bujumbura, la plus connue (rang combiné 125 ; Gitega 185,5) ; extrait du 11/11/2026"},
+    "BEN": {"q": "Q3799", "mesures": {"Q3799": {"wikipedias": 146, "rang_wikipedias": 137, "vues_fr": 3677, "rang_vues": 129}, "Q43595": {"wikipedias": 99, "rang_wikipedias": 198, "vues_fr": 5451, "rang_vues": 92}}, "source": "D38 d : Porto-Novo, la plus connue (rang combiné 133 ; Cotonou 145) ; extrait du 11/11/2026"},
+    "BOL": {"q": "Q1491", "mesures": {"Q2907": {"wikipedias": 137, "rang_wikipedias": 162, "vues_fr": 3128, "rang_vues": 138}, "Q1491": {"wikipedias": 141, "rang_wikipedias": 154, "vues_fr": 6107, "rang_vues": 84}}, "source": "D38 d : La Paz, la plus connue (rang combiné 119 ; Sucre 150) ; extrait du 11/11/2026"},
+    "CIV": {"q": "Q1515", "mesures": {"Q3768": {"wikipedias": 146, "rang_wikipedias": 137, "vues_fr": 5394, "rang_vues": 93}, "Q1515": {"wikipedias": 142, "rang_wikipedias": 152, "vues_fr": 13356, "rang_vues": 25}}, "source": "D38 d : Abidjan, la plus connue (rang combiné 88,5 ; Yamoussoukro 115) ; extrait du 11/11/2026"},
+    "GNQ": {"q": "Q3818", "mesures": {"Q1140136": {"wikipedias": 62, "rang_wikipedias": 205, "vues_fr": 3349, "rang_vues": 135}, "Q3818": {"wikipedias": 146, "rang_wikipedias": 137, "vues_fr": 2651, "rang_vues": 146}}, "source": "D38 d : Malabo, la plus connue (rang combiné 141,5 ; Ciudad de la Paz 170) ; extrait du 11/11/2026"},
+    "LKA": {"q": "Q35381", "mesures": {"Q41963": {"wikipedias": 118, "rang_wikipedias": 187, "vues_fr": 3259, "rang_vues": 136}, "Q35381": {"wikipedias": 137, "rang_wikipedias": 162, "vues_fr": 3791, "rang_vues": 125}}, "source": "D38 d : Colombo, la plus connue (rang combiné 143,5 ; Sri Jayawardenapura Kotte 161,5) ; extrait du 11/11/2026"},
+    "MYS": {"q": "Q1865", "mesures": {"Q1865": {"wikipedias": 188, "rang_wikipedias": 61, "vues_fr": 9463, "rang_vues": 39}, "Q182378": {"wikipedias": 93, "rang_wikipedias": 200, "vues_fr": 1349, "rang_vues": 179}}, "source": "D38 d : Kuala Lumpur, la plus connue (rang combiné 50 ; Putrajaya 189,5) ; extrait du 11/11/2026"},
+    "NLD": {"q": "Q727", "mesures": {"Q727": {"wikipedias": 243, "rang_wikipedias": 16, "vues_fr": 17704, "rang_vues": 14}, "Q36600": {"wikipedias": 150, "rang_wikipedias": 123, "vues_fr": 10057, "rang_vues": 37}}, "source": "D38 d : Amsterdam, la plus connue (rang combiné 15 ; La Haye 80) ; extrait du 11/11/2026"},
+    "PSE": {"q": "Q212938", "mesures": {"Q212938": {"wikipedias": 74, "rang_wikipedias": 204, "vues_fr": 3010, "rang_vues": 140}, "Q158119": {"wikipedias": 114, "rang_wikipedias": 193, "vues_fr": 5071, "rang_vues": 104}}, "source": "D38 d : la principale, Jérusalem-Est (rang combiné 172), pas la plus connue (Ramallah 148,5) : la capitale que la décision place en premier, comme au quiz (§ 2.4) ; extrait du 11/11/2026"},
+    "SWZ": {"q": "Q3904", "mesures": {"Q3904": {"wikipedias": 135, "rang_wikipedias": 170, "vues_fr": 1100, "rang_vues": 186}, "Q101418": {"wikipedias": 93, "rang_wikipedias": 200, "vues_fr": 366, "rang_vues": 205}}, "source": "D38 d : Mbabane, la plus connue (rang combiné 178 ; Lobamba 202,5) ; extrait du 11/11/2026"},
+    "YEM": {"q": "Q2471", "mesures": {"Q2471": {"wikipedias": 151, "rang_wikipedias": 120, "vues_fr": 7133, "rang_vues": 68}, "Q131694": {"wikipedias": 100, "rang_wikipedias": 197, "vues_fr": 5618, "rang_vues": 89}}, "source": "D38 d : Sanaa, la plus connue (rang combiné 94 ; Aden 143) ; extrait du 11/11/2026"},
+    "ZAF": {"q": "Q5465", "mesures": {"Q3926": {"wikipedias": 170, "rang_wikipedias": 85, "vues_fr": 3914, "rang_vues": 121}, "Q5465": {"wikipedias": 194, "rang_wikipedias": 54, "vues_fr": 7928, "rang_vues": 55}, "Q37701": {"wikipedias": 131, "rang_wikipedias": 176, "vues_fr": 3993, "rang_vues": 118}}, "source": "D38 d : Le Cap, la plus connue (rang combiné 54,5 ; Pretoria 103, Bloemfontein 147) ; extrait du 11/11/2026"}
+  }
+}

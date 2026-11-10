@@ -21,6 +21,7 @@
     "admin": "node scripts/admin/outil.mjs",
     "geodata": "node geodata/build.mjs",
     "geodata:reunion": "node geodata/reunion.mjs",
+    "wikidata": "node geodata/wikidata.mjs",
     "icone": "node geodata/icone.mjs",
     "vignette-ile": "node geodata/vignette-ile.mjs",
     "licences:android": "node licences/android.mjs"

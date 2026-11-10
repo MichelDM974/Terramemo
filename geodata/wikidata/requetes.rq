@@ -1,0 +1,35 @@
+# Requêtes SPARQL figées de geodata/wikidata.mjs (npm run wikidata), point
+# https://query.wikidata.org/sparql. Une section par requête, ouverte par « #= nom ».
+# Le script remplace {{codes}} (codes ISO 3166-1 alpha-3 entre guillemets), {{pays}}
+# et {{villes}} (items wd:Q…) avant l'envoi. L'empreinte de ce fichier va dans
+# public/geo/sources.json : changer une requête se voit au build et en CI.
+# Les libellés, les sitelinks et les vues passent par les API (wbgetentities,
+# prop=pageviews), qui ne sont pas bridées comme le point SPARQL.
+
+#= pays
+# Items des pays par leur code ISO (P298, meilleur rang). Plusieurs items pour un code
+# (royaume des Pays-Bas, Territoires palestiniens occupés) : la table à la main
+# (geodata/capitales-main.json, items_pays) choisit.
+SELECT ?code ?pays WHERE {
+  VALUES ?code { {{codes}} }
+  ?pays wdt:P298 ?code .
+}
+
+#= capitales
+# Toutes les déclarations P36 (capitale) non dépréciées des pays, avec ou sans date de
+# fin, et leurs qualificatifs : geodata/capitales.mjs garde celles qui valent à la date
+# de l'extrait (P580 début, P582 fin).
+SELECT ?pays ?stmt ?rang ?cap ?pq ?qv WHERE {
+  VALUES ?pays { {{pays}} }
+  ?pays p:P36 ?stmt .
+  ?stmt ps:P36 ?cap ; wikibase:rank ?rang .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+}
+
+#= coordonnees
+# Coordonnées (P625, meilleur rang) des capitales et des villes de la table à la main.
+SELECT ?ville ?coord WHERE {
+  VALUES ?ville { {{villes}} }
+  ?ville wdt:P625 ?coord .
+}
