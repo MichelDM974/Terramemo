@@ -605,6 +605,11 @@ pour S15, au plus tard au début du lot 6) :
    - **Audience** : laisser **Testing** ; dans **Test users**, **Add
      users** : l'adresse Google de l'utilisateur, et celles de ses
      essais.
+   - *Fait du 10/11* : l'écran a été trouvé **En production** (externe,
+     sans logo), et l'utilisateur l'a laissé ainsi (décision « Google
+     dans l'APK ») : ni Testing ni liste de testeurs. Tout compte Google
+     peut se connecter ; jusqu'au lot 8, les comptes cachés et les règles
+     d'essai (étape 9) empêchent seuls d'enregistrer quoi que ce soit.
 9. Donner à Claude la liste des **adresses d'essai**, vérifiées. Jusqu'au
    lot 8, les règles n'ouvrent `joueurs/` qu'à elles (§ 6).
    - Accepter aussi le déploiement des règles
@@ -632,8 +637,9 @@ pour S15, au plus tard au début du lot 6) :
       l'ancien `cartographe-geo`. L'y supprimer, puis retirer et rajouter
       la SHA-1 dans Firebase.
 12. Si D30 b : créer un AVD « Google Play » (Android Studio › Device
-    Manager) et s'y connecter à un compte Google. Ce compte doit figurer
-    dans les testeurs de l'étape 8.
+    Manager) et s'y connecter à un compte Google. Pour enregistrer des
+    progrès, ce compte doit être une adresse d'essai des règles (étape 9) ;
+    pas de liste de testeurs (écran en production, fait du 10/11).
 
 **D. Lot 8, ouverture** (juste après le déploiement Hosting de la
 politique) :
@@ -644,6 +650,8 @@ politique) :
       `https://terramemo-geo.web.app/confidentialite.html` ;
     - **Audience** › **Publier l'application** (passage en production).
       Sinon Google est refusé à qui n'est pas testeur (piège de Light).
+      *Fait d'avance* : l'écran est en production depuis le 10/11 au
+      moins ; reste la page d'accueil et la politique dans Branding.
     - Sans marque vérifiée, l'écran montre le domaine, pas le nom (D30).
 
 **E. Outil du propriétaire** (si D33 a) :
@@ -1729,7 +1737,13 @@ visible en production.
     boîte, ce n'est pas une faille.
 - Réauthentification (§ 7.1) par la même interface :
   - un autre compte Google choisi donne `auth/user-mismatch`, traduit, et
-    rien n'est commencé ;
+    rien de la suppression n'est commencé. À l'émulateur, ce compte n'est
+    pas créé dans Auth (le chemin de l'idToken pose `autoCreate: false`) ;
+    sur le site, `reauthenticateWithPopup` passe par l'IdpCredential du
+    SDK, qui ne le pose pas : le compte choisi pourrait y être créé avant
+    `user-mismatch`. À vérifier à l'essai réel (protocole, étape 4) ; la
+    fenêtre propose d'abord le bon compte (`login_hint`), ce qui rend le
+    cas rare ;
   - reprise d'une suppression dont la session est perdue, compte Google
     seul : reconnexion par Google. Un compte neuf que la fenêtre vient de
     créer est supprimé aussitôt. À la même adresse que la session, il
@@ -1740,16 +1754,19 @@ visible en production.
     une ligne dit que la fenêtre nommera
     `terramemo-geo.firebaseapp.com` (marque non vérifiée, D30 ; à
     vérifier à l'essai réel) ;
-  - « Fenêtre de Google ouverte… » pendant l'appel, rien à la fenêtre
-    fermée ;
+  - « Fenêtre de Google ouverte… (fermée, les boutons reviennent en
+    quelques secondes) » pendant la fenêtre, puis « Connexion… » dès
+    qu'elle a rendu son compte ; rien à la fenêtre fermée. Le SDK ne
+    rejette `popup-closed-by-user` qu'environ 8 à 10 s après la fermeture
+    (sondage de 2 s, puis 8 s d'attente) ;
   - session perdue d'un compte Google : « Se reconnecter avec Google » ;
   - l'état `perdue` porte les fournisseurs du compte.
 - APK : `googleOffert()` est faux sans le plugin du lot 7. Ni bouton ni
   reconnexion par Google ; une ligne « Google arrive bientôt dans
   l'appli ». La suppression d'un compte Google y renvoie au site, comme au
   lot 5.
-- Morceau principal : +0,27 Ko gzip (117,95 → 118,22), les textes de
-  `textes.fr.json` qu'il porte en entier. Le SDK reste chargé à la
+- Morceau principal : +0,42 Ko gzip (117,95 → 118,37), dont 0,15 des
+  relectures, les textes de `textes.fr.json` qu'il porte en entier. Le SDK reste chargé à la
   demande, avec la vue Compte et les comptes.
 - Tests :
   - `tests/sync-google.test.ts` : la fenêtre sur un faux SDK, et les cas
@@ -1759,6 +1776,48 @@ visible en production.
   - le scénario (k) de `test:synchro` : compte Google sur deux appareils,
     avec les règles d'essai du dépôt et l'adresse Gmail d'essai ;
   - tests DOM de la vue.
+- Écran de consentement : **en production** (fait du 10/11, laissé ainsi
+  par l'utilisateur), sans liste de testeurs. Un compte Google hors des
+  adresses d'essai peut se connecter (avec `?comptes`, les comptes étant
+  cachés), mais les règles d'essai lui refusent `joueurs/` : il ne peut
+  rien enregistrer, et son compte Auth reste vide.
+- Chemin de `credentialFromError` (le site, lien refusé) : prouvé à la
+  lecture du SDK seulement. `_makeTaggedError` attache `_tokenResponse`
+  à `credential-already-in-use` et `email-already-in-use`, et la requête
+  de la popup demande `returnIdpCredential: true`. Les tests aux
+  émulateurs passent par le repli (le même idToken, `googleParJeton`) ;
+  le vrai chemin se voit à l'essai réel (S5, étape 5 du protocole).
+- Relectures du 10/11 (deux relecteurs, douze constats), corrigé :
+  - **compte parti** : depuis une session perdue, Google qui crée un
+    compte neuf à l'adresse de la session prouve que l'ancien n'existe
+    plus. Le neuf est supprimé, et `terramemo/compte-parti` le dit ; avant,
+    il recevait le journal d'un compte supprimé exprès. L'invité anonyme
+    d'une session perdue n'est donc plus lié ;
+  - **fournisseurs suivis** : `etat()` réécrit les fournisseurs et
+    l'adresse de la session quand le compte en a d'autres (Google qui
+    l'emporte ailleurs) ; une session perdue d'un compte à mot de passe à
+    une adresse Gmail propose aussi Google ;
+  - **compte neuf** prouvé par deux indices, `isNewUser` et une création
+    à moins de 60 s de la dernière connexion, avant toute suppression par
+    l'appli : si le vrai service disait `isNewUser` quand Google prend la
+    place d'un mot de passe (S5), un vrai compte ne serait pas supprimé ;
+  - **compte attendu** : `prompt: select_account` partout, et
+    `login_hint` à la réauthentification et à la reconnexion ;
+    `user-mismatch` et `google-autre-compte` nomment l'adresse ;
+  - **annulation** : `auth/user-cancelled` (« Annuler » au consentement)
+    est silencieux ; « fenêtre bloquée » dit de toucher encore le bouton ;
+  - **deux fournisseurs** : un compte qui a Google et un mot de passe se
+    supprime (et reprend une suppression) par Google si le mot de passe
+    n'est pas donné ;
+  - **mot de passe retiré** : quand Google prend la place du mot de passe
+    et que c'est visible (lien refusé par `email-already-in-use`, ou
+    session perdue de ce compte), la question D22 et le message le
+    disent, puisque « Annuler » ne le rend pas. La fenêtre seule, sans
+    invité, ne permet pas de le savoir : pas d'avis alors ;
+  - **rien avant la fenêtre** : un test sur faux SDK le fige (seul le
+    jeton de l'invité, sans `forceRefresh`) ;
+  - relevé : `terramemo.comptes()` porte `google` (`isNewUser` brut,
+    `neuf`, `lie`, `rattrape`, `mdpRetire`) pour l'essai réel.
 - Essai réel : le protocole est dans le skill `run-terramemo` (« Essai
   réel de Google »). Il est à faire avec l'utilisateur, une fois le lot
   déployé.

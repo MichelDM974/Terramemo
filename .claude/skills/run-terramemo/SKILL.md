@@ -1086,7 +1086,10 @@ Sur le vrai site, avec les adresses d'essai de l'utilisateur. Il vérifie :
 - le lien d'un invité ;
 - la synchro entre deux navigateurs ;
 - S3, S5, S15 et S16 (étude, § 12) ;
-- la suppression d'un compte Google (réauthentification par la fenêtre).
+- la suppression d'un compte Google (réauthentification par la fenêtre) ;
+- ce que seul le vrai Google montre : fenêtre fermée, « Annuler » au
+  consentement, autre compte choisi, autres navigateurs, jeton d'invité
+  périmé, `isNewUser` en S5.
 
 Il se fait **avec l'utilisateur, de jour**, jamais par un agent : la
 fenêtre de Google demande ses comptes, et le pilote ne la passe pas
@@ -1101,9 +1104,11 @@ fenêtre de Google demande ses comptes, et le pilote ne la passe pas
 - console Firebase › Authentication :
   - Sign-in method : Google et E-mail/Mot de passe activés ;
   - Settings › Authorized domains : `terramemo-geo.web.app` présent ;
-- Google Auth Platform › Audience : en Testing, et
-  `micheldm0301@gmail.com` dans les testeurs. Seule cette adresse passe
-  par Google ; l'adresse Yahoo sert à l'e-mail (S15).
+- Google Auth Platform › Audience : **En production** (fait du 10/11,
+  choix de l'utilisateur), sans liste de testeurs. Tout compte Google
+  passe la fenêtre, mais seules les adresses d'essai enregistrent quoi
+  que ce soit (règles d'essai). `micheldm0301@gmail.com` sert à Google,
+  l'adresse Yahoo à l'e-mail (S15).
 
 **Navigateurs** : Chrome sur le PC, dans **deux profils à part**, « Essai
 A » et « Essai B » (menu du profil › Ajouter). Ainsi, rien ne touche aux
@@ -1120,8 +1125,12 @@ dont les places seront retirées à la fin par l'outil du propriétaire.
 Relevé en console (F12, puis taper `allow pasting` si Chrome le demande) :
 
 ```js
-(async () => { const c = await terramemo.comptes(), s = await terramemo.synchro(); console.table({ etat: c?.etat?.etat, uid: c?.jeton?.uid ?? s.uid, fournisseurs: String(c?.etat?.fournisseurs ?? ''), sign_in_provider: c?.jeton?.sign_in_provider, identites: Object.keys(c?.jeton?.identities ?? {}).join(','), evenements: s.evenements, empreinte: s.empreinte, attente: s.lots?.attente, refusees: s.lots?.refusees, erreurs: (c?.erreurs ?? []).map((e) => e.code).join(',') }); })()
+(async () => { const c = await terramemo.comptes(), s = await terramemo.synchro(); console.table({ etat: c?.etat?.etat, uid: c?.jeton?.uid ?? s.uid, fournisseurs: String(c?.etat?.fournisseurs ?? ''), sign_in_provider: c?.jeton?.sign_in_provider, identites: Object.keys(c?.jeton?.identities ?? {}).join(','), evenements: s.evenements, empreinte: s.empreinte, attente: s.lots?.attente, refusees: s.lots?.refusees, erreurs: (c?.erreurs ?? []).map((e) => e.code).join(','), google: JSON.stringify(c?.google ?? null) }); })()
 ```
+
+`google` : la dernière fenêtre de Google rendue (`isNewUser` tel que le
+service le dit, `neuf` jugé par l'appli, `lie`, `rattrape` : le code du
+lien refusé puis rattrapé, `mdpRetire`).
 
 L'uid d'un invité anonyme se lit dans l'onglet Application › IndexedDB ›
 `firebaseLocalStorageDb` › `firebaseLocalStorage` (champ `uid`) : le
@@ -1137,17 +1146,28 @@ noter avant un lien.
       site terramemo-geo.firebaseapp.com… ».
    4. Toucher le bouton. **Noter ce que dit la fenêtre** (domaine ou
       « Terramemo ») ; si la ligne ment, la corriger dans
-      `textes.fr.json` (`google_site`). Choisir `micheldm0301@gmail.com`.
-   5. Attendu : « Connecté avec Google : micheldm0301@gmail.com. Tes
-      progrès vont dans ton compte. », puis « Compte Google (…) » et, peu
-      après, « Synchro : à jour ».
-   6. Relevé :
+      `textes.fr.json` (`google_site`). **Fermer la fenêtre sans rien
+      choisir**, et chronométrer : attendu, rien d'affiché, les boutons
+      reviennent en 10 s environ ; relevé, `erreurs` finit par
+      `auth/popup-closed-by-user`.
+   5. Rouvrir. Choisir `micheldm0301@gmail.com` ; **rester plus de 10 s**
+      sur le choix du compte (aucun « fenêtre fermée » ne doit venir). À
+      l'écran de première connexion (« Continuer » / « Annuler »), s'il
+      vient, toucher **Annuler** : attendu, rien d'affiché, et noter le
+      code de `erreurs` (`auth/user-cancelled` attendu). Puis rouvrir,
+      même compte, « Continuer ».
+   6. Attendu : « Connexion… » dès la fenêtre fermée, puis « Connecté avec
+      Google : micheldm0301@gmail.com. Tes progrès vont dans ton
+      compte. », puis « Compte Google (…) » et, peu après, « Synchro : à
+      jour ».
+   7. Relevé :
       - `uid` = l'uid noté ;
       - `fournisseurs` = `google.com` ;
       - `identites` contient `google.com` ;
       - noter `sign_in_provider` (S16) ;
+      - `google` : `lie` vrai ;
       - `attente` 0, `refusees` 0.
-   7. Console Firebase :
+   8. Console Firebase :
       - Authentication : un compte Google à cet uid ;
       - Firestore : `joueurs/{uid}` (`v`, `pseudo` « Essai6 », `records`,
         `maj`) et ses `lots`, un document par séance close.
@@ -1173,16 +1193,26 @@ noter avant un lien.
    2. Écrire « supprimer », puis « Supprimer définitivement ». **Noter si
       la fenêtre de Google s'ouvre** : un `reload()` passe sur le réseau
       avant elle.
-   3. Choisir le même compte. Attendu : « Compte supprimé. », puis l'écran
+   3. La fenêtre doit proposer `micheldm0301@gmail.com` (`login_hint`).
+      Si l'utilisateur a un second compte Google : le choisir d'abord
+      (« Utiliser un autre compte »). Attendu : « Ce n'est pas le compte
+      connecté : choisis micheldm0301@gmail.com… », rien de supprimé. Puis
+      **Authentication : aucun compte ne doit être apparu** à l'adresse de
+      ce second compte (le SDK ne pose pas `autoCreate: false` sur ce
+      chemin). S'il est apparu : le noter au registre et à l'étude, et le
+      supprimer à la main dans Authentication.
+   4. Choisir le même compte. Attendu : « Compte supprimé. », puis l'écran
       de l'invité.
-   4. Console Firebase :
+   5. Console Firebase :
       - Authentication : le compte n'y est plus ;
       - Firestore : `joueurs/{uid}` réduit à la pierre tombale (`v`,
         `maj`, `supprime`) ;
       - `demandes/{uid}` = `{pseudo: "Essai6"}`.
-   5. Profil B, rouvert : « Ce compte est en cours de suppression », ou
+   6. Profil B, rouvert : « Ce compte est en cours de suppression », ou
       tout de suite la session perdue (le compte n'est plus dans Auth).
-      « Effacer cet appareil » le vide.
+      « Se reconnecter avec Google », le même compte : attendu, « Le
+      compte … n'existe plus », et rien de recréé dans Authentication.
+      Puis « Effacer cet appareil » le vide.
 5. **S5, même adresse qu'un compte à mot de passe** — profil A, vidé par
    la suppression :
    1. ⚙ › Compte › Créer un compte avec `micheldm0301@gmail.com` et un mot
@@ -1192,14 +1222,20 @@ noter avant un lien.
    3. Un Chrono « Essai6 » : un invité anonyme.
    4. « Continuer avec Google », le compte Gmail. Attendu : pas d'erreur,
       « Connecté : micheldm0301@gmail.com. », à la question près si
-      l'appareil a des progrès.
+      l'appareil a des progrès ; si Google a remplacé le mot de passe,
+      « Google a remplacé le mot de passe de ce compte… » (question et
+      message).
    5. Relevé :
       - `uid` = celui du compte à mot de passe ;
       - `erreurs` contient `auth/email-already-in-use` (le lien refusé,
-        puis rattrapé) ;
+        puis rattrapé par le credential de l'erreur : ce chemin n'est
+        prouvé qu'ici, l'émulateur passe par le repli) ;
       - `fournisseurs` : `google.com` seul (Google l'a emporté, comme à
         l'émulateur) ou `password,google.com` ; le noter avec
-        Authentication.
+        Authentication ;
+      - **`google`** : noter `isNewUser` (s'il est vrai ici, l'appli ne
+        juge pas le compte neuf grâce à la date de création : `neuf`
+        faux attendu), `rattrape`, `mdpRetire`.
    6. Supprimer ce compte, comme à l'étape 4.
 6. **S15, lien e-mail d'un invité** — profil B :
    1. Un Chrono « Essai6 » (invité anonyme), noter son uid.
@@ -1212,14 +1248,33 @@ noter avant un lien.
       plus de ligne « non vérifiée ». « Réessayer » s'il le faut, puis
       « Synchro : à jour ».
    6. Supprimer ce compte (mot de passe).
+7. **Autres navigateurs, jeton d'invité périmé** :
+   1. Firefox, profil neuf (`about:profiles` › Créer) : un Chrono
+      « Essai6 », puis « Continuer avec Google » (lien de l'invité).
+      Attendu comme à l'étape 1 ; noter tout écart (fenêtre bloquée,
+      retour qui n'aboutit pas). Supprimer le compte à la fin.
+   2. Un invité dont l'onglet est resté ouvert **plus d'une heure**
+      (jeton périmé, donc du réseau avant la fenêtre), puis « Continuer
+      avec Google » : noter si la fenêtre s'ouvre au premier geste ou
+      seulement au second (« Fenêtre de Google bloquée : touche encore le
+      bouton… »).
+8. **Google « pas de confiance »** (`account-exists-with-different-credential`) :
+   seulement avec un compte Google à une adresse **non Gmail**. Si
+   `micheldm974@yahoo.fr` en est un : créer un compte à mot de passe à
+   cette adresse (étape 6), se déconnecter, puis « Continuer avec
+   Google » avec ce compte Google. Attendu : « Se connecter », l'adresse
+   pré-remplie, et « connecte-toi avec ton adresse ». Sinon, écrire au
+   registre que la bascule n'est prouvée qu'à l'émulateur.
 
 **Après** :
 - les places « Essai6 » du classement partent par l'outil du
   propriétaire : `npm run admin -- demandes` à blanc, lire, puis
   `--appliquer --attendu <empreinte>` (§ « Outil du propriétaire ») ;
 - supprimer les profils de Chrome « Essai A » et « Essai B » ;
-- noter les constats au registre de cdc : S3, S5, S15, S16, ce que dit la
-  fenêtre de Google, et la fenêtre de la suppression.
+- noter les constats au registre de cdc : S3, S5 (avec `isNewUser`), S15,
+  S16, ce que dit la fenêtre de Google, la fenêtre de la suppression (et
+  le compte choisi par erreur), les codes de la fenêtre fermée et
+  d'« Annuler », Firefox, le jeton périmé, la bascule de l'étape 8.
 
 ## Outil du propriétaire (`scripts/admin/`, J1b lot 5b)
 

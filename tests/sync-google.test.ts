@@ -342,6 +342,8 @@ describe('comptes.google() : lien, création, compte existant (faux SDK)', () =>
     expect(m.auth.deleteUser).not.toHaveBeenCalled();
     expect(m.auth.signOut).toHaveBeenCalled();
     expect(m.a.currentUser).toBeNull();
+    // Le relevé de l'essai réel (S5) : ce que le service a dit, et ce que l'appli en a conclu.
+    expect(m.c.rapport().google).toEqual({ isNewUser: true, neuf: false, lie: false, rattrape: null, mdpRetire: false });
   });
 
   it('rien de réseau avant la fenêtre (le navigateur ne l’ouvre que peu après le geste) : ni reload, ni jeton forcé, ni Auth, ni Firestore', async () => {

@@ -218,6 +218,13 @@ export interface RapportComptes {
   profil: ResultatProfil | null;
   /** Le drapeau de la session : un pseudo ou un record pas encore dans le profil ; null avant toute écriture de la session. */
   profil_a_ecrire: boolean | null;
+  /**
+   * La dernière fenêtre de Google rendue (essai réel, S5) : isNewUser tel que
+   * le service le dit, le compte jugé neuf (isNewUser et création récente),
+   * le lien de l'invité, le rattrapage d'un lien refusé (son code), le mot de
+   * passe retiré ; null avant.
+   */
+  google?: { isNewUser: boolean | null; neuf: boolean; lie: boolean; rattrape: string | null; mdpRetire: boolean } | null;
 }
 
 export interface Comptes {
@@ -1252,7 +1259,13 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
           }
           // Un compte neuf : le lien, ou le premier passage par Google (sans anonyme).
           const cree = !lie && compteNeuf(auth, cred);
+          const isNewUser = auth.getAdditionalUserInfo(cred)?.isNewUser ?? null;
           const nouveau = lie || cree;
+          // Google à la place du mot de passe (S5), fait dans Auth dès la connexion : dit, quand on le voit.
+          const mdpRetire =
+            !fournisseursDe(cred.user).includes('password') &&
+            (rattrape === 'auth/email-already-in-use' || (avant.uid === cred.user.uid && avant.fournisseurs.includes('password')));
+          rapport.google = { isNewUser, neuf: cree, lie, rattrape: rattrape || null, mdpRetire };
           if (cree && avant.uid && cred.user.uid !== avant.uid && memeAdresse(cred.user.email, avant.adresse)) {
             // Session perdue, et Google crée un compte neuf à son adresse : un compte par adresse, celui de
             // la session n'existe plus (supprimé ailleurs). Rien n'est repris en silence : le compte neuf
@@ -1261,10 +1274,6 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
             if (s.a.currentUser) await auth.signOut(s.a).catch(noter);
             throw new ErreurCompte('terramemo/compte-parti', avant.adresse);
           }
-          // Google à la place du mot de passe (S5), fait dans Auth dès la connexion : dit, quand on le voit.
-          const mdpRetire =
-            !fournisseursDe(cred.user).includes('password') &&
-            (rattrape === 'auth/email-already-in-use' || (avant.uid === cred.user.uid && avant.fournisseurs.includes('password')));
           return { adresse: cred.user.email ?? '', ...(await rejoindre(s, cred.user, avant, choisir, nouveau, cree, mdpRetire)), nouveau, mdpRetire };
         } finally {
           questionIci = false;
