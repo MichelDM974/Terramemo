@@ -581,7 +581,7 @@
     "suppression_annulee": "Suppression annulée : ton compte reste entier.",
     "suppression_reconnecter": "Ta session a expiré en route (mot de passe changé ?) : ton mot de passe, puis « Reprendre la suppression », la finit.",
     "suppression_reconnecter_site": "Ta session a expiré en route : reconnecte-toi sur le site, terramemo-geo.web.app, pour finir la suppression.",
-    "suppression_vider_aide": "Sans mot de passe : « Effacer cet appareil » le vide, mais le compte reste en ligne s'il existe encore. Pour le supprimer alors, écris à CONTACT_A_REMPLIR@googlegroups.invalid.",
+    "suppression_vider_aide": "Sans mot de passe : « Effacer cet appareil » le vide, mais le compte reste en ligne s'il existe encore. Pour le supprimer alors, écris à terramemo-contact@googlegroups.com.",
     "suppression_videe": "Cet appareil est vidé. Le compte n'est supprimé que si sa suppression a abouti ailleurs.",
     "en_suppression": "Ce compte est en cours de suppression.",
     "synchro_coupee": "Synchro coupée (essai)",

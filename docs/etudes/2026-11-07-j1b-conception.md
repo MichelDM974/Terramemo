@@ -1585,8 +1585,8 @@ visible en production.
   semaines par Auth, mais **quelques mois** par Hosting (doc de Firebase,
   vérifiée au lot 5). Les pages statiques n'ont pas d'icône d'onglet
   (celle de l'appli a une adresse hachée par Vite). L'adresse de contact
-  y est provisoire (`CONTACT_A_REMPLIR@googlegroups.invalid`), en
-  attendant le groupe Google de D20 ;
+  est celle du groupe Google de D20, `terramemo-contact@googlegroups.com`
+  (créé par l'utilisateur le 10/11 ; provisoire jusque-là) ;
 - `npm run test:comptes` gagne `tests/suppression.test.ts` (suppression
   complète avec 401 lots, coupure à chaque étape, 2e appareil).
 

@@ -966,12 +966,12 @@ dans l'APK, un renvoi au site à la place (D26 a). Politique et page de suppress
 Vérifier une page construite : `npm run build && npx vite preview --port
 8065 --strictPort`, puis `curl` sur `/confidentialite.html` **et son
 contenu** (vite preview rend `index.html`, en 200, à toute adresse
-inconnue). L'adresse de contact y est provisoire
-(`CONTACT_A_REMPLIR@googlegroups.invalid`) jusqu'au groupe Google de D20 :
-tant qu'il reste dans `dist/`, le `predeploy` de Hosting (`firebase.json`)
-fait échouer `npx firebase deploy --only hosting`, pour qu'aucune page
-publique ne parte avec. Le remplacer partout (`grep -rl CONTACT_A_REMPLIR`),
-puis `npm run build` et déployer.
+inconnue). L'adresse de contact est celle du groupe Google de D20,
+`terramemo-contact@googlegroups.com` (pages, `textes.fr.json`, « Répondre
+à » des e-mails de Firebase). Le `predeploy` de Hosting (`firebase.json`)
+fait échouer `npx firebase deploy --only hosting` si le marqueur
+`CONTACT_A_REMPLIR` revient dans `dist/` : il a gardé la politique hors
+ligne jusqu'à la création du groupe.
 
 Supprimer un compte à l'émulateur Auth (invité anonyme que Firebase
 supprimerait au bout de 30 jours, compte d'essai) : `curl -X POST -H
