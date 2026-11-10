@@ -101,6 +101,9 @@ export interface OptionsAccueil {
   etatCompte(): 'invite' | 'compte' | 'perdue';
 }
 
+/** L'attente de la session au démarrage, au plus (accueil.demarrer). */
+export const DELAI_SESSION = 3000;
+
 /** inactif : jamais de panneau (comptes cachés, stockage illisible) ; ferme : pas maintenant, revu à chaque vue. */
 export type EtatAccueil = 'inactif' | 'attente' | 'ouvert' | 'ferme';
 
@@ -108,9 +111,11 @@ export interface Accueil {
   /**
    * Au démarrage, une fois l'effacement laissé en route fini : `compte` dit si
    * la session de l'appareil connaît un compte. Le panneau s'ouvre, ou
-   * l'en-tête est rendu.
+   * l'en-tête est rendu. Une session qui ne répond pas en `delai` ms
+   * (IndexedDB pendue) compte pour un invité : le panneau s'ouvre, l'en-tête
+   * ne reste pas inerte pour toujours.
    */
-  demarrer(compte: Promise<boolean>): Promise<void>;
+  demarrer(compte: Promise<boolean>, delai?: number): Promise<void>;
   /**
    * La navigation, à chaque adresse : est-elle retenue (la carte à sa place,
    * le panneau par-dessus) ? Confidentialité ne l'est jamais. Un choix retiré
@@ -319,15 +324,19 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
   }
 
   return {
-    async demarrer(compte) {
+    async demarrer(compte, delai = DELAI_SESSION) {
       // Stockage illisible : jamais de panneau (le choix ne pourrait pas se garder).
       if (depart === undefined) return;
       const attendait = etat === 'attente';
       let aCompte = false;
+      let minuterie: ReturnType<typeof setTimeout> | undefined;
       try {
-        aCompte = await compte;
+        // Une session qui ne répond pas (indexedDB.open pendu, connu de WebKit) : un invité, comme une session illisible.
+        aCompte = await Promise.race([compte, new Promise<boolean>((ok) => (minuterie = setTimeout(() => ok(false), delai)))]);
       } catch {
         // Session illisible : l'appareil est pris pour un invité.
+      } finally {
+        clearTimeout(minuterie);
       }
       // Relu : un effacement laissé en route (déconnexion) a pu retirer le choix entre-temps.
       const c = choixCourant();

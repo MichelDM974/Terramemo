@@ -6,7 +6,7 @@
 // éprouve au panneau), et son retour après une déconnexion. DOM factice.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { effacerJoueurLocal } from '../src/sync/effacement';
-import { accueilRequis, CLE_ACCUEIL, creerAccueil, garderChoix, lireChoix, type ComptesDuPanneau, type StockageAccueil } from '../src/vues/accueil';
+import { accueilRequis, CLE_ACCUEIL, creerAccueil, DELAI_SESSION, garderChoix, lireChoix, type ComptesDuPanneau, type StockageAccueil } from '../src/vues/accueil';
 import { textes } from '../src/vues/textes';
 import { El, installerDom, installerStockage } from './dom-factice';
 
@@ -171,6 +171,23 @@ describe('démarrage', () => {
     const m = monter();
     await m.a.demarrer(Promise.reject(new Error('IndexedDB')));
     expect(m.a.etat()).toBe('ouvert');
+  });
+
+  it('session qui ne répond jamais (IndexedDB pendue) : invité au bout du délai, le panneau vient, l’en-tête ne reste pas inerte', async () => {
+    vi.useFakeTimers();
+    try {
+      const m = monter();
+      const fin = m.a.demarrer(new Promise<boolean>(() => undefined));
+      await vi.advanceTimersByTimeAsync(DELAI_SESSION - 1);
+      expect(m.a.etat()).toBe('attente');
+      await vi.advanceTimersByTimeAsync(1);
+      await fin;
+      expect(m.a.etat()).toBe('ouvert');
+      expect(body.dataset.accueil).toBe('ouvert');
+      expect(m.rendre).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('une déconnexion laissée en route, finie au démarrage, retire le choix : le panneau vient', async () => {
