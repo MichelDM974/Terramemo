@@ -191,6 +191,34 @@ describe('écran des classements', () => {
     expect(racine.querySelector('.classements-chercher[data-sujet="communes"]')).toBeNull();
   });
 
+  it('« Chercher mes places » de deux sujets à la fois : celui en cours reste en cours quand l’autre redessine, et son échec se voit', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Michel');
+    records(AFR);
+    repondre([place(AFR, 31_710)]);
+    ouvrir();
+    await attendre();
+    const reponses: { ok: (v: unknown) => void; ko: (e: unknown) => void }[] = [];
+    mesPlaces.mockImplementation(() => new Promise((ok, ko) => reponses.push({ ok, ko })));
+    const boutons = (sujet: string) => racine.querySelectorAll(`#classements-autres .classements-chercher[data-sujet="${sujet}"]`);
+    boutons('pays')[0]!.click();
+    // Tous les boutons des pays (un par mode) disent la lecture en cours.
+    expect(boutons('pays').map((b) => [b.disabled, b.textContent])).toEqual(boutons('pays').map(() => [true, T.chargement]));
+    boutons('communes')[0]!.click();
+    expect(mesPlaces).toHaveBeenCalledTimes(3);
+    // Les pays lus : la page se redessine, les communes toujours en cours, sans seconde lecture au toucher.
+    reponses[0]!.ok([]);
+    await attendre();
+    expect(boutons('pays')).toHaveLength(0);
+    const communes = boutons('communes');
+    expect(communes.map((b) => [b.disabled, b.textContent])).toEqual(communes.map(() => [true, T.chargement]));
+    communes[0]!.click();
+    expect(mesPlaces).toHaveBeenCalledTimes(3);
+    // Hors ligne : l'échec des communes se lit sur les boutons de la page, de nouveau actifs.
+    reponses[1]!.ko(new Error('hors ligne'));
+    await attendre();
+    expect(boutons('communes').map((b) => [b.disabled, b.textContent])).toEqual(boutons('communes').map(() => [false, T.chercher_echec]));
+  });
+
   it('avant le 16/11, rien des capitales ; après, leurs épreuves sous « Capitales », entre Pays et Communes', async () => {
     const p = ouvrir();
     await attendre();

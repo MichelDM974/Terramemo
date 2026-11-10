@@ -216,6 +216,10 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
     const p = periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now());
     const places = new Map<string, MaPlace>();
     const lues = new Set<string>();
+    // « Chercher mes places » : les sujets en cours de lecture, et ceux dont la dernière a échoué (hors ligne).
+    // Gardés ici, car chaque dessiner() recrée les boutons : un sujet en cours ne se relance pas, un échec se voit.
+    const enCours = new Set<string>();
+    const echecs = new Set<string>();
 
     /** Lit ces épreuves (mesPlaces), puis redessine ; lève hors ligne. */
     async function lire(epreuves: readonly string[]): Promise<boolean> {
@@ -231,16 +235,28 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
     function chercher(sujet: string): HTMLElement | null {
       const aLire = toutes.filter((e) => !lues.has(e) && sujetEpreuve(e) === sujet);
       if (!aLire.length) return null;
-      const b = creer('button', { type: 'button', class: 'lien classements-chercher', 'data-sujet': sujet }, T.chercher_places);
+      const b = creer(
+        'button',
+        { type: 'button', class: 'lien classements-chercher', 'data-sujet': sujet },
+        enCours.has(sujet) ? T.chargement : echecs.has(sujet) ? T.chercher_echec : T.chercher_places,
+      );
+      b.disabled = enCours.has(sujet);
       b.addEventListener('click', () => {
-        b.disabled = true;
-        b.textContent = T.chargement;
+        if (enCours.has(sujet)) return;
+        enCours.add(sujet);
+        echecs.delete(sujet);
+        // Les boutons du sujet (un par mode) disent tous la lecture en cours.
+        dessiner();
         lire(aLire).then(
-          (ok) => ok && dessiner(),
+          (ok) => {
+            enCours.delete(sujet);
+            if (ok) dessiner();
+          },
           () => {
+            enCours.delete(sujet);
             if (n !== lecture) return;
-            b.disabled = false;
-            b.textContent = T.chercher_echec;
+            echecs.add(sujet);
+            dessiner();
           },
         );
       });
