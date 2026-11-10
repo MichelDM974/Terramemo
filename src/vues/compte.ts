@@ -51,9 +51,8 @@ import { COMPTES_OUVERTS, synchroCoupee } from '../sync/drapeaux';
 import type { Envoi, EtatSynchro } from '../sync/envoi';
 import { adresseErreur, codeErreur, traduire } from '../sync/erreurs';
 import { telecharger } from '../sync/export';
-import { lirePseudo } from './classement';
+import { champPseudo, lirePseudo } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
-import { champPseudo } from './pseudo';
 import { remplir, textes } from './textes';
 
 const T = textes.compte;

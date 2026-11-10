@@ -1568,7 +1568,7 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     expect($('#accueil-compte-pseudo')!.getAttribute('autocomplete')).toBe('nickname');
     expect($('#accueil-compte-pseudo-plus-tard')!.textContent).toBe(T.pseudo_plus_tard);
     expect($('#accueil-compte-annuler')).toBeNull();
-    // Le champ du panneau de l'invité (src/vues/pseudo.ts) : aide lue avec lui, Entrée « done », avis effacé à la saisie.
+    // Le champ du panneau de l'invité (champPseudo, src/vues/classement.ts) : aide lue avec lui, Entrée « done », avis effacé à la saisie.
     const champ = $('#accueil-compte-pseudo')!;
     expect([champ.getAttribute('aria-describedby'), champ.getAttribute('enterkeyhint')]).toEqual(['accueil-compte-pseudo-aide', 'done']);
     expect($('#accueil-compte-pseudo-aide')!.textContent).toBe(T.pseudo_aide);

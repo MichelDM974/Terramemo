@@ -33,8 +33,8 @@
 // classement).
 import { garderPseudoDans, lirePseudoDe } from '../epreuve/chrono';
 import { surEffacementJoueur } from '../sync/effacement';
+import { champPseudo } from './classement';
 import { creer } from './commun';
-import { champPseudo } from './pseudo';
 import { textes } from './textes';
 
 const T = textes.accueil;
