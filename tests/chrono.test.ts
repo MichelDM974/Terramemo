@@ -516,11 +516,26 @@ describe('catalogue des épreuves et ouverture datée des capitales (étude J2 �
     expect(epreuvesClassees(APRES).slice(15, 30).every((e) => modeEpreuve(e) === 'sansfaute')).toBe(true);
   });
 
-  it('BORNE_GENERAL : la somme des tailles des Chrono ouverts (804 = 390 + 24 + 390)', () => {
+  it('BORNE_GENERAL : la somme des tailles des Chrono ouverts (804 = 390 + 24 + 390), celle de chronoValide des règles', () => {
     const somme = (t: number) => epreuvesDuGeneral(t).reduce((n, e) => n + (tailleDe.get(e.split(':')[2]!) ?? NaN), 0);
     expect(somme(AVANT)).toBe(414);
     expect(somme(APRES)).toBe(804);
     expect(BORNE_GENERAL).toBe(somme(APRES));
+    const regles = readFileSync('firestore.rules', 'utf8');
+    expect(regles).toContain(`n == 0 ? d.questions <= ${BORNE_GENERAL} :`);
+  });
+
+  it('les tailles des règles (tailles(cle)) : celles du catalogue, par clé ; les capitales celles des pays, sans l’île (D37 c)', () => {
+    const regles = readFileSync('firestore.rules', 'utf8');
+    const corps = regles.slice(regles.indexOf('function tailles(cle)'), regles.indexOf('function epreuveConnue'));
+    const cartes = [...corps.matchAll(/\{([^{}]*)\}/g)].map((m) => Object.fromEntries([...m[1]!.matchAll(/'([^']+)': (\d+)/g)].map((x) => [x[1], Number(x[2])])));
+    expect(cartes).toHaveLength(2);
+    const [capitales, localiser] = cartes;
+    const attendu = (sujets: string[]) => Object.fromEntries(EPREUVES_SUJETS.filter((p) => sujets.includes(p.sujet)).map((p) => [p.serie, tailleDe.get(p.serie)]));
+    expect(capitales).toEqual(attendu(['capitales']));
+    expect(localiser).toEqual(attendu(['pays', 'communes']));
+    expect(capitales).toEqual({ Africa: 54, Asia: 48, Europe: 44, 'North America': 23, Oceania: 14, 'South America': 12, tous: 195 });
+    expect(regles).toMatch(/p\[1\] in \['localiser', 'capitales'\]/);
   });
 
   it('l’horloge de la bascule se lit au moment du calcul : réglée (tests, ?horloge= au serveur de développement), elle change tout de suite les listes', async () => {
