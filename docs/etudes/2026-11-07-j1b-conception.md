@@ -1822,6 +1822,54 @@ visible en production.
   réel de Google »). Il est à faire avec l'utilisateur, une fois le lot
   déployé.
 
+**Écran de connexion** (11/11, codé ; décision « Écran de connexion » du
+10/11, avant l'ouverture des comptes au public) :
+- Quand : comptes visibles (serveur de dev, `?comptes`, puis
+  l'ouverture), aucun choix gardé (`terramemo.accueil` : `invite` ou
+  `compte`) et aucun compte dans la session, lue après un effacement
+  laissé en route. Un appareil connecté garde « compte » sans voir le
+  panneau. Un joueur qui a des progrès le voit une fois, pseudo
+  pré-rempli.
+- Où : un panneau par-dessus la carte figée, derrière un voile (fond
+  flouté comme Jouer, 440 px au plus). En-tête et carte `inert`, focus sur
+  le titre, touches de zoom sans effet. Toute adresse rend la carte
+  dessous (option `retenue` de la navigation), sauf `#confidentialite`,
+  lisible sans choisir, dont le retour ramène au panneau ; `/#compte`
+  mène à la vue Compte une fois le choix fait. Le retour d'Android suit
+  l'historique, sans jamais retirer le panneau.
+- Contenu : titre, accroche, puis les écrans de la vue Compte montés dans
+  le panneau (`accueilCompte`, même moteur, id `accueil-compte-…`) :
+  Google (site), « Se connecter par e-mail », « Créer un compte », avec
+  oubli, question D22 et erreurs traduites ; « ou », « Continuer en
+  invité », Confidentialité. Dans l'APK : l'e-mail seul et la ligne
+  « Google arrive bientôt ».
+- Après le choix :
+  - l'invité donne un pseudo validé comme au classement (`pseudoValide`,
+    `clePermise`), rangé dans `terramemo.pseudo`. Rien de Firebase : ni
+    anonyme, ni publication de records d'avant sous ce pseudo (ils partent
+    avec les prochains, ou par « Changer » du classement) ;
+  - un compte : la synchro comme depuis la vue (`surJeton`), puis son
+    pseudo s'il n'en a pas (« Plus tard » possible) ;
+  - puis la carte, ou l'adresse affichée.
+- Le choix est au joueur (`CLES_DU_JOUEUR`) : déconnexion, « Effacer cet
+  appareil » et fin de suppression le retirent, et le panneau revient à la
+  vue suivante (pas sur Compte ni Confidentialité). Stockage illisible :
+  pas de panneau (le choix ne se garderait pas) ; plein : il vaut pour la
+  page.
+- Poids : le panneau est dans le morceau principal, +1,80 Ko gzip
+  (123,98 → 125,78), pour s'ouvrir même hors ligne. Les écrans des comptes
+  (compte, comptes, envoi) se chargent à son ouverture, sans le SDK. Le SDK
+  est préchauffé au survol ou à l'appui de Google, ou à l'ouverture d'un
+  formulaire. Un invité qui n'y touche pas ne le charge jamais.
+- À voir à l'essai réel : le tout premier toucher de Google sur un profil
+  neuf, le SDK pas en cache (fenêtre ouverte, ou « touche encore »). Sur
+  le téléphone, le panneau cache l'ovale presque entier, comme Jouer.
+- Tests : `tests/accueil.test.ts` (démarrage, choix gardé, stockage en
+  panne, invité, pseudo refusé, joueur ancien, Confidentialité, retour
+  après déconnexion), le panneau dans `tests/compte-vue.test.ts`,
+  `retenue` dans `tests/navigation.test.ts` ; pilote `ui_accueil` (skill
+  `run-terramemo`).
+
 Ordre et parallélisme :
 - 0, puis 1, puis 2, puis 3, puis 4, puis 5 : en série ;
 - 6 : la partie aux émulateurs commence dès le lot 1 ; l'essai réel
