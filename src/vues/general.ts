@@ -1,17 +1,23 @@
 // Vue « Classements » (bouton 🏆 de l'en-tête ; décisions « En-tête »,
 // « Classements par épreuve » et « Sans faute et Minute ») : d'abord mes
 // places, le général puis chaque épreuve où mon pseudo est classé, avec rang et
-// score, de toujours ou de la semaine ; « Toutes les épreuves » montre celles
-// où il ne l'est pas encore. Les lignes vont par mode, sous son titre : Chrono
-// (le général en tête, qui n'additionne que lui), Sans faute, Minute. Toucher
-// une ligne ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à
-// la liste. Les séries de chaque mode viennent dans l'ordre de partout
-// (décision « Écran Jouer », epreuvesClassees) : tous les pays, les
-// continents, l'île ; les épreuves d'un sujet pas encore ouvert
-// (EPREUVES_OUVERTES) n'y sont pas. Relu à chaque ouverture (la bascule
-// datée comprise) ; « Retour » ramène à la vue
-// d'avant, « × » à la carte (main.ts).
-import { epreuvesClassees, maintenantEpreuves, modeEpreuve, MODES_EPREUVE, periodeSemaine, type ModeEpreuve } from '../epreuve/chrono';
+// score, de toujours ou de la semaine ; « Toutes les épreuves » montre les
+// autres. Les lignes vont par mode, sous son titre : Chrono (le général en
+// tête, qui n'additionne que lui), Sans faute, Minute ; puis par sujet, sous le
+// sien (h4 : Pays, Capitales, Communes ; étude J2 § 8.3). Toucher une ligne
+// ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à la
+// liste. Les séries de chaque sujet viennent dans l'ordre de partout
+// (décision « Écran Jouer », EPREUVES_SUJETS) : tous les pays, les
+// continents ; l'île.
+// Lectures (D52 b, décision « Général à tous les sujets ») : à l'ouverture, le
+// général et les seules épreuves où l'appareil a un record (ceux du profil du
+// compte y sont, reçus à chaque ouverture de l'appli : src/sync/profil.ts,
+// appliquer), plus les places déjà vues sur l'appareil ; le reste se lit à la
+// demande, sujet par sujet (« Chercher mes places » sous « Toutes les
+// épreuves »). Les épreuves d'un sujet pas encore ouvert (EPREUVES_OUVERTES)
+// n'y sont pas : la bascule se relit à chaque ouverture. Relu à chaque
+// ouverture ; « Retour » ramène à la vue d'avant, « × » à la carte (main.ts).
+import { clePseudo, epreuvesClassees, lireRecords, maintenantEpreuves, modeEpreuve, MODES_EPREUVE, periodeSemaine, sujetEpreuve, type ModeEpreuve, type RecordChrono } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
 import { nomSujet } from './arbre';
 import { nomSerie } from './cibles';
@@ -50,6 +56,50 @@ export function rangSur(rang: number, joueurs: number): string {
   return remplir(T.rang_sur, { rang: rang === 1 ? T.rang_1 : remplir(T.rang_n, { n: rang }), n: joueurs });
 }
 
+/** Les places déjà vues sur l'appareil (D52 b) : la clé du pseudo, et les épreuves où il en avait une. */
+const CLE_VUES = 'terramemo.classements.vues';
+
+function stockage(): Storage | null {
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Les épreuves où ce pseudo avait une place, vue sur cet appareil ; vide pour un autre pseudo, sans stockage ou s'il est illisible. */
+export function lireVues(pseudo: string): Set<string> {
+  try {
+    const v = JSON.parse(stockage()?.getItem(CLE_VUES) ?? 'null') as { pseudo?: unknown; epreuves?: unknown } | null;
+    if (!v || v.pseudo !== clePseudo(pseudo) || !Array.isArray(v.epreuves)) return new Set();
+    return new Set(v.epreuves.filter((e): e is string => typeof e === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Ajoute ces épreuves aux places vues du pseudo (celles d'un autre pseudo sont oubliées). */
+function garderVues(pseudo: string, epreuves: Iterable<string>): void {
+  const vues = lireVues(pseudo);
+  const avant = vues.size;
+  for (const e of epreuves) if (e !== GENERAL) vues.add(e);
+  if (vues.size === avant && avant) return;
+  try {
+    stockage()?.setItem(CLE_VUES, JSON.stringify({ pseudo: clePseudo(pseudo), epreuves: [...vues] }));
+  } catch {
+    // Sans stockage : elles se relisent par « Chercher mes places ».
+  }
+}
+
+/**
+ * Les épreuves à lire à l'ouverture du 🏆 pour cette période (D52 b) : parmi
+ * `classees`, celles où l'appareil a un record de la période, plus les
+ * places déjà vues (`vues`). Le général se lit toujours, à part.
+ */
+export function epreuvesALire(classees: readonly string[], records: ReadonlyMap<string, RecordChrono>, periode: string, vues: ReadonlySet<string>): string[] {
+  return classees.filter((e) => vues.has(e) || records.has(periode === 'toujours' ? e : `${e}@${periode}`));
+}
+
 export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte: () => void }): Vue {
   const panneau = creer('div', { class: 'essai-bilan panel', id: 'classement-general' });
   panneau.hidden = true;
@@ -64,22 +114,56 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
     return b;
   }
 
-  function ligne(epreuve: string, p: MaPlace | null): HTMLLIElement {
+  /** Une ligne : sa place, « pas encore classé » (lue, ou sans pseudo), rien si elle n'est pas lue. */
+  function ligne(epreuve: string, p: MaPlace | null, lue: boolean): HTMLLIElement {
+    const detail = p ? rangSur(p.rang, p.joueurs) : lue ? T.pas_classe : '';
     const b = creer(
       'button',
       { type: 'button', class: 'essai-serie', 'data-epreuve': epreuve },
-      creer('span', { class: 'essai-serie-nom' }, nomEpreuve(epreuve), creer('span', { class: 'essai-serie-detail' }, p ? rangSur(p.rang, p.joueurs) : T.pas_classe)),
+      creer('span', { class: 'essai-serie-nom' }, nomEpreuve(epreuve), ...(detail ? [creer('span', { class: 'essai-serie-detail' }, detail)] : [])),
       creer('span', { class: 'essai-serie-n' }, p ? scoreCourt(modeEpreuve(epreuve), p.place.points) : ''),
     );
-    b.addEventListener('click', () => detail(epreuve));
+    b.addEventListener('click', () => ouvrirEpreuve(epreuve));
     return creer('li', {}, b);
   }
 
-  /** Les lignes de ces épreuves, par mode sous son titre (les modes sans ligne sont omis). */
-  function groupes(epreuves: readonly string[], places: ReadonlyMap<string, MaPlace>): HTMLElement[] {
+  interface EtatListe {
+    places: ReadonlyMap<string, MaPlace>;
+    /** Lue : sa ligne dit « pas encore classé » quand elle n'a pas de place. */
+    lue(epreuve: string): boolean;
+    /** Le bouton « Chercher mes places » d'un sujet dont des épreuves ne sont pas lues ; null : pas de bouton. */
+    chercher?: (sujet: string) => HTMLElement | null;
+  }
+
+  /**
+   * Les lignes de ces épreuves, par mode sous son titre (h3), puis par sujet
+   * sous le sien (h4) ; le général en tête du Chrono. Les modes et les sujets
+   * sans ligne sont omis.
+   */
+  function groupes(epreuves: readonly string[], e: EtatListe): HTMLElement[] {
+    const lignes = (es: readonly string[]) => creer('ul', { class: 'essai-series' }, ...es.map((x) => ligne(x, e.places.get(x) ?? null, e.lue(x))));
     return MODES_EPREUVE.flatMap((m) => {
-      const lignes = epreuves.filter((e) => modeEpreuve(e) === m).map((e) => ligne(e, places.get(e) ?? null));
-      return lignes.length ? [creer('section', { class: 'classements-groupe', 'data-mode': m }, creer('h3', {}, nomMode(m)), creer('ul', { class: 'essai-series' }, ...lignes))] : [];
+      const duMode = epreuves.filter((x) => modeEpreuve(x) === m);
+      if (!duMode.length) return [];
+      const general = duMode.filter((x) => x === GENERAL);
+      const sujets = [...new Set(duMode.map(sujetEpreuve).filter((x) => x !== null))];
+      return [
+        creer(
+          'section',
+          { class: 'classements-groupe', 'data-mode': m },
+          creer('h3', {}, nomMode(m)),
+          ...(general.length ? [lignes(general)] : []),
+          ...sujets.map((su) => {
+            const b = e.chercher?.(su) ?? null;
+            return creer(
+              'div',
+              { class: 'classements-sujet', 'data-sujet': su },
+              creer('div', { class: 'classements-sujet-tete' }, creer('h4', {}, nomSujet(su)), ...(b ? [b] : [])),
+              lignes(duMode.filter((x) => sujetEpreuve(x) === su)),
+            );
+          }),
+        ),
+      ];
     });
   }
 
@@ -119,34 +203,83 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
       autres,
       creer('div', { class: 'essai-actions' }, boutonRetour()),
     );
-    const toutes = [GENERAL, ...epreuvesClassees(maintenantEpreuves())];
-    // Toutes les épreuves d'un coup, sans place (pas de pseudo, hors ligne, aucune place).
-    const sansPlaces = (texte: string) => {
+    // Les épreuves ouvertes à cette ouverture (bascule datée relue ici).
+    const classees = epreuvesClassees(maintenantEpreuves());
+    const toutes = [GENERAL, ...classees];
+    // Toutes les épreuves d'un coup, sans place (pas de pseudo, hors ligne).
+    const sansPlaces = (texte: string, lue: boolean) => {
       etat.textContent = texte;
       etat.hidden = !texte;
-      mes.replaceChildren(...groupes(toutes, new Map()));
+      mes.replaceChildren(...groupes(toutes, { places: new Map(), lue: () => lue }));
     };
-    if (!pseudo) return sansPlaces('');
+    if (!pseudo) return sansPlaces('', true);
+    const p = periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now());
+    const places = new Map<string, MaPlace>();
+    const lues = new Set<string>();
+
+    /** Lit ces épreuves (mesPlaces), puis redessine ; lève hors ligne. */
+    async function lire(epreuves: readonly string[]): Promise<boolean> {
+      const trouvees = await mesPlaces(p, pseudo!, epreuves);
+      if (n !== lecture) return false;
+      for (const e of epreuves) lues.add(e);
+      for (const x of trouvees) places.set(x.epreuve, x);
+      garderVues(pseudo!, trouvees.map((x) => x.epreuve));
+      return true;
+    }
+
+    /** « Chercher mes places » d'un sujet : ses épreuves pas encore lues, à la demande (D52 b). */
+    function chercher(sujet: string): HTMLElement | null {
+      const aLire = toutes.filter((e) => !lues.has(e) && sujetEpreuve(e) === sujet);
+      if (!aLire.length) return null;
+      const b = creer('button', { type: 'button', class: 'lien classements-chercher', 'data-sujet': sujet }, T.chercher_places);
+      b.addEventListener('click', () => {
+        b.disabled = true;
+        b.textContent = T.chargement;
+        lire(aLire).then(
+          (ok) => ok && dessiner(),
+          () => {
+            if (n !== lecture) return;
+            b.disabled = false;
+            b.textContent = T.chercher_echec;
+          },
+        );
+      });
+      return b;
+    }
+
+    function dessiner(): void {
+      const trouvees = toutes.filter((e) => places.has(e));
+      const reste = toutes.filter((e) => !places.has(e));
+      const e: EtatListe = { places, lue: (x) => lues.has(x), chercher };
+      if (!trouvees.length) {
+        // Aucune place parmi celles lues : toutes les épreuves ici, le reste à chercher sujet par sujet.
+        etat.textContent = T.classements_aucune;
+        etat.hidden = false;
+        mes.replaceChildren(...groupes(reste, e));
+        autres.replaceChildren();
+        plus.hidden = true;
+        return;
+      }
+      etat.hidden = true;
+      mes.replaceChildren(...groupes(trouvees, { places, lue: () => true }));
+      autres.replaceChildren(...groupes(reste, e));
+      plus.hidden = !reste.length;
+    }
+
     void (async () => {
       try {
         // Les scores faits hors ligne d'abord, pour que mes places les montrent.
         await relancerAttente().catch(() => null);
-        const places = await mesPlaces(periode === 'toujours' ? 'toujours' : periodeSemaine(Date.now()), pseudo, toutes);
         if (n !== lecture) return;
-        if (!places.length) return sansPlaces(T.classements_aucune);
-        const parEpreuve = new Map(places.map((p) => [p.epreuve, p]));
-        const reste = toutes.filter((e) => !parEpreuve.has(e));
-        etat.hidden = true;
-        mes.replaceChildren(...groupes(places.map((p) => p.epreuve), parEpreuve));
-        autres.replaceChildren(...groupes(reste, new Map()));
-        plus.hidden = !reste.length;
+        const aLire = [GENERAL, ...epreuvesALire(classees, lireRecords(stockage()), p, lireVues(pseudo))];
+        if (await lire(aLire)) dessiner();
       } catch {
-        if (n === lecture) sansPlaces(T.indisponible);
+        if (n === lecture) sansPlaces(T.indisponible, false);
       }
     })();
   }
 
-  function detail(epreuve: string): void {
+  function ouvrirEpreuve(epreuve: string): void {
     lecture++;
     const versListe = creer('button', { type: 'button', class: 'secondary', id: 'classements-liste' }, T.retour_classements);
     versListe.addEventListener('click', () => liste());

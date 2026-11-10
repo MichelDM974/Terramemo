@@ -122,8 +122,8 @@ export interface MaPlace {
 /**
  * Les places de mon pseudo pour une période dans ces classements (le général,
  * des épreuves), dans leur ordre, seulement ceux où il est classé. L'écran
- * des classements choisit lesquels lire (src/vues/general.ts). Coût : 1
- * lecture par classement demandé, plus 3 par place
+ * des classements choisit lesquels lire (D52 b, src/vues/general.ts :
+ * epreuvesALire). Coût : 1 lecture par classement demandé, plus 3 par place
  * (deux comptes pour le rang, un pour le nombre de joueurs), 4 en Minute.
  */
 export async function mesPlaces(periode: string, pseudo: string, epreuves: readonly string[]): Promise<MaPlace[]> {

@@ -636,6 +636,11 @@ body[data-terrain="reunion"] .essai-bilan {
   color: var(--text);
 }
 .classements-groupe + .classements-groupe { margin-top: 10px; padding-top: 2px; border-top: 1px solid var(--border-2); }
+/* Puis par sujet (étude J2 § 8.3) : son nom (h4), plus discret que le mode, et
+   à droite « Chercher mes places » quand ses places ne sont pas encore lues (D52 b). */
+.classements-sujet-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; margin: 4px 0 0; padding: 0 10px; }
+.classements-sujet h4 { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.classements-chercher { flex: none; min-height: 32px; font-size: 0.82rem; }
 
 .essai-rates { margin: 0 0 14px; padding-left: 18px; font-size: 0.88rem; line-height: 1.5; }
 
