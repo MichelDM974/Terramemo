@@ -121,6 +121,8 @@ describe('démarrage', () => {
     expect([s.getAttribute('role'), s.getAttribute('aria-modal'), s.getAttribute('aria-labelledby')]).toEqual(['dialog', 'true', 'accueil-titre']);
     expect($('#accueil-titre')!.textContent).toBe(T.titre);
     expect($('#accueil-titre img')!.getAttribute('src')).toBe('/assets/icone.svg');
+    // Le titre et l'accroche de la décision « Écran de connexion » (accroche précisée le 11/11).
+    expect([T.titre, T.accroche]).toEqual(['Terramemo', 'Deviens bon en géographie, un peu chaque jour.']);
     expect($('#accueil-accroche')!.textContent).toBe(T.accroche);
     expect(body.dataset.accueil).toBe('ouvert');
     expect([m.entete.inert, m.zone.inert]).toEqual([true, true]);
