@@ -54,8 +54,9 @@ export interface Seances extends FabriqueSeances {
   ileIncertaine(): boolean;
   /**
    * Le journal d'une partie libre (Trouver, Reconnaître hors séance : D11),
-   * dans le domaine du sujet lancé ; sans Lancement (Essai J0 de ⚙), celui
-   * du terrain. null pour un sujet qui n'est pas un domaine.
+   * dans le domaine du sujet lancé (l'Essai J0 de ⚙ a le sien : pays) ; sans
+   * Lancement (repli, plus atteint par aucune partie), celui du terrain. null
+   * pour un sujet qui n'est pas un domaine.
    */
   libre(l: Lancement | null, t: Terrain): ((r: ReponseJouee) => void) | null;
 }
