@@ -25,7 +25,7 @@ import { comptesVisibles, poserDrapeaux, synchroCoupee } from './sync/drapeaux';
 import type { AppareilComptes, RapportComptes } from './sync/comptes';
 import { terminerEffacement } from './sync/effacement';
 import type { ComptesSynchro, Declencheur, Envoi, RapportEnvoi, ResultatLecture } from './sync/envoi';
-import { charger } from './sync/firebase';
+import { charger, sdkDemande } from './sync/firebase';
 import { brancherProfil, etatCompteConnu, poserEtatCompte, type ChangementProfil } from './sync/pont';
 import { depotSessionIndexedDb, type Session } from './sync/session';
 import { vueALaDemande } from './vues/a-la-demande';
@@ -418,6 +418,8 @@ export interface Terramemo {
   comptes(): Promise<RapportComptes | null>;
   /** Synchro (J1b, lot 3) : ce que le pilote compare d'un appareil à l'autre ; ne charge pas Firebase. */
   synchro(): Promise<RapportSynchro>;
+  /** Le SDK de Firebase demandé dans cette page (src/sync/firebase.ts, charger) : jamais pour un invité qui n'y touche pas. */
+  sdkDemande(): boolean;
 }
 
 /** Ce que window.terramemo.synchro() rend (étude du J1b, § 5.8, 2). */
@@ -473,6 +475,7 @@ window.terramemo = {
     }
   },
   synchro: () => rapportSynchro(),
+  sdkDemande,
 };
 
 /** Ce qui ne vaut que pour les rendus canvas et webgl du monde : rien pour une carte SVG. */

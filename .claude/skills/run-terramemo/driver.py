@@ -2394,6 +2394,14 @@ ETAT_ACCUEIL = """(() => {
 })()"""
 
 
+def saisir_pseudo(p, valeur):
+    """Le champ du pseudo de l'invité vidé, puis `valeur` tapée comme au
+    clavier (Input.insertText : un événement input, comme un vrai joueur)."""
+    p.js("(() => { const c = document.getElementById('accueil-pseudo'); c.focus(); c.select(); })()")
+    p.cdp("Input.insertText", text=valeur)
+    p.pause(100)
+
+
 def ui_accueil(p, capturer, defauts, base, parametres="", avant=None):
     """L'écran de connexion de la première ouverture (décision « Écran de
     connexion »), sur un appareil qui n'a pas choisi : le choix gardé et le
@@ -2474,13 +2482,16 @@ def ui_accueil(p, capturer, defauts, base, parametres="", avant=None):
     champ = p.js("[document.activeElement.id, document.getElementById('accueil-pseudo').autocomplete]")
     if champ != ["accueil-pseudo", "nickname"]:
         defaut(f"pseudo de l'invité : focus ou autocomplete inattendus ({champ})")
-    p.js("document.getElementById('accueil-pseudo').value = 'a'")
+    saisir_pseudo(p, "a")
     cliquer(p, "#accueil-commencer")
     p.pause(200)
     erreur = texte(p, "#accueil-erreur")
     if "2 à 20 caractères" not in erreur or not visible(p, "#accueil"):
         defaut(f"un pseudo d'un caractère n'est pas refusé ({erreur!r})")
-    p.js("document.getElementById('accueil-pseudo').value = 'Pilote'")
+    # Saisi comme au clavier (événements input) : l'avis du pseudo refusé s'efface.
+    saisir_pseudo(p, "Pilote")
+    if texte(p, "#accueil-erreur"):
+        defaut(f"l'avis du pseudo refusé reste sous « Pilote » ({texte(p, '#accueil-erreur')!r})")
     capturer("71-accueil-invite")
     cliquer(p, "#accueil-commencer")
     p.pause(400)
@@ -2493,6 +2504,12 @@ def ui_accueil(p, capturer, defauts, base, parametres="", avant=None):
     reseau = [u for u in list(p.requetes.values())[requetes_avant:] if MOTIF_FIREBASE.search(u)]
     if reseau:
         defaut(f"l'invité a appelé Firebase : {reseau[:3]}")
+    # Ni appel ni SDK : charger() sans utilisateur ne fait aucune requête, d'où le contrat de la page
+    # et les morceaux du SDK servis par le site lui-même (dev : deps de vite ; build : index.esm-*).
+    sdk = p.js(r"""[window.terramemo.sdkDemande(), performance.getEntriesByType('resource').map((r) => r.name)
+        .filter((n) => /node_modules\/.*firebase|\/assets\/index\.esm-/.test(n))]""")
+    if sdk[0] or sdk[1]:
+        defaut(f"l'invité a chargé le SDK de Firebase : demandé {sdk[0]}, morceaux {sdk[1][:3]}")
     p.js('window.terramemo.carte.zoomerSur("CHE")')
     p.pause(600)
     pt = position(p, "CHE")

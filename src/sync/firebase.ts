@@ -62,6 +62,9 @@ export function charger(): Promise<Service> {
   return service;
 }
 
+/** Le SDK a-t-il été demandé (charger) ? Le pilote vérifie qu'un invité ne le charge pas (window.terramemo.sdkDemande). */
+export const sdkDemande = (): boolean => service !== null;
+
 let creation: Promise<string> | null = null;
 
 /**

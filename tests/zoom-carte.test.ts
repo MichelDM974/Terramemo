@@ -91,6 +91,11 @@ describe('boutons de zoom (#23)', () => {
       body.dataset.accueil = etat;
       expect([etat, frapper('+')]).toEqual([etat, false]);
     }
+    // Confidentialité lue sans avoir choisi (panneau suspendu) : pas une vue où l'on zoome.
+    body.dataset.accueil = 'suspendu';
+    body.dataset.vue = 'confidentialite';
+    expect(frapper('+')).toBe(false);
+    body.dataset.vue = 'carte';
     delete body.dataset.accueil;
     expect(frapper('+')).toBe(true);
     expect(carte!.zoomerDe.mock.calls).toEqual([[2]]);

@@ -219,11 +219,16 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   bouton sous 44 px, n'a pas Google au serveur de dev, si `#jouer`,
   `#compte` ou `#classement` le contournent, si la touche + zoome dessous,
   si Confidentialité ne s'ouvre pas par-dessus ou si son « Retour » ne
-  ramène pas au panneau, si le pseudo « a » passe, si le choix, le pseudo,
-  l'en-tête rendu ou la carte touchable manquent après « Commencer », si
-  une requête part vers Firebase (Auth, Firestore) pendant le chemin de
-  l'invité, si le panneau revient au rechargement, ou si le formulaire
-  e-mail n'a pas `email` / `current-password`. À la fin, le choix
+  ramène pas au panneau, si le pseudo « a » passe, si son avis reste sous
+  « Pilote » (saisi par `Input.insertText` : de vrais événements input), si
+  le choix, le pseudo, l'en-tête rendu ou la carte touchable manquent après
+  « Commencer », si une requête part vers Firebase (Auth, Firestore) pendant
+  le chemin de l'invité ou si le SDK y a été demandé ou chargé
+  (`terramemo.sdkDemande()`, morceaux `node_modules/…firebase` en dev,
+  `assets/index.esm-*` au build : charger() sans utilisateur ne fait aucune
+  requête), si le panneau revient au rechargement, si le formulaire
+  e-mail n'a pas `email` / `current-password`, ou si le focus n'y va pas au
+  champ Adresse puis, après « Annuler », à « Se connecter par e-mail ». À la fin, le choix
   « invite » reposé et le pseudo retiré.
 - Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
   dans `ui_seance`) : `38-accueil-memoire` (l'accueil après Apprendre :
