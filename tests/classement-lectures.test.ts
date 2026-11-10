@@ -5,11 +5,13 @@
 // déjà vues (epreuvesALire, src/vues/general.ts). Firestore est remplacé par
 // un compteur : rien ne part sur le réseau.
 import { describe, expect, it, vi } from 'vitest';
-import { epreuvesClassees, epreuvesDuGeneral, idEpreuve, type RecordChrono } from '../src/epreuve/chrono';
+import { epreuvesClassees, epreuvesDuGeneral, idEpreuve, reglerHorlogeEpreuves, type RecordChrono } from '../src/epreuve/chrono';
 
 /** Les places en ligne du pseudo « michel » : chemin de la collection → place. */
 const places = new Map<string, Record<string, unknown>>();
 let lectures = 0;
+/** Les collections lues par getDoc, dans l'ordre. */
+const lus: string[] = [];
 const fs = {
   collection: (_db: unknown, ...segments: string[]) => segments.join('/'),
   doc: (col: string, id: string) => ({ col, id }),
@@ -17,6 +19,7 @@ const fs = {
   where: () => null,
   getDoc: async (ref: { col: string; id: string }) => {
     lectures++;
+    lus.push(ref.col);
     const p = places.get(ref.col);
     return { id: ref.id, exists: () => !!p, data: () => p ?? {} };
   },
@@ -30,7 +33,7 @@ vi.mock('../src/sync/firebase', () => ({
   compte: async () => 'uid',
 }));
 
-const { GENERAL, mesPlaces } = await import('../src/epreuve/classement');
+const { GENERAL, mesPlaces, placesDuPseudo } = await import('../src/epreuve/classement');
 const { epreuvesALire } = await import('../src/vues/general');
 
 const APRES = Date.parse('2026-11-16T00:00:00Z');
@@ -83,7 +86,23 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     expect(lectures).toBe(0);
   });
 
-  it('le général se lit dans les Chrono des sujets ouverts : 8 lectures par période avant la bascule, 15 après', () => {
+  it('le général se lit dans les Chrono des sujets ouverts : 8 lectures par période avant la bascule, 15 après', async () => {
     expect([epreuvesDuGeneral(AVANT).length, epreuvesDuGeneral(APRES).length]).toEqual([8, 15]);
+    // placesDuPseudo (publication du général) suit la bascule : les Chrono des capitales ne se lisent qu'après.
+    try {
+      for (const [t, n] of [
+        [AVANT, 8],
+        [APRES, 15],
+      ] as const) {
+        reglerHorlogeEpreuves(() => t);
+        lectures = 0;
+        lus.length = 0;
+        await placesDuPseudo('toujours', 'Michel');
+        expect(lectures).toBe(n);
+        expect(lus).toEqual(epreuvesDuGeneral(t).map(col));
+      }
+    } finally {
+      reglerHorlogeEpreuves(() => Date.now());
+    }
   });
 });
