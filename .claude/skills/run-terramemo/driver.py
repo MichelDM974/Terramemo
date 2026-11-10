@@ -11,7 +11,9 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
     ui [--width 384] [--rendu r]
                                 captures des vues (téléphone ou PC), île
                                 de La Réunion et Nommer compris, séance
-                                du J1a en dernier
+                                du J1a, puis les épreuves des capitales
+                                (?horloge= au serveur de dev avant le 16/11)
+                                et l'écran de connexion
     seance [--width 384]        la séance du J1a seule (Révision du jour,
                                 Apprendre, le lendemain par ?horloge=1)
     accueil [--width 384]       l'écran de connexion de la première ouverture
@@ -1045,6 +1047,19 @@ def texte(page, selecteur):
 EPREUVES = ("chrono", "sansfaute", "minute")
 # Les séries des pays dans Jouer, dans l'ordre de partout (décision « Écran Jouer »).
 SERIES_PAYS = ["tous", "Africa", "North America", "South America", "Asia", "Europe", "Oceania"]
+# La bascule des épreuves des capitales (src/epreuve/chrono.ts, EPREUVES_OUVERTES ;
+# décision « Ouverture des épreuves d'un sujet ») : le lundi 16/11/2026 à 0 h UTC.
+OUVERTURE_CAPITALES_MS = 1_794_787_200_000
+
+
+def capitales_ouvertes():
+    """Les épreuves classées des capitales sont-elles ouvertes, à l'heure du PC ?"""
+    return time.time() * 1000 >= OUVERTURE_CAPITALES_MS
+
+
+def sujets_classe():
+    """Les sujets attendus sous Classé : Capitales à partir de sa bascule."""
+    return ["pays", "capitales", "communes"] if capitales_ouvertes() else ["pays", "communes"]
 
 
 def niveau_jouer(page):
@@ -1373,7 +1388,8 @@ def ui_croix(p, capturer, defauts):
 def ui_jouer(p, capturer, defauts):
     """Captures 15 à 15e (décision « Écran Jouer », #18) : l'arbre de Jouer,
     après les épreuves (records de l'Amérique du Sud). Sujets : Pays,
-    Capitales, Communes sous Entraînement ; Pays, Communes sous Classé.
+    Capitales, Communes sous Entraînement ; Pays, Communes sous Classé
+    (Capitales en plus à partir du lundi 16/11/2026, 0 h UTC : sujets_classe).
     `15-jouer` (Entraînement et Classé, sans Rejouer), `15b-classe-sujets`,
     `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
     ams-epreuves` (les trois épreuves, leurs records, les règles ouvertes par
@@ -1396,15 +1412,15 @@ def ui_jouer(p, capturer, defauts):
         defauts.append("Jouer : « Rejouer » en tête de Jouer (choix du 10/11 : il ne vit plus qu'au bilan)")
     panneau_jouer(p, defauts, "Jouer")
     capturer("15-jouer")
-    # Les sujets, dans l'ordre de D53 b (Communes en dernier) ; Capitales sous Entraînement seulement (ses épreuves : partie C du lot 1).
+    # Les sujets, dans l'ordre de D53 b (Communes en dernier) ; Capitales sous Classé à sa bascule (lundi 16/11, 0 h UTC).
     cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
     if lire("data-sujet") != ["pays", "capitales", "communes"]:
         defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de Pays, Capitales, Communes")
     cliquer(p, "#jouer-haut")
     p.pause(300)
     cliquer(p, '#jouer-panneau [data-branche="classe"]')
-    if lire("data-sujet") != ["pays", "communes"]:
-        defauts.append(f"Classé : sujets {lire('data-sujet')} au lieu de Pays, Communes")
+    if lire("data-sujet") != sujets_classe():
+        defauts.append(f"Classé : sujets {lire('data-sujet')} au lieu de {sujets_classe()}")
     panneau_jouer(p, defauts, "Classé")
     capturer("15b-classe-sujets")
     cliquer(p, '#jouer-panneau [data-sujet="pays"]')
@@ -1935,6 +1951,8 @@ def commande_ui(args):
         # Avant la séance : sa grappe de capitales (Océanie) finie, la Révision du jour reste « À jour » après celle des pays.
         ui_capitales(p, capturer, defauts, base, rendu)
         ui_seance(p, capturer, defauts, base, rendu)
+        # Après la séance : son ?horloge= (serveur de dev) décale aussi le journal.
+        ui_epreuves_capitales(p, capturer, defauts, base, rendu)
         # En dernier : il donne un pseudo à l'invité (retiré ensuite), qu'aucune partie ne doit publier.
         ui_accueil(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
@@ -2312,6 +2330,139 @@ def ui_capitales(p, capturer, defauts, base, parametres=""):
     if "Bolivie" not in barre or anneaux < 1:
         defauts.append(f"recherche « La Paz » : {barre!r}, {anneaux} anneau (la Bolivie et l'anneau à la ville attendus)")
     capturer("91-capitales-recherche-la-paz")
+
+
+def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
+    """Captures 92 à 96 (lot 1 du J2, partie C ; décision « Ouverture des
+    épreuves d'un sujet ») : les épreuves classées des capitales. Avant la
+    bascule (lundi 16/11/2026, 0 h UTC), sur une page rechargée, Classé n'a
+    que Pays et Communes. Ensuite (la bascule passée, ou au serveur de
+    développement par `?horloge=` qui l'avance juste après le 16/11 ; sans
+    effet sur le site construit, où l'étape s'arrête là) : Classé › Capitales
+    (92), ses 7 séries, Océanie et ses trois épreuves (93), un Chrono des
+    capitales d'Océanie joué en entier (94 : « Pays dont la capitale est : »,
+    une ville et jamais un Qid ; 95 : le bilan « Chrono · Capitales ·
+    Océanie »), puis le 🏆 (96) : les épreuves des capitales sous leur
+    sujet. Sans pseudo (invité du pilote) : rien n'est publié. DÉFAUT à
+    tout écart."""
+    ouvertes = capitales_ouvertes()
+    dev = serveur_de_dev(base)
+
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def recharger(extra=""):
+        # Vrai rechargement (vers la même adresse, seul le « # » changerait) : la bascule relue au démarrage.
+        p.goto("about:blank")
+        p.goto(base + "?mesures=0" + extra + parametres + "#carte")
+        p.attendre_carte()
+
+    def classe():
+        p.js('location.hash = "#jouer/classe"')
+        attendre_visible(p, "#jouer-panneau")
+        p.pause(200)
+        return lire("data-sujet")
+
+    recharger()
+    sujets = classe()
+    dire(f"  Classé (bascule {'passée' if ouvertes else 'à venir'}) : {sujets}")
+    if sujets != sujets_classe():
+        defauts.append(f"Classé : sujets {sujets} au lieu de {sujets_classe()} (bascule {'passée' if ouvertes else 'à venir'})")
+    horloge = ""
+    if not ouvertes:
+        if not dev:
+            dire("  épreuves des capitales : sautées (bascule à venir ; ?horloge= n'agit qu'au serveur de développement)")
+            return
+        # Juste après la bascule : le décalage en jours de ?horloge= (main.ts), un peu plus.
+        horloge = f"&horloge={(OUVERTURE_CAPITALES_MS - time.time() * 1000) / 86_400_000 + 0.01:.4f}"
+        recharger(horloge)
+        sujets = classe()
+        dire(f"  Classé, {horloge} : {sujets}")
+        if sujets != ["pays", "capitales", "communes"]:
+            defauts.append(f"Classé {horloge} : sujets {sujets} au lieu de Pays, Capitales, Communes")
+    try:
+        panneau_jouer(p, defauts, "Classé (Capitales)")
+        capturer("92-classe-capitales")
+        cliquer(p, '#jouer-panneau [data-sujet="capitales"]')
+        series = lire("data-serie")
+        if series != SERIES_PAYS:
+            defauts.append(f"Classé › Capitales : séries {series} au lieu de celles des pays (D37 c)")
+        cliquer(p, '#jouer-panneau [data-serie="Oceania"]')
+        modes = lire("data-mode")
+        fil = texte(p, "#jouer-panneau .jouer-fil")
+        dire(f"  Classé › Capitales › Océanie : {modes}, fil {fil!r}")
+        if modes != list(EPREUVES):
+            defauts.append(f"Classé › Capitales › Océanie : exercices {modes}")
+        if [x.strip() for x in fil.split("›")] != ["Classé", "Capitales", "Océanie"]:
+            defauts.append(f"fil d'Ariane {fil!r} au lieu de « Classé › Capitales › Océanie »")
+        capturer("93-classe-capitales-oceanie")
+
+        # Le Chrono des capitales d'Océanie, joué en entier (14 pays), chaque toucher sur le pays demandé.
+        cliquer(p, '#jouer-panneau [data-mode="chrono"]')
+        attendre_visible(p, "#barre-chrono", 20)
+        p.pause(300)
+        p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+        bilan = '!document.getElementById("chrono-bilan").hidden'
+        vus = set()
+        for i in range(20):
+            if p.js(bilan):
+                break
+            consigne = texte(p, "#barre-chrono .essai-consigne")
+            cible = p.js('document.querySelector("#barre-chrono .essai-consigne").dataset.cible')
+            if not consigne.startswith("Pays dont la capitale est") or MOTIF_QID.search(consigne):
+                defauts.append(f"Chrono des capitales, {cible} : consigne {consigne!r}")
+            vus.add(cible)
+            p.pause(PAUSE_AVANT_TOUCHER_MS)
+            pt = position_visible(p, cible, "#barre-chrono")
+            if not pt:
+                defauts.append(f"Chrono des capitales : pas de position pour {cible}")
+                break
+            p.toucher(pt["x"], pt["y"])
+            p.pause(250)
+            retro = texte(p, "#barre-chrono .essai-retro")
+            if i == 0:
+                dire(f"  Chrono des capitales ({cible}) : {consigne!r} → {retro!r}")
+                capturer("94-capitales-chrono")
+            if not retro.startswith("Juste"):
+                defauts.append(f"Chrono des capitales, {cible} touché : rétroaction {retro!r}")
+            p.pause(1900)
+        fin = time.monotonic() + 5
+        while not p.js(bilan) and time.monotonic() < fin:
+            p.pause(100)
+        lu = p.js('document.getElementById("chrono-bilan").innerText') or ""
+        titre = texte(p, "#chrono-bilan h2")
+        dire(f"  Chrono des capitales, bilan ({len(vus)} pays) : {titre!r}, {lu[:160]!r}")
+        if titre != "Chrono · Capitales · Océanie":
+            defauts.append(f"bilan du Chrono des capitales titré {titre!r} (nomEpreuve : « Chrono · Capitales · Océanie »)")
+        if len(vus) != 14 or "14 / 14 justes" not in lu:
+            defauts.append(f"Chrono des capitales d'Océanie : {len(vus)} pays posés, bilan {lu[:120]!r} (14 / 14 justes attendus)")
+        if MOTIF_QID.search(lu):
+            defauts.append(f"bilan du Chrono des capitales : un Qid affiché ({lu[:120]!r})")
+        capturer("95-capitales-chrono-bilan")
+        croix_vers_carte(p, defauts, "bilan du Chrono des capitales", "#chrono-bilan")
+
+        # Le record dans Jouer, puis le 🏆 : les épreuves des capitales sous leur sujet (h4).
+        p.js('location.hash = "#jouer/classe/capitales/Oceania"')
+        attendre_visible(p, "#jouer-panneau")
+        p.pause(200)
+        record = p.js("(document.querySelector('#jouer-panneau [data-mode=\"chrono\"] .jouer-record') || {}).innerText || ''")
+        if "pts" not in record:
+            defauts.append(f"Classé › Capitales › Océanie : pas de record du Chrono ({record!r})")
+        cliquer(p, "#jouer-fermer")
+        p.pause(300)
+        cliquer(p, "#classement-btn")
+        attendre_visible(p, "#classement-general .essai-serie")
+        h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
+        ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:capitales:Oceania"]')
+        dire(f"  🏆 : sujets {h4[:3]}…, ligne {ligne!r}")
+        if h4[:3] != ["Pays", "Capitales", "Communes"] or "Capitales · Océanie" not in ligne:
+            defauts.append(f"🏆 : sujets {h4}, ligne des capitales d'Océanie {ligne!r}")
+        capturer("96-classements-capitales")
+        croix_vers_carte(p, defauts, "🏆", "#classement-general")
+    finally:
+        # La suite du pilote sans le décalage de l'horloge (journal et bascule).
+        if horloge:
+            recharger()
 
 
 def revision_du_jour(p):

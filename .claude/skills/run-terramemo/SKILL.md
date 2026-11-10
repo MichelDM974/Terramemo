@@ -93,8 +93,9 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   Chaque partie se lance par l'arbre de Jouer (décision « Écran Jouer »,
   `jouer_partie(page, mode, serie)` : `#jouer`, puis dans `#jouer-panneau`
   `[data-branche=entrainement|classe]`, `[data-sujet=pays|capitales|communes]`
-  (dans cet ordre, D53 b ; `capitales` sous Entraînement seulement tant que
-  ses épreuves ne sont pas ouvertes), `[data-serie=<id>]` (sauf l'île :
+  (dans cet ordre, D53 b ; `capitales` sous Classé à partir de la bascule
+  datée de ses épreuves, le lundi 16/11/2026 à 0 h UTC : `EPREUVES_OUVERTES`
+  de `src/epreuve/chrono.ts`, `sujets_classe()` du pilote), `[data-serie=<id>]` (sauf l'île :
   niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute|
   minute]`, qui lance la partie ; `jouer_jusqua(page, mode, serie, sujet)`
   s'arrête aux exercices, le sujet déduit de la série à défaut). Une
@@ -104,7 +105,12 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   (décision « En-tête ») : `16-recherche` (« sain » : pays et communes mêlés),
   `17-recherche-pays` (le Vatican à Entrée : vol, anneau),
   `18-recherche-commune` (Saint-Denis au doigt : la carte de l'île, puis
-  « Monde » ramène au monde), `19-classement` (🏆 : mes places par épreuve, « Retour » à la carte).
+  « Monde » ramène au monde), `19-classement` (🏆 : mes places par épreuve,
+  rangées par mode puis par sujet, `.classements-sujet[data-sujet]` et son
+  `h4` ; « Retour » à la carte). Lectures du 🏆 (D52 b) : le général et les
+  épreuves où l'appareil a un record, plus les places déjà vues
+  (`terramemo.classements.vues`, par pseudo) ; le reste par « Chercher mes
+  places » (`.classements-chercher[data-sujet]`), sujet par sujet.
   Puis Sans faute et Minute (#14) sur l'Amérique du Sud :
   `20-sansfaute-faux` (deux justes, puis une erreur), `21-sansfaute-bilan`
   (« 2 d'affilée »), `22-minute-faux` (une erreur au premier toucher : la
@@ -261,6 +267,27 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   conseil ou un bilan, ou si une fiche hors `capitales:` est écrite.
   Comme la Révision du jour d'après n'ouvre que la grappe de pays, sa
   grappe de capitales finie la laisse « À jour » pour `ui_seance`.
+- Les épreuves classées des capitales (lot 1 du J2, partie C,
+  `ui_epreuves_capitales`, après `ui_seance`) : sur une page rechargée,
+  Classé n'a que Pays et Communes avant la bascule (lundi 16/11/2026, 0 h
+  UTC), Pays, Capitales, Communes ensuite. Avant la bascule, au serveur de
+  développement seulement, la page se recharge avec `?horloge=<jours>`
+  (`main.ts` : il avance aussi l'horloge de la bascule, et le journal ; d'où
+  sa place après la séance, et un rechargement sans lui à la fin) ; sur le
+  site construit, l'étape s'arrête à la vérification de Classé.
+  `92-classe-capitales` (Classé : Pays, Capitales, Communes),
+  `93-classe-capitales-oceanie` (les 7 séries des pays, D37 c ; Océanie :
+  Chrono, Sans faute, Minute ; fil « Classé › Capitales › Océanie »),
+  `94-capitales-chrono` (« Pays dont la capitale est : », une ville, jamais
+  un Qid), le Chrono des capitales d'Océanie joué en entier, chaque toucher
+  sur le pays demandé (`position_visible(p, cible, "#barre-chrono")`),
+  `95-capitales-chrono-bilan` (titre « Chrono · Capitales · Océanie »,
+  « 14 / 14 justes »), le record sous Classé › Capitales › Océanie, puis
+  `96-classements-capitales` (🏆 : Pays, Capitales, Communes en `h4`, la
+  ligne `[data-epreuve="chrono:capitales:Oceania"]` « Capitales ·
+  Océanie »). Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout
+  écart. Une fois le site en ligne avec la bascule passée, `ui` le vérifie
+  sur le vrai site sans crochet.
 - Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
   dans `ui_seance`) : `38-accueil-memoire` (l'accueil après Apprendre :
   légende `#legende-memoire` « Jamais vu · faible → maîtrisé · N/195
@@ -1482,6 +1509,17 @@ npx firebase deploy --only firestore    # après un changement de firestore.rule
 Depuis le PC, juste après le commit. **`deploy` publie `dist/` tel qu'il
 est sur le disque, pas le dernier commit** : rebâtir juste avant, sur un
 arbre propre (`git status`).
+
+**Règles d'abord** quand un sujet ouvre ses épreuves classées (étude J2
+§ 8.2) : `npx firebase deploy --only firestore` (après `npm run
+test:regles`), puis Hosting. Sinon chaque publication des nouvelles
+épreuves, et le général qui les compte, est refusée (« Score refusé par le
+classement »). Les épreuves des capitales s'ouvrent seules le lundi
+16/11/2026 à 0 h UTC (4 h à La Réunion), par la bascule datée du code
+(`EPREUVES_OUVERTES`, décision « Ouverture des épreuves d'un sujet ») :
+règles et site en ligne avant, rien à faire ce jour-là. Le général des
+règles monte à chaque sujet ouvert (804 avec les capitales :
+`BORNE_GENERAL`, que `tests/chrono.test.ts` compare aux règles).
 
 ## Pièges
 
