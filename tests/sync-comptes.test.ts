@@ -99,6 +99,11 @@ describe('suppression d’un compte Google : la réauthentification (§ 7.1, ét
       reload: async () => undefined,
     };
     class GoogleAuthProvider {
+      parametres: Record<string, string> = {};
+      setCustomParameters(x: Record<string, string>) {
+        this.parametres = x;
+        return this;
+      }
       static credential(idToken: string) {
         return { idToken };
       }
@@ -106,7 +111,7 @@ describe('suppression d’un compte Google : la réauthentification (§ 7.1, ét
     const auth = {
       onAuthStateChanged: () => () => undefined,
       GoogleAuthProvider,
-      reauthenticateWithPopup: async (_u: unknown, p: unknown) => void appels.push(`popup:${p instanceof GoogleAuthProvider}`),
+      reauthenticateWithPopup: async (_u: unknown, p: GoogleAuthProvider) => void appels.push(`popup:${p instanceof GoogleAuthProvider}:${p.parametres.login_hint}`),
       reauthenticateWithCredential: async (_u: unknown, c: { idToken?: string }) => void appels.push(`credential:${c.idToken}`),
     };
     // La lecture du profil (étape 3) échoue : la suppression s'arrête là, après la réauthentification.
@@ -120,7 +125,7 @@ describe('suppression d’un compte Google : la réauthentification (§ 7.1, ét
     const g = google();
     const c = creerComptes({ session: g.session, service: g.service, natif: () => false });
     await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
-    expect(g.appels).toEqual(['popup:true']);
+    expect(g.appels).toEqual(['popup:true:gael@gmail.com']);
     // Réauthentifié, puis le profil refusé avant la pierre tombale : rien d'irréversible, le drapeau
     // posé par cet appel est levé (sans quoi l'appareil resterait bloqué tant que les règles refusent).
     expect((await g.session.lire())?.suppression).toBeNull();

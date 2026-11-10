@@ -39,17 +39,24 @@ describe('googlePopup : la fenêtre de Google (site)', () => {
     return { appels, s: { m: { auth, fs: {} }, db: {}, a } as never };
   }
 
-  it('connexion et lien proposent le choix du compte ; la réauthentification, le compte connu', async () => {
+  it('toujours le choix du compte ; le compte attendu proposé (login_hint) à la réauthentification et à la reconnexion', async () => {
     const { appels, s } = monter();
     const g = googlePopup();
-    const u = { uid: 'anonyme' } as never;
+    const u = { uid: 'anonyme', email: null } as never;
+    const compte = { uid: 'g', email: 'ana@gmail.com' } as never;
     await g.connecter(s);
     await g.lier(s, u);
-    await g.reauthentifier(s, u);
+    await g.reauthentifier(s, compte);
+    await g.connecter(s, 'ana@gmail.com');
+    await g.connecter(s, null);
+    // Sans login_hint, le navigateur qui n'a plus que la session Google d'un autre compte le prendrait
+    // sans rien montrer : auth/user-mismatch à chaque essai.
     expect(appels.map((x) => [x.f, x.p instanceof GoogleAuthProvider, x.p.parametres])).toEqual([
       ['signInWithPopup', true, { prompt: 'select_account' }],
       ['linkWithPopup', true, { prompt: 'select_account' }],
-      ['reauthenticateWithPopup', true, {}],
+      ['reauthenticateWithPopup', true, { prompt: 'select_account', login_hint: 'ana@gmail.com' }],
+      ['signInWithPopup', true, { prompt: 'select_account', login_hint: 'ana@gmail.com' }],
+      ['signInWithPopup', true, { prompt: 'select_account' }],
     ]);
     expect(appels[1]!.u).toBe(u);
   });

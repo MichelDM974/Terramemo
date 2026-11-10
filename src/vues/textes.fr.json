@@ -482,6 +482,7 @@
     "google_bientot": "Google arrive bientôt dans l'appli. En attendant, un compte Google se retrouve sur le site : terramemo-geo.web.app.",
     "google_en_cours": "Fenêtre de Google ouverte…",
     "google_connecte": "Connecté avec Google : {adresse}. Tes progrès vont dans ton compte.",
+    "google_compte_attendu": "le bon compte",
     "se_connecter_email": "Se connecter par e-mail",
     "creer": "Créer un compte",
     "titre_creer": "Créer un compte",
@@ -645,11 +646,11 @@
       "terramemo/suppression-inachevee": "Une suppression du compte est inachevée : reprends-la d'abord.",
       "terramemo/suppression-engagee": "La suppression est déjà engagée : elle ne s'annule plus, reprends-la.",
       "terramemo/suppression-reconnexion": "Ce compte se reconnecte sur le site : terramemo-geo.web.app.",
-      "auth/user-mismatch": "Ce n'est pas le compte connecté : choisis celui-là.",
+      "auth/user-mismatch": "Ce n'est pas le compte connecté : choisis {adresse} dans la fenêtre de Google.",
       "auth/web-storage-unsupported": "Ce navigateur refuse la fenêtre de Google (données de sites bloquées ?) : passe par l'e-mail.",
       "terramemo/google-reessayer": "Connexion Google interrompue : touche encore le bouton de Google.",
       "terramemo/google-apk-bientot": "Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site.",
-      "terramemo/google-autre-compte": "Ce n'est pas le compte à supprimer : choisis le sien dans la fenêtre de Google."
+      "terramemo/google-autre-compte": "Ce n'est pas le compte à supprimer : choisis {adresse} dans la fenêtre de Google."
     }
   },
   "confidentialite": {

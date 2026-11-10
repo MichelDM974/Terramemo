@@ -36,7 +36,7 @@ describe('traduire', () => {
       'auth/operation-not-allowed': "Ce moyen de connexion n'est pas encore ouvert",
       'auth/unauthorized-domain': 'Connexion impossible depuis cette adresse du site',
       // Réauthentification Google avant une suppression (§ 7.1) : un autre compte Google choisi dans la fenêtre.
-      'auth/user-mismatch': "Ce n'est pas le compte connecté : choisis celui-là.",
+      'auth/user-mismatch': "Ce n'est pas le compte connecté : choisis le bon compte dans la fenêtre de Google.",
       NO_CREDENTIAL_AVAILABLE: 'Aucun compte Google sur ce téléphone.',
       PROVIDER_CONFIGURATION_ERROR: 'Services Google Play absents ou à mettre à jour.',
     };
@@ -83,6 +83,13 @@ describe('traduire', () => {
     // Sans nom de bouton : il s'appelle « Se reconnecter avec Google » sur l'écran de la session perdue.
     expect(traduire(err('terramemo/google-reessayer')).texte).toBe('Connexion Google interrompue : touche encore le bouton de Google.');
     expect(traduire(err('terramemo/google-apk-bientot')).texte).toBe("Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site.");
+  });
+
+  it('le compte à choisir dans la fenêtre de Google est nommé (réauthentification, reprise d’une suppression)', () => {
+    const avec = (code: string) => Object.assign(err(code), { customData: { email: 'ana@gmail.com' } });
+    expect(traduire(avec('auth/user-mismatch')).texte).toBe("Ce n'est pas le compte connecté : choisis ana@gmail.com dans la fenêtre de Google.");
+    expect(traduire(avec('terramemo/google-autre-compte')).texte).toBe("Ce n'est pas le compte à supprimer : choisis ana@gmail.com dans la fenêtre de Google.");
+    expect(traduire(err('terramemo/google-autre-compte')).texte).toBe("Ce n'est pas le compte à supprimer : choisis le bon compte dans la fenêtre de Google.");
   });
 
   it('adresseErreur : l’adresse que Firebase met dans l’erreur (compte à mot de passe rencontré par Google)', () => {

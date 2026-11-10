@@ -18,11 +18,18 @@ type UserCredential = import('firebase/auth').UserCredential;
 type AuthCredential = import('firebase/auth').AuthCredential;
 
 export interface Google {
-  /** Connexion à un compte Google : celui qui existe déjà, sinon un compte neuf (isNewUser). */
-  connecter(s: Service): Promise<UserCredential>;
+  /**
+   * Connexion à un compte Google : celui qui existe déjà, sinon un compte neuf
+   * (isNewUser). `indice` : l'adresse du compte attendu (reconnexion d'une
+   * session perdue, reprise d'une suppression), que la fenêtre propose.
+   */
+  connecter(s: Service, indice?: string | null): Promise<UserCredential>;
   /** Lien de l'invité anonyme `u` à un compte Google : l'uid est gardé (§ 2.2). */
   lier(s: Service, u: User): Promise<UserCredential>;
-  /** Réauthentification du compte `u` (suppression, § 7.1) ; auth/user-mismatch si un autre compte Google est choisi. */
+  /**
+   * Réauthentification du compte `u` (suppression, § 7.1), son adresse
+   * proposée ; auth/user-mismatch si un autre compte Google est choisi.
+   */
   reauthentifier(s: Service, u: User): Promise<void>;
   /**
    * Après un lien refusé parce que le compte Google, ou son adresse, est déjà
@@ -35,24 +42,30 @@ export interface Google {
 type ErreurAuth = Parameters<typeof import('firebase/auth').GoogleAuthProvider.credentialFromError>[0];
 
 /**
- * La fenêtre de Google (site). Connexion et lien proposent toujours le choix
- * du compte (`prompt: select_account`) : sinon, le seul compte Google du
- * navigateur est pris sans rien demander, ce qui gêne sur un appareil
- * partagé. La réauthentification laisse Google proposer le compte connu.
+ * La fenêtre de Google (site). Elle propose toujours le choix du compte
+ * (`prompt: select_account`) : sinon, le seul compte Google du navigateur est
+ * pris sans rien demander, ce qui gêne sur un appareil partagé, et une
+ * réauthentification dont le navigateur n'a plus que la session Google d'un
+ * autre compte tournerait en boucle sur auth/user-mismatch. Le compte attendu
+ * (réauthentification, reconnexion) est donné en `login_hint` : le SDK ne le
+ * fait pas de lui-même. Google le propose en tête, et l'on choisit moins
+ * souvent un autre compte, que reauthenticateWithPopup pourrait créer dans
+ * Auth avant de répondre user-mismatch (sa requête ne pose pas
+ * `autoCreate: false`, contrairement à reauthenticateWithCredential).
  * Le credential d'un lien refusé vient de l'erreur (la popup demande
  * returnIdpCredential : l'idToken de Google y est).
  */
 export function googlePopup(): Google {
-  const choix = (s: Service) => {
+  const choix = (s: Service, indice?: string | null) => {
     const p = new s.m.auth.GoogleAuthProvider();
-    p.setCustomParameters({ prompt: 'select_account' });
+    p.setCustomParameters({ prompt: 'select_account', ...(indice ? { login_hint: indice } : {}) });
     return p;
   };
   return {
-    connecter: (s) => s.m.auth.signInWithPopup(s.a, choix(s)),
+    connecter: (s, indice) => s.m.auth.signInWithPopup(s.a, choix(s, indice)),
     lier: (s, u) => s.m.auth.linkWithPopup(u, choix(s)),
     async reauthentifier(s, u) {
-      await s.m.auth.reauthenticateWithPopup(u, new s.m.auth.GoogleAuthProvider());
+      await s.m.auth.reauthenticateWithPopup(u, choix(s, u.email));
     },
     credentialDe: (s, e) => s.m.auth.GoogleAuthProvider.credentialFromError(e as ErreurAuth),
   };

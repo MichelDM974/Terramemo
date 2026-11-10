@@ -374,9 +374,15 @@ function stockageDeLaPage(): StockageProfil | null {
 
 /** Une erreur propre à l'appli, traduite comme celles de Firebase (textes compte.erreurs). */
 export class ErreurCompte extends Error {
-  constructor(readonly code: string) {
+  /** `email` : l'adresse que le texte nomme (« choisis {adresse} »), lue par adresseErreur comme celle de Firebase. */
+  readonly customData?: { email: string };
+  constructor(
+    readonly code: string,
+    adresse?: string | null,
+  ) {
     super(code);
     this.name = 'ErreurCompte';
+    if (adresse) this.customData = { email: adresse };
   }
 }
 
@@ -904,10 +910,17 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
       return;
     }
     if (!f.includes('google.com')) throw new ErreurCompte('terramemo/sans-compte');
-    // Un autre compte Google choisi dans la fenêtre : auth/user-mismatch, rien n'est commencé.
     const g = sourceGoogle();
     if (!g) throw new ErreurCompte('terramemo/google-apk');
-    await g.reauthentifier(s, u);
+    try {
+      await g.reauthentifier(s, u);
+    } catch (e) {
+      // Un autre compte Google choisi dans la fenêtre : auth/user-mismatch, et rien de la suppression
+      // n'est commencé. Le texte nomme le compte à choisir.
+      if (codeErreur(e) !== 'auth/user-mismatch') throw e;
+      noter(e);
+      throw new ErreurCompte('auth/user-mismatch', u.email);
+    }
   }
 
   /**
@@ -976,13 +989,13 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
     const { auth } = s.m;
     const g = ses.fournisseurs.includes('google.com') ? sourceGoogle() : null;
     if (!g) throw new ErreurCompte('terramemo/suppression-reconnexion');
-    const cred = await g.connecter(s);
+    const cred = await g.connecter(s, ses.adresse);
     const user = cred.user;
     if (user.uid === uid) return user;
     if (auth.getAdditionalUserInfo(cred)?.isNewUser) await auth.deleteUser(user).catch(noter);
     else await auth.signOut(s.a).catch(noter);
     const meme = !!ses.adresse && (user.email ?? '').toLowerCase() === ses.adresse.toLowerCase();
-    if (!meme) throw new ErreurCompte('terramemo/google-autre-compte');
+    if (!meme) throw new ErreurCompte('terramemo/google-autre-compte', ses.adresse);
     return null;
   }
 
@@ -1170,7 +1183,8 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
               if (!avant.uid) await ecrireSession({ connexion: maintenant() });
               cred = await auth.signInWithCredential(s.a, c);
             }
-          } else cred = await g.connecter(s);
+            // La reconnexion d'une session perdue : son adresse proposée dans la fenêtre.
+          } else cred = await g.connecter(s, avant.uid ? avant.adresse : null);
           // Un compte neuf : le lien, ou le premier passage par Google (sans anonyme).
           const nouveau = lie || auth.getAdditionalUserInfo(cred)?.isNewUser === true;
           return { adresse: cred.user.email ?? '', ...(await rejoindre(s, cred.user, avant, choisir, nouveau)), nouveau };

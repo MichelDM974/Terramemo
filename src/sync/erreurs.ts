@@ -106,7 +106,7 @@ export function traduire(err: unknown, quand: Date = new Date(), fuseau?: string
   if (SILENCIEUX.has(code)) return { texte: null, code, brut };
   if (code === 'SIGN_IN_CANCELED' && brut === ANNULATION_PLUGIN) return { texte: null, code, brut };
   const modele = E[code] ?? E[code.replace(/^firestore\//, '')];
-  if (modele !== undefined) return { texte: remplir(modele, { heure: heureRemiseQuota(quand, fuseau) }), code, brut };
+  if (modele !== undefined) return { texte: remplir(modele, { heure: heureRemiseQuota(quand, fuseau), adresse: adresseErreur(err) ?? textes.compte.google_compte_attendu }), code, brut };
   // Un code du plugin Google (en capitales, NO_CREDENTIAL_AVAILABLE…) sans texte à lui :
   // un texte générique, le code au pilote seulement.
   if (/^[A-Z][A-Z_]+$/.test(code)) return { texte: E.plugin!, code, brut };

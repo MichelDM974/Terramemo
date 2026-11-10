@@ -353,7 +353,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('suppression du compte (émulateurs Auth e
     x.choisi.claims = { sub: 'sub-intrus', email: 'intrus@gmail.com', email_verified: true };
     const e = await p.comptes.supprimer({ mot: 'supprimer' }).catch((z: unknown) => z);
     expect(codeErreur(e)).toBe('auth/user-mismatch');
-    expect(traduire(e).texte).toBe("Ce n'est pas le compte connecté : choisis celui-là.");
+    expect(traduire(e).texte).toBe(`Ce n'est pas le compte connecté : choisis ${bon.email} dans la fenêtre de Google.`);
     expect((await p.session.lire())?.suppression).toBeNull();
     expect(await dansAuth(uid)).toBe(true);
     expect(await nbLots(uid)).toBe(1);
@@ -377,7 +377,9 @@ describe.skipIf(!hoteAuth || !hoteFs)('suppression du compte (émulateurs Auth e
     // fenêtre vient de lui créer est supprimé.
     const bon = x.choisi.claims;
     x.choisi.claims = { sub: 'sub-autre', email: 'autre@gmail.com', email_verified: true };
-    await expect(p2.comptes.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'terramemo/google-autre-compte' });
+    const autre = await p2.comptes.supprimer({ mot: 'supprimer' }).catch((z: unknown) => z);
+    expect(codeErreur(autre)).toBe('terramemo/google-autre-compte');
+    expect(traduire(autre).texte).toBe(`Ce n'est pas le compte à supprimer : choisis ${bon.email} dans la fenêtre de Google.`);
     expect(await p2.depot.tous()).toHaveLength(5);
     expect(await comptesA('autre@gmail.com')).toEqual([]);
     expect((await p2.session.lire())?.suppression).toBe(uid);
