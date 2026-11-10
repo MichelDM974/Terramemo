@@ -12,8 +12,13 @@ import {
   memoireEntite,
   GRAPPES_PAR_JOUR,
   grappeSuivante,
+  INTRODUCTIONS_PAR_JOUR,
   introductions,
+  introductionsFaites,
+  introductionsPermises,
   maitrises,
+  PREREQUIS,
+  pretSelon,
   programme,
   REVISIONS_PAR_JOUR,
   REVISIONS_PAR_SEANCE,
@@ -274,5 +279,121 @@ describe('un budget par domaine, pays et communes (décision « Apprendre et Ré
     expect(memoireEntite(m, 'pays', 'FRA', D0 + 1)).toEqual({ vu: 2, dans: 1 });
     expect(memoireEntite(m, 'pays', 'ESP', D0 + 1)).toBeNull();
     expect(memoireEntite(m, 'communes', 'FRA', D0 + 1)).toBeNull();
+  });
+});
+
+// Mémoire à plusieurs sujets (étude J2 § 6.1 à 6.3, lot 0c) : un budget de
+// grappes par domaine, les plafonds de révisions communs, le plafond commun
+// d'introductions « Reconnaître » (D46 d) et sa règle du reliquat, la
+// préférence des grappes dont les pays sont appris (D39 b).
+describe('plusieurs sujets : plafonds communs, reliquat, préférence (lot 0c)', () => {
+  const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
+  const gs = grappesPays(pays);
+  const ids = gs.flatMap((g) => g.membres);
+  /** k entités du domaine apprises (rappel Good) le jour j : leur fiche nommer à introduire dès j + 1 (échéance à j + 3). */
+  const appris = (domaine: string, k: number, j = D0, depuis = 0): Evenement[] => ids.slice(depuis, depuis + k).map((id) => rep(`${domaine}:${id}:localiser`, j, GOOD, 'rappel'));
+
+  it('plafond d’introductions de D46 : 15 par jour, les plus anciennes d’abord ; le reliquat le lendemain, en tête', () => {
+    expect(INTRODUCTIONS_PAR_JOUR).toBe(15);
+    // 10 pays appris le jour 0, 10 le jour 1 : le jour 2, 20 fiches nommer à introduire.
+    const m = etat([...appris('pays', 10, D0 - 1), ...appris('pays', 10, D0, 10)]);
+    const toutes = introductions(m, D0 + 1);
+    expect(toutes.length).toBe(20);
+    const p = programme(m, D0 + 1, gs, 'pays');
+    expect(p.introductions).toEqual(toutes.slice(0, 15));
+    // Les plus anciennes d'abord : les 10 du jour 0, puis 5 du jour 1.
+    expect(p.introductions.slice(0, 10).sort()).toEqual(ids.slice(0, 10).map((id) => `pays:${id}:nommer`).sort());
+    expect(p.introRestantes).toBe(5);
+    // 12 faites ce jour : 3 encore permises (introductionsFaites ne compte que les fiches nommer du jour).
+    const faites = toutes.slice(0, 12).map((f) => rep(f, D0 + 1, GOOD, 'rappel'));
+    const m2 = etat([...appris('pays', 10, D0 - 1), ...appris('pays', 10, D0, 10), ...faites]);
+    expect(introductionsFaites(m2, D0 + 1)).toBe(12);
+    expect(introductionsPermises(m2, D0 + 1)).toBe(3);
+    expect(programme(m2, D0 + 1, gs, 'pays').introductions).toEqual(toutes.slice(12, 15));
+    // Le lendemain, le reliquat passe en tête.
+    const m3 = etat([...appris('pays', 10, D0 - 1), ...appris('pays', 10, D0, 10), ...toutes.slice(0, 15).map((f) => rep(f, D0 + 1, GOOD, 'rappel'))]);
+    expect(programme(m3, D0 + 2, gs, 'pays').introductions).toEqual(toutes.slice(15));
+  });
+
+  it('plafond commun à tous les domaines : les introductions d’un sujet réduisent celles de l’autre, introsPrises aussi', () => {
+    const m = etat([...appris('pays', 10), ...appris('capitales', 10, D0 - 1, 50)]);
+    // Sans les capitales dans la séance : les 10 de pays tiennent.
+    expect(programme(m, D0 + 1, gs, 'pays').introductions.length).toBe(10);
+    // Mêlées (Révision du jour) : les capitales, plus anciennes, d'abord ; il reste 5 places aux pays.
+    const p = programme(m, D0 + 1, gs, 'pays', gs, { domaines: ['pays', 'capitales'] });
+    expect(p.introductions.length).toBe(15);
+    expect(p.introductions.slice(0, 10).every((f) => f.startsWith('capitales:'))).toBe(true);
+    expect(p.introRestantes).toBe(5);
+    // 10 introductions de capitales faites ce jour : 5 de pays permises.
+    const m2 = etat([...appris('pays', 10), ...appris('capitales', 10, D0 - 1, 50), ...introductions(m, D0 + 1, 'capitales').map((f) => rep(f, D0 + 1, GOOD, 'rappel'))]);
+    expect(programme(m2, D0 + 1, gs, 'pays').introductions.length).toBe(5);
+    // introsPrises : celles d'un bloc précédent de la même séance.
+    expect(programme(m, D0 + 1, gs, 'pays', gs, { introsPrises: 12 }).introductions.length).toBe(3);
+  });
+
+  it('reliquat : un domaine dont des introductions attendent n’ouvre pas de grappe ; un autre, si', () => {
+    const m = etat([...appris('pays', 10), ...appris('capitales', 10, D0 - 1, 50)]);
+    const p = programme(m, D0 + 1, gs, 'pays', gs, { domaines: ['pays', 'capitales'] });
+    // 5 introductions de pays attendent : pas de grappe de pays.
+    expect([p.nouveautes, p.sansNouveautes]).toEqual([null, 'introductions']);
+    // Seul, sans reliquat, le domaine ouvre sa grappe (le plafond des capitales mêlées n'y entre pas).
+    expect(programme(m, D0 + 1, gs, 'pays').nouveautes).not.toBeNull();
+    // Le reliquat d'un autre domaine ne retient pas la grappe : 20 capitales à introduire, aucune de pays.
+    const m2 = etat([...appris('capitales', 20, D0, 50)]);
+    expect(programme(m2, D0 + 1, gs, 'capitales').sansNouveautes).toBe('introductions');
+    expect(programme(m2, D0 + 1, gs, 'pays', gs, { domaines: ['pays', 'capitales'] }).nouveautes?.grappe).toBe(gs[0]);
+    // Une grappe commencée ce jour se finit, même avec un reliquat (jamais coupée).
+    const debut = gs[0]!.membres.slice(0, 2).map((id) => rep(`capitales:${id}:localiser`, D0 + 1, GOOD, 'rappel'));
+    const p3 = programme(etat([...appris('capitales', 20, D0, 50), ...debut]), D0 + 1, gs, 'capitales');
+    expect(p3.nouveautes?.ids).toEqual(gs[0]!.membres.slice(2));
+  });
+
+  it('plafond commun des révisions : mêlées, les plus en retard d’abord, 25 par séance et 60 par jour tous domaines confondus', () => {
+    // 20 pays dus (appris en Again le jour 0) et 20 capitales dues depuis la veille.
+    const again = (domaine: string, k: number, j: number, depuis: number) => ids.slice(depuis, depuis + k).map((id) => rep(`${domaine}:${id}:localiser`, j, AGAIN, 'rappel'));
+    const evts = [...again('pays', 20, D0, 0), ...again('capitales', 20, D0 - 1, 60)];
+    const p = programme(etat(evts), D0 + 1, gs, 'pays', gs, { domaines: ['pays', 'capitales'] });
+    expect(p.revisions.length).toBe(REVISIONS_PAR_SEANCE);
+    expect(p.revisions.slice(0, 20).every((f) => f.startsWith('capitales:'))).toBe(true);
+    expect(p.restantes).toBe(15);
+    // 50 révisions de capitales faites ce jour : 10 permises aux pays.
+    const faites = ids.slice(100, 150).map((id) => rep(`capitales:${id}:localiser`, D0 + 1, GOOD));
+    const m = etat([...again('pays', 20, D0, 0), ...ids.slice(100, 150).map((id) => rep(`capitales:${id}:localiser`, D0 - 5, GOOD, 'rappel')), ...faites]);
+    expect(revisionsFaites(m, D0 + 1)).toBe(50);
+    expect(programme(m, D0 + 1, gs, 'pays').revisions.length).toBe(10);
+  });
+
+  it('budgets de grappes indépendants : une grappe de capitales du jour ne retient ni celle des pays ni celle des drapeaux', () => {
+    const m = etat(gs[0]!.membres.map((id) => rep(`capitales:${id}:localiser`, D0, GOOD, 'rappel')));
+    expect(programme(m, D0, gs, 'capitales').sansNouveautes).toBe('grappe_faite');
+    expect(programme(m, D0, gs, 'pays').nouveautes?.grappe).toBe(gs[0]);
+    expect(programme(m, D0, gs, 'drapeaux').nouveautes?.grappe).toBe(gs[0]);
+    // Le lendemain, les capitales passent à la suivante ; les pays commencent la leur.
+    expect(programme(m, D0 + 1, gs, 'capitales').nouveautes?.grappe).toBe(gs[1]);
+  });
+
+  it('préférence D39 b : la première grappe de la série dont les pays sont appris un jour d’avant, sinon la suivante (conseil)', () => {
+    expect(PREREQUIS).toEqual({ capitales: 'pays', drapeaux: 'pays' });
+    expect(pretSelon(new Map(), D0, 'pays')).toBeUndefined();
+    expect(pretSelon(new Map(), D0, 'mers')).toBeUndefined();
+    const afrique = gs.filter((g) => g.continent === 'Africa');
+    const [a0, a1] = [afrique[0]!, afrique[1]!];
+    // Aucun pays d'Afrique appris : la première grappe, marquée pas prête.
+    const vide = new Map();
+    const p0 = programme(vide, D0, afrique, 'capitales', gs, { pret: pretSelon(vide, D0, 'capitales')! });
+    expect([p0.nouveautes?.grappe, p0.nouveautes?.prete]).toEqual([a0, false]);
+    // Les pays de la deuxième grappe appris la veille : elle passe avant la première.
+    const m = etat(a1.membres.map((id) => rep(`pays:${id}:localiser`, D0 - 1, GOOD, 'rappel')));
+    const p1 = programme(m, D0, afrique, 'capitales', gs, { pret: pretSelon(m, D0, 'capitales')! });
+    expect([p1.nouveautes?.grappe, p1.nouveautes?.prete]).toEqual([a1, true]);
+    // Appris aujourd'hui seulement : pas encore (un jour d'avant).
+    const auj = etat(a1.membres.map((id) => rep(`pays:${id}:localiser`, D0, GOOD, 'rappel')));
+    expect(programme(auj, D0, afrique, 'capitales', gs, { pret: pretSelon(auj, D0, 'capitales')! }).nouveautes?.grappe).toBe(a0);
+    // Un seul pays de la grappe manque : pas prête.
+    const presque = etat(a1.membres.slice(1).map((id) => rep(`pays:${id}:localiser`, D0 - 1, GOOD, 'rappel')));
+    expect(programme(presque, D0, afrique, 'capitales', gs, { pret: pretSelon(presque, D0, 'capitales')! }).nouveautes?.prete).toBe(false);
+    // Une grappe entamée se finit avant, prête ou non.
+    const entamee = etat([...a1.membres.map((id) => rep(`pays:${id}:localiser`, D0 - 2, GOOD, 'rappel')), rep(`capitales:${a0.membres[0]}:localiser`, D0 - 1, GOOD, 'rappel')]);
+    expect(grappeSuivante(entamee, afrique, 'capitales', pretSelon(entamee, D0, 'capitales'))?.grappe).toBe(a0);
   });
 });
