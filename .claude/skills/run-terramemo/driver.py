@@ -2159,6 +2159,10 @@ def ui_capitales(p, capturer, defauts, base, parametres=""):
     « La Paz » (siège du gouvernement, la Bolivie montrée et l'anneau).
     DÉFAUT si un Qid ou une fiche pays: apparaît, ou si capitales* est chargé
     au premier affichage."""
+    # Vrai rechargement : vers la même adresse, seul le « # » changerait (même
+    # document, sans loaderId), et les ressources de la recherche « sain »
+    # d'avant (capitales* comprises) resteraient comptées.
+    p.goto("about:blank")
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
     if ressources_capitales(p):
