@@ -5,7 +5,7 @@
 // Firebase n'est chargé qu'à l'ouverture du bloc, ou pour un envoi en attente.
 import type { BilanPartie } from '../epreuve/chrono';
 import { comparerScores, type ScoreEpreuve } from '../epreuve/bareme';
-import { EPREUVES, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
+import { EPREUVES, EPREUVES_CLASSEES, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
 import { comptesVisibles } from '../sync/drapeaux';
 import { etatCompteConnu, profilModifie } from '../sync/pont';
@@ -187,10 +187,10 @@ export function brancherRelance(cible: Pick<Window, 'addEventListener' | 'setTim
 }
 
 /**
- * Publie tous les records de l'appareil (de toujours et de la semaine), de
- * toutes les épreuves dont cette version connaît le mode, pris à leur
- * meilleur score publiable (recordPubliable), et les deux totaux du Chrono :
- * au choix ou au changement du pseudo.
+ * Publie tous les records de l'appareil (de toujours et de la semaine), des
+ * épreuves que cette version classe elle-même (EPREUVES_CLASSEES), pris à
+ * leur meilleur score publiable (recordPubliable), et les deux totaux du
+ * Chrono : au choix ou au changement du pseudo.
  */
 export async function publierTout(pseudo: string): Promise<Publication> {
   // Un renvoi sous l'ancien pseudo finit d'abord : il effacerait sinon les échecs de celui-ci.
@@ -202,8 +202,11 @@ export async function publierTout(pseudo: string): Promise<Publication> {
   const envois: Envoi[] = [];
   for (const [cle, r] of records) {
     const [epreuve, sem] = cle.split('@');
-    // Une épreuve que cette version ne connaît pas (venue par le profil d'une plus récente) : ni envoi, ni refus annoncé (étude J2 § 3.2).
-    if (!epreuve || modeEpreuve(epreuve) === null) continue;
+    // Une épreuve que cette version ne classe pas, venue par le profil d'une plus récente : ni envoi, ni refus annoncé
+    // (étude J2 § 3.2). Un mode inconnu, mais aussi le quiz avant l'ouverture de son classement (§ 9.5, D50 c) ou les
+    // épreuves d'un sujet pas encore ouvertes : les règles les refuseraient. La version qui les classe les republie
+    // elle-même sous le pseudo du profil (sync/comptes.ts, pseudoPris).
+    if (!epreuve || !EPREUVES_CLASSEES.includes(epreuve)) continue;
     const p = sem === undefined ? 'toujours' : sem === periode ? periode : null;
     if (p) envois.push([epreuve, p, recordPubliable(r, epreuve) ?? r]);
   }

@@ -120,12 +120,18 @@ describe('publication d’une partie', () => {
     expect(lireAttente()).toEqual([]);
   });
 
-  it('au choix du pseudo : un Chrono hors de EPREUVES part seul, sans entrer au général', async () => {
+  it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ou d’un Chrono hors de EPREUVES_CLASSEES ne part pas, sans refus annoncé', async () => {
+    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    // Reçus par le profil d'une version plus récente, vraisemblables tous deux : les règles de cette version les refuseraient.
+    const QUIZ = 'quiz:general:facile';
     const CAP = idEpreuve('tous', 'chrono', 'capitales');
+    enregistrerPartie(localStorage, QUIZ, score(18_000, 18, 20, 100_000), maintenant);
     enregistrerPartie(localStorage, CAP, score(150_000, 150, 186, 900_000), maintenant);
-    publier.mockResolvedValue(true);
-    expect(await publierTout('Ana')).toEqual({ refuses: 0, echecs: 0 });
-    expect(publier.mock.calls.map(([e]) => e)).toEqual([CAP, CAP]);
+    publier.mockImplementation(async (e) => e !== QUIZ && e !== CAP);
+    const r = await publierTout('Ana');
+    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(avisPublication(r)).toBe('');
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
   });
 
   it('Minute seule au choix du pseudo : pas de général', async () => {
