@@ -334,6 +334,11 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
       expect(zone.querySelector('#barre-chrono .essai-consigne')?.textContent).toBe(`Touche : ${id}`);
       vi.advanceTimersByTime(15_000);
       expect(retro(zone)).toBe(`Temps écoulé · +0. ${fin}`);
+      // En Sans faute, le temps écoulé ne compte aucun point : pas de « +0 » (la Minute finie va droit au bilan).
+      const c = contexte();
+      c.lancer('sansfaute', AMS, sujet);
+      vi.advanceTimersByTime(15_000);
+      expect(retro(c.zone)).toBe(`Temps écoulé. ${fin}`);
     }
   });
 
@@ -357,10 +362,13 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
     expect(retro(zone)).toBe(`sablier compté ${code(q2)}`);
     vus.push(barre(zone));
     vi.advanceTimersByTime(1_800);
-    // Les 10 autres, justes.
+    // Les 10 autres, justes ; la première dans une zone contestée tenue par la Russie, dite par le rendu du sujet.
     for (let i = 0; i < 10; i++) {
       vus.push(barre(zone));
+      admisSuivant = i === 0 ? { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' } : null;
       v.toucher?.(0, 0, {} as PointerEvent);
+      if (i === 0) expect(retro(zone)).toMatch(new RegExp(`^Juste \\(zone contestée, tenue par lieu ${code('RUS')}\\) · \\+1`));
+      vus.push(barre(zone));
       vi.advanceTimersByTime(900);
     }
     const bilan = zone.querySelector('#chrono-bilan')!;
@@ -369,6 +377,14 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
     expect(bilan.innerText).toContain(`bilan-localiser ${code(q2)} : temps écoulé`);
     vus.push(bilan.innerText);
     const ids = catalogue(pays).find((x) => x.id === AMS)!.ids;
-    for (const t of vus) sansBrut(t, [...ids, 'BRA']);
+    for (const t of vus) sansBrut(t, [...ids, 'BRA', 'RUS', 'Russie', 'NE_B89']);
+  });
+
+  it('un sujet factice en Sans faute : le temps écoulé par son rendu, sans points', () => {
+    const { zone, consigne, lancer } = contexte();
+    lancer('sansfaute', AMS, FACTICE);
+    const q = consigne()!;
+    vi.advanceTimersByTime(15_000);
+    expect(retro(zone)).toBe(`sablier ${code(q)}`);
   });
 });
