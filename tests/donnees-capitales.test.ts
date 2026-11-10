@@ -636,7 +636,7 @@ describe('fichiers, sources et reproduction', () => {
 
   it('table à la main : une source par ligne', () => {
     for (const section of ['items_pays', 'pays', 'noms', 'alias', 'points', 'non_retenues', 'sans_leurre', 'epreuve'] as const) {
-      for (const [k, v] of Object.entries(main[section])) expect((v as { source: string }).source, `${section} ${k}`).toMatch(/\S{3}/);
+      for (const [k, v] of Object.entries(main[section])) if (k !== '_') expect((v as { source: string }).source, `${section} ${k}`).toMatch(/\S{3}/);
     }
     for (const section of ['meme_nom', 'doublons'] as const) for (const [k, v] of Object.entries(main[section])) expect(v, `${section} ${k}`).toMatch(/\S{3}/);
   });
@@ -654,5 +654,31 @@ describe('fichiers, sources et reproduction', () => {
     expect(JSON.stringify(m.fusionnerSources(sources, r), null, 2) + '\n').toBe(readFileSync('public/geo/sources.json', 'utf8'));
     // Aucune ligne inutile dans la table (un nom déjà égal au libellé de Wikidata).
     expect(r.notes.filter((n) => n.includes('ligne inutile'))).toEqual([]);
+  });
+
+  it('une note « _ » dans n’importe quelle section de la table ne change rien aux sorties', async () => {
+    // Copie des entrées dans un dossier jetable, avec une clé « _ » dans chaque section.
+    const { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const racine = mkdtempSync(join(tmpdir(), 'capitales-'));
+    try {
+      for (const f of ['geodata/capitales.mjs', 'geodata/wikidata/capitales.json', 'geodata/wikidata/requetes.rq', 'public/geo/pays.json', 'public/geo/noms.fr.json']) {
+        mkdirSync(join(racine, f, '..'), { recursive: true });
+        copyFileSync(f, join(racine, f));
+      }
+      const annote = Object.fromEntries(
+        Object.entries(lire<Record<string, unknown>>('geodata/capitales-main.json')).map(([k, v]) => [k, typeof v === 'object' ? { _: 'note', ...v } : v]),
+      );
+      writeFileSync(join(racine, 'geodata/capitales-main.json'), JSON.stringify(annote));
+      const m = (await import('../geodata/capitales.mjs' as string)) as {
+        construireCapitales: (racine: string) => Promise<{ fichiers: Record<string, string> }>;
+      };
+      const r = await m.construireCapitales(racine);
+      expect(r.fichiers['capitales.json']).toBe(texteCapitales);
+      expect(r.fichiers['capitales.fr.json']).toBe(texteFr);
+    } finally {
+      rmSync(racine, { recursive: true, force: true });
+    }
   });
 });

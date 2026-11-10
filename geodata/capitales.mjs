@@ -210,8 +210,8 @@ export async function construireCapitales(racine) {
     else if (a.alias.some((x) => normaliser(x) === normaliser(noms[q] ?? ''))) faute(`alias : ${q}, un alias égal à son nom`);
     else alias[q] = [...a.alias].sort((x, y) => x.localeCompare(y, 'fr'));
   }
-  for (const q of Object.keys(main.noms ?? {})) if (!retenues.has(q)) faute(`noms : ${q} n'est pas une capitale retenue`);
-  for (const q of Object.keys(main.points ?? {})) if (!retenues.has(q)) faute(`points : ${q} n'est pas une capitale retenue`);
+  for (const [q] of sansNotes(main.noms)) if (!retenues.has(q)) faute(`noms : ${q} n'est pas une capitale retenue`);
+  for (const [q] of sansNotes(main.points)) if (!retenues.has(q)) faute(`points : ${q} n'est pas une capitale retenue`);
   for (const [q, n] of sansNotes(main.non_retenues)) if (retenues.has(q)) faute(`non_retenues : ${n.nom} (${q}) est pourtant retenue`);
   for (const l of lignes) {
     for (const c of l.c) {
