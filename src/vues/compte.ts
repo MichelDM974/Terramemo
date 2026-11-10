@@ -378,7 +378,10 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
       let posee: QuestionFusion | null = null;
       let r: Awaited<ReturnType<Comptes['google']>>;
       try {
-        r = await c.google((q) => ((posee = q), demander(depuis)(q)));
+        r = await c.google(
+          (q) => ((posee = q), demander(depuis)(q)),
+          () => dire(T.connexion_en_cours),
+        );
       } catch (e) {
         message.textContent = '';
         // Un compte à mot de passe à cette adresse : le formulaire de connexion la reprendra (agir).

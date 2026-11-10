@@ -182,6 +182,15 @@ describe.skipIf(!hote)('Google (émulateur Auth, faux idToken)', () => {
     expect(await comptes.etat()).toMatchObject({ etat: 'perdue', uid: 'autre-compte' });
   });
 
+  it('la fenêtre rendue est dite avant la question D22, une fois', async () => {
+    await comptes.google();
+    await comptes.deconnecter({ quandMeme: true });
+    reponses = 2;
+    const ordre: string[] = [];
+    await comptes.google(async () => (ordre.push('question'), 'ajouter'), () => ordre.push('rendue'));
+    expect(ordre).toEqual(['rendue', 'question']);
+  });
+
   describe('même adresse qu’un compte à mot de passe (un compte par adresse, § 2.3, S5)', () => {
     /** Un compte à mot de passe à l'adresse `a`, déconnecté ; vérifiée ou non. */
     async function compteMotDePasse(a: string, verifiee: boolean): Promise<string> {

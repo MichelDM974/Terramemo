@@ -247,9 +247,11 @@ export interface Comptes {
    * pris la place du mot de passe du compte (S5), quand c'est visible d'ici
    * (lien refusé par auth/email-already-in-use, ou session perdue de ce
    * compte qui avait un mot de passe) ; la fenêtre seule, sans invité, ne le
-   * dit pas.
+   * dit pas. `rendue` : appelé dès que la fenêtre de Google a rendu son
+   * compte, avant la question et la connexion qui suivent (la vue cesse de
+   * dire « Fenêtre de Google ouverte… »).
    */
-  google(choisir?: (q: QuestionFusion) => Promise<ChoixFusion>): Promise<{ adresse: string; profil: ResultatProfil; fusion: ResultatFusion; reponses: number; nouveau: boolean; mdpRetire: boolean }>;
+  google(choisir?: (q: QuestionFusion) => Promise<ChoixFusion>, rendue?: () => void): Promise<{ adresse: string; profil: ResultatProfil; fusion: ResultatFusion; reponses: number; nouveau: boolean; mdpRetire: boolean }>;
   /** Google se propose ici : sur le site (fenêtre de Google) ; dans l'APK, une fois le plugin branché (lot 7). */
   googleOffert(): boolean;
   /** Mot de passe oublié : sans dire si l'adresse a un compte (message générique). */
@@ -1171,7 +1173,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         }
       }),
 
-    google: (choisir) =>
+    google: (choisir, rendue) =>
       suivi(async () => {
         const g = sourceGoogle();
         // Dans l'APK sans le plugin (lot 7) : la vue ne propose pas Google.
@@ -1242,6 +1244,12 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
             }
             // La reconnexion d'une session perdue : son adresse proposée dans la fenêtre.
           } else cred = await g.connecter(s, avant.uid ? avant.adresse : null);
+          // La fenêtre est fermée : la suite (question, connexion, profil) n'est plus la sienne.
+          try {
+            rendue?.();
+          } catch (e) {
+            noter(e);
+          }
           // Un compte neuf : le lien, ou le premier passage par Google (sans anonyme).
           const cree = !lie && compteNeuf(auth, cred);
           const nouveau = lie || cree;

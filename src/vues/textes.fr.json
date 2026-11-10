@@ -480,7 +480,7 @@
     "google_apk": "Google affichera le nom du projet (terramemo-geo) : c'est bien Terramemo.",
     "google_site": "La fenêtre de Google nommera le site terramemo-geo.firebaseapp.com : c'est bien Terramemo.",
     "google_bientot": "Google arrive bientôt dans l'appli. En attendant, un compte Google se retrouve sur le site : terramemo-geo.web.app.",
-    "google_en_cours": "Fenêtre de Google ouverte…",
+    "google_en_cours": "Fenêtre de Google ouverte… (fermée, les boutons reviennent en quelques secondes)",
     "google_connecte": "Connecté avec Google : {adresse}. Tes progrès vont dans ton compte.",
     "google_mdp_retire": "Google a remplacé le mot de passe de ce compte (adresse non vérifiée) : connecte-toi désormais avec Google.",
     "google_compte_attendu": "le bon compte",

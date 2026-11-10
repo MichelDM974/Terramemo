@@ -565,11 +565,27 @@ describe('vue Compte, lot 6 : Google', () => {
     $('#compte-google')!.click();
     await attendre();
     await attendre();
-    expect(c.google).toHaveBeenCalledWith(expect.any(Function));
+    expect(c.google).toHaveBeenCalledWith(expect.any(Function), expect.any(Function));
     expect(pendant).toEqual({ message: T.google_en_cours, desactives: true });
     expect($('#compte-message')!.textContent).toBe('Connecté avec Google : ana@gmail.com. Tes progrès vont dans ton compte.');
     expect($('#compte-adresse-connectee')!.textContent).toBe('Compte Google (ana@gmail.com)');
     expect($('#compte-vers-mdp')).toBeNull();
+  });
+
+  it('la fenêtre rendue : « Connexion… » pendant la suite, plus « Fenêtre de Google ouverte… »', async () => {
+    const c = fauxComptes();
+    let apres = '';
+    c.google.mockImplementationOnce(async (_choisir?: unknown, rendue?: () => void) => {
+      rendue?.();
+      apres = $('#compte-message')!.textContent;
+      c.poser({ etat: 'compte', uid: 'g1', adresse: 'ana@gmail.com', verifiee: true, fournisseurs: ['google.com'] });
+      return { adresse: 'ana@gmail.com', profil: PROFIL, fusion: 'sans_question', reponses: 0, nouveau: true };
+    });
+    await ouvrir(c);
+    $('#compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect(apres).toBe(T.connexion_en_cours);
   });
 
   it('un compte Google qui existait : la même question qu’à la connexion par e-mail, « Ajouter »', async () => {
