@@ -92,6 +92,26 @@ function appareil(o: { serveur: ReturnType<typeof fauxServeur>; depot?: Depot; l
   return { memoire, depot, lots, aRelire, marques, marquesM, envoi };
 }
 
+/**
+ * Le vrai deplier d'une version d'avant le J2 : le même code (src/sync/lots.ts,
+ * valider de src/srs/journal.ts), rechargé avec les seuls domaines qu'elle
+ * lisait, pays et communes (src/srs/fiches.ts au commit dc16531).
+ */
+async function deplierAvantJ2(): Promise<typeof deplier> {
+  vi.resetModules();
+  vi.doMock('../src/srs/fiches', async (original) => {
+    const f = await original<typeof import('../src/srs/fiches')>();
+    const lus: readonly string[] = ['pays', 'communes'];
+    return { ...f, DOMAINES: lus, estDomaine: (x: string) => lus.includes(x), analyser: (x: string) => (lus.includes(x.split(':')[0] ?? '') ? f.analyser(x) : null) };
+  });
+  try {
+    return (await import('../src/sync/lots')).deplier;
+  } finally {
+    vi.doUnmock('../src/srs/fiches');
+    vi.resetModules();
+  }
+}
+
 async function coherent(m: Memoire, depot: Depot) {
   expect(new Map(m.etat())).toEqual(rejouer(await depot.tous()));
 }
@@ -175,6 +195,45 @@ describe('lecture des lots et union', () => {
     expect((await v2.memoire.tous()).map((e) => e.id)).toContain(nouveau.id);
     expect(v2.memoire.etat().has('pays:DEU:localiser')).toBe(true);
     expect(await v2.envoi.etat(UID)).toMatchObject({ aRelire: 0 });
+    await coherent(v2.memoire, depot);
+  });
+
+  it('lot mixte d’une Révision du jour (pays et capitales) lu par un vrai deplier d’avant le J2 : illisible en entier, gardé, puis relu (étude J2 § 3.3)', async () => {
+    const avant = await deplierAvantJ2();
+    const s = fauxServeur();
+    const se = uuid();
+    const pays = evt(B, se, T0 - 86_400_000, { fiche: 'pays:DEU:localiser' });
+    const capitale = evt(B, se, T0 - 86_400_000 + 1, { fiche: 'capitales:DEU:localiser' });
+    s.poser(UID, [pays, capitale]);
+    const seul = evt(B, uuid(), T0 - 2 * 86_400_000, { fiche: 'pays:FRA:localiser' });
+    s.poser(UID, [seul]);
+    // C'est bien la version d'avant : un lot de pays lui est lisible, le lot mixte non (sa carte de capitale est refusée).
+    const docs = [...s.docs.values()].map((d) => d as unknown as DocLot);
+    expect(docs.map((d) => avant(d))).toEqual([{ ok: false, probleme: 'carte 1 refusée' }, { ok: true, evenements: [seul] }]);
+    expect(docs.map((d) => deplier(d).ok)).toEqual([true, true]);
+    const aRelire = depotARelireMemoire();
+    const lots = depotLotsMemoire();
+    const depot = depotMemoire();
+    const v1 = appareil({ serveur: s, depot, lots, aRelire, deplier: (d) => avant(d as unknown as DocLot) });
+    const r = await v1.envoi.declencher('connexion');
+    expect(r.lecture).toMatchObject({ lots: 2, illisibles: 1 });
+    // Le lot entier attend, pays compris : la mémoire des pays prend du retard, rien n'est perdu ni renvoyé.
+    expect((await v1.memoire.tous()).map((e) => e.id)).toEqual([seul.id]);
+    expect(v1.memoire.etat().has('pays:DEU:localiser')).toBe(false);
+    expect(await v1.envoi.etat(UID)).toMatchObject({ aRelire: 2 });
+    expect(s.creer).not.toHaveBeenCalled();
+    v1.memoire.fermer();
+    // Mise à jour vers une version qui lit les domaines du J2 (ce socle), sans réseau : relu depuis l'appareil.
+    s.hors = true;
+    const v2 = appareil({ serveur: s, depot, lots, aRelire, version: 'v2' });
+    await v2.memoire.pret;
+    const r2 = await v2.envoi.declencher('cloture');
+    expect(r2.lecture).toMatchObject({ relus: 1 });
+    expect(await aRelire.tous(UID)).toEqual([]);
+    expect(new Set((await v2.memoire.tous()).map((e) => e.id))).toEqual(new Set([seul.id, pays.id, capitale.id]));
+    expect(v2.memoire.etat().has('pays:DEU:localiser')).toBe(true);
+    expect(v2.memoire.etat().has('capitales:DEU:localiser')).toBe(true);
+    expect(s.creer).not.toHaveBeenCalled();
     await coherent(v2.memoire, depot);
   });
 

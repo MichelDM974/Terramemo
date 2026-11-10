@@ -132,6 +132,30 @@ describe('compacter et deplier', () => {
     expect(problemeLot(trier(evts)[0]!.id, d)).toBeNull();
   });
 
+  it('la carte la pire des sujets du J2 tient la borne : capitales, et mers à 8 lettres au plus (étude J2 § 3.3)', () => {
+    // Réponse fausse, via, aide et note à null, zoom et distance en pleine précision, durée bornée
+    // (DUREE_MAX_MS), fuseau négatif à trois chiffres, partie libre ; un toucher sur une entité NE_….
+    const pire = (fiche: string, o: Partial<Evenement> = {}) =>
+      reponse({ fiche, mode: 'libre', tz: -720, correct: false, reponse: 'NE_B98', via: null, aide: null, note: null, zoom: 1.2345678901234567, distance_km: 20_099.123456789012, duree_ms: 120_000, ...o });
+    const longueur = (evts: Evenement[]) => doc(evts).evenements.length;
+    // Un lot d'une carte : l'instant entier du premier événement, le plus long.
+    expect(longueur([pire('capitales:BOL:localiser')])).toBeLessThanOrEqual(CARACTERES_PAR_EVENEMENT);
+    expect(longueur([pire('drapeaux:TCD:localiser')])).toBeLessThanOrEqual(CARACTERES_PAR_EVENEMENT);
+    expect(longueur([pire('mers:abcdefgh:localiser', { reponse: 'abcdefgh' })])).toBeLessThanOrEqual(CARACTERES_PAR_EVENEMENT);
+    // Pourquoi 8 lettres : à 12, la même carte dépasse.
+    expect(longueur([pire('mers:abcdefghijkl:localiser', { reponse: 'abcdefghijkl' })])).toBeGreaterThan(CARACTERES_PAR_EVENEMENT);
+    // 200 cartes, des écarts de temps à 8 chiffres : sous n × 160, et le lot passe les règles.
+    const evts = Array.from({ length: N_MAX }, (_, i) =>
+      pire(i % 2 ? 'mers:abcdefgh:nommer' : 'capitales:BOL:localiser', { ts: 1_762_500_000_000 + i * 500_000, reponse: i % 2 ? 'abcdefgh' : 'NE_B98' }),
+    );
+    const d = doc(evts);
+    expect(d.evenements.length).toBeLessThanOrEqual(N_MAX * CARACTERES_PAR_EVENEMENT);
+    expect(problemeLot(trier(evts)[0]!.id, d)).toBeNull();
+    // Et il se relit tel quel : les domaines du J2 sont connus de cette version.
+    const relu = deplier(d);
+    expect(relu.ok && relu.evenements.map(propre)).toEqual(trier(evts).map(propre));
+  });
+
   it('un lot illisible pour cette version : v inconnu, n faux, carte refusée, valeur hors du format', () => {
     const e = reponse();
     const d = doc([e]);
