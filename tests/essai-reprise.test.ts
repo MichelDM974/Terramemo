@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Pays } from '../src/map/types';
 import type { Lancement } from '../src/vues/arbre';
 import type { ContexteVue, Vue } from '../src/vues/commun';
-import { vueEssai } from '../src/vues/essai';
+import { vueEssai, type OptionsEssai } from '../src/vues/essai';
 import { textes } from '../src/vues/textes';
 import { El, installerDom, installerStockage } from './dom-factice';
 
@@ -22,7 +22,7 @@ let fauxSurVoisin = false;
 /** La zone admise que noter() rend au prochain toucher juste (Note.admis : zone contestée, enclave). */
 let admisSuivant: unknown = null;
 
-function monter() {
+function monter(o: Partial<OptionsEssai> = {}) {
   const zone = new El('main');
   /** Ce que la carte montre : « id:classe », « anneau id:classe » pour un anneau. */
   const marques: string[] = [];
@@ -59,7 +59,7 @@ function monter() {
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
   } as unknown as ContexteVue;
   const versJouer = vi.fn<(cible: string) => void>();
-  const vue = vueEssai(ctx, { versJouer });
+  const vue = vueEssai(ctx, { versJouer, ...o });
   const el = (sel: string) => zone.querySelector(sel) as El;
   const retro = el('#barre-essai .essai-retro');
   /** Trouver (ou cet exercice) sur « tous » (FRA, ESP), choisi dans Jouer : la vue s'ouvre, la partie part. */
@@ -292,6 +292,18 @@ describe('Toucher : une partie choisie dans Jouer (décision « Écran Jouer »)
     toucher(v.vue, true);
     expect(v.retro.textContent).toContain('1 essai ');
   });
+
+  it('le journal de la partie libre reçoit le Lancement de la partie (son sujet : le domaine des fiches, étude J2 § 6.5), au départ comme à « Recommencer »', () => {
+    const libre = vi.fn<NonNullable<OptionsEssai['libre']>>(() => null);
+    const v = monter({ libre });
+    v.lancer({ sujet: 'communes', serie: 'reunion' });
+    expect(libre).toHaveBeenCalledTimes(1);
+    expect(libre.mock.calls[0]![0]).toEqual({ branche: 'entrainement', sujet: 'communes', serie: 'reunion', mode: 'localiser' });
+    v.terminer.click();
+    (v.zone.querySelector('#essai-recommencer') as El).click();
+    expect(libre).toHaveBeenCalledTimes(2);
+    expect(libre.mock.calls[1]![0]).toMatchObject({ sujet: 'communes' });
+  });
 });
 
 // --- Séance (J1a) : Toucher piloté par la séance, quitté puis repris -------
@@ -521,6 +533,18 @@ describe('Toucher : une séance quittée puis reprise', () => {
     s.el('#seance-reviser').click();
     expect(s.fabrique.ouvrir.mock.calls.at(-1)![0]).toEqual({ sorte: 'revision' });
     expect(s.visible('barre-essai')).toBe(true);
+  });
+
+  it('Apprendre sous La Réunion : la séance demandée porte le sujet du Lancement (communes), jamais tiré du terrain (étude J2 § 6.5)', () => {
+    const s = monterSeance(() => piloteFactice(QUESTIONS).p);
+    s.vue.activer();
+    const serie = { id: 'reunion', terrain: 'reunion' as const, ids: ['97411', '97415'], n: 2 };
+    s.vue.lancer({ branche: 'entrainement', sujet: 'communes', serie: 'reunion', mode: 'apprendre' }, serie, {} as never, serie.ids);
+    expect(s.fabrique.ouvrir).toHaveBeenCalledTimes(1);
+    expect(s.fabrique.ouvrir.mock.calls[0]![0]).toEqual({ sorte: 'apprendre', sujet: 'communes', serie });
+    const europe = { id: 'Europe', terrain: 'monde' as const, ids: IDS5, n: 5 };
+    s.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' }, europe, {} as never, IDS5);
+    expect(s.fabrique.ouvrir.mock.calls.at(-1)![0]).toEqual({ sorte: 'apprendre', sujet: 'pays', serie: europe });
   });
 
   it('Apprendre refusé (grappe du jour entamée ailleurs) : « Les finir » lance la Révision du jour', () => {
