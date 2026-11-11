@@ -1078,14 +1078,28 @@ SERIES_PAYS = ["tous", "Africa", "North America", "South America", "Asia", "Euro
 OUVERTURE_CAPITALES_MS = 1_794_787_200_000
 
 
+# Les drapeaux s'ouvrent à la même bascule que les capitales (choix de l'utilisateur, 11/11 ; EPREUVES_OUVERTES).
+OUVERTURE_DRAPEAUX_MS = OUVERTURE_CAPITALES_MS
+
+
 def capitales_ouvertes():
     """Les épreuves classées des capitales sont-elles ouvertes, à l'heure du PC ?"""
     return time.time() * 1000 >= OUVERTURE_CAPITALES_MS
 
 
+def drapeaux_ouverts():
+    """Les épreuves classées des drapeaux sont-elles ouvertes, à l'heure du PC ?"""
+    return time.time() * 1000 >= OUVERTURE_DRAPEAUX_MS
+
+
+# Les sujets de Classé, la bascule passée (D53 b : Communes en dernier).
+SUJETS_CLASSE_APRES = ["pays", "capitales", "drapeaux", "communes"]
+
+
 def sujets_classe():
-    """Les sujets attendus sous Classé : Capitales à partir de sa bascule (Drapeaux à la partie C du lot 2)."""
-    return ["pays", "capitales", "communes"] if capitales_ouvertes() else ["pays", "communes"]
+    """Les sujets attendus sous Classé : Capitales et Drapeaux à partir de leur bascule (lundi 16/11/2026, 0 h UTC)."""
+    ouverts = {"capitales": capitales_ouvertes(), "drapeaux": drapeaux_ouverts()}
+    return [s for s in SUJETS_CLASSE_APRES if ouverts.get(s, True)]
 
 
 # Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 2 du J2.
@@ -1419,8 +1433,8 @@ def ui_jouer(p, capturer, defauts):
     """Captures 15 à 15e (décision « Écran Jouer », #18) : l'arbre de Jouer,
     après les épreuves (records de l'Amérique du Sud). Sujets : Pays,
     Capitales, Drapeaux, Communes sous Entraînement ; Pays, Communes sous
-    Classé (Capitales en plus à partir du lundi 16/11/2026, 0 h UTC :
-    sujets_classe ; Drapeaux à la partie C du lot 2).
+    Classé (Pays, Capitales, Drapeaux, Communes à partir du lundi
+    16/11/2026, 0 h UTC : sujets_classe).
     `15-jouer` (Entraînement et Classé, sans Rejouer), `15b-classe-sujets`,
     `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
     ams-epreuves` (les trois épreuves, leurs records, les règles ouvertes par
@@ -1443,7 +1457,7 @@ def ui_jouer(p, capturer, defauts):
         defauts.append("Jouer : « Rejouer » en tête de Jouer (choix du 10/11 : il ne vit plus qu'au bilan)")
     panneau_jouer(p, defauts, "Jouer")
     capturer("15-jouer")
-    # Les sujets, dans l'ordre de D53 b (Communes en dernier) ; Capitales sous Classé à sa bascule (lundi 16/11, 0 h UTC).
+    # Les sujets, dans l'ordre de D53 b (Communes en dernier) ; Capitales et Drapeaux sous Classé à leur bascule (lundi 16/11, 0 h UTC).
     cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
     if lire("data-sujet") != SUJETS_ENTRAINEMENT:
         defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de Pays, Capitales, Drapeaux, Communes")
@@ -1986,8 +2000,9 @@ def commande_ui(args):
         # De même, sa grappe de drapeaux (Amérique du Sud) finie.
         ui_drapeaux(p, capturer, defauts, base, rendu, ecran, telephone)
         ui_seance(p, capturer, defauts, base, rendu)
-        # Après la séance : son ?horloge= (serveur de dev) décale aussi le journal.
-        ui_epreuves_capitales(p, capturer, defauts, base, rendu)
+        # Après la séance : son ?horloge= (serveur de dev) décale aussi le journal. Les drapeaux à la même bascule.
+        horloge = ui_epreuves_capitales(p, capturer, defauts, base, rendu)
+        ui_epreuves_drapeaux(p, capturer, defauts, base, rendu, horloge)
         # En dernier : il donne un pseudo à l'invité (retiré ensuite), qu'aucune partie ne doit publier.
         ui_accueil(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
@@ -2399,8 +2414,8 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
     le sujet Drapeaux en Entraînement, sur une page rechargée. Rien de
     drapeaux* au premier affichage ni à l'ouverture de Jouer ; Jouer :
     Pays, Capitales, Drapeaux, Communes sous Entraînement, l'icône du sujet,
-    « 54 drapeaux », le « ? » des exercices visuels ; Drapeaux absent de
-    Classé (ses épreuves : partie C). Trouver sur l'Amérique du Sud joué
+    « 54 drapeaux », le « ? » des exercices visuels ; Drapeaux sous Classé
+    seulement à la bascule (ui_epreuves_drapeaux). Trouver sur l'Amérique du Sud joué
     jusqu'au bilan (« Pays de ce drapeau : » et le drapeau, alt « Drapeau à
     reconnaître », jamais le pays avant la réponse ; « Juste : pays ») ;
     Reconnaître sur l'Afrique à 375 px de large sur le téléphone (la grille
@@ -2459,11 +2474,11 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
     capturer("102-drapeaux-afrique-exercices")
     if ressources_drapeaux(p):
         defauts.append(f"drapeaux* chargé à l'ouverture de Jouer : {ressources_drapeaux(p)}")
-    # Classé : pas de Drapeaux avant ses épreuves (partie C).
+    # Classé : Drapeaux à sa bascule seulement (lundi 16/11/2026, 0 h UTC).
     p.js('location.hash = "#jouer/classe"')
     p.pause(300)
-    if "drapeaux" in lire("data-sujet"):
-        defauts.append(f"Classé : Drapeaux proposé avant ses épreuves ({lire('data-sujet')})")
+    if ("drapeaux" in lire("data-sujet")) != drapeaux_ouverts():
+        defauts.append(f"Classé : sujets {lire('data-sujet')}, Drapeaux {'absent après' if drapeaux_ouverts() else 'proposé avant'} sa bascule")
 
     # Trouver sur l'Amérique du Sud, jusqu'au bilan.
     jouer_partie(p, "localiser", "South America", "drapeaux")
@@ -2641,7 +2656,9 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     une ville et jamais un Qid ; 95 : le bilan « Chrono · Capitales ·
     Océanie »), puis le 🏆 (96) : les épreuves des capitales sous leur
     sujet. Sans pseudo (invité du pilote) : rien n'est publié. DÉFAUT à
-    tout écart."""
+    tout écart. Rend le décalage d'horloge des épreuves (« » la bascule
+    passée), ou None si elles sont sautées : ui_epreuves_drapeaux le
+    reprend."""
     ouvertes = capitales_ouvertes()
     dev = serveur_de_dev(base)
 
@@ -2669,7 +2686,7 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     if not ouvertes:
         if not dev:
             dire("  épreuves des capitales : sautées (bascule à venir ; ?horloge= n'agit qu'au serveur de développement)")
-            return
+            return None
         # Juste après la bascule : le décalage en jours de ?horloge= (main.ts), un peu plus. Il ne
         # décale la bascule qu'avec ?emulateurs (sans, le site de dev publie dans le vrai Firebase) :
         # l'invité ne publie rien, et le classement du bilan, lu aux émulateurs absents, est « indisponible ».
@@ -2677,8 +2694,8 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
         recharger(horloge)
         sujets = classe()
         dire(f"  Classé, {horloge} : {sujets}")
-        if sujets != ["pays", "capitales", "communes"]:
-            defauts.append(f"Classé {horloge} : sujets {sujets} au lieu de Pays, Capitales, Communes")
+        if sujets != SUJETS_CLASSE_APRES:
+            defauts.append(f"Classé {horloge} : sujets {sujets} au lieu de Pays, Capitales, Drapeaux, Communes")
     try:
         panneau_jouer(p, defauts, "Classé (Capitales)")
         capturer("92-classe-capitales")
@@ -2753,13 +2770,163 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
         attendre_visible(p, "#classement-general .essai-serie")
         h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
         ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:capitales:Oceania"]')
-        dire(f"  🏆 : sujets {h4[:3]}…, ligne {ligne!r}")
-        if h4[:3] != ["Pays", "Capitales", "Communes"] or "Capitales · Océanie" not in ligne:
+        dire(f"  🏆 : sujets {h4[:4]}…, ligne {ligne!r}")
+        if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or "Capitales · Océanie" not in ligne:
             defauts.append(f"🏆 : sujets {h4}, ligne des capitales d'Océanie {ligne!r}")
         capturer("96-classements-capitales")
         croix_vers_carte(p, defauts, "🏆", "#classement-general")
     finally:
         # La suite du pilote sans le décalage de l'horloge (journal et bascule).
+        if horloge:
+            recharger()
+    return horloge
+
+
+def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres="", horloge=""):
+    """Captures 111 à 115 (lot 2 du J2, partie C ; même bascule que les
+    capitales, le lundi 16/11/2026 à 0 h UTC) : les épreuves classées des
+    drapeaux, juste après ui_epreuves_capitales, avec son décalage
+    d'horloge (`horloge` : « » la bascule passée ; None : sautées, la
+    bascule à venir hors du serveur de développement). Sur une page
+    rechargée : Classé › Drapeaux (111 : Pays, Capitales, Drapeaux,
+    Communes), ses 7 séries, Océanie et ses trois épreuves (112), un Chrono
+    des drapeaux d'Océanie joué en entier (113 : « Pays de ce drapeau : »
+    et le drapeau d[0], alt « Drapeau à reconnaître », jamais le pays avant
+    la réponse ; chaque drapeau déjà chargé quand sa question part, à
+    partir de la 2e : la partie est préchargée au départ ; 114 : le bilan
+    « Chrono · Drapeaux · Océanie », 14 / 14 justes), le record sous
+    Classé › Drapeaux › Océanie, puis le 🏆 (115) : la ligne
+    « Drapeaux · Océanie » sous son sujet. Sans pseudo (invité du pilote) :
+    rien n'est publié. DÉFAUT à tout écart."""
+    if horloge is None:
+        dire("  épreuves des drapeaux : sautées (bascule à venir ; ?horloge= n'agit qu'au serveur de développement)")
+        return
+    _, _, corps = http(base + "geo/noms.fr.json")
+    noms = json.loads(corps)
+    _, _, corps = http(base + "geo/drapeaux.json")
+    montre = {l["pays"]: f"/geo/drapeaux/{l['d'][0]}.svg" for l in json.loads(corps)["pays"]}
+
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def recharger(extra=""):
+        p.goto("about:blank")
+        p.goto(base + "?mesures=0" + extra + parametres + "#carte")
+        p.attendre_carte()
+
+    recharger(horloge)
+    try:
+        p.js('location.hash = "#jouer/classe"')
+        attendre_visible(p, "#jouer-panneau")
+        p.pause(200)
+        sujets = lire("data-sujet")
+        dire(f"  Classé (drapeaux{', ' + horloge if horloge else ''}) : {sujets}")
+        if sujets != SUJETS_CLASSE_APRES:
+            defauts.append(f"Classé (drapeaux) : sujets {sujets} au lieu de Pays, Capitales, Drapeaux, Communes")
+        panneau_jouer(p, defauts, "Classé (Drapeaux)")
+        capturer("111-classe-drapeaux")
+        cliquer(p, '#jouer-panneau [data-sujet="drapeaux"]')
+        series = lire("data-serie")
+        if series != SERIES_PAYS:
+            defauts.append(f"Classé › Drapeaux : séries {series} au lieu de celles des pays")
+        cliquer(p, '#jouer-panneau [data-serie="Oceania"]')
+        modes = lire("data-mode")
+        fil = texte(p, "#jouer-panneau .jouer-fil")
+        dire(f"  Classé › Drapeaux › Océanie : {modes}, fil {fil!r}")
+        if modes != list(EPREUVES):
+            defauts.append(f"Classé › Drapeaux › Océanie : exercices {modes}")
+        if [x.strip() for x in fil.split("›")] != ["Classé", "Drapeaux", "Océanie"]:
+            defauts.append(f"fil d'Ariane {fil!r} au lieu de « Classé › Drapeaux › Océanie »")
+        if p.js("!!document.getElementById('jouer-aide')"):
+            cliquer(p, "#jouer-aide")
+            aide = texte(p, "#jouer-regles")
+            if "Minute" not in aide or "visuel" not in aide:
+                defauts.append(f"Classé › Drapeaux › Océanie : le « ? » sans les règles ou sans les exercices visuels ({aide!r})")
+        else:
+            defauts.append("Classé › Drapeaux › Océanie : pas de « ? »")
+        capturer("112-classe-drapeaux-oceanie")
+
+        # Le Chrono des drapeaux d'Océanie, joué en entier (14 pays), chaque toucher sur le pays demandé.
+        cliquer(p, '#jouer-panneau [data-mode="chrono"]')
+        attendre_visible(p, "#barre-chrono", 20)
+        p.pause(300)
+        p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+        bilan = '!document.getElementById("chrono-bilan").hidden'
+        vus = []
+        for i in range(20):
+            if p.js(bilan):
+                break
+            e = p.js("""(() => { const c = document.querySelector('#barre-chrono .essai-consigne'), i = c.querySelector('img.drapeau');
+                const attrs = [...document.querySelectorAll('#barre-chrono, #barre-chrono *')].flatMap((x) =>
+                    [...x.attributes].filter((a) => !a.name.startsWith('data-')).map((a) => `${a.name}=${a.value}`)).join(' ');
+                return { cible: c.dataset.cible, texte: c.innerText.trim(), barre: document.getElementById('barre-chrono').innerText, attrs,
+                         img: i && { src: i.getAttribute('src'), alt: i.getAttribute('alt'), title: i.getAttribute('title'), complet: i.complete && i.naturalWidth > 0 } }; })()""")
+            cible = e["cible"]
+            img = e["img"] or {}
+            vus.append(cible)
+            if not e["texte"].startswith("Pays de ce drapeau") or not e["img"]:
+                defauts.append(f"Chrono des drapeaux, {cible} : consigne {e['texte']!r}, image {e['img']}")
+            elif img["alt"] != "Drapeau à reconnaître" or img["title"] is not None or img["src"] != montre.get(cible):
+                defauts.append(f"Chrono des drapeaux, {cible} : image {img} (attendu : alt neutre, sans title, le drapeau montré {montre.get(cible)})")
+            # Préchargée au départ : à partir de la 2e question, le drapeau est là dès qu'elle est posée.
+            if i > 0 and not img.get("complet"):
+                defauts.append(f"Chrono des drapeaux, question {i + 1} ({cible}) : drapeau pas encore chargé à sa pose (préchargement ?)")
+            t = e["barre"] + " " + e["attrs"]
+            if re.search(rf"\b{re.escape(cible or '')}\b", t) or (noms.get(cible) and noms[cible] in t):
+                defauts.append(f"Chrono des drapeaux : le pays {cible} nommé avant la réponse ({t!r})")
+            # La question part au décodage de son drapeau : l'attendre avant de toucher.
+            fin = time.monotonic() + 5
+            while time.monotonic() < fin and not p.js("(() => { const i = document.querySelector('#barre-chrono .essai-consigne img'); return !i || (i.complete && i.naturalWidth > 0); })()"):
+                p.pause(100)
+            p.pause(PAUSE_AVANT_TOUCHER_MS)
+            pt = position_visible(p, cible, "#barre-chrono")
+            if not pt:
+                defauts.append(f"Chrono des drapeaux : pas de position pour {cible}")
+                break
+            p.toucher(pt["x"], pt["y"])
+            p.pause(250)
+            retro = texte(p, "#barre-chrono .essai-retro")
+            if i == 0:
+                dire(f"  Chrono des drapeaux ({cible}) : {e['texte']!r}, {img.get('src')} → {retro!r}")
+                capturer("113-drapeaux-chrono")
+            if not retro.startswith("Juste") or noms.get(cible, cible) not in retro:
+                defauts.append(f"Chrono des drapeaux, {cible} touché : rétroaction {retro!r} (« Juste … · {noms.get(cible)} » attendu)")
+            p.pause(1900)
+        dire(f"  Chrono des drapeaux : préchargés {len(set(ressources_drapeaux(p)) - {base.rstrip('/') + '/geo/drapeaux.json'})} fichiers /geo/drapeaux/ vus par la page")
+        fin = time.monotonic() + 5
+        while not p.js(bilan) and time.monotonic() < fin:
+            p.pause(100)
+        lu = p.js('document.getElementById("chrono-bilan").innerText') or ""
+        titre = texte(p, "#chrono-bilan h2")
+        dire(f"  Chrono des drapeaux, bilan ({len(set(vus))} pays) : {titre!r}, {lu[:160]!r}")
+        if titre != "Chrono · Drapeaux · Océanie":
+            defauts.append(f"bilan du Chrono des drapeaux titré {titre!r} (nomEpreuve : « Chrono · Drapeaux · Océanie »)")
+        if len(set(vus)) != 14 or "14 / 14 justes" not in lu:
+            defauts.append(f"Chrono des drapeaux d'Océanie : {len(set(vus))} pays posés, bilan {lu[:120]!r} (14 / 14 justes attendus)")
+        if not p.js("!!document.querySelector('#chrono-bilan .chrono-classement[data-epreuve=\"chrono:drapeaux:Oceania\"]')"):
+            defauts.append("bilan du Chrono des drapeaux : pas de classement de chrono:drapeaux:Oceania")
+        capturer("114-drapeaux-chrono-bilan")
+        croix_vers_carte(p, defauts, "bilan du Chrono des drapeaux", "#chrono-bilan")
+
+        # Le record dans Jouer, puis le 🏆 : les épreuves des drapeaux sous leur sujet (h4).
+        p.js('location.hash = "#jouer/classe/drapeaux/Oceania"')
+        attendre_visible(p, "#jouer-panneau")
+        p.pause(200)
+        record = p.js("(document.querySelector('#jouer-panneau [data-mode=\"chrono\"] .jouer-record') || {}).innerText || ''")
+        if "pts" not in record:
+            defauts.append(f"Classé › Drapeaux › Océanie : pas de record du Chrono ({record!r})")
+        cliquer(p, "#jouer-fermer")
+        p.pause(300)
+        cliquer(p, "#classement-btn")
+        attendre_visible(p, "#classement-general .essai-serie")
+        h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
+        ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:drapeaux:Oceania"]')
+        dire(f"  🏆 : sujets {h4[:4]}…, ligne {ligne!r}")
+        if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or "Drapeaux · Océanie" not in ligne:
+            defauts.append(f"🏆 : sujets {h4}, ligne des drapeaux d'Océanie {ligne!r}")
+        capturer("115-classements-drapeaux")
+        croix_vers_carte(p, defauts, "🏆", "#classement-general")
+    finally:
         if horloge:
             recharger()
 

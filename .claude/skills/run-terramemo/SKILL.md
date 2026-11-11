@@ -99,10 +99,11 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   Chaque partie se lance par l'arbre de Jouer (décision « Écran Jouer »,
   `jouer_partie(page, mode, serie)` : `#jouer`, puis dans `#jouer-panneau`
   `[data-branche=entrainement|classe]`, `[data-sujet=pays|capitales|drapeaux|communes]`
-  (dans cet ordre, D53 b, `SUJETS_ENTRAINEMENT` du pilote ; `drapeaux` sous
-  Entraînement seulement jusqu'à la partie C du lot 2 ; `capitales` sous Classé à partir de la bascule
-  datée de ses épreuves, le lundi 16/11/2026 à 0 h UTC : `EPREUVES_OUVERTES`
-  de `src/epreuve/chrono.ts`, `sujets_classe()` du pilote), `[data-serie=<id>]` (sauf l'île :
+  (dans cet ordre, D53 b, `SUJETS_ENTRAINEMENT` du pilote ; `capitales` et
+  `drapeaux` sous Classé à partir de la bascule datée de leurs épreuves, la
+  même pour les deux, le lundi 16/11/2026 à 0 h UTC : `EPREUVES_OUVERTES`
+  de `src/epreuve/chrono.ts`, `sujets_classe()` et `SUJETS_CLASSE_APRES` du
+  pilote), `[data-serie=<id>]` (sauf l'île :
   niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute|
   minute]`, qui lance la partie ; `jouer_jusqua(page, mode, serie, sujet)`
   s'arrête aux exercices, le sujet déduit de la série à défaut). Une
@@ -127,7 +128,8 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   Enfin l'arbre de Jouer (#18), après les épreuves pour en avoir les
   records : `15-jouer` (Entraînement et Classé ; plus de « Rejouer » ici,
   il ne vit qu'au bilan ; `DÉFAUT` si Entraînement n'a pas Pays, Capitales,
-  Drapeaux, Communes dans cet ordre), `15b-classe-sujets` (Pays, Communes),
+  Drapeaux, Communes dans cet ordre), `15b-classe-sujets` (Pays, Communes ;
+  Pays, Capitales, Drapeaux, Communes la bascule passée),
   `15c-classe-pays-series` (Tous les pays puis les six continents),
   `15d-classe-pays-ams-epreuves` (les trois épreuves avec leurs records,
   les règles ouvertes par `#jouer-aide`), `15e-entrainement-communes`
@@ -283,8 +285,8 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   `.vignette-icone`, D53 a), `101-drapeaux-series` (les 7 séries des pays,
   « 54 drapeaux »), `102-drapeaux-afrique-exercices` (Apprendre, Trouver,
   Reconnaître ; le « ? », `#jouer-aide`, dit les exercices visuels ;
-  toujours rien de `/geo/drapeaux*` chargé ; Classé sans Drapeaux,
-  ses épreuves à la partie C) ; Trouver sur l'Amérique du Sud jusqu'au
+  toujours rien de `/geo/drapeaux*` chargé ; Classé sans Drapeaux avant
+  la bascule du 16/11, avec après, `drapeaux_ouverts()`) ; Trouver sur l'Amérique du Sud jusqu'au
   bilan : `103-drapeaux-trouver` (« Pays de ce drapeau : » et l'image
   `img.drapeau`, alt « Drapeau à reconnaître », sans `title`,
   `draggable="false"`, adresse `/geo/drapeaux/<sha8>.svg`), le pays
@@ -314,7 +316,7 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
 - Les épreuves classées des capitales (lot 1 du J2, partie C,
   `ui_epreuves_capitales`, après `ui_seance`) : sur une page rechargée,
   Classé n'a que Pays et Communes avant la bascule (lundi 16/11/2026, 0 h
-  UTC), Pays, Capitales, Communes ensuite. Avant la bascule, au serveur de
+  UTC), Pays, Capitales, Drapeaux, Communes ensuite. Avant la bascule, au serveur de
   développement seulement, la page se recharge avec `?emulateurs&horloge=<jours>`
   (`main.ts` : `?horloge=` avance l'horloge de la bascule seulement avec
   `?emulateurs`, car sans lui le serveur de dev écrit dans le vrai Firebase
@@ -323,7 +325,7 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   lui à la fin ; émulateurs absents, le classement du bilan est
   « indisponible ») ; sur le site construit, l'étape s'arrête à la
   vérification de Classé.
-  `92-classe-capitales` (Classé : Pays, Capitales, Communes),
+  `92-classe-capitales` (Classé : Pays, Capitales, Drapeaux, Communes),
   `93-classe-capitales-oceanie` (les 7 séries des pays, D37 c ; Océanie :
   Chrono, Sans faute, Minute ; fil « Classé › Capitales › Océanie »),
   `94-capitales-chrono` (« Pays dont la capitale est : », une ville, jamais
@@ -331,11 +333,36 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   sur le pays demandé (`position_visible(p, cible, "#barre-chrono")`),
   `95-capitales-chrono-bilan` (titre « Chrono · Capitales · Océanie »,
   « 14 / 14 justes »), le record sous Classé › Capitales › Océanie, puis
-  `96-classements-capitales` (🏆 : Pays, Capitales, Communes en `h4`, la
+  `96-classements-capitales` (🏆 : Pays, Capitales, Drapeaux, Communes en `h4`, la
   ligne `[data-epreuve="chrono:capitales:Oceania"]` « Capitales ·
   Océanie »). Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout
   écart. Une fois le site en ligne avec la bascule passée, `ui` le vérifie
-  sur le vrai site sans crochet.
+  sur le vrai site sans crochet. Il rend son crochet d'horloge (« » la
+  bascule passée, `None` s'il s'est arrêté à Classé) à
+  `ui_epreuves_drapeaux`, appelé juste après.
+- Les épreuves classées des drapeaux (lot 2 du J2, partie C,
+  `ui_epreuves_drapeaux`, juste après `ui_epreuves_capitales`, à la même
+  bascule et avec le même crochet `?emulateurs&horloge=` ; sautées comme
+  elles hors du serveur de développement avant le 16/11) : sur une page
+  rechargée, `111-classe-drapeaux` (Classé : Pays, Capitales, Drapeaux,
+  Communes), `112-classe-drapeaux-oceanie` (les 7 séries des pays ;
+  Océanie : Chrono, Sans faute, Minute ; fil « Classé › Drapeaux ›
+  Océanie » ; le « ? » dit les règles et les exercices visuels),
+  `113-drapeaux-chrono` (« Pays de ce drapeau : » et l'image, alt
+  « Drapeau à reconnaître », sans `title`, le drapeau montré `d[0]` du
+  manifeste, le même pour tous ; le pays jamais nommé dans la barre ni ses
+  attributs avant la réponse), le Chrono des drapeaux d'Océanie joué en
+  entier (14 questions), chaque toucher sur le pays demandé une fois le
+  drapeau décodé (le temps d'une question attend son drapeau, 3 s au
+  plus : `ATTENTE_IMAGE_MS` de `src/vues/chrono.ts`), à partir de la 2e
+  question chaque drapeau déjà chargé à sa pose (la partie est préchargée
+  au départ, `prechargerPartieSujet`), « Juste … · pays » ;
+  `114-drapeaux-chrono-bilan` (titre « Chrono · Drapeaux · Océanie »,
+  « 14 / 14 justes », le classement `chrono:drapeaux:Oceania`), le record
+  sous Classé › Drapeaux › Océanie, puis `115-classements-drapeaux` (🏆 :
+  Pays, Capitales, Drapeaux, Communes en `h4`, la ligne
+  `[data-epreuve="chrono:drapeaux:Oceania"]` « Drapeaux · Océanie »).
+  Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout écart.
 - Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
   dans `ui_seance`) : `38-accueil-memoire` (l'accueil après Apprendre :
   légende `#legende-memoire` « Jamais vu · faible → maîtrisé · N/195
@@ -1562,16 +1589,20 @@ arbre propre (`git status`).
 § 8.2) : `npx firebase deploy --only firestore` (après `npm run
 test:regles`), puis Hosting. Sinon chaque publication des nouvelles
 épreuves, et le général qui les compte, est refusée (« Score refusé par le
-classement »). Les épreuves des capitales s'ouvrent seules le lundi
-16/11/2026 à 0 h UTC (4 h à La Réunion), par la bascule datée du code
-(`EPREUVES_OUVERTES`, décision « Ouverture des épreuves d'un sujet ») :
-règles et site en ligne avant, rien à faire ce jour-là pour le site. Un
-APK bâti avec ce code bascule de lui-même ; un plus ancien ignore les
-capitales et publie un général plus bas, refusé sans bruit (étude J2
-§ 3.2) : rebâtir l'APK de l'utilisateur, de jour, après `sauver_journal`
-(pas sur l'A37 avant la fin de la semaine d'usage du J1a, le 13/11). Le général des
-règles monte à chaque sujet ouvert (804 avec les capitales :
-`BORNE_GENERAL`, que `tests/chrono.test.ts` compare aux règles).
+classement »). Les épreuves des capitales **et des drapeaux** s'ouvrent
+seules à la même bascule, le lundi 16/11/2026 à 0 h UTC (4 h à La
+Réunion), par la bascule datée du code (`EPREUVES_OUVERTES`, décision
+« Ouverture des épreuves d'un sujet ») : règles et site en ligne avant,
+rien à faire ce jour-là pour le site. Un APK bâti avec ce code bascule de
+lui-même ; un plus ancien ignore les capitales et les drapeaux (un APK
+d'avant le lot 1 les deux, un APK du lot 1 les drapeaux) et publie un
+général plus bas, refusé sans bruit (étude J2 § 3.2) : rebâtir l'APK de
+l'utilisateur, de jour, après `sauver_journal` (pas sur l'A37 avant la
+fin de la semaine d'usage du J1a, le 13/11). Le général des règles monte
+à chaque sujet ouvert (1194 avec les capitales et les drapeaux, 390 + 24
++ 390 + 390 ; 1244 avec les mers au lot 3b : `BORNE_GENERAL`, que
+`tests/chrono.test.ts` compare aux règles) ; des règles d'avant ce code
+(804) refuseraient le général de qui a joué aux drapeaux.
 
 ## Pièges
 
