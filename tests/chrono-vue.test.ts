@@ -749,6 +749,26 @@ describe('le sujet Drapeaux en épreuve', () => {
       expect(optionsNoter).toHaveLength(0);
       expect(zone.querySelector('#barre-chrono')!.hidden).toBe(true);
     });
+
+    it('une partie relancée avant le décodage du drapeau de l’abandonnée : ce décodage tardif n’ouvre pas sa question (la nouvelle attend le sien)', async () => {
+      const { v, zone, lancer } = contexte(undefined, NOMS_FR);
+      lancer('chrono', AMS, 'drapeaux');
+      zone.querySelector('#chrono-abandonner')!.click();
+      lancer('chrono', AMS, 'drapeaux');
+      expect(decodages).toHaveLength(2);
+      decodages[0]!.ok();
+      await vi.advanceTimersByTimeAsync(0);
+      v.toucher?.(0, 0, {} as PointerEvent);
+      expect(optionsNoter).toHaveLength(0);
+      vi.advanceTimersByTime(1_000);
+      expect(zone.querySelector('.chrono-secondes')!.textContent).toBe('15 s');
+      // Son propre décodage, lui, l'ouvre.
+      decodages[1]!.ok();
+      await vi.advanceTimersByTimeAsync(0);
+      v.toucher?.(0, 0, {} as PointerEvent);
+      expect(optionsNoter).toHaveLength(1);
+      v.desactiver();
+    });
   });
 
   // D41 d, § 2.2 : le vrai noter() sur la carte du monde, la question des jumeaux touchée sur l'autre.
