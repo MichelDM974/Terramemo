@@ -2,6 +2,7 @@
 // et quand amener la zone à l'écran (décision « Nommer », conception
 // docs/etudes/2026-11-06-reunion.md § 5). Sert le monde comme l'île.
 import { geoDistance } from 'd3-geo';
+import type { DonneesDrapeaux } from '../map/drapeaux';
 import { partVisible, type Rect } from '../map/geo';
 
 /** Quatre boutons : une grille 2 × 2 sous le pouce. */
@@ -63,6 +64,30 @@ export function leurresParmi(candidats: (cible: string) => Iterable<string>, n?:
   return { candidats: (l) => candidats(l.id), ...(n === undefined ? {} : { n }) };
 }
 
+/** Score de ressemblance au-dessous duquel deux drapeaux sont des sosies (étude J2 § 5.3 : ≤ 0,3, jumeaux exceptés). */
+export const SEUIL_SOSIE = 0.3;
+
+/**
+ * Les sosies d'un drapeau (D41 e, § 9.2) : ses sosies mesurés du manifeste
+ * (score ≤ SEUIL_SOSIE, du plus proche au moins proche), puis les pays de ses
+ * familles écrites à la main (croix nordiques, Union Jack…). Jamais ses
+ * jumeaux, que le manifeste ne range pas parmi eux (et que la question exclut).
+ */
+export function sosiesDrapeau(d: Pick<DonneesDrapeaux, 'parPays' | 'familles'>, id: string): string[] {
+  const mesures = (d.parPays.get(id)?.sosies ?? []).filter((s) => s.score <= SEUIL_SOSIE).map((s) => s.id);
+  const familles = [...d.familles.values()].filter((f) => f.includes(id)).flatMap((f) => f.filter((x) => x !== id));
+  return [...new Set([...mesures, ...familles])];
+}
+
+/**
+ * Les sosies en leurres (`n` au plus), pour le quiz à partir du niveau moyen
+ * (D41 e, § 9.2 : « 1 sosie, 2 éloignés » en moyen, « 3 sosies » en difficile
+ * et en expert ; lot 4a). Jamais en Entraînement : des quasi-jumeaux (Mali,
+ * Guinée, Sénégal) dès le premier QCM d'une grappe créeraient de
+ * l'interférence chez un débutant ; les voisins y viennent d'abord.
+ */
+export const leurresSosies = (d: Pick<DonneesDrapeaux, 'parPays' | 'familles'>, n?: number): SourceLeurres => leurresParmi((id) => sosiesDrapeau(d, id), n);
+
 export interface OptionsChoix {
   /**
    * Jamais leurres (étude J2 § 5.1) : le pays de x pour Jérusalem, les 9 pays
@@ -78,6 +103,12 @@ export interface OptionsChoix {
    * en difficile, ce sont de bons leurres.
    */
   proches?: (cible: string, leurre: string) => boolean;
+  /**
+   * Deux lieux qui montrent la même chose (les jumeaux d'un drapeau : Indonésie
+   * et Monaco, Roumanie et Tchad, D41 d) : jamais ensemble parmi les choix, ni
+   * avec la cible ni entre leurres. Symétrique.
+   */
+  pareils?: (a: string, b: string) => boolean;
 }
 
 /**
@@ -107,22 +138,36 @@ export function choix(
   const candidats = [...jouables].filter(permis);
   if (candidats.length < NB_CHOIX - 1) throw new Error(`choix : ${candidats.length + 1} jouables, il en faut ${NB_CHOIX}`);
   const leurres: string[] = [];
+  // Ni déjà pris, ni pareil à la cible ou à un leurre pris (jumeaux d'un drapeau).
+  const libre = (id: string) => !leurres.includes(id) && !(o.pareils && [cible, ...leurres].some((x) => o.pareils!(x, id)));
+  /** Prend dans l'ordre donné, `n` au plus, ce qui reste libre au moment de le prendre. */
+  const prendre = (ids: readonly string[], n: number) => {
+    let k = 0;
+    for (const id of ids) {
+      if (k >= n || leurres.length >= NB_CHOIX - 1) break;
+      if (!libre(id)) continue;
+      leurres.push(id);
+      k++;
+    }
+  };
   for (const s of o.strategie ?? LEURRES_VOISINS) {
     const places = NB_CHOIX - 1 - leurres.length;
     if (places <= 0) break;
-    const pris = new Set(leurres);
-    const proposes = [...new Set(s.candidats(lieu))].filter((id) => permis(id) && !pris.has(id));
-    leurres.push(...melanger(proposes, aleatoire).slice(0, Math.min(places, s.n ?? places)));
+    const proposes = [...new Set(s.candidats(lieu))].filter((id) => permis(id) && !leurres.includes(id));
+    prendre(melanger(proposes, aleatoire), Math.min(places, s.n ?? places));
   }
   if (leurres.length < NB_CHOIX - 1) {
-    const pris = new Set(leurres);
     // Distance angulaire : le classement seul compte ; id en second pour un ordre stable.
     const proches = candidats
-      .filter((id) => !pris.has(id))
+      .filter((id) => !leurres.includes(id))
       .map((id) => ({ id, d: geoDistance(lieu.point, (lieux.get(id) as LieuQcm).point) }))
       .sort((a, b) => a.d - b.d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-    for (const p of proches.slice(0, NB_CHOIX - 1 - leurres.length)) leurres.push(p.id);
+    prendre(
+      proches.map((p) => p.id),
+      NB_CHOIX - 1 - leurres.length,
+    );
   }
+  if (leurres.length < NB_CHOIX - 1) throw new Error(`choix : ${leurres.length + 1} choix possibles pour ${cible}, il en faut ${NB_CHOIX}`);
   return melanger([cible, ...leurres], aleatoire);
 }
 
@@ -149,6 +194,11 @@ export class PartieNommer {
   /** La question en cours ; undefined une fois la partie finie. */
   get courante(): string | undefined {
     return this.cibles[this.reponses.length];
+  }
+
+  /** La question d'après celle en cours ; undefined pour la dernière (ses images se préchargent pendant celle-ci). */
+  get suivante(): string | undefined {
+    return this.cibles[this.reponses.length + 1];
   }
 
   /** Numéro de la question en cours, à partir de 1 (« 3 / 24 ») ; n + 1 une fois finie. */

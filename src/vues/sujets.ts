@@ -20,11 +20,24 @@
 // rendu la redonne : une reprise de la question garde la même) ; en épreuve,
 // celle de l'épreuve (e: 1), la même pour tous. Ses données (capitales.json)
 // ne sont pas dans t.donnees : chargées avant la partie (commun.ts avecSujet,
-// la séance), lues ici. Le Qid ne s'affiche jamais. Viendront à leur lot :
-// drapeaux (une image dans la barre et dans chaque bouton) et mers (« mer
-// Égée, à 300 km » au bilan).
+// la séance), lues ici. Le Qid ne s'affiche jamais.
+//
+// Drapeaux (§ 5.3, D41) : « Pays de ce drapeau : » et l'image dans la barre ;
+// un pays allumé, « Quel est son drapeau ? », quatre images ; « Révéler »
+// montre le drapeau, nommé ; la rétroaction et les bilans nomment le pays
+// (« Bénin : drapeau oublié »). Le drapeau montré est le premier juste du
+// manifeste (d[0] : le tricolore de l'Afghanistan, le civil de la Bolivie),
+// le même partout ; un seul drapeau par pays dans une grille, si bien que ses
+// autres justes ne sont jamais côte à côte avec lui. Rien ne nomme le pays
+// avant la réponse : alt neutre (« Drapeau à reconnaître ») ou vide (les
+// boutons ont leur aria-label « Choix 1 » à « Choix 4 », nommer.ts), fichiers
+// nommés par leur empreinte. Les jumeaux (Indonésie et Monaco, Roumanie et
+// Tchad, D41 d) : justes en plus en Trouver, jamais leurres l'un de l'autre,
+// jamais ensemble parmi 4 choix. Viendront à leur lot : les mers (« mer Égée,
+// à 300 km » au bilan).
 import type { SorteAdmise } from '../map/acceptes';
 import { ADMET_EN_PLUS, capitalesChargees, type Capitale, type DonneesCapitales } from '../map/capitales';
+import { drapeauxCharges, type DonneesDrapeaux } from '../map/drapeaux';
 import type { NomTerrain } from '../map/types';
 import { nommerPose, SANS_NOMMER, type Sens } from '../srs/fiches';
 import { remplir, textes, type Textes } from './textes';
@@ -40,10 +53,12 @@ export type TextesSujet = Textes['sujets']['pays'];
 
 /**
  * Ce qu'une question montre d'un lieu : un texte, ou une image (un drapeau)
- * et son texte alternatif, qui ne donne jamais la réponse (« Drapeau à
- * reconnaître »). commun.ts (poserContenu) le met dans la page.
+ * et son texte alternatif, qui ne donne jamais la réponse avant elle
+ * (« Drapeau à reconnaître », ou vide dans un bouton nommé « Choix 1 ») ;
+ * `legende` : un texte montré sous l'image (la révélation nomme le pays).
+ * commun.ts (poserContenu) le met dans la page.
  */
-export type Contenu = { texte: string } | { image: string; alt: string };
+export type Contenu = { texte: string } | { image: string; alt: string; legende?: string };
 
 /**
  * L'énoncé de Trouver et des épreuves : l'invite (« Touche : ») puis l'objet,
@@ -72,6 +87,12 @@ export interface RenduSujet {
   choix(id: string, question?: string): Contenu;
   /** Ce même choix dit en texte : la bonne réponse de la rétroaction, « tu as choisi … » au bilan (`question` : comme choix()). */
   nomChoix(id: string, question?: string): string;
+  /**
+   * Les choix sont des images (les drapeaux) : boutons nommés « Choix 1 » à
+   * « Choix 4 », touches 1 à 4, et une rétroaction qui dit aussi le choix
+   * fait (lue par la région aria-live, qui ne voit pas les images).
+   */
+  readonly visuel: boolean;
   /** Ce que « Révéler » montre sur la carte retournée. */
   revelation(id: string): Contenu;
   /** Le lieu d'une question dans les bilans (ratés, fautes, nouveaux), selon le sens de la question. */
@@ -98,18 +119,26 @@ export interface RenduSujet {
   qcmPosable(id: string): boolean;
   /** Les lieux jamais leurres pour la question de ce lieu (qcm.choix, option exclus). */
   qcmExclus(id: string): ReadonlySet<string>;
+  /** Deux lieux qui montrent la même chose, jamais ensemble parmi les choix (les jumeaux d'un drapeau ; qcm.choix, option pareils). */
+  qcmPareils(a: string, b: string): boolean;
   /**
    * Les zones (entités du terrain) justes en plus pour la question de ce
    * lieu, selon ce qu'elle montre, et leur sorte (OptionsNoter.acceptes) :
-   * Jérusalem ↔ Jérusalem-Est sous Capitales (D36 i) ; null sans zone.
+   * Jérusalem ↔ Jérusalem-Est sous Capitales (D36 i), les jumeaux sous
+   * Drapeaux (D41 d : Monaco pour l'Indonésie) ; null sans zone.
    */
   admisEnPlus(id: string): { zones: readonly string[]; sorte: SorteAdmise } | null;
 }
 
-/** Les données d'un terrain dont un rendu a besoin : les noms de ses zones ; les capitales (à défaut : celles déjà chargées, src/map/capitales.ts). */
+/**
+ * Les données d'un terrain dont un rendu a besoin : les noms de ses zones ;
+ * les capitales et les drapeaux (à défaut : ceux déjà chargés,
+ * src/map/capitales.ts, src/map/drapeaux.ts).
+ */
 export interface DonneesSujet {
   noms: Readonly<Record<string, string>>;
   capitales?: DonneesCapitales | null;
+  drapeaux?: DonneesDrapeaux | null;
 }
 
 /**
@@ -137,13 +166,15 @@ type Fabrique = (ts: TextesSujet, d: DonneesSujet, o: OptionsRendu) => Omit<Rend
 /** Les textes de chaque sujet : une clé de moins qu'aux pays ne compile pas. */
 const TEXTES: Readonly<Record<SujetRendu, TextesSujet>> = textes.sujets;
 
-/** Rien de propre au sujet : ni rétroaction en plus, ni point, ni exclusion, ni zone admise en plus. */
+/** Rien de propre au sujet : choix en texte, ni rétroaction en plus, ni point, ni exclusion, ni zone admise en plus. */
 const SANS_PLUS = {
+  visuel: false,
   retro: () => '',
   point: () => null,
   points: () => [],
   qcmPosable: () => true,
   qcmExclus: () => new Set<string>(),
+  qcmPareils: () => false,
   admisEnPlus: () => null,
 } satisfies Partial<RenduSujet>;
 
@@ -221,9 +252,11 @@ const parCapitale: Fabrique = (ts, d, o) => {
     },
     point: (id) => montree(id)?.point ?? null,
     points: (id) => (de(id)?.justes ?? []).map((c) => c.point),
+    visuel: false,
     qcmPosable: (id) => nommerPose('capitales', id),
     // Les 9 au nom de leur capitale (D37 c) et le pays de x (Israël ↔ Palestine) : jamais leurres.
     qcmExclus: (id) => new Set([...(SANS_NOMMER.capitales ?? []), ...(de(id)?.sansLeurre ?? [])]),
+    qcmPareils: () => false,
     admisEnPlus: (id) => {
       const c = montree(id);
       const zones = c ? (ADMET_EN_PLUS[c.q] ?? []) : [];
@@ -232,8 +265,55 @@ const parCapitale: Fabrique = (ts, d, o) => {
   };
 };
 
+const D = textes.drapeaux;
+
+/**
+ * Les drapeaux (étude J2 § 5.3) : la cible est le pays ; on montre son
+ * drapeau (le montré, d[0]). Lève si le manifeste n'est pas chargé (une
+ * partie de drapeaux ne part qu'après lui : commun.ts avecSujet, la séance).
+ * Les images, elles, arrivent à l'affichage : un gris 4:3 de taille fixe
+ * tient leur place (carte.css), la barre ne change pas de hauteur.
+ */
+const parDrapeau: Fabrique = (ts, d) => {
+  const donnees = d.drapeaux ?? drapeauxCharges();
+  if (!donnees) throw new Error('drapeaux : manifeste pas chargé');
+  const pays = (id: string) => nomDe(d, id);
+  const de = (id: string) => donnees.parPays.get(id);
+  // À défaut de drapeau (un pays hors du manifeste : jamais un jouable, le test des données le vérifie), le nom du pays.
+  const image = (id: string, alt: string, legende?: string): Contenu => {
+    const a = de(id)?.montre;
+    if (!a) return { texte: pays(id) };
+    return legende === undefined ? { image: a, alt } : { image: a, alt, legende };
+  };
+  const jumeaux = (id: string) => de(id)?.jumeaux ?? [];
+  return {
+    enonce: (id) => ({ invite: ts.enonce, objet: image(id, D.alt_enonce) }),
+    consigneQcm: ts.consigne_nommer,
+    // Un alt vide : le bouton a son nom, « Choix 1 » (nommer.ts) ; rien d'autre ne doit le nommer avant la réponse.
+    choix: (id) => image(id, ''),
+    nomChoix: pays,
+    visuel: true,
+    // Le drapeau, et le nom du pays dessous (la zone allumée ne le disait pas) ; l'alt vide : la légende le lit déjà.
+    revelation: (id) => image(id, '', pays(id)),
+    // « Bénin » : « Bénin : drapeau oublié », « Bénin : vu ou passé » (textes.sujets.drapeaux).
+    nomBilan: (id) => pays(id),
+    lieu: pays,
+    touche: (id) => (id ? pays(id) : ts.la_mer),
+    fauxSuite: () => ts.faux_suite,
+    expire: (_id, points) => (points ? ts.expire : ts.expire_sans_points),
+    // L'énoncé ne nommait pas le pays : la rétroaction le dit (« Juste : Bénin »).
+    retro: pays,
+    point: () => null,
+    points: () => [],
+    qcmPosable: (id) => !!de(id),
+    qcmExclus: (id) => new Set(jumeaux(id)),
+    qcmPareils: (a, b) => jumeaux(a).includes(b),
+    admisEnPlus: (id) => (jumeaux(id).length ? { zones: jumeaux(id), sorte: 'jumeau' } : null),
+  };
+};
+
 /** Le rendu de chaque sujet : un sujet qui a ses textes a son rendu, sinon le build ne compile pas. */
-const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, capitales: parCapitale, communes: parNom };
+const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, capitales: parCapitale, drapeaux: parDrapeau, communes: parNom };
 
 /** Le sujet a-t-il son rendu (ses textes) ? */
 export const estSujetRendu = (s: string): s is SujetRendu => Object.keys(FABRIQUES).includes(s);

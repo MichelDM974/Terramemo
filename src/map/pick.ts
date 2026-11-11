@@ -122,8 +122,8 @@ export interface OptionsNoter {
    * DEBUT_ACCEPTES_EPREUVES (src/epreuve/bareme.ts). Une table : celles de
    * ctx.acceptes, puis ces zones en plus, passées par la vue du sujet joué
    * (étude J2 § 2.2) et jamais mises dans la table commune : Jérusalem ↔
-   * Jérusalem-Est sous Capitales (D36 i), plus tard les jumeaux d'un drapeau,
-   * les parties d'une mer.
+   * Jérusalem-Est sous Capitales (D36 i), les jumeaux d'un drapeau sous
+   * Drapeaux (D41 d), plus tard les parties d'une mer.
    */
   acceptes?: boolean | Acceptes;
 }

@@ -15,9 +15,12 @@ import type { Entite, Forme, Lieu } from './types';
 /**
  * contestee, enclave : la table commune (construireAcceptes). capitale : une
  * zone en plus du seul sujet Capitales (D36 i : Jérusalem juste aussi en
- * Palestine, Jérusalem-Est aussi en Israël), passée par OptionsNoter.acceptes.
+ * Palestine, Jérusalem-Est aussi en Israël) ; jumeau : du seul sujet Drapeaux
+ * (D41 d : Monaco juste pour l'Indonésie, le Tchad pour la Roumanie, et
+ * l'inverse), toutes deux passées par OptionsNoter.acceptes, jamais dans la
+ * table commune (sous Pays, Monaco touché pour l'Indonésie reste faux).
  */
-export type SorteAdmise = 'contestee' | 'enclave' | 'capitale';
+export type SorteAdmise = 'contestee' | 'enclave' | 'capitale' | 'jumeau';
 
 /** Pourquoi un toucher hors du tracé de la cible est juste (Note.admis, pick.ts). */
 export interface Admis {

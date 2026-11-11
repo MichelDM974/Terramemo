@@ -44,6 +44,7 @@ export function renduFactice(): RenduSujet {
     consigneQcm: TEXTES_FACTICES.consigne_nommer,
     choix: (id) => ({ texte: `bouton ${code(id)}` }),
     nomChoix: (id) => `choix ${code(id)}`,
+    visuel: false,
     revelation: (id) => ({ texte: `révélé ${code(id)}` }),
     nomBilan: (id, sens) => `bilan-${sens} ${code(id)}`,
     lieu: (id) => `lieu ${code(id)}`,
@@ -55,6 +56,7 @@ export function renduFactice(): RenduSujet {
     points: () => [],
     qcmPosable: () => true,
     qcmExclus: () => new Set(),
+    qcmPareils: () => false,
     admisEnPlus: () => null,
   };
 }

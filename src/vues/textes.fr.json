@@ -40,6 +40,8 @@
     "remonter": "Revenir au choix d'avant",
     "fil": "Choix faits",
     "regles": "Règles des épreuves",
+    "aide": "Aide sur ces exercices",
+    "visuel": "Exercices visuels : les drapeaux sont des images, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient). Les quatre choix se touchent, ou se prennent aux touches 1 à 4 du clavier.",
     "record": "record",
     "branches": {
       "entrainement": {
@@ -58,6 +60,9 @@
       "capitales": {
         "nom": "Capitales"
       },
+      "drapeaux": {
+        "nom": "Drapeaux"
+      },
       "communes": {
         "nom": "Communes"
       }
@@ -73,6 +78,11 @@
         "apprendre": "Les capitales des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
         "localiser": "Une capitale est donnée : touche son pays sur la carte",
         "nommer": "Un pays s'allume : choisis sa capitale parmi quatre"
+      },
+      "drapeaux": {
+        "apprendre": "Les drapeaux des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
+        "localiser": "Un drapeau est montré : touche son pays sur la carte",
+        "nommer": "Un pays s'allume : choisis son drapeau parmi quatre"
       },
       "communes": {
         "apprendre": "Les communes voisines suivantes : QCM, puis les trouver sur la carte"
@@ -259,6 +269,27 @@
         "vu_une": "vue 1 fois"
       }
     },
+    "drapeaux": {
+      "n": "{n} drapeaux",
+      "enonce": "Pays de ce drapeau : ",
+      "consigne_nommer": "Quel est son drapeau ?",
+      "faux_suite": "Le bon pays est en vert : touche-le.",
+      "expire": "Temps écoulé · +0. Le bon pays est en vert.",
+      "expire_sans_points": "Temps écoulé. Le bon pays est en vert.",
+      "la_mer": "la mer",
+      "rate_km": "{nom} : touché à {km} du bord",
+      "rate_trouver": "{nom} : vu ou passé",
+      "rate_oublie": "{nom} : drapeau oublié",
+      "tout_appris": "Tous les drapeaux de cette série sont appris.",
+      "grappe_entamee": "Les drapeaux commencés aujourd'hui ({serie}) ne sont pas finis : ils passent avant.",
+      "conseil": "Les drapeaux de cette région ne sont pas encore appris : {chemin}",
+      "memoire": {
+        "nom": "Drapeau",
+        "jamais": "jamais vu",
+        "vu": "vu {n} fois",
+        "vu_une": "vu 1 fois"
+      }
+    },
     "communes": {
       "n": "{n} communes",
       "enonce": "Touche : ",
@@ -291,6 +322,11 @@
     "avec_role": "{ville}, {role} ({pays})",
     "revele_role": "{ville} ({role})",
     "recherche": "{role} ({pays})"
+  },
+  "drapeaux": {
+    "alt_enonce": "Drapeau à reconnaître",
+    "choix": "Choix {n}",
+    "faux": "Faux · bonne réponse : {cible} · tu avais choisi : {choisi}"
   },
   "credits": {
     "reglages": "Fond de carte : Natural Earth ; noms : Unicode CLDR ; communes de La Réunion : IGN, ADMIN EXPRESS (Licence Ouverte 2.0).",

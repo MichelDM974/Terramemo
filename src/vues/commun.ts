@@ -1,5 +1,6 @@
 import { acceptesEnPlus, type Admis } from '../map/acceptes';
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
+import { chargerDrapeaux, drapeauxCharges, prechargerDrapeaux } from '../map/drapeaux';
 import type { CarteAffichee } from '../map/carte';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
@@ -80,28 +81,42 @@ export function croix(versCarte: () => void, libelle: string = textes.croix.cart
   return b;
 }
 
-/** Un contenu du rendu d'un sujet (sujets.ts) dans `el` : son texte, ou son image (un drapeau), qui ne se glisse pas. */
+/**
+ * Un contenu du rendu d'un sujet (sujets.ts) dans `el` : son texte, ou son
+ * image (un drapeau), puis sa légende s'il en a une. L'image est un <img>
+ * (pas de SVG en ligne : pas de conflit d'id entre drapeaux), qui ne se
+ * glisse pas, de taille fixe en CSS (.drapeau, carte.css) : un gris 4:3 tient
+ * sa place jusqu'à son arrivée (classe « charge » : le fond blanc des
+ * drapeaux), si bien que la barre a sa hauteur dès la pose (allumerZone la
+ * lit aussitôt).
+ */
 export function poserContenu(el: HTMLElement, c: Contenu): void {
-  if ('texte' in c) el.textContent = c.texte;
-  else el.replaceChildren(creer('img', { src: c.image, alt: c.alt, draggable: 'false' }));
+  if ('texte' in c) {
+    el.textContent = c.texte;
+    return;
+  }
+  const img = creer('img', { class: 'drapeau', src: c.image, alt: c.alt, draggable: 'false' });
+  img.addEventListener('load', () => img.classList.add('charge'));
+  el.replaceChildren(img, ...(c.legende ? [creer('span', { class: 'contenu-legende' }, c.legende)] : []));
 }
 
-/** L'énoncé d'une question (sujets.ts) dans la consigne de la barre : « Touche : » puis l'objet en gras. */
+/** L'énoncé d'une question (sujets.ts) dans la consigne de la barre : « Touche : » puis l'objet en gras (une image : à côté de l'invite). */
 export function poserEnonce(el: HTMLElement, e: Enonce): void {
   const objet = creer('strong');
   poserContenu(objet, e.objet);
   el.replaceChildren(e.invite, objet);
   el.classList.toggle('consigne-deux-lignes', !!e.deuxLignes);
+  el.classList.toggle('consigne-image', 'image' in e.objet);
 }
 
 /**
  * Les zones admises que la rétroaction sait dire : celles de la carte
- * (contestée, enclave), et celles qu'un sujet passera en plus (étude J2
- * § 2.2), que rien ne produit encore : le jumeau d'un drapeau (Monaco pour
- * l'Indonésie, sous Drapeaux) et la partie d'une mer (la mer des Caraïbes
- * pour l'Atlantique).
+ * (contestée, enclave), celles qu'un sujet passe en plus (étude J2 § 2.2 : la
+ * capitale revendiquée, le jumeau d'un drapeau, Monaco pour l'Indonésie sous
+ * Drapeaux), et celle que rien ne produit encore : la partie d'une mer (la
+ * mer des Caraïbes pour l'Atlantique, lot 3b).
  */
-export type AdmisDit = Admis | { zone: string; tenant: string; sorte: 'jumeau' | 'partie' };
+export type AdmisDit = Admis | { zone: string; tenant: string; sorte: 'partie' };
 
 /**
  * Pourquoi un toucher hors du tracé de la cible est juste (décision « Zones
@@ -168,11 +183,22 @@ export const idsSerie = (s: Serie, t: Terrain): string[] => (s.ids.length ? [...
 /**
  * Les données propres d'un sujet, hors de son terrain (étude J2 § 4.2) :
  * null si elles sont déjà là ou qu'il n'en a pas (pays, communes), sinon
- * la promesse de leur chargement (capitales.json et son fichier de langue).
+ * la promesse de leur chargement (capitales.json et son fichier de langue ;
+ * le manifeste des drapeaux, sans les images).
  */
 export function chargementSujet(sujet: string): Promise<unknown> | null {
   if (sujet === 'capitales') return capitalesChargees() ? null : chargerCapitales();
+  if (sujet === 'drapeaux') return drapeauxCharges() ? null : chargerDrapeaux();
   return null;
+}
+
+/**
+ * Ce que montreront ces lieux du sujet, demandé d'avance (étude J2 § 2.2) :
+ * le drapeau de la question suivante en Entraînement, pour qu'il ne montre
+ * pas le gris d'attente. Rien pour un sujet sans image.
+ */
+export function prechargerSujet(sujet: string, ids: Iterable<string>): void {
+  if (sujet === 'drapeaux') prechargerDrapeaux(ids);
 }
 
 /**
@@ -230,7 +256,8 @@ export function avecSujet(
  * Les options de noter() pour la question de ce lieu dans ce sujet : les
  * zones admises de la carte (`base` : faux, le de fait strict des épreuves
  * d'avant leur date), plus celles du sujet (D36 i : Jérusalem ↔
- * Jérusalem-Est sous Capitales), jamais dans la table commune.
+ * Jérusalem-Est sous Capitales ; D41 d : les jumeaux sous Drapeaux), jamais
+ * dans la table commune.
  */
 export function optionsNoter(r: Pick<RenduSujet, 'admisEnPlus'>, t: Pick<Terrain, 'donnees'>, id: string, base = true): OptionsNoter {
   const plus = base ? r.admisEnPlus(id) : null;
