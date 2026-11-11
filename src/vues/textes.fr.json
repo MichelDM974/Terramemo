@@ -588,7 +588,7 @@
   },
   "memoire": {
     "reglage": "Carte de la mémoire",
-    "reglage_detail": "À l'accueil, les pays et les communes teintés selon ta mémoire (jamais pendant une partie)",
+    "reglage_detail": "À l'accueil, la carte teintée selon ta mémoire, un sujet à la fois (jamais pendant une partie)",
     "legende": "Carte de la mémoire",
     "jamais_vu": "Jamais vu",
     "faible": "faible",
