@@ -440,6 +440,9 @@ describe('le sujet Capitales en épreuve', () => {
       vi.advanceTimersByTime(100);
       const avant = optionsNoter.length;
       ctx.v.toucher?.(0, 0, {} as PointerEvent);
+      // La partie est finie : la consigne garde la dernière question, que ce
+      // toucher ignoré ne doit pas écraser (Israël tiré en dernier en Asie).
+      if (optionsNoter.length === avant) break;
       options.set(id, optionsNoter[avant]);
       vi.advanceTimersByTime(1_000);
     }
