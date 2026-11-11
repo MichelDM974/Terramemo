@@ -60,7 +60,7 @@ const { pays: lignes, familles } = JSON.parse(texteManifeste) as Manifeste;
 const main = lire<Main>('geodata/drapeaux-main.json');
 const sources = lire<Sources>('public/geo/sources.json');
 const verrou = lire<Record<string, { telecharge_le: string; fichiers: Record<string, string> }>>('geodata/sources.lock.json');
-const pays = lire<{ id: string; statut: string }[]>('public/geo/pays.json');
+const pays = lire<{ id: string; a2?: string; statut: string }[]>('public/geo/pays.json');
 const parPays = new Map(lignes.map((l) => [l.pays, l]));
 const fichiers = readdirSync(DOSSIER).sort();
 const svg = (h: string) => readFileSync(`${DOSSIER}/${h}.svg`, 'utf8');
@@ -400,15 +400,23 @@ describe('fichiers des drapeaux (public/geo/drapeaux/)', () => {
     expect(fichiers.map((f) => f.slice(0, 8))).toEqual(lignes.flatMap((l) => l.d).sort());
   });
 
-  it('aucun script, gestionnaire, image ni lien externe ; rien n’y nomme le pays (id « flag-icons-xx » retiré, ids internes « d-… ») ; 4:3', async () => {
+  it('aucun script, gestionnaire, image ni lien externe ; rien n’y nomme le pays (id « flag-icons-xx » retiré, ids et classes internes « d-… ») ; 4:3', async () => {
     const { fautesSvg } = await module;
     for (const [h, t] of textesSvg) {
       expect(fautesSvg(t), h).toEqual([]);
       expect(t, h).not.toMatch(/<script|<image|<foreignObject|<style|\son[a-z]+=/i);
       for (const m of t.matchAll(/(?:href="|url\()([^")]*)/g)) expect(m[1], h).toMatch(/^#d-/);
       for (const m of t.matchAll(/\bid="([^"]*)"/g)) expect(m[1], h).toMatch(/^d-[A-Za-z0-9-]+$/);
+      for (const m of t.matchAll(/\bclass="([^"]*)"/g)) for (const c of m[1].split(/\s+/)) expect(c, h).toMatch(/^d-/);
       expect(t, h).not.toContain('flag-icons');
       expect(t, h).toMatch(/^<svg [^>]*viewBox="(0 0 640 480|0 -125 1000 750)"/);
+    }
+    // Ni le code ISO du pays en préfixe (« mr-st1 », classe de flag-icons, donnait la Mauritanie).
+    const a2 = new Map(pays.map((p) => [p.id, p.a2?.toLowerCase()]));
+    for (const l of lignes) {
+      const code = a2.get(l.pays);
+      expect(code, l.pays).toMatch(/^[a-z]{2}$/);
+      for (const h of l.d) expect(svg(h), `${l.pays} ${h}`).not.toMatch(new RegExp(`\\b${code}-`));
     }
     // fautesSvg attrape bien ce qu'elle doit.
     const sain = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><path fill="url(#d-a)"/></svg>';

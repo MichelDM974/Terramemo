@@ -12,8 +12,9 @@
 // Produit (identiques octet pour octet d'un lancement à l'autre) :
 //   drapeaux/<sha8>.svg  un fichier par drapeau, nommé par les 8 premiers chiffres du
 //                      SHA-256 de son contenu : immuable (firebase.json), l'adresse ne
-//                      trahit pas le pays. L'id « flag-icons-xx » est retiré et les ids
-//                      internes « xx-a » deviennent « d-a » : rien n'y nomme le pays ;
+//                      trahit pas le pays. L'id « flag-icons-xx » est retiré, les ids
+//                      internes « xx-a » et les classes « xx-st1 » deviennent « d-a » et
+//                      « d-st1 » : rien n'y nomme le pays ;
 //   drapeaux.json      {pays: [{pays, d, j?, s}], familles: {nom: [ids]}} : d les drapeaux
 //                      justes du pays (empreintes), le premier montré (Reconnaître, D41) ;
 //                      j ses jumeaux (même drapeau à l'écran, juste sous le sujet
@@ -138,12 +139,16 @@ export function fautesSvg(texte) {
 
 /**
  * Un drapeau de flag-icons rendu anonyme : l'id « flag-icons-<code> » de la racine retiré,
- * les ids internes « <code>-a » (et leurs références) renommés « d-a ».
+ * les ids internes « <code>-a » (et leurs références) et les classes « <code>-st1 »
+ * (sans effet : aucune feuille de style) renommés « d-a », « d-st1 ».
  */
 function anonymiser(texte, code) {
   const racine = ` id="flag-icons-${code}"`;
   if (texte.split(racine).length !== 2) throw new Error(`${code}.svg : id${racine} absent ou en double`);
-  return texte.replace(racine, '').replace(new RegExp(`(\\bid="|href="#|url\\(#)${code}-`, 'g'), '$1d-');
+  return texte
+    .replace(racine, '')
+    .replace(new RegExp(`(\\bid="|href="#|url\\(#)${code}-`, 'g'), '$1d-')
+    .replace(/\bclass="([^"]*)"/g, (_, c) => `class="${c.replace(new RegExp(`(^|\\s)${code}-`, 'g'), '$1d-')}"`);
 }
 
 /** Chaque remplacement [avant, après] s'applique au moins une fois, sinon faute. */
