@@ -25,7 +25,7 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, poserEnonce, prechargerSujet, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { rendu, type RenduSujet } from './sujets';
@@ -123,7 +123,7 @@ export interface FabriqueSeances {
   ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance;
   /**
    * Charge les données qui manquent à la demande (l'île des communes, les
-   * capitales ; plus tard la couche marine, les drapeaux) : Toucher attend la
+   * capitales, le manifeste des drapeaux ; plus tard la couche marine) : Toucher attend la
    * promesse avant ouvrir(), même en échec. null, ou sans réponse : rien à charger.
    */
   charger?(d: DemandeSeance): Promise<unknown> | null;
@@ -304,6 +304,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     if (!id) return pilote ? prochaine() : finir();
     poserEnonce(consigne, rs.enonce(id));
     consigne.dataset.cible = id;
+    // Le drapeau de la question suivante, demandé pendant celle-ci (étude J2 § 2.2) ; en séance, la séance a préchargé les siennes.
+    prechargerSujet(rs.sujet, cibles.slice(i + 1, i + 2));
     compte.textContent = pilote ? pilote.compte() : `${i + 1} / ${cibles.length}`;
     if (!reprise) {
       retro.textContent = '';
@@ -390,7 +392,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const chargement = o.seances?.charger?.(d) ?? null;
     if (chargement) {
       const j = ++jetonSeance;
-      // L'île : son message d'avant ; les capitales seules : « Chargement… ».
+      // L'île : son message d'avant ; les capitales ou les drapeaux seuls : « Chargement… ».
       const ile = o.seances?.besoins?.(d).includes('communes') ?? true;
       bilan.replaceChildren(creer('p', { class: 'hint' }, ile ? T.chargement_terrain : T.chargement_sujet));
       bilan.hidden = false;
@@ -399,7 +401,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         bilan.hidden = true;
         ouvrirSeance(d);
       };
-      // Hors ligne : la séance sans ce qui n'a pu se charger (communes, capitales : elles restent dues).
+      // Hors ligne : la séance sans ce qui n'a pu se charger (communes, capitales, drapeaux : elles restent dues).
       chargement.then(suite, suite);
       return;
     }

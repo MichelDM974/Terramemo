@@ -2,7 +2,8 @@
 // petite carte par série (sa région, ses pays éclairés sur le fond des autres)
 // et par sujet (le monde pour Pays, l'île pour Communes, le monde et ses
 // capitales en points pour Capitales, D53 a), une icône pour le reste
-// (Entraînement, Classé, la Révision du jour, chaque exercice).
+// (Entraînement, Classé, la Révision du jour, chaque exercice, et le sujet
+// Drapeaux, D53 a : un drapeau dessiné, rien de drapeaux* à charger).
 //
 // Les cartes viennent des données du monde déjà en mémoire : rien de plus à
 // télécharger (décision « Hébergement »). L'île, dont les données ne se
@@ -132,9 +133,10 @@ function coins(p: Pays): [number, number][] {
 export interface Vignettes {
   /**
    * La vignette d'une série (le monde, un continent, l'île) dans un sujet ;
-   * null si elle n'en a pas. Les séries des capitales reprennent celles des
-   * pays (le même tracé) ; « tous » y porte en plus les capitales en points,
-   * et sert de vignette au sujet.
+   * null si elle n'en a pas. Les séries des capitales et des drapeaux
+   * reprennent celles des pays (le même tracé, gardé une fois) ; sous
+   * Capitales, « tous » porte en plus les capitales en points, et sert de
+   * vignette au sujet (Drapeaux a son icône).
    */
   serie(id: string, sujet?: string): SVGSVGElement | null;
   /** Calcule d'avance les tracés de ces séries, une par moment libre. */
@@ -275,9 +277,11 @@ const ICONES: Record<string, string> = {
   chrono: 'M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2.5 2M10 2.5h4M18.5 6.5 20 5',
   sansfaute: 'M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17zM12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
   minute: 'M6.5 3.5h11M6.5 20.5h11M7.5 3.5c0 4 4.5 5.5 4.5 8.5s-4.5 4.5-4.5 8.5M16.5 3.5c0 4-4.5 5.5-4.5 8.5s4.5 4.5 4.5 8.5',
+  // Le sujet Drapeaux : un drapeau qui flotte au bout de sa hampe.
+  drapeaux: 'M5 21V3.5M5 4.5c2.5-1.3 5-1.3 7 0s4.5 1.3 7 0v9c-2.5 1.3-5 1.3-7 0s-4.5-1.3-7 0',
 };
 
-/** L'icône de ce nom (branche, exercice, « revision ») ; null si elle n'en a pas. */
+/** L'icône de ce nom (branche, exercice, « revision », le sujet Drapeaux) ; null si elle n'en a pas. */
 export function icone(nom: string): SVGSVGElement | null {
   const d = ICONES[nom];
   if (!d) return null;

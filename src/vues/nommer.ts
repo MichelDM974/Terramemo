@@ -4,17 +4,22 @@
 // en vert, puis la question suivante) ; bilan des justes du premier coup.
 // Vaut pour toutes les séries, le monde comme l'île. Les touchers sur la carte
 // n'y répondent pas (Toucher les ignore) ; glisser et pincer restent libres.
+// Un sujet aux choix en images (les drapeaux, étude J2 § 5.3 : RenduSujet.visuel) :
+// boutons-images nommés « Choix 1 » à « Choix 4 » (sans title ni rien qui
+// nomme le pays avant la réponse), touches 1 à 4, rétroaction qui dit aussi
+// le choix fait ; les drapeaux de la question suivante préchargés.
 import type { CarteAffichee } from '../map/carte';
 import { anneauPrincipal, empriseEcran, versEcran, type Emprise } from '../map/geo';
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
-import { ANNEAU_SOUS_PX, creer, fmtS, poserContenu, type ContexteVue } from './commun';
+import { ANNEAU_SOUS_PX, creer, fmtS, poserContenu, prechargerSujet, type ContexteVue } from './commun';
 import { choix, doitCadrer, NB_CHOIX, PartieNommer } from './qcm';
 import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
 
 const T = textes.toucher;
+const D = textes.drapeaux;
 /** Durée de la rétroaction avant la question suivante (ms) : les pauses du Chrono. */
 const PAUSE_JUSTE_MS = 900;
 const PAUSE_FAUX_MS = 1800;
@@ -128,13 +133,14 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   const compte = creer('span', { class: 'essai-compte' });
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
   const boutons = Array.from({ length: NB_CHOIX }, () => creer('button', { type: 'button', class: 'secondary nommer-choix' }));
+  const grille = creer('div', { class: 'nommer-grille' }, ...boutons);
   const terminer = creer('button', { type: 'button', class: 'secondary', id: 'nommer-terminer' }, T.terminer);
   const connu = creer('button', { type: 'button', class: 'secondary', id: 'nommer-connu' }, textes.seance.connais);
   const barre = creer(
     'div',
     { class: 'carte-barre essai', id: 'barre-nommer' },
     creer('div', { class: 'essai-ligne' }, consigne, compte),
-    creer('div', { class: 'nommer-grille' }, ...boutons),
+    grille,
     retro,
     creer('div', { class: 'essai-actions' }, connu, terminer),
   );
@@ -152,9 +158,9 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   let lieux = new Map<string, Lieu>();
   let formes = new Map<string, Forme>();
   let jouables = new Set<string>();
-  /** Les choix tirés pour la question `pour` : les mêmes au retour dans la vue. */
+  /** Les choix tirés pour chaque question de la partie : les mêmes au retour dans la vue (et ceux de la suivante, tirés d'avance pour précharger ses images). */
+  let tires = new Map<string, string[]>();
   let choixCourants: string[] = [];
-  let pour: string | undefined;
   /** La zone demandée est petite à l'écran : un anneau l'entoure. */
   let petite = false;
   let debut = 0;
@@ -169,16 +175,21 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     petite = allumerZone(carte, id, lieux.get(id), formes.get(id), barre, local);
   }
 
+  /** Les choix de la question de ce lieu, tirés une fois par partie. */
+  function choixDe(r: RenduSujet, id: string): string[] {
+    let c = tires.get(id);
+    // Les leurres du sujet (étude J2 § 5.1) : jamais un exclu (D37 c, Israël ↔ Palestine sous Capitales ; le jumeau
+    // d'un drapeau), jamais deux lieux pareils ensemble (deux jumeaux, D41 d).
+    if (!c) tires.set(id, (c = choix(id, lieux, jouables, Math.random, { exclus: r.qcmExclus(id), pareils: r.qcmPareils })));
+    return c;
+  }
+
   function poser(): void {
     arreterAttente();
     if (!partie || !t || !rs) return;
     const id = partie.courante;
     if (id === undefined) return finir();
-    if (pour !== id) {
-      // Les leurres du sujet (étude J2 § 5.1) : jamais un exclu (D37 c, Israël ↔ Palestine sous Capitales).
-      choixCourants = choix(id, lieux, jouables, Math.random, { exclus: rs.qcmExclus(id) });
-      pour = id;
-    }
+    choixCourants = choixDe(rs, id);
     const r = rs;
     consigne.textContent = r.consigneQcm;
     consigne.dataset.cible = id;
@@ -187,14 +198,21 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     connu.disabled = false;
     retro.textContent = '';
     retro.className = 'essai-retro';
+    grille.classList.toggle('nommer-grille-images', r.visuel);
     boutons.forEach((b, k) => {
       const c = choixCourants[k] ?? '';
       // Un leurre montre ce que son lieu montrerait en leurre (la capitale principale de son pays), le bon bouton ce que la question montre.
       poserContenu(b, c ? r.choix(c, id) : { texte: '' });
       b.dataset.id = c;
-      b.className = 'secondary nommer-choix';
+      b.className = r.visuel ? 'secondary nommer-choix nommer-choix-image' : 'secondary nommer-choix';
+      // Une image n'a pas de texte : le bouton a un nom neutre, jamais celui du pays (ni title, ni alt : sujets.ts).
+      if (r.visuel) b.setAttribute('aria-label', remplir(D.choix, { n: k + 1 }));
+      else b.removeAttribute('aria-label');
       b.disabled = false;
     });
+    // Les images de la question suivante, demandées pendant celle-ci.
+    const apres = partie.suivante;
+    if (r.visuel && apres !== undefined) prechargerSujet(r.sujet, choixDe(r, apres));
     barre.hidden = false;
     if (crochets.cadrer) {
       // Une fois : au retour dans la vue, la carte reste où le joueur l'a laissée.
@@ -228,9 +246,12 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     retro.className = `essai-retro ${juste ? 'juste' : 'faux'}`;
     // Le pays de la question, que la consigne ne nommait pas (« La Paz, siège du gouvernement (Bolivie) ») : rs.retro.
     const lieu = rs.retro(id);
+    // Des choix en images : la région aria-live dit aussi celui qu'on a pris (« tu avais choisi : Roumanie »), que rien d'autre ne nomme.
     retro.textContent = juste
       ? remplir(lieu ? T.nommer_juste_lieu : T.nommer_juste, { lieu, temps: fmtS(temps_ms) })
-      : remplir(T.nommer_faux, { cible: lieu || rs.nomChoix(id, id) });
+      : rs.visuel
+        ? remplir(D.faux, { cible: lieu || rs.nomChoix(id, id), choisi: rs.nomChoix(choisi, id) })
+        : remplir(T.nommer_faux, { cible: lieu || rs.nomChoix(id, id) });
     if (!crochets.compte) compte.textContent = `${partie.numero - 1} / ${n}`;
     const ligne = crochets.surReponse?.({ id, choisi, juste, temps_ms, zoom: carte.transfo.k });
     if (ligne) retro.append(creer('span', { class: 'seance-ligne' }, ` · ${ligne}`));
@@ -241,6 +262,17 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     b.addEventListener('click', () => {
       if (b.dataset.id) repondre(b.dataset.id);
     });
+  // Touches 1 à 4 (étude J2 § 5.3) : les choix en images, dans l'ordre de la grille ; hors d'un champ de saisie.
+  document.addEventListener('keydown', (e) => {
+    const ev = e as KeyboardEvent;
+    if (barre.hidden || !rs?.visuel || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if ((ev.target as Element | null)?.closest?.('input, textarea, select')) return;
+    const k = ['1', '2', '3', '4'].indexOf(ev.key);
+    const b = boutons[k];
+    if (k < 0 || !b || b.disabled) return;
+    ev.preventDefault?.();
+    b.click();
+  });
 
   function finir(): void {
     arreterAttente();
@@ -249,13 +281,11 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     t.carte.effacerMarques();
     if (crochets.surFin) {
       partie = null;
-      pour = undefined;
       return crochets.surFin();
     }
     const r = rs;
     const b = partie.bilan();
     partie = null;
-    pour = undefined;
     o.bilan.replaceChildren(
       ...(o.croix ? [o.croix()] : []),
       creer('h2', {}, remplir(T.bilan_nommer_titre, { serie })),
@@ -283,7 +313,6 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     const c = crochets.connu;
     quitter();
     partie = null;
-    pour = undefined;
     c();
   });
 
@@ -305,7 +334,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       formes = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.forme]));
       jouables = new Set(terrain.jouables);
       partie = new PartieNommer(cibles);
-      pour = undefined;
+      tires = new Map();
       o.bilan.hidden = true;
       poser();
     },
@@ -321,7 +350,6 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     arreter() {
       quitter();
       partie = null;
-      pour = undefined;
     },
   };
 }

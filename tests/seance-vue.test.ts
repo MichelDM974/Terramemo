@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { chargerCapitales, oublierCapitales } from '../src/map/capitales';
+import { chargerDrapeaux, oublierDrapeaux } from '../src/map/drapeaux';
 import { assembler } from '../src/map/donnees';
 import { assemblerTerrain } from '../src/map/donnees-terrain';
 import type { Lieu, NomTerrain, Pays } from '../src/map/types';
@@ -40,9 +41,12 @@ const SANS_CAPITALES: readonly Domaine[] = ['pays', 'communes'];
 
 /** Les capitales lues des fichiers de public/geo (au lieu du réseau). */
 const lireCapitales = () => chargerCapitales(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
-// Les capitales lues une fois (src/map/capitales.ts), comme après le choix du sujet : la séance les pose.
+/** Le manifeste des drapeaux lu du fichier de public/geo. */
+const lireDrapeaux = () => chargerDrapeaux(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+// Les capitales et le manifeste des drapeaux lus une fois, comme après le choix du sujet : la séance les pose.
 beforeAll(async () => {
   await lireCapitales();
+  await lireDrapeaux();
 });
 const T0 = Date.UTC(2026, 10, 9, 8); // 12 h à La Réunion
 
@@ -57,7 +61,14 @@ function graine(s: number): () => number {
 
 async function monter(
   depot: Depot = depotMemoire(),
-  o: { ile?: () => typeof ile | null; jouables?: readonly Domaine[]; charger?: (t: NomTerrain) => Promise<unknown>; chargerCapitales?: () => Promise<unknown> } = {},
+  o: {
+    ile?: () => typeof ile | null;
+    jouables?: readonly Domaine[];
+    charger?: (t: NomTerrain) => Promise<unknown>;
+    chargerCapitales?: () => Promise<unknown>;
+    chargerDrapeaux?: () => Promise<unknown>;
+    prechargerDrapeaux?: (ids: readonly string[]) => void;
+  } = {},
 ) {
   let lectures = 0;
   const compte: Depot = { tous: () => (lectures++, depot.tous()), ajouter: (e) => depot.ajouter(e) };
@@ -72,6 +83,8 @@ async function monter(
   await memoire.pret;
   const seances = creerSeances({ memoire, monde, hasard: graine(3), ...(o.ile ? { ile: o.ile } : {}), ...(o.jouables ? { jouables: o.jouables } : {}), ...(o.charger ? { charger: o.charger } : {}),
     ...(o.chargerCapitales ? { chargerCapitales: o.chargerCapitales } : {}),
+    ...(o.chargerDrapeaux ? { chargerDrapeaux: o.chargerDrapeaux } : {}),
+    ...(o.prechargerDrapeaux ? { prechargerDrapeaux: o.prechargerDrapeaux } : {}),
   });
   return { memoire, seances, depot, h, lectures: () => lectures };
 }
@@ -1009,5 +1022,153 @@ describe('séance : les capitales pas encore lues (lot 1)', () => {
     expect(m2.seances.incertains()).toEqual([]);
     expect(m2.seances.completer()).toBeNull();
     expect(m2.seances.comptes()).toEqual({ aRevoir: 0, nouveaux: 8 });
+  });
+});
+
+// Le sujet Drapeaux (lot 2) : Apprendre écrit drapeaux:, les grappes sont
+// celles des pays, le conseil des pays pas appris, le bilan « Bénin : drapeau
+// oublié », le préchargement des drapeaux de la séance ; le manifeste pas
+// encore lu (page neuve), hors ligne compris.
+describe('séance : le sujet Drapeaux (lot 2)', () => {
+  beforeEach(() => installerDom());
+  afterEach(() => vi.unstubAllGlobals());
+  const grappes = grappesPays(monde.entites.map((e) => e.pays));
+  const noter = (m: Awaited<ReturnType<typeof monter>>, fiches: string[], ts: number, note: 1 | 3 = 3) =>
+    m.memoire.ecrire(fiches.map((f) => evenementReponse({ seance: null, appareil: m.memoire.appareil, horloge: () => ({ ts, tz: 240 }), nouvelId: () => m.memoire.nouvelId() }, f, 'rappel', { correct: note > 1, duree_ms: 1000 }, note)));
+
+  it('Apprendre Drapeaux écrit drapeaux: seulement, sur la grappe des pays de la série ; le bilan nomme les pays, jamais un id', async () => {
+    const m = await monter();
+    const europe = grappes.find((g) => g.continent === 'Europe')!;
+    const p = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'drapeaux', serie: serie('Europe') }) as PiloteSeance;
+    const { questions } = jouer(p, { rate: europe.membres[0] });
+    expect(questions.length).toBeGreaterThan(0);
+    expect(questions.every((q) => (q as { domaine?: string }).domaine === 'drapeaux' && (q.terrain ?? 'monde') === 'monde')).toBe(true);
+    // Les grappes des drapeaux sont celles des pays, telles quelles : la première d'Europe.
+    expect(new Set(questions.map((q) => q.id))).toEqual(new Set(europe.membres));
+    await m.memoire.ecrire([]);
+    const evts = await m.depot.tous();
+    expect(evts.length).toBe(questions.length);
+    expect(evts.every((e) => e.fiche.startsWith('drapeaux:'))).toBe(true);
+    p.terminer();
+    const el = new El('div');
+    p.bilan(el as never, { continuer: vi.fn(), carte: vi.fn(), autre: vi.fn() });
+    const txt = el.innerText;
+    const nouveaux = /Nouveaux : ([^\n]+?)(Les pays|$)/.exec(txt)?.[1] ?? '';
+    expect(nouveaux.split(', ').sort()).toEqual(europe.membres.map((id) => monde.noms[id]).sort());
+    expect(txt).toContain(`${monde.noms[europe.membres[0]!]} : touché à 300`);
+    sansBrut(txt, [...questions.map((q) => q.id)]);
+  });
+
+  it('carte retournée oubliée : « Bénin : drapeau oublié » au bilan de la Révision du jour', async () => {
+    const m = await monter();
+    await noter(m, ['drapeaux:BEN:localiser'], T0 - JOUR_MS);
+    const p = m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance;
+    for (let q = p.question(); q; q = p.question()) p.repondre(q.forme === 'retournee' && q.id === 'BEN' ? faux(q.id, 'nommer') : juste(q.id, q.forme === 'trouver' ? 'localiser' : 'nommer'));
+    p.terminer();
+    const el = new El('div');
+    p.bilan(el as never, { continuer: vi.fn(), carte: vi.fn(), autre: vi.fn() });
+    expect(el.innerText).toContain('Bénin : drapeau oublié');
+  });
+
+  it('D39 b : le conseil des pays pas appris à l’ouverture d’Apprendre Drapeaux ; aucun une fois les pays de la grappe appris', async () => {
+    const m = await monter();
+    const p = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'drapeaux', serie: serie('Africa') }) as PiloteSeance;
+    expect(p.conseil).toBe(remplir(textes.sujets.pays.conseil, { chemin: 'Pays › Afrique › Apprendre' }));
+    const m2 = await monter();
+    await noter(m2, grappes.find((g) => g.continent === 'Africa')!.membres.map((id) => `pays:${id}:localiser`), T0 - JOUR_MS);
+    expect((m2.seances.ouvrir({ sorte: 'apprendre', sujet: 'drapeaux', serie: serie('Africa') }) as PiloteSeance).conseil).toBeNull();
+  });
+
+  it('préchargement : les drapeaux des questions de la séance demandés à son ouverture, une fois ; rien pour une séance sans drapeaux', async () => {
+    const demandes: string[][] = [];
+    const m = await monter(undefined, { prechargerDrapeaux: (ids) => void demandes.push([...ids]) });
+    m.seances.ouvrir({ sorte: 'apprendre', sujet: 'drapeaux', serie: serie('Europe') });
+    expect(demandes).toEqual([grappes.find((g) => g.continent === 'Europe')!.membres]);
+    // La Révision du jour du lendemain : les drapeaux dus et à introduire, mêlés aux pays dans le bloc du monde.
+    const m2 = await monter(undefined, { prechargerDrapeaux: (ids) => void demandes.push([...ids]) });
+    await noter(m2, ['drapeaux:BEN:localiser', 'drapeaux:TGO:localiser', 'pays:FRA:localiser'], T0 - JOUR_MS, 1);
+    demandes.length = 0;
+    m2.seances.ouvrir({ sorte: 'revision' });
+    expect(demandes).toHaveLength(1);
+    expect([...demandes[0]!].sort()).toEqual(['BEN', 'TGO']);
+    // Des pays seuls : rien.
+    const m3 = await monter(undefined, { prechargerDrapeaux: (ids) => void demandes.push([...ids]) });
+    demandes.length = 0;
+    m3.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') });
+    expect(demandes).toEqual([]);
+  });
+
+  it('plafond commun des 15 introductions (D46 d) tenu avec trois sujets du monde : pays, capitales et drapeaux mêlés, puis les communes', async () => {
+    const m = await monter(undefined, { ile: () => ile });
+    const idsCommunes = ile.entites.map((e) => e.pays.id);
+    await noter(m, idsCommunes.slice(0, 4).map((id) => `communes:${id}:localiser`), T0 - 2 * JOUR_MS);
+    const monde10 = grappes.flatMap((g) => g.membres).filter((id) => !['DJI', 'GTM', 'KWT', 'LUX', 'MCO', 'PAN', 'SGP', 'SMR', 'VAT'].includes(id)).slice(0, 10);
+    await noter(m, monde10.map((id) => `drapeaux:${id}:localiser`), T0 - 2 * JOUR_MS);
+    await noter(m, [...monde10.map((id) => `pays:${id}:localiser`), ...monde10.map((id) => `capitales:${id}:localiser`)], T0 - JOUR_MS);
+    // 4 + 10 + 20 = 34 fiches « Reconnaître » à introduire : 15 aujourd'hui, les plus anciennes d'abord.
+    expect(m.seances.comptes()?.aRevoir).toBe(INTRODUCTIONS_PAR_JOUR);
+    const qs = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions.filter((q) => q.forme === 'retournee') as { terrain?: string; domaine?: string }[];
+    expect(qs).toHaveLength(INTRODUCTIONS_PAR_JOUR);
+    expect(qs.filter((q) => q.terrain === 'reunion')).toHaveLength(4);
+    expect(qs.filter((q) => q.domaine === 'drapeaux')).toHaveLength(10);
+    expect(qs.filter((q) => q.terrain === 'monde' && q.domaine !== 'drapeaux').map((q) => q.domaine)).toEqual(Array(1).fill('pays'));
+  });
+});
+
+describe('séance : le manifeste des drapeaux pas encore lu (lot 2)', () => {
+  beforeEach(() => {
+    installerDom();
+    oublierDrapeaux();
+  });
+  afterEach(async () => {
+    vi.unstubAllGlobals();
+    await lireDrapeaux();
+  });
+  const noter = (m: Awaited<ReturnType<typeof monter>>, fiches: string[], ts: number) =>
+    m.memoire.ecrire(fiches.map((f) => evenementReponse({ seance: null, appareil: m.memoire.appareil, horloge: () => ({ ts, tz: 240 }), nouvelId: () => m.memoire.nouvelId() }, f, 'rappel', { correct: true, duree_ms: 1000 }, 3)));
+  const drapeauxDe = (p: PiloteSeance) => (jouer(p).questions as { id: string; domaine?: string }[]).filter((q) => q.domaine === 'drapeaux').map((q) => q.id);
+
+  it('Révision du jour avec des drapeaux à introduire : besoins() les demande, charger() lit le manifeste, puis la séance les pose', async () => {
+    const lecteur = vi.fn(lireDrapeaux);
+    const m = await monter(undefined, { chargerDrapeaux: lecteur });
+    await noter(m, ['BEL', 'FRA'].map((id) => `drapeaux:${id}:localiser`), T0 - JOUR_MS);
+    expect(m.seances.besoins({ sorte: 'revision' })).toEqual(['drapeaux']);
+    expect(m.seances.besoins({ sorte: 'apprendre', sujet: 'drapeaux', serie: serie('Europe') })).toEqual(['drapeaux']);
+    await m.seances.charger!({ sorte: 'revision' });
+    expect(lecteur).toHaveBeenCalledTimes(1);
+    expect(m.seances.charger!({ sorte: 'revision' })).toBeNull();
+    expect(drapeauxDe(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).sort()).toEqual(['BEL', 'FRA']);
+  });
+
+  it('hors ligne : la séance s’ouvre sans les drapeaux (ils restent à introduire) ; Apprendre Drapeaux dit les données du sujet', async () => {
+    const m = await monter(undefined, { chargerDrapeaux: () => Promise.reject(new Error('hors ligne')) });
+    await noter(m, ['BEL', 'FRA'].map((id) => `drapeaux:${id}:localiser`), T0 - JOUR_MS);
+    await expect(m.seances.charger!({ sorte: 'revision' })).resolves.toBeDefined();
+    expect(drapeauxDe(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance)).toEqual([]);
+    expect(m.seances.comptes()?.aRevoir).toBe(2);
+    const d = { sorte: 'apprendre' as const, sujet: 'drapeaux', serie: serie('Europe') };
+    await m.seances.charger!(d);
+    expect(m.seances.ouvrir(d)).toEqual({ refus: textes.toucher.echec_sujet, reviser: 0 });
+  });
+
+  it('page rouverte en pleine grappe de drapeaux, manifeste pas encore lu : incertaine, chargée en fond', async () => {
+    await lireDrapeaux();
+    const depot = depotMemoire();
+    const m = await monter(depot);
+    const a = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'drapeaux', serie: serie('Europe') }) as PiloteSeance;
+    let rappels = 0;
+    for (let q = a.question(); q && rappels < 2; q = a.question()) {
+      if (q.forme === 'trouver') rappels++;
+      a.repondre(juste(q.id, q.forme === 'trouver' ? 'localiser' : 'nommer'));
+    }
+    a.terminer();
+    await m.memoire.ecrire([]);
+    const avec = m.seances.comptes();
+    oublierDrapeaux();
+    const m2 = await monter(depot, { chargerDrapeaux: lireDrapeaux });
+    expect(m2.seances.incertains()).toEqual(['drapeaux']);
+    await m2.seances.completer();
+    expect(m2.seances.incertains()).toEqual([]);
+    expect(m2.seances.comptes()).toEqual(avec);
   });
 });

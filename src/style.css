@@ -38,6 +38,14 @@
   --frontiere: rgba(236, 241, 254, 0.55);
   --hachure: rgba(236, 241, 254, 0.34);
   --pastille: #8e939d;
+  /* Drapeaux (étude J2 § 5.3) : chacun sur fond blanc (le Népal est transparent, et
+     l'anticrénelage entre les bandes laisse voir le fond), bordé d'un liseré neutre
+     de 1 px, assez clair pour cerner les bords presque noirs (Allemagne, Angola) sur
+     le panneau sombre, assez soutenu pour cerner les bords blancs (Japon, Chypre) ;
+     un gris 4:3 tient la place tant que l'image n'est pas arrivée. */
+  --drapeau-fond: #ffffff;
+  --drapeau-lisere: #80858f;
+  --drapeau-attente: #3c414c;
   /* Marge latérale : le contenu de l'en-tête s'aligne sur celui de la page. */
   --pad: max(32px, calc((100% - 1216px) / 2));
 }

@@ -193,3 +193,30 @@ describe('grappes des capitales', () => {
     for (const g of gs) expect(g.membres.some((id) => !memeNom.has(id)), g.membres.join(',')).toBe(true);
   });
 });
+
+// Drapeaux (étude J2 § 6.1, lot 2) : les grappes des pays telles quelles
+// (mêmes ids, mêmes leurres voisins, même cadrage, même ordre ;
+// src/vues/seance.ts, commePays) ; chaque pays d'une grappe a son drapeau,
+// et une grappe n'est jamais faite de deux jumeaux seuls (son QCM d'Apprendre
+// n'aurait qu'eux en voisins).
+describe('grappes des drapeaux', () => {
+  const gs = grappesPays(pays);
+  const manifeste = lire<{ pays: { pays: string; d: string[]; j?: string[] }[] }>('public/geo/drapeaux.json');
+  const parPays = new Map(manifeste.pays.map((l) => [l.pays, l]));
+
+  it('celles des pays : chaque jouable une fois, avec son drapeau ; aucune grappe vide', () => {
+    const membres = gs.flatMap((g) => g.membres);
+    expect(new Set(membres)).toEqual(new Set(jouables.map((p) => p.id)));
+    expect(gs.every((g) => g.membres.length > 0)).toBe(true);
+    for (const id of membres) expect(parPays.get(id)?.d.length, id).toBeGreaterThan(0);
+  });
+
+  it('les jumeaux (Indonésie et Monaco, Roumanie et Tchad) dans des grappes de plus de deux pays', () => {
+    for (const [a, b] of [
+      ['IDN', 'MCO'],
+      ['ROU', 'TCD'],
+    ]) {
+      for (const id of [a, b]) expect(gs.find((g) => g.membres.includes(id!))!.membres.length, id).toBeGreaterThan(2);
+    }
+  });
+});

@@ -26,6 +26,7 @@
 // Les grappes nouvelles des autres sujets ne s'ouvrent que par Apprendre.
 // Tant que le monde n'a qu'un sujet jouable, les blocs sont ceux d'avant.
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
+import { chargerDrapeaux, drapeauxCharges, prechargerDrapeaux } from '../map/drapeaux';
 import type { DonneesCarte } from '../map/donnees';
 import { empriseGrappe, type Emprise } from '../map/geo';
 import type { Lieu, NomTerrain } from '../map/types';
@@ -76,7 +77,7 @@ export interface Seances extends FabriqueSeances {
   /**
    * Les domaines à données propres dont une grappe est commencée ce jour
    * sans leurs données (page rouverte en pleine grappe) : les communes sans
-   * l'île, les capitales pas lues. Les comptes de la ligne de Jouer (la
+   * l'île, les capitales ou le manifeste des drapeaux pas lus. Les comptes de la ligne de Jouer (la
    * grappe à finir) en dépendent : main.ts les charge en fond (completer),
    * puis rafraîchit Jouer.
    */
@@ -87,7 +88,7 @@ export interface Seances extends FabriqueSeances {
    * Les domaines dont la demande a besoin des données, hors du monde
    * toujours là (chargées ou non) : les communes (Apprendre sous La Réunion,
    * communes dues, à introduire ou grappe de communes commencée ce jour), les
-   * capitales (de même) ; plus tard la couche marine, les drapeaux.
+   * capitales et les drapeaux (de même) ; plus tard la couche marine.
    */
   besoins(d: DemandeSeance): Domaine[];
   /**
@@ -114,6 +115,10 @@ export interface OptionsSeances {
   charger?: (t: NomTerrain) => Promise<unknown>;
   /** Lit les capitales (chargerCapitales par défaut ; les tests : un échec, une attente). */
   chargerCapitales?: () => Promise<unknown>;
+  /** Lit le manifeste des drapeaux (chargerDrapeaux par défaut ; les tests : un échec, une attente). */
+  chargerDrapeaux?: () => Promise<unknown>;
+  /** Précharge les drapeaux de ces pays (prechargerDrapeaux par défaut ; les tests : un espion). */
+  prechargerDrapeaux?: (ids: readonly string[]) => void;
   /**
    * Les domaines jouables (DOMAINES_JOUABLES par défaut) : les tests y
    * mettent un sujet pas encore livré, pour mêler des domaines du monde sans
@@ -142,9 +147,9 @@ function infoDomaine(domaine: Domaine, terrain: NomTerrain, donnees: DonneesCart
 /**
  * D'où une séance tient l'InfoDomaine d'un domaine : info() (null tant que
  * ses données manquent) et charger(), qui les charge (généralise l'île des
- * communes, et les capitales, lues pour ce que montrent leurs questions ;
- * plus tard la couche marine, les drapeaux, préchargés pour la séance). `aCharger` : ses données ne sont pas celles
- * du monde, toujours là.
+ * communes, et les capitales et le manifeste des drapeaux, lus pour ce que
+ * montrent leurs questions ; plus tard la couche marine). `aCharger` : ses
+ * données ne sont pas celles du monde, toujours là.
  */
 interface SourceDomaine {
   info(): InfoDomaine | null;
@@ -191,7 +196,8 @@ export function creerSeances(o: OptionsSeances): Seances {
         // Les grappes des pays, sur le monde ; ce que montrent ses questions (capitales.json) se charge avant la séance.
         return { info: () => (capitalesChargees() ? commePays(d) : null), aCharger: true, charger: () => (o.chargerCapitales ?? chargerCapitales)() };
       case 'drapeaux':
-        return toujoursLa(() => commePays(d));
+        // De même : le manifeste (drapeaux.json) avant la séance ; ses images, préchargées à son ouverture (ouvrir).
+        return { info: () => (drapeauxCharges() ? commePays(d) : null), aCharger: true, charger: () => (o.chargerDrapeaux ?? chargerDrapeaux)() };
       case 'communes':
         return { info: infoCommunes, aCharger: true, charger: () => o.charger?.('reunion') ?? Promise.reject(new Error('île : pas de chargeur')) };
       case 'mers':
@@ -347,6 +353,7 @@ export function creerSeances(o: OptionsSeances): Seances {
                 : S.grappe_faite;
       return { refus: raison, reviser: d.sorte === 'apprendre' ? aFaire : 0 };
     }
+    precharger(bs);
     const id = m.nouvelId();
     const ctx = { seance: id, appareil: m.appareil, horloge: m.horloge, nouvelId: () => m.nouvelId(), hasard };
     return pilote(
@@ -354,6 +361,19 @@ export function creerSeances(o: OptionsSeances): Seances {
       d,
       d.sorte === 'apprendre' ? conseil(p) : null,
     );
+  }
+
+  /**
+   * Les drapeaux des questions de la séance, demandés à son ouverture (étude
+   * J2 § 6.3) : celui de chaque pays à poser sous Drapeaux (révisions,
+   * introductions, grappe nouvelle), dans le cache du navigateur quand sa
+   * question le montre. Les leurres d'un QCM arrivent à leur affichage.
+   */
+  function precharger(bs: readonly Bloc[]): void {
+    // Les révisions du monde mêlent les domaines dans un bloc (celui des pays) : chaque fiche dit le sien.
+    const fiches = bs.flatMap((b) => [...b.plan.revisions, ...b.plan.introductions]).flatMap((f) => analyser(f) ?? []);
+    const ids = [...fiches.filter((f) => f.domaine === 'drapeaux').map((f) => f.id), ...bs.filter((b) => b.info.domaine === 'drapeaux').flatMap((b) => b.plan.nouveaux)];
+    if (ids.length) (o.prechargerDrapeaux ?? ((x: readonly string[]) => prechargerDrapeaux(x)))([...new Set(ids)]);
   }
 
   /**

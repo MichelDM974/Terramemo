@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { chargerCapitales } from '../src/map/capitales';
+import { chargerDrapeaux, drapeauxCharges, oublierDrapeaux } from '../src/map/drapeaux';
 import type { Pays } from '../src/map/types';
 import type { Lancement } from '../src/vues/arbre';
 import type { ContexteVue, Vue } from '../src/vues/commun';
@@ -905,5 +906,134 @@ describe('Toucher : le sujet Capitales', () => {
     t.vue.activer();
     t.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'apprendre' }, { id: 'Europe', terrain: 'monde', ids: IDS5, n: 5 }, t.monde as never, IDS5);
     expect(t.visible('barre-essai')).toBe(true);
+  });
+});
+
+// Le sujet Drapeaux (étude J2 § 5.3, lot 2) : son vrai manifeste, son vrai rendu,
+// en Trouver, en Reconnaître lancé de Jouer et en séance (les trois formes).
+describe('Toucher : le sujet Drapeaux', () => {
+  const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
+  /** Les images préchargées (new Image()), dans l'ordre. */
+  let precharges: string[] = [];
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    installerDom();
+    installerStockage();
+    optionsNotees = [];
+    oublierDrapeaux();
+    await chargerDrapeaux(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+    precharges = [];
+    vi.stubGlobal(
+      'Image',
+      class {
+        set src(a: string) {
+          precharges.push(a);
+        }
+      },
+    );
+  });
+  afterEach(() => {
+    admisSuivant = null;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  const montre = (id: string) => drapeauxCharges()!.parPays.get(id)!.montre;
+  const consigne = (v: ReturnType<typeof monter>) => v.zone.querySelector('#barre-essai .essai-consigne')!;
+
+  it('Trouver : « Pays de ce drapeau : » et l’image (alt neutre), jamais le pays avant la réponse ; gardée à la reprise ; juste avec le pays ; bilan par le pays', () => {
+    const v = monter({}, { ids: ['TCD', 'NER'], noms: NOMS_FR });
+    v.lancer({ sujet: 'drapeaux' });
+    const id = v.cible();
+    const c = consigne(v);
+    expect(c.textContent).toBe('Pays de ce drapeau : ');
+    expect(c.classList.contains('consigne-image')).toBe(true);
+    expect(c.classList.contains('consigne-deux-lignes')).toBe(false);
+    const img = c.querySelector('strong img')!;
+    expect(img.getAttribute('src')).toBe(montre(id));
+    expect(img.getAttribute('alt')).toBe('Drapeau à reconnaître');
+    expect(img.getAttribute('draggable')).toBe('false');
+    expect(img.getAttribute('title')).toBeNull();
+    sansBrut([v.barre.innerText, ...[...img.attrs.values()]].join(' | '), ['TCD', 'NER', 'Tchad', 'Niger']);
+    // Le drapeau de la question suivante, préchargé pendant celle-ci.
+    expect(precharges).toEqual([montre(id === 'TCD' ? 'NER' : 'TCD')]);
+    toucher(v.vue, false);
+    expect(v.retro.textContent).toMatch(/^Faux : la mer, à 250\u00a0km du bord\. Le bon pays est en vert : touche-le\.$/);
+    v.vue.desactiver();
+    v.vue.activer();
+    expect(consigne(v).querySelector('strong img')!.getAttribute('src')).toBe(montre(id));
+    toucher(v.vue, true);
+    expect(v.retro.textContent).toMatch(new RegExp(`^Juste : ${NOMS_FR[id]} · 2 essais`));
+    vi.advanceTimersByTime(1200);
+    v.passer.click();
+    expect(v.bilan.textContent).toContain(`${NOMS_FR[id]} : 2 essais`);
+    expect(`${v.barre.innerText}${v.bilan.innerText}`).not.toMatch(/\b(TCD|NER)\b/);
+  });
+
+  it('D41 d : l’Indonésie notée avec Monaco en zone admise du sujet, et dit ; sous Pays, aucune', () => {
+    const v = monter({}, { ids: ['IDN', 'MCO'], noms: NOMS_FR });
+    v.lancer({ sujet: 'drapeaux' });
+    if (v.cible() === 'MCO') v.passer.click();
+    expect(v.cible()).toBe('IDN');
+    admisSuivant = { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' };
+    toucher(v.vue, true);
+    expect(v.retro.textContent).toMatch(/^Juste \(même drapeau : Monaco\) : Indonésie · 1 essai/);
+    const o = optionsNotees.at(-1) as { acceptes: ReadonlyMap<string, { zone: string; sorte: string }[]> };
+    expect([...o.acceptes.get('IDN')!].map((z) => [z.zone, z.sorte])).toEqual([['MCO', 'jumeau']]);
+    const p = monter({}, { ids: ['IDN'], noms: NOMS_FR });
+    p.lancer({ sujet: 'pays' });
+    toucher(p.vue, true);
+    expect(optionsNotees.at(-1)).toEqual({ acceptes: true });
+  });
+
+  it('Reconnaître lancé de Jouer : la grille d’images ; le journal reçoit le Lancement des drapeaux', () => {
+    const libre = vi.fn<NonNullable<OptionsEssai['libre']>>(() => null);
+    const v = monter({ libre }, { ids: ['TCD', 'NER', 'NGA', 'CMR', 'CAF'], noms: NOMS_FR });
+    v.lancer({ sujet: 'drapeaux', mode: 'nommer' });
+    expect(libre.mock.calls[0]![0]).toMatchObject({ sujet: 'drapeaux', mode: 'nommer' });
+    const barre = v.zone.querySelector('#barre-nommer')!;
+    expect(barre.querySelector('.essai-consigne')!.textContent).toBe('Quel est son drapeau ?');
+    const bs = barre.querySelectorAll('.nommer-choix');
+    expect(bs.map((b) => b.getAttribute('aria-label'))).toEqual(['Choix 1', 'Choix 2', 'Choix 3', 'Choix 4']);
+    expect(bs.every((b) => b.querySelector('img')!.getAttribute('src') === montre(b.dataset.id!))).toBe(true);
+  });
+
+  it('une séance (QuestionPilotee.domaine drapeaux) : Trouver, QCM et carte retournée en images ; « Révéler » montre le drapeau et nomme le pays', () => {
+    const f = piloteFactice([
+      { id: 'FRA', forme: 'trouver', cadrer: null, connu: false, domaine: 'drapeaux' },
+      { id: 'ITA', forme: 'qcm', cadrer: null, connu: true, domaine: 'drapeaux' },
+      { id: 'DEU', forme: 'retournee', cadrer: null, connu: false, domaine: 'drapeaux' },
+    ]);
+    const s = monterSeance(() => f.p);
+    s.vue.activer();
+    s.vue.reviser();
+    expect(s.el('#barre-essai .essai-consigne').textContent).toBe('Pays de ce drapeau : ');
+    expect(s.el('#barre-essai .essai-consigne strong img').getAttribute('src')).toBe(montre('FRA'));
+    justeSuivant = true;
+    s.vue.toucher?.(1, 1, {} as PointerEvent);
+    expect(s.el('#barre-essai .essai-retro').textContent).toMatch(/^Juste : France · 1 essai/);
+    vi.advanceTimersByTime(1200);
+    expect(s.el('#barre-nommer .essai-consigne').textContent).toBe('Quel est son drapeau ?');
+    const bs = s.zone.querySelectorAll('#barre-nommer .nommer-choix');
+    expect(bs.map((b) => b.getAttribute('aria-label'))).toEqual(['Choix 1', 'Choix 2', 'Choix 3', 'Choix 4']);
+    bs.find((b) => b.dataset.id === 'ITA')!.click();
+    vi.advanceTimersByTime(900);
+    const nom = s.el('#barre-retournee .retournee-nom');
+    expect(s.el('#barre-retournee .essai-consigne').textContent).toBe('Quel est son drapeau ?');
+    expect(nom.hidden).toBe(true);
+    expect(nom.querySelector('img')).toBeNull();
+    s.el('#retournee-reveler').click();
+    expect(nom.hidden).toBe(false);
+    expect(nom.querySelector('img')!.getAttribute('src')).toBe(montre('DEU'));
+    expect(nom.querySelector('.contenu-legende')!.textContent).toBe('Allemagne');
+    expect(nom.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('une séance qui attend les drapeaux seuls : « Chargement… », pas le message de l’île', () => {
+    const f = piloteFactice([{ id: 'FRA', forme: 'trouver', cadrer: null, connu: false, domaine: 'drapeaux' }]);
+    const s = monterSeance(() => f.p);
+    Object.assign(s.fabrique, { charger: () => new Promise(() => undefined), besoins: () => ['drapeaux'] });
+    s.vue.activer();
+    s.vue.reviser();
+    expect(s.el('#essai-bilan').innerText).toBe(textes.toucher.chargement_sujet);
   });
 });

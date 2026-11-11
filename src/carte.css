@@ -290,6 +290,47 @@ body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoi
 .nommer-choix.juste::before { content: "✓\00a0"; }
 .nommer-choix.faux::before { content: "✗\00a0"; }
 
+/* Drapeaux (étude J2 § 5.3) : un <img> de taille fixe, 4:3, sur fond blanc,
+   liseré neutre de 1 px, coins de 3 px. Tant qu'il n'est pas arrivé, un gris
+   de même taille tient sa place (« charge » : posé au chargement, commun.ts) :
+   la barre a sa hauteur dès la pose, et allumerZone (nommer.ts) la lit juste.
+   Dans la barre, 64 × 48 px sur le téléphone, 96 × 72 à partir de 600 px de
+   large ; dans les choix, 64 px de haut, puis 96. */
+.drapeau {
+  display: block;
+  width: 64px;
+  height: 48px;
+  object-fit: contain;
+  background: var(--drapeau-attente);
+  border: 1px solid var(--drapeau-lisere);
+  border-radius: 3px;
+  box-sizing: content-box;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.drapeau.charge { background: var(--drapeau-fond); }
+/* L'énoncé de Trouver et des épreuves : « Pays de ce drapeau : », le drapeau à côté. */
+.essai-consigne.consigne-image { display: flex; align-items: center; gap: 10px; }
+.essai-consigne.consigne-image strong { display: block; flex: none; }
+/* Reconnaître : une grille 2 × 2 de boutons-images, le drapeau centré ; après la
+   réponse, un contour de 3 px (vert le bon, rouge le mauvais choix) et ✓ ou ✗
+   dans le coin, jamais de fond vert ou rouge, qui se confondrait avec les
+   couleurs d'un drapeau. */
+.nommer-choix-image { position: relative; display: flex; align-items: center; justify-content: center; padding: 6px; }
+.nommer-choix-image.juste, .nommer-choix-image.juste:disabled,
+.nommer-choix-image.faux, .nommer-choix-image.faux:disabled { background: transparent; }
+.nommer-choix-image.juste, .nommer-choix-image.juste:disabled { box-shadow: inset 0 0 0 3px var(--good); border-color: var(--good); }
+.nommer-choix-image.faux, .nommer-choix-image.faux:disabled { box-shadow: inset 0 0 0 3px var(--danger); border-color: var(--danger); }
+.nommer-choix-image.juste::before, .nommer-choix-image.faux::before { position: absolute; top: 4px; left: 8px; font-size: 1rem; line-height: 1; }
+.nommer-choix-image .drapeau { width: 85px; height: 64px; }
+/* La révélation de la carte retournée : le drapeau, son pays dessous. */
+.retournee-nom .drapeau { margin: 0 auto; }
+.contenu-legende { display: block; margin-top: 4px; }
+@media (min-width: 600px) {
+  .drapeau { width: 96px; height: 72px; }
+  .nommer-choix-image .drapeau { width: 128px; height: 96px; }
+}
+
 /* Une partie en cours (sa barre affichée) : la recherche, qui donnerait la
    réponse, s'efface ; l'en-tête garde sa place. */
 body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:not([hidden]), #barre-retournee:not([hidden])) .recherche { visibility: hidden; }

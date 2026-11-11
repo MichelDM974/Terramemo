@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enregistrerPartie, epreuvesClassees, EPREUVES_SUJETS, idEpreuve, reglerHorlogeEpreuves } from '../src/epreuve/chrono';
 import { capitalesChargees, oublierCapitales } from '../src/map/capitales';
+import { drapeauxCharges, oublierDrapeaux } from '../src/map/drapeaux';
 import type { Pays } from '../src/map/types';
 import {
   adresse,
@@ -44,7 +45,7 @@ const a = (segs: string[]) => adresse(arbre.resoudre(segs));
 describe('l’arbre (pur)', () => {
   it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier ; Capitales sous Entraînement seulement), les séries des pays, les exercices de chaque branche', () => {
     expect(arbre.choix({ type: 'racine' })).toEqual(['entrainement', 'classe']);
-    expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'communes']);
+    expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'communes']);
     // Capitales : les séries des pays, tailles comprises (D37 c) ; ses épreuves classées à la partie C (bascule du 16/11).
     expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'capitales' })).toEqual(SERIES_PAYS);
@@ -58,6 +59,17 @@ describe('l’arbre (pur)', () => {
     // Apprendre : les pays et les communes (défaut D6 : sous La Réunion, ses grappes de communes).
     expect(arbre.modes('entrainement', 'communes')).toEqual(['apprendre', 'localiser', 'nommer']);
     expect(arbre.modes('classe', 'communes')).toEqual(['chrono', 'sansfaute', 'minute']);
+    // Drapeaux (lot 2) : les séries des pays, tailles comprises (« 54 drapeaux » en Afrique) ; Entraînement seul, ses épreuves à la partie C.
+    expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'drapeaux' })).toEqual(SERIES_PAYS);
+    expect(arbre.series('drapeaux').map((x) => x.n)).toEqual(arbre.series('pays').map((x) => x.n));
+    expect(arbre.series('drapeaux').find((x) => x.id === 'Africa')!.n).toBe(54);
+    expect(arbre.series('drapeaux').find((x) => x.id === 'tous')!.n).toBe(195);
+    expect(arbre.modes('entrainement', 'drapeaux')).toEqual(['apprendre', 'localiser', 'nommer']);
+    expect(arbre.modes('classe', 'drapeaux')).toEqual([]);
+    expect(arbre.valide({ branche: 'classe', sujet: 'drapeaux', serie: 'Africa', mode: 'chrono' })).toBe(false);
+    // Après la bascule des capitales, Classé n'a toujours pas Drapeaux.
+    expect(arbreApres.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'communes']);
+    expect(arbreApres.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
   });
 
   it('même ordre des séries partout : tous, les continents (ordre alphabétique français), l’île ; celui des épreuves et du 🏆', () => {
@@ -435,7 +447,7 @@ describe('la vue Jouer', () => {
     expect(r.innerText).toContain('12 à revoir · 6 nouveaux');
     expect(r.innerText).not.toContain('record');
     expect(r.disabled).toBe(false);
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     r.click();
     expect(revision.lancer).toHaveBeenCalledTimes(1);
     // Pas d'adresse dans l'arbre : la ligne ne pousse rien.
@@ -569,10 +581,10 @@ describe('la vue Jouer : le sujet Capitales', () => {
   });
   const attendre = () => new Promise((r) => setTimeout(r, 0));
 
-  it('Entraînement : Pays, Capitales, Communes ; sa vignette (le monde et ses capitales en points) sans rien charger ; ses séries « 54 capitales »', () => {
+  it('Entraînement : Pays, Capitales, Drapeaux, Communes ; sa vignette (le monde et ses capitales en points) sans rien charger ; ses séries « 54 capitales »', () => {
     const j = monter();
     j.ouvrir('entrainement');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     expect(j.panneau.querySelector('[data-sujet="capitales"]')!.innerText).toContain('Capitales');
     expect(j.panneau.querySelector('[data-sujet="capitales"]')!.innerText).toContain('195 capitales');
     expect(j.panneau.querySelector('[data-sujet="capitales"] .vignette-carte .vignette-points')).not.toBeNull();
@@ -681,5 +693,109 @@ describe('la vue Jouer : Classé › Capitales', () => {
     expect(j.opts.lancer.mock.calls[0]![0]).toEqual({ branche: 'classe', sujet: 'capitales', serie: 'Oceania', mode: 'chrono' });
     expect(j.opts.lancer.mock.calls[0]![3]).toHaveLength(14);
     expect(capitalesChargees()).not.toBeNull();
+  });
+});
+
+// Le sujet Drapeaux (lot 2, partie B) : sous Entraînement seulement, son icône,
+// ses séries « 54 drapeaux », ses exercices et leur « ? » (exercices
+// visuels) ; son manifeste chargé dans Jouer, puis la partie part ; rien de
+// drapeaux* demandé pour afficher Jouer.
+describe('la vue Jouer : le sujet Drapeaux', () => {
+  /** Les réponses du réseau : null, hors ligne. */
+  let reseau: Record<string, unknown> | null = null;
+  const demandes: string[] = [];
+  const MANIFESTE = JSON.parse(readFileSync('public/geo/drapeaux.json', 'utf8'));
+  beforeEach(() => {
+    installerDom();
+    installerStockage();
+    oublierDrapeaux();
+    demandes.length = 0;
+    reseau = { '/geo/drapeaux.json': MANIFESTE };
+    vi.stubGlobal('fetch', async (url: string) => {
+      demandes.push(url);
+      if (!reseau) throw new TypeError('Failed to fetch');
+      return { ok: url in reseau, status: url in reseau ? 200 : 404, json: async () => reseau![url] };
+    });
+  });
+  afterEach(() => {
+    oublierDrapeaux();
+    vi.unstubAllGlobals();
+  });
+  const attendre = () => new Promise((r) => setTimeout(r, 0));
+
+  it('Entraînement : Pays, Capitales, Drapeaux, Communes (D53 b) ; son icône (D53 a) sans rien charger ; « 195 drapeaux », « 54 drapeaux » ; absent de Classé', () => {
+    const j = monter();
+    j.ouvrir('entrainement');
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    const tuile = j.panneau.querySelector('[data-sujet="drapeaux"]')!;
+    expect(tuile.innerText).toContain('Drapeaux');
+    expect(tuile.innerText).toContain('195 drapeaux');
+    expect(tuile.querySelector('.vignette-icone')).not.toBeNull();
+    expect(tuile.querySelector('.vignette-carte')).toBeNull();
+    j.ouvrir('entrainement', 'drapeaux');
+    expect(j.attr('data-serie')).toEqual(SERIES_PAYS);
+    expect(j.panneau.innerText).toContain('54 drapeaux');
+    // Les séries reprennent les vignettes des régions, sans les points des capitales.
+    expect(j.panneau.querySelector('[data-serie="tous"] .vignette-carte')).not.toBeNull();
+    expect(j.panneau.querySelector('[data-serie="tous"] .vignette-points')).toBeNull();
+    j.ouvrir('entrainement', 'drapeaux', 'Africa');
+    expect(j.attr('data-mode')).toEqual(['apprendre', 'localiser', 'nommer']);
+    for (const m of ['apprendre', 'localiser', 'nommer'] as const) expect(j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText).toContain(textes.jouer.exercices.drapeaux[m]);
+    // Le « ? » dit que l'exercice est visuel.
+    const aide = j.panneau.querySelector('#jouer-aide')!;
+    expect(aide.getAttribute('aria-label')).toBe(textes.jouer.aide);
+    expect(j.panneau.querySelector('#jouer-regles')!.hidden).toBe(true);
+    aide.click();
+    expect(j.panneau.querySelector('#jouer-regles')!.innerText).toBe(textes.jouer.visuel);
+    expect(textes.jouer.visuel).toMatch(/visuels/);
+    // Les autres sujets d'Entraînement : pas de « ? » (rien ne change pour eux).
+    j.ouvrir('entrainement', 'capitales', 'Africa');
+    expect(j.panneau.querySelector('#jouer-aide')).toBeNull();
+    j.ouvrir('entrainement', 'pays', 'Africa');
+    expect(j.panneau.querySelector('#jouer-aide')).toBeNull();
+    j.ouvrir('classe');
+    expect(j.attr('data-sujet')).toEqual(['pays', 'communes']);
+    // L'adresse de Classé › Drapeaux retombe sur Classé.
+    expect(a(['classe', 'drapeaux', 'Africa'])).toBe('jouer/classe');
+    // Rien de drapeaux* demandé pour afficher Jouer.
+    expect(demandes).toEqual([]);
+    expect(drapeauxCharges()).toBeNull();
+  });
+
+  it('chargement puis lancement : « Chargement… », boutons désactivés, le manifeste seul, puis la partie part ; la seconde fois, tout de suite', async () => {
+    const j = monter();
+    j.ouvrir('entrainement', 'drapeaux', 'Africa');
+    const statut = () => j.panneau.querySelector('.jouer-statut')!;
+    j.panneau.querySelector('[data-mode="nommer"]')!.click();
+    expect(statut().textContent).toBe(textes.toucher.chargement_sujet);
+    expect(j.panneau.querySelector('[data-mode="localiser"]')!.disabled).toBe(true);
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    await attendre();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(1);
+    expect(j.opts.lancer.mock.calls[0]![0]).toEqual({ branche: 'entrainement', sujet: 'drapeaux', serie: 'Africa', mode: 'nommer' });
+    expect(j.opts.lancer.mock.calls[0]![3]).toHaveLength(54);
+    expect(statut().hidden).toBe(true);
+    // Le manifeste seul : aucune image demandée au lancement.
+    expect(demandes).toEqual(['/geo/drapeaux.json']);
+    j.panneau.querySelector('[data-mode="localiser"]')!.click();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(2);
+    expect(demandes).toHaveLength(1);
+  });
+
+  it('échec puis message : hors ligne, aucune partie à vide, on reste au niveau, boutons rendus ; le prochain choix réessaie', async () => {
+    reseau = null;
+    const j = monter();
+    j.ouvrir('entrainement', 'drapeaux', 'Africa');
+    j.panneau.querySelector('[data-mode="apprendre"]')!.click();
+    await attendre();
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    expect(j.panneau.querySelector('.jouer-statut')!.textContent).toBe(textes.toucher.echec_sujet);
+    expect(j.panneau.querySelector('[data-mode="apprendre"]')!.disabled).toBe(false);
+    expect(j.panneau.dataset.niveau).toBe('exercices');
+    reseau = { '/geo/drapeaux.json': MANIFESTE };
+    j.panneau.querySelector('[data-mode="apprendre"]')!.click();
+    await attendre();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(1);
+    expect(drapeauxCharges()).not.toBeNull();
   });
 });

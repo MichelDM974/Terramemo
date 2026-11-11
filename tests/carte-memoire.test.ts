@@ -190,6 +190,14 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
     };
   }
 
+  it('les jouables de cette version (lot 2) : Pays, Capitales, Drapeaux dans le choix, dans cet ordre, nommés comme dans Jouer', async () => {
+    const v = monter(carteMemoire(await memoire(), () => true));
+    v.vue.activer();
+    const choix = v.choix()!;
+    expect(choix.querySelectorAll('option').map((o) => o.getAttribute('value'))).toEqual(['pays', 'capitales', 'drapeaux']);
+    expect(choix.innerText).toBe(`${textes.jouer.sujets.pays.nom}${textes.jouer.sujets.capitales.nom}${textes.jouer.sujets.drapeaux.nom}`);
+  });
+
   it('un seul sujet jouable : pas de choix dans la légende', async () => {
     const v = monter(carteMemoire(await memoire(), () => true, { jouables: SANS_CAPITALES }));
     v.vue.activer();
@@ -223,22 +231,32 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
   });
 });
 
-describe('carte de la mémoire : capitales réellement jouables (lot 1)', () => {
+describe('carte de la mémoire : capitales (lot 1) et drapeaux (lot 2) réellement jouables', () => {
   beforeEach(() => installerDom());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('par défaut, le monde a deux sujets (Pays, Capitales) ; teintes, maîtrisés et détail des vraies capitales', async () => {
+  it('par défaut, le monde a trois sujets (Pays, Capitales, Drapeaux) ; teintes, maîtrisés et détail des vraies capitales et des vrais drapeaux', async () => {
     const m = await memoire();
+    // Le drapeau de l'Italie raté aujourd'hui (Again) : « Drapeau : vu 1 fois · revient demain ».
+    await m.ecrire([evenementReponse({ seance: null, appareil: m.appareil, horloge: () => ({ ts: T0, tz: 240 }), nouvelId: () => m.nouvelId() }, 'drapeaux:ITA:localiser', 'rappel', { correct: false, duree_ms: 1000 }, 1)]);
     const c = carteMemoire(m, () => true);
-    expect(c.sujets('monde')).toEqual(['pays', 'capitales']);
+    expect(c.sujets('monde')).toEqual(['pays', 'capitales', 'drapeaux']);
     expect(c.sujets('reunion')).toEqual([]);
     expect(c.sujet('monde')).toBe('pays');
     c.choisir('monde', 'capitales');
     expect([...c.teintes('monde')!.keys()].sort()).toEqual(['ESP', 'ITA']);
     expect(c.maitrises('monde', 195)).toBe('0/195 maîtrisés');
+    c.choisir('monde', 'drapeaux');
+    expect(c.sujet('monde')).toBe('drapeaux');
+    expect([...c.teintes('monde')!.keys()]).toEqual(['ITA']);
     const P = textes.sujets.pays.memoire;
     const K = textes.sujets.capitales.memoire;
-    expect(c.detail('monde', 'ITA', true)).toBe(`${P.nom} : ${P.jamais} · ${K.nom} : ${remplir(K.vu_une, { n: 1 })} · ${M.revient_demain}`);
-    expect(c.detail('monde', 'FRA', true)).toMatch(new RegExp(`^${P.nom} : vu 2 fois · revient (dans \\d+ j|demain) · ${K.nom} : ${K.jamais}$`));
+    const D = textes.sujets.drapeaux.memoire;
+    expect(D.nom).toBe('Drapeau');
+    expect(c.detail('monde', 'ITA', true)).toBe(
+      `${P.nom} : ${P.jamais} · ${K.nom} : ${remplir(K.vu_une, { n: 1 })} · ${M.revient_demain} · ${D.nom} : ${remplir(D.vu_une, { n: 1 })} · ${M.revient_demain}`,
+    );
+    expect(c.detail('monde', 'ITA', true)).toContain('Drapeau : vu 1 fois · revient demain');
+    expect(c.detail('monde', 'FRA', true)).toMatch(new RegExp(`^${P.nom} : vu 2 fois · revient (dans \\d+ j|demain) · ${K.nom} : ${K.jamais} · ${D.nom} : ${D.jamais}$`));
   });
 });

@@ -8,6 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { capitalesChargees, chargerCapitales } from '../src/map/capitales';
+import { chargerDrapeaux, drapeauxCharges } from '../src/map/drapeaux';
 import { DEBUT_ACCEPTES_EPREUVES } from '../src/epreuve/bareme';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
 import type { Pays } from '../src/map/types';
@@ -493,5 +494,40 @@ describe('le sujet Capitales en épreuve', () => {
     expect(lireRecords(localStorage).get(e)?.questions).toBe(14);
     expect(lireRecords(localStorage).has(idEpreuve('Oceania'))).toBe(false);
     expect(blocClassement.mock.calls.at(-1)![0]).toBe(e);
+  });
+});
+
+// Le rendu du sujet Drapeaux en épreuve (étude J2 § 5.3) : prêt pour la partie C,
+// qui n'aura qu'à ouvrir ses épreuves (EPREUVES_OUVERTES). Lancée ici
+// directement, sans Jouer (Classé n'a pas encore Drapeaux).
+describe('le sujet Drapeaux en épreuve (rendu prêt pour la partie C)', () => {
+  const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
+  beforeAll(async () => {
+    await chargerDrapeaux(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+  });
+
+  it('la barre montre le drapeau (alt « Drapeau à reconnaître »), jamais le pays avant la réponse ; la rétroaction le nomme ; le jumeau en zone admise du sujet', () => {
+    const { v, zone, consigne, lancer } = contexte(undefined, NOMS_FR);
+    faux = new Set([2]);
+    lancer('chrono', AMS, 'drapeaux');
+    for (let q = 0; q < 3; q++) {
+      const id = consigne()!;
+      const c = zone.querySelector('#barre-chrono .essai-consigne')!;
+      expect(c.textContent).toBe('Pays de ce drapeau : ');
+      expect(c.classList.contains('consigne-image')).toBe(true);
+      const img = c.querySelector('strong img')!;
+      expect(img.getAttribute('src')).toBe(drapeauxCharges()!.parPays.get(id)!.montre);
+      expect(img.getAttribute('alt')).toBe('Drapeau à reconnaître');
+      expect(img.getAttribute('title')).toBeNull();
+      sansBrut([zone.querySelector('#barre-chrono')!.innerText, ...img.attrs.values()].join(' | '), [id, NOMS_FR[id]!]);
+      vi.advanceTimersByTime(100);
+      v.toucher?.(0, 0, {} as PointerEvent);
+      const r = zone.querySelector('#barre-chrono .essai-retro')!.textContent!;
+      if (q === 1) expect(r).toMatch(/^Faux : Brésil, à 120/);
+      else expect(r).toMatch(new RegExp(`^Juste · \\+[\\d\\u202f]+ · ${NOMS_FR[id]}$`));
+      vi.advanceTimersByTime(2_000);
+    }
+    // Les options de noter() : celles du sujet (aucun jumeau en Amérique du Sud).
+    expect(optionsNoter.every((o) => (o as { acceptes: unknown }).acceptes === true)).toBe(true);
   });
 });

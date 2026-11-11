@@ -29,7 +29,7 @@ export const DOMAINES: readonly Domaine[] = ['pays', 'communes', 'capitales', 'd
  * journal, intactes, et entrent en séance à la mise à jour qui livre leur
  * sujet. Capitales au lot 1, drapeaux au lot 2, mers au lot 3b.
  */
-export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'communes'];
+export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', 'communes'];
 
 /** Le terrain où se jouent les fiches d'un domaine : l'île pour les communes, le monde pour les autres. */
 export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = { pays: 'monde', communes: 'reunion', capitales: 'monde', drapeaux: 'monde', mers: 'monde' };

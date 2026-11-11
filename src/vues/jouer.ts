@@ -8,7 +8,7 @@
 // ou d'un sujet, une icône sinon). « Rejouer » n'est plus ici (choix du 10/11) :
 // il reste au bilan de chaque partie. Toucher
 // un exercice lance la partie (main.ts : Toucher ou la vue des épreuves) ; la
-// carte de l'île et les données d'un sujet (les capitales) se chargent ici
+// carte de l'île et les données d'un sujet (les capitales, le manifeste des drapeaux) se chargent ici
 // d'abord (avecSujet : statut, échec hors ligne). « ‹ » et le fil d'Ariane
 // remontent, « × » ferme (main.ts) ; chaque niveau a son adresse, que
 // main.ts donne à aller().
@@ -61,6 +61,13 @@ export const detailExercice = (m: ModeJeu, sujet = 'pays'): string =>
 
 /** Règles complètes d'une épreuve (barème, départage), derrière « ? » ; '' pour un exercice d'entraînement. */
 export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[m].aide, { s: secondesMode(m) }) : '');
+
+/**
+ * Ce que le « ? » des exercices d'un sujet dit en plus de leurs règles : que
+ * ses exercices sont visuels (les drapeaux, étude J2 § 5.3 : les images ne
+ * sont pas décrites aux lecteurs d'écran avant la réponse) ; '' sinon.
+ */
+export const aideSujet = (sujet: string): string => (sujet === 'drapeaux' ? J.visuel : '');
 
 /** Le record de cet exercice dans cette série du sujet (« 12 450 pts », « 17 d'affilée ») ; '' s'il n'y en a pas (ou en entraînement, ou pour un sujet sans fiches). */
 export function recordDe(records: ReadonlyMap<string, RecordChrono>, m: ModeJeu, serie: string, sujet = 'pays'): string {
@@ -127,8 +134,10 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
   const sujetsDe = (b: (typeof BRANCHES)[number]) => arbre.sujets(b).map((s) => s.id);
   const lesSeries = [...new Map(BRANCHES.flatMap(sujetsDe).flatMap((s) => arbre.series(s)).map((s) => [s.id, s])).values()];
   const vignettes = creerVignettes(ctx.donnees, lesSeries);
-  /** La vignette d'un sujet : celle de sa première série dans ce sujet (Tous les pays, le monde et ses capitales, La Réunion). */
+  /** La vignette d'un sujet : son icône s'il en a une (Drapeaux, D53 a), sinon celle de sa première série dans ce sujet (Tous les pays, le monde et ses capitales, La Réunion). */
   const vignetteSujet = (sujet: string) => {
+    const i = icone(sujet);
+    if (i) return i;
     const s = arbre.series(sujet)[0];
     return s ? vignettes.serie(s.id, sujet) : null;
   };
@@ -195,7 +204,9 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     }
     const titre = creer('h2', { class: 'jouer-fil', 'aria-label': `${J.fil} : ${choix.map((c) => c.nom).join(', ')}` }, ...fil);
     const regles = n.type === 'exercices' ? arbre.modes(n.branche, n.sujet).filter((m) => regleExercice(m)) : [];
-    if (!regles.length) return [creer('div', { class: 'jouer-tete' }, haut, titre, fermer)];
+    // Un sujet aux exercices visuels (les drapeaux) le dit derrière le même « ? », en Entraînement comme en Classé.
+    const duSujet = n.type === 'exercices' ? aideSujet(n.sujet) : '';
+    if (!regles.length && !duSujet) return [creer('div', { class: 'jouer-tete' }, haut, titre, fermer)];
     // Les règles complètes derrière « ? » (motif .help-btn / .help-text du style commun).
     const texte = creer(
       'div',
@@ -204,9 +215,12 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
         const r = regleExercice(m);
         return creer('p', {}, creer('strong', {}, nomExercice(m)), ` : ${r.charAt(0).toLowerCase()}${r.slice(1)}`);
       }),
+      ...(duSujet ? [creer('p', { class: 'jouer-aide-sujet' }, duSujet)] : []),
     );
     texte.hidden = true;
-    const aide = creer('button', { type: 'button', class: 'help-btn', id: 'jouer-aide', 'aria-label': J.regles, title: J.regles, 'aria-expanded': 'false', 'aria-controls': 'jouer-regles' }, '?');
+    // Le libellé : les règles des épreuves, ou l'aide des exercices d'Entraînement d'un sujet visuel.
+    const libelle = regles.length ? J.regles : J.aide;
+    const aide = creer('button', { type: 'button', class: 'help-btn', id: 'jouer-aide', 'aria-label': libelle, title: libelle, 'aria-expanded': 'false', 'aria-controls': 'jouer-regles' }, '?');
     aide.addEventListener('click', () => {
       texte.hidden = !texte.hidden;
       aide.setAttribute('aria-expanded', String(!texte.hidden));

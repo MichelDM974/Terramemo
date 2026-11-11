@@ -1,6 +1,6 @@
 // L'arbre de l'écran « Jouer » (pur ; décision « Écran Jouer », ticket #18) :
 // un choix par écran, d'abord la branche (Entraînement ou Classé), puis le
-// sujet (Pays, Capitales, Communes ; plus tard Drapeaux, Océans et mers…), la
+// sujet (Pays, Capitales, Drapeaux, Communes ; plus tard Océans et mers…), la
 // série (Tous les pays puis les continents ; La Réunion), et l'exercice en
 // dernier. Déclaratif : un sujet de plus est une entrée de SUJETS (ses séries,
 // ses exercices par branche), son nom (textes.jouer.sujets) et son rendu
@@ -65,6 +65,9 @@ export const SUJETS: readonly DefSujet[] = [
   // Capitales (étude J2 § 7.2, lot 1) : les séries des pays, tailles comprises (D37 c : les 9 pays au nom de leur
   // capitale restent en Trouver et en épreuve) ; ses épreuves classées à leur ouverture (creerArbre, sujetOuvert).
   { id: 'capitales', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
+  // Drapeaux (étude J2 § 7.2, lot 2) : les séries des pays (195 jouables, « 54 drapeaux » en Afrique) ; ses épreuves
+  // classées à leur ouverture (partie C : EPREUVES_OUVERTES), d'ici là Entraînement seul.
+  { id: 'drapeaux', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];
 

@@ -686,7 +686,7 @@ async function demarrer(): Promise<void> {
     ile: () => terrains?.deja('reunion')?.donnees ?? null,
     charger: (t) => terrains?.charger(t) ?? Promise.reject(new Error('terrains pas prêts')),
   });
-  // Page rouverte en pleine grappe de communes ou de capitales : l'île, les capitales chargées en fond, pour que la ligne de Jouer compte la grappe à finir.
+  // Page rouverte en pleine grappe de communes, de capitales ou de drapeaux : l'île, les capitales, le manifeste des drapeaux chargés en fond, pour que la ligne de Jouer compte la grappe à finir.
   void memoire.pret.then(
     () => seances.completer()?.then(() => jouer?.rafraichir()),
     () => undefined,
