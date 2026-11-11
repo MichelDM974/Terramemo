@@ -251,13 +251,14 @@ const SERIES_MONDE: readonly string[] = ['tous', 'Africa', 'North America', 'Sou
  * que firestore.rules connaît (tailles(cle)), dans l'ordre de partout :
  * les sujets dans celui de Jouer (D53 b, décision « Ordre des sujets » :
  * Communes en dernier), les séries dans celui du catalogue
- * (src/vues/cibles.ts, décision « Écran Jouer »). Capitales a les séries
- * des pays (D37 c), et leurs tailles. Un sujet n'y compte qu'une fois ses
- * épreuves ouvertes (EPREUVES_OUVERTES).
+ * (src/vues/cibles.ts, décision « Écran Jouer »). Capitales (D37 c) et
+ * Drapeaux ont les séries des pays, et leurs tailles. Un sujet n'y compte
+ * qu'une fois ses épreuves ouvertes (EPREUVES_OUVERTES).
  */
 export const EPREUVES_SUJETS: readonly PaireEpreuve[] = [
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'pays', serie })),
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'capitales', serie })),
+  ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'drapeaux', serie })),
   { sujet: 'communes', serie: 'reunion' },
 ];
 
@@ -268,13 +269,15 @@ export const EPREUVES_SUJETS: readonly PaireEpreuve[] = [
  * classement. Avant, ses épreuves ne sont ni dans Classé, ni au général, ni
  * publiées, ni lues par le 🏆 ; ses exercices d'Entraînement, si. Les règles
  * Firestore qui les acceptent partent avant le site. Un sujet absent de la
- * table n'a pas d'épreuves (drapeaux, mers : lots 2 et 3b). Pays et communes :
- * depuis toujours.
+ * table n'a pas d'épreuves (les mers : lot 3b). Pays et communes : depuis
+ * toujours. Capitales (lot 1) et Drapeaux (lot 2) : la même bascule, le
+ * lundi 16/11/2026 (choix de l'utilisateur, 11/11).
  */
 export const EPREUVES_OUVERTES: Readonly<Partial<Record<Domaine, number>>> = {
   pays: 0,
   communes: 0,
   capitales: Date.UTC(2026, 10, 16),
+  drapeaux: Date.UTC(2026, 10, 16),
 };
 
 /**
@@ -326,12 +329,12 @@ export function sujetEpreuve(epreuve: string): Domaine | null {
 /**
  * Les questions du général au plus (chronoValide de firestore.rules, n = 0) :
  * la somme des tailles des Chrono de epreuvesDuGeneral, une fois les
- * capitales ouvertes, 390 (pays : tous et les continents) + 24 (l'île) + 390
- * (capitales, D37 c) = 804. Chaque sujet ouvert la monte (drapeaux, mers),
- * règles d'abord. tests/chrono.test.ts la compare à la somme des tailles et
- * aux règles.
+ * capitales et les drapeaux ouverts, 390 (pays : tous et les continents) +
+ * 24 (l'île) + 390 (capitales, D37 c) + 390 (drapeaux) = 1 194. Chaque sujet
+ * ouvert la monte (les mers : 1 244, D37 c), règles d'abord.
+ * tests/chrono.test.ts la compare à la somme des tailles et aux règles.
  */
-export const BORNE_GENERAL = 804;
+export const BORNE_GENERAL = 1194;
 
 const CLE_RECORDS = 'terramemo.chrono.records';
 /** Le pseudo public de l'appareil (pour un compte, la copie de celui du profil : J1b, § 2.1). */

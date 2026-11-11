@@ -66,7 +66,7 @@ export const SUJETS: readonly DefSujet[] = [
   // capitale restent en Trouver et en épreuve) ; ses épreuves classées à leur ouverture (creerArbre, sujetOuvert).
   { id: 'capitales', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   // Drapeaux (étude J2 § 7.2, lot 2) : les séries des pays (195 jouables, « 54 drapeaux » en Afrique) ; ses épreuves
-  // classées à leur ouverture (partie C : EPREUVES_OUVERTES), d'ici là Entraînement seul.
+  // classées à leur ouverture, la même bascule que les capitales (creerArbre, sujetOuvert).
   { id: 'drapeaux', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];

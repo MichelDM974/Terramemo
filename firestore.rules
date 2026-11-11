@@ -19,10 +19,21 @@ service cloud.firestore {
     // continents, et les 24 communes de La Réunion
     // (public/geo/reunion/communes.json). 'capitales' : les séries et les
     // tailles des pays (D37 c : les 9 pays au nom de leur capitale restent en
-    // épreuve), sans l'île. Chaque carte s'écrit en entier, sans fusion.
-    // Drapeaux et mers viendront à leur lot (2, 3b), règles d'abord.
+    // épreuve), sans l'île. 'drapeaux' (lot 2) : de même, les séries et les
+    // tailles des pays, sans l'île. Chaque carte s'écrit en entier, sans
+    // fusion. Les mers viendront à leur lot (3b), règles d'abord.
     function tailles(cle) {
       return cle == 'capitales'
+        ? {
+          'Africa': 54,
+          'Asia': 48,
+          'Europe': 44,
+          'North America': 23,
+          'Oceania': 14,
+          'South America': 12,
+          'tous': 195
+        }
+        : cle == 'drapeaux'
         ? {
           'Africa': 54,
           'Asia': 48,
@@ -46,13 +57,13 @@ service cloud.firestore {
 
     // Une épreuve : « mode:clé:série » (src/epreuve/chrono.ts, idEpreuve), la
     // clé d'un sujet qui a des épreuves, la série de ce sujet ; ou le général
-    // du Chrono. Les épreuves des capitales sont acceptées avant leur
-    // ouverture (le lundi 16/11/2026, bascule datée du client) : ces règles
-    // partent avant le site.
+    // du Chrono. Les épreuves des capitales et des drapeaux sont acceptées
+    // avant leur ouverture (le lundi 16/11/2026, bascule datée du client) :
+    // ces règles partent avant le site.
     function epreuveConnue(p) {
       return p.size() == 3
         && p[0] in ['chrono', 'sansfaute', 'minute']
-        && p[1] in ['localiser', 'capitales']
+        && p[1] in ['localiser', 'capitales', 'drapeaux']
         && p[2] in tailles(p[1]);
     }
 
@@ -65,11 +76,12 @@ service cloud.firestore {
     // Chrono : toutes les questions de la série (n) ; 1 000 points par juste,
     // 500 au plus par erreur ; au moins 0,2 s par question, 15 s au plus. Le
     // général (n = 0) additionne les records du Chrono de tous les sujets
-    // ouverts (D40 a) : 804 questions au plus (195 pays deux fois, par
-    // continent et tous, + 24 communes + 195 capitales deux fois ;
-    // BORNE_GENERAL de src/epreuve/chrono.ts). Chaque sujet ouvert la monte.
+    // ouverts (D40 a) : 1194 questions au plus (195 pays deux fois, par
+    // continent et tous, + 24 communes + 195 capitales deux fois + 195
+    // drapeaux deux fois ; BORNE_GENERAL de src/epreuve/chrono.ts). Chaque
+    // sujet ouvert la monte (les mers : 1244, D37 c).
     function chronoValide(d, n) {
-      return d.questions >= 1 && (n == 0 ? d.questions <= 804 : d.questions == n)
+      return d.questions >= 1 && (n == 0 ? d.questions <= 1194 : d.questions == n)
         && d.points >= d.justes * 1000
         && d.points <= d.justes * 1000 + (d.questions - d.justes) * 500
         && d.temps_ms >= d.questions * 200 && d.temps_ms <= d.questions * 15000;

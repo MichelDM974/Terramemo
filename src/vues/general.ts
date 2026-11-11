@@ -4,7 +4,7 @@
 // score, de toujours ou de la semaine ; « Toutes les épreuves » montre les
 // autres. Les lignes vont par mode, sous son titre : Chrono (le général en
 // tête, qui n'additionne que lui), Sans faute, Minute ; puis par sujet, sous le
-// sien (h4 : Pays, Capitales, Communes ; étude J2 § 8.3). Toucher une ligne
+// sien (h4 : Pays, Capitales, Drapeaux, Communes ; étude J2 § 8.3). Toucher une ligne
 // ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à la
 // liste. Les séries de chaque sujet viennent dans l'ordre de partout
 // (décision « Écran Jouer », EPREUVES_SUJETS) : tous les pays, les

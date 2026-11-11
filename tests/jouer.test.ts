@@ -30,20 +30,20 @@ import { El, installerDom, installerStockage } from './dom-factice';
 
 const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
 const CATALOGUE = catalogue(pays);
-/** La bascule des épreuves des capitales (décision « Ouverture des épreuves d'un sujet ») : avant, après. */
+/** La bascule des épreuves des capitales et des drapeaux (décision « Ouverture des épreuves d'un sujet ») : avant, après. */
 const OUVERTURE = Date.parse('2026-11-16T00:00:00Z');
 const AVANT = OUVERTURE - 1;
 const APRES = OUVERTURE;
 // Les tests d'avant la partie C : la veille de la bascule, quel que soit le jour où ils tournent.
 reglerHorlogeEpreuves(() => AVANT);
 const arbre = creerArbre(CATALOGUE);
-/** Le même arbre, les épreuves des capitales ouvertes. */
+/** Le même arbre, les épreuves des capitales et des drapeaux ouvertes. */
 const arbreApres = creerArbre(CATALOGUE, SUJETS, () => APRES);
 const SERIES_PAYS = ['tous', 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania'];
 const a = (segs: string[]) => adresse(arbre.resoudre(segs));
 
 describe('l’arbre (pur)', () => {
-  it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier ; Capitales sous Entraînement seulement), les séries des pays, les exercices de chaque branche', () => {
+  it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier ; avant la bascule, Capitales et Drapeaux sous Entraînement seulement), les séries des pays, les exercices de chaque branche', () => {
     expect(arbre.choix({ type: 'racine' })).toEqual(['entrainement', 'classe']);
     expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'communes']);
@@ -59,7 +59,7 @@ describe('l’arbre (pur)', () => {
     // Apprendre : les pays et les communes (défaut D6 : sous La Réunion, ses grappes de communes).
     expect(arbre.modes('entrainement', 'communes')).toEqual(['apprendre', 'localiser', 'nommer']);
     expect(arbre.modes('classe', 'communes')).toEqual(['chrono', 'sansfaute', 'minute']);
-    // Drapeaux (lot 2) : les séries des pays, tailles comprises (« 54 drapeaux » en Afrique) ; Entraînement seul, ses épreuves à la partie C.
+    // Drapeaux (lot 2) : les séries des pays, tailles comprises (« 54 drapeaux » en Afrique) ; avant la bascule, Entraînement seul.
     expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'drapeaux' })).toEqual(SERIES_PAYS);
     expect(arbre.series('drapeaux').map((x) => x.n)).toEqual(arbre.series('pays').map((x) => x.n));
     expect(arbre.series('drapeaux').find((x) => x.id === 'Africa')!.n).toBe(54);
@@ -67,27 +67,28 @@ describe('l’arbre (pur)', () => {
     expect(arbre.modes('entrainement', 'drapeaux')).toEqual(['apprendre', 'localiser', 'nommer']);
     expect(arbre.modes('classe', 'drapeaux')).toEqual([]);
     expect(arbre.valide({ branche: 'classe', sujet: 'drapeaux', serie: 'Africa', mode: 'chrono' })).toBe(false);
-    // Après la bascule des capitales, Classé n'a toujours pas Drapeaux.
-    expect(arbreApres.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'communes']);
+    // Après la bascule : Capitales et Drapeaux sous Classé aussi, Communes toujours en dernier.
+    expect(arbreApres.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     expect(arbreApres.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
   });
 
   it('même ordre des séries partout : tous, les continents (ordre alphabétique français), l’île ; celui des épreuves et du 🏆', () => {
     expect(CATALOGUE.map((s) => s.id)).toEqual([...SERIES_PAYS, 'reunion']);
-    expect(EPREUVES_SUJETS.filter((p) => p.sujet !== 'capitales').map((p) => p.serie)).toEqual(CATALOGUE.map((s) => s.id));
-    // 🏆 « Toutes les épreuves » : mode par mode, chacun dans cet ordre (avant l'ouverture des capitales).
+    expect(EPREUVES_SUJETS.filter((p) => p.sujet !== 'capitales' && p.sujet !== 'drapeaux').map((p) => p.serie)).toEqual(CATALOGUE.map((s) => s.id));
+    // 🏆 « Toutes les épreuves » : mode par mode, chacun dans cet ordre (avant l'ouverture des capitales et des drapeaux).
     expect(epreuvesClassees(AVANT).slice(0, 8)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id)));
     expect(epreuvesClassees(AVANT).slice(8, 16)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id, 'sansfaute')));
-    // Après : les capitales entre les pays et les communes (D53 b), dans l'ordre des séries.
-    expect(epreuvesClassees(APRES).slice(0, 15)).toEqual([
+    // Après : les capitales puis les drapeaux entre les pays et les communes (D53 b), dans l'ordre des séries.
+    expect(epreuvesClassees(APRES).slice(0, 22)).toEqual([
       ...SERIES_PAYS.map((x) => idEpreuve(x)),
       ...SERIES_PAYS.map((x) => idEpreuve(x, 'chrono', 'capitales')),
+      ...SERIES_PAYS.map((x) => idEpreuve(x, 'chrono', 'drapeaux')),
       idEpreuve('reunion'),
     ]);
   });
 
   it('Classé › Capitales à l’ouverture de ses épreuves (lundi 16/11/2026, 0 h UTC) : les séries des pays (D37 c), les trois épreuves', () => {
-    expect(arbreApres.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'communes']);
+    expect(arbreApres.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     expect(arbreApres.choix({ type: 'series', branche: 'classe', sujet: 'capitales' })).toEqual(SERIES_PAYS);
     expect(arbreApres.modes('classe', 'capitales')).toEqual(['chrono', 'sansfaute', 'minute']);
     expect(arbreApres.valide({ branche: 'classe', sujet: 'capitales', serie: 'Oceania', mode: 'chrono' })).toBe(true);
@@ -100,7 +101,7 @@ describe('l’arbre (pur)', () => {
     const vivant = creerArbre(CATALOGUE, SUJETS, () => t);
     expect(vivant.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'communes']);
     t = APRES;
-    expect(vivant.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'communes']);
+    expect(vivant.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     // Un sujet qui n'est pas un domaine (essai) n'attend aucune date.
     const essai: DefSujet[] = [{ id: 'essai', series: (c) => c.slice(0, 1), modes: { entrainement: [], classe: ['chrono'] } }];
     expect(creerArbre(CATALOGUE, essai, () => 0).choix({ type: 'sujets', branche: 'classe' })).toEqual(['essai']);
@@ -658,13 +659,13 @@ describe('la vue Jouer : Classé › Capitales', () => {
     vi.unstubAllGlobals();
   });
 
-  it('avant la bascule : Classé n’a que Pays et Communes ; après : Pays, Capitales, Communes', () => {
+  it('avant la bascule : Classé n’a que Pays et Communes ; après : Pays, Capitales, Drapeaux, Communes', () => {
     const avant = monter();
     avant.ouvrir('classe');
     expect(avant.attr('data-sujet')).toEqual(['pays', 'communes']);
     const apres = monter({ arbre: arbreApres });
     apres.ouvrir('classe');
-    expect(apres.attr('data-sujet')).toEqual(['pays', 'capitales', 'communes']);
+    expect(apres.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     expect(apres.panneau.querySelector('[data-sujet="capitales"] .vignette-points')).not.toBeNull();
   });
 
@@ -696,10 +697,11 @@ describe('la vue Jouer : Classé › Capitales', () => {
   });
 });
 
-// Le sujet Drapeaux (lot 2, partie B) : sous Entraînement seulement, son icône,
-// ses séries « 54 drapeaux », ses exercices et leur « ? » (exercices
-// visuels) ; son manifeste chargé dans Jouer, puis la partie part ; rien de
-// drapeaux* demandé pour afficher Jouer.
+// Le sujet Drapeaux (lot 2, parties B et C) : sous Entraînement, et sous Classé
+// à la bascule du 16/11 (la même que les capitales), son icône, ses séries
+// « 54 drapeaux », ses exercices et leur « ? » (exercices visuels) ; son
+// manifeste chargé dans Jouer, puis la partie part ; rien de drapeaux*
+// demandé pour afficher Jouer.
 describe('la vue Jouer : le sujet Drapeaux', () => {
   /** Les réponses du réseau : null, hors ligne. */
   let reseau: Record<string, unknown> | null = null;
@@ -723,7 +725,7 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
   });
   const attendre = () => new Promise((r) => setTimeout(r, 0));
 
-  it('Entraînement : Pays, Capitales, Drapeaux, Communes (D53 b) ; son icône (D53 a) sans rien charger ; « 195 drapeaux », « 54 drapeaux » ; absent de Classé', () => {
+  it('Entraînement : Pays, Capitales, Drapeaux, Communes (D53 b) ; son icône (D53 a) sans rien charger ; « 195 drapeaux », « 54 drapeaux » ; absent de Classé avant la bascule', () => {
     const j = monter();
     j.ouvrir('entrainement');
     expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
@@ -780,6 +782,49 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
     j.panneau.querySelector('[data-mode="localiser"]')!.click();
     expect(j.opts.lancer).toHaveBeenCalledTimes(2);
     expect(demandes).toHaveLength(1);
+  });
+
+  it('Classé › Drapeaux après la bascule (partie C) : son icône, les séries des pays, Chrono, Sans faute, Minute, leur phrase, leur record (celui des drapeaux), « ? » : règles et exercices visuels', () => {
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'drapeaux'), { points: 13_400, justes: 13, questions: 14, temps_ms: 60_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'capitales'), { points: 12_400, justes: 12, questions: 14, temps_ms: 70_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'minute'), { points: 9, justes: 9, questions: 10, temps_ms: 60_000 }, 1);
+    const j = monter({ arbre: arbreApres });
+    j.ouvrir('classe');
+    const tuile = j.panneau.querySelector('[data-sujet="drapeaux"]')!;
+    expect(tuile.querySelector('.vignette-icone')).not.toBeNull();
+    j.ouvrir('classe', 'drapeaux');
+    expect(j.attr('data-serie')).toEqual(SERIES_PAYS);
+    j.ouvrir('classe', 'drapeaux', 'Oceania');
+    expect(j.panneau.dataset.niveau).toBe('exercices');
+    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute', 'minute']);
+    const ligne = (m: string) => j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText;
+    // La phrase de chaque épreuve : celle du sujet s'il en a une (jouer.exercices.drapeaux.<mode>), la générique sinon.
+    expect(ligne('chrono')).toContain('15 s par question, un seul toucher');
+    expect(ligne('minute')).toContain('Le plus de justes en 60 s');
+    expect(ligne('chrono')).toContain(`${(13_400).toLocaleString('fr-FR')} pts`);
+    expect(ligne('chrono')).not.toContain((12_400).toLocaleString('fr-FR'));
+    expect(ligne('minute')).not.toContain('9 justes');
+    expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé›Drapeaux›Océanie');
+    j.panneau.querySelector('#jouer-aide')!.click();
+    const regles = j.panneau.querySelector('#jouer-regles')!.innerText;
+    expect(regles).toContain('Minute : le plus de lieux justes');
+    expect(regles).toContain(textes.jouer.visuel);
+    // Avant la bascule : l'adresse de Classé › Drapeaux retombe sur Classé (rien de visible ne change).
+    expect(a(['classe', 'drapeaux', 'Oceania'])).toBe('jouer/classe');
+    expect(adresse(arbreApres.resoudre(['classe', 'drapeaux', 'Oceania']))).toBe('jouer/classe/drapeaux/Oceania');
+  });
+
+  it('un Chrono des drapeaux : le manifeste chargé dans Jouer, puis la partie part (branche classe, sujet drapeaux, les 14 pays d’Océanie) ; aucune image demandée par Jouer', async () => {
+    const j = monter({ arbre: arbreApres });
+    j.ouvrir('classe', 'drapeaux', 'Oceania');
+    j.panneau.querySelector('[data-mode="chrono"]')!.click();
+    expect(j.panneau.querySelector('.jouer-statut')!.textContent).toBe(textes.toucher.chargement_sujet);
+    await attendre();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(1);
+    expect(j.opts.lancer.mock.calls[0]![0]).toEqual({ branche: 'classe', sujet: 'drapeaux', serie: 'Oceania', mode: 'chrono' });
+    expect(j.opts.lancer.mock.calls[0]![3]).toHaveLength(14);
+    expect(drapeauxCharges()).not.toBeNull();
+    expect(demandes).toEqual(['/geo/drapeaux.json']);
   });
 
   it('échec puis message : hors ligne, aucune partie à vide, on reste au niveau, boutons rendus ; le prochain choix réessaie', async () => {
