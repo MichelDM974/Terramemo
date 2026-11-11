@@ -27,6 +27,7 @@ import {
   segments,
   versAncre,
   type Arbre,
+  type Branche,
   type Lancement,
   type ModeJeu,
   type Niveau,
@@ -65,9 +66,12 @@ export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[
 /**
  * Ce que le « ? » des exercices d'un sujet dit en plus de leurs règles : que
  * ses exercices sont visuels (les drapeaux, étude J2 § 5.3 : les images ne
- * sont pas décrites aux lecteurs d'écran avant la réponse) ; '' sinon.
+ * sont pas décrites aux lecteurs d'écran avant la réponse) ; '' sinon. Les
+ * quatre choix et leurs touches 1 à 4 en Entraînement seul (Apprendre et
+ * Reconnaître sont des QCM) : les épreuves de Classé se jouent sur la carte.
  */
-export const aideSujet = (sujet: string): string => (sujet === 'drapeaux' ? J.visuel : '');
+export const aideSujet = (sujet: string, branche: Branche): string =>
+  sujet !== 'drapeaux' ? '' : branche === 'classe' ? J.visuel : `${J.visuel} ${J.visuel_choix}`;
 
 /** Le record de cet exercice dans cette série du sujet (« 12 450 pts », « 17 d'affilée ») ; '' s'il n'y en a pas (ou en entraînement, ou pour un sujet sans fiches). */
 export function recordDe(records: ReadonlyMap<string, RecordChrono>, m: ModeJeu, serie: string, sujet = 'pays'): string {
@@ -205,7 +209,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     const titre = creer('h2', { class: 'jouer-fil', 'aria-label': `${J.fil} : ${choix.map((c) => c.nom).join(', ')}` }, ...fil);
     const regles = n.type === 'exercices' ? arbre.modes(n.branche, n.sujet).filter((m) => regleExercice(m)) : [];
     // Un sujet aux exercices visuels (les drapeaux) le dit derrière le même « ? », en Entraînement comme en Classé.
-    const duSujet = n.type === 'exercices' ? aideSujet(n.sujet) : '';
+    const duSujet = n.type === 'exercices' ? aideSujet(n.sujet, n.branche) : '';
     if (!regles.length && !duSujet) return [creer('div', { class: 'jouer-tete' }, haut, titre, fermer)];
     // Les règles complètes derrière « ? » (motif .help-btn / .help-text du style commun).
     const texte = creer(

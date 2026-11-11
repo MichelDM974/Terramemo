@@ -748,7 +748,8 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
     expect(aide.getAttribute('aria-label')).toBe(textes.jouer.aide);
     expect(j.panneau.querySelector('#jouer-regles')!.hidden).toBe(true);
     aide.click();
-    expect(j.panneau.querySelector('#jouer-regles')!.innerText).toBe(textes.jouer.visuel);
+    // En Entraînement, les quatre choix des QCM (Apprendre, Reconnaître) et leurs touches.
+    expect(j.panneau.querySelector('#jouer-regles')!.innerText).toBe(`${textes.jouer.visuel} ${textes.jouer.visuel_choix}`);
     expect(textes.jouer.visuel).toMatch(/visuels/);
     // Les autres sujets d'Entraînement : pas de « ? » (rien ne change pour eux).
     j.ouvrir('entrainement', 'capitales', 'Africa');
@@ -809,6 +810,9 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
     const regles = j.panneau.querySelector('#jouer-regles')!.innerText;
     expect(regles).toContain('Minute : le plus de lieux justes');
     expect(regles).toContain(textes.jouer.visuel);
+    // Les épreuves se jouent sur la carte : ni quatre choix ni touches 1 à 4.
+    expect(regles).not.toContain(textes.jouer.visuel_choix);
+    expect(regles).not.toMatch(/1 à 4/);
     // Avant la bascule : l'adresse de Classé › Drapeaux retombe sur Classé (rien de visible ne change).
     expect(a(['classe', 'drapeaux', 'Oceania'])).toBe('jouer/classe');
     expect(adresse(arbreApres.resoudre(['classe', 'drapeaux', 'Oceania']))).toBe('jouer/classe/drapeaux/Oceania');

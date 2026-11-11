@@ -41,7 +41,8 @@
     "fil": "Choix faits",
     "regles": "Règles des épreuves",
     "aide": "Aide sur ces exercices",
-    "visuel": "Exercices visuels : les drapeaux sont des images, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient). Les quatre choix se touchent, ou se prennent aux touches 1 à 4 du clavier.",
+    "visuel": "Exercices visuels : les drapeaux sont des images, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient).",
+    "visuel_choix": "Les quatre choix se touchent, ou se prennent aux touches 1 à 4 du clavier.",
     "record": "record",
     "branches": {
       "entrainement": {
