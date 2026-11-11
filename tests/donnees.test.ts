@@ -478,23 +478,27 @@ describe('noms et sources', () => {
       'geodata/build.mjs',
       'geodata/capitales-main.json',
       'geodata/capitales.mjs',
+      'geodata/drapeaux-main.json',
+      'geodata/drapeaux.mjs',
       'geodata/liste.json',
+      'geodata/outils.mjs',
       'geodata/revendications.json',
     ]);
     for (const [f, h] of Object.entries(sources.traitement.entrees)) expect(empreinte(f), f).toBe(h);
   });
 
   it('sources datées, licences et empreintes égales au verrou', () => {
-    // Natural Earth et CLDR, téléchargées par le build ; Wikidata, extrait versionné
-    // (tests/donnees-capitales.test.ts compare ses empreintes aux fichiers).
-    expect(sources.sources).toHaveLength(3);
+    // Natural Earth, CLDR, flag-icons et le drapeau de l'Émirat (Commons), téléchargées
+    // par le build ; Wikidata, extrait versionné (tests/donnees-capitales.test.ts compare
+    // ses empreintes aux fichiers).
+    expect(sources.sources).toHaveLength(5);
     for (const s of sources.sources) {
       expect(s.licence).toBeTruthy();
       expect(s.telecharge_le).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       for (const f of s.fichiers) expect(f.sha256).toMatch(/^[0-9a-f]{64}$/);
     }
     const telechargees = sources.sources.filter((s) => s.fichiers.every((f) => f.url));
-    expect(telechargees).toHaveLength(2);
+    expect(telechargees).toHaveLength(4);
     const duVerrou = Object.values(verrou).flatMap((v) => Object.values(v.fichiers)).sort();
     const duFichier = telechargees.flatMap((s) => s.fichiers.map((f) => f.sha256)).sort();
     expect(duFichier).toEqual(duVerrou);

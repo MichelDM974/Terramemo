@@ -82,6 +82,32 @@
           "sha256": "866ebd2fba79fa7a1bb262a5be72a34cf2017f41992ce37820258692c052a81b"
         }
       ]
+    },
+    {
+      "nom": "flag-icons, drapeaux des pays au format 4:3 (paquet npm)",
+      "url": "https://github.com/lipis/flag-icons",
+      "version": "7.6.0 (npm)",
+      "licence": "MIT, avis « Copyright (c) 2013 Panayiotis Lipiridis » ; texte complet (à joindre à toute copie) dans licences/flag-icons.txt, à côté de ce fichier",
+      "telecharge_le": "2026-11-11",
+      "fichiers": [
+        {
+          "url": "https://registry.npmjs.org/flag-icons/-/flag-icons-7.6.0.tgz",
+          "sha256": "99d6feb80562dcaa83700ef184094d7c7b6587cc216b3fab1546cb1643e611a9"
+        }
+      ]
+    },
+    {
+      "nom": "Wikimedia Commons, drapeau de l’Émirat islamique d’Afghanistan (« Flag of the Taliban.svg », P41 de Wikidata au rang préféré depuis le 15/08/2021)",
+      "url": "https://commons.wikimedia.org/wiki/File:Flag_of_the_Taliban.svg",
+      "version": "version du 2026-03-31T17:04:45Z",
+      "licence": "Domaine public (Wikimedia Commons), mention facultative",
+      "telecharge_le": "2026-11-11",
+      "fichiers": [
+        {
+          "url": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Flag_of_the_Taliban.svg",
+          "sha256": "fc326ebb964d9a50e31984495d1cf94f810a8af2ecaac5615001358404a389be"
+        }
+      ]
     }
   ],
   "traitement": {
@@ -90,11 +116,14 @@
     "quantification": 1000000,
     "carte_allegee": "monde-leger.topo.json : polygones d'au moins 40 km (plus grand côté de l'emprise), -simplify visvalingam interval=15000 keep-shapes chacun à part, regroupés par id, quantification 100000",
     "entrees": {
-      "geodata/build.mjs": "d18366dbc88eebbcb8f30cf653cf552ad3b0b50e20d01bdd6753f36959800723",
+      "geodata/build.mjs": "66355d4257e90fcb1284854fbf44c235e1e3517510eb7b06b9b4224e848065dc",
+      "geodata/outils.mjs": "004e9d875414ed099b923d47ddfdd3c9fa8561beca16b100ea11f0bcc95cce1c",
       "geodata/liste.json": "588b387d44d605a3f2aacc875eb7c51c90f388a883afd18a3ebaa18ce4bb255a",
       "geodata/revendications.json": "6d57155ff9b36e496c88a518b4550a9055d1e84a903f23b0b1027ec27e5f0303",
-      "geodata/capitales.mjs": "8c04d8289ea3e05c2d2e1195c5b46e660121c58e7384fc263bed705ae0813d38",
-      "geodata/capitales-main.json": "733e41cfea13a07884389ca697d6b95e4efb5b23bf11b49ad27097c08fffc00e"
+      "geodata/capitales.mjs": "adb62fcc3c89b33c881c86228efae5fa7391c6b396a5ef7c009830d484da9be0",
+      "geodata/capitales-main.json": "733e41cfea13a07884389ca697d6b95e4efb5b23bf11b49ad27097c08fffc00e",
+      "geodata/drapeaux.mjs": "9a92d9b206b718eca6c8d161fdedde57c5c8287af3304496543251bccdabbe95",
+      "geodata/drapeaux-main.json": "8b2aff70c408ca61bc80b024bd6bcd1cc2ba8d34f4e6df12ac3eb5d7527de3af"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée"
   }

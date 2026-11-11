@@ -20,5 +20,17 @@
       "cldr/fr/territories.json": "42d67b78cb74ffe87380db1d702d06be995c3082d7f711ffd6e75a721133c5e0",
       "cldr/LICENSE": "220ba0e1c43b99530d2d5bdb892a99dca0989414f51ab695ecd90163eaa1ec3b"
     }
+  },
+  "flag-icons": {
+    "telecharge_le": "2026-11-11",
+    "fichiers": {
+      "flag-icons/flag-icons-7.6.0.tgz": "99d6feb80562dcaa83700ef184094d7c7b6587cc216b3fab1546cb1643e611a9"
+    }
+  },
+  "commons-emirat": {
+    "telecharge_le": "2026-11-11",
+    "fichiers": {
+      "commons/Flag_of_the_Taliban.svg": "fc326ebb964d9a50e31984495d1cf94f810a8af2ecaac5615001358404a389be"
+    }
   }
 }

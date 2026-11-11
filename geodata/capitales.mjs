@@ -16,7 +16,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { arrondi, sha256 } from './outils.mjs';
+import { arrondi, fusionnerPartie, sha256 } from './outils.mjs';
 
 export const CHEMINS = {
   script: 'geodata/capitales.mjs',
@@ -308,14 +308,10 @@ export async function construireCapitales(racine) {
 
 /**
  * public/geo/sources.json avec la source Wikidata et les empreintes des entrées des
- * capitales : remplacées si elles y sont, ajoutées à la fin sinon. Le même chemin pour
- * tout le build et pour --seulement capitales : les deux donnent le même fichier.
+ * capitales : remplacées à leur place si elles y sont, ajoutées à la fin sinon
+ * (fusionnerPartie). Le même chemin pour tout le build et pour --seulement capitales :
+ * les deux donnent le même fichier.
  */
 export function fusionnerSources(sources, capitales) {
-  const autres = sources.sources.filter((s) => s.url !== URL_WIKIDATA);
-  const entrees = Object.fromEntries(Object.entries(sources.traitement.entrees).filter(([k]) => !(k in capitales.entrees)));
-  return {
-    sources: [...autres, capitales.source],
-    traitement: { ...sources.traitement, entrees: { ...entrees, ...capitales.entrees } },
-  };
+  return fusionnerPartie(sources, { sources: [capitales.source], entrees: capitales.entrees });
 }

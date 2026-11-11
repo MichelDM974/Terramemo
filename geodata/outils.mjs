@@ -1,8 +1,8 @@
 // Aides des scripts de données géographiques, sans effet à l'import (build.mjs lance
-// main() dès qu'on l'importe : il ne s'importe pas). Seul reunion.mjs s'en sert pour
-// l'instant ; polygones, pointInterieur, emprise et km2 sont des copies exactes de
-// build.mjs, à fusionner au prochain changement de build.mjs (le modifier change son
-// empreinte, donc demande de regénérer tout le monde).
+// main() dès qu'on l'importe : il ne s'importe pas). build.mjs, reunion.mjs,
+// capitales.mjs, drapeaux.mjs et wikidata.mjs s'en servent ; son empreinte est dans les
+// deux sources.json (public/geo/ et public/geo/reunion/) : le modifier demande de relancer
+// npm run geodata et npm run geodata:reunion.
 // tests/donnees-reunion.test.ts importe utmSudVersWgs84 pour le contrôler sur des
 // points de référence.
 
@@ -22,7 +22,76 @@ export function aujourdhui() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-// --- Géométrie (copies de build.mjs) -------------------------------------------
+// --- public/geo/sources.json --------------------------------------------------------
+
+/**
+ * public/geo/sources.json avec les sources et les empreintes des entrées d'une partie
+ * du build (capitales, drapeaux…) : chaque source (même url) et chaque entrée est
+ * remplacée à sa place si elle y est, ajoutée à la fin sinon. Tout le build et
+ * --seulement <partie> donnent donc le même fichier, dans le même ordre.
+ * partie : { sources: [{url, …}], entrees: {chemin: sha256} }.
+ */
+export function fusionnerPartie(sources, partie) {
+  const liste = [...sources.sources];
+  for (const s of partie.sources) {
+    const i = liste.findIndex((x) => x.url === s.url);
+    if (i >= 0) liste[i] = s;
+    else liste.push(s);
+  }
+  return {
+    sources: liste,
+    traitement: { ...sources.traitement, entrees: { ...sources.traitement.entrees, ...partie.entrees } },
+  };
+}
+
+// --- Archive tar (paquet npm) -----------------------------------------------------------
+
+/**
+ * Fichiers ordinaires d'une archive tar (POSIX ustar, en-têtes de 512 octets), sans
+ * dépendance : Map chemin → Buffer, dans l'ordre de l'archive. Le chemin est le préfixe
+ * ustar suivi du nom ; un en-tête pax (« x ») ou GNU (« L ») qui donne un chemin plus
+ * long le remplace pour l'entrée suivante. Dossiers et liens ignorés. Lève sur un
+ * en-tête dont la somme de contrôle est fausse (archive tronquée ou pas un tar).
+ * Un .tgz se décompresse d'abord (zlib, gunzipSync).
+ */
+export function lireTar(buf) {
+  const fichiers = new Map();
+  const texte = (o, n) => {
+    const b = buf.subarray(o, o + n);
+    const fin = b.indexOf(0);
+    return b.subarray(0, fin < 0 ? n : fin).toString('utf8');
+  };
+  const octal = (o, n) => parseInt(texte(o, n).trim() || '0', 8);
+  let o = 0;
+  let cheminLong = null;
+  while (o + 512 <= buf.length) {
+    const entete = buf.subarray(o, o + 512);
+    if (entete.every((x) => x === 0)) break; // bloc nul : fin de l'archive
+    let somme = 0;
+    for (let i = 0; i < 512; i++) somme += i >= 148 && i < 156 ? 32 : entete[i];
+    if (somme !== octal(o + 148, 8)) throw new Error(`tar : somme de contrôle fausse à l'octet ${o}`);
+    const taille = octal(o + 124, 12);
+    const type = String.fromCharCode(entete[156] || 48); // « \0 » vaut « 0 » (fichier)
+    const prefixe = texte(o + 345, 155);
+    const nom = cheminLong ?? (prefixe ? `${prefixe}/${texte(o, 100)}` : texte(o, 100));
+    const contenu = buf.subarray(o + 512, o + 512 + taille);
+    if (contenu.length !== taille) throw new Error(`tar : ${nom} tronqué`);
+    cheminLong = null;
+    if (type === 'x') {
+      // Enregistrements pax « longueur clé=valeur\n » : seul path compte ici.
+      const m = /(?:^|\n)\d+ path=([^\n]*)\n/.exec(contenu.toString('utf8'));
+      if (m) cheminLong = m[1];
+    } else if (type === 'L') {
+      cheminLong = texte(o + 512, taille);
+    } else if (type === '0' || type === '7') {
+      fichiers.set(nom, Buffer.from(contenu));
+    }
+    o += 512 + Math.ceil(taille / 512) * 512;
+  }
+  return fichiers;
+}
+
+// --- Géométrie ---------------------------------------------------------------------
 
 /**
  * Polygones d'une géométrie GeoJSON (tableaux d'anneaux), remis dans le sens de d3-geo

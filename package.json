@@ -43,6 +43,7 @@
   "devDependencies": {
     "@capacitor/cli": "8.6.0",
     "@firebase/rules-unit-testing": "6.0.0",
+    "@resvg/resvg-wasm": "2.6.2",
     "@types/d3-geo": "3.1.1",
     "@types/d3-selection": "3.0.12",
     "@types/d3-transition": "3.0.9",

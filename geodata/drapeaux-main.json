@@ -1,0 +1,22 @@
+{
+  "_": "Drapeaux des pays, table tenue à la main (étude J2, § 2.2 ; décision « Drapeaux contestés et sosies » du 10/11/2026, D41 : le drapeau d'un pays est celui qu'il se déclare ; deux autorités, deux drapeaux, justes tous les deux). geodata/drapeaux.mjs la lit avec flag-icons 7.6.0 et échoue si une ligne ne s'applique plus (texte à remplacer absent, pays inconnu, jumeaux qui ne sont plus pareils). Une source par ligne. Sections : corrections (remplacements [avant, après] dans le drapeau de flag-icons d'un pays, chacun présent au moins une fois) ; autres (un second drapeau juste : de « flag-icons », le drapeau du pays corrigé, ou la clé d'une source téléchargée par build.mjs ; remplacer comme ci-dessus ; garder n : ses n premiers éléments ; montre : c'est lui qu'on montre, sinon celui de flag-icons ; les deux ne sont jamais côte à côte) ; jumeaux (drapeaux pareils à l'écran : toucher l'un pour l'autre est juste sous Drapeaux, jamais ensemble parmi 4 choix ; toute paire de score 0 doit y être) ; familles (drapeaux voisins que la mesure des sosies rate). À chaque mise à jour de flag-icons, relancer le contrôle par Wikidata P41 (relevé du 10/11 : ~/Sauvegardes/terramemo/j2-conception/drapeaux/wd/).",
+  "corrections": {
+    "HND": {"remplacer": [["#18c3df", "#0d3b99"]], "source": "D41 c : flag-icons 7.6.0 garde le turquoise de 2022 (#18c3df) ; le Honduras est revenu au bleu marine le 27/01/2026 (Wikidata P41 au rang préféré depuis le 25/01/2026 : « Flag of Honduras (1949–2022, 2026–present).svg », Commons, domaine public, fill #0d3b99) ; signalé à flag-icons"}
+  },
+  "autres": {
+    "AFG": {"de": "commons-emirat", "remplacer": [["<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n", ""], ["<svg width=\"1e3px\" height=\"500px\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\">", "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 -125 1000 750\">"], ["<path d=\"M0,0h1000v500H0V0z\" fill=\"#fff\"/>", "<path d=\"M0-125h1000v750H0z\" fill=\"#fff\"/>"]], "source": "D41 a : le tricolore de la République (flag-icons) et le drapeau blanc de l'Émirat islamique, pouvoir de fait depuis le 15/08/2021 (Wikidata P41 au rang préféré), justes tous les deux ; le tricolore montré en Reconnaître. Commons « Flag of the Taliban.svg » (domaine public, 2:1, sans viewBox) mis en 4:3 comme flag-icons : viewBox de 1000 × 750 centré, fond blanc prolongé en haut et en bas"},
+    "BOL": {"de": "flag-icons", "garder": 3, "montre": true, "source": "D41 b : la Bolivie déclare deux drapeaux (Constitution de 2009, art. 6), le civil et celui d'État ; Wikidata P41 met le civil (« Flag of Bolivia.svg ») au rang préféré, celui d'État au rang normal. Les deux justes, le civil montré (le plus connu, 0,3 Ko au lieu de 103) : les trois bandes rouge, jaune et vert du drapeau d'État de flag-icons, sans les armoiries. Le Ghana est son sosie"}
+  },
+  "jumeaux": [
+    {"pays": ["IDN", "MCO"], "source": "D41 d : rouge sur blanc, seules les proportions diffèrent (2:3 et 4:5), pareils en 4:3 ; mesure : score 0"},
+    {"pays": ["ROU", "TCD"], "source": "D41 d : bleu, jaune et rouge, seule la nuance du bleu diffère, invisible à l'écran ; mesure : score 0"}
+  ],
+  "familles": {
+    "croix-nordiques": {"pays": ["DNK", "FIN", "ISL", "NOR", "SWE"], "source": "§ 2.2 : croix scandinave décalée vers la hampe, couleurs différentes (la mesure les sépare)"},
+    "grande-colombie": {"pays": ["COL", "ECU", "VEN"], "source": "§ 2.2 : jaune, bleu et rouge de la Grande Colombie (bandes inégales, armoiries, étoiles)"},
+    "luxembourg-pays-bas": {"pays": ["LUX", "NLD"], "source": "§ 2.2 : rouge, blanc et bleu en bandes, seul le bleu diffère (plus clair au Luxembourg)"},
+    "panafricaines": {"pays": ["BEN", "BFA", "CMR", "COG", "ETH", "GHA", "GIN", "GNB", "MLI", "SEN", "STP", "TGO"], "source": "§ 2.2 : vert, jaune et rouge de l'Éthiopie, repris en Afrique de l'Ouest et centrale"},
+    "panarabes": {"pays": ["ARE", "EGY", "IRQ", "JOR", "KWT", "LBY", "PSE", "SDN", "SYR", "YEM"], "source": "§ 2.2 : rouge, blanc, noir et vert de la Révolte arabe, en bandes ou avec un triangle à la hampe"},
+    "union-jack": {"pays": ["AUS", "FJI", "NZL", "TUV"], "source": "§ 2.2 : Union Jack au canton, sur fond bleu, avec des étoiles ou des armoiries"}
+  }
+}

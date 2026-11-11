@@ -10,27 +10,30 @@
 //   LICENSE-CLDR.txt texte de la Unicode License v3, qui doit accompagner noms.<langue>.json
 //   capitales.json, capitales.fr.json  capitales des pays (geodata/capitales.mjs, étude J2 § 2.1),
 //                    tirées d'un extrait figé de Wikidata (npm run wikidata) et d'une table à la main
+//   drapeaux/<sha8>.svg, drapeaux.json, licences/flag-icons.txt  drapeaux des pays
+//                    (geodata/drapeaux.mjs, étude J2 § 2.2), tirés de flag-icons et d'une table à la main
 //
-// Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales]
+// Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales|drapeaux]
 // --seulement capitales ne refait que les capitales (sans source ni mapshaper : il lit
-// pays.json et noms.fr.json déjà construits) et leur part de sources.json ; tout le build
-// donne les mêmes fichiers.
+// pays.json et noms.fr.json déjà construits) et leur part de sources.json ; --seulement
+// drapeaux, les drapeaux (avec leurs seules sources, et pays.json) ; tout le build donne
+// les mêmes fichiers.
 // Les sources sont téléchargées dans geodata/raw/ (ignoré par git) puis vérifiées par
 // SHA-256 contre geodata/sources.lock.json ; le script refuse une empreinte différente,
 // sauf avec --maj-empreintes qui réécrit le verrou. Sans réseau si raw/ est rempli.
 // Deux lancements donnent des fichiers identiques octet pour octet.
 
-import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { geoArea, geoContains, geoDistance } from 'd3-geo';
 import mapshaper from 'mapshaper';
-import polylabel from 'polylabel';
 import { feature, neighbors } from 'topojson-client';
 import { construireCapitales, fusionnerSources } from './capitales.mjs';
+import { construireDrapeaux, SOURCES_DRAPEAUX } from './drapeaux.mjs';
+import { arrondi, aujourdhui, emprise, fusionnerPartie, km2, pointInterieur, polygones, R_TERRE_KM, sha256 } from './outils.mjs';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RAW = join(RACINE, 'geodata', 'raw');
@@ -43,7 +46,6 @@ const SORTIE = join(RACINE, 'public', 'geo');
 // Langues des fichiers de noms (décision « Langue » : l'anglais s'ajoutera ici).
 const LANGUES = ['fr'];
 
-const R_TERRE_KM = 6371.0088; // rayon moyen (IUGG)
 // Plus grand polygone sous ce seuil : micro-État, disque toujours dessiné. 2 000 km²
 // depuis la décision « Cadrage et disques en séance » (06/11/2026) : Comores, Samoa et
 // Maurice, archipels lointains qui ne passent 4 px à l'écran qu'au-delà du zoom 8.
@@ -77,6 +79,9 @@ const CLDR_COMMIT = 'a4b67247b446fd51b475991017a2481911210c60';
 const CLDR_RACINE = `https://raw.githubusercontent.com/unicode-org/cldr-json/${CLDR_TAG}/`;
 const CLDR_BASE = `${CLDR_RACINE}cldr-json/cldr-localenames-full/main/`;
 
+// User-Agent générique, comme npm run wikidata : Wikimedia refuse les clients anonymes.
+const UA = 'Terramemo-geodata/1.0 (+https://terramemo-geo.web.app)';
+
 const SOURCES = [
   {
     cle: 'natural-earth',
@@ -108,6 +113,10 @@ const SOURCES = [
     ],
   },
 ];
+
+// Toutes les sources téléchargées et verrouillées ; celles des drapeaux ont leur part de
+// sources.json écrite par geodata/drapeaux.mjs.
+const TELECHARGEES = [...SOURCES, ...SOURCES_DRAPEAUX];
 
 // --- Tables d'exceptions (tout écart à une règle est écrit ici) --------------
 
@@ -233,19 +242,10 @@ const VOISINS_AJOUTS = [
 
 // --- Outils -------------------------------------------------------------------
 
-const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
-const arrondi = (x, n) => Number(x.toFixed(n));
 const majuscule = (s) => s.charAt(0).toLocaleUpperCase('fr') + s.slice(1);
 const estIso3 = (s) => typeof s === 'string' && /^[A-Z]{3}$/.test(s);
 const estIso2 = (s) => typeof s === 'string' && /^[A-Z]{2}$/.test(s);
 const parId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-
-function aujourdhui() {
-  // Date locale du PC (La Réunion), au format AAAA-MM-JJ.
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
 
 function echec(message) {
   console.error(`geodata : ${message}`);
@@ -265,18 +265,26 @@ async function ecrire(nom, contenu) {
 
 // --- 1. Sources ---------------------------------------------------------------
 
-async function sources(majEmpreintes) {
+/**
+ * Télécharge (si absentes) et vérifie les sources ; cles : celles à traiter (toutes par
+ * défaut), les autres gardent leur ligne du verrou telle quelle.
+ */
+async function sources(majEmpreintes, cles = null) {
   const verrou = existsSync(VERROU) ? await lireJson(VERROU) : {};
   const nouveau = {};
   let change = false;
-  for (const source of SOURCES) {
+  for (const source of TELECHARGEES) {
+    if (cles && !cles.includes(source.cle)) {
+      if (verrou[source.cle]) nouveau[source.cle] = verrou[source.cle];
+      continue;
+    }
     const ancien = verrou[source.cle] ?? { fichiers: {} };
     const empreintes = {};
     for (const { chemin, url } of source.fichiers) {
       const local = join(RAW, chemin);
       if (!existsSync(local)) {
         console.log(`  téléchargement ${url}`);
-        const rep = await fetch(url);
+        const rep = await fetch(url, { headers: { 'User-Agent': UA } });
         if (!rep.ok) echec(`${url} : HTTP ${rep.status}`);
         await mkdir(dirname(local), { recursive: true });
         await writeFile(local, Buffer.from(await rep.arrayBuffer()));
@@ -327,21 +335,6 @@ async function lireShapefile(base) {
 // --- 3. Géométrie (sur la géométrie non simplifiée) ---------------------------
 
 /**
- * Polygones d'une géométrie GeoJSON (tableaux d'anneaux), remis dans le sens de d3-geo
- * (extérieur horaire) : la sortie GeoJSON de mapshaper suit la RFC 7946 (antihoraire),
- * que d3 lit comme « toute la sphère sauf le polygone ».
- */
-function polygones(geom) {
-  if (!geom) return [];
-  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
-  return polys.map((anneaux) =>
-    geoArea({ type: 'Polygon', coordinates: anneaux }) > 2 * Math.PI
-      ? anneaux.map((r) => [...r].reverse())
-      : anneaux,
-  );
-}
-
-/**
  * Plus grand côté (km) de l'emprise d'un anneau : longitudes × cos de la latitude
  * moyenne, ou latitudes. Même calcul que src/map/dessin.ts (etendueKm).
  */
@@ -381,27 +374,6 @@ function regrouper(geometries, items) {
 /** Aire sphérique (stéradians) d'une géométrie déjà dans le sens de d3. */
 const aireSr = (geometrie) => geoArea(geometrie);
 
-const km2 = (sr) => sr * R_TERRE_KM * R_TERRE_KM;
-
-/** Point intérieur (pôle d'inaccessibilité) d'un polygone, en lon/lat corrigés du cosinus. */
-function pointInterieur(anneaux) {
-  let s = Infinity;
-  let n = -Infinity;
-  let o = Infinity;
-  let e = -Infinity;
-  for (const [x, y] of anneaux[0]) {
-    s = Math.min(s, y);
-    n = Math.max(n, y);
-    o = Math.min(o, x);
-    e = Math.max(e, x);
-  }
-  const k = Math.max(Math.cos((((s + n) / 2) * Math.PI) / 180), 0.05);
-  const plan = anneaux.map((r) => r.map(([x, y]) => [x * k, y]));
-  const precision = Math.max((e - o) * k, n - s) / 1000;
-  const [px, py] = polylabel(plan, precision);
-  return [arrondi(px / k, 5), arrondi(py, 5)];
-}
-
 /** Indice du polygone dont un sommet extérieur est le plus près du lieu [lon, lat]. */
 function polyPres(polys, lieu) {
   let iMin = 0;
@@ -416,54 +388,6 @@ function polyPres(polys, lieu) {
     }
   });
   return iMin;
-}
-
-/**
- * Emprise [ouest, sud, est, nord] qui passe l'antiméridien quand c'est plus court :
- * ouest > est signifie que l'emprise traverse 180°.
- */
-function emprise(polys) {
-  const intervalles = [];
-  let s = Infinity;
-  let n = -Infinity;
-  for (const p of polys) {
-    let o = Infinity;
-    let e = -Infinity;
-    for (const [x, y] of p[0]) {
-      o = Math.min(o, x);
-      e = Math.max(e, x);
-      s = Math.min(s, y);
-      n = Math.max(n, y);
-    }
-    intervalles.push([o, e]);
-  }
-  intervalles.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  // Fusion des intervalles de longitude, puis plus grand trou sur le cercle.
-  const fusion = [];
-  for (const [o, e] of intervalles) {
-    const der = fusion[fusion.length - 1];
-    if (der && o <= der[1]) der[1] = Math.max(der[1], e);
-    else fusion.push([o, e]);
-  }
-  const premier = fusion[0];
-  const dernier = fusion[fusion.length - 1];
-  // Trou qui passe par l'antiméridien (de la fin du dernier au début du premier).
-  let trou = premier[0] + 180 + (180 - dernier[1]);
-  let ouest = premier[0];
-  let est = dernier[1];
-  for (let i = 1; i < fusion.length; i++) {
-    const t = fusion[i][0] - fusion[i - 1][1];
-    if (t > trou) {
-      trou = t;
-      ouest = fusion[i][0];
-      est = fusion[i - 1][1];
-    }
-  }
-  if (trou <= 0) {
-    ouest = -180;
-    est = 180;
-  }
-  return [arrondi(ouest, 4), arrondi(s, 4), arrondi(est, 4), arrondi(n, 4)];
 }
 
 // --- 4. Entités ---------------------------------------------------------------
@@ -501,9 +425,9 @@ function regionNe(p) {
 
 // --- Capitales (geodata/capitales.mjs) -------------------------------------------
 
-// Parties qu'on peut refaire seules (--seulement) ; les mers, les drapeaux et la notoriété
-// s'ajouteront ici (étude J2, § 2.5).
-const PARTIES = ['capitales'];
+// Parties qu'on peut refaire seules (--seulement) ; les mers et la notoriété s'ajouteront
+// ici (étude J2, § 2.5).
+const PARTIES = ['capitales', 'drapeaux'];
 
 /** Construit et écrit les capitales ; rend ce qui va dans sources.json. */
 async function capitales() {
@@ -514,6 +438,39 @@ async function capitales() {
   } catch (e) {
     echec(e.message);
   }
+  for (const [nom, texte] of Object.entries(res.fichiers)) await ecrire(nom, texte);
+  for (const n of res.notes) console.log(`  ${n}`);
+  return res;
+}
+
+// --- Drapeaux (geodata/drapeaux.mjs) ---------------------------------------------
+
+/**
+ * Construit et écrit les drapeaux ; rend ce qui va dans sources.json. Le dossier
+ * drapeaux/ ne garde que les fichiers de ce build : un drapeau changé y change de nom,
+ * l'ancien s'en va.
+ */
+async function drapeaux() {
+  console.log('Drapeaux');
+  let res;
+  try {
+    res = await construireDrapeaux(RACINE);
+  } catch (e) {
+    echec(e.message);
+  }
+  const dossier = join(SORTIE, 'drapeaux');
+  await mkdir(dossier, { recursive: true });
+  await mkdir(join(SORTIE, 'licences'), { recursive: true });
+  const voulus = new Set(Object.keys(res.svgs).map((h) => `${h}.svg`));
+  for (const f of await readdir(dossier)) if (!voulus.has(f)) await rm(join(dossier, f));
+  let brut = 0;
+  let gz = 0;
+  for (const [h, texte] of Object.entries(res.svgs)) {
+    await writeFile(join(dossier, `${h}.svg`), texte);
+    brut += Buffer.byteLength(texte);
+    gz += gzipSync(texte).length;
+  }
+  console.log(`  drapeaux/          ${voulus.size} fichiers, ${(brut / 1024).toFixed(1)} Ko  gzip ${(gz / 1024).toFixed(1)} Ko`);
   for (const [nom, texte] of Object.entries(res.fichiers)) await ecrire(nom, texte);
   for (const n of res.notes) console.log(`  ${n}`);
   return res;
@@ -532,8 +489,14 @@ async function main() {
     const partie = process.argv[i + 1];
     if (!PARTIES.includes(partie)) echec(`--seulement ${partie ?? ''} : attendu ${PARTIES.join(', ')}`);
     await mkdir(SORTIE, { recursive: true });
-    const cap = await capitales();
-    await ecrireSources(fusionnerSources(await lireJson(join(SORTIE, 'sources.json')), cap));
+    const avant = await lireJson(join(SORTIE, 'sources.json'));
+    if (partie === 'capitales') {
+      await ecrireSources(fusionnerSources(avant, await capitales()));
+    } else {
+      console.log('Sources');
+      await sources(majEmpreintes, SOURCES_DRAPEAUX.map((s) => s.cle));
+      await ecrireSources(fusionnerPartie(avant, await drapeaux()));
+    }
     return;
   }
   console.log('Sources');
@@ -892,6 +855,7 @@ async function main() {
     // fichiers, la CI échoue donc si l'on change le script ou la liste sans relancer.
     entrees: {
       'geodata/build.mjs': sha256(await readFile(fileURLToPath(import.meta.url))),
+      'geodata/outils.mjs': sha256(await readFile(join(RACINE, 'geodata', 'outils.mjs'))),
       'geodata/liste.json': sha256(await readFile(LISTE)),
       'geodata/revendications.json': sha256(await readFile(REVENDICATIONS_ZONES)),
     },
@@ -900,7 +864,8 @@ async function main() {
       `Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = ${R_TERRE_KM} km, sur la géométrie non simplifiée`,
   };
   const cap = await capitales();
-  await ecrireSources(fusionnerSources({ sources: meta, traitement }, cap));
+  const drap = await drapeaux();
+  await ecrireSources(fusionnerPartie(fusionnerSources({ sources: meta, traitement }, cap), drap));
 
   // Résumé.
   const parStatut = {};
