@@ -429,10 +429,11 @@ describe('Reconnaître : le sujet Drapeaux', () => {
     v.n.demarrer(v.terrain, 'drapeaux', 'Afrique', ['TCD']);
     expect(lectures.length).toBeGreaterThan(0);
     expect(lectures.every(Boolean)).toBe(true);
-    // carte.css : une taille fixe 4:3 dès la pose (64 px de haut dans les choix sur le téléphone, 96 au-delà de 600 px), le gris d'attente.
+    // carte.css : une taille fixe 4:3 dès la pose (64 px de haut dans les choix sur le téléphone, 96 au-delà de 600 px de large ET de haut,
+    // pour qu'un téléphone en paysage garde les petits), le gris d'attente.
     const css = readFileSync('src/carte.css', 'utf8');
     expect(css).toMatch(/\.nommer-choix-image \.drapeau \{ width: 85px; height: 64px; \}/);
-    expect(css).toMatch(/@media \(min-width: 600px\) \{\n  \.drapeau \{ width: 96px; height: 72px; \}\n  \.nommer-choix-image \.drapeau \{ width: 128px; height: 96px; \}/);
+    expect(css).toMatch(/@media \(min-width: 600px\) and \(min-height: 600px\) \{\n  \.drapeau \{ width: 96px; height: 72px; \}\n  \.nommer-choix-image \.drapeau \{ width: 128px; height: 96px; \}/);
     expect(css).toMatch(/\.drapeau \{\n  display: block;\n  width: 64px;\n  height: 48px;[^}]*background: var\(--drapeau-attente\);[^}]*border: 1px solid var\(--drapeau-lisere\);/);
     expect(css).toMatch(/\.drapeau\.charge \{ background: var\(--drapeau-fond\); \}/);
   });

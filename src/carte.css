@@ -295,7 +295,10 @@ body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoi
    de même taille tient sa place (« charge » : posé au chargement, commun.ts) :
    la barre a sa hauteur dès la pose, et allumerZone (nommer.ts) la lit juste.
    Dans la barre, 64 × 48 px sur le téléphone, 96 × 72 à partir de 600 px de
-   large ; dans les choix, 64 px de haut, puis 96. */
+   large ; dans les choix, 64 px de haut, puis 96. Les grands demandent aussi
+   600 px de haut : un téléphone tourné en paysage (plus de 600 px de large,
+   moins de 400 de haut) garde les petits, sinon la barre de Reconnaître
+   (deux rangées de boutons) couvrirait presque toute la carte. */
 .drapeau {
   display: block;
   width: 64px;
@@ -326,7 +329,7 @@ body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoi
 /* La révélation de la carte retournée : le drapeau, son pays dessous. */
 .retournee-nom .drapeau { margin: 0 auto; }
 .contenu-legende { display: block; margin-top: 4px; }
-@media (min-width: 600px) {
+@media (min-width: 600px) and (min-height: 600px) {
   .drapeau { width: 96px; height: 72px; }
   .nommer-choix-image .drapeau { width: 128px; height: 96px; }
 }
