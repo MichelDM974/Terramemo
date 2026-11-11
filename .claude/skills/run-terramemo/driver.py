@@ -1824,7 +1824,9 @@ def ui_entete(p, capturer, defauts, telephone):
     # Saint-Denis, la commune (au doigt) : la carte de l'île, puis « Monde ».
     p.js('document.getElementById("recherche-champ").focus()')
     p.cdp("Input.insertText", text="saint-denis")
-    p.pause(300)
+    # Les noms des communes (et les capitales) arrivent à la première frappe
+    # d'un profil neuf : la ligne attendue, pas une pause fixe.
+    attendre_visible(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
     cliquer(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
     fin = time.monotonic() + 10
     while p.js("window.terramemo.terrain()") != "reunion" and time.monotonic() < fin:
@@ -2675,7 +2677,9 @@ def ui_apprendre_reunion(p, capturer, defauts):
     p.pause(400)
     p.js('document.getElementById("recherche-champ").focus()')
     p.cdp("Input.insertText", text="saint-denis")
-    p.pause(300)
+    # Les noms des communes (et les capitales) arrivent à la première frappe
+    # d'un profil neuf : la ligne attendue, pas une pause fixe.
+    attendre_visible(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
     cliquer(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
     fin = time.monotonic() + 10
     while p.js("window.terramemo.terrain()") != "reunion" and time.monotonic() < fin:
