@@ -407,7 +407,7 @@ describe('fichiers des drapeaux (public/geo/drapeaux/)', () => {
       expect(t, h).not.toMatch(/<script|<image|<foreignObject|<style|\son[a-z]+=/i);
       for (const m of t.matchAll(/(?:href="|url\()([^")]*)/g)) expect(m[1], h).toMatch(/^#d-/);
       for (const m of t.matchAll(/\bid="([^"]*)"/g)) expect(m[1], h).toMatch(/^d-[A-Za-z0-9-]+$/);
-      for (const m of t.matchAll(/\bclass="([^"]*)"/g)) for (const c of m[1].split(/\s+/)) expect(c, h).toMatch(/^d-/);
+      for (const m of t.matchAll(/\bclass="([^"]*)"/g)) for (const c of m[1]!.split(/\s+/)) expect(c, h).toMatch(/^d-/);
       expect(t, h).not.toContain('flag-icons');
       expect(t, h).toMatch(/^<svg [^>]*viewBox="(0 0 640 480|0 -125 1000 750)"/);
     }
