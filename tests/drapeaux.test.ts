@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { acceptesDe } from '../src/map/acceptes';
+import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import {
   adresseDrapeau,
@@ -40,6 +41,10 @@ const PAYS = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Zone[];
 const LIEUX = new Map(PAYS.map((p) => [p.id, p]));
 const JOUABLES = new Set(PAYS.filter((p) => p.statut === 'jouable').map((p) => p.id));
 const D = { noms: NOMS, drapeaux: DR };
+const CAP = lireCapitales(
+  JSON.parse(readFileSync('public/geo/capitales.json', 'utf8')) as LigneCapitales[],
+  JSON.parse(readFileSync('public/geo/capitales.fr.json', 'utf8')) as NomsCapitales,
+);
 const JUMEAUX: [string, string][] = [
   ['IDN', 'MCO'],
   ['ROU', 'TCD'],
@@ -197,11 +202,27 @@ describe('rendu du sujet Drapeaux (§ 5.3)', () => {
     expect(r.qcmPareils('FRA', 'BEL')).toBe(false);
     expect(r.admisEnPlus('FRA')).toBeNull();
     expect(r.qcmExclus('FRA').size).toBe(0);
-    for (const s of ['pays', 'communes'] as const) {
-      expect(rendu(s, D).admisEnPlus('IDN')).toBeNull();
-      expect(rendu(s, D).qcmPareils('IDN', 'MCO')).toBe(false);
+    for (const s of ['pays', 'capitales', 'communes'] as const) {
+      expect(rendu(s, { ...D, capitales: CAP }).admisEnPlus('IDN'), s).toBeNull();
+      expect(rendu(s, { ...D, capitales: CAP }).qcmPareils('IDN', 'MCO'), s).toBe(false);
     }
     expect(texteAdmis(r, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau : Monaco)');
+  });
+
+  it('le manifeste en mémoire (chargerDrapeaux, comme sur le site) : les jumeaux sous Drapeaux seulement, pas sous Pays, Capitales ni Communes', async () => {
+    oublierDrapeaux();
+    await chargerDrapeaux(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+    try {
+      expect(rendu('drapeaux', { noms: NOMS }).admisEnPlus('IDN')).toEqual({ zones: ['MCO'], sorte: 'jumeau' });
+      for (const s of ['pays', 'capitales', 'communes'] as const) {
+        expect(rendu(s, { noms: NOMS, capitales: CAP }).admisEnPlus('IDN'), s).toBeNull();
+        expect(rendu(s, { noms: NOMS, capitales: CAP }).admisEnPlus('ROU'), s).toBeNull();
+        // (Monaco reste exclu des leurres sous Capitales, mais pour une autre raison : au nom de sa capitale, D37 c.)
+        expect(rendu(s, { noms: NOMS, capitales: CAP }).qcmPareils('IDN', 'MCO'), s).toBe(false);
+      }
+    } finally {
+      oublierDrapeaux();
+    }
   });
 
   it('chaque jouable se pose en QCM ; à défaut de manifeste, le rendu lève plutôt que de montrer un pays', () => {

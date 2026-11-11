@@ -980,8 +980,11 @@ describe('Toucher : le sujet Drapeaux', () => {
     expect(v.retro.textContent).toMatch(/^Juste \(même drapeau : Monaco\) : Indonésie · 1 essai/);
     const o = optionsNotees.at(-1) as { acceptes: ReadonlyMap<string, { zone: string; sorte: string }[]> };
     expect([...o.acceptes.get('IDN')!].map((z) => [z.zone, z.sorte])).toEqual([['MCO', 'jumeau']]);
-    const p = monter({}, { ids: ['IDN'], noms: NOMS_FR });
+    // Sous Pays, Monaco au terrain aussi (sinon acceptesEnPlus ne le trouverait pas, et rendrait la table commune de lui-même).
+    const p = monter({}, { ids: ['IDN', 'MCO'], noms: NOMS_FR });
     p.lancer({ sujet: 'pays' });
+    if (p.cible() === 'MCO') p.passer.click();
+    expect(p.cible()).toBe('IDN');
     toucher(p.vue, true);
     expect(optionsNotees.at(-1)).toEqual({ acceptes: true });
   });
