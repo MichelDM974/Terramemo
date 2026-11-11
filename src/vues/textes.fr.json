@@ -195,7 +195,7 @@
   "epreuves": {
     "chrono": {
       "nom": "Chrono",
-      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : 1 000 points si juste, jusqu'à 500 selon la distance sinon. Le temps total départage."
+      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : 1 000 points si juste, jusqu'à 500 selon la distance sinon. Le temps total départage."
     },
     "sansfaute": {
       "nom": "Sans faute",
