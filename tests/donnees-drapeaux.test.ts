@@ -67,7 +67,8 @@ const svg = (h: string) => readFileSync(`${DOSSIER}/${h}.svg`, 'utf8');
 const textesSvg = new Map(fichiers.map((f) => [f.slice(0, -4), readFileSync(`${DOSSIER}/${f}`, 'utf8')]));
 
 // Les 3 sosies de chaque pays, figés après relecture (11/11/2026) : « id score » du plus
-// proche au moins proche, jumeaux exceptés. Mêmes scores, paire par paire (19 306), que
+// proche au moins proche, jumeaux exceptés, et un seul de chaque paire de jumeaux (le plus
+// proche ; la Pologne : l'Indonésie, pas Monaco, puis Singapour et le Chili). Mêmes scores, paire par paire (19 306), que
 // ressemblances3.py du relevé du 10/11 sur les mêmes drapeaux (Bolivie : le civil, ici
 // montré ; Honduras : le bleu de 2026, corrigé). Un changement de flag-icons, de la table
 // ou du rendu de resvg (S33) se voit ici.
@@ -75,7 +76,7 @@ const SOSIES: Record<string, string> = {
   AFG: 'PRT 0.56, TLS 0.58, KWT 0.6',
   AGO: 'EGY 0.37, IRQ 0.37, YEM 0.37',
   ALB: 'MAR 0.07, CHN 0.16, VNM 0.16',
-  AND: 'TCD 0.03, ROU 0.05, MDA 0.11',
+  AND: 'TCD 0.03, MDA 0.11, BRB 0.34',
   ARE: 'PSE 0.26, JOR 0.3, SYR 0.42',
   ARG: 'FSM 0.31, BWA 0.32, SOM 0.32',
   ARM: 'VEN 0.08, COL 0.33, ECU 0.4',
@@ -84,7 +85,7 @@ const SOSIES: Record<string, string> = {
   AUT: 'LVA 0.17, DNK 0.23, LBN 0.27',
   AZE: 'UZB 0.33, MWI 0.38, KEN 0.4',
   BDI: 'LBN 0.53, AUT 0.57, MMR 0.57',
-  BEL: 'ROU 0.31, TCD 0.31, AND 0.35',
+  BEL: 'ROU 0.31, AND 0.35, SEN 0.35',
   BEN: 'PRT 0.36, COG 0.37, MLI 0.38',
   BFA: 'BLR 0.3, BOL 0.31, NER 0.32',
   BGD: 'SAU 0.3, TKM 0.39, NGA 0.43',
@@ -163,7 +164,7 @@ const SOSIES: Record<string, string> = {
   KEN: 'MWI 0.18, SSD 0.36, AZE 0.4',
   KGZ: 'VNM 0.07, MNE 0.08, CHN 0.13',
   KHM: 'PRK 0.33, SWZ 0.34, CRI 0.43',
-  KIR: 'IDN 0.42, MCO 0.42, LUX 0.44',
+  KIR: 'IDN 0.42, LUX 0.44, SGP 0.44',
   KNA: 'TZA 0.44, COG 0.45, BEN 0.52',
   KOR: 'CYP 0.32, JPN 0.35, GEO 0.43',
   KWT: 'GNQ 0.26, IRN 0.3, NER 0.4',
@@ -180,7 +181,7 @@ const SOSIES: Record<string, string> = {
   LVA: 'DNK 0.1, AUT 0.17, MAR 0.17',
   MAR: 'CHN 0.06, ALB 0.07, TUR 0.1',
   MCO: 'SGP 0.02, POL 0.08, CHL 0.26',
-  MDA: 'AND 0.11, ROU 0.15, TCD 0.15',
+  MDA: 'AND 0.11, ROU 0.15, FRA 0.39',
   MDG: 'BFA 0.38, NER 0.43, MLT 0.44',
   MDV: 'ALB 0.31, KGZ 0.31, MAR 0.31',
   MEX: 'ITA 0.03, IRL 0.34, SEN 0.38',
@@ -212,7 +213,7 @@ const SOSIES: Record<string, string> = {
   PHL: 'HTI 0.33, LIE 0.35, CHL 0.46',
   PLW: 'SOM 0.22, FSM 0.23, KAZ 0.27',
   PNG: 'AGO 0.4, TLS 0.42, EGY 0.49',
-  POL: 'IDN 0.08, MCO 0.08, SGP 0.1',
+  POL: 'IDN 0.08, SGP 0.1, CHL 0.18',
   PRK: 'KHM 0.33, SWZ 0.41, CRI 0.42',
   PRT: 'BEN 0.36, IRL 0.39, ITA 0.39',
   PRY: 'NLD 0.01, HRV 0.18, NIC 0.33',
@@ -224,7 +225,7 @@ const SOSIES: Record<string, string> = {
   SAU: 'TKM 0.26, BGD 0.3, NGA 0.36',
   SDN: 'EGY 0.27, YEM 0.27, IRQ 0.28',
   SEN: 'MLI 0.03, GIN 0.11, BEL 0.35',
-  SGP: 'MCO 0.02, IDN 0.03, POL 0.1',
+  SGP: 'MCO 0.02, POL 0.1, CHL 0.28',
   SLB: 'UKR 0.49, XKX 0.51, LSO 0.56',
   SLE: 'LSO 0.23, HND 0.33, NLD 0.33',
   SLV: 'HND 0.01, NIC 0.01, PRY 0.33',
@@ -336,11 +337,16 @@ describe('manifeste (public/geo/drapeaux.json)', () => {
     expect(px(32, 40)).toEqual([0x0d, 0x3b, 0x99]);
   });
 
-  it('jumeaux (D41 d) : Indonésie et Monaco, Roumanie et Tchad, symétriques, jamais parmi les sosies', () => {
+  it('jumeaux (D41 d) : Indonésie et Monaco, Roumanie et Tchad, symétriques, jamais parmi les sosies du pays, jamais deux ensemble parmi les sosies d’un autre', () => {
     const jumeaux = Object.fromEntries(lignes.filter((l) => l.j).map((l) => [l.pays, l.j]));
     expect(jumeaux).toEqual(JUMEAUX);
     for (const l of lignes) for (const j of l.j ?? []) expect(parPays.get(j)!.j, `${l.pays} ${j}`).toContain(l.pays);
     for (const l of lignes) for (const [id] of l.s) expect(l.j ?? [], `${l.pays} ${id}`).not.toContain(id);
+    // Deux jumeaux parmi les sosies seraient deux images pareilles parmi 4 choix (D41 d).
+    for (const l of lignes) {
+      const s = l.s.map(([id]) => id);
+      for (const id of s) expect(s.filter((x) => parPays.get(id)!.j?.includes(x)), `${l.pays} : ${id}`).toEqual([]);
+    }
     expect(main.jumeaux.map((j) => j.pays)).toEqual([
       ['IDN', 'MCO'],
       ['ROU', 'TCD'],

@@ -18,9 +18,11 @@
 //                      justes du pays (empreintes), le premier montré (Reconnaître, D41) ;
 //                      j ses jumeaux (même drapeau à l'écran, juste sous le sujet
 //                      Drapeaux) ; s ses 3 plus proches sosies [id, score], jumeaux
-//                      exceptés, score de 0 (pareils) à 1 (rien de commun), du plus
-//                      proche au moins proche ; familles : celles que la mesure rate,
-//                      écrites à la main (croix nordiques, Union Jack…) ;
+//                      exceptés et un seul de chaque paire de jumeaux (jamais deux
+//                      images pareilles parmi 4 choix), score de 0 (pareils) à 1 (rien
+//                      de commun), du plus proche au moins proche ; familles : celles
+//                      que la mesure rate, écrites à la main (croix nordiques, Union
+//                      Jack…) ;
 //   licences/flag-icons.txt  le LICENSE de flag-icons tel quel (MIT : l'avis et le texte
 //                      accompagnent toute copie), hors du dossier immuable.
 // Sosies : portage de ressemblances3.py (relevé du 10/11, ~/Sauvegardes/terramemo/
@@ -367,12 +369,19 @@ export async function manifeste(lignes, textes, main) {
     if (s === 0 && !jumeaux.get(a).includes(b)) fautes.push(`${a} et ${b} ont le même drapeau (score 0) : à ajouter aux jumeaux`);
   }
 
-  // Sosies : les N_SOSIES plus proches, jumeaux exceptés, à égalité par id.
+  // Sosies : les N_SOSIES plus proches, jumeaux exceptés, à égalité par id ; un seul
+  // drapeau par paire de jumeaux (le plus proche), sans quoi deux images pareilles
+  // seraient côte à côte parmi les 4 choix d'un QCM qui prend les sosies (D41 d).
   const sosies = new Map();
   for (const a of ids) {
     const autres = [...ids].filter((b) => b !== a && !jumeaux.get(a).includes(b)).map((b) => [b, score(a, b)]);
     autres.sort((x, y) => x[1] - y[1] || parId(x[0], y[0]));
-    sosies.set(a, autres.slice(0, N_SOSIES));
+    const s = [];
+    for (const x of autres) {
+      if (s.length === N_SOSIES) break;
+      if (!s.some(([b]) => jumeaux.get(b).includes(x[0]))) s.push(x);
+    }
+    sosies.set(a, s);
   }
 
   // Familles que la mesure rate.
