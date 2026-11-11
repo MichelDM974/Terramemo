@@ -44,6 +44,7 @@ python3 .claude/skills/run-terramemo/driver.py ui --width 1280    # captures PC 
 python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du monde en webgl (logiciel=1), ou g, css (défaut : canvas, celui de la page)
 python3 .claude/skills/run-terramemo/driver.py seance             # la séance du J1a seule (ui_seance), sur un journal vide
 python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord
+python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 ```
 
 - `serve` en arrière-plan, puis les autres. `--preview` construit dans
@@ -52,12 +53,17 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   serveur de dev sert des modules non groupés, son chargement ne dit rien
   du site (smoke et mesurer le signalent).
 - `smoke` : `[ok ]`/`[KO ]` par vérification (HTTP 200 et JSON valide des
-  cinq fichiers de `/geo/`, des quatre de `/geo/reunion/` et des deux des
-  capitales, `capitales.json` et `capitales.fr.json`,
+  cinq fichiers de `/geo/`, des quatre de `/geo/reunion/`, des deux des
+  capitales, `capitales.json` et `capitales.fr.json`, et du manifeste des
+  drapeaux `drapeaux.json` (197 lignes au moins, chacune avec son drapeau
+  montré `d[0]`) ; un drapeau servi, celui de la France
+  (`/geo/drapeaux/<sha8>.svg`, un SVG sans `flag-icons`, son
+  `Cache-Control` affiché : immuable une fois hébergé),
   `body[data-pret="1"]`, **rendu par défaut `canvas`** (`#carte[data-rendu]`)
   et son dessin complet (plus de 150 parties tracées, `terramemo.carte.dessin()`),
-  **rien de `/geo/reunion/` ni de `/geo/capitales*` chargé au premier
-  affichage** (après `pret` et `repos`, décision « Hébergement »), nombre de `path.pays` en
+  **rien de `/geo/reunion/`, de `/geo/capitales*` ni de `/geo/drapeaux*`
+  chargé au premier affichage** (après `pret` et `repos`, décision
+  « Hébergement »), nombre de `path.pays` en
   `?rendu=css` (les rendus SVG), rendu webgl, aucune exception JS ni requête
   en échec), puis `smoke : OK`.
   Le rendu webgl (`?rendu=webgl&logiciel=1`) doit finir en `data-relais="webgl"` :
@@ -92,14 +98,16 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   retour (la Carte, `pick` sur la Suisse = CHE).
   Chaque partie se lance par l'arbre de Jouer (décision « Écran Jouer »,
   `jouer_partie(page, mode, serie)` : `#jouer`, puis dans `#jouer-panneau`
-  `[data-branche=entrainement|classe]`, `[data-sujet=pays|capitales|communes]`
-  (dans cet ordre, D53 b ; `capitales` sous Classé à partir de la bascule
+  `[data-branche=entrainement|classe]`, `[data-sujet=pays|capitales|drapeaux|communes]`
+  (dans cet ordre, D53 b, `SUJETS_ENTRAINEMENT` du pilote ; `drapeaux` sous
+  Entraînement seulement jusqu'à la partie C du lot 2 ; `capitales` sous Classé à partir de la bascule
   datée de ses épreuves, le lundi 16/11/2026 à 0 h UTC : `EPREUVES_OUVERTES`
   de `src/epreuve/chrono.ts`, `sujets_classe()` du pilote), `[data-serie=<id>]` (sauf l'île :
   niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute|
   minute]`, qui lance la partie ; `jouer_jusqua(page, mode, serie, sujet)`
   s'arrête aux exercices, le sujet déduit de la série à défaut). Une
-  partie de capitales attend leurs données (`avecSujet` : « Chargement… »
+  partie de capitales ou de drapeaux attend leurs données (capitales, ou le
+  seul manifeste des drapeaux : `avecSujet` : « Chargement… »
   au statut `.jouer-statut`, puis la barre). Plus de départ dans Toucher ni dans les épreuves :
   `#toucher` ou `#chrono` sans partie renvoie à Jouer. Puis l'en-tête
   (décision « En-tête ») : `16-recherche` (« sain » : pays et communes mêlés),
@@ -119,7 +127,7 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   Enfin l'arbre de Jouer (#18), après les épreuves pour en avoir les
   records : `15-jouer` (Entraînement et Classé ; plus de « Rejouer » ici,
   il ne vit qu'au bilan ; `DÉFAUT` si Entraînement n'a pas Pays, Capitales,
-  Communes dans cet ordre), `15b-classe-sujets` (Pays, Communes),
+  Drapeaux, Communes dans cet ordre), `15b-classe-sujets` (Pays, Communes),
   `15c-classe-pays-series` (Tous les pays puis les six continents),
   `15d-classe-pays-ams-epreuves` (les trois épreuves avec leurs records,
   les règles ouvertes par `#jouer-aide`), `15e-entrainement-communes`
@@ -244,7 +252,7 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   « invite » reposé et le pseudo retiré.
 - Le sujet Capitales (lot 1 du J2, #4, `ui_capitales`, avant `ui_seance`,
   sur une page rechargée) : `80-capitales-sujets` (Entraînement : Pays,
-  Capitales, Communes ; la vignette des capitales en points,
+  Capitales, Drapeaux, Communes ; la vignette des capitales en points,
   `.vignette-points`, rangée dans le code), `81-capitales-series` (les 7
   séries des pays, « 54 capitales »), `82-capitales-oceanie-exercices`
   (Apprendre, Trouver, Reconnaître ; toujours rien de `/geo/capitales*`
@@ -267,6 +275,42 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
   conseil ou un bilan, ou si une fiche hors `capitales:` est écrite.
   Comme la Révision du jour d'après n'ouvre que la grappe de pays, sa
   grappe de capitales finie la laisse « À jour » pour `ui_seance`.
+- Le sujet Drapeaux (lot 2 du J2, partie B, #4, `ui_drapeaux`, après
+  `ui_capitales` et avant `ui_seance`, sur une page rechargée ; seul :
+  `driver.py drapeaux`, profil neuf, l'écran de connexion passé en invité
+  par `Session.passer_accueil`) : `100-drapeaux-sujets` (Entraînement :
+  Pays, Capitales, Drapeaux, Communes ; l'icône du sujet,
+  `.vignette-icone`, D53 a), `101-drapeaux-series` (les 7 séries des pays,
+  « 54 drapeaux »), `102-drapeaux-afrique-exercices` (Apprendre, Trouver,
+  Reconnaître ; le « ? », `#jouer-aide`, dit les exercices visuels ;
+  toujours rien de `/geo/drapeaux*` chargé ; Classé sans Drapeaux,
+  ses épreuves à la partie C) ; Trouver sur l'Amérique du Sud jusqu'au
+  bilan : `103-drapeaux-trouver` (« Pays de ce drapeau : » et l'image
+  `img.drapeau`, alt « Drapeau à reconnaître », sans `title`,
+  `draggable="false"`, adresse `/geo/drapeaux/<sha8>.svg`), le pays
+  jamais nommé dans la barre avant la réponse (noms de
+  `/geo/noms.fr.json`), `104-drapeaux-trouver-juste` (« Juste : pays ») ;
+  Reconnaître sur l'Afrique, **émulé à 375 px de large** sur le
+  téléphone (`ETAT_GRILLE_DRAPEAUX`) : `105-drapeaux-reconnaitre-375`
+  (« Quel est son drapeau ? », grille 2 × 2 `.nommer-grille-images`,
+  boutons `aria-label` « Choix 1 » à « Choix 4 » sans `title` ni texte,
+  `img` à alt vide, chargés (`.charge`), de 87 × 66 px liseré compris
+  (130 × 98 au-delà de 600 px), dans leur bouton, la barre dans l'écran
+  sans défilement horizontal, jamais deux jumeaux, et la zone allumée
+  visible au-dessus de la barre, `verifier_cadrage`),
+  `106-drapeaux-reconnaitre-faux` (« Faux · bonne réponse : pays · tu
+  avais choisi : pays », contour de 3 px en `box-shadow`, fond
+  transparent), puis « Terminer » et son bilan ; Apprendre sur l'Amérique
+  du Sud : `107-drapeaux-apprendre-conseil` (D39 b, « Pays › Amérique du
+  Sud › Apprendre »), `108-drapeaux-apprendre-qcm`,
+  `109-drapeaux-apprendre-bilan` (le journal ne gagne que des fiches
+  `drapeaux:`) ; `110-drapeaux-memoire` (carte de la mémoire :
+  `#legende-sujet` Pays, Capitales, Drapeaux ; Drapeaux choisi, un pays de
+  la grappe touché, « Drapeau : vu N fois · revient… » ; Pays remis
+  ensuite pour `ui_seance`). `DÉFAUT` à tout écart (pays nommé avant la
+  réponse par un texte, un alt, un title ou un aria-label, drapeau non
+  chargé ou débordant, fond vert ou rouge, conseil, bilan, fiche hors
+  `drapeaux:`). Sa grappe finie laisse la Révision du jour « À jour ».
 - Les épreuves classées des capitales (lot 1 du J2, partie C,
   `ui_epreuves_capitales`, après `ui_seance`) : sur une page rechargée,
   Classé n'a que Pays et Communes avant la bascule (lundi 16/11/2026, 0 h

@@ -5,13 +5,15 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
 
     serve [--preview] [--lan]   Vite sur le port 8060 (au premier plan)
     smoke                       page, fichiers /geo/*.json et /geo/reunion/,
-                                rien de l'île au premier affichage, carte
+                                un drapeau, rien de l'île, des capitales ni
+                                des drapeaux au premier affichage, carte
                                 peinte en canvas (défaut) et en SVG, shaders
                                 du rendu webgl compilés
     ui [--width 384] [--rendu r]
                                 captures des vues (téléphone ou PC), île
                                 de La Réunion et Nommer compris, séance
-                                du J1a, puis les épreuves des capitales
+                                du J1a, capitales et drapeaux, puis les
+                                épreuves des capitales
                                 (?emulateurs&horloge= au serveur de dev
                                 avant le 16/11)
                                 et l'écran de connexion
@@ -19,6 +21,8 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
                                 Apprendre, le lendemain par ?horloge=1)
     accueil [--width 384]       l'écran de connexion de la première ouverture
                                 seul (ui_accueil, aussi en fin de ui)
+    drapeaux [--width 384]      le sujet Drapeaux seul (ui_drapeaux, aussi
+                                dans ui), sur un profil neuf
     mesurer --cible local|chrome|webview [--rendu canvas|webgl|g|css]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
@@ -103,6 +107,12 @@ FICHIERS_GEO_REUNION = ("communes.topo.json", "communes.json", "noms.fr.json", "
 # a, jamais au premier affichage ni à l'ouverture de Jouer (sa vignette est
 # rangée dans le code) ; smoke et ui_capitales le vérifient.
 FICHIERS_GEO_CAPITALES = ("capitales.json", "capitales.fr.json")
+# Les drapeaux (lot 2 du J2, #4) : le manifeste, chargé au lancement d'une partie
+# de drapeaux ou pour une séance qui en a, et un fichier par drapeau
+# (/geo/drapeaux/<sha8>.svg, immuable), chargé à l'affichage ou un peu avant ;
+# rien au premier affichage ni à l'ouverture de Jouer (l'icône du sujet est
+# dessinée) ; smoke et ui_drapeaux le vérifient.
+FICHIERS_GEO_DRAPEAUX = ("drapeaux.json",)
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
 TELEPHONE = {"largeur": 384, "hauteur": 832, "dpr": 2.8125}
@@ -950,14 +960,27 @@ def commande_smoke(args):
     verifier("page", code == 200 and b"<title>Terramemo</title>" in corps, f"-> {code}")
     mode = "développement" if serveur_de_dev(base) else "build (preview ou hébergé)"
     dire(f"  serveur : {mode}")
-    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES:
+    manifeste = None
+    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES + FICHIERS_GEO_DRAPEAUX:
         code, _, corps = http(base + "geo/" + nom)
         try:
-            json.loads(corps)
+            lu = json.loads(corps)
             valide = True
         except ValueError:
             valide = False
+        if nom == "drapeaux.json" and valide:
+            manifeste = lu
+            # 195 jouables, plus Kosovo et Taïwan ; chaque ligne a son drapeau montré (d[0]).
+            valide = isinstance(lu, dict) and len(lu.get("pays", [])) >= 197 and all(l.get("d") for l in lu["pays"])
         verifier(f"geo/{nom}", code == 200 and valide, f"-> {code}, {len(corps)} octets, JSON {'valide' if valide else 'INVALIDE'}")
+    # Un drapeau servi : le montré de la France, un SVG sous son empreinte (sans id de pays).
+    fra = next((l for l in (manifeste or {}).get("pays", []) if l.get("pays") == "FRA"), None)
+    if fra:
+        code, entetes, corps = http(base + f"geo/drapeaux/{fra['d'][0]}.svg")
+        verifier("un drapeau servi (France)", code == 200 and corps.lstrip().startswith(b"<svg") and b"flag-icons" not in corps,
+                 f"-> {code}, {len(corps)} octets, {entetes.get('Cache-Control') or 'sans Cache-Control'}")
+    else:
+        verifier("un drapeau servi (France)", False, "pas de ligne FRA dans drapeaux.json")
     with Session("local") as s:
         s.couper_synchro(base)
         p = s.page
@@ -979,6 +1002,8 @@ def commande_smoke(args):
             verifier("rien de l'île au premier affichage", not ile, ", ".join(ile) or "aucune ressource /geo/reunion/ après pret et repos")
             capitales = p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/capitales'))")
             verifier("rien des capitales au premier affichage", not capitales, ", ".join(capitales) or "aucune ressource /geo/capitales* après pret et repos")
+            drapeaux = ressources_drapeaux(p)
+            verifier("rien des drapeaux au premier affichage", not drapeaux, ", ".join(drapeaux) or "aucune ressource /geo/drapeaux* après pret et repos")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
         # Rendus SVG (au choix dans ⚙) : un path.pays par entité.
@@ -1059,8 +1084,12 @@ def capitales_ouvertes():
 
 
 def sujets_classe():
-    """Les sujets attendus sous Classé : Capitales à partir de sa bascule."""
+    """Les sujets attendus sous Classé : Capitales à partir de sa bascule (Drapeaux à la partie C du lot 2)."""
     return ["pays", "capitales", "communes"] if capitales_ouvertes() else ["pays", "communes"]
+
+
+# Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 2 du J2.
+SUJETS_ENTRAINEMENT = ["pays", "capitales", "drapeaux", "communes"]
 
 
 def niveau_jouer(page):
@@ -1389,8 +1418,9 @@ def ui_croix(p, capturer, defauts):
 def ui_jouer(p, capturer, defauts):
     """Captures 15 à 15e (décision « Écran Jouer », #18) : l'arbre de Jouer,
     après les épreuves (records de l'Amérique du Sud). Sujets : Pays,
-    Capitales, Communes sous Entraînement ; Pays, Communes sous Classé
-    (Capitales en plus à partir du lundi 16/11/2026, 0 h UTC : sujets_classe).
+    Capitales, Drapeaux, Communes sous Entraînement ; Pays, Communes sous
+    Classé (Capitales en plus à partir du lundi 16/11/2026, 0 h UTC :
+    sujets_classe ; Drapeaux à la partie C du lot 2).
     `15-jouer` (Entraînement et Classé, sans Rejouer), `15b-classe-sujets`,
     `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
     ams-epreuves` (les trois épreuves, leurs records, les règles ouvertes par
@@ -1415,8 +1445,8 @@ def ui_jouer(p, capturer, defauts):
     capturer("15-jouer")
     # Les sujets, dans l'ordre de D53 b (Communes en dernier) ; Capitales sous Classé à sa bascule (lundi 16/11, 0 h UTC).
     cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
-    if lire("data-sujet") != ["pays", "capitales", "communes"]:
-        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de Pays, Capitales, Communes")
+    if lire("data-sujet") != SUJETS_ENTRAINEMENT:
+        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de Pays, Capitales, Drapeaux, Communes")
     cliquer(p, "#jouer-haut")
     p.pause(300)
     cliquer(p, '#jouer-panneau [data-branche="classe"]')
@@ -1953,6 +1983,8 @@ def commande_ui(args):
         ui_croix(p, capturer, defauts)
         # Avant la séance : sa grappe de capitales (Océanie) finie, la Révision du jour reste « À jour » après celle des pays.
         ui_capitales(p, capturer, defauts, base, rendu)
+        # De même, sa grappe de drapeaux (Amérique du Sud) finie.
+        ui_drapeaux(p, capturer, defauts, base, rendu, ecran, telephone)
         ui_seance(p, capturer, defauts, base, rendu)
         # Après la séance : son ?horloge= (serveur de dev) décale aussi le journal.
         ui_epreuves_capitales(p, capturer, defauts, base, rendu)
@@ -2170,7 +2202,7 @@ def ressources_capitales(p):
 def ui_capitales(p, capturer, defauts, base, parametres=""):
     """Captures 80 à 91 (lot 1 du J2, #4 ; étude § 5.2, 7.2, 7.3) : le sujet
     Capitales en Entraînement, sur une page rechargée. Jouer : Pays,
-    Capitales, Communes, la vignette des capitales en points, rien de
+    Capitales, Drapeaux, Communes, la vignette des capitales en points, rien de
     capitales* chargé avant le choix d'un exercice ; Trouver sur l'Océanie
     joué jusqu'au bilan (« Pays dont la capitale est : », rétroaction
     « ville (pays) » et l'anneau à la ville) ; Reconnaître (« Quelle est sa
@@ -2199,8 +2231,8 @@ def ui_capitales(p, capturer, defauts, base, parametres=""):
     attendre_visible(p, "#jouer-panneau")
     cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
     sujets = p.js("[...document.querySelectorAll('#jouer-panneau [data-sujet]')].map(b => b.dataset.sujet)")
-    if sujets != ["pays", "capitales", "communes"]:
-        defauts.append(f"Entraînement : sujets {sujets} au lieu de Pays, Capitales, Communes")
+    if sujets != SUJETS_ENTRAINEMENT:
+        defauts.append(f"Entraînement : sujets {sujets} au lieu de Pays, Capitales, Drapeaux, Communes")
     if not p.js("!!document.querySelector('#jouer-panneau [data-sujet=\"capitales\"] .vignette-points')"):
         defauts.append("Capitales sans sa vignette (le monde et ses capitales en points)")
     panneau_jouer(p, defauts, "Entraînement (Capitales)")
@@ -2333,6 +2365,264 @@ def ui_capitales(p, capturer, defauts, base, parametres=""):
     if "Bolivie" not in barre or anneaux < 1:
         defauts.append(f"recherche « La Paz » : {barre!r}, {anneaux} anneau (la Bolivie et l'anneau à la ville attendus)")
     capturer("91-capitales-recherche-la-paz")
+
+
+def ressources_drapeaux(p):
+    """Les ressources /geo/drapeaux* chargées par la page (manifeste et images)."""
+    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/drapeaux'))")
+
+
+# Un drapeau servi : nommé par son empreinte seule (rien n'y nomme le pays).
+MOTIF_ADRESSE_DRAPEAU = re.compile(r"^/geo/drapeaux/[0-9a-f]{8}\.svg$")
+
+# La grille de Reconnaître sous Drapeaux, telle qu'affichée : la barre, ses
+# boutons-images et leurs drapeaux (attributs, taille, place, chargés ou non).
+ETAT_GRILLE_DRAPEAUX = """(() => {
+  const b = document.getElementById('barre-nommer'), r = b.getBoundingClientRect();
+  const boutons = [...b.querySelectorAll('.nommer-choix')].map(x => {
+    const q = x.getBoundingClientRect(), i = x.querySelector('img'), ir = i && i.getBoundingClientRect(), s = getComputedStyle(x);
+    return { id: x.dataset.id, aria: x.getAttribute('aria-label'), title: x.getAttribute('title'), texte: x.innerText.trim(),
+             classe: x.className, fond: s.backgroundColor, ombre: s.boxShadow,
+             dedans: q.left >= r.left - 0.5 && q.right <= r.right + 0.5 && q.top >= r.top - 0.5 && q.bottom <= r.bottom + 0.5,
+             img: i && { src: i.getAttribute('src'), alt: i.getAttribute('alt'), title: i.getAttribute('title'), drag: i.getAttribute('draggable'),
+                         w: ir.width, h: ir.height, charge: i.classList.contains('charge') && i.naturalWidth > 0,
+                         dedans: ir.left >= q.left - 0.5 && ir.right <= q.right + 0.5 && ir.top >= q.top - 0.5 && ir.bottom <= q.bottom + 0.5 } };
+  });
+  return { boutons, deborde: b.scrollWidth > b.clientWidth + 1, l: r.left, r: r.right, haut: r.top, bas: r.bottom,
+           largeur: innerWidth, hauteur: innerHeight, images: b.querySelector('.nommer-grille').classList.contains('nommer-grille-images'),
+           consigne: b.querySelector('.essai-consigne').innerText.trim(), retro: b.querySelector('.essai-retro').innerText.trim() };
+})()"""
+
+
+def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone=True):
+    """Captures 100 à 110 (lot 2 du J2, partie B, #4 ; étude § 5.3, 6.4, 7.2) :
+    le sujet Drapeaux en Entraînement, sur une page rechargée. Rien de
+    drapeaux* au premier affichage ni à l'ouverture de Jouer ; Jouer :
+    Pays, Capitales, Drapeaux, Communes sous Entraînement, l'icône du sujet,
+    « 54 drapeaux », le « ? » des exercices visuels ; Drapeaux absent de
+    Classé (ses épreuves : partie C). Trouver sur l'Amérique du Sud joué
+    jusqu'au bilan (« Pays de ce drapeau : » et le drapeau, alt « Drapeau à
+    reconnaître », jamais le pays avant la réponse ; « Juste : pays ») ;
+    Reconnaître sur l'Afrique à 375 px de large sur le téléphone (la grille
+    2 × 2 de boutons-images « Choix 1 » à « Choix 4 », sans title, drapeaux
+    chargés à leur taille fixe, rien ne déborde, la zone allumée visible
+    au-dessus de la barre, une faute : contour rouge sans fond, « tu avais
+    choisi ») ; Apprendre sur l'Amérique du Sud (le conseil de D39 b, puis la
+    grappe jusqu'au bilan) ; le journal en drapeaux: seulement ; la carte de
+    la mémoire (Pays, Capitales, Drapeaux, « Drapeau : vu 1 fois »). DÉFAUT
+    à tout écart."""
+    p.goto("about:blank")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    if ressources_drapeaux(p):
+        defauts.append(f"drapeaux* chargé au premier affichage : {ressources_drapeaux(p)}")
+    fiches_avant = collections.Counter(p.js(FICHES_JOURNAL) or [])
+    _, _, corps = http(base + "geo/noms.fr.json")
+    noms = json.loads(corps)
+
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def sans_pays(quoi, t, ids):
+        """Aucun nom ni id de ces pays dans `t` (avant la réponse)."""
+        vus = [i for i in ids if re.search(rf"\b{re.escape(i)}\b", t or "") or (noms.get(i) and noms[i] in (t or ""))]
+        if vus:
+            defauts.append(f"{quoi} : le pays nommé avant la réponse ({vus} dans {t!r})")
+
+    # Jouer › Entraînement : les sujets, l'icône des drapeaux (rien à charger).
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    if lire("data-sujet") != SUJETS_ENTRAINEMENT:
+        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de Pays, Capitales, Drapeaux, Communes")
+    if not p.js("!!document.querySelector('#jouer-panneau [data-sujet=\"drapeaux\"] .vignette-icone')"):
+        defauts.append("Drapeaux sans son icône (D53 a)")
+    panneau_jouer(p, defauts, "Entraînement (Drapeaux)")
+    capturer("100-drapeaux-sujets")
+    cliquer(p, '#jouer-panneau [data-sujet="drapeaux"]')
+    series = lire("data-serie")
+    if series != SERIES_PAYS or "54 drapeaux" not in texte(p, "#jouer-panneau"):
+        defauts.append(f"Drapeaux : séries {series}, sans « 54 drapeaux » ?")
+    capturer("101-drapeaux-series")
+    cliquer(p, '#jouer-panneau [data-serie="Africa"]')
+    modes = lire("data-mode")
+    if modes != ["apprendre", "localiser", "nommer"]:
+        defauts.append(f"Drapeaux › Afrique : exercices {modes}")
+    if not p.js("!!document.getElementById('jouer-aide')"):
+        defauts.append("Drapeaux › Afrique : pas de « ? » (exercices visuels)")
+    else:
+        cliquer(p, "#jouer-aide")
+        aide = texte(p, "#jouer-regles")
+        dire(f"  Drapeaux, « ? » : {aide!r}")
+        if "visuel" not in aide:
+            defauts.append(f"le « ? » des drapeaux ne dit pas que l'exercice est visuel : {aide!r}")
+    capturer("102-drapeaux-afrique-exercices")
+    if ressources_drapeaux(p):
+        defauts.append(f"drapeaux* chargé à l'ouverture de Jouer : {ressources_drapeaux(p)}")
+    # Classé : pas de Drapeaux avant ses épreuves (partie C).
+    p.js('location.hash = "#jouer/classe"')
+    p.pause(300)
+    if "drapeaux" in lire("data-sujet"):
+        defauts.append(f"Classé : Drapeaux proposé avant ses épreuves ({lire('data-sujet')})")
+
+    # Trouver sur l'Amérique du Sud, jusqu'au bilan.
+    jouer_partie(p, "localiser", "South America", "drapeaux")
+    p.pause(300)
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+    premier = True
+    for _ in range(20):
+        if visible(p, "#essai-bilan"):
+            break
+        cible = p.js('document.querySelector("#barre-essai .essai-consigne").dataset.cible')
+        e = p.js("""(() => { const c = document.querySelector('#barre-essai .essai-consigne'), i = c.querySelector('img.drapeau');
+            return { texte: c.innerText.trim(), barre: document.getElementById('barre-essai').innerText,
+                     img: i && { src: i.getAttribute('src'), alt: i.getAttribute('alt'), title: i.getAttribute('title'),
+                                 drag: i.getAttribute('draggable'), w: i.getBoundingClientRect().width } }; })()""")
+        img = e["img"] or {}
+        if not e["texte"].startswith("Pays de ce drapeau") or not e["img"]:
+            defauts.append(f"Trouver sous Drapeaux : consigne {e['texte']!r}, image {e['img']}")
+        elif img["alt"] != "Drapeau à reconnaître" or img["title"] is not None or img["drag"] != "false" or not MOTIF_ADRESSE_DRAPEAU.match(img["src"] or ""):
+            defauts.append(f"Trouver sous Drapeaux, {cible} : image {img}")
+        sans_pays("Trouver sous Drapeaux", e["barre"] + " " + " ".join(str(v) for v in img.values()), [cible])
+        if premier:
+            dire(f"  Drapeaux, Trouver : {e['texte']!r}, drapeau {img.get('src')} ({img.get('w')} px de large)")
+            capturer("103-drapeaux-trouver")
+        toucher_pays(p, cible)
+        p.pause(250)
+        retro = texte(p, "#barre-essai .essai-retro")
+        if not re.match(r"Juste( \([^)]*\))? : ", retro) or noms.get(cible, cible) not in retro:
+            defauts.append(f"Trouver sous Drapeaux, {cible} : rétroaction {retro!r} sans « Juste : {noms.get(cible)} »")
+            cliquer_apres_pause(p, "#essai-passer")
+        if premier:
+            dire(f"  Drapeaux, Trouver, juste ({cible}) : {retro!r}")
+            capturer("104-drapeaux-trouver-juste")
+            premier = False
+        p.pause(1300)
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Drapeaux, Trouver, bilan : {bilan!r}")
+    if not visible(p, "#essai-bilan"):
+        defauts.append("Trouver sous Drapeaux : pas de bilan au bout de l'Amérique du Sud")
+
+    # Reconnaître sur l'Afrique, à 375 px de large sur le téléphone : trois questions (une faute), puis « Terminer ».
+    if telephone and ecran:
+        p.emuler(dict(ecran, largeur=375), tactile=True)
+    try:
+        jouer_partie(p, "nommer", "Africa", "drapeaux")
+        fautes = 0
+        for k in range(3):
+            attendre_fin_vol(p)
+            fin = time.monotonic() + 5
+            g = p.js(ETAT_GRILLE_DRAPEAUX)
+            while time.monotonic() < fin and not all((b["img"] or {}).get("charge") for b in g["boutons"]):
+                p.pause(100)
+                g = p.js(ETAT_GRILLE_DRAPEAUX)
+            cible = p.js('document.querySelector("#barre-nommer .essai-consigne").dataset.cible')
+            ids = [b["id"] for b in g["boutons"]]
+            haut = 66 if g["largeur"] < 600 else 98  # 64 px (96 au-delà de 600 px) et le liseré de 1 px
+            if g["consigne"] != "Quel est son drapeau ?" or not g["images"] or len(ids) != 4:
+                defauts.append(f"Reconnaître sous Drapeaux : consigne {g['consigne']!r}, grille d'images {g['images']}, choix {ids}")
+            for n, b in enumerate(g["boutons"], 1):
+                i = b["img"] or {}
+                if b["aria"] != f"Choix {n}" or b["title"] is not None or b["texte"]:
+                    defauts.append(f"Reconnaître sous Drapeaux, bouton {n} : aria-label {b['aria']!r}, title {b['title']!r}, texte {b['texte']!r}")
+                if not b["img"] or i["alt"] != "" or i["title"] is not None or i["drag"] != "false" or not MOTIF_ADRESSE_DRAPEAU.match(i["src"] or ""):
+                    defauts.append(f"Reconnaître sous Drapeaux, bouton {n} : image {b['img']}")
+                elif not i["charge"]:
+                    defauts.append(f"Reconnaître sous Drapeaux, bouton {n} : drapeau pas chargé ({i['src']})")
+                elif abs(i["h"] - haut) > 1 or abs(i["w"] - (haut - 2) * 4 / 3 - 2) > 1.5 or not i["dedans"] or not b["dedans"]:
+                    defauts.append(f"Reconnaître sous Drapeaux, bouton {n} : drapeau de {i['w']:.0f} × {i['h']:.0f} px (attendu {haut} de haut), dans son bouton {i['dedans']}, bouton dans la barre {b['dedans']}")
+            if g["deborde"] or g["l"] < 0 or g["r"] > g["largeur"] or g["haut"] < 0 or g["bas"] > g["hauteur"]:
+                defauts.append(f"Reconnaître sous Drapeaux : la barre déborde ({g['l']:.0f}–{g['r']:.0f} sur {g['largeur']}, {g['haut']:.0f}–{g['bas']:.0f} sur {g['hauteur']})")
+            if ids.count("IDN") + ids.count("MCO") > 1 or ids.count("ROU") + ids.count("TCD") > 1:
+                defauts.append(f"Reconnaître sous Drapeaux : deux jumeaux dans la grille ({ids})")
+            # Tout ce que la barre et ses boutons disent, data-id excepté (la page le lit, ne le dit ni ne le montre).
+            dits = json.dumps([{c: v for c, v in b.items() if c != "id"} for b in g["boutons"]], ensure_ascii=False)
+            sans_pays("Reconnaître sous Drapeaux", texte(p, "#barre-nommer") + " " + dits, [i for i in ids if i])
+            verifier_cadrage(p, defauts, f"Reconnaître sous Drapeaux, {g['largeur']} px")
+            if k == 0:
+                dire(f"  Drapeaux, Reconnaître ({cible}, {g['largeur']} px) : barre {g['haut']:.0f}–{g['bas']:.0f}, choix {ids}")
+                capturer("105-drapeaux-reconnaitre-375")
+            choisi = next(i for i in ids if i != cible) if k == 1 else cible
+            fautes += choisi != cible
+            cliquer_apres_pause(p, f'#barre-nommer .nommer-choix[data-id="{choisi}"]')
+            p.pause(200)
+            g = p.js(ETAT_GRILLE_DRAPEAUX)
+            retro = g["retro"]
+            if choisi == cible and not retro.startswith(f"Juste : {noms.get(cible, cible)}"):
+                defauts.append(f"Reconnaître sous Drapeaux : rétroaction juste {retro!r} sans « Juste : {noms.get(cible)} »")
+            if k == 1:
+                dire(f"  Drapeaux, Reconnaître, faux : {retro!r}")
+                if retro != f"Faux · bonne réponse : {noms.get(cible, cible)} · tu avais choisi : {noms.get(choisi, choisi)}":
+                    defauts.append(f"Reconnaître sous Drapeaux, faux : rétroaction {retro!r}")
+                faux = next(b for b in g["boutons"] if b["id"] == choisi)
+                bon = next(b for b in g["boutons"] if b["id"] == cible)
+                # Contour de 3 px, jamais de fond vert ou rouge (il se confondrait avec les couleurs d'un drapeau).
+                for quoi, b in (("le mauvais choix", faux), ("le bon", bon)):
+                    if "3px" not in b["ombre"] or b["fond"] not in ("rgba(0, 0, 0, 0)", "transparent"):
+                        defauts.append(f"Reconnaître sous Drapeaux, {quoi} : contour {b['ombre']!r}, fond {b['fond']!r}")
+                capturer("106-drapeaux-reconnaitre-faux")
+            p.pause(1900)
+        cliquer_apres_pause(p, "#nommer-terminer")
+        attendre_visible(p, "#essai-bilan")
+        bilan = texte(p, "#essai-bilan")
+        dire(f"  Drapeaux, Reconnaître, bilan : {bilan!r}")
+        if fautes and "tu as choisi" not in bilan:
+            defauts.append(f"bilan de Reconnaître sous Drapeaux sans sa faute : {bilan!r}")
+    finally:
+        if telephone and ecran:
+            p.emuler(ecran, tactile=True)
+
+    # Apprendre sur l'Amérique du Sud : le conseil (pays pas appris), puis la grappe jusqu'au bilan.
+    jouer_jusqua(p, "apprendre", "South America", "drapeaux")
+    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
+    attendre_visible(p, "#essai-bilan", 20)
+    conseil = texte(p, "#essai-bilan")
+    dire(f"  Drapeaux, Apprendre, ouverture : {conseil!r}")
+    if not p.js("!!document.getElementById('seance-commencer')") or "Pays › Amérique du Sud › Apprendre" not in conseil:
+        defauts.append(f"Apprendre sous Drapeaux sans le conseil de D39 b à l'ouverture : {conseil!r}")
+    else:
+        capturer("107-drapeaux-apprendre-conseil")
+        cliquer_apres_pause(p, "#seance-commencer")
+    jouer_seance(p, capturer, defauts, "Apprendre Drapeaux", captures={"qcm": "108-drapeaux-apprendre-qcm"})
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Drapeaux, Apprendre, bilan : {bilan!r}")
+    if "Apprendre · Amérique du Sud" not in bilan or "Nouveaux" not in bilan:
+        defauts.append(f"bilan d'Apprendre sous Drapeaux sans titre ou sans « Nouveaux » : {bilan!r}")
+    capturer("109-drapeaux-apprendre-bilan")
+    nouvelles = collections.Counter(p.js(FICHES_JOURNAL) or []) - fiches_avant
+    hors = [f for f in nouvelles.elements() if not f.startswith("drapeaux:")]
+    dire(f"  journal : {sum(nouvelles.values())} événements de drapeaux, {len(hors)} hors drapeaux:")
+    if hors or not nouvelles:
+        defauts.append(f"journal des parties de drapeaux : {hors[:5]} hors drapeaux: ({sum(nouvelles.values())} événements)")
+    cliquer_apres_pause(p, "#seance-carte")
+    p.pause(400)
+
+    # La carte de la mémoire : Pays, Capitales, Drapeaux au choix ; un pays de la grappe touché (« Drapeau : vu 1 fois · … »).
+    sujets = p.js("[...document.querySelectorAll('#legende-sujet option')].map(o => o.value)")
+    if sujets != ["pays", "capitales", "drapeaux"]:
+        defauts.append(f"carte de la mémoire : sujets {sujets} au lieu de Pays, Capitales, Drapeaux")
+    else:
+        p.js("(() => { const s = document.getElementById('legende-sujet'); s.value = 'drapeaux'; s.dispatchEvent(new Event('change')); })()")
+        p.pause(300)
+        appris = sorted({f.split(":")[1] for f in nouvelles if f.startswith("drapeaux:") and f.endswith(":localiser")})
+        for ident in appris:
+            pt = position_visible(p, ident, "#barre-carte")
+            if pt:
+                break
+        if not appris or not pt:
+            defauts.append(f"carte de la mémoire : aucun pays de la grappe de drapeaux à l'écran ({appris})")
+        else:
+            p.pause(PAUSE_AVANT_TOUCHER_MS)
+            p.toucher(pt["x"], pt["y"])
+            p.pause(300)
+            barre = texte(p, "#barre-carte")
+            dire(f"  carte de la mémoire (Drapeaux), {ident} touché : {barre!r}")
+            if not re.search(r"Drapeau : vu \d+ fois · (revient|à revoir)", barre):
+                defauts.append(f"carte de la mémoire : {ident} touché sans « Drapeau : vu N fois · revient… » ({barre!r})")
+            capturer("110-drapeaux-memoire")
+        # Le choix gardé sur l'appareil : Pays de nouveau, pour la suite (ui_seance, ui_memoire).
+        p.js("(() => { const s = document.getElementById('legende-sujet'); s.value = 'pays'; s.dispatchEvent(new Event('change')); })()")
+        p.pause(200)
 
 
 def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
@@ -2720,6 +3010,37 @@ def commande_seance(args):
         p.goto(base + "?mesures=0" + rendu + "#carte")
         p.attendre_carte()
         ui_seance(p, capturer, defauts, base, rendu)
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    return 1 if erreurs or defauts else 0
+
+
+def commande_drapeaux(args):
+    """ui_drapeaux seul, sur un profil neuf : l'écran de connexion passé en invité (passer_accueil)."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
+    faites, defauts = [], []
+    with Session("local") as s:
+        s.couper_synchro(base)
+        s.passer_accueil(base)
+        p = s.page
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        ui_drapeaux(p, capturer, defauts, base, rendu, ecran, telephone)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -4420,6 +4741,12 @@ def main():
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
     s.add_argument("--out", default="/tmp/terramemo-captures")
 
+    s = sub.add_parser("drapeaux", help="le sujet Drapeaux seul (ui_drapeaux) : Jouer, Trouver, Reconnaître à 375 px, Apprendre, carte de la mémoire")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+
     s = sub.add_parser("synchro", help="ui_synchro (J1b) : deux navigateurs aux émulateurs, l'un hors ligne, au même état")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
@@ -4467,7 +4794,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "accueil", "synchro", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "synchro", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -4480,7 +4807,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "synchro": commande_synchro,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "synchro": commande_synchro,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
     commandes.update({k.replace("_", "-"): v for k, v in commandes.items() if "_" in k})
