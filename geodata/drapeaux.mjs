@@ -111,24 +111,45 @@ const sha8 = (texte) => sha256(texte).slice(0, 8);
 
 // --- Contenu des SVG ----------------------------------------------------------------
 
+// Ce qu'un SVG servi peut contenir : les éléments et attributs des drapeaux d'aujourd'hui
+// (flag-icons 7.6.0, Commons), rien d'autre. Une liste blanche, pas noire : un préfixe
+// d'espace de noms (« <h:script xmlns:h=…xhtml> »), une animation (« <set> », « <animate> »)
+// ou un attribut « src » passeraient une liste de motifs interdits.
+const ELEMENTS = new Set(['svg', 'g', 'path', 'circle', 'ellipse', 'rect', 'use', 'defs', 'clipPath', 'linearGradient', 'radialGradient', 'stop', 'marker']);
+const ATTRIBUTS = new Set([
+  'aria-label', 'class', 'clip-path', 'color', 'cx', 'cy', 'd', 'fill', 'fill-opacity', 'fill-rule', 'font-family', 'font-size',
+  'font-weight', 'fx', 'fy', 'gradientTransform', 'gradientUnits', 'height', 'id', 'letter-spacing', 'marker-mid', 'markerHeight',
+  'markerWidth', 'offset', 'opacity', 'overflow', 'r', 'rx', 'ry', 'stop-color', 'stop-opacity', 'stroke', 'stroke-linecap',
+  'stroke-linejoin', 'stroke-miterlimit', 'stroke-opacity', 'stroke-width', 'style', 'text-anchor', 'transform', 'viewBox', 'width',
+  'word-spacing', 'x', 'x1', 'x2', 'xlink:href', 'xml:space', 'xmlns', 'xmlns:xlink', 'y', 'y1', 'y2',
+]);
+const ESPACES = { xmlns: 'http://www.w3.org/2000/svg', 'xmlns:xlink': 'http://www.w3.org/1999/xlink' };
+const BALISE = /<([^\s/>]+)((?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*\/?>/y;
+const ATTRIBUT = /\s+([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+
 /**
- * Ce qu'un SVG servi ne doit pas contenir : script, gestionnaire d'événement, image,
- * objet étranger, feuille de style, entité ; toute référence (href, url()) est interne
- * (« #… »). Rend la liste des fautes (vide si sain). Lu aussi par les tests.
+ * Ce qu'un SVG servi ne doit pas contenir : un élément ou un attribut hors des listes
+ * blanches (script, image, objet étranger, feuille de style, animation, gestionnaire
+ * d'événement, src…), une balise illisible, une instruction (« <?… ») ou une entité ;
+ * toute référence (href, url()) est interne (« #… »). Rend la liste des fautes (vide si
+ * sain). Lu aussi par les tests.
  */
 export function fautesSvg(texte) {
   const fautes = [];
-  for (const [motif, nom] of [
-    [/<script\b/i, 'script'],
-    [/\son[a-z]+\s*=/i, 'gestionnaire d’événement'],
-    [/<image\b/i, 'image'],
-    [/<foreignObject\b/i, 'objet étranger'],
-    [/<style\b/i, 'feuille de style'],
-    [/<!(DOCTYPE|ENTITY)\b/i, 'DOCTYPE ou entité'],
-    [/<\?xml-stylesheet/i, 'feuille de style XML'],
-  ]) {
-    if (motif.test(texte)) fautes.push(nom);
+  for (const m of texte.matchAll(/<(?![/!])/g)) {
+    BALISE.lastIndex = m.index;
+    const b = BALISE.exec(texte);
+    if (!b) {
+      fautes.push(`balise illisible : ${texte.slice(m.index, m.index + 40)}`);
+      continue;
+    }
+    if (!ELEMENTS.has(b[1])) fautes.push(`élément <${b[1]}>`);
+    for (const [, nom, v1, v2] of b[2].matchAll(ATTRIBUT)) {
+      if (!ATTRIBUTS.has(nom)) fautes.push(`attribut ${nom} de <${b[1]}>`);
+      else if (nom in ESPACES && (v1 ?? v2) !== ESPACES[nom]) fautes.push(`${nom}="${v1 ?? v2}"`);
+    }
   }
+  if (/<!(?!--)/.test(texte)) fautes.push('DOCTYPE, entité ou CDATA');
   for (const m of texte.matchAll(/\bhref\s*=\s*["']([^"']*)["']/g)) if (!m[1].startsWith('#')) fautes.push(`lien ${m[1]}`);
   for (const m of texte.matchAll(/url\(\s*["']?([^"')]*)/g)) if (!m[1].startsWith('#')) fautes.push(`url(${m[1]})`);
   const vb = /^<svg\b[^>]*\sviewBox="([^"]+)"/.exec(texte);

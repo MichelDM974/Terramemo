@@ -404,7 +404,7 @@ describe('fichiers des drapeaux (public/geo/drapeaux/)', () => {
     const { fautesSvg } = await module;
     for (const [h, t] of textesSvg) {
       expect(fautesSvg(t), h).toEqual([]);
-      expect(t, h).not.toMatch(/<script|<image|<foreignObject|<style|\son[a-z]+=/i);
+      expect(t, h).not.toMatch(/<script|<image|<foreignObject|<style|<set\b|<animate|<[\w-]+:|\ssrc\s*=|\son[a-z]+\s*=/i);
       for (const m of t.matchAll(/(?:href="|url\()([^")]*)/g)) expect(m[1], h).toMatch(/^#d-/);
       for (const m of t.matchAll(/\bid="([^"]*)"/g)) expect(m[1], h).toMatch(/^d-[A-Za-z0-9-]+$/);
       for (const m of t.matchAll(/\bclass="([^"]*)"/g)) for (const c of m[1]!.split(/\s+/)) expect(c, h).toMatch(/^d-/);
@@ -418,13 +418,24 @@ describe('fichiers des drapeaux (public/geo/drapeaux/)', () => {
       expect(code, l.pays).toMatch(/^[a-z]{2}$/);
       for (const h of l.d) expect(svg(h), `${l.pays} ${h}`).not.toMatch(new RegExp(`\\b${code}-`));
     }
-    // fautesSvg attrape bien ce qu'elle doit.
+    // fautesSvg attrape bien ce qu'elle doit : une liste blanche, que ni un préfixe d'espace de
+    // noms, ni une animation, ni un attribut src ne contournent.
     const sain = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"><path fill="url(#d-a)"/></svg>';
+    const avec = (x: string) => fautesSvg(sain.replace('<path', `${x}<path`));
+    const xhtml = 'xmlns:h="http://www.w3.org/1999/xhtml"';
     expect(fautesSvg(sain)).toEqual([]);
-    expect(fautesSvg(sain.replace('<path', '<script>alert(1)</script><path'))).toEqual(['script']);
+    expect(avec('<script>alert(1)</script>')).toEqual(['élément <script>']);
+    expect(avec(`<h:script ${xhtml}>alert(1)</h:script>`)).toEqual(['élément <h:script>', 'attribut xmlns:h de <h:script>']);
+    expect(avec('<a><set attributeName="href" to="javascript:alert(1)"/></a>')).toEqual(['élément <a>', 'élément <set>', 'attribut attributeName de <set>', 'attribut to de <set>']);
+    expect(avec('<animate attributeName="fill" to="red"/>')).toEqual(['élément <animate>', 'attribut attributeName de <animate>', 'attribut to de <animate>']);
+    expect(avec(`<h:img ${xhtml} src="https://x.example/p.png"/>`)).toEqual(['élément <h:img>', 'attribut xmlns:h de <h:img>', 'attribut src de <h:img>']);
     expect(fautesSvg(sain.replace('url(#d-a)', 'url(https://x.example/a)'))).toEqual(['url(https://x.example/a)']);
-    expect(fautesSvg(sain.replace('<path', '<image href="https://x.example/a.png"/><path'))).toEqual(['image', 'lien https://x.example/a.png']);
-    expect(fautesSvg(sain.replace('<path', '<path onload="x()"'))).toEqual(['gestionnaire d’événement']);
+    expect(avec('<image href="https://x.example/a.png"/>')).toEqual(['élément <image>', 'attribut href de <image>', 'lien https://x.example/a.png']);
+    expect(fautesSvg(sain.replace('<path', '<path\nonload="x()"'))).toEqual(['attribut onload de <path>']);
+    expect(fautesSvg(sain.replace('<path', '<path foo'))).toEqual(['balise illisible : <path foo fill="url(#d-a)"/></svg>']);
+    expect(fautesSvg(sain.replace('2000/svg', '1999/xhtml'))).toEqual(['xmlns="http://www.w3.org/1999/xhtml"']);
+    expect(fautesSvg(sain.replace('<svg', '<?xml-stylesheet href="https://x.example/a.css"?><svg'))[0]).toMatch(/^balise illisible/);
+    expect(fautesSvg(`<!DOCTYPE svg [<!ENTITY a "b">]>${sain}`)).toEqual(['DOCTYPE, entité ou CDATA', 'viewBox absente pas en 4:3']);
     expect(fautesSvg(sain.replace('0 0 640 480', '0 0 1000 500'))).toEqual(['viewBox 0 0 1000 500 pas en 4:3']);
   });
 
