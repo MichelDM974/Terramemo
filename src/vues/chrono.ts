@@ -250,21 +250,33 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const img = imageEnAttente(consigne);
     if (!img) return ouvrir();
     // L'image pas encore là (préchargée au départ, mais le réseau traîne) : le gris tient sa place, la jauge pleine
-    // attend sans courir, et aucun toucher ne compte (ouverte reste faux). Son décodage, son échec ou ATTENTE_IMAGE_MS
-    // ouvrent la question, une fois, si la partie n'a ni changé ni avancé entre-temps.
+    // attend sans courir, et aucun toucher ne compte (ouverte reste faux) ; la rétroaction dit l'attente. Son décodage,
+    // son échec ou ATTENTE_IMAGE_MS ouvrent la question, une fois, si la partie n'a ni changé ni avancé entre-temps :
+    // décodée, la rétroaction s'efface ; sinon elle dit que le temps court sans l'image (effacée si elle arrive avant
+    // la réponse).
     jauge.style.transition = 'none';
     jauge.style.transform = `scaleX(${plein})`;
     secondes.textContent = `${Math.ceil(ms / 1000)} s`;
+    retro.textContent = T.image_attente;
     const j = jeton;
     let ouverteDeja = false;
-    const enfin = () => {
-      if (ouverteDeja || j !== jeton || partie !== p || p.courante !== id || ouverte) return;
+    const enfin = (decodee: boolean) => {
+      if (j !== jeton || partie !== p || p.courante !== id) return;
+      if (ouverteDeja || ouverte) {
+        // Arrivée après coup, la question ouverte et pas encore répondue : le message d'absence n'a plus lieu d'être.
+        if (decodee && ouverte && retro.textContent === T.image_absente) retro.textContent = '';
+        return;
+      }
       ouverteDeja = true;
       clearTimeout(minuterie);
+      retro.textContent = decodee ? '' : T.image_absente;
       ouvrir();
     };
-    minuterie = window.setTimeout(enfin, ATTENTE_IMAGE_MS);
-    img.decode().then(enfin, enfin);
+    minuterie = window.setTimeout(() => enfin(false), ATTENTE_IMAGE_MS);
+    img.decode().then(
+      () => enfin(true),
+      () => enfin(false),
+    );
   }
 
   function apres(q: QuestionJouee): void {

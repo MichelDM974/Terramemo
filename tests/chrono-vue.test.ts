@@ -681,10 +681,12 @@ describe('le sujet Drapeaux en épreuve', () => {
       vi.advanceTimersByTime(2_000);
       v.toucher?.(0, 0, {} as PointerEvent);
       expect(optionsNoter).toHaveLength(0);
-      expect(retro()).toBe('');
+      // La rétroaction dit l'attente ; décodée, elle s'efface.
+      expect(retro()).toBe(textes.chrono.image_attente);
       expect(decodages).toHaveLength(1);
       decodages[0]!.ok();
       await vi.advanceTimersByTimeAsync(0);
+      expect(retro()).toBe('');
       // 15 s entières à partir du décodage : rien d'écoulé à 14,9 s, écoulé à 15 s.
       vi.advanceTimersByTime(14_900);
       expect(retro()).toBe('');
@@ -712,15 +714,18 @@ describe('le sujet Drapeaux en épreuve', () => {
       const retro = () => zone.querySelector('#barre-chrono .essai-retro')!.textContent;
       decodages[0]!.ko(new Error('EncodingError'));
       await vi.advanceTimersByTimeAsync(0);
+      // Le temps court sans l'image, et la rétroaction le dit.
+      expect(retro()).toBe(textes.chrono.image_absente);
       vi.advanceTimersByTime(15_100);
       expect(retro()).toMatch(/^Temps écoulé/);
       // La deuxième question : son image ne vient jamais ; le temps part à ATTENTE_IMAGE_MS.
       // Après le temps écoulé (100 ms déjà passées) : 1,8 s de rétroaction, puis l'attente.
       vi.advanceTimersByTime(1_700 + ATTENTE_IMAGE_MS - 100);
-      expect(retro()).toBe('');
+      expect(retro()).toBe(textes.chrono.image_attente);
       v.toucher?.(0, 0, {} as PointerEvent);
       expect(optionsNoter).toHaveLength(0);
       vi.advanceTimersByTime(100);
+      expect(retro()).toBe(textes.chrono.image_absente);
       v.toucher?.(0, 0, {} as PointerEvent);
       expect(optionsNoter).toHaveLength(1);
       // Un décodage arrivé après coup ne rouvre rien (la réponse est donnée, sa rétroaction reste).
@@ -748,6 +753,21 @@ describe('le sujet Drapeaux en épreuve', () => {
       v.toucher?.(0, 0, {} as PointerEvent);
       expect(optionsNoter).toHaveLength(0);
       expect(zone.querySelector('#barre-chrono')!.hidden).toBe(true);
+    });
+
+    it('le drapeau arrivé après ATTENTE_IMAGE_MS, la question ouverte et sans réponse : le message d’absence s’efface', async () => {
+      const { ATTENTE_IMAGE_MS } = await import('../src/vues/chrono');
+      const { v, zone, lancer } = contexte(undefined, NOMS_FR);
+      lancer('chrono', AMS, 'drapeaux');
+      const retro = () => zone.querySelector('#barre-chrono .essai-retro')!.textContent;
+      vi.advanceTimersByTime(ATTENTE_IMAGE_MS);
+      expect(retro()).toBe(textes.chrono.image_absente);
+      decodages[0]!.ok();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(retro()).toBe('');
+      v.toucher?.(0, 0, {} as PointerEvent);
+      expect(optionsNoter).toHaveLength(1);
+      v.desactiver();
     });
 
     it('une partie relancée avant le décodage du drapeau de l’abandonnée : ce décodage tardif n’ouvre pas sa question (la nouvelle attend le sien)', async () => {

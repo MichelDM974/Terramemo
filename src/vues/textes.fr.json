@@ -142,6 +142,8 @@
     "faux": "Faux : {touche}, à {km} du bord · +{points}",
     "abandonner": "Abandonner",
     "abandon": "Partie abandonnée : elle ne compte pas.",
+    "image_attente": "Chargement de l'image…",
+    "image_absente": "Image pas chargée : le temps court quand même.",
     "bilan_titre": "{mode} · {serie}",
     "bilan_score": "{points} points sur {max}",
     "bilan_detail": "{justes} / {n} justes · {temps}",
