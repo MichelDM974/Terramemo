@@ -1,6 +1,6 @@
 import { acceptesEnPlus, type Admis } from '../map/acceptes';
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
-import { chargerDrapeaux, drapeauxCharges, prechargerDrapeaux } from '../map/drapeaux';
+import { chargerDrapeaux, drapeauxCharges, prechargerDrapeaux, prechargerPartie } from '../map/drapeaux';
 import type { CarteAffichee } from '../map/carte';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
@@ -199,6 +199,16 @@ export function chargementSujet(sujet: string): Promise<unknown> | null {
  */
 export function prechargerSujet(sujet: string, ids: Iterable<string>): void {
   if (sujet === 'drapeaux') prechargerDrapeaux(ids);
+}
+
+/**
+ * Toute une partie d'épreuve au départ (étude J2 § 2.2) : le drapeau de
+ * chacune de ses questions, demandé d'un coup, dans l'ordre où elles
+ * viendront (la première d'abord), pour qu'aucune ne montre le gris
+ * d'attente. Rien pour un sujet sans image.
+ */
+export function prechargerPartieSujet(sujet: string, ids: readonly string[]): void {
+  if (sujet === 'drapeaux') prechargerPartie(ids);
 }
 
 /**

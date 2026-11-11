@@ -21,6 +21,11 @@
 // Le classement général et ceux de chaque épreuve ont leur vue (general.ts).
 // L'énoncé, la rétroaction et le bilan viennent du rendu du sujet lancé
 // (src/vues/sujets.ts), le même pour tous en épreuve.
+// Un sujet aux énoncés en images (les drapeaux, étude J2 § 2.2) : toute la
+// partie préchargée au départ, dans l'ordre de ses questions ; une question
+// dont l'image n'est pas encore là quand elle est posée montre le gris 4:3 qui
+// tient sa place, et son temps n'attend que son décodage, au plus
+// ATTENTE_IMAGE_MS (un échec ou un réseau trop lent ne bloquent pas la partie).
 import { acceptesEnEpreuve, DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE, type ScoreEpreuve } from '../epreuve/bareme';
 import { DUREE_MINUTE_MS, enregistrerPartie, idEpreuve, PartieChrono, PartieMinute, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
 import { estDomaine } from '../srs/fiches';
@@ -29,7 +34,7 @@ import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
-import { anneauSiPetite, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, prechargerPartieSujet, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { nomEpreuve } from './general';
 import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong } from './scores';
 import { rendu, type RenduSujet } from './sujets';
@@ -42,6 +47,18 @@ const DELAI = DELAI_CHRONO_MS.localiser;
 /** Durée de la rétroaction avant la question suivante (ms), hors du temps compté. */
 const PAUSE_JUSTE_MS = 900;
 const PAUSE_FAUX_MS = 1800;
+/**
+ * Au plus, l'attente de l'image d'un énoncé pas encore arrivée (un drapeau)
+ * avant que le temps de sa question ne coure (ms) : au-delà, le gris 4:3
+ * tient sa place et le temps part quand même.
+ */
+export const ATTENTE_IMAGE_MS = 3_000;
+
+/** L'image de l'énoncé posé, si elle n'est pas encore chargée (une <img> pas complète) ; null sinon, ou sans image. */
+function imageEnAttente(el: HTMLElement): HTMLImageElement | null {
+  const img = el.querySelector('img');
+  return img && img.complete === false && typeof img.decode === 'function' ? img : null;
+}
 
 function nouvellePartieDe(mode: ModeEpreuve, ids: readonly string[], echelle_km: number): PartieChrono {
   if (mode === 'sansfaute') return new PartieSansFaute(melanger(ids), DELAI);
@@ -187,6 +204,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     rs = rendu(lancement?.sujet ?? 'pays', t.donnees, { epreuve: true });
     const lancer = () => {
       partie = nouvellePartieDe(mode, ids, ECHELLES_KM[s.terrain]);
+      // Les drapeaux de toute la partie, demandés d'un coup dans l'ordre de ses questions (étude J2 § 2.2).
+      prechargerPartieSujet(rs.sujet, partie.cibles);
       // Une règle par partie, celle de son départ. Le record se range pourtant
       // dans la semaine de sa fin (enregistrerPartie) : une partie lancée le
       // dimanche 08/11 avant minuit UTC et finie après compte dans la semaine
@@ -217,13 +236,35 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     afficherCompte(false);
     retro.textContent = '';
     retro.className = 'essai-retro';
-    debut = performance.now();
-    ouverte = true;
+    const p = partie;
     const ms = limite();
-    lancerJauge(partie instanceof PartieMinute ? ms / partie.duree_ms : 1, ms);
-    afficherSecondes();
-    affichage = window.setInterval(afficherSecondes, 200);
-    minuterie = window.setTimeout(expirer, ms);
+    const plein = p instanceof PartieMinute ? ms / p.duree_ms : 1;
+    const ouvrir = () => {
+      debut = performance.now();
+      ouverte = true;
+      lancerJauge(plein, ms);
+      afficherSecondes();
+      affichage = window.setInterval(afficherSecondes, 200);
+      minuterie = window.setTimeout(expirer, ms);
+    };
+    const img = imageEnAttente(consigne);
+    if (!img) return ouvrir();
+    // L'image pas encore là (préchargée au départ, mais le réseau traîne) : le gris tient sa place, la jauge pleine
+    // attend sans courir, et aucun toucher ne compte (ouverte reste faux). Son décodage, son échec ou ATTENTE_IMAGE_MS
+    // ouvrent la question, une fois, si la partie n'a ni changé ni avancé entre-temps.
+    jauge.style.transition = 'none';
+    jauge.style.transform = `scaleX(${plein})`;
+    secondes.textContent = `${Math.ceil(ms / 1000)} s`;
+    const j = jeton;
+    let ouverteDeja = false;
+    const enfin = () => {
+      if (ouverteDeja || j !== jeton || partie !== p || p.courante !== id || ouverte) return;
+      ouverteDeja = true;
+      clearTimeout(minuterie);
+      ouvrir();
+    };
+    minuterie = window.setTimeout(enfin, ATTENTE_IMAGE_MS);
+    img.decode().then(enfin, enfin);
   }
 
   function apres(q: QuestionJouee): void {
