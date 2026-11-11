@@ -1091,6 +1091,16 @@ describe('séance : le sujet Drapeaux (lot 2)', () => {
     m2.seances.ouvrir({ sorte: 'revision' });
     expect(demandes).toHaveLength(1);
     expect([...demandes[0]!].sort()).toEqual(['BEN', 'TGO']);
+    // Une Révision du jour qui n'a que des introductions (drapeaux:X:nommer, « Reconnaître » en carte retournée) : leurs drapeaux aussi.
+    const m4 = await monter(undefined, { prechargerDrapeaux: (ids) => void demandes.push([...ids]) });
+    await noter(m4, ['drapeaux:BEN:localiser', 'drapeaux:TGO:localiser'], T0 - JOUR_MS);
+    demandes.length = 0;
+    const p4 = m4.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance;
+    expect(demandes).toHaveLength(1);
+    expect([...demandes[0]!].sort()).toEqual(['BEN', 'TGO']);
+    // Les drapeaux n'y sont que deux cartes retournées (le reste : la grappe de pays suivante, sans drapeau).
+    const sous = jouer(p4).questions.filter((q) => (q as { domaine?: string }).domaine === 'drapeaux');
+    expect(sous.map(cle)).toEqual(['monde:retournee:BEN', 'monde:retournee:TGO']);
     // Des pays seuls : rien.
     const m3 = await monter(undefined, { prechargerDrapeaux: (ids) => void demandes.push([...ids]) });
     demandes.length = 0;

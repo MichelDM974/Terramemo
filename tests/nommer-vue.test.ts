@@ -392,6 +392,22 @@ describe('Reconnaître : le sujet Drapeaux', () => {
     expect(p.choix().every((b) => b.getAttribute('aria-label') === null)).toBe(true);
   });
 
+  it('dans la même vue, des drapeaux puis des pays (une Révision du jour mêlée) : les boutons perdent « Choix n », le nom du pays se lit', () => {
+    const v = monter({ ids: AFRIQUE, noms: NOMS_FR });
+    v.n.demarrer(v.terrain, 'drapeaux', 'Afrique', ['TCD']);
+    expect(v.choix().map((b) => b.getAttribute('aria-label'))).toEqual(['Choix 1', 'Choix 2', 'Choix 3', 'Choix 4']);
+    v.n.arreter();
+    v.n.demarrer(v.terrain, 'pays', 'Afrique', ['TCD']);
+    const bs = v.choix();
+    expect(v.barre.querySelector('.nommer-grille')!.classList.contains('nommer-grille-images')).toBe(false);
+    for (const b of bs) {
+      expect(b.getAttribute('aria-label')).toBeNull();
+      expect(b.className).toBe('secondary nommer-choix');
+      expect(b.textContent).toBe(NOMS_FR[b.dataset.id!]);
+      expect(b.querySelector('img')).toBeNull();
+    }
+  });
+
   it('les drapeaux de la question suivante préchargés pendant celle-ci ; rien pour les pays', () => {
     const v = monter({ ids: AFRIQUE, noms: NOMS_FR });
     v.n.demarrer(v.terrain, 'drapeaux', 'Afrique', ['NER', 'TCD']);

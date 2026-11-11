@@ -1028,6 +1028,24 @@ describe('Toucher : le sujet Drapeaux', () => {
     expect(nom.getAttribute('aria-live')).toBe('polite');
   });
 
+  it('une séance mêlée : un Trouver de drapeau puis un Trouver de pays, la consigne quitte sa mise en page d’image', () => {
+    const f = piloteFactice([
+      { id: 'FRA', forme: 'trouver', cadrer: null, connu: false, domaine: 'drapeaux' },
+      { id: 'ITA', forme: 'trouver', cadrer: null, connu: false },
+    ]);
+    const s = monterSeance(() => f.p);
+    s.vue.activer();
+    s.vue.reviser();
+    const c = s.el('#barre-essai .essai-consigne');
+    expect(c.classList.contains('consigne-image')).toBe(true);
+    justeSuivant = true;
+    s.vue.toucher?.(1, 1, {} as PointerEvent);
+    vi.advanceTimersByTime(1200);
+    expect(c.textContent).toBe(`${textes.sujets.pays.enonce}Italie`);
+    expect(c.querySelector('img')).toBeNull();
+    expect(c.classList.contains('consigne-image')).toBe(false);
+  });
+
   it('une séance qui attend les drapeaux seuls : « Chargement… », pas le message de l’île', () => {
     const f = piloteFactice([{ id: 'FRA', forme: 'trouver', cadrer: null, connu: false, domaine: 'drapeaux' }]);
     const s = monterSeance(() => f.p);
