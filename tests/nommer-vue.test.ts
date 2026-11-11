@@ -352,7 +352,7 @@ describe('Reconnaître : le sujet Drapeaux', () => {
   it('touches 1 à 4 : le choix de ce rang ; ignorées une fois répondu, et sous un sujet aux choix en texte', () => {
     const v = monter({ ids: AFRIQUE, noms: NOMS_FR });
     const vues: ReponseNommer[] = [];
-    v.n.demarrer(v.terrain, 'drapeaux', 'Afrique', ['TCD', 'NER'], { surReponse: (r) => void vues.push(r) });
+    v.n.demarrer(v.terrain, 'drapeaux', 'Afrique', ['TCD', 'NER', 'NGA', 'CMR', 'CAF'], { surReponse: (r) => void vues.push(r) });
     const troisieme = v.choix()[2]!.dataset.id!;
     (document as unknown as El).emettre('keydown', { key: '3' });
     expect(vues.map((r) => r.choisi)).toEqual([troisieme]);
@@ -363,6 +363,25 @@ describe('Reconnaître : le sujet Drapeaux', () => {
     // Ctrl+1 (un onglet du navigateur) : rien.
     (document as unknown as El).emettre('keydown', { key: '1', ctrlKey: true });
     expect(vues).toHaveLength(1);
+    // Dans un champ de saisie (closest le trouve) : rien.
+    (document as unknown as El).emettre('keydown', { key: '1', code: 'Digit1', target: new El('input') });
+    expect(vues).toHaveLength(1);
+    // Un clavier AZERTY : la rangée du haut sans Maj donne « é » pour la touche 2 ; c'est la touche physique (ev.code) qui compte.
+    const deuxieme = v.choix()[1]!.dataset.id!;
+    (document as unknown as El).emettre('keydown', { key: 'é', code: 'Digit2' });
+    expect(vues.map((r) => r.choisi)).toEqual([troisieme, deuxieme]);
+    vi.advanceTimersByTime(1800);
+    // Le pavé numérique : par ev.key.
+    const quatrieme = v.choix()[3]!.dataset.id!;
+    (document as unknown as El).emettre('keydown', { key: '4', code: 'Numpad4' });
+    expect(vues.map((r) => r.choisi)).toEqual([troisieme, deuxieme, quatrieme]);
+    // Quittée (une autre vue) la partie gardée : barre cachée, boutons actifs ; « 1 » tapé ailleurs ne répond pas à la question cachée.
+    vi.advanceTimersByTime(1800);
+    v.n.quitter();
+    expect(v.n.enCours).toBe(true);
+    expect(v.choix()[0]!.disabled).toBe(false);
+    (document as unknown as El).emettre('keydown', { key: '1', code: 'Digit1' });
+    expect(vues).toHaveLength(3);
     // Les pays : rien ne change (pas de touches).
     const p = monter();
     const parPays: ReponseNommer[] = [];

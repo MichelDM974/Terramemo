@@ -120,9 +120,10 @@ export class El {
     for (let e = o; e; e = e.parent) if (e === this) return true;
     return false;
   }
-  /** Le plus proche ancêtre (lui compris) qui répond au sélecteur simple. */
+  /** Le plus proche ancêtre (lui compris) qui répond au sélecteur simple, ou à l'un d'une liste (« input, textarea »). */
   closest(sel: string): El | null {
-    for (let e: El | null = this; e; e = e.parent) if (e.correspond(sel)) return e;
+    const sels = sel.split(',').map((s) => s.trim());
+    for (let e: El | null = this; e; e = e.parent) if (sels.some((s) => e.correspond(s))) return e;
     return null;
   }
   /** Descendants, dans l'ordre du document. */

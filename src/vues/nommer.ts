@@ -263,11 +263,13 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       if (b.dataset.id) repondre(b.dataset.id);
     });
   // Touches 1 à 4 (étude J2 § 5.3) : les choix en images, dans l'ordre de la grille ; hors d'un champ de saisie.
+  // La touche physique (ev.code) : sur un clavier AZERTY, la rangée du haut sans Maj donne « & », « é »… ; le pavé numérique par ev.key.
   document.addEventListener('keydown', (e) => {
     const ev = e as KeyboardEvent;
     if (barre.hidden || !rs?.visuel || ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if ((ev.target as Element | null)?.closest?.('input, textarea, select')) return;
-    const k = ['1', '2', '3', '4'].indexOf(ev.key);
+    const parCode = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(ev.code);
+    const k = parCode >= 0 ? parCode : ['1', '2', '3', '4'].indexOf(ev.key);
     const b = boutons[k];
     if (k < 0 || !b || b.disabled) return;
     ev.preventDefault?.();
