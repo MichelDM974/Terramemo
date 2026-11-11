@@ -122,9 +122,9 @@ describe('fusion du profil (pure)', () => {
     expect(fusionner(lu(null, null), { pseudo: null, records: new Map() }, o)).toMatchObject({ pseudo: null, doc: null });
   });
 
-  it('les capitales ouvertes (45 épreuves, de toujours et de la semaine), aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
+  it('les capitales et les drapeaux ouverts (66 épreuves, de toujours et de la semaine), aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
     const epreuves = epreuvesClassees(Date.UTC(2026, 10, 16));
-    expect(epreuves).toHaveLength(45);
+    expect(epreuves).toHaveLength(66);
     // Le pire : des points et un temps à 17 chiffres (le barème et performance.now()), 195 questions, une date à 13 chiffres.
     const pire = (): RecordChrono => ({ points: 194_999.99999999997, justes: 194, questions: 195, temps_ms: 2_924_999.9999999995, date: 1_794_787_199_999, bareme: VERSION_BAREME });
     const records = new Map<string, RecordChrono>();
@@ -132,10 +132,12 @@ describe('fusion du profil (pure)', () => {
     const f = fusionner(PROFIL_ABSENT, { pseudo: 'Michel', records }, o);
     expect(f.tropGros).toBe(false);
     const n = f.doc!.records!.length;
-    expect(Object.keys(recordsDuDoc(f))).toHaveLength(90);
+    expect(Object.keys(recordsDuDoc(f))).toHaveLength(132);
     expect(n).toBeLessThan(RECORDS_MAX);
-    // Marge pour les sujets suivants (drapeaux, mers, quiz : 73 épreuves au J2) : un peu plus de la moitié de la borne.
-    expect(n).toBeLessThan(RECORDS_MAX * 0.6);
+    // Mesuré : 20 095 caractères, 61 % de la borne (environ 152 par record). Les sujets suivants (mers 3, quiz 4 :
+    // 73 épreuves au J2) y ajouteraient 14 records, environ 22 200 caractères au pire (68 %) : la marge tient.
+    expect(n).toBeLessThan(RECORDS_MAX * 0.65);
+    expect((n / 132) * 146).toBeLessThan(RECORDS_MAX * 0.7);
   });
 
   it('au-delà de la borne des règles : rien n’est écrit, l’appareil reçoit quand même', () => {
