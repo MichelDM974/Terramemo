@@ -79,11 +79,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('écran Crédits', () => {
-  it('les données : Natural Earth (domaine public), Unicode CLDR (Unicode License v3), IGN ADMIN EXPRESS (Licence Ouverte 2.0, source et date), Wikidata (CC0, date de l’extrait)', async () => {
+  it('les données : Natural Earth (domaine public), Unicode CLDR (Unicode License v3), IGN ADMIN EXPRESS (Licence Ouverte 2.0, source et date), Wikidata (CC0, date de l’extrait), flag-icons (MIT) et le drapeau de l’Émirat (Commons, domaine public)', async () => {
     const v = ouvrir();
     expect(v.hidden).toBe(false);
     const texte = v.querySelector('#credits-liste-donnees')!.innerText;
     for (const m of ['Natural Earth', 'v5.1.2', 'Domaine public', 'Unicode CLDR', 'Unicode License v3', 'IGN, ADMIN EXPRESS', 'Licence Ouverte 2.0', 'Wikidata', 'extrait du ', 'CC0 1.0']) expect(texte).toContain(m);
+    for (const m of ['flag-icons', 'Drapeaux des pays · v7.6.0, Honduras mis à jour (2026)', 'MIT', '© 2013 Panayiotis Lipiridis', 'Wikimedia Commons', "Drapeau de l'Émirat islamique d'Afghanistan"]) expect(texte).toContain(m);
     // La date de mise à jour de l'IGN, lue dans le sources.json de l'île à l'ouverture.
     await new Promise((r) => setTimeout(r, 0));
     expect(fetch).toHaveBeenCalledWith('/geo/reunion/sources.json');
@@ -92,6 +93,9 @@ describe('écran Crédits', () => {
     const liens = v.querySelectorAll('#credits-liste-donnees a').map((a) => a.getAttribute('href'));
     expect(liens).toContain('/geo/LICENSE-CLDR.txt');
     expect(readFileSync('public/geo/LICENSE-CLDR.txt', 'utf8')).toContain('UNICODE LICENSE V3');
+    // Le MIT de flag-icons, servi hors du dossier immuable des drapeaux (étude J2, § 2.2).
+    expect(liens).toContain('/geo/licences/flag-icons.txt');
+    expect(readFileSync('public/geo/licences/flag-icons.txt', 'utf8')).toContain('Copyright (c) 2013 Panayiotis Lipiridis');
   });
 
   it('chaque dépendance du site et ses paquets embarqués, avec la licence de son package.json ; aucun outil de développement', () => {
@@ -180,6 +184,18 @@ describe('licences tierces (#20)', () => {
     const textes = new Set([...embarques, ...HORS_SITE].map((p) => texteLicence(`node_modules/${p}`)).filter((t) => t?.includes(isc)));
     expect(textes.size).toBe(2);
     expect(fichier.split(isc).length - 1).toBe(textes.size);
+  });
+
+  it('section « Données » : le texte MIT de flag-icons, celui que le site sert sous /geo/licences/, après les bibliothèques Android', () => {
+    const mit = readFileSync('public/geo/licences/flag-icons.txt', 'utf8').trimEnd();
+    expect(mit).toContain('Permission is hereby granted');
+    const donnees = fichier.indexOf(`\n${T.fichier_donnees}\n`);
+    expect(donnees).toBeGreaterThan(fichier.indexOf(`\n${T.fichier_android}\n`));
+    expect(fichier.indexOf(`flag-icons · ${T.donnees.find((d) => d.nom === 'flag-icons')!.detail}\nLicence\u202f: MIT\n`)).toBeGreaterThan(donnees);
+    expect(fichier.split(mit).length - 1).toBe(1);
+    expect(fichier.indexOf(mit)).toBeGreaterThan(donnees);
+    // Seules les données dont le texte est servi sous /geo/licences/ y sont (pas CLDR ni Natural Earth).
+    expect(T.donnees.filter((d) => d.lien.startsWith('/geo/licences/')).map((d) => d.nom)).toEqual(['flag-icons']);
   });
 
   it('le texte d’Apache 2.0 une fois, en fin de fichier', () => {

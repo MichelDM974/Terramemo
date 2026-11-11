@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { textes } from '../src/vues/textes';
 
 // Drapeaux des pays (étude J2, § 2.2 ; geodata/drapeaux.mjs, lot 2) : tests sur les fichiers
 // versionnés. Le calcul des sosies est refait ici sur les SVG versionnés, par le même
@@ -430,7 +431,7 @@ describe('fichiers des drapeaux (public/geo/drapeaux/)', () => {
   });
 });
 
-describe('licence, sources, hébergement', () => {
+describe('licence, sources, hébergement, crédits', () => {
   it('licence de flag-icons (MIT, avis de 2013) servie à côté, hors du dossier immuable', () => {
     const t = readFileSync('public/geo/licences/flag-icons.txt', 'utf8');
     expect(t).toMatch(/^The MIT License \(MIT\)\n\nCopyright \(c\) 2013 Panayiotis Lipiridis\n/);
@@ -469,6 +470,16 @@ describe('licence, sources, hébergement', () => {
     expect(regle('/geo/drapeaux/**')).toEqual([{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }]);
     expect(regle('/')).toEqual([{ key: 'Cache-Control', value: 'no-cache' }]);
     expect(regle('**/*.@(html|json)')).toEqual([{ key: 'Cache-Control', value: 'no-cache' }]);
+  });
+
+  it('crédits : flag-icons (v7.6.0, Honduras mis à jour, MIT, avis de 2013, lien vers le texte servi) et le drapeau de l’Émirat (Commons, domaine public)', () => {
+    const fi = textes.credits.donnees.find((c) => c.nom === 'flag-icons');
+    if (!fi) throw new Error('flag-icons absent des crédits');
+    expect(fi).toMatchObject({ detail: 'Drapeaux des pays · v7.6.0, Honduras mis à jour (2026)', licence: 'MIT', auteur: '© 2013 Panayiotis Lipiridis', lien: '/geo/licences/flag-icons.txt' });
+    const com = textes.credits.donnees.find((c) => c.nom === 'Wikimedia Commons');
+    if (!com) throw new Error('Commons absent des crédits');
+    expect(com.detail).toBe("Drapeau de l'Émirat islamique d'Afghanistan");
+    expect(com.licence).toBe('Domaine public');
   });
 
   it('table à la main : une source par ligne', () => {

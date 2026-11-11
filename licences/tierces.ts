@@ -14,6 +14,10 @@
 //   licences/android.mjs), rangées sous les lignes de textes.credits.android
 //   par leur groupe Maven ; toutes Apache-2.0, avec les avis (NOTICE) que
 //   Cordova, Kotlin et kotlinx.coroutines publient (Apache 2.0, § 4 d).
+// - Les données dont la licence demande le texte avec toute copie : les lignes
+//   de textes.credits.donnees dont le lien est un fichier de /geo/licences/
+//   (flag-icons, MIT ; étude J2, § 2.5), sous « Données », le texte lu dans
+//   public/ (celui que le site sert).
 // Un paquet ou un artefact qu'aucune ligne ne couvre fait échouer le build.
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -26,6 +30,9 @@ export const FICHIER_LICENCES = 'licences-tierces.txt';
 const T = fr.credits;
 // Le dossier licences/ (import.meta.url : celle du fichier d'origine aussi dans la config de Vite, regroupée).
 const ICI = dirname(fileURLToPath(import.meta.url));
+
+/** Le dossier servi des textes de licence des données (public/geo/licences/). */
+export const DOSSIER_LICENCES_DONNEES = '/geo/licences/';
 
 /** Avis (NOTICE) publiés par groupe Maven, relevés dans le dépôt de chacun à la version embarquée. */
 export const AVIS_ANDROID: Readonly<Record<string, string>> = {
@@ -97,6 +104,13 @@ export function texteLicences(racine = join(ICI, '..')): string {
     const avis = [...new Set(parLigne[i]!.map((a) => AVIS_ANDROID[a.split(':')[0] ?? '']).filter((f): f is string => !!f))];
     for (const f of avis) sortie.push(`${T.fichier_avis} :`, '', readFileSync(join(ICI, f), 'utf8').trimEnd(), '');
   });
+
+  // Données dont la licence demande le texte (servi sous /geo/licences/).
+  sortie.push('', DOUBLE, T.fichier_donnees, DOUBLE, '');
+  for (const d of T.donnees) {
+    if (!d.lien.startsWith(DOSSIER_LICENCES_DONNEES)) continue;
+    sortie.push(...tete(`${d.nom} · ${d.detail}`, d.licence), readFileSync(join(racine, 'public', d.lien), 'utf8').trimEnd(), '');
+  }
 
   sortie.push('', DOUBLE, T.fichier_apache, DOUBLE, '', readFileSync(join(ICI, 'apache-2.0.txt'), 'utf8').trimEnd(), '');
   return sortie.join('\n');

@@ -328,6 +328,20 @@
         "licence": "CC0 1.0",
         "auteur": "Wikidata et ses contributeurs",
         "lien": "https://creativecommons.org/publicdomain/zero/1.0/deed.fr"
+      },
+      {
+        "nom": "flag-icons",
+        "detail": "Drapeaux des pays · v7.6.0, Honduras mis à jour (2026)",
+        "licence": "MIT",
+        "auteur": "© 2013 Panayiotis Lipiridis",
+        "lien": "/geo/licences/flag-icons.txt"
+      },
+      {
+        "nom": "Wikimedia Commons",
+        "detail": "Drapeau de l'Émirat islamique d'Afghanistan",
+        "licence": "Domaine public",
+        "auteur": "Wikimedia Commons et ses contributeurs",
+        "lien": "https://commons.wikimedia.org/wiki/File:Flag_of_the_Taliban.svg"
       }
     ],
     "ign_date": "Source : IGN, à jour au {date}",
@@ -486,8 +500,9 @@
     "licences_chargement": "Chargement…",
     "licences_erreur": "Textes indisponibles (hors ligne ?) : refermer puis rouvrir pour réessayer.",
     "fichier_titre": "Terramemo : licences des bibliothèques tierces",
-    "fichier_intro": "Le site et l'appli Android embarquent ces bibliothèques. Pour chacune : sa version, sa licence et son texte, avec les avis de copyright de ses auteurs. Les données et la police ont leurs licences dans l'écran Crédits.",
+    "fichier_intro": "Le site et l'appli Android embarquent ces bibliothèques. Pour chacune : sa version, sa licence et son texte, avec les avis de copyright de ses auteurs. Puis les données dont la licence demande le texte (les drapeaux) ; les autres données et la police ont leurs licences dans l'écran Crédits.",
     "fichier_android": "Dans l'appli Android seulement",
+    "fichier_donnees": "Données",
     "fichier_apache": "Texte de la licence Apache 2.0, commun aux bibliothèques qui la citent",
     "fichier_voir_apache": "texte en fin de fichier",
     "fichier_avis": "Avis (NOTICE)",
