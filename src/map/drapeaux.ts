@@ -139,9 +139,11 @@ export function prechargerDrapeaux(ids: Iterable<string>, d: DonneesDrapeaux | n
 }
 
 /**
- * Toute une partie au départ (étude J2 § 2.2, § 9.3 : une épreuve ou le
- * quiz, partie C et lot 4) : le drapeau de chaque question, d'un coup, pour
- * qu'aucune ne montre le gris d'attente pendant que le temps court.
+ * Toute une partie au départ (étude J2 § 2.2, § 9.3 : une épreuve classée,
+ * src/vues/chrono.ts par commun.ts prechargerPartieSujet ; le quiz au lot 4) :
+ * le drapeau de chaque question, d'un coup, dans l'ordre des questions, pour
+ * qu'aucune ne montre le gris d'attente pendant que le temps court (la vue
+ * attend quand même le décodage d'un drapeau en retard : ATTENTE_IMAGE_MS).
  */
 export const prechargerPartie = (ids: readonly string[], d: DonneesDrapeaux | null = charges, telecharger: Telecharger = parImage): void =>
   prechargerDrapeaux(ids, d, telecharger);

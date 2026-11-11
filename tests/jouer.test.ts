@@ -34,7 +34,7 @@ const CATALOGUE = catalogue(pays);
 const OUVERTURE = Date.parse('2026-11-16T00:00:00Z');
 const AVANT = OUVERTURE - 1;
 const APRES = OUVERTURE;
-// Les tests d'avant la partie C : la veille de la bascule, quel que soit le jour où ils tournent.
+// Les tests d'avant l'ouverture des capitales et des drapeaux : la veille de la bascule, quel que soit le jour où ils tournent.
 reglerHorlogeEpreuves(() => AVANT);
 const arbre = creerArbre(CATALOGUE);
 /** Le même arbre, les épreuves des capitales et des drapeaux ouvertes. */
@@ -47,7 +47,7 @@ describe('l’arbre (pur)', () => {
     expect(arbre.choix({ type: 'racine' })).toEqual(['entrainement', 'classe']);
     expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'communes']);
-    // Capitales : les séries des pays, tailles comprises (D37 c) ; ses épreuves classées à la partie C (bascule du 16/11).
+    // Capitales : les séries des pays, tailles comprises (D37 c) ; ses épreuves classées à la bascule du 16/11.
     expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'capitales' })).toEqual(SERIES_PAYS);
     expect(arbre.series('capitales').map((x) => x.n)).toEqual(arbre.series('pays').map((x) => x.n));
     expect(arbre.modes('entrainement', 'capitales')).toEqual(['apprendre', 'localiser', 'nommer']);
