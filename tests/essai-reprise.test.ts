@@ -13,7 +13,7 @@ import type { Lancement } from '../src/vues/arbre';
 import type { ContexteVue, Vue } from '../src/vues/commun';
 import { vueEssai, type OptionsEssai } from '../src/vues/essai';
 import { textes } from '../src/vues/textes';
-import { El, installerDom, installerStockage } from './dom-factice';
+import { ditsPar, El, installerDom, installerStockage } from './dom-factice';
 import { code, FACTICE, sansBrut } from './sujet-factice';
 
 vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).avecFactice(await orig()));
@@ -953,7 +953,8 @@ describe('Toucher : le sujet Drapeaux', () => {
     expect(img.getAttribute('alt')).toBe('Drapeau à reconnaître');
     expect(img.getAttribute('draggable')).toBe('false');
     expect(img.getAttribute('title')).toBeNull();
-    sansBrut([v.barre.innerText, ...[...img.attrs.values()]].join(' | '), ['TCD', 'NER', 'Tchad', 'Niger']);
+    // La barre entière, attributs compris (title, aria-* de la consigne, de son <strong>, de l'image), data-* exceptés.
+    sansBrut(ditsPar(v.barre).join(' | '), ['TCD', 'NER', 'Tchad', 'Niger']);
     // Le drapeau de la question suivante, préchargé pendant celle-ci.
     expect(precharges).toEqual([montre(id === 'TCD' ? 'NER' : 'TCD')]);
     toucher(v.vue, false);

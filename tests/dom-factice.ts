@@ -54,6 +54,31 @@ export class El {
   set id(v: string) {
     this.setAttribute('id', v);
   }
+  // Les propriétés qui reflètent un attribut, comme id : un `el.title = …` posé en JS se lit par getAttribute (et par ditsPar).
+  get title(): string {
+    return this.attrs.get('title') ?? '';
+  }
+  set title(v: string) {
+    this.setAttribute('title', v);
+  }
+  get alt(): string {
+    return this.attrs.get('alt') ?? '';
+  }
+  set alt(v: string) {
+    this.setAttribute('alt', v);
+  }
+  get ariaLabel(): string | null {
+    return this.getAttribute('aria-label');
+  }
+  set ariaLabel(v: string) {
+    this.setAttribute('aria-label', v);
+  }
+  get ariaDescription(): string | null {
+    return this.getAttribute('aria-description');
+  }
+  set ariaDescription(v: string) {
+    this.setAttribute('aria-description', v);
+  }
   setAttribute(k: string, v: string): void {
     this.attrs.set(k, v);
     if (k.startsWith('data-')) this.dataset[camel(k.slice(5))] = v;
@@ -155,6 +180,23 @@ export class El {
   querySelector(sel: string): El | null {
     return this.querySelectorAll(sel)[0] ?? null;
   }
+}
+
+/**
+ * Tout ce que l'élément et ses descendants disent à qui le lit, data-*
+ * exceptés (le pilote et les tests s'en servent ; rien ne les lit à voix
+ * haute) : son texte, caché compris, puis chaque attribut « nom=valeur »
+ * (title, alt, aria-*…). Pour vérifier que rien ne nomme la réponse avant
+ * qu'elle soit donnée.
+ */
+export function ditsPar(e: El): string[] {
+  const dits = [e.textContent];
+  const parcourir = (x: El): void => {
+    for (const [k, v] of x.attrs) if (!k.startsWith('data-')) dits.push(`${k}=${v}`);
+    for (const f of x.enfants) if (f instanceof El) parcourir(f);
+  };
+  parcourir(e);
+  return dits;
 }
 
 /** Pose un DOM factice ; rend son body. Avec vi.useFakeTimers, poser les minuteries avant. */

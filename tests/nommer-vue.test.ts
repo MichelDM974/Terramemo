@@ -8,7 +8,7 @@ import { chargerDrapeaux, drapeauxCharges, oublierDrapeaux } from '../src/map/dr
 import type { Pays } from '../src/map/types';
 import type { ContexteVue } from '../src/vues/commun';
 import { vueNommer, type ReponseNommer } from '../src/vues/nommer';
-import { El, installerDom } from './dom-factice';
+import { ditsPar, El, installerDom } from './dom-factice';
 import { code, FACTICE, sansBrut } from './sujet-factice';
 
 vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).avecFactice(await orig()));
@@ -264,12 +264,6 @@ describe('Reconnaître : le sujet Drapeaux', () => {
     vi.unstubAllGlobals();
   });
   const montre = (id: string) => drapeauxCharges()!.parPays.get(id)!.montre;
-  /** Tout ce que l'élément et ses descendants disent, data-* exceptés : textes et valeurs d'attributs. */
-  const tout = (e: El): string[] => [
-    e.textContent,
-    ...[...e.attrs].filter(([k]) => !k.startsWith('data-')).map(([k, v]) => `${k}=${v}`),
-    ...e.querySelectorAll('img').flatMap((i) => [...i.attrs].map(([k, v]) => `${k}=${v}`)),
-  ];
 
   it('« Quel est son drapeau ? », 4 boutons-images nommés « Choix 1 » à « Choix 4 », sans title ni rien qui nomme un pays avant la réponse', () => {
     const v = monter({ ids: AFRIQUE, noms: NOMS_FR });
@@ -293,7 +287,7 @@ describe('Reconnaître : le sujet Drapeaux', () => {
       expect(img.classList.contains('drapeau')).toBe(true);
     });
     // Ni le nom, ni l'id d'aucun pays de la grille, nulle part dans la barre (data-* exceptés) ; ni la cible.
-    const dits = [...tout(v.barre), ...bs.flatMap(tout)].join(' | ');
+    const dits = ditsPar(v.barre).join(' | ');
     sansBrut(dits, [...AFRIQUE, ...AFRIQUE.map((id) => NOMS_FR[id]!), 'Tchad']);
     // La rétroaction, région aria-live, est vide avant la réponse.
     const retro = v.barre.querySelector('.essai-retro')!;

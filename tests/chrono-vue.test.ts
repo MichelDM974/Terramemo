@@ -12,7 +12,7 @@ import { chargerDrapeaux, drapeauxCharges } from '../src/map/drapeaux';
 import { DEBUT_ACCEPTES_EPREUVES } from '../src/epreuve/bareme';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
 import type { Pays } from '../src/map/types';
-import { installerDom, installerStockage, El } from './dom-factice';
+import { ditsPar, installerDom, installerStockage, El } from './dom-factice';
 import { code, FACTICE, sansBrut } from './sujet-factice';
 
 const blocClassement = vi.fn((_epreuve: string, _titre: string, _apres?: (pseudo: string) => Promise<unknown>) => new El('section'));
@@ -519,7 +519,8 @@ describe('le sujet Drapeaux en épreuve (rendu prêt pour la partie C)', () => {
       expect(img.getAttribute('src')).toBe(drapeauxCharges()!.parPays.get(id)!.montre);
       expect(img.getAttribute('alt')).toBe('Drapeau à reconnaître');
       expect(img.getAttribute('title')).toBeNull();
-      sansBrut([zone.querySelector('#barre-chrono')!.innerText, ...img.attrs.values()].join(' | '), [id, NOMS_FR[id]!]);
+      // La barre entière, attributs compris (title, aria-* de la consigne, de son <strong>, de l'image), data-* exceptés.
+      sansBrut(ditsPar(zone.querySelector('#barre-chrono')!).join(' | '), [id, NOMS_FR[id]!]);
       vi.advanceTimersByTime(100);
       v.toucher?.(0, 0, {} as PointerEvent);
       const r = zone.querySelector('#barre-chrono .essai-retro')!.textContent!;

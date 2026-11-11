@@ -2475,7 +2475,10 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
             break
         cible = p.js('document.querySelector("#barre-essai .essai-consigne").dataset.cible')
         e = p.js("""(() => { const c = document.querySelector('#barre-essai .essai-consigne'), i = c.querySelector('img.drapeau');
-            return { texte: c.innerText.trim(), barre: document.getElementById('barre-essai').innerText,
+            // Les attributs de la barre et de tout ce qu'elle contient (consigne, <strong>, image : title, aria-*…), data-* exceptés.
+            const attrs = [...document.querySelectorAll('#barre-essai, #barre-essai *')].flatMap((x) =>
+                [...x.attributes].filter((a) => !a.name.startsWith('data-')).map((a) => `${a.name}=${a.value}`)).join(' ');
+            return { texte: c.innerText.trim(), barre: document.getElementById('barre-essai').innerText, attrs,
                      img: i && { src: i.getAttribute('src'), alt: i.getAttribute('alt'), title: i.getAttribute('title'),
                                  drag: i.getAttribute('draggable'), w: i.getBoundingClientRect().width } }; })()""")
         img = e["img"] or {}
@@ -2483,7 +2486,7 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
             defauts.append(f"Trouver sous Drapeaux : consigne {e['texte']!r}, image {e['img']}")
         elif img["alt"] != "Drapeau à reconnaître" or img["title"] is not None or img["drag"] != "false" or not MOTIF_ADRESSE_DRAPEAU.match(img["src"] or ""):
             defauts.append(f"Trouver sous Drapeaux, {cible} : image {img}")
-        sans_pays("Trouver sous Drapeaux", e["barre"] + " " + " ".join(str(v) for v in img.values()), [cible])
+        sans_pays("Trouver sous Drapeaux", e["barre"] + " " + e["attrs"], [cible])
         if premier:
             dire(f"  Drapeaux, Trouver : {e['texte']!r}, drapeau {img.get('src')} ({img.get('w')} px de large)")
             capturer("103-drapeaux-trouver")
