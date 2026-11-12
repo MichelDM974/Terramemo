@@ -514,9 +514,9 @@ Malacca. Le build échoue si une zone n'est ni affectée ni exclue : règle à
 `build.mjs` (« tout écart à une règle est écrit ici », `geodata/build.mjs:106`,
 un titre de commentaire, pas un contrôle).
 
-**Mesuré au lot 3a** (`geodata/mers.mjs`, 12/11) : 13 827 sommets à 10 km,
-6 589 à 50 km ; `mers.topo.json` 50 703 o gzip, `mers-leger.topo.json`
-19 841 o, sous les budgets. 52 zones retenues, 69 forcées, 181 au plus long
+**Mesuré au lot 3a** (`geodata/mers.mjs`, 12/11) : 13 818 sommets à 10 km,
+6 581 à 50 km ; `mers.topo.json` 50 652 o gzip, `mers-leger.topo.json`
+19 795 o, sous les budgets (Malacca à la mer d'Andaman compris). 52 zones retenues, 69 forcées, 181 au plus long
 bord, 4 exclues (deux Great Barrier Reef, Drake Passage, Luzon Strait). La
 Columbia River n'est plus exclue : fondue au Pacifique, comme l'Amazone à
 l'Atlantique. Une mer non retenue n'est jamais fondue au plus long bord :
@@ -538,7 +538,7 @@ de la mer sans zone, 0,79 % de la terre sous une zone ; arête la plus longue
   (OHI) ;
 - détroits de Bass et de Cook au Pacifique ; détroit de Davis à l'Arctique
   (P361), Cumberland Sound avec lui (sans P361, il n'ouvre que sur ce
-  détroit) ; Malacca à l'Indien, que ni P361 ni l'OHI ne rangent.
+  détroit) ; Malacca à la mer d'Andaman, que ni P361 ni l'OHI ne rangent (choix de l'utilisateur du 12/11 : à l'Indien, il en faisait un morceau isolé ; le détroit de Davis à l'Arctique et les six autres cas sans source, Bass, Macassar, Cattégat, Seto, Crète, Cumberland, validés tels quels).
 
 **Noms** : libellés Wikidata en français, générique en minuscule (« mer
 Méditerranée », « golfe Persique », « Manche »). La majuscule de début de
