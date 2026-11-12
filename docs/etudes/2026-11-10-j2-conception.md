@@ -306,7 +306,11 @@ y sont tous (mesuré). On garde le format 4x3 seul : le 1x1 pèse autant.
 à l'œil) :
 - **Honduras périmé** : flag-icons garde le turquoise de 2022 (`#18c3df`) ; le
   pays est revenu au bleu marine le 27/01/2026. Correction au build
-  (`#0d3b99`, fichier Commons du domaine public), signalée en amont (D41) ;
+  (`#0d3b99`, fichier Commons du domaine public). Erreur signalée en amont
+  par un tiers le 11/11/2026
+  ([lipis/flag-icons#1496](https://github.com/lipis/flag-icons/issues/1496)) :
+  la correction se retire quand flag-icons publie le bleu marine (le
+  contrôle P41 le verra) ;
 - **Afghanistan** : flag-icons montre le tricolore de la République ; le
   pouvoir de fait a le drapeau blanc de l'Émirat, au rang préféré de Wikidata
   depuis le 15/08/2021 (D41) ;
@@ -1117,6 +1121,14 @@ D'où un test par vue et par sujet, bilans compris.
 | Reconnaître, QCM d'Apprendre | un pays allumé, « Quel est son drapeau ? » | choisir parmi 4 drapeaux | le bouton du pays |
 | Carte retournée | un pays allumé, « Quel est son drapeau ? » | « Révéler » : le drapeau | « Je savais » ou non |
 
+**Drapeau montré** (D41, réponse du 12/11) : celui d'un pays à deux drapeaux
+justes (Afghanistan, Bolivie) est le premier du manifeste partout (boutons
+de Reconnaître, révélation, carte retournée, épreuves), le même pour tous.
+Seul l'énoncé de Trouver hors épreuve (Entraînement, Apprendre, Révision du
+jour) montre l'un des deux au hasard, fixé pour la question, comme une
+capitale (D38 a). Le préchargement demande celui qui sera montré. Les deux
+ne sont jamais côte à côte (un seul drapeau par pays dans une grille).
+
 **Leurres** : en Entraînement et en Apprendre, les **voisins** d'abord, puis
 les plus proches, comme le dit la décision « Nommer » (« des voisines en
 leurres ») ; jamais le jumeau. Des quasi-jumeaux (Mali, Guinée, Sénégal) dès
@@ -1580,6 +1592,12 @@ prorata, les 50 mers disparaîtraient sous 195 pays × 3.
 Le niveau 1 compte assez de lieux pour 5 questions par sujet (pays 25 à 40,
 capitales 30, mers 12, mesuré).
 
+**Leurres éloignés des drapeaux** (décision « Leurres de drapeaux au quiz »,
+12/11) : au facile et au moyen, un leurre éloigné n'a aucune paire de score
+≤ 0,5 avec le juste. Le manifeste ne garde que 3 sosies par pays : les 917
+paires ≤ 0,5 vont dans les données du quiz (≈ 10 Ko brut), chargées avec le
+quiz seul (lot 4a).
+
 **Le facile n'est pas forcément facile, et il sature** (relecture) :
 - toutes ses questions sont des QCM « zone allumée » (§ 5.2, § 5.3) : pour
   une capitale ou un drapeau, il faut d'abord reconnaître le pays à sa forme,
@@ -1611,6 +1629,13 @@ même continent. La part de parties à 20/20 se mesure au pilote et à l'essai
   marine, capitales, les drapeaux des 20 questions, notoriété) avant le
   premier délai. En cas d'échec (hors ligne sur le site), un message et pas
   de partie. Dans l'APK, tout est local.
+- **Images** (décision « Images d'une épreuve », 12/11) : comme une épreuve
+  des drapeaux (lot 2b, `vues/chrono.ts`), le quiz attend au départ que
+  toutes ses images (drapeaux des énoncés et des choix) soient chargées et
+  décodées. « Chargement des drapeaux… n / N » au-delà de 150 ms ;
+  « Réessayer » si l'une échoue, qui ne redemande que les échouées ; aucun
+  délai maximal. La partie ne commence (et ne compte, D55 a) qu'à sa
+  première question montrée. L'attente de 3 s par question reste en filet.
 - **La vue** `src/vues/quiz.ts` (350 à 450 lignes, estimé ; `vues/chrono.ts`
   en fait 411) :
   - une barre avec la consigne (`sujets.ts`), le compte « 7 / 20 », la jauge
@@ -2008,6 +2033,14 @@ un : un test du quiz ne cite qu'un sujet livré.
   `geodata/wikidata/notoriete.json`, `geodata/wikidata.mjs` ;
   `public/geo/notoriete.json` ; `src/quiz/` (nouveau : questions,
   générateurs, tirage) ; `src/epreuve/quiz.ts` (nouveau).
+- **Aussi** (réponses du 12/11) :
+  - les 917 paires de drapeaux de score ≤ 0,5 dans les données du quiz
+    (≈ 10 Ko brut, chargées avec le quiz seul) ; un leurre éloigné du
+    facile et du moyen n'en a aucune avec le juste (§ 9.2 ; décision
+    « Leurres de drapeaux au quiz ») ;
+  - la table des formes des 197 pays dans le fichier de langue (« le
+    Japon », « du Japon », « l'Indonésie »), relue à la main, puis tous les
+    retours avec article (décision « Articles des noms de pays »).
 - **Tests** : `notoriete.test.ts` (nouveau : un niveau 1 à 3 pour chaque
   lieu jouable de chaque sujet livré ; effectifs voulus ; Monaco, Singapour,
   Vatican au niveau de leur pays ; Taipei absente) ; `quiz.test.ts`
@@ -2024,6 +2057,8 @@ un : un test du quiz ne cite qu'un sujet livré.
 
 - **Contenu** : racine à 3 tuiles, niveau `quiz`, écran des difficultés
   (§ 7.1) ; `src/vues/quiz.ts` et le module commun de la jauge (§ 9.3) ;
+  l'attente de toutes les images au départ, reprise des épreuves des
+  drapeaux (§ 9.3, décision « Images d'une épreuve ») ;
   bilan et records ; fin d'une partie selon D55 ; règles `quizValide` et
   publication, ouvertes une fois les 4 sujets livrés (D50 c) ; groupe « Quiz
   général » du 🏆 ; textes `quiz.*`.
@@ -2036,7 +2071,9 @@ un : un test du quiz ne cite qu'un sujet livré.
 - **Tests** : `jouer.test` (3 tuiles, `#jouer/quiz`, `#jouer/quiz/xyz`,
   `parent`, `fil`, `Lancement` des deux formes) ; `navigation.test` (partie,
   « Abandonner », retour) ; `quiz-vue.test.ts` (nouveau : un abandon après
-  la première question écrit un record, si D55 a) ; `chrono.test` (le
+  la première question écrit un record, si D55 a ; la première question
+  n'apparaît qu'au dernier drapeau chargé, « Réessayer » après un échec, un
+  abandon pendant le chargement ne compte pas) ; `chrono.test` (le
   général ignore le quiz) ; `general-vue`, `classement-vue` ; `regles`
   (`quizValide`, et `vraisemblable` confronté aux règles pour le quiz) ;
   `profil.test` (chaîne au pire, 73 épreuves × 2 périodes, sous
@@ -2105,7 +2142,7 @@ la réponse** :
 | D38 | **a** hors épreuve (au hasard parmi les justes) ; **d** en épreuve (la plus connue, fixe pour tous ; Palestine : la principale) |
 | D39 | b, préférence |
 | D40 | a, tous les Chrono au général |
-| D41 | Afghanistan : **les deux justes**, le tricolore montré ; Bolivie : **les deux justes**, le civil montré, le Ghana en sosie ; Honduras corrigé ; jumeaux justes sous Drapeaux ; voisins d'abord en leurres |
+| D41 | Afghanistan : **les deux justes**, le tricolore montré ; Bolivie : **les deux justes**, le civil montré, le Ghana en sosie ; Honduras corrigé ; jumeaux justes sous Drapeaux ; voisins d'abord en leurres ; le 12/11 : en Trouver hors épreuve, l'un des deux **au hasard** (§ 5.3) |
 | D42 | **d** : rang combiné, seuil de 30 000 km², golfe de Finlande compris ; liste exacte montrée à l'utilisateur avant d'être figée |
 | D43 | la règle du § 4.4, mais la baie d'Hudson **non intérieure** (juste pour l'Arctique et l'Atlantique) ; côte à 12 px ; océan allumé en pleine mer seule |
 | D44 | a, une série de 50 |
@@ -2120,6 +2157,20 @@ la réponse** :
 | D53 | a, b (Communes en dernier), c |
 | D54 | a pour le test de placement et la justesse des prévisions ; **c** pour l'objectif et la notification (abandonnés) |
 | D55 | a, la partie compte dès sa 1re question |
+
+**Réponses du 12/11 sur le lot 2**, toutes selon la recommandation, au
+registre (« Drapeaux contestés et sosies », remplacée ; « Images d'une
+épreuve » ; « Articles des noms de pays » ; « Leurres de drapeaux au
+quiz ») :
+
+| Question | Réponse |
+|---|---|
+| Afghanistan et Bolivie en Trouver | l'un des deux drapeaux au hasard hors épreuve, fixé pour la question ; le premier ailleurs (§ 5.3 ; lot 2b) |
+| Images d'une épreuve | une épreuve classée qui montre des images ne démarre qu'une fois toutes chargées, « Réessayer » à l'échec ; l'attente de 3 s par question en filet (lot 2b ; le quiz aussi, § 9.3) |
+| Honduras | rien de plus : signalé en amont par un tiers le 11/11 (lipis/flag-icons#1496, § 2.2) |
+| Articles des noms de pays | table des formes des 197 pays au lot 4a, puis tous les retours avec article |
+| Leurres de drapeaux au quiz | aucune paire ≤ 0,5 avec le juste pour un leurre éloigné du facile et du moyen ; les 917 paires dans les données du quiz (§ 9.2, lot 4a) |
+| Alertes Dependabot | traitées hors des lots (session principale) |
 
 ### Bloquent le lot 1 (capitales)
 
@@ -2263,8 +2314,12 @@ Koweït, Luxembourg, Monaco, Panama, Singapour, Saint-Marin, Vatican).
   du Ghana (sosie à ajouter à la liste) ; ou les deux justes, comme pour
   l'Afghanistan. Défaut : d'État (celui de flag-icons). Recommandation :
   les deux justes, le civil montré (le plus connu), le Ghana en sosie.
+- Réponse du 12/11, pour a et b : le premier drapeau (tricolore, civil)
+  montré partout, le même pour tous, sauf l'énoncé de Trouver hors épreuve,
+  qui tire l'un des deux au hasard, fixé pour la question (§ 5.3).
 - c) **Honduras** : corrigé au build dès maintenant et signalé à flag-icons,
-  ou attendre flag-icons. Défaut et recommandation : corrigé.
+  ou attendre flag-icons. Défaut et recommandation : corrigé. Signalé en
+  amont par un tiers le 11/11/2026 (lipis/flag-icons#1496).
 - d) **Jumeaux** (Indonésie et Monaco, Roumanie et Tchad) : en Trouver,
   toucher l'un pour l'autre est juste, sous le seul sujet Drapeaux (§ 2.2).
   Défaut et recommandation : oui.
