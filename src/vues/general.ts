@@ -25,7 +25,7 @@ import { nomSujet } from './arbre';
 import { nomSerie } from './cibles';
 import { blocClassement, lirePseudo, relancerAttente } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
-import { fmtJustesGeneral, nomMode, scoreCourt } from './scores';
+import { fmtJustesGeneral, fmtTemps, fractionDe, nomMode, pourcentDe, scoreCourt } from './scores';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -42,6 +42,12 @@ export function nomEpreuve(epreuve: string): string {
   const [, cle, serie] = epreuve.split(':');
   if (serie === undefined) return nomSerie(epreuve);
   return cle === 'localiser' ? nomSerie(serie) : remplir(T.epreuve_sujet, { sujet: nomSujet(cle ?? ''), serie: nomSerie(serie) });
+}
+
+/** Le nom d'une ligne du 🏆, sous le titre de son sujet : la série seule (« Océanie »), le général par son nom. */
+function nomLigne(epreuve: string): string {
+  const serie = epreuve.split(':')[2];
+  return epreuve === GENERAL || serie === undefined ? nomEpreuve(epreuve) : nomSerie(serie);
 }
 
 const estModeEpreuve = (m: string | null): m is ModeEpreuve => (MODES_EPREUVE as readonly (string | null)[]).includes(m);
@@ -117,19 +123,37 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
   }
 
   /**
-   * Une ligne : sa place, « pas encore classé » (lue, ou sans pseudo), rien si
-   * elle n'est pas lue. Le général dit ses justes au détail (« 2e sur 3 · 91
-   * justes sur 1 194 ») : son pourcentage, à une décimale, ne les montre pas.
+   * Une ligne : sa place en petit tableau (choix de l'utilisateur, 12/11 :
+   * Rang · Score · Temps, chaque case sa valeur et son détail dessous :
+   * « 1er » sur « sur 2 », « 100 % » sur « 54/54 », « 7,6 % » sur
+   * « 91/1 194 » au général, puis le temps), « pas encore classé » (lue, ou
+   * sans pseudo), rien si elle n'est pas lue. Sous le titre de son sujet
+   * (h4), la série seule : « Océanie », pas « Capitales · Océanie ». Le
+   * bouton se lit d'une phrase (aria-label) ; l'en-tête des colonnes, visuel
+   * seul, est dans groupes().
    */
   function ligne(epreuve: string, p: MaPlace | null, lue: boolean): HTMLLIElement {
-    const rang = p && rangSur(p.rang, p.joueurs);
-    const detail = p ? (epreuve === GENERAL ? `${rang} · ${fmtJustesGeneral(p.place.justes)}` : rang) : lue ? T.pas_classe : '';
+    const nom = nomLigne(epreuve);
     const b = creer(
       'button',
-      { type: 'button', class: 'essai-serie', 'data-epreuve': epreuve },
-      creer('span', { class: 'essai-serie-nom' }, nomEpreuve(epreuve), ...(detail ? [creer('span', { class: 'essai-serie-detail' }, detail)] : [])),
-      creer('span', { class: 'essai-serie-n' }, p ? scoreCourt(epreuve, p.place) : ''),
+      { type: 'button', class: 'essai-serie place-ligne', 'data-epreuve': epreuve },
+      creer('span', { class: 'essai-serie-nom' }, nom, ...(!p && lue ? [creer('span', { class: 'essai-serie-detail' }, T.pas_classe)] : [])),
     );
+    if (p) {
+      const { place } = p;
+      const general = epreuve === GENERAL;
+      const pourcent = pourcentDe(epreuve, place) ?? scoreCourt(epreuve, place);
+      const temps = fmtTemps(place.temps_ms);
+      const cas = (classe: string, valeur: string, detail: string | null, titre?: string) =>
+        creer('span', { class: `place-case ${classe}`, ...(titre ? { title: titre } : {}) }, creer('b', {}, valeur), ...(detail ? [creer('small', {}, detail)] : []));
+      b.append(
+        cas('place-rang', p.rang === 1 ? T.rang_1 : remplir(T.rang_n, { n: p.rang }), remplir(T.sur_n, { n: p.joueurs })),
+        cas('place-score', pourcent, fractionDe(epreuve, place), general ? fmtJustesGeneral(place.justes) : undefined),
+        cas('place-temps', temps, null),
+      );
+      const score = general ? `${fmtJustesGeneral(place.justes)} · ${pourcent}` : scoreCourt(epreuve, place);
+      b.setAttribute('aria-label', remplir(T.place_lue, { nom, rang: rangSur(p.rang, p.joueurs), score, temps }));
+    }
     b.addEventListener('click', () => ouvrirEpreuve(epreuve));
     return creer('li', {}, b);
   }
@@ -158,7 +182,15 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
         creer(
           'section',
           { class: 'classements-groupe', 'data-mode': m },
-          creer('h3', {}, nomMode(m)),
+          // L'en-tête des colonnes (Rang · Score · Temps) sur la ligne du titre du mode, s'il a des places.
+          duMode.some((x) => e.places.has(x))
+            ? creer(
+                'div',
+                { class: 'places-tete' },
+                creer('h3', {}, nomMode(m)),
+                ...[T.colonne_rang, T.colonne_score, T.colonne_temps].map((c) => creer('span', { class: 'places-col', 'aria-hidden': 'true' }, c)),
+              )
+            : creer('h3', {}, nomMode(m)),
           ...(general.length ? [lignes(general)] : []),
           ...sujets.map((su) => {
             const b = e.chercher?.(su) ?? null;

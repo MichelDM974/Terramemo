@@ -30,9 +30,9 @@ const SF_EUR = idEpreuve('Europe', 'sansfaute');
 /** Un record de Minute (retiré) resté sur l'appareil. */
 const MIN_ILE = 'minute:localiser:reunion';
 /** Une place (barème 2 : points = justes) sur `questions` questions. */
-const place = (epreuve: string, justes: number, rang = 1, joueurs = 1, questions = justes) => ({
+const place = (epreuve: string, justes: number, rang = 1, joueurs = 1, questions = justes, temps_ms = 0) => ({
   epreuve,
-  place: { cle: 'michel', pseudo: 'Michel', points: justes, justes, questions, temps_ms: 0 },
+  place: { cle: 'michel', pseudo: 'Michel', points: justes, justes, questions, temps_ms },
   rang,
   joueurs,
 });
@@ -99,7 +99,7 @@ describe('écran des classements', () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
     // Le record de Minute (retiré) resté sur l'appareil : ni lu, ni montré.
     records(AFR, ILE, SF_EUR, MIN_ILE);
-    repondre([place('general', 91, 2, 3, 120), place(AFR, 31, 1, 1, 54), place(ILE, 21, 2, 3, 24), place(SF_EUR, 17, 1, 1, 18), place(MIN_ILE, 1)]);
+    repondre([place('general', 91, 2, 3, 120, 256_000), place(AFR, 31, 1, 1, 54, 185_000), place(ILE, 21, 2, 3, 24, 58_000), place(SF_EUR, 17, 1, 1, 18, 62_000), place(MIN_ILE, 1)]);
     const p = ouvrir();
     await attendre();
     // D52 b : le général et les épreuves où l'appareil a un record, seulement.
@@ -107,12 +107,30 @@ describe('écran des classements', () => {
     expect(lignes('#classements-mes')).toEqual(['general', AFR, ILE, SF_EUR]);
     expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute']);
     expect(sujets('#classements-mes')).toEqual(['Pays', 'Communes', 'Pays']);
-    // Le score en part de justes, tronquée : le général à une décimale, ses justes au détail ; Sans faute sur la taille de la série.
-    const score = (e: string) => racine.querySelector(`#classements-mes .essai-serie[data-epreuve="${e}"] .essai-serie-n`)!.textContent;
-    const detail = (e: string) => racine.querySelector(`#classements-mes .essai-serie[data-epreuve="${e}"] .essai-serie-detail`)!.textContent;
-    expect([score('general'), detail('general')]).toEqual(['7,6\u00a0%', `2e sur 3 · 91 justes sur ${(1194).toLocaleString('fr-FR')}`]);
-    expect([score(AFR), score(ILE), score(SF_EUR)]).toEqual(['31/54 · 57\u00a0%', '21/24 · 87\u00a0%', '17/44 · 38\u00a0%']);
-    expect([detail(AFR), detail(ILE)]).toEqual(['1er sur 1', '2e sur 3']);
+    // Un petit tableau (choix du 12/11) : Rang · Score · Temps, chaque case sa valeur et son détail dessous. Le score en
+    // part de justes, tronquée : le général à une décimale sur 1 194 ; Sans faute sur la taille de la série.
+    const mille = (1194).toLocaleString('fr-FR');
+    const cases = (e: string) =>
+      racine.querySelectorAll(`#classements-mes .essai-serie[data-epreuve="${e}"] .place-case`).map((c) => [c.querySelector('b')!.textContent, c.querySelector('small')?.textContent ?? null]);
+    expect(cases('general')).toEqual([['2e', 'sur 3'], ['7,6\u00a0%', `91/${mille}`], ['4\u00a0min\u00a016', null]]);
+    expect(cases(AFR)).toEqual([['1er', 'sur 1'], ['57\u00a0%', '31/54'], ['3\u00a0min\u00a005', null]]);
+    expect(cases(ILE)).toEqual([['2e', 'sur 3'], ['87\u00a0%', '21/24'], ['58\u00a0s', null]]);
+    expect(cases(SF_EUR)).toEqual([['1er', 'sur 1'], ['38\u00a0%', '17/44'], ['1\u00a0min\u00a002', null]]);
+    // Le général dit ses justes en entier au survol ; chaque ligne se lit d'une phrase.
+    expect(racine.querySelector('#classements-mes .essai-serie[data-epreuve="general"] .place-score')!.title).toBe(`91 justes sur ${mille}`);
+    const lu = (e: string) => racine.querySelector(`#classements-mes .essai-serie[data-epreuve="${e}"]`)!.getAttribute('aria-label');
+    expect(lu('general')).toBe(`Général : 2e sur 3, 91 justes sur ${mille} · 7,6\u00a0%, 4\u00a0min\u00a016`);
+    expect(lu(AFR)).toBe('Afrique : 1er sur 1, 31/54 · 57\u00a0%, 3\u00a0min\u00a005');
+    // L'en-tête des colonnes, sur la ligne du titre de chaque mode qui a des places (visuel seul).
+    const tetes = racine.querySelectorAll('#classements-mes .places-tete');
+    expect(tetes.map((x) => x.querySelectorAll('.places-col').map((c) => c.textContent))).toEqual([
+      [T.colonne_rang, T.colonne_score, T.colonne_temps],
+      [T.colonne_rang, T.colonne_score, T.colonne_temps],
+    ]);
+    expect(tetes.every((x) => x.querySelectorAll('.places-col').every((c) => c.getAttribute('aria-hidden') === 'true'))).toBe(true);
+    // Sans place, ni cases ni en-tête.
+    expect(racine.querySelectorAll('#classements-autres .place-case')).toHaveLength(0);
+    expect(racine.querySelectorAll('#classements-autres .places-tete')).toHaveLength(0);
     const plus = p.querySelector('#classements-plus')!;
     expect(p.querySelector('#classements-autres')!.hidden).toBe(true);
     plus.click();
@@ -146,8 +164,10 @@ describe('écran des classements', () => {
     expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE]);
     expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE]);
     expect(sujets('#classements-mes')).toEqual(['Pays', 'Capitales', 'Drapeaux']);
-    expect(p.innerText).toContain('Capitales · Océanie');
-    expect(p.innerText).toContain('Drapeaux · Océanie');
+    // Sous le titre de son sujet (h4), la série seule : « Océanie », pas « Capitales · Océanie ».
+    const nom = (e: string) => racine.querySelector(`#classements-mes .essai-serie[data-epreuve="${e}"] .essai-serie-nom`)!.textContent;
+    expect([nom(CAP_OCE), nom(DRA_OCE)]).toEqual(['Océanie', 'Océanie']);
+    expect(p.innerText).not.toContain('Capitales · Océanie');
     // Lue sans place : « pas encore classé » ; pas lue : rien.
     const ligne = (e: string) => racine.querySelector(`#classements-autres .essai-serie[data-epreuve="${e}"]`)!.innerText;
     expect(ligne(ILE)).toContain(T.pas_classe);

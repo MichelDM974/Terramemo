@@ -330,8 +330,8 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   « 14/14 · 100 % »), le record « 14/14 · 100 % » sous Classé ›
   Capitales › Océanie, puis
   `96-classements-capitales` (🏆 : Pays, Capitales, Drapeaux, Communes en `h4`, la
-  ligne `[data-epreuve="chrono:capitales:Oceania"]` « Capitales ·
-  Océanie »). Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout
+  ligne `[data-epreuve="chrono:capitales:Oceania"]` « Océanie », la série
+  seule sous son sujet). Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout
   écart.
 - Les épreuves classées des drapeaux (lot 2 du J2, partie C,
   `ui_epreuves_drapeaux`, juste après `ui_epreuves_capitales`) : sur une page
@@ -352,7 +352,7 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   « 14/14 · 100 % », le classement `chrono:drapeaux:Oceania`), le record
   « 14/14 · 100 % » sous Classé › Drapeaux › Océanie, puis `115-classements-drapeaux` (🏆 :
   Pays, Capitales, Drapeaux, Communes en `h4`, la ligne
-  `[data-epreuve="chrono:drapeaux:Oceania"]` « Drapeaux · Océanie »).
+  `[data-epreuve="chrono:drapeaux:Oceania"]` « Océanie »).
   Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout écart.
 - Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
   dans `ui_seance`) : `38-accueil-memoire` (l'accueil après Apprendre :

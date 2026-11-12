@@ -2744,7 +2744,8 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
     ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:capitales:Oceania"]')
     dire(f"  🏆 : sujets {h4[:4]}…, ligne {ligne!r}")
-    if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or "Capitales · Océanie" not in ligne:
+    # Sous le titre de son sujet (h4), la série seule (tableau du 🏆, choix du 12/11) : « Océanie », pas « Capitales · Océanie ».
+    if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or ligne.split("\n")[0].strip() != "Océanie" or "Capitales ·" in ligne:
         defauts.append(f"🏆 : sujets {h4}, ligne des capitales d'Océanie {ligne!r}")
     # Sa place (lue en ligne, absente hors ligne) en pourcentage, jamais en points (décision « Barème et classements »).
     if "pts" in ligne or "point" in ligne.lower():
@@ -2766,7 +2767,7 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     partir de la 2e : la partie est préchargée au départ ; 114 : le bilan
     « Chrono · Drapeaux · Océanie », « 14/14 · 100 % »), le record
     « 14/14 · 100 % » sous Classé › Drapeaux › Océanie, puis le 🏆 (115) :
-    la ligne « Drapeaux · Océanie » sous son sujet. Sans pseudo (invité du pilote) :
+    la ligne « Océanie » sous son sujet « Drapeaux ». Sans pseudo (invité du pilote) :
     rien n'est publié. DÉFAUT à tout écart."""
     _, _, corps = http(base + "geo/noms.fr.json")
     noms = json.loads(corps)
@@ -2898,7 +2899,7 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
     ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:drapeaux:Oceania"]')
     dire(f"  🏆 : sujets {h4[:4]}…, ligne {ligne!r}")
-    if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or "Drapeaux · Océanie" not in ligne:
+    if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or ligne.split("\n")[0].strip() != "Océanie" or "Drapeaux ·" in ligne:
         defauts.append(f"🏆 : sujets {h4}, ligne des drapeaux d'Océanie {ligne!r}")
     if "pts" in ligne or "point" in ligne.lower():
         defauts.append(f"🏆 : ligne des drapeaux d'Océanie encore en points ({ligne!r})")

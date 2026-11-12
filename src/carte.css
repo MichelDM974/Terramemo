@@ -717,11 +717,26 @@ body[data-terrain="reunion"] .essai-bilan {
 .essai-serie:hover { background: var(--row-hover); }
 .essai-serie-nom { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .essai-serie-detail { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
-.essai-serie-n { flex: none; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 
-/* Classements (🏆) : une ligne par épreuve où je suis classé, mon score en clair
-   à droite (le rang en détail sous le nom) ; « Toutes les épreuves » en lien. */
-#classement-general .essai-serie-n { color: var(--text); font-weight: 600; }
+/* Classements (🏆) : mes places en petit tableau (choix du 12/11), Rang ·
+   Score · Temps, en colonnes de largeur fixe pour qu'elles s'alignent d'une
+   ligne à l'autre et sous leur en-tête ; chaque case a sa valeur, et son
+   détail plus discret dessous (« sur 2 », « 54/54 »). Le nom garde le reste
+   et passe à la ligne s'il le faut. « Toutes les épreuves » en lien. */
+.place-ligne,
+.places-tete {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.8rem 3.8rem 4.6rem;
+  column-gap: 8px;
+  align-items: center;
+}
+.places-tete { margin: 10px 0 2px; padding: 0 10px; }
+.classements-groupe .places-tete h3 { margin: 0; padding: 0; }
+.places-col { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); text-align: right; }
+.place-case { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.place-case b { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+.place-case small { font-size: 0.72rem; color: var(--muted); }
+.place-temps b { font-weight: 500; }
 #classements-plus { margin: 6px 10px 2px; }
 
 /* Classements (🏆) : les lignes par épreuve (Chrono, Sans faute), chacune

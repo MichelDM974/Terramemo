@@ -70,6 +70,12 @@ export function pourcentDe(epreuve: string, s: ScoreEpreuve): string | null {
   return total === null ? null : fmtPourcent(s.justes, total);
 }
 
+/** Les justes sur les questions qui font les 100 % (« 54/54 », « 91/1 194 » au général) : le détail d'une case de score du 🏆 ; null sans total connu. */
+export function fractionDe(epreuve: string, s: ScoreEpreuve): string | null {
+  const total = estGeneral(epreuve) ? BORNE_GENERAL : totalDe(epreuve, s);
+  return total === null ? null : remplir(E.fraction, { justes: fmtNombre(s.justes), total: fmtNombre(total) });
+}
+
 /**
  * Le score en bref de cette épreuve (Jouer, 🏆, tableau d'un classement) :
  * « 190/195 · 97 % » (Chrono), « 17/54 · 31 % » (Sans faute ; « 17
