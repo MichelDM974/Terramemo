@@ -342,7 +342,9 @@ describe('l’océan noté avec ce qu’il allume : l’Atlantique et la mer des
   // Ce que la couche du dessus peint d'une mer marquée (dessinerMarquesMers) :
   // les zones de zonesAllumees, effacées sous les tracés des pays. Là où elle
   // est peinte, noter est juste ; sur une terre à plus de 12 px de ces zones
-  // (loinDe), faux. Grille de 10 px.
+  // (loinDe), faux. Grille de 10 px. Ici la règle sur les formes ; le même
+  // test lu sur les chemins que peint la couche du dessus est dans
+  // carte-canvas-dom.test.ts (relecture du lot 3a).
   it.each(['atlant', 'pacif', 'medit'])('toucher dessiné = noté : %s, à plusieurs rotations (dont l’antiméridien) et deux zooms', (cible) => {
     const allumees = zonesAllumees(cible, couche.mers.map((m) => m.pays)).map(mer);
     const centres: Record<string, [number, number][]> = {

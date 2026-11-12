@@ -1,13 +1,14 @@
 import { readFileSync } from 'node:fs';
+import { geoDistance } from 'd3-geo';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { aCoupure, BUDGET_SOMMETS, calque, CarteCanvas, sommetsVisibles, TRAIT_FAUX_PX, type Calque, type CalquesMers, type Peintre } from '../src/map/carte-canvas';
 import { image as imageTrace, MARGE_PX } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
-import { assemblerMers } from '../src/map/mers';
+import { assemblerMers, zonesAllumees } from '../src/map/mers';
 import { teintesDemo } from '../src/map/teintes';
 import { idsJouables } from '../src/terrains';
-import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, partVisible, versEcran, type Emprise } from '../src/map/geo';
+import { anneauPrincipal, centreEmprise, contient, contourEmprise, distanceAuBordKm, empriseEcran, partVisible, RAYON_TERRE_KM, versEcran, versLonLat, type Emprise } from '../src/map/geo';
 import { bornerY, ecartLon, placer, regionVisible, type Cadre, type VueGlobe } from '../src/map/vue';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
@@ -1073,4 +1074,148 @@ describe('CarteCanvas : océans et mers (lot 3a, étude J2, § 4.3)', () => {
       }
     });
   });
+
+  // Relecture du lot 3a : contexte() et contexteFinal() passent la couche
+  // marine (mers, lieux) une fois posée ; sans elle, carte.noter(<mer>)
+  // levait l'erreur même après prendreMers, sans qu'aucun test le voie.
+  it('noter une mer sur la carte : une erreur avant prendreMers, juste au point de l’Atlantique après ; la couche dans contexteFinal pendant un vol', () => {
+    const c = carteMers();
+    image(0);
+    expect(() => c.noter('atlant', L / 2, H / 2)).toThrow(/cible marine avant la couche marine/);
+    c.prendreMers(couche);
+    image(16);
+    const [x, y] = c.ecran('atlant') as [number, number];
+    expect(c.noter('atlant', x, y)).toMatchObject({ juste: true, pick: { id: 'atlant' } });
+    expect(c.contexte().mers?.length).toBe(couche.mers.length);
+    c.montrer('pacif', HV);
+    jouer(16, 200);
+    const priv = c as unknown as { vol: unknown };
+    expect(priv.vol).toBeTruthy();
+    const fin = c.contexteFinal();
+    expect(fin.mers?.length).toBe(couche.mers.length);
+    expect(fin.lieux?.get('pacif')?.couche).toBe('mers');
+  });
+
+  // « Toucher dessiné = noté », lu sur le dessin lui-même (relecture du lot
+  // 3a : le test de mers-toucher recopiait la règle de pickMer) : la marque
+  // que peint la couche du dessus (peindreMarquesMers, zonesAllumees), moins
+  // son effacement sous les terres (dessinerMarquesMers) : là, juste ; l'eau
+  // d'une zone hors de la marque, et la terre de la carte de base à
+  // plus de 12 px des zones allumées : faux. Grille de 10 px ; un point
+  // compte s'il est du même côté des chemins que ses voisins à 2 px (ni le
+  // bord d'un chemin ni le trait de l'effacement).
+  it.each(['atlant', 'pacif', 'medit'])('toucher dessiné = noté, lu sur le dessin : %s, à plusieurs rotations (dont l’antiméridien) et deux zooms', (cible) => {
+    const centres: Record<string, [number, number][]> = {
+      atlant: [[-30, 20], [-60, 30], [10, 40]],
+      pacif: [[-170, 10], [180, 40], [150, 0]],
+      medit: [[18, 36], [5, 40], [28, 34]],
+    };
+    const allumees = zonesAllumees(cible, couche.mers.map((m) => m.pays));
+    const formes = couche.mers.filter((m) => allumees.includes(m.pays.id));
+    const PAS = 10;
+    /** dedans(ch, ·) en index par rangées de 4 px (les chemins du monde entier ont des dizaines de milliers de segments). */
+    const indexer = (chs: (FauxChemin | 'courant' | undefined)[]) => {
+      const rangs = new Map<number, [number, number, number, number][]>();
+      for (const ch of chs) {
+        if (!ch || ch === 'courant') continue;
+        let debut: [number, number] | null = null;
+        let der: [number, number] = [0, 0];
+        const seg = (a: [number, number], b: [number, number]) => {
+          for (let r = Math.floor(Math.min(a[1], b[1]) / 4); r <= Math.floor(Math.max(a[1], b[1]) / 4); r++) {
+            let l = rangs.get(r);
+            if (!l) rangs.set(r, (l = []));
+            l.push([a[0], a[1], b[0], b[1]]);
+          }
+        };
+        for (const op of ch.ops) {
+          if (op[0] === 'R') continue;
+          if (op[0] === 'M') {
+            if (debut) seg(der, debut);
+            debut = der = [op[1], op[2]];
+          } else {
+            seg(der, [op[1], op[2]]);
+            der = [op[1], op[2]];
+          }
+        }
+        if (debut) seg(der, debut);
+      }
+      // Règle non nulle sur l'union des chemins : un point dedans l'un d'eux (ils ne se croisent pas en sens contraire).
+      return (x: number, y: number): boolean => {
+        let w = 0;
+        for (const [ax, ay, bx, by] of rangs.get(Math.floor(y / 4)) ?? []) {
+          if (ay <= y) {
+            if (by > y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) > 0) w++;
+          } else if (by <= y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) < 0) w--;
+        }
+        return w !== 0;
+      };
+    };
+    const ratees: string[] = [];
+    const vus = { peint: 0, eau: 0, terre: 0 };
+    // Une seule carte (ctxDessus est la couche du dessus de la première créée).
+    const c = carteMers();
+    c.prendreMers(couche);
+    c.marquer(cible, 'choisi');
+    const priv = c as unknown as { c: Cadre; poserProgramme(v: VueGlobe, libre: boolean): void };
+    let ts = 0;
+    for (const centre of centres[cible]!) {
+      for (const k of [1, 3]) {
+        priv.poserProgramme(placer(priv.c, centre, L / 2, H / 2, k, true), true);
+        image((ts += 16));
+        const o = ctxDessus.ordre;
+        const marque = o.find((x) => x.type === 'fill' && x.style === VARS['--mer-choisie'] && x.op === 'source-over')?.chemin;
+        const efface = o.find((x) => x.type === 'fill' && x.op === 'destination-out')?.chemin;
+        // Les terres de la carte de base (l'effacement ne couvre que celles de l'emprise de la marque).
+        const terres = ctx2d.ordre.filter((x) => x.type === 'fill' && x.style === VARS['--terre']).map((x) => x.chemin);
+        expect(marque).toBeDefined();
+        expect(terres.length).toBeGreaterThan(0);
+        const ctx = c.contexte();
+        const [dansMarque, dansEfface] = [indexer([marque]), indexer([efface])];
+        const surTerre = (() => {
+          const parChemin = terres.map((ch) => indexer([ch]));
+          return (x: number, y: number) => parChemin.some((f) => f(x, y));
+        })();
+        const etat = (x: number, y: number) => [dansMarque(x, y) && !dansEfface(x, y), surTerre(x, y)] as const;
+        const sur = (x: number, y: number) => etat(x, y).join();
+        // Plus loin des zones allumées (géodésique) que tout point du cercle de 12 px, avec 10 % de marge.
+        const loin = (x: number, y: number, ll: [number, number]) => {
+          let rayon = 0;
+          for (let a = 0; a < 2 * Math.PI; a += Math.PI / 16) {
+            const l2 = versLonLat(ctx.proj, ctx.t, x + 12 * Math.cos(a), y + 12 * Math.sin(a));
+            if (!l2) return false;
+            rayon = Math.max(rayon, geoDistance(ll, l2) * RAYON_TERRE_KM);
+          }
+          return formes.every((z) => !contient(z.forme, z.pays.bbox, ll) && distanceAuBordKm(z.forme, ll) > 1.1 * rayon);
+        };
+        for (let y = PAS / 2; y < H; y += PAS) {
+          for (let x = PAS / 2; x < L; x += PAS) {
+            const ll = versLonLat(ctx.proj, ctx.t, x, y);
+            if (!ll) continue;
+            const [peinte, terre] = etat(x, y);
+            const ici = [peinte, terre].join();
+            const net = () => [[2, 0], [-2, 0], [0, 2], [0, -2]].every(([dx, dy]) => sur(x + dx!, y + dy!) === ici);
+            const ou = `${cible} [${centre}] k ${k} (${x}, ${y})`;
+            if (peinte && net()) {
+              vus.peint++;
+              const n = c.noter(cible, x, y, { acceptes: false });
+              if (!n.juste) ratees.push(`${ou} : peint, noté faux (${n.pick?.id})`);
+            } else if (!peinte && !terre && couche.mers.some((z) => contient(z.forme, z.pays.bbox, ll)) && net()) {
+              // L'eau d'une zone que la marque ne peint pas (une autre zone, ou une zone allumée oubliée).
+              vus.eau++;
+              const n = c.noter(cible, x, y, { acceptes: false });
+              if (n.juste) ratees.push(`${ou} : eau non peinte, notée juste (${n.pick?.id})`);
+            } else if (terre && !peinte && net() && loin(x, y, ll)) {
+              vus.terre++;
+              const n = c.noter(cible, x, y, { acceptes: false });
+              if (n.juste) ratees.push(`${ou} : terre loin, notée juste (${n.pick?.id})`);
+            }
+          }
+        }
+      }
+    }
+    expect(ratees).toEqual([]);
+    expect(vus.peint).toBeGreaterThan(40);
+    expect(vus.eau).toBeGreaterThan(40);
+    expect(vus.terre).toBeGreaterThan(40);
+  }, 60_000);
 });

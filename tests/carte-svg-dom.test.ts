@@ -584,6 +584,25 @@ describe('Carte SVG : une mer se cadre par son emprise (lot 3a, étude J2, § 4.
     }
   });
 
+  // Relecture du lot 3a : contexte() et contexteFinal() passent la couche
+  // marine (mers, lieux) une fois posée ; sans elle, carte.noter(<mer>)
+  // levait l'erreur même après prendreMers, sans qu'aucun test le voie.
+  it('noter une mer sur la carte : une erreur avant prendreMers, juste au point de l’Atlantique après ; la couche dans contexteFinal pendant un vol', () => {
+    const c = new Carte({ hote: new FauxElement() as unknown as HTMLElement, donnees: { ...donnees, mers: [] }, projection: 'monde', rendu: 'g' });
+    c.rendre();
+    expect(() => c.noter('atlant', L / 2, H / 2)).toThrow(/cible marine avant la couche marine/);
+    c.prendreMers(couche);
+    const [x, y] = c.ecran('atlant') as [number, number];
+    expect(c.noter('atlant', x, y)).toMatchObject({ juste: true, pick: { id: 'atlant' } });
+    expect(c.contexte().mers?.length).toBe(couche.mers.length);
+    c.montrer('pacif', HV);
+    vi.advanceTimersByTime(300);
+    const fin = c.contexteFinal();
+    expect(fin.t).not.toEqual(c.contexte().t);
+    expect(fin.mers?.length).toBe(couche.mers.length);
+    expect(fin.lieux?.get('pacif')?.couche).toBe('mers');
+  });
+
   it('un pays : le cadrage d’avant (son point d’étiquette au centre de la partie visible)', () => {
     const c = carteMers('monde');
     c.zoomerSur('ITA');
