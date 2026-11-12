@@ -648,7 +648,9 @@ export class CarteCanvas implements CarteAffichee {
       peintre.dimensionner(this.c.l, this.c.h, this.dpr);
     };
     dimensionner();
-    if (this.couche) peintre.prendreMers?.(this.couche);
+    // La couche marine posée avant l'adoption, ou entre cet appel et l'échange (peintreActif n'est pas encore le peintre) : une fois.
+    const couche = this.couche;
+    if (couche) peintre.prendreMers?.(couche);
     peintre.dessiner(this.etatImage());
     return new Promise((ok) =>
       requestAnimationFrame(() => {
@@ -661,6 +663,7 @@ export class CarteCanvas implements CarteAffichee {
         this.signature = '';
         this.elt = canvas;
         this.peintreActif = peintre;
+        if (this.couche && this.couche !== couche) peintre.prendreMers?.(this.couche);
         this.dessiner();
         ok();
       }),

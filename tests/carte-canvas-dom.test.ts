@@ -1,13 +1,14 @@
 import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { aCoupure, calque, CarteCanvas, TRAIT_FAUX_PX } from '../src/map/carte-canvas';
+import { aCoupure, BUDGET_SOMMETS, calque, CarteCanvas, sommetsVisibles, TRAIT_FAUX_PX, type Calque, type CalquesMers, type Peintre } from '../src/map/carte-canvas';
+import { image as imageTrace, MARGE_PX } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
 import { assemblerMers } from '../src/map/mers';
 import { teintesDemo } from '../src/map/teintes';
 import { idsJouables } from '../src/terrains';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
-import { bornerY, type Cadre, type VueGlobe } from '../src/map/vue';
+import { bornerY, placer, regionVisible, type Cadre, type VueGlobe } from '../src/map/vue';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
 import { cadrageNommer } from '../src/vues/nommer';
@@ -925,6 +926,70 @@ describe('CarteCanvas : océans et mers (lot 3a, étude J2, § 4.3)', () => {
     c.effacerMarques();
     image(32);
     expect(ctx2d.ordre.some((x) => x.style === VARS['--mer-fausse'])).toBe(false);
+  });
+
+  it('la bascule vers l’allégée ne compte les mers que si une teinte de mer les fait tracer', async () => {
+    const leger = Promise.resolve(formesLegeres(lire('monde-leger.topo.json')));
+    const c = carte({ donnees: { ...donnees, mers: [] }, leger });
+    await leger;
+    c.prendreMers(couche);
+    const priv = c as unknown as { c: Cadre; v: VueGlobe; enMouvement: boolean; complet: Calque; mers: CalquesMers; dessiner(): void };
+    // Une vue zoomée où la complète passe dans le budget, et ne passe plus avec le calque marin.
+    let vue: VueGlobe | null = null;
+    for (let r = -180; r < 180 && !vue; r += 10) {
+      const v = placer(priv.c, [r, 30], L / 2, H / 2, 8);
+      const im = imageTrace(v, priv.c, regionVisible(v, priv.c, MARGE_PX), true);
+      if (sommetsVisibles(im, priv.complet) <= BUDGET_SOMMETS && sommetsVisibles(im, priv.complet, priv.mers.complet) > BUDGET_SOMMETS) vue = v;
+    }
+    expect(vue).not.toBeNull();
+    priv.v = vue as VueGlobe;
+    priv.enMouvement = true;
+    // Couche posée, une teinte de pays seulement (une partie de pays) : la complète.
+    c.teinter(new Map([['FRA', 1]]));
+    priv.dessiner();
+    expect(c.dernier?.leger).toBe(false);
+    // Une teinte de mer : le calque marin compte, l'allégée.
+    c.teinter(new Map([['FRA', 1], ['medit', 2]]));
+    priv.dessiner();
+    expect(c.dernier?.leger).toBe(true);
+  });
+
+  it('adopter : le peintre reçoit la couche marine une fois, posée avant l’adoption, pendant l’échange ou après', () => {
+    const peintreFactice = () => {
+      const recues: unknown[] = [];
+      const p: Peintre = {
+        preparer: () => undefined,
+        dimensionner: () => undefined,
+        dessiner: () => ({ trace_ms: 0, leger: false, parties: 0, sommets: 0, emis: 0, copies: 0 }),
+        allegeEnMouvement: false,
+        prendreMers: (x) => recues.push(x),
+        detruire: () => undefined,
+      };
+      return { p, recues };
+    };
+    const toile = () => document.createElement('canvas');
+    // Avant l'adoption.
+    let c = carteMers();
+    c.prendreMers(couche);
+    let f = peintreFactice();
+    void c.adopter(toile(), f.p);
+    image(16);
+    expect(f.recues).toEqual([couche]);
+    // Entre l'appel et l'échange (l'image suivante).
+    c = carteMers();
+    f = peintreFactice();
+    void c.adopter(toile(), f.p);
+    c.prendreMers(couche);
+    expect(f.recues).toEqual([]);
+    image(32);
+    expect(f.recues).toEqual([couche]);
+    // Après l'adoption.
+    c = carteMers();
+    f = peintreFactice();
+    void c.adopter(toile(), f.p);
+    image(48);
+    c.prendreMers(couche);
+    expect(f.recues).toEqual([couche]);
   });
 
   it('ecran et zoomerSur trouvent une mer par l’index commun, une fois la couche posée', () => {
