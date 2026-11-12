@@ -122,7 +122,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     temps,
     retro,
     chargement,
-    creer('div', { class: 'essai-actions' }, reessayer, abandonner),
+    // « Réessayer » après « Abandonner » : caché dès son toucher, il ne laisse pas « Abandonner » glisser sous le doigt (un second toucher).
+    creer('div', { class: 'essai-actions' }, abandonner, reessayer),
   );
   chargement.hidden = true;
   reessayer.hidden = true;

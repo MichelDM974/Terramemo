@@ -751,6 +751,9 @@ describe('le sujet Drapeaux en épreuve', () => {
       expect(p.chargement().textContent).toBe('Les drapeaux n\'ont pas pu se charger (hors ligne ?).');
       expect(p.reessayer().hidden).toBe(false);
       expect(p.reessayer().textContent).toBe('Réessayer');
+      // Après « Abandonner » : caché dès son toucher, il ne laisse rien glisser sous le doigt (un second toucher n'abandonne pas).
+      const actions = p.zone.querySelectorAll('#barre-chrono .essai-actions button').map((b) => b.id);
+      expect(actions).toEqual(['chrono-abandonner', 'chrono-reessayer']);
       expect(p.question()).toBe(false);
       const avant = faites.length;
       p.reessayer().click();
@@ -792,16 +795,25 @@ describe('le sujet Drapeaux en épreuve', () => {
       expect(p.chargement().textContent).toBe(charge(5));
       p.v.desactiver();
       expect(p.v.redirection?.()).toEqual({ cible: `jouer/classe/drapeaux/${O}`, message: textes.chrono.abandon });
-      faites.slice(5).forEach((f) => f.ok());
+      // Un drapeau en échec après la sortie : ni l'échec ni « Réessayer » ne s'affichent par-dessus Jouer.
+      faites[5]!.ko();
+      faites.slice(6).forEach((f) => f.ok());
       await vi.advanceTimersByTimeAsync(20_000);
       expect(p.barre().hidden).toBe(true);
+      expect(p.chargement().hidden).toBe(true);
+      expect(p.reessayer().hidden).toBe(true);
       expect(p.consigne()).toBeUndefined();
       p.v.toucher?.(0, 0, {} as PointerEvent);
       expect(optionsNoter).toHaveLength(0);
       expect(lireRecords(localStorage).size).toBe(0);
       expect(blocClassement).not.toHaveBeenCalled();
-      // Une partie relancée ensuite : tout est là, elle part aussitôt, seule.
+      // Une partie relancée ensuite : seul l'échoué est redemandé ; arrivé, elle part, seule.
+      const apres = faites.length;
       p.lancer('chrono', O, 'drapeaux');
+      expect(faites.slice(apres).map((f) => f.a)).toEqual([faites[5]!.a]);
+      expect(p.question()).toBe(false);
+      faites.at(-1)!.ok();
+      await vi.advanceTimersByTimeAsync(0);
       expect(p.question()).toBe(true);
       expect(p.zone.querySelector('.essai-compte')!.textContent).toMatch(new RegExp(`^1 / ${n()} `));
       p.v.desactiver();
