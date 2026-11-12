@@ -989,12 +989,15 @@ les jetons.
 
 **`pickMer`** (cible marine seulement) :
 1. le doigt est sur une terre (`sousLePoint` des pays) : ce n'est pas une
-   mer, sauf si une sonde à 4, 8 ou 12 px tombe dans la mer visée. C'est la
-   même tolérance que la côte d'un pays touchée en mer (`SONDES_PROCHE`,
-   `pick.ts:33`) ;
+   mer, sauf si l'eau visible (hors des terres) de la mer visée, ou d'une
+   zone qui compte pour elle, est à 12 px ou moins. C'est la tolérance de la
+   côte d'un pays touchée en mer, mais sondée à tous les rayons de 1 à 12 px
+   (`sondesFines`) et non aux seules couronnes de 4, 8 et 12 px de
+   `SONDES_PROCHE`, entre lesquelles une mer de 2 px passait (Azov au
+   zoom 1 : relecture du lot 3a) ;
 2. sinon, la zone marine qui contient le point ;
 3. sinon (fentes le long des côtes : 0,20 % de la mer), la zone la plus
-   proche par les mêmes sondes.
+   proche par les sondes de `SONDES_PROCHE`.
 
 La terre gagne toujours au-delà de 12 px : les zones marines débordent sur
 0,79 % des terres, et un toucher au milieu de l'Italie n'est pas l'Adriatique.
@@ -1046,9 +1049,15 @@ au bord de la cible, ce qu'elle allume et ses zones admises comprises
   grossière (un ou deux km d'écart, sans effet sur la note).
 
 **Petites mers** : à 1 px ≈ 100 km au zoom 1 du téléphone, la mer d'Azov fait
-≈ 2 px (estimé). Dans une question de mer seulement, une cible invisible de
-22 px au point d'étiquette des mers de moins de 10 px, comme les micro-États
-en mer. Pas de pastille de mer hors d'une question.
+≈ 2 px. Dans une question de mer seulement, une mer visée de moins de 10 px
+à l'écran compte à 12 px de son eau visible, le doigt sur la terre comme sur
+une autre mer : Azov touchée 5 px dans la mer Noire est juste (choix de
+l'utilisateur du 12/11, décision « Océans et mers »). D'abord prévue, une
+cible invisible de 22 px au point d'étiquette, comme les micro-États en mer,
+a été écartée : au zoom 1, 27 des 50 zones font moins de 10 px, et 22 px
+(≈ 2 300 km) comptaient la mer Noire juste pour le golfe de Botnie. Une mer
+de 10 px ou plus : seule l'eau sous le doigt compte. Pas de pastille de mer
+hors d'une question.
 
 ### 4.5 Antiméridien, pôles, cadrage
 
