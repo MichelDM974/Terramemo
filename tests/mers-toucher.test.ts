@@ -221,6 +221,43 @@ describe('pickMer : une petite mer a une cible invisible de 22 px, dans l’eau,
     }
   });
 
+  // Relecture : seules les sondes à 4, 8 et 12 px (8 directions) laissaient
+  // passer une mer de 2 px entre elles, et rien n'était sondé sous 4 px : 40
+  // touchers sur 61, sur la terre à 4 px ou moins de l'eau d'Azov, étaient
+  // faux au zoom 1. La décision « Océans et mers » : la terre à moins de 12 px
+  // de la mer demandée est juste.
+  it.each([
+    ['azov', [36, 46]],
+    ['finlande', [25, 60]],
+  ] as const)('la terre à 2 px ou moins de l’eau de %s, au zoom 1 et 2 : juste, par la sonde', (id, centre) => {
+    const zone = mer(id);
+    const eau = (ctx: ContexteCarte, x: number, y: number) => {
+      const ll = versLonLat(ctx.proj, ctx.t, x, y);
+      return !!ll && !terre(ll) && contient(zone.forme, zone.pays.bbox, ll);
+    };
+    for (const k of [1, 2]) {
+      const ctx = contexte(vueSur(centre as [number, number], k));
+      const [ax, ay] = ecran(ctx, zone.pays.point);
+      expect(eau(ctx, ax, ay)).toBe(true);
+      let vus = 0;
+      for (let a = 0; a < 2 * Math.PI; a += Math.PI / 32) {
+        const [ux, uy] = [Math.cos(a), Math.sin(a)];
+        // Le long du rayon, du point d'étiquette (dans l'eau) à la première terre.
+        let d = 0;
+        while (d < 40 && !terre(versLonLat(ctx.proj, ctx.t, ax + d * ux, ay + d * uy) as [number, number])) d += 0.25;
+        if (d >= 40 || !eau(ctx, ax + (d - 0.25) * ux, ay + (d - 0.25) * uy)) continue;
+        for (const plus of [0, 1, 2]) {
+          const [x, y] = [ax + (d + plus) * ux, ay + (d + plus) * uy];
+          if (!terre(versLonLat(ctx.proj, ctx.t, x, y) as [number, number])) continue;
+          vus++;
+          const n = noter(ctx, id, x, y, { acceptes: false });
+          expect([id, k, a, plus, n.juste, n.via]).toEqual([id, k, a, plus, true, 'proche']);
+        }
+      }
+      expect(vus).toBeGreaterThan(20);
+    }
+  });
+
   it('assez grande à l’écran (zoom 8), plus de cible : à 15 px du point d’Azov dans la mer Noire, faux', () => {
     const ctx = contexte(vueSur([36.5, 46], 8));
     expect(tailleEcranPx(azov.pays, ctx.proj.scale(), 8)).toBeGreaterThan(PASTILLE.seuil_px);

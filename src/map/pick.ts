@@ -1,9 +1,9 @@
 // pick et noter : la seule interface entre la carte et le reste. Fonctions pures
 // (projection, transformation, géométries, pastilles) : un rendu Canvas de
 // repli les réutiliserait telles quelles.
-import type { GeoProjection } from 'd3-geo';
+import { geoDistance, type GeoProjection } from 'd3-geo';
 import type { Acceptes, Admis, ZoneAdmise } from './acceptes';
-import { contient, distanceAuBordKm, versEcran, versLonLat } from './geo';
+import { contient, dansEmprise, distanceAuBordKm, RAYON_TERRE_KM, versEcran, versLonLat } from './geo';
 import type { CoucheLieu, LieuIndexe } from './lieux';
 import { zonesAllumees } from './mers';
 import { PASTILLE, pastilleLaPlusProche, tailleEcranPx, type Pastille } from './pastilles';
@@ -112,6 +112,52 @@ function* sondes(x: number, y: number): Generator<[number, number, number]> {
   }
 }
 
+/**
+ * Sondes fines d'un toucher sur la terre dans une question de mer : tous les
+ * rayons de 1 à 12 px (le dernier de SONDES_PROCHE), du plus près au plus
+ * loin, assez de directions pour moins de 1,5 px entre deux points (8 au
+ * moins, celles de pick comprises) : [x, y, rayon]. Les seules couronnes de
+ * 4, 8 et 12 px laissaient passer une mer de 2 px (Azov au zoom 1) entre
+ * leurs points, et rien n'était sondé sous 4 px (relecture du lot 3a).
+ */
+function* sondesFines(x: number, y: number): Generator<[number, number, number]> {
+  const max = SONDES_PROCHE.rayons_px[SONDES_PROCHE.rayons_px.length - 1]!;
+  const pas = SONDES_PROCHE.directions;
+  for (let r = 1; r <= max; r++) {
+    const n = pas * Math.ceil((2 * Math.PI * r) / (pas * 1.5));
+    for (let i = 0; i < n; i++) {
+      const a = (2 * Math.PI * i) / n;
+      yield [x + r * Math.cos(a), y + r * Math.sin(a), r];
+    }
+  }
+}
+
+/**
+ * Les zones qui peuvent avoir un point à 12 px ou moins de (x, y) : celles
+ * qui contiennent ll (débordant sur la terre), ou dont le bord est plus près
+ * (géodésique) que le cercle de 12 px, avec 25 % de marge ; toutes si ce
+ * cercle sort de la sphère. Les sondes fines ne parcourent qu'elles : au
+ * milieu de l'Italie, l'Atlantique entier passait 384 fois par geoContains
+ * (≈ 40 ms par toucher sur le PC).
+ */
+function aPortee(ctx: ContexteCarte, zones: readonly Entite<Mer>[], ll: [number, number], x: number, y: number): readonly Entite<Mer>[] {
+  if (!zones.length) return zones;
+  const max = SONDES_PROCHE.rayons_px[SONDES_PROCHE.rayons_px.length - 1]!;
+  let rayon = 0;
+  for (let i = 0; i < 16; i++) {
+    const a = (2 * Math.PI * i) / 16;
+    const l2 = versLonLat(ctx.proj, ctx.t, x + max * Math.cos(a), y + max * Math.sin(a));
+    if (!l2) return zones;
+    rayon = Math.max(rayon, geoDistance(ll, l2) * RAYON_TERRE_KM);
+  }
+  rayon *= 1.25;
+  // En degrés, assez large pour l'emprise (la longitude se resserre vers les pôles).
+  const deg = (rayon / RAYON_TERRE_KM) * (180 / Math.PI);
+  const lat = Math.min(89, Math.abs(ll[1]) + deg);
+  const marge = deg / Math.cos((lat * Math.PI) / 180);
+  return zones.filter((m) => dansEmprise(m.pays.bbox, ll[0], ll[1], marge) && (contient(m.forme, m.pays.bbox, ll) || distanceAuBordKm(m.forme, ll) <= rayon));
+}
+
 /** La zone marine qui contient le point [lon, lat] (la couche est une partition : une au plus, bords mis à part). */
 function zoneMer(mers: readonly Entite<Mer>[], ll: [number, number]): Entite<Mer> | null {
   for (const m of mers) if (contient(m.forme, m.pays.bbox, ll)) return m;
@@ -136,9 +182,10 @@ function merVisible(ctx: ContexteCarte, mers: readonly Entite<Mer>[], x: number,
  * pour elle (elle, ce qu'elle allume, ses zones admises : noter).
  * 1. le doigt est sur une terre (le tracé d'un pays ; le disque d'un
  *    micro-État n'en est pas, Malte en pleine Méditerranée est en mer) : cette
- *    terre, sauf si une sonde à 4, 8 ou 12 px (SONDES_PROCHE, l'ordre de
- *    pick) tombe dans la mer qu'on voit d'une zone qui compte : elle, via
- *    « proche », la tolérance de la côte d'un pays touchée en mer. La terre
+ *    terre, sauf si une sonde à 12 px ou moins (sondesFines : tous les
+ *    rayons de 1 à 12 px, la plus proche d'abord) tombe dans la mer qu'on
+ *    voit d'une zone qui compte : elle, via « proche », la tolérance de la
+ *    côte d'un pays touchée en mer, sans laisser passer une petite mer. La terre
  *    gagne toujours au-delà de 12 px : un toucher au milieu de l'Italie n'est
  *    pas l'Adriatique, même là où une zone déborde sur la terre ;
  * 2. la cible de moins de 10 px à l'écran (tailleEcranPx, comme un
@@ -157,9 +204,13 @@ export function pickMer(ctx: ContexteCarte, cible: string, x: number, y: number,
   const mers = ctx.mers ?? [];
   const terre = sousLePoint(ctx, x, y);
   if (terre) {
-    for (const [sx, sy, r] of sondes(x, y)) {
-      const m = merVisible(ctx, mers, sx, sy);
-      if (m && compte.has(m.pays.id)) return { id: m.pays.id, via: 'proche', distance_px: r };
+    // Seules les zones qui comptent sont cherchées : la mer qu'on voit d'une
+    // autre zone ne change rien (la terre reste la terre).
+    const vises = aPortee(ctx, mers.filter((m) => compte.has(m.pays.id)), ll, x, y);
+    for (const [sx, sy, r] of vises.length ? sondesFines(x, y) : []) {
+      const lls = versLonLat(ctx.proj, ctx.t, sx, sy);
+      const m = lls ? zoneMer(vises, lls) : null;
+      if (m && !sousLePoint(ctx, sx, sy)) return { id: m.pays.id, via: 'proche', distance_px: r };
     }
     return { id: terre.pays.id, via: 'trace', distance_px: 0 };
   }
