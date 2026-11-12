@@ -5,8 +5,8 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
 
     serve [--preview] [--lan]   Vite sur le port 8060 (au premier plan)
     smoke                       page, fichiers /geo/*.json et /geo/reunion/,
-                                un drapeau, rien de l'île, des capitales ni
-                                des drapeaux au premier affichage, carte
+                                un drapeau, rien de l'île, des capitales, des
+                                drapeaux ni des mers au premier affichage, carte
                                 peinte en canvas (défaut) et en SVG, shaders
                                 du rendu webgl compilés
     ui [--width 384] [--rendu r]
@@ -111,6 +111,11 @@ FICHIERS_GEO_CAPITALES = ("capitales.json", "capitales.fr.json")
 # rien au premier affichage ni à l'ouverture de Jouer (l'icône du sujet est
 # dessinée) ; smoke et ui_drapeaux le vérifient.
 FICHIERS_GEO_DRAPEAUX = ("drapeaux.json",)
+# Les océans et mers (lot 3a du J2, #27) : la couche marine, chargée à la
+# demande (src/map/mers.ts, chargerMers : premier toucher en mer à l'accueil,
+# sujet des mers, séance qui en a, recherche, ?mers=demo), jamais au premier
+# affichage (étude J2, § 2.3) ; smoke le vérifie.
+FICHIERS_GEO_MERS = ("mers.topo.json", "mers-leger.topo.json", "mers.json", "mers.fr.json")
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
 TELEPHONE = {"largeur": 384, "hauteur": 832, "dpr": 2.8125}
@@ -959,7 +964,7 @@ def commande_smoke(args):
     mode = "développement" if serveur_de_dev(base) else "build (preview ou hébergé)"
     dire(f"  serveur : {mode}")
     manifeste = None
-    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES + FICHIERS_GEO_DRAPEAUX:
+    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES + FICHIERS_GEO_DRAPEAUX + FICHIERS_GEO_MERS:
         code, _, corps = http(base + "geo/" + nom)
         try:
             lu = json.loads(corps)
@@ -1002,6 +1007,8 @@ def commande_smoke(args):
             verifier("rien des capitales au premier affichage", not capitales, ", ".join(capitales) or "aucune ressource /geo/capitales* après pret et repos")
             drapeaux = ressources_drapeaux(p)
             verifier("rien des drapeaux au premier affichage", not drapeaux, ", ".join(drapeaux) or "aucune ressource /geo/drapeaux* après pret et repos")
+            mers = p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/mers'))")
+            verifier("rien des mers au premier affichage", not mers, ", ".join(mers) or "aucune ressource /geo/mers* après pret et repos")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
         # Rendus SVG (au choix dans ⚙) : un path.pays par entité.
@@ -4857,7 +4864,7 @@ def main():
     s.add_argument("--preview", action="store_true", help="construit puis sert le build (vite preview)")
     s.add_argument("--sortie", default="/tmp/terramemo-preview", help="dossier du build de --preview (pas dist/)")
 
-    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île au premier affichage, carte peinte (canvas, SVG, webgl)")
+    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île, des capitales, des drapeaux ni des mers au premier affichage, carte peinte (canvas, SVG, webgl)")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--budget", type=int, default=60, help="secondes au plus pour que la carte se peigne")
 

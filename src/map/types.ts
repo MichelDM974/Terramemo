@@ -52,6 +52,32 @@ export interface Contestee {
   note: string;
 }
 
+/** Sorte d'une zone marine (mers.json) : « baie » et « bras de mer » plutôt que « mer » (étude J2, § 2.3). */
+export type SorteMer = 'océan' | 'mer' | 'golfe' | 'baie' | 'bras de mer';
+
+/**
+ * Une zone marine (océan, mer, golfe : public/geo/mers.json, geodata/mers.mjs),
+ * prête pour la carte : un Lieu jouable, jamais micro (pas de pastille de mer
+ * hors d'une question, étude J2, § 4.4). Jamais dans DonneesCarte.entites :
+ * pastilles, grappes, Nommer, recherche et maillage des terres la verraient
+ * comme un pays (§ 4.2) ; elle vit dans DonneesCarte.mers.
+ */
+export interface Mer extends Lieu {
+  sorte: SorteMer;
+  /** Zones dont elle fait partie (Wikidata P361), ids de mers.json ; vide pour un océan et la Caspienne. */
+  parents: string[];
+  /** Ne fait pas remonter jusqu'à un océan (la Méditerranée, la mer Noire : D43, § 4.4). */
+  interieure: boolean;
+  /** L'océan atteint en remontant le premier parent (grappes, § 6.1). */
+  bassin: string;
+  /**
+   * Mer sans côte qu'un océan enclave (la mer des Sargasses dans l'Atlantique) :
+   * un océan allumé l'allume avec lui (décision « Océans et mers », 12/11 ;
+   * zonesAllumees, mers.ts).
+   */
+  enclavee?: boolean;
+}
+
 export type Forme = Feature<Polygon | MultiPolygon, { id: string }>;
 
 /**

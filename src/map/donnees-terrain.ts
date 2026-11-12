@@ -44,7 +44,7 @@ export function assemblerTerrain(topo: Topology<Objets>, objet: string, lieux: L
     interieurs: mesh(topo, o, (a, b) => a !== b).coordinates,
     cotes: mesh(topo, o, (a, b) => a === b).coordinates,
   });
-  return { entites, contestees: [], noms, traits };
+  return { entites, mers: [], contestees: [], noms, traits };
 }
 
 /** Les quatre fichiers du dossier, en parallèle ; « <fichier> : HTTP xxx » levé comme chargerDonnees. */
