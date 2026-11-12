@@ -2849,6 +2849,15 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres="", horloge=""):
         # Le Chrono des drapeaux d'Océanie, joué en entier (14 pays), chaque toucher sur le pays demandé.
         cliquer(p, '#jouer-panneau [data-mode="chrono"]')
         attendre_visible(p, "#barre-chrono", 20)
+        # La partie ne part qu'une fois tous ses drapeaux chargés (décision « Images d'une épreuve ») :
+        # la barre peut d'abord dire « Chargement des drapeaux… n / N », sans question posée.
+        fin = time.monotonic() + 30
+        pret = """(() => { const ch = document.getElementById('chrono-chargement'), c = document.querySelector('#barre-chrono .essai-consigne');
+            return (!ch || ch.hidden) && !!c && !!c.dataset.cible && c.offsetParent !== null; })()"""
+        while time.monotonic() < fin and not p.js(pret):
+            p.pause(100)
+        if not p.js(pret):
+            defauts.append(f"Chrono des drapeaux : la partie n'a pas commencé en 30 s ({texte(p, '#barre-chrono')!r})")
         p.pause(300)
         p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
         bilan = '!document.getElementById("chrono-bilan").hidden'
@@ -2868,8 +2877,8 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres="", horloge=""):
                 defauts.append(f"Chrono des drapeaux, {cible} : consigne {e['texte']!r}, image {e['img']}")
             elif img["alt"] != "Drapeau à reconnaître" or img["title"] is not None or img["src"] != montre.get(cible):
                 defauts.append(f"Chrono des drapeaux, {cible} : image {img} (attendu : alt neutre, sans title, le drapeau montré {montre.get(cible)})")
-            # Préchargée au départ : à partir de la 2e question, le drapeau est là dès qu'elle est posée.
-            if i > 0 and not img.get("complet"):
+            # Attendue au départ : dès la 1re question, le drapeau est là quand elle est posée.
+            if not img.get("complet"):
                 defauts.append(f"Chrono des drapeaux, question {i + 1} ({cible}) : drapeau pas encore chargé à sa pose (préchargement ?)")
             t = e["barre"] + " " + e["attrs"]
             if re.search(rf"\b{re.escape(cible or '')}\b", t) or (noms.get(cible) and noms[cible] in t):
