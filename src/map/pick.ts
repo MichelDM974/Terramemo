@@ -2,10 +2,12 @@
 // (projection, transformation, géométries, pastilles) : un rendu Canvas de
 // repli les réutiliserait telles quelles.
 import type { GeoProjection } from 'd3-geo';
-import type { Acceptes, Admis } from './acceptes';
+import type { Acceptes, Admis, ZoneAdmise } from './acceptes';
 import { contient, distanceAuBordKm, versEcran, versLonLat } from './geo';
-import { PASTILLE, pastilleLaPlusProche, type Pastille } from './pastilles';
-import type { Entite, Lieu, Transfo } from './types';
+import type { CoucheLieu, LieuIndexe } from './lieux';
+import { zonesAllumees } from './mers';
+import { PASTILLE, pastilleLaPlusProche, tailleEcranPx, type Pastille } from './pastilles';
+import type { Entite, Lieu, Mer, Transfo } from './types';
 
 export interface ContexteCarte {
   proj: GeoProjection;
@@ -18,6 +20,17 @@ export interface ContexteCarte {
    * zones contestées, enclaves) ; absent : aucune, le de fait strict.
    */
   acceptes?: Acceptes;
+  /**
+   * La couche marine posée sur la carte (prendreMers) : ses zones, dans
+   * l'ordre de donnees.mers ; absente ou vide avant. Seule une cible marine
+   * la parcourt (pickMer) : une partie de pays n'en paie rien.
+   */
+  mers?: readonly Entite<Mer>[];
+  /**
+   * L'index commun des pays et des mers (lieux.ts), où noter cherche la cible
+   * et sa couche ; absent : entites, puis mers.
+   */
+  lieux?: ReadonlyMap<string, LieuIndexe>;
 }
 
 export type Via = 'pastille' | 'trace' | 'proche';
@@ -99,6 +112,75 @@ function* sondes(x: number, y: number): Generator<[number, number, number]> {
   }
 }
 
+/** La zone marine qui contient le point [lon, lat] (la couche est une partition : une au plus, bords mis à part). */
+function zoneMer(mers: readonly Entite<Mer>[], ll: [number, number]): Entite<Mer> | null {
+  for (const m of mers) if (contient(m.forme, m.pays.bbox, ll)) return m;
+  return null;
+}
+
+/**
+ * La mer qu'on voit en (x, y) : la zone qui contient le point, hors des
+ * terres. Les zones débordent sur 0,79 % des terres (étude J2, § 2.3) ; le
+ * dessin les efface sous les tracés des pays (dessinerMarquesMers), un point
+ * sous une terre n'est donc pas de la mer.
+ */
+function merVisible(ctx: ContexteCarte, mers: readonly Entite<Mer>[], x: number, y: number): Entite<Mer> | null {
+  const ll = versLonLat(ctx.proj, ctx.t, x, y);
+  const m = ll ? zoneMer(mers, ll) : null;
+  return m && !sousLePoint(ctx, x, y) ? m : null;
+}
+
+/**
+ * Ce que la carte désigne en (x, y) dans une question de mer (étude J2,
+ * § 4.4) ; cible : la zone marine demandée ; compte : les zones qui comptent
+ * pour elle (elle, ce qu'elle allume, ses zones admises : noter).
+ * 1. le doigt est sur une terre (le tracé d'un pays ; le disque d'un
+ *    micro-État n'en est pas, Malte en pleine Méditerranée est en mer) : cette
+ *    terre, sauf si une sonde à 4, 8 ou 12 px (SONDES_PROCHE, l'ordre de
+ *    pick) tombe dans la mer qu'on voit d'une zone qui compte : elle, via
+ *    « proche », la tolérance de la côte d'un pays touchée en mer. La terre
+ *    gagne toujours au-delà de 12 px : un toucher au milieu de l'Italie n'est
+ *    pas l'Adriatique, même là où une zone déborde sur la terre ;
+ * 2. la cible de moins de 10 px à l'écran (tailleEcranPx, comme un
+ *    micro-État) a une cible invisible de 22 px à son point d'étiquette,
+ *    dans l'eau seulement : la mer d'Azov fait ≈ 2 px au zoom 1. La cible
+ *    seule : une petite mer ne prend jamais le toucher d'une autre mer
+ *    demandée, et aucune pastille de mer hors d'une question ;
+ * 3. sinon la zone marine qui contient le point ;
+ * 4. sinon (fentes le long des côtes : 0,20 % de la mer ; la couche légère,
+ *    qui ne couvre que 99,39 %) la zone la plus proche par les mêmes sondes ;
+ * null hors de la sphère, ou loin de toute zone.
+ */
+export function pickMer(ctx: ContexteCarte, cible: string, x: number, y: number, compte: ReadonlySet<string> = new Set([cible])): ResultatPick | null {
+  const ll = versLonLat(ctx.proj, ctx.t, x, y);
+  if (!ll) return null;
+  const mers = ctx.mers ?? [];
+  const terre = sousLePoint(ctx, x, y);
+  if (terre) {
+    for (const [sx, sy, r] of sondes(x, y)) {
+      const m = merVisible(ctx, mers, sx, sy);
+      if (m && compte.has(m.pays.id)) return { id: m.pays.id, via: 'proche', distance_px: r };
+    }
+    return { id: terre.pays.id, via: 'trace', distance_px: 0 };
+  }
+  const visee = mers.find((m) => m.pays.id === cible);
+  if (visee && tailleEcranPx(visee.pays, ctx.proj.scale(), ctx.t.k) < PASTILLE.seuil_px) {
+    const b = ctx.proj(visee.pays.point);
+    if (b) {
+      const [px, py] = versEcran(ctx.t, b[0], b[1]);
+      const d = Math.hypot(px - x, py - y);
+      if (d <= PASTILLE.rayon_cible_px) return { id: cible, via: 'pastille', distance_px: d };
+    }
+  }
+  const m = zoneMer(mers, ll);
+  if (m) return { id: m.pays.id, via: 'trace', distance_px: 0 };
+  for (const [sx, sy, r] of sondes(x, y)) {
+    const v = merVisible(ctx, mers, sx, sy);
+    if (v) return { id: v.pays.id, via: 'proche', distance_px: r };
+  }
+  return null;
+}
+
 export interface Note {
   juste: boolean;
   /** Ce qui rend la réponse juste : le tracé de la cible, ou pick() qui la désigne ; null si fausse. */
@@ -106,11 +188,16 @@ export interface Note {
   /** 0 si juste ; sinon distance géodésique au bord de la cible ; null hors de la sphère. */
   distance_km: number | null;
   lonlat: [number, number] | null;
-  /** Ce que la carte désigne en (x, y) : pick(), calculé une fois pour la note et la rétroaction. */
+  /**
+   * Ce que la carte désigne en (x, y) : pick(), calculé une fois pour la note
+   * et la rétroaction ; pickMer() pour une cible marine (une mer, ou la terre
+   * touchée).
+   */
   pick: ResultatPick | null;
   /**
    * Juste hors du tracé de la cible : la zone contestée ou l'enclave touchée
-   * qui compte pour elle (rétroaction « Juste (…) ») ; null sinon.
+   * qui compte pour elle, ou la partie d'une mer (la mer des Caraïbes pour
+   * l'Atlantique : rétroaction « Juste (…) ») ; null sinon.
    */
   admis: Admis | null;
 }
@@ -123,7 +210,9 @@ export interface OptionsNoter {
    * ctx.acceptes, puis ces zones en plus, passées par la vue du sujet joué
    * (étude J2 § 2.2) et jamais mises dans la table commune : Jérusalem ↔
    * Jérusalem-Est sous Capitales (D36 i), les jumeaux d'un drapeau sous
-   * Drapeaux (D41 d), plus tard les parties d'une mer.
+   * Drapeaux (D41 d), les parties d'une mer sous Mers (D43, sorte partie :
+   * zonesParties, mers.ts). Pour une cible marine, ce qu'elle allume compte
+   * toujours, même avec false (l'Atlantique et la mer des Sargasses).
    */
   acceptes?: boolean | Acceptes;
 }
@@ -147,6 +236,7 @@ export interface OptionsNoter {
  * s'arrête au bord est du Sahara occidental.
  */
 export function noter(ctx: ContexteCarte, cible: string, x: number, y: number, options: OptionsNoter = {}): Note {
+  if (couche(ctx, cible) === 'mers') return noterMer(ctx, cible, x, y, options);
   const e = ctx.entites.find((en) => en.pays.id === cible);
   if (!e) throw new Error(`cible inconnue : ${cible}`);
   const ll = versLonLat(ctx.proj, ctx.t, x, y);
@@ -183,6 +273,55 @@ export function noter(ctx: ContexteCarte, cible: string, x: number, y: number, o
   let distance_km: number | null = null;
   if (ll) {
     distance_km = distanceAuBordKm(e.forme, ll);
+    for (const zo of zones) distance_km = Math.min(distance_km, distanceAuBordKm(zo.forme, ll));
+  }
+  return { juste: false, via: null, distance_km, admis: null, ...base };
+}
+
+/** Ids de mers.json : 3 à 8 lettres minuscules (étude J2, § 2.3) ; aucun id de pays.json ni de commune n'y ressemble. */
+const ID_MER = /^[a-z]{3,8}$/;
+
+/**
+ * La couche de la cible, par l'index commun (lieux.ts) ; sans index, entites
+ * puis mers. Une cible inconnue lève une erreur, comme toujours ; une cible
+ * marine avant la pose de la couche aussi, qui le dit (une partie de mers ne
+ * part qu'après chargerMers et prendreMers : lot 3b).
+ */
+function couche(ctx: ContexteCarte, cible: string): CoucheLieu {
+  const li = ctx.lieux?.get(cible);
+  if (li) return li.couche;
+  if (ctx.entites.some((en) => en.pays.id === cible)) return 'pays';
+  if (ctx.mers?.some((m) => m.pays.id === cible)) return 'mers';
+  if (ID_MER.test(cible) && !ctx.mers?.length) throw new Error(`cible marine avant la couche marine : ${cible} (chargerMers puis prendreMers)`);
+  throw new Error(`cible inconnue : ${cible}`);
+}
+
+/**
+ * Notation d'une cible marine (étude J2, § 4.4) : juste si pickMer désigne
+ * la cible ou ce qu'elle allume (zonesAllumees : l'Atlantique et la mer des
+ * Sargasses, ce qui s'allume est ce qui est noté ; toujours, même sans zones
+ * admises), ou une zone admise (OptionsNoter.acceptes : les parties d'une mer,
+ * Note.admis). Faux, la distance est celle du bord le plus proche de l'union
+ * (la cible, ce qu'elle allume, ses zones admises), comme pour le Maroc et le
+ * Sahara occidental : la mer voisine touchée est à ≈ 0 km, la terre à la
+ * distance de la côte grossière. Juste ou faux, sans points (décision
+ * « Barème et classements », 12/11).
+ */
+function noterMer(ctx: ContexteCarte, cible: string, x: number, y: number, options: OptionsNoter): Note {
+  const mers = ctx.mers ?? [];
+  const allumees = zonesAllumees(cible, mers.map((m) => m.pays));
+  const enPlus = typeof options.acceptes === 'object' ? (options.acceptes.get(cible) ?? []) : [];
+  const zones: readonly ZoneAdmise[] = options.acceptes === false ? [] : [...(ctx.acceptes?.get(cible) ?? []), ...enPlus];
+  const ll = versLonLat(ctx.proj, ctx.t, x, y);
+  const p = pickMer(ctx, cible, x, y, new Set([...allumees, ...zones.map((z) => z.zone)]));
+  const base = { lonlat: ll, pick: p };
+  if (p && allumees.includes(p.id)) return { juste: true, via: p.via, distance_km: 0, admis: null, ...base };
+  const z = p ? zones.find((zo) => zo.zone === p.id) : undefined;
+  if (z && p) return { juste: true, via: p.via, distance_km: 0, admis: { zone: z.zone, tenant: z.tenant, sorte: z.sorte }, ...base };
+  let distance_km: number | null = null;
+  if (ll) {
+    distance_km = Infinity;
+    for (const m of mers) if (allumees.includes(m.pays.id)) distance_km = Math.min(distance_km, distanceAuBordKm(m.forme, ll));
     for (const zo of zones) distance_km = Math.min(distance_km, distanceAuBordKm(zo.forme, ll));
   }
   return { juste: false, via: null, distance_km, admis: null, ...base };

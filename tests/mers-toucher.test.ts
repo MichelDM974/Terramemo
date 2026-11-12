@@ -1,0 +1,351 @@
+// Toucher et notation d'une zone marine (étude J2, § 4.4 ; lot 3a, partie C) :
+// pickMer, noter par couche, l'océan noté avec ce qu'il allume (les Sargasses),
+// sur les données réelles de public/geo, dans la vue du rendu par défaut (le
+// globe qui tourne, vue.ts), au format du téléphone de mesure.
+import { readFileSync } from 'node:fs';
+import { geoDistance } from 'd3-geo';
+import type { Topology } from 'topojson-specification';
+import { describe, expect, it } from 'vitest';
+import { acceptesDe } from '../src/map/acceptes';
+import { assembler, type DonneesCarte } from '../src/map/donnees';
+import { contient, distanceAuBordKm, RAYON_TERRE_KM, versEcran, versLonLat } from '../src/map/geo';
+import { indexLieux } from '../src/map/lieux';
+import { assemblerMers, zonesAllumees } from '../src/map/mers';
+import { calculerPastilles, PASTILLE, tailleEcranPx } from '../src/map/pastilles';
+import { noter, pickMer, type ContexteCarte } from '../src/map/pick';
+import { cadre, placer, projectionDe, transfoDe, type VueGlobe } from '../src/map/vue';
+import type { Entite, Mer } from '../src/map/types';
+
+const lire = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
+const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+const donnees: DonneesCarte = assembler(lire('monde.topo.json') as Topology<never>, lire('pays.json'), lire('contestees.json'), lire('noms.fr.json'));
+const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+const avecMers: DonneesCarte = { ...donnees, mers: couche.mers };
+const lieux = indexLieux(avecMers);
+const L = 384;
+const H = 723;
+const C = cadre(L, H);
+
+const mer = (id: string): Entite<Mer> => {
+  const e = couche.mers.find((m) => m.pays.id === id);
+  if (!e) throw new Error(id);
+  return e;
+};
+
+/** Le contexte de la vue v (Canvas et WebGL : contexte()), la couche marine posée ou non. */
+function contexte(v: VueGlobe, posee = true): ContexteCarte {
+  const proj = projectionDe(v.r, C);
+  const ctx: ContexteCarte = { proj, t: transfoDe(v, C), entites: donnees.entites, pastilles: calculerPastilles(donnees.entites, proj, v.k), acceptes: acceptesDe(donnees) };
+  return posee ? { ...ctx, mers: couche.mers, lieux } : ctx;
+}
+
+/** La vue au zoom k qui met ll au centre de l'écran (y libre : même au bord de l'ovale). */
+const vueSur = (ll: [number, number], k: number): VueGlobe => placer(C, ll, L / 2, H / 2, k, true);
+
+/** Point écran d'un [lon, lat]. */
+function ecran(ctx: ContexteCarte, ll: [number, number]): [number, number] {
+  const b = ctx.proj(ll) as [number, number];
+  return versEcran(ctx.t, b[0], b[1]);
+}
+
+/** Le contexte centré sur ll au zoom k, et le doigt au centre. */
+function au(ll: [number, number], k: number, r?: number): { ctx: ContexteCarte; x: number; y: number } {
+  const v = vueSur(ll, k);
+  const ctx = contexte(r === undefined ? v : { ...v, r });
+  const [x, y] = ecran(ctx, ll);
+  return { ctx, x, y };
+}
+
+const terre = (ll: [number, number]) => donnees.entites.find((e) => contient(e.forme, e.pays.bbox, ll)) ?? null;
+const zoneDe = (ll: [number, number]) => couche.mers.find((e) => contient(e.forme, e.pays.bbox, ll)) ?? null;
+
+/**
+ * Aucun point de ces zones à 12 px ou moins de (x, y) à l'écran, sous une terre
+ * ou non : le point est hors d'elles, et plus loin de leur bord (géodésique) que
+ * tout point du cercle de 12 px (avec 10 % de marge).
+ */
+function loinDe(ctx: ContexteCarte, x: number, y: number, zones: readonly Entite<Mer>[]): boolean {
+  const ll = versLonLat(ctx.proj, ctx.t, x, y);
+  if (!ll) return false;
+  let rayon = 0;
+  for (let a = 0; a < 2 * Math.PI; a += Math.PI / 16) {
+    const l2 = versLonLat(ctx.proj, ctx.t, x + 12 * Math.cos(a), y + 12 * Math.sin(a));
+    if (l2) rayon = Math.max(rayon, geoDistance(ll, l2) * RAYON_TERRE_KM);
+  }
+  return zones.every((z) => !contient(z.forme, z.pays.bbox, ll) && distanceAuBordKm(z.forme, ll) > 1.1 * rayon);
+}
+
+describe('pickMer : la terre gagne au-delà de 12 px', () => {
+  it('au milieu de l’Italie (zoom 20) : l’Italie, ni l’Adriatique ni la mer Tyrrhénienne ; faux, à la distance de la côte', () => {
+    const { ctx, x, y } = au([12.6, 42.9], 20);
+    for (const cible of ['adriat', 'tyrrhen', 'medit']) {
+      const n = noter(ctx, cible, x, y);
+      expect([cible, n.juste, n.pick?.id, n.pick?.via]).toEqual([cible, false, 'ITA', 'trace']);
+      expect(n.distance_km).toBeGreaterThan(50);
+    }
+  });
+
+  it('là où une zone déborde sur la terre (l’Algérie sous la Méditerranée, à 8 km de la côte), à plus de 12 px de la mer qu’on voit : la terre', () => {
+    const ll: [number, number] = [-1, 35.6];
+    expect(terre(ll)?.pays.id).toBe('DZA');
+    expect(zoneDe(ll)?.pays.id).toBe('medit');
+    const { ctx, x, y } = au(ll, 300);
+    const n = noter(ctx, 'medit', x, y);
+    expect([n.juste, n.pick?.id]).toEqual([false, 'DZA']);
+    // Plus loin, au zoom 1, la côte est à moins de 12 px : juste, par la sonde.
+    const loin = au(ll, 1);
+    expect(noter(loin.ctx, 'medit', loin.x, loin.y)).toMatchObject({ juste: true, via: 'proche' });
+  });
+
+  it('la côte à 12 px : juste à 11 px de la mer, faux à 13 et plus (le Portugal, sa côte nord-sud, l’Atlantique à l’ouest)', () => {
+    const { ctx, y } = au([-8.3, 40.6], 40);
+    const vu = (x: number) => {
+      const ll = versLonLat(ctx.proj, ctx.t, x, y) as [number, number];
+      return zoneDe(ll)?.pays.id === 'atlant' && !terre(ll);
+    };
+    // Le bord de la mer qu'on voit sur la ligne du doigt : xb dans l'eau, le Portugal à moins d'1 px à l'est.
+    let xb = L / 2;
+    while (!vu(xb)) xb -= 0.25;
+    expect(terre(versLonLat(ctx.proj, ctx.t, xb + 1, y) as [number, number])?.pays.id).toBe('PRT');
+    for (const d of [1, 6, 11]) {
+      const n = noter(ctx, 'atlant', xb + d, y);
+      expect([d, n.juste, n.via, n.pick?.id]).toEqual([d, true, 'proche', 'atlant']);
+    }
+    for (const d of [13, 15, 30]) {
+      const n = noter(ctx, 'atlant', xb + d, y);
+      expect([d, n.juste, n.pick?.id]).toEqual([d, false, 'PRT']);
+      expect(n.distance_km).toBeGreaterThan(0);
+    }
+  });
+
+  it('le disque d’un micro-État n’est pas de la terre : sur le disque de Malte, hors de son tracé, c’est la Méditerranée', () => {
+    const malte = donnees.entites.find((e) => e.pays.id === 'MLT')!;
+    const ctx = contexte(vueSur([14.4, 35.9], 1));
+    const [mx, my] = ecran(ctx, malte.pays.point);
+    expect(ctx.pastilles.find((p) => p.id === 'MLT')?.visible).toBe(true);
+    const [x, y] = [mx + 3, my];
+    expect(terre(versLonLat(ctx.proj, ctx.t, x, y) as [number, number])).toBeNull();
+    expect(noter(ctx, 'medit', x, y)).toMatchObject({ juste: true, via: 'trace', pick: { id: 'medit' } });
+  });
+});
+
+describe('pickMer : la zone sous le doigt, la plus proche dans une fente', () => {
+  it('une fente le long d’une côte (golfe de Syrte), ni terre ni zone : la zone la plus proche, par les sondes', () => {
+    const ll: [number, number] = [19.8, 30.6];
+    expect(terre(ll)).toBeNull();
+    expect(zoneDe(ll)).toBeNull();
+    const { ctx, x, y } = au(ll, 40);
+    const p = pickMer(ctx, 'medit', x, y);
+    expect(p).toMatchObject({ id: 'medit', via: 'proche' });
+    expect(noter(ctx, 'medit', x, y)).toMatchObject({ juste: true, via: 'proche' });
+    // Pour une autre mer, la fente est faux, au bord de cette mer.
+    expect(noter(ctx, 'rouge', x, y)).toMatchObject({ juste: false, pick: { id: 'medit' } });
+  });
+
+  it('à 120° O sous 61° S : l’océan Austral, pas le Pacifique (qui s’arrête à 60,5° S)', () => {
+    for (const k of [1, 8]) {
+      const { ctx, x, y } = au([-120, -61], k);
+      expect(pickMer(ctx, 'pacif', x, y)?.id).toBe('austral');
+      expect(noter(ctx, 'austral', x, y)).toMatchObject({ juste: true, via: 'trace' });
+      const n = noter(ctx, 'pacif', x, y);
+      expect(n.juste).toBe(false);
+      expect(n.distance_km).toBeGreaterThan(30);
+      expect(n.distance_km).toBeLessThan(80);
+    }
+  });
+
+  it('de part et d’autre de l’antiméridien : le Pacifique (à l’équateur) et Béring (à 58° N), à 179,9° E et à 179,9° O, à toutes les rotations', () => {
+    for (const [cible, lat] of [['pacif', 0], ['bering', 58]] as const) {
+      for (const lon of [179.9, -179.9, 179.99, -179.99]) {
+        for (const r of [180, 0, 90, -90, 150, -150]) {
+          for (const k of [1, 6]) {
+            const { ctx, x, y } = au([lon, lat], k, r);
+            if (!versLonLat(ctx.proj, ctx.t, x, y)) continue; // hors de l'écran à cette rotation
+            const n = noter(ctx, cible, x, y);
+            expect([cible, lon, r, k, n.juste]).toEqual([cible, lon, r, k, true]);
+          }
+        }
+      }
+    }
+  });
+});
+
+describe('pickMer : une petite mer a une cible invisible de 22 px, dans l’eau, dans sa question seulement', () => {
+  const azov = mer('azov');
+
+  it('au zoom 1, la mer d’Azov fait moins de 10 px : un toucher dans la mer Noire, à quelques px de son point, est juste pour elle', () => {
+    const ctx = contexte(vueSur([35, 45], 1));
+    expect(tailleEcranPx(azov.pays, ctx.proj.scale(), 1)).toBeLessThan(PASTILLE.seuil_px);
+    const [ax, ay] = ecran(ctx, azov.pays.point);
+    // Le point le plus loin dans la mer Noire, à 22 px au plus du point d'Azov.
+    let doigt: [number, number] | null = null;
+    for (let a = 0; a < 2 * Math.PI && !doigt; a += Math.PI / 32) {
+      for (const d of [10, 8, 6, 5, 4]) {
+        const [x, y] = [ax + d * Math.cos(a), ay + d * Math.sin(a)];
+        const ll = versLonLat(ctx.proj, ctx.t, x, y);
+        if (ll && !terre(ll) && zoneDe(ll)?.pays.id === 'noire') {
+          doigt = [x, y];
+          break;
+        }
+      }
+    }
+    expect(doigt).not.toBeNull();
+    const [x, y] = doigt!;
+    const n = noter(ctx, 'azov', x, y, { acceptes: false });
+    expect(n).toMatchObject({ juste: true, via: 'pastille', pick: { id: 'azov' } });
+    // Dans la question de la mer Noire, ce toucher est la mer Noire.
+    expect(noter(ctx, 'noire', x, y, { acceptes: false })).toMatchObject({ juste: true, pick: { id: 'noire' } });
+    // Au-delà de 22 px, plus rien.
+    const [fx, fy] = [ax + 23 * ((x - ax) / Math.hypot(x - ax, y - ay)), ay + 23 * ((y - ay) / Math.hypot(x - ax, y - ay))];
+    expect(noter(ctx, 'azov', fx, fy, { acceptes: false }).juste).toBe(false);
+  });
+
+  it('jamais par-dessus une terre au-delà de 12 px : sur la terre à moins de 22 px du point d’Azov, faux (zoom 1 et 2)', () => {
+    for (const k of [1, 2]) {
+      const ctx = contexte(vueSur([35, 45], k));
+      const [ax, ay] = ecran(ctx, azov.pays.point);
+      let vus = 0;
+      for (let a = 0; a < 2 * Math.PI; a += Math.PI / 16) {
+        for (const d of [14, 18, 21]) {
+          const [x, y] = [ax + d * Math.cos(a), ay + d * Math.sin(a)];
+          const ll = versLonLat(ctx.proj, ctx.t, x, y);
+          if (!ll || !terre(ll)) continue;
+          // À plus de 12 px de la mer d'Azov : la terre.
+          if (!loinDe(ctx, x, y, [azov])) continue;
+          vus++;
+          const n = noter(ctx, 'azov', x, y, { acceptes: false });
+          expect([k, d, a, n.juste]).toEqual([k, d, a, false]);
+        }
+      }
+      expect(vus).toBeGreaterThan(5);
+    }
+  });
+
+  it('assez grande à l’écran (zoom 8), plus de cible : à 15 px du point d’Azov dans la mer Noire, faux', () => {
+    const ctx = contexte(vueSur([36.5, 46], 8));
+    expect(tailleEcranPx(azov.pays, ctx.proj.scale(), 8)).toBeGreaterThan(PASTILLE.seuil_px);
+    const [ax, ay] = ecran(ctx, azov.pays.point);
+    let essais = 0;
+    for (let a = 0; a < 2 * Math.PI; a += Math.PI / 16) {
+      const [x, y] = [ax + 15 * Math.cos(a), ay + 15 * Math.sin(a)];
+      const ll = versLonLat(ctx.proj, ctx.t, x, y);
+      if (!ll || terre(ll) || zoneDe(ll)?.pays.id !== 'noire') continue;
+      essais++;
+      expect(noter(ctx, 'azov', x, y, { acceptes: false }).juste).toBe(false);
+    }
+    // Azov fait ~18 px au zoom 8 : peu de mer Noire à 15 px de son point, mais il y en a.
+    expect(essais).toBeGreaterThan(0);
+  });
+});
+
+describe('noter par couche', () => {
+  it('une cible de pays ne parcourt jamais les mers : résultats inchangés, couche posée ou non', () => {
+    const piege = new Proxy([] as Entite<Mer>[], {
+      get() {
+        throw new Error('les mers parcourues pour un pays');
+      },
+    });
+    for (const [cible, ll, k] of [['FRA', [2.35, 48.86], 1], ['ITA', [12.6, 42.9], 4], ['ITA', [10, 43], 4], ['MLT', [14.4, 35.9], 1], ['PRT', [-9.5, 40.6], 10]] as const) {
+      const v = vueSur(ll as [number, number], k);
+      const sans = contexte(v, false);
+      const avec = contexte(v);
+      const [x, y] = ecran(sans, ll as [number, number]);
+      const attendu = noter(sans, cible, x, y);
+      expect(noter(avec, cible, x, y)).toEqual(attendu);
+      expect(noter({ ...avec, mers: piege }, cible, x, y)).toEqual(attendu);
+    }
+  });
+
+  it('cible inconnue : une erreur, comme toujours ; une cible marine avant la pose de la couche : une erreur qui le dit', () => {
+    const avant = contexte(vueSur([0, 0], 1), false);
+    expect(() => noter(avant, 'XXX', 10, 10)).toThrow('cible inconnue : XXX');
+    expect(() => noter(avant, 'atlant', 10, 10)).toThrow(/cible marine avant la couche marine : atlant/);
+    const apres = contexte(vueSur([0, 0], 1));
+    expect(() => noter(apres, 'XXX', 10, 10)).toThrow('cible inconnue : XXX');
+    expect(() => noter(apres, 'nulpart', 10, 10)).toThrow('cible inconnue : nulpart');
+    // Sans index commun (lieux), entites puis mers.
+    const { lieux: _, ...sansIndex } = apres;
+    const { x, y } = au([-30, 30], 1);
+    expect(noter(sansIndex, 'atlant', x, y)).toMatchObject({ juste: true });
+  });
+
+  it('la note d’une mer : juste ou faux, la distance, ce que la carte désigne ; aucun point', () => {
+    const { ctx, x, y } = au([-30, 30], 4);
+    const juste = noter(ctx, 'atlant', x, y);
+    expect(Object.keys(juste).sort()).toEqual(['admis', 'distance_km', 'juste', 'lonlat', 'pick', 'via']);
+    expect(juste).toMatchObject({ juste: true, via: 'trace', distance_km: 0, admis: null, pick: { id: 'atlant', via: 'trace' } });
+    const faux = noter(ctx, 'indien', x, y);
+    expect(faux).toMatchObject({ juste: false, via: null, admis: null, pick: { id: 'atlant' } });
+    expect(faux.distance_km).toBeCloseTo(distanceAuBordKm(mer('indien').forme, faux.lonlat!), 6);
+    // Hors de la sphère : faux, sans distance.
+    expect(noter(contexte(vueSur([0, 0], 1)), 'atlant', 1, 1)).toMatchObject({ juste: false, distance_km: null, pick: null });
+  });
+});
+
+describe('l’océan noté avec ce qu’il allume : l’Atlantique et la mer des Sargasses', () => {
+  const sargasse = mer('sargasse');
+
+  it('la mer des Sargasses touchée pour l’Atlantique : juste via « trace », même sans zones admises', () => {
+    const { ctx, x, y } = au(sargasse.pays.point, 4);
+    expect(zoneDe(sargasse.pays.point)?.pays.id).toBe('sargasse');
+    for (const acceptes of [true, false]) {
+      expect(noter(ctx, 'atlant', x, y, { acceptes })).toMatchObject({ juste: true, via: 'trace', admis: null, pick: { id: 'sargasse' } });
+    }
+  });
+
+  it('la mer des Sargasses demandée n’est qu’elle : l’Atlantique autour est faux, à la distance de son bord', () => {
+    const ll: [number, number] = [-45, 28];
+    expect(zoneDe(ll)?.pays.id).toBe('atlant');
+    const { ctx, x, y } = au(ll, 4);
+    const n = noter(ctx, 'sargasse', x, y);
+    expect(n.juste).toBe(false);
+    expect(n.distance_km).toBeCloseTo(distanceAuBordKm(sargasse.forme, n.lonlat!), 6);
+  });
+
+  // Ce que la couche du dessus peint d'une mer marquée (dessinerMarquesMers) :
+  // les zones de zonesAllumees, effacées sous les tracés des pays. Là où elle
+  // est peinte, noter est juste ; sur une terre à plus de 12 px de ces zones
+  // (loinDe), faux. Grille de 10 px.
+  it.each(['atlant', 'pacif', 'medit'])('toucher dessiné = noté : %s, à plusieurs rotations (dont l’antiméridien) et deux zooms', (cible) => {
+    const allumees = zonesAllumees(cible, couche.mers.map((m) => m.pays)).map(mer);
+    const centres: Record<string, [number, number][]> = {
+      atlant: [[-30, 20], [-60, 30], [10, 40]],
+      pacif: [[-170, 10], [180, 40], [150, 0]],
+      medit: [[18, 36], [5, 40], [28, 34]],
+    };
+    const PAS = 10;
+    const ratees: string[] = [];
+    let justes = 0;
+    let fausses = 0;
+    for (const [lon, lat] of centres[cible]!) {
+      for (const k of [1, 3]) {
+        const ctx = contexte(vueSur([lon, lat], k));
+        const peint: [number, number][] = [];
+        const terres: [number, number][] = [];
+        for (let y = PAS / 2; y < H; y += PAS) {
+          for (let x = PAS / 2; x < L; x += PAS) {
+            const ll = versLonLat(ctx.proj, ctx.t, x, y);
+            if (!ll) continue;
+            const sur = !!terre(ll);
+            if (!sur && allumees.some((m) => contient(m.forme, m.pays.bbox, ll))) peint.push([x, y]);
+            else if (sur) terres.push([x, y]);
+          }
+        }
+        for (const [x, y] of peint) {
+          justes++;
+          const n = noter(ctx, cible, x, y, { acceptes: false });
+          if (!n.juste) ratees.push(`${cible} r ${lon} k ${k} : peint en (${x}, ${y}), noté faux (${n.pick?.id})`);
+        }
+        for (const [x, y] of terres) {
+          if (peint.some(([px, py]) => Math.hypot(px - x, py - y) <= 12) || !loinDe(ctx, x, y, allumees)) continue;
+          fausses++;
+          const n = noter(ctx, cible, x, y, { acceptes: false });
+          if (n.juste) ratees.push(`${cible} r ${lon} k ${k} : terre loin en (${x}, ${y}), notée juste (${n.pick?.id})`);
+        }
+      }
+    }
+    expect(ratees).toEqual([]);
+    expect(justes).toBeGreaterThan(40);
+    expect(fausses).toBeGreaterThan(30);
+  }, 60_000);
+});

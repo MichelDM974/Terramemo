@@ -692,14 +692,16 @@ export class CarteCanvas implements CarteAffichee {
     return this.pastilles.length;
   }
 
+  /** La couche marine y est (mers, lieux) une fois posée (prendreMers) : seule une cible marine la parcourt. */
   contexte(): ContexteCarte {
-    return { proj: this.proj, t: this.transfo, entites: this.o.donnees.entites, pastilles: this.pastilles, acceptes: acceptesDe(this.o.donnees) };
+    const d = this.o.donnees;
+    return { proj: this.proj, t: this.transfo, entites: d.entites, pastilles: this.pastilles, acceptes: acceptesDe(d), mers: d.mers, lieux: this.lieux };
   }
 
   contexteFinal(): ContexteCarte {
     const cible = this.vol?.cible;
     if (!cible) return this.contexte();
-    return { proj: projectionDe(cible.r, this.c), t: transfoDe(cible, this.c), entites: this.o.donnees.entites, pastilles: this.pastilles, acceptes: acceptesDe(this.o.donnees) };
+    return { ...this.contexte(), proj: projectionDe(cible.r, this.c), t: transfoDe(cible, this.c) };
   }
 
   pick(x: number, y: number): ResultatPick | null {
