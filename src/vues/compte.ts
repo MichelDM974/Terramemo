@@ -57,6 +57,9 @@ import { remplir, textes } from './textes';
 
 const T = textes.compte;
 
+/** Le « G » de Google, ses quatre couleurs (charte de Google), en image embarquée : ni requête ni fichier de plus. */
+const LOGO_GOOGLE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>')}`;
+
 type Ecran =
   | 'chargement'
   | 'echec'
@@ -559,9 +562,26 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     });
   }
 
-  /** La ligne sous le bouton de Google : ce que montrera la fenêtre (marque non vérifiée, D30) ; dans l'APK sans plugin, qu'il vient. */
-  function aideGoogle(): Node {
-    return creer('p', { class: 'hint', id: ident('google-aide') }, !googleOffert ? T.google_bientot : natif() ? T.google_apk : T.google_site);
+  /**
+   * La ligne de Google quand il n'est pas offert (l'APK avant le lot 7) : qu'il
+   * vient. Ailleurs, rien : la ligne « la fenêtre nommera
+   * terramemo-geo.firebaseapp.com » est retirée (demande de l'utilisateur, 12/11).
+   */
+  function aideGoogle(): Node[] {
+    return googleOffert ? [] : [creer('p', { class: 'hint', id: ident('google-aide') }, T.google_bientot)];
+  }
+
+  /**
+   * Le bouton de Google, à son style « filled_black » comme dans Light : le
+   * « G » dans un rond blanc à gauche, le texte en blanc sur une pilule sombre
+   * (demande de l'utilisateur, 12/11 : « qu'il ressemble plus à Google »).
+   */
+  function boutonGoogle(id: string, texte: string, faire: () => void): HTMLButtonElement {
+    const b = creer('button', { type: 'button', id, class: 'google' },
+      creer('span', { class: 'google-g', 'aria-hidden': 'true' }, creer('img', { src: LOGO_GOOGLE, width: '20', height: '20', alt: '' })),
+      creer('span', { class: 'google-texte' }, texte));
+    b.addEventListener('click', () => faire());
+    return b;
   }
 
   /** Déconnexion (§ 3.4) : faite, ou l'écran de ce qui n'est pas parti. */
@@ -744,7 +764,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
         return [creer('p', { class: 'hint' }, T.chargement_echec), creer('div', { class: 'essai-actions' }, bouton(ident('recharger'), T.reessayer, () => void rafraichir(), 'principal'))];
       case 'invite': {
         // Google en premier (§ 2.4, § 3.2) : ni mot de passe, ni e-mail à envoyer.
-        const google = googleOffert ? bouton(ident('google'), T.google, () => continuerGoogle('invite'), 'principal') : null;
+        const google = googleOffert ? boutonGoogle(ident('google'), T.google, () => continuerGoogle('invite')) : null;
         const versConnecter = bouton(ident('vers-connecter'), T.se_connecter_email, () => {
           effacerAvis();
           accueil?.prechauffer?.();
@@ -760,7 +780,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
         return [
           ...(accueil ? [] : [creer('p', { class: 'hint' }, T.invite)]),
           creer('div', { class: 'compte-actions' }, ...(google ? [google] : []), versConnecter, versCreer),
-          aideGoogle(),
+          ...aideGoogle(),
           // Un invité exporte aussi son journal (§ 7.2), sans « compte » ; pas au panneau de la première ouverture.
           ...(accueil ? [] : [creer('div', { class: 'compte-liens' }, ...exportDe(ident('exporter'), 'lien'))]),
         ];
@@ -1068,14 +1088,14 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
                     aller('connecter');
                   }, 'principal'),
                 ]),
-            ...(googleAussi && googleOffert ? [bouton(ident('google'), T.google_reconnecter, () => continuerGoogle('perdue'), parGoogle ? 'principal' : 'secondaire')] : []),
+            ...(googleAussi && googleOffert ? [boutonGoogle(ident('google'), T.google_reconnecter, () => continuerGoogle('perdue'))] : []),
             bouton(ident('sans-compte'), T.continuer_sans, () => {
               effacerAvis();
               aller('sans-compte');
             }),
           ),
           // Dans l'APK sans le plugin (lot 7) : un compte Google ne s'y reconnecte pas encore.
-          ...(parGoogle && !googleOffert ? [aideGoogle()] : []),
+          ...(parGoogle ? aideGoogle() : []),
           creer('div', { class: 'compte-liens' }, ...exportDe(ident('exporter'), 'lien')),
           creer(
             'div',

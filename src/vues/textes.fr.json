@@ -629,8 +629,6 @@
     "reessayer": "Réessayer",
     "invite": "Tes progrès restent sur cet appareil.",
     "google": "Continuer avec Google",
-    "google_apk": "Google affichera le nom du projet (terramemo-geo) : c'est bien Terramemo.",
-    "google_site": "La fenêtre de Google nommera le site terramemo-geo.firebaseapp.com : c'est bien Terramemo.",
     "google_bientot": "Google arrive bientôt dans l'appli. En attendant, un compte Google se retrouve sur le site : terramemo-geo.web.app.",
     "google_en_cours": "Fenêtre de Google ouverte… (fermée, les boutons reviennent en quelques secondes)",
     "google_connecte": "Connecté avec Google : {adresse}. Tes progrès vont dans ton compte.",

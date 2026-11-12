@@ -22,6 +22,13 @@
   --accent-soft: rgba(61, 114, 240, 0.14);
   --accent-text: #02050a;
   --disabled-bg: #34363c;
+  /* Le bouton de Google, à ses couleurs (style « filled_black », comme Light) :
+     hors palette, exprès, pour qu'on le reconnaisse. */
+  --google-bg: #202124;
+  --google-bg-hover: #2b2c30;
+  --google-bord: #5f6368;
+  --google-texte: #ffffff;
+  --google-rond: #ffffff;
   --shadow: rgba(0, 0, 0, 0.35);
   --popup-bg: rgba(17, 18, 20, 0.88);  /* --panel, sous ce qui flotte (popup, bulle) */
   --voile: rgba(8, 8, 9, 0.55);  /* --bg, sous un panneau qui attend un choix (écran de connexion) : la carte se voit derrière */
@@ -370,6 +377,37 @@ button.secondary {
 }
 
 button.secondary:hover { background: var(--panel-2); }
+
+/* Bouton de Google, au style « filled_black » de Google comme dans Light : pilule
+   sombre, « G » dans un rond blanc à gauche, texte blanc. Hors palette, exprès :
+   on le reconnaît comme le bouton de Google (demande de l'utilisateur, 12/11). */
+button.google {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 48px;
+  background: var(--google-bg);
+  border: 1px solid var(--google-bord);
+  border-radius: 999px;
+  color: var(--google-texte);
+}
+button.google:hover:not(:disabled) { background: var(--google-bg-hover); }
+button.google:disabled { opacity: 0.5; background: var(--google-bg); border-color: var(--google-bord); color: var(--google-texte); }
+button.google .google-g {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--google-rond);
+}
+button.google .google-g img { display: block; width: 20px; height: 20px; }
 
 /* Sélecteur segmenté : choix exclusifs d'affichage, l'actif sur un fond à peine plus
    clair (l'accent plein reste aux pages, .page-nav). */

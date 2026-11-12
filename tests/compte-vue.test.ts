@@ -183,12 +183,14 @@ describe('vue Compte', () => {
     const boutons = $('.compte-actions')!.querySelectorAll('button');
     expect(boutons.map((b) => b.id)).toEqual(['compte-google', 'compte-vers-connecter', 'compte-vers-creer']);
     expect($('#compte-google')!.textContent).toBe(T.google);
-    expect($('#compte-google')!.className).toBe(''); // le seul bouton principal, en accent
+    // Au style de Google (« filled_black », comme Light), le « G » dans son rond : on le reconnaît.
+    expect($('#compte-google')!.className).toBe('google');
+    expect($('#compte-google')!.textContent).toBe(T.google);
     expect($('#compte-vers-connecter')!.textContent).toBe(T.se_connecter_email);
     expect($('#compte-vers-connecter')!.className).toBe('secondary');
     expect($('#compte-vers-creer')!.className).toBe('secondary');
-    // La fenêtre de Google nomme le domaine de Firebase, pas Terramemo (marque non vérifiée, D30).
-    expect($('#compte-google-aide')!.textContent).toBe(T.google_site);
+    // Plus de ligne sur le domaine de Firebase sous le bouton (demande de l'utilisateur, 12/11).
+    expect($('#compte-google-aide')).toBeNull();
     expect($('#compte-synchro')!.hidden).toBe(true);
   });
 
@@ -573,7 +575,7 @@ describe('vue Compte, lot 6 : Google', () => {
     await attendre();
     await attendre();
     expect($('#compte-google')!.textContent).toBe(T.google);
-    expect($('#compte-google-aide')!.textContent).toBe(T.google_apk);
+    expect($('#compte-google-aide')).toBeNull();
   });
 
   it('un compte neuf (lien de l’invité) : « Fenêtre de Google ouverte… », puis « Connecté avec Google », puis l’écran du compte', async () => {
@@ -719,7 +721,7 @@ describe('vue Compte, lot 6 : Google', () => {
     await ouvrir(c);
     expect($('#compte-reconnecter')).toBeNull();
     expect($('#compte-google')!.textContent).toBe(T.google_reconnecter);
-    expect($('#compte-google')!.className).toBe('');
+    expect($('#compte-google')!.className).toBe('google');
     $('#compte-google')!.click();
     await attendre();
     await attendre();
@@ -732,13 +734,13 @@ describe('vue Compte, lot 6 : Google', () => {
     await ouvrir(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@gmail.com', fournisseurs: ['password', 'google.com'] }));
     expect($('.compte-actions')!.querySelectorAll('button').map((b) => b.id)).toEqual(['compte-reconnecter', 'compte-google', 'compte-sans-compte']);
     expect($('#compte-reconnecter')!.className).toBe('');
-    expect($('#compte-google')!.className).toBe('secondary');
+    expect($('#compte-google')!.className).toBe('google');
   });
 
   it('session perdue d’un compte à mot de passe : Google en second pour une adresse Gmail (Google a pu y prendre la place du mot de passe), pas pour une autre', async () => {
     await ouvrir(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'Ana@GMail.com', fournisseurs: ['password'] }));
     expect($('.compte-actions')!.querySelectorAll('button').map((b) => b.id)).toEqual(['compte-reconnecter', 'compte-google', 'compte-sans-compte']);
-    expect($('#compte-google')!.className).toBe('secondary');
+    expect($('#compte-google')!.className).toBe('google');
     zone = document.createElement('main') as unknown as El;
     await ouvrir(fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] }));
     expect($('#compte-google')).toBeNull();
@@ -1510,8 +1512,8 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     expect(c.etat).not.toHaveBeenCalled();
     expect(prechauffer).not.toHaveBeenCalled();
     expect($('.accueil-compte .compte-actions')!.querySelectorAll('button').map((b) => b.id)).toEqual(['accueil-compte-google', 'accueil-compte-vers-connecter', 'accueil-compte-vers-creer']);
-    expect($('#accueil-compte-google')!.className).toBe('');
-    expect($('#accueil-compte-google-aide')!.textContent).toBe(T.google_site);
+    expect($('#accueil-compte-google')!.className).toBe('google');
+    expect($('#accueil-compte-google-aide')).toBeNull();
     expect($('#accueil-compte-contenu')!.innerText).not.toContain(T.invite);
     expect($('#accueil-compte-exporter')).toBeNull();
     expect($('#compte-contenu')).toBeNull();

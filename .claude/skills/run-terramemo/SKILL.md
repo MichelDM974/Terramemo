@@ -1333,12 +1333,11 @@ noter avant un lien.
    2. Puis Jouer › Classé › Communes › La Réunion › Chrono, pseudo
       « Essai6 », jusqu'au bilan : la publication crée l'invité anonyme.
       Noter son uid.
-   3. ⚙ › Compte. On doit voir « Continuer avec Google » en premier,
-      en accent, et sous lui la ligne « La fenêtre de Google nommera le
-      site terramemo-geo.firebaseapp.com… ».
+   3. ⚙ › Compte. On doit voir « Continuer avec Google » en premier, au
+      style de Google (pilule sombre, « G » dans un rond blanc, comme
+      Light ; plus de ligne sur le domaine de Firebase depuis le 12/11).
    4. Toucher le bouton. **Noter ce que dit la fenêtre** (domaine ou
-      « Terramemo ») ; si la ligne ment, la corriger dans
-      `textes.fr.json` (`google_site`). **Fermer la fenêtre sans rien
+      « Terramemo »). **Fermer la fenêtre sans rien
       choisir**, et chronométrer : attendu, rien d'affiché, les boutons
       reviennent en 10 s environ ; relevé, `erreurs` finit par
       `auth/popup-closed-by-user`.
