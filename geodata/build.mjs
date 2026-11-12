@@ -12,12 +12,16 @@
 //                    tirées d'un extrait figé de Wikidata (npm run wikidata) et d'une table à la main
 //   drapeaux/<sha8>.svg, drapeaux.json, licences/flag-icons.txt  drapeaux des pays
 //                    (geodata/drapeaux.mjs, étude J2 § 2.2), tirés de flag-icons et d'une table à la main
+//   mers.topo.json, mers-leger.topo.json, mers.json, mers.fr.json  océans et mers
+//                    (geodata/mers.mjs, étude J2 § 2.3), tirés de la couche marine de Natural
+//                    Earth et d'une table à la main ; témoin geodata/mers-affectations.json
 //
-// Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales|drapeaux]
+// Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales|drapeaux|mers]
 // --seulement capitales ne refait que les capitales (sans source ni mapshaper : il lit
 // pays.json et noms.fr.json déjà construits) et leur part de sources.json ; --seulement
-// drapeaux, les drapeaux (avec leurs seules sources, et pays.json) ; tout le build donne
-// les mêmes fichiers.
+// drapeaux, les drapeaux (avec leurs seules sources, et pays.json) ; --seulement mers, les
+// mers (la source Natural Earth vérifiée, sans --maj-empreintes : c'est celle des pays) ;
+// tout le build donne les mêmes fichiers.
 // Les sources sont téléchargées dans geodata/raw/ (ignoré par git) puis vérifiées par
 // SHA-256 contre geodata/sources.lock.json ; le script refuse une empreinte différente,
 // sauf avec --maj-empreintes qui réécrit le verrou. Sans réseau si raw/ est rempli.
@@ -33,6 +37,7 @@ import mapshaper from 'mapshaper';
 import { feature, neighbors } from 'topojson-client';
 import { construireCapitales, fusionnerSources } from './capitales.mjs';
 import { construireDrapeaux, SOURCES_DRAPEAUX } from './drapeaux.mjs';
+import { construireMers, fusionnerMers, NE_MERS } from './mers.mjs';
 import { arrondi, aujourdhui, emprise, fusionnerPartie, km2, pointInterieur, polygones, R_TERRE_KM, sha256 } from './outils.mjs';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -69,7 +74,10 @@ const ILE_LEGERE_KM = 40;
 
 const NE_TAG = 'v5.1.2';
 const NE_COMMIT = 'f1890d9f152c896d250a77557a5751a93d494776';
-const NE_BASE = `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/${NE_TAG}/10m_cultural/`;
+const NE_RACINE = `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/${NE_TAG}/`;
+const NE_BASE = `${NE_RACINE}10m_cultural/`;
+// La couche marine (geodata/mers.mjs) est dans 10m_physical/, même tag et même commit.
+const NE_BASE_PHYSIQUE = `${NE_RACINE}10m_physical/`;
 const NE_PAYS = 'ne_10m_admin_0_countries';
 const NE_CONTESTEES = 'ne_10m_admin_0_disputed_areas';
 const NE_EXTENSIONS = ['shp', 'shx', 'dbf', 'prj', 'cpg'];
@@ -85,14 +93,18 @@ const UA = 'Terramemo-geodata/1.0 (+https://terramemo-geo.web.app)';
 const SOURCES = [
   {
     cle: 'natural-earth',
-    nom: 'Natural Earth, Admin 0 – Countries et Admin 0 – Breakaway, Disputed Areas (1:10m)',
+    nom: 'Natural Earth, Admin 0 – Countries, Admin 0 – Breakaway, Disputed Areas et Marine Areas (geography_marine_polys) (1:10m)',
     url: 'https://github.com/nvkelso/natural-earth-vector',
     version: `${NE_TAG} (commit ${NE_COMMIT})`,
     licence: 'Domaine public (https://www.naturalearthdata.com/about/terms-of-use/), mention facultative « Made with Natural Earth »',
-    fichiers: [NE_PAYS, NE_CONTESTEES].flatMap((base) =>
+    fichiers: [
+      [NE_PAYS, NE_BASE],
+      [NE_CONTESTEES, NE_BASE],
+      [NE_MERS, NE_BASE_PHYSIQUE],
+    ].flatMap(([base, dossier]) =>
       NE_EXTENSIONS.map((ext) => ({
         chemin: `natural-earth/${base}.${ext}`,
-        url: `${NE_BASE}${base}.${ext}`,
+        url: `${dossier}${base}.${ext}`,
       })),
     ),
   },
@@ -425,9 +437,9 @@ function regionNe(p) {
 
 // --- Capitales (geodata/capitales.mjs) -------------------------------------------
 
-// Parties qu'on peut refaire seules (--seulement) ; les mers et la notoriété s'ajouteront
-// ici (étude J2, § 2.5).
-const PARTIES = ['capitales', 'drapeaux'];
+// Parties qu'on peut refaire seules (--seulement) ; la notoriété s'ajoutera ici (étude
+// J2, § 2.5).
+const PARTIES = ['capitales', 'drapeaux', 'mers'];
 
 /** Construit et écrit les capitales ; rend ce qui va dans sources.json. */
 async function capitales() {
@@ -476,6 +488,23 @@ async function drapeaux() {
   return res;
 }
 
+// --- Océans et mers (geodata/mers.mjs) ---------------------------------------------
+
+/** Construit et écrit les mers et leur témoin ; rend ce qui va dans sources.json. */
+async function mers() {
+  console.log('Mers');
+  let res;
+  try {
+    res = await construireMers(RACINE);
+  } catch (e) {
+    echec(e.message);
+  }
+  for (const [nom, texte] of Object.entries(res.fichiers)) await ecrire(nom, texte);
+  await writeFile(join(RACINE, 'geodata', 'mers-affectations.json'), res.affectations);
+  for (const n of res.notes) console.log(`  ${n}`);
+  return res;
+}
+
 async function ecrireSources(sources) {
   await ecrire('sources.json', JSON.stringify(sources, null, 2) + '\n');
 }
@@ -492,6 +521,11 @@ async function main() {
     const avant = await lireJson(join(SORTIE, 'sources.json'));
     if (partie === 'capitales') {
       await ecrireSources(fusionnerSources(avant, await capitales()));
+    } else if (partie === 'mers') {
+      if (majEmpreintes) echec('--seulement mers sans --maj-empreintes : Natural Earth est aussi la source des pays, relancer tout le build');
+      console.log('Sources');
+      await sources(false, ['natural-earth']);
+      await ecrireSources(fusionnerMers(avant, await mers()));
     } else {
       console.log('Sources');
       await sources(majEmpreintes, SOURCES_DRAPEAUX.map((s) => s.cle));
@@ -865,7 +899,8 @@ async function main() {
   };
   const cap = await capitales();
   const drap = await drapeaux();
-  await ecrireSources(fusionnerPartie(fusionnerSources({ sources: meta, traitement }, cap), drap));
+  const mer = await mers();
+  await ecrireSources(fusionnerMers(fusionnerPartie(fusionnerSources({ sources: meta, traitement }, cap), drap), mer));
 
   // Résumé.
   const parStatut = {};

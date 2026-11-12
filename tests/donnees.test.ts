@@ -481,8 +481,11 @@ describe('noms et sources', () => {
       'geodata/drapeaux-main.json',
       'geodata/drapeaux.mjs',
       'geodata/liste.json',
+      'geodata/mers.json',
+      'geodata/mers.mjs',
       'geodata/outils.mjs',
       'geodata/revendications.json',
+      'geodata/wikidata/mers-entites.json',
     ]);
     for (const [f, h] of Object.entries(sources.traitement.entrees)) expect(empreinte(f), f).toBe(h);
   });

@@ -1,6 +1,6 @@
 {
   "natural-earth": {
-    "telecharge_le": "2026-11-04",
+    "telecharge_le": "2026-11-12",
     "fichiers": {
       "natural-earth/ne_10m_admin_0_countries.shp": "7ce119ef6342e43cff7c0c3004e0911ab7ec1988a14734372031d2012180e7bc",
       "natural-earth/ne_10m_admin_0_countries.shx": "ca19ec112d054c77bc8f7ac00e3b110d5dff32cc9bcf4cd1b8b66bdd0f611d32",
@@ -11,7 +11,12 @@
       "natural-earth/ne_10m_admin_0_disputed_areas.shx": "3d928545d18ff6b44f51b2262f0ebdb260c372f5123fad1184ae40ebcbc7474a",
       "natural-earth/ne_10m_admin_0_disputed_areas.dbf": "93064dad28997bffb3822fb320049ebd34e5d9375ab33f3b0c64a065b7df0745",
       "natural-earth/ne_10m_admin_0_disputed_areas.prj": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
-      "natural-earth/ne_10m_admin_0_disputed_areas.cpg": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+      "natural-earth/ne_10m_admin_0_disputed_areas.cpg": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+      "natural-earth/ne_10m_geography_marine_polys.shp": "222bf1611ddb9d8afa0660843e37fbd8cd6a54fbf9110db5b99fd74198389af4",
+      "natural-earth/ne_10m_geography_marine_polys.shx": "69001b6557c01a1386049420cd59714cd57b4b3d586e3cb1e9f5e7adae92d568",
+      "natural-earth/ne_10m_geography_marine_polys.dbf": "7bc656599a3ca0410479dc620e3a4202c13961efcafb797ee52145ca1c21f8f4",
+      "natural-earth/ne_10m_geography_marine_polys.prj": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+      "natural-earth/ne_10m_geography_marine_polys.cpg": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
     }
   },
   "cldr": {

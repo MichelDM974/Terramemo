@@ -1,11 +1,11 @@
 {
   "sources": [
     {
-      "nom": "Natural Earth, Admin 0 – Countries et Admin 0 – Breakaway, Disputed Areas (1:10m)",
+      "nom": "Natural Earth, Admin 0 – Countries, Admin 0 – Breakaway, Disputed Areas et Marine Areas (geography_marine_polys) (1:10m)",
       "url": "https://github.com/nvkelso/natural-earth-vector",
       "version": "v5.1.2 (commit f1890d9f152c896d250a77557a5751a93d494776)",
       "licence": "Domaine public (https://www.naturalearthdata.com/about/terms-of-use/), mention facultative « Made with Natural Earth »",
-      "telecharge_le": "2026-11-04",
+      "telecharge_le": "2026-11-12",
       "fichiers": [
         {
           "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_countries.shp",
@@ -45,6 +45,26 @@
         },
         {
           "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_cultural/ne_10m_admin_0_disputed_areas.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_physical/ne_10m_geography_marine_polys.shp",
+          "sha256": "222bf1611ddb9d8afa0660843e37fbd8cd6a54fbf9110db5b99fd74198389af4"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_physical/ne_10m_geography_marine_polys.shx",
+          "sha256": "69001b6557c01a1386049420cd59714cd57b4b3d586e3cb1e9f5e7adae92d568"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_physical/ne_10m_geography_marine_polys.dbf",
+          "sha256": "7bc656599a3ca0410479dc620e3a4202c13961efcafb797ee52145ca1c21f8f4"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_physical/ne_10m_geography_marine_polys.prj",
+          "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/10m_physical/ne_10m_geography_marine_polys.cpg",
           "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
         }
       ]
@@ -116,15 +136,27 @@
     "quantification": 1000000,
     "carte_allegee": "monde-leger.topo.json : polygones d'au moins 40 km (plus grand côté de l'emprise), -simplify visvalingam interval=15000 keep-shapes chacun à part, regroupés par id, quantification 100000",
     "entrees": {
-      "geodata/build.mjs": "66355d4257e90fcb1284854fbf44c235e1e3517510eb7b06b9b4224e848065dc",
+      "geodata/build.mjs": "956199b69a6a942c1041ddc3dbbbb44578cd6f0add6f1403104196d53f1c466d",
       "geodata/outils.mjs": "004e9d875414ed099b923d47ddfdd3c9fa8561beca16b100ea11f0bcc95cce1c",
       "geodata/liste.json": "588b387d44d605a3f2aacc875eb7c51c90f388a883afd18a3ebaa18ce4bb255a",
       "geodata/revendications.json": "6d57155ff9b36e496c88a518b4550a9055d1e84a903f23b0b1027ec27e5f0303",
       "geodata/capitales.mjs": "adb62fcc3c89b33c881c86228efae5fa7391c6b396a5ef7c009830d484da9be0",
       "geodata/capitales-main.json": "733e41cfea13a07884389ca697d6b95e4efb5b23bf11b49ad27097c08fffc00e",
       "geodata/drapeaux.mjs": "abab5c3355129f179bc3d73237db5e83547ad93ed0d8d58e64e5bb67d8a6c937",
-      "geodata/drapeaux-main.json": "68720e3d6830ede651b4bb31958379e47653096d17289bf90f81053846b4714a"
+      "geodata/drapeaux-main.json": "68720e3d6830ede651b4bb31958379e47653096d17289bf90f81053846b4714a",
+      "geodata/mers.mjs": "bc87b4841c0bd6992db199b6f738a3c19a1d6246fcadb81c969cd8c193448d27",
+      "geodata/mers.json": "656dc28192a52d520d9f5da07c295a25c74efd1ac728a7a160a968a76c384c0e",
+      "geodata/wikidata/mers-entites.json": "150754abc5e0045fda9cdfb5241f9d2254ce867f087ee3dfad28e2b86762aa9e"
     },
-    "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée"
+    "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",
+    "mers": {
+      "couche": "ne_10m_geography_marine_polys : 306 zones, 50 retenues (geodata/mers.json), les autres fondues dans la retenue de leur plus long bord commun, forcées ou exclues (geodata/mers-affectations.json)",
+      "chaine": "mapshaper 0.6.110 en topologie : antiméridien recalé à ±180 et pôle à ±90 ; -dissolve id ; -simplify visvalingam interval=10000 keep-shapes (mers.topo.json) ou visvalingam interval=50000 keep-shapes (mers-leger.topo.json) ; densifiées à 1° hors coutures, depuis la plus petite extrémité ; quantification 100000",
+      "attributs": "superficie (d3-geo geoArea × R², R = 6371.0088 km), point (pôle d'inaccessibilité du plus grand polygone), emprise et voisins sur la géométrie dissoute non simplifiée",
+      "poids_gzip": {
+        "mers.topo.json": 50703,
+        "mers-leger.topo.json": 19841
+      }
+    }
   }
 }
