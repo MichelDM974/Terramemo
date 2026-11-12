@@ -45,6 +45,7 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
 python3 .claude/skills/run-terramemo/driver.py seance             # la séance du J1a seule (ui_seance), sur un journal vide
 python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord
 python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
+python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 ```
 
 - `serve` en arrière-plan, puis les autres. `--preview` construit dans
@@ -99,17 +100,19 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   retour (la Carte, `pick` sur la Suisse = CHE).
   Chaque partie se lance par l'arbre de Jouer (décision « Écran Jouer »,
   `jouer_partie(page, mode, serie)` : `#jouer`, puis dans `#jouer-panneau`
-  `[data-branche=entrainement|classe]`, `[data-sujet=pays|capitales|drapeaux|communes]`
+  `[data-branche=entrainement|classe]`, `[data-sujet=pays|capitales|drapeaux|mers|communes]`
   (dans cet ordre, D53 b, `SUJETS_ENTRAINEMENT` du pilote ; sous Classé,
   les sujets de `EPREUVES_SUJETS` de `src/epreuve/chrono.ts`, ouverts dès
   leur livraison, sans date, décision « Ouverture des épreuves d'un
-  sujet » du 12/11 : `SUJETS_CLASSE` du pilote), `[data-serie=<id>]` (sauf l'île :
-  niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute]`,
+  sujet » du 12/11 : `SUJETS_CLASSE` du pilote, sans `mers` avant ses
+  épreuves, lot 3b partie B), `[data-serie=<id>]` (sauf l'île et les mers,
+  série unique `mers` : niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute]`,
   qui lance la partie (plus de `minute` : retiré le 12/11, décision
   « Barème et classements », #30) ; `jouer_jusqua(page, mode, serie, sujet)`
   s'arrête aux exercices, le sujet déduit de la série à défaut). Une
-  partie de capitales ou de drapeaux attend leurs données (capitales, ou le
-  seul manifeste des drapeaux : `avecSujet` : « Chargement… »
+  partie de capitales, de drapeaux ou de mers attend leurs données (capitales, le
+  seul manifeste des drapeaux, ou la couche marine lue puis posée sur la
+  carte : `avecSujet` : « Chargement… »
   au statut `.jouer-statut`, puis la barre). Plus de départ dans Toucher ni dans les épreuves :
   `#toucher` ou `#chrono` sans partie renvoie à Jouer. Puis l'en-tête
   (décision « En-tête ») : `16-recherche` (« sain » : pays et communes mêlés),
@@ -128,8 +131,8 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   Enfin l'arbre de Jouer (#18), après les épreuves pour en avoir les
   records : `15-jouer` (Entraînement et Classé ; plus de « Rejouer » ici,
   il ne vit qu'au bilan ; `DÉFAUT` si Entraînement n'a pas Pays, Capitales,
-  Drapeaux, Communes dans cet ordre), `15b-classe-sujets` (Pays,
-  Capitales, Drapeaux, Communes),
+  Drapeaux, Océans et mers, Communes dans cet ordre), `15b-classe-sujets` (Pays,
+  Capitales, Drapeaux, Communes : pas les mers avant leurs épreuves),
   `15c-classe-pays-series` (Tous les pays puis les six continents),
   `15d-classe-pays-ams-epreuves` (Chrono et Sans faute, jamais Minute,
   leurs records en « justes/total · P % », P tronqué ; les règles ouvertes
@@ -257,7 +260,7 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   « invite » reposé et le pseudo retiré.
 - Le sujet Capitales (lot 1 du J2, #4, `ui_capitales`, avant `ui_seance`,
   sur une page rechargée) : `80-capitales-sujets` (Entraînement : Pays,
-  Capitales, Drapeaux, Communes ; la vignette des capitales en points,
+  Capitales, Drapeaux, Océans et mers, Communes ; la vignette des capitales en points,
   `.vignette-points`, rangée dans le code), `81-capitales-series` (les 7
   séries des pays, « 54 capitales »), `82-capitales-oceanie-exercices`
   (Apprendre, Trouver, Reconnaître ; toujours rien de `/geo/capitales*`
@@ -284,7 +287,7 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   `ui_capitales` et avant `ui_seance`, sur une page rechargée ; seul :
   `driver.py drapeaux`, profil neuf, l'écran de connexion passé en invité
   par `Session.passer_accueil`) : `100-drapeaux-sujets` (Entraînement :
-  Pays, Capitales, Drapeaux, Communes ; l'icône du sujet,
+  Pays, Capitales, Drapeaux, Océans et mers, Communes ; l'icône du sujet,
   `.vignette-icone`, D53 a), `101-drapeaux-series` (les 7 séries des pays,
   « 54 drapeaux »), `102-drapeaux-afrique-exercices` (Apprendre, Trouver,
   Reconnaître ; le « ? », `#jouer-aide`, dit les exercices visuels ;
@@ -310,12 +313,48 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   Sud › Apprendre »), `108-drapeaux-apprendre-qcm`,
   `109-drapeaux-apprendre-bilan` (le journal ne gagne que des fiches
   `drapeaux:`) ; `110-drapeaux-memoire` (carte de la mémoire :
-  `#legende-sujet` Pays, Capitales, Drapeaux ; Drapeaux choisi, un pays de
+  `#legende-sujet` Pays, Capitales, Drapeaux, Mers (`SUJETS_MEMOIRE`) ; Drapeaux choisi, un pays de
   la grappe touché, « Drapeau : vu N fois · revient… » ; Pays remis
   ensuite pour `ui_seance`). `DÉFAUT` à tout écart (pays nommé avant la
   réponse par un texte, un alt, un title ou un aria-label, drapeau non
   chargé ou débordant, fond vert ou rouge, conseil, bilan, fiche hors
   `drapeaux:`). Sa grappe finie laisse la Révision du jour « À jour ».
+- Le sujet Océans et mers (lot 3b du J2, partie A, #27, `ui_mers`, après
+  `ui_drapeaux` et avant `ui_seance`, sur une page rechargée ; seul :
+  `driver.py mers`, profil neuf, l'écran de connexion passé en invité) :
+  `120-mers-sujets` (Entraînement : Pays, Capitales, Drapeaux, Océans et
+  mers, Communes ; « 50 océans et mers » ; la vignette des mers éclairées,
+  `.vignette-eaux`, rangée dans le code), `121-mers-exercices` (la série
+  unique sautée : Apprendre, Trouver, Reconnaître ; toujours rien de
+  `/geo/mers*` chargé ; pas de mers sous Classé avant leurs épreuves) ;
+  l'accueil : le Brésil touché ne charge rien de marin, puis
+  `122-mers-accueil-eau` (l'eau touchée au milieu de la carte : le nom de
+  la mer, par la **couche légère seule**, `mers-leger.topo.json`,
+  `mers.json`, `mers.fr.json`, jamais `mers.topo.json` ; aucune zone
+  teintée) ; `123-mers-recherche` (« Manche » : « bras de mer ») et
+  `124-mers-recherche-manche` (la Manche nommée, cadrée par son emprise,
+  allumée ; la couche fine chargée) ; Trouver sur les 50 zones
+  (`toucher_mer` : le point où `terramemo.carte.noter(id, x, y)` est juste,
+  la carte cadrée sur la zone, `zoomerSur`, si elle n'est pas à l'écran ;
+  les autres questions passées) : `125-mers-trouver-egee` (« Touche : mer
+  Égée », trouvée), `126-mers-trouver-partie` (une partie touchée, la mer
+  des Caraïbes pour l'Atlantique… : « Juste : mer des Caraïbes, dans
+  l'Atlantique »), `127-mers-trouver-faux` (la mer Noire touchée :
+  « Faux : mer Noire, à … du bord »), `128-mers-trouver-bilan` (par les
+  noms, jamais un id) ; Reconnaître : `129-mers-reconnaitre` (« Quelle est
+  cette mer ? » ou « Quel est cet océan ? », quatre noms de
+  `mers.fr.json`, la zone cadrée au-dessus de la barre),
+  `130-mers-reconnaitre-faux` (« Faux · bonne réponse : … »), puis
+  « Terminer » et son bilan ; Apprendre (la grappe « Océans », sans
+  conseil de prérequis) : `131-mers-apprendre-qcm`, `132-mers-apprendre-bilan`
+  (« Apprendre · Océans et mers » ; le journal ne gagne que des fiches
+  `mers:`) ; `133-mers-memoire` (carte de la mémoire « Mers » : ses zones
+  teintées, « n/50 maîtrisées », le Pacifique touché : « océan Pacifique ·
+  Vu N fois · revient… » ; Pays remis ensuite). `DÉFAUT` à tout écart
+  (id brut affiché, consigne, rétroaction, bilan, `mers*` chargé au
+  premier affichage, à l'ouverture de Jouer ou au toucher d'un pays,
+  `mers.topo.json` lu à l'accueil, fiche hors `mers:`). Sa grappe finie
+  laisse la Révision du jour « À jour ».
 - Les épreuves classées des capitales (lot 1 du J2, partie C,
   `ui_epreuves_capitales`, après `ui_seance`) : sur une page rechargée
   (sans le `?horloge=1` de la séance), au serveur de développement
@@ -392,7 +431,8 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   (le driver y ajoute `&rendu=…`), avec `--out` à part pour ne pas
   écraser le rapport du jour sans teintes.
 - Océans et mers (#27, lot 3a) : la couche marine n'est jamais chargée au
-  premier affichage (`smoke` : « rien des mers au premier affichage »).
+  premier affichage (`smoke` : « rien des mers au premier affichage »), ni
+  à l'ouverture de Jouer, ni pour un toucher sur un pays (lot 3b, `ui_mers`).
   `?mers=demo` la charge juste après, la pose et teinte chaque zone d'un
   seau tiré de son id (le calque marin tracé par la couche de base : la
   carte de la mémoire des mers) ; `?mer=pacif` la charge et allume une zone

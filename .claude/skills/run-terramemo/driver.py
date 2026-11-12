@@ -12,7 +12,7 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
     ui [--width 384] [--rendu r]
                                 captures des vues (téléphone ou PC), île
                                 de La Réunion et Nommer compris, séance
-                                du J1a, capitales et drapeaux, puis les
+                                du J1a, capitales, drapeaux et mers, puis les
                                 épreuves des capitales et des drapeaux
                                 et l'écran de connexion
     seance [--width 384]        la séance du J1a seule (Révision du jour,
@@ -20,6 +20,8 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
     accueil [--width 384]       l'écran de connexion de la première ouverture
                                 seul (ui_accueil, aussi en fin de ui)
     drapeaux [--width 384]      le sujet Drapeaux seul (ui_drapeaux, aussi
+                                dans ui), sur un profil neuf
+    mers [--width 384]          le sujet Océans et mers seul (ui_mers, aussi
                                 dans ui), sur un profil neuf
     mesurer --cible local|chrome|webview [--rendu canvas|webgl|g|css]
                                 gestes et touchers rejoués par DevTools,
@@ -111,10 +113,14 @@ FICHIERS_GEO_CAPITALES = ("capitales.json", "capitales.fr.json")
 # rien au premier affichage ni à l'ouverture de Jouer (l'icône du sujet est
 # dessinée) ; smoke et ui_drapeaux le vérifient.
 FICHIERS_GEO_DRAPEAUX = ("drapeaux.json",)
-# Les océans et mers (lot 3a du J2, #27) : la couche marine, chargée à la
-# demande (src/map/mers.ts, chargerMers : premier toucher en mer à l'accueil,
-# sujet des mers, séance qui en a, recherche, ?mers=demo), jamais au premier
-# affichage (étude J2, § 2.3) ; smoke le vérifie.
+# Les océans et mers (lots 3a et 3b du J2, #27) : la couche marine, chargée à
+# la demande (src/map/mers.ts) : la fine (chargerMers : sujet des mers, séance
+# qui en a, une mer choisie dans la recherche, mémoire des mers, ?mers=demo),
+# la légère seule au premier toucher en mer à l'accueil (D45 a : sans
+# mers.topo.json), mers.json et mers.fr.json à la première frappe dans la
+# recherche ; jamais au premier affichage ni à l'ouverture de Jouer (étude J2,
+# § 2.3 ; la vignette du sujet est rangée dans le code) ; smoke et ui_mers le
+# vérifient.
 FICHIERS_GEO_MERS = ("mers.topo.json", "mers-leger.topo.json", "mers.json", "mers.fr.json")
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
@@ -1099,11 +1105,15 @@ def part_juste(m):
 SERIES_PAYS = ["tous", "Africa", "North America", "South America", "Asia", "Europe", "Oceania"]
 # Les sujets de Classé, ceux de EPREUVES_SUJETS (src/epreuve/chrono.ts ; décision « Ouverture des épreuves
 # d'un sujet », 12/11 : ouverts dès leur livraison, sans date), dans l'ordre de D53 b (Communes en dernier).
+# Océans et mers n'y est pas avant ses épreuves (lot 3b, partie B).
 SUJETS_CLASSE = ["pays", "capitales", "drapeaux", "communes"]
 
 
-# Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 2 du J2.
-SUJETS_ENTRAINEMENT = ["pays", "capitales", "drapeaux", "communes"]
+# Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 3b du J2 (Océans et mers).
+SUJETS_ENTRAINEMENT = ["pays", "capitales", "drapeaux", "mers", "communes"]
+NOMS_ENTRAINEMENT = "Pays, Capitales, Drapeaux, Océans et mers, Communes"
+# Le choix du sujet de la carte de la mémoire du monde (D47 a), depuis le lot 3b.
+SUJETS_MEMOIRE = ["pays", "capitales", "drapeaux", "mers"]
 
 
 def niveau_jouer(page):
@@ -1411,8 +1421,9 @@ def ui_croix(p, capturer, defauts):
 def ui_jouer(p, capturer, defauts):
     """Captures 15 à 15e (décision « Écran Jouer », #18) : l'arbre de Jouer,
     après les épreuves (records de l'Amérique du Sud). Sujets : Pays,
-    Capitales, Drapeaux, Communes sous Entraînement et sous Classé
-    (SUJETS_CLASSE).
+    Capitales, Drapeaux, Océans et mers, Communes sous Entraînement
+    (SUJETS_ENTRAINEMENT) ; sous Classé, sans Océans et mers avant ses
+    épreuves (SUJETS_CLASSE).
     `15-jouer` (Entraînement et Classé, sans Rejouer), `15b-classe-sujets`,
     `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
     ams-epreuves` (les deux épreuves, Chrono et Sans faute, sans Minute,
@@ -1440,7 +1451,7 @@ def ui_jouer(p, capturer, defauts):
     # Les sujets, dans l'ordre de D53 b (Communes en dernier), sous Entraînement comme sous Classé.
     cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
     if lire("data-sujet") != SUJETS_ENTRAINEMENT:
-        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de Pays, Capitales, Drapeaux, Communes")
+        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de {NOMS_ENTRAINEMENT}")
     cliquer(p, "#jouer-haut")
     p.pause(300)
     cliquer(p, '#jouer-panneau [data-branche="classe"]')
@@ -1994,6 +2005,8 @@ def commande_ui(args):
         ui_capitales(p, capturer, defauts, base, rendu)
         # De même, sa grappe de drapeaux (Amérique du Sud) finie.
         ui_drapeaux(p, capturer, defauts, base, rendu, ecran, telephone)
+        # De même, sa grappe des océans finie (sur une page rechargée : l'accueil sans couche marine d'abord).
+        ui_mers(p, capturer, defauts, base, rendu)
         ui_seance(p, capturer, defauts, base, rendu)
         # Après la séance (son ?horloge= décale le journal) : chaque étape recharge la page sans.
         ui_epreuves_capitales(p, capturer, defauts, base, rendu)
@@ -2089,12 +2102,15 @@ def cliquer_apres_pause(p, selecteur):
     cliquer(p, selecteur)
 
 
-def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, arret_qcm=False, captures=None):
+def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, arret_qcm=False, captures=None, toucher=None):
     """Joue la séance affichée jusqu'au bilan ; rend le nombre de réponses
     (une par question finie : le journal en a autant). connu : « Je connais
     déjà » au premier QCM ; rater_rappel : premier rappel touché faux (puis
     juste) ; arret_qcm : « Terminer » au premier QCM (la grappe suivante
-    n'est pas jouée). captures : {forme ou 'rappel': nom} prises une fois."""
+    n'est pas jouée). captures : {forme ou 'rappel': nom} prises une fois.
+    toucher(p, cible) : le toucher d'un rappel (toucher_pays par défaut ;
+    toucher_mer pour une séance des mers)."""
+    toucher = toucher or toucher_pays
     captures = dict(captures or {})
     reponses = 0
     deja_connu = deja_rate = False
@@ -2171,7 +2187,7 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
                     defauts.append(f"{quoi} : un toucher faux au rappel ne dit pas « Faux » ({retro!r})")
                 if "faux" in captures:
                     capturer(captures.pop("faux"))
-            toucher_pays(p, cible)
+            toucher(p, cible)
             p.pause(250)
             retro = texte(p, "#barre-essai .essai-retro")
             if "Juste" not in retro:
@@ -2242,7 +2258,7 @@ def ui_capitales(p, capturer, defauts, base, parametres=""):
     cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
     sujets = p.js("[...document.querySelectorAll('#jouer-panneau [data-sujet]')].map(b => b.dataset.sujet)")
     if sujets != SUJETS_ENTRAINEMENT:
-        defauts.append(f"Entraînement : sujets {sujets} au lieu de Pays, Capitales, Drapeaux, Communes")
+        defauts.append(f"Entraînement : sujets {sujets} au lieu de {NOMS_ENTRAINEMENT}")
     if not p.js("!!document.querySelector('#jouer-panneau [data-sujet=\"capitales\"] .vignette-points')"):
         defauts.append("Capitales sans sa vignette (le monde et ses capitales en points)")
     panneau_jouer(p, defauts, "Entraînement (Capitales)")
@@ -2408,7 +2424,7 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
     """Captures 100 à 110 (lot 2 du J2, partie B, #4 ; étude § 5.3, 6.4, 7.2) :
     le sujet Drapeaux en Entraînement, sur une page rechargée. Rien de
     drapeaux* au premier affichage ni à l'ouverture de Jouer ; Jouer :
-    Pays, Capitales, Drapeaux, Communes sous Entraînement, l'icône du sujet,
+    Pays, Capitales, Drapeaux, Océans et mers, Communes sous Entraînement, l'icône du sujet,
     « 54 drapeaux », le « ? » des exercices visuels ; Drapeaux sous Classé
     aussi (ses épreuves : ui_epreuves_drapeaux). Trouver sur l'Amérique du Sud joué
     jusqu'au bilan (« Pays de ce drapeau : » et le drapeau, alt « Drapeau à
@@ -2419,7 +2435,7 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
     au-dessus de la barre, une faute : contour rouge sans fond, « tu avais
     choisi ») ; Apprendre sur l'Amérique du Sud (le conseil de D39 b, puis la
     grappe jusqu'au bilan) ; le journal en drapeaux: seulement ; la carte de
-    la mémoire (Pays, Capitales, Drapeaux, « Drapeau : vu 1 fois »). DÉFAUT
+    la mémoire (Pays, Capitales, Drapeaux, Mers, « Drapeau : vu 1 fois »). DÉFAUT
     à tout écart."""
     p.goto("about:blank")
     p.goto(base + "?mesures=0" + parametres + "#carte")
@@ -2444,7 +2460,7 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
     attendre_visible(p, "#jouer-panneau")
     cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
     if lire("data-sujet") != SUJETS_ENTRAINEMENT:
-        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de Pays, Capitales, Drapeaux, Communes")
+        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de {NOMS_ENTRAINEMENT}")
     if not p.js("!!document.querySelector('#jouer-panneau [data-sujet=\"drapeaux\"] .vignette-icone')"):
         defauts.append("Drapeaux sans son icône (D53 a)")
     panneau_jouer(p, defauts, "Entraînement (Drapeaux)")
@@ -2610,10 +2626,10 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
     cliquer_apres_pause(p, "#seance-carte")
     p.pause(400)
 
-    # La carte de la mémoire : Pays, Capitales, Drapeaux au choix ; un pays de la grappe touché (« Drapeau : vu 1 fois · … »).
+    # La carte de la mémoire : Pays, Capitales, Drapeaux, Mers au choix ; un pays de la grappe touché (« Drapeau : vu 1 fois · … »).
     sujets = p.js("[...document.querySelectorAll('#legende-sujet option')].map(o => o.value)")
-    if sujets != ["pays", "capitales", "drapeaux"]:
-        defauts.append(f"carte de la mémoire : sujets {sujets} au lieu de Pays, Capitales, Drapeaux")
+    if sujets != SUJETS_MEMOIRE:
+        defauts.append(f"carte de la mémoire : sujets {sujets} au lieu de Pays, Capitales, Drapeaux, Mers")
     else:
         p.js("(() => { const s = document.getElementById('legende-sujet'); s.value = 'drapeaux'; s.dispatchEvent(new Event('change')); })()")
         p.pause(300)
@@ -2634,6 +2650,323 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
                 defauts.append(f"carte de la mémoire : {ident} touché sans « Drapeau : vu N fois · revient… » ({barre!r})")
             capturer("110-drapeaux-memoire")
         # Le choix gardé sur l'appareil : Pays de nouveau, pour la suite (ui_seance, ui_memoire).
+        p.js("(() => { const s = document.getElementById('legende-sujet'); s.value = 'pays'; s.dispatchEvent(new Event('change')); })()")
+        p.pause(200)
+
+
+# --- Le sujet Océans et mers (lot 3b du J2, partie A, #27) ---------------------
+
+def ressources_mers(p):
+    """Les fichiers /geo/mers* chargés par la page (sans le dossier)."""
+    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/mers')).map(n => n.split('/').pop().split('?')[0])")
+
+
+def position_mer(p, ident, barre="#barre-essai"):
+    """Où toucher la zone marine `ident` pour qu'elle soit notée juste, dans
+    la partie visible de la carte (au-dessus de la barre) : son point
+    d'étiquette (ecran) si noter() l'y dit juste, sinon le premier point
+    d'une grille de 12 px où il l'est ; None sinon. La couche marine doit
+    être posée (une partie ou une séance de mers : noter lève avant)."""
+    return p.js(f"""(() => {{
+      const c = window.terramemo.carte, r = c.rect();
+      const b = document.querySelector({json.dumps(barre)});
+      const bas = b && !b.hidden ? b.getBoundingClientRect().top : r.y + r.hauteur;
+      const dans = q => q && q.x >= r.x && q.x <= r.x + r.largeur && q.y >= r.y && q.y <= bas;
+      const juste = q => {{ try {{ return c.noter("{ident}", q.x, q.y).juste; }} catch (e) {{ return false; }} }};
+      const q = c.ecran("{ident}");
+      if (dans(q) && juste(q)) return q;
+      for (let y = r.y + 6; y < bas; y += 12)
+        for (let x = r.x + 6; x < r.x + r.largeur; x += 12)
+          if (juste({{x, y}})) return {{x, y}};
+      return null; }})()""")
+
+
+def toucher_mer(p, ident, barre="#barre-essai"):
+    """Touche la zone marine `ident` là où elle est juste ; la carte cadrée
+    sur elle d'abord (zoomerSur : son emprise) si elle n'est pas à l'écran."""
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    pt = position_mer(p, ident, barre)
+    if not pt:
+        p.js(f'window.terramemo.carte.zoomerSur("{ident}")')
+        attendre_fin_vol(p)
+        pt = position_mer(p, ident, barre)
+    if not pt:
+        raise RuntimeError(f"pas de position pour la mer {ident}")
+    p.toucher(pt["x"], pt["y"])
+
+
+def ui_mers(p, capturer, defauts, base, parametres=""):
+    """Captures 120 à 133 (lot 3b du J2, partie A, #27 ; étude § 5.4, 6, 7.2,
+    7.3 ; D44 a, D45 a, D47 a) : le sujet Océans et mers en Entraînement, sur
+    une page rechargée. Rien de mers* au premier affichage ni à l'ouverture
+    de Jouer ; Jouer : Pays, Capitales, Drapeaux, Océans et mers, Communes
+    sous Entraînement (sous Classé, pas avant ses épreuves), la vignette des
+    mers éclairées, « 50 océans et mers », la série unique sautée ; à
+    l'accueil, un pays touché ne charge rien de marin, l'eau touchée donne le
+    nom de la mer par la couche légère seule (jamais mers.topo.json), sans
+    rien dessiner ; la recherche « Manche » (« bras de mer ») cadre et
+    allume la Manche ; Trouver (« Touche : » et un nom, jamais l'id ; la mer
+    Égée trouvée ; une partie touchée : « Juste : …, dans … » ; une autre mer
+    touchée : « Faux : mer …, à … du bord » ; le bilan par les noms) ;
+    Reconnaître (« Quelle est cette mer ? » ou « Quel est cet océan ? »,
+    quatre noms, une faute, le bilan) ; Apprendre jusqu'au bilan (la grappe
+    « Océans ») ; le journal en mers: seulement ; la carte de la mémoire
+    « Mers » (ses zones teintées, « n/50 maîtrisées », un océan touché : sa
+    mémoire). DÉFAUT à tout écart."""
+    p.goto("about:blank")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    if ressources_mers(p):
+        defauts.append(f"mers* chargé au premier affichage : {ressources_mers(p)}")
+    fiches_avant = collections.Counter(p.js(FICHES_JOURNAL) or [])
+    _, _, corps = http(base + "geo/mers.fr.json")
+    noms = json.loads(corps)["noms"]
+    ids = set(noms)
+    # Les zones qui ont des parties, et l'une d'elles (Note.admis, « dans … ») ; une mer intérieure, jamais une partie de l'Atlantique.
+    PARTIES = {"atlant": "caraibes", "pacif": "japon", "indien": "arabie", "arctique": "kara", "medit": "adriat",
+               "noire": "azov", "baltique": "botnie", "barents": "blanche", "chinemer": "thailand"}
+
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def sans_id(quoi, t):
+        vus = sorted(i for i in ids if re.search(rf"(?<![\w']){re.escape(i)}(?![\w'])", t or ""))
+        if vus:
+            defauts.append(f"{quoi} : un id brut affiché ({vus} dans {t!r})")
+
+    # Jouer › Entraînement : Océans et mers, sa vignette (rangée dans le code), « 50 océans et mers ».
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    if lire("data-sujet") != SUJETS_ENTRAINEMENT:
+        defauts.append(f"Entraînement : sujets {lire('data-sujet')} au lieu de {NOMS_ENTRAINEMENT}")
+    tuile = texte(p, '#jouer-panneau [data-sujet="mers"]')
+    if "Océans et mers" not in tuile or "50 océans et mers" not in tuile:
+        defauts.append(f"tuile Océans et mers : {tuile!r} (« 50 océans et mers » attendu)")
+    if not p.js("!!document.querySelector('#jouer-panneau [data-sujet=\"mers\"] .vignette-eaux')"):
+        defauts.append("Océans et mers sans sa vignette (les mers éclairées, D53 a)")
+    panneau_jouer(p, defauts, "Entraînement (Océans et mers)")
+    capturer("120-mers-sujets")
+    cliquer(p, '#jouer-panneau [data-sujet="mers"]')
+    # Une seule série (D44 a) : son niveau sauté, comme Communes.
+    if niveau_jouer(p) != "exercices" or lire("data-mode") != ["apprendre", "localiser", "nommer"]:
+        defauts.append(f"Océans et mers : niveau {niveau_jouer(p)}, exercices {lire('data-mode')} (la série sautée, Apprendre, Trouver, Reconnaître attendus)")
+    capturer("121-mers-exercices")
+    if ressources_mers(p):
+        defauts.append(f"mers* chargé à l'ouverture de Jouer : {ressources_mers(p)}")
+    p.js('location.hash = "#jouer/classe"')
+    p.pause(300)
+    if "mers" in lire("data-sujet"):
+        defauts.append("Classé : Océans et mers proposé avant ses épreuves (partie B)")
+
+    # L'accueil : un pays touché ne charge rien de marin ; l'eau, le nom de la mer par la couche légère seule.
+    p.js('location.hash = "#carte"')
+    p.pause(300)
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+    p.pause(300)
+    pt = position(p, "BRA")
+    p.toucher(pt["x"], pt["y"])
+    p.pause(400)
+    if ressources_mers(p):
+        defauts.append(f"un pays touché à l'accueil charge mers* : {ressources_mers(p)}")
+    eau = p.js("""(() => { const c = window.terramemo.carte, r = c.rect(), b = document.getElementById('barre-carte').getBoundingClientRect();
+        const x = r.x + r.largeur / 2;
+        for (let y = r.y + r.hauteur * 0.55; y < Math.min(b.top, r.y + r.hauteur) - 6; y += 6) if (!c.pick(x, y)) return {x, y};
+        for (let y = r.y + r.hauteur * 0.45; y > r.y + 6; y -= 6) if (!c.pick(x, y)) return {x, y};
+        return null; })()""")
+    if not eau:
+        defauts.append("accueil : aucun point d'eau trouvé au milieu de la carte")
+    else:
+        p.pause(PAUSE_AVANT_TOUCHER_MS)
+        p.toucher(eau["x"], eau["y"])
+        fin = time.monotonic() + 8
+        while time.monotonic() < fin and texte(p, "#barre-carte .barre-nom") not in noms.values():
+            p.pause(100)
+        nom = texte(p, "#barre-carte .barre-nom")
+        lus = ressources_mers(p)
+        dire(f"  accueil, l'eau touchée : {nom!r} ; lu {lus}")
+        if nom not in noms.values():
+            defauts.append(f"accueil : l'eau touchée sans le nom de la mer ({nom!r})")
+        if "mers.topo.json" in lus or sorted(set(lus)) != ["mers-leger.topo.json", "mers.fr.json", "mers.json"]:
+            defauts.append(f"accueil : {lus} lus (la couche légère seule attendue : mers-leger.topo.json, mers.json, mers.fr.json)")
+        if p.js("window.terramemo.carte.teintes()"):
+            defauts.append("accueil : des zones teintées sans la carte de la mémoire des mers")
+        capturer("122-mers-accueil-eau")
+
+    # La recherche « Manche » : « bras de mer », puis la Manche cadrée et allumée.
+    p.js('document.getElementById("recherche-champ").focus()')
+    p.cdp("Input.insertText", text="Manche")
+    fin = time.monotonic() + 8
+    while time.monotonic() < fin and "bras de mer" not in texte(p, "#recherche-liste"):
+        p.pause(100)
+    liste = texte(p, "#recherche-liste")
+    dire(f"  recherche « Manche » : {liste!r}")
+    if "bras de mer" not in liste:
+        defauts.append(f"recherche « Manche » sans « bras de mer » : {liste!r}")
+    capturer("123-mers-recherche")
+    avant = p.js("window.terramemo.carte.transfo().k")
+    p.js("""[...document.querySelectorAll('#recherche-liste [role="option"]')].find(o => o.dataset.id === 'manche')?.click()""")
+    fin = time.monotonic() + 8
+    while time.monotonic() < fin and texte(p, "#barre-carte .barre-nom") != "Manche":
+        p.pause(100)
+    attendre_fin_vol(p)
+    barre = texte(p, "#barre-carte")
+    k = p.js("window.terramemo.carte.transfo().k")
+    dire(f"  recherche → Manche : {barre!r}, zoom {avant:.2f} → {k:.2f}")
+    if not barre.startswith("Manche") or k <= avant:
+        defauts.append(f"recherche « Manche » : {barre!r}, zoom {avant:.2f} → {k:.2f} (la Manche nommée, cadrée attendue)")
+    if "mers.topo.json" not in ressources_mers(p):
+        defauts.append("recherche « Manche » : la couche fine pas chargée (pour allumer la zone)")
+    capturer("124-mers-recherche-manche")
+
+    # Trouver : 50 zones dans le désordre ; la mer Égée trouvée, une partie touchée, une autre mer touchée, puis « Terminer ».
+    jouer_partie(p, "localiser", "mers", "mers")
+    p.pause(300)
+    egee = partie = faux = False
+    for _ in range(52):
+        if visible(p, "#essai-bilan") or (egee and partie and faux):
+            break
+        cible = p.js('document.querySelector("#barre-essai .essai-consigne").dataset.cible')
+        consigne = texte(p, "#barre-essai .essai-consigne")
+        sans_id("Trouver sous Mers", texte(p, "#barre-essai"))
+        if consigne != f"Touche : {noms.get(cible)}":
+            defauts.append(f"Trouver sous Mers, {cible} : consigne {consigne!r}")
+        retro = ""
+        if cible == "egee" and not egee:
+            capturer("125-mers-trouver-egee")
+            toucher_mer(p, "egee")
+            p.pause(250)
+            retro = texte(p, "#barre-essai .essai-retro")
+            dire(f"  Mers, Trouver la mer Égée : {retro!r}")
+            if not retro.startswith("Juste"):
+                defauts.append(f"Trouver la mer Égée : {retro!r}")
+            egee = True
+        elif cible in PARTIES and not partie:
+            z = PARTIES[cible]
+            toucher_mer(p, z)
+            p.pause(250)
+            retro = texte(p, "#barre-essai .essai-retro")
+            dire(f"  Mers, Trouver {cible}, {z} touchée : {retro!r}")
+            if not re.match(rf"Juste : {re.escape(noms[z])}, dans ", retro):
+                defauts.append(f"Trouver {noms.get(cible)}, {noms[z]} touchée : {retro!r} (« Juste : {noms[z]}, dans … » attendu)")
+            capturer("126-mers-trouver-partie")
+            partie = True
+        elif not faux and cible not in ("noire", "azov", "medit", "atlant") and cible != "egee":
+            # La mer Noire : jamais une partie ni ce qu'allume une autre cible que celles-là.
+            toucher_mer(p, "noire")
+            p.pause(250)
+            retro = texte(p, "#barre-essai .essai-retro")
+            dire(f"  Mers, Trouver {cible}, la mer Noire touchée : {retro!r}")
+            if not retro.startswith("Faux : mer Noire, à "):
+                defauts.append(f"Trouver {noms.get(cible)}, la mer Noire touchée : {retro!r} (« Faux : mer Noire, à … du bord » attendu)")
+            capturer("127-mers-trouver-faux")
+            faux = True
+            cliquer_apres_pause(p, "#essai-passer")
+            p.pause(300)
+            continue
+        else:
+            cliquer_apres_pause(p, "#essai-passer")
+            p.pause(300)
+            continue
+        if retro.startswith("Juste"):
+            p.pause(1300)
+        else:
+            cliquer_apres_pause(p, "#essai-passer")
+            p.pause(300)
+    if not (egee and partie and faux):
+        defauts.append(f"Trouver sous Mers : Égée {egee}, partie {partie}, faux {faux} (les trois attendus)")
+    if not visible(p, "#essai-bilan"):
+        cliquer_apres_pause(p, "#essai-terminer")
+        attendre_visible(p, "#essai-bilan")
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Mers, Trouver, bilan : {bilan[:200]!r}")
+    sans_id("bilan de Trouver sous Mers", bilan)
+    if "Océans et mers" not in bilan:
+        defauts.append(f"bilan de Trouver sous Mers sans « Océans et mers » : {bilan[:200]!r}")
+    capturer("128-mers-trouver-bilan")
+
+    # Reconnaître : trois questions, une faute, puis « Terminer ».
+    jouer_partie(p, "nommer", "mers", "mers")
+    for k in range(3):
+        attendre_fin_vol(p)
+        cible = p.js('document.querySelector("#barre-nommer .essai-consigne").dataset.cible')
+        consigne = texte(p, "#barre-nommer .essai-consigne")
+        boutons = p.js("[...document.querySelectorAll('#barre-nommer .nommer-choix')].map(b => [b.dataset.id, b.innerText.trim()])")
+        if consigne not in ("Quelle est cette mer ?", "Quel est cet océan ?") or len(boutons) != 4:
+            defauts.append(f"Reconnaître sous Mers : consigne {consigne!r}, choix {boutons}")
+        if any(t != noms.get(i) for i, t in boutons):
+            defauts.append(f"Reconnaître sous Mers : un choix sans son nom ({boutons})")
+        sans_id("Reconnaître sous Mers", texte(p, "#barre-nommer"))
+        verifier_cadrage(p, defauts, f"Reconnaître sous Mers ({cible})")
+        if k == 0:
+            dire(f"  Mers, Reconnaître ({cible}) : {consigne!r}, {[t for _, t in boutons]}")
+            capturer("129-mers-reconnaitre")
+        choisi = next(i for i, _ in boutons if i != cible) if k == 1 else cible
+        cliquer_apres_pause(p, f'#barre-nommer .nommer-choix[data-id="{choisi}"]')
+        p.pause(200)
+        retro = texte(p, "#barre-nommer .essai-retro")
+        if k == 1:
+            dire(f"  Mers, Reconnaître, faux : {retro!r}")
+            if retro != f"Faux · bonne réponse : {noms.get(cible)}":
+                defauts.append(f"Reconnaître sous Mers, faux : {retro!r}")
+            capturer("130-mers-reconnaitre-faux")
+        p.pause(1900)
+    cliquer_apres_pause(p, "#nommer-terminer")
+    attendre_visible(p, "#essai-bilan")
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Mers, Reconnaître, bilan : {bilan!r}")
+    sans_id("bilan de Reconnaître sous Mers", bilan)
+    if "tu as choisi" not in bilan:
+        defauts.append(f"bilan de Reconnaître sous Mers sans sa faute : {bilan!r}")
+
+    # Apprendre : la grappe « Océans », jusqu'au bilan ; aucun prérequis (pas de conseil).
+    jouer_jusqua(p, "apprendre", "mers", "mers")
+    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
+    attendre_question(p, delai_s=15)
+    if p.js("!!document.getElementById('seance-commencer')"):
+        defauts.append("Apprendre sous Mers : un conseil de prérequis (D39 : rien pour les mers)")
+        cliquer_apres_pause(p, "#seance-commencer")
+    jouer_seance(p, capturer, defauts, "Apprendre Mers", captures={"qcm": "131-mers-apprendre-qcm"}, toucher=toucher_mer)
+    bilan = texte(p, "#essai-bilan")
+    dire(f"  Mers, Apprendre, bilan : {bilan!r}")
+    if "Apprendre · Océans et mers" not in bilan or "océan" not in bilan:
+        defauts.append(f"bilan d'Apprendre sous Mers sans titre ou sans les océans : {bilan!r}")
+    sans_id("bilan d'Apprendre sous Mers", bilan)
+    capturer("132-mers-apprendre-bilan")
+    nouvelles = collections.Counter(p.js(FICHES_JOURNAL) or []) - fiches_avant
+    hors = [f for f in nouvelles.elements() if not f.startswith("mers:")]
+    dire(f"  journal : {sum(nouvelles.values())} événements de mers, {len(hors)} hors mers:")
+    if hors or not nouvelles:
+        defauts.append(f"journal des parties de mers : {hors[:5]} hors mers: ({sum(nouvelles.values())} événements)")
+    cliquer_apres_pause(p, "#seance-carte")
+    p.pause(400)
+
+    # La carte de la mémoire « Mers » : ses zones teintées, « n/50 maîtrisées », un océan appris touché (sa mémoire).
+    sujets = p.js("[...document.querySelectorAll('#legende-sujet option')].map(o => o.value)")
+    if sujets != SUJETS_MEMOIRE:
+        defauts.append(f"carte de la mémoire : sujets {sujets} au lieu de Pays, Capitales, Drapeaux, Mers")
+    else:
+        p.js("(() => { const s = document.getElementById('legende-sujet'); s.value = 'mers'; s.dispatchEvent(new Event('change')); })()")
+        fin = time.monotonic() + 8
+        while time.monotonic() < fin and not p.js("window.terramemo.carte.teintes()"):
+            p.pause(100)
+        legende = texte(p, "#legende-memoire")
+        dire(f"  carte de la mémoire (Mers) : {p.js('window.terramemo.carte.teintes()')} zones teintées, {legende!r}")
+        if not p.js("window.terramemo.carte.teintes()") or not re.search(r"\d+/50 maîtrisées", legende):
+            defauts.append(f"carte de la mémoire (Mers) : aucune zone teintée, ou pas de « n/50 maîtrisées » ({legende!r})")
+        p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+        p.pause(300)
+        pt = p.js('window.terramemo.carte.ecran("pacif")')
+        if pt:
+            p.pause(PAUSE_AVANT_TOUCHER_MS)
+            p.toucher(pt["x"], pt["y"])
+            p.pause(300)
+            barre = texte(p, "#barre-carte")
+            dire(f"  carte de la mémoire (Mers), le Pacifique touché : {barre!r}")
+            if "océan Pacifique" not in barre or not re.search(r"Vu \d+ fois · (revient|à revoir)", barre):
+                defauts.append(f"carte de la mémoire (Mers) : le Pacifique touché sans sa mémoire ({barre!r})")
+        capturer("133-mers-memoire")
+        # Le choix gardé sur l'appareil : Pays de nouveau, pour la suite.
         p.js("(() => { const s = document.getElementById('legende-sujet'); s.value = 'pays'; s.dispatchEvent(new Event('change')); })()")
         p.pause(200)
 
@@ -3187,6 +3520,37 @@ def commande_drapeaux(args):
             faites.append(chemin)
 
         ui_drapeaux(p, capturer, defauts, base, rendu, ecran, telephone)
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    return 1 if erreurs or defauts else 0
+
+
+def commande_mers(args):
+    """ui_mers seul, sur un profil neuf : l'écran de connexion passé en invité (passer_accueil)."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
+    faites, defauts = [], []
+    with Session("local") as s:
+        s.couper_synchro(base)
+        s.passer_accueil(base)
+        p = s.page
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        ui_mers(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -4893,6 +5257,12 @@ def main():
     s.add_argument("--out", default="/tmp/terramemo-captures")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
+    s = sub.add_parser("mers", help="le sujet Océans et mers seul (ui_mers) : Jouer, l'accueil (couche légère), la recherche, Trouver, Reconnaître, Apprendre, carte de la mémoire")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+
     s = sub.add_parser("synchro", help="ui_synchro (J1b) : deux navigateurs aux émulateurs, l'un hors ligne, au même état")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
@@ -4940,7 +5310,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "synchro", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "synchro", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -4953,7 +5323,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "synchro": commande_synchro,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "mers": commande_mers, "synchro": commande_synchro,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
     commandes.update({k.replace("_", "-"): v for k, v in commandes.items() if "_" in k})
