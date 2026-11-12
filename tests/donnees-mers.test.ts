@@ -451,7 +451,13 @@ describe('géométries (mers.topo.json, mers-leger.topo.json)', () => {
     for (const [nom, ocean, pt] of SORTIES) expect(mers.filter((m) => geoContains(formesFines.get(m.id)!, pt)).map((m) => m.id), nom).toEqual([ocean]);
   });
 
-  it('une grille de 1° des points de mer (hors des terres de monde.topo.json) couverte à 99,5 % au moins, pondérée par cos φ', () => {
+  // La couche fine à 99,5 % ; la légère (50 km), seule chargée à l'accueil pour nommer la mer touchée (D45 a), à 99,3 % :
+  // 99,39 % mesuré le 12/11, les fentes le long des côtes y sont plus larges ; un toucher dans une fente prend la zone la
+  // plus proche par les sondes (§ 4.4, étape 3 de pickMer).
+  it.each([
+    ['fine (10 km)', formesFines, 0.995],
+    ['légère (50 km)', new Map(formes(topoLeger).map((f) => [f.properties.id, f])), 0.993],
+  ] as const)('couche %s : une grille de 1° des points de mer (hors des terres de monde.topo.json) couverte au seuil, pondérée par cos φ', (_nom, formesCouche, seuil) => {
     type Part = { o: number; e: number; s: number; n: number; poly: Polygon };
     const parts = (g: Geometry | null): Part[] =>
       polys(g).map((p) => {
@@ -472,7 +478,7 @@ describe('géométries (mers.topo.json, mers-leger.topo.json)', () => {
     const dans = (ps: Part[], lon: number, lat: number) => ps.some((p) => lon >= p.o && lon <= p.e && lat >= p.s && lat <= p.n && geoContains(p.poly, [lon, lat]));
     const monde = lire<Topology<{ pays: GeometryCollection<Props>; contestees: GeometryCollection<Props> }>>('public/geo/monde.topo.json');
     const terres = [...feature(monde, monde.objects.pays).features, ...feature(monde, monde.objects.contestees).features].flatMap((f) => parts(f.geometry));
-    const zones = [...formesFines.values()].flatMap((f) => parts(f.geometry));
+    const zones = [...formesCouche.values()].flatMap((f) => parts(f.geometry));
     let mer = 0;
     let couverte = 0;
     for (let lat = -89.5; lat < 90; lat += 1) {
@@ -483,7 +489,7 @@ describe('géométries (mers.topo.json, mers-leger.topo.json)', () => {
         if (dans(zones, lon, lat)) couverte += w;
       }
     }
-    expect(couverte / mer).toBeGreaterThanOrEqual(0.995);
+    expect(couverte / mer).toBeGreaterThanOrEqual(seuil);
   }, 60_000);
 
   it('budgets gzip : mers.topo.json ≤ 56 000 o, mers-leger.topo.json ≤ 24 000 o ; poids écrits dans sources.json', () => {
