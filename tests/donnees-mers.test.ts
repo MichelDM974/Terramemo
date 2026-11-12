@@ -6,6 +6,7 @@ import type { Feature, Geometry, MultiPolygon, Polygon, Position } from 'geojson
 import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
+import { VIGNETTE_MERS } from '../src/vues/vignette-mers';
 
 // Océans et mers (étude J2, § 2.3 ; geodata/mers.mjs, lot 3a) : tests sur les fichiers
 // versionnés. La reproduction du build, depuis la couche de Natural Earth, ne tourne que
@@ -450,6 +451,16 @@ describe('géométries (mers.topo.json, mers-leger.topo.json)', () => {
     expect(fin).toBeLessThanOrEqual(56_000);
     expect(leger).toBeLessThanOrEqual(24_000);
     expect(sources.traitement.mers.poids_gzip).toEqual({ 'mers.topo.json': fin, 'mers-leger.topo.json': leger });
+  });
+});
+
+describe('vignette (src/vues/vignette-mers.ts, D53 a)', () => {
+  it('les 45 mers en un tracé SVG en unités entières, dans le cadre de la vignette du monde (600 de large), moins de 10 000 caractères', () => {
+    expect(VIGNETTE_MERS).toMatch(/^M[-\d,MLZ]+$/);
+    expect(VIGNETTE_MERS.length).toBeLessThan(10_000);
+    const xs = [...VIGNETTE_MERS.matchAll(/(-?\d+),(-?\d+)/g)].map((m) => Number(m[1]));
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...xs)).toBeLessThanOrEqual(600);
   });
 });
 
