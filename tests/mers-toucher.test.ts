@@ -8,7 +8,7 @@ import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import { acceptesDe, acceptesEnPlus, construireAcceptes } from '../src/map/acceptes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
-import { contient, distanceAuBordKm, RAYON_TERRE_KM, versEcran, versLonLat } from '../src/map/geo';
+import { contient, distanceAuBordKm, empriseEcran, RAYON_TERRE_KM, versEcran, versLonLat } from '../src/map/geo';
 import { indexLieux } from '../src/map/lieux';
 import { assemblerMers, zonesAllumees, zonesParties } from '../src/map/mers';
 import { calculerPastilles, PASTILLE, tailleEcranPx } from '../src/map/pastilles';
@@ -170,34 +170,103 @@ describe('pickMer : la zone sous le doigt, la plus proche dans une fente', () =>
   });
 });
 
-describe('pickMer : une petite mer a une cible invisible de 22 px, dans l’eau, dans sa question seulement', () => {
+describe('pickMer : une petite mer a un halo de 12 px, sur la terre et dans l’eau des autres mers', () => {
   const azov = mer('azov');
 
-  it('au zoom 1, la mer d’Azov fait moins de 10 px : un toucher dans la mer Noire, à quelques px de son point, est juste pour elle', () => {
+  /** Le point (x, y) est-il dans l'eau qu'on voit d'une de ces zones (hors des terres) ? */
+  const eau = (ctx: ContexteCarte, x: number, y: number, zones: readonly Entite<Mer>[]) => {
+    const ll = versLonLat(ctx.proj, ctx.t, x, y);
+    return !!ll && zones.some((z) => contient(z.forme, z.pays.bbox, ll)) && !terre(ll);
+  };
+
+  /**
+   * L'eau qu'on voit des zones visées, échantillonnée à 0,25 px sur leur
+   * emprise à l'écran : la distance (px) d'un point à cette eau, à 0,2 px
+   * près (indépendante des sondes de pickMer).
+   */
+  function eauDe(ctx: ContexteCarte, visees: readonly Entite<Mer>[]): (x: number, y: number) => number {
+    const pts: [number, number][] = [];
+    for (const z of visees) {
+      const g = z.forme.geometry;
+      const sommets = (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).flat(2);
+      const e = empriseEcran(sommets, (ll) => ecran(ctx, ll));
+      if (!e) continue;
+      for (let y = Math.floor(e[1]); y <= e[3]; y += 0.25) {
+        for (let x = Math.floor(e[0]); x <= e[2]; x += 0.25) if (eau(ctx, x, y, [z])) pts.push([x, y]);
+      }
+    }
+    return (x, y) => pts.reduce((m, [px, py]) => Math.min(m, Math.hypot(px - x, py - y)), Infinity);
+  }
+
+  /** Points (grille de pas px, à 30 px au plus de (cx, cy)) dans l'eau des zones touchées, avec leur distance à l'eau des zones visées. */
+  function autour(ctx: ContexteCarte, cx: number, cy: number, touchees: readonly Entite<Mer>[], visees: readonly Entite<Mer>[], pas = 1): { x: number; y: number; d: number }[] {
+    const distance = eauDe(ctx, visees);
+    const res: { x: number; y: number; d: number }[] = [];
+    for (let dy = -30; dy <= 30; dy += pas) {
+      for (let dx = -30; dx <= 30; dx += pas) {
+        const [x, y] = [Math.round(cx) + dx, Math.round(cy) + dy];
+        if (eau(ctx, x, y, touchees)) res.push({ x, y, d: distance(x, y) });
+      }
+    }
+    return res;
+  }
+
+  it('au zoom 1, Azov (moins de 10 px) touchée dans une autre mer : juste à 3 et 8 px de son eau, faux à 14 px et plus ; dans sa question seulement', () => {
     const ctx = contexte(vueSur([35, 45], 1));
     expect(tailleEcranPx(azov.pays, ctx.proj.scale(), 1)).toBeLessThan(PASTILLE.seuil_px);
     const [ax, ay] = ecran(ctx, azov.pays.point);
-    // Le point le plus loin dans la mer Noire, à 22 px au plus du point d'Azov.
-    let doigt: [number, number] | null = null;
-    for (let a = 0; a < 2 * Math.PI && !doigt; a += Math.PI / 32) {
-      for (const d of [10, 8, 6, 5, 4]) {
-        const [x, y] = [ax + d * Math.cos(a), ay + d * Math.sin(a)];
-        const ll = versLonLat(ctx.proj, ctx.t, x, y);
-        if (ll && !terre(ll) && zoneDe(ll)?.pays.id === 'noire') {
-          doigt = [x, y];
-          break;
-        }
+    const autres = couche.mers.filter((m) => m !== azov);
+    const vus = { juste: 0, faux: 0 };
+    for (const { x, y, d } of autour(ctx, ax, ay, autres, [azov])) {
+      const touchee = zoneDe(versLonLat(ctx.proj, ctx.t, x, y)!)!.pays.id;
+      if (Math.abs(d - 3) <= 0.5 || Math.abs(d - 8) <= 0.5) {
+        vus.juste++;
+        const n = noter(ctx, 'azov', x, y, { acceptes: false });
+        expect([x, y, d, n.juste, n.via, n.pick?.id]).toEqual([x, y, d, true, 'proche', 'azov']);
+        expect(n.pick!.distance_px).toBeLessThanOrEqual(Math.ceil(d) + 1);
+        // Dans la question de la mer Noire, ce toucher dans la mer Noire est la mer Noire.
+        if (touchee === 'noire') expect(noter(ctx, 'noire', x, y, { acceptes: false })).toMatchObject({ juste: true, via: 'trace', pick: { id: 'noire' } });
+      } else if (d >= 14) {
+        vus.faux++;
+        const n = noter(ctx, 'azov', x, y, { acceptes: false });
+        expect([x, y, d, n.juste, n.pick?.id]).toEqual([x, y, d, false, touchee]);
+        expect(n.distance_km).toBeGreaterThan(0);
       }
     }
-    expect(doigt).not.toBeNull();
-    const [x, y] = doigt!;
-    const n = noter(ctx, 'azov', x, y, { acceptes: false });
-    expect(n).toMatchObject({ juste: true, via: 'pastille', pick: { id: 'azov' } });
-    // Dans la question de la mer Noire, ce toucher est la mer Noire.
-    expect(noter(ctx, 'noire', x, y, { acceptes: false })).toMatchObject({ juste: true, pick: { id: 'noire' } });
-    // Au-delà de 22 px, plus rien.
-    const [fx, fy] = [ax + 23 * ((x - ax) / Math.hypot(x - ax, y - ay)), ay + 23 * ((y - ay) / Math.hypot(x - ax, y - ay))];
-    expect(noter(ctx, 'azov', fx, fy, { acceptes: false }).juste).toBe(false);
+    expect(vus.juste).toBeGreaterThan(10);
+    expect(vus.faux).toBeGreaterThan(10);
+  });
+
+  it('la mer Noire touchée pour Botnie (moins de 10 px au zoom 1) : faux, aucune eau de Botnie à 12 px', () => {
+    const ctx = contexte(vueSur([30, 52], 1));
+    expect(tailleEcranPx(mer('botnie').pays, ctx.proj.scale(), 1)).toBeLessThan(PASTILLE.seuil_px);
+    const { x, y } = (() => {
+      const [nx, ny] = ecran(ctx, mer('noire').pays.point);
+      return { x: nx, y: ny };
+    })();
+    expect(eau(ctx, x, y, [mer('noire')])).toBe(true);
+    expect(noter(ctx, 'botnie', x, y)).toMatchObject({ juste: false, pick: { id: 'noire', via: 'trace' } });
+  });
+
+  // Le halo ne joue que pour une cible de moins de 10 px : la mer Noire fait
+  // ≈ 7 px au zoom 1, plus de 10 au zoom 2. La mer Égée touchée à 5 px de
+  // l'eau de la mer Noire : juste au zoom 1, faux au zoom 2 (seule l'eau
+  // qu'on voit compte). Une cible ignorée de sa taille (le halo pour toute
+  // cible) fait échouer ce test.
+  it('la mer Égée touchée à 5 px de la mer Noire, pour la mer Noire : juste au zoom 1 (≈ 7 px), faux au zoom 2 (plus de 10 px)', () => {
+    const noire = mer('noire');
+    for (const [k, juste] of [[1, true], [2, false]] as const) {
+      const ctx = contexte(vueSur([28.5, 41], k));
+      const taille = tailleEcranPx(noire.pays, ctx.proj.scale(), k);
+      expect(taille < PASTILLE.seuil_px).toBe(juste);
+      const [bx, by] = ecran(ctx, [29, 41.1]); // le Bosphore
+      const points = autour(ctx, bx, by, [mer('egee')], [noire], 0.5).filter((p) => Math.abs(p.d - 5) <= 0.5);
+      expect(points.length).toBeGreaterThan(2);
+      for (const { x, y, d } of points) {
+        const n = noter(ctx, 'noire', x, y, { acceptes: false });
+        expect([k, x, y, d, n.juste, n.pick?.id]).toEqual([k, x, y, d, juste, juste ? 'noire' : 'egee']);
+      }
+    }
   });
 
   it('jamais par-dessus une terre au-delà de 12 px : sur la terre à moins de 22 px du point d’Azov, faux (zoom 1 et 2)', () => {
@@ -231,21 +300,17 @@ describe('pickMer : une petite mer a une cible invisible de 22 px, dans l’eau,
     ['finlande', [25, 60]],
   ] as const)('la terre à 2 px ou moins de l’eau de %s, au zoom 1 et 2 : juste, par la sonde', (id, centre) => {
     const zone = mer(id);
-    const eau = (ctx: ContexteCarte, x: number, y: number) => {
-      const ll = versLonLat(ctx.proj, ctx.t, x, y);
-      return !!ll && !terre(ll) && contient(zone.forme, zone.pays.bbox, ll);
-    };
     for (const k of [1, 2]) {
       const ctx = contexte(vueSur(centre as [number, number], k));
       const [ax, ay] = ecran(ctx, zone.pays.point);
-      expect(eau(ctx, ax, ay)).toBe(true);
+      expect(eau(ctx, ax, ay, [zone])).toBe(true);
       let vus = 0;
       for (let a = 0; a < 2 * Math.PI; a += Math.PI / 32) {
         const [ux, uy] = [Math.cos(a), Math.sin(a)];
         // Le long du rayon, du point d'étiquette (dans l'eau) à la première terre.
         let d = 0;
         while (d < 40 && !terre(versLonLat(ctx.proj, ctx.t, ax + d * ux, ay + d * uy) as [number, number])) d += 0.25;
-        if (d >= 40 || !eau(ctx, ax + (d - 0.25) * ux, ay + (d - 0.25) * uy)) continue;
+        if (d >= 40 || !eau(ctx, ax + (d - 0.25) * ux, ay + (d - 0.25) * uy, [zone])) continue;
         for (const plus of [0, 1, 2]) {
           const [x, y] = [ax + (d + plus) * ux, ay + (d + plus) * uy];
           if (!terre(versLonLat(ctx.proj, ctx.t, x, y) as [number, number])) continue;
@@ -258,17 +323,17 @@ describe('pickMer : une petite mer a une cible invisible de 22 px, dans l’eau,
     }
   });
 
-  it('assez grande à l’écran (zoom 8), plus de cible : à 15 px du point d’Azov dans la mer Noire, faux', () => {
+  it('assez grande à l’écran (zoom 8), plus de halo : dans la mer Noire à 15 px du point d’Azov et à 3 px ou plus de son eau, faux', () => {
     const ctx = contexte(vueSur([36.5, 46], 8));
     expect(tailleEcranPx(azov.pays, ctx.proj.scale(), 8)).toBeGreaterThan(PASTILLE.seuil_px);
     const [ax, ay] = ecran(ctx, azov.pays.point);
+    const distance = eauDe(ctx, [azov]);
     let essais = 0;
     for (let a = 0; a < 2 * Math.PI; a += Math.PI / 16) {
       const [x, y] = [ax + 15 * Math.cos(a), ay + 15 * Math.sin(a)];
-      const ll = versLonLat(ctx.proj, ctx.t, x, y);
-      if (!ll || terre(ll) || zoneDe(ll)?.pays.id !== 'noire') continue;
+      if (!eau(ctx, x, y, [mer('noire')]) || distance(x, y) < 3) continue;
       essais++;
-      expect(noter(ctx, 'azov', x, y, { acceptes: false }).juste).toBe(false);
+      expect(noter(ctx, 'azov', x, y, { acceptes: false })).toMatchObject({ juste: false, pick: { id: 'noire', via: 'trace' } });
     }
     // Azov fait ~18 px au zoom 8 : peu de mer Noire à 15 px de son point, mais il y en a.
     expect(essais).toBeGreaterThan(0);

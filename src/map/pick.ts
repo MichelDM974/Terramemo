@@ -177,54 +177,63 @@ function merVisible(ctx: ContexteCarte, mers: readonly Entite<Mer>[], x: number,
 }
 
 /**
+ * La première sonde fine (sondesFines : tous les rayons de 1 à 12 px, la plus
+ * proche d'abord) qui tombe dans la mer qu'on voit d'une des zones, via
+ * « proche » ; null si aucune.
+ */
+function eauProche(ctx: ContexteCarte, zones: readonly Entite<Mer>[], ll: [number, number], x: number, y: number): ResultatPick | null {
+  const vises = aPortee(ctx, zones, ll, x, y);
+  for (const [sx, sy, r] of vises.length ? sondesFines(x, y) : []) {
+    const lls = versLonLat(ctx.proj, ctx.t, sx, sy);
+    const m = lls ? zoneMer(vises, lls) : null;
+    if (m && !sousLePoint(ctx, sx, sy)) return { id: m.pays.id, via: 'proche', distance_px: r };
+  }
+  return null;
+}
+
+/**
  * Ce que la carte désigne en (x, y) dans une question de mer (étude J2,
  * § 4.4) ; cible : la zone marine demandée ; compte : les zones qui comptent
  * pour elle (elle, ce qu'elle allume, ses zones admises : noter).
- * 1. le doigt est sur une terre (le tracé d'un pays ; le disque d'un
- *    micro-État n'en est pas, Malte en pleine Méditerranée est en mer) : cette
- *    terre, sauf si une sonde à 12 px ou moins (sondesFines : tous les
- *    rayons de 1 à 12 px, la plus proche d'abord) tombe dans la mer qu'on
- *    voit d'une zone qui compte : elle, via « proche », la tolérance de la
- *    côte d'un pays touchée en mer, sans laisser passer une petite mer. La terre
- *    gagne toujours au-delà de 12 px : un toucher au milieu de l'Italie n'est
- *    pas l'Adriatique, même là où une zone déborde sur la terre ;
- * 2. la cible de moins de 10 px à l'écran (tailleEcranPx, comme un
- *    micro-État) a une cible invisible de 22 px à son point d'étiquette,
- *    dans l'eau seulement : la mer d'Azov fait ≈ 2 px au zoom 1. La cible
- *    seule : une petite mer ne prend jamais le toucher d'une autre mer
- *    demandée, et aucune pastille de mer hors d'une question ;
- * 3. sinon la zone marine qui contient le point ;
+ * 1. le doigt dans l'eau d'une zone qui compte : elle, via « trace » ;
+ * 2. le doigt sur une terre (le tracé d'un pays ; le disque d'un micro-État
+ *    n'en est pas, Malte en pleine Méditerranée est en mer) : cette terre,
+ *    sauf si une sonde à 12 px ou moins (sondesFines : tous les rayons de 1
+ *    à 12 px, la plus proche d'abord) tombe dans la mer qu'on voit d'une zone
+ *    qui compte : elle, via « proche », la tolérance de la côte d'un pays
+ *    touchée en mer, sans laisser passer une petite mer. La terre gagne
+ *    toujours au-delà de 12 px : un toucher au milieu de l'Italie n'est pas
+ *    l'Adriatique, même là où une zone déborde sur la terre ;
+ * 3. le doigt dans l'eau d'une autre zone : cette zone ; mais si la cible
+ *    fait moins de 10 px à l'écran (tailleEcranPx, au zoom du moment : la
+ *    mer d'Azov fait ≈ 2 px au zoom 1), le halo de 12 px d'abord : la règle
+ *    de la terre, mêmes sondes, sur l'eau de cette autre zone (Azov touchée
+ *    à 5 px de son eau dans la mer Noire est juste). Choix de l'utilisateur
+ *    du 12/11 : un seul nombre, 12 px, comme la côte, au lieu d'une cible
+ *    invisible de 22 px au point d'étiquette ; dès que la cible dépasse
+ *    10 px (en zoomant), seule l'eau qu'on voit compte ;
  * 4. sinon (fentes le long des côtes : 0,20 % de la mer ; la couche légère,
- *    qui ne couvre que 99,39 %) la zone la plus proche par les mêmes sondes ;
+ *    qui ne couvre que 99,39 %) la zone la plus proche par les sondes de pick ;
  * null hors de la sphère, ou loin de toute zone.
  */
 export function pickMer(ctx: ContexteCarte, cible: string, x: number, y: number, compte: ReadonlySet<string> = new Set([cible])): ResultatPick | null {
   const ll = versLonLat(ctx.proj, ctx.t, x, y);
   if (!ll) return null;
   const mers = ctx.mers ?? [];
+  const comptent = () => mers.filter((m) => compte.has(m.pays.id));
   const terre = sousLePoint(ctx, x, y);
   if (terre) {
     // Seules les zones qui comptent sont cherchées : la mer qu'on voit d'une
     // autre zone ne change rien (la terre reste la terre).
-    const vises = aPortee(ctx, mers.filter((m) => compte.has(m.pays.id)), ll, x, y);
-    for (const [sx, sy, r] of vises.length ? sondesFines(x, y) : []) {
-      const lls = versLonLat(ctx.proj, ctx.t, sx, sy);
-      const m = lls ? zoneMer(vises, lls) : null;
-      if (m && !sousLePoint(ctx, sx, sy)) return { id: m.pays.id, via: 'proche', distance_px: r };
-    }
-    return { id: terre.pays.id, via: 'trace', distance_px: 0 };
-  }
-  const visee = mers.find((m) => m.pays.id === cible);
-  if (visee && tailleEcranPx(visee.pays, ctx.proj.scale(), ctx.t.k) < PASTILLE.seuil_px) {
-    const b = ctx.proj(visee.pays.point);
-    if (b) {
-      const [px, py] = versEcran(ctx.t, b[0], b[1]);
-      const d = Math.hypot(px - x, py - y);
-      if (d <= PASTILLE.rayon_cible_px) return { id: cible, via: 'pastille', distance_px: d };
-    }
+    return eauProche(ctx, comptent(), ll, x, y) ?? { id: terre.pays.id, via: 'trace', distance_px: 0 };
   }
   const m = zoneMer(mers, ll);
-  if (m) return { id: m.pays.id, via: 'trace', distance_px: 0 };
+  if (m) {
+    if (compte.has(m.pays.id)) return { id: m.pays.id, via: 'trace', distance_px: 0 };
+    const visee = mers.find((z) => z.pays.id === cible);
+    const petite = !!visee && tailleEcranPx(visee.pays, ctx.proj.scale(), ctx.t.k) < PASTILLE.seuil_px;
+    return (petite ? eauProche(ctx, comptent(), ll, x, y) : null) ?? { id: m.pays.id, via: 'trace', distance_px: 0 };
+  }
   for (const [sx, sy, r] of sondes(x, y)) {
     const v = merVisible(ctx, mers, sx, sy);
     if (v) return { id: v.pays.id, via: 'proche', distance_px: r };
