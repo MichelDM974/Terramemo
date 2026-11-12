@@ -395,83 +395,89 @@ Ce que dit la couche (mesuré) :
   antarctiques ;
 - Great Barrier Reef recouvre la mer de Corail : exclue.
 
-**Liste** (D42) : 5 océans et 45 mers et golfes. Règle : au moins 94
-Wikipédias et 30 000 km². Deux exceptions : le canal du Mozambique (voisin de
-La Réunion) et la mer du Groenland (qui complète l'Arctique).
+**Liste** (D42 d, validée par l'utilisateur le 12/11) : 5 océans et 45 mers et
+golfes. Candidates : les 99 zones de Natural Earth de 30 000 km² ou plus dont
+le libellé Wikidata français commence par « mer » ou « golfe », plus la
+Manche, le canal du Mozambique et les baies d'Hudson et de Baffin. Rang
+combiné, comme D48 b : la moyenne du rang par nombre de Wikipédias et du rang
+par vues de la Wikipédia française (novembre 2025 à octobre 2026). Les 45
+premières sont retenues ; les quatre zones imposées par la décision y entrent
+d'elles-mêmes (Manche 9e, Hudson 22e, Mozambique 39e, Baffin 45e). La mer des
+Sargasses (30e) est gardée bien qu'elle n'ait pas de côte (choix du 12/11,
+préférée à la mer de Tasman, 46e). Juste après : Tasman, Laptev (47e),
+Alboran (48e).
 
-La relecture a trouvé trois défauts, vérifiés sur les extraits du relevé
-(`mers/wikidata/entites.json`, `vues-frwiki.json`, `sorties/zones-ne.json`) :
-- le golfe de Finlande remplit la règle (101 Wikipédias, 30 217 km²), mais il
-  est rangé sans raison au « Non retenu » ;
-- le compte des Wikipédias garde des mers peu lues en français (vues sur 12
-  mois) : Sibérie orientale 1 521, Java 1 611, Laptev 3 979, Chine orientale
-  4 314. Il en écarte de bien plus lues : Sargasses 65 182, Marmara 23 612,
-  Ligure 8 929, golfe de Californie 7 820, golfe de Botnie 7 223. C'est le
-  biais que le § 2.4 dénonce pour les pays ;
-- les exceptions sont arbitraires : le Groenland (93 Wikipédias, 5 741 vues)
-  entre, pas le golfe de Botnie (87 ; 119 442 km² ; 7 223 vues) ni la mer
-  d'Arafura (93).
+Par rapport à l'option a (le seul nombre de Wikipédias, qui gardait des mers
+peu lues en français, Sibérie orientale 1 521 vues, Java 1 611, et en écartait
+de bien plus lues, Sargasses 65 182) : entrent les golfes de Botnie, de
+Finlande, du Saint-Laurent et de Californie, et la mer des Sargasses ;
+sortent les mers de Tasman, de Java, des Laptev, des Tchouktches et de
+Sibérie orientale, fondues dans leur océan (Fusion, plus bas).
 
-D'où l'option d de D42 (rang combiné, comme D48 b). La table ci-dessous reste
-la liste de l'option a, défaut tant que l'utilisateur n'a pas répondu ; le
-golfe de Finlande y entre ou son exception s'écrit (D42).
+| Id | Nom | Sorte | Dans | Intérieure | Wikipédias | Vues fr (12 mois) | Rang |
+|---|---|---|---|---|---|---|---|
+| `atlant` | océan Atlantique | océan | — |  | 252 | 121 558 | — |
+| `pacif` | océan Pacifique | océan | — |  | 251 | 101 801 | — |
+| `indien` | océan Indien | océan | — |  | 237 | 49 808 | — |
+| `arctique` | océan Arctique | océan | — |  | 222 | 36 301 | — |
+| `austral` | océan Austral | océan | — |  | 190 | 28 699 | — |
+| `medit` | mer Méditerranée | mer | atlant | oui | 237 | 155 025 | 1 |
+| `adriat` | mer Adriatique | mer | medit |  | 150 | 50 917 | 8 |
+| `egee` | mer Égée | mer | medit |  | 142 | 49 344 | 10 |
+| `ionienne` | mer Ionienne | mer | medit |  | 119 | 35 378 | 16 |
+| `tyrrhen` | mer Tyrrhénienne | mer | medit |  | 109 | 42 390 | 17 |
+| `noire` | mer Noire | mer | atlant | oui | 220 | 103 648 | 3 |
+| `azov` | mer d'Azov | mer | noire | oui | 131 | 27 642 | 13 |
+| `caspien` | mer Caspienne | mer | — | oui | 198 | 123 084 | 2 |
+| `baltique` | mer Baltique | mer | atlant | oui | 189 | 65 633 | 5 |
+| `botnie` | golfe de Botnie | golfe | baltique |  | 87 | 7 223 | 44 |
+| `finlande` | golfe de Finlande | golfe | baltique |  | 101 | 5 659 | 37 |
+| `nord` | mer du Nord | mer | atlant |  | 181 | 52 643 | 7 |
+| `manche` | Manche | bras de mer | atlant |  | 124 | 105 396 | 9 |
+| `irlande` | mer d'Irlande | mer | atlant |  | 110 | 10 076 | 25 |
+| `gascogne` | golfe de Gascogne | golfe | atlant |  | 102 | 44 338 | 21 |
+| `norvege` | mer de Norvège | mer | atlant, arctique |  | 107 | 9 507 | 31 |
+| `groenl` | mer du Groenland | mer | arctique, atlant |  | 93 | 5 741 | 42 |
+| `caraibes` | mer des Caraïbes | mer | atlant |  | 180 | 35 809 | 11 |
+| `sargasse` | mer des Sargasses | mer | atlant |  | 85 | 65 182 | 30 |
+| `mexique` | golfe du Mexique | golfe | atlant |  | 129 | 39 882 | 12 |
+| `laurent` | golfe du Saint-Laurent | golfe | atlant |  | 81 | 17 127 | 38 |
+| `guinee` | golfe de Guinée | golfe | atlant |  | 113 | 22 753 | 18 |
+| `baffin` | baie de Baffin | baie | arctique, atlant |  | 95 | 4 993 | 45 |
+| `hudson` | baie d'Hudson | baie | arctique, atlant |  | 105 | 29 738 | 22 |
+| `barents` | mer de Barents | mer | arctique |  | 111 | 19 204 | 19 |
+| `blanche` | mer Blanche | mer | barents | oui | 110 | 15 298 | 23 |
+| `kara` | mer de Kara | mer | arctique |  | 102 | 6 894 | 35 |
+| `beaufort` | mer de Beaufort | mer | arctique |  | 94 | 5 403 | 43 |
+| `bering` | mer de Béring | mer | pacif |  | 112 | 9 999 | 24 |
+| `okhotsk` | mer d'Okhotsk | mer | pacif |  | 108 | 7 447 | 33 |
+| `japon` | mer du Japon | mer | pacif |  | 128 | 12 740 | 20 |
+| `jaune` | mer Jaune | mer | pacif |  | 106 | 10 630 | 28 |
+| `chineor` | mer de Chine orientale | mer | pacif |  | 105 | 4 314 | 40 |
+| `chinemer` | mer de Chine méridionale | mer | pacif |  | 135 | 20 080 | 14 |
+| `thailand` | golfe de Thaïlande | golfe | chinemer |  | 97 | 5 922 | 36 |
+| `corail` | mer de Corail | mer | pacif |  | 97 | 10 740 | 34 |
+| `californ` | golfe de Californie | golfe | pacif |  | 88 | 7 820 | 41 |
+| `arabie` | mer d'Arabie | mer | indien |  | 135 | 19 990 | 15 |
+| `oman` | golfe d'Oman | golfe | indien |  | 101 | 14 026 | 32 |
+| `persique` | golfe Persique | golfe | indien | oui | 147 | 83 399 | 6 |
+| `aden` | golfe d'Aden | golfe | indien |  | 104 | 13 314 | 27 |
+| `rouge` | mer Rouge | mer | indien | oui | 182 | 80 537 | 4 |
+| `bengale` | golfe du Bengale | golfe | indien |  | 126 | 6 853 | 26 |
+| `andaman` | mer d'Andaman | mer | indien |  | 109 | 9 397 | 29 |
+| `mozamb` | canal du Mozambique | bras de mer | indien |  | 85 | 11 100 | 39 |
 
-| Id | Nom | Sorte | Dans | Intérieure | Wikipédias | Niveau |
-|---|---|---|---|---|---|---|
-| `atlant` | océan Atlantique | océan | — |  | 252 | 1 |
-| `pacif` | océan Pacifique | océan | — |  | 251 | 1 |
-| `indien` | océan Indien | océan | — |  | 237 | 1 |
-| `arctique` | océan Arctique | océan | — |  | 222 | 1 |
-| `austral` | océan Austral | océan | — |  | 190 | 1 |
-| `medit` | mer Méditerranée | mer | atlant | oui | 237 | 1 |
-| `adriat` | mer Adriatique | mer | medit |  | 150 | 2 |
-| `egee` | mer Égée | mer | medit |  | 142 | 2 |
-| `ionienne` | mer Ionienne | mer | medit |  | 119 | 2 |
-| `tyrrhen` | mer Tyrrhénienne | mer | medit |  | 109 | 3 |
-| `noire` | mer Noire | mer | atlant | oui | 220 | 1 |
-| `azov` | mer d'Azov | mer | noire | oui | 131 | 2 |
-| `caspien` | mer Caspienne | mer | — | oui | 198 | 1 |
-| `baltique` | mer Baltique | mer | atlant | oui | 189 | 1 |
-| `nord` | mer du Nord | mer | atlant |  | 181 | 1 |
-| `manche` | Manche | bras de mer | atlant |  | 124 | 2 |
-| `irlande` | mer d'Irlande | mer | atlant |  | 110 | 3 |
-| `gascogne` | golfe de Gascogne | golfe | atlant |  | 102 | 3 |
-| `norvege` | mer de Norvège | mer | atlant, arctique |  | 107 | 3 |
-| `groenl` | mer du Groenland | mer | arctique, atlant |  | 93 | 3 |
-| `caraibes` | mer des Caraïbes | mer | atlant |  | 180 | 1 |
-| `mexique` | golfe du Mexique | golfe | atlant |  | 129 | 2 |
-| `guinee` | golfe de Guinée | golfe | atlant |  | 113 | 3 |
-| `baffin` | baie de Baffin | baie | arctique, atlant |  | 95 | 3 |
-| `hudson` | baie d'Hudson | baie | arctique, atlant | oui | 105 | 3 |
-| `barents` | mer de Barents | mer | arctique |  | 111 | 3 |
-| `blanche` | mer Blanche | mer | barents | oui | 110 | 3 |
-| `kara` | mer de Kara | mer | arctique |  | 102 | 3 |
-| `laptev` | mer des Laptev | mer | arctique |  | 97 | 3 |
-| `siberie` | mer de Sibérie orientale | mer | arctique |  | 94 | 3 |
-| `tchouk` | mer des Tchouktches | mer | arctique |  | 94 | 3 |
-| `beaufort` | mer de Beaufort | mer | arctique |  | 94 | 3 |
-| `bering` | mer de Béring | mer | pacif |  | 112 | 3 |
-| `okhotsk` | mer d'Okhotsk | mer | pacif |  | 108 | 3 |
-| `japon` | mer du Japon | mer | pacif |  | 128 | 2 |
-| `jaune` | mer Jaune | mer | pacif |  | 106 | 3 |
-| `chineor` | mer de Chine orientale | mer | pacif |  | 105 | 3 |
-| `chinemer` | mer de Chine méridionale | mer | pacif |  | 135 | 2 |
-| `thailand` | golfe de Thaïlande | golfe | chinemer |  | 97 | 3 |
-| `java` | mer de Java | mer | pacif, indien |  | 103 | 3 |
-| `corail` | mer de Corail | mer | pacif |  | 97 | 3 |
-| `tasman` | mer de Tasman | mer | pacif |  | 94 | 3 |
-| `arabie` | mer d'Arabie | mer | indien |  | 135 | 2 |
-| `oman` | golfe d'Oman | golfe | indien |  | 101 | 3 |
-| `persique` | golfe Persique | golfe | indien | oui | 147 | 2 |
-| `aden` | golfe d'Aden | golfe | indien |  | 104 | 3 |
-| `rouge` | mer Rouge | mer | indien | oui | 182 | 1 |
-| `bengale` | golfe du Bengale | golfe | indien |  | 126 | 2 |
-| `andaman` | mer d'Andaman | mer | indien |  | 109 | 3 |
-| `mozamb` | canal du Mozambique | bras de mer | indien |  | 85 | 3 |
-
-Table tirée de `mers/liste-proposee.json` (relevé des mers) par
-`synthese/scripts/table-mers.py`. Ce qui change par rapport au relevé : les
-ids et la sorte (baie, bras de mer, au lieu de « mer »).
+Relevé : les vues manquantes de 42 candidates relevées le 12/11 (API
+pageviews de Wikimedia, même période), puis le rang et cette table, par les
+scripts de `~/Sauvegardes/terramemo/j2-conception/mers/rang-combine/`
+(`rang.json` : les 99 candidates et les 45 retenues ; `table.py`). Les ids et
+la sorte (baie, bras de mer, au lieu de « mer ») sont ceux de l'option a ;
+cinq ids nouveaux : `botnie`, `finlande`, `sargasse`, `laurent`, `californ`.
+Au lot 3a, ces extraits sont figés dans `geodata/`, comme ceux des pays.
+Les golfes de Botnie et de Finlande sont des parties de la Baltique (qui ne
+remonte jamais à l'Atlantique) ; Saint-Laurent et Californie sont bordiers,
+justes pour leur océan ; les Sargasses, en pleine mer, sont justes pour
+l'Atlantique. La baie d'Hudson n'est plus intérieure (D43 a, comme l'OHI).
 
 **Ids** : 8 lettres minuscules au plus, sans accent ni tiret. Les lots de la
 synchro l'exigent (§ 3.3) : `mediterranee` (12) ou `chine-meridionale` (17),
@@ -481,7 +487,7 @@ id de `pays.json` (majuscules, `NE_…`).
 
 **Appartenance** (`Dans`) : une donnée, prise de Wikidata (P361), pas une
 géométrie. Quatre mers ont deux océans : Norvège, Groenland, Baffin, Hudson
-(Atlantique et Arctique) ; Java en a deux aussi (Pacifique et Indien). La
+(Atlantique et Arctique). La
 Caspienne est à part, sans océan. `interieure` dit qu'une mer ne fait pas
 remonter jusqu'à un océan (règle au § 4.4, D43).
 
@@ -492,6 +498,13 @@ retenue (mesuré) :
   Célèbes, Banda, Florès ; détroit d'Hudson ; Marmara) ;
 - 5 exclues : deux Great Barrier Reef, Columbia River, Luzon Strait et Drake
   Passage (aires de moins de 1 km²).
+
+Ces affectations sont celles de l'option a. La liste du 12/11 les change, à
+refaire au lot 3a avec le même contrôle (aucune zone ni affectée ni
+exclue) : les cinq mers sorties (Tasman, Java, Laptev, Tchouktches,
+Sibérie orientale) vont à leur océan, jamais à une mer voisine retenue ; les
+mers d'archipel qui allaient à Java (Florès, Bali, Banda…) sont à
+réaffecter ; les cinq entrées ne sont plus fondues ailleurs.
 
 Restent à relire, sans gravité (estimé) : la mer de Seto (partie dans la mer
 du Japon, le Pacifique serait mieux), le détroit de Taïwan, le Cattégat, les
@@ -985,10 +998,15 @@ Ce que ça donne :
 | mer Blanche | mer de Barents | juste ; faux pour l'Arctique |
 | Méditerranée, mer Noire, Baltique | Atlantique | faux (distance au bord de l'Atlantique : courte) |
 | mer Rouge, golfe Persique | océan Indien | faux |
-| baie d'Hudson | océan Arctique | faux si elle reste intérieure ; or l'OHI la range dans l'Arctique : D43 a |
+| baie d'Hudson | océan Arctique, ou Atlantique | juste (D43 a : non intérieure, comme l'OHI) |
+| golfe de Botnie, golfe de Finlande | mer Baltique | juste ; faux pour l'Atlantique |
+| mer des Sargasses | océan Atlantique | juste |
 
-Un océan allumé (Reconnaître) ne montre que sa pleine mer : c'est sa zone
-seule, puisque la partition en a retiré ses mers.
+Un océan allumé (Reconnaître, carte de la mémoire) montre sa pleine mer : sa
+zone, puisque la partition en a retiré ses mers, plus la mer qu'il enclave
+sans côte, la mer des Sargasses dans l'Atlantique (choix du 12/11 : sinon
+un grand trou au milieu de l'Atlantique allumé). Jamais ses mers côtières.
+La mer des Sargasses demandée s'allume seule.
 
 **Barème** (épreuves, quiz) : 500 × e^(−d/300 km), comme les pays (`ECHELLES_KM.monde`,
 `bareme.ts:23`). `d` est la distance au bord de la cible, ses zones admises
@@ -2143,8 +2161,8 @@ la réponse** :
 | D39 | b, préférence |
 | D40 | a, tous les Chrono au général |
 | D41 | Afghanistan : **les deux justes**, le tricolore montré ; Bolivie : **les deux justes**, le civil montré, le Ghana en sosie ; Honduras corrigé ; jumeaux justes sous Drapeaux ; voisins d'abord en leurres ; le 12/11 : en Trouver hors épreuve, l'un des deux **au hasard** (§ 5.3) |
-| D42 | **d** : rang combiné, seuil de 30 000 km², golfe de Finlande compris ; liste exacte montrée à l'utilisateur avant d'être figée |
-| D43 | la règle du § 4.4, mais la baie d'Hudson **non intérieure** (juste pour l'Arctique et l'Atlantique) ; côte à 12 px ; océan allumé en pleine mer seule |
+| D42 | **d** : rang combiné, seuil de 30 000 km², golfe de Finlande compris ; liste montrée à l'utilisateur et validée le 12/11 (§ 2.3), mer des Sargasses comprise |
+| D43 | la règle du § 4.4, mais la baie d'Hudson **non intérieure** (juste pour l'Arctique et l'Atlantique) ; côte à 12 px ; océan allumé en pleine mer, avec la mer qu'il enclave sans côte (les Sargasses, 12/11), jamais ses mers côtières |
 | D44 | a, une série de 50 |
 | D45 | a, couche légère seule à l'accueil ; b, aucune frontière |
 | D46 | **en attente** (13/11) ; défaut b et d (15 en commun, règle du reliquat) |
@@ -2170,7 +2188,7 @@ quiz ») :
 | Honduras | rien de plus : signalé en amont par un tiers le 11/11 (lipis/flag-icons#1496, § 2.2) |
 | Articles des noms de pays | table des formes des 197 pays au lot 4a, puis tous les retours avec article |
 | Leurres de drapeaux au quiz | aucune paire ≤ 0,5 avec le juste pour un leurre éloigné du facile et du moyen ; les 917 paires dans les données du quiz (§ 9.2, lot 4a) |
-| Alertes Dependabot | traitées hors des lots (session principale) |
+| Alertes Dependabot | aucune mise à jour ne les ferme (versions figées sous firebase-tools, le build Node de firebase et mapshaper 0.6, dont la 0.7 change les communes de La Réunion d'un octet) : les 15 écartées dans GitHub, outil de dev (décision « Alertes Dependabot ») |
 
 ### Bloquent le lot 1 (capitales)
 
