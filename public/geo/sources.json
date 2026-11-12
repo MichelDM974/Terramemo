@@ -145,7 +145,7 @@
       "geodata/drapeaux.mjs": "abab5c3355129f179bc3d73237db5e83547ad93ed0d8d58e64e5bb67d8a6c937",
       "geodata/drapeaux-main.json": "68720e3d6830ede651b4bb31958379e47653096d17289bf90f81053846b4714a",
       "geodata/mers.mjs": "8c2ea936c0bd9bcef078cacb9f5122518912b33b6af3b44bb43eacb80b2921c6",
-      "geodata/mers.json": "656dc28192a52d520d9f5da07c295a25c74efd1ac728a7a160a968a76c384c0e",
+      "geodata/mers.json": "43d77e6a877f33f722347b63f1e40121b571fd6ce6c72363f087a075bcb33aeb",
       "geodata/wikidata/mers-entites.json": "150754abc5e0045fda9cdfb5241f9d2254ce867f087ee3dfad28e2b86762aa9e"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",
@@ -154,8 +154,8 @@
       "chaine": "mapshaper 0.6.110 en topologie : antiméridien recalé à ±180 et pôle à ±90 ; -dissolve id ; -simplify visvalingam interval=10000 keep-shapes (mers.topo.json) ou visvalingam interval=50000 keep-shapes (mers-leger.topo.json) ; densifiées à 1° hors coutures, depuis la plus petite extrémité ; quantification 100000",
       "attributs": "superficie (d3-geo geoArea × R², R = 6371.0088 km, anneaux densifiés à 1°), point (pôle d'inaccessibilité du plus grand polygone), emprise et voisins sur la géométrie dissoute non simplifiée",
       "poids_gzip": {
-        "mers.topo.json": 50703,
-        "mers-leger.topo.json": 19841
+        "mers.topo.json": 50652,
+        "mers-leger.topo.json": 19795
       }
     }
   }

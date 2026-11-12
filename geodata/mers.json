@@ -88,7 +88,7 @@
     "Inner Sea": {"id": "pacif", "raison": "Mer intérieure de Seto, sans P361 : ouverte sur la mer des Philippines (89 km de bord), donc le Pacifique ; à la mer du Japon, elle ne touche que par le détroit de Kanmon (11 km au détroit de Corée)."},
     "Korea Strait": {"id": "japon", "raison": "Sans P361 : l'OHI arrête la mer de Chine orientale à la ligne Nomo-saki, Goto, Jeju, Corée ; le détroit, au nord, est dans la mer du Japon. Le plus long bord donnerait la mer de Chine orientale."},
     "Taiwan Strait": {"id": "chinemer", "raison": "Sans P361 utile : l'OHI arrête la mer de Chine orientale à la pointe nord de Taïwan et l'île de Haitan ; le détroit, au sud, est dans la mer de Chine méridionale."},
-    "Strait of Malacca": {"id": "indien", "raison": "Ni P361 ni océan pour l'OHI, qui le sépare de la mer d'Andaman (ligne Phuket–Pedropunt) : à l'océan Indien, d'où l'on y entre, plutôt qu'à la mer d'Andaman, son plus long bord."},
+    "Strait of Malacca": {"id": "andaman", "raison": "Ni P361 ni océan pour l'OHI, qui le sépare de la mer d'Andaman (ligne Phuket–Pedropunt) : à la mer d'Andaman, son plus long bord (choix de l'utilisateur du 12/11), plutôt qu'à l'océan Indien, dont il ferait un morceau isolé entre andaman et chinemer ; il reste juste pour l'Indien par la mer d'Andaman, bordière."},
     "Laccadive Sea": {"id": "indien", "raison": "P361 océan Indien ; pas à la mer d'Arabie, son plus long bord."},
     "Labrador Sea": {"id": "atlant", "raison": "P361 océan Atlantique Nord."},
     "Inner Seas": {"id": "atlant", "raison": "Mer des Hébrides : P361 océan Atlantique Nord."},

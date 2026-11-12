@@ -1,7 +1,7 @@
 [
 {"id":"atlant","sorte":"océan","parents":[],"interieure":false,"bassin":"atlant","superficie_km2":72971169,"point":[-13.60254,-31.77621],"bbox":[-83.0351,-60.5335,19.6349,68.4372],"voisins":["arctique","austral","caraibes","gascogne","groenl","guinee","indien","irlande","laurent","manche","medit","mexique","nord","norvege","pacif","sargasse"]},
 {"id":"pacif","sorte":"océan","parents":[],"interieure":false,"bassin":"pacif","superficie_km2":152632255,"point":[-115.45885,-25.94152],"bbox":[114.3848,-60.5335,-68.0777,61.5009],"voisins":["atlant","austral","bering","californ","chinemer","chineor","corail","indien","japon","okhotsk"]},
-{"id":"indien","sorte":"océan","parents":[],"interieure":false,"bassin":"indien","superficie_km2":64948724,"point":[84.93372,-26.8017],"bbox":[19.6158,-60.5335,166.0664,14.5564],"voisins":["andaman","arabie","atlant","austral","bengale","chinemer","corail","mozamb","pacif"]},
+{"id":"indien","sorte":"océan","parents":[],"interieure":false,"bassin":"indien","superficie_km2":64750929,"point":[84.93372,-26.8017],"bbox":[19.6158,-60.5335,166.0664,14.5564],"voisins":["arabie","atlant","austral","bengale","chinemer","corail","mozamb","pacif"]},
 {"id":"arctique","sorte":"océan","parents":[],"interieure":false,"bassin":"arctique","superficie_km2":8706869,"point":[-150.06698,81.72487],"bbox":[-180,57.9025,180,90],"voisins":["atlant","baffin","barents","beaufort","bering","groenl","hudson","kara"]},
 {"id":"austral","sorte":"océan","parents":[],"interieure":false,"bassin":"austral","superficie_km2":20733099,"point":[-153.68515,-68.19111],"bbox":[-180,-85.1921,180,-60.5335],"voisins":["atlant","indien","pacif"]},
 {"id":"medit","sorte":"mer","parents":["atlant"],"interieure":true,"bassin":"atlant","superficie_km2":1808974,"point":[17.73619,33.98505],"bbox":[-5.6175,30.2663,36.1883,44.4225],"voisins":["atlant","egee","ionienne","noire","tyrrhen"]},
@@ -37,7 +37,7 @@
 {"id":"japon","sorte":"mer","parents":["pacif"],"interieure":false,"bassin":"pacif","superficie_km2":1066902,"point":[133.64959,39.53365],"bbox":[126.3604,32.4496,142.2078,53.3766],"voisins":["chineor","jaune","okhotsk","pacif"]},
 {"id":"jaune","sorte":"mer","parents":["pacif"],"interieure":false,"bassin":"pacif","superficie_km2":455035,"point":[123.0108,34.68875],"bbox":[117.554,31.958,126.9769,40.9745],"voisins":["chineor","japon"]},
 {"id":"chineor","sorte":"mer","parents":["pacif"],"interieure":false,"bassin":"pacif","superficie_km2":741112,"point":[125.96772,29.80704],"bbox":[119.1394,23.6538,130.8541,33.2735],"voisins":["chinemer","japon","jaune","pacif"]},
-{"id":"chinemer","sorte":"mer","parents":["pacif"],"interieure":false,"bassin":"pacif","superficie_km2":3352274,"point":[114.73888,13.94382],"bbox":[102.3489,-3.2194,122.2662,25.2709],"voisins":["chineor","indien","pacif","thailand"]},
+{"id":"chinemer","sorte":"mer","parents":["pacif"],"interieure":false,"bassin":"pacif","superficie_km2":3352274,"point":[114.73888,13.94382],"bbox":[102.3489,-3.2194,122.2662,25.2709],"voisins":["andaman","chineor","indien","pacif","thailand"]},
 {"id":"thailand","sorte":"golfe","parents":["chinemer"],"interieure":false,"bassin":"pacif","superficie_km2":299850,"point":[102.23203,8.97838],"bbox":[99.1607,6.158,105.0948,13.5684],"voisins":["chinemer"]},
 {"id":"corail","sorte":"mer","parents":["pacif"],"interieure":false,"bassin":"pacif","superficie_km2":4022681,"point":[156.84463,-18.56965],"bbox":[142.2068,-29.8762,169.8362,-7.4602],"voisins":["indien","pacif"]},
 {"id":"californ","sorte":"golfe","parents":["pacif"],"interieure":false,"bassin":"pacif","superficie_km2":172127,"point":[-108.94468,24.3784],"bbox":[-114.9338,23.2654,-106.9222,31.9009],"voisins":["pacif"]},
@@ -47,6 +47,6 @@
 {"id":"aden","sorte":"golfe","parents":["indien"],"interieure":false,"bassin":"indien","superficie_km2":259439,"point":[49.51453,12.88057],"bbox":[42.5219,10.4304,51.2674,15.2094],"voisins":["arabie","rouge"]},
 {"id":"rouge","sorte":"mer","parents":["indien"],"interieure":true,"bassin":"indien","superficie_km2":461404,"point":[40.4482,17.32005],"bbox":[32.3598,12.1838,43.9301,29.9742],"voisins":["aden"]},
 {"id":"bengale","sorte":"golfe","parents":["indien"],"interieure":false,"bassin":"indien","superficie_km2":2044424,"point":[86.39419,12.44856],"bbox":[79.6932,5.5219,95.2353,23.5914],"voisins":["andaman","indien"]},
-{"id":"andaman","sorte":"mer","parents":["indien"],"interieure":false,"bassin":"indien","superficie_km2":652422,"point":[95.41415,9.76656],"bbox":[92.2,5.569,98.876,17.4012],"voisins":["bengale","indien"]},
+{"id":"andaman","sorte":"mer","parents":["indien"],"interieure":false,"bassin":"indien","superficie_km2":850217,"point":[95.42361,9.80026],"bbox":[92.2,0.6858,103.5046,17.4012],"voisins":["bengale","chinemer"]},
 {"id":"mozamb","sorte":"bras de mer","parents":["indien"],"interieure":false,"bassin":"indien","superficie_km2":1377551,"point":[39.37583,-21.28189],"bbox":[32.5879,-26.5731,49.2566,-10.6589],"voisins":["indien"]}
 ]

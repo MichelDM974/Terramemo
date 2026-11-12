@@ -340,7 +340,7 @@ describe('affectations (geodata/mers-affectations.json)', () => {
       ['Davis Strait', 'arctique'],
       ['Cumberland Sound', 'arctique'],
       ['Hudson Strait', 'arctique'],
-      ['Strait of Malacca', 'indien'],
+      ['Strait of Malacca', 'andaman'],
       ['Makassar Strait', 'pacif'],
       ['Sea of Crete', 'egee'],
       ['Sea of Marmara', 'medit'],

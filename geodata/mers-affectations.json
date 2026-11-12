@@ -85,7 +85,7 @@
 {"ne_id":1159116787,"nom":"Gulf of Tonkin","cla":"gulf","km2":115759,"id":"chinemer","mode":"auto","via":"South China Sea","bord_km":247},
 {"ne_id":1159116797,"nom":"Bay of Fundy","cla":"bay","km2":15511,"id":"atlant","mode":"auto","via":"Gulf of Maine","bord_km":99},
 {"ne_id":1159116815,"nom":"Río de la Plata","cla":"gulf","km2":32295,"id":"atlant","mode":"auto","via":"South Atlantic Ocean","bord_km":230},
-{"ne_id":1159116835,"nom":"Strait of Malacca","cla":"strait","km2":197795,"id":"indien","mode":"forcée"},
+{"ne_id":1159116835,"nom":"Strait of Malacca","cla":"strait","km2":197795,"id":"andaman","mode":"forcée"},
 {"ne_id":1159116861,"nom":"Strait of Singapore","cla":"strait","km2":3536,"id":"chinemer","mode":"auto","via":"South China Sea","bord_km":164},
 {"ne_id":1159116881,"nom":"Makassar Strait","cla":"strait","km2":187973,"id":"pacif","mode":"forcée"},
 {"ne_id":1159116897,"nom":"Ceram Sea","cla":"sea","km2":157923,"id":"pacif","mode":"forcée"},
