@@ -43,7 +43,8 @@ export interface DrapeauxPays {
   pays: string;
   /**
    * L'adresse du premier drapeau (d[0]), le même pour tous : bouton de
-   * Reconnaître, révélation, rétroaction, énoncé d'une épreuve classée.
+   * Reconnaître, révélation, carte retournée, énoncé d'une épreuve classée
+   * (la rétroaction et les bilans, eux, nomment le pays en texte).
    */
   montre: string;
   /**
