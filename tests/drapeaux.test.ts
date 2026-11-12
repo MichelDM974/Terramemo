@@ -19,6 +19,8 @@ import {
   lireDrapeaux,
   oublierDrapeaux,
   prechargerDrapeaux,
+  prechargerImages,
+  prechargerJustes,
   prechargerPartie,
   type ManifesteDrapeaux,
 } from '../src/map/drapeaux';
@@ -124,6 +126,13 @@ describe('manifeste lu (src/map/drapeaux.ts)', () => {
     // Une partie entière (épreuves, partie C) : ce qui manque encore, d'un coup.
     prechargerPartie(['TCD', 'ROU', 'AFG'], DR, t);
     expect(vus.slice(2)).toEqual([DR.parPays.get('ROU')!.montre, DR.parPays.get('AFG')!.montre]);
+    // Une séance (tous les justes : son énoncé de Trouver n'est tiré qu'à sa pose) : les deux drapeaux de la Bolivie.
+    prechargerJustes(['BOL', 'FRA'], DR, t);
+    expect(vus.slice(4)).toEqual([...DR.parPays.get('BOL')!.justes]);
+    expect(vus.slice(4)).toHaveLength(2);
+    // Une adresse (l'énoncé tiré, commun.ts prechargerEnonces) : une fois par page, comme les autres.
+    prechargerImages([DR.parPays.get('AFG')!.justes[1]!, DR.parPays.get('BOL')!.justes[1]!], t);
+    expect(vus.slice(6)).toEqual([DR.parPays.get('AFG')!.justes[1]]);
     // Sous node, sans Image : le défaut ne lève pas.
     expect(() => prechargerDrapeaux(['BEL'], DR)).not.toThrow();
     oublierDrapeaux();
@@ -160,10 +169,44 @@ describe('rendu du sujet Drapeaux (§ 5.3)', () => {
     for (const id of ['TCD', 'FRA', 'AFG', 'BOL']) {
       const e = r.enonce(id);
       expect(e.invite).toBe('Pays de ce drapeau : ');
-      expect(e.objet).toEqual({ image: DR.parPays.get(id)!.montre, alt: 'Drapeau à reconnaître' });
+      expect(e.objet).toEqual({ image: r.imageEnonce(id), alt: 'Drapeau à reconnaître' });
+      expect(DR.parPays.get(id)!.justes).toContain(r.imageEnonce(id));
       expect(dit(e.objet)).not.toContain(NOMS[id]!);
       expect(dit(e.objet)).not.toContain(id);
     }
+  });
+
+  it('D41, décision « Drapeaux contestés et sosies » : en Trouver, l’Afghanistan et la Bolivie montrent l’un de leurs deux drapeaux au hasard, fixé pour la question ; en épreuve, le premier', () => {
+    for (const id of ['AFG', 'BOL']) {
+      const { justes, montre } = DR.parPays.get(id)!;
+      expect(justes).toHaveLength(2);
+      expect(justes[0]).toBe(montre);
+      const vus = new Set<string>();
+      for (let s = 1; s <= 30; s++) {
+        const rs = rendu('drapeaux', D, { hasard: graine(s) });
+        // Le préchargement (imageEnonce) d'abord, comme en Entraînement : l'énoncé posé ensuite montre le même.
+        const a = rs.imageEnonce(id)!;
+        expect(justes).toContain(a);
+        for (let k = 0; k < 3; k++) expect(rs.enonce(id).objet).toEqual({ image: a, alt: 'Drapeau à reconnaître' });
+        vus.add(a);
+        // Le reste montre le premier, le même pour tous : bouton de Reconnaître, révélation (et carte retournée).
+        expect(rs.choix(id, id)).toEqual({ image: montre, alt: '' });
+        expect(rs.choix(id, 'FRA')).toEqual({ image: montre, alt: '' });
+        expect(rs.revelation(id)).toEqual({ image: montre, alt: '', legende: NOMS[id] });
+        // En épreuve classée : toujours le premier, quel que soit le hasard.
+        const ep = rendu('drapeaux', D, { epreuve: true, hasard: graine(s) });
+        expect(ep.enonce(id).objet).toEqual({ image: montre, alt: 'Drapeau à reconnaître' });
+        expect(ep.imageEnonce(id)).toBe(montre);
+      }
+      expect(vus).toEqual(new Set(justes));
+    }
+    // Les deux bornes du hasard : le premier, puis le second.
+    expect(rendu('drapeaux', D, { hasard: () => 0 }).imageEnonce('AFG')).toBe(DR.parPays.get('AFG')!.justes[0]);
+    expect(rendu('drapeaux', D, { hasard: () => 0.999 }).imageEnonce('AFG')).toBe(DR.parPays.get('AFG')!.justes[1]);
+    // Un pays à un seul drapeau : toujours lui ; sans image pour les autres sujets.
+    expect(rendu('drapeaux', D, { hasard: () => 0.999 }).imageEnonce('FRA')).toBe(DR.parPays.get('FRA')!.montre);
+    expect(rendu('pays', D).imageEnonce('FRA')).toBeNull();
+    expect(rendu('capitales', { ...D, capitales: CAP }).imageEnonce('FRA')).toBeNull();
   });
 
   it('Reconnaître : « Quel est son drapeau ? », chaque choix l’image de son pays, alt vide ; visuel', () => {

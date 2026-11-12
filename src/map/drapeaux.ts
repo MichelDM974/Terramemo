@@ -18,7 +18,11 @@
 /** Une ligne de drapeaux.json, telle que servie. */
 export interface LigneDrapeaux {
   pays: string;
-  /** Les drapeaux justes du pays (empreintes) ; le premier est le montré (D41 : le tricolore de l'Afghanistan, le civil de la Bolivie). */
+  /**
+   * Les drapeaux justes du pays (empreintes). Le premier est le montré partout
+   * (D41 : le tricolore de l'Afghanistan, le civil de la Bolivie), sauf
+   * l'énoncé de Trouver hors épreuve, tiré au hasard parmi tous (sujets.ts).
+   */
   d: string[];
   /** Ses jumeaux : même drapeau à l'écran (score 0). */
   j?: string[];
@@ -35,9 +39,17 @@ export interface ManifesteDrapeaux {
 /** Les drapeaux d'un pays, adresses comprises. */
 export interface DrapeauxPays {
   pays: string;
-  /** L'adresse du drapeau montré (d[0]) : énoncé de Trouver, bouton de Reconnaître, révélation. */
+  /**
+   * L'adresse du premier drapeau (d[0]), le même pour tous : bouton de
+   * Reconnaître, révélation, rétroaction, énoncé d'une épreuve classée.
+   */
   montre: string;
-  /** Les adresses de tous ses drapeaux justes, le montré d'abord. */
+  /**
+   * Les adresses de tous ses drapeaux justes, le montré d'abord : l'énoncé de
+   * Trouver hors épreuve (Entraînement, séance) en montre un, tiré au hasard et
+   * fixé pour la question (comme une capitale, D38 a ; décision « Drapeaux
+   * contestés et sosies »).
+   */
   justes: readonly string[];
   /** Ses jumeaux (D41 d) : justes en plus en Trouver sous Drapeaux, jamais avec lui parmi 4 choix. */
   jumeaux: readonly string[];
@@ -122,20 +134,41 @@ const parImage: Telecharger = (adresse) => {
 /** Les adresses déjà demandées : une seule demande par drapeau et par page (le cache du navigateur fait le reste). */
 const demandes = new Set<string>();
 
-/**
- * Précharge le drapeau montré de ces pays (la question suivante de Trouver,
- * les choix de la question suivante de Reconnaître, les questions d'une
- * séance) : il est dans le cache du navigateur quand la question le montre.
- * Sans effet tant que le manifeste n'est pas lu, ou pour un pays sans drapeau.
- */
-export function prechargerDrapeaux(ids: Iterable<string>, d: DonneesDrapeaux | null = charges, telecharger: Telecharger = parImage): void {
-  if (!d) return;
-  for (const id of ids) {
-    const a = d.parPays.get(id)?.montre;
-    if (!a || demandes.has(a)) continue;
+/** Précharge ces images (leurs adresses), chacune une fois par page. */
+export function prechargerImages(adresses: Iterable<string>, telecharger: Telecharger = parImage): void {
+  for (const a of adresses) {
+    if (demandes.has(a)) continue;
     demandes.add(a);
     telecharger(a);
   }
+}
+
+/** Les adresses des drapeaux de ces pays : le premier (montre) de chacun, ou tous ses justes ; rien pour un pays sans drapeau. */
+const adressesDe = (ids: Iterable<string>, d: DonneesDrapeaux, justes: boolean): string[] =>
+  [...ids].flatMap((id) => {
+    const x = d.parPays.get(id);
+    return !x ? [] : justes ? x.justes : [x.montre];
+  });
+
+/**
+ * Précharge le premier drapeau (montre) de ces pays : les choix de la
+ * question suivante de Reconnaître, qui montrent toujours celui-là. Le
+ * drapeau d'un énoncé de Trouver, tiré parmi les justes, se précharge par son
+ * adresse (commun.ts prechargerEnonces, qui la demande au rendu). Sans effet
+ * tant que le manifeste n'est pas lu, ou pour un pays sans drapeau.
+ */
+export function prechargerDrapeaux(ids: Iterable<string>, d: DonneesDrapeaux | null = charges, telecharger: Telecharger = parImage): void {
+  if (d) prechargerImages(adressesDe(ids, d, false), telecharger);
+}
+
+/**
+ * Précharge tous les drapeaux justes de ces pays (les questions d'une séance,
+ * à son ouverture) : l'énoncé de Trouver n'est tiré qu'à sa pose, si bien que
+ * l'Afghanistan et la Bolivie demandent leurs deux drapeaux ; le montré sert
+ * aussi aux cartes retournées et aux choix.
+ */
+export function prechargerJustes(ids: Iterable<string>, d: DonneesDrapeaux | null = charges, telecharger: Telecharger = parImage): void {
+  if (d) prechargerImages(adressesDe(ids, d, true), telecharger);
 }
 
 /**
@@ -144,6 +177,7 @@ export function prechargerDrapeaux(ids: Iterable<string>, d: DonneesDrapeaux | n
  * le drapeau de chaque question, d'un coup, dans l'ordre des questions, pour
  * qu'aucune ne montre le gris d'attente pendant que le temps court (la vue
  * attend quand même le décodage d'un drapeau en retard : ATTENTE_IMAGE_MS).
+ * Une épreuve montre le premier drapeau de chaque pays (le même pour tous).
  */
 export const prechargerPartie = (ids: readonly string[], d: DonneesDrapeaux | null = charges, telecharger: Telecharger = parImage): void =>
   prechargerDrapeaux(ids, d, telecharger);

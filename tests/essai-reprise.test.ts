@@ -970,6 +970,38 @@ describe('Toucher : le sujet Drapeaux', () => {
     expect(`${v.barre.innerText}${v.bilan.innerText}`).not.toMatch(/\b(TCD|NER)\b/);
   });
 
+  it('D41, décision « Drapeaux contestés et sosies » : Trouver montre l’un des deux drapeaux de l’Afghanistan et de la Bolivie au hasard, fixé pour la question (reprise comprise) ; le préchargement demande celui-là', () => {
+    const justes = (id: string) => drapeauxCharges()!.parPays.get(id)!.justes;
+    // Le hasard au plus bas, puis au plus haut : le premier drapeau, puis le second (un rendu qui montrerait toujours le premier échoue au second).
+    for (const [x, k] of [
+      [0.01, 0],
+      [0.99, 1],
+    ] as const) {
+      vi.spyOn(Math, 'random').mockReturnValue(x);
+      try {
+        precharges = [];
+        const v = monter({}, { ids: ['AFG', 'BOL'], noms: NOMS_FR });
+        v.lancer({ sujet: 'drapeaux' });
+        const id = v.cible();
+        const autre = id === 'AFG' ? 'BOL' : 'AFG';
+        const src = () => consigne(v).querySelector('strong img')!.getAttribute('src');
+        expect(src(), `${x}`).toBe(justes(id)[k]);
+        // Le drapeau de la question suivante préchargé : celui que son énoncé montrera, pas forcément le premier.
+        expect(precharges, `${x}`).toEqual([justes(autre)[k]]);
+        // La reprise de la question garde le même drapeau.
+        v.vue.desactiver();
+        v.vue.activer();
+        expect(src()).toBe(justes(id)[k]);
+        v.passer.click();
+        expect(v.cible()).toBe(autre);
+        expect(src(), `${x}`).toBe(justes(autre)[k]);
+        v.vue.desactiver();
+      } finally {
+        vi.restoreAllMocks();
+      }
+    }
+  });
+
   it('D41 d : l’Indonésie notée avec Monaco en zone admise du sujet, et dit ; sous Pays, aucune', () => {
     const v = monter({}, { ids: ['IDN', 'MCO'], noms: NOMS_FR });
     v.lancer({ sujet: 'drapeaux' });

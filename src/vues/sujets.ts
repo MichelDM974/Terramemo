@@ -27,8 +27,12 @@
 // montre le drapeau, nommé ; la rétroaction et les bilans nomment le pays
 // (« Bénin : drapeau oublié »). Le drapeau montré est le premier juste du
 // manifeste (d[0] : le tricolore de l'Afghanistan, le civil de la Bolivie),
-// le même partout ; un seul drapeau par pays dans une grille, si bien que ses
-// autres justes ne sont jamais côte à côte avec lui. Rien ne nomme le pays
+// le même pour tous : boutons de Reconnaître, révélation, carte retournée,
+// énoncé d'une épreuve. Seul l'énoncé de Trouver hors épreuve (Entraînement,
+// séance) tire le sien parmi les justes, fixé pour la question, par le même
+// tirage que la capitale (D38 a ; décision « Drapeaux contestés et sosies »).
+// Un seul drapeau par pays dans une grille, si bien que ses autres justes ne
+// sont jamais côte à côte avec lui. Rien ne nomme le pays
 // avant la réponse : alt neutre (« Drapeau à reconnaître ») ou vide (les
 // boutons ont leur aria-label « Choix 1 » à « Choix 4 », nommer.ts), fichiers
 // nommés par leur empreinte. Les jumeaux (Indonésie et Monaco, Roumanie et
@@ -115,6 +119,12 @@ export interface RenduSujet {
   point(id: string): [number, number] | null;
   /** Les points de tout ce que « Révéler » montre (les capitales justes) ; [] sans point. */
   points(id: string): [number, number][];
+  /**
+   * L'adresse de l'image que montrera l'énoncé de ce lieu (enonce), tirée et
+   * fixée comme lui : ce qu'il faut précharger ou attendre (commun.ts
+   * prechargerEnonces, attendreEnonces) ; null sans image.
+   */
+  imageEnonce(id: string): string | null;
   /** Le lieu se pose-t-il en QCM (Reconnaître, QCM d'Apprendre) ? Non pour les 9 de D37 c. */
   qcmPosable(id: string): boolean;
   /** Les lieux jamais leurres pour la question de ce lieu (qcm.choix, option exclus). */
@@ -143,13 +153,33 @@ export interface DonneesSujet {
 
 /**
  * En épreuve classée, ce que montre l'énoncé est le même pour tous (D38 d : la
- * capitale la plus connue d'un pays qui en a plusieurs) ; hors épreuve, il
- * peut varier (D38 a). Sans effet pour les pays et les communes.
+ * capitale la plus connue d'un pays qui en a plusieurs ; le premier drapeau)
+ * ; hors épreuve, il peut varier (D38 a). Sans effet pour les pays et les
+ * communes.
  */
 export interface OptionsRendu {
   epreuve?: boolean;
-  /** Hasard du tirage d'une capitale parmi les justes (D38 a ; tests : une graine). */
+  /** Hasard du tirage d'une capitale ou d'un drapeau parmi les justes (D38 a ; tests : une graine). */
   hasard?: () => number;
+}
+
+/**
+ * D38 a : ce que l'énoncé montre d'un lieu hors épreuve, tiré au hasard parmi
+ * ses justes (une capitale, un drapeau) à la première demande, puis gardé tant
+ * que dure le rendu : une reprise de la question, son préchargement et sa
+ * rétroaction redonnent le même.
+ */
+function tirage<T>(hasard: () => number) {
+  const tires = new Map<string, T>();
+  return {
+    /** Le tiré de ce lieu (tiré maintenant s'il ne l'est pas) ; undefined sans juste. */
+    tirer(id: string, justes: readonly T[]): T | undefined {
+      if (!tires.has(id) && justes.length) tires.set(id, justes[Math.floor(hasard() * justes.length)]!);
+      return tires.get(id);
+    },
+    /** Le tiré de ce lieu s'il l'a été, sans tirer. */
+    deja: (id: string): T | undefined => tires.get(id),
+  };
 }
 
 /**
@@ -172,6 +202,7 @@ const SANS_PLUS = {
   retro: () => '',
   point: () => null,
   points: () => [],
+  imageEnonce: () => null,
   qcmPosable: () => true,
   qcmExclus: () => new Set<string>(),
   qcmPareils: () => false,
@@ -206,22 +237,19 @@ const C = textes.capitales;
 const parCapitale: Fabrique = (ts, d, o) => {
   const donnees = d.capitales ?? capitalesChargees();
   if (!donnees) throw new Error('capitales : données pas chargées');
-  const hasard = o.hasard ?? Math.random;
   const pays = (id: string) => nomDe(d, id);
   const de = (id: string) => donnees.parPays.get(id);
   /** D38 a : la capitale tirée pour la question de ce pays, gardée tant que dure ce rendu. */
-  const tirees = new Map<string, Capitale>();
+  const tirees = tirage<Capitale>(o.hasard ?? Math.random);
   /** La capitale montrée pour la question de ce pays : celle de l'épreuve (D38 d), ou tirée parmi les justes et fixée (D38 a). */
   function montree(id: string): Capitale | null {
     const c = de(id);
     if (!c) return null;
     if (o.epreuve) return c.epreuve;
-    let x = tirees.get(id);
-    if (!x) tirees.set(id, (x = c.justes[Math.floor(hasard() * c.justes.length)] ?? c.principale));
-    return x;
+    return tirees.tirer(id, c.justes) ?? c.principale;
   }
   /** Ce qu'on a montré pour ce pays (sans tirer), à défaut la principale : les bilans d'une séance, faits d'un rendu neuf. */
-  const montreeOuPrincipale = (id: string): Capitale | null => (o.epreuve ? (de(id)?.epreuve ?? null) : (tirees.get(id) ?? de(id)?.principale ?? null));
+  const montreeOuPrincipale = (id: string): Capitale | null => (o.epreuve ? (de(id)?.epreuve ?? null) : (tirees.deja(id) ?? de(id)?.principale ?? null));
   // À défaut de capitale (un pays sans ligne : jamais un jouable, le test le vérifie), le nom du pays, jamais un Qid.
   const ville = (id: string) => montree(id)?.nom ?? pays(id);
   /** Un leurre montre la principale de son pays (§ 2.1) : jamais une autre capitale juste de la cible. */
@@ -252,6 +280,7 @@ const parCapitale: Fabrique = (ts, d, o) => {
     },
     point: (id) => montree(id)?.point ?? null,
     points: (id) => (de(id)?.justes ?? []).map((c) => c.point),
+    imageEnonce: () => null,
     visuel: false,
     qcmPosable: (id) => nommerPose('capitales', id),
     // Les 9 au nom de leur capitale (D37 c) et le pays de x (Israël ↔ Palestine) : jamais leurres.
@@ -269,25 +298,34 @@ const D = textes.drapeaux;
 
 /**
  * Les drapeaux (étude J2 § 5.3) : la cible est le pays ; on montre son
- * drapeau (le montré, d[0]). Lève si le manifeste n'est pas chargé (une
+ * drapeau (le premier, d[0], sauf l'énoncé de Trouver hors épreuve : tiré
+ * parmi les justes et fixé, D38 a). Lève si le manifeste n'est pas chargé (une
  * partie de drapeaux ne part qu'après lui : commun.ts avecSujet, la séance).
  * Les images, elles, arrivent à l'affichage : un gris 4:3 de taille fixe
  * tient leur place (carte.css), la barre ne change pas de hauteur.
  */
-const parDrapeau: Fabrique = (ts, d) => {
+const parDrapeau: Fabrique = (ts, d, o) => {
   const donnees = d.drapeaux ?? drapeauxCharges();
   if (!donnees) throw new Error('drapeaux : manifeste pas chargé');
   const pays = (id: string) => nomDe(d, id);
   const de = (id: string) => donnees.parPays.get(id);
+  /** D38 a : le drapeau tiré pour l'énoncé de ce pays (l'Afghanistan, la Bolivie : l'un de leurs deux), gardé tant que dure ce rendu. */
+  const tires = tirage<string>(o.hasard ?? Math.random);
+  /** Le drapeau de l'énoncé : le premier en épreuve (le même pour tous), tiré parmi les justes et fixé sinon. */
+  const aEnonce = (id: string): string | null => {
+    const x = de(id);
+    if (!x) return null;
+    return o.epreuve ? x.montre : (tires.tirer(id, x.justes) ?? x.montre);
+  };
   // À défaut de drapeau (un pays hors du manifeste : jamais un jouable, le test des données le vérifie), le nom du pays.
-  const image = (id: string, alt: string, legende?: string): Contenu => {
-    const a = de(id)?.montre;
+  const image = (id: string, alt: string, legende?: string, a = de(id)?.montre ?? null): Contenu => {
     if (!a) return { texte: pays(id) };
     return legende === undefined ? { image: a, alt } : { image: a, alt, legende };
   };
   const jumeaux = (id: string) => de(id)?.jumeaux ?? [];
   return {
-    enonce: (id) => ({ invite: ts.enonce, objet: image(id, D.alt_enonce) }),
+    enonce: (id) => ({ invite: ts.enonce, objet: image(id, D.alt_enonce, undefined, aEnonce(id)) }),
+    imageEnonce: aEnonce,
     consigneQcm: ts.consigne_nommer,
     // Un alt vide : le bouton a son nom, « Choix 1 » (nommer.ts) ; rien d'autre ne doit le nommer avant la réponse.
     choix: (id) => image(id, ''),

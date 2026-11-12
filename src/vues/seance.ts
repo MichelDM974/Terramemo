@@ -26,7 +26,7 @@
 // Les grappes nouvelles des autres sujets ne s'ouvrent que par Apprendre.
 // Tant que le monde n'a qu'un sujet jouable, les blocs sont ceux d'avant.
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
-import { chargerDrapeaux, drapeauxCharges, prechargerDrapeaux } from '../map/drapeaux';
+import { chargerDrapeaux, drapeauxCharges, prechargerJustes } from '../map/drapeaux';
 import type { DonneesCarte } from '../map/donnees';
 import { empriseGrappe, type Emprise } from '../map/geo';
 import type { Lieu, NomTerrain } from '../map/types';
@@ -117,7 +117,7 @@ export interface OptionsSeances {
   chargerCapitales?: () => Promise<unknown>;
   /** Lit le manifeste des drapeaux (chargerDrapeaux par défaut ; les tests : un échec, une attente). */
   chargerDrapeaux?: () => Promise<unknown>;
-  /** Précharge les drapeaux de ces pays (prechargerDrapeaux par défaut ; les tests : un espion). */
+  /** Précharge les drapeaux de ces pays (prechargerJustes par défaut : tous leurs justes ; les tests : un espion). */
   prechargerDrapeaux?: (ids: readonly string[]) => void;
   /**
    * Les domaines jouables (DOMAINES_JOUABLES par défaut) : les tests y
@@ -365,15 +365,17 @@ export function creerSeances(o: OptionsSeances): Seances {
 
   /**
    * Les drapeaux des questions de la séance, demandés à son ouverture (étude
-   * J2 § 6.3) : celui de chaque pays à poser sous Drapeaux (révisions,
+   * J2 § 6.3) : ceux de chaque pays à poser sous Drapeaux (révisions,
    * introductions, grappe nouvelle), dans le cache du navigateur quand sa
-   * question le montre. Les leurres d'un QCM arrivent à leur affichage.
+   * question le montre ; tous ses justes, car l'énoncé de Trouver tire le sien
+   * à sa pose (D38 a : l'Afghanistan, la Bolivie). Les leurres d'un QCM
+   * arrivent à leur affichage.
    */
   function precharger(bs: readonly Bloc[]): void {
     // Les révisions du monde mêlent les domaines dans un bloc (celui des pays) : chaque fiche dit le sien.
     const fiches = bs.flatMap((b) => [...b.plan.revisions, ...b.plan.introductions]).flatMap((f) => analyser(f) ?? []);
     const ids = [...fiches.filter((f) => f.domaine === 'drapeaux').map((f) => f.id), ...bs.filter((b) => b.info.domaine === 'drapeaux').flatMap((b) => b.plan.nouveaux)];
-    if (ids.length) (o.prechargerDrapeaux ?? ((x: readonly string[]) => prechargerDrapeaux(x)))([...new Set(ids)]);
+    if (ids.length) (o.prechargerDrapeaux ?? ((x: readonly string[]) => prechargerJustes(x)))([...new Set(ids)]);
   }
 
   /**

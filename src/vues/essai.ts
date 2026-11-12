@@ -25,7 +25,7 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, poserEnonce, prechargerSujet, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, poserEnonce, prechargerEnonces, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { rendu, type RenduSujet } from './sujets';
@@ -304,8 +304,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     if (!id) return pilote ? prochaine() : finir();
     poserEnonce(consigne, rs.enonce(id));
     consigne.dataset.cible = id;
-    // Le drapeau de la question suivante, demandé pendant celle-ci (étude J2 § 2.2) ; en séance, la séance a préchargé les siennes.
-    prechargerSujet(rs.sujet, cibles.slice(i + 1, i + 2));
+    // Le drapeau de la question suivante, demandé pendant celle-ci (étude J2 § 2.2) : celui que son énoncé montrera
+    // (tiré, D38 a) ; en séance, la séance a préchargé les siennes.
+    prechargerEnonces(rs, cibles.slice(i + 1, i + 2));
     compte.textContent = pilote ? pilote.compte() : `${i + 1} / ${cibles.length}`;
     if (!reprise) {
       retro.textContent = '';

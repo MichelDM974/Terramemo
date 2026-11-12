@@ -1,6 +1,6 @@
 import { acceptesEnPlus, type Admis } from '../map/acceptes';
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
-import { chargerDrapeaux, drapeauxCharges, prechargerDrapeaux, prechargerPartie } from '../map/drapeaux';
+import { chargerDrapeaux, drapeauxCharges, prechargerDrapeaux, prechargerImages, prechargerPartie } from '../map/drapeaux';
 import type { CarteAffichee } from '../map/carte';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
@@ -193,12 +193,23 @@ export function chargementSujet(sujet: string): Promise<unknown> | null {
 }
 
 /**
- * Ce que montreront ces lieux du sujet, demandé d'avance (étude J2 § 2.2) :
- * le drapeau de la question suivante en Entraînement, pour qu'il ne montre
- * pas le gris d'attente. Rien pour un sujet sans image.
+ * Ce que montreront ces lieux du sujet en choix, demandé d'avance (étude J2
+ * § 2.2) : les drapeaux de la question suivante de Reconnaître (le premier de
+ * chaque pays), pour qu'ils ne montrent pas le gris d'attente. Rien pour un
+ * sujet sans image.
  */
 export function prechargerSujet(sujet: string, ids: Iterable<string>): void {
   if (sujet === 'drapeaux') prechargerDrapeaux(ids);
+}
+
+/**
+ * L'image de l'énoncé de ces lieux, demandée d'avance : le drapeau de la
+ * question suivante de Trouver en Entraînement, celui que le rendu montrera
+ * (tiré parmi les justes et fixé, D38 a : pas toujours le premier), pour
+ * qu'il ne montre pas le gris d'attente. Rien pour un sujet sans image.
+ */
+export function prechargerEnonces(r: Pick<RenduSujet, 'imageEnonce'>, ids: Iterable<string>): void {
+  prechargerImages([...ids].flatMap((id) => r.imageEnonce(id) ?? []));
 }
 
 /**
