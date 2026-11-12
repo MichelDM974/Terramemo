@@ -208,6 +208,10 @@ body[data-terrain="reunion"] .legende-memoire { top: 44px; }
 .legende-case { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
 .legende-echelle { display: inline-flex; gap: 1px; }
 .legende-jamais { background: var(--terre); filter: brightness(1.4); } /* plein, sans bordure : pas une case à cocher */
+/* Sous « Mers » : une mer jamais vue garde la couleur de l'eau (--mer), pas celle de
+   la terre neutre ; un liseré de --terre, la côte, la détache du fond de la légende,
+   presque aussi sombre qu'elle. La carte, elle, ne change pas. */
+.legende-jamais.legende-jamais-mer { background: var(--mer); filter: none; box-shadow: 0 0 0 1px var(--terre); }
 .legende-s0 { background: var(--memoire-0); }
 .legende-s1 { background: var(--memoire-1); }
 .legende-s2 { background: var(--memoire-2); }

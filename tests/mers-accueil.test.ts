@@ -5,7 +5,8 @@
 // affichage, rien pour un toucher sur un pays ; la couche fine sert si elle
 // est déjà lue ; rien d'autre à l'écran (aucun calque marin dessiné ni
 // teinté). Avec « Mers » dans la carte de la mémoire : la couche posée, ses
-// zones teintées. Une mer choisie dans la recherche : cadrée, allumée.
+// zones teintées, et le carré « Jamais vu » de la légende couleur d'eau
+// (partie B). Une mer choisie dans la recherche : cadrée, allumée.
 import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -183,6 +184,29 @@ describe('accueil : la mémoire des mers (D47 a) et une mer choisie dans la rech
     expect(a.nom()).toBe('mer Méditerranée');
     expect(a.detail()).toBe('Vu 1 fois · revient demain');
     expect(a.marques).toEqual(['medit:choisi']);
+  });
+
+  it('la légende dit ce que montre la carte : sous « Mers », le carré « Jamais vu » a la couleur de l’eau (une mer jamais vue garde le fond), sous un autre sujet celle de la terre neutre ; la carte ne change pas de teintes', async () => {
+    let sujet: 'pays' | 'mers' = 'mers';
+    const a = monter({ ...memoireMers(), sujet: () => sujet, choisir: (_t, d) => void (sujet = d as typeof sujet) });
+    a.vue.activer();
+    await vi.waitFor(() => expect(a.carte.prendreMers).toHaveBeenCalledTimes(1));
+    const jamais = () => a.zone.querySelector('#legende-memoire .legende-jamais')!;
+    expect(jamais().classList.contains('legende-jamais-mer')).toBe(true);
+    expect(a.zone.querySelector('#legende-memoire')!.innerText).toContain(textes.memoire.jamais_vu);
+    // Un autre sujet choisi : la case de la terre, comme avant.
+    const choix = a.zone.querySelector('#legende-sujet')!;
+    choix.value = 'pays';
+    choix.emettre('change');
+    expect(jamais().classList.contains('legende-jamais-mer')).toBe(false);
+    choix.value = 'mers';
+    choix.emettre('change');
+    expect(jamais().classList.contains('legende-jamais-mer')).toBe(true);
+    // carte.css : la case de l'eau prend --mer, le fond où une mer jamais vue reste (.sphere) ; celle de la terre, --terre.
+    const css = readFileSync('src/carte.css', 'utf8');
+    expect(css).toMatch(/\.legende-jamais \{ background: var\(--terre\);/);
+    expect(css).toMatch(/\.legende-jamais\.legende-jamais-mer \{ background: var\(--mer\);/);
+    expect(css).toMatch(/\.sphere \{ fill: var\(--mer\); \}/);
   });
 
   it('« Mers » hors ligne : la légende dit l’échec à la place du compte (rien n’est teinté), sans lever', async () => {

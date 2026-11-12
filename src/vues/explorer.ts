@@ -66,6 +66,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   const compteMaitrises = creer('span', { class: 'legende-compte' });
   // Le choix du sujet : dans la légende seulement à partir de deux sujets jouables (sinon rien ne change à l'écran).
   const choixSujet = creer('select', { class: 'legende-sujet', id: 'legende-sujet', 'aria-label': M.sujet });
+  // « Jamais vu » : la couleur d'une zone jamais vue du sujet montré, la terre neutre (un pays, une commune), ou l'eau
+  // pour les mers (une mer jamais vue garde le fond : legende-jamais-mer, carte.css).
   const caseJamais = creer('span', { class: 'legende-case legende-jamais', 'aria-hidden': 'true' });
   const echelle = creer('span', { class: 'legende-echelle', 'aria-hidden': 'true' }, ...Array.from({ length: NB_SEAUX }, (_, k) => creer('span', { class: `legende-case legende-s${k}` })));
   const legende = creer('div', { class: 'legende-memoire', id: 'legende-memoire', role: 'note', 'aria-label': M.legende });
@@ -129,6 +131,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     const sujets = compte ? m.sujets(t.nom) : [];
     if (sujets.length) choixSujet.replaceChildren(...sujets.map((d) => creer('option', { value: d }, nomSujet(d))));
     choixSujet.value = m.sujet(t.nom) ?? '';
+    caseJamais.classList.toggle('legende-jamais-mer', m.sujet(t.nom) === 'mers');
     poserLegende(sujets);
     legende.hidden = !compte;
   }
