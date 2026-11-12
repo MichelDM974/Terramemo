@@ -179,13 +179,15 @@ describe('manifeste lu (src/map/drapeaux.ts)', () => {
   });
 
   it('une image attendue, dans une page : new Image(), son adresse, son décodage (decode)', async () => {
-    const images: { src?: string; decoding?: string }[] = [];
+    const images: { src?: string; decoding?: string; onload?: () => void; onerror?: () => void }[] = [];
     let decode: () => Promise<void> = () => Promise.resolve();
     vi.stubGlobal(
       'Image',
       class {
         src?: string;
         decoding?: string;
+        onload?: () => void;
+        onerror?: () => void;
         constructor() {
           images.push(this);
         }
@@ -196,9 +198,16 @@ describe('manifeste lu (src/map/drapeaux.ts)', () => {
     );
     try {
       expect(await attendreImages([DR.parPays.get('NPL')!.montre])).toEqual([]);
-      expect(images).toEqual([{ src: DR.parPays.get('NPL')!.montre, decoding: 'async' }]);
+      expect(images.map((i) => [i.src, i.decoding])).toEqual([[DR.parPays.get('NPL')!.montre, 'async']]);
       decode = () => Promise.reject(new Error('EncodingError'));
-      expect(await attendreImages([DR.parPays.get('CHE')!.montre])).toEqual([DR.parPays.get('CHE')!.montre]);
+      // decode() rejette, mais l'image est chargée (un SVG sans width ni height, dans certains moteurs) : elle est arrivée.
+      const che = attendreImages([DR.parPays.get('CHE')!.montre])!;
+      images.at(-1)!.onload!();
+      expect(await che).toEqual([]);
+      // decode() rejette et le chargement échoue (hors ligne) : en échec.
+      const dnk = attendreImages([DR.parPays.get('DNK')!.montre])!;
+      images.at(-1)!.onerror!();
+      expect(await dnk).toEqual([DR.parPays.get('DNK')!.montre]);
     } finally {
       vi.unstubAllGlobals();
     }

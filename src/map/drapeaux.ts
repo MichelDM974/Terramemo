@@ -187,12 +187,20 @@ const parDecodage: ChargerImage = (adresse) => {
   if (typeof Image === 'undefined') return null;
   const img = new Image();
   img.decoding = 'async';
-  img.src = adresse;
-  if (typeof img.decode === 'function') return img.decode();
-  return new Promise((ok, ko) => {
+  // Le chargement fait foi quand decode() rejette : des moteurs l'ont rejeté
+  // pour un SVG sans width ni height (viewBox seul : 194 des 199 drapeaux),
+  // qui s'affiche pourtant. Sans délai maximal au départ d'une épreuve, un tel
+  // rejet la bloquerait sur « Réessayer » sans fin. Seule une erreur de
+  // chargement (onerror) compte en échec.
+  const chargee = new Promise((ok, ko) => {
     img.onload = ok;
     img.onerror = ko;
   });
+  // Marquée traitée : decode() réussi, son échec n'est lu par personne.
+  chargee.catch(() => undefined);
+  img.src = adresse;
+  if (typeof img.decode !== 'function') return chargee;
+  return img.decode().catch(() => chargee);
 };
 
 /** Les images chargées et décodées dans cette page : une partie rejouée ne les attend plus. */
