@@ -117,7 +117,10 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
           () => {
             if (j === jeton && active) teinter();
           },
-          () => undefined,
+          // Hors ligne : le dire à la place du compte (rien n'est teinté) ; le prochain teinter() réessaie.
+          () => {
+            if (j === jeton && active) compteMaitrises.textContent = textes.toucher.echec_sujet;
+          },
         );
       }
     } else t.carte.teinter(null);

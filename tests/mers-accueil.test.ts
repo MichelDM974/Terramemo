@@ -76,7 +76,7 @@ function monter(memoire?: CarteMemoire) {
   };
   const nom = () => zone.querySelector('#barre-carte .barre-nom')!.textContent;
   const detail = () => zone.querySelector('#barre-carte .barre-detail')!.textContent;
-  return { vue, carte, donnees, marques, teintes, toucher, nom, detail };
+  return { vue, carte, donnees, marques, teintes, toucher, nom, detail, zone };
 }
 
 const CARAIBES: [number, number] = [-78, 14];
@@ -183,6 +183,18 @@ describe('accueil : la mémoire des mers (D47 a) et une mer choisie dans la rech
     expect(a.nom()).toBe('mer Méditerranée');
     expect(a.detail()).toBe('Vu 1 fois · revient demain');
     expect(a.marques).toEqual(['medit:choisi']);
+  });
+
+  it('« Mers » hors ligne : la légende dit l’échec à la place du compte (rien n’est teinté), sans lever', async () => {
+    oublierMers(async (f) => {
+      lus.push(f);
+      throw new TypeError('hors ligne');
+    });
+    const a = monter(memoireMers());
+    a.vue.activer();
+    const legende = () => a.zone.querySelector('#legende-memoire .legende-compte')!.textContent;
+    await vi.waitFor(() => expect(legende()).toBe(textes.toucher.echec_sujet));
+    expect(a.carte.prendreMers).not.toHaveBeenCalled();
   });
 
   it('la recherche montre une mer : la couche fine posée, la zone allumée et cadrée, son nom', async () => {
