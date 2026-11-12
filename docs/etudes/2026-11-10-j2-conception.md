@@ -1034,11 +1034,14 @@ sans côte, la mer des Sargasses dans l'Atlantique (choix du 12/11 : sinon
 un grand trou au milieu de l'Atlantique allumé). Jamais ses mers côtières.
 La mer des Sargasses demandée s'allume seule.
 
-**Barème** (épreuves, quiz) : 500 × e^(−d/300 km), comme les pays (`ECHELLES_KM.monde`,
-`bareme.ts:23`). `d` est la distance au bord de la cible, ses zones admises
-comprises (`distanceAuBordKm`, `geo.ts:207`) :
-- toucher la mer voisine donne ≈ 0 km au bord commun, soit ≈ 490 points,
-  comme le pays voisin ;
+**Barème** (épreuves, quiz) : juste ou faux, sans points, comme les pays
+depuis le 12/11 (décision « Barème et classements », #30 ; d'abord
+500 × e^(−d/300 km)). La note d'une mer dit juste ou faux et la distance,
+qui ne sert qu'à la rétroaction (« à 106 km du bord ») : `d` est la distance
+au bord de la cible, ce qu'elle allume et ses zones admises comprises
+(`distanceAuBordKm`, `geo.ts`) :
+- toucher la mer voisine donne ≈ 0 km au bord commun, faux, comme le pays
+  voisin ;
 - toucher la terre pendant une question de mer donne la distance à la côte
   grossière (un ou deux km d'écart, sans effet sur la note).
 
