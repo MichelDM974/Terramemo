@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { geoContains, geoDistance } from 'd3-geo';
 import type { Topology } from 'topojson-specification';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { acceptesDe, acceptesEnPlus, type ZoneAdmise } from '../src/map/acceptes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { contient, dansEmprise, distanceAuBordKm, RAYON_TERRE_KM, travail, versEcran, versLonLat } from '../src/map/geo';
@@ -22,6 +22,26 @@ const lire = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
 const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
 const donnees: DonneesCarte = assembler(lire('monde.topo.json') as Topology<never>, lire('pays.json'), lire('contestees.json'), lire('noms.fr.json'));
 const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+
+/**
+ * Sommets parcourus par geoContains, où qu'il soit appelé (src/ et les
+ * références) : le travail de la méthode exacte, que travail (geo.ts) ne voit
+ * pas. Sans lui, un retour à geoContains dans contient comptait 0 arête et
+ * passait toutes les bornes de travail (relecture).
+ */
+const d3 = vi.hoisted(() => ({ sommets: 0 }));
+vi.mock('d3-geo', async (original) => {
+  const o = await original<typeof import('d3-geo')>();
+  return {
+    ...o,
+    geoContains: (objet: Parameters<typeof o.geoContains>[0], point: [number, number]) => {
+      // Les appelants (geo.ts, contientRef) ne passent que des Polygon.
+      const anneaux = objet.type === 'Polygon' ? (objet as { coordinates: unknown[][] }).coordinates : [[0]];
+      for (const a of anneaux) d3.sommets += a.length;
+      return o.geoContains(objet, point);
+    },
+  };
+});
 
 let graine = 2026;
 const alea = () => (graine = (graine * 1103515245 + 12345) % 2147483648) / 2147483648;
@@ -115,13 +135,16 @@ describe('contient : la réponse de geoContains au bit près, sans parcourir tou
   it('le travail : dans l’Atlantique, quelques dizaines d’arêtes examinées au lieu de ses 1 428 sommets', () => {
     const atlant = couche.mers.find((m) => m.pays.id === 'atlant')!;
     contient(atlant.forme, atlant.pays.bbox, [-30, 30]); // l'index, au premier point
-    const avant = travail.aretes;
+    const [avant, g0] = [travail.aretes, d3.sommets];
     let n = 0;
     for (let i = 0; i < 1000; i++) {
       const ll: [number, number] = [-70 + alea() * 80, -50 + alea() * 110];
       n++;
       contient(atlant.forme, atlant.pays.bbox, ll);
     }
+    // Le travail compté, et nul autre : aucun geoContains, des arêtes examinées.
+    expect(d3.sommets - g0).toBe(0);
+    expect(travail.aretes - avant).toBeGreaterThan(n);
     expect((travail.aretes - avant) / n).toBeLessThan(60);
   });
 });
@@ -309,8 +332,8 @@ describe('noter une mer : le travail des pires cas, compté', () => {
   // Les pires touchers mesurés par la session (12/11) et par le banc de ce
   // lot : sur la terre, toutes les sondes sans eau passaient chacune par
   // geoContains sur des zones immenses. Le travail est compté (arêtes
-  // examinées par contient, sommets parcourus par distanceAuBordKm), pas
-  // chronométré ; une seule borne de temps, large.
+  // examinées par contient, sommets parcourus par distanceAuBordKm et par
+  // geoContains), pas chronométré ; une seule borne de temps, large.
   const pires: [string, string, [number, number], number][] = [
     ['le Chili, pour l’Atlantique, zoom 1', 'atlant', [-70.44, -31.92], 1],
     ['le Chili plus au nord, pour l’Atlantique, zoom 1', 'atlant', [-67.98, -23.22], 1],
@@ -328,10 +351,13 @@ describe('noter une mer : le travail des pires cas, compté', () => {
     const [x, y] = versEcran(ctx.t, b[0], b[1]);
     const options = parties(cible);
     noter(ctx, cible, x, y, options); // les index des polygones touchés, construits au premier point
-    const [a0, s0, r0] = [travail.aretes, travail.sommets, ref.sommets];
+    const [a0, s0, g0] = [travail.aretes, travail.sommets, d3.sommets];
     const note = noter(ctx, cible, x, y, options);
-    const [aretes, sommets] = [travail.aretes - a0, travail.sommets - s0];
-    const s1 = travail.sommets;
+    // geoContains compris (aucun attendu : contient n'y passe plus, hors du
+    // premier point d'un polygone), pour qu'aucun retour à la méthode exacte
+    // n'échappe au compte.
+    const [aretes, sommets] = [travail.aretes - a0, travail.sommets - s0 + d3.sommets - g0];
+    const [s1, r0] = [travail.sommets, ref.sommets];
     expect(note).toEqual(R.noterMer(ctx, cible, x, y, options));
     const avant = ref.sommets - r0 + (travail.sommets - s1);
     expect(aretes).toBeLessThanOrEqual(60_000);
