@@ -328,6 +328,31 @@ describe('affectations (geodata/mers-affectations.json)', () => {
     expect(vers('Sea of Crete')).toBe('egee');
   });
 
+  it('les cas « restent à relire » du § 2.3, tranchés au lot 3a, gardent leur cible (la table et le témoin bougent ensemble)', () => {
+    const TRANCHES: [string, string][] = [
+      ['Inner Sea', 'pacif'], // mer de Seto
+      ['Taiwan Strait', 'chinemer'],
+      ['Korea Strait', 'japon'],
+      ['Kattegat', 'nord'],
+      ['1159120631', 'baltique'], // Belts danois, sans nom
+      ['Bass Strait', 'pacif'],
+      ['Cook Strait', 'pacif'],
+      ['Davis Strait', 'arctique'],
+      ['Cumberland Sound', 'arctique'],
+      ['Hudson Strait', 'arctique'],
+      ['Strait of Malacca', 'indien'],
+      ['Makassar Strait', 'pacif'],
+      ['Sea of Crete', 'egee'],
+      ['Sea of Marmara', 'medit'],
+      ['Dardanelles', 'medit'],
+    ];
+    for (const [k, id] of TRANCHES) {
+      const a = affectations.filter((x) => x.nom === k || String(x.ne_id) === k);
+      expect(a.length, k).toBeGreaterThan(0);
+      for (const x of a) expect([x.mode, x.id], k).toEqual(['forcée', id]);
+    }
+  });
+
   it('mutants : une mer sortie fondue dans une voisine, une mer non retenue sans ligne, une zone sans bord font échouer', async () => {
     const { fautesTable, affecter } = await module;
     // Dans la vraie table : la mer des Laptev forcée vers la mer de Kara.
