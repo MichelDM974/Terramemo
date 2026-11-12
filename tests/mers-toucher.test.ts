@@ -6,11 +6,11 @@ import { readFileSync } from 'node:fs';
 import { geoDistance } from 'd3-geo';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
-import { acceptesDe } from '../src/map/acceptes';
+import { acceptesDe, acceptesEnPlus, construireAcceptes } from '../src/map/acceptes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { contient, distanceAuBordKm, RAYON_TERRE_KM, versEcran, versLonLat } from '../src/map/geo';
 import { indexLieux } from '../src/map/lieux';
-import { assemblerMers, zonesAllumees } from '../src/map/mers';
+import { assemblerMers, zonesAllumees, zonesParties } from '../src/map/mers';
 import { calculerPastilles, PASTILLE, tailleEcranPx } from '../src/map/pastilles';
 import { noter, pickMer, type ContexteCarte } from '../src/map/pick';
 import { cadre, placer, projectionDe, transfoDe, type VueGlobe } from '../src/map/vue';
@@ -348,4 +348,110 @@ describe('l’océan noté avec ce qu’il allume : l’Atlantique et la mer des
     expect(justes).toBeGreaterThan(40);
     expect(fausses).toBeGreaterThan(30);
   }, 60_000);
+});
+
+describe('un océan et ses mers : la sorte « partie » des zones admises (D43, § 4.4)', () => {
+  const zones = couche.mers.map((m) => m.pays);
+  /** Les zones admises du sujet Mers pour la cible (sa vue les passe à noter : OptionsNoter.acceptes, lot 3b). */
+  const parties = (cible: string) => acceptesEnPlus(avecMers, cible, zonesParties(cible, zones), 'partie') ?? true;
+  /** La note d'un toucher au point d'étiquette de la zone touchée, au zoom 8 ; avec les parties de la cible, ou non. */
+  const touche = (cible: string, zone: string, avec = true) => {
+    const { ctx, x, y } = au(mer(zone).pays.point, 8);
+    expect(pickMer(ctx, zone, x, y)?.id).toBe(zone);
+    return noter(ctx, cible, x, y, { acceptes: avec ? parties(cible) : false });
+  };
+
+  it('tirées des données (parents, interieure), dans l’ordre de mers.json : aucune liste écrite', () => {
+    expect(zonesParties('atlant', zones)).toEqual(['nord', 'manche', 'irlande', 'gascogne', 'norvege', 'groenl', 'caraibes', 'sargasse', 'mexique', 'laurent', 'guinee', 'baffin', 'hudson']);
+    expect(zonesParties('arctique', zones)).toEqual(['norvege', 'groenl', 'baffin', 'hudson', 'barents', 'kara', 'beaufort']);
+    expect(zonesParties('pacif', zones)).toEqual(['bering', 'okhotsk', 'japon', 'jaune', 'chineor', 'chinemer', 'thailand', 'corail', 'californ']);
+    expect(zonesParties('indien', zones)).toEqual(['arabie', 'oman', 'aden', 'bengale', 'andaman', 'mozamb']);
+    expect(zonesParties('austral', zones)).toEqual([]);
+    expect(zonesParties('medit', zones)).toEqual(['adriat', 'egee', 'ionienne', 'tyrrhen']);
+    expect(zonesParties('noire', zones)).toEqual(['azov']);
+    expect(zonesParties('baltique', zones)).toEqual(['botnie', 'finlande']);
+    expect(zonesParties('barents', zones)).toEqual(['blanche']);
+    expect(zonesParties('chinemer', zones)).toEqual(['thailand']);
+    // La Caspienne pour elle seule : sans partie, partie de rien.
+    expect(zonesParties('caspien', zones)).toEqual([]);
+    for (const z of zones) expect(zonesParties(z.id, zones), z.id).not.toContain('caspien');
+    // Une mer intérieure ne mène jamais à un océan, ni ce qui passe par elle.
+    for (const o of zones.filter((z) => z.sorte === 'océan')) {
+      for (const p of zonesParties(o.id, zones)) expect(zones.find((z) => z.id === p)?.interieure, `${o.id} ← ${p}`).toBe(false);
+    }
+  });
+
+  it('acceptesEnPlus trouve les zones marines (donnees.mers) : chacune tenue par elle-même, désignable par pickMer', () => {
+    const a = acceptesEnPlus(avecMers, 'atlant', ['caraibes', 'inconnue'], 'partie');
+    expect(a?.get('atlant')).toEqual([{ zone: 'caraibes', tenant: 'caraibes', sorte: 'partie', forme: mer('caraibes').forme, bbox: mer('caraibes').pays.bbox, entite: true }]);
+    // Avant la couche : rien à admettre.
+    expect(acceptesEnPlus(donnees, 'atlant', ['caraibes'], 'partie')).toBeNull();
+    // Jamais dans la table commune : sous Pays (et partout ailleurs que la vue du sujet Mers), rien ne change.
+    expect([...construireAcceptes(avecMers).values()].flat().some((z) => z.sorte === 'partie')).toBe(false);
+  });
+
+  it.each([
+    ['caraibes', 'atlant'],
+    ['nord', 'atlant'],
+    ['manche', 'atlant'],
+    ['guinee', 'atlant'],
+    ['thailand', 'chinemer'],
+    ['thailand', 'pacif'],
+    ['adriat', 'medit'],
+    ['egee', 'medit'],
+    ['azov', 'noire'],
+    ['blanche', 'barents'],
+    ['hudson', 'arctique'],
+    ['hudson', 'atlant'],
+    ['botnie', 'baltique'],
+    ['finlande', 'baltique'],
+    ['norvege', 'atlant'],
+    ['norvege', 'arctique'],
+    ['groenl', 'atlant'],
+    ['groenl', 'arctique'],
+  ])('%s touchée pour %s : juste, et Note.admis dit la partie', (zone, cible) => {
+    const n = touche(cible, zone);
+    expect(n).toMatchObject({ juste: true, via: 'trace', distance_km: 0, admis: { zone, tenant: zone, sorte: 'partie' }, pick: { id: zone } });
+    // Sans les zones admises (acceptes: false) : la cible et ce qu'elle allume seulement.
+    expect(touche(cible, zone, false).juste).toBe(false);
+  });
+
+  it.each([
+    ['blanche', 'arctique'],
+    ['medit', 'atlant'],
+    ['noire', 'atlant'],
+    ['baltique', 'atlant'],
+    ['adriat', 'atlant'],
+    ['azov', 'atlant'],
+    ['botnie', 'atlant'],
+    ['finlande', 'atlant'],
+    ['rouge', 'indien'],
+    ['persique', 'indien'],
+    ['caspien', 'atlant'],
+    ['caspien', 'noire'],
+  ])('%s touchée pour %s : faux (une zone intérieure sur le chemin, ou aucun chemin)', (zone, cible) => {
+    const n = touche(cible, zone);
+    expect(n).toMatchObject({ juste: false, admis: null, pick: { id: zone } });
+    expect(n.distance_km).toBeGreaterThan(0);
+  });
+
+  it('la Méditerranée près de Gibraltar, pour l’Atlantique : faux, à courte distance ; la mer des Sargasses : juste, sans zone admise', () => {
+    const { ctx, x, y } = au([-4.5, 36.1], 8);
+    const n = noter(ctx, 'atlant', x, y, { acceptes: parties('atlant') });
+    expect([n.juste, n.pick?.id]).toEqual([false, 'medit']);
+    expect(n.distance_km).toBeLessThan(250);
+    expect(touche('atlant', 'sargasse')).toMatchObject({ juste: true, admis: null });
+    expect(touche('atlant', 'sargasse', false)).toMatchObject({ juste: true, admis: null });
+  });
+
+  it('la côte d’une partie à moins de 12 px, la terre sous le doigt : juste par la sonde (la Floride sur le golfe du Mexique, pour l’Atlantique)', () => {
+    const { ctx, y } = au([-82.5, 28], 20);
+    // La terre au doigt, la mer qu'on voit à l'ouest : le golfe du Mexique.
+    let x = L / 2;
+    expect(terre(versLonLat(ctx.proj, ctx.t, x, y) as [number, number])?.pays.id).toBe('USA');
+    while (!(zoneDe(versLonLat(ctx.proj, ctx.t, x, y) as [number, number])?.pays.id === 'mexique' && !terre(versLonLat(ctx.proj, ctx.t, x, y) as [number, number]))) x -= 0.25;
+    const n = noter(ctx, 'atlant', x + 8, y, { acceptes: parties('atlant') });
+    expect(n).toMatchObject({ juste: true, via: 'proche', admis: { zone: 'mexique', sorte: 'partie' } });
+    expect(noter(ctx, 'atlant', x + 8, y, { acceptes: false }).juste).toBe(false);
+  });
 });

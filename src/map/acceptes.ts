@@ -17,14 +17,17 @@ import type { Entite, Forme, Lieu } from './types';
  * zone en plus du seul sujet Capitales (D36 i : Jérusalem juste aussi en
  * Palestine, Jérusalem-Est aussi en Israël) ; jumeau : du seul sujet Drapeaux
  * (D41 d : Monaco juste pour l'Indonésie, le Tchad pour la Roumanie, et
- * l'inverse), toutes deux passées par OptionsNoter.acceptes, jamais dans la
- * table commune (sous Pays, Monaco touché pour l'Indonésie reste faux).
+ * l'inverse) ; partie : du seul sujet Mers (D43, étude J2 § 4.4 : la mer des
+ * Caraïbes juste pour l'Atlantique, l'Adriatique pour la Méditerranée ;
+ * zonesParties, mers.ts). Toutes trois passées par OptionsNoter.acceptes,
+ * jamais dans la table commune (sous Pays, Monaco touché pour l'Indonésie
+ * reste faux).
  */
-export type SorteAdmise = 'contestee' | 'enclave' | 'capitale' | 'jumeau';
+export type SorteAdmise = 'contestee' | 'enclave' | 'capitale' | 'jumeau' | 'partie';
 
 /** Pourquoi un toucher hors du tracé de la cible est juste (Note.admis, pick.ts). */
 export interface Admis {
-  /** La zone touchée : une entité de pays.json (NE_SOL, NE_KAB…) ou une zone hachurée de contestees.json (NE_B89…). */
+  /** La zone touchée : une entité de pays.json (NE_SOL, NE_KAB…), une zone hachurée de contestees.json (NE_B89…) ou une zone marine (caraibes). */
   zone: string;
   /**
    * Qui la tient de fait : dans[0] pour une zone hachurée (RUS pour la Crimée) ;
@@ -42,7 +45,7 @@ export interface Admis {
 export interface ZoneAdmise extends Admis {
   forme: Forme;
   bbox: [number, number, number, number];
-  /** La zone est une entité de pays.json : pick() peut la désigner (tracé, sonde en mer). */
+  /** La zone est une entité de pays.json (pick() peut la désigner : tracé, sonde en mer) ou une zone marine (pickMer). */
   entite: boolean;
 }
 
@@ -128,12 +131,19 @@ export function acceptesDe(d: DonneesAcceptes): Acceptes {
 
 /**
  * Des zones admises en plus pour une cible (OptionsNoter.acceptes) : les
- * entités `zones` du terrain, de cette sorte, chacune tenue par elle-même.
- * Une zone absente des données est sautée. Vide : aucune table (null).
+ * entités `zones` du terrain, ou ses zones marines (d.mers, une fois la couche
+ * posée : les parties d'une mer), de cette sorte, chacune tenue par
+ * elle-même. Une zone absente des données est sautée. Vide : aucune table
+ * (null).
  */
-export function acceptesEnPlus(d: Pick<DonneesAcceptes, 'entites'>, cible: string, zones: readonly string[], sorte: SorteAdmise): Acceptes | null {
+export function acceptesEnPlus(
+  d: Pick<DonneesAcceptes, 'entites'> & { mers?: readonly Entite<Lieu>[] },
+  cible: string,
+  zones: readonly string[],
+  sorte: SorteAdmise,
+): Acceptes | null {
   const l: ZoneAdmise[] = zones.flatMap((z) => {
-    const e = d.entites.find((en) => en.pays.id === z);
+    const e = d.entites.find((en) => en.pays.id === z) ?? d.mers?.find((m) => m.pays.id === z);
     return e ? [{ zone: z, tenant: z, sorte, forme: e.forme, bbox: e.pays.bbox, entite: true }] : [];
   });
   return l.length ? new Map([[cible, l]]) : null;

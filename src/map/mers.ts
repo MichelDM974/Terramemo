@@ -148,6 +148,47 @@ export function zonesAllumees(id: string, mers: readonly Mer[]): string[] {
   return [id, ...mers.filter((x) => x.enclavee && x.parents.includes(id)).map((x) => x.id)];
 }
 
+/**
+ * Les zones qui comptent pour la cible comme ses parties (D43, étude J2,
+ * § 4.4 ; sorte « partie » des zones admises, passées par la vue du sujet
+ * Mers, jamais dans la table commune), tirées des données, dans l'ordre de
+ * mers : une zone dont la cible est un ancêtre en remontant parents (la mer
+ * des Caraïbes pour l'Atlantique, l'Adriatique pour la Méditerranée, le golfe
+ * de Thaïlande pour la mer de Chine méridionale et pour le Pacifique) ; mais
+ * un chemin qui passe par une zone intérieure (la zone touchée comprise) ne
+ * mène jamais à un océan : la Méditerranée, la mer Noire, la Baltique, la
+ * mer Rouge et le golfe Persique ne comptent pas pour leur océan, ni
+ * l'Adriatique, Azov, le golfe de Botnie ou la mer Blanche (pour l'Arctique).
+ * Un chemin compte s'il y arrive : la baie d'Hudson (deux parents) compte pour
+ * l'Arctique et pour l'Atlantique. La cible elle-même n'en est pas.
+ */
+export function zonesParties(cible: string, mers: readonly Mer[]): string[] {
+  const parId = new Map(mers.map((m) => [m.id, m]));
+  const atteint = (z: Mer): boolean => {
+    // Parcours des chemins vers le haut : [zone, une zone intérieure déjà sur le chemin].
+    const pile: [Mer, boolean][] = [[z, z.interieure]];
+    const vus = new Set<string>();
+    while (pile.length) {
+      const [m, interieur] = pile.pop() as [Mer, boolean];
+      for (const id of m.parents) {
+        const p = parId.get(id);
+        if (!p) continue;
+        if (id === cible) {
+          if (!(interieur && p.sorte === 'océan')) return true;
+          continue;
+        }
+        const suite = interieur || p.interieure;
+        const cle = `${id} ${suite}`;
+        if (vus.has(cle)) continue;
+        vus.add(cle);
+        pile.push([p, suite]);
+      }
+    }
+    return false;
+  };
+  return mers.filter((z) => z.id !== cible && atteint(z)).map((z) => z.id);
+}
+
 /** Le point [lon, lat] est-il dans l'anneau (règle pair-impair, en degrés : les anneaux ne passent pas l'antiméridien) ? */
 function dansAnneau(anneau: readonly Position[], [x, y]: readonly [number, number]): boolean {
   let dedans = false;
