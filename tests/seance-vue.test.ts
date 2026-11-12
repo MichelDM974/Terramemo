@@ -1270,7 +1270,9 @@ describe('séance : le sujet Océans et mers (lot 3b)', () => {
     const txt = el.innerText;
     expect(txt).toContain('Apprendre · Océans et mers');
     expect(txt).toContain('océan Atlantique');
-    expect(txt).toContain('océan Indien : touchée à 300');
+    // Sans accord (18 des 50 zones sont masculines : les océans, les golfes, le canal du Mozambique).
+    expect(txt).toMatch(/océan Indien : à 300\s?km du bord/);
+    expect(txt).not.toMatch(/touchée|vue ou passée/);
     sansBrut(txt, IDS_MERS);
     // La grappe du jour faite : la suivante demain (une grappe de mers par jour, à part de celle des pays).
     expect((m.seances.ouvrir(APPRENDRE) as RefusSeance).refus).toBe(S.grappe_faite);
