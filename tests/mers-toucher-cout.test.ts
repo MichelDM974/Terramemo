@@ -117,7 +117,8 @@ describe('contient : la réponse de geoContains au bit près, sans parcourir tou
     expect(ecarts).toEqual([]);
     expect(n).toBeGreaterThan(30_000);
     expect(dedans).toBeGreaterThan(10_000);
-  });
+    // ≈ 2 s seul, 6 s dans la suite complète d'un PC chargé : le délai de 5 s par défaut le faisait échouer à tort.
+  }, 60_000);
 
   it('les pôles, l’antiméridien, les zones qui font le tour du globe (Arctique, Austral, Antarctique)', () => {
     const ecarts: string[] = [];
