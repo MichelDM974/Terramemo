@@ -1,0 +1,9609 @@
+{
+ "v": 6,
+ "outil": ".claude/skills/run-terramemo/driver.py mesurer",
+ "date": "2026-11-12T15:06:37+04:00",
+ "code": {
+  "commit": "010d226",
+  "arbre_modifie": false,
+  "fichiers_modifies": []
+ },
+ "cible": "local",
+ "navigateur": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+ "binaire": "/home/delhomme/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell",
+ "options_gpu": [],
+ "url": "http://localhost:8060/?mers=demo&rendu=canvas&projection=monde&mesures=0",
+ "ralenti": 4.0,
+ "cache": false,
+ "repetitions": 3,
+ "stockage": {
+  "vide": true,
+  "origine": "http://localhost:8060",
+  "types": "cache_storage,service_workers,shader_cache",
+  "bases_supprimees": [],
+  "bases_gardees": [],
+  "cles_gardees": 2,
+  "connexion_chaude": true,
+  "erreur": null
+ },
+ "visites": [
+  {
+   "repetition": 1,
+   "visite": "premiere",
+   "maillage": null,
+   "rendu": "canvas",
+   "repli": null
+  },
+  {
+   "repetition": 2,
+   "visite": "suivante",
+   "maillage": null,
+   "rendu": "canvas",
+   "repli": null
+  },
+  {
+   "repetition": 3,
+   "visite": "suivante",
+   "maillage": null,
+   "rendu": "canvas",
+   "repli": null
+  }
+ ],
+ "logiciel_accepte": false,
+ "repli": null,
+ "ecran_emule": {
+  "largeur": 384,
+  "hauteur": 832,
+  "dpr": 2.8125
+ },
+ "scenario": {
+  "gestes": [
+   [
+    "pincer",
+    60,
+    260
+   ],
+   [
+    "glisser",
+    -150,
+    40
+   ],
+   [
+    "glisser",
+    150,
+    -40
+   ],
+   [
+    "pincer",
+    80,
+    300
+   ],
+   [
+    "glisser",
+    -120,
+    120
+   ],
+   [
+    "pincer",
+    300,
+    80
+   ],
+   [
+    "pincer",
+    300,
+    60
+   ],
+   [
+    "zoomerSur",
+    "DEU"
+   ],
+   [
+    "glisser",
+    160,
+    0
+   ],
+   [
+    "glisser",
+    -160,
+    100
+   ],
+   [
+    "pincer",
+    100,
+    250
+   ],
+   [
+    "pincer",
+    250,
+    80
+   ],
+   [
+    "zoomer",
+    2
+   ],
+   [
+    "tourner",
+    -300,
+    0
+   ],
+   [
+    "tourner",
+    -300,
+    0
+   ],
+   [
+    "tourner",
+    -300,
+    0
+   ]
+  ],
+  "duree_glisser_ms": 640,
+  "duree_pincer_ms": 480,
+  "duree_tourner_ms": 960,
+  "transfo_apres_tour": [
+   {
+    "k": 2,
+    "x": -192,
+    "y": -387,
+    "r": 71.77946999999995
+   },
+   {
+    "k": 2,
+    "x": -192,
+    "y": -387,
+    "r": 71.77946999999995
+   },
+   {
+    "k": 2,
+    "x": -192,
+    "y": -387,
+    "r": 71.77946999999995
+   }
+  ],
+  "cadence": "un touchMove par période de l'écran au repos (window.terramemo.repos) ; sur le téléphone, au plus 8,33 ms (120 Hz)",
+  "pas_ms": [
+   16.7,
+   16.7,
+   16.7
+  ],
+  "durees_reelles_ms": [
+   [
+    548.7,
+    659.2,
+    657.5,
+    526.9,
+    693.2,
+    534.5,
+    560.6,
+    668.8,
+    701.9,
+    543.5,
+    541.5,
+    1023.2,
+    1018.1,
+    989.1
+   ],
+   [
+    583.7,
+    681.8,
+    658.8,
+    509.2,
+    658.5,
+    585.9,
+    591.7,
+    675.0,
+    688.0,
+    556.6,
+    553.8,
+    1026.2,
+    1031.5,
+    1047.4
+   ],
+   [
+    556.4,
+    690.6,
+    655.5,
+    531.1,
+    660.9,
+    518.5,
+    515.0,
+    701.1,
+    691.0,
+    556.6,
+    557.8,
+    1055.8,
+    979.7,
+    1030.0
+   ]
+  ],
+  "touchers": [
+   [
+    "monde",
+    null,
+    1,
+    [
+     "BRA",
+     "RUS",
+     "FRA",
+     "MCO",
+     "VAT",
+     "SMR",
+     "LIE",
+     "AND",
+     "MLT",
+     "SGP",
+     "BHR",
+     "MDV",
+     "JAM",
+     "GRD",
+     "KNA",
+     "ATG",
+     "DMA",
+     "LCA",
+     "VCT",
+     "BRB",
+     "TTO",
+     "FJI"
+    ]
+   ],
+   [
+    "Italie",
+    "ITA",
+    null,
+    [
+     "VAT",
+     "SMR",
+     "ITA",
+     "MLT"
+    ]
+   ],
+   [
+    "Caraïbes",
+    "LCA",
+    8,
+    [
+     "JAM",
+     "HTI",
+     "DOM",
+     "KNA",
+     "ATG",
+     "DMA",
+     "LCA",
+     "VCT",
+     "BRB",
+     "GRD",
+     "TTO"
+    ]
+   ]
+  ]
+ },
+ "criteres": {
+  "rendu_ms": 1000,
+  "toucher_ms": 100,
+  "fin_geste_ms": 100,
+  "ecart_periode": 0.25,
+  "fin_artefact": {
+   "rendu": "g",
+   "close_par_entree_suivante": true,
+   "image_ms_sous": 100,
+   "longues_images": 0
+  },
+  "dessin": "p95 du script de chaque image < période du geste, sur chaque geste",
+  "saccade": {
+   "acoup_des_ms": 21,
+   "acoups_par_s_max": 3,
+   "acoups_min_geste": 2,
+   "gel_des_ms": 46,
+   "tenue_120_ms": 12.5,
+   "verdict": "NON si, par type de geste, plus de 3 à-coups par seconde en moyenne, ou un seul geste avec un gel, ou plus de 3 à-coups par seconde avec au moins 2",
+   "tenue": "part des intervalles ≤ 12,5 ms (120 i/s), et images/s ; sans verdict"
+  }
+ },
+ "resume": {
+  "periode_ms": 16.7,
+  "hz": 60,
+  "chargement_ms": {
+   "mediane": 720.5,
+   "min": 716.5,
+   "max": 724.5,
+   "n": 3,
+   "ok": true,
+   "par_visite": {
+    "premiere": {
+     "mediane": 724.5,
+     "min": 724.5,
+     "max": 724.5,
+     "n": 1
+    },
+    "suivante": {
+     "mediane": 718.5,
+     "min": 716.5,
+     "max": 720.5,
+     "n": 2
+    }
+   }
+  },
+  "relais_webgl": null,
+  "gestes": {
+   "pincer": {
+    "rendu": "canvas",
+    "gestes": 18,
+    "intervalles": 296,
+    "acoups": 155,
+    "duree_ms": 8715.5,
+    "gels": 58,
+    "gestes_saccades": 18,
+    "geste_max_acoups_par_s": 24.83,
+    "perdues": 134,
+    "perdues_repos": 155,
+    "bascule_images": 0,
+    "max_ms": 83.3,
+    "p95_ms": 43.4,
+    "longues_images": 13,
+    "ecarts_periode": {
+     "plus_rapide": 0,
+     "plus_lent": 3
+    },
+    "acoups_par_s": 17.78,
+    "tenue_120": {
+     "part": 0.0,
+     "cadence_ips": 34.0
+    },
+    "part_perdues": 0.453,
+    "part_perdues_repos": 0.524,
+    "periode_ms": {
+     "mediane": 16.7,
+     "min": 16.67,
+     "max": 66.6
+    },
+    "saccade_ok": false,
+    "dessin_ms": {
+     "gestes": 18,
+     "images": 210,
+     "mediane": 2.2,
+     "p95": 3.2,
+     "p95_max": 29.6,
+     "max": 35.4,
+     "periode_ms": 16.7,
+     "p95_au_dessus_periode": 2,
+     "ok": false
+    },
+    "fin_event_timing_ms": {
+     "mediane": 212.0,
+     "max": 336,
+     "n": 18,
+     "en_attente": 0,
+     "sans_entree": 0,
+     "artefacts": [],
+     "ok": false
+    },
+    "fin_image_ms": {
+     "mediane": 160.2,
+     "max": 244.7
+    }
+   },
+   "glisser": {
+    "rendu": "canvas",
+    "gestes": 15,
+    "intervalles": 309,
+    "acoups": 156,
+    "duree_ms": 8565.6,
+    "gels": 47,
+    "gestes_saccades": 14,
+    "geste_max_acoups_par_s": 28.34,
+    "perdues": 106,
+    "perdues_repos": 156,
+    "bascule_images": 0,
+    "max_ms": 66.7,
+    "p95_ms": 35.9,
+    "longues_images": 12,
+    "ecarts_periode": {
+     "plus_rapide": 0,
+     "plus_lent": 4
+    },
+    "acoups_par_s": 18.21,
+    "tenue_120": {
+     "part": 0.0,
+     "cadence_ips": 36.1
+    },
+    "part_perdues": 0.343,
+    "part_perdues_repos": 0.505,
+    "periode_ms": {
+     "mediane": 16.7,
+     "min": 16.67,
+     "max": 50
+    },
+    "saccade_ok": false,
+    "dessin_ms": {
+     "gestes": 15,
+     "images": 222,
+     "mediane": 2.5,
+     "p95": 3,
+     "p95_max": 6.1,
+     "max": 6.2,
+     "periode_ms": 16.7,
+     "p95_au_dessus_periode": 0,
+     "ok": true
+    },
+    "fin_event_timing_ms": {
+     "mediane": 184,
+     "max": 288,
+     "n": 15,
+     "en_attente": 0,
+     "sans_entree": 0,
+     "artefacts": [],
+     "ok": false
+    },
+    "fin_image_ms": {
+     "mediane": 138,
+     "max": 248.7
+    }
+   },
+   "tourner": {
+    "rendu": "canvas",
+    "gestes": 9,
+    "intervalles": 209,
+    "acoups": 157,
+    "duree_ms": 8299.4,
+    "gels": 110,
+    "gestes_saccades": 9,
+    "geste_max_acoups_par_s": 21.43,
+    "perdues": 58,
+    "perdues_repos": 157,
+    "bascule_images": 0,
+    "max_ms": 66.8,
+    "p95_ms": 66.6,
+    "longues_images": 9,
+    "ecarts_periode": {
+     "plus_rapide": 0,
+     "plus_lent": 6
+    },
+    "acoups_par_s": 18.92,
+    "tenue_120": {
+     "part": 0.0,
+     "cadence_ips": 25.2
+    },
+    "part_perdues": 0.278,
+    "part_perdues_repos": 0.751,
+    "periode_ms": {
+     "mediane": 50,
+     "min": 16.67,
+     "max": 50
+    },
+    "saccade_ok": false,
+    "dessin_ms": {
+     "gestes": 9,
+     "images": 160,
+     "mediane": 6.6,
+     "p95": 7.4,
+     "p95_max": 8.5,
+     "max": 11.1,
+     "periode_ms": 50,
+     "p95_au_dessus_periode": 0,
+     "ok": true
+    },
+    "fin_event_timing_ms": {
+     "mediane": 264,
+     "max": 336,
+     "n": 9,
+     "en_attente": 0,
+     "sans_entree": 0,
+     "artefacts": [],
+     "ok": false
+    },
+    "fin_image_ms": {
+     "mediane": 211.4,
+     "max": 253.1
+    }
+   }
+  },
+  "ecarts_periode": {
+   "plus_rapide": 0,
+   "plus_lent": 13
+  },
+  "saccade_ok": false,
+  "dessin_ok": false,
+  "fin_geste_ok": false,
+  "fins": {
+   "total": 42,
+   "en_attente": 0
+  },
+  "touchers": {
+   "n": 111,
+   "verdict_sur": "event_timing",
+   "event_timing_ms": {
+    "mediane": 32,
+    "max": 72,
+    "mesures": 111,
+    "sous_seuil": 0,
+    "repli": 0
+   },
+   "fin_fil_principal_ms": {
+    "mediane": 26.1,
+    "max": 68.5
+   },
+   "ok": true,
+   "justes": 111,
+   "vises": 111,
+   "faux": []
+  }
+ },
+ "touchers_vises": [
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRA",
+   "via": "carte",
+   "x": 64.5,
+   "y": 462.8,
+   "rotation": 71.8,
+   "pick": "BRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "RUS",
+   "via": "carte",
+   "x": 220.6,
+   "y": 365.9,
+   "rotation": 71.8,
+   "pick": "RUS",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FRA",
+   "via": "carte",
+   "x": 129.6,
+   "y": 381.4,
+   "rotation": 71.8,
+   "pick": "FRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MCO",
+   "via": "carte",
+   "x": 132.6,
+   "y": 385.5,
+   "rotation": 71.8,
+   "pick": "MCO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VAT",
+   "via": "carte",
+   "x": 136.6,
+   "y": 387.7,
+   "rotation": 71.8,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SMR",
+   "via": "carte",
+   "x": 137.3,
+   "y": 385.3,
+   "rotation": 71.8,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LIE",
+   "via": "carte",
+   "x": 136.0,
+   "y": 381.5,
+   "rotation": 71.8,
+   "pick": "LIE",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "AND",
+   "via": "carte",
+   "x": 126.7,
+   "y": 386.9,
+   "rotation": 71.8,
+   "pick": "AND",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MLT",
+   "via": "carte",
+   "x": 136.5,
+   "y": 395.2,
+   "rotation": 71.8,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SGP",
+   "via": "carte",
+   "x": 226.2,
+   "y": 443.0,
+   "rotation": 71.8,
+   "pick": "SGP",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BHR",
+   "via": "carte",
+   "x": 170.5,
+   "y": 408.3,
+   "rotation": 71.8,
+   "pick": "BHR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MDV",
+   "via": "carte",
+   "x": 193.8,
+   "y": 439.0,
+   "rotation": 71.8,
+   "pick": "MDV",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "JAM",
+   "via": "carte",
+   "x": 36.5,
+   "y": 419.1,
+   "rotation": 71.8,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "GRD",
+   "via": "carte",
+   "x": 51.1,
+   "y": 427.7,
+   "rotation": 71.8,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "KNA",
+   "via": "carte",
+   "x": 51.6,
+   "y": 420.3,
+   "rotation": 71.8,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "ATG",
+   "via": "carte",
+   "x": 52.5,
+   "y": 420.7,
+   "rotation": 71.8,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "DMA",
+   "via": "carte",
+   "x": 52.5,
+   "y": 422.9,
+   "rotation": 71.8,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LCA",
+   "via": "carte",
+   "x": 52.4,
+   "y": 425.2,
+   "rotation": 71.8,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VCT",
+   "via": "carte",
+   "x": 52.0,
+   "y": 426.1,
+   "rotation": 71.8,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRB",
+   "via": "carte",
+   "x": 53.7,
+   "y": 426.2,
+   "rotation": 71.8,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "TTO",
+   "via": "carte",
+   "x": 51.2,
+   "y": 430.2,
+   "rotation": 71.8,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FJI",
+   "via": "carte",
+   "x": 302.7,
+   "y": 470.4,
+   "rotation": 71.8,
+   "pick": "FJI",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "VAT",
+   "via": "carte",
+   "x": 222.0,
+   "y": 511.9,
+   "rotation": 10.6,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "SMR",
+   "via": "carte",
+   "x": 221.3,
+   "y": 469.7,
+   "rotation": 10.6,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "ITA",
+   "via": "carte",
+   "x": 192.0,
+   "y": 445,
+   "rotation": 10.6,
+   "pick": "ITA",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "MLT",
+   "via": "carte",
+   "x": 256.2,
+   "y": 641.7,
+   "rotation": 10.6,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "JAM",
+   "via": "carte",
+   "x": 54.2,
+   "y": 396.7,
+   "rotation": -61.0,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "HTI",
+   "via": "carte",
+   "x": 98.5,
+   "y": 384.7,
+   "rotation": -61.0,
+   "pick": "HTI",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DOM",
+   "via": "carte",
+   "x": 109.6,
+   "y": 386.1,
+   "rotation": -61.0,
+   "pick": "DOM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "KNA",
+   "via": "carte",
+   "x": 177.1,
+   "y": 405.9,
+   "rotation": -61.0,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "ATG",
+   "via": "carte",
+   "x": 185.1,
+   "y": 408.9,
+   "rotation": -61.0,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DMA",
+   "via": "carte",
+   "x": 188.8,
+   "y": 426.8,
+   "rotation": -61.0,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "LCA",
+   "via": "carte",
+   "x": 192,
+   "y": 445,
+   "rotation": -61.0,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "VCT",
+   "via": "carte",
+   "x": 190.2,
+   "y": 452.3,
+   "rotation": -61.0,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "BRB",
+   "via": "carte",
+   "x": 204.0,
+   "y": 453.1,
+   "rotation": -61.0,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "GRD",
+   "via": "carte",
+   "x": 186.1,
+   "y": 465.2,
+   "rotation": -61.0,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "TTO",
+   "via": "carte",
+   "x": 189.9,
+   "y": 485.5,
+   "rotation": -61.0,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRA",
+   "via": "carte",
+   "x": 64.5,
+   "y": 462.8,
+   "rotation": 71.8,
+   "pick": "BRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "RUS",
+   "via": "carte",
+   "x": 220.6,
+   "y": 365.9,
+   "rotation": 71.8,
+   "pick": "RUS",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FRA",
+   "via": "carte",
+   "x": 129.6,
+   "y": 381.4,
+   "rotation": 71.8,
+   "pick": "FRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MCO",
+   "via": "carte",
+   "x": 132.6,
+   "y": 385.5,
+   "rotation": 71.8,
+   "pick": "MCO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VAT",
+   "via": "carte",
+   "x": 136.6,
+   "y": 387.7,
+   "rotation": 71.8,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SMR",
+   "via": "carte",
+   "x": 137.3,
+   "y": 385.3,
+   "rotation": 71.8,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LIE",
+   "via": "carte",
+   "x": 136.0,
+   "y": 381.5,
+   "rotation": 71.8,
+   "pick": "LIE",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "AND",
+   "via": "carte",
+   "x": 126.7,
+   "y": 386.9,
+   "rotation": 71.8,
+   "pick": "AND",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MLT",
+   "via": "carte",
+   "x": 136.5,
+   "y": 395.2,
+   "rotation": 71.8,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SGP",
+   "via": "carte",
+   "x": 226.2,
+   "y": 443.0,
+   "rotation": 71.8,
+   "pick": "SGP",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BHR",
+   "via": "carte",
+   "x": 170.5,
+   "y": 408.3,
+   "rotation": 71.8,
+   "pick": "BHR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MDV",
+   "via": "carte",
+   "x": 193.8,
+   "y": 439.0,
+   "rotation": 71.8,
+   "pick": "MDV",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "JAM",
+   "via": "carte",
+   "x": 36.5,
+   "y": 419.1,
+   "rotation": 71.8,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "GRD",
+   "via": "carte",
+   "x": 51.1,
+   "y": 427.7,
+   "rotation": 71.8,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "KNA",
+   "via": "carte",
+   "x": 51.6,
+   "y": 420.3,
+   "rotation": 71.8,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "ATG",
+   "via": "carte",
+   "x": 52.5,
+   "y": 420.7,
+   "rotation": 71.8,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "DMA",
+   "via": "carte",
+   "x": 52.5,
+   "y": 422.9,
+   "rotation": 71.8,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LCA",
+   "via": "carte",
+   "x": 52.4,
+   "y": 425.2,
+   "rotation": 71.8,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VCT",
+   "via": "carte",
+   "x": 52.0,
+   "y": 426.1,
+   "rotation": 71.8,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRB",
+   "via": "carte",
+   "x": 53.7,
+   "y": 426.2,
+   "rotation": 71.8,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "TTO",
+   "via": "carte",
+   "x": 51.2,
+   "y": 430.2,
+   "rotation": 71.8,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FJI",
+   "via": "carte",
+   "x": 302.7,
+   "y": 470.4,
+   "rotation": 71.8,
+   "pick": "FJI",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "VAT",
+   "via": "carte",
+   "x": 222.0,
+   "y": 511.9,
+   "rotation": 10.6,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "SMR",
+   "via": "carte",
+   "x": 221.3,
+   "y": 469.7,
+   "rotation": 10.6,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "ITA",
+   "via": "carte",
+   "x": 192.0,
+   "y": 445,
+   "rotation": 10.6,
+   "pick": "ITA",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "MLT",
+   "via": "carte",
+   "x": 256.2,
+   "y": 641.7,
+   "rotation": 10.6,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "JAM",
+   "via": "carte",
+   "x": 54.2,
+   "y": 396.7,
+   "rotation": -61.0,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "HTI",
+   "via": "carte",
+   "x": 98.5,
+   "y": 384.7,
+   "rotation": -61.0,
+   "pick": "HTI",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DOM",
+   "via": "carte",
+   "x": 109.6,
+   "y": 386.1,
+   "rotation": -61.0,
+   "pick": "DOM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "KNA",
+   "via": "carte",
+   "x": 177.1,
+   "y": 405.9,
+   "rotation": -61.0,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "ATG",
+   "via": "carte",
+   "x": 185.1,
+   "y": 408.9,
+   "rotation": -61.0,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DMA",
+   "via": "carte",
+   "x": 188.8,
+   "y": 426.8,
+   "rotation": -61.0,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "LCA",
+   "via": "carte",
+   "x": 192,
+   "y": 445,
+   "rotation": -61.0,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "VCT",
+   "via": "carte",
+   "x": 190.2,
+   "y": 452.3,
+   "rotation": -61.0,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "BRB",
+   "via": "carte",
+   "x": 204.0,
+   "y": 453.1,
+   "rotation": -61.0,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "GRD",
+   "via": "carte",
+   "x": 186.1,
+   "y": 465.2,
+   "rotation": -61.0,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "TTO",
+   "via": "carte",
+   "x": 189.9,
+   "y": 485.5,
+   "rotation": -61.0,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRA",
+   "via": "carte",
+   "x": 64.5,
+   "y": 462.8,
+   "rotation": 71.8,
+   "pick": "BRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "RUS",
+   "via": "carte",
+   "x": 220.6,
+   "y": 365.9,
+   "rotation": 71.8,
+   "pick": "RUS",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FRA",
+   "via": "carte",
+   "x": 129.6,
+   "y": 381.4,
+   "rotation": 71.8,
+   "pick": "FRA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MCO",
+   "via": "carte",
+   "x": 132.6,
+   "y": 385.5,
+   "rotation": 71.8,
+   "pick": "MCO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VAT",
+   "via": "carte",
+   "x": 136.6,
+   "y": 387.7,
+   "rotation": 71.8,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SMR",
+   "via": "carte",
+   "x": 137.3,
+   "y": 385.3,
+   "rotation": 71.8,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LIE",
+   "via": "carte",
+   "x": 136.0,
+   "y": 381.5,
+   "rotation": 71.8,
+   "pick": "LIE",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "AND",
+   "via": "carte",
+   "x": 126.7,
+   "y": 386.9,
+   "rotation": 71.8,
+   "pick": "AND",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MLT",
+   "via": "carte",
+   "x": 136.5,
+   "y": 395.2,
+   "rotation": 71.8,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "SGP",
+   "via": "carte",
+   "x": 226.2,
+   "y": 443.0,
+   "rotation": 71.8,
+   "pick": "SGP",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BHR",
+   "via": "carte",
+   "x": 170.5,
+   "y": 408.3,
+   "rotation": 71.8,
+   "pick": "BHR",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "MDV",
+   "via": "carte",
+   "x": 193.8,
+   "y": 439.0,
+   "rotation": 71.8,
+   "pick": "MDV",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "JAM",
+   "via": "carte",
+   "x": 36.5,
+   "y": 419.1,
+   "rotation": 71.8,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "GRD",
+   "via": "carte",
+   "x": 51.1,
+   "y": 427.7,
+   "rotation": 71.8,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "KNA",
+   "via": "carte",
+   "x": 51.6,
+   "y": 420.3,
+   "rotation": 71.8,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "ATG",
+   "via": "carte",
+   "x": 52.5,
+   "y": 420.7,
+   "rotation": 71.8,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "DMA",
+   "via": "carte",
+   "x": 52.5,
+   "y": 422.9,
+   "rotation": 71.8,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "LCA",
+   "via": "carte",
+   "x": 52.4,
+   "y": 425.2,
+   "rotation": 71.8,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "VCT",
+   "via": "carte",
+   "x": 52.0,
+   "y": 426.1,
+   "rotation": 71.8,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "BRB",
+   "via": "carte",
+   "x": 53.7,
+   "y": 426.2,
+   "rotation": 71.8,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "TTO",
+   "via": "carte",
+   "x": 51.2,
+   "y": 430.2,
+   "rotation": 71.8,
+   "pick": "TTO",
+   "juste": true
+  },
+  {
+   "vue": "monde",
+   "zoom": 1,
+   "id": "FJI",
+   "via": "carte",
+   "x": 302.7,
+   "y": 470.4,
+   "rotation": 71.8,
+   "pick": "FJI",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "VAT",
+   "via": "carte",
+   "x": 222.0,
+   "y": 511.9,
+   "rotation": 10.6,
+   "pick": "VAT",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "SMR",
+   "via": "carte",
+   "x": 221.3,
+   "y": 469.7,
+   "rotation": 10.6,
+   "pick": "SMR",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "ITA",
+   "via": "carte",
+   "x": 192.0,
+   "y": 445,
+   "rotation": 10.6,
+   "pick": "ITA",
+   "juste": true
+  },
+  {
+   "vue": "Italie",
+   "zoom": 17.23,
+   "id": "MLT",
+   "via": "carte",
+   "x": 256.2,
+   "y": 641.7,
+   "rotation": 10.6,
+   "pick": "MLT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "JAM",
+   "via": "carte",
+   "x": 54.2,
+   "y": 396.7,
+   "rotation": -61.0,
+   "pick": "JAM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "HTI",
+   "via": "carte",
+   "x": 98.5,
+   "y": 384.7,
+   "rotation": -61.0,
+   "pick": "HTI",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DOM",
+   "via": "carte",
+   "x": 109.6,
+   "y": 386.1,
+   "rotation": -61.0,
+   "pick": "DOM",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "KNA",
+   "via": "carte",
+   "x": 177.1,
+   "y": 405.9,
+   "rotation": -61.0,
+   "pick": "KNA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "ATG",
+   "via": "carte",
+   "x": 185.1,
+   "y": 408.9,
+   "rotation": -61.0,
+   "pick": "ATG",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "DMA",
+   "via": "carte",
+   "x": 188.8,
+   "y": 426.8,
+   "rotation": -61.0,
+   "pick": "DMA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "LCA",
+   "via": "carte",
+   "x": 192,
+   "y": 445,
+   "rotation": -61.0,
+   "pick": "LCA",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "VCT",
+   "via": "carte",
+   "x": 190.2,
+   "y": 452.3,
+   "rotation": -61.0,
+   "pick": "VCT",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "BRB",
+   "via": "carte",
+   "x": 204.0,
+   "y": 453.1,
+   "rotation": -61.0,
+   "pick": "BRB",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "GRD",
+   "via": "carte",
+   "x": 186.1,
+   "y": 465.2,
+   "rotation": -61.0,
+   "pick": "GRD",
+   "juste": true
+  },
+  {
+   "vue": "Caraïbes",
+   "zoom": 8,
+   "id": "TTO",
+   "via": "carte",
+   "x": 189.9,
+   "y": 485.5,
+   "rotation": -61.0,
+   "pick": "TTO",
+   "juste": true
+  }
+ ],
+ "notes": [],
+ "erreurs_page": [],
+ "rapports": [
+  {
+   "v": 6,
+   "version": "29a602c6fd+modifie",
+   "date": "2026-11-12T11:05:15.323Z",
+   "agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+   "ecran": {
+    "largeur": 384,
+    "hauteur": 832,
+    "dpr": 2.8125,
+    "carte": {
+     "largeur": 384,
+     "hauteur": 774
+    },
+    "periode_ms": 16.7,
+    "hz": 59.9
+   },
+   "rendu": "canvas",
+   "projection": "monde",
+   "capacites": {
+    "long_animation_frame": true,
+    "event_timing": true
+   },
+   "chargement": {
+    "total_ms": 724.5,
+    "debut_script_ms": 104.3,
+    "etapes": {
+     "telechargement_ms": 34.7,
+     "analyse_ms": 50.1,
+     "feature_ms": 52.1,
+     "chemins_ms": 157.6,
+     "insertion_ms": 76.6,
+     "peinture_ms": 184.3
+    },
+    "ressources": [
+     {
+      "nom": "pays.json",
+      "transfert": 16359,
+      "decode": 68446,
+      "duree_ms": 17.4
+     },
+     {
+      "nom": "monde.topo.json",
+      "transfert": 458735,
+      "decode": 1249540,
+      "duree_ms": 94.2
+     },
+     {
+      "nom": "contestees.json",
+      "transfert": 3124,
+      "decode": 13965,
+      "duree_ms": 11.9
+     },
+     {
+      "nom": "noms.fr.json",
+      "transfert": 3954,
+      "decode": 8546,
+      "duree_ms": 16
+     },
+     {
+      "nom": "monde-leger.topo.json",
+      "transfert": 51919,
+      "decode": 153234,
+      "duree_ms": 15
+     }
+    ],
+    "caracteres_chemins": 0,
+    "pastilles": 164
+   },
+   "gestes": [
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 1723.4,
+     "fin_ms": 2239.4,
+     "doigts_max": 2,
+     "evenements": 10,
+     "k_debut": 1,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      66.6,
+      50,
+      16.7,
+      83.3,
+      16.7,
+      50,
+      16.6,
+      50,
+      50,
+      50,
+      50
+     ],
+     "stats": {
+      "images": 12,
+      "mediane_ms": 50,
+      "p95_ms": 74.9,
+      "max_ms": 83.3,
+      "perdues": 8,
+      "vsync_manquees": 19,
+      "part_perdues": 0.727,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 8,
+      "part_perdues_repos": 0.727,
+      "duree_ms": 499.9,
+      "acoups": 8,
+      "acoups_par_s": 16,
+      "gels": 8,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 22
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 205,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 8,
+      "mediane": 7.6,
+      "p95": 29.6,
+      "max": 35.4
+     },
+     "fin": {
+      "script_ms": 10.7,
+      "image_ms": 213.5,
+      "event_timing_ms": 264,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 2178.4,
+      "entree_suivante_ms": 2726.5,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 2822.6,
+     "fin_ms": 3400.6,
+     "doigts_max": 1,
+     "evenements": 13,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      33.4,
+      16.6,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.4,
+      16.6,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      50,
+      16.7,
+      33.3,
+      50,
+      16.6,
+      33.4,
+      16.6,
+      33.4
+     ],
+     "stats": {
+      "images": 21,
+      "mediane_ms": 33.3,
+      "p95_ms": 50,
+      "max_ms": 50,
+      "perdues": 11,
+      "vsync_manquees": 13,
+      "part_perdues": 0.55,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 11,
+      "part_perdues_repos": 0.55,
+      "duree_ms": 550,
+      "acoups": 11,
+      "acoups_par_s": 20,
+      "gels": 2,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 36.4
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 235,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 11,
+      "mediane": 4.4,
+      "p95": 5.4,
+      "max": 5.8
+     },
+     "fin": {
+      "script_ms": 10.2,
+      "image_ms": 244.7,
+      "event_timing_ms": 256,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 3380.7,
+      "entree_suivante_ms": 3889,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 3988.9,
+     "fin_ms": 4560.4,
+     "doigts_max": 1,
+     "evenements": 14,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      50,
+      50,
+      50,
+      50,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.6,
+      33.4,
+      16.6,
+      33.4
+     ],
+     "stats": {
+      "images": 19,
+      "mediane_ms": 33.3,
+      "p95_ms": 50,
+      "max_ms": 50,
+      "perdues": 11,
+      "vsync_manquees": 15,
+      "part_perdues": 0.611,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 11,
+      "part_perdues_repos": 0.611,
+      "duree_ms": 550,
+      "acoups": 11,
+      "acoups_par_s": 20,
+      "gels": 4,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 32.7
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 190.2,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 11,
+      "mediane": 4.1,
+      "p95": 5.3,
+      "max": 5.6
+     },
+     "fin": {
+      "script_ms": 9.6,
+      "image_ms": 199.5,
+      "event_timing_ms": 208,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 4543.5,
+      "entree_suivante_ms": 5050.1,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 5088.6,
+     "fin_ms": 5582.5,
+     "doigts_max": 2,
+     "evenements": 18,
+     "k_debut": 4.333,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      33.3,
+      16.6,
+      16.7,
+      33.4,
+      16.6,
+      16.7,
+      16.6,
+      33.4,
+      16.6,
+      16.7,
+      33.4,
+      33.3,
+      33.3,
+      33.4,
+      16.6,
+      16.6,
+      16.7,
+      33.4,
+      16.7,
+      16.6,
+      16.6
+     ],
+     "stats": {
+      "images": 22,
+      "mediane_ms": 16.7,
+      "p95_ms": 33.4,
+      "max_ms": 33.4,
+      "perdues": 8,
+      "vsync_manquees": 8,
+      "part_perdues": 0.381,
+      "periode_geste_ms": 16.67,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 8,
+      "part_perdues_repos": 0.381,
+      "duree_ms": 483.2,
+      "acoups": 8,
+      "acoups_par_s": 16.56,
+      "gels": 0,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 43.5
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 15,
+      "mediane": 1.9,
+      "p95": 3,
+      "max": 4
+     },
+     "fin": {
+      "script_ms": 1.3,
+      "image_ms": 42.2,
+      "event_timing_ms": 72,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 5554.4,
+      "entree_suivante_ms": 6080.8,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 6172.2,
+     "fin_ms": 6778.8,
+     "doigts_max": 1,
+     "evenements": 26,
+     "k_debut": 16.25,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      33.4,
+      16.6,
+      16.7,
+      16.6,
+      33.3,
+      16.8,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      33.3,
+      16.7,
+      33.4,
+      33.3,
+      16.7,
+      16.6,
+      33.4,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 16.7,
+      "p95_ms": 33.4,
+      "max_ms": 33.4,
+      "perdues": 6,
+      "vsync_manquees": 6,
+      "part_perdues": 0.214,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 6,
+      "part_perdues_repos": 0.214,
+      "duree_ms": 566.6,
+      "acoups": 6,
+      "acoups_par_s": 10.59,
+      "gels": 0,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 49.4
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 21,
+      "mediane": 1.5,
+      "p95": 2.2,
+      "max": 2.3
+     },
+     "fin": {
+      "script_ms": 2.1,
+      "image_ms": 49.7,
+      "event_timing_ms": 96,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 6735,
+      "entree_suivante_ms": 7277,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 7322.5,
+     "fin_ms": 7825.9,
+     "doigts_max": 2,
+     "evenements": 17,
+     "k_debut": 16.25,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.6,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      33.3,
+      16.7,
+      33.4,
+      16.6,
+      33.3
+     ],
+     "stats": {
+      "images": 25,
+      "mediane_ms": 16.7,
+      "p95_ms": 33.3,
+      "max_ms": 33.4,
+      "perdues": 5,
+      "vsync_manquees": 5,
+      "part_perdues": 0.208,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 5,
+      "part_perdues_repos": 0.208,
+      "duree_ms": 483.2,
+      "acoups": 5,
+      "acoups_par_s": 10.35,
+      "gels": 0,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 49.7
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 220,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 13,
+      "mediane": 2,
+      "p95": 3.1,
+      "max": 3.2
+     },
+     "fin": {
+      "script_ms": 10.2,
+      "image_ms": 229.2,
+      "event_timing_ms": 264,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 7780.8,
+      "entree_suivante_ms": 8314.5,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 8355.2,
+     "fin_ms": 8893.9,
+     "doigts_max": 2,
+     "evenements": 12,
+     "k_debut": 4.333,
+     "k_fin": 1,
+     "intervalles_ms": [
+      33.3,
+      49.9,
+      16.7,
+      33.3,
+      50,
+      66.6,
+      50,
+      50.1,
+      50,
+      66.6,
+      50.1
+     ],
+     "stats": {
+      "images": 12,
+      "mediane_ms": 50,
+      "p95_ms": 66.6,
+      "max_ms": 66.6,
+      "perdues": 7,
+      "vsync_manquees": 7,
+      "part_perdues": 0.636,
+      "periode_geste_ms": 33.33,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 10,
+      "part_perdues_repos": 0.909,
+      "duree_ms": 516.6,
+      "acoups": 10,
+      "acoups_par_s": 19.36,
+      "gels": 8,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 21.3
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 155.1,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 10,
+      "mediane": 6.2,
+      "p95": 7,
+      "max": 7
+     },
+     "fin": {
+      "script_ms": 14.5,
+      "image_ms": 164.3,
+      "event_timing_ms": 232,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 8818.9,
+      "entree_suivante_ms": 9881.4,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 9972.7,
+     "fin_ms": 10557.2,
+     "doigts_max": 1,
+     "evenements": 19,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      33.3,
+      33.3,
+      16.6,
+      33.3,
+      16.7,
+      33.3,
+      33.4,
+      16.6,
+      16.7,
+      50,
+      16.7,
+      16.6,
+      50,
+      16.7,
+      16.7,
+      33.3,
+      33.4,
+      16.6,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 24,
+      "mediane_ms": 16.7,
+      "p95_ms": 48.3,
+      "max_ms": 50,
+      "perdues": 9,
+      "vsync_manquees": 11,
+      "part_perdues": 0.391,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 9,
+      "part_perdues_repos": 0.391,
+      "duree_ms": 566.6,
+      "acoups": 9,
+      "acoups_par_s": 15.88,
+      "gels": 2,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 40.6
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 88,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 15,
+      "mediane": 2.3,
+      "p95": 2.7,
+      "max": 2.9
+     },
+     "fin": {
+      "script_ms": 3.5,
+      "image_ms": 97.9,
+      "event_timing_ms": 120,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 10535.4,
+      "entree_suivante_ms": 11053.5,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 11155.2,
+     "fin_ms": 11763.5,
+     "doigts_max": 1,
+     "evenements": 19,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.7,
+      33.3,
+      16.6,
+      16.7,
+      16.7,
+      33.3,
+      16.7,
+      16.6,
+      33.4,
+      16.6,
+      33.3,
+      33.4,
+      33.3,
+      33.4,
+      33.3,
+      33.3,
+      50.1,
+      33.3,
+      16.7,
+      33.3,
+      16.6,
+      33.3
+     ],
+     "stats": {
+      "images": 23,
+      "mediane_ms": 33.3,
+      "p95_ms": 33.4,
+      "max_ms": 50.1,
+      "perdues": 13,
+      "vsync_manquees": 14,
+      "part_perdues": 0.591,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 13,
+      "part_perdues_repos": 0.591,
+      "duree_ms": 599.9,
+      "acoups": 13,
+      "acoups_par_s": 21.67,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 36.7
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 130.4,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 16,
+      "mediane": 2.5,
+      "p95": 2.9,
+      "max": 3.1
+     },
+     "fin": {
+      "script_ms": 4.1,
+      "image_ms": 140.8,
+      "event_timing_ms": 192,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 11708.1,
+      "entree_suivante_ms": 12259.3,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 12305.6,
+     "fin_ms": 12808.3,
+     "doigts_max": 2,
+     "evenements": 17,
+     "k_debut": 14.483,
+     "k_fin": 36.207,
+     "intervalles_ms": [
+      33.3,
+      16.6,
+      16.7,
+      50,
+      50,
+      33.3,
+      50,
+      16.7,
+      33.3,
+      33.4,
+      33.3,
+      33.3,
+      16.6,
+      33.4,
+      16.7
+     ],
+     "stats": {
+      "images": 16,
+      "mediane_ms": 33.3,
+      "p95_ms": 50,
+      "max_ms": 50,
+      "perdues": 10,
+      "vsync_manquees": 13,
+      "part_perdues": 0.667,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 10,
+      "part_perdues_repos": 0.667,
+      "duree_ms": 466.6,
+      "acoups": 10,
+      "acoups_par_s": 21.43,
+      "gels": 3,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 32.1
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 12,
+      "mediane": 2.2,
+      "p95": 3.5,
+      "max": 3.5
+     },
+     "fin": {
+      "script_ms": 2,
+      "image_ms": 61.1,
+      "event_timing_ms": 104,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 12763.1,
+      "entree_suivante_ms": 13306.1,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 13355.2,
+     "fin_ms": 13857.3,
+     "doigts_max": 2,
+     "evenements": 15,
+     "k_debut": 36.207,
+     "k_fin": 11.586,
+     "intervalles_ms": [
+      33.3,
+      33.4,
+      16.6,
+      33.4,
+      33.3,
+      16.7,
+      33.2,
+      16.7,
+      33.4,
+      33.3,
+      50,
+      50,
+      33.3,
+      33.3,
+      33.4
+     ],
+     "stats": {
+      "images": 16,
+      "mediane_ms": 33.3,
+      "p95_ms": 50,
+      "max_ms": 50,
+      "perdues": 2,
+      "vsync_manquees": 2,
+      "part_perdues": 0.133,
+      "periode_geste_ms": 33.33,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 12,
+      "part_perdues_repos": 0.8,
+      "duree_ms": 483.3,
+      "acoups": 12,
+      "acoups_par_s": 24.83,
+      "gels": 2,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 31
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 146.3,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 12,
+      "mediane": 2.2,
+      "p95": 3.1,
+      "max": 3.2
+     },
+     "fin": {
+      "script_ms": 4.5,
+      "image_ms": 156.1,
+      "event_timing_ms": 200,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 13810.6,
+      "entree_suivante_ms": 14854.1,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 14938.9,
+     "fin_ms": 15894.7,
+     "doigts_max": 1,
+     "evenements": 20,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      50,
+      50,
+      66.6,
+      66.7,
+      50,
+      49.9,
+      66.7,
+      50,
+      50,
+      66.7,
+      50,
+      50,
+      50,
+      66.7,
+      49.9,
+      16.7,
+      33.3,
+      50.1
+     ],
+     "stats": {
+      "images": 19,
+      "mediane_ms": 50,
+      "p95_ms": 66.7,
+      "max_ms": 66.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 17,
+      "part_perdues_repos": 0.944,
+      "duree_ms": 933.3,
+      "acoups": 17,
+      "acoups_par_s": 18.21,
+      "gels": 16,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 19.3
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 162.4,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 17,
+      "mediane": 6.5,
+      "p95": 8.5,
+      "max": 11.1
+     },
+     "fin": {
+      "script_ms": 13.3,
+      "image_ms": 172.2,
+      "event_timing_ms": 232,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 15825,
+      "entree_suivante_ms": 16380,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 16454.9,
+     "fin_ms": 17414.8,
+     "doigts_max": 1,
+     "evenements": 25,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      33.4,
+      49.9,
+      16.6,
+      33.4,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      50,
+      16.7,
+      33.3,
+      16.6,
+      33.4,
+      50,
+      33.3,
+      50.1,
+      49.9,
+      33.4,
+      50,
+      33.3,
+      16.7,
+      33.3,
+      16.6,
+      33.4,
+      50,
+      16.7,
+      33.3,
+      50
+     ],
+     "stats": {
+      "images": 29,
+      "mediane_ms": 33.3,
+      "p95_ms": 50,
+      "max_ms": 50.1,
+      "perdues": 20,
+      "vsync_manquees": 28,
+      "part_perdues": 0.714,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 20,
+      "part_perdues_repos": 0.714,
+      "duree_ms": 933.3,
+      "acoups": 20,
+      "acoups_par_s": 21.43,
+      "gels": 8,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 30
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 193.9,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 20,
+      "mediane": 6.3,
+      "p95": 7.4,
+      "max": 10.3
+     },
+     "fin": {
+      "script_ms": 14.3,
+      "image_ms": 204.7,
+      "event_timing_ms": 256,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 17350.7,
+      "entree_suivante_ms": 17900.5,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 17971.8,
+     "fin_ms": 18908.2,
+     "doigts_max": 1,
+     "evenements": 19,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      33.3,
+      50,
+      66.6,
+      50,
+      50.1,
+      16.6,
+      50,
+      16.7,
+      50,
+      50,
+      50,
+      50,
+      66.7,
+      50,
+      66.6,
+      16.7,
+      50,
+      16.7,
+      49.9,
+      16.7,
+      50
+     ],
+     "stats": {
+      "images": 22,
+      "mediane_ms": 50,
+      "p95_ms": 66.6,
+      "max_ms": 66.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 16,
+      "part_perdues_repos": 0.762,
+      "duree_ms": 916.6,
+      "acoups": 16,
+      "acoups_par_s": 17.46,
+      "gels": 15,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 22.9
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 229.1,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 16,
+      "mediane": 6.6,
+      "p95": 7,
+      "max": 7.2
+     },
+     "fin": {
+      "script_ms": 15.4,
+      "image_ms": 239.8,
+      "event_timing_ms": 264,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 18872,
+      "entree_suivante_ms": 19798.9,
+      "close_par_entree_suivante": false
+     }
+    }
+   ],
+   "touchers": [
+    {
+     "t_ms": 19861.4,
+     "x": 64.5,
+     "y": 404.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 32.8,
+     "latence_raf_ms": 46.6,
+     "fin_fil_principal_ms": 68.5,
+     "event_timing": {
+      "duree_ms": 72,
+      "attente_ms": 1.7,
+      "traitement_ms": 33.9,
+      "presentation_ms": 36.4,
+      "interaction": 4897
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 20414.7,
+     "x": 220.6,
+     "y": 307.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "RUS",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 15.3,
+     "latence_raf_ms": 20.8,
+     "fin_fil_principal_ms": 53.9,
+     "event_timing": {
+      "duree_ms": 56,
+      "attente_ms": 1.8,
+      "traitement_ms": 15.4,
+      "presentation_ms": 38.8,
+      "interaction": 4904
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 20981.4,
+     "x": 129.6,
+     "y": 323.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.3,
+     "latence_raf_ms": 8.1,
+     "fin_fil_principal_ms": 25.5,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.4,
+      "traitement_ms": 2.3,
+      "presentation_ms": 20.3,
+      "interaction": 4911
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 21501.5,
+     "x": 132.6,
+     "y": 327.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MCO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.2,
+     "latence_raf_ms": 5.1,
+     "fin_fil_principal_ms": 26.5,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.8,
+      "traitement_ms": 2.3,
+      "presentation_ms": 27.9,
+      "interaction": 4918
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 22041.9,
+     "x": 136.6,
+     "y": 329.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1,
+     "latence_raf_ms": 13,
+     "fin_fil_principal_ms": 29,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.3,
+      "traitement_ms": 1.2,
+      "presentation_ms": 29.5,
+      "interaction": 4925
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 22562.9,
+     "x": 137.3,
+     "y": 327.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 9,
+     "fin_fil_principal_ms": 24.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.6,
+      "traitement_ms": 1,
+      "presentation_ms": 21.4,
+      "interaction": 4932
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 23083.4,
+     "x": 136,
+     "y": 323.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LIE",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2,
+     "latence_raf_ms": 6.8,
+     "fin_fil_principal_ms": 22.4,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.1,
+      "traitement_ms": 2.1,
+      "presentation_ms": 20.8,
+      "interaction": 4939
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 23604.3,
+     "x": 126.7,
+     "y": 328.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "AND",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1,
+     "latence_raf_ms": 17.1,
+     "fin_fil_principal_ms": 32.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.1,
+      "traitement_ms": 1,
+      "presentation_ms": 29.9,
+      "interaction": 4946
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 24123.4,
+     "x": 136.5,
+     "y": 337.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 14.8,
+     "fin_fil_principal_ms": 31.1,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.5,
+      "traitement_ms": 1,
+      "presentation_ms": 29.5,
+      "interaction": 4953
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 24642.6,
+     "x": 226.2,
+     "y": 385,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SGP",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.7,
+     "latence_raf_ms": 12.3,
+     "fin_fil_principal_ms": 28.8,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.2,
+      "traitement_ms": 2.9,
+      "presentation_ms": 27.9,
+      "interaction": 4960
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 25164.3,
+     "x": 170.4,
+     "y": 350.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BHR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 7.4,
+     "fin_fil_principal_ms": 23.2,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1,
+      "traitement_ms": 1,
+      "presentation_ms": 22,
+      "interaction": 4967
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 25683.7,
+     "x": 193.8,
+     "y": 381,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MDV",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 6.3,
+     "fin_fil_principal_ms": 22.6,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.2,
+      "traitement_ms": 0.8,
+      "presentation_ms": 22,
+      "interaction": 4974
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 26203.4,
+     "x": 36.5,
+     "y": 361.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.1,
+     "latence_raf_ms": 2.8,
+     "fin_fil_principal_ms": 22,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 0.8,
+      "traitement_ms": 1.2,
+      "presentation_ms": 22,
+      "interaction": 4981
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 26738.8,
+     "x": 51.2,
+     "y": 369.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 16.2,
+     "fin_fil_principal_ms": 32.8,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.6,
+      "presentation_ms": 29.9,
+      "interaction": 4988
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 27257.8,
+     "x": 51.6,
+     "y": 362.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 13.7,
+     "fin_fil_principal_ms": 29.1,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.3,
+      "traitement_ms": 1.1,
+      "presentation_ms": 29.6,
+      "interaction": 4995
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 27777.5,
+     "x": 52.5,
+     "y": 362.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 10.6,
+     "fin_fil_principal_ms": 26.3,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.2,
+      "traitement_ms": 0.8,
+      "presentation_ms": 30,
+      "interaction": 5002
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 28297.2,
+     "x": 52.5,
+     "y": 364.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1,
+     "latence_raf_ms": 7.1,
+     "fin_fil_principal_ms": 25,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.3,
+      "traitement_ms": 1.1,
+      "presentation_ms": 21.6,
+      "interaction": 5009
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 28817.1,
+     "x": 52.4,
+     "y": 367.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.1,
+     "latence_raf_ms": 6.1,
+     "fin_fil_principal_ms": 21.9,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.7,
+      "traitement_ms": 1.4,
+      "presentation_ms": 20.9,
+      "interaction": 5016
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 29337.2,
+     "x": 52,
+     "y": 368.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.2,
+     "latence_raf_ms": 17.2,
+     "fin_fil_principal_ms": 33.1,
+     "event_timing": {
+      "duree_ms": 40,
+      "attente_ms": 1.1,
+      "traitement_ms": 1.3,
+      "presentation_ms": 37.6,
+      "interaction": 5023
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 29855.9,
+     "x": 53.7,
+     "y": 368.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 15.5,
+     "fin_fil_principal_ms": 31,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 0.7,
+      "traitement_ms": 0.9,
+      "presentation_ms": 30.4,
+      "interaction": 5030
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 30374.7,
+     "x": 51.2,
+     "y": 372.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2,
+     "latence_raf_ms": 14.2,
+     "fin_fil_principal_ms": 30.6,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.6,
+      "traitement_ms": 2.1,
+      "presentation_ms": 28.3,
+      "interaction": 5037
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 30896,
+     "x": 302.7,
+     "y": 412.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FJI",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.6,
+     "latence_raf_ms": 9.8,
+     "fin_fil_principal_ms": 26,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.1,
+      "traitement_ms": 1.7,
+      "presentation_ms": 29.2,
+      "interaction": 5044
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 31820.1,
+     "x": 222,
+     "y": 453.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 17.5,
+     "fin_fil_principal_ms": 30.1,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1,
+      "traitement_ms": 1.3,
+      "presentation_ms": 29.7,
+      "interaction": 5051
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 32337.7,
+     "x": 221.3,
+     "y": 411.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 17.1,
+     "fin_fil_principal_ms": 30.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.6,
+      "presentation_ms": 30,
+      "interaction": 5058
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 32856.2,
+     "x": 192,
+     "y": 387,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ITA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 15.2,
+     "fin_fil_principal_ms": 34.8,
+     "event_timing": {
+      "duree_ms": 40,
+      "attente_ms": 1.2,
+      "traitement_ms": 0.2,
+      "presentation_ms": 38.6,
+      "interaction": 5065
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 33374,
+     "x": 256.2,
+     "y": 583.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 13.9,
+     "fin_fil_principal_ms": 25.6,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.3,
+      "traitement_ms": 0.2,
+      "presentation_ms": 22.5,
+      "interaction": 5072
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 34296.7,
+     "x": 54.2,
+     "y": 338.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 7.6,
+     "fin_fil_principal_ms": 20.3,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 0.8,
+      "traitement_ms": 0.5,
+      "presentation_ms": 22.7,
+      "interaction": 5079
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 34814.2,
+     "x": 98.5,
+     "y": 326.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "HTI",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.8,
+     "latence_raf_ms": 6.6,
+     "fin_fil_principal_ms": 19.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.4,
+      "traitement_ms": 2,
+      "presentation_ms": 20.6,
+      "interaction": 5086
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 35334.9,
+     "x": 109.6,
+     "y": 328.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DOM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 5.1,
+     "fin_fil_principal_ms": 20.7,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 0.8,
+      "traitement_ms": 1.4,
+      "presentation_ms": 21.8,
+      "interaction": 5093
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 35868.8,
+     "x": 177.1,
+     "y": 347.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 4.7,
+     "fin_fil_principal_ms": 16.7,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 0.9,
+      "traitement_ms": 0.6,
+      "presentation_ms": 14.5,
+      "interaction": 5100
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 36387.5,
+     "x": 185.1,
+     "y": 350.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 17.3,
+     "fin_fil_principal_ms": 29.6,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.1,
+      "presentation_ms": 30.4,
+      "interaction": 5107
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 36906.3,
+     "x": 188.8,
+     "y": 368.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 14.6,
+     "fin_fil_principal_ms": 26.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.1,
+      "traitement_ms": 0.6,
+      "presentation_ms": 30.3,
+      "interaction": 5114
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 37423.6,
+     "x": 192,
+     "y": 387,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 14.1,
+     "fin_fil_principal_ms": 27,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.3,
+      "traitement_ms": 0.9,
+      "presentation_ms": 29.8,
+      "interaction": 5121
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 37941.9,
+     "x": 190.1,
+     "y": 394.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 12.4,
+     "fin_fil_principal_ms": 24.2,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1,
+      "traitement_ms": 0.9,
+      "presentation_ms": 30.1,
+      "interaction": 5128
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 38459.5,
+     "x": 204,
+     "y": 395.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 11.4,
+     "fin_fil_principal_ms": 25.3,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.1,
+      "traitement_ms": 0.1,
+      "presentation_ms": 30.8,
+      "interaction": 5135
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 38977.6,
+     "x": 186.1,
+     "y": 407.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 10.9,
+     "fin_fil_principal_ms": 23.4,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.2,
+      "traitement_ms": 1.1,
+      "presentation_ms": 21.7,
+      "interaction": 5142
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 39496.4,
+     "x": 189.9,
+     "y": 427.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 8.2,
+     "fin_fil_principal_ms": 20.5,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2,
+      "traitement_ms": 0.5,
+      "presentation_ms": 21.5,
+      "interaction": 5149
+     },
+     "event_timing_etat": "mesure"
+    }
+   ],
+   "longues_images": [
+    {
+     "debut_ms": 2225.4,
+     "duree_ms": 205,
+     "blocage_ms": 0,
+     "rendu_ms": 2429.7,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 13.6
+      }
+     ]
+    },
+    {
+     "debut_ms": 3387.7,
+     "duree_ms": 235,
+     "blocage_ms": 0,
+     "rendu_ms": 3622.5,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 10.8
+      }
+     ]
+    },
+    {
+     "debut_ms": 4548.7,
+     "duree_ms": 190.2,
+     "blocage_ms": 0,
+     "rendu_ms": 4738.4,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 10.1
+      }
+     ]
+    },
+    {
+     "debut_ms": 7813.6,
+     "duree_ms": 220,
+     "blocage_ms": 0,
+     "rendu_ms": 8033,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 11
+      }
+     ]
+    },
+    {
+     "debut_ms": 8877.8,
+     "duree_ms": 155.1,
+     "blocage_ms": 0,
+     "rendu_ms": 9032.5,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 15.2
+      }
+     ]
+    },
+    {
+     "debut_ms": 10552.3,
+     "duree_ms": 88,
+     "blocage_ms": 0,
+     "rendu_ms": 10639.8,
+     "scripts": []
+    },
+    {
+     "debut_ms": 11758.7,
+     "duree_ms": 130.4,
+     "blocage_ms": 0,
+     "rendu_ms": 11888.4,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 5.2
+      }
+     ]
+    },
+    {
+     "debut_ms": 13851.3,
+     "duree_ms": 146.3,
+     "blocage_ms": 0,
+     "rendu_ms": 13997.1,
+     "scripts": []
+    },
+    {
+     "debut_ms": 15878.9,
+     "duree_ms": 162.4,
+     "blocage_ms": 0,
+     "rendu_ms": 16040.4,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 13.9
+      }
+     ]
+    },
+    {
+     "debut_ms": 17399.5,
+     "duree_ms": 193.9,
+     "blocage_ms": 0,
+     "rendu_ms": 17593.3,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 14.4
+      }
+     ]
+    },
+    {
+     "debut_ms": 18891.6,
+     "duree_ms": 229.1,
+     "blocage_ms": 0,
+     "rendu_ms": 19120.6,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 16.4
+      }
+     ]
+    }
+   ],
+   "interactions": [
+    {
+     "nom": "pointerup",
+     "debut_ms": 2178.4,
+     "duree_ms": 264,
+     "interaction": 4757
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 2178.4,
+     "duree_ms": 264,
+     "interaction": 4764
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 3380.7,
+     "duree_ms": 256,
+     "interaction": 4771
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4543.5,
+     "duree_ms": 208,
+     "interaction": 4778
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 5554.4,
+     "duree_ms": 72,
+     "interaction": 4785
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 5554.4,
+     "duree_ms": 72,
+     "interaction": 4792
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 6735,
+     "duree_ms": 96,
+     "interaction": 4799
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7780.8,
+     "duree_ms": 264,
+     "interaction": 4806
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7780.8,
+     "duree_ms": 264,
+     "interaction": 4813
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 8818.9,
+     "duree_ms": 232,
+     "interaction": 4820
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 8818.9,
+     "duree_ms": 232,
+     "interaction": 4827
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 10535.4,
+     "duree_ms": 120,
+     "interaction": 4834
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 11708.1,
+     "duree_ms": 192,
+     "interaction": 4841
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12763.1,
+     "duree_ms": 104,
+     "interaction": 4848
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12763.1,
+     "duree_ms": 104,
+     "interaction": 4855
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13810.6,
+     "duree_ms": 200,
+     "interaction": 4862
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13810.6,
+     "duree_ms": 200,
+     "interaction": 4869
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 15825,
+     "duree_ms": 232,
+     "interaction": 4876
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 17350.7,
+     "duree_ms": 256,
+     "interaction": 4883
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 18872,
+     "duree_ms": 264,
+     "interaction": 4890
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19861.4,
+     "duree_ms": 72,
+     "interaction": 4897
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19861.4,
+     "duree_ms": 72,
+     "interaction": 4897
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20414.7,
+     "duree_ms": 56,
+     "interaction": 4904
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20414.7,
+     "duree_ms": 56,
+     "interaction": 4904
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20981.4,
+     "duree_ms": 24,
+     "interaction": 4911
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20981.4,
+     "duree_ms": 24,
+     "interaction": 4911
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21501.5,
+     "duree_ms": 32,
+     "interaction": 4918
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21501.5,
+     "duree_ms": 24,
+     "interaction": 4918
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22041.9,
+     "duree_ms": 32,
+     "interaction": 4925
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22041.9,
+     "duree_ms": 32,
+     "interaction": 4925
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22562.9,
+     "duree_ms": 24,
+     "interaction": 4932
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22562.9,
+     "duree_ms": 24,
+     "interaction": 4932
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23083.4,
+     "duree_ms": 24,
+     "interaction": 4939
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23083.4,
+     "duree_ms": 24,
+     "interaction": 4939
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23604.3,
+     "duree_ms": 32,
+     "interaction": 4946
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23604.3,
+     "duree_ms": 32,
+     "interaction": 4946
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24123.4,
+     "duree_ms": 32,
+     "interaction": 4953
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24123.4,
+     "duree_ms": 32,
+     "interaction": 4953
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24642.6,
+     "duree_ms": 32,
+     "interaction": 4960
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24642.6,
+     "duree_ms": 32,
+     "interaction": 4960
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25164.3,
+     "duree_ms": 24,
+     "interaction": 4967
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25164.3,
+     "duree_ms": 24,
+     "interaction": 4967
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25683.7,
+     "duree_ms": 24,
+     "interaction": 4974
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25683.7,
+     "duree_ms": 24,
+     "interaction": 4974
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26203.4,
+     "duree_ms": 24,
+     "interaction": 4981
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26203.4,
+     "duree_ms": 24,
+     "interaction": 4981
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26738.8,
+     "duree_ms": 32,
+     "interaction": 4988
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26738.8,
+     "duree_ms": 32,
+     "interaction": 4988
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27257.8,
+     "duree_ms": 32,
+     "interaction": 4995
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27257.8,
+     "duree_ms": 32,
+     "interaction": 4995
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27777.5,
+     "duree_ms": 32,
+     "interaction": 5002
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27777.5,
+     "duree_ms": 32,
+     "interaction": 5002
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 28297.2,
+     "duree_ms": 24,
+     "interaction": 5009
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28297.2,
+     "duree_ms": 24,
+     "interaction": 5009
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 28817.1,
+     "duree_ms": 24,
+     "interaction": 5016
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28817.1,
+     "duree_ms": 24,
+     "interaction": 5016
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29337.2,
+     "duree_ms": 40,
+     "interaction": 5023
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29337.2,
+     "duree_ms": 40,
+     "interaction": 5023
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29855.9,
+     "duree_ms": 32,
+     "interaction": 5030
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29855.9,
+     "duree_ms": 32,
+     "interaction": 5030
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30374.7,
+     "duree_ms": 32,
+     "interaction": 5037
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30374.7,
+     "duree_ms": 32,
+     "interaction": 5037
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30896,
+     "duree_ms": 32,
+     "interaction": 5044
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30896,
+     "duree_ms": 32,
+     "interaction": 5044
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 31820.1,
+     "duree_ms": 32,
+     "interaction": 5051
+    },
+    {
+     "nom": "click",
+     "debut_ms": 31820.1,
+     "duree_ms": 32,
+     "interaction": 5051
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 32337.7,
+     "duree_ms": 32,
+     "interaction": 5058
+    },
+    {
+     "nom": "click",
+     "debut_ms": 32337.7,
+     "duree_ms": 32,
+     "interaction": 5058
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 32856.2,
+     "duree_ms": 40,
+     "interaction": 5065
+    },
+    {
+     "nom": "click",
+     "debut_ms": 32856.2,
+     "duree_ms": 40,
+     "interaction": 5065
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 33374,
+     "duree_ms": 24,
+     "interaction": 5072
+    },
+    {
+     "nom": "click",
+     "debut_ms": 33374,
+     "duree_ms": 24,
+     "interaction": 5072
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 34296.7,
+     "duree_ms": 24,
+     "interaction": 5079
+    },
+    {
+     "nom": "click",
+     "debut_ms": 34296.7,
+     "duree_ms": 24,
+     "interaction": 5079
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 34814.2,
+     "duree_ms": 24,
+     "interaction": 5086
+    },
+    {
+     "nom": "click",
+     "debut_ms": 34814.2,
+     "duree_ms": 24,
+     "interaction": 5086
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 35334.9,
+     "duree_ms": 24,
+     "interaction": 5093
+    },
+    {
+     "nom": "click",
+     "debut_ms": 35334.9,
+     "duree_ms": 24,
+     "interaction": 5093
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 35868.8,
+     "duree_ms": 16,
+     "interaction": 5100
+    },
+    {
+     "nom": "click",
+     "debut_ms": 35868.8,
+     "duree_ms": 16,
+     "interaction": 5100
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 36387.5,
+     "duree_ms": 32,
+     "interaction": 5107
+    },
+    {
+     "nom": "click",
+     "debut_ms": 36387.5,
+     "duree_ms": 32,
+     "interaction": 5107
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 36906.3,
+     "duree_ms": 32,
+     "interaction": 5114
+    },
+    {
+     "nom": "click",
+     "debut_ms": 36906.3,
+     "duree_ms": 32,
+     "interaction": 5114
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 37423.6,
+     "duree_ms": 32,
+     "interaction": 5121
+    },
+    {
+     "nom": "click",
+     "debut_ms": 37423.6,
+     "duree_ms": 32,
+     "interaction": 5121
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 37941.9,
+     "duree_ms": 32,
+     "interaction": 5128
+    },
+    {
+     "nom": "click",
+     "debut_ms": 37941.9,
+     "duree_ms": 32,
+     "interaction": 5128
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 38459.5,
+     "duree_ms": 32,
+     "interaction": 5135
+    },
+    {
+     "nom": "click",
+     "debut_ms": 38459.5,
+     "duree_ms": 32,
+     "interaction": 5135
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 38977.6,
+     "duree_ms": 24,
+     "interaction": 5142
+    },
+    {
+     "nom": "click",
+     "debut_ms": 38977.6,
+     "duree_ms": 24,
+     "interaction": 5142
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 39496.4,
+     "duree_ms": 24,
+     "interaction": 5149
+    },
+    {
+     "nom": "click",
+     "debut_ms": 39496.4,
+     "duree_ms": 24,
+     "interaction": 5149
+    }
+   ]
+  },
+  {
+   "v": 6,
+   "version": "29a602c6fd+modifie",
+   "date": "2026-11-12T11:05:56.214Z",
+   "agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+   "ecran": {
+    "largeur": 384,
+    "hauteur": 832,
+    "dpr": 2.8125,
+    "carte": {
+     "largeur": 384,
+     "hauteur": 774
+    },
+    "periode_ms": 16.7,
+    "hz": 59.9
+   },
+   "rendu": "canvas",
+   "projection": "monde",
+   "capacites": {
+    "long_animation_frame": true,
+    "event_timing": true
+   },
+   "chargement": {
+    "total_ms": 716.5,
+    "debut_script_ms": 111.6,
+    "etapes": {
+     "telechargement_ms": 55.6,
+     "analyse_ms": 39.9,
+     "feature_ms": 52.3,
+     "chemins_ms": 143.8,
+     "insertion_ms": 106.6,
+     "peinture_ms": 199.2
+    },
+    "ressources": [
+     {
+      "nom": "monde.topo.json",
+      "transfert": 458735,
+      "decode": 1249540,
+      "duree_ms": 99.4
+     },
+     {
+      "nom": "contestees.json",
+      "transfert": 3124,
+      "decode": 13965,
+      "duree_ms": 18.9
+     },
+     {
+      "nom": "pays.json",
+      "transfert": 16359,
+      "decode": 68446,
+      "duree_ms": 19.8
+     },
+     {
+      "nom": "noms.fr.json",
+      "transfert": 3954,
+      "decode": 8546,
+      "duree_ms": 18.8
+     },
+     {
+      "nom": "monde-leger.topo.json",
+      "transfert": 51919,
+      "decode": 153234,
+      "duree_ms": 11.2
+     }
+    ],
+    "caracteres_chemins": 0,
+    "pastilles": 164
+   },
+   "gestes": [
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 1621,
+     "fin_ms": 2180.9,
+     "doigts_max": 2,
+     "evenements": 11,
+     "k_debut": 1,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      50,
+      66.6,
+      50.1,
+      66.6,
+      66.7,
+      66.7,
+      50,
+      66.6
+     ],
+     "stats": {
+      "images": 9,
+      "mediane_ms": 66.6,
+      "p95_ms": 66.7,
+      "max_ms": 66.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 66.6,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 8,
+      "part_perdues_repos": 1,
+      "duree_ms": 483.3,
+      "acoups": 8,
+      "acoups_par_s": 16.55,
+      "gels": 8,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 16.6
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 211.2,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 9,
+      "mediane": 9.7,
+      "p95": 18.3,
+      "max": 18.6
+     },
+     "fin": {
+      "script_ms": 9.4,
+      "image_ms": 219.9,
+      "event_timing_ms": 304,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 2086.6,
+      "entree_suivante_ms": 2669.6,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 2770.6,
+     "fin_ms": 3365.5,
+     "doigts_max": 1,
+     "evenements": 15,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      33.2,
+      50.1,
+      16.7,
+      50,
+      16.6,
+      33.3,
+      50.1,
+      16.6,
+      50.1,
+      16.6,
+      33.4,
+      49.9,
+      50,
+      50,
+      50
+     ],
+     "stats": {
+      "images": 16,
+      "mediane_ms": 49.9,
+      "p95_ms": 50.1,
+      "max_ms": 50.1,
+      "perdues": 11,
+      "vsync_manquees": 19,
+      "part_perdues": 0.733,
+      "periode_geste_ms": 16.67,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 11,
+      "part_perdues_repos": 0.733,
+      "duree_ms": 566.6,
+      "acoups": 11,
+      "acoups_par_s": 19.41,
+      "gels": 8,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 26.5
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 239.6,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 11,
+      "mediane": 5.2,
+      "p95": 5.8,
+      "max": 5.9
+     },
+     "fin": {
+      "script_ms": 10.5,
+      "image_ms": 248.7,
+      "event_timing_ms": 280,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 3323.2,
+      "entree_suivante_ms": 3853.7,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 3954.3,
+     "fin_ms": 4526.7,
+     "doigts_max": 1,
+     "evenements": 15,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      50,
+      16.6,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      33.3,
+      50.1,
+      16.6,
+      33.3,
+      16.7,
+      33.3
+     ],
+     "stats": {
+      "images": 15,
+      "mediane_ms": 50,
+      "p95_ms": 50,
+      "max_ms": 50.1,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 11,
+      "part_perdues_repos": 0.786,
+      "duree_ms": 549.9,
+      "acoups": 11,
+      "acoups_par_s": 20,
+      "gels": 8,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 25.5
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 196.9,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 11,
+      "mediane": 4.5,
+      "p95": 5.3,
+      "max": 5.6
+     },
+     "fin": {
+      "script_ms": 10,
+      "image_ms": 206,
+      "event_timing_ms": 216,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 4508.3,
+      "entree_suivante_ms": 5016.2,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 5054.1,
+     "fin_ms": 5531,
+     "doigts_max": 2,
+     "evenements": 18,
+     "k_debut": 4.333,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      33.3,
+      16.6,
+      16.7,
+      50,
+      33.3,
+      33.4,
+      16.6,
+      16.7,
+      16.6,
+      33.4,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6
+     ],
+     "stats": {
+      "images": 23,
+      "mediane_ms": 16.7,
+      "p95_ms": 33.4,
+      "max_ms": 50,
+      "perdues": 5,
+      "vsync_manquees": 6,
+      "part_perdues": 0.227,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 5,
+      "part_perdues_repos": 0.227,
+      "duree_ms": 466.5,
+      "acoups": 5,
+      "acoups_par_s": 10.72,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 47.2
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 13,
+      "mediane": 1.7,
+      "p95": 3.2,
+      "max": 3.9
+     },
+     "fin": {
+      "script_ms": 1.5,
+      "image_ms": 42.6,
+      "event_timing_ms": 56,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 5520.8,
+      "entree_suivante_ms": 6029.3,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 6120.7,
+     "fin_ms": 6692.3,
+     "doigts_max": 1,
+     "evenements": 21,
+     "k_debut": 16.25,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.6,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      33.3,
+      16.7,
+      16.7,
+      33.3,
+      16.7,
+      16.6,
+      33.4,
+      16.6,
+      16.7,
+      33.3,
+      16.7,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      33.4,
+      33.2
+     ],
+     "stats": {
+      "images": 24,
+      "mediane_ms": 16.7,
+      "p95_ms": 33.4,
+      "max_ms": 33.4,
+      "perdues": 11,
+      "vsync_manquees": 11,
+      "part_perdues": 0.478,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 11,
+      "part_perdues_repos": 0.478,
+      "duree_ms": 566.5,
+      "acoups": 11,
+      "acoups_par_s": 19.42,
+      "gels": 0,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 40.6
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 19,
+      "mediane": 1.5,
+      "p95": 2.1,
+      "max": 2.1
+     },
+     "fin": {
+      "script_ms": 1.6,
+      "image_ms": 50.2,
+      "event_timing_ms": 64,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 6682.6,
+      "entree_suivante_ms": 7190.3,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 7237,
+     "fin_ms": 7789.3,
+     "doigts_max": 2,
+     "evenements": 14,
+     "k_debut": 16.25,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.7,
+      16.5,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      33.4,
+      16.5,
+      33.4,
+      33.3,
+      16.7,
+      33.4,
+      16.6,
+      33.4,
+      50
+     ],
+     "stats": {
+      "images": 26,
+      "mediane_ms": 16.7,
+      "p95_ms": 33.4,
+      "max_ms": 50,
+      "perdues": 6,
+      "vsync_manquees": 7,
+      "part_perdues": 0.24,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 6,
+      "part_perdues_repos": 0.24,
+      "duree_ms": 533.3,
+      "acoups": 6,
+      "acoups_par_s": 11.25,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 46.9
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 234.4,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 14,
+      "mediane": 2,
+      "p95": 3.7,
+      "max": 4.5
+     },
+     "fin": {
+      "script_ms": 10.3,
+      "image_ms": 244.7,
+      "event_timing_ms": 336,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 7693.2,
+      "entree_suivante_ms": 8278.6,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 8320.9,
+     "fin_ms": 8888.3,
+     "doigts_max": 2,
+     "evenements": 12,
+     "k_debut": 4.333,
+     "k_fin": 1,
+     "intervalles_ms": [
+      33.4,
+      16.6,
+      33.4,
+      16.6,
+      50.1,
+      16.6,
+      33.4,
+      66.6,
+      16.6,
+      50.1,
+      50,
+      49.9,
+      66.7
+     ],
+     "stats": {
+      "images": 14,
+      "mediane_ms": 33.4,
+      "p95_ms": 66.6,
+      "max_ms": 66.7,
+      "perdues": 9,
+      "vsync_manquees": 17,
+      "part_perdues": 0.692,
+      "periode_geste_ms": 16.67,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 9,
+      "part_perdues_repos": 0.692,
+      "duree_ms": 500,
+      "acoups": 9,
+      "acoups_par_s": 18,
+      "gels": 6,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 26
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 155.7,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 10,
+      "mediane": 5.8,
+      "p95": 7.1,
+      "max": 7.1
+     },
+     "fin": {
+      "script_ms": 14.8,
+      "image_ms": 165.9,
+      "event_timing_ms": 256,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 8782,
+      "entree_suivante_ms": 9874.6,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 9970.9,
+     "fin_ms": 10556,
+     "doigts_max": 1,
+     "evenements": 18,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      33.3,
+      33.3,
+      50,
+      33.3,
+      33.4,
+      33.3,
+      33.4,
+      16.6,
+      16.7,
+      16.6,
+      33.4,
+      16.7,
+      16.6,
+      33.3,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7
+     ],
+     "stats": {
+      "images": 25,
+      "mediane_ms": 16.7,
+      "p95_ms": 33.4,
+      "max_ms": 50,
+      "perdues": 9,
+      "vsync_manquees": 10,
+      "part_perdues": 0.375,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 9,
+      "part_perdues_repos": 0.375,
+      "duree_ms": 566.6,
+      "acoups": 9,
+      "acoups_par_s": 15.88,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 42.4
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 83.6,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 16,
+      "mediane": 2.2,
+      "p95": 3,
+      "max": 3
+     },
+     "fin": {
+      "script_ms": 3.2,
+      "image_ms": 93,
+      "event_timing_ms": 120,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 10528.7,
+      "entree_suivante_ms": 11052.8,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 11153.5,
+     "fin_ms": 11748,
+     "doigts_max": 1,
+     "evenements": 18,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.6,
+      33.3,
+      33.4,
+      33.4,
+      16.5,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      33.4,
+      16.7,
+      16.6,
+      50,
+      33.3,
+      33.4,
+      33.3,
+      16.6,
+      33.4,
+      16.7,
+      33.3,
+      33.3,
+      33.3
+     ],
+     "stats": {
+      "images": 23,
+      "mediane_ms": 33.3,
+      "p95_ms": 33.4,
+      "max_ms": 50,
+      "perdues": 12,
+      "vsync_manquees": 13,
+      "part_perdues": 0.545,
+      "periode_geste_ms": 16.67,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 12,
+      "part_perdues_repos": 0.545,
+      "duree_ms": 583.2,
+      "acoups": 12,
+      "acoups_par_s": 20.58,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 37.7
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 126,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 16,
+      "mediane": 2.4,
+      "p95": 2.7,
+      "max": 2.8
+     },
+     "fin": {
+      "script_ms": 3.7,
+      "image_ms": 136.6,
+      "event_timing_ms": 176,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 11707.3,
+      "entree_suivante_ms": 12244.4,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 12286.9,
+     "fin_ms": 12806.6,
+     "doigts_max": 2,
+     "evenements": 14,
+     "k_debut": 14.483,
+     "k_fin": 36.207,
+     "intervalles_ms": [
+      33.3,
+      16.7,
+      16.6,
+      50,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      33.4,
+      16.6,
+      33.3,
+      16.7,
+      33.3,
+      33.3,
+      16.7,
+      33.4,
+      16.6,
+      16.7,
+      33.3
+     ],
+     "stats": {
+      "images": 20,
+      "mediane_ms": 33.3,
+      "p95_ms": 35.1,
+      "max_ms": 50,
+      "perdues": 10,
+      "vsync_manquees": 11,
+      "part_perdues": 0.526,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 10,
+      "part_perdues_repos": 0.526,
+      "duree_ms": 499.9,
+      "acoups": 10,
+      "acoups_par_s": 20,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 38
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 54.1,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 12,
+      "mediane": 2,
+      "p95": 2.7,
+      "max": 3.1
+     },
+     "fin": {
+      "script_ms": 2.2,
+      "image_ms": 65.1,
+      "event_timing_ms": 120,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 12748.3,
+      "entree_suivante_ms": 13304.4,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 13353.3,
+     "fin_ms": 13867.7,
+     "doigts_max": 2,
+     "evenements": 15,
+     "k_debut": 36.207,
+     "k_fin": 11.586,
+     "intervalles_ms": [
+      16.7,
+      16.6,
+      33.3,
+      16.7,
+      16.6,
+      50,
+      33.4,
+      33.3,
+      33.4,
+      50,
+      50,
+      33.3,
+      33.4,
+      49.9
+     ],
+     "stats": {
+      "images": 15,
+      "mediane_ms": 33.3,
+      "p95_ms": 50,
+      "max_ms": 50,
+      "perdues": 10,
+      "vsync_manquees": 14,
+      "part_perdues": 0.714,
+      "periode_geste_ms": 16.67,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 10,
+      "part_perdues_repos": 0.714,
+      "duree_ms": 466.6,
+      "acoups": 10,
+      "acoups_par_s": 21.43,
+      "gels": 4,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 30
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 143.6,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 13,
+      "mediane": 2.2,
+      "p95": 2.6,
+      "max": 2.7
+     },
+     "fin": {
+      "script_ms": 4.6,
+      "image_ms": 154.3,
+      "event_timing_ms": 208,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 13808.7,
+      "entree_suivante_ms": 14864.5,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 14936.7,
+     "fin_ms": 15908.9,
+     "doigts_max": 1,
+     "evenements": 23,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      50,
+      50,
+      66.5,
+      50.1,
+      66.6,
+      16.7,
+      50,
+      50.1,
+      66.6,
+      49.9,
+      50.1,
+      66.7,
+      49.9,
+      16.7,
+      50,
+      50,
+      50,
+      16.7,
+      33.3,
+      50
+     ],
+     "stats": {
+      "images": 21,
+      "mediane_ms": 50,
+      "p95_ms": 66.6,
+      "max_ms": 66.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 17,
+      "part_perdues_repos": 0.85,
+      "duree_ms": 949.9,
+      "acoups": 17,
+      "acoups_par_s": 17.9,
+      "gels": 16,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 21.1
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 165,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 17,
+      "mediane": 6.8,
+      "p95": 7.3,
+      "max": 7.5
+     },
+     "fin": {
+      "script_ms": 14.1,
+      "image_ms": 174.7,
+      "event_timing_ms": 240,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 15835.5,
+      "entree_suivante_ms": 16393.6,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 16470.5,
+     "fin_ms": 17444,
+     "doigts_max": 1,
+     "evenements": 25,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      33.3,
+      16.6,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      50.1,
+      33.3,
+      50,
+      50,
+      33.3,
+      50,
+      16.6,
+      33.4,
+      50,
+      49.9,
+      50.1
+     ],
+     "stats": {
+      "images": 31,
+      "mediane_ms": 33.3,
+      "p95_ms": 50.1,
+      "max_ms": 50.1,
+      "perdues": 20,
+      "vsync_manquees": 27,
+      "part_perdues": 0.667,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 20,
+      "part_perdues_repos": 0.667,
+      "duree_ms": 949.9,
+      "acoups": 20,
+      "acoups_par_s": 21.05,
+      "gels": 7,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 31.6
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 202.9,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 20,
+      "mediane": 6.6,
+      "p95": 7.7,
+      "max": 7.8
+     },
+     "fin": {
+      "script_ms": 14.6,
+      "image_ms": 212.2,
+      "event_timing_ms": 280,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 17364.3,
+      "entree_suivante_ms": 17927.7,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 18003.4,
+     "fin_ms": 18995.9,
+     "doigts_max": 1,
+     "evenements": 24,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      33.3,
+      66.7,
+      50,
+      16.7,
+      49.9,
+      16.7,
+      50,
+      50,
+      16.6,
+      50.1,
+      49.9,
+      50.1,
+      16.6,
+      50,
+      16.7,
+      50,
+      50,
+      66.7,
+      49.9,
+      50.1,
+      66.6
+     ],
+     "stats": {
+      "images": 22,
+      "mediane_ms": 50,
+      "p95_ms": 66.7,
+      "max_ms": 66.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 16,
+      "part_perdues_repos": 0.762,
+      "duree_ms": 916.6,
+      "acoups": 16,
+      "acoups_par_s": 17.46,
+      "gels": 15,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 22.9
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 242.7,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 17,
+      "mediane": 6.8,
+      "p95": 7.3,
+      "max": 7.8
+     },
+     "fin": {
+      "script_ms": 16.3,
+      "image_ms": 253.1,
+      "event_timing_ms": 336,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 18899.5,
+      "entree_suivante_ms": 19882.9,
+      "close_par_entree_suivante": false
+     }
+    }
+   ],
+   "touchers": [
+    {
+     "t_ms": 19949.2,
+     "x": 64.5,
+     "y": 404.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 20.6,
+     "latence_raf_ms": 37.8,
+     "fin_fil_principal_ms": 58.6,
+     "event_timing": {
+      "duree_ms": 64,
+      "attente_ms": 1.3,
+      "traitement_ms": 21.8,
+      "presentation_ms": 40.9,
+      "interaction": 3855
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 20490.1,
+     "x": 220.6,
+     "y": 307.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "RUS",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 14.7,
+     "latence_raf_ms": 20.9,
+     "fin_fil_principal_ms": 52.2,
+     "event_timing": {
+      "duree_ms": 56,
+      "attente_ms": 1.7,
+      "traitement_ms": 15.5,
+      "presentation_ms": 38.8,
+      "interaction": 3862
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 21056.1,
+     "x": 129.6,
+     "y": 323.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 3.4,
+     "latence_raf_ms": 14.2,
+     "fin_fil_principal_ms": 33,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.7,
+      "traitement_ms": 3.4,
+      "presentation_ms": 26.9,
+      "interaction": 3869
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 21577.9,
+     "x": 132.6,
+     "y": 327.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MCO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.1,
+     "latence_raf_ms": 8.9,
+     "fin_fil_principal_ms": 25.3,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.3,
+      "traitement_ms": 2.4,
+      "presentation_ms": 28.3,
+      "interaction": 3876
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 22100.3,
+     "x": 136.6,
+     "y": 329.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.2,
+     "latence_raf_ms": 3.9,
+     "fin_fil_principal_ms": 22.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.3,
+      "traitement_ms": 1.6,
+      "presentation_ms": 21.1,
+      "interaction": 3883
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 22637.4,
+     "x": 137.3,
+     "y": 327.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.1,
+     "latence_raf_ms": 16.8,
+     "fin_fil_principal_ms": 35.7,
+     "event_timing": {
+      "duree_ms": 40,
+      "attente_ms": 1.6,
+      "traitement_ms": 1.1,
+      "presentation_ms": 37.3,
+      "interaction": 3890
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 23157.1,
+     "x": 136,
+     "y": 323.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LIE",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.2,
+     "latence_raf_ms": 13.7,
+     "fin_fil_principal_ms": 33.9,
+     "event_timing": {
+      "duree_ms": 40,
+      "attente_ms": 2.4,
+      "traitement_ms": 2.2,
+      "presentation_ms": 35.4,
+      "interaction": 3897
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 23681.2,
+     "x": 126.7,
+     "y": 328.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "AND",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 5.8,
+     "fin_fil_principal_ms": 22.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.6,
+      "traitement_ms": 1.1,
+      "presentation_ms": 21.3,
+      "interaction": 3904
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 24202.8,
+     "x": 136.5,
+     "y": 337.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 16.9,
+     "fin_fil_principal_ms": 34.2,
+     "event_timing": {
+      "duree_ms": 40,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.9,
+      "presentation_ms": 37.7,
+      "interaction": 3911
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 24721.5,
+     "x": 226.2,
+     "y": 385,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SGP",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.2,
+     "latence_raf_ms": 15.2,
+     "fin_fil_principal_ms": 32.8,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.2,
+      "traitement_ms": 2.3,
+      "presentation_ms": 28.5,
+      "interaction": 3918
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 25242.1,
+     "x": 170.4,
+     "y": 350.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BHR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.7,
+     "latence_raf_ms": 11.1,
+     "fin_fil_principal_ms": 27.3,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1,
+      "traitement_ms": 0.7,
+      "presentation_ms": 30.3,
+      "interaction": 3925
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 25760.9,
+     "x": 193.8,
+     "y": 381,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MDV",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 9.6,
+     "fin_fil_principal_ms": 25.2,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.9,
+      "traitement_ms": 0.2,
+      "presentation_ms": 29.9,
+      "interaction": 3932
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 26280.3,
+     "x": 36.5,
+     "y": 361.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1,
+     "latence_raf_ms": 7.5,
+     "fin_fil_principal_ms": 26.2,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2.8,
+      "traitement_ms": 1,
+      "presentation_ms": 20.2,
+      "interaction": 3939
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 26801.1,
+     "x": 51.2,
+     "y": 369.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 2.4,
+     "fin_fil_principal_ms": 22,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.3,
+      "traitement_ms": 0.2,
+      "presentation_ms": 22.5,
+      "interaction": 3946
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 27336.4,
+     "x": 51.6,
+     "y": 362.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 16.1,
+     "fin_fil_principal_ms": 32.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.7,
+      "presentation_ms": 29.7,
+      "interaction": 3953
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 27855.1,
+     "x": 52.5,
+     "y": 362.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 14.6,
+     "fin_fil_principal_ms": 31.2,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.1,
+      "traitement_ms": 0.6,
+      "presentation_ms": 30.3,
+      "interaction": 3960
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 28376.1,
+     "x": 52.5,
+     "y": 364.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 9.8,
+     "fin_fil_principal_ms": 26.3,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 2.1,
+      "traitement_ms": 0.5,
+      "presentation_ms": 29.4,
+      "interaction": 3967
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 28896.2,
+     "x": 52.4,
+     "y": 367.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 6.4,
+     "fin_fil_principal_ms": 22.6,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 0.7,
+      "traitement_ms": 0.8,
+      "presentation_ms": 22.5,
+      "interaction": 3974
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 29414.4,
+     "x": 52,
+     "y": 368.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 5.6,
+     "fin_fil_principal_ms": 22.4,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.5,
+      "presentation_ms": 21.9,
+      "interaction": 3981
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 29933.8,
+     "x": 53.7,
+     "y": 368.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 3.1,
+     "fin_fil_principal_ms": 23,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.3,
+      "traitement_ms": 0.9,
+      "presentation_ms": 21.8,
+      "interaction": 3988
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 30471.5,
+     "x": 51.2,
+     "y": 372.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.2,
+     "latence_raf_ms": 15.4,
+     "fin_fil_principal_ms": 31.6,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.9,
+      "traitement_ms": 1.2,
+      "presentation_ms": 28.9,
+      "interaction": 3995
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 30993.9,
+     "x": 302.7,
+     "y": 412.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FJI",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.4,
+     "latence_raf_ms": 9.5,
+     "fin_fil_principal_ms": 26.8,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.3,
+      "traitement_ms": 1.8,
+      "presentation_ms": 28.9,
+      "interaction": 4002
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 31917.6,
+     "x": 222,
+     "y": 453.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 5.9,
+     "fin_fil_principal_ms": 19.9,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.4,
+      "traitement_ms": 1.1,
+      "presentation_ms": 21.5,
+      "interaction": 4009
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 32440.3,
+     "x": 221.3,
+     "y": 411.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.7,
+     "latence_raf_ms": 12.2,
+     "fin_fil_principal_ms": 26,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.7,
+      "traitement_ms": 0.7,
+      "presentation_ms": 29.6,
+      "interaction": 4016
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 32959.5,
+     "x": 192,
+     "y": 387,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ITA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 10.4,
+     "fin_fil_principal_ms": 31,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.9,
+      "presentation_ms": 29.7,
+      "interaction": 4023
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 33478.8,
+     "x": 256.2,
+     "y": 583.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.7,
+     "latence_raf_ms": 7.1,
+     "fin_fil_principal_ms": 20.5,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1,
+      "traitement_ms": 0.7,
+      "presentation_ms": 22.3,
+      "interaction": 4030
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 34399.9,
+     "x": 54.2,
+     "y": 338.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 3,
+     "fin_fil_principal_ms": 20.6,
+     "event_timing": {
+      "duree_ms": 16,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.8,
+      "presentation_ms": 13.8,
+      "interaction": 4037
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 34931.8,
+     "x": 98.5,
+     "y": 326.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "HTI",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 1,
+     "latence_raf_ms": 4.7,
+     "fin_fil_principal_ms": 18.9,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.1,
+      "traitement_ms": 1.1,
+      "presentation_ms": 21.8,
+      "interaction": 4044
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 35450.3,
+     "x": 109.6,
+     "y": 328.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DOM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 5.7,
+     "fin_fil_principal_ms": 18.3,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1,
+      "traitement_ms": 1,
+      "presentation_ms": 22,
+      "interaction": 4051
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 35969.7,
+     "x": 177.1,
+     "y": 347.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 16.2,
+     "fin_fil_principal_ms": 31.4,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 0.7,
+      "traitement_ms": 0.1,
+      "presentation_ms": 31.2,
+      "interaction": 4058
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 36489.9,
+     "x": 185.1,
+     "y": 350.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 12.4,
+     "fin_fil_principal_ms": 27.6,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.5,
+      "presentation_ms": 30.1,
+      "interaction": 4065
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 37008.9,
+     "x": 188.8,
+     "y": 368.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 9.9,
+     "fin_fil_principal_ms": 23.2,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2,
+      "traitement_ms": 0.2,
+      "presentation_ms": 21.8,
+      "interaction": 4072
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 37528.4,
+     "x": 192,
+     "y": 387,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 7.2,
+     "fin_fil_principal_ms": 19.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.4,
+      "presentation_ms": 22.2,
+      "interaction": 4079
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 38046.9,
+     "x": 190.1,
+     "y": 394.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 6.1,
+     "fin_fil_principal_ms": 19.2,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.2,
+      "traitement_ms": 1,
+      "presentation_ms": 21.8,
+      "interaction": 4086
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 38566,
+     "x": 204,
+     "y": 395.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 3.3,
+     "fin_fil_principal_ms": 21.4,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.9,
+      "traitement_ms": 0.8,
+      "presentation_ms": 21.3,
+      "interaction": 4093
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 39100.9,
+     "x": 186.1,
+     "y": 407.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 18.6,
+     "fin_fil_principal_ms": 30.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.5,
+      "presentation_ms": 29.7,
+      "interaction": 4100
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 39619.9,
+     "x": 189.9,
+     "y": 427.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 15.9,
+     "fin_fil_principal_ms": 28.3,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 2,
+      "traitement_ms": 0.1,
+      "presentation_ms": 29.9,
+      "interaction": 4107
+     },
+     "event_timing_etat": "mesure"
+    }
+   ],
+   "longues_images": [
+    {
+     "debut_ms": 2168.6,
+     "duree_ms": 211.2,
+     "blocage_ms": 0,
+     "rendu_ms": 2378.9,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 10.9
+      }
+     ]
+    },
+    {
+     "debut_ms": 3352.9,
+     "duree_ms": 239.6,
+     "blocage_ms": 0,
+     "rendu_ms": 3591.8,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 11.1
+      }
+     ]
+    },
+    {
+     "debut_ms": 4515.1,
+     "duree_ms": 196.9,
+     "blocage_ms": 0,
+     "rendu_ms": 4711.5,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 10.7
+      }
+     ]
+    },
+    {
+     "debut_ms": 7777.4,
+     "duree_ms": 234.4,
+     "blocage_ms": 0,
+     "rendu_ms": 8011.7,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 10.7
+      }
+     ]
+    },
+    {
+     "debut_ms": 8871.8,
+     "duree_ms": 155.7,
+     "blocage_ms": 0,
+     "rendu_ms": 9027.4,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 14.8
+      }
+     ]
+    },
+    {
+     "debut_ms": 10551.5,
+     "duree_ms": 83.6,
+     "blocage_ms": 0,
+     "rendu_ms": 10634.5,
+     "scripts": []
+    },
+    {
+     "debut_ms": 11743.4,
+     "duree_ms": 126,
+     "blocage_ms": 0,
+     "rendu_ms": 11869.4,
+     "scripts": []
+    },
+    {
+     "debut_ms": 12803.9,
+     "duree_ms": 54.1,
+     "blocage_ms": 0,
+     "rendu_ms": 12857.3,
+     "scripts": []
+    },
+    {
+     "debut_ms": 13860.9,
+     "duree_ms": 143.6,
+     "blocage_ms": 0,
+     "rendu_ms": 14004.3,
+     "scripts": []
+    },
+    {
+     "debut_ms": 15892.5,
+     "duree_ms": 165,
+     "blocage_ms": 0,
+     "rendu_ms": 16057.4,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 14.3
+      }
+     ]
+    },
+    {
+     "debut_ms": 17427.8,
+     "duree_ms": 202.9,
+     "blocage_ms": 0,
+     "rendu_ms": 17630.3,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 14.8
+      }
+     ]
+    },
+    {
+     "debut_ms": 18978,
+     "duree_ms": 242.7,
+     "blocage_ms": 0,
+     "rendu_ms": 19220.7,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 16.4
+      }
+     ]
+    }
+   ],
+   "interactions": [
+    {
+     "nom": "pointerup",
+     "debut_ms": 2086.6,
+     "duree_ms": 304,
+     "interaction": 3715
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 2086.6,
+     "duree_ms": 304,
+     "interaction": 3722
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 3323.2,
+     "duree_ms": 280,
+     "interaction": 3729
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4508.3,
+     "duree_ms": 216,
+     "interaction": 3736
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 5520.8,
+     "duree_ms": 56,
+     "interaction": 3743
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 5520.8,
+     "duree_ms": 56,
+     "interaction": 3750
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 6682.6,
+     "duree_ms": 64,
+     "interaction": 3757
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7693.2,
+     "duree_ms": 336,
+     "interaction": 3764
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7693.2,
+     "duree_ms": 336,
+     "interaction": 3771
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 8782,
+     "duree_ms": 256,
+     "interaction": 3778
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 8782,
+     "duree_ms": 256,
+     "interaction": 3785
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 10528.7,
+     "duree_ms": 120,
+     "interaction": 3792
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 11707.3,
+     "duree_ms": 176,
+     "interaction": 3799
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12748.3,
+     "duree_ms": 120,
+     "interaction": 3806
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12748.3,
+     "duree_ms": 120,
+     "interaction": 3813
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13808.7,
+     "duree_ms": 208,
+     "interaction": 3820
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13808.7,
+     "duree_ms": 208,
+     "interaction": 3827
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 15835.5,
+     "duree_ms": 240,
+     "interaction": 3834
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 17364.3,
+     "duree_ms": 280,
+     "interaction": 3841
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 18899.5,
+     "duree_ms": 336,
+     "interaction": 3848
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19949.2,
+     "duree_ms": 64,
+     "interaction": 3855
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19949.2,
+     "duree_ms": 64,
+     "interaction": 3855
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20490.1,
+     "duree_ms": 56,
+     "interaction": 3862
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20490.1,
+     "duree_ms": 56,
+     "interaction": 3862
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21056.1,
+     "duree_ms": 32,
+     "interaction": 3869
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21056.1,
+     "duree_ms": 32,
+     "interaction": 3869
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21577.9,
+     "duree_ms": 32,
+     "interaction": 3876
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21577.9,
+     "duree_ms": 32,
+     "interaction": 3876
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22100.3,
+     "duree_ms": 24,
+     "interaction": 3883
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22100.3,
+     "duree_ms": 24,
+     "interaction": 3883
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22637.4,
+     "duree_ms": 40,
+     "interaction": 3890
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22637.4,
+     "duree_ms": 40,
+     "interaction": 3890
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23157.1,
+     "duree_ms": 40,
+     "interaction": 3897
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23157.1,
+     "duree_ms": 40,
+     "interaction": 3897
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23681.2,
+     "duree_ms": 24,
+     "interaction": 3904
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23681.2,
+     "duree_ms": 24,
+     "interaction": 3904
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24202.8,
+     "duree_ms": 40,
+     "interaction": 3911
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24202.8,
+     "duree_ms": 40,
+     "interaction": 3911
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24721.5,
+     "duree_ms": 32,
+     "interaction": 3918
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24721.5,
+     "duree_ms": 32,
+     "interaction": 3918
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25242.1,
+     "duree_ms": 32,
+     "interaction": 3925
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25242.1,
+     "duree_ms": 32,
+     "interaction": 3925
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25760.9,
+     "duree_ms": 32,
+     "interaction": 3932
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25760.9,
+     "duree_ms": 32,
+     "interaction": 3932
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26280.3,
+     "duree_ms": 24,
+     "interaction": 3939
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26280.3,
+     "duree_ms": 24,
+     "interaction": 3939
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26801.1,
+     "duree_ms": 24,
+     "interaction": 3946
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26801.1,
+     "duree_ms": 24,
+     "interaction": 3946
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27336.4,
+     "duree_ms": 32,
+     "interaction": 3953
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27336.4,
+     "duree_ms": 32,
+     "interaction": 3953
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27855.1,
+     "duree_ms": 32,
+     "interaction": 3960
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27855.1,
+     "duree_ms": 32,
+     "interaction": 3960
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 28376.1,
+     "duree_ms": 32,
+     "interaction": 3967
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28376.1,
+     "duree_ms": 32,
+     "interaction": 3967
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 28896.2,
+     "duree_ms": 24,
+     "interaction": 3974
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28896.2,
+     "duree_ms": 24,
+     "interaction": 3974
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29414.4,
+     "duree_ms": 24,
+     "interaction": 3981
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29414.4,
+     "duree_ms": 24,
+     "interaction": 3981
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29933.8,
+     "duree_ms": 24,
+     "interaction": 3988
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29933.8,
+     "duree_ms": 24,
+     "interaction": 3988
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30471.5,
+     "duree_ms": 32,
+     "interaction": 3995
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30471.5,
+     "duree_ms": 32,
+     "interaction": 3995
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30993.9,
+     "duree_ms": 32,
+     "interaction": 4002
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30993.9,
+     "duree_ms": 32,
+     "interaction": 4002
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 31917.6,
+     "duree_ms": 24,
+     "interaction": 4009
+    },
+    {
+     "nom": "click",
+     "debut_ms": 31917.6,
+     "duree_ms": 24,
+     "interaction": 4009
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 32440.3,
+     "duree_ms": 32,
+     "interaction": 4016
+    },
+    {
+     "nom": "click",
+     "debut_ms": 32440.3,
+     "duree_ms": 32,
+     "interaction": 4016
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 32959.5,
+     "duree_ms": 32,
+     "interaction": 4023
+    },
+    {
+     "nom": "click",
+     "debut_ms": 32959.5,
+     "duree_ms": 32,
+     "interaction": 4023
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 33478.8,
+     "duree_ms": 24,
+     "interaction": 4030
+    },
+    {
+     "nom": "click",
+     "debut_ms": 33478.8,
+     "duree_ms": 24,
+     "interaction": 4030
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 34399.9,
+     "duree_ms": 16,
+     "interaction": 4037
+    },
+    {
+     "nom": "click",
+     "debut_ms": 34399.9,
+     "duree_ms": 24,
+     "interaction": 4037
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 34931.8,
+     "duree_ms": 24,
+     "interaction": 4044
+    },
+    {
+     "nom": "click",
+     "debut_ms": 34931.8,
+     "duree_ms": 24,
+     "interaction": 4044
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 35450.3,
+     "duree_ms": 24,
+     "interaction": 4051
+    },
+    {
+     "nom": "click",
+     "debut_ms": 35450.3,
+     "duree_ms": 24,
+     "interaction": 4051
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 35969.7,
+     "duree_ms": 32,
+     "interaction": 4058
+    },
+    {
+     "nom": "click",
+     "debut_ms": 35969.7,
+     "duree_ms": 32,
+     "interaction": 4058
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 36489.9,
+     "duree_ms": 32,
+     "interaction": 4065
+    },
+    {
+     "nom": "click",
+     "debut_ms": 36489.9,
+     "duree_ms": 32,
+     "interaction": 4065
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 37008.9,
+     "duree_ms": 24,
+     "interaction": 4072
+    },
+    {
+     "nom": "click",
+     "debut_ms": 37008.9,
+     "duree_ms": 24,
+     "interaction": 4072
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 37528.4,
+     "duree_ms": 24,
+     "interaction": 4079
+    },
+    {
+     "nom": "click",
+     "debut_ms": 37528.4,
+     "duree_ms": 24,
+     "interaction": 4079
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 38046.9,
+     "duree_ms": 24,
+     "interaction": 4086
+    },
+    {
+     "nom": "click",
+     "debut_ms": 38046.9,
+     "duree_ms": 24,
+     "interaction": 4086
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 38566,
+     "duree_ms": 24,
+     "interaction": 4093
+    },
+    {
+     "nom": "click",
+     "debut_ms": 38566,
+     "duree_ms": 24,
+     "interaction": 4093
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 39100.9,
+     "duree_ms": 32,
+     "interaction": 4100
+    },
+    {
+     "nom": "click",
+     "debut_ms": 39100.9,
+     "duree_ms": 32,
+     "interaction": 4100
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 39619.9,
+     "duree_ms": 32,
+     "interaction": 4107
+    },
+    {
+     "nom": "click",
+     "debut_ms": 39619.9,
+     "duree_ms": 32,
+     "interaction": 4107
+    }
+   ]
+  },
+  {
+   "v": 6,
+   "version": "29a602c6fd+modifie",
+   "date": "2026-11-12T11:06:36.978Z",
+   "agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+   "ecran": {
+    "largeur": 384,
+    "hauteur": 832,
+    "dpr": 2.8125,
+    "carte": {
+     "largeur": 384,
+     "hauteur": 774
+    },
+    "periode_ms": 16.7,
+    "hz": 59.9
+   },
+   "rendu": "canvas",
+   "projection": "monde",
+   "capacites": {
+    "long_animation_frame": true,
+    "event_timing": true
+   },
+   "chargement": {
+    "total_ms": 720.5,
+    "debut_script_ms": 99,
+    "etapes": {
+     "telechargement_ms": 76.6,
+     "analyse_ms": 39.3,
+     "feature_ms": 51.6,
+     "chemins_ms": 141.1,
+     "insertion_ms": 107.1,
+     "peinture_ms": 201.1
+    },
+    "ressources": [
+     {
+      "nom": "monde.topo.json",
+      "transfert": 458735,
+      "decode": 1249540,
+      "duree_ms": 125.1
+     },
+     {
+      "nom": "noms.fr.json",
+      "transfert": 3954,
+      "decode": 8546,
+      "duree_ms": 16.5
+     },
+     {
+      "nom": "pays.json",
+      "transfert": 16359,
+      "decode": 68446,
+      "duree_ms": 17.8
+     },
+     {
+      "nom": "contestees.json",
+      "transfert": 3124,
+      "decode": 13965,
+      "duree_ms": 18.7
+     },
+     {
+      "nom": "monde-leger.topo.json",
+      "transfert": 51919,
+      "decode": 153234,
+      "duree_ms": 16.3
+     }
+    ],
+    "caracteres_chemins": 0,
+    "pastilles": 164
+   },
+   "gestes": [
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 1661.5,
+     "fin_ms": 2182,
+     "doigts_max": 2,
+     "evenements": 14,
+     "k_debut": 1,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      50,
+      16.7,
+      50,
+      16.6,
+      50,
+      16.6,
+      16.8,
+      49.9,
+      50,
+      66.7,
+      66.6,
+      16.8
+     ],
+     "stats": {
+      "images": 13,
+      "mediane_ms": 50,
+      "p95_ms": 66.6,
+      "max_ms": 66.7,
+      "perdues": 7,
+      "vsync_manquees": 16,
+      "part_perdues": 0.583,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 7,
+      "part_perdues_repos": 0.583,
+      "duree_ms": 466.7,
+      "acoups": 7,
+      "acoups_par_s": 15,
+      "gels": 7,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 25.7
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 8,
+      "mediane": 10.2,
+      "p95": 17.8,
+      "max": 18
+     },
+     "fin": {
+      "script_ms": 10.5,
+      "image_ms": 216.4,
+      "event_timing_ms": 272,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 2115.8,
+      "entree_suivante_ms": 2671.7,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 2761.6,
+     "fin_ms": 3376.3,
+     "doigts_max": 1,
+     "evenements": 15,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      33.3,
+      49.9,
+      16.7,
+      33.3,
+      50.1,
+      50,
+      49.9,
+      66.7,
+      50.1,
+      49.9,
+      50,
+      50,
+      50
+     ],
+     "stats": {
+      "images": 14,
+      "mediane_ms": 50,
+      "p95_ms": 56.7,
+      "max_ms": 66.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 12,
+      "part_perdues_repos": 0.923,
+      "duree_ms": 599.9,
+      "acoups": 12,
+      "acoups_par_s": 20,
+      "gels": 10,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 21.7
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 235.6,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 12,
+      "mediane": 5.6,
+      "p95": 6.1,
+      "max": 6.2
+     },
+     "fin": {
+      "script_ms": 10.6,
+      "image_ms": 246.7,
+      "event_timing_ms": 288,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 3325.8,
+      "entree_suivante_ms": 3865.4,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 3961.2,
+     "fin_ms": 4534.5,
+     "doigts_max": 1,
+     "evenements": 15,
+     "k_debut": 4.333,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      33.4,
+      66.6,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      16.6,
+      33.3,
+      50.1,
+      16.6,
+      33.3
+     ],
+     "stats": {
+      "images": 14,
+      "mediane_ms": 50,
+      "p95_ms": 56.7,
+      "max_ms": 66.6,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 11,
+      "part_perdues_repos": 0.846,
+      "duree_ms": 549.9,
+      "acoups": 11,
+      "acoups_par_s": 20,
+      "gels": 8,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 23.6
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 198.2,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 11,
+      "mediane": 4.8,
+      "p95": 5.7,
+      "max": 5.8
+     },
+     "fin": {
+      "script_ms": 10.2,
+      "image_ms": 208.2,
+      "event_timing_ms": 216,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 4519,
+      "entree_suivante_ms": 5023.7,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 5061.5,
+     "fin_ms": 5559.7,
+     "doigts_max": 2,
+     "evenements": 19,
+     "k_debut": 4.333,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      33.4,
+      16.6,
+      16.7,
+      33.4,
+      33.3,
+      50,
+      33.4,
+      33.2,
+      33.4,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      33.3
+     ],
+     "stats": {
+      "images": 18,
+      "mediane_ms": 33.3,
+      "p95_ms": 36.7,
+      "max_ms": 50,
+      "perdues": 10,
+      "vsync_manquees": 11,
+      "part_perdues": 0.588,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 10,
+      "part_perdues_repos": 0.588,
+      "duree_ms": 466.7,
+      "acoups": 10,
+      "acoups_par_s": 21.43,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 36.4
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 15,
+      "mediane": 2.1,
+      "p95": 3.2,
+      "max": 4.2
+     },
+     "fin": {
+      "script_ms": 1.2,
+      "image_ms": 44.6,
+      "event_timing_ms": 80,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 5527.2,
+      "entree_suivante_ms": 6057.8,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 6145.5,
+     "fin_ms": 6724,
+     "doigts_max": 1,
+     "evenements": 18,
+     "k_debut": 16.25,
+     "k_fin": 16.25,
+     "intervalles_ms": [
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.7,
+      16.6,
+      16.7,
+      16.7,
+      16.6,
+      16.6,
+      16.7,
+      16.7
+     ],
+     "stats": {
+      "images": 34,
+      "mediane_ms": 16.7,
+      "p95_ms": 16.7,
+      "max_ms": 16.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 0,
+      "part_perdues_repos": 0,
+      "duree_ms": 550,
+      "acoups": 0,
+      "acoups_par_s": 0,
+      "gels": 0,
+      "saccade": false,
+      "tenue_120": 0,
+      "cadence_ips": 60
+     },
+     "longues_images": {
+      "nombre": 0,
+      "max_ms": null,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 17,
+      "mediane": 1.3,
+      "p95": 1.5,
+      "max": 1.6
+     },
+     "fin": {
+      "script_ms": 1.3,
+      "image_ms": 52.7,
+      "event_timing_ms": 64,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 6712.2,
+      "entree_suivante_ms": 7222.3,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 7261.8,
+     "fin_ms": 7755.1,
+     "doigts_max": 2,
+     "evenements": 18,
+     "k_debut": 16.25,
+     "k_fin": 4.333,
+     "intervalles_ms": [
+      16.7,
+      33.2,
+      16.7,
+      33.4,
+      16.6,
+      16.7,
+      33.3,
+      16.7,
+      16.7,
+      33.3,
+      16.6,
+      16.7,
+      16.7,
+      33.3,
+      33.4,
+      33.3,
+      33.3,
+      16.7,
+      33.3
+     ],
+     "stats": {
+      "images": 20,
+      "mediane_ms": 16.7,
+      "p95_ms": 33.4,
+      "max_ms": 33.4,
+      "perdues": 9,
+      "vsync_manquees": 9,
+      "part_perdues": 0.474,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 9,
+      "part_perdues_repos": 0.474,
+      "duree_ms": 466.6,
+      "acoups": 9,
+      "acoups_par_s": 19.29,
+      "gels": 0,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 40.7
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 230.5,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 14,
+      "mediane": 1.8,
+      "p95": 3,
+      "max": 3.3
+     },
+     "fin": {
+      "script_ms": 10.1,
+      "image_ms": 240.6,
+      "event_timing_ms": 264,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 7726.6,
+      "entree_suivante_ms": 8244,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 8294.8,
+     "fin_ms": 8777.7,
+     "doigts_max": 2,
+     "evenements": 11,
+     "k_debut": 4.333,
+     "k_fin": 1,
+     "intervalles_ms": [
+      50,
+      49.9,
+      50.1,
+      16.6,
+      50,
+      16.7,
+      50,
+      49.9,
+      16.7,
+      50,
+      16.7,
+      33.3
+     ],
+     "stats": {
+      "images": 13,
+      "mediane_ms": 49.9,
+      "p95_ms": 50,
+      "max_ms": 50.1,
+      "perdues": 8,
+      "vsync_manquees": 15,
+      "part_perdues": 0.667,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 8,
+      "part_perdues_repos": 0.667,
+      "duree_ms": 449.9,
+      "acoups": 8,
+      "acoups_par_s": 17.78,
+      "gels": 7,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 26.7
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 161.1,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 8,
+      "mediane": 6.1,
+      "p95": 6.9,
+      "max": 6.9
+     },
+     "fin": {
+      "script_ms": 14.8,
+      "image_ms": 170,
+      "event_timing_ms": 184,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 8748.1,
+      "entree_suivante_ms": 9763.9,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 9860.9,
+     "fin_ms": 10473.4,
+     "doigts_max": 1,
+     "evenements": 19,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      33.3,
+      33.3,
+      33.4,
+      33.3,
+      33.3,
+      50,
+      33.4,
+      33.3,
+      33.3,
+      33.4,
+      33.3,
+      33.3,
+      33.4,
+      33.3,
+      16.6,
+      33.4,
+      33.3,
+      33.3
+     ],
+     "stats": {
+      "images": 19,
+      "mediane_ms": 33.3,
+      "p95_ms": 35.9,
+      "max_ms": 50,
+      "perdues": 1,
+      "vsync_manquees": 1,
+      "part_perdues": 0.056,
+      "periode_geste_ms": 33.33,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 17,
+      "part_perdues_repos": 0.944,
+      "duree_ms": 599.9,
+      "acoups": 17,
+      "acoups_par_s": 28.34,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 30
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 85,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 18,
+      "mediane": 2.5,
+      "p95": 3,
+      "max": 3.1
+     },
+     "fin": {
+      "script_ms": 3.1,
+      "image_ms": 95.8,
+      "event_timing_ms": 152,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 10420.3,
+      "entree_suivante_ms": 10970.5,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 11061.5,
+     "fin_ms": 11669,
+     "doigts_max": 1,
+     "evenements": 21,
+     "k_debut": 14.483,
+     "k_fin": 14.483,
+     "intervalles_ms": [
+      16.7,
+      33.3,
+      33.3,
+      16.7,
+      16.6,
+      16.8,
+      16.6,
+      16.7,
+      16.6,
+      16.7,
+      33.3,
+      16.7,
+      16.7,
+      33.3,
+      50,
+      33.4,
+      33.3,
+      33.3,
+      33.3,
+      33.3,
+      16.8,
+      33.2,
+      33.4
+     ],
+     "stats": {
+      "images": 24,
+      "mediane_ms": 33.2,
+      "p95_ms": 33.4,
+      "max_ms": 50,
+      "perdues": 12,
+      "vsync_manquees": 13,
+      "part_perdues": 0.522,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 12,
+      "part_perdues_repos": 0.522,
+      "duree_ms": 600,
+      "acoups": 12,
+      "acoups_par_s": 20,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 38.3
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 128.5,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 17,
+      "mediane": 2.1,
+      "p95": 2.9,
+      "max": 3.1
+     },
+     "fin": {
+      "script_ms": 3.7,
+      "image_ms": 138,
+      "event_timing_ms": 184,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 11624.4,
+      "entree_suivante_ms": 12164.2,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 12211.5,
+     "fin_ms": 12726.3,
+     "doigts_max": 2,
+     "evenements": 16,
+     "k_debut": 14.483,
+     "k_fin": 36.207,
+     "intervalles_ms": [
+      33.3,
+      16.7,
+      16.6,
+      50,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      33.3,
+      33.4,
+      33.4,
+      33.3,
+      16.7,
+      33.3,
+      16.6,
+      16.7,
+      33.3
+     ],
+     "stats": {
+      "images": 18,
+      "mediane_ms": 33.3,
+      "p95_ms": 36.7,
+      "max_ms": 50,
+      "perdues": 10,
+      "vsync_manquees": 11,
+      "part_perdues": 0.588,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 10,
+      "part_perdues_repos": 0.588,
+      "duree_ms": 466.6,
+      "acoups": 10,
+      "acoups_par_s": 21.43,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 36.4
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 51.3,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 13,
+      "mediane": 2.1,
+      "p95": 3,
+      "max": 3.3
+     },
+     "fin": {
+      "script_ms": 1.9,
+      "image_ms": 62.6,
+      "event_timing_ms": 120,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 12668.5,
+      "entree_suivante_ms": 13224.5,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "pincer",
+     "rendu": "canvas",
+     "debut_ms": 13261.2,
+     "fin_ms": 13789.4,
+     "doigts_max": 2,
+     "evenements": 14,
+     "k_debut": 36.207,
+     "k_fin": 11.586,
+     "intervalles_ms": [
+      16.6,
+      16.6,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.4,
+      16.7,
+      33.2,
+      16.7,
+      33.3,
+      16.8,
+      33.3,
+      16.6,
+      33.4,
+      16.6,
+      33.4,
+      16.7,
+      33.2,
+      16.8,
+      33.3
+     ],
+     "stats": {
+      "images": 22,
+      "mediane_ms": 16.8,
+      "p95_ms": 33.4,
+      "max_ms": 33.4,
+      "perdues": 10,
+      "vsync_manquees": 10,
+      "part_perdues": 0.476,
+      "periode_geste_ms": 16.7,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 10,
+      "part_perdues_repos": 0.476,
+      "duree_ms": 516.6,
+      "acoups": 10,
+      "acoups_par_s": 19.36,
+      "gels": 0,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 40.7
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 146.1,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 11,
+      "mediane": 2,
+      "p95": 2.5,
+      "max": 2.6
+     },
+     "fin": {
+      "script_ms": 5.1,
+      "image_ms": 155,
+      "event_timing_ms": 216,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 13728.5,
+      "entree_suivante_ms": 14786.9,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 14860.9,
+     "fin_ms": 15860,
+     "doigts_max": 1,
+     "evenements": 23,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      49.9,
+      50.1,
+      66.6,
+      16.7,
+      50,
+      49.9,
+      66.8,
+      50,
+      50,
+      66.7,
+      49.9,
+      50,
+      50,
+      16.7,
+      49.9,
+      50.1,
+      16.6,
+      33.4,
+      50,
+      50
+     ],
+     "stats": {
+      "images": 21,
+      "mediane_ms": 50,
+      "p95_ms": 66.7,
+      "max_ms": 66.8,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 17,
+      "part_perdues_repos": 0.85,
+      "duree_ms": 933.3,
+      "acoups": 17,
+      "acoups_par_s": 18.21,
+      "gels": 16,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 21.4
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 163.9,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 18,
+      "mediane": 6.8,
+      "p95": 7.8,
+      "max": 7.8
+     },
+     "fin": {
+      "script_ms": 14.8,
+      "image_ms": 174.6,
+      "event_timing_ms": 264,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 15758.1,
+      "entree_suivante_ms": 16345.5,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 16427.7,
+     "fin_ms": 17342.8,
+     "doigts_max": 1,
+     "evenements": 21,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      33.3,
+      50,
+      16.7,
+      33.2,
+      16.8,
+      33.2,
+      16.8,
+      33.3,
+      16.7,
+      33.3,
+      16.7,
+      33.3,
+      16.6,
+      33.4,
+      16.6,
+      33.4,
+      16.6,
+      33.3,
+      16.7,
+      33.4,
+      16.6,
+      33.4,
+      16.6,
+      33.4,
+      16.6,
+      33.4,
+      16.6,
+      33.4,
+      16.6,
+      33.3,
+      16.7,
+      33.4,
+      16.6,
+      33.4
+     ],
+     "stats": {
+      "images": 35,
+      "mediane_ms": 33.2,
+      "p95_ms": 33.4,
+      "max_ms": 50,
+      "perdues": 18,
+      "vsync_manquees": 19,
+      "part_perdues": 0.529,
+      "periode_geste_ms": 16.67,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": false,
+      "ecart_sens": null,
+      "bascule_images": 0,
+      "perdues_repos": 18,
+      "part_perdues_repos": 0.529,
+      "duree_ms": 883.3,
+      "acoups": 18,
+      "acoups_par_s": 20.38,
+      "gels": 1,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 38.5
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 202,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 18,
+      "mediane": 6.3,
+      "p95": 7.3,
+      "max": 7.3
+     },
+     "fin": {
+      "script_ms": 14.1,
+      "image_ms": 211.4,
+      "event_timing_ms": 224,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 17316.4,
+      "entree_suivante_ms": 17827.9,
+      "close_par_entree_suivante": false
+     }
+    },
+    {
+     "type": "glisser",
+     "rendu": "canvas",
+     "debut_ms": 17910.6,
+     "fin_ms": 18880.3,
+     "doigts_max": 1,
+     "evenements": 21,
+     "k_debut": 2,
+     "k_fin": 2,
+     "intervalles_ms": [
+      49.9,
+      50,
+      50,
+      50,
+      66.7,
+      50,
+      50,
+      66.7,
+      50,
+      66.6,
+      50,
+      50,
+      66.7,
+      50,
+      16.7,
+      50,
+      49.9
+     ],
+     "stats": {
+      "images": 18,
+      "mediane_ms": 50,
+      "p95_ms": 66.7,
+      "max_ms": 66.7,
+      "perdues": 0,
+      "vsync_manquees": 0,
+      "part_perdues": 0,
+      "periode_geste_ms": 50,
+      "periode_repos_ms": 16.7,
+      "ecart_periode": true,
+      "ecart_sens": "plus_lent",
+      "bascule_images": 0,
+      "perdues_repos": 16,
+      "part_perdues_repos": 0.941,
+      "duree_ms": 883.2,
+      "acoups": 16,
+      "acoups_par_s": 18.12,
+      "gels": 16,
+      "saccade": true,
+      "tenue_120": 0,
+      "cadence_ips": 19.2
+     },
+     "longues_images": {
+      "nombre": 1,
+      "max_ms": 232,
+      "blocage_total_ms": 0
+     },
+     "dessin_ms": {
+      "images": 17,
+      "mediane": 7,
+      "p95": 8,
+      "max": 8
+     },
+     "fin": {
+      "script_ms": 15.5,
+      "image_ms": 241.3,
+      "event_timing_ms": 304,
+      "event_timing_etat": "mesure",
+      "t_evenement_ms": 18802,
+      "entree_suivante_ms": 19769,
+      "close_par_entree_suivante": false
+     }
+    }
+   ],
+   "touchers": [
+    {
+     "t_ms": 19831.3,
+     "x": 64.5,
+     "y": 404.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 23.2,
+     "latence_raf_ms": 27,
+     "fin_fil_principal_ms": 50.2,
+     "event_timing": {
+      "duree_ms": 56,
+      "attente_ms": 1.7,
+      "traitement_ms": 23.3,
+      "presentation_ms": 31,
+      "interaction": 10057
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 20396.1,
+     "x": 220.6,
+     "y": 307.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "RUS",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 21.5,
+     "latence_raf_ms": 26.6,
+     "fin_fil_principal_ms": 57.9,
+     "event_timing": {
+      "duree_ms": 56,
+      "attente_ms": 1.1,
+      "traitement_ms": 21.5,
+      "presentation_ms": 33.4,
+      "interaction": 10064
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 20967.2,
+     "x": 129.6,
+     "y": 323.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FRA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 3.2,
+     "latence_raf_ms": 11.4,
+     "fin_fil_principal_ms": 28.2,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.4,
+      "traitement_ms": 3.2,
+      "presentation_ms": 27.4,
+      "interaction": 10071
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 21489.1,
+     "x": 132.6,
+     "y": 327.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MCO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 2.2,
+     "latence_raf_ms": 9.1,
+     "fin_fil_principal_ms": 24.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.7,
+      "traitement_ms": 2.3,
+      "presentation_ms": 20,
+      "interaction": 10078
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 22014,
+     "x": 136.6,
+     "y": 329.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 13.3,
+     "fin_fil_principal_ms": 28.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.3,
+      "traitement_ms": 1,
+      "presentation_ms": 29.7,
+      "interaction": 10085
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 22533.3,
+     "x": 137.3,
+     "y": 327.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.7,
+     "latence_raf_ms": 10.9,
+     "fin_fil_principal_ms": 28.1,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1,
+      "traitement_ms": 1.6,
+      "presentation_ms": 29.4,
+      "interaction": 10092
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 23052.3,
+     "x": 136,
+     "y": 323.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LIE",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.9,
+     "latence_raf_ms": 9.1,
+     "fin_fil_principal_ms": 25.7,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 0.9,
+      "traitement_ms": 1.9,
+      "presentation_ms": 21.2,
+      "interaction": 10099
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 23572.6,
+     "x": 126.7,
+     "y": 328.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "AND",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 5.6,
+     "fin_fil_principal_ms": 21.7,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 0.9,
+      "traitement_ms": 0.8,
+      "presentation_ms": 22.3,
+      "interaction": 10106
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 24091.2,
+     "x": 136.5,
+     "y": 337.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 3,
+     "fin_fil_principal_ms": 22.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.9,
+      "presentation_ms": 21.6,
+      "interaction": 10113
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 24627.8,
+     "x": 226.2,
+     "y": 385,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SGP",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 3.5,
+     "latence_raf_ms": 16.8,
+     "fin_fil_principal_ms": 32.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.8,
+      "traitement_ms": 3.5,
+      "presentation_ms": 26.7,
+      "interaction": 10120
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 25150.1,
+     "x": 170.4,
+     "y": 350.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BHR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.7,
+     "latence_raf_ms": 10.7,
+     "fin_fil_principal_ms": 26.1,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.4,
+      "traitement_ms": 0.8,
+      "presentation_ms": 29.8,
+      "interaction": 10127
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 25669.3,
+     "x": 193.8,
+     "y": 381,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MDV",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 8.9,
+     "fin_fil_principal_ms": 25,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 2,
+      "traitement_ms": 0.8,
+      "presentation_ms": 21.2,
+      "interaction": 10134
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 26189,
+     "x": 36.5,
+     "y": 361.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 6.2,
+     "fin_fil_principal_ms": 22.9,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.6,
+      "traitement_ms": 1.3,
+      "presentation_ms": 21.1,
+      "interaction": 10141
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 26708.4,
+     "x": 51.2,
+     "y": 369.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.7,
+     "latence_raf_ms": 2.8,
+     "fin_fil_principal_ms": 21.6,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.1,
+      "traitement_ms": 0.9,
+      "presentation_ms": 22,
+      "interaction": 10148
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 27242.9,
+     "x": 51.6,
+     "y": 362.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 17.8,
+     "fin_fil_principal_ms": 34.1,
+     "event_timing": {
+      "duree_ms": 40,
+      "attente_ms": 1,
+      "traitement_ms": 1,
+      "presentation_ms": 38,
+      "interaction": 10155
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 27762.8,
+     "x": 52.5,
+     "y": 362.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 14.4,
+     "fin_fil_principal_ms": 32.4,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.9,
+      "presentation_ms": 29.6,
+      "interaction": 10162
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 28281.6,
+     "x": 52.5,
+     "y": 364.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.7,
+     "latence_raf_ms": 12.6,
+     "fin_fil_principal_ms": 30.8,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 2.2,
+      "traitement_ms": 0.8,
+      "presentation_ms": 29,
+      "interaction": 10169
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 28801.5,
+     "x": 52.4,
+     "y": 367.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1,
+     "latence_raf_ms": 8.8,
+     "fin_fil_principal_ms": 24.3,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.7,
+      "traitement_ms": 1.2,
+      "presentation_ms": 21.1,
+      "interaction": 10176
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 29321.1,
+     "x": 52,
+     "y": 368.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.1,
+     "latence_raf_ms": 6.2,
+     "fin_fil_principal_ms": 22.3,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1,
+      "traitement_ms": 1.2,
+      "presentation_ms": 21.8,
+      "interaction": 10183
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 29839.8,
+     "x": 53.7,
+     "y": 368.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 5.4,
+     "fin_fil_principal_ms": 22.1,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.7,
+      "presentation_ms": 21.8,
+      "interaction": 10190
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 30361.8,
+     "x": 51.2,
+     "y": 372.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.4,
+     "latence_raf_ms": 15.4,
+     "fin_fil_principal_ms": 31.8,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.6,
+      "traitement_ms": 1.5,
+      "presentation_ms": 28.9,
+      "interaction": 10197
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 30882.1,
+     "x": 302.7,
+     "y": 412.4,
+     "pointeur": "touch",
+     "pick": {
+      "id": "FJI",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.2,
+     "latence_raf_ms": 12.5,
+     "fin_fil_principal_ms": 28.6,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.3,
+      "traitement_ms": 1.3,
+      "presentation_ms": 29.4,
+      "interaction": 10204
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 31806.2,
+     "x": 222,
+     "y": 453.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VAT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 5.4,
+     "fin_fil_principal_ms": 18,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.6,
+      "traitement_ms": 0.9,
+      "presentation_ms": 21.5,
+      "interaction": 10211
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 32326.1,
+     "x": 221.3,
+     "y": 411.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "SMR",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 17.5,
+     "fin_fil_principal_ms": 31.4,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.2,
+      "traitement_ms": 0.7,
+      "presentation_ms": 30.1,
+      "interaction": 10218
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 32845.6,
+     "x": 192,
+     "y": 387,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ITA",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.2,
+     "latence_raf_ms": 15.2,
+     "fin_fil_principal_ms": 34.1,
+     "event_timing": {
+      "duree_ms": 40,
+      "attente_ms": 1.8,
+      "traitement_ms": 0.6,
+      "presentation_ms": 37.6,
+      "interaction": 10225
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 33364.7,
+     "x": 256.2,
+     "y": 583.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "MLT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.5,
+     "latence_raf_ms": 12.7,
+     "fin_fil_principal_ms": 24.5,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.3,
+      "traitement_ms": 0.5,
+      "presentation_ms": 22.2,
+      "interaction": 10232
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 34285.6,
+     "x": 54.2,
+     "y": 338.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "JAM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 8.1,
+     "fin_fil_principal_ms": 21,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.5,
+      "traitement_ms": 0.1,
+      "presentation_ms": 22.4,
+      "interaction": 10239
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 34804.1,
+     "x": 98.5,
+     "y": 326.7,
+     "pointeur": "touch",
+     "pick": {
+      "id": "HTI",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 6.5,
+     "fin_fil_principal_ms": 20.1,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.5,
+      "traitement_ms": 1.1,
+      "presentation_ms": 21.4,
+      "interaction": 10246
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 35324,
+     "x": 109.6,
+     "y": 328.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DOM",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 1.3,
+     "latence_raf_ms": 3.8,
+     "fin_fil_principal_ms": 21.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.9,
+      "traitement_ms": 1.4,
+      "presentation_ms": 20.7,
+      "interaction": 10253
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 35859.9,
+     "x": 177.1,
+     "y": 347.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "KNA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.9,
+     "latence_raf_ms": 17.5,
+     "fin_fil_principal_ms": 29.4,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.3,
+      "traitement_ms": 1.1,
+      "presentation_ms": 29.6,
+      "interaction": 10260
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 36379.6,
+     "x": 185.1,
+     "y": 350.9,
+     "pointeur": "touch",
+     "pick": {
+      "id": "ATG",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0,
+     "latence_raf_ms": 13.9,
+     "fin_fil_principal_ms": 26.3,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 0.7,
+      "traitement_ms": 0.1,
+      "presentation_ms": 31.2,
+      "interaction": 10267
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 36896.9,
+     "x": 188.8,
+     "y": 368.8,
+     "pointeur": "touch",
+     "pick": {
+      "id": "DMA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 13.4,
+     "fin_fil_principal_ms": 25.8,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1,
+      "traitement_ms": 0.3,
+      "presentation_ms": 30.7,
+      "interaction": 10274
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 37415,
+     "x": 192,
+     "y": 387,
+     "pointeur": "touch",
+     "pick": {
+      "id": "LCA",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.8,
+     "latence_raf_ms": 12.2,
+     "fin_fil_principal_ms": 24.3,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.2,
+      "traitement_ms": 1,
+      "presentation_ms": 21.8,
+      "interaction": 10281
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 37934.3,
+     "x": 190.1,
+     "y": 394.3,
+     "pointeur": "touch",
+     "pick": {
+      "id": "VCT",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 9.1,
+     "fin_fil_principal_ms": 21.8,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 1.1,
+      "traitement_ms": 0.6,
+      "presentation_ms": 22.3,
+      "interaction": 10288
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 38453.6,
+     "x": 204,
+     "y": 395.1,
+     "pointeur": "touch",
+     "pick": {
+      "id": "BRB",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.4,
+     "latence_raf_ms": 8.5,
+     "fin_fil_principal_ms": 24.5,
+     "event_timing": {
+      "duree_ms": 24,
+      "attente_ms": 3.7,
+      "traitement_ms": 1.1,
+      "presentation_ms": 19.2,
+      "interaction": 10295
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 38976.3,
+     "x": 186.1,
+     "y": 407.2,
+     "pointeur": "touch",
+     "pick": {
+      "id": "GRD",
+      "via": "pastille",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.1,
+     "latence_raf_ms": 17.2,
+     "fin_fil_principal_ms": 29.3,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.1,
+      "traitement_ms": 0.1,
+      "presentation_ms": 30.8,
+      "interaction": 10302
+     },
+     "event_timing_etat": "mesure"
+    },
+    {
+     "t_ms": 39495.4,
+     "x": 189.9,
+     "y": 427.5,
+     "pointeur": "touch",
+     "pick": {
+      "id": "TTO",
+      "via": "trace",
+      "distance_px": 0
+     },
+     "traitement_ms": 0.6,
+     "latence_raf_ms": 14.8,
+     "fin_fil_principal_ms": 27.9,
+     "event_timing": {
+      "duree_ms": 32,
+      "attente_ms": 1.1,
+      "traitement_ms": 0.6,
+      "presentation_ms": 30.3,
+      "interaction": 10309
+     },
+     "event_timing_etat": "mesure"
+    }
+   ],
+   "longues_images": [
+    {
+     "debut_ms": 3364.3,
+     "duree_ms": 235.6,
+     "blocage_ms": 0,
+     "rendu_ms": 3599.7,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 10.8
+      }
+     ]
+    },
+    {
+     "debut_ms": 4522.3,
+     "duree_ms": 198.2,
+     "blocage_ms": 0,
+     "rendu_ms": 4719.7,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 10.3
+      }
+     ]
+    },
+    {
+     "debut_ms": 7743.1,
+     "duree_ms": 230.5,
+     "blocage_ms": 0,
+     "rendu_ms": 7973.1,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 10.2
+      }
+     ]
+    },
+    {
+     "debut_ms": 8760.9,
+     "duree_ms": 161.1,
+     "blocage_ms": 0,
+     "rendu_ms": 8921.7,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 14.8
+      }
+     ]
+    },
+    {
+     "debut_ms": 10470,
+     "duree_ms": 85,
+     "blocage_ms": 0,
+     "rendu_ms": 10554.3,
+     "scripts": []
+    },
+    {
+     "debut_ms": 11663.9,
+     "duree_ms": 128.5,
+     "blocage_ms": 0,
+     "rendu_ms": 11792,
+     "scripts": []
+    },
+    {
+     "debut_ms": 12723.9,
+     "duree_ms": 51.3,
+     "blocage_ms": 0,
+     "rendu_ms": 12774.4,
+     "scripts": []
+    },
+    {
+     "debut_ms": 13781.8,
+     "duree_ms": 146.1,
+     "blocage_ms": 0,
+     "rendu_ms": 13927.9,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 5.7
+      }
+     ]
+    },
+    {
+     "debut_ms": 15844.7,
+     "duree_ms": 163.9,
+     "blocage_ms": 0,
+     "rendu_ms": 16007.6,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 15.5
+      }
+     ]
+    },
+    {
+     "debut_ms": 17326.6,
+     "duree_ms": 202,
+     "blocage_ms": 0,
+     "rendu_ms": 17527.8,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 14.2
+      }
+     ]
+    },
+    {
+     "debut_ms": 18862.5,
+     "duree_ms": 232,
+     "blocage_ms": 0,
+     "rendu_ms": 19094.3,
+     "scripts": [
+      {
+       "origine": "DIV#carte.ontouchend http://localhost:8060/assets/index-BkUuJDzi.js",
+       "duree_ms": 15.6
+      }
+     ]
+    }
+   ],
+   "interactions": [
+    {
+     "nom": "pointerup",
+     "debut_ms": 2115.8,
+     "duree_ms": 272,
+     "interaction": 9917
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 2115.8,
+     "duree_ms": 272,
+     "interaction": 9924
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 3325.8,
+     "duree_ms": 288,
+     "interaction": 9931
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 4519,
+     "duree_ms": 216,
+     "interaction": 9938
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 5527.2,
+     "duree_ms": 80,
+     "interaction": 9945
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 5527.2,
+     "duree_ms": 80,
+     "interaction": 9952
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 6712.2,
+     "duree_ms": 64,
+     "interaction": 9959
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7726.6,
+     "duree_ms": 264,
+     "interaction": 9966
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 7726.6,
+     "duree_ms": 264,
+     "interaction": 9973
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 8748.1,
+     "duree_ms": 184,
+     "interaction": 9980
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 8748.1,
+     "duree_ms": 184,
+     "interaction": 9987
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 10420.3,
+     "duree_ms": 152,
+     "interaction": 9994
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 11624.4,
+     "duree_ms": 184,
+     "interaction": 10001
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12668.5,
+     "duree_ms": 120,
+     "interaction": 10008
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 12668.5,
+     "duree_ms": 120,
+     "interaction": 10015
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13728.5,
+     "duree_ms": 216,
+     "interaction": 10022
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 13728.5,
+     "duree_ms": 216,
+     "interaction": 10029
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 15758.1,
+     "duree_ms": 264,
+     "interaction": 10036
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 17316.4,
+     "duree_ms": 224,
+     "interaction": 10043
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 18802,
+     "duree_ms": 304,
+     "interaction": 10050
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 19831.3,
+     "duree_ms": 56,
+     "interaction": 10057
+    },
+    {
+     "nom": "click",
+     "debut_ms": 19831.3,
+     "duree_ms": 48,
+     "interaction": 10057
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20396.1,
+     "duree_ms": 56,
+     "interaction": 10064
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20396.1,
+     "duree_ms": 56,
+     "interaction": 10064
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 20967.2,
+     "duree_ms": 32,
+     "interaction": 10071
+    },
+    {
+     "nom": "click",
+     "debut_ms": 20967.2,
+     "duree_ms": 32,
+     "interaction": 10071
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 21489.1,
+     "duree_ms": 24,
+     "interaction": 10078
+    },
+    {
+     "nom": "click",
+     "debut_ms": 21489.1,
+     "duree_ms": 24,
+     "interaction": 10078
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22014,
+     "duree_ms": 32,
+     "interaction": 10085
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22014,
+     "duree_ms": 32,
+     "interaction": 10085
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 22533.3,
+     "duree_ms": 32,
+     "interaction": 10092
+    },
+    {
+     "nom": "click",
+     "debut_ms": 22533.3,
+     "duree_ms": 32,
+     "interaction": 10092
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23052.3,
+     "duree_ms": 24,
+     "interaction": 10099
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23052.3,
+     "duree_ms": 24,
+     "interaction": 10099
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 23572.6,
+     "duree_ms": 24,
+     "interaction": 10106
+    },
+    {
+     "nom": "click",
+     "debut_ms": 23572.6,
+     "duree_ms": 24,
+     "interaction": 10106
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24091.2,
+     "duree_ms": 24,
+     "interaction": 10113
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24091.2,
+     "duree_ms": 24,
+     "interaction": 10113
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 24627.8,
+     "duree_ms": 32,
+     "interaction": 10120
+    },
+    {
+     "nom": "click",
+     "debut_ms": 24627.8,
+     "duree_ms": 32,
+     "interaction": 10120
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25150.1,
+     "duree_ms": 32,
+     "interaction": 10127
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25150.1,
+     "duree_ms": 32,
+     "interaction": 10127
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 25669.3,
+     "duree_ms": 24,
+     "interaction": 10134
+    },
+    {
+     "nom": "click",
+     "debut_ms": 25669.3,
+     "duree_ms": 24,
+     "interaction": 10134
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26189,
+     "duree_ms": 24,
+     "interaction": 10141
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26189,
+     "duree_ms": 24,
+     "interaction": 10141
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 26708.4,
+     "duree_ms": 24,
+     "interaction": 10148
+    },
+    {
+     "nom": "click",
+     "debut_ms": 26708.4,
+     "duree_ms": 24,
+     "interaction": 10148
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27242.9,
+     "duree_ms": 40,
+     "interaction": 10155
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27242.9,
+     "duree_ms": 40,
+     "interaction": 10155
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 27762.8,
+     "duree_ms": 32,
+     "interaction": 10162
+    },
+    {
+     "nom": "click",
+     "debut_ms": 27762.8,
+     "duree_ms": 32,
+     "interaction": 10162
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 28281.6,
+     "duree_ms": 32,
+     "interaction": 10169
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28281.6,
+     "duree_ms": 32,
+     "interaction": 10169
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 28801.5,
+     "duree_ms": 24,
+     "interaction": 10176
+    },
+    {
+     "nom": "click",
+     "debut_ms": 28801.5,
+     "duree_ms": 24,
+     "interaction": 10176
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29321.1,
+     "duree_ms": 24,
+     "interaction": 10183
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29321.1,
+     "duree_ms": 24,
+     "interaction": 10183
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 29839.8,
+     "duree_ms": 24,
+     "interaction": 10190
+    },
+    {
+     "nom": "click",
+     "debut_ms": 29839.8,
+     "duree_ms": 24,
+     "interaction": 10190
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30361.8,
+     "duree_ms": 32,
+     "interaction": 10197
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30361.8,
+     "duree_ms": 32,
+     "interaction": 10197
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 30882.1,
+     "duree_ms": 32,
+     "interaction": 10204
+    },
+    {
+     "nom": "click",
+     "debut_ms": 30882.1,
+     "duree_ms": 32,
+     "interaction": 10204
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 31806.2,
+     "duree_ms": 24,
+     "interaction": 10211
+    },
+    {
+     "nom": "click",
+     "debut_ms": 31806.2,
+     "duree_ms": 24,
+     "interaction": 10211
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 32326.1,
+     "duree_ms": 32,
+     "interaction": 10218
+    },
+    {
+     "nom": "click",
+     "debut_ms": 32326.1,
+     "duree_ms": 32,
+     "interaction": 10218
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 32845.6,
+     "duree_ms": 40,
+     "interaction": 10225
+    },
+    {
+     "nom": "click",
+     "debut_ms": 32845.6,
+     "duree_ms": 40,
+     "interaction": 10225
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 33364.7,
+     "duree_ms": 24,
+     "interaction": 10232
+    },
+    {
+     "nom": "click",
+     "debut_ms": 33364.7,
+     "duree_ms": 24,
+     "interaction": 10232
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 34285.6,
+     "duree_ms": 24,
+     "interaction": 10239
+    },
+    {
+     "nom": "click",
+     "debut_ms": 34285.6,
+     "duree_ms": 24,
+     "interaction": 10239
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 34804.1,
+     "duree_ms": 24,
+     "interaction": 10246
+    },
+    {
+     "nom": "click",
+     "debut_ms": 34804.1,
+     "duree_ms": 24,
+     "interaction": 10246
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 35324,
+     "duree_ms": 24,
+     "interaction": 10253
+    },
+    {
+     "nom": "click",
+     "debut_ms": 35324,
+     "duree_ms": 24,
+     "interaction": 10253
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 35859.9,
+     "duree_ms": 32,
+     "interaction": 10260
+    },
+    {
+     "nom": "click",
+     "debut_ms": 35859.9,
+     "duree_ms": 32,
+     "interaction": 10260
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 36379.6,
+     "duree_ms": 32,
+     "interaction": 10267
+    },
+    {
+     "nom": "click",
+     "debut_ms": 36379.6,
+     "duree_ms": 32,
+     "interaction": 10267
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 36896.9,
+     "duree_ms": 32,
+     "interaction": 10274
+    },
+    {
+     "nom": "click",
+     "debut_ms": 36896.9,
+     "duree_ms": 32,
+     "interaction": 10274
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 37415,
+     "duree_ms": 24,
+     "interaction": 10281
+    },
+    {
+     "nom": "click",
+     "debut_ms": 37415,
+     "duree_ms": 24,
+     "interaction": 10281
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 37934.3,
+     "duree_ms": 24,
+     "interaction": 10288
+    },
+    {
+     "nom": "click",
+     "debut_ms": 37934.3,
+     "duree_ms": 24,
+     "interaction": 10288
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 38453.6,
+     "duree_ms": 24,
+     "interaction": 10295
+    },
+    {
+     "nom": "click",
+     "debut_ms": 38453.6,
+     "duree_ms": 24,
+     "interaction": 10295
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 38976.3,
+     "duree_ms": 32,
+     "interaction": 10302
+    },
+    {
+     "nom": "click",
+     "debut_ms": 38976.3,
+     "duree_ms": 32,
+     "interaction": 10302
+    },
+    {
+     "nom": "pointerup",
+     "debut_ms": 39495.4,
+     "duree_ms": 32,
+     "interaction": 10309
+    },
+    {
+     "nom": "click",
+     "debut_ms": 39495.4,
+     "duree_ms": 32,
+     "interaction": 10309
+    }
+   ]
+  }
+ ]
+}
