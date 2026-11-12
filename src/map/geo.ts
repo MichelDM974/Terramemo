@@ -104,6 +104,8 @@ interface Partie {
   e: number;
   n: number;
   polygone: Polygon;
+  /** Ses arêtes rangées par longitude (dansPolygone), au premier point cherché. */
+  aretes?: AretesPolygone;
 }
 
 const parties = new WeakMap<Forme, Partie[]>();
@@ -161,7 +163,8 @@ export function prechauffer(formes: readonly Forme[]): void {
 /**
  * geoContains précédé du filtre d'emprise de l'entité puis de chacun de ses
  * polygones : seuls ceux qui encadrent le point sont parcourus (la France
- * métropolitaine sans les DROM, une île de l'Indonésie…).
+ * métropolitaine sans les DROM, une île de l'Indonésie…). Même réponse que
+ * geoContains, au bit près (dansPolygone), sans parcourir tout le polygone.
  */
 export function contient(forme: Forme, bbox: readonly [number, number, number, number], ll: [number, number]): boolean {
   if (!dansEmprise(bbox, ll[0], ll[1], 0.05)) return false;
@@ -169,9 +172,181 @@ export function contient(forme: Forme, bbox: readonly [number, number, number, n
   const m = 1e-6;
   for (const p of partiesDe(forme)) {
     if (lon < p.o - m || lon > p.e + m || lat < p.s - m || lat > p.n + m) continue;
-    if (geoContains(p.polygone, ll)) return true;
+    if (dansPolygone(p, ll)) return true;
   }
   return false;
+}
+
+/**
+ * Le travail des fonctions d'appartenance et de distance, pour les bancs
+ * (tests) : arêtes examinées par dansPolygone, sommets parcourus par
+ * distanceAuBordKm. Jamais remis à zéro ici.
+ */
+export const travail = { aretes: 0, sommets: 0 };
+
+const EPS = 1e-6;
+const DEMI_PI = Math.PI / 2;
+const TOUR = 2 * Math.PI;
+/** Au plus, tranches de longitude de l'index des arêtes d'un polygone (une pour 8 arêtes : une île n'en a qu'une). */
+const TRANCHES_MAX = 512;
+/** Jusqu'à ce nombre d'arêtes, un polygone n'a pas d'index de tranches : toutes ses arêtes sont examinées. */
+const PETIT_POLYGONE = 32;
+
+/** La longitude ramenée dans [-π, π], comme d3-geo (longitude, polygonContains). */
+function longitudeD3(l: number): number {
+  return Math.abs(l) <= Math.PI ? l : Math.sign(l) * ((Math.abs(l) + Math.PI) % TOUR - Math.PI);
+}
+
+/** asin borné de d3-geo. */
+const asinD3 = (x: number) => (x > 1 ? DEMI_PI : x < -1 ? -DEMI_PI : Math.asin(x));
+
+/**
+ * Les arêtes d'un polygone pour polygonContains de d3-geo, calculées une
+ * fois : ses longitudes (l0, l1), son sens (antiméridien, delta ≥ 0), la
+ * normale de son grand cercle (arc), rangées par tranche de longitude ; et la
+ * part du résultat qui ne dépend pas du point (le pôle Sud dedans ou non :
+ * angle et aire du polygone).
+ */
+interface AretesPolygone {
+  l0: Float64Array;
+  l1: Float64Array;
+  /** 1 : antimeridian ; 2 : delta >= 0. */
+  sens: Uint8Array;
+  arc: Float64Array;
+  /** Tranches : nb, de largeur 1 / pas, depuis la longitude lo (radians). */
+  lo: number;
+  pas: number;
+  nb: number;
+  /** Tranche t : les arêtes debut[t] à debut[t + 1] - 1 de liste ; null (petit polygone) : toutes. */
+  debut: Int32Array | null;
+  liste: Int32Array | null;
+  pole: number;
+}
+
+function aretesDe(p: Partie): AretesPolygone {
+  if (p.aretes) return p.aretes;
+  const rad = Math.PI / 180;
+  // ringRadians de d3-geo : en radians, sans le point de fermeture ; arêtes
+  // (m - 1 → 0), (0 → 1)… de chaque anneau, sans tableau par sommet.
+  const anneaux = p.polygone.coordinates;
+  let n = 0;
+  for (const a of anneaux) n += Math.max(0, a.length - 1);
+  const l0 = new Float64Array(n), l1 = new Float64Array(n), sens = new Uint8Array(n), arc = new Float64Array(3 * n);
+  let i = 0;
+  let lo = Infinity, hi = -Infinity;
+  for (const a of anneaux) {
+    const m = a.length - 1;
+    if (m <= 0) continue;
+    let q = a[m - 1]!;
+    let la = (q[0] ?? 0) * rad, pa = (q[1] ?? 0) * rad;
+    let c = Math.cos(pa);
+    let ux = c * Math.cos(la), uy = c * Math.sin(la), uz = Math.sin(pa);
+    la = longitudeD3(la);
+    for (let j = 0; j < m; j++, i++) {
+      q = a[j]!;
+      const lb0 = (q[0] ?? 0) * rad, pb = (q[1] ?? 0) * rad;
+      c = Math.cos(pb);
+      const vx = c * Math.cos(lb0), vy = c * Math.sin(lb0), vz = Math.sin(pb);
+      const lb = longitudeD3(lb0);
+      const delta = lb - la;
+      l0[i] = la;
+      l1[i] = lb;
+      if (la < lo) lo = la;
+      if (la > hi) hi = la;
+      sens[i] = (Math.abs(delta) > Math.PI ? 1 : 0) | (delta >= 0 ? 2 : 0);
+      // cartesianCross(cartesian(point0), cartesian(point1)), normalisé, comme d3-geo.
+      const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx;
+      const l = Math.sqrt(x * x + y * y + z * z);
+      arc[3 * i] = x / l;
+      arc[3 * i + 1] = y / l;
+      arc[3 * i + 2] = z / l;
+      la = lb;
+      ux = vx;
+      uy = vy;
+      uz = vz;
+    }
+  }
+  // Tranches de l'étendue en longitude du polygone ; une arête ne compte
+  // (polygonContains) que si la longitude du point est dans ]min, max] (ou
+  // hors de cet intervalle si elle passe l'antiméridien) : elle est rangée
+  // dans les tranches qui couvrent cet ensemble (un point hors de l'étendue
+  // va dans la première ou la dernière). Un petit polygone n'a pas d'index :
+  // toutes ses arêtes.
+  const nb = n <= PETIT_POLYGONE ? 1 : Math.min(TRANCHES_MAX, Math.ceil(n / 8));
+  const res: AretesPolygone = { l0, l1, sens, arc, lo, pas: hi > lo ? nb / (hi - lo) : 0, nb, debut: null, liste: null, pole: 0 };
+  if (nb > 1) {
+    const debut = new Int32Array(nb + 1);
+    // Deux passes : compter par tranche, puis ranger.
+    for (let passe = 0; passe < 2; passe++) {
+      const pos = passe ? Int32Array.from(debut) : debut;
+      const liste = passe ? new Int32Array(debut[nb]!) : null;
+      for (let k = 0; k < n; k++) {
+        const ta = tranche(res, Math.min(l0[k]!, l1[k]!)), tb = tranche(res, Math.max(l0[k]!, l1[k]!));
+        const anti = sens[k]! & 1;
+        for (let t = anti ? 0 : ta; t <= (anti ? nb - 1 : tb); t++) {
+          if (anti && t > ta && t < tb) continue;
+          if (liste) liste[pos[t]!++] = k;
+          else debut[t + 1]!++;
+        }
+      }
+      if (!passe) for (let t = 0; t < nb; t++) debut[t + 1]! += debut[t]!;
+      else res.liste = liste;
+    }
+    res.debut = debut;
+  }
+  // La part constante de polygonContains (angle et aire : le pôle Sud dedans
+  // ou non), lue sur geoContains en un point : elle vaut sa réponse moins la
+  // parité de l'enroulement en ce point.
+  const temoin: [number, number] = [0.5, 0.5];
+  res.pole = (geoContains(p.polygone, temoin) ? 1 : 0) ^ (enroulement(res, temoin) & 1);
+  p.aretes = res;
+  return res;
+}
+
+/** La tranche de la longitude l (radians, croissante en l), bornée à l'index. */
+function tranche(a: Pick<AretesPolygone, 'lo' | 'pas' | 'nb'>, l: number): number {
+  return Math.max(0, Math.min(a.nb - 1, Math.floor((l - a.lo) * a.pas)));
+}
+
+/** L'enroulement de polygonContains (d3-geo) au point [lon, lat] en degrés : les arêtes de sa tranche seulement. */
+function enroulement(a: AretesPolygone, ll: [number, number]): number {
+  const rad = Math.PI / 180;
+  const lambda = longitudeD3(ll[0] * rad);
+  let phi = ll[1] * rad;
+  const sinPhi = Math.sin(phi);
+  const n0 = Math.sin(lambda), n1 = -Math.cos(lambda), n2 = 0;
+  if (sinPhi === 1) phi = DEMI_PI + EPS;
+  else if (sinPhi === -1) phi = -DEMI_PI - EPS;
+  let winding = 0;
+  const t = a.debut ? tranche(a, lambda) : 0;
+  const [debut, fin] = a.debut ? [a.debut[t]!, a.debut[t + 1]!] : [0, a.l0.length];
+  travail.aretes += fin - debut;
+  for (let j = debut; j < fin; j++) {
+    const k = a.liste ? a.liste[j]! : j;
+    const anti = a.sens[k]! & 1;
+    if (!(anti ^ (a.l0[k]! >= lambda ? 1 : 0) ^ (a.l1[k]! >= lambda ? 1 : 0))) continue;
+    const a0 = a.arc[3 * k]!, a1 = a.arc[3 * k + 1]!, a2 = a.arc[3 * k + 2]!;
+    // cartesianCross(normal, arc), normalisé, comme d3-geo.
+    const x = n1 * a2 - n2 * a1, y = n2 * a0 - n0 * a2, z = n0 * a1 - n1 * a0;
+    const l = Math.sqrt(x * x + y * y + z * z);
+    const s = anti ^ (a.sens[k]! & 2 ? 1 : 0);
+    const phiArc = (s ? -1 : 1) * asinD3(z / l);
+    if (phi > phiArc || (phi === phiArc && (a0 || a1))) winding += s ? 1 : -1;
+  }
+  return winding;
+}
+
+/**
+ * geoContains(p.polygone, ll), au bit près : la même arithmétique que
+ * polygonContains de d3-geo, mais seules les arêtes de la tranche de
+ * longitude du point sont examinées (les autres ne peuvent pas croiser son
+ * méridien), et ce qui ne dépend pas du point est calculé une fois. Dans
+ * l'Atlantique (1 428 sommets), une centaine d'arêtes au lieu de toutes, sans
+ * sinus ni cosinus : le toucher d'une mer sondait 384 points (pickMer).
+ */
+function dansPolygone(p: Partie, ll: [number, number]): boolean {
+  const a = aretesDe(p);
+  return ((a.pole ^ (enroulement(a, ll) & 1)) & 1) === 1;
 }
 
 type Vec = [number, number, number];
@@ -212,6 +387,7 @@ export function distanceAuBordKm(forme: Forme, ll: [number, number]): number {
   for (const poly of polygones) {
     for (const anneau of poly) {
       let prec: Vec | null = null;
+      travail.sommets += anneau.length;
       for (const pos of anneau) {
         const v = versVec(pos);
         if (prec) min = Math.min(min, distanceArc(p, prec, v));
