@@ -6,6 +6,7 @@ import { aCoupure, BUDGET_SOMMETS, calque, CarteCanvas, sommetsVisibles, TRAIT_F
 import { image as imageTrace, MARGE_PX } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
 import { assemblerMers, zonesAllumees } from '../src/map/mers';
+import { calculerPastilles } from '../src/map/pastilles';
 import { teintesDemo } from '../src/map/teintes';
 import { idsJouables } from '../src/terrains';
 import { anneauPrincipal, centreEmprise, contient, contourEmprise, distanceAuBordKm, empriseEcran, partVisible, RAYON_TERRE_KM, versEcran, versLonLat, type Emprise } from '../src/map/geo';
@@ -1218,4 +1219,94 @@ describe('CarteCanvas : océans et mers (lot 3a, étude J2, § 4.3)', () => {
     expect(vus.eau).toBeGreaterThan(40);
     expect(vus.terre).toBeGreaterThan(40);
   }, 60_000);
+});
+
+describe('CarteCanvas : la carte de la mémoire « Mers » sans pastilles (choix de l’utilisateur du 12/11, #27)', () => {
+  /** Les disques des pastilles dessinés sur la couche du dessus (les anneaux ont 16 px de rayon). */
+  const disques = () => ctxDessus.traits.filter((t) => t.arc && t.arc[2] < 5);
+  const hote = (c: CarteCanvas) => c.hote as unknown as { dataset: Record<string, string> };
+  /**
+   * En mer (la mer Ionienne), à 3,6 px au sud-est du disque de Malte au zoom 1 :
+   * dans sa cible, sur aucun tracé, et aucune sonde du toucher « au plus près »
+   * (4, 8, 12 px) sur l'île.
+   */
+  const pres = (c: CarteCanvas): [number, number] => {
+    const [mx, my] = c.ecran('MLT') as [number, number];
+    return [mx + 3, my + 2];
+  };
+
+  it('le défaut est inchangé : les pastilles de calculerPastilles, Malte touchée par la sienne', () => {
+    const c = carte();
+    image(0);
+    const ctx = c.contexte();
+    expect(ctx.pastilles).toEqual(calculerPastilles(donnees.entites, ctx.proj, ctx.t.k));
+    expect(ctx.pastilles.some((p) => p.id === 'MLT' && p.visible)).toBe(true);
+    expect(Number(hote(c).dataset.disques)).toBe(disques().length);
+    expect(disques().length).toBeGreaterThan(50);
+    expect(c.pick(...pres(c))).toMatchObject({ id: 'MLT', via: 'pastille' });
+  });
+
+  it('cachées : ni dessinées ni touchées (pick, noter, ecran), 0 sur l’hôte, une image redessinée ; les anneaux restent ; un zoom ne les rend pas ; rendues : les mêmes qu’avant', () => {
+    const c = carte();
+    image(0);
+    const avant = c.contexte().pastilles;
+    const nbDisques = disques().length;
+    const p = pres(c);
+    const [mx, my] = c.ecran('MLT') as [number, number];
+    c.anneau('MLT', 'choisi');
+    image(8);
+    c.cacherPastilles(true);
+    // Une seule image demandée, la couche du dessus seule (la carte garde sa signature).
+    expect(images.size).toBe(1);
+    const effacees = ctx2d.etat.effacees;
+    image(16);
+    expect(ctx2d.etat.effacees).toBe(effacees);
+    expect(disques()).toEqual([]);
+    expect(ctxDessus.traits.filter((t) => t.arc && t.arc[2] === 16)).toHaveLength(1);
+    expect(c.nbPastilles).toBe(0);
+    expect(c.contexte().pastilles).toEqual([]);
+    expect(hote(c).dataset).toMatchObject({ pastilles: '0', disques: '0' });
+    expect(c.pick(...p)?.id).not.toBe('MLT');
+    expect(c.noter('MLT', ...p).juste).toBe(false);
+    // Le point de Malte : celui de son lieu (le même que celui de sa pastille).
+    expect(c.ecran('MLT')).toEqual([mx, my]);
+    // Un second appel ne redessine rien.
+    c.cacherPastilles(true);
+    expect(images.size).toBe(0);
+    // Un zoom recalcule la vue, sans pastille.
+    c.zoomerDe(2);
+    jouer(100, 500);
+    expect(c.transfo.k).toBeCloseTo(2, 9);
+    expect(c.contexte().pastilles).toEqual([]);
+    expect(disques()).toEqual([]);
+    c.vueEntiere();
+    jouer(600, 1200);
+    c.cacherPastilles(false);
+    image(1300);
+    expect(c.contexte().pastilles).toEqual(avant);
+    expect(disques()).toHaveLength(nbDisques);
+    expect(hote(c).dataset.disques).toBe(String(nbDisques));
+    expect(c.pick(...p)).toMatchObject({ id: 'MLT', via: 'pastille' });
+  });
+
+  it('le peintre (WebGL) reçoit l’état sans pastilles : aucun disque à dessiner', () => {
+    const recues: number[] = [];
+    const peintre: Peintre = {
+      preparer: () => undefined,
+      dimensionner: () => undefined,
+      dessiner: (e) => (recues.push(e.pastilles.length), { trace_ms: 0, leger: false, parties: 0, sommets: 0, emis: 0, copies: 0 }),
+      allegeEnMouvement: false,
+      detruire: () => undefined,
+    };
+    const c = carte();
+    void c.adopter(document.createElement('canvas'), peintre);
+    image(16);
+    expect(recues.at(-1)).toBeGreaterThan(50);
+    c.cacherPastilles(true);
+    image(32);
+    expect(recues.at(-1)).toBe(0);
+    c.cacherPastilles(false);
+    image(48);
+    expect(recues.at(-1)).toBeGreaterThan(50);
+  });
 });

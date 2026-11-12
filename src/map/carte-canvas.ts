@@ -438,6 +438,8 @@ export class CarteCanvas implements CarteAffichee {
   private couleurs: Couleurs;
   private motif: CanvasPattern | null = null;
   private pastilles: Pastille[] = [];
+  /** cacherPastilles(true) : aucune pastille (carte de la mémoire « Mers »). */
+  private sansPastilles = false;
   private marques = new Map<string, Set<string>>();
   private anneaux: AnneauCarte[] = [];
   /**
@@ -898,6 +900,14 @@ export class CarteCanvas implements CarteAffichee {
     this.demander();
   }
 
+  /** Un changement : la couche du dessus seule redessinée (Canvas 2D ; la signature de la carte ne change pas), ou une image du peintre. */
+  cacherPastilles(oui: boolean): void {
+    if (oui === this.sansPastilles) return;
+    this.sansPastilles = oui;
+    this.majPastilles();
+    this.demander();
+  }
+
   masquer(oui: boolean): void {
     this.masquee = oui;
     if (!oui) {
@@ -929,11 +939,14 @@ export class CarteCanvas implements CarteAffichee {
     this.v = v;
     this.libre = libre;
     if (rChange) this.proj = projectionDe(v.r, this.c);
-    if (rChange || kChange) {
-      this.pastilles = calculerPastilles(this.o.donnees.entites, this.proj, v.k);
-      this.hote.dataset.pastilles = String(this.pastilles.length);
-      this.hote.dataset.disques = String(this.pastilles.filter((p) => p.visible).length);
-    }
+    if (rChange || kChange) this.majPastilles();
+  }
+
+  /** Les pastilles de la vue (aucune avec cacherPastilles), et leur nombre sur l'hôte (pilote). */
+  private majPastilles(): void {
+    this.pastilles = this.sansPastilles ? [] : calculerPastilles(this.o.donnees.entites, this.proj, this.v.k);
+    this.hote.dataset.pastilles = String(this.pastilles.length);
+    this.hote.dataset.disques = String(this.pastilles.filter((p) => p.visible).length);
   }
 
   private poserProgramme(v: VueGlobe, libre = false): void {

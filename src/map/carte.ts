@@ -146,6 +146,14 @@ export interface CarteAffichee {
    * (étude J2, § 4.3). Une fois : un second appel ne change rien.
    */
   prendreMers(c: CoucheMers): void;
+  /**
+   * Carte de la mémoire « Mers » (choix de l'utilisateur du 12/11) : oui,
+   * aucune pastille, ni dessinée ni comptée par pick, noter et ecran (un
+   * micro-État ne se touche que par son tracé) ; hote.dataset.pastilles et
+   * disques valent 0. Les anneaux et les marques restent. Non (le défaut) :
+   * les pastilles d'avant, au même calcul. Un changement redessine une fois.
+   */
+  cacherPastilles(oui: boolean): void;
   masquer(oui: boolean): void;
   detruire(): void;
 }
@@ -256,6 +264,8 @@ export class Carte implements CarteAffichee {
   private teintes = new Map<string, string>();
   private anneaux: { cercle: SVGCircleElement; rayon_px: number }[] = [];
   private pastilles: Pastille[] = [];
+  /** cacherPastilles(true) : aucune pastille, même sur un cadre qui en a. */
+  private sansPastilles = false;
   private proj!: GeoProjection;
   private comportement: ZoomBehavior<HTMLElement, unknown>;
   private t: Transfo = { k: 1, x: 0, y: 0 };
@@ -613,6 +623,13 @@ export class Carte implements CarteAffichee {
     return [mers, this.coucheContoursMers];
   }
 
+  cacherPastilles(oui: boolean): void {
+    if (oui === this.sansPastilles) return;
+    this.sansPastilles = oui;
+    // Avant le premier rendre() : il les calculera.
+    if (this.couchePastilles) this.majPastilles();
+  }
+
   get nbTeintes(): number {
     return this.teintes.size;
   }
@@ -767,7 +784,7 @@ export class Carte implements CarteAffichee {
   /** Recalcule l'ensemble des pastilles pour le zoom courant (fin de geste). */
   private majPastilles(): void {
     const k = this.applique.k;
-    this.pastilles = this.cadre.pastilles ? calculerPastilles(this.o.donnees.entites, this.proj, k) : [];
+    this.pastilles = this.cadre.pastilles && !this.sansPastilles ? calculerPastilles(this.o.donnees.entites, this.proj, k) : [];
     const voulues = new Set(this.pastilles.filter((p) => p.visible).map((p) => p.id));
     for (const [id, disque] of this.cerclesPastilles) {
       if (!voulues.has(id)) {

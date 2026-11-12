@@ -5,6 +5,7 @@ import { Carte } from '../src/map/carte';
 import { UNITE } from '../src/map/traces';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { assemblerMers } from '../src/map/mers';
+import { calculerPastilles } from '../src/map/pastilles';
 import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, partVisible, versEcran, type Emprise } from '../src/map/geo';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
@@ -300,6 +301,68 @@ describe('Carte SVG : les teintes de la carte de la mémoire, à part des marque
       expect(css).toContain(`.pays.s${s}, .pastille.s${s} { fill: var(--memoire-${s}); }`);
       expect(css.indexOf(`.pays.s${s},`)).toBeLessThan(css.indexOf('.pays.choisi'));
     }
+  });
+});
+
+describe('Carte SVG : la carte de la mémoire « Mers » sans pastilles (choix de l’utilisateur du 12/11, #27)', () => {
+  const tous = (e: FauxElement): FauxElement[] => [e, ...e.enfants.flatMap(tous)];
+  const cercles = (hote: FauxElement) => tous(hote).filter((e) => e.className.split(' ').includes('pastille'));
+  const anneaux = (hote: FauxElement) => tous(hote).filter((e) => e.className.split(' ').includes('anneau'));
+  /** En mer (la mer Ionienne), à 3,6 px au sud-est du disque de Malte au zoom 1 : dans sa cible, sur aucun tracé (comme en Canvas). */
+  const pres = (c: Carte): [number, number] => {
+    const [mx, my] = c.ecran('MLT') as [number, number];
+    return [mx + 3, my + 2];
+  };
+
+  it('le défaut est inchangé : les pastilles de calculerPastilles, un cercle par disque, Malte touchée par la sienne', () => {
+    const { c, hote } = carte();
+    const ctx = c.contexte();
+    expect(ctx.pastilles).toEqual(calculerPastilles(donnees.entites, ctx.proj, ctx.t.k));
+    expect(cercles(hote)).toHaveLength(ctx.pastilles.filter((p) => p.visible).length);
+    expect(hote.dataset.disques).toBe(String(cercles(hote).length));
+    expect(cercles(hote).length).toBeGreaterThan(50);
+    expect(c.pick(...pres(c))).toMatchObject({ id: 'MLT', via: 'pastille' });
+  });
+
+  it('cachées : aucun cercle, ni pick, ni noter, 0 sur l’hôte ; les anneaux et les marques restent ; un zoom ne les rend pas ; rendues : les mêmes qu’avant', () => {
+    const { c, hote } = carte();
+    const avant = c.contexte().pastilles;
+    const nb = cercles(hote).length;
+    const p = pres(c);
+    c.anneau('MLT', 'choisi');
+    c.cacherPastilles(true);
+    expect(cercles(hote)).toEqual([]);
+    expect(anneaux(hote)).toHaveLength(1);
+    expect(c.nbPastilles).toBe(0);
+    expect(hote.dataset).toMatchObject({ pastilles: '0', disques: '0' });
+    expect(c.pick(...p)?.id).not.toBe('MLT');
+    expect(c.noter('MLT', ...p).juste).toBe(false);
+    // Une marque sur Malte : son tracé seul.
+    c.marquer('MLT', 'choisi');
+    expect(cercles(hote)).toEqual([]);
+    c.effacerMarques();
+    // Un zoom (fin de geste : majPastilles) et un retracé (rendre) : toujours aucune.
+    c.zoomerDe(2);
+    vi.advanceTimersByTime(400);
+    expect(c.transfo.k).toBeCloseTo(2, 9);
+    expect(c.contexte().pastilles).toEqual([]);
+    c.rendre();
+    expect(cercles(hote)).toEqual([]);
+    c.vueEntiere();
+    vi.advanceTimersByTime(1000);
+    c.cacherPastilles(false);
+    expect(c.contexte().pastilles).toEqual(avant);
+    expect(cercles(hote)).toHaveLength(nb);
+    expect(c.pick(...p)).toMatchObject({ id: 'MLT', via: 'pastille' });
+  });
+
+  it('cachées avant le premier rendre() : il n’en dessine aucune', () => {
+    const hote = new FauxElement();
+    const c = new Carte({ hote: hote as unknown as HTMLElement, donnees, projection: 'monde', rendu: 'g' });
+    c.cacherPastilles(true);
+    c.rendre();
+    expect(cercles(hote)).toEqual([]);
+    expect(hote.dataset.disques).toBe('0');
   });
 });
 

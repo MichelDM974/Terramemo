@@ -1236,6 +1236,22 @@ describe('PeintreWebGL.dessiner (faux WebGL2)', () => {
     expect(couleur(3)).toEqual(pm(couleursEssai.pastille));
   });
 
+  it('carte de la mémoire « Mers » (pastilles cachées, CarteCanvas.cacherPastilles : l’état sans pastilles) : aucun disque ; l’anneau seul reste (#27)', () => {
+    const { p, f } = peintre();
+    const e = etat(10, 4, new Map([['MLT', new Set(['choisi'])]]), 45);
+    const base = (id: string) => e.proj(donnees.entites.find((x) => x.pays.id === id)?.pays.point as [number, number]) as [number, number];
+    const disques = () => f.dessins.filter((d) => d.mode === f.constante('TRIANGLE_STRIP'));
+    // Les pastilles montrées : un disque par pastille.
+    p.dessiner({ ...e, pastilles: ['AND', 'MLT', 'MCO'].map((id) => ({ id, bx: base(id)[0], by: base(id)[1], visible: true })) });
+    expect(disques().map((d) => d.n)).toEqual([3]);
+    // Cachées : aucun appel des disques ; l'anneau de Malte, seul.
+    f.dessins.length = 0;
+    p.dessiner(e);
+    expect(disques()).toEqual([]);
+    p.dessiner({ ...e, anneaux: [{ id: 'MLT', classe: 'choisi', rayon_px: 16 }] });
+    expect(disques().map((d) => d.n)).toEqual([1]);
+  });
+
   it('zone fausse : ses anneaux en traits couleur du texte, après les côtes, une passe par décalage de decalagesTrait (3 px CSS) ; aucune sans faux (#16)', () => {
     const fra = donnees.entites.find((x) => x.pays.id === 'FRA') as DonneesCarte['entites'][number];
     const g = fra.forme.geometry;
