@@ -132,30 +132,57 @@ function* sondesFines(x: number, y: number): Generator<[number, number, number]>
   }
 }
 
-/**
- * Les zones qui peuvent avoir un point à 12 px ou moins de (x, y) : celles
- * qui contiennent ll (débordant sur la terre), ou dont le bord est plus près
- * (géodésique) que le cercle de 12 px, avec 25 % de marge ; toutes si ce
- * cercle sort de la sphère. Les sondes fines ne parcourent qu'elles : au
- * milieu de l'Italie, l'Atlantique entier passait 384 fois par geoContains
- * (≈ 40 ms par toucher sur le PC).
- */
-function aPortee(ctx: ContexteCarte, zones: readonly Entite<Mer>[], ll: [number, number], x: number, y: number): readonly Entite<Mer>[] {
-  if (!zones.length) return zones;
+/** Le disque de 12 px autour d'un toucher, sur la sphère : son rayon (km, 25 % de marge) et ses marges d'emprise (degrés). */
+interface Disque {
+  rayon: number;
+  /** Marge de longitude d'aPortee (la latitude bornée à 89°). */
+  marge: number;
+  /** Marges sûres en latitude et en longitude (Infinity : le disque peut toucher un pôle, toutes les longitudes). */
+  lat: number;
+  lon: number;
+}
+
+/** Le disque de 12 px autour de (x, y), ll sous le doigt ; null si son cercle sort de la sphère. */
+function disque(ctx: ContexteCarte, ll: [number, number], x: number, y: number): Disque | null {
   const max = SONDES_PROCHE.rayons_px[SONDES_PROCHE.rayons_px.length - 1]!;
   let rayon = 0;
   for (let i = 0; i < 16; i++) {
     const a = (2 * Math.PI * i) / 16;
     const l2 = versLonLat(ctx.proj, ctx.t, x + max * Math.cos(a), y + max * Math.sin(a));
-    if (!l2) return zones;
+    if (!l2) return null;
     rayon = Math.max(rayon, geoDistance(ll, l2) * RAYON_TERRE_KM);
   }
   rayon *= 1.25;
   // En degrés, assez large pour l'emprise (la longitude se resserre vers les pôles).
   const deg = (rayon / RAYON_TERRE_KM) * (180 / Math.PI);
-  const lat = Math.min(89, Math.abs(ll[1]) + deg);
-  const marge = deg / Math.cos((lat * Math.PI) / 180);
-  return zones.filter((m) => dansEmprise(m.pays.bbox, ll[0], ll[1], marge) && (contient(m.forme, m.pays.bbox, ll) || distanceAuBordKm(m.forme, ll) <= rayon));
+  const haut = Math.abs(ll[1]) + deg;
+  const lat = Math.min(89, haut);
+  return { rayon, marge: deg / Math.cos((lat * Math.PI) / 180), lat: deg, lon: haut >= 89 ? Infinity : deg / Math.cos((haut * Math.PI) / 180) };
+}
+
+/**
+ * Les zones qui peuvent avoir un point à 12 px ou moins de (x, y) : celles
+ * qui contiennent ll (débordant sur la terre), ou dont le bord est plus près
+ * (géodésique) que le cercle de 12 px, avec 25 % de marge ; toutes si ce
+ * cercle sort de la sphère (d null). Les sondes fines ne parcourent qu'elles.
+ */
+function aPortee(zones: readonly Entite<Mer>[], ll: [number, number], d: Disque | null): readonly Entite<Mer>[] {
+  if (!zones.length || !d) return zones;
+  return zones.filter((m) => dansEmprise(m.pays.bbox, ll[0], ll[1], d.marge) && (contient(m.forme, m.pays.bbox, ll) || distanceAuBordKm(m.forme, ll) <= d.rayon));
+}
+
+/**
+ * Les pays qui peuvent avoir un point dans le disque (leur emprise, avec la
+ * marge de contient, croise la sienne, l'antiméridien passé : Wallis à 2° de
+ * Fidji) ; tous s'il sort de la sphère. Une sonde ne cherche sa terre que
+ * parmi eux, au lieu des 258 emprises.
+ */
+function terresAPortee(ctx: ContexteCarte, ll: [number, number], d: Disque | null): readonly Entite<Lieu>[] {
+  if (!d) return ctx.entites;
+  const [lat, lon] = [0.05 + d.lat, 0.05 + d.lon];
+  return ctx.entites.filter(({ pays: { bbox } }) =>
+    ll[1] >= bbox[1] - lat && ll[1] <= bbox[3] + lat && (lon >= 180 || dansEmprise(bbox, ll[0], ll[1], lon) || dansEmprise(bbox, ll[0] - 360, ll[1], lon) || dansEmprise(bbox, ll[0] + 360, ll[1], lon)),
+  );
 }
 
 /** La zone marine qui contient le point [lon, lat] (la couche est une partition : une au plus, bords mis à part). */
@@ -179,14 +206,21 @@ function merVisible(ctx: ContexteCarte, mers: readonly Entite<Mer>[], x: number,
 /**
  * La première sonde fine (sondesFines : tous les rayons de 1 à 12 px, la plus
  * proche d'abord) qui tombe dans la mer qu'on voit d'une des zones, via
- * « proche » ; null si aucune.
+ * « proche » ; null si aucune. Les 384 sondes ne cherchent que parmi les
+ * zones et les pays à portée du disque, et contient n'examine que les arêtes
+ * de la tranche de longitude du point : ≈ 3 ms au pire sur le PC, au lieu de
+ * 40 à 220 ms quand chaque sonde passait l'Atlantique ou l'Arctique entier
+ * par geoContains (mesure du 12/11, tests/mers-toucher-cout.test.ts).
  */
 function eauProche(ctx: ContexteCarte, zones: readonly Entite<Mer>[], ll: [number, number], x: number, y: number): ResultatPick | null {
-  const vises = aPortee(ctx, zones, ll, x, y);
-  for (const [sx, sy, r] of vises.length ? sondesFines(x, y) : []) {
+  const d = zones.length ? disque(ctx, ll, x, y) : null;
+  const vises = aPortee(zones, ll, d);
+  if (!vises.length) return null;
+  const terres = terresAPortee(ctx, ll, d);
+  for (const [sx, sy, r] of sondesFines(x, y)) {
     const lls = versLonLat(ctx.proj, ctx.t, sx, sy);
     const m = lls ? zoneMer(vises, lls) : null;
-    if (m && !sousLePoint(ctx, sx, sy)) return { id: m.pays.id, via: 'proche', distance_px: r };
+    if (m && !terres.some((e) => contient(e.forme, e.pays.bbox, lls!))) return { id: m.pays.id, via: 'proche', distance_px: r };
   }
   return null;
 }

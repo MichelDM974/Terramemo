@@ -5,13 +5,18 @@
 // (≈ 1 s sur l'A37). Ici l'équivalence avec les références (geoContains, la
 // méthode d'avant gardée en copie), et le travail compté sur les pires cas.
 import { readFileSync } from 'node:fs';
-import { geoContains } from 'd3-geo';
+import { geoContains, geoDistance } from 'd3-geo';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
+import { acceptesDe, acceptesEnPlus, type ZoneAdmise } from '../src/map/acceptes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
-import { contient, travail } from '../src/map/geo';
-import { assemblerMers } from '../src/map/mers';
-import type { Entite, Forme, Lieu } from '../src/map/types';
+import { contient, dansEmprise, distanceAuBordKm, RAYON_TERRE_KM, travail, versEcran, versLonLat } from '../src/map/geo';
+import { indexLieux } from '../src/map/lieux';
+import { assemblerMers, zonesAllumees, zonesParties } from '../src/map/mers';
+import { calculerPastilles, PASTILLE, tailleEcranPx } from '../src/map/pastilles';
+import { noter, SONDES_PROCHE, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from '../src/map/pick';
+import type { Entite, Forme, Lieu, Mer } from '../src/map/types';
+import { cadre, placer, projectionDe, transfoDe, type VueGlobe } from '../src/map/vue';
 
 const lire = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
 const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
@@ -118,5 +123,228 @@ describe('contient : la réponse de geoContains au bit près, sans parcourir tou
       contient(atlant.forme, atlant.pays.bbox, ll);
     }
     expect((travail.aretes - avant) / n).toBeLessThan(60);
+  });
+});
+
+// La méthode d'avant (pick.ts, a736060 : halo de 12 px compris), copie
+// exacte, sur contientRef : chaque sonde passe par geoContains sur tout le
+// polygone de chaque zone à portée, et cherche sa terre parmi les 258 pays.
+const R = (() => {
+  function sousLePoint(ctx: ContexteCarte, x: number, y: number): Entite<Lieu> | null {
+    const ll = versLonLat(ctx.proj, ctx.t, x, y);
+    if (!ll) return null;
+    for (const e of ctx.entites) if (contientRef(e.forme, e.pays.bbox, ll)) return e;
+    return null;
+  }
+  function* sondes(x: number, y: number): Generator<[number, number, number]> {
+    for (const r of SONDES_PROCHE.rayons_px) {
+      for (let i = 0; i < SONDES_PROCHE.directions; i++) {
+        const a = (2 * Math.PI * i) / SONDES_PROCHE.directions;
+        yield [x + r * Math.cos(a), y + r * Math.sin(a), r];
+      }
+    }
+  }
+  function* sondesFines(x: number, y: number): Generator<[number, number, number]> {
+    const max = SONDES_PROCHE.rayons_px[SONDES_PROCHE.rayons_px.length - 1]!;
+    const pas = SONDES_PROCHE.directions;
+    for (let r = 1; r <= max; r++) {
+      const n = pas * Math.ceil((2 * Math.PI * r) / (pas * 1.5));
+      for (let i = 0; i < n; i++) {
+        const a = (2 * Math.PI * i) / n;
+        yield [x + r * Math.cos(a), y + r * Math.sin(a), r];
+      }
+    }
+  }
+  function aPortee(ctx: ContexteCarte, zones: readonly Entite<Mer>[], ll: [number, number], x: number, y: number): readonly Entite<Mer>[] {
+    if (!zones.length) return zones;
+    const max = SONDES_PROCHE.rayons_px[SONDES_PROCHE.rayons_px.length - 1]!;
+    let rayon = 0;
+    for (let i = 0; i < 16; i++) {
+      const a = (2 * Math.PI * i) / 16;
+      const l2 = versLonLat(ctx.proj, ctx.t, x + max * Math.cos(a), y + max * Math.sin(a));
+      if (!l2) return zones;
+      rayon = Math.max(rayon, geoDistance(ll, l2) * RAYON_TERRE_KM);
+    }
+    rayon *= 1.25;
+    const deg = (rayon / RAYON_TERRE_KM) * (180 / Math.PI);
+    const lat = Math.min(89, Math.abs(ll[1]) + deg);
+    const marge = deg / Math.cos((lat * Math.PI) / 180);
+    return zones.filter((m) => dansEmprise(m.pays.bbox, ll[0], ll[1], marge) && (contientRef(m.forme, m.pays.bbox, ll) || distanceAuBordKm(m.forme, ll) <= rayon));
+  }
+  function zoneMer(mers: readonly Entite<Mer>[], ll: [number, number]): Entite<Mer> | null {
+    for (const m of mers) if (contientRef(m.forme, m.pays.bbox, ll)) return m;
+    return null;
+  }
+  function merVisible(ctx: ContexteCarte, mers: readonly Entite<Mer>[], x: number, y: number): Entite<Mer> | null {
+    const ll = versLonLat(ctx.proj, ctx.t, x, y);
+    const m = ll ? zoneMer(mers, ll) : null;
+    return m && !sousLePoint(ctx, x, y) ? m : null;
+  }
+  function eauProche(ctx: ContexteCarte, zones: readonly Entite<Mer>[], ll: [number, number], x: number, y: number): ResultatPick | null {
+    const vises = aPortee(ctx, zones, ll, x, y);
+    for (const [sx, sy, r] of vises.length ? sondesFines(x, y) : []) {
+      const lls = versLonLat(ctx.proj, ctx.t, sx, sy);
+      const m = lls ? zoneMer(vises, lls) : null;
+      if (m && !sousLePoint(ctx, sx, sy)) return { id: m.pays.id, via: 'proche', distance_px: r };
+    }
+    return null;
+  }
+  function pickMer(ctx: ContexteCarte, cible: string, x: number, y: number, compte: ReadonlySet<string>): ResultatPick | null {
+    const ll = versLonLat(ctx.proj, ctx.t, x, y);
+    if (!ll) return null;
+    const mers = ctx.mers ?? [];
+    const comptent = () => mers.filter((m) => compte.has(m.pays.id));
+    const terre = sousLePoint(ctx, x, y);
+    if (terre) return eauProche(ctx, comptent(), ll, x, y) ?? { id: terre.pays.id, via: 'trace', distance_px: 0 };
+    const m = zoneMer(mers, ll);
+    if (m) {
+      if (compte.has(m.pays.id)) return { id: m.pays.id, via: 'trace', distance_px: 0 };
+      const visee = mers.find((z) => z.pays.id === cible);
+      const petite = !!visee && tailleEcranPx(visee.pays, ctx.proj.scale(), ctx.t.k) < PASTILLE.seuil_px;
+      return (petite ? eauProche(ctx, comptent(), ll, x, y) : null) ?? { id: m.pays.id, via: 'trace', distance_px: 0 };
+    }
+    for (const [sx, sy, r] of sondes(x, y)) {
+      const v = merVisible(ctx, mers, sx, sy);
+      if (v) return { id: v.pays.id, via: 'proche', distance_px: r };
+    }
+    return null;
+  }
+  function noterMer(ctx: ContexteCarte, cible: string, x: number, y: number, options: OptionsNoter): Note {
+    const mers = ctx.mers ?? [];
+    const allumees = zonesAllumees(cible, mers.map((m) => m.pays));
+    const enPlus = typeof options.acceptes === 'object' ? (options.acceptes.get(cible) ?? []) : [];
+    const zones: readonly ZoneAdmise[] = options.acceptes === false ? [] : [...(ctx.acceptes?.get(cible) ?? []), ...enPlus];
+    const ll = versLonLat(ctx.proj, ctx.t, x, y);
+    const p = pickMer(ctx, cible, x, y, new Set([...allumees, ...zones.map((z) => z.zone)]));
+    const base = { lonlat: ll, pick: p };
+    if (p && allumees.includes(p.id)) return { juste: true, via: p.via, distance_km: 0, admis: null, ...base };
+    const z = p ? zones.find((zo) => zo.zone === p.id) : undefined;
+    if (z && p) return { juste: true, via: p.via, distance_km: 0, admis: { zone: z.zone, tenant: z.tenant, sorte: z.sorte }, ...base };
+    let distance_km: number | null = null;
+    if (ll) {
+      distance_km = Infinity;
+      for (const m of mers) if (allumees.includes(m.pays.id)) distance_km = Math.min(distance_km, distanceAuBordKm(m.forme, ll));
+      for (const zo of zones) distance_km = Math.min(distance_km, distanceAuBordKm(zo.forme, ll));
+    }
+    return { juste: false, via: null, distance_km, admis: null, ...base };
+  }
+  return { noterMer, sousLePoint, zoneMer };
+})();
+
+const avecMers: DonneesCarte = { ...donnees, mers: couche.mers };
+const lieux = indexLieux(avecMers);
+const acceptes = acceptesDe(donnees);
+const L = 384;
+const H = 723;
+const C = cadre(L, H);
+const zones = couche.mers.map((m) => m.pays);
+const mer = (id: string) => couche.mers.find((m) => m.pays.id === id)!;
+
+function contexte(v: VueGlobe): ContexteCarte {
+  const proj = projectionDe(v.r, C);
+  return { proj, t: transfoDe(v, C), entites: donnees.entites, pastilles: calculerPastilles(donnees.entites, proj, v.k), acceptes, mers: couche.mers, lieux };
+}
+
+/** Les options du sujet Mers (les parties de la cible : zonesParties, sorte « partie »), comme sa vue les passe à noter. */
+const parties = (cible: string): OptionsNoter => ({ acceptes: acceptesEnPlus(avecMers, cible, zonesParties(cible, zones), 'partie') ?? true });
+
+describe('noter une mer : les réponses de la méthode d’avant (sonde par sonde, geoContains), pour un travail borné', () => {
+  // Touchers tirés au hasard (graine fixe) : la vue centrée sur un sommet de
+  // la cible (sa côte, ou son bord avec une autre zone), à la rotation qui
+  // la centre ou décalée, et à 0, 90 et 180 aux zooms 1 et 2 (l'ovale entier,
+  // l'antiméridien dedans) ; le doigt n'importe où à l'écran aux zooms 1 et 2,
+  // sinon à 40 px au plus du centre, ou à 15 px au plus d'un sommet de la cible.
+  it('des milliers de touchers, zooms 1 à 300, sur la terre, dans l’eau (qui compte ou non), dans les fentes, hors de la sphère : la même note, au bit près', () => {
+    const cibles = ['atlant', 'pacif', 'bering', 'arctique', 'austral', 'medit', 'azov', 'finlande', 'nord'];
+    const vus = { hors: 0, terre: 0, eau: 0, fente: 0, proche: 0, halo: 0, juste: 0, faux: 0 };
+    const ecarts: string[] = [];
+    let n = 0;
+    for (const k of [1, 2, 4, 8, 30, 300]) {
+      for (const cible of cibles) {
+        const sommets = polygones(mer(cible).forme).flat(2);
+        for (let i = 0; i < 40; i++) {
+          const s = sommets[Math.floor(alea() * sommets.length)]!;
+          const ll: [number, number] = [s[0]!, s[1]!];
+          const v = placer(C, ll, L / 2, H / 2, k, true);
+          const r = k <= 2 && alea() < 0.5 ? [0, 90, 180][Math.floor(alea() * 3)]! : v.r + (alea() < 0.5 ? 0 : (alea() - 0.5) * (40 / k));
+          const ctx = contexte({ ...v, r });
+          let x: number;
+          let y: number;
+          const b = ctx.proj(ll);
+          if (b && alea() < 0.5) {
+            const [sx, sy] = versEcran(ctx.t, b[0], b[1]);
+            [x, y] = [sx + (alea() - 0.5) * 30, sy + (alea() - 0.5) * 30];
+          } else if (k <= 2) [x, y] = [alea() * L, alea() * H];
+          else [x, y] = [L / 2 + (alea() - 0.5) * 80, H / 2 + (alea() - 0.5) * 80];
+          const options = [parties(cible), {}, { acceptes: false }][i % 3]!;
+          const lli = versLonLat(ctx.proj, ctx.t, x, y);
+          if (!lli) vus.hors++;
+          else if (R.sousLePoint(ctx, x, y)) vus.terre++;
+          else if (R.zoneMer(couche.mers, lli)) vus.eau++;
+          else vus.fente++;
+          const attendu = R.noterMer(ctx, cible, x, y, options);
+          // Le halo : le doigt dans l'eau d'une zone, la note par une sonde.
+          if (lli && attendu.pick?.via === 'proche' && !R.sousLePoint(ctx, x, y) && R.zoneMer(couche.mers, lli)) vus.halo++;
+          const note = noter(ctx, cible, x, y, options);
+          n++;
+          if (attendu.pick?.via === 'proche') vus.proche++;
+          vus[attendu.juste ? 'juste' : 'faux']++;
+          if (JSON.stringify(note) !== JSON.stringify(attendu)) ecarts.push(`${cible} k ${k} r ${r} (${x}, ${y}) : ${JSON.stringify(note.pick)} ≠ ${JSON.stringify(attendu.pick)}`);
+        }
+      }
+    }
+    expect(ecarts).toEqual([]);
+    expect(n).toBe(2160);
+    expect(vus.terre).toBeGreaterThan(400);
+    expect(vus.eau).toBeGreaterThan(800);
+    expect(vus.fente).toBeGreaterThan(5);
+    expect(vus.hors).toBeGreaterThan(20);
+    expect(vus.proche).toBeGreaterThan(200);
+    expect(vus.halo).toBeGreaterThan(10);
+    expect(vus.juste).toBeGreaterThan(600);
+    expect(vus.faux).toBeGreaterThan(400);
+  }, 300_000);
+});
+
+describe('noter une mer : le travail des pires cas, compté', () => {
+  // Les pires touchers mesurés par la session (12/11) et par le banc de ce
+  // lot : sur la terre, toutes les sondes sans eau passaient chacune par
+  // geoContains sur des zones immenses. Le travail est compté (arêtes
+  // examinées par contient, sommets parcourus par distanceAuBordKm), pas
+  // chronométré ; une seule borne de temps, large.
+  const pires: [string, string, [number, number], number][] = [
+    ['le Chili, pour l’Atlantique, zoom 1', 'atlant', [-70.44, -31.92], 1],
+    ['le Chili plus au nord, pour l’Atlantique, zoom 1', 'atlant', [-67.98, -23.22], 1],
+    ['la Russie (Iougorski), pour l’Arctique, zoom 300', 'arctique', [60.37, 69.8], 300],
+    ['l’Alaska (îles), pour le Pacifique, zoom 300', 'pacif', [-132.2, 56.01], 300],
+    ['le Vanuatu, pour le Pacifique, zoom 300', 'pacif', [169.29, -19.44], 300],
+    ['l’Algérie sous la Méditerranée (débordement), zoom 300', 'medit', [-1, 35.6], 300],
+    ['la mer Noire pour Azov (halo), zoom 1', 'azov', [31, 43], 1],
+    ['la fente du golfe de Syrte, pour la mer Rouge, zoom 40', 'rouge', [19.8, 30.6], 40],
+  ];
+
+  it.each(pires)('%s : la même note, au plus 60 000 arêtes et 10 000 sommets, dix fois moins de travail que geoContains sonde par sonde', (_nom, cible, ll, k) => {
+    const ctx = contexte(placer(C, ll, L / 2, H / 2, k, true));
+    const b = ctx.proj(ll)!;
+    const [x, y] = versEcran(ctx.t, b[0], b[1]);
+    const options = parties(cible);
+    noter(ctx, cible, x, y, options); // les index des polygones touchés, construits au premier point
+    const [a0, s0, r0] = [travail.aretes, travail.sommets, ref.sommets];
+    const note = noter(ctx, cible, x, y, options);
+    const [aretes, sommets] = [travail.aretes - a0, travail.sommets - s0];
+    const s1 = travail.sommets;
+    expect(note).toEqual(R.noterMer(ctx, cible, x, y, options));
+    const avant = ref.sommets - r0 + (travail.sommets - s1);
+    expect(aretes).toBeLessThanOrEqual(60_000);
+    expect(sommets).toBeLessThanOrEqual(10_000);
+    expect(aretes + sommets).toBeLessThan(Math.max(2000, avant / 10));
+    // Le temps, large (≈ 3 ms sur le PC, 70 à 200 ms avant) : la médiane de 5.
+    const temps: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const t0 = performance.now();
+      noter(ctx, cible, x, y, options);
+      temps.push(performance.now() - t0);
+    }
+    expect(temps.sort((p, q) => p - q)[2]).toBeLessThan(40);
   });
 });
