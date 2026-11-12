@@ -119,12 +119,13 @@ describe('fusion du profil (pure)', () => {
     expect(fusionner(lu(null, null), { pseudo: null, records: new Map() }, o)).toMatchObject({ pseudo: null, doc: null });
   });
 
-  it('les 44 épreuves classées, capitales et drapeaux compris, plus les 22 de Minute (retiré, ses records restent), de toujours et de la semaine, aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
+  it('les 46 épreuves classées, capitales, drapeaux et mers compris, plus les 22 de Minute (retiré, ses records restent), de toujours et de la semaine, aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
     const classees = epreuvesClassees();
-    expect(classees).toHaveLength(44);
-    // Minute retiré le 12/11/2026 (décision « Barème et classements ») : ses records restent au profil, sans plus rien publier.
-    const epreuves = [...classees, ...classees.filter((e) => e.startsWith('chrono:')).map((e) => e.replace('chrono:', 'minute:'))];
-    expect(epreuves).toHaveLength(66);
+    expect(classees).toHaveLength(46);
+    // Minute retiré le 12/11/2026 (décision « Barème et classements ») : ses records restent au profil, sans plus rien
+    // publier. Les mers n'en ont jamais eu (leurs épreuves ouvrent après, lot 3b).
+    const epreuves = [...classees, ...classees.filter((e) => e.startsWith('chrono:') && !e.includes(':mers:')).map((e) => e.replace('chrono:', 'minute:'))];
+    expect(epreuves).toHaveLength(68);
     // Le pire : des points entiers (barème 2 : les justes), un temps à 17 chiffres (performance.now()), 195 questions, une date à 13 chiffres.
     const pire = (): RecordChrono => ({ points: 194, justes: 194, questions: 195, temps_ms: 2_924_999.9999999995, date: 1_794_787_199_999, bareme: VERSION_BAREME });
     const records = new Map<string, RecordChrono>();
@@ -132,12 +133,13 @@ describe('fusion du profil (pure)', () => {
     const f = fusionner(PROFIL_ABSENT, { pseudo: 'Michel', records }, o);
     expect(f.tropGros).toBe(false);
     const n = f.doc!.records!.length;
-    expect(Object.keys(recordsDuDoc(f))).toHaveLength(132);
+    expect(Object.keys(recordsDuDoc(f))).toHaveLength(136);
     expect(n).toBeLessThan(RECORDS_MAX);
-    // Mesuré : 18 115 caractères, 55 % de la borne (environ 137 par record). Les sujets suivants (mers 2, quiz 4 :
-    // 72 épreuves au J2, Minute compris) y ajouteraient 12 records, environ 19 800 caractères au pire (60 %) : la marge tient.
-    expect(n).toBeLessThan(RECORDS_MAX * 0.65);
-    expect((n / 132) * 144).toBeLessThan(RECORDS_MAX * 0.7);
+    // Mesuré avec les mers (lot 3b) : 18 633 caractères, 57 % de la borne (environ 137 par record ; 18 115 avant, 55 %).
+    // Le quiz (4 épreuves, 72 au J2, Minute compris) y ajouterait 8 records, environ 19 730 caractères au pire (60 %) :
+    // la marge tient.
+    expect(n).toBeLessThan(RECORDS_MAX * 0.6);
+    expect((n / 136) * 144).toBeLessThan(RECORDS_MAX * 0.65);
   });
 
   it('au-delà de la borne des règles : rien n’est écrit, l’appareil reçoit quand même', () => {
