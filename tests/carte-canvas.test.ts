@@ -3,10 +3,11 @@ import { geoContains, geoPath } from 'd3-geo';
 import type { Polygon } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
-import { aCoupure, calque, calqueLeger, ILE_LEGERE_KM, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
+import { aCoupure, calque, calqueLeger, calquesMers, densifierCoutures, ILE_LEGERE_KM, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
 import { ancre, decalages, image, MARGE_PX, passeCoupure, preparer, TAILLE_EXACTE_PX, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
 import { contient, versLonLat } from '../src/map/geo';
+import { assemblerMers } from '../src/map/mers';
 import { SuiviPointeurs } from '../src/map/geste';
 import { calculerPastilles } from '../src/map/pastilles';
 import { noter, pick, type ContexteCarte } from '../src/map/pick';
@@ -826,4 +827,171 @@ describe('îles pendant un geste', () => {
     expect(im.sommets).toBeLessThan(30_000);
     expect(im.emis).toBeLessThan(12_000);
   });
+});
+
+describe('calque marin (lot 3a, étude J2, § 4.3 et § 4.5)', () => {
+  const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+  const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+  const mers = calquesMers(couche);
+  const ROTATIONS = [0, 17, 30, 60, 90, 120, 150, 163, 179, 180, -179, 210, 240, 270, 300, 330];
+  const polygones = (f: { geometry: Polygon | { type: 'MultiPolygon'; coordinates: Polygon['coordinates'][] } }): Polygon[] =>
+    (f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates).map((coordinates) => ({ type: 'Polygon', coordinates }));
+  const id = (i: number) => couche.mers[i]?.pays.id;
+
+  it('sommets du calque : ceux des formes, au repos (10 km) et en mouvement (50 km) ; sommetsVisibles les compte quand la base le trace', () => {
+    const somme = (fs: { geometry: Polygon | { type: 'MultiPolygon'; coordinates: Polygon['coordinates'][] } }[]) =>
+      fs.reduce((n, f) => n + polygones(f).reduce((m, p) => m + p.coordinates.reduce((a, r) => a + r.length, 0), 0), 0);
+    // Les coutures de l'antiméridien densifiées à 1° (densifierCoutures) : quelques centaines de sommets de plus.
+    expect(mers.complet.sommets).toBe(somme(couche.mers.map((e) => densifierCoutures(e.forme))));
+    expect(mers.complet.sommets - somme(couche.mers.map((e) => e.forme))).toBeLessThan(600);
+    expect(mers.leger.sommets).toBe(somme([...couche.leger.values()].map(densifierCoutures)));
+    expect(mers.leger.sommets).toBeLessThan(mers.complet.sommets * 0.6);
+    expect(mers.complet.zones).toEqual([]);
+    console.info(`calque marin : ${mers.complet.sommets} sommets au repos, ${mers.leger.sommets} en mouvement`);
+    const complet = calque(donnees);
+    const v = centrer([0, 0], 1);
+    const im = image(v, C, regionVisible(v, C, MARGE_PX));
+    // Au zoom 1, tout est visible : terres + mers.
+    expect(sommetsVisibles(im, complet, mers.complet)).toBe(sommetsVisibles(im, complet) + mers.complet.sommets);
+    expect(sommetsVisibles(im, complet, null)).toBe(sommetsVisibles(im, complet));
+    // Zoomé sur la Méditerranée : seules les mers visibles comptent.
+    const v2 = centrer([15, 38], 8);
+    const im2 = image(v2, C, regionVisible(v2, C, MARGE_PX));
+    const visibles = sommetsVisibles(im2, mers.complet);
+    expect(visibles).toBeGreaterThan(0);
+    expect(visibles).toBeLessThan(mers.complet.sommets);
+    expect(sommetsVisibles(im2, complet, mers.complet)).toBe(sommetsVisibles(im2, complet) + visibles);
+  });
+
+  it('le contour de l’Atlantique allumé : sans l’anneau des Sargasses ; les autres zones, leurs parties mêmes', () => {
+    const atl = couche.mers.findIndex((e) => e.pays.id === 'atlant');
+    const anneaux = (ps: { anneaux: unknown[] }[]) => ps.reduce((n, p) => n + p.anneaux.length, 0);
+    expect(anneaux(mers.contours[atl] ?? [])).toBe(anneaux(mers.complet.pays[atl] ?? []) - 1);
+    expect(anneaux(mers.contoursLegers[atl] ?? [])).toBe(anneaux(mers.leger.pays[atl] ?? []) - 1);
+    couche.mers.forEach((e, i) => {
+      if (i !== atl) expect(mers.contours[i], e.pays.id).toBe(mers.complet.pays[i]);
+    });
+  });
+
+  // Pacifique, Béring, Arctique et Austral coupés à ±180 ; l'Arctique fermé par
+  // le pôle ; l'Austral, bande de 360° sans pôle (le cas neuf) : ramené au bord
+  // de l'ovale dans chaque copie, il remplit ce que remplit geoPath de d3.
+  it('le tracé rapide des mers remplit l’écran comme geoPath de d3, à 16 rotations (Austral, Arctique, Pacifique, Béring), au repos et en mouvement', () => {
+    const tours = (segs: [number, number, number, number][], x: number, y: number) => {
+      let w = 0;
+      for (const [ax, ay, bx, by] of segs) {
+        if (ay <= y) {
+          if (by > y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) > 0) w++;
+        } else if (by <= y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) < 0) w--;
+      }
+      return w;
+    };
+    const distance = (segs: [number, number, number, number][], x: number, y: number) => {
+      let d = Infinity;
+      for (const [ax, ay, bx, by] of segs) {
+        const [dx, dy] = [bx - ax, by - ay];
+        const u = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+        d = Math.min(d, Math.hypot(ax + u * dx - x, ay + u * dy - y));
+      }
+      return d;
+    };
+    const coupees = ['pacif', 'bering', 'arctique', 'austral'];
+    for (const z of coupees) {
+      const i = couche.mers.findIndex((e) => e.pays.id === z);
+      expect(mers.complet.pays[i]?.some((p) => p.couture), z).toBe(true);
+    }
+    let compares = 0;
+    const vus = new Set<string>();
+    for (const r of ROTATIONS) {
+      for (const [k, lat, mouvement] of [[1, 0, false], [1, 0, true], [3, -68, false], [3, 75, true]] as const) {
+        const v = centrer([r, lat], k);
+        const im = image(v, C, regionVisible(v, C, MARGE_PX), mouvement);
+        const cq = mouvement ? mers.leger : mers.complet;
+        const formes = couche.mers.map((e) => (mouvement ? (couche.leger.get(e.pays.id) ?? e.forme) : e.forme));
+        const projEcran = projectionEcran(v, C);
+        for (const z of coupees) {
+          const i = couche.mers.findIndex((e) => e.pays.id === z);
+          const rapide = enregistreur(true);
+          const d3 = enregistreur(true);
+          const polys = polygones(formes[i] as never);
+          (cq.pays[i] ?? []).forEach((p, n) => {
+            if (!visible(im, p)) return;
+            tracerPartie(rapide, im, p);
+            rapide.closePath();
+            geoPath(projEcran, d3 as never)(polys[n] as Polygon);
+          });
+          if (!rapide.segments.length) continue;
+          vus.add(z);
+          for (let gx = 0; gx < 24; gx++) {
+            for (let gy = 0; gy < 45; gy++) {
+              const [x, y] = [(gx + 0.5) * (L / 24), (gy + 0.5) * (H / 45)];
+              if (!versLonLat(projectionDe(v.r, C), transfoDe(v, C), x, y)) continue;
+              compares++;
+              const a = tours(rapide.segments, x, y) !== 0;
+              const b = tours(d3.segments, x, y) !== 0;
+              if (a !== b && distance(d3.segments, x, y) > 1.5) throw new Error(`${z}, vue ${JSON.stringify(v)}${mouvement ? ' en mouvement' : ''} : (${x}, ${y}) ${a ? 'rempli' : 'vide'} au lieu de ${b ? 'rempli' : 'vide'}`);
+            }
+          }
+        }
+      }
+    }
+    expect([...vus].sort()).toEqual([...coupees].sort());
+    expect(compares).toBeGreaterThan(50_000);
+  }, 120_000);
+
+  it('toutes les zones, au zoom 1 et à 16 rotations : le tracé rapide remplit comme geoPath (Caraïbes, Méditerranée, golfes)', () => {
+    const distance = (segs: [number, number, number, number][], x: number, y: number) => {
+      let d = Infinity;
+      for (const [ax, ay, bx, by] of segs) {
+        const [dx, dy] = [bx - ax, by - ay];
+        const u = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+        d = Math.min(d, Math.hypot(ax + u * dx - x, ay + u * dy - y));
+      }
+      return d;
+    };
+    const tours = (segs: [number, number, number, number][], x: number, y: number) => {
+      let w = 0;
+      for (const [ax, ay, bx, by] of segs) {
+        if (ay <= y) {
+          if (by > y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) > 0) w++;
+        } else if (by <= y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) < 0) w--;
+      }
+      return w;
+    };
+    let ecarts = 0;
+    let compares = 0;
+    for (const r of ROTATIONS) {
+      const v = centrer([r, 0], 1);
+      const im = image(v, C, regionVisible(v, C, MARGE_PX));
+      const projEcran = projectionEcran(v, C);
+      // Le seau de chaque point de la grille : la zone dont le tracé le contient (la première), comparée à d3.
+      const rapides = mers.complet.pays.map((ps) => {
+        const rec = enregistreur(true);
+        for (const p of ps) if (visible(im, p)) (tracerPartie(rec, im, p), rec.closePath());
+        return rec.segments;
+      });
+      const d3s = couche.mers.map((e) => {
+        const rec = enregistreur(true);
+        for (const poly of polygones(e.forme as never)) geoPath(projEcran, rec as never)(poly);
+        return rec.segments;
+      });
+      for (let gx = 0; gx < 48; gx++) {
+        for (let gy = 0; gy < 90; gy++) {
+          const [x, y] = [(gx + 0.5) * (L / 48), (gy + 0.5) * (H / 90)];
+          if (!versLonLat(projectionDe(v.r, C), transfoDe(v, C), x, y)) continue;
+          compares++;
+          const a = rapides.findIndex((sg) => tours(sg, x, y) !== 0);
+          const b = d3s.findIndex((sg) => tours(sg, x, y) !== 0);
+          if (a === b) continue;
+          // Un point à moins de 1,5 px d'un bord de l'une ou l'autre zone (sommets sautés sous 0,5 px) : pas un écart.
+          const bord = Math.min(...[a, b].filter((i) => i >= 0).map((i) => distance(d3s[i] ?? [], x, y)));
+          if (bord <= 1.5) continue;
+          ecarts++;
+          if (ecarts < 3) console.info(`r = ${r} (${x}, ${y}) : ${id(a)} au lieu de ${id(b)}, à ${bord.toFixed(1)} px du bord`);
+        }
+      }
+    }
+    expect(compares).toBeGreaterThan(15_000);
+    expect(ecarts).toBe(0);
+  }, 120_000);
 });

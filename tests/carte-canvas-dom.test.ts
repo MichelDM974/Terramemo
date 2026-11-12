@@ -3,6 +3,7 @@ import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { aCoupure, calque, CarteCanvas, TRAIT_FAUX_PX } from '../src/map/carte-canvas';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
+import { assemblerMers } from '../src/map/mers';
 import { teintesDemo } from '../src/map/teintes';
 import { idsJouables } from '../src/terrains';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
@@ -35,6 +36,9 @@ const VARS: Record<string, string> = {
   '--mer': '#0e1a2b', '--terre': '#23252b', '--frontiere-fine': '#55575e', '--hachure': '#ecf1fe47',
   '--pastille': '#8e939d', '--bg': '#080809', '--text': '#eff0f3', '--accent': '#6b8afd', '--good': '#34c77b', '--danger': '#f0686b',
   '--memoire-0': '#854408', '--memoire-1': '#a56004', '--memoire-2': '#c37e00', '--memoire-3': '#df9f00', '--memoire-4': '#f8c20d',
+  // Sur l'eau (carte.css : var(--accent)…, que getComputedStyle résout) : d'autres valeurs ici, pour les distinguer.
+  '--mer-choisie': '#6b8afe', '--mer-juste': '#34c77c', '--mer-fausse': '#f0686c',
+  '--memoire-mer-0': '#854409', '--memoire-mer-1': '#a56005', '--memoire-mer-2': '#c37e01', '--memoire-mer-3': '#df9f01', '--memoire-mer-4': '#f8c20e',
 };
 
 /** Un chemin Path2D : ses sous-chemins (moveTo, lineTo, rect), assez pour compter ce qui est tracé. */
@@ -64,6 +68,8 @@ interface Trait {
 function fauxCtx() {
   const remplis: { chemin: FauxChemin | 'courant'; style: string }[] = [];
   const traits: Trait[] = [];
+  /** Remplissages et traits dans l'ordre, avec l'opération de composition du moment (les marques des mers). */
+  const ordre: { type: 'fill' | 'stroke'; chemin: FauxChemin | 'courant'; style: string; op: string }[] = [];
   let arc: [number, number, number] | null = null;
   const etat = { effacees: 0 };
   const ctx = {
@@ -73,9 +79,11 @@ function fauxCtx() {
     lineJoin: 'miter',
     setTransform: () => undefined,
     // Une nouvelle image : seule la dernière est gardée (un vol en fait cent).
+    globalCompositeOperation: 'source-over',
     clearRect: () => {
       remplis.length = 0;
       traits.length = 0;
+      ordre.length = 0;
       etat.effacees++;
     },
     save: () => undefined,
@@ -88,13 +96,16 @@ function fauxCtx() {
     // Le motif des hachures : un objet (fillStyle non textuel), pour voir où il est peint.
     createPattern: () => ({ motif: true, setTransform: () => undefined }),
     fill(chemin?: FauxChemin) {
-      remplis.push({ chemin: chemin ?? 'courant', style: typeof ctx.fillStyle === 'string' ? ctx.fillStyle : 'motif' });
+      const style = typeof ctx.fillStyle === 'string' ? ctx.fillStyle : 'motif';
+      remplis.push({ chemin: chemin ?? 'courant', style });
+      ordre.push({ type: 'fill', chemin: chemin ?? 'courant', style, op: ctx.globalCompositeOperation });
     },
     stroke(chemin?: FauxChemin) {
       traits.push({ chemin: chemin ?? 'courant', style: ctx.strokeStyle, largeur: ctx.lineWidth, joint: ctx.lineJoin, arc: chemin ? null : arc });
+      ordre.push({ type: 'stroke', chemin: chemin ?? 'courant', style: ctx.strokeStyle, op: ctx.globalCompositeOperation });
     },
   };
-  return { ctx, remplis, traits, etat };
+  return { ctx, remplis, traits, etat, ordre };
 }
 
 let images: Map<number, FrameRequestCallback>;
@@ -727,5 +738,175 @@ describe('CarteCanvas : frontières épaisses à l’arrêt, d’un pixel physiq
     carte();
     image(16);
     expect(traits()).toEqual(new Set([`${1 / DPR} miter`]));
+  });
+});
+
+describe('CarteCanvas : océans et mers (lot 3a, étude J2, § 4.3)', () => {
+  const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+  const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+  /** Une carte sur des données à elle : prendreMers remplit donnees.mers. */
+  const carteMers = () => carte({ donnees: { ...donnees, mers: [] } });
+  const styles = (f: ReturnType<typeof fauxCtx>) => f.remplis.map((r) => r.style);
+  const MEMOIRE_MERS = [0, 1, 2, 3, 4].map((s) => VARS[`--memoire-mer-${s}`] as string);
+
+  /** Le point (x, y) est-il dans le chemin (règle non nulle, chaque sous-chemin refermé) ? */
+  const dedans = (ch: FauxChemin | 'courant' | undefined, [x, y]: [number, number]): boolean => {
+    if (!ch || ch === 'courant') return false;
+    let w = 0;
+    let debut: [number, number] | null = null;
+    let der: [number, number] = [0, 0];
+    const seg = (a: [number, number], b: [number, number]) => {
+      if (a[1] <= y) {
+        if (b[1] > y && (b[0] - a[0]) * (y - a[1]) - (x - a[0]) * (b[1] - a[1]) > 0) w++;
+      } else if (b[1] <= y && (b[0] - a[0]) * (y - a[1]) - (x - a[0]) * (b[1] - a[1]) < 0) w--;
+    };
+    for (const o of ch.ops) {
+      if (o[0] === 'R') continue;
+      if (o[0] === 'M') {
+        if (debut) seg(der, debut);
+        debut = der = [o[1], o[2]];
+      } else {
+        seg(der, [o[1], o[2]]);
+        der = [o[1], o[2]];
+      }
+    }
+    if (debut) seg(der, debut);
+    return w !== 0;
+  };
+
+  it('le calque marin n’est tracé par la base que si une teinte de mer le demande, entre l’ovale et les terres', () => {
+    const c = carteMers();
+    const sans = styles(ctx2d);
+    c.prendreMers(couche);
+    image(16);
+    expect(styles(ctx2d)).toEqual(sans);
+    c.teinter(new Map([['FRA', 1]]));
+    image(32);
+    expect(styles(ctx2d).filter((x) => MEMOIRE_MERS.includes(x))).toEqual([]);
+    const sommetsPays = c.dernier?.sommets ?? 0;
+    c.teinter(new Map([['atlant', 2], ['medit', 4], ['FRA', 1]]));
+    image(48);
+    const st = styles(ctx2d);
+    expect(st[0]).toBe(VARS['--mer']);
+    const iMer = st.indexOf(MEMOIRE_MERS[2] as string);
+    expect(iMer).toBeGreaterThan(0);
+    expect(st).toContain(MEMOIRE_MERS[4]);
+    expect(iMer).toBeLessThan(st.indexOf(VARS['--terre'] as string));
+    // Un Path2D par seau : deux remplissages de mer.
+    expect(st.filter((x) => MEMOIRE_MERS.includes(x))).toHaveLength(2);
+    expect(c.nbTeintes).toBe(3);
+    // Les sommets du calque comptent dans le dessin (parties tracées par la base).
+    expect(c.dernier?.sommets ?? 0).toBeGreaterThan(sommetsPays);
+    // Une marque de mer seule ne le fait pas tracer par la base.
+    c.teinter(null);
+    c.marquer('atlant', 'choisi');
+    image(64);
+    expect(styles(ctx2d).filter((x) => MEMOIRE_MERS.includes(x) || x === VARS['--mer-choisie'])).toEqual([]);
+    expect(styles(ctxDessus)).toContain(VARS['--mer-choisie']);
+  });
+
+  it('les teintes demandées avant la couche : ses zones écartées alors, teintées à son arrivée', () => {
+    const c = carteMers();
+    c.teinter(new Map([['atlant', 0], ['FRA', 3]]));
+    image(16);
+    expect(c.nbTeintes).toBe(1);
+    c.prendreMers(couche);
+    image(32);
+    expect(c.nbTeintes).toBe(2);
+    expect(styles(ctx2d)).toContain(MEMOIRE_MERS[0]);
+  });
+
+  it('ordre de la couche du dessus : la mer, son effacement sous les terres, puis les marques des pays (un pays marqué avec une mer reste peint)', () => {
+    const c = carteMers();
+    c.prendreMers(couche);
+    c.marquer('atlant', 'juste');
+    c.marquer('ESP', 'faux');
+    image(16);
+    const o = ctxDessus.ordre;
+    const iMer = o.findIndex((x) => x.type === 'fill' && x.style === VARS['--mer-juste'] && x.op === 'source-over');
+    const iEff = o.findIndex((x) => x.op === 'destination-out');
+    const iPays = o.findIndex((x) => x.type === 'fill' && x.style === VARS['--danger']);
+    expect(iMer).toBeGreaterThanOrEqual(0);
+    expect(iEff).toBeGreaterThan(iMer);
+    expect(iPays).toBeGreaterThan(iEff);
+    expect(o[iPays]?.op).toBe('source-over');
+    // Rien n'efface après les marques des pays ; l'Espagne est dans son remplissage.
+    expect(o.slice(iPays).filter((x) => x.op !== 'source-over')).toEqual([]);
+    expect(dedans(o[iPays]?.chemin, c.ecran('ESP') as [number, number])).toBe(true);
+    // Et la mer n'est jamais marquée sur la carte de base.
+    expect(styles(ctx2d)).not.toContain(VARS['--mer-juste']);
+  });
+
+  it('marques effacées sous les terres de leur emprise : la Méditerranée allumée, effacée sur l’Italie et la Grèce, pas au Brésil', () => {
+    const c = carteMers();
+    c.prendreMers(couche);
+    c.marquer('medit', 'choisi');
+    image(16);
+    const o = ctxDessus.ordre;
+    const marque = o.find((x) => x.type === 'fill' && x.style === VARS['--mer-choisie']);
+    const efface = o.find((x) => x.type === 'fill' && x.op === 'destination-out');
+    const medit = c.ecran('medit') as [number, number];
+    expect(dedans(marque?.chemin, medit)).toBe(true);
+    expect(dedans(efface?.chemin, medit)).toBe(false);
+    for (const id of ['ITA', 'GRC', 'TUN']) expect(dedans(efface?.chemin, c.ecran(id) as [number, number]), id).toBe(true);
+    expect(dedans(efface?.chemin, c.ecran('BRA') as [number, number])).toBe(false);
+    // La côte entière reste visible : l'effacement est aussi un trait du même chemin.
+    expect(o.some((x) => x.type === 'stroke' && x.op === 'destination-out' && x.chemin === efface?.chemin)).toBe(true);
+    // Après l'effacement, on revient à la composition normale.
+    expect((ctxDessus.ctx as unknown as { globalCompositeOperation: string }).globalCompositeOperation).toBe('source-over');
+  });
+
+  it('un océan allumé allume la mer qu’il enclave sans côte (les Sargasses), jamais une mer côtière ; les Sargasses seules n’allument qu’elles', () => {
+    const c = carteMers();
+    c.prendreMers(couche);
+    c.marquer('atlant', 'choisi');
+    image(16);
+    let marque = ctxDessus.ordre.find((x) => x.type === 'fill' && x.style === VARS['--mer-choisie']);
+    expect(dedans(marque?.chemin, c.ecran('sargasse') as [number, number])).toBe(true);
+    expect(dedans(marque?.chemin, c.ecran('atlant') as [number, number])).toBe(true);
+    expect(dedans(marque?.chemin, c.ecran('caraibes') as [number, number])).toBe(false);
+    c.effacerMarques();
+    c.marquer('sargasse', 'choisi');
+    image(32);
+    marque = ctxDessus.ordre.find((x) => x.type === 'fill' && x.style === VARS['--mer-choisie']);
+    expect(dedans(marque?.chemin, c.ecran('sargasse') as [number, number])).toBe(true);
+    expect(dedans(marque?.chemin, c.ecran('atlant') as [number, number])).toBe(false);
+  });
+
+  it('l’océan faux : couleur fausse sur l’eau, contour du texte de 3 px autour de l’union, sans l’anneau des Sargasses, avant l’effacement', () => {
+    const c = carteMers();
+    c.prendreMers(couche);
+    c.marquer('atlant', 'faux');
+    image(16);
+    const o = ctxDessus.ordre;
+    expect(o.some((x) => x.type === 'fill' && x.style === VARS['--mer-fausse'])).toBe(true);
+    const iContour = o.findIndex((x) => x.type === 'stroke' && x.style === VARS['--text']);
+    expect(iContour).toBeGreaterThanOrEqual(0);
+    expect(iContour).toBeLessThan(o.findIndex((x) => x.op === 'destination-out'));
+    const t = ctxDessus.traits.find((x) => x.style === VARS['--text']);
+    expect(t?.largeur).toBe(TRAIT_FAUX_PX);
+    // Aucun sommet du contour au cœur des Sargasses (le bord commun avec l'Atlantique n'est pas tracé).
+    const sar = couche.mers.find((e) => e.pays.id === 'sargasse')!.pays.bbox;
+    const proj = c.contexte().proj;
+    const [x0, y0] = proj([sar[0] + 2, sar[3] - 2]) as [number, number];
+    const [x1, y1] = proj([sar[2] - 2, sar[1] + 2]) as [number, number];
+    const contour = o[iContour]?.chemin as FauxChemin;
+    const dans = contour.ops.filter((op) => op[0] !== 'R' && op[1] > Math.min(x0, x1) && op[1] < Math.max(x0, x1) && op[2] > Math.min(y0, y1) && op[2] < Math.max(y0, y1));
+    expect(contour.ops.length).toBeGreaterThan(100);
+    expect(dans).toEqual([]);
+  });
+
+  it('ecran et zoomerSur trouvent une mer par l’index commun, une fois la couche posée', () => {
+    const c = carteMers();
+    expect(c.ecran('medit')).toBeNull();
+    c.prendreMers(couche);
+    expect(c.ecran('medit')).not.toBeNull();
+    c.zoomerSur('medit');
+    // La mer au milieu de la largeur ; en hauteur, la borne de l'ovale peut l'écarter du centre à ce petit zoom.
+    const p = c.ecran('medit') as [number, number];
+    expect(c.transfo.k).toBeGreaterThan(1);
+    expect(Math.abs(p[0] - L / 2)).toBeLessThan(1e-6);
+    expect(p[1]).toBeGreaterThan(0);
+    expect(p[1]).toBeLessThan(H);
   });
 });

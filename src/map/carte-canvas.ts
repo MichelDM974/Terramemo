@@ -31,12 +31,14 @@ import type { DonneesCarte } from './donnees';
 import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
 import { anneauPrincipal, RAYON_TERRE_KM, versEcran, type Emprise } from './geo';
 import { SuiviPointeurs } from './geste';
+import { indexLieux, type LieuIndexe } from './lieux';
+import { formeContour, zonesAllumees, type CoucheMers } from './mers';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { acceptesDe } from './acceptes';
 import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from './pick';
 import { ROTATIONS } from './projection';
-import { seau, VARIABLES_MEMOIRE, type Teintes } from './teintes';
-import type { Forme, Transfo } from './types';
+import { seau, VARIABLES_MEMOIRE, VARIABLES_MEMOIRE_MERS, type Teintes } from './teintes';
+import type { Forme, Mer, Transfo } from './types';
 import {
   bornerK,
   bornerY,
@@ -57,6 +59,7 @@ import {
   type VueGlobe,
 } from './vue';
 import type { GeoProjection } from 'd3-geo';
+import type { Position } from 'geojson';
 
 /** Compteurs d'un dessin (sans sa durée, mesurée par CarteCanvas). */
 export interface StatsDessin {
@@ -118,6 +121,8 @@ export interface Peintre {
   dessiner(e: EtatImage): StatsDessin;
   /** Le dessin du mouvement diffère du repos (carte allégée) : la fin du geste redessine. */
   readonly allegeEnMouvement: boolean;
+  /** La couche marine posée sur la carte (CarteCanvas.prendreMers, ou à l'adoption) : son maillage, à part de celui des terres. */
+  prendreMers?(c: CoucheMers): void;
   detruire(): void;
 }
 
@@ -296,11 +301,89 @@ export function aCoupure(p: Partie, r: number): boolean {
   return p.couture || passeCoupure(p, r) || (q !== p && (q.couture || passeCoupure(q, r)));
 }
 
-/** Sommets des parties visibles : le coût du tracé de ce calque. */
-export function sommetsVisibles(im: ImageTrace, cq: Calque): number {
+/**
+ * Sommets des parties visibles : le coût du tracé de ce calque, plus celui du
+ * calque marin quand la couche de base le trace (mers : une teinte le demande ;
+ * null sinon). La bascule vers la carte allégée (BUDGET_SOMMETS) compte ainsi
+ * la mer avec les terres (étude J2, § 4.3).
+ */
+export function sommetsVisibles(im: ImageTrace, cq: Calque, mers: Calque | null = null): number {
   let n = 0;
   for (const ps of cq.pays) for (const p of ps) if (visible(im, p)) n += p.points;
-  return n;
+  return mers ? n + sommetsVisibles(im, mers) : n;
+}
+
+/**
+ * Le calque marin (lot 3a) : les parties de chaque zone (dans l'ordre de
+ * CoucheMers.mers, dans Calque.pays ; Calque.zones vide), au repos (10 km,
+ * mers.topo.json) et en mouvement (50 km, mers-leger.topo.json) ; le contour
+ * de chaque zone allumée (formeContour : l'Atlantique sans l'anneau des
+ * Sargasses), dans les deux. Préparés comme les pays (preparer).
+ */
+export interface CalquesMers {
+  zones: Mer[];
+  /** Index de chaque zone dans zones (et dans les calques), par id. */
+  indices: Map<string, number>;
+  complet: Calque;
+  leger: Calque;
+  contours: Partie[][];
+  contoursLegers: Partie[][];
+}
+
+/**
+ * Une forme dont les coutures de l'antiméridien reçoivent un sommet par degré
+ * de latitude (PAS_COUTURE_DEG), restant à ±180 (estCouture les reconnaît
+ * toujours). Le build des mers densifie tout sauf elles (étude J2, § 2.3) ; or
+ * le méridien de 180° est courbe dans Equal Earth, et le tracé relie deux
+ * sommets par une droite : à λ0 = 0, où la couture est le bord de l'ovale, la
+ * corde de 43° de la couture du Pacifique Sud passait à une dizaine de pixels
+ * à l'intérieur du bord, laissant un croissant de mer non teinté (le tracé
+ * rapide comparé à geoPath, tests/carte-canvas.test.ts). Une couture des
+ * pays (Russie, Fidji, Antarctique) est courte.
+ */
+export function densifierCoutures(forme: Forme): Forme {
+  const g = forme.geometry;
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  let change = false;
+  const dense = polys.map((poly) =>
+    poly.map((anneau) => {
+      const res: Position[] = [];
+      anneau.forEach((q, i) => {
+        const p = anneau[i - 1];
+        const [lp, pp, lq, pq] = [p?.[0] ?? 0, p?.[1] ?? 0, q[0] ?? 0, q[1] ?? 0];
+        const n = p && Math.abs(lp) >= 180 && lp === lq ? Math.ceil(Math.abs(pq - pp) / PAS_COUTURE_DEG) : 0;
+        for (let j = 1; j < n; j++) res.push([lp, pp + ((pq - pp) * j) / n]);
+        if (n > 1) change = true;
+        res.push(q);
+      });
+      return res;
+    }),
+  );
+  if (!change) return forme;
+  const geometry = g.type === 'Polygon' ? { type: 'Polygon' as const, coordinates: dense[0] ?? [] } : { type: 'MultiPolygon' as const, coordinates: dense };
+  return { ...forme, geometry };
+}
+const PAS_COUTURE_DEG = 1;
+
+export function calquesMers(c: CoucheMers): CalquesMers {
+  const formes = c.mers.map((e) => ({ pays: e.pays, forme: densifierCoutures(e.forme) }));
+  const legeres = c.mers.map((e) => ({ pays: e.pays, forme: densifierCoutures(c.leger.get(e.pays.id) ?? e.forme) }));
+  const complet = compter(formes.map((e) => preparer(e.forme)), []);
+  const leger = compter(legeres.map((e) => preparer(e.forme)), []);
+  // Le contour d'une zone est sa forme, sauf pour un océan qui enclave une mer : ses parties déjà préparées, sinon.
+  const contours = (es: typeof legeres, cq: Calque) =>
+    es.map((e, i) => {
+      const f = formeContour(e, es);
+      return f === e.forme ? (cq.pays[i] ?? []) : preparer(f);
+    });
+  return {
+    zones: c.mers.map((e) => e.pays),
+    indices: new Map(c.mers.map((e, i) => [e.pays.id, i])),
+    complet,
+    leger,
+    contours: contours(formes, complet),
+    contoursLegers: contours(legeres, leger),
+  };
 }
 
 interface Couleurs {
@@ -315,6 +398,9 @@ interface Couleurs {
   marques: Record<string, string>;
   /** Seaux de la carte de la mémoire (--memoire-0 à 4). */
   memoire: string[];
+  /** Les marques et les seaux sur l'eau (--mer-choisie…, --memoire-mer-0 à 4). */
+  marquesMers: Record<string, string>;
+  memoireMers: string[];
   /** Épaisseur des frontières à l'arrêt (px CSS, --frontiere-repos) ; 0 : toujours d'un pixel physique. */
   repos: number;
 }
@@ -333,6 +419,8 @@ function lireCouleurs(): Couleurs {
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
     memoire: VARIABLES_MEMOIRE.map(v),
+    marquesMers: { choisi: v('--mer-choisie'), juste: v('--mer-juste'), faux: v('--mer-fausse') },
+    memoireMers: VARIABLES_MEMOIRE_MERS.map(v),
     repos: parseFloat(v('--frontiere-repos')) || 0,
   };
 }
@@ -393,6 +481,14 @@ export class CarteCanvas implements CarteAffichee {
   private teintes: Teintes | null = null;
   private seaux: Int8Array | null = null;
   private versionTeintes = 0;
+  /** Les teintes du dernier teinter(), telles quelles : reprises par prendreMers (les ids des mers y étaient écartés avant la couche). */
+  private teintesDemandees: Teintes | null = null;
+  /** Couche marine (prendreMers) et ses calques ; le seau de chaque zone marine teintée (-1 : aucun), null sans teinte de mer : le calque marin n'est pas tracé. */
+  private couche: CoucheMers | null = null;
+  private mers: CalquesMers | null = null;
+  private seauxMers: Int8Array | null = null;
+  /** Index commun des pays et des mers (lieux.ts) : ecran, vise. */
+  private lieux: Map<string, LieuIndexe>;
   private image = 0;
   /** Un mouvement (geste ou vol) est en cours : carte allégée possible. */
   private enMouvement = false;
@@ -439,6 +535,7 @@ export class CarteCanvas implements CarteAffichee {
       if (this.ctxDessus) this.dessus = dessus;
     }
     this.indices = new Map(o.donnees.entites.map((e, i) => [e.pays.id, i]));
+    this.lieux = indexLieux(o.donnees);
     this.hote.classList.add('carte');
     this.hote.dataset.rendu = o.rendu;
     this.hote.dataset.projection = o.projection;
@@ -551,6 +648,7 @@ export class CarteCanvas implements CarteAffichee {
       peintre.dimensionner(this.c.l, this.c.h, this.dpr);
     };
     dimensionner();
+    if (this.couche) peintre.prendreMers?.(this.couche);
     peintre.dessiner(this.etatImage());
     return new Promise((ok) =>
       requestAnimationFrame(() => {
@@ -645,8 +743,8 @@ export class CarteCanvas implements CarteAffichee {
     const t = this.transfo;
     const p = this.pastilles.find((pa) => pa.id === id);
     if (p) return versEcran(t, p.bx, p.by);
-    const e = this.o.donnees.entites.find((en) => en.pays.id === id);
-    const b = e && this.proj(e.pays.point);
+    const li = this.lieux.get(id);
+    const b = li && this.proj(li.lieu.point);
     return b ? versEcran(t, b[0], b[1]) : null;
   }
 
@@ -732,10 +830,10 @@ export class CarteCanvas implements CarteAffichee {
    * plus en SVG.
    */
   private vise(id: string, kMax: number, hVisible = this.c.h, entier = false): VueGlobe | null {
-    const e = this.o.donnees.entites.find((en) => en.pays.id === id);
-    if (!e) return null;
-    const anneau = entier ? anneauPrincipal(e.forme, e.pays.point) : null;
-    return viserVue(this.c, e.pays.point, tailleEcranPx(e.pays, this.c.s, 1), kMax, hVisible, anneau, entier);
+    const li = this.lieux.get(id);
+    if (!li) return null;
+    const anneau = entier ? anneauPrincipal(li.forme, li.lieu.point) : null;
+    return viserVue(this.c, li.lieu.point, tailleEcranPx(li.lieu, this.c.s, 1), kMax, hVisible, anneau, entier);
   }
 
   /**
@@ -779,21 +877,43 @@ export class CarteCanvas implements CarteAffichee {
     return this.anneaux.length;
   }
 
-  /** Les mêmes teintes qu'avant : rien à redessiner (la carte entière se retrace sinon). */
+  /**
+   * Les mêmes teintes qu'avant : rien à redessiner (la carte entière se retrace
+   * sinon). Une zone marine teintée fait tracer le calque marin par la couche
+   * de base (seauxMers) ; sans elle, une partie de pays ne paie rien des mers.
+   */
   teinter(t: Teintes | null): void {
+    this.teintesDemandees = t;
+    const mers = this.mers;
     const valides = new Map<string, number>();
     for (const [id, s] of t ?? []) {
       const n = seau(s);
-      if (n !== null && this.indices.has(id)) valides.set(id, n);
+      if (n !== null && (this.indices.has(id) || mers?.indices.has(id))) valides.set(id, n);
     }
     const avant = this.teintes;
     if ((avant?.size ?? 0) === valides.size && [...valides].every(([id, n]) => avant?.get(id) === n)) return;
-    if (valides.size) {
-      this.teintes = valides;
-      this.seaux = new Int8Array(this.o.donnees.entites.length).fill(-1);
-      for (const [id, n] of valides) this.seaux[this.indices.get(id) as number] = n;
-    } else [this.teintes, this.seaux] = [null, null];
+    let seaux: Int8Array | null = null;
+    let seauxMers: Int8Array | null = null;
+    for (const [id, n] of valides) {
+      const i = this.indices.get(id);
+      if (i !== undefined) (seaux ??= new Int8Array(this.o.donnees.entites.length).fill(-1))[i] = n;
+      else if (mers) (seauxMers ??= new Int8Array(mers.zones.length).fill(-1))[mers.indices.get(id) as number] = n;
+    }
+    [this.teintes, this.seaux, this.seauxMers] = [valides.size ? valides : null, seaux, seauxMers];
     this.versionTeintes++;
+    this.demander();
+  }
+
+  prendreMers(c: CoucheMers): void {
+    if (this.couche) return;
+    if (!this.o.donnees.mers.length) this.o.donnees.mers = c.mers;
+    this.couche = c;
+    this.mers = calquesMers(c);
+    this.lieux = indexLieux({ entites: this.o.donnees.entites, mers: c.mers });
+    this.peintreActif?.prendreMers?.(c);
+    // Les teintes déjà demandées : leurs zones marines, écartées sans la couche, comptent maintenant.
+    this.teinter(this.teintesDemandees);
+    this.signature = '';
     this.demander();
   }
 
@@ -1061,12 +1181,16 @@ export class CarteCanvas implements CarteAffichee {
     const t0 = performance.now();
     const { c, v } = this;
     const im = image(v, c, regionVisible(v, c, MARGE_PX), this.enMouvement);
-    const leger = this.enMouvement && this.leger !== null && sommetsVisibles(im, this.complet) > BUDGET_SOMMETS;
+    // Le calque marin tracé par la couche de base : une teinte de mer le demande.
+    const mersTracees = this.seauxMers ? this.mers : null;
+    const leger = this.enMouvement && this.leger !== null && sommetsVisibles(im, this.complet, mersTracees?.complet) > BUDGET_SOMMETS;
     const cq = leger && this.leger ? this.leger : this.complet;
+    // Les mers suivent la bascule des terres : 50 km avec l'allégée, 10 km sinon.
+    const cm = this.mers ? (leger ? this.mers.leger : this.mers.complet) : null;
     // En mouvement, la carte est tracée plus grossièrement (dessin.ts) : la fin d'un geste la retrace.
     const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.dpr} ${leger ? 'leger' : 'complet'} ${im.mouvement} t${this.versionTeintes}`;
     const carte = signature !== this.signature || !this.ctxDessus;
-    if (carte) this.dessinerCarte(ctx, im, cq);
+    if (carte) this.dessinerCarte(ctx, im, cq, mersTracees && cm);
     this.signature = signature;
     const stats = { parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies, exactes: im.exactes, minuscules: im.minuscules };
     const t1 = performance.now();
@@ -1076,7 +1200,7 @@ export class CarteCanvas implements CarteAffichee {
       this.ctxDessus.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       this.ctxDessus.clearRect(0, 0, c.l, c.h);
     }
-    this.dessinerMarques(dessus, im, cq);
+    this.dessinerMarques(dessus, im, cq, cm);
     this.dessinerPastilles(dessus);
     const ms = performance.now() - t0;
     if (!carte && this.dernier) {
@@ -1091,8 +1215,12 @@ export class CarteCanvas implements CarteAffichee {
   /** Durée du tracé (script, sans le dessin) du dernier dessin de la carte. */
   private traceCarte_ms = 0;
 
-  /** La carte : mer, terres, hachures et frontières, sans marques ni pastilles (couche du dessus). */
-  private dessinerCarte(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque): void {
+  /**
+   * La carte : mer, zones marines teintées (cm : le calque marin, null quand
+   * aucune teinte ne le demande), terres, hachures et frontières, sans marques
+   * ni pastilles (couche du dessus).
+   */
+  private dessinerCarte(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque, cm: Calque | null): void {
     const t0 = performance.now();
     const { c, v } = this;
     const coul = this.couleurs;
@@ -1103,6 +1231,7 @@ export class CarteCanvas implements CarteAffichee {
     tracerOvale(ovale, im);
     ctx.fillStyle = coul.mer;
     ctx.fill(ovale);
+    if (cm && this.seauxMers) this.peindreMers(ctx, im, cm, this.seauxMers);
 
     // Terres : un chemin pour tout ce qui n'a pas de couture (rempli puis tracé),
     // les coutures à part (remplies, tracées sans le côté qui suit l'antiméridien),
@@ -1143,6 +1272,24 @@ export class CarteCanvas implements CarteAffichee {
     }
     this.peindreHachures(ctx, hachures);
     this.tracerFrontieres(ctx, terres, avecCoutures ? couturesContour : null, im.mouvement);
+  }
+
+  /**
+   * Le calque marin sur la couche de base, entre l'ovale et les terres : un
+   * Path2D par seau, rempli, sans contour ni frontière entre mers (D45 b) ;
+   * une zone sans teinte n'est pas tracée (l'ovale montre la mer).
+   */
+  private peindreMers(ctx: CanvasRenderingContext2D, im: ImageTrace, cm: Calque, seaux: Int8Array): void {
+    const chemins: Path2D[] = [];
+    parcourir(im, cm.pays, undefined, (p, i) => {
+      const s = seaux[i] as number;
+      if (s >= 0) tracerPartie((chemins[s] ??= new Path2D()), im, p);
+    });
+    // forEach saute les seaux sans zone à l'écran.
+    chemins.forEach((chemin, s) => {
+      ctx.fillStyle = this.couleurs.memoireMers[s] ?? this.couleurs.mer;
+      ctx.fill(chemin);
+    });
   }
 
   /**
@@ -1203,10 +1350,13 @@ export class CarteCanvas implements CarteAffichee {
    * dessus) et ses frontières, puis le contour de la zone fausse, entier,
    * par-dessus (en SVG, sa moitié extérieure peut passer sous une voisine).
    * Au repos comme pendant un geste, les parties sont celles de la carte
-   * dessinée (allégée ou complète).
+   * dessinée (allégée ou complète). Les marques des mers d'abord (cm : le
+   * calque marin de cette image), effacées sous les terres, puis celles des
+   * pays (dessinerMarquesMers).
    */
-  private dessinerMarques(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque): void {
+  private dessinerMarques(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque, cm: Calque | null): void {
     if (!this.marques.size) return;
+    if (cm) this.dessinerMarquesMers(ctx, im, cq, cm);
     const coul = this.couleurs;
     const { v } = this;
     const parClasse = new Map<string, Path2D>();
@@ -1267,6 +1417,76 @@ export class CarteCanvas implements CarteAffichee {
       ctx.lineJoin = 'round';
       ctx.stroke(contourFaux);
     }
+  }
+
+  /**
+   * Couche du dessus, marques des mers (étude J2, § 4.3), dans cet ordre :
+   * chaque zone marquée (et ce qu'elle allume : zonesAllumees) de la couleur
+   * de sa marque sur l'eau, et le contour de la zone fausse ; puis leur
+   * effacement sous les terres de leur emprise (destination-out : les terres
+   * de la carte, leurs frontières et leurs hachures redeviennent visibles,
+   * la côte entière) ; les marques des pays viennent ensuite. Dans l'autre
+   * ordre, l'effacement retirerait une marque de pays déjà peinte. La mer
+   * n'est pas marquée sur la carte de base : chaque toucher la redessinerait
+   * entière.
+   */
+  private dessinerMarquesMers(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque, cm: Calque): void {
+    const mers = this.mers;
+    if (!mers) return;
+    const coul = this.couleurs;
+    const { v } = this;
+    const contours = cm === mers.leger ? mers.contoursLegers : mers.contours;
+    const parClasse = new Map<string, Path2D>();
+    let contourFaux: Path2D | null = null;
+    let [o, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
+    const montree = (p: Partie) => visible(im, p) && !(im.mouvement && (im.K * p.taille < TAILLE_MIN_PX || im.K * (p.source ?? p).ecart < SEUIL_PX));
+    for (const [id, classes] of this.marques) {
+      const j = mers.indices.get(id);
+      if (j === undefined) continue;
+      for (const z of zonesAllumees(id, mers.zones)) {
+        for (const p of cm.pays[mers.indices.get(z) as number] ?? []) {
+          if (!montree(p)) continue;
+          for (const cl of classes) {
+            if (!coul.marquesMers[cl]) continue;
+            let chemin = parClasse.get(cl);
+            if (!chemin) parClasse.set(cl, (chemin = new Path2D()));
+            tracerPartie(chemin, im, p);
+          }
+          [o, s, e, n] = [Math.min(o, p.o), Math.min(s, p.s), Math.max(e, p.e), Math.max(n, p.n)];
+        }
+      }
+      // Le contour de l'union allumée (l'Atlantique et les Sargasses : un seul bord).
+      if (classes.has('faux')) for (const p of contours[j] ?? []) if (montree(p)) tracerPartie((contourFaux ??= new Path2D()), im, p, aCoupure(p, v.r));
+    }
+    if (o > e) return;
+    for (const [cl, chemin] of parClasse) {
+      ctx.fillStyle = coul.marquesMers[cl] as string;
+      ctx.fill(chemin);
+    }
+    if (contourFaux) {
+      ctx.strokeStyle = coul.texte;
+      ctx.lineWidth = TRAIT_FAUX_PX;
+      ctx.lineJoin = 'round';
+      ctx.stroke(contourFaux);
+    }
+    // Effacement sous les terres de l'emprise : remplies, et bordées de la largeur des frontières (la côte entière reste visible).
+    const terres = new Path2D();
+    let avecTerres = false;
+    parcourir(im, cq.pays, cq.groupes?.pays, (p) => {
+      if (p.o > e || p.e < o || p.s > n || p.n < s) return;
+      avecTerres = true;
+      tracerPartie(terres, im, p);
+    });
+    if (!avecTerres) return;
+    const epais = !im.mouvement && coul.repos * this.dpr > 1;
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#000';
+    ctx.fill(terres);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = epais ? coul.repos : 1 / this.dpr;
+    ctx.lineJoin = epais ? 'round' : 'miter';
+    ctx.stroke(terres);
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   /** Une image dessinée par le peintre ; sa durée est le script de l'image (mesures). */

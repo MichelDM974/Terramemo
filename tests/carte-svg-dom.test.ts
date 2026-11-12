@@ -3,6 +3,7 @@ import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Carte } from '../src/map/carte';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
+import { assemblerMers } from '../src/map/mers';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
@@ -367,5 +368,93 @@ describe('Carte (SVG) : boutons de zoom, un cran et toute la carte (#23)', () =>
     expect(c.contexteFinal().t).toEqual({ k: 1, x: 0, y: 0 });
     vi.advanceTimersByTime(1000);
     expect(c.transfo).toEqual({ k: 1, x: 0, y: 0 });
+  });
+});
+
+describe('Carte SVG : océans et mers (lot 3a, étude J2, § 4.3)', () => {
+  const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+  const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+  const tous = (e: FauxElement): FauxElement[] => [e, ...e.enfants.flatMap(tous)];
+  const classes = (e: FauxElement | undefined) => (e?.className ?? '').split(' ').filter(Boolean);
+  const mer = (hote: FauxElement, id: string) => tous(hote).find((e) => classes(e).includes('mer') && e.getAttribute('data-id') === id);
+  const couche_ = (hote: FauxElement, c: string) => tous(hote).find((e) => classes(e).includes(c)) as FauxElement;
+  function carteMers(): { c: Carte; hote: FauxElement } {
+    const hote = new FauxElement();
+    const c = new Carte({ hote: hote as unknown as HTMLElement, donnees: { ...donnees, mers: [] }, projection: 'monde', rendu: 'g' });
+    c.rendre();
+    return { c, hote };
+  }
+
+  it('g.couche-mers entre path.sphere et g.couche-pays, un path.mer par zone ; rien avant la couche', () => {
+    const { c, hote } = carteMers();
+    expect(tous(hote).filter((e) => classes(e).includes('mer'))).toEqual([]);
+    expect(c.ecran('atlant')).toBeNull();
+    c.prendreMers(couche);
+    const elements = tous(hote);
+    const ordre = (e: FauxElement | undefined) => elements.indexOf(e as FauxElement);
+    const mers = couche_(hote, 'couche-mers');
+    const contours = couche_(hote, 'couche-contours-mers');
+    const pays = couche_(hote, 'couche-pays');
+    expect(mers.enfants.map((e) => e.getAttribute('data-id'))).toEqual(couche.mers.map((e) => e.pays.id));
+    expect(mers.enfants.every((e) => classes(e).join(' ') === 'mer' && (e.getAttribute('d') ?? '').length > 10)).toBe(true);
+    expect(ordre(elements.find((e) => classes(e).includes('sphere')))).toBeLessThan(ordre(mers));
+    expect(ordre(mers)).toBeLessThan(ordre(contours));
+    expect(ordre(contours)).toBeLessThan(ordre(pays));
+    // Même parent que les pays : à la même échelle (centièmes de px).
+    expect(mers.parent).toBe(pays.parent);
+    expect(c.ecran('atlant')).not.toBeNull();
+  });
+
+  it('classes de seau et de marque ; l’océan allumé avec les Sargasses, jamais la mer côtière ; effacerMarques garde les teintes', () => {
+    const { c, hote } = carteMers();
+    c.teinter(new Map([['medit', 2], ['FRA', 1]]));
+    c.marquer('atlant', 'choisi');
+    c.prendreMers(couche);
+    expect(classes(mer(hote, 'medit'))).toEqual(['mer', 's2']);
+    expect(classes(mer(hote, 'atlant'))).toEqual(['mer', 'choisi']);
+    expect(classes(mer(hote, 'sargasse'))).toEqual(['mer', 'choisi']);
+    expect(classes(mer(hote, 'caraibes'))).toEqual(['mer']);
+    c.effacerMarques();
+    c.marquer('sargasse', 'juste');
+    expect(classes(mer(hote, 'atlant'))).toEqual(['mer']);
+    expect(classes(mer(hote, 'sargasse'))).toEqual(['mer', 'juste']);
+    c.effacerMarques();
+    expect(classes(mer(hote, 'sargasse'))).toEqual(['mer']);
+    expect(classes(mer(hote, 'medit'))).toEqual(['mer', 's2']);
+    c.teinter(null);
+    expect(classes(mer(hote, 'medit'))).toEqual(['mer']);
+  });
+
+  it('le contour faux d’une mer sous les pays : l’union de l’océan et des Sargasses (sans leur bord commun) ; retiré avec les marques, refait au redessin', () => {
+    const { c, hote } = carteMers();
+    c.prendreMers(couche);
+    c.marquer('atlant', 'faux');
+    const contours = couche_(hote, 'couche-contours-mers');
+    expect(contours.enfants.map((e) => [e.getAttribute('data-id'), classes(e).join(' ')])).toEqual([['atlant', 'contour-faux']]);
+    const d = contours.enfants[0]?.getAttribute('d') ?? '';
+    const dAtl = mer(hote, 'atlant')?.getAttribute('d') ?? '';
+    const sousChemins = (x: string) => (x.match(/M/g) ?? []).length;
+    expect(sousChemins(d)).toBe(sousChemins(dAtl) - 1);
+    expect(tous(hote).filter((e) => classes(e).includes('contour-faux') && e.parent !== contours)).toEqual([]);
+    c.effacerMarques();
+    expect(contours.enfants).toEqual([]);
+    c.marquer('medit', 'faux');
+    c.rendre();
+    const apres = couche_(hote, 'couche-contours-mers');
+    expect(apres.enfants.map((e) => e.getAttribute('data-id'))).toEqual(['medit']);
+    expect(classes(mer(hote, 'medit'))).toEqual(['mer', 'faux']);
+  });
+
+  it('carte.css : .mer sans remplissage ni trait ; teintes puis marques sur l’eau, tirées des jetons de :root', () => {
+    const css = readFileSync('src/carte.css', 'utf8');
+    const racine = css.match(/:root\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(css).toContain('.mer { fill: none; stroke: none; pointer-events: none; }');
+    for (const [jeton, valeur] of [['--mer-choisie', 'var(--accent)'], ['--mer-juste', 'var(--good)'], ['--mer-fausse', 'var(--danger)']]) expect(racine).toContain(`${jeton}: ${valeur};`);
+    for (let s = 0; s < 5; s++) {
+      expect(racine).toContain(`--memoire-mer-${s}: var(--memoire-${s});`);
+      expect(css).toContain(`.mer.s${s} { fill: var(--memoire-mer-${s}); }`);
+      expect(css.indexOf(`.mer.s${s} `)).toBeLessThan(css.indexOf('.mer.choisi'));
+    }
+    expect(css).toContain('.mer.faux { fill: var(--mer-fausse); }');
   });
 });

@@ -24,6 +24,22 @@
   --memoire-2: #d29a00;
   --memoire-3: #e4b916;
   --memoire-4: #f2d935;
+  /* Océans et mers (lot 3a, étude J2, § 4.3) : sur l'eau, sous les terres, sans
+     contour ni frontière entre mers (D45 b). La mer allumée, juste et fausse
+     prennent les couleurs des marques des pays (--accent, --good, --danger :
+     une marque dit la même chose sur l'eau et sur la terre), lisibles sur la
+     mer sombre (4,5:1, 8,8:1 et 6,3:1 contre --mer) et à côté des terres
+     (2,4:1, 4,7:1 et 3,4:1 contre --terre). Les teintes de la carte de la
+     mémoire des mers sont celles des pays : la gamme a été validée sur --mer
+     comme sur --terre (ci-dessus), et la légende reste la même. */
+  --mer-choisie: var(--accent);
+  --mer-juste: var(--good);
+  --mer-fausse: var(--danger);
+  --memoire-mer-0: var(--memoire-0);
+  --memoire-mer-1: var(--memoire-1);
+  --memoire-mer-2: var(--memoire-2);
+  --memoire-mer-3: var(--memoire-3);
+  --memoire-mer-4: var(--memoire-4);
   /* Vignettes des tuiles de Jouer (vignettes.ts) : les pays de la série, plus
      clairs que --terre (les autres), au survol, sur la tuile choisie ; leurs
      traits, un peu plus marqués que --frontiere. */
@@ -112,6 +128,18 @@ body[data-vue="saisie"] .carte, body[data-vue="compte"] .carte { visibility: hid
 .carte-svg { display: block; overflow: visible; }
 
 .sphere { fill: var(--mer); }
+/* Zones marines (rendus g et css, carte.ts : g.couche-mers sous les pays) :
+   remplies seulement, et seulement teintées ou marquées ; sinon rien, la
+   sphère montre la mer. */
+.mer { fill: none; stroke: none; pointer-events: none; }
+.mer.s0 { fill: var(--memoire-mer-0); }
+.mer.s1 { fill: var(--memoire-mer-1); }
+.mer.s2 { fill: var(--memoire-mer-2); }
+.mer.s3 { fill: var(--memoire-mer-3); }
+.mer.s4 { fill: var(--memoire-mer-4); }
+.mer.choisi { fill: var(--mer-choisie); }
+.mer.juste { fill: var(--mer-juste); }
+.mer.faux { fill: var(--mer-fausse); }
 .pays {
   fill: var(--terre);
   stroke: var(--frontiere);

@@ -17,6 +17,9 @@ export const NB_SEAUX = 5;
 /** Les variables CSS des seaux, dans l'ordre (lireCouleurs du Canvas et du WebGL). */
 export const VARIABLES_MEMOIRE: readonly string[] = Array.from({ length: NB_SEAUX }, (_, s) => `--memoire-${s}`);
 
+/** Les mêmes seaux sur l'eau (carte de la mémoire des mers, lot 3b ; ?mers=demo) : --memoire-mer-0 à 4 (carte.css). */
+export const VARIABLES_MEMOIRE_MERS: readonly string[] = Array.from({ length: NB_SEAUX }, (_, s) => `--memoire-mer-${s}`);
+
 /** Classe SVG d'un seau (.pays.s3, .pastille.s3 : carte.css). */
 export const classeSeau = (s: number): string => `s${s}`;
 

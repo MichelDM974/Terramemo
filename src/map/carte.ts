@@ -14,8 +14,10 @@ import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type Res
 import { creerProjection, garderVue } from './projection';
 import { fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
+import { indexLieux, type LieuIndexe } from './lieux';
+import { formeContour, zonesAllumees, type CoucheMers } from './mers';
 import { classeSeau, seau, type Teintes } from './teintes';
-import type { Entite, Lieu, NomProjection, Pays, Rendu, Transfo } from './types';
+import type { Entite, Forme, Lieu, Mer, NomProjection, Pays, Rendu, Transfo } from './types';
 
 const SVG = 'http://www.w3.org/2000/svg';
 export const ZOOM_MAX = 400;
@@ -135,6 +137,14 @@ export interface CarteAffichee {
   readonly nbTeintes: number;
   /** Anneaux posés en ce moment (pilote : l'anneau d'une capitale, D53 c). */
   readonly nbAnneaux: number;
+  /**
+   * La couche marine chargée (chargerMers, mers.ts) : ses zones vont dans
+   * donnees.mers (si elles n'y sont pas déjà) et dans l'index commun, qu'ecran,
+   * zoomerSur, montrer, marquer et teinter lisent pour les mers comme pour les
+   * pays. Une mer ne se dessine que teintée ou marquée, sous les terres
+   * (étude J2, § 4.3). Une fois : un second appel ne change rien.
+   */
+  prendreMers(c: CoucheMers): void;
   masquer(oui: boolean): void;
   detruire(): void;
 }
@@ -217,6 +227,23 @@ export class Carte implements CarteAffichee {
   private coucheContours!: SVGGElement;
   private contours = new Map<string, SVGPathElement>();
   private chemins = new Map<string, SVGPathElement>();
+  /** Le <g> à l'échelle des tracés (centièmes de px) : couches des mers, des pays, des hachures, des contours. */
+  private echelle: SVGGElement | null = null;
+  /**
+   * Couche marine (prendreMers) : un path.mer par zone dans g.couche-mers, sous
+   * les pays, rempli seulement quand il est teinté ou marqué (carte.css) ; le
+   * contour de la zone marine fausse sur g.couche-contours-mers, entre elle et
+   * les pays (les terres le couvrent, comme en canvas et en webgl).
+   */
+  private couche: CoucheMers | null = null;
+  private zonesMers: Mer[] = [];
+  private coucheContoursMers: SVGGElement | null = null;
+  private cheminsMers = new Map<string, SVGPathElement>();
+  private contoursMers = new Map<string, SVGPathElement>();
+  /** Tracé du contour de chaque zone marine allumée (formeContour : l'Atlantique sans l'anneau des Sargasses). */
+  private tracesContoursMers = new Map<string, string>();
+  /** Index commun des zones et des mers (lieux.ts) : ecran, vise, anneau. */
+  private lieux: Map<string, LieuIndexe>;
   private cerclesPastilles = new Map<string, SVGCircleElement>();
   private marques = new Map<string, Set<string>>();
   /** Classe de teinte (.s0 à .s4) de chaque zone teintée : à part des marques, reposée sur les tracés et disques recréés. */
@@ -253,6 +280,7 @@ export class Carte implements CarteAffichee {
     this.cadre = o.cadre ?? cadreMonde(o.projection);
     this.idMotif = o.cadre ? `hachures-${o.hote.id || 'cadre'}` : 'hachures';
     this.hote = o.hote;
+    this.lieux = indexLieux(o.donnees);
     this.hote.classList.add('carte');
     this.hote.dataset.rendu = o.rendu;
     if (!o.cadre) this.hote.dataset.projection = o.projection;
@@ -312,6 +340,8 @@ export class Carte implements CarteAffichee {
     this.svg.replaceChildren();
     this.chemins.clear();
     this.contours.clear();
+    this.cheminsMers.clear();
+    this.contoursMers.clear();
     this.cerclesPastilles.clear();
     this.anneaux = [];
     this.svg.setAttribute('width', String(l));
@@ -342,6 +372,8 @@ export class Carte implements CarteAffichee {
     this.coucheMarques = el('g', { class: 'couche-marques' });
     this.couchePastilles = el('g', { class: 'couche-pastilles' });
     this.coucheContours = el('g', { class: 'couche-contours' });
+    this.echelle = echelle;
+    if (this.couche) echelle.append(...this.tracerMers(this.couche, d));
     echelle.append(pays, hachures, this.coucheContours);
     for (const [id, classes] of this.marques) if (classes.has('faux')) this.contourFaux(id); // après un redimensionnement
     this.vue.append(echelle, this.coucheMarques, this.couchePastilles);
@@ -389,12 +421,12 @@ export class Carte implements CarteAffichee {
     return noter(this.contexte(), cible, x, y, options);
   }
 
-  /** Point (px relatifs à la carte) où toucher un pays : sa pastille ou son point d'étiquette. */
+  /** Point (px relatifs à la carte) où toucher un pays (ou une mer) : sa pastille ou son point d'étiquette. */
   ecran(id: string): [number, number] | null {
     const p = this.pastilles.find((pa) => pa.id === id);
     if (p) return versEcran(this.t, p.bx, p.by);
-    const e = this.o.donnees.entites.find((en) => en.pays.id === id);
-    const b = e && this.proj(e.pays.point);
+    const li = this.lieux.get(id);
+    const b = li && this.proj(li.lieu.point);
     return b ? versEcran(this.t, b[0], b[1]) : null;
   }
 
@@ -483,11 +515,11 @@ export class Carte implements CarteAffichee {
    * entier (ce polygone tient à l'écran) si demandé, pour montrer().
    */
   private vise(id: string, kMax: number, h = this.taille.h, entier = false): Transfo | null {
-    const e = this.o.donnees.entites.find((en) => en.pays.id === id);
-    const b = e && this.proj(e.pays.point);
-    if (!e || !b) return null;
-    const boite = entier ? empriseEcran(anneauPrincipal(e.forme, e.pays.point), (ll) => this.proj(ll) as [number, number] | null) : null;
-    return viser([b[0], b[1]], tailleEcranPx(e.pays, this.proj.scale(), 1), this.taille.l, Math.max(1, Math.min(h, this.taille.h)), kMax, boite);
+    const li = this.lieux.get(id);
+    const b = li && this.proj(li.lieu.point);
+    if (!li || !b) return null;
+    const boite = entier ? empriseEcran(anneauPrincipal(li.forme, li.lieu.point), (ll) => this.proj(ll) as [number, number] | null) : null;
+    return viser([b[0], b[1]], tailleEcranPx(li.lieu, this.proj.scale(), 1), this.taille.l, Math.max(1, Math.min(h, this.taille.h)), kMax, boite);
   }
 
   /** Pose une transformation (sans geste : non comptée dans les mesures). */
@@ -502,7 +534,59 @@ export class Carte implements CarteAffichee {
     s.add(classe);
     this.chemins.get(id)?.classList.add(classe);
     this.cerclesPastilles.get(id)?.classList.add(classe);
+    for (const z of this.allumees(id)) this.cheminsMers.get(z)?.classList.add(classe);
     if (classe === 'faux') this.contourFaux(id);
+  }
+
+  /** Les zones marines qu'allume une marque sur id (zonesAllumees) ; aucune pour un pays. */
+  private allumees(id: string): string[] {
+    return this.lieux.get(id)?.couche === 'mers' ? zonesAllumees(id, this.zonesMers) : [];
+  }
+
+  prendreMers(c: CoucheMers): void {
+    if (this.couche) return;
+    if (!this.o.donnees.mers.length) this.o.donnees.mers = c.mers;
+    this.couche = c;
+    this.zonesMers = c.mers.map((e) => e.pays);
+    this.lieux = indexLieux({ entites: this.o.donnees.entites, mers: c.mers });
+    if (!this.echelle || !this.proj) return; // tracées par rendre()
+    const cadre = this.cadre;
+    const [mers, contours] = this.tracerMers(c, fabriqueTraces((l1, h1) => cadre.projection(l1, h1), this.proj));
+    this.echelle.prepend(mers, contours);
+    for (const [id, classes] of this.marques) if (classes.has('faux')) this.contourFaux(id); // marquée avant la couche
+  }
+
+  /**
+   * g.couche-mers (un path.mer par zone, ses classes de teinte et de marque) et
+   * g.couche-contours-mers (les contours faux déjà demandés), à poser avant
+   * g.couche-pays.
+   */
+  private tracerMers(c: CoucheMers, d: (f: Forme) => string): [SVGGElement, SVGGElement] {
+    const mers = el('g', { class: 'couche-mers' });
+    this.cheminsMers.clear();
+    this.contoursMers.clear();
+    this.tracesContoursMers.clear();
+    const classes = new Map<string, Set<string>>();
+    for (const [id, cl] of this.marques) {
+      for (const z of this.allumees(id)) {
+        const s = classes.get(z) ?? new Set<string>();
+        for (const x of cl) s.add(x);
+        classes.set(z, s);
+      }
+    }
+    for (const e of c.mers) {
+      const trace = d(e.forme);
+      const p = el('path', { class: 'mer', 'data-id': e.pays.id, d: trace });
+      const teinte = this.teintes.get(e.pays.id);
+      if (teinte) p.classList.add(teinte);
+      for (const cl of classes.get(e.pays.id) ?? []) p.classList.add(cl);
+      this.cheminsMers.set(e.pays.id, p);
+      const contour = formeContour(e, c.mers);
+      this.tracesContoursMers.set(e.pays.id, contour === e.forme ? trace : d(contour));
+      mers.append(p);
+    }
+    this.coucheContoursMers = el('g', { class: 'couche-contours-mers' });
+    return [mers, this.coucheContoursMers];
   }
 
   get nbTeintes(): number {
@@ -523,15 +607,23 @@ export class Carte implements CarteAffichee {
     for (const id of new Set([...avant.keys(), ...this.teintes.keys()])) {
       const [de, vers] = [avant.get(id), this.teintes.get(id)];
       if (de === vers) continue;
-      for (const elt of [this.chemins.get(id), this.cerclesPastilles.get(id)]) {
+      for (const elt of [this.chemins.get(id), this.cerclesPastilles.get(id), this.cheminsMers.get(id)]) {
         if (de) elt?.classList.remove(de);
         if (vers) elt?.classList.add(vers);
       }
     }
   }
 
-  /** Le contour de la zone fausse, sur sa couche (coucheContours) ; une fois par zone. */
+  /** Le contour de la zone fausse, sur sa couche (coucheContours, ou coucheContoursMers pour une mer) ; une fois par zone. */
   private contourFaux(id: string): void {
+    const traceMer = this.tracesContoursMers.get(id);
+    if (traceMer !== undefined) {
+      if (this.contoursMers.has(id) || !this.coucheContoursMers) return;
+      const c = el('path', { class: 'contour-faux', 'data-id': id, d: traceMer });
+      this.coucheContoursMers.append(c);
+      this.contoursMers.set(id, c);
+      return;
+    }
     const chemin = this.chemins.get(id);
     if (!chemin || this.contours.has(id) || !this.coucheContours) return;
     const c = el('path', { class: 'contour-faux', 'data-id': id, d: chemin.getAttribute('d') ?? '' });
@@ -543,18 +635,20 @@ export class Carte implements CarteAffichee {
     for (const [id, classes] of this.marques) {
       this.chemins.get(id)?.classList.remove(...classes);
       this.cerclesPastilles.get(id)?.classList.remove(...classes);
+      for (const z of this.allumees(id)) this.cheminsMers.get(z)?.classList.remove(...classes);
     }
     this.marques.clear();
-    for (const c of this.contours.values()) c.remove();
+    for (const c of [...this.contours.values(), ...this.contoursMers.values()]) c.remove();
     this.contours.clear();
+    this.contoursMers.clear();
     for (const a of this.anneaux) a.cercle.remove();
     this.anneaux = [];
   }
 
   /** Un anneau de taille constante autour du point d'un pays (montrer la bonne réponse). */
   anneau(id: string, classe: string, rayon_px = 16): void {
-    const e = this.o.donnees.entites.find((en) => en.pays.id === id);
-    if (e) this.anneauEn(e.pays.point, classe, rayon_px);
+    const li = this.lieux.get(id);
+    if (li) this.anneauEn(li.lieu.point, classe, rayon_px);
   }
 
   anneauEn(point: [number, number], classe: string, rayon_px = 16): void {
