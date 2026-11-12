@@ -1,0 +1,40 @@
+{
+  "_": "Provenance des extraits geodata/wikidata/mers-*.json (liste des océans et mers, étude J2 § 2.3 ; notoriété au lot 4a). Lu par personne : la trace de ce qui a été relevé, quand et comment.",
+  "mers-entites.json": {
+    "contenu": "les entités Wikidata des zones de Natural Earth qui ont un Qid : libellés fr et en, titre frwiki, nombre de liens (sitelinks) et de Wikipédias (sites *wiki hors Commons, Wikispecies, Meta et Wikidata), P31",
+    "source": "API Wikidata wbgetentities (props labels|sitelinks|claims)",
+    "releve_le": "2026-11-10",
+    "par": "conception J2, ~/Sauvegardes/terramemo/j2-conception/mers/scripts/wikidata.py"
+  },
+  "mers-p361.json": {
+    "contenu": "P361 (partie de) des zones retenues de l'option a",
+    "source": "API Wikidata wbgetentities",
+    "releve_le": "2026-11-10",
+    "par": "conception J2"
+  },
+  "mers-vues.json": {
+    "contenu": "vues de la Wikipédia française sur 12 mois des 64 candidates de la conception",
+    "source": "API pageviews de Wikimedia, per-article, fr.wikipedia, all-access, agent user, mensuel",
+    "periode": "2025-11-01 au 2026-10-31",
+    "releve_le": "2026-11-10",
+    "par": "conception J2, ~/Sauvegardes/terramemo/j2-conception/mers/scripts/vues-frwiki.py"
+  },
+  "mers-vues-complement.json": {
+    "contenu": "les mêmes vues pour les 42 candidates qui n'en avaient pas (liste validée le 12/11)",
+    "source": "API pageviews de Wikimedia, mêmes paramètres",
+    "periode": "2025-11-01 au 2026-10-31",
+    "releve_le": "2026-11-12",
+    "par": "~/Sauvegardes/terramemo/j2-conception/mers/rang-combine/vues-manquantes.py et reprise.py"
+  },
+  "mers-rang.json": {
+    "contenu": "les 99 candidates (mers et golfes de 30 000 km² ou plus, plus Manche, canal du Mozambique, baies d'Hudson et de Baffin) et leur rang combiné (moyenne du rang par Wikipédias et du rang par vues frwiki), et les 45 retenues",
+    "calcule_le": "2026-11-12",
+    "par": "~/Sauvegardes/terramemo/j2-conception/mers/rang-combine/rang.py ; liste validée par l'utilisateur le 2026-11-12"
+  },
+  "mers-p361-fusion.json": {
+    "contenu": "P361 (partie de) des 268 zones de Natural Earth qui ont un Qid, pour trancher les zones fondues (geodata/mers.json)",
+    "source": "API Wikidata wbgetentities",
+    "releve_le": "2026-11-12",
+    "par": "lot 3a, partie A"
+  }
+}
