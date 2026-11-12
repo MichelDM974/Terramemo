@@ -5,7 +5,7 @@ import { CarteCanvas } from './map/carte-canvas';
 import { chargerDonnees, chargerLeger } from './map/donnees';
 import { prechauffer } from './map/geo';
 import { chargerMers } from './map/mers';
-import type { ResultatPick } from './map/pick';
+import type { Note, OptionsNoter, ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
 import { teintesDemo } from './map/teintes';
@@ -103,7 +103,7 @@ const debutScript = performance.now();
  */
 export const RENDU_DEFAUT: Rendu = 'canvas';
 
-// --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur), ?teintes=demo, ?mers=demo ---
+// --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur), ?teintes=demo, ?mers=demo, ?mer= ---
 
 const params = new URLSearchParams(location.search);
 // Drapeaux du J1b (src/sync/drapeaux.ts) : ?comptes, ?comptes=0 et ?sans-synchro=0, gardés dans le navigateur.
@@ -130,6 +130,14 @@ const teintesDemoDemandees = params.get('teintes') === 'demo';
  * pays gardent les leurs. Comme lui, l'accueil n'y pose pas la mémoire.
  */
 const mersDemoDemandees = params.get('mers') === 'demo';
+/**
+ * Crochet d'essai d'une mer allumée (lot 3a, § 4.6) : `?mer=pacif` charge la
+ * couche marine après le premier affichage, comme ?mers=demo, et marque la
+ * zone « choisi » sans rien teinter : la couche du dessus la peint puis
+ * l'efface sous les terres de son emprise à chaque image, le coût que le
+ * pilote mesure avec et sans elle.
+ */
+const merAllumee = params.get('mer');
 /**
  * Horloge de test du J1a (#2) : `?horloge=1` décale l'heure du journal d'un
  * jour (le lendemain d'une séance, au pilote), `?horloge=-0.5` d'une
@@ -373,6 +381,13 @@ const mesures = new Mesures(contexteMesures);
 export interface AideCarte {
   /** pick() au point (clientX, clientY) de la fenêtre. */
   pick(x: number, y: number): ResultatPick | null;
+  /** noter() au point (clientX, clientY) : un pays, ou une mer une fois la couche marine posée (?mers=demo, ?mer=). */
+  noter(cible: string, x: number, y: number, options?: OptionsNoter): Note;
+  /** Le vol de « Voir » jusqu'à la zone (pays ou mer, cadrée par son emprise). */
+  montrer(id: string): void;
+  /** Marque une zone (choisi, juste, faux), comme une rétroaction ; effacerMarques les retire toutes. */
+  marquer(id: string, classe: string): void;
+  effacerMarques(): void;
   /** Point de la fenêtre où toucher ce pays (sa pastille, sinon son point d'étiquette) ; null s'il est inconnu. */
   ecran(id: string): { x: number; y: number } | null;
   /** Rectangle de la carte dans la fenêtre. */
@@ -503,6 +518,10 @@ function aide(carte: CarteAffichee, h: HTMLElement, jouables: readonly string[],
   };
   return {
     pick: (x, y) => carte.pick(...local(x, y)),
+    noter: (cible, x, y, options) => carte.noter(cible, ...local(x, y), options),
+    montrer: (id) => carte.montrer(id),
+    marquer: (id, classe) => carte.marquer(id, classe),
+    effacerMarques: () => carte.effacerMarques(),
     ecran: (id) => {
       const p = carte.ecran(id);
       if (!p) return null;
@@ -667,14 +686,15 @@ async function demarrer(): Promise<void> {
   });
   document.body.dataset.pret = '1';
   pretOk();
-  if (mersDemoDemandees) {
+  if (mersDemoDemandees || merAllumee) {
     chargerMers().then(
       (c) => {
         carte.prendreMers(c);
         const mers = c.mers.map((e) => e.pays.id);
-        carte.teinter(teintesDemo(teintesDemoDemandees ? [...jouables, ...mers] : mers));
+        if (mersDemoDemandees) carte.teinter(teintesDemo(teintesDemoDemandees ? [...jouables, ...mers] : mers));
+        if (merAllumee && mers.includes(merAllumee)) carte.marquer(merAllumee, 'choisi');
       },
-      (e: unknown) => console.warn('?mers=demo : couche marine non chargée :', e),
+      (e: unknown) => console.warn('?mers=demo, ?mer= : couche marine non chargée :', e),
     );
   }
   // Contexte et shaders du WebGL dès la carte affichée, pendant que le Worker maille.

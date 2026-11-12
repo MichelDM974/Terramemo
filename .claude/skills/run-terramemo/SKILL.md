@@ -391,6 +391,22 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   teintes. Mesure : `mesurer --url "http://localhost:8060/?teintes=demo"`
   (le driver y ajoute `&rendu=…`), avec `--out` à part pour ne pas
   écraser le rapport du jour sans teintes.
+- Océans et mers (#27, lot 3a) : la couche marine n'est jamais chargée au
+  premier affichage (`smoke` : « rien des mers au premier affichage »).
+  `?mers=demo` la charge juste après, la pose et teinte chaque zone d'un
+  seau tiré de son id (le calque marin tracé par la couche de base : la
+  carte de la mémoire des mers) ; `?mer=pacif` la charge et allume une zone
+  (« choisi ») sans rien teinter : la couche du dessus la peint puis
+  l'efface sous les terres de son emprise à chaque image (le coût d'une mer
+  allumée). Attendre `terramemo.carte.teintes() >= 40` (`?mers=demo`) avant
+  de capturer. Au pilote, `terramemo.carte.noter(cible, x, y)` (un pays, ou
+  une mer une fois la couche posée), `montrer(id)` (une mer cadrée par son
+  emprise), `marquer(id, classe)` et `effacerMarques()`, coordonnées de la
+  fenêtre comme `pick`. Captures : par `driver.Session("local")` dans un
+  script (`s.couper_synchro(url)`, `s.passer_accueil(url)`, puis
+  `p = s.page`, `p.goto(…)`, `p.attendre_carte()`, `p.js(…)`,
+  `attendre_fin_vol(p)` après `montrer`, `p.capture(chemin)`) ; chromium en
+  `--screenshot` direct ne rend jamais la main.
 - Contrat de l'île avec le pilote : `window.terramemo.carte` reste **le
   monde** (mesures, captures 1 à 9) ; `terramemo.terrain()` dit le terrain
   affiché, `terramemo.ile` (`null` avant le premier choix de l'île) donne
