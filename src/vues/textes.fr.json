@@ -327,7 +327,7 @@
     "donnees": [
       {
         "nom": "Natural Earth",
-        "detail": "Frontières des pays et zones contestées, au 1:10m · v5.1.2",
+        "detail": "Frontières des pays, zones contestées et zones marines, au 1:10m · v5.1.2",
         "licence": "Domaine public",
         "auteur": "Made with Natural Earth",
         "lien": "https://www.naturalearthdata.com/about/terms-of-use/"

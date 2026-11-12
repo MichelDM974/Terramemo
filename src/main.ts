@@ -4,6 +4,7 @@ import { Carte, type CarteAffichee } from './map/carte';
 import { CarteCanvas } from './map/carte-canvas';
 import { chargerDonnees, chargerLeger } from './map/donnees';
 import { prechauffer } from './map/geo';
+import { chargerMers } from './map/mers';
 import type { ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
@@ -102,7 +103,7 @@ const debutScript = performance.now();
  */
 export const RENDU_DEFAUT: Rendu = 'canvas';
 
-// --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur), ?teintes=demo ---
+// --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur), ?teintes=demo, ?mers=demo ---
 
 const params = new URLSearchParams(location.search);
 // Drapeaux du J1b (src/sync/drapeaux.ts) : ?comptes, ?comptes=0 et ?sans-synchro=0, gardés dans le navigateur.
@@ -120,6 +121,15 @@ const projection: NomProjection = estNomProjection(pProj) ? pProj : 'monde';
  * les mesures avant que l'accueil ne la colore. Il reste pendant les parties.
  */
 const teintesDemoDemandees = params.get('teintes') === 'demo';
+/**
+ * Crochet d'essai des océans et mers (lot 3a, étude J2, § 4.6) : la couche
+ * marine chargée juste après le premier affichage (jamais avant : rien des mers
+ * au premier affichage, même ici), posée sur la carte, chaque zone teintée d'un
+ * seau tiré de son id (teintesDemo) : le calque marin tracé par la couche de
+ * base, pour les mesures du pilote avec et sans mers. Avec ?teintes=demo, les
+ * pays gardent les leurs. Comme lui, l'accueil n'y pose pas la mémoire.
+ */
+const mersDemoDemandees = params.get('mers') === 'demo';
 /**
  * Horloge de test du J1a (#2) : `?horloge=1` décale l'heure du journal d'un
  * jour (le lendemain d'une séance, au pilote), `?horloge=-0.5` d'une
@@ -657,6 +667,16 @@ async function demarrer(): Promise<void> {
   });
   document.body.dataset.pret = '1';
   pretOk();
+  if (mersDemoDemandees) {
+    chargerMers().then(
+      (c) => {
+        carte.prendreMers(c);
+        const mers = c.mers.map((e) => e.pays.id);
+        carte.teinter(teintesDemo(teintesDemoDemandees ? [...jouables, ...mers] : mers));
+      },
+      (e: unknown) => console.warn('?mers=demo : couche marine non chargée :', e),
+    );
+  }
   // Contexte et shaders du WebGL dès la carte affichée, pendant que le Worker maille.
   const relaye = relais && carte instanceof CarteCanvas ? relais.relayer(carte, donnees, peinte) : null;
 
@@ -672,8 +692,8 @@ async function demarrer(): Promise<void> {
   const ctx = { carte, donnees, mesures, zone, terrains };
   const pays = donnees.entites.map((e) => e.pays);
   arbre = creerArbre(catalogue(pays));
-  // ?teintes=demo garde ses teintes partout : l'accueil n'y pose pas celles de la mémoire.
-  explorer = vueExplorer(ctx, teintesDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive, { stockage }) });
+  // ?teintes=demo et ?mers=demo gardent leurs teintes partout : l'accueil n'y pose pas celles de la mémoire.
+  explorer = vueExplorer(ctx, teintesDemoDemandees || mersDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive, { stockage }) });
   // Les communes (Apprendre sous La Réunion, leurs révisions) : les données de l'île une fois chargée.
   const seances = creerSeances({
     memoire,
