@@ -29,10 +29,10 @@ import { interpolateZoom } from 'd3-interpolate';
 import { DUREE_CRAN_MS, DUREE_TOUT_MS, type ChronoRendu, type CarteAffichee, type OptionsCarte } from './carte';
 import type { DonneesCarte } from './donnees';
 import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
-import { anneauPrincipal, RAYON_TERRE_KM, versEcran, type Emprise } from './geo';
+import { anneauPrincipal, RAYON_TERRE_KM, recentrerBande, versEcran, type Emprise } from './geo';
 import { SuiviPointeurs } from './geste';
 import { indexLieux, type LieuIndexe } from './lieux';
-import { densifierCoutures, formeContour, zonesAllumees, type CoucheMers } from './mers';
+import { densifierCoutures, empriseMer, formeContour, zonesAllumees, type CoucheMers } from './mers';
 // Réexportée pour les tests du tracé rapide (tests/carte-canvas.test.ts).
 export { densifierCoutures } from './mers';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
@@ -805,6 +805,14 @@ export class CarteCanvas implements CarteAffichee {
   private vise(id: string, kMax: number, hVisible = this.c.h, entier = false): VueGlobe | null {
     const li = this.lieux.get(id);
     if (!li) return null;
+    if (li.couche === 'mers') {
+      // Une mer par son emprise entière (étude J2, § 4.5), pas par son polygone
+      // principal (une moitié du Pacifique) : la vue tourne vers son milieu ;
+      // une bande de 360° (l'Arctique, l'Austral) garde la rotation du moment.
+      const e = empriseMer(id, this.o.donnees.mers.map((m) => m.pays));
+      const r = (this.vol?.cible ?? this.v).r;
+      return e ? viserEmprise(this.c, recentrerBande(e, r), kMax, hVisible) : null;
+    }
     const anneau = entier ? anneauPrincipal(li.forme, li.lieu.point) : null;
     return viserVue(this.c, li.lieu.point, tailleEcranPx(li.lieu, this.c.s, 1), kMax, hVisible, anneau, entier);
   }

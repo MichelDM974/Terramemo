@@ -5,7 +5,7 @@ import { Carte } from '../src/map/carte';
 import { UNITE } from '../src/map/traces';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { assemblerMers } from '../src/map/mers';
-import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
+import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, partVisible, versEcran, type Emprise } from '../src/map/geo';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
 import { cadrageNommer } from '../src/vues/nommer';
@@ -511,5 +511,84 @@ describe('Carte SVG : océans et mers (lot 3a, étude J2, § 4.3)', () => {
       expect(css.indexOf(`.mer.s${s} `)).toBeLessThan(css.indexOf('.mer.choisi'));
     }
     expect(css).toContain('.mer.faux { fill: var(--mer-fausse); }');
+  });
+});
+
+describe('Carte SVG : une mer se cadre par son emprise (lot 3a, étude J2, § 4.5)', () => {
+  const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+  const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+  const bbox = (id: string) => couche.mers.find((e) => e.pays.id === id)!.pays.bbox;
+  function carteMers(projection: 'monde' | 'pacifique'): Carte {
+    const c = new Carte({ hote: new FauxElement() as unknown as HTMLElement, donnees: { ...donnees, mers: [] }, projection, rendu: 'g' });
+    c.rendre();
+    c.prendreMers(couche);
+    return c;
+  }
+  /** Le contour de l'emprise à l'écran, dans le contexte de la carte. */
+  const aLEcran = (c: Carte, e: Emprise) =>
+    contourEmprise(e).map((ll) => {
+      const ctx = c.contexte();
+      const b = ctx.proj(ll) as [number, number];
+      return versEcran(ctx.t, b[0], b[1]);
+    });
+  const dedans = (pts: [number, number][], h: number) => pts.every(([x, y]) => x >= -1 && x <= L + 1 && y >= -1 && y <= h + 1);
+
+  it('le Pacifique entier au-dessus de la barre, en projection pacifique centré sur son milieu (vers 157° O) ; en projection monde, entier aussi', () => {
+    const c = carteMers('pacifique');
+    c.montrer('pacif', HV);
+    vi.advanceTimersByTime(4000);
+    const pts = aLEcran(c, bbox('pacif'));
+    expect(dedans(pts, HV)).toBe(true);
+    const [cx] = (() => {
+      const ctx = c.contexte();
+      const b = ctx.proj(centreEmprise(bbox('pacif'))) as [number, number];
+      return versEcran(ctx.t, b[0], b[1]);
+    })();
+    expect(centreEmprise(bbox('pacif'))[0]).toBeCloseTo(-156.8, 0);
+    expect(Math.abs(cx - L / 2)).toBeLessThan(0.05 * L);
+    expect(c.contexte().t.k).toBeGreaterThan(1);
+    const m = carteMers('monde');
+    m.montrer('pacif', HV);
+    vi.advanceTimersByTime(4000);
+    expect(dedans(aLEcran(m, bbox('pacif')), HV)).toBe(true);
+  });
+
+  it('Béring, de part et d’autre de l’antiméridien, entier ; zoomerSur aussi, sans barre', () => {
+    const c = carteMers('pacifique');
+    c.montrer('bering', HV);
+    vi.advanceTimersByTime(4000);
+    expect(dedans(aLEcran(c, bbox('bering')), HV)).toBe(true);
+    expect(c.contexte().t.k).toBeGreaterThan(2);
+    c.zoomerSur('medit');
+    expect(dedans(aLEcran(c, bbox('medit')), H)).toBe(true);
+    expect(c.contexte().t.k).toBeGreaterThan(2);
+  });
+
+  it('l’Arctique et l’Austral, bandes de 360° : leur bande en latitude au-dessus de la barre, autour du méridien central, vue finie', () => {
+    for (const projection of ['monde', 'pacifique'] as const) {
+      for (const id of ['arctique', 'austral']) {
+        const c = carteMers(projection);
+        c.montrer(id, HV);
+        vi.advanceTimersByTime(4000);
+        const t = c.contexte().t;
+        expect([projection, id, Number.isFinite(t.k) && Number.isFinite(t.x) && Number.isFinite(t.y), t.k >= 1]).toEqual([projection, id, true, true]);
+        const [, s, , n] = bbox(id);
+        const lon0 = projection === 'monde' ? 0 : 150;
+        const ctx = c.contexte();
+        for (const lat of [s, n]) {
+          const b = ctx.proj([lon0, lat]) as [number, number];
+          const [x, y] = versEcran(t, b[0], b[1]);
+          expect([projection, id, lat, Math.abs(x - L / 2) < 1, y >= -1 && y <= HV + 1]).toEqual([projection, id, lat, true, true]);
+        }
+      }
+    }
+  });
+
+  it('un pays : le cadrage d’avant (son point d’étiquette au centre de la partie visible)', () => {
+    const c = carteMers('monde');
+    c.zoomerSur('ITA');
+    const p = c.ecran('ITA') as [number, number];
+    expect(Math.abs(p[0] - L / 2)).toBeLessThan(1e-6);
+    expect(Math.abs(p[1] - H / 2)).toBeLessThan(1e-6);
   });
 });

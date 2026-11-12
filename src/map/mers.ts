@@ -9,6 +9,7 @@
 import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import type { Position } from 'geojson';
+import { unionEmprises, type Emprise } from './geo';
 import type { Entite, Forme, Mer, SorteMer } from './types';
 
 /** Une ligne de mers.json (geodata/mers.mjs). */
@@ -187,6 +188,19 @@ export function zonesParties(cible: string, mers: readonly Mer[]): string[] {
     return false;
   };
   return mers.filter((z) => z.id !== cible && atteint(z)).map((z) => z.id);
+}
+
+/**
+ * L'emprise à cadrer pour une zone marine (vise, montrer ; étude J2, § 4.5) :
+ * celle de ce qu'elle allume (zonesAllumees, unionEmprises), ouest > est si
+ * elle passe l'antiméridien (le Pacifique, Béring) ; [-180, s, 180, n] pour
+ * une bande de 360° (l'Arctique, l'Austral : recentrerBande, geo.ts). null
+ * si id n'est pas une zone marine.
+ */
+export function empriseMer(id: string, mers: readonly Mer[]): Emprise | null {
+  if (!mers.some((m) => m.id === id)) return null;
+  const ids = zonesAllumees(id, mers);
+  return unionEmprises(mers.filter((m) => ids.includes(m.id)).map((m) => m.bbox));
 }
 
 /** Le point [lon, lat] est-il dans l'anneau (règle pair-impair, en degrés : les anneaux ne passent pas l'antiméridien) ? */

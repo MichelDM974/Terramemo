@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assembler, chargerDonnees, chargerLeger, type DonneesCarte } from '../src/map/donnees';
 import { indexLieux } from '../src/map/lieux';
-import { assemblerMers, chargeurMers, FICHIERS_MERS, formeContour, lignesContour, zonesAllumees, type CoucheMers } from '../src/map/mers';
+import { centreEmprise, recentrerBande } from '../src/map/geo';
+import { assemblerMers, chargeurMers, empriseMer, FICHIERS_MERS, formeContour, lignesContour, zonesAllumees, type CoucheMers } from '../src/map/mers';
 import type { Forme } from '../src/map/types';
 
 // Couche marine (étude J2, § 2.3 et § 4.2 ; lot 3a, partie B) : assemblage des
@@ -118,6 +119,41 @@ describe('océan allumé : sa pleine mer et la mer qu’il enclave sans côte (1
     expect(lignesContour(carre)).toEqual([[[180, 10], [170, 10], [170, 0], [180, 0]]]);
     const ferme: Forme = { ...carre, geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] } };
     expect(lignesContour(ferme)).toEqual([[[0, 0], [1, 0], [1, 1], [0, 0]]]);
+  });
+});
+
+describe('emprise à cadrer d’une mer (vise, montrer ; § 4.5)', () => {
+  const bbox = (id: string) => mers.find((m) => m.id === id)!.bbox;
+  const pareille = (a: readonly number[] | null, b: readonly number[]) => {
+    expect(a).toHaveLength(4);
+    a?.forEach((x, i) => expect(x).toBeCloseTo(b[i] as number, 9));
+  };
+
+  it('celle de ce qu’elle allume : l’Atlantique (les Sargasses dedans) ; le Pacifique et Béring passent l’antiméridien (ouest > est) ; un pays : null', () => {
+    pareille(empriseMer('atlant', mers), bbox('atlant'));
+    pareille(empriseMer('sargasse', mers), bbox('sargasse'));
+    for (const id of ['pacif', 'bering']) {
+      const e = empriseMer(id, mers)!;
+      pareille(e, bbox(id));
+      expect(e[0]).toBeGreaterThan(e[2]);
+    }
+    expect(centreEmprise(empriseMer('pacif', mers)!)[0]).toBeCloseTo(-156.85, 1);
+    expect(empriseMer('FRA', mers)).toBeNull();
+  });
+
+  it('une bande de 360° (l’Arctique, l’Austral) recentrée sur la rotation du moment, sa latitude gardée ; une autre emprise telle quelle', () => {
+    for (const id of ['arctique', 'austral']) {
+      const e = empriseMer(id, mers)!;
+      expect([e[0], e[2]]).toEqual([-180, 180]);
+      for (const r of [0, 100, -100, 180, -179.5, 37.2]) {
+        const b = recentrerBande(e, r);
+        const [lon, lat] = centreEmprise(b);
+        expect(Math.abs(((lon - r + 540) % 360) - 180)).toBeLessThan(1e-9);
+        expect(lat).toBeCloseTo((e[1] + e[3]) / 2, 9);
+        expect([b[1], b[3]]).toEqual([e[1], e[3]]);
+      }
+    }
+    expect(recentrerBande(bbox('pacif'), 30)).toEqual(bbox('pacif'));
   });
 });
 

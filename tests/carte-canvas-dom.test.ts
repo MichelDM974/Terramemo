@@ -7,8 +7,8 @@ import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees'
 import { assemblerMers } from '../src/map/mers';
 import { teintesDemo } from '../src/map/teintes';
 import { idsJouables } from '../src/terrains';
-import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
-import { bornerY, placer, regionVisible, type Cadre, type VueGlobe } from '../src/map/vue';
+import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, partVisible, versEcran, type Emprise } from '../src/map/geo';
+import { bornerY, ecartLon, placer, regionVisible, type Cadre, type VueGlobe } from '../src/map/vue';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
 import { cadrageNommer } from '../src/vues/nommer';
@@ -998,11 +998,79 @@ describe('CarteCanvas : océans et mers (lot 3a, étude J2, § 4.3)', () => {
     c.prendreMers(couche);
     expect(c.ecran('medit')).not.toBeNull();
     c.zoomerSur('medit');
-    // La mer au milieu de la largeur ; en hauteur, la borne de l'ovale peut l'écarter du centre à ce petit zoom.
-    const p = c.ecran('medit') as [number, number];
-    expect(c.transfo.k).toBeGreaterThan(1);
-    expect(Math.abs(p[0] - L / 2)).toBeLessThan(1e-6);
-    expect(p[1]).toBeGreaterThan(0);
-    expect(p[1]).toBeLessThan(H);
+    // Cadrée par son emprise (§ 4.5) : son milieu au milieu de la largeur, l'emprise entière à l'écran.
+    const ctx = c.contexte();
+    const e = couche.mers.find((m) => m.pays.id === 'medit')!.pays.bbox;
+    const aLEcran = (ll: [number, number]) => {
+      const b = ctx.proj(ll) as [number, number];
+      return versEcran(ctx.t, b[0], b[1]);
+    };
+    expect(c.transfo.k).toBeGreaterThan(2);
+    expect(Math.abs(aLEcran(centreEmprise(e))[0] - L / 2)).toBeLessThan(1e-6);
+    for (const [x, y] of contourEmprise(e).map(aLEcran)) expect(x >= -1 && x <= L + 1 && y >= -1 && y <= H + 1).toBe(true);
+  });
+
+  describe('une mer se cadre par son emprise, la vue tournée vers son milieu (§ 4.5)', () => {
+    const bbox = (id: string) => couche.mers.find((m) => m.pays.id === id)!.pays.bbox;
+    const prive = (c: CarteCanvas) => c as unknown as { v: VueGlobe };
+    /** Le contour de l'emprise à l'écran. */
+    const aLEcran = (c: CarteCanvas, e: Emprise) =>
+      contourEmprise(e).map((ll) => {
+        const ctx = c.contexte();
+        const b = ctx.proj(ll) as [number, number];
+        return versEcran(ctx.t, b[0], b[1]);
+      });
+    const dedans = (pts: [number, number][], h: number) => pts.every(([x, y]) => x >= -1 && x <= L + 1 && y >= -1 && y <= h + 1);
+
+    it.each([
+      ['pacif', -156.8],
+      ['bering', -177.4],
+      ['caraibes', -74.1],
+    ] as const)('%s : entier au-dessus de la barre, la vue tournée vers le milieu de son emprise (%f°)', (id, milieu) => {
+      const c = carteMers();
+      c.prendreMers(couche);
+      c.montrer(id, HV);
+      jouer(0, 2100);
+      expect(centreEmprise(bbox(id))[0]).toBeCloseTo(milieu, 0);
+      expect(Math.abs(ecartLon(prive(c).v.r, milieu))).toBeLessThan(1);
+      expect(dedans(aLEcran(c, bbox(id)), HV)).toBe(true);
+      expect(c.transfo.k).toBeGreaterThanOrEqual(1);
+    });
+
+    it('le Pacifique entier depuis n’importe quelle rotation, pas la moitié de son polygone principal', () => {
+      for (const depart of ['FRA', 'JPN', 'BRA', 'NZL']) {
+        const c = carteMers();
+        c.prendreMers(couche);
+        c.zoomerSur(depart);
+        c.montrer('pacif', HV);
+        jouer(0, 2100);
+        expect([depart, dedans(aLEcran(c, bbox('pacif')), HV)]).toEqual([depart, true]);
+        expect(Math.abs(ecartLon(prive(c).v.r, -156.85))).toBeLessThan(1);
+      }
+    });
+
+    it('l’Arctique et l’Austral, bandes de 360° : la rotation du moment gardée, leur bande en latitude au-dessus de la barre, vue finie, zoom ≥ 1', () => {
+      for (const depart of ['FRA', 'JPN', 'FJI', 'BRA']) {
+        for (const id of ['arctique', 'austral']) {
+          const c = carteMers();
+          c.prendreMers(couche);
+          c.zoomerSur(depart);
+          jouer(0, 100);
+          const r0 = prive(c).v.r;
+          c.montrer(id, HV);
+          jouer(200, 2300);
+          const v = prive(c).v;
+          expect([depart, id, Number.isFinite(v.r) && Number.isFinite(v.k) && Number.isFinite(v.y), v.k >= 1]).toEqual([depart, id, true, true]);
+          expect(Math.abs(ecartLon(r0, v.r))).toBeLessThan(1e-6);
+          const [, s, , n] = bbox(id);
+          const ctx = c.contexte();
+          for (const lat of [s, n]) {
+            const b = ctx.proj([v.r, lat]) as [number, number];
+            const [, y] = versEcran(ctx.t, b[0], b[1]);
+            expect([depart, id, lat, y >= -1 && y <= HV + 1]).toEqual([depart, id, lat, true]);
+          }
+        }
+      }
+    });
   });
 });

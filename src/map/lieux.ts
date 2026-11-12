@@ -1,6 +1,7 @@
 // Index commun des zones d'une carte (étude J2, § 4.2) : pays (ou communes) et
 // zones marines, par id. ecran, vise, montrer et marquer des trois rendus le
-// lisent pour les uns comme pour les autres (noter aussi, lot 3a, partie C).
+// lisent pour les uns comme pour les autres, et noter (pick.ts), qui y trouve
+// la couche de sa cible.
 // Les ids des mers (8 lettres minuscules) ne recoupent aucun id de pays.json
 // (tests/donnees-mers.test.ts).
 import type { DonneesCarte } from './donnees';

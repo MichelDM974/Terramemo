@@ -7,7 +7,7 @@ import { select } from 'd3-selection';
 import 'd3-transition'; // selection.transition(), pour le vol de montrer()
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom';
 import type { DonneesCarte } from './donnees';
-import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, versEcran, viser, type Emprise } from './geo';
+import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, recentrerBande, versEcran, viser, type Emprise } from './geo';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { acceptesDe } from './acceptes';
 import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from './pick';
@@ -15,7 +15,7 @@ import { creerProjection, garderVue } from './projection';
 import { fabriqueLignes, fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
 import { indexLieux, type LieuIndexe } from './lieux';
-import { densifierCoutures, formeContour, lignesContour, zonesAllumees, type CoucheMers } from './mers';
+import { densifierCoutures, empriseMer, formeContour, lignesContour, zonesAllumees, type CoucheMers } from './mers';
 import { classeSeau, seau, type Teintes } from './teintes';
 import type { Position } from 'geojson';
 import type { Entite, Forme, Lieu, Mer, NomProjection, Pays, Rendu, Transfo } from './types';
@@ -459,11 +459,16 @@ export class Carte implements CarteAffichee {
 
   /** Une emprise entière dans la partie visible (carte plane : une emprise à cheval sur le bord de la carte la prend en entier). */
   cadrer(e: Emprise, hVisible?: number): void {
+    const t = this.viserEmprise(e, this.cadre.zoomMaxMontrer, hVisible ?? this.taille.h);
+    if (t) this.voler(t);
+  }
+
+  /** La transformation qui met l'emprise entière dans l × h (h : la partie visible), son milieu au centre, au zoom kMax au plus. */
+  private viserEmprise(e: Emprise, kMax: number, h: number): Transfo | null {
     const b = this.proj(centreEmprise(e));
-    if (!b) return;
+    if (!b) return null;
     const boite = empriseEcran(contourEmprise(e), (ll) => this.proj(ll) as [number, number] | null);
-    const h = Math.max(1, Math.min(hVisible ?? this.taille.h, this.taille.h));
-    this.voler(viser([b[0], b[1]], 0, this.taille.l, h, this.cadre.zoomMaxMontrer, boite));
+    return viser([b[0], b[1]], 0, this.taille.l, Math.max(1, Math.min(h, this.taille.h)), kMax, boite);
   }
 
   zoomerDe(facteur: number): void {
@@ -524,6 +529,13 @@ export class Carte implements CarteAffichee {
    */
   private vise(id: string, kMax: number, h = this.taille.h, entier = false): Transfo | null {
     const li = this.lieux.get(id);
+    if (li?.couche === 'mers') {
+      // Une mer par son emprise entière (étude J2, § 4.5), comme cadrer(), pas
+      // par son polygone principal (une moitié du Pacifique) ; une bande de
+      // 360° (l'Arctique, l'Austral) autour du méridien central de la projection.
+      const e = empriseMer(id, this.o.donnees.mers.map((m) => m.pays));
+      return e ? this.viserEmprise(recentrerBande(e, -(this.proj.rotate()[0] ?? 0)), kMax, h) : null;
+    }
     const b = li && this.proj(li.lieu.point);
     if (!li || !b) return null;
     const boite = entier ? empriseEcran(anneauPrincipal(li.forme, li.lieu.point), (ll) => this.proj(ll) as [number, number] | null) : null;

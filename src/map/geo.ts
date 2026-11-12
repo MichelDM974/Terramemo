@@ -294,6 +294,24 @@ export function contourEmprise([o, s, e, n]: Emprise, pas = 24): [number, number
   return r;
 }
 
+/** Écart (degrés) laissé entre les deux bords d'une bande recentrée : ses bords projetés restent de part et d'autre du méridien opposé. */
+const BORD_BANDE_DEG = 0.1;
+
+/**
+ * Une emprise de 360° de longitude (une bande sans centre : l'Arctique,
+ * l'Austral) recentrée sur la longitude lon (la rotation du moment : aucun tour
+ * inutile), pour centreEmprise et contourEmprise ; une autre emprise, telle
+ * quelle.
+ */
+export function recentrerBande(e: Emprise, lon: number): Emprise {
+  const [o, s, est, n] = e;
+  const long = o <= est ? est - o : est + 360 - o;
+  if (long < 360 - 1e-9) return e;
+  const l = (x: number) => (((x + 180) % 360) + 360) % 360 - 180;
+  const demi = 180 - BORD_BANDE_DEG;
+  return [l(lon - demi), s, l(lon + demi), n];
+}
+
 /** Le centre [lon, lat] d'une emprise (au milieu de son arc de longitude, ramené dans [-180, 180]). */
 export function centreEmprise([o, s, e, n]: Emprise): [number, number] {
   const long = o <= e ? e - o : e + 360 - o;
