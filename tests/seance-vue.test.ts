@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { chargerCapitales, oublierCapitales } from '../src/map/capitales';
-import { chargerDrapeaux, oublierDrapeaux } from '../src/map/drapeaux';
+import { chargerDrapeaux, drapeauxCharges, oublierDrapeaux } from '../src/map/drapeaux';
 import { assembler } from '../src/map/donnees';
 import { assemblerTerrain } from '../src/map/donnees-terrain';
 import type { Lieu, NomTerrain, Pays } from '../src/map/types';
@@ -1106,6 +1106,28 @@ describe('séance : le sujet Drapeaux (lot 2)', () => {
     demandes.length = 0;
     m3.seances.ouvrir({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') });
     expect(demandes).toEqual([]);
+  });
+
+  it('préchargement par défaut (D38 a, décision « Drapeaux contestés et sosies ») : tous les drapeaux justes de chaque pays, l’Afghanistan et la Bolivie compris, puisque l’énoncé de Trouver tire le sien à sa pose', async () => {
+    // Une page neuve (aucune adresse déjà demandée), dont les images préchargées sont notées.
+    oublierDrapeaux();
+    await lireDrapeaux();
+    const precharges: string[] = [];
+    vi.stubGlobal(
+      'Image',
+      class {
+        set src(a: string) {
+          precharges.push(a);
+        }
+      },
+    );
+    const m = await monter();
+    await noter(m, ['AFG', 'BOL', 'FRA'].map((id) => `drapeaux:${id}:localiser`), T0 - JOUR_MS, 1);
+    m.seances.ouvrir({ sorte: 'revision' });
+    const justes = (id: string) => drapeauxCharges()!.parPays.get(id)!.justes;
+    expect(justes('AFG')).toHaveLength(2);
+    expect(justes('BOL')).toHaveLength(2);
+    expect([...precharges].sort()).toEqual(['AFG', 'BOL', 'FRA'].flatMap(justes).sort());
   });
 
   it('plafond commun des 15 introductions (D46 d) tenu avec trois sujets du monde : pays, capitales et drapeaux mêlés, puis les communes', async () => {

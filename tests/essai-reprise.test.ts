@@ -1082,6 +1082,40 @@ describe('Toucher : le sujet Drapeaux', () => {
     expect(c.classList.contains('consigne-image')).toBe(false);
   });
 
+  it('D41, décision « Drapeaux contestés et sosies » : en séance aussi (Apprendre, Révision du jour), Trouver montre l’un des deux drapeaux de l’Afghanistan au hasard, fixé pour la question (reprise comprise) ; la carte retournée, le premier', () => {
+    const justes = drapeauxCharges()!.parPays.get('AFG')!.justes;
+    expect(justes).toHaveLength(2);
+    // Le hasard au plus bas, puis au plus haut : le premier drapeau, puis le second (une séance qui montrerait toujours le premier échoue au second).
+    for (const [x, k] of [
+      [0.01, 0],
+      [0.99, 1],
+    ] as const) {
+      vi.spyOn(Math, 'random').mockReturnValue(x);
+      try {
+        const f = piloteFactice([
+          { id: 'AFG', forme: 'trouver', cadrer: null, connu: false, domaine: 'drapeaux' },
+          { id: 'AFG', forme: 'retournee', cadrer: null, connu: false, domaine: 'drapeaux' },
+        ]);
+        const s = monterSeance(() => f.p);
+        s.vue.activer();
+        s.vue.reviser();
+        const src = () => s.el('#barre-essai .essai-consigne strong img').getAttribute('src');
+        expect(src(), `${x}`).toBe(justes[k]);
+        s.vue.desactiver();
+        s.vue.activer();
+        expect(src(), `${x}`).toBe(justes[k]);
+        justeSuivant = true;
+        s.vue.toucher?.(1, 1, {} as PointerEvent);
+        vi.advanceTimersByTime(1200);
+        s.el('#retournee-reveler').click();
+        expect(s.el('#barre-retournee .retournee-nom img').getAttribute('src'), `${x}`).toBe(montre('AFG'));
+        s.vue.desactiver();
+      } finally {
+        vi.restoreAllMocks();
+      }
+    }
+  });
+
   it('une séance qui attend les drapeaux seuls : « Chargement… », pas le message de l’île', () => {
     const f = piloteFactice([{ id: 'FRA', forme: 'trouver', cadrer: null, connu: false, domaine: 'drapeaux' }]);
     const s = monterSeance(() => f.p);
