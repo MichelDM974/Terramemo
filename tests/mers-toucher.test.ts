@@ -312,7 +312,7 @@ describe('pickMer : une petite mer a un halo de 12 px, sur la terre et dans l’
     expect(vus.faux).toBeGreaterThan(5);
   });
 
-  it('jamais par-dessus une terre au-delà de 12 px : sur la terre à moins de 22 px du point d’Azov, faux (zoom 1 et 2)', () => {
+  it('jamais par-dessus une terre au-delà de 12 px : sur la terre à 14 à 21 px du point d’Azov et à plus de 12 px de son eau, faux (zoom 1 et 2)', () => {
     for (const k of [1, 2]) {
       const ctx = contexte(vueSur([35, 45], k));
       const [ax, ay] = ecran(ctx, azov.pays.point);
