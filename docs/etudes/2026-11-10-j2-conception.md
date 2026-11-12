@@ -536,9 +536,9 @@ de la mer sans zone, 0,79 % de la terre sous une zone ; arête la plus longue
   mer du Japon : limites de l'OHI ;
 - Cattégat à la mer du Nord (P361 : Atlantique) ; les Belts à la Baltique
   (OHI) ;
-- détroits de Bass et de Cook au Pacifique ; détroit de Davis et Cumberland
-  Sound à l'Arctique (P361) ; Malacca à l'Indien, que ni P361 ni l'OHI ne
-  rangent.
+- détroits de Bass et de Cook au Pacifique ; détroit de Davis à l'Arctique
+  (P361), Cumberland Sound avec lui (sans P361, il n'ouvre que sur ce
+  détroit) ; Malacca à l'Indien, que ni P361 ni l'OHI ne rangent.
 
 **Noms** : libellés Wikidata en français, générique en minuscule (« mer
 Méditerranée », « golfe Persique », « Manche »). La majuscule de début de
