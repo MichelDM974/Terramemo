@@ -406,8 +406,12 @@ describe('géométries (mers.topo.json, mers-leger.topo.json)', () => {
     }
   });
 
-  it('le point de chaque zone est dans sa forme (10 km)', () => {
-    for (const m of mers) expect(geoContains(formesFines.get(m.id)!, m.point), m.id).toBe(true);
+  it('le point de chaque zone est dans sa forme, à 10 km et à 50 km (la couche légère nomme la mer touchée, D45 a)', () => {
+    const formesLegeres = new Map(formes(topoLeger).map((f) => [f.properties.id, f]));
+    for (const m of mers) {
+      expect(geoContains(formesFines.get(m.id)!, m.point), m.id).toBe(true);
+      expect(geoContains(formesLegeres.get(m.id)!, m.point), `${m.id} (50 km)`).toBe(true);
+    }
   });
 
   it('aucune arête de plus de 1,001° hors coutures (densifiées à 1° après la simplification)', () => {
