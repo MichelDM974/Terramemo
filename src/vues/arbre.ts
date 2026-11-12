@@ -9,7 +9,7 @@
 // (#jouer, #jouer/classe, #jouer/classe/pays, #jouer/classe/pays/Africa) :
 // le retour du navigateur et celui d'Android remontent l'historique d'un
 // niveau à la fois (src/main.ts), un niveau sauté n'y laissant pas d'entrée.
-import { maintenantEpreuves, MODES_EPREUVE, sujetOuvert, type ModeEpreuve } from '../epreuve/chrono';
+import { MODES_EPREUVE, sujetOuvert, type ModeEpreuve } from '../epreuve/chrono';
 import { estDomaine } from '../srs/fiches';
 import type { NomTerrain } from '../map/types';
 import { nomSerie, type Serie } from './cibles';
@@ -63,10 +63,10 @@ const duTerrain = (t: NomTerrain) => (c: readonly Serie[]) => c.filter((s) => s.
 export const SUJETS: readonly DefSujet[] = [
   { id: 'pays', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   // Capitales (étude J2 § 7.2, lot 1) : les séries des pays, tailles comprises (D37 c : les 9 pays au nom de leur
-  // capitale restent en Trouver et en épreuve) ; ses épreuves classées à leur ouverture (creerArbre, sujetOuvert).
+  // capitale restent en Trouver et en épreuve) ; ses épreuves classées ouvertes (creerArbre, sujetOuvert).
   { id: 'capitales', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   // Drapeaux (étude J2 § 7.2, lot 2) : les séries des pays (195 jouables, « 54 drapeaux » en Afrique) ; ses épreuves
-  // classées à leur ouverture, la même bascule que les capitales (creerArbre, sujetOuvert).
+  // classées ouvertes comme celles des capitales (creerArbre, sujetOuvert).
   { id: 'drapeaux', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];
@@ -164,15 +164,14 @@ export function nombreSujet(id: string, series: readonly Serie[]): string {
 
 /**
  * L'arbre de ce catalogue de séries (src/vues/cibles.ts, catalogue()) et de
- * ces sujets. Sous Classé, un sujet n'a ses épreuves qu'une fois ouvertes
- * (EPREUVES_OUVERTES, src/epreuve/chrono.ts : la bascule datée du lundi qui
- * suit sa livraison) : avant, il n'y est pas. `maintenant` (ms) se relit à
- * chaque question posée à l'arbre : Jouer bascule au plus tard à son
- * prochain affichage. Un sujet qui n'est pas un domaine (essais) n'attend rien.
+ * ces sujets. Sous Classé, un sujet n'a ses épreuves que si elles sont
+ * ouvertes (sujetOuvert, src/epreuve/chrono.ts : le sujet est dans
+ * EPREUVES_SUJETS, décision « Ouverture des épreuves d'un sujet », 12/11) :
+ * sinon, il n'y est pas. Un sujet qui n'est pas un domaine (essais) n'attend rien.
  */
-export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSujet[] = SUJETS, maintenant: () => number = maintenantEpreuves): Arbre {
+export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSujet[] = SUJETS): Arbre {
   const seriesDe = new Map(sujets.map((s) => [s.id, s.series(catalogue)]));
-  const modesDe = (s: DefSujet, b: Branche) => (b === 'classe' && estDomaine(s.id) && !sujetOuvert(s.id, maintenant()) ? [] : s.modes[b]);
+  const modesDe = (s: DefSujet, b: Branche) => (b === 'classe' && estDomaine(s.id) && !sujetOuvert(s.id) ? [] : s.modes[b]);
   const proposes = (b: Branche) => sujets.filter((s) => modesDe(s, b).length > 0 && (seriesDe.get(s.id)?.length ?? 0) > 0);
   const estBranche = (b: string): b is Branche => (BRANCHES as readonly string[]).includes(b);
 

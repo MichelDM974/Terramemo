@@ -252,8 +252,13 @@ const SERIES_MONDE: readonly string[] = ['tous', 'Africa', 'North America', 'Sou
  * les sujets dans celui de Jouer (D53 b, décision « Ordre des sujets » :
  * Communes en dernier), les séries dans celui du catalogue
  * (src/vues/cibles.ts, décision « Écran Jouer »). Capitales (D37 c) et
- * Drapeaux ont les séries des pays, et leurs tailles. Un sujet n'y compte
- * qu'une fois ses épreuves ouvertes (EPREUVES_OUVERTES).
+ * Drapeaux ont les séries des pays, et leurs tailles. Un sujet y entre
+ * quand ses épreuves classées ouvrent (décision « Ouverture des épreuves
+ * d'un sujet », 12/11) : dès qu'il est livré, sans date de bascule, les
+ * règles Firestore qui les acceptent parties avant le site. Seule source de
+ * l'ouverture : un sujet de Jouer absent d'ici n'a pas d'épreuves classées
+ * (les mers avant le lot 3b), ni dans Classé, ni au général, ni publiées, ni
+ * lues par le 🏆 ; ses exercices d'Entraînement, si.
  */
 export const EPREUVES_SUJETS: readonly PaireEpreuve[] = [
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'pays', serie })),
@@ -262,63 +267,22 @@ export const EPREUVES_SUJETS: readonly PaireEpreuve[] = [
   { sujet: 'communes', serie: 'reunion' },
 ];
 
-/**
- * L'ouverture des épreuves classées de chaque sujet (décision « Ouverture
- * des épreuves d'un sujet », 11/11) : une bascule datée, le lundi 0 h UTC
- * (4 h à La Réunion) qui suit la livraison du sujet, début d'une semaine du
- * classement. Avant, ses épreuves ne sont ni dans Classé, ni au général, ni
- * publiées, ni lues par le 🏆 ; ses exercices d'Entraînement, si. Les règles
- * Firestore qui les acceptent partent avant le site. Un sujet absent de la
- * table n'a pas d'épreuves (les mers : lot 3b). Pays et communes : depuis
- * toujours. Capitales (lot 1) et Drapeaux (lot 2) : la même bascule, le
- * lundi 16/11/2026 (choix de l'utilisateur, 11/11).
- */
-export const EPREUVES_OUVERTES: Readonly<Partial<Record<Domaine, number>>> = {
-  pays: 0,
-  communes: 0,
-  capitales: Date.UTC(2026, 10, 16),
-  drapeaux: Date.UTC(2026, 10, 16),
-};
-
-/**
- * L'horloge de la bascule (ms depuis 1970), lue à chaque calcul : Jouer et
- * le 🏆 la relisent à chaque ouverture (un onglet resté ouvert bascule au
- * plus tard à sa prochaine ouverture de l'un ou de l'autre), le général et
- * la publication à chaque envoi. Date.now ; tests, et `?horloge=` avec
- * `?emulateurs` au serveur de développement (main.ts) : reglerHorlogeEpreuves.
- */
-let horlogeEpreuves: () => number = () => Date.now();
-
-export function reglerHorlogeEpreuves(h: () => number): void {
-  horlogeEpreuves = h;
-}
-
-/** L'heure de la bascule des épreuves (horlogeEpreuves). */
-export const maintenantEpreuves = (): number => horlogeEpreuves();
-
-/** Les épreuves classées de ce sujet sont-elles ouvertes à l'instant `t` ? Jamais pour un sujet hors de EPREUVES_OUVERTES. */
-export function sujetOuvert(sujet: string, t: number = maintenantEpreuves()): boolean {
-  const debut = (EPREUVES_OUVERTES as Readonly<Record<string, number | undefined>>)[sujet];
-  return debut !== undefined && t >= debut;
-}
-
-/** Les paires de EPREUVES_SUJETS dont le sujet est ouvert à l'instant `t`, dans leur ordre. */
-export const pairesOuvertes = (t: number = maintenantEpreuves()): PaireEpreuve[] => EPREUVES_SUJETS.filter((p) => sujetOuvert(p.sujet, t));
+/** Les épreuves classées de ce sujet sont-elles ouvertes ? Oui s'il est dans EPREUVES_SUJETS. */
+export const sujetOuvert = (sujet: string): boolean => EPREUVES_SUJETS.some((p) => p.sujet === sujet);
 
 /**
  * Les épreuves du Chrono que le général additionne (étude J2 § 3.2, l'ancien
- * EPREUVES) : celles de tous les sujets ouverts (D40 a, décision « Général à
+ * EPREUVES) : celles de tous les sujets de EPREUVES_SUJETS (D40 a, décision « Général à
  * tous les sujets »). Il se lit dans chacune (classement.ts, placesDuPseudo).
  */
-export const epreuvesDuGeneral = (t: number = maintenantEpreuves()): string[] => pairesOuvertes(t).map((p) => idEpreuve(p.serie, 'chrono', p.sujet));
+export const epreuvesDuGeneral = (): string[] => EPREUVES_SUJETS.map((p) => idEpreuve(p.serie, 'chrono', p.sujet));
 
 /**
- * Toutes les épreuves classées ouvertes (l'ancien EPREUVES_CLASSEES), mode
+ * Toutes les épreuves classées (l'ancien EPREUVES_CLASSEES), mode
  * par mode, puis sujet par sujet : l'écran des classements les liste ainsi
  * (§ 8.3). Le quiz viendra au lot 4b.
  */
-export const epreuvesClassees = (t: number = maintenantEpreuves()): string[] =>
-  MODES_EPREUVE.flatMap((m) => pairesOuvertes(t).map((p) => idEpreuve(p.serie, m, p.sujet)));
+export const epreuvesClassees = (): string[] => MODES_EPREUVE.flatMap((m) => EPREUVES_SUJETS.map((p) => idEpreuve(p.serie, m, p.sujet)));
 
 /** Le sujet d'une épreuve du catalogue (`chrono:localiser:reunion` → communes) ; null hors du catalogue (le général, le quiz). */
 export function sujetEpreuve(epreuve: string): Domaine | null {
@@ -328,8 +292,7 @@ export function sujetEpreuve(epreuve: string): Domaine | null {
 
 /**
  * Les questions du général au plus (chronoValide de firestore.rules, n = 0) :
- * la somme des tailles des Chrono de epreuvesDuGeneral, une fois les
- * capitales et les drapeaux ouverts, 390 (pays : tous et les continents) +
+ * la somme des tailles des Chrono de epreuvesDuGeneral : 390 (pays : tous et les continents) +
  * 24 (l'île) + 390 (capitales, D37 c) + 390 (drapeaux) = 1 194. Chaque sujet
  * ouvert la monte (les mers : 1 244, D37 c), règles d'abord.
  * tests/chrono.test.ts la compare à la somme des tailles et aux règles.
@@ -541,7 +504,7 @@ function baremeChrono(points: number, justes: number, q: number, temps: number):
 
 /**
  * Le score du classement général : la somme des records des épreuves de
- * epreuvesDuGeneral (ouvertes à l'instant `t`) pour la période (décisions « Classements », « Sans faute et
+ * epreuvesDuGeneral pour la période (décisions « Classements », « Sans faute et
  * Minute » : ni Sans faute ni Minute n'y comptent), chacun pris à son
  * meilleur score publiable (recordPubliable) ; null sans record publiable.
  * Les seules listées (étude J2 § 3.2) : ni le quiz, ni un Chrono que cette
@@ -555,9 +518,8 @@ export function totalGeneral(
   records: Map<string, RecordChrono>,
   periode: string,
   enLigne: ReadonlyMap<string, ScoreEpreuve> = new Map(),
-  t: number = maintenantEpreuves(),
 ): ScoreEpreuve | null {
-  const dansLeGeneral = new Set(epreuvesDuGeneral(t));
+  const dansLeGeneral = new Set(epreuvesDuGeneral());
   const meilleurs = new Map<string, ScoreEpreuve>();
   for (const [k, r] of records) {
     const [epreuve, sem] = k.split('@');

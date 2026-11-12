@@ -428,8 +428,8 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
   });
 });
 
-// Le sujet Capitales en épreuve (D38 d) : Classé › Capitales à partir du
-// lundi 16/11/2026 (bascule datée de src/epreuve/chrono.ts) ; la vue les pose.
+// Le sujet Capitales en épreuve (D38 d) : Classé › Capitales (décision
+// « Ouverture des épreuves d'un sujet », 12/11) ; la vue les pose.
 describe('le sujet Capitales en épreuve', () => {
   const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
   const EPREUVE: Record<string, string> = { BOL: 'La Paz', ARG: 'Buenos Aires', PER: 'Lima' };
@@ -538,7 +538,7 @@ describe('le sujet Capitales en épreuve', () => {
 // rendu, la partie attendue au départ (décision « Images d'une épreuve »,
 // lot 2b), le temps qui attend un drapeau pas encore là (le filet), les
 // jumeaux (D41 d), le bilan et le classement. Lancée ici
-// directement, comme Jouer la lance après la bascule (tests/jouer.test.ts).
+// directement, comme Jouer la lance (tests/jouer.test.ts).
 describe('le sujet Drapeaux en épreuve', () => {
   const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
   beforeAll(async () => {

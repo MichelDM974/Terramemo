@@ -58,8 +58,8 @@ export async function publier(epreuve: string, periode: string, pseudo: string, 
 /**
  * Les places d'un pseudo dans chaque épreuve du Chrono pour une période
  * (épreuve → score) : ce que ses autres appareils ont publié, que le général
- * additionne (totalGeneral). Une lecture par épreuve du général, celles des
- * sujets ouverts à l'heure de l'appel (epreuvesDuGeneral). Lève hors ligne.
+ * additionne (totalGeneral). Une lecture par épreuve du général
+ * (epreuvesDuGeneral). Lève hors ligne.
  */
 export async function placesDuPseudo(periode: string, pseudo: string): Promise<Map<string, ScoreEpreuve>> {
   const s = await charger();

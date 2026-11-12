@@ -122,8 +122,8 @@ describe('fusion du profil (pure)', () => {
     expect(fusionner(lu(null, null), { pseudo: null, records: new Map() }, o)).toMatchObject({ pseudo: null, doc: null });
   });
 
-  it('les capitales et les drapeaux ouverts (66 épreuves, de toujours et de la semaine), aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
-    const epreuves = epreuvesClassees(Date.UTC(2026, 10, 16));
+  it('les 66 épreuves classées, capitales et drapeaux compris (de toujours et de la semaine), aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
+    const epreuves = epreuvesClassees();
     expect(epreuves).toHaveLength(66);
     // Le pire : des points et un temps à 17 chiffres (le barème et performance.now()), 195 questions, une date à 13 chiffres.
     const pire = (): RecordChrono => ({ points: 194_999.99999999997, justes: 194, questions: 195, temps_ms: 2_924_999.9999999995, date: 1_794_787_199_999, bareme: VERSION_BAREME });

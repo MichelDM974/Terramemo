@@ -13,7 +13,7 @@ import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
 import { creerTerrains, idsJouables, type Terrain, type Terrains } from './terrains';
-import { lirePseudoDe, lireRecords, reglerHorlogeEpreuves } from './epreuve/chrono';
+import { lirePseudoDe, lireRecords } from './epreuve/chrono';
 import { idAppareil } from './journal/appareil';
 import { depotIndexedDb } from './journal/depot';
 import { horlogeAppareil, horlogeDecalee, lireDecalage } from './journal/horloge';
@@ -123,17 +123,12 @@ const teintesDemoDemandees = params.get('teintes') === 'demo';
 /**
  * Horloge de test du J1a (#2) : `?horloge=1` décale l'heure du journal d'un
  * jour (le lendemain d'une séance, au pilote), `?horloge=-0.5` d'une
- * demi-journée en arrière. Avec `?emulateurs` aussi, elle décale la bascule
- * des épreuves d'un sujet (EPREUVES_OUVERTES : Classé › Capitales avant le
- * 16/11 au pilote), pas la date des records ni leur semaine : sans, le
- * serveur de dev écrit dans le Firebase du site (sync/firebase.ts), et un
- * pseudo y publierait les épreuves d'un sujet avant leur ouverture. Serveur
- * de développement seulement : sur le site, elle fausserait le journal de
- * l'utilisateur.
+ * demi-journée en arrière. Le journal seul : ni la date des records ni leur
+ * semaine. Serveur de développement seulement : sur le site, elle
+ * fausserait le journal de l'utilisateur.
  */
 const decalageHorloge = import.meta.env.DEV ? lireDecalage(params.get('horloge')) : null;
 const horloge = decalageHorloge === null ? horlogeAppareil : horlogeDecalee(horlogeAppareil, decalageHorloge);
-if (decalageHorloge !== null && params.has('emulateurs')) reglerHorlogeEpreuves(() => horloge().ts);
 const CLE_MESURES = 'terramemo.mesures';
 function lireMesures(): boolean {
   const p = params.get('mesures');

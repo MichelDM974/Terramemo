@@ -3,7 +3,7 @@
 // et lireTableau() remplacés, DOM factice (tests/dom-factice.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScoreEpreuve } from '../src/epreuve/bareme';
-import { enregistrerPartie, idEpreuve, periodeSemaine, reglerHorlogeEpreuves } from '../src/epreuve/chrono';
+import { enregistrerPartie, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
 import { COMPTES_OUVERTS } from '../src/sync/drapeaux';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
@@ -27,10 +27,6 @@ const AMS = idEpreuve('South America');
 const ILE = idEpreuve('reunion');
 const maintenant = Date.now();
 const semaine = periodeSemaine(maintenant);
-/** La bascule des épreuves des capitales et des drapeaux (lundi 16/11/2026, 0 h UTC) : ces tests la veille, sauf ceux qui la passent. */
-const OUVERTURE = Date.parse('2026-11-16T00:00:00Z');
-const AVANT = OUVERTURE - 1;
-reglerHorlogeEpreuves(() => AVANT);
 
 /** Laisse passer les promesses en attente (publication, puis lecture du classement). */
 const attendre = () => new Promise((r) => setTimeout(r, 0));
@@ -125,58 +121,51 @@ describe('publication d’une partie', () => {
     expect(lireAttente()).toEqual([]);
   });
 
-  it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ou d’un Chrono pas encore ouvert (les capitales, les drapeaux avant le 16/11) ne part pas, sans refus annoncé', async () => {
+  it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ou d’un sujet sans épreuves classées (les mers, hors de EPREUVES_SUJETS) ne part pas, sans refus annoncé', async () => {
     enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
     // Reçus par le profil d'une version plus récente, vraisemblables tous : les règles de cette version les refuseraient.
     const QUIZ = 'quiz:general:facile';
-    const CAP = idEpreuve('tous', 'chrono', 'capitales');
-    const DRA = idEpreuve('tous', 'chrono', 'drapeaux');
-    const MIN_DRA = idEpreuve('Africa', 'minute', 'drapeaux');
+    const MERS = idEpreuve('mers', 'chrono', 'mers');
+    const MIN_MERS = idEpreuve('mers', 'minute', 'mers');
     enregistrerPartie(localStorage, QUIZ, score(18_000, 18, 20, 100_000), maintenant);
-    enregistrerPartie(localStorage, CAP, score(150_000, 150, 186, 900_000), maintenant);
-    enregistrerPartie(localStorage, DRA, score(150_000, 150, 195, 900_000), maintenant);
-    enregistrerPartie(localStorage, MIN_DRA, score(23, 23, 25, 60_000), maintenant);
-    publier.mockImplementation(async (e) => ![QUIZ, CAP, DRA, MIN_DRA].includes(e));
+    enregistrerPartie(localStorage, MERS, score(50_000, 50, 50, 300_000), maintenant);
+    enregistrerPartie(localStorage, MIN_MERS, score(23, 23, 25, 60_000), maintenant);
+    publier.mockImplementation(async (e) => ![QUIZ, MERS, MIN_MERS].includes(e));
     const r = await publierTout('Ana');
     expect(r).toEqual({ refuses: 0, echecs: 0 });
     expect(avisPublication(r)).toBe('');
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
   });
 
-  it('après la bascule du 16/11 : les records des capitales et des drapeaux partent au choix du pseudo, et le général les compte (D40 a)', async () => {
-    reglerHorlogeEpreuves(() => OUVERTURE);
-    try {
-      enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
-      const CAP = idEpreuve('Oceania', 'chrono', 'capitales');
-      const SF_CAP = idEpreuve('Oceania', 'sansfaute', 'capitales');
-      const DRA = idEpreuve('Oceania', 'chrono', 'drapeaux');
-      const MIN_DRA = idEpreuve('Oceania', 'minute', 'drapeaux');
-      enregistrerPartie(localStorage, CAP, score(13_500, 13, 14, 80_000), maintenant);
-      enregistrerPartie(localStorage, SF_CAP, score(9, 9, 10, 30_000), maintenant);
-      enregistrerPartie(localStorage, DRA, score(12_000, 12, 14, 50_000), maintenant);
-      enregistrerPartie(localStorage, MIN_DRA, score(14, 14, 14, 40_000), maintenant);
-      publier.mockResolvedValue(true);
-      const r = await publierTout('Ana');
-      expect(r).toEqual({ refuses: 0, echecs: 0 });
-      expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, CAP, CAP, SF_CAP, SF_CAP, DRA, DRA, MIN_DRA, MIN_DRA, 'general', 'general'].sort());
-      const general = publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s);
-      expect(general).toEqual([score(37_500, 37, 40, 190_000), score(37_500, 37, 40, 190_000)]);
-      // Une partie des capitales : son général aussi.
-      publier.mockClear();
-      const b = enregistrerPartie(localStorage, CAP, score(14_000, 14, 14, 70_000), maintenant);
-      await publierPartie('Ana', CAP, b);
-      expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([CAP, CAP, 'general', 'general'].sort());
-      // Une partie des drapeaux de même ; une Minute des drapeaux, sans général.
-      publier.mockClear();
-      await publierPartie('Ana', DRA, enregistrerPartie(localStorage, DRA, score(13_000, 13, 14, 50_000), maintenant));
-      expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([DRA, DRA, 'general', 'general'].sort());
-      expect(publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s.points)).toEqual([39_000, 39_000]);
-      publier.mockClear();
-      await publierPartie('Ana', MIN_DRA, enregistrerPartie(localStorage, MIN_DRA, score(14, 14, 14, 30_000), maintenant));
-      expect(publier.mock.calls.map(([e]) => e)).toEqual([MIN_DRA, MIN_DRA]);
-    } finally {
-      reglerHorlogeEpreuves(() => AVANT);
-    }
+  it('les records des capitales et des drapeaux partent au choix du pseudo, et le général les compte (D40 a)', async () => {
+    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    const CAP = idEpreuve('Oceania', 'chrono', 'capitales');
+    const SF_CAP = idEpreuve('Oceania', 'sansfaute', 'capitales');
+    const DRA = idEpreuve('Oceania', 'chrono', 'drapeaux');
+    const MIN_DRA = idEpreuve('Oceania', 'minute', 'drapeaux');
+    enregistrerPartie(localStorage, CAP, score(13_500, 13, 14, 80_000), maintenant);
+    enregistrerPartie(localStorage, SF_CAP, score(9, 9, 10, 30_000), maintenant);
+    enregistrerPartie(localStorage, DRA, score(12_000, 12, 14, 50_000), maintenant);
+    enregistrerPartie(localStorage, MIN_DRA, score(14, 14, 14, 40_000), maintenant);
+    publier.mockResolvedValue(true);
+    const r = await publierTout('Ana');
+    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, CAP, CAP, SF_CAP, SF_CAP, DRA, DRA, MIN_DRA, MIN_DRA, 'general', 'general'].sort());
+    const general = publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s);
+    expect(general).toEqual([score(37_500, 37, 40, 190_000), score(37_500, 37, 40, 190_000)]);
+    // Une partie des capitales : son général aussi.
+    publier.mockClear();
+    const b = enregistrerPartie(localStorage, CAP, score(14_000, 14, 14, 70_000), maintenant);
+    await publierPartie('Ana', CAP, b);
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([CAP, CAP, 'general', 'general'].sort());
+    // Une partie des drapeaux de même ; une Minute des drapeaux, sans général.
+    publier.mockClear();
+    await publierPartie('Ana', DRA, enregistrerPartie(localStorage, DRA, score(13_000, 13, 14, 50_000), maintenant));
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([DRA, DRA, 'general', 'general'].sort());
+    expect(publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s.points)).toEqual([39_000, 39_000]);
+    publier.mockClear();
+    await publierPartie('Ana', MIN_DRA, enregistrerPartie(localStorage, MIN_DRA, score(14, 14, 14, 30_000), maintenant));
+    expect(publier.mock.calls.map(([e]) => e)).toEqual([MIN_DRA, MIN_DRA]);
   });
 
   it('Minute seule au choix du pseudo : pas de général', async () => {

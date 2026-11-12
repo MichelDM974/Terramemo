@@ -3,7 +3,7 @@
 // l'appareil a un record, les places déjà vues, le reste sujet par sujet).
 // mesPlaces() et lireTableau() remplacés, DOM factice (tests/dom-factice.ts).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { enregistrerPartie, epreuvesClassees, idEpreuve, periodeSemaine, reglerHorlogeEpreuves } from '../src/epreuve/chrono';
+import { enregistrerPartie, epreuvesClassees, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
 const mesPlaces = vi.fn();
@@ -21,11 +21,7 @@ const { remplir, textes } = await import('../src/vues/textes');
 const { nomSujet } = await import('../src/vues/arbre');
 const T = textes.chrono;
 
-/** La bascule des épreuves des capitales et des drapeaux (lundi 16/11/2026, 0 h UTC) : ces tests la veille, sauf ceux qui la passent. */
-const OUVERTURE = Date.parse('2026-11-16T00:00:00Z');
-const AVANT = OUVERTURE - 1;
-reglerHorlogeEpreuves(() => AVANT);
-const EPREUVES_CLASSEES = epreuvesClassees(AVANT);
+const EPREUVES_CLASSEES = epreuvesClassees();
 const ILE = idEpreuve('reunion');
 const AFR = idEpreuve('Africa');
 const SF_EUR = idEpreuve('Europe', 'sansfaute');
@@ -115,75 +111,74 @@ describe('écran des classements', () => {
     expect(p.querySelector('#classements-autres')!.hidden).toBe(false);
     expect(lignes('#classements-autres')).toEqual(EPREUVES_CLASSEES.filter((e) => ![AFR, ILE, SF_EUR, MIN_ILE].includes(e)));
     expect(groupes('#classements-autres')).toEqual(['Chrono', 'Sans faute', 'Minute']);
-    expect(sujets('#classements-autres')).toEqual(['Pays', 'Pays', 'Communes', 'Pays']);
+    expect(sujets('#classements-autres')).toEqual(['Pays', 'Capitales', 'Drapeaux', 'Pays', 'Capitales', 'Drapeaux', 'Communes', 'Pays', 'Capitales', 'Drapeaux']);
     expect(plus.textContent).toBe(T.masquer_epreuves);
     // Les autres ne sont pas lues : ni rang, ni « pas encore classé », mais de quoi les chercher.
     expect(racine.querySelector(`#classements-autres .essai-serie[data-epreuve="${idEpreuve('Asia')}"]`)!.innerText).not.toContain(T.pas_classe);
-    expect(racine.querySelectorAll('#classements-autres .classements-chercher').map((b) => b.dataset.sujet)).toEqual(['pays', 'pays', 'communes', 'pays']);
+    expect(racine.querySelectorAll('#classements-autres .classements-chercher').map((b) => b.dataset.sujet)).toEqual([
+      ...['pays', 'capitales', 'drapeaux'],
+      ...['pays', 'capitales', 'drapeaux', 'communes'],
+      ...['pays', 'capitales', 'drapeaux'],
+    ]);
   });
 
-  it('D52 b : à l’ouverture, 1 + 5 classements lus au lieu de 1 + 66 (les capitales et les drapeaux ouverts) ; « Chercher mes places » lit le reste, sujet par sujet', async () => {
-    reglerHorlogeEpreuves(() => OUVERTURE);
-    try {
-      const tout = epreuvesClassees(OUVERTURE);
-      expect(tout).toHaveLength(66);
-      localStorage.setItem('terramemo.pseudo', 'Michel');
-      const CAP_OCE = idEpreuve('Oceania', 'chrono', 'capitales');
-      const SF_CAP = idEpreuve('tous', 'sansfaute', 'capitales');
-      const DRA_OCE = idEpreuve('Oceania', 'chrono', 'drapeaux');
-      const MIN_DRA = idEpreuve('Europe', 'minute', 'drapeaux');
-      records(AFR, ILE, CAP_OCE, DRA_OCE);
-      // Des places prises sur un autre appareil, sans record ici : seulement à la demande.
-      repondre([place('general', 53_277), place(AFR, 31_710), place(CAP_OCE, 12_400), place(DRA_OCE, 13_100), place(SF_CAP, 30), place(MIN_DRA, 21)]);
-      const p = ouvrir();
-      await attendre();
-      expect(mesPlaces).toHaveBeenCalledTimes(1);
-      expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE]);
-      expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE]);
-      expect(sujets('#classements-mes')).toEqual(['Pays', 'Capitales', 'Drapeaux']);
-      expect(p.innerText).toContain('Capitales · Océanie');
-      expect(p.innerText).toContain('Drapeaux · Océanie');
-      // Lue sans place : « pas encore classé » ; pas lue : rien.
-      const ligne = (e: string) => racine.querySelector(`#classements-autres .essai-serie[data-epreuve="${e}"]`)!.innerText;
-      expect(ligne(ILE)).toContain(T.pas_classe);
-      expect(ligne(SF_CAP)).not.toContain(T.pas_classe);
-      // Les capitales, à la demande : leurs épreuves pas encore lues, les trois modes, rien d'autre.
-      const chercher = racine.querySelector('#classements-autres .classements-chercher[data-sujet="capitales"]')!;
-      expect(chercher.textContent).toBe(T.chercher_places);
-      chercher.click();
-      await attendre();
-      expect(mesPlaces).toHaveBeenCalledTimes(2);
-      const lues = mesPlaces.mock.calls[1]![2] as string[];
-      expect(lues).toHaveLength(20);
-      expect(lues.every((e) => e.split(':')[1] === 'capitales' && e !== CAP_OCE)).toBe(true);
-      // La place trouvée passe dans mes places ; le bouton des capitales n'est plus là, celui des pays si.
-      expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP]);
-      expect(racine.querySelector('.classements-chercher[data-sujet="capitales"]')).toBeNull();
-      expect(racine.querySelector('.classements-chercher[data-sujet="pays"]')).not.toBeNull();
-      expect(ligne(idEpreuve('Africa', 'minute', 'capitales'))).toContain(T.pas_classe);
-      // Les drapeaux de même : leurs 20 épreuves pas encore lues, la place de Minute trouvée.
-      racine.querySelector('#classements-autres .classements-chercher[data-sujet="drapeaux"]')!.click();
-      await attendre();
-      expect(mesPlaces).toHaveBeenCalledTimes(3);
-      const luesD = mesPlaces.mock.calls[2]![2] as string[];
-      expect(luesD).toHaveLength(20);
-      expect(luesD.every((e) => e.split(':')[1] === 'drapeaux' && e !== DRA_OCE)).toBe(true);
-      expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP, MIN_DRA]);
-      expect(racine.querySelector('.classements-chercher[data-sujet="drapeaux"]')).toBeNull();
-      // Gardées comme vues : à la prochaine ouverture, elles se lisent d'office (sans record sur l'appareil).
-      mesPlaces.mockClear();
-      ouvrir();
-      await attendre();
-      expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE, SF_CAP, MIN_DRA]);
-      // Un autre pseudo n'hérite pas des places vues de celui-ci.
-      localStorage.setItem('terramemo.pseudo', 'Zoé');
-      mesPlaces.mockClear();
-      ouvrir();
-      await attendre();
-      expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE]);
-    } finally {
-      reglerHorlogeEpreuves(() => AVANT);
-    }
+  it('D52 b : à l’ouverture, 1 + 5 classements lus au lieu de 1 + 66 ; « Chercher mes places » lit le reste, sujet par sujet', async () => {
+    const tout = epreuvesClassees();
+    expect(tout).toHaveLength(66);
+    localStorage.setItem('terramemo.pseudo', 'Michel');
+    const CAP_OCE = idEpreuve('Oceania', 'chrono', 'capitales');
+    const SF_CAP = idEpreuve('tous', 'sansfaute', 'capitales');
+    const DRA_OCE = idEpreuve('Oceania', 'chrono', 'drapeaux');
+    const MIN_DRA = idEpreuve('Europe', 'minute', 'drapeaux');
+    records(AFR, ILE, CAP_OCE, DRA_OCE);
+    // Des places prises sur un autre appareil, sans record ici : seulement à la demande.
+    repondre([place('general', 53_277), place(AFR, 31_710), place(CAP_OCE, 12_400), place(DRA_OCE, 13_100), place(SF_CAP, 30), place(MIN_DRA, 21)]);
+    const p = ouvrir();
+    await attendre();
+    expect(mesPlaces).toHaveBeenCalledTimes(1);
+    expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE]);
+    expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE]);
+    expect(sujets('#classements-mes')).toEqual(['Pays', 'Capitales', 'Drapeaux']);
+    expect(p.innerText).toContain('Capitales · Océanie');
+    expect(p.innerText).toContain('Drapeaux · Océanie');
+    // Lue sans place : « pas encore classé » ; pas lue : rien.
+    const ligne = (e: string) => racine.querySelector(`#classements-autres .essai-serie[data-epreuve="${e}"]`)!.innerText;
+    expect(ligne(ILE)).toContain(T.pas_classe);
+    expect(ligne(SF_CAP)).not.toContain(T.pas_classe);
+    // Les capitales, à la demande : leurs épreuves pas encore lues, les trois modes, rien d'autre.
+    const chercher = racine.querySelector('#classements-autres .classements-chercher[data-sujet="capitales"]')!;
+    expect(chercher.textContent).toBe(T.chercher_places);
+    chercher.click();
+    await attendre();
+    expect(mesPlaces).toHaveBeenCalledTimes(2);
+    const lues = mesPlaces.mock.calls[1]![2] as string[];
+    expect(lues).toHaveLength(20);
+    expect(lues.every((e) => e.split(':')[1] === 'capitales' && e !== CAP_OCE)).toBe(true);
+    // La place trouvée passe dans mes places ; le bouton des capitales n'est plus là, celui des pays si.
+    expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP]);
+    expect(racine.querySelector('.classements-chercher[data-sujet="capitales"]')).toBeNull();
+    expect(racine.querySelector('.classements-chercher[data-sujet="pays"]')).not.toBeNull();
+    expect(ligne(idEpreuve('Africa', 'minute', 'capitales'))).toContain(T.pas_classe);
+    // Les drapeaux de même : leurs 20 épreuves pas encore lues, la place de Minute trouvée.
+    racine.querySelector('#classements-autres .classements-chercher[data-sujet="drapeaux"]')!.click();
+    await attendre();
+    expect(mesPlaces).toHaveBeenCalledTimes(3);
+    const luesD = mesPlaces.mock.calls[2]![2] as string[];
+    expect(luesD).toHaveLength(20);
+    expect(luesD.every((e) => e.split(':')[1] === 'drapeaux' && e !== DRA_OCE)).toBe(true);
+    expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP, MIN_DRA]);
+    expect(racine.querySelector('.classements-chercher[data-sujet="drapeaux"]')).toBeNull();
+    // Gardées comme vues : à la prochaine ouverture, elles se lisent d'office (sans record sur l'appareil).
+    mesPlaces.mockClear();
+    ouvrir();
+    await attendre();
+    expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE, SF_CAP, MIN_DRA]);
+    // Un autre pseudo n'hérite pas des places vues de celui-ci.
+    localStorage.setItem('terramemo.pseudo', 'Zoé');
+    mesPlaces.mockClear();
+    ouvrir();
+    await attendre();
+    expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE]);
   });
 
   it('« Chercher mes places » hors ligne : le bouton le dit et se réessaie', async () => {
@@ -231,22 +226,13 @@ describe('écran des classements', () => {
     expect(boutons('communes').map((b) => [b.disabled, b.textContent])).toEqual(boutons('communes').map(() => [false, T.chercher_echec]));
   });
 
-  it('avant le 16/11, rien des capitales ni des drapeaux ; après, leurs épreuves sous « Capitales » et « Drapeaux », entre Pays et Communes', async () => {
-    const p = ouvrir();
+  it('les épreuves des capitales et des drapeaux sous « Capitales » et « Drapeaux », entre Pays et Communes ; rien d’un sujet sans épreuves classées (les mers), même avec un record sur l’appareil', async () => {
+    records(idEpreuve('mers', 'chrono', 'mers'));
+    ouvrir();
     await attendre();
-    expect(p.innerText).not.toContain('Capitales');
-    expect(p.innerText).not.toContain('Drapeaux');
-    expect(lignes('#classements-mes').filter((e) => /:(capitales|drapeaux):/.test(e ?? ''))).toEqual([]);
-    reglerHorlogeEpreuves(() => OUVERTURE);
-    try {
-      ouvrir();
-      await attendre();
-      const parMode = ['Pays', 'Capitales', 'Drapeaux', 'Communes'];
-      expect(sujets('#classements-mes')).toEqual([...parMode, ...parMode, ...parMode]);
-      expect(lignes('#classements-mes')).toEqual(['general', ...epreuvesClassees(OUVERTURE)]);
-    } finally {
-      reglerHorlogeEpreuves(() => AVANT);
-    }
+    const parMode = ['Pays', 'Capitales', 'Drapeaux', 'Communes'];
+    expect(sujets('#classements-mes')).toEqual([...parMode, ...parMode, ...parMode]);
+    expect(lignes('#classements-mes')).toEqual(['general', ...epreuvesClassees()]);
   });
 
   it('une ligne ouvre les dix premiers de son épreuve, « ‹ Classements » ramène à la liste', async () => {
@@ -312,7 +298,7 @@ describe('écran des classements', () => {
     expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel', ['general']);
     expect(p.innerText).toContain(T.classements_aucune);
     expect(lignes('#classements-mes')).toHaveLength(EPREUVES_CLASSEES.length + 1);
-    expect(racine.querySelectorAll('#classements-mes .classements-chercher').length).toBe(6);
+    expect(racine.querySelectorAll('#classements-mes .classements-chercher').length).toBe(12);
     mesPlaces.mockRejectedValue(new Error('hors ligne'));
     p = ouvrir();
     await attendre();

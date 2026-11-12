@@ -1770,9 +1770,10 @@ L'utilisateur l'a pressenti : il faut un socle avant le premier sujet.
    D41 avant le lot 2, D42 à D45 avant le lot 3, D46 après le verdict de #2
    (avant le lot 0c, ou 0c livré avec son défaut réversible), D48, D49 et
    D51 avant le lot 4a, D50 et D55 avant le lot 4b. Entre-temps, un sujet
-   peut sortir en Entraînement : ses épreuves classées attendent (constante
-   `EPREUVES_OUVERTES`, dans `epreuve/chrono.ts`, à côté de
-   `EPREUVES_SUJETS`, introduite au lot 1 et mise à jour aux lots 2 et 3b).
+   peut sortir en Entraînement : ses épreuves classées attendent d'entrer
+   dans `EPREUVES_SUJETS` (`epreuve/chrono.ts`), dès leur livraison et sans
+   date (décision « Ouverture des épreuves d'un sujet » du 12/11, qui a
+   retiré la bascule datée `EPREUVES_OUVERTES` des lots 1 et 2).
 
 ## 11. Lots
 
@@ -2022,7 +2023,7 @@ un : un test du quiz ne cite qu'un sujet livré.
 
 - **Contenu** : sujet Océans et mers (`SUJETS`, `DOMAINES_JOUABLES`,
   série `mers`, textes, vignette) ; `avecSujet` (§ 4.2) ; rendu (§ 5.4) et
-  leurres marins ; épreuves (`EPREUVES_OUVERTES` ; règles : `mers` à 50) ; mémoire (`grappesMers`, carte de la mémoire « Mers ») ; nom de la
+  leurres marins ; épreuves (`EPREUVES_SUJETS`, sans date ; règles : `mers` à 50) ; mémoire (`grappesMers`, carte de la mémoire « Mers ») ; nom de la
   mer au toucher à l'accueil (D45) ; recherche des mers.
 - **Fichiers** : `src/vues/arbre.ts`, `cibles.ts`, `sujets.ts`, `qcm.ts`,
   `commun.ts`, `jouer.ts`, `vues/seance.ts`, `carte-memoire.ts`,
@@ -2031,7 +2032,7 @@ un : un test du quiz ne cite qu'un sujet livré.
   `src/epreuve/chrono.ts` ; `firestore.rules` ; `driver.py` (`ui_mers`).
 - **Tests** : `jouer` (chargement de la couche puis lancement, échec puis
   message) ; `qcm` (ni ancêtre ni descendant en leurre, jamais `arabie` et
-  `oman` ensemble) ; `chrono` (`EPREUVES_OUVERTES`) ;
+  `oman` ensemble) ; `chrono` (`EPREUVES_SUJETS`) ;
   `srs-grappes` (Océans d'abord, bassins, déterminisme) ; `seance-vue` ;
   `recherche` ; `regles`.
 - **Vérification** : règles, Hosting ; un nouveau `ui_mers` (Trouver la mer

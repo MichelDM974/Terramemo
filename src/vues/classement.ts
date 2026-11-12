@@ -188,8 +188,7 @@ export function brancherRelance(cible: Pick<Window, 'addEventListener' | 'setTim
 
 /**
  * Publie tous les records de l'appareil (de toujours et de la semaine), des
- * épreuves que cette version classe elle-même et qui sont ouvertes
- * (epreuvesClassees), pris à leur meilleur score publiable
+ * épreuves que cette version classe elle-même (epreuvesClassees), pris à leur meilleur score publiable
  * (recordPubliable), et les deux totaux du Chrono : au choix ou au
  * changement du pseudo.
  */
@@ -207,7 +206,7 @@ export async function publierTout(pseudo: string): Promise<Publication> {
     const [epreuve, sem] = cle.split('@');
     // Une épreuve que cette version ne classe pas, venue par le profil d'une plus récente : ni envoi, ni refus annoncé
     // (étude J2 § 3.2). Un mode inconnu, mais aussi le quiz avant l'ouverture de son classement (§ 9.5, D50 c) ou les
-    // épreuves d'un sujet pas encore ouvertes (EPREUVES_OUVERTES) : rien ne les classe encore. La version qui les classe
+    // épreuves d'un sujet sans épreuves classées ici (hors de EPREUVES_SUJETS) : rien ne les classe encore. La version qui les classe
     // les republie elle-même sous le pseudo du profil (sync/comptes.ts, pseudoPris).
     if (!epreuve || !classees.includes(epreuve)) continue;
     const p = sem === undefined ? 'toujours' : sem === periode ? periode : null;

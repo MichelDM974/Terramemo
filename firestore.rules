@@ -57,9 +57,9 @@ service cloud.firestore {
 
     // Une épreuve : « mode:clé:série » (src/epreuve/chrono.ts, idEpreuve), la
     // clé d'un sujet qui a des épreuves, la série de ce sujet ; ou le général
-    // du Chrono. Les épreuves des capitales et des drapeaux sont acceptées
-    // avant leur ouverture (le lundi 16/11/2026, bascule datée du client) :
-    // ces règles partent avant le site.
+    // du Chrono. Un sujet entre ici avant le site qui ouvre ses épreuves
+    // (décision « Ouverture des épreuves d'un sujet », 12/11/2026 : dès sa
+    // livraison, sans date de bascule).
     function epreuveConnue(p) {
       return p.size() == 3
         && p[0] in ['chrono', 'sansfaute', 'minute']

@@ -14,10 +14,11 @@
 // compte y sont, reçus à chaque ouverture de l'appli : src/sync/profil.ts,
 // appliquer), plus les places déjà vues sur l'appareil ; le reste se lit à la
 // demande, sujet par sujet (« Chercher mes places » sous « Toutes les
-// épreuves »). Les épreuves d'un sujet pas encore ouvert (EPREUVES_OUVERTES)
-// n'y sont pas : la bascule se relit à chaque ouverture. Relu à chaque
+// épreuves »). Les épreuves d'un sujet sans épreuves classées (hors de
+// EPREUVES_SUJETS, décision « Ouverture des épreuves d'un sujet », 12/11)
+// n'y sont pas. Relu à chaque
 // ouverture ; « Retour » ramène à la vue d'avant, « × » à la carte (main.ts).
-import { clePseudo, epreuvesClassees, lireRecords, maintenantEpreuves, modeEpreuve, MODES_EPREUVE, periodeSemaine, sujetEpreuve, type ModeEpreuve, type RecordChrono } from '../epreuve/chrono';
+import { clePseudo, epreuvesClassees, lireRecords, modeEpreuve, MODES_EPREUVE, periodeSemaine, sujetEpreuve, type ModeEpreuve, type RecordChrono } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
 import { nomSujet } from './arbre';
 import { nomSerie } from './cibles';
@@ -203,8 +204,7 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
       autres,
       creer('div', { class: 'essai-actions' }, boutonRetour()),
     );
-    // Les épreuves ouvertes à cette ouverture (bascule datée relue ici).
-    const classees = epreuvesClassees(maintenantEpreuves());
+    const classees = epreuvesClassees();
     const toutes = [GENERAL, ...classees];
     // Toutes les épreuves d'un coup, sans place (pas de pseudo, hors ligne).
     const sansPlaces = (texte: string, lue: boolean) => {
