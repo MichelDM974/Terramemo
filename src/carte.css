@@ -422,8 +422,8 @@ button.lien:hover { background: none; text-decoration: underline; }
    400 px, le rang, un pseudo de 20 caractères et le temps ne laissent pas la
    place (le pseudo tomberait à 3 lettres à 320 px) : le pourcentage seul
    (.pts-bref), le score entier restant lu des lecteurs d'écran (.pts-entier,
-   caché à la vue seulement) et en title. Au général, « 7,6 % » et son détail
-   (« 91 justes sur 1 194 ») aux seuls lecteurs d'écran (.pts-lu). */
+   caché à la vue seulement) et en title. Au général, « 7,3 % » et son détail
+   (« 91 justes sur 1 244 ») aux seuls lecteurs d'écran (.pts-lu). */
 .chrono-places .pts { white-space: nowrap; text-align: right; }
 .chrono-places .pts-bref { display: none; }
 .chrono-places .pts-lu {
