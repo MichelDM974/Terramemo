@@ -353,8 +353,9 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   `mers:`) ; `133-mers-memoire` (carte de la mémoire « Mers » : ses zones
   teintées, « n/50 maîtrisées », le carré « Jamais vu » de la légende
   couleur d'eau, `.legende-jamais-mer`, son fond calculé égal à `--mer`,
-  le Pacifique touché : « océan Pacifique · Vu N fois · revient… » ; Pays
-  remis ensuite, le carré de la terre de nouveau). `DÉFAUT` à tout écart
+  le Pacifique touché : « océan Pacifique · Vu N fois · revient… » ; aucune
+  pastille, `#carte` `data-disques` et `data-pastilles` à 0 ; Pays remis
+  ensuite, le carré de la terre et les disques de nouveau). `DÉFAUT` à tout écart
   (id brut affiché, consigne, rétroaction, bilan, `mers*` chargé au
   premier affichage, à l'ouverture de Jouer ou au toucher d'un pays,
   `mers.topo.json` lu à l'accueil, fiche hors `mers:`). Sa grappe finie

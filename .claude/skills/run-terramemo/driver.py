@@ -2728,7 +2728,8 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
     « Océans ») ; le journal en mers: seulement ; la carte de la mémoire
     « Mers » (ses zones teintées, « n/50 maîtrisées », le carré « Jamais
     vu » de la légende couleur d'eau, celui de la terre sous Pays ; un océan
-    touché : sa mémoire). DÉFAUT à tout écart."""
+    touché : sa mémoire ; aucune pastille, #carte data-disques à 0, rendues
+    de retour à Pays). DÉFAUT à tout écart."""
     p.goto("about:blank")
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
@@ -2991,12 +2992,22 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
             dire(f"  carte de la mémoire (Mers), le Pacifique touché : {barre!r}")
             if "océan Pacifique" not in barre or not re.search(r"Vu \d+ fois · (revient|à revoir)", barre):
                 defauts.append(f"carte de la mémoire (Mers) : le Pacifique touché sans sa mémoire ({barre!r})")
+        # Choix de l'utilisateur du 12/11 : sous « Mers », aucune pastille des micro-États (ni dessinée ni touchable).
+        disques = p.js("[+document.querySelector('#carte').dataset.disques, +document.querySelector('#carte').dataset.pastilles]")
+        dire(f"  carte de la mémoire (Mers) : {disques[0]} disques, {disques[1]} pastilles")
+        if disques != [0, 0]:
+            defauts.append(f"carte de la mémoire (Mers) : {disques[0]} disques, {disques[1]} pastilles (aucune attendue)")
         capturer("133-mers-memoire")
         # Le choix gardé sur l'appareil : Pays de nouveau, pour la suite ; le carré « Jamais vu » reprend la terre.
         p.js("(() => { const s = document.getElementById('legende-sujet'); s.value = 'pays'; s.dispatchEvent(new Event('change')); })()")
         p.pause(200)
         if p.js("!!document.querySelector('#legende-memoire .legende-jamais.legende-jamais-mer')"):
             defauts.append("carte de la mémoire (Pays) : le carré « Jamais vu » garde la couleur de l'eau")
+        # De retour à Pays : les pastilles reviennent (au zoom 1, les micro-États ont leur disque).
+        disques = p.js("+document.querySelector('#carte').dataset.disques")
+        dire(f"  carte de la mémoire (Pays) : {disques} disques")
+        if not disques:
+            defauts.append("carte de la mémoire (Pays) : les pastilles ne reviennent pas (data-disques à 0)")
 
 
 def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
