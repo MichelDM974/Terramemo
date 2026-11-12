@@ -1190,7 +1190,8 @@ export class CarteCanvas implements CarteAffichee {
     // En mouvement, la carte est tracée plus grossièrement (dessin.ts) : la fin d'un geste la retrace.
     const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.dpr} ${leger ? 'leger' : 'complet'} ${im.mouvement} t${this.versionTeintes}`;
     const carte = signature !== this.signature || !this.ctxDessus;
-    if (carte) this.dessinerCarte(ctx, im, cq, mersTracees && cm);
+    // Sans couche du dessus, les marques des mers vont sur la carte, entre l'ovale et les terres : l'effacement (destination-out) y trouerait les terres.
+    if (carte) this.dessinerCarte(ctx, im, cq, mersTracees && cm, this.ctxDessus ? null : cm);
     this.signature = signature;
     const stats = { parties: im.parties, sommets: im.sommets, emis: im.emis, copies: im.copies, exactes: im.exactes, minuscules: im.minuscules };
     const t1 = performance.now();
@@ -1200,7 +1201,7 @@ export class CarteCanvas implements CarteAffichee {
       this.ctxDessus.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       this.ctxDessus.clearRect(0, 0, c.l, c.h);
     }
-    this.dessinerMarques(dessus, im, cq, cm);
+    this.dessinerMarques(dessus, im, cq, this.ctxDessus ? cm : null);
     this.dessinerPastilles(dessus);
     const ms = performance.now() - t0;
     if (!carte && this.dernier) {
@@ -1218,9 +1219,12 @@ export class CarteCanvas implements CarteAffichee {
   /**
    * La carte : mer, zones marines teintées (cm : le calque marin, null quand
    * aucune teinte ne le demande), terres, hachures et frontières, sans marques
-   * ni pastilles (couche du dessus).
+   * ni pastilles (couche du dessus). Sans couche du dessus (getContext
+   * refusé), les marques des mers (marquesMers : le calque marin de cette
+   * image) sont peintes ici, sur les teintes et sous les terres, comme en
+   * WebGL : rien à effacer.
    */
-  private dessinerCarte(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque, cm: Calque | null): void {
+  private dessinerCarte(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque, cm: Calque | null, marquesMers: Calque | null = null): void {
     const t0 = performance.now();
     const { c, v } = this;
     const coul = this.couleurs;
@@ -1232,6 +1236,7 @@ export class CarteCanvas implements CarteAffichee {
     ctx.fillStyle = coul.mer;
     ctx.fill(ovale);
     if (cm && this.seauxMers) this.peindreMers(ctx, im, cm, this.seauxMers);
+    if (marquesMers && this.marques.size) this.peindreMarquesMers(ctx, im, marquesMers);
 
     // Terres : un chemin pour tout ce qui n'a pas de couture (rempli puis tracé),
     // les coutures à part (remplies, tracées sans le côté qui suit l'antiméridien),
@@ -1351,8 +1356,9 @@ export class CarteCanvas implements CarteAffichee {
    * par-dessus (en SVG, sa moitié extérieure peut passer sous une voisine).
    * Au repos comme pendant un geste, les parties sont celles de la carte
    * dessinée (allégée ou complète). Les marques des mers d'abord (cm : le
-   * calque marin de cette image), effacées sous les terres, puis celles des
-   * pays (dessinerMarquesMers).
+   * calque marin de cette image ; null sans couche du dessus, elles sont
+   * alors sur la carte), effacées sous les terres, puis celles des pays
+   * (dessinerMarquesMers).
    */
   private dessinerMarques(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque, cm: Calque | null): void {
     if (!this.marques.size) return;
@@ -1428,11 +1434,42 @@ export class CarteCanvas implements CarteAffichee {
    * la côte entière) ; les marques des pays viennent ensuite. Dans l'autre
    * ordre, l'effacement retirerait une marque de pays déjà peinte. La mer
    * n'est pas marquée sur la carte de base : chaque toucher la redessinerait
-   * entière.
+   * entière (sauf sans couche du dessus, où la carte est de toute façon
+   * redessinée à chaque toucher : dessinerCarte, marquesMers).
    */
   private dessinerMarquesMers(ctx: CanvasRenderingContext2D, im: ImageTrace, cq: Calque, cm: Calque): void {
+    const emprise = this.peindreMarquesMers(ctx, im, cm);
+    if (!emprise) return;
+    const [o, s, e, n] = emprise;
+    const coul = this.couleurs;
+    // Effacement sous les terres de l'emprise : remplies, et bordées de la largeur des frontières (la côte entière reste visible).
+    const terres = new Path2D();
+    let avecTerres = false;
+    parcourir(im, cq.pays, cq.groupes?.pays, (p) => {
+      if (p.o > e || p.e < o || p.s > n || p.n < s) return;
+      avecTerres = true;
+      tracerPartie(terres, im, p);
+    });
+    if (!avecTerres) return;
+    const epais = !im.mouvement && coul.repos * this.dpr > 1;
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#000';
+    ctx.fill(terres);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = epais ? coul.repos : 1 / this.dpr;
+    ctx.lineJoin = epais ? 'round' : 'miter';
+    ctx.stroke(terres);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /**
+   * Les marques des mers seules (zonesAllumees), de la couleur de leur marque,
+   * et le contour de la zone fausse : leur emprise (degrés, o s e n), ou null
+   * si rien n'est à l'écran.
+   */
+  private peindreMarquesMers(ctx: CanvasRenderingContext2D, im: ImageTrace, cm: Calque): [number, number, number, number] | null {
     const mers = this.mers;
-    if (!mers) return;
+    if (!mers) return null;
     const coul = this.couleurs;
     const { v } = this;
     const contours = cm === mers.leger ? mers.contoursLegers : mers.contours;
@@ -1458,7 +1495,7 @@ export class CarteCanvas implements CarteAffichee {
       // Le contour de l'union allumée (l'Atlantique et les Sargasses : un seul bord).
       if (classes.has('faux')) for (const p of contours[j] ?? []) if (montree(p)) tracerPartie((contourFaux ??= new Path2D()), im, p, aCoupure(p, v.r));
     }
-    if (o > e) return;
+    if (o > e) return null;
     for (const [cl, chemin] of parClasse) {
       ctx.fillStyle = coul.marquesMers[cl] as string;
       ctx.fill(chemin);
@@ -1469,24 +1506,7 @@ export class CarteCanvas implements CarteAffichee {
       ctx.lineJoin = 'round';
       ctx.stroke(contourFaux);
     }
-    // Effacement sous les terres de l'emprise : remplies, et bordées de la largeur des frontières (la côte entière reste visible).
-    const terres = new Path2D();
-    let avecTerres = false;
-    parcourir(im, cq.pays, cq.groupes?.pays, (p) => {
-      if (p.o > e || p.e < o || p.s > n || p.n < s) return;
-      avecTerres = true;
-      tracerPartie(terres, im, p);
-    });
-    if (!avecTerres) return;
-    const epais = !im.mouvement && coul.repos * this.dpr > 1;
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = '#000';
-    ctx.fill(terres);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = epais ? coul.repos : 1 / this.dpr;
-    ctx.lineJoin = epais ? 'round' : 'miter';
-    ctx.stroke(terres);
-    ctx.globalCompositeOperation = 'source-over';
+    return [o, s, e, n];
   }
 
   /** Une image dessinée par le peintre ; sa durée est le script de l'image (mesures). */

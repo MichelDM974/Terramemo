@@ -116,14 +116,18 @@ let contextes: ReturnType<typeof fauxCtx>[];
 let toiles: { ecouteurs: Map<string, () => void> }[];
 let ctx2d: ReturnType<typeof fauxCtx>;
 let ctxDessus: ReturnType<typeof fauxCtx>;
+/** Le navigateur refuse le contexte du second canvas (la couche du dessus) : tout va sur la carte. */
+let refuserDessus = false;
 
 beforeEach(() => {
   images = new Map();
   prochaine = 1;
   contextes = [];
   toiles = [];
+  refuserDessus = false;
   const fauxCanvas = () => {
     const f = fauxCtx();
+    const rang = contextes.length;
     contextes.push(f);
     [ctx2d, ctxDessus] = contextes as [ReturnType<typeof fauxCtx>, ReturnType<typeof fauxCtx>];
     const toile = {
@@ -133,7 +137,7 @@ beforeEach(() => {
       height: 0,
       isConnected: false,
       setAttribute: () => undefined,
-      getContext: () => f.ctx,
+      getContext: () => (refuserDessus && rang === 1 ? null : f.ctx),
       after: () => undefined,
       remove: () => undefined,
       ecouteurs: new Map<string, () => void>(),
@@ -894,6 +898,33 @@ describe('CarteCanvas : océans et mers (lot 3a, étude J2, § 4.3)', () => {
     const dans = contour.ops.filter((op) => op[0] !== 'R' && op[1] > Math.min(x0, x1) && op[1] < Math.max(x0, x1) && op[2] > Math.min(y0, y1) && op[2] < Math.max(y0, y1));
     expect(contour.ops.length).toBeGreaterThan(100);
     expect(dans).toEqual([]);
+  });
+
+  it('sans couche du dessus (getContext refusé) : la marque de mer sur la carte, sur l’ovale et sous les terres, rien d’effacé ; les pays marqués par-dessus', () => {
+    refuserDessus = true;
+    const c = carteMers();
+    c.prendreMers(couche);
+    c.marquer('medit', 'faux');
+    c.marquer('ITA', 'juste');
+    image(16);
+    const o = ctx2d.ordre;
+    // L'Italie, la Grèce, la Tunisie restent peintes : aucune opération d'effacement sur la carte.
+    expect(o.filter((x) => x.op !== 'source-over')).toEqual([]);
+    const iOvale = o.findIndex((x) => x.type === 'fill' && x.style === VARS['--mer']);
+    const iMer = o.findIndex((x) => x.type === 'fill' && x.style === VARS['--mer-fausse']);
+    const iContour = o.findIndex((x) => x.type === 'stroke' && x.style === VARS['--text']);
+    const iTerre = o.findIndex((x) => x.type === 'fill' && x.style === VARS['--terre']);
+    const iPays = o.findIndex((x) => x.type === 'fill' && x.style === VARS['--good']);
+    expect(iOvale).toBe(0);
+    expect(iMer).toBeGreaterThan(iOvale);
+    expect(iContour).toBeGreaterThan(iMer);
+    expect(iTerre).toBeGreaterThan(iContour);
+    expect(iPays).toBeGreaterThan(iTerre);
+    expect(dedans(o[iMer]?.chemin, c.ecran('medit') as [number, number])).toBe(true);
+    // Un toucher de plus : la carte entière redessinée, la marque suivie.
+    c.effacerMarques();
+    image(32);
+    expect(ctx2d.ordre.some((x) => x.style === VARS['--mer-fausse'])).toBe(false);
   });
 
   it('ecran et zoomerSur trouvent une mer par l’index commun, une fois la couche posée', () => {
