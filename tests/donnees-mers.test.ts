@@ -265,6 +265,18 @@ describe('liste (geodata/mers.json, public/geo/mers.json)', () => {
     expect(parId.get('arctique')?.bbox).toMatchObject([-180, expect.any(Number), 180, 90]);
   });
 
+  it('superficie à 3 % de l’aire de la forme servie (densifiée) : les longs bords droits ne plongent pas vers le pôle', () => {
+    // Non densifiés, les bords de 146,5° le long de 60,53° S donnaient à l’Austral 4,7 M km²,
+    // et 75 M à l’Indien ; la grappe de l’Austral (§ 6.1) passait derrière l’Arctique.
+    for (const m of mers) {
+      const servie = geoArea(formesFines.get(m.id)!) * 6371.0088 ** 2;
+      expect(Math.abs(servie - m.superficie_km2) / m.superficie_km2, m.id).toBeLessThan(0.03);
+    }
+    expect(parId.get('austral')?.superficie_km2).toBeGreaterThan(15e6);
+    expect(parId.get('austral')!.superficie_km2).toBeGreaterThan(parId.get('arctique')!.superficie_km2);
+    expect(parId.get('baffin')!.superficie_km2).toBeGreaterThan(parId.get('beaufort')!.superficie_km2);
+  });
+
   it('table à la main : une raison pour chaque zone forcée et exclue, et aucune faute', async () => {
     for (const [k, f] of Object.entries(table.forcees)) if (k !== '_') expect(f.raison, k).toMatch(/\S{3}/);
     for (const [k, r] of Object.entries(table.exclues)) if (k !== '_') expect(r, k).toMatch(/\S{3}/);

@@ -286,12 +286,21 @@ export function densifierAnneau(anneau, pas = PAS_DENSIFIER) {
 /** Polygones (tableaux d'anneaux) d'une géométrie GeoJSON. */
 const polysDe = (g) => (!g ? [] : g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []);
 
+/**
+ * Aire sphérique (stéradians) d'un polygone, mesurée sur ses anneaux densifiés : d3 lit
+ * une arête comme un grand cercle, et Natural Earth garde des bords droits de plusieurs
+ * dizaines de degrés (60,53° S sur 146,5° de longitude pour l'Austral, 33,9° pour la mer
+ * de Beaufort) qui, non coupés, plongent vers le pôle et faussent l'aire (l'Austral à
+ * 4,7 M km² au lieu de 20,8 M). C'est le piège que l'étape 4 corrige pour le dessin.
+ */
+const aireDensifiee = (p) => geoArea({ type: 'Polygon', coordinates: p.map((r) => densifierAnneau(r)) });
+
 /** Indice du polygone de plus grande aire (polygones déjà dans le sens de d3). */
 function plusGrand(polys) {
   let iMax = 0;
   let max = -1;
   polys.forEach((p, i) => {
-    const a = geoArea({ type: 'Polygon', coordinates: p });
+    const a = aireDensifiee(p);
     if (a > max) {
       max = a;
       iMax = i;
@@ -347,7 +356,7 @@ export async function lireCouche(racine) {
   const zones = geoms.map((g, i) => {
     const bords = new Map();
     for (const a of arcs[i]) for (const j of parArc.get(a)) if (j !== i) bords.set(j, (bords.get(j) ?? 0) + longueur[a]);
-    const aire = polygones(formes[i].geometry).reduce((s, p) => s + geoArea({ type: 'Polygon', coordinates: p }), 0);
+    const aire = polygones(formes[i].geometry).reduce((s, p) => s + aireDensifiee(p), 0);
     const p = g.properties;
     return { nom: p.name ?? '', ne_id: p.ne_id, cla: p.featurecla, km2: km2(aire), voisins: [...bords] };
   });
@@ -436,7 +445,7 @@ export async function construireMers(racine) {
   const lignes = table.zones.map((z) => {
     const polys = dissoutes.get(z.id) ?? [];
     if (!polys.length) fautes.push(`${z.id} : géométrie vide`);
-    const superficie = polys.reduce((s, p) => s + km2(geoArea({ type: 'Polygon', coordinates: p })), 0);
+    const superficie = polys.reduce((s, p) => s + km2(aireDensifiee(p)), 0);
     let point = pointInterieur(polys[plusGrand(polys)]);
     // Point pris dans la forme source : s'il sort de la forme simplifiée (une côte
     // découpée), il est repris dans son plus grand polygone, celui qu'on voit.
@@ -471,7 +480,7 @@ export async function construireMers(racine) {
     chaine:
       `mapshaper 0.6.110 en topologie : antiméridien recalé à ±180 et pôle à ±90 ; -dissolve id ; -simplify ${SIMPLIFICATION} ` +
       `(mers.topo.json) ou ${SIMPLIFICATION_LEGERE} (mers-leger.topo.json) ; densifiées à ${PAS_DENSIFIER}° hors coutures, depuis la plus petite extrémité ; quantification ${QUANTIFICATION}`,
-    attributs: `superficie (d3-geo geoArea × R², R = ${R_TERRE_KM} km), point (pôle d'inaccessibilité du plus grand polygone), emprise et voisins sur la géométrie dissoute non simplifiée`,
+    attributs: `superficie (d3-geo geoArea × R², R = ${R_TERRE_KM} km, anneaux densifiés à ${PAS_DENSIFIER}°), point (pôle d'inaccessibilité du plus grand polygone), emprise et voisins sur la géométrie dissoute non simplifiée`,
     poids_gzip: Object.fromEntries(['mers.topo.json', 'mers-leger.topo.json'].map((n) => [n, gzipSync(fichiers[n]).length])),
   };
   const entrees = {
