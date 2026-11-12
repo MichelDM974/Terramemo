@@ -303,33 +303,18 @@ function plusGrand(polys) {
 // --- Construction ----------------------------------------------------------------------
 
 /**
- * Construit les fichiers servis et le témoin des affectations. racine : la racine du
- * dépôt. Rend { fichiers: {nom: texte} (public/geo/), affectations (texte du témoin),
- * entrees, traitement, notes } : entrees et traitement vont dans public/geo/sources.json
- * (fusionnerMers).
+ * Étapes 1 et 2 : la couche marine lue en topologie (sans quantification), l'antiméridien
+ * recalé à ±180 et le pôle à ±90 ; zones : ce qu'affecter() lit (nom, ne_id, featurecla,
+ * aire, bords communs en km sur la topologie). racine : la racine du dépôt.
  */
-export async function construireMers(racine) {
-  const lire = (c) => readFile(join(racine, c));
-  const [tableBrut, scriptBrut, entitesBrut] = await Promise.all([CHEMINS.table, CHEMINS.script, CHEMINS.entites].map(lire));
-  const table = JSON.parse(tableBrut.toString('utf8'));
-  const entites = JSON.parse(entitesBrut.toString('utf8'));
-  const notes = [];
-  const echec = (fautes) => {
-    if (fautes.length) throw new Error(`mers :\n  ${fautes.join('\n  ')}`);
-  };
-  echec(fautesTable(table, entites));
-  const parId = new Map(table.zones.map((z) => [z.id, z]));
-  const ordre = new Map(table.zones.map((z, i) => [z.id, i]));
-
-  // 1. Lecture en topologie, sans quantification.
+export async function lireCouche(racine) {
   const entree = {};
-  for (const ext of NE_EXTENSIONS) entree[`${NE_MERS}.${ext}`] = await lire(join(CHEMINS.raw, `${NE_MERS}.${ext}`));
+  for (const ext of NE_EXTENSIONS) entree[`${NE_MERS}.${ext}`] = await readFile(join(racine, CHEMINS.raw, `${NE_MERS}.${ext}`));
   const lu = await mapshaper.applyCommands(`-i ${NE_MERS}.shp encoding=utf8 -o m.json format=topojson no-quantization`, entree);
   const topo = JSON.parse(String(lu['m.json']));
   const objet = topo.objects[NE_MERS];
   if (!objet) throw new Error(`mers : objet ${NE_MERS} absent de la topologie`);
 
-  // 2. Antiméridien à ±180 exact, pôle à ±90 exact.
   const recales = new Map();
   let poles = 0;
   for (const arc of topo.arcs) {
@@ -344,9 +329,9 @@ export async function construireMers(racine) {
       }
     }
   }
-  notes.push(`antiméridien : ${[...recales].map(([x, n]) => `${n} sommets à ${x}`).join(', ') || 'aucun sommet'} recalés à ±180 ; ${poles} au pôle recalés à ±90`);
+  const note = `antiméridien : ${[...recales].map(([x, n]) => `${n} sommets à ${x}`).join(', ') || 'aucun sommet'} recalés à ±180 ; ${poles} au pôle recalés à ±90`;
 
-  // 3. Affectation : bords communs (km) sur la topologie de la couche.
+  // Bords communs (km) sur la topologie de la couche.
   const geoms = objet.geometries;
   const longueur = topo.arcs.map((a) => geoLength({ type: 'LineString', coordinates: a }) * R_TERRE_KM);
   const arcsDe = (g) => {
@@ -366,6 +351,31 @@ export async function construireMers(racine) {
     const p = g.properties;
     return { nom: p.name ?? '', ne_id: p.ne_id, cla: p.featurecla, km2: km2(aire), voisins: [...bords] };
   });
+  return { topo, objet, zones, note };
+}
+
+/**
+ * Construit les fichiers servis et le témoin des affectations. racine : la racine du
+ * dépôt. Rend { fichiers: {nom: texte} (public/geo/), affectations (texte du témoin),
+ * entrees, traitement, notes } : entrees et traitement vont dans public/geo/sources.json
+ * (fusionnerMers).
+ */
+export async function construireMers(racine) {
+  const lire = (c) => readFile(join(racine, c));
+  const [tableBrut, scriptBrut, entitesBrut] = await Promise.all([CHEMINS.table, CHEMINS.script, CHEMINS.entites].map(lire));
+  const table = JSON.parse(tableBrut.toString('utf8'));
+  const entites = JSON.parse(entitesBrut.toString('utf8'));
+  const echec = (fautes) => {
+    if (fautes.length) throw new Error(`mers :\n  ${fautes.join('\n  ')}`);
+  };
+  echec(fautesTable(table, entites));
+  const parId = new Map(table.zones.map((z) => [z.id, z]));
+  const ordre = new Map(table.zones.map((z, i) => [z.id, i]));
+
+  // 1, 2. Lecture, antiméridien ; 3. affectation.
+  const { topo, objet, zones, note } = await lireCouche(racine);
+  const notes = [note];
+  const geoms = objet.geometries;
   const aff = affecter(zones, table);
   echec(aff.fautes);
   const lignesAff = zones.map((z, i) =>
