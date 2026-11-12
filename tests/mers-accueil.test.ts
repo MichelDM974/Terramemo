@@ -205,7 +205,7 @@ describe('accueil : la mémoire des mers (D47 a) et une mer choisie dans la rech
     // carte.css : la case de l'eau prend --mer, le fond où une mer jamais vue reste (.sphere) ; celle de la terre, --terre.
     const css = readFileSync('src/carte.css', 'utf8');
     expect(css).toMatch(/\.legende-jamais \{ background: var\(--terre\);/);
-    expect(css).toMatch(/\.legende-jamais\.legende-jamais-mer \{ background: var\(--mer\);/);
+    expect(css).toMatch(/\.legende-jamais\.legende-jamais-mer \{ background: var\(--mer\); filter: none;/);
     expect(css).toMatch(/\.sphere \{ fill: var\(--mer\); \}/);
   });
 
