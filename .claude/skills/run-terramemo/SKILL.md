@@ -227,7 +227,9 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   qui a déjà choisi, **sans pseudo** : le pilote ne publie toujours rien
   au classement. Sur le téléphone (chrome, webview), rien n'est posé (le
   choix est celui de l'utilisateur) et `mesurer` s'arrête si le panneau est
-  ouvert (« choisir d'abord sur l'appareil »). Un autre script : la même
+  ouvert (« choisir d'abord sur l'appareil »), de même si la carte de la
+  mémoire y est gardée sous « Mers » (pastilles cachées, touchers des
+  micro-États sans cible : choisir Pays dans sa légende). Un autre script : la même
   clé avant de charger la page, ou au doigt `#accueil-invite`,
   `#accueil-pseudo`, `#accueil-commencer`. Les entrées des comptes sont
   les écrans de la vue Compte, id préfixés : `#accueil-compte-google`,

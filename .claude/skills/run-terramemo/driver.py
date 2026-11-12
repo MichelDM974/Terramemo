@@ -91,6 +91,9 @@ DRAPEAU_SANS_SYNCHRO = "terramemo.sans-synchro"
 # arrive alors sur la carte, comme un joueur qui a déjà choisi) ; ui_accueil le
 # retire pour éprouver le panneau. Jamais posé sur un appareil de l'utilisateur.
 CLE_ACCUEIL = "terramemo.accueil"
+# Sujet gardé de la carte de la mémoire du monde (src/vues/carte-memoire.ts, CLE_SUJET_MEMOIRE) :
+# « mers » y cache les pastilles des micro-États (choix de l'utilisateur du 12/11), que mesurer touche.
+CLE_SUJET_MEMOIRE_MONDE = "terramemo.sujetMemoire.monde"
 ATTENTE_STOCKAGE_MS = 6000  # localStorage de la WebView écrit sur disque (~5 s de délai de Chromium)
 SIGNAUX_ARRET = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
 # Journal des réponses de l'appareil (src/journal/depot.ts : base, version, magasin).
@@ -4397,6 +4400,15 @@ def une_mesure(page, url, journal, cible):
     if page.js("document.body.dataset.accueil || ''") in ("ouvert", "attente"):
         raise RuntimeError("écran de connexion ouvert : choisir d'abord sur l'appareil (« Continuer en invité » "
                            "ou un compte), puis relancer")
+    # La carte de la mémoire « Mers » gardée sur l'appareil (choisie à la main, ou ui_mers interrompu) : sans
+    # pastilles, les touchers de MCO, VAT, MLT… n'auraient plus de cible et le dessin ne serait plus le même.
+    # ?mers=demo et ?teintes=demo coupent la carte de la mémoire ; ailleurs (?mer= compris), le choix est celui
+    # de l'utilisateur : rien n'y touche, comme pour l'écran de connexion.
+    demo = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+    if (demo.get("mers") != ["demo"] and demo.get("teintes") != ["demo"]
+            and page.js(f"localStorage.getItem({json.dumps(CLE_SUJET_MEMOIRE_MONDE)})") == "mers"):
+        raise RuntimeError("carte de la mémoire sous « Mers » (pastilles cachées) : choisir Pays dans sa légende "
+                           "sur l'appareil, puis relancer")
     page.js("window.terramemo.reinitialiser()")
     r = page.js("window.terramemo.carte.rect()")
     cx, cy = r["x"] + r["largeur"] / 2, r["y"] + r["hauteur"] / 2

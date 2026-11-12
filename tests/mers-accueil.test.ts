@@ -331,7 +331,7 @@ describe('accueil : la carte de la mémoire « Mers » sans pastilles (choix de 
     expect(a.pastilles()).toBe(true);
   });
 
-  it('sans carte de la mémoire (?mers=demo, ?mer=, ?teintes=demo) ou sous Pays : jamais cachées', async () => {
+  it('sans carte de la mémoire (?mers=demo, ?teintes=demo ; ?mer= la garde) ou sous Pays : jamais cachées', async () => {
     const a = monter();
     a.vue.activer();
     a.toucherPresDeMalte();
