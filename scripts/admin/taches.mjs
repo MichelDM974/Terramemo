@@ -16,7 +16,10 @@
 // - demandes/{uid} : `{pseudo, cree}`, demande de retrait des places du
 //   pseudo d'un compte qui s'est supprimé (D27 b) ;
 // - classements/{épreuve}/periodes/{toujours | sNNNN}/scores/{clé} : la place
-//   d'un pseudo, clé = clePseudo(pseudo) (src/epreuve/chrono.ts).
+//   d'un pseudo, clé = clePseudo(pseudo) (src/epreuve/chrono.ts), `{pseudo,
+//   points, justes, questions, temps_ms, date, bareme}` ; au barème 2 (depuis
+//   le 12/11/2026), points = justes ; au barème 1 (bareme 1, ou absent pour
+//   les plus anciennes), des points de proximité (~1 000 par juste).
 //
 // Aucune tâche ne touche aux invités anonymes (sans fournisseur) : Firebase
 // les supprime 30 jours après leur création (Identity Platform, § 4.4).
@@ -56,6 +59,20 @@ const nombre = (n) => n.toLocaleString('fr-FR');
 /** « 1 lot », « 0 lot », « 2 lots » (pluriel à partir de 2, en français). */
 const des = (n, mot, pluriel = `${mot}s`) => `${nombre(n)} ${n > 1 ? pluriel : mot}`;
 const morceaux = (t, n) => Array.from({ length: Math.ceil(t.length / n) }, (_, i) => t.slice(i * n, (i + 1) * n));
+
+/** Lundi 5 janvier 1970 à 0 h UTC, début de la semaine 0, et une semaine (ms). */
+const LUNDI_0_MS = 345_600_000;
+const SEMAINE_MS = 604_800_000;
+/**
+ * La période du classement de la semaine qui contient `t` (une Date) : « s »
+ * + semaine() de src/epreuve/bareme.ts (le lundi à 0 h UTC), recopiée ici
+ * (l'outil est du JavaScript brut), comme semaineCourante() des règles.
+ */
+export const periodeSemaine = (t) => `s${Math.floor((t.getTime() - LUNDI_0_MS) / SEMAINE_MS)}`;
+
+/** La version du barème des places (VERSION_BAREME de src/epreuve/chrono.ts), et celle d'avant le 12/11/2026. */
+const BAREME = 2;
+const BAREME_1 = 1;
 
 // --- Lectures --------------------------------------------------------------
 
@@ -122,7 +139,10 @@ async function lireDocs(db, chemins) {
  * - `{type: 'dater', chemin, pre}` : `vu_sans_compte` de la pierre tombale
  *   à l'heure du serveur, si elle n'a pas changé depuis la lecture (le
  *   compte n'est plus dans Auth à ce moment : action après sa suppression,
- *   ou constatée à la lecture).
+ *   ou constatée à la lecture) ;
+ * - `{type: 'convertir', chemin, pre, points, detail}` : la place au barème
+ *   2, `{points, bareme: 2}` (points = ses justes), si elle n'a pas changé
+ *   depuis la lecture.
  */
 export function decrire(a) {
   switch (a.type) {
@@ -136,6 +156,8 @@ export function decrire(a) {
       return `bloquer le compte ${a.uid} (disabled)`;
     case 'dater':
       return `marquer la pierre tombale ${a.chemin} vue sans compte (effacée par tombes 2 h après, au plus tôt)`;
+    case 'convertir':
+      return `convertir la place ${a.chemin} au barème ${BAREME} (${a.detail})`;
     default:
       throw new Error(`action inconnue : ${a.type}`);
   }
@@ -178,6 +200,14 @@ export async function executer({ auth, db }, actions, fait = () => {}) {
         await db.doc(a.chemin).update({ vu_sans_compte: FieldValue.serverTimestamp() }, { lastUpdateTime: a.pre });
       } catch (e) {
         if (e.code === 9) throw new Error(`${a.chemin} a changé depuis la lecture : rien de ce qui suit n'est fait. Relancer.`);
+        throw e;
+      }
+    } else if (a.type === 'convertir') {
+      try {
+        await db.doc(a.chemin).update({ points: a.points, bareme: BAREME }, { lastUpdateTime: a.pre });
+      } catch (e) {
+        // Rejouée entre-temps : l'appli l'a réécrite au barème 2 (les règles n'acceptent plus que lui).
+        if (e.code === 9) throw new Error(`${a.chemin} a changé depuis la lecture : elle est gardée telle quelle, et rien de ce qui suit n'est fait. Relancer.`);
         throw e;
       }
     } else {
@@ -306,14 +336,14 @@ export async function orphelins({ auth, db }) {
   return { actions, notes };
 }
 
-/** Le rang d'une place (1 = premier) et le nombre de classés : comme rangDe (src/epreuve/classement.ts). */
-async function rang(col, epreuve, p) {
+/**
+ * Le rang d'une place (1 = premier) et le nombre de classés : comme rangDe
+ * (src/epreuve/classement.ts), aux points puis au temps ; plus rien aux
+ * questions depuis le retrait de Minute (12/11/2026).
+ */
+async function rang(col, p) {
   const n = async (q) => (await q.count().get()).data().count;
-  const comptes = await Promise.all([
-    n(col.where('points', '>', p.points)),
-    n(col.where('points', '==', p.points).where('temps_ms', '<', p.temps_ms)),
-    ...(epreuve.startsWith('minute:') ? [n(col.where('points', '==', p.points).where('temps_ms', '==', p.temps_ms).where('questions', '<', p.questions))] : []),
-  ]);
+  const comptes = await Promise.all([n(col.where('points', '>', p.points)), n(col.where('points', '==', p.points).where('temps_ms', '<', p.temps_ms))]);
   return { rang: comptes.reduce((a, b) => a + b, 1), joueurs: await n(col) };
 }
 
@@ -369,8 +399,8 @@ export async function demandes({ db }, { uid = null, avecAJuger = false, garderA
       for (const [i, s] of places.entries()) {
         if (!s.exists) continue;
         const [epreuve, periode] = paires[i];
-        const p = { points: Number(s.get('points') ?? 0), temps_ms: Number(s.get('temps_ms') ?? 0), questions: Number(s.get('questions') ?? 0) };
-        const { rang: r, joueurs } = await rang(s.ref.parent, epreuve, p);
+        const p = { points: Number(s.get('points') ?? 0), temps_ms: Number(s.get('temps_ms') ?? 0) };
+        const { rang: r, joueurs } = await rang(s.ref.parent, p);
         const date = s.get('date')?.toDate?.() ?? s.updateTime.toDate();
         const place = {
           type: 'doc',
@@ -392,6 +422,60 @@ export async function demandes({ db }, { uid = null, avecAJuger = false, garderA
       notes.push(`${qui} : gardée${ds.length > 1 ? 's' : ''} ; trancher par --uid ${ds[0].id} et --avec-a-juger (retirer aussi) ou --garder-a-juger (garder ces places).`);
     }
   }
+  return { actions, notes };
+}
+
+/**
+ * Barème 2 (décision « Barème et classements » du 12/11/2026, #30) : chaque
+ * place du barème 1 (`bareme` 1, ou absent) des classements de toujours et
+ * de la semaine en cours, réécrite `{points: justes, bareme: 2}`, jamais
+ * effacée ; le reste du document (pseudo, justes, temps, date) ne change
+ * pas. Les règles du barème 2 partent avant : d'ici la migration, une place
+ * du barème 1 s'y compare déjà par ses justes (progresse) et l'appli la lit
+ * ainsi (src/epreuve/classement.ts, enPlace) ; réécrite, elle se classe
+ * aussi juste dans les requêtes, qui trient sur `points`. Les semaines
+ * passées ne s'affichent plus : laissées, comptées. Une place déjà au
+ * barème 2, ou d'un barème inconnu, ou sans justes lisibles : laissée.
+ * Relancée, la tâche n'a plus rien à faire.
+ */
+export async function bareme({ db, maintenant }) {
+  const semaine = periodeSemaine(maintenant);
+  const actions = [];
+  let lues = 0;
+  let deja = 0;
+  let passees = 0;
+  const laissees = [];
+  for (const [epreuve, periode] of await periodes(db)) {
+    const col = db.collection('classements').doc(epreuve).collection('periodes').doc(periode).collection('scores');
+    if (periode !== 'toujours' && periode !== semaine) {
+      // Une semaine passée : comptée seulement (son barème, sans le reste du document).
+      passees += (await documents(col, ['bareme'])).filter((s) => (s.get('bareme') ?? BAREME_1) === BAREME_1).length;
+      continue;
+    }
+    for (const s of await documents(col, null)) {
+      lues++;
+      const b = s.get('bareme') ?? BAREME_1;
+      const justes = s.get('justes');
+      if (b === BAREME) deja++;
+      else if (b !== BAREME_1) laissees.push(`${s.ref.path} : barème ${b}, inconnu de l'outil, laissée.`);
+      else if (!Number.isInteger(justes) || justes < 0) laissees.push(`${s.ref.path} : justes illisibles (${JSON.stringify(justes)}), laissée.`);
+      else {
+        const points = Number(s.get('points'));
+        actions.push({
+          type: 'convertir',
+          chemin: s.ref.path,
+          pre: s.updateTime,
+          points: justes,
+          detail: `${epreuve}, ${periode} : « ${s.get('pseudo')} », ${des(points, 'point')} → ${des(justes, 'juste')}`,
+        });
+      }
+    }
+  }
+  const notes = [
+    `${des(lues, 'place')} lue${lues > 1 ? 's' : ''} (toujours et ${semaine}, la semaine en cours) : ${des(actions.length, 'place')} du barème ${BAREME_1} à convertir (points = justes), ${nombre(deja)} déjà au barème ${BAREME}.`,
+    `${des(passees, 'place')} du barème ${BAREME_1} dans des semaines passées : ${passees > 1 ? "laissées (elles ne s'affichent plus)" : "laissée (elle ne s'affiche plus)"}.`,
+    ...laissees,
+  ];
   return { actions, notes };
 }
 

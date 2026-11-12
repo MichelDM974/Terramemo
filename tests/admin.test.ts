@@ -8,7 +8,8 @@
 // règles) garde sa place ; relancée, une commande n'a plus rien à faire.
 // Plus executer seul : un document réécrit depuis sa lecture arrête tout
 // (lastUpdateTime), les lots vont par écritures de 400, et un uid de 1 001
-// lots (deux pages de lecture) est vidé en entier. Et les refus de cible (un
+// lots (deux pages de lecture) est vidé en entier. La migration du barème 2
+// (`bareme`, décision « Barème et classements » du 12/11/2026). Et les refus de cible (un
 // seul émulateur, l'un ou l'autre, CI, clé absente, clé d'un dépôt git,
 // clé d'un autre projet, process.env qui ne vise pas la cible), sans
 // émulateurs, donc aussi dans npm test.
@@ -21,6 +22,7 @@ import { deleteApp, initializeApp, type App } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { periodeSemaine as periodeDeLAppli } from '../src/epreuve/chrono';
 
 const hoteAuth = process.env.FIREBASE_AUTH_EMULATOR_HOST;
 const hoteFs = process.env.FIRESTORE_EMULATOR_HOST;
@@ -54,7 +56,8 @@ type Action =
   | { type: 'doc'; quoi: string; chemin: string }
   | { type: 'comptes'; uids: string[] }
   | { type: 'bloquer'; uid: string }
-  | { type: 'dater'; chemin: string };
+  | { type: 'dater'; chemin: string }
+  | { type: 'convertir'; chemin: string; points: number; detail: string; pre?: string };
 
 interface Rendu {
   projet: string;
@@ -144,6 +147,42 @@ describe('outil du propriétaire : le SDK suit la cible', () => {
         else process.env[k] = garde[k];
       }
     }
+  });
+});
+
+describe('outil du propriétaire : bareme, sans émulateurs', () => {
+  type Taches = { periodeSemaine: (t: Date) => string; decrire: (a: object) => string; enJson: (a: object) => object };
+  type Outil = { lireArguments: (argv: string[]) => { commande: string }; empreinte: (c: object, tache: string, actions: object[]) => string };
+
+  it('la semaine en cours de l’outil est celle de l’appli (semaine() recopiée), le lundi à 0 h UTC', async () => {
+    const { periodeSemaine } = await module<Taches>('taches.mjs');
+    for (const iso of ['2026-11-08T23:59:59Z', '2026-11-09T00:00:00Z', '2026-11-12T08:00:00Z', '1970-01-05T00:00:00Z', '2027-03-01T03:59:59+04:00'])
+      expect(periodeSemaine(new Date(iso)), iso).toBe(periodeDeLAppli(Date.parse(iso)));
+  });
+
+  it('decrire et enJson connaissent convertir ; l’empreinte couvre ses points et son chemin, pas son détail', async () => {
+    const { decrire, enJson } = await module<Taches>('taches.mjs');
+    const { empreinte } = await module<Outil>('outil.mjs');
+    const pre = Timestamp.fromMillis(Date.UTC(2026, 10, 12, 8));
+    const a = { type: 'convertir', chemin: 'classements/general/periodes/toujours/scores/michel', pre, points: 190, detail: 'general, toujours : « Michel », 190 351 points → 190 justes' };
+    expect(decrire(a)).toBe('convertir la place classements/general/periodes/toujours/scores/michel au barème 2 (general, toujours : « Michel », 190 351 points → 190 justes)');
+    expect(enJson(a)).toEqual({ ...a, pre: '2026-11-12T08:00:00.000Z' });
+    const c = { projet: PROJET, emulateurs: true };
+    const e = empreinte(c, 'bareme', [a]);
+    expect(empreinte(c, 'bareme', [{ ...a, detail: 'autre texte' }])).toBe(e);
+    expect(empreinte(c, 'bareme', [{ ...a, points: 191 }])).not.toBe(e);
+    expect(empreinte(c, 'bareme', [{ ...a, chemin: 'classements/general/periodes/toujours/scores/ana' }])).not.toBe(e);
+    expect(empreinte(c, 'bareme', [{ ...a, pre: Timestamp.fromMillis(Date.UTC(2026, 10, 12, 9)) }])).not.toBe(e);
+    // Une action sans points (les autres tâches) : son empreinte ne change pas avec ce champ (absent du JSON).
+    const doc = { type: 'doc', quoi: 'la place', chemin: a.chemin, pre };
+    expect(empreinte(c, 'demandes', [doc])).toBe(empreinte(c, 'demandes', [{ ...doc, points: undefined }]));
+  });
+
+  it('lireArguments : bareme seul, à blanc ou --appliquer --attendu ; ni uid, ni options des autres commandes', async () => {
+    const { lireArguments } = await module<Outil>('outil.mjs');
+    expect(lireArguments(['bareme']).commande).toBe('bareme');
+    expect(lireArguments(['bareme', '--json', '--appliquer', '--attendu', '0123456789ab']).commande).toBe('bareme');
+    for (const argv of [['bareme', 'michel'], ['bareme', '--uid', 'u1'], ['bareme', '--finir'], ['bareme', '--taille'], ['bareme', '--appliquer']]) expect(() => lireArguments(argv), argv.join(' ')).toThrow();
   });
 });
 
@@ -276,12 +315,13 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     return { actions, notes: rendu.taches.flatMap((t) => t.notes), avant, apres: reel };
   }
 
-  const chemins = (actions: Action[]) => actions.flatMap((a) => (a.type === 'lots' ? a.chemins : a.type === 'doc' || a.type === 'dater' ? [`${a.type}:${a.chemin}`] : a.type === 'comptes' ? a.uids.map((u) => `compte:${u}`) : [`bloquer:${a.uid}`]));
+  const chemins = (actions: Action[]) =>
+    actions.flatMap((a) => (a.type === 'lots' ? a.chemins : a.type === 'doc' || a.type === 'dater' || a.type === 'convertir' ? [`${a.type}:${a.chemin}`] : a.type === 'comptes' ? a.uids.map((u) => `compte:${u}`) : [`bloquer:${a.uid}`]));
 
   it('à blanc, aucune commande ne change rien, et chacune dit sur quoi elle travaille', async () => {
     await monde();
     const avant = await etat();
-    for (const args of [['inactifs'], ['tombes'], ['tombes', '--finir'], ['orphelins'], ['demandes'], ['demandes', '--uid', 'parti', '--avec-a-juger'], ['abus', 'abuseur'], ['releve'], ['tournee', '--trimestrielle']]) {
+    for (const args of [['inactifs'], ['tombes'], ['tombes', '--finir'], ['orphelins'], ['demandes'], ['demandes', '--uid', 'parti', '--avec-a-juger'], ['abus', 'abuseur'], ['releve'], ['tournee', '--trimestrielle'], ['bareme']]) {
       const humain = await lancer(args);
       expect(humain.code, `${args.join(' ')} : ${humain.stderr}`).toBe(0);
       expect(humain.stdout).toContain(`Projet : ${PROJET}, aux émulateurs`);
@@ -489,6 +529,90 @@ describe.skipIf(!hoteAuth || !hoteFs)('outil du propriétaire (émulateurs Auth 
     expect(seul.lignes).toEqual([lignes[0]]);
     expect(await etat()).toEqual(avant);
   }, 60_000);
+
+  // Barème 2 (décision « Barème et classements » du 12/11/2026, #30) : les
+  // places du barème 1 réécrites points = justes, jamais effacées.
+  describe('bareme : la migration des places au barème 2', () => {
+    /** La semaine en cours de l'outil, l'heure de référence posée à T (TERRAMEMO_MAINTENANT). */
+    const semaine = () => periodeDeLAppli(T);
+    const env = () => ({ TERRAMEMO_MAINTENANT: new Date(T).toISOString() });
+    const chemin = (epreuve: string, periode: string, cle: string) => `classements/${epreuve}/periodes/${periode}/scores/${cle}`;
+    /** Une place écrite hors des règles ; `bareme` undefined : sans le champ (les plus anciennes). */
+    const ecrire = (c: string, pseudo: string, points: number, justes: number, questions: number, bareme: number | undefined) =>
+      db.doc(c).set({ pseudo, points, justes, questions, temps_ms: questions * 4000, date: ts(T - JOUR), ...(bareme === undefined ? {} : { bareme }) });
+
+    /** Le monde du barème : v1 de toujours (avec et sans champ), de la semaine en cours, Sans faute v1, une semaine passée, une v2. */
+    async function places() {
+      const P = {
+        tous: chemin('chrono:localiser:tous', 'toujours', 'michel'),
+        general: chemin('general', 'toujours', 'ana'),
+        semaine: chemin('chrono:localiser:tous', semaine(), 'michel'),
+        sansFaute: chemin('sansfaute:localiser:Europe', 'toujours', 'michel'),
+        passee: chemin('chrono:localiser:Africa', 's2900', 'michel'),
+        v2: chemin('chrono:localiser:Africa', 'toujours', 'zoé'),
+      };
+      await ecrire(P.tous, 'Michel', 190_351, 190, 195, 1);
+      await ecrire(P.general, 'Ana', 300_420, 290, 414, undefined);
+      await ecrire(P.semaine, 'Michel', 150_420, 150, 195, 1);
+      await ecrire(P.sansFaute, 'Michel', 17, 17, 18, 1);
+      await ecrire(P.passee, 'Michel', 50_351, 50, 54, 1);
+      await ecrire(P.v2, 'Zoé', 40, 40, 54, 2);
+      return P;
+    }
+
+    it('à blanc puis appliqué : toujours et la semaine en cours convertis (points = justes, bareme 2, le reste gardé) ; semaine passée et barème 2 laissés ; relancée, rien à faire', async () => {
+      const P = await places();
+      const lus = Object.fromEntries(await Promise.all(Object.entries(P).map(async ([k, c]) => [k, (await db.doc(c).get()).data()] as const)));
+      const blanc = JSON.parse((await lancer(['bareme', '--json'], env())).stdout) as Rendu;
+      const plan = blanc.taches[0]!.actions;
+      expect(chemins(plan).sort()).toEqual([`convertir:${P.general}`, `convertir:${P.sansFaute}`, `convertir:${P.semaine}`, `convertir:${P.tous}`].sort());
+      const tous = plan.find((a) => a.type === 'convertir' && a.chemin === P.tous) as Extract<Action, { type: 'convertir' }>;
+      expect(tous.points).toBe(190);
+      expect(tous.detail.replace(/\s/g, ' ')).toBe('chrono:localiser:tous, toujours : « Michel », 190 351 points → 190 justes');
+      expect(blanc.taches[0]!.notes.join('\n').replace(/\s/g, ' ')).toContain('5 places lues');
+      expect(blanc.taches[0]!.notes.join('\n').replace(/\s/g, ' ')).toContain('4 places du barème 1 à convertir');
+      expect(blanc.taches[0]!.notes.join('\n').replace(/\s/g, ' ')).toContain('1 place du barème 1 dans des semaines passées : laissée');
+      const humain = await lancer(['bareme'], env());
+      expect(humain.stdout).toContain(`Empreinte du plan : ${blanc.taches[0]!.empreinte}`);
+      const { actions, apres: e } = await exactEtIdempotent(['bareme'], env());
+      expect(actions).toEqual(plan);
+      for (const k of ['tous', 'general', 'semaine', 'sansFaute'] as const) {
+        const d = (await db.doc(P[k]).get()).data()!;
+        expect(d, k).toEqual({ ...lus[k], points: lus[k]!.justes, bareme: 2 });
+      }
+      // Laissées : leur heure d'écriture n'a pas bougé (exactEtIdempotent), ni leur contenu.
+      expect((await db.doc(P.passee).get()).data()).toEqual(lus.passee);
+      expect((await db.doc(P.v2).get()).data()).toEqual(lus.v2);
+      expect(e.docs[P.passee]).toBeDefined();
+    }, 90_000);
+
+    it('une place réécrite entre le plan et l’exécution : le plan relu ne vaut plus (empreinte), et executer s’arrête sur elle', async () => {
+      const P = await places();
+      const blanc = JSON.parse((await lancer(['bareme', '--json'], env())).stdout) as Rendu;
+      const vue = blanc.taches[0]!.empreinte!;
+      // L'appli rejoue sous ce pseudo entre-temps (au barème 2, comme les règles l'exigent).
+      await ecrire(P.tous, 'Michel', 191, 191, 195, 2);
+      const avant = await etat();
+      const r = await lancer(['bareme', '--appliquer', '--attendu', vue, '--json'], env());
+      expect(r.code).toBe(1);
+      const rendu = JSON.parse(r.stdout) as Rendu;
+      expect(rendu.erreur).toContain('le plan a changé depuis sa lecture');
+      expect(rendu.taches[0]!.faites).toBe(0);
+      expect(await etat()).toEqual(avant);
+      // executer seul, sur une heure lue périmée : la place gardée telle quelle, l'action suivante pas faite.
+      type Executer = (ctx: { auth: Auth; db: unknown }, actions: object[], fait?: (a: object) => void) => Promise<void>;
+      const { executer } = await module<{ executer: Executer }>('taches.mjs');
+      const perime = (await db.doc(P.semaine).get()).updateTime!;
+      await ecrire(P.semaine, 'Michel', 160, 160, 195, 2);
+      const suite = { type: 'convertir', chemin: P.general, pre: (await db.doc(P.general).get()).updateTime!, points: 290, detail: '' };
+      const faites: object[] = [];
+      await expect(executer({ auth, db }, [{ type: 'convertir', chemin: P.semaine, pre: perime, points: 150, detail: '' }, suite], (x) => faites.push(x))).rejects.toThrow(`${P.semaine} a changé depuis la lecture`);
+      expect(faites).toEqual([]);
+      expect((await db.doc(P.semaine).get()).data()).toMatchObject({ points: 160, bareme: 2 });
+      expect((await db.doc(P.general).get()).data()).toMatchObject({ points: 300_420 });
+      expect((await db.doc(P.general).get()).get('bareme')).toBeUndefined();
+    }, 60_000);
+  });
 
   it('inactifs : 2 ans sans jeton rafraîchi (pas la dernière connexion), invités exclus', async () => {
     const vieux = new Date(Date.UTC(2023, 0, 1)).toUTCString();

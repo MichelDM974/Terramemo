@@ -28,13 +28,16 @@ Commandes :
                         refusé au-delà de M lots (5 000 par défaut)
   tournee [--trimestrielle]
                         à blanc seulement : demandes, tombes, orphelins, relevé (et inactifs si --trimestrielle)
+  bareme                une fois (décision « Barème et classements », 12/11/2026) : les places du barème 1 des
+                        classements de toujours et de la semaine en cours réécrites au barème 2 (points = justes),
+                        jamais effacées ; après les règles du barème 2, avant le site ; pas dans la tournée
 
 Options : --appliquer --attendu E (exécuter le plan relu à blanc, d'empreinte E ; refusé s'il a changé depuis),
 --json (sortie lisible par un programme).
 Cible : les émulateurs si FIRESTORE_EMULATOR_HOST et FIREBASE_AUTH_EMULATOR_HOST sont posés, sinon le
 vrai projet terramemo-geo, par la clé de ~/Sauvegardes/terramemo/admin/ (ou TERRAMEMO_CLE_ADMIN).`;
 
-const COMMANDES = ['inactifs', 'tombes', 'orphelins', 'demandes', 'abus', 'releve', 'tournee'];
+const COMMANDES = ['inactifs', 'tombes', 'orphelins', 'demandes', 'abus', 'releve', 'tournee', 'bareme'];
 const DRAPEAUX = { '--appliquer': 'appliquer', '--json': 'json', '--finir': 'finir', '--avec-a-juger': 'avecAJuger', '--garder-a-juger': 'garderAJuger', '--trimestrielle': 'trimestrielle', '--taille': 'taille', '--aide': 'aide', '-h': 'aide', '--help': 'aide' };
 const AVEC_VALEUR = { '--uid': 'uid', '--n': 'n', '--max-lectures': 'maxLectures', '--attendu': 'attendu' };
 
@@ -87,11 +90,13 @@ const nombre = (n) => n.toLocaleString('fr-FR');
 
 /**
  * L'empreinte d'un plan : ce qu'il touche (cible, tâche, chemins, comptes,
- * heure lue de chaque document), pas ses textes (un rang qui bouge parce
- * qu'un autre joueur a joué ne change pas ce qui serait supprimé).
+ * heure lue de chaque document, points écrits par `bareme`), pas ses textes
+ * (un rang qui bouge parce qu'un autre joueur a joué ne change pas ce qui
+ * serait supprimé). `points` absent des autres actions : leur empreinte
+ * reste celle d'avant.
  */
 export function empreinte(c, tache, actions) {
-  const effet = actions.map(({ type, uid, uids, chemin, chemins, pre }) => ({ type, uid, uids, chemin, chemins, pre: pre ? pre.toDate().toISOString() : undefined }));
+  const effet = actions.map(({ type, uid, uids, chemin, chemins, pre, points }) => ({ type, uid, uids, chemin, chemins, pre: pre ? pre.toDate().toISOString() : undefined, points }));
   return createHash('sha256').update(JSON.stringify({ projet: c.projet, emulateurs: c.emulateurs, tache, effet })).digest('hex').slice(0, 12);
 }
 
