@@ -13,16 +13,17 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
                                 captures des vues (téléphone ou PC), île
                                 de La Réunion et Nommer compris, séance
                                 du J1a, capitales, drapeaux et mers, puis les
-                                épreuves des capitales et des drapeaux
-                                et l'écran de connexion
+                                épreuves des capitales, des drapeaux et des
+                                mers, et l'écran de connexion
     seance [--width 384]        la séance du J1a seule (Révision du jour,
                                 Apprendre, le lendemain par ?horloge=1)
     accueil [--width 384]       l'écran de connexion de la première ouverture
                                 seul (ui_accueil, aussi en fin de ui)
     drapeaux [--width 384]      le sujet Drapeaux seul (ui_drapeaux, aussi
                                 dans ui), sur un profil neuf
-    mers [--width 384]          le sujet Océans et mers seul (ui_mers, aussi
-                                dans ui), sur un profil neuf
+    mers [--width 384]          le sujet Océans et mers seul (ui_mers puis
+                                ses épreuves, ui_epreuves_mers, aussi dans
+                                ui), sur un profil neuf
     mesurer --cible local|chrome|webview [--rendu canvas|webgl|g|css]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
@@ -1105,8 +1106,11 @@ def part_juste(m):
 SERIES_PAYS = ["tous", "Africa", "North America", "South America", "Asia", "Europe", "Oceania"]
 # Les sujets de Classé, ceux de EPREUVES_SUJETS (src/epreuve/chrono.ts ; décision « Ouverture des épreuves
 # d'un sujet », 12/11 : ouverts dès leur livraison, sans date), dans l'ordre de D53 b (Communes en dernier).
-# Océans et mers n'y est pas avant ses épreuves (lot 3b, partie B).
-SUJETS_CLASSE = ["pays", "capitales", "drapeaux", "communes"]
+# Océans et mers depuis ses épreuves (lot 3b, partie B).
+SUJETS_CLASSE = ["pays", "capitales", "drapeaux", "mers", "communes"]
+NOMS_CLASSE = "Pays, Capitales, Drapeaux, Océans et mers, Communes"
+# Les titres des sujets (h4) du 🏆 sous chaque mode, quand tous y ont des lignes (sans pseudo : toutes les épreuves).
+H4_CLASSEMENTS = ["Pays", "Capitales", "Drapeaux", "Océans et mers", "Communes"]
 
 
 # Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 3b du J2 (Océans et mers).
@@ -1422,8 +1426,9 @@ def ui_jouer(p, capturer, defauts):
     """Captures 15 à 15e (décision « Écran Jouer », #18) : l'arbre de Jouer,
     après les épreuves (records de l'Amérique du Sud). Sujets : Pays,
     Capitales, Drapeaux, Océans et mers, Communes sous Entraînement
-    (SUJETS_ENTRAINEMENT) ; sous Classé, sans Océans et mers avant ses
-    épreuves (SUJETS_CLASSE).
+    (SUJETS_ENTRAINEMENT) comme sous Classé (SUJETS_CLASSE : les épreuves
+    des mers depuis le lot 3b, partie B ; Classé › Océans et mers saute sa
+    série unique, comme Communes).
     `15-jouer` (Entraînement et Classé, sans Rejouer), `15b-classe-sujets`,
     `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
     ams-epreuves` (les deux épreuves, Chrono et Sans faute, sans Minute,
@@ -1456,9 +1461,18 @@ def ui_jouer(p, capturer, defauts):
     p.pause(300)
     cliquer(p, '#jouer-panneau [data-branche="classe"]')
     if lire("data-sujet") != SUJETS_CLASSE:
-        defauts.append(f"Classé : sujets {lire('data-sujet')} au lieu de {SUJETS_CLASSE}")
+        defauts.append(f"Classé : sujets {lire('data-sujet')} au lieu de {NOMS_CLASSE}")
     panneau_jouer(p, defauts, "Classé")
     capturer("15b-classe-sujets")
+    # Classé › Océans et mers : sa série unique sautée (D44 a), Chrono et Sans faute (ui_epreuves_mers les joue).
+    cliquer(p, '#jouer-panneau [data-sujet="mers"]')
+    p.pause(200)
+    if ou() != ["#jouer/classe/mers/mers", "exercices"] or lire("data-mode") != list(EPREUVES):
+        defauts.append(f"Classé › Océans et mers : {ou()}, {lire('data-mode')} (la série sautée, Chrono et Sans faute attendus)")
+    p.js("history.back()")
+    p.pause(400)
+    if ou() != ["#jouer/classe", "sujets"]:
+        defauts.append(f"retour arrière depuis Classé › Océans et mers : {ou()} au lieu des sujets (le niveau sauté a une entrée ?)")
     cliquer(p, '#jouer-panneau [data-sujet="pays"]')
     series = lire("data-serie")
     dire(f"  Classé › Pays : {series}")
@@ -2011,6 +2025,7 @@ def commande_ui(args):
         # Après la séance (son ?horloge= décale le journal) : chaque étape recharge la page sans.
         ui_epreuves_capitales(p, capturer, defauts, base, rendu)
         ui_epreuves_drapeaux(p, capturer, defauts, base, rendu)
+        ui_epreuves_mers(p, capturer, defauts, base, rendu)
         # En dernier : il donne un pseudo à l'invité (retiré ensuite), qu'aucune partie ne doit publier.
         ui_accueil(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
@@ -2700,7 +2715,7 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
     7.3 ; D44 a, D45 a, D47 a) : le sujet Océans et mers en Entraînement, sur
     une page rechargée. Rien de mers* au premier affichage ni à l'ouverture
     de Jouer ; Jouer : Pays, Capitales, Drapeaux, Océans et mers, Communes
-    sous Entraînement (sous Classé, pas avant ses épreuves), la vignette des
+    sous Entraînement (et sous Classé : ses épreuves, ui_epreuves_mers), la vignette des
     mers éclairées, « 50 océans et mers », la série unique sautée ; à
     l'accueil, un pays touché ne charge rien de marin, l'eau touchée donne le
     nom de la mer par la couche légère seule (jamais mers.topo.json), sans
@@ -2711,8 +2726,9 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
     Reconnaître (« Quelle est cette mer ? » ou « Quel est cet océan ? »,
     quatre noms, une faute, le bilan) ; Apprendre jusqu'au bilan (la grappe
     « Océans ») ; le journal en mers: seulement ; la carte de la mémoire
-    « Mers » (ses zones teintées, « n/50 maîtrisées », un océan touché : sa
-    mémoire). DÉFAUT à tout écart."""
+    « Mers » (ses zones teintées, « n/50 maîtrisées », le carré « Jamais
+    vu » de la légende couleur d'eau, celui de la terre sous Pays ; un océan
+    touché : sa mémoire). DÉFAUT à tout écart."""
     p.goto("about:blank")
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
@@ -2756,8 +2772,10 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
         defauts.append(f"mers* chargé à l'ouverture de Jouer : {ressources_mers(p)}")
     p.js('location.hash = "#jouer/classe"')
     p.pause(300)
-    if "mers" in lire("data-sujet"):
-        defauts.append("Classé : Océans et mers proposé avant ses épreuves (partie B)")
+    if lire("data-sujet") != SUJETS_CLASSE:
+        defauts.append(f"Classé : sujets {lire('data-sujet')} au lieu de {NOMS_CLASSE} (les épreuves des mers, partie B)")
+    if ressources_mers(p):
+        defauts.append(f"mers* chargé à l'ouverture de Classé : {ressources_mers(p)}")
 
     # L'accueil : un pays touché ne charge rien de marin ; l'eau, le nom de la mer par la couche légère seule.
     p.js('location.hash = "#carte"')
@@ -2954,6 +2972,14 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
         dire(f"  carte de la mémoire (Mers) : {p.js('window.terramemo.carte.teintes()')} zones teintées, {legende!r}")
         if not p.js("window.terramemo.carte.teintes()") or not re.search(r"\d+/50 maîtrisées", legende):
             defauts.append(f"carte de la mémoire (Mers) : aucune zone teintée, ou pas de « n/50 maîtrisées » ({legende!r})")
+        # La légende dit ce que montre la carte : une mer jamais vue garde l'eau (--mer), pas la terre neutre des pays.
+        cases = p.js("""(() => { const c = document.querySelector('#legende-memoire .legende-jamais');
+            const fond = (v) => { const e = document.createElement('span'); e.style.background = `var(${v})`; document.body.append(e);
+                const r = getComputedStyle(e).backgroundColor; e.remove(); return r; };
+            return c && { mer: c.classList.contains('legende-jamais-mer'), fond: getComputedStyle(c).backgroundColor, eau: fond('--mer') }; })()""")
+        dire(f"  carte de la mémoire (Mers), « Jamais vu » : {cases}")
+        if not cases or not cases["mer"] or cases["fond"] != cases["eau"]:
+            defauts.append(f"carte de la mémoire (Mers) : le carré « Jamais vu » n'a pas la couleur de l'eau ({cases})")
         p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
         p.pause(300)
         pt = p.js('window.terramemo.carte.ecran("pacif")')
@@ -2966,16 +2992,18 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
             if "océan Pacifique" not in barre or not re.search(r"Vu \d+ fois · (revient|à revoir)", barre):
                 defauts.append(f"carte de la mémoire (Mers) : le Pacifique touché sans sa mémoire ({barre!r})")
         capturer("133-mers-memoire")
-        # Le choix gardé sur l'appareil : Pays de nouveau, pour la suite.
+        # Le choix gardé sur l'appareil : Pays de nouveau, pour la suite ; le carré « Jamais vu » reprend la terre.
         p.js("(() => { const s = document.getElementById('legende-sujet'); s.value = 'pays'; s.dispatchEvent(new Event('change')); })()")
         p.pause(200)
+        if p.js("!!document.querySelector('#legende-memoire .legende-jamais.legende-jamais-mer')"):
+            defauts.append("carte de la mémoire (Pays) : le carré « Jamais vu » garde la couleur de l'eau")
 
 
 def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     """Captures 92 à 96 (lot 1 du J2, partie C ; décision « Ouverture des
     épreuves d'un sujet », 12/11) : les épreuves classées des capitales,
     sur une page rechargée. Classé › Capitales (92 : Pays, Capitales,
-    Drapeaux, Communes), ses 7 séries, Océanie et ses deux épreuves (93 :
+    Drapeaux, Océans et mers, Communes), ses 7 séries, Océanie et ses deux épreuves (93 :
     Chrono, Sans faute ; plus de Minute),
     un Chrono des capitales d'Océanie joué en entier (94 : « Pays dont la capitale est : »,
     une ville et jamais un Qid ; 95 : le bilan « Chrono · Capitales ·
@@ -3002,7 +3030,7 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     sujets = classe()
     dire(f"  Classé : {sujets}")
     if sujets != SUJETS_CLASSE:
-        defauts.append(f"Classé : sujets {sujets} au lieu de Pays, Capitales, Drapeaux, Communes")
+        defauts.append(f"Classé : sujets {sujets} au lieu de {NOMS_CLASSE}")
     panneau_jouer(p, defauts, "Classé (Capitales)")
     capturer("92-classe-capitales")
     cliquer(p, '#jouer-panneau [data-sujet="capitales"]')
@@ -3076,9 +3104,9 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     attendre_visible(p, "#classement-general .essai-serie")
     h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
     ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:capitales:Oceania"]')
-    dire(f"  🏆 : sujets {h4[:4]}…, ligne {ligne!r}")
+    dire(f"  🏆 : sujets {h4[:5]}…, ligne {ligne!r}")
     # Sous le titre de son sujet (h4), la série seule (tableau du 🏆, choix du 12/11) : « Océanie », pas « Capitales · Océanie ».
-    if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or ligne.split("\n")[0].strip() != "Océanie" or "Capitales ·" in ligne:
+    if h4[:5] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océanie" or "Capitales ·" in ligne:
         defauts.append(f"🏆 : sujets {h4}, ligne des capitales d'Océanie {ligne!r}")
     # Sa place (lue en ligne, absente hors ligne) en pourcentage, jamais en points (décision « Barème et classements »).
     if "pts" in ligne or "point" in ligne.lower():
@@ -3091,7 +3119,7 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     """Captures 111 à 115 (lot 2 du J2, partie C ; décision « Ouverture des
     épreuves d'un sujet », 12/11) : les épreuves classées des drapeaux,
     juste après ui_epreuves_capitales. Sur une page rechargée : Classé ›
-    Drapeaux (111 : Pays, Capitales, Drapeaux, Communes), ses 7 séries,
+    Drapeaux (111 : Pays, Capitales, Drapeaux, Océans et mers, Communes), ses 7 séries,
     Océanie et ses deux épreuves (112 : Chrono, Sans faute ; le « ? » dit
     leurs règles et les exercices visuels, sans Minute), un Chrono des
     drapeaux d'Océanie joué en entier (113 : « Pays de ce drapeau : »
@@ -3122,7 +3150,7 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     sujets = lire("data-sujet")
     dire(f"  Classé (drapeaux) : {sujets}")
     if sujets != SUJETS_CLASSE:
-        defauts.append(f"Classé (drapeaux) : sujets {sujets} au lieu de Pays, Capitales, Drapeaux, Communes")
+        defauts.append(f"Classé (drapeaux) : sujets {sujets} au lieu de {NOMS_CLASSE}")
     panneau_jouer(p, defauts, "Classé (Drapeaux)")
     capturer("111-classe-drapeaux")
     cliquer(p, '#jouer-panneau [data-sujet="drapeaux"]')
@@ -3231,12 +3259,189 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     attendre_visible(p, "#classement-general .essai-serie")
     h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
     ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:drapeaux:Oceania"]')
-    dire(f"  🏆 : sujets {h4[:4]}…, ligne {ligne!r}")
-    if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or ligne.split("\n")[0].strip() != "Océanie" or "Drapeaux ·" in ligne:
+    dire(f"  🏆 : sujets {h4[:5]}…, ligne {ligne!r}")
+    if h4[:5] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océanie" or "Drapeaux ·" in ligne:
         defauts.append(f"🏆 : sujets {h4}, ligne des drapeaux d'Océanie {ligne!r}")
     if "pts" in ligne or "point" in ligne.lower():
         defauts.append(f"🏆 : ligne des drapeaux d'Océanie encore en points ({ligne!r})")
     capturer("115-classements-drapeaux")
+    croix_vers_carte(p, defauts, "🏆", "#classement-general")
+
+
+def ui_epreuves_mers(p, capturer, defauts, base, parametres=""):
+    """Captures 134 à 138 (lot 3b du J2, partie B, #27 ; décisions « Ouverture
+    des épreuves d'un sujet », « Océans et mers ») : les épreuves classées
+    des mers, après celles des drapeaux. Sur une page rechargée : Classé
+    (134 : Pays, Capitales, Drapeaux, Océans et mers, Communes), Classé ›
+    Océans et mers, sa série unique sautée (D44 a), ses deux épreuves (135 :
+    Chrono, Sans faute ; le « ? » dit leurs règles, sans Minute ni exercices
+    visuels) ; un Sans faute des mers joué jusqu'à sa fin : la couche marine
+    chargée avant le départ (aucune question posée avant), « Touche : » et
+    un nom (jamais l'id), la vue jamais cadrée par l'appli sur la mer
+    demandée (seul le pilote zoome pour toucher), quelques justes dont une
+    partie si elle vient (136 : « Juste : mer des Caraïbes, dans
+    l'Atlantique »), puis la mer Noire touchée pour une autre mer : fausse,
+    nommée, la partie finie ; le bilan (137) « Sans faute · Océans et mers »,
+    « n d'affilée sur 50 », le raté par les noms, le classement de
+    sansfaute:mers:mers ; le record sous Classé › Océans et mers ; le 🏆
+    (138) : la ligne « Océans et mers » sous son sujet. Sans pseudo (invité
+    du pilote) : rien n'est publié. DÉFAUT à tout écart."""
+    _, _, corps = http(base + "geo/mers.fr.json")
+    noms = json.loads(corps)["noms"]
+    ids = set(noms)
+    # Les zones qui ont des parties, et l'une d'elles (Note.admis, « dans … ») : celles de ui_mers.
+    PARTIES = {"atlant": "caraibes", "pacif": "japon", "indien": "arabie", "arctique": "kara", "medit": "adriat",
+               "noire": "azov", "baltique": "botnie", "barents": "blanche", "chinemer": "thailand"}
+    # La mer Noire touchée pour finir : jamais pour elle, ni pour ce qui la contient ou qu'elle contient (sa partie, l'Azov),
+    # ni pour l'Égée, sa voisine, qu'un halo de 12 px (petite mer) pourrait dire juste.
+    PAS_NOIRE = ("noire", "azov", "medit", "atlant", "egee")
+    JUSTES_AVANT_FIN = 4
+
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def sans_id(quoi, t):
+        vus = sorted(i for i in ids if re.search(rf"(?<![\w']){re.escape(i)}(?![\w'])", t or ""))
+        if vus:
+            defauts.append(f"{quoi} : un id brut affiché ({vus} dans {t!r})")
+
+    def transfo():
+        return p.js("(() => { const t = window.terramemo.carte.transfo(); return [Math.round(t.k * 1000), Math.round(t.x), Math.round(t.y), Math.round((t.r || 0) * 1000)]; })()")
+
+    p.goto("about:blank")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    p.js('location.hash = "#jouer/classe"')
+    attendre_visible(p, "#jouer-panneau")
+    p.pause(200)
+    sujets = lire("data-sujet")
+    dire(f"  Classé (mers) : {sujets}")
+    if sujets != SUJETS_CLASSE:
+        defauts.append(f"Classé (mers) : sujets {sujets} au lieu de {NOMS_CLASSE}")
+    tuile = texte(p, '#jouer-panneau [data-sujet="mers"]')
+    if "50 océans et mers" not in tuile:
+        defauts.append(f"Classé : tuile Océans et mers {tuile!r} (« 50 océans et mers » attendu)")
+    panneau_jouer(p, defauts, "Classé (Océans et mers)")
+    capturer("134-classe-mers")
+    cliquer(p, '#jouer-panneau [data-sujet="mers"]')
+    p.pause(200)
+    modes = lire("data-mode")
+    fil = texte(p, "#jouer-panneau .jouer-fil")
+    hash_ = p.js("decodeURIComponent(location.hash)")
+    dire(f"  Classé › Océans et mers : {hash_}, {modes}, fil {fil!r}")
+    if hash_ != "#jouer/classe/mers/mers" or niveau_jouer(p) != "exercices":
+        defauts.append(f"Classé › Océans et mers : {hash_}, niveau {niveau_jouer(p)} (la série unique sautée attendue)")
+    if modes != list(EPREUVES):
+        defauts.append(f"Classé › Océans et mers : exercices {modes} (Chrono, Sans faute attendus)")
+    if [x.strip() for x in fil.split("›")] != ["Classé", "Océans et mers", "Océans et mers"]:
+        defauts.append(f"fil d'Ariane {fil!r} au lieu de « Classé › Océans et mers › Océans et mers »")
+    if p.js("!!document.getElementById('jouer-aide')"):
+        cliquer(p, "#jouer-aide")
+        aide = texte(p, "#jouer-regles")
+        if "Sans faute" not in aide or "Minute" in aide or "visuel" in aide:
+            defauts.append(f"Classé › Océans et mers : le « ? » sans les règles, ou avec Minute ou les exercices visuels ({aide!r})")
+    else:
+        defauts.append("Classé › Océans et mers : pas de « ? »")
+    if ressources_mers(p):
+        defauts.append(f"mers* chargé avant le choix d'une épreuve : {ressources_mers(p)}")
+    capturer("135-classe-mers-exercices")
+
+    # Le Sans faute des mers : la couche marine lue et posée avant le départ (avecSujet), puis la partie.
+    cliquer(p, '#jouer-panneau [data-mode="sansfaute"]')
+    attendre_visible(p, "#barre-chrono", 30)
+    if "mers.topo.json" not in ressources_mers(p):
+        defauts.append(f"Sans faute des mers parti sans la couche fine ({ressources_mers(p)})")
+    p.pause(300)
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+    attendre_fin_vol(p)
+    bilan = '!document.getElementById("chrono-bilan").hidden'
+    vus, justes, partie, faux = [], 0, False, None
+    apres_toucher = transfo()
+    for i in range(52):
+        if p.js(bilan):
+            break
+        cible = p.js('document.querySelector("#barre-chrono .essai-consigne").dataset.cible')
+        consigne = texte(p, "#barre-chrono .essai-consigne")
+        sans_id("Sans faute des mers", texte(p, "#barre-chrono"))
+        if consigne != f"Touche : {noms.get(cible)}":
+            defauts.append(f"Sans faute des mers, {cible} : consigne {consigne!r}")
+        # L'appli ne cadre jamais la vue sur la mer demandée (ce serait donner la réponse) : la vue de la question
+        # posée est celle laissée par le dernier toucher du pilote.
+        if transfo() != apres_toucher:
+            defauts.append(f"Sans faute des mers, {cible} : la vue a bougé à la pose de la question ({apres_toucher} → {transfo()})")
+        vus.append(cible)
+        if justes >= JUSTES_AVANT_FIN and cible not in PAS_NOIRE:
+            # La fin : la mer Noire touchée pour une autre mer, fausse et nommée ; la partie s'arrête. La carte cadrée sur
+            # elle par le pilote : une petite mer voisine n'y a plus son halo de 12 px.
+            p.js('window.terramemo.carte.zoomerSur("noire")')
+            attendre_fin_vol(p)
+            toucher_mer(p, "noire", "#barre-chrono")
+            p.pause(250)
+            retro = texte(p, "#barre-chrono .essai-retro")
+            dire(f"  Sans faute des mers, {cible}, la mer Noire touchée : {retro!r}")
+            if not retro.startswith("Faux : mer Noire, à "):
+                defauts.append(f"Sans faute des mers, {noms.get(cible)}, la mer Noire touchée : {retro!r} (« Faux : mer Noire, à … du bord » attendu)")
+            faux = cible
+            break
+        z = PARTIES.get(cible) if not partie else None
+        toucher_mer(p, z or cible, "#barre-chrono")
+        apres_toucher = transfo()
+        p.pause(250)
+        retro = texte(p, "#barre-chrono .essai-retro")
+        if z:
+            dire(f"  Sans faute des mers, {cible}, {z} touchée : {retro!r}")
+            if not re.match(rf"Juste : {re.escape(noms[z])}, dans ", retro):
+                defauts.append(f"Sans faute des mers, {noms.get(cible)}, {noms[z]} touchée : {retro!r} (« Juste : {noms[z]}, dans … » attendu)")
+            capturer("136-mers-sansfaute-partie")
+            partie = True
+        elif i == 0:
+            dire(f"  Sans faute des mers ({cible}) : {consigne!r} → {retro!r}")
+            capturer("136-mers-sansfaute-partie")
+        if not retro.startswith("Juste"):
+            defauts.append(f"Sans faute des mers, {cible} touchée : rétroaction {retro!r}")
+            break
+        justes += 1
+        p.pause(1100)
+    fin = time.monotonic() + 6
+    while not p.js(bilan) and time.monotonic() < fin:
+        p.pause(100)
+    lu = p.js('document.getElementById("chrono-bilan").innerText') or ""
+    titre = texte(p, "#chrono-bilan h2")
+    dire(f"  Sans faute des mers, bilan ({justes} justes, {len(vus)} posées, partie {partie}) : {titre!r}, {lu[:200]!r}")
+    if not p.js(bilan):
+        defauts.append(f"Sans faute des mers : pas de bilan après la mer Noire touchée ({faux})")
+    if titre != "Sans faute · Océans et mers":
+        defauts.append(f"bilan du Sans faute des mers titré {titre!r} (nomEpreuve : « Sans faute · Océans et mers »)")
+    if f"{justes} d'affilée sur 50" not in sans_insecables(lu):
+        defauts.append(f"bilan du Sans faute des mers sans « {justes} d'affilée sur 50 » ({lu[:160]!r})")
+    if faux and f"{noms.get(faux)} → mer Noire" not in lu:
+        defauts.append(f"bilan du Sans faute des mers : le raté {noms.get(faux)} → mer Noire absent ({lu[:200]!r})")
+    if not p.js("!!document.querySelector('#chrono-bilan .chrono-classement[data-epreuve=\"sansfaute:mers:mers\"]')"):
+        defauts.append("bilan du Sans faute des mers : pas de classement de sansfaute:mers:mers")
+    sans_id("bilan du Sans faute des mers", lu)
+    capturer("137-mers-sansfaute-bilan")
+    croix_vers_carte(p, defauts, "bilan du Sans faute des mers", "#chrono-bilan")
+
+    # Le record dans Jouer, puis le 🏆 : les épreuves des mers sous leur sujet (h4), la ligne au nom de la série.
+    p.js('location.hash = "#jouer/classe/mers/mers"')
+    attendre_visible(p, "#jouer-panneau")
+    p.pause(200)
+    record = p.js("(document.querySelector('#jouer-panneau [data-mode=\"sansfaute\"] .jouer-record') || {}).innerText || ''")
+    if f"{justes}/50" not in sans_insecables(record):
+        defauts.append(f"Classé › Océans et mers : pas de record « {justes}/50 » du Sans faute ({record!r})")
+    cliquer(p, "#jouer-fermer")
+    p.pause(300)
+    cliquer(p, "#classement-btn")
+    attendre_visible(p, "#classement-general .essai-serie")
+    h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
+    ligne = texte(p, '#classement-general .essai-serie[data-epreuve="sansfaute:mers:mers"]')
+    chrono = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:mers:mers"]')
+    dire(f"  🏆 : sujets {h4[:5]}…, ligne {ligne!r}")
+    if h4[:5] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océans et mers" or "Océans et mers ·" in ligne or not chrono:
+        defauts.append(f"🏆 : sujets {h4}, lignes des mers {ligne!r} / {chrono!r} (« Océans et mers » sous son sujet attendu)")
+    if "pts" in ligne or "point" in ligne.lower():
+        defauts.append(f"🏆 : ligne des mers encore en points ({ligne!r})")
+    capturer("138-classements-mers")
     croix_vers_carte(p, defauts, "🏆", "#classement-general")
 
 
@@ -3530,7 +3735,7 @@ def commande_drapeaux(args):
 
 
 def commande_mers(args):
-    """ui_mers seul, sur un profil neuf : l'écran de connexion passé en invité (passer_accueil)."""
+    """ui_mers puis ses épreuves (ui_epreuves_mers), sur un profil neuf : l'écran de connexion passé en invité (passer_accueil)."""
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     telephone = args.width < 700
@@ -3551,6 +3756,7 @@ def commande_mers(args):
             faites.append(chemin)
 
         ui_mers(p, capturer, defauts, base, rendu)
+        ui_epreuves_mers(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -5257,7 +5463,7 @@ def main():
     s.add_argument("--out", default="/tmp/terramemo-captures")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
-    s = sub.add_parser("mers", help="le sujet Océans et mers seul (ui_mers) : Jouer, l'accueil (couche légère), la recherche, Trouver, Reconnaître, Apprendre, carte de la mémoire")
+    s = sub.add_parser("mers", help="le sujet Océans et mers seul (ui_mers, ui_epreuves_mers) : Jouer, l'accueil (couche légère), la recherche, Trouver, Reconnaître, Apprendre, carte de la mémoire, puis Classé › Océans et mers (un Sans faute joué jusqu'à sa fin)")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
     s.add_argument("--out", default="/tmp/terramemo-captures")

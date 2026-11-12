@@ -45,7 +45,7 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
 python3 .claude/skills/run-terramemo/driver.py seance             # la séance du J1a seule (ui_seance), sur un journal vide
 python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord
 python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
-python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
+python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers puis ses épreuves, ui_epreuves_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 ```
 
 - `serve` en arrière-plan, puis les autres. `--preview` construit dans
@@ -104,8 +104,8 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   (dans cet ordre, D53 b, `SUJETS_ENTRAINEMENT` du pilote ; sous Classé,
   les sujets de `EPREUVES_SUJETS` de `src/epreuve/chrono.ts`, ouverts dès
   leur livraison, sans date, décision « Ouverture des épreuves d'un
-  sujet » du 12/11 : `SUJETS_CLASSE` du pilote, sans `mers` avant ses
-  épreuves, lot 3b partie B), `[data-serie=<id>]` (sauf l'île et les mers,
+  sujet » du 12/11 : `SUJETS_CLASSE` du pilote, les mers comprises depuis
+  le lot 3b partie B), `[data-serie=<id>]` (sauf l'île et les mers,
   série unique `mers` : niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute]`,
   qui lance la partie (plus de `minute` : retiré le 12/11, décision
   « Barème et classements », #30) ; `jouer_jusqua(page, mode, serie, sujet)`
@@ -321,12 +321,14 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   `drapeaux:`). Sa grappe finie laisse la Révision du jour « À jour ».
 - Le sujet Océans et mers (lot 3b du J2, partie A, #27, `ui_mers`, après
   `ui_drapeaux` et avant `ui_seance`, sur une page rechargée ; seul :
-  `driver.py mers`, profil neuf, l'écran de connexion passé en invité) :
+  `driver.py mers`, profil neuf, l'écran de connexion passé en invité,
+  suivi de ses épreuves, `ui_epreuves_mers`) :
   `120-mers-sujets` (Entraînement : Pays, Capitales, Drapeaux, Océans et
   mers, Communes ; « 50 océans et mers » ; la vignette des mers éclairées,
   `.vignette-eaux`, rangée dans le code), `121-mers-exercices` (la série
   unique sautée : Apprendre, Trouver, Reconnaître ; toujours rien de
-  `/geo/mers*` chargé ; pas de mers sous Classé avant leurs épreuves) ;
+  `/geo/mers*` chargé ; Classé : `SUJETS_CLASSE`, mers comprises, sans
+  rien charger) ;
   l'accueil : le Brésil touché ne charge rien de marin, puis
   `122-mers-accueil-eau` (l'eau touchée au milieu de la carte : le nom de
   la mer, par la **couche légère seule**, `mers-leger.topo.json`,
@@ -349,8 +351,10 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   conseil de prérequis) : `131-mers-apprendre-qcm`, `132-mers-apprendre-bilan`
   (« Apprendre · Océans et mers » ; le journal ne gagne que des fiches
   `mers:`) ; `133-mers-memoire` (carte de la mémoire « Mers » : ses zones
-  teintées, « n/50 maîtrisées », le Pacifique touché : « océan Pacifique ·
-  Vu N fois · revient… » ; Pays remis ensuite). `DÉFAUT` à tout écart
+  teintées, « n/50 maîtrisées », le carré « Jamais vu » de la légende
+  couleur d'eau, `.legende-jamais-mer`, son fond calculé égal à `--mer`,
+  le Pacifique touché : « océan Pacifique · Vu N fois · revient… » ; Pays
+  remis ensuite, le carré de la terre de nouveau). `DÉFAUT` à tout écart
   (id brut affiché, consigne, rétroaction, bilan, `mers*` chargé au
   premier affichage, à l'ouverture de Jouer ou au toucher d'un pays,
   `mers.topo.json` lu à l'accueil, fiche hors `mers:`). Sa grappe finie
@@ -359,7 +363,8 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   `ui_epreuves_capitales`, après `ui_seance`) : sur une page rechargée
   (sans le `?horloge=1` de la séance), au serveur de développement
   comme sur le site construit.
-  `92-classe-capitales` (Classé : Pays, Capitales, Drapeaux, Communes),
+  `92-classe-capitales` (Classé : Pays, Capitales, Drapeaux, Océans et
+  mers, Communes),
   `93-classe-capitales-oceanie` (les 7 séries des pays, D37 c ; Océanie :
   Chrono, Sans faute ; fil « Classé › Capitales › Océanie »),
   `94-capitales-chrono` (« Pays dont la capitale est : », une ville, jamais
@@ -368,14 +373,15 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   `95-capitales-chrono-bilan` (titre « Chrono · Capitales · Océanie »,
   « 14/14 · 100 % »), le record « 14/14 · 100 % » sous Classé ›
   Capitales › Océanie, puis
-  `96-classements-capitales` (🏆 : Pays, Capitales, Drapeaux, Communes en `h4`, la
+  `96-classements-capitales` (🏆 : Pays, Capitales, Drapeaux, Océans et
+  mers, Communes en `h4`, `H4_CLASSEMENTS` du pilote, la
   ligne `[data-epreuve="chrono:capitales:Oceania"]` « Océanie », la série
   seule sous son sujet). Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout
   écart.
 - Les épreuves classées des drapeaux (lot 2 du J2, partie C,
   `ui_epreuves_drapeaux`, juste après `ui_epreuves_capitales`) : sur une page
   rechargée, `111-classe-drapeaux` (Classé : Pays, Capitales, Drapeaux,
-  Communes), `112-classe-drapeaux-oceanie` (les 7 séries des pays ;
+  Océans et mers, Communes), `112-classe-drapeaux-oceanie` (les 7 séries des pays ;
   Océanie : Chrono, Sans faute ; fil « Classé › Drapeaux › Océanie » ; le
   « ? » dit les règles et les exercices visuels, jamais Minute),
   `113-drapeaux-chrono` (« Pays de ce drapeau : » et l'image, alt
@@ -390,9 +396,39 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   `114-drapeaux-chrono-bilan` (titre « Chrono · Drapeaux · Océanie »,
   « 14/14 · 100 % », le classement `chrono:drapeaux:Oceania`), le record
   « 14/14 · 100 % » sous Classé › Drapeaux › Océanie, puis `115-classements-drapeaux` (🏆 :
-  Pays, Capitales, Drapeaux, Communes en `h4`, la ligne
+  Pays, Capitales, Drapeaux, Océans et mers, Communes en `h4`, la ligne
   `[data-epreuve="chrono:drapeaux:Oceania"]` « Océanie »).
   Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout écart.
+- Les épreuves classées des mers (lot 3b du J2, partie B, #27,
+  `ui_epreuves_mers`, juste après `ui_epreuves_drapeaux` ; aussi dans
+  `driver.py mers`, après `ui_mers`) : sur une page rechargée,
+  `134-classe-mers` (Classé : Pays, Capitales, Drapeaux, Océans et mers,
+  Communes ; « 50 océans et mers »), `135-classe-mers-exercices` (la
+  série unique sautée, `#jouer/classe/mers/mers` ; Chrono, Sans faute ;
+  fil « Classé › Océans et mers › Océans et mers » ; le « ? » dit les
+  règles, sans Minute ni exercices visuels ; rien de `/geo/mers*` avant
+  le choix d'une épreuve) ; un **Sans faute des mers joué jusqu'à sa
+  fin** : la couche fine chargée et posée avant le départ (`avecSujet`),
+  « Touche : » et le nom, jamais l'id ; à chaque question posée, la vue
+  (`transfo()`) est celle du dernier toucher du pilote (l'appli ne cadre
+  jamais la mer demandée, ce serait donner la réponse ; seul
+  `toucher_mer(p, id, "#barre-chrono")` zoome pour toucher) ; quatre
+  justes, dont une partie si elle vient (`136-mers-sansfaute-partie` :
+  « Juste : mer des Caraïbes, dans l'Atlantique »…), puis la mer Noire
+  touchée pour une autre mer (la carte cadrée sur elle, `zoomerSur`, pour
+  qu'une petite voisine n'ait pas son halo de 12 px ; jamais pour la mer
+  Noire, l'Azov, la Méditerranée, l'Atlantique ou l'Égée) : « Faux : mer
+  Noire, à … du bord », la partie finie ; `137-mers-sansfaute-bilan`
+  (titre « Sans faute · Océans et mers », « 4 d'affilée sur 50 », le raté
+  « … → mer Noire », le classement `sansfaute:mers:mers`), le record
+  « 4/50 » sous Classé › Océans et mers, puis `138-classements-mers` (🏆 :
+  `H4_CLASSEMENTS` en `h4`, les lignes `chrono:mers:mers` et
+  `[data-epreuve="sansfaute:mers:mers"]` « Océans et mers », la série au
+  nom de son sujet, jamais « Océans et mers · … »). Invité sans pseudo :
+  rien n'est publié. `DÉFAUT` à tout écart.
+- `ui_jouer` (captures 15) passe aussi par Classé › Océans et mers : la
+  série sautée (`#jouer/classe/mers/mers`, Chrono et Sans faute), le
+  retour arrière ramène aux sujets (aucune entrée pour le niveau sauté).
 - Carte de la mémoire et communes (#2, `ui_memoire`, `ui_apprendre_reunion`,
   dans `ui_seance`) : `38-accueil-memoire` (l'accueil après Apprendre :
   légende `#legende-memoire` « Jamais vu · faible → maîtrisé · N/195
@@ -1284,8 +1320,8 @@ juste par `terramemo.ile.ecran(<cible>)` (cible :
 `#barre-chrono .essai-consigne` `data-cible`), puis le pseudo dans
 `#chrono-bilan .chrono-pseudo-form input` et son bouton ; le classement de
 l'épreuve et le général (`#classement-btn` de l'en-tête, vue `#classement`,
-part des justes de toutes les questions du Chrono, « 7,6 % » et « 91 justes
-sur 1 194 » au détail) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
+part des justes de toutes les questions du Chrono, « 7,3 % » et « 91 justes
+sur 1 244 » au détail) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
 règles refusent moins de 0,2 s par question (`temps_ms >= questions ×
 200`), et un tel score n'est même pas envoyé (`vraisemblable()`,
 `src/epreuve/chrono.ts`, mêmes bornes que `firestore.rules`) ; il reste
@@ -1654,17 +1690,23 @@ test:regles`), puis Hosting. Sinon chaque publication des nouvelles
 classement »). Les épreuves d'un sujet s'ouvrent dès qu'il entre dans
 `EPREUVES_SUJETS` (`src/epreuve/chrono.ts`), sans date de bascule
 (décision « Ouverture des épreuves d'un sujet », 12/11) : les règles
-partent d'abord, puis le site. Un APK bâti avec ce code les a ; un APK
-bâti entre le lot 2 et le 12/11 les ouvre seul le 16/11 (l'ancienne
-bascule datée) ; un plus ancien ignore les capitales et les drapeaux (un APK
-d'avant le lot 1 les deux, un APK du lot 1 les drapeaux) et publie un
-général plus bas, refusé sans bruit (étude J2 § 3.2) : rebâtir l'APK de
-l'utilisateur, de jour, après `sauver_journal` (pas sur l'A37 avant la
-fin de la semaine d'usage du J1a, le 13/11). Le général des règles monte
-à chaque sujet ouvert (1194 avec les capitales et les drapeaux, 390 + 24
-+ 390 + 390 ; 1244 avec les mers au lot 3b : `BORNE_GENERAL`, que
-`tests/chrono.test.ts` compare aux règles) ; des règles d'avant ce code
-(804) refuseraient le général de qui a joué aux drapeaux.
+partent d'abord, puis le site. Un APK bâti avec ce code les a toutes,
+mers comprises (lot 3b, partie B : `chrono:mers:mers`,
+`sansfaute:mers:mers`, ouvertes avec ce code, sans date) ; un APK bâti
+entre le lot 2 et le 12/11 ouvre seul capitales et drapeaux le 16/11
+(l'ancienne bascule datée) ; un plus ancien ignore les capitales et les
+drapeaux (un APK d'avant le lot 1 les deux, un APK du lot 1 les
+drapeaux), et tout APK d'avant ce code ignore les mers : il publie un
+général plus bas, refusé sans bruit (étude J2 § 3.2), et son 🏆 montre
+un autre total que le site : rebâtir l'APK de l'utilisateur, de jour,
+après `sauver_journal` (pas sur l'A37 avant la fin de la semaine d'usage
+du J1a, le 13/11). Le général des règles monte à chaque sujet ouvert :
+**1244** avec les mers (390 + 24 + 390 + 390 + 50 : `BORNE_GENERAL`, que
+`tests/chrono.test.ts` compare aux règles ; 1194 avant, avec les
+capitales et les drapeaux) ; des règles d'avant ce code (1194, sans la
+clé `mers`) refuseraient les épreuves des mers et le général de qui y a
+joué : **règles d'abord** (`npm run test:regles`, puis `npx firebase
+deploy --only firestore`), puis Hosting.
 
 ## Pièges
 
