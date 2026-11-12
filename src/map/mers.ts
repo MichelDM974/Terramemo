@@ -176,3 +176,49 @@ export function formeContour(e: Entite<Mer>, mers: readonly Entite<Mer>[]): Form
   const geometry = g.type === 'Polygon' ? { type: 'Polygon' as const, coordinates: sans[0] ?? [] } : { type: 'MultiPolygon' as const, coordinates: sans };
   return { ...e.forme, geometry };
 }
+
+/** Une arête qui suit l'antiméridien ou un pôle (couture de Natural Earth : maillage.ts, dessin.ts). */
+function estCouture(a: Position, b: Position): boolean {
+  const [la, pa, lb, pb] = [a[0] ?? 0, a[1] ?? 0, b[0] ?? 0, b[1] ?? 0];
+  if (Math.abs(la) >= 180 - 1e-9 && la === lb) return true;
+  return Math.abs(pa) >= 90 - 1e-9 && pa === pb;
+}
+
+/**
+ * Le contour d'une forme en lignes, sans ses coutures (le Pacifique, Béring,
+ * l'Austral coupés à ±180, l'Arctique fermé par le pôle) : le contour faux du
+ * SVG, que le Canvas (tracerPartie) et le WebGL (maillerTraits) tracent de
+ * même. Un anneau sans couture reste une ligne fermée ; un anneau coupé part
+ * du bout d'une couture, d'une seule ligne entre deux coutures.
+ */
+export function lignesContour(forme: Forme): Position[][] {
+  const g = forme.geometry;
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  const lignes: Position[][] = [];
+  for (const poly of polys) {
+    for (const anneau of poly) {
+      const n = anneau.length - 1; // arêtes : anneau[i] → anneau[i + 1], le dernier point répète le premier
+      if (n < 1) continue;
+      let k = -1;
+      for (let i = 0; i < n && k < 0; i++) if (estCouture(anneau[i] as Position, anneau[i + 1] as Position)) k = i;
+      if (k < 0) {
+        lignes.push(anneau);
+        continue;
+      }
+      let ligne: Position[] = [];
+      for (let t = 1; t <= n; t++) {
+        const i = (k + t) % n;
+        const [a, b] = [anneau[i] as Position, anneau[i + 1] as Position];
+        if (estCouture(a, b)) {
+          if (ligne.length > 1) lignes.push(ligne);
+          ligne = [];
+          continue;
+        }
+        if (!ligne.length) ligne.push(a);
+        ligne.push(b);
+      }
+      if (ligne.length > 1) lignes.push(ligne);
+    }
+  }
+  return lignes;
+}

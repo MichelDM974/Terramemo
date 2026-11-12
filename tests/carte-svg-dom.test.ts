@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Carte } from '../src/map/carte';
+import { UNITE } from '../src/map/traces';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { assemblerMers } from '../src/map/mers';
 import { anneauPrincipal, empriseEcran, partVisible, versEcran } from '../src/map/geo';
@@ -443,6 +444,39 @@ describe('Carte SVG : océans et mers (lot 3a, étude J2, § 4.3)', () => {
     const apres = couche_(hote, 'couche-contours-mers');
     expect(apres.enfants.map((e) => e.getAttribute('data-id'))).toEqual(['medit']);
     expect(classes(mer(hote, 'medit'))).toEqual(['mer', 'faux']);
+  });
+
+  // Le Pacifique, Béring, l'Austral et l'Arctique coupés à ±180 (Natural Earth) : en « pacifique », le
+  // 180e méridien passe au milieu de la carte, et le contour faux n'y trace pas leur couture (comme le Canvas et le WebGL).
+  it('le contour faux d’une mer coupée à ±180 ne suit pas le 180e méridien (projection pacifique)', () => {
+    const hote = new FauxElement();
+    const c = new Carte({ hote: hote as unknown as HTMLElement, donnees: { ...donnees, mers: [] }, projection: 'pacifique', rendu: 'g' });
+    c.rendre();
+    c.prendreMers(couche);
+    const proj = c.contexte().proj;
+    for (const id of ['pacif', 'bering', 'austral', 'arctique']) {
+      c.marquer(id, 'faux');
+      const d = couche_(hote, 'couche-contours-mers').enfants.find((e) => e.getAttribute('data-id') === id)?.getAttribute('d') ?? '';
+      expect(d.length, id).toBeGreaterThan(100);
+      // Les segments dont les deux bouts sont sur le 180e méridien, à 0,02° près (la côte des Fidji passe à 179,93°) ;
+      // M et L absolus de geoPath, l relatif de traceDirect, en UNITE.
+      let prec: number | null = null;
+      let [x, y] = [0, 0];
+      let surLaCouture = 0;
+      for (const [, op, xs, ys] of d.matchAll(/([MLlZ])(-?\d+)?,?(-?\d+)?/g)) {
+        if (op === 'Z') {
+          prec = null;
+          continue;
+        }
+        [x, y] = op === 'l' ? [x + Number(xs), y + Number(ys)] : [Number(xs), Number(ys)];
+        const ll = proj.invert?.([x / UNITE, y / UNITE]);
+        const lon = ll ? Math.abs(ll[0]) : 0;
+        if (op !== 'M' && prec !== null && prec > 179.98 && lon > 179.98) surLaCouture++;
+        prec = lon;
+      }
+      expect(surLaCouture, id).toBe(0);
+      c.effacerMarques();
+    }
   });
 
   it('carte.css : .mer sans remplissage ni trait ; teintes puis marques sur l’eau, tirées des jetons de :root', () => {

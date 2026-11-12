@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assembler, chargerDonnees, chargerLeger, type DonneesCarte } from '../src/map/donnees';
 import { indexLieux } from '../src/map/lieux';
-import { assemblerMers, chargeurMers, FICHIERS_MERS, formeContour, zonesAllumees, type CoucheMers } from '../src/map/mers';
+import { assemblerMers, chargeurMers, FICHIERS_MERS, formeContour, lignesContour, zonesAllumees, type CoucheMers } from '../src/map/mers';
+import type { Forme } from '../src/map/types';
 
 // Couche marine (étude J2, § 2.3 et § 4.2 ; lot 3a, partie B) : assemblage des
 // fichiers servis, chargement à la demande (une lecture, un échec non gardé,
@@ -93,6 +94,30 @@ describe('océan allumé : sa pleine mer et la mer qu’il enclave sans côte (1
     expect(otes).toHaveLength(1);
     expect(otes[0]!.every((p) => bordSar.has(`${p[0]},${p[1]}`))).toBe(true);
     for (const e of couche.mers) if (e.pays.id !== 'atlant') expect(formeContour(e, couche.mers), e.pays.id).toBe(e.forme);
+  });
+
+  it('lignesContour : le contour sans les coutures de l’antiméridien ni du pôle ; un anneau sans couture reste fermé, entier', () => {
+    const couture = (a: number[], b: number[]) => (Math.abs(a[0]!) >= 180 - 1e-9 && a[0] === b[0]) || (Math.abs(a[1]!) >= 90 - 1e-9 && a[1] === b[1]);
+    const aretes = (f: Forme) => {
+      const g = f.geometry;
+      return (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).flat().flatMap((a) => a.slice(1).map((p, i) => [a[i]!, p] as const));
+    };
+    const cle = (a: number[], b: number[]) => `${a[0]},${a[1]} ${b[0]},${b[1]}`;
+    for (const id of ['pacif', 'bering', 'austral', 'arctique', 'medit']) {
+      const e = couche.mers.find((m) => m.pays.id === id)!;
+      const lignes = lignesContour(e.forme);
+      const tracees = lignes.flatMap((l) => l.slice(1).map((p, i) => cle(l[i]!, p)));
+      // Chaque arête du contour une fois, sauf les coutures, jamais tracées.
+      const attendues = aretes(e.forme).filter(([a, b]) => !couture(a, b)).map(([a, b]) => cle(a, b));
+      expect(tracees.sort(), id).toEqual(attendues.sort());
+      expect(lignes.every((l) => l.slice(1).every((p, i) => !couture(l[i]!, p))), id).toBe(true);
+      if (id !== 'medit') expect(aretes(e.forme).some(([a, b]) => couture(a, b)), id).toBe(true);
+    }
+    // Une couture au milieu d'un anneau : une seule ligne, du bout de la couture à son autre bout.
+    const carre: Forme = { type: 'Feature', properties: { id: 'x' }, geometry: { type: 'Polygon', coordinates: [[[170, 0], [180, 0], [180, 10], [170, 10], [170, 0]]] } };
+    expect(lignesContour(carre)).toEqual([[[180, 10], [170, 10], [170, 0], [180, 0]]]);
+    const ferme: Forme = { ...carre, geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] } };
+    expect(lignesContour(ferme)).toEqual([[[0, 0], [1, 0], [1, 1], [0, 0]]]);
   });
 });
 

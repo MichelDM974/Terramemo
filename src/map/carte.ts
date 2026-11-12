@@ -12,11 +12,12 @@ import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pas
 import { acceptesDe } from './acceptes';
 import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from './pick';
 import { creerProjection, garderVue } from './projection';
-import { fabriqueTraces, UNITE } from './traces';
+import { fabriqueLignes, fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
 import { indexLieux, type LieuIndexe } from './lieux';
-import { formeContour, zonesAllumees, type CoucheMers } from './mers';
+import { formeContour, lignesContour, zonesAllumees, type CoucheMers } from './mers';
 import { classeSeau, seau, type Teintes } from './teintes';
+import type { Position } from 'geojson';
 import type { Entite, Forme, Lieu, Mer, NomProjection, Pays, Rendu, Transfo } from './types';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -240,8 +241,13 @@ export class Carte implements CarteAffichee {
   private coucheContoursMers: SVGGElement | null = null;
   private cheminsMers = new Map<string, SVGPathElement>();
   private contoursMers = new Map<string, SVGPathElement>();
-  /** Tracé du contour de chaque zone marine allumée (formeContour : l'Atlantique sans l'anneau des Sargasses). */
-  private tracesContoursMers = new Map<string, string>();
+  /**
+   * Tracé du contour faux d'une zone marine (formeContour : l'Atlantique sans
+   * l'anneau des Sargasses), en lignes sans les coutures de l'antiméridien ni
+   * du pôle (lignesContour : le Pacifique faux n'a pas de trait sur le 180e
+   * méridien en « pacifique ») ; calculé à sa marque fausse, null pour un pays.
+   */
+  private contourMer: ((id: string) => string | null) | null = null;
   /** Index commun des zones et des mers (lieux.ts) : ecran, vise, anneau. */
   private lieux: Map<string, LieuIndexe>;
   private cerclesPastilles = new Map<string, SVGCircleElement>();
@@ -373,7 +379,7 @@ export class Carte implements CarteAffichee {
     this.couchePastilles = el('g', { class: 'couche-pastilles' });
     this.coucheContours = el('g', { class: 'couche-contours' });
     this.echelle = echelle;
-    if (this.couche) echelle.append(...this.tracerMers(this.couche, d));
+    if (this.couche) echelle.append(...this.tracerMers(this.couche, d, fabriqueLignes((l1, h1) => cadre.projection(l1, h1), this.proj)));
     echelle.append(pays, hachures, this.coucheContours);
     for (const [id, classes] of this.marques) if (classes.has('faux')) this.contourFaux(id); // après un redimensionnement
     this.vue.append(echelle, this.coucheMarques, this.couchePastilles);
@@ -551,7 +557,8 @@ export class Carte implements CarteAffichee {
     this.lieux = indexLieux({ entites: this.o.donnees.entites, mers: c.mers });
     if (!this.echelle || !this.proj) return; // tracées par rendre()
     const cadre = this.cadre;
-    const [mers, contours] = this.tracerMers(c, fabriqueTraces((l1, h1) => cadre.projection(l1, h1), this.proj));
+    const creer = (l1: number, h1: number) => cadre.projection(l1, h1);
+    const [mers, contours] = this.tracerMers(c, fabriqueTraces(creer, this.proj), fabriqueLignes(creer, this.proj));
     this.echelle.prepend(mers, contours);
     for (const [id, classes] of this.marques) if (classes.has('faux')) this.contourFaux(id); // marquée avant la couche
   }
@@ -561,11 +568,15 @@ export class Carte implements CarteAffichee {
    * g.couche-contours-mers (les contours faux déjà demandés), à poser avant
    * g.couche-pays.
    */
-  private tracerMers(c: CoucheMers, d: (f: Forme) => string): [SVGGElement, SVGGElement] {
+  private tracerMers(c: CoucheMers, d: (f: Forme) => string, lignes: (l: Position[][]) => string): [SVGGElement, SVGGElement] {
     const mers = el('g', { class: 'couche-mers' });
     this.cheminsMers.clear();
     this.contoursMers.clear();
-    this.tracesContoursMers.clear();
+    const parId = new Map(c.mers.map((e) => [e.pays.id, e]));
+    this.contourMer = (id) => {
+      const e = parId.get(id);
+      return e ? lignes(lignesContour(formeContour(e, c.mers))) : null;
+    };
     const classes = new Map<string, Set<string>>();
     for (const [id, cl] of this.marques) {
       for (const z of this.allumees(id)) {
@@ -581,8 +592,6 @@ export class Carte implements CarteAffichee {
       if (teinte) p.classList.add(teinte);
       for (const cl of classes.get(e.pays.id) ?? []) p.classList.add(cl);
       this.cheminsMers.set(e.pays.id, p);
-      const contour = formeContour(e, c.mers);
-      this.tracesContoursMers.set(e.pays.id, contour === e.forme ? trace : d(contour));
       mers.append(p);
     }
     this.coucheContoursMers = el('g', { class: 'couche-contours-mers' });
@@ -616,9 +625,10 @@ export class Carte implements CarteAffichee {
 
   /** Le contour de la zone fausse, sur sa couche (coucheContours, ou coucheContoursMers pour une mer) ; une fois par zone. */
   private contourFaux(id: string): void {
-    const traceMer = this.tracesContoursMers.get(id);
-    if (traceMer !== undefined) {
+    if (this.cheminsMers.has(id)) {
       if (this.contoursMers.has(id) || !this.coucheContoursMers) return;
+      const traceMer = this.contourMer?.(id) ?? null;
+      if (traceMer === null) return;
       const c = el('path', { class: 'contour-faux', 'data-id': id, d: traceMer });
       this.coucheContoursMers.append(c);
       this.contoursMers.set(id, c);

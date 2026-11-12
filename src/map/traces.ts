@@ -77,3 +77,16 @@ export function fabriqueTraces(creer: (l: number, h: number) => GeoProjection, p
   const chemin = geoPath(grande).digits(0);
   return (forme) => traceDirect(proj, forme) ?? chemin(forme as GeoPermissibleObjects) ?? '';
 }
+
+/**
+ * Tracé (en UNITE) de lignes ouvertes (le contour faux d'une mer sans ses
+ * coutures, mers.ts : lignesContour), par geoPath : il les coupe à la coupure
+ * de la projection comme les polygones.
+ */
+export function fabriqueLignes(creer: (l: number, h: number) => GeoProjection, proj: GeoProjection): (lignes: Position[][]) => string {
+  const grande = creer(1, 1);
+  const [tx, ty] = proj.translate();
+  grande.scale(proj.scale() * UNITE).translate([tx * UNITE, ty * UNITE]);
+  const chemin = geoPath(grande).digits(0);
+  return (lignes) => chemin({ type: 'MultiLineString', coordinates: lignes }) ?? '';
+}
