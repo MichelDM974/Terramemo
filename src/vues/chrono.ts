@@ -21,20 +21,26 @@
 // Le classement général et ceux de chaque épreuve ont leur vue (general.ts).
 // L'énoncé, la rétroaction et le bilan viennent du rendu du sujet lancé
 // (src/vues/sujets.ts), le même pour tous en épreuve.
-// Un sujet aux énoncés en images (les drapeaux, étude J2 § 2.2) : toute la
-// partie préchargée au départ, dans l'ordre de ses questions ; une question
-// dont l'image n'est pas encore là quand elle est posée montre le gris 4:3 qui
-// tient sa place, et son temps n'attend que son décodage, au plus
+// Un sujet aux énoncés en images (les drapeaux, étude J2 § 2.2 ; décision
+// « Images d'une épreuve ») : la partie ne commence (première question, temps,
+// partie comptée) qu'une fois toutes ses images chargées et décodées, demandées
+// d'un coup dans l'ordre de ses questions ; au-delà de CHARGEMENT_VU_MS, la
+// barre le dit (« Chargement des drapeaux… n / N »), et un échec propose
+// « Réessayer » (seulement les images manquantes), sans délai maximal : tant
+// qu'elles arrivent, on attend. Les autres sujets partent tout de suite. En
+// filet, une question dont l'image n'est plus là quand elle est posée montre le
+// gris 4:3 qui tient sa place, et son temps n'attend que son décodage, au plus
 // ATTENTE_IMAGE_MS (un échec ou un réseau trop lent ne bloquent pas la partie).
 import { acceptesEnEpreuve, DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE, type ScoreEpreuve } from '../epreuve/bareme';
 import { DUREE_MINUTE_MS, enregistrerPartie, idEpreuve, PartieChrono, PartieMinute, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
+import type { ChargerImage } from '../map/drapeaux';
 import { estDomaine } from '../srs/fiches';
 import { profilModifie } from '../sync/pont';
 import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
-import { anneauSiPetite, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, prechargerPartieSujet, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { nomEpreuve } from './general';
 import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong } from './scores';
 import { rendu, type RenduSujet } from './sujets';
@@ -53,6 +59,12 @@ const PAUSE_FAUX_MS = 1800;
  * tient sa place et le temps part quand même.
  */
 export const ATTENTE_IMAGE_MS = 3_000;
+/**
+ * Au départ d'une partie aux images, l'attente au-delà de laquelle la barre dit
+ * le chargement (ms) : en deçà (tout est déjà en cache : l'APK, une partie
+ * rejouée), rien ne clignote.
+ */
+export const CHARGEMENT_VU_MS = 150;
 
 /** L'image de l'énoncé posé, si elle n'est pas encore chargée (une <img> pas complète) ; null sinon, ou sans image. */
 function imageEnAttente(el: HTMLElement): HTMLImageElement | null {
@@ -60,10 +72,11 @@ function imageEnAttente(el: HTMLElement): HTMLImageElement | null {
   return img && img.complete === false && typeof img.decode === 'function' ? img : null;
 }
 
-function nouvellePartieDe(mode: ModeEpreuve, ids: readonly string[], echelle_km: number): PartieChrono {
-  if (mode === 'sansfaute') return new PartieSansFaute(melanger(ids), DELAI);
-  if (mode === 'minute') return new PartieMinute(melanger(ids), DUREE_MINUTE_MS);
-  return new PartieChrono(melanger(ids), DELAI, echelle_km);
+/** Une partie de l'épreuve sur ces cibles, dans l'ordre où les poser (déjà mélangées). */
+function nouvellePartieDe(mode: ModeEpreuve, cibles: readonly string[], echelle_km: number): PartieChrono {
+  if (mode === 'sansfaute') return new PartieSansFaute(cibles, DELAI);
+  if (mode === 'minute') return new PartieMinute(cibles, DUREE_MINUTE_MS);
+  return new PartieChrono(cibles, DELAI, echelle_km);
 }
 
 function stockage(): Storage | null {
@@ -86,6 +99,8 @@ export interface OptionsChrono {
   versCarte?(): void;
   /** L'horloge (ms depuis 1970) : date du record, et règle de notation de la partie (acceptesEnEpreuve). Défaut : Date.now. */
   maintenant?: () => number;
+  /** Ce qui charge et décode les images d'une partie avant son départ (défaut : new Image(), drapeaux.ts ; les tests : des images factices). */
+  chargerImage?: ChargerImage;
 }
 
 export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
@@ -95,14 +110,22 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   const secondes = creer('span', { class: 'chrono-secondes' });
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
   const abandonner = creer('button', { type: 'button', class: 'secondary', id: 'chrono-abandonner' }, T.abandonner);
+  const ligne = creer('div', { class: 'essai-ligne' }, consigne, compte);
+  const temps = creer('div', { class: 'chrono-temps' }, creer('span', { class: 'chrono-jauge' }, jauge), secondes);
+  /** Au départ d'une partie aux images, à la place de la question : leur chargement, ou son échec. */
+  const chargement = creer('div', { class: 'chrono-chargement', id: 'chrono-chargement', 'aria-live': 'polite' });
+  const reessayer = creer('button', { type: 'button', id: 'chrono-reessayer' }, T.reessayer);
   const barre = creer(
     'div',
     { class: 'carte-barre essai', id: 'barre-chrono' },
-    creer('div', { class: 'essai-ligne' }, consigne, compte),
-    creer('div', { class: 'chrono-temps' }, creer('span', { class: 'chrono-jauge' }, jauge), secondes),
+    ligne,
+    temps,
     retro,
-    creer('div', { class: 'essai-actions' }, abandonner),
+    chargement,
+    creer('div', { class: 'essai-actions' }, reessayer, abandonner),
   );
+  chargement.hidden = true;
+  reessayer.hidden = true;
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'chrono-bilan' });
   barre.hidden = true;
   bilan.hidden = true;
@@ -119,6 +142,10 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   /** Change à chaque départ ou sortie : un chargement d'île (ou ses deux images) arrivé après ne lance rien. */
   let jeton = 0;
   let partie: PartieChrono | null = null;
+  /** Les images de la partie sont attendues avant son départ (décision « Images d'une épreuve ») : pas encore de partie. */
+  let enChargement = false;
+  /** « Réessayer » : redemande les images qui ont échoué (celles de la partie en attente). */
+  let reprendreChargement: (() => void) | null = null;
   const maintenant = o.maintenant ?? (() => Date.now());
   /**
    * La partie admet-elle les zones contestées et les enclaves (décision « Zones
@@ -132,6 +159,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   let minuterie = 0;
   let affichage = 0;
   let pause = 0;
+  /** Au départ d'une partie aux images : CHARGEMENT_VU_MS avant de dire le chargement. */
+  let chargementVu = 0;
   /** Message de Jouer au retour dans la vue (partie abandonnée en la quittant). */
   let messageRetour = '';
   /** Le bilan au retour : affiché en quittant la vue, ou partie finie en la quittant (pendant la pause de sa dernière réponse). */
@@ -143,7 +172,23 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     clearTimeout(minuterie);
     clearInterval(affichage);
     clearTimeout(pause);
-    minuterie = affichage = pause = 0;
+    clearTimeout(chargementVu);
+    minuterie = affichage = pause = chargementVu = 0;
+  }
+
+  /**
+   * La barre en attente des images de la partie : ce texte à la place de la
+   * question (le chargement, ou son échec avec « Réessayer ») ; null : la
+   * question, sans rien de l'attente.
+   */
+  function montrerChargement(texte: string | null, echec = false): void {
+    const attente = texte !== null;
+    ligne.hidden = temps.hidden = retro.hidden = attente;
+    chargement.hidden = !attente;
+    chargement.textContent = texte ?? '';
+    chargement.classList.toggle('echec', echec);
+    reessayer.hidden = !echec;
+    if (attente) barre.hidden = false;
   }
 
   function figerJauge(): void {
@@ -188,6 +233,9 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     arreterMinuteries();
     jeton++;
     partie = null;
+    enChargement = false;
+    reprendreChargement = null;
+    montrerChargement(null);
     ouverte = false;
     barre.hidden = true;
     bilan.hidden = true;
@@ -202,10 +250,14 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     serie = s;
     t = terrain;
     rs = rendu(lancement?.sujet ?? 'pays', t.donnees, { epreuve: true });
-    const lancer = () => {
-      partie = nouvellePartieDe(mode, ids, ECHELLES_KM[s.terrain]);
-      // Les drapeaux de toute la partie, demandés d'un coup dans l'ordre de ses questions (étude J2 § 2.2).
-      prechargerPartieSujet(rs.sujet, partie.cibles);
+    const r = rs;
+    const commencer = (cibles: readonly string[]) => {
+      if (j !== jeton) return;
+      arreterMinuteries();
+      enChargement = false;
+      reprendreChargement = null;
+      montrerChargement(null);
+      partie = nouvellePartieDe(mode, cibles, ECHELLES_KM[s.terrain]);
       // Une règle par partie, celle de son départ. Le record se range pourtant
       // dans la semaine de sa fin (enregistrerPartie) : une partie lancée le
       // dimanche 08/11 avant minuit UTC et finie après compte dans la semaine
@@ -214,6 +266,36 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       acceptes = acceptesEnEpreuve(maintenant());
       barre.hidden = false;
       poser();
+    };
+    const lancer = () => {
+      const cibles = melanger(ids);
+      /** Le dernier progrès du chargement (« Chargement des drapeaux… 3 / 14 »), dit dès que la barre le montre. */
+      let dit = '';
+      // Les images de toute la partie (les drapeaux), demandées d'un coup dans l'ordre de ses questions et attendues
+      // avant la première (décision « Images d'une épreuve ») ; un nouvel essai ne redemande que celles qui manquent.
+      const attendre = (vu: boolean) => {
+        const attente = attendreEnonces(
+          r,
+          cibles,
+          (n, total) => {
+            dit = remplir(T.chargement_images, { n, total });
+            if (j === jeton && !chargement.hidden) chargement.textContent = dit;
+          },
+          o.chargerImage,
+        );
+        if (!attente) return commencer(cibles);
+        enChargement = true;
+        if (vu) montrerChargement(dit);
+        else chargementVu = window.setTimeout(() => montrerChargement(dit), CHARGEMENT_VU_MS);
+        void attente.then((echouees) => {
+          if (j !== jeton) return;
+          if (!echouees.length) return commencer(cibles);
+          clearTimeout(chargementVu);
+          reprendreChargement = () => attendre(true);
+          montrerChargement(T.chargement_echec, true);
+        });
+      };
+      attendre(false);
     };
     if (t.nom === 'monde') return lancer();
     // L'île entière (zoom 1), peinte avant que le temps ne coure : deux images, puis la jauge.
@@ -403,6 +485,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     arreter();
     o.versJouer(exercices(), T.abandon);
   });
+  reessayer.addEventListener('click', () => reprendreChargement?.());
 
   return {
     lancer(l, s, terrain, ids) {
@@ -433,8 +516,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       // finie, elle va au bilan (record, publication) comme sans la sortie.
       if (partie?.finie) finir();
       bilanAuRetour = !bilan.hidden;
-      // Le temps ne se met pas en pause : une partie quittée est abandonnée.
-      const enCours = partie !== null;
+      // Le temps ne se met pas en pause : une partie quittée est abandonnée (de même pendant le chargement de ses images).
+      const enCours = partie !== null || enChargement;
       arreter();
       messageRetour = enCours ? T.abandon : '';
     },

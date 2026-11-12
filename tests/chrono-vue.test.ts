@@ -11,7 +11,7 @@ import { capitalesChargees, chargerCapitales } from '../src/map/capitales';
 import type { Topology } from 'topojson-specification';
 import { acceptesDe } from '../src/map/acceptes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
-import { chargerDrapeaux, drapeauxCharges, oublierDrapeaux } from '../src/map/drapeaux';
+import { chargerDrapeaux, drapeauxCharges, oublierDrapeaux, type ChargerImage } from '../src/map/drapeaux';
 import { calculerPastilles } from '../src/map/pastilles';
 import { noter } from '../src/map/pick';
 import { creerProjection } from '../src/map/projection';
@@ -29,7 +29,7 @@ vi.mock('../src/vues/classement', () => ({
 vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).avecFactice(await orig()));
 
 const { vueChrono } = await import('../src/vues/chrono');
-const { textes } = await import('../src/vues/textes');
+const { remplir, textes } = await import('../src/vues/textes');
 const { catalogue } = await import('../src/vues/cibles');
 const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
 const AMS = 'South America';
@@ -68,7 +68,7 @@ interface NoterVrai {
   zone(cible: string): string;
 }
 
-function contexte(maintenant?: () => number, noms: Record<string, string> = { RUS: 'Russie', KAZ: 'Kazakhstan', NE_KAB: 'Baïkonour' }, vrai?: NoterVrai) {
+function contexte(maintenant?: () => number, noms: Record<string, string> = { RUS: 'Russie', KAZ: 'Kazakhstan', NE_KAB: 'Baïkonour' }, vrai?: NoterVrai, chargerImage?: ChargerImage) {
   const zone = new El('main');
   const entites = vrai ? vrai.donnees.entites : pays.map((p) => ({ pays: p }));
   const consigne = () => zone.querySelector('#barre-chrono .essai-consigne')?.dataset.cible;
@@ -93,7 +93,7 @@ function contexte(maintenant?: () => number, noms: Record<string, string> = { RU
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
   const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone };
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
-  const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer, maintenant });
+  const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer, maintenant, ...(chargerImage ? { chargerImage } : {}) });
   /** L'épreuve et sa série choisies dans Jouer : la vue s'ouvre, la partie part. */
   const lancer = (mode: 'chrono' | 'sansfaute' | 'minute' = 'chrono', serie = AMS, sujet = 'pays') => {
     const s = catalogue(pays).find((x) => x.id === serie)!;
@@ -535,8 +535,9 @@ describe('le sujet Capitales en épreuve', () => {
 });
 
 // Le sujet Drapeaux en épreuve (étude J2 § 2.2, 5.3 ; lot 2, partie C) : son
-// rendu, la partie préchargée au départ, le temps qui attend un drapeau pas
-// encore là, les jumeaux (D41 d), le bilan et le classement. Lancée ici
+// rendu, la partie attendue au départ (décision « Images d'une épreuve »,
+// lot 2b), le temps qui attend un drapeau pas encore là (le filet), les
+// jumeaux (D41 d), le bilan et le classement. Lancée ici
 // directement, comme Jouer la lance après la bascule (tests/jouer.test.ts).
 describe('le sujet Drapeaux en épreuve', () => {
   const NOMS_FR = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Record<string, string>;
@@ -623,37 +624,200 @@ describe('le sujet Drapeaux en épreuve', () => {
     }
   });
 
-  it('préchargement (étude J2 § 2.2) : au départ, le drapeau de chaque question de la partie, dans l’ordre où elles viendront ; rien pour les pays', async () => {
-    const srcs: string[] = [];
-    vi.stubGlobal(
-      'Image',
-      class {
-        decoding = '';
-        set src(a: string) {
-          srcs.push(a);
-        }
-      },
-    );
-    // Le manifeste relu : les demandes déjà faites par les tests d'avant sont oubliées avec lui.
+  /** Les images factices demandées au départ d'une partie, chacune réussie (ok) ou échouée (ko) à la demande. */
+  let faites: { a: string; ok: () => void; ko: () => void }[] = [];
+  const charger: ChargerImage = (a) =>
+    new Promise<void>((ok, ko) => {
+      faites.push({ a, ok, ko: () => ko(new Error('hors ligne')) });
+    });
+  /** Le manifeste relu : les images déjà chargées par les tests d'avant sont oubliées avec lui. */
+  const pageNeuve = async () => {
+    faites = [];
     oublierDrapeaux();
     await chargerDrapeaux(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+  };
+  const nSerie = (serie: string) => catalogue(pays).find((x) => x.id === serie)!.n;
+
+  it('préchargement (étude J2 § 2.2) : au départ, le drapeau de chaque question de la partie, dans l’ordre où elles viendront ; rien pour les pays', async () => {
+    await pageNeuve();
     for (const mode of ['chrono', 'sansfaute', 'minute'] as const) {
-      srcs.length = 0;
-      // Une série par mode : une même adresse ne se demande qu'une fois par page.
+      faites = [];
+      // Une série par mode : une image déjà chargée dans la page ne s'attend plus.
       const serie = { chrono: 'Oceania', sansfaute: 'South America', minute: 'Europe' }[mode];
-      const { v, consigne, lancer } = contexte(undefined, NOMS_FR);
+      const { v, consigne, lancer } = contexte(undefined, NOMS_FR, undefined, charger);
       lancer(mode, serie, 'drapeaux');
+      const n = nSerie(serie);
+      expect(faites, mode).toHaveLength(n);
+      expect(new Set(faites.map((f) => f.a)).size).toBe(n);
+      for (const f of faites) f.ok();
+      await vi.advanceTimersByTimeAsync(0);
       const premiere = consigne()!;
-      const n = catalogue(pays).find((x) => x.id === serie)!.n;
-      expect(srcs, mode).toHaveLength(n);
-      expect(srcs[0], mode).toBe(drapeauxCharges()!.parPays.get(premiere)!.montre);
-      expect(new Set(srcs).size).toBe(n);
+      expect(faites[0]!.a, mode).toBe(drapeauxCharges()!.parPays.get(premiere)!.montre);
       v.desactiver();
     }
-    // Le Chrono des pays n'a pas d'image à précharger.
-    srcs.length = 0;
-    contexte().lancer('chrono', 'Africa', 'pays');
-    expect(srcs).toEqual([]);
+    // Le Chrono des pays n'a pas d'image à attendre.
+    faites = [];
+    contexte(undefined, undefined, undefined, charger).lancer('chrono', 'Africa', 'pays');
+    expect(faites).toEqual([]);
+  });
+
+  describe('décision « Images d’une épreuve » : la partie attend tous ses drapeaux avant sa première question', () => {
+    const O = 'Oceania';
+    beforeEach(pageNeuve);
+    /** La partie et ce que montre sa barre. */
+    function partie(mode: 'chrono' | 'sansfaute' | 'minute' = 'chrono') {
+      const ctx = contexte(() => Date.parse('2026-11-16T00:00:00Z'), NOMS_FR, undefined, charger);
+      ctx.lancer(mode, O, 'drapeaux');
+      const el = (sel: string) => ctx.zone.querySelector(sel)!;
+      return {
+        ...ctx,
+        barre: () => el('#barre-chrono'),
+        chargement: () => el('#chrono-chargement'),
+        reessayer: () => el('#chrono-reessayer'),
+        /** La question est-elle montrée (énoncé, temps) ? */
+        question: () => !el('#barre-chrono').hidden && !el('#barre-chrono .essai-ligne').hidden && !el('#barre-chrono .chrono-temps').hidden && ctx.consigne() !== undefined,
+      };
+    }
+    const n = () => nSerie(O);
+    const charge = (k: number, total = n()) => remplir(textes.chrono.chargement_images, { n: k, total });
+
+    it('la première question n’apparaît qu’au dernier drapeau, sans délai maximal ; « Chargement des drapeaux… n / N » au-delà de 150 ms ; puis ses 15 s entières', async () => {
+      const p = partie();
+      expect(faites).toHaveLength(n());
+      // Rien tout de suite : ni question, ni message (un chargement bref ne clignote pas).
+      expect(p.barre().hidden).toBe(true);
+      expect(p.question()).toBe(false);
+      vi.advanceTimersByTime(149);
+      expect(p.barre().hidden).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(p.barre().hidden).toBe(false);
+      expect(p.chargement().hidden).toBe(false);
+      expect(p.chargement().getAttribute('aria-live')).toBe('polite');
+      expect(p.chargement().textContent).toBe(charge(0));
+      expect(p.reessayer().hidden).toBe(true);
+      expect(p.question()).toBe(false);
+      for (let k = 0; k < n() - 1; k++) {
+        faites[k]!.ok();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(p.chargement().textContent).toBe(charge(k + 1));
+        expect(p.question()).toBe(false);
+      }
+      // Tant que le dernier n'est ni arrivé ni en échec, on attend : aucun toucher ne compte, rien ne s'enregistre.
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(p.question()).toBe(false);
+      p.v.toucher?.(0, 0, {} as PointerEvent);
+      expect(optionsNoter).toHaveLength(0);
+      expect(lireRecords(localStorage).size).toBe(0);
+      faites.at(-1)!.ok();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(p.question()).toBe(true);
+      expect(p.chargement().hidden).toBe(true);
+      expect(p.zone.querySelector('#barre-chrono .essai-consigne strong img')!.getAttribute('src')).toBe(faites[0]!.a);
+      expect(p.zone.querySelector('.chrono-secondes')!.textContent).toBe('15\u00a0s');
+      // Le temps part au dernier drapeau : rien d'écoulé à 14,9 s, écoulé à 15 s.
+      vi.advanceTimersByTime(14_900);
+      expect(p.zone.querySelector('#barre-chrono .essai-retro')!.textContent).toBe('');
+      vi.advanceTimersByTime(200);
+      expect(p.zone.querySelector('#barre-chrono .essai-retro')!.textContent).toMatch(/^Temps écoulé/);
+      p.v.desactiver();
+    });
+
+    it('tout chargé en moins de 150 ms : la question tout de suite, le message jamais montré ; rejouée, la partie part sans rien attendre', async () => {
+      const p = partie('sansfaute');
+      for (const f of faites) f.ok();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(p.question()).toBe(true);
+      expect(p.chargement().hidden).toBe(true);
+      vi.advanceTimersByTime(200);
+      expect(p.chargement().hidden).toBe(true);
+      p.v.desactiver();
+      // Une partie relancée, ses drapeaux déjà chargés dans la page : aucune nouvelle demande, la première question aussitôt.
+      const avant = faites.length;
+      const q = partie('minute');
+      expect(faites).toHaveLength(avant);
+      expect(q.question()).toBe(true);
+      q.v.desactiver();
+    });
+
+    it('un drapeau en échec : « Les drapeaux n’ont pas pu se charger (hors ligne ?) » et « Réessayer », qui ne redemande que les échoués ; la partie part quand tous sont là', async () => {
+      const p = partie('minute');
+      const echecs = [3, 7];
+      faites.forEach((f, k) => (echecs.includes(k) ? f.ko() : f.ok()));
+      const echoues = echecs.map((k) => faites[k]!.a);
+      await vi.advanceTimersByTimeAsync(0);
+      // L'échec se dit tout de suite (sans attendre 150 ms).
+      expect(p.barre().hidden).toBe(false);
+      expect(p.chargement().textContent).toBe(textes.chrono.chargement_echec);
+      expect(p.chargement().textContent).toBe('Les drapeaux n\'ont pas pu se charger (hors ligne ?).');
+      expect(p.reessayer().hidden).toBe(false);
+      expect(p.reessayer().textContent).toBe('Réessayer');
+      expect(p.question()).toBe(false);
+      const avant = faites.length;
+      p.reessayer().click();
+      // Seuls les échoués, par une nouvelle demande ; le progrès repart des déjà chargés.
+      expect(faites.slice(avant).map((f) => f.a)).toEqual(echoues);
+      expect(p.chargement().textContent).toBe(charge(n() - 2));
+      expect(p.reessayer().hidden).toBe(true);
+      faites[avant]!.ok();
+      faites[avant + 1]!.ko();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(p.chargement().textContent).toBe(textes.chrono.chargement_echec);
+      expect(p.question()).toBe(false);
+      p.reessayer().click();
+      expect(faites.slice(avant + 2).map((f) => f.a)).toEqual([echoues[1]]);
+      expect(p.question()).toBe(false);
+      faites.at(-1)!.ok();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(p.question()).toBe(true);
+      // La minute part maintenant, entière.
+      expect(p.zone.querySelector('.chrono-secondes')!.textContent).toBe('60\u00a0s');
+      p.v.desactiver();
+    });
+
+    it('abandonner pendant le chargement (« Abandonner », ou la vue quittée) : rien de compté, aucune question après coup ; relancée, une seule partie part', async () => {
+      const p = partie();
+      vi.advanceTimersByTime(200);
+      p.zone.querySelector('#chrono-abandonner')!.click();
+      expect(p.versJouer).toHaveBeenCalledWith(`jouer/classe/drapeaux/${O}`, textes.chrono.abandon);
+      expect(p.barre().hidden).toBe(true);
+      // Les drapeaux arrivent après l'abandon : rien ne s'affiche, rien ne se note ni ne s'enregistre.
+      faites.slice(0, 5).forEach((f) => f.ok());
+      await vi.advanceTimersByTimeAsync(0);
+      expect(p.barre().hidden).toBe(true);
+      // Relancée pendant que les autres chargent encore (les mêmes, pas redemandés), puis la vue quittée.
+      const avant = faites.length;
+      p.lancer('chrono', O, 'drapeaux');
+      expect(faites).toHaveLength(avant);
+      vi.advanceTimersByTime(200);
+      expect(p.chargement().textContent).toBe(charge(5));
+      p.v.desactiver();
+      expect(p.v.redirection?.()).toEqual({ cible: `jouer/classe/drapeaux/${O}`, message: textes.chrono.abandon });
+      faites.slice(5).forEach((f) => f.ok());
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(p.barre().hidden).toBe(true);
+      expect(p.consigne()).toBeUndefined();
+      p.v.toucher?.(0, 0, {} as PointerEvent);
+      expect(optionsNoter).toHaveLength(0);
+      expect(lireRecords(localStorage).size).toBe(0);
+      expect(blocClassement).not.toHaveBeenCalled();
+      // Une partie relancée ensuite : tout est là, elle part aussitôt, seule.
+      p.lancer('chrono', O, 'drapeaux');
+      expect(p.question()).toBe(true);
+      expect(p.zone.querySelector('.essai-compte')!.textContent).toMatch(new RegExp(`^1 / ${n()} `));
+      p.v.desactiver();
+    });
+
+    it('les autres sujets partent tout de suite : pays, capitales (aucune image demandée)', async () => {
+      await chargerCapitales(async (chemin) => JSON.parse(readFileSync(`public${chemin}`, 'utf8')));
+      for (const sujet of ['pays', 'capitales']) {
+        const ctx = contexte(undefined, NOMS_FR, undefined, charger);
+        ctx.lancer('chrono', O, sujet);
+        expect(ctx.consigne(), sujet).toBeDefined();
+        expect(ctx.zone.querySelector('#chrono-chargement')!.hidden).toBe(true);
+        ctx.v.desactiver();
+      }
+      expect(faites).toEqual([]);
+    });
   });
 
   describe('un drapeau pas encore là quand sa question part : le gris 4:3 tient sa place, et le temps attend son décodage', () => {

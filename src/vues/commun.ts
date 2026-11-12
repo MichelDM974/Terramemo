@@ -1,6 +1,6 @@
 import { acceptesEnPlus, type Admis } from '../map/acceptes';
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
-import { chargerDrapeaux, drapeauxCharges, prechargerDrapeaux, prechargerImages, prechargerPartie } from '../map/drapeaux';
+import { attendreImages, chargerDrapeaux, drapeauxCharges, prechargerDrapeaux, prechargerImages, type ChargerImage } from '../map/drapeaux';
 import type { CarteAffichee } from '../map/carte';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
@@ -213,13 +213,25 @@ export function prechargerEnonces(r: Pick<RenduSujet, 'imageEnonce'>, ids: Itera
 }
 
 /**
- * Toute une partie d'épreuve au départ (étude J2 § 2.2) : le drapeau de
- * chacune de ses questions, demandé d'un coup, dans l'ordre où elles
- * viendront (la première d'abord), pour qu'aucune ne montre le gris
- * d'attente. Rien pour un sujet sans image.
+ * Toute une partie d'épreuve au départ (étude J2 § 2.2 ; décision « Images
+ * d'une épreuve ») : l'image de l'énoncé de chacune de ses questions,
+ * demandée d'un coup, dans l'ordre où elles viendront (la première d'abord),
+ * et attendue avant la première, pour qu'aucune ne montre le gris d'attente
+ * pendant que le temps court. null : rien à attendre (un sujet sans image,
+ * ou toutes déjà là), la partie part tout de suite ; sinon la promesse des
+ * adresses qui ont échoué (drapeaux.ts attendreImages, `progres` compris).
  */
-export function prechargerPartieSujet(sujet: string, ids: readonly string[]): void {
-  if (sujet === 'drapeaux') prechargerPartie(ids);
+export function attendreEnonces(
+  r: Pick<RenduSujet, 'imageEnonce'>,
+  ids: readonly string[],
+  progres?: (n: number, total: number) => void,
+  charger?: ChargerImage,
+): Promise<string[]> | null {
+  return attendreImages(
+    ids.flatMap((id) => r.imageEnonce(id) ?? []),
+    progres,
+    charger,
+  );
 }
 
 /**

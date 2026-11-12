@@ -21,7 +21,7 @@ import {
   prechargerDrapeaux,
   prechargerImages,
   prechargerJustes,
-  prechargerPartie,
+  attendreImages,
   type ManifesteDrapeaux,
 } from '../src/map/drapeaux';
 import { calculerPastilles } from '../src/map/pastilles';
@@ -123,8 +123,7 @@ describe('manifeste lu (src/map/drapeaux.ts)', () => {
     expect(vus).toEqual([]);
     prechargerDrapeaux(['FRA', 'TCD', 'FRA', 'ZZZ'], DR, t);
     expect(vus).toEqual([DR.parPays.get('FRA')!.montre, DR.parPays.get('TCD')!.montre]);
-    // Une partie entière (épreuves, partie C) : ce qui manque encore, d'un coup.
-    prechargerPartie(['TCD', 'ROU', 'AFG'], DR, t);
+    prechargerDrapeaux(['TCD', 'ROU', 'AFG'], DR, t);
     expect(vus.slice(2)).toEqual([DR.parPays.get('ROU')!.montre, DR.parPays.get('AFG')!.montre]);
     // Une séance (tous les justes : son énoncé de Trouver n'est tiré qu'à sa pose) : les deux drapeaux de la Bolivie.
     prechargerJustes(['BOL', 'FRA'], DR, t);
@@ -139,6 +138,70 @@ describe('manifeste lu (src/map/drapeaux.ts)', () => {
     // Une page neuve : de nouveau demandé.
     prechargerDrapeaux(['FRA'], DR, t);
     expect(vus.at(-1)).toBe(DR.parPays.get('FRA')!.montre);
+  });
+
+  it('une partie attendue (décision « Images d’une épreuve ») : toutes ses images, dans l’ordre, une fois chacune ; le progrès n / N ; les échouées seules redemandées ; rien à attendre une fois toutes là', async () => {
+    /** Les images factices demandées, chacune réussie ou échouée à la demande. */
+    const faites: { a: string; ok: () => void; ko: () => void }[] = [];
+    const charger = (a: string) =>
+      new Promise<void>((ok, ko) => {
+        faites.push({ a, ok, ko: () => ko(new Error('hors ligne')) });
+      });
+    const [a, b, c] = ['FRA', 'TCD', 'AFG'].map((id) => DR.parPays.get(id)!.montre) as [string, string, string];
+    const progres: string[] = [];
+    const p = attendreImages([a, b, a, c], (n, total) => void progres.push(`${n}/${total}`), charger)!;
+    expect(faites.map((x) => x.a)).toEqual([a, b, c]);
+    expect(progres).toEqual(['0/3']);
+    // Une partie relancée pendant l'attente : les mêmes chargements, aucune nouvelle demande.
+    const relance = attendreImages([c, a], undefined, charger)!;
+    expect(faites).toHaveLength(3);
+    faites[0]!.ok();
+    faites[2]!.ok();
+    faites[1]!.ko();
+    expect(await p).toEqual([b]);
+    expect(await relance).toEqual([]);
+    expect(progres).toEqual(['0/3', '1/3', '2/3']);
+    // De nouveau : seule l'échouée redemandée (une nouvelle image), les autres comptées d'avance.
+    progres.length = 0;
+    const q = attendreImages([a, b, c], (n, total) => void progres.push(`${n}/${total}`), charger)!;
+    expect(faites.slice(3).map((x) => x.a)).toEqual([b]);
+    faites[3]!.ok();
+    expect(await q).toEqual([]);
+    expect(progres).toEqual(['2/3', '3/3']);
+    // Toutes là : rien à attendre, la partie part tout de suite ; hors d'une page (défaut, sans Image) non plus.
+    expect(attendreImages([c, b, a], undefined, charger)).toBeNull();
+    expect(faites).toHaveLength(4);
+    expect(attendreImages([DR.parPays.get('BEL')!.montre])).toBeNull();
+    // Une page neuve : tout se redemande.
+    oublierDrapeaux();
+    expect(attendreImages([a], undefined, charger)).not.toBeNull();
+    expect(faites.at(-1)!.a).toBe(a);
+  });
+
+  it('une image attendue, dans une page : new Image(), son adresse, son décodage (decode)', async () => {
+    const images: { src?: string; decoding?: string }[] = [];
+    let decode: () => Promise<void> = () => Promise.resolve();
+    vi.stubGlobal(
+      'Image',
+      class {
+        src?: string;
+        decoding?: string;
+        constructor() {
+          images.push(this);
+        }
+        decode() {
+          return decode();
+        }
+      },
+    );
+    try {
+      expect(await attendreImages([DR.parPays.get('NPL')!.montre])).toEqual([]);
+      expect(images).toEqual([{ src: DR.parPays.get('NPL')!.montre, decoding: 'async' }]);
+      decode = () => Promise.reject(new Error('EncodingError'));
+      expect(await attendreImages([DR.parPays.get('CHE')!.montre])).toEqual([DR.parPays.get('CHE')!.montre]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('dans une page : new Image(), son adresse, décodage asynchrone', () => {

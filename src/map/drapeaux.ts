@@ -6,8 +6,10 @@
 // l'empreinte de son contenu : l'adresse ne trahit pas le pays, et le fichier
 // est servi immuable), ne se chargent qu'à l'affichage, ou un peu avant
 // (précharger : la question suivante en Entraînement, les questions de la
-// séance, toute une partie au départ d'une épreuve). Rien au premier
-// affichage (décision « Hébergement » ; le smoke du pilote le vérifie).
+// séance), ou, pour une épreuve classée, toutes au départ, attendues avant sa
+// première question (attendreImages, décision « Images d'une épreuve »). Rien
+// au premier affichage (décision « Hébergement » ; le smoke du pilote le
+// vérifie).
 //
 // La cible d'une question reste l'id du pays : ces données ne servent qu'à ce
 // qu'on montre (sujets.ts), aux jumeaux, zones admises en plus du seul sujet
@@ -118,6 +120,8 @@ export function oublierDrapeaux(): void {
   charges = null;
   enCours = null;
   demandes.clear();
+  decodes.clear();
+  enVol.clear();
 }
 
 /** Ce qui télécharge une image (new Image() dans la page ; les tests : un espion). */
@@ -172,12 +176,77 @@ export function prechargerJustes(ids: Iterable<string>, d: DonneesDrapeaux | nul
 }
 
 /**
- * Toute une partie au départ (étude J2 § 2.2, § 9.3 : une épreuve classée,
- * src/vues/chrono.ts par commun.ts prechargerPartieSujet ; le quiz au lot 4) :
- * le drapeau de chaque question, d'un coup, dans l'ordre des questions, pour
- * qu'aucune ne montre le gris d'attente pendant que le temps court (la vue
- * attend quand même le décodage d'un drapeau en retard : ATTENTE_IMAGE_MS).
- * Une épreuve montre le premier drapeau de chaque pays (le même pour tous).
+ * Ce qui charge et décode une image pour l'attendre (new Image(), puis
+ * decode() ; les tests : des images factices) : rejetée si elle n'arrive pas
+ * ou ne se décode pas ; null hors d'une page (rien à attendre).
  */
-export const prechargerPartie = (ids: readonly string[], d: DonneesDrapeaux | null = charges, telecharger: Telecharger = parImage): void =>
-  prechargerDrapeaux(ids, d, telecharger);
+export type ChargerImage = (adresse: string) => Promise<unknown> | null;
+
+const parDecodage: ChargerImage = (adresse) => {
+  if (typeof Image === 'undefined') return null;
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = adresse;
+  if (typeof img.decode === 'function') return img.decode();
+  return new Promise((ok, ko) => {
+    img.onload = ok;
+    img.onerror = ko;
+  });
+};
+
+/** Les images chargées et décodées dans cette page : une partie rejouée ne les attend plus. */
+const decodes = new Set<string>();
+/** Les chargements attendus en cours (vrai : décodée) : une partie relancée pendant l'attente ne les redemande pas. */
+const enVol = new Map<string, Promise<boolean>>();
+
+/** Le chargement attendu d'une image, partagé tant qu'il dure ; null si elle est déjà là (ou hors d'une page). */
+function chargerUne(a: string, charger: ChargerImage): Promise<boolean> | null {
+  if (decodes.has(a)) return null;
+  const deja = enVol.get(a);
+  if (deja) return deja;
+  const p = charger(a);
+  if (!p) return null;
+  const suivi = p.then(
+    () => {
+      decodes.add(a);
+      demandes.add(a);
+      return true;
+    },
+    () => false,
+  );
+  enVol.set(a, suivi);
+  void suivi.then(() => enVol.delete(a));
+  return suivi;
+}
+
+/**
+ * Toutes les images d'une partie, attendues avant sa première question
+ * (étude J2 § 2.2, § 9.3 ; décision « Images d'une épreuve » : une épreuve
+ * classée, src/vues/chrono.ts par commun.ts attendreEnonces ; le quiz au
+ * lot 4) : demandées d'un coup, dans l'ordre des questions, chacune une fois.
+ * null : rien à attendre (toutes déjà décodées dans cette page, ou hors d'une
+ * page), la partie part tout de suite. Sinon la promesse des adresses qui ont
+ * échoué ([] : toutes là) ; `progres(n, total)` à chaque image arrivée (les
+ * déjà décodées comptées d'avance). Rappelée après un échec, elle ne
+ * redemande que celles qui manquent, par une nouvelle image (pas par
+ * prechargerImages, qui ne redemande jamais une adresse).
+ */
+export function attendreImages(adresses: readonly string[], progres?: (n: number, total: number) => void, charger: ChargerImage = parDecodage): Promise<string[]> | null {
+  const toutes = [...new Set(adresses)];
+  const attentes = toutes.flatMap((a) => {
+    const p = chargerUne(a, charger);
+    return p ? [{ a, p }] : [];
+  });
+  if (!attentes.length) return null;
+  let n = toutes.length - attentes.length;
+  progres?.(n, toutes.length);
+  return Promise.all(
+    attentes.map(({ a, p }) =>
+      p.then((ok) => {
+        if (!ok) return a;
+        progres?.(++n, toutes.length);
+        return null;
+      }),
+    ),
+  ).then((r) => r.filter((a): a is string => a !== null));
+}

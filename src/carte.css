@@ -359,6 +359,10 @@ body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:
 .chrono-jauge { flex: 1; height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
 .chrono-jauge-reste { display: block; height: 100%; background: var(--muted); transform-origin: left center; }
 .chrono-secondes { min-width: 2.6em; text-align: right; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+/* Au départ d'une épreuve des drapeaux, à la place de la question : « Chargement
+   des drapeaux… n / N », ou son échec (avec « Réessayer »). */
+.chrono-chargement { font-size: 0.95rem; color: var(--muted); min-height: 1.2em; font-variant-numeric: tabular-nums; }
+.chrono-chargement.echec { color: var(--danger); }
 .chrono-score { margin: 2px 0; font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .chrono-record { margin: 0 0 12px; font-size: 0.9rem; }
 .chrono-record.nouveau { color: var(--good); }
