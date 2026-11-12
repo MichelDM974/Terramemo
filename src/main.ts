@@ -33,7 +33,7 @@ import { vueALaDemande } from './vues/a-la-demande';
 import { creerAccueil, type Accueil } from './vues/accueil';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
-import type { Vue } from './vues/commun';
+import { poserMers, type Vue } from './vues/commun';
 import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { carteMemoire, garderReglageMemoire, lireReglageMemoire } from './vues/carte-memoire';
@@ -718,6 +718,8 @@ async function demarrer(): Promise<void> {
   const seances = creerSeances({
     memoire,
     monde: donnees,
+    // Les fiches de mers : la couche marine lue puis posée sur la carte du monde avant la séance.
+    chargerMers: () => poserMers(ctx) ?? Promise.resolve(),
     ile: () => terrains?.deja('reunion')?.donnees ?? null,
     charger: (t) => terrains?.charger(t) ?? Promise.reject(new Error('terrains pas prêts')),
   });

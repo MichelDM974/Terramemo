@@ -8,7 +8,7 @@
 // ou d'un sujet, une icône sinon). « Rejouer » n'est plus ici (choix du 10/11) :
 // il reste au bilan de chaque partie. Toucher
 // un exercice lance la partie (main.ts : Toucher ou la vue des épreuves) ; la
-// carte de l'île et les données d'un sujet (les capitales, le manifeste des drapeaux) se chargent ici
+// carte de l'île et les données d'un sujet (les capitales, le manifeste des drapeaux, la couche marine posée sur la carte) se chargent ici
 // d'abord (avecSujet : statut, échec hors ligne). « ‹ » et le fil d'Ariane
 // remontent, « × » ferme (main.ts) ; chaque niveau a son adresse, que
 // main.ts donne à aller().

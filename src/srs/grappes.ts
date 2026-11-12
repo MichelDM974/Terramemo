@@ -2,9 +2,10 @@
 // entités voisines (docs/plan.md : « nouveautés par grappe régionale »).
 // Fonction pure et déterministe : mêmes entités (dans n'importe quel ordre),
 // mêmes grappes. Elle sert aux pays (sous-régions ONU) comme aux communes de
-// La Réunion (un seul groupe, découpé en paquets voisins).
+// La Réunion (un seul groupe, découpé en paquets voisins), et aux océans et
+// mers (les océans d'abord, puis les mers par bassin : grappesMers).
 
-import type { Lieu, Pays } from '../map/types';
+import type { Lieu, Mer, Pays } from '../map/types';
 
 /** Ce que le découpage lit d'une entité. */
 export interface EntiteGrappe {
@@ -275,4 +276,42 @@ export function grappesCommunes(communes: readonly Lieu[], nom = 'La Réunion'):
       .map((c) => ({ id: c.id, point: c.point, groupe: nom, continent: nom, superficie_km2: c.superficie_km2 })),
     { taille: TAILLE_GRAPPE_COMMUNES },
   );
+}
+
+/** La grappe des cinq océans, la première des mers (étude J2 § 6.1). */
+export const GRAPPE_OCEANS = 'Océans';
+/**
+ * L'ordre des bassins des mers (étude J2 § 6.1) : Atlantique, Indien,
+ * Pacifique, Arctique, et non l'ordre de ORDRE_CONTINENTS (qui rangerait les
+ * bassins après les continents, par id).
+ */
+export const ORDRE_BASSINS: readonly string[] = ['atlant', 'indien', 'pacif', 'arctique'];
+
+/**
+ * Grappes des océans et mers (étude J2 § 6.1) : d'abord une grappe
+ * « Océans » de ses océans, puis grappes() sur les mers, groupe et continent =
+ * leur bassin (l'océan atteint en remontant le premier parent ; la Caspienne,
+ * rattachée à l'Atlantique), dans l'ordre ORDRE_BASSINS (un bassin absent de
+ * la liste après, par id), chacun découpé en paquets voisins de 5 à 9.
+ * Toutes ont pour continent `serie` (la série unique « mers », D44 a :
+ * Apprendre prend les grappes de sa série par leur continent), le bassin
+ * restant dans `groupes`. Pure et déterministe.
+ */
+export function grappesMers(mers: readonly Mer[], serie = 'mers'): Grappe[] {
+  const jouables = mers.filter((m) => m.statut === 'jouable');
+  const oceans = jouables.filter((m) => m.sorte === 'océan').sort((a, b) => b.superficie_km2 - a.superficie_km2 || cmp(a.id, b.id));
+  const res: Grappe[] = oceans.length
+    ? [{ id: GRAPPE_OCEANS, continent: serie, groupes: [GRAPPE_OCEANS], membres: oceans.map((m) => m.id), superficie_km2: oceans.reduce((n, m) => n + m.superficie_km2, 0) }]
+    : [];
+  const autres = jouables.filter((m) => m.sorte !== 'océan');
+  const rang = (b: string) => {
+    const i = ORDRE_BASSINS.indexOf(b);
+    return i < 0 ? ORDRE_BASSINS.length : i;
+  };
+  const bassins = [...new Set(autres.map((m) => m.bassin))].sort((a, b) => rang(a) - rang(b) || cmp(a, b));
+  for (const b of bassins) {
+    const g = grappes(autres.filter((m) => m.bassin === b).map((m) => ({ id: m.id, point: m.point, groupe: b, continent: b, superficie_km2: m.superficie_km2 })));
+    for (const x of g) res.push({ ...x, continent: serie });
+  }
+  return res;
 }

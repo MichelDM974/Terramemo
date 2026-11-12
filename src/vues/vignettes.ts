@@ -10,7 +10,10 @@
 // chargent qu'au choix de sa série, a sa vignette toute faite dans le code
 // (vignette-ile.ts, produit par geodata/vignette-ile.mjs) ; les capitales
 // aussi (vignette-capitales.ts, geodata/vignette-capitales.mjs), pour ne rien
-// charger de capitales* à l'ouverture de Jouer. Chaque vignette a sa projection (Equal Earth, centrée sur sa
+// charger de capitales* à l'ouverture de Jouer ; les mers de même
+// (vignette-mers.ts, geodata/vignette-mers.mjs : le sujet Océans et mers, le
+// monde aux mers éclairées sous des terres sombres, D53 a, rien de mers* à
+// charger). Chaque vignette a sa projection (Equal Earth, centrée sur sa
 // région, comme la carte) et ne trace que ce qui tombe près de son cadre, en
 // unités de 600 de large, points à moins d'une unité du précédent sautés et
 // anneaux de moins d'une unité carrée retirés : ~3 000 à 8 000 points par
@@ -23,9 +26,10 @@ import { geoCentroid, geoDistance, geoEqualEarth, geoPath, type GeoProjection, t
 import type { Feature, MultiPoint } from 'geojson';
 import type { DonneesCarte } from '../map/donnees';
 import type { Pays } from '../map/types';
-import { estJouable, SERIE_REUNION, SERIE_TOUS, type Serie } from './cibles';
+import { estJouable, SERIE_MERS, SERIE_REUNION, SERIE_TOUS, type Serie } from './cibles';
 import { POINTS_CAPITALES } from './vignette-capitales';
 import { VIGNETTE_ILE } from './vignette-ile';
+import { VIGNETTE_MERS } from './vignette-mers';
 
 const NS = 'http://www.w3.org/2000/svg';
 /** Largeur du cadre en unités du tracé ; tolérance et aire minimale en unités. */
@@ -100,13 +104,18 @@ function simplifier(sortie: GeoStream): GeoStream {
   };
 }
 
-/** Le tracé d'une vignette : son cadre (viewBox), le fond (autres pays), la série, l'ovale du monde s'il est entier, les limites des communes de l'île. */
+/**
+ * Le tracé d'une vignette : son cadre (viewBox), le fond (autres pays), la
+ * série, l'ovale du monde s'il est entier, les limites des communes de l'île,
+ * les mers éclairées sous les terres (le sujet Océans et mers).
+ */
 interface Trace {
   cadre: [number, number, number, number];
   fond: string;
   serie: string;
   sphere?: string;
   limites?: string;
+  eaux?: string;
 }
 
 /** Rayon angulaire (radians) d'une emprise [ouest, sud, est, nord], antiméridien compris. */
@@ -206,10 +215,16 @@ export function creerVignettes(donnees: DonneesCarte, series: readonly Serie[]):
   /** L'île : sa vignette toute faite (contour et limites des communes). */
   const ile = (): Trace => ({ cadre: VIGNETTE_ILE.cadre, fond: '', serie: VIGNETTE_ILE.contour, limites: VIGNETTE_ILE.limites });
 
+  /** Les océans et mers : le cadre et l'ovale du monde, ses 45 mers éclairées (vignette-mers.ts), toutes les terres sombres par-dessus. */
+  const mers = (): Trace | null => {
+    const m = trace(SERIE_TOUS);
+    return m && { cadre: m.cadre, sphere: m.sphere ?? '', eaux: VIGNETTE_MERS, fond: m.fond + m.serie, serie: '' };
+  };
+
   function trace(id: string): Trace | null {
     if (!traces.has(id)) {
       const s = series.find((x) => x.id === id);
-      traces.set(id, id === SERIE_TOUS ? monde() : id === SERIE_REUNION ? ile() : s && s.terrain === 'monde' ? region(s) : null);
+      traces.set(id, id === SERIE_TOUS ? monde() : id === SERIE_REUNION ? ile() : id === SERIE_MERS ? mers() : s && s.terrain === 'monde' ? region(s) : null);
     }
     return traces.get(id) ?? null;
   }
@@ -232,6 +247,7 @@ export function creerVignettes(donnees: DonneesCarte, series: readonly Serie[]):
     if (t.sphere) svg.classList.add('vignette-monde');
     for (const [classe, d] of [
       ['vignette-mer', t.sphere ?? ''],
+      ['vignette-eaux', t.eaux ?? ''],
       ['vignette-fond', t.fond],
       ['vignette-serie', t.serie],
       ['vignette-limites', t.limites ?? ''],

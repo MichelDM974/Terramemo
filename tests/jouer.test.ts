@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enregistrerPartie, epreuvesClassees, EPREUVES_SUJETS, idEpreuve } from '../src/epreuve/chrono';
 import { capitalesChargees, oublierCapitales } from '../src/map/capitales';
 import { drapeauxCharges, oublierDrapeaux } from '../src/map/drapeaux';
+import { FICHIERS_MERS, mersChargees, oublierMers } from '../src/map/mers';
 import type { Pays } from '../src/map/types';
 import {
   adresse,
@@ -35,9 +36,9 @@ const SERIES_PAYS = ['tous', 'Africa', 'North America', 'South America', 'Asia',
 const a = (segs: string[]) => adresse(arbre.resoudre(segs));
 
 describe('l’arbre (pur)', () => {
-  it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier), les séries des pays, les exercices de chaque branche', () => {
+  it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier ; Océans et mers sous Entraînement seul avant ses épreuves), les séries des pays, les exercices de chaque branche', () => {
     expect(arbre.choix({ type: 'racine' })).toEqual(['entrainement', 'classe']);
-    expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
     // Capitales : les séries des pays, tailles comprises (D37 c).
     expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'capitales' })).toEqual(SERIES_PAYS);
@@ -82,13 +83,13 @@ describe('l’arbre (pur)', () => {
     expect(a(['classe', 'capitales', 'Oceania'])).toBe('jouer/classe/capitales/Oceania');
   });
 
-  it('un sujet de Jouer hors de EPREUVES_SUJETS (les mers avant le lot 3b) n’a rien sous Classé, même avec ses épreuves déclarées ; un essai (pas un domaine), si', () => {
-    const mers: DefSujet = { id: 'mers', series: (c) => c.slice(0, 1), modes: { entrainement: ['localiser'], classe: ['chrono', 'sansfaute'] } };
-    const avecMers = creerArbre(CATALOGUE, [...SUJETS, mers]);
-    expect(avecMers.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes', 'mers']);
-    expect(avecMers.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
-    expect(avecMers.modes('classe', 'mers')).toEqual([]);
-    expect(adresse(avecMers.resoudre(['classe', 'mers', 'tous']))).toBe('jouer/classe');
+  it('un sujet de Jouer hors de EPREUVES_SUJETS (les mers avant leurs épreuves, partie B du lot 3b) n’a rien sous Classé, même avec ses épreuves déclarées ; un essai (pas un domaine), si', () => {
+    expect(SUJETS.find((s) => s.id === 'mers')!.modes.classe).toEqual(['chrono', 'sansfaute']);
+    expect(EPREUVES_SUJETS.some((p) => p.sujet === 'mers')).toBe(false);
+    expect(arbre.choix({ type: 'sujets', branche: 'classe' })).not.toContain('mers');
+    expect(arbre.modes('classe', 'mers')).toEqual([]);
+    expect(a(['classe', 'mers', 'mers'])).toBe('jouer/classe');
+    expect(arbre.valide({ branche: 'classe', sujet: 'mers', serie: 'mers', mode: 'chrono' })).toBe(false);
     const essai: DefSujet[] = [{ id: 'essai', series: (c) => c.slice(0, 1), modes: { entrainement: [], classe: ['chrono'] } }];
     expect(creerArbre(CATALOGUE, essai).choix({ type: 'sujets', branche: 'classe' })).toEqual(['essai']);
   });
@@ -216,8 +217,10 @@ function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['
       }),
   );
   const terrains = { monde, deja: (n: string) => (n === 'reunion' && ileChargee ? ile : null), charger };
-  // Sans pays : les vignettes des continents manquent, celles du monde et de l'île restent.
-  const ctx = { zone, terrains, donnees: { entites: [] } } as never;
+  // Sans pays : les vignettes des continents manquent, celles du monde et de l'île restent. La couche marine posée par prendreMers.
+  const donnees = { entites: [], mers: [] as unknown[] };
+  const carte = { prendreMers: vi.fn((c: { mers: unknown[] }) => void (donnees.mers = c.mers)) };
+  const ctx = { zone, terrains, donnees, carte } as never;
   const opts = {
     lancer: vi.fn<OptionsJouer['lancer']>(),
     fermer: vi.fn<OptionsJouer['fermer']>(),
@@ -234,7 +237,7 @@ function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['
     v.aller(segs);
   };
   const attr = (a: string) => panneau.querySelectorAll(`button[${a}]`).map((b) => b.getAttribute(a));
-  return { v, zone, panneau, opts, ouvrir, attr, charger, monde, ile };
+  return { v, zone, panneau, opts, ouvrir, attr, charger, monde, ile, carte, donnees };
 }
 
 describe('la vue Jouer', () => {
@@ -446,7 +449,7 @@ describe('la vue Jouer', () => {
     expect(r.innerText).toContain('12 à revoir · 6 nouveaux');
     expect(r.innerText).not.toContain('record');
     expect(r.disabled).toBe(false);
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     r.click();
     expect(revision.lancer).toHaveBeenCalledTimes(1);
     // Pas d'adresse dans l'arbre : la ligne ne pousse rien.
@@ -580,10 +583,10 @@ describe('la vue Jouer : le sujet Capitales', () => {
   });
   const attendre = () => new Promise((r) => setTimeout(r, 0));
 
-  it('Entraînement : Pays, Capitales, Drapeaux, Communes ; sa vignette (le monde et ses capitales en points) sans rien charger ; ses séries « 54 capitales »', () => {
+  it('Entraînement : Pays, Capitales, Drapeaux, Océans et mers, Communes ; sa vignette (le monde et ses capitales en points) sans rien charger ; ses séries « 54 capitales »', () => {
     const j = monter();
     j.ouvrir('entrainement');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     expect(j.panneau.querySelector('[data-sujet="capitales"]')!.innerText).toContain('Capitales');
     expect(j.panneau.querySelector('[data-sujet="capitales"]')!.innerText).toContain('195 capitales');
     expect(j.panneau.querySelector('[data-sujet="capitales"] .vignette-carte .vignette-points')).not.toBeNull();
@@ -720,10 +723,10 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
   });
   const attendre = () => new Promise((r) => setTimeout(r, 0));
 
-  it('Entraînement : Pays, Capitales, Drapeaux, Communes (D53 b) ; son icône (D53 a) sans rien charger ; « 195 drapeaux », « 54 drapeaux »', () => {
+  it('Entraînement : Pays, Capitales, Drapeaux, Océans et mers, Communes (D53 b) ; son icône (D53 a) sans rien charger ; « 195 drapeaux », « 54 drapeaux »', () => {
     const j = monter();
     j.ouvrir('entrainement');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     const tuile = j.panneau.querySelector('[data-sujet="drapeaux"]')!;
     expect(tuile.innerText).toContain('Drapeaux');
     expect(tuile.innerText).toContain('195 drapeaux');
@@ -839,5 +842,99 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
     await attendre();
     expect(j.opts.lancer).toHaveBeenCalledTimes(1);
     expect(drapeauxCharges()).not.toBeNull();
+  });
+});
+
+// Le sujet Océans et mers (lot 3b, partie A) : sous Entraînement seul (ses
+// épreuves viennent à la partie B), après Drapeaux et avant Communes (D53 b),
+// sa vignette (les mers éclairées, rangée dans le code) et « 50 océans et
+// mers » sans rien charger, sa série unique sautée (D44 a) ; la couche marine
+// lue puis posée sur la carte (prendreMers) avant la partie, jamais une partie
+// à vide ; hors ligne, le message.
+describe('la vue Jouer : le sujet Océans et mers', () => {
+  let reseau = true;
+  const demandes: string[] = [];
+  beforeEach(() => {
+    installerDom();
+    installerStockage();
+    demandes.length = 0;
+    reseau = true;
+    vi.stubGlobal('fetch', async (url: string) => {
+      demandes.push(url);
+      if (!reseau) throw new TypeError('Failed to fetch');
+      return { ok: true, status: 200, text: async () => readFileSync(`public${url}`, 'utf8') };
+    });
+    oublierMers();
+  });
+  afterEach(() => {
+    oublierMers();
+    vi.unstubAllGlobals();
+  });
+
+  it('Entraînement : après Drapeaux, avant Communes ; « 50 océans et mers » et sa vignette sans rien charger ; la série unique sautée ; Apprendre, Trouver, Reconnaître ; absent de Classé', () => {
+    const j = monter();
+    j.ouvrir('entrainement');
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    const tuile = j.panneau.querySelector('[data-sujet="mers"]')!;
+    expect(tuile.innerText).toContain('Océans et mers');
+    expect(tuile.innerText).toContain('50 océans et mers');
+    // Le monde aux mers éclairées sous les terres (vignette-mers.ts), dans l'ovale du monde.
+    expect(tuile.querySelector('.vignette-carte .vignette-eaux')).not.toBeNull();
+    expect(tuile.querySelector('.vignette-carte .vignette-mer')).not.toBeNull();
+    // Une seule série (D44 a) : son niveau est sauté, comme celui de Communes.
+    expect(a(['entrainement', 'mers'])).toBe('jouer/entrainement/mers/mers');
+    j.ouvrir('entrainement', 'mers');
+    expect(j.opts.canoniser).toHaveBeenCalledWith('jouer/entrainement/mers/mers');
+    expect(j.panneau.dataset.niveau).toBe('exercices');
+    expect(j.attr('data-mode')).toEqual(['apprendre', 'localiser', 'nommer']);
+    for (const m of ['apprendre', 'localiser', 'nommer'] as const) expect(j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText).toContain(textes.jouer.exercices.mers[m]);
+    expect(j.panneau.querySelector('h2')?.textContent).toBe('Entraînement›Océans et mers›Océans et mers');
+    expect(j.panneau.querySelector('#jouer-aide')).toBeNull();
+    j.ouvrir('classe');
+    expect(j.attr('data-sujet')).not.toContain('mers');
+    // Rien de mers* demandé pour afficher Jouer.
+    expect(demandes).toEqual([]);
+    expect(mersChargees()).toBeNull();
+  });
+
+  it('chargement puis lancement : « Chargement… », boutons désactivés, la couche lue puis posée sur la carte, puis la partie part sur ses 50 zones ; la seconde fois, tout de suite', async () => {
+    const j = monter();
+    j.ouvrir('entrainement', 'mers', 'mers');
+    const statut = () => j.panneau.querySelector('.jouer-statut')!;
+    j.panneau.querySelector('[data-mode="localiser"]')!.click();
+    expect(statut().textContent).toBe(textes.toucher.chargement_sujet);
+    expect(j.panneau.querySelector('[data-mode="nommer"]')!.disabled).toBe(true);
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(j.opts.lancer).toHaveBeenCalledTimes(1));
+    // Posée avant le lancement : noter et les rendus trouvent les mers (donnees.mers).
+    expect(j.carte.prendreMers).toHaveBeenCalledTimes(1);
+    expect(j.donnees.mers).toHaveLength(50);
+    const [l, s, , ids] = j.opts.lancer.mock.calls[0]!;
+    expect(l).toEqual({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'localiser' });
+    expect([s.id, s.terrain, s.n]).toEqual(['mers', 'monde', 50]);
+    expect(ids).toHaveLength(50);
+    expect(ids).toContain('medit');
+    expect(statut().hidden).toBe(true);
+    expect([...demandes].sort()).toEqual(FICHIERS_MERS.map((f) => `/geo/${f}`).sort());
+    j.panneau.querySelector('[data-mode="nommer"]')!.click();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(2);
+    expect(j.carte.prendreMers).toHaveBeenCalledTimes(1);
+    expect(demandes).toHaveLength(4);
+  });
+
+  it('échec puis message : hors ligne, aucune partie à vide, on reste au niveau, boutons rendus ; le prochain choix réessaie', async () => {
+    reseau = false;
+    const j = monter();
+    j.ouvrir('entrainement', 'mers', 'mers');
+    j.panneau.querySelector('[data-mode="apprendre"]')!.click();
+    await vi.waitFor(() => expect(j.panneau.querySelector('.jouer-statut')!.textContent).toBe(textes.toucher.echec_sujet));
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    expect(j.carte.prendreMers).not.toHaveBeenCalled();
+    expect(j.panneau.querySelector('[data-mode="apprendre"]')!.disabled).toBe(false);
+    expect(j.panneau.dataset.niveau).toBe('exercices');
+    reseau = true;
+    j.panneau.querySelector('[data-mode="apprendre"]')!.click();
+    await vi.waitFor(() => expect(j.opts.lancer).toHaveBeenCalledTimes(1));
+    expect(j.donnees.mers).toHaveLength(50);
   });
 });

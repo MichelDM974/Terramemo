@@ -27,9 +27,11 @@ export const DOMAINES: readonly Domaine[] = ['pays', 'communes', 'capitales', 'd
  * § 3.1). Révision du jour, comptes de Jouer, introductions et carte de la
  * mémoire ne prennent qu'eux ; les fiches d'un autre domaine restent au
  * journal, intactes, et entrent en séance à la mise à jour qui livre leur
- * sujet. Capitales au lot 1, drapeaux au lot 2, mers au lot 3b.
+ * sujet. Capitales au lot 1, drapeaux au lot 2, mers au lot 3b. Dans
+ * l'ordre des sujets de Jouer (D53 b) : celui du choix du sujet de la carte
+ * de la mémoire.
  */
-export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', 'communes'];
+export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', 'mers', 'communes'];
 
 /** Le terrain où se jouent les fiches d'un domaine : l'île pour les communes, le monde pour les autres. */
 export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = { pays: 'monde', communes: 'reunion', capitales: 'monde', drapeaux: 'monde', mers: 'monde' };

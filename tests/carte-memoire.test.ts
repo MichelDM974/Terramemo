@@ -190,12 +190,12 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
     };
   }
 
-  it('les jouables de cette version (lot 2) : Pays, Capitales, Drapeaux dans le choix, dans cet ordre, nommés comme dans Jouer', async () => {
+  it('les jouables de cette version (lot 3b) : Pays, Capitales, Drapeaux, Mers dans le choix, dans cet ordre, nommés comme dans Jouer (Mers : le nom court)', async () => {
     const v = monter(carteMemoire(await memoire(), () => true));
     v.vue.activer();
     const choix = v.choix()!;
-    expect(choix.querySelectorAll('option').map((o) => o.getAttribute('value'))).toEqual(['pays', 'capitales', 'drapeaux']);
-    expect(choix.innerText).toBe(`${textes.jouer.sujets.pays.nom}${textes.jouer.sujets.capitales.nom}${textes.jouer.sujets.drapeaux.nom}`);
+    expect(choix.querySelectorAll('option').map((o) => o.getAttribute('value'))).toEqual(['pays', 'capitales', 'drapeaux', 'mers']);
+    expect(choix.innerText).toBe(`${textes.jouer.sujets.pays.nom}${textes.jouer.sujets.capitales.nom}${textes.jouer.sujets.drapeaux.nom}Mers`);
   });
 
   it('un seul sujet jouable : pas de choix dans la légende', async () => {
@@ -231,16 +231,18 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
   });
 });
 
-describe('carte de la mémoire : capitales (lot 1) et drapeaux (lot 2) réellement jouables', () => {
+describe('carte de la mémoire : capitales (lot 1), drapeaux (lot 2) et mers (lot 3b) réellement jouables', () => {
   beforeEach(() => installerDom());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('par défaut, le monde a trois sujets (Pays, Capitales, Drapeaux) ; teintes, maîtrisés et détail des vraies capitales et des vrais drapeaux', async () => {
+  it('par défaut, le monde a quatre sujets (Pays, Capitales, Drapeaux, Mers) ; teintes, maîtrisés et détail des vraies capitales, des vrais drapeaux et des mers', async () => {
     const m = await memoire();
-    // Le drapeau de l'Italie raté aujourd'hui (Again) : « Drapeau : vu 1 fois · revient demain ».
-    await m.ecrire([evenementReponse({ seance: null, appareil: m.appareil, horloge: () => ({ ts: T0, tz: 240 }), nouvelId: () => m.nouvelId() }, 'drapeaux:ITA:localiser', 'rappel', { correct: false, duree_ms: 1000 }, 1)]);
+    const evt = (fiche: string, correct: boolean) =>
+      evenementReponse({ seance: null, appareil: m.appareil, horloge: () => ({ ts: T0, tz: 240 }), nouvelId: () => m.nouvelId() }, fiche, 'rappel', { correct, duree_ms: 1000 }, correct ? 3 : 1);
+    // Le drapeau de l'Italie raté aujourd'hui (Again) : « Drapeau : vu 1 fois · revient demain » ; la Méditerranée aussi.
+    await m.ecrire([evt('drapeaux:ITA:localiser', false), evt('mers:medit:localiser', false)]);
     const c = carteMemoire(m, () => true);
-    expect(c.sujets('monde')).toEqual(['pays', 'capitales', 'drapeaux']);
+    expect(c.sujets('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'mers']);
     expect(c.sujets('reunion')).toEqual([]);
     expect(c.sujet('monde')).toBe('pays');
     c.choisir('monde', 'capitales');
@@ -258,5 +260,17 @@ describe('carte de la mémoire : capitales (lot 1) et drapeaux (lot 2) réelleme
     );
     expect(c.detail('monde', 'ITA', true)).toContain('Drapeau : vu 1 fois · revient demain');
     expect(c.detail('monde', 'FRA', true)).toMatch(new RegExp(`^${P.nom} : vu 2 fois · revient (dans \\d+ j|demain) · ${K.nom} : ${K.jamais} · ${D.nom} : ${D.jamais}$`));
+    // Mers : ses zones teintées seules (les pays neutres), « n/50 maîtrisées » (accordé à « mer », quel que soit le total passé).
+    c.choisir('monde', 'mers');
+    expect(c.sujet('monde')).toBe('mers');
+    expect([...c.teintes('monde')!.keys()]).toEqual(['medit']);
+    expect(c.maitrises('monde', 195)).toBe('0/50 maîtrisées');
+    // Une mer touchée : sa mémoire des mers seule ; un pays : ses trois sujets, sans les mers, quel que soit le sujet montré.
+    expect(c.detail('monde', 'medit', true)).toBe(`${remplir(M.vu_une, { n: 1 })} · ${M.revient_demain}`);
+    expect(c.detail('monde', 'egee', true)).toBe(M.jamais_vu);
+    expect(c.detail('monde', 'ITA', true)).toContain('Drapeau : vu 1 fois · revient demain');
+    expect(c.detail('monde', 'ITA', true)).not.toContain('Mer');
+    // Une version sans les mers : une zone marine n'a pas de détail.
+    expect(carteMemoire(m, () => true, { jouables: ['pays', 'capitales'] }).detail('monde', 'medit', true)).toBeNull();
   });
 });

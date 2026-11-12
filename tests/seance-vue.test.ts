@@ -6,18 +6,19 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { chargerCapitales, oublierCapitales } from '../src/map/capitales';
 import { chargerDrapeaux, drapeauxCharges, oublierDrapeaux } from '../src/map/drapeaux';
-import { assembler } from '../src/map/donnees';
+import { assembler, type DonneesCarte } from '../src/map/donnees';
+import { chargerMers, IDS_MERS, oublierMers } from '../src/map/mers';
 import { assemblerTerrain } from '../src/map/donnees-terrain';
 import type { Lieu, NomTerrain, Pays } from '../src/map/types';
 import type { Domaine } from '../src/srs/fiches';
 import { depotMemoire, type Depot } from '../src/journal/depot';
 import { ouvrirMemoire } from '../src/journal/memoire';
 import type { Evenement } from '../src/srs/journal';
-import { grappesPays } from '../src/srs/grappes';
+import { GRAPPE_OCEANS, grappesMers, grappesPays } from '../src/srs/grappes';
 import { INTRODUCTIONS_PAR_JOUR } from '../src/srs/planif';
 import { etat } from '../src/srs/rejeu';
 import { evenementReponse } from '../src/srs/seance';
-import { catalogue } from '../src/vues/cibles';
+import { catalogue, serieMers } from '../src/vues/cibles';
 import type { DemandeSeance, PiloteSeance, RefusSeance, ReponseJouee } from '../src/vues/essai';
 import { carteMemoire } from '../src/vues/carte-memoire';
 import { creerSeances, texteComptes } from '../src/vues/seance';
@@ -68,6 +69,9 @@ async function monter(
     chargerCapitales?: () => Promise<unknown>;
     chargerDrapeaux?: () => Promise<unknown>;
     prechargerDrapeaux?: (ids: readonly string[]) => void;
+    /** Un monde à soi (les mers : sa couche posée par chargerMers), au lieu du monde commun. */
+    monde?: DonneesCarte;
+    chargerMers?: () => Promise<unknown>;
   } = {},
 ) {
   let lectures = 0;
@@ -81,7 +85,8 @@ async function monter(
     nouvelId: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`,
   });
   await memoire.pret;
-  const seances = creerSeances({ memoire, monde, hasard: graine(3), ...(o.ile ? { ile: o.ile } : {}), ...(o.jouables ? { jouables: o.jouables } : {}), ...(o.charger ? { charger: o.charger } : {}),
+  const seances = creerSeances({ memoire, monde: o.monde ?? monde, hasard: graine(3),
+    ...(o.chargerMers ? { chargerMers: o.chargerMers } : {}), ...(o.ile ? { ile: o.ile } : {}), ...(o.jouables ? { jouables: o.jouables } : {}), ...(o.charger ? { charger: o.charger } : {}),
     ...(o.chargerCapitales ? { chargerCapitales: o.chargerCapitales } : {}),
     ...(o.chargerDrapeaux ? { chargerDrapeaux: o.chargerDrapeaux } : {}),
     ...(o.prechargerDrapeaux ? { prechargerDrapeaux: o.prechargerDrapeaux } : {}),
@@ -1202,5 +1207,127 @@ describe('séance : le manifeste des drapeaux pas encore lu (lot 2)', () => {
     await m2.seances.completer();
     expect(m2.seances.incertains()).toEqual([]);
     expect(m2.seances.comptes()).toEqual(avec);
+  });
+});
+
+// Le sujet Océans et mers (lot 3b, partie A ; étude J2 § 6.1 et 6.3) : ses
+// grappes (les océans d'abord, puis les mers par bassin), la couche marine
+// lue et posée sur le monde avant la séance, des fiches mers: seulement, le
+// bilan par les noms des mers ; ses grappes nouvelles s'ouvrent par Apprendre
+// seul (défaut D46 b), aucun prérequis (D39 : rien pour les mers), et le
+// plafond commun des introductions tient avec quatre sujets du monde.
+describe('séance : le sujet Océans et mers (lot 3b)', () => {
+  beforeEach(() => {
+    installerDom();
+    oublierMers(async (f) => readFileSync(`public/geo/${f}`, 'utf8'));
+  });
+  afterEach(() => {
+    oublierMers();
+    vi.unstubAllGlobals();
+  });
+  const grappes = grappesPays(monde.entites.map((e) => e.pays));
+  const noter = (m: Awaited<ReturnType<typeof monter>>, fiches: string[], ts: number, note: 1 | 3 = 3) =>
+    m.memoire.ecrire(fiches.map((f) => evenementReponse({ seance: null, appareil: m.memoire.appareil, horloge: () => ({ ts, tz: 240 }), nouvelId: () => m.memoire.nouvelId() }, f, 'rappel', { correct: note > 1, duree_ms: 1000 }, note)));
+  /** Un monde à soi, sans mers, et le chargeur de main.ts : la couche lue (mers.ts), puis posée (donnees.mers). */
+  function avecMers(depot?: Depot) {
+    const d: DonneesCarte = { ...monde, mers: [] };
+    const chargeur = vi.fn(async () => {
+      d.mers = (await chargerMers()).mers;
+    });
+    return { d, chargeur, m: monter(depot, { monde: d, chargerMers: chargeur }) };
+  }
+  const APPRENDRE = { sorte: 'apprendre' as const, sujet: 'mers', serie: serieMers() };
+
+  it('Apprendre Océans et mers : la couche lue et posée avant (besoins, charger), puis la grappe « Océans » ; mers: seulement ; le bilan par les noms', async () => {
+    const { d, chargeur, m: mp } = avecMers();
+    const m = await mp;
+    expect(m.seances.besoins(APPRENDRE)).toEqual(['mers']);
+    // Sans la couche : le message des données du sujet, jamais une séance à vide.
+    expect(m.seances.ouvrir(APPRENDRE)).toEqual({ refus: textes.toucher.echec_sujet, reviser: 0 });
+    await m.seances.charger!(APPRENDRE);
+    expect(chargeur).toHaveBeenCalledTimes(1);
+    expect(d.mers).toHaveLength(50);
+    expect(m.seances.charger!(APPRENDRE)).toBeNull();
+    const p = m.seances.ouvrir(APPRENDRE) as PiloteSeance;
+    // Aucun prérequis (D39) : pas de conseil.
+    expect(p.conseil).toBeNull();
+    const oceans = grappesMers(d.mers.map((e) => e.pays))[0]!;
+    expect(oceans.id).toBe(GRAPPE_OCEANS);
+    const premiere = p.question()!;
+    expect(premiere.forme).toBe('qcm');
+    // Le rappel des océans cadré sur l'union de leurs emprises.
+    expect(premiere.cadrer).not.toBeNull();
+    const { questions } = jouer(p, { rate: 'indien' });
+    expect(questions.every((q) => (q as { domaine?: string }).domaine === 'mers' && (q.terrain ?? 'monde') === 'monde')).toBe(true);
+    expect(new Set(questions.map((q) => q.id))).toEqual(new Set(['atlant', 'pacif', 'indien', 'arctique', 'austral']));
+    await m.memoire.ecrire([]);
+    const evts = await m.depot.tous();
+    expect(evts.length).toBe(questions.length);
+    expect(evts.every((e) => e.fiche.startsWith('mers:'))).toBe(true);
+    p.terminer();
+    const el = new El('div');
+    p.bilan(el as never, { continuer: vi.fn(), carte: vi.fn(), autre: vi.fn() });
+    const txt = el.innerText;
+    expect(txt).toContain('Apprendre · Océans et mers');
+    expect(txt).toContain('océan Atlantique');
+    expect(txt).toContain('océan Indien : touchée à 300');
+    sansBrut(txt, IDS_MERS);
+    // La grappe du jour faite : la suivante demain (une grappe de mers par jour, à part de celle des pays).
+    expect((m.seances.ouvrir(APPRENDRE) as RefusSeance).refus).toBe(S.grappe_faite);
+    expect(m.seances.comptes({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') })?.nouveaux).toBeGreaterThan(0);
+  });
+
+  it('D46 b : la Révision du jour n’ouvre jamais une grappe de mers (celle des pays seule) ; elle reprend celle qu’Apprendre a entamée', async () => {
+    const { m: mp } = avecMers();
+    const m = await mp;
+    await m.seances.charger!(APPRENDRE);
+    const vierge = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions as { domaine?: string }[];
+    expect(vierge.length).toBeGreaterThan(0);
+    expect(vierge.every((q) => q.domaine === 'pays')).toBe(true);
+    const { m: mp2 } = avecMers();
+    const m2 = await mp2;
+    await m2.seances.charger!(APPRENDRE);
+    const a = m2.seances.ouvrir(APPRENDRE) as PiloteSeance;
+    // Quittée après le QCM et un rappel : la grappe des océans entamée.
+    let rappels = 0;
+    for (let q = a.question(); q && rappels < 1; q = a.question()) {
+      if (q.forme === 'trouver') rappels++;
+      a.repondre(juste(q.id, q.forme === 'trouver' ? 'localiser' : 'nommer'));
+    }
+    a.terminer();
+    const qs = jouer(m2.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions as { id: string; domaine?: string }[];
+    const mers = qs.filter((q) => q.domaine === 'mers').map((q) => q.id);
+    expect(mers.length).toBeGreaterThan(0);
+    for (const id of mers) expect(['atlant', 'pacif', 'indien', 'arctique', 'austral']).toContain(id);
+  });
+
+  it('le lendemain : la Révision du jour charge la couche (besoins), pose les cartes retournées des mers ; plafond commun des 15 introductions tenu avec quatre sujets du monde', async () => {
+    const { chargeur, m: mp } = avecMers();
+    const m = await mp;
+    const monde6 = grappes.flatMap((g) => g.membres).filter((id) => !['DJI', 'GTM', 'KWT', 'LUX', 'MCO', 'PAN', 'SGP', 'SMR', 'VAT'].includes(id)).slice(0, 6);
+    await noter(m, [...['atlant', 'pacif', 'indien', 'arctique', 'austral'].map((id) => `mers:${id}:localiser`), ...monde6.map((id) => `drapeaux:${id}:localiser`)], T0 - 2 * JOUR_MS);
+    await noter(m, ['pays', 'capitales'].flatMap((d) => monde6.map((id) => `${d}:${id}:localiser`)), T0 - JOUR_MS);
+    expect(m.seances.besoins({ sorte: 'revision' })).toContain('mers');
+    await m.seances.charger!({ sorte: 'revision' });
+    expect(chargeur).toHaveBeenCalledTimes(1);
+    // 5 + 6 + 12 = 23 fiches « Reconnaître » à introduire : 15 aujourd'hui, les plus anciennes (océans et drapeaux) d'abord.
+    expect(m.seances.comptes()?.aRevoir).toBe(INTRODUCTIONS_PAR_JOUR);
+    const qs = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions.filter((q) => q.forme === 'retournee') as { id: string; domaine?: string }[];
+    expect(qs).toHaveLength(INTRODUCTIONS_PAR_JOUR);
+    expect(qs.filter((q) => q.domaine === 'mers').map((q) => q.id).sort()).toEqual(['arctique', 'atlant', 'austral', 'indien', 'pacif']);
+    expect(qs.filter((q) => q.domaine === 'drapeaux')).toHaveLength(6);
+    expect(qs.filter((q) => q.domaine === 'pays' || q.domaine === 'capitales')).toHaveLength(4);
+    // Le reliquat (8) attend demain : plus rien à revoir aujourd'hui.
+    expect(m.seances.comptes()?.aRevoir).toBe(0);
+  });
+
+  it('hors ligne : la Révision du jour s’ouvre sans les mers (elles restent à introduire), sans lever', async () => {
+    const d: DonneesCarte = { ...monde, mers: [] };
+    const m = await monter(undefined, { monde: d, chargerMers: () => Promise.reject(new Error('hors ligne')) });
+    await noter(m, ['atlant', 'pacif'].map((id) => `mers:${id}:localiser`), T0 - JOUR_MS);
+    await expect(m.seances.charger!({ sorte: 'revision' })).resolves.toBeDefined();
+    const qs = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions as { domaine?: string }[];
+    expect(qs.some((q) => q.domaine === 'mers')).toBe(false);
+    expect(m.seances.comptes()?.aRevoir).toBe(2);
   });
 });

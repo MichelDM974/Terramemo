@@ -1,7 +1,7 @@
 // L'arbre de l'écran « Jouer » (pur ; décision « Écran Jouer », ticket #18) :
 // un choix par écran, d'abord la branche (Entraînement ou Classé), puis le
-// sujet (Pays, Capitales, Drapeaux, Communes ; plus tard Océans et mers…), la
-// série (Tous les pays puis les continents ; La Réunion), et l'exercice en
+// sujet (Pays, Capitales, Drapeaux, Océans et mers, Communes), la série (Tous
+// les pays puis les continents ; La Réunion ; la série unique des mers, sautée), et l'exercice en
 // dernier. Déclaratif : un sujet de plus est une entrée de SUJETS (ses séries,
 // ses exercices par branche), son nom (textes.jouer.sujets) et son rendu
 // (src/vues/sujets.ts, textes.sujets), pas du code de vue. Un niveau de choix à une seule option est sauté (Communes mène
@@ -12,7 +12,7 @@
 import { MODES_EPREUVE, sujetOuvert, type ModeEpreuve } from '../epreuve/chrono';
 import { estDomaine } from '../srs/fiches';
 import type { NomTerrain } from '../map/types';
-import { nomSerie, type Serie } from './cibles';
+import { nomSerie, serieMers, type Serie } from './cibles';
 import { nomMode } from './scores';
 import { compteSerie, estSujetRendu } from './sujets';
 import { textes } from './textes';
@@ -68,6 +68,10 @@ export const SUJETS: readonly DefSujet[] = [
   // Drapeaux (étude J2 § 7.2, lot 2) : les séries des pays (195 jouables, « 54 drapeaux » en Afrique) ; ses épreuves
   // classées ouvertes comme celles des capitales (creerArbre, sujetOuvert).
   { id: 'drapeaux', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
+  // Océans et mers (étude J2 § 7.2, lot 3b) : une série unique de 50 (D44 a), son niveau sauté comme celui de
+  // Communes ; Apprendre (ses grappes, grappesMers), Trouver, Reconnaître. Sous Classé quand ses épreuves seront
+  // ouvertes (EPREUVES_SUJETS : partie B), pas avant (creerArbre, sujetOuvert).
+  { id: 'mers', series: () => [serieMers()], modes: AVEC_APPRENDRE },
   { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];
 

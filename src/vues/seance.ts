@@ -25,14 +25,18 @@
 // comme avant ; 4. la grappe de pays nouvelle, s'il ne reste aucune révision.
 // Les grappes nouvelles des autres sujets ne s'ouvrent que par Apprendre.
 // Tant que le monde n'a qu'un sujet jouable, les blocs sont ceux d'avant.
+// Les océans et mers (lot 3b) : leurs grappes (grappesMers : les océans, puis
+// les mers par bassin), sur le monde, la couche marine lue et posée sur la
+// carte avant la séance ; aucun prérequis (D39 : rien pour les mers).
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
 import { chargerDrapeaux, drapeauxCharges, prechargerJustes } from '../map/drapeaux';
 import type { DonneesCarte } from '../map/donnees';
-import { empriseGrappe, type Emprise } from '../map/geo';
+import { empriseGrappe, unionEmprises, type Emprise } from '../map/geo';
+import { empriseMer } from '../map/mers';
 import type { Lieu, NomTerrain } from '../map/types';
 import type { Memoire } from '../journal/memoire';
 import { analyser, DOMAINES_JOUABLES, estDomaine, former, jouablesDu, type Domaine } from '../srs/fiches';
-import { grappesCommunes, grappesPays, type Grappe } from '../srs/grappes';
+import { grappesCommunes, grappesMers, grappesPays, type Grappe } from '../srs/grappes';
 import {
   dues,
   entreesDuJour,
@@ -88,7 +92,7 @@ export interface Seances extends FabriqueSeances {
    * Les domaines dont la demande a besoin des données, hors du monde
    * toujours là (chargées ou non) : les communes (Apprendre sous La Réunion,
    * communes dues, à introduire ou grappe de communes commencée ce jour), les
-   * capitales et les drapeaux (de même) ; plus tard la couche marine.
+   * capitales, les drapeaux et la couche marine (de même).
    */
   besoins(d: DemandeSeance): Domaine[];
   /**
@@ -117,6 +121,12 @@ export interface OptionsSeances {
   chargerCapitales?: () => Promise<unknown>;
   /** Lit le manifeste des drapeaux (chargerDrapeaux par défaut ; les tests : un échec, une attente). */
   chargerDrapeaux?: () => Promise<unknown>;
+  /**
+   * Lit la couche marine et la pose sur la carte du monde (main.ts :
+   * commun.ts poserMers, donnees.mers rempli), avant une séance qui a des
+   * fiches de mers ; sans lui, elles attendent (comme hors ligne).
+   */
+  chargerMers?: () => Promise<unknown>;
   /** Précharge les drapeaux de ces pays (prechargerJustes par défaut : tous leurs justes ; les tests : un espion). */
   prechargerDrapeaux?: (ids: readonly string[]) => void;
   /**
@@ -186,8 +196,21 @@ export function creerSeances(o: OptionsSeances): Seances {
     if (!i) duPays.set(d, (i = infoDomaine(d, 'monde', o.monde, pays.toutes)));
     return i;
   };
+  /** Les océans et mers, une fois la couche posée sur le monde (o.monde.mers) : leurs grappes et l'emprise de leurs zones. */
+  let mers: InfoDomaine | null = null;
+  const infoMers = (): InfoDomaine | null => {
+    const zones = o.monde.mers ?? [];
+    if (!zones.length) return null;
+    if (!mers) {
+      const ms = zones.map((e) => e.pays);
+      // Le cadrage d'une grappe de mers : l'union de leurs emprises (empriseMer : un océan avec la mer qu'il enclave).
+      const emprise = (ids: readonly string[]) => unionEmprises(ids.map((id) => empriseMer(id, ms)).filter((e): e is Emprise => e !== null));
+      mers = { domaine: 'mers', terrain: 'monde', donnees: o.monde, toutes: grappesMers(ms), emprise };
+    }
+    return mers;
+  };
   const toujoursLa = (info: () => InfoDomaine): SourceDomaine => ({ info, aCharger: false, charger: () => Promise.resolve() });
-  /** La source de chaque domaine ; null : pas encore posable (les mers : leurs grappes et la couche marine au lot 3b). */
+  /** La source de chaque domaine ; null : pas encore posable. */
   function source(d: Domaine): SourceDomaine | null {
     switch (d) {
       case 'pays':
@@ -201,7 +224,8 @@ export function creerSeances(o: OptionsSeances): Seances {
       case 'communes':
         return { info: infoCommunes, aCharger: true, charger: () => o.charger?.('reunion') ?? Promise.reject(new Error('île : pas de chargeur')) };
       case 'mers':
-        return null;
+        // Les grappes des mers et ce que montrent leurs questions : la couche marine, lue et posée sur la carte avant la séance.
+        return { info: infoMers, aCharger: true, charger: () => o.chargerMers?.() ?? Promise.reject(new Error('mers : pas de chargeur')) };
     }
   }
 

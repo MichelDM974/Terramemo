@@ -6,9 +6,15 @@
 // /geo/reunion/ au premier affichage (décision « Hébergement »). Les capitales
 // (étude J2 § 7.3) : une ligne par capitale juste, avec ses alias (Kyiv,
 // Beijing), chargées à la première frappe ; choisie, une capitale montre son
-// pays et un anneau au point de la ville (D53 c). Les villes viendront au J4.
+// pays et un anneau au point de la ville (D53 c). Les océans et mers (§ 7.3) :
+// une ligne par zone, avec sa sorte (« océan », « golfe », « bras de mer »…) et
+// ses alias (« mer d'Oman » pour la mer d'Arabie), lus à la première frappe
+// (mers.json et mers.fr.json, sans géométrie) ; choisie, une mer est cadrée
+// par son emprise et allumée (explorer.ts : la couche fine posée d'abord).
+// Les villes viendront au J4.
 import { chargerCapitales, type DonneesCapitales } from '../map/capitales';
 import type { DonneesCarte } from '../map/donnees';
+import { chargerInfosMers, type InfosMers } from '../map/mers';
 import { REUNION } from '../map/terrain';
 import type { NomTerrain } from '../map/types';
 import { chercherLieux } from '../texte';
@@ -65,6 +71,17 @@ export function lieuxCapitales(c: DonneesCapitales, nomsPays: Readonly<Record<st
   });
 }
 
+/** Les océans et mers : une ligne par zone, avec sa sorte (textes.mers.sortes) et ses alias. */
+export function lieuxMers(m: InfosMers): LieuTrouve[] {
+  const sortes = textes.mers.sortes as Readonly<Record<string, string>>;
+  return m.zones.flatMap((z) => {
+    const nom = m.noms[z.id];
+    if (!nom) return [];
+    const alias = m.alias[z.id];
+    return [{ terrain: 'monde' as const, id: z.id, nom, detail: sortes[z.sorte] ?? z.sorte, ...(alias?.length ? { alias } : {}) }];
+  });
+}
+
 /**
  * Branche le champ de l'en-tête (index.html : #recherche-champ dans .recherche) :
  * la liste se remplit à chaque frappe ; flèches, Entrée et Échap au clavier ;
@@ -77,6 +94,8 @@ export function brancherRecherche(o: {
   choisir: (l: LieuTrouve) => void;
   /** Les capitales (tests : un chargeur) ; src/map/capitales.ts par défaut. */
   capitales?: () => Promise<DonneesCapitales>;
+  /** Les noms et sortes des mers (tests : un chargeur) ; chargerInfosMers (src/map/mers.ts) par défaut. */
+  mers?: () => Promise<InfosMers>;
 }): void {
   const { champ } = o;
   const boite = champ.closest('.recherche') ?? champ.parentElement!;
@@ -126,6 +145,20 @@ export function brancherRecherche(o: {
       })
       .catch(() => {
         capitales = null;
+      });
+  }
+
+  let mers: Promise<void> | null = null;
+  /** Les océans et mers, à la première frappe : un échec (hors ligne) se retente à la suivante. */
+  function chargerLesMers(): void {
+    if (mers) return;
+    mers = (o.mers ?? chargerInfosMers)()
+      .then((m) => {
+        lieux = [...lieux, ...lieuxMers(m)];
+        if (!liste.hidden) afficher();
+      })
+      .catch(() => {
+        mers = null;
       });
   }
 
@@ -188,6 +221,7 @@ export function brancherRecherche(o: {
   champ.addEventListener('input', () => {
     chargerCommunes();
     chargerLesCapitales();
+    chargerLesMers();
     afficher();
   });
   champ.addEventListener('blur', fermer);

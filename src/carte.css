@@ -651,8 +651,10 @@ body[data-terrain="reunion"] .essai-bilan {
 .vignette-limites { fill: none; stroke: var(--vignette-trait); stroke-width: 0.6px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 /* Les capitales en points (vignette du sujet Capitales, D53 a) : un disque de 2,5 px à toute taille. */
 .vignette-points { fill: none; stroke: var(--text); stroke-width: 2.5px; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.jouer-bouton:hover .vignette-serie { fill: var(--vignette-serie-survol); }
-.jouer-bouton[aria-current="true"] .vignette-serie { fill: var(--vignette-serie-choisie); }
+/* Les mers éclairées sous les terres (vignette du sujet Océans et mers, D53 a) : la teinte d'une série, sans trait. */
+.vignette-eaux { fill: var(--vignette-serie); }
+.jouer-bouton:hover .vignette-serie, .jouer-bouton:hover .vignette-eaux { fill: var(--vignette-serie-survol); }
+.jouer-bouton[aria-current="true"] .vignette-serie, .jouer-bouton[aria-current="true"] .vignette-eaux { fill: var(--vignette-serie-choisie); }
 /* Entraînement et Classé : l'icône en grand au-dessus du nom, au centre. */
 .jouer-branche { font-size: calc(var(--j-nom) * 1.12); }
 .jouer-branche .jouer-corps { justify-content: center; gap: 10px; padding: 16px; }

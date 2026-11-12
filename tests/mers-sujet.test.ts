@@ -4,7 +4,7 @@
 // descendant, jamais la mer d'Arabie et le golfe d'Oman ensemble), ses
 // parties en zones admises du seul sujet Mers et leur rétroaction (« Juste :
 // mer des Caraïbes, dans l'Atlantique »), notées par la carte sur les données
-// réelles.
+// réelles, et ses grappes (les océans d'abord, puis les bassins dans l'ordre).
 import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
@@ -16,6 +16,8 @@ import { assemblerMers, IDS_MERS, parenteMer, zonesParties } from '../src/map/me
 import { calculerPastilles } from '../src/map/pastilles';
 import { noter, type ContexteCarte } from '../src/map/pick';
 import { cadre, placer, projectionDe, transfoDe } from '../src/map/vue';
+import { GRAPPE_OCEANS, grappesMers, ORDRE_BASSINS } from '../src/srs/grappes';
+import { DOMAINES_JOUABLES, jouablesDu } from '../src/srs/fiches';
 import { fmtKm, optionsNoter, texteAdmis, zonesDuSujet } from '../src/vues/commun';
 import { choix } from '../src/vues/qcm';
 import { dansZone, rendu, type RenduSujet } from '../src/vues/sujets';
@@ -37,6 +39,11 @@ describe('les 50 zones', () => {
   it('IDS_MERS : les ids de mers.json, dans son ordre (la série « mers » sans rien charger)', () => {
     expect(IDS_MERS).toEqual((lire('mers.json') as { id: string }[]).map((m) => m.id));
     expect(IDS_MERS).toHaveLength(50);
+  });
+
+  it('les mers sont jouables, sur le monde, dans l’ordre des sujets de Jouer (D53 b)', () => {
+    expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(jouablesDu('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'mers']);
   });
 });
 
@@ -236,5 +243,39 @@ describe('parties d’une mer : zones admises du seul sujet Mers, et leur rétro
       const med = au([18, 34], 4);
       expect(noter(med.ctx, 'atlant', med.x, med.y, optionsNoter(rs, terrain, 'atlant')).juste).toBe(false);
     });
+  });
+});
+
+describe('grappes des mers (§ 6.1)', () => {
+  const g = grappesMers(zones);
+
+  it('d’abord « Océans » : les cinq océans, puis les mers par bassin, dans l’ordre Atlantique, Indien, Pacifique, Arctique', () => {
+    expect(g[0]!.id).toBe(GRAPPE_OCEANS);
+    expect([...g[0]!.membres].sort()).toEqual(['arctique', 'atlant', 'austral', 'indien', 'pacif']);
+    expect(ORDRE_BASSINS).toEqual(['atlant', 'indien', 'pacif', 'arctique']);
+    const bassins = g.slice(1).map((x) => x.groupes[0]);
+    expect([...new Set(bassins)]).toEqual(['atlant', 'indien', 'pacif', 'arctique']);
+    // Chaque bassin d'un seul tenant : jamais un retour à un bassin déjà passé.
+    for (let i = 2; i < g.length; i++) expect(ORDRE_BASSINS.indexOf(g[i]!.groupes[0]!)).toBeGreaterThanOrEqual(ORDRE_BASSINS.indexOf(g[i - 1]!.groupes[0]!));
+    // Une mer d'un bassin est dans une grappe de ce bassin.
+    for (const x of g.slice(1)) for (const id of x.membres) expect(zones.find((m) => m.id === id)!.bassin, id).toBe(x.groupes[0]);
+  });
+
+  it('les 50 zones chacune dans une grappe et une seule ; 5 à 9 par grappe ; toutes de la série « mers »', () => {
+    const tous = g.flatMap((x) => x.membres);
+    expect(tous).toHaveLength(50);
+    expect(new Set(tous)).toEqual(new Set(IDS_MERS));
+    for (const x of g) {
+      expect(x.continent).toBe('mers');
+      expect(x.membres.length, x.id).toBeGreaterThanOrEqual(5);
+      expect(x.membres.length, x.id).toBeLessThanOrEqual(9);
+    }
+  });
+
+  it('déterministe : les mêmes grappes quel que soit l’ordre des zones', () => {
+    const melange = [...zones].reverse();
+    expect(grappesMers(melange)).toEqual(g);
+    const autre = [...zones].sort((a, b) => (a.superficie_km2 % 7) - (b.superficie_km2 % 7) || (a.id < b.id ? 1 : -1));
+    expect(grappesMers(autre)).toEqual(g);
   });
 });

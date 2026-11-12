@@ -7,23 +7,38 @@
 // posées ici et retirées en partant (aucune autre vue ne les voit), sa légende
 // à part et « Vu 4 fois · revient dans 5 j » sous la zone touchée. Le choix du
 // sujet (étude J2 § 6.4, D47 a) en tête de la légende, seulement quand le
-// terrain a plusieurs sujets jouables.
+// terrain a plusieurs sujets jouables ; avec « Mers », la couche marine se
+// charge, posée sur la carte, et ses zones sont teintées (les pays neutres).
+//
+// Toucher l'eau du monde donne le nom de la mer (D45 a) : la couche légère
+// seule (mers-leger.topo.json, mers.json, mers.fr.json : ≈ 25 Ko), lue au
+// premier toucher en mer seulement, jamais au premier affichage ni pour un
+// toucher sur un pays ; le nom suit le chargement. La couche fine sert si
+// elle est déjà lue. Rien d'autre ne change à l'écran : aucune frontière
+// entre mers, aucun calque marin dessiné (sauf la mémoire des mers choisie).
+// Une mer choisie dans la recherche : la couche fine posée, son emprise
+// cadrée, la zone allumée (zonesAllumees).
+import { versEcran, versLonLat } from '../map/geo';
+import { chargerMersLegeres, estIdMer, mersPourNommer, nomsMersCharges } from '../map/mers';
 import { NB_SEAUX } from '../map/teintes';
 import { estDomaine, type Domaine } from '../srs/fiches';
 import { tailleEcranPx } from '../map/pastilles';
-import type { Via } from '../map/pick';
-import type { NomTerrain } from '../map/types';
+import { pickMer, type ResultatPick, type Via } from '../map/pick';
+import type { Lieu, NomTerrain } from '../map/types';
 import type { Terrain } from '../terrains';
 import type { CarteMemoire } from './carte-memoire';
-import { ANNEAU_SOUS_PX, creer, LIBELLE_STATUT, type ContexteVue, type Vue } from './commun';
+import { ANNEAU_SOUS_PX, anneauZone, creer, LIBELLE_STATUT, merPosee, mersPosees, poserMers, type ContexteVue, type Vue } from './commun';
 import { rendu, SUJET_CARTE } from './sujets';
 import { textes } from './textes';
 
 const C = textes.carte;
 const M = textes.memoire;
 
-/** Le nom d'un sujet dans le choix de la légende : celui de Jouer (« Pays », « Communes »). */
-const nomSujet = (d: Domaine): string => (textes.jouer.sujets as Partial<Record<string, { nom: string }>>)[d]?.nom ?? d;
+/** Le nom d'un sujet dans le choix de la légende : celui de Jouer, court s'il en a un (« Pays », « Communes », « Mers »). */
+const nomSujet = (d: Domaine): string => {
+  const s = (textes.jouer.sujets as Partial<Record<string, { nom: string; court?: string }>>)[d];
+  return s?.court ?? s?.nom ?? d;
+};
 
 export interface VueExplorer extends Vue {
   /**
@@ -77,6 +92,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   let t: Terrain = ctx.terrains.monde;
   /** Change à chaque lieu demandé ou sortie : un chargement de l'île arrivé après ne montre rien. */
   let jeton = 0;
+  /** Change à chaque toucher : le nom d'une mer arrivé après un autre toucher ne s'affiche pas. */
+  let touches = 0;
   /** La vue est affichée (entre activer et desactiver). */
   let active = false;
   /** Les terrains dont la carte porte les teintes de la mémoire : à effacer en partant. */
@@ -93,6 +110,16 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     if (seaux) {
       t.carte.teinter(seaux);
       teintes.add(t);
+      // La mémoire des mers : la couche marine posée sur la carte (une fois), puis ses teintes relues.
+      if (m.sujet(t.nom) === 'mers' && t === ctx.terrains.monde) {
+        const j = jeton;
+        poserMers(ctx)?.then(
+          () => {
+            if (j === jeton && active) teinter();
+          },
+          () => undefined,
+        );
+      }
     } else t.carte.teinter(null);
     const compte = seaux ? m.maitrises(t.nom, t.jouables.length) : null;
     compteMaitrises.textContent = compte ?? '';
@@ -132,10 +159,11 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   function afficher(id: string, via: Via | null): void {
     viaAffiche = via;
     const e = t.donnees.entites.find((en) => en.pays.id === id);
-    // Le nom par le sujet qui nomme les zones de ce terrain (sujets.ts) : les pays, les communes.
-    nom.textContent = rendu(SUJET_CARTE[t.nom], t.donnees).lieu(id);
+    const mer = estIdMer(id);
+    // Le nom par le sujet qui nomme les zones de ce terrain (sujets.ts) : les pays, les communes ; une mer par mers.fr.json.
+    nom.textContent = mer ? (nomsMersCharges()?.[id] ?? C.mer) : rendu(SUJET_CARTE[t.nom], t.donnees).lieu(id);
     const statut = e ? LIBELLE_STATUT[e.pays.statut] : '';
-    const memoire = o.memoire?.detail(t.nom, id, e?.pays.statut === 'jouable') ?? '';
+    const memoire = o.memoire?.detail(t.nom, id, mer || e?.pays.statut === 'jouable') ?? '';
     detail.textContent = [statut, via === 'pastille' ? C.par_pastille : via === 'proche' ? C.au_plus_pres : '', memoire].filter(Boolean).join(' · ');
     barre.dataset.id = id;
   }
@@ -147,7 +175,11 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     vider();
   }
 
-  /** La zone en accent, la carte qui vole jusqu'à elle au-dessus de la barre, un anneau si elle reste minuscule. */
+  /**
+   * La zone en accent (une mer : ce qu'elle allume), la carte qui vole jusqu'à
+   * elle au-dessus de la barre (une mer : son emprise), un anneau si elle
+   * reste minuscule.
+   */
   function montrer(terrain: Terrain, id: string, point?: [number, number]): void {
     aller(terrain);
     t.carte.marquer(id, 'choisi');
@@ -156,9 +188,48 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     const carte = t.carte;
     carte.montrer(id, barre.getBoundingClientRect().top - carte.hote.getBoundingClientRect().top);
     // Jugé à l'arrivée du vol : le Vatican reste un point même au zoom de montrer().
-    const e = t.donnees.entites.find((en) => en.pays.id === id);
+    const e: Lieu | undefined = t.donnees.entites.find((en) => en.pays.id === id)?.pays ?? merPosee(t.donnees, id);
     const fin = carte.contexteFinal();
-    if (e && tailleEcranPx(e.pays, fin.proj.scale(), fin.t.k) < ANNEAU_SOUS_PX) carte.anneau(id, 'choisi');
+    if (e && tailleEcranPx(e, fin.proj.scale(), fin.t.k) < ANNEAU_SOUS_PX) anneauZone(carte, id, e, 'choisi');
+  }
+
+  /** Le toucher d'une mer nommée (pickMer) : son nom ; « Mer » si rien ne la désigne. Allumée seulement avec la mémoire des mers (sa couche fine posée). */
+  function afficherMer(r: ResultatPick | null): void {
+    if (!r || !estIdMer(r.id)) {
+      nom.textContent = C.mer;
+      detail.textContent = '';
+      delete barre.dataset.id;
+      return;
+    }
+    if (mersPosees(ctx.donnees).length && o.memoire?.sujet(t.nom) === 'mers') t.carte.marquer(r.id, 'choisi');
+    afficher(r.id, r.via === 'proche' ? 'proche' : null);
+  }
+
+  /**
+   * Un toucher dans l'eau du monde (pick n'y désigne rien) : la mer sous le
+   * doigt (D45 a), par la couche déjà là (posée, fine ou légère lue), sinon
+   * la légère lue maintenant ; le point touché est gardé en [lon, lat] et
+   * relu sur la carte d'alors (un geste entre-temps). Un autre toucher ou une
+   * sortie avant l'arrivée : rien.
+   */
+  function nommerMer(x: number, y: number): void {
+    const c0 = t.carte.contexte();
+    const ll = versLonLat(c0.proj, c0.t, x, y);
+    const deja = mersPosees(ctx.donnees).length ? mersPosees(ctx.donnees) : (mersPourNommer()?.mers ?? null);
+    if (!ll || deja) return afficherMer(ll && deja ? pickMer({ ...c0, mers: deja }, '', x, y, new Set()) : null);
+    afficherMer(null);
+    const [j, k] = [jeton, touches];
+    const carte = t.carte;
+    chargerMersLegeres().then(
+      (couche) => {
+        if (j !== jeton || k !== touches || !active) return;
+        const c = carte.contexte();
+        const b = c.proj(ll);
+        const [sx, sy] = b ? versEcran(c.t, b[0], b[1]) : [x, y];
+        afficherMer(pickMer({ ...c, mers: couche.mers }, '', sx, sy, new Set()));
+      },
+      () => undefined,
+    );
   }
 
   monde.addEventListener('click', () => {
@@ -192,6 +263,23 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     },
     montrerLieu(terrain, id, point) {
       const j = ++jeton;
+      if (terrain === 'monde' && estIdMer(id)) {
+        // Une mer : la couche fine posée sur la carte d'abord (une fois), son chargement dit dans la barre.
+        const p = poserMers(ctx);
+        if (!p) return montrer(ctx.terrains.monde, id);
+        aller(ctx.terrains.monde);
+        nom.textContent = '';
+        detail.textContent = textes.toucher.chargement_sujet;
+        p.then(
+          () => {
+            if (j === jeton) montrer(ctx.terrains.monde, id);
+          },
+          () => {
+            if (j === jeton) detail.textContent = textes.toucher.echec_sujet;
+          },
+        );
+        return;
+      }
       if (terrain === 'monde') return montrer(ctx.terrains.monde, id, point);
       const deja = ctx.terrains.deja(terrain);
       if (deja) return montrer(deja, id);
@@ -209,13 +297,16 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     },
     toucher(x, y, ev) {
       const carte = t.carte;
+      // Un nouveau toucher : le nom d'une mer encore en chargement pour le précédent ne s'affichera pas.
+      touches++;
       ctx.mesures.toucher(ev, x, y, () => {
         const r = carte.pick(x, y);
         carte.effacerMarques();
         if (r) {
           carte.marquer(r.id, 'choisi');
           afficher(r.id, r.via);
-        } else {
+        } else if (t === ctx.terrains.monde) nommerMer(x, y);
+        else {
           nom.textContent = C.mer;
           detail.textContent = '';
           delete barre.dataset.id;

@@ -6,7 +6,8 @@ import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/m
 import type { DonneesCarte } from '../src/map/donnees';
 import type { Pays } from '../src/map/types';
 import { chercherLieux, MAX_SUGGESTIONS } from '../src/texte';
-import { brancherRecherche, lieuxCapitales, lieuxMonde, lieuxReunion, type LieuTrouve } from '../src/vues/recherche';
+import { assemblerInfos, type InfosMers } from '../src/map/mers';
+import { brancherRecherche, lieuxCapitales, lieuxMers, lieuxMonde, lieuxReunion, type LieuTrouve } from '../src/vues/recherche';
 import { El, installerDom } from './dom-factice';
 
 const lieu = (nom: string) => ({ nom });
@@ -176,6 +177,71 @@ describe('recherche : les capitales', () => {
       expect(capitales).toHaveBeenCalledTimes(2);
       await attendre();
       expect(r.options().map((o) => o.innerText)).toContain('La Pazsiège du gouvernement (Bolivie)');
+    });
+  });
+});
+
+// Les océans et mers (étude J2 § 7.3, lot 3b) : une ligne par zone, avec sa
+// sorte, ses alias cherchés ; lus à la première frappe (mers.json et
+// mers.fr.json seuls), comme les noms des communes.
+describe('recherche : les océans et mers', () => {
+  const infos: InfosMers = assemblerInfos({ mers: readFileSync('public/geo/mers.json', 'utf8'), fr: readFileSync('public/geo/mers.fr.json', 'utf8') });
+  const lignes = lieuxMers(infos);
+
+  it('une ligne par zone (50), sur la zone elle-même, avec sa sorte : « océan », « mer », « golfe », « baie », « bras de mer »', () => {
+    expect(lignes).toHaveLength(50);
+    expect(new Set(lignes.map((l) => l.id)).size).toBe(50);
+    expect(lignes.find((l) => l.id === 'atlant')).toEqual({ terrain: 'monde', id: 'atlant', nom: 'océan Atlantique', detail: 'océan' });
+    expect(lignes.find((l) => l.id === 'manche')).toEqual({ terrain: 'monde', id: 'manche', nom: 'Manche', detail: 'bras de mer' });
+    expect(lignes.find((l) => l.id === 'hudson')?.detail).toBe('baie');
+    expect(lignes.find((l) => l.id === 'persique')?.detail).toBe('golfe');
+    expect(lignes.find((l) => l.id === 'egee')?.detail).toBe('mer');
+    expect(new Set(lignes.map((l) => l.detail))).toEqual(new Set(['océan', 'mer', 'golfe', 'baie', 'bras de mer']));
+  });
+
+  it('les alias sont cherchés : « mer d’Oman » trouve la mer d’Arabie (pas le golfe d’Oman) ; « Manche », « egee » sans accent', () => {
+    expect(chercherLieux("mer d'Oman", lignes).map((l) => l.id)).toEqual(['arabie']);
+    expect(chercherLieux('oman', lignes).map((l) => l.id)).toEqual(expect.arrayContaining(['arabie', 'oman']));
+    expect(chercherLieux('manche', lignes).map((l) => l.id)).toEqual(['manche']);
+    expect(chercherLieux('egee', lignes).map((l) => l.id)).toEqual(['egee']);
+  });
+
+  describe('dans le champ de l’en-tête', () => {
+    beforeEach(() => installerDom());
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('rien de chargé au focus ; à la première frappe, une fois ; « Manche » choisie : la zone, sans point ; hors ligne, la frappe suivante relit', async () => {
+      const boite = new El('div');
+      boite.className = 'recherche';
+      const champ = Object.assign(new El('input'), { blur() {} });
+      boite.append(champ);
+      const choisis: LieuTrouve[] = [];
+      vi.stubGlobal('fetch', async () => {
+        throw new TypeError('hors ligne');
+      });
+      const mers = vi.fn<() => Promise<InfosMers>>().mockRejectedValueOnce(new Error('hors ligne')).mockResolvedValue(infos);
+      const monde = { entites: [], noms: {} } as unknown as DonneesCarte;
+      brancherRecherche({ champ: champ as unknown as HTMLInputElement, monde, choisir: (l) => void choisis.push(l), capitales: async () => Promise.reject(new Error('non')), mers });
+      const taper = (t: string) => {
+        champ.value = t;
+        champ.emettre('input');
+      };
+      const options = () => boite.querySelectorAll('[role="option"]');
+      const attendre = () => new Promise((r) => setTimeout(r, 0));
+      champ.emettre('focus');
+      expect(mers).not.toHaveBeenCalled();
+      taper('m');
+      expect(mers).toHaveBeenCalledTimes(1);
+      await attendre();
+      expect(options()).toHaveLength(0);
+      taper('ma');
+      expect(mers).toHaveBeenCalledTimes(2);
+      await attendre();
+      taper('manc');
+      expect(mers).toHaveBeenCalledTimes(2);
+      expect(options().map((o) => o.innerText)).toEqual(['Manchebras de mer']);
+      boite.querySelector('#recherche-liste')!.emettre('click', { target: options()[0] });
+      expect(choisis).toEqual([{ terrain: 'monde', id: 'manche', nom: 'Manche', detail: 'bras de mer' }]);
     });
   });
 });
