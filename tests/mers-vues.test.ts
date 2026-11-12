@@ -1,7 +1,8 @@
 // Le sujet Océans et mers dans les vues (étude J2, § 5.1 et § 5.4 ; lot 3b,
-// partie A) : Trouver, Reconnaître et une épreuve (vues/chrono.ts, dont le
-// chemin de rendu est celui de Trouver : prêt pour la partie B) passent par
-// le rendu des mers, sur la couche réelle (mers.fr.json) ; aucun id brut
+// parties A et B) : Trouver, Reconnaître et les épreuves classées
+// (vues/chrono.ts : Chrono et Sans faute, le chemin de rendu et de notation
+// de Trouver) passent par le rendu des mers, sur la couche réelle
+// (mers.fr.json) ; aucun id brut
 // affiché, bilans compris ; la partie d'une mer dite « Juste : mer des
 // Caraïbes, dans l'Atlantique » ; ce qu'on a touché nommé (« mer Noire »,
 // un pays), jamais « la mer ». La carte est factice : noter() rend la note
@@ -9,6 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { chargerMers, IDS_MERS, oublierMers, parenteMer, type CoucheMers } from '../src/map/mers';
+import { lireRecords } from '../src/epreuve/chrono';
 import type { Lancement } from '../src/vues/arbre';
 import type { ContexteVue } from '../src/vues/commun';
 import { vueEssai } from '../src/vues/essai';
@@ -54,6 +56,10 @@ function monde() {
     contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
     noter: (_id: string, _x: number, _y: number, o?: unknown) => (options.push(o), note),
   };
+  // Les cadrages demandés (vol vers une zone, zoom) : une épreuve des mers n'en fait aucun (il donnerait la réponse).
+  const cadrages: string[] = [];
+  carte.cadrer = (...a: unknown[]) => void cadrages.push(`cadrer ${JSON.stringify(a[0])}`);
+  carte.zoomer = (...a: unknown[]) => void cadrages.push(`zoomer ${JSON.stringify(a[0])}`);
   const donnees = { entites: [], noms: { ITA: 'Italie' }, mers: couche.mers };
   const t = { nom: 'monde', carte, donnees, jouables: [], credit: null };
   const zone = new El('main');
@@ -64,7 +70,7 @@ function monde() {
     terrains: { monde: t, actif: 'monde', montrer() {}, deja: () => null, charger: vi.fn() },
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() },
   } as unknown as ContexteVue;
-  return { ctx, t, zone, marques };
+  return { ctx, t, zone, marques, cadrages };
 }
 
 beforeEach(() => {
@@ -246,7 +252,7 @@ describe('cadrage d’une mer allumée sur son emprise (Reconnaître, carte reto
   });
 });
 
-describe('une épreuve des mers (vues/chrono.ts : le chemin de rendu de Trouver, prêt pour la partie B)', () => {
+describe('une épreuve des mers (vues/chrono.ts : le chemin de rendu et de notation de Trouver)', () => {
   it('« Touche : » et le nom ; la partie touchée dite juste ; une autre mer nommée ; le bilan par les noms, aucun id brut', () => {
     const m = monde();
     const v = vueChrono(m.ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer: vi.fn() });
@@ -275,6 +281,119 @@ describe('une épreuve des mers (vues/chrono.ts : le chemin de rendu de Trouver,
     const bilan = m.zone.querySelector('#chrono-bilan') ?? m.zone.querySelector('.essai-bilan');
     expect(bilan?.innerText).toContain('mer Méditerranée → mer Noire, à 0,0 km');
     sansBrut(bilan!.innerText, IDS_MERS);
+  });
+
+  /** Une épreuve des mers lancée comme Jouer la lance (Classé › Océans et mers), sur ces cibles. */
+  function epreuve(mode: 'chrono' | 'sansfaute', ids: string[]) {
+    const m = monde();
+    const v = vueChrono(m.ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer: vi.fn() });
+    v.activer();
+    v.lancer({ branche: 'classe', sujet: 'mers', serie: 'mers', mode }, serieMers(), m.t as never, ids);
+    const consigne = () => m.zone.querySelector('#barre-chrono .essai-consigne')!;
+    const retro = () => m.zone.querySelector('#barre-chrono .essai-retro')!.textContent;
+    const toucher = (n: Record<string, unknown>) => {
+      note = n;
+      v.toucher?.(1, 1, {} as PointerEvent);
+    };
+    const bilan = () => m.zone.querySelector('#chrono-bilan')!;
+    return { ...m, v, consigne, retro, toucher, bilan };
+  }
+  const CARAIBES = { juste: true, via: 'trace', pick: { id: 'caraibes', via: 'trace' }, distance_km: 0, admis: { zone: 'caraibes', tenant: 'caraibes', sorte: 'partie' } };
+  const NOIRE = { juste: false, via: null, pick: { id: 'noire', via: 'trace' }, distance_km: 0, admis: null };
+
+  it('Chrono des 50 : « Touche : » et le nom à chaque question ; la vue ne se cadre jamais sur la mer demandée ; bilan « Chrono · Océans et mers », record sous chrono:mers:mers', () => {
+    const p = epreuve('chrono', [...IDS_MERS]);
+    const vues = new Set<string>();
+    let fausses = 0;
+    for (let q = 0; q < 50; q++) {
+      vi.advanceTimersByTime(q ? 2_000 : 0);
+      const cible = p.consigne().dataset.cible as string;
+      vues.add(cible);
+      expect(p.consigne().textContent).toBe(`Touche : ${nom(cible)}`);
+      if (cible === 'atlant') {
+        p.toucher(CARAIBES);
+        expect(p.retro()).toBe("Juste : mer des Caraïbes, dans l'Atlantique");
+      } else if (cible === 'medit') {
+        fausses++;
+        p.toucher(NOIRE);
+        expect(p.retro()).toBe('Faux : mer Noire, à 0,0 km du bord');
+      } else p.toucher({ juste: true, via: 'trace', pick: { id: cible, via: 'trace' }, distance_km: 0, admis: null });
+    }
+    expect(vues).toEqual(new Set(IDS_MERS));
+    // Ni vol vers la mer demandée, ni zoom : une épreuve ne donne pas la réponse (comme pour les pays).
+    expect(p.cadrages).toEqual([]);
+    vi.advanceTimersByTime(5_000);
+    const b = p.bilan();
+    expect(b.hidden).toBe(false);
+    expect(b.querySelector('h2')!.textContent).toBe('Chrono · Océans et mers');
+    expect(b.innerText).toContain('49/50 · 98 %');
+    sansBrut(b.innerText, IDS_MERS);
+    const r = lireRecords(localStorage).get('chrono:mers:mers')!;
+    expect([r.points, r.justes, r.questions, fausses]).toEqual([49, 49, 50, 1]);
+  });
+
+  it('Sans faute : la mer des Caraïbes pour l’Atlantique, juste ; la mer Noire pour l’Atlantique, fausse et nommée, la partie finie ; bilan « Sans faute · Océans et mers », record sous sansfaute:mers:mers', () => {
+    const p = epreuve('sansfaute', ['atlant', 'atlant']);
+    expect(p.consigne().textContent).toBe('Touche : océan Atlantique');
+    p.toucher(CARAIBES);
+    expect(p.retro()).toBe("Juste : mer des Caraïbes, dans l'Atlantique");
+    // Les parties de l'Atlantique passées à noter() (OptionsNoter.acceptes), comme en Trouver.
+    const acceptes = (options[0] as { acceptes: ReadonlyMap<string, readonly { zone: string; sorte: string }[]> }).acceptes;
+    expect(acceptes.get('atlant')!.map((z) => z.zone)).toContain('caraibes');
+    expect(acceptes.get('atlant')!.map((z) => z.zone)).not.toContain('noire');
+    vi.advanceTimersByTime(1_000);
+    expect(p.consigne().textContent).toBe('Touche : océan Atlantique');
+    p.toucher(NOIRE);
+    expect(p.retro()).toBe('Faux : mer Noire, à 0,0 km du bord');
+    expect(p.marques).toEqual(['atlant:juste', 'noire:faux']);
+    expect(p.cadrages).toEqual([]);
+    vi.advanceTimersByTime(2_000);
+    const b = p.bilan();
+    expect(b.hidden).toBe(false);
+    expect(b.querySelector('h2')!.textContent).toBe('Sans faute · Océans et mers');
+    expect(b.innerText).toContain("1 d'affilée sur 50");
+    expect(b.innerText).toContain('océan Atlantique → mer Noire, à 0,0 km');
+    sansBrut(b.innerText, IDS_MERS);
+    const r = lireRecords(localStorage).get('sansfaute:mers:mers')!;
+    expect([r.points, r.justes, r.questions]).toEqual([1, 1, 2]);
+  });
+
+  it('les options de noter() en épreuve sont celles de Trouver (mêmes zones admises ; la terre à 12 px et le halo des petites mers se jugent dans le même noter())', () => {
+    const p = epreuve('chrono', ['medit']);
+    p.toucher(NOIRE);
+    const enEpreuve = options.at(-1) as { acceptes: ReadonlyMap<string, readonly unknown[]> };
+    const m = monde();
+    const v = vueEssai(m.ctx, { versJouer: vi.fn() });
+    v.activer();
+    v.lancer({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'localiser' }, serieMers(), m.t as never, ['medit']);
+    note = NOIRE;
+    v.toucher?.(1, 1, {} as PointerEvent);
+    const enTrouver = options.at(-1) as { acceptes: ReadonlyMap<string, readonly unknown[]> };
+    expect(enEpreuve).not.toBe(enTrouver);
+    // La Méditerranée : ses sous-mers (l'Adriatique) admises, dans les deux exercices.
+    expect(enEpreuve.acceptes.get('medit')!.map((z) => (z as { zone: string }).zone)).toContain('adriat');
+    expect([...enEpreuve.acceptes.entries()]).toEqual([...enTrouver.acceptes.entries()]);
+  });
+
+  it('la mer d’Azov expirée : son anneau à son point (une mer de 2 px au zoom 1), sans cadrage', () => {
+    const p = epreuve('chrono', ['azov']);
+    vi.advanceTimersByTime(15_000);
+    expect(p.marques).toContain('azov:juste');
+    expect(p.marques.some((x) => x.startsWith('anneauEn ') && x.endsWith(':juste'))).toBe(true);
+    expect(p.cadrages).toEqual([]);
+  });
+});
+
+describe('une épreuve des pays : jamais les parties d’une mer (une mer n’y est jamais cible)', () => {
+  it('Chrono des pays : noter() sans les zones admises des mers (sorte « partie »)', () => {
+    const m = monde();
+    const v = vueChrono(m.ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer: vi.fn() });
+    v.activer();
+    v.lancer({ branche: 'classe', sujet: 'pays', serie: 'Europe', mode: 'chrono' }, { id: 'Europe', terrain: 'monde', ids: ['ITA'], n: 1 }, m.t as never, ['ITA']);
+    note = { juste: false, via: null, pick: { id: 'medit', via: 'trace' }, distance_km: 10, admis: null };
+    v.toucher?.(1, 1, {} as PointerEvent);
+    // La table commune de la carte seule (zones contestées et enclaves) : rien du sujet des mers.
+    expect(options.at(-1)).toEqual({ acceptes: true });
   });
 });
 
