@@ -514,6 +514,32 @@ Malacca. Le build échoue si une zone n'est ni affectée ni exclue : règle à
 `build.mjs` (« tout écart à une règle est écrit ici », `geodata/build.mjs:106`,
 un titre de commentaire, pas un contrôle).
 
+**Mesuré au lot 3a** (`geodata/mers.mjs`, 12/11) : 13 827 sommets à 10 km,
+6 589 à 50 km ; `mers.topo.json` 50 703 o gzip, `mers-leger.topo.json`
+19 841 o, sous les budgets. 52 zones retenues, 69 forcées, 181 au plus long
+bord, 4 exclues (deux Great Barrier Reef, Drake Passage, Luzon Strait). La
+Columbia River n'est plus exclue : fondue au Pacifique, comme l'Amazone à
+l'Atlantique. Une mer non retenue n'est jamais fondue au plus long bord :
+elle a sa ligne forcée et sa raison (`geodata/mers.json`), le témoin
+`geodata/mers-affectations.json` dit où va chaque zone. Couverture : 0,20 %
+de la mer sans zone, 0,79 % de la terre sous une zone ; arête la plus longue
+1,0008°. Cas tranchés :
+- mers sorties : Tasman au Pacifique ; Java à l'Indien (P361) ; Laptev,
+  Tchouktches, Sibérie orientale à l'Arctique ;
+- archipel, par P361 : Florès, Bali, Banda, Célèbes, Soulou, Moluques,
+  Seram, Halmahera au Pacifique ; Savu, Timor, Arafura à l'Indien. Le
+  détroit de Macassar, sans P361, au Pacifique ;
+- Alboran, Baléares, Ligure, Marmara à la Méditerranée. La mer de Crète à
+  la mer Égée : P361, et l'OHI arrête l'Égée à la côte sud de la Crète ;
+- Seto au Pacifique, son ouverture sur la mer des Philippines ;
+- détroit de Taïwan à la mer de Chine méridionale, détroit de Corée à la
+  mer du Japon : limites de l'OHI ;
+- Cattégat à la mer du Nord (P361 : Atlantique) ; les Belts à la Baltique
+  (OHI) ;
+- détroits de Bass et de Cook au Pacifique ; détroit de Davis et Cumberland
+  Sound à l'Arctique (P361) ; Malacca à l'Indien, que ni P361 ni l'OHI ne
+  rangent.
+
 **Noms** : libellés Wikidata en français, générique en minuscule (« mer
 Méditerranée », « golfe Persique », « Manche »). La majuscule de début de
 phrase est posée par le code. Les `name_fr` de Natural Earth se trompent
