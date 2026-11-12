@@ -3356,8 +3356,12 @@ def ui_epreuves_mers(p, capturer, defauts, base, parametres=""):
             defauts.append(f"Classé › Océans et mers : le « ? » sans les règles, ou avec Minute ou les exercices visuels ({aide!r})")
     else:
         defauts.append("Classé › Océans et mers : pas de « ? »")
-    if ressources_mers(p):
+    # Une fiche mers: au journal (ui_mers a fait Apprendre « Océans » sur ce profil) : la séance charge et pose la couche
+    # en fond dès l'ouverture de la page (seances.completer, comme les capitales et les drapeaux) ; sinon rien de mers*.
+    if ressources_mers(p) and not any(f.startswith("mers:") for f in (p.js(FICHES_JOURNAL) or [])):
         defauts.append(f"mers* chargé avant le choix d'une épreuve : {ressources_mers(p)}")
+    elif ressources_mers(p):
+        dire("  mers* déjà lu à l'ouverture : une grappe de mers est entamée sur ce profil (la séance la charge en fond)")
     capturer("135-classe-mers-exercices")
 
     # Le Sans faute des mers : la couche marine lue et posée avant le départ (avecSujet), puis la partie.
