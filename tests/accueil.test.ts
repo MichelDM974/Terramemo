@@ -226,8 +226,13 @@ describe('le panneau', () => {
     expect((document as unknown as { activeElement?: El }).activeElement).toBe(champ);
     expect([champ.getAttribute('autocomplete'), champ.getAttribute('maxlength'), champ.value]).toEqual(['nickname', '20', '']);
     expect($('label')!.getAttribute('for')).toBe('accueil-pseudo');
-    expect($('#accueil-invite-texte')!.textContent).toBe(T.invite_texte);
-    expect(T.invite_texte).toContain('⚙ › Compte');
+    // Le pseudo seul (12/11 : « trop de blabla ») : ni titre, ni paragraphe, ni aide ; le pied Confidentialité se tait.
+    expect($('label')!.textContent).toBe(T.pseudo_libelle);
+    expect($('#accueil-form-invite')!.querySelector('h3')).toBeNull();
+    expect($('#accueil-form-invite')!.querySelector('.hint')).toBeNull();
+    expect(champ.getAttribute('aria-describedby')).toBeNull();
+    expect($('#accueil-pied')!.hidden).toBe(true);
+    expect($('#accueil-retour')!.className).toBe('lien');
     // Trop court, « / », lettre de fantaisie que les règles refuseraient (clePermise).
     for (const faux of ['a', 'x/y', '𝐌ichel']) {
       champ.value = faux;
@@ -260,6 +265,7 @@ describe('le panneau', () => {
     $('#accueil-retour')!.click();
     expect($('#accueil-choix')!.hidden).toBe(false);
     expect($('#accueil-form-invite')!.hidden).toBe(true);
+    expect($('#accueil-pied')!.hidden).toBe(false);
     expect((document as unknown as { activeElement?: El }).activeElement).toBe($('#accueil-invite'));
     expect(m.a.etat()).toBe('ouvert');
   });

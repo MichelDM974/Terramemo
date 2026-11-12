@@ -613,10 +613,7 @@
     "reessayer": "Réessayer",
     "ou": "ou",
     "invite": "Continuer en invité",
-    "invite_titre": "Continuer en invité",
-    "invite_texte": "Tes progrès restent sur cet appareil seulement. Tu pourras créer un compte plus tard, dans ⚙ › Compte.",
-    "pseudo_libelle": "Ton pseudo au classement",
-    "pseudo_aide": "2 à 20 caractères, visible de tous. Il n'est pas réservé : qui le choisit partage ta place.",
+    "pseudo_libelle": "Ton pseudo",
     "commencer": "Commencer",
     "retour": "Retour"
   },

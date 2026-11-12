@@ -201,29 +201,33 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     const partieInvite = creer('div', { class: 'accueil-partie-invite', id: 'accueil-partie-invite' }, creer('p', { class: 'accueil-ou', 'aria-hidden': 'true' }, T.ou), invite);
     const choix = creer('div', { class: 'accueil-choix', id: 'accueil-choix' }, zoneComptes, partieInvite);
 
-    // L'invité : son pseudo (celui de l'appareil pré-rempli : un joueur qui a déjà des progrès), validé comme au classement.
+    // L'invité : son pseudo seul (celui de l'appareil pré-rempli : un joueur qui a déjà des progrès), validé comme
+    // au classement. Rien d'autre à lire (demande de l'utilisateur, 12/11 : « trop de blabla ») : l'erreur ne
+    // vient qu'à un pseudo refusé, et « Retour » est un lien.
     const erreur = creer('p', { class: 'status error', id: 'accueil-erreur', role: 'alert' });
-    const pseudo = champPseudo({ id: 'accueil-pseudo', libelle: T.pseudo_libelle, aide: T.pseudo_aide, valeur: lirePseudoDe(st) ?? '', erreur, entree: 'go' });
+    const pseudo = champPseudo({ id: 'accueil-pseudo', libelle: T.pseudo_libelle, valeur: lirePseudoDe(st) ?? '', erreur, entree: 'go' });
     const champ = pseudo.input;
     const commencer = creer('button', { type: 'submit', id: 'accueil-commencer' }, T.commencer);
-    const retour = creer('button', { type: 'button', class: 'secondary', id: 'accueil-retour' }, T.retour);
+    const retour = creer('button', { type: 'button', class: 'lien', id: 'accueil-retour' }, T.retour);
     const formInvite = creer(
       'form',
       { class: 'compte-form accueil-form-invite', id: 'accueil-form-invite', novalidate: '' },
-      creer('h3', {}, T.invite_titre),
-      creer('p', { class: 'hint', id: 'accueil-invite-texte' }, T.invite_texte),
       pseudo.bloc,
       erreur,
-      creer('div', { class: 'compte-actions' }, commencer, retour),
+      creer('div', { class: 'compte-actions' }, commencer),
+      creer('p', { class: 'accueil-liens' }, retour),
     );
     formInvite.hidden = true;
 
     const lien = creer('a', { href: '#confidentialite', id: 'accueil-confidentialite' }, textes.confidentialite.lien);
-    const panneau = creer('div', { class: 'panel accueil-panneau' }, titre, accroche, choix, formInvite, creer('p', { class: 'accueil-liens' }, lien));
+    // Le pied (Confidentialité) reste aux entrées ; il se tait pendant l'écran de l'invité.
+    const pied = creer('p', { class: 'accueil-liens', id: 'accueil-pied' }, lien);
+    const panneau = creer('div', { class: 'panel accueil-panneau' }, titre, accroche, choix, formInvite, pied);
     const s = creer('section', { class: 'accueil ecrans-compte', id: 'accueil', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'accueil-titre', 'aria-describedby': 'accueil-accroche' }, panneau);
 
     invite.addEventListener('click', () => {
       choix.hidden = true;
+      pied.hidden = true;
       formInvite.hidden = false;
       erreur.textContent = '';
       focaliser(champ);
@@ -231,6 +235,7 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     retour.addEventListener('click', () => {
       formInvite.hidden = true;
       choix.hidden = false;
+      pied.hidden = false;
       focaliser(invite);
     });
     formInvite.addEventListener('submit', (e) => {

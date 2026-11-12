@@ -427,8 +427,8 @@ export interface ChampPseudo {
 export function champPseudo(o: {
   id: string;
   libelle: string;
-  /** Sous le champ, lue avec lui (aria-describedby). */
-  aide: string;
+  /** Sous le champ, lue avec lui (aria-describedby) ; sans elle, rien sous le champ (panneau de la première ouverture). */
+  aide?: string;
   valeur: string;
   /** Où dire le refus (role=alert). */
   erreur: HTMLElement;
@@ -446,7 +446,7 @@ export function champPseudo(o: {
     spellcheck: 'false',
     enterkeyhint: o.entree,
     required: '',
-    'aria-describedby': idAide,
+    ...(o.aide ? { 'aria-describedby': idAide } : {}),
   });
   input.value = o.valeur;
   // L'avis d'un pseudo refusé s'efface dès qu'on le corrige.
@@ -459,7 +459,7 @@ export function champPseudo(o: {
     { class: 'compte-champ' },
     creer('label', { for: o.id }, o.libelle),
     creer('div', { class: 'compte-ligne' }, input),
-    creer('p', { class: 'hint compte-champ-aide', id: idAide }, o.aide),
+    ...(o.aide ? [creer('p', { class: 'hint compte-champ-aide', id: idAide }, o.aide)] : []),
   );
   return {
     bloc,
