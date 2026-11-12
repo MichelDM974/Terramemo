@@ -144,10 +144,11 @@ describe('séries de l’île et textes des terrains', () => {
     } as const;
     for (const [partie, cles] of Object.entries(lues))
       for (const k of cles) expect((textes as unknown as Record<string, Record<string, string>>)[partie]?.[k], `${partie}.${k}`).toBeTruthy();
-    for (const m of ['localiser', 'nommer', 'chrono', 'sansfaute', 'minute'] as const) expect(textes.jouer.exercices[m], m).toBeTruthy();
+    for (const m of ['localiser', 'nommer', 'chrono', 'sansfaute'] as const) expect(textes.jouer.exercices[m], m).toBeTruthy();
     for (const b of ['entrainement', 'classe'] as const) expect([textes.jouer.branches[b].nom, textes.jouer.branches[b].detail].every(Boolean), b).toBe(true);
     expect(remplir(textes.jouer.exercices.chrono, { s: 15 })).toBe('15 s par question, un seul toucher');
-    expect(remplir(textes.jouer.exercices.minute, { s: 60 })).toBe('Le plus de justes en 60 s');
+    // Minute, retiré (décision « Barème et classements ») : plus de texte dans Jouer.
+    expect('minute' in textes.jouer.exercices).toBe(false);
   });
 
   it('textes de Toucher : la rétroaction du monde reste mot pour mot celle d’avant', () => {

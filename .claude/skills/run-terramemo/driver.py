@@ -1068,7 +1068,26 @@ def texte(page, selecteur):
     return page.js(f"(document.querySelector({json.dumps(selecteur)}) || {{}}).innerText || ''")
 
 
-EPREUVES = ("chrono", "sansfaute", "minute")
+# Les épreuves classées d'une série, dans l'ordre de Jouer. Minute, retiré le 12/11/2026 (décision « Barème et
+# classements », #30), n'y est plus : ses ids `minute:…` restent réservés, jamais réutilisés.
+EPREUVES = ("chrono", "sansfaute")
+MODES_RETIRES = ("minute",)
+
+
+def sans_insecables(t):
+    """Le texte lu, ses espaces insécables (« 97\u00a0% », les milliers) en espaces simples : pour les comparer."""
+    return (t or "").replace("\u00a0", " ").replace("\u202f", " ")
+
+
+# Un score d'épreuve affiché (décision « Barème et classements » : src/vues/scores.ts, fmtPart) :
+# « 190/195 · 97 % », le pourcentage TRONQUÉ (194/195 montre 99 %), sur le texte passé par sans_insecables.
+MOTIF_PART = re.compile(r"(\d+)/(\d+) · (\d+) %")
+
+
+def part_juste(m):
+    """Le pourcentage d'un MOTIF_PART trouvé est-il la part tronquée de ses justes (jamais arrondie) ?"""
+    justes, total, pourcent = int(m[1]), int(m[2]), int(m[3])
+    return total > 0 and pourcent == 100 * justes // total
 # Les séries des pays dans Jouer, dans l'ordre de partout (décision « Écran Jouer »).
 SERIES_PAYS = ["tous", "Africa", "North America", "South America", "Asia", "Europe", "Oceania"]
 # Les sujets de Classé, ceux de EPREUVES_SUJETS (src/epreuve/chrono.ts ; décision « Ouverture des épreuves
@@ -1104,7 +1123,7 @@ def jouer_jusqua(page, mode, serie, sujet=None):
 
 def jouer_partie(page, mode, serie, sujet=None):
     """Une partie par Jouer (jouer_jusqua, puis l'exercice : localiser, nommer,
-    chrono, sansfaute ou minute), la partie en cours abandonnée ; attend sa
+    chrono ou sansfaute), la partie en cours abandonnée ; attend sa
     barre (l'île, les capitales se chargent au premier choix)."""
     jouer_jusqua(page, mode, serie, sujet)
     cliquer(page, f'#jouer-panneau [data-mode="{mode}"]')
@@ -1162,10 +1181,11 @@ def ui_credits(p, capturer, defauts):
 
 
 def ui_epreuves(p, capturer, defauts):
-    """Captures 20 à 23 (#14, décision « Sans faute et Minute ») : Sans faute
-    sur l'Amérique du Sud, deux justes puis une erreur, jusqu'au bilan ; Minute
-    sur l'Amérique du Sud, une erreur au premier toucher (rétroaction, jauge de
-    la minute), puis tout juste jusqu'à la série vidée."""
+    """Captures 20 et 21 (#14 ; décision « Barème et classements » du 12/11,
+    #30) : Sans faute sur l'Amérique du Sud, deux justes puis une erreur,
+    jusqu'au bilan « 2 d'affilée sur N · P % » (P : 200 ÷ N, tronqué). Minute,
+    retiré ce jour-là, n'a plus de partie (ses captures 22 et 23 ne sont plus
+    faites)."""
     consigne = 'document.querySelector("#barre-chrono .essai-consigne").dataset.cible'
     bilan = '!document.getElementById("chrono-bilan").hidden'
 
@@ -1194,36 +1214,14 @@ def ui_epreuves(p, capturer, defauts):
     jusqu_au_bilan(5)
     lu = p.js('document.getElementById("chrono-bilan").innerText')
     dire(f"  Sans faute, bilan : {lu!r}")
-    if "2 d'affilée" not in lu:
-        defauts.append(f"Sans faute : bilan sans « 2 d'affilée » ({lu!r})")
+    m = re.search(r"2 d'affilée sur (\d+) · (\d+) %", sans_insecables(lu))
+    if not m or int(m[2]) != 200 // int(m[1]):
+        defauts.append(f"Sans faute : bilan sans « 2 d'affilée sur N · P % », P tronqué ({lu!r})")
     titre = texte(p, "#chrono-bilan h2")
     if titre != "Sans faute · Amérique du Sud":
         defauts.append(f"bilan de Sans faute titré {titre!r}")
     capturer("21-sansfaute-bilan")
     croix_vers_carte(p, defauts, "bilan de Sans faute", "#chrono-bilan")
-
-    jouer_partie(p, "minute", "South America")
-    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
-    toucher(faux_de(p.js(consigne)))
-    p.pause(300)
-    dire(f"  Minute, erreur : {texte(p, '#barre-chrono')!r}")
-    capturer("22-minute-faux")
-    p.pause(1600)  # la rétroaction d'une erreur (1,8 s)
-    for _ in range(14):
-        if p.js(bilan):
-            break
-        toucher(p.js(consigne))
-        p.pause(1000)
-    jusqu_au_bilan(5)
-    lu = p.js('document.getElementById("chrono-bilan").innerText')
-    dire(f"  Minute, bilan : {lu!r}")
-    if "série vidée" not in lu or "1 erreur" not in lu:
-        defauts.append(f"Minute : bilan sans « série vidée » ni « 1 erreur » ({lu!r})")
-    titre = texte(p, "#chrono-bilan h2")
-    if titre != "Minute · Amérique du Sud":
-        defauts.append(f"bilan de Minute titré {titre!r}")
-    capturer("23-minute-bilan")
-    croix_vers_carte(p, defauts, "bilan de Minute", "#chrono-bilan")
 
 
 def panneau_jouer(p, defauts, quoi):
@@ -1410,9 +1408,11 @@ def ui_jouer(p, capturer, defauts):
     (SUJETS_CLASSE).
     `15-jouer` (Entraînement et Classé, sans Rejouer), `15b-classe-sujets`,
     `15c-classe-pays-series` (les 7 séries dans l'ordre), `15d-classe-pays-
-    ams-epreuves` (les trois épreuves, leurs records, les règles ouvertes par
-    « ? »), `15e-entrainement-communes` (le niveau des séries sauté) ; le
-    retour arrière et « ‹ » remontent d'un niveau, une adresse invalide
+    ams-epreuves` (les deux épreuves, Chrono et Sans faute, sans Minute,
+    retiré le 12/11 ; leurs records en pourcentage, « 11/12 · 91 % » ; les
+    règles ouvertes par « ? », sans Minute non plus),
+    `15e-entrainement-communes` (le niveau des séries sauté) ; le retour
+    arrière et « ‹ » remontent d'un niveau, une adresse invalide
     retombe sur le niveau le plus proche, « × » ramène à la carte."""
     def lire(attr):
         return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
@@ -1454,14 +1454,23 @@ def ui_jouer(p, capturer, defauts):
     fil = texte(p, "#jouer-panneau .jouer-fil")
     dire(f"  Classé › Pays › Amérique du Sud : {modes}, records {records}, fil {fil!r}")
     if modes != list(EPREUVES):
-        defauts.append(f"Classé › Pays › série sans ses 3 épreuves : {modes}")
+        defauts.append(f"Classé › Pays › série sans ses 2 épreuves (Chrono, Sans faute) : {modes}")
+    if any(m in modes for m in MODES_RETIRES):
+        defauts.append(f"Classé › Pays › Amérique du Sud propose encore Minute, retiré le 12/11 : {modes}")
     if not all(records):
         defauts.append(f"Classé › Pays › Amérique du Sud : un record manque ({records})")
+    # Les records en pourcentage (décision « Barème et classements ») : « 11/12 · 91 % », « 2/12 · 16 % ».
+    for m, r in zip(modes, records):
+        trouve = MOTIF_PART.search(sans_insecables(r))
+        if r and (not trouve or not part_juste(trouve) or "pts" in r):
+            defauts.append(f"Classé › Pays › Amérique du Sud, record de {m} sans « justes/total · P % » tronqué : {r!r}")
     if [x.strip() for x in fil.split("›")] != ["Classé", "Pays", "Amérique du Sud"]:
         defauts.append(f"fil d'Ariane {fil!r} au lieu de « Classé › Pays › Amérique du Sud »")
     cliquer(p, "#jouer-aide")
     if not visible(p, "#jouer-regles"):
         defauts.append("« ? » n'ouvre pas les règles des épreuves")
+    elif "Minute" in texte(p, "#jouer-regles"):
+        defauts.append(f"« ? » des épreuves : Minute, retiré le 12/11, y est encore ({texte(p, '#jouer-regles')!r})")
     panneau_jouer(p, defauts, "Classé › Pays › Amérique du Sud")
     capturer("15d-classe-pays-ams-epreuves")
     # Le retour arrière remonte d'un niveau, « ‹ » aussi.
@@ -1959,7 +1968,13 @@ def commande_ui(args):
                 break
             pt = position(p, p.js(consigne))
             p.toucher(pt["x"], pt["y"])
-        dire(f"  Chrono, bilan : {p.js('document.getElementById(\"chrono-bilan\").innerText')!r}")
+        lu = p.js('document.getElementById("chrono-bilan").innerText') or ""
+        dire(f"  Chrono, bilan : {lu!r}")
+        # Le score en pourcentage (décision « Barème et classements », #30) : une seule erreur, la première,
+        # donc « 11/12 · 91 % » (N − 1 sur N, tronqué), le temps total à part, plus aucun point.
+        m = MOTIF_PART.search(sans_insecables(lu))
+        if not m or int(m[1]) != int(m[2]) - 1 or not part_juste(m) or "Temps total" not in lu or "point" in lu.lower():
+            defauts.append(f"bilan du Chrono : pas de « N−1/N · P % » (P tronqué) et « Temps total », ou des points ({lu[:160]!r})")
         capturer("9-chrono-bilan")
         croix_vers_carte(p, defauts, "bilan du Chrono", "#chrono-bilan")
         ui_reunion(p, capturer, defauts)
@@ -2620,11 +2635,12 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     """Captures 92 à 96 (lot 1 du J2, partie C ; décision « Ouverture des
     épreuves d'un sujet », 12/11) : les épreuves classées des capitales,
     sur une page rechargée. Classé › Capitales (92 : Pays, Capitales,
-    Drapeaux, Communes), ses 7 séries, Océanie et ses trois épreuves (93),
+    Drapeaux, Communes), ses 7 séries, Océanie et ses deux épreuves (93 :
+    Chrono, Sans faute ; plus de Minute),
     un Chrono des capitales d'Océanie joué en entier (94 : « Pays dont la capitale est : »,
     une ville et jamais un Qid ; 95 : le bilan « Chrono · Capitales ·
-    Océanie »), puis le 🏆 (96) : les épreuves des capitales sous leur
-    sujet. Sans pseudo (invité du pilote) : rien n'est publié. DÉFAUT à
+    Océanie », « 14/14 · 100 % »), le record « 14/14 · 100 % » dans Jouer,
+    puis le 🏆 (96) : les épreuves des capitales sous leur sujet. Sans pseudo (invité du pilote) : rien n'est publié. DÉFAUT à
     tout écart."""
 
     def lire(attr):
@@ -2700,8 +2716,8 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     dire(f"  Chrono des capitales, bilan ({len(vus)} pays) : {titre!r}, {lu[:160]!r}")
     if titre != "Chrono · Capitales · Océanie":
         defauts.append(f"bilan du Chrono des capitales titré {titre!r} (nomEpreuve : « Chrono · Capitales · Océanie »)")
-    if len(vus) != 14 or "14 / 14 justes" not in lu:
-        defauts.append(f"Chrono des capitales d'Océanie : {len(vus)} pays posés, bilan {lu[:120]!r} (14 / 14 justes attendus)")
+    if len(vus) != 14 or "14/14 · 100 %" not in sans_insecables(lu):
+        defauts.append(f"Chrono des capitales d'Océanie : {len(vus)} pays posés, bilan {lu[:120]!r} (« 14/14 · 100 % » attendu)")
     if MOTIF_QID.search(lu):
         defauts.append(f"bilan du Chrono des capitales : un Qid affiché ({lu[:120]!r})")
     capturer("95-capitales-chrono-bilan")
@@ -2712,8 +2728,8 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     attendre_visible(p, "#jouer-panneau")
     p.pause(200)
     record = p.js("(document.querySelector('#jouer-panneau [data-mode=\"chrono\"] .jouer-record') || {}).innerText || ''")
-    if "pts" not in record:
-        defauts.append(f"Classé › Capitales › Océanie : pas de record du Chrono ({record!r})")
+    if "14/14 · 100 %" not in sans_insecables(record):
+        defauts.append(f"Classé › Capitales › Océanie : pas de record « 14/14 · 100 % » du Chrono ({record!r})")
     cliquer(p, "#jouer-fermer")
     p.pause(300)
     cliquer(p, "#classement-btn")
@@ -2723,6 +2739,9 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     dire(f"  🏆 : sujets {h4[:4]}…, ligne {ligne!r}")
     if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or "Capitales · Océanie" not in ligne:
         defauts.append(f"🏆 : sujets {h4}, ligne des capitales d'Océanie {ligne!r}")
+    # Sa place (lue en ligne, absente hors ligne) en pourcentage, jamais en points (décision « Barème et classements »).
+    if "pts" in ligne or "point" in ligne.lower():
+        defauts.append(f"🏆 : ligne des capitales d'Océanie encore en points ({ligne!r})")
     capturer("96-classements-capitales")
     croix_vers_carte(p, defauts, "🏆", "#classement-general")
 
@@ -2731,14 +2750,16 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     """Captures 111 à 115 (lot 2 du J2, partie C ; décision « Ouverture des
     épreuves d'un sujet », 12/11) : les épreuves classées des drapeaux,
     juste après ui_epreuves_capitales. Sur une page rechargée : Classé ›
-    Drapeaux (111 : Pays, Capitales, Drapeaux, Communes), ses 7 séries, Océanie et ses trois épreuves (112), un Chrono
-    des drapeaux d'Océanie joué en entier (113 : « Pays de ce drapeau : »
+    Drapeaux (111 : Pays, Capitales, Drapeaux, Communes), ses 7 séries,
+    Océanie et ses deux épreuves (112 : Chrono, Sans faute ; le « ? » dit
+    leurs règles et les exercices visuels, sans Minute), un Chrono des
+    drapeaux d'Océanie joué en entier (113 : « Pays de ce drapeau : »
     et le drapeau d[0], alt « Drapeau à reconnaître », jamais le pays avant
     la réponse ; chaque drapeau déjà chargé quand sa question part, à
     partir de la 2e : la partie est préchargée au départ ; 114 : le bilan
-    « Chrono · Drapeaux · Océanie », 14 / 14 justes), le record sous
-    Classé › Drapeaux › Océanie, puis le 🏆 (115) : la ligne
-    « Drapeaux · Océanie » sous son sujet. Sans pseudo (invité du pilote) :
+    « Chrono · Drapeaux · Océanie », « 14/14 · 100 % »), le record
+    « 14/14 · 100 % » sous Classé › Drapeaux › Océanie, puis le 🏆 (115) :
+    la ligne « Drapeaux · Océanie » sous son sujet. Sans pseudo (invité du pilote) :
     rien n'est publié. DÉFAUT à tout écart."""
     _, _, corps = http(base + "geo/noms.fr.json")
     noms = json.loads(corps)
@@ -2778,8 +2799,9 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     if p.js("!!document.getElementById('jouer-aide')"):
         cliquer(p, "#jouer-aide")
         aide = texte(p, "#jouer-regles")
-        if "Minute" not in aide or "visuel" not in aide:
-            defauts.append(f"Classé › Drapeaux › Océanie : le « ? » sans les règles ou sans les exercices visuels ({aide!r})")
+        # Les règles des deux épreuves (Sans faute la dernière), sans Minute, retiré le 12/11.
+        if "Sans faute" not in aide or "visuel" not in aide or "Minute" in aide:
+            defauts.append(f"Classé › Drapeaux › Océanie : le « ? » sans les règles ou les exercices visuels, ou avec Minute ({aide!r})")
     else:
         defauts.append("Classé › Drapeaux › Océanie : pas de « ? »")
     capturer("112-classe-drapeaux-oceanie")
@@ -2848,8 +2870,8 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     dire(f"  Chrono des drapeaux, bilan ({len(set(vus))} pays) : {titre!r}, {lu[:160]!r}")
     if titre != "Chrono · Drapeaux · Océanie":
         defauts.append(f"bilan du Chrono des drapeaux titré {titre!r} (nomEpreuve : « Chrono · Drapeaux · Océanie »)")
-    if len(set(vus)) != 14 or "14 / 14 justes" not in lu:
-        defauts.append(f"Chrono des drapeaux d'Océanie : {len(set(vus))} pays posés, bilan {lu[:120]!r} (14 / 14 justes attendus)")
+    if len(set(vus)) != 14 or "14/14 · 100 %" not in sans_insecables(lu):
+        defauts.append(f"Chrono des drapeaux d'Océanie : {len(set(vus))} pays posés, bilan {lu[:120]!r} (« 14/14 · 100 % » attendu)")
     if not p.js("!!document.querySelector('#chrono-bilan .chrono-classement[data-epreuve=\"chrono:drapeaux:Oceania\"]')"):
         defauts.append("bilan du Chrono des drapeaux : pas de classement de chrono:drapeaux:Oceania")
     capturer("114-drapeaux-chrono-bilan")
@@ -2860,8 +2882,8 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     attendre_visible(p, "#jouer-panneau")
     p.pause(200)
     record = p.js("(document.querySelector('#jouer-panneau [data-mode=\"chrono\"] .jouer-record') || {}).innerText || ''")
-    if "pts" not in record:
-        defauts.append(f"Classé › Drapeaux › Océanie : pas de record du Chrono ({record!r})")
+    if "14/14 · 100 %" not in sans_insecables(record):
+        defauts.append(f"Classé › Drapeaux › Océanie : pas de record « 14/14 · 100 % » du Chrono ({record!r})")
     cliquer(p, "#jouer-fermer")
     p.pause(300)
     cliquer(p, "#classement-btn")
@@ -2871,6 +2893,8 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     dire(f"  🏆 : sujets {h4[:4]}…, ligne {ligne!r}")
     if h4[:4] != ["Pays", "Capitales", "Drapeaux", "Communes"] or "Drapeaux · Océanie" not in ligne:
         defauts.append(f"🏆 : sujets {h4}, ligne des drapeaux d'Océanie {ligne!r}")
+    if "pts" in ligne or "point" in ligne.lower():
+        defauts.append(f"🏆 : ligne des drapeaux d'Océanie encore en points ({ligne!r})")
     capturer("115-classements-drapeaux")
     croix_vers_carte(p, defauts, "🏆", "#classement-general")
 

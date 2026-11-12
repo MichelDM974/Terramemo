@@ -44,7 +44,7 @@ async function supprimerDansAuth(uid: string): Promise<void> {
 }
 
 /** Un score de Chrono valide pour les règles (La Réunion, 24 justes en 24 s). */
-const SCORE = { points: 24_000, justes: 24, questions: 24, temps_ms: 24_000 };
+const SCORE = { points: 24, justes: 24, questions: 24, temps_ms: 24_000 };
 const EPREUVE = 'chrono:localiser:reunion';
 
 describe.skipIf(!hote)('comptes e-mail (émulateur Auth)', () => {

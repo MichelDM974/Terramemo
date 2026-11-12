@@ -27,7 +27,7 @@ export type ModeJeu = 'apprendre' | 'localiser' | 'nommer' | ModeEpreuve;
 /** Le mode est une épreuve classée (la vue des épreuves, chrono.ts) ; sinon un exercice de Toucher. */
 export const estEpreuve = (m: ModeJeu): m is ModeEpreuve => (MODES_EPREUVE as readonly string[]).includes(m);
 
-/** Nom affiché d'un exercice : « Apprendre », « Trouver », « Reconnaître », « Chrono », « Sans faute », « Minute ». */
+/** Nom affiché d'un exercice : « Apprendre », « Trouver », « Reconnaître », « Chrono », « Sans faute ». */
 export const nomExercice = (m: ModeJeu): string => (estEpreuve(m) ? nomMode(m) : textes.toucher[m]);
 
 /** Les deux branches du premier écran (décision « Noms des modes ») : sans points, ou notée au classement. */
@@ -259,7 +259,8 @@ type Stockage = Pick<Storage, 'getItem' | 'setItem'>;
 /**
  * La dernière partie lancée depuis Jouer, si elle est encore dans l'arbre :
  * une valeur illisible, d'une autre forme, ou dont la série ou l'exercice a
- * disparu est ignorée (pas de « Rejouer »).
+ * disparu est ignorée (pas de « Rejouer ») : une partie de Minute, retiré le
+ * 12/11/2026 (décision « Barème et classements »), aussi.
  */
 export function lireDerniere(stockage: Stockage | null, a: Arbre): Lancement | null {
   try {

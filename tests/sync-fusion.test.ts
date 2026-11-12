@@ -124,7 +124,7 @@ describe('question de fusion à la connexion (D22)', () => {
   it('« Ne pas les ajouter » : journal, pseudo et records de l’appareil effacés avant la restauration', async () => {
     const m = monter({ appareil: fauxAppareil({ reponses: 0 }) });
     garderPseudoDans(m.stockage, 'Bob');
-    enregistrer(m.stockage, 'chrono:localiser:afrique', { points: 3000, justes: 3, questions: 54, temps_ms: 400_000 }, Date.UTC(2026, 10, 2));
+    enregistrer(m.stockage, 'chrono:localiser:afrique', { points: 3, justes: 3, questions: 54, temps_ms: 400_000 }, Date.UTC(2026, 10, 2));
     expect(lireRecords(m.stockage).size).toBeGreaterThan(0);
     const choisir = vi.fn(async (_q: QuestionFusion): Promise<ChoixFusion> => 'effacer');
     const r = await m.c.connecter('ana@exemple.fr', 'motdepasse', choisir);

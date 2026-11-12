@@ -386,8 +386,33 @@ button.lien:hover { background: none; text-decoration: underline; }
 .chrono-places li.ellipse { display: block; color: var(--muted); text-align: center; padding: 0; }
 .chrono-places .rang, .chrono-places .temps { color: var(--muted); }
 .chrono-places .temps { text-align: right; }
-/* Minute départage aux erreurs (« 2 erreurs », « 45 s · 0 erreur ») : une colonne plus large. */
-.chrono-places.minute li { grid-template-columns: 2.2em 1fr auto 7.6em; }
+/* Le score (décision « Barème et classements ») : « 190/195 · 97 % » ; sous
+   400 px, le rang, un pseudo de 20 caractères et le temps ne laissent pas la
+   place (le pseudo tomberait à 3 lettres à 320 px) : le pourcentage seul
+   (.pts-bref), le score entier restant lu des lecteurs d'écran (.pts-entier,
+   caché à la vue seulement) et en title. Au général, « 7,6 % » et son détail
+   (« 91 justes sur 1 194 ») aux seuls lecteurs d'écran (.pts-lu). */
+.chrono-places .pts { white-space: nowrap; text-align: right; }
+.chrono-places .pts-bref { display: none; }
+.chrono-places .pts-lu {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 400px) {
+  .chrono-places .pts-entier {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .chrono-places .pts-bref { display: inline; }
+}
 .chrono-places .pseudo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chrono-classement-etat { margin: 6px 0 0; }
 .chrono-classement-avis { margin: 6px 0; color: var(--danger); }
@@ -666,12 +691,12 @@ body[data-terrain="reunion"] .essai-bilan {
 .essai-serie-detail { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
 .essai-serie-n { flex: none; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 
-/* Classements (🏆) : une ligne par épreuve où je suis classé, mes points en clair
+/* Classements (🏆) : une ligne par épreuve où je suis classé, mon score en clair
    à droite (le rang en détail sous le nom) ; « Toutes les épreuves » en lien. */
 #classement-general .essai-serie-n { color: var(--text); font-weight: 600; }
 #classements-plus { margin: 6px 10px 2px; }
 
-/* Classements (🏆) : les lignes par épreuve (Chrono, Sans faute, Minute), chacune
+/* Classements (🏆) : les lignes par épreuve (Chrono, Sans faute), chacune
    sous un titre bien lisible (couleur du texte, gras, capitales espacées), sans
    cadre ; un filet sépare les groupes. */
 .classements-groupe h3 {

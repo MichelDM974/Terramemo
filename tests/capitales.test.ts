@@ -211,9 +211,8 @@ describe('zones admises de Jérusalem (D36 i), sous Capitales seulement', () => 
     expect((ramallah.enonce('PSE').objet as { texte: string }).texte).toBe('Ramallah');
     expect(ramallah.admisEnPlus('PSE')).toBeNull();
     expect(optionsNoter(ramallah, t, 'PSE')).toEqual({ acceptes: true });
-    // En épreuve (Jérusalem-Est pour la Palestine) : la même règle ; le de fait strict (base faux) n'en ajoute aucune.
+    // En épreuve (Jérusalem-Est pour la Palestine) : la même règle (le de fait strict des épreuves a pris fin le 09/11/2026).
     expect(rendu('capitales', D, { epreuve: true }).admisEnPlus('PSE')).toEqual({ zones: ['ISR'], sorte: 'capitale' });
-    expect(optionsNoter(israel, t, 'ISR', false)).toEqual({ acceptes: false });
   });
 
   it('jamais sous Pays : ni zone en plus, ni table ; la rétroaction le dit', () => {

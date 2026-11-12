@@ -48,14 +48,15 @@ describe('l’arbre (pur)', () => {
     expect(arbre.modes('entrainement', 'pays')).toEqual(['apprendre', 'localiser', 'nommer']);
     // Apprendre : les pays et les communes (défaut D6 : sous La Réunion, ses grappes de communes).
     expect(arbre.modes('entrainement', 'communes')).toEqual(['apprendre', 'localiser', 'nommer']);
-    expect(arbre.modes('classe', 'communes')).toEqual(['chrono', 'sansfaute', 'minute']);
+    // Classé : Chrono et Sans faute (Minute, retiré le 12/11/2026 : décision « Barème et classements »).
+    expect(arbre.modes('classe', 'communes')).toEqual(['chrono', 'sansfaute']);
     // Drapeaux (lot 2) : les séries des pays, tailles comprises (« 54 drapeaux » en Afrique).
     expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'drapeaux' })).toEqual(SERIES_PAYS);
     expect(arbre.series('drapeaux').map((x) => x.n)).toEqual(arbre.series('pays').map((x) => x.n));
     expect(arbre.series('drapeaux').find((x) => x.id === 'Africa')!.n).toBe(54);
     expect(arbre.series('drapeaux').find((x) => x.id === 'tous')!.n).toBe(195);
     expect(arbre.modes('entrainement', 'drapeaux')).toEqual(['apprendre', 'localiser', 'nommer']);
-    expect(arbre.modes('classe', 'drapeaux')).toEqual(['chrono', 'sansfaute', 'minute']);
+    expect(arbre.modes('classe', 'drapeaux')).toEqual(['chrono', 'sansfaute']);
   });
 
   it('même ordre des séries partout : tous, les continents (ordre alphabétique français), l’île ; celui des épreuves et du 🏆', () => {
@@ -74,15 +75,15 @@ describe('l’arbre (pur)', () => {
     ]);
   });
 
-  it('Classé › Capitales (décision « Ouverture des épreuves d’un sujet », 12/11 : sans date) : les séries des pays (D37 c), les trois épreuves', () => {
+  it('Classé › Capitales (décision « Ouverture des épreuves d’un sujet », 12/11 : sans date) : les séries des pays (D37 c), les deux épreuves', () => {
     expect(arbre.choix({ type: 'series', branche: 'classe', sujet: 'capitales' })).toEqual(SERIES_PAYS);
-    expect(arbre.modes('classe', 'capitales')).toEqual(['chrono', 'sansfaute', 'minute']);
+    expect(arbre.modes('classe', 'capitales')).toEqual(['chrono', 'sansfaute']);
     expect(arbre.valide({ branche: 'classe', sujet: 'capitales', serie: 'Oceania', mode: 'chrono' })).toBe(true);
     expect(a(['classe', 'capitales', 'Oceania'])).toBe('jouer/classe/capitales/Oceania');
   });
 
   it('un sujet de Jouer hors de EPREUVES_SUJETS (les mers avant le lot 3b) n’a rien sous Classé, même avec ses épreuves déclarées ; un essai (pas un domaine), si', () => {
-    const mers: DefSujet = { id: 'mers', series: (c) => c.slice(0, 1), modes: { entrainement: ['localiser'], classe: ['chrono', 'sansfaute', 'minute'] } };
+    const mers: DefSujet = { id: 'mers', series: (c) => c.slice(0, 1), modes: { entrainement: ['localiser'], classe: ['chrono', 'sansfaute'] } };
     const avecMers = creerArbre(CATALOGUE, [...SUJETS, mers]);
     expect(avecMers.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes', 'mers']);
     expect(avecMers.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
@@ -90,6 +91,11 @@ describe('l’arbre (pur)', () => {
     expect(adresse(avecMers.resoudre(['classe', 'mers', 'tous']))).toBe('jouer/classe');
     const essai: DefSujet[] = [{ id: 'essai', series: (c) => c.slice(0, 1), modes: { entrainement: [], classe: ['chrono'] } }];
     expect(creerArbre(CATALOGUE, essai).choix({ type: 'sujets', branche: 'classe' })).toEqual(['essai']);
+  });
+
+  it('Minute retiré (décision « Barème et classements ») : une adresse qui le nomme reste à ses exercices, sans partie', () => {
+    expect(a(['classe', 'pays', 'Africa', 'minute'])).toBe('jouer/classe/pays/Africa');
+    expect(arbre.valide({ branche: 'classe', sujet: 'pays', serie: 'Africa', mode: 'minute' as never })).toBe(false);
   });
 
   it('l’Essai J0 n’est dans aucune liste de Jouer', () => {
@@ -170,7 +176,7 @@ describe('l’arbre (pur)', () => {
     garderDerniere(st, l);
     expect(JSON.parse(m.get(CLE_DERNIERE)!)).toEqual(l);
     expect(lireDerniere(st, arbre)).toEqual(l);
-    for (const v of ['{pas du json', '42', 'null', '[]', JSON.stringify({ ...l, serie: 'Atlantide' }), JSON.stringify({ ...l, mode: 'localiser' }), JSON.stringify({ ...l, branche: 'autre' }), JSON.stringify({ ...l, serie: 7 })]) {
+    for (const v of ['{pas du json', '42', 'null', '[]', JSON.stringify({ ...l, serie: 'Atlantide' }), JSON.stringify({ ...l, mode: 'localiser' }), JSON.stringify({ ...l, branche: 'autre' }), JSON.stringify({ ...l, serie: 7 }), JSON.stringify({ ...l, mode: 'minute' })]) {
       m.set(CLE_DERNIERE, v);
       expect(lireDerniere(st, arbre), v).toBeNull();
     }
@@ -284,28 +290,34 @@ describe('la vue Jouer', () => {
     expect(j.opts.pousser).toHaveBeenCalledWith('jouer/classe/pays/North America');
   });
 
-  it('Classé › Pays › Afrique : les trois épreuves, leur phrase courte et leur record ; les règles derrière « ? »', () => {
+  it('Classé › Pays › Afrique : les deux épreuves, leur phrase courte et leur record en part de justes ; les règles derrière « ? »', () => {
     const j = monter();
-    enregistrerPartie(localStorage, idEpreuve('Africa'), { points: 31_710, justes: 33, questions: 54, temps_ms: 200_000 }, 1);
-    enregistrerPartie(localStorage, idEpreuve('Africa', 'minute'), { points: 23, justes: 23, questions: 25, temps_ms: 60_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('Africa'), { points: 33, justes: 33, questions: 54, temps_ms: 200_000 }, 1);
+    // Un record de Minute (retiré) resté sur l'appareil : plus de ligne où le montrer, rien ne casse.
+    enregistrerPartie(localStorage, 'minute:localiser:Africa', { points: 23, justes: 23, questions: 25, temps_ms: 60_000 }, 1);
     j.ouvrir('classe', 'pays', 'Africa');
     expect(j.panneau.dataset.niveau).toBe('exercices');
-    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute', 'minute']);
+    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute']);
     const ligne = (m: string) => j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText;
     expect(ligne('chrono')).toContain('15 s par question, un seul toucher');
-    expect(ligne('chrono')).toContain(`${(31_710).toLocaleString('fr-FR')} pts`);
-    expect(ligne('minute')).toContain('23 justes');
+    // 33 sur 54 : 61,1 %, tronqué.
+    expect(ligne('chrono')).toContain('33/54 · 61\u00a0%');
     expect(ligne('sansfaute')).not.toContain('record'); // pas encore de record
+    expect(j.panneau.innerText).not.toContain('23');
     // Le record d'un autre sujet sur la même série n'est pas celui des pays (étude J2 § 3.2).
-    expect(recordDe(new Map([[idEpreuve('Africa', 'chrono', 'capitales'), { points: 9, justes: 9, questions: 9, temps_ms: 9_000, date: 1, bareme: 1 }]]), 'chrono', 'Africa', 'pays')).toBe('');
-    expect(recordDe(new Map([[idEpreuve('Africa', 'chrono', 'capitales'), { points: 9, justes: 9, questions: 9, temps_ms: 9_000, date: 1, bareme: 1 }]]), 'chrono', 'Africa', 'capitales')).toBe('9 pts');
+    expect(recordDe(new Map([[idEpreuve('Africa', 'chrono', 'capitales'), { points: 9, justes: 9, questions: 9, temps_ms: 9_000, date: 1, bareme: 2 }]]), 'chrono', 'Africa', 'pays')).toBe('');
+    expect(recordDe(new Map([[idEpreuve('Africa', 'chrono', 'capitales'), { points: 9, justes: 9, questions: 9, temps_ms: 9_000, date: 1, bareme: 2 }]]), 'chrono', 'Africa', 'capitales')).toBe('9/9 · 100\u00a0%');
+    // Sans faute : la part de la série (54 en Afrique), pas des questions jouées.
+    expect(recordDe(new Map([[idEpreuve('Africa', 'sansfaute'), { points: 17, justes: 17, questions: 18, temps_ms: 9_000, date: 1, bareme: 2 }]]), 'sansfaute', 'Africa')).toBe('17/54 · 31\u00a0%');
     expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé›Pays›Afrique');
     const regles = j.panneau.querySelector('#jouer-regles')!;
     expect(regles.hidden).toBe(true);
     j.panneau.querySelector('#jouer-aide')!.click();
     expect(regles.hidden).toBe(false);
     expect(regles.innerText).toContain('Chrono : toutes les questions de la série');
-    expect(regles.innerText).toContain('Minute : le plus de lieux justes en 60 s');
+    expect(regles.innerText).toContain('ton score est la part de justes ; à égalité, le temps total départage');
+    expect(regles.innerText).toContain('Sans faute : les lieux de la série');
+    expect(regles.innerText).not.toContain('Minute');
     // Ailleurs dans l'arbre (et en entraînement), pas de « ? ».
     j.ouvrir('entrainement', 'pays', 'Africa');
     expect(j.attr('data-mode')).toEqual(['apprendre', 'localiser', 'nommer']);
@@ -371,7 +383,7 @@ describe('la vue Jouer', () => {
 
   it('pas de Rejouer dans Jouer (il reste au bilan, choix du 10/11) ; les choix de la dernière partie marqués', () => {
     localStorage.setItem(CLE_DERNIERE, JSON.stringify({ branche: 'classe', sujet: 'pays', serie: 'Africa', mode: 'chrono' }));
-    enregistrerPartie(localStorage, idEpreuve('Africa'), { points: 31_710, justes: 33, questions: 54, temps_ms: 200_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('Africa'), { points: 33, justes: 33, questions: 54, temps_ms: 200_000 }, 1);
     const j = monter();
     j.ouvrir();
     expect(j.panneau.querySelector('#jouer-rejouer')).toBeNull();
@@ -392,8 +404,9 @@ describe('la vue Jouer', () => {
     expect(j.panneau.querySelector('[data-serie="Africa"]')?.getAttribute('aria-current')).toBeNull();
   });
 
-  it('dernière partie d’une série disparue ou valeur illisible : rien de marqué', () => {
-    for (const v of [JSON.stringify({ branche: 'classe', sujet: 'pays', serie: 'Atlantide', mode: 'chrono' }), '{pas du json']) {
+  it('dernière partie d’une série disparue, de Minute (retiré) ou valeur illisible : rien de marqué', () => {
+    const minute = JSON.stringify({ branche: 'classe', sujet: 'pays', serie: 'Africa', mode: 'minute' });
+    for (const v of [JSON.stringify({ branche: 'classe', sujet: 'pays', serie: 'Atlantide', mode: 'chrono' }), minute, '{pas du json']) {
       localStorage.setItem(CLE_DERNIERE, v);
       const j = monter();
       j.ouvrir();
@@ -651,20 +664,20 @@ describe('la vue Jouer : Classé › Capitales', () => {
     expect(j.panneau.querySelector('[data-sujet="capitales"] .vignette-points')).not.toBeNull();
   });
 
-  it('Classé › Capitales › Océanie : Chrono, Sans faute, Minute, leur phrase, leur record (celui des capitales, pas des pays), « ? »', () => {
-    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'capitales'), { points: 12_400, justes: 12, questions: 14, temps_ms: 70_000 }, 1);
+  it('Classé › Capitales › Océanie : Chrono, Sans faute, leur phrase, leur record (celui des capitales, pas des pays), « ? »', () => {
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'capitales'), { points: 12, justes: 12, questions: 14, temps_ms: 70_000 }, 1);
     enregistrerPartie(localStorage, idEpreuve('Oceania', 'sansfaute'), { points: 9, justes: 9, questions: 10, temps_ms: 30_000 }, 1);
     const j = monter();
     j.ouvrir('classe', 'capitales', 'Oceania');
     expect(j.panneau.dataset.niveau).toBe('exercices');
-    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute', 'minute']);
+    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute']);
     const ligne = (m: string) => j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText;
     expect(ligne('chrono')).toContain('15 s par question, un seul toucher');
-    expect(ligne('chrono')).toContain(`${(12_400).toLocaleString('fr-FR')} pts`);
-    expect(ligne('sansfaute')).not.toContain("9 d'affilée");
+    expect(ligne('chrono')).toContain('12/14 · 85\u00a0%');
+    expect(ligne('sansfaute')).not.toContain('9/14');
     expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé›Capitales›Océanie');
     j.panneau.querySelector('#jouer-aide')!.click();
-    expect(j.panneau.querySelector('#jouer-regles')!.innerText).toContain('Minute : le plus de lieux justes');
+    expect(j.panneau.querySelector('#jouer-regles')!.innerText).toContain('Sans faute : les lieux de la série');
   });
 
   it('un Chrono des capitales : les capitales chargées dans Jouer, puis la partie part (branche classe, sujet capitales)', async () => {
@@ -765,10 +778,10 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
     expect(demandes).toHaveLength(1);
   });
 
-  it('Classé › Drapeaux (partie C) : son icône, les séries des pays, Chrono, Sans faute, Minute, leur phrase, leur record (celui des drapeaux), « ? » : règles et exercices visuels', () => {
-    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'drapeaux'), { points: 13_400, justes: 13, questions: 14, temps_ms: 60_000 }, 1);
-    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'capitales'), { points: 12_400, justes: 12, questions: 14, temps_ms: 70_000 }, 1);
-    enregistrerPartie(localStorage, idEpreuve('Oceania', 'minute'), { points: 9, justes: 9, questions: 10, temps_ms: 60_000 }, 1);
+  it('Classé › Drapeaux (partie C) : son icône, les séries des pays, Chrono, Sans faute, leur phrase, leur record (celui des drapeaux), « ? » : règles et exercices visuels', () => {
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'drapeaux'), { points: 13, justes: 13, questions: 14, temps_ms: 60_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'chrono', 'capitales'), { points: 12, justes: 12, questions: 14, temps_ms: 70_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('Oceania', 'sansfaute'), { points: 9, justes: 9, questions: 10, temps_ms: 60_000 }, 1);
     const j = monter();
     j.ouvrir('classe');
     const tuile = j.panneau.querySelector('[data-sujet="drapeaux"]')!;
@@ -777,18 +790,20 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
     expect(j.attr('data-serie')).toEqual(SERIES_PAYS);
     j.ouvrir('classe', 'drapeaux', 'Oceania');
     expect(j.panneau.dataset.niveau).toBe('exercices');
-    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute', 'minute']);
+    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute']);
     const ligne = (m: string) => j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText;
     // La phrase de chaque épreuve : celle du sujet s'il en a une (jouer.exercices.drapeaux.<mode>), la générique sinon.
     expect(ligne('chrono')).toContain('15 s par question, un seul toucher');
-    expect(ligne('minute')).toContain('Le plus de justes en 60 s');
-    expect(ligne('chrono')).toContain(`${(13_400).toLocaleString('fr-FR')} pts`);
-    expect(ligne('chrono')).not.toContain((12_400).toLocaleString('fr-FR'));
-    expect(ligne('minute')).not.toContain('9 justes');
+    expect(ligne('sansfaute')).toContain("15 s par question, jusqu'à la première erreur");
+    expect(ligne('chrono')).toContain('13/14 · 92\u00a0%');
+    expect(ligne('chrono')).not.toContain('12/14');
+    // Le Sans faute des pays n'est pas celui des drapeaux.
+    expect(ligne('sansfaute')).not.toContain('9/14');
     expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé›Drapeaux›Océanie');
     j.panneau.querySelector('#jouer-aide')!.click();
     const regles = j.panneau.querySelector('#jouer-regles')!.innerText;
-    expect(regles).toContain('Minute : le plus de lieux justes');
+    expect(regles).toContain('Sans faute : les lieux de la série');
+    expect(regles).not.toContain('Minute');
     expect(regles).toContain(textes.jouer.visuel);
     // Les épreuves se jouent sur la carte : ni quatre choix ni touches 1 à 4.
     expect(regles).not.toContain(textes.jouer.visuel_choix);

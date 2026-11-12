@@ -51,7 +51,7 @@
       },
       "classe": {
         "nom": "Classé",
-        "detail": "Points et classement"
+        "detail": "Score et classement"
       }
     },
     "sujets": {
@@ -74,7 +74,6 @@
       "nommer": "Un lieu s'allume : choisis son nom parmi quatre",
       "chrono": "{s} s par question, un seul toucher",
       "sansfaute": "{s} s par question, jusqu'à la première erreur",
-      "minute": "Le plus de justes en {s} s",
       "capitales": {
         "apprendre": "Les capitales des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
         "localiser": "Une capitale est donnée : touche son pays sur la carte",
@@ -137,9 +136,6 @@
     "autre_serie": "Autre série"
   },
   "chrono": {
-    "points": "{points} pts",
-    "juste": "Juste{admis} · +{points}",
-    "faux": "Faux : {touche}, à {km} du bord · +{points}",
     "abandonner": "Abandonner",
     "abandon": "Partie abandonnée : elle ne compte pas.",
     "image_attente": "Chargement de l'image…",
@@ -148,12 +144,10 @@
     "chargement_echec": "Les drapeaux n'ont pas pu se charger (hors ligne ?).",
     "reessayer": "Réessayer",
     "bilan_titre": "{mode} · {serie}",
-    "bilan_score": "{points} points sur {max}",
-    "bilan_detail": "{justes} / {n} justes · {temps}",
+    "bilan_detail": "Temps total : {temps}",
     "premier_record": "Premier record pour cette série.",
     "nouveau_record_bat": "Nouveau record ! L'ancien : {score}.",
     "record_a_battre": "Record à battre : {score}.",
-    "bilan_faux": "{pays} → {touche}, à {km} · +{points}",
     "bilan_expire": "{pays} : temps écoulé",
     "rejouer": "Rejouer",
     "autre_serie": "Autre série",
@@ -178,7 +172,7 @@
     "joueurs": "{n} joueur(s) classé(s)",
     "classements_titre": "Classements",
     "classements_aide": "Ta place dans chaque épreuve classée. Touche une ligne pour voir ses dix premiers.",
-    "classements_sans_pseudo": "Tu n'es pas encore classé : choisis un pseudo à la fin d'une épreuve classée (Chrono, Sans faute ou Minute). Touche une épreuve pour voir ses dix premiers.",
+    "classements_sans_pseudo": "Tu n'es pas encore classé : choisis un pseudo à la fin d'une épreuve classée (Chrono ou Sans faute). Touche une épreuve pour voir ses dix premiers.",
     "classements_aucune": "Aucune place trouvée pour cette période : joue une épreuve classée pour entrer au classement, ou cherche tes places sujet par sujet.",
     "toutes_epreuves": "Toutes les épreuves",
     "masquer_epreuves": "Masquer les autres épreuves",
@@ -192,35 +186,27 @@
     "rang_n": "{n}e",
     "retour_classements": "‹ Classements",
     "general_titre": "Classement général",
-    "general_aide": "La somme des records du Chrono de toutes les séries (Sans faute et Minute n'y comptent pas) ; « Cette semaine » compte ceux de la semaine (depuis lundi, 4 h à La Réunion).",
+    "general_aide": "La part de justes sur toutes les questions du Chrono de toutes les séries ouvertes : elle baisse quand un sujet s'ouvre, et Sans faute n'y compte pas ; « Cette semaine » compte les records de la semaine (depuis lundi, 4 h à La Réunion).",
     "retour": "Retour"
   },
   "epreuves": {
     "chrono": {
       "nom": "Chrono",
-      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : 1 000 points si juste, jusqu'à 500 selon la distance sinon. Le temps total départage."
+      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : ton score est la part de justes ; à égalité, le temps total départage."
     },
     "sansfaute": {
       "nom": "Sans faute",
-      "aide": "Les lieux de la série dans le désordre, {s} s par question, un seul toucher : la partie s'arrête à la première erreur. Le plus de justes d'affilée gagne ; à égalité, le plus rapide.",
+      "aide": "Les lieux de la série dans le désordre, {s} s par question, un seul toucher : la partie s'arrête à la première erreur. Ton score est la part de la série faite d'affilée (100 % : toute la série sans erreur) ; à égalité, le plus rapide.",
       "compte": "{n} d'affilée",
-      "score": "{n} d'affilée sur {total}",
+      "score": "{n} d'affilée sur {total} · {pourcent}",
       "parfait": "Sans faute : {total} sur {total} !",
       "detail": "Temps des justes : {temps}"
     },
-    "minute": {
-      "nom": "Minute",
-      "aide": "Le plus de lieux justes en {s} s, un seul toucher par lieu : une erreur passe au suivant, et la correction ne compte pas dans la minute. À égalité, qui a vidé la série le plus vite, puis qui a fait le moins d'erreurs.",
-      "score": "{justes} en une minute",
-      "videe": "{justes} sur {total} · série vidée en {temps}"
-    },
-    "pts": "{n} pts",
-    "points_en": "{points} points en {temps}",
-    "affilee_en": "{n} d'affilée en {temps}",
     "juste_1": "{n} juste",
     "justes": "{n} justes",
-    "erreur_1": "{n} erreur",
-    "erreurs": "{n} erreurs",
+    "pourcent": "{n} %",
+    "part": "{justes}/{total} · {pourcent}",
+    "general_detail": "{justes} sur {total}",
     "en_temps": "{score} en {temps}",
     "juste": "Juste{admis}",
     "faux": "Faux : {touche}, à {km} du bord",
@@ -238,8 +224,7 @@
       "enonce": "Touche : ",
       "consigne_nommer": "Quel est ce pays ?",
       "faux_suite": "Le bon pays est en vert : touche-le.",
-      "expire": "Temps écoulé · +0. Le bon pays est en vert.",
-      "expire_sans_points": "Temps écoulé. Le bon pays est en vert.",
+      "expire": "Temps écoulé. Le bon pays est en vert.",
       "la_mer": "la mer",
       "rate_km": "{nom} : touché à {km} du bord",
       "rate_trouver": "{nom} : vu ou passé",
@@ -259,8 +244,7 @@
       "enonce": "Pays dont la capitale est : ",
       "consigne_nommer": "Quelle est sa capitale ?",
       "faux_suite": "Le bon pays est en vert : touche-le.",
-      "expire": "Temps écoulé · +0. Le bon pays est en vert.",
-      "expire_sans_points": "Temps écoulé. Le bon pays est en vert.",
+      "expire": "Temps écoulé. Le bon pays est en vert.",
       "la_mer": "la mer",
       "rate_km": "{nom} : touché à {km} du bord",
       "rate_trouver": "{nom} : vu ou passé",
@@ -280,8 +264,7 @@
       "enonce": "Pays de ce drapeau : ",
       "consigne_nommer": "Quel est son drapeau ?",
       "faux_suite": "Le bon pays est en vert : touche-le.",
-      "expire": "Temps écoulé · +0. Le bon pays est en vert.",
-      "expire_sans_points": "Temps écoulé. Le bon pays est en vert.",
+      "expire": "Temps écoulé. Le bon pays est en vert.",
       "la_mer": "la mer",
       "rate_km": "{nom} : touché à {km} du bord",
       "rate_trouver": "{nom} : vu ou passé",
@@ -301,8 +284,7 @@
       "enonce": "Touche : ",
       "consigne_nommer": "Quelle est cette commune ?",
       "faux_suite": "La bonne commune est en vert : touche-la.",
-      "expire": "Temps écoulé · +0. La bonne commune est en vert.",
-      "expire_sans_points": "Temps écoulé. La bonne commune est en vert.",
+      "expire": "Temps écoulé. La bonne commune est en vert.",
       "la_mer": "la mer",
       "rate_km": "{nom} : touché à {km} du bord",
       "rate_trouver": "{nom} : vu ou passé",

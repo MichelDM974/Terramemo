@@ -2,6 +2,8 @@
 // dix premiers d'une épreuve ; les lectures de D52 b (les épreuves où
 // l'appareil a un record, les places déjà vues, le reste sujet par sujet).
 // mesPlaces() et lireTableau() remplacés, DOM factice (tests/dom-factice.ts).
+// Les scores en part de justes (décision « Barème et classements » du
+// 12/11/2026, #30) ; Minute retiré, ses ids (`minute:…`) ni lus ni montrés.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enregistrerPartie, epreuvesClassees, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
 import { installerDom, installerStockage, type El } from './dom-factice';
@@ -25,17 +27,19 @@ const EPREUVES_CLASSEES = epreuvesClassees();
 const ILE = idEpreuve('reunion');
 const AFR = idEpreuve('Africa');
 const SF_EUR = idEpreuve('Europe', 'sansfaute');
-const MIN_ILE = idEpreuve('reunion', 'minute');
-const place = (epreuve: string, points: number, rang = 1, joueurs = 1) => ({
+/** Un record de Minute (retiré) resté sur l'appareil. */
+const MIN_ILE = 'minute:localiser:reunion';
+/** Une place (barème 2 : points = justes) sur `questions` questions. */
+const place = (epreuve: string, justes: number, rang = 1, joueurs = 1, questions = justes) => ({
   epreuve,
-  place: { cle: 'michel', pseudo: 'Michel', points, justes: 0, questions: 0, temps_ms: 0 },
+  place: { cle: 'michel', pseudo: 'Michel', points: justes, justes, questions, temps_ms: 0 },
   rang,
   joueurs,
 });
 const attendre = () => new Promise((r) => setTimeout(r, 0));
 /** Un record de l'appareil dans ces épreuves (toujours et la semaine) : elles se lisent à l'ouverture. */
 const records = (...epreuves: string[]) => {
-  for (const e of epreuves) enregistrerPartie(localStorage, e, { points: 1, justes: 0, questions: 1, temps_ms: 1_000 }, Date.now());
+  for (const e of epreuves) enregistrerPartie(localStorage, e, { points: 1, justes: 1, questions: 1, temps_ms: 1_000 }, Date.now());
 };
 /** mesPlaces() : les places de `places` parmi les épreuves demandées, dans leur ordre. */
 const repondre = (places: ReturnType<typeof place>[]) =>
@@ -71,18 +75,19 @@ afterEach(() => vi.unstubAllGlobals());
 describe('écran des classements', () => {
   it('noms et rangs', () => {
     expect([nomEpreuve('general'), nomEpreuve(AFR), nomEpreuve(ILE), nomEpreuve(idEpreuve('tous')), nomEpreuve(SF_EUR)]).toEqual(['Général', 'Afrique', 'La Réunion', 'Tous les pays', 'Europe']);
+    // Minute, retiré : plus de mode à nommer, la série seule (sans planter).
     expect([titreEpreuve('general'), titreEpreuve(AFR), titreEpreuve(SF_EUR), titreEpreuve(MIN_ILE)]).toEqual([
       'Classement général',
       'Chrono · Afrique',
       'Sans faute · Europe',
-      'Minute · La Réunion',
+      'La Réunion',
     ]);
     expect([rangSur(1, 3), rangSur(4, 12)]).toEqual(['1er sur 3', '4e sur 12']);
   });
 
   it('noms avec le sujet : pays et communes inchangés, les autres sujets devant la série (étude J2 § 3.2)', () => {
     expect(nomEpreuve(idEpreuve('Africa', 'chrono', 'pays'))).toBe('Afrique');
-    expect(nomEpreuve(idEpreuve('reunion', 'minute', 'communes'))).toBe('La Réunion');
+    expect(nomEpreuve(idEpreuve('reunion', 'sansfaute', 'communes'))).toBe('La Réunion');
     // Le nom du sujet vient de textes.jouer.sujets, qui l'aura au lot de chaque sujet ; d'ici là, son id.
     expect(nomEpreuve(idEpreuve('Africa', 'chrono', 'capitales'))).toBe(remplir(textes.chrono.epreuve_sujet, { sujet: nomSujet('capitales'), serie: 'Afrique' }));
     // Un mode que l'écran ne sait pas titrer (le quiz, au lot 4b) : son nom seul, sans planter.
@@ -92,47 +97,49 @@ describe('écran des classements', () => {
 
   it('mes places d’abord (général, puis les épreuves, par mode puis par sujet), les autres derrière « Toutes les épreuves »', async () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
+    // Le record de Minute (retiré) resté sur l'appareil : ni lu, ni montré.
     records(AFR, ILE, SF_EUR, MIN_ILE);
-    repondre([place('general', 53_277), place(AFR, 31_710), place(ILE, 21_567, 2, 3), place(SF_EUR, 17), place(MIN_ILE, 1)]);
+    repondre([place('general', 91, 2, 3, 120), place(AFR, 31, 1, 1, 54), place(ILE, 21, 2, 3, 24), place(SF_EUR, 17, 1, 1, 18), place(MIN_ILE, 1)]);
     const p = ouvrir();
     await attendre();
     // D52 b : le général et les épreuves où l'appareil a un record, seulement.
-    expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel', ['general', AFR, ILE, SF_EUR, MIN_ILE]);
-    expect(lignes('#classements-mes')).toEqual(['general', AFR, ILE, SF_EUR, MIN_ILE]);
-    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute', 'Minute']);
-    expect(sujets('#classements-mes')).toEqual(['Pays', 'Communes', 'Pays', 'Communes']);
-    expect(p.innerText).toContain(`${(53_277).toLocaleString('fr-FR')} pts`);
-    expect(p.innerText).toContain("17 d'affilée");
-    expect(p.innerText).toContain('1 juste');
-    expect(p.innerText).toContain('2e sur 3');
+    expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel', ['general', AFR, ILE, SF_EUR]);
+    expect(lignes('#classements-mes')).toEqual(['general', AFR, ILE, SF_EUR]);
+    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute']);
+    expect(sujets('#classements-mes')).toEqual(['Pays', 'Communes', 'Pays']);
+    // Le score en part de justes, tronquée : le général à une décimale, ses justes au détail ; Sans faute sur la taille de la série.
+    const score = (e: string) => racine.querySelector(`#classements-mes .essai-serie[data-epreuve="${e}"] .essai-serie-n`)!.textContent;
+    const detail = (e: string) => racine.querySelector(`#classements-mes .essai-serie[data-epreuve="${e}"] .essai-serie-detail`)!.textContent;
+    expect([score('general'), detail('general')]).toEqual(['7,6\u00a0%', `2e sur 3 · 91 justes sur ${(1194).toLocaleString('fr-FR')}`]);
+    expect([score(AFR), score(ILE), score(SF_EUR)]).toEqual(['31/54 · 57\u00a0%', '21/24 · 87\u00a0%', '17/44 · 38\u00a0%']);
+    expect([detail(AFR), detail(ILE)]).toEqual(['1er sur 1', '2e sur 3']);
     const plus = p.querySelector('#classements-plus')!;
     expect(p.querySelector('#classements-autres')!.hidden).toBe(true);
     plus.click();
     expect(p.querySelector('#classements-autres')!.hidden).toBe(false);
-    expect(lignes('#classements-autres')).toEqual(EPREUVES_CLASSEES.filter((e) => ![AFR, ILE, SF_EUR, MIN_ILE].includes(e)));
-    expect(groupes('#classements-autres')).toEqual(['Chrono', 'Sans faute', 'Minute']);
-    expect(sujets('#classements-autres')).toEqual(['Pays', 'Capitales', 'Drapeaux', 'Pays', 'Capitales', 'Drapeaux', 'Communes', 'Pays', 'Capitales', 'Drapeaux']);
+    expect(lignes('#classements-autres')).toEqual(EPREUVES_CLASSEES.filter((e) => ![AFR, ILE, SF_EUR].includes(e)));
+    expect(groupes('#classements-autres')).toEqual(['Chrono', 'Sans faute']);
+    expect(sujets('#classements-autres')).toEqual(['Pays', 'Capitales', 'Drapeaux', 'Pays', 'Capitales', 'Drapeaux', 'Communes']);
     expect(plus.textContent).toBe(T.masquer_epreuves);
     // Les autres ne sont pas lues : ni rang, ni « pas encore classé », mais de quoi les chercher.
     expect(racine.querySelector(`#classements-autres .essai-serie[data-epreuve="${idEpreuve('Asia')}"]`)!.innerText).not.toContain(T.pas_classe);
     expect(racine.querySelectorAll('#classements-autres .classements-chercher').map((b) => b.dataset.sujet)).toEqual([
       ...['pays', 'capitales', 'drapeaux'],
       ...['pays', 'capitales', 'drapeaux', 'communes'],
-      ...['pays', 'capitales', 'drapeaux'],
     ]);
   });
 
-  it('D52 b : à l’ouverture, 1 + 5 classements lus au lieu de 1 + 66 ; « Chercher mes places » lit le reste, sujet par sujet', async () => {
+  it('D52 b : à l’ouverture, 1 + 5 classements lus au lieu de 1 + 44 ; « Chercher mes places » lit le reste, sujet par sujet', async () => {
     const tout = epreuvesClassees();
-    expect(tout).toHaveLength(66);
+    expect(tout).toHaveLength(44);
     localStorage.setItem('terramemo.pseudo', 'Michel');
     const CAP_OCE = idEpreuve('Oceania', 'chrono', 'capitales');
     const SF_CAP = idEpreuve('tous', 'sansfaute', 'capitales');
     const DRA_OCE = idEpreuve('Oceania', 'chrono', 'drapeaux');
-    const MIN_DRA = idEpreuve('Europe', 'minute', 'drapeaux');
+    const SF_DRA = idEpreuve('Europe', 'sansfaute', 'drapeaux');
     records(AFR, ILE, CAP_OCE, DRA_OCE);
     // Des places prises sur un autre appareil, sans record ici : seulement à la demande.
-    repondre([place('general', 53_277), place(AFR, 31_710), place(CAP_OCE, 12_400), place(DRA_OCE, 13_100), place(SF_CAP, 30), place(MIN_DRA, 21)]);
+    repondre([place('general', 53), place(AFR, 31), place(CAP_OCE, 12), place(DRA_OCE, 13), place(SF_CAP, 30), place(SF_DRA, 21)]);
     const p = ouvrir();
     await attendre();
     expect(mesPlaces).toHaveBeenCalledTimes(1);
@@ -145,34 +152,34 @@ describe('écran des classements', () => {
     const ligne = (e: string) => racine.querySelector(`#classements-autres .essai-serie[data-epreuve="${e}"]`)!.innerText;
     expect(ligne(ILE)).toContain(T.pas_classe);
     expect(ligne(SF_CAP)).not.toContain(T.pas_classe);
-    // Les capitales, à la demande : leurs épreuves pas encore lues, les trois modes, rien d'autre.
+    // Les capitales, à la demande : leurs épreuves pas encore lues, les deux modes, rien d'autre.
     const chercher = racine.querySelector('#classements-autres .classements-chercher[data-sujet="capitales"]')!;
     expect(chercher.textContent).toBe(T.chercher_places);
     chercher.click();
     await attendre();
     expect(mesPlaces).toHaveBeenCalledTimes(2);
     const lues = mesPlaces.mock.calls[1]![2] as string[];
-    expect(lues).toHaveLength(20);
+    expect(lues).toHaveLength(13);
     expect(lues.every((e) => e.split(':')[1] === 'capitales' && e !== CAP_OCE)).toBe(true);
     // La place trouvée passe dans mes places ; le bouton des capitales n'est plus là, celui des pays si.
     expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP]);
     expect(racine.querySelector('.classements-chercher[data-sujet="capitales"]')).toBeNull();
     expect(racine.querySelector('.classements-chercher[data-sujet="pays"]')).not.toBeNull();
-    expect(ligne(idEpreuve('Africa', 'minute', 'capitales'))).toContain(T.pas_classe);
-    // Les drapeaux de même : leurs 20 épreuves pas encore lues, la place de Minute trouvée.
+    expect(ligne(idEpreuve('Africa', 'sansfaute', 'capitales'))).toContain(T.pas_classe);
+    // Les drapeaux de même : leurs 13 épreuves pas encore lues, la place de Sans faute trouvée.
     racine.querySelector('#classements-autres .classements-chercher[data-sujet="drapeaux"]')!.click();
     await attendre();
     expect(mesPlaces).toHaveBeenCalledTimes(3);
     const luesD = mesPlaces.mock.calls[2]![2] as string[];
-    expect(luesD).toHaveLength(20);
+    expect(luesD).toHaveLength(13);
     expect(luesD.every((e) => e.split(':')[1] === 'drapeaux' && e !== DRA_OCE)).toBe(true);
-    expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP, MIN_DRA]);
+    expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP, SF_DRA]);
     expect(racine.querySelector('.classements-chercher[data-sujet="drapeaux"]')).toBeNull();
     // Gardées comme vues : à la prochaine ouverture, elles se lisent d'office (sans record sur l'appareil).
     mesPlaces.mockClear();
     ouvrir();
     await attendre();
-    expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE, SF_CAP, MIN_DRA]);
+    expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE, SF_CAP, SF_DRA]);
     // Un autre pseudo n'hérite pas des places vues de celui-ci.
     localStorage.setItem('terramemo.pseudo', 'Zoé');
     mesPlaces.mockClear();
@@ -184,7 +191,7 @@ describe('écran des classements', () => {
   it('« Chercher mes places » hors ligne : le bouton le dit et se réessaie', async () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
     records(AFR);
-    repondre([place(AFR, 31_710)]);
+    repondre([place(AFR, 31)]);
     ouvrir();
     await attendre();
     mesPlaces.mockRejectedValueOnce(new Error('hors ligne'));
@@ -201,7 +208,7 @@ describe('écran des classements', () => {
   it('« Chercher mes places » de deux sujets à la fois : celui en cours reste en cours quand l’autre redessine, et son échec se voit', async () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
     records(AFR);
-    repondre([place(AFR, 31_710)]);
+    repondre([place(AFR, 31)]);
     ouvrir();
     await attendre();
     const reponses: { ok: (v: unknown) => void; ko: (e: unknown) => void }[] = [];
@@ -231,14 +238,14 @@ describe('écran des classements', () => {
     ouvrir();
     await attendre();
     const parMode = ['Pays', 'Capitales', 'Drapeaux', 'Communes'];
-    expect(sujets('#classements-mes')).toEqual([...parMode, ...parMode, ...parMode]);
+    expect(sujets('#classements-mes')).toEqual([...parMode, ...parMode]);
     expect(lignes('#classements-mes')).toEqual(['general', ...epreuvesClassees()]);
   });
 
   it('une ligne ouvre les dix premiers de son épreuve, « ‹ Classements » ramène à la liste', async () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
     records(ILE);
-    repondre([place(ILE, 21_567)]);
+    repondre([place(ILE, 21)]);
     const p = ouvrir();
     await attendre();
     p.querySelector(`.essai-serie[data-epreuve="${ILE}"]`)!.click();
@@ -268,7 +275,7 @@ describe('écran des classements', () => {
   it('« Cette semaine » relit mes places de la semaine, et l’épreuve ouverte s’y ouvre aussi', async () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
     records(AFR);
-    repondre([place(AFR, 31_710)]);
+    repondre([place(AFR, 31)]);
     const p = ouvrir();
     await attendre();
     p.querySelector('button[data-v="semaine"]')!.click();
@@ -285,7 +292,7 @@ describe('écran des classements', () => {
     await attendre();
     expect(mesPlaces).not.toHaveBeenCalled();
     expect(lignes('#classements-mes')).toEqual(['general', ...EPREUVES_CLASSEES]);
-    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute', 'Minute']);
+    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute']);
     expect(p.innerText).toContain(T.classements_sans_pseudo);
   });
 
@@ -298,7 +305,7 @@ describe('écran des classements', () => {
     expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel', ['general']);
     expect(p.innerText).toContain(T.classements_aucune);
     expect(lignes('#classements-mes')).toHaveLength(EPREUVES_CLASSEES.length + 1);
-    expect(racine.querySelectorAll('#classements-mes .classements-chercher').length).toBe(12);
+    expect(racine.querySelectorAll('#classements-mes .classements-chercher').length).toBe(8);
     mesPlaces.mockRejectedValue(new Error('hors ligne'));
     p = ouvrir();
     await attendre();

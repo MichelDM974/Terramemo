@@ -1,9 +1,10 @@
 // Vue « Classements » (bouton 🏆 de l'en-tête ; décisions « En-tête »,
-// « Classements par épreuve » et « Sans faute et Minute ») : d'abord mes
+// « Classements par épreuve » et « Barème et classements ») : d'abord mes
 // places, le général puis chaque épreuve où mon pseudo est classé, avec rang et
-// score, de toujours ou de la semaine ; « Toutes les épreuves » montre les
+// score (« 190/195 · 97 % », le général « 7,6 % » et « 91 justes sur 1 194 »
+// au détail), de toujours ou de la semaine ; « Toutes les épreuves » montre les
 // autres. Les lignes vont par mode, sous son titre : Chrono (le général en
-// tête, qui n'additionne que lui), Sans faute, Minute ; puis par sujet, sous le
+// tête, qui n'additionne que lui), Sans faute ; puis par sujet, sous le
 // sien (h4 : Pays, Capitales, Drapeaux, Communes ; étude J2 § 8.3). Toucher une ligne
 // ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à la
 // liste. Les séries de chaque sujet viennent dans l'ordre de partout
@@ -24,7 +25,7 @@ import { nomSujet } from './arbre';
 import { nomSerie } from './cibles';
 import { blocClassement, lirePseudo, relancerAttente } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
-import { nomMode, scoreCourt } from './scores';
+import { fmtJustesGeneral, nomMode, scoreCourt } from './scores';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -115,14 +116,19 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
     return b;
   }
 
-  /** Une ligne : sa place, « pas encore classé » (lue, ou sans pseudo), rien si elle n'est pas lue. */
+  /**
+   * Une ligne : sa place, « pas encore classé » (lue, ou sans pseudo), rien si
+   * elle n'est pas lue. Le général dit ses justes au détail (« 2e sur 3 · 91
+   * justes sur 1 194 ») : son pourcentage, à une décimale, ne les montre pas.
+   */
   function ligne(epreuve: string, p: MaPlace | null, lue: boolean): HTMLLIElement {
-    const detail = p ? rangSur(p.rang, p.joueurs) : lue ? T.pas_classe : '';
+    const rang = p && rangSur(p.rang, p.joueurs);
+    const detail = p ? (epreuve === GENERAL ? `${rang} · ${fmtJustesGeneral(p.place.justes)}` : rang) : lue ? T.pas_classe : '';
     const b = creer(
       'button',
       { type: 'button', class: 'essai-serie', 'data-epreuve': epreuve },
       creer('span', { class: 'essai-serie-nom' }, nomEpreuve(epreuve), ...(detail ? [creer('span', { class: 'essai-serie-detail' }, detail)] : [])),
-      creer('span', { class: 'essai-serie-n' }, p ? scoreCourt(modeEpreuve(epreuve), p.place.points) : ''),
+      creer('span', { class: 'essai-serie-n' }, p ? scoreCourt(epreuve, p.place) : ''),
     );
     b.addEventListener('click', () => ouvrirEpreuve(epreuve));
     return creer('li', {}, b);

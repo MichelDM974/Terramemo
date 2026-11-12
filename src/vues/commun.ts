@@ -287,13 +287,14 @@ export function avecSujet(
 
 /**
  * Les options de noter() pour la question de ce lieu dans ce sujet : les
- * zones admises de la carte (`base` : faux, le de fait strict des épreuves
- * d'avant leur date), plus celles du sujet (D36 i : Jérusalem ↔
- * Jérusalem-Est sous Capitales ; D41 d : les jumeaux sous Drapeaux), jamais
- * dans la table commune.
+ * zones admises de la carte (entraînement et épreuves : la date d'effet des
+ * épreuves, le 09/11/2026, est passée ; décision « Zones contestées et
+ * enclaves »), plus celles du sujet (D36 i : Jérusalem ↔ Jérusalem-Est sous
+ * Capitales ; D41 d : les jumeaux sous Drapeaux), jamais dans la table
+ * commune.
  */
-export function optionsNoter(r: Pick<RenduSujet, 'admisEnPlus'>, t: Pick<Terrain, 'donnees'>, id: string, base = true): OptionsNoter {
-  const plus = base ? r.admisEnPlus(id) : null;
+export function optionsNoter(r: Pick<RenduSujet, 'admisEnPlus'>, t: Pick<Terrain, 'donnees'>, id: string): OptionsNoter {
+  const plus = r.admisEnPlus(id);
   const table = plus ? acceptesEnPlus(t.donnees, id, plus.zones, plus.sorte) : null;
-  return { acceptes: table ?? base };
+  return { acceptes: table ?? true };
 }

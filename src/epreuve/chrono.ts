@@ -1,27 +1,47 @@
 // Parties des épreuves classées (pur) : les lieux d'une série (pays ou
-// communes), une question à la fois, un seul toucher. Le Chrono note au barème
-// (bareme.ts) ; Sans faute et Minute comptent les justes (décision « Sans
-// faute et Minute »). Les records se gardent sur l'appareil (de toujours et de
-// la semaine) ; classement.ts les publie.
+// communes), une question à la fois, un seul toucher. Chrono et Sans faute
+// comptent les justes (bareme.ts, décision « Barème et classements » du
+// 12/11/2026). Les records se gardent sur l'appareil (de toujours et de la
+// semaine) ; classement.ts les publie.
 import type { Domaine } from '../srs/fiches';
-import { comparerScores, DELAI_CHRONO_MS, ECHELLE_KM, POINTS_JUSTE, POINTS_PROCHE_MAX, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
+import { comparerScores, DELAI_CHRONO_MS, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
 
-/** Version du barème : un changement de formule repart de records vides. */
-export const VERSION_BAREME = 1;
+/**
+ * Version du barème, portée par chaque record et chaque place en ligne. 2
+ * (12/11/2026, #30) : juste ou faux, points = justes. Un score du barème 1
+ * (BAREME_1) est converti à la lecture (versBareme2), jamais effacé
+ * (décision « Barème et classements ») ; une version plus récente est
+ * ignorée.
+ */
+export const VERSION_BAREME = 2;
+
+/** Le barème d'avant le 12/11/2026 : 1 000 points par juste, jusqu'à 500 par erreur proche (proximité). */
+export const BAREME_1 = 1;
 
 export interface QuestionJouee extends ReponseChrono {
   id: string;
   /** Pays que la carte désigne au toucher (pick) ; null en mer ou sans toucher. */
   touche: string | null;
+  /** 1 si juste dans le délai, 0 sinon (pointsQuestion). */
   points: number;
 }
 
 /**
- * Les épreuves classées (décisions « Points et classement », « Sans faute et
- * Minute ») : chacune se joue en touchant la carte, dans les mêmes séries.
+ * Les épreuves classées (décisions « Points et classement », « Barème et
+ * classements ») : chacune se joue en touchant la carte, dans les mêmes
+ * séries.
  */
-export type ModeEpreuve = 'chrono' | 'sansfaute' | 'minute';
-export const MODES_EPREUVE: readonly ModeEpreuve[] = ['chrono', 'sansfaute', 'minute'];
+export type ModeEpreuve = 'chrono' | 'sansfaute';
+export const MODES_EPREUVE: readonly ModeEpreuve[] = ['chrono', 'sansfaute'];
+
+/**
+ * Les modes retirés, dont les ids restent réservés à vie et ne sont jamais
+ * réutilisés pour une autre épreuve : `minute:…` (Minute, retiré le
+ * 12/11/2026, décision « Barème et classements »). Leurs records restent
+ * sur l'appareil et au profil, sans plus rien publier ni additionner
+ * (modeEpreuve : null).
+ */
+export const MODES_RETIRES: readonly string[] = ['minute'];
 
 /**
  * Le mode d'un classement : une épreuve, ou le quiz général
@@ -34,21 +54,14 @@ export type ModeClasse = ModeEpreuve | 'quiz';
 /** Délai par question de Sans faute : celui du Chrono au toucher. */
 export const DELAI_SANS_FAUTE_MS = DELAI_CHRONO_MS.localiser;
 
-/** Durée de Minute : le temps de réponse compté, sans les rétroactions entre deux questions. */
-export const DUREE_MINUTE_MS = 60_000;
-
 export class PartieChrono {
   protected i = 0;
   readonly jouees: QuestionJouee[] = [];
 
-  /**
-   * `cibles` dans l'ordre où les poser (la vue les mélange) ; `echelle_km`,
-   * celle du terrain de la série (bareme.ts, ECHELLES_KM), le monde par défaut.
-   */
+  /** `cibles` dans l'ordre où les poser (la vue les mélange). */
   constructor(
     readonly cibles: readonly string[],
     readonly delai_ms: number,
-    readonly echelle_km: number = ECHELLE_KM,
   ) {}
 
   get courante(): string | undefined {
@@ -67,15 +80,10 @@ export class PartieChrono {
     return this.jouees.reduce((s, q) => s + q.points, 0);
   }
 
-  /** Les points d'une réponse : le barème du Chrono. */
-  protected pointsDe(q: ReponseChrono): number {
-    return pointsQuestion(q, this.delai_ms, this.echelle_km);
-  }
-
   private jouer(q: Omit<QuestionJouee, 'id' | 'points'>): QuestionJouee {
     const id = this.courante;
     if (id === undefined || this.finie) throw new Error('partie finie');
-    const jouee = { id, ...q, points: this.pointsDe(q) };
+    const jouee = { id, ...q, points: pointsQuestion(q, this.delai_ms) };
     this.jouees.push(jouee);
     this.i++;
     return jouee;
@@ -86,13 +94,13 @@ export class PartieChrono {
     return this.jouer({ touche, juste, distance_km, temps_ms });
   }
 
-  /** Délai écoulé sans toucher : 0 point, tout le délai compté. */
+  /** Délai écoulé sans toucher : une erreur, tout le délai compté. */
   expirer(): QuestionJouee {
     return this.jouer({ touche: null, juste: false, distance_km: null, temps_ms: null });
   }
 
   score(): ScoreEpreuve {
-    return scoreEpreuve(this.jouees, this.delai_ms, this.echelle_km);
+    return scoreEpreuve(this.jouees, this.delai_ms);
   }
 }
 
@@ -110,11 +118,6 @@ export class PartieSansFaute extends PartieChrono {
     super(cibles, delai_ms);
   }
 
-  /** 1 si juste dans le délai, 0 sinon (une erreur). */
-  protected override pointsDe(q: ReponseChrono): number {
-    return q.juste && q.temps_ms != null && q.temps_ms <= this.delai_ms ? 1 : 0;
-  }
-
   override get finie(): boolean {
     return super.finie || this.jouees.some((q) => q.points === 0);
   }
@@ -123,61 +126,6 @@ export class PartieSansFaute extends PartieChrono {
     const justes = this.jouees.filter((q) => q.points > 0);
     const temps_ms = justes.reduce((t, q) => t + tempsBorne(q, this.delai_ms), 0);
     return { points: justes.length, justes: justes.length, questions: this.jouees.length, temps_ms };
-  }
-}
-
-/**
- * Minute : le plus de justes en 60 s de réponse ; une erreur passe à la
- * suivante, sans délai par question. Score : les justes (points = justes) ;
- * départage au temps (la série vidée avant la fin, plus tôt est mieux), puis
- * au moins de questions (moins d'erreurs à justes égales). La vue décompte la
- * minute (reste) et l'arrête (terminer) ; la question posée à ce moment ne
- * compte pas.
- */
-export class PartieMinute extends PartieChrono {
-  private terminee = false;
-
-  constructor(
-    cibles: readonly string[],
-    readonly duree_ms: number = DUREE_MINUTE_MS,
-  ) {
-    super(cibles, duree_ms);
-  }
-
-  /** 1 si juste, 0 sinon. */
-  protected override pointsDe(q: ReponseChrono): number {
-    return q.juste ? 1 : 0;
-  }
-
-  /** Temps de réponse déjà passé (ms). */
-  get ecoule(): number {
-    return this.jouees.reduce((t, q) => t + tempsBorne(q, this.duree_ms), 0);
-  }
-
-  /** Ce qui reste de la minute (ms), au début de la question posée. */
-  get reste(): number {
-    return Math.max(0, this.duree_ms - this.ecoule);
-  }
-
-  override get finie(): boolean {
-    return this.terminee || super.finie;
-  }
-
-  /** La minute est écoulée : la partie est finie, la question posée ne compte pas. */
-  terminer(): void {
-    this.terminee = true;
-  }
-
-  /** Minute n'a pas de délai par question : la fin de la minute est terminer(). */
-  override expirer(): QuestionJouee {
-    throw new Error('Minute : pas de délai par question (terminer)');
-  }
-
-  override score(): ScoreEpreuve {
-    const justes = this.jouees.filter((q) => q.points > 0).length;
-    // Minute pleine : 60 s pile pour tous ; série vidée : le temps passé.
-    const temps_ms = this.terminee ? this.duree_ms : Math.min(this.ecoule, this.duree_ms);
-    return { points: justes, justes, questions: this.jouees.length, temps_ms };
   }
 }
 
@@ -207,6 +155,37 @@ export function recordPubliable(r: RecordChrono, epreuve: string): ScoreEpreuve 
 }
 
 /**
+ * Un score du barème 1 (BAREME_1) dans le barème 2 : ses points deviennent
+ * ses justes. Au Chrono et au général, c'est tout le changement ; à Sans
+ * faute (et à Minute, retiré), les points valaient déjà les justes. Sert aux
+ * records de l'appareil (convertirRecord), à ceux du profil
+ * (src/sync/profil.ts) et aux places lues en ligne (src/epreuve/classement.ts,
+ * enPlace), pour ne jamais comparer deux échelles.
+ */
+export const pointsV2 = <S extends { points: number; justes: number }>(s: S): S => ({ ...s, points: s.justes });
+
+/**
+ * Un record de l'appareil au barème 2 : celui du barème 1 converti
+ * (pointsV2, son `publiable` aussi), jamais effacé (décision « Barème et
+ * classements ») ; les autres tels quels. Le publiable gardé à côté d'un
+ * record non vraisemblable peut, compté en justes, battre ce record (9
+ * justes et des erreurs proches devant 10 justes, au barème 1) : il devient
+ * alors le record, comme garder() l'aurait fait au barème 2.
+ */
+export function convertirRecord(r: RecordChrono): RecordChrono {
+  if (r.bareme !== BAREME_1) return r;
+  const { publiable, ...reste } = r;
+  const record: RecordChrono = { ...pointsV2(reste), bareme: VERSION_BAREME };
+  if (!publiable) return record;
+  const p = pointsV2(publiable);
+  if (comparerScores(p, record) < 0) return { ...sansDate(p), date: p.date, bareme: VERSION_BAREME };
+  return { ...record, publiable: p };
+}
+
+/** Champs numériques d'un score lu (stockage, profil) : de quoi le convertir sans NaN. */
+const scoreLisible = (r: { points?: unknown; justes?: unknown }): boolean => typeof r.points === 'number' && typeof r.justes === 'number';
+
+/**
  * La clé d'un sujet dans l'id de ses épreuves (étude J2 § 3.2) : `localiser`
  * pour les pays et les communes, inchangé (records, profils et classements
  * en dépendent), le nom du sujet pour les autres. Figée à vie, comme les
@@ -216,7 +195,7 @@ export const CLE_SUJET: Readonly<Record<Domaine, string>> = { pays: 'localiser',
 
 /**
  * Identifiant d'une épreuve : mode, clé du sujet, série (un continent, 'tous',
- * 'reunion', 'mers') : `chrono:localiser:reunion`, `minute:localiser:Africa`,
+ * 'reunion', 'mers') : `chrono:localiser:reunion`, `sansfaute:localiser:Africa`,
  * `chrono:capitales:Africa`.
  */
 export const idEpreuve = (serie: string, mode: ModeEpreuve = 'chrono', sujet: Domaine = 'pays'): string => `${mode}:${CLE_SUJET[sujet]}:${serie}`;
@@ -299,20 +278,98 @@ export function sujetEpreuve(epreuve: string): Domaine | null {
  */
 export const BORNE_GENERAL = 1194;
 
+/** Questions de chaque série du monde : les 195 pays jouables (src/vues/cibles.ts), répartis en six continents. */
+const TAILLES_MONDE: Readonly<Record<string, number>> = { tous: 195, Africa: 54, 'North America': 23, 'South America': 12, Asia: 48, Europe: 44, Oceania: 14 };
+
+/**
+ * Questions de chaque série, par sujet : celles de tailles(cle) dans
+ * firestore.rules (tests/chrono.test.ts les confronte, et au catalogue).
+ * Capitales et drapeaux ont les séries et les tailles des pays (D37 c).
+ * Les mers viendront avec leurs épreuves (lot 3b).
+ */
+const TAILLES_SERIES: Readonly<Record<Domaine, Readonly<Record<string, number>>>> = {
+  pays: TAILLES_MONDE,
+  capitales: TAILLES_MONDE,
+  drapeaux: TAILLES_MONDE,
+  communes: { reunion: 24 },
+  mers: {},
+};
+
+/**
+ * Les questions de la série d'une épreuve classée (ou d'une clé de record),
+ * celles qui font les 100 % : Sans faute n'en garde que les justes d'affilée
+ * et l'erreur qui l'arrête (src/vues/scores.ts) ; null hors du catalogue (le
+ * général, le quiz, un mode retiré ou inconnu).
+ */
+export function tailleEpreuve(epreuve: string): number | null {
+  if (modeEpreuve(epreuve) === null) return null;
+  const sujet = sujetEpreuve(epreuve);
+  const serie = (epreuve.split('@')[0] ?? '').split(':')[2] ?? '';
+  return sujet === null ? null : (TAILLES_SERIES[sujet][serie] ?? null);
+}
+
 const CLE_RECORDS = 'terramemo.chrono.records';
 /** Le pseudo public de l'appareil (pour un compte, la copie de celui du profil : J1b, § 2.1). */
 const CLE_PSEUDO = 'terramemo.pseudo';
 
 type Stockage = Pick<Storage, 'getItem' | 'setItem'>;
 
-/** Les records gardés, ceux d'un autre barème écartés ; vide sans stockage ou s'il est illisible. */
+/**
+ * Les records gardés, au barème 2 : ceux du barème 1 convertis
+ * (convertirRecord), ceux d'un autre barème écartés ; vide sans stockage ou
+ * s'il est illisible. La conversion n'est écrite qu'avec le prochain record
+ * (ecrireRecords), ou au démarrage (convertirStockage) : relue d'ici là, elle
+ * donne le même résultat. Convertis clé par clé, le record de toujours
+ * pourrait rester sous celui d'une semaine : au barème 1, chacun avait été
+ * choisi aux points de proximité (100 justes et des erreurs proches devant
+ * 110 justes et des erreurs lointaines) ; un record de la semaine converti
+ * qui bat celui de toujours le remplace donc (garder, publiable compris).
+ */
 export function lireRecords(stockage: Stockage | null): Map<string, RecordChrono> {
   try {
     const brut = stockage?.getItem(CLE_RECORDS);
     const objet = brut ? (JSON.parse(brut) as Partial<Record<string, RecordChrono>>) : {};
-    return new Map(Object.entries(objet).filter((e): e is [string, RecordChrono] => e[1]?.bareme === VERSION_BAREME));
+    const lus = new Map<string, RecordChrono>();
+    const semaines: string[] = [];
+    for (const [k, r] of Object.entries(objet)) {
+      if (r?.bareme === VERSION_BAREME) lus.set(k, r);
+      else if (r?.bareme === BAREME_1 && scoreLisible(r) && (!r.publiable || scoreLisible(r.publiable))) {
+        lus.set(k, convertirRecord(r));
+        if (k.includes('@')) semaines.push(k);
+      }
+    }
+    for (const k of semaines) {
+      const r = lus.get(k)!;
+      const epreuve = k.split('@')[0]!;
+      garder(lus, epreuve, sansDate(r), r.date);
+      if (r.publiable) garder(lus, epreuve, sansDate(r.publiable), r.publiable.date);
+    }
+    return lus;
   } catch {
     return new Map();
+  }
+}
+
+/**
+ * Écrit au barème 2 les records du barème 1 de l'appareil (lireRecords les
+ * convertit), une fois, au démarrage (src/vues/classement.ts,
+ * brancherRelance) ; rend les clés converties, à republier : leurs places en
+ * ligne ont pu être refusées par les règles du barème 2 pendant que
+ * l'appareil jouait encore au barème 1. Vide s'il n'y en avait pas, sans
+ * stockage ou s'il est illisible.
+ */
+export function convertirStockage(stockage: Stockage | null): string[] {
+  try {
+    const brut = stockage?.getItem(CLE_RECORDS);
+    const objet = brut ? (JSON.parse(brut) as Partial<Record<string, RecordChrono>>) : {};
+    const records = lireRecords(stockage);
+    const converties = Object.entries(objet)
+      .filter(([k, r]) => r?.bareme === BAREME_1 && records.has(k))
+      .map(([k]) => k);
+    if (converties.length) ecrireRecords(stockage, records);
+    return converties;
+  } catch {
+    return [];
   }
 }
 
@@ -467,7 +524,7 @@ export const QUESTIONS_QUIZ = 20;
  * l'épreuve et la progression se jugent sur le serveur seulement, sauf la
  * borne du général (BORNE_GENERAL), recopiée. Le quiz :
  * les bornes de quizValide (étude J2 § 8.2 : 20 questions, barème du Chrono) ;
- * un mode inconnu : faux.
+ * un mode inconnu ou retiré (Minute) : faux.
  */
 export function vraisemblable(s: ScoreEpreuve, epreuve: string): boolean {
   const points = Math.round(s.points);
@@ -478,8 +535,6 @@ export function vraisemblable(s: ScoreEpreuve, epreuve: string): boolean {
     case 'sansfaute':
       // Les justes d'affilée, plus l'erreur qui a fini la partie (sauf série vidée) ; le temps des justes seules.
       return q >= 1 && q <= justes + 1 && points === justes && temps >= justes * TEMPS_MIN_QUESTION_MS && temps <= justes * TEMPS_MAX_QUESTION_MS;
-    case 'minute':
-      return points === justes && temps >= q * TEMPS_MIN_QUESTION_MS && temps <= DUREE_MINUTE_MS;
     case 'chrono':
       // Le général : au plus BORNE_GENERAL questions, comme chronoValide(d, 0).
       return baremeChrono(points, justes, q, temps) && (epreuve.split('@')[0] !== ID_GENERAL || q <= BORNE_GENERAL);
@@ -491,21 +546,15 @@ export function vraisemblable(s: ScoreEpreuve, epreuve: string): boolean {
   }
 }
 
-/** Les bornes du barème du Chrono (scoreValide de firestore.rules) : 1 000 par juste, 500 au plus par erreur, 0,2 à 15 s par question. */
+/** Les bornes du barème du Chrono (chronoValide de firestore.rules) : points = justes, 0,2 à 15 s par question. */
 function baremeChrono(points: number, justes: number, q: number, temps: number): boolean {
-  return (
-    q >= 1 &&
-    points >= justes * POINTS_JUSTE &&
-    points <= justes * POINTS_JUSTE + (q - justes) * POINTS_PROCHE_MAX &&
-    temps >= q * TEMPS_MIN_QUESTION_MS &&
-    temps <= q * TEMPS_MAX_QUESTION_MS
-  );
+  return q >= 1 && points === justes && temps >= q * TEMPS_MIN_QUESTION_MS && temps <= q * TEMPS_MAX_QUESTION_MS;
 }
 
 /**
  * Le score du classement général : la somme des records des épreuves de
- * epreuvesDuGeneral pour la période (décisions « Classements », « Sans faute et
- * Minute » : ni Sans faute ni Minute n'y comptent), chacun pris à son
+ * epreuvesDuGeneral pour la période (décisions « Classements », « Barème et
+ * classements » : Sans faute n'y compte pas), chacun pris à son
  * meilleur score publiable (recordPubliable) ; null sans record publiable.
  * Les seules listées (étude J2 § 3.2) : ni le quiz, ni un Chrono que cette
  * version ne connaît pas (venu par le profil d'une version plus récente),

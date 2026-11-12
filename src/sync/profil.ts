@@ -13,10 +13,14 @@
 // Fusion (pure, ici) : par clé, le meilleur record, dans l'ordre de chrono.ts
 // (plus de points, puis moins de temps, puis moins de questions) ; à égalité,
 // celui du profil reste, pour qu'une fusion déjà faite n'écrive rien. Les
-// semaines passées sont oubliées. Un record d'un autre barème vient d'une
-// autre version de l'appli : plus récent, il est gardé tel quel (cette
-// version ne sait pas le comparer) ; plus ancien, il cède la place au record
-// de l'appareil, et reste s'il n'y en a pas. Deux versions ne se renvoient
+// semaines passées sont oubliées. Un record du barème 1 (points de
+// proximité, jusqu'au 12/11/2026) est converti à la lecture
+// (lireRecordsProfil : points = justes, décision « Barème et classements »),
+// pour ne jamais comparer deux échelles ; le profil le reçoit converti à la
+// prochaine écriture. Un record d'un autre barème vient d'une autre version
+// de l'appli : plus récent, il est gardé tel quel (cette version ne sait pas
+// le comparer) ; plus ancien, il cède la place au record de l'appareil, et
+// reste s'il n'y en a pas. Deux versions ne se renvoient
 // ainsi jamais la balle à chaque ouverture. Le pseudo, par une fusion à
 // trois : celui du compte l'emporte, sauf si l'appareil a changé le sien
 // depuis son dernier envoi à ce compte (lireBasePseudo : le pseudo du compte
@@ -32,7 +36,7 @@
 // (appliquer), sur ses records du moment : un record fait pendant l'appel
 // n'est pas écrasé.
 import { comparerScores, type ScoreEpreuve } from '../epreuve/bareme';
-import { ecrireRecords, garder, garderPseudoDans, lirePseudoDe, lireRecords, oublierSemainesPassees, pseudoValide, VERSION_BAREME, type RecordChrono } from '../epreuve/chrono';
+import { BAREME_1, ecrireRecords, garder, garderPseudoDans, lirePseudoDe, lireRecords, oublierSemainesPassees, pointsV2, pseudoValide, VERSION_BAREME, type RecordChrono } from '../epreuve/chrono';
 import type { Service } from './firebase';
 
 /** Le pseudo du compte au dernier envoi réussi depuis cet appareil : la base de la fusion à trois du pseudo. */
@@ -136,7 +140,14 @@ function recordValide(r: Brut): r is Brut & RecordChrono {
   );
 }
 
-/** Les records d'une chaîne du profil : les entrées qui ont un barème (les autres sont jetées). */
+/**
+ * Les records d'une chaîne du profil : les entrées qui ont un barème (les
+ * autres sont jetées), celles du barème 1 converties au barème 2 (pointsV2)
+ * quand leurs points et leurs justes sont des nombres ; sinon, elles restent
+ * au barème 1 (une version plus ancienne, gardée telle quelle). Un record de
+ * la semaine converti qui bat celui de toujours le remplace (au barème 1,
+ * chacun avait été choisi aux points de proximité).
+ */
 export function lireRecordsProfil(brut: string | null): Map<string, Brut> {
   const lus = new Map<string, Brut>();
   if (!brut) return lus;
@@ -147,8 +158,20 @@ export function lireRecordsProfil(brut: string | null): Map<string, Brut> {
     return lus;
   }
   if (!objet || typeof objet !== 'object' || Array.isArray(objet)) return lus;
+  const semaines: string[] = [];
   for (const [k, r] of Object.entries(objet as Record<string, unknown>)) {
-    if (r && typeof r === 'object' && !Array.isArray(r) && typeof (r as Brut).bareme === 'number') lus.set(k, r as Brut);
+    if (!r || typeof r !== 'object' || Array.isArray(r) || typeof (r as Brut).bareme !== 'number') continue;
+    const b = r as Brut;
+    const convertir = b.bareme === BAREME_1 && typeof b.points === 'number' && typeof b.justes === 'number';
+    lus.set(k, convertir ? { ...pointsV2(b as Brut & { points: number; justes: number }), bareme: VERSION_BAREME } : b);
+    if (convertir && k.includes('@')) semaines.push(k);
+  }
+  // Comme lireRecords (src/epreuve/chrono.ts) : converti, le record d'une semaine qui bat celui de toujours le remplace.
+  for (const k of semaines) {
+    const w = lus.get(k)!;
+    const e = k.split('@')[0]!;
+    const t = lus.get(e);
+    if (recordValide(w) && (!t || (recordValide(t) && comparerScores(w, t) < 0))) lus.set(e, { ...scoreDe(w), date: w.date, bareme: VERSION_BAREME });
   }
   return lus;
 }

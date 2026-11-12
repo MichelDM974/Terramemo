@@ -1,6 +1,7 @@
 // Vue des épreuves (src/vues/chrono.ts) sur un DOM factice : quitter la vue,
-// ou toucher « Abandonner », pendant une partie (#16, défaut 3) ; Sans faute et
-// Minute (#14) ; la partie lancée depuis Jouer et les retours vers lui (#18,
+// ou toucher « Abandonner », pendant une partie (#16, défaut 3) ; Sans faute
+// (#14) ; le score en part de justes (décision « Barème et classements » du
+// 12/11/2026, #30 : Minute retiré) ; la partie lancée depuis Jouer et les retours vers lui (#18,
 // décision « Écran Jouer »). La carte, les mesures et le bloc du classement
 // sont remplacés ; chaque toucher est juste, sauf ceux que `faux` désigne. Les
 // minuteries et performance.now() sont factices : le temps de réponse est
@@ -15,7 +16,6 @@ import { chargerDrapeaux, drapeauxCharges, oublierDrapeaux, type ChargerImage } 
 import { calculerPastilles } from '../src/map/pastilles';
 import { noter } from '../src/map/pick';
 import { creerProjection } from '../src/map/projection';
-import { DEBUT_ACCEPTES_EPREUVES } from '../src/epreuve/bareme';
 import { idEpreuve, lireRecords } from '../src/epreuve/chrono';
 import type { Pays } from '../src/map/types';
 import { ditsPar, installerDom, installerStockage, El } from './dom-factice';
@@ -95,7 +95,7 @@ function contexte(maintenant?: () => number, noms: Record<string, string> = { RU
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
   const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer, maintenant, ...(chargerImage ? { chargerImage } : {}) });
   /** L'épreuve et sa série choisies dans Jouer : la vue s'ouvre, la partie part. */
-  const lancer = (mode: 'chrono' | 'sansfaute' | 'minute' = 'chrono', serie = AMS, sujet = 'pays') => {
+  const lancer = (mode: 'chrono' | 'sansfaute' = 'chrono', serie = AMS, sujet = 'pays') => {
     const s = catalogue(pays).find((x) => x.id === serie)!;
     v.activer();
     v.lancer({ branche: 'classe', sujet, serie, mode }, s, monde as never, [...s.ids]);
@@ -143,9 +143,9 @@ describe('Chrono : quitter la vue', () => {
     expect(v.redirection?.()).toBeNull(); // le bilan est à montrer : pas de renvoi à Jouer
     v.activer();
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
-    expect(zone.querySelector('#chrono-bilan')?.innerText).toContain('12 000');
-    // Le record est gardé, et le bloc du classement a de quoi publier la partie.
-    expect(lireRecords(localStorage).get(idEpreuve(AMS))?.points).toBe(12_000);
+    expect(zone.querySelector('#chrono-bilan')?.innerText).toContain('12/12 · 100\u00a0%');
+    // Le record est gardé (points = justes), et le bloc du classement a de quoi publier la partie.
+    expect(lireRecords(localStorage).get(idEpreuve(AMS))?.points).toBe(12);
     expect(blocClassement).toHaveBeenCalledWith(idEpreuve(AMS), expect.any(String), expect.any(Function));
     // Au retour suivant, le bilan encore (il était affiché) ; « Autre série » ramène aux séries des pays.
     v.desactiver();
@@ -167,8 +167,8 @@ describe('Chrono : quitter la vue', () => {
     zone.querySelector('#chrono-abandonner')?.click();
     expect(zone.querySelector('#chrono-bilan')?.hidden).toBe(false);
     expect(versJouer).not.toHaveBeenCalled();
-    expect(zone.querySelector('#chrono-bilan')?.innerText).toContain('12 000');
-    expect(lireRecords(localStorage).get(idEpreuve(AMS))?.points).toBe(12_000);
+    expect(zone.querySelector('#chrono-bilan')?.innerText).toContain('12/12 · 100\u00a0%');
+    expect(lireRecords(localStorage).get(idEpreuve(AMS))?.points).toBe(12);
     expect(blocClassement).toHaveBeenCalledWith(idEpreuve(AMS), expect.any(String), expect.any(Function));
     // La fin de la pause ne repose rien : le bilan reste.
     vi.advanceTimersByTime(5_000);
@@ -209,9 +209,9 @@ describe('Chrono : quitter la vue', () => {
   });
 });
 
-describe('Sans faute et Minute (décision « Sans faute et Minute »)', () => {
+describe('Sans faute (décisions « Sans faute et Minute », « Barème et classements »)', () => {
   /** L'épreuve et l'Amérique du Sud (12 pays) choisies dans Jouer. */
-  function partir(mode: 'sansfaute' | 'minute') {
+  function partir(mode: 'sansfaute') {
     const { v, zone, consigne, lancer } = contexte();
     lancer(mode);
     const bilan = () => zone.querySelector('#chrono-bilan')!;
@@ -224,9 +224,8 @@ describe('Sans faute et Minute (décision « Sans faute et Minute »)', () => {
     lancer('chrono');
     expect(zone.querySelector('#barre-chrono')?.hidden).toBe(false);
     expect(consigne()).toBeTruthy();
-    expect(compte()).toBe('1 / 12 · 0 pts');
-    lancer('minute');
-    expect(compte()).toBe('0 juste · 0 erreur');
+    // Le Chrono compte ses justes, sans points (barème 2).
+    expect(compte()).toBe('1 / 12 · 0 juste');
     lancer('sansfaute');
     expect(compte()).toBe("1 / 12 · 0 d'affilée");
   });
@@ -257,7 +256,9 @@ describe('Sans faute et Minute (décision « Sans faute et Minute »)', () => {
     expect(bilan().hidden).toBe(true); // la rétroaction de l'erreur d'abord
     vi.advanceTimersByTime(1_800);
     expect(bilan().hidden).toBe(false);
-    expect(bilan().innerText).toContain("3 d'affilée sur 12");
+    // La part de la série faite d'affilée (3 sur 12, 25 %), et le temps des justes au détail.
+    expect(bilan().querySelector('.chrono-score')?.textContent).toBe("3 d'affilée sur 12 · 25\u00a0%");
+    expect(bilan().innerText).toContain('Temps des justes : 6\u00a0s');
     const e = idEpreuve(AMS, 'sansfaute');
     expect(lireRecords(localStorage).get(e)).toMatchObject({ points: 3, justes: 3, questions: 4, temps_ms: 6_000 });
     expect(lireRecords(localStorage).has(idEpreuve(AMS))).toBe(false);
@@ -272,84 +273,83 @@ describe('Sans faute et Minute (décision « Sans faute et Minute »)', () => {
     expect(bilan().hidden).toBe(false);
     expect(lireRecords(localStorage).get(idEpreuve(AMS, 'sansfaute'))).toMatchObject({ points: 1, questions: 2, temps_ms: 1_000 });
   });
+});
 
-  it('Minute : une erreur passe à la suivante ; la rétroaction ne compte pas dans la minute', () => {
+describe('bilan du Chrono (décision « Barème et classements »)', () => {
+  it('la part de justes tronquée, le temps total, les manquées sans points ; l’ancien record dit en entier', () => {
     faux = new Set([2]);
-    const { v, consigne, bilan } = partir('minute');
-    for (const pause of [0, 900, 1_800]) {
-      vi.advanceTimersByTime(pause + 5_000);
-      expect(consigne()).toBeTruthy();
-      v.toucher?.(0, 0, {} as PointerEvent);
-    }
-    // 15 s de réponses : il reste 45 s, après la rétroaction (0,9 s).
-    vi.advanceTimersByTime(900 + 44_999);
-    expect(bilan().hidden).toBe(true);
-    vi.advanceTimersByTime(1);
-    expect(bilan().hidden).toBe(false);
-    expect(bilan().innerText).toContain('2 justes en une minute');
-    expect(bilan().innerText).toContain('1 erreur');
-    const e = idEpreuve(AMS, 'minute');
-    expect(lireRecords(localStorage).get(e)).toMatchObject({ points: 2, justes: 2, questions: 3, temps_ms: 60_000 });
-    expect(blocClassement).toHaveBeenCalledWith(e, expect.any(String), expect.any(Function));
+    const { v, zone, lancer } = contexte();
+    lancer();
+    /** Les 12 questions, 1 s chacune, puis la rétroaction (0,9 s juste, 1,8 s fausse) ; `k` : le numéro du premier toucher. */
+    const jouer = (k: number) => {
+      for (let n = k; n < k + 12; n++) {
+        vi.advanceTimersByTime(1_000);
+        v.toucher?.(0, 0, {} as PointerEvent);
+        vi.advanceTimersByTime(faux.has(n) ? 1_800 : 900);
+      }
+    };
+    jouer(1);
+    const bilan = zone.querySelector('#chrono-bilan')!;
+    expect(bilan.hidden).toBe(false);
+    // 11 sur 12 : 91,7 %, tronqué à 91 % (jamais 100 % sans tout juste).
+    expect(bilan.querySelector('.chrono-score')?.textContent).toBe('11/12 · 91\u00a0%');
+    expect(bilan.querySelector('.hint')?.textContent).toBe('Temps total : 12\u00a0s');
+    const rates = bilan.querySelector('.essai-rates')!.innerText;
+    expect(rates).toContain(', à 120');
+    expect(rates).not.toContain('+');
+    expect(bilan.querySelector('.chrono-record')?.textContent).toBe(textes.chrono.premier_record);
+    // Rejouée tout juste : le nouveau record dit l'ancien, part et temps.
+    zone.querySelector('#chrono-rejouer')!.click();
+    jouer(13);
+    expect(bilan.querySelector('.chrono-score')?.textContent).toBe('12/12 · 100\u00a0%');
+    expect(bilan.querySelector('.chrono-record')?.textContent).toBe("Nouveau record ! L'ancien : 11/12 · 91\u00a0% en 12\u00a0s.");
+    expect(lireRecords(localStorage).get(idEpreuve(AMS))).toMatchObject({ points: 12, justes: 12, questions: 12, temps_ms: 12_000 });
   });
 
-  it('Minute : la série vidée avant la fin arrête la partie, au temps passé', () => {
-    const { v, consigne, bilan } = partir('minute');
-    for (let i = 0; i < 12; i++) {
-      vi.advanceTimersByTime(i ? 900 + 1_000 : 1_000);
-      expect(consigne()).toBeTruthy();
+  it('Sans faute : « Record à battre » dit la part de la série (taille de l’épreuve) et le temps des justes', () => {
+    faux = new Set([3, 5]);
+    const { v, zone, lancer } = contexte();
+    lancer('sansfaute');
+    for (const pause of [0, 900, 900]) {
+      vi.advanceTimersByTime(pause + 2_000);
       v.toucher?.(0, 0, {} as PointerEvent);
     }
-    vi.advanceTimersByTime(900);
-    expect(bilan().hidden).toBe(false);
-    expect(bilan().innerText).toContain('série vidée en 12');
-    expect(lireRecords(localStorage).get(idEpreuve(AMS, 'minute'))).toMatchObject({ points: 12, questions: 12, temps_ms: 12_000 });
-  });
-
-  it('Minute quittée en cours : abandonnée, rien n’est gardé', () => {
-    const { v } = partir('minute');
-    vi.advanceTimersByTime(1_000);
+    vi.advanceTimersByTime(1_800);
+    zone.querySelector('#chrono-rejouer')!.click();
+    vi.advanceTimersByTime(2_000);
     v.toucher?.(0, 0, {} as PointerEvent);
-    v.desactiver();
-    expect(v.redirection?.()).toEqual({ cible: EXERCICES_AMS, message: textes.chrono.abandon });
-    expect(lireRecords(localStorage).size).toBe(0);
+    vi.advanceTimersByTime(900 + 2_000);
+    v.toucher?.(0, 0, {} as PointerEvent);
+    vi.advanceTimersByTime(1_800);
+    const bilan = zone.querySelector('#chrono-bilan')!;
+    expect(bilan.querySelector('.chrono-score')?.textContent).toBe("1 d'affilée sur 12 · 8\u00a0%");
+    expect(bilan.querySelector('.chrono-record')?.textContent).toBe("Record à battre : 2 d'affilée sur 12 · 16\u00a0% en 4\u00a0s.");
   });
 });
 
-describe('zones contestées et enclaves : à partir du lundi 09/11/2026 0 h UTC', () => {
-  /** Une partie partie à t (horloge injectée), deux touchers dont le second après la date. */
-  function deuxTouchers(t0: number) {
-    let t = t0;
-    const { v, lancer } = contexte(() => t);
+describe('zones contestées et enclaves (décision « Zones contestées et enclaves »)', () => {
+  it('admises en épreuve, à chaque toucher (la date d’effet du 09/11/2026 est passée : plus de de fait strict)', () => {
+    const { v, lancer } = contexte(() => Date.UTC(2026, 10, 8));
     lancer();
     v.toucher?.(0, 0, {} as PointerEvent);
-    t = DEBUT_ACCEPTES_EPREUVES + 3_600_000;
     vi.advanceTimersByTime(1_000);
     v.toucher?.(0, 0, {} as PointerEvent);
-    return optionsNoter;
-  }
-
-  it('partie lancée avant : notée de fait strict, jusqu’au bout (une seule règle par partie)', () => {
-    expect(deuxTouchers(DEBUT_ACCEPTES_EPREUVES - 60_000)).toEqual([{ acceptes: false }, { acceptes: false }]);
-  });
-
-  it('partie lancée à la date ou après : zones contestées et enclaves admises', () => {
-    expect(deuxTouchers(DEBUT_ACCEPTES_EPREUVES)).toEqual([{ acceptes: true }, { acceptes: true }]);
+    expect(optionsNoter).toEqual([{ acceptes: true }, { acceptes: true }]);
   });
 });
 
 describe('rétroaction d’une zone admise', () => {
-  it('Chrono : « Juste (zone contestée, tenue par Russie) · +1000 » ; Sans faute : « Juste (enclave : Baïkonour) »', () => {
-    const { v, zone, consigne, lancer } = contexte(() => DEBUT_ACCEPTES_EPREUVES);
+  it('Chrono : « Juste (zone contestée, tenue par Russie) », sans « +points » (barème 2) ; Sans faute : « Juste (enclave : Baïkonour) »', () => {
+    const { v, zone, lancer } = contexte();
     lancer('chrono');
     admisSuivant = { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' };
     v.toucher?.(0, 0, {} as PointerEvent);
     const retro = () => zone.querySelector('#barre-chrono .essai-retro')?.textContent ?? '';
-    expect(retro()).toMatch(/^Juste \(zone contestée, tenue par Russie\) · \+1/);
+    expect(retro()).toBe('Juste (zone contestée, tenue par Russie)');
     vi.advanceTimersByTime(1_000);
     admisSuivant = null;
     v.toucher?.(0, 0, {} as PointerEvent);
-    expect(retro()).toMatch(/^Juste · \+/);
+    expect(retro()).toBe('Juste');
     const s = lancer as (m: 'sansfaute') => void;
     s('sansfaute');
     admisSuivant = { zone: 'NE_KAB', tenant: 'NE_KAB', sorte: 'enclave' };
@@ -372,8 +372,8 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
       const id = consigne()!;
       expect(zone.querySelector('#barre-chrono .essai-consigne')?.textContent).toBe(`Touche : ${id}`);
       vi.advanceTimersByTime(15_000);
-      expect(retro(zone)).toBe(`Temps écoulé · +0. ${fin}`);
-      // En Sans faute, le temps écoulé ne compte aucun point : pas de « +0 » (la Minute finie va droit au bilan).
+      // Le temps écoulé est une erreur, sans points (barème 2) : pas de « +0 », au Chrono comme à Sans faute.
+      expect(retro(zone)).toBe(`Temps écoulé. ${fin}`);
       const c = contexte();
       c.lancer('sansfaute', AMS, sujet);
       vi.advanceTimersByTime(15_000);
@@ -398,7 +398,7 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
     const q2 = consigne()!;
     vus.push(barre(zone));
     vi.advanceTimersByTime(15_000);
-    expect(retro(zone)).toBe(`sablier compté ${code(q2)}`);
+    expect(retro(zone)).toBe(`sablier ${code(q2)}`);
     vus.push(barre(zone));
     vi.advanceTimersByTime(1_800);
     // Les 10 autres, justes ; la première dans une zone contestée tenue par la Russie, dite par le rendu du sujet.
@@ -406,7 +406,8 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
       vus.push(barre(zone));
       admisSuivant = i === 0 ? { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' } : null;
       v.toucher?.(0, 0, {} as PointerEvent);
-      if (i === 0) expect(retro(zone)).toMatch(new RegExp(`^Juste \\(zone contestée, tenue par lieu ${code('RUS')}\\) · \\+1`));
+      if (i === 0) expect(retro(zone)).toMatch(new RegExp(`^Juste \\(zone contestée, tenue par lieu ${code('RUS')}\\)`));
+      expect(retro(zone)).not.toContain('+');
       vus.push(barre(zone));
       vi.advanceTimersByTime(900);
     }
@@ -454,7 +455,7 @@ describe('le sujet Capitales en épreuve', () => {
         vi.advanceTimersByTime(100);
         v.toucher?.(0, 0, {} as PointerEvent);
         const r = zone.querySelector('#barre-chrono .essai-retro')!.textContent!;
-        if (id === 'BOL' && q > 0) expect(r).toMatch(/^Juste · \+[\d\u202f]+ · La Paz, siège du gouvernement \(Bolivie\)$/);
+        if (id === 'BOL' && q > 0) expect(r).toBe('Juste · La Paz, siège du gouvernement (Bolivie)');
         if (q === 0) expect(r).toMatch(/^Faux : Brésil, à 120/);
         vus.push(zone.querySelector('#barre-chrono')!.innerText);
         vi.advanceTimersByTime(2_000);
@@ -564,7 +565,7 @@ describe('le sujet Drapeaux en épreuve', () => {
       v.toucher?.(0, 0, {} as PointerEvent);
       const r = zone.querySelector('#barre-chrono .essai-retro')!.textContent!;
       if (q === 1) expect(r).toMatch(/^Faux : Brésil, à 120/);
-      else expect(r).toMatch(new RegExp(`^Juste · \\+[\\d\\u202f]+ · ${NOMS_FR[id]}$`));
+      else expect(r).toBe(`Juste · ${NOMS_FR[id]}`);
       vi.advanceTimersByTime(2_000);
     }
     // Les options de noter() : celles du sujet (aucun jumeau en Amérique du Sud).
@@ -572,7 +573,7 @@ describe('le sujet Drapeaux en épreuve', () => {
   });
 
   /** Une partie entière (chaque toucher juste, 0,1 s) : les cibles dans l'ordre des questions, et l'image montrée de chacune. */
-  function partieEntiere(mode: 'chrono' | 'sansfaute' | 'minute', serie: string, vrai?: NoterVrai) {
+  function partieEntiere(mode: 'chrono' | 'sansfaute', serie: string, vrai?: NoterVrai) {
     const ctx = contexte(() => Date.parse('2026-11-16T00:00:00Z'), NOMS_FR, vrai);
     ctx.lancer(mode, serie, 'drapeaux');
     const ordre: string[] = [];
@@ -588,7 +589,7 @@ describe('le sujet Drapeaux en épreuve', () => {
       ctx.v.toucher?.(0, 0, {} as PointerEvent);
       if (optionsNoter.length === avant) break;
       retros.set(id, ctx.zone.querySelector('#barre-chrono .essai-retro')!.textContent!);
-      // La pause d'une réponse juste (0,9 s), sans entamer la question suivante (la minute de Minute).
+      // La pause d'une réponse juste (0,9 s), sans entamer le délai de la question suivante.
       vi.advanceTimersByTime(1_000);
     }
     return { ...ctx, ordre, images, retros };
@@ -600,7 +601,7 @@ describe('le sujet Drapeaux en épreuve', () => {
     expect(zone.querySelector('#chrono-bilan h2')!.textContent).toBe('Chrono · Drapeaux · Océanie');
     const e = idEpreuve('Oceania', 'chrono', 'drapeaux');
     expect(e).toBe('chrono:drapeaux:Oceania');
-    expect(lireRecords(localStorage).get(e)).toMatchObject({ questions: 14, justes: 14, points: 14_000 });
+    expect(lireRecords(localStorage).get(e)).toMatchObject({ questions: 14, justes: 14, points: 14 });
     expect(lireRecords(localStorage).has(idEpreuve('Oceania'))).toBe(false);
     expect(lireRecords(localStorage).has(idEpreuve('Oceania', 'chrono', 'capitales'))).toBe(false);
     expect(blocClassement.mock.calls.at(-1)![0]).toBe(e);
@@ -640,10 +641,10 @@ describe('le sujet Drapeaux en épreuve', () => {
 
   it('préchargement (étude J2 § 2.2) : au départ, le drapeau de chaque question de la partie, dans l’ordre où elles viendront ; rien pour les pays', async () => {
     await pageNeuve();
-    for (const mode of ['chrono', 'sansfaute', 'minute'] as const) {
+    for (const mode of ['chrono', 'sansfaute'] as const) {
       faites = [];
       // Une série par mode : une image déjà chargée dans la page ne s'attend plus.
-      const serie = { chrono: 'Oceania', sansfaute: 'South America', minute: 'Europe' }[mode];
+      const serie = { chrono: 'Oceania', sansfaute: 'South America' }[mode];
       const { v, consigne, lancer } = contexte(undefined, NOMS_FR, undefined, charger);
       lancer(mode, serie, 'drapeaux');
       const n = nSerie(serie);
@@ -665,7 +666,7 @@ describe('le sujet Drapeaux en épreuve', () => {
     const O = 'Oceania';
     beforeEach(pageNeuve);
     /** La partie et ce que montre sa barre. */
-    function partie(mode: 'chrono' | 'sansfaute' | 'minute' = 'chrono') {
+    function partie(mode: 'chrono' | 'sansfaute' = 'chrono') {
       const ctx = contexte(() => Date.parse('2026-11-16T00:00:00Z'), NOMS_FR, undefined, charger);
       ctx.lancer(mode, O, 'drapeaux');
       const el = (sel: string) => ctx.zone.querySelector(sel)!;
@@ -736,14 +737,14 @@ describe('le sujet Drapeaux en épreuve', () => {
       p.v.desactiver();
       // Une partie relancée, ses drapeaux déjà chargés dans la page : aucune nouvelle demande, la première question aussitôt.
       const avant = faites.length;
-      const q = partie('minute');
+      const q = partie('chrono');
       expect(faites).toHaveLength(avant);
       expect(q.question()).toBe(true);
       q.v.desactiver();
     });
 
     it('un drapeau en échec : « Les drapeaux n’ont pas pu se charger (hors ligne ?) » et « Réessayer », qui ne redemande que les échoués ; la partie part quand tous sont là', async () => {
-      const p = partie('minute');
+      const p = partie('sansfaute');
       const echecs = [3, 7];
       faites.forEach((f, k) => (echecs.includes(k) ? f.ko() : f.ok()));
       const echoues = echecs.map((k) => faites[k]!.a);
@@ -779,8 +780,8 @@ describe('le sujet Drapeaux en épreuve', () => {
       faites.at(-1)!.ok();
       await vi.advanceTimersByTimeAsync(0);
       expect(p.question()).toBe(true);
-      // La minute part maintenant, entière.
-      expect(p.zone.querySelector('.chrono-secondes')!.textContent).toBe('60\u00a0s');
+      // Le délai part maintenant, entier.
+      expect(p.zone.querySelector('.chrono-secondes')!.textContent).toBe('15\u00a0s');
       p.v.desactiver();
     });
 
@@ -919,17 +920,17 @@ describe('le sujet Drapeaux en épreuve', () => {
       v.desactiver();
     });
 
-    it('Minute : la minute ne court pas pendant l’attente ; abandonner pendant l’attente ne lance rien', async () => {
+    it('Sans faute : le délai ne court pas pendant l’attente ; abandonner pendant l’attente ne lance rien', async () => {
       const { v, zone, versJouer, lancer } = contexte(undefined, NOMS_FR);
-      lancer('minute', AMS, 'drapeaux');
+      lancer('sansfaute', AMS, 'drapeaux');
       vi.advanceTimersByTime(2_500);
       decodages[0]!.ok();
       await vi.advanceTimersByTimeAsync(0);
-      expect(zone.querySelector('.chrono-secondes')!.textContent).toBe('60\u00a0s');
+      expect(zone.querySelector('.chrono-secondes')!.textContent).toBe('15\u00a0s');
       zone.querySelector('#chrono-abandonner')!.click();
       expect(versJouer).toHaveBeenCalledWith(`jouer/classe/drapeaux/${AMS}`, textes.chrono.abandon);
       // Partie neuve, abandonnée pendant l'attente : son décodage tardif n'ouvre rien.
-      lancer('minute', AMS, 'drapeaux');
+      lancer('sansfaute', AMS, 'drapeaux');
       zone.querySelector('#chrono-abandonner')!.click();
       decodages.at(-1)!.ok();
       await vi.advanceTimersByTimeAsync(0);
@@ -982,11 +983,11 @@ describe('le sujet Drapeaux en épreuve', () => {
     /** Chaque question touchée au point de son pays, sauf les jumeaux : sur l'autre. */
     const vrai: NoterVrai = { donnees, zone: (c) => JUMEAU[c] ?? c };
 
-    it('Chrono (Asie) : l’Indonésie demandée, Monaco touché : juste, « même drapeau : Monaco », 1 000 points ; au Chrono des pays : faux', () => {
+    it('Chrono (Asie) : l’Indonésie demandée, Monaco touché : juste, « même drapeau : Monaco » ; au Chrono des pays : faux', () => {
       const d = partieEntiere('chrono', 'Asia', vrai);
       expect(d.ordre).toHaveLength(48);
-      expect(d.retros.get('IDN')).toMatch(/^Juste \(même drapeau : Monaco\) · \+1[\u202f ]?000 · Indonésie$/);
-      expect(lireRecords(localStorage).get(idEpreuve('Asia', 'chrono', 'drapeaux'))).toMatchObject({ justes: 48, points: 48_000 });
+      expect(d.retros.get('IDN')).toBe('Juste (même drapeau : Monaco) · Indonésie');
+      expect(lireRecords(localStorage).get(idEpreuve('Asia', 'chrono', 'drapeaux'))).toMatchObject({ justes: 48, points: 48 });
       // Sous Pays, la même partie : le toucher sur Monaco est faux, l'admis du sujet n'y est pas.
       const ctx = contexte(() => Date.parse('2026-11-16T00:00:00Z'), NOMS_FR, vrai);
       ctx.lancer('chrono', 'Asia', 'pays');
@@ -1019,10 +1020,10 @@ describe('le sujet Drapeaux en épreuve', () => {
       expect(lireRecords(localStorage).get(idEpreuve('Europe', 'sansfaute'))?.justes).toBe(vus.length - 1);
     });
 
-    it('Minute (Afrique) : le Tchad demandé, la Roumanie touchée : juste', () => {
-      const d = partieEntiere('minute', 'Africa', vrai);
-      expect(d.retros.get('TCD')).toMatch(/^Juste \(même drapeau : Roumanie\) · Tchad$/);
-      expect(lireRecords(localStorage).get(idEpreuve('Africa', 'minute', 'drapeaux'))).toMatchObject({ justes: 54, questions: 54 });
+    it('Chrono (Afrique) : le Tchad demandé, la Roumanie touchée : juste', () => {
+      const d = partieEntiere('chrono', 'Africa', vrai);
+      expect(d.retros.get('TCD')).toBe('Juste (même drapeau : Roumanie) · Tchad');
+      expect(lireRecords(localStorage).get(idEpreuve('Africa', 'chrono', 'drapeaux'))).toMatchObject({ justes: 54, questions: 54 });
     });
   });
 });

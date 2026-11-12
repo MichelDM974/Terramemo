@@ -23,9 +23,9 @@ l'oublier, jusqu'à tenir des mois.
 - Les mauvais choix proposés viennent de **ses propres confusions** (Niger
   et Nigeria, Slovénie et Slovaquie), et les nouveautés arrivent par petits
   groupes de voisins.
-- Des **épreuves chronométrées** (tous les pays d'un continent, points
-  selon la justesse et la distance) et un classement de tous les joueurs ;
-  les séances de révision, courtes, s'arrêtent quand on veut.
+- Des **épreuves chronométrées** (tous les pays d'un continent, score en
+  pourcentage de justes, départagé par le temps) et un classement de tous
+  les joueurs ; les séances de révision, courtes, s'arrêtent quand on veut.
 - Deux exercices pour chaque série : **Trouver** (toucher la zone nommée)
   et **Reconnaître** (la zone s'allume, choisir son nom parmi quatre, ses
   voisines en leurres).
@@ -35,10 +35,11 @@ l'oublier, jusqu'à tenir des mois.
   **Classé**, puis le sujet (Pays, Communes), la série (tous les pays, un
   continent ; La Réunion), et l'exercice en dernier, qui lance la partie :
   en entraînement Trouver et Reconnaître, en épreuves classées **Chrono**
-  (points), **Sans faute** (jusqu'à la première erreur) et **Minute** (le
-  plus de justes en 60 s), chacune avec son record dans la série et ses
-  classements ; le 🏆 les montre toutes. **Rejouer**, en tête de Jouer,
-  relance la dernière partie d'une touche.
+  (toute la série) et **Sans faute** (jusqu'à la première erreur), 15 s
+  par question, chaque réponse juste ou fausse : le score est la part de
+  justes (« 190/195 · 97 % »), le temps départage ; chacune avec son
+  record dans la série et ses classements ; le 🏆 les montre toutes.
+  **Rejouer**, au bilan de chaque partie, relance la même d'une touche.
 - Sur ordinateur, des boutons **+**, **−** et « toute la carte » en bas à
   droite (et les touches + et −) pour zoomer sans molette.
 - **La Réunion** : ses 24 communes sur une carte de l'île, en série de

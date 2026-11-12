@@ -107,8 +107,8 @@ export interface RenduSujet {
   touche(id: string | null): string;
   /** Après un toucher faux en Trouver : où est la bonne réponse. */
   fauxSuite(id: string): string;
-  /** Le temps d'une question d'épreuve écoulé ; `points` : le Chrono, qui le compte « +0 ». */
-  expire(id: string, points: boolean): string;
+  /** Le temps d'une question d'épreuve écoulé (une erreur, sans points : décision « Barème et classements »). */
+  expire(id: string): string;
   /**
    * La rétroaction d'une réponse juste dit le lieu de la question, quand
    * l'énoncé ne le nommait pas (« La Paz, siège du gouvernement (Bolivie) ») ;
@@ -222,7 +222,7 @@ const parNom: Fabrique = (ts, d) => {
     lieu: nom,
     touche: (id) => (id ? nom(id) : ts.la_mer),
     fauxSuite: () => ts.faux_suite,
-    expire: (_id, points) => (points ? ts.expire : ts.expire_sans_points),
+    expire: () => ts.expire,
     ...SANS_PLUS,
   };
 };
@@ -273,7 +273,7 @@ const parCapitale: Fabrique = (ts, d, o) => {
     lieu: pays,
     touche: (id) => (id ? pays(id) : ts.la_mer),
     fauxSuite: () => ts.faux_suite,
-    expire: (_id, points) => (points ? ts.expire : ts.expire_sans_points),
+    expire: () => ts.expire,
     retro: (id) => {
       const c = montree(id);
       return c ? avecPays(c, id) : '';
@@ -338,7 +338,7 @@ const parDrapeau: Fabrique = (ts, d, o) => {
     lieu: pays,
     touche: (id) => (id ? pays(id) : ts.la_mer),
     fauxSuite: () => ts.faux_suite,
-    expire: (_id, points) => (points ? ts.expire : ts.expire_sans_points),
+    expire: () => ts.expire,
     // L'énoncé ne nommait pas le pays : la rétroaction le dit (« Juste : Bénin »).
     retro: pays,
     point: () => null,

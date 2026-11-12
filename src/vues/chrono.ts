@@ -1,23 +1,22 @@
-// Vue des épreuves classées (#14) : Chrono, Sans faute et Minute, choisies avec
-// leur série dans Jouer (décision « Écran Jouer » : jouer.ts, puis lancer(), le
-// terrain déjà chargé). Les lieux d'une série dans le désordre, un seul toucher
-// par question :
-// - Chrono (décision « Points et classement ») : toute la série, 15 s par
-//   question ; 1 000 points si juste, jusqu'à 500 selon la distance sinon
-//   (src/epreuve/bareme.ts) ;
-// - Sans faute (décision « Sans faute et Minute ») : 15 s par question,
-//   jusqu'à la première erreur ; le score est le nombre de justes d'affilée ;
-// - Minute (même décision) : le plus de justes en 60 s de réponse, une erreur
-//   passe à la suivante ; la jauge est la minute, qui s'arrête pendant la
-//   rétroaction (la correction ne compte pas), et la série vidée finit la partie.
-// Record gardé sur l'appareil, classement en ligne par épreuve ; le général
-// n'additionne que le Chrono. Quitter la vue pendant une partie l'abandonne : le
-// temps ne se met pas en pause, et y revenir ramène à Jouer, qui le dit
-// (redirection) ; « Abandonner » aussi. Après la dernière réponse (sa
+// Vue des épreuves classées (#14) : Chrono et Sans faute, choisies avec leur
+// série dans Jouer (décision « Écran Jouer » : jouer.ts, puis lancer(), le
+// terrain déjà chargé). Les lieux d'une série dans le désordre, 15 s et un seul
+// toucher par question, chacune juste ou fausse (décision « Barème et
+// classements » du 12/11/2026, #30 ; Minute, retiré ce jour-là, n'a plus de
+// partie) :
+// - Chrono : toute la série ; le score est la part de justes (« 190/195 ·
+//   97 % »), le temps total départage ;
+// - Sans faute : jusqu'à la première erreur ; le score est la part de la série
+//   faite d'affilée (« 17 d'affilée sur 54 · 31 % »).
+// La distance d'une erreur reste dans la rétroaction (« à 106 km du bord »),
+// sans points. Record gardé sur l'appareil, classement en ligne par épreuve ;
+// le général n'additionne que le Chrono. Quitter la vue pendant une partie
+// l'abandonne : le temps ne se met pas en pause, et y revenir ramène à Jouer,
+// qui le dit (redirection) ; « Abandonner » aussi. Après la dernière réponse (sa
 // rétroaction), la quitter la finit (bilan au retour), et « Abandonner »
 // aussi. Le bilan relance la même partie (« Rejouer ») ou ramène aux séries
 // de Jouer (« Autre série »).
-// La Réunion est une série de plus : sa carte remplace le monde, notée à 5 km.
+// La Réunion est une série de plus : sa carte remplace le monde.
 // Le classement général et ceux de chaque épreuve ont leur vue (general.ts).
 // L'énoncé, la rétroaction et le bilan viennent du rendu du sujet lancé
 // (src/vues/sujets.ts), le même pour tous en épreuve.
@@ -31,8 +30,8 @@
 // filet, une question dont l'image n'est plus là quand elle est posée montre le
 // gris 4:3 qui tient sa place, et son temps n'attend que son décodage, au plus
 // ATTENTE_IMAGE_MS (un échec ou un réseau trop lent ne bloquent pas la partie).
-import { acceptesEnEpreuve, DELAI_CHRONO_MS, ECHELLES_KM, POINTS_JUSTE, type ScoreEpreuve } from '../epreuve/bareme';
-import { DUREE_MINUTE_MS, enregistrerPartie, idEpreuve, PartieChrono, PartieMinute, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
+import { DELAI_CHRONO_MS, type ScoreEpreuve } from '../epreuve/bareme';
+import { enregistrerPartie, idEpreuve, PartieChrono, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
 import type { ChargerImage } from '../map/drapeaux';
 import { estDomaine } from '../srs/fiches';
 import { profilModifie } from '../sync/pont';
@@ -42,13 +41,13 @@ import { melanger, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
 import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { nomEpreuve } from './general';
-import { fmtErreurs, fmtJustes, fmtPts, fmtTemps, nomMode, scoreCourt, scoreLong } from './scores';
+import { fmtJustes, fmtTemps, nomMode, scoreCourt, scoreEntier, scoreLong } from './scores';
 import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
 const E = textes.epreuves;
-/** Délai d'une question du Chrono et de Sans faute ; Minute n'en a pas, sa jauge est la minute. */
+/** Délai d'une question du Chrono et de Sans faute. */
 const DELAI = DELAI_CHRONO_MS.localiser;
 /** Durée de la rétroaction avant la question suivante (ms), hors du temps compté. */
 const PAUSE_JUSTE_MS = 900;
@@ -80,10 +79,8 @@ function imageEnAttente(el: HTMLElement): HTMLImageElement | null {
 }
 
 /** Une partie de l'épreuve sur ces cibles, dans l'ordre où les poser (déjà mélangées). */
-function nouvellePartieDe(mode: ModeEpreuve, cibles: readonly string[], echelle_km: number): PartieChrono {
-  if (mode === 'sansfaute') return new PartieSansFaute(cibles, DELAI);
-  if (mode === 'minute') return new PartieMinute(cibles, DUREE_MINUTE_MS);
-  return new PartieChrono(cibles, DELAI, echelle_km);
+function nouvellePartieDe(mode: ModeEpreuve, cibles: readonly string[]): PartieChrono {
+  return mode === 'sansfaute' ? new PartieSansFaute(cibles, DELAI) : new PartieChrono(cibles, DELAI);
 }
 
 function stockage(): Storage | null {
@@ -104,7 +101,7 @@ export interface OptionsChrono {
   versJouer(cible: string, message?: string): void;
   /** « × » du bilan (#18) : la carte ; sans elle, pas de « × ». */
   versCarte?(): void;
-  /** L'horloge (ms depuis 1970) : date du record, et règle de notation de la partie (acceptesEnEpreuve). Défaut : Date.now. */
+  /** L'horloge (ms depuis 1970) : date du record (sa semaine). Défaut : Date.now. */
   maintenant?: () => number;
   /** Ce qui charge et décode les images d'une partie avant son départ (défaut : new Image(), drapeaux.ts ; les tests : des images factices). */
   chargerImage?: ChargerImage;
@@ -155,12 +152,6 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   /** « Réessayer » : redemande les images qui ont échoué (celles de la partie en attente). */
   let reprendreChargement: (() => void) | null = null;
   const maintenant = o.maintenant ?? (() => Date.now());
-  /**
-   * La partie admet-elle les zones contestées et les enclaves (décision « Zones
-   * contestées et enclaves ») ? Fixé à son départ, pour toutes ses réponses :
-   * une partie à cheval sur le lundi 09/11/2026 0 h UTC se note d'une seule règle.
-   */
-  let acceptes = true;
   let debut = 0;
   /** Une question est posée et attend son toucher. */
   let ouverte = false;
@@ -225,35 +216,30 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     jauge.style.transform = t === 'none' ? '' : t;
   }
 
-  /** Le temps de la question posée (ms) : son délai, ou ce qui reste de la minute. */
-  function limite(): number {
-    return partie instanceof PartieMinute ? partie.reste : DELAI;
-  }
-
-  /** La jauge part de `plein` (1 : pleine) et se vide en `ms`. */
-  function lancerJauge(plein: number, ms: number): void {
+  /** La jauge part pleine et se vide en `ms`. */
+  function lancerJauge(ms: number): void {
     jauge.style.transition = 'none';
-    jauge.style.transform = `scaleX(${plein})`;
+    jauge.style.transform = 'scaleX(1)';
     jauge.getBoundingClientRect(); // l'état de départ s'applique avant la transition
     jauge.style.transition = `transform ${ms}ms linear`;
     jauge.style.transform = 'scaleX(0)';
   }
 
   function afficherSecondes(): void {
-    const reste = Math.max(0, limite() - (performance.now() - debut));
+    const reste = Math.max(0, DELAI - (performance.now() - debut));
     secondes.textContent = `${Math.ceil(reste / 1000)} s`;
   }
 
-  /** Le compte de la barre ; `repondue` : la question posée a sa réponse (rétroaction en cours). */
+  /**
+   * Le compte de la barre : « 3 / 20 · 2 justes » au Chrono, « 3 / 20 · 2
+   * d'affilée » à Sans faute (points = justes) ; `repondue` : la question posée
+   * a sa réponse (rétroaction en cours).
+   */
   function afficherCompte(repondue: boolean): void {
     if (!partie) return;
     const p = partie;
     const n = `${p.numero - (repondue ? 1 : 0)} / ${p.cibles.length}`;
-    if (mode === 'minute') {
-      const justes = p.jouees.filter((q) => q.juste).length;
-      compte.textContent = `${fmtJustes(justes)} · ${fmtErreurs(p.jouees.length - justes)}`;
-    } else if (mode === 'sansfaute') compte.textContent = `${n} · ${scoreCourt(mode, p.points)}`;
-    else compte.textContent = `${n} · ${remplir(T.points, { points: fmtPts(p.points) })}`;
+    compte.textContent = `${n} · ${mode === 'sansfaute' ? remplir(E.sansfaute.compte, { n: p.points }) : fmtJustes(p.points)}`;
   }
 
   /** Plus de partie ni de bilan : la carte du monde, rien par-dessus. */
@@ -285,13 +271,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       enChargement = false;
       reprendreChargement = null;
       montrerChargement(null);
-      partie = nouvellePartieDe(mode, cibles, ECHELLES_KM[s.terrain]);
-      // Une règle par partie, celle de son départ. Le record se range pourtant
-      // dans la semaine de sa fin (enregistrerPartie) : une partie lancée le
-      // dimanche 08/11 avant minuit UTC et finie après compte dans la semaine
-      // du 09/11 avec le de fait strict. Accepté (relecture du lot 4) : une
-      // minute, une fois.
-      acceptes = acceptesEnEpreuve(maintenant());
+      partie = nouvellePartieDe(mode, cibles);
       barre.hidden = false;
       poser();
     };
@@ -347,12 +327,11 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     retro.textContent = '';
     retro.className = 'essai-retro';
     const p = partie;
-    const ms = limite();
-    const plein = p instanceof PartieMinute ? ms / p.duree_ms : 1;
+    const ms = DELAI;
     const ouvrir = () => {
       debut = performance.now();
       ouverte = true;
-      lancerJauge(plein, ms);
+      lancerJauge(ms);
       afficherSecondes();
       affichage = window.setInterval(afficherSecondes, 200);
       minuterie = window.setTimeout(expirer, ms);
@@ -365,7 +344,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     // décodée, la rétroaction s'efface ; sinon elle dit que le temps court sans l'image (effacée si elle arrive avant
     // la réponse).
     jauge.style.transition = 'none';
-    jauge.style.transform = `scaleX(${plein})`;
+    jauge.style.transform = 'scaleX(1)';
     secondes.textContent = `${Math.ceil(ms / 1000)} s`;
     retro.textContent = T.image_attente;
     const j = jeton;
@@ -398,43 +377,32 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     pause = window.setTimeout(poser, q.juste ? PAUSE_JUSTE_MS : PAUSE_FAUX_MS);
   }
 
-  /** Le temps de la question est écoulé (son délai, ou la minute). */
+  /** Le délai de la question est écoulé : une erreur. */
   function expirer(): void {
     const id = partie?.courante;
     if (!partie || !id || !ouverte) return;
-    if (partie instanceof PartieMinute) {
-      // La minute est finie : la question posée ne compte pas, droit au bilan.
-      partie.terminer();
-      return finir();
-    }
     const q = partie.expirer();
     secondes.textContent = '0 s';
     t.carte.effacerMarques();
     t.carte.marquer(id, 'juste');
     anneauSiPetite(t, id, 'juste');
     retro.className = 'essai-retro faux';
-    retro.textContent = rs.expire(id, mode === 'chrono');
+    retro.textContent = rs.expire(id);
     apres(q);
   }
 
-  /** Les lignes du score du bilan (titre de score, détail). */
-  function lignesScore(score: ScoreEpreuve, total: number): [string, string] {
+  /**
+   * Les lignes du score du bilan (titre de score, détail) : « 190/195 · 97 % »
+   * et le temps total au Chrono ; « 17 d'affilée sur 54 · 31 % » (ou « Sans
+   * faute : 54 sur 54 ! ») et le temps des justes à Sans faute.
+   */
+  function lignesScore(epreuve: string, score: ScoreEpreuve, total: number): [string, string] {
     if (mode === 'sansfaute')
       return [
-        score.justes === total ? remplir(E.sansfaute.parfait, { total }) : remplir(E.sansfaute.score, { n: fmtPts(score.justes), total }),
+        score.justes === total ? remplir(E.sansfaute.parfait, { total }) : scoreEntier(epreuve, score),
         remplir(E.sansfaute.detail, { temps: fmtTemps(score.temps_ms) }),
       ];
-    if (mode === 'minute')
-      return [
-        score.temps_ms < DUREE_MINUTE_MS
-          ? remplir(E.minute.videe, { justes: fmtJustes(score.justes), total, temps: fmtTemps(score.temps_ms) })
-          : remplir(E.minute.score, { justes: fmtJustes(score.justes) }),
-        fmtErreurs(score.questions - score.justes),
-      ];
-    return [
-      remplir(T.bilan_score, { points: fmtPts(score.points), max: fmtPts(score.questions * POINTS_JUSTE) }),
-      remplir(T.bilan_detail, { justes: score.justes, n: score.questions, temps: fmtTemps(score.temps_ms) }),
-    ];
+    return [scoreCourt(epreuve, score), remplir(T.bilan_detail, { temps: fmtTemps(score.temps_ms) })];
   }
 
   function finir(): void {
@@ -455,14 +423,13 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const ligne = (q: QuestionJouee) =>
       q.temps_ms == null
         ? remplir(T.bilan_expire, { pays: r.nomBilan(q.id, 'localiser') })
-        : remplir(mode === 'chrono' ? T.bilan_faux : E.bilan_faux, {
+        : remplir(E.bilan_faux, {
             pays: r.nomBilan(q.id, 'localiser'),
             touche: r.touche(q.touche),
             km: q.distance_km == null ? '—' : fmtKm(q.distance_km),
-            points: fmtPts(q.points),
           });
     const s = serie;
-    const [ligneScore, detail] = lignesScore(score, partie.cibles.length);
+    const [ligneScore, detail] = lignesScore(epreuve, score, partie.cibles.length);
     const versCarte = o.versCarte;
     bilan.replaceChildren(
       // « × » : le bilan fermé pour de bon (comme « Autre série »), puis la carte.
@@ -483,9 +450,9 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
         { class: b.nouveau ? 'chrono-record nouveau' : 'chrono-record' },
         b.nouveau
           ? b.ancien
-            ? remplir(T.nouveau_record_bat, { score: scoreLong(mode, b.ancien) })
+            ? remplir(T.nouveau_record_bat, { score: scoreLong(epreuve, b.ancien) })
             : T.premier_record
-          : remplir(T.record_a_battre, { score: scoreLong(mode, b.record) }),
+          : remplir(T.record_a_battre, { score: scoreLong(epreuve, b.record) }),
       ),
       creer(
         'div',
@@ -553,12 +520,13 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       const id = partie?.courante;
       if (!partie || !id || !ouverte) return;
       // La minuterie a du retard : le temps était écoulé avant ce toucher.
-      if (performance.now() - debut >= limite()) return expirer();
+      if (performance.now() - debut >= DELAI) return expirer();
       const carte = t.carte;
       ctx.mesures.toucher(ev, x, y, () => {
         const temps_ms = performance.now() - debut;
-        // Les zones admises de la carte selon la date de l'épreuve, plus celles du sujet (D36 i sous Capitales).
-        const note = carte.noter(id, x, y, optionsNoter(rs, t, id, acceptes));
+        // Les zones admises de la carte (zones contestées et enclaves, admises en épreuve aussi depuis le
+        // 09/11/2026 : décision « Zones contestées et enclaves »), plus celles du sujet (D36 i sous Capitales).
+        const note = carte.noter(id, x, y, optionsNoter(rs, t, id));
         const r = note.pick;
         const q = partie!.repondre(r?.id ?? null, note.juste, note.distance_km, temps_ms);
         carte.effacerMarques();
@@ -568,15 +536,15 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
           const admis = texteAdmis(rs, id, note.admis);
           // Le pays de la question, que l'énoncé ne nommait pas (« La Paz (Bolivie) ») ; sans anneau en épreuve (D53 c).
           const lieu = rs.retro(id);
-          retro.textContent = `${mode === 'chrono' ? remplir(T.juste, { admis, points: fmtPts(q.points) }) : remplir(E.juste, { admis })}${lieu ? ` · ${lieu}` : ''}`;
+          retro.textContent = `${remplir(E.juste, { admis })}${lieu ? ` · ${lieu}` : ''}`;
         } else {
           if (r && r.id !== id) carte.marquer(r.id, 'faux');
           anneauSiPetite(t, id, 'juste');
           retro.className = 'essai-retro faux';
-          retro.textContent = remplir(mode === 'chrono' ? T.faux : E.faux, {
+          // La distance au bord, sans points (décision « Barème et classements ») : de quoi apprendre de l'erreur.
+          retro.textContent = remplir(E.faux, {
             touche: rs.touche(r?.id ?? null),
             km: note.distance_km == null ? '—' : fmtKm(note.distance_km),
-            points: fmtPts(q.points),
           });
         }
         apres(q);

@@ -1,6 +1,8 @@
 // Publication des scores des épreuves (src/vues/classement.ts) et ce que le bloc
 // du classement en dit au joueur (#16, défaut 1) : publier(), placesDuPseudo()
-// et lireTableau() remplacés, DOM factice (tests/dom-factice.ts).
+// et lireTableau() remplacés, DOM factice (tests/dom-factice.ts). Les scores au
+// barème 2 (décision « Barème et classements » du 12/11/2026, #30) : points =
+// justes ; Minute retiré, ses ids (`minute:…`) ne partent plus.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScoreEpreuve } from '../src/epreuve/bareme';
 import { enregistrerPartie, idEpreuve, periodeSemaine } from '../src/epreuve/chrono';
@@ -44,8 +46,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('publication d’une partie', () => {
   it('un record refusé par les règles n’emporte pas le général, et le refus est compté', async () => {
-    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
-    const b = enregistrerPartie(localStorage, ILE, score(23_500, 23, 24, 90_000), maintenant);
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
+    const b = enregistrerPartie(localStorage, ILE, score(23, 23, 24, 90_000), maintenant);
     // Les règles refusent le record de l'île (de toujours), acceptent le reste.
     publier.mockImplementation(async (e, p) => !(e === ILE && p === 'toujours'));
     const r = await publierPartie('Ana', ILE, b);
@@ -55,7 +57,7 @@ describe('publication d’une partie', () => {
   });
 
   it('un échec réseau sur un score : les autres partent quand même, l’échec est compté à part', async () => {
-    const b = enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    const b = enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     publier.mockImplementation(async (e, p) => {
       if (e === AMS && p === 'toujours') throw Object.assign(new Error('hors ligne'), { code: 'unavailable' });
       return true;
@@ -65,24 +67,24 @@ describe('publication d’une partie', () => {
   });
 
   it('un record que les règles refuseraient n’est pas écrit, ni compté dans le général', async () => {
-    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     // L'île en 1,4 s : moins de 0,2 s par question.
-    const b = enregistrerPartie(localStorage, ILE, score(24_000, 24, 24, 1_433), maintenant);
+    const b = enregistrerPartie(localStorage, ILE, score(24, 24, 24, 1_433), maintenant);
     publier.mockResolvedValue(true);
     expect(await publierPartie('Ana', ILE, b)).toEqual({ refuses: 2, echecs: 0 });
     // Deux écritures au lieu de quatre : les deux généraux, sans l'île.
     expect(publier.mock.calls.map(([e, p, , s]) => [e, p, s.points])).toEqual([
-      ['general', 'toujours', 12_000],
-      ['general', semaine, 12_000],
+      ['general', 'toujours', 12],
+      ['general', semaine, 12],
     ]);
   });
 
-  it('Sans faute et Minute : leurs deux records seuls, le général n’est pas touché', async () => {
-    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+  it('Sans faute : ses deux records seuls, le général n’est pas touché', async () => {
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     publier.mockResolvedValue(true);
     for (const [e, sc] of [
       [idEpreuve('Europe', 'sansfaute'), score(17, 17, 18, 60_000)],
-      [idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000)],
+      [idEpreuve('Africa', 'sansfaute'), score(23, 23, 24, 60_000)],
     ] as const) {
       publier.mockClear();
       const b = enregistrerPartie(localStorage, e, sc, maintenant);
@@ -96,23 +98,23 @@ describe('publication d’une partie', () => {
   });
 
   it('au choix du pseudo : tous les records partent, et le général n’additionne que le Chrono', async () => {
-    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
-    enregistrerPartie(localStorage, idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000), maintenant);
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
+    enregistrerPartie(localStorage, idEpreuve('Africa', 'sansfaute'), score(23, 23, 24, 60_000), maintenant);
     publier.mockResolvedValue(true);
     expect(await publierTout('Ana')).toEqual({ refuses: 0, echecs: 0 });
     const generaux = publier.mock.calls.filter(([e]) => e === 'general').map(([, p, , s]) => [p, s.points]);
     expect(generaux).toEqual([
-      ['toujours', 12_000],
-      [semaine, 12_000],
+      ['toujours', 12],
+      [semaine, 12],
     ]);
     expect(publier).toHaveBeenCalledTimes(6);
   });
 
   it('au choix du pseudo : un record d’épreuve inconnue (mode null, venu d’une version plus récente) ne part pas, et aucun refus n’est annoncé (étude J2 § 3.2)', async () => {
-    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     // Reçus par le profil du compte : l'un passerait les bornes du Chrono, l'autre non.
-    enregistrerPartie(localStorage, 'xyz:localiser:Africa', score(20_000, 20, 54, 300_000), maintenant);
-    enregistrerPartie(localStorage, 'xyz:capitales:tous', score(186_000, 186, 186, 1_000), maintenant);
+    enregistrerPartie(localStorage, 'xyz:localiser:Africa', score(20, 20, 54, 300_000), maintenant);
+    enregistrerPartie(localStorage, 'xyz:capitales:tous', score(186, 186, 186, 1_000), maintenant);
     publier.mockResolvedValue(true);
     const r = await publierTout('Ana');
     expect(r).toEqual({ refuses: 0, echecs: 0 });
@@ -122,15 +124,15 @@ describe('publication d’une partie', () => {
   });
 
   it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ou d’un sujet sans épreuves classées (les mers, hors de EPREUVES_SUJETS) ne part pas, sans refus annoncé', async () => {
-    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     // Reçus par le profil d'une version plus récente, vraisemblables tous : les règles de cette version les refuseraient.
     const QUIZ = 'quiz:general:facile';
     const MERS = idEpreuve('mers', 'chrono', 'mers');
-    const MIN_MERS = idEpreuve('mers', 'minute', 'mers');
-    enregistrerPartie(localStorage, QUIZ, score(18_000, 18, 20, 100_000), maintenant);
-    enregistrerPartie(localStorage, MERS, score(50_000, 50, 50, 300_000), maintenant);
-    enregistrerPartie(localStorage, MIN_MERS, score(23, 23, 25, 60_000), maintenant);
-    publier.mockImplementation(async (e) => ![QUIZ, MERS, MIN_MERS].includes(e));
+    const SF_MERS = idEpreuve('mers', 'sansfaute', 'mers');
+    enregistrerPartie(localStorage, QUIZ, score(18, 18, 20, 100_000), maintenant);
+    enregistrerPartie(localStorage, MERS, score(50, 50, 50, 300_000), maintenant);
+    enregistrerPartie(localStorage, SF_MERS, score(23, 23, 24, 60_000), maintenant);
+    publier.mockImplementation(async (e) => ![QUIZ, MERS, SF_MERS].includes(e));
     const r = await publierTout('Ana');
     expect(r).toEqual({ refuses: 0, echecs: 0 });
     expect(avisPublication(r)).toBe('');
@@ -138,41 +140,50 @@ describe('publication d’une partie', () => {
   });
 
   it('les records des capitales et des drapeaux partent au choix du pseudo, et le général les compte (D40 a)', async () => {
-    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     const CAP = idEpreuve('Oceania', 'chrono', 'capitales');
     const SF_CAP = idEpreuve('Oceania', 'sansfaute', 'capitales');
     const DRA = idEpreuve('Oceania', 'chrono', 'drapeaux');
-    const MIN_DRA = idEpreuve('Oceania', 'minute', 'drapeaux');
-    enregistrerPartie(localStorage, CAP, score(13_500, 13, 14, 80_000), maintenant);
+    const SF_DRA = idEpreuve('Oceania', 'sansfaute', 'drapeaux');
+    enregistrerPartie(localStorage, CAP, score(13, 13, 14, 80_000), maintenant);
     enregistrerPartie(localStorage, SF_CAP, score(9, 9, 10, 30_000), maintenant);
-    enregistrerPartie(localStorage, DRA, score(12_000, 12, 14, 50_000), maintenant);
-    enregistrerPartie(localStorage, MIN_DRA, score(14, 14, 14, 40_000), maintenant);
+    enregistrerPartie(localStorage, DRA, score(12, 12, 14, 50_000), maintenant);
+    enregistrerPartie(localStorage, SF_DRA, score(14, 14, 14, 40_000), maintenant);
     publier.mockResolvedValue(true);
     const r = await publierTout('Ana');
     expect(r).toEqual({ refuses: 0, echecs: 0 });
-    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, CAP, CAP, SF_CAP, SF_CAP, DRA, DRA, MIN_DRA, MIN_DRA, 'general', 'general'].sort());
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, CAP, CAP, SF_CAP, SF_CAP, DRA, DRA, SF_DRA, SF_DRA, 'general', 'general'].sort());
     const general = publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s);
-    expect(general).toEqual([score(37_500, 37, 40, 190_000), score(37_500, 37, 40, 190_000)]);
+    expect(general).toEqual([score(37, 37, 40, 190_000), score(37, 37, 40, 190_000)]);
     // Une partie des capitales : son général aussi.
     publier.mockClear();
-    const b = enregistrerPartie(localStorage, CAP, score(14_000, 14, 14, 70_000), maintenant);
+    const b = enregistrerPartie(localStorage, CAP, score(14, 14, 14, 70_000), maintenant);
     await publierPartie('Ana', CAP, b);
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([CAP, CAP, 'general', 'general'].sort());
-    // Une partie des drapeaux de même ; une Minute des drapeaux, sans général.
+    // Une partie des drapeaux de même ; un Sans faute des drapeaux, sans général.
     publier.mockClear();
-    await publierPartie('Ana', DRA, enregistrerPartie(localStorage, DRA, score(13_000, 13, 14, 50_000), maintenant));
+    await publierPartie('Ana', DRA, enregistrerPartie(localStorage, DRA, score(13, 13, 14, 50_000), maintenant));
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([DRA, DRA, 'general', 'general'].sort());
-    expect(publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s.points)).toEqual([39_000, 39_000]);
+    expect(publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s.points)).toEqual([39, 39]);
     publier.mockClear();
-    await publierPartie('Ana', MIN_DRA, enregistrerPartie(localStorage, MIN_DRA, score(14, 14, 14, 30_000), maintenant));
-    expect(publier.mock.calls.map(([e]) => e)).toEqual([MIN_DRA, MIN_DRA]);
+    await publierPartie('Ana', SF_DRA, enregistrerPartie(localStorage, SF_DRA, score(14, 14, 14, 30_000), maintenant));
+    expect(publier.mock.calls.map(([e]) => e)).toEqual([SF_DRA, SF_DRA]);
   });
 
-  it('Minute seule au choix du pseudo : pas de général', async () => {
-    enregistrerPartie(localStorage, idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000), maintenant);
+  it('Sans faute seul au choix du pseudo : pas de général', async () => {
+    enregistrerPartie(localStorage, idEpreuve('Africa', 'sansfaute'), score(23, 23, 24, 60_000), maintenant);
     publier.mockResolvedValue(true);
     await publierTout('Ana');
-    expect(publier.mock.calls.map(([e]) => e)).toEqual([idEpreuve('Africa', 'minute'), idEpreuve('Africa', 'minute')]);
+    expect(publier.mock.calls.map(([e]) => e)).toEqual([idEpreuve('Africa', 'sansfaute'), idEpreuve('Africa', 'sansfaute')]);
+  });
+
+  it('un record de Minute (retiré, décision « Barème et classements ») reste sur l’appareil sans partir, ni refus annoncé', async () => {
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
+    enregistrerPartie(localStorage, 'minute:localiser:Africa', score(23, 23, 25, 60_000), maintenant);
+    publier.mockResolvedValue(true);
+    const r = await publierTout('Ana');
+    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
   });
 });
 
@@ -200,44 +211,44 @@ describe('un score trop rapide sur une série déjà publiée', () => {
   const jouer = (e: string, s: ScoreEpreuve) => publierPartie('Pilote', e, enregistrerPartie(localStorage, e, s, maintenant));
 
   it('garde la série dans le général : les parties suivantes le font encore progresser', async () => {
-    await jouer(ILE, score(24_000, 24, 24, 11_946));
-    await jouer(AMS, score(12_000, 12, 12, 7_839));
-    expect(base.get('general/toujours')?.points).toBe(36_000);
+    await jouer(ILE, score(24, 24, 24, 11_946));
+    await jouer(AMS, score(12, 12, 12, 7_839));
+    expect(base.get('general/toujours')?.points).toBe(36);
     // L'île en 1,1 s : refusée, seule.
-    expect((await jouer(ILE, score(24_000, 24, 24, 1_100))).refuses).toBeGreaterThan(0);
+    expect((await jouer(ILE, score(24, 24, 24, 1_100))).refuses).toBeGreaterThan(0);
     expect(base.get(`${ILE}/toujours`)?.temps_ms).toBe(11_946);
-    expect(await jouer(OCE, score(14_000, 14, 14, 9_136))).toEqual({ refuses: 0, echecs: 0 });
-    expect(base.get('general/toujours')?.points).toBe(50_000);
-    expect(base.get(`general/${semaine}`)?.points).toBe(50_000);
+    expect(await jouer(OCE, score(14, 14, 14, 9_136))).toEqual({ refuses: 0, echecs: 0 });
+    expect(base.get('general/toujours')?.points).toBe(50);
+    expect(base.get(`general/${semaine}`)?.points).toBe(50);
   });
 
   it('deux appareils, un pseudo : une place qui garde le meilleur, un général qui additionne les deux appareils', async () => {
-    await jouer(ILE, score(21_567, 21, 24, 92_501));
+    await jouer(ILE, score(21, 21, 24, 92_501));
     // L'autre appareil (stockage neuf), sous le même pseudo : l'île moins bien, puis l'Amérique du Sud.
     installerStockage();
-    expect(await jouer(ILE, score(17_087, 16, 24, 93_240))).toEqual({ refuses: 0, echecs: 0 });
-    expect(base.get(`${ILE}/toujours`)?.points).toBe(21_567);
-    expect(base.get('general/toujours')?.points).toBe(21_567);
-    await jouer(AMS, score(12_000, 12, 12, 7_839));
-    expect(base.get('general/toujours')?.points).toBe(33_567);
-    expect(base.get(`general/${semaine}`)?.points).toBe(33_567);
+    expect(await jouer(ILE, score(16, 16, 24, 93_240))).toEqual({ refuses: 0, echecs: 0 });
+    expect(base.get(`${ILE}/toujours`)?.points).toBe(21);
+    expect(base.get('general/toujours')?.points).toBe(21);
+    await jouer(AMS, score(12, 12, 12, 7_839));
+    expect(base.get('general/toujours')?.points).toBe(33);
+    expect(base.get(`general/${semaine}`)?.points).toBe(33);
   });
 
   it('places en ligne illisibles (hors ligne) : les scores partent, le général compte un échec', async () => {
     placesDuPseudo.mockRejectedValue(Object.assign(new Error('hors ligne'), { code: 'unavailable' }));
-    expect(await jouer(AMS, score(12_000, 12, 12, 7_839))).toEqual({ refuses: 0, echecs: 2 });
-    expect(base.get(`${AMS}/toujours`)?.points).toBe(12_000);
+    expect(await jouer(AMS, score(12, 12, 12, 7_839))).toEqual({ refuses: 0, echecs: 2 });
+    expect(base.get(`${AMS}/toujours`)?.points).toBe(12);
     expect(base.has('general/toujours')).toBe(false);
   });
 
   it('un nouveau pseudo atteint encore le record publiable de la série et le général', async () => {
-    enregistrerPartie(localStorage, ILE, score(24_000, 24, 24, 11_946), maintenant);
-    enregistrerPartie(localStorage, ILE, score(24_000, 24, 24, 1_100), maintenant);
-    enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 7_839), maintenant);
+    enregistrerPartie(localStorage, ILE, score(24, 24, 24, 11_946), maintenant);
+    enregistrerPartie(localStorage, ILE, score(24, 24, 24, 1_100), maintenant);
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 7_839), maintenant);
     expect(await publierTout('Pilote')).toEqual({ refuses: 0, echecs: 0 });
-    expect(base.get(`${ILE}/toujours`)).toEqual(score(24_000, 24, 24, 11_946));
+    expect(base.get(`${ILE}/toujours`)).toEqual(score(24, 24, 24, 11_946));
     expect(base.get(`${ILE}/${semaine}`)?.temps_ms).toBe(11_946);
-    expect(base.get('general/toujours')?.points).toBe(36_000);
+    expect(base.get('general/toujours')?.points).toBe(36);
   });
 });
 
@@ -260,24 +271,24 @@ describe('envois en attente (hors ligne)', () => {
 
   it('un record fait hors ligne attend, puis part seul au retour du réseau, à son meilleur score du moment', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
-    const b = enregistrerPartie(localStorage, AMS, score(11_000, 11, 12, 60_000), maintenant);
+    const b = enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant);
     expect(await publierPartie('Ana', AMS, b)).toEqual({ refuses: 0, echecs: 4 });
     expect(cles()).toEqual([`${AMS}/toujours`, `${AMS}/${semaine}`, `general/toujours`, `general/${semaine}`].sort());
     // Toujours hors ligne : rien ne part, rien ne sort de la file.
     expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 4 });
     expect(cles()).toHaveLength(4);
     // Une meilleure partie, hors ligne aussi : c'est elle qui partira.
-    publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 59_000), maintenant));
+    publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 59_000), maintenant));
     await attendre();
     reseau = true;
     publier.mockClear();
     expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0 });
     expect(publier.mock.calls.map(([e, p, ps, s]) => [e, p, ps, s.points]).sort()).toEqual(
       [
-        [AMS, 'toujours', 'Ana', 12_000],
-        [AMS, semaine, 'Ana', 12_000],
-        ['general', 'toujours', 'Ana', 12_000],
-        ['general', semaine, 'Ana', 12_000],
+        [AMS, 'toujours', 'Ana', 12],
+        [AMS, semaine, 'Ana', 12],
+        ['general', 'toujours', 'Ana', 12],
+        ['general', semaine, 'Ana', 12],
       ].sort(),
     );
     expect(lireAttente()).toEqual([]);
@@ -292,7 +303,7 @@ describe('envois en attente (hors ligne)', () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
     reseau = true;
     publier.mockResolvedValue(false);
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
     expect(lireAttente()).toEqual([]);
     publier.mockReset();
     publier.mockResolvedValue(true);
@@ -304,7 +315,7 @@ describe('envois en attente (hors ligne)', () => {
   });
 
   it('sans pseudo, rien ne part ; un changement de pseudo refait tout et vide la file', async () => {
-    const b = enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant);
+    const b = enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     await publierPartie('Ana', AMS, b);
     expect(await relancerAttente()).toBeNull();
     reseau = true;
@@ -313,9 +324,57 @@ describe('envois en attente (hors ligne)', () => {
     expect(lireAttente()).toEqual([]);
   });
 
+  // Barème 2 (décision « Barème et classements » du 12/11/2026, #30) : entre
+  // les règles du barème 2 et la mise à jour de l'appli, un score publié au
+  // barème 1 est refusé et sort de la file ; au démarrage, les records
+  // convertis y rentrent, pour que la place ne reste pas en dessous.
+  it('au démarrage, les records du barème 1 sont convertis et repartent, une fois (toujours, la semaine, le général)', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const SF = idEpreuve('Africa', 'sansfaute');
+    const v1 = (points: number, justes: number, questions: number, temps_ms: number) => ({ points, justes, questions, temps_ms, date: maintenant, bareme: 1 });
+    localStorage.setItem(
+      'terramemo.chrono.records',
+      JSON.stringify({
+        [AMS]: v1(11_351, 11, 12, 60_000),
+        [`${AMS}@${semaine}`]: v1(11_351, 11, 12, 60_000),
+        [`${AMS}@s1`]: v1(9_000, 9, 12, 60_000),
+        [SF]: v1(23, 23, 24, 60_000),
+        // Minute, retiré : converti sur l'appareil, mais ne part pas.
+        'minute:localiser:Africa': v1(23, 23, 25, 60_000),
+      }),
+    );
+    reseau = true;
+    const minuteries: (() => void)[] = [];
+    const cible = {
+      addEventListener: (() => undefined) as Window['addEventListener'],
+      setTimeout: ((f: () => void) => (minuteries.push(f), 1)) as unknown as Window['setTimeout'],
+    };
+    brancherRelance(cible);
+    expect(cles()).toEqual([`${AMS}/toujours`, `${AMS}/${semaine}`, `${SF}/toujours`, 'general/toujours', `general/${semaine}`].sort());
+    const ecrits = JSON.parse(localStorage.getItem('terramemo.chrono.records')!) as Record<string, { bareme: number }>;
+    expect(Object.values(ecrits).map((r) => r.bareme)).toEqual([2, 2, 2, 2, 2]);
+    minuteries[0]?.();
+    await attendre();
+    await attendre();
+    expect(publier.mock.calls.map(([e, p, , sc]) => `${e}/${p}/${sc.points}`).sort()).toEqual(
+      [`${AMS}/toujours/11`, `${AMS}/${semaine}/11`, `${SF}/toujours/23`, 'general/toujours/11', `general/${semaine}/11`].sort(),
+    );
+    expect(lireAttente()).toEqual([]);
+    // Redémarrée, l'appli n'a plus rien à convertir ni à refaire.
+    publier.mockClear();
+    brancherRelance(cible);
+    expect(lireAttente()).toEqual([]);
+  });
+
+  it('au démarrage, sans record du barème 1, la file ne change pas', () => {
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
+    brancherRelance({ addEventListener: (() => undefined) as Window['addEventListener'], setTimeout: (() => 1) as unknown as Window['setTimeout'] });
+    expect(lireAttente()).toEqual([]);
+  });
+
   it('un seul renvoi à la fois', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
     reseau = true;
     publier.mockClear();
     const [a, b] = [relancerAttente(), relancerAttente()];
@@ -326,7 +385,7 @@ describe('envois en attente (hors ligne)', () => {
 
   it('au démarrage et à chaque retour du réseau (online), la file repart', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
     const ecoutes = new Map<string, () => void>();
     const minuteries: (() => void)[] = [];
     brancherRelance({
@@ -348,7 +407,7 @@ describe('envois en attente (hors ligne)', () => {
     expect(lireAttente()).toEqual([]);
     // Retour au premier plan (APK sorti de l'arrière-plan) : la file repart aussi.
     reseau = false;
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 50_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 50_000), maintenant));
     reseau = true;
     publier.mockClear();
     ecoutes.get('visibilitychange')?.();
@@ -359,17 +418,17 @@ describe('envois en attente (hors ligne)', () => {
 
   it('une partie trop rapide ne retire pas de la file le record publiable qui attendait', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11_000, 11, 12, 60_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant));
     // 12 000 en 1 s : record de l'appareil, mais les règles le refuseraient ; il n'est pas écrit.
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 1_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 1_000), maintenant));
     expect(cles()).toContain(`${AMS}/toujours`);
     reseau = true;
     publier.mockClear();
     await relancerAttente();
     expect(publier.mock.calls.filter(([e]) => e === AMS).map(([, p, , s]) => [p, s.points]).sort()).toEqual(
       [
-        ['toujours', 11_000],
-        [semaine, 11_000],
+        ['toujours', 11],
+        [semaine, 11],
       ].sort(),
     );
     expect(lireAttente()).toEqual([]);
@@ -377,7 +436,7 @@ describe('envois en attente (hors ligne)', () => {
 
   it('un renvoi qui aboutit n’efface pas l’échec plus récent d’une meilleure partie', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11_000, 11, 12, 60_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant));
     // Le renvoi part (réseau revenu), lent ; une meilleure partie finit pendant ce temps, et son envoi échoue.
     let liberer = () => {};
     const bloque = new Promise<void>((r) => (liberer = r));
@@ -390,7 +449,7 @@ describe('envois en attente (hors ligne)', () => {
     publier.mockImplementation(async () => {
       throw horsLigne();
     });
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 59_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 59_000), maintenant));
     liberer();
     await renvoi;
     expect(cles()).toEqual([`${AMS}/toujours`, `${AMS}/${semaine}`, `general/toujours`, `general/${semaine}`].sort());
@@ -398,7 +457,7 @@ describe('envois en attente (hors ligne)', () => {
 
   it('un changement de pseudo attend la fin d’un renvoi sous l’ancien, qui n’efface pas ses échecs', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11_000, 11, 12, 60_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant));
     let liberer = () => {};
     const bloque = new Promise<void>((r) => (liberer = r));
     publier.mockImplementation(async (_e, _p, ps) => {
@@ -422,16 +481,30 @@ describe('envois en attente (hors ligne)', () => {
   it('un changement de pseudo vide aussi de la file ce qu’il ne renvoie pas', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
     reseau = true;
-    enregistrerPartie(localStorage, idEpreuve('Africa', 'minute'), score(23, 23, 25, 60_000), maintenant);
+    enregistrerPartie(localStorage, idEpreuve('Africa', 'sansfaute'), score(23, 23, 24, 60_000), maintenant);
     localStorage.setItem('terramemo.chrono.attente', JSON.stringify([['general', 'toujours']]));
     await publierTout('Ana');
     expect(publier.mock.calls.map(([e]) => e)).not.toContain('general');
     expect(lireAttente()).toEqual([]);
   });
 
+  it('une entrée de Minute (retiré) sort de la file sans envoi, ni refus, ni échec, même avec un score publiable gardé', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    reseau = true;
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
+    // Un record de Minute qui garde un score publiable à côté (venu d'avant le retrait) : sans le filtre, il partirait, refusé.
+    const records = JSON.parse(localStorage.getItem('terramemo.chrono.records')!) as Record<string, unknown>;
+    records['minute:localiser:Africa'] = { ...score(30, 30, 31, 100), date: maintenant, bareme: 2, publiable: { ...score(23, 23, 25, 60_000), date: maintenant } };
+    localStorage.setItem('terramemo.chrono.records', JSON.stringify(records));
+    localStorage.setItem('terramemo.chrono.attente', JSON.stringify([['minute:localiser:Africa', 'toujours'], ['minute:localiser:Africa', semaine], [AMS, 'toujours']]));
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0 });
+    expect(publier.mock.calls.map(([e, p]) => `${e}/${p}`)).toEqual([`${AMS}/toujours`]);
+    expect(lireAttente()).toEqual([]);
+  });
+
   it('le bloc d’un classement refait la file avant de lire, sauf juste après un envoi échoué', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
-    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12_000, 12, 12, 60_000), maintenant));
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
     publier.mockClear();
     const apresEchec = blocClassement(ILE, 'Classement', async () => ({ refuses: 0, echecs: 1 })) as unknown as El;
     await attendre();
@@ -476,6 +549,43 @@ describe('bloc du classement après une partie', () => {
     expect(b.querySelector('.chrono-classement-avis')?.hidden).toBe(true);
     expect(avisPublication({ refuses: 0, echecs: 0 })).toBe('');
     expect(avisPublication({ refuses: 1, echecs: 1 })).toBe(`${T.publication_refusee} ${T.publication_echec}`);
+  });
+});
+
+describe('tableau d’un classement (décision « Barème et classements »)', () => {
+  const place = (cle: string, justes: number, questions: number, temps_ms: number) => ({ cle, pseudo: cle, points: justes, justes, questions, temps_ms });
+  const lignes = async (epreuve: string, places: ReturnType<typeof place>[]) => {
+    lireTableau.mockResolvedValue({ places, moi: null, rang: null, joueurs: places.length });
+    const b = blocClassement(epreuve, 'Classement') as unknown as El;
+    await attendre();
+    await attendre();
+    return b.querySelectorAll('.chrono-places li');
+  };
+
+  it('une épreuve : « 194/195 · 99 % » (tronqué), le pourcentage seul pour l’écran étroit, le temps qui départage', async () => {
+    const [a, b] = await lignes(idEpreuve('tous'), [place('Ana', 195, 195, 600_000), place('Bea', 194, 195, 185_000)]);
+    expect(a!.querySelector('.pts-entier')?.textContent).toBe('195/195 · 100\u00a0%');
+    expect(b!.querySelector('.pts-entier')?.textContent).toBe('194/195 · 99\u00a0%');
+    // Le pourcentage seul (carte.css, sous 400 px) : caché aux lecteurs d'écran, qui lisent le score entier ; celui-ci en title.
+    const bref = b!.querySelector('.pts-bref')!;
+    expect([bref.textContent, bref.getAttribute('aria-hidden')]).toEqual(['99\u00a0%', 'true']);
+    expect(b!.querySelector('.pts')?.getAttribute('title')).toBe('194/195 · 99\u00a0%');
+    expect(b!.querySelector('.temps')?.textContent).toBe('3\u00a0min\u00a005');
+  });
+
+  it('Sans faute : la part de la série (sa taille), pas des questions jouées', async () => {
+    const [a] = await lignes(idEpreuve('Africa', 'sansfaute'), [place('Ana', 17, 18, 62_000)]);
+    expect(a!.querySelector('.pts-entier')?.textContent).toBe("17 d'affilée sur 54 · 31\u00a0%");
+    expect(a!.querySelector('.pts-bref')?.textContent).toBe('31\u00a0%');
+  });
+
+  it('le général : « 7,6 % », et « 91 justes sur 1 194 » en title et aux lecteurs d’écran', async () => {
+    const [a, b] = await lignes('general', [place('Ana', 1193, 1194, 9_000_000), place('Bea', 91, 120, 600_000)]);
+    expect(a!.querySelector('.pts')?.textContent).toMatch(/^99,9\u00a0%/);
+    const pts = b!.querySelector('.pts')!;
+    expect(pts.textContent).toBe('7,6\u00a0% · 91 justes sur 1\u202f194');
+    expect(pts.querySelector('.pts-lu')?.textContent).toBe(' · 91 justes sur 1\u202f194');
+    expect(pts.getAttribute('title')).toBe('91 justes sur 1\u202f194');
   });
 });
 

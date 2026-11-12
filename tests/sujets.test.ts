@@ -28,8 +28,7 @@ describe('rendu par sujet', () => {
       expect(r.touche('FRA')).toBe('France');
       expect(r.touche(null)).toBe('la mer');
       expect(r.fauxSuite('FRA')).toBe(ts.faux_suite);
-      expect(r.expire('FRA', true)).toBe(ts.expire);
-      expect(r.expire('FRA', false)).toBe(ts.expire_sans_points);
+      expect(r.expire('FRA')).toBe(ts.expire);
       expect(r.lieu('ZZZ')).toBe('ZZZ');
     }
     expect(nomDe({ noms }, 'ZZZ')).toBe('ZZZ');
@@ -39,7 +38,8 @@ describe('rendu par sujet', () => {
     expect(rendu('pays', { noms }).consigneQcm).toBe('Quel est ce pays ?');
     expect(rendu('communes', { noms }).consigneQcm).toBe('Quelle est cette commune ?');
     expect(rendu('pays', { noms }).fauxSuite('FRA')).toBe('Le bon pays est en vert : touche-le.');
-    expect(rendu('communes', { noms }).expire('97407', true)).toBe('Temps écoulé · +0. La bonne commune est en vert.');
+    // Sans « +0 » depuis le barème 2 (décision « Barème et classements ») : le temps écoulé est une erreur, sans points.
+    expect(rendu('communes', { noms }).expire('97407')).toBe('Temps écoulé. La bonne commune est en vert.');
     expect(compteSerie('pays', 54)).toBe('54 pays');
     expect(compteSerie('communes', 24)).toBe('24 communes');
     expect(textesSujet('pays').tout_appris).toBe('Tous les pays de cette série sont appris.');

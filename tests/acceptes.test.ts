@@ -122,7 +122,7 @@ describe('zones contestées : juste pour qui la tient et pour chaque revendiquan
     // La question sur le pays lui-même reste juste par son tracé, sans règle à dire.
     expect(noteEn(id, p)).toMatchObject({ juste: true, via: 'trace', admis: null });
     expect(noteEn(voisin, p).juste).toBe(false);
-    // Épreuve classée d'avant la date d'effet (acceptesEnEpreuve faux) : le de fait strict.
+    // Sans les zones admises (option acceptes: false de noter) : le de fait strict.
     expect(noteEn(rev, p, { acceptes: false })).toMatchObject({ juste: false, admis: null });
   });
 });

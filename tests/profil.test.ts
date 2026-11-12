@@ -23,7 +23,8 @@ const AFR = idEpreuve('Africa');
 const EUR = idEpreuve('Europe');
 const OCE = idEpreuve('Oceania');
 
-const rec = (points: number, temps_ms = 60_000): RecordChrono => ({ points, justes: Math.floor(points / 1000), questions: 12, temps_ms, date: Date.now(), bareme: VERSION_BAREME });
+/** Un record de l'appareil (Amérique du Sud : 12 questions ; barème 2 : points = justes). */
+const rec = (justes: number, temps_ms = 60_000): RecordChrono => ({ points: justes, justes, questions: 12, temps_ms, date: Date.now(), bareme: VERSION_BAREME });
 const points = (m: Map<string, RecordChrono>) => Object.fromEntries([...m].map(([k, r]) => [k, r.points]));
 
 class Stockage {
@@ -88,8 +89,8 @@ describe.skipIf(!hoteAuth || !hoteFs)('profil des comptes (émulateurs Auth et F
   });
 
   it('deux appareils aux records croisés : chacun garde le meilleur de chaque épreuve, aucun perdu, même écrits en même temps', async () => {
-    const pc = appareil('Michel', { [AMS]: rec(11_000), [AFR]: rec(10_000), [EUR]: rec(8_000) });
-    const tel = appareil('Bob', { [AMS]: rec(9_000), [AFR]: rec(12_000), [OCE]: rec(5_000) });
+    const pc = appareil('Michel', { [AMS]: rec(11), [AFR]: rec(10), [EUR]: rec(8) });
+    const tel = appareil('Bob', { [AMS]: rec(9), [AFR]: rec(12), [OCE]: rec(5) });
     const mail = adresse();
     const cree = await pc.comptes.creer(mail, 'motdepasse');
     expect(cree.profil).toMatchObject({ etat: 'cree', pseudo: 'Michel', envoyes: 3 });
@@ -98,7 +99,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('profil des comptes (émulateurs Auth et F
     const connexion = await tel.comptes.connecter(mail, 'motdepasse');
     expect(connexion.profil).toMatchObject({ etat: 'ecrit', pseudo: 'Michel', ancienPseudo: 'Bob', recus: 2, envoyes: 2 });
     expect(tel.republier).toHaveBeenCalledWith('Michel');
-    const max = { [AMS]: 11_000, [AFR]: 12_000, [EUR]: 8_000, [OCE]: 5_000 };
+    const max = { [AMS]: 11, [AFR]: 12, [EUR]: 8, [OCE]: 5 };
     expect(points(tel.records())).toEqual(max);
     expect(points(new Map(Object.entries((await enLigne(uid))!.records)))).toEqual(max);
 
@@ -107,11 +108,11 @@ describe.skipIf(!hoteAuth || !hoteFs)('profil des comptes (émulateurs Auth et F
     expect(points(pc.records())).toEqual(max);
 
     // Un record sur chaque appareil, envoyés en même temps : la transaction n'en efface aucun.
-    pc.stockage.setItem('terramemo.chrono.records', JSON.stringify({ ...Object.fromEntries(pc.records()), [EUR]: rec(9_000) }));
-    tel.stockage.setItem('terramemo.chrono.records', JSON.stringify({ ...Object.fromEntries(tel.records()), [OCE]: rec(7_000) }));
+    pc.stockage.setItem('terramemo.chrono.records', JSON.stringify({ ...Object.fromEntries(pc.records()), [EUR]: rec(9) }));
+    tel.stockage.setItem('terramemo.chrono.records', JSON.stringify({ ...Object.fromEntries(tel.records()), [OCE]: rec(7) }));
     const [a, b] = await Promise.all([pc.comptes.profilModifie('records'), tel.comptes.profilModifie('records')]);
     expect([a?.etat, b?.etat]).toEqual(['ecrit', 'ecrit']);
-    const fin = { ...max, [EUR]: 9_000, [OCE]: 7_000 };
+    const fin = { ...max, [EUR]: 9, [OCE]: 7 };
     expect(points(new Map(Object.entries((await enLigne(uid))!.records)))).toEqual(fin);
     await Promise.all([pc.comptes.demarrer(), tel.comptes.demarrer()]);
     expect(points(pc.records())).toEqual(fin);
@@ -134,7 +135,7 @@ describe.skipIf(!hoteAuth || !hoteFs)('profil des comptes (émulateurs Auth et F
   });
 
   it('lien d’un invité anonyme : même uid, le profil part avec ; l’anonyme seul ne peut rien écrire', async () => {
-    const tel = appareil('Lia', { [AMS]: rec(11_000) });
+    const tel = appareil('Lia', { [AMS]: rec(11) });
     const anonyme = (await authM.signInAnonymously(tel.a)).user.uid;
     // Un anonyme n'a aucune identité : la synchro le saute, et les règles le refusent de toute façon.
     expect(await tel.comptes.synchroniserProfil()).toMatchObject({ etat: 'sans_compte' });
@@ -148,21 +149,21 @@ describe.skipIf(!hoteAuth || !hoteFs)('profil des comptes (émulateurs Auth et F
   });
 
   it('pierre tombale posée : l’autre appareil n’écrit plus rien, et le dit', async () => {
-    const pc = appareil('Michel', { [AMS]: rec(11_000) });
+    const pc = appareil('Michel', { [AMS]: rec(11) });
     const tel = appareil('Michel', {});
     const mail = adresse();
     await pc.comptes.creer(mail, 'motdepasse');
     await tel.comptes.connecter(mail, 'motdepasse');
     const uid = pc.a.currentUser!.uid;
     await fsM.setDoc(fsM.doc(pc.db, 'joueurs', uid), { v: 1, maj: fsM.serverTimestamp(), supprime: true });
-    tel.stockage.setItem('terramemo.chrono.records', JSON.stringify({ [AMS]: rec(12_000) }));
+    tel.stockage.setItem('terramemo.chrono.records', JSON.stringify({ [AMS]: rec(12) }));
     expect(await tel.comptes.profilModifie('records')).toMatchObject({ etat: 'supprime' });
     expect(await enLigne(uid)).toMatchObject({ supprime: true });
     expect((await enLigne(uid))!.records).toEqual({});
   });
 
   it('export (§ 7.2) : le compte de la session, sa date de création et son profil en ligne ; rien pour un invité', async () => {
-    const pc = appareil('Michel', { [AMS]: rec(11_000) });
+    const pc = appareil('Michel', { [AMS]: rec(11) });
     expect(await pc.comptes.pourExport()).toEqual({ compte: null, profil: null, connecte: false });
     const mail = adresse();
     await pc.comptes.creer(mail, 'motdepasse');
@@ -183,11 +184,11 @@ describe.skipIf(!hoteAuth || !hoteFs)('profil des comptes (émulateurs Auth et F
     await env.cleanup();
     env = await initializeTestEnvironment({ projectId: PROJET, firestore: { rules: reglesAvecEssai('return false;'), host, port: Number(port) } });
     try {
-      const pc = appareil('Michel', { [AMS]: rec(11_000) });
+      const pc = appareil('Michel', { [AMS]: rec(11) });
       const r = await pc.comptes.creer(adresse(), 'motdepasse');
       expect(r.profil).toMatchObject({ etat: 'refuse' });
       expect(pc.comptes.rapport().profil_a_ecrire).toBe(true);
-      expect([pc.pseudo(), points(pc.records())]).toEqual(['Michel', { [AMS]: 11_000 }]);
+      expect([pc.pseudo(), points(pc.records())]).toEqual(['Michel', { [AMS]: 11 }]);
     } finally {
       await env.cleanup();
       env = await initializeTestEnvironment({ projectId: PROJET, firestore: { rules: reglesAvecEssai('return true;'), host, port: Number(port) } });

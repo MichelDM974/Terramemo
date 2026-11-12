@@ -68,7 +68,7 @@ export const ENCLAVES: Readonly<Record<string, string>> = {
   NE_ESB: 'CYP', // Dhekelia, base souveraine britannique
 };
 
-/** Aucune zone admise : le de fait strict (épreuves classées avant DEBUT_ACCEPTES_EPREUVES, terrains locaux). */
+/** Aucune zone admise : le de fait strict (terrains locaux ; les épreuves classées l'ont eu jusqu'au 09/11/2026). */
 export const AUCUN_ACCEPTE: Acceptes = new Map();
 
 /**

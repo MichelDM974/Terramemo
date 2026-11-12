@@ -83,9 +83,10 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   haut puis en bas ; `DÉFAUT` s'il manque une donnée, une bibliothèque,
   la police ou la date de l'IGN, ou si « Retour » ne ramène pas à la
   carte), `7-classe-ams-epreuves` (Jouer ›
-  Classé › Pays › Amérique du Sud : les trois épreuves, sans record sur le
+  Classé › Pays › Amérique du Sud : les deux épreuves, sans record sur le
   profil neuf), `8-chrono-faux` et `9-chrono-bilan` (l'Amérique du Sud
-  jouée jusqu'au bilan, ~25 s) dans `--out`
+  jouée jusqu'au bilan, ~25 s, la première réponse fausse : « 11/12 ·
+  91 % », le pourcentage tronqué, et « Temps total », sans points) dans `--out`
   (`/tmp/terramemo-captures`), et affiche les textes lus (barre,
   rétroaction, liste de la Saisie, bilan du Chrono). Puis La Réunion et
   Nommer (#15) : `10-reunion` (Toucher → La Réunion : l'île entière, barre
@@ -103,8 +104,9 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   les sujets de `EPREUVES_SUJETS` de `src/epreuve/chrono.ts`, ouverts dès
   leur livraison, sans date, décision « Ouverture des épreuves d'un
   sujet » du 12/11 : `SUJETS_CLASSE` du pilote), `[data-serie=<id>]` (sauf l'île :
-  niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute|
-  minute]`, qui lance la partie ; `jouer_jusqua(page, mode, serie, sujet)`
+  niveau sauté), et `[data-mode=apprendre|localiser|nommer|chrono|sansfaute]`,
+  qui lance la partie (plus de `minute` : retiré le 12/11, décision
+  « Barème et classements », #30) ; `jouer_jusqua(page, mode, serie, sujet)`
   s'arrête aux exercices, le sujet déduit de la série à défaut). Une
   partie de capitales ou de drapeaux attend leurs données (capitales, ou le
   seul manifeste des drapeaux : `avecSujet` : « Chargement… »
@@ -119,19 +121,19 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   épreuves où l'appareil a un record, plus les places déjà vues
   (`terramemo.classements.vues`, par pseudo) ; le reste par « Chercher mes
   places » (`.classements-chercher[data-sujet]`), sujet par sujet.
-  Puis Sans faute et Minute (#14) sur l'Amérique du Sud :
-  `20-sansfaute-faux` (deux justes, puis une erreur), `21-sansfaute-bilan`
-  (« 2 d'affilée »), `22-minute-faux` (une erreur au premier toucher : la
-  barre compte justes et erreurs, la jauge est la minute),
-  `23-minute-bilan` (tout juste ensuite : « série vidée », « 1 erreur »).
+  Puis Sans faute (#14) sur l'Amérique du Sud : `20-sansfaute-faux` (deux
+  justes, puis une erreur), `21-sansfaute-bilan` (« 2 d'affilée sur N ·
+  P % », P tronqué). Plus de captures 22 et 23 : Minute est retiré
+  (12/11), ses ids `minute:…` réservés, jamais réutilisés.
   Enfin l'arbre de Jouer (#18), après les épreuves pour en avoir les
   records : `15-jouer` (Entraînement et Classé ; plus de « Rejouer » ici,
   il ne vit qu'au bilan ; `DÉFAUT` si Entraînement n'a pas Pays, Capitales,
   Drapeaux, Communes dans cet ordre), `15b-classe-sujets` (Pays,
   Capitales, Drapeaux, Communes),
   `15c-classe-pays-series` (Tous les pays puis les six continents),
-  `15d-classe-pays-ams-epreuves` (les trois épreuves avec leurs records,
-  les règles ouvertes par `#jouer-aide`), `15e-entrainement-communes`
+  `15d-classe-pays-ams-epreuves` (Chrono et Sans faute, jamais Minute,
+  leurs records en « justes/total · P % », P tronqué ; les règles ouvertes
+  par `#jouer-aide`, sans Minute), `15e-entrainement-communes`
   (Trouver et Reconnaître sur La Réunion, le niveau des séries sauté) ; il
   y vérifie aussi le retour arrière et `#jouer-haut` (« ‹ ») d'un niveau,
   une adresse invalide (`#jouer/classe/pays/Atlantide` → `#jouer/classe/pays`)
@@ -144,7 +146,7 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   `#carte` (⚙ : la popup se ferme) ; bilans des séances : la « × » seule ;
   Crédits défilés en bas (`61b`) : la « × », collée en haut, reste à portée.
   Hors émulateurs, leur bloc de classement lit la base en ligne : sans
-  l'index de Minute (`firestore.indexes.json`), « Classement indisponible ».
+  ses index (`firestore.indexes.json`), « Classement indisponible ».
   Faites après l'île : le premier usage de la recherche demande
   `/geo/reunion/noms.fr.json`, que `10-reunion` veut absent avant son choix.
   `DÉFAUT : …` et code 1 si les boutons de zoom manquent sur PC, se montrent
@@ -160,10 +162,12 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   zone de Nommer n'est pas au-dessus de sa barre (monde et île), si l'île
   a bougé du zoom 1 ou passe sous la barre de Nommer, si les
   boutons de Nommer n'ont pas un rouge et un vert, si un code INSEE
-  (`974xx`) s'affiche, si le monde a changé, si Sans faute et Minute n'ont
-  pas leur titre ou leur bilan attendu, si ⚙ n'a pas l'Essai J0, si Jouer
+  (`974xx`) s'affiche, si le monde a changé, si Sans faute n'a
+  pas son titre ou son bilan attendu, si le bilan du Chrono n'a pas son
+  pourcentage, si ⚙ n'a pas l'Essai J0, si Jouer
   n'a pas ses deux branches, Classé › Pays ses 7 séries dans l'ordre ou la
-  série ses 3 épreuves (et leurs records), si Communes ne saute pas la série,
+  série ses 2 épreuves (et leurs records en pourcentage), si Minute s'y
+  montre encore, si Communes ne saute pas la série,
   si une série « essai » s'y montre, si le retour arrière, « ‹ », une
   adresse invalide ou « × » mènent ailleurs, si un écran de la liste de
   `ui_croix` n'a pas sa « × » ou si elle ne mène pas à la carte, si `#chrono` ou `#toucher`
@@ -318,12 +322,13 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   comme sur le site construit.
   `92-classe-capitales` (Classé : Pays, Capitales, Drapeaux, Communes),
   `93-classe-capitales-oceanie` (les 7 séries des pays, D37 c ; Océanie :
-  Chrono, Sans faute, Minute ; fil « Classé › Capitales › Océanie »),
+  Chrono, Sans faute ; fil « Classé › Capitales › Océanie »),
   `94-capitales-chrono` (« Pays dont la capitale est : », une ville, jamais
   un Qid), le Chrono des capitales d'Océanie joué en entier, chaque toucher
   sur le pays demandé (`position_visible(p, cible, "#barre-chrono")`),
   `95-capitales-chrono-bilan` (titre « Chrono · Capitales · Océanie »,
-  « 14 / 14 justes »), le record sous Classé › Capitales › Océanie, puis
+  « 14/14 · 100 % »), le record « 14/14 · 100 % » sous Classé ›
+  Capitales › Océanie, puis
   `96-classements-capitales` (🏆 : Pays, Capitales, Drapeaux, Communes en `h4`, la
   ligne `[data-epreuve="chrono:capitales:Oceania"]` « Capitales ·
   Océanie »). Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout
@@ -332,8 +337,8 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   `ui_epreuves_drapeaux`, juste après `ui_epreuves_capitales`) : sur une page
   rechargée, `111-classe-drapeaux` (Classé : Pays, Capitales, Drapeaux,
   Communes), `112-classe-drapeaux-oceanie` (les 7 séries des pays ;
-  Océanie : Chrono, Sans faute, Minute ; fil « Classé › Drapeaux ›
-  Océanie » ; le « ? » dit les règles et les exercices visuels),
+  Océanie : Chrono, Sans faute ; fil « Classé › Drapeaux › Océanie » ; le
+  « ? » dit les règles et les exercices visuels, jamais Minute),
   `113-drapeaux-chrono` (« Pays de ce drapeau : » et l'image, alt
   « Drapeau à reconnaître », sans `title`, le drapeau montré `d[0]` du
   manifeste, le même pour tous ; le pays jamais nommé dans la barre ni ses
@@ -344,8 +349,8 @@ python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Dra
   question chaque drapeau déjà chargé à sa pose (la partie est préchargée
   au départ, `prechargerPartieSujet`), « Juste … · pays » ;
   `114-drapeaux-chrono-bilan` (titre « Chrono · Drapeaux · Océanie »,
-  « 14 / 14 justes », le classement `chrono:drapeaux:Oceania`), le record
-  sous Classé › Drapeaux › Océanie, puis `115-classements-drapeaux` (🏆 :
+  « 14/14 · 100 % », le classement `chrono:drapeaux:Oceania`), le record
+  « 14/14 · 100 % » sous Classé › Drapeaux › Océanie, puis `115-classements-drapeaux` (🏆 :
   Pays, Capitales, Drapeaux, Communes en `h4`, la ligne
   `[data-epreuve="chrono:drapeaux:Oceania"]` « Drapeaux · Océanie »).
   Invité sans pseudo : rien n'est publié. `DÉFAUT` à tout écart.
@@ -1223,7 +1228,8 @@ juste par `terramemo.ile.ecran(<cible>)` (cible :
 `#barre-chrono .essai-consigne` `data-cible`), puis le pseudo dans
 `#chrono-bilan .chrono-pseudo-form input` et son bouton ; le classement de
 l'épreuve et le général (`#classement-btn` de l'en-tête, vue `#classement`,
-somme des records de toutes les séries) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
+part des justes de toutes les questions du Chrono, « 7,6 % » et « 91 justes
+sur 1 194 » au détail) montrent le score. **Attendre ≥ 0,4 s avant chaque toucher** : les
 règles refusent moins de 0,2 s par question (`temps_ms >= questions ×
 200`), et un tel score n'est même pas envoyé (`vraisemblable()`,
 `src/epreuve/chrono.ts`, mêmes bornes que `firestore.rules`) ; il reste
@@ -1474,6 +1480,7 @@ npm run admin -- --aide
 npm run admin -- tournee                    # à blanc : demandes, tombes, orphelins, relevé
 npm run admin -- tournee --trimestrielle    # … et les comptes inactifs
 npm run admin -- demandes                   # puis, après lecture : demandes --appliquer --attendu <empreinte>
+npm run admin -- bareme                     # une fois (12/11), après les règles du barème 2 : voir « Commandes »
 npm run test:admin                          # tests aux émulateurs (8062 et 8063 libres), aussi en CI
 ```
 
@@ -1535,7 +1542,21 @@ Firebase les supprime 30 jours après leur création) :
   lot (une lecture chacun) pour ses événements et ses octets (calcul de
   taille de Firestore) : refusé avant toute lecture au-delà de M lots
   (5 000 par défaut) ; `--uid U` pour un seul compte (`n` n'est pas
-  indexé : pas de somme par agrégation). Le relevé affiche ses lectures.
+  indexé : pas de somme par agrégation). Le relevé affiche ses lectures ;
+- `bareme` (une fois, décision « Barème et classements » du 12/11/2026,
+  #30 ; pas dans la tournée) : chaque place du barème 1 (`bareme` 1 ou
+  absent : ~1 000 points par juste) des classements de **toujours** et de
+  la **semaine en cours** réécrite `{points: justes, bareme: 2}`, le reste
+  du document intact, jamais effacée ; celles des semaines passées (plus
+  affichées) comptées, laissées ; une place déjà au barème 2, d'un barème
+  inconnu ou aux justes illisibles, laissée (dite au plan). **Quand** :
+  juste après `npx firebase deploy --only firestore` des règles du barème 2
+  (sans quoi une place v1, ~1 000 × justes, ne serait jamais battue :
+  `progresse()` la compare d'ici là par ses justes, son filet), **avant**
+  le site ; `bareme` à blanc, lire, puis `bareme --appliquer --attendu
+  <empreinte>` (l'empreinte porte aussi les points écrits). Une place
+  rejouée entre-temps arrête tout (`lastUpdateTime`) : relancer. Relancée
+  après coup, elle n'a plus rien à faire (« 0 place à convertir »).
 
 **Tournée** :
 - **mensuelle** (la politique promet 30 jours au plus pour les demandes) :
@@ -1640,7 +1661,8 @@ fin de la semaine d'usage du J1a, le 13/11). Le général des règles monte
 - Ids de l'arbre de Jouer : branches `entrainement`, `classe` ; sujets
   `pays`, `communes` ; séries `tous`, les continents en anglais (`South
   America`, `%20` dans l'adresse), `reunion` ; exercices `localiser`,
-  `nommer`, `chrono`, `sansfaute`, `minute`. L'Essai J0 (série `essai`)
+  `nommer`, `chrono`, `sansfaute` (`minute`, retiré le 12/11, est
+  réservé : jamais réutilisé). L'Essai J0 (série `essai`)
   n'est que dans ⚙ (`#reglage-essai`).
 - L'historique de Jouer et des parties vit dans `src/navigation.ts`, testé
   avec un historique factice (`tests/navigation.test.ts`) : chaque entrée

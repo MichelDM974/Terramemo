@@ -34,7 +34,7 @@ import {
 } from './arbre';
 import { nomSerie, SERIE_TOUS, type Serie } from './cibles';
 import { avecSujet, creer, type ContexteVue, type Vue } from './commun';
-import { scoreCourt, secondesMode } from './scores';
+import { scoreCourt, SECONDES_EPREUVE } from './scores';
 import { texteComptes, type ComptesSeance } from './seance';
 import { compteSerie } from './sujets';
 import { remplir, textes } from './textes';
@@ -58,10 +58,10 @@ function stockage(): Storage | null {
  * Apprendre dit pays, capitales ou communes), la phrase générique sinon.
  */
 export const detailExercice = (m: ModeJeu, sujet = 'pays'): string =>
-  remplir((J.exercices as unknown as Record<string, Partial<Record<ModeJeu, string>> | undefined>)[sujet]?.[m] ?? J.exercices[m], { s: estEpreuve(m) ? secondesMode(m) : 0 });
+  remplir((J.exercices as unknown as Record<string, Partial<Record<ModeJeu, string>> | undefined>)[sujet]?.[m] ?? J.exercices[m], { s: estEpreuve(m) ? SECONDES_EPREUVE : 0 });
 
 /** Règles complètes d'une épreuve (barème, départage), derrière « ? » ; '' pour un exercice d'entraînement. */
-export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[m].aide, { s: secondesMode(m) }) : '');
+export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[m].aide, { s: SECONDES_EPREUVE }) : '');
 
 /**
  * Ce que le « ? » des exercices d'un sujet dit en plus de leurs règles : que
@@ -73,11 +73,12 @@ export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[
 export const aideSujet = (sujet: string, branche: Branche): string =>
   sujet !== 'drapeaux' ? '' : branche === 'classe' ? J.visuel : `${J.visuel} ${J.visuel_choix}`;
 
-/** Le record de cet exercice dans cette série du sujet (« 12 450 pts », « 17 d'affilée ») ; '' s'il n'y en a pas (ou en entraînement, ou pour un sujet sans fiches). */
+/** Le record de cet exercice dans cette série du sujet (« 190/195 · 97 % », « 17/54 · 31 % ») ; '' s'il n'y en a pas (ou en entraînement, ou pour un sujet sans fiches). */
 export function recordDe(records: ReadonlyMap<string, RecordChrono>, m: ModeJeu, serie: string, sujet = 'pays'): string {
   if (!estEpreuve(m) || !estDomaine(sujet)) return '';
-  const r = records.get(idEpreuve(serie, m, sujet));
-  return r ? scoreCourt(m, r.points) : '';
+  const epreuve = idEpreuve(serie, m, sujet);
+  const r = records.get(epreuve);
+  return r ? scoreCourt(epreuve, r) : '';
 }
 
 export interface VueJouer extends Vue {

@@ -118,8 +118,8 @@ export interface Note {
 export interface OptionsNoter {
   /**
    * Admettre les zones contestées et les enclaves de ctx.acceptes (défaut :
-   * oui). Non : le de fait strict, pour les épreuves classées d'avant
-   * DEBUT_ACCEPTES_EPREUVES (src/epreuve/bareme.ts). Une table : celles de
+   * oui ; les épreuves classées aussi depuis le 09/11/2026, décision « Zones
+   * contestées et enclaves »). Non : le de fait strict. Une table : celles de
    * ctx.acceptes, puis ces zones en plus, passées par la vue du sujet joué
    * (étude J2 § 2.2) et jamais mises dans la table commune : Jérusalem ↔
    * Jérusalem-Est sous Capitales (D36 i), les jumeaux d'un drapeau sous

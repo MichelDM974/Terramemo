@@ -1,28 +1,16 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import {
-  acceptesEnEpreuve,
-  comparerScores,
-  DEBUT_ACCEPTES_EPREUVES,
-  DELAI_CHRONO_MS,
-  ECHELLE_KM,
-  ECHELLES_KM,
-  pointsQuestion,
-  scoreEpreuve,
-  semaine,
-  type ReponseChrono,
-  type ScoreEpreuve,
-} from '../src/epreuve/bareme';
-import { assembler } from '../src/map/donnees';
-import { distanceAuBordKm } from '../src/map/geo';
+import { comparerScores, DELAI_CHRONO_MS, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from '../src/epreuve/bareme';
 
+// Barème 2 (décision « Barème et classements » du 12/11/2026, #30) : juste ou
+// faux, les points sont les justes ; la distance ne reste que dans la
+// rétroaction (« à 106 km du bord »), elle ne donne plus de points.
 const D = DELAI_CHRONO_MS.localiser;
 const faux = (km: number | null, temps_ms = 3000): ReponseChrono => ({ juste: false, distance_km: km, temps_ms });
 
 describe('pointsQuestion', () => {
-  it('1 000 si juste, quel que soit le temps dans le délai', () => {
-    expect(pointsQuestion({ juste: true, distance_km: 0, temps_ms: 500 }, D)).toBe(1000);
-    expect(pointsQuestion({ juste: true, distance_km: 0, temps_ms: D }, D)).toBe(1000);
+  it('1 si juste dans le délai, quel que soit le temps', () => {
+    expect(pointsQuestion({ juste: true, distance_km: 0, temps_ms: 500 }, D)).toBe(1);
+    expect(pointsQuestion({ juste: true, distance_km: 0, temps_ms: D }, D)).toBe(1);
   });
 
   it('0 hors délai ou sans réponse, même juste', () => {
@@ -30,60 +18,34 @@ describe('pointsQuestion', () => {
     expect(pointsQuestion({ juste: false, distance_km: null, temps_ms: null }, D)).toBe(0);
   });
 
-  it('faux : 500 × e^(−d/300 km), plafonné à la moitié', () => {
-    expect(pointsQuestion(faux(0), D)).toBe(500);
-    expect(pointsQuestion(faux(106), D)).toBe(351);
-    expect(pointsQuestion(faux(300), D)).toBe(184);
-    expect(pointsQuestion(faux(2000), D)).toBe(1);
-    expect(pointsQuestion(faux(5000), D)).toBe(0);
-  });
-
-  it('échelle de l’île : 500 × e^(−d/5 km) (décision « Quiz de La Réunion »)', () => {
-    const R = ECHELLES_KM.reunion;
-    expect(R).toBe(5);
-    expect(pointsQuestion(faux(0), D, R)).toBe(500);
-    expect(pointsQuestion(faux(1), D, R)).toBe(409);
-    expect(pointsQuestion(faux(5), D, R)).toBe(184);
-    expect(pointsQuestion(faux(10), D, R)).toBe(68);
-    // Juste, hors délai, sans toucher : l'échelle n'y change rien.
-    expect(pointsQuestion({ juste: true, distance_km: 0, temps_ms: 500 }, D, R)).toBe(1000);
-    expect(pointsQuestion(faux(null), D, R)).toBe(0);
-  });
-
-  it('le défaut reste le monde (300 km), inchangé', () => {
-    expect(ECHELLE_KM).toBe(ECHELLES_KM.monde);
-    expect(ECHELLES_KM.monde).toBe(300);
-    expect(pointsQuestion(faux(106), D, ECHELLES_KM.monde)).toBe(pointsQuestion(faux(106), D));
-    expect(pointsQuestion(faux(106), D)).toBe(351);
-  });
-
-  it('faux hors de la sphère (toucher dans le vide) : 0', () => {
+  it('faux : 0, même tout près du bord (plus de points de proximité)', () => {
+    expect(pointsQuestion(faux(0), D)).toBe(0);
+    expect(pointsQuestion(faux(1), D)).toBe(0);
+    expect(pointsQuestion(faux(106), D)).toBe(0);
     expect(pointsQuestion(faux(null), D)).toBe(0);
   });
 });
 
 describe('scoreEpreuve et comparerScores', () => {
-  it('somme les points ; une question sans réponse compte tout son délai', () => {
+  it('points = justes ; une question sans réponse compte tout son délai', () => {
     const s = scoreEpreuve(
-      [{ juste: true, distance_km: 0, temps_ms: 2000 }, faux(106, 4000), { juste: false, distance_km: null, temps_ms: null }],
+      [{ juste: true, distance_km: 0, temps_ms: 2000 }, faux(106, 4000), { juste: true, distance_km: 0, temps_ms: 1000 }, { juste: false, distance_km: null, temps_ms: null }],
       D,
     );
-    expect(s).toEqual({ points: 1351, justes: 1, questions: 3, temps_ms: 2000 + 4000 + D });
+    expect(s).toEqual({ points: 2, justes: 2, questions: 4, temps_ms: 2000 + 4000 + 1000 + D });
   });
 
-  it('l’échelle passe à chaque question', () => {
-    const r = [{ juste: true, distance_km: 0, temps_ms: 2000 }, faux(5, 4000)];
-    expect(scoreEpreuve(r, D, ECHELLES_KM.reunion).points).toBe(1184);
-    expect(scoreEpreuve(r, D).points).toBe(1000 + 492);
+  it('une juste après le délai : ni juste, ni plus que son délai au temps', () => {
+    expect(scoreEpreuve([{ juste: true, distance_km: 0, temps_ms: D + 5000 }], D)).toEqual({ points: 0, justes: 0, questions: 1, temps_ms: D });
   });
 
-  it('plus de points d’abord, puis le temps le plus court', () => {
-    const s = (points: number, temps_ms: number): ScoreEpreuve => ({ points, justes: 0, questions: 12, temps_ms });
-    const tries = [s(9000, 50_000), s(12_000, 90_000), s(12_000, 60_000)].sort(comparerScores);
+  it('plus de justes d’abord, puis le temps le plus court', () => {
+    const s = (justes: number, temps_ms: number): ScoreEpreuve => ({ points: justes, justes, questions: 12, temps_ms });
+    const tries = [s(9, 50_000), s(12, 90_000), s(12, 60_000)].sort(comparerScores);
     expect(tries.map((x) => [x.points, x.temps_ms])).toEqual([
-      [12_000, 60_000],
-      [12_000, 90_000],
-      [9000, 50_000],
+      [12, 60_000],
+      [12, 90_000],
+      [9, 50_000],
     ]);
   });
 });
@@ -101,44 +63,5 @@ describe('semaine', () => {
   it('à La Réunion, la semaine change le lundi à 4 h', () => {
     expect(semaine(t('2026-11-09T03:59:59+04:00'))).toBe(semaine(t('2026-11-08T12:00:00Z')));
     expect(semaine(t('2026-11-09T04:00:00+04:00'))).toBe(semaine(t('2026-11-08T12:00:00Z')) + 1);
-  });
-});
-
-// Le tableau de l'étude (docs/etudes/2026-11-04-points-classement.md, § 3),
-// refait sur les données versionnées : toucher au point d'étiquette du pays
-// confondu, distance au bord du pays demandé.
-describe('barème sur les vraies frontières', () => {
-  const lire = (n: string) => JSON.parse(readFileSync(`public/geo/${n}`, 'utf8'));
-  const d = assembler(lire('monde.topo.json'), lire('pays.json'), lire('contestees.json'), lire('noms.fr.json'));
-  const parId = new Map(d.entites.map((e) => [e.pays.id, e]));
-  const cas: [string, string, number][] = [
-    ['DOM', 'HTI', 423],
-    ['MKD', 'ALB', 412],
-    ['LVA', 'LTU', 351],
-    ['SWE', 'NOR', 327],
-    ['AUT', 'CHE', 295],
-    ['SVK', 'SVN', 178],
-    ['MRT', 'MLI', 128],
-    ['NGA', 'NER', 105],
-    ['IRQ', 'IRN', 53],
-    ['CHE', 'SWE', 1],
-    ['AUT', 'AUS', 0],
-  ];
-  it.each(cas)('%s demandé, %s touché : %i points', (cible, touche, attendu) => {
-    const c = parId.get(cible);
-    const t = parId.get(touche);
-    if (!c || !t) throw new Error(`pays absent : ${cible} ou ${touche}`);
-    const km = distanceAuBordKm(c.forme, t.pays.point as [number, number]);
-    // L'étude arrondit la distance au km : un point d'écart au plus.
-    expect(Math.abs(pointsQuestion(faux(km), D) - attendu)).toBeLessThanOrEqual(1);
-  });
-});
-
-describe('zones contestées et enclaves dans les épreuves : date d’effet', () => {
-  it('lundi 09/11/2026 à 0 h UTC, début d’une semaine du classement', () => {
-    expect(new Date(DEBUT_ACCEPTES_EPREUVES).toISOString()).toBe('2026-11-09T00:00:00.000Z');
-    expect(semaine(DEBUT_ACCEPTES_EPREUVES)).toBe(semaine(DEBUT_ACCEPTES_EPREUVES - 1) + 1);
-    expect(acceptesEnEpreuve(DEBUT_ACCEPTES_EPREUVES - 1)).toBe(false);
-    expect(acceptesEnEpreuve(DEBUT_ACCEPTES_EPREUVES)).toBe(true);
   });
 });

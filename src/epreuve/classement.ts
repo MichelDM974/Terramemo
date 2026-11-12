@@ -1,5 +1,5 @@
-// Classements en ligne des épreuves (#14, décisions « Classements », « Sans
-// faute et Minute ») : Firestore lite et Auth anonyme de Firebase, chargés à
+// Classements en ligne des épreuves (#14, décisions « Classements », « Barème
+// et classements ») : Firestore lite et Auth anonyme de Firebase, chargés à
 // la demande par src/sync/firebase.ts (charger, compte), pour que la carte
 // n'attende jamais le SDK. Règles : firestore.rules. Chemin d'un
 // score : classements/{epreuve}/periodes/{toujours | sNNNN}/scores/{clé du pseudo}.
@@ -7,7 +7,7 @@
 // sous un pseudo partagent sa place, qui garde le meilleur score.
 import { charger, compte, type Service } from '../sync/firebase';
 import { comparerScores, type ScoreEpreuve } from './bareme';
-import { clePseudo, epreuvesDuGeneral, modeEpreuve, VERSION_BAREME } from './chrono';
+import { BAREME_1, clePseudo, epreuvesDuGeneral, pointsV2, VERSION_BAREME } from './chrono';
 
 /** Épreuve du classement général (somme des records de toutes les épreuves du Chrono). */
 export const GENERAL = 'general';
@@ -16,6 +16,7 @@ export interface Place {
   /** Clé du pseudo (clePseudo), nom du document. */
   cle: string;
   pseudo: string;
+  /** Les justes (barème 2) ; une place du barème 1 est convertie à la lecture (enPlace). */
   points: number;
   justes: number;
   questions: number;
@@ -74,8 +75,15 @@ export async function placesDuPseudo(periode: string, pseudo: string): Promise<M
   return places;
 }
 
+/**
+ * Une place lue en ligne, au barème 2 : celle du barème 1 (`bareme: 1`, ou
+ * sans barème) comptée en justes (pointsV2), comme la migration de l'outil
+ * du propriétaire la réécrit (scripts/admin/taches.mjs, bareme) et comme les
+ * règles la jugent (progresse) ; sinon le général additionnerait deux
+ * échelles (totalGeneral) et une place d'avant semblerait imbattable.
+ */
 function enPlace(id: string, d: Record<string, unknown>): Place {
-  return {
+  const place: Place = {
     cle: id,
     pseudo: String(d.pseudo ?? ''),
     points: Number(d.points ?? 0),
@@ -83,30 +91,20 @@ function enPlace(id: string, d: Record<string, unknown>): Place {
     questions: Number(d.questions ?? 0),
     temps_ms: Number(d.temps_ms ?? 0),
   };
+  return Number(d.bareme ?? BAREME_1) <= BAREME_1 ? pointsV2(place) : place;
 }
 
 type Scores = ReturnType<typeof scores>;
 
 /**
- * Minute départage encore au nombre de questions (comparerScores : à justes
- * et temps égaux, moins d'erreurs) ; les autres épreuves n'en ont pas besoin,
- * ce qui leur épargne un compte et un index.
+ * Le rang d'une place (1 = premier) : ceux qui ont plus de points (de
+ * justes), puis autant en moins de temps. Deux comptes.
  */
-const parQuestions = (epreuve: string) => modeEpreuve(epreuve) === 'minute';
-
-/**
- * Le rang d'une place (1 = premier) : ceux qui ont plus de points, puis autant
- * en moins de temps (puis, en Minute, autant en autant de temps et moins de
- * questions). Deux comptes, trois en Minute.
- */
-async function rangDe(s: Service, col: Scores, moi: Place, epreuve: string): Promise<number> {
+async function rangDe(s: Service, col: Scores, moi: Place): Promise<number> {
   const { fs } = s.m;
   const comptes = await Promise.all([
     fs.getCount(fs.query(col, fs.where('points', '>', moi.points))),
     fs.getCount(fs.query(col, fs.where('points', '==', moi.points), fs.where('temps_ms', '<', moi.temps_ms))),
-    ...(parQuestions(epreuve)
-      ? [fs.getCount(fs.query(col, fs.where('points', '==', moi.points), fs.where('temps_ms', '==', moi.temps_ms), fs.where('questions', '<', moi.questions)))]
-      : []),
   ]);
   return comptes.reduce((n, c) => n + c.data().count, 1);
 }
@@ -124,7 +122,7 @@ export interface MaPlace {
  * des épreuves), dans leur ordre, seulement ceux où il est classé. L'écran
  * des classements choisit lesquels lire (D52 b, src/vues/general.ts :
  * epreuvesALire). Coût : 1 lecture par classement demandé, plus 3 par place
- * (deux comptes pour le rang, un pour le nombre de joueurs), 4 en Minute.
+ * (deux comptes pour le rang, un pour le nombre de joueurs).
  */
 export async function mesPlaces(periode: string, pseudo: string, epreuves: readonly string[]): Promise<MaPlace[]> {
   if (!epreuves.length) return [];
@@ -137,7 +135,7 @@ export async function mesPlaces(periode: string, pseudo: string, epreuves: reado
       const d = await fs.getDoc(fs.doc(col, cle));
       if (!d.exists()) return null;
       const place = enPlace(d.id, d.data());
-      const [rang, total] = await Promise.all([rangDe(s, col, place, epreuve), fs.getCount(col)]);
+      const [rang, total] = await Promise.all([rangDe(s, col, place), fs.getCount(col)]);
       return { epreuve, place, rang, joueurs: total.data().count };
     }),
   );
@@ -154,8 +152,7 @@ export async function lireTableau(epreuve: string, periode: string, pseudo: stri
   const cle = pseudo === null ? null : clePseudo(pseudo);
   const { fs } = s.m;
   const col = scores(s, epreuve, periode);
-  const ordre = [fs.orderBy('points', 'desc'), fs.orderBy('temps_ms', 'asc'), ...(parQuestions(epreuve) ? [fs.orderBy('questions', 'asc')] : [])];
-  const [premiers, total] = await Promise.all([fs.getDocs(fs.query(col, ...ordre, fs.limit(n))), fs.getCount(col)]);
+  const [premiers, total] = await Promise.all([fs.getDocs(fs.query(col, fs.orderBy('points', 'desc'), fs.orderBy('temps_ms', 'asc'), fs.limit(n))), fs.getCount(col)]);
   const places = premiers.docs.map((d) => enPlace(d.id, d.data()));
   const i = places.findIndex((p) => p.cle === cle);
   if (i >= 0) return { places, moi: places[i] ?? null, rang: i + 1, joueurs: total.data().count };
@@ -163,5 +160,5 @@ export async function lireTableau(epreuve: string, periode: string, pseudo: stri
   const mien = await fs.getDoc(fs.doc(col, cle));
   if (!mien.exists()) return { places, moi: null, rang: null, joueurs: total.data().count };
   const moi = enPlace(mien.id, mien.data());
-  return { places, moi, rang: await rangDe(s, col, moi, epreuve), joueurs: total.data().count };
+  return { places, moi, rang: await rangDe(s, col, moi), joueurs: total.data().count };
 }

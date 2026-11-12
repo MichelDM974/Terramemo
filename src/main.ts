@@ -258,7 +258,7 @@ if (caseMemoire) {
 // --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
 // recherche montre un lieu), Jouer (l'arbre des choix : #jouer/classe/pays/Africa,
 // décision « Écran Jouer ») puis Toucher ou une épreuve classée (vue « chrono » :
-// Chrono, Sans faute, Minute), les classements (🏆), la Saisie et les Crédits (⚙). Historique,
+// Chrono, Sans faute), les classements (🏆), la Saisie et les Crédits (⚙). Historique,
 // redirections et « × » : src/navigation.ts. ---
 
 type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie' | 'credits' | 'confidentialite' | 'compte';

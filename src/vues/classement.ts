@@ -5,12 +5,12 @@
 // Firebase n'est chargé qu'à l'ouverture du bloc, ou pour un envoi en attente.
 import type { BilanPartie } from '../epreuve/chrono';
 import { comparerScores, type ScoreEpreuve } from '../epreuve/bareme';
-import { epreuvesClassees, epreuvesDuGeneral, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
+import { convertirStockage, epreuvesClassees, epreuvesDuGeneral, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
 import { comptesVisibles } from '../sync/drapeaux';
 import { etatCompteConnu, profilModifie } from '../sync/pont';
 import { creer } from './commun';
-import { departage, fmtPts } from './scores';
+import { estGeneral, fmtJustesGeneral, fmtTemps, pourcentDe, scoreEntier } from './scores';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -138,7 +138,10 @@ async function renvoyer(pseudo: string): Promise<Publication> {
   const envois: Envoi[] = [];
   const generaux: string[] = [];
   for (const [e, p] of lireAttente()) {
+    // Une semaine passée sort de la file, comme une épreuve d'un mode retiré (Minute, `minute:…` : décision
+    // « Barème et classements ») ou inconnu : ni envoi, ni refus, ni échec.
     if (p !== 'toujours' && p !== periode) continue;
+    if (e !== GENERAL && modeEpreuve(e) === null) continue;
     if (e === GENERAL) generaux.push(p);
     else {
       const pub = publiableDe(e, p);
@@ -172,12 +175,46 @@ export function relancerAttente(): Promise<Publication | null> {
 }
 
 /**
+ * Barème 2 (décision « Barème et classements » du 12/11/2026, #30) : les
+ * records du barème 1 de l'appareil, convertis et écrits (convertirStockage),
+ * entrent dans la file, de toujours et de la semaine en cours, avec le
+ * général des deux périodes. Entre les règles du barème 2 et la mise à jour
+ * de l'appli (l'APK d'avant, un onglet de l'ancien site resté ouvert),
+ * chaque score publié au barème 1 a été refusé, puis retiré de la file
+ * (refusé : inutile de le refaire) ; sans ce renvoi, la place resterait en
+ * dessous jusqu'à une partie qui bat le record. Ce qui ne progresse pas, les
+ * règles le refusent sans rien changer, et publier() le compte comme « déjà
+ * mieux » (une lecture de plus). Une fois : relus, les records sont au
+ * barème 2. Sans pseudo, la file attend son choix (publierTout).
+ */
+function mettreEnFileLeBareme2(): void {
+  const periode = periodeSemaine(Date.now());
+  const classees = epreuvesClassees();
+  const duGeneral = epreuvesDuGeneral();
+  const ajouts: EnAttente[] = [];
+  for (const cle of convertirStockage(stockage())) {
+    const [epreuve, sem] = cle.split('@');
+    if (!epreuve || !classees.includes(epreuve)) continue;
+    // Le record de toujours a pu être élevé à celui de la semaine (lireRecords) : il repart aussi.
+    ajouts.push([epreuve, 'toujours']);
+    if (sem === periode) ajouts.push([epreuve, periode]);
+  }
+  for (const p of ['toujours', periode]) if (ajouts.some(([e, q]) => q === p && duGeneral.includes(e))) ajouts.push([GENERAL, p]);
+  if (!ajouts.length) return;
+  const vus = new Set<string>();
+  ecrireAttente([...lireAttente(), ...ajouts].filter(([e, p]) => !vus.has(`${e}@${p}`) && !!vus.add(`${e}@${p}`)));
+}
+
+/**
  * Quelques secondes après le démarrage de l'appli, à chaque retour du réseau
  * (événement online) et quand l'appli revient au premier plan (APK sorti de
  * l'arrière-plan, onglet de nouveau visible) : les scores faits hors ligne
- * partent d'eux-mêmes. Rien n'est chargé tant que la file est vide.
+ * partent d'eux-mêmes. Rien n'est chargé tant que la file est vide. Au
+ * démarrage d'abord, avant toute partie, les records du barème 1 se
+ * convertissent et entrent dans la file (mettreEnFileLeBareme2).
  */
 export function brancherRelance(cible: Pick<Window, 'addEventListener' | 'setTimeout'> = window, delai_ms = 3000): void {
+  mettreEnFileLeBareme2();
   const relancer = () => void relancerAttente().catch(() => undefined);
   cible.addEventListener('online', relancer);
   cible.addEventListener('visibilitychange', () => {
@@ -218,8 +255,8 @@ export async function publierTout(pseudo: string): Promise<Publication> {
 
 /**
  * Après une partie : seulement ce qui a progressé sur l'appareil (jusqu'à 4
- * écritures, 2 hors des épreuves du général, epreuvesDuGeneral : Sans faute et Minute
- * n'y comptent pas). Un nouveau record que les règles refuseraient est compté refusé
+ * écritures, 2 hors des épreuves du général, epreuvesDuGeneral : Sans faute
+ * n'y compte pas). Un nouveau record que les règles refuseraient est compté refusé
  * sans être écrit ; un score qui bat le meilleur publiable sans battre le
  * record de l'appareil part quand même.
  */
@@ -274,8 +311,7 @@ export function blocClassement(
     avis.textContent = avisPublication(p);
     avis.hidden = !avis.textContent;
   };
-  const mode = modeEpreuve(epreuve);
-  const liste = creer('ol', { class: `chrono-places ${mode ?? ''}`.trim() });
+  const liste = creer('ol', { class: 'chrono-places' });
   const bloc = creer(
     'section',
     { class: 'chrono-classement', 'data-epreuve': epreuve },
@@ -286,14 +322,38 @@ export function blocClassement(
     etat,
   );
 
+  /**
+   * La colonne du score (décision « Barème et classements ») : « 190/195 ·
+   * 97 % » à l'épreuve, le pourcentage seul sur un écran étroit (carte.css :
+   * le rang, un pseudo de 20 caractères et le temps n'y laissent pas la
+   * place), le tout toujours lu des lecteurs d'écran et en title ; « 7,6 % »
+   * au général, son détail (« 91 justes sur 1 194 ») en title et aux
+   * lecteurs d'écran.
+   */
+  function colonneScore(p: Place): HTMLElement {
+    if (estGeneral(epreuve)) {
+      const detail = fmtJustesGeneral(p.justes);
+      return creer('span', { class: 'pts', title: detail }, pourcentDe(epreuve, p) ?? '', creer('span', { class: 'pts-lu' }, ` · ${detail}`));
+    }
+    const entier = scoreEntier(epreuve, p);
+    const pourcent = pourcentDe(epreuve, p);
+    return creer(
+      'span',
+      { class: 'pts', title: entier },
+      creer('span', { class: 'pts-entier' }, entier),
+      ...(pourcent && pourcent !== entier ? [creer('span', { class: 'pts-bref', 'aria-hidden': 'true' }, pourcent)] : []),
+    );
+  }
+
+  /** Une ligne du tableau : rang, pseudo, score, et le temps qui départage. */
   function ligne(p: Place, rang: number, moi: boolean): HTMLLIElement {
     return creer(
       'li',
       { class: moi ? 'moi' : '' },
       creer('span', { class: 'rang' }, String(rang)),
       creer('span', { class: 'pseudo' }, p.pseudo),
-      creer('span', { class: 'pts' }, fmtPts(p.points)),
-      creer('span', { class: 'temps' }, departage(mode, p)),
+      colonneScore(p),
+      creer('span', { class: 'temps' }, fmtTemps(p.temps_ms)),
     );
   }
 
