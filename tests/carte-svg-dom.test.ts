@@ -479,6 +479,27 @@ describe('Carte SVG : océans et mers (lot 3a, étude J2, § 4.3)', () => {
     }
   });
 
+  // En « monde » (λ0 = 0), la couture du Pacifique est le bord de l'ovale, courbe : tracée par ses deux bouts seulement,
+  // sa corde laissait un croissant non teinté entre la mer et le bord (vu au ?mers=demo du 12/11, rendus g et css).
+  it('le remplissage d’une mer coupée à ±180 suit le bord de l’ovale : ses coutures densifiées, un sommet par degré', () => {
+    const { c, hote } = carteMers();
+    c.prendreMers(couche);
+    const proj = c.contexte().proj;
+    for (const id of ['pacif', 'austral']) {
+      const d = mer(hote, id)?.getAttribute('d') ?? '';
+      let [x, y] = [0, 0];
+      let auBord = 0;
+      for (const [, op, xs, ys] of d.matchAll(/([MLlZ])(-?\d+)?,?(-?\d+)?/g)) {
+        if (op === 'Z') continue;
+        [x, y] = op === 'l' ? [x + Number(xs), y + Number(ys)] : [Number(xs), Number(ys)];
+        const ll = proj.invert?.([x / UNITE, y / UNITE]);
+        if (ll && Math.abs(ll[0]) > 179.9) auBord++;
+      }
+      // Pacifique : ses coutures nord et sud couvrent plus de 100° de latitude ; sans densification, une poignée de sommets.
+      expect(auBord, id).toBeGreaterThan(id === 'pacif' ? 100 : 20);
+    }
+  });
+
   it('carte.css : .mer sans remplissage ni trait ; teintes puis marques sur l’eau, tirées des jetons de :root', () => {
     const css = readFileSync('src/carte.css', 'utf8');
     const racine = css.match(/:root\s*\{[^}]*\}/)?.[0] ?? '';

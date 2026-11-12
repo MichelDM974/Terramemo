@@ -15,7 +15,7 @@ import { creerProjection, garderVue } from './projection';
 import { fabriqueLignes, fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
 import { indexLieux, type LieuIndexe } from './lieux';
-import { formeContour, lignesContour, zonesAllumees, type CoucheMers } from './mers';
+import { densifierCoutures, formeContour, lignesContour, zonesAllumees, type CoucheMers } from './mers';
 import { classeSeau, seau, type Teintes } from './teintes';
 import type { Position } from 'geojson';
 import type { Entite, Forme, Lieu, Mer, NomProjection, Pays, Rendu, Transfo } from './types';
@@ -586,7 +586,8 @@ export class Carte implements CarteAffichee {
       }
     }
     for (const e of c.mers) {
-      const trace = d(e.forme);
+      // Coutures de ±180 densifiées, comme en Canvas : sinon leur corde laisse un croissant non teinté au bord de l'ovale.
+      const trace = d(densifierCoutures(e.forme));
       const p = el('path', { class: 'mer', 'data-id': e.pays.id, d: trace });
       const teinte = this.teintes.get(e.pays.id);
       if (teinte) p.classList.add(teinte);

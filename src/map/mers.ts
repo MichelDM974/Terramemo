@@ -222,3 +222,39 @@ export function lignesContour(forme: Forme): Position[][] {
   }
   return lignes;
 }
+
+/**
+ * Une forme dont les coutures de l'antiméridien reçoivent un sommet par degré
+ * de latitude (PAS_COUTURE_DEG), restant à ±180 (estCouture les reconnaît
+ * toujours). Le build des mers densifie tout sauf elles (étude J2, § 2.3) ; or
+ * le méridien de 180° est courbe dans Equal Earth, et le tracé relie deux
+ * sommets par une droite : à λ0 = 0, où la couture est le bord de l'ovale, la
+ * corde de 43° de la couture du Pacifique Sud passait à une dizaine de pixels
+ * à l'intérieur du bord, laissant un croissant de mer non teinté (le tracé
+ * rapide comparé à geoPath, tests/carte-canvas.test.ts). Le SVG relie ses
+ * sommets projetés de même (traces.ts) : il la reçoit aussi (carte.ts,
+ * tracerMers). Une couture des pays (Russie, Fidji, Antarctique) est courte.
+ */
+export function densifierCoutures(forme: Forme): Forme {
+  const g = forme.geometry;
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  let change = false;
+  const dense = polys.map((poly) =>
+    poly.map((anneau) => {
+      const res: Position[] = [];
+      anneau.forEach((q, i) => {
+        const p = anneau[i - 1];
+        const [lp, pp, lq, pq] = [p?.[0] ?? 0, p?.[1] ?? 0, q[0] ?? 0, q[1] ?? 0];
+        const n = p && Math.abs(lp) >= 180 && lp === lq ? Math.ceil(Math.abs(pq - pp) / PAS_COUTURE_DEG) : 0;
+        for (let j = 1; j < n; j++) res.push([lp, pp + ((pq - pp) * j) / n]);
+        if (n > 1) change = true;
+        res.push(q);
+      });
+      return res;
+    }),
+  );
+  if (!change) return forme;
+  const geometry = g.type === 'Polygon' ? { type: 'Polygon' as const, coordinates: dense[0] ?? [] } : { type: 'MultiPolygon' as const, coordinates: dense };
+  return { ...forme, geometry };
+}
+const PAS_COUTURE_DEG = 1;
