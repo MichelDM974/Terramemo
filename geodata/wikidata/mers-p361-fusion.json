@@ -1,0 +1,2119 @@
+{
+ "Q97": {
+  "fr": "océan Atlantique",
+  "P361": [
+   [
+    "Q715269",
+    "océan mondial"
+   ],
+   [
+    "Q2",
+    "Terre"
+   ]
+  ]
+ },
+ "Q98": {
+  "fr": "océan Pacifique",
+  "P361": [
+   [
+    "Q715269",
+    "océan mondial"
+   ],
+   [
+    "Q2",
+    "Terre"
+   ]
+  ]
+ },
+ "Q166": {
+  "fr": "mer Noire",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ],
+   [
+    "Q111384107",
+    "aire méditerranéenne"
+   ]
+  ]
+ },
+ "Q545": {
+  "fr": "mer Baltique",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ],
+   [
+    "Q715269",
+    "océan mondial"
+   ]
+  ]
+ },
+ "Q788": {
+  "fr": "océan Arctique",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ]
+  ]
+ },
+ "Q1239": {
+  "fr": "océan Indien",
+  "P361": [
+   [
+    "Q715269",
+    "océan mondial"
+   ],
+   [
+    "Q2",
+    "Terre"
+   ]
+  ]
+ },
+ "Q1247": {
+  "fr": "mer des Caraïbes",
+  "P361": [
+   [
+    "Q470088",
+    "mer Méditerranée Américaine"
+   ],
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q1693": {
+  "fr": "mer du Nord",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ]
+  ]
+ },
+ "Q1695": {
+  "fr": "Skagerrak",
+  "P361": [
+   [
+    "Q1693",
+    "mer du Nord"
+   ]
+  ]
+ },
+ "Q2251": {
+  "fr": "fleuve Columbia",
+  "P361": []
+ },
+ "Q3040": {
+  "fr": "baie d'Hudson",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q3783": {
+  "fr": "Amazone",
+  "P361": []
+ },
+ "Q4918": {
+  "fr": "mer Méditerranée",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ],
+   [
+    "Q111384107",
+    "aire méditerranéenne"
+   ]
+  ]
+ },
+ "Q5023": {
+  "fr": "détroit de Cook",
+  "P361": []
+ },
+ "Q5413": {
+  "fr": "Yangzi Jiang",
+  "P361": []
+ },
+ "Q5484": {
+  "fr": "mer Caspienne",
+  "P361": [
+   [
+    "Q111384107",
+    "aire méditerranéenne"
+   ]
+  ]
+ },
+ "Q6514": {
+  "fr": "détroit des Dardanelles",
+  "P361": [
+   [
+    "Q35367",
+    "mer de Marmara"
+   ],
+   [
+    "Q166",
+    "mer Noire"
+   ]
+  ]
+ },
+ "Q7343": {
+  "fr": "grande barrière de corail",
+  "P361": []
+ },
+ "Q7354": {
+  "fr": "océan Austral",
+  "P361": [
+   [
+    "Q715269",
+    "océan mondial"
+   ]
+  ]
+ },
+ "Q7988": {
+  "fr": "mer des Laptev",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q12630": {
+  "fr": "golfe du Mexique",
+  "P361": [
+   [
+    "Q470088",
+    "mer Méditerranée Américaine"
+   ]
+  ]
+ },
+ "Q13924": {
+  "fr": "mer Adriatique",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q14686": {
+  "fr": "golfe de Finlande",
+  "P361": [
+   [
+    "Q545",
+    "mer Baltique"
+   ]
+  ]
+ },
+ "Q19270": {
+  "fr": "mer de Célèbes",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q23406": {
+  "fr": "mer Rouge",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ],
+   [
+    "Q1363807",
+    "mer Érythrée"
+   ]
+  ]
+ },
+ "Q26080": {
+  "fr": "mer des Wadden",
+  "P361": [
+   [
+    "Q1693",
+    "mer du Nord"
+   ]
+  ]
+ },
+ "Q27092": {
+  "fr": "mer du Japon",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q33254": {
+  "fr": "mer de Tasman",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ],
+   [
+    "Q12355425",
+    "océan Paciﬁque sud"
+   ]
+  ]
+ },
+ "Q33629": {
+  "fr": "mer de Kara",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q34575": {
+  "fr": "mer Égée",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q34640": {
+  "fr": "Manche",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ]
+  ]
+ },
+ "Q34675": {
+  "fr": "golfe Persique",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ],
+   [
+    "Q1363807",
+    "mer Érythrée"
+   ]
+  ]
+ },
+ "Q35000": {
+  "fr": "mer d'Azov",
+  "P361": [
+   [
+    "Q166",
+    "mer Noire"
+   ]
+  ]
+ },
+ "Q35367": {
+  "fr": "mer de Marmara",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q35827": {
+  "fr": "río de la Plata",
+  "P361": []
+ },
+ "Q35958": {
+  "fr": "Bosphore",
+  "P361": [
+   [
+    "Q166",
+    "mer Noire"
+   ],
+   [
+    "Q35367",
+    "mer de Marmara"
+   ]
+  ]
+ },
+ "Q36124": {
+  "fr": "détroit de Gibraltar",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q37040": {
+  "fr": "baie de Baffin",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ],
+   [
+    "Q184189",
+    "mer du Labrador"
+   ]
+  ]
+ },
+ "Q37495": {
+  "fr": "mer Ionienne",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q37660": {
+  "fr": "mer de Chine méridionale",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ],
+   [
+    "Q398805",
+    "Mer de Chine"
+   ]
+  ]
+ },
+ "Q37960": {
+  "fr": "mer Jaune",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ],
+   [
+    "Q398805",
+    "Mer de Chine"
+   ]
+  ]
+ },
+ "Q38684": {
+  "fr": "golfe du Bengale",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q38882": {
+  "fr": "mer Tyrrhénienne",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q41430": {
+  "fr": "golfe de Guinée",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q41573": {
+  "fr": "golfe de Gascogne",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ]
+  ]
+ },
+ "Q41602": {
+  "fr": "mer d'Okhotsk",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q41735": {
+  "fr": "mer d'Irlande",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ]
+  ]
+ },
+ "Q41837": {
+  "fr": "golfe d'Aden",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q42820": {
+  "fr": "mer ligure",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q44133": {
+  "fr": "mer Blanche",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q44725": {
+  "fr": "mer de Béring",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q45341": {
+  "fr": "mer de Chine orientale",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ],
+   [
+    "Q398805",
+    "Mer de Chine"
+   ]
+  ]
+ },
+ "Q45823": {
+  "fr": "mer de Barents",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q47530": {
+  "fr": "golfe du Bénin",
+  "P361": [
+   [
+    "Q41430",
+    "golfe de Guinée"
+   ]
+  ]
+ },
+ "Q47545": {
+  "fr": "mer de Norvège",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q47632": {
+  "fr": "mer d'Andaman",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q48359": {
+  "fr": "détroit de Malacca",
+  "P361": []
+ },
+ "Q48365": {
+  "fr": "détroit de Magellan",
+  "P361": []
+ },
+ "Q49364": {
+  "fr": "mer de Java",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q52052": {
+  "fr": "détroit de Corée",
+  "P361": []
+ },
+ "Q52060": {
+  "fr": "baie de Corée orientale",
+  "P361": []
+ },
+ "Q58705": {
+  "fr": "mer d'Arabie",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q61304": {
+  "fr": "baie de Campêche",
+  "P361": []
+ },
+ "Q72154": {
+  "fr": "mer d'Amundsen",
+  "P361": [
+   [
+    "Q7354",
+    "océan Austral"
+   ]
+  ]
+ },
+ "Q79948": {
+  "fr": "golfe d'Oman",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q81136": {
+  "fr": "passage du Nord-Ouest",
+  "P361": [
+   [
+    "Q107088786",
+    "Northeast and Northwest Passages"
+   ]
+  ]
+ },
+ "Q81611": {
+  "fr": "golfe d'Aqaba",
+  "P361": [
+   [
+    "Q23406",
+    "mer Rouge"
+   ]
+  ]
+ },
+ "Q82931": {
+  "fr": "mer de Corail",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ],
+   [
+    "Q12355425",
+    "océan Paciﬁque sud"
+   ]
+  ]
+ },
+ "Q83318": {
+  "fr": "Bab-el-Mandeb",
+  "P361": []
+ },
+ "Q104662": {
+  "fr": "Øresund",
+  "P361": [
+   [
+    "Q816210",
+    "détroits danois"
+   ]
+  ]
+ },
+ "Q110802": {
+  "fr": "détroit de Tartarie",
+  "P361": [
+   [
+    "Q27092",
+    "mer du Japon"
+   ]
+  ]
+ },
+ "Q122574": {
+  "fr": "golfe de Botnie",
+  "P361": [
+   [
+    "Q545",
+    "mer Baltique"
+   ]
+  ]
+ },
+ "Q127031": {
+  "fr": "détroit de Taïwan",
+  "P361": [
+   [
+    "Q65199166",
+    "frontières de Taïwan"
+   ],
+   [
+    "Q4944710",
+    "frontières de la Chine"
+   ]
+  ]
+ },
+ "Q128880": {
+  "fr": "mer d'Arafura",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q131217": {
+  "fr": "golfe de Thaïlande",
+  "P361": [
+   [
+    "Q111384093",
+    "South China and Eastern Archipelagic Seas"
+   ],
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q131274": {
+  "fr": "mer de Beaufort",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q131418": {
+  "fr": "mer de Timor",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q131716": {
+  "fr": "Cattégat",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ]
+  ]
+ },
+ "Q132811": {
+  "fr": "golfe de Californie",
+  "P361": [
+   [
+    "Q12353254",
+    "océan Paciﬁque nord"
+   ],
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q132868": {
+  "fr": "mer du Groenland",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q134750": {
+  "fr": "fleuve Saint-Laurent",
+  "P361": []
+ },
+ "Q138708": {
+  "fr": "golfe de Martaban",
+  "P361": []
+ },
+ "Q140290": {
+  "fr": "baie de l'Abondance",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q141727": {
+  "fr": "baie de Marguerite",
+  "P361": []
+ },
+ "Q143650": {
+  "fr": "passage de Drake",
+  "P361": [
+   [
+    "Q7354",
+    "océan Austral"
+   ]
+  ]
+ },
+ "Q150370": {
+  "fr": "mer de Florès",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q152058": {
+  "fr": "détroit de Danemark",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ],
+   [
+    "Q922019",
+    "GIUK"
+   ]
+  ]
+ },
+ "Q156116": {
+  "fr": "baie de Prydz",
+  "P361": []
+ },
+ "Q156123": {
+  "fr": "baie de Lützow-Holm",
+  "P361": []
+ },
+ "Q156271": {
+  "fr": "détroit du Prince-de-Galles",
+  "P361": []
+ },
+ "Q159183": {
+  "fr": "mer des Philippines",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q159252": {
+  "fr": "mer des Tchouktches",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q160194": {
+  "fr": "mer de Soulou",
+  "P361": [
+   [
+    "Q139996695",
+    "West Pacific Ocean"
+   ]
+  ]
+ },
+ "Q163434": {
+  "fr": "mer de Sibérie orientale",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q164466": {
+  "fr": "mer de Ross",
+  "P361": [
+   [
+    "Q7354",
+    "océan Austral"
+   ]
+  ]
+ },
+ "Q165100": {
+  "fr": "canal du Mozambique",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q168277": {
+  "fr": "golfe de Suez",
+  "P361": [
+   [
+    "Q23406",
+    "mer Rouge"
+   ]
+  ]
+ },
+ "Q169274": {
+  "fr": "mer des Sargasses",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q169523": {
+  "fr": "golfe du Saint-Laurent",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q171510": {
+  "fr": "mer de Banda",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ],
+   [
+    "Q111384093",
+    "South China and Eastern Archipelagic Seas"
+   ]
+  ]
+ },
+ "Q171846": {
+  "fr": "détroit de Bass",
+  "P361": []
+ },
+ "Q173343": {
+  "fr": "mer de Weddell",
+  "P361": [
+   [
+    "Q7354",
+    "océan Austral"
+   ]
+  ]
+ },
+ "Q174731": {
+  "fr": "golfe de Riga",
+  "P361": [
+   [
+    "Q545",
+    "mer Baltique"
+   ]
+  ]
+ },
+ "Q179188": {
+  "fr": "détroit de Torrès",
+  "P361": []
+ },
+ "Q180531": {
+  "fr": "golfe d'Alaska",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q180844": {
+  "fr": "golfe de Carpentarie",
+  "P361": [
+   [
+    "Q128880",
+    "mer d'Arafura"
+   ]
+  ]
+ },
+ "Q181857": {
+  "fr": "baie de Fundy",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ],
+   [
+    "Q876470",
+    "golfe du Maine"
+   ]
+  ]
+ },
+ "Q181969": {
+  "fr": "mer de Bohai",
+  "P361": [
+   [
+    "Q37960",
+    "mer Jaune"
+   ],
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q182137": {
+  "fr": "lac Maracaibo",
+  "P361": []
+ },
+ "Q183455": {
+  "fr": "mer de Bellingshausen",
+  "P361": [
+   [
+    "Q7354",
+    "océan Austral"
+   ]
+  ]
+ },
+ "Q184189": {
+  "fr": "mer du Labrador",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q185291": {
+  "fr": "mer des Moluques",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q186299": {
+  "fr": "détroit de Palk",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q186733": {
+  "fr": "Grande baie australienne",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q187274": {
+  "fr": "golfe de Syrte",
+  "P361": [
+   [
+    "Q738028",
+    "mer de Libye"
+   ]
+  ]
+ },
+ "Q188203": {
+  "fr": "canal de Bristol",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q189262": {
+  "fr": "détroit de Davis",
+  "P361": [
+   [
+    "Q85377",
+    "archipel arctique canadien"
+   ],
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q193149": {
+  "fr": "mer de Crète",
+  "P361": [
+   [
+    "Q34575",
+    "mer Égée"
+   ]
+  ]
+ },
+ "Q193260": {
+  "fr": "canal du Yucatán",
+  "P361": []
+ },
+ "Q193465": {
+  "fr": "mer de Savu",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q194477": {
+  "fr": "détroit de Macassar",
+  "P361": []
+ },
+ "Q199408": {
+  "fr": "mer d'Alboran",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q199436": {
+  "fr": "mer de Bismarck",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ],
+   [
+    "Q12355425",
+    "océan Paciﬁque sud"
+   ]
+  ]
+ },
+ "Q199479": {
+  "fr": "mer des Salomon",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ],
+   [
+    "Q12355425",
+    "océan Paciﬁque sud"
+   ]
+  ]
+ },
+ "Q200712": {
+  "fr": "mer des Baléares",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q204703": {
+  "fr": "mer de la Scotia",
+  "P361": [
+   [
+    "Q7354",
+    "océan Austral"
+   ],
+   [
+    "Q1482804",
+    "océan Atlantique Sud"
+   ]
+  ]
+ },
+ "Q205655": {
+  "fr": "détroit de Singapour",
+  "P361": []
+ },
+ "Q207702": {
+  "fr": "détroit d'Hudson",
+  "P361": [
+   [
+    "Q37040",
+    "baie de Baffin"
+   ]
+  ]
+ },
+ "Q208054": {
+  "fr": "détroit de La Pérouse",
+  "P361": []
+ },
+ "Q208495": {
+  "fr": "Sognefjord",
+  "P361": []
+ },
+ "Q210118": {
+  "fr": "golfe du Lion",
+  "P361": [
+   [
+    "Q4918",
+    "mer Méditerranée"
+   ]
+  ]
+ },
+ "Q210855": {
+  "fr": "mer de Seram",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q212083": {
+  "fr": "mer d'Halmahera",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q212428": {
+  "fr": "golfe du Tonkin",
+  "P361": [
+   [
+    "Q37660",
+    "mer de Chine méridionale"
+   ]
+  ]
+ },
+ "Q216868": {
+  "fr": "baie de Chesapeake",
+  "P361": []
+ },
+ "Q217487": {
+  "fr": "baie Shark",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q223810": {
+  "fr": "baie James",
+  "P361": [
+   [
+    "Q3040",
+    "baie d'Hudson"
+   ]
+  ]
+ },
+ "Q225004": {
+  "fr": "Boknafjord",
+  "P361": [
+   [
+    "Q1693",
+    "mer du Nord"
+   ]
+  ]
+ },
+ "Q231312": {
+  "fr": "mer intérieure de Seto",
+  "P361": []
+ },
+ "Q232264": {
+  "fr": "baie de San Francisco",
+  "P361": []
+ },
+ "Q232912": {
+  "fr": "détroit de Floride",
+  "P361": []
+ },
+ "Q239379": {
+  "fr": "Kara-Bogaz-Gol",
+  "P361": [
+   [
+    "Q5484",
+    "mer Caspienne"
+   ]
+  ]
+ },
+ "Q240753": {
+  "fr": "golfe de Leyte",
+  "P361": [
+   [
+    "Q159183",
+    "mer des Philippines"
+   ]
+  ]
+ },
+ "Q242326": {
+  "fr": "mer de Bohol",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q243125": {
+  "fr": "mer de Lincoln",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q271521": {
+  "fr": "détroit de Tsugaru",
+  "P361": [
+   [
+    "Q27092",
+    "mer du Japon"
+   ]
+  ]
+ },
+ "Q277014": {
+  "fr": "mer de Bali",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q279579": {
+  "fr": "Trondheimsfjord",
+  "P361": [
+   [
+    "Q47545",
+    "mer de Norvège"
+   ]
+  ]
+ },
+ "Q281638": {
+  "fr": "golfe de Wrigley",
+  "P361": []
+ },
+ "Q281730": {
+  "fr": null,
+  "P361": []
+ },
+ "Q281737": {
+  "fr": "baie de Sulzberger",
+  "P361": [
+   [
+    "Q164466",
+    "mer de Ross"
+   ]
+  ]
+ },
+ "Q281808": {
+  "fr": "baie de Vincennes",
+  "P361": []
+ },
+ "Q317006": {
+  "fr": "baie du Mecklembourg",
+  "P361": [
+   [
+    "Q4852717",
+    "Baltic Proper"
+   ],
+   [
+    "Q12304781",
+    "Belt Sea"
+   ]
+  ]
+ },
+ "Q323760": {
+  "fr": "golfe de Gabès",
+  "P361": [
+   [
+    "Q3306208",
+    "mer de Sicile"
+   ]
+  ]
+ },
+ "Q384323": {
+  "fr": "fjord Uummannaq",
+  "P361": []
+ },
+ "Q392623": {
+  "fr": "mer de Samar",
+  "P361": []
+ },
+ "Q426453": {
+  "fr": "détroit Scoresby",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q474708": {
+  "fr": "mer des Visayas",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q483824": {
+  "fr": "golfe d'Anadyr",
+  "P361": [
+   [
+    "Q44725",
+    "mer de Béring"
+   ]
+  ]
+ },
+ "Q509321": {
+  "fr": "mer de Davis",
+  "P361": [
+   [
+    "Q7354",
+    "océan Austral"
+   ]
+  ]
+ },
+ "Q544914": {
+  "fr": "mer des Laquedives",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q584588": {
+  "fr": "baie de Monterey",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q594834": {
+  "fr": "mer de Sibuyan",
+  "P361": []
+ },
+ "Q604492": {
+  "fr": "détroit de Bali",
+  "P361": []
+ },
+ "Q622811": {
+  "fr": "golfe de Mannar",
+  "P361": []
+ },
+ "Q631282": {
+  "fr": "baie du Prince-William",
+  "P361": [
+   [
+    "Q180531",
+    "golfe d'Alaska"
+   ]
+  ]
+ },
+ "Q639399": {
+  "fr": "golfe de Chelikhov",
+  "P361": [
+   [
+    "Q41602",
+    "mer d'Okhotsk"
+   ]
+  ]
+ },
+ "Q645012": {
+  "fr": "golfe de Panama",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q654010": {
+  "fr": "golfe de Cambay",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q691945": {
+  "fr": "détroit de Fury and Hecla",
+  "P361": []
+ },
+ "Q700024": {
+  "fr": "baie de Hangzhou",
+  "P361": []
+ },
+ "Q715484": {
+  "fr": "golfe de Sakhaline",
+  "P361": [
+   [
+    "Q41602",
+    "mer d'Okhotsk"
+   ]
+  ]
+ },
+ "Q738808": {
+  "fr": "baie du Delaware",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ]
+  ]
+ },
+ "Q745945": {
+  "fr": "golfe de l'Ob",
+  "P361": [
+   [
+    "Q33629",
+    "mer de Kara"
+   ]
+  ]
+ },
+ "Q750763": {
+  "fr": "baie Inútil",
+  "P361": []
+ },
+ "Q761784": {
+  "fr": "golfe d'Urabá",
+  "P361": [
+   [
+    "Q1247",
+    "mer des Caraïbes"
+   ]
+  ]
+ },
+ "Q795608": {
+  "fr": "golfe du Honduras",
+  "P361": [
+   [
+    "Q1247",
+    "mer des Caraïbes"
+   ]
+  ]
+ },
+ "Q803725": {
+  "fr": "baie d'Antongil",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q810805": {
+  "fr": "Bathurst Inlet",
+  "P361": []
+ },
+ "Q815831": {
+  "fr": "détroit de Belle Isle",
+  "P361": [
+   [
+    "Q169523",
+    "golfe du Saint-Laurent"
+   ]
+  ]
+ },
+ "Q844917": {
+  "fr": "golfe de Kutch",
+  "P361": [
+   [
+    "Q58705",
+    "mer d'Arabie"
+   ]
+  ]
+ },
+ "Q845217": {
+  "fr": "bassin de Foxe",
+  "P361": []
+ },
+ "Q867460": {
+  "fr": "Long Island Sound",
+  "P361": []
+ },
+ "Q876470": {
+  "fr": "golfe du Maine",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q898839": {
+  "fr": "détroit de Bransfield",
+  "P361": []
+ },
+ "Q898989": {
+  "fr": "lac Bras d'Or",
+  "P361": []
+ },
+ "Q908356": {
+  "fr": "détroit de Matotchkine",
+  "P361": []
+ },
+ "Q908591": {
+  "fr": "passage Kennedy",
+  "P361": [
+   [
+    "Q737190",
+    "détroit de Nares"
+   ]
+  ]
+ },
+ "Q908741": {
+  "fr": "détroit de Luçon",
+  "P361": []
+ },
+ "Q915250": {
+  "fr": "baie de Tchaoun",
+  "P361": [
+   [
+    "Q163434",
+    "mer de Sibérie orientale"
+   ]
+  ]
+ },
+ "Q917872": {
+  "fr": "baie de Bristol",
+  "P361": [
+   [
+    "Q44725",
+    "mer de Béring"
+   ]
+  ]
+ },
+ "Q919520": {
+  "fr": "golfe de Boothia",
+  "P361": [
+   [
+    "Q85377",
+    "archipel arctique canadien"
+   ]
+  ]
+ },
+ "Q938327": {
+  "fr": "baie Cumberland",
+  "P361": []
+ },
+ "Q939905": {
+  "fr": "golfe de Khatanga",
+  "P361": [
+   [
+    "Q7988",
+    "mer des Laptev"
+   ]
+  ]
+ },
+ "Q943234": {
+  "fr": "golfe de Kotzebue",
+  "P361": [
+   [
+    "Q159252",
+    "mer des Tchouktches"
+   ]
+  ]
+ },
+ "Q959127": {
+  "fr": "baie du Massachusetts",
+  "P361": [
+   [
+    "Q97",
+    "océan Atlantique"
+   ]
+  ]
+ },
+ "Q999031": {
+  "fr": "golfe du Biafra",
+  "P361": [
+   [
+    "Q41430",
+    "golfe de Guinée"
+   ]
+  ]
+ },
+ "Q999060": {
+  "fr": "baie de Tayabas",
+  "P361": [
+   [
+    "Q594834",
+    "mer de Sibuyan"
+   ]
+  ]
+ },
+ "Q1004067": {
+  "fr": "baie de Frobisher",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q1036267": {
+  "fr": "baie de Uchiura",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q1056751": {
+  "fr": "détroit de McMurdo",
+  "P361": []
+ },
+ "Q1075679": {
+  "fr": "détroit de Qiongzhou",
+  "P361": []
+ },
+ "Q1129590": {
+  "fr": "golfe de Cook",
+  "P361": [
+   [
+    "Q180531",
+    "golfe d'Alaska"
+   ]
+  ]
+ },
+ "Q1134899": {
+  "fr": "baie de Maputo",
+  "P361": []
+ },
+ "Q1135227": {
+  "fr": "baie de Disko",
+  "P361": []
+ },
+ "Q1135336": {
+  "fr": "détroit de McClure",
+  "P361": [
+   [
+    "Q2054124",
+    "Chenal Parry"
+   ]
+  ]
+ },
+ "Q1138929": {
+  "fr": "golfe de Guayaquil",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q1141758": {
+  "fr": "Golfe d'Ouda",
+  "P361": [
+   [
+    "Q41602",
+    "mer d'Okhotsk"
+   ]
+  ]
+ },
+ "Q1149827": {
+  "fr": "détroit de Dmitri-Laptev",
+  "P361": [
+   [
+    "Q7988",
+    "mer des Laptev"
+   ]
+  ]
+ },
+ "Q1152327": {
+  "fr": "passage Robeson",
+  "P361": [
+   [
+    "Q737190",
+    "détroit de Nares"
+   ]
+  ]
+ },
+ "Q1165951": {
+  "fr": "baie d'Ungava",
+  "P361": [
+   [
+    "Q788",
+    "océan Arctique"
+   ]
+  ]
+ },
+ "Q1166530": {
+  "fr": null,
+  "P361": []
+ },
+ "Q1231779": {
+  "fr": "Entrée Dixon",
+  "P361": []
+ },
+ "Q1254743": {
+  "fr": "golfe de Papouasie",
+  "P361": []
+ },
+ "Q1323629": {
+  "fr": "golfe Saint-Vincent",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q1331750": {
+  "fr": "lac Pontchartrain",
+  "P361": []
+ },
+ "Q1338198": {
+  "fr": "golfe de l'Ienisseï",
+  "P361": [
+   [
+    "Q33629",
+    "mer de Kara"
+   ]
+  ]
+ },
+ "Q1441345": {
+  "fr": "Baie d'Albemarle",
+  "P361": []
+ },
+ "Q1457158": {
+  "fr": "bassin Hall",
+  "P361": [
+   [
+    "Q737190",
+    "détroit de Nares"
+   ]
+  ]
+ },
+ "Q1459954": {
+  "fr": "golfe San Matías",
+  "P361": [
+   [
+    "Q970130",
+    "mer d'Argentine"
+   ]
+  ]
+ },
+ "Q1503116": {
+  "fr": "baie du Géographe",
+  "P361": [
+   [
+    "Q1239",
+    "océan Indien"
+   ]
+  ]
+ },
+ "Q1507546": {
+  "fr": "golfe de Tomini",
+  "P361": []
+ },
+ "Q1510928": {
+  "fr": "bassin Kane",
+  "P361": [
+   [
+    "Q737190",
+    "détroit de Nares"
+   ]
+  ]
+ },
+ "Q1536292": {
+  "fr": "golfe San Jorge",
+  "P361": [
+   [
+    "Q970130",
+    "mer d'Argentine"
+   ]
+  ]
+ },
+ "Q1536317": {
+  "fr": "golfe de Davao",
+  "P361": [
+   [
+    "Q159183",
+    "mer des Philippines"
+   ]
+  ]
+ },
+ "Q1536356": {
+  "fr": "golfe de Penas",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q1550455": {
+  "fr": null,
+  "P361": []
+ },
+ "Q1592911": {
+  "fr": "Détroit d'Hécate",
+  "P361": []
+ },
+ "Q1618810": {
+  "fr": "Peacock Sound",
+  "P361": []
+ },
+ "Q1632248": {
+  "fr": "détroit de Surigao",
+  "P361": []
+ },
+ "Q1703405": {
+  "fr": "détroit de Jones",
+  "P361": [
+   [
+    "Q85377",
+    "archipel arctique canadien"
+   ]
+  ]
+ },
+ "Q1706655": {
+  "fr": "golfe Joseph Bonaparte",
+  "P361": [
+   [
+    "Q131418",
+    "mer de Timor"
+   ]
+  ]
+ },
+ "Q1753121": {
+  "fr": "Vestfjord",
+  "P361": [
+   [
+    "Q47545",
+    "mer de Norvège"
+   ]
+  ]
+ },
+ "Q1796011": {
+  "fr": "détroit de la Reine-Charlotte",
+  "P361": []
+ },
+ "Q1971856": {
+  "fr": "mer des Hébrides",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q1973692": {
+  "fr": "Norton Sound",
+  "P361": [
+   [
+    "Q44725",
+    "mer de Béring"
+   ]
+  ]
+ },
+ "Q1974744": {
+  "fr": "golfe d'Amundsen",
+  "P361": [
+   [
+    "Q81136",
+    "passage du Nord-Ouest"
+   ],
+   [
+    "Q85377",
+    "archipel arctique canadien"
+   ]
+  ]
+ },
+ "Q2033236": {
+  "fr": "baie de Pamlico",
+  "P361": [
+   [
+    "Q350134",
+    "océan Atlantique Nord"
+   ]
+  ]
+ },
+ "Q2060432": {
+  "fr": "Baie de São Marcos",
+  "P361": []
+ },
+ "Q2097444": {
+  "fr": "Storfjorden",
+  "P361": [
+   [
+    "Q45823",
+    "mer de Barents"
+   ]
+  ]
+ },
+ "Q2097617": {
+  "fr": "mer des Salish",
+  "P361": [
+   [
+    "Q12353254",
+    "océan Paciﬁque nord"
+   ]
+  ]
+ },
+ "Q2272405": {
+  "fr": "golfe de Tehuantepec",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q2326240": {
+  "fr": "baie Kronotski",
+  "P361": [
+   [
+    "Q98",
+    "océan Pacifique"
+   ]
+  ]
+ },
+ "Q2328243": {
+  "fr": "golfe de Corcovado",
+  "P361": []
+ },
+ "Q2336534": {
+  "fr": "baie de Melville",
+  "P361": []
+ },
+ "Q2363133": {
+  "fr": "golfe de Iana",
+  "P361": [
+   [
+    "Q7988",
+    "mer des Laptev"
+   ]
+  ]
+ },
+ "Q2391874": {
+  "fr": "golfe Karaguinski",
+  "P361": [
+   [
+    "Q44725",
+    "mer de Béring"
+   ]
+  ]
+ },
+ "Q2450069": {
+  "fr": "baie du Kamtchatka",
+  "P361": [
+   [
+    "Q44725",
+    "mer de Béring"
+   ]
+  ]
+ },
+ "Q2539134": {
+  "fr": null,
+  "P361": []
+ },
+ "Q2565098": {
+  "fr": "bassin de la Reine-Charlotte",
+  "P361": []
+ },
+ "Q2639916": {
+  "fr": null,
+  "P361": []
+ },
+ "Q2831049": {
+  "fr": "détroit de George VI",
+  "P361": []
+ },
+ "Q3233971": {
+  "fr": null,
+  "P361": []
+ },
+ "Q4169149": {
+  "fr": "Seno Otway",
+  "P361": []
+ },
+ "Q4275770": {
+  "fr": "baie Mackenzie",
+  "P361": [
+   [
+    "Q131274",
+    "mer de Beaufort"
+   ]
+  ]
+ },
+ "Q4848613": {
+  "fr": null,
+  "P361": []
+ },
+ "Q5170043": {
+  "fr": null,
+  "P361": [
+   [
+    "Q180531",
+    "golfe d'Alaska"
+   ]
+  ]
+ },
+ "Q5333028": {
+  "fr": null,
+  "P361": []
+ },
+ "Q5491299": {
+  "fr": null,
+  "P361": [
+   [
+    "Q1974744",
+    "golfe d'Amundsen"
+   ]
+  ]
+ },
+ "Q5605258": {
+  "fr": "détroit du Vicomte Melville",
+  "P361": [
+   [
+    "Q2054124",
+    "Chenal Parry"
+   ]
+  ]
+ },
+ "Q6543624": {
+  "fr": null,
+  "P361": []
+ },
+ "Q7230362": {
+  "fr": null,
+  "P361": []
+ },
+ "Q7243787": {
+  "fr": "Détroit du Prince Albert",
+  "P361": []
+ },
+ "Q7324843": {
+  "fr": null,
+  "P361": []
+ },
+ "Q7450889": {
+  "fr": "Seno Skyring",
+  "P361": []
+ },
+ "Q7545320": {
+  "fr": null,
+  "P361": []
+ },
+ "Q8040226": {
+  "fr": null,
+  "P361": []
+ },
+ "Q22423345": {
+  "fr": "Eskimo Lakes",
+  "P361": []
+ }
+}

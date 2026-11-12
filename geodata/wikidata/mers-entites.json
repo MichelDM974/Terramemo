@@ -1,0 +1,3017 @@
+{
+ "Q1004067": {
+  "fr": "baie de Frobisher",
+  "en": "Frobisher Bay",
+  "frwiki": "Baie de Frobisher",
+  "sitelinks": 23,
+  "wikipedias": 22,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q1036267": {
+  "fr": "baie de Uchiura",
+  "en": "Uchiura Bay",
+  "frwiki": "Baie d'Uchiura",
+  "sitelinks": 17,
+  "wikipedias": 16,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q104662": {
+  "fr": "Øresund",
+  "en": "Øresund",
+  "frwiki": "Øresund",
+  "sitelinks": 75,
+  "wikipedias": 75,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1056751": {
+  "fr": "détroit de McMurdo",
+  "en": "McMurdo Sound",
+  "frwiki": "Détroit de McMurdo",
+  "sitelinks": 34,
+  "wikipedias": 33,
+  "redirige_depuis": null,
+  "P31": [
+   "Q491713"
+  ]
+ },
+ "Q1075679": {
+  "fr": "détroit de Qiongzhou",
+  "en": "Qiongzhou Strait",
+  "frwiki": "Détroit de Qiongzhou",
+  "sitelinks": 32,
+  "wikipedias": 31,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q110802": {
+  "fr": "détroit de Tartarie",
+  "en": "Strait of Tartary",
+  "frwiki": "Détroit de Tatarie",
+  "sitelinks": 62,
+  "wikipedias": 61,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1129590": {
+  "fr": "golfe de Cook",
+  "en": "Cook Inlet",
+  "frwiki": "Golfe de Cook",
+  "sitelinks": 32,
+  "wikipedias": 31,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1172599"
+  ]
+ },
+ "Q1134899": {
+  "fr": "baie de Maputo",
+  "en": "Maputo Bay",
+  "frwiki": "Baie de Maputo",
+  "sitelinks": 33,
+  "wikipedias": 32,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q1135227": {
+  "fr": "baie de Disko",
+  "en": "Disko Bay",
+  "frwiki": "Baie de Disko",
+  "sitelinks": 36,
+  "wikipedias": 34,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q1135336": {
+  "fr": "détroit de McClure",
+  "en": "M’Clure Strait",
+  "frwiki": "Détroit de McClure",
+  "sitelinks": 30,
+  "wikipedias": 30,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1138929": {
+  "fr": "golfe de Guayaquil",
+  "en": "Gulf of Guayaquil",
+  "frwiki": "Golfe de Guayaquil",
+  "sitelinks": 34,
+  "wikipedias": 33,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q1141758": {
+  "fr": "Golfe d'Ouda",
+  "en": "Uda Bay",
+  "frwiki": "Golfe d'Ouda",
+  "sitelinks": 21,
+  "wikipedias": 20,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1322134"
+  ]
+ },
+ "Q1149827": {
+  "fr": "détroit de Dmitri-Laptev",
+  "en": "Dmitry Laptev Strait",
+  "frwiki": "Détroit de Dmitri-Laptev",
+  "sitelinks": 33,
+  "wikipedias": 33,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1152327": {
+  "fr": "passage Robeson",
+  "en": "Robeson Channel",
+  "frwiki": "Passage Robeson",
+  "sitelinks": 23,
+  "wikipedias": 23,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1165951": {
+  "fr": "baie d'Ungava",
+  "en": "Ungava Bay",
+  "frwiki": "Baie d'Ungava",
+  "sitelinks": 27,
+  "wikipedias": 26,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q1166530": {
+  "fr": null,
+  "en": "Darnley Bay",
+  "frwiki": null,
+  "sitelinks": 5,
+  "wikipedias": 5,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q122574": {
+  "fr": "golfe de Botnie",
+  "en": "Gulf of Bothnia",
+  "frwiki": "Golfe de Botnie",
+  "sitelinks": 87,
+  "wikipedias": 87,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134",
+   "Q39594"
+  ]
+ },
+ "Q1231779": {
+  "fr": "Entrée Dixon",
+  "en": "Dixon Entrance",
+  "frwiki": "Entrée Dixon",
+  "sitelinks": 20,
+  "wikipedias": 19,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1239": {
+  "fr": "océan Indien",
+  "en": "Indian Ocean",
+  "frwiki": "Océan Indien",
+  "sitelinks": 251,
+  "wikipedias": 237,
+  "redirige_depuis": null,
+  "P31": [
+   "Q9430",
+   "Q165",
+   "Q82794"
+  ]
+ },
+ "Q1247": {
+  "fr": "mer des Caraïbes",
+  "en": "Caribbean Sea",
+  "frwiki": "Mer des Caraïbes",
+  "sitelinks": 184,
+  "wikipedias": 180,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165",
+   "Q166620"
+  ]
+ },
+ "Q1254743": {
+  "fr": "golfe de Papouasie",
+  "en": "Gulf of Papua",
+  "frwiki": "Golfe de Papouasie",
+  "sitelinks": 39,
+  "wikipedias": 39,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q12630": {
+  "fr": "golfe du Mexique",
+  "en": "Gulf of Mexico",
+  "frwiki": "Golfe du Mexique",
+  "sitelinks": 136,
+  "wikipedias": 129,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134",
+   "Q986177"
+  ]
+ },
+ "Q127031": {
+  "fr": "détroit de Taïwan",
+  "en": "Taiwan Strait",
+  "frwiki": "Détroit de Taïwan",
+  "sitelinks": 83,
+  "wikipedias": 82,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901",
+   "Q133346",
+   "Q3089219",
+   "Q12413618"
+  ]
+ },
+ "Q128880": {
+  "fr": "mer d'Arafura",
+  "en": "Arafura Sea",
+  "frwiki": "Mer d'Arafura",
+  "sitelinks": 93,
+  "wikipedias": 93,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1973404"
+  ]
+ },
+ "Q131217": {
+  "fr": "golfe de Thaïlande",
+  "en": "Gulf of Thailand",
+  "frwiki": "Golfe de Thaïlande",
+  "sitelinks": 98,
+  "wikipedias": 97,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q131274": {
+  "fr": "mer de Beaufort",
+  "en": "Beaufort Sea",
+  "frwiki": "Mer de Beaufort",
+  "sitelinks": 94,
+  "wikipedias": 94,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q131418": {
+  "fr": "mer de Timor",
+  "en": "Timor Sea",
+  "frwiki": "Mer de Timor",
+  "sitelinks": 91,
+  "wikipedias": 91,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q131716": {
+  "fr": "Cattégat",
+  "en": "Kattegat",
+  "frwiki": "Cattégat",
+  "sitelinks": 85,
+  "wikipedias": 83,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901",
+   "Q1322134"
+  ]
+ },
+ "Q1323629": {
+  "fr": "golfe Saint-Vincent",
+  "en": "Gulf St. Vincent",
+  "frwiki": "Golfe Saint-Vincent",
+  "sitelinks": 30,
+  "wikipedias": 30,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1322134"
+  ]
+ },
+ "Q132811": {
+  "fr": "golfe de Californie",
+  "en": "Gulf of California",
+  "frwiki": "Golfe de Californie",
+  "sitelinks": 89,
+  "wikipedias": 88,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q132868": {
+  "fr": "mer du Groenland",
+  "en": "Greenland Sea",
+  "frwiki": "Mer du Groenland",
+  "sitelinks": 94,
+  "wikipedias": 93,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q1331750": {
+  "fr": "lac Pontchartrain",
+  "en": "Lake Pontchartrain",
+  "frwiki": "Lac Pontchartrain",
+  "sitelinks": 32,
+  "wikipedias": 32,
+  "redirige_depuis": null,
+  "P31": [
+   "Q23397",
+   "Q47053"
+  ]
+ },
+ "Q1338198": {
+  "fr": "golfe de l'Ienisseï",
+  "en": "Yenisei Gulf",
+  "frwiki": "Golfe de l'Ienisseï",
+  "sitelinks": 35,
+  "wikipedias": 35,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q134750": {
+  "fr": "fleuve Saint-Laurent",
+  "en": "St. Lawrence River",
+  "frwiki": "Fleuve Saint-Laurent",
+  "sitelinks": 104,
+  "wikipedias": 102,
+  "redirige_depuis": null,
+  "P31": [
+   "Q4022"
+  ]
+ },
+ "Q138708": {
+  "fr": "golfe de Martaban",
+  "en": "Gulf of Martaban",
+  "frwiki": "Golfe de Martaban",
+  "sitelinks": 31,
+  "wikipedias": 30,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q13924": {
+  "fr": "mer Adriatique",
+  "en": "Adriatic Sea",
+  "frwiki": "Mer Adriatique",
+  "sitelinks": 156,
+  "wikipedias": 150,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165",
+   "Q166620"
+  ]
+ },
+ "Q140290": {
+  "fr": "baie de l'Abondance",
+  "en": "Bay of Plenty",
+  "frwiki": "Baie de l'Abondance",
+  "sitelinks": 25,
+  "wikipedias": 24,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q17018380"
+  ]
+ },
+ "Q141727": {
+  "fr": "baie de Marguerite",
+  "en": "Marguerite Bay",
+  "frwiki": "Baie de Marguerite",
+  "sitelinks": 22,
+  "wikipedias": 21,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q143650": {
+  "fr": "passage de Drake",
+  "en": "Drake Passage",
+  "frwiki": "Passage de Drake",
+  "sitelinks": 80,
+  "wikipedias": 79,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1441345": {
+  "fr": "Baie d'Albemarle",
+  "en": "Albemarle Sound",
+  "frwiki": "Baie d'Albemarle",
+  "sitelinks": 14,
+  "wikipedias": 13,
+  "redirige_depuis": null,
+  "P31": [
+   "Q47053"
+  ]
+ },
+ "Q1457158": {
+  "fr": "bassin Hall",
+  "en": "Hall Basin",
+  "frwiki": "Bassin Hall",
+  "sitelinks": 18,
+  "wikipedias": 18,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q355304"
+  ]
+ },
+ "Q1459954": {
+  "fr": "golfe San Matías",
+  "en": "San Matías Gulf",
+  "frwiki": "Golfe San Matías",
+  "sitelinks": 12,
+  "wikipedias": 12,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q14686": {
+  "fr": "golfe de Finlande",
+  "en": "Gulf of Finland",
+  "frwiki": "Golfe de Finlande",
+  "sitelinks": 106,
+  "wikipedias": 101,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165",
+   "Q1322134"
+  ]
+ },
+ "Q1503116": {
+  "fr": "baie du Géographe",
+  "en": "Geographe Bay",
+  "frwiki": "Baie du Géographe",
+  "sitelinks": 12,
+  "wikipedias": 11,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q150370": {
+  "fr": "mer de Florès",
+  "en": "Flores Sea",
+  "frwiki": "Mer de Florès",
+  "sitelinks": 81,
+  "wikipedias": 81,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q1507546": {
+  "fr": "golfe de Tomini",
+  "en": "Gulf of Tomini",
+  "frwiki": "Golfe de Tomini",
+  "sitelinks": 28,
+  "wikipedias": 28,
+  "redirige_depuis": null,
+  "P31": [
+   "Q17018380",
+   "Q1322134"
+  ]
+ },
+ "Q1510928": {
+  "fr": "bassin Kane",
+  "en": "Kane Basin",
+  "frwiki": "Bassin Kane",
+  "sitelinks": 23,
+  "wikipedias": 23,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q152058": {
+  "fr": "détroit de Danemark",
+  "en": "Denmark Strait",
+  "frwiki": "Détroit de Danemark",
+  "sitelinks": 75,
+  "wikipedias": 75,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1536292": {
+  "fr": "golfe San Jorge",
+  "en": "San Jorge Gulf",
+  "frwiki": "Golfe San Jorge",
+  "sitelinks": 16,
+  "wikipedias": 15,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q1536317": {
+  "fr": "golfe de Davao",
+  "en": "Davao Gulf",
+  "frwiki": "Golfe de Davao",
+  "sitelinks": 17,
+  "wikipedias": 16,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q1536356": {
+  "fr": "golfe de Penas",
+  "en": "Gulf of Penas",
+  "frwiki": "Golfe de Penas",
+  "sitelinks": 25,
+  "wikipedias": 24,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q1550455": {
+  "fr": null,
+  "en": "Goldsmith Channel",
+  "frwiki": null,
+  "sitelinks": 4,
+  "wikipedias": 4,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1210950"
+  ]
+ },
+ "Q156116": {
+  "fr": "baie de Prydz",
+  "en": "Prydz Bay",
+  "frwiki": "Baie de Prydz",
+  "sitelinks": 22,
+  "wikipedias": 22,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q156123": {
+  "fr": "baie de Lützow-Holm",
+  "en": "Lützow-Holm Bay",
+  "frwiki": "Baie de Lützow-Holm",
+  "sitelinks": 17,
+  "wikipedias": 17,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q156271": {
+  "fr": "détroit du Prince-de-Galles",
+  "en": "Prince of Wales Strait",
+  "frwiki": "Détroit du Prince-de-Galles",
+  "sitelinks": 24,
+  "wikipedias": 24,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q159183": {
+  "fr": "mer des Philippines",
+  "en": "Philippine Sea",
+  "frwiki": "Mer des Philippines",
+  "sitelinks": 91,
+  "wikipedias": 90,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q159252": {
+  "fr": "mer des Tchouktches",
+  "en": "Chukchi Sea",
+  "frwiki": "Mer des Tchouktches",
+  "sitelinks": 95,
+  "wikipedias": 94,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q1592911": {
+  "fr": "Détroit d'Hécate",
+  "en": "Hecate Strait",
+  "frwiki": "Détroit d'Hecate",
+  "sitelinks": 22,
+  "wikipedias": 21,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q160194": {
+  "fr": "mer de Soulou",
+  "en": "Sulu Sea",
+  "frwiki": "Mer de Sulu",
+  "sitelinks": 84,
+  "wikipedias": 84,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q1618810": {
+  "fr": "Peacock Sound",
+  "en": "Peacock Sound",
+  "frwiki": "Détroit du Peacock",
+  "sitelinks": 10,
+  "wikipedias": 10,
+  "redirige_depuis": null,
+  "P31": [
+   "Q491713"
+  ]
+ },
+ "Q1632248": {
+  "fr": "détroit de Surigao",
+  "en": "Surigao Strait",
+  "frwiki": "Détroit de Surigao",
+  "sitelinks": 21,
+  "wikipedias": 20,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q163434": {
+  "fr": "mer de Sibérie orientale",
+  "en": "East Siberian Sea",
+  "frwiki": "Mer de Sibérie orientale",
+  "sitelinks": 95,
+  "wikipedias": 94,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q164466": {
+  "fr": "mer de Ross",
+  "en": "Ross Sea",
+  "frwiki": "Mer de Ross",
+  "sitelinks": 88,
+  "wikipedias": 83,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q165100": {
+  "fr": "canal du Mozambique",
+  "en": "Mozambique Channel",
+  "frwiki": "Canal du Mozambique",
+  "sitelinks": 85,
+  "wikipedias": 85,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q166": {
+  "fr": "mer Noire",
+  "en": "Black Sea",
+  "frwiki": "Mer Noire",
+  "sitelinks": 240,
+  "wikipedias": 220,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1973404"
+  ]
+ },
+ "Q168277": {
+  "fr": "golfe de Suez",
+  "en": "Gulf of Suez",
+  "frwiki": "Golfe de Suez",
+  "sitelinks": 79,
+  "wikipedias": 77,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q169274": {
+  "fr": "mer des Sargasses",
+  "en": "Sargasso Sea",
+  "frwiki": "Mer des Sargasses",
+  "sitelinks": 85,
+  "wikipedias": 85,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q1693": {
+  "fr": "mer du Nord",
+  "en": "North Sea",
+  "frwiki": "Mer du Nord",
+  "sitelinks": 194,
+  "wikipedias": 181,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q1695": {
+  "fr": "Skagerrak",
+  "en": "Skagerrak",
+  "frwiki": "Skagerrak",
+  "sitelinks": 84,
+  "wikipedias": 82,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q169523": {
+  "fr": "golfe du Saint-Laurent",
+  "en": "Gulf of Saint Lawrence",
+  "frwiki": "Golfe du Saint-Laurent",
+  "sitelinks": 81,
+  "wikipedias": 81,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134",
+   "Q47053"
+  ]
+ },
+ "Q1703405": {
+  "fr": "détroit de Jones",
+  "en": "Jones Sound",
+  "frwiki": "Détroit de Jones",
+  "sitelinks": 14,
+  "wikipedias": 14,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1706655": {
+  "fr": "golfe Joseph Bonaparte",
+  "en": "Joseph Bonaparte Gulf",
+  "frwiki": "Golfe Joseph Bonaparte",
+  "sitelinks": 21,
+  "wikipedias": 20,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q171510": {
+  "fr": "mer de Banda",
+  "en": "Banda Sea",
+  "frwiki": "Mer de Banda",
+  "sitelinks": 76,
+  "wikipedias": 76,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q171846": {
+  "fr": "détroit de Bass",
+  "en": "Bass Strait",
+  "frwiki": "Détroit de Bass",
+  "sitelinks": 77,
+  "wikipedias": 75,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q173343": {
+  "fr": "mer de Weddell",
+  "en": "Weddell Sea",
+  "frwiki": "Mer de Weddell",
+  "sitelinks": 81,
+  "wikipedias": 81,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q174731": {
+  "fr": "golfe de Riga",
+  "en": "Gulf of Riga",
+  "frwiki": "Golfe de Riga",
+  "sitelinks": 73,
+  "wikipedias": 73,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q1753121": {
+  "fr": "Vestfjord",
+  "en": "Vestfjorden",
+  "frwiki": "Vestfjorden (Nordland)",
+  "sitelinks": 28,
+  "wikipedias": 27,
+  "redirige_depuis": null,
+  "P31": [
+   "Q45776"
+  ]
+ },
+ "Q179188": {
+  "fr": "détroit de Torrès",
+  "en": "Torres Strait",
+  "frwiki": "Détroit de Torrès",
+  "sitelinks": 76,
+  "wikipedias": 76,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1796011": {
+  "fr": "détroit de la Reine-Charlotte",
+  "en": "Queen Charlotte Strait",
+  "frwiki": "Détroit de la Reine-Charlotte",
+  "sitelinks": 19,
+  "wikipedias": 18,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q180531": {
+  "fr": "golfe d'Alaska",
+  "en": "Gulf of Alaska",
+  "frwiki": "Golfe d'Alaska",
+  "sitelinks": 78,
+  "wikipedias": 78,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q180844": {
+  "fr": "golfe de Carpentarie",
+  "en": "Gulf of Carpentaria",
+  "frwiki": "Golfe de Carpentarie",
+  "sitelinks": 78,
+  "wikipedias": 78,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134",
+   "Q39594"
+  ]
+ },
+ "Q181857": {
+  "fr": "baie de Fundy",
+  "en": "Bay of Fundy",
+  "frwiki": "Baie de Fundy",
+  "sitelinks": 71,
+  "wikipedias": 68,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q181969": {
+  "fr": "mer de Bohai",
+  "en": "Bohai Sea",
+  "frwiki": "Golfe de Bohai",
+  "sitelinks": 70,
+  "wikipedias": 70,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q182137": {
+  "fr": "lac Maracaibo",
+  "en": "Lake Maracaibo",
+  "frwiki": "Lac de Maracaibo",
+  "sitelinks": 72,
+  "wikipedias": 71,
+  "redirige_depuis": null,
+  "P31": [
+   "Q23397"
+  ]
+ },
+ "Q183455": {
+  "fr": "mer de Bellingshausen",
+  "en": "Bellingshausen Sea",
+  "frwiki": "Mer de Bellingshausen",
+  "sitelinks": 68,
+  "wikipedias": 68,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q184189": {
+  "fr": "mer du Labrador",
+  "en": "Labrador Sea",
+  "frwiki": "Mer du Labrador",
+  "sitelinks": 84,
+  "wikipedias": 84,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165",
+   "Q204894"
+  ]
+ },
+ "Q185291": {
+  "fr": "mer des Moluques",
+  "en": "Molucca Sea",
+  "frwiki": "Mer des Moluques",
+  "sitelinks": 73,
+  "wikipedias": 73,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q186299": {
+  "fr": "détroit de Palk",
+  "en": "Palk Strait",
+  "frwiki": "Détroit de Palk",
+  "sitelinks": 70,
+  "wikipedias": 70,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q186733": {
+  "fr": "Grande baie australienne",
+  "en": "Great Australian Bight",
+  "frwiki": "Grande Baie australienne",
+  "sitelinks": 71,
+  "wikipedias": 71,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q17018380"
+  ]
+ },
+ "Q187274": {
+  "fr": "golfe de Syrte",
+  "en": "Gulf of Sidra",
+  "frwiki": "Golfe de Syrte",
+  "sitelinks": 59,
+  "wikipedias": 59,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1322134"
+  ]
+ },
+ "Q188203": {
+  "fr": "canal de Bristol",
+  "en": "Bristol Channel",
+  "frwiki": "Canal de Bristol",
+  "sitelinks": 66,
+  "wikipedias": 64,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1210950",
+   "Q1233637"
+  ]
+ },
+ "Q189262": {
+  "fr": "détroit de Davis",
+  "en": "Davis Strait",
+  "frwiki": "Détroit de Davis",
+  "sitelinks": 73,
+  "wikipedias": 73,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q19270": {
+  "fr": "mer de Célèbes",
+  "en": "Celebes Sea",
+  "frwiki": "Mer de Célèbes",
+  "sitelinks": 90,
+  "wikipedias": 90,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q193149": {
+  "fr": "mer de Crète",
+  "en": "Sea of Crete",
+  "frwiki": "Mer de Crète",
+  "sitelinks": 64,
+  "wikipedias": 63,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q193260": {
+  "fr": "canal du Yucatán",
+  "en": "Yucatán Channel",
+  "frwiki": "Canal du Yucatán",
+  "sitelinks": 59,
+  "wikipedias": 58,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q193465": {
+  "fr": "mer de Savu",
+  "en": "Savu Sea",
+  "frwiki": "Mer de Savu",
+  "sitelinks": 61,
+  "wikipedias": 61,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q194477": {
+  "fr": "détroit de Macassar",
+  "en": "Makassar Strait",
+  "frwiki": "Détroit de Macassar",
+  "sitelinks": 68,
+  "wikipedias": 67,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q1971856": {
+  "fr": "mer des Hébrides",
+  "en": "Sea of the Hebrides",
+  "frwiki": "Mer des Hébrides",
+  "sitelinks": 42,
+  "wikipedias": 42,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q1973692": {
+  "fr": "Norton Sound",
+  "en": "Norton Sound",
+  "frwiki": "Norton Sound",
+  "sitelinks": 22,
+  "wikipedias": 21,
+  "redirige_depuis": null,
+  "P31": [
+   "Q271669",
+   "Q45776"
+  ]
+ },
+ "Q1974744": {
+  "fr": "golfe d'Amundsen",
+  "en": "Amundsen Gulf",
+  "frwiki": "Golfe d'Amundsen",
+  "sitelinks": 60,
+  "wikipedias": 59,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q199408": {
+  "fr": "mer d'Alboran",
+  "en": "Alboran Sea",
+  "frwiki": "Mer d'Alboran",
+  "sitelinks": 71,
+  "wikipedias": 70,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q199436": {
+  "fr": "mer de Bismarck",
+  "en": "Bismarck Sea",
+  "frwiki": "Mer de Bismarck",
+  "sitelinks": 62,
+  "wikipedias": 62,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q199479": {
+  "fr": "mer des Salomon",
+  "en": "Solomon Sea",
+  "frwiki": "Mer des Salomon",
+  "sitelinks": 72,
+  "wikipedias": 72,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q200712": {
+  "fr": "mer des Baléares",
+  "en": "Balearic Sea",
+  "frwiki": "Mer des Baléares",
+  "sitelinks": 70,
+  "wikipedias": 69,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q2033236": {
+  "fr": "baie de Pamlico",
+  "en": "Pamlico Sound",
+  "frwiki": "Baie de Pamlico",
+  "sitelinks": 16,
+  "wikipedias": 15,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q204703": {
+  "fr": "mer de la Scotia",
+  "en": "Scotia Sea",
+  "frwiki": "Mer de Scotia",
+  "sitelinks": 73,
+  "wikipedias": 73,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q205655": {
+  "fr": "détroit de Singapour",
+  "en": "Singapore Strait",
+  "frwiki": "Détroit de Singapour",
+  "sitelinks": 52,
+  "wikipedias": 52,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q2060432": {
+  "fr": "Baie de São Marcos",
+  "en": "Baía de São Marcos",
+  "frwiki": null,
+  "sitelinks": 14,
+  "wikipedias": 13,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q207702": {
+  "fr": "détroit d'Hudson",
+  "en": "Hudson Strait",
+  "frwiki": "Détroit d'Hudson",
+  "sitelinks": 62,
+  "wikipedias": 62,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q208054": {
+  "fr": "détroit de La Pérouse",
+  "en": "La Pérouse Strait",
+  "frwiki": "Détroit de La Pérouse",
+  "sitelinks": 60,
+  "wikipedias": 59,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q208495": {
+  "fr": "Sognefjord",
+  "en": "Sognefjord",
+  "frwiki": "Sognefjord",
+  "sitelinks": 50,
+  "wikipedias": 46,
+  "redirige_depuis": null,
+  "P31": [
+   "Q45776"
+  ]
+ },
+ "Q2097444": {
+  "fr": "Storfjorden",
+  "en": "Storfjorden",
+  "frwiki": "Storfjorden (Svalbard)",
+  "sitelinks": 17,
+  "wikipedias": 16,
+  "redirige_depuis": null,
+  "P31": [
+   "Q45776"
+  ]
+ },
+ "Q2097617": {
+  "fr": "mer des Salish",
+  "en": "Salish Sea",
+  "frwiki": "Mer des Salish",
+  "sitelinks": 36,
+  "wikipedias": 36,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q210118": {
+  "fr": "golfe du Lion",
+  "en": "Gulf of Lion",
+  "frwiki": "Golfe du Lion",
+  "sitelinks": 48,
+  "wikipedias": 48,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q210855": {
+  "fr": "mer de Seram",
+  "en": "Seram Sea",
+  "frwiki": "Mer de Céram",
+  "sitelinks": 60,
+  "wikipedias": 60,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q212083": {
+  "fr": "mer d'Halmahera",
+  "en": "Halmahera Sea",
+  "frwiki": "Mer de Halmahera",
+  "sitelinks": 61,
+  "wikipedias": 61,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q212428": {
+  "fr": "golfe du Tonkin",
+  "en": "Gulf of Tonkin",
+  "frwiki": "Golfe du Tonkin",
+  "sitelinks": 67,
+  "wikipedias": 66,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1322134"
+  ]
+ },
+ "Q216868": {
+  "fr": "baie de Chesapeake",
+  "en": "Chesapeake Bay",
+  "frwiki": "Baie de Chesapeake",
+  "sitelinks": 59,
+  "wikipedias": 57,
+  "redirige_depuis": null,
+  "P31": [
+   "Q47053",
+   "Q39594"
+  ]
+ },
+ "Q217487": {
+  "fr": "baie Shark",
+  "en": "Shark Bay",
+  "frwiki": "Baie Shark",
+  "sitelinks": 48,
+  "wikipedias": 45,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q223810": {
+  "fr": "baie James",
+  "en": "James Bay",
+  "frwiki": "Baie James",
+  "sitelinks": 52,
+  "wikipedias": 52,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q22423345": {
+  "fr": "Eskimo Lakes",
+  "en": "Eskimo Lakes",
+  "frwiki": null,
+  "sitelinks": 4,
+  "wikipedias": 4,
+  "redirige_depuis": null,
+  "P31": [
+   "Q5926864"
+  ]
+ },
+ "Q225004": {
+  "fr": "Boknafjord",
+  "en": "Boknafjord",
+  "frwiki": "Boknafjord",
+  "sitelinks": 25,
+  "wikipedias": 24,
+  "redirige_depuis": null,
+  "P31": [
+   "Q45776"
+  ]
+ },
+ "Q2251": {
+  "fr": "fleuve Columbia",
+  "en": "Columbia River",
+  "frwiki": "Columbia (fleuve)",
+  "sitelinks": 91,
+  "wikipedias": 90,
+  "redirige_depuis": null,
+  "P31": [
+   "Q4022",
+   "Q573344"
+  ]
+ },
+ "Q2272405": {
+  "fr": "golfe de Tehuantepec",
+  "en": "Gulf of Tehuantepec",
+  "frwiki": "Golfe de Tehuantepec",
+  "sitelinks": 24,
+  "wikipedias": 23,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q231312": {
+  "fr": "mer intérieure de Seto",
+  "en": "Seto Inland Sea",
+  "frwiki": "Mer intérieure de Seto",
+  "sitelinks": 70,
+  "wikipedias": 66,
+  "redirige_depuis": null,
+  "P31": [
+   "Q2578218"
+  ]
+ },
+ "Q232264": {
+  "fr": "baie de San Francisco",
+  "en": "San Francisco Bay",
+  "frwiki": "Baie de San Francisco",
+  "sitelinks": 63,
+  "wikipedias": 62,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q2326240": {
+  "fr": "baie Kronotski",
+  "en": "Kronotsky Gulf",
+  "frwiki": "Baie Kronotski",
+  "sitelinks": 12,
+  "wikipedias": 11,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1322134"
+  ]
+ },
+ "Q2328243": {
+  "fr": "golfe de Corcovado",
+  "en": "Gulf of Corcovado",
+  "frwiki": "Golfe de Corcovado",
+  "sitelinks": 21,
+  "wikipedias": 21,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q232912": {
+  "fr": "détroit de Floride",
+  "en": "Florida Strait",
+  "frwiki": "Détroit de Floride",
+  "sitelinks": 66,
+  "wikipedias": 66,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q2336534": {
+  "fr": "baie de Melville",
+  "en": "Melville Bay",
+  "frwiki": "Baie de Melville",
+  "sitelinks": 19,
+  "wikipedias": 19,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q473972"
+  ]
+ },
+ "Q23406": {
+  "fr": "mer Rouge",
+  "en": "Red Sea",
+  "frwiki": "Mer Rouge",
+  "sitelinks": 192,
+  "wikipedias": 182,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q2363133": {
+  "fr": "golfe de Iana",
+  "en": "Yana Bay",
+  "frwiki": "Golfe de Iana",
+  "sitelinks": 20,
+  "wikipedias": 20,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q2391874": {
+  "fr": "golfe Karaguinski",
+  "en": "Karaginsky Gulf",
+  "frwiki": "Golfe Karaguinski",
+  "sitelinks": 21,
+  "wikipedias": 21,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1322134"
+  ]
+ },
+ "Q239379": {
+  "fr": "Kara-Bogaz-Gol",
+  "en": "Garabogazköl",
+  "frwiki": "Kara-Bogaz-Gol",
+  "sitelinks": 47,
+  "wikipedias": 46,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q240753": {
+  "fr": "golfe de Leyte",
+  "en": "Leyte Gulf",
+  "frwiki": "Golfe de Leyte",
+  "sitelinks": 28,
+  "wikipedias": 27,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q242326": {
+  "fr": "mer de Bohol",
+  "en": "Bohol Sea",
+  "frwiki": "Mer de Bohol",
+  "sitelinks": 56,
+  "wikipedias": 56,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q243125": {
+  "fr": "mer de Lincoln",
+  "en": "Lincoln Sea",
+  "frwiki": "Mer de Lincoln",
+  "sitelinks": 64,
+  "wikipedias": 64,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q2450069": {
+  "fr": "baie du Kamtchatka",
+  "en": "Kamchatka Bay",
+  "frwiki": "Baie du Kamtchatka",
+  "sitelinks": 15,
+  "wikipedias": 15,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1322134"
+  ]
+ },
+ "Q2539134": {
+  "fr": null,
+  "en": "Wager Bay",
+  "frwiki": null,
+  "sitelinks": 9,
+  "wikipedias": 8,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q2565098": {
+  "fr": "bassin de la Reine-Charlotte",
+  "en": "Queen Charlotte Sound",
+  "frwiki": "Bassin de la Reine-Charlotte",
+  "sitelinks": 18,
+  "wikipedias": 17,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q26080": {
+  "fr": "mer des Wadden",
+  "en": "Wadden Sea",
+  "frwiki": "Mer des Wadden",
+  "sitelinks": 75,
+  "wikipedias": 70,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894",
+   "Q372363",
+   "Q175208"
+  ]
+ },
+ "Q2639916": {
+  "fr": null,
+  "en": "Mogotoyevo Lake",
+  "frwiki": null,
+  "sitelinks": 16,
+  "wikipedias": 15,
+  "redirige_depuis": null,
+  "P31": [
+   "Q23397"
+  ]
+ },
+ "Q27092": {
+  "fr": "mer du Japon",
+  "en": "Sea of Japan",
+  "frwiki": "Mer du Japon",
+  "sitelinks": 129,
+  "wikipedias": 128,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q271521": {
+  "fr": "détroit de Tsugaru",
+  "en": "Tsugaru Strait",
+  "frwiki": "Détroit de Tsugaru",
+  "sitelinks": 66,
+  "wikipedias": 66,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q277014": {
+  "fr": "mer de Bali",
+  "en": "Bali Sea",
+  "frwiki": "Mer de Bali",
+  "sitelinks": 66,
+  "wikipedias": 66,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q279579": {
+  "fr": "Trondheimsfjord",
+  "en": "Trondheimsfjord",
+  "frwiki": "Trondheimsfjord",
+  "sitelinks": 31,
+  "wikipedias": 31,
+  "redirige_depuis": null,
+  "P31": [
+   "Q45776"
+  ]
+ },
+ "Q281638": {
+  "fr": "golfe de Wrigley",
+  "en": "Wrigley Gulf",
+  "frwiki": "Golfe de Wrigley",
+  "sitelinks": 8,
+  "wikipedias": 8,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q281730": {
+  "fr": null,
+  "en": "Ronne Entrance",
+  "frwiki": null,
+  "sitelinks": 8,
+  "wikipedias": 8,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901",
+   "Q39594"
+  ]
+ },
+ "Q281737": {
+  "fr": "baie de Sulzberger",
+  "en": "Sulzberger Bay",
+  "frwiki": "Baie Sulzberger",
+  "sitelinks": 17,
+  "wikipedias": 17,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q281808": {
+  "fr": "baie de Vincennes",
+  "en": "Vincennes Bay",
+  "frwiki": "Baie de Vincennes",
+  "sitelinks": 13,
+  "wikipedias": 13,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q2831049": {
+  "fr": "détroit de George VI",
+  "en": "George VI Sound",
+  "frwiki": "Goulet George-VI",
+  "sitelinks": 17,
+  "wikipedias": 17,
+  "redirige_depuis": null,
+  "P31": [
+   "Q491713"
+  ]
+ },
+ "Q3040": {
+  "fr": "baie d'Hudson",
+  "en": "Hudson Bay",
+  "frwiki": "Baie d'Hudson",
+  "sitelinks": 105,
+  "wikipedias": 105,
+  "redirige_depuis": null,
+  "P31": [
+   "Q2578218",
+   "Q12734855"
+  ]
+ },
+ "Q317006": {
+  "fr": "baie du Mecklembourg",
+  "en": "Bay of Mecklenburg",
+  "frwiki": "Baie du Mecklembourg",
+  "sitelinks": 35,
+  "wikipedias": 34,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q3233971": {
+  "fr": null,
+  "en": "Dampier Strait",
+  "frwiki": null,
+  "sitelinks": 16,
+  "wikipedias": 15,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901",
+   "Q491713"
+  ]
+ },
+ "Q323760": {
+  "fr": "golfe de Gabès",
+  "en": "Gulf of Gabès",
+  "frwiki": "Golfe de Gabès",
+  "sitelinks": 44,
+  "wikipedias": 43,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q33254": {
+  "fr": "mer de Tasman",
+  "en": "Tasman Sea",
+  "frwiki": "Mer de Tasman",
+  "sitelinks": 94,
+  "wikipedias": 94,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q33629": {
+  "fr": "mer de Kara",
+  "en": "Kara Sea",
+  "frwiki": "Mer de Kara",
+  "sitelinks": 103,
+  "wikipedias": 102,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q34575": {
+  "fr": "mer Égée",
+  "en": "Aegean Sea",
+  "frwiki": "Mer Égée",
+  "sitelinks": 154,
+  "wikipedias": 142,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165",
+   "Q166620"
+  ]
+ },
+ "Q34640": {
+  "fr": "Manche",
+  "en": "English Channel",
+  "frwiki": "Manche (mer)",
+  "sitelinks": 130,
+  "wikipedias": 124,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901",
+   "Q165"
+  ]
+ },
+ "Q34675": {
+  "fr": "golfe Persique",
+  "en": "Persian Gulf",
+  "frwiki": "Golfe Persique",
+  "sitelinks": 161,
+  "wikipedias": 147,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165",
+   "Q1322134"
+  ]
+ },
+ "Q35000": {
+  "fr": "mer d'Azov",
+  "en": "Sea of Azov",
+  "frwiki": "Mer d'Azov",
+  "sitelinks": 134,
+  "wikipedias": 131,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165",
+   "Q39594"
+  ]
+ },
+ "Q35367": {
+  "fr": "mer de Marmara",
+  "en": "Sea of Marmara",
+  "frwiki": "Mer de Marmara",
+  "sitelinks": 126,
+  "wikipedias": 124,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1973404"
+  ]
+ },
+ "Q35827": {
+  "fr": "río de la Plata",
+  "en": "Río de la Plata",
+  "frwiki": "Río de la Plata",
+  "sitelinks": 88,
+  "wikipedias": 87,
+  "redirige_depuis": null,
+  "P31": [
+   "Q47053",
+   "Q4022",
+   "Q573344"
+  ]
+ },
+ "Q35958": {
+  "fr": "Bosphore",
+  "en": "Bosporus Strait",
+  "frwiki": "Bosphore",
+  "sitelinks": 131,
+  "wikipedias": 123,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q36124": {
+  "fr": "détroit de Gibraltar",
+  "en": "Strait of Gibraltar",
+  "frwiki": "Détroit de Gibraltar",
+  "sitelinks": 126,
+  "wikipedias": 123,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q37040": {
+  "fr": "baie de Baffin",
+  "en": "Baffin Bay",
+  "frwiki": "Baie de Baffin",
+  "sitelinks": 95,
+  "wikipedias": 95,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q37495": {
+  "fr": "mer Ionienne",
+  "en": "Ionian Sea",
+  "frwiki": "Mer Ionienne",
+  "sitelinks": 123,
+  "wikipedias": 119,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894",
+   "Q166620"
+  ]
+ },
+ "Q37660": {
+  "fr": "mer de Chine méridionale",
+  "en": "South China Sea",
+  "frwiki": "Mer de Chine méridionale",
+  "sitelinks": 145,
+  "wikipedias": 135,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q3783": {
+  "fr": "Amazone",
+  "en": "Amazon River",
+  "frwiki": "Amazone (fleuve)",
+  "sitelinks": 218,
+  "wikipedias": 206,
+  "redirige_depuis": null,
+  "P31": [
+   "Q4022"
+  ]
+ },
+ "Q37960": {
+  "fr": "mer Jaune",
+  "en": "Yellow Sea",
+  "frwiki": "Mer Jaune",
+  "sitelinks": 108,
+  "wikipedias": 106,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q384323": {
+  "fr": "fjord Uummannaq",
+  "en": "Uummannaq fjord",
+  "frwiki": "Fjord Uummannaq",
+  "sitelinks": 14,
+  "wikipedias": 14,
+  "redirige_depuis": null,
+  "P31": [
+   "Q45776"
+  ]
+ },
+ "Q38684": {
+  "fr": "golfe du Bengale",
+  "en": "Bay of Bengal",
+  "frwiki": "Golfe du Bengale",
+  "sitelinks": 130,
+  "wikipedias": 126,
+  "redirige_depuis": null,
+  "P31": [
+   "Q15324",
+   "Q39594"
+  ]
+ },
+ "Q38882": {
+  "fr": "mer Tyrrhénienne",
+  "en": "Tyrrhenian Sea",
+  "frwiki": "Mer Tyrrhénienne",
+  "sitelinks": 112,
+  "wikipedias": 109,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q392623": {
+  "fr": "mer de Samar",
+  "en": "Samar Sea",
+  "frwiki": "Mer de Samar",
+  "sitelinks": 35,
+  "wikipedias": 35,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q41430": {
+  "fr": "golfe de Guinée",
+  "en": "Gulf of Guinea",
+  "frwiki": "Golfe de Guinée",
+  "sitelinks": 113,
+  "wikipedias": 113,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q41573": {
+  "fr": "golfe de Gascogne",
+  "en": "Bay of Biscay",
+  "frwiki": "Golfe de Gascogne",
+  "sitelinks": 106,
+  "wikipedias": 102,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q41602": {
+  "fr": "mer d'Okhotsk",
+  "en": "Sea of Okhotsk",
+  "frwiki": "Mer d'Okhotsk",
+  "sitelinks": 109,
+  "wikipedias": 108,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q4169149": {
+  "fr": "Seno Otway",
+  "en": "Seno Otway",
+  "frwiki": "Seno Otway",
+  "sitelinks": 6,
+  "wikipedias": 5,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q41735": {
+  "fr": "mer d'Irlande",
+  "en": "Irish Sea",
+  "frwiki": "Mer d'Irlande",
+  "sitelinks": 111,
+  "wikipedias": 110,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q41837": {
+  "fr": "golfe d'Aden",
+  "en": "Gulf of Aden",
+  "frwiki": "Golfe d'Aden",
+  "sitelinks": 106,
+  "wikipedias": 104,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q426453": {
+  "fr": "détroit Scoresby",
+  "en": "Scoresby Sound",
+  "frwiki": "Détroit de Scoresby",
+  "sitelinks": 35,
+  "wikipedias": 35,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q45776"
+  ]
+ },
+ "Q4275770": {
+  "fr": "baie Mackenzie",
+  "en": "Mackenzie Bay",
+  "frwiki": "Baie Mackenzie",
+  "sitelinks": 8,
+  "wikipedias": 8,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q42820": {
+  "fr": "mer ligure",
+  "en": "Ligurian Sea",
+  "frwiki": "Mer de Ligurie",
+  "sitelinks": 113,
+  "wikipedias": 110,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q44133": {
+  "fr": "mer Blanche",
+  "en": "White Sea",
+  "frwiki": "Mer Blanche",
+  "sitelinks": 112,
+  "wikipedias": 110,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894",
+   "Q1973404",
+   "Q65178087"
+  ]
+ },
+ "Q44725": {
+  "fr": "mer de Béring",
+  "en": "Bering Sea",
+  "frwiki": "Mer de Béring",
+  "sitelinks": 114,
+  "wikipedias": 112,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q45341": {
+  "fr": "mer de Chine orientale",
+  "en": "East China Sea",
+  "frwiki": "Mer de Chine orientale",
+  "sitelinks": 107,
+  "wikipedias": 105,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q45823": {
+  "fr": "mer de Barents",
+  "en": "Barents Sea",
+  "frwiki": "Mer de Barents",
+  "sitelinks": 116,
+  "wikipedias": 111,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q474708": {
+  "fr": "mer des Visayas",
+  "en": "Visayan Sea",
+  "frwiki": "Mer des Visayas",
+  "sitelinks": 54,
+  "wikipedias": 54,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q47530": {
+  "fr": "golfe du Bénin",
+  "en": "Bight of Benin",
+  "frwiki": "Golfe du Bénin",
+  "sitelinks": 49,
+  "wikipedias": 48,
+  "redirige_depuis": null,
+  "P31": [
+   "Q17018380"
+  ]
+ },
+ "Q47545": {
+  "fr": "mer de Norvège",
+  "en": "Norwegian Sea",
+  "frwiki": "Mer de Norvège",
+  "sitelinks": 108,
+  "wikipedias": 107,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q47632": {
+  "fr": "mer d'Andaman",
+  "en": "Andaman Sea",
+  "frwiki": "Mer d'Andaman",
+  "sitelinks": 109,
+  "wikipedias": 109,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q48359": {
+  "fr": "détroit de Malacca",
+  "en": "Strait of Malacca",
+  "frwiki": "Détroit de Malacca",
+  "sitelinks": 106,
+  "wikipedias": 105,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901",
+   "Q491713"
+  ]
+ },
+ "Q48365": {
+  "fr": "détroit de Magellan",
+  "en": "Strait of Magellan",
+  "frwiki": "Détroit de Magellan",
+  "sitelinks": 97,
+  "wikipedias": 94,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q483824": {
+  "fr": "golfe d'Anadyr",
+  "en": "Gulf of Anadyr",
+  "frwiki": "Golfe d'Anadyr",
+  "sitelinks": 44,
+  "wikipedias": 44,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q4848613": {
+  "fr": null,
+  "en": "Baird Inlet",
+  "frwiki": null,
+  "sitelinks": 2,
+  "wikipedias": 2,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q4918": {
+  "fr": "mer Méditerranée",
+  "en": "Mediterranean Sea",
+  "frwiki": "Mer Méditerranée",
+  "sitelinks": 276,
+  "wikipedias": 237,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1973404",
+   "Q166620"
+  ]
+ },
+ "Q49364": {
+  "fr": "mer de Java",
+  "en": "Java Sea",
+  "frwiki": "Mer de Java",
+  "sitelinks": 106,
+  "wikipedias": 103,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q5023": {
+  "fr": "détroit de Cook",
+  "en": "Cook Strait",
+  "frwiki": "Détroit de Cook",
+  "sitelinks": 72,
+  "wikipedias": 70,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q509321": {
+  "fr": "mer de Davis",
+  "en": "Davis Sea",
+  "frwiki": "Mer de Davis",
+  "sitelinks": 47,
+  "wikipedias": 47,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q5170043": {
+  "fr": null,
+  "en": "Cordova Bay",
+  "frwiki": null,
+  "sitelinks": 5,
+  "wikipedias": 5,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q52052": {
+  "fr": "détroit de Corée",
+  "en": "Korea Strait",
+  "frwiki": "Détroit de Corée",
+  "sitelinks": 80,
+  "wikipedias": 80,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q52060": {
+  "fr": "baie de Corée orientale",
+  "en": "East Korea Bay",
+  "frwiki": "Baie de Corée orientale",
+  "sitelinks": 27,
+  "wikipedias": 26,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q5333028": {
+  "fr": null,
+  "en": "Tasiujaq",
+  "frwiki": null,
+  "sitelinks": 6,
+  "wikipedias": 5,
+  "redirige_depuis": null,
+  "P31": [
+   "Q491713",
+   "Q37901"
+  ]
+ },
+ "Q5413": {
+  "fr": "Yangzi Jiang",
+  "en": "Yangtze River",
+  "frwiki": "Yangtsé",
+  "sitelinks": 168,
+  "wikipedias": 161,
+  "redirige_depuis": null,
+  "P31": [
+   "Q4022"
+  ]
+ },
+ "Q544914": {
+  "fr": "mer des Laquedives",
+  "en": "Laccadive Sea",
+  "frwiki": "Mer des Laquedives",
+  "sitelinks": 71,
+  "wikipedias": 71,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q545": {
+  "fr": "mer Baltique",
+  "en": "Baltic Sea",
+  "frwiki": "Mer Baltique",
+  "sitelinks": 206,
+  "wikipedias": 189,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894",
+   "Q2578218"
+  ]
+ },
+ "Q5484": {
+  "fr": "mer Caspienne",
+  "en": "Caspian Sea",
+  "frwiki": "Mer Caspienne",
+  "sitelinks": 207,
+  "wikipedias": 198,
+  "redirige_depuis": null,
+  "P31": [
+   "Q9019918",
+   "Q188025",
+   "Q23397",
+   "Q165"
+  ]
+ },
+ "Q5491299": {
+  "fr": null,
+  "en": "Franklin Bay",
+  "frwiki": null,
+  "sitelinks": 6,
+  "wikipedias": 6,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q5605258": {
+  "fr": "détroit du Vicomte Melville",
+  "en": "Viscount Melville Sound",
+  "frwiki": "Détroit du Vicomte-Melville",
+  "sitelinks": 22,
+  "wikipedias": 22,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q584588": {
+  "fr": "baie de Monterey",
+  "en": "Monterey Bay",
+  "frwiki": "Baie de Monterey",
+  "sitelinks": 28,
+  "wikipedias": 27,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q58705": {
+  "fr": "mer d'Arabie",
+  "en": "Arabian Sea",
+  "frwiki": "Mer d'Arabie",
+  "sitelinks": 137,
+  "wikipedias": 135,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q594834": {
+  "fr": "mer de Sibuyan",
+  "en": "Sibuyan Sea",
+  "frwiki": "Mer de Sibuyan",
+  "sitelinks": 52,
+  "wikipedias": 52,
+  "redirige_depuis": null,
+  "P31": [
+   "Q165"
+  ]
+ },
+ "Q604492": {
+  "fr": "détroit de Bali",
+  "en": "Bali Strait",
+  "frwiki": "Détroit de Bali",
+  "sitelinks": 32,
+  "wikipedias": 32,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q61304": {
+  "fr": "baie de Campêche",
+  "en": "Bay of Campeche",
+  "frwiki": "Baie de Campêche",
+  "sitelinks": 43,
+  "wikipedias": 42,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q17018380"
+  ]
+ },
+ "Q622811": {
+  "fr": "golfe de Mannar",
+  "en": "Gulf of Mannar",
+  "frwiki": "Golfe de Mannar",
+  "sitelinks": 48,
+  "wikipedias": 48,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q631282": {
+  "fr": "baie du Prince-William",
+  "en": "Prince William Sound",
+  "frwiki": "Baie du Prince-William",
+  "sitelinks": 33,
+  "wikipedias": 32,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q639399": {
+  "fr": "golfe de Chelikhov",
+  "en": "Shelikhov Gulf",
+  "frwiki": "Golfe de Chelikhov",
+  "sitelinks": 30,
+  "wikipedias": 30,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q645012": {
+  "fr": "golfe de Panama",
+  "en": "Gulf of Panama",
+  "frwiki": "Golfe de Panama",
+  "sitelinks": 44,
+  "wikipedias": 44,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134",
+   "Q39594"
+  ]
+ },
+ "Q6514": {
+  "fr": "détroit des Dardanelles",
+  "en": "Dardanelles",
+  "frwiki": "Dardanelles",
+  "sitelinks": 108,
+  "wikipedias": 106,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q654010": {
+  "fr": "golfe de Cambay",
+  "en": "Gulf of Khambhat",
+  "frwiki": "Golfe de Cambay",
+  "sitelinks": 58,
+  "wikipedias": 58,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q6543624": {
+  "fr": null,
+  "en": "Liddon Gulf",
+  "frwiki": null,
+  "sitelinks": 4,
+  "wikipedias": 4,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q691945": {
+  "fr": "détroit de Fury and Hecla",
+  "en": "Fury and Hecla Strait",
+  "frwiki": "Détroit de Fury et Hecla",
+  "sitelinks": 22,
+  "wikipedias": 22,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q700024": {
+  "fr": "baie de Hangzhou",
+  "en": "Hangzhou Bay",
+  "frwiki": "Baie de Hangzhou",
+  "sitelinks": 31,
+  "wikipedias": 30,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q1172599"
+  ]
+ },
+ "Q715484": {
+  "fr": "golfe de Sakhaline",
+  "en": "Sakhalin Gulf",
+  "frwiki": "Golfe de Sakhaline",
+  "sitelinks": 25,
+  "wikipedias": 25,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q72154": {
+  "fr": "mer d'Amundsen",
+  "en": "Amundsen Sea",
+  "frwiki": "Mer d'Amundsen",
+  "sitelinks": 78,
+  "wikipedias": 78,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q7230362": {
+  "fr": null,
+  "en": "Porpoise Bay",
+  "frwiki": null,
+  "sitelinks": 8,
+  "wikipedias": 8,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q7243787": {
+  "fr": "Détroit du Prince Albert",
+  "en": "Prince Albert Sound",
+  "frwiki": "Détroit du Prince Albert",
+  "sitelinks": 7,
+  "wikipedias": 7,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q7324843": {
+  "fr": null,
+  "en": "Richard Collinson Inlet",
+  "frwiki": null,
+  "sitelinks": 1,
+  "wikipedias": 1,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1172599",
+   "Q39594"
+  ]
+ },
+ "Q7343": {
+  "fr": "grande barrière de corail",
+  "en": "Great Barrier Reef",
+  "frwiki": "Grande Barrière de corail",
+  "sitelinks": 158,
+  "wikipedias": 143,
+  "redirige_depuis": null,
+  "P31": [
+   "Q11292",
+   "Q38048753",
+   "Q570116",
+   "Q9259"
+  ]
+ },
+ "Q7354": {
+  "fr": "océan Austral",
+  "en": "Southern Ocean",
+  "frwiki": "Océan Austral",
+  "sitelinks": 197,
+  "wikipedias": 190,
+  "redirige_depuis": null,
+  "P31": [
+   "Q9430"
+  ]
+ },
+ "Q738808": {
+  "fr": "baie du Delaware",
+  "en": "Delaware Bay",
+  "frwiki": "Baie de la Delaware",
+  "sitelinks": 34,
+  "wikipedias": 34,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q7450889": {
+  "fr": "Seno Skyring",
+  "en": "Seno Skyring",
+  "frwiki": "Seno Skyring",
+  "sitelinks": 5,
+  "wikipedias": 5,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q745945": {
+  "fr": "golfe de l'Ob",
+  "en": "Gulf of Ob",
+  "frwiki": "Golfe de l'Ob",
+  "sitelinks": 45,
+  "wikipedias": 45,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q750763": {
+  "fr": "baie Inútil",
+  "en": "Inútil Bay",
+  "frwiki": "Baie Inutile",
+  "sitelinks": 8,
+  "wikipedias": 7,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q7545320": {
+  "fr": null,
+  "en": "Smith Sound",
+  "frwiki": null,
+  "sitelinks": 3,
+  "wikipedias": 3,
+  "redirige_depuis": null,
+  "P31": [
+   "Q491713"
+  ]
+ },
+ "Q761784": {
+  "fr": "golfe d'Urabá",
+  "en": "Gulf of Urabá",
+  "frwiki": "Golfe d'Urabá",
+  "sitelinks": 22,
+  "wikipedias": 21,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q788": {
+  "fr": "océan Arctique",
+  "en": "Arctic Ocean",
+  "frwiki": "Océan Arctique",
+  "sitelinks": 230,
+  "wikipedias": 222,
+  "redirige_depuis": null,
+  "P31": [
+   "Q9430",
+   "Q1973404"
+  ]
+ },
+ "Q795608": {
+  "fr": "golfe du Honduras",
+  "en": "Gulf of Honduras",
+  "frwiki": "Golfe du Honduras",
+  "sitelinks": 43,
+  "wikipedias": 42,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q7988": {
+  "fr": "mer des Laptev",
+  "en": "Laptev Sea",
+  "frwiki": "Mer des Laptev",
+  "sitelinks": 98,
+  "wikipedias": 97,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q79948": {
+  "fr": "golfe d'Oman",
+  "en": "Gulf of Oman",
+  "frwiki": "Golfe d'Oman",
+  "sitelinks": 104,
+  "wikipedias": 101,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q803725": {
+  "fr": "baie d'Antongil",
+  "en": "Antongil Bay",
+  "frwiki": "Baie d'Antongil",
+  "sitelinks": 20,
+  "wikipedias": 20,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q8040226": {
+  "fr": null,
+  "en": "Wynniatt Bay",
+  "frwiki": null,
+  "sitelinks": 3,
+  "wikipedias": 3,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q810805": {
+  "fr": "Bathurst Inlet",
+  "en": "Kiluhiqtuq",
+  "frwiki": null,
+  "sitelinks": 3,
+  "wikipedias": 3,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q81136": {
+  "fr": "passage du Nord-Ouest",
+  "en": "Northwest Passage",
+  "frwiki": "Passage du Nord-Ouest",
+  "sitelinks": 66,
+  "wikipedias": 66,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1138251"
+  ]
+ },
+ "Q815831": {
+  "fr": "détroit de Belle Isle",
+  "en": "Strait of Belle Isle",
+  "frwiki": "Détroit de Belle Isle",
+  "sitelinks": 28,
+  "wikipedias": 27,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q81611": {
+  "fr": "golfe d'Aqaba",
+  "en": "Gulf of Aqaba",
+  "frwiki": "Golfe d'Aqaba",
+  "sitelinks": 96,
+  "wikipedias": 93,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q82931": {
+  "fr": "mer de Corail",
+  "en": "Coral Sea",
+  "frwiki": "Mer de Corail",
+  "sitelinks": 97,
+  "wikipedias": 97,
+  "redirige_depuis": null,
+  "P31": [
+   "Q204894"
+  ]
+ },
+ "Q83318": {
+  "fr": "Bab-el-Mandeb",
+  "en": "Bab-el-Mandeb",
+  "frwiki": "Bab-el-Mandeb",
+  "sitelinks": 93,
+  "wikipedias": 93,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q844917": {
+  "fr": "golfe de Kutch",
+  "en": "Gulf of Kutch",
+  "frwiki": "Golfe de Kutch",
+  "sitelinks": 56,
+  "wikipedias": 54,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q845217": {
+  "fr": "bassin de Foxe",
+  "en": "Foxe Basin",
+  "frwiki": "Bassin de Foxe",
+  "sitelinks": 38,
+  "wikipedias": 38,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q867460": {
+  "fr": "Long Island Sound",
+  "en": "Long Island Sound",
+  "frwiki": "Long Island Sound",
+  "sitelinks": 39,
+  "wikipedias": 39,
+  "redirige_depuis": null,
+  "P31": [
+   "Q47053",
+   "Q491713"
+  ]
+ },
+ "Q876470": {
+  "fr": "golfe du Maine",
+  "en": "Gulf of Maine",
+  "frwiki": "Golfe du Maine",
+  "sitelinks": 43,
+  "wikipedias": 43,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134",
+   "Q39594"
+  ]
+ },
+ "Q898839": {
+  "fr": "détroit de Bransfield",
+  "en": "Bransfield Strait",
+  "frwiki": "Détroit de Bransfield",
+  "sitelinks": 25,
+  "wikipedias": 24,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901",
+   "Q15324"
+  ]
+ },
+ "Q898989": {
+  "fr": "lac Bras d'Or",
+  "en": "Bras d'Or Lake",
+  "frwiki": "Lac Bras d'Or",
+  "sitelinks": 18,
+  "wikipedias": 17,
+  "redirige_depuis": null,
+  "P31": [
+   "Q23397"
+  ]
+ },
+ "Q908356": {
+  "fr": "détroit de Matotchkine",
+  "en": "Matochkin Strait",
+  "frwiki": "Détroit de Matotchkine",
+  "sitelinks": 36,
+  "wikipedias": 35,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q908591": {
+  "fr": "passage Kennedy",
+  "en": "Kennedy Channel",
+  "frwiki": "Passage Kennedy",
+  "sitelinks": 30,
+  "wikipedias": 29,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q908741": {
+  "fr": "détroit de Luçon",
+  "en": "Luzon Strait",
+  "frwiki": "Détroit de Luçon",
+  "sitelinks": 43,
+  "wikipedias": 42,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q915250": {
+  "fr": "baie de Tchaoun",
+  "en": "Chaunskaya Bay",
+  "frwiki": "Baie de Tchaoun",
+  "sitelinks": 24,
+  "wikipedias": 23,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q917872": {
+  "fr": "baie de Bristol",
+  "en": "Bristol Bay",
+  "frwiki": "Baie de Bristol",
+  "sitelinks": 30,
+  "wikipedias": 29,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q919520": {
+  "fr": "golfe de Boothia",
+  "en": "Gulf of Boothia",
+  "frwiki": "Golfe de Boothia",
+  "sitelinks": 38,
+  "wikipedias": 37,
+  "redirige_depuis": null,
+  "P31": [
+   "Q37901"
+  ]
+ },
+ "Q938327": {
+  "fr": "baie Cumberland",
+  "en": "Cumberland Sound",
+  "frwiki": "Baie Cumberland (Canada)",
+  "sitelinks": 14,
+  "wikipedias": 13,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594",
+   "Q491713"
+  ]
+ },
+ "Q939905": {
+  "fr": "golfe de Khatanga",
+  "en": "Khatanga Gulf",
+  "frwiki": "Golfe de Khatanga",
+  "sitelinks": 34,
+  "wikipedias": 34,
+  "redirige_depuis": null,
+  "P31": [
+   "Q1322134"
+  ]
+ },
+ "Q943234": {
+  "fr": "golfe de Kotzebue",
+  "en": "Kotzebue Sound",
+  "frwiki": "Golfe de Kotzebue",
+  "sitelinks": 22,
+  "wikipedias": 21,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q959127": {
+  "fr": "baie du Massachusetts",
+  "en": "Massachusetts Bay",
+  "frwiki": "Baie du Massachusetts",
+  "sitelinks": 32,
+  "wikipedias": 31,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q97": {
+  "fr": "océan Atlantique",
+  "en": "Atlantic Ocean",
+  "frwiki": "Océan Atlantique",
+  "sitelinks": 274,
+  "wikipedias": 252,
+  "redirige_depuis": null,
+  "P31": [
+   "Q9430"
+  ]
+ },
+ "Q98": {
+  "fr": "océan Pacifique",
+  "en": "Pacific Ocean",
+  "frwiki": "Océan Pacifique",
+  "sitelinks": 266,
+  "wikipedias": 251,
+  "redirige_depuis": null,
+  "P31": [
+   "Q9430"
+  ]
+ },
+ "Q999031": {
+  "fr": "golfe du Biafra",
+  "en": "Bight of Biafra",
+  "frwiki": "Golfe du Biafra",
+  "sitelinks": 48,
+  "wikipedias": 47,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ },
+ "Q999060": {
+  "fr": "baie de Tayabas",
+  "en": "Tayabas Bay",
+  "frwiki": null,
+  "sitelinks": 9,
+  "wikipedias": 8,
+  "redirige_depuis": null,
+  "P31": [
+   "Q39594"
+  ]
+ }
+}

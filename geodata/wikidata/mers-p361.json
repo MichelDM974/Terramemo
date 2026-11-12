@@ -1,0 +1,402 @@
+{
+ "Q97": [
+  [
+   "Q715269",
+   "océan mondial"
+  ],
+  [
+   "Q2",
+   "Terre"
+  ]
+ ],
+ "Q98": [
+  [
+   "Q715269",
+   "océan mondial"
+  ],
+  [
+   "Q2",
+   "Terre"
+  ]
+ ],
+ "Q1239": [
+  [
+   "Q715269",
+   "océan mondial"
+  ],
+  [
+   "Q2",
+   "Terre"
+  ]
+ ],
+ "Q788": [
+  [
+   "Q97",
+   "océan Atlantique"
+  ]
+ ],
+ "Q7354": [
+  [
+   "Q715269",
+   "océan mondial"
+  ]
+ ],
+ "Q4918": [
+  [
+   "Q350134",
+   "océan Atlantique Nord"
+  ],
+  [
+   "Q111384107",
+   "aire méditerranéenne"
+  ]
+ ],
+ "Q166": [
+  [
+   "Q350134",
+   "océan Atlantique Nord"
+  ],
+  [
+   "Q111384107",
+   "aire méditerranéenne"
+  ]
+ ],
+ "Q5484": [
+  [
+   "Q111384107",
+   "aire méditerranéenne"
+  ]
+ ],
+ "Q545": [
+  [
+   "Q350134",
+   "océan Atlantique Nord"
+  ],
+  [
+   "Q715269",
+   "océan mondial"
+  ]
+ ],
+ "Q23406": [
+  [
+   "Q1239",
+   "océan Indien"
+  ],
+  [
+   "Q1363807",
+   "mer Érythrée"
+  ]
+ ],
+ "Q1693": [
+  [
+   "Q97",
+   "océan Atlantique"
+  ]
+ ],
+ "Q1247": [
+  [
+   "Q470088",
+   "mer Méditerranée Américaine"
+  ],
+  [
+   "Q350134",
+   "océan Atlantique Nord"
+  ]
+ ],
+ "Q13924": [
+  [
+   "Q4918",
+   "mer Méditerranée"
+  ]
+ ],
+ "Q34675": [
+  [
+   "Q1239",
+   "océan Indien"
+  ],
+  [
+   "Q1363807",
+   "mer Érythrée"
+  ]
+ ],
+ "Q34575": [
+  [
+   "Q4918",
+   "mer Méditerranée"
+  ]
+ ],
+ "Q37660": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ],
+  [
+   "Q398805",
+   "Mer de Chine"
+  ]
+ ],
+ "Q58705": [
+  [
+   "Q1239",
+   "océan Indien"
+  ]
+ ],
+ "Q35000": [
+  [
+   "Q166",
+   "mer Noire"
+  ]
+ ],
+ "Q12630": [
+  [
+   "Q470088",
+   "mer Méditerranée Américaine"
+  ]
+ ],
+ "Q27092": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ]
+ ],
+ "Q38684": [
+  [
+   "Q1239",
+   "océan Indien"
+  ]
+ ],
+ "Q34640": [
+  [
+   "Q97",
+   "océan Atlantique"
+  ]
+ ],
+ "Q37495": [
+  [
+   "Q4918",
+   "mer Méditerranée"
+  ]
+ ],
+ "Q41430": [
+  [
+   "Q350134",
+   "océan Atlantique Nord"
+  ]
+ ],
+ "Q44725": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ]
+ ],
+ "Q45823": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q44133": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q41735": [
+  [
+   "Q97",
+   "océan Atlantique"
+  ]
+ ],
+ "Q38882": [
+  [
+   "Q4918",
+   "mer Méditerranée"
+  ]
+ ],
+ "Q47632": [
+  [
+   "Q1239",
+   "océan Indien"
+  ]
+ ],
+ "Q41602": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ]
+ ],
+ "Q47545": [
+  [
+   "Q350134",
+   "océan Atlantique Nord"
+  ]
+ ],
+ "Q37960": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ],
+  [
+   "Q398805",
+   "Mer de Chine"
+  ]
+ ],
+ "Q45341": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ],
+  [
+   "Q398805",
+   "Mer de Chine"
+  ]
+ ],
+ "Q3040": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q41837": [
+  [
+   "Q1239",
+   "océan Indien"
+  ]
+ ],
+ "Q49364": [
+  [
+   "Q1239",
+   "océan Indien"
+  ]
+ ],
+ "Q41573": [
+  [
+   "Q97",
+   "océan Atlantique"
+  ]
+ ],
+ "Q33629": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q79948": [
+  [
+   "Q1239",
+   "océan Indien"
+  ]
+ ],
+ "Q7988": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q131217": [
+  [
+   "Q111384093",
+   "South China and Eastern Archipelagic Seas"
+  ],
+  [
+   "Q1239",
+   "océan Indien"
+  ]
+ ],
+ "Q82931": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ],
+  [
+   "Q12355425",
+   "océan Paciﬁque sud"
+  ]
+ ],
+ "Q37040": [
+  [
+   "Q788",
+   "océan Arctique"
+  ],
+  [
+   "Q184189",
+   "mer du Labrador"
+  ]
+ ],
+ "Q163434": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q159252": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q33254": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ],
+  [
+   "Q12355425",
+   "océan Paciﬁque sud"
+  ]
+ ],
+ "Q131274": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q132868": [
+  [
+   "Q788",
+   "océan Arctique"
+  ]
+ ],
+ "Q165100": [
+  [
+   "Q1239",
+   "océan Indien"
+  ]
+ ],
+ "Q35367": [
+  [
+   "Q4918",
+   "mer Méditerranée"
+  ]
+ ],
+ "Q159183": [
+  [
+   "Q98",
+   "océan Pacifique"
+  ]
+ ],
+ "Q169274": [
+  [
+   "Q350134",
+   "océan Atlantique Nord"
+  ]
+ ],
+ "Q184189": [
+  [
+   "Q350134",
+   "océan Atlantique Nord"
+  ]
+ ],
+ "Q173343": [
+  [
+   "Q7354",
+   "océan Austral"
+  ]
+ ],
+ "Q164466": [
+  [
+   "Q7354",
+   "océan Austral"
+  ]
+ ]
+}

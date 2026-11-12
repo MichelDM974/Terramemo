@@ -1,0 +1,322 @@
+{
+ "Q97": {
+  "frwiki": "Océan Atlantique",
+  "vues_12_mois": 121558,
+  "mois": 12
+ },
+ "Q98": {
+  "frwiki": "Océan Pacifique",
+  "vues_12_mois": 101801,
+  "mois": 12
+ },
+ "Q1239": {
+  "frwiki": "Océan Indien",
+  "vues_12_mois": 49808,
+  "mois": 12
+ },
+ "Q788": {
+  "frwiki": "Océan Arctique",
+  "vues_12_mois": 36301,
+  "mois": 12
+ },
+ "Q7354": {
+  "frwiki": "Océan Austral",
+  "vues_12_mois": 28699,
+  "mois": 12
+ },
+ "Q4918": {
+  "frwiki": "Mer Méditerranée",
+  "vues_12_mois": 155025,
+  "mois": 12
+ },
+ "Q166": {
+  "frwiki": "Mer Noire",
+  "vues_12_mois": 103648,
+  "mois": 12
+ },
+ "Q5484": {
+  "frwiki": "Mer Caspienne",
+  "vues_12_mois": 123084,
+  "mois": 12
+ },
+ "Q545": {
+  "frwiki": "Mer Baltique",
+  "vues_12_mois": 65633,
+  "mois": 12
+ },
+ "Q23406": {
+  "frwiki": "Mer Rouge",
+  "vues_12_mois": 80537,
+  "mois": 12
+ },
+ "Q1693": {
+  "frwiki": "Mer du Nord",
+  "vues_12_mois": 52643,
+  "mois": 12
+ },
+ "Q1247": {
+  "frwiki": "Mer des Caraïbes",
+  "vues_12_mois": 35809,
+  "mois": 12
+ },
+ "Q13924": {
+  "frwiki": "Mer Adriatique",
+  "vues_12_mois": 50917,
+  "mois": 12
+ },
+ "Q34675": {
+  "frwiki": "Golfe Persique",
+  "vues_12_mois": 83399,
+  "mois": 12
+ },
+ "Q34575": {
+  "frwiki": "Mer Égée",
+  "vues_12_mois": 49344,
+  "mois": 12
+ },
+ "Q37660": {
+  "frwiki": "Mer de Chine méridionale",
+  "vues_12_mois": 20080,
+  "mois": 12
+ },
+ "Q58705": {
+  "frwiki": "Mer d'Arabie",
+  "vues_12_mois": 19990,
+  "mois": 12
+ },
+ "Q35000": {
+  "frwiki": "Mer d'Azov",
+  "vues_12_mois": 27642,
+  "mois": 12
+ },
+ "Q12630": {
+  "frwiki": "Golfe du Mexique",
+  "vues_12_mois": 39882,
+  "mois": 12
+ },
+ "Q27092": {
+  "frwiki": "Mer du Japon",
+  "vues_12_mois": 12740,
+  "mois": 12
+ },
+ "Q38684": {
+  "frwiki": "Golfe du Bengale",
+  "vues_12_mois": 6853,
+  "mois": 12
+ },
+ "Q34640": {
+  "frwiki": "Manche (mer)",
+  "vues_12_mois": 105396,
+  "mois": 12
+ },
+ "Q37495": {
+  "frwiki": "Mer Ionienne",
+  "vues_12_mois": 35378,
+  "mois": 12
+ },
+ "Q41430": {
+  "frwiki": "Golfe de Guinée",
+  "vues_12_mois": 22753,
+  "mois": 12
+ },
+ "Q44725": {
+  "frwiki": "Mer de Béring",
+  "vues_12_mois": 9999,
+  "mois": 12
+ },
+ "Q45823": {
+  "frwiki": "Mer de Barents",
+  "vues_12_mois": 19204,
+  "mois": 12
+ },
+ "Q44133": {
+  "frwiki": "Mer Blanche",
+  "vues_12_mois": 15298,
+  "mois": 12
+ },
+ "Q41735": {
+  "frwiki": "Mer d'Irlande",
+  "vues_12_mois": 10076,
+  "mois": 12
+ },
+ "Q38882": {
+  "frwiki": "Mer Tyrrhénienne",
+  "vues_12_mois": 42390,
+  "mois": 12
+ },
+ "Q47632": {
+  "frwiki": "Mer d'Andaman",
+  "vues_12_mois": 9397,
+  "mois": 12
+ },
+ "Q41602": {
+  "frwiki": "Mer d'Okhotsk",
+  "vues_12_mois": 7447,
+  "mois": 12
+ },
+ "Q47545": {
+  "frwiki": "Mer de Norvège",
+  "vues_12_mois": 9507,
+  "mois": 12
+ },
+ "Q37960": {
+  "frwiki": "Mer Jaune",
+  "vues_12_mois": 10630,
+  "mois": 12
+ },
+ "Q45341": {
+  "frwiki": "Mer de Chine orientale",
+  "vues_12_mois": 4314,
+  "mois": 12
+ },
+ "Q3040": {
+  "frwiki": "Baie d'Hudson",
+  "vues_12_mois": 29738,
+  "mois": 12
+ },
+ "Q41837": {
+  "frwiki": "Golfe d'Aden",
+  "vues_12_mois": 13314,
+  "mois": 12
+ },
+ "Q49364": {
+  "frwiki": "Mer de Java",
+  "vues_12_mois": 1611,
+  "mois": 12
+ },
+ "Q41573": {
+  "frwiki": "Golfe de Gascogne",
+  "vues_12_mois": 44338,
+  "mois": 12
+ },
+ "Q33629": {
+  "frwiki": "Mer de Kara",
+  "vues_12_mois": 6894,
+  "mois": 12
+ },
+ "Q79948": {
+  "frwiki": "Golfe d'Oman",
+  "vues_12_mois": 14026,
+  "mois": 12
+ },
+ "Q7988": {
+  "frwiki": "Mer des Laptev",
+  "vues_12_mois": 3979,
+  "mois": 12
+ },
+ "Q131217": {
+  "frwiki": "Golfe de Thaïlande",
+  "vues_12_mois": 5922,
+  "mois": 12
+ },
+ "Q82931": {
+  "frwiki": "Mer de Corail",
+  "vues_12_mois": 10740,
+  "mois": 12
+ },
+ "Q37040": {
+  "frwiki": "Baie de Baffin",
+  "vues_12_mois": 4993,
+  "mois": 12
+ },
+ "Q163434": {
+  "frwiki": "Mer de Sibérie orientale",
+  "vues_12_mois": 1521,
+  "mois": 12
+ },
+ "Q159252": {
+  "frwiki": "Mer des Tchouktches",
+  "vues_12_mois": 4480,
+  "mois": 12
+ },
+ "Q33254": {
+  "frwiki": "Mer de Tasman",
+  "vues_12_mois": 5121,
+  "mois": 12
+ },
+ "Q131274": {
+  "frwiki": "Mer de Beaufort",
+  "vues_12_mois": 5403,
+  "mois": 12
+ },
+ "Q132868": {
+  "frwiki": "Mer du Groenland",
+  "vues_12_mois": 5741,
+  "mois": 12
+ },
+ "Q165100": {
+  "frwiki": "Canal du Mozambique",
+  "vues_12_mois": 11100,
+  "mois": 12
+ },
+ "Q35367": {
+  "frwiki": "Mer de Marmara",
+  "vues_12_mois": 23612,
+  "mois": 12
+ },
+ "Q159183": {
+  "frwiki": "Mer des Philippines",
+  "vues_12_mois": 5056,
+  "mois": 12
+ },
+ "Q169274": {
+  "frwiki": "Mer des Sargasses",
+  "vues_12_mois": 65182,
+  "mois": 12
+ },
+ "Q184189": {
+  "frwiki": "Mer du Labrador",
+  "vues_12_mois": 3297,
+  "mois": 12
+ },
+ "Q173343": {
+  "frwiki": "Mer de Weddell",
+  "vues_12_mois": 5705,
+  "mois": 12
+ },
+ "Q164466": {
+  "frwiki": "Mer de Ross",
+  "vues_12_mois": 5418,
+  "mois": 12
+ },
+ "Q132811": {
+  "frwiki": "Golfe de Californie",
+  "vues_12_mois": 7820,
+  "mois": 12
+ },
+ "Q180531": {
+  "frwiki": "Golfe d'Alaska",
+  "vues_12_mois": 1837,
+  "mois": 12
+ },
+ "Q42820": {
+  "frwiki": "Mer de Ligurie",
+  "vues_12_mois": 8929,
+  "mois": 12
+ },
+ "Q14686": {
+  "frwiki": "Golfe de Finlande",
+  "vues_12_mois": 5659,
+  "mois": 12
+ },
+ "Q122574": {
+  "frwiki": "Golfe de Botnie",
+  "vues_12_mois": 7223,
+  "mois": 12
+ },
+ "Q199479": {
+  "frwiki": "Mer des Salomon",
+  "vues_12_mois": 1486,
+  "mois": 12
+ },
+ "Q128880": {
+  "frwiki": "Mer d'Arafura",
+  "vues_12_mois": 2484,
+  "mois": 12
+ },
+ "Q131418": {
+  "frwiki": "Mer de Timor",
+  "vues_12_mois": 1925,
+  "mois": 12
+ }
+}
