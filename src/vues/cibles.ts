@@ -1,5 +1,6 @@
 // Séries des parties (pur) : le catalogue des séries jouables (tous les pays,
 // les continents, l'île), leurs noms, et l'essai de précision du J0 (un outil).
+import { IDS_MERS } from '../map/mers';
 import { REUNION, type DefTerrain } from '../map/terrain';
 import type { NomTerrain, Pays } from '../map/types';
 import { textes } from './textes';
@@ -52,15 +53,18 @@ export interface Serie {
 export const SERIE_ESSAI = 'essai';
 export const SERIE_TOUS = 'tous';
 export const SERIE_REUNION = 'reunion';
+/** La série unique des océans et mers (D44 a) : ses 50 zones. */
+export const SERIE_MERS = 'mers';
 
 /** Nom affiché d'un continent (fichier de langue) ; l'id anglais de pays.json sinon. */
 export const nomContinent = (c: string): string => (textes.continents as Record<string, string>)[c] ?? c;
 
-/** Nom affiché d'une série : « Tous les pays », un continent, « La Réunion », « Essai J0 ». */
+/** Nom affiché d'une série : « Tous les pays », un continent, « La Réunion », « Océans et mers », « Essai J0 ». */
 export function nomSerie(id: string): string {
   if (id === SERIE_ESSAI) return textes.toucher.serie_essai;
   if (id === SERIE_TOUS) return textes.toucher.serie_tous;
   if (id === SERIE_REUNION) return textes.terrains.reunion.serie;
+  if (id === SERIE_MERS) return textes.jouer.sujets.mers.nom;
   return nomContinent(id);
 }
 
@@ -97,6 +101,14 @@ export const serieEssai = (pays: readonly Pays[]): Serie => serieMonde(SERIE_ESS
 export function serieTerrain(def: DefTerrain): Serie {
   return { id: def.nom, terrain: def.nom, ids: [], n: def.n };
 }
+
+/**
+ * La série des océans et mers (D44 a : une seule, de 50) : sur le monde, ses
+ * ids connus sans rien charger (IDS_MERS), si bien que Jouer dit « 50 océans
+ * et mers » sans lire mers*. Hors du catalogue des pays et de l'île : seul le
+ * sujet Océans et mers la propose (arbre.ts).
+ */
+export const serieMers = (): Serie => ({ id: SERIE_MERS, terrain: 'monde', ids: [...IDS_MERS], n: IDS_MERS.length });
 
 /**
  * Le catalogue des séries jouables, dans l'ordre de partout (décision « Écran

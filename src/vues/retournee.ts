@@ -6,7 +6,7 @@
 // fois, posée par la séance (src/vues/seance.ts, via essai.ts).
 import type { Terrain } from '../terrains';
 import type { Forme, Lieu } from '../map/types';
-import { creer, poserContenu, type ContexteVue } from './commun';
+import { creer, poserContenu, zonesDuSujet, type ContexteVue } from './commun';
 import { allumerZone } from './nommer';
 import { rendu, type RenduSujet } from './sujets';
 import { textes } from './textes';
@@ -76,6 +76,7 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
   let attente = 0;
   let lieux = new Map<string, Lieu>();
   let formes = new Map<string, Forme>();
+  let contours = new Map<string, [number, number][]>();
 
   function arreterAttente(): void {
     clearTimeout(attente);
@@ -86,7 +87,7 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
     if (!t || !rs || !crochets || !etape) return;
     compte.textContent = crochets.compte();
     // « Quel est ce pays ? », « Quelle est cette commune ? » : la consigne du sujet.
-    consigne.textContent = rs.consigneQcm;
+    consigne.textContent = rs.consigneQcm(id);
     consigne.dataset.cible = id;
     const revele = etape !== 'question';
     poserContenu(nom, revele ? rs.revelation(id) : { texte: '' });
@@ -97,7 +98,7 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
     retro.className = etape === 'repondu' ? `essai-retro ${juste ? 'juste' : 'faux'}` : 'essai-retro';
     retro.textContent = etape === 'repondu' ? ligne : '';
     barre.hidden = false;
-    allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde');
+    allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde', contours.get(id));
     // Révélée : un anneau à chaque ville révélée (D53 c : les capitales justes) ; rien pour un pays.
     if (revele) for (const p of rs.points(id)) t.carte.anneauEn(p, 'juste');
   }
@@ -139,10 +140,8 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
     poser(terrain, sujet, cible, c) {
       arreterAttente();
       rs = rendu(sujet, terrain.donnees);
-      if (t !== terrain) {
-        lieux = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.pays]));
-        formes = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.forme]));
-      }
+      // Les zones du sujet de la question : celles du terrain, ou ses mers (une séance mêle les sujets du monde).
+      ({ lieux, formes, contours } = zonesDuSujet(sujet, terrain));
       t = terrain;
       id = cible;
       crochets = c;

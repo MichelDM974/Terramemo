@@ -101,7 +101,7 @@ describe('rendu du sujet Capitales (§ 5.2)', () => {
     const r = rendu('capitales', D);
     const e = r.enonce('FRA');
     expect(e).toEqual({ invite: 'Pays dont la capitale est : ', objet: { texte: 'Paris' }, deuxLignes: true });
-    expect(r.consigneQcm).toBe('Quelle est sa capitale ?');
+    expect(r.consigneQcm('BOL')).toBe('Quelle est sa capitale ?');
     expect(r.lieu('FRA')).toBe('France');
     expect(r.touche('ESP')).toBe('Espagne');
     expect(r.touche(null)).toBe('la mer');

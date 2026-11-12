@@ -2,14 +2,16 @@ import { acceptesEnPlus, type Admis } from '../map/acceptes';
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
 import { attendreImages, chargerDrapeaux, drapeauxCharges, prechargerDrapeaux, prechargerImages, type ChargerImage } from '../map/drapeaux';
 import type { CarteAffichee } from '../map/carte';
+import { contourEmprise } from '../map/geo';
+import { chargerMers, empriseMer, estIdMer } from '../map/mers';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
 import type { OptionsNoter } from '../map/pick';
-import type { Statut } from '../map/types';
+import type { Entite, Forme, Lieu, Mer, Statut } from '../map/types';
 import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
 import type { Serie } from './cibles';
-import type { Contenu, Enonce, RenduSujet } from './sujets';
+import { dansZone, type Contenu, type Enonce, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
 
 export interface ContexteVue {
@@ -113,8 +115,8 @@ export function poserEnonce(el: HTMLElement, e: Enonce): void {
  * Les zones admises que la rétroaction sait dire : celles de la carte
  * (contestée, enclave), celles qu'un sujet passe en plus (étude J2 § 2.2 : la
  * capitale revendiquée, le jumeau d'un drapeau, Monaco pour l'Indonésie sous
- * Drapeaux), et celle que rien ne produit encore : la partie d'une mer (la
- * mer des Caraïbes pour l'Atlantique, lot 3b).
+ * Drapeaux ; la partie d'une mer, la mer des Caraïbes pour l'Atlantique sous
+ * Mers).
  */
 export type AdmisDit = Admis | { zone: string; tenant: string; sorte: 'partie' };
 
@@ -129,14 +131,16 @@ export type AdmisDit = Admis | { zone: string; tenant: string; sorte: 'partie' }
  * est juste sans règle à expliquer. Les zones nommées par le rendu du sujet
  * joué (RenduSujet.lieu). Sous Capitales, Jérusalem touchée en Palestine (ou
  * Jérusalem-Est en Israël, D36 i) : « (capitale revendiquée aussi par
- * Palestine) ».
+ * Palestine) ». Sous Mers, la partie touchée et ce qui la contient, la forme
+ * voulue par l'utilisateur : « Juste : mer des Caraïbes, dans l'Atlantique »
+ * (dansZone, le bon article pour chaque zone qui a des parties).
  */
 export function texteAdmis(r: Pick<RenduSujet, 'lieu'>, cible: string, admis: AdmisDit | null | undefined): string {
   if (!admis) return '';
   const T = textes.toucher;
   if (admis.sorte === 'enclave') return remplir(T.admis_enclave, { zone: r.lieu(admis.zone) });
   if (admis.sorte === 'jumeau') return remplir(T.admis_jumeau, { zone: r.lieu(admis.zone) });
-  if (admis.sorte === 'partie') return remplir(T.admis_partie, { zone: r.lieu(admis.zone), cible: r.lieu(cible) });
+  if (admis.sorte === 'partie') return remplir(T.admis_partie, { zone: r.lieu(admis.zone), dans: dansZone(cible, r.lieu(cible)) });
   if (admis.sorte === 'capitale') return remplir(T.admis_capitale, { zone: r.lieu(admis.zone) });
   if (admis.tenant === cible) return '';
   if (admis.tenant === admis.zone) return remplir(T.admis_contestee_zone, { zone: r.lieu(admis.zone) });
@@ -159,13 +163,31 @@ export function fmtKm(km: number): string {
   return `${txt}\u00a0km`;
 }
 
+/**
+ * Les zones marines posées sur la carte d'un terrain (DonneesCarte.mers),
+ * vides avant la couche, et pour des données sans elles (l'île, les tests).
+ */
+export const mersPosees = (d: { mers?: readonly Entite<Mer>[] }): readonly Entite<Mer>[] => d.mers ?? [];
+/** La zone marine posée de cet id ; undefined pour un pays, une commune, ou avant la couche. */
+export const merPosee = (d: { mers?: readonly Entite<Mer>[] }, id: string): Mer | undefined => mersPosees(d).find((m) => m.pays.id === id)?.pays;
+
 /** Sous ce côté à l'écran (px CSS), un anneau entoure la zone (micro-États, petites îles). */
 export const ANNEAU_SOUS_PX = 12;
 
-/** La zone fait-elle moins de ANNEAU_SOUS_PX à l'écran, au zoom courant de la carte ? */
+/** La zone (pays, commune, ou mer posée sur la carte) fait-elle moins de ANNEAU_SOUS_PX à l'écran, au zoom courant de la carte ? */
 export function estPetite(t: Pick<Terrain, 'carte' | 'donnees'>, id: string): boolean {
-  const e = t.donnees.entites.find((en) => en.pays.id === id);
-  return !!e && tailleEcranPx(e.pays, t.carte.projection.scale(), t.carte.transfo.k) < ANNEAU_SOUS_PX;
+  const e = t.donnees.entites.find((en) => en.pays.id === id)?.pays ?? merPosee(t.donnees, id);
+  return !!e && tailleEcranPx(e, t.carte.projection.scale(), t.carte.transfo.k) < ANNEAU_SOUS_PX;
+}
+
+/**
+ * Un anneau autour de la zone : anneau(id) pour un pays ou une commune ; une
+ * mer (la mer d'Azov, 2 px au zoom 1), à son point (anneauEn), car les rendus
+ * Canvas et WebGL ne cherchent le point d'un anneau que parmi les pays.
+ */
+export function anneauZone(carte: Pick<CarteAffichee, 'anneau' | 'anneauEn'>, id: string, lieu: Lieu | undefined, classe: string): void {
+  if (lieu && 'sorte' in lieu) carte.anneauEn(lieu.point, classe);
+  else carte.anneau(id, classe);
 }
 
 /**
@@ -174,22 +196,69 @@ export function estPetite(t: Pick<Terrain, 'carte' | 'donnees'>, id: string): bo
  * rayon) ne ferait que déborder sur ses voisines.
  */
 export function anneauSiPetite(t: Pick<Terrain, 'carte' | 'donnees'>, id: string, classe: string): void {
-  if (estPetite(t, id)) t.carte.anneau(id, classe);
+  if (estPetite(t, id)) anneauZone(t.carte, id, merPosee(t.donnees, id), classe);
 }
 
 /** Les cibles d'une série dans son terrain chargé : les siennes (monde), ou toutes les zones jouables (l'île). */
 export const idsSerie = (s: Serie, t: Terrain): string[] => (s.ids.length ? [...s.ids] : [...t.jouables]);
 
 /**
+ * La couche marine lue (chargerMers, une fois) puis posée sur la carte du
+ * monde (prendreMers, comme ?mers=demo : ses zones dans donnees.mers et
+ * l'index commun ; le WebGL prend pick et noter du Canvas) : ce qu'il faut
+ * avant une question de mer (noter lève sinon) ; null si elle y est déjà.
+ */
+export function poserMers(c: Pick<ContexteVue, 'carte' | 'donnees'>, charger: () => ReturnType<typeof chargerMers> = chargerMers): Promise<unknown> | null {
+  if (mersPosees(c.donnees).length) return null;
+  return charger().then((couche) => c.carte.prendreMers(couche));
+}
+
+/**
  * Les données propres d'un sujet, hors de son terrain (étude J2 § 4.2) :
  * null si elles sont déjà là ou qu'il n'en a pas (pays, communes), sinon
  * la promesse de leur chargement (capitales.json et son fichier de langue ;
- * le manifeste des drapeaux, sans les images).
+ * le manifeste des drapeaux, sans les images ; la couche marine, posée sur
+ * la carte du monde `monde`).
  */
-export function chargementSujet(sujet: string): Promise<unknown> | null {
+export function chargementSujet(sujet: string, monde?: Pick<ContexteVue, 'carte' | 'donnees'>): Promise<unknown> | null {
   if (sujet === 'capitales') return capitalesChargees() ? null : chargerCapitales();
   if (sujet === 'drapeaux') return drapeauxCharges() ? null : chargerDrapeaux();
+  if (sujet === 'mers') return monde ? poserMers(monde) : Promise.reject(new Error('mers : pas de carte où les poser'));
   return null;
+}
+
+/**
+ * Les zones d'une partie de ce sujet sur ce terrain (Reconnaître, carte
+ * retournée : leurres et cadrage) : les pays (ou communes) du terrain, ou ses
+ * zones marines posées (donnees.mers) pour les mers. `contours` : le bord de
+ * l'emprise d'une mer (empriseMer), que le cadrage lit au lieu de son
+ * polygone principal (une moitié du Pacifique).
+ */
+export function zonesDuSujet(
+  sujet: string,
+  t: Pick<Terrain, 'donnees' | 'jouables'>,
+): { lieux: Map<string, Lieu>; formes: Map<string, Forme>; jouables: Set<string>; contours: Map<string, [number, number][]> } {
+  if (sujet !== 'mers') {
+    return {
+      lieux: new Map(t.donnees.entites.map((e) => [e.pays.id, e.pays])),
+      formes: new Map(t.donnees.entites.map((e) => [e.pays.id, e.forme])),
+      jouables: new Set(t.jouables),
+      contours: new Map(),
+    };
+  }
+  const mers = mersPosees(t.donnees);
+  const zones = mers.map((e) => e.pays);
+  const contours = new Map<string, [number, number][]>();
+  for (const m of zones) {
+    const e = empriseMer(m.id, zones);
+    if (e) contours.set(m.id, contourEmprise(e));
+  }
+  return {
+    lieux: new Map(mers.map((e) => [e.pays.id, e.pays as Lieu])),
+    formes: new Map(mers.map((e) => [e.pays.id, e.forme])),
+    jouables: new Set(zones.filter((m) => estIdMer(m.id)).map((m) => m.id)),
+    contours,
+  };
 }
 
 /**
@@ -256,7 +325,7 @@ export function avecSujet(
     o.statut.hidden = !m;
   };
   const deja = s.terrain === 'monde' ? ctx.terrains.monde : ctx.terrains.deja(s.terrain);
-  const donnees = chargementSujet(sujet);
+  const donnees = chargementSujet(sujet, ctx);
   if (deja && !donnees) {
     dire('');
     return suite(deja, idsSerie(s, deja));
@@ -274,7 +343,7 @@ export function avecSujet(
   };
   // Le terrain, puis le sujet : chaque échec a son message (la carte de l'île, ou les données du sujet).
   const avecDonnees = (t: Terrain) => {
-    const d = donnees ?? chargementSujet(sujet);
+    const d = donnees ?? chargementSujet(sujet, ctx);
     if (!d) return partir(t);
     d.then(
       () => partir(t),
@@ -290,8 +359,8 @@ export function avecSujet(
  * zones admises de la carte (entraînement et épreuves : la date d'effet des
  * épreuves, le 09/11/2026, est passée ; décision « Zones contestées et
  * enclaves »), plus celles du sujet (D36 i : Jérusalem ↔ Jérusalem-Est sous
- * Capitales ; D41 d : les jumeaux sous Drapeaux), jamais dans la table
- * commune.
+ * Capitales ; D41 d : les jumeaux sous Drapeaux ; D43 : les parties d'une
+ * mer sous Mers), jamais dans la table commune.
  */
 export function optionsNoter(r: Pick<RenduSujet, 'admisEnPlus'>, t: Pick<Terrain, 'donnees'>, id: string): OptionsNoter {
   const plus = r.admisEnPlus(id);

@@ -129,11 +129,162 @@ export const lireGeo =
   };
 
 /**
- * La couche marine du site : à la demande seulement (le premier toucher en mer
- * à l'accueil, le sujet des mers, une séance qui en a, la recherche, la carte
- * de la mémoire des mers : lot 3b ; ?mers=demo, src/main.ts).
+ * Les ids des 50 zones jouables (mers.json), dans son ordre : la série unique
+ * « mers » (D44 a) les connaît sans rien charger (son compte, « 50 océans et
+ * mers », à l'ouverture de Jouer). Figés à vie, comme les ISO3 des pays
+ * (fiches, records) ; tests/donnees-mers.test.ts les confronte à mers.json.
  */
-export const chargerMers = chargeurMers(lireGeo());
+export const IDS_MERS: readonly string[] = [
+  'atlant', 'pacif', 'indien', 'arctique', 'austral', 'medit', 'adriat', 'egee', 'ionienne', 'tyrrhen',
+  'noire', 'azov', 'caspien', 'baltique', 'botnie', 'finlande', 'nord', 'manche', 'irlande', 'gascogne',
+  'norvege', 'groenl', 'caraibes', 'sargasse', 'mexique', 'laurent', 'guinee', 'baffin', 'hudson', 'barents',
+  'blanche', 'kara', 'beaufort', 'bering', 'okhotsk', 'japon', 'jaune', 'chineor', 'chinemer', 'thailand',
+  'corail', 'californ', 'arabie', 'oman', 'persique', 'aden', 'rouge', 'bengale', 'andaman', 'mozamb',
+];
+const ENSEMBLE_MERS = new Set(IDS_MERS);
+/** L'id est-il celui d'une zone marine jouable (sans rien charger) ? */
+export const estIdMer = (id: string): boolean => ENSEMBLE_MERS.has(id);
+
+/**
+ * Ce que la recherche lit des mers (étude J2, § 7.3) : mers.json et
+ * mers.fr.json, sans géométrie ; aussi le fond de la couche légère.
+ */
+export interface InfosMers {
+  zones: Mer[];
+  noms: Record<string, string>;
+  alias: Record<string, string[]>;
+}
+
+/** La couche légère de l'accueil (D45 a) : mers-leger.topo.json (50 km), mers.json et mers.fr.json, sans la couche fine. */
+export interface CoucheLegere extends InfosMers {
+  mers: Entite<Mer>[];
+}
+
+/** Assemble les infos des mers (sert aussi aux tests). */
+export function assemblerInfos(textes: { mers: string; fr: string }): InfosMers {
+  const fr = JSON.parse(textes.fr) as NomsMers;
+  return { zones: (JSON.parse(textes.mers) as MerBrute[]).map(versMer), noms: fr.noms, alias: fr.alias ?? {} };
+}
+
+/** Assemble la couche légère (sert aussi aux tests). */
+export function assemblerLegere(textes: { leger: string; mers: string; fr: string }): CoucheLegere {
+  const leger = JSON.parse(textes.leger) as Topology<ObjetsMers>;
+  return { ...assemblerInfos(textes), mers: entitesMers(leger, JSON.parse(textes.mers) as MerBrute[]) };
+}
+
+/** Une promesse gardée, comme chargeurMers : lue une fois ; un échec ne reste pas en cache. */
+function uneFois<T>(f: () => Promise<T>): () => Promise<T> {
+  let enCours: Promise<T> | null = null;
+  return () => {
+    if (enCours) return enCours;
+    const p = f();
+    enCours = p;
+    p.catch(() => {
+      if (enCours === p) enCours = null;
+    });
+    return p;
+  };
+}
+
+/**
+ * Un fichier de public/geo lu une fois pour toutes les couches (mers.json et
+ * mers.fr.json servent à la fine, à la légère et à la recherche) ; un échec
+ * ne reste pas en cache.
+ */
+function lecteurUneFois(lire: (nom: string) => Promise<string>): (nom: string) => Promise<string> {
+  const lus = new Map<string, () => Promise<string>>();
+  return (nom) => {
+    let f = lus.get(nom);
+    if (!f) lus.set(nom, (f = uneFois(() => lire(nom))));
+    return f();
+  };
+}
+
+/** Ce qui a été lu, pour les rendus qui nomment une mer sans attendre (sujets.ts, explorer.ts). */
+let fine: CoucheMers | null = null;
+let legere: CoucheLegere | null = null;
+let infos: InfosMers | null = null;
+
+function chargeurs(lire: (nom: string) => Promise<string>) {
+  const l = lecteurUneFois(lire);
+  const f = chargeurMers(l);
+  return {
+    fine: () => f().then((c) => (fine = c)),
+    legere: uneFois(() =>
+      Promise.all(['mers-leger.topo.json', 'mers.json', 'mers.fr.json'].map(l)).then(([leger = '', mers = '', fr = '']) => (legere = assemblerLegere({ leger, mers, fr }))),
+    ),
+    infos: uneFois(() => Promise.all(['mers.json', 'mers.fr.json'].map(l)).then(([mers = '', fr = '']) => (infos = assemblerInfos({ mers, fr })))),
+  };
+}
+let site = chargeurs(lireGeo());
+
+/**
+ * La couche marine du site : à la demande seulement (le sujet des mers, une
+ * séance qui en a, une ligne de mer choisie dans la recherche, la carte de la
+ * mémoire des mers ; ?mers=demo, src/main.ts). Rien au premier affichage.
+ */
+export const chargerMers = (): Promise<CoucheMers> => site.fine();
+
+/**
+ * La couche légère de l'accueil (D45 a : ≈ 25 Ko au lieu de ≈ 75), au
+ * premier toucher en mer seulement : assez pour nommer la mer touchée.
+ */
+export const chargerMersLegeres = (): Promise<CoucheLegere> => site.legere();
+
+/** Les noms, alias et sortes des mers (la recherche, à la première frappe), sans géométrie. */
+export const chargerInfosMers = (): Promise<InfosMers> => site.infos();
+
+/** La couche fine, si elle a été lue (sans réseau) ; null sinon. */
+export const mersChargees = (): CoucheMers | null => fine;
+/** De quoi nommer la mer touchée à l'accueil : la couche fine si elle est lue (elle sert), sinon la légère ; null sans l'une ni l'autre. */
+export const mersPourNommer = (): (InfosMers & { mers: Entite<Mer>[] }) | null =>
+  fine ? { mers: fine.mers, zones: fine.mers.map((e) => e.pays), noms: fine.noms, alias: fine.alias } : legere;
+/** Les noms des mers, de ce qui a été lu (fine, légère ou infos) ; null si rien. */
+export const nomsMersCharges = (): Readonly<Record<string, string>> | null => fine?.noms ?? legere?.noms ?? infos?.noms ?? null;
+
+/** Tests : oublie ce qui a été lu (le prochain chargement relit), et lit par `lire` (défaut : le réseau). */
+export function oublierMers(lire: (nom: string) => Promise<string> = lireGeo()): void {
+  fine = null;
+  legere = null;
+  infos = null;
+  site = chargeurs(lire);
+}
+
+/** Les ancêtres d'une zone, en remontant parents (tous les chemins). */
+export function ancetres(id: string, mers: readonly Mer[]): Set<string> {
+  const parId = new Map(mers.map((m) => [m.id, m]));
+  const vus = new Set<string>();
+  const pile = [...(parId.get(id)?.parents ?? [])];
+  while (pile.length) {
+    const p = pile.pop() as string;
+    if (vus.has(p)) continue;
+    vus.add(p);
+    pile.push(...(parId.get(p)?.parents ?? []));
+  }
+  vus.delete(id);
+  return vus;
+}
+
+/**
+ * Les zones jamais leurres pour la question de cette zone (étude J2, § 5.4) :
+ * ses ancêtres et ses descendants en remontant ou descendant parents, quelle
+ * que soit la règle des mers intérieures (« mer Méditerranée » serait juste
+ * aussi pour l'Adriatique allumée, et l'Atlantique allumé couvre les
+ * Sargasses).
+ */
+export function parenteMer(id: string, mers: readonly Mer[]): Set<string> {
+  const res = ancetres(id, mers);
+  for (const m of mers) if (m.id !== id && ancetres(m.id, mers).has(id)) res.add(m.id);
+  return res;
+}
+
+/**
+ * Deux zones dont les noms se confondent, jamais ensemble parmi les choix :
+ * la mer d'Arabie, souvent dite « mer d'Oman », et le golfe d'Oman (étude J2,
+ * § 2.3 ; qcm.choix, option pareils).
+ */
+export const PAREILS_MERS: readonly (readonly [string, string])[] = [['arabie', 'oman']];
+export const mersPareilles = (a: string, b: string): boolean => PAREILS_MERS.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
 
 /**
  * Les zones qu'allume une marque posée sur la zone id (allumée, juste, fausse) :

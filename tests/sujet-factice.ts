@@ -40,7 +40,7 @@ export function renduFactice(): RenduSujet {
     sujet: FACTICE,
     textes: TEXTES_FACTICES,
     enonce: (id) => ({ invite: TEXTES_FACTICES.enonce, objet: { texte: `énoncé ${code(id)}` } }),
-    consigneQcm: TEXTES_FACTICES.consigne_nommer,
+    consigneQcm: () => TEXTES_FACTICES.consigne_nommer,
     choix: (id) => ({ texte: `bouton ${code(id)}` }),
     nomChoix: (id) => `choix ${code(id)}`,
     visuel: false,

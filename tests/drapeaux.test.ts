@@ -282,7 +282,7 @@ describe('rendu du sujet Drapeaux (§ 5.3)', () => {
   });
 
   it('Reconnaître : « Quel est son drapeau ? », chaque choix l’image de son pays, alt vide ; visuel', () => {
-    expect(r.consigneQcm).toBe('Quel est son drapeau ?');
+    expect(r.consigneQcm('TCD')).toBe('Quel est son drapeau ?');
     expect(r.visuel).toBe(true);
     expect(rendu('pays', D).visuel).toBe(false);
     for (const id of ['TCD', 'ROU', 'IDN', 'MCO']) {

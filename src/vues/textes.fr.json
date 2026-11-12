@@ -64,6 +64,10 @@
       "drapeaux": {
         "nom": "Drapeaux"
       },
+      "mers": {
+        "nom": "Océans et mers",
+        "court": "Mers"
+      },
       "communes": {
         "nom": "Communes"
       }
@@ -83,6 +87,11 @@
         "apprendre": "Les drapeaux des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
         "localiser": "Un drapeau est montré : touche son pays sur la carte",
         "nommer": "Un pays s'allume : choisis son drapeau parmi quatre"
+      },
+      "mers": {
+        "apprendre": "Les océans, puis les mers voisines suivantes : QCM, puis les trouver sur la carte",
+        "localiser": "Une mer est nommée : touche-la sur la carte",
+        "nommer": "Une mer s'allume : choisis son nom parmi quatre"
       },
       "communes": {
         "apprendre": "Les communes voisines suivantes : QCM, puis les trouver sur la carte"
@@ -113,7 +122,7 @@
     "admis_contestee_zone": " (zone contestée : {zone})",
     "admis_enclave": " (enclave : {zone})",
     "admis_jumeau": " (même drapeau : {zone})",
-    "admis_partie": " ({zone}, dans {cible})",
+    "admis_partie": " : {zone}, {dans}",
     "admis_capitale": " (capitale revendiquée aussi par {zone})",
     "essai_un": "{n} essai",
     "essais": "{n} essais",
@@ -285,6 +294,28 @@
         "vu_une": "vu 1 fois"
       }
     },
+    "mers": {
+      "n": "{n} océans et mers",
+      "enonce": "Touche : ",
+      "consigne_nommer": "Quelle est cette mer ?",
+      "consigne_ocean": "Quel est cet océan ?",
+      "faux_suite": "La bonne mer est en vert : touche-la.",
+      "expire": "Temps écoulé. La bonne mer est en vert.",
+      "la_mer": "hors de la carte",
+      "rate_km": "{nom} : touchée à {km} du bord",
+      "rate_trouver": "{nom} : vue ou passée",
+      "rate_oublie": "{nom} : nom oublié",
+      "tout_appris": "Tous les océans et toutes les mers sont appris.",
+      "grappe_entamee": "Les mers commencées aujourd'hui ne sont pas finies : elles passent avant.",
+      "conseil": "Les océans et mers voisins ne sont pas encore appris : {chemin}",
+      "memoire": {
+        "nom": "Mer",
+        "jamais": "jamais vue",
+        "vu": "vue {n} fois",
+        "vu_une": "vue 1 fois",
+        "maitrises": "{n}/{total} maîtrisées"
+      }
+    },
     "communes": {
       "n": "{n} communes",
       "enonce": "Touche : ",
@@ -321,6 +352,33 @@
     "alt_enonce": "Drapeau à reconnaître",
     "choix": "Choix {n}",
     "faux": "Faux · bonne réponse : {cible} · tu avais choisi : {choisi}"
+  },
+  "mers": {
+    "_dans": "Le « dans » de la rétroaction d'une partie touchée (« Juste : mer des Caraïbes, dans l'Atlantique ») : écrit à la main pour chaque zone qui a des parties ; à défaut, l'article tiré du générique (dans_defaut).",
+    "dans": {
+      "atlant": "dans l'Atlantique",
+      "pacif": "dans le Pacifique",
+      "indien": "dans l'océan Indien",
+      "arctique": "dans l'Arctique",
+      "medit": "dans la Méditerranée",
+      "noire": "dans la mer Noire",
+      "baltique": "dans la Baltique",
+      "barents": "dans la mer de Barents",
+      "chinemer": "dans la mer de Chine méridionale"
+    },
+    "dans_defaut": {
+      "le": "dans le {nom}",
+      "la": "dans la {nom}",
+      "l": "dans l'{nom}"
+    },
+    "sortes": {
+      "océan": "océan",
+      "mer": "mer",
+      "golfe": "golfe",
+      "baie": "baie",
+      "bras de mer": "bras de mer"
+    },
+    "chargement": "Chargement…"
   },
   "credits": {
     "reglages": "Fond de carte : Natural Earth ; noms : Unicode CLDR ; communes de La Réunion : IGN, ADMIN EXPRESS (Licence Ouverte 2.0).",

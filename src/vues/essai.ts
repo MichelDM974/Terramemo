@@ -25,7 +25,7 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, poserEnonce, prechargerEnonces, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, poserEnonce, prechargerEnonces, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { rendu, type RenduSujet } from './sujets';
@@ -123,7 +123,7 @@ export interface FabriqueSeances {
   ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance;
   /**
    * Charge les données qui manquent à la demande (l'île des communes, les
-   * capitales, le manifeste des drapeaux ; plus tard la couche marine) : Toucher attend la
+   * capitales, le manifeste des drapeaux, la couche marine) : Toucher attend la
    * promesse avant ouvrir(), même en échec. null, ou sans réponse : rien à charger.
    */
   charger?(d: DemandeSeance): Promise<unknown> | null;
@@ -284,7 +284,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     marques.push(m);
     if (m.point) return t.carte.anneauEn(m.point, m.classe);
     t.carte.marquer(m.id, m.classe);
-    if (m.anneau) t.carte.anneau(m.id, m.classe);
+    if (m.anneau) anneauZone(t.carte, m.id, merPosee(t.donnees, m.id), m.classe);
   }
   /** `anneau` : un anneau autour de la zone si elle est petite à l'écran (anneauSiPetite). */
   const marquer = (id: string, classe: string, anneau = false) => poser({ id, classe, anneau: anneau && estPetite(t, id) });
@@ -542,13 +542,24 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       b.addEventListener('click', () => lancerSeance({ sorte: 'revision' }));
       boutons.push(b);
     }
+    const message = creer('p', { class: 'hint' }, r.refus);
     if (s && l) {
       const b = creer('button', { type: 'button', class: r.finir || r.reviser > 0 ? 'secondary' : '', id: 'seance-trouver' }, textes.seance.trouver);
       b.addEventListener('click', () => {
-        lancement = { ...l, mode: 'localiser' };
-        mode = 'localiser';
-        const terrain = ctx.terrains.deja(s.terrain) ?? ctx.terrains.monde;
-        demarrer(s, terrain, idsSerie(s, terrain));
+        const partir = () => {
+          lancement = { ...l, mode: 'localiser' };
+          mode = 'localiser';
+          const terrain = ctx.terrains.deja(s.terrain) ?? ctx.terrains.monde;
+          demarrer(s, terrain, idsSerie(s, terrain));
+        };
+        // Les données du sujet d'abord (une séance refusée hors ligne ne les a pas : la couche marine, les capitales) ; jamais une partie à vide.
+        const p = chargementSujet(l.sujet, ctx);
+        if (!p) return partir();
+        b.disabled = true;
+        p.then(partir, () => {
+          b.disabled = false;
+          message.textContent = T.echec_sujet;
+        });
       });
       boutons.push(b);
     }
@@ -562,7 +573,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     bilan.replaceChildren(
       ...croixBilan(),
       creer('h2', {}, s ? remplir(textes.seance.titre_apprendre, { serie: nomSerie(s.id) }) : textes.seance.titre_revision),
-      creer('p', { class: 'hint' }, r.refus),
+      message,
       creer('div', { class: 'essai-actions' }, ...boutons),
     );
     bilan.hidden = false;

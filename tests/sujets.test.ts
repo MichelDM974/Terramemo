@@ -19,7 +19,7 @@ describe('rendu par sujet', () => {
       expect(r.sujet).toBe(sujet);
       expect(r.textes).toBe(ts);
       expect(r.enonce('FRA')).toEqual({ invite: 'Touche : ', objet: { texte: 'France' } });
-      expect(r.consigneQcm).toBe(ts.consigne_nommer);
+      expect(r.consigneQcm('FRA')).toBe(ts.consigne_nommer);
       expect(r.choix('97407')).toEqual({ texte: 'Le Port' });
       expect(r.nomChoix('FRA')).toBe('France');
       expect(r.revelation('FRA')).toEqual({ texte: 'France' });
@@ -35,8 +35,8 @@ describe('rendu par sujet', () => {
   });
 
   it('les textes d’avant, mot pour mot', () => {
-    expect(rendu('pays', { noms }).consigneQcm).toBe('Quel est ce pays ?');
-    expect(rendu('communes', { noms }).consigneQcm).toBe('Quelle est cette commune ?');
+    expect(rendu('pays', { noms }).consigneQcm('FRA')).toBe('Quel est ce pays ?');
+    expect(rendu('communes', { noms }).consigneQcm('97407')).toBe('Quelle est cette commune ?');
     expect(rendu('pays', { noms }).fauxSuite('FRA')).toBe('Le bon pays est en vert : touche-le.');
     // Sans « +0 » depuis le barème 2 (décision « Barème et classements ») : le temps écoulé est une erreur, sans points.
     expect(rendu('communes', { noms }).expire('97407')).toBe('Temps écoulé. La bonne commune est en vert.');
@@ -49,16 +49,19 @@ describe('rendu par sujet', () => {
   it('chaque sujet de Jouer et chaque domaine jouable a son rendu ; un sujet sans rendu lève, plutôt que d’afficher un pays', () => {
     for (const s of SUJETS) expect(estSujetRendu(s.id), s.id).toBe(true);
     for (const d of DOMAINES_JOUABLES) expect(estSujetRendu(d), d).toBe(true);
-    expect(Object.keys(textes.sujets)).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(Object.keys(textes.sujets)).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     // Le sujet factice des tests n'existe pas dans le code livré.
     expect(estSujetRendu('factice')).toBe(false);
     expect(estSujetRendu('toString')).toBe(false);
-    expect(() => rendu('mers', { noms })).toThrow(/sujet sans rendu/);
+    expect(() => rendu('quiz', { noms })).toThrow(/sujet sans rendu/);
+    // Les mers sans leur couche : de même, jamais l'id brut (« medit ») à la place de leur nom.
+    expect(() => rendu('mers', { noms })).toThrow(/mers : couche pas chargée/);
     // Les capitales sans leurs données : une erreur, jamais un pays ni un Qid à leur place.
     expect(() => rendu('capitales', { noms })).toThrow(/capitales : données pas chargées/);
     // Les drapeaux sans leur manifeste : de même, jamais un pays à la place de son drapeau.
     expect(() => rendu('drapeaux', { noms })).toThrow(/drapeaux : manifeste pas chargé/);
-    expect(() => compteSerie('mers', 50)).toThrow(/sujet sans rendu/);
+    expect(compteSerie('mers', 50)).toBe('50 océans et mers');
+    expect(() => compteSerie('quiz', 20)).toThrow(/sujet sans rendu/);
     expect(SUJET_CARTE).toEqual({ monde: 'pays', reunion: 'communes' });
   });
 

@@ -13,7 +13,7 @@ import { anneauPrincipal, empriseEcran, versEcran, type Emprise } from '../map/g
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
-import { ANNEAU_SOUS_PX, creer, fmtS, poserContenu, prechargerSujet, type ContexteVue } from './commun';
+import { ANNEAU_SOUS_PX, anneauZone, creer, fmtS, poserContenu, prechargerSujet, zonesDuSujet, type ContexteVue } from './commun';
 import { choix, doitCadrer, NB_CHOIX, PartieNommer } from './qcm';
 import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -30,7 +30,9 @@ const PAUSE_FAUX_MS = 1800;
  * sur la vue où la carte s'arrêtera (contexteFinal) : répondue en moins d'une
  * seconde, la question précédente laisse son vol en cours, et la vue en plein
  * vol (reculée, ou pas encore arrivée) disait à tort la zone suivante visible
- * ou cachée. l × hVisible : la carte jusqu'au haut de la barre.
+ * ou cachée. l × hVisible : la carte jusqu'au haut de la barre. `contour` :
+ * le bord de ce qu'il faut voir entier, au lieu du polygone principal (une
+ * mer : son emprise, empriseMer ; zonesDuSujet).
  */
 export function cadrageNommer(
   carte: Pick<CarteAffichee, 'contexteFinal'>,
@@ -38,6 +40,7 @@ export function cadrageNommer(
   forme: Forme | undefined,
   l: number,
   hVisible: number,
+  contour?: readonly (readonly number[])[],
 ): { vole: boolean; taille: number } {
   const c = carte.contexteFinal();
   const ecran = (ll: [number, number]): [number, number] | null => {
@@ -45,8 +48,8 @@ export function cadrageNommer(
     return b ? versEcran(c.t, b[0], b[1]) : null;
   };
   const taille = tailleEcranPx(lieu, c.proj.scale(), c.t.k);
-  // L'emprise du polygone principal (la Sicile comprise, la Guyane non).
-  const emprise = forme ? empriseEcran(anneauPrincipal(forme, lieu.point), ecran) : null;
+  // L'emprise du polygone principal (la Sicile comprise, la Guyane non) ; celle d'une mer entière.
+  const emprise = contour ? empriseEcran(contour, ecran) : forme ? empriseEcran(anneauPrincipal(forme, lieu.point), ecran) : null;
   return { vole: doitCadrer(ecran(lieu.point), taille, l, hVisible, emprise), taille };
 }
 
@@ -91,21 +94,30 @@ export interface CrochetsNommer {
  * suite de la partie zoomée. Jugé sur l'arrivée d'un vol en cours
  * (cadrageNommer) : s'il n'y a pas à voler, il continue jusqu'à elle ;
  * sinon le nouveau vol part d'où il en est. Rend vrai si la zone est petite
- * (anneau posé).
+ * (anneau posé). Une mer allumée (un océan avec la mer qu'il enclave sans
+ * côte) se juge sur son emprise entière (`contour`, zonesDuSujet).
  */
-export function allumerZone(carte: Terrain['carte'], id: string, lieu: Lieu | undefined, forme: Forme | undefined, barre: HTMLElement, local: boolean): boolean {
+export function allumerZone(
+  carte: Terrain['carte'],
+  id: string,
+  lieu: Lieu | undefined,
+  forme: Forme | undefined,
+  barre: HTMLElement,
+  local: boolean,
+  contour?: readonly (readonly number[])[],
+): boolean {
   carte.effacerMarques();
   carte.marquer(id, 'choisi');
   const r = carte.hote.getBoundingClientRect();
   const haut = barre.getBoundingClientRect().top - r.top;
-  const cadrer = () => (lieu ? cadrageNommer(carte, lieu, forme, r.width, haut) : { vole: true, taille: 0 });
+  const cadrer = () => (lieu ? cadrageNommer(carte, lieu, forme, r.width, haut, contour) : { vole: true, taille: 0 });
   let c = cadrer();
   if (c.vole && local && carte.contexteFinal().t.k !== 1) {
     carte.zoomer({ k: 1, x: 0, y: 0 });
     c = cadrer();
   }
   const petite = c.taille < ANNEAU_SOUS_PX;
-  if (petite) carte.anneau(id, 'choisi');
+  if (petite) anneauZone(carte, id, lieu, 'choisi');
   if (c.vole) carte.montrer(id, haut);
   return petite;
 }
@@ -157,6 +169,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   let n = 0;
   let lieux = new Map<string, Lieu>();
   let formes = new Map<string, Forme>();
+  let contours = new Map<string, [number, number][]>();
   let jouables = new Set<string>();
   /** Les choix tirés pour chaque question de la partie : les mêmes au retour dans la vue (et ceux de la suivante, tirés d'avance pour précharger ses images). */
   let tires = new Map<string, string[]>();
@@ -172,14 +185,15 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   }
 
   function allumer(carte: Terrain['carte'], id: string, local: boolean): void {
-    petite = allumerZone(carte, id, lieux.get(id), formes.get(id), barre, local);
+    petite = allumerZone(carte, id, lieux.get(id), formes.get(id), barre, local, contours.get(id));
   }
 
   /** Les choix de la question de ce lieu, tirés une fois par partie. */
   function choixDe(r: RenduSujet, id: string): string[] {
     let c = tires.get(id);
     // Les leurres du sujet (étude J2 § 5.1) : jamais un exclu (D37 c, Israël ↔ Palestine sous Capitales ; le jumeau
-    // d'un drapeau), jamais deux lieux pareils ensemble (deux jumeaux, D41 d).
+    // d'un drapeau ; un ancêtre ou un descendant d'une mer), jamais deux lieux pareils ensemble (deux jumeaux, D41 d ;
+    // la mer d'Arabie et le golfe d'Oman). Pour une mer, ses voisins marins d'abord (Mer.voisins).
     if (!c) tires.set(id, (c = choix(id, lieux, jouables, Math.random, { exclus: r.qcmExclus(id), pareils: r.qcmPareils })));
     return c;
   }
@@ -191,7 +205,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     if (id === undefined) return finir();
     choixCourants = choixDe(rs, id);
     const r = rs;
-    consigne.textContent = r.consigneQcm;
+    consigne.textContent = r.consigneQcm(id);
     consigne.dataset.cible = id;
     compte.textContent = crochets.compte?.() ?? `${partie.numero} / ${n}`;
     connu.hidden = !crochets.connu;
@@ -238,7 +252,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     const carte = t.carte;
     carte.effacerMarques();
     carte.marquer(id, 'juste');
-    if (petite) carte.anneau(id, 'juste');
+    if (petite) anneauZone(carte, id, lieux.get(id), 'juste');
     // La ville de la bonne réponse, d'un anneau (D53 c : la capitale, en Entraînement) ; rien pour un pays.
     const point = rs.point(id);
     if (point) carte.anneauEn(point, 'juste');
@@ -331,10 +345,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       crochets = c;
       serie = nomSerie;
       n = cibles.length;
-      // Les leurres viennent de tout le terrain, pas de la série (qcm.ts).
-      lieux = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.pays]));
-      formes = new Map(terrain.donnees.entites.map((e) => [e.pays.id, e.forme]));
-      jouables = new Set(terrain.jouables);
+      // Les leurres viennent de tout le terrain, pas de la série (qcm.ts) ; pour les mers, de toutes ses zones marines.
+      ({ lieux, formes, jouables, contours } = zonesDuSujet(sujet, terrain));
       partie = new PartieNommer(cibles);
       tires = new Map();
       o.bilan.hidden = true;

@@ -37,12 +37,24 @@
 // boutons ont leur aria-label « Choix 1 » à « Choix 4 », nommer.ts), fichiers
 // nommés par leur empreinte. Les jumeaux (Indonésie et Monaco, Roumanie et
 // Tchad, D41 d) : justes en plus en Trouver, jamais leurres l'un de l'autre,
-// jamais ensemble parmi 4 choix. Viendront à leur lot : les mers (« mer Égée,
-// à 300 km » au bilan).
+// jamais ensemble parmi 4 choix.
+//
+// Océans et mers (§ 5.4, lot 3b) : « Touche : mer Égée » ; une zone allumée
+// (zonesAllumees : un océan avec la mer qu'il enclave sans côte, jamais ses
+// mers côtières), « Quelle est cette mer ? » (« Quel est cet océan ? » pour
+// un océan allumé), quatre noms ; « Révéler » donne le nom. Leurres : les
+// voisins marins, puis les plus proches, jamais un ancêtre ni un descendant
+// (« mer Méditerranée » serait juste aussi pour l'Adriatique allumée), jamais
+// la mer d'Arabie et le golfe d'Oman ensemble. Les parties d'une mer
+// (zonesParties) sont justes en plus, et la rétroaction le dit : « Juste :
+// mer des Caraïbes, dans l'Atlantique ». Ce qu'on a touché est nommé, une
+// autre mer (« Faux : mer Noire, à 0 km du bord ») ou un pays, jamais « la
+// mer ». Noms : mers.fr.json, jamais l'id (« medit »).
 import type { SorteAdmise } from '../map/acceptes';
 import { ADMET_EN_PLUS, capitalesChargees, type Capitale, type DonneesCapitales } from '../map/capitales';
 import { drapeauxCharges, type DonneesDrapeaux } from '../map/drapeaux';
-import type { NomTerrain } from '../map/types';
+import { mersChargees, mersPareilles, nomsMersCharges, parenteMer, zonesParties } from '../map/mers';
+import type { Entite, Mer, NomTerrain } from '../map/types';
 import { nommerPose, SANS_NOMMER, type Sens } from '../srs/fiches';
 import { remplir, textes, type Textes } from './textes';
 
@@ -81,8 +93,8 @@ export interface RenduSujet {
   readonly textes: TextesSujet;
   /** L'énoncé de Trouver et des épreuves : ce que montre la barre (« Touche : Monaco »). */
   enonce(id: string): Enonce;
-  /** La consigne de Reconnaître et de la carte retournée, la zone allumée (« Quel est ce pays ? »). */
-  readonly consigneQcm: string;
+  /** La consigne de Reconnaître et de la carte retournée, la zone `id` allumée (« Quel est ce pays ? », « Quel est cet océan ? »). */
+  consigneQcm(id: string): string;
   /**
    * Le contenu du bouton de ce lieu dans Reconnaître ; `question` : le lieu
    * demandé, quand ce bouton est un leurre (une capitale leurre montre la
@@ -135,7 +147,8 @@ export interface RenduSujet {
    * Les zones (entités du terrain) justes en plus pour la question de ce
    * lieu, selon ce qu'elle montre, et leur sorte (OptionsNoter.acceptes) :
    * Jérusalem ↔ Jérusalem-Est sous Capitales (D36 i), les jumeaux sous
-   * Drapeaux (D41 d : Monaco pour l'Indonésie) ; null sans zone.
+   * Drapeaux (D41 d : Monaco pour l'Indonésie), les parties d'une mer sous
+   * Mers (D43 : la mer des Caraïbes pour l'Atlantique) ; null sans zone.
    */
   admisEnPlus(id: string): { zones: readonly string[]; sorte: SorteAdmise } | null;
 }
@@ -149,6 +162,10 @@ export interface DonneesSujet {
   noms: Readonly<Record<string, string>>;
   capitales?: DonneesCapitales | null;
   drapeaux?: DonneesDrapeaux | null;
+  /** Les zones marines posées sur la carte du terrain (DonneesCarte.mers) ; à défaut, celles de la couche lue (mersChargees). */
+  mers?: readonly Entite<Mer>[];
+  /** Les noms des mers (mers.fr.json) ; à défaut, ceux déjà lus (nomsMersCharges). */
+  nomsMers?: Readonly<Record<string, string>> | null;
 }
 
 /**
@@ -214,7 +231,7 @@ const parNom: Fabrique = (ts, d) => {
   const nom = (id: string) => nomDe(d, id);
   return {
     enonce: (id) => ({ invite: ts.enonce, objet: { texte: nom(id) } }),
-    consigneQcm: ts.consigne_nommer,
+    consigneQcm: () => ts.consigne_nommer,
     choix: (id) => ({ texte: nom(id) }),
     nomChoix: nom,
     revelation: (id) => ({ texte: nom(id) }),
@@ -259,7 +276,7 @@ const parCapitale: Fabrique = (ts, d, o) => {
     role(c) ? remplir(C.avec_role, { ville: c.nom, role: role(c), pays: pays(id) }) : remplir(C.avec_pays, { ville: c.nom, pays: pays(id) });
   return {
     enonce: (id) => ({ invite: ts.enonce, objet: { texte: ville(id) }, deuxLignes: true }),
-    consigneQcm: ts.consigne_nommer,
+    consigneQcm: () => ts.consigne_nommer,
     choix: (id, question) => ({ texte: bouton(id, question) }),
     nomChoix: bouton,
     revelation: (id) => ({
@@ -326,7 +343,7 @@ const parDrapeau: Fabrique = (ts, d, o) => {
   return {
     enonce: (id) => ({ invite: ts.enonce, objet: image(id, D.alt_enonce, undefined, aEnonce(id)) }),
     imageEnonce: aEnonce,
-    consigneQcm: ts.consigne_nommer,
+    consigneQcm: () => ts.consigne_nommer,
     // Un alt vide : le bouton a son nom, « Choix 1 » (nommer.ts) ; rien d'autre ne doit le nommer avant la réponse.
     choix: (id) => image(id, ''),
     nomChoix: pays,
@@ -350,8 +367,60 @@ const parDrapeau: Fabrique = (ts, d, o) => {
   };
 };
 
+const TM = textes.mers;
+/** Ses textes propres (la consigne d'un océan allumé), en plus de ceux de tout sujet. */
+const TS_MERS = textes.sujets.mers;
+
+/**
+ * « dans l'Atlantique », « dans la mer Noire » : la zone `id` (nommée `nom`)
+ * qui contient une partie touchée (Note.admis, sorte partie). Écrit à la main
+ * pour les zones qui ont des parties (textes.mers.dans) ; à défaut, l'article
+ * du générique (« océan » : l', « golfe », « canal » : le, sinon la).
+ */
+export function dansZone(id: string, nom: string): string {
+  const ecrit = (TM.dans as Readonly<Record<string, string>>)[id];
+  if (ecrit) return ecrit;
+  const premier = nom.split(' ')[0]?.toLowerCase() ?? '';
+  const article = /^[aeiouyéèêâîôûh]/.test(premier) ? 'l' : premier === 'golfe' || premier === 'canal' ? 'le' : 'la';
+  return remplir(TM.dans_defaut[article], { nom });
+}
+
+/**
+ * Océans et mers (étude J2 § 5.4) : la cible est la zone marine, nommée par
+ * mers.fr.json. Lève si la couche n'est pas lue (une partie de mers ne part
+ * qu'après elle : commun.ts avecSujet, la séance). Ce qu'on a touché est
+ * nommé, une mer comme un pays (les noms des pays : d.noms, ceux du monde).
+ */
+const parMer: Fabrique = (ts, d) => {
+  const noms = d.nomsMers ?? nomsMersCharges();
+  const zones = (d.mers?.length ? d.mers : (mersChargees()?.mers ?? [])).map((e) => e.pays);
+  if (!noms || !zones.length) throw new Error('mers : couche pas chargée');
+  const parId = new Map(zones.map((m) => [m.id, m]));
+  // Une mer par mers.fr.json, un pays (touché) par les noms du monde ; l'id brut jamais, sauf une zone inconnue des deux.
+  const nom = (id: string) => noms[id] ?? nomDe(d, id);
+  return {
+    enonce: (id) => ({ invite: ts.enonce, objet: { texte: nom(id) } }),
+    consigneQcm: (id) => (parId.get(id)?.sorte === 'océan' ? TS_MERS.consigne_ocean : ts.consigne_nommer),
+    choix: (id) => ({ texte: nom(id) }),
+    nomChoix: nom,
+    revelation: (id) => ({ texte: nom(id) }),
+    nomBilan: (id) => nom(id),
+    lieu: nom,
+    // Une autre mer, ou le pays touché ; null : rien sous le doigt (hors de la carte), jamais « la mer ».
+    touche: (id) => (id ? nom(id) : ts.la_mer),
+    fauxSuite: () => ts.faux_suite,
+    expire: () => ts.expire,
+    ...SANS_PLUS,
+    qcmExclus: (id) => parenteMer(id, zones),
+    qcmPareils: mersPareilles,
+    admisEnPlus: (id) => {
+      const parties = zonesParties(id, zones);
+      return parties.length ? { zones: parties, sorte: 'partie' } : null;
+    },
+  };
+};
 /** Le rendu de chaque sujet : un sujet qui a ses textes a son rendu, sinon le build ne compile pas. */
-const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, capitales: parCapitale, drapeaux: parDrapeau, communes: parNom };
+const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, capitales: parCapitale, drapeaux: parDrapeau, mers: parMer, communes: parNom };
 
 /** Le sujet a-t-il son rendu (ses textes) ? */
 export const estSujetRendu = (s: string): s is SujetRendu => Object.keys(FABRIQUES).includes(s);

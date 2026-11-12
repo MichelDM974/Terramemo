@@ -179,9 +179,9 @@ describe('séries de l’île et textes des terrains', () => {
     expect(texteAdmis(d, 'JPN', { zone: 'NE_B29', tenant: 'JPN', sorte: 'contestee' })).toBe('');
     expect(texteAdmis(d, 'FRA', null)).toBe('');
     for (const k of ['admis_contestee', 'admis_contestee_zone', 'admis_enclave'] as const) expect(textes.toucher[k]).toBeTruthy();
-    // Les sortes qu'un sujet passera en plus (étude J2 § 2.2), que rien ne produit encore : dites par le même rendu.
+    // Les sortes qu'un sujet passe en plus (étude J2 § 2.2) : dites par le même rendu. La partie d'une mer (« : mer des
+    // Caraïbes, dans l'Atlantique ») : tests/mers-sujet.test.ts.
     expect(texteAdmis(d, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau : Monaco)');
-    expect(texteAdmis(d, 'FRA', { zone: 'MCO', tenant: 'FRA', sorte: 'partie' })).toBe(' (Monaco, dans France)');
   });
 
   it('fmtKm : une décimale sous 10 km, l’entier au-delà', () => {
