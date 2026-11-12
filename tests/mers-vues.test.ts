@@ -277,3 +277,86 @@ describe('une épreuve des mers (vues/chrono.ts : le chemin de rendu de Trouver,
     sansBrut(bilan!.innerText, IDS_MERS);
   });
 });
+
+describe('Apprendre Océans et mers refusé hors ligne, puis « Trouver » (essai.ts refuser) : la couche lue et posée avant la partie', () => {
+  /** Chaque fichier de la couche attend `ouvrir()` ; `fermer()` le fait échouer. */
+  function lecteurDiffere() {
+    let ouvrir: () => void = () => undefined;
+    let fermer: () => void = () => undefined;
+    const porte = new Promise<void>((ok, ko) => ((ouvrir = ok), (fermer = () => ko(new Error('hors ligne')))));
+    porte.catch(() => undefined);
+    const lire = vi.fn(async (f: string) => (await porte, readFileSync(`public/geo/${f}`, 'utf8')));
+    return { lire, ouvrir: () => ouvrir(), fermer: () => fermer() };
+  }
+  /** Le monde sans mers ; prendreMers les pose (donnees.mers) ; la séance refusée comme hors ligne. */
+  function refusee() {
+    const l = lecteurDiffere();
+    oublierMers(l.lire);
+    const m = monde();
+    const d = m.t.donnees as { mers: CoucheMers['mers'] };
+    d.mers = [];
+    const prendreMers = vi.fn((c: CoucheMers) => void (d.mers = c.mers));
+    Object.assign(m.t.carte, { prendreMers });
+    const versCarte = vi.fn();
+    const v = vueEssai(m.ctx, { versJouer: vi.fn(), versCarte, seances: { ouvrir: vi.fn(() => ({ refus: textes.toucher.echec_sujet, reviser: 0 })) } as never });
+    v.activer();
+    v.lancer({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'apprendre' }, serieMers(), m.t as never, [...IDS_MERS]);
+    const el = (s: string) => m.zone.querySelector(s) as El;
+    expect(el('#essai-bilan').hidden).toBe(false);
+    return { ...m, ...l, v, el, d, prendreMers, versCarte };
+  }
+  const attendre = async () => {
+    for (let k = 0; k < 20; k++) await Promise.resolve();
+  };
+  afterEach(async () => {
+    oublierMers(async (f) => readFileSync(`public/geo/${f}`, 'utf8'));
+    await chargerMers();
+  });
+
+  it('« Trouver » attend la couche (bouton désactivé, aucune partie), la pose, puis lance une partie de mers nommée', async () => {
+    const p = refusee();
+    p.el('#seance-trouver').click();
+    expect(p.el('#seance-trouver').disabled).toBe(true);
+    expect(p.el('#barre-essai').hidden).toBe(true);
+    p.ouvrir();
+    await vi.waitFor(() => expect(p.prendreMers).toHaveBeenCalledTimes(1));
+    await attendre();
+    expect(p.d.mers).toHaveLength(50);
+    expect(p.el('#barre-essai').hidden).toBe(false);
+    const consigne = p.el('#barre-essai .essai-consigne');
+    expect(consigne.textContent).toBe(`Touche : ${nom(consigne.dataset.cible as string)}`);
+  });
+
+  it('hors ligne : le message des données du sujet, le bouton rendu, aucune partie', async () => {
+    const p = refusee();
+    p.el('#seance-trouver').click();
+    p.fermer();
+    await attendre();
+    expect(p.el('#essai-bilan').innerText).toContain(textes.toucher.echec_sujet);
+    expect(p.el('#seance-trouver').disabled).toBe(false);
+    expect(p.el('#barre-essai').hidden).toBe(true);
+    expect(p.prendreMers).not.toHaveBeenCalled();
+  });
+
+  it('le bilan fermé (×) ou la vue quittée pendant le chargement : la couche arrive, aucune partie ne démarre', async () => {
+    for (const partir of ['croix', 'quitter'] as const) {
+      const p = refusee();
+      p.el('#seance-trouver').click();
+      if (partir === 'croix') p.el('#essai-bilan .croix').click();
+      else p.v.desactiver();
+      p.ouvrir();
+      await vi.waitFor(() => expect(p.prendreMers).toHaveBeenCalledTimes(1));
+      await attendre();
+      expect(p.el('#barre-essai').hidden, partir).toBe(true);
+      expect(p.v.aMontrer?.(), partir).toBe(partir === 'quitter');
+      if (partir === 'quitter') {
+        // Au retour : le refus remontré, « Trouver » rendu ; la couche là, la partie part tout de suite.
+        p.v.activer();
+        expect(p.el('#barre-essai').hidden).toBe(true);
+        expect(p.el('#seance-trouver').disabled).toBe(false);
+        p.el('#seance-trouver').click();
+        expect(p.el('#barre-essai').hidden).toBe(false);
+      } else expect(p.versCarte).toHaveBeenCalledTimes(1);
+    }
+  });
+});

@@ -556,10 +556,18 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         const p = chargementSujet(l.sujet, ctx);
         if (!p) return partir();
         b.disabled = true;
-        p.then(partir, () => {
-          b.disabled = false;
-          message.textContent = T.echec_sujet;
-        });
+        // Arrivées après le bilan fermé (×, « Autre série » : jetonSeance) ou la vue quittée (bilan caché) : pas de partie ; le bouton rendu pour le retour.
+        const j = jetonSeance;
+        p.then(
+          () => {
+            b.disabled = false;
+            if (j === jetonSeance && !bilan.hidden) partir();
+          },
+          () => {
+            b.disabled = false;
+            message.textContent = T.echec_sujet;
+          },
+        );
       });
       boutons.push(b);
     }
