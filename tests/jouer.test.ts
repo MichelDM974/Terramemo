@@ -897,6 +897,15 @@ describe('la vue Jouer : le sujet Océans et mers', () => {
     expect(mersChargees()).toBeNull();
   });
 
+  it('l’arbre créé au démarrage (creerArbre, serieMers) ne lit rien de mers* : le réseau espionné avant sa création', async () => {
+    const neuf = creerArbre(CATALOGUE);
+    expect(neuf.series('mers').map((x) => x.n)).toEqual([50]);
+    expect(neuf.choix({ type: 'series', branche: 'entrainement', sujet: 'mers' })).toEqual(['mers']);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(demandes).toEqual([]);
+    expect(mersChargees()).toBeNull();
+  });
+
   it('chargement puis lancement : « Chargement… », boutons désactivés, la couche lue puis posée sur la carte, puis la partie part sur ses 50 zones ; la seconde fois, tout de suite', async () => {
     const j = monter();
     j.ouvrir('entrainement', 'mers', 'mers');
