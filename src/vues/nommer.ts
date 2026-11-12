@@ -193,8 +193,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     let c = tires.get(id);
     // Les leurres du sujet (étude J2 § 5.1) : jamais un exclu (D37 c, Israël ↔ Palestine sous Capitales ; le jumeau
     // d'un drapeau ; un ancêtre ou un descendant d'une mer), jamais deux lieux pareils ensemble (deux jumeaux, D41 d ;
-    // la mer d'Arabie et le golfe d'Oman). Pour une mer, ses voisins marins d'abord (Mer.voisins).
-    if (!c) tires.set(id, (c = choix(id, lieux, jouables, Math.random, { exclus: r.qcmExclus(id), pareils: r.qcmPareils })));
+    // la mer d'Arabie et le golfe d'Oman). Pour une mer, ses voisins marins d'abord (Mer.voisins) ; pour un océan, les autres océans.
+    if (!c) tires.set(id, (c = choix(id, lieux, jouables, Math.random, { exclus: r.qcmExclus(id), pareils: r.qcmPareils, strategie: r.qcmLeurres(id) })));
     return c;
   }
 

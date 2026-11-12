@@ -450,7 +450,10 @@ describe('leurres des drapeaux (qcm.choix)', () => {
   });
 
   it('les sosies ne servent pas en Entraînement : Reconnaître et Apprendre tirent avec la stratégie par défaut', () => {
+    // Nommer ne prend que la stratégie du rendu (les autres océans pour un océan allumé) : celle des drapeaux est la défaut.
     const src = readFileSync('src/vues/nommer.ts', 'utf8');
-    expect(src).not.toMatch(/leurresSosies|sosiesDrapeau|strategie/);
+    expect(src).not.toMatch(/leurresSosies|sosiesDrapeau/);
+    expect(readFileSync('src/vues/sujets.ts', 'utf8')).not.toMatch(/leurresSosies|sosiesDrapeau/);
+    for (const id of ['FRA', 'IDN', 'MLI']) expect(rendu('drapeaux', D).qcmLeurres(id)).toBeUndefined();
   });
 });

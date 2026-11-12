@@ -56,6 +56,7 @@ import { drapeauxCharges, type DonneesDrapeaux } from '../map/drapeaux';
 import { mersChargees, mersPareilles, nomsMersCharges, parenteMer, zonesParties } from '../map/mers';
 import type { Entite, Mer, NomTerrain } from '../map/types';
 import { nommerPose, SANS_NOMMER, type Sens } from '../srs/fiches';
+import { leurresParmi, type StrategieLeurres } from './qcm';
 import { remplir, textes, type Textes } from './textes';
 
 /** Les sujets qui ont leur rendu : ceux qui ont leurs textes (textes.sujets). */
@@ -144,6 +145,13 @@ export interface RenduSujet {
   /** Deux lieux qui montrent la même chose, jamais ensemble parmi les choix (les jumeaux d'un drapeau ; qcm.choix, option pareils). */
   qcmPareils(a: string, b: string): boolean;
   /**
+   * Les leurres de la question de ce lieu (qcm.choix, option strategie) ;
+   * undefined : ceux de l'Entraînement (ses voisins, puis les plus proches).
+   * Un océan allumé : les autres océans (« Quel est cet océan ? » n'offre que
+   * des océans).
+   */
+  qcmLeurres(id: string): StrategieLeurres | undefined;
+  /**
    * Les zones (entités du terrain) justes en plus pour la question de ce
    * lieu, selon ce qu'elle montre, et leur sorte (OptionsNoter.acceptes) :
    * Jérusalem ↔ Jérusalem-Est sous Capitales (D36 i), les jumeaux sous
@@ -223,6 +231,7 @@ const SANS_PLUS = {
   qcmPosable: () => true,
   qcmExclus: () => new Set<string>(),
   qcmPareils: () => false,
+  qcmLeurres: () => undefined,
   admisEnPlus: () => null,
 } satisfies Partial<RenduSujet>;
 
@@ -303,6 +312,7 @@ const parCapitale: Fabrique = (ts, d, o) => {
     // Les 9 au nom de leur capitale (D37 c) et le pays de x (Israël ↔ Palestine) : jamais leurres.
     qcmExclus: (id) => new Set([...(SANS_NOMMER.capitales ?? []), ...(de(id)?.sansLeurre ?? [])]),
     qcmPareils: () => false,
+    qcmLeurres: () => undefined,
     admisEnPlus: (id) => {
       const c = montree(id);
       const zones = c ? (ADMET_EN_PLUS[c.q] ?? []) : [];
@@ -363,6 +373,7 @@ const parDrapeau: Fabrique = (ts, d, o) => {
     qcmPosable: (id) => !!de(id),
     qcmExclus: (id) => new Set(jumeaux(id)),
     qcmPareils: (a, b) => jumeaux(a).includes(b),
+    qcmLeurres: () => undefined,
     admisEnPlus: (id) => (jumeaux(id).length ? { zones: jumeaux(id), sorte: 'jumeau' } : null),
   };
 };
@@ -396,6 +407,7 @@ const parMer: Fabrique = (ts, d) => {
   const zones = (d.mers?.length ? d.mers : (mersChargees()?.mers ?? [])).map((e) => e.pays);
   if (!noms || !zones.length) throw new Error('mers : couche pas chargée');
   const parId = new Map(zones.map((m) => [m.id, m]));
+  const oceans = zones.filter((m) => m.sorte === 'océan').map((m) => m.id);
   // Une mer par mers.fr.json, un pays (touché) par les noms du monde ; l'id brut jamais, sauf une zone inconnue des deux.
   const nom = (id: string) => noms[id] ?? nomDe(d, id);
   return {
@@ -413,6 +425,8 @@ const parMer: Fabrique = (ts, d) => {
     ...SANS_PLUS,
     qcmExclus: (id) => parenteMer(id, zones),
     qcmPareils: mersPareilles,
+    // « Quel est cet océan ? » : les quatre autres océans, jamais une mer (sinon deux choix faux d'office).
+    qcmLeurres: (id) => (parId.get(id)?.sorte === 'océan' ? [leurresParmi(() => oceans.filter((o) => o !== id))] : undefined),
     admisEnPlus: (id) => {
       const parties = zonesParties(id, zones);
       return parties.length ? { zones: parties, sorte: 'partie' } : null;

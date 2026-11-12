@@ -57,6 +57,7 @@ export function renduFactice(): RenduSujet {
     qcmPosable: () => true,
     qcmExclus: () => new Set(),
     qcmPareils: () => false,
+    qcmLeurres: () => undefined,
     admisEnPlus: () => null,
   };
 }

@@ -156,6 +156,22 @@ describe('Trouver sous Océans et mers', () => {
     expect(bilan.innerText).toContain('mer Adriatique : tu as choisi ');
     sansBrut(bilan.innerText, IDS_MERS);
   });
+
+  it('un océan allumé (« Quel est cet océan ? ») : ses trois leurres sont des océans, jamais une mer (l’Arctique sans la mer de Béring)', () => {
+    const oceans = couche.mers.filter((e) => e.pays.sorte === 'océan').map((e) => e.pays.id);
+    expect(oceans).toHaveLength(5);
+    const p = lancer(oceans, 'nommer');
+    const barre = p.el('#barre-nommer');
+    for (let q = 0; q < oceans.length; q++) {
+      const cible = barre.querySelector('.essai-consigne')!.dataset.cible as string;
+      expect(barre.querySelector('.essai-consigne')!.textContent).toBe('Quel est cet océan ?');
+      const ids = barre.querySelectorAll('.nommer-choix').map((b) => b.dataset.id as string);
+      expect(ids).toHaveLength(4);
+      for (const x of ids) expect(oceans, `${cible} : ${x}`).toContain(x);
+      barre.querySelectorAll('.nommer-choix').find((b) => b.dataset.id === cible)!.click();
+      vi.advanceTimersByTime(2000);
+    }
+  });
 });
 
 describe('une épreuve des mers (vues/chrono.ts : le chemin de rendu de Trouver, prêt pour la partie B)', () => {
