@@ -28,7 +28,7 @@ vi.mock('../src/vues/classement', () => ({
 }));
 vi.mock('../src/vues/sujets', async (orig) => (await import('./sujet-factice')).avecFactice(await orig()));
 
-const { vueChrono } = await import('../src/vues/chrono');
+const { ANNONCE_MS, vueChrono } = await import('../src/vues/chrono');
 const { remplir, textes } = await import('../src/vues/textes');
 const { catalogue } = await import('../src/vues/cibles');
 const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
@@ -693,6 +693,9 @@ describe('le sujet Drapeaux en épreuve', () => {
       expect(p.barre().hidden).toBe(false);
       expect(p.chargement().hidden).toBe(false);
       expect(p.chargement().getAttribute('aria-live')).toBe('polite');
+      // La région polie apparaît vide, son texte suit (ANNONCE_MS) : sinon un lecteur d'écran ne le lirait pas.
+      expect(p.chargement().textContent).toBe('');
+      vi.advanceTimersByTime(ANNONCE_MS);
       expect(p.chargement().textContent).toBe(charge(0));
       expect(p.reessayer().hidden).toBe(true);
       expect(p.question()).toBe(false);
@@ -745,8 +748,12 @@ describe('le sujet Drapeaux en épreuve', () => {
       faites.forEach((f, k) => (echecs.includes(k) ? f.ko() : f.ok()));
       const echoues = echecs.map((k) => faites[k]!.a);
       await vi.advanceTimersByTimeAsync(0);
-      // L'échec se dit tout de suite (sans attendre 150 ms).
+      // L'échec se montre tout de suite (sans attendre 150 ms) ; sa région polie apparaît vide, son texte suit (ANNONCE_MS).
       expect(p.barre().hidden).toBe(false);
+      expect(p.chargement().hidden).toBe(false);
+      expect(p.chargement().textContent).toBe('');
+      expect(p.reessayer().hidden).toBe(false);
+      vi.advanceTimersByTime(ANNONCE_MS);
       expect(p.chargement().textContent).toBe(textes.chrono.chargement_echec);
       expect(p.chargement().textContent).toBe('Les drapeaux n\'ont pas pu se charger (hors ligne ?).');
       expect(p.reessayer().hidden).toBe(false);
@@ -791,7 +798,7 @@ describe('le sujet Drapeaux en épreuve', () => {
       const avant = faites.length;
       p.lancer('chrono', O, 'drapeaux');
       expect(faites).toHaveLength(avant);
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(150 + ANNONCE_MS);
       expect(p.chargement().textContent).toBe(charge(5));
       p.v.desactiver();
       expect(p.v.redirection?.()).toEqual({ cible: `jouer/classe/drapeaux/${O}`, message: textes.chrono.abandon });

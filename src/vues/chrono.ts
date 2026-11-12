@@ -65,6 +65,13 @@ export const ATTENTE_IMAGE_MS = 3_000;
  * rejouée), rien ne clignote.
  */
 export const CHARGEMENT_VU_MS = 150;
+/**
+ * Le texte du chargement (ou de son échec) écrit ce temps après l'apparition
+ * de sa région polie (ms) : une région live qui apparaît déjà remplie n'est en
+ * général pas lue par un lecteur d'écran (TalkBack), elle doit être là avant
+ * que son texte change.
+ */
+export const ANNONCE_MS = 100;
 
 /** L'image de l'énoncé posé, si elle n'est pas encore chargée (une <img> pas complète) ; null sinon, ou sans image. */
 function imageEnAttente(el: HTMLElement): HTMLImageElement | null {
@@ -162,6 +169,9 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   let pause = 0;
   /** Au départ d'une partie aux images : CHARGEMENT_VU_MS avant de dire le chargement. */
   let chargementVu = 0;
+  /** La région du chargement venue d'apparaître : ANNONCE_MS avant d'y écrire `aDire`, son dernier texte. */
+  let annonce = 0;
+  let aDire = '';
   /** Message de Jouer au retour dans la vue (partie abandonnée en la quittant). */
   let messageRetour = '';
   /** Le bilan au retour : affiché en quittant la vue, ou partie finie en la quittant (pendant la pause de sa dernière réponse). */
@@ -174,7 +184,14 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     clearInterval(affichage);
     clearTimeout(pause);
     clearTimeout(chargementVu);
-    minuterie = affichage = pause = chargementVu = 0;
+    clearTimeout(annonce);
+    minuterie = affichage = pause = chargementVu = annonce = 0;
+  }
+
+  /** Ce texte à la région du chargement : tout de suite, ou à la fin de son ANNONCE_MS si elle vient d'apparaître. */
+  function dire(texte: string): void {
+    aDire = texte;
+    if (!annonce) chargement.textContent = texte;
   }
 
   /**
@@ -184,12 +201,22 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
    */
   function montrerChargement(texte: string | null, echec = false): void {
     const attente = texte !== null;
+    const apparait = attente && (chargement.hidden || barre.hidden);
     ligne.hidden = temps.hidden = retro.hidden = attente;
     chargement.hidden = !attente;
-    chargement.textContent = texte ?? '';
     chargement.classList.toggle('echec', echec);
     reessayer.hidden = !echec;
     if (attente) barre.hidden = false;
+    clearTimeout(annonce);
+    annonce = 0;
+    if (!apparait) return dire(texte ?? '');
+    // La région apparaît vide, son texte suit : sinon il ne serait pas lu (ANNONCE_MS).
+    chargement.textContent = '';
+    aDire = texte;
+    annonce = window.setTimeout(() => {
+      annonce = 0;
+      chargement.textContent = aDire;
+    }, ANNONCE_MS);
   }
 
   function figerJauge(): void {
@@ -280,7 +307,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
           cibles,
           (n, total) => {
             dit = remplir(T.chargement_images, { n, total });
-            if (j === jeton && !chargement.hidden) chargement.textContent = dit;
+            if (j === jeton && !chargement.hidden) dire(dit);
           },
           o.chargerImage,
         );
