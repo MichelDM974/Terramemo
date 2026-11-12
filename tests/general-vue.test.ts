@@ -95,6 +95,11 @@ describe('écran des classements', () => {
     expect(titreEpreuve(idEpreuve('Africa', 'sansfaute', 'capitales'))).toBe(`Sans faute · ${nomEpreuve(idEpreuve('Africa', 'chrono', 'capitales'))}`);
   });
 
+  it('les mers (lot 3b) : leur série unique porte le nom du sujet, dit une fois (« Océans et mers », comme « La Réunion »), jamais « Océans et mers · Océans et mers »', () => {
+    expect([nomEpreuve('chrono:mers:mers'), nomEpreuve('sansfaute:mers:mers')]).toEqual(['Océans et mers', 'Océans et mers']);
+    expect([titreEpreuve('chrono:mers:mers'), titreEpreuve('sansfaute:mers:mers')]).toEqual(['Chrono · Océans et mers', 'Sans faute · Océans et mers']);
+  });
+
   it('mes places d’abord (général, puis les épreuves, par mode puis par sujet), les autres derrière « Toutes les épreuves »', async () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
     // Le record de Minute (retiré) resté sur l'appareil : ni lu, ni montré.
@@ -108,18 +113,18 @@ describe('écran des classements', () => {
     expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute']);
     expect(sujets('#classements-mes')).toEqual(['Pays', 'Communes', 'Pays']);
     // Un petit tableau (choix du 12/11) : Rang · Score · Temps, chaque case sa valeur et son détail dessous. Le score en
-    // part de justes, tronquée : le général à une décimale sur 1 194 ; Sans faute sur la taille de la série.
-    const mille = (1194).toLocaleString('fr-FR');
+    // part de justes, tronquée : le général à une décimale sur 1 244 ; Sans faute sur la taille de la série.
+    const mille = (1244).toLocaleString('fr-FR');
     const cases = (e: string) =>
       racine.querySelectorAll(`#classements-mes .essai-serie[data-epreuve="${e}"] .place-case`).map((c) => [c.querySelector('b')!.textContent, c.querySelector('small')?.textContent ?? null]);
-    expect(cases('general')).toEqual([['2e', 'sur 3'], ['7,6\u00a0%', `91/${mille}`], ['4\u00a0min\u00a016', null]]);
+    expect(cases('general')).toEqual([['2e', 'sur 3'], ['7,3\u00a0%', `91/${mille}`], ['4\u00a0min\u00a016', null]]);
     expect(cases(AFR)).toEqual([['1er', 'sur 1'], ['57\u00a0%', '31/54'], ['3\u00a0min\u00a005', null]]);
     expect(cases(ILE)).toEqual([['2e', 'sur 3'], ['87\u00a0%', '21/24'], ['58\u00a0s', null]]);
     expect(cases(SF_EUR)).toEqual([['1er', 'sur 1'], ['38\u00a0%', '17/44'], ['1\u00a0min\u00a002', null]]);
     // Le général dit ses justes en entier au survol ; chaque ligne se lit d'une phrase.
     expect(racine.querySelector('#classements-mes .essai-serie[data-epreuve="general"] .place-score')!.title).toBe(`91 justes sur ${mille}`);
     const lu = (e: string) => racine.querySelector(`#classements-mes .essai-serie[data-epreuve="${e}"]`)!.getAttribute('aria-label');
-    expect(lu('general')).toBe(`Général : 2e sur 3, 91 justes sur ${mille} · 7,6\u00a0%, 4\u00a0min\u00a016`);
+    expect(lu('general')).toBe(`Général : 2e sur 3, 91 justes sur ${mille} · 7,3\u00a0%, 4\u00a0min\u00a016`);
     expect(lu(AFR)).toBe('Afrique : 1er sur 1, 31/54 · 57\u00a0%, 3\u00a0min\u00a005');
     // L'en-tête des colonnes, sur la ligne du titre de chaque mode qui a des places (visuel seul).
     const tetes = racine.querySelectorAll('#classements-mes .places-tete');
@@ -137,27 +142,28 @@ describe('écran des classements', () => {
     expect(p.querySelector('#classements-autres')!.hidden).toBe(false);
     expect(lignes('#classements-autres')).toEqual(EPREUVES_CLASSEES.filter((e) => ![AFR, ILE, SF_EUR].includes(e)));
     expect(groupes('#classements-autres')).toEqual(['Chrono', 'Sans faute']);
-    expect(sujets('#classements-autres')).toEqual(['Pays', 'Capitales', 'Drapeaux', 'Pays', 'Capitales', 'Drapeaux', 'Communes']);
+    expect(sujets('#classements-autres')).toEqual(['Pays', 'Capitales', 'Drapeaux', 'Océans et mers', 'Pays', 'Capitales', 'Drapeaux', 'Océans et mers', 'Communes']);
     expect(plus.textContent).toBe(T.masquer_epreuves);
     // Les autres ne sont pas lues : ni rang, ni « pas encore classé », mais de quoi les chercher.
     expect(racine.querySelector(`#classements-autres .essai-serie[data-epreuve="${idEpreuve('Asia')}"]`)!.innerText).not.toContain(T.pas_classe);
     expect(racine.querySelectorAll('#classements-autres .classements-chercher').map((b) => b.dataset.sujet)).toEqual([
-      ...['pays', 'capitales', 'drapeaux'],
-      ...['pays', 'capitales', 'drapeaux', 'communes'],
+      ...['pays', 'capitales', 'drapeaux', 'mers'],
+      ...['pays', 'capitales', 'drapeaux', 'mers', 'communes'],
     ]);
   });
 
-  it('D52 b : à l’ouverture, 1 + 5 classements lus au lieu de 1 + 44 ; « Chercher mes places » lit le reste, sujet par sujet', async () => {
+  it('D52 b : à l’ouverture, 1 + 5 classements lus au lieu de 1 + 46 ; « Chercher mes places » lit le reste, sujet par sujet', async () => {
     const tout = epreuvesClassees();
-    expect(tout).toHaveLength(44);
+    expect(tout).toHaveLength(46);
     localStorage.setItem('terramemo.pseudo', 'Michel');
     const CAP_OCE = idEpreuve('Oceania', 'chrono', 'capitales');
     const SF_CAP = idEpreuve('tous', 'sansfaute', 'capitales');
     const DRA_OCE = idEpreuve('Oceania', 'chrono', 'drapeaux');
     const SF_DRA = idEpreuve('Europe', 'sansfaute', 'drapeaux');
+    const SF_MERS = idEpreuve('mers', 'sansfaute', 'mers');
     records(AFR, ILE, CAP_OCE, DRA_OCE);
     // Des places prises sur un autre appareil, sans record ici : seulement à la demande.
-    repondre([place('general', 53), place(AFR, 31), place(CAP_OCE, 12), place(DRA_OCE, 13), place(SF_CAP, 30), place(SF_DRA, 21)]);
+    repondre([place('general', 53), place(AFR, 31), place(CAP_OCE, 12), place(DRA_OCE, 13), place(SF_CAP, 30), place(SF_DRA, 21), place(SF_MERS, 17)]);
     const p = ouvrir();
     await attendre();
     expect(mesPlaces).toHaveBeenCalledTimes(1);
@@ -195,11 +201,19 @@ describe('écran des classements', () => {
     expect(luesD.every((e) => e.split(':')[1] === 'drapeaux' && e !== DRA_OCE)).toBe(true);
     expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP, SF_DRA]);
     expect(racine.querySelector('.classements-chercher[data-sujet="drapeaux"]')).toBeNull();
+    // Les mers (lot 3b) : leurs 2 épreuves (Chrono et Sans faute), une lecture chacune, la place de Sans faute trouvée.
+    racine.querySelector('#classements-autres .classements-chercher[data-sujet="mers"]')!.click();
+    await attendre();
+    expect(mesPlaces).toHaveBeenCalledTimes(4);
+    expect(mesPlaces.mock.calls[3]![2]).toEqual([idEpreuve('mers', 'chrono', 'mers'), SF_MERS]);
+    expect(lignes('#classements-mes')).toEqual(['general', AFR, CAP_OCE, DRA_OCE, SF_CAP, SF_DRA, SF_MERS]);
+    expect(sujets('#classements-mes')).toEqual(['Pays', 'Capitales', 'Drapeaux', 'Capitales', 'Drapeaux', 'Océans et mers']);
+    expect(racine.querySelector('.classements-chercher[data-sujet="mers"]')).toBeNull();
     // Gardées comme vues : à la prochaine ouverture, elles se lisent d'office (sans record sur l'appareil).
     mesPlaces.mockClear();
     ouvrir();
     await attendre();
-    expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE, SF_CAP, SF_DRA]);
+    expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE, SF_CAP, SF_DRA, SF_MERS]);
     // Un autre pseudo n'hérite pas des places vues de celui-ci.
     localStorage.setItem('terramemo.pseudo', 'Zoé');
     mesPlaces.mockClear();
@@ -253,13 +267,15 @@ describe('écran des classements', () => {
     expect(boutons('communes').map((b) => [b.disabled, b.textContent])).toEqual(boutons('communes').map(() => [false, T.chercher_echec]));
   });
 
-  it('les épreuves des capitales et des drapeaux sous « Capitales » et « Drapeaux », entre Pays et Communes ; rien d’un sujet sans épreuves classées (les mers), même avec un record sur l’appareil', async () => {
-    records(idEpreuve('mers', 'chrono', 'mers'));
-    ouvrir();
+  it('les épreuves des capitales, des drapeaux et des mers sous « Capitales », « Drapeaux » et « Océans et mers », entre Pays et Communes ; la ligne des mers nomme sa série (« Océans et mers ») ; rien d’un quiz pas encore classé, même avec un record sur l’appareil', async () => {
+    records('quiz:general:facile');
+    const p = ouvrir();
     await attendre();
-    const parMode = ['Pays', 'Capitales', 'Drapeaux', 'Communes'];
+    const parMode = ['Pays', 'Capitales', 'Drapeaux', 'Océans et mers', 'Communes'];
     expect(sujets('#classements-mes')).toEqual([...parMode, ...parMode]);
     expect(lignes('#classements-mes')).toEqual(['general', ...epreuvesClassees()]);
+    const nomMers = p.querySelector('.essai-serie[data-epreuve="sansfaute:mers:mers"] .essai-serie-nom')!.textContent;
+    expect(nomMers).toBe(`Océans et mers${T.pas_classe}`);
   });
 
   it('une ligne ouvre les dix premiers de son épreuve, « ‹ Classements » ramène à la liste', async () => {
@@ -325,7 +341,8 @@ describe('écran des classements', () => {
     expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel', ['general']);
     expect(p.innerText).toContain(T.classements_aucune);
     expect(lignes('#classements-mes')).toHaveLength(EPREUVES_CLASSEES.length + 1);
-    expect(racine.querySelectorAll('#classements-mes .classements-chercher').length).toBe(8);
+    // Un bouton par sujet et par mode : Pays, Capitales, Drapeaux, Océans et mers, Communes.
+    expect(racine.querySelectorAll('#classements-mes .classements-chercher').length).toBe(10);
     mesPlaces.mockRejectedValue(new Error('hors ligne'));
     p = ouvrir();
     await attendre();

@@ -3,7 +3,7 @@
 // champ `points` porte les justes (src/epreuve/chrono.ts, barème 2), et le
 // score se lit en part des questions qui font les 100 % : « 190/195 · 97 % »
 // au Chrono, « 17/54 · 31 % » à Sans faute (les justes d'affilée sur la taille
-// de la série), « 7,6 % » au général (sur BORNE_GENERAL). Le pourcentage est
+// de la série), « 7,3 % » au général (sur BORNE_GENERAL). Le pourcentage est
 // TRONQUÉ : 194/195 montre 99 %, jamais 100 % sans tout juste. Le classement
 // se fait aux justes puis au temps ; seul l'affichage est ici.
 import { DELAI_CHRONO_MS, type ScoreEpreuve } from '../epreuve/bareme';
@@ -19,7 +19,7 @@ export const nomMode = (m: ModeEpreuve): string => E[m].nom;
 /** Secondes par question annoncées au départ et dans Jouer : celles du Chrono et de Sans faute (15 s). */
 export const SECONDES_EPREUVE = DELAI_CHRONO_MS.localiser / 1000;
 
-/** « 1 194 » : un nombre à la française (espace fine insécable des milliers). */
+/** « 1 244 » : un nombre à la française (espace fine insécable des milliers). */
 export const fmtNombre = (n: number): string => n.toLocaleString('fr-FR');
 
 /** « 42 s », « 3 min 05 » (espaces insécables). */
@@ -38,8 +38,8 @@ export const fmtPourcent = (justes: number, total: number): string => remplir(E.
 export const fmtPart = (justes: number, total: number): string => remplir(E.part, { justes: fmtNombre(justes), total: fmtNombre(total), pourcent: fmtPourcent(justes, total) });
 
 /**
- * La part du général, à une décimale TRONQUÉE (« 7,6 % » pour 91 justes sur
- * 1 194, « 99,9 % » pour 1 193) : toutes les questions du Chrono de toutes
+ * La part du général, à une décimale TRONQUÉE (« 7,3 % » pour 91 justes sur
+ * 1 244, « 99,9 % » pour 1 243) : toutes les questions du Chrono de toutes
  * les séries ouvertes (BORNE_GENERAL) font les 100 %.
  */
 export function fmtPourcentGeneral(justes: number): string {
@@ -47,7 +47,7 @@ export function fmtPourcentGeneral(justes: number): string {
   return remplir(E.pourcent, { n: (dixiemes / 10).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) });
 }
 
-/** Le détail du général : « 91 justes sur 1 194 ». */
+/** Le détail du général : « 91 justes sur 1 244 ». */
 export const fmtJustesGeneral = (justes: number): string => remplir(E.general_detail, { justes: fmtJustes(justes), total: fmtNombre(BORNE_GENERAL) });
 
 /** Le classement général (src/epreuve/classement.ts, GENERAL), de toujours ou d'une semaine. */
@@ -63,14 +63,14 @@ function totalDe(epreuve: string, s: ScoreEpreuve): number | null {
   return modeEpreuve(epreuve) === 'sansfaute' ? tailleEpreuve(epreuve) : s.questions;
 }
 
-/** Le pourcentage seul (« 97 % », « 7,6 % » au général) : la colonne étroite d'un tableau ; null sans total connu. */
+/** Le pourcentage seul (« 97 % », « 7,3 % » au général) : la colonne étroite d'un tableau ; null sans total connu. */
 export function pourcentDe(epreuve: string, s: ScoreEpreuve): string | null {
   if (estGeneral(epreuve)) return fmtPourcentGeneral(s.justes);
   const total = totalDe(epreuve, s);
   return total === null ? null : fmtPourcent(s.justes, total);
 }
 
-/** Les justes sur les questions qui font les 100 % (« 54/54 », « 91/1 194 » au général) : le détail d'une case de score du 🏆 ; null sans total connu. */
+/** Les justes sur les questions qui font les 100 % (« 54/54 », « 91/1 244 » au général) : le détail d'une case de score du 🏆 ; null sans total connu. */
 export function fractionDe(epreuve: string, s: ScoreEpreuve): string | null {
   const total = estGeneral(epreuve) ? BORNE_GENERAL : totalDe(epreuve, s);
   return total === null ? null : remplir(E.fraction, { justes: fmtNombre(s.justes), total: fmtNombre(total) });
@@ -79,7 +79,7 @@ export function fractionDe(epreuve: string, s: ScoreEpreuve): string | null {
 /**
  * Le score en bref de cette épreuve (Jouer, 🏆, tableau d'un classement) :
  * « 190/195 · 97 % » (Chrono), « 17/54 · 31 % » (Sans faute ; « 17
- * d'affilée » hors du catalogue), « 7,6 % » (le général).
+ * d'affilée » hors du catalogue), « 7,3 % » (le général).
  */
 export function scoreCourt(epreuve: string, s: ScoreEpreuve): string {
   if (estGeneral(epreuve)) return fmtPourcentGeneral(s.justes);
@@ -89,7 +89,7 @@ export function scoreCourt(epreuve: string, s: ScoreEpreuve): string {
 
 /**
  * Le score dit en entier, sans le temps : « 190/195 · 97 % », « 17
- * d'affilée sur 54 · 31 % » (bilan de Sans faute), « 91 justes sur 1 194 »
+ * d'affilée sur 54 · 31 % » (bilan de Sans faute), « 91 justes sur 1 244 »
  * (le général).
  */
 export function scoreEntier(epreuve: string, s: ScoreEpreuve): string {

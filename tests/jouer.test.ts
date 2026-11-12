@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enregistrerPartie, epreuvesClassees, EPREUVES_SUJETS, idEpreuve } from '../src/epreuve/chrono';
 import { capitalesChargees, oublierCapitales } from '../src/map/capitales';
 import { drapeauxCharges, oublierDrapeaux } from '../src/map/drapeaux';
-import { FICHIERS_MERS, mersChargees, oublierMers } from '../src/map/mers';
+import { FICHIERS_MERS, IDS_MERS, mersChargees, oublierMers } from '../src/map/mers';
 import type { Pays } from '../src/map/types';
 import {
   adresse,
@@ -36,10 +36,10 @@ const SERIES_PAYS = ['tous', 'Africa', 'North America', 'South America', 'Asia',
 const a = (segs: string[]) => adresse(arbre.resoudre(segs));
 
 describe('l’arbre (pur)', () => {
-  it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier ; Océans et mers sous Entraînement seul avant ses épreuves), les séries des pays, les exercices de chaque branche', () => {
+  it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier ; Océans et mers dans les deux, lot 3b), les séries des pays, les exercices de chaque branche', () => {
     expect(arbre.choix({ type: 'racine' })).toEqual(['entrainement', 'classe']);
     expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
-    expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     // Capitales : les séries des pays, tailles comprises (D37 c).
     expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'capitales' })).toEqual(SERIES_PAYS);
     expect(arbre.series('capitales').map((x) => x.n)).toEqual(arbre.series('pays').map((x) => x.n));
@@ -62,18 +62,21 @@ describe('l’arbre (pur)', () => {
 
   it('même ordre des séries partout : tous, les continents (ordre alphabétique français), l’île ; celui des épreuves et du 🏆', () => {
     expect(CATALOGUE.map((s) => s.id)).toEqual([...SERIES_PAYS, 'reunion']);
-    expect(EPREUVES_SUJETS.filter((p) => p.sujet !== 'capitales' && p.sujet !== 'drapeaux').map((p) => p.serie)).toEqual(CATALOGUE.map((s) => s.id));
-    // 🏆 « Toutes les épreuves » : mode par mode, chacun dans cet ordre ; les capitales puis les drapeaux entre les pays
-    // et les communes (D53 b), dans l'ordre des séries.
+    expect(EPREUVES_SUJETS.filter((p) => p.sujet === 'pays' || p.sujet === 'communes').map((p) => p.serie)).toEqual(CATALOGUE.map((s) => s.id));
+    // 🏆 « Toutes les épreuves » : mode par mode, chacun dans cet ordre ; les capitales, les drapeaux puis les mers entre
+    // les pays et les communes (D53 b), dans l'ordre des sujets de Jouer et des séries.
     const localiser = (e: string) => e.split(':')[1] === 'localiser';
     expect(epreuvesClassees().filter(localiser).slice(0, 8)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id)));
     expect(epreuvesClassees().filter(localiser).slice(8, 16)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id, 'sansfaute')));
-    expect(epreuvesClassees().slice(0, 22)).toEqual([
+    expect(epreuvesClassees().slice(0, 23)).toEqual([
       ...SERIES_PAYS.map((x) => idEpreuve(x)),
       ...SERIES_PAYS.map((x) => idEpreuve(x, 'chrono', 'capitales')),
       ...SERIES_PAYS.map((x) => idEpreuve(x, 'chrono', 'drapeaux')),
+      idEpreuve('mers', 'chrono', 'mers'),
       idEpreuve('reunion'),
     ]);
+    // Les sujets du catalogue des épreuves, dans l'ordre de Jouer (Classé).
+    expect([...new Set(EPREUVES_SUJETS.map((p) => p.sujet))]).toEqual(arbre.choix({ type: 'sujets', branche: 'classe' }));
   });
 
   it('Classé › Capitales (décision « Ouverture des épreuves d’un sujet », 12/11 : sans date) : les séries des pays (D37 c), les deux épreuves', () => {
@@ -83,15 +86,26 @@ describe('l’arbre (pur)', () => {
     expect(a(['classe', 'capitales', 'Oceania'])).toBe('jouer/classe/capitales/Oceania');
   });
 
-  it('un sujet de Jouer hors de EPREUVES_SUJETS (les mers avant leurs épreuves, partie B du lot 3b) n’a rien sous Classé, même avec ses épreuves déclarées ; un essai (pas un domaine), si', () => {
+  it('Classé › Océans et mers (lot 3b, décision « Ouverture des épreuves d’un sujet » : sans date) : sa série unique sautée (D44 a), les deux épreuves', () => {
     expect(SUJETS.find((s) => s.id === 'mers')!.modes.classe).toEqual(['chrono', 'sansfaute']);
-    expect(EPREUVES_SUJETS.some((p) => p.sujet === 'mers')).toBe(false);
-    expect(arbre.choix({ type: 'sujets', branche: 'classe' })).not.toContain('mers');
-    expect(arbre.modes('classe', 'mers')).toEqual([]);
-    expect(a(['classe', 'mers', 'mers'])).toBe('jouer/classe');
-    expect(arbre.valide({ branche: 'classe', sujet: 'mers', serie: 'mers', mode: 'chrono' })).toBe(false);
+    expect(EPREUVES_SUJETS.filter((p) => p.sujet === 'mers')).toEqual([{ sujet: 'mers', serie: 'mers' }]);
+    expect(arbre.choix({ type: 'series', branche: 'classe', sujet: 'mers' })).toEqual(['mers']);
+    expect(arbre.saute({ type: 'series', branche: 'classe', sujet: 'mers' })).toBe(true);
+    expect(arbre.modes('classe', 'mers')).toEqual(['chrono', 'sansfaute']);
+    expect(a(['classe', 'mers'])).toBe('jouer/classe/mers/mers');
+    expect(a(['classe', 'mers', 'mers', 'chrono'])).toBe('jouer/classe/mers/mers');
+    expect(adresse(arbre.enfant({ type: 'sujets', branche: 'classe' }, 'mers'))).toBe('jouer/classe/mers/mers');
+    expect(arbre.valide({ branche: 'classe', sujet: 'mers', serie: 'mers', mode: 'chrono' })).toBe(true);
+    expect(arbre.valide({ branche: 'classe', sujet: 'mers', serie: 'mers', mode: 'sansfaute' })).toBe(true);
+    // Minute (retiré) n'y est pas plus qu'ailleurs ; la série « tous » n'est pas celle des mers (étude J2 § 3.2).
+    expect(arbre.valide({ branche: 'classe', sujet: 'mers', serie: 'mers', mode: 'minute' as never })).toBe(false);
+    expect(arbre.valide({ branche: 'classe', sujet: 'mers', serie: 'tous', mode: 'chrono' })).toBe(false);
+    // Le fil : « Classé › Océans et mers », la série sautée y reste, au nom du sujet.
+    expect(arbre.fil(arbre.resoudre(['classe', 'mers'])).map((c) => c.nom)).toEqual(['Classé', 'Océans et mers', 'Océans et mers']);
+    // Un sujet qui n'est pas un domaine (essais) n'attend pas EPREUVES_SUJETS ; tous les domaines de SUJETS y sont.
     const essai: DefSujet[] = [{ id: 'essai', series: (c) => c.slice(0, 1), modes: { entrainement: [], classe: ['chrono'] } }];
     expect(creerArbre(CATALOGUE, essai).choix({ type: 'sujets', branche: 'classe' })).toEqual(['essai']);
+    for (const s of SUJETS) expect(EPREUVES_SUJETS.some((p) => p.sujet === s.id), s.id).toBe(true);
   });
 
   it('Minute retiré (décision « Barème et classements ») : une adresse qui le nomme reste à ses exercices, sans partie', () => {
@@ -149,7 +163,7 @@ describe('l’arbre (pur)', () => {
   it('adresses : une adresse invalide retombe sur le niveau valide le plus proche', () => {
     expect(a([])).toBe('jouer');
     expect(a(['rien'])).toBe('jouer');
-    expect(a(['classe', 'mers'])).toBe('jouer/classe');
+    expect(a(['classe', 'quiz'])).toBe('jouer/classe');
     expect(a(['classe', 'pays', 'Atlantide'])).toBe('jouer/classe/pays');
     expect(a(['classe', 'pays', 'Africa', 'chrono', 'encore'])).toBe('jouer/classe/pays/Africa');
     expect(a(['classe', 'communes', 'Africa'])).toBe('jouer/classe/communes/reunion');
@@ -267,7 +281,7 @@ describe('la vue Jouer', () => {
   it('Classé : les sujets avec leur nombre ; Pays mène aux séries, Communes directement aux exercices de La Réunion', () => {
     const j = monter();
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     expect(j.panneau.innerText).toContain('195 pays');
     expect(j.panneau.innerText).toContain('24 communes');
     expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé');
@@ -600,7 +614,7 @@ describe('la vue Jouer : le sujet Capitales', () => {
     for (const m of ['apprendre', 'localiser', 'nommer'] as const) expect(j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText).toContain(textes.jouer.exercices.capitales[m]);
     // Sous Classé aussi (partie C).
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     // Rien de capitales* demandé pour afficher Jouer.
     expect(demandes).toEqual([]);
     expect(capitalesChargees()).toBeNull();
@@ -660,10 +674,10 @@ describe('la vue Jouer : Classé › Capitales', () => {
     vi.unstubAllGlobals();
   });
 
-  it('Classé : Pays, Capitales, Drapeaux, Communes', () => {
+  it('Classé : Pays, Capitales, Drapeaux, Océans et mers, Communes', () => {
     const j = monter();
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     expect(j.panneau.querySelector('[data-sujet="capitales"] .vignette-points')).not.toBeNull();
   });
 
@@ -755,7 +769,7 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
     j.ouvrir('entrainement', 'pays', 'Africa');
     expect(j.panneau.querySelector('#jouer-aide')).toBeNull();
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     // Rien de drapeaux* demandé pour afficher Jouer.
     expect(demandes).toEqual([]);
     expect(drapeauxCharges()).toBeNull();
@@ -845,12 +859,12 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
   });
 });
 
-// Le sujet Océans et mers (lot 3b, partie A) : sous Entraînement seul (ses
-// épreuves viennent à la partie B), après Drapeaux et avant Communes (D53 b),
-// sa vignette (les mers éclairées, rangée dans le code) et « 50 océans et
-// mers » sans rien charger, sa série unique sautée (D44 a) ; la couche marine
-// lue puis posée sur la carte (prendreMers) avant la partie, jamais une partie
-// à vide ; hors ligne, le message.
+// Le sujet Océans et mers (lot 3b) : sous Entraînement (partie A) et sous
+// Classé (partie B), après Drapeaux et avant Communes (D53 b), sa vignette
+// (les mers éclairées, rangée dans le code) et « 50 océans et mers » sans
+// rien charger, sa série unique sautée (D44 a) ; la couche marine lue puis
+// posée sur la carte (prendreMers) avant la partie, épreuves comprises,
+// jamais une partie à vide ; hors ligne, le message.
 describe('la vue Jouer : le sujet Océans et mers', () => {
   let reseau = true;
   const demandes: string[] = [];
@@ -871,7 +885,7 @@ describe('la vue Jouer : le sujet Océans et mers', () => {
     vi.unstubAllGlobals();
   });
 
-  it('Entraînement : après Drapeaux, avant Communes ; « 50 océans et mers » et sa vignette sans rien charger ; la série unique sautée ; Apprendre, Trouver, Reconnaître ; absent de Classé', () => {
+  it('Entraînement : après Drapeaux, avant Communes ; « 50 océans et mers » et sa vignette sans rien charger ; la série unique sautée ; Apprendre, Trouver, Reconnaître', () => {
     const j = monter();
     j.ouvrir('entrainement');
     expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
@@ -890,11 +904,71 @@ describe('la vue Jouer : le sujet Océans et mers', () => {
     for (const m of ['apprendre', 'localiser', 'nommer'] as const) expect(j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText).toContain(textes.jouer.exercices.mers[m]);
     expect(j.panneau.querySelector('h2')?.textContent).toBe('Entraînement›Océans et mers›Océans et mers');
     expect(j.panneau.querySelector('#jouer-aide')).toBeNull();
-    j.ouvrir('classe');
-    expect(j.attr('data-sujet')).not.toContain('mers');
     // Rien de mers* demandé pour afficher Jouer.
     expect(demandes).toEqual([]);
     expect(mersChargees()).toBeNull();
+  });
+
+  it('Classé › Océans et mers (partie B) : sa tuile, la série unique sautée, Chrono et Sans faute, leur phrase, leur record (celui des mers, pas des pays), « ? » des règles seules', () => {
+    enregistrerPartie(localStorage, idEpreuve('mers', 'chrono', 'mers'), { points: 41, justes: 41, questions: 50, temps_ms: 300_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('tous', 'chrono'), { points: 150, justes: 150, questions: 195, temps_ms: 900_000 }, 1);
+    enregistrerPartie(localStorage, idEpreuve('mers', 'sansfaute', 'mers'), { points: 17, justes: 17, questions: 18, temps_ms: 60_000 }, 1);
+    const j = monter();
+    j.ouvrir('classe');
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    const tuile = j.panneau.querySelector('[data-sujet="mers"]')!;
+    expect(tuile.innerText).toContain('50 océans et mers');
+    expect(tuile.querySelector('.vignette-carte .vignette-mer')).not.toBeNull();
+    tuile.click();
+    expect(j.opts.pousser).toHaveBeenCalledWith('jouer/classe/mers/mers');
+    j.ouvrir('classe', 'mers');
+    expect(j.opts.canoniser).toHaveBeenCalledWith('jouer/classe/mers/mers');
+    expect(j.panneau.dataset.niveau).toBe('exercices');
+    expect(j.attr('data-mode')).toEqual(['chrono', 'sansfaute']);
+    const ligne = (m: string) => j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText;
+    // La phrase commune des épreuves (jouer.exercices.mers n'a pas la sienne : le repli), et le record des mers.
+    expect(ligne('chrono')).toContain('15 s par question, un seul toucher');
+    expect(ligne('sansfaute')).toContain("15 s par question, jusqu'à la première erreur");
+    expect(ligne('chrono')).toContain('41/50 · 82\u00a0%');
+    expect(ligne('chrono')).not.toContain('150/195');
+    expect(ligne('sansfaute')).toContain('17/50');
+    expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé›Océans et mers›Océans et mers');
+    // « ? » : les règles des deux épreuves, sans l'aide des exercices visuels (les drapeaux seuls).
+    j.panneau.querySelector('#jouer-aide')!.click();
+    const regles = j.panneau.querySelector('#jouer-regles')!.innerText;
+    expect(regles).toContain('Sans faute : les lieux de la série');
+    expect(regles).not.toContain(textes.jouer.visuel);
+    expect(demandes).toEqual([]);
+    expect(mersChargees()).toBeNull();
+  });
+
+  it('un Chrono et un Sans faute des mers : la couche lue puis posée sur la carte avant la partie (branche classe, sujet mers, ses 50 zones) ; hors ligne, le message et aucune partie', async () => {
+    reseau = false;
+    const j = monter();
+    j.ouvrir('classe', 'mers', 'mers');
+    const statut = () => j.panneau.querySelector('.jouer-statut')!;
+    j.panneau.querySelector('[data-mode="chrono"]')!.click();
+    expect(statut().textContent).toBe(textes.toucher.chargement_sujet);
+    expect(j.panneau.querySelector('[data-mode="sansfaute"]')!.disabled).toBe(true);
+    await vi.waitFor(() => expect(statut().textContent).toBe(textes.toucher.echec_sujet));
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    expect(j.carte.prendreMers).not.toHaveBeenCalled();
+    expect(j.panneau.querySelector('[data-mode="chrono"]')!.disabled).toBe(false);
+    reseau = true;
+    j.panneau.querySelector('[data-mode="chrono"]')!.click();
+    expect(j.opts.lancer).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(j.opts.lancer).toHaveBeenCalledTimes(1));
+    // Posée avant le lancement : la vue des épreuves ne part qu'avec les mers sur la carte.
+    expect(j.carte.prendreMers).toHaveBeenCalledTimes(1);
+    expect(j.donnees.mers).toHaveLength(50);
+    const [l, s, , ids] = j.opts.lancer.mock.calls[0]!;
+    expect(l).toEqual({ branche: 'classe', sujet: 'mers', serie: 'mers', mode: 'chrono' });
+    expect([s.id, s.n]).toEqual(['mers', 50]);
+    expect([...ids].sort()).toEqual([...IDS_MERS].sort());
+    j.panneau.querySelector('[data-mode="sansfaute"]')!.click();
+    expect(j.opts.lancer).toHaveBeenCalledTimes(2);
+    expect(j.opts.lancer.mock.calls[1]![0]).toEqual({ branche: 'classe', sujet: 'mers', serie: 'mers', mode: 'sansfaute' });
+    expect(j.carte.prendreMers).toHaveBeenCalledTimes(1);
   });
 
   it('l’arbre créé au démarrage (creerArbre, serieMers) ne lit rien de mers* : le réseau espionné avant sa création', async () => {

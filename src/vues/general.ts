@@ -1,15 +1,15 @@
 // Vue « Classements » (bouton 🏆 de l'en-tête ; décisions « En-tête »,
 // « Classements par épreuve » et « Barème et classements ») : d'abord mes
 // places, le général puis chaque épreuve où mon pseudo est classé, avec rang et
-// score (« 190/195 · 97 % », le général « 7,6 % » et « 91 justes sur 1 194 »
+// score (« 190/195 · 97 % », le général « 7,3 % » et « 91 justes sur 1 244 »
 // au détail), de toujours ou de la semaine ; « Toutes les épreuves » montre les
 // autres. Les lignes vont par mode, sous son titre : Chrono (le général en
 // tête, qui n'additionne que lui), Sans faute ; puis par sujet, sous le
-// sien (h4 : Pays, Capitales, Drapeaux, Communes ; étude J2 § 8.3). Toucher une ligne
+// sien (h4 : Pays, Capitales, Drapeaux, Océans et mers, Communes ; étude J2 § 8.3). Toucher une ligne
 // ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à la
 // liste. Les séries de chaque sujet viennent dans l'ordre de partout
 // (décision « Écran Jouer », EPREUVES_SUJETS) : tous les pays, les
-// continents ; l'île.
+// continents ; la série unique des mers ; l'île.
 // Lectures (D52 b, décision « Général à tous les sujets ») : à l'ouverture, le
 // général et les seules épreuves où l'appareil a un record (ceux du profil du
 // compte y sont, reçus à chaque ouverture de l'appli : src/sync/profil.ts,
@@ -35,13 +35,18 @@ type Periode = 'toujours' | 'semaine';
  * Nom affiché d'une épreuve : « Général », un continent, « Tous les pays »,
  * « La Réunion » pour les pays et les communes (clé `localiser`, inchangé) ;
  * le sujet devant la série pour les autres : « Capitales · Afrique » (étude
- * J2 § 3.2).
+ * J2 § 3.2). Une série qui porte le nom de son sujet (la série unique des
+ * mers, D44 a) le dit une fois : « Océans et mers », comme l'île se dit
+ * « La Réunion » (« Chrono · Océans et mers »).
  */
 export function nomEpreuve(epreuve: string): string {
   if (epreuve === GENERAL) return T.general_nom;
   const [, cle, serie] = epreuve.split(':');
   if (serie === undefined) return nomSerie(epreuve);
-  return cle === 'localiser' ? nomSerie(serie) : remplir(T.epreuve_sujet, { sujet: nomSujet(cle ?? ''), serie: nomSerie(serie) });
+  if (cle === 'localiser') return nomSerie(serie);
+  const sujet = nomSujet(cle ?? '');
+  const nom = nomSerie(serie);
+  return nom === sujet ? nom : remplir(T.epreuve_sujet, { sujet, serie: nom });
 }
 
 /** Le nom d'une ligne du 🏆, sous le titre de son sujet : la série seule (« Océanie »), le général par son nom. */
@@ -125,8 +130,8 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
   /**
    * Une ligne : sa place en petit tableau (choix de l'utilisateur, 12/11 :
    * Rang · Score · Temps, chaque case sa valeur et son détail dessous :
-   * « 1er » sur « sur 2 », « 100 % » sur « 54/54 », « 7,6 % » sur
-   * « 91/1 194 » au général, puis le temps), « pas encore classé » (lue, ou
+   * « 1er » sur « sur 2 », « 100 % » sur « 54/54 », « 7,3 % » sur
+   * « 91/1 244 » au général, puis le temps), « pas encore classé » (lue, ou
    * sans pseudo), rien si elle n'est pas lue. Sous le titre de son sujet
    * (h4), la série seule : « Océanie », pas « Capitales · Océanie ». Le
    * bouton se lit d'une phrase (aria-label) ; l'en-tête des colonnes, visuel

@@ -1,5 +1,5 @@
-// Parties des épreuves classées (pur) : les lieux d'une série (pays ou
-// communes), une question à la fois, un seul toucher. Chrono et Sans faute
+// Parties des épreuves classées (pur) : les lieux d'une série (pays,
+// capitales, drapeaux, mers ou communes), une question à la fois, un seul toucher. Chrono et Sans faute
 // comptent les justes (bareme.ts, décision « Barème et classements » du
 // 12/11/2026). Les records se gardent sur l'appareil (de toujours et de la
 // semaine) ; classement.ts les publie.
@@ -231,18 +231,20 @@ const SERIES_MONDE: readonly string[] = ['tous', 'Africa', 'North America', 'Sou
  * les sujets dans celui de Jouer (D53 b, décision « Ordre des sujets » :
  * Communes en dernier), les séries dans celui du catalogue
  * (src/vues/cibles.ts, décision « Écran Jouer »). Capitales (D37 c) et
- * Drapeaux ont les séries des pays, et leurs tailles. Un sujet y entre
+ * Drapeaux ont les séries des pays, et leurs tailles ; Océans et mers, sa
+ * série unique `mers` (D44 a, lot 3b : 50 zones). Un sujet y entre
  * quand ses épreuves classées ouvrent (décision « Ouverture des épreuves
  * d'un sujet », 12/11) : dès qu'il est livré, sans date de bascule, les
  * règles Firestore qui les acceptent parties avant le site. Seule source de
- * l'ouverture : un sujet de Jouer absent d'ici n'a pas d'épreuves classées
- * (les mers avant le lot 3b), ni dans Classé, ni au général, ni publiées, ni
- * lues par le 🏆 ; ses exercices d'Entraînement, si.
+ * l'ouverture : un sujet de Jouer absent d'ici n'a pas d'épreuves classées,
+ * ni dans Classé, ni au général, ni publiées, ni lues par le 🏆 ; ses
+ * exercices d'Entraînement, si.
  */
 export const EPREUVES_SUJETS: readonly PaireEpreuve[] = [
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'pays', serie })),
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'capitales', serie })),
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'drapeaux', serie })),
+  { sujet: 'mers', serie: 'mers' },
   { sujet: 'communes', serie: 'reunion' },
 ];
 
@@ -272,11 +274,13 @@ export function sujetEpreuve(epreuve: string): Domaine | null {
 /**
  * Les questions du général au plus (chronoValide de firestore.rules, n = 0) :
  * la somme des tailles des Chrono de epreuvesDuGeneral : 390 (pays : tous et les continents) +
- * 24 (l'île) + 390 (capitales, D37 c) + 390 (drapeaux) = 1 194. Chaque sujet
- * ouvert la monte (les mers : 1 244, D37 c), règles d'abord.
+ * 24 (l'île) + 390 (capitales, D37 c) + 390 (drapeaux) + 50 (mers, lot 3b) =
+ * 1 244 (décision « Général à tous les sujets »). Chaque sujet ouvert la
+ * monte, règles d'abord : une version d'avant publie un général plus bas,
+ * que les règles refusent sans bruit (pas de progrès ; étude J2 § 3.2).
  * tests/chrono.test.ts la compare à la somme des tailles et aux règles.
  */
-export const BORNE_GENERAL = 1194;
+export const BORNE_GENERAL = 1244;
 
 /** Questions de chaque série du monde : les 195 pays jouables (src/vues/cibles.ts), répartis en six continents. */
 const TAILLES_MONDE: Readonly<Record<string, number>> = { tous: 195, Africa: 54, 'North America': 23, 'South America': 12, Asia: 48, Europe: 44, Oceania: 14 };
@@ -284,15 +288,15 @@ const TAILLES_MONDE: Readonly<Record<string, number>> = { tous: 195, Africa: 54,
 /**
  * Questions de chaque série, par sujet : celles de tailles(cle) dans
  * firestore.rules (tests/chrono.test.ts les confronte, et au catalogue).
- * Capitales et drapeaux ont les séries et les tailles des pays (D37 c).
- * Les mers viendront avec leurs épreuves (lot 3b).
+ * Capitales et drapeaux ont les séries et les tailles des pays (D37 c) ;
+ * les mers, leur série unique de 50 zones (IDS_MERS, D44 a).
  */
 const TAILLES_SERIES: Readonly<Record<Domaine, Readonly<Record<string, number>>>> = {
   pays: TAILLES_MONDE,
   capitales: TAILLES_MONDE,
   drapeaux: TAILLES_MONDE,
   communes: { reunion: 24 },
-  mers: {},
+  mers: { mers: 50 },
 };
 
 /**

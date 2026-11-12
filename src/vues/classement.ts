@@ -326,8 +326,8 @@ export function blocClassement(
    * La colonne du score (décision « Barème et classements ») : « 190/195 ·
    * 97 % » à l'épreuve, le pourcentage seul sur un écran étroit (carte.css :
    * le rang, un pseudo de 20 caractères et le temps n'y laissent pas la
-   * place), le tout toujours lu des lecteurs d'écran et en title ; « 7,6 % »
-   * au général, son détail (« 91 justes sur 1 194 ») en title et aux
+   * place), le tout toujours lu des lecteurs d'écran et en title ; « 7,3 % »
+   * au général, son détail (« 91 justes sur 1 244 ») en title et aux
    * lecteurs d'écran.
    */
   function colonneScore(p: Place): HTMLElement {

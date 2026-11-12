@@ -1,6 +1,6 @@
 // Lectures Firestore du 🏆 à son ouverture (D52 b, étude J2 § 8.3) : avant,
-// mesPlaces lisait le général et toutes les épreuves classées (45 lectures
-// avec les capitales et les drapeaux, Minute retiré, plus 3 par place) ; maintenant, le
+// mesPlaces lisait le général et toutes les épreuves classées (47 lectures
+// avec les capitales, les drapeaux et les mers, Minute retiré, plus 3 par place) ; maintenant, le
 // général et les seules épreuves où l'appareil a un record, plus les places
 // déjà vues (epreuvesALire, src/vues/general.ts). Firestore est remplacé par
 // un compteur : rien ne part sur le réseau.
@@ -45,7 +45,7 @@ const col = (e: string) => `classements/${e}/periodes/toujours/scores`;
 const rec = (justes: number): RecordChrono => ({ points: justes, justes, questions: justes, temps_ms: 1_000, date: 1, bareme: 2 });
 
 describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
-  it('un joueur classé dans 4 épreuves (record sur l’appareil) et une place vue : 1 + 5 lectures, plus 3 par place, au lieu de 1 + 44', async () => {
+  it('un joueur classé dans 4 épreuves (record sur l’appareil) et une place vue : 1 + 5 lectures, plus 3 par place, au lieu de 1 + 46', async () => {
     const AFR = idEpreuve('Africa');
     const ILE = idEpreuve('reunion');
     const CAP = idEpreuve('Oceania', 'chrono', 'capitales');
@@ -60,7 +60,7 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     const tout = await mesPlaces('toujours', 'Michel', [GENERAL, ...classees]);
     const avant = lectures;
     expect(tout).toHaveLength(5);
-    expect(avant).toBe(1 + 44 + 3 * 5);
+    expect(avant).toBe(1 + 46 + 3 * 5);
 
     // Après : le général, les épreuves à record, la place vue (un Sans faute sans place : une lecture, pas de rang).
     lectures = 0;
@@ -70,8 +70,8 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     const apres = lectures;
     expect(lues.map((p) => p.epreuve)).toEqual([GENERAL, AFR, CAP, DRA, ILE]);
     expect(apres).toBe(1 + 5 + 3 * 5);
-    // 60 lectures avant, 21 après.
-    expect([avant, apres]).toEqual([60, 21]);
+    // 62 lectures avant, 21 après : les mers (lot 3b) n'ajoutent rien à l'ouverture sans record ni place des mers.
+    expect([avant, apres]).toEqual([62, 21]);
     places.clear();
   });
 
@@ -83,25 +83,30 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     ]);
     expect(epreuvesALire(epreuvesClassees(), records, 's2914', new Set())).toEqual([idEpreuve('Asia')]);
     expect(epreuvesALire(epreuvesClassees(), records, 'toujours', new Set())).toEqual([AFR]);
-    // Une épreuve des drapeaux se lit avec son record ; une d'un sujet sans épreuves classées (les mers, hors de
-    // EPREUVES_SUJETS), jamais, même vue ou avec un record.
+    // Une épreuve des drapeaux ou des mers (lot 3b) se lit avec son record, ou vue ; une hors du catalogue (le quiz, pas
+    // encore classé), jamais, même vue ou avec un record.
     const DRA = idEpreuve('Oceania', 'sansfaute', 'drapeaux');
     expect(epreuvesALire(epreuvesClassees(), new Map([[DRA, rec(1)]]), 'toujours', new Set())).toEqual([DRA]);
     const MERS = idEpreuve('mers', 'chrono', 'mers');
-    expect(epreuvesALire(epreuvesClassees(), new Map([[MERS, rec(1)]]), 'toujours', new Set([MERS]))).toEqual([]);
+    const SF_MERS = idEpreuve('mers', 'sansfaute', 'mers');
+    expect(epreuvesALire(epreuvesClassees(), new Map([[MERS, rec(1)]]), 'toujours', new Set([SF_MERS]))).toEqual([MERS, SF_MERS]);
+    const QUIZ = 'quiz:general:facile';
+    expect(epreuvesALire(epreuvesClassees(), new Map([[QUIZ, rec(1)]]), 'toujours', new Set([QUIZ]))).toEqual([]);
     lectures = 0;
     expect(await mesPlaces('toujours', 'Michel', [])).toEqual([]);
     expect(lectures).toBe(0);
   });
 
-  it('le général se lit dans les Chrono de tous les sujets, capitales et drapeaux compris : 22 lectures par période', async () => {
-    expect(epreuvesDuGeneral()).toHaveLength(22);
+  it('le général se lit dans les Chrono de tous les sujets, capitales, drapeaux et mers compris : 23 lectures par période', async () => {
+    expect(epreuvesDuGeneral()).toHaveLength(23);
     lectures = 0;
     lus.length = 0;
     await placesDuPseudo('toujours', 'Michel');
-    expect(lectures).toBe(22);
+    expect(lectures).toBe(23);
     expect(lus).toEqual(epreuvesDuGeneral().map(col));
     expect(lus.filter((c) => /:(capitales|drapeaux):/.test(c))).toHaveLength(14);
+    // Les mers (lot 3b) : une lecture de plus par période, leur Chrono.
+    expect(lus.filter((c) => c.includes(':mers:'))).toEqual([col('chrono:mers:mers')]);
   });
 
   // Barème 2 (décision « Barème et classements » du 12/11/2026, #30) : une

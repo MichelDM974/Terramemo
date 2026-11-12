@@ -123,20 +123,39 @@ describe('publication d’une partie', () => {
     expect(lireAttente()).toEqual([]);
   });
 
-  it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ou d’un sujet sans épreuves classées (les mers, hors de EPREUVES_SUJETS) ne part pas, sans refus annoncé', async () => {
+  it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ne part pas, sans refus annoncé', async () => {
     enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
-    // Reçus par le profil d'une version plus récente, vraisemblables tous : les règles de cette version les refuseraient.
+    // Reçu par le profil d'une version plus récente, vraisemblable : les règles de cette version le refuseraient.
     const QUIZ = 'quiz:general:facile';
-    const MERS = idEpreuve('mers', 'chrono', 'mers');
-    const SF_MERS = idEpreuve('mers', 'sansfaute', 'mers');
     enregistrerPartie(localStorage, QUIZ, score(18, 18, 20, 100_000), maintenant);
-    enregistrerPartie(localStorage, MERS, score(50, 50, 50, 300_000), maintenant);
-    enregistrerPartie(localStorage, SF_MERS, score(23, 23, 24, 60_000), maintenant);
-    publier.mockImplementation(async (e) => ![QUIZ, MERS, SF_MERS].includes(e));
+    publier.mockImplementation(async (e) => e !== QUIZ);
     const r = await publierTout('Ana');
     expect(r).toEqual({ refuses: 0, echecs: 0 });
     expect(avisPublication(r)).toBe('');
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
+  });
+
+  it('les records des mers (lot 3b) partent au choix du pseudo, et le général compte leur Chrono (D40 a) ; une partie des mers publie son général, un Sans faute des mers non', async () => {
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
+    const MERS = idEpreuve('mers', 'chrono', 'mers');
+    const SF_MERS = idEpreuve('mers', 'sansfaute', 'mers');
+    expect([MERS, SF_MERS]).toEqual(['chrono:mers:mers', 'sansfaute:mers:mers']);
+    enregistrerPartie(localStorage, MERS, score(41, 41, 50, 300_000), maintenant);
+    enregistrerPartie(localStorage, SF_MERS, score(23, 23, 24, 60_000), maintenant);
+    publier.mockResolvedValue(true);
+    const r = await publierTout('Ana');
+    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, MERS, MERS, SF_MERS, SF_MERS, 'general', 'general'].sort());
+    const general = publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s);
+    expect(general).toEqual([score(53, 53, 62, 360_000), score(53, 53, 62, 360_000)]);
+    publier.mockClear();
+    await publierPartie('Ana', MERS, enregistrerPartie(localStorage, MERS, score(44, 44, 50, 280_000), maintenant));
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([MERS, MERS, 'general', 'general'].sort());
+    expect(publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s.points)).toEqual([56, 56]);
+    publier.mockClear();
+    // La série vidée (50 sur 50, sans erreur) : le score maximal du Sans faute.
+    await publierPartie('Ana', SF_MERS, enregistrerPartie(localStorage, SF_MERS, score(50, 50, 50, 200_000), maintenant));
+    expect(publier.mock.calls.map(([e]) => e)).toEqual([SF_MERS, SF_MERS]);
   });
 
   it('les records des capitales et des drapeaux partent au choix du pseudo, et le général les compte (D40 a)', async () => {
@@ -579,13 +598,13 @@ describe('tableau d’un classement (décision « Barème et classements »)', (
     expect(a!.querySelector('.pts-bref')?.textContent).toBe('31\u00a0%');
   });
 
-  it('le général : « 7,6 % », et « 91 justes sur 1 194 » en title et aux lecteurs d’écran', async () => {
-    const [a, b] = await lignes('general', [place('Ana', 1193, 1194, 9_000_000), place('Bea', 91, 120, 600_000)]);
+  it('le général : « 7,3 % », et « 91 justes sur 1 244 » en title et aux lecteurs d’écran', async () => {
+    const [a, b] = await lignes('general', [place('Ana', 1243, 1244, 9_000_000), place('Bea', 91, 120, 600_000)]);
     expect(a!.querySelector('.pts')?.textContent).toMatch(/^99,9\u00a0%/);
     const pts = b!.querySelector('.pts')!;
-    expect(pts.textContent).toBe('7,6\u00a0% · 91 justes sur 1\u202f194');
-    expect(pts.querySelector('.pts-lu')?.textContent).toBe(' · 91 justes sur 1\u202f194');
-    expect(pts.getAttribute('title')).toBe('91 justes sur 1\u202f194');
+    expect(pts.textContent).toBe('7,3\u00a0% · 91 justes sur 1\u202f244');
+    expect(pts.querySelector('.pts-lu')?.textContent).toBe(' · 91 justes sur 1\u202f244');
+    expect(pts.getAttribute('title')).toBe('91 justes sur 1\u202f244');
   });
 });
 

@@ -69,8 +69,8 @@ export const SUJETS: readonly DefSujet[] = [
   // classées ouvertes comme celles des capitales (creerArbre, sujetOuvert).
   { id: 'drapeaux', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   // Océans et mers (étude J2 § 7.2, lot 3b) : une série unique de 50 (D44 a), son niveau sauté comme celui de
-  // Communes ; Apprendre (ses grappes, grappesMers), Trouver, Reconnaître. Sous Classé quand ses épreuves seront
-  // ouvertes (EPREUVES_SUJETS : partie B), pas avant (creerArbre, sujetOuvert).
+  // Communes ; Apprendre (ses grappes, grappesMers), Trouver, Reconnaître ; sous Classé, Chrono et Sans faute,
+  // ses épreuves ouvertes comme les autres (EPREUVES_SUJETS ; creerArbre, sujetOuvert).
   { id: 'mers', series: () => [serieMers()], modes: AVEC_APPRENDRE },
   { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];
