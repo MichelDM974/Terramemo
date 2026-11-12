@@ -41,6 +41,42 @@ fois). Temps : médiane des 16 rotations, chacune la moyenne de 5 tracés.
   (9 → 13) : la bascule compte bien le calque marin ;
 - ce que ce test **ne mesure pas** : la rastérisation des remplissages
   (de grandes surfaces de mer, un `Path2D` par seau) et, à la couche du
-  dessus, l'effacement `destination-out` d'une mer marquée. C'est là que le
-  Canvas peut saccader (rastérisation logicielle du PC ralenti 4×) : les
-  étapes 2 et 3 le tranchent.
+  dessus, celle de l'effacement `destination-out` d'une mer marquée. C'est là
+  que le Canvas peut saccader (rastérisation logicielle du PC ralenti 4×) :
+  les étapes 2 et 3 le tranchent. Le tracé JS de cet effacement, lui, est
+  mesuré ci-dessous.
+
+## Une mer marquée (couche du dessus)
+
+Ajouté après relecture : une mer marquée (allumée, juste, fausse) est tracée
+à chaque image sur la couche du dessus, puis effacée sous les terres de son
+emprise, que `dessinerMarquesMers` retrace en entier (remplies et bordées).
+Même test (second `describe`), mêmes vues, sans teinte de mer (la bascule des
+terres seules, celle d'une partie de mers après une réponse, lot 3b).
+
+| Mer | Zoom | État | Marque : émis | Effacement : émis | Terres de la base : émis | Effacement / terres | JS marque et effacement |
+|---|---|---|---|---|---|---|---|
+| Pacifique | 1 | repos | 2 358 | 25 991 | 31 393 | 83 % | 1,73 ms |
+| Pacifique | 1 | mouvement | 1 158 | 8 511 | 10 578 | 80 % | 0,63 ms |
+| Pacifique | 2 | mouvement | 772 | 8 620 | 11 380 | 76 % | 0,80 ms |
+| Pacifique | 8 | mouvement | 249 | 1 984 | 3 856 | 51 % | 0,42 ms |
+| Atlantique | 1 | repos | 1 486 | 11 348 | 31 393 | 36 % | 0,90 ms |
+| Atlantique | 1 | mouvement | 770 | 3 717 | 10 578 | 35 % | 0,42 ms |
+| Méditerranée | 1 | repos | 247 | 3 467 | 31 393 | 11 % | 0,41 ms |
+| Méditerranée | 1 | mouvement | 131 | 1 177 | 10 578 | 11 % | 0,29 ms |
+
+(Le reste des lignes : sortie du test. Zoomé, la mer n'est à l'écran qu'à
+une partie des 16 rotations : moyennes zéros compris, médiane des temps
+parfois nulle.)
+
+**Lecture** : l'effacement d'un océan qui fait le tour du monde (Pacifique,
+emprise de -180 à 180) retrace **≈ 80 %** des terres de la base à chaque
+image, au repos comme en mouvement ; l'Atlantique ≈ 35 %, la Méditerranée
+≈ 10 %. Le temps JS reste sous la milliseconde en mouvement (0,63 ms pour le
+Pacifique, contre 0,70 ms pour toutes les terres de la base), mais la bascule
+vers l'allégée (`sommetsVisibles`, `BUDGET_SOMMETS`) ne compte pas ces
+sommets : zoomé, une vue dont la complète passe tout juste dans le budget
+peut presque doubler son tracé par image sans basculer. Compter l'effacement
+dans la bascule, ou le garder d'une image à l'autre tant que la vue ne
+change pas, reste à décider d'après les étapes 2 et 3 (la rastérisation du
+`destination-out`, que Node ne voit pas).

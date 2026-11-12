@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BUDGET_SOMMETS, calque, calqueLeger, calquesMers, parcourir, sommetsVisibles, type Calque } from '../src/map/carte-canvas';
-import { image, MARGE_PX, tracerPartie, type ContexteTrace, type ImageTrace } from '../src/map/dessin';
+import { image, MARGE_PX, SEUIL_PX, TAILLE_MIN_PX, tracerPartie, visible, type ContexteTrace, type ImageTrace, type Partie } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
-import { assemblerMers } from '../src/map/mers';
+import { assemblerMers, zonesAllumees } from '../src/map/mers';
 import { cadre, placer, regionVisible } from '../src/map/vue';
 
 // Fluidité des mers, étape 1 des mesures (étude J2, § 4.6) : sans navigateur.
@@ -138,5 +138,75 @@ describe('fluidité des mers, sans navigateur (étude J2, § 4.6, étape 1)', ()
     expect(z1.find((l) => l.mouvement)?.leger_avec).toBe(ROTATIONS.length);
     // Le calque marin émis reste sous le budget des sommets de la bascule, en mouvement comme au repos.
     for (const l of lignes) expect(l.emis, `zoom ${l.zoom} ${l.mouvement ? 'mouvement' : 'repos'}`).toBeLessThan(BUDGET_SOMMETS);
+  }, 120_000);
+});
+
+/**
+ * Une mer marquée sur la couche du dessus (dessinerMarquesMers) : ses parties
+ * (et ce qu'elle allume), puis l'effacement, les terres de leur emprise
+ * retracées à chaque image. Sans teinte de mer : la bascule des terres seules.
+ */
+function tracerMarque(im: ImageTrace, id: string): { marque: number; effacement: number } {
+  const bascule = im.mouvement && sommetsVisibles(im, complet) > BUDGET_SOMMETS;
+  const [terres, cm] = bascule ? [leger, mers.leger] : [complet, mers.complet];
+  const montree = (p: Partie) => visible(im, p) && !(im.mouvement && (im.K * p.taille < TAILLE_MIN_PX || im.K * (p.source ?? p).ecart < SEUIL_PX));
+  const ctx = compteur();
+  let [o, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const z of zonesAllumees(id, mers.zones)) {
+    for (const p of cm.pays[mers.indices.get(z) as number] ?? []) {
+      if (!montree(p)) continue;
+      tracerPartie(ctx, im, p);
+      [o, s, e, n] = [Math.min(o, p.o), Math.min(s, p.s), Math.max(e, p.e), Math.max(n, p.n)];
+    }
+  }
+  const marque = ctx.n;
+  if (o > e) return { marque, effacement: 0 };
+  parcourir(im, terres.pays, terres.groupes?.pays, (p) => {
+    if (p.o > e || p.e < o || p.s > n || p.n < s) return;
+    tracerPartie(ctx, im, p);
+  });
+  return { marque, effacement: ctx.n - marque };
+}
+
+describe('fluidité des mers, une mer marquée (couche du dessus, sans navigateur)', () => {
+  it('sommets et temps JS de la marque et de son effacement sous les terres, à chaque image : Pacifique, Atlantique, Méditerranée', () => {
+    const lignes: string[] = [];
+    // Chauffe (JIT).
+    for (const r of ROTATIONS) {
+      const v = placer(C, [r, 0], C.l / 2, C.h / 2, 1);
+      for (const m of [false, true]) tracerMarque(image(v, C, regionVisible(v, C, MARGE_PX), m), 'pacif');
+    }
+    const effacements: Record<string, number> = {};
+    for (const id of ['pacif', 'atlant', 'medit']) {
+      for (const zoom of ZOOMS) {
+        for (const mouvement of [false, true]) {
+          let [marque, effacement, terres] = [0, 0, 0];
+          const ms: number[] = [];
+          for (const r of ROTATIONS) {
+            const v = placer(C, [r, zoom === 1 ? 0 : LATITUDE], C.l / 2, C.h / 2, zoom);
+            const region = regionVisible(v, C, MARGE_PX);
+            const t = tracerMarque(image(v, C, region, mouvement), id);
+            marque += t.marque;
+            effacement += t.effacement;
+            const base = image(v, C, region, mouvement);
+            tracer(base, false);
+            terres += base.emis;
+            const t0 = performance.now();
+            for (let i = 0; i < REPETITIONS; i++) tracerMarque(image(v, C, region, mouvement), id);
+            ms.push((performance.now() - t0) / REPETITIONS);
+          }
+          const k = ROTATIONS.length;
+          effacements[`${id} ${zoom} ${mouvement}`] = effacement / k;
+          lignes.push(
+            `${id} | ${zoom} | ${mouvement ? 'mouvement' : 'repos'} | ${Math.round(marque / k)} | ${Math.round(effacement / k)} | ${Math.round(terres / k)} | ${Math.round((100 * effacement) / Math.max(1, terres))} % | ${Math.round(mediane(ms) * 100) / 100}`,
+          );
+        }
+      }
+    }
+    console.info(['mer | zoom | état | marque émis | effacement émis | terres émis (base) | effacement / terres | JS marque et effacement (ms)', ...lignes].join('\n'));
+    // L'effacement d'un océan qui fait le tour du monde retrace, au zoom 1, une bonne part des terres de la base à chaque image.
+    expect(effacements['pacif 1 true']).toBeGreaterThan(0);
+    // La Méditerranée, d'emprise étroite, en retrace bien moins que le Pacifique.
+    expect(effacements['medit 1 false']).toBeLessThan(effacements['pacif 1 false'] as number);
   }, 120_000);
 });
