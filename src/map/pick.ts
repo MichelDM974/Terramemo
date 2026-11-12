@@ -247,7 +247,10 @@ function eauProche(ctx: ContexteCarte, zones: readonly Entite<Mer>[], ll: [numbe
  *    invisible de 22 px au point d'étiquette ; dès que la cible dépasse
  *    10 px (en zoomant), seule l'eau qu'on voit compte ;
  * 4. sinon (fentes le long des côtes : 0,20 % de la mer ; la couche légère,
- *    qui ne couvre que 99,39 %) la zone la plus proche par les sondes de pick ;
+ *    qui ne couvre que 99,39 %) le halo d'une petite cible d'abord, comme
+ *    en 3 (une fente se voit comme de l'eau : l'Adriatique au zoom 1 touchée
+ *    dans une fente à 0,25 px de son eau était fausse, relecture), puis la
+ *    zone la plus proche par les sondes de pick ;
  * null hors de la sphère, ou loin de toute zone.
  */
 export function pickMer(ctx: ContexteCarte, cible: string, x: number, y: number, compte: ReadonlySet<string> = new Set([cible])): ResultatPick | null {
@@ -262,12 +265,11 @@ export function pickMer(ctx: ContexteCarte, cible: string, x: number, y: number,
     return eauProche(ctx, comptent(), ll, x, y) ?? { id: terre.pays.id, via: 'trace', distance_px: 0 };
   }
   const m = zoneMer(mers, ll);
-  if (m) {
-    if (compte.has(m.pays.id)) return { id: m.pays.id, via: 'trace', distance_px: 0 };
-    const visee = mers.find((z) => z.pays.id === cible);
-    const petite = !!visee && tailleEcranPx(visee.pays, ctx.proj.scale(), ctx.t.k) < PASTILLE.seuil_px;
-    return (petite ? eauProche(ctx, comptent(), ll, x, y) : null) ?? { id: m.pays.id, via: 'trace', distance_px: 0 };
-  }
+  if (m && compte.has(m.pays.id)) return { id: m.pays.id, via: 'trace', distance_px: 0 };
+  const visee = mers.find((z) => z.pays.id === cible);
+  const halo = visee && tailleEcranPx(visee.pays, ctx.proj.scale(), ctx.t.k) < PASTILLE.seuil_px ? eauProche(ctx, comptent(), ll, x, y) : null;
+  if (halo) return halo;
+  if (m) return { id: m.pays.id, via: 'trace', distance_px: 0 };
   for (const [sx, sy, r] of sondes(x, y)) {
     const v = merVisible(ctx, mers, sx, sy);
     if (v) return { id: v.pays.id, via: 'proche', distance_px: r };

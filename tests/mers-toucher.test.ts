@@ -269,6 +269,49 @@ describe('pickMer : une petite mer a un halo de 12 px, sur la terre et dans l’
     }
   });
 
+  // Relecture : une fente (de l'eau qu'on voit, hors de toute zone) près
+  // d'une petite mer suivait les sondes de pick sur les 50 zones, faux même à
+  // 0,25 px de l'eau de la cible (l'Adriatique au zoom 1, prise par la mer
+  // Ionienne à 4 px), juste avant le halo par la cible de 22 px.
+  it.each([
+    ['egee', 2, [199, 348.5]],
+    ['adriat', 1, [190, 361.5]],
+  ] as const)('le halo dans une fente aussi : %s au zoom %i, touchée dans une fente près de son eau, juste', (id, k, [x, y]) => {
+    const ctx = contexte(vueSur(mer(id).pays.point, k));
+    const ll = versLonLat(ctx.proj, ctx.t, x, y)!;
+    expect([terre(ll), zoneDe(ll)]).toEqual([null, null]);
+    expect(tailleEcranPx(mer(id).pays, ctx.proj.scale(), k)).toBeLessThan(PASTILLE.seuil_px);
+    expect(noter(ctx, id, x, y, { acceptes: false })).toMatchObject({ juste: true, via: 'proche', pick: { id } });
+  });
+
+  it.each([
+    ['egee', 2],
+    ['adriat', 1],
+    ['finlande', 1],
+    ['botnie', 1],
+  ] as const)('dans les fentes autour de %s (moins de 10 px, zoom %i) : juste à 10 px ou moins de son eau, faux à 13 px et plus', (id, k) => {
+    const zone = mer(id);
+    const ctx = contexte(vueSur(zone.pays.point, k));
+    expect(tailleEcranPx(zone.pays, ctx.proj.scale(), k)).toBeLessThan(PASTILLE.seuil_px);
+    const [cx, cy] = ecran(ctx, zone.pays.point);
+    const distance = eauDe(ctx, [zone]);
+    const vus = { juste: 0, faux: 0 };
+    for (let dy = -30; dy <= 30; dy += 0.5) {
+      for (let dx = -30; dx <= 30; dx += 0.5) {
+        const [x, y] = [Math.round(cx) + dx, Math.round(cy) + dy];
+        const ll = versLonLat(ctx.proj, ctx.t, x, y);
+        if (!ll || terre(ll) || zoneDe(ll)) continue;
+        const d = distance(x, y);
+        if (d > 10 && d < 13) continue;
+        const n = noter(ctx, id, x, y, { acceptes: false });
+        vus[d <= 10 ? 'juste' : 'faux']++;
+        expect([id, x, y, d, n.juste]).toEqual([id, x, y, d, d <= 10]);
+      }
+    }
+    expect(vus.juste).toBeGreaterThan(5);
+    expect(vus.faux).toBeGreaterThan(5);
+  });
+
   it('jamais par-dessus une terre au-delà de 12 px : sur la terre à moins de 22 px du point d’Azov, faux (zoom 1 et 2)', () => {
     for (const k of [1, 2]) {
       const ctx = contexte(vueSur([35, 45], k));

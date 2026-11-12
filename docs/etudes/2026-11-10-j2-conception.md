@@ -1052,7 +1052,10 @@ au bord de la cible, ce qu'elle allume et ses zones admises comprises
 ≈ 2 px. Dans une question de mer seulement, une mer visée de moins de 10 px
 à l'écran compte à 12 px de son eau visible, le doigt sur la terre comme sur
 une autre mer : Azov touchée 5 px dans la mer Noire est juste (choix de
-l'utilisateur du 12/11, décision « Océans et mers »). D'abord prévue, une
+l'utilisateur du 12/11, décision « Océans et mers »). Une fente se voit
+comme de l'eau : le halo y joue aussi, avant les sondes de la règle 3
+(relecture : l'Adriatique touchée dans une fente à 0,25 px de son eau était
+fausse, prise par la mer Ionienne). D'abord prévue, une
 cible invisible de 22 px au point d'étiquette, comme les micro-États en mer,
 a été écartée : au zoom 1, 27 des 50 zones font moins de 10 px, et 22 px
 (≈ 2 300 km) comptaient la mer Noire juste pour le golfe de Botnie. Une mer

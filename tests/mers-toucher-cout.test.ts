@@ -126,8 +126,8 @@ describe('contient : la réponse de geoContains au bit près, sans parcourir tou
   });
 });
 
-// La méthode d'avant (pick.ts, a736060 : halo de 12 px compris), copie
-// exacte, sur contientRef : chaque sonde passe par geoContains sur tout le
+// La méthode d'avant (pick.ts, a736060 : halo de 12 px compris, dans les
+// fentes aussi depuis la relecture), copie exacte, sur contientRef : chaque sonde passe par geoContains sur tout le
 // polygone de chaque zone à portée, et cherche sa terre parmi les 258 pays.
 const R = (() => {
   function sousLePoint(ctx: ContexteCarte, x: number, y: number): Entite<Lieu> | null {
@@ -197,12 +197,11 @@ const R = (() => {
     const terre = sousLePoint(ctx, x, y);
     if (terre) return eauProche(ctx, comptent(), ll, x, y) ?? { id: terre.pays.id, via: 'trace', distance_px: 0 };
     const m = zoneMer(mers, ll);
-    if (m) {
-      if (compte.has(m.pays.id)) return { id: m.pays.id, via: 'trace', distance_px: 0 };
-      const visee = mers.find((z) => z.pays.id === cible);
-      const petite = !!visee && tailleEcranPx(visee.pays, ctx.proj.scale(), ctx.t.k) < PASTILLE.seuil_px;
-      return (petite ? eauProche(ctx, comptent(), ll, x, y) : null) ?? { id: m.pays.id, via: 'trace', distance_px: 0 };
-    }
+    if (m && compte.has(m.pays.id)) return { id: m.pays.id, via: 'trace', distance_px: 0 };
+    const visee = mers.find((z) => z.pays.id === cible);
+    const halo = visee && tailleEcranPx(visee.pays, ctx.proj.scale(), ctx.t.k) < PASTILLE.seuil_px ? eauProche(ctx, comptent(), ll, x, y) : null;
+    if (halo) return halo;
+    if (m) return { id: m.pays.id, via: 'trace', distance_px: 0 };
     for (const [sx, sy, r] of sondes(x, y)) {
       const v = merVisible(ctx, mers, sx, sy);
       if (v) return { id: v.pays.id, via: 'proche', distance_px: r };
