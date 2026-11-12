@@ -31,6 +31,8 @@ import {
   type PartieMaillee,
 } from '../src/map/maillage';
 import { cadre, placer, projectionDe, regionVisible, transfoDe } from '../src/map/vue';
+import { deballerMaillage, emballerMaillage, estMaillageEmballe, formesDesTextes, maillerMers, tamponsMaillage } from '../src/map/maillage-mers';
+import { assemblerMers, formeContour, type CoucheMers } from '../src/map/mers';
 
 // Rendu WebGL : maillage (triangulation, couture) et projection du shader,
 // sur les données réelles, au format du téléphone de mesure (384 × 723 px CSS).
@@ -960,12 +962,15 @@ function fauxWebGL() {
   const pointeurs = new Map<object | null, Map<number, PointeurGl>>();
   /** Valeurs constantes des attributs non activés (vertexAttrib*f : état du contexte, pas du VAO). */
   const constantesAttributs = new Map<number, number[]>();
-  const dessins: { prog: object | null; vao: object | null; mode: number; n: number; decalage: number; u: Record<string, unknown> }[] = [];
+  const dessins: { prog: object | null; vao: object | null; mode: number; n: number; decalage: number; u: Record<string, unknown>; tex?: object | null }[] = [];
   let prog: object | null = null;
   let vao: object | null = null;
   let elements = false;
   let tamponSommets: object | null = null;
   let texture: TextureGlsl | null = null;
+  /** La texture liée (bindTexture) et le contenu de chacune : celle des pays, celle des mers. */
+  let lie: object | null = null;
+  const textures = new Map<object | null, TextureGlsl>();
   let melange: [number, number] | null = null;
   const pointeur = (loc: number): PointeurGl => {
     const m = pointeurs.get(vao) ?? (pointeurs.set(vao, new Map()).get(vao) as Map<number, PointeurGl>);
@@ -1016,8 +1021,12 @@ function fauxWebGL() {
     uniform1i: uniforme,
     uniform2f: uniforme,
     uniform4fv: (loc: { nom: string; p: object } | null, v: number[]) => uniforme(loc, [...v]),
-    texImage2D: (...a: unknown[]) => (texture = { largeur: a[3] as number, hauteur: a[4] as number, texels: a[8] as Uint8Array }),
-    drawElements: (mode: number, n: number, _t: number, decalage: number) => dessins.push({ prog, vao, mode, n, decalage, u: { ...(prog && programmes.get(prog)) } }),
+    bindTexture: (_c: number, t: object | null) => (lie = t),
+    texImage2D: (...a: unknown[]) => {
+      texture = { largeur: a[3] as number, hauteur: a[4] as number, texels: a[8] as Uint8Array };
+      textures.set(lie, texture);
+    },
+    drawElements: (mode: number, n: number, _t: number, decalage: number) => dessins.push({ prog, vao, mode, n, decalage, u: { ...(prog && programmes.get(prog)) }, tex: lie }),
     drawArrays: (mode: number, _a: number, n: number) => dessins.push({ prog, vao, mode, n, decalage: 0, u: { ...(prog && programmes.get(prog)) } }),
     drawArraysInstanced: (mode: number, _a: number, _n: number, n: number) => dessins.push({ prog, vao, mode, n, decalage: 0, u: { ...(prog && programmes.get(prog)) } }),
   };
@@ -1064,7 +1073,7 @@ function fauxWebGL() {
     const s = source(v, loc);
     return s ? Math.floor((4 * s.t.length - s.p.decalage - 4 * s.p.taille) / s.pas) + 1 : 0;
   };
-  return { gl, dessins, indicesDuVao, attributs, sommetsDe, texels: () => texture?.texels ?? null, texture: () => texture, melange: () => melange, constante };
+  return { gl, dessins, indicesDuVao, attributs, sommetsDe, texels: () => texture?.texels ?? null, texture: () => texture, textures, melange: () => melange, constante };
 }
 
 const couleursEssai: Couleurs = {
@@ -1077,6 +1086,8 @@ const couleursEssai: Couleurs = {
   texte: [250, 251, 252, 255],
   marques: { choisi: [0, 0, 255, 255], juste: [0, 255, 0, 255], faux: [255, 0, 0, 255] },
   memoire: [[40, 0, 0, 255], [41, 0, 0, 255], [42, 0, 0, 255], [43, 0, 0, 255], [44, 0, 0, 255]],
+  marquesMers: { choisi: [0, 0, 200, 255], juste: [0, 200, 0, 255], faux: [200, 0, 0, 255] },
+  memoireMers: [[60, 0, 0, 255], [61, 0, 0, 255], [62, 0, 0, 255], [63, 0, 0, 255], [64, 0, 0, 255]],
 };
 
 const arcs = donnees.traits();
@@ -1599,6 +1610,8 @@ describe('lireCouleurs (variables de :root)', () => {
       '--mer': '#010203', '--terre': '#0a141e', '--frontiere-fine': '#c8c8c8', '--hachure': '#050505',
       '--pastille': '#090909', '--bg': '#000000', '--text': '#eff0f3', '--accent': '#0000ff', '--good': '#00ff00', '--danger': '#ff0000',
       '--memoire-0': '#100000', '--memoire-1': '#200000', '--memoire-2': '#300000', '--memoire-3': '#400000', '--memoire-4': '#500000',
+      '--mer-choisie': '#0000fe', '--mer-juste': '#00fe00', '--mer-fausse': '#fe0000',
+      '--memoire-mer-0': '#110000', '--memoire-mer-1': '#210000', '--memoire-mer-2': '#310000', '--memoire-mer-3': '#410000', '--memoire-mer-4': '#510000',
     };
     const hex = (h: string) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16)).concat(255);
     let style = '';
@@ -1612,6 +1625,214 @@ describe('lireCouleurs (variables de :root)', () => {
     expect(c.texte).toEqual(hex('#eff0f3'));
     expect(c.marques).toEqual({ choisi: hex('#0000ff'), juste: hex('#00ff00'), faux: hex('#ff0000') });
     expect(c.memoire).toEqual(['#100000', '#200000', '#300000', '#400000', '#500000'].map(hex));
+    expect(c.marquesMers).toEqual({ choisi: hex('#0000fe'), juste: hex('#00fe00'), faux: hex('#fe0000') });
+    expect(c.memoireMers).toEqual(['#110000', '#210000', '#310000', '#410000', '#510000'].map(hex));
+  });
+});
+
+describe('océans et mers en WebGL (lot 3a, étude J2, § 4.3 et § 4.5)', () => {
+  const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+  const couche: CoucheMers = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+  const debutMers = performance.now();
+  const mers = maillerMers(couche.mers.map((e) => e.forme));
+  const msMers = performance.now() - debutMers;
+  const ids = couche.mers.map((e) => e.pays.id);
+  const ind = (id: string) => ids.indexOf(id);
+  const peintreMers = (o: { maillerMers?: (c: CoucheMers) => Promise<Maillage>; redessiner?: () => void } = {}) => {
+    const f = fauxWebGL();
+    const dpr = 2.8125;
+    const canvas = { width: Math.round(L * dpr), height: Math.round(H * dpr), getContext: () => f.gl, addEventListener: () => undefined, removeEventListener: () => undefined };
+    const p = new PeintreWebGL(canvas as unknown as HTMLCanvasElement, { donnees, redessiner: o.redessiner ?? (() => undefined), couleurs: couleursEssai, maillerMers: o.maillerMers });
+    p.charger(tout);
+    p.dimensionner(L, H, dpr);
+    return { p, f };
+  };
+  const surMers = (f: ReturnType<typeof fauxWebGL>) => {
+    const [vao] = vaoDe(f, mers.triangles.length);
+    return f.dessins.filter((d) => d.vao === vao && d.mode === f.constante('TRIANGLES'));
+  };
+  const premierTerres = (f: ReturnType<typeof fauxWebGL>) => {
+    const [vao] = vaoDe(f, terres.triangles.length);
+    return f.dessins.findIndex((d) => d.vao === vao);
+  };
+  const texel = (t: TextureGlsl | undefined, i: number) => [...(t?.texels ?? []).slice(4 * i, 4 * i + 4)];
+
+  it('maillage : chaque zone maillée, le même depuis les textes (le Worker) ; aire des triangles = celle des polygones', () => {
+    console.info(`maillage des mers : ${mers.lonlat.length / 2} sommets, ${mers.triangles.length / 3} triangles, ${msMers.toFixed(0)} ms (Node, PC)`);
+    expect(mers.formes).toHaveLength(50);
+    for (const [i, f] of mers.formes.entries()) expect(f.t1 - f.t0, ids[i]).toBeGreaterThan(0);
+    const autre = maillerMers(formesDesTextes(couche.textes));
+    expect(autre.triangles).toEqual(mers.triangles);
+    expect(autre.lonlat).toEqual(mers.lonlat);
+    // Aire des triangles (en degrés², les sommets de la couture poussés de 10⁻⁴°) contre celle des polygones, zone par zone.
+    let pire = 0;
+    let ou = '';
+    let caraibes = 0;
+    couche.mers.forEach((e, i) => {
+      const g = e.forme.geometry;
+      let attendue = 0;
+      for (const poly of g.type === 'Polygon' ? [g.coordinates] : g.coordinates) poly.forEach((a, j) => (attendue += (j ? -1 : 1) * Math.abs(aireAnneau(a))));
+      let aire = 0;
+      const f = mers.formes[i] as { t0: number; t1: number };
+      for (let t = f.t0; t < f.t1; t += 3) {
+        const [a, b, c] = [0, 1, 2].map((k) => sommet(mers, mers.triangles[t + k] as number));
+        aire += Math.abs((b![0] - a![0]) * (c![1] - a![1]) - (c![0] - a![0]) * (b![1] - a![1])) / 2;
+      }
+      // Les Caraïbes : 0,6 % de trop (mesuré aussi au relevé), des triangles d'earcut qui se
+      // recouvrent dans la mer même (grille de 0,1° : ~140 points couverts deux fois, aucun
+      // dans une autre mer) : invisible, la couleur est opaque. Signé : jamais de mer en moins.
+      if (e.pays.id === 'caraibes') return void (caraibes = (aire - attendue) / attendue);
+      const ecart = Math.abs(aire - attendue) / attendue;
+      if (ecart > pire) [pire, ou] = [ecart, e.pays.id];
+    });
+    console.info(`aire des triangles des mers : écart au plus ${(pire * 100).toFixed(3)} % (${ou}) ; Caraïbes ${(caraibes * 100).toFixed(2)} %`);
+    expect(pire).toBeLessThan(1e-3);
+    expect(caraibes).toBeGreaterThanOrEqual(0);
+    expect(caraibes).toBeLessThan(0.01);
+  });
+
+  // Triangulé en longitude et latitude comme les terres, le maillage des mers
+  // retournait 29 triangles (1 148 px² au zoom 1), surtout un long triangle tendu
+  // le long de la couture du Pacifique Sud ; triangulé dans le plan d'Equal Earth
+  // (maillerMers), il en reste 6, des aiguilles de moins d'un demi-pixel carré au
+  // zoom 1 (mer Rouge vers λ0 = 240 à 330, une au Pacifique à λ0 = 17), larges
+  // d'un centième de pixel : invisibles. Le test borne chacune et leur somme.
+  it('aucun triangle retourné par la projection au-delà d’un demi-pixel carré, à 16 rotations, Austral et Caraïbes compris', () => {
+    let retournes = 0;
+    let aireRetournee = 0;
+    let pire = 0;
+    const vus = new Set<string>();
+    for (const r of ROTATIONS) {
+      for (const pa of mers.parties) {
+        const tours = toursEnPlus(pa, r);
+        for (const tour of tours.length ? tours : [tourDe(r, (pa.o + pa.e) / 2)]) {
+          for (let t = pa.t0; t < pa.t1; t += 3) {
+            const ll = [0, 1, 2].map((k) => sommet(mers, mers.triangles[t + k] as number));
+            const [a, b, c] = ll as [[number, number], [number, number], [number, number]];
+            const sa = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+            if (Math.abs(sa) < 1e-9) continue;
+            const [pa2, pb, pc] = ll.map(([lon, lat]) => projeterF64(lon, lat, r, tour)) as [[number, number], [number, number], [number, number]];
+            if (Math.max(Math.abs(pa2[0]), Math.abs(pb[0]), Math.abs(pc[0])) > 4) continue;
+            vus.add(ids[pa.forme] as string);
+            const sp = (pb[0] - pa2[0]) * (pc[1] - pa2[1]) - (pc[0] - pa2[0]) * (pb[1] - pa2[1]);
+            if (Math.sign(sp) !== Math.sign(sa)) {
+              const aire = (Math.abs(sp) / 2) * C.s * C.s;
+              retournes++;
+              aireRetournee += aire;
+              pire = Math.max(pire, aire);
+            }
+          }
+        }
+      }
+    }
+    expect(vus.has('austral') && vus.has('caraibes') && vus.has('arctique')).toBe(true);
+    console.info(`maillage des mers, 16 rotations : ${retournes} triangles retournés, ${aireRetournee.toFixed(2)} px² en tout au zoom 1, ${pire.toFixed(2)} au plus`);
+    expect(retournes).toBeLessThanOrEqual(6);
+    expect(pire).toBeLessThan(0.5);
+    expect(aireRetournee).toBeLessThan(2);
+  });
+
+  it('l’Austral, bande de 360° sans pôle : redessiné décalé d’un tour à toute rotation hors de 0 (copies), coupé par le stencil de l’ovale', () => {
+    const austral = mers.parties.filter((pa) => ids[pa.forme] === 'austral');
+    expect(austral.length).toBeGreaterThan(0);
+    for (const r of ROTATIONS) {
+      const copies = austral.flatMap((pa) => toursEnPlus(pa, r));
+      if (r % 360 === 0) expect(copies, String(r)).toEqual([]);
+      else expect(copies.length, String(r)).toBeGreaterThanOrEqual(2);
+    }
+    const { p, f } = peintreMers();
+    p.prendreMers(couche);
+    const e = etat(37, 1, new Map([['austral', new Set(['choisi'])]]));
+    p.dessiner(e);
+    const copies = surMers(f).filter((d) => d.u.uMode === 1).map((d) => `${d.decalage}:${d.n}:${d.u.uTour}`);
+    const attendues: string[] = [];
+    pourChaqueCopie(emprisesAPlat(mers.parties), e.v.r, (i, tour) => {
+      const pa = mers.parties[i];
+      if (pa && pa.t1 > pa.t0) attendues.push(`${pa.t0 * 4}:${pa.t1 - pa.t0}:${tour}`);
+    });
+    expect(copies).toEqual(attendues);
+    expect(austral.some((pa) => attendues.some((a) => a.startsWith(`${pa.t0 * 4}:`)))).toBe(true);
+  });
+
+  it('sans teinte ni marque de mer, aucun appel ; une mer allumée : son maillage après l’ovale, avant les terres, couleur de sa texture (l’Atlantique avec les Sargasses)', () => {
+    const { p, f } = peintreMers();
+    p.prendreMers(couche);
+    p.dessiner(etat(0, 1, new Map([['FRA', new Set(['juste'])]]), 0, new Map([['FRA', 2]])));
+    expect(vaoDe(f, mers.triangles.length)).toHaveLength(1);
+    expect(surMers(f)).toEqual([]);
+    f.dessins.length = 0;
+    p.dessiner(etat(0, 1, new Map([['atlant', new Set(['choisi'])], ['FRA', new Set(['juste'])]]), 0, new Map([['medit', 2]])));
+    const dessins = surMers(f);
+    expect(dessins.length).toBeGreaterThan(0);
+    const commun = dessins.find((d) => d.u.uMode === 0);
+    expect(commun?.n).toBe(mers.triangles.length);
+    expect(f.dessins.indexOf(dessins[0] as (typeof f.dessins)[number])).toBeGreaterThan(0); // après l'ovale
+    expect(f.dessins[0]?.u.uMode).toBe(2);
+    expect(f.dessins.indexOf(dessins.at(-1) as (typeof f.dessins)[number])).toBeLessThan(premierTerres(f));
+    expect(commun?.prog).toBe(f.dessins[premierTerres(f)]?.prog); // le programme remplir des terres
+    const t = f.textures.get(commun?.tex ?? null);
+    expect(t).toBeDefined();
+    expect(commun?.tex).not.toBe(f.dessins[premierTerres(f)]?.tex);
+    expect(texel(t, ind('atlant'))).toEqual(couleursEssai.marquesMers.choisi);
+    expect(texel(t, ind('sargasse'))).toEqual(couleursEssai.marquesMers.choisi);
+    expect(texel(t, ind('caraibes'))).toEqual([0, 0, 0, 0]);
+    expect(texel(t, ind('medit'))).toEqual(couleursEssai.memoireMers[2]);
+    // Les Sargasses seules n'allument qu'elles.
+    f.dessins.length = 0;
+    p.dessiner(etat(0, 1, new Map([['sargasse', new Set(['juste'])]])));
+    const t2 = f.textures.get(surMers(f)[0]?.tex ?? null);
+    expect(texel(t2, ind('sargasse'))).toEqual(couleursEssai.marquesMers.juste);
+    expect(texel(t2, ind('atlant'))).toEqual([0, 0, 0, 0]);
+  });
+
+  it('la mer fausse : son contour (l’union, sans le bord des Sargasses) en traits couleur du texte, avant les terres ; retiré avec la marque', () => {
+    const atl = couche.mers[ind('atlant')]!;
+    const g = formeContour(atl, couche.mers).geometry;
+    const contour = maillerTraits((g.type === 'Polygon' ? [g.coordinates] : g.coordinates).flat());
+    const g0 = atl.forme.geometry;
+    const avecAnneau = maillerTraits((g0.type === 'Polygon' ? [g0.coordinates] : g0.coordinates).flat());
+    expect(contour.traits.length).toBeLessThan(avecAnneau.traits.length);
+    const { p, f } = peintreMers();
+    p.prendreMers(couche);
+    const e = etat(-30, 1, new Map([['atlant', new Set(['faux'])]]));
+    p.dessiner(e);
+    const [vao] = vaoDe(f, contour.traits.length);
+    const passes = f.dessins.filter((d) => d.vao === vao && d.mode === f.constante('LINES') && d.u.uMode === 0);
+    expect(passes).toHaveLength(decalagesTrait(TRAIT_FAUX_PX, 2.8125).length);
+    for (const d of passes) expect(d.u.uCouleur).toEqual(couleursEssai.texte.map((x) => x / 255));
+    expect(f.dessins.indexOf(passes.at(-1) as (typeof f.dessins)[number])).toBeLessThan(premierTerres(f));
+    expect(texel(f.textures.get(surMers(f)[0]?.tex ?? null), ind('atlant'))).toEqual(couleursEssai.marquesMers.faux);
+    f.dessins.length = 0;
+    p.dessiner({ ...e, marques: new Map() });
+    expect(f.dessins.filter((d) => d.vao === vao)).toEqual([]);
+    expect(surMers(f)).toEqual([]);
+  });
+
+  it('le relais du monde n’attend pas les mers : la carte se dessine pendant leur maillage, puis une image les montre', async () => {
+    let rendre!: (m: Maillage) => void;
+    const redessiner = vi.fn();
+    const { p, f } = peintreMers({ maillerMers: () => new Promise<Maillage>((ok) => (rendre = ok)), redessiner });
+    p.prendreMers(couche);
+    const e = etat(0, 1, new Map([['atlant', new Set(['choisi'])]]));
+    const stats = p.dessiner(e);
+    expect(stats.emis).toBeGreaterThan(3);
+    expect(vaoDe(f, mers.triangles.length)).toEqual([]);
+    rendre(deballerMaillage(emballerMaillage(mers)));
+    await Promise.resolve();
+    expect(redessiner).toHaveBeenCalled();
+    p.dessiner(e);
+    expect(surMers(f).length).toBeGreaterThan(0);
+  });
+
+  it('maillage emballé (Worker, cache de l’appareil) : emballer puis deballer rend le même ; chaque tampon transféré une fois', () => {
+    const em = emballerMaillage(mers);
+    expect(estMaillageEmballe(em)).toBe(true);
+    expect(estMaillageEmballe({ ...em, parties: [] })).toBe(false);
+    expect(tamponsMaillage(em)).toHaveLength(7);
+    const d = deballerMaillage(em);
+    expect(d.parties).toEqual(mers.parties);
+    expect(d.formes).toEqual(mers.formes);
+    expect(d.triangles).toBe(mers.triangles);
   });
 });
 

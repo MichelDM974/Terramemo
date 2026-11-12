@@ -14,6 +14,9 @@
 //
 // Une image, dans l'ordre (stencil : 0x80 ovale, 0x40 traits, 0x20 hachures) :
 // 1. l'ovale (la mer), qui marque le stencil : tout ce qui suit y est découpé ;
+// 1 bis. les zones marines teintées ou marquées (lot 3a), leur couleur lue dans
+//    leur propre texture, puis le contour de la zone marine fausse : avant les
+//    terres, qui les couvrent ; sans teinte ni marque de mer, aucun appel ;
 // 2. les terres, couleur par pays lue dans une texture (teinte de la carte de
 //    la mémoire, puis marques choisi, juste, faux par-dessus) : la changer ne
 //    téléverse que la texture, jamais la géométrie ;
@@ -51,9 +54,11 @@ import type { DonneesCarte } from './donnees';
 import { versEcran } from './geo';
 import type { Position } from 'geojson';
 import { emprisesAPlat, maillerCarte, maillerTraits, pourChaqueCopie, toursEnPlus, type Maillage, type MaillagesCarte, type PartieMaillee } from './maillage';
+import { maillerMers } from './maillage-mers';
+import { formeContour, zonesAllumees, type CoucheMers } from './mers';
 import { PASTILLE } from './pastilles';
 import { pointAnneau, TRAIT_FAUX_PX, type EtatImage, type Peintre, type StatsDessin } from './carte-canvas';
-import { VARIABLES_MEMOIRE, type Teintes } from './teintes';
+import { VARIABLES_MEMOIRE, VARIABLES_MEMOIRE_MERS, type Teintes } from './teintes';
 
 /** Côté de la texture des couleurs par pays (texels par ligne). */
 const LARGEUR_COULEURS = 256;
@@ -191,6 +196,9 @@ export interface Couleurs {
   marques: Record<string, Rvba>;
   /** Seaux de la carte de la mémoire (--memoire-0 à 4). */
   memoire: Rvba[];
+  /** Les marques et les seaux sur l'eau (--mer-choisie…, --memoire-mer-0 à 4). */
+  marquesMers: Record<string, Rvba>;
+  memoireMers: Rvba[];
   /** Épaisseur des frontières à l'arrêt (px CSS, --frontiere-repos) ; absente ou 0 : un pixel physique. */
   repos?: number;
 }
@@ -225,6 +233,8 @@ export function lireCouleurs(): Couleurs {
     // Classes de marquer() : les mêmes couleurs que .pays.choisi, .juste, .faux du SVG.
     marques: { choisi: v('--accent'), juste: v('--good'), faux: v('--danger') },
     memoire: VARIABLES_MEMOIRE.map(v),
+    marquesMers: { choisi: v('--mer-choisie'), juste: v('--mer-juste'), faux: v('--mer-fausse') },
+    memoireMers: VARIABLES_MEMOIRE_MERS.map(v),
     repos: parseFloat(css.getPropertyValue('--frontiere-repos')) || 0,
   };
 }
@@ -355,6 +365,11 @@ export interface OptionsWebGL {
   surPerteDurable?: (raison: string) => void;
   /** Couleurs déjà lues (tests, sans DOM) ; sinon les variables de :root. */
   couleurs?: Couleurs;
+  /**
+   * Le maillage des mers, ailleurs que sur le fil principal (relais-webgl.ts :
+   * son Worker, ou le cache de l'appareil) ; absent : maillerMers ici.
+   */
+  maillerMers?: (c: CoucheMers) => Promise<Maillage>;
 }
 
 export class PeintreWebGL implements Peintre {
@@ -368,6 +383,11 @@ export class PeintreWebGL implements Peintre {
   private zones: Maillage | null = null;
   private interieurs: Maillage | null = null;
   private cotes: Maillage | null = null;
+  /** Couche marine (prendreMers) et son maillage, une fois calculé : un 5e maillage, à part de ceux des terres. */
+  private couche: CoucheMers | null = null;
+  private mers: Maillage | null = null;
+  /** Une zone marine a une couleur (teinte ou marque) : le maillage des mers est dessiné. */
+  private mersVisibles = false;
   /** Parties hachurées du maillage des terres : celles des entités au statut « conteste ». */
   private contestees: PartieMaillee[] = [];
   private programmes: Programmes | null = null;
@@ -381,6 +401,10 @@ export class PeintreWebGL implements Peintre {
     couleurs: WebGLTexture;
     /** Anneaux de la zone fausse en traits (null : aucune), refaits quand les marques changent. */
     contourFaux: MaillageGpu | null;
+    /** Le maillage des mers (null tant qu'il n'est pas arrivé), la couleur de chaque zone, le contour de la zone marine fausse. */
+    mers: MaillageGpu | null;
+    couleursMers: WebGLTexture;
+    contourFauxMers: MaillageGpu | null;
   }) | null = null;
   private perdu = false;
   private minuteurPerte = 0;
@@ -554,6 +578,41 @@ export class PeintreWebGL implements Peintre {
     this.contestees = m.terres.parties.filter((p) => d.entites[p.forme]?.pays.statut === 'conteste');
   }
 
+  /**
+   * La couche marine posée sur la carte : son maillage calculé à part
+   * (maillerMers des options : son Worker ; sinon ici), puis téléversé ; la
+   * carte des terres n'attend rien, elle se dessine sans les mers jusque-là.
+   */
+  prendreMers(c: CoucheMers): void {
+    if (this.couche) return;
+    this.couche = c;
+    const recu = (m: Maillage) => {
+      if (this.couche === c) this.chargerMers(m);
+    };
+    if (this.o.maillerMers) {
+      this.o.maillerMers(c).then(recu, (e: unknown) => console.warn('Maillage des mers en échec :', e));
+    } else recu(maillerMers(c.mers.map((e) => e.forme)));
+  }
+
+  /** Le maillage des mers (Worker, cache, ou fil principal) : gardé (contexte rendu), téléversé, puis une image. */
+  chargerMers(m: Maillage): void {
+    this.mers = m;
+    // Couleurs des zones marines (et contour faux) à refaire à la prochaine image.
+    this.signature = null;
+    const g = this.g;
+    if (g && !this.gl.isContextLost()) g.mers = this.televerserTout(m);
+    this.o.redessiner();
+  }
+
+  /** Un maillage téléversé d'un bloc (televerser sans rendre la main). */
+  private televerserTout(m: Maillage): MaillageGpu {
+    const etapes = this.televerser(m);
+    let r = etapes.next();
+    while (!r.done) r = etapes.next();
+    this.gl.bindVertexArray(null);
+    return r.value;
+  }
+
   /** Peintre passé à CarteCanvas dès sa construction : maillage sur le fil principal (chronométré par rendre()). */
   preparer(): void {
     if (!this.terres) this.charger(maillerCarte(this.donnees));
@@ -601,16 +660,35 @@ export class PeintreWebGL implements Peintre {
     const zones = yield* this.televerser(this.zones);
     const interieurs = yield* this.televerser(this.interieurs);
     const cotes = yield* this.televerser(this.cotes);
+    const mers = this.mers ? yield* this.televerser(this.mers) : null;
     gl.bindVertexArray(null);
 
-    const couleurs = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, couleurs);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    const texture = () => {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      return t;
+    };
+    const couleurs = texture();
+    const couleursMers = texture();
     this.signature = null;
     this.teintesVues = undefined;
 
-    this.g = { ...this.programmes, terres, zones, interieurs, cotes, ovale: { vao: vaoOvale, tampon: tOvale, n: ovale.length / 2 }, instances: { vao: vaoDisques, tampon: tDisques, octets: this.disques.byteLength }, couleurs, contourFaux: null };
+    this.g = {
+      ...this.programmes,
+      terres,
+      zones,
+      interieurs,
+      cotes,
+      ovale: { vao: vaoOvale, tampon: tOvale, n: ovale.length / 2 },
+      instances: { vao: vaoDisques, tampon: tDisques, octets: this.disques.byteLength },
+      couleurs,
+      contourFaux: null,
+      mers,
+      couleursMers,
+      contourFauxMers: null,
+    };
     const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
     this.chrono = ext ? { ext, q: null, actif: false, gpu_ms: null } : null;
   }
@@ -679,6 +757,63 @@ export class PeintreWebGL implements Peintre {
     gl.bindTexture(gl.TEXTURE_2D, g.couleurs);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, LARGEUR_COULEURS, lignes, 0, gl.RGBA, gl.UNSIGNED_BYTE, texels);
     if (marquesChangent) this.majContourFaux(e.marques);
+    if (g.mers) this.couleursMers(e, marquesChangent);
+  }
+
+  /**
+   * Couleur de chaque zone marine : rien (transparente), ou la teinte de son
+   * seau, puis la marque de ce qui l'allume (zonesAllumees : les Sargasses avec
+   * l'Atlantique), comme le Canvas. mersVisibles : au moins une a une couleur.
+   */
+  private couleursMers(e: EtatImage, marquesChangent: boolean): void {
+    const g = this.g;
+    const c = this.couche;
+    if (!g || !c) return;
+    const { gl } = this;
+    const zones = c.mers.map((m) => m.pays);
+    const indices = new Map(zones.map((m, i) => [m.id, i]));
+    const lignes = Math.max(1, Math.ceil(zones.length / LARGEUR_COULEURS));
+    const texels = new Uint8Array(LARGEUR_COULEURS * lignes * 4);
+    let visibles = false;
+    zones.forEach((m, i) => {
+      const s = e.teintes?.get(m.id);
+      const t = s !== undefined ? this.couleurs.memoireMers[s] : undefined;
+      if (!t) return;
+      texels.set(t, i * 4);
+      visibles = true;
+    });
+    for (const [id, classes] of e.marques) {
+      if (!indices.has(id)) continue;
+      let couleur: Rvba | undefined;
+      for (const cl of classes) couleur = this.couleurs.marquesMers[cl] ?? couleur;
+      if (!couleur) continue;
+      for (const z of zonesAllumees(id, zones)) texels.set(couleur, (indices.get(z) as number) * 4);
+      visibles = true;
+    }
+    this.mersVisibles = visibles;
+    gl.bindTexture(gl.TEXTURE_2D, g.couleursMers);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, LARGEUR_COULEURS, lignes, 0, gl.RGBA, gl.UNSIGNED_BYTE, texels);
+    if (marquesChangent) this.majContourFauxMers(e.marques);
+  }
+
+  /** Le contour de la zone marine fausse : les anneaux de l'union qu'elle allume (formeContour), en traits sans les coutures. */
+  private majContourFauxMers(marques: EtatImage['marques']): void {
+    const g = this.g;
+    const c = this.couche;
+    if (!g || !c) return;
+    const { gl } = this;
+    if (g.contourFauxMers) {
+      for (const t of g.contourFauxMers.tampons) gl.deleteBuffer(t);
+      gl.deleteVertexArray(g.contourFauxMers.vao);
+      g.contourFauxMers = null;
+    }
+    const anneaux: Position[][] = [];
+    for (const m of c.mers) {
+      if (!marques.get(m.pays.id)?.has('faux')) continue;
+      const geo = formeContour(m, c.mers).geometry;
+      for (const poly of geo.type === 'Polygon' ? [geo.coordinates] : geo.coordinates) anneaux.push(...poly);
+    }
+    if (anneaux.length) g.contourFauxMers = this.televerserTout(maillerTraits(anneaux));
   }
 
   /** Couleur d'un pays ou de sa pastille : base (terre, pastille), sinon sa teinte, puis ses marques par-dessus. */
@@ -796,10 +931,29 @@ export class PeintreWebGL implements Peintre {
     gl.drawArrays(gl.TRIANGLE_FAN, 0, g.ovale.n);
     appels++;
 
-    // 2. Les terres, dans l'ovale.
     gl.stencilFunc(gl.EQUAL, OVALE, OVALE);
     gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
     gl.stencilMask(0);
+    // 1 bis. Les zones marines teintées ou marquées, dans l'ovale, sous les terres (copies du
+    // bord comprises : l'Austral, bande de 360°) ; puis le contour de la zone marine fausse.
+    if (g.mers && this.mersVisibles) {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, g.couleursMers);
+      gl.useProgram(g.remplir.p);
+      gl.uniform1i(g.remplir.loc('uCouleurs'), 0);
+      dessinerMaillage(g.remplir, g.mers, gl.TRIANGLES, null);
+    }
+    if (g.mers && g.contourFauxMers) {
+      for (const d of decalagesTrait(TRAIT_FAUX_PX, this.dpr)) {
+        decalage = d;
+        gl.useProgram(g.carte.p);
+        gl.uniform4fv(g.carte.loc('uCouleur'), premult(this.couleurs.texte));
+        dessinerMaillage(g.carte, g.contourFauxMers, gl.LINES, null);
+      }
+      decalage = [0, 0];
+    }
+
+    // 2. Les terres, dans l'ovale.
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, g.couleurs);
     gl.useProgram(g.remplir.p);

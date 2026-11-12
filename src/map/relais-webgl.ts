@@ -21,8 +21,11 @@
 import { CarteCanvas } from './carte-canvas';
 import { PeintreWebGL, WebGLIndisponible } from './carte-webgl';
 import type { DonneesCarte, TextesCarte } from './donnees';
-import { deballer } from './maillage';
-import type { DemandeMaillage, DureesMaillage, ReponseMaillage } from './maillage.worker';
+import { deballer, type Maillage } from './maillage';
+import { deballerMaillage, formesDesTextes, maillerMers } from './maillage-mers';
+import type { DemandeMaillageMers, ReponseMaillageMers } from './maillage-mers.worker';
+import type { DureesMaillage, DemandeMaillage, ReponseMaillage } from './maillage.worker';
+import type { CoucheMers } from './mers';
 
 /** Processeurs graphiques logiciels : 5 à 7 images/s mesurées avec SwiftShader (relecture du rendu webgl). */
 const LOGICIEL = /swiftshader|llvmpipe|softpipe|software|microsoft basic render/i;
@@ -146,6 +149,8 @@ export class RelaisWebGL {
           redessiner: () => this.carte?.redessiner(),
           antialias: this.o.antialias,
           logicielAccepte: this.o.logicielAccepte,
+          // La couche marine, quand elle arrive : son maillage dans son Worker, que le relais du monde n'attend pas.
+          maillerMers: (c) => maillerMersEnFond(c, this.o.lireCache),
           surPerteDurable: (raison) => {
             if (this.carte?.peintre === peintre && this.carte.revenirAuCanvas2D()) this.repli(raison);
           },
@@ -287,4 +292,42 @@ export class RelaisWebGL {
 
 function arrondir(ms: DureesMaillage): DureesMaillage {
   return { cle_ms: r1(ms.cle_ms), lecture_ms: r1(ms.lecture_ms), analyse_ms: r1(ms.analyse_ms), maillage_ms: r1(ms.maillage_ms), total_ms: r1(ms.total_ms) };
+}
+
+/**
+ * Le maillage des océans et mers (lot 3a) dans son Web Worker
+ * (maillage-mers.worker.ts) ou sorti du cache de l'appareil ('webgl-mers'),
+ * quand la couche marine arrive ; sur le fil principal si le Worker échoue
+ * (quelques dizaines de ms : 15 000 sommets, contre 125 000 pour les terres).
+ */
+export function maillerMersEnFond(c: CoucheMers, lireCache: boolean): Promise<Maillage> {
+  const surFil = () => maillerMers(formesDesTextes(c.textes));
+  return new Promise<Maillage>((ok) => {
+    let worker: Worker | null = null;
+    const repli = (raison: string) => {
+      console.warn('Maillage des mers sur le fil principal :', raison);
+      worker?.terminate();
+      ok(surFil());
+    };
+    let w: Worker;
+    try {
+      w = worker = new Worker(new URL('./maillage-mers.worker.ts', import.meta.url), { type: 'module', name: 'maillage-mers' });
+    } catch (e) {
+      return repli(e instanceof Error ? e.message : String(e));
+    }
+    let recu = false;
+    w.onmessage = (ev: MessageEvent<ReponseMaillageMers>) => {
+      const r = ev.data;
+      if (r.type === 'ecrit') return w.terminate();
+      if (r.type === 'erreur') return repli(r.erreur);
+      recu = true;
+      if (!r.ecrira) w.terminate();
+      ok(deballerMaillage(r.m));
+    };
+    w.onerror = (ev) => {
+      if (!recu) repli(`Worker : ${ev.message || 'script en échec'}`);
+    };
+    const d: DemandeMaillageMers = { topo: c.textes.topo, mers: c.textes.mers, lireCache };
+    w.postMessage(d);
+  });
 }
