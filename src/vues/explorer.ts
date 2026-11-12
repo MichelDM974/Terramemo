@@ -8,7 +8,11 @@
 // à part et « Vu 4 fois · revient dans 5 j » sous la zone touchée. Le choix du
 // sujet (étude J2 § 6.4, D47 a) en tête de la légende, seulement quand le
 // terrain a plusieurs sujets jouables ; avec « Mers », la couche marine se
-// charge, posée sur la carte, et ses zones sont teintées (les pays neutres).
+// charge, posée sur la carte, et ses zones sont teintées (les pays neutres) ;
+// les pastilles des micro-États y sont cachées (choix de l'utilisateur du
+// 12/11 : ≈ 100 disques gris couvraient les Caraïbes et la Méditerranée), un
+// micro-État ne s'y touche que par son tracé. Elles reviennent avec un autre
+// sujet et en partant : aucune partie ne démarre sans elles.
 //
 // Toucher l'eau du monde donne le nom de la mer (D45 a) : la couche légère
 // seule (mers-leger.topo.json, mers.json, mers.fr.json : ≈ 25 Ko), lue au
@@ -100,6 +104,14 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   let active = false;
   /** Les terrains dont la carte porte les teintes de la mémoire : à effacer en partant. */
   const teintes = new Set<Terrain>();
+  /** Les pastilles du monde cachées par la mémoire des mers : à rendre en partant. */
+  let sansPastilles = false;
+  /** Les pastilles du monde cachées ou rendues ; appelé seulement au changement (sans mémoire, jamais). */
+  function cacherPastilles(oui: boolean): void {
+    if (oui === sansPastilles) return;
+    sansPastilles = oui;
+    ctx.terrains.monde.carte.cacherPastilles(oui);
+  }
 
   /** Les teintes de la mémoire sur le terrain exploré et la légende, ou rien (réglage coupé, mémoire en lecture). */
   function teinter(): void {
@@ -126,6 +138,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         );
       }
     } else t.carte.teinter(null);
+    // La carte « Mers » : l'eau teintée et les terres neutres, sans les pastilles des micro-États.
+    cacherPastilles(!!seaux && t === ctx.terrains.monde && m.sujet(t.nom) === 'mers');
     const compte = seaux ? m.maitrises(t.nom, t.jouables.length) : null;
     compteMaitrises.textContent = compte ?? '';
     const sujets = compte ? m.sujets(t.nom) : [];
@@ -148,6 +162,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   function effacerTeintes(): void {
     for (const x of teintes) x.carte.teinter(null);
     teintes.clear();
+    cacherPastilles(false);
     legende.hidden = true;
   }
 

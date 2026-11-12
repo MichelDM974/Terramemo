@@ -6,10 +6,14 @@
 // est déjà lue ; rien d'autre à l'écran (aucun calque marin dessiné ni
 // teinté). Avec « Mers » dans la carte de la mémoire : la couche posée, ses
 // zones teintées, et le carré « Jamais vu » de la légende couleur d'eau
-// (partie B). Une mer choisie dans la recherche : cadrée, allumée.
+// (partie B), sans les pastilles des micro-États (choix de l'utilisateur du
+// 12/11), rendues sous un autre sujet et en partant. Une mer choisie dans la
+// recherche : cadrée, allumée.
 import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { depotMemoire } from '../src/journal/depot';
+import { ouvrirMemoire } from '../src/journal/memoire';
 import { acceptesDe } from '../src/map/acceptes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { contient, versEcran } from '../src/map/geo';
@@ -17,7 +21,7 @@ import { assemblerMers, chargerMers, oublierMers, type CoucheMers } from '../src
 import { calculerPastilles } from '../src/map/pastilles';
 import { pick, type ContexteCarte } from '../src/map/pick';
 import { cadre, placer, projectionDe, transfoDe, type VueGlobe } from '../src/map/vue';
-import type { CarteMemoire } from '../src/vues/carte-memoire';
+import { carteMemoire, CLE_SUJET_MEMOIRE, type CarteMemoire } from '../src/vues/carte-memoire';
 import type { ContexteVue } from '../src/vues/commun';
 import { vueExplorer } from '../src/vues/explorer';
 import { textes } from '../src/vues/textes';
@@ -38,9 +42,12 @@ function monter(memoire?: CarteMemoire) {
   const donnees: DonneesCarte = { ...monde, mers: [] };
   /** La vue de la carte : le monde au zoom 4 sur les Caraïbes (déplacée par voir()). */
   let v: VueGlobe = placer(C, [-60, 20], 192, 361, 4, true);
+  /** Les pastilles cachées (cacherPastilles), comme la vraie carte : ni dans pick ni dans noter. */
+  let sansPastilles = false;
   const contexte = (): ContexteCarte => {
     const proj = projectionDe(v.r, C);
-    return { proj, t: transfoDe(v, C), entites: donnees.entites, pastilles: calculerPastilles(donnees.entites, proj, v.k), acceptes: acceptesDe(donnees), mers: donnees.mers };
+    const pastilles = sansPastilles ? [] : calculerPastilles(donnees.entites, proj, v.k);
+    return { proj, t: transfoDe(v, C), entites: donnees.entites, pastilles, acceptes: acceptesDe(donnees), mers: donnees.mers };
   };
   const marques: string[] = [];
   const teintes: (ReadonlyMap<string, number> | null)[] = [];
@@ -56,6 +63,7 @@ function monter(memoire?: CarteMemoire) {
     montrer: vi.fn(),
     teinter: (t: ReadonlyMap<string, number> | null) => void teintes.push(t),
     prendreMers: vi.fn((c: CoucheMers) => void (donnees.mers = c.mers)),
+    cacherPastilles: vi.fn((oui: boolean) => void (sansPastilles = oui)),
   };
   const zone = new El('main');
   const t = { nom: 'monde', carte, donnees, jouables: [], credit: null };
@@ -75,9 +83,22 @@ function monter(memoire?: CarteMemoire) {
     const [x, y] = versEcran(c.t, b[0], b[1]);
     vue.toucher?.(x, y, {} as PointerEvent);
   };
+  /**
+   * Touche la mer Ionienne à 3,6 px au sud-est du disque de Malte, la carte
+   * centrée sur Malte au zoom 1 : dans la cible de sa pastille, sur aucun tracé.
+   */
+  const presDeMalte = (): [number, number] => {
+    const malte = donnees.entites.find((e) => e.pays.id === 'MLT')!.pays.point;
+    v = placer(C, malte, 192, 361, 1, true);
+    const c = contexte();
+    const b = c.proj(malte) as [number, number];
+    const [x, y] = versEcran(c.t, b[0], b[1]);
+    return [x + 3, y + 2];
+  };
+  const toucherPresDeMalte = () => vue.toucher?.(...presDeMalte(), {} as PointerEvent);
   const nom = () => zone.querySelector('#barre-carte .barre-nom')!.textContent;
   const detail = () => zone.querySelector('#barre-carte .barre-detail')!.textContent;
-  return { vue, carte, donnees, marques, teintes, toucher, nom, detail, zone };
+  return { vue, carte, donnees, marques, teintes, toucher, presDeMalte, toucherPresDeMalte, nom, detail, zone, pastilles: () => !sansPastilles };
 }
 
 const CARAIBES: [number, number] = [-78, 14];
@@ -237,5 +258,91 @@ describe('accueil : la mémoire des mers (D47 a) et une mer choisie dans la rech
     expect(a.marques).toContain('azov:choisi');
     // La mer d'Azov, minuscule : un anneau à son point.
     expect(a.marques.some((m) => m.startsWith('anneauEn '))).toBe(true);
+  });
+});
+
+describe('accueil : la carte de la mémoire « Mers » sans pastilles (choix de l’utilisateur du 12/11, #27)', () => {
+  /** Une mémoire vide, chargée : sous « Mers », aucune mer vue (les zones gardent le fond). */
+  async function memoireVide() {
+    const m = ouvrirMemoire({ depot: depotMemoire(), appareil: '00000000-0000-4000-8000-00000000a001', horloge: () => ({ ts: Date.UTC(2026, 10, 12), tz: 240 }), nouvelId: () => crypto.randomUUID() });
+    await m.pret;
+    return m;
+  }
+  /** Le stockage de l'appareil, le sujet « Mers » déjà choisi sur le monde (une visite d'avant). */
+  const merGardee = () => {
+    const cles = new Map([[`${CLE_SUJET_MEMOIRE}.monde`, 'mers']]);
+    return { getItem: (k: string) => cles.get(k) ?? null, setItem: (k: string, x: string) => void cles.set(k, x) };
+  };
+
+  it('le choix « Mers » gardé : pastilles cachées dès l’affichage de l’accueil, un toucher près de Malte ne la rend pas ; Pays : rendues, Malte touchée par sa pastille ; « Mers » de nouveau : cachées', async () => {
+    const s = merGardee();
+    const a = monter(carteMemoire(await memoireVide(), () => true, { stockage: () => s }));
+    a.vue.activer();
+    // Tout de suite, sans attendre la couche marine.
+    expect(a.carte.cacherPastilles).toHaveBeenCalledWith(true);
+    expect(a.pastilles()).toBe(false);
+    await vi.waitFor(() => expect(a.carte.prendreMers).toHaveBeenCalledTimes(1));
+    a.toucherPresDeMalte();
+    expect(a.nom()).not.toBe('Malte');
+    const choix = a.zone.querySelector('#legende-sujet')!;
+    choix.value = 'pays';
+    choix.emettre('change');
+    expect(a.pastilles()).toBe(true);
+    a.toucherPresDeMalte();
+    expect(a.nom()).toBe('Malte');
+    expect(a.detail()).toContain(textes.carte.par_pastille);
+    for (const sujet of ['capitales', 'drapeaux']) {
+      choix.value = sujet;
+      choix.emettre('change');
+      expect(a.pastilles()).toBe(true);
+    }
+    choix.value = 'mers';
+    choix.emettre('change');
+    expect(a.pastilles()).toBe(false);
+    // Un changement à la fois : un appel par bascule, aucun quand rien ne change (rafraichir).
+    a.vue.rafraichir();
+    expect(a.carte.cacherPastilles.mock.calls.map(([x]) => x)).toEqual([true, false, true]);
+  });
+
+  it('en partant de l’accueil sous « Mers » (une partie, une séance, Apprendre, une épreuve) : les pastilles rendues avant que la partie ne démarre ; au retour, cachées', async () => {
+    const s = merGardee();
+    const a = monter(carteMemoire(await memoireVide(), () => true, { stockage: () => s }));
+    a.vue.activer();
+    expect(a.pastilles()).toBe(false);
+    // Le routeur désactive l'accueil avant d'activer la vue de la partie (navigation.ts), qui la lance ensuite.
+    a.vue.desactiver();
+    expect(a.pastilles()).toBe(true);
+    expect(a.carte.pick(...a.presDeMalte())).toMatchObject({ id: 'MLT', via: 'pastille' });
+    a.vue.activer();
+    expect(a.pastilles()).toBe(false);
+  });
+
+  it('la carte de la mémoire coupée (⚙) ou pas encore lue, « Mers » choisi : les pastilles restent ; rallumée : cachées ; recoupée : rendues', async () => {
+    const s = merGardee();
+    let actif = false;
+    const a = monter(carteMemoire(await memoireVide(), () => actif, { stockage: () => s }));
+    a.vue.activer();
+    expect(a.carte.cacherPastilles).not.toHaveBeenCalled();
+    actif = true;
+    a.vue.rafraichir();
+    expect(a.pastilles()).toBe(false);
+    actif = false;
+    a.vue.rafraichir();
+    expect(a.pastilles()).toBe(true);
+  });
+
+  it('sans carte de la mémoire (?mers=demo, ?mer=, ?teintes=demo) ou sous Pays : jamais cachées', async () => {
+    const a = monter();
+    a.vue.activer();
+    a.toucherPresDeMalte();
+    expect(a.nom()).toBe('Malte');
+    a.vue.desactiver();
+    expect(a.carte.cacherPastilles).not.toHaveBeenCalled();
+    const b = monter(carteMemoire(await memoireVide(), () => true));
+    b.vue.activer();
+    b.toucherPresDeMalte();
+    expect(b.nom()).toBe('Malte');
+    b.vue.desactiver();
+    expect(b.carte.cacherPastilles).not.toHaveBeenCalled();
   });
 });
