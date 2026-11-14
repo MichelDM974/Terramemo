@@ -3856,8 +3856,13 @@ def ui_lignes(p, capturer, defauts, base, parametres=""):
     e = etat_lignes(p)
     textes = [n["texte"] for n in e["noms"]]
     dire(f"  ⚙ équateur + tropiques : {e['lignes']} lignes, noms {textes}")
-    if e["lignes"] != 3 or not {"Équateur", "Tropique du Cancer", "Tropique du Capricorne"} <= set(textes):
-        defauts.append(f"équateur et tropiques cochés : {e['lignes']} lignes, noms {textes} (3 et leurs trois noms attendus)")
+    # Au zoom 1 d'un téléphone, un nom de tropique peut manquer : les pastilles
+    # (Caraïbes, Égypte, Bangladesh) prennent toute sa bande, et un nom ne couvre
+    # jamais une pastille ; il revient au premier zoom. Sur un écran large, tous.
+    attendus = {"Équateur", "Tropique du Cancer", "Tropique du Capricorne"}
+    large = p.js("innerWidth") >= 600
+    if e["lignes"] != 3 or not (attendus <= set(textes) if large else ("Équateur" in textes and len(set(textes) & attendus) >= 2)):
+        defauts.append(f"équateur et tropiques cochés : {e['lignes']} lignes, noms {textes} ({'les trois noms' if large else 'l’équateur et un tropique nommés au moins'} attendus)")
     verifier_noms(defauts, "accueil, équateur et tropiques", e)
     capturer("51-lignes-accueil")
     p.goto(base + "?mesures=0" + parametres + "#carte")
@@ -3890,14 +3895,16 @@ def ui_lignes(p, capturer, defauts, base, parametres=""):
     dire(f"  ?lignes=tout, grille décochée puis recochée : {sans_grille} lignes sans elle, terramemo.lignes = {garde!r}")
     if sans_grille >= LIGNES_TOUT or garde != "equateur,tropiques":
         defauts.append(f"?lignes=tout et une case de ⚙ : {sans_grille} lignes sans la grille, choix gardé {garde!r} (\"equateur,tropiques\" attendu)")
-    # Zoomée et tournée (canvas, webgl : r ; en SVG, la carte plane ignore r).
-    p.js("window.terramemo.carte.zoomer({k: 3, x: 0, y: 0, r: 120})")
-    p.pause(400)
+    # Zoomée sur l'Indonésie, vers 120° E, que canvas et webgl tournent au centre
+    # (en SVG, la carte plane ne tourne pas) : un zoomer({k: 3, x: 0, y: 0})
+    # cadrait en SVG le coin haut gauche, vide, de la carte plane.
+    p.js("window.terramemo.carte.zoomerSur('IDN')")
+    p.pause(1500)
     e = etat_lignes(p)
-    dire(f"  zoom 3, 120° E au centre : {len(e['noms'])} noms : {[n['texte'] for n in e['noms']]}")
-    verifier_noms(defauts, "?lignes=tout, zoom 3 tourné", e)
+    dire(f"  zoomée sur l'Indonésie (≈ 120° E) : {len(e['noms'])} noms : {[n['texte'] for n in e['noms']]}")
+    verifier_noms(defauts, "?lignes=tout, zoomée sur l'Indonésie", e)
     if not e["noms"]:
-        defauts.append("zoom 3 tourné : aucun nom de ligne")
+        defauts.append("zoomée sur l'Indonésie : aucun nom de ligne")
     capturer("53-lignes-tournee")
     # Une partie : les lignes restent, le toucher et la notation sont ceux d'avant.
     jouer_partie(p, "localiser", "Europe")

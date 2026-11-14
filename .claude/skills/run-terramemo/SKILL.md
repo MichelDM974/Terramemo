@@ -511,7 +511,7 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   les épreuves des mers) : aucune par défaut, l'équateur et les tropiques
   cochés dans ⚙ (`50-lignes-reglages`, `51-lignes-accueil`), relus après
   rechargement, `?lignes=tout` (`52-lignes-tout` ; la grille décochée puis
-  recochée dans ⚙ sans toucher au choix gardé), zoom 3 tourné à 120° E
+  recochée dans ⚙ sans toucher au choix gardé), zoomée sur l’Indonésie (≈ 120° E, tournée en canvas et webgl)
   (`53-lignes-tournee`), Trouver sur l'Europe (`54-lignes-partie`, le pays
   demandé touché, `pick` juste), l'île sans ligne (`55-lignes-ile`) ;
   `DÉFAUT` si une ligne manque ou reste, si un nom sort de la carte, passe
