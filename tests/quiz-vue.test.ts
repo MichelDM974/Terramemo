@@ -238,6 +238,20 @@ describe('fin d’une partie (D55 a)', () => {
     expect(bilan.querySelectorAll('.essai-rates li')[0]!.textContent).toBe(remplir(Q.bilan_sans_reponse, { cible: NOMS[LIEUX[1]!]! }));
   });
 
+  it('un abandon pendant la rétroaction de la question 5 : « à la question 5 », pas à la 6, jamais montrée', () => {
+    const p = contexte(partiePays);
+    p.lancer('moyen');
+    for (let i = 0; i < 4; i++) {
+      p.repondre();
+      p.suivante();
+    }
+    p.repondre();
+    vi.advanceTimersByTime(300);
+    p.el('#quiz-abandonner').click();
+    expect(p.el('#quiz-bilan').querySelector('.chrono-score')!.textContent).toBe('5/20 · 25 %');
+    expect(p.el('#quiz-bilan').querySelector('.quiz-abandon')!.textContent).toBe(remplir(Q.abandonne, { n: 5 }));
+  });
+
   it('dès la première question montrée, sans réponse : quitter la vue la fait compter (0/20), le bilan au retour', () => {
     const p = contexte(partiePays);
     p.lancer('facile');

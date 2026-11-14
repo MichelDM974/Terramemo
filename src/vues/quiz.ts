@@ -159,6 +159,12 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
   let debut = 0;
   /** La question en cours attend sa réponse. */
   let ouverte = false;
+  /**
+   * Le numéro de la question à l'écran (poser) : celui d'un abandon au bilan.
+   * Pendant la rétroaction, la partie est déjà à la suivante (partie.numero),
+   * jamais montrée.
+   */
+  let posee = 0;
   /** La zone d'un QCM est petite à l'écran : un anneau l'entoure, aussi à la réponse. */
   let petite = false;
   let messageRetour = '';
@@ -292,6 +298,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     if (!partie || !q) return finir();
     const r = rs(q);
     const id = q.cible;
+    posee = partie.numero;
     retro.textContent = '';
     retro.className = 'essai-retro';
     consigne.dataset.cible = id;
@@ -488,7 +495,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
       creer('h2', {}, remplir(Q.bilan_titre, { quiz: nomQuiz(), difficulte: nomDifficulte(d) })),
       creer('p', { class: 'chrono-score' }, scoreCourt(epreuve, score)),
       creer('p', { class: 'hint' }, remplir(T.bilan_detail, { temps: fmtTemps(score.temps_ms) })),
-      ...(p.finie ? [] : [creer('p', { class: 'hint quiz-abandon' }, remplir(Q.abandonne, { n: p.numero }))]),
+      ...(p.finie ? [] : [creer('p', { class: 'hint quiz-abandon' }, remplir(Q.abandonne, { n: posee }))]),
       creer('p', { class: 'hint quiz-sujets' }, detail),
       creer(
         'p',
