@@ -108,6 +108,10 @@ beforeEach(() => {
   vi.stubGlobal('window', { devicePixelRatio: 1, innerWidth: L, innerHeight: H });
 });
 afterEach(() => {
+  // Les vols en cours vont à leur terme sous la fausse horloge : sinon d3-timer
+  // (un seul pour tout le fichier) garde une image demandée à une horloge
+  // disparue (son drapeau frame), et plus aucun minuteur ne part au test suivant.
+  vi.advanceTimersByTime(10_000);
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -736,10 +740,21 @@ describe('Carte SVG : lignes de repère (#11)', () => {
     expect(couche).toBeDefined();
     expect(couche.hidden).toBe(false);
     expect(couche.enfants.map((e) => e.dataset.ligne)).toContain('equateur');
+    // Chaque état de la couche, retenu : cachée pendant le vol puis montrée à
+    // l'arrivée, même si le vol part et finit au même tic.
+    const etats: boolean[] = [];
+    let cachee = couche.hidden;
+    Object.defineProperty(couche, 'hidden', {
+      get: () => cachee,
+      set: (v: boolean) => {
+        cachee = v;
+        etats.push(v);
+      },
+    });
     c.zoomerDe(2);
-    vi.advanceTimersByTime(50);
-    expect(couche.hidden).toBe(true);
-    vi.advanceTimersByTime(400);
+    vi.advanceTimersByTime(450);
+    expect(etats).toContain(true);
+    expect(etats.indexOf(true)).toBeLessThan(etats.lastIndexOf(false));
     expect(couche.hidden).toBe(false);
   });
 
