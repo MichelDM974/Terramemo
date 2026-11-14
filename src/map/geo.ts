@@ -401,6 +401,13 @@ export function distanceAuBordKm(forme: Forme, ll: [number, number]): number {
 /** Emprise [ouest, sud, est, nord] en degrés ; ouest > est : elle passe l'antiméridien (comme Lieu.bbox). */
 export type Emprise = [number, number, number, number];
 
+/** Deux emprises [ouest, sud, est, nord] (degrés, ouest > est : à cheval sur l'antiméridien) se touchent-elles ? */
+export function emprisesSeCroisent(a: readonly [number, number, number, number], b: readonly [number, number, number, number]): boolean {
+  if (a[1] > b[3] || b[1] > a[3]) return false;
+  const arcs = (x: readonly [number, number, number, number]): [number, number][] => (x[0] <= x[2] ? [[x[0], x[2]]] : [[x[0], 180], [-180, x[2]]]);
+  return arcs(a).some(([o1, e1]) => arcs(b).some(([o2, e2]) => o1 <= e2 && o2 <= e1));
+}
+
 /**
  * Union d'emprises (une grappe de pays : le cadrage de son rappel) : en
  * latitude, de la plus au sud à la plus au nord ; en longitude, le plus

@@ -6,9 +6,9 @@ import { UNITE } from '../src/map/traces';
 import { CHOIX_LIGNES, lignesDe, NOM } from '../src/map/lignes';
 import { textes } from '../src/vues/textes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
-import { assemblerMers } from '../src/map/mers';
+import { assemblerMers, zonesAllumees } from '../src/map/mers';
 import { calculerPastilles } from '../src/map/pastilles';
-import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, partVisible, versEcran, type Emprise } from '../src/map/geo';
+import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, emprisesSeCroisent, partVisible, versEcran, type Emprise } from '../src/map/geo';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
 import { cadrageNommer } from '../src/vues/nommer';
@@ -719,6 +719,50 @@ describe('Carte SVG : lignes de repère (#11)', () => {
     expect(tous(hote).filter((e) => de(e, 'allumee'))).toHaveLength(1);
     c.lignes([]);
     expect(tous(hote).some((e) => de(e, 'ligne-repere') || de(e, 'allumee'))).toBe(false);
+  });
+
+  it('une mer allumée : copiée au-dessus des lignes (path.mer, sa marque, sans data-id), masquée par les terres de son emprise', () => {
+    const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+    const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+    const hote = new FauxElement();
+    const c = new Carte({ hote: hote as unknown as HTMLElement, donnees: { ...donnees, mers: [] }, projection: 'monde', rendu: 'g' });
+    c.rendre();
+    c.prendreMers(couche);
+    c.lignes(lignes);
+    c.marquer('atlant', 'choisi');
+    const elements = tous(hote);
+    const allumees = elements.find((e) => de(e, 'couche-allumees')) as FauxElement;
+    const copies = allumees.enfants.filter((e) => de(e, 'allumee-mer'));
+    const zones = zonesAllumees('atlant', couche.mers.map((e) => e.pays));
+    expect(zones.length).toBeGreaterThan(1); // l'Atlantique et les Sargasses
+    expect(copies).toHaveLength(zones.length);
+    const masque = allumees.enfants.find((e) => de(e, 'masque-terres')) as FauxElement;
+    expect(masque.getAttribute('id')).toBe('terres-allumees');
+    copies.forEach((p, i) => {
+      const original = elements.find((e) => de(e, 'mer') && e.getAttribute('data-id') === zones[i]) as FauxElement;
+      expect(p.getAttribute('d')).toBe(original.getAttribute('d'));
+      expect(p.getAttribute('data-id')).toBeNull();
+      expect(de(p, 'mer') && de(p, 'choisi')).toBe(true);
+      expect(p.getAttribute('mask')).toBe('url(#terres-allumees)');
+    });
+    expect(elements.indexOf(copies[0] as FauxElement)).toBeGreaterThan(elements.indexOf(elements.find((e) => de(e, 'ligne-repere')) as FauxElement));
+    // Le masque : les terres qui touchent l'Atlantique (le Brésil), pas les autres (la Mongolie).
+    const trace = masque.enfants.find((e) => de(e, 'masque-terres-trace'))?.getAttribute('d') ?? '';
+    const d = (id: string) => elements.find((e) => de(e, 'pays') && e.getAttribute('data-id') === id)?.getAttribute('d') ?? '?';
+    expect(trace).toContain(d('BRA'));
+    expect(trace).not.toContain(d('MNG'));
+    c.effacerMarques();
+    expect(allumees.enfants).toEqual([]);
+  });
+
+  it('emprisesSeCroisent : en latitude, en longitude, à cheval sur l’antiméridien', () => {
+    expect(emprisesSeCroisent([-10, 0, 10, 10], [5, 5, 20, 20])).toBe(true);
+    expect(emprisesSeCroisent([-10, 0, 10, 10], [5, 11, 20, 20])).toBe(false);
+    expect(emprisesSeCroisent([-10, 0, 10, 10], [11, 0, 20, 10])).toBe(false);
+    expect(emprisesSeCroisent([170, 0, -170, 10], [-175, 0, -160, 10])).toBe(true);
+    expect(emprisesSeCroisent([170, 0, -170, 10], [160, 0, 175, 10])).toBe(true);
+    expect(emprisesSeCroisent([170, 0, -170, 10], [0, 0, 20, 10])).toBe(false);
+    expect(emprisesSeCroisent([114, -60, -68, 61], [100, 0, 140, 50])).toBe(true);
   });
 
   it('sans ligne, aucune copie d’une zone marquée (rien à couvrir)', () => {

@@ -7,7 +7,7 @@ import { select } from 'd3-selection';
 import 'd3-transition'; // selection.transition(), pour le vol de montrer()
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom';
 import type { DonneesCarte } from './donnees';
-import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, recentrerBande, versEcran, viser, type Emprise } from './geo';
+import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, emprisesSeCroisent, recentrerBande, versEcran, viser, type Emprise } from './geo';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { acceptesDe } from './acceptes';
 import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from './pick';
@@ -740,12 +740,46 @@ export class Carte implements CarteAffichee {
     this.majAllumees();
   }
 
-  /** Une copie de chaque zone marquée par-dessus les lignes (aucune sans ligne : rien à couvrir). */
+  /**
+   * Une copie de chaque zone marquée par-dessus les lignes (aucune sans ligne :
+   * rien à couvrir). Les mers d'abord (path.mer et la marque, ce qu'allume
+   * chacune : zonesAllumees), sous un masque qui retire les terres de leur
+   * emprise et leur côte (mask.masque-terres) : une mer déborde sur les
+   * terres, qui la couvrent dans g.couche-pays ; sa copie, au-dessus des
+   * pays, les couvrirait. Le Canvas efface de même les terres de sa couche
+   * du dessus.
+   */
   private majAllumees(): void {
     const g = this.coucheAllumees;
     if (!g) return;
     g.replaceChildren();
     if (!this.lignesPosees.length) return;
+    const mers: [string, Set<string>][] = [];
+    const emprises: Emprise[] = [];
+    for (const [id, classes] of this.marques) {
+      if (!classes.size) continue;
+      const zones = this.allumees(id);
+      for (const z of zones) if (this.cheminsMers.has(z)) mers.push([z, classes]);
+      const e = zones.length ? empriseMer(id, this.zonesMers) : null;
+      if (e) emprises.push(e);
+    }
+    if (mers.length) {
+      const terres: string[] = [];
+      for (const [id, li] of this.lieux) {
+        if (li.couche !== 'pays' || !emprises.some((e) => emprisesSeCroisent(e, li.lieu.bbox))) continue;
+        const d = this.chemins.get(id)?.getAttribute('d');
+        if (d) terres.push(d);
+      }
+      const idMasque = this.idMotif.replace('hachures', 'terres-allumees');
+      const masque = el('mask', { id: idMasque, class: 'masque-terres' });
+      masque.append(el('rect', { x: -1e7, y: -1e7, width: 2e7, height: 2e7, fill: '#fff' }));
+      if (terres.length) masque.append(el('path', { class: 'masque-terres-trace', d: terres.join(' ') }));
+      g.append(masque);
+      for (const [z, classes] of mers) {
+        const d = this.cheminsMers.get(z)?.getAttribute('d') ?? '';
+        g.append(el('path', { class: `mer allumee-mer ${[...classes].join(' ')}`, d, mask: `url(#${idMasque})` }));
+      }
+    }
     for (const [id, classes] of this.marques) {
       const chemin = this.chemins.get(id);
       if (!chemin || !classes.size) continue;
