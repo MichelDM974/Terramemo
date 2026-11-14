@@ -19,6 +19,7 @@
      CSS à l'arrêt, comme les frontières ; les noms (src/map/noms-lignes.ts) en
      --ligne-repere-texte, cerclés de --mer. */
   --ligne-repere: rgba(132, 205, 222, 0.7);
+  --masque-cache: #000; /* noir d'un masque SVG : ce qu'il cache (pas une couleur affichée) */
   --ligne-repere-repos: 1;
   --ligne-repere-texte: #a9dce8;
   /* Carte de la mémoire (teinter, src/map/teintes.ts) : un seau par zone, de la
@@ -182,7 +183,7 @@ body[data-vue="saisie"] .carte, body[data-vue="compte"] .carte { visibility: hid
 /* Une mer allumée, copiée au-dessus des lignes, sous un masque qui en retire les
    terres et leur côte (la largeur des frontières) : comme l'effacement du Canvas. */
 .allumee-mer { pointer-events: none; }
-.masque-terres-trace { fill: #000; stroke: #000; stroke-width: calc(var(--frontiere-repos) * 1px); stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.masque-terres-trace { fill: var(--masque-cache); stroke: var(--masque-cache); stroke-width: calc(var(--frontiere-repos) * 1px); stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 /* Noms des lignes de repère (tous les rendus) : au-dessus de la carte, sous les
    barres, la légende et les boutons, posés après l'hôte ; cachés pendant un geste.
    Hauteur de ligne : NOM.hauteur de src/map/lignes.ts (12 px). */

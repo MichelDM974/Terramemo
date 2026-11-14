@@ -160,7 +160,8 @@ describe('lignes de repère : tracé de la carte qui tourne (Canvas 2D)', () => 
     expect(points).toBeGreaterThan(500);
     // L'échantillon de d3 (0,1° de longitude, 0,05° de latitude) borne l'écart à quelques dixièmes de pixel au zoom 40.
     expect(pire).toBeLessThan(0.6);
-  });
+    // ≈ 3 s seul (chaque sommet confronté à l'échantillon de d3) : au-delà des 5 s par défaut sous la charge de la suite complète.
+  }, 30_000);
 
   it('un parallèle est un seul segment horizontal, d’un bord de l’ovale à l’autre au zoom 1 ; coupé à l’écran zoomé', () => {
     const v = placer(C, [20, 0], L / 2, H / 2, 1);
