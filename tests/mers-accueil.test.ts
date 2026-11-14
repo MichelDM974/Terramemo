@@ -1,10 +1,11 @@
 // Les mers à l'accueil (étude J2, § 2.3 et § 6.4 ; D45 a, D47 a ; lot 3b,
 // partie A) : toucher l'eau du monde donne le nom de la mer, par la couche
 // légère seule (mers-leger.topo.json, mers.json, mers.fr.json, jamais
-// mers.topo.json), lue au premier toucher en mer seulement : rien au premier
-// affichage, rien pour un toucher sur un pays ; la couche fine sert si elle
-// est déjà lue ; rien d'autre à l'écran (aucun calque marin dessiné ni
-// teinté). Avec « Mers » dans la carte de la mémoire : la couche posée, ses
+// mers.topo.json pour le nom), lue au premier toucher en mer seulement : rien
+// au premier affichage, rien pour un toucher sur un pays ; la couche fine sert
+// si elle est déjà lue. La mer touchée s'allume en bleu comme un pays (choix
+// de l'utilisateur du 14/11/2026) : la couche fine posée à ce premier
+// toucher, aucune teinte. Avec « Mers » dans la carte de la mémoire : la couche posée, ses
 // zones teintées, et le carré « Jamais vu » de la légende couleur d'eau
 // (partie B), sans les pastilles des micro-États (choix de l'utilisateur du
 // 12/11), rendues sous un autre sujet et en partant. Une mer choisie dans la
@@ -128,24 +129,31 @@ describe('accueil : le nom de la mer touchée (D45 a)', () => {
     expect(a.carte.prendreMers).not.toHaveBeenCalled();
   });
 
-  it('l’eau touchée : « Mer », puis le nom de la mer, par la couche légère seule (jamais mers.topo.json) ; rien de dessiné ni de posé', async () => {
+  it('l’eau touchée : « Mer », puis son nom, puis la mer allumée en bleu (la couche fine posée une fois) ; aucune teinte', async () => {
     const a = monter();
     a.vue.activer();
     a.toucher(CARAIBES);
     expect(a.nom()).toBe(textes.carte.mer);
     await vi.waitFor(() => expect(a.nom()).toBe('mer des Caraïbes'));
-    expect([...lus].sort()).toEqual(['mers-leger.topo.json', 'mers.fr.json', 'mers.json']);
-    expect(a.carte.prendreMers).not.toHaveBeenCalled();
-    expect(a.donnees.mers).toEqual([]);
-    expect(a.marques).toEqual([]);
+    await vi.waitFor(() => expect(a.marques).toEqual(['caraibes:choisi']));
+    expect(a.carte.prendreMers).toHaveBeenCalledTimes(1);
+    expect([...lus].sort()).toEqual(['mers-leger.topo.json', 'mers.fr.json', 'mers.json', 'mers.topo.json']);
     expect(a.teintes.every((t) => t === null)).toBe(true);
-    // Le suivant, tout de suite, sans rien relire.
+    // Le suivant, tout de suite, allumé, sans rien relire ni reposer ; un pays touché éteint la mer.
     a.toucher(PACIFIQUE, 1);
     expect(a.nom()).toBe(merEn(PACIFIQUE));
+    expect(a.marques).toHaveLength(1);
+    expect(a.marques[0]).toMatch(/:choisi$/);
     a.toucher(MEDITERRANEE);
     expect(a.nom()).toBe('mer Méditerranée');
-    expect(lus).toHaveLength(3);
+    expect(a.marques).toEqual(['medit:choisi']);
+    a.toucher(FRANCE);
+    expect(a.nom()).toBe('France');
+    expect(a.marques).toEqual(['FRA:choisi']);
+    expect(lus).toHaveLength(4);
+    expect(a.carte.prendreMers).toHaveBeenCalledTimes(1);
   });
+
 
   it('la couche fine déjà lue (une partie de mers) : elle sert, sans rien lire de plus', async () => {
     await chargerMers();
@@ -157,14 +165,16 @@ describe('accueil : le nom de la mer touchée (D45 a)', () => {
     expect(lus).toEqual([]);
   });
 
-  it('un autre toucher (un pays) avant l’arrivée de la couche : le pays reste affiché', async () => {
+  it('un autre toucher (un pays) avant l’arrivée des couches : le pays reste affiché, la mer ne s’allume pas par-dessus', async () => {
     const a = monter();
     a.vue.activer();
     a.toucher(CARAIBES);
     a.toucher(FRANCE);
+    await vi.waitFor(() => expect(a.carte.prendreMers).toHaveBeenCalledTimes(1));
     await new Promise((r) => setTimeout(r, 20));
-    expect(lus).toHaveLength(3);
+    expect(lus).toHaveLength(4);
     expect(a.nom()).toBe('France');
+    expect(a.marques).toEqual(['FRA:choisi']);
   });
 
   it('hors ligne : « Mer » reste, sans erreur ; le toucher suivant réessaie', async () => {

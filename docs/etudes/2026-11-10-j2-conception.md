@@ -2458,7 +2458,10 @@ Koweït, Luxembourg, Monaco, Panama, Singapour, Saint-Marin, Vatican).
   budget par visiteur de « Hébergement » (§ 2.3). Options : la couche fine
   (75 Ko) ; la couche légère seule à l'accueil (≈ 25 Ko), la fine en partie
   de mers ; ou rien à l'accueil. Défaut et recommandation : oui, avec la
-  couche légère seule à l'accueil.
+  couche légère seule à l'accueil. *Revue le 14/11/2026 (choix de
+  l'utilisateur) : la mer touchée s'allume aussi en bleu, comme un pays ; la
+  légère donne toujours le nom d'abord, puis la fine (≈ 50 Ko gzip de plus,
+  ≈ 3 % du budget par visiteur, estimé) est posée pour dessiner la zone.*
 - b) Aucune frontière entre mers n'est dessinée : elles n'en ont pas dans la
   réalité. Défaut et recommandation : aucune. Un trait très fin sur la seule
   carte de la mémoire des mers, si la capture le demande.

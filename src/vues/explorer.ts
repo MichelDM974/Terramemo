@@ -18,8 +18,10 @@
 // seule (mers-leger.topo.json, mers.json, mers.fr.json : ≈ 25 Ko), lue au
 // premier toucher en mer seulement, jamais au premier affichage ni pour un
 // toucher sur un pays ; le nom suit le chargement. La couche fine sert si
-// elle est déjà lue. Rien d'autre ne change à l'écran : aucune frontière
-// entre mers, aucun calque marin dessiné (sauf la mémoire des mers choisie).
+// elle est déjà lue. La mer touchée s'allume en bleu comme un pays (choix de
+// l'utilisateur du 14/11/2026, qui remplace « rien d'autre à l'écran ») : la
+// couche fine posée sur la carte à ce premier toucher, puis la zone allumée.
+// Aucune frontière entre mers, aucune teinte (sauf la mémoire des mers choisie).
 // Une mer choisie dans la recherche : la couche fine posée, son emprise
 // cadrée, la zone allumée (zonesAllumees).
 import { versEcran, versLonLat } from '../map/geo';
@@ -214,7 +216,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     if (e && tailleEcranPx(e, fin.proj.scale(), fin.t.k) < ANNEAU_SOUS_PX) anneauZone(carte, id, e, 'choisi');
   }
 
-  /** Le toucher d'une mer nommée (pickMer) : son nom ; « Mer » si rien ne la désigne. Allumée seulement avec la mémoire des mers (sa couche fine posée). */
+  /** Le toucher d'une mer nommée (pickMer) : son nom ; « Mer » si rien ne la désigne. Allumée (--mer-choisie, le bleu d'un pays touché) dès que la couche fine est posée. */
   function afficherMer(r: ResultatPick | null): void {
     if (!r || !estIdMer(r.id)) {
       nom.textContent = C.mer;
@@ -222,7 +224,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       delete barre.dataset.id;
       return;
     }
-    if (mersPosees(ctx.donnees).length && o.memoire?.sujet(t.nom) === 'mers') t.carte.marquer(r.id, 'choisi');
+    if (mersPosees(ctx.donnees).length) t.carte.marquer(r.id, 'choisi');
     afficher(r.id, r.via === 'proche' ? 'proche' : null);
   }
 
@@ -230,24 +232,43 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
    * Un toucher dans l'eau du monde (pick n'y désigne rien) : la mer sous le
    * doigt (D45 a), par la couche déjà là (posée, fine ou légère lue), sinon
    * la légère lue maintenant ; le point touché est gardé en [lon, lat] et
-   * relu sur la carte d'alors (un geste entre-temps). Un autre toucher ou une
-   * sortie avant l'arrivée : rien.
+   * relu sur la carte d'alors (un geste entre-temps). Elle s'allume en bleu,
+   * comme un pays touché (choix de l'utilisateur du 14/11/2026) : la couche
+   * fine, seule dessinée, est posée sur la carte au premier toucher en mer
+   * (une fois), et la mer s'allume à son arrivée ; le nom n'attend pas (la
+   * légère, plus petite, le donne d'abord). Un autre toucher ou une sortie
+   * avant l'arrivée : rien.
    */
   function nommerMer(x: number, y: number): void {
     const c0 = t.carte.contexte();
     const ll = versLonLat(c0.proj, c0.t, x, y);
-    const deja = mersPosees(ctx.donnees).length ? mersPosees(ctx.donnees) : (mersPourNommer()?.mers ?? null);
-    if (!ll || deja) return afficherMer(ll && deja ? pickMer({ ...c0, mers: deja }, '', x, y, new Set()) : null);
-    afficherMer(null);
+    const posees = mersPosees(ctx.donnees);
+    const deja = posees.length ? posees : (mersPourNommer()?.mers ?? null);
     const [j, k] = [jeton, touches];
     const carte = t.carte;
+    /** La mer au point touché sur la carte d'alors, parmi ces zones. */
+    const merAuPoint = (mers: typeof posees): ResultatPick | null => {
+      const c = carte.contexte();
+      const b = ll && c.proj(ll);
+      const [sx, sy] = b ? versEcran(c.t, b[0], b[1]) : [x, y];
+      return pickMer({ ...c, mers }, '', sx, sy, new Set());
+    };
+    const encore = () => j === jeton && k === touches && active;
+    if (ll && !posees.length) {
+      poserMers(ctx)?.then(
+        () => {
+          if (encore()) afficherMer(merAuPoint(mersPosees(ctx.donnees)));
+        },
+        // Hors ligne : le nom reste (couche légère), sans allumage ; le toucher suivant réessaie.
+        () => undefined,
+      );
+    }
+    if (!ll || deja) return afficherMer(ll && deja ? pickMer({ ...c0, mers: deja }, '', x, y, new Set()) : null);
+    afficherMer(null);
     chargerMersLegeres().then(
       (couche) => {
-        if (j !== jeton || k !== touches || !active) return;
-        const c = carte.contexte();
-        const b = c.proj(ll);
-        const [sx, sy] = b ? versEcran(c.t, b[0], b[1]) : [x, y];
-        afficherMer(pickMer({ ...c, mers: couche.mers }, '', sx, sy, new Set()));
+        // La fine arrivée avant : elle a déjà nommé et allumé.
+        if (encore() && !mersPosees(ctx.donnees).length) afficherMer(merAuPoint(couche.mers));
       },
       () => undefined,
     );

@@ -121,8 +121,8 @@ FICHIERS_GEO_DRAPEAUX = ("drapeaux.json",)
 # Les océans et mers (lots 3a et 3b du J2, #27) : la couche marine, chargée à
 # la demande (src/map/mers.ts) : la fine (chargerMers : sujet des mers, séance
 # qui en a, une mer choisie dans la recherche, mémoire des mers, ?mers=demo),
-# la légère seule au premier toucher en mer à l'accueil (D45 a : sans
-# mers.topo.json), mers.json et mers.fr.json à la première frappe dans la
+# la légère d'abord au premier toucher en mer à l'accueil (D45 a : le nom), puis la
+# fine pour allumer la mer touchée (choix du 14/11/2026), mers.json et mers.fr.json à la première frappe dans la
 # recherche ; jamais au premier affichage ni à l'ouverture de Jouer (étude J2,
 # § 2.3 ; la vignette du sujet est rangée dans le code) ; smoke et ui_mers le
 # vérifient.
@@ -2827,8 +2827,8 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
     sous Entraînement (et sous Classé : ses épreuves, ui_epreuves_mers), la vignette des
     mers éclairées, « 50 océans et mers », la série unique sautée ; à
     l'accueil, un pays touché ne charge rien de marin, l'eau touchée donne le
-    nom de la mer par la couche légère seule (jamais mers.topo.json), sans
-    rien dessiner ; la recherche « Manche » (« bras de mer ») cadre et
+    nom de la mer par la couche légère, puis la mer allumée en bleu (la couche
+    fine posée, choix du 14/11/2026), sans teinte ; la recherche « Manche » (« bras de mer ») cadre et
     allume la Manche ; Trouver (« Touche : » et un nom, jamais l'id ; la mer
     Égée trouvée ; une partie touchée : « Juste : …, dans … » ; une autre mer
     touchée : « Faux : mer …, à … du bord » ; le bilan par les noms) ;
@@ -2908,15 +2908,16 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
         p.pause(PAUSE_AVANT_TOUCHER_MS)
         p.toucher(eau["x"], eau["y"])
         fin = time.monotonic() + 8
-        while time.monotonic() < fin and texte(p, "#barre-carte .barre-nom") not in noms.values():
+        while time.monotonic() < fin and (texte(p, "#barre-carte .barre-nom") not in noms.values() or "mers.topo.json" not in ressources_mers(p)):
             p.pause(100)
+        p.pause(300)
         nom = texte(p, "#barre-carte .barre-nom")
         lus = ressources_mers(p)
         dire(f"  accueil, l'eau touchée : {nom!r} ; lu {lus}")
         if nom not in noms.values():
             defauts.append(f"accueil : l'eau touchée sans le nom de la mer ({nom!r})")
-        if "mers.topo.json" in lus or sorted(set(lus)) != ["mers-leger.topo.json", "mers.fr.json", "mers.json"]:
-            defauts.append(f"accueil : {lus} lus (la couche légère seule attendue : mers-leger.topo.json, mers.json, mers.fr.json)")
+        if sorted(set(lus)) != sorted(FICHIERS_GEO_MERS):
+            defauts.append(f"accueil : {lus} lus (la légère pour le nom, puis la fine pour allumer la mer : {', '.join(FICHIERS_GEO_MERS)})")
         if p.js("window.terramemo.carte.teintes()"):
             defauts.append("accueil : des zones teintées sans la carte de la mémoire des mers")
         capturer("122-mers-accueil-eau")

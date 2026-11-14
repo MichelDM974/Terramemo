@@ -342,9 +342,9 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   rien charger) ;
   l'accueil : le Brésil touché ne charge rien de marin, puis
   `122-mers-accueil-eau` (l'eau touchée au milieu de la carte : le nom de
-  la mer, par la **couche légère seule**, `mers-leger.topo.json`,
-  `mers.json`, `mers.fr.json`, jamais `mers.topo.json` ; aucune zone
-  teintée) ; `123-mers-recherche` (« Manche » : « bras de mer ») et
+  la mer, par la couche légère d'abord, `mers-leger.topo.json`,
+  `mers.json`, `mers.fr.json`, puis la mer **allumée en bleu**, la couche
+  fine `mers.topo.json` posée, choix du 14/11/2026 ; aucune zone teintée) ; `123-mers-recherche` (« Manche » : « bras de mer ») et
   `124-mers-recherche-manche` (la Manche nommée, cadrée par son emprise,
   allumée ; la couche fine chargée) ; Trouver sur les 50 zones
   (`toucher_mer` : le point où `terramemo.carte.noter(id, x, y)` est juste,
