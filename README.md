@@ -31,8 +31,9 @@ l'oublier, jusqu'à tenir des mois.
   voisines en leurres).
 - En haut, une **recherche** (un pays, un territoire, une commune de La
   Réunion : la carte vole jusqu'à lui) et le bouton **Jouer**, qui ouvre
-  un arbre de gros boutons, un choix par écran : **Entraînement** ou
-  **Classé**, puis le sujet (Pays, Communes), la série (tous les pays, un
+  un arbre de gros boutons, un choix par écran : le **Quiz général**,
+  **Entraînement** ou **Classé**, puis le sujet (Pays, Capitales,
+  Drapeaux, Océans et mers, Communes), la série (tous les pays, un
   continent ; La Réunion), et l'exercice en dernier, qui lance la partie :
   en entraînement Trouver et Reconnaître, en épreuves classées **Chrono**
   (toute la série) et **Sans faute** (jusqu'à la première erreur), 15 s
@@ -40,6 +41,14 @@ l'oublier, jusqu'à tenir des mois.
   justes (« 190/195 · 97 % »), le temps départage ; chacune avec son
   record dans la série et ses classements ; le 🏆 les montre toutes.
   **Rejouer**, au bilan de chaque partie, relance la même d'une touche.
+- Le **Quiz général** : 20 questions tirées à parts égales dans tous les
+  sujets (pays, capitales, drapeaux, océans et mers), en quatre
+  difficultés, de Facile (lieux très connus, 20 questions à 4 choix) à
+  Expert (tous les lieux, voisins et sosies en leurres, 12 questions sur
+  la carte, 6 et 10 s) ; le score est la part de justes (« 17/20 ·
+  85 % »), un classement par difficulté, hors du général. La partie
+  compte dès sa première question : abandonnée, elle garde le score
+  acquis.
 - Sur ordinateur, des boutons **+**, **−** et « toute la carte » en bas à
   droite (et les touches + et −) pour zoomer sans molette.
 - Dans ⚙, des **lignes de repère** à cocher : l'équateur, le méridien de

@@ -46,6 +46,7 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
 python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord
 python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers puis ses épreuves, ui_epreuves_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
+python3 .claude/skills/run-terramemo/driver.py quiz               # le quiz général seul (ui_quiz, aussi dans ui, #26), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes de repère seules (ui_lignes, aussi dans ui, #11), profil neuf ; --rendu webgl|g|css pour les autres rendus
 ```
 
@@ -58,13 +59,15 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   cinq fichiers de `/geo/`, des quatre de `/geo/reunion/`, des deux des
   capitales, `capitales.json` et `capitales.fr.json`, et du manifeste des
   drapeaux `drapeaux.json` (197 lignes au moins, chacune avec son drapeau
-  montré `d[0]`) ; un drapeau servi, celui de la France
+  montré `d[0]`), des deux du quiz, `notoriete.json` (version 1, ses
+  quatre sections) et `drapeaux-proches.json` ; un drapeau servi, celui de la France
   (`/geo/drapeaux/<sha8>.svg`, un SVG sans `flag-icons`, son
   `Cache-Control` affiché : immuable une fois hébergé),
   `body[data-pret="1"]`, **rendu par défaut `canvas`** (`#carte[data-rendu]`)
   et son dessin complet (plus de 150 parties tracées, `terramemo.carte.dessin()`),
-  **rien de `/geo/reunion/`, de `/geo/capitales*` ni de `/geo/drapeaux*`
-  chargé au premier affichage** (après `pret` et `repos`, décision
+  **rien de `/geo/reunion/`, de `/geo/capitales*`, de `/geo/drapeaux*`, de
+  `/geo/mers*` ni des données du quiz (`notoriete.json`,
+  `drapeaux-proches.json`) chargé au premier affichage** (après `pret` et `repos`, décision
   « Hébergement »), nombre de `path.pays` en
   `?rendu=css` (les rendus SVG), rendu webgl, aucune exception JS ni requête
   en échec, puis le **service worker** (« Service worker » plus bas) :
@@ -435,6 +438,28 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   `[data-epreuve="sansfaute:mers:mers"]` « Océans et mers », la série au
   nom de son sujet, jamais « Océans et mers · … »). Invité sans pseudo :
   rien n'est publié. `DÉFAUT` à tout écart.
+- Le quiz général (lot 4b du J2, #26, `ui_quiz`, juste après
+  `ui_epreuves_mers` ; aussi seul, `driver.py quiz`) : sur une page
+  rechargée, rien de `notoriete.json` ni de `drapeaux-proches.json` au
+  premier affichage ni à l'ouverture de Jouer ; `16-quiz-racine` (trois
+  tuiles : `[data-racine="quiz"]` pleine largeur, `jouer-large`, puis
+  `[data-branche]` Entraînement et Classé), `16-quiz-difficultes`
+  (`#jouer/quiz`, `[data-difficulte]` facile, moyen, difficile, expert,
+  fil « Quiz général », le « ? » des règles) ; Facile : ses données lues
+  au choix (les deux fichiers, une fois), la barre `#barre-quiz`, « 1 /
+  20 » (`16-quiz-question`) ; 20 QCM joués par le pilote (le bouton
+  `.nommer-choix` dont `data-id` est la cible, `.essai-consigne
+  [data-cible]`), la troisième fausse (`16-quiz-faux`) ; `16-quiz-bilan`
+  (`#quiz-bilan` : « Quiz général · Facile », « 19/20 · 95 % », « Temps
+  total », « Premier record pour cette difficulté. », un raté, l'adresse
+  `#quiz`) ; `#quiz-rejouer` puis `#quiz-abandonner` dès la première
+  question (D55 a : elle compte ; `16-quiz-abandon` : « Partie abandonnée
+  à la question 1 », « 0/20 · 0 % », « Record à battre : 19/20 · 95 % ») ;
+  `#quiz-autre` : `#jouer/quiz`, le record « 19/20 · 95 % » sur Facile,
+  marqué (`16-quiz-record`) ; le retour arrière ramène à la racine de
+  Jouer, « × » à la carte. Invité sans pseudo : rien n'est publié.
+  `DÉFAUT` à tout écart. Le moyen et au-delà (touchers, drapeaux à
+  attendre) : `tests/quiz-vue.test.ts`, et l'A37 pour les délais (S31).
 - `ui_jouer` (captures 15) passe aussi par Classé › Océans et mers : la
   série sautée (`#jouer/classe/mers/mers`, Chrono et Sans faute), le
   retour arrière ramène aux sujets (aucune entrée pour le niveau sauté).
@@ -1795,6 +1820,13 @@ clé `mers`) refuseraient les épreuves des mers et le général de qui y a
 joué : **règles d'abord** (`npm run test:regles`, puis `npx firebase
 deploy --only firestore`), puis Hosting.
 
+Le quiz général (lot 4b, #26) de même : ses classements
+`quiz:general:facile` à `expert` (`quizValide`, `tempsQuiz` : 200, 250,
+260 et 168 s au plus) s'ouvrent avec ce code (D50 c : les quatre sujets
+du J2 livrés), hors du général. Des règles d'avant le refusent (« Score
+refusé par le classement ») : **règles d'abord**, puis Hosting. Un APK
+d'avant ce code n'a pas de quiz.
+
 ## Pièges
 
 - **Serveur de dev qui sert des modules périmés** : si sa sortie dit
@@ -1846,11 +1878,16 @@ deploy --only firestore`), puis Hosting.
   de fond de `serve` finit alors en code 137 : attendu). Émulateurs :
   `fuser -k -n tcp 8062 8063`.
 - Jouer garde la dernière partie lancée dans le `localStorage`
-  (`terramemo.jouer.derniere` : branche, sujet, série, exercice ; ses choix
-  marqués à chaque niveau, ignorée si elle n'est plus dans l'arbre). Le profil neuf
+  (`terramemo.jouer.derniere` : branche, sujet, série, exercice, ou
+  `{"quiz": "moyen"}` pour le quiz ; ses choix marqués à chaque niveau,
+  ignorée si elle n'est plus dans l'arbre). Le profil neuf
   du pilote part sans elle ; `terramemo.toucher.mode` et
   `terramemo.toucher.serie` ne servent plus (restes sans effet).
-- Ids de l'arbre de Jouer : branches `entrainement`, `classe` ; sujets
+- Ids de l'arbre de Jouer : à la racine, `quiz` (`data-racine`, le niveau
+  `#jouer/quiz` et ses `data-difficulte` : `facile`, `moyen`, `difficile`,
+  `expert` ; sa partie est la vue `#quiz`, ses classements
+  `quiz:general:<difficulté>`, hors du général), puis les branches
+  `entrainement`, `classe` ; sujets
   `pays`, `communes` ; séries `tous`, les continents en anglais (`South
   America`, `%20` dans l'adresse), `reunion` ; exercices `localiser`,
   `nommer`, `chrono`, `sansfaute` (`minute`, retiré le 12/11, est

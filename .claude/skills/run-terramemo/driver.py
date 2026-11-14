@@ -127,6 +127,10 @@ FICHIERS_GEO_DRAPEAUX = ("drapeaux.json",)
 # § 2.3 ; la vignette du sujet est rangée dans le code) ; smoke et ui_mers le
 # vérifient.
 FICHIERS_GEO_MERS = ("mers.topo.json", "mers-leger.topo.json", "mers.json", "mers.fr.json")
+# Le quiz général (lots 4a et 4b du J2, #26) : la notoriété des lieux et les paires de drapeaux proches,
+# chargées avec le quiz seul (src/quiz/donnees.ts : au choix d'une difficulté), jamais au premier
+# affichage ni à l'ouverture de Jouer ; smoke et ui_quiz le vérifient.
+FICHIERS_GEO_QUIZ = ("notoriete.json", "drapeaux-proches.json")
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
 TELEPHONE = {"largeur": 384, "hauteur": 832, "dpr": 2.8125}
@@ -975,13 +979,16 @@ def commande_smoke(args):
     mode = "développement" if serveur_de_dev(base) else "build (preview ou hébergé)"
     dire(f"  serveur : {mode}")
     manifeste = None
-    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES + FICHIERS_GEO_DRAPEAUX + FICHIERS_GEO_MERS:
+    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES + FICHIERS_GEO_DRAPEAUX + FICHIERS_GEO_MERS + FICHIERS_GEO_QUIZ:
         code, _, corps = http(base + "geo/" + nom)
         try:
             lu = json.loads(corps)
             valide = True
         except ValueError:
             valide = False
+        if nom == "notoriete.json" and valide:
+            # Un niveau de 1 à 3 par lieu de chaque sujet du J2 (src/quiz/donnees.ts, lireNotoriete).
+            valide = isinstance(lu, dict) and lu.get("v") == 1 and all(isinstance(lu.get(k), dict) and lu[k] for k in ("pays", "capitales", "drapeaux", "mers"))
         if nom == "drapeaux.json" and valide:
             manifeste = lu
             # 195 jouables, plus Kosovo et Taïwan ; chaque ligne a son drapeau montré (d[0]).
@@ -1020,6 +1027,8 @@ def commande_smoke(args):
             verifier("rien des drapeaux au premier affichage", not drapeaux, ", ".join(drapeaux) or "aucune ressource /geo/drapeaux* après pret et repos")
             mers = p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/mers'))")
             verifier("rien des mers au premier affichage", not mers, ", ".join(mers) or "aucune ressource /geo/mers* après pret et repos")
+            quiz = ressources_quiz(p)
+            verifier("rien du quiz au premier affichage", not quiz, ", ".join(quiz) or "aucune ressource notoriete.json ni drapeaux-proches.json après pret et repos")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
         # Rendus SVG (au choix dans ⚙) : un path.pays par entité.
@@ -2122,6 +2131,8 @@ def commande_ui(args):
         ui_epreuves_capitales(p, capturer, defauts, base, rendu)
         ui_epreuves_drapeaux(p, capturer, defauts, base, rendu)
         ui_epreuves_mers(p, capturer, defauts, base, rendu)
+        # Le quiz général (lot 4b du J2, #26) : sur une page rechargée, Facile joué jusqu'au bilan.
+        ui_quiz(p, capturer, defauts, base, rendu)
         # Les lignes de repère (#11) : la page rechargée sans, puis avec ; le choix gardé retiré à la fin.
         ui_lignes(p, capturer, defauts, base, rendu)
         # En dernier : il donne un pseudo à l'invité (retiré ensuite), qu'aucune partie ne doit publier.
@@ -3979,6 +3990,164 @@ def commande_seance(args):
     return 1 if erreurs or defauts else 0
 
 
+def ressources_quiz(p):
+    """Les données du quiz seul chargées par la page (FICHIERS_GEO_QUIZ)."""
+    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => /\\/geo\\/(notoriete|drapeaux-proches)\\.json/.test(n))")
+
+
+# Les difficultés du quiz dans Jouer, dans l'ordre (src/quiz/types.ts, DIFFICULTES).
+DIFFICULTES_QUIZ = ["facile", "moyen", "difficile", "expert"]
+
+
+def ui_quiz(p, capturer, defauts, base, parametres=""):
+    """Captures 16-quiz-* (lot 4b du J2, #26 ; étude § 7.1, § 9.3 ; décisions
+    « Quiz général », « Écran Jouer », « Images d'une épreuve ») : sur une
+    page rechargée, rien du quiz au premier affichage ni à l'ouverture de
+    Jouer ; #jouer : trois tuiles, Quiz général en tête (data-racine), puis
+    Entraînement et Classé (16-quiz-racine) ; Quiz général : #jouer/quiz, ses
+    quatre difficultés, le fil « Quiz général », les règles derrière « ? »
+    (16-quiz-difficultes) ; Facile : ses données chargées au choix (la
+    notoriété, une fois), puis 20 questions à 4 choix jouées par le pilote,
+    la troisième fausse (16-quiz-question, 16-quiz-faux) ; le bilan « 19/20 ·
+    95 % », « Quiz général · Facile », le premier record, le détail par
+    sujet, le raté (16-quiz-bilan) ; « Rejouer » : un nouveau tirage, puis
+    « Abandonner » dès sa première question, qui compte (D55 a : bilan,
+    « Partie abandonnée à la question 1 », record à battre ; 16-quiz-abandon) ;
+    « Autre difficulté » : #jouer/quiz, le record « 19/20 · 95 % » sur Facile
+    (16-quiz-record) ; le retour arrière : la racine de Jouer ; « × » : la
+    carte. Sans pseudo (invité du pilote) : rien n'est publié. DÉFAUT à tout
+    écart."""
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def ou():
+        return [p.js("decodeURIComponent(location.hash)"), p.js("document.body.dataset.vue"), niveau_jouer(p)]
+
+    barre = "#barre-quiz"
+    cible = f'document.querySelector("{barre} .essai-consigne").dataset.cible'
+    ouverte = f'(() => {{ const b = document.querySelector("{barre}"); const c = b && b.querySelector(".nommer-choix"); return !!b && !b.hidden && !!c && !c.disabled; }})()'
+    bilan_vu = '!document.getElementById("quiz-bilan").hidden'
+
+    def attendre(expression, quoi, delai_s=20):
+        fin = time.monotonic() + delai_s
+        while not p.js(expression):
+            if time.monotonic() > fin:
+                raise RuntimeError(f"quiz : {quoi} pas venu en {delai_s} s")
+            p.pause(100)
+
+    def choisir(juste):
+        """Le bouton juste de la question ouverte, ou un autre ; rend la cible."""
+        c = p.js(cible)
+        p.pause(PAUSE_AVANT_TOUCHER_MS)
+        ok = p.js(f"""(() => {{
+          const bs = [...document.querySelectorAll('{barre} .nommer-choix')];
+          const b = bs.find(x => {'x.dataset.id === ' + json.dumps(c) if juste else 'x.dataset.id && x.dataset.id !== ' + json.dumps(c)});
+          if (!b) return false; b.click(); return true; }})()""")
+        if not ok:
+            raise RuntimeError(f"quiz : pas de bouton {'juste' if juste else 'faux'} pour {c}")
+        return c
+
+    p.goto("about:blank")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    if ressources_quiz(p):
+        defauts.append(f"quiz : ses données au premier affichage ({ressources_quiz(p)})")
+    # La racine de Jouer : Quiz général en tête, pleine largeur, puis les deux branches.
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    p.pause(300)
+    racine, branches = lire("data-racine"), lire("data-branche")
+    tuile = texte(p, '#jouer-panneau [data-racine="quiz"]')
+    dire(f"  Jouer : {racine} {branches}, tuile {tuile!r}")
+    if racine != ["quiz"] or branches != ["entrainement", "classe"] or "Quiz général" not in tuile:
+        defauts.append(f"Jouer : {racine} {branches} (Quiz général, Entraînement, Classé attendus), tuile {tuile!r}")
+    if not p.js("document.querySelector('#jouer-panneau [data-racine=\"quiz\"]').classList.contains('jouer-large')"):
+        defauts.append("Jouer : la tuile du quiz n'est pas pleine largeur (jouer-large)")
+    if ressources_quiz(p):
+        defauts.append(f"quiz : ses données à l'ouverture de Jouer ({ressources_quiz(p)})")
+    panneau_jouer(p, defauts, "Jouer (trois tuiles)")
+    capturer("16-quiz-racine")
+    # Ses difficultés : #jouer/quiz, quatre lignes, le fil, « ? ».
+    cliquer(p, '#jouer-panneau [data-racine="quiz"]')
+    p.pause(300)
+    difficultes = lire("data-difficulte")
+    fil = texte(p, "#jouer-panneau .jouer-fil")
+    dire(f"  Quiz général : {ou()}, {difficultes}, fil {fil!r}")
+    if ou() != ["#jouer/quiz", "jouer", "quiz"] or difficultes != DIFFICULTES_QUIZ or fil.strip() != "Quiz général":
+        defauts.append(f"Quiz général : {ou()}, {difficultes}, fil {fil!r}")
+    cliquer(p, "#jouer-aide")
+    regles = texte(p, "#jouer-regles")
+    if not visible(p, "#jouer-regles") or "hors du général" not in regles:
+        defauts.append(f"« ? » du quiz : règles {regles!r}")
+    panneau_jouer(p, defauts, "Quiz général")
+    capturer("16-quiz-difficultes")
+    # Facile : ses données chargées au choix, puis la première question (QCM, 20 sur 20 au facile).
+    cliquer(p, '#jouer-panneau [data-difficulte="facile"]')
+    attendre(ouverte, "la première question", 30)
+    lus = ressources_quiz(p)
+    if len(lus) != 2:
+        defauts.append(f"quiz : données lues au choix de Facile {lus} (notoriete.json et drapeaux-proches.json, une fois)")
+    compte = texte(p, f"{barre} .essai-compte")
+    if not compte.startswith("1 / 20"):
+        defauts.append(f"quiz : compte {compte!r} au lieu de « 1 / 20 »")
+    capturer("16-quiz-question")
+    for i in range(20):
+        attendre(ouverte, f"la question {i + 1}")
+        if visible(p, f"{barre} .nommer-grille") is False:
+            defauts.append(f"quiz facile : question {i + 1} sans grille (20 QCM sur 20 au facile)")
+        choisir(i != 2)
+        p.pause(300)
+        if i == 2:
+            retro = texte(p, f"{barre} .essai-retro")
+            dire(f"  quiz, faux : {retro!r}")
+            if not retro.startswith("Faux"):
+                defauts.append(f"quiz : rétroaction d'un faux {retro!r}")
+            capturer("16-quiz-faux")
+        if i < 19:
+            p.pause(1600)
+    attendre(bilan_vu, "le bilan", 10)
+    lu = sans_insecables(texte(p, "#quiz-bilan"))
+    titre = texte(p, "#quiz-bilan h2")
+    dire(f"  quiz, bilan : {lu[:200]!r}")
+    m = MOTIF_PART.search(lu)
+    if titre != "Quiz général · Facile" or not m or (int(m[1]), int(m[2])) != (19, 20) or not part_juste(m) or "Premier record pour cette difficulté." not in lu or "Temps total" not in lu:
+        defauts.append(f"bilan du quiz : {titre!r}, {lu[:200]!r} (« 19/20 · 95 % », « Temps total », le premier record attendus)")
+    if p.js("document.querySelectorAll('#quiz-bilan .essai-rates li').length") != 1:
+        defauts.append("bilan du quiz : pas un raté et un seul")
+    if p.js("location.hash") != "#quiz":
+        defauts.append(f"bilan du quiz à l'adresse {p.js('location.hash')}")
+    capturer("16-quiz-bilan")
+    # « Rejouer » : un nouveau tirage ; « Abandonner » dès la première question : elle compte (D55 a).
+    cliquer(p, "#quiz-rejouer")
+    attendre(ouverte, "la première question rejouée")
+    cliquer(p, "#quiz-abandonner")
+    attendre(bilan_vu, "le bilan après l'abandon", 5)
+    lu = sans_insecables(texte(p, "#quiz-bilan"))
+    dire(f"  quiz, abandon : {lu[:200]!r}")
+    if "Partie abandonnée à la question 1" not in lu or "0/20 · 0 %" not in lu or "Record à battre : 19/20 · 95 %" not in lu:
+        defauts.append(f"abandon du quiz (D55 a) : {lu[:200]!r} (« 0/20 · 0 % », l'abandon dit, le record à battre attendus)")
+    capturer("16-quiz-abandon")
+    # « Autre difficulté » : les difficultés, le record sur Facile.
+    cliquer(p, "#quiz-autre")
+    p.pause(500)
+    record = sans_insecables(texte(p, '#jouer-panneau [data-difficulte="facile"] .jouer-record'))
+    dire(f"  « Autre difficulté » : {ou()}, record {record!r}")
+    if ou() != ["#jouer/quiz", "jouer", "quiz"] or "19/20 · 95 %" not in record:
+        defauts.append(f"« Autre difficulté » : {ou()}, record de Facile {record!r}")
+    if p.js("document.querySelector('#jouer-panneau [data-difficulte=\"facile\"]').getAttribute('aria-current')") != "true":
+        defauts.append("« Autre difficulté » : Facile, la dernière partie, n'est pas marquée")
+    capturer("16-quiz-record")
+    # Le retour arrière remonte à la racine de Jouer (la partie n'a pas laissé d'entrée de plus).
+    p.js("history.back()")
+    p.pause(500)
+    if ou() != ["#jouer", "jouer", "racine"]:
+        defauts.append(f"retour arrière depuis les difficultés : {ou()} au lieu de la racine de Jouer")
+    cliquer(p, "#jouer-fermer")
+    p.pause(400)
+    if p.js("document.body.dataset.vue") != "carte":
+        defauts.append(f"« × » de Jouer après le quiz : vue {p.js('document.body.dataset.vue')}")
+
+
 def commande_drapeaux(args):
     """ui_drapeaux seul, sur un profil neuf : l'écran de connexion passé en invité (passer_accueil)."""
     out = pathlib.Path(args.out).resolve()
@@ -4033,6 +4202,37 @@ def commande_mers(args):
 
         ui_mers(p, capturer, defauts, base, rendu)
         ui_epreuves_mers(p, capturer, defauts, base, rendu)
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    return 1 if erreurs or defauts else 0
+
+
+def commande_quiz(args):
+    """ui_quiz seul, sur un profil neuf : l'écran de connexion passé en invité (passer_accueil)."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
+    faites, defauts = [], []
+    with Session("local") as s:
+        s.couper_synchro(base)
+        s.passer_accueil(base)
+        p = s.page
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        ui_quiz(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -5760,7 +5960,7 @@ def main():
     s.add_argument("--preview", action="store_true", help="construit puis sert le build (vite preview)")
     s.add_argument("--sortie", default="/tmp/terramemo-preview", help="dossier du build de --preview (pas dist/)")
 
-    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île, des capitales, des drapeaux ni des mers au premier affichage, carte peinte (canvas, SVG, webgl)")
+    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île, des capitales, des drapeaux, des mers ni du quiz au premier affichage, carte peinte (canvas, SVG, webgl)")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--budget", type=int, default=60, help="secondes au plus pour que la carte se peigne")
 
@@ -5789,6 +5989,12 @@ def main():
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
     s = sub.add_parser("mers", help="le sujet Océans et mers seul (ui_mers, ui_epreuves_mers) : Jouer, l'accueil (couche légère), la recherche, Trouver, Reconnaître, Apprendre, carte de la mémoire, puis Classé › Océans et mers (un Sans faute joué jusqu'à sa fin)")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+
+    s = sub.add_parser("quiz", help="le quiz général seul (ui_quiz, aussi dans ui) : #jouer, Quiz général, Facile, 20 questions, bilan, record, Rejouer, Autre difficulté, retour arrière")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
     s.add_argument("--out", default="/tmp/terramemo-captures")
@@ -5847,7 +6053,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "lignes", "synchro", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "quiz", "lignes", "synchro", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -5860,7 +6066,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "mers": commande_mers, "lignes": commande_lignes, "synchro": commande_synchro,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "mers": commande_mers, "quiz": commande_quiz, "lignes": commande_lignes, "synchro": commande_synchro,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
     commandes.update({k.replace("_", "-"): v for k, v in commandes.items() if "_" in k})
