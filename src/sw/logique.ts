@@ -44,7 +44,9 @@
 // (MESSAGE_ACTIVER, src/sw/enregistrer.ts) ; la nouvelle version ne la prend
 // que si cette page est la seule ouverte (un autre onglet peut être en
 // partie), efface à l'activation les caches des versions d'avant, et la page
-// se recharge une fois, avant qu'on ait joué. skipWaiting dès l'installation
+// se recharge une fois, avant qu'on ait joué. Ce qui a été rangé dans
+// l'ancien cache depuis l'installation et n'a pas changé est repris à
+// l'activation, avant l'effacement. skipWaiting dès l'installation
 // aurait effacé le cache sous une partie en cours, dont les morceaux à la
 // demande ne sont plus sur le serveur après un déploiement.
 
@@ -176,21 +178,8 @@ const modeCacheHttp = (chemin: string): RequestCache => (chemin.startsWith('/ass
 export async function installer(mo: Moteur): Promise<{ repris: string[]; telecharges: string[] }> {
   const { manifeste } = mo;
   const cache = await mo.caches.open(nomCache(manifeste.version));
-  const repris: string[] = [];
   const presents = new Set((await cache.keys()).map((r) => new URL(r.url).pathname));
-  for (const nom of cachesPerimes(await mo.caches.keys(), manifeste.version)) {
-    const ancien = await mo.caches.open(nom);
-    for (const r of await ancien.keys()) {
-      const chemin = new URL(r.url).pathname;
-      const attendue = manifeste.empreintes[chemin];
-      if (!attendue || presents.has(chemin)) continue;
-      const rangee = await ancien.match(r.url);
-      if (rangee?.headers.get(ENTETE_EMPREINTE) !== attendue) continue;
-      await cache.put(cle(mo, chemin), rangee);
-      presents.add(chemin);
-      repris.push(chemin);
-    }
-  }
+  const repris = await reprendre(mo, cache, presents);
   const telecharges: string[] = [];
   for (const chemin of manifeste.prechargees) {
     if (presents.has(chemin)) continue;
@@ -204,8 +193,37 @@ export async function installer(mo: Moteur): Promise<{ repris: string[]; telecha
   return { repris, telecharges };
 }
 
-/** Activation : les caches des versions d'avant sont effacés ; rend leurs noms. */
+/**
+ * Copie dans `cache` (celui de la version) ce que les caches des versions
+ * d'avant ont de cette version (même empreinte), sauf ce qu'il a déjà ;
+ * rend les chemins copiés. Les caches d'avant ne sont que lus.
+ */
+async function reprendre(mo: Moteur, cache: CacheMin, presents: Set<string>): Promise<string[]> {
+  const repris: string[] = [];
+  for (const nom of cachesPerimes(await mo.caches.keys(), mo.manifeste.version)) {
+    const ancien = await mo.caches.open(nom);
+    for (const r of await ancien.keys()) {
+      const chemin = new URL(r.url).pathname;
+      const attendue = mo.manifeste.empreintes[chemin];
+      if (!attendue || presents.has(chemin)) continue;
+      const rangee = await ancien.match(r.url);
+      if (rangee?.headers.get(ENTETE_EMPREINTE) !== attendue) continue;
+      await cache.put(cle(mo, chemin), rangee);
+      presents.add(chemin);
+      repris.push(chemin);
+    }
+  }
+  return repris;
+}
+
+/**
+ * Activation : reprend des caches des versions d'avant ce qui y a été rangé
+ * depuis l'installation et n'a pas changé (la fin de la visite où elle s'est
+ * installée), puis les efface ; rend leurs noms.
+ */
 export async function activer(mo: Moteur): Promise<string[]> {
+  const cache = await mo.caches.open(nomCache(mo.manifeste.version));
+  await reprendre(mo, cache, new Set((await cache.keys()).map((r) => new URL(r.url).pathname)));
   const perimes = cachesPerimes(await mo.caches.keys(), mo.manifeste.version);
   await Promise.all(perimes.map((n) => mo.caches.delete(n)));
   return perimes;

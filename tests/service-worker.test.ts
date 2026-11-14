@@ -323,6 +323,28 @@ describe('service worker : une nouvelle version remplace l’ancienne sans cache
     expect(await demander(mo2, '/assets/compte-c1.js')).toBe('hors-sw');
   });
 
+  it('ce que la v1 range après l’installation de la v2 (fin de la même visite) et qui n’a pas changé passe à la v2 à l’activation', async () => {
+    const caches = new FauxCaches();
+    const reseau = new FauxReseau(build(1));
+    const mo1 = moteur(caches, reseau, M1);
+    await installer(mo1);
+    await activer(mo1);
+    reseau.fichiers = build(2);
+    const mo2 = moteur(caches, reseau, M2);
+    expect((await installer(mo2)).repris).not.toContain('/geo/drapeaux/fra1.svg');
+    // Toujours sous la v1 : un drapeau (le même en v2) et les capitales (changées en v2, donc servies mais pas rangées).
+    await demander(mo1, '/geo/drapeaux/fra1.svg');
+    await demander(mo1, '/assets/compte-c1.js');
+    await activer(mo2);
+    const v2 = caches.contenu(nomCache(M2.version));
+    expect(v2.get('/geo/drapeaux/fra1.svg')).toEqual({ texte: '<svg>drapeau</svg>', entete: M2.empreintes['/geo/drapeaux/fra1.svg'] });
+    expect(v2.has('/assets/compte-c1.js')).toBe(false);
+    reseau.horsLigne = true;
+    reseau.appels = [];
+    expect(await demander(mo2, '/geo/drapeaux/fra1.svg')).toEqual({ texte: '<svg>drapeau</svg>', status: 200 });
+    expect(reseau.appels).toEqual([]);
+  });
+
   it('une installation de la v2 qui échoue laisse la v1 en place, intacte', async () => {
     const caches = new FauxCaches();
     const reseau = new FauxReseau(build(1));
