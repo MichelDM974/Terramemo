@@ -39,6 +39,16 @@ export function lignesDeLAdresse(params: URLSearchParams): Set<ChoixLigne> | nul
 }
 
 /**
+ * Le choix au chargement : celui de ?lignes= pour la page seule (garder :
+ * false, une case changée dans ⚙ ne touche pas au choix gardé), sinon le
+ * choix gardé (garder : true).
+ */
+export function choixDeDepart(params: URLSearchParams, s: Pick<Storage, 'getItem'> | null): { choix: Set<ChoixLigne>; garder: boolean } {
+  const adresse = lignesDeLAdresse(params);
+  return adresse ? { choix: adresse, garder: false } : { choix: lireReglageLignes(s), garder: true };
+}
+
+/**
  * Les cases de ⚙ dans conteneur (le titre du groupe, puis une case par choix,
  * dans la forme de .case : l'entrée puis son nom), cochées selon choix ;
  * surChange reçoit le nouveau choix à chaque case changée.

@@ -38,7 +38,7 @@ import { poserMers, type Vue } from './vues/commun';
 import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { carteMemoire, garderReglageMemoire, lireReglageMemoire } from './vues/carte-memoire';
-import { brancherCasesLignes, garderReglageLignes, lignesDeLAdresse, lireReglageLignes } from './vues/reglage-lignes';
+import { brancherCasesLignes, choixDeDepart, garderReglageLignes } from './vues/reglage-lignes';
 import { brancherRelance } from './vues/classement';
 import { vueExplorer, type VueExplorer } from './vues/explorer';
 import { vueGeneral } from './vues/general';
@@ -283,15 +283,17 @@ if (caseMemoire) {
 
 // Lignes de repère (#11, décision « Lignes de repère ») : toutes décochées par
 // défaut, le choix gardé sur l'appareil ; ?lignes=tout (ou une liste) les coche
-// pour la page seule (mesures du pilote avec et sans). Posées sur la carte du
+// pour la page seule (mesures du pilote avec et sans ; le choix gardé n'y
+// change pas, même si l'on coche dans ⚙). Posées sur la carte du
 // monde, qui sert à l'accueil comme aux parties, et sur l'île pour celles qui
 // la croisent (aucune pour La Réunion : rien n'y est dessiné).
-let choixLignes = lignesDeLAdresse(params) ?? lireReglageLignes(stockage());
+const departLignes = choixDeDepart(params, stockage());
+let choixLignes = departLignes.choix;
 const reglageLignes = document.getElementById('reglage-lignes');
 if (reglageLignes)
   brancherCasesLignes(reglageLignes, textes.lignes, choixLignes, (c) => {
     choixLignes = c;
-    garderReglageLignes(stockage(), c);
+    if (departLignes.garder) garderReglageLignes(stockage(), c);
     poserLignes();
   });
 function poserLignes(): void {

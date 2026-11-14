@@ -497,7 +497,8 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   ids `#reglage-ligne-<choix>`), toutes décochées par défaut, le choix gardé
   dans `terramemo.lignes` (« equateur,grille », vide : aucune).
   `?lignes=tout`, une liste (`?lignes=equateur,grille`) ou `?lignes=0` les
-  coche **pour la page seule** (le choix gardé ne change pas), comme
+  coche **pour la page seule** (le choix gardé ne change pas, même si l'on
+  coche ou décoche une case de ⚙ sur cette page), comme
   `?mers=demo`. `?lignes=tout` : 21 lignes (6 nommées, 12 méridiens et 5
   parallèles de la grille, 0° non redoublé). Au pilote,
   `terramemo.carte.lignes()` (lignes posées sur le monde ; `terramemo.ile.lignes()`
@@ -509,11 +510,13 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   voient les lignes. `ui_lignes` (captures 50 à 55, aussi dans `ui`, après
   les épreuves des mers) : aucune par défaut, l'équateur et les tropiques
   cochés dans ⚙ (`50-lignes-reglages`, `51-lignes-accueil`), relus après
-  rechargement, `?lignes=tout` (`52-lignes-tout`), zoom 3 tourné à 120° E
+  rechargement, `?lignes=tout` (`52-lignes-tout` ; la grille décochée puis
+  recochée dans ⚙ sans toucher au choix gardé), zoom 3 tourné à 120° E
   (`53-lignes-tournee`), Trouver sur l'Europe (`54-lignes-partie`, le pays
   demandé touché, `pick` juste), l'île sans ligne (`55-lignes-ile`) ;
   `DÉFAUT` si une ligne manque ou reste, si un nom sort de la carte, passe
-  sur l'en-tête ou en chevauche un autre, si le choix n'est pas gardé. Il
+  sur l'en-tête, sous une barre des parties, la légende ou les boutons de
+  zoom, ou en chevauche un autre, si le choix n'est pas gardé. Il
   retire `terramemo.lignes` à la fin. Mesure avec et sans (critère du
   ticket : « sans perte de fluidité mesurable ») : `mesurer --url
   "http://localhost:8060/?lignes=tout" --out <dossier à part>` (le driver y

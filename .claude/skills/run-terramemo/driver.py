@@ -3879,6 +3879,17 @@ def ui_lignes(p, capturer, defauts, base, parametres=""):
         defauts.append("?lignes=tout a changé le choix gardé")
     verifier_noms(defauts, "?lignes=tout, zoom 1", e)
     capturer("52-lignes-tout")
+    # Une case changée dans ⚙ sous ?lignes= : la page suit, le choix gardé reste.
+    cliquer(p, "#settings-btn")
+    cliquer(p, "#reglage-ligne-grille")
+    sans_grille = etat_lignes(p)["lignes"]
+    cliquer(p, "#reglage-ligne-grille")
+    p.js('document.getElementById("settings-btn").click()')
+    p.pause(300)
+    garde = p.js("localStorage.getItem('terramemo.lignes')")
+    dire(f"  ?lignes=tout, grille décochée puis recochée : {sans_grille} lignes sans elle, terramemo.lignes = {garde!r}")
+    if sans_grille >= LIGNES_TOUT or garde != "equateur,tropiques":
+        defauts.append(f"?lignes=tout et une case de ⚙ : {sans_grille} lignes sans la grille, choix gardé {garde!r} (\"equateur,tropiques\" attendu)")
     # Zoomée et tournée (canvas, webgl : r ; en SVG, la carte plane ignore r).
     p.js("window.terramemo.carte.zoomer({k: 3, x: 0, y: 0, r: 120})")
     p.pause(400)

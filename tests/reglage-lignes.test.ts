@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CHOIX_LIGNES } from '../src/map/lignes';
-import { brancherCasesLignes, CLE_LIGNES, garderReglageLignes, lignesDeLAdresse, lireChoixLignes, lireReglageLignes } from '../src/vues/reglage-lignes';
+import { brancherCasesLignes, choixDeDepart, CLE_LIGNES, garderReglageLignes, lignesDeLAdresse, lireChoixLignes, lireReglageLignes } from '../src/vues/reglage-lignes';
 import { textes } from '../src/vues/textes';
 
 // Les lignes de repère dans ⚙ (#11) : toutes décochées par défaut, le choix
@@ -98,5 +98,19 @@ describe('lignes de repère : réglage de ⚙ et ?lignes=', () => {
     } finally {
       globalThis.document = ancien;
     }
+  });
+  it('au chargement : ?lignes= vaut pour la page seule (rien à garder), sans lui le choix gardé (à garder)', () => {
+    const s = stockage();
+    s.m.set(CLE_LIGNES, 'equateur');
+    const page = choixDeDepart(new URLSearchParams('lignes=tout'), s);
+    expect([...page.choix]).toEqual([...CHOIX_LIGNES]);
+    expect(page.garder).toBe(false);
+    const aucune = choixDeDepart(new URLSearchParams('lignes=0'), s);
+    expect([...aucune.choix]).toEqual([]);
+    expect(aucune.garder).toBe(false);
+    const garde = choixDeDepart(new URLSearchParams(''), s);
+    expect([...garde.choix]).toEqual(['equateur']);
+    expect(garde.garder).toBe(true);
+    expect(choixDeDepart(new URLSearchParams(''), null)).toEqual({ choix: new Set(), garder: true });
   });
 });
