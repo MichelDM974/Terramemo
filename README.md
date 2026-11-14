@@ -48,7 +48,8 @@ l'oublier, jusqu'à tenir des mois.
   la carte, 6 et 10 s) ; le score est la part de justes (« 17/20 ·
   85 % »), un classement par difficulté, hors du général. La partie
   compte dès sa première question : abandonnée, elle garde le score
-  acquis.
+  acquis, même si la page se ferme ou l'appli est tuée en pleine partie
+  (elle compte au démarrage suivant).
 - Sur ordinateur, des boutons **+**, **−** et « toute la carte » en bas à
   droite (et les touches + et −) pour zoomer sans molette.
 - Dans ⚙, des **lignes de repère** à cocher : l'équateur, le méridien de

@@ -3,7 +3,8 @@
 // partie de 20 questions à 4 choix ou au toucher, son bilan (« 17/20 ·
 // 85 % », détail par sujet, record de la difficulté), « Rejouer » et « Autre
 // difficulté » ; la fin selon D55 a (un abandon après la première question
-// montrée écrit un record ; pendant le chargement des images, rien) ; les
+// montrée écrit un record ; pendant le chargement des images, rien ; la page
+// fermée en pleine partie : elle compte au démarrage suivant) ; les
 // drapeaux attendus au départ. Les questions sont fixées (option `tirer`),
 // la carte, les mesures et le bloc du classement remplacés ; allumerZone
 // aussi (la carte factice n'a pas de projection). Minuteries et
@@ -19,9 +20,13 @@ import type { Difficulte, Question, SujetQuiz } from '../src/quiz/types';
 import { El, installerDom, installerStockage } from './dom-factice';
 
 const blocClassement = vi.fn((_epreuve: string, _titre: string, _apres?: (pseudo: string) => Promise<unknown>) => new El('section'));
+const publierPartie = vi.fn(async (_pseudo: string, _epreuve: string, _b: unknown) => ({ refuses: 0, echecs: 0, locaux: 0 }));
+/** Le pseudo de l'appareil (lirePseudo) ; null : pas encore choisi. */
+let pseudo: string | null = null;
 vi.mock('../src/vues/classement', () => ({
   blocClassement: (...a: Parameters<typeof blocClassement>) => blocClassement(...a),
-  publierPartie: vi.fn(),
+  publierPartie: (...a: Parameters<typeof publierPartie>) => publierPartie(...a),
+  lirePseudo: () => pseudo,
 }));
 const allumerZone = vi.fn(() => false);
 vi.mock('../src/vues/nommer', () => ({ allumerZone: (...a: unknown[]) => allumerZone(...(a as [])) }));
@@ -114,6 +119,8 @@ beforeEach(() => {
   installerDom();
   installerStockage();
   blocClassement.mockClear();
+  publierPartie.mockClear();
+  pseudo = null;
   allumerZone.mockClear();
   faux = new Set();
   touchers = 0;
@@ -265,6 +272,50 @@ describe('fin d’une partie (D55 a)', () => {
   });
 });
 
+describe('une page fermée en pleine partie (D55 a)', () => {
+  const CLE = 'terramemo.quiz.en_cours';
+  const enCours = () => JSON.parse(localStorage.getItem(CLE) ?? 'null') as { epreuve: string; score: Record<string, number> } | null;
+
+  it('la partie en cours est gardée dès sa première question montrée, à son score acquis à chaque réponse, et retirée au bilan', () => {
+    const p = contexte(partiePays);
+    p.lancer('moyen');
+    expect(enCours()).toEqual({ epreuve: idQuiz('moyen'), score: { points: 0, justes: 0, questions: 20, temps_ms: 10 * 10_000 + 10 * 15_000 } });
+    p.repondre(true, 3_000);
+    expect(enCours()!.score).toMatchObject({ justes: 1, temps_ms: 3_000 + 9 * 10_000 + 10 * 15_000 });
+    p.suivante();
+    p.el('#quiz-abandonner').click();
+    expect(enCours()).toBeNull();
+  });
+
+  it('au démarrage suivant (la vue recréée), elle compte comme un abandon : le record, le profil, la publication sous le pseudo', () => {
+    pseudo = 'Michel';
+    const p = contexte(partiePays);
+    p.lancer('moyen');
+    p.repondre(true, 3_000);
+    // La page se ferme ici (rechargée, appli tuée) : ni bilan, ni record.
+    expect(recordDe(lireRecords(localStorage), idQuiz('moyen'), 'toujours')).toBeNull();
+    contexte(partiePays);
+    expect(recordDe(lireRecords(localStorage), idQuiz('moyen'), 'toujours')).toMatchObject({ justes: 1, questions: 20, temps_ms: 3_000 + 9 * 10_000 + 10 * 15_000 });
+    expect(enCours()).toBeNull();
+    expect(publierPartie).toHaveBeenCalledTimes(1);
+    expect(publierPartie.mock.calls[0]!.slice(0, 2)).toEqual(['Michel', idQuiz('moyen')]);
+    // Une fois : la vue recréée encore n'y revient pas.
+    contexte(partiePays);
+    expect(publierPartie).toHaveBeenCalledTimes(1);
+  });
+
+  it('une entrée que les règles refuseraient (20/20 en 1 ms) ou illisible : retirée, aucun record', () => {
+    localStorage.setItem(CLE, JSON.stringify({ epreuve: idQuiz('facile'), score: { points: 20, justes: 20, questions: 20, temps_ms: 1 } }));
+    contexte(partiePays);
+    expect(enCours()).toBeNull();
+    expect(recordDe(lireRecords(localStorage), idQuiz('facile'), 'toujours')).toBeNull();
+    localStorage.setItem(CLE, '{');
+    contexte(partiePays);
+    expect(localStorage.getItem(CLE)).toBeNull();
+    expect(publierPartie).not.toHaveBeenCalled();
+  });
+});
+
 describe('les drapeaux attendus au départ (décision « Images d’une épreuve »)', () => {
   let faites: { a: string; ok: () => void; ko: () => void }[] = [];
   const charger: ChargerImage = (a) =>
@@ -291,8 +342,9 @@ describe('les drapeaux attendus au départ (décision « Images d’une épreuve
     for (const f of faites.slice(0, 4)) f.ok();
     await vi.advanceTimersByTimeAsync(0);
     expect(p.montree()).toBe(false);
-    // Rien ne compte tant qu'on attend : ni record, ni toucher.
+    // Rien ne compte tant qu'on attend : ni record, ni partie gardée pour le démarrage suivant, ni toucher.
     expect(lireRecords(localStorage).size).toBe(0);
+    expect(localStorage.getItem('terramemo.quiz.en_cours')).toBeNull();
     faites[4]!.ok();
     await vi.advanceTimersByTimeAsync(0);
     expect(p.montree()).toBe(true);

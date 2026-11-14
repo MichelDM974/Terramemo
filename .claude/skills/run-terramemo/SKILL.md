@@ -460,6 +460,11 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   Jouer, « × » à la carte. Invité sans pseudo : rien n'est publié.
   `DÉFAUT` à tout écart. Le moyen et au-delà (touchers, drapeaux à
   attendre) : `tests/quiz-vue.test.ts`, et l'A37 pour les délais (S31).
+  Piège : dès sa première question montrée, la partie en cours est
+  gardée (`terramemo.quiz.en_cours` du `localStorage`) et compte au
+  démarrage suivant si la page se recharge avant son bilan (D55 a :
+  `reprendrePartieInterrompue`). Un passage qui recharge la page en
+  pleine partie y trouve donc un record de plus.
 - `ui_jouer` (captures 15) passe aussi par Classé › Océans et mers : la
   série sautée (`#jouer/classe/mers/mers`, Chrono et Sans faute), le
   retour arrière ramène aux sujets (aucune entrée pour le niveau sauté).

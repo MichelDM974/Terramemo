@@ -23,8 +23,13 @@
 // la difficulté (de toujours, de la semaine), son classement (hors du
 // général), les ratés ; « Rejouer » (un nouveau tirage), « Autre difficulté »,
 // la « × ». Les réponses n'entrent pas dans la mémoire (D51), comme celles
-// des épreuves.
-import { enregistrerPartie, idQuiz, type QuestionJouee } from '../epreuve/chrono';
+// des épreuves. Une page fermée en pleine partie (rechargée, onglet fermé,
+// appli tuée) n'a pas de bilan : la partie en cours, gardée dans le stockage
+// dès sa première question montrée, s'enregistre au démarrage suivant comme
+// un abandon (reprendrePartieInterrompue), sinon recharger la page
+// relancerait un tirage sans rien compter.
+import type { ScoreEpreuve } from '../epreuve/bareme';
+import { enregistrerPartie, idQuiz, modeEpreuve, vraisemblable, type BilanPartie, type QuestionJouee } from '../epreuve/chrono';
 import { PartieQuiz } from '../epreuve/quiz';
 import { capitalesChargees } from '../map/capitales';
 import { attendreImages, drapeauxCharges, type ChargerImage } from '../map/drapeaux';
@@ -37,7 +42,7 @@ import type { Difficulte, Generateur, Question, SujetQuiz } from '../quiz/types'
 import { profilModifie } from '../sync/pont';
 import { NIVEAU_QUIZ, adresse, nomDifficulte, nomQuiz, nomSujet } from './arbre';
 import { ANNONCE_MS, ATTENTE_IMAGE_MS, CHARGEMENT_VU_MS } from './chrono';
-import { blocClassement, publierPartie } from './classement';
+import { blocClassement, lirePseudo, publierPartie } from './classement';
 import { anneauSiPetite, anneauZone, chargementSujet, creer, croix, fmtKm, mersPosees, optionsNoter, poserContenu, poserEnonce, texteAdmis, zonesDuSujet, type ContexteVue, type Vue } from './commun';
 import { creerJauge } from './jauge';
 import { allumerZone } from './nommer';
@@ -63,6 +68,63 @@ function stockage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+/** La partie en cours, dès sa première question montrée : son épreuve et le score acquis (PartieQuiz.score). */
+const CLE_EN_COURS = 'terramemo.quiz.en_cours';
+
+interface PartieEnCours {
+  epreuve: string;
+  score: ScoreEpreuve;
+}
+
+/** Garde la partie en cours (null : la retire) ; sans stockage, ou s'il est refusé ou plein, rien. */
+function garderEnCours(s: Storage | null, e: PartieEnCours | null): void {
+  try {
+    if (e) s?.setItem(CLE_EN_COURS, JSON.stringify(e));
+    else s?.removeItem(CLE_EN_COURS);
+  } catch {
+    // Stockage plein ou refusé : la partie ne se retrouvera pas, comme sans stockage.
+  }
+}
+
+/**
+ * Une partie du quiz restée en cours (D55 a), la page fermée avant son bilan :
+ * enregistrée comme un abandon, le score qu'elle avait à sa dernière réponse
+ * (les questions sans réponse à 0 et tout leur délai), puis retirée. Un
+ * record nouveau va au profil et se publie sous le pseudo de l'appareil (sans
+ * pseudo, son choix publiera tout : publierTout). Datée du démarrage : une
+ * date passée effacerait les records de la semaine en cours
+ * (oublierSemainesPassees). Rend son bilan ; null sans partie, ou une entrée
+ * illisible ou que les règles refuseraient (retirée aussi).
+ */
+export function reprendrePartieInterrompue(s: Storage | null = stockage(), date = Date.now()): BilanPartie | null {
+  let brut: string | null = null;
+  try {
+    brut = s?.getItem(CLE_EN_COURS) ?? null;
+  } catch {
+    return null;
+  }
+  if (brut === null) return null;
+  garderEnCours(s, null);
+  let e: Partial<PartieEnCours> | null = null;
+  try {
+    e = JSON.parse(brut) as Partial<PartieEnCours> | null;
+  } catch {
+    return null;
+  }
+  const score = e?.score;
+  const epreuve = e?.epreuve;
+  if (typeof epreuve !== 'string' || modeEpreuve(epreuve) !== 'quiz' || !score || typeof score !== 'object') return null;
+  const { points, justes, questions, temps_ms } = score;
+  if (![points, justes, questions, temps_ms].every((x) => typeof x === 'number' && Number.isFinite(x))) return null;
+  if (!vraisemblable(score, epreuve)) return null;
+  const bp = enregistrerPartie(s, epreuve, { points, justes, questions, temps_ms }, date);
+  if (bp.toujours.nouveau || bp.semaine.nouveau) profilModifie('records');
+  const pseudo = lirePseudo();
+  const aPublier = [bp.toujours, bp.semaine].some((b) => b.nouveau || b.progresPubliable);
+  if (pseudo && aPublier) void publierPartie(pseudo, epreuve, bp).catch(() => undefined);
+  return bp;
 }
 
 /**
@@ -140,6 +202,8 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
 
   const t = ctx.terrains.monde;
   const maintenant = o.maintenant ?? (() => Date.now());
+  // Une partie laissée en cours par la page d'avant compte d'abord (D55 a).
+  reprendrePartieInterrompue(stockage(), maintenant());
   const tirer = o.tirer ?? ((d: Difficulte) => tirerPartie(generateursQuiz(ctx), d));
   let difficulte: Difficulte = 'facile';
   let partie: PartieQuiz | null = null;
@@ -336,6 +400,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
       ouverte = true;
       for (const b of boutons) b.disabled = false;
       p.montrer();
+      garder(p);
       jauge.partir(q.delai_ms, debut);
       minuterie = window.setTimeout(expirer, q.delai_ms);
     };
@@ -361,7 +426,13 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     );
   }
 
+  /** La partie en cours dans le stockage, à son score acquis : relue au démarrage si la page se ferme avant le bilan. */
+  function garder(p: PartieQuiz): void {
+    if (p.compte) garderEnCours(stockage(), { epreuve: idQuiz(difficulte), score: p.score() });
+  }
+
   function apres(q: QuestionJouee): void {
+    if (partie) garder(partie);
     ouverte = false;
     clearTimeout(minuterie);
     jauge.figer();
@@ -473,6 +544,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     const epreuve = idQuiz(d);
     const score = p.score();
     const bp = enregistrerPartie(stockage(), epreuve, score, maintenant());
+    garderEnCours(stockage(), null);
     // Un record nouveau va au profil du compte (rien pour un invité).
     if (bp.toujours.nouveau || bp.semaine.nouveau) profilModifie('records');
     const b = bp.toujours;
