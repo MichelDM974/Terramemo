@@ -40,7 +40,11 @@ avec son test ; seul le point 5 reste, à vérifier en production.
    Firestore lite le rend quand `fetch` échoue (hors ligne, sans statut
    HTTP) ; `unavailable` n'est qu'un 503. `charger()` donne le code
    `terramemo/sdk-indisponible` à toute erreur sans code. Pas de plafond
-   d'essais (il changeait le format de la file).
+   d'essais (il changeait le format de la file). Une erreur sans code
+   (SyntaxError d'un portail captif qui répond 200 en HTML) reste hors
+   réseau : vérifié dans les SDK, elle n'arrive pas jusque-là, Firestore
+   lite en fait un `unknown` et Auth un `auth/network-request-failed` ;
+   sans code, c'est un bogue de l'appli (12600bd).
 
 2. **File sans stockage : l'avis promet un départ qui n'aura pas lieu.**
    Quand `localStorage` est refusé ou plein, `ecrireAttente` avale l'erreur
@@ -72,6 +76,11 @@ avec son test ; seul le point 5 reste, à vérifier en production.
    forme, dont « Élodie » + U+200B (branche masquée de `cleDuPseudo`) et
    « Michel », « Wiwi » ; il est à lancer sur l'émulateur
    (`npm run test:regles`), puis les règles à déployer avant le site.
+   Puis (8ed2cbb) : dans l'appli, `\p{C}` écrit en entier
+   (`\p{Cc}\p{Cf}\p{Co}\p{Cs}`), car celui de JS compte aussi les points
+   de code non assignés (Cn), que celui de RE2 n'a pas : un emoji plus
+   récent que l'Unicode d'une vieille WebView y faisait perdre au joueur
+   son pseudo. Cas U+0378 (accepté) et usage privé (refusé) au test croisé.
 
 4. **Test instable sous charge.** Dans `tests/carte-webgl.test.ts`, « chaque
    entité et zone est maillée, plages contiguës, indices dans les sommets »
