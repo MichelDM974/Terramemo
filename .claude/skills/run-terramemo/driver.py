@@ -2122,6 +2122,8 @@ def commande_ui(args):
         ui_epreuves_capitales(p, capturer, defauts, base, rendu)
         ui_epreuves_drapeaux(p, capturer, defauts, base, rendu)
         ui_epreuves_mers(p, capturer, defauts, base, rendu)
+        # Les lignes de repère (#11) : la page rechargée sans, puis avec ; le choix gardé retiré à la fin.
+        ui_lignes(p, capturer, defauts, base, rendu)
         # En dernier : il donne un pseudo à l'invité (retiré ensuite), qu'aucune partie ne doit publier.
         ui_accueil(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
@@ -3781,6 +3783,137 @@ def ui_apprendre_reunion(p, capturer, defauts):
         defauts.append("« Monde » : l'île garde ses teintes")
 
 
+# --- Lignes de repère (#11, décision « Lignes de repère » du 14/11) ---------
+
+# Les lignes de ?lignes=tout : 6 nommées, 12 méridiens et 5 parallèles de la grille, sans redoubler 0° (src/map/lignes.ts).
+LIGNES_TOUT = 6 + 12 + 5 - 2
+ETAT_LIGNES = """(() => {
+  const h = document.querySelector('header').getBoundingClientRect();
+  const c = document.getElementById('carte');
+  const couche = c && c.querySelector('.lignes-noms');
+  const noms = couche && !couche.hidden ? [...couche.querySelectorAll('.ligne-nom')].map((s) => {
+    const r = s.getBoundingClientRect();
+    return {id: s.dataset.ligne, texte: s.textContent, x: r.left, y: r.top, d: r.right, b: r.bottom};
+  }) : [];
+  const rc = c.getBoundingClientRect();
+  return {lignes: window.terramemo.carte.lignes(), dataset: c.dataset.lignes || null, noms, entete: h.bottom,
+          carte: {x: rc.left, y: rc.top, d: rc.right, b: rc.bottom},
+          ile: window.terramemo.ile ? window.terramemo.ile.lignes() : null,
+          cases: [...document.querySelectorAll('#reglage-lignes input[data-ligne]')].map((e) => e.dataset.ligne + ':' + (e.checked ? 1 : 0))};
+})()"""
+
+
+def etat_lignes(p):
+    return p.js(ETAT_LIGNES)
+
+
+def verifier_noms(defauts, quoi, e):
+    """Les noms posés : dans la carte, sous l'en-tête, sans se chevaucher."""
+    for n in e["noms"]:
+        if n["y"] < e["entete"] - 0.5 or n["x"] < e["carte"]["x"] - 0.5 or n["d"] > e["carte"]["d"] + 0.5 or n["b"] > e["carte"]["b"] + 0.5:
+            defauts.append(f"{quoi} : le nom {n['texte']!r} sort de la carte ou passe sur l'en-tête ({n})")
+    for i, a in enumerate(e["noms"]):
+        for b in e["noms"][i + 1:]:
+            if a["x"] < b["d"] and b["x"] < a["d"] and a["y"] < b["b"] and b["y"] < a["b"]:
+                defauts.append(f"{quoi} : les noms {a['texte']!r} et {b['texte']!r} se chevauchent")
+
+
+def ui_lignes(p, capturer, defauts, base, parametres=""):
+    """Captures 50 à 55 (#11) : les lignes de repère, aucune par défaut ; deux
+    cases cochées dans ⚙ (l'équateur et les tropiques : trois lignes,
+    nommées) puis relues après rechargement (terramemo.lignes) ; toutes par
+    ?lignes=tout à l'accueil, zoomées et tournées ; pendant une partie
+    (Trouver, Europe : toujours là, un toucher juste reste juste) ; sur l'île
+    de La Réunion, aucune. DÉFAUT si une ligne manque ou reste, si un nom
+    sort de la carte, passe sur l'en-tête ou en chevauche un autre, si le
+    choix n'est pas gardé, ou si le toucher change. Retire le choix gardé à
+    la fin."""
+    p.js("localStorage.removeItem('terramemo.lignes')")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    e = etat_lignes(p)
+    dire(f"  lignes, par défaut : {e['lignes']} posées, cases {e['cases']}")
+    if e["lignes"] or e["noms"] or any(c.endswith(":1") for c in e["cases"]):
+        defauts.append(f"lignes de repère par défaut : {e['lignes']} posées, cases {e['cases']} (toutes décochées attendues)")
+    if len(e["cases"]) != 5:
+        defauts.append(f"⚙ : {len(e['cases'])} cases de lignes au lieu de 5 ({e['cases']})")
+    cliquer(p, "#settings-btn")
+    cliquer(p, "#reglage-ligne-equateur")
+    cliquer(p, "#reglage-ligne-tropiques")
+    capturer("50-lignes-reglages")
+    p.js('document.getElementById("settings-btn").click()')
+    p.pause(400)
+    e = etat_lignes(p)
+    textes = [n["texte"] for n in e["noms"]]
+    dire(f"  ⚙ équateur + tropiques : {e['lignes']} lignes, noms {textes}")
+    if e["lignes"] != 3 or not {"Équateur", "Tropique du Cancer", "Tropique du Capricorne"} <= set(textes):
+        defauts.append(f"équateur et tropiques cochés : {e['lignes']} lignes, noms {textes} (3 et leurs trois noms attendus)")
+    verifier_noms(defauts, "accueil, équateur et tropiques", e)
+    capturer("51-lignes-accueil")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    garde = p.js("localStorage.getItem('terramemo.lignes')")
+    e = etat_lignes(p)
+    dire(f"  rechargée : terramemo.lignes = {garde!r}, {e['lignes']} lignes, cases {e['cases']}")
+    if garde != "equateur,tropiques" or e["lignes"] != 3:
+        defauts.append(f"choix des lignes non gardé : {garde!r}, {e['lignes']} lignes après rechargement")
+    # ?lignes=tout : pour la page seule (le choix gardé reste).
+    p.goto(base + "?mesures=0&lignes=tout" + parametres + "#carte")
+    p.attendre_carte()
+    p.pause(300)
+    e = etat_lignes(p)
+    dire(f"  ?lignes=tout : {e['lignes']} lignes, {len(e['noms'])} noms : {[n['texte'] for n in e['noms']]}")
+    if e["lignes"] != LIGNES_TOUT or len(e["noms"]) < 6:
+        defauts.append(f"?lignes=tout : {e['lignes']} lignes au lieu de {LIGNES_TOUT}, {len(e['noms'])} noms")
+    if p.js("localStorage.getItem('terramemo.lignes')") != "equateur,tropiques":
+        defauts.append("?lignes=tout a changé le choix gardé")
+    verifier_noms(defauts, "?lignes=tout, zoom 1", e)
+    capturer("52-lignes-tout")
+    # Zoomée et tournée (canvas, webgl : r ; en SVG, la carte plane ignore r).
+    p.js("window.terramemo.carte.zoomer({k: 3, x: 0, y: 0, r: 120})")
+    p.pause(400)
+    e = etat_lignes(p)
+    dire(f"  zoom 3, 120° E au centre : {len(e['noms'])} noms : {[n['texte'] for n in e['noms']]}")
+    verifier_noms(defauts, "?lignes=tout, zoom 3 tourné", e)
+    if not e["noms"]:
+        defauts.append("zoom 3 tourné : aucun nom de ligne")
+    capturer("53-lignes-tournee")
+    # Une partie : les lignes restent, le toucher et la notation sont ceux d'avant.
+    jouer_partie(p, "localiser", "Europe")
+    p.pause(300)
+    cible = p.js('document.querySelector("#barre-essai .essai-consigne").dataset.cible')
+    p.js(f"window.terramemo.carte.zoomerSur({json.dumps(cible)})")
+    p.pause(400)
+    e = etat_lignes(p)
+    dire(f"  Trouver, Europe : {e['lignes']} lignes, {len(e['noms'])} noms, cible {cible}")
+    if e["lignes"] != LIGNES_TOUT:
+        defauts.append(f"pendant une partie : {e['lignes']} lignes au lieu de {LIGNES_TOUT}")
+    verifier_noms(defauts, "Trouver, Europe", e)
+    pt = position_visible(p, cible, "#barre-essai") or position(p, cible)
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    p.toucher(pt["x"], pt["y"])
+    p.pause(300)
+    retro = texte(p, "#barre-essai .essai-retro")
+    dire(f"  Trouver, {cible} touché : {retro!r}")
+    if p.js(f"window.terramemo.carte.pick({pt['x']}, {pt['y']})?.id") != cible:
+        defauts.append(f"pendant une partie, avec les lignes : pick sur {cible} ne donne pas {cible}")
+    capturer("54-lignes-partie")
+    cliquer(p, "#essai-terminer")
+    p.pause(200)
+    # L'île : aucune ligne ne la croise, rien n'y est dessiné.
+    jouer_partie(p, "localiser", "reunion")
+    p.pause(300)
+    e = etat_lignes(p)
+    noms_ile = p.js("(() => { const c = document.querySelector('#carte-ile .lignes-noms'); return c ? c.querySelectorAll('.ligne-nom').length : 0; })()")
+    dire(f"  île : {e['ile']} lignes, {noms_ile} noms")
+    if e["ile"] or noms_ile:
+        defauts.append(f"île de La Réunion : {e['ile']} lignes, {noms_ile} noms (aucune ne la croise)")
+    capturer("55-lignes-ile")
+    cliquer(p, "#essai-terminer")
+    p.pause(200)
+    p.js("localStorage.removeItem('terramemo.lignes')")
+
+
 def commande_seance(args):
     """ui_seance seul, sur un profil neuf (journal vide)."""
     out = pathlib.Path(args.out).resolve()
@@ -3868,6 +4001,37 @@ def commande_mers(args):
 
         ui_mers(p, capturer, defauts, base, rendu)
         ui_epreuves_mers(p, capturer, defauts, base, rendu)
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    return 1 if erreurs or defauts else 0
+
+
+def commande_lignes(args):
+    """ui_lignes seul, sur un profil neuf (l'écran de connexion passé en invité)."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
+    faites, defauts = [], []
+    with Session("local") as s:
+        s.couper_synchro(base)
+        s.passer_accueil(base)
+        p = s.page
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        ui_lignes(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -5598,6 +5762,12 @@ def main():
     s.add_argument("--out", default="/tmp/terramemo-captures")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
+    s = sub.add_parser("lignes", help="les lignes de repère seules (ui_lignes, aussi dans ui) : ⚙, choix gardé, ?lignes=tout, carte tournée, une partie, l'île")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+
     s = sub.add_parser("synchro", help="ui_synchro (J1b) : deux navigateurs aux émulateurs, l'un hors ligne, au même état")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
@@ -5645,7 +5815,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "synchro", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "lignes", "synchro", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -5658,7 +5828,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "mers": commande_mers, "synchro": commande_synchro,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "mers": commande_mers, "lignes": commande_lignes, "synchro": commande_synchro,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
     commandes.update({k.replace("_", "-"): v for k, v in commandes.items() if "_" in k})
