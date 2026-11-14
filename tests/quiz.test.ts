@@ -32,8 +32,17 @@ const GENS = generateurs(D);
 const parPays = new Map(pays.map((p) => [p.id, p]));
 const jouable = (id: string) => parPays.get(id)?.statut === 'jouable';
 const niveauCapitales = (id: string) => Math.min(...capitales.parPays.get(id)!.justes.map((c) => notoriete.capitales[c.q] ?? 9));
-const niveau = (q: Pick<Question, 'sujet' | 'cible'>): number =>
-  q.sujet === 'pays' ? notoriete.pays[q.cible]! : q.sujet === 'capitales' ? niveauCapitales(q.cible) : q.sujet === 'drapeaux' ? notoriete.drapeaux[q.cible]! : notoriete.mers[q.cible]!;
+/** Le niveau de ce que la question montre : une capitale, la plus connue au toucher, la principale au QCM (cible ou leurre). */
+const niveau = (q: Pick<Question, 'sujet' | 'cible'> & { forme?: string }): number =>
+  q.sujet === 'pays'
+    ? notoriete.pays[q.cible]!
+    : q.sujet === 'capitales'
+      ? q.forme === 'qcm'
+        ? notoriete.capitales[capitales.parPays.get(q.cible)!.principale.q]!
+        : niveauCapitales(q.cible)
+      : q.sujet === 'drapeaux'
+        ? notoriete.drapeaux[q.cible]!
+        : notoriete.mers[q.cible]!;
 const leurres = (q: Question) => (q.choix ?? []).filter((x) => x !== q.cible);
 const sorteMer = new Map(infos.zones.map((z) => [z.id, z.sorte]));
 const jumeaux = (id: string) => drapeaux.parPays.get(id)?.jumeaux ?? [];
@@ -65,6 +74,15 @@ describe('générateurs', () => {
     expect(p!.lieux(3).every(jouable)).toBe(true);
     expect(p!.lieux(3)).not.toContain('TWN');
     expect(p!.lieux(3)).not.toContain('XKX');
+  });
+
+  it('capitales : le niveau au QCM est celui de la principale (Pretoria, Yamoussoukro), au toucher celui de la plus connue (Le Cap, Abidjan)', () => {
+    const g = GENS.find((x) => x.sujet === 'capitales')!;
+    for (const id of ['ZAF', 'CIV']) {
+      expect(niveauCapitales(id), id).toBeLessThan(notoriete.capitales[capitales.parPays.get(id)!.principale.q]!);
+      expect(g.lieux(2, 'toucher'), id).toContain(id);
+      expect(g.lieux(2, 'qcm'), id).not.toContain(id);
+    }
   });
 
   it('les 9 pays au nom de leur capitale (D37 c) : au toucher, jamais en QCM', () => {
@@ -192,7 +210,7 @@ describe('leurres par difficulté (§ 9.2)', () => {
     const qs = [...questions('facile', 'pays'), ...questions('facile', 'capitales')];
     expect(qs.length).toBeGreaterThan(100);
     for (const q of qs) {
-      for (const x of leurres(q)) expect(niveau({ sujet: q.sujet, cible: x }), `${q.sujet} ${q.cible} ${x}`).toBe(1);
+      for (const x of leurres(q)) expect(niveau({ sujet: q.sujet, cible: x, forme: 'qcm' }), `${q.sujet} ${q.cible} ${x}`).toBe(1);
       const c = parPays.get(q.cible)!.continent;
       const connusDuContinent = GENS.find((g) => g.sujet === q.sujet)!.lieux(1).filter((x) => x !== q.cible && parPays.get(x)!.continent === c && GENS.find((g) => g.sujet === q.sujet)!.posable(x, 'qcm'));
       if (connusDuContinent.length >= 6) for (const x of leurres(q)) expect(parPays.get(x)!.continent, `${q.cible} ${x}`).toBe(c);

@@ -46,7 +46,7 @@ export function tirerPartie(gens: readonly Generateur[], d: Difficulte, hasard: 
   const questions: Question[] = [];
   for (const { g, forme } of places) {
     const libre = (id: string) => g.posable(id, forme) && g.entites(id).every((e) => !prises.has(e));
-    const id = auHasard(g.lieux(regle.niveauMax).filter(libre), hasard) ?? auHasard(g.lieux(3).filter(libre), hasard);
+    const id = auHasard(g.lieux(regle.niveauMax, forme).filter(libre), hasard) ?? auHasard(g.lieux(3).filter(libre), hasard);
     if (id === undefined) throw new Error(`quiz : plus de lieu libre pour ${g.sujet} (${forme})`);
     for (const e of g.entites(id)) prises.add(e);
     questions.push(g.question(id, forme, d, hasard));

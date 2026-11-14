@@ -52,8 +52,12 @@ export interface Question {
  */
 export interface Generateur {
   sujet: SujetQuiz;
-  /** Les lieux du sujet jusqu'à ce niveau (compris), dans un ordre stable. */
-  lieux(niveauMax: Niveau): readonly string[];
+  /**
+   * Les lieux du sujet jusqu'à ce niveau (compris), dans un ordre stable ;
+   * `forme` : le niveau de ce que la question montre sous cette forme (une
+   * capitale : la plus connue au toucher, la principale au QCM).
+   */
+  lieux(niveauMax: Niveau, forme?: Forme): readonly string[];
   /** Le lieu se pose-t-il sous cette forme ? (Les 9 pays au nom de leur capitale jamais en QCM, D37 c.) */
   posable(id: string, forme: Forme): boolean;
   /** Les entités de sa question (Question.entites). */

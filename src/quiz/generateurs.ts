@@ -45,6 +45,8 @@ const parId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 interface Sujet {
   sujet: SujetQuiz;
   niveau(id: string): Niveau | undefined;
+  /** Le niveau d'un lieu au QCM, quand il n'est pas celui de niveau() : ce que montre son bouton (une capitale : la principale). */
+  niveauQcm?(id: string): Niveau | undefined;
   /** Les lieux du sujet (tous niveaux), jouables et pourvus de leurs données. */
   ids: readonly string[];
   posable(id: string, forme: Forme): boolean;
@@ -95,7 +97,7 @@ function strategieCommune(s: Sujet, id: string, d: Difficulte): StrategieLeurres
 function fabriquer(s: Sujet): Generateur {
   return {
     sujet: s.sujet,
-    lieux: (niveauMax) => s.ids.filter((id) => (s.niveau(id) ?? 3) <= niveauMax),
+    lieux: (niveauMax, forme) => s.ids.filter((id) => ((forme === 'qcm' && s.niveauQcm ? s.niveauQcm(id) : s.niveau(id)) ?? 3) <= niveauMax),
     posable: s.posable,
     entites: s.entites,
     question(id, forme, d, hasard): Question {
@@ -160,10 +162,13 @@ export function generateurPays(d: DonneesGenerateurs): Generateur {
 
 /**
  * Les capitales : la cible est le pays. Son niveau : celui de la plus connue de
- * ses capitales justes (§ 2.4). Au QCM, le bouton juste montre la principale
- * (§ 9.2), un leurre la principale de son pays (sujets.ts) ; au toucher,
- * l'énoncé montre la plus connue (la capitale d'épreuve, D38 d) en moyen, une
- * juste au hasard au-delà.
+ * ses capitales justes (§ 2.4), celle que montre le toucher (la capitale
+ * d'épreuve, D38 d) en moyen ; une juste au hasard au-delà. Au QCM, le bouton
+ * juste montre la principale (§ 9.2), un leurre la principale de son pays
+ * (sujets.ts) : le niveau d'un pays au QCM, cible ou leurre, est donc celui de
+ * sa principale (l'Afrique du Sud est au moyen par Le Cap au toucher, au
+ * difficile par Pretoria au QCM ; de même la Côte d'Ivoire, par Abidjan et
+ * Yamoussoukro).
  */
 export function generateurCapitales(d: DonneesGenerateurs): Generateur | null {
   const caps = d.capitales;
@@ -174,12 +179,17 @@ export function generateurCapitales(d: DonneesGenerateurs): Generateur | null {
     return ns.length ? (Math.min(...ns) as Niveau) : undefined;
   };
   const ids = m.ids.filter((id) => caps.parPays.has(id) && niveau(id) !== undefined);
+  const niveauQcm = (id: string): Niveau | undefined => {
+    const p = caps.parPays.get(id)?.principale;
+    return p ? (d.notoriete.capitales[p.q] ?? niveau(id)) : undefined;
+  };
   const jamaisQcm = SANS_NOMMER.capitales ?? new Set<string>();
   const posableQcm = (id: string) => nommerPose('capitales', id) && caps.parPays.has(id);
-  const connus = (max: Niveau) => ids.filter((id) => posableQcm(id) && (niveau(id) ?? 3) <= max);
+  const connus = (max: Niveau) => ids.filter((id) => posableQcm(id) && (niveauQcm(id) ?? 3) <= max);
   const s: Sujet = {
     sujet: 'capitales',
     niveau,
+    niveauQcm,
     ...m,
     ids,
     // Jouables aux leurres : celles qui se posent en QCM (jamais les 9 au nom du pays).
