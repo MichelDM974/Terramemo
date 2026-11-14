@@ -65,6 +65,7 @@ import { PASTILLE } from './pastilles';
 import { pointAnneau, TRAIT_FAUX_PX, type EtatImage, type Peintre, type StatsDessin } from './carte-canvas';
 import type { LigneRepere } from './lignes';
 import { VARIABLES_MEMOIRE, VARIABLES_MEMOIRE_MERS, type Teintes } from './teintes';
+import { normaliserLon } from './vue';
 
 /** Côté de la texture des couleurs par pays (texels par ligne). */
 const LARGEUR_COULEURS = 256;
@@ -290,6 +291,20 @@ export function sommetsLignes(lignes: readonly LigneRepere[]): { lonlat: Float32
 }
 
 /**
+ * Les méridiens (leur rang, et chacun de leurs deux tours) qui passent sur le
+ * bord de l'ovale, à λ' = ±180° du centre r : le shader (uMode 0) n'en trace
+ * qu'un bord, au gré de l'arrondi ; ces copies (uMode 1) tracent les deux.
+ */
+export function meridiensAuBord(longitudes: readonly number[], r: number): [number, number][] {
+  const res: [number, number][] = [];
+  longitudes.forEach((lon, i) => {
+    if (Math.abs(normaliserLon(lon - r)) < 180 - 1e-6) return;
+    res.push([i, Math.round((r + 180 - lon) / 360)], [i, Math.round((r - 180 - lon) / 360)]);
+  });
+  return res;
+}
+
+/**
  * Décalages (px CSS) qui font d'un trait d'un pixel physique un trait de
  * `largeur` px CSS : les pixels entiers d'un disque de largeur × dpr pixels
  * de diamètre (un trait droit couvre exactement round(largeur × dpr) pixels
@@ -456,7 +471,7 @@ export class PeintreWebGL implements Peintre {
     couleursMers: WebGLTexture;
     contourFauxMers: MaillageGpu | null;
     /** Lignes de repère téléversées (null : aucune) ; source : le tableau d'EtatImage qu'elles tracent. */
-    lignes: { vao: WebGLVertexArrayObject; tampons: WebGLBuffer[]; meridiens: number; paralleles: number; source: readonly LigneRepere[] } | null;
+    lignes: { vao: WebGLVertexArrayObject; tampons: WebGLBuffer[]; meridiens: number; paralleles: number; longitudes: number[]; source: readonly LigneRepere[] } | null;
   }) | null = null;
   /** Parties marquées (allumées) des terres et des mers, refaites quand les marques changent : le bit MARQUES du stencil. */
   private partiesMarquees: PartieMaillee[] = [];
@@ -841,7 +856,8 @@ export class PeintreWebGL implements Peintre {
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
-    g.lignes = { vao, tampons, meridiens: s.meridiens, paralleles: s.paralleles, source: lignes };
+    const longitudes = lignes.filter((l) => l.sorte === 'meridien').map((l) => l.deg);
+    g.lignes = { vao, tampons, meridiens: s.meridiens, paralleles: s.paralleles, longitudes, source: lignes };
   }
 
   /**
@@ -1084,6 +1100,7 @@ export class PeintreWebGL implements Peintre {
       gl.stencilMask(LIGNES);
       const repos = this.couleurs.ligneRepos ?? 0;
       const passes: [number, number][] = !e.enMouvement && repos * this.dpr > 1 ? decalagesTrait(repos, this.dpr) : [[0, 0]];
+      const bords = meridiensAuBord(lg.longitudes, v.r);
       gl.bindVertexArray(lg.vao);
       for (const d of passes) {
         decalage = d;
@@ -1092,6 +1109,16 @@ export class PeintreWebGL implements Peintre {
           gl.uniform4fv(g.carte.loc('uCouleur'), premult(this.couleurs.ligne ?? this.couleurs.frontiere));
           gl.drawArrays(gl.LINES, 0, lg.meridiens);
           appels++;
+          // Un méridien sur le bord de l'ovale (λ' = ±180°) : sur les deux bords, comme en Canvas (le tour du shader n'en prend qu'un, au gré de l'arrondi).
+          if (bords.length) {
+            gl.uniform1i(g.carte.loc('uMode'), 1);
+            const n = lg.meridiens / lg.longitudes.length;
+            for (const [i, tour] of bords) {
+              gl.uniform1f(g.carte.loc('uTour'), tour);
+              gl.drawArrays(gl.LINES, i * n, n);
+              appels++;
+            }
+          }
         }
         if (lg.paralleles) {
           uniformes(g.carte, 2);

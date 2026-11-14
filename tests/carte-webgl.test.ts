@@ -3,7 +3,7 @@ import type { Polygon, Position } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TRAIT_FAUX_PX, type EtatImage } from '../src/map/carte-canvas';
-import { FRAG_DISQUES, FRAG_HACHURES, FRAG_TERRES, decalagesTrait, lireCouleurs, PeintreWebGL, sommetsLignes, uniformesVue, VERTEX_CARTE, VERTEX_DISQUES, type Couleurs, type Rvba } from '../src/map/carte-webgl';
+import { FRAG_DISQUES, FRAG_HACHURES, FRAG_TERRES, decalagesTrait, lireCouleurs, meridiensAuBord, PeintreWebGL, sommetsLignes, uniformesVue, VERTEX_CARTE, VERTEX_DISQUES, type Couleurs, type Rvba } from '../src/map/carte-webgl';
 import { CHOIX_LIGNES, lignesDe } from '../src/map/lignes';
 import { textes } from '../src/vues/textes';
 import { ancre, image, MARGE_PX, preparer, tracerOvale } from '../src/map/dessin';
@@ -970,7 +970,7 @@ function fauxWebGL() {
   const pointeurs = new Map<object | null, Map<number, PointeurGl>>();
   /** Valeurs constantes des attributs non activés (vertexAttrib*f : état du contexte, pas du VAO). */
   const constantesAttributs = new Map<number, number[]>();
-  const dessins: { prog: object | null; vao: object | null; mode: number; n: number; decalage: number; u: Record<string, unknown>; tex?: object | null }[] = [];
+  const dessins: { prog: object | null; vao: object | null; mode: number; n: number; decalage: number; premier?: number; u: Record<string, unknown>; tex?: object | null }[] = [];
   let prog: object | null = null;
   let vao: object | null = null;
   let elements = false;
@@ -1035,7 +1035,7 @@ function fauxWebGL() {
       textures.set(lie, texture);
     },
     drawElements: (mode: number, n: number, _t: number, decalage: number) => dessins.push({ prog, vao, mode, n, decalage, u: { ...(prog && programmes.get(prog)) }, tex: lie }),
-    drawArrays: (mode: number, _a: number, n: number) => dessins.push({ prog, vao, mode, n, decalage: 0, u: { ...(prog && programmes.get(prog)) } }),
+    drawArrays: (mode: number, premier: number, n: number) => dessins.push({ prog, vao, mode, n, decalage: 0, premier, u: { ...(prog && programmes.get(prog)) } }),
     drawArraysInstanced: (mode: number, _a: number, _n: number, n: number) => dessins.push({ prog, vao, mode, n, decalage: 0, u: { ...(prog && programmes.get(prog)) } }),
   };
   function constante(nom: string): number {
@@ -1888,6 +1888,16 @@ describe('lignes de repère en WebGL (#11)', () => {
     });
   });
 
+  it('meridiensAuBord : un méridien à λ\' = ±180° du centre, ses deux tours (uMode 1), qui le posent sur chaque bord de l’ovale', () => {
+    expect(meridiensAuBord([0, 90, 180], 0)).toEqual([[2, 0], [2, -1]]);
+    expect(meridiensAuBord([0, -150, -120], 30)).toEqual([[1, 1], [1, 0]]);
+    expect(meridiensAuBord([0, 90, 180], 10)).toEqual([]);
+    // Pacifique (150° E) : le méridien de 30° O.
+    expect(meridiensAuBord([-30, 0], 150)).toEqual([[0, 1], [0, 0]]);
+    for (const [lon, r] of [[180, 0], [-150, 30], [-30, 150], [-30, -210]] as const)
+      for (const [, tour] of meridiensAuBord([lon], r)) expect(Math.abs(lon + tour * 360 - r)).toBeCloseTo(180, 9);
+  });
+
   it('vertex shader : un méridien (uMode 0) suit la rotation comme d3, un parallèle (uMode 2) va d’un bord de l’ovale à l’autre', () => {
     const s = sommetsLignes(lignes);
     let pire = 0;
@@ -1923,9 +1933,12 @@ describe('lignes de repère en WebGL (#11)', () => {
     p.dessiner({ ...e, lignes });
     const s = sommetsLignes(lignes);
     const traits = f.dessins.filter(enCouleur);
-    expect(traits.map((d) => [d.mode, d.u.uMode, d.n])).toEqual([
-      [f.constante('LINES'), 0, s.meridiens],
-      [f.constante('LINES'), 2, s.paralleles],
+    // Vue centrée sur 30° E : le méridien de 150° O (le 2e, après Greenwich) passe sur le bord de l'ovale, tracé sur ses deux bords (tours 1 et 0).
+    expect(traits.map((d) => [d.mode, d.u.uMode, d.n, d.premier, d.u.uMode === 1 ? d.u.uTour : null])).toEqual([
+      [f.constante('LINES'), 0, s.meridiens, 0, null],
+      [f.constante('LINES'), 1, 1440, 1440, 1],
+      [f.constante('LINES'), 1, 1440, 1440, 0],
+      [f.constante('LINES'), 2, s.paralleles, s.meridiens, null],
     ]);
     const i = f.dessins.indexOf(traits[0] as (typeof traits)[number]);
     const [vaoTerres] = vaoDe(f, terres.triangles.length);
@@ -1966,11 +1979,12 @@ describe('lignes de repère en WebGL (#11)', () => {
     const passes = () => f.dessins.filter(enCouleur).map((d) => d.u.uCentre);
     const { centre } = uniformesVue(e.v, e.c);
     const attendus = decalagesTrait(1, 2.8125).map(([dx, dy]) => [centre[0] + dx, centre[1] + dy]);
-    expect(passes()).toEqual(attendus.flatMap((c) => [c, c]));
+    // Par passe : les méridiens, les deux bords de celui de 180° (au bord de l'ovale), les parallèles.
+    expect(passes()).toEqual(attendus.flatMap((c) => [c, c, c, c]));
     const vaos = new Set(f.dessins.filter(enCouleur).map((d) => d.vao));
     f.dessins.length = 0;
     p.dessiner({ ...e, enMouvement: true });
-    expect(passes()).toEqual([[centre[0], centre[1]], [centre[0], centre[1]]]);
+    expect(passes()).toEqual(Array.from({ length: 4 }, () => [centre[0], centre[1]]));
     expect(new Set(f.dessins.filter(enCouleur).map((d) => d.vao))).toEqual(vaos);
     f.dessins.length = 0;
     const deux = lignes.slice(0, 2);
