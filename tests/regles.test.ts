@@ -113,6 +113,9 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
       ['wiwi', 'Wiwi', true],
       ['jean luc', 'Jean Luc', true],
       ['ana 😀', 'Ana 😀', true],
+      // Un point de code non assigné (U+0378) passe : le \p{C} de RE2 n'a pas Cn, formePseudo non plus. Un usage privé, non.
+      ['léa \u0378', 'Léa \u0378', true],
+      ['mi\ue000chel', 'Mi\ue000chel', false],
       // Ni invisible (espace sans chasse, trait d'union conditionnel, joint sans chasse, inversion bidi), ni contrôle,
       // ni séparateur Unicode (insécable, fine, de ligne), ni espace au bord ou doublée ; la clé, elle, est permise.
       ['michel\u200b', 'Michel\u200b', false],

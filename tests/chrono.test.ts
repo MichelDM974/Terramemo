@@ -575,6 +575,10 @@ describe('records de la semaine et classement général', () => {
       expect([p, pseudoValide(p)]).toEqual([p, p]);
       expect(formePseudo(p)).toBe(true);
     }
+    // Un point de code non assigné (U+0378) passe, comme aux règles (le \p{C} de RE2 n'a pas Cn) : un emoji
+    // plus récent que l'Unicode de l'appareil ne fait pas perdre son pseudo au joueur.
+    expect(formePseudo('Léa \u0378')).toBe(true);
+    expect(pseudoValide('Léa \u{1F970}')).toBe('Léa \u{1F970}');
     // Invisibles (espace sans chasse, trait d'union conditionnel, joint sans chasse, inversion bidi), contrôles.
     for (const p of ['Michel​', 'Mi­chel', 'Mi‍chel', '‮Michel', 'Mi\u0007chel', 'Élodie​']) expect([p, pseudoValide(p)]).toEqual([p, null]);
     // Les espaces Unicode sont resserrés en une espace simple par pseudoValide, mais refusés tels quels par la forme.

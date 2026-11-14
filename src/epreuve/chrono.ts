@@ -608,7 +608,7 @@ export function pseudoValide(brut: string): string | null {
   return p;
 }
 
-const FORME_PSEUDO = /^[^\p{Z}\p{C}]+( [^\p{Z}\p{C}]+)*$/u;
+const FORME_PSEUDO = /^[^\p{Z}\p{Cc}\p{Cf}\p{Co}\p{Cs}]+( [^\p{Z}\p{Cc}\p{Cf}\p{Co}\p{Cs}]+)*$/u;
 
 /**
  * La forme d'un pseudo, la règle de scoreValide (firestore.rules) recopiée :
@@ -620,6 +620,11 @@ const FORME_PSEUDO = /^[^\p{Z}\p{C}]+( [^\p{Z}\p{C}]+)*$/u;
  * « Michel » (audit du 07/11, #25). Restent possibles les homoglyphes (« і »
  * cyrillique) et la forme NFD : sans serveur, on ne les arrête pas. Prix :
  * les emojis composés par U+200D (famille, drapeau arc-en-ciel) sont refusés.
+ * Le \p{C} des règles (RE2) est Cc, Cf, Co et Cs, sans les points de code
+ * non assignés (Cn) que le \p{C} de JS compte aussi : écrit en entier ici,
+ * sinon un emoji plus récent que l'Unicode de la WebView (« Léa 🥰 » sur un
+ * vieux téléphone) ferait perdre au joueur son pseudo, que les règles
+ * acceptent.
  */
 export const formePseudo = (p: string): boolean => FORME_PSEUDO.test(p);
 
