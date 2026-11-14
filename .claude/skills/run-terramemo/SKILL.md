@@ -66,7 +66,12 @@ python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Oc�
   chargé au premier affichage** (après `pret` et `repos`, décision
   « Hébergement »), nombre de `path.pays` en
   `?rendu=css` (les rendus SVG), rendu webgl, aucune exception JS ni requête
-  en échec), puis `smoke : OK`.
+  en échec, puis le **service worker** (« Service worker » plus bas) :
+  enregistré, actif, maître de la page, un seul cache `terramemo-*` d'au
+  moins 8 fichiers, puis le site **rechargé réseau coupé** (page et service
+  worker, `Network.emulateNetworkConditions` ; une sonde avec paramètres doit
+  échouer) jusqu'à la carte complète, sans exception JS ; en développement,
+  aucun service worker), puis `smoke : OK`.
   Le rendu webgl (`?rendu=webgl&logiciel=1`) doit finir en `data-relais="webgl"` :
   **seule vérification où le vrai compilateur voit les shaders** (`npm test`
   les traduit en JS, un shader refusé par le pilote y passerait) ; un refus
@@ -520,8 +525,9 @@ WebSocket, le chemin du téléphone), `--serie` (adb), `--out`, `--binaire`.
 **Première visite, puis visites suivantes.** Avant la répétition 1, le
 driver vide les caches du chargement pour l'origine mesurée
 (`vider_premiere_visite`) : `Storage.clearDataForOrigin` types
-`cache_storage,service_workers,shader_cache` (un éventuel service worker
-et ses fichiers, les shaders compilés gardés sur disque), puis la seule
+`cache_storage,service_workers,shader_cache` (le service worker du site
+et le cache de sa version, #22 : vérifiés partis ensuite, sinon erreur dans
+`stockage` ; les shaders compilés gardés sur disque), puis la seule
 base IndexedDB `terramemo` (maillage du webgl, `BASES_VIDEES`) par
 `IndexedDB.deleteDatabase`, qui ferme de force ses connexions et demande
 un document de l'origine : le driver charge d'abord `geo/LICENSE-CLDR.txt`
@@ -537,7 +543,10 @@ disparition, ou la base du maillage restée, met une erreur dans
 `tests/mesure-driver.test.ts` le vérifie. Sur le téléphone, Chrome et
 l'APK gardent sinon leurs données d'une séance à l'autre et après `adb
 install -r` : la répétition 1 lirait le maillage du cache. La répétition 1
-est donc une **première visite** (cache HTTP coupé, rien de gardé ; avec
+est donc une **première visite** (cache HTTP coupé, rien de gardé, le
+service worker s'y installe ; les suivantes sortent de son cache comme
+pour un visiteur qui revient : `Network.setCacheDisabled` ne le contourne
+pas, `transfert` 0 ; avec
 `--cache` sur le téléphone, le cache HTTP des séances d'avant reste : la
 répétition 1 y est « visite inconnue »), les
 suivantes des **visites suivantes** (en webgl : maillage lu dans le cache
@@ -707,6 +716,40 @@ foi). Lignes du résumé, par type de geste (pincer, glisser, tourner) :
   critère du J0 est la médiane < 100 ms par le vrai chemin d'Android :
   `outils/touchers_reels.py` (APK 72 ms, Chrome 80 le 06/11, canvas, 60 Hz).
 - **pays touchés justes** : `pick` de la page = pays visé.
+
+## Service worker (site seulement, #22)
+
+`src/sw/` : `logique.ts` (pure, `tests/service-worker.test.ts`), `sw.ts`
+(servi en `/sw.js`), `enregistrer.ts` (la page), `construction.ts` (le
+manifeste, au build : plugin de `vite.config.ts`).
+
+- **Où** : build de production sur le site (preview, Hosting), contexte sûr
+  (`localhost`, https). Jamais dans l'APK (`dansApk()`), ni en
+  développement : `vite` sert à `/sw.js` un service worker qui se retire
+  (efface les caches `terramemo-*`, se désinscrit, recharge), pour le cas
+  d'un `serve --preview` puis `serve` à la même adresse (Chrome du
+  téléphone par `adb reverse`) : sinon l'ancien build répondrait à la
+  place de Vite.
+- **Quoi** : un cache par version, `terramemo-<empreinte du build>`.
+  Pré-chargés à l'installation : `index.html`, ce qu'il référence, la
+  carte du premier affichage (`/geo/monde*.topo.json`, `pays`,
+  `contestees`, `noms.fr`) ; tout le reste du build à l'usage (drapeaux,
+  capitales, île, mers, morceaux à la demande). Chaque fichier rangé est
+  vérifié contre son empreinte du manifeste (jamais un `/geo/` d'une autre
+  version avec cette coquille). Hors du service worker : autre origine
+  (Firestore, Auth, googleapis), non GET, `/__/`, adresses avec paramètres
+  (sauf la navigation vers `/`). Pages statiques (`confidentialite.html`,
+  `suppression.html`, `documents.css`) : réseau d'abord.
+- **Mise à jour** : la nouvelle version s'installe en fond (reprend de
+  l'ancienne ce qui n'a pas changé, sans réseau), puis prend la relève au
+  **chargement suivant** si c'est le seul onglet ouvert : caches d'avant
+  effacés, la page se recharge une fois au démarrage. Pas de
+  `skipWaiting` à l'installation : une partie en cours garderait sinon sa
+  coquille sans son cache. Donc après un déploiement : recharger deux fois
+  (la première trouve la version, la seconde la prend).
+- `firebase.json` : `/sw.js` en `no-cache`. Le voir dans Chrome :
+  DevTools › Application › Service workers ; à la main sur le téléphone,
+  « Effacer les données » du site le retire (mais efface aussi le journal).
 
 ## Chemin humain
 
@@ -1750,7 +1793,14 @@ deploy --only firestore`), puis Hosting.
   chargement propre) ; `?rendu=`, `?projection=`, `?mesures=1` font de
   même par l'adresse.
 - `http://<ip du PC>:8060` (`serve --lan`) n'est pas un contexte sûr sur le
-  téléphone (service worker refusé) : préférer `adb reverse`.
+  téléphone (service worker refusé : le site n'y marche pas hors ligne) :
+  préférer `adb reverse`.
+- **Service worker et build changé** : un onglet resté ouvert sur `serve
+  --preview` garde l'ancien build (servi du cache) jusqu'à deux
+  rechargements, après chaque nouveau build (« Service worker »). Les
+  commandes du driver partent d'un profil neuf, `mesurer` sur le téléphone
+  vide d'abord le service worker : seul l'œil sur un Chrome gardé est
+  concerné.
 - Arrêter un serveur : `fuser -k -n tcp 8060`, jamais `pkill -f` (la tâche
   de fond de `serve` finit alors en code 137 : attendu). Émulateurs :
   `fuser -k -n tcp 8062 8063`.

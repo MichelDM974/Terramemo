@@ -8,7 +8,8 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
                                 un drapeau, rien de l'île, des capitales, des
                                 drapeaux ni des mers au premier affichage, carte
                                 peinte en canvas (défaut) et en SVG, shaders
-                                du rendu webgl compilés
+                                du rendu webgl compilés, service worker
+                                (build) et rechargement hors ligne
     ui [--width 384] [--rendu r]
                                 captures des vues (téléphone ou PC), île
                                 de La Réunion et Nommer compris, séance
@@ -1047,8 +1048,100 @@ def commande_smoke(args):
             verifier("rendu webgl (shaders compilés et liés)", False, str(e))
         verifier("aucune erreur JS", not p.erreurs, "; ".join(p.erreurs)[:300])
         verifier("aucune requête en échec", not p.echecs, "; ".join(p.echecs)[:300])
+        # Après les deux vérifications ci-dessus : la sonde hors ligne échoue exprès.
+        smoke_service_worker(s, base, args.budget, verifier, dev=mode == "développement")
     dire("\nsmoke : " + ("OK" if not echecs else f"{echecs} échec(s)"))
     return 1 if echecs else 0
+
+
+# Service worker du site (#22, src/sw/) : son état vu de la page (enregistré,
+# actif, contrôle la page, cache de sa version et son nombre de fichiers).
+JS_ETAT_SW = """(async () => {
+  if (!('serviceWorker' in navigator)) return {absent: true};
+  const r = await navigator.serviceWorker.getRegistration();
+  const noms = typeof caches === 'undefined' ? [] : (await caches.keys()).filter((n) => n.startsWith('terramemo-'));
+  const fichiers = noms.length ? (await (await caches.open(noms[noms.length - 1])).keys()).length : 0;
+  return {enregistres: (await navigator.serviceWorker.getRegistrations()).length, actif: r && r.active ? r.active.state : null,
+          script: r && r.active ? r.active.scriptURL : null, controle: !!navigator.serviceWorker.controller, caches: noms, fichiers};
+})()"""
+HORS_LIGNE = dict(offline=True, latency=0, downloadThroughput=-1, uploadThroughput=-1)
+
+
+def couper_reseau_sw(nav, base, couper):
+    """Coupe (ou rend) le réseau au service worker de l'origine de `base` :
+    l'émulation d'une page ne vaut que pour elle, le service worker est une
+    cible à part (Target.attachToTarget). Rend la session, ou None sans
+    service worker trouvé."""
+    o = origine(base)
+    for t in nav.commande("Target.getTargets").get("targetInfos", []):
+        if t.get("type") == "service_worker" and t.get("url", "").startswith(o + "/"):
+            sid = nav.commande("Target.attachToTarget", targetId=t["targetId"], flatten=True)["sessionId"]
+            nav.commande("Network.enable", session=sid)
+            nav.commande("Network.emulateNetworkConditions", session=sid, **dict(HORS_LIGNE, offline=couper))
+            return sid
+    return None
+
+
+def smoke_service_worker(s, base, budget, verifier, dev):
+    """En build (preview ou hébergé) : le service worker s'enregistre, prend
+    la page et range la coquille, puis le site se recharge réseau coupé (page
+    et service worker), carte peinte. En développement, aucun (vite.config.ts
+    y sert un service worker qui se retire)."""
+    p = s.page
+    if dev:
+        etat = p.js(JS_ETAT_SW) or {}
+        verifier("aucun service worker en développement", not etat.get("enregistres"), f"{etat.get('enregistres')} enregistré(s)")
+        return
+    try:
+        p.goto(base + "?mesures=0")
+        p.attendre_carte(budget)
+        fin = time.monotonic() + budget
+        etat = p.js(JS_ETAT_SW) or {}
+        while not (etat.get("actif") == "activated" and etat.get("controle") and etat.get("fichiers")) and time.monotonic() < fin:
+            p.pause(250)
+            etat = p.js(JS_ETAT_SW) or {}
+    except RuntimeError as e:
+        verifier("service worker enregistré (build)", False, str(e))
+        return
+    ok = (etat.get("actif") == "activated" and (etat.get("script") or "").endswith("/sw.js") and etat.get("controle")
+          and len(etat.get("caches") or []) == 1 and (etat.get("fichiers") or 0) >= 8)
+    verifier("service worker enregistré (build)", ok,
+             f"{etat.get('script')} {etat.get('actif')}, contrôle la page : {etat.get('controle')}, "
+             f"caches {etat.get('caches')}, {etat.get('fichiers')} fichiers rangés")
+    if not ok:
+        return
+    sid = None
+    erreurs = len(p.erreurs)
+    try:
+        p.cdp("Network.emulateNetworkConditions", **HORS_LIGNE)
+        # Un service worker au repos est arrêté (sa cible disparaît) : une requête qu'il sert le réveille.
+        for _ in range(5):
+            p.js("fetch('/geo/pays.json').then((r) => r.status, () => 0)")
+            sid = couper_reseau_sw(s.nav, base, True)
+            if sid:
+                break
+            p.pause(200)
+        # Sonde : une adresse avec paramètres passe au réseau (src/sw/logique.ts, aiguiller) ; elle doit échouer.
+        sonde = p.js("fetch('/geo/sources.json?hors-ligne=' + Date.now()).then(() => 'joint', () => 'coupé')")
+        verifier("réseau coupé (page et service worker)", sonde == "coupé" and not p.js("navigator.onLine") and sid is not None,
+                 f"sonde {sonde}, navigator.onLine {p.js('navigator.onLine')}, service worker {'coupé' if sid else 'introuvable'}")
+        debut = time.monotonic()
+        p.goto(base + "?mesures=0&hors-ligne=1")
+        p.attendre_carte(budget)
+        n = p.js("[document.querySelector('#carte').dataset.dessin, (window.terramemo.carte.dessin() || {}).parties]")
+        verifier("rechargé hors ligne", n[0] == "complet" and (n[1] or 0) > 150,
+                 f"carte peinte en {time.monotonic() - debut:.1f} s, dessin {n[0]}, {n[1]} parties")
+        verifier("aucune erreur JS hors ligne", len(p.erreurs) == erreurs, "; ".join(p.erreurs[erreurs:])[:300])
+    except RuntimeError as e:
+        verifier("rechargé hors ligne", False, str(e))
+    finally:
+        p.cdp("Network.emulateNetworkConditions", **dict(HORS_LIGNE, offline=False))
+        if sid:
+            try:
+                s.nav.commande("Network.emulateNetworkConditions", session=sid, **dict(HORS_LIGNE, offline=False))
+                s.nav.commande("Target.detachFromTarget", sessionId=sid)
+            except RuntimeError:
+                pass  # service worker arrêté entre-temps : sa session est partie avec lui
 
 
 # --- ui --------------------------------------------------------------
@@ -4282,8 +4375,9 @@ def pas_de_rejeu(periode, cible):
 # n'était jamais mesurée. Sur le PC, le profil du chromium est neuf à chaque
 # lancement : la répétition 1 y est toujours une première visite.
 # Storage.clearDataForOrigin vide des types entiers : cache_storage et
-# service_workers (aucun aujourd'hui ; un site hors ligne y garderait ses
-# fichiers), shader_cache (shaders compilés gardés sur disque par le
+# service_workers (le service worker du site, #22, et le cache de sa
+# version : sans eux, la répétition 1 sortirait du cache d'une visite
+# d'avant ; vérifiés vides ensuite, JS_RESTES_SW), shader_cache (shaders compilés gardés sur disque par le
 # navigateur : sans lui, le contexte et la compilation de la répétition 1
 # profiteraient d'une séance d'avant). Jamais « indexeddb » ni « all » : ce
 # serait aussi le journal des réponses (base terramemo-journal,
@@ -4311,6 +4405,11 @@ PAGE_SANS_APPLI = "geo/LICENSE-CLDR.txt"
 # les suivantes (cache du maillage écrit à la première), ou inconnue
 # (stockage du téléphone gardé, ou non vidé).
 NOMS_VISITES = {"premiere": "première visite", "suivante": "suivantes", "inconnue": "visite inconnue"}
+
+
+# Ce qui reste du service worker après le vidage : [enregistrements, caches du site].
+JS_RESTES_SW = ("(async () => [('serviceWorker' in navigator) ? (await navigator.serviceWorker.getRegistrations()).length : 0, "
+                "typeof caches === 'undefined' ? 0 : (await caches.keys()).filter((n) => n.startsWith('terramemo-')).length])()")
 
 
 def origine(url):
@@ -4345,6 +4444,9 @@ def vider_premiere_visite(p, url_base):
         cles_avant = p.js(cles)
         p.cdp("Storage.clearDataForOrigin", origin=o, storageTypes=STOCKAGE_VIDE)
         stockage["types"] = STOCKAGE_VIDE
+        restes = p.js(JS_RESTES_SW) or [0, 0]
+        if any(restes):
+            raise RuntimeError(f"service worker ({restes[0]}) ou cache du site ({restes[1]}) resté après Storage.clearDataForOrigin")
         for base in BASES_VIDEES:
             # Ferme de force les connexions ouvertes (un onglet de l'appli resté
             # ouvert sur le téléphone) au lieu d'attendre ; sans erreur si absente.

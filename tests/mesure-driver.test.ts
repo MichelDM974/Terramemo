@@ -551,7 +551,8 @@ describe('driver.py resumer : scénario du driver, chargement et relais du webgl
 // Fausse page CDP : IndexedDB.* n'agit que depuis un document de l'origine
 // (« No document for given frame found » sinon, comme Chromium) ;
 // Storage.clearDataForOrigin vide l'IndexedDB ou le localStorage entiers si
-// on le lui demande, comme le vrai.
+// on le lui demande, comme le vrai, et le service worker du site et son
+// cache (#22 : un enregistré au départ, sauf `sw_sans_effet`).
 const FAUSSE_PAGE = String.raw`
 import importlib.util, json, sys
 spec = importlib.util.spec_from_file_location("driver", sys.argv[1])
@@ -563,10 +564,13 @@ for k, v in cas.get("constantes", {}).items():
 class Page:
     def __init__(s):
         s.appels, s.bases, s.cles, s.url = [], set(cas["bases"]), list(cas["cles"]), "about:blank"
+        s.sw, s.caches = 1, 1
     def goto(s, url):
         s.appels.append(["goto", url])
         s.url = url
     def js(s, expression):
+        if "serviceWorker" in expression:
+            return [s.sw, s.caches]
         return sorted(s.cles)
     def cdp(s, methode, **k):
         s.appels.append([methode, k])
@@ -584,6 +588,10 @@ class Page:
                 s.bases.clear()
             if "all" in types or "local_storage" in types:
                 s.cles.clear()
+            if ("all" in types or "service_workers" in types) and not cas.get("sw_sans_effet"):
+                s.sw = 0
+            if "all" in types or "cache_storage" in types:
+                s.caches = 0
             return {}
         raise RuntimeError("méthode inattendue " + methode)
 p = Page()
@@ -599,7 +607,7 @@ interface Vidage {
   constantes: { STOCKAGE_VIDE: string; BASES_VIDEES: string[]; BASES_GARDEES: string[]; PAGE_SANS_APPLI: string };
 }
 
-function vider(cas: { url: string; bases: string[]; cles: string[]; suppression_sans_effet?: boolean; constantes?: Record<string, unknown> }): { r: Vidage | null; status: number | null; stderr: string } {
+function vider(cas: { url: string; bases: string[]; cles: string[]; suppression_sans_effet?: boolean; sw_sans_effet?: boolean; constantes?: Record<string, unknown> }): { r: Vidage | null; status: number | null; stderr: string } {
   const r = spawnSync('python3', ['-c', FAUSSE_PAGE, DRIVER, JSON.stringify(cas)], { encoding: 'utf8' });
   return { r: r.status === 0 ? (JSON.parse(r.stdout) as Vidage) : null, status: r.status, stderr: r.stderr };
 }
@@ -657,6 +665,15 @@ describe('driver.py mesurer : première visite sans perte des données de l’ut
     const { r } = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES, suppression_sans_effet: true });
     expect(r!.stockage.vide).toBe(false);
     expect(r!.stockage.erreur).toContain(BASE_MAILLAGE);
+  });
+
+  it('service worker du site (#22) resté après le vidage, ou son cache non vidé : pas une première visite sûre, erreur relevée', () => {
+    const { r } = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES, sw_sans_effet: true });
+    expect(r!.stockage.vide).toBe(false);
+    expect(r!.stockage.erreur).toContain('service worker (1)');
+    const sansCache = vider({ url: 'http://localhost:8064/', bases: BASES, cles: CLES, constantes: { STOCKAGE_VIDE: 'service_workers,shader_cache' } }).r!;
+    expect(sansCache.stockage.vide).toBe(false);
+    expect(sansCache.stockage.erreur).toContain('cache du site (1)');
   });
 
   it('un vidage par type qui emporterait l’IndexedDB ou le localStorage est refusé avant tout appel', () => {
