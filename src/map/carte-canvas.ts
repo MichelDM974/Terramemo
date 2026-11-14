@@ -1250,8 +1250,8 @@ export class CarteCanvas implements CarteAffichee {
   /**
    * Noms des lignes de repère : cachés pendant un mouvement (geste ou vol :
    * rien à poser par image), posés à l'arrêt quand la vue, les lignes, les
-   * pastilles ou les anneaux ont changé (placerNoms, les pastilles et les
-   * anneaux en obstacles).
+   * pastilles, les anneaux ou les barres posées sur la carte ont changé
+   * (placerNoms, tous en obstacles).
    */
   private majNoms(): void {
     const noms = this.noms;
@@ -1267,11 +1267,13 @@ export class CarteCanvas implements CarteAffichee {
       return;
     }
     const { v, c } = this;
-    const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.versionLignes} ${this.pastilles.length} ${this.anneaux.map((a) => a.id).join()}`;
+    // Une barre qui paraît ou grandit (la rétroaction) : les noms cherchent d'autres places.
+    const dessus = noms.obstaclesDessus();
+    const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.versionLignes} ${this.pastilles.length} ${this.anneaux.map((a) => a.id).join()} ${dessus.map((o) => `${o.x},${o.y},${o.l},${o.h}`).join(';')}`;
     if (signature === this.signatureNoms) return;
     this.signatureNoms = signature;
     const t = this.transfo;
-    const obstacles: Boite[] = [];
+    const obstacles: Boite[] = dessus;
     const r = PASTILLE.rayon_visible_px + 1;
     for (const p of this.pastilles) {
       if (!p.visible) continue;

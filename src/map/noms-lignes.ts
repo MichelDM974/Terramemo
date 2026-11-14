@@ -3,12 +3,15 @@
 // g et css. Posés à l'arrêt seulement (placerNoms, lignes.ts), cachés pendant
 // un geste ou un vol (décision « Critère de saccade » : rien à recalculer ni à
 // repeindre par image). Sous l'en-tête, les barres des parties et la légende,
-// frères de l'hôte posés après lui : un nom ne les couvre jamais. Les
-// pastilles et les anneaux sont des obstacles : un nom qui les chevaucherait
-// est sauté. Les largeurs mesurées valent jusqu'au chargement d'une police
+// frères de l'hôte posés après lui : un nom ne les couvre jamais, et il n'est
+// pas posé dessous (obstaclesDessus). Les pastilles et les anneaux sont aussi
+// des obstacles : un nom qui les chevaucherait est sauté. Les largeurs mesurées valent jusqu'au chargement d'une police
 // (Inter arrive en font-display: swap) : mesurées avec la police de secours,
 // plus étroite, elles sont refaites, et les noms reposés (surPolice).
-import { NOM, type NomPose } from './lignes';
+import { NOM, type Boite, type NomPose } from './lignes';
+
+/** Ce qui est posé sur la carte, frère de son hôte : les barres des parties, la légende de la mémoire, les boutons de zoom. */
+const DESSUS = ':scope > .carte-barre, :scope > .legende-memoire, :scope > .zoom-carte';
 
 export class CoucheNoms {
   private readonly el: HTMLDivElement;
@@ -25,7 +28,7 @@ export class CoucheNoms {
 
   /** surPolice : une police vient d'arriver, les largeurs sont à refaire (reposer les noms). */
   constructor(
-    hote: HTMLElement,
+    private readonly hote: HTMLElement,
     private readonly surPolice: () => void = () => undefined,
   ) {
     this.el = document.createElement('div');
@@ -59,6 +62,23 @@ export class CoucheNoms {
     const w = Math.ceil(typeof m === 'number' && m > 0 ? m : texte.length * 0.6 * NOM.hauteur) + 1;
     this.largeurs.set(texte, w);
     return w;
+  }
+
+  /**
+   * Les boîtes (px CSS, dans le repère de l'hôte) de ce qui est posé sur la
+   * carte et se voit (DESSUS) : des obstacles pour placerNoms, qui cherche
+   * une autre place plutôt que de poser un nom sous le verre d'une barre.
+   */
+  obstaclesDessus(): Boite[] {
+    const parent = this.hote.parentElement;
+    if (!parent?.querySelectorAll) return [];
+    const h = this.hote.getBoundingClientRect();
+    const res: Boite[] = [];
+    for (const e of parent.querySelectorAll<HTMLElement>(DESSUS)) {
+      const r = e.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) res.push({ x: r.left - h.left, y: r.top - h.top, l: r.width, h: r.height });
+    }
+    return res;
   }
 
   /** Les noms à leur place (les autres retirés) ; la couche se montre. */

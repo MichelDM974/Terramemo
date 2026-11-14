@@ -13,6 +13,10 @@ class Faux {
   style = { transform: '' };
   enfants: Faux[] = [];
   parent: Faux | null = null;
+  parentElement: unknown = null;
+  getBoundingClientRect() {
+    return { left: 0, top: 0, width: 0, height: 0 };
+  }
   setAttribute() {}
   append(...e: Faux[]) {
     for (const x of e) {
@@ -78,6 +82,27 @@ describe('CoucheNoms : largeurs et police', () => {
     b.noms.detruire();
     expect(b.ecouteurs.has('loadingdone')).toBe(false);
     expect(b.hote.enfants).toEqual([]);
+  });
+
+  it('obstaclesDessus : les barres, la légende et les boutons visibles, frères de l’hôte, dans son repère ; une barre cachée (0 × 0) n’y est pas', () => {
+    const { noms } = monter();
+    const boite = (left: number, top: number, width: number, height: number) => ({ left, top, width, height });
+    const barre = { getBoundingClientRect: () => boite(20, 700, 360, 120) };
+    const cachee = { getBoundingClientRect: () => boite(0, 0, 0, 0) };
+    const vus: string[] = [];
+    const parent = {
+      querySelectorAll: (sel: string) => {
+        vus.push(sel);
+        return [barre, cachee];
+      },
+    };
+    const hote = Object.assign(new Faux(), { parentElement: parent, getBoundingClientRect: () => boite(0, 56, 400, 800) });
+    const n = new CoucheNoms(hote as unknown as HTMLElement);
+    expect(n.obstaclesDessus()).toEqual([{ x: 20, y: 644, l: 360, h: 120 }]);
+    expect(vus[0]).toContain(':scope > .carte-barre');
+    expect(vus[0]).toContain('.legende-memoire');
+    // Sans parent (carte pas encore posée) : aucun.
+    expect(noms.obstaclesDessus()).toEqual([]);
   });
 
   it('sans document.fonts (vieux navigateur, tests) : aucune erreur', () => {

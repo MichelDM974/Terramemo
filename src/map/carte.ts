@@ -787,7 +787,7 @@ export class Carte implements CarteAffichee {
     }
   }
 
-  /** Noms des lignes à l'arrêt (placerNoms), les pastilles et les anneaux en obstacles. */
+  /** Noms des lignes à l'arrêt (placerNoms), les barres posées sur la carte, les pastilles et les anneaux en obstacles. */
   private majNoms(): void {
     const noms = this.noms;
     if (!noms) return;
@@ -795,7 +795,7 @@ export class Carte implements CarteAffichee {
     if (this.enGeste) return noms.cacher();
     const t = this.t;
     const r = PASTILLE.rayon_visible_px + 1;
-    const obstacles: Boite[] = [];
+    const obstacles: Boite[] = noms.obstaclesDessus();
     for (const p of this.pastilles) {
       if (!p.visible) continue;
       const [x, y] = versEcran(t, p.bx, p.by);

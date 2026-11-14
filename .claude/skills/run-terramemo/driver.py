@@ -3796,7 +3796,12 @@ ETAT_LIGNES = """(() => {
     return {id: s.dataset.ligne, texte: s.textContent, x: r.left, y: r.top, d: r.right, b: r.bottom};
   }) : [];
   const rc = c.getBoundingClientRect();
-  return {lignes: window.terramemo.carte.lignes(), dataset: c.dataset.lignes || null, noms, entete: h.bottom,
+  // Ce qui est posé sur la carte et se voit (noms-lignes.ts, DESSUS) : aucun nom dessous.
+  const dessus = [...document.querySelectorAll('#app > .carte-barre, #app > .legende-memoire, #app > .zoom-carte')].map((e) => {
+    const r = e.getBoundingClientRect();
+    return {id: e.id || e.className, x: r.left, y: r.top, d: r.right, b: r.bottom, l: r.width};
+  }).filter((r) => r.l > 0);
+  return {lignes: window.terramemo.carte.lignes(), dataset: c.dataset.lignes || null, noms, entete: h.bottom, dessus,
           carte: {x: rc.left, y: rc.top, d: rc.right, b: rc.bottom},
           ile: window.terramemo.ile ? window.terramemo.ile.lignes() : null,
           cases: [...document.querySelectorAll('#reglage-lignes input[data-ligne]')].map((e) => e.dataset.ligne + ':' + (e.checked ? 1 : 0))};
@@ -3808,10 +3813,14 @@ def etat_lignes(p):
 
 
 def verifier_noms(defauts, quoi, e):
-    """Les noms posés : dans la carte, sous l'en-tête, sans se chevaucher."""
+    """Les noms posés : dans la carte, sous l'en-tête, hors des barres, de la
+    légende et des boutons de zoom, sans se chevaucher."""
     for n in e["noms"]:
         if n["y"] < e["entete"] - 0.5 or n["x"] < e["carte"]["x"] - 0.5 or n["d"] > e["carte"]["d"] + 0.5 or n["b"] > e["carte"]["b"] + 0.5:
             defauts.append(f"{quoi} : le nom {n['texte']!r} sort de la carte ou passe sur l'en-tête ({n})")
+        for o in e.get("dessus", []):
+            if n["x"] < o["d"] and o["x"] < n["d"] and n["y"] < o["b"] and o["y"] < n["b"]:
+                defauts.append(f"{quoi} : le nom {n['texte']!r} est posé sous {o['id']!r}")
     for i, a in enumerate(e["noms"]):
         for b in e["noms"][i + 1:]:
             if a["x"] < b["d"] and b["x"] < a["d"] and a["y"] < b["b"] and b["y"] < a["b"]:
@@ -3825,7 +3834,8 @@ def ui_lignes(p, capturer, defauts, base, parametres=""):
     ?lignes=tout à l'accueil, zoomées et tournées ; pendant une partie
     (Trouver, Europe : toujours là, un toucher juste reste juste) ; sur l'île
     de La Réunion, aucune. DÉFAUT si une ligne manque ou reste, si un nom
-    sort de la carte, passe sur l'en-tête ou en chevauche un autre, si le
+    sort de la carte, passe sur l'en-tête, sous une barre (ou la légende, les
+    boutons de zoom) ou en chevauche un autre, si le
     choix n'est pas gardé, ou si le toucher change. Retire le choix gardé à
     la fin."""
     p.js("localStorage.removeItem('terramemo.lignes')")
