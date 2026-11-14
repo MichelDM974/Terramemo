@@ -142,7 +142,7 @@
     "bilan_nommer_titre": "Reconnaître · {serie}",
     "bilan_nommer": "{justes} / {n} justes du premier coup",
     "bilan_nommer_temps": "temps médian {temps}",
-    "bilan_nommer_faux": "{cible} : tu as choisi {choisi}",
+    "bilan_nommer_faux": "{cible} · tu avais choisi : {choisi}",
     "autre_serie": "Autre série"
   },
   "chrono": {

@@ -2455,7 +2455,7 @@ def ui_capitales(p, capturer, defauts, base, parametres=""):
     bilan = texte(p, "#essai-bilan")
     dire(f"  Capitales, Reconnaître, bilan : {bilan!r}")
     sans_qid("bilan de Reconnaître", bilan)
-    if fautes and "tu as choisi" not in bilan:
+    if fautes and "tu avais choisi" not in bilan:
         defauts.append(f"bilan de Reconnaître sous Capitales sans sa faute : {bilan!r}")
 
     # Apprendre sur l'Océanie : le conseil (pays pas appris) avant la première question.
@@ -2708,7 +2708,7 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
         attendre_visible(p, "#essai-bilan")
         bilan = texte(p, "#essai-bilan")
         dire(f"  Drapeaux, Reconnaître, bilan : {bilan!r}")
-        if fautes and "tu as choisi" not in bilan:
+        if fautes and "tu avais choisi" not in bilan:
             defauts.append(f"bilan de Reconnaître sous Drapeaux sans sa faute : {bilan!r}")
     finally:
         if telephone and ecran:
@@ -3033,7 +3033,7 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
     bilan = texte(p, "#essai-bilan")
     dire(f"  Mers, Reconnaître, bilan : {bilan!r}")
     sans_id("bilan de Reconnaître sous Mers", bilan)
-    if "tu as choisi" not in bilan:
+    if "tu avais choisi" not in bilan:
         defauts.append(f"bilan de Reconnaître sous Mers sans sa faute : {bilan!r}")
 
     # Apprendre : la grappe « Océans », jusqu'au bilan ; aucun prérequis (pas de conseil).

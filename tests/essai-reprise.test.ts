@@ -759,7 +759,7 @@ describe('Toucher : le rendu du sujet', () => {
     }
     const [[id, choisi]] = fautes as [[string, string]];
     expect(vus[0]).toContain(`bonne réponse : choix ${code(id)}`);
-    expect(s.el('#essai-bilan').innerText).toContain(`bilan-localiser ${code(id)} : tu as choisi choix ${code(choisi)}`);
+    expect(s.el('#essai-bilan').innerText).toContain(`bilan-localiser ${code(id)} · tu avais choisi : choix ${code(choisi)}`);
     vus.push(s.el('#essai-bilan').innerText);
     for (const t of vus) sansBrut(t, [...IDS5, 'France', 'Espagne', 'Italie', 'Allemagne', 'Belgique']);
   });

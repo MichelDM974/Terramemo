@@ -113,7 +113,7 @@ describe('Reconnaître : la vue', () => {
     expect(v.barre.querySelector('.essai-retro')?.textContent).toContain(`bonne réponse : choix ${code('ESP')}`);
     voir();
     vi.advanceTimersByTime(1800);
-    expect(v.bilan.innerText).toContain(`bilan-localiser ${code('ESP')} : tu as choisi choix ${code(choisi)}`);
+    expect(v.bilan.innerText).toContain(`bilan-localiser ${code('ESP')} · tu avais choisi : choix ${code(choisi)}`);
     vus.push(v.bilan.innerText);
     for (const t of vus) sansBrut(t, [...IDS, ...Object.values(NOMS)]);
   });
@@ -227,7 +227,7 @@ describe('Reconnaître : le sujet Capitales', () => {
       v.repondre(false);
       expect(v.barre.querySelector('.essai-retro')?.textContent).toBe('Faux · bonne réponse : Bruxelles (Belgique)');
       vi.advanceTimersByTime(1800);
-      expect(v.bilan.innerText).toContain(`Bruxelles (Belgique) : tu as choisi ${choisiTexte}`);
+      expect(v.bilan.innerText).toContain(`Bruxelles (Belgique) · tu avais choisi : ${choisiTexte}`);
       expect(`${v.barre.innerText}${v.bilan.innerText}`).not.toMatch(/\bQ\d+\b/);
     }
   });
@@ -318,7 +318,7 @@ describe('Reconnaître : le sujet Drapeaux', () => {
     // Les autres : désactivés, ni vert ni rouge.
     for (const b of v.choix().filter((x) => x !== choisi && x.dataset.id !== 'TCD')) expect(b.className).toBe('secondary nommer-choix nommer-choix-image');
     vi.advanceTimersByTime(1800);
-    expect(v.bilan.innerText).toContain(`Tchad : tu as choisi ${nom}`);
+    expect(v.bilan.innerText).toContain(`Tchad · tu avais choisi : ${nom}`);
     // carte.css : contour et signe, jamais de fond vert ou rouge sur un bouton-image.
     const css = readFileSync('src/carte.css', 'utf8');
     expect(css).toMatch(/\.nommer-choix-image\.juste, \.nommer-choix-image\.juste:disabled \{ box-shadow: inset 0 0 0 3px var\(--good\);/);

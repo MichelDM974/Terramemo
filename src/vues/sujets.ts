@@ -103,7 +103,7 @@ export interface RenduSujet {
    * principale de son pays, § 2.1).
    */
   choix(id: string, question?: string): Contenu;
-  /** Ce même choix dit en texte : la bonne réponse de la rétroaction, « tu as choisi … » au bilan (`question` : comme choix()). */
+  /** Ce même choix dit en texte : la bonne réponse de la rétroaction, « tu avais choisi : … » au bilan (`question` : comme choix()). */
   nomChoix(id: string, question?: string): string;
   /**
    * Les choix sont des images (les drapeaux) : boutons nommés « Choix 1 » à

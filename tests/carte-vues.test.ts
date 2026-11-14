@@ -162,7 +162,7 @@ describe('séries de l’île et textes des terrains', () => {
     expect(remplir(T.faux, { touche: textes.sujets.communes.la_mer, ou: '', suite: textes.sujets.communes.faux_suite })).toBe(
       'Faux : la mer. La bonne commune est en vert : touche-la.',
     );
-    expect(remplir(T.bilan_nommer_faux, { cible: 'Saint-Leu', choisi: 'Les Avirons' })).toBe('Saint-Leu : tu as choisi Les Avirons');
+    expect(remplir(T.bilan_nommer_faux, { cible: 'Saint-Leu', choisi: 'Les Avirons' })).toBe('Saint-Leu · tu avais choisi : Les Avirons');
   });
 
   it('texteAdmis : pourquoi une zone admise est juste (décision « Zones contestées et enclaves »)', () => {

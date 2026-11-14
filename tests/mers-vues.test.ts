@@ -162,8 +162,8 @@ describe('Trouver sous Océans et mers', () => {
     }
     const bilan = p.el('#essai-bilan');
     expect(bilan.hidden).toBe(false);
-    expect(bilan.innerText).toContain('océan Atlantique : tu as choisi ');
-    expect(bilan.innerText).toContain('mer Adriatique : tu as choisi ');
+    expect(bilan.innerText).toContain('océan Atlantique · tu avais choisi : ');
+    expect(bilan.innerText).toContain('mer Adriatique · tu avais choisi : ');
     sansBrut(bilan.innerText, IDS_MERS);
   });
 
