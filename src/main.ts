@@ -46,10 +46,16 @@ import { vueSaisie } from './vues/saisie';
 import { vueConfidentialite } from './vues/confidentialite';
 import { vueCredits } from './vues/credits';
 import { creerSeances } from './vues/seance';
+import { enregistrerServiceWorker, prendreMiseAJour } from './sw/enregistrer';
 import { textes } from './vues/textes';
 import { VERSION } from './version';
 
 const debutScript = performance.now();
+
+// Service worker du site (#22, src/sw/) : une version installée à une visite
+// d'avant prend la relève tout de suite (la page se recharge une fois), avant
+// qu'on ait rien chargé ni joué ; l'enregistrement attend le premier affichage.
+prendreMiseAJour();
 
 /**
  * Rendu par défaut : « canvas » (décision « Rendu par défaut » du 06/11, au
@@ -809,6 +815,7 @@ async function demarrer(): Promise<void> {
   document.body.dataset.repos = '1';
   reposOk(periode);
   demarrerCompte();
+  enregistrerServiceWorker();
 }
 
 /**

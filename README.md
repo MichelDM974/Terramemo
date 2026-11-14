@@ -50,7 +50,9 @@ l'oublier, jusqu'à tenir des mois.
 - Une seule base de code web (TypeScript, Vite) pour le site et l'appli
   Android, emballée en APK par Capacitor ; carte du monde qui tourne comme
   un globe, dessinée en Canvas 2D (d3-geo pour les données ; WebGL et SVG
-  au choix dans ⚙), hors ligne.
+  au choix dans ⚙), hors ligne : l'APK embarque ses fichiers, le site les
+  garde après une première visite (service worker, sur le web seulement,
+  un cache par version : `src/sw/`).
 - Planification des révisions par FSRS (bibliothèque `ts-fsrs`).
 - Progrès en journal de réponses, sur l'appareil seulement pour l'instant.
   On joue sans compte ; la synchro par Firebase arrive au J1b, pour les
