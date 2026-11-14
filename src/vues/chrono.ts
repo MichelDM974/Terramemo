@@ -39,6 +39,7 @@ import type { Terrain } from '../terrains';
 import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
+import { creerJauge } from './jauge';
 import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { nomEpreuve } from './general';
 import { fmtJustes, fmtTemps, nomMode, scoreCourt, scoreEntier, scoreLong } from './scores';
@@ -110,12 +111,11 @@ export interface OptionsChrono {
 export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
-  const jauge = creer('span', { class: 'chrono-jauge-reste' });
-  const secondes = creer('span', { class: 'chrono-secondes' });
+  const jauge = creerJauge();
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
   const abandonner = creer('button', { type: 'button', class: 'secondary', id: 'chrono-abandonner' }, T.abandonner);
   const ligne = creer('div', { class: 'essai-ligne' }, consigne, compte);
-  const temps = creer('div', { class: 'chrono-temps' }, creer('span', { class: 'chrono-jauge' }, jauge), secondes);
+  const temps = jauge.el;
   /** Au départ d'une partie aux images, à la place de la question : leur chargement, ou son échec. */
   const chargement = creer('div', { class: 'chrono-chargement', id: 'chrono-chargement', 'aria-live': 'polite' });
   const reessayer = creer('button', { type: 'button', id: 'chrono-reessayer' }, T.reessayer);
@@ -156,7 +156,6 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   /** Une question est posée et attend son toucher. */
   let ouverte = false;
   let minuterie = 0;
-  let affichage = 0;
   let pause = 0;
   /** Au départ d'une partie aux images : CHARGEMENT_VU_MS avant de dire le chargement. */
   let chargementVu = 0;
@@ -172,11 +171,11 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
 
   function arreterMinuteries(): void {
     clearTimeout(minuterie);
-    clearInterval(affichage);
+    jauge.arreter();
     clearTimeout(pause);
     clearTimeout(chargementVu);
     clearTimeout(annonce);
-    minuterie = affichage = pause = chargementVu = annonce = 0;
+    minuterie = pause = chargementVu = annonce = 0;
   }
 
   /** Ce texte à la région du chargement : tout de suite, ou à la fin de son ANNONCE_MS si elle vient d'apparaître. */
@@ -208,26 +207,6 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       annonce = 0;
       chargement.textContent = aDire;
     }, ANNONCE_MS);
-  }
-
-  function figerJauge(): void {
-    const t = getComputedStyle(jauge).transform;
-    jauge.style.transition = 'none';
-    jauge.style.transform = t === 'none' ? '' : t;
-  }
-
-  /** La jauge part pleine et se vide en `ms`. */
-  function lancerJauge(ms: number): void {
-    jauge.style.transition = 'none';
-    jauge.style.transform = 'scaleX(1)';
-    jauge.getBoundingClientRect(); // l'état de départ s'applique avant la transition
-    jauge.style.transition = `transform ${ms}ms linear`;
-    jauge.style.transform = 'scaleX(0)';
-  }
-
-  function afficherSecondes(): void {
-    const reste = Math.max(0, DELAI - (performance.now() - debut));
-    secondes.textContent = `${Math.ceil(reste / 1000)} s`;
   }
 
   /**
@@ -331,9 +310,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const ouvrir = () => {
       debut = performance.now();
       ouverte = true;
-      lancerJauge(ms);
-      afficherSecondes();
-      affichage = window.setInterval(afficherSecondes, 200);
+      jauge.partir(ms, debut);
       minuterie = window.setTimeout(expirer, ms);
     };
     const img = imageEnAttente(consigne);
@@ -343,9 +320,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     // son échec ou ATTENTE_IMAGE_MS ouvrent la question, une fois, si la partie n'a ni changé ni avancé entre-temps :
     // décodée, la rétroaction s'efface ; sinon elle dit que le temps court sans l'image (effacée si elle arrive avant
     // la réponse).
-    jauge.style.transition = 'none';
-    jauge.style.transform = 'scaleX(1)';
-    secondes.textContent = `${Math.ceil(ms / 1000)} s`;
+    jauge.pleine(ms);
     retro.textContent = T.image_attente;
     const j = jeton;
     let ouverteDeja = false;
@@ -371,8 +346,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   function apres(q: QuestionJouee): void {
     ouverte = false;
     clearTimeout(minuterie);
-    clearInterval(affichage);
-    figerJauge();
+    jauge.figer();
     afficherCompte(true);
     pause = window.setTimeout(poser, q.juste ? PAUSE_JUSTE_MS : PAUSE_FAUX_MS);
   }
@@ -382,7 +356,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const id = partie?.courante;
     if (!partie || !id || !ouverte) return;
     const q = partie.expirer();
-    secondes.textContent = '0 s';
+    jauge.vide();
     t.carte.effacerMarques();
     t.carte.marquer(id, 'juste');
     anneauSiPetite(t, id, 'juste');
