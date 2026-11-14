@@ -76,12 +76,17 @@ describe('notoriete.json', () => {
     for (const m of mers.filter((x) => x.sorte === 'océan')) expect(n.mers[m.id], m.id).toBe(1);
   });
 
+  it('la Finlande au moyen : l’exemple que la décision « Quiz général » écarte du facile', () => {
+    expect(n.pays.FIN).toBe(2);
+    expect(n.drapeaux.FIN).toBe(2);
+  });
+
   it('effectifs finaux : ceux de la coupe, corrigés par la table à la main (échanges entre les niveaux 1 et 2)', () => {
-    // Pays : 7 échanges entre 1 et 2, le Soudan du Sud au 3.
+    // Pays : 8 échanges entre 1 et 2 (la Finlande au 2, décision « Quiz général »), le Soudan du Sud au 3.
     expect(compte(n.pays)).toEqual([40, 59, 96]);
     // Capitales : 30 / 60 rangées, 5 montées et 4 descendues ; Monaco, Singapour et le Vatican au niveau 2 de leur pays.
     expect(compte(n.capitales)).toEqual([31, 62, 115]);
-    // Mers : la Manche et l'océan Austral au 1, Gascogne et Hudson au 2.
+    // Mers : la Manche, l'océan Austral et la mer des Caraïbes au 1 ; Gascogne, Hudson et le golfe Persique au 2.
     expect(compte(n.mers)).toEqual([14, 11, 25]);
   });
 

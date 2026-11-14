@@ -8,6 +8,7 @@
   "pays": {
     "_": "Échanges entre le niveau 1 et le niveau 2 pour garder 40 pays faciles.",
     "ALB": {"niveau": 2, "raison": "vues inhabituelles (85 000 par mois toute l'année, autant que l'Italie : robots, estimé) ; peu connue d'un Français"},
+    "FIN": {"niveau": 2, "raison": "décision « Quiz général » : l'exemple écarté (« avec le seul nombre de Wikipédias, la Finlande aurait été facile ») ; encore 29e au rang combiné, par ses Wikipédias"},
     "COD": {"niveau": 2, "raison": "connue, mais moins que l'Irlande ou la Grèce ; se confond avec le Congo-Brazzaville sur la carte"},
     "COL": {"niveau": 2, "raison": "moins connue d'un Français que la Tunisie"},
     "KAZ": {"niveau": 2, "raison": "peu connu d'un Français (au rang par le nombre de Wikipédias, langues turques)"},
@@ -21,6 +22,7 @@
     "NZL": {"niveau": 1, "raison": "connue de tous (rugby, bout du monde)"},
     "SWE": {"niveau": 1, "raison": "connue de tous, comme la Norvège et le Danemark"},
     "TUN": {"niveau": 1, "raison": "lien fort avec la France, connue de tous"},
+    "VNM": {"niveau": 1, "raison": "ancienne Indochine, lien fort avec la France, plus connu d'un Français que la Finlande (proposé contre Madagascar et le Sénégal, au choix de l'utilisateur)"},
     "SSD": {"niveau": 3, "raison": "4,8 millions de vues sur 12 mois, plus que les États-Unis : robots (estimé) ; pays peu connu"}
   },
   "capitales": {
@@ -40,6 +42,8 @@
     "manche": {"niveau": 1, "raison": "D48 b : 105 396 vues sur 12 mois (4e de la liste), la mer qui borde la France"},
     "austral": {"niveau": 1, "raison": "un des cinq océans, appris à l'école"},
     "gascogne": {"niveau": 2, "raison": "D48 b : borde la France, 44 338 vues sur 12 mois"},
-    "hudson": {"niveau": 2, "raison": "D48 b : 29 738 vues sur 12 mois"}
+    "hudson": {"niveau": 2, "raison": "D48 b : 29 738 vues sur 12 mois"},
+    "caraibes": {"niveau": 1, "raison": "borde les Antilles françaises, connue de tous (16e au rang)"},
+    "persique": {"niveau": 2, "raison": "échange avec la mer des Caraïbes, pour garder 14 zones faciles (5 océans et 9 mers) : moins proche d'un Français"}
   }
 }
