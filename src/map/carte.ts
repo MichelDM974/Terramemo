@@ -722,7 +722,7 @@ export class Carte implements CarteAffichee {
     this.lignesPosees = [...l];
     this.hote.dataset.lignes = String(l.length);
     // Le monde seul : placerNoms suit Equal Earth, pas la Mercator d'une carte locale.
-    if (l.length && !this.o.cadre) this.noms ??= new CoucheNoms(this.hote);
+    if (l.length && !this.o.cadre) this.noms ??= new CoucheNoms(this.hote, () => this.majNoms());
     this.tracerLignes();
     this.majNoms();
   }

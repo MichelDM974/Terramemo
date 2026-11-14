@@ -5,7 +5,9 @@
 // repeindre par image). Sous l'en-tête, les barres des parties et la légende,
 // frères de l'hôte posés après lui : un nom ne les couvre jamais. Les
 // pastilles et les anneaux sont des obstacles : un nom qui les chevaucherait
-// est sauté.
+// est sauté. Les largeurs mesurées valent jusqu'au chargement d'une police
+// (Inter arrive en font-display: swap) : mesurées avec la police de secours,
+// plus étroite, elles sont refaites, et les noms reposés (surPolice).
 import { NOM, type NomPose } from './lignes';
 
 export class CoucheNoms {
@@ -13,13 +15,27 @@ export class CoucheNoms {
   private readonly spans: HTMLSpanElement[] = [];
   private readonly largeurs = new Map<string, number>();
   private mesure: CanvasRenderingContext2D | null | undefined;
+  private readonly polices: FontFaceSet | undefined;
+  private detruite = false;
+  private readonly policeChargee = () => {
+    if (!this.largeurs.size || this.detruite) return;
+    this.largeurs.clear();
+    this.surPolice();
+  };
 
-  constructor(hote: HTMLElement) {
+  /** surPolice : une police vient d'arriver, les largeurs sont à refaire (reposer les noms). */
+  constructor(
+    hote: HTMLElement,
+    private readonly surPolice: () => void = () => undefined,
+  ) {
     this.el = document.createElement('div');
     this.el.className = 'lignes-noms';
     this.el.setAttribute('aria-hidden', 'true');
     this.el.hidden = true;
     hote.append(this.el);
+    this.polices = (document as { fonts?: FontFaceSet }).fonts;
+    this.polices?.addEventListener?.('loadingdone', this.policeChargee);
+    this.polices?.ready?.then(this.policeChargee, () => undefined);
   }
 
   /** Largeur (px CSS) d'un nom à la police de .ligne-nom, mesurée une fois ; sans Canvas 2D, une estimation. */
@@ -70,6 +86,8 @@ export class CoucheNoms {
   }
 
   detruire(): void {
+    this.detruite = true;
+    this.polices?.removeEventListener?.('loadingdone', this.policeChargee);
     this.el.remove();
   }
 }

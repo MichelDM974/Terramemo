@@ -933,7 +933,11 @@ export class CarteCanvas implements CarteAffichee {
     this.lignesPosees = [...l];
     this.versionLignes++;
     this.hote.dataset.lignes = String(l.length);
-    if (l.length) this.noms ??= new CoucheNoms(this.hote);
+    if (l.length)
+      this.noms ??= new CoucheNoms(this.hote, () => {
+        this.signatureNoms = '';
+        this.majNoms();
+      });
     this.demander();
   }
 
