@@ -32,12 +32,13 @@ function stockageFactice() {
 }
 
 describe('idQuiz (§ 9.4)', () => {
-  it('quiz:general:<difficulté>, du mode quiz, hors du général et des épreuves du catalogue', () => {
+  it('quiz:general:<difficulté>, du mode quiz, hors du général, parmi les épreuves classées', () => {
     expect(DIFFICULTES.map(idQuiz)).toEqual(['quiz:general:facile', 'quiz:general:moyen', 'quiz:general:difficile', 'quiz:general:expert']);
     for (const d of DIFFICULTES) {
       expect(modeEpreuve(idQuiz(d))).toBe('quiz');
       expect(epreuvesDuGeneral()).not.toContain(idQuiz(d));
-      expect(epreuvesClassees()).not.toContain(idQuiz(d));
+      // Classé à part, ouvert au lot 4b (D50 c : les quatre sujets du J2 livrés).
+      expect(epreuvesClassees()).toContain(idQuiz(d));
     }
   });
 });
@@ -115,14 +116,15 @@ describe('fin d’une partie (D55 a)', () => {
     const s = p.score();
     expect(s).toEqual({ points: 1, justes: 1, questions: 20, temps_ms: 3_000 + 9 * 10_000 + 10 * 15_000 });
     expect(p.compte).toBe(true);
-    expect(vraisemblable(s, idQuiz('facile'))).toBe(true);
+    // 10 questions à 4 choix et 10 au toucher : la forme du moyen, dont le temps le plus long est le sien (250 s).
+    expect(vraisemblable(s, idQuiz('moyen'))).toBe(true);
     const st = stockageFactice();
-    const b = enregistrerPartie(st, idQuiz('facile'), s, Date.UTC(2026, 10, 16, 8));
+    const b = enregistrerPartie(st, idQuiz('moyen'), s, Date.UTC(2026, 10, 16, 8));
     expect(b.toujours.nouveau).toBe(true);
     expect(b.toujours.progresPubliable).toBe(true);
     const records = lireRecords(st);
-    expect(recordDe(records, idQuiz('facile'), 'toujours')).toMatchObject({ justes: 1, questions: 20 });
-    expect(recordDe(records, idQuiz('facile'), b.periode)).toMatchObject({ justes: 1, questions: 20 });
+    expect(recordDe(records, idQuiz('moyen'), 'toujours')).toMatchObject({ justes: 1, questions: 20 });
+    expect(recordDe(records, idQuiz('moyen'), b.periode)).toMatchObject({ justes: 1, questions: 20 });
   });
 
   it('abandonnée d’emblée (aucune question montrée) : rien ne compte', () => {

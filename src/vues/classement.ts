@@ -279,8 +279,8 @@ export async function publierTout(pseudo: string): Promise<Publication> {
   for (const [cle, r] of records) {
     const [epreuve, sem] = cle.split('@');
     // Une épreuve que cette version ne classe pas, venue par le profil d'une plus récente : ni envoi, ni refus annoncé
-    // (étude J2 § 3.2). Un mode inconnu, mais aussi le quiz avant l'ouverture de son classement (§ 9.5, D50 c) ou les
-    // épreuves d'un sujet sans épreuves classées ici (hors de EPREUVES_SUJETS) : rien ne les classe encore. La version qui les classe
+    // (étude J2 § 3.2). Un mode inconnu, mais aussi les épreuves d'un sujet sans épreuves classées ici (hors de
+    // EPREUVES_SUJETS) : rien ne les classe encore ; le quiz, ouvert au lot 4b (D50 c), en est. La version qui les classe
     // les republie elle-même sous le pseudo du profil (sync/comptes.ts, pseudoPris).
     if (!epreuve || !classees.includes(epreuve)) continue;
     const p = sem === undefined ? 'toujours' : sem === periode ? periode : null;

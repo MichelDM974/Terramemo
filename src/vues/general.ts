@@ -9,7 +9,9 @@
 // ouvre ses dix premiers (blocClassement), « ‹ Classements » ramène à la
 // liste. Les séries de chaque sujet viennent dans l'ordre de partout
 // (décision « Écran Jouer », EPREUVES_SUJETS) : tous les pays, les
-// continents ; la série unique des mers ; l'île.
+// continents ; la série unique des mers ; l'île. Le quiz général vient en
+// dernier, son groupe à lui (« Quiz général », une ligne par difficulté :
+// « Facile »), hors du général (étude J2 § 8.3, § 9.4).
 // Lectures (D52 b, décision « Général à tous les sujets ») : à l'ouverture, le
 // général et les seules épreuves où l'appareil a un record (ceux du profil du
 // compte y sont, reçus à chaque ouverture de l'appli : src/sync/profil.ts,
@@ -19,9 +21,9 @@
 // EPREUVES_SUJETS, décision « Ouverture des épreuves d'un sujet », 12/11)
 // n'y sont pas. Relu à chaque
 // ouverture ; « Retour » ramène à la vue d'avant, « × » à la carte (main.ts).
-import { clePseudo, epreuvesClassees, lireRecords, modeEpreuve, MODES_EPREUVE, periodeSemaine, sujetEpreuve, type ModeEpreuve, type RecordChrono } from '../epreuve/chrono';
+import { clePseudo, difficulteQuiz, epreuvesClassees, lireRecords, modeEpreuve, MODES_EPREUVE, periodeSemaine, sujetEpreuve, type ModeClasse, type ModeEpreuve, type RecordChrono } from '../epreuve/chrono';
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
-import { nomSujet } from './arbre';
+import { nomDifficulte, nomQuiz, nomSujet } from './arbre';
 import { nomSerie } from './cibles';
 import { blocClassement, lirePseudo, relancerAttente } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
@@ -41,6 +43,9 @@ type Periode = 'toujours' | 'semaine';
  */
 export function nomEpreuve(epreuve: string): string {
   if (epreuve === GENERAL) return T.general_nom;
+  // Le quiz : « Quiz général · Facile ».
+  const d = difficulteQuiz(epreuve);
+  if (d) return remplir(T.epreuve_sujet, { sujet: nomQuiz(), serie: nomDifficulte(d) });
   const [, cle, serie] = epreuve.split(':');
   if (serie === undefined) return nomSerie(epreuve);
   if (cle === 'localiser') return nomSerie(serie);
@@ -51,13 +56,21 @@ export function nomEpreuve(epreuve: string): string {
 
 /** Le nom d'une ligne du 🏆, sous le titre de son sujet : la série seule (« Océanie »), le général par son nom. */
 function nomLigne(epreuve: string): string {
+  const d = difficulteQuiz(epreuve);
+  if (d) return nomDifficulte(d);
   const serie = epreuve.split(':')[2];
   return epreuve === GENERAL || serie === undefined ? nomEpreuve(epreuve) : nomSerie(serie);
 }
 
 const estModeEpreuve = (m: string | null): m is ModeEpreuve => (MODES_EPREUVE as readonly (string | null)[]).includes(m);
 
-/** Titre du classement d'une épreuve : « Sans faute · Afrique » ; le général a le sien (le quiz, au lot 4b : son nom seul d'ici là). */
+/** Les groupes du 🏆, dans l'ordre : les modes des épreuves, puis le quiz. */
+const MODES_LISTES: readonly ModeClasse[] = [...MODES_EPREUVE, 'quiz'];
+
+/** Le groupe d'une épreuve sous son mode : son sujet (h4), ou le quiz (ses difficultés, sans h4) ; null pour le général. */
+const groupeDe = (epreuve: string): string | null => sujetEpreuve(epreuve) ?? (modeEpreuve(epreuve) === 'quiz' ? 'quiz' : null);
+
+/** Titre du classement d'une épreuve : « Sans faute · Afrique » ; le général a le sien, le quiz son nom (« Quiz général · Facile »). */
 export function titreEpreuve(epreuve: string): string {
   if (epreuve === GENERAL) return T.general_titre;
   const mode = modeEpreuve(epreuve);
@@ -167,22 +180,24 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
     places: ReadonlyMap<string, MaPlace>;
     /** Lue : sa ligne dit « pas encore classé » quand elle n'a pas de place. */
     lue(epreuve: string): boolean;
-    /** Le bouton « Chercher mes places » d'un sujet dont des épreuves ne sont pas lues ; null : pas de bouton. */
+    /** Le bouton « Chercher mes places » d'un sujet (ou du quiz) dont des épreuves ne sont pas lues ; null : pas de bouton. */
     chercher?: (sujet: string) => HTMLElement | null;
   }
 
   /**
    * Les lignes de ces épreuves, par mode sous son titre (h3), puis par sujet
-   * sous le sien (h4) ; le général en tête du Chrono. Les modes et les sujets
+   * sous le sien (h4) ; le général en tête du Chrono ; le quiz en dernier,
+   * sous « Quiz général », ses difficultés sans h4. Les modes et les sujets
    * sans ligne sont omis.
    */
   function groupes(epreuves: readonly string[], e: EtatListe): HTMLElement[] {
     const lignes = (es: readonly string[]) => creer('ul', { class: 'essai-series' }, ...es.map((x) => ligne(x, e.places.get(x) ?? null, e.lue(x))));
-    return MODES_EPREUVE.flatMap((m) => {
+    return MODES_LISTES.flatMap((m) => {
       const duMode = epreuves.filter((x) => modeEpreuve(x) === m);
       if (!duMode.length) return [];
+      const titre = m === 'quiz' ? nomQuiz() : nomMode(m);
       const general = duMode.filter((x) => x === GENERAL);
-      const sujets = [...new Set(duMode.map(sujetEpreuve).filter((x) => x !== null))];
+      const sujets = [...new Set(duMode.map(groupeDe).filter((x) => x !== null))];
       return [
         creer(
           'section',
@@ -192,19 +207,16 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
             ? creer(
                 'div',
                 { class: 'places-tete' },
-                creer('h3', {}, nomMode(m)),
+                creer('h3', {}, titre),
                 ...[T.colonne_rang, T.colonne_score, T.colonne_temps].map((c) => creer('span', { class: 'places-col', 'aria-hidden': 'true' }, c)),
               )
-            : creer('h3', {}, nomMode(m)),
+            : creer('h3', {}, titre),
           ...(general.length ? [lignes(general)] : []),
           ...sujets.map((su) => {
             const b = e.chercher?.(su) ?? null;
-            return creer(
-              'div',
-              { class: 'classements-sujet', 'data-sujet': su },
-              creer('div', { class: 'classements-sujet-tete' }, creer('h4', {}, nomSujet(su)), ...(b ? [b] : [])),
-              lignes(duMode.filter((x) => sujetEpreuve(x) === su)),
-            );
+            // Le quiz n'a pas de sujet à nommer sous son titre : sa tête ne porte que « Chercher mes places », s'il y en a un.
+            const tete = su === 'quiz' ? (b ? [creer('div', { class: 'classements-sujet-tete' }, creer('span'), b)] : []) : [creer('div', { class: 'classements-sujet-tete' }, creer('h4', {}, nomSujet(su)), ...(b ? [b] : []))];
+            return creer('div', { class: 'classements-sujet', 'data-sujet': su }, ...tete, lignes(duMode.filter((x) => groupeDe(x) === su)));
           }),
         ),
       ];
@@ -276,7 +288,7 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
 
     /** « Chercher mes places » d'un sujet : ses épreuves pas encore lues, à la demande (D52 b). */
     function chercher(sujet: string): HTMLElement | null {
-      const aLire = toutes.filter((e) => !lues.has(e) && sujetEpreuve(e) === sujet);
+      const aLire = toutes.filter((e) => !lues.has(e) && groupeDe(e) === sujet);
       if (!aLire.length) return null;
       const b = creer(
         'button',

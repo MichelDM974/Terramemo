@@ -11,7 +11,8 @@ import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestE
 import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
-import { BORNE_GENERAL, clePermise, clePseudo, formePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
+import { BORNE_GENERAL, clePermise, clePseudo, formePseudo, idEpreuve, idQuiz, pseudoValide, tempsMaxQuiz, vraisemblable } from '../src/epreuve/chrono';
+import { DIFFICULTES } from '../src/quiz/types';
 import type { Evenement } from '../src/srs/journal';
 import { docDuLot, problemeLot, type DocLot } from '../src/sync/lots';
 import { ESSAI_DU_DEPOT, REGLES, reglesAvecEssai } from './regles-essai';
@@ -626,6 +627,84 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
         [SF_MERS, { questions: 50, justes: 50, points: 50, temps_ms: 200_000 }],
         [SF_MERS, { questions: 1, justes: 0, points: 0, temps_ms: 0 }],
         ['minute:mers:mers', { questions: 23, justes: 20, points: 20, temps_ms: 60_000 }],
+      ];
+      for (const [i, [e, c]] of cas.entries()) {
+        const ecrire = setDoc(place(db('ana'), `joueur ${i}`, 'toujours', e), score({ ...c, pseudo: `Joueur ${i}` }));
+        if (vraisemblable(c as never, e)) await assertSucceeds(ecrire);
+        else await assertFails(ecrire);
+      }
+    });
+  });
+
+  describe('quiz général (lot 4b du J2, étude § 8.2 et § 9.4 ; barème 2 dès sa naissance ; ouvert, D50 c)', () => {
+    const FACILE = idQuiz('facile');
+    // 17 justes sur 20, en 90 s.
+    const quiz = (o: Record<string, unknown> = {}) => score({ questions: 20, justes: 17, points: 17, temps_ms: 90_000, ...o });
+
+    it('quiz:general:facile à expert : acceptés à 20 questions, points = justes ; de toujours et de la semaine', async () => {
+      const a = db('ana');
+      expect(DIFFICULTES.map(idQuiz)).toEqual(['quiz:general:facile', 'quiz:general:moyen', 'quiz:general:difficile', 'quiz:general:expert']);
+      for (const d of DIFFICULTES) {
+        await assertSucceeds(setDoc(place(a, 'michel', 'toujours', idQuiz(d)), quiz()));
+        await assertSucceeds(setDoc(place(a, 'michel', cetteSemaine(), idQuiz(d)), quiz()));
+      }
+      // Jamais au barème 1 (1 000 par juste), ni des points autres que les justes.
+      await assertFails(setDoc(place(a, 'mille', 'toujours', FACILE), quiz({ pseudo: 'Mille', points: 17_000 })));
+      await assertFails(setDoc(place(a, 'plus', 'toujours', FACILE), quiz({ pseudo: 'Plus', points: 18 })));
+      await assertFails(setDoc(place(a, 'moins', 'toujours', FACILE), quiz({ pseudo: 'Moins', points: 16 })));
+      // 20 questions, ni plus ni moins ; pas plus de justes que de questions.
+      await assertFails(setDoc(place(a, 'dixneuf', 'toujours', FACILE), quiz({ pseudo: 'Dixneuf', questions: 19 })));
+      await assertFails(setDoc(place(a, 'vingtun', 'toujours', FACILE), quiz({ pseudo: 'Vingtun', questions: 21 })));
+      await assertFails(setDoc(place(a, 'trop', 'toujours', FACILE), quiz({ pseudo: 'Trop', justes: 21, points: 21 })));
+    });
+
+    it('le temps : au moins 0,2 s par question, au plus le délai de chacune, au total, selon la difficulté (200, 250, 260 et 168 s)', async () => {
+      const a = db('ana');
+      await assertSucceeds(setDoc(place(a, 'vite', 'toujours', FACILE), quiz({ pseudo: 'Vite', justes: 20, points: 20, temps_ms: 20 * 200 })));
+      await assertFails(setDoc(place(a, 'eclair', 'toujours', FACILE), quiz({ pseudo: 'Eclair', justes: 20, points: 20, temps_ms: 20 * 200 - 1 })));
+      for (const d of DIFFICULTES) {
+        const max = tempsMaxQuiz(d);
+        await assertSucceeds(setDoc(place(a, 'lent', 'toujours', idQuiz(d)), quiz({ pseudo: 'Lent', justes: 0, points: 0, temps_ms: max })));
+        await assertFails(setDoc(place(a, 'lent', 'toujours', idQuiz(d)), quiz({ pseudo: 'Lent', justes: 0, points: 0, temps_ms: max + 1 })));
+      }
+      expect(DIFFICULTES.map(tempsMaxQuiz)).toEqual([200_000, 250_000, 260_000, 168_000]);
+    });
+
+    it('refusés : une difficulté inconnue, un autre id que general (quiz:general2:…, réservé au changement de formule), un mode du Chrono sur la clé du quiz', async () => {
+      const a = db('ana');
+      for (const e of ['quiz:general:enfer', 'quiz:general', 'quiz:general2:facile', 'quiz:pays:facile', 'chrono:general:facile', 'sansfaute:quiz:facile', 'quiz:general:facile:x']) {
+        await assertFails(setDoc(place(a, 'michel', 'toujours', e), quiz()));
+      }
+    });
+
+    it('un record du quiz ne se réécrit que s’il progresse (plus de justes, puis moins de temps)', async () => {
+      const a = db('ana');
+      await assertSucceeds(setDoc(place(a, 'michel', 'toujours', FACILE), quiz()));
+      await assertFails(setDoc(place(a, 'michel', 'toujours', FACILE), quiz({ justes: 16, points: 16, temps_ms: 50_000 })));
+      await assertFails(setDoc(place(a, 'michel', 'toujours', FACILE), quiz({ temps_ms: 95_000 })));
+      await assertSucceeds(setDoc(place(a, 'michel', 'toujours', FACILE), quiz({ temps_ms: 80_000 })));
+      await assertSucceeds(setDoc(place(a, 'michel', 'toujours', FACILE), quiz({ justes: 18, points: 18, temps_ms: 150_000 })));
+    });
+
+    it('vraisemblable() du client juge comme les règles pour le quiz', async () => {
+      const cas: [string, Record<string, number>][] = [
+        [FACILE, { questions: 20, justes: 17, points: 17, temps_ms: 90_000 }],
+        [FACILE, { questions: 20, justes: 20, points: 20, temps_ms: 4_000 }],
+        [FACILE, { questions: 20, justes: 20, points: 20, temps_ms: 3_999 }],
+        [FACILE, { questions: 20, justes: 0, points: 0, temps_ms: 200_000 }],
+        [FACILE, { questions: 20, justes: 0, points: 0, temps_ms: 200_001 }],
+        [idQuiz('moyen'), { questions: 20, justes: 0, points: 0, temps_ms: 250_000 }],
+        [idQuiz('moyen'), { questions: 20, justes: 0, points: 0, temps_ms: 250_001 }],
+        [idQuiz('difficile'), { questions: 20, justes: 3, points: 3, temps_ms: 260_000 }],
+        [idQuiz('difficile'), { questions: 20, justes: 3, points: 3, temps_ms: 260_001 }],
+        [idQuiz('expert'), { questions: 20, justes: 5, points: 5, temps_ms: 168_000 }],
+        [idQuiz('expert'), { questions: 20, justes: 5, points: 5, temps_ms: 168_001 }],
+        [FACILE, { questions: 20, justes: 17, points: 17_000, temps_ms: 90_000 }],
+        [FACILE, { questions: 20, justes: 17, points: 18, temps_ms: 90_000 }],
+        [FACILE, { questions: 19, justes: 17, points: 17, temps_ms: 90_000 }],
+        [FACILE, { questions: 21, justes: 17, points: 17, temps_ms: 90_000 }],
+        ['quiz:general:enfer', { questions: 20, justes: 17, points: 17, temps_ms: 90_000 }],
+        ['quiz:general2:facile', { questions: 20, justes: 17, points: 17, temps_ms: 90_000 }],
       ];
       for (const [i, [e, c]] of cas.entries()) {
         const ecrire = setDoc(place(db('ana'), `joueur ${i}`, 'toujours', e), score({ ...c, pseudo: `Joueur ${i}` }));

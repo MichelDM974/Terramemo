@@ -57,6 +57,19 @@ describe('publication d’une partie', () => {
     expect(envois.sort()).toEqual([`${ILE}/toujours`, `${ILE}/${semaine}`, `general/toujours`, `general/${semaine}`].sort());
   });
 
+  it('une partie du quiz (lot 4b) : ses deux records seuls, le général n’est pas touché (il ne compte jamais le quiz)', async () => {
+    enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
+    publier.mockResolvedValue(true);
+    const QUIZ = 'quiz:general:difficile';
+    const b = enregistrerPartie(localStorage, QUIZ, score(14, 14, 20, 180_000), maintenant);
+    expect(await publierPartie('Ana', QUIZ, b)).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
+    expect(publier.mock.calls.map(([e, p, , s]) => [e, p, s.points])).toEqual([
+      [QUIZ, 'toujours', 14],
+      [QUIZ, semaine, 14],
+    ]);
+    expect(placesDuPseudo).not.toHaveBeenCalled();
+  });
+
   it('un échec réseau sur un score : les autres partent quand même, l’échec est compté à part', async () => {
     const b = enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     publier.mockImplementation(async (e, p) => {
@@ -124,16 +137,18 @@ describe('publication d’une partie', () => {
     expect(lireAttente()).toEqual([]);
   });
 
-  it('au choix du pseudo : un record du quiz (classement pas encore ouvert, § 9.5) ne part pas, sans refus annoncé', async () => {
+  it('au choix du pseudo : un record du quiz (classement ouvert au lot 4b, D50 c) part, de toujours et de la semaine, sans le général ; celui d’une formule à venir (quiz:general2:…) non, sans refus annoncé', async () => {
     enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
-    // Reçu par le profil d'une version plus récente, vraisemblable : les règles de cette version le refuseraient.
     const QUIZ = 'quiz:general:facile';
     enregistrerPartie(localStorage, QUIZ, score(18, 18, 20, 100_000), maintenant);
-    publier.mockImplementation(async (e) => e !== QUIZ);
+    // Reçu par le profil d'une version plus récente : les règles de cette version le refuseraient.
+    const AUTRE = 'quiz:general2:facile';
+    enregistrerPartie(localStorage, AUTRE, score(18, 18, 20, 100_000), maintenant);
+    publier.mockResolvedValue(true);
     const r = await publierTout('Ana');
     expect(r).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(avisPublication(r)).toBe('');
-    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
+    expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, QUIZ, QUIZ, 'general', 'general'].sort());
   });
 
   it('les records des mers (lot 3b) partent au choix du pseudo, et le général compte leur Chrono (D40 a) ; une partie des mers publie son général, un Sans faute des mers non', async () => {

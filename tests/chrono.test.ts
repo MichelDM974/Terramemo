@@ -9,7 +9,9 @@ import {
   epreuvesClassees,
   epreuvesDuGeneral,
   EPREUVES_SUJETS,
+  difficulteQuiz,
   idEpreuve,
+  idQuiz,
   convertirRecord,
   convertirStockage,
   ecrireRecords,
@@ -27,6 +29,7 @@ import {
   sujetEpreuve,
   sujetOuvert,
   tailleEpreuve,
+  tempsMaxQuiz,
   totalGeneral,
   type RecordChrono,
   VERSION_BAREME,
@@ -365,7 +368,10 @@ describe('records de la semaine et classement général', () => {
     const EPREUVES = SERIES_PAYS_ILE.map((x) => `chrono:localiser:${x}`);
     const localiser = (e: string) => e.split(':')[1] === 'localiser';
     expect(epreuvesDuGeneral().filter(localiser)).toEqual(EPREUVES);
-    expect(epreuvesClassees()).toHaveLength(2 * EPREUVES_SUJETS.length);
+    // Et le quiz en dernier, ses quatre difficultés (lot 4b).
+    expect(epreuvesClassees()).toHaveLength(2 * EPREUVES_SUJETS.length + 4);
+    expect(epreuvesClassees().slice(-4)).toEqual(['quiz:general:facile', 'quiz:general:moyen', 'quiz:general:difficile', 'quiz:general:expert']);
+    expect(epreuvesDuGeneral().some((e) => e.startsWith('quiz:'))).toBe(false);
     expect(epreuvesClassees().filter(localiser)).toHaveLength(2 * SERIES_PAYS_ILE.length);
     expect(epreuvesClassees().filter(localiser).slice(0, SERIES_PAYS_ILE.length)).toEqual(EPREUVES);
     expect(idEpreuve('Africa', 'sansfaute')).toBe('sansfaute:localiser:Africa');
@@ -469,7 +475,7 @@ describe('records de la semaine et classement général', () => {
     expect(totalGeneral(new Map(), 'toujours', new Map([['quiz:general:moyen', sc(15, 20, 100_000)]]))).toBeNull();
   });
 
-  it('vraisemblable : le quiz aux bornes de quizValide (20 questions, barème du Chrono : points = justes), un mode inconnu jamais', () => {
+  it('vraisemblable : le quiz aux bornes de quizValide (20 questions, points = justes, le temps borné par les délais de sa difficulté), un mode inconnu jamais', () => {
     const Q = 'quiz:general:facile';
     expect(vraisemblable(sc(18, 20, 100_000), Q)).toBe(true);
     expect(vraisemblable(score(19, 18, 20, 100_000), Q)).toBe(false);
@@ -479,6 +485,16 @@ describe('records de la semaine et classement général', () => {
     expect(vraisemblable(sc(18, 20, 20 * 200 - 1), Q)).toBe(false);
     expect(vraisemblable(sc(18, 20, 20 * 15_000 + 1), Q)).toBe(false);
     expect(vraisemblable(sc(18, 20, 100_000), `${Q}@s2914`)).toBe(true);
+    // Au plus le délai de chaque question, au total : 20 × 10 s au facile ; 10 × 10 + 10 × 15 s au moyen ; 8 × 6 + 12 × 10 s en expert.
+    expect([tempsMaxQuiz('facile'), tempsMaxQuiz('moyen'), tempsMaxQuiz('difficile'), tempsMaxQuiz('expert')]).toEqual([200_000, 250_000, 260_000, 168_000]);
+    for (const d of ['facile', 'moyen', 'difficile', 'expert'] as const) {
+      expect(vraisemblable(sc(0, 20, tempsMaxQuiz(d)), idQuiz(d)), d).toBe(true);
+      expect(vraisemblable(sc(0, 20, tempsMaxQuiz(d) + 1), idQuiz(d)), d).toBe(false);
+    }
+    // Une difficulté inconnue, ou un autre id que general : refusé.
+    expect(vraisemblable(sc(18, 20, 100_000), 'quiz:general:enfer')).toBe(false);
+    expect(vraisemblable(sc(18, 20, 100_000), 'quiz:general2:facile')).toBe(false);
+    expect([difficulteQuiz('quiz:general:moyen@s2914'), difficulteQuiz('quiz:general:enfer'), difficulteQuiz(idEpreuve('Asia'))]).toEqual(['moyen', null, null]);
     // Un mode inconnu : refusé, quelles que soient les valeurs (les règles ne le connaissent pas).
     expect(vraisemblable(sc(11, 12, 60_000), 'xyz:localiser:Africa')).toBe(false);
     // Un Chrono d'un autre sujet : les bornes du Chrono (sa série se juge sur le serveur).
@@ -648,14 +664,17 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
       idEpreuve('mers', 'chrono', 'mers'),
       idEpreuve('reunion'),
     ]);
-    expect(epreuvesClassees()).toHaveLength(2 * 23);
+    // Et les 4 du quiz (lot 4b), en dernier.
+    expect(epreuvesClassees()).toHaveLength(2 * 23 + 4);
     // Mode par mode, puis sujet par sujet (§ 8.3).
     expect(epreuvesClassees().slice(0, 23)).toEqual(epreuvesDuGeneral());
-    expect(epreuvesClassees().slice(23).every((e) => modeEpreuve(e) === 'sansfaute')).toBe(true);
+    expect(epreuvesClassees().slice(23, 46).every((e) => modeEpreuve(e) === 'sansfaute')).toBe(true);
+    expect(epreuvesClassees().slice(46).every((e) => modeEpreuve(e) === 'quiz')).toBe(true);
   });
 
   it('tailleEpreuve : les questions de la série (les 100 %), celles du catalogue et de tailles(cle) des règles ; null hors du catalogue', () => {
-    for (const e of epreuvesClassees()) {
+    // Le quiz n'a pas de série : ses 20 questions font les 100 % (scores.ts, totalDe).
+    for (const e of epreuvesClassees().filter((x) => modeEpreuve(x) !== 'quiz')) {
       const [, cle, serie] = e.split(':') as [string, string, string];
       expect(tailleEpreuve(e), e).toBe(tailleDe.get(serie));
       expect(tailleEpreuve(e), e).toBe(taillesRegles(cle)[serie]);

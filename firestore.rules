@@ -62,16 +62,33 @@ service cloud.firestore {
 
     // Une épreuve : « mode:clé:série » (src/epreuve/chrono.ts, idEpreuve), la
     // clé d'un sujet qui a des épreuves, la série de ce sujet ; ou le général
-    // du Chrono. Un sujet entre ici avant le site qui ouvre ses épreuves
-    // (décision « Ouverture des épreuves d'un sujet », 12/11/2026 : dès sa
-    // livraison, sans date de bascule). Minute est retiré (12/11/2026,
-    // décision « Barème et classements ») : plus rien ne s'écrit sous
-    // « minute:… », id réservé, jamais réutilisé (MODES_RETIRES).
+    // du Chrono ; ou une difficulté du quiz général, « quiz:general:moyen »
+    // (idQuiz, étude J2 § 9.4). Un sujet entre ici avant le site qui ouvre ses
+    // épreuves (décision « Ouverture des épreuves d'un sujet », 12/11/2026 :
+    // dès sa livraison, sans date de bascule ; le quiz, ses quatre sujets du
+    // J2 livrés, D50 c). Minute est retiré (12/11/2026, décision « Barème et
+    // classements ») : plus rien ne s'écrit sous « minute:… », id réservé,
+    // jamais réutilisé (MODES_RETIRES).
     function epreuveConnue(p) {
       return p.size() == 3
-        && p[0] in ['chrono', 'sansfaute']
-        && p[1] in ['localiser', 'capitales', 'drapeaux', 'mers']
-        && p[2] in tailles(p[1]);
+        && ((p[0] in ['chrono', 'sansfaute']
+          && p[1] in ['localiser', 'capitales', 'drapeaux', 'mers']
+          && p[2] in tailles(p[1]))
+        || (p[0] == 'quiz' && p[1] == 'general' && p[2] in tempsQuiz()));
+    }
+
+    // Le temps total le plus long d'une partie du quiz, par difficulté (ms) :
+    // le délai de chacune de ses 20 questions (src/quiz/regles.ts,
+    // tempsMaxQuiz de src/epreuve/chrono.ts) : 20 à 4 choix de 10 s en
+    // facile ; 10 de 10 s et 10 au toucher de 15 s en moyen ; 8 et 12 en
+    // difficile ; de même en expert, à 6 et 10 s.
+    function tempsQuiz() {
+      return {
+        'facile': 200000,
+        'moyen': 250000,
+        'difficile': 260000,
+        'expert': 168000
+      };
     }
 
     // Semaine du classement de la semaine : repart le lundi à 0 h UTC
@@ -92,6 +109,18 @@ service cloud.firestore {
       return d.questions >= 1 && (n == 0 ? d.questions <= 1244 : d.questions == n)
         && d.points == d.justes
         && d.temps_ms >= d.questions * 200 && d.temps_ms <= d.questions * 15000;
+    }
+
+    // Quiz général (étude J2 § 9.3, décision « Quiz général », barème 2 dès sa
+    // naissance) : 20 questions, chacune juste ou fausse (points = justes) ;
+    // au moins 0,2 s par question, au plus le délai de chacune, au total. Les
+    // règles ne savent pas que les questions viennent de la bonne
+    // difficulté : sans serveur, seule la vraisemblance. Jamais au général :
+    // son total n'additionne que des Chrono (epreuvesDuGeneral).
+    function quizValide(d, difficulte) {
+      return d.questions == 20
+        && d.points == d.justes
+        && d.temps_ms >= 20 * 200 && d.temps_ms <= tempsQuiz()[difficulte];
     }
 
     // Sans faute : les justes d'affilée (points = justes), plus l'erreur qui a
@@ -130,7 +159,8 @@ service cloud.firestore {
         && (epreuve == 'general'
           ? chronoValide(d, 0)
           : epreuveConnue(p)
-            && (p[0] == 'chrono' ? chronoValide(d, tailles(p[1])[p[2]])
+            && (p[0] == 'quiz' ? quizValide(d, p[2])
+              : p[0] == 'chrono' ? chronoValide(d, tailles(p[1])[p[2]])
               : sansFauteValide(d, tailles(p[1])[p[2]])));
     }
 

@@ -90,8 +90,9 @@ describe('écran des classements', () => {
     expect(nomEpreuve(idEpreuve('reunion', 'sansfaute', 'communes'))).toBe('La Réunion');
     // Le nom du sujet vient de textes.jouer.sujets, qui l'aura au lot de chaque sujet ; d'ici là, son id.
     expect(nomEpreuve(idEpreuve('Africa', 'chrono', 'capitales'))).toBe(remplir(textes.chrono.epreuve_sujet, { sujet: nomSujet('capitales'), serie: 'Afrique' }));
-    // Un mode que l'écran ne sait pas titrer (le quiz, au lot 4b) : son nom seul, sans planter.
-    expect(titreEpreuve('quiz:general:facile')).toBe(nomEpreuve('quiz:general:facile'));
+    // Le quiz (lot 4b) : « Quiz général · Facile », titre et nom ; une difficulté inconnue, sans planter.
+    expect([nomEpreuve('quiz:general:facile'), titreEpreuve('quiz:general:expert')]).toEqual(['Quiz général · Facile', 'Quiz général · Expert']);
+    expect(() => titreEpreuve('quiz:general:enfer')).not.toThrow();
     expect(titreEpreuve(idEpreuve('Africa', 'sansfaute', 'capitales'))).toBe(`Sans faute · ${nomEpreuve(idEpreuve('Africa', 'chrono', 'capitales'))}`);
   });
 
@@ -141,7 +142,7 @@ describe('écran des classements', () => {
     plus.click();
     expect(p.querySelector('#classements-autres')!.hidden).toBe(false);
     expect(lignes('#classements-autres')).toEqual(EPREUVES_CLASSEES.filter((e) => ![AFR, ILE, SF_EUR].includes(e)));
-    expect(groupes('#classements-autres')).toEqual(['Chrono', 'Sans faute']);
+    expect(groupes('#classements-autres')).toEqual(['Chrono', 'Sans faute', 'Quiz général']);
     expect(sujets('#classements-autres')).toEqual(['Pays', 'Capitales', 'Drapeaux', 'Océans et mers', 'Pays', 'Capitales', 'Drapeaux', 'Océans et mers', 'Communes']);
     expect(plus.textContent).toBe(T.masquer_epreuves);
     // Les autres ne sont pas lues : ni rang, ni « pas encore classé », mais de quoi les chercher.
@@ -149,12 +150,13 @@ describe('écran des classements', () => {
     expect(racine.querySelectorAll('#classements-autres .classements-chercher').map((b) => b.dataset.sujet)).toEqual([
       ...['pays', 'capitales', 'drapeaux', 'mers'],
       ...['pays', 'capitales', 'drapeaux', 'mers', 'communes'],
+      'quiz',
     ]);
   });
 
-  it('D52 b : à l’ouverture, 1 + 5 classements lus au lieu de 1 + 46 ; « Chercher mes places » lit le reste, sujet par sujet', async () => {
+  it('D52 b : à l’ouverture, 1 + 5 classements lus au lieu de 1 + 50 ; « Chercher mes places » lit le reste, sujet par sujet', async () => {
     const tout = epreuvesClassees();
-    expect(tout).toHaveLength(46);
+    expect(tout).toHaveLength(50);
     localStorage.setItem('terramemo.pseudo', 'Michel');
     const CAP_OCE = idEpreuve('Oceania', 'chrono', 'capitales');
     const SF_CAP = idEpreuve('tous', 'sansfaute', 'capitales');
@@ -222,6 +224,31 @@ describe('écran des classements', () => {
     expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', AFR, CAP_OCE, DRA_OCE, ILE]);
   });
 
+  it('le quiz (lot 4b) : lu à l’ouverture là où l’appareil a un record, sous « Quiz général », la difficulté seule ; « Chercher mes places » lit les autres ; jamais dans le général', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Michel');
+    const FACILE = 'quiz:general:facile';
+    const EXPERT = 'quiz:general:expert';
+    records(FACILE);
+    repondre([place('general', 53), place(FACILE, 17, 2, 5, 20, 95_000), place(EXPERT, 9, 1, 1, 20, 160_000)]);
+    ouvrir();
+    await attendre();
+    expect(mesPlaces.mock.calls[0]![2]).toEqual(['general', FACILE]);
+    expect(lignes('#classements-mes')).toEqual(['general', FACILE]);
+    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Quiz général']);
+    const nom = (e: string) => racine.querySelector(`#classements-mes .essai-serie[data-epreuve="${e}"] .essai-serie-nom`)!.textContent;
+    expect(nom(FACILE)).toBe('Facile');
+    // Le score en part de justes sur 20 : « 85 % », « 17/20 ».
+    const cases = racine.querySelectorAll(`#classements-mes .essai-serie[data-epreuve="${FACILE}"] .place-case`).map((c) => [c.querySelector('b')!.textContent, c.querySelector('small')?.textContent ?? null]);
+    expect(cases.slice(0, 2)).toEqual([['2e', 'sur 5'], ['85\u00a0%', '17/20']]);
+    // Les trois autres difficultés, à la demande.
+    const chercher = racine.querySelector('#classements-autres .classements-chercher[data-sujet="quiz"]')!;
+    chercher.click();
+    await attendre();
+    expect(mesPlaces.mock.calls[1]![2]).toEqual(['quiz:general:moyen', 'quiz:general:difficile', EXPERT]);
+    expect(lignes('#classements-mes')).toEqual(['general', FACILE, EXPERT]);
+    expect(racine.querySelector('.classements-chercher[data-sujet="quiz"]')).toBeNull();
+  });
+
   it('« Chercher mes places » hors ligne : le bouton le dit et se réessaie', async () => {
     localStorage.setItem('terramemo.pseudo', 'Michel');
     records(AFR);
@@ -267,13 +294,17 @@ describe('écran des classements', () => {
     expect(boutons('communes').map((b) => [b.disabled, b.textContent])).toEqual(boutons('communes').map(() => [false, T.chercher_echec]));
   });
 
-  it('les épreuves des capitales, des drapeaux et des mers sous « Capitales », « Drapeaux » et « Océans et mers », entre Pays et Communes ; la ligne des mers nomme sa série (« Océans et mers ») ; rien d’un quiz pas encore classé, même avec un record sur l’appareil', async () => {
-    records('quiz:general:facile');
+  it('les épreuves des capitales, des drapeaux et des mers sous « Capitales », « Drapeaux » et « Océans et mers », entre Pays et Communes ; la ligne des mers nomme sa série (« Océans et mers ») ; le quiz en dernier, son groupe à lui', async () => {
     const p = ouvrir();
     await attendre();
     const parMode = ['Pays', 'Capitales', 'Drapeaux', 'Océans et mers', 'Communes'];
+    // Le quiz n'a pas de sujet (h4) : ses difficultés sous « Quiz général ».
     expect(sujets('#classements-mes')).toEqual([...parMode, ...parMode]);
+    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute', 'Quiz général']);
     expect(lignes('#classements-mes')).toEqual(['general', ...epreuvesClassees()]);
+    expect(lignes('#classements-mes').slice(-4)).toEqual(['quiz:general:facile', 'quiz:general:moyen', 'quiz:general:difficile', 'quiz:general:expert']);
+    const nomQuiz = p.querySelector('.essai-serie[data-epreuve="quiz:general:moyen"] .essai-serie-nom')!.textContent;
+    expect(nomQuiz).toBe(`Moyen${T.pas_classe}`);
     const nomMers = p.querySelector('.essai-serie[data-epreuve="sansfaute:mers:mers"] .essai-serie-nom')!.textContent;
     expect(nomMers).toBe(`Océans et mers${T.pas_classe}`);
   });
@@ -328,7 +359,7 @@ describe('écran des classements', () => {
     await attendre();
     expect(mesPlaces).not.toHaveBeenCalled();
     expect(lignes('#classements-mes')).toEqual(['general', ...EPREUVES_CLASSEES]);
-    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute']);
+    expect(groupes('#classements-mes')).toEqual(['Chrono', 'Sans faute', 'Quiz général']);
     expect(p.innerText).toContain(T.classements_sans_pseudo);
   });
 
@@ -341,8 +372,8 @@ describe('écran des classements', () => {
     expect(mesPlaces).toHaveBeenCalledWith('toujours', 'Michel', ['general']);
     expect(p.innerText).toContain(T.classements_aucune);
     expect(lignes('#classements-mes')).toHaveLength(EPREUVES_CLASSEES.length + 1);
-    // Un bouton par sujet et par mode : Pays, Capitales, Drapeaux, Océans et mers, Communes.
-    expect(racine.querySelectorAll('#classements-mes .classements-chercher').length).toBe(10);
+    // Un bouton par sujet et par mode : Pays, Capitales, Drapeaux, Océans et mers, Communes ; et un pour le quiz.
+    expect(racine.querySelectorAll('#classements-mes .classements-chercher').length).toBe(11);
     mesPlaces.mockRejectedValue(new Error('hors ligne'));
     p = ouvrir();
     await attendre();

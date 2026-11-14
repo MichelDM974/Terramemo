@@ -9,12 +9,12 @@
 // le score acquis, les questions sans réponse valant 0 et tout leur délai.
 // Sinon, comme « Rejouer » refait un tirage, on abandonnerait dès qu'une
 // question difficile tombe jusqu'à un tirage facile.
-import type { Difficulte, Question, SujetQuiz } from '../quiz/types';
+import type { Question, SujetQuiz } from '../quiz/types';
 import type { ScoreEpreuve } from './bareme';
 import { PartieChrono, type QuestionJouee } from './chrono';
 
-/** Identifiant du classement d'une difficulté (§ 9.4) : stable tant que la formule ne change pas (D50 ; sinon `quiz:general2:…`). */
-export const idQuiz = (d: Difficulte): string => `quiz:general:${d}`;
+/** Identifiant du classement d'une difficulté (§ 9.4), dans chrono.ts avec les autres ids (epreuvesClassees les liste). */
+export { idQuiz } from './chrono';
 
 export class PartieQuiz extends PartieChrono {
   private montree = false;

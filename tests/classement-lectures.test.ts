@@ -60,7 +60,7 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     const tout = await mesPlaces('toujours', 'Michel', [GENERAL, ...classees]);
     const avant = lectures;
     expect(tout).toHaveLength(5);
-    expect(avant).toBe(1 + 46 + 3 * 5);
+    expect(avant).toBe(1 + 50 + 3 * 5);
 
     // Après : le général, les épreuves à record, la place vue (un Sans faute sans place : une lecture, pas de rang).
     lectures = 0;
@@ -70,8 +70,8 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     const apres = lectures;
     expect(lues.map((p) => p.epreuve)).toEqual([GENERAL, AFR, CAP, DRA, ILE]);
     expect(apres).toBe(1 + 5 + 3 * 5);
-    // 62 lectures avant, 21 après : les mers (lot 3b) n'ajoutent rien à l'ouverture sans record ni place des mers.
-    expect([avant, apres]).toEqual([62, 21]);
+    // 66 lectures avant, 21 après : les mers (lot 3b) et le quiz (lot 4b) n'ajoutent rien à l'ouverture sans record ni place à eux.
+    expect([avant, apres]).toEqual([66, 21]);
     places.clear();
   });
 
@@ -83,15 +83,17 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     ]);
     expect(epreuvesALire(epreuvesClassees(), records, 's2914', new Set())).toEqual([idEpreuve('Asia')]);
     expect(epreuvesALire(epreuvesClassees(), records, 'toujours', new Set())).toEqual([AFR]);
-    // Une épreuve des drapeaux ou des mers (lot 3b) se lit avec son record, ou vue ; une hors du catalogue (le quiz, pas
-    // encore classé), jamais, même vue ou avec un record.
+    // Une épreuve des drapeaux, des mers (lot 3b) ou du quiz (lot 4b) se lit avec son record, ou vue ; une hors des
+    // épreuves classées, jamais, même vue ou avec un record.
     const DRA = idEpreuve('Oceania', 'sansfaute', 'drapeaux');
     expect(epreuvesALire(epreuvesClassees(), new Map([[DRA, rec(1)]]), 'toujours', new Set())).toEqual([DRA]);
     const MERS = idEpreuve('mers', 'chrono', 'mers');
     const SF_MERS = idEpreuve('mers', 'sansfaute', 'mers');
     expect(epreuvesALire(epreuvesClassees(), new Map([[MERS, rec(1)]]), 'toujours', new Set([SF_MERS]))).toEqual([MERS, SF_MERS]);
     const QUIZ = 'quiz:general:facile';
-    expect(epreuvesALire(epreuvesClassees(), new Map([[QUIZ, rec(1)]]), 'toujours', new Set([QUIZ]))).toEqual([]);
+    expect(epreuvesALire(epreuvesClassees(), new Map([[QUIZ, rec(1)]]), 'toujours', new Set(['quiz:general:moyen']))).toEqual([QUIZ, 'quiz:general:moyen']);
+    const AUTRE = 'quiz:general2:facile';
+    expect(epreuvesALire(epreuvesClassees(), new Map([[AUTRE, rec(1)]]), 'toujours', new Set([AUTRE]))).toEqual([]);
     lectures = 0;
     expect(await mesPlaces('toujours', 'Michel', [])).toEqual([]);
     expect(lectures).toBe(0);

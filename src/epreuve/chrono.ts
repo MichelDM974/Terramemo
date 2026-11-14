@@ -3,6 +3,8 @@
 // comptent les justes (bareme.ts, décision « Barème et classements » du
 // 12/11/2026). Les records se gardent sur l'appareil (de toujours et de la
 // semaine) ; classement.ts les publie.
+import { REGLES } from '../quiz/regles';
+import { DIFFICULTES, type Difficulte } from '../quiz/types';
 import type { Domaine } from '../srs/fiches';
 import { comparerScores, DELAI_CHRONO_MS, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
 
@@ -263,12 +265,30 @@ export const sujetOuvert = (sujet: string): boolean => EPREUVES_SUJETS.some((p) 
  */
 export const epreuvesDuGeneral = (): string[] => EPREUVES_SUJETS.map((p) => idEpreuve(p.serie, 'chrono', p.sujet));
 
+/** Identifiant du classement d'une difficulté du quiz (étude J2 § 9.4) : stable tant que la formule ne change pas (D50 ; sinon `quiz:general2:…`). */
+export const idQuiz = (d: Difficulte): string => `quiz:general:${d}`;
+
+/** La difficulté d'un classement du quiz (`quiz:general:moyen`, ou sa clé de record `…@s2914`) ; null hors du quiz ou pour une difficulté inconnue. */
+export function difficulteQuiz(epreuve: string): Difficulte | null {
+  const [m, cle, d] = (epreuve.split('@')[0] ?? '').split(':');
+  return m === 'quiz' && cle === 'general' && (DIFFICULTES as readonly (string | undefined)[]).includes(d) ? (d as Difficulte) : null;
+}
+
+/**
+ * Les classements du quiz, un par difficulté (étude J2 § 9.4). Ouverts dès
+ * le lot 4b (décision « Ouverture des épreuves d'un sujet » : les quatre
+ * sujets du J2 sont livrés, D50 c) ; hors du général (epreuvesDuGeneral ne
+ * les liste pas).
+ */
+export const epreuvesQuiz = (): string[] => DIFFICULTES.map(idQuiz);
+
 /**
  * Toutes les épreuves classées (l'ancien EPREUVES_CLASSEES), mode
- * par mode, puis sujet par sujet : l'écran des classements les liste ainsi
- * (§ 8.3). Le quiz viendra au lot 4b.
+ * par mode, puis sujet par sujet, et le quiz en dernier : l'écran des
+ * classements les liste ainsi (§ 8.3), et l'appareil publie ou relance
+ * les records de ces seules épreuves.
  */
-export const epreuvesClassees = (): string[] => MODES_EPREUVE.flatMap((m) => EPREUVES_SUJETS.map((p) => idEpreuve(p.serie, m, p.sujet)));
+export const epreuvesClassees = (): string[] => [...MODES_EPREUVE.flatMap((m) => EPREUVES_SUJETS.map((p) => idEpreuve(p.serie, m, p.sujet))), ...epreuvesQuiz()];
 
 /** Le sujet d'une épreuve du catalogue (`chrono:localiser:reunion` → communes) ; null hors du catalogue (le général, le quiz). */
 export function sujetEpreuve(epreuve: string): Domaine | null {
@@ -526,13 +546,26 @@ export const TEMPS_MAX_QUESTION_MS = 15_000;
 export const QUESTIONS_QUIZ = 20;
 
 /**
+ * Le temps total le plus long d'une partie du quiz de cette difficulté (ms) :
+ * le délai de chacune de ses questions (src/quiz/regles.ts ; PartieQuiz.score
+ * borne chaque temps par le sien et compte tout le délai d'une question sans
+ * réponse). La copie de tempsQuiz() dans firestore.rules :
+ * tests/regles.test.ts les confronte.
+ */
+export function tempsMaxQuiz(d: Difficulte): number {
+  const r = REGLES[d];
+  return r.qcm * r.delai_qcm_ms + (QUESTIONS_QUIZ - r.qcm) * r.delai_toucher_ms;
+}
+
+/**
  * Le score de cette épreuve (ou clé de record) passerait-il les bornes de
  * firestore.rules (scoreValide), arrondi comme publier() l'envoie ? Faux : les
  * règles le refuseraient, inutile de l'écrire, et le général prend à sa place
  * le meilleur score publiable de l'épreuve (recordPubliable). La taille de
  * l'épreuve et la progression se jugent sur le serveur seulement, sauf la
  * borne du général (BORNE_GENERAL), recopiée. Le quiz :
- * les bornes de quizValide (étude J2 § 8.2 : 20 questions, barème du Chrono) ;
+ * les bornes de quizValide (20 questions, juste ou faux, le temps borné par
+ * les délais de sa difficulté : tempsMaxQuiz) ;
  * un mode inconnu ou retiré (Minute) : faux.
  */
 export function vraisemblable(s: ScoreEpreuve, epreuve: string): boolean {
@@ -547,9 +580,11 @@ export function vraisemblable(s: ScoreEpreuve, epreuve: string): boolean {
     case 'chrono':
       // Le général : au plus BORNE_GENERAL questions, comme chronoValide(d, 0).
       return baremeChrono(points, justes, q, temps) && (epreuve.split('@')[0] !== ID_GENERAL || q <= BORNE_GENERAL);
-    case 'quiz':
-      // Les bornes du Chrono, sur 20 questions.
-      return q === QUESTIONS_QUIZ && baremeChrono(points, justes, q, temps);
+    case 'quiz': {
+      // quizValide : 20 questions, points = justes, au moins 0,2 s par question, au plus le délai de chacune.
+      const d = difficulteQuiz(epreuve);
+      return d !== null && q === QUESTIONS_QUIZ && points === justes && temps >= q * TEMPS_MIN_QUESTION_MS && temps <= tempsMaxQuiz(d);
+    }
     case null:
       return false;
   }
