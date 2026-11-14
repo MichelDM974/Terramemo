@@ -22,6 +22,7 @@ interface EvenementMessage extends EvenementDuree {
 }
 interface PorteeSw {
   location: Location;
+  registration: { installing: unknown; waiting: unknown };
   skipWaiting(): Promise<void>;
   clients: { claim(): Promise<void>; matchAll(o: { type: 'window'; includeUncontrolled: boolean }): Promise<readonly unknown[]> };
   addEventListener(type: 'install' | 'activate', f: (e: EvenementDuree) => void): void;
@@ -30,7 +31,14 @@ interface PorteeSw {
 }
 
 const portee = self as unknown as PorteeSw;
-const mo: Moteur = { caches, fetch: (r, i) => fetch(r, i), manifeste, origine: portee.location.origin };
+const mo: Moteur = {
+  caches,
+  fetch: (r, i) => fetch(r, i),
+  manifeste,
+  origine: portee.location.origin,
+  etat: {},
+  nouvelleVersion: () => !!(portee.registration.installing ?? portee.registration.waiting),
+};
 
 portee.addEventListener('install', (e) => e.waitUntil(installer(mo)));
 

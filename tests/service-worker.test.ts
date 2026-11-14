@@ -122,8 +122,8 @@ function build(version: 1 | 2): Map<string, string> {
   ]);
 }
 
-function moteur(caches: FauxCaches, reseau: FauxReseau, manifeste: Manifeste): Moteur {
-  return { caches, fetch: reseau.fetch, manifeste, origine: ORIGINE };
+function moteur(caches: FauxCaches, reseau: FauxReseau, manifeste: Manifeste, nouvelleVersion?: () => boolean): Moteur {
+  return { caches, fetch: reseau.fetch, manifeste, origine: ORIGINE, etat: {}, nouvelleVersion };
 }
 
 /** repondre, les tâches de fond (ranger) attendues. */
@@ -501,6 +501,76 @@ describe('service worker : le sw.js d’un vrai build', () => {
     expect(m.prechargees).toEqual(expect.arrayContaining(['/', script, '/geo/monde.topo.json', '/geo/pays.json', '/geo/contestees.json', '/geo/noms.fr.json', '/geo/monde-leger.topo.json', '/vendor/inter/InterVariable.woff2']));
     expect(m.prechargees.filter((c) => /drapeaux|capitales|reunion|mers|worker/.test(c))).toEqual([]);
     expect(m.version).toMatch(/^[0-9a-f]{16}$/);
+  });
+});
+
+describe('service worker : la coquille du réseau d’abord, la version dépassée', () => {
+  it('sans déploiement : la coquille revalidée au réseau, la carte toujours du cache', async () => {
+    const caches = new FauxCaches();
+    const reseau = new FauxReseau(build(1));
+    const mo = moteur(caches, reseau, M1, () => false);
+    await installer(mo);
+    reseau.appels = [];
+    expect(await demander(mo, '/?rendu=webgl', 'navigate')).toEqual({ texte: build(1).get('index.html'), status: 200 });
+    expect(mo.etat.depassee).toBe(false);
+    expect(await demander(mo, '/geo/pays.json')).toEqual({ texte: 'pays 1', status: 200 });
+    expect(reseau.chemins()).toEqual(['/']);
+  });
+
+  it('première visite après un déploiement : la nouvelle coquille et ses fichiers à elle, jamais ceux de l’ancien cache ; hors ligne, l’ancienne et les siens', async () => {
+    const caches = new FauxCaches();
+    const reseau = new FauxReseau(build(1));
+    const mo1 = moteur(caches, reseau, M1, () => false);
+    await installer(mo1);
+    await activer(mo1);
+    await demander(mo1, '/assets/compte-c1.js'); // une page de la v1, ouverte avant le déploiement
+    const v1 = caches.contenu(nomCache(M1.version));
+
+    reseau.fichiers = build(2);
+    // L'ancienne version contrôle encore la page : elle sert la coquille de la v2 et se sait dépassée.
+    expect(await demander(mo1, '/', 'navigate')).toEqual({ texte: build(2).get('index.html'), status: 200 });
+    expect(mo1.etat.depassee).toBe(true);
+    // Le script de la v2 n'est pas du build de la v1 : au réseau.
+    expect(await demander(mo1, '/assets/index-a2.js')).toBe('hors-sw');
+    // Une carte changée : celle du serveur (la v2), pas celle du cache de la v1, qui n'est pas touché.
+    expect(await demander(mo1, '/geo/pays.json')).toEqual({ texte: 'pays 2', status: 200 });
+    expect(await demander(mo1, '/geo/capitales.json')).toEqual({ texte: 'capitales 2', status: 200 });
+    expect(caches.contenu(nomCache(M1.version))).toEqual(v1);
+    // Un morceau de la v1 que le serveur n'a plus (page restée ouverte) : sa copie plutôt qu'un 404.
+    expect(await demander(mo1, '/assets/compte-c1.js')).toEqual({ texte: 'compte 1', status: 200 });
+
+    // Hors ligne : la coquille de la v1 et ses fichiers, du cache, sans mélange.
+    reseau.horsLigne = true;
+    expect(await demander(mo1, '/', 'navigate')).toEqual({ texte: build(1).get('index.html'), status: 200 });
+    expect(mo1.etat.depassee).toBe(false);
+    expect(await demander(mo1, '/geo/pays.json')).toEqual({ texte: 'pays 1', status: 200 });
+  });
+
+  it('service worker arrêté puis réveillé (état perdu) : dépassé tant qu’une version plus récente s’installe ou attend', async () => {
+    const caches = new FauxCaches();
+    const reseau = new FauxReseau(build(1));
+    let attente = false;
+    const mo1 = moteur(caches, reseau, M1, () => attente);
+    await installer(mo1);
+    reseau.fichiers = build(2);
+    expect(await demander(mo1, '/geo/pays.json')).toEqual({ texte: 'pays 1', status: 200 });
+    attente = true;
+    expect(await demander(mo1, '/geo/pays.json')).toEqual({ texte: 'pays 2', status: 200 });
+    // Hors ligne, la copie de la version.
+    reseau.horsLigne = true;
+    expect(await demander(mo1, '/geo/pays.json')).toEqual({ texte: 'pays 1', status: 200 });
+  });
+
+  it('coquille : une erreur du serveur rend la copie de la version ; hors ligne sans copie, l’erreur du réseau', async () => {
+    const caches = new FauxCaches();
+    const reseau = new FauxReseau(build(1));
+    const mo = moteur(caches, reseau, M1);
+    reseau.horsLigne = true;
+    await expect(demander(mo, '/', 'navigate')).rejects.toThrow();
+    reseau.horsLigne = false;
+    await installer(mo);
+    reseau.fichiers = new Map();
+    expect(await demander(mo, '/', 'navigate')).toEqual({ texte: build(1).get('index.html'), status: 200 });
   });
 });
 

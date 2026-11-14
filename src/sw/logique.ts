@@ -31,6 +31,21 @@
 //   choix plutôt qu'une simple revalidation à chaque visite (ETag) : la carte
 //   s'ouvre hors ligne, sans un aller-retour par fichier, et le contenu suit
 //   la coquille de sa version par construction.
+// - La coquille (navigation vers /) : réseau d'abord (`/` est en no-cache :
+//   un 304 qui ne coûte presque rien), la copie de la version si le réseau
+//   est coupé ou flanche. Servie du cache d'abord, toute la première visite
+//   après un déploiement tournerait sur l'ancienne coquille, dont les
+//   morceaux à la demande jamais rangés ne sont plus sur Hosting (404) et
+//   dont les /geo/ jamais rangés arriveraient de la nouvelle version. Si le
+//   réseau sert une autre coquille que celle de la version, celle-ci est
+//   dépassée (`EtatMoteur`) : ses fichiers passent alors au réseau d'abord
+//   (la copie de la version s'il est coupé ou répond une erreur), pour que
+//   la nouvelle coquille ait ses fichiers à elle et non ceux du cache, en
+//   attendant que la nouvelle version prenne la relève. Hors ligne, la
+//   coquille servie est celle du cache, et ses fichiers aussi. La dernière
+//   navigation fait foi pour toutes les pages : un onglet de l'ancienne
+//   coquille resté ouvert passe lui aussi au réseau (comme sans service
+//   worker, la copie de sa version en plus quand le serveur ne l'a plus).
 // - Jamais de cache pour une requête autre que GET, ni d'une autre origine
 //   (Firestore, Auth, googleapis), ni pour /__/ (les pages de Firebase) ;
 //   les pages statiques (confidentialité, suppression, leur feuille de
@@ -44,7 +59,8 @@
 // (MESSAGE_ACTIVER, src/sw/enregistrer.ts) ; la nouvelle version ne la prend
 // que si cette page est la seule ouverte (un autre onglet peut être en
 // partie), efface à l'activation les caches des versions d'avant, et la page
-// se recharge une fois, avant qu'on ait joué. Ce qui a été rangé dans
+// se recharge une fois, avant qu'on ait joué (la page ne la demande que
+// dans ses premières secondes, DEMANDE_MAX_MS). Ce qui a été rangé dans
 // l'ancien cache depuis l'installation et n'a pas changé est repris à
 // l'activation, avant l'effacement. skipWaiting dès l'installation
 // aurait effacé le cache sous une partie en cours, dont les morceaux à la
@@ -84,8 +100,8 @@ export async function empreinte(contenu: ArrayBuffer): Promise<string> {
 
 /**
  * - hors-sw : le service worker ne répond pas (le navigateur va au réseau) ;
- * - coquille : index.html de la version, du cache d'abord (les navigations vers '/', '/?…', '/index.html') ;
- * - cache : du cache d'abord, sinon le réseau, rangé à l'usage ;
+ * - coquille : index.html, du réseau d'abord, la copie de la version s'il est coupé (les navigations vers '/', '/?…', '/index.html') ;
+ * - cache : du cache d'abord, sinon le réseau, rangé à l'usage (réseau d'abord si la version est dépassée) ;
  * - reseau-dabord : le réseau, la copie de la version s'il est coupé.
  */
 export type Strategie = 'hors-sw' | 'coquille' | 'cache' | 'reseau-dabord';
@@ -134,13 +150,30 @@ export interface CachesMin {
   delete(nom: string): Promise<boolean>;
 }
 
+/**
+ * Ce que le service worker a appris de la dernière navigation : la version
+ * est dépassée si le réseau y a servi une autre coquille que la sienne (un
+ * déploiement depuis), à jour s'il a servi la sienne ou si la coquille est
+ * sortie du cache (hors ligne). Perdu quand le navigateur arrête le service
+ * worker : on se rabat alors sur `nouvelleVersion`.
+ */
+export interface EtatMoteur {
+  depassee?: boolean;
+}
+
 export interface Moteur {
   caches: CachesMin;
   fetch: (requete: string | Request, init?: RequestInit) => Promise<Response>;
   manifeste: Manifeste;
   /** Origine du site (celle du service worker). */
   origine: string;
+  etat: EtatMoteur;
+  /** Une version plus récente s'installe ou attend la relève (registration.installing, waiting). */
+  nouvelleVersion?: () => boolean;
 }
+
+/** La version de ce service worker est-elle dépassée (un autre build déployé) ? */
+export const depassee = (mo: Moteur): boolean => mo.etat.depassee ?? mo.nouvelleVersion?.() ?? false;
 
 /** Garde le service worker en vie pour une tâche de fond (event.waitUntil). */
 export type Garder = (tache: Promise<unknown>) => void;
@@ -154,14 +187,21 @@ const cle = (mo: Moteur, chemin: string): string => mo.origine + chemin;
  */
 export async function verifiee(mo: Moteur, chemin: string, r: Response): Promise<Response | null> {
   const attendue = mo.manifeste.empreintes[chemin];
-  if (!attendue || !r.ok || (r.type !== 'basic' && r.type !== 'default')) return null;
+  if (!attendue || !reponseDuSite(r)) return null;
   const contenu = await r.arrayBuffer();
   if ((await empreinte(contenu)) !== attendue) return null;
+  return refaite(r, contenu, attendue);
+}
+
+const reponseDuSite = (r: Response): boolean => r.ok && (r.type === 'basic' || r.type === 'default');
+
+/** `r` refaite sur son contenu lu, avec l'empreinte en en-tête si elle est de la version. */
+function refaite(r: Response, contenu: ArrayBuffer, empreinteVersion: string | null): Response {
   // Le corps est déjà décodé : l'encodage et la longueur du transfert ne le décrivent plus.
   const entetes = new Headers(r.headers);
   entetes.delete('content-encoding');
   entetes.delete('content-length');
-  entetes.set(ENTETE_EMPREINTE, attendue);
+  if (empreinteVersion) entetes.set(ENTETE_EMPREINTE, empreinteVersion);
   return new Response(contenu, { status: r.status, statusText: r.statusText, headers: entetes });
 }
 
@@ -240,14 +280,55 @@ function ranger(mo: Moteur, chemin: string, r: Response, garder: Garder): void {
   );
 }
 
+/**
+ * La coquille : le réseau d'abord, lu en entier (quelques ko) pour savoir
+ * avant de répondre si c'est celle de la version, et donc comment servir les
+ * fichiers que la page va demander aussitôt. La copie de la version si le
+ * réseau est coupé ou répond une erreur.
+ */
+async function coquille(mo: Moteur, requete: Request, cache: CacheMin, garder: Garder): Promise<Response> {
+  const copie = async (): Promise<Response | undefined> => {
+    const c = await cache.match(cle(mo, '/'));
+    if (c) mo.etat.depassee = false;
+    return c;
+  };
+  let r: Response;
+  try {
+    r = await mo.fetch(requete);
+  } catch (e) {
+    const c = await copie();
+    if (c) return c;
+    throw e;
+  }
+  if (r.type === 'opaqueredirect') return r;
+  if (!reponseDuSite(r)) return (await copie()) ?? r;
+  const contenu = await r.arrayBuffer();
+  const attendue = mo.manifeste.empreintes['/']!;
+  const aJour = (await empreinte(contenu)) === attendue;
+  mo.etat.depassee = !aJour;
+  if (aJour) {
+    const v = refaite(r, contenu.slice(0), attendue);
+    garder(
+      (async () => {
+        if (!(await cache.match(cle(mo, '/')))) await cache.put(cle(mo, '/'), v);
+      })().catch(() => undefined),
+    );
+  }
+  return refaite(r, contenu, null);
+}
+
 /** La réponse du service worker à une requête aiguillée (pas hors-sw). */
 export async function repondre(mo: Moteur, requete: Request, a: Aiguillage, garder: Garder): Promise<Response> {
   const chemin = a.chemin!;
   const cache = await mo.caches.open(nomCache(mo.manifeste.version));
-  if (a.strategie === 'reseau-dabord') {
+  if (a.strategie === 'coquille') return coquille(mo, requete, cache, garder);
+  if (a.strategie === 'reseau-dabord' || depassee(mo)) {
+    // Version dépassée : la copie aussi quand le serveur ne l'a plus (un morceau à la demande d'une page restée ouverte).
+    const erreurAussi = a.strategie === 'cache';
     try {
       const r = await mo.fetch(requete);
       if (r.ok) ranger(mo, chemin, r, garder);
+      else if (erreurAussi) return (await cache.match(cle(mo, chemin))) ?? r;
       return r;
     } catch (e) {
       const copie = await cache.match(cle(mo, chemin));

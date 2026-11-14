@@ -546,7 +546,7 @@ install -r` : la répétition 1 lirait le maillage du cache. La répétition 1
 est donc une **première visite** (cache HTTP coupé, rien de gardé, le
 service worker s'y installe ; les suivantes sortent de son cache comme
 pour un visiteur qui revient : `Network.setCacheDisabled` ne le contourne
-pas, `transfert` 0 ; avec
+pas, `transfert` presque 0, la coquille seule revalidée au réseau ; avec
 `--cache` sur le téléphone, le cache HTTP des séances d'avant reste : la
 répétition 1 y est « visite inconnue »), les
 suivantes des **visites suivantes** (en webgl : maillage lu dans le cache
@@ -740,13 +740,23 @@ manifeste, au build : plugin de `vite.config.ts`).
   (Firestore, Auth, googleapis), non GET, `/__/`, adresses avec paramètres
   (sauf la navigation vers `/`). Pages statiques (`confidentialite.html`,
   `suppression.html`, `documents.css`) : réseau d'abord.
+- **La coquille** (`/`) : réseau d'abord (un 304), la copie de la version
+  hors ligne. Si le réseau sert une autre coquille (un déploiement depuis),
+  la version est **dépassée** : ses fichiers passent au réseau d'abord (la
+  copie si coupé ou en erreur), donc la première visite après un
+  déploiement tourne en entier sur le nouveau build, sans 404 de morceaux à
+  la demande ni carte de l'ancien cache. Servie du cache d'abord, elle
+  tournait en entier sur l'ancienne coquille (constat de relecture).
 - **Mise à jour** : la nouvelle version s'installe en fond (reprend de
   l'ancienne ce qui n'a pas changé, sans réseau), puis prend la relève au
-  **chargement suivant** si c'est le seul onglet ouvert : caches d'avant
-  effacés, la page se recharge une fois au démarrage. Pas de
+  **chargement suivant** si c'est le seul onglet ouvert et que la page la
+  demande dans ses 5 premières secondes : ce qui n'a pas changé est repris
+  une seconde fois (rangé depuis l'installation), caches d'avant effacés,
+  la page se recharge une fois au démarrage (sous 15 s). Pas de
   `skipWaiting` à l'installation : une partie en cours garderait sinon sa
-  coquille sans son cache. Donc après un déploiement : recharger deux fois
-  (la première trouve la version, la seconde la prend).
+  coquille sans son cache. En ligne, le nouveau build s'affiche dès le
+  premier rechargement (servi par l'ancienne version, dépassée) ; il ne
+  passe sous la nouvelle, et dans son cache, qu'au second.
 - `firebase.json` : `/sw.js` en `no-cache`. Le voir dans Chrome :
   DevTools › Application › Service workers ; à la main sur le téléphone,
   « Effacer les données » du site le retire (mais efface aussi le journal).
@@ -1796,8 +1806,8 @@ deploy --only firestore`), puis Hosting.
   téléphone (service worker refusé : le site n'y marche pas hors ligne) :
   préférer `adb reverse`.
 - **Service worker et build changé** : un onglet resté ouvert sur `serve
-  --preview` garde l'ancien build (servi du cache) jusqu'à deux
-  rechargements, après chaque nouveau build (« Service worker »). Les
+  --preview` garde l'ancien build jusqu'au rechargement suivant ; hors
+  ligne, jusqu'à deux rechargements (« Service worker »). Les
   commandes du driver partent d'un profil neuf, `mesurer` sur le téléphone
   vide d'abord le service worker : seul l'œil sur un Chrome gardé est
   concerné.
