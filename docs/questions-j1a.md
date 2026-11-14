@@ -110,7 +110,12 @@ questions ne bloque le code : chacune a un défaut réversible.
    Défaut codé : A. Q1 et Q2 changent aussi la note des épreuves
    classées : date d'effet à choisir (D13 de l'étude, recommandé : à un
    lundi).
-3. **Micro-États cibles sur un voisin.** *Le recouvrement est tranché*
+3. **Micro-États cibles sur un voisin.** *Tranché le 14/11/2026 (décision
+   « Cadrage et disques en séance ») : option A, rien à changer. Sur la
+   semaine d'usage, `outils/pastilles.py` ne trouve aucune réponse au zoom
+   faible (< 3) dans le journal de l'A37 : 20 réponses « où est » en 3
+   séances, toutes à un zoom ≥ 12 (Monaco juste par pastille une fois, au
+   zoom 109). Faits d'origine ci-dessous.* *Le recouvrement est tranché*
    (décision « Toucher sur la terre ferme ») : sur le tracé d'un pays, le
    disque d'un petit voisin ne l'emporte que sous le doigt, avec ~3 px de
    marge (6,5 px de son centre), et s'il est plus près que le point du

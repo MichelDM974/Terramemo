@@ -2465,7 +2465,9 @@ Koweït, Luxembourg, Monaco, Panama, Singapour, Saint-Marin, Vatican).
 
 ### Défauts codés dès le lot 0c (mémoire ; D46 après le verdict de #2)
 
-**D46. Nouveautés de la Révision du jour.** À trancher **après** le verdict
+**D46. Nouveautés de la Révision du jour.** *Tranchée le 14/11/2026 : b et d,
+le défaut codé, avec la règle du reliquat (décision « Répétition espacée des
+nouveaux sujets »).* À trancher **après** le verdict
 de #2 sur les plafonds D5 (13/11) : la charge à quatre sujets en dépend
 (§ 6.3).
 - Question 1, où s'ouvrent les grappes nouvelles : a) toutes dans la
