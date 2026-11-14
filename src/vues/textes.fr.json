@@ -542,7 +542,33 @@
   "quiz": {
     "_consignes": "Consignes du QCM du quiz facile, qui nomme le pays (D49 d) ; {pays} : sa forme « de » (formes_pays : « du Japon », « d'Israël »).",
     "consigne_capitale": "Quelle est la capitale {pays} ?",
-    "consigne_drapeau": "Quel est le drapeau {pays} ?"
+    "consigne_drapeau": "Quel est le drapeau {pays} ?",
+    "nom": "Quiz général",
+    "detail": "20 questions de tous les sujets",
+    "aide": "Règles du quiz",
+    "regles": "20 questions tirées à parts égales dans tous les sujets : pays, capitales, drapeaux, océans et mers. Chaque question est juste ou fausse : ton score est la part de justes (« 17/20 · 85 % ») ; à égalité, le temps total départage, une question sans réponse comptant tout son délai. La partie compte dès sa première question : abandonnée, elle garde le score acquis. Un classement par difficulté, de toujours et de la semaine, hors du général.",
+    "_difficultes": "Phrase courte de chaque difficulté dans Jouer ; {qcm} et {toucher} : ses questions à 4 choix et sur la carte (src/quiz/regles.ts), {sq} et {st} : leurs secondes.",
+    "difficultes": {
+      "facile": {"nom": "Facile", "detail": "Lieux très connus : {qcm} questions à 4 choix, {sq} s chacune"},
+      "moyen": {"nom": "Moyen", "detail": "Plus de lieux : {qcm} à 4 choix ({sq} s), {toucher} sur la carte ({st} s)"},
+      "difficile": {"nom": "Difficile", "detail": "Tous les lieux, voisins et sosies en leurres : {qcm} à 4 choix ({sq} s), {toucher} sur la carte ({st} s)"},
+      "expert": {"nom": "Expert", "detail": "Comme difficile, en moins de temps : {qcm} à 4 choix ({sq} s), {toucher} sur la carte ({st} s)"}
+    },
+    "echec": "Les données du quiz n'ont pas pu se charger (hors ligne ?).",
+    "abandon_chargement": "Partie abandonnée avant sa première question : elle ne compte pas.",
+    "abandon_compte": "Partie abandonnée : elle compte avec le score acquis.",
+    "juste_lieu": "Juste : {lieu}",
+    "faux_qcm": "Faux · bonne réponse : {cible}",
+    "faux_qcm_choisi": "Faux · bonne réponse : {cible} · tu avais choisi : {choisi}",
+    "bilan_titre": "{quiz} · {difficulte}",
+    "abandonne": "Partie abandonnée à la question {n} : les questions sans réponse comptent fausses.",
+    "par_sujet": "{sujet} {justes}/{n}",
+    "premier_record": "Premier record pour cette difficulté.",
+    "record_semaine": "Record de la semaine : {score}.",
+    "bilan_choisi": "{cible} · tu avais choisi : {choisi}",
+    "bilan_toucher": "{cible} → {touche}, à {km}",
+    "bilan_sans_reponse": "{cible} : pas de réponse",
+    "autre_difficulte": "Autre difficulté"
   },
   "capitales": {
     "roles": {

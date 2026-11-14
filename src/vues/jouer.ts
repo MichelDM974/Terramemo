@@ -12,15 +12,28 @@
 // d'abord (avecSujet : statut, échec hors ligne). « ‹ » et le fil d'Ariane
 // remontent, « × » ferme (main.ts) ; chaque niveau a son adresse, que
 // main.ts donne à aller().
-import { idEpreuve, lireRecords, type RecordChrono } from '../epreuve/chrono';
+// Le quiz général (étude J2 § 7.1, décision « Quiz général ») : la première
+// tuile de la racine, pleine largeur, puis ses quatre difficultés
+// (`data-difficulte`), chacune avec sa phrase courte et son record, les
+// règles derrière « ? ». Ses données (notoriété, capitales, drapeaux, couche
+// marine) se chargent ici avant la partie, comme celles d'un sujet.
+import { idEpreuve, lireRecords, QUESTIONS_QUIZ, type RecordChrono } from '../epreuve/chrono';
+import { idQuiz } from '../epreuve/quiz';
+import { REGLES } from '../quiz/regles';
+import { DIFFICULTES, type Difficulte } from '../quiz/types';
 import { estDomaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import {
   adresse,
   BRANCHES,
   estEpreuve,
+  estQuiz,
   lireDerniere,
+  NIVEAU_QUIZ,
+  QUIZ,
   nomBranche,
+  nomDifficulte,
+  nomQuiz,
   nomExercice,
   nombreSujet,
   nomSujet,
@@ -31,6 +44,7 @@ import {
   type Lancement,
   type ModeJeu,
   type Niveau,
+  type PartieJouer,
 } from './arbre';
 import { nomSerie, SERIE_TOUS, type Serie } from './cibles';
 import { avecSujet, creer, type ContexteVue, type Vue } from './commun';
@@ -73,6 +87,19 @@ export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[
 export const aideSujet = (sujet: string, branche: Branche): string =>
   sujet !== 'drapeaux' ? '' : branche === 'classe' ? J.visuel : `${J.visuel} ${J.visuel_choix}`;
 
+/** La phrase courte d'une difficulté du quiz : « Plus de lieux : 10 à 4 choix (10 s), 10 sur la carte (15 s) » (src/quiz/regles.ts). */
+export function detailDifficulte(d: Difficulte): string {
+  const r = REGLES[d];
+  return remplir(textes.quiz.difficultes[d].detail, { qcm: r.qcm, toucher: QUESTIONS_QUIZ - r.qcm, sq: r.delai_qcm_ms / 1000, st: r.delai_toucher_ms / 1000 });
+}
+
+/** Le record d'une difficulté du quiz (« 17/20 · 85 % ») ; '' s'il n'y en a pas. */
+export function recordQuiz(records: ReadonlyMap<string, RecordChrono>, d: Difficulte): string {
+  const epreuve = idQuiz(d);
+  const r = records.get(epreuve);
+  return r ? scoreCourt(epreuve, r) : '';
+}
+
 /** Le record de cet exercice dans cette série du sujet (« 190/195 · 97 % », « 17/54 · 31 % ») ; '' s'il n'y en a pas (ou en entraînement, ou pour un sujet sans fiches). */
 export function recordDe(records: ReadonlyMap<string, RecordChrono>, m: ModeJeu, serie: string, sujet = 'pays'): string {
   if (!estEpreuve(m) || !estDomaine(sujet)) return '';
@@ -113,6 +140,16 @@ export interface OptionsJouer {
   canoniser(adresse: string): void;
   /** La Révision du jour ; sans elle, pas de ligne. */
   revision?: RevisionJouer;
+  /** Le quiz général ; sans lui, ses difficultés ne lancent rien. */
+  quiz?: QuizJouer;
+}
+
+/** Le quiz général, lancé d'une difficulté. */
+export interface QuizJouer {
+  /** Ses données à charger avant la partie (notoriété, capitales, drapeaux, couche marine) ; null : tout est là. */
+  preparer(): Promise<unknown> | null;
+  /** Une partie de cette difficulté, ses données chargées : main.ts ouvre sa vue et la lance. */
+  lancer(d: Difficulte): void;
 }
 
 /**
@@ -160,13 +197,14 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
    * de la dernière partie, puis chaque niveau affiché marque son chemin.
    */
   const choixFaits = new Map<string, string>();
-  function marquerChemin(n: Niveau, mode?: ModeJeu): void {
+  function marquerChemin(n: Niveau, mode?: string): void {
     const s = segments(n);
     s.forEach((id, i) => choixFaits.set(['jouer', ...s.slice(0, i)].join('/'), id));
     if (mode) choixFaits.set(adresse(n), mode);
   }
+  const marquerPartie = (p: PartieJouer) => (estQuiz(p) ? marquerChemin(NIVEAU_QUIZ, p.quiz) : marquerChemin({ type: 'exercices', ...p }, p.mode));
   const derniere = lireDerniere(stockage(), arbre);
-  if (derniere) marquerChemin({ type: 'exercices', ...derniere }, derniere.mode);
+  if (derniere) marquerPartie(derniere);
 
   const marque = (b: HTMLButtonElement, id: string) => {
     if (rendue && choixFaits.get(rendue) === id) b.setAttribute('aria-current', 'true');
@@ -178,6 +216,40 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     if (!s) return;
     const j = jeton;
     avecSujet(ctx, s, l.sujet, { boutons, statut, encore: () => j === jeton && !panneau.hidden }, (t, ids) => o.lancer(l, s, t, ids));
+  }
+
+  /**
+   * Une partie du quiz : ses données d'abord (comme avecSujet : boutons
+   * désactivés et statut le temps du chargement ; un échec, hors ligne, au
+   * statut, et l'on reste sur ce niveau), puis la partie.
+   */
+  function lancerQuiz(d: Difficulte, boutons: readonly HTMLButtonElement[], statut: HTMLElement): void {
+    const q = o.quiz;
+    if (!q) return;
+    const dire = (m: string) => {
+      statut.textContent = m;
+      statut.hidden = !m;
+    };
+    const p = q.preparer();
+    if (!p) {
+      dire('');
+      return q.lancer(d);
+    }
+    const j = jeton;
+    const actifs = boutons.filter((b) => !b.disabled);
+    for (const b of actifs) b.disabled = true;
+    dire(textes.toucher.chargement_sujet);
+    const fin = (m: string) => {
+      for (const b of actifs) b.disabled = false;
+      dire(m);
+    };
+    p.then(
+      () => {
+        fin('');
+        if (j === jeton && !panneau.hidden) q.lancer(d);
+      },
+      () => fin(textes.quiz.echec),
+    );
   }
 
   function entete(n: Niveau): HTMLElement[] {
@@ -211,8 +283,9 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     const regles = n.type === 'exercices' ? arbre.modes(n.branche, n.sujet).filter((m) => regleExercice(m)) : [];
     // Un sujet aux exercices visuels (les drapeaux) le dit derrière le même « ? », en Entraînement comme en Classé.
     const duSujet = n.type === 'exercices' ? aideSujet(n.sujet, n.branche) : '';
-    if (!regles.length && !duSujet) return [creer('div', { class: 'jouer-tete' }, haut, titre, fermer)];
-    // Les règles complètes derrière « ? » (motif .help-btn / .help-text du style commun).
+    const quiz = n.type === 'quiz';
+    if (!regles.length && !duSujet && !quiz) return [creer('div', { class: 'jouer-tete' }, haut, titre, fermer)];
+    // Les règles complètes derrière « ? » (motif .help-btn / .help-text du style commun) ; celles du quiz, au niveau de ses difficultés.
     const texte = creer(
       'div',
       { class: 'help-text', id: 'jouer-regles' },
@@ -221,10 +294,11 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
         return creer('p', {}, creer('strong', {}, nomExercice(m)), ` : ${r.charAt(0).toLowerCase()}${r.slice(1)}`);
       }),
       ...(duSujet ? [creer('p', { class: 'jouer-aide-sujet' }, duSujet)] : []),
+      ...(quiz ? [creer('p', {}, textes.quiz.regles)] : []),
     );
     texte.hidden = true;
-    // Le libellé : les règles des épreuves, ou l'aide des exercices d'Entraînement d'un sujet visuel.
-    const libelle = regles.length ? J.regles : J.aide;
+    // Le libellé : les règles des épreuves ou du quiz, ou l'aide des exercices d'Entraînement d'un sujet visuel.
+    const libelle = quiz ? textes.quiz.aide : regles.length ? J.regles : J.aide;
     const aide = creer('button', { type: 'button', class: 'help-btn', id: 'jouer-aide', 'aria-label': libelle, title: libelle, 'aria-expanded': 'false', 'aria-controls': 'jouer-regles' }, '?');
     aide.addEventListener('click', () => {
       texte.hidden = !texte.hidden;
@@ -245,7 +319,27 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
       return marque(b, id);
     };
     if (n.type === 'racine')
-      return [grille(BRANCHES.map((br) => choisir(bouton({ 'data-branche': br, class: 'jouer-tuile jouer-branche' }, nomBranche(br), J.branches[br].detail, '', '', icone(br)), br)))];
+      return [
+        grille([
+          // Le quiz en tête, pleine largeur (étude J2 § 7.1) ; Entraînement et Classé dessous, inchangés (le pilote compte data-branche).
+          choisir(bouton({ 'data-racine': QUIZ, class: 'jouer-tuile jouer-branche jouer-large' }, nomQuiz(), textes.quiz.detail, '', '', icone('quiz')), QUIZ),
+          ...BRANCHES.map((br) => choisir(bouton({ 'data-branche': br, class: 'jouer-tuile jouer-branche' }, nomBranche(br), J.branches[br].detail, '', '', icone(br)), br)),
+        ]),
+      ];
+    if (n.type === 'quiz') {
+      // Les quatre difficultés : une ligne chacune, son record à droite ; toucher une ligne lance la partie.
+      const records = lireRecords(stockage());
+      const boutons: HTMLButtonElement[] = [];
+      for (const d of DIFFICULTES) {
+        const b = marque(bouton({ 'data-difficulte': d, class: 'jouer-ligne' }, nomDifficulte(d), detailDifficulte(d), recordQuiz(records, d), '', icone(`quiz-${d}`)), d);
+        b.addEventListener('click', () => {
+          if (rendue) choixFaits.set(rendue, d);
+          lancerQuiz(d, boutons, statut);
+        });
+        boutons.push(b);
+      }
+      return [creer('div', { class: 'jouer-lignes' }, ...boutons)];
+    }
     if (n.type === 'sujets') {
       const sujets = grille(
         arbre

@@ -705,6 +705,10 @@ body[data-terrain="reunion"] .essai-bilan {
 @media (min-width: 701px) {
   .jouer-branche .vignette-icone { width: 76px; height: 76px; }
 }
+/* Le quiz général en tête de la racine (étude J2 § 7.1), pleine largeur : son
+   icône à gauche du nom, l'ensemble au centre de la tuile. */
+.jouer-branche.jouer-large .jouer-corps { flex-direction: row; gap: 16px; }
+.jouer-branche.jouer-large .jouer-texte { flex: 0 1 auto; align-items: flex-start; text-align: left; }
 /* La grille des choix prend la hauteur restante du panneau : ses rangées
    grandissent de leur minimum à leur maximum, sans quoi deux tuiles en
    rempliraient tout l'écran ; au-delà, le vide reste dessous. Sur un petit

@@ -294,9 +294,18 @@ const ICONES: Record<string, string> = {
   sansfaute: 'M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17zM12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
   // Le sujet Drapeaux : un drapeau qui flotte au bout de sa hampe.
   drapeaux: 'M5 21V3.5M5 4.5c2.5-1.3 5-1.3 7 0s4.5 1.3 7 0v9c-2.5 1.3-5 1.3-7 0s-4.5-1.3-7 0',
+  // Le quiz général (étude J2 § 7.1) : un point d'interrogation dans une bulle ; ses difficultés, une à quatre barres montantes.
+  quiz: 'M12 20.5a8.5 8.5 0 1 0-7.6-4.7L3.5 20.5l4.7-.9a8.5 8.5 0 0 0 3.8.9zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.6h.01',
+  ...barres(),
 };
 
-/** L'icône de ce nom (branche, exercice, « revision », le sujet Drapeaux) ; null si elle n'en a pas. */
+/** Les icônes des difficultés du quiz (quiz-facile à quiz-expert) : 1 à 4 barres, de plus en plus hautes. */
+function barres(): Record<string, string> {
+  const barre = (i: number) => `M${3.5 + i * 4.5} 20v-${4 + i * 4}h3v${4 + i * 4}z`;
+  return Object.fromEntries(['facile', 'moyen', 'difficile', 'expert'].map((d, n) => [`quiz-${d}`, Array.from({ length: n + 1 }, (_, i) => barre(i)).join('')]));
+}
+
+/** L'icône de ce nom (branche, exercice, « revision », le sujet Drapeaux, le quiz et ses difficultés) ; null si elle n'en a pas. */
 export function icone(nom: string): SVGSVGElement | null {
   const d = ICONES[nom];
   if (!d) return null;

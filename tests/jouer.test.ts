@@ -36,8 +36,10 @@ const SERIES_PAYS = ['tous', 'Africa', 'North America', 'South America', 'Asia',
 const a = (segs: string[]) => adresse(arbre.resoudre(segs));
 
 describe('l’arbre (pur)', () => {
-  it('niveaux : deux branches, leurs sujets (D53 b : Communes en dernier ; Océans et mers dans les deux, lot 3b), les séries des pays, les exercices de chaque branche', () => {
-    expect(arbre.choix({ type: 'racine' })).toEqual(['entrainement', 'classe']);
+  it('niveaux : le quiz et deux branches, leurs sujets (D53 b : Communes en dernier ; Océans et mers dans les deux, lot 3b), les séries des pays, les exercices de chaque branche', () => {
+    // Le quiz général en tête de la racine (étude J2 § 7.1), puis Entraînement et Classé.
+    expect(arbre.choix({ type: 'racine' })).toEqual(['quiz', 'entrainement', 'classe']);
+    expect(arbre.choix({ type: 'quiz' })).toEqual(['facile', 'moyen', 'difficile', 'expert']);
     expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     // Capitales : les séries des pays, tailles comprises (D37 c).
@@ -174,6 +176,21 @@ describe('l’arbre (pur)', () => {
     expect(depuisAncre('')).toEqual(['']);
   });
 
+  it('le quiz (étude J2 § 7.1) : #jouer/quiz, un segment de trop y retombe ; parent la racine, fil « Quiz général », jamais sauté', () => {
+    expect(a(['quiz'])).toBe('jouer/quiz');
+    expect(a(['quiz', 'xyz'])).toBe('jouer/quiz');
+    expect(a(['quiz', 'facile', 'encore'])).toBe('jouer/quiz');
+    expect(arbre.resoudre(['quiz'])).toEqual({ type: 'quiz' });
+    expect(adresse(arbre.enfant({ type: 'racine' }, 'quiz'))).toBe('jouer/quiz');
+    expect(arbre.enfant({ type: 'quiz' }, 'facile')).toEqual({ type: 'quiz' });
+    expect(arbre.parent({ type: 'quiz' })).toEqual({ type: 'racine' });
+    expect(arbre.saute({ type: 'quiz' })).toBe(false);
+    expect(arbre.fil({ type: 'quiz' }).map((c) => [c.nom, adresse(c.niveau)])).toEqual([['Quiz général', 'jouer/quiz']]);
+    // Le quiz n'est pas une branche : rien sous #jouer/quiz/<sujet>, et aucun sujet ne le propose.
+    expect(a(['quiz', 'pays'])).toBe('jouer/quiz');
+    expect(arbre.sujets('classe').map((x) => x.id)).not.toContain('quiz');
+  });
+
   it('historique : remonter jusqu’à l’entrée qui a cette adresse (la plus récente), 0 si elle n’y est pas', () => {
     const pile = ['carte', 'jouer', 'jouer/classe', 'jouer/classe/pays'];
     expect(pasVers(pile, 'jouer/classe/pays')).toBe(1);
@@ -209,6 +226,23 @@ describe('l’arbre (pur)', () => {
     expect(lireDerniere(null, arbre)).toBeNull();
   });
 
+  it('Rejouer, les deux formes de Lancement : une série, ou une difficulté du quiz ; une difficulté inconnue ignorée', () => {
+    const m = new Map<string, string>();
+    const st = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
+    garderDerniere(st, { quiz: 'moyen' });
+    expect(JSON.parse(m.get(CLE_DERNIERE)!)).toEqual({ quiz: 'moyen' });
+    expect(lireDerniere(st, arbre)).toEqual({ quiz: 'moyen' });
+    expect(arbre.valide({ quiz: 'expert' })).toBe(true);
+    for (const v of [{ quiz: 'enfer' }, { quiz: 3 }, { quiz: null }]) {
+      m.set(CLE_DERNIERE, JSON.stringify(v));
+      expect(lireDerniere(st, arbre), JSON.stringify(v)).toBeNull();
+    }
+    // Une ancienne valeur, celle d'une série, reste lisible.
+    const l: Lancement = { branche: 'entrainement', sujet: 'capitales', serie: 'Europe', mode: 'nommer' };
+    m.set(CLE_DERNIERE, JSON.stringify(l));
+    expect(lireDerniere(st, arbre)).toEqual(l);
+  });
+
   it('textes : chaque sujet et chaque branche ont leur nom', () => {
     for (const s of SUJETS) expect((textes.jouer.sujets as Record<string, { nom: string }>)[s.id]?.nom, s.id).toBeTruthy();
     // Et son rendu (sujets.ts) : ses textes, le compte de ses séries.
@@ -218,7 +252,7 @@ describe('l’arbre (pur)', () => {
 
 // --- La vue ----------------------------------------------------------------
 
-function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['revision']; arbre?: typeof arbre } = {}) {
+function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['revision']; quiz?: OptionsJouer['quiz']; arbre?: typeof arbre } = {}) {
   const zone = new El('main');
   const monde = { nom: 'monde', jouables: [] };
   const ile = { nom: 'reunion', jouables: ['97411', '97415'] };
@@ -242,6 +276,7 @@ function monter(o: { charger?: () => Promise<unknown>; revision?: OptionsJouer['
     remonter: vi.fn<OptionsJouer['remonter']>(),
     canoniser: vi.fn<OptionsJouer['canoniser']>(),
     ...(o.revision ? { revision: o.revision } : {}),
+    ...(o.quiz ? { quiz: o.quiz } : {}),
   };
   const v = vueJouer(ctx, o.arbre ?? arbre, opts);
   const panneau = zone.querySelector('#jouer-panneau')!;
@@ -268,6 +303,10 @@ describe('la vue Jouer', () => {
     expect(j.panneau.dataset.niveau).toBe('racine');
     expect(j.panneau.querySelector('h2')?.textContent).toBe('Jouer');
     expect(j.attr('data-branche')).toEqual(['entrainement', 'classe']);
+    // Le quiz en tête, pleine largeur (étude J2 § 7.1).
+    expect(j.attr('data-racine')).toEqual(['quiz']);
+    expect(j.panneau.querySelector('[data-racine="quiz"]')?.className).toContain('jouer-large');
+    expect(j.panneau.innerText).toContain('Quiz général');
     expect(j.panneau.innerText).toContain('Pour apprendre, sans points');
     expect(j.panneau.querySelector('#jouer-rejouer')).toBeNull();
     expect(j.panneau.querySelector('#jouer-haut')).toBeNull();
@@ -276,6 +315,71 @@ describe('la vue Jouer', () => {
     expect(j.opts.fermer).toHaveBeenCalled();
     j.panneau.querySelector('[data-branche="classe"]')!.click();
     expect(j.opts.pousser).toHaveBeenCalledWith('jouer/classe');
+    j.panneau.querySelector('[data-racine="quiz"]')!.click();
+    expect(j.opts.pousser).toHaveBeenLastCalledWith('jouer/quiz');
+  });
+
+  it('Quiz général : ses 4 difficultés, leur phrase et leur record (« 17/20 · 85 % »), les règles derrière « ? », « ‹ » vers la racine', () => {
+    enregistrerPartie(localStorage, 'quiz:general:moyen', { points: 17, justes: 17, questions: 20, temps_ms: 90_000 }, 1);
+    const lancer = vi.fn();
+    const j = monter({ quiz: { preparer: () => null, lancer } });
+    j.ouvrir('quiz');
+    expect(j.panneau.dataset.niveau).toBe('quiz');
+    expect(j.attr('data-difficulte')).toEqual(['facile', 'moyen', 'difficile', 'expert']);
+    expect(j.panneau.querySelector('h2')?.textContent).toBe('Quiz général');
+    expect(j.panneau.innerText).toContain('Lieux très connus : 20 questions à 4 choix, 10 s chacune');
+    expect(j.panneau.innerText).toContain('Comme difficile, en moins de temps : 8 à 4 choix (6 s), 12 sur la carte (10 s)');
+    expect(j.panneau.querySelector('[data-difficulte="moyen"] .jouer-record')?.textContent).toContain('17/20 · 85\u00a0%');
+    expect(j.panneau.querySelector('[data-difficulte="facile"] .jouer-record')).toBeNull();
+    for (const b of j.panneau.querySelectorAll('[data-difficulte]')) expect(b.querySelector('.vignette-icone')).not.toBeNull();
+    const aide = j.panneau.querySelector('#jouer-aide')!;
+    expect(aide.getAttribute('aria-label')).toBe(textes.quiz.aide);
+    expect(j.panneau.querySelector('#jouer-regles')!.hidden).toBe(true);
+    aide.click();
+    expect(j.panneau.querySelector('#jouer-regles')!.textContent).toContain('hors du général');
+    j.panneau.querySelector('[data-difficulte="difficile"]')!.click();
+    expect(lancer).toHaveBeenCalledWith('difficile');
+    j.panneau.querySelector('#jouer-haut')!.click();
+    expect(j.opts.remonter).toHaveBeenCalledWith('jouer');
+  });
+
+  it('Quiz général : ses données chargées dans Jouer (« Chargement… », boutons désactivés), puis la partie ; hors ligne, le message et rien ne part', async () => {
+    let finir: (ok: boolean) => void = () => undefined;
+    const preparer = vi.fn(() => new Promise<void>((res, rej) => (finir = (ok) => (ok ? res() : rej(new Error('hors ligne'))))));
+    const lancer = vi.fn();
+    const j = monter({ quiz: { preparer, lancer } });
+    j.ouvrir('quiz');
+    j.panneau.querySelector('[data-difficulte="facile"]')!.click();
+    expect(j.panneau.querySelector('.jouer-statut')?.textContent).toBe(textes.toucher.chargement_sujet);
+    for (const b of j.panneau.querySelectorAll('[data-difficulte]')) expect(b.disabled).toBe(true);
+    finir(false);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(lancer).not.toHaveBeenCalled();
+    expect(j.panneau.querySelector('.jouer-statut')?.textContent).toBe(textes.quiz.echec);
+    for (const b of j.panneau.querySelectorAll('[data-difficulte]')) expect(b.disabled).toBe(false);
+    j.panneau.querySelector('[data-difficulte="expert"]')!.click();
+    finir(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(lancer).toHaveBeenCalledWith('expert');
+    // Quitté pendant le chargement : rien ne part.
+    j.panneau.querySelector('[data-difficulte="moyen"]')!.click();
+    j.v.desactiver();
+    finir(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(lancer).toHaveBeenCalledTimes(1);
+  });
+
+  it('Quiz général : la dernière partie (une difficulté) marquée à la racine et à son niveau', () => {
+    localStorage.setItem(CLE_DERNIERE, JSON.stringify({ quiz: 'difficile' }));
+    const j = monter();
+    j.ouvrir();
+    expect(j.panneau.querySelector('[data-racine="quiz"]')?.getAttribute('aria-current')).toBe('true');
+    expect(j.panneau.querySelector('[data-branche="classe"]')?.getAttribute('aria-current')).toBeNull();
+    j.ouvrir('quiz');
+    expect(j.panneau.querySelector('[data-difficulte="difficile"]')?.getAttribute('aria-current')).toBe('true');
   });
 
   it('Classé : les sujets avec leur nombre ; Pays mène aux séries, Communes directement aux exercices de La Réunion', () => {
@@ -405,8 +509,9 @@ describe('la vue Jouer', () => {
     j.ouvrir();
     expect(j.panneau.querySelector('#jouer-rejouer')).toBeNull();
     expect(j.panneau.innerText).not.toContain('Rejouer');
-    // Les premiers boutons du panneau : les branches.
-    expect(j.panneau.querySelectorAll('button.jouer-bouton')[0]?.getAttribute('data-branche')).toBe('entrainement');
+    // Les premiers boutons du panneau : le quiz, puis les branches.
+    expect(j.panneau.querySelectorAll('button.jouer-bouton')[0]?.getAttribute('data-racine')).toBe('quiz');
+    expect(j.panneau.querySelectorAll('button.jouer-bouton')[1]?.getAttribute('data-branche')).toBe('entrainement');
     expect(j.panneau.querySelector('[data-branche="classe"]')?.getAttribute('aria-current')).toBe('true');
     expect(j.panneau.querySelector('[data-branche="entrainement"]')?.getAttribute('aria-current')).toBeNull();
     j.ouvrir('classe', 'pays');

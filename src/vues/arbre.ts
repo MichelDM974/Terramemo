@@ -9,7 +9,12 @@
 // (#jouer, #jouer/classe, #jouer/classe/pays, #jouer/classe/pays/Africa) :
 // le retour du navigateur et celui d'Android remontent l'historique d'un
 // niveau à la fois (src/main.ts), un niveau sauté n'y laissant pas d'entrée.
+// Le quiz général (étude J2 § 7.1, décision « Quiz général ») est la
+// première tuile de la racine, devant les deux branches : il n'est pas une
+// branche (ni sujets ni séries, rien pour la Révision du jour), mais un
+// niveau à part, `#jouer/quiz`, qui propose ses quatre difficultés.
 import { MODES_EPREUVE, sujetOuvert, type ModeEpreuve } from '../epreuve/chrono';
+import { DIFFICULTES, type Difficulte } from '../quiz/types';
 import { estDomaine } from '../srs/fiches';
 import type { NomTerrain } from '../map/types';
 import { nomSerie, serieMers, type Serie } from './cibles';
@@ -75,9 +80,10 @@ export const SUJETS: readonly DefSujet[] = [
   { id: 'communes', series: duTerrain('reunion'), modes: AVEC_APPRENDRE },
 ];
 
-/** Un écran de Jouer : la racine (Rejouer, les branches), les sujets, les séries ou les exercices d'une série. */
+/** Un écran de Jouer : la racine (le quiz, les branches), les difficultés du quiz, les sujets, les séries ou les exercices d'une série. */
 export type Niveau =
   | { type: 'racine' }
+  | { type: 'quiz' }
   | { type: 'sujets'; branche: Branche }
   | { type: 'series'; branche: Branche; sujet: string }
   | { type: 'exercices'; branche: Branche; sujet: string; serie: string };
@@ -90,11 +96,35 @@ export interface Lancement {
   mode: ModeJeu;
 }
 
+/**
+ * Une partie du quiz général lancée depuis Jouer : sa difficulté. Lancement
+ * reste la forme d'une série (Toucher et les épreuves la lisent) ; la
+ * dernière partie gardée est l'une ou l'autre (PartieJouer).
+ */
+export interface LancementQuiz {
+  quiz: Difficulte;
+}
+
+/** Ce que Jouer lance et garde (la dernière partie, marquée à chaque niveau) : une série, ou le quiz. */
+export type PartieJouer = Lancement | LancementQuiz;
+
+/** La partie est-elle un quiz ? */
+export const estQuiz = (l: PartieJouer): l is LancementQuiz => 'quiz' in l;
+
+/** Le premier choix de la racine (étude J2 § 7.1 : `data-racine="quiz"`), devant les branches. */
+export const QUIZ = 'quiz';
+
+/** Le niveau du quiz : ses quatre difficultés. */
+export const NIVEAU_QUIZ: Niveau = { type: 'quiz' };
+
 const RACINE: Niveau = { type: 'racine' };
+
+const estDifficulte = (d: unknown): d is Difficulte => typeof d === 'string' && (DIFFICULTES as readonly string[]).includes(d);
 
 /** Les segments de l'adresse d'un niveau, après « jouer ». */
 export function segments(n: Niveau): string[] {
   if (n.type === 'racine') return [];
+  if (n.type === 'quiz') return [QUIZ];
   if (n.type === 'sujets') return [n.branche];
   if (n.type === 'series') return [n.branche, n.sujet];
   return [n.branche, n.sujet, n.serie];
@@ -133,7 +163,7 @@ export interface Arbre {
   serie(sujet: string, id: string): Serie | undefined;
   /** Les exercices permis pour ce sujet dans cette branche. */
   modes(b: Branche, sujet: string): readonly ModeJeu[];
-  /** Les ids des choix d'un niveau (branches, sujets, séries, exercices). */
+  /** Les ids des choix d'un niveau (le quiz et les branches, les difficultés, sujets, séries, exercices). */
   choix(n: Niveau): readonly string[];
   /** Niveau de choix (sujets, séries) à une seule option : on passe directement à elle. */
   saute(n: Niveau): boolean;
@@ -149,9 +179,13 @@ export interface Arbre {
   parent(n: Niveau): Niveau | null;
   /** Les choix faits jusqu'à ce niveau (fil d'Ariane), chacun avec le niveau où il mène ; un niveau sauté y reste. */
   fil(n: Niveau): readonly { id: string; nom: string; niveau: Niveau }[];
-  /** La partie se trouve dans l'arbre (branche, sujet, série et exercice existants et permis). */
-  valide(l: Lancement): boolean;
+  /** La partie se trouve dans l'arbre (branche, sujet, série et exercice existants et permis ; une difficulté du quiz). */
+  valide(l: PartieJouer): boolean;
 }
+
+/** Nom affiché du quiz général (« Quiz général ») et d'une difficulté (« Facile »). */
+export const nomQuiz = (): string => textes.quiz.nom;
+export const nomDifficulte = (d: Difficulte): string => textes.quiz.difficultes[d].nom;
 
 /** Nom affiché d'une branche ou d'un sujet (textes.jouer). */
 export const nomBranche = (b: Branche): string => textes.jouer.branches[b].nom;
@@ -188,17 +222,21 @@ export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSuje
       return s ? modesDe(s, b) : [];
     },
     choix(n) {
-      if (n.type === 'racine') return BRANCHES;
+      if (n.type === 'racine') return [QUIZ, ...BRANCHES];
+      if (n.type === 'quiz') return DIFFICULTES;
       if (n.type === 'sujets') return proposes(n.branche).map((s) => s.id);
       if (n.type === 'series') return arbre.series(n.sujet).map((s) => s.id);
       return arbre.modes(n.branche, n.sujet);
     },
-    // La racine (Rejouer, les deux branches) et les exercices (qui lancent la
-    // partie, avec leurs records et leurs règles) ne sont jamais sautés.
+    // La racine (le quiz, les deux branches), les difficultés du quiz et les
+    // exercices (qui lancent la partie, avec leurs records et leurs règles) ne
+    // sont jamais sautés.
     saute: (n) => (n.type === 'sujets' || n.type === 'series') && arbre.choix(n).length === 1,
     resoudre(segs) {
       const [b, s, se] = segs;
       let n: Niveau = RACINE;
+      // Le quiz : un seul niveau, ses difficultés (un segment de plus, « #jouer/quiz/xyz », y retombe).
+      if (b === QUIZ) return NIVEAU_QUIZ;
       if (b !== undefined && estBranche(b)) {
         n = { type: 'sujets', branche: b };
         if (s !== undefined && arbre.choix(n).includes(s)) {
@@ -210,6 +248,7 @@ export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSuje
     },
     enfant(n, id) {
       if (n.type === 'racine') return arbre.resoudre([id]);
+      if (n.type === 'quiz') return n;
       if (n.type === 'sujets') return arbre.resoudre([n.branche, id]);
       if (n.type === 'series') return arbre.resoudre([n.branche, n.sujet, id]);
       return n;
@@ -222,6 +261,7 @@ export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSuje
     fil(n) {
       const f: { id: string; nom: string; niveau: Niveau }[] = [];
       if (n.type === 'racine') return f;
+      if (n.type === 'quiz') return [{ id: QUIZ, nom: nomQuiz(), niveau: NIVEAU_QUIZ }];
       f.push({ id: n.branche, nom: nomBranche(n.branche), niveau: arbre.resoudre([n.branche]) });
       if (n.type === 'sujets') return f;
       f.push({ id: n.sujet, nom: nomSujet(n.sujet), niveau: arbre.resoudre([n.branche, n.sujet]) });
@@ -229,7 +269,7 @@ export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSuje
       f.push({ id: n.serie, nom: nomSerie(n.serie), niveau: n });
       return f;
     },
-    valide: (l) => estBranche(l.branche) && !!arbre.serie(l.sujet, l.serie) && arbre.modes(l.branche, l.sujet).includes(l.mode),
+    valide: (l) => (estQuiz(l) ? estDifficulte(l.quiz) : estBranche(l.branche) && !!arbre.serie(l.sujet, l.serie) && arbre.modes(l.branche, l.sujet).includes(l.mode)),
   };
 
   /** Au-delà des niveaux sautés : le seul choix est fait d'office. */
@@ -245,7 +285,7 @@ export function creerArbre(catalogue: readonly Serie[], sujets: readonly DefSuje
 
   function parentBrut(n: Niveau): Niveau | null {
     if (n.type === 'racine') return null;
-    if (n.type === 'sujets') return RACINE;
+    if (n.type === 'quiz' || n.type === 'sujets') return RACINE;
     if (n.type === 'series') return { type: 'sujets', branche: n.branche };
     return { type: 'series', branche: n.branche, sujet: n.sujet };
   }
@@ -264,12 +304,15 @@ type Stockage = Pick<Storage, 'getItem' | 'setItem'>;
  * La dernière partie lancée depuis Jouer, si elle est encore dans l'arbre :
  * une valeur illisible, d'une autre forme, ou dont la série ou l'exercice a
  * disparu est ignorée (pas de « Rejouer ») : une partie de Minute, retiré le
- * 12/11/2026 (décision « Barème et classements »), aussi.
+ * 12/11/2026 (décision « Barème et classements »), aussi. Une partie du quiz
+ * (`{ quiz: 'moyen' }`) se relit de même ; une ancienne valeur d'une série
+ * reste lisible.
  */
-export function lireDerniere(stockage: Stockage | null, a: Arbre): Lancement | null {
+export function lireDerniere(stockage: Stockage | null, a: Arbre): PartieJouer | null {
   try {
-    const v = JSON.parse(stockage?.getItem(CLE_DERNIERE) ?? 'null') as Partial<Record<keyof Lancement, unknown>> | null;
-    if (!v || typeof v !== 'object') return null;
+    const v = JSON.parse(stockage?.getItem(CLE_DERNIERE) ?? 'null') as Partial<Record<keyof Lancement | keyof LancementQuiz, unknown>> | null;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    if ('quiz' in v) return estDifficulte(v.quiz) ? { quiz: v.quiz } : null;
     const { branche, sujet, serie, mode } = v;
     if (typeof branche !== 'string' || typeof sujet !== 'string' || typeof serie !== 'string' || typeof mode !== 'string') return null;
     const l = { branche, sujet, serie, mode } as Lancement;
@@ -279,9 +322,9 @@ export function lireDerniere(stockage: Stockage | null, a: Arbre): Lancement | n
   }
 }
 
-export function garderDerniere(stockage: Stockage | null, l: Lancement): void {
+export function garderDerniere(stockage: Stockage | null, l: PartieJouer): void {
   try {
-    stockage?.setItem(CLE_DERNIERE, JSON.stringify({ branche: l.branche, sujet: l.sujet, serie: l.serie, mode: l.mode }));
+    stockage?.setItem(CLE_DERNIERE, JSON.stringify(estQuiz(l) ? { quiz: l.quiz } : { branche: l.branche, sujet: l.sujet, serie: l.serie, mode: l.mode }));
   } catch {
     // Stockage refusé : « Rejouer » vaut pour cette visite seulement.
   }
