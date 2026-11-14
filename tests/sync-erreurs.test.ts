@@ -73,6 +73,8 @@ describe('traduire', () => {
 
   it('les codes propres à l’appli', () => {
     expect(traduire(err('terramemo/mdp-court')).texte).toBe('Mot de passe : 8 caractères au moins');
+    // Le SDK qui n'a pas pu se télécharger (charger, src/sync/firebase.ts) : le réseau, comme Auth hors ligne.
+    expect(traduire(err('terramemo/sdk-indisponible')).texte).toBe(traduire(err('auth/network-request-failed')).texte);
     expect(traduire(err('terramemo/mdp-actuel-faux')).texte).toBe('Mot de passe actuel incorrect');
     expect(traduire(err('terramemo/mdp-google')).texte).toBe('Ce compte se connecte avec Google, sans mot de passe');
     expect(traduire(err('terramemo/suppression-engagee')).texte).toBe("La suppression est déjà engagée : elle ne s'annule plus, reprends-la.");

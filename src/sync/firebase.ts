@@ -38,6 +38,15 @@ export interface Service {
 let service: Promise<Service> | null = null;
 
 /**
+ * Le code de l'erreur que rend charger() quand les morceaux du SDK n'ont pas
+ * pu se télécharger (hors ligne) : l'erreur du navigateur n'a pas de code,
+ * et son message change d'un navigateur à l'autre. Toute erreur sans code
+ * de charger() le reçoit (rien d'autre n'y lève en pratique : configuration
+ * fixe) ; une erreur de Firebase garde le sien. Le message d'origine reste.
+ */
+export const SDK_INDISPONIBLE = 'terramemo/sdk-indisponible';
+
+/**
  * Firebase prêt (SDK chargé à la première demande). `?emulateurs` (serveur
  * de dev seulement) : les émulateurs de firebase.json (Auth 8063, Firestore 8062).
  */
@@ -54,7 +63,10 @@ export function charger(): Promise<Service> {
     }
     await a.authStateReady();
     return { m: { auth, fs }, db, a };
-  })();
+  })().catch((e: unknown) => {
+    if (typeof (e as { code?: unknown } | null)?.code === 'string') throw e;
+    throw Object.assign(new Error(e instanceof Error ? e.message : String(e), { cause: e }), { code: SDK_INDISPONIBLE });
+  });
   // Un échec (hors ligne) ne reste pas en cache : la prochaine demande réessaie.
   service.catch(() => {
     service = null;
@@ -79,6 +91,23 @@ const CODES_COMPTE_DISPARU: ReadonlySet<string> = new Set(['auth/user-token-expi
 export function compteDisparu(e: unknown): boolean {
   const c = (e as { code?: unknown } | null)?.code;
   return typeof c === 'string' && CODES_COMPTE_DISPARU.has(c);
+}
+
+/**
+ * Les erreurs du réseau, qu'un nouvel essai plus tard peut faire passer
+ * (#25) : SDK pas téléchargé, Auth sans réseau, Firestore injoignable.
+ * Firestore lite rend `unknown` quand fetch lui-même échoue (hors ligne :
+ * l'erreur n'a pas de statut HTTP, mapCodeFromHttpStatus) et pour un HTTP
+ * 500 ; `unavailable` pour un 503, `deadline-exceeded` pour un 504. Pas un
+ * quota épuisé (`resource-exhausted`), ni une connexion anonyme refusée
+ * (`auth/too-many-requests`, `auth/admin-restricted-operation`) : en
+ * ligne, réessayer à chaque retour au premier plan n'y changerait rien.
+ */
+const CODES_RESEAU: ReadonlySet<string> = new Set([SDK_INDISPONIBLE, 'auth/network-request-failed', 'unavailable', 'deadline-exceeded', 'unknown']);
+
+export function erreurReseau(e: unknown): boolean {
+  const c = (e as { code?: unknown } | null)?.code;
+  return typeof c === 'string' && CODES_RESEAU.has(c);
 }
 
 /**

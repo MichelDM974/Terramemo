@@ -77,6 +77,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('erreurReseau (#25)', () => {
+  it('le réseau seul : SDK pas téléchargé, Auth hors ligne, Firestore injoignable (fetch échoué = unknown dans Firestore lite)', async () => {
+    const { erreurReseau, SDK_INDISPONIBLE } = await module();
+    for (const code of [SDK_INDISPONIBLE, 'auth/network-request-failed', 'unavailable', 'deadline-exceeded', 'unknown']) expect([code, erreurReseau({ code })]).toEqual([code, true]);
+    for (const code of ['resource-exhausted', 'auth/too-many-requests', 'auth/admin-restricted-operation', 'permission-denied', 'internal', 'invalid-argument'])
+      expect([code, erreurReseau({ code })]).toEqual([code, false]);
+    for (const e of [new Error('bogue'), null, undefined, 'unknown', { code: 42 }]) expect(erreurReseau(e)).toBe(false);
+  });
+});
+
 describe('charger', () => {
   it('une seule initialisation pour la page, Auth en français', async () => {
     const { charger, LANGUE_AUTH } = await module();
@@ -89,10 +99,16 @@ describe('charger', () => {
     expect(etat.emulateurs).toEqual([]);
   });
 
-  it('un échec (hors ligne) n’est pas gardé : la demande suivante réessaie', async () => {
+  it('un échec (hors ligne) n’est pas gardé : la demande suivante réessaie ; sans code, il porte SDK_INDISPONIBLE, une erreur du réseau (#25)', async () => {
     etat.echecsChargement = 1;
-    const { charger } = await module();
-    await expect(charger()).rejects.toThrow('hors ligne');
+    const { charger, erreurReseau, SDK_INDISPONIBLE } = await module();
+    const e = await charger().then(
+      () => null,
+      (x: unknown) => x,
+    );
+    expect(e).toMatchObject({ code: SDK_INDISPONIBLE, message: 'morceau du SDK introuvable (hors ligne)' });
+    expect((e as Error).cause).toBeInstanceOf(Error);
+    expect(erreurReseau(e)).toBe(true);
     await expect(charger()).resolves.toBeTruthy();
     expect(etat.chargements).toBe(2);
   });

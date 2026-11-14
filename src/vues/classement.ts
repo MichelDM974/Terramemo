@@ -7,6 +7,7 @@ import type { BilanPartie } from '../epreuve/chrono';
 import { comparerScores, type ScoreEpreuve } from '../epreuve/bareme';
 import { convertirStockage, epreuvesClassees, epreuvesDuGeneral, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
 import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
+import { erreurReseau } from '../sync/firebase';
 import { comptesVisibles } from '../sync/drapeaux';
 import { etatCompteConnu, profilModifie } from '../sync/pont';
 import { creer } from './commun';
@@ -38,10 +39,16 @@ function garderPseudo(p: string): void {
   profilModifie('pseudo');
 }
 
-/** Ce qu'a donné un lot de publications : scores refusés (par les règles, ou d'avance), envois échoués (hors ligne). */
+/**
+ * Ce qu'a donné un lot de publications : scores refusés (par les règles, ou
+ * d'avance) ; envois échoués hors ligne, en file pour repartir d'eux-mêmes ;
+ * envois échoués pour une autre raison (quota épuisé, connexion anonyme
+ * refusée : erreurReseau), qui ne repartent pas d'eux-mêmes (#25).
+ */
 export interface Publication {
   refuses: number;
   echecs: number;
+  locaux: number;
 }
 
 type Envoi = [epreuve: string, periode: string, score: ScoreEpreuve];
@@ -92,6 +99,25 @@ function publiableDe(epreuve: string, periode: string): ScoreEpreuve | null {
 
 const memeScore = (a: ScoreEpreuve | null, b: ScoreEpreuve | null) => (a === null ? b === null : b !== null && comparerScores(a, b) === 0);
 
+/** Le sort d'un envoi, une fois la file mise à jour : publié ou refusé, en file (hors ligne), ou resté sur l'appareil. */
+type Sort = 'repondu' | 'attente' | 'local';
+
+/**
+ * La file d'après la réponse du serveur, ou son absence : un envoi qui
+ * échoue faute de réseau (erreurReseau) y entre, refait au retour du réseau
+ * (relancerAttente) ; un envoi qui aboutit, que les règles refusent, ou qui
+ * échoue pour une autre raison, en sort. Un quota épuisé, une connexion
+ * anonyme refusée ne passeraient pas mieux au prochain retour au premier
+ * plan : l'envoi n'est pas refait de lui-même, et l'avis ne le promet pas
+ * (audit du 07/11, #25). Le record reste sur l'appareil, et repart avec la
+ * partie qui le bat ou au changement du pseudo.
+ */
+function suivre(epreuve: string, periode: string, r: PromiseSettledResult<boolean> | undefined, aJour: () => boolean): Sort {
+  const reseau = r?.status === 'rejected' && erreurReseau(r.reason);
+  marquer(epreuve, periode, reseau, aJour);
+  return r?.status !== 'rejected' ? 'repondu' : reseau ? 'attente' : 'local';
+}
+
 /**
  * Chaque score part seul : un refus ou un échec n'empêche pas les autres
  * (allSettled). Un score que les règles refuseraient (vraisemblable) n'est
@@ -99,18 +125,17 @@ const memeScore = (a: ScoreEpreuve | null, b: ScoreEpreuve | null) => (a === nul
  * général de chaque période de `generaux`, une fois les scores publiés : les
  * records de l'appareil et les places en ligne du pseudo (ses autres
  * appareils), le meilleur des deux par épreuve (totalGeneral). La file
- * d'attente ne bouge que sur la réponse du serveur, ou son absence : un
- * envoi qui échoue (hors ligne) y entre, refait au retour du réseau
- * (relancerAttente) ; un envoi qui aboutit, ou que les règles refusent, en
- * sort. Un score refusé d'avance laisse en place l'envoi qui attendait (le
- * meilleur score publiable de la série, que relancerAttente enverra).
+ * d'attente ne bouge que sur la réponse du serveur, ou son absence
+ * (suivre). Un score refusé d'avance laisse en place l'envoi qui attendait
+ * (le meilleur score publiable de la série, que relancerAttente enverra).
  */
 async function envoyer(pseudo: string, envois: readonly Envoi[], generaux: readonly string[]): Promise<Publication> {
   const ecrits = envois.map(([e, , sc]) => vraisemblable(sc, e));
   const res = await Promise.allSettled(envois.map(([e, p, sc], i) => (ecrits[i] ? publier(e, p, pseudo, sc) : Promise.resolve(false))));
+  const sorts: Sort[] = [];
   envois.forEach(([e, p, sc], i) => {
     const pub = publiableDe(e, p);
-    if (ecrits[i]) marquer(e, p, res[i]?.status === 'rejected', () => !pub || comparerScores(pub, sc) >= 0);
+    if (ecrits[i]) sorts.push(suivre(e, p, res[i], () => !pub || comparerScores(pub, sc) >= 0));
   });
   const records = lireRecords(stockage());
   const deGeneraux = await Promise.allSettled(
@@ -122,12 +147,13 @@ async function envoyer(pseudo: string, envois: readonly Envoi[], generaux: reado
   generaux.forEach((p, i) => {
     // Le total de l'appareil a changé pendant l'envoi (une partie de plus) : son entrée reste.
     const avant = totalGeneral(records, p);
-    marquer(GENERAL, p, deGeneraux[i]?.status === 'rejected', () => memeScore(avant, totalGeneral(lireRecords(stockage()), p)));
+    sorts.push(suivre(GENERAL, p, deGeneraux[i], () => memeScore(avant, totalGeneral(lireRecords(stockage()), p))));
   });
   res.push(...deGeneraux);
   return {
     refuses: res.filter((r) => r.status === 'fulfilled' && !r.value).length,
-    echecs: res.filter((r) => r.status === 'rejected').length,
+    echecs: sorts.filter((x) => x === 'attente').length,
+    locaux: sorts.filter((x) => x === 'local').length,
   };
 }
 
@@ -280,7 +306,7 @@ export async function publierPartie(pseudo: string, epreuve: string, b: BilanPar
 
 /** Ce que le bloc dit au joueur d'une publication ('' : tout est passé). */
 export function avisPublication(p: Publication): string {
-  return [p.refuses ? T.publication_refusee : '', p.echecs ? T.publication_echec : ''].filter(Boolean).join(' ');
+  return [p.refuses ? T.publication_refusee : '', p.echecs ? T.publication_echec : '', p.locaux ? T.publication_locale : ''].filter(Boolean).join(' ');
 }
 
 /**
@@ -452,14 +478,15 @@ export function blocClassement(
       etat.textContent = T.publication;
       // Refusé : le record reste sur l'appareil. Hors ligne : il attend dans
       // la file, refaite au retour du réseau, à l'ouverture d'un classement ou
-      // au démarrage de l'appli.
+      // au démarrage de l'appli. Autre échec (quota) : il reste sur l'appareil.
       pubs.push(await apresPartie(pseudo));
     }
     // Les envois en attente d'avant, pour que le classement lu les montre ;
-    // pas juste après une partie dont un envoi vient d'échouer (hors ligne).
-    const attente = pubs.some((p) => p.echecs) ? null : await relancerAttente().catch(() => null);
+    // pas juste après une partie dont un envoi vient d'échouer.
+    const attente = pubs.some((p) => p.echecs || p.locaux) ? null : await relancerAttente().catch(() => null);
     if (attente) pubs.push(attente);
-    if (pubs.length) direAvis({ refuses: pubs.reduce((n, p) => n + p.refuses, 0), echecs: pubs.reduce((n, p) => n + p.echecs, 0) });
+    const somme = (k: keyof Publication) => pubs.reduce((n, p) => n + p[k], 0);
+    if (pubs.length) direAvis({ refuses: somme('refuses'), echecs: somme('echecs'), locaux: somme('locaux') });
     await charger();
   })();
   return bloc;

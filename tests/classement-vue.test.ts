@@ -21,6 +21,7 @@ vi.mock('../src/epreuve/classement', () => ({
 
 const { avisPublication, blocClassement, brancherRelance, lireAttente, publierPartie, publierTout, relancerAttente } = await import('../src/vues/classement');
 const { textes } = await import('../src/vues/textes');
+const { SDK_INDISPONIBLE } = await import('../src/sync/firebase');
 const { brancherProfil, poserEtatCompte } = await import('../src/sync/pont');
 const T = textes.chrono;
 
@@ -51,7 +52,7 @@ describe('publication d’une partie', () => {
     // Les règles refusent le record de l'île (de toujours), acceptent le reste.
     publier.mockImplementation(async (e, p) => !(e === ILE && p === 'toujours'));
     const r = await publierPartie('Ana', ILE, b);
-    expect(r).toEqual({ refuses: 1, echecs: 0 });
+    expect(r).toEqual({ refuses: 1, echecs: 0, locaux: 0 });
     const envois = publier.mock.calls.map(([e, p]) => `${e}/${p}`);
     expect(envois.sort()).toEqual([`${ILE}/toujours`, `${ILE}/${semaine}`, `general/toujours`, `general/${semaine}`].sort());
   });
@@ -62,7 +63,7 @@ describe('publication d’une partie', () => {
       if (e === AMS && p === 'toujours') throw Object.assign(new Error('hors ligne'), { code: 'unavailable' });
       return true;
     });
-    expect(await publierPartie('Ana', AMS, b)).toEqual({ refuses: 0, echecs: 1 });
+    expect(await publierPartie('Ana', AMS, b)).toEqual({ refuses: 0, echecs: 1, locaux: 0 });
     expect(publier).toHaveBeenCalledTimes(4);
   });
 
@@ -71,7 +72,7 @@ describe('publication d’une partie', () => {
     // L'île en 1,4 s : moins de 0,2 s par question.
     const b = enregistrerPartie(localStorage, ILE, score(24, 24, 24, 1_433), maintenant);
     publier.mockResolvedValue(true);
-    expect(await publierPartie('Ana', ILE, b)).toEqual({ refuses: 2, echecs: 0 });
+    expect(await publierPartie('Ana', ILE, b)).toEqual({ refuses: 2, echecs: 0, locaux: 0 });
     // Deux écritures au lieu de quatre : les deux généraux, sans l'île.
     expect(publier.mock.calls.map(([e, p, , s]) => [e, p, s.points])).toEqual([
       ['general', 'toujours', 12],
@@ -88,7 +89,7 @@ describe('publication d’une partie', () => {
     ] as const) {
       publier.mockClear();
       const b = enregistrerPartie(localStorage, e, sc, maintenant);
-      expect(await publierPartie('Ana', e, b)).toEqual({ refuses: 0, echecs: 0 });
+      expect(await publierPartie('Ana', e, b)).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
       expect(publier.mock.calls.map(([x, p, , s]) => [x, p, s.points])).toEqual([
         [e, 'toujours', sc.points],
         [e, semaine, sc.points],
@@ -101,7 +102,7 @@ describe('publication d’une partie', () => {
     enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant);
     enregistrerPartie(localStorage, idEpreuve('Africa', 'sansfaute'), score(23, 23, 24, 60_000), maintenant);
     publier.mockResolvedValue(true);
-    expect(await publierTout('Ana')).toEqual({ refuses: 0, echecs: 0 });
+    expect(await publierTout('Ana')).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     const generaux = publier.mock.calls.filter(([e]) => e === 'general').map(([, p, , s]) => [p, s.points]);
     expect(generaux).toEqual([
       ['toujours', 12],
@@ -117,7 +118,7 @@ describe('publication d’une partie', () => {
     enregistrerPartie(localStorage, 'xyz:capitales:tous', score(186, 186, 186, 1_000), maintenant);
     publier.mockResolvedValue(true);
     const r = await publierTout('Ana');
-    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(r).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(avisPublication(r)).toBe('');
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
     expect(lireAttente()).toEqual([]);
@@ -130,7 +131,7 @@ describe('publication d’une partie', () => {
     enregistrerPartie(localStorage, QUIZ, score(18, 18, 20, 100_000), maintenant);
     publier.mockImplementation(async (e) => e !== QUIZ);
     const r = await publierTout('Ana');
-    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(r).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(avisPublication(r)).toBe('');
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
   });
@@ -144,7 +145,7 @@ describe('publication d’une partie', () => {
     enregistrerPartie(localStorage, SF_MERS, score(23, 23, 24, 60_000), maintenant);
     publier.mockResolvedValue(true);
     const r = await publierTout('Ana');
-    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(r).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, MERS, MERS, SF_MERS, SF_MERS, 'general', 'general'].sort());
     const general = publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s);
     expect(general).toEqual([score(53, 53, 62, 360_000), score(53, 53, 62, 360_000)]);
@@ -170,7 +171,7 @@ describe('publication d’une partie', () => {
     enregistrerPartie(localStorage, SF_DRA, score(14, 14, 14, 40_000), maintenant);
     publier.mockResolvedValue(true);
     const r = await publierTout('Ana');
-    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(r).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, CAP, CAP, SF_CAP, SF_CAP, DRA, DRA, SF_DRA, SF_DRA, 'general', 'general'].sort());
     const general = publier.mock.calls.filter(([e]) => e === 'general').map(([, , , s]) => s);
     expect(general).toEqual([score(37, 37, 40, 190_000), score(37, 37, 40, 190_000)]);
@@ -201,7 +202,7 @@ describe('publication d’une partie', () => {
     enregistrerPartie(localStorage, 'minute:localiser:Africa', score(23, 23, 25, 60_000), maintenant);
     publier.mockResolvedValue(true);
     const r = await publierTout('Ana');
-    expect(r).toEqual({ refuses: 0, echecs: 0 });
+    expect(r).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(publier.mock.calls.map(([e]) => e).sort()).toEqual([AMS, AMS, 'general', 'general'].sort());
   });
 });
@@ -236,7 +237,7 @@ describe('un score trop rapide sur une série déjà publiée', () => {
     // L'île en 1,1 s : refusée, seule.
     expect((await jouer(ILE, score(24, 24, 24, 1_100))).refuses).toBeGreaterThan(0);
     expect(base.get(`${ILE}/toujours`)?.temps_ms).toBe(11_946);
-    expect(await jouer(OCE, score(14, 14, 14, 9_136))).toEqual({ refuses: 0, echecs: 0 });
+    expect(await jouer(OCE, score(14, 14, 14, 9_136))).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(base.get('general/toujours')?.points).toBe(50);
     expect(base.get(`general/${semaine}`)?.points).toBe(50);
   });
@@ -245,7 +246,7 @@ describe('un score trop rapide sur une série déjà publiée', () => {
     await jouer(ILE, score(21, 21, 24, 92_501));
     // L'autre appareil (stockage neuf), sous le même pseudo : l'île moins bien, puis l'Amérique du Sud.
     installerStockage();
-    expect(await jouer(ILE, score(16, 16, 24, 93_240))).toEqual({ refuses: 0, echecs: 0 });
+    expect(await jouer(ILE, score(16, 16, 24, 93_240))).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(base.get(`${ILE}/toujours`)?.points).toBe(21);
     expect(base.get('general/toujours')?.points).toBe(21);
     await jouer(AMS, score(12, 12, 12, 7_839));
@@ -255,7 +256,7 @@ describe('un score trop rapide sur une série déjà publiée', () => {
 
   it('places en ligne illisibles (hors ligne) : les scores partent, le général compte un échec', async () => {
     placesDuPseudo.mockRejectedValue(Object.assign(new Error('hors ligne'), { code: 'unavailable' }));
-    expect(await jouer(AMS, score(12, 12, 12, 7_839))).toEqual({ refuses: 0, echecs: 2 });
+    expect(await jouer(AMS, score(12, 12, 12, 7_839))).toEqual({ refuses: 0, echecs: 2, locaux: 0 });
     expect(base.get(`${AMS}/toujours`)?.points).toBe(12);
     expect(base.has('general/toujours')).toBe(false);
   });
@@ -264,7 +265,7 @@ describe('un score trop rapide sur une série déjà publiée', () => {
     enregistrerPartie(localStorage, ILE, score(24, 24, 24, 11_946), maintenant);
     enregistrerPartie(localStorage, ILE, score(24, 24, 24, 1_100), maintenant);
     enregistrerPartie(localStorage, AMS, score(12, 12, 12, 7_839), maintenant);
-    expect(await publierTout('Pilote')).toEqual({ refuses: 0, echecs: 0 });
+    expect(await publierTout('Pilote')).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(base.get(`${ILE}/toujours`)).toEqual(score(24, 24, 24, 11_946));
     expect(base.get(`${ILE}/${semaine}`)?.temps_ms).toBe(11_946);
     expect(base.get('general/toujours')?.points).toBe(36);
@@ -291,17 +292,17 @@ describe('envois en attente (hors ligne)', () => {
   it('un record fait hors ligne attend, puis part seul au retour du réseau, à son meilleur score du moment', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
     const b = enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant);
-    expect(await publierPartie('Ana', AMS, b)).toEqual({ refuses: 0, echecs: 4 });
+    expect(await publierPartie('Ana', AMS, b)).toEqual({ refuses: 0, echecs: 4, locaux: 0 });
     expect(cles()).toEqual([`${AMS}/toujours`, `${AMS}/${semaine}`, `general/toujours`, `general/${semaine}`].sort());
     // Toujours hors ligne : rien ne part, rien ne sort de la file.
-    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 4 });
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 4, locaux: 0 });
     expect(cles()).toHaveLength(4);
     // Une meilleure partie, hors ligne aussi : c'est elle qui partira.
     publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 59_000), maintenant));
     await attendre();
     reseau = true;
     publier.mockClear();
-    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0 });
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(publier.mock.calls.map(([e, p, ps, s]) => [e, p, ps, s.points]).sort()).toEqual(
       [
         [AMS, 'toujours', 'Ana', 12],
@@ -328,9 +329,79 @@ describe('envois en attente (hors ligne)', () => {
     publier.mockResolvedValue(true);
     // Une semaine passée, une entrée abîmée et un doublon : un seul envoi.
     localStorage.setItem('terramemo.chrono.attente', JSON.stringify([[AMS, 's1'], ['general', 's1'], [AMS, 'toujours'], 'abîmé', [AMS, 'toujours']]));
-    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0 });
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(publier.mock.calls.map(([e, p]) => `${e}/${p}`)).toEqual([`${AMS}/toujours`]);
     expect(lireAttente()).toEqual([]);
+  });
+
+  // Audit du 07/11 (#25) : seules les erreurs du réseau (erreurReseau) promettent un départ.
+  const erreur = (code: string) => Object.assign(new Error(code), { code });
+
+  it('les erreurs du réseau entrent dans la file : unknown (fetch échoué de Firestore lite), Auth hors ligne, SDK pas téléchargé, 503, 504', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    for (const code of ['unknown', 'auth/network-request-failed', SDK_INDISPONIBLE, 'unavailable', 'deadline-exceeded']) {
+      installerStockage();
+      publier.mockImplementation(async () => {
+        throw erreur(code);
+      });
+      placesDuPseudo.mockRejectedValue(erreur(code));
+      const r = await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
+      expect([code, r]).toEqual([code, { refuses: 0, echecs: 4, locaux: 0 }]);
+      expect([code, cles()]).toEqual([code, [`${AMS}/toujours`, `${AMS}/${semaine}`, `general/toujours`, `general/${semaine}`].sort()]);
+      expect(avisPublication(r)).toBe(T.publication_echec);
+    }
+  });
+
+  it('une autre erreur (quota épuisé, connexion anonyme refusée) n’entre pas dans la file : comptée à part, sans promettre de départ', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    publier.mockImplementation(async (e) => {
+      throw erreur(e === AMS ? 'resource-exhausted' : 'auth/too-many-requests');
+    });
+    placesDuPseudo.mockRejectedValue(erreur('auth/admin-restricted-operation'));
+    const r = await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
+    expect(r).toEqual({ refuses: 0, echecs: 0, locaux: 4 });
+    expect(lireAttente()).toEqual([]);
+    expect(avisPublication(r)).toBe(T.publication_locale);
+    expect(T.publication_locale).not.toContain(T.publication_echec);
+    // L'un et l'autre dans la même partie : chacun son avis.
+    publier.mockImplementation(async (e) => {
+      if (e === AMS) throw horsLigne();
+      throw erreur('resource-exhausted');
+    });
+    placesDuPseudo.mockResolvedValue(new Map());
+    const m = await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 59_000), maintenant));
+    expect(m).toEqual({ refuses: 0, echecs: 2, locaux: 2 });
+    expect(cles()).toEqual([`${AMS}/toujours`, `${AMS}/${semaine}`].sort());
+    expect(avisPublication(m)).toBe(`${T.publication_echec} ${T.publication_locale}`);
+  });
+
+  it('une entrée de la file qui échoue sans que le réseau soit en cause en sort : elle ne repart plus à chaque retour au premier plan', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
+    expect(cles()).toHaveLength(4);
+    // En ligne, mais le quota de Firestore est épuisé.
+    publier.mockImplementation(async () => {
+      throw erreur('resource-exhausted');
+    });
+    placesDuPseudo.mockResolvedValue(new Map());
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0, locaux: 4 });
+    expect(lireAttente()).toEqual([]);
+    publier.mockClear();
+    expect(await relancerAttente()).toBeNull();
+    expect(publier).not.toHaveBeenCalled();
+  });
+
+  it('le bloc d’un classement ne refait pas la file juste après une partie dont un envoi a échoué sans réseau en cause', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
+    reseau = true;
+    publier.mockClear();
+    const b = blocClassement(ILE, 'Classement', async () => ({ refuses: 0, echecs: 0, locaux: 1 })) as unknown as El;
+    await attendre();
+    await attendre();
+    expect(publier).not.toHaveBeenCalled();
+    expect(b.innerText).toContain(T.publication_locale);
+    expect(b.innerText).not.toContain(T.publication_echec);
   });
 
   it('sans pseudo, rien ne part ; un changement de pseudo refait tout et vide la file', async () => {
@@ -339,7 +410,7 @@ describe('envois en attente (hors ligne)', () => {
     expect(await relancerAttente()).toBeNull();
     reseau = true;
     localStorage.setItem('terramemo.pseudo', 'Bea');
-    expect(await publierTout('Bea')).toEqual({ refuses: 0, echecs: 0 });
+    expect(await publierTout('Bea')).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(lireAttente()).toEqual([]);
   });
 
@@ -493,7 +564,7 @@ describe('envois en attente (hors ligne)', () => {
     expect(publier.mock.calls.some(([, , ps]) => ps === 'Bea')).toBe(false);
     liberer();
     await renvoi;
-    expect(await tout).toEqual({ refuses: 0, echecs: 4 });
+    expect(await tout).toEqual({ refuses: 0, echecs: 4, locaux: 0 });
     expect(cles()).toHaveLength(4);
   });
 
@@ -516,7 +587,7 @@ describe('envois en attente (hors ligne)', () => {
     records['minute:localiser:Africa'] = { ...score(30, 30, 31, 100), date: maintenant, bareme: 2, publiable: { ...score(23, 23, 25, 60_000), date: maintenant } };
     localStorage.setItem('terramemo.chrono.records', JSON.stringify(records));
     localStorage.setItem('terramemo.chrono.attente', JSON.stringify([['minute:localiser:Africa', 'toujours'], ['minute:localiser:Africa', semaine], [AMS, 'toujours']]));
-    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0 });
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
     expect(publier.mock.calls.map(([e, p]) => `${e}/${p}`)).toEqual([`${AMS}/toujours`]);
     expect(lireAttente()).toEqual([]);
   });
@@ -525,7 +596,7 @@ describe('envois en attente (hors ligne)', () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
     await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));
     publier.mockClear();
-    const apresEchec = blocClassement(ILE, 'Classement', async () => ({ refuses: 0, echecs: 1 })) as unknown as El;
+    const apresEchec = blocClassement(ILE, 'Classement', async () => ({ refuses: 0, echecs: 1, locaux: 0 })) as unknown as El;
     await attendre();
     await attendre();
     expect(publier).not.toHaveBeenCalled();
@@ -543,7 +614,7 @@ describe('envois en attente (hors ligne)', () => {
 });
 
 describe('bloc du classement après une partie', () => {
-  const bloc = async (apres: () => Promise<{ refuses: number; echecs: number }>) => {
+  const bloc = async (apres: () => Promise<{ refuses: number; echecs: number; locaux: number }>) => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
     const b = blocClassement(ILE, 'Classement', apres) as unknown as El;
     await attendre();
@@ -552,22 +623,22 @@ describe('bloc du classement après une partie', () => {
   };
 
   it('dit au joueur que son score est refusé, sans le cacher derrière « Personne n’est encore classé »', async () => {
-    const b = await bloc(async () => ({ refuses: 1, echecs: 0 }));
+    const b = await bloc(async () => ({ refuses: 1, echecs: 0, locaux: 0 }));
     expect(b.innerText).toContain(T.publication_refusee);
     expect(b.innerText).toContain(T.vide);
   });
 
   it('dit au joueur que la publication a échoué hors ligne', async () => {
-    const b = await bloc(async () => ({ refuses: 0, echecs: 2 }));
+    const b = await bloc(async () => ({ refuses: 0, echecs: 2, locaux: 0 }));
     expect(b.innerText).toContain(T.publication_echec);
     expect(b.innerText).not.toContain(T.publication_refusee);
   });
 
   it('rien de plus quand tout est publié', async () => {
-    const b = await bloc(async () => ({ refuses: 0, echecs: 0 }));
+    const b = await bloc(async () => ({ refuses: 0, echecs: 0, locaux: 0 }));
     expect(b.querySelector('.chrono-classement-avis')?.hidden).toBe(true);
-    expect(avisPublication({ refuses: 0, echecs: 0 })).toBe('');
-    expect(avisPublication({ refuses: 1, echecs: 1 })).toBe(`${T.publication_refusee} ${T.publication_echec}`);
+    expect(avisPublication({ refuses: 0, echecs: 0, locaux: 0 })).toBe('');
+    expect(avisPublication({ refuses: 1, echecs: 1, locaux: 0 })).toBe(`${T.publication_refusee} ${T.publication_echec}`);
   });
 });
 
