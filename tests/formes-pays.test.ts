@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
+import { lireDrapeaux, type ManifesteDrapeaux } from '../src/map/drapeaux';
 import { elide, formePays } from '../src/vues/formes';
 import { rendu } from '../src/vues/sujets';
 import { textes } from '../src/vues/textes';
@@ -13,6 +15,9 @@ const noms = JSON.parse(readFileSync('public/geo/noms.fr.json', 'utf8')) as Reco
 const pays = (JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as { id: string; statut: string }[])
   .filter((p) => p.statut === 'jouable' || p.statut === 'optionnel')
   .map((p) => p.id);
+const lire = <T>(chemin: string): T => JSON.parse(readFileSync(chemin, 'utf8')) as T;
+const capitales = lireCapitales(lire<LigneCapitales[]>('public/geo/capitales.json'), lire<NomsCapitales>('public/geo/capitales.fr.json'));
+const drapeaux = lireDrapeaux(lire<ManifesteDrapeaux>('public/geo/drapeaux.json'));
 const table = Object.entries(textes.formes_pays as unknown as Record<string, { le: string; de: string } | string>).filter(
   (e): e is [string, { le: string; de: string }] => e[0] !== '_',
 );
@@ -95,5 +100,15 @@ describe('rendus : le pays dans une phrase', () => {
     expect(rendu('pays', { noms }).consigneNommee('JPN')).toBeNull();
     expect(textes.quiz.consigne_capitale).toBe('Quelle est la capitale {pays} ?');
     expect(textes.quiz.consigne_drapeau).toBe('Quel est le drapeau {pays} ?');
+  });
+
+  it('consigneNommee (D49 d) des capitales et des drapeaux : « du Japon », « d’Israël », « des États-Unis »', () => {
+    const c = rendu('capitales', { noms, capitales });
+    expect(c.consigneNommee('JPN')).toBe('Quelle est la capitale du Japon ?');
+    expect(c.consigneNommee('ISR')).toBe("Quelle est la capitale d'Israël ?");
+    expect(c.consigneNommee('FRA')).toBe('Quelle est la capitale de la France ?');
+    const d = rendu('drapeaux', { noms, drapeaux });
+    expect(d.consigneNommee('USA')).toBe('Quel est le drapeau des États-Unis ?');
+    expect(d.consigneNommee('IDN')).toBe("Quel est le drapeau de l'Indonésie ?");
   });
 });
