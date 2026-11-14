@@ -463,8 +463,10 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   Piège : dès sa première question montrée, la partie en cours est
   gardée (`terramemo.quiz.en_cours` du `localStorage`) et compte au
   démarrage suivant si la page se recharge avant son bilan (D55 a :
-  `reprendrePartieInterrompue`). Un passage qui recharge la page en
-  pleine partie y trouve donc un record de plus.
+  `reprendrePartieInterrompue`), et l'accueil le dit sous « Touche un
+  pays » (« La partie du quiz laissée en cours (Moyen) a compté :
+  1/20 · 5 %. »). Un passage qui recharge la page en pleine partie y
+  trouve donc un record de plus, et cet avis dans `#barre-carte`.
 - `ui_jouer` (captures 15) passe aussi par Classé › Océans et mers : la
   série sautée (`#jouer/classe/mers/mers`, Chrono et Sans faute), le
   retour arrière ramène aux sujets (aucune entrée pour le niveau sauté).

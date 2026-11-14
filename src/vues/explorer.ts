@@ -55,6 +55,8 @@ export interface VueExplorer extends Vue {
   montrerLieu(terrain: NomTerrain, id: string, point?: [number, number]): void;
   /** Teintes, légende et ligne de la zone touchée relues (mémoire chargée, réglage changé) ; sans effet hors de l'accueil. */
   rafraichir(): void;
+  /** Un avis du démarrage (une partie du quiz laissée en cours a compté) : sous « Touche un pays », jusqu'au premier toucher ; montré une fois. */
+  avis(texte: string): void;
 }
 
 export interface OptionsExplorer {
@@ -177,6 +179,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     monde.hidden = t.nom === 'monde';
   }
 
+  /** L'avis du démarrage pas encore montré (avis()) : à la prochaine arrivée sur l'accueil. */
+  let avisAMontrer: string | null = null;
+
   /** Par quoi la zone affichée a été touchée (la ligne relue par rafraichir()). */
   let viaAffiche: Via | null = null;
   function afficher(id: string, via: Via | null): void {
@@ -288,6 +293,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       barre.hidden = false;
       teinter();
       vider();
+      if (avisAMontrer) [detail.textContent, avisAMontrer] = [avisAMontrer, null];
     },
     desactiver() {
       jeton++;
@@ -302,6 +308,10 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       teinter();
       const id = barre.dataset.id;
       if (id) afficher(id, viaAffiche);
+    },
+    avis(texte) {
+      if (active && !barre.dataset.id) detail.textContent = texte;
+      else avisAMontrer = texte;
     },
     montrerLieu(terrain, id, point) {
       const j = ++jeton;

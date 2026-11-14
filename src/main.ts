@@ -771,7 +771,7 @@ async function demarrer(): Promise<void> {
   const versCarte = () => nav.remonter('carte');
   const essai = vueEssai(ctx, { versJouer: nav.versJouer, versCarte, seances, libre: seances.libre });
   const epreuve = vueChrono(ctx, { versJouer: nav.versJouer, versCarte });
-  const quiz = vueQuiz(ctx, { versJouer: nav.versJouer, versCarte });
+  const quiz = vueQuiz(ctx, { versJouer: nav.versJouer, versCarte, avis: (t) => explorer?.avis(t) });
   // « Retour » des classements, de Crédits… : la vue d'avant, en remontant l'historique.
   const retour = nav.retour;
   // Une partie choisie (Jouer, Rejouer, ⚙) : sa vue s'ouvre (une entrée

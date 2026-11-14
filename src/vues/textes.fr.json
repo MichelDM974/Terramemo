@@ -558,6 +558,7 @@
     "abandon_chargement": "Partie abandonnée avant sa première question : elle ne compte pas.",
     "bilan_titre": "{quiz} · {difficulte}",
     "abandonne": "Partie abandonnée à la question {n} : les questions sans réponse comptent fausses.",
+  "interrompue": "La partie du quiz laissée en cours ({difficulte}) a compté : {score}.",
     "par_sujet": "{sujet} {justes}/{n}",
     "premier_record": "Premier record pour cette difficulté.",
     "record_semaine": "Record de la semaine : {score}.",

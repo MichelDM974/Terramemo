@@ -4016,7 +4016,9 @@ def ui_quiz(p, capturer, defauts, base, parametres=""):
     « Partie abandonnée à la question 1 », record à battre ; 16-quiz-abandon) ;
     « Autre difficulté » : #jouer/quiz, le record « 19/20 · 95 % » sur Facile
     (16-quiz-record) ; le retour arrière : la racine de Jouer ; « × » : la
-    carte. Sans pseudo (invité du pilote) : rien n'est publié. DÉFAUT à tout
+    carte ; une partie laissée en cours (deux justes, la page rechargée) :
+    l'avis « … a compté : 2/20 · 10 % » à l'accueil (16-quiz-interrompue).
+    Sans pseudo (invité du pilote) : rien n'est publié. DÉFAUT à tout
     écart."""
     def lire(attr):
         return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
@@ -4147,6 +4149,26 @@ def ui_quiz(p, capturer, defauts, base, parametres=""):
     p.pause(400)
     if p.js("document.body.dataset.vue") != "carte":
         defauts.append(f"« × » de Jouer après le quiz : vue {p.js('document.body.dataset.vue')}")
+    # Une partie laissée en cours (D55 a) : deux justes, puis la page rechargée en pleine partie ;
+    # au démarrage, elle compte (record inchangé : 19/20 le bat) et l'accueil le dit sous « Touche un pays ».
+    p.js('location.hash = "#jouer/quiz"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-difficulte="facile"]')
+    for i in range(2):
+        attendre(ouverte, f"la question {i + 1} de la partie interrompue")
+        choisir(True)
+        p.pause(300 if i else 1900)
+    # Un vrai rechargement : vers la même adresse, seul le # changerait (la vue quittée, qui finit la partie).
+    p.goto("about:blank")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    p.pause(300)
+    avis = sans_insecables(texte(p, "#barre-carte .barre-detail"))
+    reste = p.js("localStorage.getItem('terramemo.quiz.en_cours')")
+    dire(f"  partie interrompue, au démarrage : {avis!r}")
+    if avis != "La partie du quiz laissée en cours (Facile) a compté : 2/20 · 10 %." or reste is not None:
+        defauts.append(f"partie du quiz interrompue : avis {avis!r} (« … (Facile) a compté : 2/20 · 10 %. » attendu), en cours {reste!r}")
+    capturer("16-quiz-interrompue")
 
 
 def commande_drapeaux(args):

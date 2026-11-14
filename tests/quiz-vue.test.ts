@@ -63,6 +63,8 @@ function partiePays(d: Difficulte): Question[] {
   return LIEUX.slice(0, 20).map((id, i) => question('pays', id, i < n ? 'qcm' : 'toucher', d));
 }
 
+/** Les avis du démarrage (option avis : l'accueil les montre). */
+const avis: string[] = [];
 /** Les touchers à rendre faux (leur numéro, à partir de 1). */
 let faux = new Set<number>();
 let touchers = 0;
@@ -88,7 +90,7 @@ function contexte(tirer: (d: Difficulte) => Question[], chargerImage?: ChargerIm
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
   const versCarte = vi.fn<() => void>();
   const tire = vi.fn(tirer);
-  const v = vueQuiz(ctx as never, { versJouer, versCarte, tirer: tire, maintenant: () => Date.parse('2026-11-16T08:00:00Z'), ...(chargerImage ? { chargerImage } : {}) });
+  const v = vueQuiz(ctx as never, { versJouer, versCarte, tirer: tire, maintenant: () => Date.parse('2026-11-16T08:00:00Z'), avis: (t) => avis.push(t), ...(chargerImage ? { chargerImage } : {}) });
   const el = (sel: string) => zone.querySelector(sel)!;
   const consigne = () => zone.querySelector('#barre-quiz .essai-consigne');
   /** Le bouton de ce choix dans la grille. */
@@ -294,14 +296,18 @@ describe('une page fermée en pleine partie (D55 a)', () => {
     p.repondre(true, 3_000);
     // La page se ferme ici (rechargée, appli tuée) : ni bilan, ni record.
     expect(recordDe(lireRecords(localStorage), idQuiz('moyen'), 'toujours')).toBeNull();
+    avis.length = 0;
     contexte(partiePays);
     expect(recordDe(lireRecords(localStorage), idQuiz('moyen'), 'toujours')).toMatchObject({ justes: 1, questions: 20, temps_ms: 3_000 + 9 * 10_000 + 10 * 15_000 });
+    // Le joueur le sait : l'avis pour l'accueil, une seule fois.
+    expect(avis).toEqual(['La partie du quiz laissée en cours (Moyen) a compté : 1/20 · 5\u00a0%.']);
     expect(enCours()).toBeNull();
     expect(publierPartie).toHaveBeenCalledTimes(1);
     expect(publierPartie.mock.calls[0]!.slice(0, 2)).toEqual(['Michel', idQuiz('moyen')]);
     // Une fois : la vue recréée encore n'y revient pas.
     contexte(partiePays);
     expect(publierPartie).toHaveBeenCalledTimes(1);
+    expect(avis).toHaveLength(1);
   });
 
   it('une entrée que les règles refuseraient (20/20 en 1 ms) ou illisible : retirée, aucun record', () => {
@@ -310,9 +316,11 @@ describe('une page fermée en pleine partie (D55 a)', () => {
     expect(enCours()).toBeNull();
     expect(recordDe(lireRecords(localStorage), idQuiz('facile'), 'toujours')).toBeNull();
     localStorage.setItem(CLE, '{');
+    avis.length = 0;
     contexte(partiePays);
     expect(localStorage.getItem(CLE)).toBeNull();
     expect(publierPartie).not.toHaveBeenCalled();
+    expect(avis).toEqual([]);
   });
 });
 

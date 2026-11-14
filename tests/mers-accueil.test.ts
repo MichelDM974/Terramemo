@@ -193,6 +193,29 @@ describe('accueil : le nom de la mer touchée (D45 a)', () => {
   });
 });
 
+describe('accueil : l’avis du démarrage (une partie du quiz laissée en cours a compté)', () => {
+  it('donné avant l’arrivée sur l’accueil : sous « Touche un pays » à l’activation, une fois ; le premier toucher le remplace', () => {
+    const a = monter();
+    a.vue.avis('La partie du quiz laissée en cours (Moyen) a compté : 1/20 · 5 %.');
+    a.vue.activer();
+    expect(a.nom()).toBe(textes.carte.touche);
+    expect(a.detail()).toBe('La partie du quiz laissée en cours (Moyen) a compté : 1/20 · 5 %.');
+    a.toucher(FRANCE);
+    expect(a.nom()).toBe('France');
+    expect(a.detail()).not.toContain('quiz');
+    a.vue.desactiver();
+    a.vue.activer();
+    expect(a.detail()).toBe('');
+  });
+
+  it('donné sur l’accueil déjà affiché : tout de suite', () => {
+    const a = monter();
+    a.vue.activer();
+    a.vue.avis('avis');
+    expect(a.detail()).toBe('avis');
+  });
+});
+
 describe('accueil : la mémoire des mers (D47 a) et une mer choisie dans la recherche', () => {
   /** La carte de la mémoire, sujet « Mers » choisi. */
   const memoireMers = (): CarteMemoire => ({

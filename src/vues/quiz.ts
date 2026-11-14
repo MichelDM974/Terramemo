@@ -29,7 +29,7 @@
 // un abandon (reprendrePartieInterrompue), sinon recharger la page
 // relancerait un tirage sans rien compter.
 import type { ScoreEpreuve } from '../epreuve/bareme';
-import { enregistrerPartie, idQuiz, modeEpreuve, vraisemblable, type BilanPartie, type QuestionJouee } from '../epreuve/chrono';
+import { difficulteQuiz, enregistrerPartie, idQuiz, modeEpreuve, vraisemblable, type BilanPartie, type QuestionJouee } from '../epreuve/chrono';
 import { PartieQuiz } from '../epreuve/quiz';
 import { capitalesChargees } from '../map/capitales';
 import { attendreImages, drapeauxCharges, type ChargerImage } from '../map/drapeaux';
@@ -98,7 +98,10 @@ function garderEnCours(s: Storage | null, e: PartieEnCours | null): void {
  * (oublierSemainesPassees). Rend son bilan ; null sans partie, ou une entrée
  * illisible ou que les règles refuseraient (retirée aussi).
  */
-export function reprendrePartieInterrompue(s: Storage | null = stockage(), date = Date.now()): BilanPartie | null {
+/** Une partie interrompue, comptée au démarrage : son bilan, son épreuve et son score. */
+export type PartieInterrompue = BilanPartie & PartieEnCours;
+
+export function reprendrePartieInterrompue(s: Storage | null = stockage(), date = Date.now()): PartieInterrompue | null {
   let brut: string | null = null;
   try {
     brut = s?.getItem(CLE_EN_COURS) ?? null;
@@ -124,7 +127,13 @@ export function reprendrePartieInterrompue(s: Storage | null = stockage(), date 
   const pseudo = lirePseudo();
   const aPublier = [bp.toujours, bp.semaine].some((b) => b.nouveau || b.progresPubliable);
   if (pseudo && aPublier) void publierPartie(pseudo, epreuve, bp).catch(() => undefined);
-  return bp;
+  return { ...bp, epreuve, score: { points, justes, questions, temps_ms } };
+}
+
+/** L'avis d'une partie interrompue comptée au démarrage : « La partie du quiz laissée en cours (Facile) a compté : 3/20 · 15 %. » */
+export function avisInterrompue(p: PartieInterrompue): string {
+  const d = difficulteQuiz(p.epreuve);
+  return remplir(Q.interrompue, { difficulte: d ? nomDifficulte(d) : '', score: scoreCourt(p.epreuve, p.score) });
 }
 
 /**
@@ -174,6 +183,8 @@ export interface OptionsQuiz {
   chargerImage?: ChargerImage;
   /** Le tirage d'une partie (défaut : tirerPartie sur generateursQuiz ; les tests : des questions fixées). */
   tirer?: (d: Difficulte) => Question[];
+  /** Dire au joueur qu'une partie laissée en cours a compté au démarrage (l'accueil : VueExplorer.avis). */
+  avis?: (texte: string) => void;
 }
 
 /** Les images de ces éléments pas encore chargées (une <img> pas complète) ; [] sans image. */
@@ -202,8 +213,9 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
 
   const t = ctx.terrains.monde;
   const maintenant = o.maintenant ?? (() => Date.now());
-  // Une partie laissée en cours par la page d'avant compte d'abord (D55 a).
-  reprendrePartieInterrompue(stockage(), maintenant());
+  // Une partie laissée en cours par la page d'avant compte d'abord (D55 a), et l'accueil le dit (o.avis).
+  const interrompue = reprendrePartieInterrompue(stockage(), maintenant());
+  if (interrompue) o.avis?.(avisInterrompue(interrompue));
   const tirer = o.tirer ?? ((d: Difficulte) => tirerPartie(generateursQuiz(ctx), d));
   let difficulte: Difficulte = 'facile';
   let partie: PartieQuiz | null = null;
