@@ -332,7 +332,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
       jauge.partir(q.delai_ms, debut);
       minuterie = window.setTimeout(expirer, q.delai_ms);
     };
-    const imgs = imagesEnAttente([consigne, grille]);
+    const imgs = imagesEnAttente(q.forme === 'qcm' ? [consigne, grille] : [consigne]);
     if (!imgs.length) return ouvrir();
     // Filet : une image pas encore là (préchargée au départ, mais le réseau traîne). La jauge pleine attend, rien ne
     // compte ; le décodage, son échec ou ATTENTE_IMAGE_MS ouvrent la question, une fois.
@@ -340,7 +340,8 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     retro.textContent = T.image_attente;
     let fait = false;
     const enfin = (decodees: boolean) => {
-      if (fait) return;
+      // Une autre partie, ou une autre question, depuis : ses minuteries ne sont pas les nôtres.
+      if (fait || partie !== p || p.question !== q) return;
       fait = true;
       clearTimeout(minuterie);
       retro.textContent = decodees ? '' : T.image_absente;
@@ -424,6 +425,20 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     b.addEventListener('click', () => {
       if (b.dataset.id) choisir(b.dataset.id);
     });
+  // Touches 1 à 4 pour des choix en images (les drapeaux, comme Reconnaître : nommer.ts), hors d'un champ de saisie ;
+  // la touche physique (ev.code : la rangée du haut d'un AZERTY sans Maj), le pavé numérique par ev.key.
+  document.addEventListener('keydown', (e) => {
+    const ev = e as KeyboardEvent;
+    const q = partie?.question;
+    if (barre.hidden || grille.hidden || !q || q.forme !== 'qcm' || !rs(q).visuel || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if ((ev.target as Element | null)?.closest?.('input, textarea, select')) return;
+    const parCode = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(ev.code);
+    const k = parCode >= 0 ? parCode : ['1', '2', '3', '4'].indexOf(ev.key);
+    const b = boutons[k];
+    if (k < 0 || !b || b.disabled) return;
+    ev.preventDefault?.();
+    b.click();
+  });
 
   /** Une ligne des ratés du bilan : le lieu, puis ce qui a été répondu (ou rien). */
   function rate(q: Question, j: QuestionJouee | undefined): string {
