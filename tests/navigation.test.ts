@@ -12,8 +12,11 @@ import { adresse, creerArbre, depuisAncre, versAncre } from '../src/vues/arbre';
 import { installerDom, installerStockage, El } from './dom-factice';
 
 vi.mock('../src/vues/classement', () => ({ blocClassement: () => new El('section'), publierPartie: vi.fn() }));
+// La carte factice n'a pas de projection : une zone allumée (QCM du quiz) ne cadre rien.
+vi.mock('../src/vues/nommer', async (orig) => ({ ...(await orig()), allumerZone: () => false }));
 
 const { vueChrono } = await import('../src/vues/chrono');
+const { vueQuiz } = await import('../src/vues/quiz');
 const { vueEssai } = await import('../src/vues/essai');
 const { textes } = await import('../src/vues/textes');
 const { catalogue } = await import('../src/vues/cibles');
@@ -75,6 +78,7 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
     cadrer() {},
     montrer() {},
     noter: (id: string) => ({ pick: { id }, juste: true, distance_km: 0 }),
+    vueEntiere() {},
     projection: { scale: () => 1 },
     transfo: { k: 1 },
     hote: new El('div'),
@@ -113,6 +117,13 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
   // « × » (#18) : comme main.ts, l'accueil en remontant l'historique.
   const versCarte = () => nav.remonter('carte');
   const chrono = vueChrono(ctx as never, { versJouer, versCarte });
+  // Le quiz : 20 questions des pays d'Amérique du Sud et d'Europe, à 4 choix (le tirage est testé à part, tests/quiz.test.ts).
+  const lieux = pays.filter((p) => p.statut === 'jouable' && (p.continent === AMS || p.continent === 'Europe')).map((p) => p.id);
+  const quiz = vueQuiz(ctx as never, {
+    versJouer,
+    versCarte,
+    tirer: () => lieux.slice(0, 20).map((id) => ({ sujet: 'pays' as const, forme: 'qcm' as const, cible: id, entites: [id], choix: [id, ...lieux.filter((x) => x !== id).slice(0, 3)], delai_ms: 10_000 })),
+  });
   // La Révision du jour : une séance d'une question de Trouver (la France), son bilan avec « Carte ».
   let finie = false;
   const seances = {
@@ -139,6 +150,7 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
     ['jouer', jouer],
     ['toucher', toucher],
     ['chrono', chrono],
+    ['quiz', quiz],
     ['classement', classement],
     ['confidentialite', confidentialite],
     ['compte', compte],
@@ -146,7 +158,7 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
   nav = creerNavigation({
     history: h,
     ancre: () => h.ancre,
-    noms: ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'confidentialite', 'compte'],
+    noms: ['carte', 'jouer', 'toucher', 'chrono', 'quiz', 'classement', 'confidentialite', 'compte'],
     accueil: 'carte',
     passage: ['jouer', 'classement', 'confidentialite', 'compte'],
     retenue: o.retenue,
@@ -193,6 +205,11 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
     nav.ouvrirPartie('chrono');
     chrono.lancer({ branche: 'classe', sujet: 'pays', serie, mode: 'chrono' }, s, monde as never, [...s.ids]);
   };
+  /** Comme main.ts : la vue du quiz s'ouvre (une entrée), la partie part. */
+  const lancerQuiz = () => {
+    nav.ouvrirPartie('quiz');
+    quiz.lancer('facile');
+  };
   const lancerToucher = () => {
     const s = CATALOGUE.find((x) => x.id === 'Europe')!;
     nav.ouvrirPartie('toucher');
@@ -209,7 +226,7 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
     lien('jouer');
     for (let k = 1; k <= segs.length; k++) faire(() => nav.pousser(['jouer', ...segs.slice(0, k)].join('/')));
   };
-  return { h, nav, zone, jouer, chrono, carteVue, classement, confidentialite, compte, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre };
+  return { h, nav, zone, jouer, chrono, quiz, lancerQuiz, carteVue, classement, confidentialite, compte, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre };
 }
 
 beforeEach(() => {
@@ -332,6 +349,46 @@ describe('navigation : les parties et le « × » de Jouer', () => {
     expect(m.h.gos).toEqual([-1]);
     expect(m.ici()).toBe(EXERCICES_AMS);
     expect(m.jouer.statut).toBe(textes.chrono.abandon);
+  });
+});
+
+describe('navigation : le quiz général (étude J2 § 7.1), ouvert comme une partie depuis #jouer/quiz', () => {
+  it('#quiz sans partie : les difficultés dans Jouer, sans entrée de plus', () => {
+    const m = monter();
+    m.lien('carte');
+    m.lien('quiz');
+    expect(m.ici()).toBe('jouer/quiz');
+    expect(m.jouer.active).toBe(true);
+  });
+
+  it('« Abandonner » après la première question (D55 a) : le bilan, sans quitter #quiz ; « Autre difficulté » remonte aux difficultés ; le retour arrière à la racine', () => {
+    const m = monter();
+    m.descendre('quiz');
+    m.lancerQuiz();
+    expect(m.ici()).toBe('quiz');
+    m.faire(() => m.zone.querySelector('#quiz-abandonner')?.click());
+    expect(m.ici()).toBe('quiz');
+    expect(m.zone.querySelector('#quiz-bilan')?.hidden).toBe(false);
+    m.faire(() => m.zone.querySelector('#quiz-autre')?.click());
+    expect(m.ici()).toBe('jouer/quiz');
+    // L'entrée #quiz n'est pas empilée de nouveau : un retour arrière remonte à la racine de Jouer.
+    m.retourNavigateur();
+    expect(m.ici()).toBe('jouer');
+  });
+
+  it('une partie en cours, Jouer par l’en-tête : elle compte (D55 a), son bilan reste à revoir par le retour arrière ; « × » ramène à la carte', () => {
+    const m = monter();
+    m.descendre('quiz');
+    m.lancerQuiz();
+    m.lien('jouer');
+    expect(m.zone.querySelector('#barre-quiz')?.hidden).toBe(true);
+    expect(m.quiz.aMontrer?.()).toBe(true);
+    m.retourNavigateur();
+    expect(m.ici()).toBe('quiz');
+    expect(m.zone.querySelector('#quiz-bilan')?.hidden).toBe(false);
+    m.faire(() => m.zone.querySelector('#quiz-bilan .croix')?.click());
+    expect(m.ici()).toBe('carte');
+    expect(m.carteVue.active).toBe(true);
   });
 });
 

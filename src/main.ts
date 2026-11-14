@@ -35,7 +35,9 @@ import { creerAccueil, type Accueil } from './vues/accueil';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import { poserMers, type Vue } from './vues/commun';
+import type { Difficulte } from './quiz/types';
 import { vueChrono } from './vues/chrono';
+import { preparerQuiz, vueQuiz } from './vues/quiz';
 import { vueEssai } from './vues/essai';
 import { carteMemoire, garderReglageMemoire, lireReglageMemoire } from './vues/carte-memoire';
 import { brancherCasesLignes, choixDeDepart, garderReglageLignes } from './vues/reglage-lignes';
@@ -307,12 +309,13 @@ function poserLignes(): void {
 // --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
 // recherche montre un lieu), Jouer (l'arbre des choix : #jouer/classe/pays/Africa,
 // décision « Écran Jouer ») puis Toucher ou une épreuve classée (vue « chrono » :
-// Chrono, Sans faute), les classements (🏆), la Saisie et les Crédits (⚙). Historique,
+// Chrono, Sans faute) ou le quiz général (vue « quiz », #jouer/quiz), les
+// classements (🏆), la Saisie et les Crédits (⚙). Historique,
 // redirections et « × » : src/navigation.ts. ---
 
-type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'classement' | 'saisie' | 'credits' | 'confidentialite' | 'compte';
+type NomVue = 'carte' | 'jouer' | 'toucher' | 'chrono' | 'quiz' | 'classement' | 'saisie' | 'credits' | 'confidentialite' | 'compte';
 /** #compte n'existe que si les comptes se montrent : sinon l'adresse mène à l'accueil. */
-const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'classement', 'saisie', 'credits', 'confidentialite', ...(COMPTES ? (['compte'] as const) : [])];
+const VUES: NomVue[] = ['carte', 'jouer', 'toucher', 'chrono', 'quiz', 'classement', 'saisie', 'credits', 'confidentialite', ...(COMPTES ? (['compte'] as const) : [])];
 /** Vues de passage : leur « Retour » ramène à la vue d'avant (leur « × », à la carte). */
 const PASSAGE: NomVue[] = ['jouer', 'classement', 'credits', 'confidentialite', 'compte'];
 const vues = new Map<string, Vue>();
@@ -768,6 +771,7 @@ async function demarrer(): Promise<void> {
   const versCarte = () => nav.remonter('carte');
   const essai = vueEssai(ctx, { versJouer: nav.versJouer, versCarte, seances, libre: seances.libre });
   const epreuve = vueChrono(ctx, { versJouer: nav.versJouer, versCarte });
+  const quiz = vueQuiz(ctx, { versJouer: nav.versJouer, versCarte });
   // « Retour » des classements, de Crédits… : la vue d'avant, en remontant l'historique.
   const retour = nav.retour;
   // Une partie choisie (Jouer, Rejouer, ⚙) : sa vue s'ouvre (une entrée
@@ -789,11 +793,21 @@ async function demarrer(): Promise<void> {
       essai.reviser();
     },
   };
-  jouer = vueJouer(ctx, arbre, { lancer, fermer: versCarte, pousser: nav.pousser, remonter: nav.remonter, canoniser: nav.canoniser, revision });
+  // Le quiz général (étude J2 § 7.1) : ses données chargées dans Jouer, puis sa vue s'ouvre comme une partie.
+  const quizJouer = {
+    preparer: () => preparerQuiz(ctx),
+    lancer: (d: Difficulte) => {
+      garderDerniere(stockage(), { quiz: d });
+      nav.ouvrirPartie('quiz');
+      quiz.lancer(d);
+    },
+  };
+  jouer = vueJouer(ctx, arbre, { lancer, fermer: versCarte, pousser: nav.pousser, remonter: nav.remonter, canoniser: nav.canoniser, revision, quiz: quizJouer });
   vues.set('carte', explorer);
   vues.set('jouer', jouer);
   vues.set('toucher', essai);
   vues.set('chrono', epreuve);
+  vues.set('quiz', quiz);
   vues.set('classement', vueGeneral(ctx, { retour, versCarte }));
   vues.set('saisie', vueSaisie(ctx, { versCarte }));
   vues.set('credits', vueCredits(ctx, { retour, versCarte }));

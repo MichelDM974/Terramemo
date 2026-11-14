@@ -199,6 +199,14 @@ export interface OptionsRendu {
   epreuve?: boolean;
   /** Hasard du tirage d'une capitale ou d'un drapeau parmi les justes (D38 a ; tests : une graine). */
   hasard?: () => number;
+  /**
+   * La capitale montrée pour ce pays (son Qid), quand la partie l'a déjà
+   * choisie : le quiz général (étude J2 § 9.2 : Question.indice, la plus
+   * connue en moyen, une juste au hasard au-delà ; la principale au bouton
+   * juste d'un QCM). undefined, ou une capitale qui n'est pas juste pour ce
+   * pays : la règle d'`epreuve` ou de D38 a.
+   */
+  capitale?: (id: string) => string | undefined;
 }
 
 /**
@@ -289,11 +297,15 @@ const parCapitale: Fabrique = (ts, d, o) => {
   function montree(id: string): Capitale | null {
     const c = de(id);
     if (!c) return null;
+    const imposee = o.capitale?.(id);
+    const choisie = imposee === undefined ? undefined : c.justes.find((x) => x.q === imposee);
+    if (choisie) return choisie;
     if (o.epreuve) return c.epreuve;
     return tirees.tirer(id, c.justes) ?? c.principale;
   }
   /** Ce qu'on a montré pour ce pays (sans tirer), à défaut la principale : les bilans d'une séance, faits d'un rendu neuf. */
-  const montreeOuPrincipale = (id: string): Capitale | null => (o.epreuve ? (de(id)?.epreuve ?? null) : (tirees.deja(id) ?? de(id)?.principale ?? null));
+  const montreeOuPrincipale = (id: string): Capitale | null =>
+    o.capitale?.(id) !== undefined || o.epreuve ? montree(id) : (tirees.deja(id) ?? de(id)?.principale ?? null);
   // À défaut de capitale (un pays sans ligne : jamais un jouable, le test le vérifie), le nom du pays, jamais un Qid.
   const ville = (id: string) => montree(id)?.nom ?? pays(id);
   /** Un leurre montre la principale de son pays (§ 2.1) : jamais une autre capitale juste de la cible. */

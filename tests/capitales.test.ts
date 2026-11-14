@@ -129,6 +129,23 @@ describe('rendu du sujet Capitales (§ 5.2)', () => {
     expect([...vues].sort()).toEqual(['La Paz', 'Sucre']);
   });
 
+  it('le quiz (étude J2 § 9.2) : la capitale du tirage imposée (option capitale), énoncé, rétroaction, bilan et zones admises compris ; un Qid qui n’est pas juste retombe sur la règle de l’épreuve', () => {
+    const qid = (pays: string, nom: string) => D.capitales!.parPays.get(pays)!.justes.find((c) => c.nom === nom)!.q;
+    const imposees: Record<string, string> = { BOL: qid('BOL', 'Sucre'), PSE: qid('PSE', 'Ramallah'), NLD: 'Q90' };
+    const r = rendu('capitales', D, { epreuve: true, capitale: (id) => imposees[id] });
+    expect((r.enonce('BOL').objet as { texte: string }).texte).toBe('Sucre');
+    expect(r.choix('BOL', 'BOL')).toEqual({ texte: 'Sucre' });
+    expect(r.retro('BOL')).toBe('Sucre (Bolivie)');
+    expect(r.nomBilan('BOL', 'localiser')).toBe('Sucre (Bolivie)');
+    // Ramallah imposée à la Palestine : plus de zone admise en plus (celle de Jérusalem-Est).
+    expect((r.enonce('PSE').objet as { texte: string }).texte).toBe('Ramallah');
+    expect(r.admisEnPlus('PSE')).toBeNull();
+    // Paris (Q90) n'est pas une capitale des Pays-Bas : celle de l'épreuve.
+    expect((r.enonce('NLD').objet as { texte: string }).texte).toBe('Amsterdam');
+    // Rien d'imposé : la règle de l'épreuve.
+    expect((r.enonce('CIV').objet as { texte: string }).texte).toBe('Abidjan');
+  });
+
   it('D38 d : en épreuve, la capitale e: 1, la même pour tous (Palestine : la principale)', () => {
     for (let s = 1; s <= 10; s++) {
       const r = rendu('capitales', D, { epreuve: true, hasard: graine(s) });
