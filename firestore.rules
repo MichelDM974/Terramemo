@@ -104,12 +104,25 @@ service cloud.firestore {
         && d.temps_ms >= d.justes * 200 && d.temps_ms <= d.justes * 15000;
     }
 
+    // La forme du pseudo (src/epreuve/chrono.ts, formePseudo, sa copie) : des
+    // mots séparés d'une espace simple, sans espace au bord, ni séparateur
+    // Unicode (\p{Z}), ni caractère de contrôle, de format ou invisible
+    // (\p{C} : U+200B, trait d'union conditionnel, saut de ligne). Sinon un
+    // client modifié publie « Michel » + U+200B, une place à part qui
+    // s'affiche comme celle de « Michel » (audit du 07/11/2026, #25). Les
+    // homoglyphes (« і » cyrillique) et la forme NFD restent : sans serveur,
+    // on ne les arrête pas.
+    function formePseudo(pseudo) {
+      return pseudo.matches('[^\\p{Z}\\p{C}]+( [^\\p{Z}\\p{C}]+)*');
+    }
+
     function scoreValide(epreuve) {
       let d = request.resource.data;
       let p = epreuve.split(':');
       return d.keys().hasOnly(['pseudo', 'points', 'justes', 'questions', 'temps_ms', 'date', 'bareme'])
         && d.keys().hasAll(['pseudo', 'points', 'justes', 'questions', 'temps_ms', 'date', 'bareme'])
         && d.pseudo is string && d.pseudo.size() >= 2 && d.pseudo.size() <= 20
+        && formePseudo(d.pseudo)
         && d.points is int && d.justes is int && d.questions is int && d.temps_ms is int
         && d.bareme == 2
         && d.date == request.time

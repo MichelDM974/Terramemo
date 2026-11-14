@@ -20,6 +20,7 @@ import {
   PartieChrono,
   PartieSansFaute,
   periodeSemaine,
+  formePseudo,
   pseudoValide,
   recordDe,
   recordPubliable,
@@ -566,6 +567,21 @@ describe('records de la semaine et classement général', () => {
     expect(pseudoValide('Hélène')).toBe('Hélène');
     expect(clePseudo('Michel')).toBe(clePseudo('MICHEL'));
     expect(clePseudo(pseudoValide('  Hélène   D ')!)).toBe('hélène d');
+  });
+
+  it('pseudo : sans caractère invisible ni séparateur Unicode, la forme que les règles exigent (formePseudo, audit du 07/11, #25)', () => {
+    // Les pseudos en ligne, et la branche masquée de cleDuPseudo (majuscule non ASCII).
+    for (const p of ['Michel', 'Wiwi', 'Élodie', 'Œil de Lynx', 'Ñandú 42', 'Jean_Luc ~2', '李明', 'Michel ★', 'Ana 😀', 'Ζωή', 'राम']) {
+      expect([p, pseudoValide(p)]).toEqual([p, p]);
+      expect(formePseudo(p)).toBe(true);
+    }
+    // Invisibles (espace sans chasse, trait d'union conditionnel, joint sans chasse, inversion bidi), contrôles.
+    for (const p of ['Michel​', 'Mi­chel', 'Mi‍chel', '‮Michel', 'Mi\u0007chel', 'Élodie​']) expect([p, pseudoValide(p)]).toEqual([p, null]);
+    // Les espaces Unicode sont resserrés en une espace simple par pseudoValide, mais refusés tels quels par la forme.
+    expect(pseudoValide('Michel D')).toBe('Michel D');
+    expect(pseudoValide('Michel　 D')).toBe('Michel D');
+    expect(pseudoValide('﻿Michel')).toBe('Michel');
+    for (const p of [' Michel', 'Michel ', 'Michel  D', 'Michel D', 'Michel\tD', 'Michel\nD', '', 'Michel D']) expect([p, formePseudo(p)]).toEqual([p, false]);
   });
 });
 

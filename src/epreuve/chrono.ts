@@ -598,14 +598,30 @@ export function totalGeneral(
  * Firestore refuse pour un document (« .. », « __…__ »), ni de pseudo dont
  * les règles refuseraient la clé (clePermise : lettres de fantaisie « 𝐌 »,
  * « Ⓜ », « Ⅻ », « İ » turc), que le joueur apprend ainsi tout de suite
- * plutôt qu'à chaque publication refusée.
+ * plutôt qu'à chaque publication refusée. Ni caractère invisible
+ * (formePseudo) : le classement le refuserait aussi.
  */
 export function pseudoValide(brut: string): string | null {
   const p = brut.normalize('NFC').trim().replace(/\s+/g, ' ');
   if (p.length < 2 || p.length > 20 || p.includes('/') || p === '..' || /^__.*__$/.test(p)) return null;
-  if (!clePermise(clePseudo(p), p)) return null;
+  if (!formePseudo(p) || !clePermise(clePseudo(p), p)) return null;
   return p;
 }
+
+const FORME_PSEUDO = /^[^\p{Z}\p{C}]+( [^\p{Z}\p{C}]+)*$/u;
+
+/**
+ * La forme d'un pseudo, la règle de scoreValide (firestore.rules) recopiée :
+ * des mots séparés d'une espace simple, sans espace au bord, ni séparateur
+ * Unicode (\p{Z} : espace insécable, espace fine…), ni caractère de
+ * contrôle, de format ou invisible (\p{C} : U+200B, trait d'union
+ * conditionnel, saut de ligne). Sans elle, un client modifié publiait
+ * « Michel » + U+200B, une place à part qui s'affiche comme celle de
+ * « Michel » (audit du 07/11, #25). Restent possibles les homoglyphes (« і »
+ * cyrillique) et la forme NFD : sans serveur, on ne les arrête pas. Prix :
+ * les emojis composés par U+200D (famille, drapeau arc-en-ciel) sont refusés.
+ */
+export const formePseudo = (p: string): boolean => FORME_PSEUDO.test(p);
 
 /**
  * La place d'un pseudo au classement (nom de son document Firestore) : un

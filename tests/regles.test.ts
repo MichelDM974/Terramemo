@@ -11,7 +11,7 @@ import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestE
 import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
-import { BORNE_GENERAL, clePermise, clePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
+import { BORNE_GENERAL, clePermise, clePseudo, formePseudo, idEpreuve, pseudoValide, vraisemblable } from '../src/epreuve/chrono';
 import type { Evenement } from '../src/srs/journal';
 import { docDuLot, problemeLot, type DocLot } from '../src/sync/lots';
 import { ESSAI_DU_DEPOT, REGLES, reglesAvecEssai } from './regles-essai';
@@ -62,8 +62,8 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertSucceeds(setDoc(place(db('ana')), score()));
   });
 
-  it('la clé est le pseudo en minuscules, sans autre place possible ; clePermise (pseudoValide) juge comme les règles', async () => {
-    // [clé, pseudo, acceptée] : chaque essai est une création sur une base vide (seule la clé peut la refuser).
+  it('la clé est le pseudo en minuscules, sans autre place possible ; la forme du pseudo ; formePseudo et clePermise (pseudoValide) jugent comme les règles', async () => {
+    // [clé, pseudo, acceptée] : chaque essai est une création sur une base vide (seules la clé et la forme du pseudo peuvent la refuser).
     const cas: [string, string, boolean][] = [
       ['michel', 'MICHEL', true],
       ['michel', 'Michou', false], // la place d'un autre, même longueur
@@ -92,8 +92,9 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
       ['‮lodie', 'Élodie', false],
       [' lodie', 'Élodie', false],
       ['\nlodie', 'Élodie', false],
-      ['é\nÉ', 'É\nÉ', false], // un saut de ligne ne cache pas une majuscule
-      ['é\né', 'É\nÉ', true],
+      // Un saut de ligne ne cache pas une majuscule (clePermise) ; la forme du pseudo le refuse de toute façon (#25).
+      ['é\nÉ', 'É\nÉ', false],
+      ['é\né', 'É\nÉ', false],
       // Sans majuscule non ASCII, les caractères non ASCII sont ceux du pseudo.
       ['李明', '李明', true],
       ['李朋', '李明', false],
@@ -107,14 +108,37 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
       [clePseudo('ΟΔΟΣ'), 'ΟΔΟΣ', true],
       [clePseudo('ǅemal'), 'ǅemal', true],
       [clePseudo('Straße'), 'Straße', true],
+      // Forme du pseudo (audit du 07/11, #25) : les pseudos en ligne passent, et les mots séparés d'une espace simple.
+      ['michel', 'Michel', true],
+      ['wiwi', 'Wiwi', true],
+      ['jean luc', 'Jean Luc', true],
+      ['ana 😀', 'Ana 😀', true],
+      // Ni invisible (espace sans chasse, trait d'union conditionnel, joint sans chasse, inversion bidi), ni contrôle,
+      // ni séparateur Unicode (insécable, fine, de ligne), ni espace au bord ou doublée ; la clé, elle, est permise.
+      ['michel\u200b', 'Michel\u200b', false],
+      ['mi\u00adchel', 'Mi\u00adchel', false],
+      ['mi\u200dchel', 'Mi\u200dchel', false],
+      ['\u202emichel', '\u202eMichel', false],
+      ['mi\tchel', 'Mi\tchel', false],
+      ['michel\u00a0d', 'Michel\u00a0D', false],
+      ['michel\u2009d', 'Michel\u2009D', false],
+      ['michel\u2028d', 'Michel\u2028D', false],
+      [' michel', ' Michel', false],
+      ['michel ', 'Michel ', false],
+      ['michel  d', 'Michel  D', false],
+      // La branche masquée de cleDuPseudo (majuscule non ASCII) : la forme s'y ajoute sans la changer.
+      ['élodie\u200b', 'Élodie\u200b', false],
+      ['élodie b', 'Élodie B', true],
     ];
     for (const [cle, pseudo, acceptee] of cas) {
       await env.clearFirestore();
       const ecrire = setDoc(place(db('ana'), cle), score({ pseudo }));
       if (acceptee) await assertSucceeds(ecrire);
       else await assertFails(ecrire);
-      expect([cle, pseudo, clePermise(cle, pseudo)]).toEqual([cle, pseudo, acceptee]);
+      expect([cle, pseudo, formePseudo(pseudo) && clePermise(cle, pseudo)]).toEqual([cle, pseudo, acceptee]);
     }
+    // Ceux que la forme refuse : leur clé est permise (seule la forme les arrête), sauf « é\nÉ » et sa majuscule.
+    for (const [cle, pseudo] of cas.filter(([, p]) => !formePseudo(p))) expect([cle, pseudo, clePermise(cle, pseudo)]).toEqual([cle, pseudo, cle !== 'é\nÉ']);
     for (const p of ['Ⓜichel', '𝐌𝐢𝐜𝐡𝐞𝐥', 'İrem']) expect(pseudoValide(p)).toBeNull();
   });
 
