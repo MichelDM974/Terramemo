@@ -16,6 +16,9 @@ Deux relectures adverses par des agents ont suivi chaque correctif. Ce qui
 suit en reste. Chaque point se clôt par un correctif avec son test, ou par un
 « non » de l'utilisateur.
 
+Le 14/11, les défauts 1 à 4 sont corrigés (branche `audit-restes`), chacun
+avec son test ; seul le point 5 reste, à vérifier en production.
+
 ## Défauts
 
 1. **File des scores : une erreur qui n'est pas du réseau passe pour une
@@ -30,6 +33,14 @@ suit en reste. Chaque point se clôt par un correctif avec son test, ou par un
    `deadline-exceeded`, `auth/network-request-failed`, échec du chargement
    du SDK). Pour les autres, compter un échec sans rien promettre, ou
    plafonner les essais par entrée.
+   **Corrigé** (827ce72) : `erreurReseau` (`src/sync/firebase.ts`) ; un
+   autre échec sort de la file et se compte à part (`Publication.locaux`),
+   avec « Score non publié : il reste sur cet appareil pour l'instant. ».
+   Écart au correctif : `unknown` compte aussi pour le réseau, car
+   Firestore lite le rend quand `fetch` échoue (hors ligne, sans statut
+   HTTP) ; `unavailable` n'est qu'un 503. `charger()` donne le code
+   `terramemo/sdk-indisponible` à toute erreur sans code. Pas de plafond
+   d'essais (il changeait le format de la file).
 
 2. **File sans stockage : l'avis promet un départ qui n'aura pas lieu.**
    Quand `localStorage` est refusé ou plein, `ecrireAttente` avale l'erreur
@@ -38,6 +49,9 @@ suit en reste. Chaque point se clôt par un correctif avec son test, ou par un
    donc rien n'est perdu de plus qu'avant : seul l'avis est faux.
    *Correctif* : `ecrireAttente` et `marquer` rendent un booléen, et l'avis
    reprend « il reste sur cet appareil » quand la file n'a pas pu s'écrire.
+   **Corrigé** (75f572b) : même avis que pour le point 1. `marquer` relit
+   la file quand l'écriture échoue : une entrée déjà là d'un échec d'avant
+   reste promise.
 
 3. **Règles : la forme du pseudo n'est pas vérifiée.** `scoreValide`
    (`firestore.rules`) accepte des caractères invisibles (`\p{C}`, par
@@ -50,6 +64,14 @@ suit en reste. Chaque point se clôt par un correctif avec son test, ou par un
    `pseudoValide`, avec un cas au test croisé de `tests/regles.test.ts`. Les
    homoglyphes (і cyrillique) et le NFD restent : on ne les arrête pas sans
    serveur.
+   **Corrigé** (df73435) : `formePseudo` des règles, recopiée dans l'appli,
+   avec le motif `[^\p{Z}\p{C}]+( [^\p{Z}\p{C}]+)*`. `\p{Z}` remplace
+   `\s`, qui n'est que l'ASCII dans le RE2 des règles : l'espace insécable
+   ou fine serait passée. Prix : les emojis composés par U+200D (famille,
+   drapeau arc-en-ciel) sont refusés. Le test croisé compte 17 cas de
+   forme, dont « Élodie » + U+200B (branche masquée de `cleDuPseudo`) et
+   « Michel », « Wiwi » ; il est à lancer sur l'émulateur
+   (`npm run test:regles`), puis les règles à déployer avant le site.
 
 4. **Test instable sous charge.** Dans `tests/carte-webgl.test.ts`, « chaque
    entité et zone est maillée, plages contiguës, indices dans les sommets »
@@ -58,6 +80,12 @@ suit en reste. Chaque point se clôt par un correctif avec son test, ou par un
    34).
    *Correctif* : un délai propre à ce test, ou un maillage du test allégé.
    Critère : la suite complète passe sous forte charge.
+   **Corrigé** (a791724) : ni délai ni maillage allégé, la lenteur venait
+   d'un `expect` par indice de triangle (~340 000). Les écarts sont comptés
+   en boucle, puis un seul `expect` : 1,7 s → 11 ms à vide. Même chose pour
+   « milieux : chaque sommet porte le milieu… » (1,8 s à vide, le suivant à
+   dépasser). Le plus lent du fichier fait 0,9 s. La suite complète sous
+   forte charge reste à voir.
 
 ## À vérifier au premier vrai usage
 
