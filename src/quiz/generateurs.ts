@@ -292,7 +292,13 @@ export function generateurMers(d: DonneesGenerateurs): Generateur | null {
     entites: (id) => [id],
     connus: (df) => memeGroupe(REGLES[df].niveauMax, N_LEURRES),
     // « Quel est cet océan ? » : les autres océans, à toute difficulté (sinon deux choix faux d'office).
-    strategie: (id) => (sorte.get(id) === 'océan' ? [leurresParmi(() => oceans.filter((o) => o !== id))] : undefined),
+    // Une mer au moyen : 1 voisin qui n'est pas un océan (un océan voisin n'est pas toujours un
+    // ancêtre : l'océan Indien pour la mer de Chine méridionale), puis 2 mers du niveau.
+    strategie: (id, df) => {
+      if (sorte.get(id) === 'océan') return [leurresParmi(() => oceans.filter((o) => o !== id))];
+      if (LEURRES[df] === 'voisin') return [{ candidats: (l) => l.voisins.filter((v) => sorte.get(v) !== 'océan'), n: 1 }, ...memeGroupe(REGLES[df].niveauMax, N_LEURRES)];
+      return undefined;
+    },
     exclus: (id) => parenteMer(id, zones),
     pareils: mersPareilles,
     // Pas d'écart des noms proches : « mer de … », « golfe de … », « océan … » commencent tous pareil.

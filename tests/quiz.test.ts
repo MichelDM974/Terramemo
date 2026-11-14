@@ -221,6 +221,18 @@ describe('leurres par difficulté (§ 9.2)', () => {
     }
   });
 
+  it('moyen : jamais un océan pour une mer, même voisin (la mer de Chine méridionale et l’océan Indien)', () => {
+    const mers = GENS.find((g) => g.sujet === 'mers')!;
+    const ids = mers.lieux(2).filter((id) => sorteMer.get(id) !== 'océan');
+    expect(ids).toContain('chinemer');
+    for (const id of ids) {
+      for (let g = 1; g <= 30; g++) {
+        const q = mers.question(id, 'qcm', 'moyen', graine(g));
+        for (const x of leurres(q)) expect(sorteMer.get(x), `${id} ${x}`).not.toBe('océan');
+      }
+    }
+  });
+
   it('moyen : 1 voisin quand le pays en a un de jouable, 2 lieux des niveaux 1 et 2', () => {
     const qs = questions('moyen', 'pays', 'qcm');
     expect(qs.length).toBeGreaterThan(50);
