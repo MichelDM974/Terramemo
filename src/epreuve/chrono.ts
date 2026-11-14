@@ -80,10 +80,15 @@ export class PartieChrono {
     return this.jouees.reduce((s, q) => s + q.points, 0);
   }
 
+  /** Le délai de la question `i` (0 : la première) : le même pour toutes ici ; le quiz a le sien par question (quiz.ts). */
+  protected delaiQuestion(_i: number): number {
+    return this.delai_ms;
+  }
+
   private jouer(q: Omit<QuestionJouee, 'id' | 'points'>): QuestionJouee {
     const id = this.courante;
     if (id === undefined || this.finie) throw new Error('partie finie');
-    const jouee = { id, ...q, points: pointsQuestion(q, this.delai_ms) };
+    const jouee = { id, ...q, points: pointsQuestion(q, this.delaiQuestion(this.i)) };
     this.jouees.push(jouee);
     this.i++;
     return jouee;
