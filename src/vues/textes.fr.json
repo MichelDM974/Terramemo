@@ -655,6 +655,33 @@
     "detail_sujet": "{sujet} : {detail}",
     "sujet": "Sujet de la carte de la mémoire"
   },
+  "lignes": {
+    "reglage": "Lignes de repère",
+    "reglage_detail": "Sur la carte du monde, à l'accueil comme pendant les parties (rien ne change au toucher ni au score)",
+    "cases": {
+      "equateur": "Équateur",
+      "greenwich": "Méridien de Greenwich",
+      "tropiques": "Tropiques du Cancer et du Capricorne",
+      "polaires": "Cercles polaires",
+      "grille": "Méridiens et parallèles (30°)"
+    },
+    "noms": {
+      "equateur": "Équateur",
+      "greenwich": "Méridien de Greenwich",
+      "cancer": "Tropique du Cancer",
+      "capricorne": "Tropique du Capricorne",
+      "arctique": "Cercle arctique",
+      "antarctique": "Cercle antarctique"
+    },
+    "degres": {
+      "nord": "{n}° N",
+      "sud": "{n}° S",
+      "est": "{n}° E",
+      "ouest": "{n}° O",
+      "zero": "0°",
+      "oppose": "180°"
+    }
+  },
   "accueil": {
     "titre": "Terramemo",
     "accroche": "Deviens bon en géographie, un peu chaque jour.",

@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { geoDistance } from 'd3-geo';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CHOIX_LIGNES, lignesDe } from '../src/map/lignes';
+import { textes } from '../src/vues/textes';
 import { aCoupure, BUDGET_SOMMETS, calque, CarteCanvas, sommetsVisibles, TRAIT_FAUX_PX, type Calque, type CalquesMers, type Peintre } from '../src/map/carte-canvas';
 import { image as imageTrace, MARGE_PX } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
@@ -42,6 +44,7 @@ const VARS: Record<string, string> = {
   // Sur l'eau (carte.css : var(--accent)…, que getComputedStyle résout) : d'autres valeurs ici, pour les distinguer.
   '--mer-choisie': '#6b8afe', '--mer-juste': '#34c77c', '--mer-fausse': '#f0686c',
   '--memoire-mer-0': '#854409', '--memoire-mer-1': '#a56005', '--memoire-mer-2': '#c37e01', '--memoire-mer-3': '#df9f01', '--memoire-mer-4': '#f8c20e',
+  '--ligne-repere': '#84cdde',
 };
 
 /** Un chemin Path2D : ses sous-chemins (moveTo, lineTo, rect), assez pour compter ce qui est tracé. */
@@ -143,6 +146,11 @@ beforeEach(() => {
       getContext: () => (refuserDessus && rang === 1 ? null : f.ctx),
       after: () => undefined,
       remove: () => undefined,
+      // Assez d'un élément pour la couche des noms des lignes de repère (noms-lignes.ts).
+      dataset: {} as Record<string, string>,
+      hidden: false,
+      textContent: '',
+      append: () => undefined,
       ecouteurs: new Map<string, () => void>(),
       addEventListener(type: string, l: () => void) {
         this.ecouteurs.set(type, l);
@@ -207,6 +215,10 @@ function carte(o: Partial<ConstructorParameters<typeof CarteCanvas>[0]> = {}): C
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
     prepend: () => undefined,
+    ajoutes: [] as unknown[],
+    append(...e: unknown[]) {
+      this.ajoutes.push(...e);
+    },
   };
   const c = new CarteCanvas({ hote: hote as unknown as HTMLElement, donnees, projection: 'monde', rendu: 'canvas', ...o });
   c.rendre();
@@ -1308,5 +1320,88 @@ describe('CarteCanvas : la carte de la mémoire « Mers » sans pastilles (choix
     c.cacherPastilles(false);
     image(48);
     expect(recues.at(-1)).toBeGreaterThan(50);
+  });
+});
+
+describe('lignes de repère sur la carte qui tourne (#11)', () => {
+  const lignes = lignesDe(CHOIX_LIGNES, textes.lignes);
+  const LIGNE = VARS['--ligne-repere'];
+  /** La couche des noms, ajoutée à l'hôte par la première ligne. */
+  const couche = (c: CarteCanvas) =>
+    ((c.hote as unknown as { ajoutes: unknown[] }).ajoutes.find((e) => (e as { className?: string }).className === 'lignes-noms') ?? null) as { hidden: boolean; dataset: Record<string, string> } | null;
+
+  it('sur la carte, après les terres, avant les hachures et les frontières, d’un seul trait couleur --ligne-repere ; jamais sur la couche du dessus', () => {
+    const c = carte();
+    image(0);
+    expect(ctx2d.ordre.some((o) => o.style === LIGNE)).toBe(false);
+    c.lignes(lignes);
+    image(16);
+    expect(c.nbLignes).toBe(lignes.length);
+    expect((c.hote as unknown as { dataset: Record<string, string> }).dataset.lignes).toBe(String(lignes.length));
+    const i = ctx2d.ordre.findIndex((o) => o.type === 'stroke' && o.style === LIGNE);
+    expect(i).toBeGreaterThan(0);
+    expect(ctx2d.ordre.filter((o) => o.style === LIGNE)).toHaveLength(1);
+    const terres = ctx2d.ordre.map((o, j) => (o.type === 'fill' && o.style === VARS['--terre'] ? j : -1)).filter((j) => j >= 0);
+    expect(Math.max(...terres)).toBeLessThan(i);
+    const hachures = ctx2d.ordre.findIndex((o) => o.style === 'motif');
+    const frontieres = ctx2d.ordre.findIndex((o) => o.type === 'stroke' && o.style === VARS['--frontiere-fine']);
+    expect(hachures).toBeGreaterThan(i);
+    expect(frontieres).toBeGreaterThan(i);
+    // Une marque (zone allumée) et les pastilles, sur la couche du dessus, au-dessus d'elles ; aucune ligne là.
+    c.marquer('BRA', 'choisi');
+    image(32);
+    expect(ctxDessus.ordre.some((o) => o.style === LIGNE)).toBe(false);
+    expect(ctxDessus.remplis.some((r) => r.style === VARS['--accent'])).toBe(true);
+    // Les retirer : plus de trait.
+    c.lignes([]);
+    image(48);
+    expect(ctx2d.ordre.some((o) => o.style === LIGNE)).toBe(false);
+  });
+
+  it('les mêmes lignes : rien à redessiner ; d’autres : la carte retracée', () => {
+    const c = carte();
+    c.lignes(lignes);
+    image(0);
+    const avant = ctx2d.etat.effacees;
+    c.lignes([...lignes]);
+    image(16);
+    expect(ctx2d.etat.effacees).toBe(avant);
+    c.lignes(lignes.slice(0, 2));
+    image(32);
+    expect(ctx2d.etat.effacees).toBe(avant + 1);
+  });
+
+  it('pick, noter et ecran ne voient pas les lignes : mêmes réponses avec et sans, au zoom 1 et tourné', () => {
+    const points: [number, number][] = [];
+    for (let x = 4; x < L; x += 23) for (let y = 120; y < 620; y += 19) points.push([x, y]);
+    for (const r of [0, 120]) {
+      const lire = (c: CarteCanvas) => points.map(([x, y]) => [c.pick(x, y)?.id ?? null, c.noter('FRA', x, y).juste, c.noter('BRA', x, y).juste]);
+      const sans = carte();
+      sans.zoomer({ k: 1, x: 0, y: 0, r });
+      image(0);
+      const avec = carte();
+      avec.zoomer({ k: 1, x: 0, y: 0, r });
+      avec.lignes(lignes);
+      image(16);
+      expect(lire(avec)).toEqual(lire(sans));
+      expect(avec.ecran('FRA')).toEqual(sans.ecran('FRA'));
+      expect(Object.keys(avec.contexte())).toEqual(Object.keys(sans.contexte()));
+    }
+  });
+
+  it('les noms : posés à l’arrêt, cachés pendant un vol (le geste allégé), reposés à l’arrivée', () => {
+    const c = carte();
+    c.lignes(lignes);
+    image(0);
+    const noms = couche(c);
+    expect(noms).not.toBeNull();
+    expect(noms?.hidden).toBe(false);
+    expect(Number(noms?.dataset.noms)).toBeGreaterThan(3);
+    c.zoomerDe(2);
+    image(100);
+    image(116);
+    expect(noms?.hidden).toBe(true);
+    jouer(132, 600);
+    expect(noms?.hidden).toBe(false);
   });
 });

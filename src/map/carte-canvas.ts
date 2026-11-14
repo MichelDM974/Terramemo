@@ -32,6 +32,8 @@ import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TA
 import { anneauPrincipal, RAYON_TERRE_KM, recentrerBande, versEcran, type Emprise } from './geo';
 import { SuiviPointeurs } from './geste';
 import { indexLieux, type LieuIndexe } from './lieux';
+import { placerNoms, repere, tracerLignes, type Boite, type LigneRepere } from './lignes';
+import { CoucheNoms } from './noms-lignes';
 import { densifierCoutures, empriseMer, formeContour, zonesAllumees, type CoucheMers } from './mers';
 // Réexportée pour les tests du tracé rapide (tests/carte-canvas.test.ts).
 export { densifierCoutures } from './mers';
@@ -112,6 +114,8 @@ export interface EtatImage {
    * qu'un peintre compare l'objet, sans parcourir ses 195 entrées à chaque image.
    */
   teintes: Teintes | null;
+  /** Lignes de repère (#11), le même tableau tant qu'elles ne changent pas ; absentes : aucune. */
+  lignes?: readonly LigneRepere[];
 }
 
 /** Un rendu qui dessine dans le canvas de CarteCanvas à la place du Canvas 2D (carte-webgl.ts). */
@@ -371,6 +375,9 @@ interface Couleurs {
   memoireMers: string[];
   /** Épaisseur des frontières à l'arrêt (px CSS, --frontiere-repos) ; 0 : toujours d'un pixel physique. */
   repos: number;
+  /** Lignes de repère (#11, --ligne-repere) et leur épaisseur à l'arrêt (--ligne-repere-repos, comme les frontières). */
+  ligne: string;
+  ligneRepos: number;
 }
 
 function lireCouleurs(): Couleurs {
@@ -390,6 +397,8 @@ function lireCouleurs(): Couleurs {
     marquesMers: { choisi: v('--mer-choisie'), juste: v('--mer-juste'), faux: v('--mer-fausse') },
     memoireMers: VARIABLES_MEMOIRE_MERS.map(v),
     repos: parseFloat(v('--frontiere-repos')) || 0,
+    ligne: v('--ligne-repere'),
+    ligneRepos: parseFloat(v('--ligne-repere-repos')) || 0,
   };
 }
 
@@ -459,6 +468,16 @@ export class CarteCanvas implements CarteAffichee {
   private seauxMers: Int8Array | null = null;
   /** Index commun des pays et des mers (lieux.ts) : ecran, vise. */
   private lieux: Map<string, LieuIndexe>;
+  /**
+   * Lignes de repère (#11) : tracées sur la carte, entre les terres et les
+   * hachures (sous la couche du dessus : marques et pastilles les couvrent) ;
+   * leur version entre dans la signature de la carte. Leurs noms, dans une
+   * couche de texte (créée à la première ligne), posés à l'arrêt seulement.
+   */
+  private lignesPosees: readonly LigneRepere[] = [];
+  private versionLignes = 0;
+  private noms: CoucheNoms | null = null;
+  private signatureNoms = '';
   private image = 0;
   /** Un mouvement (geste ou vol) est en cours : carte allégée possible. */
   private enMouvement = false;
@@ -908,6 +927,20 @@ export class CarteCanvas implements CarteAffichee {
     this.demander();
   }
 
+  /** Les mêmes lignes qu'avant (mêmes ids) : rien à redessiner. */
+  lignes(l: readonly LigneRepere[]): void {
+    if (l.length === this.lignesPosees.length && l.every((x, i) => x.id === this.lignesPosees[i]?.id && x.nom === this.lignesPosees[i]?.nom)) return;
+    this.lignesPosees = [...l];
+    this.versionLignes++;
+    this.hote.dataset.lignes = String(l.length);
+    if (l.length) this.noms ??= new CoucheNoms(this.hote);
+    this.demander();
+  }
+
+  get nbLignes(): number {
+    return this.lignesPosees.length;
+  }
+
   masquer(oui: boolean): void {
     this.masquee = oui;
     if (!oui) {
@@ -925,6 +958,7 @@ export class CarteCanvas implements CarteAffichee {
     this.canvas.remove();
     this.canvas2d?.remove();
     this.dessus?.remove();
+    this.noms?.detruire();
   }
 
   // --- vue -------------------------------------------------------------------
@@ -1058,6 +1092,7 @@ export class CarteCanvas implements CarteAffichee {
     // Un peintre sans carte allégée n'a rien à refaire : l'image en attente suffit.
     this.enMouvement = false;
     if (g.aBouge && (this.peintre?.allegeEnMouvement ?? true)) this.dessiner();
+    else this.majNoms();
     const script_ms = performance.now() - t0;
     this.o.gestes?.fin?.({ a_bouge: g.aBouge, source, script_ms, image: deuxImages().then(() => performance.now() - t0) });
   }
@@ -1182,7 +1217,7 @@ export class CarteCanvas implements CarteAffichee {
     // Les mers suivent la bascule des terres : 50 km avec l'allégée, 10 km sinon.
     const cm = this.mers ? (leger ? this.mers.leger : this.mers.complet) : null;
     // En mouvement, la carte est tracée plus grossièrement (dessin.ts) : la fin d'un geste la retrace.
-    const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.dpr} ${leger ? 'leger' : 'complet'} ${im.mouvement} t${this.versionTeintes}`;
+    const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.dpr} ${leger ? 'leger' : 'complet'} ${im.mouvement} t${this.versionTeintes} l${this.versionLignes}`;
     const carte = signature !== this.signature || !this.ctxDessus;
     // Sans couche du dessus, les marques des mers vont sur la carte, entre l'ovale et les terres : l'effacement (destination-out) y trouerait les terres.
     if (carte) this.dessinerCarte(ctx, im, cq, mersTracees && cm, this.ctxDessus ? null : cm);
@@ -1197,6 +1232,7 @@ export class CarteCanvas implements CarteAffichee {
     }
     this.dessinerMarques(dessus, im, cq, this.ctxDessus ? cm : null);
     this.dessinerPastilles(dessus);
+    this.majNoms();
     const ms = performance.now() - t0;
     if (!carte && this.dernier) {
       // Couche du dessus seule : les compteurs de la carte restent ceux de son dernier dessin.
@@ -1205,6 +1241,63 @@ export class CarteCanvas implements CarteAffichee {
     }
     this.dernier = { ms, trace_ms: this.traceCarte_ms, leger, ...stats, dessus_ms: performance.now() - t1, carte: true };
     this.hote.dataset.dessin = leger ? 'leger' : 'complet';
+  }
+
+  /**
+   * Noms des lignes de repère : cachés pendant un mouvement (geste ou vol :
+   * rien à poser par image), posés à l'arrêt quand la vue, les lignes, les
+   * pastilles ou les anneaux ont changé (placerNoms, les pastilles et les
+   * anneaux en obstacles).
+   */
+  private majNoms(): void {
+    const noms = this.noms;
+    if (!noms) return;
+    if (!this.lignesPosees.length) {
+      noms.poser([]);
+      this.signatureNoms = '';
+      return;
+    }
+    if (this.enMouvement || this.geste?.aBouge) {
+      noms.cacher();
+      this.signatureNoms = '';
+      return;
+    }
+    const { v, c } = this;
+    const signature = `${v.r} ${v.k} ${v.y} ${c.l} ${c.h} ${this.versionLignes} ${this.pastilles.length} ${this.anneaux.map((a) => a.id).join()}`;
+    if (signature === this.signatureNoms) return;
+    this.signatureNoms = signature;
+    const t = this.transfo;
+    const obstacles: Boite[] = [];
+    const r = PASTILLE.rayon_visible_px + 1;
+    for (const p of this.pastilles) {
+      if (!p.visible) continue;
+      const [x, y] = versEcran(t, p.bx, p.by);
+      obstacles.push({ x: x - r, y: y - r, l: 2 * r, h: 2 * r });
+    }
+    for (const a of this.anneaux) {
+      const ll = pointAnneau(a, this.o.donnees.entites);
+      const b = ll && this.proj(ll);
+      if (!b) continue;
+      const [x, y] = versEcran(t, b[0], b[1]);
+      obstacles.push({ x: x - a.rayon_px - 1, y: y - a.rayon_px - 1, l: 2 * a.rayon_px + 2, h: 2 * a.rayon_px + 2 });
+    }
+    noms.poser(placerNoms(repere(t, this.proj, c.l, c.h), this.lignesPosees, (s) => noms.largeur(s), obstacles));
+  }
+
+  /**
+   * Les lignes de repère, d'un seul trait (un croisement n'a pas double encre) :
+   * d'un pixel physique pendant un mouvement, de --ligne-repere-repos px CSS à
+   * l'arrêt, comme les frontières.
+   */
+  private tracerLignesRepere(ctx: CanvasRenderingContext2D, im: ImageTrace): void {
+    if (!this.lignesPosees.length) return;
+    const chemin = new Path2D();
+    tracerLignes(chemin, repere(this.transfo, this.proj, this.c.l, this.c.h), this.lignesPosees, MARGE_PX);
+    const epais = !im.mouvement && this.couleurs.ligneRepos * this.dpr > 1;
+    ctx.strokeStyle = this.couleurs.ligne;
+    ctx.lineWidth = epais ? this.couleurs.ligneRepos : 1 / this.dpr;
+    ctx.lineJoin = epais ? 'round' : 'miter';
+    ctx.stroke(chemin);
   }
 
   /** Durée du tracé (script, sans le dessin) du dernier dessin de la carte. */
@@ -1269,6 +1362,8 @@ export class CarteCanvas implements CarteAffichee {
         ctx.fill(chemin);
       });
     }
+    // Les lignes de repère sur les terres et la mer, sous les hachures et les frontières.
+    this.tracerLignesRepere(ctx, im);
     this.peindreHachures(ctx, hachures);
     this.tracerFrontieres(ctx, terres, avecCoutures ? couturesContour : null, im.mouvement);
   }
@@ -1509,6 +1604,7 @@ export class CarteCanvas implements CarteAffichee {
     this.image = 0;
     const t0 = performance.now();
     const stats = p.dessiner(this.etatImage());
+    this.majNoms();
     this.dernier = { ms: performance.now() - t0, ...stats };
     this.hote.dataset.dessin = 'complet';
   }
@@ -1524,6 +1620,7 @@ export class CarteCanvas implements CarteAffichee {
       marques: this.marques,
       anneaux: this.anneaux,
       teintes: this.teintes,
+      lignes: this.lignesPosees,
     };
   }
 

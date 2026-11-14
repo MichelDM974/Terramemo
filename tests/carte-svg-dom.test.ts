@@ -3,6 +3,8 @@ import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Carte } from '../src/map/carte';
 import { UNITE } from '../src/map/traces';
+import { CHOIX_LIGNES, lignesDe, NOM } from '../src/map/lignes';
+import { textes } from '../src/vues/textes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
 import { assemblerMers } from '../src/map/mers';
 import { calculerPastilles } from '../src/map/pastilles';
@@ -672,5 +674,80 @@ describe('Carte SVG : une mer se cadre par son emprise (lot 3a, étude J2, § 4.
     const p = c.ecran('ITA') as [number, number];
     expect(Math.abs(p[0] - L / 2)).toBeLessThan(1e-6);
     expect(Math.abs(p[1] - H / 2)).toBeLessThan(1e-6);
+  });
+});
+
+describe('Carte SVG : lignes de repère (#11)', () => {
+  const tous = (e: FauxElement): FauxElement[] => [e, ...e.enfants.flatMap(tous)];
+  const de = (e: FauxElement, c: string) => e.className.split(' ').includes(c);
+  const lignes = lignesDe(CHOIX_LIGNES, textes.lignes);
+
+  it('un path.ligne-repere dans g.couche-lignes, entre les pays et les hachures ; une zone allumée copiée au-dessus (sans data-id) ; retirées avec []', () => {
+    const { c, hote } = carte();
+    expect(tous(hote).some((e) => de(e, 'ligne-repere'))).toBe(false);
+    c.lignes(lignes);
+    expect(c.nbLignes).toBe(lignes.length);
+    expect(hote.dataset.lignes).toBe(String(lignes.length));
+    const elements = tous(hote);
+    const traits = elements.filter((e) => de(e, 'ligne-repere'));
+    expect(traits).toHaveLength(1);
+    expect((traits[0] as FauxElement).getAttribute('d')?.length).toBeGreaterThan(100);
+    const ordre = (e: FauxElement) => elements.indexOf(e);
+    const derniereZone = Math.max(...elements.filter((e) => de(e, 'pays')).map(ordre));
+    const premiereHachure = Math.min(...elements.filter((e) => de(e, 'hachure')).map(ordre));
+    expect(ordre(traits[0] as FauxElement)).toBeGreaterThan(derniereZone);
+    expect(ordre(traits[0] as FauxElement)).toBeLessThan(premiereHachure);
+    c.marquer('BRA', 'choisi');
+    const apres = tous(hote);
+    const allumees = apres.filter((e) => de(e, 'allumee'));
+    expect(allumees).toHaveLength(1);
+    const bra = apres.find((e) => de(e, 'pays') && e.getAttribute('data-id') === 'BRA') as FauxElement;
+    expect((allumees[0] as FauxElement).getAttribute('d')).toBe(bra.getAttribute('d'));
+    expect((allumees[0] as FauxElement).getAttribute('data-id')).toBeNull();
+    expect(de(allumees[0] as FauxElement, 'choisi')).toBe(true);
+    expect(apres.indexOf(allumees[0] as FauxElement)).toBeGreaterThan(apres.indexOf(apres.find((e) => de(e, 'ligne-repere')) as FauxElement));
+    c.effacerMarques();
+    expect(tous(hote).some((e) => de(e, 'allumee'))).toBe(false);
+    // Refaites par rendre() (un redimensionnement).
+    c.marquer('ARG', 'faux');
+    c.rendre();
+    expect(tous(hote).filter((e) => de(e, 'ligne-repere'))).toHaveLength(1);
+    expect(tous(hote).filter((e) => de(e, 'allumee'))).toHaveLength(1);
+    c.lignes([]);
+    expect(tous(hote).some((e) => de(e, 'ligne-repere') || de(e, 'allumee'))).toBe(false);
+  });
+
+  it('sans ligne, aucune copie d’une zone marquée (rien à couvrir)', () => {
+    const { c, hote } = carte();
+    c.marquer('BRA', 'choisi');
+    expect(tous(hote).some((e) => de(e, 'allumee'))).toBe(false);
+  });
+
+  it('pick et noter ne voient pas les lignes ; leurs noms posés à l’arrêt (div.lignes-noms), cachés pendant un vol', () => {
+    const { c: sans } = carte();
+    const { c, hote } = carte();
+    c.lignes(lignes);
+    for (let x = 10; x < L; x += 37)
+      for (let y = 200; y < 560; y += 29) {
+        expect(c.pick(x, y)?.id ?? null).toBe(sans.pick(x, y)?.id ?? null);
+        expect(c.noter('FRA', x, y).juste).toBe(sans.noter('FRA', x, y).juste);
+      }
+    const couche = hote.enfants.find((e) => de(e, 'lignes-noms')) as FauxElement & { hidden: boolean };
+    expect(couche).toBeDefined();
+    expect(couche.hidden).toBe(false);
+    expect(couche.enfants.map((e) => e.dataset.ligne)).toContain('equateur');
+    c.zoomerDe(2);
+    vi.advanceTimersByTime(50);
+    expect(couche.hidden).toBe(true);
+    vi.advanceTimersByTime(400);
+    expect(couche.hidden).toBe(false);
+  });
+
+  it('carte.css : les jetons dans :root, le trait sans remplissage ni pointeur, la zone allumée prend la couleur de sa marque', () => {
+    const css = readFileSync('src/carte.css', 'utf8');
+    for (const v of ['--ligne-repere:', '--ligne-repere-repos:', '--ligne-repere-texte:']) expect(css.slice(0, css.indexOf('}'))).toContain(v);
+    expect(css).toMatch(/\.ligne-repere \{ fill: none; stroke: var\(--ligne-repere\);[^}]*pointer-events: none; \}/);
+    expect(css).toContain('.allumee.choisi { fill: var(--accent); }');
+    expect(css).toMatch(new RegExp(`\\.ligne-nom \\{[^}]*line-height: ${NOM.hauteur}px;`));
   });
 });

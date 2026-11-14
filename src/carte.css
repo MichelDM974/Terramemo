@@ -9,6 +9,18 @@
      dans les rendus SVG, l'île comprise). Une seule couleur pour les deux. */
   --frontiere-fine: rgba(236, 241, 254, 0.62);
   --frontiere-repos: 1;
+  /* Lignes de repère (#11, décision « Lignes de repère ») : équateur, tropiques,
+     cercles polaires, Greenwich, grille de 30°, cochés dans ⚙. Sur les terres
+     et la mer, sous les zones allumées, les hachures et les pastilles, dans
+     tous les rendus. Un cyan grisé : ni l'accent (réservé), ni le blanc des
+     frontières, ni l'ambre de la mémoire ; ~3,7:1 sur --terre et ~5,4:1 sur
+     --mer, un peu moins que les frontières (discrètes, lisibles en plein
+     soleil). D'un pixel physique pendant un geste, de --ligne-repere-repos px
+     CSS à l'arrêt, comme les frontières ; les noms (src/map/noms-lignes.ts) en
+     --ligne-repere-texte, cerclés de --mer. */
+  --ligne-repere: rgba(132, 205, 222, 0.7);
+  --ligne-repere-repos: 1;
+  --ligne-repere-texte: #a9dce8;
   /* Carte de la mémoire (teinter, src/map/teintes.ts) : un seau par zone, de la
      plus faible (0) à la maîtrisée (4) ; « jamais vu » garde --terre. Défaut en
      attente de l'utilisateur, #2 (D7). Une seule teinte, ambre puis or, qui
@@ -153,9 +165,9 @@ body[data-vue="saisie"] .carte, body[data-vue="compte"] .carte { visibility: hid
 .pays.s2, .pastille.s2 { fill: var(--memoire-2); }
 .pays.s3, .pastille.s3 { fill: var(--memoire-3); }
 .pays.s4, .pastille.s4 { fill: var(--memoire-4); }
-.pays.choisi, .pastille.choisi { fill: var(--accent); }
-.pays.juste, .pastille.juste { fill: var(--good); }
-.pays.faux, .pastille.faux { fill: var(--danger); }
+.pays.choisi, .pastille.choisi, .allumee.choisi { fill: var(--accent); }
+.pays.juste, .pastille.juste, .allumee.juste { fill: var(--good); }
+.pays.faux, .pastille.faux, .allumee.faux { fill: var(--danger); }
 /* Le faux se distingue du juste autrement que par la teinte : en deutéranopie, le
    vert et le rouge deviennent deux kakis (contraste 1,15). Un contour clair épais
    de 3 px, entier, par-dessus les frontières des voisines : en SVG (g, css : l'île
@@ -163,6 +175,26 @@ body[data-vue="saisie"] .carte, body[data-vue="compte"] .carte { visibility: hid
    canvas et webgl tracent le même (TRAIT_FAUX_PX, carte-canvas.ts). */
 .pastille.faux, .contour-faux { stroke: var(--text); stroke-width: 3px; }
 .contour-faux { fill: none; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+/* Lignes de repère des rendus g et css (carte.ts : g.couche-lignes, entre les pays
+   et les hachures) ; au-dessus, la copie de chaque zone allumée (g.couche-allumees). */
+.ligne-repere { fill: none; stroke: var(--ligne-repere); stroke-width: calc(var(--ligne-repere-repos) * 1px); vector-effect: non-scaling-stroke; pointer-events: none; }
+.allumee { stroke: var(--frontiere); stroke-width: calc(var(--frontiere-repos) * 1px); stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+/* Noms des lignes de repère (tous les rendus) : au-dessus de la carte, sous les
+   barres, la légende et les boutons, posés après l'hôte ; cachés pendant un geste.
+   Hauteur de ligne : NOM.hauteur de src/map/lignes.ts (12 px). */
+.lignes-noms { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.lignes-noms[hidden] { display: none; }
+.ligne-nom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 600;
+  color: var(--ligne-repere-texte);
+  text-shadow: 0 0 2px var(--mer), 0 0 3px var(--mer), 0 0 1px var(--mer);
+}
 .hachure { stroke: none; pointer-events: none; }
 .hachure-trait { stroke: var(--hachure); stroke-width: 1.2; }
 .pastille {

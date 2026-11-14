@@ -15,6 +15,8 @@ import { creerProjection, garderVue } from './projection';
 import { fabriqueLignes, fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
 import { indexLieux, type LieuIndexe } from './lieux';
+import { coordonnees, placerNoms, repere, type Boite, type LigneRepere } from './lignes';
+import { CoucheNoms } from './noms-lignes';
 import { densifierCoutures, empriseMer, formeContour, lignesContour, zonesAllumees, type CoucheMers } from './mers';
 import { classeSeau, seau, type Teintes } from './teintes';
 import type { Position } from 'geojson';
@@ -154,6 +156,15 @@ export interface CarteAffichee {
    * les pastilles d'avant, au même calcul. Un changement redessine une fois.
    */
   cacherPastilles(oui: boolean): void;
+  /**
+   * Lignes de repère (#11, lignes.ts) : tracées sur les terres et la mer, sous
+   * les zones allumées (marques), les hachures et les pastilles ; leurs noms
+   * posés à l'arrêt, cachés pendant un geste. [] : aucune. Ni pick, ni noter,
+   * ni ecran ne les voient. Les mêmes qu'avant : rien à redessiner.
+   */
+  lignes(l: readonly LigneRepere[]): void;
+  /** Lignes de repère posées (pilote). */
+  readonly nbLignes: number;
   masquer(oui: boolean): void;
   detruire(): void;
 }
@@ -291,6 +302,18 @@ export class Carte implements CarteAffichee {
    * chacun leur SVG ; deux ids égaux, url(#…) prendrait le premier).
    */
   private readonly idMotif: string;
+  /**
+   * Lignes de repère (lignes()) : un seul path.ligne-repere dans g.couche-lignes,
+   * entre les pays et les hachures ; au-dessus, g.couche-allumees, une copie de
+   * chaque zone marquée (path.allumee, sans data-id : pick et le pilote ne
+   * voient que l'original), pour qu'aucune ligne ne passe sur une zone allumée.
+   * Leurs noms (le monde seul : le repère d'Equal Earth), posés à l'arrêt.
+   */
+  private lignesPosees: readonly LigneRepere[] = [];
+  private coucheLignes: SVGGElement | null = null;
+  private coucheAllumees: SVGGElement | null = null;
+  private traceLignes: ((l: Position[][]) => string) | null = null;
+  private noms: CoucheNoms | null = null;
 
   constructor(private readonly o: OptionsCarte<Lieu>) {
     this.cadre = o.cadre ?? cadreMonde(o.projection);
@@ -388,9 +411,13 @@ export class Carte implements CarteAffichee {
     this.coucheMarques = el('g', { class: 'couche-marques' });
     this.couchePastilles = el('g', { class: 'couche-pastilles' });
     this.coucheContours = el('g', { class: 'couche-contours' });
+    this.coucheLignes = el('g', { class: 'couche-lignes' });
+    this.coucheAllumees = el('g', { class: 'couche-allumees' });
     this.echelle = echelle;
-    if (this.couche) echelle.append(...this.tracerMers(this.couche, d, fabriqueLignes((l1, h1) => cadre.projection(l1, h1), this.proj)));
-    echelle.append(pays, hachures, this.coucheContours);
+    this.traceLignes = fabriqueLignes((l1, h1) => cadre.projection(l1, h1), this.proj);
+    if (this.couche) echelle.append(...this.tracerMers(this.couche, d, this.traceLignes));
+    echelle.append(pays, this.coucheLignes, this.coucheAllumees, hachures, this.coucheContours);
+    this.tracerLignes();
     for (const [id, classes] of this.marques) if (classes.has('faux')) this.contourFaux(id); // après un redimensionnement
     this.vue.append(echelle, this.coucheMarques, this.couchePastilles);
     this.majHachures(1);
@@ -403,6 +430,7 @@ export class Carte implements CarteAffichee {
     this.t = { ...vise };
     this.poser(this.t);
     this.majPastilles();
+    this.majNoms();
     const t2 = performance.now();
     this.observateur.observe(this.hote);
     return { chemins_ms: t1 - t0, insertion_ms: t2 - t1, caracteres_chemins: sphere.length + traces.reduce((a, s2) => a + s2.length, 0) };
@@ -566,6 +594,7 @@ export class Carte implements CarteAffichee {
     this.cerclesPastilles.get(id)?.classList.add(classe);
     for (const z of this.allumees(id)) this.cheminsMers.get(z)?.classList.add(classe);
     if (classe === 'faux') this.contourFaux(id);
+    this.majAllumees();
   }
 
   /** Les zones marines qu'allume une marque sur id (zonesAllumees) ; aucune pour un pays. */
@@ -685,6 +714,66 @@ export class Carte implements CarteAffichee {
     this.contoursMers.clear();
     for (const a of this.anneaux) a.cercle.remove();
     this.anneaux = [];
+    this.majAllumees();
+  }
+
+  lignes(l: readonly LigneRepere[]): void {
+    if (l.length === this.lignesPosees.length && l.every((x, i) => x.id === this.lignesPosees[i]?.id && x.nom === this.lignesPosees[i]?.nom)) return;
+    this.lignesPosees = [...l];
+    this.hote.dataset.lignes = String(l.length);
+    // Le monde seul : placerNoms suit Equal Earth, pas la Mercator d'une carte locale.
+    if (l.length && !this.o.cadre) this.noms ??= new CoucheNoms(this.hote);
+    this.tracerLignes();
+    this.majNoms();
+  }
+
+  get nbLignes(): number {
+    return this.lignesPosees.length;
+  }
+
+  /** Le tracé des lignes (en UNITE, geoPath : coupé à l'antiméridien de la projection) ; les zones allumées au-dessus. */
+  private tracerLignes(): void {
+    const g = this.coucheLignes;
+    if (!g || !this.traceLignes) return;
+    g.replaceChildren();
+    if (this.lignesPosees.length) g.append(el('path', { class: 'ligne-repere', d: this.traceLignes(this.lignesPosees.map(coordonnees)) }));
+    this.majAllumees();
+  }
+
+  /** Une copie de chaque zone marquée par-dessus les lignes (aucune sans ligne : rien à couvrir). */
+  private majAllumees(): void {
+    const g = this.coucheAllumees;
+    if (!g) return;
+    g.replaceChildren();
+    if (!this.lignesPosees.length) return;
+    for (const [id, classes] of this.marques) {
+      const chemin = this.chemins.get(id);
+      if (!chemin || !classes.size) continue;
+      g.append(el('path', { class: `allumee ${[...classes].join(' ')}`, d: chemin.getAttribute('d') ?? '' }));
+    }
+  }
+
+  /** Noms des lignes à l'arrêt (placerNoms), les pastilles et les anneaux en obstacles. */
+  private majNoms(): void {
+    const noms = this.noms;
+    if (!noms) return;
+    if (!this.lignesPosees.length) return noms.poser([]);
+    if (this.enGeste) return noms.cacher();
+    const t = this.t;
+    const r = PASTILLE.rayon_visible_px + 1;
+    const obstacles: Boite[] = [];
+    for (const p of this.pastilles) {
+      if (!p.visible) continue;
+      const [x, y] = versEcran(t, p.bx, p.by);
+      obstacles.push({ x: x - r, y: y - r, l: 2 * r, h: 2 * r });
+    }
+    for (const a of this.anneaux) {
+      const cx = Number(a.cercle.getAttribute('cx'));
+      const cy = Number(a.cercle.getAttribute('cy'));
+      const [x, y] = versEcran(t, cx, cy);
+      obstacles.push({ x: x - a.rayon_px - 1, y: y - a.rayon_px - 1, l: 2 * a.rayon_px + 2, h: 2 * a.rayon_px + 2 });
+    }
+    noms.poser(placerNoms(repere(t, this.proj, this.taille.l, this.taille.h), this.lignesPosees, (s) => noms.largeur(s), obstacles));
   }
 
   /** Un anneau de taille constante autour du point d'un pays (montrer la bonne réponse). */
@@ -699,6 +788,7 @@ export class Carte implements CarteAffichee {
     const c = el('circle', { class: `anneau ${classe}`, cx: b[0], cy: b[1], r: rayon_px / this.applique.k });
     this.coucheMarques.append(c);
     this.anneaux.push({ cercle: c, rayon_px });
+    this.majNoms();
   }
 
   detruire(): void {
@@ -706,6 +796,7 @@ export class Carte implements CarteAffichee {
     for (const [type, l] of this.ecouteurs) this.hote.removeEventListener(type, l);
     select(this.hote).on('.zoom', null);
     this.enveloppe.remove();
+    this.noms?.detruire();
   }
 
   // --- interne -------------------------------------------------------------
@@ -719,6 +810,7 @@ export class Carte implements CarteAffichee {
     this.aBouge = false;
     this.parUtilisateur = !!e.sourceEvent;
     this.enGeste = true;
+    this.noms?.cacher();
     if (this.parUtilisateur) this.o.gestes?.debut?.({ k: e.transform.k, x: e.transform.x, y: e.transform.y }, e.sourceEvent as Event);
   }
 
@@ -752,6 +844,7 @@ export class Carte implements CarteAffichee {
     }
     this.hote.classList.remove('en-vol');
     this.enGeste = false;
+    this.majNoms();
     const script_ms = performance.now() - t0;
     if (this.parUtilisateur) {
       this.o.gestes?.fin?.({
@@ -832,6 +925,7 @@ export class Carte implements CarteAffichee {
     this.taille.h = h;
     this.svg.setAttribute('height', String(h));
     this.limiter(l, h);
+    this.majNoms();
   }
 
   /**
