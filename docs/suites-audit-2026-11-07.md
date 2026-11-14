@@ -109,11 +109,17 @@ avec son test ; seul le point 5 reste, à vérifier en production.
    comportent autrement en ligne sur l'Unicode : comparer avec la sonde de
    l'émulateur, dans le commentaire de `cleDuPseudo`.
 
+   *Vérifié le 14/11/2026 en production*, une fois les règles de la forme du
+   pseudo déployées : un invité anonyme a publié au Chrono Océanie
+   (`toujours`) « Élodie » sous la clé `élodie`, accepté par la branche
+   masquée ; « Élodie » sous `élodiex` et « Élodie » + U+200B ont été refusés
+   (`formePseudo` et RE2 en ligne). La ligne d'essai a été effacée aussitôt
+   par le SDK Admin (relue après lecture, `lastUpdateTime`).
+
 ## Gestes de l'utilisateur, suivis ailleurs
 
 - #24 : `python3 centre-de-controle/scripts/relais_ci.py installer Terramemo`
   (runner du PC pour le relais de la CI).
 - #18 : essai au doigt sur l'A37 de l'arbre de Jouer, de « Rejouer » et du
   bouton retour.
-- #2 : le 13/11, `outils/pastilles.py --sauver`, puis trancher Q3 (B, C, ou
-  rien) sur la ligne « => Q3 ».
+- #2 : fait le 14/11, Q3 tranchée (A, rien à changer).
