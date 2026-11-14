@@ -10,8 +10,8 @@ import { textes } from './vues/textes';
 
 const T = textes.zoom;
 
-/** Les vues où la carte se manipule : l'accueil, Toucher (entraînement, séances) et les épreuves classées. */
-export const VUES_ZOOM: readonly string[] = ['carte', 'toucher', 'chrono'];
+/** Les vues où la carte se manipule : l'accueil, Toucher (entraînement, séances), les épreuves classées et le quiz général. */
+export const VUES_ZOOM: readonly string[] = ['carte', 'toucher', 'chrono', 'quiz'];
 /** Un cran de zoom : × 2 ou ÷ 2, comme un double clic dans les cartes en ligne. */
 export const CRAN = 2;
 
