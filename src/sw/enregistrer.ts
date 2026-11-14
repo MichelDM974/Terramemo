@@ -12,6 +12,17 @@ export const MESSAGE_ACTIVER = 'terramemo:activer';
 export const MESSAGE_CHARGES = 'terramemo:charges';
 /** Au-delà, une relève qui arrive ne recharge plus la page (on a pu commencer à jouer). */
 export const RECHARGE_MAX_MS = 15_000;
+/**
+ * Au-delà, la page ne demande plus la relève : l'activation (reprise et
+ * effacement des anciens caches) doit avoir le temps de finir avant
+ * RECHARGE_MAX_MS. Activée sans rechargement, la nouvelle version laisserait
+ * une page de l'ancienne coquille (sortie du cache, hors ligne) sans son
+ * cache, effacé : ses morceaux à la demande ne seraient plus nulle part.
+ */
+export const DEMANDE_MAX_MS = 5_000;
+
+/** La page peut-elle encore demander la relève, `ms` après le début de son chargement ? */
+export const releveADemander = (ms: number): boolean => ms < DEMANDE_MAX_MS;
 
 /** Le service worker est-il voulu ici ? Build de production, site (pas l'APK), navigateur qui l'accepte, contexte sûr. */
 export function swVoulu(o: { prod: boolean; apk: boolean; avecSw: boolean; contexteSur: boolean }): boolean {
@@ -46,7 +57,7 @@ export function prendreMiseAJour(): void {
     .getRegistration()
     .then((reg) => {
       const attente = reg?.waiting;
-      if (!attente) return;
+      if (!attente || !releveADemander(performance.now())) return;
       let recharge = false;
       sw.addEventListener('controllerchange', () => {
         if (recharge || performance.now() > RECHARGE_MAX_MS) return;

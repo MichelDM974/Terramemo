@@ -503,3 +503,12 @@ describe('service worker : le sw.js d’un vrai build', () => {
     expect(m.version).toMatch(/^[0-9a-f]{16}$/);
   });
 });
+
+describe('service worker : la relève demandée tôt seulement', () => {
+  it('demandée dans les premières secondes, assez tôt pour que la page ait le temps de se recharger', () => {
+    expect(page.releveADemander(0)).toBe(true);
+    expect(page.releveADemander(page.DEMANDE_MAX_MS - 1)).toBe(true);
+    expect(page.releveADemander(page.DEMANDE_MAX_MS)).toBe(false);
+    expect(page.RECHARGE_MAX_MS - page.DEMANDE_MAX_MS).toBeGreaterThanOrEqual(10_000);
+  });
+});
