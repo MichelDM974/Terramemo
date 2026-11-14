@@ -14,6 +14,10 @@
 //
 // Usage : npm run wikidata. Seul script à toucher Wikidata, lancé à la main ; on relit
 // le diff de l'extrait avant de le commettre, puis npm run geodata -- --seulement capitales.
+// npm run wikidata -- --notoriete : seulement les vues sur 12 mois des articles des pays
+// (geodata/wikidata/notoriete.json, notoriété du quiz, étude J2 § 2.4, D48 b), d'après
+// les items et les titres de l'extrait des capitales ; puis npm run geodata -- --seulement
+// notoriete.
 // Portage en Node des scripts du relevé (wikidata.py, wikidata_sieges.py, vues.py,
 // ~/Sauvegardes/terramemo/j2-conception/capitales/scripts/). User-Agent générique, sans
 // adresse ni nom. Le point SPARQL était bridé à une requête par minute le 10/11/2026 :
@@ -28,6 +32,8 @@ const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DOSSIER = join(RACINE, 'geodata', 'wikidata');
 const REQUETES = join(DOSSIER, 'requetes.rq');
 const EXTRAIT = join(DOSSIER, 'capitales.json');
+const EXTRAIT_NOTORIETE = join(DOSSIER, 'notoriete.json');
+const MAIN_NOTORIETE = join(RACINE, 'geodata', 'notoriete-main.json');
 const MAIN = join(RACINE, 'geodata', 'capitales-main.json');
 const PAYS = join(RACINE, 'public', 'geo', 'pays.json');
 
@@ -261,4 +267,49 @@ async function main() {
   );
 }
 
-await main();
+/**
+ * Les vues de la Wikipédia en français sur 12 mois des articles des pays jouables et
+ * optionnels (D48 b : le rang combiné des pays ; leurs Wikipédias sont déjà dans l'extrait
+ * des capitales, même item, même filtre des sites). L'item d'un pays : celui que la table
+ * à la main choisit (items_pays), sinon le seul de son code ; son titre : le sitelink
+ * frwiki de l'extrait des capitales, sans redirection, sauf ceux de la table de la
+ * notoriété (notoriete-main.json, titres : l'item du pays jouable a pour article
+ * « Pays-Bas (pays constitutif) », le lecteur lit « Pays-Bas »).
+ */
+async function notorietePays() {
+  const debut = Date.now();
+  const extrait = JSON.parse(await readFile(EXTRAIT, 'utf8'));
+  const main = JSON.parse(await readFile(MAIN, 'utf8'));
+  const titres = JSON.parse(await readFile(MAIN_NOTORIETE, 'utf8')).titres ?? {};
+  const ids = JSON.parse(await readFile(PAYS, 'utf8'))
+    .filter((p) => p.statut === 'jouable' || p.statut === 'optionnel')
+    .map((p) => p.id)
+    .sort();
+  const extraitLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const date = aujourdhui();
+  const items = {};
+  for (const id of ids) {
+    const choisi = main.items_pays?.[id]?.q;
+    const parCode = extrait.items_par_code[id] ?? [];
+    const q = choisi ?? (parCode.length === 1 ? parCode[0] : null);
+    if (!q) echec(`${id} : ${parCode.length} items pour ce code, et aucun choisi (capitales-main.json, items_pays)`);
+    const t = titres[id]?.frwiki ?? extrait.pays[q]?.frwiki;
+    if (!t) echec(`${id} (${q}) : pas d'article dans la Wikipédia en français dans l'extrait des capitales`);
+    items[id] = { q, frwiki: t };
+  }
+  console.log(`Vues de la Wikipédia en français : ${ids.length} pays`);
+  const v = await vues(Object.values(items).map((x) => x.frwiki), new Date(extraitLe));
+  const pays = Object.fromEntries(ids.map((id) => [id, { ...items[id], vues_fr: v.parTitre.get(items[id].frwiki) ?? null }]));
+  const objet = (o) => `{\n${Object.entries(o).map(([k, x]) => `${JSON.stringify(k)}:${JSON.stringify(x)}`).join(',\n')}\n}`;
+  const texte =
+    `{\n"extrait_le":${JSON.stringify(extraitLe)},\n"date":${JSON.stringify(date)},\n` +
+    `"items":${JSON.stringify(`ceux de geodata/wikidata/capitales.json (extrait du ${extrait.extrait_le})`)},\n` +
+    `"vues":${JSON.stringify({ du: v.du, au: v.au, mois: v.mois, source: 'fr.wikipedia.org, API REST des vues (per-article, mensuelle, lecteurs humains)' })},\n` +
+    `"pays":${objet(pays)}\n}\n`;
+  await writeFile(EXTRAIT_NOTORIETE, texte);
+  const sans = Object.entries(pays).filter(([, x]) => x.vues_fr === null).map(([id]) => id);
+  console.log(`${ids.length} pays (vues du ${v.du} au ${v.au}, ${v.mois} mois)${sans.length ? ` ; sans vues : ${sans.join(', ')}` : ''} ; ${Math.round((Date.now() - debut) / 1000)} s`);
+}
+
+if (process.argv.includes('--notoriete')) await notorietePays();
+else await main();

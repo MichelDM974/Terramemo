@@ -483,9 +483,12 @@ describe('noms et sources', () => {
       'geodata/liste.json',
       'geodata/mers.json',
       'geodata/mers.mjs',
+      'geodata/notoriete-main.json',
+      'geodata/notoriete.mjs',
       'geodata/outils.mjs',
       'geodata/revendications.json',
       'geodata/wikidata/mers-entites.json',
+      'geodata/wikidata/notoriete.json',
     ]);
     for (const [f, h] of Object.entries(sources.traitement.entrees)) expect(empreinte(f), f).toBe(h);
   });

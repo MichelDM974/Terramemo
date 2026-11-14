@@ -1,0 +1,45 @@
+{
+  "_": "Table de relecture à la main de la notoriété du quiz (étude J2 § 2.4 ; D48 b : relecture du seul niveau facile, là où une question mal classée frustre le plus). geodata/notoriete.mjs lit le rang combiné (Wikipédias et vues de la Wikipédia en français sur 12 mois), le coupe par effectifs, puis applique ces lignes ; il échoue si une ligne vise un lieu non classé ou ne change plus rien. Une ligne : le niveau voulu (1 à 3) et sa raison. Sections : pays (id), capitales (Qid, nom pour la relecture), mers (id de geodata/mers.json). Relu le 14/11/2026 par Claude, « avec l'œil d'un Français moyen », à valider par l'utilisateur.",
+  "titres": {
+    "_": "Article de la Wikipédia en français dont on compte les vues, quand ce n'est pas celui de l'item du pays : l'item du pays jouable (le pays constitutif, sans ses îles des Caraïbes ou du Groenland) a son propre article, peu lu ; le lecteur lit celui du royaume. Lu par npm run wikidata -- --notoriete ; notoriete.mjs vérifie que l'extrait l'a suivi.",
+    "DNK": {"frwiki": "Danemark", "raison": "l'item Q35 a pour article « Danemark (pays constitutif) » (31 114 vues sur 12 mois) ; « Danemark » est l'article du royaume, celui qu'on lit"},
+    "NLD": {"frwiki": "Pays-Bas", "raison": "l'item Q55 a pour article « Pays-Bas (pays constitutif) » (22 533 vues sur 12 mois) ; « Pays-Bas » est l'article du royaume, celui qu'on lit"}
+  },
+  "pays": {
+    "_": "Échanges entre le niveau 1 et le niveau 2 pour garder 40 pays faciles.",
+    "ALB": {"niveau": 2, "raison": "vues inhabituelles (85 000 par mois toute l'année, autant que l'Italie : robots, estimé) ; peu connue d'un Français"},
+    "COD": {"niveau": 2, "raison": "connue, mais moins que l'Irlande ou la Grèce ; se confond avec le Congo-Brazzaville sur la carte"},
+    "COL": {"niveau": 2, "raison": "moins connue d'un Français que la Tunisie"},
+    "KAZ": {"niveau": 2, "raison": "peu connu d'un Français (au rang par le nombre de Wikipédias, langues turques)"},
+    "NGA": {"niveau": 2, "raison": "moins connu d'un Français que la Suède ou l'Autriche"},
+    "PAK": {"niveau": 2, "raison": "vues tirées par l'actualité ; moins connu que la Corée du Sud"},
+    "VEN": {"niveau": 2, "raison": "vues tirées par l'actualité de 2026 ; moins connu que la Nouvelle-Zélande"},
+    "AUT": {"niveau": 1, "raison": "voisin de l'Europe de l'Ouest, connu de tous"},
+    "GRC": {"niveau": 1, "raison": "connue de tous (vacances, Antiquité)"},
+    "IRL": {"niveau": 1, "raison": "connue de tous (rugby, voisine)"},
+    "KOR": {"niveau": 1, "raison": "très connue (culture coréenne) ; plus que la Corée du Nord pour beaucoup"},
+    "NZL": {"niveau": 1, "raison": "connue de tous (rugby, bout du monde)"},
+    "SWE": {"niveau": 1, "raison": "connue de tous, comme la Norvège et le Danemark"},
+    "TUN": {"niveau": 1, "raison": "lien fort avec la France, connue de tous"},
+    "SSD": {"niveau": 3, "raison": "4,8 millions de vues sur 12 mois, plus que les États-Unis : robots (estimé) ; pays peu connu"}
+  },
+  "capitales": {
+    "_": "Les échanges gardent le niveau 1 près de 30 capitales.",
+    "Q1218": {"nom": "Jérusalem", "niveau": 2, "raison": "capitale qu'Israël se déclare et que la Palestine revendique : sujet sensible, pas une question « facile » (au rang par l'actualité)"},
+    "Q2841": {"nom": "Bogota", "niveau": 2, "raison": "moins connue d'un Français que Kiev, Alger ou Rabat"},
+    "Q3616": {"nom": "Téhéran", "niveau": 2, "raison": "vues tirées par l'actualité ; moins connue que les capitales du Maghreb"},
+    "Q3630": {"nom": "Jakarta", "niveau": 2, "raison": "peu connue d'un Français au regard de Tunis ou de Berne"},
+    "Q1899": {"nom": "Kiev", "niveau": 1, "raison": "capitale de l'Ukraine, très présente dans l'actualité depuis 2022"},
+    "Q3561": {"nom": "Alger", "niveau": 1, "raison": "lien fort avec la France, connue de presque tous"},
+    "Q3551": {"nom": "Rabat", "niveau": 1, "raison": "Maroc, lien fort avec la France"},
+    "Q3572": {"nom": "Tunis", "niveau": 1, "raison": "Tunisie, lien fort avec la France"},
+    "Q70": {"nom": "Berne", "niveau": 1, "raison": "capitale d'un pays voisin de la France"}
+  },
+  "mers": {
+    "_": "D48 b : la Manche au niveau 1 ; le golfe de Gascogne et la baie d'Hudson au niveau 2 (la mer Tyrrhénienne y est déjà par le rang). Un océan est au niveau 1 : les cinq sont appris à l'école, et « Quel est cet océan ? » n'offre que des océans.",
+    "manche": {"niveau": 1, "raison": "D48 b : 105 396 vues sur 12 mois (4e de la liste), la mer qui borde la France"},
+    "austral": {"niveau": 1, "raison": "un des cinq océans, appris à l'école"},
+    "gascogne": {"niveau": 2, "raison": "D48 b : borde la France, 44 338 vues sur 12 mois"},
+    "hudson": {"niveau": 2, "raison": "D48 b : 29 738 vues sur 12 mois"}
+  }
+}

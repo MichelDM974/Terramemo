@@ -136,7 +136,7 @@
     "quantification": 1000000,
     "carte_allegee": "monde-leger.topo.json : polygones d'au moins 40 km (plus grand côté de l'emprise), -simplify visvalingam interval=15000 keep-shapes chacun à part, regroupés par id, quantification 100000",
     "entrees": {
-      "geodata/build.mjs": "956199b69a6a942c1041ddc3dbbbb44578cd6f0add6f1403104196d53f1c466d",
+      "geodata/build.mjs": "3599dd8def6df53021ebb88a5da6f8718d5d01be639ec04286605eef519f9706",
       "geodata/outils.mjs": "004e9d875414ed099b923d47ddfdd3c9fa8561beca16b100ea11f0bcc95cce1c",
       "geodata/liste.json": "588b387d44d605a3f2aacc875eb7c51c90f388a883afd18a3ebaa18ce4bb255a",
       "geodata/revendications.json": "6d57155ff9b36e496c88a518b4550a9055d1e84a903f23b0b1027ec27e5f0303",
@@ -146,7 +146,10 @@
       "geodata/drapeaux-main.json": "68720e3d6830ede651b4bb31958379e47653096d17289bf90f81053846b4714a",
       "geodata/mers.mjs": "8c2ea936c0bd9bcef078cacb9f5122518912b33b6af3b44bb43eacb80b2921c6",
       "geodata/mers.json": "43d77e6a877f33f722347b63f1e40121b571fd6ce6c72363f087a075bcb33aeb",
-      "geodata/wikidata/mers-entites.json": "150754abc5e0045fda9cdfb5241f9d2254ce867f087ee3dfad28e2b86762aa9e"
+      "geodata/wikidata/mers-entites.json": "150754abc5e0045fda9cdfb5241f9d2254ce867f087ee3dfad28e2b86762aa9e",
+      "geodata/notoriete.mjs": "1d00ec190020051e110a9cb387b9886bed24ddf3b3dd34c2859e89175c3cdd76",
+      "geodata/notoriete-main.json": "3b159373293d1c6f1d0e31ea27f0a70d47adca78d95f3edbf0834f5c6b52b036",
+      "geodata/wikidata/notoriete.json": "e76e612174794c93614f5277248c267b4bdb7ea93af636526d1af0183004601f"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",
     "mers": {

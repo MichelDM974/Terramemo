@@ -94,6 +94,12 @@ npm run build        # site statique dans dist/ (servi par Firebase Hosting)
   régénère `public/geo/` ; deux lancements donnent des fichiers identiques
   octet pour octet. La liste des pays (193 membres de l'ONU, Vatican,
   Palestine, et un paquet optionnel) est dans `geodata/liste.json`.
+- **Extraits de Wikidata** (capitales, notoriété du quiz) : figés dans
+  `geodata/wikidata/`, rafraîchis à la main par `npm run wikidata` (les
+  capitales) et `npm run wikidata -- --notoriete` (les vues sur 12 mois des
+  articles des pays, ~17 min), puis `npm run geodata -- --seulement
+  capitales` ou `notoriete` ; le build ne requête jamais. Les niveaux du
+  quiz se corrigent à la main dans `geodata/notoriete-main.json`.
 - **Communes de La Réunion** : `npm run geodata:reunion` régénère
   `public/geo/reunion/` depuis l'archive de l'IGN (empreinte dans
   `geodata/reunion.lock.json`, archive gardée dans `geodata/raw/ign/`).
