@@ -391,6 +391,41 @@ describe('envois en attente (hors ligne)', () => {
     expect(publier).not.toHaveBeenCalled();
   });
 
+  it('hors ligne, stockage plein pour la file : l’avis ne promet pas de départ, le score reste sur l’appareil ; une entrée déjà en file y reste promise', async () => {
+    const m = installerStockage();
+    let plein = true;
+    // Les records s'écrivent, la file non (QuotaExceededError), et rien n'est écrit à sa place.
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        if (k === 'terramemo.chrono.attente' && plein) throw new Error('QuotaExceededError');
+        m.set(k, v);
+      },
+      removeItem: (k: string) => void m.delete(k),
+    });
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const r = await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant));
+    expect(r).toEqual({ refuses: 0, echecs: 0, locaux: 4 });
+    expect(lireAttente()).toEqual([]);
+    expect(avisPublication(r)).toBe(T.publication_locale);
+    // La file a pu s'écrire une fois (le record de toujours), puis le stockage est plein : cette entrée reste promise.
+    plein = false;
+    publier.mockImplementation(async (e, p) => {
+      if (e === AMS && p === 'toujours') throw horsLigne();
+      return true;
+    });
+    placesDuPseudo.mockResolvedValue(new Map());
+    await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 59_000), maintenant));
+    expect(cles()).toEqual([`${AMS}/toujours`]);
+    plein = true;
+    publier.mockImplementation(async () => {
+      throw horsLigne();
+    });
+    placesDuPseudo.mockRejectedValue(horsLigne());
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 1, locaux: 0 });
+    expect(cles()).toEqual([`${AMS}/toujours`]);
+  });
+
   it('le bloc d’un classement ne refait pas la file juste après une partie dont un envoi a échoué sans réseau en cause', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
     await publierPartie('Ana', AMS, enregistrerPartie(localStorage, AMS, score(12, 12, 12, 60_000), maintenant));

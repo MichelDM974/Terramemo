@@ -43,7 +43,8 @@ function garderPseudo(p: string): void {
  * Ce qu'a donné un lot de publications : scores refusés (par les règles, ou
  * d'avance) ; envois échoués hors ligne, en file pour repartir d'eux-mêmes ;
  * envois échoués pour une autre raison (quota épuisé, connexion anonyme
- * refusée : erreurReseau), qui ne repartent pas d'eux-mêmes (#25).
+ * refusée : erreurReseau), ou hors ligne sans file pour les garder
+ * (stockage plein ou refusé), qui ne repartent pas d'eux-mêmes (#25).
  */
 export interface Publication {
   refuses: number;
@@ -70,12 +71,16 @@ export function lireAttente(): EnAttente[] {
   }
 }
 
-function ecrireAttente(liste: readonly EnAttente[]): void {
+/** Écrit la file ; false sans stockage, ou s'il est refusé ou plein (la file d'avant reste alors telle quelle). */
+function ecrireAttente(liste: readonly EnAttente[]): boolean {
+  const s = stockage();
+  if (!s) return false;
   try {
-    if (liste.length) stockage()?.setItem(CLE_ATTENTE, JSON.stringify(liste));
-    else stockage()?.removeItem(CLE_ATTENTE);
+    if (liste.length) s.setItem(CLE_ATTENTE, JSON.stringify(liste));
+    else s.removeItem(CLE_ATTENTE);
+    return true;
   } catch {
-    // Sans stockage, l'envoi échoué ne repartira qu'à la prochaine partie qui le bat.
+    return false;
   }
 }
 
@@ -83,12 +88,17 @@ function ecrireAttente(liste: readonly EnAttente[]): void {
  * Ajoute un envoi à la file (échec), ou l'en retire (publié, ou refusé par
  * les règles : inutile de le refaire), sauf si `aJour` dit que l'appareil a
  * mieux depuis : un envoi plus récent de la même place a pu échouer pendant
- * celui-ci, qui ne doit pas effacer son entrée.
+ * celui-ci, qui ne doit pas effacer son entrée. Pour un échec, rend si
+ * l'envoi est dans la file : false quand elle n'a pas pu s'écrire (stockage
+ * plein ou refusé) et ne l'avait pas déjà, l'envoi ne repartira alors pas
+ * de lui-même (#25). Sinon true : rien n'est promis.
  */
-function marquer(epreuve: string, periode: string, echec: boolean, aJour: () => boolean): void {
-  if (!echec && !aJour()) return;
-  const reste = lireAttente().filter(([e, p]) => e !== epreuve || p !== periode);
-  ecrireAttente(echec ? [...reste, [epreuve, periode]] : reste);
+function marquer(epreuve: string, periode: string, echec: boolean, aJour: () => boolean): boolean {
+  if (!echec && !aJour()) return true;
+  const ici = ([e, p]: EnAttente) => e === epreuve && p === periode;
+  const reste = lireAttente().filter((x) => !ici(x));
+  const ecrite = ecrireAttente(echec ? [...reste, [epreuve, periode]] : reste);
+  return !echec || ecrite || lireAttente().some(ici);
 }
 
 /** Le meilleur score publiable du record de l'appareil pour cette place (null sans record publiable). */
@@ -99,7 +109,7 @@ function publiableDe(epreuve: string, periode: string): ScoreEpreuve | null {
 
 const memeScore = (a: ScoreEpreuve | null, b: ScoreEpreuve | null) => (a === null ? b === null : b !== null && comparerScores(a, b) === 0);
 
-/** Le sort d'un envoi, une fois la file mise à jour : publié ou refusé, en file (hors ligne), ou resté sur l'appareil. */
+/** Le sort d'un envoi, une fois la file mise à jour : publié ou refusé, en file (hors ligne), ou resté sur l'appareil (autre échec, ou file pas écrite). */
 type Sort = 'repondu' | 'attente' | 'local';
 
 /**
@@ -110,12 +120,13 @@ type Sort = 'repondu' | 'attente' | 'local';
  * anonyme refusée ne passeraient pas mieux au prochain retour au premier
  * plan : l'envoi n'est pas refait de lui-même, et l'avis ne le promet pas
  * (audit du 07/11, #25). Le record reste sur l'appareil, et repart avec la
- * partie qui le bat ou au changement du pseudo.
+ * partie qui le bat ou au changement du pseudo. De même pour un hors ligne
+ * que la file n'a pas pu garder (stockage plein ou refusé).
  */
 function suivre(epreuve: string, periode: string, r: PromiseSettledResult<boolean> | undefined, aJour: () => boolean): Sort {
   const reseau = r?.status === 'rejected' && erreurReseau(r.reason);
-  marquer(epreuve, periode, reseau, aJour);
-  return r?.status !== 'rejected' ? 'repondu' : reseau ? 'attente' : 'local';
+  const garde = marquer(epreuve, periode, reseau, aJour);
+  return r?.status !== 'rejected' ? 'repondu' : reseau && garde ? 'attente' : 'local';
 }
 
 /**
