@@ -83,7 +83,8 @@ describe('erreurReseau (#25)', () => {
     for (const code of [SDK_INDISPONIBLE, 'auth/network-request-failed', 'unavailable', 'deadline-exceeded', 'unknown']) expect([code, erreurReseau({ code })]).toEqual([code, true]);
     for (const code of ['resource-exhausted', 'auth/too-many-requests', 'auth/admin-restricted-operation', 'permission-denied', 'internal', 'invalid-argument'])
       expect([code, erreurReseau({ code })]).toEqual([code, false]);
-    for (const e of [new Error('bogue'), null, undefined, 'unknown', { code: 42 }]) expect(erreurReseau(e)).toBe(false);
+    // Sans code, un bogue de l'appli : les SDK donnent un code à leurs erreurs sans code (SyntaxError d'un portail captif).
+    for (const e of [new Error('bogue'), new SyntaxError('JSON'), null, undefined, 'unknown', { code: 42 }]) expect(erreurReseau(e)).toBe(false);
   });
 });
 

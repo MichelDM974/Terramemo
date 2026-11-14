@@ -102,6 +102,11 @@ export function compteDisparu(e: unknown): boolean {
  * quota épuisé (`resource-exhausted`), ni une connexion anonyme refusée
  * (`auth/too-many-requests`, `auth/admin-restricted-operation`) : en
  * ligne, réessayer à chaque retour au premier plan n'y changerait rien.
+ * Une erreur sans code (SyntaxError d'une page HTML de portail captif
+ * rendue en 200) n'arrive pas jusqu'ici : Firestore lite en fait un
+ * `unknown` (invokeRPC : tout ce qui n'est pas une FirebaseError) et Auth
+ * un `auth/network-request-failed` (_performFetchWithErrorHandling). Sans
+ * code, c'est donc un bogue de l'appli : il ne reste pas en file.
  */
 const CODES_RESEAU: ReadonlySet<string> = new Set([SDK_INDISPONIBLE, 'auth/network-request-failed', 'unavailable', 'deadline-exceeded', 'unknown']);
 
