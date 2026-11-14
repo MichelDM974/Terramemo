@@ -664,8 +664,10 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
       await assertFails(setDoc(place(a, 'eclair', 'toujours', FACILE), quiz({ pseudo: 'Eclair', justes: 20, points: 20, temps_ms: 20 * 200 - 1 })));
       for (const d of DIFFICULTES) {
         const max = tempsMaxQuiz(d);
-        await assertSucceeds(setDoc(place(a, 'lent', 'toujours', idQuiz(d)), quiz({ pseudo: 'Lent', justes: 0, points: 0, temps_ms: max })));
+        // Le refus d'abord, sur une place neuve : une création que juge quizValide seul. Après celle à max, ce serait
+        // une mise à jour, que progresse() refuse de toute façon (même score, plus de temps).
         await assertFails(setDoc(place(a, 'lent', 'toujours', idQuiz(d)), quiz({ pseudo: 'Lent', justes: 0, points: 0, temps_ms: max + 1 })));
+        await assertSucceeds(setDoc(place(a, 'lent', 'toujours', idQuiz(d)), quiz({ pseudo: 'Lent', justes: 0, points: 0, temps_ms: max })));
       }
       expect(DIFFICULTES.map(tempsMaxQuiz)).toEqual([200_000, 250_000, 260_000, 168_000]);
     });
