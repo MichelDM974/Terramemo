@@ -20,6 +20,11 @@
 // 2. les terres, couleur par pays lue dans une texture (teinte de la carte de
 //    la mémoire, puis marques choisi, juste, faux par-dessus) : la changer ne
 //    téléverse que la texture, jamais la géométrie ;
+// 2 bis. les lignes de repère (#11), en gl.LINES : les parallèles dans le
+//    repère de la vue (uMode 2, un segment d'un bord à l'autre), les méridiens
+//    au tour choisi par le shader ; jamais sur une zone allumée (bit MARQUES du
+//    stencil, posé par les zones marquées, terres et mers), chaque pixel une
+//    fois (bit LIGNES) ;
 // 3. les hachures des zones contestées, motif à 45° ancré au milieu de chaque
 //    partie : il suit la carte quand elle tourne (en Canvas, il restait fixe
 //    à l'écran et la carte glissait dessous) ;
@@ -58,6 +63,7 @@ import { maillerMers } from './maillage-mers';
 import { formeContour, zonesAllumees, type CoucheMers } from './mers';
 import { PASTILLE } from './pastilles';
 import { pointAnneau, TRAIT_FAUX_PX, type EtatImage, type Peintre, type StatsDessin } from './carte-canvas';
+import type { LigneRepere } from './lignes';
 import { VARIABLES_MEMOIRE, VARIABLES_MEMOIRE_MERS, type Teintes } from './teintes';
 
 /** Côté de la texture des couleurs par pays (texels par ligne). */
@@ -67,6 +73,11 @@ const PAS_OVALE = 512;
 const OVALE = 0x80;
 const TRAITS = 0x40;
 const HACHURES = 0x20;
+/** Zones allumées (marques des terres et des mers) : les lignes de repère passent dessous. */
+const MARQUES = 0x10;
+const LIGNES = 0x08;
+/** Pas des méridiens de repère (degrés de latitude) : la corde reste sous le pixel au zoom 400, au bord de l'ovale. */
+const PAS_MERIDIEN_GL = 0.25;
 /** Pas des hachures à l'écran (px CSS) et épaisseur du trait, comme le Canvas et le SVG. */
 const PAS_HACHURES = 6;
 const TRAIT_HACHURES = 1.2;
@@ -201,6 +212,9 @@ export interface Couleurs {
   memoireMers: Rvba[];
   /** Épaisseur des frontières à l'arrêt (px CSS, --frontiere-repos) ; absente ou 0 : un pixel physique. */
   repos?: number;
+  /** Lignes de repère (#11, --ligne-repere) et leur épaisseur à l'arrêt (--ligne-repere-repos). */
+  ligne?: Rvba;
+  ligneRepos?: number;
 }
 
 /** Une couleur CSS quelconque en octets, lue par un canvas 2D d'un pixel (toute syntaxe CSS). */
@@ -236,7 +250,43 @@ export function lireCouleurs(): Couleurs {
     marquesMers: { choisi: v('--mer-choisie'), juste: v('--mer-juste'), faux: v('--mer-fausse') },
     memoireMers: VARIABLES_MEMOIRE_MERS.map(v),
     repos: parseFloat(css.getPropertyValue('--frontiere-repos')) || 0,
+    ligne: v('--ligne-repere'),
+    ligneRepos: parseFloat(css.getPropertyValue('--ligne-repere-repos')) || 0,
   };
+}
+
+/**
+ * Sommets des lignes de repère, en paires de gl.LINES : les méridiens d'abord
+ * (λ, φ tous les PAS_MERIDIEN_GL degrés, milieu (λ, 0) : le shader choisit le
+ * tour qui les met à moins de 180° du centre), puis les parallèles, un segment
+ * de −180 à 180 dans le repère de la vue (uMode 2 : une droite à l'écran dans
+ * Equal Earth). meridiens et paralleles : leurs nombres de sommets.
+ */
+export function sommetsLignes(lignes: readonly LigneRepere[]): { lonlat: Float32Array; milieu: Float32Array; meridiens: number; paralleles: number } {
+  const meridiens = lignes.filter((l) => l.sorte === 'meridien');
+  const paralleles = lignes.filter((l) => l.sorte === 'parallele');
+  const pas = Math.round(180 / PAS_MERIDIEN_GL);
+  const n = meridiens.length * pas * 2 + paralleles.length * 2;
+  const lonlat = new Float32Array(2 * n);
+  const milieu = new Float32Array(2 * n);
+  let i = 0;
+  const sommet = (lon: number, lat: number, mlon: number) => {
+    lonlat[2 * i] = lon;
+    lonlat[2 * i + 1] = lat;
+    milieu[2 * i] = mlon;
+    i++;
+  };
+  for (const m of meridiens) {
+    for (let j = 0; j < pas; j++) {
+      sommet(m.deg, -90 + j * PAS_MERIDIEN_GL, m.deg);
+      sommet(m.deg, -90 + (j + 1) * PAS_MERIDIEN_GL, m.deg);
+    }
+  }
+  for (const p of paralleles) {
+    sommet(-180, p.deg, 0);
+    sommet(180, p.deg, 0);
+  }
+  return { lonlat, milieu, meridiens: meridiens.length * pas * 2, paralleles: paralleles.length * 2 };
 }
 
 /**
@@ -405,7 +455,12 @@ export class PeintreWebGL implements Peintre {
     mers: MaillageGpu | null;
     couleursMers: WebGLTexture;
     contourFauxMers: MaillageGpu | null;
+    /** Lignes de repère téléversées (null : aucune) ; source : le tableau d'EtatImage qu'elles tracent. */
+    lignes: { vao: WebGLVertexArrayObject; tampons: WebGLBuffer[]; meridiens: number; paralleles: number; source: readonly LigneRepere[] } | null;
   }) | null = null;
+  /** Parties marquées (allumées) des terres et des mers, refaites quand les marques changent : le bit MARQUES du stencil. */
+  private partiesMarquees: PartieMaillee[] = [];
+  private partiesMarqueesMers: PartieMaillee[] = [];
   private perdu = false;
   private minuteurPerte = 0;
   private l = 1;
@@ -688,6 +743,7 @@ export class PeintreWebGL implements Peintre {
       mers,
       couleursMers,
       contourFauxMers: null,
+      lignes: null,
     };
     const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
     this.chrono = ext ? { ext, q: null, actif: false, gpu_ms: null } : null;
@@ -756,8 +812,36 @@ export class PeintreWebGL implements Peintre {
     });
     gl.bindTexture(gl.TEXTURE_2D, g.couleurs);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, LARGEUR_COULEURS, lignes, 0, gl.RGBA, gl.UNSIGNED_BYTE, texels);
-    if (marquesChangent) this.majContourFaux(e.marques);
+    if (marquesChangent) {
+      this.majContourFaux(e.marques);
+      const allumes = new Set([...e.marques].filter(([, cl]) => cl.size).map(([id]) => id));
+      this.partiesMarquees = this.terres?.parties.filter((p) => allumes.has(entites[p.forme]?.pays.id ?? '')) ?? [];
+    }
     if (g.mers) this.couleursMers(e, marquesChangent);
+  }
+
+  /** Les lignes de repère de l'image, téléversées quand le tableau change (ou au retour du contexte). */
+  private majLignes(lignes: readonly LigneRepere[]): void {
+    const g = this.g;
+    if (!g || g.lignes?.source === lignes || (!g.lignes && !lignes.length)) return;
+    const { gl } = this;
+    if (g.lignes) {
+      for (const t of g.lignes.tampons) gl.deleteBuffer(t);
+      gl.deleteVertexArray(g.lignes.vao);
+      g.lignes = null;
+    }
+    if (!lignes.length) return;
+    const s = sommetsLignes(lignes);
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    const tampons = [this.tampon(gl.ARRAY_BUFFER, s.lonlat)];
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    tampons.push(this.tampon(gl.ARRAY_BUFFER, s.milieu));
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+    g.lignes = { vao, tampons, meridiens: s.meridiens, paralleles: s.paralleles, source: lignes };
   }
 
   /**
@@ -782,14 +866,19 @@ export class PeintreWebGL implements Peintre {
       texels.set(t, i * 4);
       visibles = true;
     });
+    const allumees = new Set<string>();
     for (const [id, classes] of e.marques) {
       if (!indices.has(id)) continue;
       let couleur: Rvba | undefined;
       for (const cl of classes) couleur = this.couleurs.marquesMers[cl] ?? couleur;
       if (!couleur) continue;
-      for (const z of zonesAllumees(id, zones)) texels.set(couleur, (indices.get(z) as number) * 4);
+      for (const z of zonesAllumees(id, zones)) {
+        texels.set(couleur, (indices.get(z) as number) * 4);
+        allumees.add(z);
+      }
       visibles = true;
     }
+    this.partiesMarqueesMers = g.mers?.m.parties.filter((p) => allumees.has(zones[p.forme]?.id ?? '')) ?? [];
     this.mersVisibles = visibles;
     gl.bindTexture(gl.TEXTURE_2D, g.couleursMers);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, LARGEUR_COULEURS, lignes, 0, gl.RGBA, gl.UNSIGNED_BYTE, texels);
@@ -865,6 +954,8 @@ export class PeintreWebGL implements Peintre {
     let decalage: [number, number] = [0, 0];
 
     this.couleursPays(e);
+    this.majLignes(e.lignes ?? []);
+    const lg = g.lignes && g.lignes.meridiens + g.lignes.paralleles ? g.lignes : null;
     gl.viewport(0, 0, larg, haut);
     gl.clearColor(0, 0, 0, 0);
     gl.clearStencil(0);
@@ -953,12 +1044,66 @@ export class PeintreWebGL implements Peintre {
       decalage = [0, 0];
     }
 
+    /** Le bit MARQUES du stencil sur ces parties, sans rien peindre (les lignes de repère passeront dessous). */
+    const marquer = (mg: MaillageGpu, parties: readonly PartieMaillee[]) => {
+      gl.stencilFunc(gl.EQUAL, OVALE | MARQUES, OVALE);
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+      gl.stencilMask(MARQUES);
+      gl.colorMask(false, false, false, false);
+      gl.useProgram(g.carte.p);
+      dessinerMaillage(g.carte, mg, gl.TRIANGLES, parties);
+      gl.colorMask(true, true, true, true);
+      gl.stencilFunc(gl.EQUAL, OVALE, OVALE);
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      gl.stencilMask(0);
+    };
+    // Une mer allumée : son bit, que les terres effacent (elles la couvrent).
+    const merMarquee = !!(lg && g.mers && this.partiesMarqueesMers.length);
+    if (merMarquee && g.mers) marquer(g.mers, this.partiesMarqueesMers);
+
     // 2. Les terres, dans l'ovale.
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, g.couleurs);
     gl.useProgram(g.remplir.p);
     gl.uniform1i(g.remplir.loc('uCouleurs'), 0);
+    if (merMarquee) {
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.ZERO);
+      gl.stencilMask(MARQUES);
+    }
     dessinerMaillage(g.remplir, g.terres, gl.TRIANGLES, null);
+    if (merMarquee) {
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      gl.stencilMask(0);
+    }
+
+    // 2 bis. Les lignes de repère, hors des zones allumées, chaque pixel une fois ; à l'arrêt, --ligne-repere-repos px CSS.
+    if (lg) {
+      if (this.partiesMarquees.length) marquer(g.terres, this.partiesMarquees);
+      gl.stencilFunc(gl.EQUAL, OVALE, OVALE | MARQUES | LIGNES);
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT);
+      gl.stencilMask(LIGNES);
+      const repos = this.couleurs.ligneRepos ?? 0;
+      const passes: [number, number][] = !e.enMouvement && repos * this.dpr > 1 ? decalagesTrait(repos, this.dpr) : [[0, 0]];
+      gl.bindVertexArray(lg.vao);
+      for (const d of passes) {
+        decalage = d;
+        if (lg.meridiens) {
+          uniformes(g.carte, 0);
+          gl.uniform4fv(g.carte.loc('uCouleur'), premult(this.couleurs.ligne ?? this.couleurs.frontiere));
+          gl.drawArrays(gl.LINES, 0, lg.meridiens);
+          appels++;
+        }
+        if (lg.paralleles) {
+          uniformes(g.carte, 2);
+          gl.uniform4fv(g.carte.loc('uCouleur'), premult(this.couleurs.ligne ?? this.couleurs.frontiere));
+          gl.drawArrays(gl.LINES, lg.meridiens, lg.paralleles);
+          appels++;
+        }
+      }
+      decalage = [0, 0];
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      gl.stencilMask(0);
+    }
 
     // 3. Hachures : chaque pixel une fois (bit HACHURES), là où deux zones se recouvrent aussi.
     gl.stencilFunc(gl.EQUAL, OVALE, OVALE | HACHURES);

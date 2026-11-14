@@ -3,7 +3,9 @@ import type { Polygon, Position } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TRAIT_FAUX_PX, type EtatImage } from '../src/map/carte-canvas';
-import { FRAG_DISQUES, FRAG_HACHURES, FRAG_TERRES, decalagesTrait, lireCouleurs, PeintreWebGL, uniformesVue, VERTEX_CARTE, VERTEX_DISQUES, type Couleurs, type Rvba } from '../src/map/carte-webgl';
+import { FRAG_DISQUES, FRAG_HACHURES, FRAG_TERRES, decalagesTrait, lireCouleurs, PeintreWebGL, sommetsLignes, uniformesVue, VERTEX_CARTE, VERTEX_DISQUES, type Couleurs, type Rvba } from '../src/map/carte-webgl';
+import { CHOIX_LIGNES, lignesDe } from '../src/map/lignes';
+import { textes } from '../src/vues/textes';
 import { ancre, image, MARGE_PX, preparer, tracerOvale } from '../src/map/dessin';
 import { versEcran } from '../src/map/geo';
 import { PASTILLE } from '../src/map/pastilles';
@@ -1860,3 +1862,122 @@ describe('océans et mers en WebGL (lot 3a, étude J2, § 4.3 et § 4.5)', () =>
 
 // Garde : un polygone de la forme Polygon reste accepté (types).
 export type { Polygon };
+
+describe('lignes de repère en WebGL (#11)', () => {
+  const lignes = lignesDe(CHOIX_LIGNES, textes.lignes);
+  const LIGNE: Rvba = [132, 205, 222, 179];
+  const avecLigne: Couleurs = { ...couleursEssai, ligne: LIGNE };
+  const enCouleur = (d: { u: Record<string, unknown> }) => JSON.stringify(d.u.uCouleur) === JSON.stringify(premultipliee(LIGNE));
+
+  it('sommets : chaque méridien d’un pôle à l’autre (milieu à sa longitude), chaque parallèle un segment de −180 à 180 à sa latitude', () => {
+    const s = sommetsLignes(lignes);
+    const meridiens = lignes.filter((l) => l.sorte === 'meridien');
+    const paralleles = lignes.filter((l) => l.sorte === 'parallele');
+    expect(s.meridiens).toBe(meridiens.length * 720 * 2);
+    expect(s.paralleles).toBe(paralleles.length * 2);
+    expect(s.lonlat.length).toBe(2 * (s.meridiens + s.paralleles));
+    meridiens.forEach((m, i) => {
+      const a = i * 1440;
+      expect([s.lonlat[2 * a], s.lonlat[2 * a + 1], s.milieu[2 * a]]).toEqual([m.deg, -90, m.deg]);
+      const b = a + 1439;
+      expect([s.lonlat[2 * b], s.lonlat[2 * b + 1]]).toEqual([m.deg, 90]);
+    });
+    paralleles.forEach((p, i) => {
+      const a = s.meridiens + 2 * i;
+      expect([...s.lonlat.subarray(2 * a, 2 * a + 4)]).toEqual([-180, Math.fround(p.deg), 180, Math.fround(p.deg)]);
+    });
+  });
+
+  it('vertex shader : un méridien (uMode 0) suit la rotation comme d3, un parallèle (uMode 2) va d’un bord de l’ovale à l’autre', () => {
+    const s = sommetsLignes(lignes);
+    let pire = 0;
+    for (const [r, k] of [[0, 1], [100, 2], [-170, 6], [179, 30]] as const) {
+      const v = placer(C, [r, 10], L / 2, H / 2, k);
+      const { K, centre } = uniformesVue(v, C);
+      const t = transfoDe(v, C);
+      const proj = projectionDe(v.r, C);
+      for (let i = 0; i < s.meridiens; i += 97) {
+        const [lon, lat, ml] = [s.lonlat[2 * i] as number, s.lonlat[2 * i + 1] as number, s.milieu[2 * i] as number];
+        const e = shader({ lon, lat, ml, r: v.r, mode: 0, K, centre, l: L, h: H });
+        if (Math.abs(((lon - v.r + 540) % 360) - 180) > 179.9) continue;
+        const b = proj([lon, lat]) as [number, number];
+        pire = Math.max(pire, Math.hypot(e.x - (t.k * b[0] + t.x), e.y - (t.k * b[1] + t.y)));
+      }
+      for (let i = s.meridiens; i < s.meridiens + s.paralleles; i++) {
+        const [lon, lat] = [s.lonlat[2 * i] as number, s.lonlat[2 * i + 1] as number];
+        const e = shader({ lon, lat, ml: 0, r: v.r, mode: 2, K, centre, l: L, h: H });
+        // Le bord de l'ovale sur ce parallèle : la longitude du centre ± 180°, un peu en deçà pour d3.
+        const b = proj([v.r + Math.sign(lon) * 179.9999, lat]) as [number, number];
+        pire = Math.max(pire, Math.hypot(e.x - (t.k * b[0] + t.x), e.y - (t.k * b[1] + t.y)));
+      }
+    }
+    expect(pire).toBeLessThan(0.05);
+  });
+
+  it('dessin : après les terres, avant les hachures et les frontières, méridiens (uMode 0) puis parallèles (uMode 2), couleur --ligne-repere ; aucun appel sans ligne', () => {
+    const { p, f } = peintre(avecLigne);
+    const e = etat(30, 2);
+    p.dessiner(e);
+    expect(f.dessins.some(enCouleur)).toBe(false);
+    f.dessins.length = 0;
+    p.dessiner({ ...e, lignes });
+    const s = sommetsLignes(lignes);
+    const traits = f.dessins.filter(enCouleur);
+    expect(traits.map((d) => [d.mode, d.u.uMode, d.n])).toEqual([
+      [f.constante('LINES'), 0, s.meridiens],
+      [f.constante('LINES'), 2, s.paralleles],
+    ]);
+    const i = f.dessins.indexOf(traits[0] as (typeof traits)[number]);
+    const [vaoTerres] = vaoDe(f, terres.triangles.length);
+    const terresAvant = f.dessins.findIndex((d) => d.vao === vaoTerres && d.mode === f.constante('TRIANGLES'));
+    const hachures = f.dessins.findIndex((d) => JSON.stringify(d.u.uCouleur) === JSON.stringify(premultipliee(couleursEssai.hachure)));
+    const [vaoInt] = vaoDe(f, tout.interieurs.traits.length);
+    const frontieres = f.dessins.findIndex((d) => d.vao === vaoInt);
+    expect(terresAvant).toBeLessThan(i);
+    expect(hachures).toBeGreaterThan(i);
+    expect(frontieres).toBeGreaterThan(i);
+  });
+
+  it('une zone allumée : ses parties marquées (bit MARQUES du stencil) entre les terres et les lignes, qui passent dessous ; aucune sans ligne', () => {
+    const { p, f } = peintre(avecLigne);
+    const marques = new Map([['BRA', new Set(['choisi'])]]);
+    const e = { ...etat(-50, 2, marques), lignes };
+    p.dessiner(e);
+    const [vaoTerres] = vaoDe(f, terres.triangles.length);
+    const iBra = donnees.entites.findIndex((en) => en.pays.id === 'BRA');
+    const parties = terres.parties.filter((pa) => pa.forme === iBra && pa.t1 > pa.t0).map((pa) => `${pa.t0 * 4}:${pa.t1 - pa.t0}`);
+    expect(parties.length).toBeGreaterThan(0);
+    const toutes = f.dessins.findIndex((d) => d.vao === vaoTerres && d.n === terres.triangles.length);
+    const premiere = f.dessins.findIndex(enCouleur);
+    const entre = f.dessins.slice(toutes + 1, premiere).filter((d) => d.vao === vaoTerres && d.u.uMode === 0).map((d) => `${d.decalage}:${d.n}`);
+    expect(entre).toEqual(parties);
+    // Sans ligne : rien de redessiné pour le stencil.
+    f.dessins.length = 0;
+    p.dessiner({ ...e, lignes: [] });
+    const t2 = f.dessins.findIndex((d) => d.vao === vaoTerres && d.n === terres.triangles.length);
+    const hachures = f.dessins.findIndex((d) => JSON.stringify(d.u.uCouleur) === JSON.stringify(premultipliee(couleursEssai.hachure)));
+    expect(f.dessins.slice(t2 + 1, hachures).filter((d) => d.vao === vaoTerres && d.u.uMode === 0)).toEqual([]);
+  });
+
+  it('les mêmes lignes : téléversées une fois ; d’autres : de nouveau ; à l’arrêt, une passe par décalage de --ligne-repere-repos, une seule en mouvement', () => {
+    const { p, f } = peintre({ ...avecLigne, ligneRepos: 1 });
+    const e = { ...etat(0, 1), lignes };
+    p.dessiner(e);
+    const passes = () => f.dessins.filter(enCouleur).map((d) => d.u.uCentre);
+    const { centre } = uniformesVue(e.v, e.c);
+    const attendus = decalagesTrait(1, 2.8125).map(([dx, dy]) => [centre[0] + dx, centre[1] + dy]);
+    expect(passes()).toEqual(attendus.flatMap((c) => [c, c]));
+    const vaos = new Set(f.dessins.filter(enCouleur).map((d) => d.vao));
+    f.dessins.length = 0;
+    p.dessiner({ ...e, enMouvement: true });
+    expect(passes()).toEqual([[centre[0], centre[1]], [centre[0], centre[1]]]);
+    expect(new Set(f.dessins.filter(enCouleur).map((d) => d.vao))).toEqual(vaos);
+    f.dessins.length = 0;
+    const deux = lignes.slice(0, 2);
+    p.dessiner({ ...e, enMouvement: true, lignes: deux });
+    const autres = f.dessins.filter(enCouleur);
+    // L'équateur et le tropique du Cancer : deux parallèles, aucun méridien (un seul appel).
+    expect(autres.map((d) => [d.u.uMode, d.n])).toEqual([[2, 4]]);
+    expect(vaos.has(autres[0]?.vao as object)).toBe(false);
+  });
+});
