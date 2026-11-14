@@ -105,11 +105,13 @@ describe('maillage', () => {
     expect(terres.milieu.length).toBe(2 * n);
     expect(terres.forme.length).toBe(n);
     expect(terres.triangles.reduce((a, b) => Math.max(a, b), 0)).toBeLessThan(n);
-    terres.formes.forEach((f, i) => {
-      expect(f.t1).toBeGreaterThan(f.t0);
-      if (i) expect(f.t0).toBe((terres.formes[i - 1] as { t1: number }).t1);
-    });
-    for (const p of terres.parties) for (let t = p.t0; t < p.t1; t++) expect(terres.forme[terres.triangles[t] as number]).toBe(p.forme);
+    // Les écarts comptés en boucle, puis un seul expect : un expect par indice
+    // de triangle (~340 000) dépassait les 5 s sous forte charge (07/11, #25).
+    const vides = terres.formes.filter((f) => f.t1 <= f.t0).length;
+    const disjointes = terres.formes.filter((f, i) => i > 0 && f.t0 !== (terres.formes[i - 1] as { t1: number }).t1).length;
+    let autreForme = 0;
+    for (const p of terres.parties) for (let t = p.t0; t < p.t1; t++) if (terres.forme[terres.triangles[t] as number] !== p.forme) autreForme++;
+    expect({ vides, disjointes, autreForme }).toEqual({ vides: 0, disjointes: 0, autreForme: 0 });
     console.info(
       `maillage des terres : ${n} sommets, ${terres.triangles.length / 3} triangles, ${terres.parties.length} parties, ${duree_ms.toFixed(0)} ms (Node)`,
     );
@@ -899,6 +901,8 @@ describe('vertex shader (le texte GLSL, traduit et évalué)', () => {
   });
 
   it('milieux : chaque sommet porte le milieu de l’emprise de sa partie (tour du shader, origine des hachures)', () => {
+    // Comme au maillage : les écarts comptés, un expect par sommet faisait 1,8 s à vide.
+    const ecarts = { lon: 0, lat: 0, forme: 0 };
     for (const m of [terres, zones]) {
       for (const p of m.parties) {
         const sommets = new Set<number>();
@@ -909,13 +913,15 @@ describe('vertex shader (le texte GLSL, traduit et évalué)', () => {
           s = Math.min(s, m.lonlat[2 * i + 1] as number);
           n = Math.max(n, m.lonlat[2 * i + 1] as number);
         }
+        const lon = Math.fround((p.o + p.e) / 2);
         for (const i of sommets) {
-          expect(m.milieu[2 * i]).toBe(Math.fround((p.o + p.e) / 2));
-          expect(Math.abs((m.milieu[2 * i + 1] as number) - (s + n) / 2)).toBeLessThan(1e-3);
-          expect(m.forme[i]).toBe(p.forme);
+          if (m.milieu[2 * i] !== lon) ecarts.lon++;
+          if (!(Math.abs((m.milieu[2 * i + 1] as number) - (s + n) / 2) < 1e-3)) ecarts.lat++;
+          if (m.forme[i] !== p.forme) ecarts.forme++;
         }
       }
     }
+    expect(ecarts).toEqual({ lon: 0, lat: 0, forme: 0 });
   });
 });
 
