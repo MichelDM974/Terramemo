@@ -43,7 +43,7 @@ interface Sources {
 }
 
 type Module = {
-  manifeste: (lignes: { pays: string; d: string[] }[], textes: Map<string, string>, main: Main) => Promise<{ texte: string; fautes: string[]; scores: Map<string, number> }>;
+  manifeste: (lignes: { pays: string; d: string[] }[], textes: Map<string, string>, main: Main) => Promise<{ texte: string; proches: string; fautes: string[]; scores: Map<string, number> }>;
   fautesSvg: (texte: string) => string[];
   construireDrapeaux: (racine: string) => Promise<{ fichiers: Record<string, string>; svgs: Record<string, string>; sources: Source[]; entrees: Record<string, string> }>;
   chargerResvg: () => Promise<typeof import('@resvg/resvg-wasm').Resvg>;
@@ -56,6 +56,7 @@ const empreinte = (b: Buffer | string) => createHash('sha256').update(b).digest(
 const DOSSIER = 'public/geo/drapeaux';
 
 const texteManifeste = readFileSync('public/geo/drapeaux.json', 'utf8');
+const texteProches = readFileSync('public/geo/drapeaux-proches.json', 'utf8');
 const { pays: lignes, familles } = JSON.parse(texteManifeste) as Manifeste;
 const main = lire<Main>('geodata/drapeaux-main.json');
 const sources = lire<Sources>('public/geo/sources.json');
@@ -515,6 +516,37 @@ describe('licence, sources, hébergement, crédits', () => {
   });
 });
 
+describe('paires proches du quiz (public/geo/drapeaux-proches.json)', () => {
+  const proches = JSON.parse(texteProches) as { v: number; seuil: number; paires: [string, string, number][] };
+  it('917 paires de score ≤ 0,5 (décision « Leurres de drapeaux au quiz »), A < B, triées, de pays du manifeste ; les jumeaux à 0 ; ≈ 18 Ko brut, 4 Ko gzip', () => {
+    expect(proches.v).toBe(1);
+    expect(proches.seuil).toBe(0.5);
+    expect(proches.paires).toHaveLength(917);
+    const cles = proches.paires.map(([a, b]) => `${a}|${b}`);
+    expect(cles).toEqual([...cles].sort());
+    expect(new Set(cles).size).toBe(917);
+    for (const [a, b, s] of proches.paires) {
+      expect(a < b, `${a} ${b}`).toBe(true);
+      expect(parPays.has(a) && parPays.has(b), `${a} ${b}`).toBe(true);
+      expect(s).toBeGreaterThanOrEqual(0);
+      expect(s).toBeLessThanOrEqual(0.5);
+    }
+    expect(proches.paires.filter(([, , s]) => s === 0).map(([a, b]) => `${a}|${b}`)).toEqual(['IDN|MCO', 'ROU|TCD']);
+    expect(Buffer.byteLength(texteProches)).toBeLessThan(20_000);
+    expect(gzipSync(texteProches).length).toBeLessThan(5_000);
+  });
+
+  it('chaque sosie du manifeste de score ≤ 0,5 y est, au même score', () => {
+    const score = new Map(proches.paires.map(([a, b, s]) => [`${a}|${b}`, s]));
+    for (const l of lignes) {
+      for (const [b, s] of l.s) {
+        if (s > 0.5) continue;
+        expect(score.get(l.pays < b ? `${l.pays}|${b}` : `${b}|${l.pays}`), `${l.pays} ${b}`).toBe(s);
+      }
+    }
+  });
+});
+
 describe('reproduction', () => {
   it('S33 : sosies, jumeaux et familles refaits sur les SVG versionnés (resvg-wasm) redonnent le manifeste à l’octet', async () => {
     const { manifeste } = await module;
@@ -525,6 +557,7 @@ describe('reproduction', () => {
     );
     expect(r.fautes).toEqual([]);
     expect(r.texte).toBe(texteManifeste);
+    expect(r.proches).toBe(texteProches);
     expect(r.scores.size).toBe((197 * 196) / 2);
   }, 60_000);
 
@@ -536,6 +569,7 @@ describe('reproduction', () => {
       const { fusionnerPartie } = (await import('../geodata/outils.mjs' as string)) as { fusionnerPartie: (s: Sources, p: { sources: Source[]; entrees: Record<string, string> }) => Sources };
       const r = await construireDrapeaux('.');
       expect(r.fichiers['drapeaux.json']).toBe(texteManifeste);
+      expect(r.fichiers['drapeaux-proches.json']).toBe(texteProches);
       expect(r.fichiers['licences/flag-icons.txt']).toBe(readFileSync('public/geo/licences/flag-icons.txt', 'utf8'));
       expect(Object.keys(r.svgs).map((h) => `${h}.svg`).sort()).toEqual(fichiers);
       for (const [h, t] of Object.entries(r.svgs)) expect(t, h).toBe(textesSvg.get(h));

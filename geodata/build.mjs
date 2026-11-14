@@ -10,7 +10,7 @@
 //   LICENSE-CLDR.txt texte de la Unicode License v3, qui doit accompagner noms.<langue>.json
 //   capitales.json, capitales.fr.json  capitales des pays (geodata/capitales.mjs, étude J2 § 2.1),
 //                    tirées d'un extrait figé de Wikidata (npm run wikidata) et d'une table à la main
-//   drapeaux/<sha8>.svg, drapeaux.json, licences/flag-icons.txt  drapeaux des pays
+//   drapeaux/<sha8>.svg, drapeaux.json, drapeaux-proches.json, licences/flag-icons.txt  drapeaux des pays
 //                    (geodata/drapeaux.mjs, étude J2 § 2.2), tirés de flag-icons et d'une table à la main
 //   mers.topo.json, mers-leger.topo.json, mers.json, mers.fr.json  océans et mers
 //                    (geodata/mers.mjs, étude J2 § 2.3), tirés de la couche marine de Natural

@@ -24,6 +24,11 @@
 //                      de commun), du plus proche au moins proche ; familles : celles
 //                      que la mesure rate, écrites à la main (croix nordiques, Union
 //                      Jack…) ;
+//   drapeaux-proches.json  {v: 1, seuil, paires: [[A, B, score]…]} : toutes les paires de
+//                      score ≤ SEUIL_PROCHES (0,5 : 917 au 11/11/2026, jumeaux compris),
+//                      A < B, dans l'ordre des ids ; données du quiz seul (décision
+//                      « Leurres de drapeaux au quiz » : un leurre « éloigné » du quiz facile
+//                      et moyen n'en a aucune avec le juste), chargées avec lui ;
 //   licences/flag-icons.txt  le LICENSE de flag-icons tel quel (MIT : l'avis et le texte
 //                      accompagnent toute copie), hors du dossier immuable.
 // Sosies : portage de ressemblances3.py (relevé du 10/11, ~/Sauvegardes/terramemo/
@@ -94,6 +99,11 @@ const CASE_PX = 4; // rendu de 64 × 48 px (les PNG du relevé, png64/), cases d
 const SEUIL_DE = 20;
 const PENALITE_RETOURNE = 0.08;
 export const N_SOSIES = 3;
+/**
+ * Score au-dessous duquel (ou égal) deux drapeaux sont « proches » pour le quiz
+ * (drapeaux-proches.json ; décision « Leurres de drapeaux au quiz », 12/11/2026).
+ */
+export const SEUIL_PROCHES = 0.5;
 
 const parId = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const sansNotes = (o) => Object.entries(o ?? {}).filter(([k]) => k !== '_');
@@ -367,7 +377,7 @@ const cle = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 /**
  * drapeaux.json à partir des drapeaux justes de chaque pays et de leurs SVG. lignes :
  * [{pays, d: [sha8…]}] dans l'ordre de pays.json, le premier montré ; textes : Map sha8 →
- * SVG ; main : la table. Rend { texte, scores, fautes, notes }. Le même chemin pour le
+ * SVG ; main : la table. Rend { texte, proches, scores, fautes, notes }. Le même chemin pour le
  * build et pour les tests (qui le refont sur les fichiers versionnés, sans le tarball).
  */
 export async function manifeste(lignes, textes, main) {
@@ -430,16 +440,24 @@ export async function manifeste(lignes, textes, main) {
   const texte =
     `{\n"pays":[\n${lignes.map(ligne).join(',\n')}\n],\n` +
     `"familles":{\n${noms.map((n) => `${JSON.stringify(n)}:${JSON.stringify(familles[n])}`).join(',\n')}\n}\n}\n`;
-  const proches = [...sosies.values()].filter((s) => s[0][1] <= 0.1).length;
-  notes.push(`sosies : ${proches} pays ont un quasi-jumeau (score ≤ 0,1), jumeaux exceptés`);
-  return { texte, scores, fautes, notes };
+  const quasi = [...sosies.values()].filter((s) => s[0][1] <= 0.1).length;
+  notes.push(`sosies : ${quasi} pays ont un quasi-jumeau (score ≤ 0,1), jumeaux exceptés`);
+
+  // Paires proches du quiz : toutes celles de score ≤ SEUIL_PROCHES, une par ligne.
+  const paires = [...scores]
+    .filter(([, s]) => s <= SEUIL_PROCHES)
+    .map(([k, s]) => [...k.split('|'), s])
+    .sort((x, y) => parId(x[0], y[0]) || parId(x[1], y[1]));
+  const proches = `{"v":1,"seuil":${SEUIL_PROCHES},"paires":[\n${paires.map((p) => JSON.stringify(p)).join(',\n')}\n]}\n`;
+  notes.push(`proches : ${paires.length} paires de score ≤ ${SEUIL_PROCHES} (quiz)`);
+  return { texte, proches, scores, fautes, notes };
 }
 
 // --- Construction ----------------------------------------------------------------------
 
 /**
  * Construit les fichiers servis. racine : la racine du dépôt. Rend { fichiers: {nom:
- * texte} (drapeaux.json, licences/flag-icons.txt), svgs: {sha8: texte}, sources,
+ * texte} (drapeaux.json, drapeaux-proches.json, licences/flag-icons.txt), svgs: {sha8: texte}, sources,
  * entrees, notes } : sources et entrees vont dans public/geo/sources.json
  * (fusionnerPartie d'outils.mjs), notes s'affichent au build.
  */
@@ -535,7 +553,7 @@ export async function construireDrapeaux(racine) {
   const entrees = { [CHEMINS.script]: sha256(scriptBrut), [CHEMINS.main]: sha256(mainBrut) };
   const notes = [`${lignes.length} pays, ${svgs.size} drapeaux, ${lignes.filter((l) => l.d.length > 1).length} pays à deux drapeaux justes`, ...m.notes];
   return {
-    fichiers: { 'drapeaux.json': m.texte, 'licences/flag-icons.txt': licence },
+    fichiers: { 'drapeaux.json': m.texte, 'drapeaux-proches.json': m.proches, 'licences/flag-icons.txt': licence },
     svgs: Object.fromEntries([...svgs].sort(([a], [b]) => parId(a, b))),
     sources,
     entrees,
