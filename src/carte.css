@@ -981,6 +981,9 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
 .reglage { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; }
 .reglage-nom { font-size: 0.85rem; color: var(--muted); }
 .case { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; color: var(--text); }
+/* Lignes de repère (#11) : un titre, puis une case par sorte de ligne, plus serrées. */
+.reglage-lignes { margin: 0 0 6px; }
+.reglage-lignes .case { margin: 2px 0 6px; font-size: 0.92rem; }
 .settings-popup .seg { align-self: auto; }
 
 @media (max-width: 700px) {

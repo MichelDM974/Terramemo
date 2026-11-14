@@ -4,6 +4,7 @@ import { Carte, type CarteAffichee } from './map/carte';
 import { CarteCanvas } from './map/carte-canvas';
 import { chargerDonnees, chargerLeger } from './map/donnees';
 import { prechauffer } from './map/geo';
+import { empriseDesLieux, lignesDe, lignesQuiCroisent } from './map/lignes';
 import { chargerMers } from './map/mers';
 import type { Note, OptionsNoter, ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
@@ -37,6 +38,7 @@ import { poserMers, type Vue } from './vues/commun';
 import { vueChrono } from './vues/chrono';
 import { vueEssai } from './vues/essai';
 import { carteMemoire, garderReglageMemoire, lireReglageMemoire } from './vues/carte-memoire';
+import { brancherCasesLignes, garderReglageLignes, lignesDeLAdresse, lireReglageLignes } from './vues/reglage-lignes';
 import { brancherRelance } from './vues/classement';
 import { vueExplorer, type VueExplorer } from './vues/explorer';
 import { vueGeneral } from './vues/general';
@@ -109,7 +111,7 @@ prendreMiseAJour();
  */
 export const RENDU_DEFAUT: Rendu = 'canvas';
 
-// --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur), ?teintes=demo, ?mers=demo, ?mer= ---
+// --- Réglages : ?rendu=, ?projection=, ?mesures= (ce dernier gardé dans le navigateur), ?teintes=demo, ?mers=demo, ?mer=, ?lignes= ---
 
 const params = new URLSearchParams(location.search);
 // Drapeaux du J1b (src/sync/drapeaux.ts) : ?comptes, ?comptes=0 et ?sans-synchro=0, gardés dans le navigateur.
@@ -279,6 +281,27 @@ if (caseMemoire) {
   });
 }
 
+// Lignes de repère (#11, décision « Lignes de repère ») : toutes décochées par
+// défaut, le choix gardé sur l'appareil ; ?lignes=tout (ou une liste) les coche
+// pour la page seule (mesures du pilote avec et sans). Posées sur la carte du
+// monde, qui sert à l'accueil comme aux parties, et sur l'île pour celles qui
+// la croisent (aucune pour La Réunion : rien n'y est dessiné).
+let choixLignes = lignesDeLAdresse(params) ?? lireReglageLignes(stockage());
+const reglageLignes = document.getElementById('reglage-lignes');
+if (reglageLignes)
+  brancherCasesLignes(reglageLignes, textes.lignes, choixLignes, (c) => {
+    choixLignes = c;
+    garderReglageLignes(stockage(), c);
+    poserLignes();
+  });
+function poserLignes(): void {
+  if (!terrains) return;
+  const lignes = lignesDe(choixLignes, textes.lignes);
+  terrains.monde.carte.lignes(lignes);
+  const ile = terrains.deja('reunion');
+  if (ile) ile.carte.lignes(lignesQuiCroisent(lignes, empriseDesLieux(ile.donnees.entites.map((e) => e.pays))));
+}
+
 // --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
 // recherche montre un lieu), Jouer (l'arbre des choix : #jouer/classe/pays/Africa,
 // décision « Écran Jouer ») puis Toucher ou une épreuve classée (vue « chrono » :
@@ -416,6 +439,8 @@ export interface AideCarte {
   /** Anneaux posés en ce moment (l'anneau d'une capitale à la rétroaction et dans la recherche, D53 c). */
   anneaux(): number;
   teintesDemo(): Record<string, number>;
+  /** Lignes de repère posées sur cette carte (#11) ; leurs noms affichés : .lignes-noms .ligne-nom[data-ligne] de son hôte. */
+  lignes(): number;
   /** Pays qui ont une cible de pastille au zoom courant ; visible : disque dessiné (circle.pastille en SVG). */
   pastilles(): { id: string; visible: boolean }[];
   /** Rendus canvas et webgl : compteurs du dernier dessin (durée du script, carte allégée, parties et sommets tracés). */
@@ -545,6 +570,7 @@ function aide(carte: CarteAffichee, h: HTMLElement, jouables: readonly string[],
     teintes: () => carte.nbTeintes,
     anneaux: () => carte.nbAnneaux,
     teintesDemo: () => Object.fromEntries(teintesDemo(jouables)),
+    lignes: () => carte.nbLignes,
     pastilles: () => carte.contexte().pastilles.map((p) => ({ id: p.id, visible: p.visible })),
     ...rendus,
   };
@@ -713,8 +739,10 @@ async function demarrer(): Promise<void> {
     surToucher,
     surCharge: (t) => {
       window.terramemo.ile = aide(t.carte, t.carte.hote, t.jouables);
+      poserLignes();
     },
   });
+  poserLignes();
   const ctx = { carte, donnees, mesures, zone, terrains };
   const pays = donnees.entites.map((e) => e.pays);
   arbre = creerArbre(catalogue(pays));

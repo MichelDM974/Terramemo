@@ -42,6 +42,9 @@ l'oublier, jusqu'à tenir des mois.
   **Rejouer**, au bilan de chaque partie, relance la même d'une touche.
 - Sur ordinateur, des boutons **+**, **−** et « toute la carte » en bas à
   droite (et les touches + et −) pour zoomer sans molette.
+- Dans ⚙, des **lignes de repère** à cocher : l'équateur, le méridien de
+  Greenwich, les tropiques, les cercles polaires et une grille de 30°,
+  nommées sur la carte, à l'accueil comme pendant les parties.
 - **La Réunion** : ses 24 communes sur une carte de l'île, en série de
   Toucher et des épreuves classées (avec leurs classements).
 

@@ -232,6 +232,9 @@ header .tagline {
   right: 0;
   z-index: 20;
   width: min(300px, calc(100vw - 32px));
+  /* Sur un petit écran, la popup défile plutôt que de passer sous le bas de l'écran. */
+  max-height: calc(100dvh - 80px);
+  overflow-y: auto;
   background: var(--popup-bg);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
