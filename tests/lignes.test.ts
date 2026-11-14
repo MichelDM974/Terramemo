@@ -270,7 +270,7 @@ describe('lignes de repère : noms', () => {
     }
   });
 
-  it('un nom qui chevaucherait un obstacle (pastille, anneau) ou un nom déjà posé est sauté', () => {
+  it('un nom qui chevaucherait un obstacle (pastille, anneau) ou un nom déjà posé cherche une autre place, sinon est sauté', () => {
     const v = placer(C, [0, 0], L / 2, H / 2, 1);
     const rep = repere(transfoDe(v, C), projectionDe(v.r, C), L, H);
     const libres = placerNoms(rep, tout, largeurEssai);
@@ -279,10 +279,23 @@ describe('lignes de repère : noms', () => {
     const gauche = { x: eq.x + 2, y: eq.y + 2, l: 4, h: 4 };
     const adroite = placerNoms(rep, tout, largeurEssai, [gauche]).find((n) => n.id === 'equateur') as Boite;
     expect(adroite.x + adroite.l).toBeGreaterThan(L / 2);
-    const avec = placerNoms(rep, tout, largeurEssai, [gauche, { x: adroite.x + 2, y: adroite.y + 2, l: 4, h: 4 }]);
-    expect(avec.map((n) => n.id)).not.toContain('equateur');
-    // Trois lignes à 1° l'une de l'autre : la première à gauche, la deuxième à droite, plus de place pour la troisième.
+    // Les deux bords pris au-dessus : le nom passe sous la ligne, au bord gauche.
+    const droite = { x: adroite.x + 2, y: adroite.y + 2, l: 4, h: 4 };
+    const dessous = placerNoms(rep, tout, largeurEssai, [gauche, droite]).find((n) => n.id === 'equateur') as Boite;
+    expect(dessous.y).toBeGreaterThan(eq.y + eq.h);
+    expect(dessous.x).toBe(eq.x);
+    // Les quatre bords pris (tropiques au zoom 1 : Caraïbes, Asie du Sud, îles) : il glisse le long de la ligne, au-dessus.
+    const bas = [{ ...gauche, y: dessous.y + 2 }, { ...droite, y: dessous.y + 2 }];
+    const milieu = placerNoms(rep, tout, largeurEssai, [gauche, droite, ...bas]).find((n) => n.id === 'equateur') as Boite;
+    expect(milieu.y).toBe(eq.y);
+    expect(milieu.x).toBeGreaterThan(eq.x);
+    expect(milieu.x + milieu.l).toBeLessThan(droite.x);
+    // Toute la bande au-dessus et sous la ligne prise : sauté.
+    const bande = { x: 0, y: eq.y - 1, l: L, h: dessous.y + dessous.h - eq.y + 2 };
+    expect(placerNoms(rep, tout, largeurEssai, [bande]).map((n) => n.id)).not.toContain('equateur');
+    // Trois lignes à 1° l'une de l'autre : aucun nom n'en chevauche un autre.
     const proche = (id: string, deg: number): LigneRepere => ({ id, sorte: 'parallele', deg, nom: 'Un nom assez long', grille: false });
-    expect(placerNoms(rep, [proche('a', 10), proche('b', 11), proche('c', 11.5)], largeurEssai).map((n) => n.id)).toEqual(['a', 'b']);
+    const serres = placerNoms(rep, [proche('a', 10), proche('b', 11), proche('c', 11.5)], largeurEssai);
+    for (const [i, a] of serres.entries()) for (const b of serres.slice(i + 1)) expect(a.x + a.l <= b.x || b.x + b.l <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y).toBe(true);
   });
 });

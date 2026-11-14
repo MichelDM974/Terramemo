@@ -235,12 +235,16 @@ export interface NomPose extends Boite {
 
 /** Hauteur d'un nom (px CSS : la ligne de .ligne-nom, carte.css), écart à sa ligne, retrait du bord, marge entre deux noms. */
 export const NOM = { hauteur: 12, ecart: 2, retrait: 6, espace: 3 } as const;
+/** Pas (px CSS) des places d'un nom de parallèle le long de sa ligne, quand ses bords sont pris. */
+const PAS_NOM = 16;
 
 const chevauche = (a: Boite, b: Boite, m: number) => a.x < b.x + b.l + m && b.x < a.x + a.l + m && a.y < b.y + b.h + m && b.y < a.y + a.h + m;
 
 /**
  * Où poser les noms, à l'arrêt : celui d'un parallèle au-dessus de lui, au bord
- * gauche de sa partie visible, sinon au bord droit ; celui d'un méridien centré
+ * gauche de sa partie visible, sinon au bord droit, sinon sous lui aux mêmes
+ * bords, sinon ailleurs le long de la ligne (au-dessus, puis dessous, de
+ * gauche à droite, tous les PAS_NOM px) ; celui d'un méridien centré
  * sur lui, sous le haut de sa partie visible (le bord de l'écran, ou la ligne
  * du pôle nord), sinon au-dessus du bas (le bord, ou la ligne du pôle sud),
  * sinon juste sous l'équateur (au zoom 1 sur le téléphone, les cercles polaires
@@ -263,11 +267,19 @@ export function placerNoms(rep: Repere, lignes: readonly LigneRepere[], largeur:
     const w = largeur(l.nom);
     const places: Boite[] = [];
     if (l.sorte === 'parallele') {
-      const y = y0 - K * ordonneeBrute(l.deg) - NOM.ecart - H;
+      const ligne = y0 - K * ordonneeBrute(l.deg);
+      const dessus = ligne - NOM.ecart - H;
+      const dessous = ligne + NOM.ecart;
       const demi = demiOvale(l.deg);
       const gauche = Math.max(cx - demi, 0) + NOM.retrait;
       const droite = Math.min(cx + demi, rep.l) - NOM.retrait;
-      if (gauche + w <= droite) places.push({ x: gauche, y, l: w, h: H }, { x: droite - w, y, l: w, h: H });
+      if (gauche + w <= droite) {
+        // Les bords d'abord (au-dessus, puis dessous), puis le long de la ligne : aux
+        // tropiques, Caraïbes et Asie du Sud prennent les bords au zoom 1 (#11).
+        for (const y of [dessus, dessous]) places.push({ x: gauche, y, l: w, h: H }, { x: droite - w, y, l: w, h: H });
+        for (const y of [dessus, dessous])
+          for (let x = gauche + PAS_NOM; x < droite - w; x += PAS_NOM) places.push({ x, y, l: w, h: H });
+      }
     } else {
       const lp = normaliserLon(l.deg - rep.r);
       if (Math.abs(lp) < 179) {
