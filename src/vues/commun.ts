@@ -12,6 +12,7 @@ import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
 import type { Serie } from './cibles';
 import { dansZone, type Contenu, type Enonce, type RenduSujet } from './sujets';
+import { elide } from './formes';
 import { remplir, textes } from './textes';
 
 export interface ContexteVue {
@@ -123,28 +124,33 @@ export type AdmisDit = Admis | { zone: string; tenant: string; sorte: 'partie' }
 /**
  * Pourquoi un toucher hors du tracé de la cible est juste (décision « Zones
  * contestées et enclaves », Note.admis de noter()) : « (zone contestée, tenue
- * par Russie) » (libellé de l'étude, option B ; sans article, les noms n'en
- * ont pas), « (enclave : Baïkonour) » ; '' sans zone
+ * par la Russie) » (libellé de l'étude, option B ; le pays avec son article,
+ * décision « Articles des noms de pays » : RenduSujet.lieuArticle),
+ * « (enclave : Baïkonour) » ; '' sans zone
  * admise. Une entité contestée se tient elle-même dans les données (tenant =
  * zone : Somaliland, Malouines, glacier de Siachen…) : son nom à la place
  * (« zone contestée : Somaliland »). Rien quand la cible la tient : le toucher
  * est juste sans règle à expliquer. Les zones nommées par le rendu du sujet
  * joué (RenduSujet.lieu). Sous Capitales, Jérusalem touchée en Palestine (ou
- * Jérusalem-Est en Israël, D36 i) : « (capitale revendiquée aussi par
- * Palestine) ». Sous Mers, la partie touchée et ce qui la contient, la forme
+ * Jérusalem-Est en Israël, D36 i) : « (capitale revendiquée aussi par la
+ * Palestine) » ; sous Drapeaux, « (même drapeau que l'Indonésie) », « qu' »
+ * devant une voyelle (elide). Sous Mers, la partie touchée et ce qui la contient, la forme
  * voulue par l'utilisateur : « Juste : mer des Caraïbes, dans l'Atlantique »
  * (dansZone, le bon article pour chaque zone qui a des parties).
  */
-export function texteAdmis(r: Pick<RenduSujet, 'lieu'>, cible: string, admis: AdmisDit | null | undefined): string {
+export function texteAdmis(r: Pick<RenduSujet, 'lieu' | 'lieuArticle'>, cible: string, admis: AdmisDit | null | undefined): string {
   if (!admis) return '';
   const T = textes.toucher;
   if (admis.sorte === 'enclave') return remplir(T.admis_enclave, { zone: r.lieu(admis.zone) });
-  if (admis.sorte === 'jumeau') return remplir(T.admis_jumeau, { zone: r.lieu(admis.zone) });
+  if (admis.sorte === 'jumeau') {
+    const zone = r.lieuArticle(admis.zone);
+    return remplir(elide(zone) ? T.admis_jumeau_elide : T.admis_jumeau, { zone });
+  }
   if (admis.sorte === 'partie') return remplir(T.admis_partie, { zone: r.lieu(admis.zone), dans: dansZone(cible, r.lieu(cible)) });
-  if (admis.sorte === 'capitale') return remplir(T.admis_capitale, { zone: r.lieu(admis.zone) });
+  if (admis.sorte === 'capitale') return remplir(T.admis_capitale, { zone: r.lieuArticle(admis.zone) });
   if (admis.tenant === cible) return '';
   if (admis.tenant === admis.zone) return remplir(T.admis_contestee_zone, { zone: r.lieu(admis.zone) });
-  return remplir(T.admis_contestee, { tenant: r.lieu(admis.tenant) });
+  return remplir(T.admis_contestee, { tenant: r.lieuArticle(admis.tenant) });
 }
 
 /** Durée lisible : « 1,2 s », espace insécable avant l'unité. */

@@ -47,6 +47,8 @@ export function renduFactice(): RenduSujet {
     revelation: (id) => ({ texte: `révélé ${code(id)}` }),
     nomBilan: (id, sens) => `bilan-${sens} ${code(id)}`,
     lieu: (id) => `lieu ${code(id)}`,
+    lieuArticle: (id) => `lieu ${code(id)}`,
+    consigneNommee: () => null,
     touche: (id) => (id ? `touché ${code(id)}` : TEXTES_FACTICES.la_mer),
     fauxSuite: (id) => `suite ${code(id)}.`,
     expire: (id) => `sablier ${code(id)}`,

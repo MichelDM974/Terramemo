@@ -196,7 +196,7 @@ describe('parties d’une mer : zones admises du seul sujet Mers, et leur rétro
     // Les autres sortes, inchangées.
     const pays = rendu('pays', donnees);
     expect(texteAdmis(pays, 'KAZ', { zone: 'NE_KAB', tenant: 'NE_KAB', sorte: 'enclave' })).toBe(' (enclave : Baïkonour)');
-    expect(texteAdmis(pays, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau : Monaco)');
+    expect(texteAdmis(pays, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau que Monaco)');
   });
 
   describe('notée par la carte (données réelles, téléphone de mesure)', () => {

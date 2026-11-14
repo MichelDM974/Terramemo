@@ -339,13 +339,13 @@ describe('zones contestées et enclaves (décision « Zones contestées et encla
 });
 
 describe('rétroaction d’une zone admise', () => {
-  it('Chrono : « Juste (zone contestée, tenue par Russie) », sans « +points » (barème 2) ; Sans faute : « Juste (enclave : Baïkonour) »', () => {
+  it('Chrono : « Juste (zone contestée, tenue par la Russie) », sans « +points » (barème 2) ; Sans faute : « Juste (enclave : Baïkonour) »', () => {
     const { v, zone, lancer } = contexte();
     lancer('chrono');
     admisSuivant = { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' };
     v.toucher?.(0, 0, {} as PointerEvent);
     const retro = () => zone.querySelector('#barre-chrono .essai-retro')?.textContent ?? '';
-    expect(retro()).toBe('Juste (zone contestée, tenue par Russie)');
+    expect(retro()).toBe('Juste (zone contestée, tenue par la Russie)');
     vi.advanceTimersByTime(1_000);
     admisSuivant = null;
     v.toucher?.(0, 0, {} as PointerEvent);
@@ -983,10 +983,10 @@ describe('le sujet Drapeaux en épreuve', () => {
     /** Chaque question touchée au point de son pays, sauf les jumeaux : sur l'autre. */
     const vrai: NoterVrai = { donnees, zone: (c) => JUMEAU[c] ?? c };
 
-    it('Chrono (Asie) : l’Indonésie demandée, Monaco touché : juste, « même drapeau : Monaco » ; au Chrono des pays : faux', () => {
+    it('Chrono (Asie) : l’Indonésie demandée, Monaco touché : juste, « même drapeau que Monaco » ; au Chrono des pays : faux', () => {
       const d = partieEntiere('chrono', 'Asia', vrai);
       expect(d.ordre).toHaveLength(48);
-      expect(d.retros.get('IDN')).toBe('Juste (même drapeau : Monaco) · Indonésie');
+      expect(d.retros.get('IDN')).toBe('Juste (même drapeau que Monaco) · Indonésie');
       expect(lireRecords(localStorage).get(idEpreuve('Asia', 'chrono', 'drapeaux'))).toMatchObject({ justes: 48, points: 48 });
       // Sous Pays, la même partie : le toucher sur Monaco est faux, l'admis du sujet n'y est pas.
       const ctx = contexte(() => Date.parse('2026-11-16T00:00:00Z'), NOMS_FR, vrai);
@@ -1003,8 +1003,8 @@ describe('le sujet Drapeaux en épreuve', () => {
 
     it('Sans faute (Europe) : Monaco demandé, l’Indonésie touchée, la partie continue jusqu’à la série vidée ; sous Pays, elle s’arrête là', () => {
       const d = partieEntiere('sansfaute', 'Europe', vrai);
-      expect(d.retros.get('MCO')).toMatch(/^Juste \(même drapeau : Indonésie\) · Monaco$/);
-      expect(d.retros.get('ROU')).toMatch(/^Juste \(même drapeau : Tchad\) · Roumanie$/);
+      expect(d.retros.get('MCO')).toMatch(/^Juste \(même drapeau que l'Indonésie\) · Monaco$/);
+      expect(d.retros.get('ROU')).toMatch(/^Juste \(même drapeau que le Tchad\) · Roumanie$/);
       expect(lireRecords(localStorage).get(idEpreuve('Europe', 'sansfaute', 'drapeaux'))).toMatchObject({ justes: 44, questions: 44 });
       const ctx = contexte(() => Date.parse('2026-11-16T00:00:00Z'), NOMS_FR, vrai);
       ctx.lancer('sansfaute', 'Europe', 'pays');
@@ -1022,7 +1022,7 @@ describe('le sujet Drapeaux en épreuve', () => {
 
     it('Chrono (Afrique) : le Tchad demandé, la Roumanie touchée : juste', () => {
       const d = partieEntiere('chrono', 'Africa', vrai);
-      expect(d.retros.get('TCD')).toBe('Juste (même drapeau : Roumanie) · Tchad');
+      expect(d.retros.get('TCD')).toBe('Juste (même drapeau que la Roumanie) · Tchad');
       expect(lireRecords(localStorage).get(idEpreuve('Africa', 'chrono', 'drapeaux'))).toMatchObject({ justes: 54, questions: 54 });
     });
   });

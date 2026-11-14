@@ -321,7 +321,7 @@ describe('rendu du sujet Drapeaux (§ 5.3)', () => {
       expect(rendu(s, { ...D, capitales: CAP }).admisEnPlus('IDN'), s).toBeNull();
       expect(rendu(s, { ...D, capitales: CAP }).qcmPareils('IDN', 'MCO'), s).toBe(false);
     }
-    expect(texteAdmis(r, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau : Monaco)');
+    expect(texteAdmis(r, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau que Monaco)');
   });
 
   it('le manifeste en mémoire (chargerDrapeaux, comme sur le site) : les jumeaux sous Drapeaux seulement, pas sous Pays, Capitales ni Communes', async () => {

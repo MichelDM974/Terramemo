@@ -124,7 +124,7 @@ describe('Toucher : retour dans la vue pendant une question', () => {
     const autre = cible === 'FRA' ? 'ESP' : 'FRA';
     admisSuivant = { zone: 'NE_B89', tenant: autre, sorte: 'contestee' };
     toucher(v.vue, true);
-    expect(v.retro.textContent).toMatch(new RegExp(`^Juste \\(zone contestée, tenue par ${autre === 'FRA' ? 'France' : 'Espagne'}\\) · 1 essai`));
+    expect(v.retro.textContent).toMatch(new RegExp(`^Juste \\(zone contestée, tenue par ${autre === 'FRA' ? 'la France' : "l'Espagne"}\\) · 1 essai`));
     vi.advanceTimersByTime(1200);
     admisSuivant = { zone: autre, tenant: autre, sorte: 'enclave' };
     toucher(v.vue, true);
@@ -850,7 +850,7 @@ describe('Toucher : le sujet Capitales', () => {
     expect(consigne(v).textContent).toBe('Pays dont la capitale est : Jérusalem');
     admisSuivant = { zone: 'PSE', tenant: 'PSE', sorte: 'capitale' };
     toucher(v.vue, true);
-    expect(v.retro.textContent).toMatch(/^Juste \(capitale revendiquée aussi par Palestine\) : Jérusalem \(Israël\) · 1 essai/);
+    expect(v.retro.textContent).toMatch(/^Juste \(capitale revendiquée aussi par la Palestine\) : Jérusalem \(Israël\) · 1 essai/);
     const o = optionsNotees.at(-1) as { acceptes: ReadonlyMap<string, { zone: string; sorte: string }[]> };
     expect([...o.acceptes.get('ISR')!].map((z) => [z.zone, z.sorte])).toEqual([['PSE', 'capitale']]);
     const p = monter({}, { ids: ['ISR'], noms: NOMS_FR });
@@ -1009,7 +1009,7 @@ describe('Toucher : le sujet Drapeaux', () => {
     expect(v.cible()).toBe('IDN');
     admisSuivant = { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' };
     toucher(v.vue, true);
-    expect(v.retro.textContent).toMatch(/^Juste \(même drapeau : Monaco\) : Indonésie · 1 essai/);
+    expect(v.retro.textContent).toMatch(/^Juste \(même drapeau que Monaco\) : Indonésie · 1 essai/);
     const o = optionsNotees.at(-1) as { acceptes: ReadonlyMap<string, { zone: string; sorte: string }[]> };
     expect([...o.acceptes.get('IDN')!].map((z) => [z.zone, z.sorte])).toEqual([['MCO', 'jumeau']]);
     // Sous Pays, Monaco au terrain aussi (sinon acceptesEnPlus ne le trouverait pas, et rendrait la table commune de lui-même).

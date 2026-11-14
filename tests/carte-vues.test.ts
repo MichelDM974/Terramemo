@@ -168,7 +168,7 @@ describe('séries de l’île et textes des terrains', () => {
   it('texteAdmis : pourquoi une zone admise est juste (décision « Zones contestées et enclaves »)', () => {
     const d = rendu('pays', { noms });
     // Crimée (hachure tenue par la Russie) pour l'Ukraine.
-    expect(texteAdmis(d, 'UKR', { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' })).toBe(' (zone contestée, tenue par Russie)');
+    expect(texteAdmis(d, 'UKR', { zone: 'NE_B89', tenant: 'RUS', sorte: 'contestee' })).toBe(' (zone contestée, tenue par la Russie)');
     // Une entité contestée se tient elle-même dans les données : son nom.
     expect(texteAdmis(d, 'SOM', { zone: 'NE_SOL', tenant: 'NE_SOL', sorte: 'contestee' })).toBe(' (zone contestée : Somaliland)');
     // Taïwan pour la Chine, le Kosovo pour la Serbie : de même.
@@ -181,7 +181,12 @@ describe('séries de l’île et textes des terrains', () => {
     for (const k of ['admis_contestee', 'admis_contestee_zone', 'admis_enclave'] as const) expect(textes.toucher[k]).toBeTruthy();
     // Les sortes qu'un sujet passe en plus (étude J2 § 2.2) : dites par le même rendu. La partie d'une mer (« : mer des
     // Caraïbes, dans l'Atlantique ») : tests/mers-sujet.test.ts.
-    expect(texteAdmis(d, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau : Monaco)');
+    expect(texteAdmis(d, 'IDN', { zone: 'MCO', tenant: 'MCO', sorte: 'jumeau' })).toBe(' (même drapeau que Monaco)');
+    // Le pays avec son article (décision « Articles des noms de pays ») ; « qu' » devant une voyelle.
+    expect(texteAdmis(d, 'MCO', { zone: 'IDN', tenant: 'IDN', sorte: 'jumeau' })).toBe(" (même drapeau que l'Indonésie)");
+    expect(texteAdmis(d, 'PSE', { zone: 'ISR', tenant: 'ISR', sorte: 'jumeau' })).toBe(" (même drapeau qu'Israël)");
+    expect(texteAdmis(d, 'CHN', { zone: 'NE_B00', tenant: 'IND', sorte: 'contestee' })).toBe(" (zone contestée, tenue par l'Inde)");
+    expect(texteAdmis(d, 'ARG', { zone: 'NE_B12', tenant: 'GBR', sorte: 'contestee' })).toBe(' (zone contestée, tenue par le Royaume-Uni)');
   });
 
   it('fmtKm : une décimale sous 10 km, l’entier au-delà', () => {

@@ -220,7 +220,7 @@ describe('zones admises de Jérusalem (D36 i), sous Capitales seulement', () => 
     expect(optionsNoter(pays, t, 'ISR')).toEqual({ acceptes: true });
     expect(acceptesEnPlus({ entites } as never, 'ISR', [], 'capitale')).toBeNull();
     expect(acceptesEnPlus({ entites } as never, 'ISR', ['ZZZ'], 'capitale')).toBeNull();
-    expect(texteAdmis(rendu('capitales', D), 'ISR', { zone: 'PSE', tenant: 'PSE', sorte: 'capitale' })).toBe(' (capitale revendiquée aussi par Palestine)');
+    expect(texteAdmis(rendu('capitales', D), 'ISR', { zone: 'PSE', tenant: 'PSE', sorte: 'capitale' })).toBe(' (capitale revendiquée aussi par la Palestine)');
   });
 });
 

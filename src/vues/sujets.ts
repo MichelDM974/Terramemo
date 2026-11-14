@@ -56,6 +56,7 @@ import { drapeauxCharges, type DonneesDrapeaux } from '../map/drapeaux';
 import { mersChargees, mersPareilles, nomsMersCharges, parenteMer, zonesParties } from '../map/mers';
 import type { Entite, Mer, NomTerrain } from '../map/types';
 import { nommerPose, SANS_NOMMER, type Sens } from '../srs/fiches';
+import { formePays } from './formes';
 import { leurresParmi, type StrategieLeurres } from './qcm';
 import { remplir, textes, type Textes } from './textes';
 
@@ -116,6 +117,18 @@ export interface RenduSujet {
   nomBilan(id: string, sens: Sens): string;
   /** Le nom d'une zone de la carte : celle qu'on a touchée, celle d'une zone admise, celle de l'accueil. */
   lieu(id: string): string;
+  /**
+   * Ce même nom dans une phrase, avec son article pour un pays (décision
+   * « Articles des noms de pays » : « tenue par la Russie », « même drapeau
+   * que l'Indonésie ») ; tel quel pour une commune ou une mer.
+   */
+  lieuArticle(id: string): string;
+  /**
+   * La consigne du QCM du quiz facile, qui nomme le pays (D49 d : « Quelle est
+   * la capitale du Japon ? », « Quel est le drapeau du Brésil ? ») ; null pour
+   * un sujet dont le nom serait la réponse (les pays, les mers, les communes).
+   */
+  consigneNommee(id: string): string | null;
   /** « tu as touché X » : la zone touchée, ou rien (null : la mer). */
   touche(id: string | null): string;
   /** Après un toucher faux en Trouver : où est la bonne réponse. */
@@ -224,6 +237,7 @@ const TEXTES: Readonly<Record<SujetRendu, TextesSujet>> = textes.sujets;
 /** Rien de propre au sujet : choix en texte, ni rétroaction en plus, ni point, ni exclusion, ni zone admise en plus. */
 const SANS_PLUS = {
   visuel: false,
+  consigneNommee: () => null,
   retro: () => '',
   point: () => null,
   points: () => [],
@@ -235,10 +249,14 @@ const SANS_PLUS = {
   admisEnPlus: () => null,
 } satisfies Partial<RenduSujet>;
 
+/** Le nom d'un pays dans une phrase (formes_pays), à défaut le nom affiché : une commune, une zone qui n'est pas un pays. */
+const avecArticle = (id: string, nom: string): string => formePays(id, 'le') ?? nom;
+
 /** Le lieu par son nom, partout : les pays et les communes. */
 const parNom: Fabrique = (ts, d) => {
   const nom = (id: string) => nomDe(d, id);
   return {
+    lieuArticle: (id) => avecArticle(id, nom(id)),
     enonce: (id) => ({ invite: ts.enonce, objet: { texte: nom(id) } }),
     consigneQcm: () => ts.consigne_nommer,
     choix: (id) => ({ texte: nom(id) }),
@@ -297,6 +315,8 @@ const parCapitale: Fabrique = (ts, d, o) => {
       return sens === 'nommer' || !c ? pays(id) : remplir(C.avec_pays, { ville: c.nom, pays: pays(id) });
     },
     lieu: pays,
+    lieuArticle: (id) => avecArticle(id, pays(id)),
+    consigneNommee: (id) => remplir(textes.quiz.consigne_capitale, { pays: formePays(id, 'de') ?? pays(id) }),
     touche: (id) => (id ? pays(id) : ts.la_mer),
     fauxSuite: () => ts.faux_suite,
     expire: () => ts.expire,
@@ -363,6 +383,8 @@ const parDrapeau: Fabrique = (ts, d, o) => {
     // « Bénin » : « Bénin : drapeau oublié », « Bénin : vu ou passé » (textes.sujets.drapeaux).
     nomBilan: (id) => pays(id),
     lieu: pays,
+    lieuArticle: (id) => avecArticle(id, pays(id)),
+    consigneNommee: (id) => remplir(textes.quiz.consigne_drapeau, { pays: formePays(id, 'de') ?? pays(id) }),
     touche: (id) => (id ? pays(id) : ts.la_mer),
     fauxSuite: () => ts.faux_suite,
     expire: () => ts.expire,
@@ -418,6 +440,8 @@ const parMer: Fabrique = (ts, d) => {
     revelation: (id) => ({ texte: nom(id) }),
     nomBilan: (id) => nom(id),
     lieu: nom,
+    // Une mer telle quelle (« mer Noire ») ; un pays touché avec son article.
+    lieuArticle: (id) => (noms[id] !== undefined ? noms[id] : avecArticle(id, nom(id))),
     // Une autre mer, ou le pays touché ; null : rien sous le doigt (hors de la carte), jamais « la mer ».
     touche: (id) => (id ? nom(id) : ts.la_mer),
     fauxSuite: () => ts.faux_suite,
