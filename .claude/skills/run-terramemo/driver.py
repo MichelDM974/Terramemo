@@ -3841,6 +3841,10 @@ def ui_lignes(p, capturer, defauts, base, parametres=""):
     p.js("localStorage.removeItem('terramemo.lignes')")
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
+    # La vue entière : dans le passage complet, la carte garde la vue du passage
+    # d'avant (l'Ukraine zoomée), où ni l'équateur ni les tropiques ne passent.
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0, r: 0})")
+    p.pause(300)
     e = etat_lignes(p)
     dire(f"  lignes, par défaut : {e['lignes']} posées, cases {e['cases']}")
     if e["lignes"] or e["noms"] or any(c.endswith(":1") for c in e["cases"]):
