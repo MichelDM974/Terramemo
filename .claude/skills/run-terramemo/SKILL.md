@@ -1717,6 +1717,13 @@ n'a pas `/dev/kvm`). Il vérifie :
 - les textes d'erreur et les messages bruts du plugin (annulation,
   réseau), qui ont servi à écrire `src/sync/google-apk.ts`.
 
+S19 ne s'essaie pas (le client Android existe, pas d'AVD) : elle repose sur
+les messages bruts relevés aux étapes 2 et 3. S20 est déjà mesurée (6,07 →
+10,06 Mo, plafond à fixer par l'utilisateur). Pour S18, la ligne du § 3.2
+de l'étude sous le bouton (« Google affichera le nom du projet… ») n'est
+pas codée : ce que nomme la feuille décide, avec l'utilisateur, de la
+coder ou de l'abandonner.
+
 **Avec l'utilisateur, de jour**, jamais par un agent : la feuille de Google
 demande ses comptes. L'agent lance les commandes et lit la console ;
 l'utilisateur touche le téléphone.

@@ -1970,7 +1970,24 @@ de l'outil du propriétaire est posé dans cdc.
   à `charger()`. À voir à l'essai réel : `linkWithCredential` depuis la
   WebView, et la session gardée après un arrêt forcé de l'appli.
 - Initialisation : une fois par page, refaite au prochain appel si elle a
-  échoué ; un `signIn` manqué ne la refait pas.
+  échoué ; un `signIn` manqué ne la refait pas. Le plugin est rendu dans
+  un objet simple `{ initialize, signIn }`, jamais tel quel : le proxy de
+  `registerPlugin` rend une méthode pour toute propriété, `then` compris,
+  et une promesse qui le rendait ne se réglait jamais (bloquant de la
+  relecture : boutons figés, feuille jamais ouverte ;
+  `tests/sync-google-apk-natif.test.ts`). `registerPlugin` une seule fois
+  par page, même après une initialisation manquée (sinon un avertissement
+  de Capacitor dans la console).
+- **Ligne S18 du § 3.2 non codée** : « Google affichera le nom du projet
+  (terramemo-geo) : c'est bien Terramemo. » n'est pas sous le bouton de
+  l'APK (`aideGoogle()` ne rend rien quand Google est offert), comme celle
+  du site, retirée à la demande de l'utilisateur le 12/11. À décider avec
+  lui après l'essai S18, selon ce que nomme vraiment la feuille : la
+  coder (texte d'interface) ou l'abandonner.
+- `auth/user-mismatch` dans l'APK : le texte « choisis {adresse} dans la
+  fenêtre de Google » vaut aussi pour la feuille, mais elle ne met pas ce
+  compte en avant : `googleParJeton` ignore l'indice et le plugin n'a pas
+  de `login_hint`. Pas de variante APK du texte pour l'instant.
 - **Poids (S20), mesuré** par `driver.py apk` : **6,07 → 10,06 Mo**
   (6 072 835 → 10 057 169 octets, +3,99 Mo, +66 %), au-dessus de
   l'estimation (+2 à 3,5 Mo). `classes.dex` seul pèse 10,4 Mo décompressé
@@ -2016,8 +2033,11 @@ de l'outil du propriétaire est posé dans cdc.
   Crédits) ; `compte` +0,02.
 - Tests : `tests/sync-google-apk.test.ts` (plugin factice : une
   initialisation, un jeton neuf par appel, rien hors de l'APK, le tableau
-  des erreurs, l'isolation dans `src/`), un cas de suppression dans
-  `tests/sync-comptes.test.ts` par le vrai module, trois cas de vue dans
+  des erreurs, l'isolation dans `src/`),
+  `tests/sync-google-apk-natif.test.ts` (le chemin par défaut, un faux
+  `@capacitor/core` au proxy de Capacitor), un cas de suppression dans
+  `tests/sync-comptes.test.ts` par le vrai module et un cas du site (un
+  `jetonGoogle` jamais appelé hors de l'APK), trois cas de vue dans
   `tests/compte-vue.test.ts`, le greffon dans `tests/credits-vue.test.ts`.
 - Restent à l'essai réel, sur l'A37 (protocole dans le skill
   `run-terramemo`, « Essai réel de Google dans l'APK ») : S4, S11, S18,
@@ -2466,14 +2486,14 @@ réponse ».
 | S1 | `deploy --only auth` active e-mail et Google sans changer le type d'Auth du projet | GET `admin/v2/projects/terramemo-geo/config` avant et après (`subtype == FIREBASE_AUTH`) | si D29 b |
 | S2 | Ajouter l'appli Android avec sa SHA-1 dans Firebase crée le client OAuth Android | console, étape 11 | lot 7 |
 | S3 | `signInWithPopup` marche dans Chrome sur Android, avec `authDomain` sur `firebaseapp.com` | essai sur l'A37 | lot 6 |
-| S4 | Garder `getAuth()` dans l'APK n'empêche pas `linkWithCredential` (le résolveur de popup ouvre un iframe, sans gêne) | AVD, puis A37 | lot 7 |
+| S4 | Garder `getAuth()` dans l'APK n'empêche pas `linkWithCredential` (le résolveur de popup ouvre un iframe, sans gêne) | A37 (pas d'AVD : le PC n'a pas `/dev/kvm`) | lot 7 |
 | S5 | Google qui remplace un fournisseur `password` non vérifié garde l'uid ; le lien Google sur une adresse déjà prise répond `email-already-in-use` | émulateur Auth, puis vrai projet avec une adresse d'essai | lot 6 |
 | S6 | `deleteUser` d'un anonyme ancien lève `requires-recent-login` | — | sans objet avec D16 a |
 | S7 | Les règles ne bornent ni une carte dans une liste ni une valeur de map | doc des règles : d'où les chaînes (§ 6) | fait |
 | S8 | `@firebase/rules-unit-testing` reçoit les claims voulus dans `authenticatedContext` | `test:regles` | lot 2 |
 | S9 | L'émulateur Auth simule Google (faux `idToken`) pour la popup et `signInWithCredential` | doc de l'émulateur | lot 6 |
 | S10 | Un `writeBatch` lite de 400 suppressions passe | émulateurs | lot 5 |
-| S11 | Le plugin 0.1.4 tourne sur l'A37 (Android 16, Credential Manager) | AVD, puis A37 | lot 7 |
+| S11 | Le plugin 0.1.4 tourne sur l'A37 (Android 16, Credential Manager) | A37 | lot 7 |
 | S12 | Le quota de 150 réinitialisations par jour donne `auth/too-many-requests` ou `auth/quota-exceeded` | non vérifiable sans l'atteindre : les deux codes sont traduits | lot 1 |
 | S13 | `Runtime.evaluate` dans la WebView lit `terramemo-journal` en entier, brut, quelle que soit sa taille | `sauver_journal` | lot 0 |
 | S14 | La relecture depuis `marque − 5 min` suffit contre les `fin` en retard | émulateurs, écritures croisées | lot 4 |
@@ -2481,8 +2501,8 @@ réponse ».
 | S16 | Claims du jeton juste après un lien, puis après un rafraîchissement : `identities` contient `email` ou `google.com` ; valeur de `sign_in_provider` | `test:synchro` (émulateur), puis vrai projet | lots 4 et 6 |
 | S17 | `navigator.locks` et `BroadcastChannel` existent dans la WebView de l'A37 | pilote | lot 3 |
 | S18 | Ce que montre la feuille de Credential Manager sans marque vérifiée (domaine ou id du projet) | essai | lot 7 |
-| S19 | Un client Android manquant donne `SIGN_IN_CANCELED` avec « Account reauth failed » (README du plugin), et non `NO_CREDENTIAL_AVAILABLE` | AVD sans le client, avant l'étape 11 | lot 7 |
-| S20 | Poids réel ajouté à l'APK : +2 à 3,5 Mo estimés | `driver.py apk`, avant et après | lot 7 |
+| S19 | Un client Android manquant donne `SIGN_IN_CANCELED` avec « Account reauth failed » (README du plugin), et non `NO_CREDENTIAL_AVAILABLE` | non essayable au lot 7 (client présent, pas de `/dev/kvm`) ; repose sur les messages relevés aux étapes 2 et 3 de l'essai sur l'A37. Contredite en partie par le code lu : `DEVELOPER_ERROR` 10 et 28444 arrivent en `NO_CREDENTIAL_AVAILABLE` (« Précisions du lot 7 »), d'où un texte qui dit les deux causes | lot 7 |
+| S20 | Poids réel ajouté à l'APK : +2 à 3,5 Mo estimés | mesurée au lot 7 par `driver.py apk` : 6,07 → 10,06 Mo (+3,99, au-dessus de l'estimation) ; plafond à fixer par l'utilisateur | lot 7 |
 | S21 | Ce que fait Spark au-delà de 1 Gio stocké (écritures refusées ? service coupé ?) | non documenté officiellement : surveillance mensuelle (§ 6) | — |
 | S22 | Un envoi lancé au passage en arrière-plan aboutit dans la WebView de l'A37, sinon il repart à l'ouverture | pilote | lot 3 |
 | S23 | Le même `idToken` Google sert encore à `signInWithCredential` après un lien refusé | émulateur, puis A37 | lot 7 |
