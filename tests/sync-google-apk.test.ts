@@ -133,7 +133,7 @@ describe('codeGoogleApk : chaque erreur du plugin, un code de l’appli', () => 
     const attendus: Record<string, string> = {
       [E.sansCompte]: "Aucun compte Google utilisable (aucun sur ce téléphone, ou réglage de l'appli) : vérifie les comptes dans les réglages d'Android, ou connecte-toi par e-mail.",
       [E.services]: 'Services Google Play absents ou à mettre à jour : mets-les à jour depuis le Play Store, ou connecte-toi par e-mail.',
-      [E.reglage]: "Connexion Google impossible (réglage de l'appli) : connecte-toi par e-mail en attendant.",
+      [E.reglage]: "Connexion Google impossible : vérifie le réseau, puis réessaie. Si ça dure, connecte-toi par e-mail.",
       [E.reseau]: 'Réseau injoignable : touche encore le bouton de Google une fois en ligne.',
       [E.echec]: 'Connexion Google impossible : réessaie plus tard.',
     };

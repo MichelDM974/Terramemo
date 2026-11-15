@@ -1110,7 +1110,7 @@
       "resource-exhausted": "Limite du jour atteinte : réessaie après {heure}.",
       "terramemo/google-sans-compte": "Aucun compte Google utilisable (aucun sur ce téléphone, ou réglage de l'appli) : vérifie les comptes dans les réglages d'Android, ou connecte-toi par e-mail.",
       "terramemo/google-services": "Services Google Play absents ou à mettre à jour : mets-les à jour depuis le Play Store, ou connecte-toi par e-mail.",
-      "terramemo/google-reglage": "Connexion Google impossible (réglage de l'appli) : connecte-toi par e-mail en attendant.",
+      "terramemo/google-reglage": "Connexion Google impossible : vérifie le réseau, puis réessaie. Si ça dure, connecte-toi par e-mail.",
       "terramemo/google-reseau": "Réseau injoignable : touche encore le bouton de Google une fois en ligne.",
       "terramemo/google-echec": "Connexion Google impossible : réessaie plus tard.",
       "terramemo/mdp-court": "Mot de passe : 8 caractères au moins",

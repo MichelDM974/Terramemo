@@ -55,7 +55,7 @@ describe('traduire', () => {
 
   it('plugin Google de l’APK (lot 7) : ses codes traduits par src/sync/google-apk.ts ; la feuille refermée est silencieuse', () => {
     expect(traduire(err('terramemo/google-annule', 'terramemo/google-annule (SIGN_IN_CANCELED: activity is cancelled by the user.)')).texte).toBeNull();
-    expect(traduire(err('terramemo/google-reglage', 'Account reauth failed.')).texte).toBe("Connexion Google impossible (réglage de l'appli) : connecte-toi par e-mail en attendant.");
+    expect(traduire(err('terramemo/google-reglage', 'Account reauth failed.')).texte).toBe("Connexion Google impossible : vérifie le réseau, puis réessaie. Si ça dure, connecte-toi par e-mail.");
     // Un code brut du plugin n'arrive plus jusqu'ici : s'il venait, ce serait un bogue, dit comme tel.
     expect(traduire(err('SIGN_IN_CANCELED', 'The user canceled the sign-in flow.')).texte).toBe('Erreur inattendue (SIGN_IN_CANCELED)');
   });

@@ -1420,9 +1420,10 @@ relevé de l'« Essai réel de Google » (lot 6) plus bas. `erreurs` y donne
 le code de l'appli, et entre parenthèses le code et le message bruts du
 plugin (`terramemo/google-annule (SIGN_IN_CANCELED: activity is cancelled
 by the user.)`). Le client OAuth Android (paquet + SHA-1 de la clé unique)
-est dans Firebase depuis le 15/11 : « réglage de l'appli » sur un
-téléphone qui a un compte = ce client, ou un APK signé par une autre clé
-(le driver le refuse).
+est dans Firebase depuis le 15/11 : `terramemo/google-reglage` (« vérifie
+le réseau… ») sur un téléphone qui a un compte = le réseau d'abord (hors
+ligne, Play rend le même « [16] Account reauth failed. » : A37, 15/11),
+sinon ce client, ou un APK signé par une autre clé (le driver le refuse).
 
 `window.terramemo.comptes()` rend `etat.fournisseurs` et les claims du
 jeton (`identities` : `google.com` et `email`). Ses `erreurs` gardent
@@ -1762,7 +1763,7 @@ records), une fois tout envoyé. Seul le compte garde alors les progrès.
    d'Android, sans choisir. Attendu : aucun message, les boutons
    reviennent **tout de suite**. Relevé : `erreurs` finit par
    `terramemo/google-annule`, noter le message brut entre parenthèses.
-   - Un texte « Connexion Google impossible (réglage de l'appli) » ici,
+   - Un texte « Connexion Google impossible : vérifie le réseau… » ici,
      sans avoir rien choisi : noter le message brut (`erreurs`) ; c'est
      peut-être une annulation que `google-apk.ts` prend à tort pour un
      réglage.
@@ -2104,4 +2105,4 @@ d'avant ce code n'a pas de quiz.
 | Gradle : `JAVA_COMPILER` ou SDK introuvable | Passer par `driver.py apk` (JDK 21, `ANDROID_HOME`). |
 | `licences/android.json périmé` (`apk`, CI Android) | Capacitor ou AndroidX a changé ses bibliothèques : `npm run licences:android`, puis `npm test` (un nouveau groupe Maven va sous une ligne de `credits.android`, sa licence vérifiée). |
 | Build : `… n'est sous aucune ligne de textes.credits.android` | Même cause : ranger le groupe sous une ligne de `credits.android` (`textes.fr.json`), après avoir vérifié sa licence. |
-| APK : « Connexion Google impossible (réglage de l'appli) » | Client OAuth Android absent ou SHA-1 d'une autre clé (S19, piège 28444 de Light) ; ou `GoogleSignInPlugin` absent de `capacitor.plugins.json` (APK construit sans `cap sync`) : `driver.py apk`. Message brut dans `terramemo.comptes().erreurs`. |
+| APK : « Connexion Google impossible : vérifie le réseau… » (`terramemo/google-reglage`) | Le plus souvent le réseau : hors ligne, Play rend « [16] Account reauth failed. », comme pour un client manquant (A37, 15/11), et `navigator.onLine` reste vrai sous un VPN toujours actif (Tailscale de l'A37). Sinon : client OAuth Android absent ou SHA-1 d'une autre clé (S19, piège 28444 de Light) ; ou `GoogleSignInPlugin` absent de `capacitor.plugins.json` (APK construit sans `cap sync`) : `driver.py apk`. Message brut dans `terramemo.comptes().erreurs`. |
