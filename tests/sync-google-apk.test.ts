@@ -156,11 +156,14 @@ describe('isolation du site : le plugin jamais importé', () => {
     );
     expect(lignes).toEqual([['sync/google-apk.ts', "import type { GoogleSignInPlugin } from '@capawesome/capacitor-google-sign-in';"]]);
     const code = readFileSync('src/sync/google-apk.ts', 'utf8');
-    expect(code).toContain("await import('@capacitor/core')");
+    // @capacitor/core chargé à la demande, jamais en import statique (le chemin réel : tests/sync-google-apk-natif.test.ts).
+    expect(code).toMatch(/\bimport\(\s*'@capacitor\/core'\s*\)/);
+    expect(code).not.toMatch(/^import\s+(?!type\b)[^;]*'@capacitor\/core'/m);
     expect(code).toContain("registerPlugin<GoogleSignInPlugin>('GoogleSignIn')");
-    // Le module n'est demandé par main.ts que dans l'APK (jetonGoogle passé aux comptes sous dansApk()).
+    // Le module n'est demandé qu'à un endroit de main.ts (jetonGoogle, passé aux comptes dans l'APK seulement) ;
+    // que le site ne l'appelle jamais, c'est le comportement des comptes (tests/sync-comptes.test.ts,
+    // « sur le site, un jetonGoogle… »), et dist le prouve (tests/credits-vue.test.ts, cartes de source).
     const main = readFileSync('src/main.ts', 'utf8');
-    expect(main.match(/import\('\.\/sync\/google-apk'\)/g)?.length).toBe(1);
-    expect(main).toContain('...(dansApk() ? { jetonGoogle } : {})');
+    expect(main.match(/import\(\s*'\.\/sync\/google-apk'\s*\)/g)?.length).toBe(1);
   });
 });

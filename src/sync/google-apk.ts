@@ -114,10 +114,32 @@ export interface OptionsGoogleApk {
   enLigne?: () => boolean;
 }
 
-/** Le plugin natif, par le pont de Capacitor (même nom que l'index.js du paquet, sans sa partie web). */
-async function pluginNatif(): Promise<PluginGoogle> {
-  const { registerPlugin } = await import('@capacitor/core');
-  return registerPlugin<GoogleSignInPlugin>('GoogleSignIn');
+/** Le plugin natif enveloppé, enregistré une fois par page (voir pluginNatif). */
+let natifEnregistre: Promise<PluginGoogle> | null = null;
+
+/**
+ * Le plugin natif, par le pont de Capacitor (même nom que l'index.js du paquet,
+ * sans sa partie web), rendu dans un objet simple, jamais tel quel : le proxy
+ * de registerPlugin rend une méthode pour toute propriété, `then` compris
+ * (@capacitor/core, createPluginMethodWrapper). Rendu par une fonction async
+ * ou par `await`, il serait pris pour une promesse : la résolution appellerait
+ * GoogleSignIn.then(resolve, reject), méthode native introuvable, qui rejette
+ * à part sans jamais appeler resolve ni reject, et jetonGoogle ne rendrait
+ * jamais la main (boutons figés, feuille jamais ouverte). Enregistré une seule
+ * fois : un second registerPlugin rend le même proxy, mais avec un
+ * avertissement de Capacitor dans la console (après une initialisation manquée).
+ */
+function pluginNatif(): Promise<PluginGoogle> {
+  return (natifEnregistre ??= import('@capacitor/core').then(
+    ({ registerPlugin }) => {
+      const g = registerPlugin<GoogleSignInPlugin>('GoogleSignIn');
+      return { initialize: (x) => g.initialize(x), signIn: (x) => g.signIn(x) };
+    },
+    (e: unknown) => {
+      natifEnregistre = null; // @capacitor/core pas chargé (réseau, morceau absent) : retenté au prochain appel
+      throw e;
+    },
+  ));
 }
 
 /**
