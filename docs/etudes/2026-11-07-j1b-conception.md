@@ -2039,13 +2039,37 @@ de l'outil du propriétaire est posé dans cdc.
   `tests/sync-comptes.test.ts` par le vrai module et un cas du site (un
   `jetonGoogle` jamais appelé hors de l'APK), trois cas de vue dans
   `tests/compte-vue.test.ts`, le greffon dans `tests/credits-vue.test.ts`.
-- Restent à l'essai réel, sur l'A37 (protocole dans le skill
-  `run-terramemo`, « Essai réel de Google dans l'APK ») : S4, S11, S18,
-  S23, la réauthentification, et les textes d'erreur vus en vrai.
-- Politique de confidentialité : sa ligne « Dans l'appli Android, quand
-  la connexion Google sera ouverte » devient fausse dès que cet APK sert :
-  nouvelle version à faire avant de le diffuser au-delà de l'utilisateur
-  (non changée ici : texte publié, version datée).
+- **Essai réel sur l'A37, le 15/11 au soir** (APK `7342cf5`, piloté par
+  adb et la console de la WebView, à la demande de l'utilisateur ; journal
+  sauvé avant chaque installation) :
+  - l'APK était connecté au compte e-mail de l'utilisateur : déconnexion
+    (tout envoyé), puis « Continuer avec Google » dans ⚙ › Compte ;
+  - S11 vraie : la feuille de Credential Manager s'ouvre ;
+  - S18 : elle dit « Sélectionner un compte pour utiliser Terramemo »,
+    avec l'icône de l'appli. La ligne du § 3.2 sous le bouton (« Google
+    affichera le nom du projet… ») est donc abandonnée ;
+  - feuille refermée par le retour : silence, bouton rendu, message brut
+    « [16] Cancelled by user. » (`google-annule`) ;
+  - mode avion : la feuille vient quand même ; le compte choisi, Play
+    rend `SIGN_IN_CANCELED` « [16] Account reauth failed. », le message
+    du client manquant de S19. `navigator.onLine` restait vrai : il manquait
+    `ACCESS_NETWORK_STATE` (ajoutée, `84b1cbc`), mais sur l'A37 Tailscale
+    reste connecté en mode avion, et la WebView se dit encore en ligne.
+    D'où le texte de `google-reglage`, qui dit d'abord le réseau ;
+  - compte neuf par Google (`isNewUser`, `sign_in_provider` google.com),
+    S4 vraie (même uid après un arrêt forcé), suppression par la feuille :
+    refermée, rien de commencé ; compte choisi, compte supprimé d'Auth ;
+  - un seul compte Google sur l'A37 : `user-mismatch` et S23 non essayés
+    (S23 reste vraie à l'émulateur seulement) ;
+  - puis, demande de l'utilisateur : Google (son identifiant Google, libre
+    après la suppression du compte d'essai) lié par le SDK Admin
+    (`updateUser`, `providerToLink`) à son compte principal, qui garde son
+    uid, son mot de passe et son adresse ; « Continuer avec Google » y
+    mène dans l'APK, avec ses 658 événements rechargés (même empreinte
+    qu'avant la déconnexion), son pseudo et ses records.
+- Politique de confidentialité : version du 15/11 (`985caed`, accord de
+  l'utilisateur), sans « quand la connexion Google sera ouverte » ni
+  « Cette entrée arrive avec l'ouverture des comptes ».
 
 Ordre et parallélisme :
 - 0, puis 1, puis 2, puis 3, puis 4, puis 5 : en série ;
