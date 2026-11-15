@@ -401,6 +401,11 @@ Nouveaux :
 | plugin `SIGN_IN_CANCELED` avec un autre message | Connexion Google impossible (réglage de l'appli). D'après le README du plugin, Play signale ainsi un client Android manquant (`Account reauth failed`). Le message brut va au pilote |
 | plugin, autre échec | Connexion Google impossible : réessaie plus tard. (le code va au pilote seulement) |
 
+Lot 7 : le plugin est traduit en codes `terramemo/google-…` par
+`src/sync/google-apk.ts`, et seuls les messages d'un réglage manquant
+font une erreur à l'annulation (une vraie annulation a aussi un message) :
+« Précisions du lot 7 » au § 9.
+
 Notes :
 - `auth.languageCode = 'fr'` : les e-mails de Firebase partent en
   français.
@@ -1878,6 +1883,125 @@ de l'outil du propriétaire est posé dans cdc.
   après déconnexion), le panneau dans `tests/compte-vue.test.ts`,
   `retenue` dans `tests/navigation.test.ts` ; pilote `ui_accueil` (skill
   `run-terramemo`).
+
+**Précisions du lot 7** (15/11, codé ; écarts assumés au texte d'avant) :
+- Faits de la console, vérifiés le 15/11 (agent principal) : appli
+  Android déclarée dans Firebase
+  (`1:982564163014:android:ced91e09dcefc9ce00b6c7`, paquet
+  `io.github.micheldm974.terramemo`, SHA-1 de la clé unique) ; **S2
+  vraie** : Firebase a créé seul le client OAuth Android
+  `982564163014-kmfrtojt27240o8a8ae7o46us8un3a3b` (`apps:sdkconfig`).
+  `ID_CLIENT_WEB` (`982564163014-cpvnjv34…`, public) est dans
+  `src/sync/firebase.ts`. Toujours pas de `google-services.json`.
+- Appareil d'essai : directement l'A37, après `sauver_journal` (choix de
+  l'utilisateur du 15/11 ; le PC n'a pas `/dev/kvm`, pas d'AVD). D30 b
+  tombe, donc S19 ne s'essaie pas « sans le client » : le client existe.
+- **Code du plugin lu** avant l'adoption (archive npm 0.1.4, identique à
+  celle installée) :
+  - API : `initialize({clientId})` garde le client, sans réseau ;
+    `signIn({nonce?})` → `idToken` (et profil) ; `signOut` vide l'état
+    de Credential Manager (non utilisé : la déconnexion est celle du SDK
+    web) ; `handleRedirectCallback` est du web seul ;
+  - `signIn` pose `GetSignInWithGoogleOption` (la feuille « Se connecter
+    avec Google », qui propose aussi d'ajouter un compte), et un nonce
+    **seulement s'il est passé**. On n'en passe pas : l'idToken n'a pas de
+    claim `nonce`, et `GoogleAuthProvider.credential(idToken)` suffit
+    (`googleParJeton` inchangé ; un `rawNonce` par
+    `OAuthProvider('google.com')` serait exigé sinon) ;
+  - manifeste du paquet vide, aucune télémétrie, rien vers un serveur à
+    lui ; le réseau est celui des services Google Play. Sa partie web
+    redirige vers `accounts.google.com` : jamais construite ici ;
+  - erreurs : `SIGN_IN_CANCELED`, `NO_CREDENTIAL_AVAILABLE`,
+    `PROVIDER_CONFIGURATION_ERROR` ; le reste sans code, message
+    « type: message » de Credential Manager.
+- **Isolation plus stricte que « importé seulement en natif »** :
+  `src/sync/google-apk.ts` ne prend du paquet que ses types et appelle
+  `registerPlugin('GoogleSignIn')` de `@capacitor/core` (ce que fait
+  l'index du paquet, sans sa partie web). Aucun octet du paquet dans
+  `dist/` (le test des Crédits relit les cartes du build : le paquet est
+  « hors site », comme `@capacitor/android`), rien au précache du service
+  worker ; le morceau `google-apk` (1,00 Ko gzip, notre code) n'est demandé
+  que par `main.ts` sous `dansApk()`. Dans `sw.js`, il n'est qu'aux
+  `empreintes` (servi du cache s'il était demandé), pas aux `prechargees`.
+- Branchement : `main.ts` passe `jetonGoogle` aux comptes dans l'APK
+  seulement. Le code des lots 5 et 6 l'attendait : `googleOffert()` vrai,
+  donc « Continuer avec Google » à l'écran de la première ouverture, dans
+  ⚙ › Compte et à la reconnexion d'une session perdue ; la suppression
+  d'un compte Google (et sa reprise) passe par
+  `reauthenticateWithCredential` d'un idToken neuf, sans renvoi au site.
+  L'export reste au site (D26 a). Pendant la feuille : « Google s'ouvre :
+  choisis ton compte… » (la feuille rend la main dès qu'on la referme,
+  pas d'attente de 10 s comme la popup). `terramemo/google-apk` et
+  `google-apk-bientot` ne restent que pour un APK sans le jeton.
+- **Erreurs, écart au § 3.3** : `google-apk.ts` traduit le plugin en
+  codes de l'appli, et `erreurs.ts` n'a plus de code brut du plugin
+  (`SIGN_IN_CANCELED` qui arriverait jusque-là serait un bogue,
+  « Erreur inattendue ») :
+  - `terramemo/google-annule` (silencieux) : `SIGN_IN_CANCELED`. Une
+    vraie annulation porte **aussi** un message, « activity is cancelled
+    by the user. » (relevé dans `credentials-play-services-auth` 1.5.0),
+    d'où l'écart : seuls les messages d'un réglage manquant font une
+    erreur ;
+  - `terramemo/google-reglage` : `SIGN_IN_CANCELED` dont le message dit
+    `reauth`, `UNREGISTERED`, `developer`, `[10]`/`10:` ou `28444`
+    (README du plugin, S19 ; piège de Light) ; `UNIMPLEMENTED` (natif
+    absent) ; plugin pas initialisé ;
+  - `terramemo/google-sans-compte` : `NO_CREDENTIAL_AVAILABLE` ;
+  - `terramemo/google-services` : `PROVIDER_CONFIGURATION_ERROR`,
+    `TYPE_UNSUPPORTED` ;
+  - `terramemo/google-reseau` : `TYPE_INTERRUPTED` (codes de Play que
+    l'on peut retenter : NETWORK_ERROR 7, TIMEOUT…), ou hors ligne
+    (`navigator.onLine` faux) ;
+  - `terramemo/google-echec` : le reste.
+
+  Le code et le message du plugin vont au rapport du pilote
+  (`terramemo.comptes().erreurs`, message
+  `« code-appli (CODE: message) »`), jamais à l'écran.
+- Persistance (S4) : `getAuth()` gardé tel quel (§ 4.2) ; rien de changé
+  à `charger()`. À voir à l'essai réel : `linkWithCredential` depuis la
+  WebView, et la session gardée après un arrêt forcé de l'appli.
+- Initialisation : une fois par page, refaite au prochain appel si elle a
+  échoué ; un `signIn` manqué ne la refait pas.
+- **Poids (S20), mesuré** par `driver.py apk` : **6,07 → 10,06 Mo**
+  (6 072 835 → 10 057 169 octets, +3,99 Mo, +66 %), au-dessus de
+  l'estimation (+2 à 3,5 Mo). `classes.dex` seul pèse 10,4 Mo décompressé
+  (build « debug », sans minification). Plafond : à fixer par
+  l'utilisateur (l'APK ne va qu'à lui jusqu'au J3) ; R8 au J3 le
+  réduirait.
+- Relevé Android : 49 → 63 artefacts (+16, −2 : `loader` 1.0.0 remplacé
+  par 1.1.0, `lifecycle-livedata` plus résolu ; le message du commit dit
+  « 47 » par erreur). Licences lues dans les POM :
+  `androidx.credentials`, `credentials-play-services-auth`,
+  `androidx.biometric` : Apache-2.0, sous la ligne AndroidX ;
+  `play-services-*` et `googleid` : licence du SDK Android (non libre,
+  déclarée par les POM de play-services-auth, basement,
+  identity-credentials et googleid ; les autres POM du groupe n'en
+  déclarent pas), une ligne neuve des Crédits avec le lien de ses
+  conditions. Le paquet npm n'a pas son LICENSE (MIT déclaré) : copie de
+  celui de son dépôt dans `licences/`.
+- Constats du build à suivre :
+  - permissions de l'APK : `USE_BIOMETRIC` et `USE_FINGERPRINT`
+    s'ajoutent à `INTERNET`, tirées par `androidx.biometric` (dépendance
+    de `androidx.credentials`, pour les clés d'accès). Normales, sans
+    demande à l'utilisateur ; à décider au J3 (Play Store) : les garder
+    ou les retirer du manifeste (`tools:node="remove"`) ;
+  - D8 avertit « Invalid stack map table » sur une classe de
+    `play-services-auth` 21.5.0 : avertissement du build, à surveiller à
+    l'essai (S11).
+- Morceau principal : 164,35 → 164,74 Ko gzip (+0,39 : les textes et les
+  Crédits) ; `compte` +0,02.
+- Tests : `tests/sync-google-apk.test.ts` (plugin factice : une
+  initialisation, un jeton neuf par appel, rien hors de l'APK, le tableau
+  des erreurs, l'isolation dans `src/`), un cas de suppression dans
+  `tests/sync-comptes.test.ts` par le vrai module, trois cas de vue dans
+  `tests/compte-vue.test.ts`, le greffon dans `tests/credits-vue.test.ts`.
+- Restent à l'essai réel, sur l'A37 (protocole dans le skill
+  `run-terramemo`, « Essai réel de Google dans l'APK ») : S4, S11, S18,
+  S23, la réauthentification, et les textes d'erreur vus en vrai.
+- Politique de confidentialité : sa ligne « Dans l'appli Android, quand
+  la connexion Google sera ouverte » devient fausse dès que cet APK sert :
+  nouvelle version à faire avant de le diffuser au-delà de l'utilisateur
+  (non changée ici : texte publié, version datée).
 
 Ordre et parallélisme :
 - 0, puis 1, puis 2, puis 3, puis 4, puis 5 : en série ;

@@ -1201,7 +1201,9 @@ python3 .claude/skills/run-terramemo/driver.py apk --installer    # puis sauver_
 **Aucune installation sur l'A37 avant le 13/11/2026** (semaine d'usage du
 J1a, ticket #2 ; étude du J1b, § 8).
 
-APK : `android/app/build/outputs/apk/debug/app-debug.apk`. Le driver met
+APK : `android/app/build/outputs/apk/debug/app-debug.apk` (10,06 Mo depuis
+le greffon Google du lot 7, 6,07 Mo avant : étude du J1b, « Précisions du
+lot 7 »). Le driver met
 `JAVA_HOME` sur le JDK 21 et `ANDROID_HOME` sur `~/Android/Sdk` (ou
 `android/local.properties`, ignoré par git, avec
 `sdk.dir=/home/delhomme/Android/Sdk`). En CI : `.github/workflows/android.yml`
@@ -1383,15 +1385,44 @@ traite les deux (`compteDisparu`, `src/sync/firebase.ts`).
 **Google sur le site (J1b, lot 6)** : `src/sync/google.ts` met Google
 derrière une interface :
 - `googlePopup` : la fenêtre de Google du site ;
-- `googleParJeton` : un idToken, celui du plugin de l'APK au lot 7, et
-  celui des tests.
+- `googleParJeton` : un idToken, celui du plugin de l'APK (lot 7,
+  ci-dessous), et celui des tests.
 
 Le parcours :
 - vue Compte, `#compte-google` (« Continuer avec Google », invité ; « Se
   reconnecter avec Google », session perdue d'un compte Google) ;
 - puis la question D22, avec les mêmes boutons qu'à l'e-mail ;
-- `#compte-google-aide` dit ce que montrera la fenêtre, ou, dans l'APK
-  sans plugin, que Google vient bientôt.
+- `#compte-google-aide` : seulement dans un APK sans le jeton du plugin,
+  « Google arrive bientôt » (plus aucun depuis le lot 7).
+
+**Google dans l'APK (J1b, lot 7)** : `@capawesome/capacitor-google-sign-in`
+0.1.4, version figée (Credential Manager d'Android). Branché :
+- `src/sync/google-apk.ts` : `registerPlugin('GoogleSignIn')` de
+  `@capacitor/core` (le paquet n'est importé qu'en types : rien de lui
+  dans `dist/`), `initialize({clientId: ID_CLIENT_WEB})` une fois, puis un
+  `signIn()` par appel, donc un idToken neuf ; ses erreurs deviennent des
+  codes `terramemo/google-…` (annule, silencieux ; sans-compte ; services ;
+  reglage ; reseau ; echec) ;
+- `main.ts` passe ce jeton aux comptes **dans l'APK seulement** :
+  « Continuer avec Google » à l'écran de la première ouverture, dans
+  ⚙ › Compte et à la reconnexion ; la suppression d'un compte Google se
+  fait dans l'appli (`reauthenticateWithCredential`). L'export reste au
+  site ;
+- natif : `npx cap sync android` (que fait `driver.py apk`) l'inscrit dans
+  `capacitor.settings.gradle` ; `capacitor.plugins.json` (ignoré par git)
+  doit lister `GoogleSignInPlugin`. Jamais de `google-services.json`.
+
+Relever l'état dans la WebView de l'APK (debug, inspectable), câble USB
+de préférence (DevTools décroche sans fil) : `adb forward --remove-all`
+si un driver en a laissé, puis `chrome://inspect` dans le Chrome du PC →
+la WebView `io.github.micheldm974.terramemo` → *inspect* → Console, et le
+relevé de l'« Essai réel de Google » (lot 6) plus bas. `erreurs` y donne
+le code de l'appli, et entre parenthèses le code et le message bruts du
+plugin (`terramemo/google-annule (SIGN_IN_CANCELED: activity is cancelled
+by the user.)`). Le client OAuth Android (paquet + SHA-1 de la clé unique)
+est dans Firebase depuis le 15/11 : « réglage de l'appli » sur un
+téléphone qui a un compte = ce client, ou un APK signé par une autre clé
+(le driver le refuse).
 
 `window.terramemo.comptes()` rend `etat.fournisseurs` et les claims du
 jeton (`identities` : `google.com` et `email`). Ses `erreurs` gardent
@@ -1672,6 +1703,123 @@ noter avant un lien.
   le compte choisi par erreur), les codes de la fenêtre fermée et
   d'« Annuler », Firefox, le jeton périmé, la bascule de l'étape 8.
 
+### Essai réel de Google dans l'APK (lot 7), avec l'utilisateur, sur l'A37
+
+Sur le vrai APK de l'A37, son vrai journal (D30 : même `applicationId`,
+même clé, l'APK d'essai **met à jour** l'appli en place). Pas d'AVD (le PC
+n'a pas `/dev/kvm`). Il vérifie :
+- S11 (le plugin tourne sur l'A37, Android 16), S18 (ce que nomme la
+  feuille de Google), S4 (session gardée par `getAuth()`), S23 (le même
+  idToken après un lien refusé) ;
+- le lien Google de l'invité de l'APK, ou la connexion au compte du site,
+  et la synchro avec le site ;
+- la réauthentification (suppression) sans rien supprimer ;
+- les textes d'erreur et les messages bruts du plugin (annulation,
+  réseau), qui ont servi à écrire `src/sync/google-apk.ts`.
+
+**Avec l'utilisateur, de jour**, jamais par un agent : la feuille de Google
+demande ses comptes. L'agent lance les commandes et lit la console ;
+l'utilisateur touche le téléphone.
+
+**Avant** :
+- PC : rien de lourd en parallèle (pas d'émulateur Firebase, pas de
+  chromium) ; A37 branché au câble, déverrouillé (code 0000),
+  `adb shell svc power stayon usb` ;
+- **sauvegarde d'abord** : `python3 .claude/skills/run-terramemo/driver.py
+  apk --installer` (depuis le dossier de la branche du lot 7). Il fait
+  `sauver_journal` de l'appli en place (fichier `~/Sauvegardes/terramemo/
+  journal-{date}.json`, à vérifier : nombre d'événements affiché), vérifie
+  la clé stable, puis `adb install -r`. Pas d'installation si la
+  sauvegarde échoue ;
+- l'A37 a un compte Google (Paramètres › Comptes) et les services Google
+  Play à jour ;
+- noter le compte du site (s'il existe) : son adresse, pour l'étape 3.
+
+Ne pas toucher à « Se déconnecter » ni à « Effacer cet appareil » dans
+l'APK pendant l'essai : la déconnexion vide l'appareil (journal, pseudo,
+records), une fois tout envoyé. Seul le compte garde alors les progrès.
+
+1. **Ouverture** — l'utilisateur ouvre l'appli. Deux cas :
+   - aucun choix gardé : l'écran de connexion vient. Attendu : « Continuer
+     avec Google » en premier (pilule sombre, « G » dans un rond blanc),
+     **plus de ligne « Google arrive bientôt »** ;
+   - choix déjà fait (invité) : ⚙ › Compte, même attendu.
+
+   L'agent : relevé en console (avant tout, l'uid de l'invité anonyme s'il
+   y en a un, dans Application › IndexedDB › `firebaseLocalStorageDb`).
+2. **Feuille refermée (annulation, S18)** — toucher « Continuer avec
+   Google ». Attendu : « Google s'ouvre : choisis ton compte… », puis la
+   feuille de Google en bas de l'écran. **L'utilisateur lit à voix haute
+   ce qu'elle nomme** (« Terramemo », `terramemo-geo`, le domaine
+   `firebaseapp.com` ?) : c'est S18. Puis il la referme par le retour
+   d'Android, sans choisir. Attendu : aucun message, les boutons
+   reviennent **tout de suite**. Relevé : `erreurs` finit par
+   `terramemo/google-annule`, noter le message brut entre parenthèses.
+   - Un texte « Connexion Google impossible (réglage de l'appli) » ici,
+     sans avoir rien choisi : noter le message brut (`erreurs`) ; c'est
+     peut-être une annulation que `google-apk.ts` prend à tort pour un
+     réglage.
+   - **Hors ligne**, encore invité : mode avion, retoucher Google (choisir
+     le compte si la feuille vient). Attendu : « Réseau injoignable :
+     touche encore le bouton de Google une fois en ligne. » ; noter le
+     message brut (`TYPE_INTERRUPTED` attendu ; un autre texte : corriger
+     `RESEAU` de `google-apk.ts`). Puis couper le mode avion.
+3. **Connexion (S11, S23)** — retoucher, choisir le compte :
+   - **invité sans compte en ligne** : lien de l'invité, l'uid noté
+     gardé. Attendu : « Connexion… », puis « Connecté avec Google :
+     … Tes progrès vont dans ton compte. » ;
+   - **compte du site déjà créé** (même compte Google) : la question
+     « Ajouter les progrès de cet appareil (n réponses) à ton compte ? »
+     → **Ajouter**. Attendu : « Connecté : … Ton compte a reçu les progrès
+     de cet appareil (n réponses). ». Relevé : `erreurs` contient
+     `auth/credential-already-in-use` (le lien refusé, rattrapé par le
+     **même** idToken : S23 vraie si la connexion aboutit) ;
+   - puis, dans les deux cas, « Compte Google (…) » et « Synchro : à
+     jour ». Relevé : `fournisseurs` = `google.com`, `identites` contient
+     `google.com`, `attente` 0, `refusees` 0 ; noter `sign_in_provider`.
+
+   Échec : noter le texte affiché et `erreurs` (code de l'appli et message
+   du plugin). « Aucun compte Google sur ce téléphone » ou « réglage de
+   l'appli » alors que l'A37 a un compte : client OAuth Android (paquet,
+   SHA-1 `F3:97:0D:57:…:94:FA`), console Firebase › Paramètres du projet ›
+   l'appli Android. Échec du plugin lui-même (S11) : le repli est le petit
+   plugin Kotlin sur Credential Manager (décision « Google dans l'APK »),
+   à proposer à l'utilisateur, pas à faire d'office.
+4. **Synchro avec le site** — sur le PC, `https://terramemo-geo.web.app`,
+   connecté au même compte Google : même « Révision du jour », mêmes
+   records ; relevé `synchro()` des deux côtés : même `empreinte`, même
+   `evenements` (une fois les deux « à jour »).
+5. **Session gardée (S4)** — balayer l'appli dans les récentes, la
+   rouvrir : toujours connectée, sans écran de connexion, « Synchro : à
+   jour ». Puis Paramètres › Applications › Terramemo › **Forcer l'arrêt**,
+   rouvrir : pareil. Relevé : même `uid`.
+6. **Réauthentification, sans rien supprimer** — ⚙ › Compte › Supprimer
+   mon compte. Attendu : la ligne « Google te demandera de confirmer ton
+   compte. », **aucun renvoi au site**. Écrire « supprimer », toucher
+   « Supprimer définitivement » :
+   1. **refermer la feuille** sans choisir. Attendu : aucun message, rien
+      de commencé (pas de « Suppression inachevée »), relevé
+      `terramemo/google-annule` ;
+   2. si l'A37 a un **second** compte Google : recommencer et le choisir.
+      Attendu : « Ce n'est pas le compte connecté : choisis … dans la
+      fenêtre de Google. », rien de supprimé ; console Firebase ›
+      Authentication : **aucun compte apparu** à l'adresse de ce second
+      compte (`reauthenticateWithCredential` pose `autoCreate: false`) ;
+   3. ne **jamais** choisir le bon compte ici : la suppression partirait
+      (vrai compte, vrais progrès). Une suppression complète ne s'essaie
+      qu'avec un compte Google d'essai ajouté exprès au téléphone, si
+      l'utilisateur le veut (protocole du lot 6, étape 4, transposé).
+
+**Après** :
+- rien à restaurer si tout s'est bien passé ; journal abîmé :
+  `restaurer_journal` (la sauvegarde de l'étape « Avant ») ;
+- noter au registre de cdc : S11, S18 (texte exact de la feuille), S4,
+  S23, les messages bruts relevés (annulation, réseau), le compte choisi
+  par erreur à l'étape 6, et l'écran de connexion vu ou non ;
+- puis la ligne « quand la connexion Google sera ouverte » de la
+  politique de confidentialité (`public/confidentialite.html`) est à
+  mettre à jour, nouvelle version datée.
+
 ## Outil du propriétaire (`scripts/admin/`, J1b lot 5b)
 
 Purge, demandes de retrait et abus, sur le SDK Admin (étude § 7.5, D33 a).
@@ -1937,3 +2085,4 @@ d'avant ce code n'a pas de quiz.
 | Gradle : `JAVA_COMPILER` ou SDK introuvable | Passer par `driver.py apk` (JDK 21, `ANDROID_HOME`). |
 | `licences/android.json périmé` (`apk`, CI Android) | Capacitor ou AndroidX a changé ses bibliothèques : `npm run licences:android`, puis `npm test` (un nouveau groupe Maven va sous une ligne de `credits.android`, sa licence vérifiée). |
 | Build : `… n'est sous aucune ligne de textes.credits.android` | Même cause : ranger le groupe sous une ligne de `credits.android` (`textes.fr.json`), après avoir vérifié sa licence. |
+| APK : « Connexion Google impossible (réglage de l'appli) » | Client OAuth Android absent ou SHA-1 d'une autre clé (S19, piège 28444 de Light) ; ou `GoogleSignInPlugin` absent de `capacitor.plugins.json` (APK construit sans `cap sync`) : `driver.py apk`. Message brut dans `terramemo.comptes().erreurs`. |
