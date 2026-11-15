@@ -19,6 +19,16 @@ const CONFIG = {
 };
 
 /**
+ * Le client OAuth web du projet (public, comme la configuration), que le
+ * plugin Google de l'APK reçoit (src/sync/google-apk.ts, étude du J1b, § 4.2) :
+ * l'audience de l'idToken que Firebase vérifie. Le client Android
+ * (982564163014-kmfrtojt…, créé par Firebase avec l'appli Android
+ * io.github.micheldm974.terramemo et la SHA-1 de la clé unique, S2) n'est
+ * jamais passé : Google le retrouve par le paquet et la signature de l'APK.
+ */
+export const ID_CLIENT_WEB = '982564163014-cpvnjv34131m5hjv8rgvk67dfedg01ae.apps.googleusercontent.com';
+
+/**
  * Langue des e-mails de Firebase (vérification d'adresse, mot de passe
  * oublié) et de ses écrans : celle de l'interface (décision « Langue » :
  * français au départ).

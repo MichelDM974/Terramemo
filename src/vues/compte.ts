@@ -27,8 +27,9 @@
 // « Se reconnecter avec Google » pour la session perdue d'un compte Google, la
 // même question de fusion qu'à la connexion par e-mail, et le formulaire de
 // connexion, adresse pré-remplie, quand l'adresse est celle d'un compte à mot
-// de passe. Dans l'APK, rien de Google avant le plugin du lot 7 : une ligne le
-// dit (googleOffert). Les champs portent autocomplete et inputmode : le remplissage
+// de passe. Lot 7 : dans l'APK, les mêmes boutons, par le plugin natif (la
+// feuille de Google d'Android, src/sync/google-apk.ts) ; sans lui, une ligne
+// dit que Google vient (googleOffert). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
 // textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts.
 //
@@ -333,7 +334,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
   /** Le pseudo que la demande de retrait des places portera (lu à l'ouverture de « Supprimer mon compte »). */
   let pseudoSuppression: { lu: boolean; pseudo: string | null } | null = null;
   const natif = o.natif ?? (() => typeof window !== 'undefined' && dansApk());
-  /** Google se propose (comptes.googleOffert : le site ; l'APK une fois le plugin branché, lot 7). */
+  /** Google se propose (comptes.googleOffert : le site ; l'APK, le plugin branché par main.ts, lot 7). */
   let googleOffert = false;
 
   const message = creer('p', { class: 'status', id: ident('message'), 'aria-live': 'polite' });
@@ -538,11 +539,12 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
    * (session perdue d'un compte Google) : la fenêtre de Google, puis la
    * question de fusion s'il le faut (D22), comme à la connexion par e-mail.
    * Fenêtre fermée : rien ne s'affiche. Appelé dans le geste (clic) : le
-   * navigateur n'ouvre la fenêtre que peu après lui.
+   * navigateur n'ouvre la fenêtre que peu après lui. Dans l'APK, la feuille de
+   * Google rend la main dès qu'on la referme : pas d'attente à annoncer.
    */
   function continuerGoogle(depuis: Ecran): void {
     void agir(async (c) => {
-      dire(T.google_en_cours);
+      dire(natif() ? T.google_en_cours_apk : T.google_en_cours);
       let posee: QuestionFusion | null = null;
       let r: Awaited<ReturnType<Comptes['google']>>;
       try {
@@ -563,8 +565,8 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
   }
 
   /**
-   * La ligne de Google quand il n'est pas offert (l'APK avant le lot 7) : qu'il
-   * vient. Ailleurs, rien : la ligne « la fenêtre nommera
+   * La ligne de Google quand il n'est pas offert (l'APK sans le plugin du
+   * lot 7 : comptes sans jetonGoogle) : qu'il vient. Ailleurs, rien : la ligne « la fenêtre nommera
    * terramemo-geo.firebaseapp.com » est retirée (demande de l'utilisateur, 12/11).
    */
   function aideGoogle(): Node[] {

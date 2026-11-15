@@ -22,21 +22,20 @@ const SILENCIEUX: ReadonlySet<string> = new Set([
   'auth/user-token-expired',
   // « Annuler » à la question de fusion (§ 2.3) : retour au formulaire, sans message.
   'terramemo/connexion-annulee',
+  // La feuille de Google refermée dans l'APK (src/sync/google-apk.ts, lot 7) : comme la fenêtre du site.
+  'terramemo/google-annule',
 ]);
-
-/** Message par défaut du plugin Google à l'annulation par l'utilisateur (§ 3.3) : silencieux. */
-const ANNULATION_PLUGIN = 'The user canceled the sign-in flow.';
 
 export interface ErreurTraduite {
   /** Le texte à montrer ; null : rien à montrer. */
   texte: string | null;
-  /** Le code d'origine (`auth/…`, `permission-denied`, code du plugin), ou '' sans code. */
+  /** Le code d'origine (`auth/…`, `permission-denied`, `terramemo/…`), ou '' sans code. */
   code: string;
   /** Le message brut, pour le pilote seulement. */
   brut: string;
 }
 
-/** Code d'une erreur de Firebase (Auth : « auth/… » ; Firestore lite : « permission-denied »…) ou du plugin. */
+/** Code d'une erreur de Firebase (Auth : « auth/… » ; Firestore lite : « permission-denied »…) ou de l'appli (« terramemo/… »). */
 export function codeErreur(err: unknown): string {
   const c = (err as { code?: unknown } | null)?.code;
   return typeof c === 'string' ? c : '';
@@ -96,19 +95,16 @@ export function heureRemiseQuota(maintenant: Date = new Date(), fuseau?: string)
 }
 
 /**
- * Le texte d'une erreur : `auth/*`, puis Firestore, puis le plugin Google,
- * puis « Erreur inattendue ({code}) ». `quand` et `fuseau` : pour l'heure de
+ * Le texte d'une erreur : `auth/*`, puis Firestore, puis l'appli (dont le
+ * plugin Google de l'APK, traduit en `terramemo/google-…` par
+ * src/sync/google-apk.ts, lot 7), puis « Erreur inattendue ({code}) ». `quand` et `fuseau` : pour l'heure de
  * remise du quota (tests).
  */
 export function traduire(err: unknown, quand: Date = new Date(), fuseau?: string): ErreurTraduite {
   const code = codeErreur(err);
   const brut = messageBrut(err);
   if (SILENCIEUX.has(code)) return { texte: null, code, brut };
-  if (code === 'SIGN_IN_CANCELED' && brut === ANNULATION_PLUGIN) return { texte: null, code, brut };
   const modele = E[code] ?? E[code.replace(/^firestore\//, '')];
   if (modele !== undefined) return { texte: remplir(modele, { heure: heureRemiseQuota(quand, fuseau), adresse: adresseErreur(err) ?? textes.compte.google_compte_attendu }), code, brut };
-  // Un code du plugin Google (en capitales, NO_CREDENTIAL_AVAILABLE…) sans texte à lui :
-  // un texte générique, le code au pilote seulement.
-  if (/^[A-Z][A-Z_]+$/.test(code)) return { texte: E.plugin!, code, brut };
   return { texte: remplir(E.inattendue!, { code: code || 'sans code' }), code, brut };
 }

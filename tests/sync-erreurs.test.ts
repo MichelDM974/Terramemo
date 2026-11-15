@@ -37,8 +37,9 @@ describe('traduire', () => {
       'auth/unauthorized-domain': 'Connexion impossible depuis cette adresse du site',
       // Réauthentification Google avant une suppression (§ 7.1) : un autre compte Google choisi dans la fenêtre.
       'auth/user-mismatch': "Ce n'est pas le compte connecté : choisis le bon compte dans la fenêtre de Google.",
-      NO_CREDENTIAL_AVAILABLE: 'Aucun compte Google sur ce téléphone.',
-      PROVIDER_CONFIGURATION_ERROR: 'Services Google Play absents ou à mettre à jour.',
+      // Plugin Google de l'APK (lot 7), ses codes traduits en codes de l'appli par src/sync/google-apk.ts.
+      'terramemo/google-sans-compte': "Aucun compte Google sur ce téléphone : ajoute-le dans les réglages d'Android (Comptes), ou connecte-toi par e-mail.",
+      'terramemo/google-services': 'Services Google Play absents ou à mettre à jour : mets-les à jour depuis le Play Store, ou connecte-toi par e-mail.',
     };
     for (const [code, texte] of Object.entries(attendus)) expect(traduire(err(code)).texte, code).toBe(texte);
   });
@@ -52,10 +53,11 @@ describe('traduire', () => {
     }
   });
 
-  it('plugin Google : l’annulation par défaut est silencieuse, un autre message dit le réglage', () => {
-    expect(traduire(err('SIGN_IN_CANCELED', 'The user canceled the sign-in flow.')).texte).toBeNull();
-    expect(traduire(err('SIGN_IN_CANCELED', 'Account reauth failed.')).texte).toBe("Connexion Google impossible (réglage de l'appli).");
-    expect(traduire(err('UNKNOWN_ERROR', 'boom')).texte).toBe('Connexion Google impossible : réessaie plus tard.');
+  it('plugin Google de l’APK (lot 7) : ses codes traduits par src/sync/google-apk.ts ; la feuille refermée est silencieuse', () => {
+    expect(traduire(err('terramemo/google-annule', 'terramemo/google-annule (SIGN_IN_CANCELED: activity is cancelled by the user.)')).texte).toBeNull();
+    expect(traduire(err('terramemo/google-reglage', 'Account reauth failed.')).texte).toBe("Connexion Google impossible (réglage de l'appli) : connecte-toi par e-mail en attendant.");
+    // Un code brut du plugin n'arrive plus jusqu'ici : s'il venait, ce serait un bogue, dit comme tel.
+    expect(traduire(err('SIGN_IN_CANCELED', 'The user canceled the sign-in flow.')).texte).toBe('Erreur inattendue (SIGN_IN_CANCELED)');
   });
 
   it('quota du jour : l’heure de remise à La Réunion, 12 h l’hiver boréal et 11 h l’été', () => {
@@ -102,7 +104,7 @@ describe('traduire', () => {
   });
 
   it('chaque texte de compte.erreurs est atteint par son code', () => {
-    for (const code of Object.keys(textes.compte.erreurs).filter((c) => c !== 'inattendue' && c !== 'plugin'))
+    for (const code of Object.keys(textes.compte.erreurs).filter((c) => c !== 'inattendue'))
       expect(traduire(err(code)).texte, code).not.toMatch(/inattendue/);
   });
 });

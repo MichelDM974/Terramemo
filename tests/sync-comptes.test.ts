@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { creerComptes } from '../src/sync/comptes';
 import { traduire } from '../src/sync/erreurs';
+import { creerJetonGoogle } from '../src/sync/google-apk';
 import { depotSessionMemoire, type DepotSession, type Session } from '../src/sync/session';
 
 const err = (code: string) => Object.assign(new Error(`Firebase: Error (${code}).`), { code });
@@ -173,6 +174,27 @@ describe('suppression d’un compte Google : la réauthentification (§ 7.1, ét
     const c = creerComptes({ session: g.session, service: g.service, natif: () => true, jetonGoogle: async () => 'id-token-du-plugin' });
     await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
     expect(g.appels).toEqual(['credential:id-token-du-plugin']);
+  });
+
+  it('dans l’APK, par le vrai module du plugin (lot 7, plugin factice) : un idToken neuf à chaque essai ; la feuille refermée ne commence rien, sans message', async () => {
+    const g = google();
+    let n = 0;
+    const plugin = { initialize: vi.fn(async () => undefined), signIn: vi.fn(async () => ({ idToken: `id-token-${++n}` })) };
+    const jetonGoogle = creerJetonGoogle({ natif: () => true, plugin: async () => plugin as never });
+    const c = creerComptes({ session: g.session, service: g.service, natif: () => true, jetonGoogle });
+    expect(c.googleOffert()).toBe(true);
+    await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(g.appels).toEqual(['credential:id-token-1', 'credential:id-token-2']);
+    expect(plugin.initialize).toHaveBeenCalledOnce();
+    plugin.signIn.mockRejectedValueOnce(Object.assign(new Error('activity is cancelled by the user.'), { code: 'SIGN_IN_CANCELED' }));
+    const e = await c.supprimer({ mot: 'supprimer' }).catch((x: unknown) => x);
+    expect(e).toMatchObject({ code: 'terramemo/google-annule' });
+    expect(traduire(e).texte).toBeNull();
+    expect(g.appels).toHaveLength(2);
+    expect((await g.session.lire())?.suppression).toBeNull();
+    // Le rapport du pilote garde le message du plugin.
+    expect(c.rapport().erreurs.at(-1)).toMatchObject({ code: 'terramemo/google-annule', message: expect.stringContaining('activity is cancelled by the user.') });
   });
 
   it('une suppression inachevée dont la session est perdue, dans l’APK sans le plugin : « reconnecte-toi sur le site », rien de vidé', async () => {

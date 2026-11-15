@@ -578,6 +578,32 @@ describe('vue Compte, lot 6 : Google', () => {
     expect($('#compte-google-aide')).toBeNull();
   });
 
+  it('dans l’APK avec le plugin (lot 7) : « Google s’ouvre… » pendant la feuille ; refermée, rien ; un réglage manquant, son texte', async () => {
+    const c = fauxComptes();
+    let pendant = '';
+    c.google.mockImplementationOnce(async () => {
+      pendant = $('#compte-message')!.textContent;
+      throw Object.assign(new Error('terramemo/google-annule (SIGN_IN_CANCELED: activity is cancelled by the user.)'), { code: 'terramemo/google-annule' });
+    });
+    const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => c, natif: () => true });
+    v.activer();
+    await attendre();
+    await attendre();
+    $('#compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect(pendant).toBe(T.google_en_cours_apk);
+    expect($('#compte-erreur')!.textContent).toBe('');
+    expect($('#compte-message')!.textContent).toBe('');
+    expect($('#compte-google')!.disabled).toBe(false);
+    c.google.mockRejectedValueOnce(Object.assign(new Error('terramemo/google-reglage (SIGN_IN_CANCELED: [16] Account reauth failed.)'), { code: 'terramemo/google-reglage' }));
+    $('#compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-erreur')!.textContent).toBe(T.erreurs['terramemo/google-reglage']);
+    expect($('#compte-erreur')!.textContent).not.toMatch(/reauth/);
+  });
+
   it('un compte neuf (lien de l’invité) : « Fenêtre de Google ouverte… », puis « Connecté avec Google », puis l’écran du compte', async () => {
     const c = fauxComptes();
     let pendant: { message: string; desactives: boolean } | null = null;
@@ -1108,6 +1134,25 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     await attendre();
     expect($('#compte-supprimer-mdp')).toBeNull();
     expect($('#compte-supprimer-google')!.textContent).toBe(T.supprimer_google);
+    $('#compte-supprimer-mot')!.value = 'supprimer';
+    envoyer('#compte-form-supprimer');
+    await attendre();
+    await attendre();
+    expect(c.supprimer).toHaveBeenCalledWith({ mot: 'supprimer' });
+  });
+
+  it('compte Google dans l’APK avec le plugin (lot 7) : la suppression se fait dans l’appli, par Google, sans renvoi au site', async () => {
+    const c = fauxComptes({ ...COMPTE, fournisseurs: ['google.com'] } as EtatCompte);
+    const v = vueCompte(ctx(), { retour: vi.fn(), comptes: async () => c, natif: () => true });
+    v.activer();
+    await attendre();
+    await attendre();
+    $('#compte-vers-supprimer')!.click();
+    await attendre();
+    await attendre();
+    expect($('#compte-supprimer-mdp')).toBeNull();
+    expect($('#compte-supprimer-google')!.textContent).toBe(T.supprimer_google);
+    expect(zone.innerText).not.toContain('terramemo-geo.web.app');
     $('#compte-supprimer-mot')!.value = 'supprimer';
     envoyer('#compte-form-supprimer');
     await attendre();
@@ -1761,6 +1806,13 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     await attendre();
     await attendre();
     expect($('#accueil-compte-fini')!.textContent).toBe(T.cree_sans_email_panneau);
+  });
+
+  it('dans l’APK avec le plugin (lot 7) : « Continuer avec Google » en premier, sans la ligne « Google arrive bientôt »', async () => {
+    await monter(fauxComptes(), { natif: true });
+    expect($('#accueil-compte-google')!.textContent).toBe(T.google);
+    expect($('#accueil-compte-google-aide')).toBeNull();
+    expect($('#accueil-compte-vers-connecter')!.className).not.toBe('');
   });
 
   it('dans l’APK sans le plugin (lot 7) : l’e-mail seul, en bouton principal, et la ligne « Google arrive bientôt »', async () => {

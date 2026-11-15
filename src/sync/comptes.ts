@@ -75,8 +75,9 @@
 // auth/account-exists-with-different-credential (« connecte-toi avec ton
 // adresse »). Pas de mot de passe ajouté à un compte Google (D19). La
 // réauthentification (suppression) et la reprise d'une suppression dont la
-// session est perdue passent aussi par Google. Dans l'APK, rien de Google
-// avant le plugin du lot 7 (googleOffert() faux).
+// session est perdue passent aussi par Google. Lot 7 : dans l'APK, les mêmes
+// chemins par l'idToken du plugin natif (jetonGoogle, src/sync/google-apk.ts,
+// branché par main.ts) ; sans lui, rien de Google (googleOffert() faux).
 //
 // Lien, pas copie (décision « Comptes ») : un anonyme devient un compte par
 // linkWithCredential, qui garde son uid ; jamais de signOut avant le lien.
@@ -377,8 +378,9 @@ export interface OptionsComptes {
   /** Dans l'APK ? Défaut : dansApk() (pont natif de Capacitor). */
   natif?: () => boolean;
   /**
-   * Dans l'APK, un nouvel idToken Google (le plugin du lot 7) : Google par ce
-   * jeton (connexion, lien, réauthentification avant une suppression, § 7.1).
+   * Dans l'APK, un nouvel idToken Google (le plugin du lot 7, main.ts le passe
+   * dans l'APK seulement) : Google par ce jeton (connexion, lien,
+   * réauthentification avant une suppression, § 7.1).
    * Absent : pas de Google dans l'APK (googleOffert() faux ; une suppression
    * lève terramemo/google-apk, « supprime-le depuis le site »).
    */

@@ -21,7 +21,7 @@ import { depotIndexedDb } from './journal/depot';
 import { horlogeAppareil, horlogeDecalee, lireDecalage } from './journal/horloge';
 import { ouvrirMemoire } from './journal/memoire';
 import { creerNavigation } from './navigation';
-import { brancherRetourAndroid } from './retour-android';
+import { brancherRetourAndroid, dansApk } from './retour-android';
 import { brancherZoom } from './zoom-carte';
 import { comptesVisibles, poserDrapeaux, synchroCoupee } from './sync/drapeaux';
 import type { AppareilComptes, RapportComptes } from './sync/comptes';
@@ -903,8 +903,16 @@ const appareilComptes: AppareilComptes = {
 function chargerVueCompte() {
   return Promise.all([import('./vues/compte'), chargerComptes(), chargerEnvoi()]);
 }
+/**
+ * Google dans l'APK (J1b, lot 7) : un nouvel idToken du plugin natif à chaque
+ * appel, par src/sync/google-apk.ts, chargé au premier toucher de Google ;
+ * googleOffert() devient vrai (écran de connexion, ⚙ › Compte, reconnexion,
+ * réauthentification avant une suppression). Sur le site, rien : la fenêtre
+ * de Google (googlePopup), et le module n'est jamais demandé.
+ */
+const jetonGoogle = (): Promise<string> => import('./sync/google-apk').then((g) => g.jetonGoogle());
 /** Les comptes de la page, branchés sur l'appareil (le premier appel fixe les options). */
-const lesComptes = (m: typeof import('./sync/comptes')) => m.comptes(VERSION, { appareil: appareilComptes });
+const lesComptes = (m: typeof import('./sync/comptes')) => m.comptes(VERSION, { appareil: appareilComptes, ...(dansApk() ? { jetonGoogle } : {}) });
 
 /**
  * L'export des données (étude du J1b, § 7.2) : le journal entier (lu en
