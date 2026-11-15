@@ -77,7 +77,6 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
   let attente = 0;
   let lieux = new Map<string, Lieu>();
   let formes = new Map<string, Forme>();
-  let contours = new Map<string, [number, number][]>();
 
   function arreterAttente(): void {
     clearTimeout(attente);
@@ -101,7 +100,7 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
     barre.hidden = false;
     // Le zoom lent sur la zone à la question seulement (posée, ou reprise au retour dans la vue) : révélée ou
     // répondue, elle se rallume où la carte en est (décision « Zone allumée montrée par un zoom lent »).
-    allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde', contours.get(id), etape === 'question');
+    allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde', etape === 'question');
     // Révélée : un anneau à chaque ville révélée (D53 c : les capitales justes) ; rien pour un pays.
     if (revele) for (const p of rs.points(id)) t.carte.anneauEn(p, 'juste');
   }
@@ -144,7 +143,7 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
       arreterAttente();
       rs = rendu(sujet, terrain.donnees);
       // Les zones du sujet de la question : celles du terrain, ou ses mers (une séance mêle les sujets du monde).
-      ({ lieux, formes, contours } = zonesDuSujet(sujet, terrain));
+      ({ lieux, formes } = zonesDuSujet(sujet, terrain));
       t = terrain;
       id = cible;
       crochets = c;

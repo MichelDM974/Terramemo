@@ -400,7 +400,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
         b.disabled = true;
       });
       const z = zonesDe(q);
-      petite = allumerZone(t.carte, id, z.lieux.get(id), z.formes.get(id), barre, false, z.contours.get(id));
+      petite = allumerZone(t.carte, id, z.lieux.get(id), z.formes.get(id), barre, false);
     } else {
       // La vue du monde, avant que le temps ne coure : celle d'un QCM montrerait la réponse.
       grille.hidden = true;

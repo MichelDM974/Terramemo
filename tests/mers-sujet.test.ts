@@ -108,10 +108,9 @@ describe('leurres marins (§ 5.4)', () => {
   };
   const tirer = (id: string, k: number) => choix(id, z.lieux, z.jouables, graine(k), { exclus: rs.qcmExclus(id), pareils: rs.qcmPareils });
 
-  it('les zones du sujet : les 50 mers posées, jamais un pays ; leur emprise pour le cadrage', () => {
+  it('les zones du sujet : les 50 mers posées, jamais un pays', () => {
     expect([...z.jouables].sort()).toEqual([...IDS_MERS].sort());
     expect(z.lieux.has('FRA')).toBe(false);
-    expect(z.contours.get('pacif')!.length).toBeGreaterThan(4);
   });
 
   it('jamais un ancêtre ni un descendant de la cible, pour chaque zone et 40 tirages', () => {

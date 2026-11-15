@@ -16,8 +16,6 @@ import type { ContexteVue } from '../src/vues/commun';
 import { vueEssai } from '../src/vues/essai';
 import { cadrageNommer, ZONE_MONTREE } from '../src/vues/nommer';
 import { vueRetournee } from '../src/vues/retournee';
-import { empriseMer } from '../src/map/mers';
-import { contourEmprise } from '../src/map/geo';
 import { installerDom, installerStockage, El } from './dom-factice';
 import { sansBrut } from './sujet-factice';
 
@@ -211,16 +209,13 @@ describe('cadrage d’une mer allumée sur son emprise (Reconnaître, carte reto
   afterEach(() => vi.restoreAllMocks());
 
   // Sur le monde, la zone se montre par le zoom lent (montrerZone, décision « Zone allumée montrée par un zoom
-  // lent »), qui cadre une mer sur son emprise entière (contourZone, tests/carte-canvas-dom.test.ts) ; cadrageNommer
-  // et son contour restent le cadrage de l'île.
-  it('le Pacifique : sa moitié est à l’écran ne suffit pas (le contour d’empriseMer, pas le polygone principal) ; le zoom lent le montre', () => {
+  // lent »), qui cadre une mer sur son emprise entière (contourZone, tests/carte-canvas-dom.test.ts), pas sur son
+  // polygone principal (une moitié du Pacifique), qui tient ici à l'écran.
+  it('le Pacifique, dont la moitié est à l’écran : le zoom lent le montre (son emprise entière), jamais montrer()', () => {
     const m = monde();
     const { montrer, montrerZone } = moitieDuPacifique(m);
     const pacif = couche.mers.find((e) => e.pays.id === 'pacif')!;
-    const zones = couche.mers.map((e) => e.pays);
-    // Le témoin : sans contour, le polygone principal tient à l'écran, rien ne vole ; avec, la carte vole.
     expect(cadrageNommer(m.t.carte as never, pacif.pays, pacif.forme, 200, 200).vole).toBe(false);
-    expect(cadrageNommer(m.t.carte as never, pacif.pays, pacif.forme, 200, 200, contourEmprise(empriseMer('pacif', zones)!)).vole).toBe(true);
     const v = vueEssai(m.ctx, { versJouer: vi.fn() });
     v.activer();
     v.lancer({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'nommer' }, serieMers(), m.t as never, ['pacif']);

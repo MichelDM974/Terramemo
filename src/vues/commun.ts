@@ -2,8 +2,7 @@ import { acceptesEnPlus, type Admis } from '../map/acceptes';
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
 import { attendreImages, chargerDrapeaux, drapeauxCharges, prechargerDrapeaux, prechargerImages, type ChargerImage } from '../map/drapeaux';
 import type { CarteAffichee } from '../map/carte';
-import { contourEmprise } from '../map/geo';
-import { chargerMers, empriseMer, estIdMer } from '../map/mers';
+import { chargerMers, estIdMer } from '../map/mers';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
 import type { OptionsNoter } from '../map/pick';
@@ -243,34 +242,26 @@ export function chargementSujet(sujet: string, monde?: Pick<ContexteVue, 'carte'
 /**
  * Les zones d'une partie de ce sujet sur ce terrain (Reconnaître, carte
  * retournée : leurres et cadrage) : les pays (ou communes) du terrain, ou ses
- * zones marines posées (donnees.mers) pour les mers. `contours` : le bord de
- * l'emprise d'une mer (empriseMer), que le cadrage lit au lieu de son
- * polygone principal (une moitié du Pacifique).
+ * zones marines posées (donnees.mers) pour les mers (leur emprise entière
+ * se lit à part : contourZone, lieux.ts).
  */
 export function zonesDuSujet(
   sujet: string,
   t: Pick<Terrain, 'donnees' | 'jouables'>,
-): { lieux: Map<string, Lieu>; formes: Map<string, Forme>; jouables: Set<string>; contours: Map<string, [number, number][]> } {
+): { lieux: Map<string, Lieu>; formes: Map<string, Forme>; jouables: Set<string> } {
   if (sujet !== 'mers') {
     return {
       lieux: new Map(t.donnees.entites.map((e) => [e.pays.id, e.pays])),
       formes: new Map(t.donnees.entites.map((e) => [e.pays.id, e.forme])),
       jouables: new Set(t.jouables),
-      contours: new Map(),
     };
   }
   const mers = mersPosees(t.donnees);
   const zones = mers.map((e) => e.pays);
-  const contours = new Map<string, [number, number][]>();
-  for (const m of zones) {
-    const e = empriseMer(m.id, zones);
-    if (e) contours.set(m.id, contourEmprise(e));
-  }
   return {
     lieux: new Map(mers.map((e) => [e.pays.id, e.pays as Lieu])),
     formes: new Map(mers.map((e) => [e.pays.id, e.forme])),
     jouables: new Set(zones.filter((m) => estIdMer(m.id)).map((m) => m.id)),
-    contours,
   };
 }
 

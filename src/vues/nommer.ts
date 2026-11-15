@@ -40,9 +40,9 @@ export const ZONE_MONTREE: ReglageZone = { centrer_ms: 500, zoomer_ms: 1500, par
  * sur la vue où la carte s'arrêtera (contexteFinal) : répondue en moins d'une
  * seconde, la question précédente laisse son vol en cours, et la vue en plein
  * vol (reculée, ou pas encore arrivée) disait à tort la zone suivante visible
- * ou cachée. l × hVisible : la carte jusqu'au haut de la barre. `contour` :
- * le bord de ce qu'il faut voir entier, au lieu du polygone principal (une
- * mer : son emprise, empriseMer ; zonesDuSujet).
+ * ou cachée. l × hVisible : la carte jusqu'au haut de la barre. Une mer (sur
+ * le monde seul) n'y passe que pour sa taille : son emprise entière est
+ * celle de montrerZone (contourZone).
  */
 export function cadrageNommer(
   carte: Pick<CarteAffichee, 'contexteFinal'>,
@@ -50,7 +50,6 @@ export function cadrageNommer(
   forme: Forme | undefined,
   l: number,
   hVisible: number,
-  contour?: readonly (readonly number[])[],
 ): { vole: boolean; taille: number } {
   const c = carte.contexteFinal();
   const ecran = (ll: [number, number]): [number, number] | null => {
@@ -58,8 +57,8 @@ export function cadrageNommer(
     return b ? versEcran(c.t, b[0], b[1]) : null;
   };
   const taille = tailleEcranPx(lieu, c.proj.scale(), c.t.k);
-  // L'emprise du polygone principal (la Sicile comprise, la Guyane non) ; celle d'une mer entière.
-  const emprise = contour ? empriseEcran(contour, ecran) : forme ? empriseEcran(anneauPrincipal(forme, lieu.point), ecran) : null;
+  // L'emprise du polygone principal (la Sicile comprise, la Guyane non).
+  const emprise = forme ? empriseEcran(anneauPrincipal(forme, lieu.point), ecran) : null;
   return { vole: doitCadrer(ecran(lieu.point), taille, l, hVisible, emprise), taille };
 }
 
@@ -111,8 +110,8 @@ export interface CrochetsNommer {
  * l'arrivée d'un vol en cours (cadrageNommer) : s'il n'y a pas à voler, il
  * continue jusqu'à elle ; sinon le nouveau vol part d'où il en est. Rend
  * vrai si la zone est petite (anneau posé). Une mer allumée (un océan avec
- * la mer qu'il enclave sans côte) se juge sur son emprise entière
- * (`contour`, zonesDuSujet).
+ * la mer qu'il enclave sans côte) se montre par son emprise entière
+ * (contourZone, montrerZone).
  */
 export function allumerZone(
   carte: Terrain['carte'],
@@ -121,14 +120,13 @@ export function allumerZone(
   forme: Forme | undefined,
   barre: HTMLElement,
   local: boolean,
-  contour?: readonly (readonly number[])[],
   montrer = true,
 ): boolean {
   carte.effacerMarques();
   carte.marquer(id, 'choisi');
   const r = carte.hote.getBoundingClientRect();
   const haut = barre.getBoundingClientRect().top - r.top;
-  const cadrer = () => (lieu ? cadrageNommer(carte, lieu, forme, r.width, haut, contour) : { vole: true, taille: 0 });
+  const cadrer = () => (lieu ? cadrageNommer(carte, lieu, forme, r.width, haut) : { vole: true, taille: 0 });
   let c: { vole: boolean; taille: number };
   if (!local) {
     if (montrer) carte.montrerZone(id, haut, ZONE_MONTREE);
@@ -194,7 +192,6 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   let n = 0;
   let lieux = new Map<string, Lieu>();
   let formes = new Map<string, Forme>();
-  let contours = new Map<string, [number, number][]>();
   let jouables = new Set<string>();
   /** Les choix tirés pour chaque question de la partie : les mêmes au retour dans la vue (et ceux de la suivante, tirés d'avance pour précharger ses images). */
   let tires = new Map<string, string[]>();
@@ -210,7 +207,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   }
 
   function allumer(carte: Terrain['carte'], id: string, local: boolean): void {
-    petite = allumerZone(carte, id, lieux.get(id), formes.get(id), barre, local, contours.get(id));
+    petite = allumerZone(carte, id, lieux.get(id), formes.get(id), barre, local);
   }
 
   /** Les choix de la question de ce lieu, tirés une fois par partie. */
@@ -374,7 +371,7 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       serie = nomSerie;
       n = cibles.length;
       // Les leurres viennent de tout le terrain, pas de la série (qcm.ts) ; pour les mers, de toutes ses zones marines.
-      ({ lieux, formes, jouables, contours } = zonesDuSujet(sujet, terrain));
+      ({ lieux, formes, jouables } = zonesDuSujet(sujet, terrain));
       partie = new PartieNommer(cibles);
       tires = new Map();
       o.bilan.hidden = true;
