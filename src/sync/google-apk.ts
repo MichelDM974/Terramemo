@@ -28,8 +28,9 @@
 //   est celui des services Google Play ;
 // - erreurs : SIGN_IN_CANCELED (l'annulation, mais aussi un client OAuth
 //   Android manquant, que Play signale comme une annulation : README, S19),
-//   NO_CREDENTIAL_AVAILABLE, PROVIDER_CONFIGURATION_ERROR ; tout le reste
-//   sans code, le message « type: message » de Credential Manager.
+//   NO_CREDENTIAL_AVAILABLE (aucun compte, mais aussi un réglage manquant,
+//   message d'origine perdu : voir sansCompte), PROVIDER_CONFIGURATION_ERROR ;
+//   tout le reste sans code, le message « type: message » de Credential Manager.
 import type { GoogleSignInPlugin } from '@capawesome/capacitor-google-sign-in';
 import { dansApk } from '../retour-android';
 import { ID_CLIENT_WEB } from './firebase';
@@ -41,7 +42,15 @@ export type PluginGoogle = Pick<GoogleSignInPlugin, 'initialize' | 'signIn'>;
 export const ERREURS_GOOGLE_APK = {
   /** « Annuler », retour, toucher hors de la feuille : rien à dire, comme la fenêtre fermée du site. */
   annule: 'terramemo/google-annule',
-  /** Aucun compte Google sur le téléphone (NO_CREDENTIAL_AVAILABLE). */
+  /**
+   * NO_CREDENTIAL_AVAILABLE : aucun compte sur le téléphone, ou l'appli mal
+   * réglée. credentials-play-services-auth 1.5.0 (HiddenActivity, lu par
+   * javap) range dans GET_NO_CREDENTIALS tout échec non retentable de
+   * getSignInIntent, DEVELOPER_ERROR 10 et 28444 compris (client Android ou
+   * SHA-1 manquants) ; le plugin 0.1.4 remplace alors le message par son
+   * texte fixe, sans la cause (ni à l'écran, ni dans `erreurs`, ni dans son
+   * Logger). D'où un texte qui ne dit pas « aucun compte » seulement.
+   */
   sansCompte: 'terramemo/google-sans-compte',
   /** Services Google Play absents, trop vieux ou désactivés (PROVIDER_CONFIGURATION_ERROR, TYPE_UNSUPPORTED). */
   services: 'terramemo/google-services',

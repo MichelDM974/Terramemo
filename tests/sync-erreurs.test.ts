@@ -38,7 +38,7 @@ describe('traduire', () => {
       // Réauthentification Google avant une suppression (§ 7.1) : un autre compte Google choisi dans la fenêtre.
       'auth/user-mismatch': "Ce n'est pas le compte connecté : choisis le bon compte dans la fenêtre de Google.",
       // Plugin Google de l'APK (lot 7), ses codes traduits en codes de l'appli par src/sync/google-apk.ts.
-      'terramemo/google-sans-compte': "Aucun compte Google sur ce téléphone : ajoute-le dans les réglages d'Android (Comptes), ou connecte-toi par e-mail.",
+      'terramemo/google-sans-compte': "Aucun compte Google utilisable (aucun sur ce téléphone, ou réglage de l'appli) : vérifie les comptes dans les réglages d'Android, ou connecte-toi par e-mail.",
       'terramemo/google-services': 'Services Google Play absents ou à mettre à jour : mets-les à jour depuis le Play Store, ou connecte-toi par e-mail.',
     };
     for (const [code, texte] of Object.entries(attendus)) expect(traduire(err(code)).texte, code).toBe(texte);

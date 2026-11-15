@@ -395,7 +395,7 @@ Nouveaux :
 | `auth/unauthorized-domain` | Connexion impossible depuis cette adresse du site |
 | `auth/user-token-expired` | (pas affiché : session perdue, § 2.5) |
 | `auth/quota-exceeded`, `resource-exhausted` | Limite du jour atteinte : réessaie après {heure}. L'heure est minuit à Los Angeles, calculée par `Intl` : 12 h à La Réunion l'hiver boréal, 11 h l'été |
-| plugin `NO_CREDENTIAL_AVAILABLE` | Aucun compte Google sur ce téléphone. |
+| plugin `NO_CREDENTIAL_AVAILABLE` | Aucun compte Google utilisable (aucun sur ce téléphone, ou réglage de l'appli). Lot 7 : la cause peut aussi être un client Android manquant (« Précisions du lot 7 ») |
 | plugin `PROVIDER_CONFIGURATION_ERROR` | Services Google Play absents ou à mettre à jour. |
 | plugin `SIGN_IN_CANCELED`, message par défaut (« The user canceled the sign-in flow. ») | (rien : retour silencieux) |
 | plugin `SIGN_IN_CANCELED` avec un autre message | Connexion Google impossible (réglage de l'appli). D'après le README du plugin, Play signale ainsi un client Android manquant (`Account reauth failed`). Le message brut va au pilote |
@@ -1946,7 +1946,16 @@ de l'outil du propriétaire est posé dans cdc.
     `reauth`, `UNREGISTERED`, `developer`, `[10]`/`10:` ou `28444`
     (README du plugin, S19 ; piège de Light) ; `UNIMPLEMENTED` (natif
     absent) ; plugin pas initialisé ;
-  - `terramemo/google-sans-compte` : `NO_CREDENTIAL_AVAILABLE` ;
+  - `terramemo/google-sans-compte` : `NO_CREDENTIAL_AVAILABLE`, qui ne
+    veut **pas seulement** « aucun compte » : `credentials-play-services-auth`
+    1.5.0 (`HiddenActivity`, lu par `javap`) range dans
+    `GET_NO_CREDENTIALS` tout échec non retentable de `getSignInIntent`,
+    dont `DEVELOPER_ERROR` 10 et 28444 (client Android ou SHA-1
+    manquants, S19, piège de Light), et le plugin 0.1.4 remplace le
+    message par son texte fixe, sans la cause. Le texte dit donc les deux
+    (« aucun sur ce téléphone, ou réglage de l'appli ») ; pour ce cas,
+    seul `adb logcat` (sans filtre sur `GoogleSignInPlugin`, lignes des
+    services Play) peut montrer le code (relecture du lot 7) ;
   - `terramemo/google-services` : `PROVIDER_CONFIGURATION_ERROR`,
     `TYPE_UNSUPPORTED` ;
   - `terramemo/google-reseau` : `TYPE_INTERRUPTED` (codes de Play que

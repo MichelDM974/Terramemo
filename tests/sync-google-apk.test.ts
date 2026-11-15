@@ -100,6 +100,7 @@ describe('codeGoogleApk : chaque erreur du plugin, un code de l’appli', () => 
       [rejet('16: Account reauth failed.', 'SIGN_IN_CANCELED'), E.reglage],
       [rejet('[8] Unknown error [status=UNREGISTERED_ON_API_CONSOLE].', 'SIGN_IN_CANCELED'), E.reglage],
       [rejet('10: Developer console is not set up correctly.', 'SIGN_IN_CANCELED'), E.reglage],
+      // Aucun compte, ou un réglage manquant (DEVELOPER_ERROR rangé en GET_NO_CREDENTIALS, message remplacé par le plugin) : un seul code, un texte qui dit les deux.
       [rejet('No Google account is available on this device.', 'NO_CREDENTIAL_AVAILABLE'), E.sansCompte],
       [rejet('The credential provider is not configured correctly.', 'PROVIDER_CONFIGURATION_ERROR'), E.services],
       // Sans code : le type de Credential Manager en tête du message (createCredentialException).
@@ -120,7 +121,7 @@ describe('codeGoogleApk : chaque erreur du plugin, un code de l’appli', () => 
   it('traduites : l’annulation silencieuse, comme la fenêtre fermée du site ; les autres en français, jamais le message du plugin', () => {
     expect(traduire(erreurGoogleApk(rejet('activity is cancelled by the user.', 'SIGN_IN_CANCELED'))).texte).toBeNull();
     const attendus: Record<string, string> = {
-      [E.sansCompte]: "Aucun compte Google sur ce téléphone : ajoute-le dans les réglages d'Android (Comptes), ou connecte-toi par e-mail.",
+      [E.sansCompte]: "Aucun compte Google utilisable (aucun sur ce téléphone, ou réglage de l'appli) : vérifie les comptes dans les réglages d'Android, ou connecte-toi par e-mail.",
       [E.services]: 'Services Google Play absents ou à mettre à jour : mets-les à jour depuis le Play Store, ou connecte-toi par e-mail.',
       [E.reglage]: "Connexion Google impossible (réglage de l'appli) : connecte-toi par e-mail en attendant.",
       [E.reseau]: 'Réseau injoignable : touche encore le bouton de Google une fois en ligne.',

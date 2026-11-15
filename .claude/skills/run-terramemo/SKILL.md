@@ -1779,10 +1779,17 @@ records), une fois tout envoyé. Seul le compte garde alors les progrès.
      `google.com`, `attente` 0, `refusees` 0 ; noter `sign_in_provider`.
 
    Échec : noter le texte affiché et `erreurs` (code de l'appli et message
-   du plugin). « Aucun compte Google sur ce téléphone » ou « réglage de
+   du plugin). « Aucun compte Google utilisable » ou « réglage de
    l'appli » alors que l'A37 a un compte : client OAuth Android (paquet,
    SHA-1 `F3:97:0D:57:…:94:FA`), console Firebase › Paramètres du projet ›
-   l'appli Android. Échec du plugin lui-même (S11) : le repli est le petit
+   l'appli Android. Pour « Aucun compte Google utilisable »
+   (`NO_CREDENTIAL_AVAILABLE`), le plugin 0.1.4 jette le message
+   d'origine : `erreurs` ne montre que « No Google account is available
+   on this device. », même pour un DEVELOPER_ERROR 10 ou 28444. La cause
+   n'est que dans `adb logcat` des services Play, relevé au moment du
+   toucher et **sans filtre** sur `GoogleSignInPlugin` (qui ne journalise
+   que le texte fixe) : chercher `DEVELOPER_ERROR`, `28444`, `[10]`,
+   « During get sign-in intent ». Échec du plugin lui-même (S11) : le repli est le petit
    plugin Kotlin sur Credential Manager (décision « Google dans l'APK »),
    à proposer à l'utilisateur, pas à faire d'office.
 4. **Synchro avec le site** — sur le PC, `https://terramemo-geo.web.app`,
