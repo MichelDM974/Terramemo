@@ -2982,7 +2982,12 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
             capturer("126-mers-trouver-partie")
             partie = True
         elif not faux and cible not in ("noire", "azov", "medit", "atlant") and cible != "egee":
-            # La mer Noire : jamais une partie ni ce qu'allume une autre cible que celles-là.
+            # La mer Noire : jamais une partie ni ce qu'allume une autre cible que celles-là. La carte
+            # cadrée sur elle d'abord, comme au Sans faute : un Trouver part de la vue du monde (#26,
+            # 15/11), où une petite mer voisine (l'Ionienne) a son halo de 12 px jusqu'à la mer Noire,
+            # et le toucher y serait juste « au plus près », comme la décision « Océans et mers » le veut.
+            p.js('window.terramemo.carte.zoomerSur("noire")')
+            attendre_fin_vol(p)
             toucher_mer(p, "noire")
             p.pause(250)
             retro = texte(p, "#barre-essai .essai-retro")
