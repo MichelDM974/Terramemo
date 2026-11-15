@@ -1086,7 +1086,7 @@ describe('CarteCanvas : océans et mers (lot 3a, étude J2, § 4.3)', () => {
           }
         }
       }
-    });
+    }, 30_000); // ≈ 5 à 7 s sur le PC chargé (tout le monde en canvas, deux océans) : au-delà des 5 s par défaut de vitest
   });
 
   // Relecture du lot 3a : contexte() et contexteFinal() passent la couche
