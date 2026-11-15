@@ -869,6 +869,32 @@ describe('Carte (SVG) : montrerZone, le zoom lent sur la zone (décision « Zone
     expect(c.contexte().t.k).toBeCloseTo(fin.k, 9);
   });
 
+  it.each(['g', 'css'] as const)('rendu %s : aucun arrêt à la jonction du centrage et du zoom lent (les pastilles recalculées une fois, à la fin ; les disques cachés d’un bout à l’autre) ; interrompu en plein zoom, l’arrêt fait', (rendu) => {
+    const hote = new FauxElement();
+    const c = new Carte({ hote: hote as unknown as HTMLElement, donnees, projection: 'monde', rendu });
+    c.rendre();
+    const majPastilles = vi.spyOn(c as unknown as { majPastilles(): void }, 'majPastilles');
+    const retraits: string[] = [];
+    const retirer = hote.classList.remove;
+    hote.classList.remove = (...x: string[]) => (retraits.push(...x), retirer(...x));
+    c.montrerZone('FRA', HV, REGLAGE);
+    vi.advanceTimersByTime(2200);
+    expect(majPastilles).toHaveBeenCalledTimes(1);
+    expect(retraits.filter((x) => x === 'en-vol')).toEqual(['en-vol']);
+    expect(hote.classList.contains('en-vol')).toBe(false);
+    // Interrompu en plein zoom lent (zoomer()) : l'arrêt est fait, rien ne reste à faire après.
+    c.montrerZone('EGY', HV, REGLAGE);
+    vi.advanceTimersByTime(1000);
+    majPastilles.mockClear();
+    c.zoomer({ k: 2, x: 0, y: 0 });
+    const arrets = majPastilles.mock.calls.length;
+    expect(arrets).toBeGreaterThan(0);
+    expect(hote.classList.contains('en-vol')).toBe(false);
+    vi.advanceTimersByTime(3000);
+    expect(c.contexte().t).toEqual({ k: 2, x: 0, y: 0 });
+    expect(majPastilles).toHaveBeenCalledTimes(arrets);
+  });
+
   it('immense (la Russie) : centrée, à peine zoomée ; le Vatican : au zoom maximal', () => {
     const { c } = carte();
     c.montrerZone('RUS', HV, REGLAGE);

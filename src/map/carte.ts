@@ -319,6 +319,12 @@ export class Carte implements CarteAffichee {
   private parUtilisateur = false;
   /** Entre le start et le end de d3-zoom (geste ou vol). */
   private enGeste = false;
+  /**
+   * Entre le centrage et le zoom lent de montrerZone (le end de l'un, le
+   * start de l'autre) : pas un arrêt, fin() n'y recalcule ni pastilles ni
+   * hachures et garde .en-vol (les disques cachés).
+   */
+  private enchaine = false;
   private taille = { l: 0, h: 0 };
   private suivi = new SuiviPointeurs();
   /** Carte masquée (vue Saisie) : pas de retracé avant son retour. */
@@ -550,22 +556,27 @@ export class Carte implements CarteAffichee {
       if (this.arrivee === arrivee) this.arrivee = null;
     };
     const enVol = () => this.hote.classList.add('en-vol');
-    const centrage = select(this.hote)
-      .transition()
-      .duration(r.centrer_ms)
-      .on('start', enVol)
-      .on('interrupt.arrivee cancel.arrivee', fini)
-      .call(this.comportement.transform, zoomIdentity.translate(centre.x, centre.y).scale(centre.k));
+    const vueCentre = zoomIdentity.translate(centre.x, centre.y).scale(centre.k);
+    const centrage = select(this.hote).transition().duration(r.centrer_ms).on('start', enVol).on('interrupt.arrivee cancel.arrivee', fini);
     if (fin.k <= centre.k) {
-      centrage.on('end.arrivee', fini);
+      centrage.on('end.arrivee', fini).call(this.comportement.transform, vueCentre);
       return;
     }
-    // Enchaîné au centrage : interrompu (geste, zoomer, autre vol), d3-transition l'annule. Le point fixe de
-    // d3-zoom au milieu de la zone : elle grossit sur place, sans le détour de van Wijk et Nuij par le centre de la carte.
+    // À la jonction, d3-zoom émet le end du centrage puis le start du zoom lent : marqué avant son end.zoom (les
+    // écouteurs vont dans l'ordre où ils sont posés), fin() saute le travail d'un arrêt (enchaine). Le chemin allégé
+    // tient ainsi d'un bout à l'autre, comme en canvas.
+    centrage.on('end.enchaine', () => (this.enchaine = true)).call(this.comportement.transform, vueCentre);
+    // Enchaîné au centrage : interrompu (geste, zoomer, autre vol), d3-transition l'annule ; le geste, le vol ou
+    // zoomer() qui l'annule fait son propre arrêt. Le point fixe de d3-zoom au milieu de la zone : elle grossit sur
+    // place, sans le détour de van Wijk et Nuij par le centre de la carte.
     centrage
       .transition()
       .duration(r.zoomer_ms)
-      .on('start', enVol)
+      .on('start', () => {
+        this.enchaine = false;
+        enVol();
+      })
+      .on('cancel.enchaine', () => (this.enchaine = false))
       .on('end.arrivee interrupt.arrivee cancel.arrivee', fini)
       .call(this.comportement.transform, zoomIdentity.translate(fin.x, fin.y).scale(fin.k), [this.taille.l / 2, h / 2]);
   }
@@ -936,6 +947,8 @@ export class Carte implements CarteAffichee {
   }
 
   private fin(e: D3ZoomEvent<HTMLElement, unknown>): void {
+    // La jonction des deux étapes de montrerZone : le zoom lent repart aussitôt, son end fera l'arrêt.
+    if (this.enchaine) return;
     const t0 = performance.now();
     if (this.aBouge) {
       if (this.o.rendu === 'css') {
