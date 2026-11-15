@@ -296,7 +296,9 @@ son journal s'unit à celui du compte.
   utilisateur après `authStateReady()`, ou un `onAuthStateChanged(null)`
   en cours de route.
 - **Conduite** :
-  - rien n'est effacé, rien ne part, et l'on joue comme avant ;
+  - rien n'est effacé, rien ne part ; depuis le 15/11, on ne joue plus
+    comme avant : l'écran de connexion revient avec ces boutons (« Session
+    perdue au panneau », § 9) ;
   - la vue Compte et une ligne discrète du bilan disent : « Session
     expirée : reconnecte-toi pour envoyer {n} séances. » ;
   - trois boutons : « Se reconnecter » ; « Continuer sans compte » (après
@@ -1883,6 +1885,30 @@ de l'outil du propriétaire est posé dans cdc.
   après déconnexion), le panneau dans `tests/compte-vue.test.ts`,
   `retenue` dans `tests/navigation.test.ts` ; pilote `ui_accueil` (skill
   `run-terramemo`).
+
+**Session perdue au panneau** (15/11, codé ; décision « Écran de
+connexion » remplacée le 15/11, après un essai où l'appli, l'adresse du
+compte changée, laissait jouer sans rien dire) :
+- Su par main.ts : au démarrage des comptes (`demarrer()`), puis à chaque
+  `surChangement` (onAuthStateChanged(null) relu par `etat()`), l'état de
+  la page (`pont.ts`) et le rapport des comptes ensemble : une suppression
+  inachevée, « perdue » pour la page, ne l'appelle pas (⚙ › Compte la
+  règle). Hors ligne, `reload()` échoue sans déconnecter : rien.
+- Partie en cours = vue `toucher`, `chrono` ou `quiz` (leur bilan
+  compris) : le panneau attend la vue suivante (option `retenue` de la
+  navigation, comme le retour après une déconnexion), jamais sur Compte
+  ni Confidentialité.
+- Contenu : l'écran `perdue` de `accueilCompte` (option `perdue`, état
+  relu à l'ouverture), l'accroche « Session expirée : reconnecte-toi. »,
+  les séances non envoyées en une ligne s'il y en a, sans export, « Effacer
+  cet appareil » en lien. Écrans des comptes absents : « Réessayer » et
+  « Continuer sans compte » des comptes.
+- Une fois par perte : refermé alors que la page la sait encore perdue,
+  il ne revient qu'après un état réglé (pas de boucle). Stockage
+  illisible : jamais, comme le premier affichage.
+- Tests : `tests/accueil.test.ts` (« session perdue »),
+  `tests/compte-vue.test.ts` (« écran de la session perdue au panneau ») ;
+  pas encore de pilote (`ui_accueil` ne couvre que le premier affichage).
 
 **Précisions du lot 7** (15/11, codé ; écarts assumés au texte d'avant) :
 - Faits de la console, vérifiés le 15/11 (agent principal) : appli
