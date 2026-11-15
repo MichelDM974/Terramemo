@@ -851,6 +851,24 @@ describe('Carte (SVG) : montrerZone, le zoom lent sur la zone (décision « Zone
     expect(hote.classList.contains('en-vol')).toBe(false);
   });
 
+  it('depuis la vue zoomée d’une question précédente : la vue du monde posée d’emblée, puis le centrage au zoom 1 et le zoom lent', () => {
+    const { c } = carte();
+    c.montrerZone('JPN', HV, REGLAGE);
+    vi.advanceTimersByTime(2200);
+    expect(c.contexte().t.k).toBeGreaterThan(2);
+    c.montrerZone('BRA', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    expect(c.contexte().t).toEqual({ k: 1, x: 0, y: 0 });
+    for (let ms = 0; ms < 500; ms += 50) {
+      vi.advanceTimersByTime(50);
+      expect([ms, c.contexte().t.k <= 1 + 1e-9]).toEqual([ms, true]);
+    }
+    vi.advanceTimersByTime(20);
+    expect(auMilieu(c, 'BRA')).toBe(true);
+    vi.advanceTimersByTime(1600);
+    expect(c.contexte().t.k).toBeCloseTo(fin.k, 9);
+  });
+
   it('immense (la Russie) : centrée, à peine zoomée ; le Vatican : au zoom maximal', () => {
     const { c } = carte();
     c.montrerZone('RUS', HV, REGLAGE);

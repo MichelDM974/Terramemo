@@ -779,11 +779,12 @@ export class CarteCanvas implements CarteAffichee {
   }
 
   /**
-   * La zone d'une question (CarteAffichee.montrerZone) : le centrage, un vol
-   * de van Wijk et Nuij jusqu'à la vue du monde tournée vers elle, puis le
-   * zoom lent sur place (zoomAutour, même rotation), enchaîné à son arrivée
-   * dans la même boucle d'images : la carte allégée d'un bout à l'autre,
-   * aucune image complète entre les deux.
+   * La zone d'une question (CarteAffichee.montrerZone) : la vue du monde
+   * posée d'un coup si la carte est zoomée, le centrage, un vol de van Wijk
+   * et Nuij jusqu'à la vue du monde tournée vers elle, puis le zoom lent sur
+   * place (zoomAutour, même rotation), enchaîné à son arrivée dans la même
+   * boucle d'images : la carte allégée d'un bout à l'autre, aucune image
+   * complète entre les deux.
    */
   montrerZone(id: string, hVisible: number, r: ReglageZone): void {
     const li = this.lieux.get(id);
@@ -791,6 +792,9 @@ export class CarteCanvas implements CarteAffichee {
     if (!li || !z) return;
     const { centre, fin } = viserZone(this.c, z.point, z.contour, tailleEcranPx(li.lieu, this.c.s, 1), r.part, Math.min(r.zoom_max, ZOOM_MAX), hVisible);
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(fin, true);
+    // La carte part de la vue du monde (la décision) : zoomée (la question d'avant, un geste), elle y est posée, à sa
+    // rotation, plutôt que de tasser en r.centrer_ms un recul du zoom 40 au zoom 1 et un demi-tour du globe.
+    if (this.v.k > 1) this.poserProgramme({ r: this.v.r, k: 1, y: bornerY(this.c, 1, 0) });
     this.voler(centre, { min: r.centrer_ms, max: r.centrer_ms });
     // Une zone déjà plus grande que sa part : centrée seulement, jamais dézoomée.
     if (this.vol && fin.k > centre.k) this.vol.suite = { vue: (e) => zoomAutour(centre, fin, e), duree: r.zoomer_ms, cible: fin };

@@ -71,7 +71,7 @@ export interface FinDeGeste {
  * vues/nommer.ts), à ajuster après l'essai sur le téléphone.
  */
 export interface ReglageZone {
-  /** Durée du centrage (ms) : de la vue du moment à la vue du monde (zoom 1) centrée sur la zone. */
+  /** Durée du centrage (ms) : de la vue du monde (zoom 1, posée d'un coup si la carte est zoomée) à la même centrée sur la zone. */
   centrer_ms: number;
   /** Durée du zoom lent (ms) qui suit, sur place, jusqu'à la vue finale. */
   zoomer_ms: number;
@@ -126,15 +126,15 @@ export interface CarteAffichee {
   cadrer(e: Emprise, hVisible?: number): void;
   /**
    * La zone allumée d'une question du monde (décision « Zone allumée montrée
-   * par un zoom lent ») : un vol de la vue du moment à la vue du monde (zoom
-   * 1) centrée sur elle dans la partie visible hVisible (r.centrer_ms), puis
-   * un zoom lent sur place jusqu'à ce qu'elle occupe r.part de la carte
-   * (r.zoomer_ms, au zoom r.zoom_max au plus ; aucun si elle est déjà plus
-   * grande : centrée seulement). Son emprise : le polygone principal d'un
-   * pays, l'emprise entière d'une mer (contourZone). contexteFinal rend la
-   * vue finale dès l'appel. Un geste, zoomer() ou un autre vol l'arrêtent où
-   * il en est, zoom lent compris ; la vue finale d'emblée si le système
-   * réduit les animations.
+   * par un zoom lent ») : la vue du monde (zoom 1) posée d'un coup si la
+   * carte est zoomée, un vol jusqu'à la même centrée sur elle dans la partie
+   * visible hVisible (r.centrer_ms), puis un zoom lent sur place jusqu'à ce
+   * qu'elle occupe r.part de la carte (r.zoomer_ms, au zoom r.zoom_max au
+   * plus ; aucun si elle est déjà plus grande : centrée seulement). Son
+   * emprise : le polygone principal d'un pays, l'emprise entière d'une mer
+   * (contourZone). contexteFinal rend la vue finale dès l'appel. Un geste,
+   * zoomer() ou un autre vol l'arrêtent où il en est, zoom lent compris ; la
+   * vue finale d'emblée si le système réduit les animations.
    */
   montrerZone(id: string, hVisible: number, r: ReglageZone): void;
   zoomer(t: Transfo): void;
@@ -540,6 +540,9 @@ export class Carte implements CarteAffichee {
     const boite = empriseEcran(z.contour, (ll) => this.proj(ll) as [number, number] | null);
     const { centre, fin } = viserPart([b[0], b[1]], boite, tailleEcranPx(li.lieu, this.proj.scale(), 1), this.taille.l, h, r.part, Math.min(r.zoom_max, this.cadre.zoomMax));
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.zoomer(fin);
+    // La carte part de la vue du monde (la décision) : zoomée, elle y est posée, plutôt que de tasser en r.centrer_ms
+    // un recul du zoom 40 au zoom 1 (le centrage, de base, ne dépend pas de la vue du moment).
+    if (this.t.k > 1) this.zoomer({ k: 1, x: 0, y: 0 });
     // Comme voler() : l'arrivée (la vue finale) vaut jusqu'à la fin du zoom lent, ou l'interruption de l'un ou l'autre.
     const arrivee = { ...fin };
     this.arrivee = arrivee;

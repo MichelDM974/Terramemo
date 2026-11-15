@@ -1509,16 +1509,21 @@ describe('CarteCanvas : montrerZone, le zoom lent sur la zone (décision « Zone
     }
   });
 
-  it('depuis la vue zoomée d’une question précédente : de retour au zoom 1 à la fin du centrage, puis le zoom lent', () => {
+  it('depuis la vue zoomée d’une question précédente : la vue du monde posée d’emblée (le centrage ne tasse pas en 0,5 s un recul du zoom), le centrage au zoom 1, puis le zoom lent', () => {
     const c = carte();
     c.montrerZone('JPN', HV, REGLAGE);
     jouer(0, 2100);
     expect(c.transfo.k).toBeGreaterThan(2);
     c.montrerZone('BRA', HV, REGLAGE);
     const fin = c.contexteFinal().t;
-    jouer(3000, 3496);
+    expect(c.transfo.k).toBe(1);
+    for (let ts = 3000; ts <= 3496; ts += 16) {
+      image(ts);
+      expect([ts, c.transfo.k <= 1]).toEqual([ts, true]);
+    }
     image(3512);
     expect(c.transfo.k).toBe(1);
+    expect(Math.abs(milieu(boite(c, contourPays('BRA')))[0] - L / 2)).toBeLessThan(2);
     jouer(3528, 5100);
     expect(c.contexte().t).toEqual(fin);
   });

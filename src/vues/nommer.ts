@@ -100,7 +100,7 @@ export interface CrochetsNommer {
  * zoom lent ») : la carte repart de la vue du monde centrée sur elle, puis
  * zoome lentement jusqu'à ce qu'elle occupe un tiers de la carte au-dessus
  * de la barre (montrerZone, ZONE_MONTREE) ; une question suivante l'arrête
- * où il en est et repart de là. `montrer` faux : la zone rallumée sans
+ * où il en est et repart de la vue du monde. `montrer` faux : la zone rallumée sans
  * relancer le zoom (la carte retournée révélée). Sur l'île, le cadrage
  * d'avant, `montrer` sans effet : au zoom 1 rien ne bouge (toute l'île est
  * au-dessus de la barre, chaque commune ≥ 15 px) ; la carte vole jusqu'à la
