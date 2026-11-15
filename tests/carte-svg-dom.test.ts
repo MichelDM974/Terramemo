@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Carte } from '../src/map/carte';
+import { Carte, type ReglageZone } from '../src/map/carte';
 import { UNITE } from '../src/map/traces';
 import { CHOIX_LIGNES, lignesDe, NOM } from '../src/map/lignes';
 import { textes } from '../src/vues/textes';
@@ -808,5 +808,89 @@ describe('Carte SVG : lignes de repère (#11)', () => {
     expect(css).toMatch(/\.ligne-repere \{ fill: none; stroke: var\(--ligne-repere\);[^}]*pointer-events: none; \}/);
     expect(css).toContain('.allumee.choisi { fill: var(--accent); }');
     expect(css).toMatch(new RegExp(`\\.ligne-nom \\{[^}]*line-height: ${NOM.hauteur}px;`));
+  });
+});
+
+describe('Carte (SVG) : montrerZone, le zoom lent sur la zone (décision « Zone allumée montrée par un zoom lent »)', () => {
+  // Les réglages du mécanisme, à part de ceux de la vue (ZONE_MONTREE, nommer.ts) : les ajuster ne change pas ces tests.
+  const REGLAGE: ReglageZone = { centrer_ms: 500, zoomer_ms: 1500, part: 1 / 3, zoom_max: 40 };
+  /** L'emprise à l'écran du polygone principal, dans le contexte du moment. */
+  const boite = (c: Carte, id: string) => {
+    const ctx = c.contexte();
+    const e = entite(id);
+    return empriseEcran(anneauPrincipal(e.forme, e.pays.point), (ll) => {
+      const b = ctx.proj(ll);
+      return b ? versEcran(ctx.t, b[0], b[1]) : null;
+    })!;
+  };
+  const milieu = ([x0, y0, x1, y1]: number[]): [number, number] => [(x0! + x1!) / 2, (y0! + y1!) / 2];
+  const part = ([x0, y0, x1, y1]: number[]) => Math.max((x1! - x0!) / L, (y1! - y0!) / HV);
+  const auMilieu = (c: Carte, id: string, tol = 1) => {
+    const [x, y] = milieu(boite(c, id));
+    return Math.abs(x - L / 2) < tol && Math.abs(y - HV / 2) < tol;
+  };
+
+  it('la France : centrée au zoom 1 en 0,5 s, puis grossie sur place (le point fixe de d3-zoom) jusqu’au tiers de la carte', () => {
+    const { c, hote } = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    expect(fin.k).toBeGreaterThan(2);
+    vi.advanceTimersByTime(520);
+    expect(c.contexte().t.k).toBeCloseTo(1, 2);
+    expect(auMilieu(c, 'FRA')).toBe(true);
+    let k = c.contexte().t.k;
+    for (let ms = 600; ms < 2000; ms += 100) {
+      vi.advanceTimersByTime(100);
+      expect([ms, auMilieu(c, 'FRA'), c.contexte().t.k >= k, hote.classList.contains('en-vol')]).toEqual([ms, true, true, true]);
+      k = c.contexte().t.k;
+    }
+    vi.advanceTimersByTime(200);
+    expect(c.contexte().t.k).toBeCloseTo(fin.k, 9);
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+    expect(part(boite(c, 'FRA'))).toBeCloseTo(1 / 3, 2);
+    expect(hote.classList.contains('en-vol')).toBe(false);
+  });
+
+  it('immense (la Russie) : centrée, à peine zoomée ; le Vatican : au zoom maximal', () => {
+    const { c } = carte();
+    c.montrerZone('RUS', HV, REGLAGE);
+    expect(c.contexteFinal().t.k).toBeLessThan(1.1);
+    vi.advanceTimersByTime(2200);
+    expect(auMilieu(c, 'RUS', 2)).toBe(true);
+    c.montrerZone('VAT', HV, REGLAGE);
+    expect(c.contexteFinal().t.k).toBe(REGLAGE.zoom_max);
+    vi.advanceTimersByTime(2200);
+    expect(c.contexte().t.k).toBeCloseTo(REGLAGE.zoom_max, 9);
+  });
+
+  it('interrompu proprement : un geste au centrage annule le zoom lent ; zoomer() en plein zoom l’arrête ; la question suivante repart de là', () => {
+    let { c, hote } = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    vi.advanceTimersByTime(250);
+    molette(hote);
+    vi.advanceTimersByTime(3000);
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+    expect(c.contexte().t.k).toBeLessThan(2);
+    ({ c, hote } = carte());
+    c.montrerZone('FRA', HV, REGLAGE);
+    vi.advanceTimersByTime(1200);
+    c.zoomer({ k: 2, x: 0, y: 0 });
+    vi.advanceTimersByTime(3000);
+    expect(c.contexte().t).toEqual({ k: 2, x: 0, y: 0 });
+    c.montrerZone('FRA', HV, REGLAGE);
+    vi.advanceTimersByTime(1200);
+    c.montrerZone('EGY', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    vi.advanceTimersByTime(3000);
+    expect(c.contexte().t).toEqual(fin);
+    expect(auMilieu(c, 'EGY')).toBe(true);
+  });
+
+  it('le système réduit les animations : la vue finale d’emblée', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    const { c } = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    expect(part(boite(c, 'FRA'))).toBeCloseTo(1 / 3, 2);
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
   });
 });

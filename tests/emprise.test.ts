@@ -4,9 +4,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { assembler } from '../src/map/donnees';
-import { anneauPrincipal, empriseAnneau, empriseGrappe, GEANT_KM2, unionEmprises } from '../src/map/geo';
+import { anneauPrincipal, empriseAnneau, empriseGrappe, GEANT_KM2, unionEmprises, viserPart, versEcran } from '../src/map/geo';
 import type { Pays } from '../src/map/types';
-import { cadre, projectionEcran, viserEmprise } from '../src/map/vue';
+import { cadre, projectionEcran, viserEmprise, zoomAutour } from '../src/map/vue';
 import { grappesPays } from '../src/srs/grappes';
 
 const lire = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
@@ -82,5 +82,34 @@ describe('emprises', () => {
       const v = viserEmprise(cadre(384, 723), u, 40, 500);
       expect(Math.abs(v.r) > 90, `${g.id} r=${v.r}`).toBe(true);
     }
+  });
+});
+
+describe('le cadrage du zoom lent sur une zone (décision « Zone allumée montrée par un zoom lent »)', () => {
+  it('viserPart : le milieu de l’emprise au milieu de la partie visible, au zoom 1 puis au tiers sur le côté le plus serré, borné à [1, kMax]', () => {
+    const milieuA = (t: { k: number; x: number; y: number }, b: [number, number, number, number]) => versEcran(t, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2);
+    // 30 × 10 px au zoom 1, dans 300 × 200 : la largeur décide (300 / 30 = 10 < 200 / 10 = 20).
+    const b: [number, number, number, number] = [100, 50, 130, 60];
+    const { centre, fin } = viserPart([110, 55], b, 0, 300, 200, 1 / 3, 40);
+    expect(centre.k).toBe(1);
+    expect(fin.k).toBeCloseTo(10 / 3, 12);
+    for (const t of [centre, fin]) expect(milieuA(t, b)).toEqual([150, 100]);
+    // Immense : jamais dézoomée ; minuscule : kMax ; sans tracé, sa taille.
+    expect(viserPart([0, 0], [0, 0, 250, 20], 0, 300, 200, 1 / 3, 40).fin.k).toBe(1);
+    expect(viserPart([0, 0], [0, 0, 0.01, 0.01], 0, 300, 200, 1 / 3, 40).fin.k).toBe(40);
+    expect(viserPart([0, 0], null, 2, 300, 200, 1 / 3, 40).fin.k).toBeCloseTo(100 / 3, 12);
+  });
+
+  it('zoomAutour : des deux vues aux deux bouts, le zoom géométrique entre, le point fixe à la même ordonnée', () => {
+    const a = { r: 12, k: 1, y: 80 };
+    const b = { r: 12, k: 16, y: -1000 };
+    expect(zoomAutour(a, b, 0)).toEqual(a);
+    expect(zoomAutour(a, b, 1)).toEqual(b);
+    const m = zoomAutour(a, b, 0.5);
+    expect(m.k).toBeCloseTo(4, 12);
+    expect(m.r).toBe(12);
+    // Y − k·cy pareil aux deux bouts et au milieu.
+    const cy = (a.y - b.y) / (b.k - a.k);
+    expect(m.y + m.k * cy).toBeCloseTo(a.y + a.k * cy, 9);
   });
 });

@@ -76,6 +76,35 @@ export function viser(b: readonly [number, number], taille1: number, l: number, 
 }
 
 /**
+ * Le cadrage d'une zone montrée par un zoom lent (décision « Zone allumée
+ * montrée par un zoom lent ») : le milieu de son emprise boite (en base) au
+ * centre de l × h (h : la partie visible, au-dessus d'une barre), d'abord au
+ * zoom 1 (centre : la vue du monde centrée sur elle), puis au zoom où elle
+ * occupe `part` de la carte sur son côté le plus serré (fin), borné à
+ * [1, kMax] : une zone immense (la Russie, le Pacifique) n'est que centrée,
+ * jamais dézoomée ; une minuscule (le Vatican) s'arrête à kMax, sa région
+ * autour. Sans boite (zone sans tracé) : son point b, sa taille taille1 au
+ * zoom 1 (côté de sa plus grande partie, comme viser).
+ */
+export function viserPart(
+  b: readonly [number, number],
+  boite: Rect | null,
+  taille1: number,
+  l: number,
+  h: number,
+  part: number,
+  kMax: number,
+): { centre: Transfo; fin: Transfo } {
+  const [cx, cy] = boite ? [(boite[0] + boite[2]) / 2, (boite[1] + boite[3]) / 2] : b;
+  const f = boite
+    ? Math.min(boite[2] > boite[0] ? l / (boite[2] - boite[0]) : Infinity, boite[3] > boite[1] ? h / (boite[3] - boite[1]) : Infinity)
+    : Math.min(l, h) / Math.max(taille1, 1e-6);
+  const k = Math.min(kMax, Math.max(1, part * f));
+  const vue = (kk: number): Transfo => ({ k: kk, x: l / 2 - kk * cx, y: h / 2 - kk * cy });
+  return { centre: vue(1), fin: vue(k) };
+}
+
+/**
  * Point écran → [lon, lat], ou null hors de la sphère. L'inverse d'Equal Earth
  * rend des valeurs fausses hors du contour : on vérifie par l'aller-retour.
  */

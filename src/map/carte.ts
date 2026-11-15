@@ -7,14 +7,14 @@ import { select } from 'd3-selection';
 import 'd3-transition'; // selection.transition(), pour le vol de montrer()
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom';
 import type { DonneesCarte } from './donnees';
-import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, emprisesSeCroisent, recentrerBande, versEcran, viser, type Emprise } from './geo';
+import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, emprisesSeCroisent, recentrerBande, versEcran, viser, viserPart, type Emprise } from './geo';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { acceptesDe } from './acceptes';
 import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from './pick';
 import { creerProjection, garderVue } from './projection';
 import { fabriqueLignes, fabriqueTraces, UNITE } from './traces';
 import { SuiviPointeurs } from './geste';
-import { indexLieux, type LieuIndexe } from './lieux';
+import { contourZone, indexLieux, type LieuIndexe } from './lieux';
 import { coordonnees, placerNoms, repere, type Boite, type LigneRepere } from './lignes';
 import { CoucheNoms } from './noms-lignes';
 import { densifierCoutures, empriseMer, formeContour, lignesContour, zonesAllumees, type CoucheMers } from './mers';
@@ -65,6 +65,22 @@ export interface FinDeGeste {
   image: Promise<number>;
 }
 
+/**
+ * Le zoom lent sur la zone allumée d'une question (décision « Zone allumée
+ * montrée par un zoom lent ») : ses réglages, choisis par la vue (ZONE_MONTREE,
+ * vues/nommer.ts), à ajuster après l'essai sur le téléphone.
+ */
+export interface ReglageZone {
+  /** Durée du centrage (ms) : de la vue du moment à la vue du monde (zoom 1) centrée sur la zone. */
+  centrer_ms: number;
+  /** Durée du zoom lent (ms) qui suit, sur place, jusqu'à la vue finale. */
+  zoomer_ms: number;
+  /** Part de la partie visible (au-dessus de la barre) qu'occupe la zone à la fin, sur son côté le plus serré. */
+  part: number;
+  /** Zoom final au plus : une zone minuscule (le Vatican) garde sa région autour. */
+  zoom_max: number;
+}
+
 export interface EcouteGestes {
   /** Événement start de d3-zoom : la transformation au début du geste, avant tout mouvement. */
   debut?(t: Transfo, source: Event | null): void;
@@ -108,6 +124,19 @@ export interface CarteAffichee {
    * visible hVisible, aussi zoomée que possible (ZOOM_MAX_MONTRER au plus).
    */
   cadrer(e: Emprise, hVisible?: number): void;
+  /**
+   * La zone allumée d'une question du monde (décision « Zone allumée montrée
+   * par un zoom lent ») : un vol de la vue du moment à la vue du monde (zoom
+   * 1) centrée sur elle dans la partie visible hVisible (r.centrer_ms), puis
+   * un zoom lent sur place jusqu'à ce qu'elle occupe r.part de la carte
+   * (r.zoomer_ms, au zoom r.zoom_max au plus ; aucun si elle est déjà plus
+   * grande : centrée seulement). Son emprise : le polygone principal d'un
+   * pays, l'emprise entière d'une mer (contourZone). contexteFinal rend la
+   * vue finale dès l'appel. Un geste, zoomer() ou un autre vol l'arrêtent où
+   * il en est, zoom lent compris ; la vue finale d'emblée si le système
+   * réduit les animations.
+   */
+  montrerZone(id: string, hVisible: number, r: ReglageZone): void;
   zoomer(t: Transfo): void;
   /**
    * Boutons + et − et touches du clavier (#23) : un cran de zoom (facteur 2
@@ -499,6 +528,43 @@ export class Carte implements CarteAffichee {
   cadrer(e: Emprise, hVisible?: number): void {
     const t = this.viserEmprise(e, this.cadre.zoomMaxMontrer, hVisible ?? this.taille.h);
     if (t) this.voler(t);
+  }
+
+  montrerZone(id: string, hVisible: number, r: ReglageZone): void {
+    const li = this.lieux.get(id);
+    // Une mer en bande de 360° recentrée sur le méridien central de la projection, comme vise().
+    const z = li && contourZone(li, this.o.donnees.mers.map((m) => m.pays), -(this.proj.rotate()[0] ?? 0));
+    const b = z && this.proj(z.point);
+    if (!li || !z || !b) return;
+    const h = Math.max(1, Math.min(hVisible, this.taille.h));
+    const boite = empriseEcran(z.contour, (ll) => this.proj(ll) as [number, number] | null);
+    const { centre, fin } = viserPart([b[0], b[1]], boite, tailleEcranPx(li.lieu, this.proj.scale(), 1), this.taille.l, h, r.part, Math.min(r.zoom_max, this.cadre.zoomMax));
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.zoomer(fin);
+    // Comme voler() : l'arrivée (la vue finale) vaut jusqu'à la fin du zoom lent, ou l'interruption de l'un ou l'autre.
+    const arrivee = { ...fin };
+    this.arrivee = arrivee;
+    const fini = () => {
+      if (this.arrivee === arrivee) this.arrivee = null;
+    };
+    const enVol = () => this.hote.classList.add('en-vol');
+    const centrage = select(this.hote)
+      .transition()
+      .duration(r.centrer_ms)
+      .on('start', enVol)
+      .on('interrupt.arrivee cancel.arrivee', fini)
+      .call(this.comportement.transform, zoomIdentity.translate(centre.x, centre.y).scale(centre.k));
+    if (fin.k <= centre.k) {
+      centrage.on('end.arrivee', fini);
+      return;
+    }
+    // Enchaîné au centrage : interrompu (geste, zoomer, autre vol), d3-transition l'annule. Le point fixe de
+    // d3-zoom au milieu de la zone : elle grossit sur place, sans le détour de van Wijk et Nuij par le centre de la carte.
+    centrage
+      .transition()
+      .duration(r.zoomer_ms)
+      .on('start', enVol)
+      .on('end.arrivee interrupt.arrivee cancel.arrivee', fini)
+      .call(this.comportement.transform, zoomIdentity.translate(fin.x, fin.y).scale(fin.k), [this.taille.l / 2, h / 2]);
   }
 
   /** La transformation qui met l'emprise entière dans l × h (h : la partie visible), son milieu au centre, au zoom kMax au plus. */

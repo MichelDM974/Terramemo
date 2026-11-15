@@ -15,7 +15,7 @@
 // à 30°, 0,75 à 60°, 0,59 au pôle).
 import { geoEqualEarth, geoEqualEarthRaw, type GeoProjection } from 'd3-geo';
 import type { Position } from 'geojson';
-import { centreEmprise, contourEmprise, empriseEcran, versEcran, viser, type Emprise } from './geo';
+import { centreEmprise, contourEmprise, empriseEcran, versEcran, viser, viserPart, type Emprise } from './geo';
 import { creerProjection } from './projection';
 import type { Transfo } from './types';
 
@@ -239,6 +239,52 @@ export function viserEmprise(c: Cadre, e: Emprise, kMax: number, hVisible = c.h)
     return !p || (p[1] >= -1 && p[1] <= h + 1);
   });
   return tient ? borne : viserVue(c, centreEmprise(e), 0, kMax, hVisible, contour, true);
+}
+
+/**
+ * Les deux vues du zoom lent sur une zone (viserPart, geo.ts), dans la
+ * projection tournée sur la longitude de son point : centre, la vue du monde
+ * (zoom 1) tournée et décalée pour mettre la zone au milieu de l × hVisible ;
+ * fin, la même au zoom où elle occupe `part` de la carte (kMax au plus).
+ * Comme viserVue, le décalage horizontal devient une rotation (la même aux
+ * deux vues : zoomAutour passe de l'une à l'autre sans tourner), y libre
+ * (une zone du sud monte au-dessus de la barre). contour : le polygone
+ * principal ou l'emprise d'une mer (contourZone, lieux.ts) ; vide, la taille.
+ */
+export function viserZone(
+  c: Cadre,
+  point: readonly [number, number],
+  contour: readonly Position[],
+  taille1: number,
+  part: number,
+  kMax: number,
+  hVisible = c.h,
+): { centre: VueGlobe; fin: VueGlobe } {
+  const h = Math.max(1, Math.min(hVisible, c.h));
+  const proj = projectionDe(normaliserLon(point[0]), c);
+  const b = proj([point[0], point[1]]) ?? [c.tx, c.ty];
+  const z = viserPart([b[0], b[1]], empriseEcran(contour, (ll) => proj(ll)), taille1, c.l, h, part, kMax);
+  const vue = (t: Transfo): VueGlobe => {
+    const [sx, sy] = versEcran(t, b[0], b[1]);
+    return placer(c, point, sx, sy, t.k, true);
+  };
+  return { centre: vue(z.centre), fin: vue(z.fin) };
+}
+
+/**
+ * Le zoom de a vers b (même rotation, celle de viserZone) autour du point de
+ * l'écran qui ne bouge ni dans l'une ni dans l'autre (le milieu de la zone) :
+ * k géométrique en e (0 → a, 1 → b), y affine en k. La zone grossit sur
+ * place, au lieu du chemin de van Wijk et Nuij (versPlan), qui part du centre
+ * de toute la carte et la ferait glisser vers la barre puis revenir.
+ */
+export function zoomAutour(a: VueGlobe, b: VueGlobe, e: number): VueGlobe {
+  if (e >= 1) return b;
+  if (b.k === a.k) return { r: b.r, k: a.k, y: a.y + (b.y - a.y) * e };
+  const k = a.k * Math.pow(b.k / a.k, e);
+  // Le point fixe à l'ordonnée Y, de base cy : y = Y − k·cy aux deux bouts.
+  const cy = (a.y - b.y) / (b.k - a.k);
+  return { r: b.r, k, y: a.y + (a.k - k) * cy };
 }
 
 /**

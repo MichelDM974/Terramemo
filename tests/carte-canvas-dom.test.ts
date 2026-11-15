@@ -5,9 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHOIX_LIGNES, lignesDe } from '../src/map/lignes';
 import { textes } from '../src/vues/textes';
 import { aCoupure, BUDGET_SOMMETS, calque, CarteCanvas, sommetsVisibles, TRAIT_FAUX_PX, type Calque, type CalquesMers, type Peintre } from '../src/map/carte-canvas';
+import type { ReglageZone } from '../src/map/carte';
 import { image as imageTrace, MARGE_PX } from '../src/map/dessin';
 import { assembler, formesLegeres, type DonneesCarte } from '../src/map/donnees';
-import { assemblerMers, zonesAllumees } from '../src/map/mers';
+import { assemblerMers, empriseMer, zonesAllumees } from '../src/map/mers';
 import { calculerPastilles } from '../src/map/pastilles';
 import { teintesDemo } from '../src/map/teintes';
 import { idsJouables } from '../src/terrains';
@@ -1403,5 +1404,181 @@ describe('lignes de repère sur la carte qui tourne (#11)', () => {
     expect(noms?.hidden).toBe(true);
     jouer(132, 600);
     expect(noms?.hidden).toBe(false);
+  });
+});
+
+describe('CarteCanvas : montrerZone, le zoom lent sur la zone (décision « Zone allumée montrée par un zoom lent »)', () => {
+  // Les réglages du mécanisme, à part de ceux de la vue (ZONE_MONTREE, nommer.ts) : les ajuster ne change pas ces tests.
+  const REGLAGE: ReglageZone = { centrer_ms: 500, zoomer_ms: 1500, part: 1 / 3, zoom_max: 40 };
+  const prive = (c: CarteCanvas) => c as unknown as { v: VueGlobe; vol: unknown; enMouvement: boolean; debuter(s: Event, souris: number | null): void };
+  /** L'emprise à l'écran d'un contour (polygone principal, emprise d'une mer), dans le contexte du moment. */
+  const boite = (c: CarteCanvas, contour: readonly (readonly number[])[]) => {
+    const ctx = c.contexte();
+    return empriseEcran(contour, (ll) => {
+      const b = ctx.proj(ll);
+      return b ? versEcran(ctx.t, b[0], b[1]) : null;
+    })!;
+  };
+  const contourPays = (id: string) => anneauPrincipal(entite(id).forme, entite(id).pays.point);
+  /** Où est le point d'étiquette de la zone à l'écran. */
+  const pointDe = (c: CarteCanvas, id: string): [number, number] => {
+    const ctx = c.contexte();
+    const b = ctx.proj(entite(id).pays.point) as [number, number];
+    return versEcran(ctx.t, b[0], b[1]);
+  };
+  /** Part de la carte visible qu'occupe l'emprise, sur son côté le plus serré. */
+  const part = ([x0, y0, x1, y1]: number[]) => Math.max((x1! - x0!) / L, (y1! - y0!) / HV);
+  const milieu = ([x0, y0, x1, y1]: number[]): [number, number] => [(x0! + x1!) / 2, (y0! + y1!) / 2];
+
+  it('la France depuis la vue du monde : centrée en 0,5 s au zoom 1, puis grossie sur place en 1,5 s jusqu’au tiers de la carte ; la vue finale annoncée dès l’appel', () => {
+    const c = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    expect(fin.k).toBeGreaterThan(2);
+    jouer(0, 496);
+    expect(prive(c).vol).not.toBeNull();
+    image(512);
+    // Le centrage fini : le monde au zoom 1, la France au milieu de la partie visible.
+    expect(c.transfo.k).toBe(1);
+    const [mx, my] = milieu(boite(c, contourPays('FRA')));
+    expect(Math.abs(mx - L / 2)).toBeLessThan(2);
+    expect(Math.abs(my - HV / 2)).toBeLessThan(2);
+    // Le zoom lent : la France grossit sur place (au milieu de la partie visible), le zoom ne fait que croître,
+    // toujours en mouvement (la carte allégée, aucune image complète entre le centrage et le zoom).
+    let k = 1;
+    for (let ts = 528; ts < 2016; ts += 16) {
+      image(ts);
+      const [x, y] = milieu(boite(c, contourPays('FRA')));
+      expect([ts, Math.abs(x - L / 2) < 2 && Math.abs(y - HV / 2) < 2, c.transfo.k >= k, prive(c).enMouvement]).toEqual([ts, true, true, true]);
+      k = c.transfo.k;
+    }
+    image(2016);
+    expect(prive(c).vol).toBeNull();
+    expect(prive(c).enMouvement).toBe(false);
+    expect(c.contexte().t).toEqual(fin);
+    const b = boite(c, contourPays('FRA'));
+    expect(part(b)).toBeCloseTo(1 / 3, 2);
+    expect(Math.abs(milieu(b)[0] - L / 2)).toBeLessThan(2);
+    expect(Math.abs(milieu(b)[1] - HV / 2)).toBeLessThan(2);
+  });
+
+  it('immense (la Russie, déjà au tiers de la carte au zoom 1) : centrée, à peine zoomée, jamais dézoomée ; minuscule (le Vatican) : arrêtée au zoom maximal, sa région autour', () => {
+    const c = carte();
+    c.zoomerSur('BRA');
+    c.montrerZone('RUS', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    expect(fin.k).toBeGreaterThanOrEqual(1);
+    expect(fin.k).toBeLessThan(1.1);
+    for (let ts = 0; ts <= 2100; ts += 16) {
+      image(ts);
+      expect(c.transfo.k).toBeGreaterThanOrEqual(1);
+    }
+    expect(prive(c).vol).toBeNull();
+    expect(c.contexte().t).toEqual(fin);
+    expect(Math.abs(milieu(boite(c, contourPays('RUS')))[0] - L / 2)).toBeLessThan(2);
+    c.montrerZone('VAT', HV, REGLAGE);
+    expect(c.contexteFinal().t.k).toBe(REGLAGE.zoom_max);
+    jouer(1000, 3100);
+    expect(c.transfo.k).toBe(REGLAGE.zoom_max);
+    const [x, y] = pointDe(c, 'VAT');
+    expect(Math.abs(x - L / 2)).toBeLessThan(2);
+    expect(Math.abs(y - HV / 2)).toBeLessThan(2);
+  });
+
+  it.each(['FJI', 'KIR', 'NZL'])('%s, près de l’antiméridien : la vue tournée vers elle, d’un seul tenant au milieu de la partie visible', (id) => {
+    const c = carte();
+    c.montrerZone(id, HV, REGLAGE);
+    jouer(0, 2100);
+    const v = prive(c).v;
+    expect([v.r, v.k, v.y].every(Number.isFinite)).toBe(true);
+    expect(Math.abs(ecartLon(v.r, entite(id).pays.point[0]))).toBeLessThan(15);
+    const b = boite(c, contourPays(id));
+    expect(b[2] - b[0]).toBeLessThan(L / 2);
+    expect(Math.abs(milieu(b)[0] - L / 2)).toBeLessThan(3);
+    expect(Math.abs(milieu(b)[1] - HV / 2)).toBeLessThan(3);
+  });
+
+  it('sous la barre (l’Afrique du Sud, l’Argentine) : montée au milieu de la partie visible, la vue libre', () => {
+    for (const id of ['ZAF', 'ARG']) {
+      const c = carte();
+      expect(pointDe(c, id)[1]).toBeGreaterThan(HV / 2);
+      c.montrerZone(id, HV, REGLAGE);
+      jouer(0, 2100);
+      const b = boite(c, contourPays(id));
+      expect([id, b[1] >= 0 && b[3] <= HV, Math.abs(milieu(b)[1] - HV / 2) < 2]).toEqual([id, true, true]);
+    }
+  });
+
+  it('depuis la vue zoomée d’une question précédente : de retour au zoom 1 à la fin du centrage, puis le zoom lent', () => {
+    const c = carte();
+    c.montrerZone('JPN', HV, REGLAGE);
+    jouer(0, 2100);
+    expect(c.transfo.k).toBeGreaterThan(2);
+    c.montrerZone('BRA', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    jouer(3000, 3496);
+    image(3512);
+    expect(c.transfo.k).toBe(1);
+    jouer(3528, 5100);
+    expect(c.contexte().t).toEqual(fin);
+  });
+
+  it('interrompu proprement : un geste au centrage annule le zoom lent ; zoomer() ou la question suivante en plein zoom l’arrêtent où il en est', () => {
+    let c = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    jouer(0, 240);
+    prive(c).debuter({} as Event, null);
+    const arret = c.contexte().t;
+    expect(c.contexteFinal().t).toEqual(arret);
+    jouer(256, 3000);
+    expect(c.contexte().t).toEqual(arret);
+    expect(c.transfo.k).toBeLessThanOrEqual(1);
+    c = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    jouer(0, 1200);
+    c.zoomer({ k: 2, x: 0, y: 0 });
+    jouer(1216, 3000);
+    expect(c.transfo.k).toBe(2);
+    expect(prive(c).vol).toBeNull();
+    c = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    jouer(0, 1200);
+    c.montrerZone('EGY', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    jouer(1216, 4000);
+    expect(c.contexte().t).toEqual(fin);
+    expect(Math.abs(milieu(boite(c, contourPays('EGY')))[0] - L / 2)).toBeLessThan(2);
+  });
+
+  it('le système réduit les animations : la vue finale d’emblée, sans vol', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    const c = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    expect(prive(c).vol).toBeNull();
+    expect(part(boite(c, contourPays('FRA')))).toBeCloseTo(1 / 3, 2);
+  });
+
+  describe('une mer, par son emprise entière (contourZone)', () => {
+    const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+    const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+    const contourMer = (id: string) => contourEmprise(empriseMer(id, couche.mers.map((m) => m.pays))!);
+
+    it('la Méditerranée au tiers de la carte ; le Pacifique centré seulement ; la mer de Béring, à cheval sur l’antiméridien, d’un seul tenant au milieu', () => {
+      for (const [id, zoomee] of [
+        ['medit', true],
+        ['pacif', false],
+        ['bering', true],
+      ] as const) {
+        const c = carte({ donnees: { ...donnees, mers: [] } });
+        c.prendreMers(couche);
+        c.montrerZone(id, HV, REGLAGE);
+        expect([id, c.contexteFinal().t.k > 1]).toEqual([id, zoomee]);
+        jouer(0, 2100);
+        const b = boite(c, contourMer(id));
+        expect([id, Math.abs(milieu(b)[0] - L / 2) < 3, Math.abs(milieu(b)[1] - HV / 2) < 3]).toEqual([id, true, true]);
+        if (zoomee) expect([id, part(b)]).toEqual([id, expect.closeTo(1 / 3, 1)]);
+        else expect(part(b)).toBeGreaterThan(1 / 3);
+      }
+    });
   });
 });

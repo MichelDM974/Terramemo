@@ -26,12 +26,12 @@
 // (relais-webgl.ts) à la même vue, geste en cours compris : seul l'élément
 // canvas change, l'état de la carte reste ici.
 import { interpolateZoom } from 'd3-interpolate';
-import { DUREE_CRAN_MS, DUREE_TOUT_MS, type ChronoRendu, type CarteAffichee, type OptionsCarte } from './carte';
+import { DUREE_CRAN_MS, DUREE_TOUT_MS, type ChronoRendu, type CarteAffichee, type OptionsCarte, type ReglageZone } from './carte';
 import type { DonneesCarte } from './donnees';
 import { ancre, image, MARGE_PX, minuscule, passeCoupure, preparer, SEUIL_PX, TAILLE_MIN_PX, tracerOvale, tracerPartie, visible, type ImageTrace, type Partie } from './dessin';
 import { anneauPrincipal, RAYON_TERRE_KM, recentrerBande, versEcran, type Emprise } from './geo';
 import { SuiviPointeurs } from './geste';
-import { indexLieux, type LieuIndexe } from './lieux';
+import { contourZone, indexLieux, type LieuIndexe } from './lieux';
 import { placerNoms, repere, tracerLignes, type Boite, type LigneRepere } from './lignes';
 import { CoucheNoms } from './noms-lignes';
 import { densifierCoutures, empriseMer, formeContour, zonesAllumees, type CoucheMers } from './mers';
@@ -58,7 +58,9 @@ import {
   versPlan,
   viserEmprise,
   viserVue,
+  viserZone,
   vueDeTransfo,
+  zoomAutour,
   type Cadre,
   type VueGlobe,
 } from './vue';
@@ -137,6 +139,13 @@ export type FabriquePeintre = (canvas: HTMLCanvasElement, o: { donnees: DonneesC
 
 export const ZOOM_MAX = 400;
 const ZOOM_MAX_MONTRER = 40;
+
+/** Une étape enchaînée à un vol (le zoom lent de montrerZone) : sa vue à l'avancement e, sa durée, son arrivée. */
+interface EtapeVol {
+  vue: (e: number) => VueGlobe;
+  duree: number;
+  cible: VueGlobe;
+}
 const DUREE_MONTRER_MS = { min: 600, max: 2000 } as const;
 /** Pas des hachures à l'écran (px), comme le SVG. */
 const PAS_HACHURES = 6;
@@ -495,8 +504,13 @@ export class CarteCanvas implements CarteAffichee {
     souris: number | null;
     molette: number;
   } | null = null;
-  /** Vol de montrer() en cours, avancé par l'image du dessin (une seule boucle d'images). */
-  private vol: { interp: (u: number) => number[]; duree: number; t0: number | null; cible: VueGlobe; libre: boolean } | null = null;
+  /**
+   * Vol de montrer() en cours, avancé par l'image du dessin (une seule boucle
+   * d'images) : vue(e), la vue à l'avancement e (0 : départ, 1 : cible) ;
+   * suite, l'étape enchaînée à son arrivée (le zoom lent de montrerZone),
+   * abandonnée avec lui.
+   */
+  private vol: { vue: (e: number) => VueGlobe; duree: number; t0: number | null; cible: VueGlobe; libre: boolean; suite: EtapeVol | null } | null = null;
   /** Dernier dessin : compteurs, pour le pilote et les mesures. */
   dernier: ({ ms: number } & StatsDessin) | null = null;
 
@@ -720,7 +734,7 @@ export class CarteCanvas implements CarteAffichee {
   }
 
   contexteFinal(): ContexteCarte {
-    const cible = this.vol?.cible;
+    const cible = this.arriveeVol;
     if (!cible) return this.contexte();
     return { ...this.contexte(), proj: projectionDe(cible.r, this.c), t: transfoDe(cible, this.c) };
   }
@@ -764,9 +778,32 @@ export class CarteCanvas implements CarteAffichee {
     this.voler(viserEmprise(this.c, e, ZOOM_MAX_MONTRER, hVisible ?? this.c.h));
   }
 
+  /**
+   * La zone d'une question (CarteAffichee.montrerZone) : le centrage, un vol
+   * de van Wijk et Nuij jusqu'à la vue du monde tournée vers elle, puis le
+   * zoom lent sur place (zoomAutour, même rotation), enchaîné à son arrivée
+   * dans la même boucle d'images : la carte allégée d'un bout à l'autre,
+   * aucune image complète entre les deux.
+   */
+  montrerZone(id: string, hVisible: number, r: ReglageZone): void {
+    const li = this.lieux.get(id);
+    const z = li && contourZone(li, this.o.donnees.mers.map((m) => m.pays), (this.arriveeVol ?? this.v).r);
+    if (!li || !z) return;
+    const { centre, fin } = viserZone(this.c, z.point, z.contour, tailleEcranPx(li.lieu, this.c.s, 1), r.part, Math.min(r.zoom_max, ZOOM_MAX), hVisible);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.poserProgramme(fin, true);
+    this.voler(centre, { min: r.centrer_ms, max: r.centrer_ms });
+    // Une zone déjà plus grande que sa part : centrée seulement, jamais dézoomée.
+    if (this.vol && fin.k > centre.k) this.vol.suite = { vue: (e) => zoomAutour(centre, fin, e), duree: r.zoomer_ms, cible: fin };
+  }
+
+  /** Où le vol en cours s'arrêtera, étape enchaînée comprise (null : pas de vol). */
+  private get arriveeVol(): VueGlobe | null {
+    return this.vol ? (this.vol.suite?.cible ?? this.vol.cible) : null;
+  }
+
   zoomerDe(facteur: number): void {
     if (this.geste) return;
-    const base = this.vol?.cible ?? this.v;
+    const base = this.arriveeVol ?? this.v;
     const k = bornerK(base.k * facteur, ZOOM_MAX);
     if (k === base.k) return;
     // Le point au centre de la carte y reste (sur son parallèle, comme la molette), la vue bornée comme après un geste.
@@ -776,7 +813,7 @@ export class CarteCanvas implements CarteAffichee {
 
   vueEntiere(): void {
     if (this.geste) return;
-    const base = this.vol?.cible ?? this.v;
+    const base = this.arriveeVol ?? this.v;
     // La vue du départ (constructeur) : le méridien du segment Projection, au zoom 1.
     const depart: VueGlobe = { r: -ROTATIONS[this.o.projection][0], k: 1, y: bornerY(this.c, 1, 0) };
     if (base.k === depart.k && base.y === depart.y && ecartLon(base.r, depart.r) === 0) return;
@@ -794,7 +831,8 @@ export class CarteCanvas implements CarteAffichee {
     const depart = { ...this.v };
     const arrivee = { ...cible, r: depart.r + ecartLon(depart.r, cible.r) };
     const interp = interpolateZoom(versPlan(depart, this.c), versPlan(arrivee, this.c));
-    this.vol = { interp, duree: Math.min(duree.max, Math.max(duree.min, interp.duration)), t0: null, cible, libre };
+    const vue = (e: number) => dePlan(interp(e) as [number, number, number], this.c, ZOOM_MAX, libre);
+    this.vol = { vue, duree: Math.min(duree.max, Math.max(duree.min, interp.duration)), t0: null, cible, libre, suite: null };
     this.demander();
   }
 
@@ -807,13 +845,15 @@ export class CarteCanvas implements CarteAffichee {
     // Même courbe que d3-transition (easeCubicInOut).
     const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
     if (u >= 1) {
-      this.vol = null;
-      this.enMouvement = false;
+      const suite = vol.suite;
+      // L'étape suivante part de cette image (son départ est cette cible) : toujours en mouvement.
+      this.vol = suite ? { ...suite, t0: ts, libre: vol.libre, suite: null } : null;
+      this.enMouvement = suite !== null;
       this.poser(vol.cible, false, vol.libre);
       return;
     }
     this.enMouvement = true;
-    this.poser(dePlan(vol.interp(e) as [number, number, number], this.c, ZOOM_MAX, vol.libre), false, vol.libre);
+    this.poser(vol.vue(e), false, vol.libre);
   }
 
   /**
@@ -831,7 +871,7 @@ export class CarteCanvas implements CarteAffichee {
       // principal (une moitié du Pacifique) : la vue tourne vers son milieu ;
       // une bande de 360° (l'Arctique, l'Austral) garde la rotation du moment.
       const e = empriseMer(id, this.o.donnees.mers.map((m) => m.pays));
-      const r = (this.vol?.cible ?? this.v).r;
+      const r = (this.arriveeVol ?? this.v).r;
       return e ? viserEmprise(this.c, recentrerBande(e, r), kMax, hVisible) : null;
     }
     const anneau = entier ? anneauPrincipal(li.forme, li.lieu.point) : null;
