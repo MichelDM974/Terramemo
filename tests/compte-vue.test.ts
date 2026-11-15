@@ -8,7 +8,7 @@ import type { ChoixFusion, Comptes, EtatCompte, QuestionFusion, ResultatDeconnex
 import { CLE_SANS_SYNCHRO, COMPTES_OUVERTS } from '../src/sync/drapeaux';
 import type { ComptesSynchro, EtatSynchro, ResultatEnvoi } from '../src/sync/envoi';
 import { vueALaDemande } from '../src/vues/a-la-demande';
-import { accueilCompte, adresseGmail, detailProgres, texteGoogle, textePerdue, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
+import { accueilCompte, adresseGmail, detailProgres, texteGoogle, textePerdue, textePerduePanneau, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { remplir, textes } from '../src/vues/textes';
 import { installerDom, installerStockage, type El } from './dom-factice';
@@ -1833,5 +1833,138 @@ describe('écrans des comptes au panneau de la première ouverture', () => {
     expect(ids).toContain('compte-adresse');
     expect(ids).toContain('accueil-compte-adresse');
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+// Décision « Écran de connexion », remplacée le 15/11 : une session perdue
+// ramène le panneau (src/vues/accueil.ts), qui monte l'écran de la session
+// perdue de ces mêmes écrans (`perdue`).
+describe('écran de la session perdue au panneau', () => {
+  const PERDUE_MDP: EtatCompte = { etat: 'perdue', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'] };
+  const PERDUE_GOOGLE: EtatCompte = { etat: 'perdue', uid: 'g1', adresse: 'ana@gmail.com', fournisseurs: ['google.com'] };
+  async function monter(c: Comptes, o: { natif?: boolean; envoi?: ReturnType<typeof fauxEnvoi> } = {}) {
+    const fini = vi.fn();
+    const surEcran = vi.fn();
+    const envoi = o.envoi;
+    const a = accueilCompte({ comptes: async () => c, envoi: envoi && (async () => envoi), fini, surEcran, occupe: vi.fn(), perdue: true, natif: () => !!o.natif, exporter: async () => ({ nom: 'x.json', contenu: '{}' }) });
+    zone.append(a.element as unknown as El);
+    a.activer();
+    await attendre();
+    await attendre();
+    return { a, fini, surEcran };
+  }
+  const boutons = () => $('#accueil-compte-contenu')!.querySelectorAll('button').map((b) => b.id);
+
+  it('l’état relu (Firebase est déjà là) ; l’adresse d’abord, « Continuer sans compte », « Effacer cet appareil » en petit, sans export', async () => {
+    const c = fauxComptes(PERDUE_MDP);
+    await monter(c);
+    expect(c.etat).toHaveBeenCalledOnce();
+    expect(boutons()).toEqual(['accueil-compte-reconnecter', 'accueil-compte-sans-compte', 'accueil-compte-effacer']);
+    expect($('#accueil-compte-reconnecter')!.className).toBe('');
+    expect($('#accueil-compte-effacer')!.className).toBe('lien');
+    expect($('#accueil-compte-exporter')).toBeNull();
+    // L'accroche du panneau dit « Session expirée : reconnecte-toi. » : pas de redite sans séances à envoyer.
+    expect($('#accueil-compte-perdue')).toBeNull();
+  });
+
+  it('les séances qui attendent, dites une fois (l’accroche dit la session expirée)', async () => {
+    const e = fauxEnvoi({}, 3);
+    await monter(fauxComptes(PERDUE_MDP), { envoi: e });
+    expect(e.compter).toHaveBeenCalledWith('u1');
+    expect($('#accueil-compte-perdue')!.textContent).toBe("3 séances attendent d'être envoyées à ton compte.");
+    expect(textePerduePanneau(1)).toBe("1 séance attend d'être envoyée à ton compte.");
+  });
+
+  it('un compte Google : « Se reconnecter avec Google » seul ; dans l’APK sans le plugin, la ligne « Google arrive bientôt »', async () => {
+    await monter(fauxComptes(PERDUE_GOOGLE));
+    expect(boutons()).toEqual(['accueil-compte-google', 'accueil-compte-sans-compte', 'accueil-compte-effacer']);
+    expect($('#accueil-compte-google')!.textContent).toBe(T.google_reconnecter);
+    zone = document.createElement('main') as unknown as El;
+    googleOffert = false;
+    await monter(fauxComptes(PERDUE_GOOGLE), { natif: true });
+    expect(boutons()).toEqual(['accueil-compte-sans-compte', 'accueil-compte-effacer']);
+    expect($('#accueil-compte-google-aide')!.textContent).toBe(T.google_bientot);
+  });
+
+  it('reconnecté par l’e-mail (adresse pré-remplie, question D22 comprise) : le panneau se ferme en compte', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    questionConnexion = { sorte: 'autre_compte', reponses: 0, records: 0, seances: 2 };
+    const c = fauxComptes(PERDUE_MDP);
+    const { fini } = await monter(c);
+    $('#accueil-compte-reconnecter')!.click();
+    expect($('#accueil-compte-adresse')!.value).toBe('ana@exemple.fr');
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-connecter');
+    await attendre();
+    expect($('#accueil-compte-fusion-ajouter')).not.toBeNull();
+    expect(fini).not.toHaveBeenCalled();
+    $('#accueil-compte-fusion-ajouter')!.click();
+    await attendre();
+    await attendre();
+    await attendre();
+    expect(c.connecter).toHaveBeenCalledWith('ana@exemple.fr', 'motdepasse', expect.any(Function));
+    // Le message de la connexion (séances ajoutées) lu avant la fermeture, puis « Continuer ».
+    expect(fini).not.toHaveBeenCalled();
+    $('#accueil-compte-continuer')!.click();
+    expect(fini).toHaveBeenCalledOnce();
+    expect(fini).toHaveBeenCalledWith('compte');
+  });
+
+  it('reconnecté par Google : le panneau se ferme en compte ; « Annuler » de son formulaire d’e-mail ramène à l’écran', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    googleNouveau = false;
+    const c = fauxComptes({ etat: 'perdue', uid: 'u1', adresse: 'ana@gmail.com', fournisseurs: ['password', 'google.com'] });
+    const { fini } = await monter(c);
+    $('#accueil-compte-reconnecter')!.click();
+    $('#accueil-compte-annuler')!.click();
+    expect(boutons()).toEqual(['accueil-compte-reconnecter', 'accueil-compte-google', 'accueil-compte-sans-compte', 'accueil-compte-effacer']);
+    $('#accueil-compte-google')!.click();
+    await attendre();
+    await attendre();
+    expect(c.google).toHaveBeenCalledOnce();
+    expect(fini).toHaveBeenCalledWith('compte');
+  });
+
+  it('« Continuer sans compte » : la confirmation, puis le panneau se ferme en invité (les progrès restent)', async () => {
+    const c = fauxComptes(PERDUE_MDP);
+    const { a, fini } = await monter(c);
+    $('#accueil-compte-sans-compte')!.click();
+    expect($('#accueil-compte-contenu')!.innerText).toContain(T.continuer_sans_confirmer);
+    // Le retour d'Android ramène à l'écran de la session perdue, comme « Annuler ».
+    expect(a.retour()).toBe(true);
+    expect(boutons()).toContain('accueil-compte-sans-compte');
+    $('#accueil-compte-sans-compte')!.click();
+    $('#accueil-compte-sans-compte-ok')!.click();
+    await attendre();
+    await attendre();
+    expect(c.continuerSansCompte).toHaveBeenCalledOnce();
+    expect(c.effacerAppareil).not.toHaveBeenCalled();
+    expect(fini).toHaveBeenCalledOnce();
+    expect(fini).toHaveBeenCalledWith('invite');
+  });
+
+  it('« Effacer cet appareil » : sa confirmation (danger), puis le panneau rendu en invité', async () => {
+    const c = fauxComptes(PERDUE_MDP);
+    const { a, fini } = await monter(c);
+    $('#accueil-compte-effacer')!.click();
+    await attendre();
+    expect($('#accueil-compte-effacer-ok')!.className).toBe('danger');
+    expect(a.retour()).toBe(true);
+    expect(boutons()).toContain('accueil-compte-effacer');
+    $('#accueil-compte-effacer')!.click();
+    await attendre();
+    $('#accueil-compte-effacer-ok')!.click();
+    await attendre();
+    await attendre();
+    expect(c.effacerAppareil).toHaveBeenCalledOnce();
+    expect(fini).toHaveBeenCalledWith('invite');
+  });
+
+  it('une session déjà réglée ailleurs (autre onglet) : le panneau se ferme aussitôt, en compte ou en invité', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const a = await monter(fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] }));
+    expect(a.fini).toHaveBeenCalledWith('compte');
+    const b = await monter(fauxComptes());
+    expect(b.fini).toHaveBeenCalledWith('invite');
   });
 });

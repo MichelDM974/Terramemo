@@ -44,7 +44,12 @@
 // le charge pas, D9 b), le SDK préchauffé au premier signe d'intérêt
 // (pointeur sur Google, formulaire ouvert) ; un compte connecté choisit son
 // pseudo s'il n'en a pas (« Plus tard » possible), puis le panneau se ferme
-// (AccueilDuCompte.fini).
+// (AccueilDuCompte.fini). Session perdue (`perdue`, décision « Écran de
+// connexion » remplacée le 15/11) : le panneau monte l'écran de la session
+// perdue (l'état relu : Firebase est déjà là), sans l'export ni la ligne
+// « Session expirée » (son accroche la dit), « Effacer cet appareil » en
+// lien ; une reconnexion le ferme en compte, « Continuer sans compte » et
+// l'effacement en invité (fini('invite')).
 import { prendreAvisPseudo } from '../epreuve/chrono';
 import { MOT_SUPPRESSION, type ChoixFusion, type Comptes, type EtatCompte, type QuestionFusion, type ResultatDeconnexion, type ResultatFusion, type ResultatProfil } from '../sync/comptes';
 import { dansApk } from '../retour-android';
@@ -210,6 +215,11 @@ export function texteClassementSuppression(p: { lu: boolean; pseudo: string | nu
   return p?.lu ? T.supprimer_classement_aucun : T.supprimer_classement_sans;
 }
 
+/** Au panneau d'une session perdue, les séances qui attendent (n > 0), au singulier pour une. */
+export function textePerduePanneau(n: number): string {
+  return n === 1 ? T.perdue_panneau_une : remplir(T.perdue_panneau, { n });
+}
+
 /** Le texte d'une session perdue : « {n} séances », au singulier pour une. */
 export function textePerdue(n: number | null): string {
   if (!n) return T.perdue_aucune;
@@ -221,8 +231,14 @@ export function textePerdue(n: number | null): string {
  * aux écrans des comptes qu'il monte.
  */
 export interface AccueilDuCompte {
-  /** Un compte est connecté, son pseudo choisi (ou remis à plus tard) : le panneau se ferme. */
-  fini(): void;
+  /**
+   * Un compte est connecté, son pseudo choisi (ou remis à plus tard) : le
+   * panneau se ferme. 'invite' : une session perdue devenue invitée
+   * (« Continuer sans compte », « Effacer cet appareil »).
+   */
+  fini(choix?: 'compte' | 'invite'): void;
+  /** L'écran de la session perdue (§ 2.5) au lieu des entrées. */
+  perdue?: boolean;
   /**
    * L'écran change : `choix` vrai sur celui des entrées (Google, e-mail), ou
    * pendant son chargement ; le panneau n'y montre « Continuer en invité »
@@ -301,8 +317,8 @@ export function vueCompte(ctx: ContexteVue, o: OptionsVueCompte): Vue {
  * le pseudo d'un compte qui n'en a pas. `element` : ce que le panneau pose.
  */
 export function accueilCompte(o: OptionsAccueilCompte): { element: HTMLDivElement; activer(): void; desactiver(): void; retour(): boolean } {
-  const { fini, surEcran, occupe, prechauffer, ...reste } = o;
-  const m = moteurCompte({ ...reste, prefixe: 'accueil-compte', accueil: { fini, surEcran, occupe, prechauffer } });
+  const { fini, surEcran, occupe, prechauffer, perdue, ...reste } = o;
+  const m = moteurCompte({ ...reste, prefixe: 'accueil-compte', accueil: { fini, surEcran, occupe, prechauffer, perdue } });
   return { element: creer('div', { class: 'accueil-compte' }, m.contenu, m.message, m.erreur), activer: m.activer, desactiver: m.desactiver, retour: m.retour };
 }
 
@@ -503,7 +519,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
       }
       if (!texteFini) {
         contenu.replaceChildren();
-        accueil?.fini();
+        accueil?.fini(sortie());
         return;
       }
     }
@@ -1064,7 +1080,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
         if (!texteFini) return [];
         const continuer = bouton(ident('continuer'), T.continuer, () => {
           texteFini = '';
-          accueil?.fini();
+          accueil?.fini(sortie());
         }, 'principal');
         continuer.setAttribute('aria-describedby', ident('fini'));
         return [creer('p', { id: ident('fini') }, texteFini), creer('div', { class: 'compte-actions' }, continuer)];
@@ -1076,8 +1092,10 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
         const f = etat?.etat === 'perdue' ? etat.fournisseurs : [];
         const parGoogle = f.includes('google.com') && !f.includes('password');
         const googleAussi = f.includes('google.com') || (etat?.etat === 'perdue' && adresseGmail(etat.adresse));
+        // Au panneau, son accroche dit déjà « Session expirée : reconnecte-toi. » : ici, les séances seules.
+        const ligne = accueil ? (seancesPerdue ? textePerduePanneau(seancesPerdue) : null) : textePerdue(seancesPerdue);
         return [
-          creer('p', { id: ident('perdue') }, textePerdue(seancesPerdue)),
+          ...(ligne ? [creer('p', { id: ident('perdue') }, ligne)] : []),
           creer(
             'div',
             { class: 'compte-actions' },
@@ -1098,16 +1116,18 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
           ),
           // Dans l'APK sans le plugin (lot 7) : un compte Google ne s'y reconnecte pas encore.
           ...(parGoogle ? aideGoogle() : []),
-          creer('div', { class: 'compte-liens' }, ...exportDe(ident('exporter'), 'lien')),
+          // Au panneau, pas d'export (« Exporter d'abord » reste à la confirmation de l'effacement), et
+          // « Effacer cet appareil » en petit : un lien, sa confirmation en style danger.
+          ...(accueil ? [] : [creer('div', { class: 'compte-liens' }, ...exportDe(ident('exporter'), 'lien'))]),
           creer(
             'div',
-            { class: 'compte-actions compte-separe' },
+            { class: accueil ? 'compte-liens' : 'compte-actions compte-separe' },
             bouton(ident('effacer'), T.effacer_appareil, () =>
               void agir(async (c) => {
                 effacerAvis();
                 aEffacer = await c.reponsesAppareil();
                 aller('effacer');
-              }), 'danger'),
+              }), accueil ? 'lien' : 'danger'),
           ),
         ];
       }
@@ -1217,7 +1237,9 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
    * ne voit pas d'ordinaire (une autre page), se règlent dans ⚙ › Compte.
    */
   function ecranDe(e: EtatCompte): Ecran {
-    if (accueil && e.etat !== 'invite') return e.etat === 'compte' && !lirePseudo() ? 'pseudo' : 'fini';
+    // Le panneau d'une session perdue : son écran tant qu'elle l'est ; devenue invitée, la fin.
+    if (accueil?.perdue && e.etat === 'perdue') return 'perdue';
+    if (accueil && (e.etat !== 'invite' || accueil.perdue)) return e.etat === 'compte' && !lirePseudo() ? 'pseudo' : 'fini';
     return e.etat === 'compte' ? 'compte' : e.etat === 'perdue' ? 'perdue' : e.etat === 'suppression' ? 'suppression' : 'invite';
   }
 
@@ -1225,6 +1247,9 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     effacerAvis();
     aller(etat ? ecranDe(etat) : 'chargement');
   }
+
+  /** La sortie du panneau à l'écran « fini » : en compte, ou en invité (session perdue réglée sans compte). */
+  const sortie = (): 'compte' | 'invite' => (etat?.etat === 'invite' ? 'invite' : 'compte');
 
   /** Après une action réussie : l'état relu, son écran montré. */
   async function apres(c: Comptes): Promise<void> {
@@ -1254,7 +1279,14 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     if (etat) return aller(ecran);
     aller('chargement');
     try {
-      googleOffert = (await o.comptes()).googleOffert();
+      const c = await o.comptes();
+      googleOffert = c.googleOffert();
+      // Session perdue : l'état relu (Firebase est chargé : c'est lui qui l'a sue), et les séances qui attendent.
+      if (accueil?.perdue) {
+        etat = await c.etat();
+        await lirePerdue();
+        return aller(ecranDe(etat));
+      }
     } catch (e) {
       montrerErreur(e);
       return aller('echec');
@@ -1313,6 +1345,8 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
       else if (ecran === 'fusion-confirmer') aller('fusion');
       else if (occupe) return true;
       else if (ecran === 'connecter' || ecran === 'creer') annuler();
+      // Session perdue au panneau : les confirmations ramènent à son écran, comme leur « Annuler ».
+      else if (ecran === 'sans-compte' || ecran === 'effacer') aller('perdue');
       else return false;
       return true;
     },
