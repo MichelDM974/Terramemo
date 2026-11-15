@@ -284,7 +284,12 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       };
       attendre(false);
     };
-    if (t.nom === 'monde') return lancer();
+    if (t.nom === 'monde') {
+      // La vue du monde : celle laissée par le zoom lent d'un QCM (le quiz, Reconnaître : décision « Zone allumée
+      // montrée par un zoom lent ») ouvrirait l'épreuve sur la région de sa dernière zone.
+      t.carte.vueEntiere();
+      return lancer();
+    }
     // L'île entière (zoom 1), peinte avant que le temps ne coure : deux images, puis la jauge.
     ctx.terrains.montrer(t.nom);
     t.carte.zoomer({ k: 1, x: 0, y: 0 });

@@ -54,6 +54,7 @@ function monter(o: Partial<OptionsEssai> = {}, terrain: { ids: string[]; noms: R
     },
     // Le zoom lent de Reconnaître sur le monde : la vue finale (contexteFinal) ne change pas ici.
     montrerZone() {},
+    vueEntiere: vi.fn(),
     projection: { scale: () => 100 },
     transfo: { k: 1 },
     hote: new El('div'),
@@ -93,6 +94,7 @@ function monter(o: Partial<OptionsEssai> = {}, terrain: { ids: string[]; noms: R
     zone,
     versJouer,
     lancer,
+    carte,
     marques,
     cible: () => el('#barre-essai .essai-consigne').dataset.cible as string,
     retro,
@@ -319,6 +321,15 @@ describe('Toucher : une partie choisie dans Jouer (décision « Écran Jouer »)
     expect(v.retro.textContent).toContain('1 essai ');
   });
 
+  it('Toucher sur le monde part de la vue du monde, au départ comme à « Recommencer » (la vue zoomée d’un QCM du quiz ou de Reconnaître donnerait la réponse)', () => {
+    const v = monter();
+    v.lancer();
+    expect(v.carte.vueEntiere).toHaveBeenCalledTimes(1);
+    v.terminer.click();
+    (v.zone.querySelector('#essai-recommencer') as El).click();
+    expect(v.carte.vueEntiere).toHaveBeenCalledTimes(2);
+  });
+
   it('le journal de la partie libre reçoit le Lancement de la partie (son sujet : le domaine des fiches, étude J2 § 6.5), au départ comme à « Recommencer »', () => {
     const libre = vi.fn<NonNullable<OptionsEssai['libre']>>(() => null);
     const v = monter({ libre });
@@ -371,6 +382,20 @@ function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
   const zone = new El('main');
   const marques: string[] = [];
   const appels: string[] = [];
+  /** L'île (q.terrain 'reunion') : sa carte note ses appels à part, préfixés « île ». */
+  const carteIle = {
+    effacerMarques() {},
+    marquer() {},
+    anneau: () => undefined,
+    vueEntiere: () => void appels.push('île vueEntiere'),
+    zoomer: (t: { k: number }) => void appels.push(`île zoomer ${t.k}`),
+    cadrer: () => void appels.push('île cadrer'),
+    projection: { scale: () => 100 },
+    transfo: { k: 1 },
+    hote: new El('div'),
+    noter: (id: string) => ({ juste: true, pick: { id }, via: 'trace', distance_km: 0 }),
+  };
+  const ile = { nom: 'reunion', carte: carteIle, donnees: { entites: [{ pays: { ...pays('SDN'), id: 'SDN' } }], noms: { SDN: 'Saint-Denis' } }, jouables: ['SDN'] };
   const carte = {
     effacerMarques: () => void (marques.length = 0),
     marquer: (id: string, c: string) => void marques.push(`${id}:${c}`),
@@ -393,7 +418,7 @@ function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
     carte,
     donnees,
     zone,
-    terrains: { monde, montrer() {}, deja: () => null },
+    terrains: { monde, montrer() {}, deja: (n: string) => (n === 'reunion' ? ile : n === 'monde' ? monde : null) },
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
     finDePartie,
   } as unknown as ContexteVue;
@@ -514,6 +539,32 @@ describe('Toucher : une séance quittée puis reprise', () => {
     vi.advanceTimersByTime(1200);
     expect(s.el('#barre-essai .essai-compte').textContent).toBe('4 / 4');
     expect(s.appels).toEqual(['montrerZone ITA', 'montrerZone DEU', 'vueEntiere']);
+  });
+
+  it('le premier Trouver du monde sans cadrage repart de la vue du monde (celle d’un QCM d’une autre partie, le quiz) ; un Trouver de l’île entre un QCM et un Trouver du monde n’y change rien', () => {
+    let s = monterSeance(() => piloteFactice([{ id: 'FRA', forme: 'trouver', cadrer: null, connu: false }]).p);
+    s.vue.activer();
+    s.vue.reviser();
+    expect(s.appels).toEqual(['vueEntiere']);
+    const f = piloteFactice([
+      { id: 'ITA', forme: 'qcm', cadrer: null, connu: false },
+      { id: 'SDN', forme: 'trouver', cadrer: null, connu: false, terrain: 'reunion' },
+      { id: 'FRA', forme: 'trouver', cadrer: null, connu: false, terrain: 'monde' },
+    ]);
+    s = monterSeance(() => f.p);
+    s.vue.activer();
+    s.vue.reviser();
+    expect(s.appels).toEqual(['montrerZone ITA']);
+    (s.el('#barre-nommer').querySelectorAll('.nommer-choix').find((b) => b.dataset.id === 'ITA') as El).click();
+    vi.advanceTimersByTime(900);
+    // L'île : rien ne bouge (aucun cadrage, la vue du monde de l'île n'est pas à remettre).
+    expect(s.el('#barre-essai .essai-consigne').dataset.cible).toBe('SDN');
+    expect(s.appels).toEqual(['montrerZone ITA']);
+    toucher(s.vue, true);
+    vi.advanceTimersByTime(1200);
+    // Le monde, encore zoomé sur l'Italie : la vue du monde.
+    expect(s.el('#barre-essai .essai-consigne').dataset.cible).toBe('FRA');
+    expect(s.appels).toEqual(['montrerZone ITA', 'vueEntiere']);
   });
 
   it('« Terminer » : le bilan tout de suite, les réponses données comptent', () => {

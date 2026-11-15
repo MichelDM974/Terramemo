@@ -49,6 +49,7 @@ function monde() {
     anneauEn: (p: [number, number], c: string) => void marques.push(`anneauEn ${p.join(',')}:${c}`),
     montrer() {},
     montrerZone() {},
+    vueEntiere() {},
     cadrer() {},
     zoomer() {},
     projection: { scale: () => 100 },

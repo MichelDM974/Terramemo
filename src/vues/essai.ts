@@ -242,12 +242,13 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   /** La séance en cours (Apprendre, Révision du jour) : elle pose les questions et fait le bilan. */
   let pilote: PiloteSeance | null = null;
   /**
-   * Le terrain dont la carte a zoomé sur la zone de la dernière question de
-   * séance (à 4 choix ou retournée, sur le monde : décision « Zone allumée
-   * montrée par un zoom lent ») : un Trouver qui la suit sans cadrage repart
-   * de la vue du monde.
+   * La carte du monde a zoomé sur la zone d'une question de séance (à 4 choix
+   * ou retournée : décision « Zone allumée montrée par un zoom lent ») depuis
+   * le dernier Trouver du monde : le prochain, sans cadrage, repart de la vue
+   * du monde. Seul le monde zoome ainsi (l'île garde son cadrage) : un Trouver
+   * de l'île entre les deux n'y change rien.
    */
-  let zoneMontree: Terrain | null = null;
+  let mondeZoome = false;
   /** Ce qui l'a lancée (« Continuer » en relance une). */
   let demande: DemandeSeance | null = null;
   /** Le journal de la partie libre en cours (D11), ou null. */
@@ -396,6 +397,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     serie = d.sorte === 'apprendre' ? d.serie : null;
     t = ctx.terrains.monde;
     ctx.terrains.montrer(t.nom);
+    // La carte du monde peut garder la vue zoomée d'un QCM d'une autre partie (le quiz, Reconnaître) : le premier
+    // Trouver du monde sans cadrage repart de la vue du monde.
+    mondeZoome = true;
     // Des communes à réviser (ou Apprendre sous La Réunion) : l'île d'abord, son chargement dit dans le panneau.
     const chargement = o.seances?.charger?.(d) ?? null;
     if (chargement) {
@@ -479,11 +483,11 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       if (q.cadrer === 'monde') t.carte.zoomer({ k: 1, x: 0, y: 0 });
       else if (q.cadrer) t.carte.cadrer(q.cadrer, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
       // Sinon la vue laissée par le zoom sur une zone montrerait la réponse (une voisine de sa grappe).
-      else if (zoneMontree === t) t.carte.vueEntiere();
-      zoneMontree = null;
+      else if (mondeZoome && t.nom === 'monde') t.carte.vueEntiere();
+      if (t.nom === 'monde') mondeZoome = false;
       return afficherQuestion();
     }
-    zoneMontree = t.nom === 'monde' ? t : null;
+    if (t.nom === 'monde') mondeZoome = true;
     const terminer = () => finirSeance();
     if (q.forme === 'qcm')
       return nommer.demarrer(t, rs.sujet, '', [q.id], {
@@ -625,6 +629,10 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     t = terrain;
     rs = rendu(lancement?.sujet ?? 'pays', t.donnees);
     ctx.terrains.montrer(t.nom);
+    // Toucher sur le monde : la vue du monde, sinon celle laissée par le zoom lent d'un QCM (le quiz, Reconnaître)
+    // ouvrirait la partie sur la région de sa dernière zone, peut-être une cible (décision « Zone allumée montrée
+    // par un zoom lent »). Reconnaître repart d'elle de lui-même.
+    if (mode === 'localiser' && t.nom === 'monde') t.carte.vueEntiere();
     const j = o.libre?.(lancement, t) ?? null;
     journal = j;
     // Reconnaître : seuls les lieux qui se posent en QCM (D37 c : sous Capitales, pas les 9 pays au nom de leur capitale).

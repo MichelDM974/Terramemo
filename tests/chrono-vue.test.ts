@@ -77,6 +77,7 @@ function contexte(maintenant?: () => number, noms: Record<string, string> = { RU
     marquer() {},
     anneau() {},
     zoomer() {},
+    vueEntiere: vi.fn(),
     noter: (id: string, _x: number, _y: number, o?: unknown) => (
       optionsNoter.push(o),
       vrai
@@ -102,7 +103,7 @@ function contexte(maintenant?: () => number, noms: Record<string, string> = { RU
     v.activer();
     v.lancer({ branche: 'classe', sujet, serie, mode }, s, monde as never, [...s.ids]);
   };
-  return { v, zone, consigne, versJouer, lancer, finDePartie };
+  return { v, zone, consigne, versJouer, lancer, finDePartie, carte };
 }
 
 beforeEach(() => {
@@ -208,6 +209,15 @@ describe('Chrono : quitter la vue', () => {
   it('atteinte sans aucune partie (adresse tapée) : Jouer', () => {
     const { v } = contexte();
     expect(v.redirection?.()).toEqual({ cible: 'jouer', message: '' });
+  });
+});
+
+describe('Chrono sur le monde : la vue du monde au départ (décision « Zone allumée montrée par un zoom lent »)', () => {
+  it('la vue laissée par le zoom lent d’un QCM (le quiz, Reconnaître) n’ouvre pas l’épreuve : vueEntiere avant la première question', () => {
+    const { consigne, lancer, carte } = contexte();
+    lancer();
+    expect(carte.vueEntiere).toHaveBeenCalledTimes(1);
+    expect(consigne()).toBeTruthy();
   });
 });
 

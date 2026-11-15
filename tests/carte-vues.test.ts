@@ -272,6 +272,7 @@ describe('carte de la mémoire à l’accueil', () => {
       pick: (_x: number, _y: number) => ({ id: pickSuivant, via: 'trace' }),
       hote: new El('div'),
       montrer() {},
+      vueEntiere() {},
       contexteFinal: () => ({ proj: { scale: () => 100 }, t: { k: 1 } }),
       projection: { scale: () => 100 },
       transfo: { k: 1 },
