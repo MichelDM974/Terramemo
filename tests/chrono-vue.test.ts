@@ -91,7 +91,9 @@ function contexte(maintenant?: () => number, noms: Record<string, string> = { RU
   const monde = { nom: 'monde', carte, donnees: { noms, entites }, jouables: [], credit: null };
   const terrains = { monde, actif: 'monde', montrer: vi.fn(), deja: () => null, charger: vi.fn() };
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
-  const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone };
+  // La fin d'une partie, dite à l'écran de connexion : rend si le bilan était caché à cet instant.
+  const finDePartie = vi.fn(() => zone.querySelector('#chrono-bilan')?.hidden);
+  const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone, finDePartie };
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
   const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer, maintenant, ...(chargerImage ? { chargerImage } : {}) });
   /** L'épreuve et sa série choisies dans Jouer : la vue s'ouvre, la partie part. */
@@ -100,7 +102,7 @@ function contexte(maintenant?: () => number, noms: Record<string, string> = { RU
     v.activer();
     v.lancer({ branche: 'classe', sujet, serie, mode }, s, monde as never, [...s.ids]);
   };
-  return { v, zone, consigne, versJouer, lancer };
+  return { v, zone, consigne, versJouer, lancer, finDePartie };
 }
 
 beforeEach(() => {
@@ -212,10 +214,10 @@ describe('Chrono : quitter la vue', () => {
 describe('Sans faute (décisions « Sans faute et Minute », « Barème et classements »)', () => {
   /** L'épreuve et l'Amérique du Sud (12 pays) choisies dans Jouer. */
   function partir(mode: 'sansfaute') {
-    const { v, zone, consigne, lancer } = contexte();
+    const { v, zone, consigne, lancer, finDePartie } = contexte();
     lancer(mode);
     const bilan = () => zone.querySelector('#chrono-bilan')!;
-    return { v, zone, consigne, bilan };
+    return { v, zone, consigne, bilan, finDePartie };
   }
 
   it('Jouer choisit l’épreuve et la série : la partie part tout de suite, comptée à la façon de l’épreuve', () => {
@@ -230,13 +232,16 @@ describe('Sans faute (décisions « Sans faute et Minute », « Barème et class
     expect(compte()).toBe("1 / 12 · 0 d'affilée");
   });
 
-  it('« Rejouer » du bilan relance la même épreuve sur la même série', () => {
+  it('« Rejouer » du bilan relance la même épreuve sur la même série ; la fin de chaque partie dite à l’écran de connexion, le bilan montré', () => {
     faux = new Set([1]);
-    const { zone, bilan, consigne, v } = partir('sansfaute');
+    const { zone, bilan, consigne, v, finDePartie } = partir('sansfaute');
     vi.advanceTimersByTime(1_000);
     v.toucher?.(0, 0, {} as PointerEvent);
+    expect(finDePartie).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1_800);
     expect(bilan().hidden).toBe(false);
+    // Une session perdue pendant la partie : son panneau vient ici, par-dessus le bilan, avant « Rejouer ».
+    expect(finDePartie.mock.results.map((r) => r.value)).toEqual([false]);
     expect(bilan().querySelector('h2')?.textContent).toBe('Sans faute · Amérique du Sud');
     zone.querySelector('#chrono-rejouer')?.click();
     expect(bilan().hidden).toBe(true);

@@ -37,8 +37,10 @@
 // « Effacer cet appareil » en petit (puis le panneau du premier affichage,
 // comme après une déconnexion). main.ts le dit (perdue) au démarrage et à
 // chaque changement des comptes ; il vient tout de suite, sauf pendant une
-// partie (vues `parties`) : alors à la vue suivante, la partie finie ou son
-// bilan quitté. Une fois par perte : refermé sans que la session soit réglée,
+// partie (vues `parties`) : alors à sa fin, par-dessus son bilan (finDePartie,
+// que les vues appellent : « Rejouer » ne relance rien tant que la session
+// n'est pas réglée), ou à la vue suivante si elle est quittée en route. Une
+// fois par perte : refermé sans que la session soit réglée,
 // il ne revient pas avant qu'elle l'ait été (pas de boucle). Hors ligne au
 // démarrage, la session ne se sait pas perdue : rien ne change.
 //
@@ -128,7 +130,7 @@ export interface OptionsAccueil {
    * rester sous le panneau. Absent : seul « Réessayer » reste.
    */
   sansCompte?(): Promise<void>;
-  /** Les vues d'une partie (et de son bilan) : une session perdue y attend la vue suivante. */
+  /** Les vues d'une partie (et de son bilan) : une session perdue y attend la fin de la partie (finDePartie) ou la vue suivante. */
   parties?: readonly string[];
   /** La navigation rend l'adresse affichée (nav.router) : le panneau ouvert ou fermé. */
   rendre(): void;
@@ -172,6 +174,12 @@ export interface Accueil {
    * n'est plus dû, et une perte suivante le ramènera.
    */
   perdue(oui: boolean): void;
+  /**
+   * Une partie vient de finir, son bilan affiché (ContexteVue.finDePartie) :
+   * le panneau d'une session perdue qui attendait vient par-dessus, avant
+   * qu'un « Rejouer » ne relance une partie dans la même vue.
+   */
+  finDePartie(): void;
   etat(): EtatAccueil;
   /** Ce que le panneau montre (ou a montré en dernier). */
   mode(): ModeAccueil;
@@ -394,9 +402,10 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     focaliser(o.entete?.querySelector<HTMLElement>('#jouer-btn'));
   }
 
+  /** Le panneau d'une session perdue est-il dû (sue, pas encore montré, panneau fermé) ? */
+  const perdueDuePanneau = (): boolean => etat === 'ferme' && perdueDue && !perdueVue && o.etatCompte() === 'perdue';
   /** Le panneau d'une session perdue peut-il venir sur cette vue ? Ni pendant une partie, ni sur Compte (qui le montre) ni Confidentialité. */
-  const perdueSurVue = (nom: string): boolean =>
-    etat === 'ferme' && perdueDue && !perdueVue && o.etatCompte() === 'perdue' && nom !== 'compte' && nom !== 'confidentialite' && !(o.parties ?? []).includes(nom);
+  const perdueSurVue = (nom: string): boolean => perdueDuePanneau() && nom !== 'compte' && nom !== 'confidentialite' && !(o.parties ?? []).includes(nom);
 
   // Sans choix gardé, l'en-tête attend la lecture de la session (quelques ms) : rien ne se joue avant.
   const depart = choixCourant();
@@ -472,6 +481,11 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       // Hors d'une partie, tout de suite ; sinon à la vue suivante (retient). Panneau du premier affichage
       // ouvert, ou en attente : à sa fermeture.
       if (perdueSurVue(vueCourante)) ouvrir(true, 'perdue');
+    },
+    finDePartie() {
+      // Sur Compte ou Confidentialité, pas de partie : rien. La navigation rend ensuite la carte sous le panneau
+      // (la vue de la partie désactivée garde son bilan, qui revient à la fermeture).
+      if (perdueDuePanneau() && vueCourante !== 'compte' && vueCourante !== 'confidentialite') ouvrir(true, 'perdue');
     },
     etat: () => etat,
     mode: () => mode,

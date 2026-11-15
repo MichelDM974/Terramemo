@@ -321,6 +321,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       o.actions(),
     );
     o.bilan.hidden = false;
+    // Une session perdue pendant la partie : l'écran de connexion maintenant, par-dessus le bilan (avant « Rejouer »).
+    ctx.finDePartie?.();
   }
 
   terminer.addEventListener('click', () => (crochets.terminer ? crochets.terminer() : finir()));

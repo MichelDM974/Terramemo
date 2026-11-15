@@ -246,7 +246,7 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   `#accueil-compte-adresse`, `#accueil-compte-mdp`,
   `#accueil-compte-form-connecter`… ; `formulaire_compte` passe toujours
   par `#compte` (choix posé). Une session perdue rouvre le même panneau,
-  hors d'une partie (Toucher, épreuves, quiz : à la vue suivante) : accroche
+  hors d'une partie (Toucher, épreuves, quiz : par-dessus son bilan, ou à la vue suivante) : accroche
   « Session expirée : reconnecte-toi. », `#accueil-compte-reconnecter`,
   `#accueil-compte-google`, `#accueil-compte-sans-compte` (puis `-ok`),
   `#accueil-compte-effacer` (lien) ; `ui_accueil` ne le passe pas. `ui_accueil`, en fin de `ui` ou seul

@@ -527,6 +527,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       },
     });
     bilan.hidden = false;
+    // Une session perdue pendant la partie : l'écran de connexion maintenant, par-dessus le bilan (avant « Rejouer »).
+    ctx.finDePartie?.();
   }
 
   /** Apprendre sans rien à apprendre aujourd'hui : le dire, et proposer les révisions qui restent ou Trouver. */
@@ -671,6 +673,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       actionsBilan(),
     );
     bilan.hidden = false;
+    // Une session perdue pendant la partie : l'écran de connexion maintenant, par-dessus le bilan (avant « Rejouer »).
+    ctx.finDePartie?.();
   }
 
   // « Voir » : la cible en vert, et la carte vole jusqu'à elle (en reculant

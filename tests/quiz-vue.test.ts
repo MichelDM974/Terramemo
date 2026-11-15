@@ -86,7 +86,9 @@ function contexte(tirer: (d: Difficulte) => Question[], chargerImage?: ChargerIm
   const monde = { nom: 'monde', carte, donnees, jouables: LIEUX, credit: null };
   const terrains = { monde, actif: 'monde', montrer: vi.fn(), deja: () => null, charger: vi.fn() };
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
-  const ctx = { carte, donnees, terrains, mesures, zone };
+  // La fin d'une partie, dite à l'écran de connexion : rend si le bilan était caché à cet instant.
+  const finDePartie = vi.fn(() => zone.querySelector('#quiz-bilan')?.hidden);
+  const ctx = { carte, donnees, terrains, mesures, zone, finDePartie };
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
   const versCarte = vi.fn<() => void>();
   const tire = vi.fn(tirer);
@@ -113,7 +115,7 @@ function contexte(tirer: (d: Difficulte) => Question[], chargerImage?: ChargerIm
     v.activer();
     v.lancer(d);
   };
-  return { v, zone, carte, el, consigne, bouton, repondre, suivante, montree, versJouer, versCarte, lancer, tire };
+  return { v, zone, carte, el, consigne, bouton, repondre, suivante, montree, versJouer, versCarte, lancer, tire, finDePartie };
 }
 
 beforeEach(() => {
@@ -193,6 +195,8 @@ describe('une partie du quiz', () => {
       p.suivante();
     }
     expect(p.tire).toHaveBeenCalledTimes(1);
+    // La fin de la partie dite à l'écran de connexion (session perdue), le bilan montré, avant « Rejouer ».
+    expect(p.finDePartie.mock.results.map((r) => r.value)).toEqual([false]);
     p.el('#quiz-rejouer').click();
     expect(p.tire).toHaveBeenCalledTimes(2);
     expect(p.tire).toHaveBeenLastCalledWith('expert');

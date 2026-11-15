@@ -444,6 +444,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     });
     partie = null;
     bilan.hidden = false;
+    // Une session perdue pendant la partie : l'écran de connexion maintenant, par-dessus le bilan (avant « Rejouer »).
+    ctx.finDePartie?.();
   }
 
   // La dernière réponse donnée (pause de sa rétroaction) : il n'y a plus rien

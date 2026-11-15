@@ -67,12 +67,15 @@ function monter(o: Partial<OptionsEssai> = {}, terrain: { ids: string[]; noms: R
   // ESP minuscule à l'écran (anneau, comme le Vatican), FRA non.
   const donnees = { entites: terrain.ids.map((id) => (id === 'ESP' ? { ...pays('ESP'), superficie_km2: 1, partie_max_km2: 1 } : pays(id))).map((p) => ({ pays: p })), noms: terrain.noms };
   const monde = { nom: 'monde', carte, donnees, jouables: terrain.ids };
+  // La fin d'une partie, dite à l'écran de connexion : rend si le bilan était caché à cet instant.
+  const finDePartie = vi.fn(() => (zone.querySelector('#essai-bilan') as El | null)?.hidden);
   const ctx = {
     carte,
     donnees,
     zone,
     terrains: { monde, montrer() {}, deja: () => null },
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
+    finDePartie,
   } as unknown as ContexteVue;
   const versJouer = vi.fn<(cible: string) => void>();
   const vue = vueEssai(ctx, { versJouer, ...o });
@@ -96,6 +99,7 @@ function monter(o: Partial<OptionsEssai> = {}, terrain: { ids: string[]; noms: R
     terminer: el('#essai-terminer'),
     bilan: el('#essai-bilan'),
     barre: el('#barre-essai'),
+    finDePartie,
   };
 }
 
@@ -265,17 +269,21 @@ describe('Toucher : une partie choisie dans Jouer (décision « Écran Jouer »)
     expect(v.vue.redirection?.()).toBeNull();
   });
 
-  it('le bilan : « Recommencer » relance la même série, « Autre série » ramène aux séries de Jouer', () => {
+  it('le bilan : « Recommencer » relance la même série, « Autre série » ramène aux séries de Jouer ; chaque fin dite à l’écran de connexion, le bilan montré', () => {
     const v = monter();
     v.lancer();
+    expect(v.finDePartie).not.toHaveBeenCalled();
     v.terminer.click();
     expect(v.bilan.hidden).toBe(false);
+    // Une session perdue pendant la partie : son panneau vient ici, par-dessus le bilan, avant « Recommencer ».
+    expect(v.finDePartie.mock.results.map((r) => r.value)).toEqual([false]);
     expect(v.bilan.querySelector('h2')?.textContent).toBe('Bilan · Tous les pays');
     (v.bilan.querySelector('#essai-recommencer') as El).click();
     expect(v.bilan.hidden).toBe(true);
     expect(v.barre.hidden).toBe(false);
     expect(v.zone.querySelector('#barre-essai .essai-compte')?.textContent).toBe('1 / 2');
     v.terminer.click();
+    expect(v.finDePartie).toHaveBeenCalledTimes(2);
     (v.bilan.querySelector('#essai-autre') as El).click();
     expect(v.versJouer).toHaveBeenCalledWith('jouer/entrainement/pays');
   });
@@ -376,19 +384,21 @@ function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
   };
   const donnees = { entites: IDS5.map((id, k) => ({ pays: { ...pays(id), point: [k, 45], voisins: IDS5.filter((x) => x !== id) } })), noms: { FRA: 'France', ESP: 'Espagne', ITA: 'Italie', DEU: 'Allemagne', BEL: 'Belgique' } };
   const monde = { nom: 'monde', carte, donnees, jouables: IDS5 };
+  const finDePartie = vi.fn(() => (zone.querySelector('#essai-bilan') as El | null)?.hidden);
   const ctx = {
     carte,
     donnees,
     zone,
     terrains: { monde, montrer() {}, deja: () => null },
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
+    finDePartie,
   } as unknown as ContexteVue;
   const versCarte = vi.fn();
   const fabrique = { ouvrir: vi.fn(ouvrir) };
   const versJouer = vi.fn<(cible: string) => void>();
   const vue = vueEssai(ctx, { versJouer, versCarte, seances: fabrique });
   const visible = (id: string) => !(zone.querySelector(`#${id}`) as El).hidden;
-  return { vue, zone, monde, appels, marques, fabrique, versCarte, versJouer, visible, el: (s: string) => zone.querySelector(s) as El };
+  return { vue, zone, monde, appels, marques, fabrique, versCarte, versJouer, visible, finDePartie, el: (s: string) => zone.querySelector(s) as El };
 }
 
 describe('Toucher : une séance quittée puis reprise', () => {
@@ -482,10 +492,13 @@ describe('Toucher : une séance quittée puis reprise', () => {
     s.vue.reviser();
     toucher(s.vue, true);
     vi.advanceTimersByTime(1200);
+    expect(s.finDePartie).not.toHaveBeenCalled();
     s.el('#nommer-terminer').click();
     expect(s.visible('essai-bilan')).toBe(true);
     expect(s.visible('barre-nommer')).toBe(false);
     expect(s.el('#essai-bilan').textContent).toContain('bilan : 1 réponses');
+    // Le bilan de la séance (pas celui de son QCM) dit à l'écran de connexion, une fois.
+    expect(s.finDePartie.mock.results.map((r) => r.value)).toEqual([false]);
   });
 
   it('« Terminer » après un toucher faux ou « Voir », avant de trouver : la question compte (raté), une seule fois', () => {
@@ -762,6 +775,8 @@ describe('Toucher : le rendu du sujet', () => {
     expect(s.el('#essai-bilan').innerText).toContain(`bilan-localiser ${code(id)} · tu avais choisi : choix ${code(choisi)}`);
     vus.push(s.el('#essai-bilan').innerText);
     for (const t of vus) sansBrut(t, [...IDS5, 'France', 'Espagne', 'Italie', 'Allemagne', 'Belgique']);
+    // Reconnaître fini : dit à l'écran de connexion, le bilan montré.
+    expect(s.finDePartie.mock.results.map((r) => r.value)).toEqual([false]);
   });
 
   it('une séance d’un sujet factice (QuestionPilotee.domaine) : Trouver, QCM et carte retournée par son rendu, aucun id brut affiché', () => {

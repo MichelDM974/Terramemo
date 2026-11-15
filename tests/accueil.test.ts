@@ -456,7 +456,7 @@ describe('session perdue', () => {
     expect(m.a.retient('confidentialite')).toBe(false);
   });
 
-  it('pendant une partie (Toucher, épreuve classée, quiz) : pas de panneau ; à la vue suivante, la partie finie ou son bilan quitté', async () => {
+  it('pendant une partie (Toucher, épreuve classée, quiz) : pas de panneau ; à sa fin, par-dessus le bilan, avant tout « Rejouer »', async () => {
     for (const partie of ['toucher', 'chrono', 'quiz']) {
       body = installerDom();
       stockage = installerStockage();
@@ -465,19 +465,47 @@ describe('session perdue', () => {
       await perdre(m);
       expect(m.a.etat()).toBe('ferme');
       expect($('#accueil')).toBeNull();
-      // « Rejouer » : la même vue de partie, toujours pas.
+      // La partie continue : la navigation dans sa vue ne l'interrompt pas.
       expect(m.a.retient(partie)).toBe(false);
       expect($('#accueil')).toBeNull();
-      // Ni sur Compte (qui montre la session perdue) ni sur Confidentialité.
-      expect(m.a.retient('compte')).toBe(false);
-      expect(m.a.retient('confidentialite')).toBe(false);
-      expect($('#accueil')).toBeNull();
-      // Le bilan quitté (« Autre série » vers Jouer) : le panneau, la carte dessous.
-      expect(m.a.retient('jouer')).toBe(true);
+      // Le bilan affiché (ctx.finDePartie) : le panneau, et la navigation rend la carte dessous (la vue de la
+      // partie désactivée, « Rejouer » hors d'atteinte).
+      m.a.finDePartie();
       expect(ouvertPerdue(m)).toBe(true);
-      // Rouvert depuis la navigation : pas de rendu de plus (elle est en train de rendre).
-      expect(m.rendre).toHaveBeenCalledTimes(0);
+      expect(m.rendre).toHaveBeenCalledOnce();
+      expect(m.a.retient(partie)).toBe(true);
+      expect([m.entete.inert, m.zone.inert]).toEqual([true, true]);
+      // Une seconde fin (une autre vue qui le dirait) n'y change rien.
+      m.a.finDePartie();
+      expect(m.rendre).toHaveBeenCalledOnce();
     }
+  });
+
+  it('une partie quittée en route (vers Jouer, la carte) : le panneau à la vue suivante ; ni sur Compte ni sur Confidentialité', async () => {
+    const m = await connecte();
+    m.a.suivre('chrono');
+    await perdre(m);
+    // Ni sur Compte (qui montre la session perdue) ni sur Confidentialité.
+    expect(m.a.retient('compte')).toBe(false);
+    expect(m.a.retient('confidentialite')).toBe(false);
+    expect($('#accueil')).toBeNull();
+    expect(m.a.retient('jouer')).toBe(true);
+    expect(ouvertPerdue(m)).toBe(true);
+    // Rouvert depuis la navigation : pas de rendu de plus (elle est en train de rendre).
+    expect(m.rendre).toHaveBeenCalledTimes(0);
+  });
+
+  it('une fin de partie sans session perdue, ou la session réglée entre-temps : pas de panneau', async () => {
+    const m = await connecte();
+    m.a.suivre('chrono');
+    m.a.finDePartie();
+    expect($('#accueil')).toBeNull();
+    await perdre(m);
+    m.poserEtatCompte('compte');
+    m.a.perdue(false);
+    m.a.finDePartie();
+    expect($('#accueil')).toBeNull();
+    expect(m.rendre).toHaveBeenCalledTimes(0);
   });
 
   it('reconnecté (Google ou e-mail, question D22 comprise) : le panneau se ferme, et ne revient pas', async () => {

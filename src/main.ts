@@ -338,7 +338,8 @@ let explorer: VueExplorer | null = null;
  * Firebase, préchauffé au premier signe d'intérêt. Une session perdue le
  * ramène (perdue, plus bas : lesComptes), sauf pendant une partie (Toucher et
  * ses modes, la Révision du jour, une épreuve classée, le quiz : leurs vues,
- * bilan compris), où il attend la vue suivante.
+ * bilan compris), où il attend sa fin (ctx.finDePartie : par-dessus le
+ * bilan) ou la vue suivante.
  */
 const accueil: Accueil | null = COMPTES
   ? creerAccueil({
@@ -753,7 +754,9 @@ async function demarrer(): Promise<void> {
     },
   });
   poserLignes();
-  const ctx = { carte, donnees, mesures, zone, terrains };
+  // La fin d'une partie, dite à l'écran de connexion (session perdue) : après le tour en cours, jamais pendant
+  // un router() (Toucher finit une partie à son activer) qu'ouvrir le panneau relancerait.
+  const ctx = { carte, donnees, mesures, zone, terrains, finDePartie: () => queueMicrotask(() => accueil?.finDePartie()) };
   const pays = donnees.entites.map((e) => e.pays);
   arbre = creerArbre(catalogue(pays));
   // ?teintes=demo et ?mers=demo gardent leurs teintes partout : l'accueil n'y pose pas celles de la mémoire.

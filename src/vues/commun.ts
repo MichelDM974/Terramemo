@@ -25,6 +25,13 @@ export interface ContexteVue {
   mesures: Mesures;
   /** Zone sous l'en-tête (main#app). */
   zone: HTMLElement;
+  /**
+   * Une partie finie, son bilan affiché (Toucher et ses modes, une séance,
+   * une épreuve classée, le quiz) : l'écran de connexion d'une session perdue
+   * vient alors par-dessus (src/vues/accueil.ts, finDePartie), avant tout
+   * « Rejouer ». Appelé en dernier, le bilan déjà montré.
+   */
+  finDePartie?(): void;
 }
 
 export interface Vue {

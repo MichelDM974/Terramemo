@@ -604,6 +604,8 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     });
     partie = null;
     bilan.hidden = false;
+    // Une session perdue pendant la partie : l'écran de connexion maintenant, par-dessus le bilan (avant « Rejouer »).
+    ctx.finDePartie?.();
   }
 
   // D55 a : une partie dont une question a été montrée va au bilan (le score acquis) ; pendant le chargement de ses

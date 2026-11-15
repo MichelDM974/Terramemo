@@ -1894,10 +1894,12 @@ compte changée, laissait jouer sans rien dire) :
   la page (`pont.ts`) et le rapport des comptes ensemble : une suppression
   inachevée, « perdue » pour la page, ne l'appelle pas (⚙ › Compte la
   règle). Hors ligne, `reload()` échoue sans déconnecter : rien.
-- Partie en cours = vue `toucher`, `chrono` ou `quiz` (leur bilan
-  compris) : le panneau attend la vue suivante (option `retenue` de la
-  navigation, comme le retour après une déconnexion), jamais sur Compte
-  ni Confidentialité.
+- Partie en cours = vue `toucher`, `chrono` ou `quiz` : le panneau
+  attend sa fin, et vient par-dessus son bilan (`ContexteVue.finDePartie`,
+  appelé par chaque bilan : « Rejouer » et « Recommencer » relancent dans
+  la même vue, sans navigation), ou la vue suivante si la partie est
+  quittée en route (option `retenue` de la navigation, comme le retour
+  après une déconnexion) ; jamais sur Compte ni Confidentialité.
 - Contenu : l'écran `perdue` de `accueilCompte` (option `perdue`, état
   relu à l'ouverture), l'accroche « Session expirée : reconnecte-toi. »,
   les séances non envoyées en une ligne s'il y en a, sans export, « Effacer
