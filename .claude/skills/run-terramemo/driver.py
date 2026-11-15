@@ -96,6 +96,7 @@ CLE_ACCUEIL = "terramemo.accueil"
 # « mers » y cache les pastilles des micro-États (choix de l'utilisateur du 12/11), que mesurer touche.
 CLE_SUJET_MEMOIRE_MONDE = "terramemo.sujetMemoire.monde"
 ATTENTE_STOCKAGE_MS = 6000  # localStorage de la WebView écrit sur disque (~5 s de délai de Chromium)
+DEMARRAGE_APRES_INSTALLATION_S = 8  # appli relancée après adb install : démarrage à froid fini avant de s'y attacher
 SIGNAUX_ARRET = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
 # Journal des réponses de l'appareil (src/journal/depot.ts : base, version, magasin).
 BASE_JOURNAL, VERSION_JOURNAL, MAGASIN_JOURNAL = "terramemo-journal", 1, "evenements"
@@ -5965,12 +5966,33 @@ def commande_apk(args):
             return 1
         # L'installation a tué l'appli : un retrait du drapeau pas encore écrit sur disque
         # serait perdu. L'appli relancée est vérifiée (et le drapeau retiré s'il est revenu).
-        try:
-            with Session("webview", serie=args.serie) as s:
-                s.couper_synchro(URL_APK)
-        except RuntimeError as e:
-            dire(f"ATTENTION : appli installée, drapeau {DRAPEAU_SANS_SYNCHRO} non vérifié ({e}) : relancer "
-                 f"sauver_journal pour le retirer s'il est resté ({AIDE_USB})")
+        # Démarrage à froid d'abord : attachée tout de suite, la session voyait la WebView
+        # recharger sa page et fermer le WebSocket avant le retrait (drapeau resté posé à
+        # chacune des trois installations du 15/11, retiré par le sauver_journal suivant).
+        # Puis une seconde session relit le drapeau, et le cycle est refait s'il est resté.
+        adb(args.serie, "shell", "am", "start", "-n", f"{APPID}/.MainActivity", verifier=False)
+        time.sleep(DEMARRAGE_APRES_INSTALLATION_S)
+        cle = json.dumps(DRAPEAU_SANS_SYNCHRO)
+        reste, erreur = True, None
+        for _ in range(3):
+            try:
+                with Session("webview", serie=args.serie) as s:
+                    s.couper_synchro(URL_APK)
+                with Session("webview", serie=args.serie) as s:
+                    reste = s.page.js(f"localStorage.getItem({cle})", delai=10) is not None
+            except RuntimeError as e:
+                erreur = e
+                time.sleep(3)
+                continue
+            if not reste:
+                break
+            time.sleep(3)
+        if reste:
+            dire(f"ATTENTION : appli installée, drapeau {DRAPEAU_SANS_SYNCHRO} "
+                 + (f"non vérifié ({erreur})" if erreur else "resté posé après trois essais")
+                 + f" : relancer sauver_journal pour le retirer ({AIDE_USB})")
+        else:
+            dire(f"appli relancée : {DRAPEAU_SANS_SYNCHRO} absent, synchro de l'utilisateur rendue")
     return 0
 
 
