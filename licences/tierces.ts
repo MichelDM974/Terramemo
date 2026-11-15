@@ -19,7 +19,12 @@
 //   Cordova, Kotlin et kotlinx.coroutines publient (Apache 2.0, § 4 d), sauf
 //   les services Google Play et googleid (lot 7 du J1b) : licence du SDK
 //   Android, non libre, que leur ligne nomme avec le lien de ses conditions
-//   (elle ne demande pas de joindre un texte).
+//   (elle ne demande pas de joindre un texte). Mais leurs AAR embarquent du
+//   code libre de tiers (Protocol Buffers BSD-3, Checker Framework MIT,
+//   Guava, Dagger…) dont les avis sont dans third_party_licenses.txt, à la
+//   racine de chaque AAR, et n'arrivent ni dans l'APK ni ici : à joindre
+//   avant toute diffusion de l'APK au-delà de l'utilisateur (J3 au plus
+//   tard ; étude du J1b, « Précisions du lot 7 »).
 // - Les données dont la licence demande le texte avec toute copie : les lignes
 //   de textes.credits.donnees dont le lien est un fichier de /geo/licences/
 //   (flag-icons, MIT ; étude J2, § 2.5), sous « Données », le texte lu dans

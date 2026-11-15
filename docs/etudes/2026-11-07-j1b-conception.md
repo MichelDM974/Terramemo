@@ -1979,15 +1979,30 @@ de l'outil du propriétaire est posé dans cdc.
   réduirait.
 - Relevé Android : 49 → 63 artefacts (+16, −2 : `loader` 1.0.0 remplacé
   par 1.1.0, `lifecycle-livedata` plus résolu ; le message du commit dit
-  « 47 » par erreur). Licences lues dans les POM :
-  `androidx.credentials`, `credentials-play-services-auth`,
-  `androidx.biometric` : Apache-2.0, sous la ligne AndroidX ;
+  « 47 » par erreur). Licences :
+  `androidx.credentials` et `credentials-play-services-auth` : Apache-2.0
+  (POM) ; `androidx.biometric` : Apache-2.0 (projet AndroidX, POM absent
+  du cache Gradle, seul l'AAR y est) ; tous sous la ligne AndroidX ;
   `play-services-*` et `googleid` : licence du SDK Android (non libre,
   déclarée par les POM de play-services-auth, basement,
   identity-credentials et googleid ; les autres POM du groupe n'en
   déclarent pas), une ligne neuve des Crédits avec le lien de ses
   conditions. Le paquet npm n'a pas son LICENSE (MIT déclaré) : copie de
   celui de son dépôt dans `licences/`.
+- **Avis des tiers des AAR de Google, manquants** (relecture du lot 7) :
+  la licence du SDK Android ne demande pas de texte, mais les AAR
+  `play-services-*` (auth, basement, base, fido, tasks, auth-base,
+  auth-api-phone, auth-blockstore, identity-credentials) et `googleid`
+  embarquent du code libre de tiers (Protocol Buffers BSD-3, Checker
+  Framework MIT, Dagger, Guava, HighwayHash, JSR 305, apksig, kotlinx…)
+  dont les avis sont dans `third_party_licenses.json`/`.txt` à la racine
+  de chaque AAR (421 Ko pour play-services-auth, 796 Ko pour googleid),
+  qui n'arrivent pas dans l'APK. BSD-3 et MIT demandent de les joindre à
+  une copie binaire : les Crédits et `licences-tierces.txt` ne le font
+  pas encore. Sans gravité tant que l'APK ne va qu'à l'utilisateur ; à
+  faire avant toute diffusion au-delà (J3 au plus tard), soit en joignant
+  ces fichiers (dédoublonnés par composant) sous la ligne des services
+  Google Play, soit par `oss-licenses-plugin` de Google (crédité).
 - Constats du build à suivre :
   - permissions de l'APK : `USE_BIOMETRIC` et `USE_FINGERPRINT`
     s'ajoutent à `INTERNET`, tirées par `androidx.biometric` (dépendance
