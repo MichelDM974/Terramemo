@@ -894,7 +894,9 @@ revenue en fin de séance), parties libres ; ni QCM ni carte retournée
 Par tranche de zoom (`--tranches 1.5,3,6,12` ; 1 = le monde entier à
 l'écran, plus de pixels en paysage, d'où le compte par appareil) :
 réponses, % de justes, part de chaque `via` parmi les justes. La ligne
-« => Q3 » ne compte que les micro-États (`micro` de `public/geo/pays.json`)
+« => Q3 » compte ensemble les Trouver de pays, de capitales et de drapeaux
+(même pays, même disque ; étude du J2, § 6.5), jamais les mers, et ne
+compte que les micro-États (`micro` de `public/geo/pays.json`)
 sous `--faible` (3), en deux groupes : disque posé sur un pays (micro-État
 à voisins terrestres : Vatican, Saint-Marin, Monaco, Liechtenstein…), le
 biais que vise B, et disque en mer (îles, où « par pastille » est la règle ;
