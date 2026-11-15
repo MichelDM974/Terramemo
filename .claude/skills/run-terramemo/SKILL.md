@@ -1762,8 +1762,13 @@ records), une fois tout envoyé. Seul le compte garde alors les progrès.
    - **Hors ligne**, encore invité : mode avion, retoucher Google (choisir
      le compte si la feuille vient). Attendu : « Réseau injoignable :
      touche encore le bouton de Google une fois en ligne. » ; noter le
-     message brut (`TYPE_INTERRUPTED` attendu ; un autre texte : corriger
-     `RESEAU` de `google-apk.ts`). Puis couper le mode avion.
+     message brut (`TYPE_INTERRUPTED` attendu). Un autre texte : lire le
+     code dans `erreurs`. `terramemo/google-echec` avec un message qui dit
+     le réseau : corriger `RESEAU` de `google-apk.ts`. Code `auth/…` ou
+     `terramemo/sdk-indisponible` (« Réseau injoignable » tout court) :
+     la feuille a rendu un idToken (compte en cache) et c'est Firebase qui
+     échoue ensuite, normal hors ligne, rien à corriger. Puis couper le
+     mode avion.
 3. **Connexion (S11, S23)** — retoucher, choisir le compte :
    - **invité sans compte en ligne** : lien de l'invité, l'uid noté
      gardé. Attendu : « Connexion… », puis « Connecté avec Google :
