@@ -7,7 +7,7 @@ import { select } from 'd3-selection';
 import 'd3-transition'; // selection.transition(), pour le vol de montrer()
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom';
 import type { DonneesCarte } from './donnees';
-import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, emprisesSeCroisent, recentrerBande, versEcran, viser, viserPart, type Emprise } from './geo';
+import { anneauPrincipal, centreEmprise, contourEmprise, contourPlan, empriseEcran, emprisesSeCroisent, recentrerBande, versEcran, viser, viserPart, type Emprise } from './geo';
 import { calculerPastilles, PASTILLE, tailleEcranPx, type Pastille } from './pastilles';
 import { acceptesDe } from './acceptes';
 import { noter, pick, type ContexteCarte, type Note, type OptionsNoter, type ResultatPick } from './pick';
@@ -539,11 +539,13 @@ export class Carte implements CarteAffichee {
   montrerZone(id: string, hVisible: number, r: ReglageZone): void {
     const li = this.lieux.get(id);
     // Une mer en bande de 360° recentrée sur le méridien central de la projection, comme vise().
-    const z = li && contourZone(li, this.o.donnees.mers.map((m) => m.pays), -(this.proj.rotate()[0] ?? 0));
+    const m = -(this.proj.rotate()[0] ?? 0);
+    const z = li && contourZone(li, this.o.donnees.mers.map((x) => x.pays), m);
     const b = z && this.proj(z.point);
     if (!li || !z || !b) return;
     const h = Math.max(1, Math.min(hVisible, this.taille.h));
-    const boite = empriseEcran(z.contour, (ll) => this.proj(ll) as [number, number] | null);
+    // Carte plane : une zone à cheval sur son bord (la mer de Béring) cadrée sur sa plus large partie (contourPlan).
+    const boite = empriseEcran(contourPlan(z.contour, m), (ll) => this.proj(ll) as [number, number] | null);
     const { centre, fin } = viserPart([b[0], b[1]], boite, tailleEcranPx(li.lieu, this.proj.scale(), 1), this.taille.l, h, r.part, Math.min(r.zoom_max, this.cadre.zoomMax));
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return this.zoomer(fin);
     // La carte part de la vue du monde (la décision) : zoomée, elle y est posée, plutôt que de tasser en r.centrer_ms

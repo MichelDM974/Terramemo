@@ -105,6 +105,31 @@ export function viserPart(
 }
 
 /**
+ * Un contour sur une carte plane (le SVG) de méridien central m : à cheval
+ * sur son bord (l'antiméridien de m : la mer de Béring, le Groenland sous la
+ * projection Pacifique), d3-geo en projette les deux parties aux deux bouts
+ * de la carte, et son emprise à l'écran en prend toute la largeur. Seule sa
+ * plus large partie en longitude est gardée, l'autre ramenée contre le bord
+ * de son côté, sa latitude gardée (montrerZone du SVG : la partie gardée au
+ * milieu de la carte, l'autre à l'autre bout). Les longitudes d'un contour
+ * se lisent d'un seul tenant (contourEmprise, un anneau) : un contour qui ne
+ * passe pas le bord revient tel quel.
+ */
+export function contourPlan(contour: readonly Position[], m: number): Position[] {
+  const ecarts = contour.map((p) => (p[0] ?? 0) - m);
+  if (!ecarts.length) return [];
+  const min = Math.min(...ecarts);
+  const max = Math.max(...ecarts);
+  // Lus à partir du bord ouest : le plus à l'ouest dans [-180, 180).
+  const s = -360 * Math.floor((min + 180) / 360);
+  if (max + s <= 180) return contour.map((p) => [...p]);
+  // La partie en deçà du bord est (jusqu'à 180) ou au-delà (ramenée de l'autre côté par d3-geo) : la plus large gardée.
+  const dedans = 180 - (min + s) >= max + s - 180;
+  const bord = dedans ? 180 - 1e-6 : 180 + 1e-6;
+  return contour.map((p, i) => ((ecarts[i]! + s > 180) === dedans ? [m + bord, p[1] ?? 0] : [...p]));
+}
+
+/**
  * Point écran → [lon, lat], ou null hors de la sphère. L'inverse d'Equal Earth
  * rend des valeurs fausses hors du contour : on vérifie par l'aller-retour.
  */

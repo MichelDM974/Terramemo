@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { assembler } from '../src/map/donnees';
-import { anneauPrincipal, empriseAnneau, empriseGrappe, GEANT_KM2, unionEmprises, viserPart, versEcran } from '../src/map/geo';
+import { anneauPrincipal, contourPlan, empriseAnneau, empriseGrappe, GEANT_KM2, unionEmprises, viserPart, versEcran } from '../src/map/geo';
 import type { Pays } from '../src/map/types';
 import { cadre, projectionEcran, viserEmprise, zoomAutour } from '../src/map/vue';
 import { grappesPays } from '../src/srs/grappes';
@@ -98,6 +98,29 @@ describe('le cadrage du zoom lent sur une zone (décision « Zone allumée montr
     expect(viserPart([0, 0], [0, 0, 250, 20], 0, 300, 200, 1 / 3, 40).fin.k).toBe(1);
     expect(viserPart([0, 0], [0, 0, 0.01, 0.01], 0, 300, 200, 1 / 3, 40).fin.k).toBe(40);
     expect(viserPart([0, 0], null, 2, 300, 200, 1 / 3, 40).fin.k).toBeCloseTo(100 / 3, 12);
+  });
+
+  it('contourPlan : sur une carte plane, un contour à cheval sur le bord gardé par sa plus large partie, l’autre contre le bord ; sinon tel quel', () => {
+    const lons = (c: number[][]) => c.map((p) => p[0]!);
+    // Ne passe pas le bord : tel quel (aussi sous la projection Pacifique, méridien central 150°).
+    expect(contourPlan([[10, 0], [40, 5]], 0)).toEqual([[10, 0], [40, 5]]);
+    expect(contourPlan([[170, 0], [190, 5]], 150)).toEqual([[170, 0], [190, 5]]);
+    // La mer de Béring (162° E à 157° O, lue d'un seul tenant jusqu'à 203°) : 18° en deçà du bord, 23° au-delà.
+    const bering = contourPlan([[162, 50], [203, 60], [180.5, 55]], 0);
+    expect(lons(bering)[0]).toBeCloseTo(180, 5);
+    expect(lons(bering)[0]).toBeGreaterThan(180);
+    expect(lons(bering).slice(1)).toEqual([203, 180.5]);
+    expect(bering.map((p) => p[1])).toEqual([50, 60, 55]);
+    // Plus large en deçà : l'au-delà ramené contre le bord, de ce côté (sous 180°).
+    const fidji = contourPlan([[170, -18], [185, -16]], 0);
+    expect(lons(fidji)[0]).toBe(170);
+    expect(lons(fidji)[1]).toBeCloseTo(180, 5);
+    expect(lons(fidji)[1]).toBeLessThan(180);
+    // Le Groenland sous la projection Pacifique (bord à 30° O) : 43° d'un côté, 19° de l'autre.
+    const groenland = contourPlan([[-73, 60], [-11, 80]], 150);
+    expect(lons(groenland)[0]).toBe(-73);
+    expect(lons(groenland)[1]! - 360).toBeCloseTo(-30, 5);
+    expect(lons(groenland)[1]! - 360).toBeLessThan(-30);
   });
 
   it('zoomAutour : des deux vues aux deux bouts, le zoom géométrique entre, le point fixe à la même ordonnée', () => {

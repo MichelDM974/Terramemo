@@ -6,9 +6,9 @@ import { UNITE } from '../src/map/traces';
 import { CHOIX_LIGNES, lignesDe, NOM } from '../src/map/lignes';
 import { textes } from '../src/vues/textes';
 import { assembler, type DonneesCarte } from '../src/map/donnees';
-import { assemblerMers, zonesAllumees } from '../src/map/mers';
+import { assemblerMers, empriseMer, zonesAllumees } from '../src/map/mers';
 import { calculerPastilles } from '../src/map/pastilles';
-import { anneauPrincipal, centreEmprise, contourEmprise, empriseEcran, emprisesSeCroisent, partVisible, versEcran, type Emprise } from '../src/map/geo';
+import { anneauPrincipal, centreEmprise, contourEmprise, contourPlan, empriseEcran, emprisesSeCroisent, partVisible, versEcran, type Emprise } from '../src/map/geo';
 import type { ContexteCarte } from '../src/map/pick';
 import type { Entite } from '../src/map/types';
 import { cadrageNommer } from '../src/vues/nommer';
@@ -952,6 +952,38 @@ describe('Carte (SVG) : montrerZone, le zoom lent sur la zone (décision « Zone
     vi.advanceTimersByTime(1000);
     expect(c.contexte().t.k).toBeCloseTo(2 * fin.k, 6);
     expect(c.contexteFinal().t).toEqual(c.contexte().t);
+  });
+
+  it.each(['FJI', 'KIR'])('%s, près de l’antiméridien : son polygone principal d’un seul tenant au milieu de la partie visible', (id) => {
+    const { c } = carte();
+    c.montrerZone(id, HV, REGLAGE);
+    vi.advanceTimersByTime(2200);
+    const b = boite(c, id);
+    expect(b[2] - b[0]).toBeLessThan(L / 2);
+    expect(auMilieu(c, id, 2)).toBe(true);
+  });
+
+  // La carte plane ne tourne pas : une mer à cheval sur son bord (la mer de Béring) est cadrée sur sa plus large
+  // partie (contourPlan), au lieu d'une emprise qui prenait toute la largeur de la carte (centrée au milieu du monde).
+  it('une mer, par son emprise : la Méditerranée au tiers de la carte ; la mer de Béring sur sa plus large partie, zoomée, au milieu', () => {
+    const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+    const couche = assemblerMers({ topo: texte('mers.topo.json'), leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+    for (const id of ['medit', 'bering']) {
+      const hote = new FauxElement();
+      const c = new Carte({ hote: hote as unknown as HTMLElement, donnees: { ...donnees, mers: [] }, projection: 'monde', rendu: 'g' });
+      c.rendre();
+      c.prendreMers(couche);
+      c.montrerZone(id, HV, REGLAGE);
+      expect([id, c.contexteFinal().t.k > 1.5]).toEqual([id, true]);
+      vi.advanceTimersByTime(2200);
+      const ctx = c.contexte();
+      const b = empriseEcran(contourPlan(contourEmprise(empriseMer(id, couche.mers.map((m) => m.pays))!), 0), (ll) => {
+        const p = ctx.proj(ll);
+        return p ? versEcran(ctx.t, p[0], p[1]) : null;
+      })!;
+      expect([id, Math.abs(milieu(b)[0] - L / 2) < 3, Math.abs(milieu(b)[1] - HV / 2) < 3]).toEqual([id, true, true]);
+      expect([id, part(b)]).toEqual([id, expect.closeTo(1 / 3, 1)]);
+    }
   });
 
   it('le système réduit les animations : la vue finale d’emblée', () => {
