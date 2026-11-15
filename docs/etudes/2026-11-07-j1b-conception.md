@@ -1893,7 +1893,11 @@ compte changée, laissait jouer sans rien dire) :
   `surChangement` (onAuthStateChanged(null) relu par `etat()`), l'état de
   la page (`pont.ts`) et le rapport des comptes ensemble : une suppression
   inachevée, « perdue » pour la page, ne l'appelle pas (⚙ › Compte la
-  règle). Hors ligne, `reload()` échoue sans déconnecter : rien.
+  règle ; `sessionPerdue`). Hors ligne, `reload()` échoue sans déconnecter :
+  rien. Au retour au premier plan (5 min au plus, comme l'envoi), un
+  compte connu relit `etat()` : sans quoi une révocation (adresse changée
+  ailleurs) n'est sue qu'au rafraîchissement de l'ID token, jusqu'à une
+  heure plus tard, Firestore acceptant un jeton révoqué non expiré.
 - Partie en cours = vue `toucher`, `chrono` ou `quiz` : le panneau
   attend sa fin, et vient par-dessus son bilan (`ContexteVue.finDePartie`,
   appelé par chaque bilan : « Rejouer » et « Recommencer » relancent dans

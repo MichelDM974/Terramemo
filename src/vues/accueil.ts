@@ -94,6 +94,18 @@ export function accueilRequis(o: { visibles: boolean; choix: ChoixAccueil | null
   return o.visibles && o.choix === null && !o.compte;
 }
 
+/**
+ * main.ts, à chaque relecture des comptes : la session est-elle perdue pour
+ * l'écran de connexion (Accueil.perdue) ? L'état de la page (src/sync/pont.ts,
+ * posé à chaque relecture, et par « Continuer sans compte » ou l'effacement,
+ * après lesquels l'état des comptes n'est pas relu) et celui des comptes
+ * ensemble : une suppression inachevée, « perdue » pour la page, ne l'est pas
+ * ici (⚙ › Compte la règle).
+ */
+export function sessionPerdue(page: 'invite' | 'compte' | 'perdue', etat: { etat: string } | null | undefined): boolean {
+  return page === 'perdue' && etat?.etat === 'perdue';
+}
+
 /** Ce que montre le panneau : le premier affichage, ou une session perdue. */
 export type ModeAccueil = 'premier' | 'perdue';
 

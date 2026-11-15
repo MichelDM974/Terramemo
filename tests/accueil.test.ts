@@ -8,7 +8,7 @@
 // DOM factice.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { effacerJoueurLocal } from '../src/sync/effacement';
-import { accueilRequis, CLE_ACCUEIL, creerAccueil, DELAI_SESSION, garderChoix, lireChoix, type ComptesDuPanneau, type StockageAccueil } from '../src/vues/accueil';
+import { accueilRequis, CLE_ACCUEIL, creerAccueil, DELAI_SESSION, garderChoix, lireChoix, sessionPerdue, type ComptesDuPanneau, type StockageAccueil } from '../src/vues/accueil';
 import { textes } from '../src/vues/textes';
 import { El, installerDom, installerStockage } from './dom-factice';
 
@@ -433,6 +433,21 @@ describe('session perdue', () => {
   }
   const ouvertPerdue = (m: ReturnType<typeof monter>) => m.a.etat() === 'ouvert' && m.a.mode() === 'perdue' && $('#accueil') !== null;
 
+  it('ce que main.ts lui dit (sessionPerdue) : perdue pour la page et pour les comptes ; ni une suppression inachevée, ni un invité, ni un compte', () => {
+    const PERDUE = { etat: 'perdue', uid: 'u1', adresse: null, fournisseurs: [] };
+    expect(sessionPerdue('perdue', PERDUE)).toBe(true);
+    // Une suppression inachevée : « perdue » pour la page, réglée dans ⚙ › Compte.
+    expect(sessionPerdue('perdue', { etat: 'suppression' })).toBe(false);
+    // « Continuer sans compte » ou l'effacement : la page invitée, l'état des comptes pas encore relu.
+    expect(sessionPerdue('invite', PERDUE)).toBe(false);
+    expect(sessionPerdue('compte', PERDUE)).toBe(false);
+    expect(sessionPerdue('compte', { etat: 'compte' })).toBe(false);
+    expect(sessionPerdue('invite', { etat: 'invite' })).toBe(false);
+    // Les comptes pas encore lus.
+    expect(sessionPerdue('perdue', null)).toBe(false);
+    expect(sessionPerdue('perdue', undefined)).toBe(false);
+  });
+
   it('à l’ouverture : le panneau par-dessus la carte figée, l’en-tête inerte, l’écran de la session perdue des comptes', async () => {
     const m = await connecte();
     expect(m.rendre).toHaveBeenCalledTimes(0);
@@ -578,7 +593,7 @@ describe('session perdue', () => {
     expect(ouvertPerdue(m)).toBe(true);
   });
 
-  it('un invité ou un compte valide : jamais de panneau ; un état de la page qui n’est plus « perdue » non plus', async () => {
+  it('un invité ou un compte valide : jamais de panneau ; garde-fou : un perdue(vrai) que l’état de la page ne confirme plus, non plus', async () => {
     const m = await connecte();
     m.a.perdue(false);
     expect(m.a.retient('carte')).toBe(false);

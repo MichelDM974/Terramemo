@@ -31,7 +31,7 @@ import { charger, sdkDemande } from './sync/firebase';
 import { brancherProfil, etatCompteConnu, poserEtatCompte, type ChangementProfil } from './sync/pont';
 import { depotSessionIndexedDb, type Session } from './sync/session';
 import { vueALaDemande } from './vues/a-la-demande';
-import { creerAccueil, type Accueil } from './vues/accueil';
+import { creerAccueil, sessionPerdue, type Accueil } from './vues/accueil';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
 import { poserMers, type Vue } from './vues/commun';
@@ -928,11 +928,8 @@ function lesComptes(m: typeof import('./sync/comptes')): Comptes {
     perdueSuivie = true;
     // L'écran de connexion suit la session (décision « Écran de connexion », remplacée le 15/11) :
     // perdue en cours de route (onAuthStateChanged(null), etat() relu par les comptes), il revient ;
-    // reconnectée ou invitée, il n'est plus dû. L'état de la page d'abord (posé à chaque relecture,
-    // et par « Continuer sans compte » ou l'effacement, après lesquels le rapport n'est pas relu) ;
-    // le rapport ensuite, qui distingue une suppression inachevée (« perdue » aussi pour la page),
-    // réglée dans ⚙ › Compte.
-    c.surChangement(() => accueil?.perdue(etatCompteConnu() === 'perdue' && c.rapport().etat?.etat === 'perdue'));
+    // reconnectée ou invitée, il n'est plus dû (sessionPerdue : pas pour une suppression inachevée).
+    c.surChangement(() => accueil?.perdue(sessionPerdue(etatCompteConnu(), c.rapport().etat)));
   }
   return c;
 }
@@ -984,7 +981,7 @@ function demarrerCompte(): void {
         .then((e) => {
           // Session perdue à l'ouverture (§ 2.5) : l'écran de connexion revient. Hors ligne, etat() garde
           // le compte (reload échoue sans le déconnecter) : rien ne change.
-          accueil?.perdue(e.etat === 'perdue');
+          accueil?.perdue(sessionPerdue(etatCompteConnu(), e));
           // À l'ouverture : ce qui attend part (séances closes, lots en attente du réseau).
           if (e.etat === 'compte') lancerEnvoi('ouverture');
         });
@@ -1062,7 +1059,23 @@ document.addEventListener('visibilitychange', () => {
   if (t - dernierPremierPlan < PREMIER_PLAN_MIN) return;
   dernierPremierPlan = t;
   lancerEnvoi('premier_plan');
+  relireSession().catch((e: unknown) => console.warn('Session non relue :', e));
 });
+
+/**
+ * Au retour au premier plan (même délai que l'envoi) : la session d'un compte
+ * relue, pour qu'une session révoquée ailleurs (adresse ou mot de passe
+ * changés) ramène l'écran de connexion sans attendre le rafraîchissement de
+ * l'ID token (jusqu'à une heure : Firestore accepte un jeton révoqué non
+ * expiré). reload() fait sortir le SDK si les jetons sont révoqués ; etat()
+ * ne prévient pas les abonnés, d'où l'appel direct. Rien pour un invité, ni
+ * si les comptes ne sont pas chargés (ils le sont dès qu'un compte est connu).
+ */
+async function relireSession(): Promise<void> {
+  if (!comptesCharges || etatCompteConnu() !== 'compte') return;
+  const e = await lesComptes(await comptesCharges).etat();
+  accueil?.perdue(sessionPerdue(etatCompteConnu(), e));
+}
 addEventListener('online', () => lancerEnvoi('reseau'));
 
 /** window.terramemo.synchro() : sans Firebase ; l'envoi n'est chargé que pour un compte. */
