@@ -8,7 +8,7 @@
 // boutons-images nommés « Choix 1 » à « Choix 4 » (sans title ni rien qui
 // nomme le pays avant la réponse), touches 1 à 4, rétroaction qui dit aussi
 // le choix fait ; les drapeaux de la question suivante préchargés.
-import type { CarteAffichee } from '../map/carte';
+import type { CarteAffichee, ReglageZone } from '../map/carte';
 import { anneauPrincipal, empriseEcran, versEcran, type Emprise } from '../map/geo';
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
@@ -23,6 +23,16 @@ const D = textes.drapeaux;
 /** Durée de la rétroaction avant la question suivante (ms) : les pauses du Chrono. */
 const PAUSE_JUSTE_MS = 900;
 const PAUSE_FAUX_MS = 1800;
+
+/**
+ * Le zoom lent sur la zone d'une question du monde (décision « Zone allumée
+ * montrée par un zoom lent ») : centrée en centrer_ms depuis la vue du monde,
+ * puis grossie sur place en zoomer_ms jusqu'à occuper `part` de la carte
+ * visible (au-dessus de la barre), au zoom zoom_max au plus (au zoom 40,
+ * ~1 000 km sur la largeur du téléphone : le Vatican garde l'Italie autour).
+ * Réglages à ajuster après l'essai sur le téléphone.
+ */
+export const ZONE_MONTREE: ReglageZone = { centrer_ms: 500, zoomer_ms: 1500, part: 1 / 3, zoom_max: 40 };
 
 /**
  * Le cadrage de la zone d'une question : faut-il voler jusqu'à elle
@@ -84,18 +94,25 @@ export interface CrochetsNommer {
 }
 
 /**
- * Allume la zone d'une question (Reconnaître, carte retournée) : en accent,
- * un anneau si elle est minuscule, et la carte vole jusqu'à elle (centrée
- * au-dessus de la barre) si elle est hors de la partie visible, en partie
- * sous la barre ou trop petite pour être vue. Sur l'île au zoom 1 rien ne
- * bouge (toute l'île est au-dessus de la barre, chaque commune ≥ 15 px) ;
- * zoomée par un geste ou un vol, elle y revient quand la zone n'est pas
- * visible, plutôt que de voler encore : sinon un vol laissait toute la
- * suite de la partie zoomée. Jugé sur l'arrivée d'un vol en cours
- * (cadrageNommer) : s'il n'y a pas à voler, il continue jusqu'à elle ;
- * sinon le nouveau vol part d'où il en est. Rend vrai si la zone est petite
- * (anneau posé). Une mer allumée (un océan avec la mer qu'il enclave sans
- * côte) se juge sur son emprise entière (`contour`, zonesDuSujet).
+ * Allume la zone d'une question (Reconnaître, carte retournée, QCM du quiz
+ * général) : en accent, et un anneau si elle est minuscule à la vue où la
+ * carte s'arrêtera. Sur le monde (décision « Zone allumée montrée par un
+ * zoom lent ») : la carte repart de la vue du monde centrée sur elle, puis
+ * zoome lentement jusqu'à ce qu'elle occupe un tiers de la carte au-dessus
+ * de la barre (montrerZone, ZONE_MONTREE) ; une question suivante l'arrête
+ * où il en est et repart de là. `montrer` faux : la zone rallumée sans
+ * relancer le zoom (la carte retournée révélée). Sur l'île, le cadrage
+ * d'avant, `montrer` sans effet : au zoom 1 rien ne bouge (toute l'île est
+ * au-dessus de la barre, chaque commune ≥ 15 px) ; la carte vole jusqu'à la
+ * zone si elle est hors de la partie visible, en partie sous la barre ou
+ * trop petite pour être vue ; zoomée par un geste ou un vol, elle revient
+ * au zoom 1 quand la zone n'est pas visible, plutôt que de voler encore :
+ * sinon un vol laissait toute la suite de la partie zoomée. Jugé sur
+ * l'arrivée d'un vol en cours (cadrageNommer) : s'il n'y a pas à voler, il
+ * continue jusqu'à elle ; sinon le nouveau vol part d'où il en est. Rend
+ * vrai si la zone est petite (anneau posé). Une mer allumée (un océan avec
+ * la mer qu'il enclave sans côte) se juge sur son emprise entière
+ * (`contour`, zonesDuSujet).
  */
 export function allumerZone(
   carte: Terrain['carte'],
@@ -105,16 +122,24 @@ export function allumerZone(
   barre: HTMLElement,
   local: boolean,
   contour?: readonly (readonly number[])[],
+  montrer = true,
 ): boolean {
   carte.effacerMarques();
   carte.marquer(id, 'choisi');
   const r = carte.hote.getBoundingClientRect();
   const haut = barre.getBoundingClientRect().top - r.top;
   const cadrer = () => (lieu ? cadrageNommer(carte, lieu, forme, r.width, haut, contour) : { vole: true, taille: 0 });
-  let c = cadrer();
-  if (c.vole && local && carte.contexteFinal().t.k !== 1) {
-    carte.zoomer({ k: 1, x: 0, y: 0 });
+  let c: { vole: boolean; taille: number };
+  if (!local) {
+    if (montrer) carte.montrerZone(id, haut, ZONE_MONTREE);
+    // La taille à la vue finale du zoom lent (contexteFinal) : l'anneau ne reste qu'aux zones minuscules à son arrivée.
+    c = { vole: false, taille: cadrer().taille };
+  } else {
     c = cadrer();
+    if (c.vole && carte.contexteFinal().t.k !== 1) {
+      carte.zoomer({ k: 1, x: 0, y: 0 });
+      c = cadrer();
+    }
   }
   const petite = c.taille < ANNEAU_SOUS_PX;
   if (petite) anneauZone(carte, id, lieu, 'choisi');
@@ -229,8 +254,9 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     if (r.visuel && apres !== undefined) prechargerSujet(r.sujet, choixDe(r, apres));
     barre.hidden = false;
     if (crochets.cadrer) {
-      // Une fois : au retour dans la vue, la carte reste où le joueur l'a laissée.
-      t.carte.cadrer(crochets.cadrer, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
+      // Une fois : au retour dans la vue, la carte reste où le joueur l'a laissée. Sur le monde, le zoom lent sur la
+      // zone (allumer) part de la vue du monde : la grappe cadrée n'y serait jamais vue.
+      if (t.nom !== 'monde') t.carte.cadrer(crochets.cadrer, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
       crochets = { ...crochets, cadrer: undefined };
     }
     allumer(t.carte, id, t.nom !== 'monde');

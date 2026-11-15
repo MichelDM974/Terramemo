@@ -1701,7 +1701,8 @@ même continent. La part de parties à 20/20 se mesure au pilote et à l'essai
     (sortie de `vues/chrono.ts:125-148` dans un module commun), la grille
     2 × 2 (cachée pour un toucher), la rétroaction et « Abandonner » ;
   - QCM : la zone s'allume (`allumerZone`, `nommer.ts:90`), et un toucher de
-    la carte est ignoré ;
+    la carte est ignoré ; la carte la centre puis zoome lentement sur elle
+    (décision « Zone allumée montrée par un zoom lent », `montrerZone`) ;
   - toucher : la vue du monde est remise avant la question. Sinon la vue
     laissée par un QCM montre la réponse ;
   - après chaque réponse : juste ou faux, la bonne réponse en vert, environ

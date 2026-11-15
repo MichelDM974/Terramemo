@@ -103,7 +103,8 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   en bas, mention de l'IGN), `10b-zoom-ile` (`ui_zoom` sur l'île, en SVG), `11-reunion-faux` (Saint-Paul touché pour
   Saint-Denis : « Passer » jusqu'à Saint-Denis, l'ordre étant tiré au
   hasard), `12-nommer-monde` (Nommer, Europe : zone en accent, 4 boutons,
-  prise une fois le vol fini : `attendre_fin_vol`, transformation stable),
+  prise une fois le vol fini : `attendre_fin_vol`, transformation stable ;
+  sur le monde, le zoom lent sur la zone, 0,5 + 1,5 s, réglé par `ZONE_MONTREE` de `nommer.ts`),
   `13-nommer-reunion-retro` (mauvais choix rouge, bon vert),
   `14-chrono-reunion` (première question, jauge) ; il vérifie le monde au
   retour (la Carte, `pick` sur la Suisse = CHE).

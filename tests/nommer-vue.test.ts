@@ -7,7 +7,7 @@ import { chargerCapitales } from '../src/map/capitales';
 import { chargerDrapeaux, drapeauxCharges, oublierDrapeaux } from '../src/map/drapeaux';
 import type { Pays } from '../src/map/types';
 import type { ContexteVue } from '../src/vues/commun';
-import { vueNommer, type ReponseNommer } from '../src/vues/nommer';
+import { vueNommer, ZONE_MONTREE, type ReponseNommer } from '../src/vues/nommer';
 import { ditsPar, El, installerDom } from './dom-factice';
 import { code, FACTICE, sansBrut } from './sujet-factice';
 
@@ -31,6 +31,7 @@ function monter(o: { ids?: readonly string[]; noms?: Record<string, string> } = 
     anneau: (id: string, c: string) => void marques.push(`anneau ${id}:${c}`),
     anneauEn: (p: [number, number], c: string) => void marques.push(`anneauEn ${p.join(',')}:${c}`),
     montrer: vi.fn(),
+    montrerZone: vi.fn(),
     zoomer: vi.fn(),
     cadrer: vi.fn(),
     // Tout est à l'écran, grand : pas de vol.
@@ -118,17 +119,39 @@ describe('Reconnaître : la vue', () => {
     for (const t of vus) sansBrut(t, [...IDS, ...Object.values(NOMS)]);
   });
 
-  it('crochet cadrer (QCM d’une grappe) : la carte cadrée sur la région avant la zone, une seule fois, pas au retour dans la vue', () => {
+  it('crochet cadrer (QCM d’une grappe) : sur l’île, la carte cadrée sur la région avant la zone, une seule fois, pas au retour dans la vue', () => {
     const v = monter();
-    v.n.demarrer(v.terrain, 'pays', '', ['ITA'], { cadrer: [5, 40, 20, 50], surFin: () => {} });
+    const ile = { ...(v.terrain as object), nom: 'reunion' } as never;
+    v.n.demarrer(ile, 'pays', '', ['ITA'], { cadrer: [5, 40, 20, 50], surFin: () => {} });
     expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
     expect(v.carte.cadrer.mock.calls[0]![0]).toEqual([5, 40, 20, 50]);
     expect(v.marques).toContain('ITA:choisi');
+    expect(v.carte.montrerZone).not.toHaveBeenCalled();
     v.n.quitter();
     v.n.reprendre();
     expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
-    v.n.demarrer(v.terrain, 'pays', '', ['ESP'], { surFin: () => {} });
+    v.n.demarrer(ile, 'pays', '', ['ESP'], { surFin: () => {} });
     expect(v.carte.cadrer).toHaveBeenCalledTimes(1);
+  });
+
+  it('sur le monde (décision « Zone allumée montrée par un zoom lent ») : chaque question zoome lentement sur sa zone, la grappe n’est pas cadrée, la réponse ne relance rien', () => {
+    const v = monter();
+    v.n.demarrer(v.terrain, 'pays', '', ['ITA', 'ESP'], { cadrer: [5, 40, 20, 50] });
+    expect(v.carte.cadrer).not.toHaveBeenCalled();
+    expect(v.carte.montrer).not.toHaveBeenCalled();
+    expect(v.carte.montrerZone).toHaveBeenCalledTimes(1);
+    expect(v.carte.montrerZone.mock.calls[0]![0]).toBe('ITA');
+    expect(v.carte.montrerZone.mock.calls[0]![2]).toBe(ZONE_MONTREE);
+    v.repondre(true);
+    expect(v.carte.montrerZone).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(900);
+    expect(v.carte.montrerZone).toHaveBeenCalledTimes(2);
+    expect(v.carte.montrerZone.mock.calls[1]![0]).toBe('ESP');
+    // Au retour dans la vue, la question reposée : son zoom aussi.
+    v.n.quitter();
+    v.n.reprendre();
+    expect(v.carte.montrerZone).toHaveBeenCalledTimes(3);
+    expect(v.carte.zoomer).not.toHaveBeenCalled();
   });
 
   it('crochet surReponse : chaque réponse (choix, justesse, temps, échelle) ; sa ligne s’ajoute à la rétroaction', () => {

@@ -14,7 +14,7 @@ import { lireRecords } from '../src/epreuve/chrono';
 import type { Lancement } from '../src/vues/arbre';
 import type { ContexteVue } from '../src/vues/commun';
 import { vueEssai } from '../src/vues/essai';
-import { cadrageNommer } from '../src/vues/nommer';
+import { cadrageNommer, ZONE_MONTREE } from '../src/vues/nommer';
 import { vueRetournee } from '../src/vues/retournee';
 import { empriseMer } from '../src/map/mers';
 import { contourEmprise } from '../src/map/geo';
@@ -48,6 +48,7 @@ function monde() {
     anneau: (id: string, c: string) => void marques.push(`anneau ${id}:${c}`),
     anneauEn: (p: [number, number], c: string) => void marques.push(`anneauEn ${p.join(',')}:${c}`),
     montrer() {},
+    montrerZone() {},
     cadrer() {},
     zoomer() {},
     projection: { scale: () => 100 },
@@ -189,27 +190,31 @@ describe('Trouver sous Océans et mers', () => {
  * projection plate où les longitudes est (> 0) partent à gauche de l'écran
  * (200 × 200 px au-dessus de la barre). Le polygone principal de pacif y
  * tient entier ; son emprise (de 114° E à 68° W) n'y tient qu'aux trois quarts.
- * montrer() compté : la carte vole-t-elle ?
+ * montrer() et montrerZone() comptés : la carte vole-t-elle, zoome-t-elle sur la zone ?
  */
 function moitieDuPacifique(m: ReturnType<typeof monde>) {
   const montrer = vi.fn();
+  const montrerZone = vi.fn();
   const proj = Object.assign(([lon, lat]: [number, number]): [number, number] => [(lon > 0 ? lon - 360 : lon) + 200, 100 - lat], { scale: () => 100 });
-  Object.assign(m.t.carte, { montrer, contexteFinal: () => ({ proj, t: { k: 1, x: 0, y: 0 } }) });
+  Object.assign(m.t.carte, { montrer, montrerZone, contexteFinal: () => ({ proj, t: { k: 1, x: 0, y: 0 } }) });
   (m.t.carte.hote as El).getBoundingClientRect = () => ({ x: 0, y: 0, width: 200, height: 400, top: 0, left: 0, right: 200, bottom: 400 }) as never;
   // La barre de la vue (Reconnaître, carte retournée) commence à 200 px.
   vi.spyOn(El.prototype, 'getBoundingClientRect').mockImplementation(function (this: El) {
     const haut = this.id.startsWith('barre-') ? 200 : 0;
     return { x: 0, y: haut, width: 200, height: 100, top: haut, left: 0, right: 200, bottom: haut + 100 } as never;
   });
-  return montrer;
+  return { montrer, montrerZone };
 }
 
 describe('cadrage d’une mer allumée sur son emprise (Reconnaître, carte retournée)', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('le Pacifique : sa moitié est à l’écran ne suffit pas, la carte vole (le contour d’empriseMer, pas le polygone principal)', () => {
+  // Sur le monde, la zone se montre par le zoom lent (montrerZone, décision « Zone allumée montrée par un zoom
+  // lent »), qui cadre une mer sur son emprise entière (contourZone, tests/carte-canvas-dom.test.ts) ; cadrageNommer
+  // et son contour restent le cadrage de l'île.
+  it('le Pacifique : sa moitié est à l’écran ne suffit pas (le contour d’empriseMer, pas le polygone principal) ; le zoom lent le montre', () => {
     const m = monde();
-    const montrer = moitieDuPacifique(m);
+    const { montrer, montrerZone } = moitieDuPacifique(m);
     const pacif = couche.mers.find((e) => e.pays.id === 'pacif')!;
     const zones = couche.mers.map((e) => e.pays);
     // Le témoin : sans contour, le polygone principal tient à l'écran, rien ne vole ; avec, la carte vole.
@@ -219,12 +224,13 @@ describe('cadrage d’une mer allumée sur son emprise (Reconnaître, carte reto
     v.activer();
     v.lancer({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'nommer' }, serieMers(), m.t as never, ['pacif']);
     expect(m.zone.querySelector('#barre-nommer .essai-consigne')!.dataset.cible).toBe('pacif');
-    expect(montrer).toHaveBeenCalledWith('pacif', 200);
+    expect(montrerZone).toHaveBeenCalledWith('pacif', 200, ZONE_MONTREE);
+    expect(montrer).not.toHaveBeenCalled();
   });
 
   it('carte retournée : « Quel est cet océan ? » puis « Quelle est cette mer ? », la zone allumée par son lieu marin (sans anneau pour un océan, à son point pour l’Azov), cadrée sur son emprise ; « Révéler » donne le nom', () => {
     const m = monde();
-    const montrer = moitieDuPacifique(m);
+    const { montrerZone } = moitieDuPacifique(m);
     const r = vueRetournee(m.ctx);
     const crochets = { compte: () => '1 / 3', surReponse: () => '', surFin: vi.fn(), terminer: vi.fn() };
     const consigne = () => m.zone.querySelector('#barre-retournee .essai-consigne')!;
@@ -232,11 +238,13 @@ describe('cadrage d’une mer allumée sur son emprise (Reconnaître, carte reto
     r.poser(m.t as never, 'mers', 'pacif', crochets);
     expect(consigne().textContent).toBe('Quel est cet océan ?');
     expect(m.marques).toEqual(['pacif:choisi']);
-    // Son emprise ne tient pas à l'écran : la carte vole.
-    expect(montrer).toHaveBeenCalledWith('pacif', 200);
+    // Le zoom lent sur la zone, à la question seulement : « Révéler » la rallume sans le relancer.
+    expect(montrerZone).toHaveBeenCalledWith('pacif', 200, ZONE_MONTREE);
     expect(nomRevele().textContent).toBe('');
     (m.zone.querySelector('#retournee-reveler') as El).click();
     expect(nomRevele().textContent).toBe('océan Pacifique');
+    expect(m.marques).toEqual(['pacif:choisi']);
+    expect(montrerZone).toHaveBeenCalledTimes(1);
     r.poser(m.t as never, 'mers', 'egee', crochets);
     expect(consigne().textContent).toBe('Quelle est cette mer ?');
     expect(m.marques[0]).toBe('egee:choisi');

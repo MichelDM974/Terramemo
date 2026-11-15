@@ -52,6 +52,8 @@ function monter(o: Partial<OptionsEssai> = {}, terrain: { ids: string[]; noms: R
     montrer() {
       carte.transfo.k = 1e6;
     },
+    // Le zoom lent de Reconnaître sur le monde : la vue finale (contexteFinal) ne change pas ici.
+    montrerZone() {},
     projection: { scale: () => 100 },
     transfo: { k: 1 },
     hote: new El('div'),
@@ -374,6 +376,8 @@ function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
     marquer: (id: string, c: string) => void marques.push(`${id}:${c}`),
     anneau: () => undefined,
     montrer: () => void appels.push('montrer'),
+    montrerZone: (id: string) => void appels.push(`montrerZone ${id}`),
+    vueEntiere: () => void appels.push('vueEntiere'),
     zoomer: (t: { k: number }) => void appels.push(`zoomer ${t.k}`),
     cadrer: (e: number[]) => void appels.push(`cadrer ${e.join(',')}`),
     contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
@@ -483,6 +487,33 @@ describe('Toucher : une séance quittée puis reprise', () => {
     s.el('#seance-continuer').click();
     expect(s.fabrique.ouvrir).toHaveBeenCalledTimes(2);
     expect(s.fabrique.ouvrir.mock.calls[1]![0]).toEqual({ sorte: 'revision' });
+  });
+
+  it('décision « Zone allumée montrée par un zoom lent » : QCM et carte retournée zooment sur leur zone ; un Trouver sans cadrage qui les suit repart de la vue du monde, pas un Trouver qui suit un Trouver', () => {
+    const f = piloteFactice([
+      { id: 'ITA', forme: 'qcm', cadrer: [5, 40, 20, 50], connu: false },
+      { id: 'DEU', forme: 'retournee', cadrer: null, connu: false },
+      { id: 'FRA', forme: 'trouver', cadrer: null, connu: false },
+      { id: 'BEL', forme: 'trouver', cadrer: null, connu: false },
+    ]);
+    const s = monterSeance(() => f.p);
+    s.vue.activer();
+    s.vue.reviser();
+    // Le QCM d'une grappe sur le monde : le zoom lent sur la zone, à la place du cadrage de la grappe.
+    expect(s.appels).toEqual(['montrerZone ITA']);
+    (s.el('#barre-nommer').querySelectorAll('.nommer-choix').find((b) => b.dataset.id === 'ITA') as El).click();
+    vi.advanceTimersByTime(900);
+    expect(s.appels).toEqual(['montrerZone ITA', 'montrerZone DEU']);
+    // Révélée : rallumée sans relancer le zoom.
+    s.el('#retournee-reveler').click();
+    s.el('#retournee-savais').click();
+    vi.advanceTimersByTime(900);
+    expect(s.visible('barre-essai')).toBe(true);
+    expect(s.appels).toEqual(['montrerZone ITA', 'montrerZone DEU', 'vueEntiere']);
+    toucher(s.vue, true);
+    vi.advanceTimersByTime(1200);
+    expect(s.el('#barre-essai .essai-compte').textContent).toBe('4 / 4');
+    expect(s.appels).toEqual(['montrerZone ITA', 'montrerZone DEU', 'vueEntiere']);
   });
 
   it('« Terminer » : le bilan tout de suite, les réponses données comptent', () => {
@@ -607,6 +638,7 @@ describe('Toucher : une séance qui passe sur l’île (communes, D6)', () => {
       marquer() {},
       anneau() {},
       montrer() {},
+      montrerZone() {},
       zoomer() {},
       cadrer() {},
       projection: { scale: () => 100 },

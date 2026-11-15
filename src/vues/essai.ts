@@ -241,6 +241,13 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   const retournee = vueRetournee(ctx);
   /** La séance en cours (Apprendre, Révision du jour) : elle pose les questions et fait le bilan. */
   let pilote: PiloteSeance | null = null;
+  /**
+   * Le terrain dont la carte a zoomé sur la zone de la dernière question de
+   * séance (à 4 choix ou retournée, sur le monde : décision « Zone allumée
+   * montrée par un zoom lent ») : un Trouver qui la suit sans cadrage repart
+   * de la vue du monde.
+   */
+  let zoneMontree: Terrain | null = null;
   /** Ce qui l'a lancée (« Continuer » en relance une). */
   let demande: DemandeSeance | null = null;
   /** Le journal de la partie libre en cours (D11), ou null. */
@@ -471,8 +478,12 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       // Le cadrage de la séance (décision « Cadrage et disques en séance ») : jamais par question.
       if (q.cadrer === 'monde') t.carte.zoomer({ k: 1, x: 0, y: 0 });
       else if (q.cadrer) t.carte.cadrer(q.cadrer, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
+      // Sinon la vue laissée par le zoom sur une zone montrerait la réponse (une voisine de sa grappe).
+      else if (zoneMontree === t) t.carte.vueEntiere();
+      zoneMontree = null;
       return afficherQuestion();
     }
+    zoneMontree = t.nom === 'monde' ? t : null;
     const terminer = () => finirSeance();
     if (q.forme === 'qcm')
       return nommer.demarrer(t, rs.sujet, '', [q.id], {

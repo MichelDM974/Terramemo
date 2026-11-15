@@ -1,7 +1,8 @@
 // Carte retournée (décision « Sens « quel est ce pays ? » » du 06/11) : la
 // fiche nommer se révise sans clavier avant la saisie du J1b. La zone
-// s'allume et se cadre comme dans Reconnaître (allumerZone), on pense au nom,
-// « Révéler » le montre, puis « Je savais » (Good) ou « Je ne savais pas »
+// s'allume et se cadre comme dans Reconnaître (allumerZone : sur le monde, le
+// zoom lent de la décision « Zone allumée montrée par un zoom lent »), on
+// pense au nom, « Révéler » le montre, puis « Je savais » (Good) ou « Je ne savais pas »
 // (Again) ; une ligne discrète dit quand elle revient. Une question à la
 // fois, posée par la séance (src/vues/seance.ts, via essai.ts).
 import type { Terrain } from '../terrains';
@@ -98,7 +99,9 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
     retro.className = etape === 'repondu' ? `essai-retro ${juste ? 'juste' : 'faux'}` : 'essai-retro';
     retro.textContent = etape === 'repondu' ? ligne : '';
     barre.hidden = false;
-    allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde', contours.get(id));
+    // Le zoom lent sur la zone à la question seulement (posée, ou reprise au retour dans la vue) : révélée ou
+    // répondue, elle se rallume où la carte en est (décision « Zone allumée montrée par un zoom lent »).
+    allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde', contours.get(id), etape === 'question');
     // Révélée : un anneau à chaque ville révélée (D53 c : les capitales justes) ; rien pour un pays.
     if (revele) for (const p of rs.points(id)) t.carte.anneauEn(p, 'juste');
   }

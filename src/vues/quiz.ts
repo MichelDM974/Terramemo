@@ -4,8 +4,10 @@
 // avec son délai. Une barre : la consigne (le rendu du sujet, sujets.ts), le
 // compte « 7 / 20 · 5 justes », la jauge (jauge.ts), la grille 2 × 2 des choix
 // (cachée pour un toucher), la rétroaction et « Abandonner ».
-// - QCM : la zone s'allume (allumerZone, nommer.ts) ; un toucher de la carte
-//   est ignoré. Au facile, l'énoncé nomme le pays (D49 d : « Quelle est la
+// - QCM : la zone s'allume (allumerZone, nommer.ts), la carte centrée sur
+//   elle puis zoomée lentement (décision « Zone allumée montrée par un zoom
+//   lent »), le temps courant pendant le zoom ; un toucher de la carte est
+//   ignoré. Au facile, l'énoncé nomme le pays (D49 d : « Quelle est la
 //   capitale du Japon ? »), la zone n'est qu'une aide.
 // - Toucher : la vue du monde est remise avant la question (sinon la vue
 //   laissée par un QCM montrerait la réponse).
