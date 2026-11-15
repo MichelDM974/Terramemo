@@ -453,8 +453,9 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       if (attendait) {
         marquer(null);
         inertes(false, false);
+        // Une session perdue sue entre-temps : la navigation l'ouvre (retient).
         o.rendre();
-      }
+      } else if (perdueSurVue(vueCourante)) ouvrir(true, 'perdue');
     },
     retient(nom) {
       if (perdueSurVue(nom)) ouvrir(false, 'perdue');
@@ -488,7 +489,9 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
         perdueDue = perdueVue = false;
         return;
       }
-      if (etat === 'inactif' || perdueVue) return;
+      // Stockage illisible : jamais de panneau. Pas encore démarré (choix gardé, demarrer en cours) : dû, il
+      // viendra à la fin de demarrer.
+      if (depart === undefined || perdueVue) return;
       perdueDue = true;
       // Hors d'une partie, tout de suite ; sinon à la vue suivante (retient). Panneau du premier affichage
       // ouvert, ou en attente : à sa fermeture.

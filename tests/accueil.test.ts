@@ -625,6 +625,32 @@ describe('session perdue', () => {
     expect(n.a.retient('carte')).toBe(false);
   });
 
+  it('sue avant la fin de demarrer (choix « compte » gardé, ou en attente de la session) : le panneau à sa fin, pas oubliée', async () => {
+    stockage.set(CLE_ACCUEIL, 'compte');
+    const m = monter();
+    m.a.suivre('carte');
+    expect(m.a.etat()).toBe('inactif');
+    m.poserEtatCompte('perdue');
+    m.a.perdue(true);
+    expect($('#accueil')).toBeNull();
+    await demarrer(m, true);
+    expect(ouvertPerdue(m)).toBe(true);
+    expect(m.rendre).toHaveBeenCalledOnce();
+
+    // Sans choix gardé, en attente : la navigation rendue à la fin l'ouvre (retient).
+    body = installerDom();
+    stockage = installerStockage();
+    const n = monter();
+    expect(n.a.etat()).toBe('attente');
+    n.poserEtatCompte('perdue');
+    n.a.perdue(true);
+    await demarrer(n, true);
+    expect(n.a.etat()).toBe('ferme');
+    expect(n.rendre).toHaveBeenCalledOnce();
+    expect(n.a.retient('carte')).toBe(true);
+    expect(n.a.mode()).toBe('perdue');
+  });
+
   it('les écrans des comptes ne viennent pas (hors ligne) : « Réessayer », et « Continuer sans compte » des comptes', async () => {
     const sansCompte = vi.fn(async () => undefined);
     const m = await connecte({ echecs: 1, sansCompte });
