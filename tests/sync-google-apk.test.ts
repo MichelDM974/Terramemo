@@ -78,6 +78,14 @@ describe('creerJetonGoogle : le plugin natif', () => {
     await expect(creerJetonGoogle({ natif: () => true, plugin: charger })()).rejects.toMatchObject({ code: E.echec });
   });
 
+  it('hors ligne, « [16] Account reauth failed. » est le réseau, pas un réglage (relevé sur l’A37 en mode avion, 15/11)', () => {
+    const e = rejet('[16] Account reauth failed.', 'SIGN_IN_CANCELED');
+    expect(codeGoogleApk(e, false)).toBe(E.reseau);
+    expect(codeGoogleApk(e, true)).toBe(E.reglage);
+    // Une vraie annulation reste silencieuse, en ligne ou non.
+    expect(codeGoogleApk(rejet('[16] Cancelled by user.', 'SIGN_IN_CANCELED'), false)).toBe(E.annule);
+  });
+
   it('hors ligne, un échec sans code est un échec du réseau', async () => {
     const { plugin, charger } = fauxPlugin();
     plugin.signIn.mockRejectedValue(rejet('androidx.credentials.TYPE_UNKNOWN'));
@@ -95,6 +103,8 @@ describe('codeGoogleApk : chaque erreur du plugin, un code de l’appli', () => 
       // Annulation : le message par défaut du plugin, et celui de credentials-play-services-auth (feuille refermée).
       [rejet('The user canceled the sign-in flow.', 'SIGN_IN_CANCELED'), E.annule],
       [rejet('activity is cancelled by the user.', 'SIGN_IN_CANCELED'), E.annule],
+      // Relevé sur l'A37 (15/11) : la feuille refermée par le retour d'Android.
+      [rejet('[16] Cancelled by user.', 'SIGN_IN_CANCELED'), E.annule],
       // S19 (README du plugin) : un client Android manquant, que Play signale en annulation.
       [rejet('[16] Account reauth failed.', 'SIGN_IN_CANCELED'), E.reglage],
       [rejet('16: Account reauth failed.', 'SIGN_IN_CANCELED'), E.reglage],

@@ -38,4 +38,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Sans elle, la WebView ne voit pas le réseau : navigator.onLine reste
+         vrai en mode avion et l'événement online ne vient jamais (relevé sur
+         l'A37 le 15/11, lot 7 du J1b). Il en dépend : les envois relancés au
+         retour du réseau (scores du Chrono, synchro), et l'erreur de Google
+         hors ligne (src/sync/google-apk.ts). Permission normale, sans
+         demande à l'utilisateur. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 </manifest>

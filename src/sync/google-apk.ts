@@ -72,7 +72,12 @@ export const ERREURS_GOOGLE_APK = {
  * quand le client Android manque ; « Developer console is not set up
  * correctly » (10, DEVELOPER_ERROR) et 28444 (piège de Light : clé changée).
  * Une vraie annulation porte « activity is cancelled by the user. »
- * (credentials-play-services-auth), ou le message par défaut du plugin.
+ * (credentials-play-services-auth), ou le message par défaut du plugin ;
+ * sur l'A37 (15/11), la feuille refermée donne « [16] Cancelled by user. ».
+ * Hors ligne, le même A37 rend « [16] Account reauth failed. », le message
+ * d'un client manquant, après le choix du compte : d'où le réseau d'abord
+ * quand l'appareil se dit hors ligne (navigator.onLine, qu'il faut à la
+ * WebView la permission ACCESS_NETWORK_STATE pour tenir à jour).
  */
 const ANNULATION_REGLAGE = /reauth|unregistered|developer|28444|\[10\]|(^|\D)10:/i;
 /** Credential Manager : TYPE_INTERRUPTED (codes de Play que l'on peut retenter : NETWORK_ERROR 7, TIMEOUT…), ou un message qui dit le réseau. */
@@ -92,7 +97,10 @@ export function codeGoogleApk(e: unknown, enLigne = true): string {
   const m = (e as { message?: unknown } | null)?.message;
   const message = typeof m === 'string' ? m : '';
   const E = ERREURS_GOOGLE_APK;
-  if (code === 'SIGN_IN_CANCELED') return ANNULATION_REGLAGE.test(message) ? E.reglage : E.annule;
+  if (code === 'SIGN_IN_CANCELED') {
+    if (!ANNULATION_REGLAGE.test(message)) return E.annule;
+    return enLigne ? E.reglage : E.reseau;
+  }
   if (code === 'NO_CREDENTIAL_AVAILABLE') return E.sansCompte;
   if (code === 'PROVIDER_CONFIGURATION_ERROR') return E.services;
   if (PLUGIN_ABSENT.has(code) || /not initialized/i.test(message)) return E.reglage;
