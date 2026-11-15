@@ -48,7 +48,7 @@ function monter(m: Montage = {}) {
   const element = new El('div');
   element.id = 'faux-comptes';
   const comptes = { element, activer: vi.fn(), desactiver: vi.fn() };
-  type Ctrl = { fini(choix?: 'compte' | 'invite'): void; surEcran(choix: boolean): void; occupe(oui: boolean): void; perdue?: boolean };
+  type Ctrl = { fini(choix?: 'compte' | 'invite'): void; surEcran(choix: boolean, echec?: boolean): void; occupe(oui: boolean): void; perdue?: boolean };
   let ctrl: Ctrl | null = null;
   const monterComptes = vi.fn(async (a: Ctrl) => {
     ctrl = a;
@@ -668,6 +668,33 @@ describe('session perdue', () => {
     await attendre();
     expect($('#accueil')).toBeNull();
     expect(stockage.get(CLE_ACCUEIL)).toBe('invite');
+  });
+
+  it('l’état des comptes ne se relit pas (écran « echec », « Réessayer » seul) : « Continuer sans compte » du panneau, jusqu’à ce qu’il se relise', async () => {
+    const sansCompte = vi.fn(async () => undefined);
+    const m = await connecte({ sansCompte });
+    await perdre(m);
+    expect($('#accueil-partie-invite')!.hidden).toBe(true);
+    m.ctrl().surEcran(true, true);
+    expect($('#accueil-partie-invite')!.hidden).toBe(false);
+    expect($('#accueil-invite')!.textContent).toBe(textes.compte.continuer_sans);
+    // Relu (« Réessayer ») : l'écran de la session perdue, qui porte le sien.
+    m.ctrl().surEcran(false);
+    expect($('#accueil-partie-invite')!.hidden).toBe(true);
+    m.ctrl().surEcran(true, true);
+    $('#accueil-invite')!.click();
+    expect(sansCompte).toHaveBeenCalledOnce();
+    m.poserEtatCompte('invite');
+    await attendre();
+    expect($('#accueil')).toBeNull();
+    expect(stockage.get(CLE_ACCUEIL)).toBe('invite');
+    // Sans « Continuer sans compte » des comptes (option absente) : rien à montrer.
+    body = installerDom();
+    stockage = installerStockage();
+    const n = await connecte();
+    await perdre(n);
+    n.ctrl().surEcran(true, true);
+    expect($('#accueil-partie-invite')!.hidden).toBe(true);
   });
 
   it('« Continuer sans compte » qui échoue : le panneau reste, l’avis le dit', async () => {

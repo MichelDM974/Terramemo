@@ -1907,8 +1907,11 @@ compte changée, laissait jouer sans rien dire) :
 - Contenu : l'écran `perdue` de `accueilCompte` (option `perdue`, état
   relu à l'ouverture), l'accroche « Session expirée : reconnecte-toi. »,
   les séances non envoyées en une ligne s'il y en a, sans export, « Effacer
-  cet appareil » en lien. Écrans des comptes absents : « Réessayer » et
-  « Continuer sans compte » des comptes.
+  cet appareil » en lien. Écrans des comptes absents, ou état qui ne se
+  relit pas (écran « echec ») : « Réessayer » et « Continuer sans compte »
+  des comptes. Une suppression inachevée relue là (lancée dans un autre
+  onglet) : son écran, qui la finit ou l'abandonne, jamais une fermeture
+  en compte.
 - Une fois par perte : refermé alors que la page la sait encore perdue,
   il ne revient qu'après un état réglé (pas de boucle). Stockage
   illisible : jamais, comme le premier affichage.

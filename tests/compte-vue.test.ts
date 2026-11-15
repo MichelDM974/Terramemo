@@ -1960,6 +1960,55 @@ describe('écran de la session perdue au panneau', () => {
     expect(fini).toHaveBeenCalledWith('invite');
   });
 
+  it('la question D22 annulée : ni fermeture ni compte pris ; « Annuler » du formulaire ramène à l’écran de la session perdue', async () => {
+    questionConnexion = { sorte: 'autre_compte', reponses: 0, records: 0, seances: 2 };
+    const c = fauxComptes(PERDUE_MDP);
+    const { fini } = await monter(c);
+    $('#accueil-compte-reconnecter')!.click();
+    $('#accueil-compte-mdp')!.value = 'motdepasse';
+    envoyer('#accueil-compte-form-connecter');
+    await attendre();
+    expect($('#accueil-compte-fusion-annuler')).not.toBeNull();
+    $('#accueil-compte-fusion-annuler')!.click();
+    await attendre();
+    await attendre();
+    expect(fini).not.toHaveBeenCalled();
+    // Le formulaire de connexion revient (rien n'est pris) ; son « Annuler » : l'écran de la session perdue.
+    expect($('#accueil-compte-form-connecter')).not.toBeNull();
+    $('#accueil-compte-annuler')!.click();
+    expect(boutons()).toEqual(['accueil-compte-reconnecter', 'accueil-compte-sans-compte', 'accueil-compte-effacer']);
+    expect(fini).not.toHaveBeenCalled();
+  });
+
+  it('l’état ne se relit pas : l’écran « echec » (« Réessayer »), dit au panneau pour qu’il offre « Continuer sans compte »', async () => {
+    const c = fauxComptes(PERDUE_MDP);
+    c.etat.mockRejectedValueOnce(new Error('IndexedDB'));
+    const { surEcran, fini } = await monter(c);
+    expect($('#accueil-compte-recharger')).not.toBeNull();
+    expect(surEcran).toHaveBeenLastCalledWith(true, true);
+    $('#accueil-compte-recharger')!.click();
+    await attendre();
+    await attendre();
+    expect(surEcran).toHaveBeenLastCalledWith(false, false);
+    expect(boutons()).toEqual(['accueil-compte-reconnecter', 'accueil-compte-sans-compte', 'accueil-compte-effacer']);
+    expect(fini).not.toHaveBeenCalled();
+  });
+
+  it('une suppression inachevée relue (lancée dans un autre onglet) : son écran, pas une fermeture en compte ; « Effacer cet appareil » la finit en invité', async () => {
+    const c = fauxComptes({ etat: 'suppression', uid: 'u1', adresse: 'ana@exemple.fr', fournisseurs: ['password'], connecte: false, horsAuth: false });
+    const { fini } = await monter(c);
+    expect($('#accueil-compte-suppression-inachevee')!.textContent).toBe(T.suppression_inachevee);
+    expect(fini).not.toHaveBeenCalled();
+    $('#accueil-compte-suppression-vider')!.click();
+    await attendre();
+    await attendre();
+    expect(c.abandonnerSuppression).toHaveBeenCalledOnce();
+    // Le message de l'effacement lu d'abord s'il y en a un, puis « Continuer ».
+    $('#accueil-compte-continuer')?.click();
+    expect(fini).toHaveBeenCalledOnce();
+    expect(fini).toHaveBeenCalledWith('invite');
+  });
+
   it('une session déjà réglée ailleurs (autre onglet) : le panneau se ferme aussitôt, en compte ou en invité', async () => {
     localStorage.setItem('terramemo.pseudo', 'Ana');
     const a = await monter(fauxComptes({ etat: 'compte', uid: 'u1', adresse: 'ana@exemple.fr', verifiee: true, fournisseurs: ['password'] }));

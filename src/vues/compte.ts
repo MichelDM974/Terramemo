@@ -243,8 +243,10 @@ export interface AccueilDuCompte {
    * L'écran change : `choix` vrai sur celui des entrées (Google, e-mail), ou
    * pendant son chargement ; le panneau n'y montre « Continuer en invité »
    * qu'alors (pas pendant un formulaire, la question D22 ou le pseudo).
+   * `echec` : l'état n'a pas pu se lire (« Réessayer » seul) ; au panneau
+   * d'une session perdue, « Continuer sans compte » du panneau s'y montre.
    */
-  surEcran?(choix: boolean): void;
+  surEcran?(choix: boolean, echec?: boolean): void;
   /**
    * Une action des comptes est en cours (fenêtre de Google, connexion) : le
    * panneau désactive « Continuer en invité », qui fermerait le panneau en
@@ -510,7 +512,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     const focusDedans = !!actif && actif !== contenu && typeof contenu.contains === 'function' && contenu.contains(actif);
     ecran = e;
     // Au panneau : « Continuer en invité » sous l'écran des entrées seulement (et tant qu'il charge).
-    accueil?.surEcran?.(e === 'invite' || e === 'chargement' || e === 'echec');
+    accueil?.surEcran?.(e === 'invite' || e === 'chargement' || e === 'echec', e === 'echec');
     if (e === 'fini') {
       // Un message à lire (aRetenir) : l'écran « fini » et « Continuer » ; sinon le panneau se ferme.
       if (accueil && aRetenir && message.textContent) {
@@ -1237,8 +1239,10 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
    * ne voit pas d'ordinaire (une autre page), se règlent dans ⚙ › Compte.
    */
   function ecranDe(e: EtatCompte): Ecran {
-    // Le panneau d'une session perdue : son écran tant qu'elle l'est ; devenue invitée, la fin.
-    if (accueil?.perdue && e.etat === 'perdue') return 'perdue';
+    // Le panneau d'une session perdue : son écran tant qu'elle l'est ; devenue invitée, la fin. Une suppression
+    // inachevée relue ici (lancée depuis un autre onglet) : son écran, qui la finit ou l'abandonne (puis la fin en
+    // invité, ou le compte), plutôt qu'une fermeture en compte qui la laisserait en plan.
+    if (accueil?.perdue && (e.etat === 'perdue' || e.etat === 'suppression')) return e.etat;
     if (accueil && (e.etat !== 'invite' || accueil.perdue)) return e.etat === 'compte' && !lirePseudo() ? 'pseudo' : 'fini';
     return e.etat === 'compte' ? 'compte' : e.etat === 'perdue' ? 'perdue' : e.etat === 'suppression' ? 'suppression' : 'invite';
   }

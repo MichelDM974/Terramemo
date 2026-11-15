@@ -135,7 +135,7 @@ export interface OptionsAccueil {
    * vient pas. `perdue` : l'écran de la session perdue, dont `fini` dit la
    * sortie (« compte » reconnecté, « invite » sans compte ou effacé).
    */
-  monterComptes(o: { fini(choix?: ChoixAccueil): void; surEcran(choix: boolean): void; occupe(oui: boolean): void; perdue?: boolean }): Promise<ComptesDuPanneau>;
+  monterComptes(o: { fini(choix?: ChoixAccueil): void; surEcran(choix: boolean, echec?: boolean): void; occupe(oui: boolean): void; perdue?: boolean }): Promise<ComptesDuPanneau>;
   /**
    * Session perdue, écrans des comptes absents (hors ligne) : « Continuer
    * sans compte » des comptes (comptes.continuerSansCompte), pour ne pas
@@ -342,9 +342,10 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
           fermer(c);
         },
         // « Continuer en invité » sous les entrées seulement (pas pendant un formulaire, la question D22, le pseudo).
-        // Session perdue : jamais (« Continuer sans compte » est dans l'écran des comptes).
-        surEcran: (c) => {
-          partieInvite.hidden = perdue || !c;
+        // Session perdue : seulement si l'état ne se relit pas (« Réessayer » seul) ; sinon « Continuer sans
+        // compte » est dans l'écran des comptes.
+        surEcran: (c, echec) => {
+          partieInvite.hidden = perdue ? !(echec && o.sansCompte) : !c;
         },
         // Pendant la fenêtre de Google ou une connexion : « Continuer en invité » désactivé (le compte se prendrait derrière).
         occupe: (oui) => {
