@@ -904,6 +904,30 @@ describe('Carte (SVG) : montrerZone, le zoom lent sur la zone (décision « Zone
     expect(auMilieu(c, 'EGY')).toBe(true);
   });
 
+  // Le quiz : une question au toucher après un QCM remet la vue du monde (vueEntiere) en plein zoom lent ; l'arrivée
+  // est alors celle de la fin du zoom, pas du centrage, sans quoi un bouton de zoom partirait du zoom 1.
+  it('en plein zoom lent : vueEntiere() remet la vue du monde, zoomerDe() part de la vue finale du zoom', () => {
+    let { c, hote } = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    vi.advanceTimersByTime(1000);
+    expect(c.contexte().t.k).toBeGreaterThan(1);
+    c.vueEntiere();
+    vi.advanceTimersByTime(2500);
+    expect(c.contexte().t).toEqual({ k: 1, x: 0, y: 0 });
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+    expect(hote.classList.contains('en-vol')).toBe(false);
+    ({ c, hote } = carte());
+    c.montrerZone('FRA', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    vi.advanceTimersByTime(1000);
+    expect(c.contexte().t.k).toBeLessThan(fin.k);
+    c.zoomerDe(2);
+    expect(c.contexteFinal().t.k).toBeCloseTo(2 * fin.k, 6);
+    vi.advanceTimersByTime(1000);
+    expect(c.contexte().t.k).toBeCloseTo(2 * fin.k, 6);
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+  });
+
   it('le système réduit les animations : la vue finale d’emblée', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
     const { c } = carte();

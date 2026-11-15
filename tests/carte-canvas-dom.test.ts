@@ -1555,6 +1555,31 @@ describe('CarteCanvas : montrerZone, le zoom lent sur la zone (décision « Zone
     expect(Math.abs(milieu(boite(c, contourPays('EGY')))[0] - L / 2)).toBeLessThan(2);
   });
 
+  // Le quiz : une question au toucher après un QCM remet la vue du monde (vueEntiere) en plein zoom lent ; la vue d'arrivée
+  // (arriveeVol) est alors celle de la fin du zoom, pas du centrage, sans quoi un bouton de zoom partirait du zoom 1.
+  it('en plein zoom lent : vueEntiere() remet la vue du monde, zoomerDe() part de la vue finale du zoom', () => {
+    let c = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    jouer(0, 1000);
+    expect(prive(c).vol).not.toBeNull();
+    expect(c.transfo.k).toBeGreaterThan(1);
+    c.vueEntiere();
+    jouer(1016, 2600);
+    expect(c.transfo.k).toBe(1);
+    expect(prive(c).vol).toBeNull();
+    expect(c.contexteFinal().t).toEqual(c.contexte().t);
+    c = carte();
+    c.montrerZone('FRA', HV, REGLAGE);
+    const fin = c.contexteFinal().t;
+    jouer(3000, 4000);
+    expect(c.transfo.k).toBeLessThan(fin.k);
+    c.zoomerDe(2);
+    expect(c.contexteFinal().t.k).toBeCloseTo(2 * fin.k, 6);
+    jouer(4016, 5000);
+    expect(prive(c).vol).toBeNull();
+    expect(c.transfo.k).toBeCloseTo(2 * fin.k, 6);
+  });
+
   it('le système réduit les animations : la vue finale d’emblée, sans vol', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
     const c = carte();
