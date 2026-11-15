@@ -614,7 +614,7 @@
     "carte": "IGN, ADMIN EXPRESS, à jour au {date} · Licence Ouverte 2.0",
     "lien": "Crédits et licences",
     "titre": "Crédits",
-    "intro": "Terramemo est fait avec ces données et ces logiciels libres.",
+    "intro": "Terramemo est fait avec ces données et ces logiciels, tous libres sauf les services Google de l'appli Android.",
     "confidentialite": "Politique de confidentialité",
     "donnees_titre": "Données",
     "donnees": [
@@ -768,10 +768,18 @@
         "detail": "Dans l'appli Android seulement",
         "licence": "MIT",
         "auteur": "© Drifty Co. (Ionic)"
+      },
+      {
+        "paquets": [
+          "@capawesome/capacitor-google-sign-in"
+        ],
+        "detail": "Dans l'appli Android seulement : connexion avec Google",
+        "licence": "MIT",
+        "auteur": "© 2026 Robin Genz (Capawesome)"
       }
     ],
     "android_titre": "Dans l'appli Android",
-    "android_aide": "Bibliothèques de l'APK seulement, embarquées par Capacitor.",
+    "android_aide": "Bibliothèques de l'APK seulement, embarquées par Capacitor et par la connexion avec Google.",
     "android": [
       {
         "nom": "AndroidX (Jetpack)",
@@ -811,6 +819,17 @@
         "detail": "Annotations, embarquées par AndroidX",
         "licence": "Apache-2.0",
         "auteur": "© The JSpecify Authors, © JetBrains s.r.o., © The Guava Authors"
+      },
+      {
+        "nom": "Services Google Play, Sign in with Google",
+        "groupes": [
+          "com.google.android.gms",
+          "com.google.android.libraries.identity.googleid"
+        ],
+        "detail": "Connexion avec Google, embarqués par le greffon Google",
+        "licence": "Licence du SDK Android (non libre)",
+        "auteur": "© Google LLC",
+        "lien": "https://developer.android.com/studio/terms"
       }
     ],
     "licences_resume": "Textes des licences et avis de copyright",

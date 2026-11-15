@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { artefacts } from '../licences/android.mjs';
-import { AVIS_ANDROID, artefactsAndroid, FICHIER_LICENCES, ligneAndroid, texteLicence, texteLicences } from '../licences/tierces';
+import { AVIS_ANDROID, artefactsAndroid, FICHIER_LICENCES, LICENCES_A_PART, ligneAndroid, texteLicence, texteLicencePaquet, texteLicences } from '../licences/tierces';
 import { nomPaquets, URL_LICENCES, vueCredits } from '../src/vues/credits';
 import { textes } from '../src/vues/textes';
 import { installerDom, type El } from './dom-factice';
@@ -42,8 +42,13 @@ beforeAll(() => {
 afterAll(() => {
   if (sortie) rmSync(sortie, { recursive: true, force: true });
 });
-/** Crédités sans être dans le site : le paquet natif de l'APK (ligne « Dans l'appli Android seulement »). */
-const HORS_SITE = ['@capacitor/android'];
+/**
+ * Crédités sans être dans le site : les paquets natifs de l'APK (lignes « Dans
+ * l'appli Android seulement »). Le greffon Google (lot 7 du J1b) n'a rien
+ * dans le build : src/sync/google-apk.ts passe par registerPlugin de
+ * @capacitor/core et n'en importe que les types.
+ */
+const HORS_SITE = ['@capacitor/android', '@capawesome/capacitor-google-sign-in'];
 
 let zone: El;
 let retour: ReturnType<typeof vi.fn<() => void>>;
@@ -169,7 +174,7 @@ describe('licences tierces (#20)', () => {
   it('chaque paquet embarqué (et celui de l’APK) avec sa version et le texte entier de son LICENSE ; Firebase, sans LICENSE, renvoie au texte d’Apache', () => {
     for (const p of [...embarques, ...HORS_SITE]) {
       expect(fichier, p).toContain(`${p} ${version(p)}`);
-      const texte = texteLicence(`node_modules/${p}`);
+      const texte = texteLicencePaquet(p);
       if (texte) expect(fichier, p).toContain(texte);
       else expect(licence(p), p).toBe('Apache-2.0');
     }
@@ -181,9 +186,20 @@ describe('licences tierces (#20)', () => {
     // Un exemplaire par texte : les d3 sous la licence de Mike Bostock ne la répètent pas
     // (elle ne revient qu'à l'intérieur d'un autre texte, celui de d3-geo, qui la complète de GeographicLib).
     const isc = texteLicence('node_modules/d3-zoom')!;
-    const textes = new Set([...embarques, ...HORS_SITE].map((p) => texteLicence(`node_modules/${p}`)).filter((t) => t?.includes(isc)));
+    const textes = new Set([...embarques, ...HORS_SITE].map((p) => texteLicencePaquet(p)).filter((t) => t?.includes(isc)));
     expect(textes.size).toBe(2);
     expect(fichier.split(isc).length - 1).toBe(textes.size);
+  });
+
+  it('le greffon Google de l’APK (lot 7 du J1b) : sans LICENSE sur npm, la copie de celui de son dépôt (MIT, Robin Genz), dans le fichier', () => {
+    const p = '@capawesome/capacitor-google-sign-in';
+    expect(texteLicence(`node_modules/${p}`)).toBeNull();
+    expect(licence(p)).toBe('MIT');
+    const texte = texteLicencePaquet(p)!;
+    expect(texte).toBe(readFileSync(`licences/${LICENCES_A_PART[p]}`, 'utf8').trim());
+    expect(texte).toMatch(/^MIT License\n\nCopyright \(c\) 2026 Robin Genz\n/);
+    expect(fichier).toContain(`${p} ${version(p)}\nLicence\u202f: MIT\n`);
+    expect(fichier).toContain(texte);
   });
 
   it('section « Données » : le texte MIT de flag-icons, celui que le site sert sous /geo/licences/, après les bibliothèques Android', () => {
@@ -215,11 +231,15 @@ describe('licences tierces (#20)', () => {
       expect([a, lignes.length]).toEqual([a, 1]);
       expect(fichier).toContain(`\n${a}\n`);
     }
-    // Chaque ligne couvre au moins un artefact, toutes sous Apache-2.0 (texte en fin de fichier).
+    // Chaque ligne couvre au moins un artefact, sous Apache-2.0 (texte en fin de fichier), sauf les
+    // services Google Play et googleid (lot 7 du J1b) : licence du SDK Android, lien de ses conditions.
     for (const [i, l] of T.android.entries()) {
       expect([l.nom, liste.some((a) => ligneAndroid(a) === i)]).toEqual([l.nom, true]);
-      expect(l.licence).toBe('Apache-2.0');
+      if (l.licence !== 'Apache-2.0') expect([l.nom, 'lien' in l && l.lien]).toEqual([l.nom, 'https://developer.android.com/studio/terms']);
     }
+    expect(T.android.filter((l) => l.licence !== 'Apache-2.0').map((l) => l.groupes)).toEqual([['com.google.android.gms', 'com.google.android.libraries.identity.googleid']]);
+    for (const a of ['com.google.android.gms:play-services-auth:21.5.0', 'com.google.android.libraries.identity.googleid:googleid:1.1.1', 'androidx.credentials:credentials:1.5.0']) expect(liste).toContain(a);
+    expect(fichier).toContain('Services Google Play, Sign in with Google\nLicence\u202f: Licence du SDK Android (non libre), https://developer.android.com/studio/terms\n');
     for (const f of Object.values(AVIS_ANDROID)) expect(fichier).toContain(readFileSync(`licences/${f}`, 'utf8').trimEnd());
     expect(fichier).toContain('Apache Cordova\nCopyright 2015-2020 The Apache Software Foundation');
   });

@@ -8,12 +8,18 @@
 // - Les paquets npm : ceux des lignes de textes.credits.bibliotheques, que
 //   tests/credits-vue.test.ts compare à chaque passage aux paquets que le
 //   build embarque vraiment ; leur LICENSE lu dans node_modules, un seul
-//   exemplaire pour les textes identiques (les d3). Sans LICENSE (Firebase),
-//   seule Apache-2.0 est admise : son texte est en fin de fichier.
+//   exemplaire pour les textes identiques (les d3). Un paquet qui ne publie
+//   pas son LICENSE sur npm a la copie de celui de son dépôt dans licences/
+//   (LICENCES_A_PART : le greffon Google de l'APK, MIT, lot 7 du J1b). Sans
+//   LICENSE (Firebase), seule Apache-2.0 est admise : son texte est en fin
+//   de fichier.
 // - Les bibliothèques Android : licences/android.json (relevé de Gradle,
 //   licences/android.mjs), rangées sous les lignes de textes.credits.android
-//   par leur groupe Maven ; toutes Apache-2.0, avec les avis (NOTICE) que
-//   Cordova, Kotlin et kotlinx.coroutines publient (Apache 2.0, § 4 d).
+//   par leur groupe Maven ; Apache-2.0, avec les avis (NOTICE) que
+//   Cordova, Kotlin et kotlinx.coroutines publient (Apache 2.0, § 4 d), sauf
+//   les services Google Play et googleid (lot 7 du J1b) : licence du SDK
+//   Android, non libre, que leur ligne nomme avec le lien de ses conditions
+//   (elle ne demande pas de joindre un texte).
 // - Les données dont la licence demande le texte avec toute copie : les lignes
 //   de textes.credits.donnees dont le lien est un fichier de /geo/licences/
 //   (flag-icons, MIT ; étude J2, § 2.5), sous « Données », le texte lu dans
@@ -41,10 +47,27 @@ export const AVIS_ANDROID: Readonly<Record<string, string>> = {
   'org.jetbrains.kotlinx': 'NOTICE-kotlinx-coroutines.txt',
 };
 
+/**
+ * Les paquets npm qui ne publient pas leur LICENSE (absent de leur archive
+ * npm) : la copie de celui de leur dépôt, à la version embarquée, dans
+ * licences/. @capawesome/capacitor-google-sign-in 0.1.4 : MIT déclaré dans
+ * son package.json, texte de packages/google-sign-in/LICENSE de
+ * capawesome-team/capacitor-plugins (relevé le 15/11/2026).
+ */
+export const LICENCES_A_PART: Readonly<Record<string, string>> = {
+  '@capawesome/capacitor-google-sign-in': 'LICENSE-capacitor-google-sign-in.txt',
+};
+
 /** Le texte du LICENSE d'un dossier de paquet (LICENSE, LICENCE, .md, .txt), null s'il n'en a pas. */
 export function texteLicence(dossier: string): string | null {
   const f = readdirSync(dossier).find((n) => /^licen[cs]e(\.(md|txt))?$/i.test(n));
   return f ? readFileSync(join(dossier, f), 'utf8').trim() : null;
+}
+
+/** Le texte de licence d'un paquet npm : son LICENSE, sinon la copie de LICENCES_A_PART, sinon null. */
+export function texteLicencePaquet(paquet: string, racine = join(ICI, '..')): string | null {
+  const aPart = LICENCES_A_PART[paquet];
+  return texteLicence(join(racine, 'node_modules', paquet)) ?? (aPart ? readFileSync(join(ICI, aPart), 'utf8').trim() : null);
 }
 
 /** L'indice de la ligne de textes.credits.android qui couvre un artefact « groupe:nom:version » (« androidx.* » : tout groupe androidx.…), -1 sinon. */
@@ -76,7 +99,7 @@ export function texteLicences(racine = join(ICI, '..')): string {
     for (const p of b.paquets) {
       const dossier = join(racine, 'node_modules', p);
       const pkg = JSON.parse(readFileSync(join(dossier, 'package.json'), 'utf8')) as { version: string; license: string };
-      const texte = texteLicence(dossier);
+      const texte = texteLicencePaquet(p, racine);
       if (!texte && pkg.license !== 'Apache-2.0') throw new Error(`licences tierces : ${p} n'a pas de LICENSE (licence ${pkg.license})`);
       // Firebase compte pour tous ses @firebase/* (tests/credits-vue.test.ts).
       const nom = `${p} ${pkg.version}${p === 'firebase' ? ' (et ses paquets @firebase/*)' : ''}`;
@@ -99,8 +122,10 @@ export function texteLicences(racine = join(ICI, '..')): string {
   }
   sortie.push('', DOUBLE, T.fichier_android, DOUBLE, '');
   T.android.forEach((l, i) => {
-    if (l.licence !== 'Apache-2.0') throw new Error(`licences tierces : ${l.nom}, licence ${l.licence} sans texte`);
-    sortie.push(...tete(l.nom, VOIR_APACHE, l.auteur), ...parLigne[i]!, '');
+    // Hors Apache-2.0 : une licence qui ne demande pas de joindre son texte, nommée avec le lien de ses conditions.
+    const lien = 'lien' in l ? l.lien : undefined;
+    if (l.licence !== 'Apache-2.0' && !lien) throw new Error(`licences tierces : ${l.nom}, licence ${l.licence} sans texte ni lien`);
+    sortie.push(...tete(l.nom, l.licence === 'Apache-2.0' ? VOIR_APACHE : `${l.licence}, ${lien}`, l.auteur), ...parLigne[i]!, '');
     const avis = [...new Set(parLigne[i]!.map((a) => AVIS_ANDROID[a.split(':')[0] ?? '']).filter((f): f is string => !!f))];
     for (const f of avis) sortie.push(`${T.fichier_avis} :`, '', readFileSync(join(ICI, f), 'utf8').trimEnd(), '');
   });
