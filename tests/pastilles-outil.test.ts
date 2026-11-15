@@ -155,6 +155,30 @@ r,e=m.dernieres_sauvegardes(pathlib.Path(sys.argv[2]));print(json.dumps([sorted(
     expect(j.reponses).toBe(1);
   });
 
+  it('Q3 : les Trouver de capitales et de drapeaux comptent avec ceux du pays (même disque), jamais les mers', () => {
+    // Étude du J2, § 6.5 : la cible d'une capitale ou d'un drapeau est le pays.
+    const f = join(dossier, 'journal-sujets.json');
+    const evts = [
+      reponse('pays:VAT:localiser', 'revision', true, 'trace', 1),
+      reponse('capitales:VAT:localiser', 'revision', true, 'pastille', 1),
+      reponse('drapeaux:VAT:localiser', 'rappel', false, null, 2),
+      reponse('drapeaux:ITA:localiser', 'revision', true, 'trace', 1),
+      reponse('mers:medit:localiser', 'revision', true, 'proche', 1),
+    ];
+    for (const e of evts) expect(probleme(e)).toBeNull();
+    writeFileSync(f, JSON.stringify({ origine: 'https://localhost', evenements: evts }));
+    const r = spawnSync('python3', [OUTIL, f, '--json'], { encoding: 'utf8' });
+    expect(r.status, r.stderr).toBe(0);
+    const j = JSON.parse(r.stdout);
+    expect(j.q3.voisin).toMatchObject({ n: 3, justes: 2, pastille: 1, trace: 1 });
+    expect(j.q3.tous_pays).toMatchObject({ n: 4, justes: 3 });
+    expect(j.fiches).toHaveLength(1);
+    expect(j.fiches[0]).toMatchObject({ id: 'VAT', n: 3, domaines: { pays: 1, capitales: 1, drapeaux: 1 } });
+    // Chaque sujet garde son propre tableau, les mers comprises.
+    expect(Object.keys(j.domaines).sort()).toEqual(['capitales', 'drapeaux', 'mers', 'pays']);
+    expect(j.domaines.mers.fsrs.total).toMatchObject({ n: 1, proche: 1 });
+  });
+
   it('sortie lisible : le chiffre de Q3 et le tableau des fiches', () => {
     const r = spawnSync('python3', [OUTIL, join(dossier, 'journal-apk.json'), join(dossier, 'journal-site.json')], { encoding: 'utf8' });
     expect(r.status, r.stderr).toBe(0);

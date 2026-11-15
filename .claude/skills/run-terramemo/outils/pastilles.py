@@ -28,7 +28,10 @@ Le zoom est l'échelle de la carte au toucher (1 : le monde entier à l'écran,
 ou l'île entière pour les communes ; il vaut plus de pixels en paysage ou
 sur un plus grand écran : les réponses sont aussi comptées par appareil).
 
-La ligne « => Q3 » ne compte que les micro-États (`micro` de
+La ligne « => Q3 » compte ensemble les Trouver de pays, de capitales et de
+drapeaux (fiches `pays:`, `capitales:` et `drapeaux:` d'un même pays : la
+cible est le pays, avec le même disque ; étude du J2, § 6.5), jamais les
+mers. Elle ne compte que les micro-États (`micro` de
 public/geo/pays.json), au zoom faible (sous --faible, 3 par défaut), en deux
 groupes : disque posé sur un pays (micro-État qui a des voisins terrestres :
 Vatican, Saint-Marin, Monaco, Liechtenstein, Andorre…), le biais que vise B,
@@ -52,6 +55,9 @@ MODES_SEANCE = ("rappel", "revision")
 VIAS = ("trace", "pastille", "proche")
 TRANCHES = (1.5, 3, 6, 12)
 FAIBLE = 3.0
+# Les sujets dont le Trouver touche un pays, avec le même disque pour un
+# micro-État : Q3 les compte ensemble (étude du J2, § 6.5). Pas les mers.
+DOMAINES_Q3 = ("pays", "capitales", "drapeaux")
 GROUPES = {"fsrs": "séances, réponses notées par FSRS (rappel et révision)",
            "reprises": "séances, reprises (note null : hors FSRS)",
            "libre": "parties libres (hors FSRS)"}
@@ -208,7 +214,7 @@ def analyser(evenements, depuis=None, bornes=TRANCHES, faible=FAIBLE, pays=None)
         bas = faible_(e, faible)
         if bas:
             compter(g["faible"], e)
-        if groupe != "fsrs" or domaine != "pays":
+        if groupe != "fsrs" or domaine not in DOMAINES_Q3:
             continue
         info = pays.get(ident, {})
         micro, voisin = bool(info.get("micro")), bool(info.get("voisins"))
@@ -216,8 +222,9 @@ def analyser(evenements, depuis=None, bornes=TRANCHES, faible=FAIBLE, pays=None)
             compter(res["q3"]["tous_pays"], e)
             if micro:
                 compter(res["q3"]["voisin" if voisin else "mer"], e)
-        f = fiches.setdefault(ident, {"domaine": domaine, "id": ident, "micro": micro, "sur_voisin": micro and voisin,
+        f = fiches.setdefault(ident, {"id": ident, "domaines": {}, "micro": micro, "sur_voisin": micro and voisin,
                                       **vide(), "zooms_pastille": [], "faible": vide()})
+        f["domaines"][domaine] = f["domaines"].get(domaine, 0) + 1
         compter(f, e)
         if bas:
             compter(f["faible"], e)
@@ -278,7 +285,7 @@ def afficher(res, sources, ecartees=()):
                 print(f"  {t:<11} {c['n']:>8} {c['justes']:>7} {pc(c['justes_pc']):>9} {pc(c['trace_pc']):>7} "
                       f"{pc(c['pastille_pc']):>9} {pc(c['proche_pc']):>7}")
     q = res["q3"]
-    print(f"\n=> Q3 (réponses notées par FSRS, pays, zoom < {seuil}) :")
+    print(f"\n=> Q3 (réponses notées par FSRS, Trouver de pays, capitales et drapeaux, zoom < {seuil}) :")
     for cle, quoi in (("voisin", "micro-États au disque posé sur un pays (le biais que vise B)"),
                       ("mer", "micro-États au disque en mer (îles : par pastille est la règle)"),
                       ("tous_pays", "tous les pays, pour repère")):
@@ -287,7 +294,8 @@ def afficher(res, sources, ecartees=()):
               f"dont {c['pastille']} par pastille ({pc(c['pastille_pc'])} des justes)")
     if res["fiches"]:
         n = noms()
-        print("\nMicro-États répondus (réponses notées par FSRS), et toute fiche juste par pastille :")
+        print("\nMicro-États répondus (réponses notées par FSRS, pays, capitales et drapeaux ensemble),"
+              " et toute fiche juste par pastille :")
         print(f"  {'fiche':<36} {'disque':>8} {'réponses':>8} {'justes':>7} {'pastille':>9} {'tracé':>6} {'faux':>5} "
               f"{'pastille <' + seuil:>12} {'zoom méd.':>10}")
         for f in res["fiches"]:
