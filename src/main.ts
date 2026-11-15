@@ -24,7 +24,7 @@ import { creerNavigation } from './navigation';
 import { brancherRetourAndroid, dansApk } from './retour-android';
 import { brancherZoom } from './zoom-carte';
 import { comptesVisibles, poserDrapeaux, synchroCoupee } from './sync/drapeaux';
-import type { AppareilComptes, RapportComptes } from './sync/comptes';
+import type { AppareilComptes, Comptes, RapportComptes } from './sync/comptes';
 import { terminerEffacement } from './sync/effacement';
 import type { ComptesSynchro, Declencheur, Envoi, RapportEnvoi, ResultatLecture } from './sync/envoi';
 import { charger, sdkDemande } from './sync/firebase';
@@ -335,7 +335,10 @@ let explorer: VueExplorer | null = null;
  * l'en-tête est inerte dès maintenant, le temps de lire la session
  * (demarrer, plus bas). Ses entrées des comptes sont les écrans de la vue
  * Compte, dans leur morceau à la demande (chargerVueCompte), sans le SDK de
- * Firebase, préchauffé au premier signe d'intérêt.
+ * Firebase, préchauffé au premier signe d'intérêt. Une session perdue le
+ * ramène (perdue, plus bas : lesComptes), sauf pendant une partie (Toucher et
+ * ses modes, la Révision du jour, une épreuve classée, le quiz : leurs vues,
+ * bilan compris), où il attend la vue suivante.
  */
 const accueil: Accueil | null = COMPTES
   ? creerAccueil({
@@ -351,6 +354,8 @@ const accueil: Accueil | null = COMPTES
       },
       rendre: () => nav.router(),
       etatCompte: etatCompteConnu,
+      sansCompte: async () => lesComptes(await chargerComptes()).continuerSansCompte(),
+      parties: ['toucher', 'chrono', 'quiz'] satisfies NomVue[],
     })
   : null;
 
@@ -911,8 +916,23 @@ function chargerVueCompte() {
  * de Google (googlePopup), et le module n'est jamais demandé.
  */
 const jetonGoogle = (): Promise<string> => import('./sync/google-apk').then((g) => g.jetonGoogle());
+/** L'écran de connexion abonné aux changements des comptes (une fois par page). */
+let perdueSuivie = false;
 /** Les comptes de la page, branchés sur l'appareil (le premier appel fixe les options). */
-const lesComptes = (m: typeof import('./sync/comptes')) => m.comptes(VERSION, { appareil: appareilComptes, ...(dansApk() ? { jetonGoogle } : {}) });
+function lesComptes(m: typeof import('./sync/comptes')): Comptes {
+  const c = m.comptes(VERSION, { appareil: appareilComptes, ...(dansApk() ? { jetonGoogle } : {}) });
+  if (!perdueSuivie) {
+    perdueSuivie = true;
+    // L'écran de connexion suit la session (décision « Écran de connexion », remplacée le 15/11) :
+    // perdue en cours de route (onAuthStateChanged(null), etat() relu par les comptes), il revient ;
+    // reconnectée ou invitée, il n'est plus dû. L'état de la page d'abord (posé à chaque relecture,
+    // et par « Continuer sans compte » ou l'effacement, après lesquels le rapport n'est pas relu) ;
+    // le rapport ensuite, qui distingue une suppression inachevée (« perdue » aussi pour la page),
+    // réglée dans ⚙ › Compte.
+    c.surChangement(() => accueil?.perdue(etatCompteConnu() === 'perdue' && c.rapport().etat?.etat === 'perdue'));
+  }
+  return c;
+}
 
 /**
  * L'export des données (étude du J1b, § 7.2) : le journal entier (lu en
@@ -959,6 +979,9 @@ function demarrerCompte(): void {
         .then(() => chargerComptes())
         .then((m) => lesComptes(m).demarrer())
         .then((e) => {
+          // Session perdue à l'ouverture (§ 2.5) : l'écran de connexion revient. Hors ligne, etat() garde
+          // le compte (reload échoue sans le déconnecter) : rien ne change.
+          accueil?.perdue(e.etat === 'perdue');
           // À l'ouverture : ce qui attend part (séances closes, lots en attente du réseau).
           if (e.etat === 'compte') lancerEnvoi('ouverture');
         });

@@ -27,6 +27,21 @@
 // seulement en écriture (plein) : le choix vaut pour la page, jusqu'à un
 // effacement (surEffacementJoueur), qui l'oublie aussi.
 //
+// Une session perdue (mot de passe ou adresse changés ailleurs, compte
+// supprimé ailleurs ; étude du J1b, § 2.5) ramène le panneau (décision « Écran
+// de connexion », remplacée le 15/11) : on ne joue que connecté ou en invité,
+// jamais dans un entre-deux muet. Il porte alors l'écran de la session perdue
+// de la vue Compte (accueilCompte, `perdue`) : « Session expirée :
+// reconnecte-toi. », Google ou l'e-mail selon le compte, « Continuer sans
+// compte » (l'invité garde les progrès de l'appareil, choix « invite »),
+// « Effacer cet appareil » en petit (puis le panneau du premier affichage,
+// comme après une déconnexion). main.ts le dit (perdue) au démarrage et à
+// chaque changement des comptes ; il vient tout de suite, sauf pendant une
+// partie (vues `parties`) : alors à la vue suivante, la partie finie ou son
+// bilan quitté. Une fois par perte : refermé sans que la session soit réglée,
+// il ne revient pas avant qu'elle l'ait été (pas de boucle). Hors ligne au
+// démarrage, la session ne se sait pas perdue : rien ne change.
+//
 // L'invité n'appelle rien de Firebase : ni compte anonyme (créé à la première
 // publication, décision « Comptes »), ni publication de ses records sous le
 // pseudo donné ici (ils partent avec les prochains, ou par « Changer » du
@@ -77,6 +92,9 @@ export function accueilRequis(o: { visibles: boolean; choix: ChoixAccueil | null
   return o.visibles && o.choix === null && !o.compte;
 }
 
+/** Ce que montre le panneau : le premier affichage, ou une session perdue. */
+export type ModeAccueil = 'premier' | 'perdue';
+
 /** Les écrans des comptes montés dans le panneau (accueilCompte). */
 export interface ComptesDuPanneau {
   element: HTMLElement;
@@ -98,8 +116,20 @@ export interface OptionsAccueil {
   stockage(): StockageAccueil | null;
   /** L'icône de l'en-tête, devant le titre. */
   logo?: string | null;
-  /** Monte les écrans des comptes (morceau à la demande) ; rejette s'il ne vient pas. */
-  monterComptes(o: { fini(): void; surEcran(choix: boolean): void; occupe(oui: boolean): void }): Promise<ComptesDuPanneau>;
+  /**
+   * Monte les écrans des comptes (morceau à la demande) ; rejette s'il ne
+   * vient pas. `perdue` : l'écran de la session perdue, dont `fini` dit la
+   * sortie (« compte » reconnecté, « invite » sans compte ou effacé).
+   */
+  monterComptes(o: { fini(choix?: ChoixAccueil): void; surEcran(choix: boolean): void; occupe(oui: boolean): void; perdue?: boolean }): Promise<ComptesDuPanneau>;
+  /**
+   * Session perdue, écrans des comptes absents (hors ligne) : « Continuer
+   * sans compte » des comptes (comptes.continuerSansCompte), pour ne pas
+   * rester sous le panneau. Absent : seul « Réessayer » reste.
+   */
+  sansCompte?(): Promise<void>;
+  /** Les vues d'une partie (et de son bilan) : une session perdue y attend la vue suivante. */
+  parties?: readonly string[];
   /** La navigation rend l'adresse affichée (nav.router) : le panneau ouvert ou fermé. */
   rendre(): void;
   /** L'état du compte connu de la page (src/sync/pont.ts) : un compte connecté ne revoit pas le panneau. */
@@ -135,7 +165,16 @@ export interface Accueil {
    * (panneau fermé, ou Confidentialité ouverte : l'historique y ramène).
    */
   retour(): 'fait' | 'reduire' | null;
+  /**
+   * main.ts, au démarrage des comptes et à chacun de leurs changements : la
+   * session est-elle perdue (§ 2.5) ? Vrai : le panneau de la session perdue,
+   * tout de suite hors d'une partie, sinon à la vue suivante ; faux : rien
+   * n'est plus dû, et une perte suivante le ramènera.
+   */
+  perdue(oui: boolean): void;
   etat(): EtatAccueil;
+  /** Ce que le panneau montre (ou a montré en dernier). */
+  mode(): ModeAccueil;
 }
 
 /**
@@ -149,6 +188,13 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
   let section: HTMLElement | null = null;
   let comptes: ComptesDuPanneau | null = null;
   let suspendu = false;
+  let mode: ModeAccueil = 'premier';
+  /** Une session perdue sue (perdue(vrai)), dont le panneau n'est pas encore venu. */
+  let perdueDue = false;
+  /** Le panneau de cette perte déjà montré : refermé sans qu'elle soit réglée, il ne revient pas (pas de boucle). */
+  let perdueVue = false;
+  /** La vue montrée (suivre) : une partie retarde le panneau d'une session perdue. */
+  let vueCourante = '';
   // Le choix tenu en mémoire s'oublie avec ce qui est au joueur (déconnexion, « Effacer cet appareil », suppression).
   surEffacementJoueur(() => {
     memoire = null;
@@ -188,7 +234,8 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       ...(o.logo ? [creer('img', { class: 'logo', src: o.logo, width: '40', height: '40', alt: '' })] : []),
       T.titre,
     );
-    const accroche = creer('p', { class: 'accueil-accroche', id: 'accueil-accroche' }, T.accroche);
+    const perdue = mode === 'perdue';
+    const accroche = creer('p', { class: 'accueil-accroche', id: 'accueil-accroche' }, perdue ? textes.compte.perdue_aucune : T.accroche);
 
     // Les comptes : « Chargement… », puis leurs écrans ; s'ils ne viennent pas, un avis et « Réessayer ».
     const avis = creer('p', { class: 'hint', id: 'accueil-comptes-avis', 'aria-live': 'polite' }, T.chargement);
@@ -197,8 +244,11 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     const attente = creer('div', { class: 'accueil-comptes-attente' }, avis, reessayer);
     const zoneComptes = creer('div', { class: 'accueil-comptes', id: 'accueil-comptes' }, attente);
 
-    const invite = creer('button', { type: 'button', class: 'secondary accueil-invite', id: 'accueil-invite' }, T.invite);
+    // Session perdue : l'invité passe par « Continuer sans compte » de l'écran des comptes ; ce bouton-ci
+    // ne se montre que s'ils ne viennent pas (hors ligne), et ce sont alors les comptes qui le font.
+    const invite = creer('button', { type: 'button', class: 'secondary accueil-invite', id: 'accueil-invite' }, perdue ? textes.compte.continuer_sans : T.invite);
     const partieInvite = creer('div', { class: 'accueil-partie-invite', id: 'accueil-partie-invite' }, creer('p', { class: 'accueil-ou', 'aria-hidden': 'true' }, T.ou), invite);
+    partieInvite.hidden = perdue;
     const choix = creer('div', { class: 'accueil-choix', id: 'accueil-choix' }, zoneComptes, partieInvite);
 
     // L'invité : son pseudo seul (celui de l'appareil pré-rempli : un joueur qui a déjà des progrès), validé comme
@@ -226,6 +276,20 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     const s = creer('section', { class: 'accueil ecrans-compte', id: 'accueil', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'accueil-titre', 'aria-describedby': 'accueil-accroche' }, panneau);
 
     invite.addEventListener('click', () => {
+      if (perdue) {
+        invite.disabled = true;
+        void (o.sansCompte?.() ?? Promise.reject(new Error('sans comptes'))).then(
+          () => {
+            if (section === s) fermer('invite');
+          },
+          (e: unknown) => {
+            console.warn('Écran de connexion : continuer sans compte', e);
+            invite.disabled = false;
+            avis.textContent = T.comptes_echec_perdue;
+          },
+        );
+        return;
+      }
       choix.hidden = true;
       pied.hidden = true;
       formInvite.hidden = false;
@@ -251,15 +315,22 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       avis.textContent = T.chargement;
       reessayer.hidden = true;
       o.monterComptes({
-        fini: () => fermer('compte'),
+        fini: (c = 'compte') => {
+          // « Effacer cet appareil » d'une session perdue : le choix retiré avec le reste, le panneau du
+          // premier affichage à la place, comme après une déconnexion.
+          if (perdue && c === 'invite' && choixCourant() === null) return ouvrir(true, 'premier');
+          fermer(c);
+        },
         // « Continuer en invité » sous les entrées seulement (pas pendant un formulaire, la question D22, le pseudo).
+        // Session perdue : jamais (« Continuer sans compte » est dans l'écran des comptes).
         surEcran: (c) => {
-          partieInvite.hidden = !c;
+          partieInvite.hidden = perdue || !c;
         },
         // Pendant la fenêtre de Google ou une connexion : « Continuer en invité » désactivé (le compte se prendrait derrière).
         occupe: (oui) => {
           invite.disabled = oui;
         },
+        ...(perdue ? { perdue: true } : {}),
       }).then(
         (c) => {
           if (section !== s) return c.desactiver();
@@ -269,8 +340,9 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
         },
         (e: unknown) => {
           console.warn('Écran de connexion : comptes non chargés', e);
-          avis.textContent = T.comptes_echec;
+          avis.textContent = perdue ? T.comptes_echec_perdue : T.comptes_echec;
           reessayer.hidden = false;
+          if (perdue && o.sansCompte) partieInvite.hidden = false;
         },
       );
     };
@@ -285,9 +357,16 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     return s;
   }
 
-  function ouvrir(rendre: boolean): void {
+  function ouvrir(rendre: boolean, m: ModeAccueil = 'premier'): void {
     etat = 'ouvert';
     suspendu = false;
+    mode = m;
+    if (m === 'perdue') {
+      perdueDue = false;
+      perdueVue = true;
+    }
+    comptes?.desactiver();
+    comptes = null;
     section?.remove();
     section = construire();
     o.hote.append(section);
@@ -298,6 +377,8 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
   }
 
   function fermer(c: ChoixAccueil): void {
+    // La session réglée (reconnectée, invitée, effacée) : une perte suivante ramènera le panneau.
+    if (o.etatCompte() !== 'perdue') perdueVue = false;
     garder(c);
     comptes?.desactiver();
     comptes = null;
@@ -312,6 +393,10 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     // Le panneau parti avec le focus : le bouton Jouer de l'en-tête, rendu utilisable.
     focaliser(o.entete?.querySelector<HTMLElement>('#jouer-btn'));
   }
+
+  /** Le panneau d'une session perdue peut-il venir sur cette vue ? Ni pendant une partie, ni sur Compte (qui le montre) ni Confidentialité. */
+  const perdueSurVue = (nom: string): boolean =>
+    etat === 'ferme' && perdueDue && !perdueVue && o.etatCompte() === 'perdue' && nom !== 'compte' && nom !== 'confidentialite' && !(o.parties ?? []).includes(nom);
 
   // Sans choix gardé, l'en-tête attend la lecture de la session (quelques ms) : rien ne se joue avant.
   const depart = choixCourant();
@@ -351,7 +436,8 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       }
     },
     retient(nom) {
-      if (etat === 'ferme' && nom !== 'compte' && nom !== 'confidentialite' && choixCourant() === null && o.etatCompte() === 'invite') ouvrir(false);
+      if (perdueSurVue(nom)) ouvrir(false, 'perdue');
+      else if (etat === 'ferme' && nom !== 'compte' && nom !== 'confidentialite' && choixCourant() === null && o.etatCompte() === 'invite') ouvrir(false);
       return (etat === 'ouvert' || etat === 'attente') && nom !== 'confidentialite';
     },
     retour() {
@@ -365,6 +451,7 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       return comptes?.retour?.() ? 'fait' : 'reduire';
     },
     suivre(vue) {
+      vueCourante = vue;
       if (etat !== 'ouvert' || !section) return;
       const s = vue === 'confidentialite';
       if (s === suspendu) return;
@@ -375,6 +462,18 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
       // Au retour de Confidentialité, le lien d'où l'on venait (pied du panneau, ou formulaire « Créer »).
       if (!s) focaliser(lienSuivi && section.contains(lienSuivi) ? lienSuivi : section.querySelector<HTMLElement>('#accueil-confidentialite'));
     },
+    perdue(oui) {
+      if (!oui) {
+        perdueDue = perdueVue = false;
+        return;
+      }
+      if (etat === 'inactif' || perdueVue) return;
+      perdueDue = true;
+      // Hors d'une partie, tout de suite ; sinon à la vue suivante (retient). Panneau du premier affichage
+      // ouvert, ou en attente : à sa fermeture.
+      if (perdueSurVue(vueCourante)) ouvrir(true, 'perdue');
+    },
     etat: () => etat,
+    mode: () => mode,
   };
 }

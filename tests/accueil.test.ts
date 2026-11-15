@@ -3,7 +3,9 @@
 // stockage en panne), le panneau (en-tête et carte inertes, focus, liens),
 // l'invité et son pseudo (validé comme au classement), les écrans des
 // comptes montés à la demande (remplacés ici : tests/compte-vue.test.ts les
-// éprouve au panneau), et son retour après une déconnexion. DOM factice.
+// éprouve au panneau), son retour après une déconnexion, et celui d'une
+// session perdue (quand, pas pendant une partie, ses sorties, pas de boucle).
+// DOM factice.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { effacerJoueurLocal } from '../src/sync/effacement';
 import { accueilRequis, CLE_ACCUEIL, creerAccueil, DELAI_SESSION, garderChoix, lireChoix, type ComptesDuPanneau, type StockageAccueil } from '../src/vues/accueil';
@@ -29,6 +31,8 @@ const $ = (sel: string) => body.querySelector(sel);
 interface Montage {
   st?: StockageAccueil | null;
   echecs?: number;
+  /** « Continuer sans compte » des comptes, quand leurs écrans ne viennent pas (session perdue). */
+  sansCompte?: () => Promise<void>;
 }
 
 /** Le panneau sur le DOM factice ; `echecs` : les premiers montages des comptes qui échouent (hors ligne). */
@@ -44,7 +48,7 @@ function monter(m: Montage = {}) {
   const element = new El('div');
   element.id = 'faux-comptes';
   const comptes = { element, activer: vi.fn(), desactiver: vi.fn() };
-  type Ctrl = { fini(): void; surEcran(choix: boolean): void; occupe(oui: boolean): void };
+  type Ctrl = { fini(choix?: 'compte' | 'invite'): void; surEcran(choix: boolean): void; occupe(oui: boolean): void; perdue?: boolean };
   let ctrl: Ctrl | null = null;
   const monterComptes = vi.fn(async (a: Ctrl) => {
     ctrl = a;
@@ -65,6 +69,8 @@ function monter(m: Montage = {}) {
     monterComptes,
     rendre,
     etatCompte: () => etatCompte,
+    parties: ['toucher', 'chrono', 'quiz'],
+    ...(m.sansCompte ? { sansCompte: m.sansCompte } : {}),
   });
   return {
     a,
@@ -401,5 +407,208 @@ describe('le panneau', () => {
     effacerJoueurLocal(localStorage);
     expect(m.a.retient('carte')).toBe(true);
     expect($('#accueil')).not.toBeNull();
+  });
+});
+
+// Décision « Écran de connexion », remplacée le 15/11 : une session perdue
+// ramène le panneau, avec l'écran de la session perdue des comptes.
+describe('session perdue', () => {
+  /** Un appareil dont la session connaît un compte (choix « compte » gardé), puis la carte affichée. */
+  async function connecte(o: Montage = {}) {
+    const m = monter(o);
+    await demarrer(m, true);
+    expect(m.a.etat()).toBe('ferme');
+    expect(stockage.get(CLE_ACCUEIL)).toBe('compte');
+    m.a.suivre('carte');
+    // L'en-tête rendu une fois, la session lue.
+    expect(m.rendre).toHaveBeenCalledOnce();
+    m.rendre.mockClear();
+    return m;
+  }
+  /** La session perdue, sue de la page (pont) et dite par main.ts ; les écrans des comptes montés. */
+  async function perdre(m: ReturnType<typeof monter>) {
+    m.poserEtatCompte('perdue');
+    m.a.perdue(true);
+    await attendre();
+  }
+  const ouvertPerdue = (m: ReturnType<typeof monter>) => m.a.etat() === 'ouvert' && m.a.mode() === 'perdue' && $('#accueil') !== null;
+
+  it('à l’ouverture : le panneau par-dessus la carte figée, l’en-tête inerte, l’écran de la session perdue des comptes', async () => {
+    const m = await connecte();
+    expect(m.rendre).toHaveBeenCalledTimes(0);
+    await perdre(m);
+    expect(ouvertPerdue(m)).toBe(true);
+    expect([m.entete.inert, m.zone.inert, body.dataset.accueil]).toEqual([true, true, 'ouvert']);
+    // L'en-tête du panneau et Confidentialité comme au premier affichage ; l'accroche dit la session expirée.
+    expect($('#accueil-titre')!.textContent).toBe(T.titre);
+    expect($('#accueil-accroche')!.textContent).toBe('Session expirée : reconnecte-toi.');
+    expect($('#accueil-confidentialite')).not.toBeNull();
+    expect(m.monterComptes).toHaveBeenCalledOnce();
+    expect(m.ctrl().perdue).toBe(true);
+    expect($('#accueil-comptes #faux-comptes')).not.toBeNull();
+    // Ni « ou » ni « Continuer en invité » : « Continuer sans compte » est dans l'écran des comptes.
+    expect($('#accueil-partie-invite')!.hidden).toBe(true);
+    m.ctrl().surEcran(true);
+    expect($('#accueil-partie-invite')!.hidden).toBe(true);
+    expect((document as unknown as { activeElement?: El }).activeElement).toBe($('#accueil-titre'));
+    expect(m.rendre).toHaveBeenCalledOnce();
+    expect(['carte', 'jouer', 'chrono'].map((n) => m.a.retient(n))).toEqual([true, true, true]);
+    expect(m.a.retient('confidentialite')).toBe(false);
+  });
+
+  it('pendant une partie (Toucher, épreuve classée, quiz) : pas de panneau ; à la vue suivante, la partie finie ou son bilan quitté', async () => {
+    for (const partie of ['toucher', 'chrono', 'quiz']) {
+      body = installerDom();
+      stockage = installerStockage();
+      const m = await connecte();
+      m.a.suivre(partie);
+      await perdre(m);
+      expect(m.a.etat()).toBe('ferme');
+      expect($('#accueil')).toBeNull();
+      // « Rejouer » : la même vue de partie, toujours pas.
+      expect(m.a.retient(partie)).toBe(false);
+      expect($('#accueil')).toBeNull();
+      // Ni sur Compte (qui montre la session perdue) ni sur Confidentialité.
+      expect(m.a.retient('compte')).toBe(false);
+      expect(m.a.retient('confidentialite')).toBe(false);
+      expect($('#accueil')).toBeNull();
+      // Le bilan quitté (« Autre série » vers Jouer) : le panneau, la carte dessous.
+      expect(m.a.retient('jouer')).toBe(true);
+      expect(ouvertPerdue(m)).toBe(true);
+      // Rouvert depuis la navigation : pas de rendu de plus (elle est en train de rendre).
+      expect(m.rendre).toHaveBeenCalledTimes(0);
+    }
+  });
+
+  it('reconnecté (Google ou e-mail, question D22 comprise) : le panneau se ferme, et ne revient pas', async () => {
+    const m = await connecte();
+    await perdre(m);
+    m.poserEtatCompte('compte');
+    m.ctrl().fini('compte');
+    expect(m.a.etat()).toBe('ferme');
+    expect($('#accueil')).toBeNull();
+    expect([m.entete.inert, m.zone.inert, body.dataset.accueil]).toEqual([false, false, undefined]);
+    expect(stockage.get(CLE_ACCUEIL)).toBe('compte');
+    expect(m.comptes.desactiver).toHaveBeenCalledOnce();
+    m.a.perdue(false);
+    expect(['carte', 'jouer', 'classement'].map((n) => m.a.retient(n))).toEqual([false, false, false]);
+    expect($('#accueil')).toBeNull();
+    // Une nouvelle perte, plus tard dans la page : il revient.
+    await perdre(m);
+    expect(ouvertPerdue(m)).toBe(true);
+  });
+
+  it('« Continuer sans compte » : fermé, l’appareil invité avec ses progrès (choix « invite »), jamais de retour', async () => {
+    localStorage.setItem('terramemo.pseudo', 'Ana');
+    const m = await connecte();
+    await perdre(m);
+    m.poserEtatCompte('invite');
+    m.ctrl().fini('invite');
+    expect(m.a.etat()).toBe('ferme');
+    expect($('#accueil')).toBeNull();
+    expect(stockage.get(CLE_ACCUEIL)).toBe('invite');
+    expect(localStorage.getItem('terramemo.pseudo')).toBe('Ana');
+    m.a.perdue(false);
+    expect(['carte', 'jouer'].map((n) => m.a.retient(n))).toEqual([false, false]);
+    expect($('#accueil')).toBeNull();
+  });
+
+  it('« Effacer cet appareil » : le panneau du premier affichage à la place, comme après une déconnexion', async () => {
+    const m = await connecte();
+    await perdre(m);
+    effacerJoueurLocal(localStorage);
+    m.poserEtatCompte('invite');
+    m.ctrl().fini('invite');
+    expect(m.a.etat()).toBe('ouvert');
+    expect(m.a.mode()).toBe('premier');
+    expect($('#accueil-accroche')!.textContent).toBe(T.accroche);
+    expect(m.monterComptes).toHaveBeenCalledTimes(2);
+    expect(m.ctrl().perdue).toBeUndefined();
+    expect($('#accueil-partie-invite')!.hidden).toBe(false);
+    expect(m.comptes.desactiver).toHaveBeenCalledOnce();
+    // Puis le choix de l'invité, comme sur un appareil neuf : fermé pour de bon.
+    $('#accueil-invite')!.click();
+    $('#accueil-pseudo')!.value = 'Lou';
+    $('#accueil-form-invite')!.emettre('submit', { preventDefault() {} });
+    expect($('#accueil')).toBeNull();
+    expect(stockage.get(CLE_ACCUEIL)).toBe('invite');
+    m.a.perdue(false);
+    expect(m.a.retient('carte')).toBe(false);
+  });
+
+  it('refermé sans que la session soit réglée : pas de boucle, jusqu’à ce qu’elle l’ait été', async () => {
+    const m = await connecte();
+    await perdre(m);
+    m.ctrl().fini('compte');
+    expect($('#accueil')).toBeNull();
+    expect(['carte', 'jouer', 'carte'].map((n) => m.a.retient(n))).toEqual([false, false, false]);
+    m.a.perdue(true);
+    expect($('#accueil')).toBeNull();
+    // Réglée (reconnectée ailleurs), puis perdue à nouveau : le panneau revient.
+    m.a.perdue(false);
+    m.a.perdue(true);
+    expect(ouvertPerdue(m)).toBe(true);
+  });
+
+  it('un invité ou un compte valide : jamais de panneau ; un état de la page qui n’est plus « perdue » non plus', async () => {
+    const m = await connecte();
+    m.a.perdue(false);
+    expect(m.a.retient('carte')).toBe(false);
+    m.poserEtatCompte('compte');
+    m.a.perdue(true);
+    expect($('#accueil')).toBeNull();
+    expect(m.a.retient('jouer')).toBe(false);
+    m.poserEtatCompte('invite');
+    expect(m.a.retient('carte')).toBe(false);
+    expect($('#accueil')).toBeNull();
+  });
+
+  it('le panneau du premier affichage ouvert : la session perdue attend sa fermeture ; stockage illisible : jamais', async () => {
+    const m = monter();
+    await demarrer(m);
+    m.a.suivre('carte');
+    m.poserEtatCompte('perdue');
+    m.a.perdue(true);
+    expect(m.a.mode()).toBe('premier');
+    m.ctrl().fini();
+    expect(m.a.retient('carte')).toBe(true);
+    expect(ouvertPerdue(m)).toBe(true);
+
+    const n = monter({ st: null });
+    await demarrer(n, true);
+    n.poserEtatCompte('perdue');
+    n.a.perdue(true);
+    expect(n.a.etat()).toBe('inactif');
+    expect(n.a.retient('carte')).toBe(false);
+  });
+
+  it('les écrans des comptes ne viennent pas (hors ligne) : « Réessayer », et « Continuer sans compte » des comptes', async () => {
+    const sansCompte = vi.fn(async () => undefined);
+    const m = await connecte({ echecs: 1, sansCompte });
+    await perdre(m);
+    await attendre();
+    expect($('#accueil-comptes-avis')!.textContent).toBe(T.comptes_echec_perdue);
+    expect($('#accueil-comptes-reessayer')!.hidden).toBe(false);
+    expect($('#accueil-partie-invite')!.hidden).toBe(false);
+    expect($('#accueil-invite')!.textContent).toBe(textes.compte.continuer_sans);
+    $('#accueil-invite')!.click();
+    expect(sansCompte).toHaveBeenCalledOnce();
+    // Rien de demandé : pas de pseudo, les progrès restent.
+    expect($('#accueil-form-invite')!.hidden).toBe(true);
+    m.poserEtatCompte('invite');
+    await attendre();
+    expect($('#accueil')).toBeNull();
+    expect(stockage.get(CLE_ACCUEIL)).toBe('invite');
+  });
+
+  it('« Continuer sans compte » qui échoue : le panneau reste, l’avis le dit', async () => {
+    const m = await connecte({ echecs: 1, sansCompte: async () => { throw new Error('IndexedDB'); } });
+    await perdre(m);
+    await attendre();
+    $('#accueil-invite')!.click();
+    await attendre();
+    expect(ouvertPerdue(m)).toBe(true);
+    expect($('#accueil-invite')!.disabled).toBe(false);
+    expect($('#accueil-comptes-avis')!.textContent).toBe(T.comptes_echec_perdue);
   });
 });
