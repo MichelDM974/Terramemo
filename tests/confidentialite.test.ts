@@ -31,7 +31,7 @@ describe('pages statiques (public/)', () => {
     expect(sansCommentaires(html).match(/<main\b/g)).toHaveLength(1);
     expect(html).toMatch(/<title>Terramemo — [^<]+<\/title>/);
     // Une date de version par page : la politique a changé à l'ouverture des comptes (11/11), la page de suppression non.
-    expect(html).toContain(`<p class="version">Version du ${{ confidentialite: '11/11/2026', suppression: '07/11/2026' }[nom]}</p>`);
+    expect(html).toContain(`<p class="version">Version du ${{ confidentialite: '15/11/2026', suppression: '07/11/2026' }[nom]}</p>`);
     expect(nom).toBeTruthy();
   });
 
@@ -66,8 +66,11 @@ describe('pages statiques (public/)', () => {
     // Des durées que l'outil du propriétaire tient à sa tournée mensuelle (§ 7.5), pas « un jour ».
     expect(t).toContain('gardés 30 jours au plus');
     expect(t).not.toContain('un jour');
-    // L'export, caché avec la vue Compte jusqu'à l'ouverture des comptes : en attendant, par e-mail.
-    expect(t).toContain('Cette entrée arrive avec l\'ouverture des comptes');
+    // L'export, sur le site seul (décision « Connexion, fusion et déconnexion ») : dans l'APK, par le site ou par e-mail.
+    expect(t).not.toContain('Cette entrée arrive avec l\'ouverture des comptes');
+    expect(t).toContain('L\'appli Android ne l\'a pas : connecte-toi au site avec le même compte');
+    // Google dans l'APK depuis le lot 7 du J1b (version du 15/11) : plus de « quand … sera ouverte ».
+    expect(t).not.toContain('sera ouverte');
     expect(t).toContain('180 jours');
     expect(t).toContain('ne fixe pas d\'âge minimum');
     expect(t).toContain('CNIL');
