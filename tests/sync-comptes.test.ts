@@ -197,6 +197,16 @@ describe('suppression d’un compte Google : la réauthentification (§ 7.1, ét
     expect(c.rapport().erreurs.at(-1)).toMatchObject({ code: 'terramemo/google-annule', message: expect.stringContaining('activity is cancelled by the user.') });
   });
 
+  it('sur le site, un jetonGoogle passé quand même n’est jamais appelé : la fenêtre de Google (le plugin hors du site, lot 7)', async () => {
+    const g = google();
+    const jetonGoogle = vi.fn(async () => 'id-token-du-plugin');
+    const c = creerComptes({ session: g.session, service: g.service, natif: () => false, jetonGoogle });
+    expect(c.googleOffert()).toBe(true);
+    await expect(c.supprimer({ mot: 'supprimer' })).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(g.appels).toEqual(['popup:true:gael@gmail.com']);
+    expect(jetonGoogle).not.toHaveBeenCalled();
+  });
+
   it('une suppression inachevée dont la session est perdue, dans l’APK sans le plugin : « reconnecte-toi sur le site », rien de vidé', async () => {
     const effacer = vi.fn(async () => undefined);
     const session = depotSessionMemoire({ uid: 'g1', fournisseurs: ['google.com'], adresse: 'gael@gmail.com', marque: null, profil_a_ecrire: false, deconnexion: null, effacement: null, suppression: 'g1', connexion: null, version: '' });
