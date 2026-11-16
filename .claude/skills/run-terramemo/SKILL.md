@@ -849,7 +849,7 @@ python3 .claude/skills/run-terramemo/driver.py restaurer_journal [FICHIER]    # 
 de lui-même pour une appli déjà installée (pas d'installation si la
 sauvegarde échoue ; `--sans-sauvegarde` seulement si l'appli en place ne
 démarre plus). De jour, l'utilisateur présent : l'A37 est verrouillé par
-code la nuit (`-s RFGL606Q5WM` s'il y a plusieurs appareils).
+code la nuit (`-s <numéro de série, voir adb devices>` s'il y a plusieurs appareils).
 
 - **Lecture brute** de la base `terramemo-journal` de l'origine
   (`Runtime.evaluate`, `getAll` sans filtre) : l'APK de debug a la WebView
@@ -1736,7 +1736,7 @@ l'utilisateur touche le téléphone.
 
 **Avant** :
 - PC : rien de lourd en parallèle (pas d'émulateur Firebase, pas de
-  chromium) ; A37 branché au câble, déverrouillé (code 0000),
+  chromium) ; A37 branché au câble, déverrouillé,
   `adb shell svc power stayon usb` ;
 - **sauvegarde d'abord** : `python3 .claude/skills/run-terramemo/driver.py
   apk --installer` (depuis le dossier de la branche du lot 7). Il fait
