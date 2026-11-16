@@ -3,7 +3,10 @@
 // hauteur réservée), la feuille (tête, faits, voisins, mémoire, pied), le voile, le
 // zoom caché, Échap et la popup ⚙, les voisins et leur pile, la recherche. Les vraies
 // données du dépôt (pays.json, fiches du monde, capitales, drapeaux), le DOM factice ;
-// l'historique est la pile de la vue (sans navigation.ts : tests/navigation.test.ts).
+// l'historique est la pile de la vue (navigation.ts seule : tests/navigation.test.ts),
+// sauf au dernier bloc, où la vue est branchée sur la vraie navigation. Le DOM factice
+// ne met rien en page : hauteurs, toucher sous le voile et vol de la carte sont au
+// pilote (ui_fiche).
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lireFichesMonde, type DonneesFichesMonde, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
@@ -12,6 +15,8 @@ import { lireDrapeaux, type ManifesteDrapeaux } from '../src/map/drapeaux';
 import type { Pays } from '../src/map/types';
 import type { CarteMemoire } from '../src/vues/carte-memoire';
 import type { ContexteVue } from '../src/vues/commun';
+import { creerNavigation, type Historique, type VueNavigable } from '../src/navigation';
+import { versAncre } from '../src/vues/arbre';
 import { vueExplorer, type OptionsFiche } from '../src/vues/explorer';
 import { textes } from '../src/vues/textes';
 import { brancherZoom } from '../src/zoom-carte';
@@ -180,7 +185,7 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(annonce()).toBe(textes.toucher.echec_terrain);
   });
 
-  it('la barre réserve sa hauteur du cas complet dès qu’un lieu est affiché, avec et sans la ligne de la mémoire', async () => {
+  it('la barre porte les classes de la hauteur du cas complet dès qu’un lieu est affiché, avec et sans la ligne de la mémoire (la hauteur elle-même : ui_fiche du pilote)', async () => {
     let actif = true;
     const memoire = { details: () => (actif ? ['Vu 2 fois · revient demain'] : null), actif: () => actif, detail: () => null, sujets: () => [], sujet: () => 'pays', choisir() {}, teintes: () => null, maitrises: () => null } as unknown as CarteMemoire;
     const v = monter({ memoire });
@@ -384,7 +389,7 @@ describe('la fiche', () => {
     expect(v.ouverte()).toBe(false);
   });
 
-  it('fiche ouverte : + et − sans effet (boutons de zoom cachés par la feuille de style) ; le voile ferme sans toucher la carte', async () => {
+  it('fiche ouverte : + et − sans effet (boutons de zoom cachés par la feuille de style) ; le voile ferme la fiche (qu’il ne touche pas la carte dessous : ui_fiche du pilote)', async () => {
     const v = await ouvrirSur('JPN');
     v.body.dataset.vue = 'carte';
     brancherZoom({ zone: v.zone as unknown as HTMLElement, carte: () => v.carte as never });
@@ -469,5 +474,138 @@ describe('la fiche', () => {
 
   it('sur l’île, la fiche passe sous la mention de l’IGN (comme le bilan)', () => {
     expect(readFileSync('src/carte.css', 'utf8')).toContain('body[data-terrain="reunion"] .fiche { top: 40px; }');
+  });
+});
+
+/** window.history et location.hash, en petit : go() différé, comme dans un vrai navigateur. */
+class HistoriqueFactice implements Historique {
+  entrees: { etat: unknown; ancre: string }[] = [{ etat: null, ancre: '' }];
+  i = 0;
+  attente: number[] = [];
+  get state(): unknown {
+    return this.entrees[this.i]!.etat;
+  }
+  get ancre(): string {
+    return this.entrees[this.i]!.ancre;
+  }
+  pushState(etat: unknown, _u: string, url?: string): void {
+    this.entrees = [...this.entrees.slice(0, this.i + 1), { etat: structuredClone(etat), ancre: url ?? this.ancre }];
+    this.i++;
+  }
+  replaceState(etat: unknown, _u: string, url?: string): void {
+    this.entrees[this.i] = { etat: structuredClone(etat), ancre: url ?? this.ancre };
+  }
+  go(n: number): void {
+    this.attente.push(n);
+  }
+}
+
+describe('la fiche branchée sur la vraie navigation (navigation.ts, comme main.ts)', () => {
+  beforeEach(() => vi.useRealTimers());
+
+  /** La vue de la carte et les classements, l'historique factice ; chaque traversée donne deux router() (popstate puis hashchange). */
+  function brancher() {
+    const h = new HistoriqueFactice();
+    let nav!: ReturnType<typeof creerNavigation<VueNavigable>>;
+    const v = monter({ fiche: { historique: { pousser: (l) => nav.pousserFiche(l), quitter: () => nav.quitterFiches(), retour: () => retour() } } });
+    let classementActif = false;
+    const classement = { activer: () => void (classementActif = true), desactiver: () => void (classementActif = false) };
+    const vues = new Map<string, VueNavigable>([
+      ['carte', v.vue],
+      ['classement', classement],
+    ]);
+    nav = creerNavigation({
+      history: h,
+      ancre: () => h.ancre,
+      noms: ['carte', 'classement'],
+      accueil: 'carte',
+      passage: ['classement'],
+      arbre: 'jouer',
+      vue: (n) => vues.get(n),
+      aller: () => undefined,
+      surFiche: (f) => v.vue.surFiche(f),
+      annoncer: () => undefined,
+      canonique: (c) => c,
+    });
+    const traverser = () => {
+      for (let n = h.attente.shift(); n !== undefined; n = h.attente.shift()) {
+        h.i += n;
+        nav.router();
+        nav.router();
+      }
+    };
+    const retour = () => {
+      h.i--;
+      nav.router();
+      nav.router();
+    };
+    const lien = (a: string) => {
+      h.pushState(null, '', versAncre(a));
+      nav.router();
+      nav.router();
+    };
+    const fichesEnHistorique = () => h.entrees.slice(0, h.i + 1).filter((e) => (e.etat as { fiche?: unknown } | null)?.fiche).length;
+    lien('classement');
+    lien('carte');
+    return { ...v, h, nav, traverser, lien, fichesEnHistorique, classementActif: () => classementActif };
+  }
+
+  /** Le lieu touché, puis sa fiche ouverte par la barre. */
+  async function ouvrir(v: ReturnType<typeof brancher>, id: string) {
+    v.toucher(id);
+    await tenir();
+    v.bouton().click();
+    await vi.waitFor(() => expect(v.titre()).toBe(v.el('#barre-carte .barre-nom')!.textContent));
+  }
+
+  it('ouvrir, un voisin, « × » : une entrée par fiche, toutes remontées d’un coup, la fiche fermée et le focus à la barre', async () => {
+    const v = brancher();
+    const carte = v.h.i;
+    await ouvrir(v, 'FRA');
+    expect(v.h.i).toBe(carte + 1);
+    (v.feuille()!.querySelectorAll('.fiche-voisin').find((b) => b.dataset.id === 'ESP') as El).click();
+    await vi.waitFor(() => expect(v.titre()).toBe('Espagne'));
+    expect(v.h.i).toBe(carte + 2);
+    v.feuille()!.querySelector('.croix')!.click();
+    v.traverser();
+    expect(v.h.i).toBe(carte);
+    expect(v.ouverte()).toBe(false);
+    expect(v.body.dataset.fiche).toBeUndefined();
+    expect(v.doc.activeElement).toBe(v.bouton());
+    expect(v.barre().dataset.id).toBe('ESP');
+    expect(v.fichesEnHistorique()).toBe(0);
+  });
+
+  it('la recherche pendant une fiche : la fiche fermée, ses entrées rendues, rien de rouvert après le go()', async () => {
+    const v = brancher();
+    const carte = v.h.i;
+    await ouvrir(v, 'FRA');
+    // Comme main.ts (brancherRecherche) : pousser('carte'), puis le lieu montré.
+    v.nav.pousser('carte');
+    v.vue.montrerLieu('monde', 'CHN');
+    expect(v.ouverte()).toBe(false);
+    v.traverser();
+    await tenir();
+    expect(v.h.i).toBe(carte);
+    expect(v.ouverte()).toBe(false);
+    expect(v.body.dataset.fiche).toBeUndefined();
+    expect(v.barre().dataset.id).toBe('CHN');
+    expect(v.fichesEnHistorique()).toBe(0);
+  });
+
+  it('🏆 ouvert par-dessus une fiche, puis sa « × » : la carte seule, sans fiche ni entrée de fiche', async () => {
+    const v = brancher();
+    const carte = v.h.i;
+    await ouvrir(v, 'FRA');
+    v.lien('classement');
+    expect(v.ouverte()).toBe(false);
+    expect(v.body.dataset.fiche).toBeUndefined();
+    v.nav.remonter('carte');
+    v.traverser();
+    await tenir();
+    expect(v.classementActif()).toBe(false);
+    expect(v.h.i).toBe(carte);
+    expect(v.ouverte()).toBe(false);
+    expect(v.body.dataset.fiche).toBeUndefined();
   });
 });
