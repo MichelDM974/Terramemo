@@ -53,6 +53,7 @@ le drapeau. Il laisse Claude ajouter ce qui manque d'important.
   (« 16 h 20, +5 h ») ; le nombre de fuseaux s'il y en a plusieurs ;
 - continent et sous-région (ONU) ;
 - voisins ;
+- point culminant (nom, altitude) et fête nationale ;
 - photos et lien Wikipédia ;
 - ligne de la mémoire (« Vu 4 fois · revient dans 5 j »).
 
@@ -95,16 +96,21 @@ de la décision « Pays et frontières »).
 - **Ligne de la mémoire :** elle est déjà dans la barre, et reste dans la
   fiche.
 
-## À trancher par l'utilisateur
+## Propositions de Claude acceptées par l'utilisateur (16/11)
 
-1. **« Apprendre ce lieu » dans la fiche :** le lieu passe en tête de la
-   prochaine grappe d'Apprendre. Pour : on passe de la curiosité à la
-   mémoire. Contre : cela casse l'ordre des grappes par voisinage (décision
-   « Apprendre et Révision du jour »).
+1. **« Apprendre ce lieu » dans la fiche :** le lieu entre dans la
+   prochaine grappe de son sujet, pour qu'on passe de la curiosité à la
+   mémoire. Cela fait une exception à l'ordre des grappes par voisinage.
+   L'exception ne doit pas dépasser la grappe du jour : la décision
+   « Apprendre et Révision du jour » a écarté un Apprendre hors budget, qui
+   permettait de contourner le rythme. Reste à concevoir quelles fiches
+   entrent pour un pays : son nom seul, ou aussi sa capitale et son drapeau.
 2. **Fiche depuis le bilan d'une partie :** toucher une erreur ouvre la
    fiche du lieu juste. C'est le moment où la fiche aide le plus à retenir.
-3. **Point culminant et fête nationale :** le point culminant peut attendre
-   le J5 (#7), qui apporte les montagnes.
+   La partie est finie, donc la règle « jamais pendant une partie » tient.
+3. **Point culminant et fête nationale** dans la fiche d'un pays. Le point
+   culminant n'attend pas le J5 (#7) : la fiche donne son nom et son
+   altitude, pas sa place sur la carte.
 
 ## Non retenus
 
@@ -148,16 +154,11 @@ de la décision « Pays et frontières »).
   - classement : la notoriété déjà utilisée (nombre de Wikipédias, vues de
     la Wikipédia française) ;
   - licences libres seulement ; auteur, licence et lien sous chaque photo
-    (CC BY-SA l'exige) ; texte alternatif : le nom du lieu.
-- **Hébergement des photos, deux options :**
-  - vignettes réduites au build et servies par Firebase : rien d'externe et
-    hors ligne possible, mais ≈ 30 Ko par photo sur le budget de transfert ;
-  - photos prises chez Wikimedia : aucun coût de transfert, mais l'adresse
-    IP du visiteur part chez un tiers (politique de confidentialité à
-    revoir) et rien ne marche hors ligne.
-
-  Dans l'APK : vignettes embarquées (≈ 30 Mo pour ≈ 1 000 photos, estimé) ou
-  chargées en ligne.
+    (CC BY-SA l'exige) ; texte alternatif : le nom du lieu ;
+  - mers : l'image de Wikidata est souvent une carte (pour la Méditerranée,
+    une carte politique en SVG, vu le 16/11). Il faut donc prendre leurs
+    photos ailleurs : lieux de la côte, catégories de Commons.
+- **Hébergement des photos :** sur notre site. Le chiffrage est plus bas.
 - **Outil de relecture des photos :** une page locale pour garder, écarter
   ou remplacer chaque photo.
 - **Hors ligne :** le texte des fiches dans le cache du service worker (#22).
@@ -165,3 +166,81 @@ de la décision « Pays et frontières »).
   - chaque lieu des trois sujets a sa fiche ;
   - aucun champ n'est vide sans le vouloir ;
   - chaque photo a son auteur et sa licence.
+
+## Photos sur notre site : l'offre gratuite suffit (chiffré le 16/11)
+
+Choix de l'utilisateur : servir les photos par Firebase Hosting, avec le
+site, si l'offre gratuite suffit. Elle suffit, à deux conditions données à
+la fin de cette section.
+
+**Quotas de Spark** (page des tarifs de Firebase, lue le 16/11) : 10 Go de
+stockage et 360 Mo de transfert par jour, pour tout le projet. Spark ne
+facture jamais.
+
+**Poids mesuré** sur 9 photos de Commons : Tour Eiffel, Taj Mahal, Fuji,
+Machu Picchu, Piton de la Fournaise, Grande Muraille, Pétra, Mafate, Angkor.
+Elles sont recadrées en 3:2 et enregistrées en WebP qualité 60 (Pillow,
+`method=6`) :
+
+| Taille | Moyenne | Écart |
+|---|---|---|
+| vignette 480 × 320 | 20 Ko | 9 à 38 Ko |
+| fiche 720 × 480 | 47 Ko | 20 à 88 Ko |
+| plein écran 1 080 × 720 | 106 Ko | 43 à 198 Ko |
+
+En qualité 75, c'est ≈ 20 % de plus.
+
+**Nombre :** ≈ 1 200 photos (estimé) :
+
+- 197 pays × 4 ;
+- 48 territoires × 3 ;
+- 12 zones contestées × 2 ;
+- 50 mers × 3 ;
+- 24 communes × 3.
+
+**Stockage :** une vignette et un plein écran font ≈ 127 Ko par photo, donc
+≈ 150 Mo en tout. Le site lui-même pèse 5 Mo (`dist/`). Le stockage tient
+donc largement… pour une seule version.
+
+Or Firebase garde chaque version déployée pour le retour arrière, et ces
+versions comptent dans le stockage. Terramemo se déploie plusieurs fois par
+jour. Rien ne dit qu'un fichier identique d'une version à l'autre ne compte
+qu'une fois : si les photos comptent à chaque version, 60 versions font
+9 Go.
+
+**Transfert :** une vignette se charge à l'ouverture de la fiche, les
+suivantes en glissant, et le plein écran au toucher d'une photo. Les
+données des fiches arrivent au premier toucher de la barre (≈ 50 Ko,
+estimé). Le budget est de 1,8 Mo par nouveau visiteur (décision
+« Hébergement ») :
+
+| Visiteur | Ce qu'il fait | Coût | Part du budget |
+|---|---|---|---|
+| moyen | 3 fiches, 1 photo agrandie | ≈ 0,2 Mo | + 12 % |
+| curieux | 10 fiches, 3 photos agrandies | ≈ 0,6 Mo | + 32 % |
+| curieux, 4 vignettes chargées d'un coup par fiche | 10 fiches, 3 photos agrandies | ≈ 1,2 Mo | + 65 % |
+
+Avec le chargement à la demande, on passe d'≈ 200 nouveaux visiteurs par
+jour à ≈ 150 à 180. Un visiteur qui revient ne retélécharge pas les photos
+déjà vues : le service worker (#22) garde déjà en cache ce qui est chargé à
+l'usage, comme les drapeaux (`src/sw/logique.ts`). Une photo fait comme
+eux, tant que son empreinte ne change pas.
+
+**APK :** il ne passe pas par Hosting (plan, § Technique). Il embarque les
+vignettes (≈ 24 Mo). Le plein écran se charge depuis le site, en ligne
+seulement : embarqué, il ferait ≈ 150 Mo de plus, trop lourd.
+
+**Repli :** Cloudflare Pages (décision « Hébergement ») n'a pas de plafond
+de transfert et accepte 20 000 fichiers par site en gratuit, à revérifier le
+jour venu. Les photos font ≈ 2 400 fichiers, le site ≈ 250 : ça tient.
+
+**Les deux conditions :**
+
+1. Charger les photos une par une, à la demande, et jamais au premier
+   affichage.
+2. Avant le premier déploiement des photos, limiter le nombre de versions
+   gardées : console, historique des versions, « Release storage settings ».
+   Avec 10 versions, c'est 1,5 Go au plus.
+
+**À lire alors dans la console** (Hosting, Utilisation) : le transfert réel
+par jour. Les 1,8 Mo par visiteur sont une estimation du 04/11.
