@@ -50,5 +50,12 @@ Conception du J2 (10/11/2026) :
   six relevés, une rédaction, deux relectures adverses (code existant ;
   produit, pédagogie et données), une correction.
 
+Besoin (16/11/2026) :
+
+- `2026-11-16-fiche-lieu.md` : fiche d'un lieu touché à l'accueil (pays
+  et territoires, océans et mers, communes de La Réunion) : choix de
+  l'utilisateur, contenu, propositions à trancher, points de conception
+  (ticket #34). Pas encore conçue.
+
 Le plan arrêté, qui tient compte des réponses de l'utilisateur et de la
 critique, est `../plan.md` : il fait foi là où ces études divergent.
