@@ -54,13 +54,33 @@ export interface Vue {
   toucher?(x: number, y: number, ev: PointerEvent): void;
 }
 
+/** Le statut d'une entité dit par la barre de l'accueil et la recherche (décision « Langue » : textes.carte.statuts, lot F1 de #34). */
 export const LIBELLE_STATUT: Record<Statut, string> = {
   jouable: '',
-  optionnel: 'paquet optionnel',
-  territoire: 'territoire',
-  conteste: 'statut contesté',
+  optionnel: textes.carte.statuts.optionnel,
+  territoire: textes.carte.statuts.territoire,
+  conteste: textes.carte.statuts.conteste,
   autre: '',
 };
+
+/**
+ * Les barres d'une partie en cours, une par vue qui pose des questions
+ * (Trouver, Reconnaître, les épreuves, le quiz, la carte retournée) : la
+ * seule liste (fiche d'un lieu, étude § 4.8, garde 2). Tant que l'une est
+ * visible, la recherche s'efface (la règle de carte.css, qui la cite telle
+ * quelle : tests/fiche-partie.test.ts) et la fiche d'un lieu ne s'ouvre pas
+ * (barrePartieVisible, ficheAutorisee de main.ts) : elles donneraient la
+ * réponse. Un sixième mode s'ajoute ici et dans la règle, ou le test échoue.
+ */
+export const BARRES_PARTIE = ['barre-essai', 'barre-nommer', 'barre-chrono', 'barre-quiz', 'barre-retournee'] as const;
+
+/** Une barre de BARRES_PARTIE est-elle affichée dans ce document ? */
+export function barrePartieVisible(doc: Pick<Document, 'getElementById'> = document): boolean {
+  return BARRES_PARTIE.some((id) => {
+    const b = doc.getElementById(id);
+    return !!b && !b.hidden;
+  });
+}
 
 export function creer<K extends keyof HTMLElementTagNameMap>(
   nom: K,

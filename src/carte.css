@@ -404,7 +404,9 @@ body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoi
 }
 
 /* Une partie en cours (sa barre affichée) : la recherche, qui donnerait la
-   réponse, s'efface ; l'en-tête garde sa place. */
+   réponse, s'efface ; l'en-tête garde sa place. Les barres citées sont
+   exactement BARRES_PARTIE (src/vues/commun.ts), dans son ordre :
+   tests/fiche-partie.test.ts le vérifie (fiche d'un lieu, #34, § 4.8). */
 body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:not([hidden]), #barre-quiz:not([hidden]), #barre-retournee:not([hidden])) .recherche { visibility: hidden; }
 
 /* Séance (J1a) : la ligne discrète après une réponse (« Revient dans 3 j »),
