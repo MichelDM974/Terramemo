@@ -201,6 +201,20 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(v.chevron()).toBe(true);
   });
 
+  it('les capitales manquées au premier toucher (hors ligne) : le chevron sans ligne de faits, puis la capitale au toucher suivant', async () => {
+    let echoue = true;
+    const v = monter({ fiche: { capitales: () => (echoue ? Promise.reject(new Error('hors ligne')) : Promise.resolve(CAPITALES)) } });
+    v.vue.activer();
+    v.toucher('JPN');
+    await tenir();
+    expect(v.chevron()).toBe(true);
+    expect(v.faits()).toBe('');
+    echoue = false;
+    v.toucher('JPN');
+    await tenir();
+    expect(v.faits()).toBe('Tokyo');
+  });
+
   it('une mer ou une commune : pas encore de fiche (lots F4 et F5), rien de chargé', async () => {
     const v = monter();
     v.vue.activer();

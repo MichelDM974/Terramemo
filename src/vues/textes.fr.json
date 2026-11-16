@@ -29,7 +29,6 @@
   },
   "fiche": {
     "_": "Fiche d'un lieu (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4 et § 6.5) : la barre du bas devenue bouton, puis la feuille. Les noms (titres Wikipédia, sous-régions) sont dans public/geo/fiches-monde.fr.json.",
-    "ouvrir": "Ouvrir la fiche",
     "avant": "Fiche d'avant",
     "statut_continent": "continent",
     "drapeau": "Drapeau : {nom}",
@@ -56,9 +55,7 @@
       "millions": "{n} millions",
       "milliard": "{n} milliard",
       "milliards": "{n} milliards"
-    },
-    "chargement": "Chargement de la fiche…",
-    "echec": "La fiche ne s'est pas chargée (hors ligne ?)."
+    }
   },
   "zoom": {
     "groupe": "Zoom de la carte",

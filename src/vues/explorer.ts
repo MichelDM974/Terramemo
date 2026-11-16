@@ -366,9 +366,12 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         chevron.hidden = false;
         // « Tokyo » seul pour l'instant (lot F1) ; « capitale · habitants » au lot F2.
         if (sorte === 'pays') faits.textContent = lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom).join(', ') ?? '';
-      } else if (charger && !lues) {
+      }
+      // Rien de lu, ou les capitales d'un pays manquées (hors ligne au premier toucher) : redemandées.
+      const manque = !lues ? chargerDonnees : sorte === 'pays' && !lues.capitales ? () => F!.capitales().then((c) => lues && (lues.capitales = c)) : null;
+      if (charger && manque) {
         const [j, k] = [jeton, touches];
-        chargerDonnees().then(
+        manque().then(
           () => {
             if (j === jeton && k === touches && barre.dataset.id === id) poserFaits(false);
           },
