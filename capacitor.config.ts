@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 // Coquille Android (Capacitor 8) du site : le même dist/ que Firebase Hosting.
 const config: CapacitorConfig = {
-  // Convention des autres applis (io.github.micheldm974.light, .cdc). Changer
+  // Convention de mes applis (io.github.micheldm974.<nom>). Changer
   // l'appId fait une autre appli pour Android : désinstaller l'ancienne efface ses données.
   appId: 'io.github.micheldm974.terramemo',
   appName: 'Terramemo',

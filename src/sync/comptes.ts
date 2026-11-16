@@ -94,7 +94,7 @@ import type { CompteExport, ProfilExport } from './export';
 import { appliquer, ecrireBasePseudo, ecrireProfil, fusionner, lireBasePseudo, lireLocal, lireProfil, lireRecordsProfil, pseudoChangeIci, V_PROFIL, type Fusion, type ProfilLocal, type ProfilLu } from './profil';
 import { depotSessionIndexedDb, sessionVide, type DepotSession, type Fournisseur, type Session } from './session';
 
-/** Mot de passe : 8 caractères au moins, sans autre exigence (D17, comme Light). */
+/** Mot de passe : 8 caractères au moins, sans autre exigence (D17). */
 export const MDP_MIN = 8;
 /**
  * Une question de fusion plus vieille que ça, trouvée dans la session par une
@@ -1319,7 +1319,7 @@ export function creerComptes(o: OptionsComptes = {}): Comptes {
         const s = await service();
         const u = s.a.currentUser;
         if (!u || !estCompte(u)) throw new ErreurCompte('terramemo/sans-compte');
-        // Pas de mot de passe ajouté à un compte Google (D19, comme Light).
+        // Pas de mot de passe ajouté à un compte Google (D19).
         if (!fournisseursDe(u).includes('password') || !u.email) throw new ErreurCompte('terramemo/mdp-google');
         verifierMdp(nouveau);
         const { auth } = s.m;

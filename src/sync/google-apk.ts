@@ -70,7 +70,7 @@ export const ERREURS_GOOGLE_APK = {
  * Une annulation qui n'en est pas une (S19) : d'après le README du plugin,
  * « [16] Account reauth failed » ou « [8] … UNREGISTERED_ON_API_CONSOLE »
  * quand le client Android manque ; « Developer console is not set up
- * correctly » (10, DEVELOPER_ERROR) et 28444 (piège de Light : clé changée).
+ * correctly » (10, DEVELOPER_ERROR) et 28444 (piège connu : clé changée).
  * Une vraie annulation porte « activity is cancelled by the user. »
  * (credentials-play-services-auth), ou le message par défaut du plugin ;
  * sur l'A37 (15/11), la feuille refermée donne « [16] Cancelled by user. ».

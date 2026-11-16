@@ -34,7 +34,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           # Cache libre (MIT) : celui par défaut de la v6 est propriétaire,
-          # gratuit pour un dépôt privé seulement le temps d'un essai (comme Light).
+          # gratuit pour un dépôt privé seulement le temps d'un essai.
           cache-provider: basic
 
       - run: npm ci

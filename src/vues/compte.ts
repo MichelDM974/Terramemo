@@ -592,7 +592,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
   }
 
   /**
-   * Le bouton de Google, à son style « filled_black » comme dans Light : le
+   * Le bouton de Google, à son style « filled_black » : le
    * « G » dans un rond blanc à gauche, le texte en blanc sur une pilule sombre
    * (demande de l'utilisateur, 12/11 : « qu'il ressemble plus à Google »).
    */

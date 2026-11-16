@@ -1,6 +1,6 @@
 // Erreurs des comptes en français (étude du J1b, § 3.3) : textes de
-// textes.fr.json (compte.erreurs), repris de l'AUTH_MESSAGES de Light clé par
-// clé, plus ceux du J1b. Le message anglais brut n'est jamais affiché : il va
+// textes.fr.json (compte.erreurs), repris clé par clé de ceux d'une autre
+// de mes applis, plus ceux du J1b. Le message anglais brut n'est jamais affiché : il va
 // au pilote (window.terramemo.comptes()). Sans dépendance à Firebase : la vue
 // Compte et les tests s'en servent sans charger le SDK.
 import { remplir, textes } from '../vues/textes';

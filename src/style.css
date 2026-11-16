@@ -22,7 +22,7 @@
   --accent-soft: rgba(61, 114, 240, 0.14);
   --accent-text: #02050a;
   --disabled-bg: #34363c;
-  /* Le bouton de Google, à ses couleurs (style « filled_black », comme Light) :
+  /* Le bouton de Google, à ses couleurs (style « filled_black ») :
      hors palette, exprès, pour qu'on le reconnaisse. */
   --google-bg: #202124;
   --google-bg-hover: #2b2c30;
@@ -381,7 +381,7 @@ button.secondary {
 
 button.secondary:hover { background: var(--panel-2); }
 
-/* Bouton de Google, au style « filled_black » de Google comme dans Light : pilule
+/* Bouton de Google, au style « filled_black » de Google : pilule
    sombre, « G » dans un rond blanc à gauche, texte blanc. Hors palette, exprès :
    on le reconnaît comme le bouton de Google (demande de l'utilisateur, 12/11). */
 button.google {
