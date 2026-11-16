@@ -25,6 +25,12 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
     mers [--width 384]          le sujet Océans et mers seul (ui_mers puis
                                 ses épreuves, ui_epreuves_mers, aussi dans
                                 ui), sur un profil neuf
+    fiche [--width 384] [--cible local|chrome|webview]
+                                la fiche d'un lieu seule (ui_fiche, aussi
+                                dans ui) : barre, fiche, voisins, retours,
+                                voile, Échap, ⚙, territoire, mer, île, et le
+                                scénario de mesure (10 fiches, 3 voisins) ;
+                                chrome et webview : le scénario seul
     mesurer --cible local|chrome|webview [--rendu canvas|webgl|g|css]
                                 gestes et touchers rejoués par DevTools,
                                 rapport JSON dans docs/mesures/j0/
@@ -132,6 +138,10 @@ FICHIERS_GEO_MERS = ("mers.topo.json", "mers-leger.topo.json", "mers.json", "mer
 # chargées avec le quiz seul (src/quiz/donnees.ts : au choix d'une difficulté), jamais au premier
 # affichage ni à l'ouverture de Jouer ; smoke et ui_quiz le vérifient.
 FICHIERS_GEO_QUIZ = ("notoriete.json", "drapeaux-proches.json")
+# La fiche d'un lieu (#34, lot F1) : les fiches du monde, chargées au premier toucher
+# d'un lieu (src/fiches/donnees.ts), jamais au premier affichage (étude fiche-lieu
+# § 6.1) ; rien sous /photos/ non plus (lot P2) ; smoke et ui_fiche le vérifient.
+FICHIERS_GEO_FICHES = ("fiches-monde.json", "fiches-monde.fr.json")
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
 TELEPHONE = {"largeur": 384, "hauteur": 832, "dpr": 2.8125}
@@ -980,7 +990,7 @@ def commande_smoke(args):
     mode = "développement" if serveur_de_dev(base) else "build (preview ou hébergé)"
     dire(f"  serveur : {mode}")
     manifeste = None
-    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES + FICHIERS_GEO_DRAPEAUX + FICHIERS_GEO_MERS + FICHIERS_GEO_QUIZ:
+    for nom in FICHIERS_GEO + tuple("reunion/" + n for n in FICHIERS_GEO_REUNION) + FICHIERS_GEO_CAPITALES + FICHIERS_GEO_DRAPEAUX + FICHIERS_GEO_MERS + FICHIERS_GEO_QUIZ + FICHIERS_GEO_FICHES:
         code, _, corps = http(base + "geo/" + nom)
         try:
             lu = json.loads(corps)
@@ -990,6 +1000,9 @@ def commande_smoke(args):
         if nom == "notoriete.json" and valide:
             # Un niveau de 1 à 3 par lieu de chaque sujet du J2 (src/quiz/donnees.ts, lireNotoriete).
             valide = isinstance(lu, dict) and lu.get("v") == 1 and all(isinstance(lu.get(k), dict) and lu[k] for k in ("pays", "capitales", "drapeaux", "mers"))
+        if nom in FICHIERS_GEO_FICHES and valide:
+            # Une entrée par entité de la carte, les 258 (src/fiches/donnees.ts, lireFichesMonde).
+            valide = isinstance(lu, dict) and lu.get("v") == 1 and isinstance(lu.get("lieux"), dict) and len(lu["lieux"]) >= 258
         if nom == "drapeaux.json" and valide:
             manifeste = lu
             # 195 jouables, plus Kosovo et Taïwan ; chaque ligne a son drapeau montré (d[0]).
@@ -1030,6 +1043,8 @@ def commande_smoke(args):
             verifier("rien des mers au premier affichage", not mers, ", ".join(mers) or "aucune ressource /geo/mers* après pret et repos")
             quiz = ressources_quiz(p)
             verifier("rien du quiz au premier affichage", not quiz, ", ".join(quiz) or "aucune ressource notoriete.json ni drapeaux-proches.json après pret et repos")
+            fiches = ressources_fiches(p)
+            verifier("rien des fiches ni des photos au premier affichage", not fiches, ", ".join(fiches) or "aucune ressource /geo/fiches-*, /photos/ ni morceau de la fiche après pret et repos")
         except RuntimeError as e:
             verifier("carte peinte", False, str(e))
         # Rendus SVG (au choix dans ⚙) : un path.pays par entité.
@@ -2136,6 +2151,8 @@ def commande_ui(args):
         ui_quiz(p, capturer, defauts, base, rendu)
         # Les lignes de repère (#11) : la page rechargée sans, puis avec ; le choix gardé retiré à la fin.
         ui_lignes(p, capturer, defauts, base, rendu)
+        # La fiche d'un lieu (#34, lot F1) : sur une page rechargée, la barre, la fiche, les voisins, les retours.
+        ui_fiche(p, capturer, defauts, base, rendu, telephone)
         # En dernier : il donne un pseudo à l'invité (retiré ensuite), qu'aucune partie ne doit publier.
         ui_accueil(p, capturer, defauts, base, rendu)
         erreurs = p.erreurs + p.echecs
@@ -4227,6 +4244,365 @@ def ui_quiz(p, capturer, defauts, base, parametres=""):
     if avis != "La partie du quiz laissée en cours (Facile) a compté : 2/20 · 10 %." or reste is not None:
         defauts.append(f"partie du quiz interrompue : avis {avis!r} (« … (Facile) a compté : 2/20 · 10 %. » attendu), en cours {reste!r}")
     capturer("16-quiz-interrompue")
+
+
+# --- Fiche d'un lieu (#34, lot F1) ---------------------------------------------
+
+def ressources_fiches(p):
+    """Ce que la fiche d'un lieu charge (étude fiche-lieu § 6.1) : /geo/fiches-*, /photos/, le morceau de la fiche (assets/fiche-*.js)."""
+    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => /\\/geo\\/fiches-|\\/photos\\/|\\/fiche(-[\\w-]+)?\\.(js|ts)/.test(n)).map(n => n.split('?')[0])")
+
+
+# L'état de la fiche vu de la page : ouverte, son lieu et son titre, l'entrée d'historique, le focus,
+# la barre (lieu, chevron, ligne de faits, inerte), les boutons de zoom, le voile.
+JS_ETAT_FICHE = """(() => {
+  const f = document.getElementById('fiche-lieu'), b = document.getElementById('barre-carte'),
+        z = document.getElementById('zoom-carte'), v = document.getElementById('fiche-voile');
+  const ouverte = !!f && !f.hidden;
+  return { ouverte, id: ouverte ? f.dataset.id : null, titre: ouverte ? (document.getElementById('fiche-titre') || {}).textContent : null,
+    etat: history.state && history.state.fiche ? history.state.fiche : null, hash: location.hash, focus: document.activeElement ? document.activeElement.id : null,
+    barre: b ? b.dataset.id || null : null, barre_cachee: !b || b.hidden, inerte: !!b && b.hasAttribute('inert'),
+    chevron: !!b && !b.querySelector('.barre-chevron').hidden, faits: b ? b.querySelector('.barre-faits').textContent : '',
+    statut: ouverte ? ((f.querySelector('.fiche-statut') || {}).textContent || '') : '',
+    lignes: ouverte ? [...f.querySelectorAll('.fiche-fait')].map(x => x.innerText.replace(/\\s+/g, ' ').trim()) : [],
+    voisins: ouverte ? [...f.querySelectorAll('.fiche-voisin')].map(x => x.dataset.id) : [],
+    drapeaux: ouverte ? f.querySelectorAll('.fiche-drapeaux img').length : 0,
+    avant: ouverte && !f.querySelector('.fiche-avant').hidden,
+    zoom: z ? getComputedStyle(z).display : null, voile: !!v && !v.hidden, fiche_body: document.body.dataset.fiche || null,
+    reglages: !document.getElementById('settings-popup').hidden };
+})()"""
+
+
+def etat_fiche(p):
+    return p.js(JS_ETAT_FICHE)
+
+
+def attendre_fiche(p, condition, quoi, delai_s=8):
+    """Attend que l'état de la fiche vérifie `condition` ; rend l'état (le dernier lu si le délai passe, avec un DÉFAUT à la charge de l'appelant)."""
+    fin = time.monotonic() + delai_s
+    e = etat_fiche(p)
+    while not condition(e) and time.monotonic() < fin:
+        p.pause(100)
+        e = etat_fiche(p)
+    if not condition(e):
+        dire(f"  {quoi} : pas atteint en {delai_s} s ({e})")
+    return e
+
+
+def toucher_element(p, selecteur):
+    """Un toucher (ou un clic hors tactile) au centre de l'élément, après la pause de règle."""
+    r = p.js(f"(() => {{ const e = document.querySelector({json.dumps(selecteur)}); if (!e) return null; const r = e.getBoundingClientRect(); return {{x: r.x + r.width / 2, y: r.y + r.height / 2}}; }})()")
+    if not r:
+        raise RuntimeError(f"rien à toucher : {selecteur}")
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    p.toucher(r["x"], r["y"])
+
+
+def glisser(p, x, y0, y1, pas=6):
+    """Un doigt qui glisse verticalement de y0 à y1 (tactile seulement), en `pas` images de 16 ms."""
+    p.geste([[(x, y0 + (y1 - y0) * k / pas)] for k in range(pas + 1)], 16)
+
+
+def toucher_lieu_accueil(p, ident):
+    """Le lieu `ident` cadré (zoomerSur), puis touché là où pick() le désigne, au-dessus de la barre."""
+    p.js(f'window.terramemo.carte.zoomerSur("{ident}")')
+    attendre_fin_vol(p)
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    pt = position_visible(p, ident, "#barre-carte")
+    if not pt:
+        raise RuntimeError(f"accueil : {ident} pas à l'écran")
+    p.toucher(pt["x"], pt["y"])
+
+
+def ouvrir_fiche(p, ident, defauts, quoi):
+    """Touche `ident` sur l'accueil, attend le chevron, touche la barre ; rend l'état de la fiche ouverte."""
+    toucher_lieu_accueil(p, ident)
+    e = attendre_fiche(p, lambda e: e["barre"] == ident and e["chevron"], f"{quoi} : chevron de {ident}")
+    if not e["chevron"]:
+        defauts.append(f"{quoi} : {ident} touché, pas de chevron ({e})")
+        return e
+    toucher_element(p, "#barre-fiche")
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == ident, f"{quoi} : fiche de {ident}")
+    if not e["ouverte"]:
+        defauts.append(f"{quoi} : la barre touchée n'ouvre pas la fiche de {ident} ({e})")
+    return e
+
+
+# Les images d'une page, mesurées par requestAnimationFrame pendant un scénario : les écarts entre deux images.
+JS_IMAGES_DEBUT = """(() => { window.__fiche_images = []; window.__fiche_mesure = true; let t0 = performance.now();
+  const f = (t) => { window.__fiche_images.push(t - t0); t0 = t; if (window.__fiche_mesure) requestAnimationFrame(f); };
+  requestAnimationFrame(f); return true; })()"""
+JS_IMAGES_FIN = """(() => { window.__fiche_mesure = false; const d = (window.__fiche_images || []).slice(1);
+  const duree = d.reduce((a, b) => a + b, 0);
+  return { images: d.length, duree_ms: Math.round(duree), acoups: d.filter(x => x >= 25).length, gels: d.filter(x => x >= 46).length,
+           max_ms: Math.round(Math.max(0, ...d) * 10) / 10 }; })()"""
+
+
+def scenario_fiches(p, defauts, n=10, voisins=3):
+    """Le scénario de mesure de l'étude (§ 6.4, S41 et S55) : ouvrir et fermer `n` fiches (la barre touchée,
+    puis « × »), puis passer par `voisins` voisins depuis la fiche de l'Espagne, les images de la page
+    mesurées par requestAnimationFrame (critère de saccade : à-coup ≥ 25 ms, gel ≥ 46 ms). Le toucher
+    est celui de DevTools : la médiane du toucher se juge à part (touchers_reels.py, critère du toucher).
+    Indicatif sur le PC (chromium sans écran) : le verdict est celui de l'A37."""
+    toucher_lieu_accueil(p, "ESP")
+    attendre_fiche(p, lambda e: e["chevron"], "scénario : chevron de l'Espagne")
+    p.js(JS_IMAGES_DEBUT)
+    for _ in range(n):
+        toucher_element(p, "#barre-fiche")
+        attendre_fiche(p, lambda e: e["ouverte"], "scénario : fiche ouverte")
+        p.pause(300)
+        toucher_element(p, "#fiche-lieu .croix")
+        attendre_fiche(p, lambda e: not e["ouverte"], "scénario : fiche fermée")
+        p.pause(200)
+    toucher_element(p, "#barre-fiche")
+    e = attendre_fiche(p, lambda e: e["ouverte"], "scénario : fiche de l'Espagne")
+    for _ in range(voisins):
+        suivant = next((v for v in e["voisins"] if v not in ("GIB",)), None)
+        if not suivant:
+            break
+        toucher_element(p, f'#fiche-lieu .fiche-voisin[data-id="{suivant}"]')
+        e = attendre_fiche(p, lambda x, s=suivant: x["ouverte"] and x["id"] == s, f"scénario : voisin {suivant}")
+        p.pause(2200)  # le vol de la carte sous la fiche (S55), 2 s au plus
+    toucher_element(p, "#fiche-lieu .croix")
+    attendre_fiche(p, lambda e: not e["ouverte"], "scénario : fiche fermée")
+    m = p.js(JS_IMAGES_FIN)
+    par_s = m["acoups"] / (m["duree_ms"] / 1000) if m["duree_ms"] else 0
+    dire(f"  scénario « {n} fiches, {voisins} voisins » : {m['images']} images en {m['duree_ms']} ms, {m['acoups']} à-coups "
+         f"({par_s:.2f}/s), {m['gels']} gels, plus long {m['max_ms']} ms (indicatif hors de l'A37)")
+    return m
+
+
+def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
+    """Captures 150 à 159 (#34, lot F1 ; étude fiche-lieu § 4 et § 7) : sur une page rechargée,
+    rien des fiches au premier affichage ; le Japon touché (sa ligne « Tokyo », son chevron, les
+    fiches chargées à ce toucher seulement, la hauteur de la barre inchangée à leur arrivée) ; la
+    barre touchée (ou glissée vers le haut, au doigt) ouvre la fiche : titre, focus, entrée
+    d'historique, barre inerte mais en place, zoom caché ; le retour du navigateur la ferme sans
+    quitter la carte ; l'Espagne et ses voisins (France, puis « ‹ ») ; « × », le voile, Échap ;
+    ⚙ par-dessus (Échap ne ferme que la popup) ; le Groenland (territoire) et l'Antarctique ; une mer
+    et une commune sans chevron (lots F4, F5) ; puis le scénario de mesure. DÉFAUT à chaque écart."""
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    debut = ressources_fiches(p)
+    if debut:
+        defauts.append(f"fiche : chargé au premier affichage : {debut}")
+    longueur = p.js("history.length")
+
+    # Le Japon : la barre, sa ligne de faits, son chevron.
+    toucher_lieu_accueil(p, "JPN")
+    h0 = p.js("document.getElementById('barre-carte').getBoundingClientRect().height")
+    e = attendre_fiche(p, lambda e: e["barre"] == "JPN" and e["chevron"], "Japon touché")
+    h1 = p.js("document.getElementById('barre-carte').getBoundingClientRect().height")
+    lus = [n.split("/")[-1] for n in ressources_fiches(p) if "/geo/" in n]
+    dire(f"  Japon touché : faits {e['faits']!r}, chevron {e['chevron']}, barre {h0:.0f} → {h1:.0f} px, lu {lus}")
+    if e["faits"] != "Tokyo" or not e["chevron"]:
+        defauts.append(f"Japon touché : ligne de faits « Tokyo » et chevron attendus ({e})")
+    if sorted(set(lus)) != sorted(FICHIERS_GEO_FICHES):
+        defauts.append(f"Japon touché : {lus} lus au lieu des fiches du monde ({', '.join(FICHIERS_GEO_FICHES)})")
+    if abs(h1 - h0) > 0.5:
+        defauts.append(f"barre : sa hauteur change à l'arrivée de la ligne de faits ({h0:.1f} → {h1:.1f} px)")
+    # La barre la plus haute des 258 noms (un nom long sur deux lignes reste possible) : la réserve suit-elle ?
+    plus_haute = p.js("""(async () => { const noms = await (await fetch('/geo/noms.fr.json')).json();
+      const b = document.getElementById('barre-carte'), n = b.querySelector('.barre-nom'), avant = n.textContent;
+      let max = 0, qui = '';
+      for (const [id, nom] of Object.entries(noms)) { n.textContent = nom; const h = b.getBoundingClientRect().height; if (h > max) { max = h; qui = nom; } }
+      n.textContent = avant; return [Math.round(max), qui]; })()""")
+    dire(f"  barre la plus haute des noms : {plus_haute[0]} px ({plus_haute[1]!r}), Japon {h1:.0f} px")
+    capturer("150-fiche-barre")
+
+    # La barre touchée : la fiche.
+    toucher_element(p, "#barre-fiche")
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "JPN", "fiche du Japon")
+    dire(f"  fiche du Japon : {e['titre']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau(x), état {e['etat']}, focus {e['focus']}, zoom {e['zoom']}")
+    if e["titre"] != "Japon" or e["focus"] != "fiche-titre" or not e["etat"] or e["hash"] != "#carte":
+        defauts.append(f"fiche du Japon : titre, focus au titre, entrée d'historique sur #carte attendus ({e})")
+    if e["barre_cachee"] or not e["inerte"] or e["fiche_body"] != "ouverte" or not e["voile"]:
+        defauts.append(f"fiche ouverte : barre en place et inerte, body[data-fiche], voile attendus ({e})")
+    if e["zoom"] not in (None, "none"):
+        defauts.append(f"fiche ouverte : boutons de zoom visibles ({e['zoom']})")
+    if not any(l.startswith("Capitale") and "Tokyo" in l for l in e["lignes"]) or not e["drapeaux"]:
+        defauts.append(f"fiche du Japon : capitale et drapeau attendus ({e['lignes']}, {e['drapeaux']} drapeau)")
+    if p.js("history.length") != longueur + 1:
+        defauts.append(f"fiche du Japon : {p.js('history.length') - longueur} entrées d'historique au lieu d'une")
+    capturer("151-fiche-japon")
+    # Le retour du navigateur (celui d'Android fait history.back()) : la fiche se ferme, on reste sur la carte.
+    p.js("history.back()")
+    e = attendre_fiche(p, lambda e: not e["ouverte"], "retour du navigateur")
+    dire(f"  retour du navigateur : ouverte {e['ouverte']}, {e['hash']}, barre {e['barre']}, focus {e['focus']}")
+    if e["ouverte"] or e["hash"] != "#carte" or e["barre"] != "JPN" or e["focus"] != "barre-fiche":
+        defauts.append(f"retour du navigateur : fiche fermée, carte gardée, focus à la barre attendus ({e})")
+    if telephone:
+        # Au doigt : la barre glissée vers le haut (24 px et plus) ouvre aussi.
+        r = p.js("(() => { const r = document.getElementById('barre-fiche').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()")
+        p.pause(PAUSE_AVANT_TOUCHER_MS)
+        glisser(p, r["x"], r["y"], r["y"] - 60)
+        e = attendre_fiche(p, lambda e: e["ouverte"], "glissé vers le haut")
+        if not e["ouverte"]:
+            defauts.append("barre glissée vers le haut : la fiche ne s'ouvre pas")
+        else:
+            # Et la tête glissée vers le bas (60 px et plus) la ferme.
+            t = p.js("(() => { const r = document.querySelector('#fiche-lieu .fiche-tete').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()")
+            p.pause(PAUSE_AVANT_TOUCHER_MS)
+            glisser(p, t["x"], t["y"], t["y"] + 120)
+            e = attendre_fiche(p, lambda e: not e["ouverte"], "tête glissée vers le bas")
+            if e["ouverte"]:
+                defauts.append("tête de la fiche glissée vers le bas : la fiche reste ouverte")
+
+    # L'Espagne et ses voisins : la France, puis « ‹ », puis « × » (une seule remontée).
+    e = ouvrir_fiche(p, "ESP", defauts, "Espagne")
+    dire(f"  fiche de l'Espagne : voisins {e['voisins']}, lignes {e['lignes']}")
+    if e["voisins"][:4] != ["AND", "FRA", "MAR", "PRT"] or "GIB" not in e["voisins"]:
+        defauts.append(f"fiche de l'Espagne : voisins jouables par ordre alphabétique puis Gibraltar attendus ({e['voisins']})")
+    longueur = p.js("history.length")
+    toucher_element(p, '#fiche-lieu .fiche-voisin[data-id="FRA"]')
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "FRA", "voisin France")
+    attendre_fin_vol(p)
+    e = etat_fiche(p)
+    dire(f"  voisin France : {e['titre']!r}, barre {e['barre']}, « ‹ » {e['avant']}, rang {e['etat'] and e['etat'].get('rang')}")
+    if e["titre"] != "France" or e["barre"] != "FRA" or not e["avant"] or (e["etat"] or {}).get("rang") != 2:
+        defauts.append(f"voisin France : sa fiche, la carte sur elle, « ‹ », rang 2 attendus ({e})")
+    capturer("152-fiche-voisin")
+    toucher_element(p, "#fiche-lieu .fiche-avant")
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "ESP", "« ‹ » vers l'Espagne")
+    if e["id"] != "ESP" or e["barre"] != "ESP":
+        defauts.append(f"« ‹ » : la fiche de l'Espagne et son lieu attendus ({e})")
+    toucher_element(p, '#fiche-lieu .fiche-voisin[data-id="PRT"]')
+    attendre_fiche(p, lambda e: e["id"] == "PRT", "voisin Portugal")
+    toucher_element(p, "#fiche-lieu .croix")
+    e = attendre_fiche(p, lambda e: not e["ouverte"], "« × »")
+    dire(f"  « × » après un voisin : ouverte {e['ouverte']}, {e['hash']}, état {e['etat']}, barre {e['barre']}")
+    if e["ouverte"] or e["etat"] or e["hash"] != "#carte" or e["barre"] != "PRT":
+        defauts.append(f"« × » : toutes les fiches fermées, la carte sur le dernier lieu vu attendues ({e})")
+
+    # Le voile : un toucher à côté ferme la fiche, sans toucher la carte.
+    e = ouvrir_fiche(p, "PRT", defauts, "Portugal")
+    pt = p.js("""(() => { const a = document.getElementById('app').getBoundingClientRect(), f = document.getElementById('fiche-lieu').getBoundingClientRect();
+      if (f.left - a.left >= 6) return {x: (a.left + f.left) / 2, y: (f.top + f.bottom) / 2};
+      return {x: (f.left + f.right) / 2, y: (f.bottom + a.bottom) / 2}; })()""")
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    p.toucher(pt["x"], pt["y"])
+    e = attendre_fiche(p, lambda e: not e["ouverte"], "voile")
+    if e["ouverte"] or e["barre"] != "PRT":
+        defauts.append(f"voile : la fiche fermée sans rien toucher sur la carte attendue ({e})")
+
+    # Échap : un pas ; ⚙ par-dessus : Échap ne ferme que la popup.
+    e = ouvrir_fiche(p, "PRT", defauts, "Portugal")
+    cliquer(p, "#settings-btn")
+    p.pause(200)
+    p.cdp("Input.dispatchKeyEvent", type="keyDown", key="Escape", code="Escape", windowsVirtualKeyCode=27)
+    p.cdp("Input.dispatchKeyEvent", type="keyUp", key="Escape", code="Escape", windowsVirtualKeyCode=27)
+    p.pause(200)
+    e = etat_fiche(p)
+    dire(f"  ⚙ puis Échap : popup {e['reglages']}, fiche {e['ouverte']}")
+    if e["reglages"] or not e["ouverte"]:
+        defauts.append(f"⚙ par-dessus la fiche : Échap ferme la popup seule attendu ({e})")
+    p.cdp("Input.dispatchKeyEvent", type="keyDown", key="Escape", code="Escape", windowsVirtualKeyCode=27)
+    p.cdp("Input.dispatchKeyEvent", type="keyUp", key="Escape", code="Escape", windowsVirtualKeyCode=27)
+    e = attendre_fiche(p, lambda e: not e["ouverte"], "Échap")
+    if e["ouverte"]:
+        defauts.append("Échap : la fiche reste ouverte")
+
+    # Un territoire et l'Antarctique : une fiche courte, avec le statut.
+    e = ouvrir_fiche(p, "GRL", defauts, "Groenland")
+    dire(f"  fiche du Groenland : statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau")
+    if e["statut"] != "territoire" or e["drapeaux"] or not any(l.startswith("Continent") for l in e["lignes"]):
+        defauts.append(f"fiche du Groenland : statut « territoire », continent, sans drapeau attendus ({e})")
+    capturer("153-fiche-territoire")
+    p.js("history.back()")
+    attendre_fiche(p, lambda e: not e["ouverte"], "Groenland fermé")
+    e = ouvrir_fiche(p, "ATA", defauts, "Antarctique")
+    if e["statut"] != "continent":
+        defauts.append(f"fiche de l'Antarctique : statut « continent » attendu ({e})")
+    p.js("history.back()")
+    attendre_fiche(p, lambda e: not e["ouverte"], "Antarctique fermé")
+
+    # Une mer : son nom, pas de chevron au lot F1.
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+    p.pause(300)
+    eau = p.js("""(() => { const c = window.terramemo.carte, r = c.rect(), b = document.getElementById('barre-carte').getBoundingClientRect();
+        const x = r.x + r.largeur / 2;
+        for (let y = r.y + r.hauteur * 0.55; y < Math.min(b.top, r.y + r.hauteur) - 6; y += 6) if (!c.pick(x, y)) return {x, y};
+        for (let y = r.y + r.hauteur * 0.45; y > r.y + 6; y -= 6) if (!c.pick(x, y)) return {x, y};
+        return null; })()""")
+    if eau:
+        p.pause(PAUSE_AVANT_TOUCHER_MS)
+        p.toucher(eau["x"], eau["y"])
+        p.pause(1500)
+        e = etat_fiche(p)
+        dire(f"  une mer touchée : {texte(p, '#barre-carte .barre-nom')!r}, chevron {e['chevron']}")
+        if e["chevron"]:
+            defauts.append("une mer touchée : un chevron (pas de fiche de mer avant le lot F4)")
+    # L'île : une commune, pas de chevron au lot F1 ; puis « Monde ».
+    p.js('document.getElementById("recherche-champ").focus()')
+    p.cdp("Input.insertText", text="saint-denis")
+    attendre_visible(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
+    cliquer(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
+    fin = time.monotonic() + 10
+    while p.js("window.terramemo.terrain()") != "reunion" and time.monotonic() < fin:
+        p.pause(100)
+    attendre_fin_vol(p, "ile")
+    e = etat_fiche(p)
+    dire(f"  une commune (Saint-Denis) : chevron {e['chevron']}")
+    if e["chevron"]:
+        defauts.append("une commune : un chevron (pas de fiche de commune avant le lot F5)")
+    capturer("154-fiche-ile")
+    cliquer(p, "#carte-monde")
+    p.pause(300)
+
+    # La recherche ferme la fiche ouverte et montre son lieu dans la barre.
+    e = ouvrir_fiche(p, "JPN", defauts, "Japon")
+    p.js('document.getElementById("recherche-champ").focus()')
+    p.cdp("Input.insertText", text="Chine")
+    attendre_visible(p, '#recherche-liste [data-terrain="monde"][data-id="CHN"]')
+    cliquer(p, '#recherche-liste [data-terrain="monde"][data-id="CHN"]')
+    e = attendre_fiche(p, lambda e: not e["ouverte"] and e["barre"] == "CHN", "recherche")
+    if e["ouverte"] or e["barre"] != "CHN":
+        defauts.append(f"recherche pendant une fiche : la fiche fermée, la Chine dans la barre attendues ({e})")
+    attendre_fin_vol(p)
+
+    # Le scénario de mesure (§ 6.4) : ouvrir et fermer 10 fiches, passer par 3 voisins.
+    m = scenario_fiches(p, defauts)
+    capturer("155-fiche-apres-scenario")
+    return m
+
+
+def commande_fiche(args):
+    """ui_fiche seul, sur un profil neuf du PC (l'écran de connexion passé en invité) ; sur le téléphone
+    (--cible chrome ou webview), le scénario de mesure seul, sur la page déjà ouverte de l'utilisateur."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    url = args.url or (URL_APK if args.cible == "webview" else URL_SITE if args.cible == "chrome" else URL_DEFAUT)
+    base = url.rstrip("/") + "/"
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
+    faites, defauts = [], []
+    with Session(args.cible, serie=args.serie) as s:
+        s.couper_synchro(base)
+        p = s.page
+        if args.cible == "local":
+            s.passer_accueil(base)
+            p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        if args.cible == "local":
+            ui_fiche(p, capturer, defauts, base, rendu, telephone)
+        else:
+            p.goto(base + "?mesures=0#carte")
+            p.attendre_carte()
+            scenario_fiches(p, defauts)
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    return 1 if erreurs or defauts else 0
 
 
 def commande_drapeaux(args):
@@ -6510,7 +6886,7 @@ def main():
     s.add_argument("--preview", action="store_true", help="construit puis sert le build (vite preview)")
     s.add_argument("--sortie", default="/tmp/terramemo-preview", help="dossier du build de --preview (pas dist/)")
 
-    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île, des capitales, des drapeaux, des mers ni du quiz au premier affichage, carte peinte (canvas, SVG, webgl)")
+    s = sub.add_parser("smoke", help="page, /geo/*.json, rien de l'île, des capitales, des drapeaux, des mers, du quiz ni des fiches au premier affichage, carte peinte (canvas, SVG, webgl)")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--budget", type=int, default=60, help="secondes au plus pour que la carte se peigne")
 
@@ -6543,6 +6919,15 @@ def main():
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
     s.add_argument("--out", default="/tmp/terramemo-captures")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+
+    s = sub.add_parser("fiche", help="la fiche d'un lieu seule (ui_fiche, aussi dans ui) : barre, fiche, voisins, retours, voile, Échap, ⚙, "
+                                     "territoire, mer, île, scénario de mesure ; --cible chrome|webview : le scénario seul, sur le téléphone")
+    s.add_argument("--url", help=f"défaut : {URL_DEFAUT} (chrome : {URL_SITE} ; webview : {URL_APK})")
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+    s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")
+    s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
     s = sub.add_parser("quiz", help="le quiz général seul (ui_quiz, aussi dans ui) : #jouer, Quiz général, Facile, 20 questions, bilan, record, Rejouer, Autre difficulté, retour arrière")
     s.add_argument("--url", default=URL_DEFAUT)
@@ -6615,7 +7000,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "quiz", "lignes", "synchro", "suppression", "export", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "fiche", "quiz", "lignes", "synchro", "suppression", "export", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -6628,7 +7013,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "mers": commande_mers, "quiz": commande_quiz, "lignes": commande_lignes, "synchro": commande_synchro,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "mers": commande_mers, "fiche": commande_fiche, "quiz": commande_quiz, "lignes": commande_lignes, "synchro": commande_synchro,
                  "suppression": commande_suppression, "export": commande_export,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}

@@ -47,6 +47,7 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
 python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers puis ses épreuves, ui_epreuves_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py quiz               # le quiz général seul (ui_quiz, aussi dans ui, #26), profil neuf, l'écran de connexion passé en invité
+python3 .claude/skills/run-terramemo/driver.py fiche              # la fiche d'un lieu seule (ui_fiche, aussi dans ui, #34) ; --width 1280 en PC ; --cible chrome|webview : le scénario de mesure seul (10 fiches, 3 voisins), sur le téléphone
 python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes de repère seules (ui_lignes, aussi dans ui, #11), profil neuf ; --rendu webgl|g|css pour les autres rendus
 ```
 
@@ -443,6 +444,28 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   `[data-epreuve="sansfaute:mers:mers"]` « Océans et mers », la série au
   nom de son sujet, jamais « Océans et mers · … »). Invité sans pseudo :
   rien n'est publié. `DÉFAUT` à tout écart.
+- La fiche d'un lieu (#34, lot F1, `ui_fiche`, avant `ui_accueil` ;
+  aussi seule, `driver.py fiche`) : sur une page rechargée, rien de
+  `fiches-monde*.json`, de `/photos/` ni du morceau de la fiche au premier
+  affichage (le `smoke` aussi) ; le Japon touché : « Tokyo » et le chevron,
+  les deux fichiers lus à ce toucher, la hauteur de la barre inchangée à
+  leur arrivée, la barre la plus haute des 258 noms dite
+  (`150-fiche-barre`) ; la barre touchée : la fiche (titre, focus au titre,
+  une entrée d'historique sur `#carte`, barre inerte en place, voile, zoom
+  caché, capitale et drapeau ; `151-fiche-japon`) ; `history.back()` la
+  ferme sans quitter la carte ; au doigt, la barre glissée vers le haut
+  l'ouvre, la tête glissée vers le bas la ferme ; l'Espagne, ses voisins
+  (jouables par ordre alphabétique, puis Gibraltar), la France
+  (`152-fiche-voisin`, « ‹ », rang 2), « ‹ », le Portugal, « × » (une
+  seule remontée) ; le voile ; ⚙ puis Échap (la popup seule), Échap ;
+  le Groenland (`153-fiche-territoire`) et l'Antarctique ; une mer et
+  Saint-Denis sans chevron (`154-fiche-ile`, lots F4 et F5) ; la recherche
+  qui ferme la fiche ; puis le scénario de mesure de l'étude (§ 6.4 : 10
+  fiches ouvertes et fermées, 3 voisins, les images de la page par
+  `requestAnimationFrame` : à-coups ≥ 25 ms, gels ≥ 46 ms), indicatif sur
+  le PC : le verdict est celui de l'A37 (`driver.py fiche --cible
+  webview`, puis `touchers_reels.py` pour le toucher). `DÉFAUT` à tout
+  écart.
 - Le quiz général (lot 4b du J2, #26, `ui_quiz`, juste après
   `ui_epreuves_mers` ; aussi seul, `driver.py quiz`) : sur une page
   rechargée, rien de `notoriete.json` ni de `drapeaux-proches.json` au
