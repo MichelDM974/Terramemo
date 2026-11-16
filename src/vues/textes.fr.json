@@ -51,6 +51,12 @@
       "wikidata": "Wikidata",
       "flag_icons": "flag-icons"
     },
+    "nombres": {
+      "million": "{n} million",
+      "millions": "{n} millions",
+      "milliard": "{n} milliard",
+      "milliards": "{n} milliards"
+    },
     "chargement": "Chargement de la fiche…",
     "echec": "La fiche ne s'est pas chargée (hors ligne ?)."
   },
