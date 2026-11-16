@@ -417,7 +417,19 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     barre.removeAttribute('inert');
     poserAria();
     delete document.body.dataset.fiche;
-    if (focus) bouton.focus();
+    if (!focus) return;
+    bouton.focus();
+    // Un retour du navigateur (ou d'Android) arrive sur l'adresse #carte, et l'hôte de la carte porte l'id
+    // « carte » : après la mise en page, Chromium y applique l'ancre et, l'hôte ne prenant pas le focus, le
+    // retire de la page (vu au pilote ui_fiche le 16/11). Le focus revient à la barre (§ 4.11), seulement s'il
+    // est tombé sur body : jamais repris à ce que l'utilisateur a touché entre-temps.
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (active && !ficheOuverte && document.activeElement === document.body) bouton.focus();
+        }),
+      );
+    }
   }
 
   /** Le morceau de la fiche, une fois chargé (rafraichir() refait la fiche ouverte). */

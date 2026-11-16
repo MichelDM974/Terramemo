@@ -373,6 +373,24 @@ describe('la fiche', () => {
     }
   });
 
+  it('le focus retiré par le navigateur juste après la fermeture (ancre #carte d’un retour) revient à la barre ; jamais pris à un autre élément', async () => {
+    const v = await ouvrirSur('JPN');
+    v.feuille()!.querySelector('.croix')!.click();
+    expect(v.doc.activeElement).toBe(v.bouton());
+    // Ce que fait Chromium après la mise en page, au retour sur #carte : le focus tombe sur body.
+    (v.doc as unknown as { activeElement: unknown }).activeElement = v.body;
+    await new Promise((r) => setTimeout(r, 60));
+    expect(v.doc.activeElement).toBe(v.bouton());
+
+    // Le focus parti ailleurs entre-temps (un toucher, une touche) : il y reste.
+    const w = await ouvrirSur('JPN');
+    w.feuille()!.querySelector('.croix')!.click();
+    const ailleurs = { id: 'ailleurs' };
+    (w.doc as unknown as { activeElement: unknown }).activeElement = ailleurs;
+    await new Promise((r) => setTimeout(r, 60));
+    expect(w.doc.activeElement).toBe(ailleurs);
+  });
+
   it('Échap ou le voile avec la popup ⚙ ouverte : la popup se ferme (son écouteur), la fiche reste ; dans un champ, Échap reste au champ', async () => {
     let reglages = true;
     const v = await ouvrirSur('JPN', { fiche: { reglagesOuverts: () => reglages } });
