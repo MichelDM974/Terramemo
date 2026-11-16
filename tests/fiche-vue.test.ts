@@ -64,7 +64,8 @@ function monter(o: { fiche?: Partial<OptionsFiche>; memoire?: CarteMemoire } = {
     carte,
     donnees,
     zone,
-    terrains: { monde, montrer() {}, deja: () => null },
+    // L'île jamais chargée, hors ligne.
+    terrains: { monde, montrer() {}, deja: () => null, charger: () => Promise.reject(new Error('hors ligne')) },
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
   } as unknown as ContexteVue;
   const charges: string[] = [];
@@ -164,6 +165,19 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(v.el('#barre-carte .barre-nom')!.textContent).toBe('France');
     expect(v.faits()).toBe('Paris');
     expect(v.barre().dataset.id).toBe('FRA');
+  });
+
+  it('la région vivante dit aussi ce que la barre écrit hors d’un lieu : l’avis du démarrage, le chargement et l’échec de l’île', async () => {
+    const v = monter();
+    v.vue.activer();
+    const annonce = () => v.el('#barre-carte .barre-annonce')!.textContent;
+    v.vue.avis('Une partie laissée en cours a compté');
+    expect(annonce()).toContain('Une partie laissée en cours a compté');
+    v.vue.montrerLieu('reunion', '97411');
+    expect(annonce()).toBe(textes.toucher.chargement_terrain);
+    await tenir();
+    expect(v.el('#barre-carte .barre-detail')!.textContent).toBe(textes.toucher.echec_terrain);
+    expect(annonce()).toBe(textes.toucher.echec_terrain);
   });
 
   it('la barre réserve sa hauteur du cas complet dès qu’un lieu est affiché, avec et sans la ligne de la mémoire', async () => {

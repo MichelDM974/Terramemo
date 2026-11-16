@@ -624,8 +624,11 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       if (m && ficheOuverte) feuille?.montrer(m, { avant: ficheOuverte.rang > 1, focus: false });
     },
     avis(texte) {
-      if (active && !barre.dataset.id) detail.textContent = texte;
-      else avisAMontrer = texte;
+      // La région vivante le dit aussi (§ 4.1 : elle est hors du bouton, seul annoncer() la remplit).
+      if (active && !barre.dataset.id) {
+        detail.textContent = texte;
+        annoncer();
+      } else avisAMontrer = texte;
     },
     surFiche,
     montrerLieu(terrain, id, point) {
@@ -642,12 +645,15 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         aller(ctx.terrains.monde);
         nom.textContent = '';
         detail.textContent = textes.toucher.chargement_sujet;
+        annoncer();
         p.then(
           () => {
             if (j === jeton) montrer(ctx.terrains.monde, id);
           },
           () => {
-            if (j === jeton) detail.textContent = textes.toucher.echec_sujet;
+            if (j !== jeton) return;
+            detail.textContent = textes.toucher.echec_sujet;
+            annoncer();
           },
         );
         return;
@@ -664,7 +670,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
           if (j === jeton) montrer(ile, id);
         },
         () => {
-          if (j === jeton) detail.textContent = textes.toucher.echec_terrain;
+          if (j !== jeton) return;
+          detail.textContent = textes.toucher.echec_terrain;
+          annoncer();
         },
       );
     },
