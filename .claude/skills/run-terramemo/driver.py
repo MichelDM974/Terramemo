@@ -2234,25 +2234,30 @@ def attendre_question(p, avant=None, delai_s=8):
 
 
 def position_visible(p, ident, barre="#barre-essai"):
-    """Où toucher `ident` dans la partie visible de la carte (au-dessus de la
+    """Où toucher `ident` dans la partie visible de la carte (hors de la
     barre) : sa position (pastille ou point d'étiquette) si elle y est, sinon
     le premier point d'une grille de 10 px où pick() le désigne (la Russie
     cadrée avec l'Europe de l'Est : son point d'étiquette, en Sibérie, est
     hors de l'écran) ; None s'il n'est pas à l'écran. Sur l'île (communes),
-    la carte de l'île."""
+    la carte de l'île. Seul le rectangle de la barre est exclu : sur le PC,
+    la barre est centrée, et l'Antarctique cadré se touche de part et
+    d'autre d'elle (la grille va de haut en bas : au-dessus d'elle d'abord)."""
     return p.js(f"""(() => {{
       const c = window.terramemo.terrain() === 'reunion' ? window.terramemo.ile : window.terramemo.carte, r = c.rect();
       const b = document.querySelector({json.dumps(barre)});
-      const bas = b && !b.hidden ? b.getBoundingClientRect().top : r.y + r.hauteur;
-      const dans = q => q && q.x >= r.x && q.x <= r.x + r.largeur && q.y >= r.y && q.y <= bas;
+      const rb = b && !b.hidden ? b.getBoundingClientRect() : null;
+      const sousBarre = q => rb && q.x >= rb.left && q.x <= rb.right && q.y >= rb.top && q.y <= rb.bottom;
+      // Ni sous un bouton posé sur la carte (zoom en bas à droite sur le PC, légende, liens).
+      const libre = q => {{ const el = document.elementFromPoint(q.x, q.y); return !el || !el.closest('button, a, input, select, label'); }};
+      const dans = q => q && q.x >= r.x && q.x <= r.x + r.largeur && q.y >= r.y && q.y <= r.y + r.hauteur && !sousBarre(q) && libre(q);
       const cercle = document.querySelector('circle.pastille[data-id="{ident}"]');
       let q = null;
       if (cercle) {{ const e = cercle.getBoundingClientRect(); q = {{x: e.x + e.width / 2, y: e.y + e.height / 2}}; }}
       else q = c.ecran("{ident}");
       if (dans(q)) return q;
-      for (let y = r.y + 5; y < bas; y += 10)
+      for (let y = r.y + 5; y < r.y + r.hauteur; y += 10)
         for (let x = r.x + 5; x < r.x + r.largeur; x += 10)
-          if (c.pick(x, y)?.id === "{ident}") return {{x, y}};
+          if (c.pick(x, y)?.id === "{ident}" && !sousBarre({{x, y}}) && libre({{x, y}})) return {{x, y}};
       return null; }})()""")
 
 
@@ -4418,7 +4423,8 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
 
     # La barre touchée : la fiche.
     toucher_element(p, "#barre-fiche")
-    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "JPN", "fiche du Japon")
+    # Le drapeau arrive après la fiche (chargé à part, au premier affichage d'une fiche) : on l'attend aussi.
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "JPN" and e["drapeaux"], "fiche du Japon")
     dire(f"  fiche du Japon : {e['titre']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau(x), état {e['etat']}, focus {e['focus']}, zoom {e['zoom']}")
     if e["titre"] != "Japon" or e["focus"] != "fiche-titre" or not e["etat"] or e["hash"] != "#carte":
         defauts.append(f"fiche du Japon : titre, focus au titre, entrée d'historique sur #carte attendus ({e})")
@@ -4434,10 +4440,19 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         defauts.append(f"fiche du Japon : entrée d'historique de rang 1 attendue ({e['etat']})")
     if longueur < 50 and p.js("history.length") != longueur + 1:
         defauts.append(f"fiche du Japon : {p.js('history.length') - longueur} entrées d'historique au lieu d'une")
+    # La tête (§ 4.2) : « × » à droite, le nom à gauche sous le drapeau. Une règle globale de l'en-tête du
+    # site (header en grille) l'a déjà mise en colonnes, la « × » à gauche, sans qu'aucun test ne le voie.
+    g = p.js("""(() => { const f = document.querySelector('.fiche'), c = f && f.querySelector('.fiche-tete > .croix'),
+      t = document.getElementById('fiche-titre'); if (!f || !c || !t) return null; const r = (e) => e.getBoundingClientRect();
+      return {fiche_g: Math.round(r(f).left), fiche_d: Math.round(r(f).right), croix_d: Math.round(r(c).right), titre_g: Math.round(r(t).left)}; })()""")
+    if not g or g["croix_d"] < g["fiche_d"] - 40 or g["titre_g"] > g["fiche_g"] + 40:
+        defauts.append(f"tête de la fiche : « × » à droite et nom à gauche attendus ({g})")
     capturer("151-fiche-japon")
     # Le retour du navigateur (celui d'Android fait history.back()) : la fiche se ferme, on reste sur la carte.
     p.js("history.back()")
-    e = attendre_fiche(p, lambda e: not e["ouverte"], "retour du navigateur")
+    # Le focus revient à la barre deux images après la fermeture : Chromium applique d'abord l'ancre #carte
+    # (l'hôte de la carte), qui le retire de la page (explorer.ts, fermerFiche). On attend donc l'état entier.
+    e = attendre_fiche(p, lambda e: not e["ouverte"] and e["focus"] == "barre-fiche", "retour du navigateur")
     dire(f"  retour du navigateur : ouverte {e['ouverte']}, {e['hash']}, barre {e['barre']}, focus {e['focus']}")
     if e["ouverte"] or e["hash"] != "#carte" or e["barre"] != "JPN" or e["focus"] != "barre-fiche":
         defauts.append(f"retour du navigateur : fiche fermée, carte gardée, focus à la barre attendus ({e})")
