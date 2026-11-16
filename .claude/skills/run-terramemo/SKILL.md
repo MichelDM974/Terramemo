@@ -1211,7 +1211,7 @@ le greffon Google du lot 7, 6,07 Mo avant : étude du J1b, « Précisions du
 lot 7 »). Le driver met
 `JAVA_HOME` sur le JDK 21 et `ANDROID_HOME` sur `~/Android/Sdk` (ou
 `android/local.properties`, ignoré par git, avec
-`sdk.dir=/home/delhomme/Android/Sdk`). En CI : `.github/workflows/android.yml`
+`sdk.dir=$HOME/Android/Sdk`, chemin absolu). En CI : `.github/workflows/android.yml`
 (à la demande ou sur tag `v*`, APK en artefact).
 
 **Signature** (décision « Signature de l'APK », 06/11) : une seule clé signe
@@ -1526,16 +1526,15 @@ fenêtre de Google demande ses comptes, et le pilote ne la passe pas
 - le lot 6 est fusionné et déployé sur Hosting par la session qui fusionne
   (`npx firebase deploy --only hosting`, § « Déploiement ») ;
   `terramemo.version` (console F12) en donne le commit ;
-- règles d'essai déjà en ligne (`essai()` : `micheldm0301@gmail.com` et
-  `micheldm974@yahoo.fr`, adresses vérifiées) ;
+- comptes ouverts à tous en ligne (`essai()` de firestore.rules rend
+  `true` depuis le 11/11) ;
 - console Firebase › Authentication :
   - Sign-in method : Google et E-mail/Mot de passe activés ;
   - Settings › Authorized domains : `terramemo-geo.web.app` présent ;
 - Google Auth Platform › Audience : **En production** (fait du 10/11,
   choix de l'utilisateur), sans liste de testeurs. Tout compte Google
-  passe la fenêtre, mais seules les adresses d'essai enregistrent quoi
-  que ce soit (règles d'essai). `micheldm0301@gmail.com` sert à Google,
-  l'adresse Yahoo à l'e-mail (S15).
+  passe la fenêtre et enregistre (comptes ouverts le 11/11). L'adresse
+  Gmail d'essai sert à Google, l'adresse Yahoo d'essai à l'e-mail (S15).
 
 **Navigateurs** : Chrome sur le PC, dans **deux profils à part**, « Essai
 A » et « Essai B » (menu du profil › Ajouter). Ainsi, rien ne touche aux
@@ -1583,14 +1582,14 @@ noter avant un lien.
       choisir**, et chronométrer : attendu, rien d'affiché, les boutons
       reviennent en 10 s environ ; relevé, `erreurs` finit par
       `auth/popup-closed-by-user`.
-   5. Rouvrir. Choisir `micheldm0301@gmail.com` ; **rester plus de 10 s**
+   5. Rouvrir. Choisir `<adresse Gmail d'essai>` ; **rester plus de 10 s**
       sur le choix du compte (aucun « fenêtre fermée » ne doit venir). À
       l'écran de première connexion (« Continuer » / « Annuler »), s'il
       vient, toucher **Annuler** : attendu, rien d'affiché, et noter le
       code de `erreurs` (`auth/user-cancelled` attendu). Puis rouvrir,
       même compte, « Continuer ».
    6. Attendu : « Connexion… » dès la fenêtre fermée, puis « Connecté avec
-      Google : micheldm0301@gmail.com. Tes progrès vont dans ton
+      Google : <adresse Gmail d'essai>. Tes progrès vont dans ton
       compte. », puis « Compte Google (…) » et, peu après, « Synchro : à
       jour ».
    7. Relevé :
@@ -1626,10 +1625,10 @@ noter avant un lien.
    2. Écrire « supprimer », puis « Supprimer définitivement ». **Noter si
       la fenêtre de Google s'ouvre** : un `reload()` passe sur le réseau
       avant elle.
-   3. La fenêtre doit proposer `micheldm0301@gmail.com` (`login_hint`).
+   3. La fenêtre doit proposer `<adresse Gmail d'essai>` (`login_hint`).
       Si l'utilisateur a un second compte Google : le choisir d'abord
       (« Utiliser un autre compte »). Attendu : « Ce n'est pas le compte
-      connecté : choisis micheldm0301@gmail.com… », rien de supprimé. Puis
+      connecté : choisis <adresse Gmail d'essai>… », rien de supprimé. Puis
       **Authentication : aucun compte ne doit être apparu** à l'adresse de
       ce second compte (le SDK ne pose pas `autoCreate: false` sur ce
       chemin). S'il est apparu : le noter au registre et à l'étude, et le
@@ -1648,13 +1647,13 @@ noter avant un lien.
       Puis « Effacer cet appareil » le vide.
 5. **S5, même adresse qu'un compte à mot de passe** — profil A, vidé par
    la suppression :
-   1. ⚙ › Compte › Créer un compte avec `micheldm0301@gmail.com` et un mot
+   1. ⚙ › Compte › Créer un compte avec `<adresse Gmail d'essai>` et un mot
       de passe de 8 caractères ou plus. **Ne pas** cliquer le lien de
       vérification. Noter l'uid (relevé).
    2. Se déconnecter (« quand même » s'il le demande).
    3. Un Chrono « Essai6 » : un invité anonyme.
    4. « Continuer avec Google », le compte Gmail. Attendu : pas d'erreur,
-      « Connecté : micheldm0301@gmail.com. », à la question près si
+      « Connecté : <adresse Gmail d'essai>. », à la question près si
       l'appareil a des progrès ; si Google a remplacé le mot de passe,
       « Google a remplacé le mot de passe de ce compte… » (question et
       message).
@@ -1672,7 +1671,7 @@ noter avant un lien.
    6. Supprimer ce compte, comme à l'étape 4.
 6. **S15, lien e-mail d'un invité** — profil B :
    1. Un Chrono « Essai6 » (invité anonyme), noter son uid.
-   2. ⚙ › Compte › Créer un compte avec `micheldm974@yahoo.fr`.
+   2. ⚙ › Compte › Créer un compte avec `<adresse Yahoo d'essai>`.
    3. Attendu : « Compte créé. Un e-mail de vérification est parti… ».
    4. Relevé : `uid` = l'uid noté, `identites` contient `email` (S15,
       S16 pour l'e-mail). « Adresse non vérifiée » ; les lots sont
@@ -1693,7 +1692,7 @@ noter avant un lien.
       bouton… »).
 8. **Google « pas de confiance »** (`account-exists-with-different-credential`) :
    seulement avec un compte Google à une adresse **non Gmail**. Si
-   `micheldm974@yahoo.fr` en est un : créer un compte à mot de passe à
+   `<adresse Yahoo d'essai>` en est un : créer un compte à mot de passe à
    cette adresse (étape 6), se déconnecter, puis « Continuer avec
    Google » avec ce compte Google. Attendu : « Se connecter », l'adresse
    pré-remplie, et « connecte-toi avec ton adresse ». Sinon, écrire au
@@ -1704,7 +1703,7 @@ noter avant un lien.
   propriétaire : `npm run admin -- demandes` à blanc, lire, puis
   `--appliquer --attendu <empreinte>` (§ « Outil du propriétaire ») ;
 - supprimer les profils de Chrome « Essai A » et « Essai B » ;
-- noter les constats au registre de cdc : S3, S5 (avec `isNewUser`), S15,
+- noter les constats au mon registre de suivi : S3, S5 (avec `isNewUser`), S15,
   S16, ce que dit la fenêtre de Google, la fenêtre de la suppression (et
   le compte choisi par erreur), les codes de la fenêtre fermée et
   d'« Annuler », Firefox, le jeton périmé, la bascule de l'étape 8.
@@ -1838,7 +1837,7 @@ records), une fois tout envoyé. Seul le compte garde alors les progrès.
 **Après** :
 - rien à restaurer si tout s'est bien passé ; journal abîmé :
   `restaurer_journal` (la sauvegarde de l'étape « Avant ») ;
-- noter au registre de cdc : S11, S18 (texte exact de la feuille), S4,
+- noter au mon registre de suivi : S11, S18 (texte exact de la feuille), S4,
   S23, les messages bruts relevés (annulation, réseau), le compte choisi
   par erreur à l'étape 6, et l'écran de connexion vu ou non ;
 - puis la ligne « quand la connexion Google sera ouverte » de la

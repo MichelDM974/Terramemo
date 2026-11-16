@@ -544,11 +544,11 @@ describe.skipIf(!hoteAuth || !hoteFs)('synchro de deux appareils (émulateurs Au
     const A = appareil('a');
     const B = appareil('b');
     const C = appareil('c');
-    // Les adresses d'essai de l'utilisateur (liste d'essai des lots 6 et 7), vérifiées par Google.
-    const michel = { sub: 'sub-michel', email: 'micheldm0301@gmail.com', email_verified: true };
+    // Des adresses d'essai (liste d'essai des lots 6 et 7), vérifiées par Google.
+    const michel = { sub: 'sub-michel', email: 'essai@gmail.com', email_verified: true };
     A.google.claims = michel;
     B.google.claims = michel;
-    await charger(reglesAvecEssai("return request.auth.token.email_verified == true && request.auth.token.email in ['micheldm0301@gmail.com', 'micheldm974@yahoo.fr'];"));
+    await charger(reglesAvecEssai("return request.auth.token.email_verified == true && request.auth.token.email in ['essai@gmail.com', 'essai@yahoo.fr'];"));
     const [pa, pb, pc] = [A.page(), B.page(), C.page()];
     try {
       // A joue en invité, publie un score (anonyme), puis « Continuer avec Google » : le lien.
