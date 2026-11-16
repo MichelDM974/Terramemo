@@ -67,8 +67,12 @@ function vueSimple(): VueNavigable & { active: boolean } {
 }
 
 /** `retenue` : l'écran de connexion (src/vues/accueil.ts : Accueil.retient). */
-function monter(o: { retenue?: (nom: string) => boolean } = {}) {
-  const h = new FauxHistorique();
+/**
+ * `refuserFiche` : la carte refuse d'ouvrir la fiche rendue (une partie de
+ * Toucher en suspens, VueExplorer.surFiche) et rend son entrée d'historique.
+ */
+function monter(o: { retenue?: (nom: string) => boolean; refuserFiche?: () => boolean; historique?: FauxHistorique } = {}) {
+  const h = o.historique ?? new FauxHistorique();
   const zone = new El('main');
   // La carte et les terrains des parties : juste ce que Toucher et les épreuves demandent.
   const carte = {
@@ -171,7 +175,10 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
     aller: (segs) => jouer.aller(segs),
     annoncer: (m) => void messages.push(m),
     canonique: (c) => adresse(arbre.resoudre(depuisAncre(c).slice(1))),
-    surFiche: (f) => void fiches.push(f),
+    surFiche: (f) => {
+      if (f && o.refuserFiche?.()) return nav.quitterFiches();
+      fiches.push(f);
+    },
   });
 
   /** Les événements d'une traversée (Chromium : popstate puis hashchange, même pour un lien), puis les go() demandés. */
@@ -236,7 +243,7 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
     const f = fiches.at(-1);
     return f ? `${f.id}:${f.rang}` : null;
   };
-  return { h, nav, zone, jouer, chrono, quiz, lancerQuiz, carteVue, classement, confidentialite, compte, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre, fiches, ficheMontree };
+  return { h, nav, zone, jouer, chrono, quiz, toucher, lancerQuiz, carteVue, classement, confidentialite, compte, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre, fiches, ficheMontree };
 }
 
 beforeEach(() => {
@@ -603,6 +610,79 @@ describe('navigation : les fiches des lieux dans l’historique', () => {
     m.faire(() => m.nav.retour());
     expect(m.ici()).toBe('carte');
     expect(m.ficheMontree()).toBe('ITA:1');
+  });
+
+  it('la « × » d’une vue ouverte par-dessus une fiche (🏆, Jouer, Crédits) : la carte seule ; son « Retour » : la fiche d’avant', () => {
+    for (const ouvrir of ['lien', 'pousser'] as const) {
+      for (const vue of ['classement', 'jouer', 'confidentialite'] as const) {
+        const m = surLaCarte();
+        const avant = m.h.i;
+        m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA' }));
+        m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
+        // Un lien de l'en-tête (ou de la fiche : Crédits), une entrée sans état ; ou nav.pousser.
+        if (ouvrir === 'lien') m.lien(vue);
+        else m.faire(() => m.nav.pousser(vue));
+        expect(m.ici(), `${ouvrir} ${vue}`).toBe(vue);
+        m.faire(() => m.versCarte());
+        expect(m.ici(), `${ouvrir} ${vue}`).toBe('carte');
+        expect(m.ficheMontree(), `${ouvrir} ${vue}`).toBeNull();
+        expect(m.nav.fiche(), `${ouvrir} ${vue}`).toBeNull();
+        expect(m.h.i, `${ouvrir} ${vue}`).toBe(avant);
+        // Le retour suivant quitte la carte : aucune entrée de fiche entre les deux.
+        m.retourNavigateur();
+        expect(m.ici(), `${ouvrir} ${vue}`).toBe('classement');
+      }
+    }
+    // Le « Retour » (la vue d'avant) rend toujours la fiche du voisin, un pas en arrière.
+    const m = surLaCarte();
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA' }));
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
+    m.lien('classement');
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('carte');
+    expect(m.ficheMontree()).toBe('ESP:2');
+    m.retourNavigateur();
+    expect(m.ficheMontree()).toBe('FRA:1');
+  });
+
+  it('une partie de Toucher en suspens : l’entrée de fiche où l’on revient est rendue, un seul retour mène à la vue d’avant la carte', () => {
+    let suspens = false;
+    const m = monter({ refuserFiche: () => suspens });
+    m.lien('classement');
+    m.lien('carte');
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA' }));
+    const fiche = m.h.i;
+    m.lien('jouer');
+    for (const segs of ['entrainement', 'entrainement/pays', 'entrainement/pays/Europe']) m.faire(() => m.nav.pousser(`jouer/${segs}`));
+    m.lancerToucher();
+    suspens = true;
+    // Les retours du navigateur, de la partie jusqu'à la carte.
+    for (let k = 0; k < 10 && m.ici() !== 'carte'; k++) m.retourNavigateur();
+    expect(m.ici()).toBe('carte');
+    // Arrivé sur l'entrée de la fiche, la carte l'a refusée : l'entrée d'avant (une seule remontée, pas deux).
+    expect(m.h.i).toBe(fiche - 1);
+    expect(m.ficheMontree()).toBeNull();
+    m.retourNavigateur();
+    expect(m.ici()).toBe('classement');
+  });
+
+  it('une page rechargée sur une entrée de fiche : la carte seule, l’entrée remontée, rien de la fiche au premier affichage (§ 6.1)', () => {
+    const h = new FauxHistorique();
+    const m1 = monter({ historique: h });
+    m1.lien('classement');
+    m1.lien('carte');
+    const avant = h.i;
+    m1.faire(() => m1.nav.pousserFiche({ terrain: 'monde', id: 'FRA' }));
+    m1.faire(() => m1.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
+    // F5 : une navigation neuve, le même historique (history.state gardé).
+    const m2 = monter({ historique: h });
+    m2.faire(() => m2.nav.router());
+    expect(m2.fiches.filter(Boolean)).toEqual([]);
+    expect(h.i).toBe(avant);
+    expect(m2.ici()).toBe('carte');
+    expect(m2.carteVue.active).toBe(true);
+    m2.retourNavigateur();
+    expect(m2.ici()).toBe('classement');
   });
 
   it('au-delà de PILE_MAX fiches (45 voisins) : la « × » remonte quand même toutes les entrées, puis le retour quitte la carte', () => {

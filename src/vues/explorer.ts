@@ -426,7 +426,10 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
    */
   function surFiche(f: EntreeFiche | null): void {
     if (!f) return fermerFiche(true);
-    if (!F || !active || !autorisee() || f.terrain !== 'monde') return;
+    if (!F || !active || f.terrain !== 'monde') return;
+    // Une partie de Toucher en suspens (§ 4.8, garde 3) : pas de fiche, et son entrée d'historique rendue, sinon le
+    // retour suivant ne changerait rien à l'écran (§ 7 : aucune entrée de fiche orpheline).
+    if (!autorisee()) return void historique.quitter();
     if (ficheOuverte && ficheOuverte.id === f.id && ficheOuverte.rang === f.rang) return;
     ficheOuverte = f;
     const j = ++jetonFiche;

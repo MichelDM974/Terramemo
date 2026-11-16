@@ -25,7 +25,12 @@
 // history.back() : la fiche d'avant, puis la barre ; le retour du navigateur ne
 // fait plus sortir du site. La « × » remonte toutes les entrées de fiche d'un
 // coup (quitterFiches). router() rend à la carte la fiche de l'entrée affichée
-// (surFiche), ou null.
+// (surFiche), ou null. Dans la pile, l'adresse d'une entrée de fiche porte une
+// marque (MARQUE_FICHE) : la « × » d'une vue ouverte par-dessus une fiche
+// (Jouer, 🏆, Crédits : remonter('carte')) va à l'entrée #carte d'avant les
+// fiches, la carte seule (décision « Croix vers la carte », § 4.2 : changer de
+// vue ferme la fiche) ; son « Retour » (retour()) prend l'entrée la plus
+// proche, fiche comprise : la vue d'avant, un pas en arrière.
 //
 // Une adresse peut être retenue (écran de connexion de la première ouverture,
 // src/vues/accueil.ts) : la carte se montre à sa place, sous le panneau,
@@ -131,12 +136,16 @@ interface EtatHistorique {
   fiche?: EntreeFiche;
 }
 const PILE_MAX = 40;
+/** Ajoutée dans la pile à l'adresse d'une entrée qui porte une fiche (une adresse n'a jamais de « # »). */
+const MARQUE_FICHE = '#fiche';
 
 export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>): Navigation<V> {
   const h = o.history;
   /** L'adresse affichée (sans « # ») et la pile de son entrée. */
   let adresseRendue: string | null = null;
   let pileRendue: string[] = [];
+  /** L'entrée rendue porte-t-elle une fiche (son adresse marquée dans les piles qui la suivent) ? */
+  let ficheRendue = false;
   let vueActive: V | null = null;
   let nomActif: string | null = null;
   /** La dernière vue quittée qui n'était pas de passage. */
@@ -159,6 +168,22 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
    * un second go(), et l'on remontait de deux niveaux (relecture de #18).
    */
   let traversee: string | null = null;
+  /**
+   * Un quitterFiches() pas encore arrivé : les router() lus encore sur une
+   * entrée de fiche sont ceux de son départ (le hashchange qui suit le
+   * popstate d'une traversée #jouer → #carte, par exemple) ; la carte qui y
+   * refuserait de nouveau la fiche (partie en suspens) redemanderait un go(),
+   * et l'on remonterait trop loin. L'arrivée est toujours une entrée sans
+   * fiche (go(-rang)).
+   */
+  let enQuittant = false;
+  /**
+   * Le premier router() de la page : history.state survit à un rechargement
+   * (F5, un onglet repris par Android). Une entrée de fiche y est remontée au
+   * lieu d'être rouverte, pour que rien de la fiche ne se charge au premier
+   * affichage (§ 6.1) ; la carte seule, comme après la « × ».
+   */
+  let demarrage = true;
 
   function etatHistorique(): EtatHistorique | null {
     const e = h.state as Partial<EtatHistorique> | null;
@@ -172,19 +197,34 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
     return { nom, segs: nom === o.arbre ? reste : [] };
   }
 
+  /** L'adresse rendue telle que la pile des entrées suivantes la garde (marquée si l'entrée porte une fiche). */
+  function adresseEmpilee(): string {
+    const a = adresseRendue ?? o.accueil;
+    return ficheRendue ? a + MARQUE_FICHE : a;
+  }
+
   function router(): void {
+    if (enQuittant) {
+      if (etatHistorique()?.fiche) return;
+      enQuittant = false;
+    }
     if (traversee !== null) {
       if (o.ancre() === traversee) return;
       traversee = null;
     }
+    if (demarrage) {
+      demarrage = false;
+      if (etatHistorique()?.fiche) return quitterFiches();
+    }
     const e = etatHistorique();
     if (e) pileRendue = e.pile;
     else {
-      pileRendue = adresseRendue === null ? [] : [...pileRendue, adresseRendue].slice(-PILE_MAX);
+      pileRendue = adresseRendue === null ? [] : [...pileRendue, adresseEmpilee()].slice(-PILE_MAX);
       h.replaceState({ pile: pileRendue } satisfies EtatHistorique, '');
     }
     const { nom, segs } = demandee();
     adresseRendue = [nom, ...segs].join('/');
+    ficheRendue = nom === o.accueil && !!e?.fiche;
     // Retenue : l'accueil à la place de la vue demandée, l'adresse gardée.
     const montre = o.retenue?.(nom) ? o.accueil : nom;
     o.surAdresse?.(montre);
@@ -211,21 +251,34 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
 
   function pousser(a: string): void {
     traversee = null;
+    enQuittant = false;
     if (a === adresseRendue) return router();
-    h.pushState({ pile: [...pileRendue, adresseRendue ?? o.accueil].slice(-PILE_MAX) } satisfies EtatHistorique, '', versAncre(a));
+    h.pushState({ pile: [...pileRendue, adresseEmpilee()].slice(-PILE_MAX) } satisfies EtatHistorique, '', versAncre(a));
     router();
   }
 
-  function remonter(a: string): void {
+  /**
+   * `avecFiches` : une entrée de fiche convient aussi (le « Retour » d'une
+   * vue : la vue d'avant, la fiche rouverte) ; sinon seule une entrée sans
+   * fiche (la « × » : la carte seule, § 4.4).
+   */
+  function remonterVers(a: string, avecFiches: boolean): void {
     traversee = null;
+    enQuittant = false;
     if (a === adresseRendue) return router();
-    const n = pasVers(pileRendue, a);
+    const sans = pasVers(pileRendue, a);
+    const avec = avecFiches ? pasVers(pileRendue, a + MARQUE_FICHE) : 0;
+    const n = sans && avec ? Math.min(sans, avec) : sans || avec;
     if (n) {
       traversee = o.ancre();
       return h.go(-n);
     }
     h.replaceState(h.state, '', versAncre(a));
     router();
+  }
+
+  function remonter(a: string): void {
+    remonterVers(a, false);
   }
 
   function versJouer(cible: string, message = ''): void {
@@ -241,15 +294,16 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
   function retour(): void {
     // Une vue de partie qui n'a plus rien à montrer renverrait à Jouer : la dernière vue sans partie.
     const v = o.vue(precedente);
-    remonter(v?.aMontrer && !v.aMontrer() ? durable : precedente);
+    remonterVers(v?.aMontrer && !v.aMontrer() ? durable : precedente, true);
   }
 
   function pousserFiche(lieu: LieuFiche): void {
     traversee = null;
+    enQuittant = false;
     const ici = adresseRendue ?? o.accueil;
     const rang = (etatHistorique()?.fiche?.rang ?? 0) + 1;
     h.pushState(
-      { pile: [...pileRendue, ici].slice(-PILE_MAX), fiche: { terrain: lieu.terrain, id: lieu.id, rang } } satisfies EtatHistorique,
+      { pile: [...pileRendue, adresseEmpilee()].slice(-PILE_MAX), fiche: { terrain: lieu.terrain, id: lieu.id, rang } } satisfies EtatHistorique,
       '',
       versAncre(ici),
     );
@@ -259,8 +313,13 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
   function quitterFiches(): void {
     // Une traversée d'une entrée #carte à une autre : même ancre au départ et à l'arrivée, rien à ignorer.
     traversee = null;
+    // Déjà en route (deux « × » de suite, le refus redit par le second événement d'une traversée) : un seul go().
+    if (enQuittant) return;
     const rang = etatHistorique()?.fiche?.rang ?? 0;
-    if (rang > 0) h.go(-rang);
+    if (rang > 0) {
+      enQuittant = true;
+      h.go(-rang);
+    }
   }
 
   function ouvrirPartie(nom: string): void {

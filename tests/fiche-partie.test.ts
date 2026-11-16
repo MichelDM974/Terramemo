@@ -99,6 +99,16 @@ describe('une partie de Toucher en suspens sur la carte', () => {
     const autorisee = () => !barrePartieVisible(doc) && !essai.enSuspens();
     const fiches = lireFichesMonde(lire<FichierMonde>('fiches-monde.json'), lire<FichierMondeLangue>('fiches-monde.fr.json'));
     const capitales = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<NomsCapitales>('capitales.fr.json'));
+    // L'historique (navigation.ts) : chaque geste noté ; une fiche demandée est rendue aussitôt, comme le fait router().
+    const gestes: string[] = [];
+    const historique = {
+      pousser: (l: { terrain: string; id: string }) => {
+        gestes.push(`pousser ${l.id}`);
+        carteVue.surFiche({ ...l, rang: 1 });
+      },
+      quitter: () => void gestes.push('quitter'),
+      retour: () => void gestes.push('retour'),
+    };
     const carteVue = vueExplorer(ctx, {
       fiche: {
         fiches: () => Promise.resolve(fiches),
@@ -106,6 +116,7 @@ describe('une partie de Toucher en suspens sur la carte', () => {
         drapeaux: () => Promise.reject(new Error('pas ici')),
         module: () => import('../src/vues/fiche'),
         autorisee,
+        historique,
       },
     });
     const el = (sel: string) => zone.querySelector(sel)!;
@@ -113,6 +124,7 @@ describe('une partie de Toucher en suspens sur la carte', () => {
       essai,
       carteVue,
       autorisee,
+      gestes,
       toucherCarte: (id: string) => {
         pickSuivant = id;
         carteVue.toucher?.(1, 1, {} as PointerEvent);
@@ -160,9 +172,13 @@ describe('une partie de Toucher en suspens sur la carte', () => {
     expect(v.faits()).toBe('');
     expect(v.chevron()).toBe(false);
     (v.el('#barre-fiche') as El).click();
+    expect(v.gestes).toEqual([]);
+    // Une entrée de fiche rendue par un retour (on y revient depuis Jouer) : refusée, et l'entrée rendue à
+    // l'historique (§ 7 : le retour suivant montre la vue d'avant, aucune entrée orpheline).
     v.carteVue.surFiche({ terrain: 'monde', id: 'JPN', rang: 1 });
     await tenir();
     expect(v.ouverte()).toBe(false);
+    expect(v.gestes).toEqual(['quitter']);
     // Retour à la partie, finie par « Terminer » : son bilan montré, plus rien en suspens.
     v.versToucher();
     expect(v.el('#barre-essai').hidden).toBe(false);
@@ -180,5 +196,6 @@ describe('une partie de Toucher en suspens sur la carte', () => {
     (v.el('#barre-fiche') as El).click();
     // Le morceau de la fiche, importé à la première ouverture.
     await vi.waitFor(() => expect(v.ouverte()).toBe(true));
+    expect(v.gestes).toEqual(['quitter', 'pousser JPN']);
   });
 });
