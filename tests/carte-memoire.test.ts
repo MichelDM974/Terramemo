@@ -157,6 +157,7 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
     const teintes: (Map<string, number> | null)[] = [];
     let pick = 'ITA';
     const carte = {
+      cacherPastilles() {},
       effacerMarques() {},
       marquer() {},
       anneau() {},

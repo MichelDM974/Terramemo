@@ -73,6 +73,7 @@ function contexte(maintenant?: () => number, noms: Record<string, string> = { RU
   const entites = vrai ? vrai.donnees.entites : pays.map((p) => ({ pays: p }));
   const consigne = () => zone.querySelector('#barre-chrono .essai-consigne')?.dataset.cible;
   const carte = {
+    cacherPastilles() {},
     effacerMarques() {},
     marquer() {},
     anneau() {},

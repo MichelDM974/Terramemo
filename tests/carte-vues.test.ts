@@ -262,6 +262,7 @@ describe('carte de la mémoire à l’accueil', () => {
     const teintes: (Map<string, number> | null)[] = [];
     const anneaux: string[] = [];
     const carte = {
+      cacherPastilles() {},
       effacerMarques() {},
       marquer() {},
       anneau() {},

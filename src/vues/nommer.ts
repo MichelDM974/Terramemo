@@ -13,7 +13,7 @@ import { anneauPrincipal, empriseEcran, versEcran, type Emprise } from '../map/g
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
-import { ANNEAU_SOUS_PX, anneauZone, creer, fmtS, poserContenu, prechargerSujet, zonesDuSujet, type ContexteVue } from './commun';
+import { ANNEAU_SOUS_PX, anneauZone, creer, fmtS, pastillesPour, poserContenu, prechargerSujet, zonesDuSujet, type ContexteVue } from './commun';
 import { choix, doitCadrer, NB_CHOIX, PartieNommer } from './qcm';
 import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -225,6 +225,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     if (!partie || !t || !rs) return;
     const id = partie.courante;
     if (id === undefined) return finir();
+    // Une question de mer : sans les pastilles des micro-États (décision du 16/11) ; rendues pour un autre sujet.
+    pastillesPour(ctx, rs.sujet);
     choixCourants = choixDe(rs, id);
     const r = rs;
     consigne.textContent = r.consigneQcm(id);
@@ -322,6 +324,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       partie = null;
       return crochets.surFin();
     }
+    // Le bilan d'une partie libre (une séance passe à sa question suivante, surFin) : les pastilles rendues.
+    pastillesPour(ctx, null);
     const r = rs;
     const b = partie.bilan();
     partie = null;

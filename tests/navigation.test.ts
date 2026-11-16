@@ -71,6 +71,7 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
   const zone = new El('main');
   // La carte et les terrains des parties : juste ce que Toucher et les épreuves demandent.
   const carte = {
+    cacherPastilles() {},
     effacerMarques() {},
     marquer() {},
     anneau() {},

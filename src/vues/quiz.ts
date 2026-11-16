@@ -45,7 +45,7 @@ import { profilModifie } from '../sync/pont';
 import { NIVEAU_QUIZ, adresse, nomDifficulte, nomQuiz, nomSujet } from './arbre';
 import { ANNONCE_MS, ATTENTE_IMAGE_MS, CHARGEMENT_VU_MS } from './chrono';
 import { blocClassement, lirePseudo, publierPartie } from './classement';
-import { anneauSiPetite, anneauZone, chargementSujet, creer, croix, fmtKm, mersPosees, optionsNoter, poserContenu, poserEnonce, texteAdmis, zonesDuSujet, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, anneauZone, chargementSujet, creer, croix, fmtKm, mersPosees, optionsNoter, pastillesPour, poserContenu, poserEnonce, texteAdmis, zonesDuSujet, type ContexteVue, type Vue } from './commun';
 import { creerJauge } from './jauge';
 import { allumerZone } from './nommer';
 import { NB_CHOIX } from './qcm';
@@ -304,6 +304,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     barre.hidden = true;
     bilan.hidden = true;
     t.carte.effacerMarques();
+    pastillesPour(ctx, null);
     ctx.terrains.montrer('monde');
   }
 
@@ -374,6 +375,8 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     t.carte.effacerMarques();
     const q = partie?.question;
     if (!partie || !q) return finir();
+    // Question par question : sans les pastilles des micro-États pour une mer, avec pour un autre sujet (décision du 16/11).
+    pastillesPour(ctx, q.sujet);
     const r = rs(q);
     const id = q.cible;
     posee = partie.numero;
@@ -552,6 +555,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     ouverte = false;
     barre.hidden = true;
     t.carte.effacerMarques();
+    pastillesPour(ctx, null);
     const p = partie;
     if (!p || !p.compte) return arreter();
     const d = difficulte;

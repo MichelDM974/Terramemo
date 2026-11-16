@@ -12,7 +12,10 @@
 // les pastilles des micro-États y sont cachées (choix de l'utilisateur du
 // 12/11 : ≈ 100 disques gris couvraient les Caraïbes et la Méditerranée), un
 // micro-État ne s'y touche que par son tracé. Elles reviennent avec un autre
-// sujet et en partant : aucune partie ne démarre sans elles.
+// sujet et en partant. Une question de mer les cache aussi (décision du
+// 16/11/2026, pastillesPour de commun.ts), mais toute partie les rend en
+// sortant : la carte arrive ici avec elles, l'état gardé (sansPastilles) dit
+// vrai.
 //
 // Toucher l'eau du monde donne le nom de la mer (D45 a) : la couche légère
 // seule (mers-leger.topo.json, mers.json, mers.fr.json : ≈ 25 Ko), lue au

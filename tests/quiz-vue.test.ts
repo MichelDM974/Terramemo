@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { idQuiz, lireRecords, recordDe } from '../src/epreuve/chrono';
 import { chargerCapitales, oublierCapitales } from '../src/map/capitales';
 import { chargerDrapeaux, oublierDrapeaux, type ChargerImage } from '../src/map/drapeaux';
+import { chargerMers, oublierMers } from '../src/map/mers';
 import type { Pays } from '../src/map/types';
 import { REGLES } from '../src/quiz/regles';
 import type { Difficulte, Question, SujetQuiz } from '../src/quiz/types';
@@ -72,6 +73,8 @@ let touchers = 0;
 function contexte(tirer: (d: Difficulte) => Question[], chargerImage?: ChargerImage) {
   const zone = new El('main');
   const carte = {
+    /** Les pastilles du monde cachées (décision du 16/11) : la dernière demande. */
+    cacherPastilles: vi.fn<(oui: boolean) => void>(),
     effacerMarques: vi.fn(),
     marquer: vi.fn(),
     anneau() {},
@@ -82,7 +85,7 @@ function contexte(tirer: (d: Difficulte) => Question[], chargerImage?: ChargerIm
     projection: { scale: () => 1 },
     transfo: { k: 1 },
   };
-  const donnees = { noms: NOMS, entites: pays.map((p) => ({ pays: p })) };
+  const donnees: { noms: Record<string, string>; entites: { pays: Pays }[]; mers?: unknown } = { noms: NOMS, entites: pays.map((p) => ({ pays: p })) };
   const monde = { nom: 'monde', carte, donnees, jouables: LIEUX, credit: null };
   const terrains = { monde, actif: 'monde', montrer: vi.fn(), deja: () => null, charger: vi.fn() };
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
@@ -115,7 +118,7 @@ function contexte(tirer: (d: Difficulte) => Question[], chargerImage?: ChargerIm
     v.activer();
     v.lancer(d);
   };
-  return { v, zone, carte, el, consigne, bouton, repondre, suivante, montree, versJouer, versCarte, lancer, tire, finDePartie };
+  return { v, zone, carte, donnees, el, consigne, bouton, repondre, suivante, montree, versJouer, versCarte, lancer, tire, finDePartie };
 }
 
 beforeEach(() => {
@@ -423,5 +426,58 @@ describe('les capitales (D49 d, § 9.2)', () => {
     }
     expect(p.consigne()!.dataset.cible).toBe('BOL');
     expect(p.consigne()!.textContent).toContain(autre.nom);
+  });
+});
+
+// Décision « Pastilles cachées pendant une question de mer » (16/11/2026) :
+// question par question dans le quiz, cachées pour une mer, rendues pour un
+// autre sujet, au bilan et à l'abandon.
+describe('pastilles des micro-États et questions de mer (décision du 16/11)', () => {
+  /** 20 questions de pays en moyen, dont une mer à 4 choix (la 2e) et deux mers au toucher (11e et 13e). */
+  function partieMeleee(d: Difficulte): Question[] {
+    const q = partiePays(d);
+    q[1] = question('mers', 'medit', 'qcm', d, { choix: ['noire', 'medit', 'baltique', 'rouge'] });
+    q[10] = question('mers', 'noire', 'toucher', d);
+    q[12] = question('mers', 'baltique', 'toucher', d);
+    return q;
+  }
+  async function meleee() {
+    oublierMers(async (f) => readFileSync(`public/geo/${f}`, 'utf8'));
+    const couche = await chargerMers();
+    const p = contexte(partieMeleee);
+    p.donnees.mers = couche.mers;
+    /** Les pastilles cachées à cet instant (la dernière demande à la carte ; rendues avant toute demande). */
+    const cachees = () => p.carte.cacherPastilles.mock.calls.at(-1)?.[0] ?? false;
+    return { ...p, cachees };
+  }
+
+  it('cachées pour chaque question de mer (4 choix ou toucher), rendues pour un pays, puis au bilan', async () => {
+    const p = await meleee();
+    p.lancer('moyen');
+    const vues: [string, boolean][] = [];
+    for (let i = 0; i < 20; i++) {
+      vues.push([p.consigne()!.dataset.cible!, p.cachees()]);
+      p.repondre();
+      p.suivante();
+    }
+    const mers = new Set(['medit', 'noire', 'baltique']);
+    expect(vues.filter(([, c]) => c).map(([id]) => id)).toEqual(['medit', 'noire', 'baltique']);
+    for (const [id, c] of vues) expect(c, id).toBe(mers.has(id));
+    expect(p.el('#quiz-bilan').hidden).toBe(false);
+    expect(p.cachees()).toBe(false);
+  });
+
+  it('« Abandonner » ou la vue quittée pendant une question de mer : rendues', async () => {
+    for (const fin of ['abandonner', 'quitter'] as const) {
+      const p = await meleee();
+      p.lancer('moyen');
+      p.repondre();
+      p.suivante();
+      expect(p.consigne()!.dataset.cible).toBe('medit');
+      expect(p.cachees(), fin).toBe(true);
+      if (fin === 'abandonner') p.el('#quiz-abandonner').click();
+      else p.v.desactiver();
+      expect(p.cachees(), fin).toBe(false);
+    }
   });
 });

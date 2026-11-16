@@ -26,6 +26,7 @@ function monter(o: { ids?: readonly string[]; noms?: Record<string, string> } = 
   const carte = {
     hote: new El('div'),
     transfo: { k: 3 },
+    cacherPastilles() {},
     effacerMarques: () => void (marques.length = 0),
     marquer: (id: string, c: string) => void marques.push(`${id}:${c}`),
     anneau: (id: string, c: string) => void marques.push(`anneau ${id}:${c}`),
@@ -39,7 +40,7 @@ function monter(o: { ids?: readonly string[]; noms?: Record<string, string> } = 
   };
   const donnees = { entites: ids.map((id, i) => ({ pays: { ...pays(id, i), voisins: ids.filter((x) => x !== id) }, forme: undefined })), noms: o.noms ?? NOMS };
   const terrain = { nom: 'monde', carte, donnees, jouables: ids };
-  const ctx = { zone, terrains: { montrer() {} } } as unknown as ContexteVue;
+  const ctx = { zone, carte, terrains: { montrer() {} } } as unknown as ContexteVue;
   const bilan = new El('div');
   const actions = () => new El('div');
   const croix = () => Object.assign(new El('button'), { className: 'croix' });

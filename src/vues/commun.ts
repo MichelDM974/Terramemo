@@ -226,6 +226,21 @@ export function poserMers(c: Pick<ContexteVue, 'carte' | 'donnees'>, charger: ()
 }
 
 /**
+ * Les pastilles des micro-États sur la carte du monde, selon la question
+ * montrée (décision « Pastilles cachées pendant une question de mer » du
+ * 16/11/2026) : cachées pour une question de mer (`sujet` 'mers'), rendues
+ * pour une question d'un autre sujet et sans question (null : bilan, partie
+ * quittée ou abandonnée). Toute vue qui pose des questions l'appelle à chaque
+ * question et en sortant : aucune autre vue ne trouve la carte sans ses
+ * pastilles en arrivant (la carte de la mémoire « Mers » le suppose,
+ * explorer.ts). cacherPastilles ne redessine qu'au changement : deux
+ * questions de mer de suite ne coûtent rien.
+ */
+export function pastillesPour(c: Pick<ContexteVue, 'carte'>, sujet: string | null): void {
+  c.carte.cacherPastilles(sujet === 'mers');
+}
+
+/**
  * Les données propres d'un sujet, hors de son terrain (étude J2 § 4.2) :
  * null si elles sont déjà là ou qu'il n'en a pas (pays, communes), sinon
  * la promesse de leur chargement (capitales.json et son fichier de langue ;

@@ -25,7 +25,7 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, poserEnonce, prechargerEnonces, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, pastillesPour, poserEnonce, prechargerEnonces, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { rendu, type RenduSujet } from './sujets';
@@ -310,6 +310,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const aRejouer = reprise ? marques : [];
     effacer();
     if (!id) return pilote ? prochaine() : finir();
+    // Une question de mer : sans les pastilles des micro-États (décision du 16/11) ; rendues pour un autre sujet.
+    pastillesPour(ctx, rs.sujet);
     poserEnonce(consigne, rs.enonce(id));
     consigne.dataset.cible = id;
     // Le drapeau de la question suivante, demandé pendant celle-ci (étude J2 § 2.2) : celui que son énoncé montrera
@@ -528,6 +530,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     cibles = [];
     barre.hidden = true;
     effacer();
+    pastillesPour(ctx, null);
     const d = demande;
     p.bilan(bilan, {
       continuer: () => {
@@ -619,6 +622,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     barre.hidden = true;
     bilan.hidden = true;
     effacer();
+    pastillesPour(ctx, null);
     ctx.terrains.montrer('monde');
   }
 
@@ -652,6 +656,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     cibles = [];
     barre.hidden = true;
     effacer();
+    pastillesPour(ctx, null);
     const n = resultats.length;
     const premiers = resultats.filter((r) => r.premier).length;
     const justes = resultats.filter((r) => r.juste).length;
@@ -759,8 +764,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       retournee.quitter();
       barre.hidden = true;
       bilan.hidden = true;
-      // La carte seule : `marques` reste, pour les remontrer au retour.
+      // La carte seule : `marques` reste, pour les remontrer au retour ; les pastilles rendues, cachées de nouveau à la reprise d'une question de mer.
       t.carte.effacerMarques();
+      pastillesPour(ctx, null);
       ctx.terrains.montrer('monde');
     },
     toucher(x, y, ev) {

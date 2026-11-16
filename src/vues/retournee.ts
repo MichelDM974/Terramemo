@@ -7,7 +7,7 @@
 // fois, posée par la séance (src/vues/seance.ts, via essai.ts).
 import type { Terrain } from '../terrains';
 import type { Forme, Lieu } from '../map/types';
-import { creer, poserContenu, zonesDuSujet, type ContexteVue } from './commun';
+import { creer, pastillesPour, poserContenu, zonesDuSujet, type ContexteVue } from './commun';
 import { allumerZone } from './nommer';
 import { rendu, type RenduSujet } from './sujets';
 import { textes } from './textes';
@@ -85,6 +85,8 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
 
   function afficher(): void {
     if (!t || !rs || !crochets || !etape) return;
+    // Une question de mer : sans les pastilles des micro-États (décision du 16/11) ; la séance les rend (essai.ts).
+    pastillesPour(ctx, rs.sujet);
     compte.textContent = crochets.compte();
     // « Quel est ce pays ? », « Quelle est cette commune ? » : la consigne du sujet.
     consigne.textContent = rs.consigneQcm(id);

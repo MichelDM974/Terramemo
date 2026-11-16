@@ -40,7 +40,7 @@ import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
 import { creerJauge } from './jauge';
-import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, optionsNoter, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, optionsNoter, pastillesPour, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { nomEpreuve } from './general';
 import { fmtJustes, fmtTemps, nomMode, scoreCourt, scoreEntier, scoreLong } from './scores';
 import { rendu, type RenduSujet } from './sujets';
@@ -233,6 +233,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     barre.hidden = true;
     bilan.hidden = true;
     t.carte.effacerMarques();
+    pastillesPour(ctx, null);
     ctx.terrains.montrer('monde');
   }
 
@@ -305,6 +306,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     t.carte.effacerMarques();
     const id = partie?.courante;
     if (!partie || partie.finie || !id) return finir();
+    // Une épreuve des mers : sans les pastilles des micro-États (décision du 16/11).
+    pastillesPour(ctx, rs.sujet);
     poserEnonce(consigne, rs.enonce(id));
     consigne.dataset.cible = id;
     afficherCompte(false);
@@ -389,6 +392,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     ouverte = false;
     barre.hidden = true;
     t.carte.effacerMarques();
+    pastillesPour(ctx, null);
     if (!partie || !serie) return arreter();
     const r = rs;
     const score = partie.score();

@@ -13,7 +13,7 @@ import { chargerMers, IDS_MERS, oublierMers, parenteMer, type CoucheMers } from 
 import { lireRecords } from '../src/epreuve/chrono';
 import type { Lancement } from '../src/vues/arbre';
 import type { ContexteVue } from '../src/vues/commun';
-import { vueEssai } from '../src/vues/essai';
+import { vueEssai, type PiloteSeance, type QuestionPilotee } from '../src/vues/essai';
 import { cadrageNommer, ZONE_MONTREE } from '../src/vues/nommer';
 import { vueRetournee } from '../src/vues/retournee';
 import { installerDom, installerStockage, El } from './dom-factice';
@@ -40,7 +40,10 @@ const options: unknown[] = [];
 /** Le monde factice, la couche marine posée (donnees.mers), les noms des pays du monde. */
 function monde() {
   const marques: string[] = [];
+  /** Les pastilles du monde cachées (cacherPastilles, décision du 16/11) : l'état de la carte. */
+  const pastilles = { cachees: false };
   const carte = {
+    cacherPastilles: (oui: boolean) => void (pastilles.cachees = oui),
     effacerMarques: () => void (marques.length = 0),
     marquer: (id: string, c: string) => void marques.push(`${id}:${c}`),
     anneau: (id: string, c: string) => void marques.push(`anneau ${id}:${c}`),
@@ -70,7 +73,7 @@ function monde() {
     terrains: { monde: t, actif: 'monde', montrer() {}, deja: () => null, charger: vi.fn() },
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() },
   } as unknown as ContexteVue;
-  return { ctx, t, zone, marques, cadrages };
+  return { ctx, t, zone, marques, cadrages, pastilles };
 }
 
 beforeEach(() => {
@@ -480,6 +483,123 @@ describe('Apprendre Océans et mers refusé hors ligne, puis « Trouver » (essa
         p.el('#seance-trouver').click();
         expect(p.el('#barre-essai').hidden).toBe(false);
       } else expect(p.versCarte).toHaveBeenCalledTimes(1);
+    }
+  });
+});
+
+// Décision « Pastilles cachées pendant une question de mer » (16/11/2026) :
+// pendant toute question de mer, aucune pastille de micro-État sur la carte du
+// monde (pastillesPour, commun.ts) ; rendues pour une question d'un autre
+// sujet, au bilan et en quittant la partie.
+describe('pastilles des micro-États cachées pendant une question de mer', () => {
+  function essai() {
+    const m = monde();
+    const v = vueEssai(m.ctx, { versJouer: vi.fn() });
+    v.activer();
+    return { ...m, v, el: (s: string) => m.zone.querySelector(s) as El };
+  }
+
+  it('Trouver : cachées à chaque question, rendues au bilan ; quitter la vue les rend, la reprise les cache de nouveau', () => {
+    const p = essai();
+    p.v.lancer({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'localiser' }, serieMers(), p.t as never, ['atlant', 'medit']);
+    expect(p.pastilles.cachees).toBe(true);
+    p.v.desactiver();
+    expect(p.pastilles.cachees).toBe(false);
+    p.v.activer();
+    expect(p.pastilles.cachees).toBe(true);
+    p.el('#essai-passer').click();
+    expect(p.pastilles.cachees).toBe(true);
+    p.el('#essai-passer').click();
+    expect(p.el('#essai-bilan').hidden).toBe(false);
+    expect(p.pastilles.cachees).toBe(false);
+  });
+
+  it('Trouver : « Terminer » en pleine partie les rend (bilan)', () => {
+    const p = essai();
+    p.v.lancer({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'localiser' }, serieMers(), p.t as never, ['atlant', 'medit']);
+    p.el('#essai-terminer').click();
+    expect(p.el('#essai-bilan').hidden).toBe(false);
+    expect(p.pastilles.cachees).toBe(false);
+  });
+
+  it('Reconnaître : cachées pendant les questions, rendues au bilan ; une partie des pays ensuite les garde', () => {
+    const p = essai();
+    p.v.lancer({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'nommer' }, serieMers(), p.t as never, ['atlant']);
+    expect(p.pastilles.cachees).toBe(true);
+    const cible = p.el('#barre-nommer .essai-consigne').dataset.cible!;
+    p.zone.querySelectorAll('#barre-nommer .nommer-choix').find((b) => b.dataset.id === cible)!.click();
+    vi.advanceTimersByTime(2000);
+    expect(p.el('#essai-bilan').hidden).toBe(false);
+    expect(p.pastilles.cachees).toBe(false);
+    p.v.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'europe', mode: 'localiser' }, { id: 'europe', terrain: 'monde', ids: ['ITA'], n: 1 } as never, p.t as never, ['ITA']);
+    expect(p.el('#barre-essai .essai-consigne').dataset.cible).toBe('ITA');
+    expect(p.pastilles.cachees).toBe(false);
+  });
+
+  it('une séance qui mêle les sujets (Révision du jour) : question par question, cachées pour une mer (Trouver, QCM, carte retournée), rendues pour un pays et au bilan', () => {
+    const m = monde();
+    const questions: QuestionPilotee[] = [
+      { id: 'medit', forme: 'trouver', cadrer: null, connu: false, domaine: 'mers' },
+      { id: 'ITA', forme: 'trouver', cadrer: null, connu: false },
+      { id: 'noire', forme: 'retournee', cadrer: null, connu: false, domaine: 'mers' },
+      { id: 'baltique', forme: 'qcm', cadrer: null, connu: false, domaine: 'mers' },
+    ];
+    let i = 0;
+    let finie = false;
+    const pilote: PiloteSeance = {
+      question: () => (finie ? null : (questions[i] ?? null)),
+      compte: () => `${i + 1} / ${questions.length}`,
+      repondre: () => (i++, ''),
+      connu: () => void i++,
+      terminer: () => void (finie = true),
+      bilan: (el) => void (el as unknown as El).replaceChildren('bilan'),
+    };
+    const v = vueEssai(m.ctx, { versJouer: vi.fn(), seances: { ouvrir: () => pilote } });
+    const el = (s: string) => m.zone.querySelector(s) as El;
+    v.activer();
+    v.reviser();
+    const vues: boolean[] = [];
+    // Trouver de la mer : « Passer » ; puis Trouver du pays.
+    vues.push(m.pastilles.cachees);
+    el('#essai-passer').click();
+    vues.push(m.pastilles.cachees);
+    el('#essai-passer').click();
+    // La carte retournée d'une mer : révélée, « Je savais » ; quitter la vue puis y revenir la reprend, cachées de nouveau.
+    vues.push(m.pastilles.cachees);
+    v.desactiver();
+    vues.push(m.pastilles.cachees);
+    v.activer();
+    vues.push(m.pastilles.cachees);
+    el('#retournee-reveler').click();
+    el('#retournee-savais').click();
+    vi.advanceTimersByTime(2000);
+    // Le QCM d'une mer, puis « Terminer » : le bilan de la séance.
+    expect(el('#barre-nommer .essai-consigne').dataset.cible).toBe('baltique');
+    vues.push(m.pastilles.cachees);
+    el('#nommer-terminer').click();
+    vues.push(m.pastilles.cachees);
+    expect(vues).toEqual([true, false, true, false, true, true, false]);
+    expect(el('#essai-bilan').hidden).toBe(false);
+  });
+
+  it('Chrono des mers : cachées pendant les questions, rendues au bilan ; un abandon (vue quittée) les rend aussi', () => {
+    for (const fin of ['bilan', 'abandon'] as const) {
+      const m = monde();
+      const v = vueChrono(m.ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer: vi.fn() });
+      v.activer();
+      v.lancer({ branche: 'classe', sujet: 'mers', serie: 'mers', mode: 'chrono' }, serieMers(), m.t as never, ['atlant', 'medit']);
+      expect(m.pastilles.cachees, fin).toBe(true);
+      if (fin === 'abandon') v.desactiver();
+      else {
+        for (let q = 0; q < 2; q++) {
+          note = { juste: false, via: null, pick: null, distance_km: null, admis: null };
+          v.toucher?.(1, 1, {} as PointerEvent);
+          expect(m.pastilles.cachees, `${fin} ${q}`).toBe(true);
+          vi.advanceTimersByTime(2_500);
+        }
+        expect(m.zone.querySelector('#chrono-bilan')!.hidden).toBe(false);
+      }
+      expect(m.pastilles.cachees, fin).toBe(false);
     }
   });
 });

@@ -36,6 +36,7 @@ function monter(o: Partial<OptionsEssai> = {}, terrain: { ids: string[]; noms: R
   /** Ce que la carte montre : « id:classe », « anneau id:classe » pour un anneau. */
   const marques: string[] = [];
   const carte = {
+    cacherPastilles() {},
     effacerMarques() {
       marques.length = 0;
     },
@@ -384,6 +385,7 @@ function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
   const appels: string[] = [];
   /** L'île (q.terrain 'reunion') : sa carte note ses appels à part, préfixés « île ». */
   const carteIle = {
+    cacherPastilles() {},
     effacerMarques() {},
     marquer() {},
     anneau: () => undefined,
@@ -397,6 +399,7 @@ function monterSeance(ouvrir: FabriqueSeances['ouvrir']) {
   };
   const ile = { nom: 'reunion', carte: carteIle, donnees: { entites: [{ pays: { ...pays('SDN'), id: 'SDN' } }], noms: { SDN: 'Saint-Denis' } }, jouables: ['SDN'] };
   const carte = {
+    cacherPastilles() {},
     effacerMarques: () => void (marques.length = 0),
     marquer: (id: string, c: string) => void marques.push(`${id}:${c}`),
     anneau: () => undefined,
@@ -685,6 +688,7 @@ describe('Toucher : une séance qui passe sur l’île (communes, D6)', () => {
 
   function carteFactice(nom: string, notees: string[]) {
     return {
+      cacherPastilles() {},
       effacerMarques() {},
       marquer() {},
       anneau() {},
