@@ -480,6 +480,8 @@ describe('noms et sources', () => {
       'geodata/capitales.mjs',
       'geodata/drapeaux-main.json',
       'geodata/drapeaux.mjs',
+      'geodata/fiches-main.json',
+      'geodata/fiches.mjs',
       'geodata/liste.json',
       'geodata/mers.json',
       'geodata/mers.mjs',

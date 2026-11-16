@@ -17,14 +17,18 @@
 //                    Earth et d'une table à la main ; témoin geodata/mers-affectations.json
 //   notoriete.json   niveaux de notoriété des lieux du quiz (geodata/notoriete.mjs, étude J2
 //                    § 2.4, D48 b), tirés des extraits figés de Wikidata et d'une table à la main
+//   fiches-monde.json, fiches-monde.fr.json  fiches des lieux du monde (geodata/fiches.mjs, #34,
+//                    étude fiche-lieu § 2), tirées de pays.json, de l'extrait des capitales et
+//                    d'une table à la main
 //
-// Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales|drapeaux|mers|notoriete]
+// Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales|drapeaux|mers|notoriete|fiches]
 // --seulement capitales ne refait que les capitales (sans source ni mapshaper : il lit
 // pays.json et noms.fr.json déjà construits) et leur part de sources.json ; --seulement
 // drapeaux, les drapeaux (avec leurs seules sources, et pays.json) ; --seulement mers, les
 // mers (la source Natural Earth vérifiée, sans --maj-empreintes : c'est celle des pays) ;
 // --seulement notoriete, la notoriété (sans source : elle lit pays.json et capitales.json
-// déjà construits) ; tout le build donne les mêmes fichiers.
+// déjà construits) ; --seulement fiches (npm run fiches), les fiches des lieux (sans source :
+// elles lisent pays.json déjà construit) ; tout le build donne les mêmes fichiers.
 // Les sources sont téléchargées dans geodata/raw/ (ignoré par git) puis vérifiées par
 // SHA-256 contre geodata/sources.lock.json ; le script refuse une empreinte différente,
 // sauf avec --maj-empreintes qui réécrit le verrou. Sans réseau si raw/ est rempli.
@@ -41,6 +45,7 @@ import { feature, neighbors } from 'topojson-client';
 import { construireCapitales, fusionnerSources } from './capitales.mjs';
 import { construireDrapeaux, SOURCES_DRAPEAUX } from './drapeaux.mjs';
 import { construireMers, fusionnerMers, NE_MERS } from './mers.mjs';
+import { construireFiches } from './fiches.mjs';
 import { construireNotoriete } from './notoriete.mjs';
 import { arrondi, aujourdhui, emprise, fusionnerPartie, km2, pointInterieur, polygones, R_TERRE_KM, sha256 } from './outils.mjs';
 
@@ -442,7 +447,7 @@ function regionNe(p) {
 // --- Capitales (geodata/capitales.mjs) -------------------------------------------
 
 // Parties qu'on peut refaire seules (--seulement).
-const PARTIES = ['capitales', 'drapeaux', 'mers', 'notoriete'];
+const PARTIES = ['capitales', 'drapeaux', 'mers', 'notoriete', 'fiches'];
 
 /** Construit et écrit les capitales ; rend ce qui va dans sources.json. */
 async function capitales() {
@@ -524,6 +529,22 @@ async function notoriete() {
   return res;
 }
 
+// --- Fiches des lieux (geodata/fiches.mjs) ----------------------------------------
+
+/** Construit et écrit les fiches du monde (après pays.json) ; rend ce qui va dans sources.json. */
+async function fiches() {
+  console.log('Fiches');
+  let res;
+  try {
+    res = await construireFiches(RACINE);
+  } catch (e) {
+    echec(e.message);
+  }
+  for (const [nom, texte] of Object.entries(res.fichiers)) await ecrire(nom, texte);
+  for (const n of res.notes) console.log(`  ${n}`);
+  return res;
+}
+
 async function ecrireSources(sources) {
   await ecrire('sources.json', JSON.stringify(sources, null, 2) + '\n');
 }
@@ -542,6 +563,8 @@ async function main() {
       await ecrireSources(fusionnerSources(avant, await capitales()));
     } else if (partie === 'notoriete') {
       await ecrireSources(fusionnerPartie(avant, await notoriete()));
+    } else if (partie === 'fiches') {
+      await ecrireSources(fusionnerPartie(avant, await fiches()));
     } else if (partie === 'mers') {
       if (majEmpreintes) echec('--seulement mers sans --maj-empreintes : Natural Earth est aussi la source des pays, relancer tout le build');
       console.log('Sources');
@@ -922,7 +945,8 @@ async function main() {
   const drap = await drapeaux();
   const mer = await mers();
   const noto = await notoriete();
-  await ecrireSources(fusionnerPartie(fusionnerMers(fusionnerPartie(fusionnerSources({ sources: meta, traitement }, cap), drap), mer), noto));
+  const fic = await fiches();
+  await ecrireSources(fusionnerPartie(fusionnerPartie(fusionnerMers(fusionnerPartie(fusionnerSources({ sources: meta, traitement }, cap), drap), mer), noto), fic));
 
   // Résumé.
   const parStatut = {};

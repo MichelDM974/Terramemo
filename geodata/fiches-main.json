@@ -1,0 +1,34 @@
+{
+  "_": "Fiches des lieux (#34), la seule table tenue à la main (étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 2.5) : chaque ligne a sa raison, et geodata/fiches.mjs échoue si une ligne ne s'applique plus. Lot F1 : les noms des sous-régions et les titres de Wikipédia que l'item du pays ne donne pas ; les lots F2 à F5 y ajoutent leurs clés (qid, souverain, statut, tenant, fete…).",
+  "sous_regions": {
+    "_": "Noms français des 23 sous-régions de pays.json (Natural Earth, SUBREGION, une pour une celles de l'ONU M49, § 2.1), d'après les noms français de la norme M49 de l'ONU. « Amérique septentrionale » (M49) pour Northern America : elle ne se confond pas avec le continent « Amérique du Nord » de l'appli (textes.continents). « Micronésie » et non « région micronésienne » (étiquette de CLDR). Antarctica : l'Antarctique.",
+    "Antarctica": "Antarctique",
+    "Australia and New Zealand": "Australie et Nouvelle-Zélande",
+    "Caribbean": "Caraïbes",
+    "Central America": "Amérique centrale",
+    "Central Asia": "Asie centrale",
+    "Eastern Africa": "Afrique de l'Est",
+    "Eastern Asia": "Asie de l'Est",
+    "Eastern Europe": "Europe de l'Est",
+    "Melanesia": "Mélanésie",
+    "Micronesia": "Micronésie",
+    "Middle Africa": "Afrique centrale",
+    "Northern Africa": "Afrique du Nord",
+    "Northern America": "Amérique septentrionale",
+    "Northern Europe": "Europe du Nord",
+    "Polynesia": "Polynésie",
+    "South America": "Amérique du Sud",
+    "South-Eastern Asia": "Asie du Sud-Est",
+    "Southern Africa": "Afrique australe",
+    "Southern Asia": "Asie du Sud",
+    "Southern Europe": "Europe du Sud",
+    "Western Africa": "Afrique de l'Ouest",
+    "Western Asia": "Asie de l'Ouest",
+    "Western Europe": "Europe de l'Ouest"
+  },
+  "wp": {
+    "_": "Titre de la Wikipédia en français du lien « Voir sur Wikipédia », quand ce n'est pas celui de l'item du pays dans l'extrait des capitales : l'item du pays jouable (le pays constitutif, sans ses îles des Caraïbes ou du Groenland) a son propre article, peu lu ; le lecteur cherche celui du royaume. Les mêmes que les titres de notoriete-main.json.",
+    "DNK": {"titre": "Danemark", "raison": "l'item Q35 a pour article « Danemark (pays constitutif) » ; « Danemark » est l'article du royaume, celui qu'on lit"},
+    "NLD": {"titre": "Pays-Bas", "raison": "l'item Q55 a pour article « Pays-Bas (pays constitutif) » ; « Pays-Bas » est l'article du royaume, celui qu'on lit"}
+  }
+}
