@@ -1,7 +1,8 @@
 # Fiche d'un lieu — besoin (16/11/2026)
 
 *Ticket #34. Ce fichier donne le besoin de l'utilisateur et ses choix du 16/11.
-La conception reste à faire : données, poids, lots.*
+La conception est dans `2026-11-16-fiche-lieu-conception.md` ; ses écarts à
+ce besoin sont au § 12 de celle-ci.*
 
 ## Demande
 

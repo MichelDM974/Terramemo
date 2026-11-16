@@ -55,7 +55,17 @@ Besoin (16/11/2026) :
 - `2026-11-16-fiche-lieu.md` : fiche d'un lieu touché à l'accueil (pays
   et territoires, océans et mers, communes de La Réunion) : choix de
   l'utilisateur, contenu, propositions à trancher, points de conception
-  (ticket #34). Pas encore conçue.
+  (ticket #34).
+
+Conception de la fiche d'un lieu (16/11/2026) :
+
+- `2026-11-16-fiche-lieu-conception.md` : 332 lieux, données (Banque
+  mondiale, Wikidata, CLDR, tz, IGN, tables relues), barre et fiche,
+  historique et retours, voisins, bilans, garde de la partie en suspens,
+  « Apprendre ce lieu », photos (candidats, licences, outil de relecture,
+  service worker, APK), tests, lots F1 à F9 et P1 à P3, décisions D56 à
+  D61 (ticket #34). Faite par un workflow : cinq relevés, une rédaction,
+  deux relectures adverses, une correction.
 
 Le plan arrêté, qui tient compte des réponses de l'utilisateur et de la
 critique, est `../plan.md` : il fait foi là où ces études divergent.
