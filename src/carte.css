@@ -515,8 +515,12 @@ body[data-fiche] .zoom-carte { display: none !important; }
 body[data-terrain="reunion"] .fiche { top: 40px; }
 /* La tête, collée en haut quand la fiche défile, sur fond opaque ; le glissé
    vers le bas qui ferme y commence (touch-action: none). « × » (commun.ts :
-   croix) à droite, « ‹ » à gauche, 44 px chacune. */
+   croix) à droite, « ‹ » à gauche, 44 px chacune. display: block défait la
+   grille de la règle « header » de l'en-tête du site (style.css), qui
+   s'appliquait aussi à cette tête : drapeau et nom répartis en colonnes,
+   la « × » à gauche (vu sur les captures du pilote le 16/11). */
 .fiche-tete {
+  display: block;
   position: sticky;
   top: 0;
   z-index: 1;
