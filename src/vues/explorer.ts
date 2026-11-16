@@ -443,7 +443,13 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         if (j !== jetonFiche || !active) return;
         const modele = composer(m, f.id);
         if (!modele) return void historique.quitter();
-        feuille ??= m.creerFeuille(ctx.zone, { fermer: () => historique.quitter(), avant: () => historique.retour(), voisin: (v) => historique.pousser({ terrain: 'monde', id: v }) });
+        feuille ??= m.creerFeuille(ctx.zone, {
+          fermer: () => historique.quitter(),
+          // Lu avant l'écouteur du document qui ferme la popup (le voile est la cible du clic) : elle est encore ouverte.
+          voile: () => void (F.reglagesOuverts?.() || historique.quitter()),
+          avant: () => historique.retour(),
+          voisin: (v) => historique.pousser({ terrain: 'monde', id: v }),
+        });
         feuille.montrer(modele, { avant: f.rang > 1, focus: true });
         // Le drapeau d'un pays : le manifeste à la première fiche (§ 6.1), la place grise d'ici là.
         if (modele.avecDrapeau && !modele.drapeaux.length) {

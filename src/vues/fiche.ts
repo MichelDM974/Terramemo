@@ -135,8 +135,14 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
 
 /** Ce que la feuille demande à la carte : chaque geste passe par l'historique (§ 4.4). */
 export interface ActionsFiche {
-  /** « × », le voile, le glissé vers le bas : toutes les fiches fermées, la carte rendue (nav.quitterFiches). */
+  /** « × », le glissé vers le bas : toutes les fiches fermées, la carte rendue (nav.quitterFiches). */
   fermer(): void;
+  /**
+   * Un toucher sur le voile : comme fermer(), sauf la popup ⚙ ouverte, que ce
+   * toucher ne fait que refermer (son écouteur, main.ts ; § 4.2 : elle
+   * s'ouvre par-dessus la fiche sans la fermer).
+   */
+  voile(): void;
   /** « ‹ » : un pas en arrière (history.back()). */
   avant(): void;
   /** Un voisin touché : sa fiche, une entrée de plus (nav.pousserFiche). */
@@ -163,7 +169,7 @@ export const GLISSE_FERMER_PX = 60;
 export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille {
   const voile = creer('div', { class: 'fiche-voile', id: 'fiche-voile', 'aria-hidden': 'true' });
   voile.hidden = true;
-  voile.addEventListener('click', () => actions.fermer());
+  voile.addEventListener('click', () => actions.voile());
   const feuille = creer('section', { class: 'fiche', id: 'fiche-lieu', role: 'dialog', 'aria-labelledby': 'fiche-titre' });
   feuille.hidden = true;
   zone.append(voile, feuille);

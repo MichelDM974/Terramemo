@@ -321,10 +321,13 @@ describe('la fiche', () => {
     }
   });
 
-  it('Échap avec la popup ⚙ ouverte : la popup se ferme (son écouteur), la fiche reste ; dans un champ, Échap reste au champ', async () => {
+  it('Échap ou le voile avec la popup ⚙ ouverte : la popup se ferme (son écouteur), la fiche reste ; dans un champ, Échap reste au champ', async () => {
     let reglages = true;
     const v = await ouvrirSur('JPN', { fiche: { reglagesOuverts: () => reglages } });
     expect(v.echap().defaultPrevented).toBe(false);
+    expect(v.ouverte()).toBe(true);
+    // Un toucher sur le voile pour refermer la popup (§ 4.2 : elle s'ouvre par-dessus la fiche, sans la fermer).
+    v.voile()!.click();
     expect(v.ouverte()).toBe(true);
     reglages = false;
     const champ = new El('input');
