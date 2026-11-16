@@ -5,9 +5,17 @@ pays sur la carte, connaître capitales et drapeaux, puis le relief, les
 fleuves et les ordres de grandeur. Gratuit, sans publicité, en français
 (prêt à traduire).
 
-*En construction. Le site est en ligne sur https://terramemo-geo.web.app
-(J1a, depuis le 06/11/2026) ; l'appli Android n'est pas encore sur le Play
-Store (son APK sert aux essais).*
+**Site en ligne : [terramemo-geo.web.app](https://terramemo-geo.web.app)** —
+l'appli Android n'est pas encore sur le Play Store ; une version d'essai
+(APK de débogage, à installer à la main) est dans les
+[Releases](https://github.com/MichelDM974/Terramemo/releases) du dépôt.
+
+> **In English** — Terramemo is a free geography trainer (website and Android app)
+> built on spaced repetition on the map: a world map coloured by how well you remember
+> each place. TypeScript and Vite, Canvas 2D / WebGL map, FSRS scheduling, Capacitor
+> for Android, Firebase for accounts, sync and leaderboards.
+
+[![CI](https://github.com/MichelDM974/Terramemo/actions/workflows/ci.yml/badge.svg)](https://github.com/MichelDM974/Terramemo/actions/workflows/ci.yml)
 
 ## Le concept
 
@@ -67,17 +75,43 @@ l'oublier, jusqu'à tenir des mois.
   garde après une première visite (service worker, sur le web seulement,
   un cache par version : `src/sw/`).
 - Planification des révisions par FSRS (bibliothèque `ts-fsrs`).
-- Progrès en journal de réponses, sur l'appareil seulement pour l'instant.
-  On joue sans compte ; la synchro par Firebase arrive au J1b, pour les
-  comptes Google ou e-mail et mot de passe (retrouver ses progrès
-  ailleurs). Le compte anonyme ne sert qu'à publier ses scores au
-  classement.
+- Progrès en journal de réponses, en ajout seul, sur l'appareil
+  (IndexedDB). On joue sans compte ; un compte Google ou e-mail et mot de
+  passe (Firebase Auth, ouvert à tous sur le site depuis le 11/11/2026)
+  envoie ses séances à Firestore par lots et retrouve ses progrès sur un
+  autre appareil ; dans l'appli Android, la connexion avec Google est
+  encore en essai. Le compte anonyme ne sert qu'à publier ses scores au
+  classement ; les règles Firestore (classements, comptes) sont testées
+  sur l'émulateur.
 - Données libres préparées par un script reproductible : frontières de
   Natural Earth (domaine public), noms du référentiel Unicode CLDR,
   capitales et populations de Wikidata (CC0), drapeaux de flag-icons (MIT).
 
 Le détail des études préparatoires est dans [`docs/etudes/`](docs/etudes/)
-et le plan arrêté dans [`docs/plan.md`](docs/plan.md).
+et le plan arrêté dans [`docs/plan.md`](docs/plan.md) ; J0, J1a, J1b… y
+désignent les jalons du plan.
+
+## Structure du dépôt
+
+```
+src/
+  map/        carte du monde : projection, rendus Canvas 2D, WebGL et SVG, gestes, zoom
+  srs/        répétition espacée (FSRS), séances, planification
+  journal/    journal des réponses sur l'appareil (IndexedDB)
+  quiz/       génération des questions du quiz général
+  epreuve/    épreuves chronométrées, barème, classements
+  sync/       comptes Firebase, envoi des séances, suppression du compte
+  vues/       écrans de l'appli (accueil, Jouer, compte, crédits…)
+  sw/         service worker du site (hors ligne)
+  mesure/     instrumentation des gestes, pour les relevés de docs/mesures
+geodata/      script reproductible des données de la carte (sources épinglées)
+public/geo/   données générées servies au navigateur
+android/      projet Capacitor de l'appli Android
+licences/     relevé et textes des licences tierces
+tests/        tests Vitest, règles Firestore sur l'émulateur
+docs/         plan, études préparatoires, relevés de mesure
+.claude/skills/run-terramemo/   outillage de l'assistant de code (voir « Méthode »)
+```
 
 ## Développement
 
@@ -131,3 +165,23 @@ npm run build        # site statique dans dist/ (servi par Firebase Hosting)
   Les bibliothèques Android y viennent de `licences/android.json`, relevé
   par Gradle : `npm run licences:android` (JDK 21) après une mise à jour de
   Capacitor ou d'AndroidX, que la CI Android et `driver.py apk` vérifient.
+
+## Méthode
+
+Ce projet est développé avec Claude Code, l'assistant de programmation d'Anthropic :
+il écrit l'essentiel du code, d'où la mention « Co-Authored-By: Claude » des commits.
+Mon travail : définir ce que fait l'appli et pour qui, trancher les choix de
+conception (les études de [`docs/etudes/`](docs/etudes/) les préparent, avant toute
+ligne de code), fixer les critères qui valident un changement, et essayer le résultat
+en conditions réelles, au doigt sur un téléphone Android comme sur le site. Le dossier
+`.claude/skills/run-terramemo/` est l'outillage qui permet à l'assistant de lancer le
+site, de le piloter, de le photographier et d'en mesurer la fluidité lui-même avant de
+rendre son travail ; certains de ses outils sont eux-mêmes testés en CI. Les numéros #N des messages
+de commit renvoient à mon suivi de tickets personnel, qui n'est pas public.
+
+## Licence et crédits
+
+Code consultable, tous droits réservés © 2026 Michel Delhomme. Les données et les
+bibliothèques embarquées gardent leurs propres licences, détaillées ci-dessus
+(« Crédits »), dans le dossier [`licences/`](licences/) et dans l'écran Crédits de
+l'appli.
