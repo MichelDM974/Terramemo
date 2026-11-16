@@ -17,3 +17,4 @@ projection.
 | `plein-soleil/` | 11/11/2026 : la palette lisible en plein soleil, Canvas 2D et WebGL dans Chrome. |
 | `j2/` | 12/11/2026 : le calque des océans et mers (avec, sans, démonstration, projection Pacifique) ; notes `mers-trace.md` et `mers-pilote.md`. |
 | `lignes/` | 14/11/2026 : le coût des lignes de repère (équateur, tropiques…), voir son `README.md`. |
+| `justesse/` | 16/11/2026 : la justesse des prévisions de FSRS sur le journal de l'A37 (`outils/justesse.mjs`, #4), agrégats seuls ; pas un rapport de `mesurer`. |
