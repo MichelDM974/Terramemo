@@ -1484,6 +1484,8 @@ passe les règles d'essai du dépôt, et qu'une autre adresse y est refusée.
 ```bash
 npm run test:synchro    # critère de #3 : deux appareils aux émulateurs (ports 8062 et 8063 libres), aussi en CI
 python3 .claude/skills/run-terramemo/driver.py synchro --out /tmp/terramemo-synchro   # pilote ui_synchro
+python3 .claude/skills/run-terramemo/driver.py suppression --out /tmp/terramemo-suppression   # pilote ui_suppression
+python3 .claude/skills/run-terramemo/driver.py export --out /tmp/terramemo-export             # pilote ui_export
 ```
 
 `synchro` (pilote `ui_synchro`, critère de #3 au navigateur) demande le
@@ -1502,6 +1504,22 @@ drapeaux), puis la déconnexion de l'appareil 2 le vide. Captures 50 à 52.
 Vérifié le 07/11 : 27 événements et la même empreinte des deux côtés.
 Piège : `goto` vers l'adresse de la page au fragment près ne recharge pas
 (navigation dans le document) ; changer un paramètre pour rouvrir.
+
+`suppression` et `export` (pilotes `ui_suppression`, `ui_export`, lot 5)
+demandent la même chose que `synchro` et vident aussi l'émulateur ; un
+seul chromium. `suppression` : compte e-mail, pseudo, une Révision partie,
+⚙ › Compte › « Supprimer mon compte » ; un mot de passe faux (refusé, rien
+commencé), puis deleteUser coupé (`Network.setBlockedURLs`
+`*accounts:delete*`) : « Suppression inachevée », pierre tombale et
+demande posées, lots partis, compte encore dans Auth ; rouverte,
+« Annuler la suppression » refusé, la reprise jusqu'à « Compte
+supprimé. ». État en ligne lu par les API REST des émulateurs en
+`Bearer owner` (`en_ligne(uid)`). Captures 56 à 59, 62, 63. `export` :
+l'invité, puis son compte, puis un appareil neuf connecté exportent
+(`#compte-exporter`) ; chaque fichier reçu (`Browser.setDownloadBehavior`,
+dans `--out`) a les événements du journal de la page, mêmes ids, aucun
+refusé par `probleme()` (`valider_journal.mjs`). Captures 65 à 67.
+Vérifiés le 16/11 (10 réponses, suppression reprise, trois exports égaux).
 
 Chrono de l'île jusqu'au classement, par le pilote (vérifié le 06/11) : le
 choix `#jouer/classe/communes/reunion` puis `#jouer-panneau [data-mode="chrono"]`

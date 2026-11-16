@@ -4747,9 +4747,11 @@ def ui_synchro(p1, p2, capturer, defauts, base):
         defauts.append(f"déconnexion : l'appareil n'est pas vidé ({r['evenements']} événements, uid {r['uid']})")
 
 
-def commande_synchro(args):
-    """ui_synchro : deux navigateurs au site de dev avec ?emulateurs (Vite sur
-    8060, émulateurs Firestore 8062 et Auth 8063 lancés à part)."""
+def pilote_aux_emulateurs(args):
+    """Ce que demandent les pilotes des comptes (synchro, suppression,
+    export) : le serveur de dev et les deux émulateurs lancés à part, les
+    règles d'essai chargées, base et comptes vidés. Rend (out, ecran,
+    telephone, base)."""
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     telephone = args.width < 700
@@ -4762,6 +4764,13 @@ def commande_synchro(args):
             raise RuntimeError(f"émulateur {nom} absent du port {port} : "
                                f"npx firebase emulators:start --only firestore,auth --project {PROJET_EMULATEURS}")
     preparer_emulateurs()
+    return out, ecran, telephone, base
+
+
+def commande_synchro(args):
+    """ui_synchro : deux navigateurs au site de dev avec ?emulateurs (Vite sur
+    8060, émulateurs Firestore 8062 et Auth 8063 lancés à part)."""
+    out, ecran, telephone, base = pilote_aux_emulateurs(args)
     faites, defauts = [], []
     # Pas de couper_synchro : la synchro est ce qu'on éprouve, et tout va aux émulateurs.
     with Session("local") as s1, Session("local") as s2:
@@ -4785,6 +4794,400 @@ def commande_synchro(args):
         dire(f"  DÉFAUT : {d}")
     dire(f"  {len(faites)} captures dans {out}")
     dire("  ui_synchro : " + ("ÉCHEC" if erreurs or defauts else "OK, les deux appareils au même état"))
+    return 1 if erreurs or defauts else 0
+
+
+# --- suppression et export du compte (J1b, lot 5 : pilotes ui_suppression, ui_export) ---
+
+def emulateur(url, corps=None):
+    """Une requête aux API REST d'un émulateur (127.0.0.1, jamais le vrai
+    projet) en propriétaire (`Bearer owner` : les règles ne s'y appliquent
+    pas) ; (code, JSON), GET sans corps, POST avec."""
+    req = urllib.request.Request(url, data=None if corps is None else json.dumps(corps).encode(),
+                                 method="GET" if corps is None else "POST",
+                                 headers={"Authorization": "Bearer owner", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.status, json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return e.code, {}
+
+
+def en_ligne(uid):
+    """Ce que les émulateurs gardent du compte `uid` : auth (le compte est
+    dans Auth), profil et demande (les champs de joueurs/{uid} et de
+    demandes/{uid}, valeurs simples ; None sans document), lots (le nombre
+    de joueurs/{uid}/lots)."""
+    docs = f"http://127.0.0.1:{PORT_FIRESTORE}/v1/projects/{PROJET_EMULATEURS}/databases/(default)/documents"
+
+    def doc(chemin):
+        code, d = emulateur(f"{docs}/{chemin}")
+        if code == 404:
+            return None
+        if code != 200:
+            raise RuntimeError(f"émulateur Firestore : {chemin} illisible ({code})")
+        return {k: next(iter(v.values()), None) for k, v in (d.get("fields") or {}).items()}
+
+    code, lots = emulateur(f"{docs}/joueurs/{uid}/lots?pageSize=300")
+    if code != 200:
+        raise RuntimeError(f"émulateur Firestore : lots de {uid} illisibles ({code})")
+    code, auth = emulateur(f"http://127.0.0.1:{PORT_AUTH}/identitytoolkit.googleapis.com/v1/projects/"
+                           f"{PROJET_EMULATEURS}/accounts:lookup", {"localId": [uid]})
+    if code != 200:
+        raise RuntimeError(f"émulateur Auth : compte {uid} illisible ({code})")
+    return {"auth": bool(auth.get("users")), "profil": doc(f"joueurs/{uid}"), "demande": doc(f"demandes/{uid}"),
+            "lots": len(lots.get("documents") or [])}
+
+
+def attendre_en_ligne(p, uid, condition, quoi, delai_s=30):
+    """Attend que en_ligne(uid) vérifie `condition` ; le rend (RuntimeError sinon)."""
+    fin = time.monotonic() + delai_s
+    while True:
+        e = en_ligne(uid)
+        if condition(e):
+            return e
+        if time.monotonic() > fin:
+            raise RuntimeError(f"{quoi} : pas atteint en {delai_s} s ; en ligne = {e}")
+        p.pause(500)
+
+
+def attendre_texte(p, selecteur, condition, quoi, delai_s=30):
+    """Attend que le texte de `selecteur` vérifie `condition` ; le rend (RuntimeError sinon)."""
+    fin = time.monotonic() + delai_s
+    while True:
+        t = texte(p, selecteur)
+        if condition(t):
+            return t
+        if time.monotonic() > fin:
+            raise RuntimeError(f"{quoi} : {selecteur} dit {t!r} au bout de {delai_s} s")
+        p.pause(200)
+
+
+def choisir_pseudo(p, pseudo):
+    """Vue Compte d'un compte connecté : « Choisir », le pseudo tapé comme au clavier, envoyé."""
+    cliquer_apres_pause(p, "#compte-vers-pseudo")
+    attendre_visible(p, "#compte-pseudo")
+    p.js("(() => { const c = document.getElementById('compte-pseudo'); c.focus(); c.select(); })()")
+    p.cdp("Input.insertText", text=pseudo)
+    cliquer_apres_pause(p, "#compte-pseudo-ok")
+    attendre_visible(p, "#compte-adresse-connectee", 30)
+
+
+def confirmer_suppression(p, mdp, mot="supprimer"):
+    """Le formulaire de la suppression (« Supprimer mon compte », ou sa reprise) : le mot, le mot de passe, le bouton."""
+    attendre_visible(p, "#compte-supprimer-mdp")
+    p.js(f"document.getElementById('compte-supprimer-mot').value = {json.dumps(mot)}; "
+         f"document.getElementById('compte-supprimer-mdp').value = {json.dumps(mdp)};")
+    cliquer_apres_pause(p, "#compte-supprimer-ok")
+
+
+def ui_suppression(p, capturer, defauts, base):
+    """La suppression du compte comme un joueur (étude du J1b, § 7.1), au
+    site de dev avec ?emulateurs, vérifiée aux émulateurs (API REST en
+    propriétaire) et sur l'appareil :
+    1. un compte e-mail créé, un pseudo choisi (⚙ › Compte), la Révision du
+       jour jouée et partie en lots ;
+    2. « Supprimer mon compte » : le texte du classement nomme le pseudo
+       (`56`) ; un mot de passe faux est refusé (`57`) et rien n'est
+       commencé (ni drapeau, ni pierre tombale, ni demande, lots en place) ;
+    3. le bon mot de passe, la requête de deleteUser coupée
+       (Network.setBlockedURLs, le réseau perdu entre les lots supprimés et
+       Auth) : « Suppression inachevée : reprendre ? » (`58`), pierre tombale
+       et demande posées, lots partis, le compte encore dans Auth ;
+    4. l'appli rouverte : pas d'avis, l'écran dans ⚙ › Compte (`59`),
+       « Annuler la suppression » refusé (déjà engagée), puis la reprise
+       (« Supprimer », casse ignorée) jusqu'à « Compte supprimé. » (`62`) :
+       compte parti de Auth, pierre tombale seule (v, maj, supprime),
+       demande au pseudo, aucun lot, appareil vidé (journal, uid, pseudo,
+       choix de l'écran de connexion) ; rouverte, l'écran de connexion de la
+       première ouverture (`63`)."""
+    url = base + "?emulateurs&mesures=0"
+    marque = int(time.time())
+    adresse, mdp, pseudo = f"pilote{marque}@exemple.fr", "motdepasse-pilote", f"Pilote{marque % 100000}"
+
+    def defaut(quoi):
+        defauts.append(f"suppression : {quoi}")
+
+    def comptes_etat():
+        return (p.js("window.terramemo.comptes()") or {}).get("etat") or {}
+
+    # 1. Le compte, son pseudo, une séance en ligne.
+    p.goto(url + "#carte")
+    p.attendre_carte()
+    formulaire_compte(p, "creer", adresse, mdp)
+    attendre_visible(p, "#compte-adresse-connectee", 30)
+    uid = attendre_synchro(p, lambda r: r.get("uid"), "compte dans la session")["uid"]
+    choisir_pseudo(p, pseudo)
+    attendre_en_ligne(p, uid, lambda e: (e["profil"] or {}).get("pseudo") == pseudo, "pseudo au profil en ligne")
+    ligne, desactivee = revision_du_jour(p)
+    if desactivee:
+        raise RuntimeError(f"Révision du jour désactivée ({ligne!r})")
+    cliquer_apres_pause(p, "#jouer-revision")
+    n = jouer_seance(p, capturer, defauts, "Révision du jour, avant la suppression")
+    cliquer_apres_pause(p, "#seance-carte")
+    attendre_synchro(p, lambda r: r["evenements"] == n and (r.get("lots") or {}).get("attente") == 0, "séance envoyée")
+    avant = attendre_en_ligne(p, uid, lambda e: e["lots"] >= 1, "lots en ligne")
+    dire(f"  compte {adresse} ({uid}), pseudo {pseudo}, {n} réponses, {avant['lots']} lot(s) en ligne")
+
+    # 2. « Supprimer mon compte », un mot de passe faux d'abord.
+    p.js('location.hash = "#compte"')
+    attendre_visible(p, "#compte-vers-supprimer", 30)
+    cliquer_apres_pause(p, "#compte-vers-supprimer")
+    attendre_visible(p, "#compte-supprimer-classement", 20)
+    classement = texte(p, "#compte-supprimer-classement")
+    if pseudo not in classement:
+        defaut(f"le texte du classement ne nomme pas le pseudo {pseudo} : {classement!r}")
+    capturer("56-supprimer-confirmation")
+    confirmer_suppression(p, "mauvais-mot-de-passe")
+    erreur = attendre_texte(p, "#compte-erreur", lambda t: t.strip(), "mot de passe faux")
+    dire(f"  mot de passe faux : {erreur!r}")
+    if "Mot de passe incorrect" not in erreur:
+        defaut(f"mot de passe faux sans « Mot de passe incorrect » : {erreur!r}")
+    capturer("57-mot-de-passe-faux")
+    ses = synchro_de(p).get("session") or {}
+    e = en_ligne(uid)
+    if ses.get("suppression") or not e["auth"] or (e["profil"] or {}).get("supprime") or e["demande"] or e["lots"] != avant["lots"]:
+        defaut(f"mot de passe faux, mais la suppression a commencé : drapeau {ses.get('suppression')!r}, en ligne {e}")
+
+    # 3. Le bon mot de passe, le réseau coupé au moment de deleteUser (les lots déjà supprimés).
+    p.cdp("Network.setBlockedURLs", urls=["*accounts:delete*"])
+    try:
+        confirmer_suppression(p, mdp)
+        attendre_visible(p, "#compte-suppression-inachevee", 60)
+        erreur = attendre_texte(p, "#compte-erreur", lambda t: t.strip(), "erreur de la suppression coupée")
+    finally:
+        p.cdp("Network.setBlockedURLs", urls=[])
+    dire(f"  coupée avant deleteUser : {texte(p, '#compte-suppression-inachevee')!r}, {erreur!r}")
+    capturer("58-suppression-inachevee")
+    e = en_ligne(uid)
+    dire(f"  en ligne : {e}")
+    if not e["auth"] or not (e["profil"] or {}).get("supprime") or (e["demande"] or {}).get("pseudo") != pseudo or e["lots"]:
+        defaut(f"coupée avant deleteUser : en ligne {e} (attendu : compte dans Auth, pierre tombale, demande au pseudo {pseudo}, aucun lot)")
+    ses = synchro_de(p).get("session") or {}
+    etat = comptes_etat()
+    if ses.get("suppression") != uid or etat.get("etat") != "suppression" or not etat.get("connecte"):
+        defaut(f"coupée avant deleteUser : drapeau {ses.get('suppression')!r}, état {etat}")
+
+    # 4. L'appli rouverte : l'écran dans ⚙ › Compte, l'annulation refusée, la reprise jusqu'au bout.
+    p.goto(url + "&rouvert=1#carte")
+    p.attendre_carte()
+    p.pause(1500)
+    if visible(p, "#accueil"):
+        defaut("un panneau à l'ouverture pendant la suppression inachevée (attendu : rien avant ⚙ › Compte)")
+    p.js('location.hash = "#compte"')
+    attendre_visible(p, "#compte-suppression-inachevee", 30)
+    capturer("59-suppression-rouverte")
+    cliquer_apres_pause(p, "#compte-suppression-annuler")
+    erreur = attendre_texte(p, "#compte-erreur", lambda t: t.strip(), "« Annuler la suppression » après la pierre tombale")
+    dire(f"  « Annuler la suppression » : {erreur!r}")
+    if "déjà engagée" not in erreur:
+        defaut(f"« Annuler la suppression » après la pierre tombale sans « déjà engagée » : {erreur!r}")
+    if (synchro_de(p).get("session") or {}).get("suppression") != uid:
+        defaut("« Annuler la suppression » a levé le drapeau après la pierre tombale")
+    confirmer_suppression(p, mdp, mot="Supprimer")
+    message = attendre_texte(p, "#compte-message", lambda t: "Compte supprimé" in t or texte(p, "#compte-erreur").strip(),
+                             "reprise de la suppression", 60)
+    if "Compte supprimé" not in message:
+        raise RuntimeError(f"reprise de la suppression : {texte(p, '#compte-erreur')!r}")
+    capturer("62-compte-supprime")
+    e = en_ligne(uid)
+    dire(f"  supprimé, en ligne : {e}")
+    if e["auth"]:
+        defaut("le compte est encore dans Auth")
+    tombe = e["profil"] or {}
+    if tombe.get("supprime") is not True or set(tombe) - {"v", "maj", "supprime"}:
+        defaut(f"profil sans pierre tombale seule : {tombe}")
+    if (e["demande"] or {}).get("pseudo") != pseudo:
+        defaut(f"demande de retrait sans le pseudo {pseudo} : {e['demande']}")
+    if e["lots"]:
+        defaut(f"{e['lots']} lot(s) encore en ligne")
+    r = synchro_de(p)
+    ses = r.get("session") or {}
+    local = p.js(f"[localStorage.getItem('terramemo.pseudo'), localStorage.getItem({json.dumps(CLE_ACCUEIL)})]")
+    etat = comptes_etat()
+    dire(f"  appareil : {r['evenements']} événements, uid {r['uid']}, état {etat.get('etat')}, pseudo et choix {local}")
+    if r["evenements"] or r["uid"] or ses.get("suppression") or ses.get("effacement") or any(local) or etat.get("etat") != "invite":
+        defaut(f"appareil pas vidé : {r['evenements']} événements, uid {r['uid']}, session {ses}, pseudo et choix {local}, état {etat}")
+    p.goto(url + "&apres=1#carte")
+    p.attendre_carte()
+    attendre_visible(p, "#accueil", 20)
+    capturer("63-accueil-apres-suppression")
+
+
+def commande_suppression(args):
+    """ui_suppression : un navigateur au site de dev avec ?emulateurs (Vite
+    sur 8060, émulateurs Firestore 8062 et Auth 8063 lancés à part)."""
+    out, ecran, telephone, base = pilote_aux_emulateurs(args)
+    faites, defauts = [], []
+    with Session("local") as s:
+        p = s.page
+        s.passer_accueil(base)
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        ui_suppression(p, capturer, defauts, base)
+        erreurs = p.erreurs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    dire("  ui_suppression : " + ("ÉCHEC" if erreurs or defauts else "OK, compte supprimé après une reprise"))
+    return 1 if erreurs or defauts else 0
+
+
+def exporter(p, dossier, delai_s=60):
+    """« Exporter mes données » (vue Compte), le fichier reçu par le
+    navigateur dans `dossier` (Browser.setDownloadBehavior) : (message de la
+    vue, chemin, contenu lu)."""
+    dossier.mkdir(parents=True, exist_ok=True)
+    for f in dossier.iterdir():
+        f.unlink()
+    p.nav.commande("Browser.setDownloadBehavior", behavior="allow", downloadPath=str(dossier))
+    p.js('location.hash = "#compte"')
+    attendre_visible(p, "#compte-exporter", 30)
+    cliquer_apres_pause(p, "#compte-exporter")
+    message = attendre_texte(p, "#compte-message", lambda t: "Export prêt" in t or texte(p, "#compte-erreur").strip(),
+                             "export", delai_s)
+    if "Export prêt" not in message:
+        raise RuntimeError(f"export refusé : {texte(p, '#compte-erreur')!r}")
+    fin = time.monotonic() + delai_s
+    while True:
+        fichiers = sorted(dossier.iterdir())
+        if fichiers and all(f.suffix == ".json" for f in fichiers):
+            break
+        if time.monotonic() > fin:
+            raise RuntimeError(f"export : aucun fichier .json fini dans {dossier} en {delai_s} s ({[f.name for f in fichiers]})")
+        p.pause(200)
+    if len(fichiers) != 1:
+        raise RuntimeError(f"export : {len(fichiers)} fichiers dans {dossier}")
+    return message, fichiers[0], json.loads(fichiers[0].read_text())
+
+
+def verifier_export(p, defauts, quoi, message, fichier, x, compte=None):
+    """L'export face au journal de la page (lire_journal) : même nombre
+    d'événements, mêmes ids, aucun que refuse probleme() de
+    src/srs/journal.ts ; le format, le nom ; `compte` (uid, adresse) : la
+    lecture complète, sinon aucun compte. Rend le nombre d'événements."""
+    def defaut(d):
+        defauts.append(f"export {quoi} : {d}")
+
+    _, journal = lire_journal(p)
+    ev = x.get("evenements") or []
+    pb = problemes_journal(ev)
+    dire(f"  export {quoi} : {fichier.name}, {len(ev)} événements (journal de la page : {len(journal)}), "
+         f"{len(pb)} invalide(s), {message!r}")
+    if not re.fullmatch(r"terramemo-\d{4}-\d{2}-\d{2}\.json", fichier.name):
+        defaut(f"nom du fichier : {fichier.name}")
+    if x.get("format") != "terramemo-export" or x.get("v") != 1:
+        defaut(f"format {x.get('format')!r}, v {x.get('v')!r}")
+    if len(ev) != len(journal) or sorted(e.get("id") for e in ev) != sorted(e.get("id") for e in journal):
+        defaut(f"{len(ev)} événements dans le fichier, {len(journal)} au journal de la page (ou d'autres ids)")
+    if pb:
+        defaut(f"{len(pb)} événement(s) invalide(s) : {pb[:3]}")
+    if not ev:
+        defaut("aucun événement")
+    if compte:
+        c = x.get("compte") or {}
+        if c.get("uid") != compte["uid"] or c.get("adresse") != compte["adresse"] or c.get("fournisseurs") != ["password"]:
+            defaut(f"compte {c} (attendu {compte['uid']}, {compte['adresse']}, password)")
+        if (x.get("lecture") or {}).get("complete") is not True:
+            defaut(f"lecture {x.get('lecture')} : des séances en ligne peuvent manquer")
+        if "manquer" in message or "partiel" in message:
+            defaut(f"la vue dit l'export partiel : {message!r}")
+    elif "compte" in x or "lecture" in x:
+        defaut(f"un invité exporte un compte : {x.get('compte')}, {x.get('lecture')}")
+    return len(ev)
+
+
+def ui_export(sur_un_appareil, defauts, base, out):
+    """L'export JSON (étude du J1b, § 7.2) au site de dev avec ?emulateurs,
+    chaque fichier reçu du navigateur vérifié par verifier_export :
+    appareil 1, l'invité joue la Révision du jour et exporte (`65`, sans
+    compte), crée un compte (ses progrès partent en lots), exporte de
+    nouveau (`66`, son compte, lecture complète) ; puis un appareil neuf
+    (profil neuf, l'un après l'autre : un seul chromium) s'y connecte et
+    exporte (`67`) : les mêmes événements, lus en ligne.
+    `sur_un_appareil(faire)` ouvre un navigateur et rend faire(p, capturer)."""
+    url = base + "?emulateurs&mesures=0"
+    adresse, mdp = f"pilote{int(time.time())}@exemple.fr", "motdepasse-pilote"
+    ids = {}
+
+    def appareil1(p, capturer):
+        p.goto(url + "#carte")
+        p.attendre_carte()
+        ligne, desactivee = revision_du_jour(p)
+        if desactivee:
+            raise RuntimeError(f"Révision du jour désactivée ({ligne!r})")
+        cliquer_apres_pause(p, "#jouer-revision")
+        n = jouer_seance(p, capturer, defauts, "Révision du jour de l'invité, avant l'export")
+        cliquer_apres_pause(p, "#seance-carte")
+        attendre_synchro(p, lambda r: r["evenements"] == n, "séance au journal")
+        message, fichier, x = exporter(p, out / "export-invite")
+        capturer("65-export-invite")
+        verifier_export(p, defauts, "de l'invité", message, fichier, x)
+        formulaire_compte(p, "creer", adresse, mdp)
+        attendre_visible(p, "#compte-adresse-connectee", 30)
+        uid = attendre_synchro(p, lambda r: r.get("uid") and (r.get("lots") or {}).get("attente") == 0
+                               and r["evenements"] == n, "compte créé, séance envoyée")["uid"]
+        ids["uid"] = uid
+        message, fichier, x = exporter(p, out / "export-compte")
+        capturer("66-export-compte")
+        verifier_export(p, defauts, "du compte", message, fichier, x, {"uid": uid, "adresse": adresse})
+        ids["evenements"] = sorted(e["id"] for e in x["evenements"])
+
+    def appareil2(p, capturer):
+        p.goto(url + "#carte")
+        p.attendre_carte()
+        formulaire_compte(p, "connecter", adresse, mdp)
+        attendre_visible(p, "#compte-adresse-connectee", 30)
+        message, fichier, x = exporter(p, out / "export-appareil-neuf")
+        capturer("67-export-appareil-neuf")
+        verifier_export(p, defauts, "d'un appareil neuf", message, fichier, x, {"uid": ids["uid"], "adresse": adresse})
+        if sorted(e["id"] for e in x["evenements"]) != ids["evenements"]:
+            defauts.append(f"export d'un appareil neuf : {len(x['evenements'])} événements, pas ceux de l'appareil 1 "
+                           f"({len(ids['evenements'])})")
+
+    sur_un_appareil(appareil1)
+    sur_un_appareil(appareil2)
+
+
+def commande_export(args):
+    """ui_export : deux navigateurs l'un après l'autre au site de dev avec
+    ?emulateurs (Vite sur 8060, émulateurs Firestore 8062 et Auth 8063
+    lancés à part) ; les fichiers exportés dans --out."""
+    out, ecran, telephone, base = pilote_aux_emulateurs(args)
+    faites, defauts, erreurs = [], [], []
+
+    def sur_un_appareil(faire):
+        with Session("local") as s:
+            p = s.page
+            s.passer_accueil(base)
+            p.emuler(ecran, tactile=telephone)
+
+            def capturer(nom):
+                chemin = out / f"{nom}.png"
+                p.pause(350)
+                p.capture(chemin)
+                faites.append(chemin)
+
+            try:
+                return faire(p, capturer)
+            finally:
+                erreurs.extend(p.erreurs)
+
+    ui_export(sur_un_appareil, defauts, base, out)
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures et les fichiers exportés dans {out}")
+    dire("  ui_export : " + ("ÉCHEC" if erreurs or defauts else "OK, chaque export égal au journal de la page"))
     return 1 if erreurs or defauts else 0
 
 
@@ -6115,6 +6518,18 @@ def main():
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
     s.add_argument("--out", default="/tmp/terramemo-captures")
 
+    s = sub.add_parser("suppression", help="ui_suppression (J1b) : compte supprimé comme un joueur, mot de passe faux, "
+                                           "suppression coupée avant deleteUser puis reprise, vérifiée aux émulateurs")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+
+    s = sub.add_parser("export", help="ui_export (J1b) : l'export JSON de l'invité, du compte et d'un appareil neuf, "
+                                      "chaque fichier téléchargé vérifié par probleme() face au journal de la page")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures")
+
     s = sub.add_parser("mesurer", help="gestes et touchers rejoués, rapport JSON")
     s.add_argument("--cible", choices=("local", "chrome", "webview"), default="local")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), default="canvas",
@@ -6157,7 +6572,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "quiz", "lignes", "synchro", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "mers", "quiz", "lignes", "synchro", "suppression", "export", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -6171,6 +6586,7 @@ def main():
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
     commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "mers": commande_mers, "quiz": commande_quiz, "lignes": commande_lignes, "synchro": commande_synchro,
+                 "suppression": commande_suppression, "export": commande_export,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
     commandes.update({k.replace("_", "-"): v for k, v in commandes.items() if "_" in k})
