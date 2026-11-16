@@ -199,13 +199,17 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(css).toMatch(/#barre-carte\.barre-lieu \.barre-faits, #barre-carte\.barre-lieu\.barre-avec-memoire \.barre-memoire \{ display: block; min-height: 1\.35em; \}/);
   });
 
-  it('sans données (hors ligne) : pas de chevron, le bouton n’ouvre rien ; le toucher suivant réessaie', async () => {
+  it('sans données (hors ligne) : pas de chevron, le bouton n’ouvre rien ni ne s’annonce réductible ; le toucher suivant réessaie', async () => {
     let echoue = true;
     const v = monter({ fiche: { fiches: () => (echoue ? Promise.reject(new Error('hors ligne')) : Promise.resolve(FICHES)) } });
     v.vue.activer();
+    // « Touche un pays » : un bouton qui n'ouvre rien ne se dit pas réductible (§ 4.1).
+    expect(v.bouton().getAttribute('aria-expanded')).toBeNull();
     v.toucher('JPN');
     await tenir();
     expect(v.chevron()).toBe(false);
+    expect(v.bouton().getAttribute('aria-expanded')).toBeNull();
+    expect(v.bouton().getAttribute('aria-controls')).toBeNull();
     v.bouton().click();
     await tenir();
     expect(v.ouverte()).toBe(false);
@@ -213,6 +217,8 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     v.toucher('JPN');
     await tenir();
     expect(v.chevron()).toBe(true);
+    expect(v.bouton().getAttribute('aria-expanded')).toBe('false');
+    expect(v.bouton().getAttribute('aria-controls')).toBe('fiche-lieu');
   });
 
   it('les capitales manquées au premier toucher (hors ligne) : le chevron sans ligne de faits, puis la capitale au toucher suivant', async () => {
@@ -236,6 +242,7 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     await tenir();
     expect(v.chevron()).toBe(false);
     expect(v.charges).toEqual([]);
+    expect(v.bouton().getAttribute('aria-expanded')).toBeNull();
   });
 });
 

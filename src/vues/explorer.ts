@@ -138,7 +138,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   chevron.hidden = true;
   const bouton = creer(
     'button',
-    { type: 'button', class: 'barre-fiche', id: 'barre-fiche', 'aria-expanded': 'false', 'aria-controls': 'fiche-lieu' },
+    // aria-expanded et aria-controls seulement quand il y a une fiche à ouvrir (poserAria) : la barre ne promet rien d'autre (§ 4.1).
+    { type: 'button', class: 'barre-fiche', id: 'barre-fiche' },
     creer('span', { class: 'barre-ligne' }, nom, ' ', detail),
     faits,
     memoireLigne,
@@ -380,7 +381,24 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       }
     }
     bouton.classList.toggle('barre-avec-fiche', ficheDispo);
+    poserAria();
     annoncer();
+  }
+
+  /**
+   * Le bouton de la barre dit qu'il ouvre la fiche (aria-expanded,
+   * aria-controls) seulement s'il en a une à ouvrir, ou pendant qu'elle est
+   * ouverte : « Touche un pays », une mer, des données absentes ou une partie
+   * en suspens n'annoncent pas un bouton réductible qui n'ouvre rien (§ 4.1).
+   */
+  function poserAria(): void {
+    if (ficheOuverte || ficheDispo) {
+      bouton.setAttribute('aria-expanded', String(!!ficheOuverte));
+      bouton.setAttribute('aria-controls', 'fiche-lieu');
+    } else {
+      bouton.removeAttribute('aria-expanded');
+      bouton.removeAttribute('aria-controls');
+    }
   }
 
   /** Ouvre la fiche du lieu de la barre (toucher, Entrée, glissé vers le haut) : une entrée d'historique. */
@@ -397,7 +415,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     ficheOuverte = null;
     feuille?.fermer();
     barre.removeAttribute('inert');
-    bouton.setAttribute('aria-expanded', 'false');
+    poserAria();
     delete document.body.dataset.fiche;
     if (focus) bouton.focus();
   }
@@ -434,7 +452,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     ficheOuverte = f;
     const j = ++jetonFiche;
     barre.setAttribute('inert', '');
-    bouton.setAttribute('aria-expanded', 'true');
+    poserAria();
     document.body.dataset.fiche = 'ouverte';
     // Le lieu sur la carte : un voisin, ou une fiche rendue par un retour (aller() vide la barre, la fiche reste ouverte).
     if (t !== ctx.terrains.monde || barre.dataset.id !== f.id) montrer(ctx.terrains.monde, f.id);
