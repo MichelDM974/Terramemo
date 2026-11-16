@@ -2180,6 +2180,31 @@ def seance_question(p):
       return [null, null]; })()""")
 
 
+_IDS_MERS = None
+
+
+def ids_mers():
+    """Les ids des 50 océans et mers (public/geo/mers.fr.json du dépôt), lus une fois."""
+    global _IDS_MERS
+    if _IDS_MERS is None:
+        _IDS_MERS = frozenset(json.loads((RACINE / "public/geo/mers.fr.json").read_text())["noms"])
+    return _IDS_MERS
+
+
+def verifier_pastilles(p, defauts, quoi, cachees):
+    """Décision « Pastilles cachées pendant une question de mer » (16/11/2026) :
+    #carte data-pastilles (celles du monde, calculées à tout zoom pour les
+    micro-États) à 0 pendant une question de mer (cachees vrai), > 0 sinon
+    (une question d'un autre sujet, un bilan, la partie quittée). Rend le
+    nombre lu."""
+    n = p.js("+document.querySelector('#carte').dataset.pastilles")
+    if cachees and n:
+        defauts.append(f"{quoi} : {n} pastilles sur la carte du monde (aucune pendant une question de mer)")
+    elif not cachees and not n:
+        defauts.append(f"{quoi} : aucune pastille sur la carte du monde (rendues hors d'une question de mer)")
+    return n
+
+
 def attendre_question(p, avant=None, delai_s=8):
     """Attend une nouvelle question (autre cible ou autre forme que `avant`) ou le bilan."""
     fin = time.monotonic() + delai_s
@@ -2234,7 +2259,9 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
     juste) ; arret_qcm : « Terminer » au premier QCM (la grappe suivante
     n'est pas jouée). captures : {forme ou 'rappel': nom} prises une fois.
     toucher(p, cible) : le toucher d'un rappel (toucher_pays par défaut ;
-    toucher_mer pour une séance des mers)."""
+    toucher_mer pour une séance des mers). À chaque question, les pastilles
+    du monde selon son sujet (verifier_pastilles : aucune pour une mer), et
+    rendues au bilan."""
     toucher = toucher or toucher_pays
     captures = dict(captures or {})
     reponses = 0
@@ -2251,6 +2278,8 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
         teintes = p.js(TEINTES_POSEES)
         if teintes:
             defauts.append(f"{quoi} : {teintes} zone(s) teintée(s) pendant la séance ({forme} {cible})")
+        # Une question de mer sans les pastilles des micro-États, une autre avec (décision du 16/11).
+        verifier_pastilles(p, defauts, f"{quoi} ({forme} {cible})", cible in ids_mers())
         if forme == "qcm":
             if arret_qcm:
                 cliquer_apres_pause(p, "#nommer-terminer")
@@ -2328,6 +2357,8 @@ def jouer_seance(p, capturer, defauts, quoi, connu=False, rater_rappel=False, ar
         q = attendre_question(p, q)
     if seance_question(p)[0] != "bilan":
         defauts.append(f"{quoi} : pas de bilan au bout de la séance ({seance_question(p)})")
+    else:
+        verifier_pastilles(p, defauts, f"{quoi}, bilan", False)
     return reponses
 
 
@@ -2839,7 +2870,10 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
     « Mers » (ses zones teintées, « n/50 maîtrisées », le carré « Jamais
     vu » de la légende couleur d'eau, celui de la terre sous Pays ; un océan
     touché : sa mémoire ; aucune pastille, #carte data-disques à 0, rendues
-    de retour à Pays). DÉFAUT à tout écart."""
+    de retour à Pays). Pendant chaque question de mer (Trouver, Reconnaître,
+    Apprendre), #carte data-pastilles à 0, et > 0 à chaque bilan (décision
+    « Pastilles cachées pendant une question de mer », 16/11 :
+    verifier_pastilles). DÉFAUT à tout écart."""
     p.goto("about:blank")
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
@@ -2959,6 +2993,7 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
         cible = p.js('document.querySelector("#barre-essai .essai-consigne").dataset.cible')
         consigne = texte(p, "#barre-essai .essai-consigne")
         sans_id("Trouver sous Mers", texte(p, "#barre-essai"))
+        verifier_pastilles(p, defauts, f"Trouver sous Mers ({cible})", True)
         if consigne != f"Touche : {noms.get(cible)}":
             defauts.append(f"Trouver sous Mers, {cible} : consigne {consigne!r}")
         retro = ""
@@ -3014,7 +3049,7 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
         cliquer_apres_pause(p, "#essai-terminer")
         attendre_visible(p, "#essai-bilan")
     bilan = texte(p, "#essai-bilan")
-    dire(f"  Mers, Trouver, bilan : {bilan[:200]!r}")
+    dire(f"  Mers, Trouver, bilan : {bilan[:200]!r} ; {verifier_pastilles(p, defauts, 'bilan de Trouver sous Mers', False)} pastilles")
     sans_id("bilan de Trouver sous Mers", bilan)
     if "Océans et mers" not in bilan:
         defauts.append(f"bilan de Trouver sous Mers sans « Océans et mers » : {bilan[:200]!r}")
@@ -3032,6 +3067,7 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
         if any(t != noms.get(i) for i, t in boutons):
             defauts.append(f"Reconnaître sous Mers : un choix sans son nom ({boutons})")
         sans_id("Reconnaître sous Mers", texte(p, "#barre-nommer"))
+        verifier_pastilles(p, defauts, f"Reconnaître sous Mers ({cible})", True)
         verifier_cadrage(p, defauts, f"Reconnaître sous Mers ({cible})")
         if k == 0:
             dire(f"  Mers, Reconnaître ({cible}) : {consigne!r}, {[t for _, t in boutons]}")
@@ -3050,6 +3086,7 @@ def ui_mers(p, capturer, defauts, base, parametres=""):
     attendre_visible(p, "#essai-bilan")
     bilan = texte(p, "#essai-bilan")
     dire(f"  Mers, Reconnaître, bilan : {bilan!r}")
+    verifier_pastilles(p, defauts, "bilan de Reconnaître sous Mers", False)
     sans_id("bilan de Reconnaître sous Mers", bilan)
     if "tu avais choisi" not in bilan:
         defauts.append(f"bilan de Reconnaître sous Mers sans sa faute : {bilan!r}")
@@ -3411,8 +3448,10 @@ def ui_epreuves_mers(p, capturer, defauts, base, parametres=""):
     nommée, la partie finie ; le bilan (137) « Sans faute · Océans et mers »,
     « n d'affilée sur 50 », le raté par les noms, le classement de
     sansfaute:mers:mers ; le record sous Classé › Océans et mers ; le 🏆
-    (138) : la ligne « Océans et mers » sous son sujet. Sans pseudo (invité
-    du pilote) : rien n'est publié. DÉFAUT à tout écart."""
+    (138) : la ligne « Océans et mers » sous son sujet. Aucune pastille
+    pendant ses questions, rendues au bilan (décision du 16/11 :
+    verifier_pastilles). Sans pseudo (invité du pilote) : rien n'est publié.
+    DÉFAUT à tout écart."""
     _, _, corps = http(base + "geo/mers.fr.json")
     noms = json.loads(corps)["noms"]
     ids = set(noms)
@@ -3494,6 +3533,7 @@ def ui_epreuves_mers(p, capturer, defauts, base, parametres=""):
         cible = p.js('document.querySelector("#barre-chrono .essai-consigne").dataset.cible')
         consigne = texte(p, "#barre-chrono .essai-consigne")
         sans_id("Sans faute des mers", texte(p, "#barre-chrono"))
+        verifier_pastilles(p, defauts, f"Sans faute des mers ({cible})", True)
         if consigne != f"Touche : {noms.get(cible)}":
             defauts.append(f"Sans faute des mers, {cible} : consigne {consigne!r}")
         # L'appli ne cadre jamais la vue sur la mer demandée (ce serait donner la réponse) : la vue de la question
@@ -3550,6 +3590,7 @@ def ui_epreuves_mers(p, capturer, defauts, base, parametres=""):
     if not p.js("!!document.querySelector('#chrono-bilan .chrono-classement[data-epreuve=\"sansfaute:mers:mers\"]')"):
         defauts.append("bilan du Sans faute des mers : pas de classement de sansfaute:mers:mers")
     sans_id("bilan du Sans faute des mers", lu)
+    verifier_pastilles(p, defauts, "bilan du Sans faute des mers", False)
     capturer("137-mers-sansfaute-bilan")
     croix_vers_carte(p, defauts, "bilan du Sans faute des mers", "#chrono-bilan")
 
@@ -4024,8 +4065,10 @@ def ui_quiz(p, capturer, defauts, base, parametres=""):
     (16-quiz-record) ; le retour arrière : la racine de Jouer ; « × » : la
     carte ; une partie laissée en cours (deux justes, la page rechargée) :
     l'avis « … a compté : 2/20 · 10 % » à l'accueil (16-quiz-interrompue).
-    Sans pseudo (invité du pilote) : rien n'est publié. DÉFAUT à tout
-    écart."""
+    Question par question, des mers et d'autres sujets : aucune pastille
+    pendant une mer, des pastilles sinon, et aux deux bilans (décision du
+    16/11 : verifier_pastilles). Sans pseudo (invité du pilote) : rien
+    n'est publié. DÉFAUT à tout écart."""
     def lire(attr):
         return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
 
@@ -4100,8 +4143,13 @@ def ui_quiz(p, capturer, defauts, base, parametres=""):
     if not compte.startswith("1 / 20"):
         defauts.append(f"quiz : compte {compte!r} au lieu de « 1 / 20 »")
     capturer("16-quiz-question")
+    sujets_vus = collections.Counter()
     for i in range(20):
         attendre(ouverte, f"la question {i + 1}")
+        # Question par question : sans les pastilles pour une mer, avec pour un autre sujet (décision du 16/11).
+        id_q = p.js(cible)
+        sujets_vus["mer" if id_q in ids_mers() else "autre"] += 1
+        verifier_pastilles(p, defauts, f"quiz, question {i + 1} ({id_q})", id_q in ids_mers())
         if visible(p, f"{barre} .nommer-grille") is False:
             defauts.append(f"quiz facile : question {i + 1} sans grille (20 QCM sur 20 au facile)")
         choisir(i != 2)
@@ -4117,7 +4165,10 @@ def ui_quiz(p, capturer, defauts, base, parametres=""):
     attendre(bilan_vu, "le bilan", 10)
     lu = sans_insecables(texte(p, "#quiz-bilan"))
     titre = texte(p, "#quiz-bilan h2")
-    dire(f"  quiz, bilan : {lu[:200]!r}")
+    dire(f"  quiz, bilan : {lu[:200]!r} ; questions {dict(sujets_vus)}")
+    if not sujets_vus["mer"] or not sujets_vus["autre"]:
+        defauts.append(f"quiz facile : questions {dict(sujets_vus)} (des mers et d'autres sujets attendus, à parts égales)")
+    verifier_pastilles(p, defauts, "bilan du quiz", False)
     m = MOTIF_PART.search(lu)
     if titre != "Quiz général · Facile" or not m or (int(m[1]), int(m[2])) != (19, 20) or not part_juste(m) or "Premier record pour cette difficulté." not in lu or "Temps total" not in lu:
         defauts.append(f"bilan du quiz : {titre!r}, {lu[:200]!r} (« 19/20 · 95 % », « Temps total », le premier record attendus)")
@@ -4131,6 +4182,7 @@ def ui_quiz(p, capturer, defauts, base, parametres=""):
     attendre(ouverte, "la première question rejouée")
     cliquer(p, "#quiz-abandonner")
     attendre(bilan_vu, "le bilan après l'abandon", 5)
+    verifier_pastilles(p, defauts, "bilan du quiz abandonné", False)
     lu = sans_insecables(texte(p, "#quiz-bilan"))
     dire(f"  quiz, abandon : {lu[:200]!r}")
     if "Partie abandonnée à la question 1" not in lu or "0/20 · 0 %" not in lu or "Record à battre : 19/20 · 95 %" not in lu:
