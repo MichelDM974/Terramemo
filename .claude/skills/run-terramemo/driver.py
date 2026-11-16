@@ -4575,18 +4575,20 @@ def commande_accueil(args):
 PORT_FIRESTORE, PORT_AUTH = 8062, 8063
 # Le projet passé à `emulators:start` (celui de la config du site avec ?emulateurs).
 PROJET_EMULATEURS = "terramemo-geo"
-# Le corps fermé d'essai() dans firestore.rules (jusqu'au lot 6) : ouvert sur l'émulateur seulement.
+# Le corps d'essai() dans firestore.rules : fermé jusqu'au lot 6 (ouvert alors sur l'émulateur seulement), ouvert depuis.
 ESSAI_FERME = re.compile(r"function essai\(\) \{\n\s*return false;\n\s*\}")
+ESSAI_OUVERT = re.compile(r"function essai\(\) \{\n\s*return true;\n\s*\}")
 
 
 def preparer_emulateurs():
     """Règles du dépôt avec essai() ouvert, chargées dans l'émulateur
     Firestore (jamais le vrai projet), puis base et comptes de l'émulateur
-    vidés : chaque pilote part de zéro."""
+    vidés : chaque pilote part de zéro. Depuis l'ouverture des comptes à tous
+    (32d4b52, #3), essai() est vrai dans le dépôt : ses règles telles quelles."""
     regles = (RACINE / "firestore.rules").read_text()
     ouvertes, n = ESSAI_FERME.subn("function essai() { return true; }", regles)
-    if not n:
-        raise RuntimeError("essai() fermé introuvable dans firestore.rules")
+    if not n and not ESSAI_OUVERT.search(regles):
+        raise RuntimeError("essai() introuvable dans firestore.rules (ni fermé ni ouvert)")
     corps = json.dumps({"rules": {"files": [{"content": ouvertes}]}}).encode()
     base_fs = f"http://127.0.0.1:{PORT_FIRESTORE}/emulator/v1/projects/{PROJET_EMULATEURS}"
     req = urllib.request.Request(base_fs + ":securityRules", data=corps, method="PUT", headers={"Content-Type": "application/json"})
