@@ -325,6 +325,17 @@ describe('la fiche', () => {
     expect(g.feuille()!.querySelector('.fiche-memoire')).toBeNull();
   });
 
+  it('will-change: transform le temps de la montée seulement, et jamais sous mouvement réduit (§ 6.4)', async () => {
+    for (const reduit of [false, true]) {
+      vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('no-preference') ? !reduit : reduit }));
+      const v = await ouvrirSur('JPN');
+      expect(v.feuille()!.style.willChange, `réduit ${reduit}`).toBe(reduit ? undefined : 'transform');
+      v.feuille()!.emettre('animationend', {});
+      expect(v.feuille()!.style.willChange || '', `réduit ${reduit}`).toBe('');
+      expect(readFileSync('src/carte.css', 'utf8')).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*\.fiche:not\(\[hidden\]\) \{ animation: fiche-monte/);
+    }
+  });
+
   it('la mémoire relue (rafraichir) refait la fiche ouverte sans lui prendre le focus : il reste sur le même voisin', async () => {
     const v = await ouvrirSur('FRA');
     const italie = () => v.feuille()!.querySelectorAll('.fiche-voisin').find((b) => b.dataset.id === 'ITA')!;

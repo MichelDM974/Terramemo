@@ -173,6 +173,11 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
   const feuille = creer('section', { class: 'fiche', id: 'fiche-lieu', role: 'dialog', 'aria-labelledby': 'fiche-titre' });
   feuille.hidden = true;
   zone.append(voile, feuille);
+  // will-change: transform le temps de la montée seulement (§ 6.4) : la feuille composée à part pendant
+  // l'animation (carte.css : fiche-monte), sans garder un calque pour elle une fois ouverte.
+  const finMontee = () => void (feuille.style.willChange = '');
+  feuille.addEventListener('animationend', finMontee);
+  feuille.addEventListener('animationcancel', finMontee);
 
   let modele: ModeleFiche | null = null;
   let avecAvant = false;
@@ -264,6 +269,8 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       const actif = document.activeElement as HTMLElement | null;
       const rangFocus = meme && actif && actif !== feuille && feuille.contains(actif) ? focusables().indexOf(actif) : -1;
       const defile = feuille.scrollTop;
+      // Une ouverture (la feuille était cachée) : l'animation de carte.css part, sauf mouvement réduit.
+      if (feuille.hidden && globalThis.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) feuille.style.willChange = 'transform';
       modele = m;
       avecAvant = o.avant;
       feuille.dataset.id = m.id;
@@ -286,6 +293,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       poserDrapeaux(modele);
     },
     fermer() {
+      finMontee();
       modele = null;
       feuille.hidden = true;
       voile.hidden = true;
