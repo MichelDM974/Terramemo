@@ -14,7 +14,8 @@ on:
 
 jobs:
   apk:
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-26.04' }}
+    # Dépôt public : jamais de runner auto-hébergé (une PR de fork y exécuterait son code).
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
