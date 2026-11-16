@@ -44,11 +44,10 @@ Décisions actées qui priment en cas d'écart :
 - et « Langue », « Articles des noms de pays », « Hébergement »,
   « Diffusion », « Public et modèle », « Licences tierces », « Contenu ».
 
-Les choix laissés à l'utilisateur sont au § 9 : D56 à D61. En attendant une
-réponse, le code prend un **défaut réversible** : une constante nommée,
-commentée « défaut en attente de l'utilisateur, #34 ». Un seul défaut ne se
-rattrape pas : mettre les photos dans le dépôt (D59), car l'historique de git
-ne s'allège plus. Son défaut est donc de ne pas les y mettre.
+Les choix laissés à l'utilisateur sont au § 9 : D56 à D61, **tranchés le
+16/11, tous selon la recommandation** (décision « Fiche d'un lieu : langues,
+superficies, zones, Apprendre, photos, voisins »). Le code suit la réponse,
+pas le défaut : les défauts du § 9 ne servent plus.
 
 Résumé des choix :
 - **332 lieux** ont une fiche : 197 pays, 48 territoires, 12 zones
@@ -2070,10 +2069,14 @@ sortir vite, c'est F1 : la fiche existe, avec ce que le dépôt sait déjà.
 - **Fin** : chaque lieu des trois sujets a sa fiche, sources et licences
   affichées, sur le site et dans l'APK.
 
-## 9. Décisions en attente de l'utilisateur
+## 9. Décisions de l'utilisateur
 
-Chaque réponse se note au registre. Une réponse qui contredit une décision
-actée la **remplace** (`noter_decision`, `remplace`).
+**Tranchées le 16/11, toutes selon la recommandation** : D56 c, D57 a
+(zones) et b (superficie de l'ONU), D58 b (lieu retenu sur l'appareil) et a
+(nom seul), D59 d (release GitHub), D60 a, D61 b (carte de situation, lot
+F8). Notées au registre : décision « Fiche d'un lieu : langues, superficies,
+zones, Apprendre, photos, voisins ». Le texte ci-dessous garde les options
+et leurs raisons ; leurs « défauts codés » ne servent plus.
 
 | N° | Question | Recommandation | Bloque |
 |---|---|---|---|
@@ -2619,3 +2622,27 @@ code ou les données avant d'être intégré. Scripts de la correction :
   P2 » : le nom hors du préfixe suffit ; `driver.py` ne change pas.
 - « Copier les photos hors de `public/` » : pas tout de suite ; la copie
   est à mesurer au lot P2 (S64), seuil de 5 s.
+
+## 14. Écarts du code au lot F1
+
+Relevés par le codeur et la correction du lot F1 (branche `fiche-lieu`) :
+- `router()` rend la fiche à la fin, après `activer()`, et non « avant le
+  test de `traversee` » (§ 4.4) : `pousserFiche` et `quitterFiches` remettent
+  `traversee` à zéro. Aucune suite de gestes trouvée qui saute une fiche ;
+  les tests de navigation le couvrent.
+- Recharger la page sur une entrée de fiche rend **la carte seule** : le
+  premier `router()` remonte l'entrée au lieu de rouvrir la fiche, pour tenir
+  le § 6.1 (rien de la fiche au premier affichage).
+- Une entrée de fiche porte la marque `#fiche` : la « × » d'une vue ouverte
+  par-dessus (Jouer, 🏆, Crédits) la saute et rend la carte seule
+  (« Croix vers la carte ») ; « Retour » rouvre la fiche, un pas en arrière.
+- `geodata/fiches.mjs` est une partie du build (`build.mjs --seulement
+  fiches`, `npm run fiches`) : sinon un build complet effacerait son
+  empreinte de `sources.json`.
+- La ligne de la mémoire passe de `.barre-detail` à `.barre-memoire`
+  (§ 4.1, trois lignes).
+- Sous-régions : noms français de la norme M49, dont « Amérique
+  septentrionale » (Northern America), pour ne pas la confondre avec le
+  continent « Amérique du Nord » (`geodata/fiches-main.json`).
+- Le scénario de mesure du § 6.4 vit dans `driver.py fiche` (et `ui_fiche`),
+  pas dans `driver.py mesurer` ; chemin fixe France, Brésil, Argentine.
