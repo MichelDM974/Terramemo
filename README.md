@@ -17,12 +17,19 @@ l'appli Android n'est pas encore sur le Play Store ; une version d'essai
 
 [![CI](https://github.com/MichelDM974/Terramemo/actions/workflows/ci.yml/badge.svg)](https://github.com/MichelDM974/Terramemo/actions/workflows/ci.yml)
 
+![La carte du monde pendant une question : « Pays de ce drapeau », la Colombie touchée juste](docs/captures/monde.png)
+
 ## Le concept
 
 Terramemo n'est pas un quiz qu'on enchaîne, mais un entraînement par
 **répétition espacée sur la carte** : chaque fait (« où est le Pérou ? »,
 « quel est ce pays ? ») revient au moment où l'on est sur le point de
 l'oublier, jusqu'à tenir des mois.
+
+<p>
+  <img src="docs/captures/erreur-sosies.png" width="49%" alt="Erreur montrée sur la carte : le drapeau du Mali choisi à la place de celui de la Guinée, son sosie">
+  <img src="docs/captures/carte-memoire.png" width="49%" alt="Carte de la mémoire des drapeaux : les pays appris en orange, selon la solidité du souvenir">
+</p>
 
 - L'accueil est une **carte du monde colorée selon la solidité de sa
   mémoire** : on voit ses lacunes là où elles sont.
