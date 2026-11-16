@@ -15,6 +15,18 @@
 // chargement, un lien de l'en-tête) reçoit la pile de l'entrée d'avant, plus
 // l'adresse d'avant.
 //
+// La fiche d'un lieu (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md,
+// § 4.4) : chaque fiche ouverte est une entrée d'historique sur la même adresse
+// (#carte), posée ici et nulle part ailleurs (pousserFiche), avec la pile mise à
+// jour comme pour une vue : un pushState posé hors d'ici laisserait la pile
+// rendue à l'entrée d'avant, et un « Retour » remonterait vers une entrée #carte
+// que router() prendrait pour la traversée en cours. Tous les gestes « retour »
+// (« ‹ », Échap, le retour d'Android, celui du navigateur) font donc
+// history.back() : la fiche d'avant, puis la barre ; le retour du navigateur ne
+// fait plus sortir du site. La « × » remonte toutes les entrées de fiche d'un
+// coup (quitterFiches). router() rend à la carte la fiche de l'entrée affichée
+// (surFiche), ou null.
+//
 // Une adresse peut être retenue (écran de connexion de la première ouverture,
 // src/vues/accueil.ts) : la carte se montre à sa place, sous le panneau,
 // l'adresse reste affichée et l'historique la garde ; le router() suivant
@@ -61,6 +73,13 @@ export interface OptionsNavigation<V extends VueNavigable> {
   avantActiver?(): void;
   /** Le niveau de Jouer de ces segments (VueJouer.aller). */
   aller(segs: string[]): void;
+  /**
+   * La fiche de l'entrée rendue (EntreeFiche), ou null, à chaque adresse de
+   * l'accueil rendue, après son activer() : la carte l'ouvre ou la ferme
+   * (VueExplorer.surFiche). Jamais appelé pour une autre vue : la quitter
+   * ferme la fiche (desactiver).
+   */
+  surFiche?(fiche: EntreeFiche | null): void;
   /** Un message au statut du prochain niveau de Jouer (VueJouer.annoncer). */
   annoncer(message: string): void;
   /** L'adresse canonique d'une adresse de Jouer (niveau sauté, adresse invalide). */
@@ -84,10 +103,32 @@ export interface Navigation<V extends VueNavigable> {
   ouvrirPartie(nom: string): void;
   /** La vue affichée (les touchers de la carte vont à elle). */
   active(): V | null;
+  /**
+   * Ouvre la fiche de ce lieu sur la carte : une entrée d'historique de plus,
+   * même adresse (une par fiche, voisins compris) ; surFiche la rend.
+   */
+  pousserFiche(lieu: LieuFiche): void;
+  /** La « × » de la fiche : remonte d'un coup toutes les entrées de fiche du sommet ; surFiche(null) suit. */
+  quitterFiches(): void;
+  /** La fiche de l'entrée affichée, ou null. */
+  fiche(): EntreeFiche | null;
+}
+
+/** Le lieu d'une fiche : son terrain et son id. */
+export interface LieuFiche {
+  terrain: string;
+  id: string;
+}
+
+/** Une fiche dans l'historique : son lieu et son rang (1 : la première ouverte depuis la barre). */
+export interface EntreeFiche extends LieuFiche {
+  rang: number;
 }
 
 interface EtatHistorique {
   pile: string[];
+  /** L'entrée d'une fiche ouverte sur la carte (§ 4.4). */
+  fiche?: EntreeFiche;
 }
 const PILE_MAX = 40;
 
@@ -164,6 +205,8 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
       v.activer();
     }
     if (montre === o.arbre) o.aller(segs);
+    // La fiche de l'entrée (ou aucune), rendue à la carte après son activer().
+    if (montre === o.accueil && v === vueActive) o.surFiche?.(nom === montre ? (e?.fiche ?? null) : null);
   }
 
   function pousser(a: string): void {
@@ -201,6 +244,25 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
     remonter(v?.aMontrer && !v.aMontrer() ? durable : precedente);
   }
 
+  function pousserFiche(lieu: LieuFiche): void {
+    traversee = null;
+    const ici = adresseRendue ?? o.accueil;
+    const rang = (etatHistorique()?.fiche?.rang ?? 0) + 1;
+    h.pushState(
+      { pile: [...pileRendue, ici].slice(-PILE_MAX), fiche: { terrain: lieu.terrain, id: lieu.id, rang } } satisfies EtatHistorique,
+      '',
+      versAncre(ici),
+    );
+    router();
+  }
+
+  function quitterFiches(): void {
+    // Une traversée d'une entrée #carte à une autre : même ancre au départ et à l'arrivée, rien à ignorer.
+    traversee = null;
+    const rang = etatHistorique()?.fiche?.rang ?? 0;
+    if (rang > 0) h.go(-rang);
+  }
+
   function ouvrirPartie(nom: string): void {
     enLancement = true;
     try {
@@ -210,5 +272,17 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
     }
   }
 
-  return { router, pousser, remonter, versJouer, canoniser, retour, ouvrirPartie, active: () => vueActive };
+  return {
+    router,
+    pousser,
+    remonter,
+    versJouer,
+    canoniser,
+    retour,
+    ouvrirPartie,
+    active: () => vueActive,
+    pousserFiche,
+    quitterFiches,
+    fiche: () => etatHistorique()?.fiche ?? null,
+  };
 }

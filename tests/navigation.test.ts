@@ -7,7 +7,8 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Pays } from '../src/map/types';
-import { creerNavigation, type Historique, type Navigation, type VueNavigable } from '../src/navigation';
+import { creerNavigation, type EntreeFiche, type Historique, type Navigation, type VueNavigable } from '../src/navigation';
+import { surRetour } from '../src/retour-android';
 import { adresse, creerArbre, depuisAncre, versAncre } from '../src/vues/arbre';
 import { installerDom, installerStockage, El } from './dom-factice';
 
@@ -114,6 +115,8 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
   const confidentialite = vueSimple();
   const compte = vueSimple();
   let nav!: Navigation<VueNavigable>;
+  /** Chaque fiche rendue à la carte (surFiche), dans l'ordre. */
+  const fiches: (EntreeFiche | null)[] = [];
   const versJouer = (cible: string, message?: string) => nav.versJouer(cible, message);
   // « × » (#18) : comme main.ts, l'accueil en remontant l'historique.
   const versCarte = () => nav.remonter('carte');
@@ -168,6 +171,7 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
     aller: (segs) => jouer.aller(segs),
     annoncer: (m) => void messages.push(m),
     canonique: (c) => adresse(arbre.resoudre(depuisAncre(c).slice(1))),
+    surFiche: (f) => void fiches.push(f),
   });
 
   /** Les événements d'une traversée (Chromium : popstate puis hashchange, même pour un lien), puis les go() demandés. */
@@ -227,7 +231,12 @@ function monter(o: { retenue?: (nom: string) => boolean } = {}) {
     lien('jouer');
     for (let k = 1; k <= segs.length; k++) faire(() => nav.pousser(['jouer', ...segs.slice(0, k)].join('/')));
   };
-  return { h, nav, zone, jouer, chrono, quiz, lancerQuiz, carteVue, classement, confidentialite, compte, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre };
+  /** La fiche rendue en dernier à la carte (« fermée » : null). */
+  const ficheMontree = () => {
+    const f = fiches.at(-1);
+    return f ? `${f.id}:${f.rang}` : null;
+  };
+  return { h, nav, zone, jouer, chrono, quiz, lancerQuiz, carteVue, classement, confidentialite, compte, ici, lien, retourNavigateur, faire, versCarte, lancerChrono, lancerToucher, lancerRevision, descendre, fiches, ficheMontree };
 }
 
 beforeEach(() => {
@@ -516,5 +525,122 @@ describe('navigation : une adresse retenue par l’écran de connexion', () => {
     expect(m.ici()).toBe('toucher');
     expect(m.carteVue.active).toBe(true);
     expect(m.jouer.active).toBe(false);
+  });
+});
+
+// Fiche d'un lieu (#34, étude fiche-lieu § 4.4 et § 7 ; lot F1) : chaque fiche
+// est une entrée d'historique sur #carte, posée par navigation.ts ; tous les
+// retours font history.back(), la « × » remonte toutes les entrées de fiche.
+describe('navigation : les fiches des lieux dans l’historique', () => {
+  /** Les classements, puis la carte : l'historique a une vue avant la carte, que le dernier retour doit rendre. */
+  function surLaCarte() {
+    const m = monter();
+    m.lien('classement');
+    m.lien('carte');
+    return m;
+  }
+
+  it('ouvrir une fiche : une entrée de plus sur #carte, la fiche rendue à la carte, la vue ne change pas', () => {
+    const m = surLaCarte();
+    const n = m.h.entrees.length;
+    expect(m.carteVue.active).toBe(true);
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'JPN' }));
+    expect(m.h.entrees.length).toBe(n + 1);
+    expect(m.ici()).toBe('carte');
+    expect(m.carteVue.active).toBe(true);
+    expect(m.ficheMontree()).toBe('JPN:1');
+    expect(m.nav.fiche()).toEqual({ terrain: 'monde', id: 'JPN', rang: 1 });
+  });
+
+  it('le retour du navigateur ferme la fiche sans quitter la carte ; avec des voisins, il remonte d’une fiche', () => {
+    const m = surLaCarte();
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA' }));
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'PRT' }));
+    expect(m.ficheMontree()).toBe('PRT:3');
+    m.retourNavigateur();
+    expect(m.ficheMontree()).toBe('ESP:2');
+    m.retourNavigateur();
+    expect(m.ficheMontree()).toBe('FRA:1');
+    m.retourNavigateur();
+    expect(m.ficheMontree()).toBeNull();
+    expect(m.ici()).toBe('carte');
+    expect(m.carteVue.active).toBe(true);
+    expect(m.nav.fiche()).toBeNull();
+  });
+
+  it('« × » après trois voisins : une seule remontée, jusqu’à l’entrée #carte d’avant la fiche, la fiche fermée', () => {
+    const m = surLaCarte();
+    const avant = m.h.i;
+    for (const id of ['FRA', 'ESP', 'PRT', 'MAR']) m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id }));
+    expect(m.ficheMontree()).toBe('MAR:4');
+    const gos = m.h.gos.length;
+    m.faire(() => m.nav.quitterFiches());
+    expect(m.h.gos.slice(gos)).toEqual([-4]);
+    expect(m.h.i).toBe(avant);
+    expect(m.ficheMontree()).toBeNull();
+    expect(m.ici()).toBe('carte');
+    // Sans fiche ouverte, la « × » ne remonte rien.
+    m.faire(() => m.nav.quitterFiches());
+    expect(m.h.gos.length).toBe(gos + 1);
+    // Le retour suivant quitte la carte comme avant la fiche : aucune entrée de fiche orpheline.
+    m.retourNavigateur();
+    expect(m.ici()).toBe('classement');
+  });
+
+  it('une fiche rouverte après la « × » repart du rang 1 ; une autre vue ne reçoit jamais de fiche', () => {
+    const m = surLaCarte();
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA' }));
+    m.faire(() => m.nav.quitterFiches());
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'ITA' }));
+    expect(m.ficheMontree()).toBe('ITA:1');
+    // Les classements (🏆) par-dessus la fiche : la carte quitte, rien n'est rendu à la carte.
+    const n = m.fiches.length;
+    m.lien('classement');
+    expect(m.classement.active).toBe(true);
+    expect(m.fiches.length).toBe(n);
+    // Leur « Retour » remonte à l'entrée de la fiche : elle est rendue de nouveau (un pas en arrière).
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('carte');
+    expect(m.ficheMontree()).toBe('ITA:1');
+  });
+
+  it('au-delà de PILE_MAX fiches (45 voisins) : la « × » remonte quand même toutes les entrées, puis le retour quitte la carte', () => {
+    const m = surLaCarte();
+    const avant = m.h.i;
+    for (let k = 0; k < 45; k++) m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: `P${k}` }));
+    expect(m.ficheMontree()).toBe('P44:45');
+    m.faire(() => m.nav.quitterFiches());
+    expect(m.h.i).toBe(avant);
+    expect(m.ficheMontree()).toBeNull();
+    // « Retour » d'une vue ouverte ensuite revient à la carte (la pile tronquée de l'entrée de la fiche n'y est pour rien).
+    m.lien('classement');
+    m.faire(() => m.nav.retour());
+    expect(m.ici()).toBe('carte');
+  });
+
+  it('dans l’APK : l’écran de connexion passe d’abord ; puis le retour d’Android fait history.back(), la fiche d’avant, puis la carte', () => {
+    const m = surLaCarte();
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA' }));
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
+    let panneau: 'fait' | null = 'fait';
+    const appui = () =>
+      surRetour(m.h.i > 0, {
+        avant: () => panneau,
+        back: () => m.retourNavigateur(),
+        reduire: () => undefined,
+      });
+    // Un sous-écran de l'écran de connexion refermé : la fiche reste.
+    appui();
+    expect(m.ficheMontree()).toBe('ESP:2');
+    panneau = null;
+    appui();
+    expect(m.ficheMontree()).toBe('FRA:1');
+    appui();
+    expect(m.ficheMontree()).toBeNull();
+    expect(m.ici()).toBe('carte');
+    // Le retour suivant montre bien la vue d'avant la carte.
+    appui();
+    expect(m.ici()).toBe('classement');
   });
 });
