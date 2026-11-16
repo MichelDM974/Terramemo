@@ -19,12 +19,13 @@
 //   Cordova, Kotlin et kotlinx.coroutines publient (Apache 2.0, § 4 d), sauf
 //   les services Google Play et googleid (lot 7 du J1b) : licence du SDK
 //   Android, non libre, que leur ligne nomme avec le lien de ses conditions
-//   (elle ne demande pas de joindre un texte). Mais leurs AAR embarquent du
-//   code libre de tiers (Protocol Buffers BSD-3, Checker Framework MIT,
-//   Guava, Dagger…) dont les avis sont dans third_party_licenses.txt, à la
-//   racine de chaque AAR, et n'arrivent ni dans l'APK ni ici : à joindre
-//   avant toute diffusion de l'APK au-delà de l'utilisateur (J3 au plus
-//   tard ; étude du J1b, « Précisions du lot 7 »).
+//   (elle ne demande pas de joindre un texte). Leurs AAR embarquent du code
+//   libre de tiers (Protocol Buffers BSD-3, Checker Framework MIT, Guava,
+//   Dagger…) dont les avis (third_party_licenses.txt, à la racine de chaque
+//   AAR) suivent leur ligne (#31) : licences/android-avis.json, relevé par
+//   licences/android.mjs, un exemplaire par texte sous ses composants, les
+//   termes d'Apache 2.0 renvoyés au texte de fin de fichier. Un artefact
+//   d'une ligne non libre sans avis relevé fait échouer le build.
 // - Les données dont la licence demande le texte avec toute copie : les lignes
 //   de textes.credits.donnees dont le lien est un fichier de /geo/licences/
 //   (flag-icons, MIT ; étude J2, § 2.5), sous « Données », le texte lu dans
@@ -34,6 +35,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fr from '../src/vues/textes.fr.json';
+import { APACHE_ICI } from './android.mjs';
 
 /** Son nom, servi à la racine du site (src/vues/credits.ts le demande). */
 export const FICHIER_LICENCES = 'licences-tierces.txt';
@@ -81,6 +83,20 @@ export function ligneAndroid(artefact: string, lignes: readonly { groupes: reado
   return lignes.findIndex((l) => l.groupes.some((g) => (g.endsWith('.*') ? groupe.startsWith(g.slice(0, -1)) : groupe === g)));
 }
 
+/** Avis de tiers des AAR de Google (licences/android-avis.json) : par artefact, les indices de ses textes. */
+export interface AvisAndroid {
+  artefacts: Record<string, number[]>;
+  textes: { composants: string[]; texte: string }[];
+}
+
+/** Les avis de tiers relevés dans les AAR de Google (licences/android-avis.json). */
+export function avisAndroid(): AvisAndroid {
+  return JSON.parse(readFileSync(join(ICI, 'android-avis.json'), 'utf8')) as AvisAndroid;
+}
+
+/** Le texte d'un avis tel que le fichier le donne : les termes d'Apache 2.0 retirés renvoyés au texte de fin de fichier. */
+export const texteAvis = (texte: string): string => texte.replaceAll(APACHE_ICI, T.fichier_avis_apache);
+
 /** Les artefacts Android relevés (licences/android.json). */
 export function artefactsAndroid(): string[] {
   return (JSON.parse(readFileSync(join(ICI, 'android.json'), 'utf8')) as { artefacts: string[] }).artefacts;
@@ -126,6 +142,7 @@ export function texteLicences(racine = join(ICI, '..')): string {
     parLigne[i]!.push(a);
   }
   sortie.push('', DOUBLE, T.fichier_android, DOUBLE, '');
+  const tiers = avisAndroid();
   T.android.forEach((l, i) => {
     // Hors Apache-2.0 : une licence qui ne demande pas de joindre son texte, nommée avec le lien de ses conditions.
     const lien = 'lien' in l ? l.lien : undefined;
@@ -133,6 +150,19 @@ export function texteLicences(racine = join(ICI, '..')): string {
     sortie.push(...tete(l.nom, l.licence === 'Apache-2.0' ? VOIR_APACHE : `${l.licence}, ${lien}`, l.auteur), ...parLigne[i]!, '');
     const avis = [...new Set(parLigne[i]!.map((a) => AVIS_ANDROID[a.split(':')[0] ?? '']).filter((f): f is string => !!f))];
     for (const f of avis) sortie.push(`${T.fichier_avis} :`, '', readFileSync(join(ICI, f), 'utf8').trimEnd(), '');
+    // Hors Apache-2.0 (Google) : les avis de tiers de leurs AAR, chaque texte une fois.
+    if (l.licence === 'Apache-2.0') return;
+    const indices = new Set<number>();
+    for (const a of parLigne[i]!) {
+      const t = tiers.artefacts[a];
+      if (!t?.length) throw new Error(`licences tierces : ${a} sans avis de tiers (licences/android-avis.json) : node licences/android.mjs --avis`);
+      for (const n of t) indices.add(n);
+    }
+    sortie.push(`${T.fichier_avis_google} :`, '');
+    for (const n of [...indices].sort((x, y) => x - y)) {
+      const t = tiers.textes[n]!;
+      sortie.push(TRAIT, t.composants.join(', '), TRAIT, '', texteAvis(t.texte).trimEnd(), '');
+    }
   });
 
   // Données dont la licence demande le texte (servi sous /geo/licences/).

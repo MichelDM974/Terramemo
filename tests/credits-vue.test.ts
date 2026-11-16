@@ -7,8 +7,8 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { artefacts } from '../licences/android.mjs';
-import { AVIS_ANDROID, artefactsAndroid, FICHIER_LICENCES, LICENCES_A_PART, ligneAndroid, texteLicence, texteLicencePaquet, texteLicences } from '../licences/tierces';
+import { APACHE_ICI, artefacts, composantsAar, factoriserApache, GROUPES_AVIS, releveAvis, termesApache } from '../licences/android.mjs';
+import { AVIS_ANDROID, artefactsAndroid, avisAndroid, FICHIER_LICENCES, LICENCES_A_PART, ligneAndroid, texteAvis, texteLicence, texteLicencePaquet, texteLicences } from '../licences/tierces';
 import { nomPaquets, URL_LICENCES, vueCredits } from '../src/vues/credits';
 import { textes } from '../src/vues/textes';
 import { installerDom, type El } from './dom-factice';
@@ -242,6 +242,73 @@ describe('licences tierces (#20)', () => {
     expect(fichier).toContain('Services Google Play, Sign in with Google\nLicence\u202f: Licence du SDK Android (non libre), https://developer.android.com/studio/terms\n');
     for (const f of Object.values(AVIS_ANDROID)) expect(fichier).toContain(readFileSync(`licences/${f}`, 'utf8').trimEnd());
     expect(fichier).toContain('Apache Cordova\nCopyright 2015-2020 The Apache Software Foundation');
+  });
+
+  it('avis de tiers des AAR de Google (#31) : chaque artefact Google relevé a les siens, aucun texte vide, chacun une fois sous leur ligne', () => {
+    const google = artefactsAndroid().filter((a) => GROUPES_AVIS.includes(a.split(':')[0]!));
+    expect(T.android.filter((l) => l.licence !== 'Apache-2.0').flatMap((l) => l.groupes)).toEqual(GROUPES_AVIS);
+    expect(google.length).toBe(10);
+    const avis = avisAndroid();
+    // Le relevé des avis suit android.json : un artefact Google mis à jour sans relevé fait tomber le test.
+    expect(Object.keys(avis.artefacts).sort()).toEqual(google);
+    for (const a of google) {
+      expect([a, avis.artefacts[a]!.length > 0]).toEqual([a, true]);
+      for (const n of avis.artefacts[a]!) expect([a, n, n >= 0 && n < avis.textes.length]).toEqual([a, n, true]);
+    }
+    const utilises = new Set(Object.values(avis.artefacts).flat());
+    const debut = fichier.indexOf(`\n${T.fichier_avis_google}\u202f:\n`);
+    expect(debut).toBeGreaterThan(fichier.indexOf('Services Google Play, Sign in with Google\nLicence'));
+    const fin = fichier.indexOf(`\n${T.fichier_donnees}\n`);
+    for (const [n, t] of avis.textes.entries()) {
+      expect([n, utilises.has(n)]).toEqual([n, true]);
+      expect([n, t.composants.length > 0 && t.composants.every((c) => c.trim().length > 0)]).toEqual([n, true]);
+      expect([t.composants.join(', '), t.texte.replaceAll(APACHE_ICI, '').trim().length > 0]).toEqual([t.composants.join(', '), true]);
+      // Encadré de ses filets : un texte qui en commence un autre (les deux de Kotlin) n'y est compté qu'une fois.
+      const rendu = `${t.composants.join(', ')}\n${'-'.repeat(36)}\n\n${texteAvis(t.texte).trimEnd()}\n\n`;
+      const encadres = [`${rendu}${'-'.repeat(36)}\n`, `${rendu}\n${'='.repeat(36)}\n`];
+      const places = encadres.map((r) => fichier.indexOf(r)).filter((x) => x >= 0);
+      const fois = encadres.reduce((n, r) => n + fichier.split(r).length - 1, 0);
+      expect(fois, t.composants.join(', ')).toBe(1);
+      expect(places[0]).toBeGreaterThan(debut);
+      expect(places[0]).toBeLessThan(fin);
+    }
+    // Un exemplaire par texte (aux blancs près) ; les termes d'Apache renvoyés au texte de fin de fichier.
+    const cles = avis.textes.map((t) => t.texte.replace(/\s+/g, ' '));
+    expect(new Set(cles).size).toBe(cles.length);
+    expect(fichier).not.toContain(APACHE_ICI);
+    expect(fichier).toContain(T.fichier_avis_apache);
+    const composants = avis.textes.flatMap((t) => t.composants);
+    for (const c of ['Protocol Buffers', 'Checker Framework Annotations', 'Dagger', 'Guava JDK5', 'Kotlin']) expect(composants).toContain(c);
+  });
+
+  it('le relevé des avis : octets de l’index, termes d’Apache 2.0 retirés aux blancs près, textes identiques aux blancs près mis en commun', () => {
+    const txt = Buffer.from('\n\nÉté:\nMIT © Zoé\n\nB:\nBSD');
+    const i = txt.indexOf('MIT');
+    expect(composantsAar({ Été: { start: i, length: Buffer.byteLength('MIT © Zoé') }, B: { start: txt.indexOf('BSD'), length: 3 } }, txt)).toEqual([
+      ['Été', 'MIT © Zoé'],
+      ['B', 'BSD'],
+    ]);
+    const termes = termesApache(readFileSync('licences/apache-2.0.txt', 'utf8'));
+    expect(termes.slice(0, 5).join(' ')).toBe('TERMS AND CONDITIONS FOR USE,');
+    expect(termes.slice(-5).join(' ')).toBe('END OF TERMS AND CONDITIONS');
+    const corps = termes.join(' ');
+    const aLaLigne = termes.join('\n   ');
+    expect(factoriserApache(`Copyright X\n\n Apache License\n${aLaLigne}\n\nAPPENDIX`, termes)).toBe(`Copyright X\n\n Apache License\n${APACHE_ICI}\n\nAPPENDIX`);
+    // Un mot de différence : le texte reste entier.
+    const autre = corps.replace('Definitions.', 'Definition.');
+    expect(factoriserApache(autre, termes)).toBe(autre);
+    const r = releveAvis(
+      new Map<string, [string, string][]>([
+        ['g:a:1', [['Guava', `Apache\n${corps}`], ['Protobuf', 'BSD  3']]],
+        ['g:b:1', [['Dagger', `Apache ${aLaLigne}`], ['Protobuf', 'BSD\n3\n']]],
+      ]),
+      termes,
+    );
+    expect(r.textes).toEqual([
+      { composants: ['Dagger', 'Guava'], texte: `Apache\n${APACHE_ICI}` },
+      { composants: ['Protobuf'], texte: 'BSD  3' },
+    ]);
+    expect(r.artefacts).toEqual({ 'g:a:1': [0, 1], 'g:b:1': [0, 1] });
   });
 
   it('le relevé de Gradle : artefacts résolus, sans contrainte, BOM ni projet', () => {

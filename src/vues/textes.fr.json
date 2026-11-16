@@ -842,6 +842,8 @@
     "fichier_apache": "Texte de la licence Apache 2.0, commun aux bibliothèques qui la citent",
     "fichier_voir_apache": "texte en fin de fichier",
     "fichier_avis": "Avis (NOTICE)",
+    "fichier_avis_google": "Avis de tiers de leurs AAR (third_party_licenses.txt) : le code libre qu'ils embarquent, chaque texte une fois sous les composants qui l'emploient",
+    "fichier_avis_apache": "[Termes et conditions de la licence Apache 2.0 : texte en fin de fichier]",
     "police_titre": "Police",
     "police": {
       "nom": "Inter",

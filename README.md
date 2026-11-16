@@ -172,6 +172,10 @@ npm run build        # site statique dans dist/ (servi par Firebase Hosting)
   Les bibliothèques Android y viennent de `licences/android.json`, relevé
   par Gradle : `npm run licences:android` (JDK 21) après une mise à jour de
   Capacitor ou d'AndroidX, que la CI Android et `driver.py apk` vérifient.
+  Les avis de tiers des AAR de Google (`third_party_licenses.txt` : le
+  code libre qu'ils embarquent) viennent de `licences/android-avis.json`,
+  relevé par le même script dans le cache de Gradle (`--avis` : sans
+  Gradle, d'après `android.json`, une fois l'APK construit).
 
 ## Méthode
 

@@ -1294,7 +1294,7 @@ def ui_credits(p, capturer, defauts):
         p.pause(200)
     lu = texte(p, "#credits-licences-texte")
     manque = [m for m in ("ts-fsrs", "Charles Karney", "org.apache.cordova:framework", "Apache Cordova\nCopyright",
-                          "END OF TERMS AND CONDITIONS") if m not in lu]
+                          "Checker Framework Annotations", "END OF TERMS AND CONDITIONS") if m not in lu]
     dire(f"  Crédits, textes des licences : {len(lu)} caractères, manque {manque}")
     if manque:
         defauts.append(f"textes des licences : {len(lu)} caractères, manque {manque} ({lu[:80]!r})")
