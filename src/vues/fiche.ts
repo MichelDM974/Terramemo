@@ -249,10 +249,21 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
     return creer('div', { class: 'fiche-contenu' }, ...enfants);
   }
 
+  /** Ce qui prend le focus dans la fiche, dans un ordre fixe (le même pour la même fiche refaite). */
+  function focusables(): HTMLElement[] {
+    return ['button', 'a', '[tabindex]'].flatMap((sel) => [...feuille.querySelectorAll<HTMLElement>(sel)]);
+  }
+
   return {
     element: feuille,
     voile,
     montrer(m, o) {
+      // La même fiche refaite (rafraichir : la mémoire relue) : le focus et le défilement gardés, sinon le focus
+      // tomberait sur body en pleine lecture au clavier. L'élément retrouvé à la même place dans la fiche nouvelle.
+      const meme = !o.focus && feuille.dataset.id === m.id && !feuille.hidden;
+      const actif = document.activeElement as HTMLElement | null;
+      const rangFocus = meme && actif && actif !== feuille && feuille.contains(actif) ? focusables().indexOf(actif) : -1;
+      const defile = feuille.scrollTop;
       modele = m;
       avecAvant = o.avant;
       feuille.dataset.id = m.id;
@@ -264,6 +275,9 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
         // En haut de la fiche nouvelle (un voisin remplace la fiche défilée), le focus au titre : le lecteur d'écran dit son nom.
         feuille.scrollTop = 0;
         feuille.querySelector<HTMLElement>('#fiche-titre')?.focus();
+      } else if (meme) {
+        feuille.scrollTop = defile;
+        if (rangFocus >= 0) focusables()[rangFocus]?.focus();
       }
     },
     drapeaux(adresses) {

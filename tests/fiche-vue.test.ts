@@ -325,6 +325,21 @@ describe('la fiche', () => {
     expect(g.feuille()!.querySelector('.fiche-memoire')).toBeNull();
   });
 
+  it('la mémoire relue (rafraichir) refait la fiche ouverte sans lui prendre le focus : il reste sur le même voisin', async () => {
+    const v = await ouvrirSur('FRA');
+    const italie = () => v.feuille()!.querySelectorAll('.fiche-voisin').find((b) => b.dataset.id === 'ITA')!;
+    italie().focus();
+    const avant = italie();
+    v.vue.rafraichir?.();
+    // La fiche est bien refaite (un autre élément), et le focus suit.
+    expect(italie()).not.toBe(avant);
+    expect(v.doc.activeElement).toBe(italie());
+    // Le focus au titre : il y reste.
+    v.el('#fiche-titre')!.focus();
+    v.vue.rafraichir?.();
+    expect(v.doc.activeElement).toBe(v.el('#fiche-titre'));
+  });
+
   it('fermer par « × », par Échap, par le voile : la fiche fermée, le focus rendu à la barre', async () => {
     for (const fermer of ['croix', 'echap', 'voile'] as const) {
       const v = await ouvrirSur('JPN');
