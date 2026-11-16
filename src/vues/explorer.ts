@@ -27,16 +27,36 @@
 // Aucune frontière entre mers, aucune teinte (sauf la mémoire des mers choisie).
 // Une mer choisie dans la recherche : la couche fine posée, son emprise
 // cadrée, la zone allumée (zonesAllumees).
+//
+// La fiche d'un lieu (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md,
+// § 4.1 à § 4.8 ; lot F1) : la barre du bas devient un bouton, en trois lignes
+// (le nom, puis le statut et « par sa pastille » ; la ligne de faits,
+// « Tokyo » ; la ligne de la mémoire), un chevron « ⌃ » quand le lieu a une
+// fiche, « Monde » à côté, hors du bouton, et une région aria-live cachée à
+// l'œil (un bouton dans une région vivante serait annoncé en entier à chaque
+// toucher). La toucher, ou la glisser vers le haut, ouvre la fiche
+// (src/vues/fiche.ts, un morceau à part) : une entrée d'historique posée par
+// navigation.ts (OptionsFiche.historique), que le routeur rend ici
+// (surFiche). Les données se chargent au premier toucher d'un lieu, après la
+// réponse au toucher (sa mesure se ferme avant), jamais au premier affichage
+// (§ 6.1). Ni fiche, ni faits, ni chevron tant qu'une partie de Toucher attend
+// d'être reprise (OptionsFiche.autorisee, § 4.8).
+import type { DonneesCapitales } from '../map/capitales';
+import type { DonneesDrapeaux } from '../map/drapeaux';
 import { versEcran, versLonLat } from '../map/geo';
 import { chargerMersLegeres, estIdMer, mersPourNommer, nomsMersCharges } from '../map/mers';
 import { NB_SEAUX } from '../map/teintes';
 import { estDomaine, type Domaine } from '../srs/fiches';
 import { tailleEcranPx } from '../map/pastilles';
 import { pickMer, type ResultatPick, type Via } from '../map/pick';
-import type { Lieu, NomTerrain } from '../map/types';
+import type { Lieu, NomTerrain, Pays } from '../map/types';
+import type { DonneesFichesMonde } from '../fiches/donnees';
+import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
+import type { EntreeFiche, LieuFiche } from '../navigation';
 import type { Terrain } from '../terrains';
 import type { CarteMemoire } from './carte-memoire';
 import { ANNEAU_SOUS_PX, anneauZone, creer, LIBELLE_STATUT, merPosee, mersPosees, poserMers, type ContexteVue, type Vue } from './commun';
+import type { Feuille } from './fiche';
 import { rendu, SUJET_CARTE } from './sujets';
 import { textes } from './textes';
 
@@ -60,18 +80,74 @@ export interface VueExplorer extends Vue {
   rafraichir(): void;
   /** Un avis du démarrage (une partie du quiz laissée en cours a compté) : sous « Touche un pays », jusqu'au premier toucher ; montré une fois. */
   avis(texte: string): void;
+  /**
+   * La fiche de l'entrée d'historique affichée (le routeur, après activer()) :
+   * l'ouvre (son lieu montré s'il ne l'est pas : un voisin, un retour), ou la
+   * ferme (null). Sans effet hors de l'accueil.
+   */
+  surFiche(f: EntreeFiche | null): void;
+}
+
+/** Le morceau de la fiche (src/vues/fiche.ts), chargé à part. */
+export type ModuleFiche = typeof import('./fiche');
+
+/** La fiche d'un lieu (#34) : ses données et son historique. Sans elles, la barre reste celle d'avant (pas de chevron). */
+export interface OptionsFiche {
+  /** Les fiches du monde (chargerFichesMonde), lues au premier toucher d'un lieu. */
+  fiches(): Promise<DonneesFichesMonde>;
+  /** Les capitales (chargerCapitales) : la ligne de faits d'un pays. */
+  capitales(): Promise<DonneesCapitales>;
+  /** Le manifeste des drapeaux (chargerDrapeaux), à l'ouverture d'une fiche de pays. */
+  drapeaux(): Promise<DonneesDrapeaux>;
+  /** Le morceau de la fiche (import('./fiche')). */
+  module(): Promise<ModuleFiche>;
+  /**
+   * L'historique (main.ts : navigation.ts, § 4.4) ; sans lui, une pile dans la
+   * vue, qui rend chaque fiche aussitôt (les tests de la vue).
+   */
+  historique?: { pousser(l: LieuFiche): void; quitter(): void; retour(): void };
+  /**
+   * Faux pendant une partie : une barre de partie visible ou une partie de
+   * Toucher en suspens (ficheAutorisee de main.ts, § 4.8). Ni faits, ni
+   * chevron, ni fiche alors.
+   */
+  autorisee?(): boolean;
+  /** La popup ⚙ ouverte : Échap ne ferme qu'elle (son écouteur, main.ts), la fiche reste. */
+  reglagesOuverts?(): boolean;
 }
 
 export interface OptionsExplorer {
   /** La carte de la mémoire (sans elle, ni teinte ni légende). */
   memoire?: CarteMemoire;
+  /** La fiche d'un lieu ; sans elle, pas de fiche (les tests d'avant). */
+  fiche?: OptionsFiche;
 }
 
+/** Les sortes de lieux qui ont une fiche au lot F1 : les entités du monde (les mers au lot F4, les communes au lot F5). */
+const SORTES_F1: ReadonlySet<SorteLieu> = new Set(['pays', 'territoire', 'zone', 'continent']);
+/** Seuil du glissé vers le haut, commencé sur la barre, qui ouvre la fiche (§ 4.3). */
+export const GLISSE_OUVRIR_PX = 24;
+
 export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplorer {
+  const F = o.fiche;
   const nom = creer('strong', { class: 'barre-nom' });
   const detail = creer('span', { class: 'barre-detail' });
+  const faits = creer('span', { class: 'barre-faits' });
+  const memoireLigne = creer('span', { class: 'barre-memoire' });
+  const chevron = creer('span', { class: 'barre-chevron', 'aria-hidden': 'true' }, '⌃');
+  chevron.hidden = true;
+  const bouton = creer(
+    'button',
+    { type: 'button', class: 'barre-fiche', id: 'barre-fiche', 'aria-expanded': 'false', 'aria-controls': 'fiche-lieu' },
+    creer('span', { class: 'barre-ligne' }, nom, ' ', detail),
+    faits,
+    memoireLigne,
+    chevron,
+  );
   const monde = creer('button', { type: 'button', class: 'secondary barre-monde', id: 'carte-monde', title: C.monde_titre }, C.monde);
-  const barre = creer('div', { class: 'carte-barre', id: 'barre-carte', 'aria-live': 'polite' }, nom, detail, monde);
+  // Ce que la barre dit, pour les lecteurs d'écran : hors du bouton (§ 4.1).
+  const annonce = creer('span', { class: 'barre-annonce', 'aria-live': 'polite' });
+  const barre = creer('div', { class: 'carte-barre', id: 'barre-carte' }, bouton, monde, annonce);
   barre.hidden = true;
   // La légende de la carte de la mémoire, à elle (#barre-carte est au pays touché) : jamais vu, l'échelle des seaux, les maîtrisés.
   const compteMaitrises = creer('span', { class: 'legende-compte' });
@@ -178,8 +254,22 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     t.carte.effacerMarques();
     nom.textContent = t.nom === 'monde' ? C.touche : C.touche_ile;
     detail.textContent = '';
-    delete barre.dataset.id;
+    sansLieu();
     monde.hidden = t.nom === 'monde';
+  }
+
+  /** La barre sans lieu (« Touche un pays », « Mer » sans nom, un chargement) : ni faits, ni mémoire, ni chevron. */
+  function sansLieu(): void {
+    delete barre.dataset.id;
+    memoireLigne.textContent = '';
+    barre.classList.remove('barre-lieu');
+    barre.classList.remove('barre-avec-memoire');
+    poserFaits(false);
+  }
+
+  /** Ce que la barre dit, dans la région vivante. */
+  function annoncer(): void {
+    annonce.textContent = [nom.textContent, detail.textContent, faits.textContent, memoireLigne.textContent].filter(Boolean).join(' · ');
   }
 
   /** L'avis du démarrage pas encore montré (avis()) : à la prochaine arrivée sur l'accueil. */
@@ -194,9 +284,209 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     // Le nom par le sujet qui nomme les zones de ce terrain (sujets.ts) : les pays, les communes ; une mer par mers.fr.json.
     nom.textContent = mer ? (nomsMersCharges()?.[id] ?? C.mer) : rendu(SUJET_CARTE[t.nom], t.donnees).lieu(id);
     const statut = e ? LIBELLE_STATUT[e.pays.statut] : '';
-    const memoire = o.memoire?.detail(t.nom, id, mer || e?.pays.statut === 'jouable') ?? '';
-    detail.textContent = [statut, via === 'pastille' ? C.par_pastille : via === 'proche' ? C.au_plus_pres : '', memoire].filter(Boolean).join(' · ');
+    detail.textContent = [statut, via === 'pastille' ? C.par_pastille : via === 'proche' ? C.au_plus_pres : ''].filter(Boolean).join(' · ');
+    // La ligne de la mémoire, à part (§ 4.1) ; sa place réservée tant que le réglage est actif, même vide (un territoire).
+    memoireLigne.textContent = o.memoire?.details(t.nom, id, mer || e?.pays.statut === 'jouable')?.join(' · ') ?? '';
     barre.dataset.id = id;
+    // La hauteur du cas complet dès qu'un lieu est affiché : la ligne de faits arrive dans une place déjà là (§ 4.1).
+    barre.classList.add('barre-lieu');
+    barre.classList.toggle('barre-avec-memoire', !!o.memoire?.actif());
+    poserFaits(false);
+  }
+
+  // --- Fiche d'un lieu (#34) ---
+
+  /** Le lieu de la barre a-t-il une fiche à ouvrir (données lues, partie hors de cause) ? */
+  let ficheDispo = false;
+  /** La fiche ouverte (ou en train de l'être), telle que l'historique la dit. */
+  let ficheOuverte: EntreeFiche | null = null;
+  /** Change à chaque fiche demandée ou fermée : un chargement arrivé après ne montre rien. */
+  let jetonFiche = 0;
+  let feuille: Feuille | null = null;
+  /** Sans historique (tests de la vue) : les fiches empilées ici. */
+  const pileLocale: LieuFiche[] = [];
+  const historique = F?.historique ?? {
+    pousser(l: LieuFiche) {
+      pileLocale.push(l);
+      surFiche({ ...l, rang: pileLocale.length });
+    },
+    quitter() {
+      pileLocale.length = 0;
+      surFiche(null);
+    },
+    retour() {
+      pileLocale.pop();
+      const l = pileLocale.at(-1);
+      surFiche(l ? { ...l, rang: pileLocale.length } : null);
+    },
+  };
+  const autorisee = (): boolean => !!F && (F.autorisee?.() ?? true);
+  /** La sorte du lieu de la barre, s'il a une fiche à ce lot. */
+  function sorteFiche(id: string): SorteLieu | null {
+    if (t.nom !== 'monde') return null;
+    const e = t.donnees.entites.find((en) => en.pays.id === id);
+    const s = sorteDeLieu(id, t.nom, e?.pays.statut);
+    return s && SORTES_F1.has(s) && e ? s : null;
+  }
+  /** Les données de la barre, si elles sont lues : celles des fiches et, pour un pays, les capitales. */
+  let lues: { fiches: DonneesFichesMonde; capitales: DonneesCapitales | null } | null = null;
+  /** Le chargement en cours (un seul à la fois ; un échec n'est pas gardé : le toucher suivant réessaie). */
+  let enChargement: Promise<unknown> | null = null;
+  function chargerDonnees(): Promise<unknown> {
+    if (!F) return Promise.reject(new Error('fiche : pas de données'));
+    if (enChargement) return enChargement;
+    const p = Promise.all([F.fiches(), F.capitales().catch(() => null)]).then(([fiches, capitales]) => {
+      lues = { fiches, capitales };
+      // Le morceau de la fiche, demandé d'avance : il sera là quand on touchera la barre.
+      F.module().catch(() => undefined);
+    });
+    enChargement = p;
+    p.then(
+      () => (enChargement = null),
+      () => (enChargement = null),
+    );
+    return p;
+  }
+
+  /**
+   * La ligne de faits et le chevron du lieu de la barre : remplis si les
+   * données sont lues, sinon rien (la barre d'aujourd'hui) ; `charger` : les
+   * demander s'il le faut, et les poser à leur arrivée si la barre montre
+   * encore ce lieu (un second toucher avant l'arrivée : rien du premier).
+   */
+  function poserFaits(charger: boolean): void {
+    const id = barre.dataset.id;
+    ficheDispo = false;
+    faits.textContent = '';
+    chevron.hidden = true;
+    const sorte = id && active && autorisee() ? sorteFiche(id) : null;
+    if (id && sorte) {
+      if (lues?.fiches.lieux.has(id)) {
+        ficheDispo = true;
+        chevron.hidden = false;
+        // « Tokyo » seul pour l'instant (lot F1) ; « capitale · habitants » au lot F2.
+        if (sorte === 'pays') faits.textContent = lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom).join(', ') ?? '';
+      } else if (charger && !lues) {
+        const [j, k] = [jeton, touches];
+        chargerDonnees().then(
+          () => {
+            if (j === jeton && k === touches && barre.dataset.id === id) poserFaits(false);
+          },
+          () => undefined,
+        );
+      }
+    }
+    bouton.classList.toggle('barre-avec-fiche', ficheDispo);
+    annoncer();
+  }
+
+  /** Ouvre la fiche du lieu de la barre (toucher, Entrée, glissé vers le haut) : une entrée d'historique. */
+  function ouvrir(): void {
+    const id = barre.dataset.id;
+    if (!ficheDispo || !id || ficheOuverte) return;
+    historique.pousser({ terrain: t.nom, id });
+  }
+
+  /** La fiche fermée sur place (sans toucher à l'historique) ; `focus` : rendu à la barre. */
+  function fermerFiche(focus: boolean): void {
+    jetonFiche++;
+    if (!ficheOuverte) return;
+    ficheOuverte = null;
+    feuille?.fermer();
+    barre.removeAttribute('inert');
+    bouton.setAttribute('aria-expanded', 'false');
+    delete document.body.dataset.fiche;
+    if (focus) bouton.focus();
+  }
+
+  /** Le morceau de la fiche, une fois chargé (rafraichir() refait la fiche ouverte). */
+  let moduleFiche: ModuleFiche | null = null;
+  function composer(m: ModuleFiche, id: string) {
+    moduleFiche = m;
+    if (!lues) return null;
+    const r = rendu(SUJET_CARTE[t.nom], t.donnees);
+    return m.composerFiche(id, {
+      entites: t.donnees.entites.map((e) => e.pays as Pays),
+      nom: (x) => r.lieu(x),
+      fiches: lues.fiches,
+      capitales: lues.capitales,
+      drapeaux: drapeauxLus,
+      memoire: (x, jouable) => o.memoire?.details(t.nom, x, jouable) ?? null,
+    });
+  }
+  let drapeauxLus: DonneesDrapeaux | null = null;
+
+  /**
+   * Rend la fiche de l'entrée d'historique : son lieu montré s'il ne l'est
+   * pas (un voisin, un retour : la carte vole sous la fiche, D61 c), puis la
+   * feuille remplie, le focus au titre. null : fermée.
+   */
+  function surFiche(f: EntreeFiche | null): void {
+    if (!f) return fermerFiche(true);
+    if (!F || !active || !autorisee() || f.terrain !== 'monde') return;
+    if (ficheOuverte && ficheOuverte.id === f.id && ficheOuverte.rang === f.rang) return;
+    ficheOuverte = f;
+    const j = ++jetonFiche;
+    barre.setAttribute('inert', '');
+    bouton.setAttribute('aria-expanded', 'true');
+    document.body.dataset.fiche = 'ouverte';
+    // Le lieu sur la carte : un voisin, ou une fiche rendue par un retour (aller() vide la barre, la fiche reste ouverte).
+    if (t !== ctx.terrains.monde || barre.dataset.id !== f.id) montrer(ctx.terrains.monde, f.id);
+    Promise.all([F.module(), lues ? null : chargerDonnees()]).then(
+      ([m]) => {
+        if (j !== jetonFiche || !active) return;
+        const modele = composer(m, f.id);
+        if (!modele) return void historique.quitter();
+        feuille ??= m.creerFeuille(ctx.zone, { fermer: () => historique.quitter(), avant: () => historique.retour(), voisin: (v) => historique.pousser({ terrain: 'monde', id: v }) });
+        feuille.montrer(modele, { avant: f.rang > 1, focus: true });
+        // Le drapeau d'un pays : le manifeste à la première fiche (§ 6.1), la place grise d'ici là.
+        if (modele.avecDrapeau && !modele.drapeaux.length) {
+          F.drapeaux().then(
+            (d) => {
+              drapeauxLus = d;
+              if (j === jetonFiche && active) feuille?.drapeaux(d.parPays.get(f.id)?.justes ?? []);
+            },
+            () => undefined,
+          );
+        }
+      },
+      // Hors ligne, morceau ou données absents : la fiche ne s'ouvre pas, l'entrée d'historique est rendue.
+      () => {
+        if (j === jetonFiche) historique.quitter();
+      },
+    );
+  }
+
+  bouton.addEventListener('click', () => ouvrir());
+  // Glissé vers le haut de 24 px ou plus, commencé sur la barre : la fiche (la feuille ne suit pas le doigt, § 4.3).
+  let departGlisse: number | null = null;
+  bouton.addEventListener('pointerdown', (e) => {
+    departGlisse = (e as PointerEvent).clientY;
+  });
+  bouton.addEventListener('pointerup', (e) => {
+    if (departGlisse !== null && departGlisse - (e as PointerEvent).clientY >= GLISSE_OUVRIR_PX) ouvrir();
+    departGlisse = null;
+  });
+  bouton.addEventListener('pointercancel', () => {
+    departGlisse = null;
+  });
+  // Échap fait comme « ‹ » : un pas en arrière (§ 4.3). En capture, donc avant l'écouteur de ⚙ (main.ts) : la popup
+  // ouverte, Échap ne ferme qu'elle ; dans un champ (la recherche), il reste au champ.
+  if (F) {
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || !ficheOuverte || !active || F.reglagesOuverts?.()) return;
+        // L'écran de connexion par-dessus (src/vues/accueil.ts) : Échap est à lui.
+        const accueil = document.body.dataset.accueil;
+        if (accueil === 'ouvert' || accueil === 'attente') return;
+        const cible = e.target as Element | null;
+        if (cible?.closest?.('input, textarea, select')) return;
+        e.preventDefault();
+        historique.retour();
+      },
+      true,
+    );
   }
 
   function aller(terrain: Terrain): void {
@@ -216,6 +506,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     t.carte.marquer(id, 'choisi');
     if (point) t.carte.anneauEn(point, 'choisi');
     afficher(id, null);
+    // Un lieu montré (la recherche, un voisin) compte comme un toucher : les données de la fiche demandées (§ 6.1).
+    poserFaits(true);
     const carte = t.carte;
     carte.montrer(id, barre.getBoundingClientRect().top - carte.hote.getBoundingClientRect().top);
     // Jugé à l'arrivée du vol : le Vatican reste un point même au zoom de montrer().
@@ -229,7 +521,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     if (!r || !estIdMer(r.id)) {
       nom.textContent = C.mer;
       detail.textContent = '';
-      delete barre.dataset.id;
+      sansLieu();
       return;
     }
     if (mersPosees(ctx.donnees).length) t.carte.marquer(r.id, 'choisi');
@@ -297,9 +589,13 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       teinter();
       vider();
       if (avisAMontrer) [detail.textContent, avisAMontrer] = [avisAMontrer, null];
+      annoncer();
     },
     desactiver() {
       jeton++;
+      // La fiche vit dans la vue « carte » : une autre vue (partie, Jouer, Crédits) la ferme (§ 4.8, garde 1).
+      fermerFiche(false);
+      pileLocale.length = 0;
       active = false;
       barre.hidden = true;
       t.carte.effacerMarques();
@@ -311,12 +607,21 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       teinter();
       const id = barre.dataset.id;
       if (id) afficher(id, viaAffiche);
+      // La fiche ouverte relit sa mémoire (mémoire chargée, réglage changé), sans reprendre le focus.
+      const m = ficheOuverte && moduleFiche && feuille && !feuille.element.hidden ? composer(moduleFiche, ficheOuverte.id) : null;
+      if (m && ficheOuverte) feuille?.montrer(m, { avant: ficheOuverte.rang > 1, focus: false });
     },
     avis(texte) {
       if (active && !barre.dataset.id) detail.textContent = texte;
       else avisAMontrer = texte;
     },
+    surFiche,
     montrerLieu(terrain, id, point) {
+      // La recherche montre un autre lieu : la fiche se ferme, ses entrées d'historique remontées (§ 4.2, § 4.7).
+      if (ficheOuverte) {
+        fermerFiche(false);
+        historique.quitter();
+      }
       const j = ++jeton;
       if (terrain === 'monde' && estIdMer(id)) {
         // Une mer : la couche fine posée sur la carte d'abord (une fois), son chargement dit dans la barre.
@@ -338,9 +643,10 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       if (terrain === 'monde') return montrer(ctx.terrains.monde, id, point);
       const deja = ctx.terrains.deja(terrain);
       if (deja) return montrer(deja, id);
-      // L'île au premier choix : son chargement annoncé dans la barre.
+      // L'île au premier choix : son chargement annoncé dans la barre (sans les faits ni le chevron du lieu d'avant).
       nom.textContent = '';
       detail.textContent = textes.toucher.chargement_terrain;
+      sansLieu();
       ctx.terrains.charger(terrain).then(
         (ile) => {
           if (j === jeton) montrer(ile, id);
@@ -364,10 +670,12 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         else {
           nom.textContent = C.mer;
           detail.textContent = '';
-          delete barre.dataset.id;
+          sansLieu();
         }
         return { pick: r };
       });
+      // Les données de la fiche, après la réponse au toucher (sa mesure fermée) : au premier toucher d'un lieu (§ 6.1).
+      poserFaits(true);
     },
   };
 }

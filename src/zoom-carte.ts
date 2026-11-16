@@ -55,9 +55,10 @@ export function brancherZoom(o: { zone: HTMLElement; carte: () => CarteAffichee 
     if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return; // Ctrl + : le zoom du navigateur
     const cran = cranDeTouche(e.key);
     if (!cran || !VUES_ZOOM.includes(document.body.dataset.vue ?? '')) return;
-    // L'écran de connexion ouvert (src/vues/accueil.ts) : la carte est figée derrière lui.
+    // L'écran de connexion ouvert (src/vues/accueil.ts) : la carte est figée derrière lui. De même sous la fiche
+    // d'un lieu (#34, § 4.2 : body[data-fiche], posé par explorer.ts), où les boutons sont cachés.
     const accueil = document.body.dataset.accueil;
-    if (accueil === 'ouvert' || accueil === 'attente') return;
+    if (accueil === 'ouvert' || accueil === 'attente' || document.body.dataset.fiche) return;
     const cible = e.target as Element | null;
     if (cible?.closest?.('input, textarea, select, [contenteditable]')) return;
     e.preventDefault();

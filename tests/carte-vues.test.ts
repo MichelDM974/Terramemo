@@ -290,7 +290,8 @@ describe('carte de la mémoire à l’accueil', () => {
     } as unknown as ContexteVue;
     const vue = vueExplorer(ctx, o);
     const legende = zone.querySelector('#legende-memoire')!;
-    const detail = () => zone.querySelector('#barre-carte .barre-detail')!.textContent;
+    // La ligne de la mémoire, à part dans la barre depuis la fiche d'un lieu (#34, § 4.1) ; statut et pastille restent dans .barre-detail.
+    const detail = () => zone.querySelector('#barre-carte .barre-memoire')!.textContent;
     return { vue, teintes, derniere: () => teintes.at(-1), legende, detail, ctx, monde, anneaux, nom: () => zone.querySelector('#barre-carte .barre-nom')!.textContent };
   }
   let pickSuivant = 'FRA';

@@ -1,10 +1,20 @@
 // Fiche d'un lieu jamais pendant une partie (#34, étude
 // docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4.8 et § 7) : une seule
-// liste des barres de partie, que la règle de carte.css cite telle quelle.
+// liste des barres de partie, que la règle de carte.css cite telle quelle ; une
+// partie de Toucher quittée en cours de route attend sur la carte : ni faits,
+// ni chevron, ni fiche tant qu'elle n'est pas finie (la vraie vue de Toucher et
+// la vraie vue de la carte, sur le DOM factice).
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BARRES_PARTIE, barrePartieVisible } from '../src/vues/commun';
-import { El, installerDom } from './dom-factice';
+import { lireFichesMonde, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
+import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
+import type { Pays } from '../src/map/types';
+import { BARRES_PARTIE, barrePartieVisible, type ContexteVue } from '../src/vues/commun';
+import { vueEssai } from '../src/vues/essai';
+import { vueExplorer } from '../src/vues/explorer';
+import { El, installerDom, installerStockage } from './dom-factice';
+
+const lire = <T>(f: string): T => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8')) as T;
 
 describe('une seule liste des barres de partie', () => {
   it('la règle de carte.css qui efface la recherche cite exactement BARRES_PARTIE, dans son ordre', () => {
@@ -39,5 +49,136 @@ describe('une seule liste des barres de partie', () => {
       barres.set('barre-carte', accueil);
       expect(barrePartieVisible(doc)).toBe(false);
     });
+  });
+});
+
+describe('une partie de Toucher en suspens sur la carte', () => {
+  beforeEach(() => {
+    installerDom();
+    installerStockage();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const tenir = () => new Promise((r) => setTimeout(r, 0));
+
+  function monter() {
+    const pays = lire<Pays[]>('pays.json');
+    const zone = new El('main');
+    let pickSuivant = 'JPN';
+    const carte = {
+      cacherPastilles() {},
+      effacerMarques() {},
+      marquer() {},
+      anneau() {},
+      anneauEn() {},
+      teinter() {},
+      montrer() {},
+      montrerZone() {},
+      cadrer() {},
+      zoomer() {},
+      vueEntiere() {},
+      pick: () => ({ id: pickSuivant, via: 'trace' }),
+      noter: (id: string) => ({ juste: false, pick: { id }, distance_km: 250 }),
+      hote: new El('div'),
+      contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
+      projection: { scale: () => 100 },
+      transfo: { k: 1 },
+    };
+    const donnees = { entites: pays.map((p) => ({ pays: p })), noms: lire<Record<string, string>>('noms.fr.json') };
+    const monde = { nom: 'monde', carte, donnees, jouables: ['FRA', 'ESP'] };
+    const ctx = {
+      carte,
+      donnees,
+      zone,
+      terrains: { monde, montrer() {}, deja: () => null },
+      mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
+    } as unknown as ContexteVue;
+    const essai = vueEssai(ctx, { versJouer: () => undefined });
+    const doc = { getElementById: (id: string) => zone.querySelector(`#${id}`) } as unknown as Document;
+    // Comme ficheAutorisee de main.ts : aucune barre de partie visible, aucune partie de Toucher en suspens.
+    const autorisee = () => !barrePartieVisible(doc) && !essai.enSuspens();
+    const fiches = lireFichesMonde(lire<FichierMonde>('fiches-monde.json'), lire<FichierMondeLangue>('fiches-monde.fr.json'));
+    const capitales = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<NomsCapitales>('capitales.fr.json'));
+    const carteVue = vueExplorer(ctx, {
+      fiche: {
+        fiches: () => Promise.resolve(fiches),
+        capitales: () => Promise.resolve(capitales),
+        drapeaux: () => Promise.reject(new Error('pas ici')),
+        module: () => import('../src/vues/fiche'),
+        autorisee,
+      },
+    });
+    const el = (sel: string) => zone.querySelector(sel)!;
+    return {
+      essai,
+      carteVue,
+      autorisee,
+      toucherCarte: (id: string) => {
+        pickSuivant = id;
+        carteVue.toucher?.(1, 1, {} as PointerEvent);
+      },
+      faits: () => el('#barre-carte .barre-faits').textContent,
+      chevron: () => !el('#barre-carte .barre-chevron').hidden,
+      ouverte: () => !!zone.querySelector('#fiche-lieu') && !zone.querySelector('#fiche-lieu')!.hidden,
+      el,
+      /** Trouver sur la France et l'Espagne, lancé depuis Jouer : la vue de Toucher active, la carte quittée. */
+      lancer: () => {
+        carteVue.desactiver();
+        essai.activer();
+        essai.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Europe', mode: 'localiser' }, { id: 'Europe', terrain: 'monde', ids: ['FRA', 'ESP'], n: 2 }, monde as never, ['FRA', 'ESP']);
+      },
+      /** Le routeur : Toucher quittée pour la carte (le logo, la recherche), ou l'inverse. */
+      versCarte: () => {
+        essai.desactiver();
+        carteVue.activer();
+      },
+      versToucher: () => {
+        carteVue.desactiver();
+        essai.activer();
+      },
+    };
+  }
+
+  it('pendant la question : une barre de partie visible, la fiche n’est pas autorisée', () => {
+    const v = monter();
+    v.lancer();
+    expect(v.el('#barre-essai').hidden).toBe(false);
+    expect(v.autorisee()).toBe(false);
+  });
+
+  it('quittée en cours de route : sur la carte, un toucher ne montre ni faits ni chevron, la fiche ne s’ouvre pas ; la partie finie et son bilan montré, tout revient', async () => {
+    const v = monter();
+    v.lancer();
+    v.versCarte();
+    // La barre de partie est cachée, mais la partie attend : en suspens.
+    expect(v.el('#barre-essai').hidden).toBe(true);
+    expect(v.essai.enSuspens()).toBe(true);
+    expect(v.essai.aMontrer?.()).toBe(true);
+    v.toucherCarte('JPN');
+    await tenir();
+    expect(v.el('#barre-carte .barre-nom').textContent).toBe('Japon');
+    expect(v.faits()).toBe('');
+    expect(v.chevron()).toBe(false);
+    (v.el('#barre-fiche') as El).click();
+    v.carteVue.surFiche({ terrain: 'monde', id: 'JPN', rang: 1 });
+    await tenir();
+    expect(v.ouverte()).toBe(false);
+    // Retour à la partie, finie par « Terminer » : son bilan montré, plus rien en suspens.
+    v.versToucher();
+    expect(v.el('#barre-essai').hidden).toBe(false);
+    (v.el('#essai-terminer') as El).click();
+    expect(v.el('#essai-bilan').hidden).toBe(false);
+    expect(v.essai.enSuspens()).toBe(false);
+    // Le bilan reste à remontrer (aMontrer), sans rien en suspens.
+    v.versCarte();
+    expect(v.essai.aMontrer?.()).toBe(true);
+    expect(v.essai.enSuspens()).toBe(false);
+    v.toucherCarte('JPN');
+    await tenir();
+    expect(v.faits()).toBe('Tokyo');
+    expect(v.chevron()).toBe(true);
+    (v.el('#barre-fiche') as El).click();
+    // Le morceau de la fiche, importé à la première ouverture.
+    await vi.waitFor(() => expect(v.ouverte()).toBe(true));
   });
 });

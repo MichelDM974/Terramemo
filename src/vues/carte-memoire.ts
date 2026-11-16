@@ -96,6 +96,17 @@ export interface CarteMemoire {
    * pour une zone qui ne se joue pas (territoire).
    */
   detail(t: NomTerrain, id: string, jouable: boolean): string | null;
+  /**
+   * Le même détail en liste, une ligne par sujet (« Pays : vu 4 fois · revient
+   * dans 5 j », « Capitale : jamais vue ») : les lignes de la mémoire de la
+   * fiche d'un lieu (#34, étude § 4.2). null comme detail().
+   */
+  details(t: NomTerrain, id: string, jouable: boolean): string[] | null;
+  /**
+   * Le réglage est-il actif et la mémoire lue ? La barre de l'accueil réserve
+   * alors la place de sa ligne de la mémoire (fiche d'un lieu, § 4.1).
+   */
+  actif(): boolean;
 }
 
 export interface OptionsCarteMemoire {
@@ -119,6 +130,27 @@ export function carteMemoire(m: Memoire, actif: () => boolean, o: OptionsCarteMe
     const d = sujet(t);
     return d ? seauxEntites(m.etat(), d) : new Map<string, Seau>();
   };
+  /** detail() en liste, une ligne par sujet. */
+  const details = (t: NomTerrain, id: string, jouable: boolean): string[] | null => {
+    const d = sujet(t);
+    if (!pret() || !jouable || !d) return null;
+    const ligne = (x: Domaine) => {
+      const e = memoireEntite(m.etat(), x, id, m.jour());
+      return e ? `${remplir(e.vu > 1 ? M.vu : M.vu_une, { n: e.vu })} · ${quand(e.dans)}` : M.jamais_vu;
+    };
+    // Une zone marine : sa mémoire des mers (« Vu 2 fois · revient demain »), quel que soit le sujet montré.
+    if (estIdMer(id)) return jouables.includes('mers') ? [ligne('mers')] : null;
+    // Les sujets qui jouent cette zone : sur le monde, le pays, sa capitale, son drapeau ; les mers ont leurs propres zones.
+    const ici = jouablesDu(t, jouables).filter((x) => x !== 'mers');
+    // Un seul sujet : la ligne d'avant, telle quelle (celui de la zone, si le sujet montré est celui des mers).
+    if (ici.length < 2) return [ligne(d === 'mers' ? (ici[0] ?? d) : d)];
+    return ici.map((x) => {
+      const ts = textesSujet(x).memoire;
+      const e = memoireEntite(m.etat(), x, id, m.jour());
+      const detail = e ? `${remplir(e.vu > 1 ? ts.vu : ts.vu_une, { n: e.vu })} · ${quand(e.dans)}` : ts.jamais;
+      return remplir(M.detail_sujet, { sujet: ts.nom, detail });
+    });
+  };
   return {
     sujets(t) {
       const ici = jouablesDu(t, jouables);
@@ -140,26 +172,9 @@ export function carteMemoire(m: Memoire, actif: () => boolean, o: OptionsCarteMe
       return remplir(M.maitrises, { n: maitrises(seaux(t)), total });
     },
     detail(t, id, jouable) {
-      const d = sujet(t);
-      if (!pret() || !jouable || !d) return null;
-      const ligne = (x: Domaine) => {
-        const e = memoireEntite(m.etat(), x, id, m.jour());
-        return e ? `${remplir(e.vu > 1 ? M.vu : M.vu_une, { n: e.vu })} · ${quand(e.dans)}` : M.jamais_vu;
-      };
-      // Une zone marine : sa mémoire des mers (« Vu 2 fois · revient demain »), quel que soit le sujet montré.
-      if (estIdMer(id)) return jouables.includes('mers') ? ligne('mers') : null;
-      // Les sujets qui jouent cette zone : sur le monde, le pays, sa capitale, son drapeau ; les mers ont leurs propres zones.
-      const ici = jouablesDu(t, jouables).filter((x) => x !== 'mers');
-      // Un seul sujet : la ligne d'avant, telle quelle (celui de la zone, si le sujet montré est celui des mers).
-      if (ici.length < 2) return ligne(d === 'mers' ? (ici[0] ?? d) : d);
-      return ici
-        .map((x) => {
-          const ts = textesSujet(x).memoire;
-          const e = memoireEntite(m.etat(), x, id, m.jour());
-          const detail = e ? `${remplir(e.vu > 1 ? ts.vu : ts.vu_une, { n: e.vu })} · ${quand(e.dans)}` : ts.jamais;
-          return remplir(M.detail_sujet, { sujet: ts.nom, detail });
-        })
-        .join(' · ');
+      return details(t, id, jouable)?.join(' · ') ?? null;
     },
+    details,
+    actif: pret,
   };
 }

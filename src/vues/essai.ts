@@ -151,6 +151,14 @@ export interface VueEssai extends Vue {
   lancer(l: Lancement, s: Serie, t: Terrain, ids: string[]): void;
   /** La Révision du jour (Jouer, en tête d'Entraînement) : une séance, sans adresse dans l'arbre. */
   reviser(): void;
+  /**
+   * Une partie attend-elle d'être reprise (quittée en cours de route, barre
+   * cachée, la même question au retour) ? C'est aMontrer() sans le bilan à
+   * remontrer. Tant que c'est vrai, la carte ne montre ni fiche d'un lieu, ni
+   * chevron, ni ligne de faits : elle donnerait la capitale et le drapeau de
+   * la question en suspens (fiche d'un lieu, #34, § 4.8, garde 3).
+   */
+  enSuspens(): boolean;
 }
 
 export interface OptionsEssai {
@@ -737,6 +745,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     // Sans partie en cours ni bilan à remontrer : les exercices de la dernière
     // partie dans Jouer (ou Jouer tout court), au lieu d'un écran vide.
     aMontrer: () => nommer.enCours || retournee.enCours || cibles.length > 0 || bilanAuRetour,
+    enSuspens: () => nommer.enCours || retournee.enCours || cibles.length > 0,
     redirection() {
       if (nommer.enCours || retournee.enCours || cibles.length || bilanAuRetour) return null;
       return { cible: lancement ? adresse(niveauDe(lancement, 'exercices')) : 'jouer' };

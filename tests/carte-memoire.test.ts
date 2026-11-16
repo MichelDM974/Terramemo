@@ -183,7 +183,8 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
       legende: zone.querySelector('#legende-memoire')!,
       choix: () => zone.querySelector('#legende-sujet'),
       derniere: () => teintes.at(-1),
-      detail: () => zone.querySelector('#barre-carte .barre-detail')!.textContent,
+      // La ligne de la mémoire, à part dans la barre depuis la fiche d'un lieu (#34, § 4.1).
+      detail: () => zone.querySelector('#barre-carte .barre-memoire')!.textContent,
       toucher: (id: string) => {
         pick = id;
         vue.toucher?.(1, 1, {} as PointerEvent);

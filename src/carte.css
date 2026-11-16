@@ -424,6 +424,154 @@ body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:
 /* Explorer : « Monde » (retour de l'île), à droite de la barre. */
 .barre-monde { margin-left: auto; padding: 4px 12px; font-size: 0.85rem; }
 
+/* --- Fiche d'un lieu (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md,
+   § 4.1 à § 4.3, § 4.11, § 4.12 ; src/vues/explorer.ts et src/vues/fiche.ts) ---
+   La barre de l'accueil est un bouton sur toute sa largeur (« Monde » à côté,
+   hors du bouton) : le nom, puis le statut et « par sa pastille » ; la ligne de
+   faits (« Tokyo ») ; la ligne de la mémoire. Un chevron « ⌃ » quand le lieu a
+   une fiche. Elle réserve la hauteur de son cas complet dès qu'un lieu est
+   affiché (.barre-lieu : la ligne de faits ; .barre-avec-memoire : la ligne de
+   la mémoire, réglage actif) : les faits arrivent après le toucher dans une
+   place déjà là, la carte ne bouge pas. touch-action: none : le glissé vers le
+   haut reste à la page (la feuille ne suit pas le doigt, un seuil suffit). */
+#barre-carte { padding: 0; align-items: center; flex-wrap: nowrap; gap: 0; touch-action: none; }
+#barre-carte .barre-monde { margin-right: 10px; flex: none; }
+.barre-fiche {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  margin: 0;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  color: var(--text);
+  font-size: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: default;
+  touch-action: none;
+}
+.barre-fiche.barre-avec-fiche { cursor: pointer; }
+.barre-fiche:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.barre-ligne, .barre-faits, .barre-memoire { grid-column: 1; line-height: 1.35; }
+.barre-faits { font-size: 0.88rem; }
+.barre-memoire { color: var(--muted); font-size: 0.85rem; }
+.barre-faits:empty, .barre-memoire:empty { display: none; }
+#barre-carte.barre-lieu .barre-faits, #barre-carte.barre-lieu.barre-avec-memoire .barre-memoire { display: block; min-height: 1.35em; }
+.barre-chevron { grid-column: 2; grid-row: 1 / span 3; color: var(--muted); font-size: 1.15rem; line-height: 1; }
+/* La région vivante : lue, jamais vue. */
+.barre-annonce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* La fiche ouverte : boutons de zoom cachés (ils sont posés après les vues, donc
+   par-dessus elles), les touches + et − sans effet (zoom-carte.ts). */
+body[data-fiche] .zoom-carte { display: none !important; }
+
+/* Le voile : transparent, sur toute la carte autour de la feuille ; un toucher
+   dessus ferme la fiche et ne touche rien d'autre (ni lieu, ni glissé, ni
+   pincement : l'hôte de la carte ne le reçoit pas). Sous la popup ⚙ (z-index
+   20) et la liste de la recherche (30) : l'en-tête reste utilisable. */
+.fiche-voile { position: absolute; inset: 0; z-index: 4; background: transparent; touch-action: none; }
+/* La feuille : opaque (--panel, sans flou, qui se recalculerait dès que la carte
+   change dessous), presque toute la carte, 640 px de large au plus, centrée ;
+   elle défile seule. Elle s'ouvre par un glissement (transform seul, 200 ms),
+   d'un coup si l'appareil demande moins de mouvement. */
+.fiche {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 16px 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px var(--shadow);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fiche:not([hidden]) { animation: fiche-monte 200ms ease-out; }
+}
+@keyframes fiche-monte {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+/* Sur l'île, sous la mention de l'IGN, comme le bilan. */
+body[data-terrain="reunion"] .fiche { top: 40px; }
+/* La tête, collée en haut quand la fiche défile, sur fond opaque ; le glissé
+   vers le bas qui ferme y commence (touch-action: none). « × » (commun.ts :
+   croix) à droite, « ‹ » à gauche, 44 px chacune. */
+.fiche-tete {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 -16px;
+  padding: 8px 16px 10px;
+  background: var(--panel);
+  touch-action: none;
+}
+.fiche-tete::after { content: ""; display: block; clear: both; }
+.fiche-tete > .croix { position: static; margin: 0 -8px 0 8px; }
+.fiche-avant {
+  float: left;
+  width: 44px;
+  height: 44px;
+  margin: 0 8px 0 -8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 3px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1;
+}
+.fiche-avant:hover { background: var(--panel-2); color: var(--text); }
+.fiche-drapeaux { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+.fiche-drapeaux .drapeau { width: 64px; height: 48px; }
+.fiche-titre { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+.fiche-titre:focus { outline: none; }
+.fiche-titre:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fiche-statut { margin: 2px 0 0; color: var(--muted); font-size: 0.88rem; }
+/* Les faits : libellé et valeur sur une ligne, le libellé au-dessus quand elle ne tient pas. */
+.fiche-faits { margin: 4px 0 0; }
+.fiche-fait { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.fiche-fait dt { flex: 0 0 8.5em; color: var(--muted); font-size: 0.85rem; }
+.fiche-fait dd { flex: 1 1 12em; margin: 0; }
+.fiche-section h3 { margin: 18px 0 8px; font-size: 0.95rem; font-weight: 600; }
+.fiche-voisins-liste { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.fiche-voisin { min-height: 44px; }
+.fiche-memoire ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+.fiche-pied { margin-top: 18px; color: var(--muted); font-size: 0.85rem; }
+.fiche-pied p { margin: 6px 0; }
+.fiche-pied a { color: var(--accent); }
+.fiche-wikipedia { display: inline-block; padding: 10px 0; font-size: 0.95rem; }
+@media (max-width: 700px) {
+  .fiche { top: 8px; bottom: 8px; left: 8px; right: 8px; }
+}
+/* PC : un peu plus grand, comme le panneau de Jouer. */
+@media (min-width: 701px) {
+  .fiche { font-size: 1.05rem; }
+}
+
 /* Chrono : jauge du temps de la question (neutre : l'accent reste aux pages et au
    bouton principal), score et record du bilan. */
 .chrono-temps { display: flex; align-items: center; gap: 8px; }

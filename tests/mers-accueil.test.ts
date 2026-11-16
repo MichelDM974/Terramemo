@@ -99,7 +99,9 @@ function monter(memoire?: CarteMemoire) {
   const toucherPresDeMalte = () => vue.toucher?.(...presDeMalte(), {} as PointerEvent);
   const nom = () => zone.querySelector('#barre-carte .barre-nom')!.textContent;
   const detail = () => zone.querySelector('#barre-carte .barre-detail')!.textContent;
-  return { vue, carte, donnees, marques, teintes, toucher, presDeMalte, toucherPresDeMalte, nom, detail, zone, pastilles: () => !sansPastilles };
+  // La ligne de la mémoire, à part dans la barre depuis la fiche d'un lieu (#34, § 4.1).
+  const ligneMemoire = () => zone.querySelector('#barre-carte .barre-memoire')!.textContent;
+  return { vue, carte, donnees, marques, teintes, toucher, presDeMalte, toucherPresDeMalte, nom, detail, ligneMemoire, zone, pastilles: () => !sansPastilles };
 }
 
 const CARAIBES: [number, number] = [-78, 14];
@@ -225,6 +227,8 @@ describe('accueil : la mémoire des mers (D47 a) et une mer choisie dans la rech
     teintes: () => new Map([['medit', 2]]),
     maitrises: () => '0/50 maîtrisées',
     detail: (_t, id) => (id === 'medit' ? 'Vu 1 fois · revient demain' : null),
+    details: (_t, id) => (id === 'medit' ? ['Vu 1 fois · revient demain'] : null),
+    actif: () => true,
   });
 
   it('« Mers » : la couche fine posée sur la carte, ses zones teintées (les pays neutres) ; une mer touchée allumée, avec sa mémoire', async () => {
@@ -236,7 +240,7 @@ describe('accueil : la mémoire des mers (D47 a) et une mer choisie dans la rech
     expect([...derniere.keys()]).toEqual(['medit']);
     a.toucher(MEDITERRANEE);
     expect(a.nom()).toBe('mer Méditerranée');
-    expect(a.detail()).toBe('Vu 1 fois · revient demain');
+    expect(a.ligneMemoire()).toBe('Vu 1 fois · revient demain');
     expect(a.marques).toEqual(['medit:choisi']);
   });
 

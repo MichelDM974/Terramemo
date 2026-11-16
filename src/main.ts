@@ -5,7 +5,10 @@ import { CarteCanvas } from './map/carte-canvas';
 import { chargerDonnees, chargerLeger } from './map/donnees';
 import { prechauffer } from './map/geo';
 import { empriseDesLieux, lignesDe, lignesQuiCroisent } from './map/lignes';
+import { chargerCapitales } from './map/capitales';
+import { chargerDrapeaux } from './map/drapeaux';
 import { chargerMers } from './map/mers';
+import { chargerFichesMonde } from './fiches/donnees';
 import type { Note, OptionsNoter, ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
@@ -34,7 +37,7 @@ import { vueALaDemande } from './vues/a-la-demande';
 import { creerAccueil, sessionPerdue, type Accueil } from './vues/accueil';
 import { adresse, creerArbre, depuisAncre, estEpreuve, garderDerniere, type Arbre, type Lancement } from './vues/arbre';
 import { catalogue, serieEssai, type Serie } from './vues/cibles';
-import { poserMers, type Vue } from './vues/commun';
+import { barrePartieVisible, poserMers, type Vue } from './vues/commun';
 import type { Difficulte } from './quiz/types';
 import { vueChrono } from './vues/chrono';
 import { preparerQuiz, vueQuiz } from './vues/quiz';
@@ -382,6 +385,8 @@ const nav = creerNavigation({
   // Toute vue part du monde ; celle qui joue l'île la remontre dans son activer().
   avantActiver: () => terrains?.montrer('monde'),
   aller: (segs) => jouer?.aller(segs),
+  // La fiche d'un lieu de l'entrée d'historique rendue (#34, § 4.4) : la carte l'ouvre ou la ferme.
+  surFiche: (f) => explorer?.surFiche(f),
   annoncer: (m) => jouer?.annoncer(m),
   canonique: (cible) => (arbre ? adresse(arbre.resoudre(depuisAncre(cible).slice(1))) : 'jouer'),
 });
@@ -759,8 +764,21 @@ async function demarrer(): Promise<void> {
   const ctx = { carte, donnees, mesures, zone, terrains, finDePartie: () => queueMicrotask(() => accueil?.finDePartie()) };
   const pays = donnees.entites.map((e) => e.pays);
   arbre = creerArbre(catalogue(pays));
+  // La fiche d'un lieu (#34) : ses données au premier toucher, son morceau à part, une entrée d'historique par
+  // fiche (navigation.ts), et jamais pendant une partie : une barre de partie visible, ou une partie de Toucher
+  // en suspens sur la carte (ficheAutorisee, § 4.8, garde 4). `essai` est créé plus bas, lu au toucher seulement.
+  const ficheAutorisee = (): boolean => !barrePartieVisible() && !essai.enSuspens();
+  const fiche = {
+    fiches: () => chargerFichesMonde(),
+    capitales: () => chargerCapitales(),
+    drapeaux: () => chargerDrapeaux(),
+    module: () => import('./vues/fiche'),
+    historique: { pousser: nav.pousserFiche, quitter: nav.quitterFiches, retour: () => history.back() },
+    autorisee: ficheAutorisee,
+    reglagesOuverts: () => document.getElementById('settings-popup')?.hidden === false,
+  };
   // ?teintes=demo et ?mers=demo gardent leurs teintes partout : l'accueil n'y pose pas celles de la mémoire.
-  explorer = vueExplorer(ctx, teintesDemoDemandees || mersDemoDemandees ? {} : { memoire: carteMemoire(memoire, () => carteMemoireActive, { stockage }) });
+  explorer = vueExplorer(ctx, teintesDemoDemandees || mersDemoDemandees ? { fiche } : { memoire: carteMemoire(memoire, () => carteMemoireActive, { stockage }), fiche });
   // Les communes (Apprendre sous La Réunion, leurs révisions) : les données de l'île une fois chargée.
   const seances = creerSeances({
     memoire,
