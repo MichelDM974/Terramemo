@@ -457,11 +457,13 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   l'ouvre, la tête glissée vers le bas la ferme ; l'Espagne, ses voisins
   (jouables par ordre alphabétique, puis Gibraltar), la France
   (`152-fiche-voisin`, « ‹ », rang 2), « ‹ », le Portugal, « × » (une
-  seule remontée) ; le voile ; ⚙ puis Échap (la popup seule), Échap ;
-  le Groenland (`153-fiche-territoire`) et l'Antarctique ; une mer et
+  seule remontée) ; ⚙ puis le voile (la popup seule), le voile ; ⚙ puis
+  Échap (la popup seule), Échap ; 🏆 ouvert depuis une fiche, puis sa
+  « × » (la carte seule, sans fiche ni entrée de fiche) ; le Groenland (`153-fiche-territoire`) et l'Antarctique ; une mer et
   Saint-Denis sans chevron (`154-fiche-ile`, lots F4 et F5) ; la recherche
   qui ferme la fiche ; puis le scénario de mesure de l'étude (§ 6.4 : 10
-  fiches ouvertes et fermées, 3 voisins, les images de la page par
+  fiches ouvertes et fermées, 3 voisins qui font voler la carte, de
+  l'Espagne à la France, au Brésil puis à l'Argentine, les images de la page par
   `requestAnimationFrame` : à-coups ≥ 25 ms, gels ≥ 46 ms), indicatif sur
   le PC : le verdict est celui de l'A37 (`driver.py fiche --cible
   webview`, puis `touchers_reels.py` pour le toucher). `DÉFAUT` à tout

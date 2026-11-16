@@ -4338,9 +4338,15 @@ JS_IMAGES_FIN = """(() => { window.__fiche_mesure = false; const d = (window.__f
            max_ms: Math.round(Math.max(0, ...d) * 10) / 10 }; })()"""
 
 
+# Les voisins du scénario de mesure, depuis l'Espagne : de vrais vols sous la fiche (S55, D61), du court
+# (la France) au plus long (la Guyane fait du Brésil un voisin de la France), puis l'Argentine. Le premier
+# voisin de chaque liste faisait Espagne → Andorre → Espagne → Andorre : la carte bougeait à peine.
+CHEMIN_VOISINS = ("FRA", "BRA", "ARG")
+
+
 def scenario_fiches(p, defauts, n=10, voisins=3):
     """Le scénario de mesure de l'étude (§ 6.4, S41 et S55) : ouvrir et fermer `n` fiches (la barre touchée,
-    puis « × »), puis passer par `voisins` voisins depuis la fiche de l'Espagne, les images de la page
+    puis « × »), puis passer par `voisins` voisins depuis la fiche de l'Espagne (CHEMIN_VOISINS), les images de la page
     mesurées par requestAnimationFrame (critère de saccade : à-coup ≥ 25 ms, gel ≥ 46 ms). Le toucher
     est celui de DevTools : la médiane du toucher se juge à part (touchers_reels.py, critère du toucher).
     Indicatif sur le PC (chromium sans écran) : le verdict est celui de l'A37."""
@@ -4356,9 +4362,9 @@ def scenario_fiches(p, defauts, n=10, voisins=3):
         p.pause(200)
     toucher_element(p, "#barre-fiche")
     e = attendre_fiche(p, lambda e: e["ouverte"], "scénario : fiche de l'Espagne")
-    for _ in range(voisins):
-        suivant = next((v for v in e["voisins"] if v not in ("GIB",)), None)
-        if not suivant:
+    for suivant in CHEMIN_VOISINS[:voisins]:
+        if suivant not in e["voisins"]:
+            defauts.append(f"scénario : {suivant} pas parmi les voisins de la fiche {e['id']} ({e['voisins']})")
             break
         toucher_element(p, f'#fiche-lieu .fiche-voisin[data-id="{suivant}"]')
         e = attendre_fiche(p, lambda x, s=suivant: x["ouverte"] and x["id"] == s, f"scénario : voisin {suivant}")
@@ -4422,7 +4428,11 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         defauts.append(f"fiche ouverte : boutons de zoom visibles ({e['zoom']})")
     if not any(l.startswith("Capitale") and "Tokyo" in l for l in e["lignes"]) or not e["drapeaux"]:
         defauts.append(f"fiche du Japon : capitale et drapeau attendus ({e['lignes']}, {e['drapeaux']} drapeau)")
-    if p.js("history.length") != longueur + 1:
+    # L'entrée d'historique : celle de la première fiche (rang 1). history.length seulement sous le plafond
+    # de Chromium (50 entrées) : après les autres ui_*, pushState ne l'augmente plus.
+    if (e["etat"] or {}).get("rang") != 1:
+        defauts.append(f"fiche du Japon : entrée d'historique de rang 1 attendue ({e['etat']})")
+    if longueur < 50 and p.js("history.length") != longueur + 1:
         defauts.append(f"fiche du Japon : {p.js('history.length') - longueur} entrées d'historique au lieu d'une")
     capturer("151-fiche-japon")
     # Le retour du navigateur (celui d'Android fait history.back()) : la fiche se ferme, on reste sur la carte.
@@ -4453,7 +4463,6 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     dire(f"  fiche de l'Espagne : voisins {e['voisins']}, lignes {e['lignes']}")
     if e["voisins"][:4] != ["AND", "FRA", "MAR", "PRT"] or "GIB" not in e["voisins"]:
         defauts.append(f"fiche de l'Espagne : voisins jouables par ordre alphabétique puis Gibraltar attendus ({e['voisins']})")
-    longueur = p.js("history.length")
     toucher_element(p, '#fiche-lieu .fiche-voisin[data-id="FRA"]')
     e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "FRA", "voisin France")
     attendre_fin_vol(p)
@@ -4474,11 +4483,20 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     if e["ouverte"] or e["etat"] or e["hash"] != "#carte" or e["barre"] != "PRT":
         defauts.append(f"« × » : toutes les fiches fermées, la carte sur le dernier lieu vu attendues ({e})")
 
-    # Le voile : un toucher à côté ferme la fiche, sans toucher la carte.
+    # Le voile : un toucher à côté ferme la fiche, sans toucher la carte ; ⚙ ouverte, il ne ferme que la popup.
     e = ouvrir_fiche(p, "PRT", defauts, "Portugal")
     pt = p.js("""(() => { const a = document.getElementById('app').getBoundingClientRect(), f = document.getElementById('fiche-lieu').getBoundingClientRect();
       if (f.left - a.left >= 6) return {x: (a.left + f.left) / 2, y: (f.top + f.bottom) / 2};
       return {x: (f.left + f.right) / 2, y: (f.bottom + a.bottom) / 2}; })()""")
+    cliquer(p, "#settings-btn")
+    p.pause(200)
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    p.toucher(pt["x"], pt["y"])
+    p.pause(300)
+    e = etat_fiche(p)
+    dire(f"  ⚙ puis le voile : popup {e['reglages']}, fiche {e['ouverte']}")
+    if e["reglages"] or not e["ouverte"]:
+        defauts.append(f"⚙ par-dessus la fiche : un toucher sur le voile ferme la popup seule attendu ({e})")
     p.pause(PAUSE_AVANT_TOUCHER_MS)
     p.toucher(pt["x"], pt["y"])
     e = attendre_fiche(p, lambda e: not e["ouverte"], "voile")
@@ -4501,6 +4519,20 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     e = attendre_fiche(p, lambda e: not e["ouverte"], "Échap")
     if e["ouverte"]:
         defauts.append("Échap : la fiche reste ouverte")
+
+    # 🏆 par-dessus une fiche (puis un voisin) : sa « × » mène à la carte seule, sans rouvrir la fiche (« Croix vers la carte »).
+    e = ouvrir_fiche(p, "PRT", defauts, "Portugal")
+    toucher_element(p, '#fiche-lieu .fiche-voisin[data-id="ESP"]')
+    attendre_fiche(p, lambda e: e["id"] == "ESP", "voisin Espagne")
+    cliquer(p, "#classement-btn")
+    attendre_visible(p, "#classement-general")
+    p.pause(800)
+    croix_vers_carte(p, defauts, "🏆 ouvert depuis une fiche", "#classement-general")
+    p.pause(300)
+    e = etat_fiche(p)
+    dire(f"  🏆 puis sa « × » : fiche {e['ouverte']}, état {e['etat']}")
+    if e["ouverte"] or e["etat"]:
+        defauts.append(f"🏆 ouvert depuis une fiche, sa « × » : la carte sans fiche ni entrée de fiche attendue ({e})")
 
     # Un territoire et l'Antarctique : une fiche courte, avec le statut.
     e = ouvrir_fiche(p, "GRL", defauts, "Groenland")
