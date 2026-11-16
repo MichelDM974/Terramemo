@@ -912,6 +912,38 @@ local de chaque réponse (ts + tz). Essayé sur l'A37 le 07/11 (APK : 10
 événements ; site dans Chrome : vide).
 Testé par `tests/pastilles-outil.test.ts` (journal fabriqué).
 
+### Justesse des prévisions de FSRS (#4)
+
+```bash
+node .claude/skills/run-terramemo/outils/justesse.mjs                       # la dernière sauvegarde de chaque origine
+node .claude/skills/run-terramemo/outils/justesse.mjs FICHIER... [--json] [--tranches 0.5,0.7,0.8,0.85,0.9,0.95]
+```
+
+Critère de fin de #4 (« écart prévu/réel mesurable dès 300 réponses ») :
+le journal sauvé (`sauver_journal` d'abord pour du frais ; mêmes
+sauvegardes et même choix sans fichier que `pastilles.py`) est rejoué par
+le **code de l'appli** (`ordonner()` et `appliquer()` de
+`src/srs/rejeu.ts`, ts-fsrs aux `PARAMS_FSRS`), empaqueté à la volée par
+rolldown (`outils/justesse_calcul.ts` : ni tsx ni vite-node dans le dépôt,
+FSRS jamais recopié). Pour chaque révision comptée, la probabilité de
+rappel prévue (`get_retrievability` de l'état d'avant la note, au jour
+local de la note) face au résultat (réussi = note ≠ Again).
+- **Compté** : une réponse à note FSRS (rappel, révision, carte retournée)
+  que le rejeu applique, sur une fiche qui avait déjà un état.
+- **Hors compte** : la première note d'une fiche (grappe nouvelle,
+  introduction en carte retournée, après une réinitialisation), les notes
+  null (QCM d'Apprendre, reprises, seconde réponse du jour, Jouer : parties
+  libres, épreuves, quiz), les notes que le rejeu ignore (même jour).
+- **Sortie** (agrégats seuls, ni fiche ni date) : tranches de prévu (n,
+  prévu moyen, observé, écart, IC de Wilson à 95 %), biais (observé −
+  prévu : < 0, FSRS optimiste), ECE (écart absolu par tranche, pondéré),
+  Brier et log-loss avec leur référence (prévision constante au taux
+  observé) ; par sujet, par sens, par mode, à l'échéance ou en avance,
+  après un échec ou une réussite, par jours écoulés. Avertissement sous
+  300 révisions comptées.
+Testé par `tests/justesse-outil.test.ts` (journaux fabriqués à calibration
+connue). Relevés : `docs/mesures/justesse/`.
+
 **Drapeau `terramemo.sans-synchro`** (`src/sync/drapeaux.ts`) : chaque
 commande qui ouvre une page (smoke, ui, seance, mesurer, sauver_journal,
 restaurer_journal) le pose sur l'origine qu'elle pilote, avant toute
