@@ -1491,8 +1491,8 @@ python3 .claude/skills/run-terramemo/driver.py export --out /tmp/terramemo-expor
 `synchro` (pilote `ui_synchro`, critère de #3 au navigateur) demande le
 serveur de dev (`driver.py serve`) et les émulateurs lancés à part
 (`npx firebase emulators:start --only firestore,auth --project
-terramemo-geo`) ; il charge lui-même dans l'émulateur les règles avec
-`essai()` ouvert et vide base et comptes de l'émulateur (jamais le vrai
+terramemo-geo`) ; il charge lui-même dans l'émulateur les règles du
+dépôt (`essai()` ouvert s'il est encore fermé) et vide base et comptes de l'émulateur (jamais le vrai
 projet), sans poser `sans-synchro`. Deux chromium sans stockage partagé :
 l'appareil 1 crée un compte et joue la Révision du jour ; l'appareil 2
 joue Apprendre sous La Réunion en invité, se connecte, répond « Ajouter »

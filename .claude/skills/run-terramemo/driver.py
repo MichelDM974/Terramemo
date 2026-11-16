@@ -4881,6 +4881,37 @@ def confirmer_suppression(p, mdp, mot="supprimer"):
     cliquer_apres_pause(p, "#compte-supprimer-ok")
 
 
+def textes_compte():
+    """Les textes de la vue Compte (src/vues/textes.fr.json, clé « compte »), tels que l'appli les affiche."""
+    return json.loads((RACINE / "src/vues/textes.fr.json").read_text())["compte"]
+
+
+def cles_du_joueur():
+    """CLES_DU_JOUEUR relevées dans src/sync/effacement.ts (ce qu'effacerJoueurLocal retire de l'appareil), pas recopiées."""
+    source = (RACINE / "src/sync/effacement.ts").read_text()
+    m = re.search(r"export const CLES_DU_JOUEUR[^=]*=\s*\[(.*?)\]", source, re.S)
+    cles = re.findall(r"'([^']+)'", m.group(1)) if m else []
+    if not cles:
+        raise RuntimeError("CLES_DU_JOUEUR introuvables dans src/sync/effacement.ts")
+    return cles
+
+
+def textes_visibles(p, textes):
+    """Ceux de `textes` qu'un élément affiché de la page (dans la mise en page, pas caché) contient."""
+    return p.js(f"""(() => {{
+        const cherches = {json.dumps(textes)};
+        const vus = new Set();
+        for (const e of document.body.querySelectorAll('*')) {{
+            if (!e.getClientRects().length || e.closest('[hidden]')) continue;
+            const s = getComputedStyle(e);
+            if (s.visibility === 'hidden' || s.display === 'none') continue;
+            const t = [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('');
+            for (const c of cherches) if (t.includes(c)) vus.add(c);
+        }}
+        return [...vus];
+    }})()""") or []
+
+
 def ui_suppression(p, capturer, defauts, base):
     """La suppression du compte comme un joueur (étude du J1b, § 7.1), au
     site de dev avec ?emulateurs, vérifiée aux émulateurs (API REST en
@@ -4894,12 +4925,13 @@ def ui_suppression(p, capturer, defauts, base):
        (Network.setBlockedURLs, le réseau perdu entre les lots supprimés et
        Auth) : « Suppression inachevée : reprendre ? » (`58`), pierre tombale
        et demande posées, lots partis, le compte encore dans Auth ;
-    4. l'appli rouverte : pas d'avis, l'écran dans ⚙ › Compte (`59`),
+    4. l'appli rouverte : aucun texte ni élément de la suppression
+       inachevée affiché avant ⚙ › Compte, l'écran dans ⚙ › Compte (`59`),
        « Annuler la suppression » refusé (déjà engagée), puis la reprise
        (« Supprimer », casse ignorée) jusqu'à « Compte supprimé. » (`62`) :
        compte parti de Auth, pierre tombale seule (v, maj, supprime),
-       demande au pseudo, aucun lot, appareil vidé (journal, uid, pseudo,
-       choix de l'écran de connexion) ; rouverte, l'écran de connexion de la
+       demande au pseudo, aucun lot, appareil vidé (journal, uid, toutes les
+       CLES_DU_JOUEUR de src/sync/effacement.ts) ; rouverte, l'écran de connexion de la
        première ouverture (`63`)."""
     url = base + "?emulateurs&mesures=0"
     marque = int(time.time())
@@ -4958,6 +4990,10 @@ def ui_suppression(p, capturer, defauts, base):
     finally:
         p.cdp("Network.setBlockedURLs", urls=[])
     dire(f"  coupée avant deleteUser : {texte(p, '#compte-suppression-inachevee')!r}, {erreur!r}")
+    # La requête de deleteUser bloquée échoue comme un réseau perdu : auth/network-request-failed (src/sync/erreurs.ts).
+    attendu = textes_compte()["erreurs"]["auth/network-request-failed"]
+    if attendu not in erreur:
+        defaut(f"coupée avant deleteUser : erreur sans « {attendu} » : {erreur!r}")
     capturer("58-suppression-inachevee")
     e = en_ligne(uid)
     dire(f"  en ligne : {e}")
@@ -4972,8 +5008,13 @@ def ui_suppression(p, capturer, defauts, base):
     p.goto(url + "&rouvert=1#carte")
     p.attendre_carte()
     p.pause(1500)
-    if visible(p, "#accueil"):
-        defaut("un panneau à l'ouverture pendant la suppression inachevée (attendu : rien avant ⚙ › Compte)")
+    # § 7.1 : pas d'avis à l'ouverture de l'appli, l'écran n'est que dans ⚙ › Compte. (#accueil ne dit rien ici :
+    # le choix de l'écran de connexion, posé par passer_accueil, le tient fermé.)
+    T = textes_compte()
+    avis = textes_visibles(p, [T["suppression_inachevee"], T["en_suppression"], T["erreurs"]["terramemo/suppression-inachevee"]])
+    ids = p.js("[...document.querySelectorAll('[id$=\"suppression-inachevee\"]')].filter((e) => e.getClientRects().length && !e.closest('[hidden]')).map((e) => e.id)")
+    if avis or ids:
+        defaut(f"un avis à l'ouverture pendant la suppression inachevée (attendu : rien avant ⚙ › Compte) : {avis} {ids}")
     p.js('location.hash = "#compte"')
     attendre_visible(p, "#compte-suppression-inachevee", 30)
     capturer("59-suppression-rouverte")
@@ -5003,11 +5044,13 @@ def ui_suppression(p, capturer, defauts, base):
         defaut(f"{e['lots']} lot(s) encore en ligne")
     r = synchro_de(p)
     ses = r.get("session") or {}
-    local = p.js(f"[localStorage.getItem('terramemo.pseudo'), localStorage.getItem({json.dumps(CLE_ACCUEIL)})]")
+    cles = cles_du_joueur()
+    local = p.js(f"Object.fromEntries({json.dumps(cles)}.map((k) => [k, localStorage.getItem(k)]).filter(([, v]) => v !== null))")
     etat = comptes_etat()
-    dire(f"  appareil : {r['evenements']} événements, uid {r['uid']}, état {etat.get('etat')}, pseudo et choix {local}")
-    if r["evenements"] or r["uid"] or ses.get("suppression") or ses.get("effacement") or any(local) or etat.get("etat") != "invite":
-        defaut(f"appareil pas vidé : {r['evenements']} événements, uid {r['uid']}, session {ses}, pseudo et choix {local}, état {etat}")
+    dire(f"  appareil : {r['evenements']} événements, uid {r['uid']}, état {etat.get('etat')}, "
+         f"{len(cles)} clés du joueur, restées : {local}")
+    if r["evenements"] or r["uid"] or ses.get("suppression") or ses.get("effacement") or local or etat.get("etat") != "invite":
+        defaut(f"appareil pas vidé : {r['evenements']} événements, uid {r['uid']}, session {ses}, clés du joueur restées {local}, état {etat}")
     p.goto(url + "&apres=1#carte")
     p.attendre_carte()
     attendre_visible(p, "#accueil", 20)
