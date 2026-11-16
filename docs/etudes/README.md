@@ -1,5 +1,9 @@
 # Études préparatoires (04/11/2026)
 
+*Chaque étude décrit l'état du projet et les choix connus à sa date (le
+dépôt est public depuis sa création ; certaines disent encore « privé »).
+J0, J1a… sont les jalons de `docs/plan.md`, les #N mes tickets de suivi.*
+
 Faites avant toute ligne de code, par un workflow de cinq agents :
 
 - `2026-11-04-pedagogie.md` : science de l'apprentissage, catalogue d'exercices ;

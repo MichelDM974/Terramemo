@@ -3,7 +3,10 @@
 Plan issu de cinq études (`docs/etudes/2026-11-04-*.md` : pédagogie,
 données, technique, synthèse des agents, critique adverse) et des réponses
 de l'utilisateur le même jour. Ce plan fait foi là où les études divergent ;
-les décisions vivantes sont au registre de cdc (`terramemo`).
+les décisions suivantes vivent dans mon registre de suivi personnel.
+
+*Notes de conception internes. J0, J1a, J1b… sont les jalons du plan
+(§ « Jalons ») ; les #N renvoient à mes tickets de suivi, hors GitHub.*
 
 Mis à jour le 06/11/2026 (décision « Contenu ») : le J1c (La Réunion) passe
 avant le J1a ; conception `docs/etudes/2026-11-06-reunion.md`.
@@ -27,7 +30,7 @@ quotidien et notification »).
 
 | Sujet | Choix |
 |---|---|
-| Public | **Public** (n'importe qui), gratuit, sans pub, code privé |
+| Public | **Public** (n'importe qui), gratuit, sans pub, code public sur GitHub (depuis la création du dépôt) |
 | Objectif | **Culture géographique large** ; au départ : pays du monde, capitales, drapeaux |
 | Comptes | Synchronisés entre appareils ; **on joue sans compte** (Firebase Auth anonyme), « Se connecter avec Google » ou un compte e-mail et mot de passe (choix du 04/11, #13) rattache les progrès |
 | Langue | **Français, prêt à traduire** (textes et noms dans des fichiers de langue dès le départ) |
