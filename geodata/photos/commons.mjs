@@ -12,6 +12,30 @@ import { CHAMPS_META } from './regle.mjs';
 
 export const MINIATURE = 500; // largeur des miniatures de l'outil (une largeur standard de Commons)
 export const PAR_LOT = 50; // titres par requête (plafond de l'API sans droit de robot)
+/**
+ * Longueur encodée des titres d'une requête, au plus : 50 noms cyrilliques, encodés en %XX, faisaient une
+ * adresse trop longue pour Commons (HTTP 414 au 201e lieu sur 332, le 18/11 : le cosmodrome de Baïkonour).
+ */
+export const OCTETS_LOT = 4000;
+
+/** La liste découpée en lots de `parLot` titres au plus, dont les titres encodés tiennent en `octets`. */
+export function decouperLots(liste, parLot = PAR_LOT, octets = OCTETS_LOT) {
+  const lots = [];
+  let lot = [];
+  let taille = 0;
+  for (const f of liste) {
+    const n = encodeURIComponent(`File:${f}|`).length;
+    if (lot.length && (lot.length >= parLot || taille + n > octets)) {
+      lots.push(lot);
+      lot = [];
+      taille = 0;
+    }
+    lot.push(f);
+    taille += n;
+  }
+  if (lot.length) lots.push(lot);
+  return lots;
+}
 const SUITES_MAX = 20;
 
 /** Durée de vie d'une réponse imageinfo du cache : 30 jours, puis elle est relue. */
@@ -27,8 +51,7 @@ export const VIE_IMAGEINFO_MS = 30 * 24 * 3600 * 1000;
 export async function lireFichiers(reseau, fichiers, { vie = VIE_IMAGEINFO_MS } = {}) {
   const res = new Map();
   const liste = [...new Set(fichiers)];
-  for (let i = 0; i < liste.length; i += PAR_LOT) {
-    const lot = liste.slice(i, i + PAR_LOT);
+  for (const lot of decouperLots(liste)) {
     const base = {
       action: 'query',
       titles: lot.map((f) => `File:${f}`).join('|'),

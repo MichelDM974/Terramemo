@@ -126,6 +126,19 @@ type Commons = { lireFichiers: (r: Client, f: string[], o?: { vie?: number }) =>
 const commons = import('../geodata/photos/commons.mjs' as string) as Promise<Commons>;
 
 describe('lecture de Commons (commons.mjs)', () => {
+  it('découpe les titres en lots de 50 au plus, dont l’adresse encodée reste courte (HTTP 414 des noms cyrilliques, 18/11)', async () => {
+    const { decouperLots, OCTETS_LOT } = (await commons) as unknown as { decouperLots: (l: string[], p?: number, o?: number) => string[][]; OCTETS_LOT: number };
+    const latins = Array.from({ length: 120 }, (_, i) => `photo ${i}.jpg`);
+    expect(decouperLots(latins).map((l) => l.length)).toEqual([50, 50, 20]);
+    const cyrilliques = Array.from({ length: 50 }, (_, i) => `Космодром Байконур, стартовый комплекс ${i}.jpg`);
+    const lots = decouperLots(cyrilliques);
+    expect(lots.length).toBeGreaterThan(1);
+    expect(lots.flat()).toEqual(cyrilliques);
+    for (const l of lots) expect(encodeURIComponent(l.map((f) => `File:${f}`).join('|')).length).toBeLessThanOrEqual(OCTETS_LOT);
+    // Un seul titre plus long que la borne passe seul, sans boucle.
+    expect(decouperLots(['x'.repeat(5000)])).toEqual([['x'.repeat(5000)]]);
+  });
+
   it('suit « continue » pour les catégories, garde l’imageinfo, range absents et non décrits à part', async () => {
     const { client } = await reseau;
     const { lireFichiers } = await commons;
