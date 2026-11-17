@@ -864,6 +864,9 @@ describe('les chiffres d’un pays (lot F2) : lignes, ordre, lignes à relire, h
   it('aucun formateur créé à l’ouverture d’une fiche : ceux des nombres, des dates et de la zone du pays touché le sont au repos, avant (décision « Fluidité de la fiche d’un lieu »)', async () => {
     // Des modules neufs (le cache des formateurs de format.ts vide, rien hérité des tests
     // précédents) et toutes les lignes relues : superficie, sommet et fête exercés aussi.
+    // Le DOM factice d'abord : pendant les imports, les images en attente des tests
+    // précédents tombent encore (requestAnimationFrame).
+    installerDom();
     vi.resetModules();
     vi.doMock('../src/fiches/relues', () => ({ LIGNES_RELUES: TOUTES }));
     try {
