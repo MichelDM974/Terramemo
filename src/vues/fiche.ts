@@ -25,7 +25,7 @@
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import type { NomTerrain, Pays } from '../map/types';
-import type { DonneesFichesMonde } from '../fiches/donnees';
+import type { DonneesFichesMonde, SourceLigne } from '../fiches/donnees';
 import { fmtAltitude, fmtHabitants, fmtHeureLieu, fmtJourMois, fmtPart, fmtSuperficie, listeEt } from '../fiches/format';
 export { prechaufferFormats, prechaufferZone } from '../fiches/format';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
@@ -103,6 +103,9 @@ function statutFiche(sorte: SorteLieu, p: Pays): string {
   return LIBELLE_STATUT[p.statut];
 }
 
+/** Le nom d'une source de ligne écrite à la main hors de Wikidata. */
+const sourceLigne = (s: SourceLigne): string => (s === 'fb' ? T.noms_sources.factbook : T.noms_sources.wikipedia);
+
 /**
  * Ce que montre la fiche du lieu `id` du monde, ou null s'il n'en a pas
  * (absent des fiches, ou une mer : lot F4). Pur : les données sont passées.
@@ -141,6 +144,7 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
   if (f.gentils && relues.gentile) {
     faits.push({ libelle: T.gentile, valeur: remplir(T.gentile_valeur, { gentils: f.gentils }) });
     citer(S.wikidata);
+    if (f.gentilsSource) citer(sourceLigne(f.gentilsSource));
   }
   if (f.heure) {
     // Une zone que le navigateur ne connaît pas (RangeError) : pas de ligne (§ 4.2).
@@ -162,6 +166,7 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
   if (f.culminant && relues.culminant) {
     faits.push({ libelle: T.culminant, valeur: remplir(T.culminant_valeur, { nom: f.culminant.nom, altitude: fmtAltitude(f.culminant.altitude) }) });
     citer(S.wikidata);
+    if (f.culminant.source) citer(sourceLigne(f.culminant.source));
   }
   if (f.fete && relues.fete) {
     faits.push({ libelle: T.fete, valeur: remplir(T.fete_valeur, { date: fmtJourMois(f.fete.jour, f.fete.mois), nom: f.fete.nom }) });

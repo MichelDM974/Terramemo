@@ -81,7 +81,8 @@
       "banque_mondiale": "Banque mondiale (habitants)",
       "superficie": "superficie selon Wikidata",
       "tz": "base tz de l'IANA",
-      "factbook": "CIA World Factbook"
+      "factbook": "CIA World Factbook",
+      "wikipedia": "Wikipédia"
     },
     "nombres": {
       "million": "{n} million",

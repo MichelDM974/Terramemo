@@ -158,8 +158,8 @@ export async function construireFiches(racine) {
     main,
   });
   // Ordre des clés fixe (la sorte d'abord), pour des fichiers stables et lisibles.
-  const ORDRE = ['s', 'h', 'ha', 'hs', 'sup', 'alt', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
-  const ORDRE_FR = ['wp', 'g', 'gp', 'hc', 'cu', 'fn'];
+  const ORDRE = ['s', 'h', 'ha', 'hs', 'sup', 'alt', 'cs', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
+  const ORDRE_FR = ['wp', 'g', 'gp', 'gs', 'hc', 'cu', 'fn'];
   const range = (o, ordre) => Object.fromEntries(ordre.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
   for (const [id, l] of Object.entries(chiffres.lieux)) lieux[id] = range({ ...lieux[id], ...l }, ORDRE);
   for (const [id, t] of Object.entries(chiffres.textes)) textes[id] = range({ ...textes[id], ...t }, ORDRE_FR);

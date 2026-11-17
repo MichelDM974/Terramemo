@@ -12,6 +12,9 @@ import type { SorteLieu } from './sorte';
 /** La version du format, écrite par geodata/fiches.mjs (VERSION_FICHES). */
 export const VERSION_FICHES = 1;
 
+/** La source d'une ligne écrite à la main hors de Wikidata : Wikipédia, CIA World Factbook. */
+export type SourceLigne = 'wp' | 'fb';
+
 /** Ce que fiches-monde.json dit d'un lieu (sans langue) ; geodata/fiches.mjs en décrit chaque clé. */
 interface FicheBrute {
   s: SorteLieu;
@@ -21,8 +24,9 @@ interface FicheBrute {
   hs?: 'wd';
   /** Superficie en km², de Wikidata (D57). */
   sup?: number;
-  /** Altitude du point culminant, en m. */
+  /** Altitude du point culminant, en m ; cs : une ligne écrite à la main d'après Wikipédia (wp) ou le World Factbook (fb). */
   alt?: number;
+  cs?: SourceLigne;
   /** Zone IANA de l'heure locale ; nombre de fuseaux s'il y en a plusieurs. */
   z?: string;
   nz?: number;
@@ -42,6 +46,8 @@ interface TexteBrut {
   /** Gentilé masculin, et son pluriel tout fait (aucune règle de grammaire dans le code). */
   g?: string;
   gp?: string;
+  /** Un masculin qui n'est pas une forme de Wikidata : sa source (wp, Wikipédia). */
+  gs?: SourceLigne;
   /** Le complément du libellé de l'heure, tout fait, quand « à <capitale> » serait faux (« au Caire »). */
   hc?: string;
   /** Nom du point culminant. */
@@ -77,13 +83,15 @@ export interface FicheMonde {
   /** Les officielles, puis les langues du pays parlées par 10 % ou plus, avec leur part (D56 c). */
   langues?: { officielles: readonly string[]; parlees: readonly { nom: string; part: number }[] };
   monnaies?: readonly string[];
-  /** Le pluriel du gentilé (« Japonais »). */
+  /** Le pluriel du gentilé (« Japonais ») ; sa source hors de Wikidata. */
   gentils?: string;
+  gentilsSource?: SourceLigne;
   /** Zone IANA et nombre de fuseaux (1 sans la clé nz). */
   heure?: { zone: string; fuseaux: number };
   /** « au Caire » : le libellé de l'heure tout fait (sinon « à » et le nom de la capitale). */
   aCapitale?: string;
-  culminant?: { nom: string; altitude: number };
+  /** source : hors de Wikidata, en plus (le pied « Sources » la nomme). */
+  culminant?: { nom: string; altitude: number; source?: SourceLigne };
   fete?: { jour: number; mois: number; nom: string };
 }
 
@@ -108,9 +116,10 @@ function lireLieu(b: FicheBrute, t: TexteBrut, fr: FichierMondeLangue): FicheMon
   }
   if (b.m?.length) f.monnaies = nommer(b.m, fr.monnaies);
   if (t.gp) f.gentils = t.gp;
+  if (t.gp && t.gs) f.gentilsSource = t.gs;
   if (b.z) f.heure = { zone: b.z, fuseaux: b.nz ?? 1 };
   if (t.hc) f.aCapitale = t.hc;
-  if (b.alt !== undefined && t.cu) f.culminant = { nom: t.cu, altitude: b.alt };
+  if (b.alt !== undefined && t.cu) f.culminant = { nom: t.cu, altitude: b.alt, ...(b.cs ? { source: b.cs } : {}) };
   if (b.f && t.fn) f.fete = { jour: b.f[0], mois: b.f[1], nom: t.fn };
   return f;
 }

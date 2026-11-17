@@ -302,6 +302,9 @@ export function monnaiesEnCours(region) {
 
 const lignes = (main, cle) => Object.fromEntries(sansNotes(main[cle]));
 
+/** Sources d'une ligne écrite à la main hors de Wikidata (cite) : Wikipédia, CIA World Factbook. */
+const CITES = new Set(['wp', 'fb']);
+
 /** Distance d'un sommet à une zone disputée sous laquelle il va à la relecture, en km. */
 export const ZONE_KM = 5;
 
@@ -428,6 +431,13 @@ export function chiffresPays({ entites, formes, zones = [], capitales, nomsCapit
     else faute(`${id} : ${formesG.length} formes masculines du gentilé dans Wikidata (${formesG.join(', ') || 'aucune'}), à trancher dans la table`);
     if (gentile) {
       T.g = gentile;
+      // La source de la ligne (pied « Sources », § 4.2) : un masculin hors des formes de
+      // Wikidata (la casse mise à part) vient d'ailleurs, que la ligne nomme (cite).
+      const deWikidata = formesG.some((x) => x.toLocaleLowerCase('fr') === gentile.toLocaleLowerCase('fr'));
+      if (lg?.cite && !CITES.has(lg.cite)) faute(`fiches-main.json, gentile.${id} : cite « ${lg.cite} » inconnu`);
+      if (!deWikidata && !lg?.cite) faute(`fiches-main.json, gentile.${id} : « ${gentile} » n'est pas une forme de Wikidata : sa source à écrire (cite)`);
+      if (deWikidata && lg?.cite) faute(`fiches-main.json, gentile.${id} : « ${gentile} » est une forme de Wikidata, cite inutile`);
+      if (lg?.cite) T.gs = lg.cite;
       let regle = null;
       try {
         regle = plurielGentile(gentile);
@@ -473,6 +483,13 @@ export function chiffresPays({ entites, formes, zones = [], capitales, nomsCapit
       else if (m < 1 || m > 8850) faute(`${id} : altitude ${m} m hors de 1 à 8 850`);
       L.alt = m;
       T.cu = nom;
+      // La source de la ligne : un nom, une altitude ou un sommet écrits à la main dont la
+      // source n'est pas Wikidata la nomment (cite : wp, fb).
+      const aLaMain = lc && (lc.nom || lc.alt != null || lc.hors_wikidata);
+      if (lc?.cite && !CITES.has(lc.cite)) faute(`fiches-main.json, culminant.${id} : cite « ${lc.cite} » inconnu`);
+      if (aLaMain && !lc.cite && !/^Wikidata\b/.test(lc.source ?? '')) faute(`fiches-main.json, culminant.${id} : écrit à la main hors de Wikidata, sa source à nommer (cite)`);
+      if (lc?.cite && !aLaMain) faute(`fiches-main.json, culminant.${id} : cite sans valeur écrite à la main`);
+      if (lc?.cite) L.cs = lc.cite;
     }
     const coord = lc?.coord ?? coordWd;
     const f = forme.get(id);

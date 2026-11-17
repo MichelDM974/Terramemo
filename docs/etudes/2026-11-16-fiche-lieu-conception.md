@@ -2705,7 +2705,11 @@ Interface du lot F2 (fiche, barre, Crédits) :
   `false` tant que leur tableau (`docs/relectures/fiches-pays.md`) n'est pas relu, à passer à
   `true` une par une. Les données restent servies ; la fiche les tait, et son pied ne cite que
   ce qu'elle montre (« superficie selon Wikidata », le World Factbook, seulement avec leur
-  ligne). Les tests passent les deux états (`composerFiche`, `relues`).
+  ligne). Les tests passent les deux états (`composerFiche`, `relues`). Une ligne de sommet ou
+  de gentilé écrite à la main hors de Wikidata nomme sa source (clé `cite` de la table, servie
+  en `cs` et `gs`, exigée par le build) : « CIA World Factbook » pour le sommet de la Gambie,
+  « Wikipédia » pour 6 sommets (Argentine, Azerbaïdjan, Érythrée, Finlande, Japon, Pologne) et
+  5 gentilés (Guinée-Bissau, Lesotho, Nouvelle-Zélande, Papouasie-Nouvelle-Guinée, Vatican).
 - Langues : les officielles en liste lue (« allemand, français, italien et romanche »), puis
   chaque langue parlée avec sa part, séparées par « · » (« portugais · umbundu 29 % ·
   kimboundou 25 % »).

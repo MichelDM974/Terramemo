@@ -48,9 +48,9 @@ function libellesAttendus(id: string, capitale: string, R: Readonly<Record<Ligne
   const si = (k: LigneRelue) => (R[k] ? [libelleRelue(k, id)] : []);
   return [T.capitale, T.habitants, ...si('superficie'), ...si('langues'), T.monnaie, ...si('gentile'), remplir(T.heure, { capitale }), T.continent, ...si('culminant'), ...si('fete')];
 }
-/** Les sources d'un pays (habitants de la Banque mondiale), dans l'ordre de ses lignes, selon les lignes relues. */
+/** Les sources du Japon (habitants de la Banque mondiale ; le Fuji à 3 776 m d'après Wikipédia), dans l'ordre de ses lignes, selon les lignes relues. */
 function sourcesAttendues(_id: string, R: Readonly<Record<LigneRelue, boolean>> = LIGNES_RELUES): string[] {
-  return [S.natural_earth, S.cldr, S.wikidata, S.banque_mondiale, ...(R.superficie ? [S.superficie] : []), S.tz, ...(R.fete ? [S.factbook] : []), S.flag_icons];
+  return [S.natural_earth, S.cldr, S.wikidata, S.banque_mondiale, ...(R.superficie ? [S.superficie] : []), S.tz, ...(R.culminant ? [S.wikipedia] : []), ...(R.fete ? [S.factbook] : []), S.flag_icons];
 }
 /** Espaces insécables en espaces simples, pour comparer. */
 const simple = (s: string) => s.replace(/[\u00a0\u202f]/g, ' ');
@@ -744,8 +744,20 @@ describe('les chiffres d’un pays (lot F2) : lignes, ordre, lignes à relire, h
       'Point culminant · mont Fuji, 3 776 m',
       "Fête nationale · 23 février · Anniversaire de l'empereur",
     ]);
-    expect(m.sources).toEqual([S.natural_earth, S.cldr, S.wikidata, S.banque_mondiale, S.superficie, S.tz, S.factbook, S.flag_icons]);
+    expect(m.sources).toEqual([S.natural_earth, S.cldr, S.wikidata, S.banque_mondiale, S.superficie, S.tz, S.wikipedia, S.factbook, S.flag_icons]);
     expect(m.sources.filter((x) => x.includes('Wikidata'))).toEqual(['Wikidata', 'superficie selon Wikidata']);
+  });
+
+  it('une ligne écrite à la main hors de Wikidata nomme sa source au pied, seulement relue : le sommet de la Gambie (Factbook), le gentilé du Vatican (Wikipédia)', () => {
+    const src = (id: string, R: Record<LigneRelue, boolean>) => composer(id, { relues: R }).sources;
+    // La Gambie : sans fête relue, le Factbook n'est cité que par son sommet.
+    expect(src('GMB', { ...AUCUNE, culminant: true })).toContain(S.factbook);
+    expect(src('GMB', AUCUNE)).not.toContain(S.factbook);
+    expect(src('VAT', { ...AUCUNE, gentile: true })).toContain(S.wikipedia);
+    expect(src('VAT', AUCUNE)).not.toContain(S.wikipedia);
+    expect(src('FIN', { ...AUCUNE, culminant: true })).toContain(S.wikipedia);
+    // Tout de Wikidata : pas de Wikipédia au pied (le lien vers l'article n'est pas une source).
+    expect(src('FRA', TOUTES)).not.toContain(S.wikipedia);
   });
 
   it('une ligne à relire reste hors ligne tant qu’elle n’est pas relue ; relue seule, elle seule apparaît, à sa place ; la fiche suit LIGNES_RELUES', () => {
