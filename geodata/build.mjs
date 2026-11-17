@@ -544,6 +544,10 @@ async function fiches() {
     echec(e.message);
   }
   for (const [nom, texte] of Object.entries(res.fichiers)) await ecrire(nom, texte);
+  // Les tableaux à relire (lot F2), hors de public/ : docs/relectures/fiches-pays.md.
+  await mkdir(dirname(join(RACINE, res.relecture.chemin)), { recursive: true });
+  await writeFile(join(RACINE, res.relecture.chemin), res.relecture.texte);
+  console.log(`  ${res.relecture.chemin}`);
   for (const n of res.notes) console.log(`  ${n}`);
   return res;
 }
