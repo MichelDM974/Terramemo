@@ -85,7 +85,7 @@ function differee<T>() {
   return { promesse, tenir, rompre };
 }
 
-function monter(o: { fiche?: Partial<OptionsFiche>; memoire?: CarteMemoire } = {}) {
+function monter(o: { fiche?: Partial<OptionsFiche>; memoire?: CarteMemoire; explorer?: typeof vueExplorer } = {}) {
   const body = installerDom();
   const zone = new El('main');
   let pickSuivant = 'JPN';
@@ -125,7 +125,7 @@ function monter(o: { fiche?: Partial<OptionsFiche>; memoire?: CarteMemoire } = {
     module: () => import('../src/vues/fiche'),
     ...o.fiche,
   };
-  const vue = vueExplorer(ctx, { fiche, ...(o.memoire ? { memoire: o.memoire } : {}) });
+  const vue = (o.explorer ?? vueExplorer)(ctx, { fiche, ...(o.memoire ? { memoire: o.memoire } : {}) });
   const el = (sel: string) => zone.querySelector(sel);
   const toucher = (id: string) => {
     pickSuivant = id;
@@ -862,16 +862,30 @@ describe('les chiffres d’un pays (lot F2) : lignes, ordre, lignes à relire, h
   });
 
   it('aucun formateur créé à l’ouverture d’une fiche : ceux des nombres, des dates et de la zone du pays touché le sont au repos, avant (décision « Fluidité de la fiche d’un lieu »)', async () => {
-    const v = monter();
-    v.vue.activer();
-    v.toucher('KAZ');
-    await tenir();
-    // Le repos : requestIdleCallback absent du DOM factice, un délai de 50 ms à la place.
-    await new Promise((r) => setTimeout(r, 80));
-    const n = nombreFormateurs();
-    v.bouton().click();
-    await vi.waitFor(() => expect(v.ouverte()).toBe(true));
-    expect(v.lignes().some((l) => l.startsWith('Heure à '))).toBe(true);
-    expect(nombreFormateurs()).toBe(n);
+    // Des modules neufs (le cache des formateurs de format.ts vide, rien hérité des tests
+    // précédents) et toutes les lignes relues : superficie, sommet et fête exercés aussi.
+    vi.resetModules();
+    vi.doMock('../src/fiches/relues', () => ({ LIGNES_RELUES: TOUTES }));
+    try {
+      const F = await import('../src/fiches/format');
+      const { vueExplorer: explorer } = await import('../src/vues/explorer');
+      expect(F.nombreFormateurs()).toBe(0);
+      const v = monter({ explorer, fiche: { module: () => import('../src/vues/fiche') } });
+      v.vue.activer();
+      v.toucher('KAZ');
+      await tenir();
+      // Le repos : requestIdleCallback absent du DOM factice, un délai de 50 ms à la place.
+      await new Promise((r) => setTimeout(r, 80));
+      const n = F.nombreFormateurs();
+      expect(n).toBeGreaterThan(0);
+      v.bouton().click();
+      await vi.waitFor(() => expect(v.ouverte()).toBe(true));
+      const libelles = v.lignes().map((l) => l.split(' · ')[0]);
+      for (const l of ['Heure à Astana', T.superficie, T.culminant, T.fete, T.habitants, T.gentile]) expect(libelles, l).toContain(l);
+      expect(F.nombreFormateurs()).toBe(n);
+    } finally {
+      vi.doUnmock('../src/fiches/relues');
+      vi.resetModules();
+    }
   });
 });
