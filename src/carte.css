@@ -317,7 +317,13 @@ body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoi
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: 12px;
+  /* Hors de la zone du geste système (S44, décision « Barre hors du geste d'Android ») : en navigation par
+     gestes, Android réserve le bas de l'écran (48 dp sur l'A37) à son geste « accueil », et un glissé vers le
+     haut parti de là quitte l'appli au lieu d'ouvrir la fiche. Cette navigation se repère à la marge du
+     système (env(safe-area-inset-bottom) : 15 px sur l'A37 en gestes, 0 en 3 boutons et sur ordinateur) :
+     la barre remonte alors à 56 px du bas de l'écran, marge comprise (body). Sans marge, --barre-bas. */
+  --barre-bas: 12px;
+  bottom: max(var(--barre-bas), min(env(safe-area-inset-bottom, 0px) * 100, 56px - env(safe-area-inset-bottom, 0px)));
   max-width: 560px;
   margin: 0 auto;
   background: var(--popup-bg);
@@ -1159,7 +1165,7 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
   .document td { padding: 2px 0; border-bottom: none; }
   .document td:first-child { font-weight: 600; }
   .document td[data-titre]::before { content: attr(data-titre) " : "; color: var(--muted); }
-  .carte-barre { left: 8px; right: 8px; bottom: 8px; }
+  .carte-barre { left: 8px; right: 8px; --barre-bas: 8px; }
   .jouer-panneau { inset: 8px; }
   .accueil { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
 }

@@ -356,6 +356,13 @@ describe('la fiche', () => {
     expect(v.doc.activeElement).toBe(v.el('#fiche-titre'));
   });
 
+  it('la barre hors de la zone du geste d’Android (S44) : à 56 px du bas en navigation par gestes (marge du système), inchangée sans marge', () => {
+    // Mesuré sur l'A37 le 17/11 : 48 dp réservés au geste « accueil », marge du système de 15 px en gestes, 0 en 3 boutons.
+    const css = readFileSync('src/carte.css', 'utf8');
+    expect(css).toContain('--barre-bas: 12px;\n  bottom: max(var(--barre-bas), min(env(safe-area-inset-bottom, 0px) * 100, 56px - env(safe-area-inset-bottom, 0px)));');
+    expect(css).toContain('.carte-barre { left: 8px; right: 8px; --barre-bas: 8px; }');
+  });
+
   it('fermer par « × », par Échap, par le voile : la fiche fermée, le focus rendu à la barre', async () => {
     for (const fermer of ['croix', 'echap', 'voile'] as const) {
       const v = await ouvrirSur('JPN');
