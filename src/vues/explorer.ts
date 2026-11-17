@@ -362,6 +362,25 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     } else drapeauBarre.hidden = true;
     bouton.classList.toggle('barre-avec-drapeau', !!src);
   }
+  /** Le morceau de la fiche, une fois chargé : la zone de chaque pays touché préparée au repos. */
+  let moduleCharge: ModuleFiche | null = null;
+  /** `f` au repos (requestIdleCallback ; à défaut, un peu plus tard) : rien de lourd pendant le toucher. */
+  function auRepos(f: () => void): void {
+    const repos = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => unknown }).requestIdleCallback;
+    if (repos) repos(f, { timeout: 2000 });
+    else setTimeout(f, 50);
+  }
+  /**
+   * Le formateur de la zone du pays de la barre (sa ligne « Heure à … ») créé au repos : l'ouverture de sa
+   * fiche n'en crée aucun (décision « Fluidité de la fiche d'un lieu »). Gardé par zone (format.ts) : une
+   * seconde fois ne coûte rien.
+   */
+  function prechaufferZoneBarre(): void {
+    const id = barre.dataset.id;
+    const zone = id ? lues?.fiches.lieux.get(id)?.heure?.zone : undefined;
+    if (zone && moduleCharge) moduleCharge.prechaufferZone(zone);
+  }
+
   /** Le chargement en cours (un seul à la fois ; un échec n'est pas gardé : le toucher suivant réessaie). */
   let enChargement: Promise<unknown> | null = null;
   function chargerDonnees(): Promise<unknown> {
@@ -370,12 +389,15 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     const p = Promise.all([F.fiches(), F.capitales().catch(() => null)]).then(([fiches, capitales]) => {
       lues = { fiches, capitales };
       // Le morceau de la fiche, demandé d'avance : il sera là quand on touchera la barre. Ses formateurs (Intl)
-      // créés au repos : la première fiche ne paie pas leur création (22 ms sur l'A37) pendant sa montée.
+      // créés au repos : la première fiche ne paie pas leur création (22 ms sur l'A37) pendant sa montée. Puis
+      // celui de la zone du pays de la barre (prechaufferZone), et de chaque pays touché ensuite.
       F.module().then(
         (m) => {
-          const repos = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => unknown }).requestIdleCallback;
-          if (repos) repos(() => m.prechaufferFormats(), { timeout: 2000 });
-          else setTimeout(() => m.prechaufferFormats(), 50);
+          moduleCharge = m;
+          auRepos(() => {
+            m.prechaufferFormats();
+            prechaufferZoneBarre();
+          });
         },
         () => undefined,
       );
@@ -409,6 +431,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         if (sorte === 'pays') {
           faits.textContent = lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom).join(', ') ?? '';
           drapeau = id;
+          if (moduleCharge) auRepos(prechaufferZoneBarre);
           if (chargerDrapeau && !drapeauxLus) {
             const [j, k] = [jeton, touches];
             chargerDrapeauxBarre().then(

@@ -10,6 +10,8 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lireFichesMonde, type DonneesFichesMonde, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
+import { fmtHabitants, fmtHeureLieu, nombreFormateurs } from '../src/fiches/format';
+import { LIGNES_RELUES, type LigneRelue } from '../src/fiches/relues';
 import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
 import { lireDrapeaux, type ManifesteDrapeaux } from '../src/map/drapeaux';
 import type { Pays } from '../src/map/types';
@@ -18,7 +20,8 @@ import type { ContexteVue } from '../src/vues/commun';
 import { creerNavigation, type Historique, type VueNavigable } from '../src/navigation';
 import { versAncre } from '../src/vues/arbre';
 import { vueExplorer, type OptionsFiche } from '../src/vues/explorer';
-import { textes } from '../src/vues/textes';
+import { composerFiche, creerFeuille, DELAI_HEURE_MS, type ModeleFiche } from '../src/vues/fiche';
+import { remplir, textes } from '../src/vues/textes';
 import { brancherZoom } from '../src/zoom-carte';
 import { El, installerDom } from './dom-factice';
 
@@ -29,6 +32,43 @@ const FICHES: DonneesFichesMonde = lireFichesMonde(lire<FichierMonde>('fiches-mo
 const CAPITALES = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<NomsCapitales>('capitales.fr.json'));
 const DRAPEAUX = lireDrapeaux(lire<ManifesteDrapeaux>('drapeaux.json'));
 const T = textes.fiche;
+const S = T.noms_sources;
+/** Les lignes à relire, toutes relues, ou aucune (les deux états de LIGNES_RELUES). */
+const TOUTES: Record<LigneRelue, boolean> = { superficie: true, langues: true, gentile: true, culminant: true, fete: true };
+const AUCUNE: Record<LigneRelue, boolean> = { superficie: false, langues: false, gentile: false, culminant: false, fete: false };
+/** Le libellé de chaque ligne à relire (« Langue » ou « Langues » selon le pays). */
+const libelleRelue = (k: LigneRelue, id: string): string => {
+  const lg = FICHES.lieux.get(id)!.langues!;
+  return { superficie: T.superficie, langues: lg.officielles.length + lg.parlees.length > 1 ? T.langues : T.langue, gentile: T.gentile, culminant: T.culminant, fete: T.fete }[k];
+};
+/** Les libellés d'un pays qui a tous ses chiffres, dans l'ordre du § 4.2, selon les lignes relues. */
+function libellesAttendus(id: string, capitale: string, R: Readonly<Record<LigneRelue, boolean>> = LIGNES_RELUES): string[] {
+  const si = (k: LigneRelue) => (R[k] ? [libelleRelue(k, id)] : []);
+  return [T.capitale, T.habitants, ...si('superficie'), ...si('langues'), T.monnaie, ...si('gentile'), remplir(T.heure, { capitale }), T.continent, ...si('culminant'), ...si('fete')];
+}
+/** Les sources d'un pays (habitants de la Banque mondiale), dans l'ordre de ses lignes, selon les lignes relues. */
+function sourcesAttendues(_id: string, R: Readonly<Record<LigneRelue, boolean>> = LIGNES_RELUES): string[] {
+  return [S.natural_earth, S.cldr, S.wikidata, S.banque_mondiale, ...(R.superficie ? [S.superficie] : []), S.tz, ...(R.fete ? [S.factbook] : []), S.flag_icons];
+}
+/** Espaces insécables en espaces simples, pour comparer. */
+const simple = (s: string) => s.replace(/[\u00a0\u202f]/g, ' ');
+/** La fiche composée sans la vue (pure) : les données du dépôt. */
+function composer(id: string, o: { relues?: Record<LigneRelue, boolean>; maintenant?: Date; fiches?: DonneesFichesMonde } = {}): ModeleFiche {
+  const m = composerFiche(id, {
+    entites: pays,
+    nom: (x) => noms[x] ?? x,
+    fiches: o.fiches ?? FICHES,
+    capitales: CAPITALES,
+    drapeaux: DRAPEAUX,
+    memoire: () => null,
+    ...(o.relues ? { relues: o.relues } : {}),
+    ...(o.maintenant ? { maintenant: o.maintenant } : {}),
+  });
+  if (!m) throw new Error(`${id} : pas de fiche`);
+  return m;
+}
+/** « libellé · valeur » de chaque ligne d'un modèle, espaces simples. */
+const lignesDe = (m: ModeleFiche) => m.faits.map((f) => simple(`${f.libelle} · ${f.valeur}`));
 
 /** Les promesses en attente (chargements, morceau de la fiche) tenues. */
 const tenir = () => new Promise((r) => setTimeout(r, 0));
@@ -286,9 +326,14 @@ describe('la fiche', () => {
     expect(v.montres).toEqual([]);
   });
 
-  it('un pays : capitale, continent et sous-région, voisins, lien Wikipédia, sources et Crédits ; aucune ligne vide', async () => {
+  it('un pays : ses lignes dans l’ordre (les relues seules), voisins, lien Wikipédia, sources et Crédits ; aucune ligne vide', async () => {
     const v = await ouvrirSur('ESP');
-    expect(v.lignes()).toEqual([`${T.capitale} · Madrid`, `${T.continent} · Europe · Europe du Sud`]);
+    const l = v.lignes();
+    expect(l.map((x) => x.split(' · ')[0])).toEqual(libellesAttendus('ESP', 'Madrid'));
+    expect(l.slice(0, 2)).toEqual([`${T.capitale} · Madrid`, `${T.habitants} · ${fmtHabitants(FICHES.lieux.get('ESP')!.habitants!.n, 2025)}`]);
+    expect(l).toContain(`${T.monnaie} · euro`);
+    expect(l.find((x) => x.startsWith('Heure à Madrid'))).toMatch(/^Heure à Madrid · \d{1,2}\sh\s\d{2} · /);
+    expect(l).toContain(`${T.continent} · Europe · Europe du Sud`);
     // Les pays jouables d'abord, par ordre alphabétique, puis les autres entités avec leur statut.
     expect(v.voisins()).toEqual(['Andorre', 'France', 'Maroc', 'Portugal', `Gibraltar (${textes.carte.statuts.territoire})`]);
     for (const b of v.feuille()!.querySelectorAll('.fiche-voisin')) expect(b.tagName).toBe('button');
@@ -296,7 +341,7 @@ describe('la fiche', () => {
     expect(wp.getAttribute('href')).toBe('https://fr.wikipedia.org/wiki/Espagne');
     expect(wp.getAttribute('target')).toBe('_blank');
     expect(wp.getAttribute('rel')).toBe('noopener');
-    expect(v.feuille()!.querySelector('.fiche-sources')!.textContent).toBe(`Sources : Natural Earth · Unicode CLDR · Wikidata · flag-icons · ${T.credits}`);
+    expect(v.feuille()!.querySelector('.fiche-sources')!.textContent).toBe(`Sources : ${sourcesAttendues('ESP').join(' · ')} · ${T.credits}`);
     expect(v.feuille()!.querySelector('.fiche-credits')!.getAttribute('href')).toBe('#credits');
     for (const dd of v.feuille()!.querySelectorAll('dd')) expect(dd.textContent).not.toBe('');
     // Plusieurs capitales : « La Paz et Sucre », au pluriel.
@@ -676,5 +721,135 @@ describe('la fiche branchée sur la vraie navigation (navigation.ts, comme main.
     expect(v.h.i).toBe(carte);
     expect(v.ouverte()).toBe(false);
     expect(v.body.dataset.fiche).toBeUndefined();
+  });
+});
+
+describe('les chiffres d’un pays (lot F2) : lignes, ordre, lignes à relire, heure', () => {
+  const T0 = new Date('2026-11-18T12:20:45Z');
+
+  it('toutes les lignes relues : le Japon dans l’ordre du § 4.2, et le pied ne nomme que les sources de ce qu’il montre', () => {
+    const m = composer('JPN', { relues: TOUTES, maintenant: T0 });
+    expect(lignesDe(m)).toEqual([
+      'Capitale · Tokyo',
+      'Habitants · 123 366 734 (2025)',
+      'Superficie · 377 974 km²',
+      'Langue · japonais',
+      'Monnaie · yen japonais',
+      'Gentilé · les Japonais',
+      simple(`Heure à Tokyo · ${fmtHeureLieu('Asia/Tokyo', 1, T0)}`),
+      "Continent · Asie · Asie de l'Est",
+      'Point culminant · mont Fuji, 3 776 m',
+      "Fête nationale · 23 février · Anniversaire de l'empereur",
+    ]);
+    expect(m.sources).toEqual([S.natural_earth, S.cldr, S.wikidata, S.banque_mondiale, S.superficie, S.tz, S.factbook, S.flag_icons]);
+    expect(m.sources.filter((x) => x.includes('Wikidata'))).toEqual(['Wikidata', 'superficie selon Wikidata']);
+  });
+
+  it('une ligne à relire reste hors ligne tant qu’elle n’est pas relue ; relue seule, elle seule apparaît, à sa place ; la fiche suit LIGNES_RELUES', () => {
+    const sans = lignesDe(composer('JPN', { relues: AUCUNE, maintenant: T0 })).map((l) => l.split(' · ')[0]);
+    expect(sans).toEqual(libellesAttendus('JPN', 'Tokyo', AUCUNE));
+    expect(composer('JPN', { relues: AUCUNE }).sources).toEqual(sourcesAttendues('JPN', AUCUNE));
+    for (const k of Object.keys(AUCUNE) as LigneRelue[]) {
+      const R = { ...AUCUNE, [k]: true };
+      expect(lignesDe(composer('JPN', { relues: R, maintenant: T0 })).map((l) => l.split(' · ')[0]), k).toEqual(libellesAttendus('JPN', 'Tokyo', R));
+      expect(composer('JPN', { relues: R }).sources, k).toEqual(sourcesAttendues('JPN', R));
+    }
+    // Sans `relues` : la constante (la session principale la passe à true ligne par ligne).
+    expect(lignesDe(composer('JPN', { maintenant: T0 }))).toEqual(lignesDe(composer('JPN', { relues: { ...LIGNES_RELUES }, maintenant: T0 })));
+  });
+
+  it('langues avec leur part, monnaies, habitants de Wikidata, superficie au centième ; une ligne sans donnée n’existe pas', () => {
+    const de = (id: string, libelle: string) => lignesDe(composer(id, { relues: TOUTES, maintenant: T0 })).find((l) => l.startsWith(`${libelle} · `)) ?? null;
+    // Les officielles (une liste lue), puis les langues du pays parlées par 10 % ou plus, avec leur part (D56 c).
+    expect(de('AGO', T.langues)).toBe('Langues · portugais · umbundu 29 % · kimboundou 25 %');
+    expect(de('CHE', T.langues)).toBe('Langues · allemand, français, italien et romanche');
+    expect(de('PSE', T.monnaies)).toBe('Monnaies · nouveau shekel israélien et dinar jordanien');
+    // Le Vatican : ses habitants de Wikidata (2024), sa superficie au centième ; la Banque mondiale n'est pas citée.
+    const vat = composer('VAT', { relues: TOUTES, maintenant: T0 });
+    expect(lignesDe(vat)).toContain('Habitants · 949 (2024)');
+    expect(lignesDe(vat)).toContain('Superficie · 0,44 km²');
+    expect(vat.sources).not.toContain(S.banque_mondiale);
+    expect(vat.sources).toContain(S.wikidata);
+    // La Somalie : aucun sommet (aucun hors du Somaliland) ; le Royaume-Uni et la Bosnie-Herzégovine : aucune fête.
+    expect(de('SOM', T.culminant)).toBeNull();
+    expect(de('GBR', T.fete)).toBeNull();
+    expect(de('BIH', T.fete)).toBeNull();
+    expect(composer('GBR', { relues: TOUTES }).sources).not.toContain(S.factbook);
+    // Plusieurs fuseaux : dits après l'écart ; un seul : rien (la Chine, à l'heure de Pékin seule).
+    expect(de('FRA', 'Heure à Paris')).toMatch(/ · 5 fuseaux dans le pays$/);
+    expect(de('USA', 'Heure à Washington')).toMatch(/ · 6 fuseaux dans le pays$/);
+    expect(de('CHN', 'Heure à Pékin')).not.toMatch(/fuseaux/);
+    for (const id of ['JPN', 'FRA', 'AGO', 'VAT', 'SOM']) for (const f of composer(id, { relues: TOUTES }).faits) expect(f.valeur, `${id} ${f.libelle}`).not.toBe('');
+  });
+
+  it('une zone que le navigateur ne connaît pas (RangeError) : la ligne de l’heure retirée, la base tz pas citée', () => {
+    const lieux = new Map(FICHES.lieux);
+    lieux.set('JPN', { ...FICHES.lieux.get('JPN')!, heure: { zone: 'Mars/Olympus_Mons', fuseaux: 1 } });
+    const m = composer('JPN', { fiches: { ...FICHES, lieux } });
+    expect(m.faits.map((f) => f.libelle)).not.toContain('Heure à Tokyo');
+    expect(m.faits.map((f) => f.libelle)).toContain(T.continent);
+    expect(m.sources).not.toContain(S.tz);
+  });
+
+  it('l’heure avance toutes les 30 s tant que la fiche est ouverte ; le minuteur arrêté à la fermeture, et refait par la fiche suivante', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'], now: T0 });
+    try {
+      const avant = vi.getTimerCount();
+      const v = await ouvrirSur('FRA');
+      const heure = () => v.lignes().find((l) => l.startsWith('Heure à Paris · '));
+      expect(heure()).toBe(`Heure à Paris · ${fmtHeureLieu('Europe/Paris', 5, T0)}`);
+      expect(vi.getTimerCount()).toBe(avant + 1);
+      vi.advanceTimersByTime(DELAI_HEURE_MS);
+      // 12:20:45 + 30 s : la minute a changé.
+      expect(heure()).toBe(`Heure à Paris · ${fmtHeureLieu('Europe/Paris', 5, new Date('2026-11-18T12:21:15Z'))}`);
+      expect(heure()).not.toBe(`Heure à Paris · ${fmtHeureLieu('Europe/Paris', 5, T0)}`);
+      // Un voisin : sa fiche remplace l'autre, un seul minuteur.
+      v.feuille()!.querySelector('.fiche-voisin')!.click();
+      await vi.waitFor(() => expect(v.titre()).not.toBe('France'));
+      expect(vi.getTimerCount()).toBe(avant + 1);
+      v.echap();
+      v.echap();
+      expect(v.ouverte()).toBe(false);
+      expect(vi.getTimerCount()).toBe(avant);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('une zone qui lève au recalcul : sa ligne retirée, le minuteur arrêté', () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'], now: T0 });
+    try {
+      installerDom();
+      const zone = new El('main');
+      const f = creerFeuille(zone as unknown as HTMLElement, { fermer() {}, voile() {}, avant() {}, voisin() {} });
+      const m = composer('JPN', { maintenant: T0 });
+      const avant = vi.getTimerCount();
+      f.montrer({ ...m, faits: m.faits.map((x) => (x.heure ? { ...x, heure: { zone: 'Mars/Olympus_Mons', fuseaux: 1 } } : x)) }, { avant: false, focus: false });
+      const libelles = () => zone.querySelectorAll('.fiche-fait dt').map((d) => d.textContent);
+      expect(libelles()).toContain('Heure à Tokyo');
+      vi.advanceTimersByTime(DELAI_HEURE_MS);
+      expect(libelles()).not.toContain('Heure à Tokyo');
+      expect(libelles()).toContain(T.continent);
+      expect(vi.getTimerCount()).toBe(avant);
+      // Une fiche sans heure (l'Antarctique) : aucun minuteur.
+      f.montrer(composer('ATA'), { avant: false, focus: false });
+      expect(vi.getTimerCount()).toBe(avant);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aucun formateur créé à l’ouverture d’une fiche : ceux des nombres, des dates et de la zone du pays touché le sont au repos, avant (décision « Fluidité de la fiche d’un lieu »)', async () => {
+    const v = monter();
+    v.vue.activer();
+    v.toucher('KAZ');
+    await tenir();
+    // Le repos : requestIdleCallback absent du DOM factice, un délai de 50 ms à la place.
+    await new Promise((r) => setTimeout(r, 80));
+    const n = nombreFormateurs();
+    v.bouton().click();
+    await vi.waitFor(() => expect(v.ouverte()).toBe(true));
+    expect(v.lignes().some((l) => l.startsWith('Heure à '))).toBe(true);
+    expect(nombreFormateurs()).toBe(n);
   });
 });

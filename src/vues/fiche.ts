@@ -13,17 +13,22 @@
 // de la carte : leurs événements ne l'atteignent pas.
 //
 // Contenu, de haut en bas : la tête (« ‹ » s'il y a une fiche d'avant, « × »,
-// le drapeau, le nom, le statut), les faits (capitales, continent et
-// sous-région), les voisins (des boutons), les lignes de la mémoire, puis le
-// lien Wikipédia et les sources. Une ligne sans donnée n'existe pas. Les
-// chiffres (habitants, superficie…), les photos et « Apprendre ce lieu »
+// le drapeau, le nom, le statut), les faits (lot F2 pour un pays, dans l'ordre
+// du § 4.2 : capitale, habitants, superficie, langues, monnaie, gentilé, heure,
+// continent, point culminant, fête), les voisins (des boutons), les lignes de
+// la mémoire, puis le lien Wikipédia et les sources de ce que la fiche montre.
+// Une ligne sans donnée n'existe pas ; celles dont la table attend la relecture
+// restent tues (src/fiches/relues.ts). L'heure se refait toutes les 30 s tant
+// que la fiche est ouverte, par le formateur gardé de sa zone (créé au repos,
+// au toucher du pays : explorer.ts). Les photos et « Apprendre ce lieu »
 // viennent aux lots suivants.
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import type { NomTerrain, Pays } from '../map/types';
 import type { DonneesFichesMonde } from '../fiches/donnees';
-import { listeEt } from '../fiches/format';
-export { prechaufferFormats } from '../fiches/format';
+import { fmtAltitude, fmtHabitants, fmtHeureLieu, fmtJourMois, fmtPart, fmtSuperficie, listeEt } from '../fiches/format';
+export { prechaufferFormats, prechaufferZone } from '../fiches/format';
+import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import { creer, croix, LIBELLE_STATUT } from './commun';
 import { remplir, textes } from './textes';
@@ -36,6 +41,13 @@ export interface VoisinFiche {
   /** Le texte du bouton : « Espagne », « Gibraltar (territoire) ». */
   texte: string;
   nom: string;
+}
+
+/** Une ligne de faits ; `heure` : la ligne de l'heure, refaite toutes les 30 s (DELAI_HEURE_MS). */
+export interface FaitFiche {
+  libelle: string;
+  valeur: string;
+  heure?: { zone: string; fuseaux: number };
 }
 
 /** Ce que la fiche montre d'un lieu (composerFiche) : tout est déjà dit, rien n'y est calculé à l'affichage. */
@@ -51,7 +63,7 @@ export interface ModeleFiche {
   /** Un pays : le drapeau a sa place (4:3), même avant le manifeste. */
   avecDrapeau: boolean;
   /** Les lignes « libellé · valeur » (dt, dd), sans ligne vide. */
-  faits: readonly { libelle: string; valeur: string }[];
+  faits: readonly FaitFiche[];
   /** Les pays jouables d'abord (alphabétique), puis les autres entités avec leur statut. */
   voisins: readonly VoisinFiche[];
   /** Une ligne par sujet ; null : pas de section (territoire, réglage coupé). */
@@ -72,7 +84,14 @@ export interface DonneesComposition {
   drapeaux: DonneesDrapeaux | null;
   /** Les lignes de la mémoire du lieu (CarteMemoire.details) ; null : pas de section. */
   memoire(id: string, jouable: boolean): readonly string[] | null;
+  /** Les lignes relues (absent : LIGNES_RELUES ; les tests passent les deux états). */
+  relues?: Readonly<Record<LigneRelue, boolean>>;
+  /** L'instant de l'heure (absent : maintenant). */
+  maintenant?: Date;
 }
+
+/** L'heure d'une fiche ouverte se refait toutes les 30 s (§ 4.2). */
+export const DELAI_HEURE_MS = 30_000;
 
 /** L'adresse d'un article de la Wikipédia de la langue (textes.fiche.wikipedia_base), par son titre. */
 export const adresseWikipedia = (titre: string): string => T.wikipedia_base + encodeURIComponent(titre.replace(/ /g, '_'));
@@ -94,21 +113,62 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
   if (!p || !f) return null;
   const sorte = sorteDeLieu(id, 'monde', p.statut);
   if (!sorte || sorte === 'mer' || sorte === 'commune') return null;
-  const faits: { libelle: string; valeur: string }[] = [];
-  const sources = [T.noms_sources.natural_earth, T.noms_sources.cldr];
+  const faits: FaitFiche[] = [];
+  const relues = d.relues ?? LIGNES_RELUES;
+  const S = T.noms_sources;
+  const sources = [S.natural_earth, S.cldr];
+  const citer = (nom: string) => void (sources.includes(nom) || sources.push(nom));
   const caps = sorte === 'pays' ? d.capitales?.parPays.get(id) : undefined;
   if (caps) {
     faits.push({ libelle: caps.justes.length > 1 ? T.capitales : T.capitale, valeur: listeEt(caps.justes.map((c) => c.nom)) });
-    sources.push(T.noms_sources.wikidata);
+    citer(S.wikidata);
+  }
+  if (f.habitants) {
+    faits.push({ libelle: T.habitants, valeur: fmtHabitants(f.habitants.n, f.habitants.annee) });
+    citer(f.habitants.source === 'wd' ? S.wikidata : S.banque_mondiale);
+  }
+  if (f.superficie !== undefined && relues.superficie) {
+    faits.push({ libelle: T.superficie, valeur: fmtSuperficie(f.superficie) });
+    citer(S.superficie);
+  }
+  if (f.langues && relues.langues) {
+    // Les officielles d'abord, puis les langues du pays parlées par 10 % ou plus, avec leur part (D56 c).
+    const { officielles, parlees } = f.langues;
+    const valeur = [...(officielles.length ? [listeEt(officielles)] : []), ...parlees.map((l) => fmtPart(l.nom, l.part))].join(' · ');
+    if (valeur) faits.push({ libelle: officielles.length + parlees.length > 1 ? T.langues : T.langue, valeur });
+  }
+  if (f.monnaies?.length) faits.push({ libelle: f.monnaies.length > 1 ? T.monnaies : T.monnaie, valeur: listeEt(f.monnaies) });
+  if (f.gentils && relues.gentile) {
+    faits.push({ libelle: T.gentile, valeur: remplir(T.gentile_valeur, { gentils: f.gentils }) });
+    citer(S.wikidata);
+  }
+  if (f.heure) {
+    // Une zone que le navigateur ne connaît pas (RangeError) : pas de ligne (§ 4.2).
+    try {
+      const valeur = fmtHeureLieu(f.heure.zone, f.heure.fuseaux, d.maintenant ?? new Date());
+      const capitale = caps?.principale.nom;
+      faits.push({ libelle: capitale ? remplir(T.heure, { capitale }) : T.heure_locale, valeur, heure: f.heure });
+      citer(S.tz);
+    } catch (e) {
+      if (!(e instanceof RangeError)) throw e;
+    }
   }
   const continent = (textes.continents as Record<string, string>)[p.continent];
   const sousRegion = d.fiches.sousRegions[p.sous_region];
   if (continent && sousRegion && continent !== sousRegion) faits.push({ libelle: T.continent, valeur: remplir(T.continent_valeur, { continent, sous_region: sousRegion }) });
   else if (continent ?? sousRegion) faits.push({ libelle: T.continent, valeur: (continent ?? sousRegion)! });
+  if (f.culminant && relues.culminant) {
+    faits.push({ libelle: T.culminant, valeur: remplir(T.culminant_valeur, { nom: f.culminant.nom, altitude: fmtAltitude(f.culminant.altitude) }) });
+    citer(S.wikidata);
+  }
+  if (f.fete && relues.fete) {
+    faits.push({ libelle: T.fete, valeur: remplir(T.fete_valeur, { date: fmtJourMois(f.fete.jour, f.fete.mois), nom: f.fete.nom }) });
+    citer(S.factbook);
+  }
   const avecDrapeau = sorte === 'pays';
   const drapeaux = avecDrapeau ? (d.drapeaux?.parPays.get(id)?.justes ?? []) : [];
-  if (avecDrapeau) sources.push(T.noms_sources.flag_icons);
-  if (f.wp && !sources.includes(T.noms_sources.wikidata)) sources.push(T.noms_sources.wikidata);
+  if (avecDrapeau) citer(S.flag_icons);
+  if (f.wp) citer(S.wikidata);
   // Les voisins : les pays jouables d'abord, par ordre alphabétique, puis à part les autres entités, avec leur statut (§ 2.1).
   const parNom = (a: VoisinFiche, b: VoisinFiche) => a.nom.localeCompare(b.nom, 'fr');
   const voisins = p.voisins.flatMap((v) => {
@@ -182,6 +242,28 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
 
   let modele: ModeleFiche | null = null;
   let avecAvant = false;
+  /** Les lignes de l'heure de la fiche montrée, et leur minuteur (arrêté à la fermeture, ou par la fiche suivante). */
+  let heures: { ligne: HTMLElement; dd: HTMLElement; heure: NonNullable<FaitFiche['heure']> }[] = [];
+  let minuteur: ReturnType<typeof setInterval> | null = null;
+  function arreterHeure(): void {
+    if (minuteur !== null) clearInterval(minuteur);
+    minuteur = null;
+    heures = [];
+  }
+  /** L'heure refaite (le formateur de la zone gardé : rien de créé ici) ; une zone qui lève : sa ligne retirée. */
+  function refaireHeure(): void {
+    const t = new Date();
+    heures = heures.filter((h) => {
+      try {
+        h.dd.textContent = fmtHeureLieu(h.heure.zone, h.heure.fuseaux, t);
+        return true;
+      } catch {
+        h.ligne.remove();
+        return false;
+      }
+    });
+    if (!heures.length) arreterHeure();
+  }
   const drapeauxEl = creer('div', { class: 'fiche-drapeaux' });
 
   /** Les drapeaux de la tête : la place grise (4:3) tant qu'ils ne sont pas là. */
@@ -224,7 +306,13 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
   function rendre(m: ModeleFiche): HTMLElement {
     const enfants: HTMLElement[] = [tete(m)];
     if (m.faits.length) {
-      enfants.push(creer('dl', { class: 'fiche-faits' }, ...m.faits.map((f) => creer('div', { class: 'fiche-fait' }, creer('dt', {}, f.libelle), creer('dd', {}, f.valeur)))));
+      const lignes = m.faits.map((f) => {
+        const dd = creer('dd', {}, f.valeur);
+        const ligne = creer('div', { class: 'fiche-fait' }, creer('dt', {}, f.libelle), dd);
+        if (f.heure) heures.push({ ligne, dd, heure: f.heure });
+        return ligne;
+      });
+      enfants.push(creer('dl', { class: 'fiche-faits' }, ...lignes));
     }
     if (m.voisins.length) {
       const liste = creer(
@@ -282,7 +370,9 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       avecAvant = o.avant;
       feuille.dataset.id = m.id;
       feuille.dataset.sorte = m.sorte;
+      arreterHeure();
       feuille.replaceChildren(rendre(m));
+      if (heures.length) minuteur = setInterval(refaireHeure, DELAI_HEURE_MS);
       voile.hidden = false;
       feuille.hidden = false;
       if (o.focus) {
@@ -300,6 +390,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
     },
     fermer() {
       finMontee();
+      arreterHeure();
       modele = null;
       // Remise en haut avant d'être cachée : Chromium garde le défilement d'un élément caché et le rend quand il
       // réapparaît ; montrer() n'y touche plus à l'ouverture (aucune mise en page forcée, § 6.4).

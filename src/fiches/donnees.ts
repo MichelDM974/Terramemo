@@ -12,15 +12,40 @@ import type { SorteLieu } from './sorte';
 /** La version du format, écrite par geodata/fiches.mjs (VERSION_FICHES). */
 export const VERSION_FICHES = 1;
 
-/** Ce que fiches-monde.json dit d'un lieu (sans langue). */
+/** Ce que fiches-monde.json dit d'un lieu (sans langue) ; geodata/fiches.mjs en décrit chaque clé. */
 interface FicheBrute {
   s: SorteLieu;
+  /** Habitants, leur année ; hs « wd » : de Wikidata (sinon la Banque mondiale). */
+  h?: number;
+  ha?: number;
+  hs?: 'wd';
+  /** Superficie en km², de Wikidata (D57). */
+  sup?: number;
+  /** Altitude du point culminant, en m. */
+  alt?: number;
+  /** Zone IANA de l'heure locale ; nombre de fuseaux s'il y en a plusieurs. */
+  z?: string;
+  nz?: number;
+  /** Codes ISO 4217 des monnaies, dans l'ordre. */
+  m?: readonly string[];
+  /** Codes des langues officielles ; langues parlées par 10 % ou plus, [code, part en %] (D56 c). */
+  lo?: readonly string[];
+  lp?: readonly (readonly [string, number])[];
+  /** Fête nationale [jour, mois]. */
+  f?: readonly [number, number];
 }
 
 /** Ce que fiches-monde.fr.json dit d'un lieu (de la langue). */
 interface TexteBrut {
   /** Titre de la Wikipédia de la langue (les 197 pays ; les autres au lot F3). */
   wp?: string;
+  /** Gentilé masculin, et son pluriel tout fait (aucune règle de grammaire dans le code). */
+  g?: string;
+  gp?: string;
+  /** Nom du point culminant. */
+  cu?: string;
+  /** Nom de la fête nationale. */
+  fn?: string;
 }
 
 export interface FichierMonde {
@@ -31,14 +56,31 @@ export interface FichierMonde {
 export interface FichierMondeLangue {
   v: number;
   sous_regions: Record<string, string>;
+  langues: Record<string, string>;
+  monnaies: Record<string, string>;
   lieux: Record<string, TexteBrut>;
 }
 
-/** La fiche d'un lieu du monde, telle que la barre et la fiche la lisent. */
+/**
+ * La fiche d'un lieu du monde, telle que la barre et la fiche la lisent : les
+ * noms déjà résolus. Un champ absent : pas de ligne (§ 4.2).
+ */
 export interface FicheMonde {
   sorte: SorteLieu;
   /** Titre de l'article de la Wikipédia de la langue, ou null (pas de lien). */
   wp: string | null;
+  /** source « wd » : Wikidata (Taïwan, Vatican), sinon la Banque mondiale. */
+  habitants?: { n: number; annee: number; source: 'bm' | 'wd' };
+  superficie?: number;
+  /** Les officielles, puis les langues du pays parlées par 10 % ou plus, avec leur part (D56 c). */
+  langues?: { officielles: readonly string[]; parlees: readonly { nom: string; part: number }[] };
+  monnaies?: readonly string[];
+  /** Le pluriel du gentilé (« Japonais »). */
+  gentils?: string;
+  /** Zone IANA et nombre de fuseaux (1 sans la clé nz). */
+  heure?: { zone: string; fuseaux: number };
+  culminant?: { nom: string; altitude: number };
+  fete?: { jour: number; mois: number; nom: string };
 }
 
 export interface DonneesFichesMonde {
@@ -48,11 +90,31 @@ export interface DonneesFichesMonde {
   sousRegions: Readonly<Record<string, string>>;
 }
 
+/** Les noms d'une liste de codes ; un code sans nom est sauté (le test des données en exige un pour chacun). */
+const nommer = (codes: readonly string[], noms: Readonly<Record<string, string>>): string[] => codes.flatMap((c) => (noms[c] ? [noms[c]] : []));
+
+/** Une entrée des deux fichiers, les noms résolus ; seuls les champs présents (et complets) sont posés. */
+function lireLieu(b: FicheBrute, t: TexteBrut, fr: FichierMondeLangue): FicheMonde {
+  const f: FicheMonde = { sorte: b.s, wp: t.wp ?? null };
+  if (b.h !== undefined && b.ha !== undefined) f.habitants = { n: b.h, annee: b.ha, source: b.hs === 'wd' ? 'wd' : 'bm' };
+  if (b.sup !== undefined) f.superficie = b.sup;
+  if (b.lo?.length || b.lp?.length) {
+    const parlees = (b.lp ?? []).flatMap(([c, part]) => (fr.langues[c] ? [{ nom: fr.langues[c], part }] : []));
+    f.langues = { officielles: nommer(b.lo ?? [], fr.langues), parlees };
+  }
+  if (b.m?.length) f.monnaies = nommer(b.m, fr.monnaies);
+  if (t.gp) f.gentils = t.gp;
+  if (b.z) f.heure = { zone: b.z, fuseaux: b.nz ?? 1 };
+  if (b.alt !== undefined && t.cu) f.culminant = { nom: t.cu, altitude: b.alt };
+  if (b.f && t.fn) f.fete = { jour: b.f[0], mois: b.f[1], nom: t.fn };
+  return f;
+}
+
 /** Les deux fichiers assemblés ; lève sur une autre version du format. */
 export function lireFichesMonde(m: FichierMonde, fr: FichierMondeLangue): DonneesFichesMonde {
   if (m.v !== VERSION_FICHES || fr.v !== VERSION_FICHES) throw new Error(`fiches-monde : version ${m.v} / ${fr.v}, attendue ${VERSION_FICHES}`);
   const lieux = new Map<string, FicheMonde>();
-  for (const [id, f] of Object.entries(m.lieux)) lieux.set(id, { sorte: f.s, wp: fr.lieux[id]?.wp ?? null });
+  for (const [id, f] of Object.entries(m.lieux)) lieux.set(id, lireLieu(f, fr.lieux[id] ?? {}, fr));
   return { lieux, sousRegions: fr.sous_regions };
 }
 

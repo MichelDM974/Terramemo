@@ -1,9 +1,11 @@
-// Nombres et listes des fiches des lieux (#34, étude
-// docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4.1 et § 6.5) : la langue
-// en paramètre (décision « Langue » : les mots viennent de textes.fiche, les
-// chiffres de toLocaleString), espace insécable avant l'unité, comme fmtKm
+// Nombres, listes, dates et heures des fiches des lieux (#34, étude
+// docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4.1, § 4.2 et § 6.5) : la
+// langue en paramètre (décision « Langue » : les mots viennent de textes.fiche,
+// les chiffres d'Intl), espace insécable avant l'unité, comme fmtKm
 // (src/vues/commun.ts). La barre donne trois chiffres au plus (« 123
-// millions », « 56 800 ») ; la fiche, le nombre entier.
+// millions », « 56 800 ») ; la fiche, le nombre entier. L'heure d'un pays : sa
+// zone IANA par Intl.DateTimeFormat, l'écart à l'heure de l'appareil calculé
+// sur les deux heures murales (§ 2.1 ; timeZoneName: 'longOffset' écarté).
 import { remplir, textes } from '../vues/textes';
 
 /** La locale des nombres et des listes, par langue des textes (le français seul pour l'instant). */
@@ -15,8 +17,10 @@ const locale = (langue: string): string => LOCALES[langue] ?? langue;
  * (Intl.ListFormat : 22 ms sur l'A37, à la première fiche, le 17/11), les suivants ne coûtent presque rien.
  * toLocaleString(locale, options) en recréait un à chaque nombre.
  */
-const formateurs = new Map<string, Intl.NumberFormat | Intl.ListFormat | null>();
-function formateur<F extends Intl.NumberFormat | Intl.ListFormat>(cle: string, creer: () => F): F | null {
+type Formateur = Intl.NumberFormat | Intl.ListFormat | Intl.DateTimeFormat;
+const formateurs = new Map<string, Formateur | null>();
+/** Le formateur gardé sous `cle`, créé au premier appel ; null s'il ne se crée pas (une zone inconnue : RangeError), gardé aussi. */
+function formateur<F extends Formateur>(cle: string, creer: () => F): F | null {
   if (!formateurs.has(cle)) {
     let f: F | null = null;
     try {
@@ -32,6 +36,15 @@ const nombres = (loc: string, decimales?: number): Intl.NumberFormat =>
   formateur(`n:${loc}:${decimales ?? ''}`, () => new Intl.NumberFormat(loc, decimales === undefined ? undefined : { maximumFractionDigits: decimales }))!;
 const listes = (loc: string): Intl.ListFormat | null => formateur(`l:${loc}`, () => new Intl.ListFormat(loc, { style: 'long', type: 'conjunction' }));
 
+/** « 23 février » : jour et mois d'une date sans année, lus en UTC (aucune zone à charger). */
+const joursMois = (loc: string): Intl.DateTimeFormat | null => formateur(`d:${loc}`, () => new Intl.DateTimeFormat(loc, { day: 'numeric', month: 'long', timeZone: 'UTC' }));
+/**
+ * L'heure murale d'une zone IANA, en chiffres latins à lire par formatToParts (la locale n'y change rien
+ * d'autre) ; null : zone inconnue du navigateur (RangeError à sa création, gardée : jamais recréée).
+ */
+const murale = (zone: string): Intl.DateTimeFormat | null =>
+  formateur(`z:${zone}`, () => new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }));
+
 /**
  * Les formateurs créés d'avance, au repos après le premier toucher d'un lieu (explorer.ts) : la première
  * fiche ne paie pas leur création pendant sa montée (§ 6.4).
@@ -41,7 +54,16 @@ export function prechaufferFormats(langue = 'fr'): void {
   nombres(loc);
   nombres(loc, 2);
   listes(loc);
+  joursMois(loc);
 }
+
+/** Le formateur de la zone d'un pays créé d'avance (au repos, le pays touché dans la barre) : sa fiche n'en crée aucun. */
+export function prechaufferZone(zone: string): void {
+  murale(zone);
+}
+
+/** Tests : le nombre de formateurs créés (une ouverture de fiche n'en ajoute aucun). */
+export const nombreFormateurs = (): number => formateurs.size;
 
 /** Le nombre entier, groupé par milliers (« 123 366 734 »). */
 export const fmtEntier = (n: number, langue = 'fr'): string => nombres(locale(langue)).format(Math.round(n));
@@ -74,3 +96,81 @@ export function listeEt(elements: readonly string[], langue = 'fr'): string {
   const f = listes(locale(langue));
   return f ? f.format(elements) : elements.join(', ');
 }
+
+/** « 123 366 734 (2025) » : les habitants de la fiche, avec leur année. */
+export const fmtHabitants = (n: number, annee: number, langue = 'fr'): string => remplir(textes.fiche.habitants_valeur, { n: fmtEntier(n, langue), annee });
+
+/** La barre : « 123 millions d'hab. », « 56 800 hab. » (trois chiffres au plus, fmtNombreCourt). */
+export function fmtHabitantsCourt(n: number, langue = 'fr'): string {
+  const T = textes.fiche;
+  return remplir(Math.abs(troisChiffres(n)) >= 1e6 ? T.barre_habitants_mot : T.barre_habitants, { n: fmtNombreCourt(n, langue) });
+}
+
+/** « 377 974 km² » ; le centième sous 100 km² (« 0,44 km² », le Vatican). */
+export const fmtSuperficie = (km2: number, langue = 'fr'): string => remplir(textes.fiche.km2, { n: nombres(locale(langue), 2).format(km2) });
+
+/** « 3 776 m » groupé par milliers, dans « mont Fuji, 3 776 m ». */
+export const fmtAltitude = (m: number, langue = 'fr'): string => fmtEntier(m, langue);
+
+/** « 23 février », « 1er août » (le premier du mois : textes.fiche.premier_jour). */
+export function fmtJourMois(jour: number, mois: number, langue = 'fr'): string {
+  const f = joursMois(locale(langue));
+  const date = new Date(Date.UTC(2000, mois - 1, jour)); // 2000 : bissextile, le 29 février existe.
+  if (!f) return `${jour}/${mois}`;
+  return f
+    .formatToParts(date)
+    .map((p) => (p.type === 'day' && jour === 1 ? textes.fiche.premier_jour : p.value))
+    .join('');
+}
+
+/** Minutes depuis l'époque de l'heure murale lue par `f` à l'instant `t`. */
+function minutesMurales(f: Intl.DateTimeFormat, t: Date): number {
+  const p: Record<string, number> = {};
+  for (const x of f.formatToParts(t)) if (x.type !== 'literal') p[x.type] = Number(x.value);
+  return Date.UTC(p.year!, p.month! - 1, p.day!, p.hour! % 24, p.minute!) / 60_000;
+}
+
+/**
+ * L'heure dans la zone `zone` à l'instant `t`, et son écart en minutes à
+ * l'heure d'ici : la zone `ici` (les tests), sinon celle de l'appareil. Lève
+ * une RangeError si le navigateur ne connaît pas la zone (la ligne est alors
+ * retirée, § 4.2).
+ */
+export function heureDe(zone: string, t: Date, ici?: string): { heures: number; minutes: number; ecart: number } {
+  const f = murale(zone);
+  if (!f) throw new RangeError(`zone inconnue : ${zone}`);
+  const la = minutesMurales(f, t);
+  let ci: number;
+  if (ici) {
+    const g = murale(ici);
+    if (!g) throw new RangeError(`zone inconnue : ${ici}`);
+    ci = minutesMurales(g, t);
+  } else ci = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate(), t.getHours(), t.getMinutes()) / 60_000;
+  const jour = ((la % 1440) + 1440) % 1440;
+  return { heures: Math.floor(jour / 60), minutes: jour % 60, ecart: la - ci };
+}
+
+/** « +5 h », « −3 h », « +1 h 45 », « même heure qu'ici » (le signe moins typographique, textes.fiche.moins). */
+export function fmtEcart(minutes: number): string {
+  const T = textes.fiche;
+  if (minutes === 0) return T.meme_heure;
+  const a = Math.abs(minutes);
+  const signe = minutes > 0 ? T.plus : T.moins;
+  const min = a % 60;
+  return remplir(min ? T.ecart_min : T.ecart, { signe, h: Math.floor(a / 60), min: String(min).padStart(2, '0') });
+}
+
+/**
+ * La valeur de la ligne « Heure à … » : « 16 h 20 · +5 h », puis « 5 fuseaux
+ * dans le pays » s'il y en a plusieurs. Lève comme heureDe.
+ */
+export function fmtHeureLieu(zone: string, fuseaux: number, t: Date, ici?: string): string {
+  const T = textes.fiche;
+  const h = heureDe(zone, t, ici);
+  const parts = [remplir(T.heure_valeur, { h: h.heures, min: String(h.minutes).padStart(2, '0') }), fmtEcart(h.ecart)];
+  if (fuseaux > 1) parts.push(remplir(T.fuseaux, { n: fuseaux }));
+  return parts.join(' · ');
+}
+
+/** « umbundu 29 % » : une langue parlée et sa part. */
+export const fmtPart = (langue: string, part: number, l = 'fr'): string => remplir(textes.fiche.langue_part, { langue, part: fmtEntier(part, l) });
