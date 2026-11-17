@@ -157,7 +157,7 @@ export function texteRelecture({ R, main, noms, langues, sources, contestees = [
   );
   o.push('### Ajouts');
   o.push('');
-  o.push(tableau(['Pays', 'Code', 'Langue', 'Officielle', 'Raison', 'Source'], [...R.languesAjouts].sort(parNom).map((a) => [nom(a.id), a.code, nomLangue(a.code), a.officielle ? 'oui' : 'non', a.raison, a.source])));
+  o.push(tableau(['Pays', 'Code', 'Langue', 'Officielle', 'Raison', 'Source', ''], [...R.languesAjouts].sort(parNom).map((a) => [nom(a.id), a.code, nomLangue(a.code), a.officielle ? 'oui' : 'non', a.raison, a.source, a.a_relire ? '**à relire**' : ''])));
   o.push('### Parts et ordres écrits à la main');
   o.push('');
   o.push(

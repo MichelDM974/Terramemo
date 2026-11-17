@@ -384,5 +384,11 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
     const t = readFileSync('docs/relectures/fiches-pays.md', 'utf8');
     for (const s of ['## 1. Fêtes nationales', '## 2. Gentilés', '## 3. Points culminants', '## 4. Langues', '## 5. Superficies', '## 6. Heure locale', '## 7. Monnaies']) expect(t).toContain(s);
     expect(t).not.toMatch(/undefined|NaN|\[object/);
+    // Chaque langue à relire de la table (retrait ou ajout) est marquée dans son tableau.
+    const marques = new Set([...t.matchAll(/^\| ([^|]+) \| ([a-z]{2,3}) \| .*\*\*à relire\*\* \|$/gmu)].map((m) => `${m[1]} ${m[2]}`));
+    const noms = lire<Record<string, string>>('public/geo/noms.fr.json');
+    const attendues = lignes('langues').flatMap(([id, l]) => (Array.isArray(l.a_relire) ? (l.a_relire as string[]).map((c) => `${noms[id]} ${c}`) : []));
+    expect(attendues.length).toBeGreaterThan(15);
+    for (const a of attendues) expect(marques.has(a), a).toBe(true);
   });
 });

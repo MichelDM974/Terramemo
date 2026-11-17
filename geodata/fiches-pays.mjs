@@ -565,7 +565,7 @@ export function chiffresPays({ entites, formes, zones = [], capitales, wd, bm, c
     for (const [code, p] of Object.entries(ll.parts ?? {})) R.languesParts.push({ id, code, pct: p.pct, cldr: finales.find((l) => l.code === code)?.pctCldr ?? null, source: p.source, raison: p.raison ?? ll.raison });
     if (ll.ordre) R.languesOrdres.push({ id, ordre: ll.ordre, raison: ll.raison_ordre ?? ll.raison, source: ll.source_ordre ?? null });
     for (const [code, raison] of Object.entries(retirer)) R.languesRetraits.push({ id, code, pct: cand.find((l) => l.code === code)?.pct ?? null, officielle: cand.find((l) => l.code === code)?.officielle ?? false, raison, a_relire: Boolean(ll.a_relire?.includes?.(code)) });
-    for (const [code, a] of Object.entries(ajouter)) R.languesAjouts.push({ id, code, ...a });
+    for (const [code, a] of Object.entries(ajouter)) R.languesAjouts.push({ id, code, ...a, a_relire: Boolean(ll.a_relire?.includes?.(code)) });
 
     // Fête nationale (§ 2.1) : la table seule, pré-remplie par le World Factbook.
     const fe = table.fete[id];
