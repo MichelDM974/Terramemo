@@ -408,10 +408,24 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     historique.pousser({ terrain: t.nom, id });
   }
 
+  /**
+   * Le vol d'un voisin, ou d'une fiche rendue par un retour, remis à deux images après la fiche (surFiche) : la
+   * fiche faite et le départ du vol dans la même image tardaient de 50 ms sur l'A37 (S41, S55, 16/11). Le vol se
+   * fait sous la fiche (D61 c) : deux images de plus ne se voient pas. Toute fiche nouvelle l'annule (elle a le
+   * sien, ou montre le lieu de la barre) ; la fermeture le fait tout de suite : la carte reste sur le dernier lieu vu.
+   */
+  let volEnAttente: (() => void) | null = null;
+  function lancerVolEnAttente(): void {
+    const vol = volEnAttente;
+    volEnAttente = null;
+    if (vol && active) vol();
+  }
+
   /** La fiche fermée sur place (sans toucher à l'historique) ; `focus` : rendu à la barre. */
   function fermerFiche(focus: boolean): void {
     jetonFiche++;
     if (!ficheOuverte) return;
+    lancerVolEnAttente();
     ficheOuverte = null;
     feuille?.fermer();
     barre.removeAttribute('inert');
@@ -466,8 +480,20 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     barre.setAttribute('inert', '');
     poserAria();
     document.body.dataset.fiche = 'ouverte';
-    // Le lieu sur la carte : un voisin, ou une fiche rendue par un retour (aller() vide la barre, la fiche reste ouverte).
-    if (t !== ctx.terrains.monde || barre.dataset.id !== f.id) montrer(ctx.terrains.monde, f.id);
+    // Le lieu sur la carte : un voisin, ou une fiche rendue par un retour (aller() vide la barre, la fiche reste ouverte),
+    // deux images après la fiche quand la page en a (volEnAttente).
+    volEnAttente = null;
+    if (t !== ctx.terrains.monde || barre.dataset.id !== f.id) {
+      const vol = () => montrer(ctx.terrains.monde, f.id);
+      if (typeof requestAnimationFrame === 'function') {
+        volEnAttente = vol;
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            if (volEnAttente === vol) lancerVolEnAttente();
+          }),
+        );
+      } else vol();
+    }
     Promise.all([F.module(), lues ? null : chargerDonnees()]).then(
       ([m]) => {
         if (j !== jetonFiche || !active) return;

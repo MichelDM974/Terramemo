@@ -265,12 +265,18 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
     montrer(m, o) {
       // La même fiche refaite (rafraichir : la mémoire relue) : le focus et le défilement gardés, sinon le focus
       // tomberait sur body en pleine lecture au clavier. L'élément retrouvé à la même place dans la fiche nouvelle.
-      const meme = !o.focus && feuille.dataset.id === m.id && !feuille.hidden;
+      // Aucune lecture ni écriture de la mise en page après replaceChildren (§ 6.4) : elle forçait la mise en page de
+      // toute la fiche nouvelle dans la même tâche (12 ms sur l'A37, un gel de 50 ms à l'ouverture, S41, 16/11).
+      const ouverture = feuille.hidden;
+      const meme = !o.focus && feuille.dataset.id === m.id && !ouverture;
       const actif = document.activeElement as HTMLElement | null;
       const rangFocus = meme && actif && actif !== feuille && feuille.contains(actif) ? focusables().indexOf(actif) : -1;
-      const defile = feuille.scrollTop;
+      const defile = meme ? feuille.scrollTop : 0;
+      // En haut de la fiche nouvelle (un voisin remplace la fiche défilée) : remise à zéro avant le remplacement,
+      // tant que la mise en page est à jour. Une feuille cachée n'a rien à remettre : fermer() l'a remise en haut.
+      if (o.focus && !ouverture && feuille.scrollTop) feuille.scrollTop = 0;
       // Une ouverture (la feuille était cachée) : l'animation de carte.css part, sauf mouvement réduit.
-      if (feuille.hidden && globalThis.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) feuille.style.willChange = 'transform';
+      if (ouverture && globalThis.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) feuille.style.willChange = 'transform';
       modele = m;
       avecAvant = o.avant;
       feuille.dataset.id = m.id;
@@ -279,9 +285,8 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       voile.hidden = false;
       feuille.hidden = false;
       if (o.focus) {
-        // En haut de la fiche nouvelle (un voisin remplace la fiche défilée), le focus au titre : le lecteur d'écran dit son nom.
-        feuille.scrollTop = 0;
-        feuille.querySelector<HTMLElement>('#fiche-titre')?.focus();
+        // Le focus au titre : le lecteur d'écran dit son nom. Le titre est en haut, rien à faire défiler.
+        feuille.querySelector<HTMLElement>('#fiche-titre')?.focus({ preventScroll: true });
       } else if (meme) {
         feuille.scrollTop = defile;
         if (rangFocus >= 0) focusables()[rangFocus]?.focus();
@@ -295,6 +300,9 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
     fermer() {
       finMontee();
       modele = null;
+      // Remise en haut avant d'être cachée : Chromium garde le défilement d'un élément caché et le rend quand il
+      // réapparaît ; montrer() n'y touche plus à l'ouverture (aucune mise en page forcée, § 6.4).
+      if (feuille.scrollTop) feuille.scrollTop = 0;
       feuille.hidden = true;
       voile.hidden = true;
       feuille.replaceChildren();

@@ -32,6 +32,8 @@ const T = textes.fiche;
 
 /** Les promesses en attente (chargements, morceau de la fiche) tenues. */
 const tenir = () => new Promise((r) => setTimeout(r, 0));
+/** Deux images passées (requestAnimationFrame de dom-factice : 16 ms) : le vol d'un voisin parti (volEnAttente). */
+const deuxImages = () => new Promise((r) => setTimeout(r, 50));
 
 /** Une promesse qu'on tient à la main. */
 function differee<T>() {
@@ -434,28 +436,61 @@ describe('la fiche', () => {
     const v = await ouvrirSur('ESP');
     expect(v.feuille()!.querySelector('.fiche-avant')!.hidden).toBe(true);
     (v.feuille()!.querySelectorAll('.fiche-voisin').find((b) => b.dataset.id === 'FRA') as El).click();
-    await tenir();
+    await deuxImages();
     expect(v.titre()).toBe('France');
     expect(v.montres).toEqual(['FRA']);
     expect(v.barre().dataset.id).toBe('FRA');
     expect(v.doc.activeElement).toBe(v.el('#fiche-titre'));
     expect(v.feuille()!.querySelector('.fiche-avant')!.hidden).toBe(false);
     (v.feuille()!.querySelectorAll('.fiche-voisin').find((b) => b.dataset.id === 'ITA') as El).click();
-    await tenir();
+    await deuxImages();
     expect(v.titre()).toBe('Italie');
     v.feuille()!.querySelector('.fiche-avant')!.click();
-    await tenir();
+    await deuxImages();
     expect(v.titre()).toBe('France');
     expect(v.montres).toEqual(['FRA', 'ITA', 'FRA']);
     // Échap fait comme « ‹ » : la fiche d'avant, puis la fermeture.
     v.echap();
-    await tenir();
+    await deuxImages();
     expect(v.titre()).toBe('Espagne');
     expect(v.montres.at(-1)).toBe('ESP');
     v.echap();
     expect(v.ouverte()).toBe(false);
     // À la fermeture, la carte est sur le dernier lieu vu.
     expect(v.barre().dataset.id).toBe('ESP');
+  });
+
+  it('le vol d’un voisin part deux images après sa fiche (S41, S55) ; une fiche nouvelle avant l’annule ; la « × » avant le fait tout de suite', async () => {
+    const v = await ouvrirSur('ESP');
+    const voisin = (id: string) => (v.feuille()!.querySelectorAll('.fiche-voisin').find((b) => b.dataset.id === id) as El).click();
+    voisin('FRA');
+    await tenir();
+    // La fiche d'abord, la carte ensuite.
+    expect(v.titre()).toBe('France');
+    expect(v.montres).toEqual([]);
+    expect(v.barre().dataset.id).toBe('ESP');
+    await deuxImages();
+    expect(v.montres).toEqual(['FRA']);
+    expect(v.barre().dataset.id).toBe('FRA');
+    // L'Italie, puis « ‹ » avant ses deux images : la carte ne part pas vers l'Italie, elle reste sur la France.
+    voisin('ITA');
+    await tenir();
+    v.feuille()!.querySelector('.fiche-avant')!.click();
+    await tenir();
+    expect(v.titre()).toBe('France');
+    await deuxImages();
+    expect(v.montres).toEqual(['FRA']);
+    expect(v.barre().dataset.id).toBe('FRA');
+    // La Belgique, puis « × » avant ses deux images : le vol part à la fermeture, la carte sur le dernier lieu vu.
+    voisin('BEL');
+    await tenir();
+    expect(v.titre()).toBe('Belgique');
+    v.feuille()!.querySelector('.croix')!.click();
+    expect(v.ouverte()).toBe(false);
+    expect(v.montres).toEqual(['FRA', 'BEL']);
+    expect(v.barre().dataset.id).toBe('BEL');
+    await deuxImages();
+    expect(v.montres).toEqual(['FRA', 'BEL']);
   });
 
   it('desactiver() ferme la fiche ; une recherche la ferme et montre son lieu dans la barre', async () => {
