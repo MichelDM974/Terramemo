@@ -131,13 +131,15 @@ describe('écran Crédits', () => {
         `superficies, gentilés, sommets, habitants de Taïwan et du Vatican, liens vers Wikipédia · extrait du ${date(json<{ date: string }>('geodata/wikidata/fiches.json').date)}`,
     );
     // La Banque mondiale, selon ses conditions : « The World Bank: <jeu>: <source> », CC BY 4.0, l'adresse des conditions en lien.
-    const bm = json<{ date: string; annee: number; source: { nom: string }; conditions: { url: string; licence: string } }>('geodata/banque-mondiale/population.json');
+    const bm = json<{ date: string; annee: number; source: { nom: string; donnees_de: string }; conditions: { url: string; licence: string } }>('geodata/banque-mondiale/population.json');
     const banque = ligne('Banque mondiale');
     expect(banque.detail).toBe(`Habitants des pays, ${bm.annee} · World Development Indicators, extrait du ${date(bm.date)}`);
     expect(bm.conditions.licence).toContain('CC BY 4.0');
     expect(banque.licence).toContain('CC BY 4.0');
     expect(banque.lien).toBe(bm.conditions.url);
-    expect(banque.auteur).toMatch(/^The World Bank: World Development Indicators, Population, total \(SP\.POP\.TOTL\): \S/);
+    // La source, telle que les métadonnées de l'extrait la donnent, en anglais : chaque jeu et son éditeur.
+    const sourcesBm = bm.source.donnees_de.split(';\n').map((e) => `${e.split(', ')[0]} (${e.split('publisher: ')[1]!.trim()})`);
+    expect(banque.auteur).toBe(`The World Bank: World Development Indicators, Population, total (SP.POP.TOTL): ${sourcesBm.join(', ')}`);
     expect(bm.source.nom).toContain('Population, total (SP.POP.TOTL)');
     // La base tz à la version de zone.tab ; le Factbook à la date de son miroir figé ; tous deux du domaine public.
     const tz = ligne("Base de données des fuseaux horaires de l'IANA");
