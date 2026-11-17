@@ -262,7 +262,8 @@ describe('candidats.json (npm run photos:candidats)', () => {
         expect(c.page, t).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
         expect(c.miniature ?? '', t).toMatch(/^https:\/\/(upload|thumb)\.wikimedia\.org\//);
         expect(c.sources.length, t).toBeGreaterThan(0);
-        expect(c.auteur ?? '', t).not.toMatch(/…$/);
+        // Plus de coupe à 80 caractères (« Mongolia Expeditions… » est le texte même de Commons).
+        expect(c.auteur?.length === 80 && c.auteur.endsWith('…'), t).toBe(false);
       }
     }
   });
