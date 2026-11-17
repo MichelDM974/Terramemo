@@ -189,6 +189,7 @@ type LieuCandidats = {
 };
 const candidats = lire<{ v: number; ecrit_le: string; requetes_sha256: string; regle_sha256: string; lieux: Record<string, LieuCandidats> }>('geodata/photos/candidats.json');
 const mainPhotos = lire<{ mers: Record<string, { fichier: string; sujet?: string; raison: string }[] | string>; sujets_sensibles: Record<string, string> }>('geodata/photos/main.json');
+const choix = lire<{ v: number; lieux: Record<string, Record<string, unknown>> }>('geodata/photos/choix.json');
 const mers = lire<{ id: string }[]>('public/geo/mers.json');
 const communes = lire<{ id: string }[]>('public/geo/reunion/communes.json');
 const SORTES: Record<string, string> = { jouable: 'pays', optionnel: 'pays', territoire: 'territoire', conteste: 'zone', autre: 'continent' };
@@ -277,6 +278,47 @@ describe('main.json : propositions à la main pour les mers pauvres', () => {
       }
     }
     for (const [q, raison] of Object.entries(mainPhotos.sujets_sensibles)) if (q !== '_') expect(q.match(/^Q\d+$/) && raison, q).toBeTruthy();
+  });
+});
+
+describe('choix.json (npm run photos:relecture)', () => {
+  type Relecture = { fautesEntree: (id: string, e: unknown) => string[]; REGLE: string[]; MAX_GARDEES: number };
+  const relecture = import('../geodata/photos/relecture.mjs' as string) as Promise<Relecture>;
+
+  it('chaque entrée a sa forme : 5 photos au plus, licence et auteur, sujet ; aucune photo gardée : la raison (D60 a)', async () => {
+    const { fautesEntree } = await relecture;
+    expect(choix.v).toBe(1);
+    for (const [id, e] of Object.entries(choix.lieux)) {
+      expect(candidats.lieux[id], id).toBeTruthy();
+      expect(fautesEntree(id, e), id).toEqual([]);
+    }
+  });
+
+  it('fautesEntree attrape ce qui est faux', async () => {
+    const { fautesEntree } = await relecture;
+    const photo = { fichier: 'a.jpg', sujet: 'pont du Gard', licence: 'CC BY-SA 3.0', licence_url: null, auteur: 'X', titre: null, page: 'https://commons.wikimedia.org/wiki/File:A.jpg' };
+    expect(fautesEntree('FRA', { etat: 'relu', relu_le: '2026-11-17T08:00:00Z', gardees: [photo] })).toEqual([]);
+    expect(fautesEntree('FRA', { etat: 'relu', relu_le: '2026-11-17T08:00:00Z', gardees: [] })).toHaveLength(1);
+    expect(fautesEntree('FRA', { etat: 'relu', relu_le: '2026-11-17T08:00:00Z', gardees: [], aucune: 'rien de bon' })).toEqual([]);
+    expect(fautesEntree('FRA', { etat: 'en_cours', gardees: Array.from({ length: 6 }, (_, i) => ({ ...photo, fichier: `${i}.jpg` })) })).toHaveLength(1);
+    expect(fautesEntree('FRA', { etat: 'en_cours', gardees: [{ ...photo, auteur: 'Own work' }] })).toHaveLength(1);
+    expect(fautesEntree('FRA', { etat: 'en_cours', gardees: [{ ...photo, licence: 'CC BY-NC 2.0' }] })).toHaveLength(1);
+    expect(fautesEntree('FRA', { etat: 'en_cours', gardees: [{ ...photo, sujet: 'IMG_0001.jpg' }] })).toHaveLength(1);
+    expect(fautesEntree('FRA', { etat: 'en_cours', gardees: [{ ...photo, point: [1.2, 0.5] }] })).toHaveLength(1);
+    expect(fautesEntree('FRA', { etat: 'en_cours', gardees: [photo, photo] })).toHaveLength(1);
+    expect(fautesEntree('FRA', { etat: 'en_cours', gardees: [], ecartees: { 'b.jpg': '' } })).toHaveLength(1);
+  });
+
+  it('la règle de relecture est écrite, liberté de panorama et zones contestées comprises', async () => {
+    const { REGLE, MAX_GARDEES } = await relecture;
+    const texte = REGLE.join(' ');
+    for (const m of ['cartes', 'conflit', 'visages', 'autre lieu', 'liberté de panorama', 'Zone contestée', 'aucune']) expect(texte, m).toContain(m);
+    expect(MAX_GARDEES).toBe(5);
+  });
+
+  const fini = sorteAttendue.size === Object.values(choix.lieux).filter((e) => e.etat === 'relu').length;
+  it.skipIf(!fini)('fin du lot P1 : les 332 lieux relus', () => {
+    for (const id of sorteAttendue.keys()) expect(choix.lieux[id]?.etat, id).toBe('relu');
   });
 });
 
