@@ -380,8 +380,8 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
 
   it('pays et communes : « Touche : » et le nom, le temps écoulé de leur sujet', () => {
     for (const [sujet, fin] of [
-      ['pays', 'Le bon pays est en vert.'],
-      ['communes', 'La bonne commune est en vert.'],
+      ['pays', ''],
+      ['communes', ''],
     ] as const) {
       const { zone, consigne, lancer } = contexte();
       lancer('chrono', AMS, sujet);
@@ -389,11 +389,11 @@ describe('rendu par sujet (étude J2 § 5.1)', () => {
       expect(zone.querySelector('#barre-chrono .essai-consigne')?.textContent).toBe(`Touche : ${id}`);
       vi.advanceTimersByTime(15_000);
       // Le temps écoulé est une erreur, sans points (barème 2) : pas de « +0 », au Chrono comme à Sans faute.
-      expect(retro(zone)).toBe(`Temps écoulé. ${fin}`);
+      expect(retro(zone)).toBe(`Temps écoulé · bonne réponse : ${id}, en vert${fin}`);
       const c = contexte();
       c.lancer('sansfaute', AMS, sujet);
       vi.advanceTimersByTime(15_000);
-      expect(retro(c.zone)).toBe(`Temps écoulé. ${fin}`);
+      expect(retro(c.zone)).toMatch(/^Temps écoulé · bonne réponse : .+, en vert$/);
     }
   });
 

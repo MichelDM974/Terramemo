@@ -120,12 +120,12 @@ describe('Trouver sous Océans et mers', () => {
     const p = lancer(['atlant']);
     const retro = () => p.el('#barre-essai .essai-retro').textContent;
     toucher(p.v, { juste: false, via: null, pick: { id: 'noire', via: 'trace' }, distance_km: 0, admis: null });
-    expect(retro()).toBe('Faux : mer Noire, à 0,0 km du bord. La bonne mer est en vert : touche-la.');
+    expect(retro()).toBe('Faux : mer Noire, à 0,0 km du bord. Bonne réponse : océan Atlantique, en vert : touche-la.');
     expect(p.marques).toEqual(['noire:faux', 'atlant:juste']);
     toucher(p.v, { juste: false, via: null, pick: { id: 'ITA', via: 'trace' }, distance_km: 12, admis: null });
     expect(retro()).toMatch(/^Faux : Italie, à 12 km du bord\./);
     toucher(p.v, { juste: false, via: null, pick: null, distance_km: null, admis: null });
-    expect(retro()).toBe('Faux : hors de la carte. La bonne mer est en vert : touche-la.');
+    expect(retro()).toBe('Faux : hors de la carte. Bonne réponse : océan Atlantique, en vert : touche-la.');
     expect(retro()).not.toContain(textes.sujets.pays.la_mer);
     p.el('#essai-passer').click();
     const bilan = p.el('#essai-bilan');
@@ -280,7 +280,7 @@ describe('une épreuve des mers (vues/chrono.ts : le chemin de rendu et de notat
       } else {
         note = { juste: false, via: null, pick: { id: 'noire', via: 'trace' }, distance_km: 0, admis: null };
         v.toucher?.(1, 1, {} as PointerEvent);
-        expect(retro()).toBe('Faux : mer Noire, à 0,0 km du bord');
+        expect(retro()).toMatch(/^Faux : mer Noire, à 0,0 km du bord · bonne réponse : (mer|océan) /);
       }
     }
     expect(vues.sort()).toEqual(['atlant', 'medit']);
@@ -323,7 +323,7 @@ describe('une épreuve des mers (vues/chrono.ts : le chemin de rendu et de notat
       } else if (cible === 'medit') {
         fausses++;
         p.toucher(NOIRE);
-        expect(p.retro()).toBe('Faux : mer Noire, à 0,0 km du bord');
+        expect(p.retro()).toMatch(/^Faux : mer Noire, à 0,0 km du bord · bonne réponse : (mer|océan) /);
       } else p.toucher({ juste: true, via: 'trace', pick: { id: cible, via: 'trace' }, distance_km: 0, admis: null });
     }
     expect(vues).toEqual(new Set(IDS_MERS));
@@ -351,7 +351,7 @@ describe('une épreuve des mers (vues/chrono.ts : le chemin de rendu et de notat
     vi.advanceTimersByTime(1_000);
     expect(p.consigne().textContent).toBe('Touche : océan Atlantique');
     p.toucher(NOIRE);
-    expect(p.retro()).toBe('Faux : mer Noire, à 0,0 km du bord');
+    expect(p.retro()).toMatch(/^Faux : mer Noire, à 0,0 km du bord · bonne réponse : (mer|océan) /);
     expect(p.marques).toEqual(['atlant:juste', 'noire:faux']);
     expect(p.cadrages).toEqual([]);
     vi.advanceTimersByTime(2_000);

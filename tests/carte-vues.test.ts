@@ -154,13 +154,13 @@ describe('séries de l’île et textes des terrains', () => {
   it('textes de Toucher : la rétroaction du monde reste mot pour mot celle d’avant', () => {
     const T = textes.toucher;
     expect(
-      remplir(T.faux, { touche: 'Italie', ou: remplir(T.faux_ou, { km: fmtKm(12.4) }), suite: textes.sujets.pays.faux_suite }),
-    ).toBe('Faux : Italie, à 12\u00a0km du bord. Le bon pays est en vert : touche-le.');
+      remplir(T.faux, { touche: 'Italie', ou: remplir(T.faux_ou, { km: fmtKm(12.4) }), suite: remplir(textes.sujets.pays.faux_suite, { cible: 'France' }) }),
+    ).toBe('Faux : Italie, à 12\u00a0km du bord. Bonne réponse : France, en vert : touche-le.');
     expect(remplir(T.juste, { via: T.via_proche, essais: remplir(T.essais, { n: 2 }), temps: fmtS(1234) })).toBe(
       'Juste (au plus près) · 2 essais · 1,2\u00a0s',
     );
-    expect(remplir(T.faux, { touche: textes.sujets.communes.la_mer, ou: '', suite: textes.sujets.communes.faux_suite })).toBe(
-      'Faux : la mer. La bonne commune est en vert : touche-la.',
+    expect(remplir(T.faux, { touche: textes.sujets.communes.la_mer, ou: '', suite: remplir(textes.sujets.communes.faux_suite, { cible: 'Le Port' }) })).toBe(
+      'Faux : la mer. Bonne réponse : Le Port, en vert : touche-la.',
     );
     expect(remplir(T.bilan_nommer_faux, { cible: 'Saint-Leu', choisi: 'Les Avirons' })).toBe('Saint-Leu · tu avais choisi : Les Avirons');
   });

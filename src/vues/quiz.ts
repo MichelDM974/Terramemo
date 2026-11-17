@@ -670,7 +670,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
         } else {
           if (pick && pick.id !== id) t.carte.marquer(pick.id, 'faux');
           retro.className = 'essai-retro faux';
-          retro.textContent = remplir(E.faux, { touche: r.touche(pick?.id ?? null), km: note.distance_km == null ? '—' : fmtKm(note.distance_km) });
+          retro.textContent = remplir(E.faux, { touche: r.touche(pick?.id ?? null), km: note.distance_km == null ? '—' : fmtKm(note.distance_km), cible: r.lieu(id) });
         }
         apres(j);
         return { pick, cible: id, juste: note.juste, distance_km: note.distance_km };

@@ -530,6 +530,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
           retro.textContent = remplir(E.faux, {
             touche: rs.touche(r?.id ?? null),
             km: note.distance_km == null ? '—' : fmtKm(note.distance_km),
+            cible: rs.lieu(id),
           });
         }
         apres(q);

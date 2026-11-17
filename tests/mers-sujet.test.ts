@@ -69,8 +69,8 @@ describe('rendu des mers (§ 5.4)', () => {
     expect(rs.touche('ITA')).toBe('Italie');
     expect(rs.touche(null)).toBe('hors de la carte');
     expect(rs.touche(null)).not.toBe(textes.sujets.pays.la_mer);
-    expect(rs.fauxSuite('egee')).toBe('La bonne mer est en vert : touche-la.');
-    expect(rs.expire('egee')).toBe('Temps écoulé. La bonne mer est en vert.');
+    expect(rs.fauxSuite('egee')).toBe('Bonne réponse : mer Égée, en vert : touche-la.');
+    expect(rs.expire('egee')).toBe('Temps écoulé · bonne réponse : mer Égée, en vert');
   });
 
   it('aucun id brut affiché, pour chacune des 50 zones, par chaque méthode qui nomme', () => {
@@ -230,7 +230,7 @@ describe('parties d’une mer : zones admises du seul sujet Mers, et leur rétro
       expect(note.juste).toBe(false);
       expect(note.pick?.id).toBe('noire');
       const retro = remplir(T.faux, { touche: rs.touche(note.pick?.id ?? null), ou: remplir(T.faux_ou, { km: fmtKm(note.distance_km!) }), suite: rs.fauxSuite('atlant') });
-      expect(retro).toMatch(/^Faux : mer Noire, à [\d ]+ km du bord\. La bonne mer est en vert : touche-la\.$/);
+      expect(retro).toMatch(/^Faux : mer Noire, à [\d ]+ km du bord\. Bonne réponse : océan Atlantique, en vert : touche-la\.$/);
       expect(retro).not.toContain('la mer,');
     });
 

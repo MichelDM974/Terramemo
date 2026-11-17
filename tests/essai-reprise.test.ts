@@ -798,15 +798,15 @@ describe('Toucher : le rendu du sujet', () => {
 
   it('pays et communes : « Touche : » et le nom, la suite d’un faux de leur sujet, le bilan par le nom', () => {
     for (const [sujet, suite] of [
-      ['pays', 'Le bon pays est en vert : touche-le.'],
-      ['communes', 'La bonne commune est en vert : touche-la.'],
+      ['pays', 'touche-le.'],
+      ['communes', 'touche-la.'],
     ] as const) {
       const v = monter();
       v.lancer({ sujet });
       const id = v.cible();
       expect(v.zone.querySelector('#barre-essai .essai-consigne')?.textContent).toBe(`Touche : ${NOMS_FE[id]}`);
       toucher(v.vue, false);
-      expect(v.retro.textContent).toBe(`Faux : la mer, à 250\u00a0km du bord. ${suite}`);
+      expect(v.retro.textContent).toBe(`Faux : la mer, à 250\u00a0km du bord. Bonne réponse : ${NOMS_FE[id] ?? id}, en vert : ${suite}`);
       v.passer.click();
       v.terminer.click();
       expect(v.bilan.textContent).toContain(`${NOMS_FE[id]} : passé, premier toucher à 250`);
@@ -1060,7 +1060,7 @@ describe('Toucher : le sujet Drapeaux', () => {
     // Le drapeau de la question suivante, préchargé pendant celle-ci.
     expect(precharges).toEqual([montre(id === 'TCD' ? 'NER' : 'TCD')]);
     toucher(v.vue, false);
-    expect(v.retro.textContent).toMatch(/^Faux : la mer, à 250\u00a0km du bord\. Le bon pays est en vert : touche-le\.$/);
+    expect(v.retro.textContent).toMatch(/^Faux : la mer, à 250\u00a0km du bord\. Bonne réponse : [^,]+, en vert : touche-le\.$/);
     v.vue.desactiver();
     v.vue.activer();
     expect(consigne(v).querySelector('strong img')!.getAttribute('src')).toBe(montre(id));

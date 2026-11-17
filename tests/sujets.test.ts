@@ -27,8 +27,8 @@ describe('rendu par sujet', () => {
       expect(r.lieu('FRA')).toBe('France');
       expect(r.touche('FRA')).toBe('France');
       expect(r.touche(null)).toBe('la mer');
-      expect(r.fauxSuite('FRA')).toBe(ts.faux_suite);
-      expect(r.expire('FRA')).toBe(ts.expire);
+      expect(r.fauxSuite('FRA')).toBe(ts.faux_suite.replace('{cible}', 'France'));
+      expect(r.expire('FRA')).toBe(ts.expire.replace('{cible}', 'France'));
       expect(r.lieu('ZZZ')).toBe('ZZZ');
     }
     expect(nomDe({ noms }, 'ZZZ')).toBe('ZZZ');
@@ -37,9 +37,9 @@ describe('rendu par sujet', () => {
   it('les textes d’avant, mot pour mot', () => {
     expect(rendu('pays', { noms }).consigneQcm('FRA')).toBe('Quel est ce pays ?');
     expect(rendu('communes', { noms }).consigneQcm('97407')).toBe('Quelle est cette commune ?');
-    expect(rendu('pays', { noms }).fauxSuite('FRA')).toBe('Le bon pays est en vert : touche-le.');
+    expect(rendu('pays', { noms }).fauxSuite('FRA')).toBe('Bonne réponse : France, en vert : touche-le.');
     // Sans « +0 » depuis le barème 2 (décision « Barème et classements ») : le temps écoulé est une erreur, sans points.
-    expect(rendu('communes', { noms }).expire('97407')).toBe('Temps écoulé. La bonne commune est en vert.');
+    expect(rendu('communes', { noms }).expire('97407')).toBe('Temps écoulé · bonne réponse : Le Port, en vert');
     expect(compteSerie('pays', 54)).toBe('54 pays');
     expect(compteSerie('communes', 24)).toBe('24 communes');
     expect(textesSujet('pays').tout_appris).toBe('Tous les pays de cette série sont appris.');

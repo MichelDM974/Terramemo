@@ -131,9 +131,9 @@ export interface RenduSujet {
   consigneNommee(id: string): string | null;
   /** « tu as touché X » : la zone touchée, ou rien (null : la mer). */
   touche(id: string | null): string;
-  /** Après un toucher faux en Trouver : où est la bonne réponse. */
+  /** Après un toucher faux en Trouver : la bonne réponse, nommée et en vert. */
   fauxSuite(id: string): string;
-  /** Le temps d'une question d'épreuve écoulé (une erreur, sans points : décision « Barème et classements »). */
+  /** Le temps d'une question d'épreuve écoulé (une erreur, sans points : décision « Barème et classements ») ; nomme la bonne réponse. */
   expire(id: string): string;
   /**
    * La rétroaction d'une réponse juste dit le lieu de la question, quand
@@ -273,8 +273,8 @@ const parNom: Fabrique = (ts, d) => {
     nomBilan: (id) => nom(id),
     lieu: nom,
     touche: (id) => (id ? nom(id) : ts.la_mer),
-    fauxSuite: () => ts.faux_suite,
-    expire: () => ts.expire,
+    fauxSuite: (id) => remplir(ts.faux_suite, { cible: nom(id) }),
+    expire: (id) => remplir(ts.expire, { cible: nom(id) }),
     ...SANS_PLUS,
   };
 };
@@ -330,8 +330,8 @@ const parCapitale: Fabrique = (ts, d, o) => {
     lieuArticle: (id) => avecArticle(id, pays(id)),
     consigneNommee: (id) => remplir(textes.quiz.consigne_capitale, { pays: formePays(id, 'de') ?? pays(id) }),
     touche: (id) => (id ? pays(id) : ts.la_mer),
-    fauxSuite: () => ts.faux_suite,
-    expire: () => ts.expire,
+    fauxSuite: (id) => remplir(ts.faux_suite, { cible: pays(id) }),
+    expire: (id) => remplir(ts.expire, { cible: pays(id) }),
     retro: (id) => {
       const c = montree(id);
       return c ? avecPays(c, id) : '';
@@ -398,8 +398,8 @@ const parDrapeau: Fabrique = (ts, d, o) => {
     lieuArticle: (id) => avecArticle(id, pays(id)),
     consigneNommee: (id) => remplir(textes.quiz.consigne_drapeau, { pays: formePays(id, 'de') ?? pays(id) }),
     touche: (id) => (id ? pays(id) : ts.la_mer),
-    fauxSuite: () => ts.faux_suite,
-    expire: () => ts.expire,
+    fauxSuite: (id) => remplir(ts.faux_suite, { cible: pays(id) }),
+    expire: (id) => remplir(ts.expire, { cible: pays(id) }),
     // L'énoncé ne nommait pas le pays : la rétroaction le dit (« Juste : Bénin »).
     retro: pays,
     point: () => null,
@@ -456,8 +456,8 @@ const parMer: Fabrique = (ts, d) => {
     lieuArticle: (id) => (noms[id] !== undefined ? noms[id] : avecArticle(id, nom(id))),
     // Une autre mer, ou le pays touché ; null : rien sous le doigt (hors de la carte), jamais « la mer ».
     touche: (id) => (id ? nom(id) : ts.la_mer),
-    fauxSuite: () => ts.faux_suite,
-    expire: () => ts.expire,
+    fauxSuite: (id) => remplir(ts.faux_suite, { cible: nom(id) }),
+    expire: (id) => remplir(ts.expire, { cible: nom(id) }),
     ...SANS_PLUS,
     qcmExclus: (id) => parenteMer(id, zones),
     qcmPareils: mersPareilles,
