@@ -10,8 +10,12 @@
 //   npm run photos:candidats                       les 332 lieux
 //   npm run photos:candidats -- --lieux FRA,aden   quelques lieux (les autres sont gardés)
 //   options : --cache <dossier> (défaut ~/.cache/terramemo/photos, ou PHOTOS_CACHE),
-//             --pause <ms> entre deux requêtes (défaut 1 200)
-// Relancer reprend le cache : seules les requêtes qui ont échoué repartent sur le réseau.
+//             --pause <ms> entre deux requêtes (défaut 1 200),
+//             --frais : tout relire sur le réseau, cache ignoré (puis réécrit)
+// Relancer reprend le cache : seules les requêtes qui ont échoué repartent sur le réseau,
+// et les fiches des fichiers de Commons (licence, auteur, catégories) lues il y a plus de
+// 30 jours. Chaque lieu dit la date de la plus ancienne réponse qu'il a utilisée (lu_le),
+// chaque candidat celle de sa fiche Commons : extrait_le n'est que la date du calcul.
 //
 // Sources, dans l'ordre où le script les prend (§ 3.1) :
 //   pays          patrimoine mondial (P1435) du pays ; lieux notables, requête resserrée,
@@ -40,7 +44,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sha256 } from '../outils.mjs';
 import { lireLieux } from './lieux.mjs';
-import { CHAMPS_META, perteRecadrage, verdict } from './regle.mjs';
+import { lireFichiers } from './commons.mjs';
+import { perteRecadrage, verdict } from './regle.mjs';
 import { client, DelaiDepasse } from './reseau.mjs';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -50,7 +55,6 @@ export const VERSION_CANDIDATS = 1;
 export const PAR_LIEU = 10;
 const SEUIL_NOTABLES = 10; // sujets du patrimoine sous lesquels on cherche les lieux notables
 const SEUIL_PAUVRE = 3; // candidats avec sujet sous lesquels un lieu est pauvre
-const MINIATURE = 500; // largeur des miniatures de l'outil (une largeur standard de Commons)
 
 // Groupes de classement : le plus petit d'abord.
 const GROUPE = { main: 0, lieu_commune: 1, sujet: 2, lieu: 3, transnational: 4, qi: 5, categorie: 6 };
@@ -103,12 +107,13 @@ export function choisir(bruts, acceptes) {
 }
 
 function options(argv) {
-  const o = { lieux: null, cache: undefined, pause: 1200 };
+  const o = { lieux: null, cache: undefined, pause: 1200, frais: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--lieux') o.lieux = argv[++i].split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--cache') o.cache = argv[++i];
     else if (a === '--pause') o.pause = Number(argv[++i]);
+    else if (a === '--frais') o.frais = true;
     else throw new Error(`option inconnue : ${a}`);
   }
   return o;
@@ -128,7 +133,8 @@ async function main() {
     if (inconnus.length) throw new Error(`lieux inconnus : ${inconnus.join(', ')}`);
     lieux = tous.filter((l) => o.lieux.includes(l.id));
   }
-  const reseau = client({ cache: o.cache, pause: o.pause, journal: (m) => console.log(m) });
+  const reseau = client({ cache: o.cache, pause: o.pause, frais: o.frais, journal: (m) => console.log(m) });
+  const plusAncienne = (dates) => dates.filter(Boolean).sort()[0] ?? null;
   const remplir = (r, valeurs) => r.replace(/\{\{(\w+)\}\}/g, (_, k) => valeurs[k]);
 
   // Items des communes, par leur code INSEE : une requête pour les 24.
@@ -148,9 +154,10 @@ async function main() {
   const infoLieu = new Map();
   for (let i = 0; i < lieux.length; i += 100) {
     const items = lieux.slice(i, i + 100).map((l) => `wd:${l.q}`).join(' ');
-    for (const b of await reseau.sparql(remplir(req.lieux, { items }))) {
+    const lignes = await reseau.sparql(remplir(req.lieux, { items }));
+    for (const b of lignes) {
       const q = qid(b.s.value);
-      const x = infoLieu.get(q) ?? { images: [], categorie: null, n: Number(b.n.value) };
+      const x = infoLieu.get(q) ?? { images: [], categorie: null, n: Number(b.n.value), lu_le: reseau.luLe(lignes) };
       if (b.img && !x.images.includes(fichierDe(b.img.value))) x.images.push(fichierDe(b.img.value));
       x.categorie ??= b.cat?.value ?? null;
       infoLieu.set(q, x);
@@ -161,45 +168,19 @@ async function main() {
   const sensibles = new Map(Object.entries(main.sujets_sensibles ?? {}).filter(([k]) => k !== '_'));
   for (const l of tous) if (l.sensible && l.q) sensibles.set(l.q, `${l.nom} : ${l.sensible}`);
 
-  const infos = new Map(); // fichier → imageinfo (ou null), pour tout le lancement
+  // fichier → info de Commons (ou null : absent), pour tout le lancement. Un fichier
+  // que Commons n'a pas décrit (ni info, ni absent) n'y est pas : il reste « à compléter ».
+  const infos = new Map();
+  const tentes = new Set();
   async function imageinfo(fichiers) {
-    const manque = [...new Set(fichiers)].filter((f) => !infos.has(f)).sort();
-    for (let i = 0; i < manque.length; i += 50) {
-      const lot = manque.slice(i, i + 50);
-      const j = await reseau.commons({
-        action: 'query',
-        titles: lot.map((f) => `File:${f}`).join('|'),
-        prop: 'imageinfo',
-        iiprop: 'url|size|mime|extmetadata',
-        iiurlwidth: String(MINIATURE),
-        iiextmetadatafilter: CHAMPS_META.join('|'),
-        // En anglais : le bruit « No machine-readable author provided » se reconnaît dans
-        // cette langue (regle.mjs), comme dans les 1 917 fichiers du relevé.
-        iiextmetadatalanguage: 'en',
-      });
-      // Commons normalise les titres (majuscule initiale, espaces) : on suit ses correspondances.
-      const norm = new Map((j.query?.normalized ?? []).map((n) => [n.to, n.from]));
-      for (const p of j.query?.pages ?? []) {
-        const ii = p.imageinfo?.[0];
-        const demande = (norm.get(p.title) ?? p.title).replace(/^File:/, '');
-        const valeur = ii
-          ? {
-              w: ii.width,
-              h: ii.height,
-              mime: ii.mime,
-              miniature: ii.thumburl ?? null,
-              meta: Object.fromEntries(Object.entries(ii.extmetadata ?? {}).map(([k, v]) => [k, typeof v.value === 'string' ? v.value : String(v.value)])),
-            }
-          : null;
-        infos.set(demande, valeur);
-        infos.set(p.title.replace(/^File:/, ''), valeur);
-      }
-      for (const f of lot) if (!infos.has(f)) infos.set(f, null);
-    }
+    const manque = [...new Set(fichiers)].filter((f) => !infos.has(f) && !tentes.has(f)).sort();
+    for (const f of manque) tentes.add(f);
+    for (const [f, v] of await lireFichiers(reseau, manque)) infos.set(f, v);
   }
 
-  async function categorie(nom, limite) {
+  async function categorie(nom, limite, dates) {
     const j = await reseau.commons({ action: 'query', list: 'categorymembers', cmtitle: `Category:${nom}`, cmtype: 'file', cmlimit: String(limite) });
+    dates.push(reseau.luLe(j));
     return (j.query?.categorymembers ?? []).map((m) => m.title.replace(/^File:/, ''));
   }
 
@@ -211,6 +192,7 @@ async function main() {
     const bruts = new Map();
     const aCompleter = [];
     const sourcesComptes = {};
+    const dates = []; // dates des réponses utilisées pour ce lieu
     const ajouter = (f, source, groupe, x = {}) => {
       const c = bruts.get(f);
       sourcesComptes[source] = (sourcesComptes[source] ?? 0) + 1;
@@ -223,7 +205,9 @@ async function main() {
     };
     const lignesSparql = async (section, source) => {
       try {
-        return await reseau.sparql(remplir(req[section], { q: `wd:${l.q}` }));
+        const lignes = await reseau.sparql(remplir(req[section], { q: `wd:${l.q}` }));
+        dates.push(reseau.luLe(lignes));
+        return lignes;
       } catch (e) {
         if (!(e instanceof DelaiDepasse)) throw e;
         aCompleter.push(source);
@@ -245,7 +229,8 @@ async function main() {
         });
       }
     };
-    const info = infoLieu.get(l.q) ?? { images: [], categorie: null, n: null };
+    const info = infoLieu.get(l.q) ?? { images: [], categorie: null, n: null, lu_le: null };
+    dates.push(info.lu_le);
     const imagesLieu = (groupe) => {
       for (const f of info.images) ajouter(f, 'lieu', groupe, { sujet: l.nom, sujet_q: l.q, n: info.n });
     };
@@ -269,10 +254,16 @@ async function main() {
 
     const acceptes = new Map();
     const refus = {};
+    const sansInfo = new Set();
     const juger = () => {
       for (const f of bruts.keys()) {
         if (acceptes.has(f) || refus[f]) continue;
-        const v = verdict(f, infos.get(f) ?? null);
+        if (!infos.has(f)) {
+          sansInfo.add(f);
+          continue;
+        }
+        sansInfo.delete(f);
+        const v = verdict(f, infos.get(f));
         if (v.ok) acceptes.set(f, v);
         else refus[f] = v.raison;
       }
@@ -283,17 +274,19 @@ async function main() {
     const avecSujet = () => [...acceptes.keys()].filter((f) => bruts.get(f).groupe > GROUPE.main && bruts.get(f).groupe <= GROUPE.transnational).length;
     // Compléments de Commons, sans sujet : Quality images, puis la catégorie du lieu.
     if (['pays', 'territoire', 'zone', 'continent'].includes(l.sorte) && info.categorie && acceptes.size < PAR_LIEU) {
-      for (const f of await categorie(`Quality images of ${info.categorie}`, 100)) ajouter(f, 'qi', GROUPE.qi);
+      for (const f of await categorie(`Quality images of ${info.categorie}`, 100, dates)) ajouter(f, 'qi', GROUPE.qi);
       await imageinfo([...bruts.keys()]);
       juger();
     }
     const veutCategorie = l.sorte === 'mer' ? acceptes.size < PAR_LIEU : l.sorte !== 'commune' && avecSujet() < SEUIL_PAUVRE;
     if (veutCategorie && info.categorie) {
-      for (const f of await categorie(info.categorie, 100)) ajouter(f, 'categorie', GROUPE.categorie);
+      for (const f of await categorie(info.categorie, 100, dates)) ajouter(f, 'categorie', GROUPE.categorie);
       await imageinfo([...bruts.keys()]);
       juger();
     }
 
+    // Commons n'a pas décrit ces fichiers (ni info, ni absent) : ni acceptés ni refusés.
+    if (sansInfo.size) aCompleter.push(`fiche Commons (${sansInfo.size} fichier${sansInfo.size > 1 ? 's' : ''})`);
     const { pris, reste } = choisir(bruts, acceptes);
     const refuses = {};
     for (const r of Object.values(refus)) refuses[r] = (refuses[r] ?? 0) + 1;
@@ -315,14 +308,17 @@ async function main() {
         licence_url: v.licence_url,
         auteur: v.auteur,
         ...(v.auteur_de ? { auteur_de: v.auteur_de } : {}),
+        ...(v.nofop ? { nofop: v.nofop } : {}),
         titre: v.titre,
         page: v.page,
         w: i.w,
         h: i.h,
         perte: Math.round(perteRecadrage(i.w, i.h) * 100) / 100,
         miniature: i.miniature,
+        lu_le: i.lu_le,
       };
     });
+    for (const f of bruts.keys()) if (infos.get(f)) dates.push(infos.get(f).lu_le);
     resultats[l.id] = {
       terrain: l.terrain,
       sorte: l.sorte,
@@ -333,6 +329,7 @@ async function main() {
       ...(nSujet < SEUIL_PAUVRE ? { pauvre: `${nSujet} candidat${nSujet > 1 ? 's' : ''} avec un sujet Wikidata` } : {}),
       ...(aCompleter.length ? { a_completer: aCompleter } : {}),
       extrait_le: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+      lu_le: plusAncienne(dates),
       comptes: { trouves: bruts.size, acceptes: acceptes.size, avec_sujet: nSujet, montres: candidats.length, en_reserve: reste, refuses, sources: sourcesComptes },
       candidats,
     };
@@ -362,7 +359,7 @@ async function main() {
   const s = reseau.stats;
   console.log(
     `${lieux.length} lieux en ${Math.round((Date.now() - debut) / 1000)} s ; requêtes : ${s.reseau} au réseau (${Math.round(s.reseau_ms / 1000)} s), ` +
-      `${s.cache} du cache, ${Math.round(s.attente_ms / 1000)} s de pause ; ${ordre.length} lieux dans candidats.json`,
+      `${s.cache} du cache (${s.perimees} relues, trop vieilles), ${Math.round(s.attente_ms / 1000)} s de pause ; ${ordre.length} lieux dans candidats.json`,
   );
 }
 
