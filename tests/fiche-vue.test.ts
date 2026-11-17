@@ -143,9 +143,15 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(v.faits()).toBe('');
     expect(v.chevron()).toBe(false);
     await tenir();
-    expect(v.charges).toEqual(['fiches', 'capitales']);
+    // Le manifeste des drapeaux, demandé à l'arrivée des fiches : le drapeau dès le premier toucher.
+    expect(v.charges).toEqual(['fiches', 'capitales', 'drapeaux']);
     expect(v.faits()).toBe('Tokyo');
     expect(v.chevron()).toBe(true);
+    await tenir();
+    const drapeau = () => v.el('#barre-carte .barre-drapeau')!;
+    expect(drapeau().hidden).toBe(false);
+    expect(drapeau().getAttribute('src')).toBe(DRAPEAUX.parPays.get('JPN')!.montre);
+    expect(v.bouton().classList.contains('barre-avec-drapeau')).toBe(true);
     // Plusieurs capitales : toutes, dans l'ordre du fichier (la principale d'abord).
     v.toucher('BOL');
     expect(v.faits()).toBe(CAPITALES.parPays.get('BOL')!.justes.map((c) => c.nom).join(', '));
@@ -154,6 +160,9 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(v.el('#barre-carte .barre-detail')!.textContent).toBe(textes.carte.statuts.territoire);
     expect(v.faits()).toBe('');
     expect(v.chevron()).toBe(true);
+    // Ni drapeau pour un territoire : la barre reprend ses deux colonnes.
+    expect(drapeau().hidden).toBe(true);
+    expect(v.bouton().classList.contains('barre-avec-drapeau')).toBe(false);
     // La région vivante, hors du bouton, dit ce que dit la barre.
     expect(v.bouton().getAttribute('aria-live')).toBeNull();
     expect(v.barre().getAttribute('aria-live')).toBeNull();

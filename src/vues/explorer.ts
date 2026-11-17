@@ -136,10 +136,15 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   const memoireLigne = creer('span', { class: 'barre-memoire' });
   const chevron = creer('span', { class: 'barre-chevron', 'aria-hidden': 'true' }, '⌃');
   chevron.hidden = true;
+  // Le drapeau d'un pays qui a une fiche, à gauche du texte : décoratif (le nom est dit à côté).
+  const drapeauBarre = creer('img', { class: 'drapeau barre-drapeau', alt: '', 'aria-hidden': 'true', draggable: 'false' }) as HTMLImageElement;
+  drapeauBarre.hidden = true;
+  drapeauBarre.addEventListener('load', () => drapeauBarre.classList.add('charge'));
   const bouton = creer(
     'button',
     // aria-expanded et aria-controls seulement quand il y a une fiche à ouvrir (poserAria) : la barre ne promet rien d'autre (§ 4.1).
     { type: 'button', class: 'barre-fiche', id: 'barre-fiche' },
+    drapeauBarre,
     creer('span', { class: 'barre-ligne' }, nom, ' ', detail),
     faits,
     memoireLigne,
@@ -331,6 +336,32 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   }
   /** Les données de la barre, si elles sont lues : celles des fiches et, pour un pays, les capitales. */
   let lues: { fiches: DonneesFichesMonde; capitales: DonneesCapitales | null } | null = null;
+  /** Le manifeste des drapeaux : demandé au premier pays touché qui a une fiche (le drapeau de la barre), relu par la fiche. */
+  let drapeauxLus: DonneesDrapeaux | null = null;
+  let drapeauxEnCours: Promise<unknown> | null = null;
+  function chargerDrapeauxBarre(): Promise<unknown> {
+    if (!F) return Promise.reject(new Error('fiche : pas de données'));
+    drapeauxEnCours ??= F.drapeaux().then(
+      (d) => (drapeauxLus = d),
+      (e: unknown) => {
+        drapeauxEnCours = null;
+        throw e;
+      },
+    );
+    return drapeauxEnCours;
+  }
+  /** Le drapeau de la barre : celui du pays `id` s'il est lu, sinon caché (et la barre garde sa mise en page sans drapeau). */
+  function poserDrapeauBarre(id: string | null): void {
+    const src = id ? drapeauxLus?.parPays.get(id)?.montre : undefined;
+    if (src) {
+      if (drapeauBarre.getAttribute('src') !== src) {
+        drapeauBarre.classList.remove('charge');
+        drapeauBarre.setAttribute('src', src);
+      }
+      drapeauBarre.hidden = false;
+    } else drapeauBarre.hidden = true;
+    bouton.classList.toggle('barre-avec-drapeau', !!src);
+  }
   /** Le chargement en cours (un seul à la fois ; un échec n'est pas gardé : le toucher suivant réessaie). */
   let enChargement: Promise<unknown> | null = null;
   function chargerDonnees(): Promise<unknown> {
@@ -363,18 +394,31 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
    * demander s'il le faut, et les poser à leur arrivée si la barre montre
    * encore ce lieu (un second toucher avant l'arrivée : rien du premier).
    */
-  function poserFaits(charger: boolean): void {
+  function poserFaits(charger: boolean, chargerDrapeau = charger): void {
     const id = barre.dataset.id;
     ficheDispo = false;
     faits.textContent = '';
     chevron.hidden = true;
+    let drapeau: string | null = null;
     const sorte = id && active && autorisee() ? sorteFiche(id) : null;
     if (id && sorte) {
       if (lues?.fiches.lieux.has(id)) {
         ficheDispo = true;
         chevron.hidden = false;
         // « Tokyo » seul pour l'instant (lot F1) ; « capitale · habitants » au lot F2.
-        if (sorte === 'pays') faits.textContent = lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom).join(', ') ?? '';
+        if (sorte === 'pays') {
+          faits.textContent = lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom).join(', ') ?? '';
+          drapeau = id;
+          if (chargerDrapeau && !drapeauxLus) {
+            const [j, k] = [jeton, touches];
+            chargerDrapeauxBarre().then(
+              () => {
+                if (j === jeton && k === touches && barre.dataset.id === id) poserDrapeauBarre(id);
+              },
+              () => undefined,
+            );
+          }
+        }
       }
       // Rien de lu, ou les capitales d'un pays manquées (hors ligne au premier toucher) : redemandées.
       const manque = !lues ? chargerDonnees : sorte === 'pays' && !lues.capitales ? () => F!.capitales().then((c) => lues && (lues.capitales = c)) : null;
@@ -382,13 +426,15 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         const [j, k] = [jeton, touches];
         manque().then(
           () => {
-            if (j === jeton && k === touches && barre.dataset.id === id) poserFaits(false);
+            // Le drapeau demandé à son tour : le premier toucher le montre aussi.
+            if (j === jeton && k === touches && barre.dataset.id === id) poserFaits(false, true);
           },
           () => undefined,
         );
       }
     }
     bouton.classList.toggle('barre-avec-fiche', ficheDispo);
+    poserDrapeauBarre(drapeau);
     poserAria();
     annoncer();
   }
@@ -469,7 +515,6 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       memoire: (x, jouable) => o.memoire?.details(t.nom, x, jouable) ?? null,
     });
   }
-  let drapeauxLus: DonneesDrapeaux | null = null;
 
   /**
    * Rend la fiche de l'entrée d'historique : son lieu montré s'il ne l'est
@@ -517,10 +562,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         feuille.montrer(modele, { avant: f.rang > 1, focus: true });
         // Le drapeau d'un pays : le manifeste à la première fiche (§ 6.1), la place grise d'ici là.
         if (modele.avecDrapeau && !modele.drapeaux.length) {
-          F.drapeaux().then(
-            (d) => {
-              drapeauxLus = d;
-              if (j === jetonFiche && active) feuille?.drapeaux(d.parPays.get(f.id)?.justes ?? []);
+          chargerDrapeauxBarre().then(
+            () => {
+              if (j === jetonFiche && active) feuille?.drapeaux(drapeauxLus?.parPays.get(f.id)?.justes ?? []);
             },
             () => undefined,
           );

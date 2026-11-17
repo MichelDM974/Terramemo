@@ -470,6 +470,12 @@ body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:
 .barre-faits:empty, .barre-memoire:empty { display: none; }
 #barre-carte.barre-lieu .barre-faits, #barre-carte.barre-lieu.barre-avec-memoire .barre-memoire { display: block; min-height: 1.35em; }
 .barre-chevron { grid-column: 2; grid-row: 1 / span 3; color: var(--muted); font-size: 1.15rem; line-height: 1; }
+/* Le drapeau d'un pays à fiche, à gauche des trois lignes ; sans lui, la barre garde ses deux colonnes. */
+.barre-fiche.barre-avec-drapeau { grid-template-columns: auto minmax(0, 1fr) auto; }
+.barre-avec-drapeau .barre-ligne, .barre-avec-drapeau .barre-faits, .barre-avec-drapeau .barre-memoire { grid-column: 2; }
+.barre-avec-drapeau .barre-chevron { grid-column: 3; }
+.barre-fiche .barre-drapeau { grid-column: 1; grid-row: 1 / span 3; width: 40px; height: 30px; }
+.barre-fiche .barre-drapeau[hidden] { display: none; }
 /* La région vivante : lue, jamais vue. */
 .barre-annonce {
   position: absolute;
