@@ -466,8 +466,13 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   l'Espagne à la France, au Brésil puis à l'Argentine, les images de la page par
   `requestAnimationFrame` : à-coups ≥ 25 ms, gels ≥ 46 ms), indicatif sur
   le PC : le verdict est celui de l'A37 (`driver.py fiche --cible
-  webview`, puis `touchers_reels.py` pour le toucher). `DÉFAUT` à tout
-  écart.
+  chrome|webview --serie <n°>`, puis `touchers_reels.py` pour le toucher).
+  `DÉFAUT` à tout écart. Sur le téléphone, le scénario juge (critère de
+  saccade : un `DÉFAUT` par gel ≥ 46 ms, et au-delà de 3 à-coups/s) et date
+  chaque gel par le geste qui le précède (« gel de 50 ms : voisin FRA
+  touché +535 ms ») ; il s'arrête si l'écran de connexion couvre la carte
+  (le choix est à l'utilisateur, à passer à la main : le Chrome de l'A37 ne
+  l'avait jamais passé le 16/11). Relevé du 17/11 : `docs/mesures/fiche/`.
 - Le quiz général (lot 4b du J2, #26, `ui_quiz`, juste après
   `ui_epreuves_mers` ; aussi seul, `driver.py quiz`) : sur une page
   rechargée, rien de `notoriete.json` ni de `drapeaux-proches.json` au

@@ -4295,11 +4295,13 @@ def attendre_fiche(p, condition, quoi, delai_s=8):
 
 
 def toucher_element(p, selecteur):
-    """Un toucher (ou un clic hors tactile) au centre de l'élément, après la pause de règle."""
+    """Un toucher (ou un clic hors tactile) au centre de l'élément, après la pause de règle. La position est
+    lue après la pause : lue avant, elle pouvait dater d'une animation en cours (la fiche qui monte), et le
+    doigt tombait à côté (le voisin France de l'Espagne, sur l'A37, le 16/11)."""
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
     r = p.js(f"(() => {{ const e = document.querySelector({json.dumps(selecteur)}); if (!e) return null; const r = e.getBoundingClientRect(); return {{x: r.x + r.width / 2, y: r.y + r.height / 2}}; }})()")
     if not r:
         raise RuntimeError(f"rien à toucher : {selecteur}")
-    p.pause(PAUSE_AVANT_TOUCHER_MS)
     p.toucher(r["x"], r["y"])
 
 
@@ -4333,14 +4335,32 @@ def ouvrir_fiche(p, ident, defauts, quoi):
     return e
 
 
-# Les images d'une page, mesurées par requestAnimationFrame pendant un scénario : les écarts entre deux images.
-JS_IMAGES_DEBUT = """(() => { window.__fiche_images = []; window.__fiche_mesure = true; let t0 = performance.now();
-  const f = (t) => { window.__fiche_images.push(t - t0); t0 = t; if (window.__fiche_mesure) requestAnimationFrame(f); };
+# Les images d'une page, mesurées par requestAnimationFrame pendant un scénario : les écarts entre deux images,
+# et chaque image longue (≥ 25 ms) datée, pour la rattacher au geste qui la précède (marquer_scenario).
+JS_IMAGES_DEBUT = """(() => { window.__fiche_images = []; window.__fiche_longues = []; window.__fiche_marques = [];
+  window.__fiche_mesure = true; let t0 = performance.now();
+  const f = (t) => { const d = t - t0; window.__fiche_images.push(d); if (d >= 25) window.__fiche_longues.push([t, d]); t0 = t;
+    if (window.__fiche_mesure) requestAnimationFrame(f); };
   requestAnimationFrame(f); return true; })()"""
 JS_IMAGES_FIN = """(() => { window.__fiche_mesure = false; const d = (window.__fiche_images || []).slice(1);
   const duree = d.reduce((a, b) => a + b, 0);
   return { images: d.length, duree_ms: Math.round(duree), acoups: d.filter(x => x >= 25).length, gels: d.filter(x => x >= 46).length,
-           max_ms: Math.round(Math.max(0, ...d) * 10) / 10 }; })()"""
+           max_ms: Math.round(Math.max(0, ...d) * 10) / 10, longues: window.__fiche_longues || [], marques: window.__fiche_marques || [] }; })()"""
+
+
+def marquer_scenario(p, nom):
+    """Date un geste du scénario (horloge de la page), pour situer les images longues."""
+    p.js(f"(window.__fiche_marques || []).push([performance.now(), {json.dumps(nom)}])")
+
+
+def situer_images(m):
+    """Chaque image longue de JS_IMAGES_FIN, avec le geste qui la précède : [(durée ms, « geste +N ms »)]."""
+    sorties = []
+    for t, d in m["longues"]:
+        avant = [x for x in m["marques"] if x[0] <= t - d]
+        quand = f"{avant[-1][1]} +{round(t - d - avant[-1][0])} ms" if avant else "avant le premier geste"
+        sorties.append((round(d, 1), quand))
+    return sorties
 
 
 # Les voisins du scénario de mesure, depuis l'Espagne : de vrais vols sous la fiche (S55, D61), du court
@@ -4349,37 +4369,55 @@ JS_IMAGES_FIN = """(() => { window.__fiche_mesure = false; const d = (window.__f
 CHEMIN_VOISINS = ("FRA", "BRA", "ARG")
 
 
-def scenario_fiches(p, defauts, n=10, voisins=3):
+def scenario_fiches(p, defauts, n=10, voisins=3, verdict=False):
     """Le scénario de mesure de l'étude (§ 6.4, S41 et S55) : ouvrir et fermer `n` fiches (la barre touchée,
     puis « × »), puis passer par `voisins` voisins depuis la fiche de l'Espagne (CHEMIN_VOISINS), les images de la page
     mesurées par requestAnimationFrame (critère de saccade : à-coup ≥ 25 ms, gel ≥ 46 ms). Le toucher
     est celui de DevTools : la médiane du toucher se juge à part (touchers_reels.py, critère du toucher).
-    Indicatif sur le PC (chromium sans écran) : le verdict est celui de l'A37."""
+    Indicatif sur le PC (chromium sans écran) : le verdict est celui de l'A37 (`verdict`, cibles chrome et
+    webview : un DÉFAUT par gel, et au-delà de 3 à-coups par seconde). Chaque gel est situé par le geste qui le
+    précède."""
     toucher_lieu_accueil(p, "ESP")
     attendre_fiche(p, lambda e: e["chevron"], "scénario : chevron de l'Espagne")
     p.js(JS_IMAGES_DEBUT)
-    for _ in range(n):
+    for i in range(n):
+        marquer_scenario(p, f"barre touchée ({i + 1})")
         toucher_element(p, "#barre-fiche")
         attendre_fiche(p, lambda e: e["ouverte"], "scénario : fiche ouverte")
+        marquer_scenario(p, f"fiche ouverte ({i + 1})")
         p.pause(300)
+        marquer_scenario(p, f"« × » touchée ({i + 1})")
         toucher_element(p, "#fiche-lieu .croix")
         attendre_fiche(p, lambda e: not e["ouverte"], "scénario : fiche fermée")
+        marquer_scenario(p, f"fiche fermée ({i + 1})")
         p.pause(200)
+    marquer_scenario(p, "barre touchée (Espagne)")
     toucher_element(p, "#barre-fiche")
     e = attendre_fiche(p, lambda e: e["ouverte"], "scénario : fiche de l'Espagne")
+    marquer_scenario(p, "fiche ouverte (Espagne)")
     for suivant in CHEMIN_VOISINS[:voisins]:
         if suivant not in e["voisins"]:
             defauts.append(f"scénario : {suivant} pas parmi les voisins de la fiche {e['id']} ({e['voisins']})")
             break
+        marquer_scenario(p, f"voisin {suivant} touché")
         toucher_element(p, f'#fiche-lieu .fiche-voisin[data-id="{suivant}"]')
         e = attendre_fiche(p, lambda x, s=suivant: x["ouverte"] and x["id"] == s, f"scénario : voisin {suivant}")
+        marquer_scenario(p, f"fiche {e['id']} ouverte")
         p.pause(2200)  # le vol de la carte sous la fiche (S55), 2 s au plus
+    marquer_scenario(p, "« × » touchée (fin)")
     toucher_element(p, "#fiche-lieu .croix")
     attendre_fiche(p, lambda e: not e["ouverte"], "scénario : fiche fermée")
     m = p.js(JS_IMAGES_FIN)
     par_s = m["acoups"] / (m["duree_ms"] / 1000) if m["duree_ms"] else 0
     dire(f"  scénario « {n} fiches, {voisins} voisins » : {m['images']} images en {m['duree_ms']} ms, {m['acoups']} à-coups "
-         f"({par_s:.2f}/s), {m['gels']} gels, plus long {m['max_ms']} ms (indicatif hors de l'A37)")
+         f"({par_s:.2f}/s), {m['gels']} gels, plus long {m['max_ms']} ms" + ("" if verdict else " (indicatif hors de l'A37)"))
+    for d, quand in situer_images(m):
+        if d >= 46:
+            dire(f"    gel de {d} ms : {quand}")
+            if verdict:
+                defauts.append(f"scénario : gel de {d} ms ({quand}), critère de saccade : aucun gel de 46 ms ou plus")
+    if verdict and par_s > 3:
+        defauts.append(f"scénario : {par_s:.2f} à-coups par seconde, critère de saccade : 3 au plus")
     return m
 
 
@@ -4642,7 +4680,11 @@ def commande_fiche(args):
         else:
             p.goto(base + "?mesures=0#carte")
             p.attendre_carte()
-            scenario_fiches(p, defauts)
+            if p.js("(() => { const s = document.getElementById('accueil'); return !!s && !s.hidden; })()"):
+                # Le choix de l'écran de connexion est celui de l'utilisateur (passer_accueil) : on s'arrête.
+                raise RuntimeError(f"l'écran de connexion couvre la carte ({args.cible}) : à passer à la main "
+                                 "sur le téléphone (compte ou « Continuer en invité »), puis relancer")
+            scenario_fiches(p, defauts, verdict=True)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
