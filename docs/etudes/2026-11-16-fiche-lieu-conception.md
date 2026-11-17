@@ -2690,3 +2690,27 @@ Après les décisions de l'utilisateur du 18/11 :
 - Fuseaux : heure légale au décalage d'hiver ; deux lignes `nz`, la Chine 1 et la
   Nouvelle-Zélande 2.
 
+
+Interface du lot F2 (fiche, barre, Crédits) :
+- Lignes à relire : une seule constante, `LIGNES_RELUES` (`src/fiches/relues.ts`), à la place
+  de `LANGUES_EN_LIGNE` : superficie, langues, gentilé, point culminant et fête, toutes à
+  `false` tant que leur tableau (`docs/relectures/fiches-pays.md`) n'est pas relu, à passer à
+  `true` une par une. Les données restent servies ; la fiche les tait, et son pied ne cite que
+  ce qu'elle montre (« superficie selon Wikidata », le World Factbook, seulement avec leur
+  ligne). Les tests passent les deux états (`composerFiche`, `relues`).
+- Langues : les officielles en liste lue (« allemand, français, italien et romanche »), puis
+  chaque langue parlée avec sa part, séparées par « · » (« portugais · umbundu 29 % ·
+  kimboundou 25 % »).
+- Fête : le nom tel que le fichier de langue l'écrit, avec sa majuscule (« 23 février ·
+  Anniversaire de l'empereur ») : aucune règle de casse dans le code. « 1er » le premier du
+  mois (`textes.fiche.premier_jour`).
+- Heure : l'écart à l'heure de l'appareil, sur les deux heures murales ; le formateur de la
+  zone est créé au repos dès que le pays est dans la barre (`prechaufferZone`), la fiche n'en
+  crée aucun. Sans capitale lue : « Heure locale ».
+- Barre : la ligne de faits tient sur une ligne, coupée par « … » plutôt que de grandir la
+  barre (`carte.css`) ; « d'hab. » après un mot (« 123 millions d'hab. »), « hab. » après un
+  nombre (« 56 800 hab. »).
+- Crédits : la ligne de l'IGN est inchangée (les habitants des communes viennent au lot F5) ;
+  celle de Wikidata ne dit pas encore les profondeurs (lot F4). La Banque mondiale porte la
+  mention de ses conditions (« The World Bank: World Development Indicators, Population, total
+  (SP.POP.TOTL): … ») et leur adresse en lien.
