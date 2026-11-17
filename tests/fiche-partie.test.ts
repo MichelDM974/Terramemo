@@ -191,7 +191,7 @@ describe('une partie de Toucher en suspens sur la carte', () => {
     expect(v.essai.enSuspens()).toBe(false);
     v.toucherCarte('JPN');
     await tenir();
-    expect(v.faits()).toBe('Tokyo');
+    expect(v.faits()).toBe("Tokyo · 123 millions d'hab.");
     expect(v.chevron()).toBe(true);
     (v.el('#barre-fiche') as El).click();
     // Le morceau de la fiche, importé à la première ouverture.

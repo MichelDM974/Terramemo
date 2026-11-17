@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lireFichesMonde, type DonneesFichesMonde, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
-import { fmtHabitants, fmtHeureLieu, nombreFormateurs } from '../src/fiches/format';
+import { fmtHabitants, fmtHabitantsCourt, fmtHeureLieu, nombreFormateurs } from '../src/fiches/format';
 import { LIGNES_RELUES, type LigneRelue } from '../src/fiches/relues';
 import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
 import { lireDrapeaux, type ManifesteDrapeaux } from '../src/map/drapeaux';
@@ -32,6 +32,8 @@ const FICHES: DonneesFichesMonde = lireFichesMonde(lire<FichierMonde>('fiches-mo
 const CAPITALES = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<NomsCapitales>('capitales.fr.json'));
 const DRAPEAUX = lireDrapeaux(lire<ManifesteDrapeaux>('drapeaux.json'));
 const T = textes.fiche;
+/** La part « habitants » de la ligne de faits d'un pays (« 123 millions d'hab. »). */
+const hab = (id: string) => fmtHabitantsCourt(FICHES.lieux.get(id)!.habitants!.n);
 const S = T.noms_sources;
 /** Les lignes à relire, toutes relues, ou aucune (les deux états de LIGNES_RELUES). */
 const TOUTES: Record<LigneRelue, boolean> = { superficie: true, langues: true, gentile: true, culminant: true, fete: true };
@@ -185,7 +187,8 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     await tenir();
     // Le manifeste des drapeaux, demandé à l'arrivée des fiches : le drapeau dès le premier toucher.
     expect(v.charges).toEqual(['fiches', 'capitales', 'drapeaux']);
-    expect(v.faits()).toBe('Tokyo');
+    // « capitale · habitants » (§ 4.1), trois chiffres au plus.
+    expect(v.faits()).toBe("Tokyo · 123 millions d'hab.");
     expect(v.chevron()).toBe(true);
     await tenir();
     const drapeau = () => v.el('#barre-carte .barre-drapeau')!;
@@ -194,7 +197,7 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(v.bouton().classList.contains('barre-avec-drapeau')).toBe(true);
     // Plusieurs capitales : toutes, dans l'ordre du fichier (la principale d'abord).
     v.toucher('BOL');
-    expect(v.faits()).toBe(CAPITALES.parPays.get('BOL')!.justes.map((c) => c.nom).join(', '));
+    expect(v.faits()).toBe(`${CAPITALES.parPays.get('BOL')!.justes.map((c) => c.nom).join(', ')} · ${hab('BOL')}`);
     // Un territoire : son statut, le chevron, pas de ligne de faits au lot F1 (ni capitale ni habitants au dépôt).
     v.toucher('GRL');
     expect(v.el('#barre-carte .barre-detail')!.textContent).toBe(textes.carte.statuts.territoire);
@@ -219,7 +222,7 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     d.tenir(FICHES);
     await tenir();
     expect(v.el('#barre-carte .barre-nom')!.textContent).toBe('France');
-    expect(v.faits()).toBe('Paris');
+    expect(v.faits()).toBe(`Paris · ${hab('FRA')}`);
     expect(v.barre().dataset.id).toBe('FRA');
   });
 
@@ -277,18 +280,18 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(v.bouton().getAttribute('aria-controls')).toBe('fiche-lieu');
   });
 
-  it('les capitales manquées au premier toucher (hors ligne) : le chevron sans ligne de faits, puis la capitale au toucher suivant', async () => {
+  it('les capitales manquées au premier toucher (hors ligne) : le chevron et les habitants seuls, puis la capitale au toucher suivant', async () => {
     let echoue = true;
     const v = monter({ fiche: { capitales: () => (echoue ? Promise.reject(new Error('hors ligne')) : Promise.resolve(CAPITALES)) } });
     v.vue.activer();
     v.toucher('JPN');
     await tenir();
     expect(v.chevron()).toBe(true);
-    expect(v.faits()).toBe('');
+    expect(v.faits()).toBe(hab('JPN'));
     echoue = false;
     v.toucher('JPN');
     await tenir();
-    expect(v.faits()).toBe('Tokyo');
+    expect(v.faits()).toBe(`Tokyo · ${hab('JPN')}`);
   });
 
   it('une mer ou une commune : pas encore de fiche (lots F4 et F5), rien de chargé', async () => {
@@ -561,7 +564,7 @@ describe('la fiche', () => {
     expect(v.ouverte()).toBe(false);
     expect(v.barre().dataset.id).toBe('CHN');
     await tenir();
-    expect(v.faits()).toBe('Pékin');
+    expect(v.faits()).toBe(`Pékin · ${hab('CHN')}`);
     expect(v.chevron()).toBe(true);
   });
 

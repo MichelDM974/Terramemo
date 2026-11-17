@@ -51,6 +51,7 @@ import { tailleEcranPx } from '../map/pastilles';
 import { pickMer, type ResultatPick, type Via } from '../map/pick';
 import type { Lieu, NomTerrain, Pays } from '../map/types';
 import type { DonneesFichesMonde } from '../fiches/donnees';
+import { fmtHabitantsCourt } from '../fiches/format';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { EntreeFiche, LieuFiche } from '../navigation';
 import type { Terrain } from '../terrains';
@@ -427,9 +428,10 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       if (lues?.fiches.lieux.has(id)) {
         ficheDispo = true;
         chevron.hidden = false;
-        // « Tokyo » seul pour l'instant (lot F1) ; « capitale · habitants » au lot F2.
+        // « Tokyo · 123 millions d'hab. » (§ 4.1) ; plusieurs capitales : « La Paz, Sucre · … ».
         if (sorte === 'pays') {
-          faits.textContent = lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom).join(', ') ?? '';
+          const h = lues.fiches.lieux.get(id)?.habitants;
+          faits.textContent = [lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom).join(', '), h ? fmtHabitantsCourt(h.n) : ''].filter(Boolean).join(' · ');
           drapeau = id;
           if (moduleCharge) auRepos(prechaufferZoneBarre);
           if (chargerDrapeau && !drapeauxLus) {

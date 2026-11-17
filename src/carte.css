@@ -434,7 +434,8 @@ body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:
    § 4.1 à § 4.3, § 4.11, § 4.12 ; src/vues/explorer.ts et src/vues/fiche.ts) ---
    La barre de l'accueil est un bouton sur toute sa largeur (« Monde » à côté,
    hors du bouton) : le nom, puis le statut et « par sa pastille » ; la ligne de
-   faits (« Tokyo ») ; la ligne de la mémoire. Un chevron « ⌃ » quand le lieu a
+   faits (« Tokyo · 123 millions d'hab. », sur une ligne : coupée par « … »
+   plutôt que de grandir la barre) ; la ligne de la mémoire. Un chevron « ⌃ » quand le lieu a
    une fiche. Elle réserve la hauteur de son cas complet dès qu'un lieu est
    affiché (.barre-lieu : la ligne de faits ; .barre-avec-memoire : la ligne de
    la mémoire, réglage actif) : les faits arrivent après le toucher dans une
@@ -465,7 +466,7 @@ body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:
 .barre-fiche.barre-avec-fiche { cursor: pointer; }
 .barre-fiche:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .barre-ligne, .barre-faits, .barre-memoire { grid-column: 1; line-height: 1.35; }
-.barre-faits { font-size: 0.88rem; }
+.barre-faits { font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .barre-memoire { color: var(--muted); font-size: 0.85rem; }
 .barre-faits:empty, .barre-memoire:empty { display: none; }
 #barre-carte.barre-lieu .barre-faits, #barre-carte.barre-lieu.barre-avec-memoire .barre-memoire { display: block; min-height: 1.35em; }
