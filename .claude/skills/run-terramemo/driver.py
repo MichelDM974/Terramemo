@@ -4496,16 +4496,16 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         defauts.append(f"retour du navigateur : fiche fermée, carte gardée, focus à la barre attendus ({e})")
     if telephone:
         # Au doigt : la barre glissée vers le haut (24 px et plus) ouvre aussi.
-        r = p.js("(() => { const r = document.getElementById('barre-fiche').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()")
         p.pause(PAUSE_AVANT_TOUCHER_MS)
+        r = p.js("(() => { const r = document.getElementById('barre-fiche').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()")
         glisser(p, r["x"], r["y"], r["y"] - 60)
         e = attendre_fiche(p, lambda e: e["ouverte"], "glissé vers le haut")
         if not e["ouverte"]:
             defauts.append("barre glissée vers le haut : la fiche ne s'ouvre pas")
         else:
             # Et la tête glissée vers le bas (60 px et plus) la ferme.
-            t = p.js("(() => { const r = document.querySelector('#fiche-lieu .fiche-tete').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()")
             p.pause(PAUSE_AVANT_TOUCHER_MS)
+            t = p.js("(() => { const r = document.querySelector('#fiche-lieu .fiche-tete').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()")
             glisser(p, t["x"], t["y"], t["y"] + 120)
             e = attendre_fiche(p, lambda e: not e["ouverte"], "tête glissée vers le bas")
             if e["ouverte"]:
