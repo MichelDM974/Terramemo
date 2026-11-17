@@ -23,6 +23,7 @@
     "geodata:reunion": "node geodata/reunion.mjs",
     "wikidata": "node geodata/wikidata.mjs",
     "fiches": "node geodata/build.mjs --seulement fiches",
+    "photos:candidats": "node geodata/photos/candidats.mjs",
     "icone": "node geodata/icone.mjs",
     "vignette-ile": "node geodata/vignette-ile.mjs",
     "vignette-capitales": "node geodata/vignette-capitales.mjs",

@@ -3,6 +3,7 @@
 // clé qid), la règle des licences (geodata/photos/regle.mjs) sur un jeu d'essai tiré des
 // 1 917 fichiers du relevé R5, la forme de geodata/photos/candidats.json, main.json et
 // choix.json. Sans réseau.
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -172,5 +173,135 @@ describe('règle des licences (regle.mjs), sur le jeu d’essai tiré des 1 917 
     }
     expect(Object.values(comptes).reduce((a, b) => a + b, 0)).toBe(1917);
     expect(comptes).toEqual(essai.resume_1917);
+  });
+});
+
+// --- candidats.json, main.json, choix.json ------------------------------------------
+
+type Candidat = {
+  fichier: string; sources: string[]; sujet: string | null; sujet_q: string | null; n?: number; sensible?: string; raison?: string;
+  licence: string; licence_url: string | null; auteur: string | null; titre: string | null; page: string; w: number; h: number; perte: number; miniature: string | null;
+};
+type LieuCandidats = {
+  terrain: string; sorte: string; nom: string; q: string; sensible?: string; pauvre?: string; a_completer?: string[]; extrait_le: string;
+  comptes: { trouves: number; acceptes: number; avec_sujet: number; montres: number; en_reserve: number; refuses: Record<string, number>; sources: Record<string, number> };
+  candidats: Candidat[];
+};
+const candidats = lire<{ v: number; ecrit_le: string; requetes_sha256: string; regle_sha256: string; lieux: Record<string, LieuCandidats> }>('geodata/photos/candidats.json');
+const mainPhotos = lire<{ mers: Record<string, { fichier: string; sujet?: string; raison: string }[] | string>; sujets_sensibles: Record<string, string> }>('geodata/photos/main.json');
+const mers = lire<{ id: string }[]>('public/geo/mers.json');
+const communes = lire<{ id: string }[]>('public/geo/reunion/communes.json');
+const SORTES: Record<string, string> = { jouable: 'pays', optionnel: 'pays', territoire: 'territoire', conteste: 'zone', autre: 'continent' };
+const sorteAttendue = new Map<string, string>([
+  ...pays.map((p) => [p.id, SORTES[p.statut]!] as [string, string]),
+  ...mers.map((m) => [m.id, 'mer'] as [string, string]),
+  ...communes.map((c) => [c.id, 'commune'] as [string, string]),
+]);
+const empreinte = (f: string) => createHash('sha256').update(readFileSync(f)).digest('hex');
+
+describe('candidats.json (npm run photos:candidats)', () => {
+  it('les 332 lieux du code, et chaque lieu présent a sa sorte et son item', () => {
+    expect(sorteAttendue.size).toBe(332);
+    expect(candidats.v).toBe(1);
+    for (const [id, l] of Object.entries(candidats.lieux)) {
+      expect(sorteAttendue.get(id), id).toBe(l.sorte);
+      expect(l.q, id).toMatch(/^Q[1-9]\d*$/);
+      expect(l.terrain, id).toBe(l.sorte === 'commune' ? 'reunion' : 'monde');
+      expect(Date.parse(l.extrait_le), id).not.toBeNaN();
+    }
+  });
+
+  it('l’empreinte des requêtes et de la règle : un changement se relance', () => {
+    expect(candidats.requetes_sha256).toBe(empreinte('geodata/photos/requetes.rq'));
+    expect(candidats.regle_sha256).toBe(empreinte('geodata/photos/regle.mjs'));
+  });
+
+  it('chaque candidat passe la règle des licences : licence permise, auteur pour CC BY, taille, page, miniature', async () => {
+    const { fauxAuteur, RAISONS, perteRecadrage } = await regle;
+    for (const [id, l] of Object.entries(candidats.lieux)) {
+      expect(l.candidats.length, id).toBeLessThanOrEqual(10);
+      expect(l.comptes.montres, id).toBe(l.candidats.length);
+      expect(l.comptes.acceptes, id).toBe(l.candidats.length + l.comptes.en_reserve);
+      for (const r of Object.keys(l.comptes.refuses)) expect(RAISONS, `${id} : ${r}`).toContain(r);
+      const fichiers = new Set<string>();
+      for (const c of l.candidats) {
+        const t = `${id} : ${c.fichier}`;
+        expect(fichiers.has(c.fichier), t).toBe(false);
+        fichiers.add(c.fichier);
+        expect(c.licence, t).toMatch(LICENCES_PERMISES);
+        if (/^CC BY/.test(c.licence)) expect(c.auteur !== null && !fauxAuteur(c.auteur), t).toBe(true);
+        expect(c.w >= 1080 && c.h >= 720, t).toBe(true);
+        expect(c.perte, t).toBe(Math.round(perteRecadrage(c.w, c.h) * 100) / 100);
+        expect(c.page, t).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+        expect(c.miniature ?? '', t).toMatch(/^https:\/\/(upload|thumb)\.wikimedia\.org\//);
+        expect(c.sources.length, t).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('pauvre si moins de 3 candidats ont un sujet ; les zones contestées et les lieux revendiqués sont sensibles', () => {
+    for (const [id, l] of Object.entries(candidats.lieux)) {
+      expect(Boolean(l.pauvre), id).toBe(l.comptes.avec_sujet < 3);
+      const e = pays.find((p) => p.id === id);
+      expect(Boolean(l.sensible), id).toBe(Boolean(e && (e.statut === 'conteste' || (e.revendique_par?.length ?? 0) > 0)));
+    }
+  });
+
+  it('lieux connus de l’échantillon : la France par son patrimoine, Cilaos par ses lieux, le golfe d’Aden pauvre sans la marine', () => {
+    const fra = candidats.lieux.FRA!;
+    expect(fra.candidats.length).toBe(10);
+    expect(fra.candidats.filter((c) => c.sources.includes('patrimoine')).length).toBeGreaterThanOrEqual(8);
+    expect(fra.candidats.map((c) => c.sujet)).toContain('pont du Gard');
+    const cilaos = candidats.lieux['97424']!;
+    expect(cilaos.nom).toBe('Cilaos');
+    expect(cilaos.candidats.length).toBe(10);
+    expect(cilaos.candidats.some((c) => c.sources.includes('commune'))).toBe(true);
+    const aden = candidats.lieux.aden!;
+    expect(aden.pauvre).toBeTruthy();
+    for (const c of aden.candidats) expect(`${c.fichier} ${c.auteur}`).not.toMatch(/\b(USS|USNS|navy|U\.S\. Department of Defense)\b/i);
+    expect(candidats.lieux.ESH?.sensible).toBe('zone contestée');
+  });
+});
+
+describe('main.json : propositions à la main pour les mers pauvres', () => {
+  it('chaque proposition vise une mer, a sa raison, et passe la règle (elle est dans les candidats de la mer)', () => {
+    for (const [id, liste] of Object.entries(mainPhotos.mers)) {
+      if (id === '_') continue;
+      expect(sorteAttendue.get(id), id).toBe('mer');
+      expect(Array.isArray(liste) && liste.length > 0, id).toBe(true);
+      for (const p of liste as { fichier: string; raison: string }[]) {
+        expect(p.raison, `${id} : ${p.fichier}`).toBeTruthy();
+        expect(p.fichier, id).not.toMatch(/^File:/);
+        const l = candidats.lieux[id];
+        if (l) expect(l.candidats.find((c) => c.fichier === p.fichier)?.sources, `${id} : ${p.fichier}`).toContain('main');
+      }
+    }
+    for (const [q, raison] of Object.entries(mainPhotos.sujets_sensibles)) if (q !== '_') expect(q.match(/^Q\d+$/) && raison, q).toBeTruthy();
+  });
+});
+
+describe('candidats.mjs : classement', () => {
+  type Module = { choisir: (b: Map<string, { groupe: number; sujet_q: string | null; n: number | null }>, a: Map<string, unknown>) => { pris: string[]; reste: number }; fichierDe: (u: string) => string; sections: (t: string) => Record<string, string> };
+  const mod = import('../geodata/photos/candidats.mjs' as string) as Promise<Module>;
+
+  it('un fichier par sujet d’abord, par groupe puis notoriété ; les seconds fichiers ensuite ; les refusés jamais', async () => {
+    const { choisir } = await mod;
+    const b = new Map<string, { groupe: number; sujet_q: string | null; n: number | null }>([
+      ['a1.jpg', { groupe: 2, sujet_q: 'Q1', n: 100 }],
+      ['a2.jpg', { groupe: 2, sujet_q: 'Q1', n: 100 }],
+      ['b.jpg', { groupe: 2, sujet_q: 'Q2', n: 50 }],
+      ['m.jpg', { groupe: 0, sujet_q: null, n: null }],
+      ['refus.jpg', { groupe: 0, sujet_q: 'Q3', n: 999 }],
+      ['qi.jpg', { groupe: 5, sujet_q: null, n: null }],
+    ]);
+    const a = new Map([...b.keys()].filter((f) => f !== 'refus.jpg').map((f) => [f, {}]));
+    expect(choisir(b, a)).toEqual({ pris: ['m.jpg', 'a1.jpg', 'b.jpg', 'qi.jpg', 'a2.jpg'], reste: 0 });
+  });
+
+  it('nom de fichier d’une valeur P18, et sections de requetes.rq', async () => {
+    const { fichierDe, sections } = await mod;
+    expect(fichierDe('http://commons.wikimedia.org/wiki/Special:FilePath/Pont%20du%20Gard%20BLS.jpg')).toBe('Pont du Gard BLS.jpg');
+    const s = sections(readFileSync('geodata/photos/requetes.rq', 'utf8'));
+    expect(Object.keys(s).sort()).toEqual(['commune', 'communes', 'cote', 'lieux', 'notables', 'notables_dans', 'patrimoine', 'patrimoine_dans']);
   });
 });

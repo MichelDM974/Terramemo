@@ -1,0 +1,20 @@
+{
+  "_": "Photos des fiches (#34, lot P1 ; étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 3.1 et § 3.4), table tenue à la main, lue par geodata/photos/candidats.mjs. mers : pour une mer où le script donne moins de 3 bons candidats, des fichiers de Commons proposés à la main, chacun avec sa raison ; ils passent par la même règle des licences et la même relecture. mers_sans_proposition : les mers pauvres où la recherche à la main n'a rien trouvé, avec la raison. sujets_sensibles : items Wikidata (un sujet, ou le pays d'un lieu de la côte) dont les candidats ne sont jamais cochés d'avance dans l'outil de relecture, avec leur raison ; les zones contestées et les lieux revendiqués le sont déjà (geodata/photos/lieux.mjs).",
+  "mers": {
+    "_": "id de la mer (public/geo/mers.json) : [{fichier, sujet, raison}], fichier : le nom sur Commons sans « File: ».",
+    "aden": [
+      {"fichier": "Superbe plage de l'île Moucha, baignée par une mer émeraude, à Djibouti.jpg", "sujet": "île Moucha (Djibouti)", "raison": "le golfe de Tadjoura, bras du golfe d'Aden : une plage et la mer, sans personne ; vue à l'œil le 17/11"},
+      {"fichier": "Plage de l'île Moucha avec des groupes d'oiseaux marins le long de la mer émeraude, Djibouti.jpg", "sujet": "île Moucha (Djibouti)", "raison": "même île, autre vue : plage, oiseaux de mer ; vue à l'œil le 17/11"},
+      {"fichier": "Blue Beach, Little Aden - panoramio.jpg", "sujet": "Little Aden (Yémen)", "raison": "la côte nord du golfe, à Aden : un rocher dans la mer ; vue à l'œil le 17/11"},
+      {"fichier": "Tadjourah,the White city(Djibouti)12.2020.jpg", "sujet": "Tadjourah (Djibouti)", "raison": "la ville vue de la mer, sur le golfe de Tadjoura ; vue à l'œil le 17/11"}
+    ]
+  },
+  "mers_sans_proposition": {
+    "_": "Mers pauvres où la recherche à la main n'a rien donné de bon, et pourquoi : la relecture dira « aucune » ou gardera ce qu'elle juge.",
+    "sargasse": "pas de côte ; sur Commons (recherche du 17/11 : « Sargasso Sea », « Sargassum natans », « Bermuda open ocean »), des cartes, des vues satellite, des algues photographiées ailleurs (Barbade, Bahamas, Floride) et un appareil de mesure sur un navire : aucune vue de la mer elle-même"
+  },
+  "sujets_sensibles": {
+    "_": "item : raison.",
+    "Q219060": "État de Palestine : la bande de Gaza, en guerre, sortait parmi les premières photos de la Méditerranée (relevé R5, § 1.1, une photo de population déplacée)"
+  }
+}
