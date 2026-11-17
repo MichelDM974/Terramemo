@@ -53,7 +53,7 @@ body {
 }
 button, input { font-family: inherit; font-size: inherit; }
 a { color: var(--accent); }
-.page { max-width: 1280px; margin: 0 auto; padding: 14px 16px 96px; }
+.page { max-width: 1280px; margin: 0 auto; padding: 14px 16px calc(var(--barre-h, 132px) + 16px); }
 .entete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
 .entete h1 { margin: 0; font-size: 1.6rem; font-weight: 800; color: var(--accent); }
 .entete .avance { color: var(--muted); font-size: 0.9rem; }
@@ -84,6 +84,7 @@ details.regle .touches { color: var(--muted); font-size: 0.85rem; margin: 8px 0 
 .infos { padding: 8px 10px 4px; font-size: 0.85rem; line-height: 1.35; flex: 1; }
 .infos .sujet { font-weight: 600; font-size: 0.95rem; }
 .infos .meta { color: var(--muted); overflow-wrap: anywhere; }
+.infos .auteur { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .infos .tag { display: inline-block; margin: 3px 4px 0 0; padding: 1px 7px; border-radius: 6px; background: var(--panel-2); color: var(--muted); font-size: 0.78rem; }
 .infos .tag.alerte { background: var(--danger-soft); color: var(--text); }
 .infos .raison { color: var(--danger); }
@@ -140,6 +141,7 @@ dialog .pied { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1
   <div class="pied"><button type="button" id="dlg-annuler">Annuler</button><button type="button" class="principal" id="dlg-ok">OK</button></div>
 </dialog>
 <script type="module">
+import { brouillon as brouillonDe, cadrage, candidatsDe as candidatsLieu, entreePauvre, garde, gardeValidation } from '/logique.mjs';
 const SORTES = { pays: 'Pays', territoire: 'Territoire', zone: 'Zone contestée', continent: 'Continent', mer: 'Océan ou mer', commune: 'Commune de La Réunion' };
 const SOURCES = { patrimoine: 'patrimoine mondial', notables: 'lieu notable', lieu: 'image du lieu', cote: 'sur la côte', commune: 'dans la commune', qi: 'Quality images', categorie: 'catégorie Commons', main: 'proposée à la main', remplace: 'collée (R)' };
 const $ = (s) => document.querySelector(s);
@@ -147,54 +149,41 @@ let E = null; // état servi par /api/etat
 let rang = 0; // lieu affiché
 let filtre = false;
 let active = 0; // case active (X, R, T)
-let montreA = 0; // instant d'affichage du lieu, pour la confirmation sous 2 s
-let confirmer = false;
+let gv = null; // garde de la validation (relecture-logique.mjs), créée avec l'état
+// Jeton du serveur lancé avec --reseau (dans l'adresse donnée au téléphone : ?j=…).
+const JETON = new URLSearchParams(location.search).get('j') ?? '';
+const entetes = { 'Content-Type': 'application/json', 'X-Jeton': JETON };
 
 const lieu = () => E.lieux[rang];
 const entree = () => E.choix[lieu().id];
 const dateFr = (iso) => { const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 function message(texte, sorte = '') { const m = $('#message'); m.textContent = texte; m.className = `message ${sorte}`; }
 
-/** Les candidats du lieu, les ajouts de « R » à la place de ceux qu'ils remplacent. */
-function candidatsDe(l) {
-  const e = E.choix[l.id];
-  const liste = l.candidats.map((c) => ({ ...c }));
-  for (const a of e?.ajouts ?? []) {
-    const i = a.remplace === null ? -1 : liste.findIndex((c) => c.fichier === a.remplace);
-    if (i >= 0) liste[i] = { ...a }; else liste.push({ ...a });
-  }
-  return liste;
-}
-const sansCocher = (l) => Boolean(l.sensible || l.pauvre || E.choix[l.id]?.pauvre);
-
-/** L'entrée en cours du lieu ; sinon un brouillon : les 5 premiers cochés d'avance, sauf lieu sensible ou pauvre, ou candidat sensible. */
-function brouillon(l) {
-  const e = E.choix[l.id];
-  if (e) return structuredClone(e);
-  const gardees = sansCocher(l) ? [] : candidatsDe(l).filter((c) => !c.sensible).slice(0, E.max).map((c) => garde(l, c));
-  return { etat: 'en_cours', gardees, ecartees: {} };
-}
-function garde(l, c, avant) {
-  const g = { fichier: c.fichier, sujet: avant?.sujet ?? c.sujet ?? `${l.nom} : photo`, licence: c.licence, licence_url: c.licence_url, auteur: c.auteur, titre: c.titre ?? null, page: c.page };
-  if (avant?.point) g.point = avant.point;
-  return g;
-}
+// La logique pure (relecture-logique.mjs) sur l'état de la page.
+const candidatsDe = (l) => candidatsLieu(l, E.choix[l.id]);
+const brouillon = (l) => brouillonDe(l, E.choix[l.id], E.max);
 
 async function enregistrer(id, e) {
-  const rep = await fetch(`/api/lieu/${encodeURIComponent(id)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(e) });
+  const rep = await fetch(`/api/lieu/${encodeURIComponent(id)}`, { method: 'POST', headers: entetes, body: JSON.stringify(e) });
   const r = await rep.json();
   if (!rep.ok) { message(r.erreur ?? 'enregistrement refusé', 'erreur'); return false; }
   E.choix[id] = e;
   return true;
 }
+// Les gestes et les validations passent un par un : deux touches rapides partiraient
+// sinon du même brouillon, et la seconde effacerait la première.
+let file = Promise.resolve();
+const enFile = (f) => (file = file.then(f, f));
 /** Un geste sur le lieu : l'entrée passe « en cours » et s'enregistre aussitôt. */
-async function geste(modifier) {
-  const l = lieu();
-  const e = brouillon(l);
-  modifier(e, l);
-  // Un geste après la validation rouvre le lieu : « Valider » le referme.
-  e.etat = 'en_cours'; delete e.relu_le;
-  if (await enregistrer(l.id, e)) { confirmer = false; afficher(false); }
+function geste(modifier) {
+  return enFile(async () => {
+    const l = lieu();
+    const e = brouillon(l);
+    if (modifier(e, l) === false) return;
+    // Un geste après la validation rouvre le lieu : « Valider » le referme.
+    e.etat = 'en_cours'; delete e.relu_le;
+    if (await enregistrer(l.id, e)) afficher(false);
+  });
 }
 
 function basculer(i) {
@@ -203,20 +192,11 @@ function basculer(i) {
   geste((e) => {
     const k = e.gardees.findIndex((g) => g.fichier === c.fichier);
     if (k >= 0) e.gardees.splice(k, 1);
-    else if (e.gardees.length >= E.max) { message(`${E.max} photos au plus : retirez-en une d'abord.`, 'erreur'); return; }
+    else if (e.gardees.length >= E.max) { message(`${E.max} photos au plus : retirez-en une d'abord.`, 'erreur'); return false; }
     else { e.gardees.push(garde(l, c)); delete e.ecartees?.[c.fichier]; delete e.aucune; }
   });
 }
 
-/** Point d'intérêt : le recadrage 3:2 centré sur lui, borné à l'image (le même calcul que le traitement du lot P2). */
-function cadrage(c, point) {
-  const [fx, fy] = point ?? [0.5, 0.5];
-  const large = c.w / c.h > 1.5;
-  const cw = large ? c.h * 1.5 : c.w, ch = large ? c.h : c.w / 1.5;
-  const ox = Math.min(Math.max(fx * c.w - cw / 2, 0), c.w - cw), oy = Math.min(Math.max(fy * c.h - ch / 2, 0), c.h - ch);
-  const px = c.w > cw ? (ox / (c.w - cw)) * 100 : 50, py = c.h > ch ? (oy / (c.h - ch)) * 100 : 50;
-  return { cw, ch, ox, oy, position: `${px.toFixed(1)}% ${py.toFixed(1)}%` };
-}
 function fixerPoint(i, ev) {
   const l = lieu(); const c = candidatsDe(l)[i];
   const r = ev.currentTarget.getBoundingClientRect();
@@ -227,7 +207,7 @@ function fixerPoint(i, ev) {
   active = i;
   geste((e) => {
     let g = e.gardees.find((x) => x.fichier === c.fichier);
-    if (!g) { if (e.gardees.length >= E.max) { message(`${E.max} photos au plus.`, 'erreur'); return; } g = garde(l, c); e.gardees.push(g); delete e.ecartees?.[c.fichier]; delete e.aucune; }
+    if (!g) { if (e.gardees.length >= E.max) { message(`${E.max} photos au plus.`, 'erreur'); return false; } g = garde(l, c); e.gardees.push(g); delete e.ecartees?.[c.fichier]; delete e.aucune; }
     g.point = point;
   });
 }
@@ -262,7 +242,7 @@ async function remplacer(i) {
   const titre = await demander({ titre: c ? `Remplacer la photo ${i + 1} par un fichier de Commons` : 'Ajouter un fichier de Commons', placeholder: 'File:… ou l’adresse de la page' });
   if (!titre) return;
   message('Lecture de Commons…');
-  const rep = await fetch('/api/remplacer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ titre }) });
+  const rep = await fetch('/api/remplacer', { method: 'POST', headers: entetes, body: JSON.stringify({ titre }) });
   const r = await rep.json();
   if (!rep.ok) return message(r.erreur, 'erreur');
   if (r.refus) return message(`« ${r.fichier} » refusée par la règle des licences : ${r.refus}.`, 'erreur');
@@ -282,28 +262,47 @@ async function corrigerSujet(i) {
   if (!s) return;
   geste((e) => { e.gardees.find((g) => g.fichier === c.fichier).sujet = s; });
 }
+/** Entrée pauvre (relecture-logique.mjs) : un lieu sans entrée part de rien de coché. */
+function enregistrerPauvre(raison) {
+  return enFile(async () => {
+    const l = lieu();
+    const avant = E.choix[l.id];
+    const e = entreePauvre(l, avant, raison, E.max);
+    e.etat = 'en_cours'; delete e.relu_le;
+    if (!(await enregistrer(l.id, e))) return;
+    afficher(false);
+    if (raison) message(avant ? 'Lieu marqué pauvre : les photos déjà gardées le restent.' : 'Lieu marqué pauvre : rien n’est coché, gardez chaque photo vous-même.');
+  });
+}
 async function marquerPauvre() {
-  const l = lieu(); const e0 = brouillon(l);
-  if (e0.pauvre) return geste((e) => { delete e.pauvre; });
+  const l = lieu();
+  if (E.choix[l.id]?.pauvre) return enregistrerPauvre(null);
   const r = await demander({ titre: `Marquer ${l.nom} pauvre en photos`, texte: '', placeholder: 'pourquoi (ex. : aucune vue de la mer elle-même)' });
-  if (r) geste((e) => { e.pauvre = r; });
+  if (r) enregistrerPauvre(r);
 }
 
 async function valider() {
-  const l = lieu(); const e = brouillon(l);
-  if (Date.now() - montreA < E.delai_ms && !confirmer) { confirmer = true; return message('Validé bien vite : Entrée encore (ou « Valider ») pour confirmer sans regarder de plus près.', 'attention'); }
-  confirmer = false;
-  if (e.gardees.length === 0) {
-    const r = await demander({ titre: `Aucune photo pour ${l.nom} : pourquoi ?`, texte: e.aucune ?? e.pauvre ?? '', placeholder: 'ex. : rien que des navires militaires' });
-    if (!r) return;
-    e.aucune = r;
-  } else delete e.aucune;
-  // Les candidats montrés et ni gardés ni écartés d'un geste : non retenus.
-  e.etat = 'relu'; e.relu_le = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
-  if (!(await enregistrer(l.id, e))) return;
-  const n = e.gardees.length;
-  message(`${l.nom} : ${n} photo${n > 1 ? 's' : ''} gardée${n > 1 ? 's' : ''}${n && n < E.visees ? ` (moins de ${E.visees})` : ''}.`);
-  aller(1, true);
+  const verdict = gv.essai(Date.now());
+  if (verdict === 'attendre') return;
+  if (verdict === 'avertir') return message('Validé bien vite : relâchez, puis Entrée encore (ou « Valider ») pour confirmer sans regarder de plus près.', 'attention');
+  gv.debut();
+  try {
+    await file; // les gestes en cours d'abord
+    const l = lieu(); const e = brouillon(l);
+    if (e.gardees.length === 0) {
+      const r = await demander({ titre: `Aucune photo pour ${l.nom} : pourquoi ?`, texte: e.aucune ?? e.pauvre ?? '', placeholder: 'ex. : rien que des navires militaires' });
+      if (!r) return;
+      e.aucune = r;
+    } else delete e.aucune;
+    // Les candidats montrés et ni gardés ni écartés d'un geste : non retenus.
+    e.etat = 'relu'; e.relu_le = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+    if (!(await enregistrer(l.id, e))) return;
+    const n = e.gardees.length;
+    message(`${l.nom} : ${n} photo${n > 1 ? 's' : ''} gardée${n > 1 ? 's' : ''}${n && n < E.visees ? ` (moins de ${E.visees})` : ''}.`);
+    aller(1, true);
+  } finally {
+    gv.fin();
+  }
 }
 
 function aller(pas, apresValidation = false) {
@@ -322,7 +321,7 @@ function aller(pas, apresValidation = false) {
 
 function afficher(nouveau) {
   const l = lieu(); const e = brouillon(l);
-  if (nouveau) { montreA = Date.now(); confirmer = false; history.replaceState(null, '', `#${l.id}`); }
+  if (nouveau) { gv.montre(Date.now()); history.replaceState(null, '', `#${l.id}`); }
   const relus = E.lieux.filter((x) => E.choix[x.id]?.etat === 'relu').length;
   $('#avance').textContent = `Relecture des photos · ${relus} relus sur ${E.lieux.length}${E.lieux.length < E.total ? ` (${E.total} lieux en tout, ${E.total - E.lieux.length} sans candidats)` : ''}`;
   $('#b-filtre').setAttribute('aria-pressed', String(filtre));
@@ -366,12 +365,16 @@ function afficher(nouveau) {
     const infos = document.createElement('div'); infos.className = 'infos';
     const sujet = document.createElement('div'); sujet.className = 'sujet'; sujet.textContent = g?.sujet ?? c.sujet ?? '(sans sujet)';
     const meta = document.createElement('div'); meta.className = 'meta';
-    meta.textContent = `${c.sources.map((s) => SOURCES[s] ?? s).join(', ')} · ${c.licence} · ${c.auteur ?? 'auteur inconnu'} · ${c.w} × ${c.h}`;
+    meta.textContent = `${c.sources.map((s) => SOURCES[s] ?? s).join(', ')} · ${c.licence} · ${c.w} × ${c.h} · `;
     const lien = document.createElement('a'); lien.href = c.page; lien.target = '_blank'; lien.rel = 'noopener'; lien.textContent = 'Commons';
-    meta.append(' · ', lien);
-    infos.append(sujet, meta);
+    meta.append(lien);
+    // L'auteur entier est dans les données (CC BY : tous les créateurs) ; l'aperçu le
+    // coupe à deux lignes, le texte complet en bulle.
+    const auteur = document.createElement('div'); auteur.className = 'meta auteur'; auteur.textContent = c.auteur ?? 'auteur inconnu'; auteur.title = c.auteur ?? '';
+    infos.append(sujet, meta, auteur);
     const tag = (t, alerte) => { const s = document.createElement('span'); s.className = `tag${alerte ? ' alerte' : ''}`; s.textContent = t; infos.append(s); };
     if (c.sensible) tag(`sensible : ${c.sensible}`, true);
+    if (c.nofop) tag(`pas de liberté de panorama (${c.nofop}) : bâtiment ou œuvre récents ?`, true);
     if (c.pays_du_site) tag(`site de ${c.pays_du_site} pays`, true);
     if (c.raison) tag(c.raison);
     if (c.n) tag(`${c.n} sitelinks`);
@@ -394,7 +397,8 @@ document.addEventListener('keydown', (ev) => {
   if (!E || $('#dlg').open || ev.ctrlKey || ev.metaKey || ev.altKey) return;
   const k = ev.key;
   if (/^[0-9]$/.test(k)) { ev.preventDefault(); basculer(k === '0' ? 9 : Number(k) - 1); }
-  else if (k === 'Enter') { ev.preventDefault(); valider(); }
+  // Entrée gardé enfoncé : la répétition ne valide jamais (garde de la validation).
+  else if (k === 'Enter') { ev.preventDefault(); if (!ev.repeat) valider(); }
   else if (k === 'x' || k === 'X') { ev.preventDefault(); ecarter(active); }
   else if (k === 'r' || k === 'R') { ev.preventDefault(); remplacer(Math.min(active, candidatsDe(lieu()).length)); }
   else if (k === 't' || k === 'T') { ev.preventDefault(); corrigerSujet(active); }
@@ -403,7 +407,11 @@ document.addEventListener('keydown', (ev) => {
   else if (k === 'ArrowRight') { ev.preventDefault(); aller(1); }
   else if (k === 'ArrowLeft') { ev.preventDefault(); aller(-1); }
 });
-$('#b-valider').onclick = valider;
+document.addEventListener('keyup', (ev) => { if (ev.key === 'Enter' && gv) gv.relache(); });
+$('#b-valider').onclick = () => { gv?.relache(); valider(); };
+// La barre du bas grandit avec son message (deux lignes à 384 px) : la page lui garde
+// toujours sa hauteur réelle, pour que la dernière case ne passe pas dessous.
+if ('ResizeObserver' in window) new ResizeObserver(([x]) => document.documentElement.style.setProperty('--barre-h', `${Math.ceil(x.borderBoxSize?.[0]?.blockSize ?? x.target.offsetHeight)}px`)).observe($('.barre'));
 $('#b-prec').onclick = () => aller(-1);
 $('#b-suiv').onclick = () => aller(1);
 $('#b-pauvre').onclick = marquerPauvre;
@@ -414,6 +422,7 @@ $('#regle').addEventListener('toggle', () => { try { localStorage.setItem('regle
   try {
     E = await (await fetch('/api/etat', { cache: 'no-store' })).json();
   } catch (e) { $('#lieu-vue').innerHTML = '<p class="vide">Serveur injoignable : relancez npm run photos:relecture.</p>'; return; }
+  gv = gardeValidation({ delai: E.delai_ms });
   const ul = $('#regle-liste'); for (const r of E.regle) { const li = document.createElement('li'); li.textContent = r; ul.append(li); }
   let fermee = false; try { fermee = localStorage.getItem('regle-fermee') === 'true'; } catch { /* stockage indisponible */ }
   $('#regle').open = !fermee;

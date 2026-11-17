@@ -8,7 +8,9 @@
 //
 // Usage : npm run photos:relecture, puis http://localhost:8064/ dans le navigateur.
 //   --reseau      écoute aussi sur le réseau local (relire depuis le téléphone, même
-//                 Wi-Fi) ; l'adresse s'affiche au démarrage
+//                 Wi-Fi) ; l'adresse s'affiche au démarrage, avec un jeton tiré au
+//                 démarrage (?j=…) sans lequel le serveur refuse d'écrire : un autre
+//                 appareil du Wi-Fi ne peut pas changer choix.json
 //   --port <n>    autre port (8064 par défaut, dans la dizaine de Terramemo)
 //   --choix <f>   autre fichier des choix (essais)
 // Chaque action enregistre, par un fichier temporaire puis un renommage : fermer l'onglet
@@ -29,13 +31,15 @@
 //               avec le fichier qu'ils remplacent (remplace ; null : ajouté à la suite).
 // D60 a : 3 à 5 photos visées, 1 ou 2 acceptées, aucune si rien de bon, avec la raison.
 
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lireLieux } from './lieux.mjs';
-import { CHAMPS_META, fauxAuteur, licenceDe, perteRecadrage, verdict } from './regle.mjs';
+import { lireFichiers } from './commons.mjs';
+import { fauxAuteur, licenceDe, perteRecadrage, verdict } from './regle.mjs';
 import { client } from './reseau.mjs';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -144,6 +148,15 @@ async function main() {
     return ecriture;
   }
 
+  // Avec --reseau, un jeton exigé sur chaque écriture (en-tête X-Jeton, que la page tire
+  // de son adresse) ; en local seul, l'écoute sur 127.0.0.1 suffit.
+  const jeton = o.reseau ? randomBytes(12).toString('base64url') : null;
+  const jetonBon = (req) => {
+    if (!jeton) return true;
+    const a = Buffer.from(String(req.headers['x-jeton'] ?? ''));
+    const b = Buffer.from(jeton);
+    return a.length === b.length && timingSafeEqual(a, b);
+  };
   const page = () => readFile(join(DOSSIER, 'relecture.html'));
   const envoyer = (rep, code, type, corps) => {
     rep.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store' });
@@ -165,6 +178,8 @@ async function main() {
       const url = new URL(req.url, 'http://localhost');
       const lecture = req.method === 'GET' || req.method === 'HEAD';
       if (lecture && (url.pathname === '/' || url.pathname === '/index.html')) return envoyer(rep, 200, 'text/html; charset=utf-8', await page());
+      if (lecture && url.pathname === '/logique.mjs') return envoyer(rep, 200, 'text/javascript; charset=utf-8', await readFile(join(DOSSIER, 'relecture-logique.mjs')));
+      if (req.method === 'POST' && !jetonBon(req)) return json(rep, 403, { erreur: 'jeton absent ou faux : ouvrez l’adresse affichée au démarrage du serveur (?j=…)' });
       if (lecture && url.pathname === '/inter.woff2') return envoyer(rep, 200, 'font/woff2', await readFile(join(RACINE, 'public', 'vendor', 'inter', 'InterVariable.woff2')));
       if (lecture && url.pathname === '/api/etat') {
         const lieux = ordre.map((id) => {
@@ -189,17 +204,19 @@ async function main() {
         const { titre } = JSON.parse(await corps(req));
         const fichier = decodeURIComponent(String(titre ?? '').trim().replace(/^.*\/wiki\//, '').replace(/^(File|Fichier):/i, '')).replaceAll('_', ' ');
         if (!fichier) return json(rep, 400, { erreur: 'titre vide' });
-        const j = await reseau.commons({ action: 'query', titles: `File:${fichier}`, prop: 'imageinfo', iiprop: 'url|size|mime|extmetadata', iiurlwidth: '500', iiextmetadatafilter: CHAMPS_META.join('|'), iiextmetadatalanguage: 'en' });
-        const p = j.query?.pages?.[0];
-        const ii = p?.imageinfo?.[0];
-        const nom = (p?.title ?? `File:${fichier}`).replace(/^File:/, '');
-        const info = ii ? { w: ii.width, h: ii.height, mime: ii.mime, meta: Object.fromEntries(Object.entries(ii.extmetadata ?? {}).map(([k, v]) => [k, String(v.value)])) } : null;
+        // Lue sans cache (vie 0) : l'utilisateur juge le fichier tel qu'il est maintenant.
+        const lus = await lireFichiers(reseau, [fichier], { vie: 0 });
+        if (!lus.has(fichier)) return json(rep, 502, { erreur: `Commons n'a pas décrit « ${fichier} » : réessayez` });
+        const info = lus.get(fichier);
+        // Le titre normalisé par Commons (majuscule initiale, espaces) : l'autre clé de la Map.
+        const nom = [...lus.keys()].find((k) => k !== fichier) ?? fichier;
         const v = verdict(nom, info);
         if (!v.ok) return json(rep, 200, { refus: v.raison, fichier: nom });
         return json(rep, 200, {
           candidat: {
-            fichier: nom, sources: ['remplace'], sujet: null, sujet_q: null, licence: v.licence, licence_url: v.licence_url, auteur: v.auteur, titre: v.titre, page: v.page,
-            w: info.w, h: info.h, perte: Math.round(perteRecadrage(info.w, info.h) * 100) / 100, miniature: ii.thumburl ?? null,
+            fichier: nom, sources: ['remplace'], sujet: null, sujet_q: null, licence: v.licence, licence_url: v.licence_url, auteur: v.auteur,
+            ...(v.nofop ? { nofop: v.nofop } : {}), titre: v.titre, page: v.page,
+            w: info.w, h: info.h, perte: Math.round(perteRecadrage(info.w, info.h) * 100) / 100, miniature: info.miniature, lu_le: info.lu_le,
           },
         });
       }
@@ -214,7 +231,8 @@ async function main() {
     const relus = Object.values(choix.lieux).filter((e) => e.etat === 'relu').length;
     console.log(`Relecture des photos : http://localhost:${o.port}/ (${relus} lieux relus sur ${ordre.length} ; choix : ${o.choix})`);
     if (o.reseau) {
-      for (const l of Object.values(networkInterfaces()).flat()) if (l && l.family === 'IPv4' && !l.internal) console.log(`  depuis le téléphone : http://${l.address}:${o.port}/`);
+      console.log(`  sur ce PC : http://localhost:${o.port}/?j=${jeton}`);
+      for (const l of Object.values(networkInterfaces()).flat()) if (l && l.family === 'IPv4' && !l.internal) console.log(`  depuis le téléphone : http://${l.address}:${o.port}/?j=${jeton}`);
     }
   });
 }
