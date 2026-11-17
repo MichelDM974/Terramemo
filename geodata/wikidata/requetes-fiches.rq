@@ -1,0 +1,91 @@
+# Requêtes SPARQL figées des fiches des lieux (#34, étude fiche-lieu § 2.1 et § 2.5),
+# lancées par npm run wikidata -- --fiches (geodata/wikidata.mjs), point
+# https://query.wikidata.org/sparql. À part de requetes.rq : l'extrait des capitales garde
+# l'empreinte de celui-là, et un test la compare ; celle-ci va dans l'extrait des fiches
+# (geodata/wikidata/fiches.json) et dans public/geo/sources.json.
+# Une section par requête, ouverte par « #= nom ». Le script remplace {{lieux}} (items
+# wd:Q… des lieux : les 197 pays au lot F2, les territoires et les zones par leur QID au
+# lot F3, sans rien changer ici) et {{sommets}} (items des points culminants déclarés).
+# Rien n'est choisi ici : toutes les déclarations non dépréciées, leur rang et tous
+# leurs qualificatifs ; la règle du choix est au build (geodata/fiches.mjs).
+# P585 (date) : sa précision (9 l'année, 11 le jour) vient à part, ?prec.
+# Libellés, titres de la Wikipédia en français et noms des unités : API wbgetentities.
+
+#= superficies
+# P2046 superficie : valeur, unité (km², mi²…), rang, qualificatifs (P585 date, P518
+# partie concernée, P459 méthode…). La Norvège en a 11 (comtés, Svalbard) : tout sort.
+SELECT ?lieu ?stmt ?rang ?v ?unite ?pq ?qv ?prec WHERE {
+  VALUES ?lieu { {{lieux}} }
+  ?lieu p:P2046 ?stmt .
+  ?stmt psv:P2046 ?n ; wikibase:rank ?rang .
+  ?n wikibase:quantityAmount ?v ; wikibase:quantityUnit ?unite .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+  OPTIONAL { ?stmt pqv:P585 ?t . ?t wikibase:timePrecision ?prec . }
+}
+
+#= gentiles
+# P1549 gentilé, en français seulement, avec ses qualificatifs (genre et nombre :
+# P518, P5713 ou autre, selon la saisie ; les libellés des valeurs viennent de l'API).
+SELECT ?lieu ?stmt ?rang ?v ?pq ?qv WHERE {
+  VALUES ?lieu { {{lieux}} }
+  ?lieu p:P1549 ?stmt .
+  ?stmt ps:P1549 ?v ; wikibase:rank ?rang .
+  FILTER(LANG(?v) = "fr")
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+}
+
+#= habitants
+# P1082 population, avec P585 et ses autres qualificatifs (P459 méthode : recensement,
+# estimation, projection). Taïwan et le Vatican, absents de la Banque mondiale, s'en servent.
+# Seules les déclarations de 2015 ou après (P585), celles sans date et celles de rang
+# préféré : la série entière (9 892 déclarations, jusqu'au XIXe siècle) pesait 1,4 Mo
+# dans l'extrait, pour rien (la Banque mondiale, elle, est lue de 2015 à 2025).
+SELECT ?lieu ?stmt ?rang ?v ?pq ?qv ?prec WHERE {
+  VALUES ?lieu { {{lieux}} }
+  ?lieu p:P1082 ?stmt .
+  ?stmt psv:P1082 ?n ; wikibase:rank ?rang .
+  ?n wikibase:quantityAmount ?v .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt pq:P585 ?date }
+  FILTER(?rang = wikibase:PreferredRank || !BOUND(?date) || YEAR(?date) >= 2015)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+  OPTIONAL { ?stmt pqv:P585 ?t . ?t wikibase:timePrecision ?prec . }
+}
+
+#= culminants
+# P610 point culminant : le sommet (item), rang, qualificatifs. Plusieurs sommets pour un
+# pays (12 pays au relevé) : tous sortent ; le critère du choix (le plus haut point du
+# tracé de fait) est au build.
+SELECT ?lieu ?stmt ?rang ?sommet ?pq ?qv WHERE {
+  VALUES ?lieu { {{lieux}} }
+  ?lieu p:P610 ?stmt .
+  ?stmt ps:P610 ?sommet ; wikibase:rank ?rang .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+}
+
+#= altitudes
+# P2044 altitude des sommets : valeur, unité (mètre, pied : Ghana et Guam au relevé), rang,
+# qualificatifs (P585 date, P459 méthode).
+SELECT ?sommet ?stmt ?rang ?v ?unite ?pq ?qv ?prec WHERE {
+  VALUES ?sommet { {{sommets}} }
+  ?sommet p:P2044 ?stmt .
+  ?stmt psv:P2044 ?n ; wikibase:rank ?rang .
+  ?n wikibase:quantityAmount ?v ; wikibase:quantityUnit ?unite .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+  OPTIONAL { ?stmt pqv:P585 ?t . ?t wikibase:timePrecision ?prec . }
+}
+
+#= coordonnees_sommets
+# P625 coordonnées des sommets, toutes les déclarations non dépréciées avec leur rang ;
+# le globe (Terre, Q2) se lit dans la valeur complète.
+SELECT ?sommet ?stmt ?rang ?lat ?lon ?globe WHERE {
+  VALUES ?sommet { {{sommets}} }
+  ?sommet p:P625 ?stmt .
+  ?stmt psv:P625 ?c ; wikibase:rank ?rang .
+  ?c wikibase:geoLatitude ?lat ; wikibase:geoLongitude ?lon ; wikibase:geoGlobe ?globe .
+  FILTER(?rang != wikibase:DeprecatedRank)
+}
