@@ -192,6 +192,13 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
       EST: [2, 45335], FIN: [7, 338478.34], HUN: [2, 93011.4], JPN: [2, 377973.68], LUX: [2, 2593.05], LVA: [6, 64593.77],
       NLD: [2, 37378], NOR: [12, 385207], SRB: [2, 88499], SVK: [3, 49033.720839], SWE: [4, 447425.16], TUR: [3, 783562],
     });
+    // À égalité sur la date la plus récente (la Lettonie) : la plus grande, quel que soit
+    // l'identifiant de la déclaration ; une valeur sans date est écartée s'il y en a de datées.
+    const d = (id: string, v: number, date: string | null) => ({ id, v, unite: 'Q712226', rang: 'preferred', ...(date ? { q: { P585: [date] } } : {}) });
+    for (const ordre of [['a', 'b'], ['b', 'a']]) {
+      expect(superficieWikidata([d(ordre[0]!, 61760.39, '2026-01-01T00:00:00Z'), d(ordre[1]!, 64593.77, '2026-01-01T00:00:00Z')] as never)).toBe(64593.77);
+    }
+    expect(superficieWikidata([d('a', 900, null), d('b', 500, '2020-01-01T00:00:00Z')] as never)).toBe(500);
   });
 
   it('pays touchés par une zone disputée (D57) : la liste recalculée depuis contestees.json et revendique_par est celle de la table', async () => {

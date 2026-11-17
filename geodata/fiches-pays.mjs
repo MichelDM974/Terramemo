@@ -26,8 +26,9 @@ const date = (d) => d.q?.P585?.[0] ?? null;
 /**
  * Le choix d'une valeur parmi plusieurs déclarations (§ 2.1, règle du prototype,
  * donnees-pays/scripts/t_proto.py:20-25) : celles de rang préféré s'il y en a, sinon
- * toutes ; parmi elles, la plus récente si elles sont datées (P585) ; sinon, `sinon`
- * (la plus grande pour une superficie). Les dépréciées ne sont jamais dans l'extrait.
+ * toutes ; parmi elles, la plus récente si elles sont datées (P585 ; les non datées sont
+ * alors écartées) ; sinon, ou à égalité sur la plus récente, `sinon` (la plus grande pour
+ * une superficie). Les dépréciées ne sont jamais dans l'extrait.
  * Rend la déclaration retenue, ou null s'il n'y en a aucune.
  */
 export function choisir(decl, sinon) {
@@ -35,8 +36,12 @@ export function choisir(decl, sinon) {
   const pref = decl.filter((d) => d.rang === 'preferred');
   const pool = pref.length ? pref : decl;
   const datees = pool.filter(date);
-  if (datees.length) return [...datees].sort((a, b) => parId(date(b), date(a)) || parId(a.id, b.id))[0];
-  return sinon(pool);
+  if (!datees.length) return sinon(pool);
+  // Plusieurs à la date la plus récente (la Lettonie, 64 593,77 et 61 760,39) : `sinon` les
+  // départage, jamais l'identifiant de la déclaration.
+  const recente = datees.reduce((m, d) => (parId(date(d), m) > 0 ? date(d) : m), date(datees[0]));
+  const ex = datees.filter((d) => date(d) === recente);
+  return ex.length === 1 ? ex[0] : sinon(ex);
 }
 
 /** Superficie de Wikidata (km²) : rang préféré, la plus récente, sinon la plus grande. */

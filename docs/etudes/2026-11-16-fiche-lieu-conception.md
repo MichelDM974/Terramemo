@@ -211,8 +211,10 @@ plus large (relecture, `q1.rq` → `r1.json`) : la Norvège a 11 valeurs, de
 1 210 à 385 207 km² (ses comtés, le Svalbard…), la Slovaquie 3, le Japon,
 l'Estonie et la Serbie 2. Règle du choix, celle du prototype
 (`donnees-pays/scripts/t_proto.py:20-25`) : les valeurs de rang préféré s'il
-y en a, sinon toutes ; parmi elles, la plus récente si elles sont datées ;
-sinon la plus grande. Un test fige la liste des pays à plusieurs valeurs et
+y en a, sinon toutes ; parmi elles, la plus récente si elles sont datées
+(les non datées sont alors écartées) ; sinon, ou à égalité sur la plus
+récente, la plus grande (la Lettonie : deux valeurs préférées au
+1er janvier 2026, 64 593,77 et 61 760,39 km², la plus grande gardée). Un test fige la liste des pays à plusieurs valeurs et
 la valeur retenue pour chacun : une valeur nouvelle dans un extrait se voit.
 
 **Langues.** La règle de R3 : les officielles d'abord, puis les autres à
