@@ -481,6 +481,9 @@ describe('noms et sources', () => {
       'geodata/drapeaux-main.json',
       'geodata/drapeaux.mjs',
       'geodata/fiches-main.json',
+      'geodata/fiches-pays.mjs',
+      'geodata/fiches-relecture.mjs',
+      'geodata/fiches-sources.mjs',
       'geodata/fiches.mjs',
       'geodata/liste.json',
       'geodata/mers.json',
@@ -496,17 +499,20 @@ describe('noms et sources', () => {
   });
 
   it('sources datées, licences et empreintes égales au verrou', () => {
-    // Natural Earth, CLDR, flag-icons et le drapeau de l'Émirat (Commons), téléchargées
-    // par le build ; Wikidata, extrait versionné (tests/donnees-capitales.test.ts compare
-    // ses empreintes aux fichiers).
-    expect(sources.sources).toHaveLength(5);
+    // Natural Earth, CLDR, flag-icons, le drapeau de l'Émirat (Commons), et pour les
+    // fiches CLDR (langues, monnaies) et tz, téléchargées par le build ; extraits versionnés :
+    // Wikidata (capitales, fiches), Banque mondiale (tests/donnees-capitales.test.ts et
+    // tests/donnees-extraits-fiches.test.ts comparent leurs empreintes aux fichiers) ; et,
+    // sans fichier, les sources des valeurs écrites à la main dans fiches-main.json
+    // (Wikipédia, Factbook, ISO 639).
+    expect(sources.sources).toHaveLength(12);
     for (const s of sources.sources) {
       expect(s.licence).toBeTruthy();
       expect(s.telecharge_le).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       for (const f of s.fichiers) expect(f.sha256).toMatch(/^[0-9a-f]{64}$/);
     }
-    const telechargees = sources.sources.filter((s) => s.fichiers.every((f) => f.url));
-    expect(telechargees).toHaveLength(4);
+    const telechargees = sources.sources.filter((s) => s.fichiers.length && s.fichiers.every((f) => f.url));
+    expect(telechargees).toHaveLength(6);
     const duVerrou = Object.values(verrou).flatMap((v) => Object.values(v.fichiers)).sort();
     const duFichier = telechargees.flatMap((s) => s.fichiers.map((f) => f.sha256)).sort();
     expect(duFichier).toEqual(duVerrou);

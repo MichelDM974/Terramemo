@@ -128,6 +128,214 @@
           "sha256": "fc326ebb964d9a50e31984495d1cf94f810a8af2ecaac5615001358404a389be"
         }
       ]
+    },
+    {
+      "nom": "Unicode CLDR, langues et monnaies des pays (cldr-core, supplemental : territoryInfo, currencyData) et leurs noms en français (cldr-localenames-full : languages ; cldr-numbers-full : currencies)",
+      "url": "https://cldr.unicode.org",
+      "version": "49.0.0 (commit a4b67247b446fd51b475991017a2481911210c60)",
+      "licence": "Unicode License v3, notice : « Copyright © 2015-2024 Unicode, Inc. » ; texte complet dans LICENSE-CLDR.txt, à côté de ce fichier (le même que pour les noms des territoires)",
+      "telecharge_le": "2026-11-17",
+      "fichiers": [
+        {
+          "url": "https://raw.githubusercontent.com/unicode-org/cldr-json/49.0.0/cldr-json/cldr-core/supplemental/territoryInfo.json",
+          "sha256": "c8aa7654c87de234118f14ada0e1466eb09467bed4048da7eab3e7e63ffe335d"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/unicode-org/cldr-json/49.0.0/cldr-json/cldr-core/supplemental/currencyData.json",
+          "sha256": "c187138fb1a91508056924caa7e11a63d4d579c2f34176949afa817f7ed63715"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/unicode-org/cldr-json/49.0.0/cldr-json/cldr-localenames-full/main/fr/languages.json",
+          "sha256": "49c4f489e321f62ec64e3950045225a6aa2d4accc71584dfde262083679215d9"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/unicode-org/cldr-json/49.0.0/cldr-json/cldr-numbers-full/main/fr/currencies.json",
+          "sha256": "c0445e7d65373794f9a1616c52867e90f790a843769957db064253c37d8f460f"
+        }
+      ]
+    },
+    {
+      "nom": "IANA Time Zone Database (tzdata), zone.tab : zone de chaque pays",
+      "url": "https://www.iana.org/time-zones",
+      "version": "2026e",
+      "licence": "Domaine public (fichier LICENSE de l’archive : « Unless specified below, all files in the tz code and data (including this LICENSE file) are in the public domain. » ; les exceptions BSD visent le code, pas zone.tab)",
+      "telecharge_le": "2026-11-17",
+      "fichiers": [
+        {
+          "url": "https://data.iana.org/time-zones/releases/tzdata2026e.tar.gz",
+          "sha256": "b26882805f26aac59d5b222978e6580484b834ccdc98be89df2f05a6dc53a652"
+        }
+      ]
+    },
+    {
+      "nom": "Wikidata, chiffres des fiches des pays : superficies (P2046), gentilés (P1549), habitants (P1082), points culminants (P610, P2044, P625)",
+      "url": "https://query.wikidata.org",
+      "version": "extrait du 2026-11-17T04:14:39Z (SPARQL), API du 2026-11-17T04:14:52Z",
+      "licence": "CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), aucune mention obligatoire : citée par courtoisie",
+      "telecharge_le": "2026-11-17",
+      "requetes": {
+        "chemin": "geodata/wikidata/requetes-fiches.rq",
+        "sha256": "2019d2b593a0d09a97e8454d401349a21b9d7816b222555f46d3e2da0cc5be8a"
+      },
+      "fichiers": [
+        {
+          "chemin": "geodata/wikidata/fiches.json",
+          "sha256": "42b430310630e718c7669c6edbb2360ffac126d5bbe980a408052abe5fede76d"
+        }
+      ]
+    },
+    {
+      "nom": "Banque mondiale, World Development Indicators (WDI), Population, total (SP.POP.TOTL)",
+      "url": "https://data.worldbank.org/indicator/SP.POP.TOTL",
+      "version": "année 2025, mise à jour du 2026-11-11",
+      "licence": "CC BY 4.0 (https://datacatalog.worldbank.org/public-licenses#cc-by) ; conditions des jeux de données lues le 2026-11-17 (https://www.worldbank.org/ext/en/legal/terms-conditions/datasets) : mention « The World Bank: <jeu>: <source> » et adresse de ces conditions avec les données servies",
+      "telecharge_le": "2026-11-17",
+      "fichiers": [
+        {
+          "chemin": "geodata/banque-mondiale/population.json",
+          "sha256": "2ff3ff423461d23186eb0e72a57e5d6a520516f7bd43fdb833254052f9b1c566"
+        }
+      ]
+    },
+    {
+      "nom": "Wikipédia, pages lues pour la table à la main (sommets, fêtes, langues, gentilés)",
+      "url": "https://fr.wikipedia.org",
+      "version": "révisions citées, lues le 17/11/2026 (Tirich Mir : le 18/11/2026)",
+      "telecharge_le": "2026-11-17",
+      "licence": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/) pour le texte ; seuls des faits en sont repris (altitudes, parts, dates), chacun avec sa page",
+      "pages": [
+        {
+          "titre": "Liste des pays par point culminant",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240366193",
+          "revision": 240366193,
+          "du": "2026-10-14"
+        },
+        {
+          "titre": "Liste de fêtes nationales",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240443042",
+          "revision": 240443042,
+          "du": "2026-10-17"
+        },
+        {
+          "titre": "Guinée-Bissau",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240555154",
+          "revision": 240555154,
+          "du": null
+        },
+        {
+          "titre": "Kirghizistan",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241251765",
+          "revision": 241251765,
+          "du": null
+        },
+        {
+          "titre": "Lesotho",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240863543",
+          "revision": 240863543,
+          "du": null
+        },
+        {
+          "titre": "Nouvelle-Zélande",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240223491",
+          "revision": 240223491,
+          "du": null
+        },
+        {
+          "titre": "Papouasie-Nouvelle-Guinée",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240791569",
+          "revision": 240791569,
+          "du": null
+        },
+        {
+          "titre": "Vatican",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241316685",
+          "revision": 241316685,
+          "du": null
+        },
+        {
+          "titre": "Halti",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240977676",
+          "revision": 240977676,
+          "du": "2026-11-03"
+        },
+        {
+          "titre": "Tirich Mir",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241380774",
+          "revision": 241380774,
+          "du": "2026-11-15"
+        },
+        {
+          "titre": "Rysy",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241232180",
+          "revision": 241232180,
+          "du": "2026-11-11"
+        },
+        {
+          "titre": "Kazakhstan",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241381747",
+          "revision": 241381747,
+          "du": "2026-11-15"
+        },
+        {
+          "titre": "Ukraine",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240693733",
+          "revision": 240693733,
+          "du": "2026-10-25"
+        },
+        {
+          "titre": "Sénégal",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241251513",
+          "revision": 241251513,
+          "du": "2026-11-11"
+        },
+        {
+          "titre": "Madagascar",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241288817",
+          "revision": 241288817,
+          "du": "2026-11-12"
+        },
+        {
+          "titre": "Nigeria",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241115666",
+          "revision": 241115666,
+          "du": "2026-11-07"
+        },
+        {
+          "titre": "Langues en Afrique du Sud",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=239514997",
+          "revision": 239514997,
+          "du": "2026-09-15"
+        },
+        {
+          "titre": "Languages of Pakistan",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1383926115",
+          "revision": 1383926115,
+          "du": "2026-11-05"
+        },
+        {
+          "titre": "Geography of the Gambia",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1379067827",
+          "revision": 1379067827,
+          "du": "2026-10-07"
+        }
+      ],
+      "fichiers": []
+    },
+    {
+      "nom": "CIA World Factbook, champ « National holiday » (pré-remplissage des fêtes) et « highest point » (Gambie)",
+      "url": "https://github.com/factbook/factbook.json",
+      "version": "miroir figé, commit 144d697 du 11/09/2026 (le Factbook est arrêté depuis février 2026)",
+      "telecharge_le": "2026-11-16",
+      "licence": "domaine public (S46 : « Factbook data […] is the public domain and may be copied freely without permission from the Central Intelligence Agency », copie Wayback du 05/12/2025 de la page « Copyright and Contributors » ; le sceau du CIA excepté) ; « d'après le World Factbook, relu »",
+      "fichiers": []
+    },
+    {
+      "nom": "ISO 639-2 et ISO 639-3 (SIL International, autorité d'enregistrement), noms anglais des langues que CLDR ne nomme pas en français",
+      "url": "https://iso639-3.sil.org",
+      "version": "codes et noms cités dans geodata/fiches-main.json (langues.noms)",
+      "telecharge_le": "2026-11-17",
+      "licence": "des noms de langues seulement, traduits à la main ; conditions de SIL non relues (à relire)",
+      "fichiers": []
     }
   ],
   "traitement": {
@@ -136,7 +344,7 @@
     "quantification": 1000000,
     "carte_allegee": "monde-leger.topo.json : polygones d'au moins 40 km (plus grand côté de l'emprise), -simplify visvalingam interval=15000 keep-shapes chacun à part, regroupés par id, quantification 100000",
     "entrees": {
-      "geodata/build.mjs": "ca6b8c53d4d28657979c1f40ccced91e4af07a7680aea45bb0fa55faee61010e",
+      "geodata/build.mjs": "3ee03532840bf844e32fe3a7103bd88c2a8ec63e1af4bbc2767123bf595865b0",
       "geodata/outils.mjs": "004e9d875414ed099b923d47ddfdd3c9fa8561beca16b100ea11f0bcc95cce1c",
       "geodata/liste.json": "588b387d44d605a3f2aacc875eb7c51c90f388a883afd18a3ebaa18ce4bb255a",
       "geodata/revendications.json": "6d57155ff9b36e496c88a518b4550a9055d1e84a903f23b0b1027ec27e5f0303",
@@ -150,8 +358,11 @@
       "geodata/notoriete.mjs": "1d00ec190020051e110a9cb387b9886bed24ddf3b3dd34c2859e89175c3cdd76",
       "geodata/notoriete-main.json": "b2440762a0b0498dd11368815ff5b03925d5e26f9705c97332ea6f9baffa0f9d",
       "geodata/wikidata/notoriete.json": "e76e612174794c93614f5277248c267b4bdb7ea93af636526d1af0183004601f",
-      "geodata/fiches.mjs": "1de6b5ffe907dfa3555f0402b9aa8c9e0ae7ece9879a42fa83f9c0583efdd0a0",
-      "geodata/fiches-main.json": "d4a1f3eb2c6c7a1db6a7ec33473b9e48875e241e83434cf48dc8e9ec885d2ded"
+      "geodata/fiches.mjs": "919970e7971fc4386e22f2d2da65a6f2c2779427107d5b322f4f4481bc54709c",
+      "geodata/fiches-pays.mjs": "9a8bac50eda03e5c88bb7465884ce698694bfb5ec8a4c9bb8eb8af973feed554",
+      "geodata/fiches-relecture.mjs": "ee59f05da03898c19dbbbbe3fc172ba028174010c1cd79bedec7cf4ff86a7032",
+      "geodata/fiches-main.json": "1db93fbe197159368c35d77e59651e39e14a12407501cfea946b3f03339c6629",
+      "geodata/fiches-sources.mjs": "50d7f7d9c8d2c37dd0f08e93d6ac3cf20b2c1566b4834bf906aa291845999fa9"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",
     "mers": {

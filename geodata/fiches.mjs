@@ -1,35 +1,70 @@
 // Fiches des lieux (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 2 ;
-// lot F1 : les données déjà au dépôt), appelé par geodata/build.mjs (tout le build, ou
-// --seulement fiches : npm run fiches) ; sans réseau, sans effet à l'import. Lit :
+// lot F1 : les données déjà au dépôt ; lot F2 : les chiffres des 197 pays), appelé par
+// geodata/build.mjs (tout le build, ou --seulement fiches : npm run fiches) ; sans réseau,
+// sans effet à l'import. Lit :
 //   public/geo/pays.json             les 258 entités de la carte (sortie du build) :
-//                                    statut, sous-région
+//                                    statut, sous-région, code a2, surface du tracé
+//   public/geo/monde.topo.json       le tracé de la carte et des zones disputées (fuseaux
+//                                    et sommets, § 2.1)
+//   public/geo/capitales.json        la capitale principale (zone horaire la plus proche)
+//   public/geo/contestees.json       les zones hachurées (pays touchés par une zone, D57)
+//   public/geo/noms.fr.json          les noms des pays (tableaux à relire)
 //   geodata/wikidata/capitales.json  l'extrait figé de Wikidata des capitales : le titre
 //                                    de la Wikipédia en français de l'item de chaque pays
 //                                    (pays[Q].frwiki)
 //   geodata/capitales-main.json      l'item d'un pays que son code ne donne pas
 //                                    (items_pays : Pays-Bas, Palestine, Kosovo)
-//   geodata/fiches-main.json         la seule table à la main (§ 2.5) : noms des
-//                                    sous-régions, titres de Wikipédia corrigés
+//   geodata/fiches-main.json         la seule table à la main (§ 2.5) : sous-régions,
+//                                    titres de Wikipédia, et les clés du lot F2
+//   geodata/fiches-sources.mjs       les sources des chiffres : leurs lignes de
+//                                    sources.json (sourcesFiches) ; les fichiers
+//                                    téléchargés, CLDR et tz (lireSourcesFiches, dans
+//                                    geodata/raw/ : npm run fiches les télécharge)
+//   geodata/wikidata/fiches.json,
+//   geodata/banque-mondiale/population.json  les extraits figés des chiffres
+// Les règles du choix sont dans geodata/fiches-pays.mjs, les tableaux à relire dans
+// geodata/fiches-relecture.mjs.
 // Produit (identiques octet pour octet d'un lancement à l'autre ; deux fichiers par
 // terrain, l'un sans langue, l'autre de la langue : décision « Langue », § 2.7) :
-//   fiches-monde.json     {v: 1, lieux: {id: {s}}} : une entrée par entité, les 258,
+//   fiches-monde.json     {v: 1, lieux: {id: {s, …}}} : une entrée par entité, les 258,
 //                         s sa sorte (src/fiches/sorte.ts, sorteDeLieu). Sans entrée, pas
-//                         de fiche : la barre n'a pas de chevron. Les chiffres (habitants,
-//                         superficie…) viennent au lot F2 ;
-//   fiches-monde.fr.json  {v: 1, sous_regions: {nom de Natural Earth: nom}, lieux: {id:
-//                         {wp?}}} : wp le titre de la Wikipédia en français, pour les 197
-//                         pays ; une entrée vide pour les 61 autres (48 territoires, 12
-//                         zones, l'Antarctique), qui n'ont pas de QID avant le lot F3.
+//                         de fiche : la barre n'a pas de chevron. Pour les 197 pays :
+//                           h, ha    habitants et leur année ; hs « wd » s'ils viennent de
+//                                    Wikidata (sinon la Banque mondiale) ;
+//                           sup      superficie en km², de Wikidata pour tous les pays,
+//                                    citée « selon Wikidata » (D57, décision du 18/11) ;
+//                           alt      altitude du point culminant, en m (aucune pour la
+//                                    Somalie : aucun sommet dans une zone disputée) ;
+//                           z, nz    zone IANA de l'heure locale ; nombre de fuseaux, s'il
+//                                    y en a plusieurs ;
+//                           m        codes ISO 4217 des monnaies, dans l'ordre ;
+//                           lo, lp   codes des langues officielles ; langues parlées par
+//                                    10 % ou plus, [code, part en %] (D56 c) ;
+//                           f        fête nationale [jour, mois], sauf le Royaume-Uni et
+//                                    la Bosnie-Herzégovine ;
+//   fiches-monde.fr.json  {v: 1, sous_regions: {nom de Natural Earth: nom}, langues: {code:
+//                         nom}, monnaies: {code: nom}, lieux: {id: {…}}} : pour les 197 pays,
+//                         wp le titre de la Wikipédia en français, g et gp le gentilé
+//                         masculin et son pluriel, cu le nom du point culminant, fn le nom
+//                         de la fête ; une entrée vide pour les 61 autres (48 territoires,
+//                         12 zones, l'Antarctique), qui viennent au lot F3 ;
+//   docs/relectures/fiches-pays.md  les tableaux à relire (fiches-relecture.mjs).
 // Continent, sous-région et voisins restent dans pays.json, déjà chargé (§ 2.7).
-// Échoue (exception) si les entrées et la table ne s'accordent plus : un pays sans titre,
-// une sous-région sans nom, une ligne de la table qui ne s'applique plus.
+// Échoue (exception) si les entrées et la table ne s'accordent plus : un pays sans titre ou
+// sans chiffre, une sous-région sans nom, une ligne de la table qui ne s'applique plus.
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { feature } from 'topojson-client';
+import { chiffresPays } from './fiches-pays.mjs';
+import { CHEMIN_RELECTURE, texteRelecture } from './fiches-relecture.mjs';
+import { EXTRAITS_FICHES, lireSourcesFiches, sourcesFiches, TZ_VERSION, CLDR_TAG } from './fiches-sources.mjs';
 import { sha256 } from './outils.mjs';
 
 export const CHEMINS = {
   script: 'geodata/fiches.mjs',
+  regles: 'geodata/fiches-pays.mjs',
+  relecture: 'geodata/fiches-relecture.mjs',
   main: 'geodata/fiches-main.json',
   extrait: 'geodata/wikidata/capitales.json',
   capitalesMain: 'geodata/capitales-main.json',
@@ -47,20 +82,30 @@ const sansNotes = (o) => Object.entries(o ?? {}).filter(([k]) => !k.startsWith('
 const parId = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
- * Construit les deux fichiers servis du monde. racine : la racine du dépôt. Rend
- * { fichiers: {nom: texte}, sources: [], entrees, notes } : entrees vont dans
- * public/geo/sources.json (fusionnerPartie), notes s'affichent au build. La source
- * Wikidata (l'extrait des capitales) y est déjà, citée par les capitales.
+ * Construit les deux fichiers servis du monde et les tableaux à relire. racine : la
+ * racine du dépôt. Rend { fichiers: {nom: texte}, relecture: {chemin, texte}, sources,
+ * entrees, notes } : sources et entrees vont dans public/geo/sources.json
+ * (fusionnerPartie), notes s'affichent au build. La source Wikidata de l'extrait des
+ * capitales y est déjà, citée par les capitales ; celles des chiffres viennent de
+ * sourcesFiches. Lit geodata/raw/ (CLDR, tz), absent en CI.
  */
 export async function construireFiches(racine) {
   const lire = (c) => readFile(join(racine, c));
-  const [scriptBrut, mainBrut, extraitBrut, capMainBrut, paysBrut] = await Promise.all(
-    [CHEMINS.script, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json'].map(lire),
-  );
-  const main = JSON.parse(mainBrut.toString('utf8'));
-  const extrait = JSON.parse(extraitBrut.toString('utf8'));
-  const capMain = JSON.parse(capMainBrut.toString('utf8'));
-  const entites = JSON.parse(paysBrut.toString('utf8')).sort((a, b) => parId(a.id, b.id));
+  const json = (b) => JSON.parse(b.toString('utf8'));
+  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json'];
+  const autres = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
+  const [[scriptBrut, reglesBrut, relectureBrut, mainBrut, extraitBrut, capMainBrut, paysBrut], [topoBrut, capBrut, contBrut, nomsBrut, wdBrut, bmBrut], cldr] = await Promise.all([
+    Promise.all(chemins.map(lire)),
+    Promise.all(autres.map(lire)),
+    lireSourcesFiches(racine),
+  ]);
+  const main = json(mainBrut);
+  const extrait = json(extraitBrut);
+  const capMain = json(capMainBrut);
+  const entites = json(paysBrut).sort((a, b) => parId(a.id, b.id));
+  const topo = json(topoBrut);
+  const wd = json(wdBrut);
+  const bm = json(bmBrut);
   const erreurs = [];
   const faute = (m) => erreurs.push(m);
   const notes = [];
@@ -97,16 +142,61 @@ export async function construireFiches(racine) {
   for (const id of Object.keys(wpMain)) if (lieux[id]?.s !== 'pays') faute(`${CHEMINS.main}, wp : ${id} n'est pas un pays de pays.json`);
   if (erreurs.length) throw new Error(`fiches :\n  ${erreurs.join('\n  ')}`);
 
+  // Les chiffres des 197 pays (lot F2) : geodata/fiches-pays.mjs.
+  const chiffres = chiffresPays({
+    entites,
+    formes: feature(topo, topo.objects.pays).features,
+    zones: feature(topo, topo.objects.contestees).features,
+    capitales: json(capBrut),
+    wd,
+    bm,
+    cldr,
+    zoneTab: cldr.zoneTab,
+    contestees: json(contBrut),
+    main,
+  });
+  // Ordre des clés fixe (la sorte d'abord), pour des fichiers stables et lisibles.
+  const ORDRE = ['s', 'h', 'ha', 'hs', 'sup', 'alt', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
+  const ORDRE_FR = ['wp', 'g', 'gp', 'cu', 'fn'];
+  const range = (o, ordre) => Object.fromEntries(ordre.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
+  for (const [id, l] of Object.entries(chiffres.lieux)) lieux[id] = range({ ...lieux[id], ...l }, ORDRE);
+  for (const [id, t] of Object.entries(chiffres.textes)) textes[id] = range({ ...textes[id], ...t }, ORDRE_FR);
+
   const objet = (o) => `{\n${Object.entries(o).map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(v)}`).join(',\n')}\n}`;
   const fichiers = {
     'fiches-monde.json': `{"v":${VERSION_FICHES},"lieux":${objet(lieux)}}\n`,
-    'fiches-monde.fr.json': `{"v":${VERSION_FICHES},"sous_regions":${JSON.stringify(sousRegions)},"lieux":${objet(textes)}}\n`,
+    'fiches-monde.fr.json':
+      `{"v":${VERSION_FICHES},"sous_regions":${JSON.stringify(sousRegions)},"langues":${JSON.stringify(chiffres.langues)},` +
+      `"monnaies":${JSON.stringify(chiffres.monnaies)},"lieux":${objet(textes)}}\n`,
+  };
+  const relecture = {
+    chemin: CHEMIN_RELECTURE,
+    texte: texteRelecture({
+      R: chiffres.relecture,
+      main,
+      noms: json(nomsBrut),
+      contestees: json(contBrut),
+      langues: chiffres.langues,
+      sources: { wikidata: wd.extrait_le.slice(0, 10), bm: `${bm.source.nom}, ${bm.annee}, mise à jour du ${bm.source.mis_a_jour_le}`, cldr: CLDR_TAG, tz: TZ_VERSION },
+    }),
   };
   const n = (s) => Object.values(lieux).filter((l) => l.s === s).length;
+  const R = chiffres.relecture;
   notes.push(
     `${Object.keys(lieux).length} lieux : ${n('pays')} pays, ${n('territoire')} territoires, ${n('zone')} zones, ${n('continent')} continent ; ` +
       `${Object.values(textes).filter((t) => t.wp).length} titres de Wikipédia (extrait du ${extrait.extrait_le})`,
+    `pays : habitants ${R.habitants.filter((h) => h.source === 'bm').length} Banque mondiale + ${R.habitants.filter((h) => h.source === 'wd').length} Wikidata ; ` +
+      `superficie ${R.superficies.filter((x) => x.retenue != null).length} Wikidata ; ` +
+      `${Object.keys(chiffres.langues).length} langues, ${Object.keys(chiffres.monnaies).length} monnaies ; ${R.fuseauxPlusieurs.length} pays à plusieurs fuseaux ; ` +
+      `tableaux à relire : ${CHEMIN_RELECTURE}`,
   );
-  const entrees = { [CHEMINS.script]: sha256(scriptBrut), [CHEMINS.main]: sha256(mainBrut) };
-  return { fichiers, sources: [], entrees, notes };
+  const src = await sourcesFiches(racine);
+  const entrees = {
+    [CHEMINS.script]: sha256(scriptBrut),
+    [CHEMINS.regles]: sha256(reglesBrut),
+    [CHEMINS.relecture]: sha256(relectureBrut),
+    [CHEMINS.main]: sha256(mainBrut),
+    ...src.entrees,
+  };
+  return { fichiers, relecture, sources: src.sources, entrees, notes };
 }

@@ -18,8 +18,9 @@
 //   notoriete.json   niveaux de notoriété des lieux du quiz (geodata/notoriete.mjs, étude J2
 //                    § 2.4, D48 b), tirés des extraits figés de Wikidata et d'une table à la main
 //   fiches-monde.json, fiches-monde.fr.json  fiches des lieux du monde (geodata/fiches.mjs, #34,
-//                    étude fiche-lieu § 2), tirées de pays.json, de l'extrait des capitales et
-//                    d'une table à la main
+//                    étude fiche-lieu § 2), tirées de pays.json, des extraits figés (capitales,
+//                    Wikidata, Banque mondiale), de CLDR, de tz et d'une table à la main ;
+//                    et hors de public/, docs/relectures/fiches-pays.md, les tableaux à relire
 //
 // Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales|drapeaux|mers|notoriete|fiches]
 // --seulement capitales ne refait que les capitales (sans source ni mapshaper : il lit
