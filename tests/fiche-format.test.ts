@@ -158,7 +158,8 @@ describe('chargeur des fiches du monde', () => {
       monnaies: ['yen japonais'],
       gentils: 'Japonais',
       heure: { zone: 'Asia/Tokyo', fuseaux: 1 },
-      culminant: { nom: 'mont Fuji', altitude: 3776 },
+      // 3 776 m d'après Wikipédia (Wikidata : 3 777,24, S63) : la source de la ligne.
+      culminant: { nom: 'mont Fuji', altitude: 3776, source: 'wp' },
       fete: { jour: 23, mois: 2, nom: "Anniversaire de l'empereur" },
     });
     expect(d.lieux.get('AGO')!.langues).toEqual({ officielles: ['portugais'], parlees: [{ nom: 'umbundu', part: 29 }, { nom: 'kimboundou', part: 25 }] });
@@ -167,6 +168,11 @@ describe('chargeur des fiches du monde', () => {
     // Pas de sommet pour la Somalie, pas de fête pour le Royaume-Uni : pas de champ, donc pas de ligne.
     expect(d.lieux.get('SOM')!.culminant).toBeUndefined();
     expect(d.lieux.get('GBR')!.fete).toBeUndefined();
+    // Les formes toutes faites et les sources de ligne : « au Caire », Factbook, Wikipédia.
+    expect(d.lieux.get('EGY')!.aCapitale).toBe('au Caire');
+    expect(d.lieux.get('GMB')!.culminant!.source).toBe('fb');
+    expect(d.lieux.get('VAT')!.gentilsSource).toBe('wp');
+    expect(d.lieux.get('FRA')!.culminant!.source).toBeUndefined();
     expect(d.lieux.get('GRL')).toEqual({ sorte: 'territoire', wp: null });
     expect(d.lieux.get('ATA')?.sorte).toBe('continent');
     expect(d.sousRegions['Eastern Asia']).toBe("Asie de l'Est");
