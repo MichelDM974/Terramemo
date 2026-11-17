@@ -1,0 +1,2695 @@
+{
+ "outil": "touchers_reels.py",
+ "chemin": "adb shell input tap",
+ "cible": "chrome",
+ "rendu": "canvas",
+ "navigateur": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Mobile Safari/537.36",
+ "code": {
+  "commit": "1f78db4",
+  "arbre_modifie": true,
+  "fichiers_modifies": [
+   " M .claude/skills/run-terramemo/driver.py"
+  ]
+ },
+ "vises": [
+  "BRA",
+  "RUS",
+  "FRA",
+  "MCO",
+  "VAT",
+  "SMR",
+  "LIE",
+  "AND",
+  "MLT",
+  "SGP",
+  "BHR",
+  "MDV",
+  "JAM",
+  "GRD",
+  "KNA",
+  "ATG",
+  "DMA",
+  "LCA",
+  "VCT",
+  "BRB",
+  "TTO",
+  "FJI",
+  "BRA",
+  "RUS",
+  "FRA",
+  "MCO",
+  "VAT",
+  "SMR",
+  "LIE",
+  "AND",
+  "MLT",
+  "SGP",
+  "BHR",
+  "MDV",
+  "JAM",
+  "GRD",
+  "KNA",
+  "ATG",
+  "DMA",
+  "LCA",
+  "VCT",
+  "BRB",
+  "TTO",
+  "FJI",
+  "BRA",
+  "RUS",
+  "FRA",
+  "MCO",
+  "VAT",
+  "SMR",
+  "LIE",
+  "AND",
+  "MLT",
+  "SGP",
+  "BHR",
+  "MDV",
+  "JAM",
+  "GRD",
+  "KNA",
+  "ATG",
+  "DMA",
+  "LCA",
+  "VCT",
+  "BRB",
+  "TTO",
+  "FJI"
+ ],
+ "rapport": {
+  "v": 6,
+  "version": "1f78db44a4",
+  "date": "2026-11-16T18:41:19.172Z",
+  "agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Mobile Safari/537.36",
+  "ecran": {
+   "largeur": 384,
+   "hauteur": 692,
+   "dpr": 2.8125,
+   "carte": {
+    "largeur": 384,
+    "hauteur": 634
+   },
+   "periode_ms": 16.7,
+   "hz": 59.9
+  },
+  "rendu": "canvas",
+  "projection": "monde",
+  "capacites": {
+   "long_animation_frame": true,
+   "event_timing": true
+  },
+  "chargement": {
+   "total_ms": 1010,
+   "debut_script_ms": 747.1,
+   "etapes": {
+    "telechargement_ms": 18.7,
+    "analyse_ms": 24.9,
+    "feature_ms": 33.1,
+    "chemins_ms": 86.2,
+    "insertion_ms": 28.7,
+    "peinture_ms": 30.2
+   },
+   "ressources": [
+    {
+     "nom": "monde.topo.json",
+     "transfert": 0,
+     "decode": 1249540,
+     "duree_ms": 58.2
+    },
+    {
+     "nom": "pays.json",
+     "transfert": 0,
+     "decode": 68446,
+     "duree_ms": 47.3
+    },
+    {
+     "nom": "contestees.json",
+     "transfert": 0,
+     "decode": 13965,
+     "duree_ms": 46.3
+    },
+    {
+     "nom": "noms.fr.json",
+     "transfert": 0,
+     "decode": 8546,
+     "duree_ms": 46.3
+    },
+    {
+     "nom": "monde-leger.topo.json",
+     "transfert": 0,
+     "decode": 153234,
+     "duree_ms": 4.7
+    }
+   ],
+   "caracteres_chemins": 0,
+   "pastilles": 164
+  },
+  "gestes": [],
+  "touchers": [
+   {
+    "t_ms": 5368.7,
+    "x": 140.1,
+    "y": 334.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BRA",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 10.6,
+    "latence_raf_ms": 32.7,
+    "fin_fil_principal_ms": 34.4,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 13.1,
+     "traitement_ms": 11.4,
+     "presentation_ms": 55.5,
+     "interaction": 7797
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 6224.7,
+    "x": 277,
+    "y": 237.8,
+    "pointeur": "touch",
+    "pick": {
+     "id": "RUS",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 13.4,
+    "latence_raf_ms": 45.7,
+    "fin_fil_principal_ms": 48.3,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 20.4,
+     "traitement_ms": 14.3,
+     "presentation_ms": 53.3,
+     "interaction": 7804
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 7079.7,
+    "x": 194.1,
+    "y": 253.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "FRA",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 5.3,
+    "latence_raf_ms": 43.1,
+    "fin_fil_principal_ms": 47.6,
+    "event_timing": {
+     "duree_ms": 104,
+     "attente_ms": 16.1,
+     "traitement_ms": 7.3,
+     "presentation_ms": 80.6,
+     "interaction": 7811
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 7926.7,
+    "x": 198.8,
+    "y": 257.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MCO",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 4.4,
+    "latence_raf_ms": 41.2,
+    "fin_fil_principal_ms": 42.5,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 18.4,
+     "traitement_ms": 6.4,
+     "presentation_ms": 63.2,
+     "interaction": 7818
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 8785.7,
+    "x": 203.7,
+    "y": 259.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "VAT",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 6.9,
+    "latence_raf_ms": 38,
+    "fin_fil_principal_ms": 39.4,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 16.1,
+     "traitement_ms": 8.2,
+     "presentation_ms": 55.7,
+     "interaction": 7825
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 9640.7,
+    "x": 203.4,
+    "y": 257.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "SMR",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 5,
+    "latence_raf_ms": 41,
+    "fin_fil_principal_ms": 44.4,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 16.9,
+     "traitement_ms": 6.3,
+     "presentation_ms": 72.8,
+     "interaction": 7832
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 10494.7,
+    "x": 200.5,
+    "y": 253.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "LIE",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 6.1,
+    "latence_raf_ms": 39.4,
+    "fin_fil_principal_ms": 42,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 17,
+     "traitement_ms": 7.7,
+     "presentation_ms": 71.3,
+     "interaction": 7839
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 11336.7,
+    "x": 193.4,
+    "y": 258.8,
+    "pointeur": "touch",
+    "pick": {
+     "id": "AND",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 4.3,
+    "latence_raf_ms": 33.7,
+    "fin_fil_principal_ms": 36.2,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 14,
+     "traitement_ms": 5.7,
+     "presentation_ms": 68.3,
+     "interaction": 7846
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 12182.7,
+    "x": 205.9,
+    "y": 267.3,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MLT",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 5.9,
+    "latence_raf_ms": 42,
+    "fin_fil_principal_ms": 45.4,
+    "event_timing": {
+     "duree_ms": 104,
+     "attente_ms": 17.4,
+     "traitement_ms": 8.4,
+     "presentation_ms": 78.2,
+     "interaction": 7853
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 13033.7,
+    "x": 302.6,
+    "y": 315,
+    "pointeur": "touch",
+    "pick": {
+     "id": "SGP",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 7.4,
+    "latence_raf_ms": 36.6,
+    "fin_fil_principal_ms": 38.2,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 15.8,
+     "traitement_ms": 8.5,
+     "presentation_ms": 47.7,
+     "interaction": 7860
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 13866.7,
+    "x": 243.2,
+    "y": 280.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BHR",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 8.9,
+    "latence_raf_ms": 38.7,
+    "fin_fil_principal_ms": 40.4,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 14.4,
+     "traitement_ms": 10.7,
+     "presentation_ms": 70.9,
+     "interaction": 7867
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 14712.7,
+    "x": 270.2,
+    "y": 311.1,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MDV",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 2.4,
+    "latence_raf_ms": 37.2,
+    "fin_fil_principal_ms": 39.9,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 16.7,
+     "traitement_ms": 3.6,
+     "presentation_ms": 59.7,
+     "interaction": 7874
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 15549.7,
+    "x": 111.3,
+    "y": 291.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "JAM",
+     "via": "pastille",
+     "distance_px": 0
+    },
+    "traitement_ms": 3.7,
+    "latence_raf_ms": 31.9,
+    "fin_fil_principal_ms": 34.5,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 12.5,
+     "traitement_ms": 4.7,
+     "presentation_ms": 62.8,
+     "interaction": 7881
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 16377.7,
+    "x": 126.9,
+    "y": 299.7,
+    "pointeur": "touch",
+    "pick": {
+     "id": "GRD",
+     "via": "pastille",
+     "distance_px": 0
+    },
+    "traitement_ms": 3.7,
+    "latence_raf_ms": 39.1,
+    "fin_fil_principal_ms": 42.1,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 17.8,
+     "traitement_ms": 5.3,
+     "presentation_ms": 64.9,
+     "interaction": 7888
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 17234.7,
+    "x": 126.6,
+    "y": 292.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "KNA",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 3.2,
+    "latence_raf_ms": 34.1,
+    "fin_fil_principal_ms": 37,
+    "event_timing": {
+     "duree_ms": 112,
+     "attente_ms": 13.7,
+     "traitement_ms": 4.4,
+     "presentation_ms": 93.9,
+     "interaction": 7895
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 18078.7,
+    "x": 127.6,
+    "y": 292.6,
+    "pointeur": "touch",
+    "pick": {
+     "id": "ATG",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 2.9,
+    "latence_raf_ms": 31.6,
+    "fin_fil_principal_ms": 34.1,
+    "event_timing": {
+     "duree_ms": 104,
+     "attente_ms": 13.5,
+     "traitement_ms": 3.8,
+     "presentation_ms": 86.7,
+     "interaction": 7902
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 18928.7,
+    "x": 127.6,
+    "y": 295.1,
+    "pointeur": "touch",
+    "pick": {
+     "id": "DMA",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 5.9,
+    "latence_raf_ms": 41.5,
+    "fin_fil_principal_ms": 45.8,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 16.8,
+     "traitement_ms": 7.4,
+     "presentation_ms": 63.8,
+     "interaction": 7909
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 19785.7,
+    "x": 128,
+    "y": 297.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "LCA",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 3.7,
+    "latence_raf_ms": 32.6,
+    "fin_fil_principal_ms": 35.4,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 14.9,
+     "traitement_ms": 4.5,
+     "presentation_ms": 68.6,
+     "interaction": 7916
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 20597.7,
+    "x": 127.6,
+    "y": 297.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "VCT",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 1.5,
+    "latence_raf_ms": 26.5,
+    "fin_fil_principal_ms": 28.6,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 9.8,
+     "traitement_ms": 2.2,
+     "presentation_ms": 60,
+     "interaction": 7923
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 21386.7,
+    "x": 129.4,
+    "y": 298.3,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BRB",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 1,
+    "latence_raf_ms": 21.2,
+    "fin_fil_principal_ms": 22.3,
+    "event_timing": {
+     "duree_ms": 56,
+     "attente_ms": 11.8,
+     "traitement_ms": 1.4,
+     "presentation_ms": 42.8,
+     "interaction": 7930
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 22193.7,
+    "x": 127.3,
+    "y": 302.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "TTO",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 0.8,
+    "latence_raf_ms": 22.3,
+    "fin_fil_principal_ms": 34.4,
+    "event_timing": {
+     "duree_ms": 64,
+     "attente_ms": 9.3,
+     "traitement_ms": 1.1,
+     "presentation_ms": 53.6,
+     "interaction": 7937
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 23000.7,
+    "x": 377.6,
+    "y": 342.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "FJI",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 0.6,
+    "latence_raf_ms": 26.5,
+    "fin_fil_principal_ms": 27.8,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 6.5,
+     "traitement_ms": 1,
+     "presentation_ms": 64.5,
+     "interaction": 7944
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 23777.7,
+    "x": 140.1,
+    "y": 334.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BRA",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 1.2,
+    "latence_raf_ms": 28.1,
+    "fin_fil_principal_ms": 32.2,
+    "event_timing": {
+     "duree_ms": 64,
+     "attente_ms": 12.9,
+     "traitement_ms": 2.6,
+     "presentation_ms": 48.5,
+     "interaction": 7951
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 24603.7,
+    "x": 277,
+    "y": 237.8,
+    "pointeur": "touch",
+    "pick": {
+     "id": "RUS",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 0.6,
+    "latence_raf_ms": 33,
+    "fin_fil_principal_ms": 36,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 10.6,
+     "traitement_ms": 0.9,
+     "presentation_ms": 76.5,
+     "interaction": 7958
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 25406.7,
+    "x": 194.1,
+    "y": 253.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "FRA",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 0.7,
+    "latence_raf_ms": 13.4,
+    "fin_fil_principal_ms": 27.6,
+    "event_timing": {
+     "duree_ms": 56,
+     "attente_ms": 9.4,
+     "traitement_ms": 1.2,
+     "presentation_ms": 45.4,
+     "interaction": 7965
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 26181.7,
+    "x": 198.8,
+    "y": 257.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MCO",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 1.2,
+    "latence_raf_ms": 20.1,
+    "fin_fil_principal_ms": 22,
+    "event_timing": {
+     "duree_ms": 48,
+     "attente_ms": 11.4,
+     "traitement_ms": 2,
+     "presentation_ms": 34.6,
+     "interaction": 7972
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 26989.7,
+    "x": 203.7,
+    "y": 259.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "VAT",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 1.4,
+    "latence_raf_ms": 27.7,
+    "fin_fil_principal_ms": 30.5,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 8.3,
+     "traitement_ms": 3.6,
+     "presentation_ms": 60.1,
+     "interaction": 7979
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 27783.7,
+    "x": 203.4,
+    "y": 257.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "SMR",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 1.8,
+    "latence_raf_ms": 34.9,
+    "fin_fil_principal_ms": 37.1,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 11.3,
+     "traitement_ms": 2.5,
+     "presentation_ms": 66.2,
+     "interaction": 7986
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 28557.7,
+    "x": 200.5,
+    "y": 253.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "LIE",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 0.7,
+    "latence_raf_ms": 16,
+    "fin_fil_principal_ms": 17,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 6.8,
+     "traitement_ms": 1.2,
+     "presentation_ms": 72,
+     "interaction": 7993
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 29359.7,
+    "x": 193.4,
+    "y": 258.8,
+    "pointeur": "touch",
+    "pick": {
+     "id": "AND",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 0.9,
+    "latence_raf_ms": 27.9,
+    "fin_fil_principal_ms": 29.3,
+    "event_timing": {
+     "duree_ms": 56,
+     "attente_ms": 9,
+     "traitement_ms": 1.3,
+     "presentation_ms": 45.7,
+     "interaction": 8000
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 30185.7,
+    "x": 205.9,
+    "y": 267.3,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MLT",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 8.1,
+    "latence_raf_ms": 54.7,
+    "fin_fil_principal_ms": 57.3,
+    "event_timing": {
+     "duree_ms": 104,
+     "attente_ms": 22.4,
+     "traitement_ms": 9.6,
+     "presentation_ms": 72,
+     "interaction": 8007
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 31000.7,
+    "x": 302.6,
+    "y": 315,
+    "pointeur": "touch",
+    "pick": {
+     "id": "SGP",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 1.7,
+    "latence_raf_ms": 22.8,
+    "fin_fil_principal_ms": 24.3,
+    "event_timing": {
+     "duree_ms": 56,
+     "attente_ms": 7.1,
+     "traitement_ms": 2.1,
+     "presentation_ms": 46.8,
+     "interaction": 8014
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 31808.7,
+    "x": 243.2,
+    "y": 280.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BHR",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 6.8,
+    "latence_raf_ms": 38.9,
+    "fin_fil_principal_ms": 42.7,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 13.3,
+     "traitement_ms": 8.4,
+     "presentation_ms": 58.3,
+     "interaction": 8021
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 32651.7,
+    "x": 270.2,
+    "y": 311.1,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MDV",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 0.9,
+    "latence_raf_ms": 27.2,
+    "fin_fil_principal_ms": 29.2,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 15.7,
+     "traitement_ms": 1.2,
+     "presentation_ms": 55.1,
+     "interaction": 8028
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 33474.7,
+    "x": 111.3,
+    "y": 291.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "JAM",
+     "via": "pastille",
+     "distance_px": 0
+    },
+    "traitement_ms": 3.9,
+    "latence_raf_ms": 39.1,
+    "fin_fil_principal_ms": 42.2,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 15.6,
+     "traitement_ms": 5.6,
+     "presentation_ms": 66.8,
+     "interaction": 8035
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 34313.7,
+    "x": 126.9,
+    "y": 299.7,
+    "pointeur": "touch",
+    "pick": {
+     "id": "GRD",
+     "via": "pastille",
+     "distance_px": 0
+    },
+    "traitement_ms": 1.6,
+    "latence_raf_ms": 34.5,
+    "fin_fil_principal_ms": 37.4,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 16.5,
+     "traitement_ms": 2.3,
+     "presentation_ms": 61.2,
+     "interaction": 8042
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 35132.7,
+    "x": 126.6,
+    "y": 292.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "KNA",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 3.4,
+    "latence_raf_ms": 39.1,
+    "fin_fil_principal_ms": 41,
+    "event_timing": {
+     "duree_ms": 112,
+     "attente_ms": 13.1,
+     "traitement_ms": 4.6,
+     "presentation_ms": 94.3,
+     "interaction": 8049
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 35971.7,
+    "x": 127.6,
+    "y": 292.6,
+    "pointeur": "touch",
+    "pick": {
+     "id": "ATG",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 1.7,
+    "latence_raf_ms": 29.2,
+    "fin_fil_principal_ms": 32.6,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 12.4,
+     "traitement_ms": 2.3,
+     "presentation_ms": 57.3,
+     "interaction": 8056
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 36814.7,
+    "x": 127.6,
+    "y": 295.1,
+    "pointeur": "touch",
+    "pick": {
+     "id": "DMA",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 4.5,
+    "latence_raf_ms": 36.8,
+    "fin_fil_principal_ms": 39.2,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 15.3,
+     "traitement_ms": 5.6,
+     "presentation_ms": 59.1,
+     "interaction": 8063
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 37663.7,
+    "x": 128,
+    "y": 297.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "LCA",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 3.2,
+    "latence_raf_ms": 36.5,
+    "fin_fil_principal_ms": 38.1,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 17.6,
+     "traitement_ms": 4.6,
+     "presentation_ms": 65.8,
+     "interaction": 8070
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 38470.7,
+    "x": 127.6,
+    "y": 297.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "VCT",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 3,
+    "latence_raf_ms": 26.9,
+    "fin_fil_principal_ms": 29,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 10.5,
+     "traitement_ms": 4.1,
+     "presentation_ms": 65.4,
+     "interaction": 8077
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 39293.7,
+    "x": 129.4,
+    "y": 298.3,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BRB",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 2.7,
+    "latence_raf_ms": 28.3,
+    "fin_fil_principal_ms": 30.6,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 12.5,
+     "traitement_ms": 3.7,
+     "presentation_ms": 55.8,
+     "interaction": 8084
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 40139.7,
+    "x": 127.3,
+    "y": 302.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "TTO",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 4.7,
+    "latence_raf_ms": 54.5,
+    "fin_fil_principal_ms": 56.1,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 37.1,
+     "traitement_ms": 6,
+     "presentation_ms": 52.9,
+     "interaction": 8091
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 41006.7,
+    "x": 377.6,
+    "y": 342.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "FJI",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 4.1,
+    "latence_raf_ms": 36.7,
+    "fin_fil_principal_ms": 39.1,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 15.1,
+     "traitement_ms": 5.9,
+     "presentation_ms": 59,
+     "interaction": 8098
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 41853.7,
+    "x": 140.1,
+    "y": 334.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BRA",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 4.9,
+    "latence_raf_ms": 42.3,
+    "fin_fil_principal_ms": 45.1,
+    "event_timing": {
+     "duree_ms": 104,
+     "attente_ms": 16.1,
+     "traitement_ms": 6.4,
+     "presentation_ms": 81.5,
+     "interaction": 8105
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 42699.7,
+    "x": 277,
+    "y": 237.8,
+    "pointeur": "touch",
+    "pick": {
+     "id": "RUS",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 3.8,
+    "latence_raf_ms": 36.9,
+    "fin_fil_principal_ms": 40.2,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 13.2,
+     "traitement_ms": 5.4,
+     "presentation_ms": 77.4,
+     "interaction": 8112
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 43551.7,
+    "x": 194.1,
+    "y": 253.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "FRA",
+     "via": "trace",
+     "distance_px": 0
+    },
+    "traitement_ms": 3.7,
+    "latence_raf_ms": 37.9,
+    "fin_fil_principal_ms": 41.7,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 15.9,
+     "traitement_ms": 4.6,
+     "presentation_ms": 75.5,
+     "interaction": 8119
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 44395.7,
+    "x": 198.8,
+    "y": 257.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MCO",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 2.6,
+    "latence_raf_ms": 30.7,
+    "fin_fil_principal_ms": 33.2,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 13.5,
+     "traitement_ms": 3.7,
+     "presentation_ms": 62.8,
+     "interaction": 8126
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 45237.7,
+    "x": 203.7,
+    "y": 259.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "VAT",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 3.9,
+    "latence_raf_ms": 40.1,
+    "fin_fil_principal_ms": 43.5,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 19.2,
+     "traitement_ms": 5.3,
+     "presentation_ms": 71.5,
+     "interaction": 8133
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 46089.7,
+    "x": 203.4,
+    "y": 257.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "SMR",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 3.7,
+    "latence_raf_ms": 39.2,
+    "fin_fil_principal_ms": 42,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 19,
+     "traitement_ms": 5.3,
+     "presentation_ms": 71.7,
+     "interaction": 8140
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 46918.7,
+    "x": 200.5,
+    "y": 253.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "LIE",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 4.9,
+    "latence_raf_ms": 34.6,
+    "fin_fil_principal_ms": 37.5,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 15.7,
+     "traitement_ms": 7,
+     "presentation_ms": 57.3,
+     "interaction": 8147
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 47773.7,
+    "x": 193.4,
+    "y": 258.8,
+    "pointeur": "touch",
+    "pick": {
+     "id": "AND",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 2.9,
+    "latence_raf_ms": 33.3,
+    "fin_fil_principal_ms": 36.4,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 15.9,
+     "traitement_ms": 4,
+     "presentation_ms": 60.1,
+     "interaction": 8154
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 48621.7,
+    "x": 205.9,
+    "y": 267.3,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MLT",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 5,
+    "latence_raf_ms": 37.4,
+    "fin_fil_principal_ms": 40.1,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 16.6,
+     "traitement_ms": 6.4,
+     "presentation_ms": 73,
+     "interaction": 8161
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 49466.7,
+    "x": 302.6,
+    "y": 315,
+    "pointeur": "touch",
+    "pick": {
+     "id": "SGP",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 3.9,
+    "latence_raf_ms": 35.3,
+    "fin_fil_principal_ms": 38.6,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 14.2,
+     "traitement_ms": 4.9,
+     "presentation_ms": 68.9,
+     "interaction": 8168
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 50321.7,
+    "x": 243.2,
+    "y": 280.5,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BHR",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 3.6,
+    "latence_raf_ms": 33.3,
+    "fin_fil_principal_ms": 36.4,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 15,
+     "traitement_ms": 4.8,
+     "presentation_ms": 68.2,
+     "interaction": 8175
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 51200.7,
+    "x": 270.2,
+    "y": 311.1,
+    "pointeur": "touch",
+    "pick": {
+     "id": "MDV",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 5,
+    "latence_raf_ms": 39.7,
+    "fin_fil_principal_ms": 41.7,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 15.6,
+     "traitement_ms": 6.9,
+     "presentation_ms": 65.5,
+     "interaction": 8182
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 52047.7,
+    "x": 111.3,
+    "y": 291.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "JAM",
+     "via": "pastille",
+     "distance_px": 0
+    },
+    "traitement_ms": 2.4,
+    "latence_raf_ms": 32.8,
+    "fin_fil_principal_ms": 36.2,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 14.9,
+     "traitement_ms": 3.5,
+     "presentation_ms": 77.6,
+     "interaction": 8189
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 52897.7,
+    "x": 126.9,
+    "y": 299.7,
+    "pointeur": "touch",
+    "pick": {
+     "id": "GRD",
+     "via": "pastille",
+     "distance_px": 0
+    },
+    "traitement_ms": 3.8,
+    "latence_raf_ms": 38.1,
+    "fin_fil_principal_ms": 42.7,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 16.8,
+     "traitement_ms": 5.4,
+     "presentation_ms": 57.8,
+     "interaction": 8196
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 53744.7,
+    "x": 126.6,
+    "y": 292.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "KNA",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 2.9,
+    "latence_raf_ms": 33.6,
+    "fin_fil_principal_ms": 36.8,
+    "event_timing": {
+     "duree_ms": 104,
+     "attente_ms": 14.8,
+     "traitement_ms": 4,
+     "presentation_ms": 85.2,
+     "interaction": 8203
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 54590.7,
+    "x": 127.6,
+    "y": 292.6,
+    "pointeur": "touch",
+    "pick": {
+     "id": "ATG",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 6,
+    "latence_raf_ms": 39.1,
+    "fin_fil_principal_ms": 42.4,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 15.4,
+     "traitement_ms": 7.2,
+     "presentation_ms": 65.4,
+     "interaction": 8210
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 55440.7,
+    "x": 127.6,
+    "y": 295.1,
+    "pointeur": "touch",
+    "pick": {
+     "id": "DMA",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 2.5,
+    "latence_raf_ms": 29.5,
+    "fin_fil_principal_ms": 32.1,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 13.3,
+     "traitement_ms": 3.6,
+     "presentation_ms": 55.1,
+     "interaction": 8217
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 56287.7,
+    "x": 128,
+    "y": 297.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "LCA",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 3.1,
+    "latence_raf_ms": 35.2,
+    "fin_fil_principal_ms": 38,
+    "event_timing": {
+     "duree_ms": 96,
+     "attente_ms": 16.2,
+     "traitement_ms": 4.4,
+     "presentation_ms": 75.4,
+     "interaction": 8224
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 57141.7,
+    "x": 127.6,
+    "y": 297.9,
+    "pointeur": "touch",
+    "pick": {
+     "id": "VCT",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 2.8,
+    "latence_raf_ms": 38.8,
+    "fin_fil_principal_ms": 42.3,
+    "event_timing": {
+     "duree_ms": 112,
+     "attente_ms": 20.3,
+     "traitement_ms": 4.2,
+     "presentation_ms": 87.5,
+     "interaction": 8231
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 57996.7,
+    "x": 129.4,
+    "y": 298.3,
+    "pointeur": "touch",
+    "pick": {
+     "id": "BRB",
+     "via": "pastille",
+     "distance_px": 0.2
+    },
+    "traitement_ms": 2.8,
+    "latence_raf_ms": 31.8,
+    "fin_fil_principal_ms": 33.3,
+    "event_timing": {
+     "duree_ms": 72,
+     "attente_ms": 14.9,
+     "traitement_ms": 3.9,
+     "presentation_ms": 53.2,
+     "interaction": 8238
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 58846.7,
+    "x": 127.3,
+    "y": 302.2,
+    "pointeur": "touch",
+    "pick": {
+     "id": "TTO",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 3.3,
+    "latence_raf_ms": 38.2,
+    "fin_fil_principal_ms": 40.8,
+    "event_timing": {
+     "duree_ms": 88,
+     "attente_ms": 17.9,
+     "traitement_ms": 4.6,
+     "presentation_ms": 65.5,
+     "interaction": 8245
+    },
+    "event_timing_etat": "mesure"
+   },
+   {
+    "t_ms": 59689.7,
+    "x": 377.6,
+    "y": 342.4,
+    "pointeur": "touch",
+    "pick": {
+     "id": "FJI",
+     "via": "pastille",
+     "distance_px": 0.1
+    },
+    "traitement_ms": 3.6,
+    "latence_raf_ms": 30.2,
+    "fin_fil_principal_ms": 32.9,
+    "event_timing": {
+     "duree_ms": 80,
+     "attente_ms": 13.8,
+     "traitement_ms": 4.5,
+     "presentation_ms": 61.7,
+     "interaction": 8252
+    },
+    "event_timing_etat": "mesure"
+   }
+  ],
+  "longues_images": [],
+  "interactions": [
+   {
+    "nom": "pointerup",
+    "debut_ms": 5368.7,
+    "duree_ms": 80,
+    "interaction": 7797
+   },
+   {
+    "nom": "click",
+    "debut_ms": 5368.7,
+    "duree_ms": 80,
+    "interaction": 7797
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 6224.7,
+    "duree_ms": 16,
+    "interaction": 7804
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 6224.7,
+    "duree_ms": 88,
+    "interaction": 7804
+   },
+   {
+    "nom": "click",
+    "debut_ms": 6224.7,
+    "duree_ms": 88,
+    "interaction": 7804
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 7079.7,
+    "duree_ms": 16,
+    "interaction": 7811
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 7079.7,
+    "duree_ms": 104,
+    "interaction": 7811
+   },
+   {
+    "nom": "click",
+    "debut_ms": 7079.7,
+    "duree_ms": 104,
+    "interaction": 7811
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 7926.7,
+    "duree_ms": 16,
+    "interaction": 7818
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 7926.7,
+    "duree_ms": 88,
+    "interaction": 7818
+   },
+   {
+    "nom": "click",
+    "debut_ms": 7926.7,
+    "duree_ms": 88,
+    "interaction": 7818
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 8785.7,
+    "duree_ms": 16,
+    "interaction": 7825
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 8785.7,
+    "duree_ms": 80,
+    "interaction": 7825
+   },
+   {
+    "nom": "click",
+    "debut_ms": 8785.7,
+    "duree_ms": 80,
+    "interaction": 7825
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 9640.7,
+    "duree_ms": 16,
+    "interaction": 7832
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 9640.7,
+    "duree_ms": 96,
+    "interaction": 7832
+   },
+   {
+    "nom": "click",
+    "debut_ms": 9640.7,
+    "duree_ms": 96,
+    "interaction": 7832
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 10494.7,
+    "duree_ms": 96,
+    "interaction": 7839
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 10494.7,
+    "duree_ms": 96,
+    "interaction": 7839
+   },
+   {
+    "nom": "click",
+    "debut_ms": 10494.7,
+    "duree_ms": 96,
+    "interaction": 7839
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 11336.7,
+    "duree_ms": 16,
+    "interaction": 7846
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 11336.7,
+    "duree_ms": 88,
+    "interaction": 7846
+   },
+   {
+    "nom": "click",
+    "debut_ms": 11336.7,
+    "duree_ms": 88,
+    "interaction": 7846
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 12182.7,
+    "duree_ms": 16,
+    "interaction": 7853
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 12182.7,
+    "duree_ms": 104,
+    "interaction": 7853
+   },
+   {
+    "nom": "click",
+    "debut_ms": 12182.7,
+    "duree_ms": 104,
+    "interaction": 7853
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 13033.7,
+    "duree_ms": 16,
+    "interaction": 7860
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 13033.7,
+    "duree_ms": 72,
+    "interaction": 7860
+   },
+   {
+    "nom": "click",
+    "debut_ms": 13033.7,
+    "duree_ms": 72,
+    "interaction": 7860
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 13866.7,
+    "duree_ms": 16,
+    "interaction": 7867
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 13866.7,
+    "duree_ms": 96,
+    "interaction": 7867
+   },
+   {
+    "nom": "click",
+    "debut_ms": 13866.7,
+    "duree_ms": 96,
+    "interaction": 7867
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 14712.7,
+    "duree_ms": 80,
+    "interaction": 7874
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 14712.7,
+    "duree_ms": 80,
+    "interaction": 7874
+   },
+   {
+    "nom": "click",
+    "debut_ms": 14712.7,
+    "duree_ms": 80,
+    "interaction": 7874
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 15549.7,
+    "duree_ms": 80,
+    "interaction": 7881
+   },
+   {
+    "nom": "click",
+    "debut_ms": 15549.7,
+    "duree_ms": 80,
+    "interaction": 7881
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 16377.7,
+    "duree_ms": 16,
+    "interaction": 7888
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 16377.7,
+    "duree_ms": 88,
+    "interaction": 7888
+   },
+   {
+    "nom": "click",
+    "debut_ms": 16377.7,
+    "duree_ms": 88,
+    "interaction": 7888
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 17234.7,
+    "duree_ms": 112,
+    "interaction": 7895
+   },
+   {
+    "nom": "click",
+    "debut_ms": 17234.7,
+    "duree_ms": 112,
+    "interaction": 7895
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 18078.7,
+    "duree_ms": 16,
+    "interaction": 7902
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 18078.7,
+    "duree_ms": 104,
+    "interaction": 7902
+   },
+   {
+    "nom": "click",
+    "debut_ms": 18078.7,
+    "duree_ms": 104,
+    "interaction": 7902
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 18928.7,
+    "duree_ms": 16,
+    "interaction": 7909
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 18928.7,
+    "duree_ms": 88,
+    "interaction": 7909
+   },
+   {
+    "nom": "click",
+    "debut_ms": 18928.7,
+    "duree_ms": 88,
+    "interaction": 7909
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 19785.7,
+    "duree_ms": 16,
+    "interaction": 7916
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 19785.7,
+    "duree_ms": 88,
+    "interaction": 7916
+   },
+   {
+    "nom": "click",
+    "debut_ms": 19785.7,
+    "duree_ms": 88,
+    "interaction": 7916
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 20597.7,
+    "duree_ms": 72,
+    "interaction": 7923
+   },
+   {
+    "nom": "click",
+    "debut_ms": 20597.7,
+    "duree_ms": 72,
+    "interaction": 7923
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 21386.7,
+    "duree_ms": 56,
+    "interaction": 7930
+   },
+   {
+    "nom": "click",
+    "debut_ms": 21386.7,
+    "duree_ms": 56,
+    "interaction": 7930
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 22193.7,
+    "duree_ms": 64,
+    "interaction": 7937
+   },
+   {
+    "nom": "click",
+    "debut_ms": 22193.7,
+    "duree_ms": 64,
+    "interaction": 7937
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 23000.7,
+    "duree_ms": 72,
+    "interaction": 7944
+   },
+   {
+    "nom": "click",
+    "debut_ms": 23000.7,
+    "duree_ms": 72,
+    "interaction": 7944
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 23777.7,
+    "duree_ms": 64,
+    "interaction": 7951
+   },
+   {
+    "nom": "click",
+    "debut_ms": 23777.7,
+    "duree_ms": 64,
+    "interaction": 7951
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 24603.7,
+    "duree_ms": 88,
+    "interaction": 7958
+   },
+   {
+    "nom": "click",
+    "debut_ms": 24603.7,
+    "duree_ms": 88,
+    "interaction": 7958
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 25406.7,
+    "duree_ms": 56,
+    "interaction": 7965
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 25406.7,
+    "duree_ms": 56,
+    "interaction": 7965
+   },
+   {
+    "nom": "click",
+    "debut_ms": 25406.7,
+    "duree_ms": 24,
+    "interaction": 7965
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 26181.7,
+    "duree_ms": 48,
+    "interaction": 7972
+   },
+   {
+    "nom": "click",
+    "debut_ms": 26181.7,
+    "duree_ms": 48,
+    "interaction": 7972
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 26989.7,
+    "duree_ms": 72,
+    "interaction": 7979
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 26989.7,
+    "duree_ms": 72,
+    "interaction": 7979
+   },
+   {
+    "nom": "click",
+    "debut_ms": 26989.7,
+    "duree_ms": 72,
+    "interaction": 7979
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 27783.7,
+    "duree_ms": 80,
+    "interaction": 7986
+   },
+   {
+    "nom": "click",
+    "debut_ms": 27783.7,
+    "duree_ms": 80,
+    "interaction": 7986
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 28557.7,
+    "duree_ms": 80,
+    "interaction": 7993
+   },
+   {
+    "nom": "click",
+    "debut_ms": 28557.7,
+    "duree_ms": 80,
+    "interaction": 7993
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 29359.7,
+    "duree_ms": 56,
+    "interaction": 8000
+   },
+   {
+    "nom": "click",
+    "debut_ms": 29359.7,
+    "duree_ms": 56,
+    "interaction": 8000
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 30185.7,
+    "duree_ms": 16,
+    "interaction": 8007
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 30185.7,
+    "duree_ms": 104,
+    "interaction": 8007
+   },
+   {
+    "nom": "click",
+    "debut_ms": 30185.7,
+    "duree_ms": 104,
+    "interaction": 8007
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 31000.7,
+    "duree_ms": 56,
+    "interaction": 8014
+   },
+   {
+    "nom": "click",
+    "debut_ms": 31000.7,
+    "duree_ms": 56,
+    "interaction": 8014
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 31808.7,
+    "duree_ms": 16,
+    "interaction": 8021
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 31808.7,
+    "duree_ms": 80,
+    "interaction": 8021
+   },
+   {
+    "nom": "click",
+    "debut_ms": 31808.7,
+    "duree_ms": 80,
+    "interaction": 8021
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 32651.7,
+    "duree_ms": 16,
+    "interaction": 8028
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 32651.7,
+    "duree_ms": 72,
+    "interaction": 8028
+   },
+   {
+    "nom": "click",
+    "debut_ms": 32651.7,
+    "duree_ms": 72,
+    "interaction": 8028
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 33474.7,
+    "duree_ms": 16,
+    "interaction": 8035
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 33474.7,
+    "duree_ms": 88,
+    "interaction": 8035
+   },
+   {
+    "nom": "click",
+    "debut_ms": 33474.7,
+    "duree_ms": 88,
+    "interaction": 8035
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 34313.7,
+    "duree_ms": 16,
+    "interaction": 8042
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 34313.7,
+    "duree_ms": 80,
+    "interaction": 8042
+   },
+   {
+    "nom": "click",
+    "debut_ms": 34313.7,
+    "duree_ms": 80,
+    "interaction": 8042
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 35132.7,
+    "duree_ms": 16,
+    "interaction": 8049
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 35132.7,
+    "duree_ms": 112,
+    "interaction": 8049
+   },
+   {
+    "nom": "click",
+    "debut_ms": 35132.7,
+    "duree_ms": 112,
+    "interaction": 8049
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 35971.7,
+    "duree_ms": 72,
+    "interaction": 8056
+   },
+   {
+    "nom": "click",
+    "debut_ms": 35971.7,
+    "duree_ms": 72,
+    "interaction": 8056
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 36814.7,
+    "duree_ms": 16,
+    "interaction": 8063
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 36814.7,
+    "duree_ms": 80,
+    "interaction": 8063
+   },
+   {
+    "nom": "click",
+    "debut_ms": 36814.7,
+    "duree_ms": 80,
+    "interaction": 8063
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 37663.7,
+    "duree_ms": 16,
+    "interaction": 8070
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 37663.7,
+    "duree_ms": 88,
+    "interaction": 8070
+   },
+   {
+    "nom": "click",
+    "debut_ms": 37663.7,
+    "duree_ms": 88,
+    "interaction": 8070
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 38470.7,
+    "duree_ms": 80,
+    "interaction": 8077
+   },
+   {
+    "nom": "click",
+    "debut_ms": 38470.7,
+    "duree_ms": 80,
+    "interaction": 8077
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 39293.7,
+    "duree_ms": 16,
+    "interaction": 8084
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 39293.7,
+    "duree_ms": 72,
+    "interaction": 8084
+   },
+   {
+    "nom": "click",
+    "debut_ms": 39293.7,
+    "duree_ms": 72,
+    "interaction": 8084
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 40139.7,
+    "duree_ms": 32,
+    "interaction": 8091
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 40139.7,
+    "duree_ms": 96,
+    "interaction": 8091
+   },
+   {
+    "nom": "click",
+    "debut_ms": 40139.7,
+    "duree_ms": 96,
+    "interaction": 8091
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 41006.7,
+    "duree_ms": 16,
+    "interaction": 8098
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 41006.7,
+    "duree_ms": 80,
+    "interaction": 8098
+   },
+   {
+    "nom": "click",
+    "debut_ms": 41006.7,
+    "duree_ms": 80,
+    "interaction": 8098
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 41853.7,
+    "duree_ms": 16,
+    "interaction": 8105
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 41853.7,
+    "duree_ms": 104,
+    "interaction": 8105
+   },
+   {
+    "nom": "click",
+    "debut_ms": 41853.7,
+    "duree_ms": 104,
+    "interaction": 8105
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 42699.7,
+    "duree_ms": 96,
+    "interaction": 8112
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 42699.7,
+    "duree_ms": 96,
+    "interaction": 8112
+   },
+   {
+    "nom": "click",
+    "debut_ms": 42699.7,
+    "duree_ms": 40,
+    "interaction": 8112
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 43551.7,
+    "duree_ms": 16,
+    "interaction": 8119
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 43551.7,
+    "duree_ms": 96,
+    "interaction": 8119
+   },
+   {
+    "nom": "click",
+    "debut_ms": 43551.7,
+    "duree_ms": 96,
+    "interaction": 8119
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 44395.7,
+    "duree_ms": 16,
+    "interaction": 8126
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 44395.7,
+    "duree_ms": 80,
+    "interaction": 8126
+   },
+   {
+    "nom": "click",
+    "debut_ms": 44395.7,
+    "duree_ms": 80,
+    "interaction": 8126
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 45237.7,
+    "duree_ms": 16,
+    "interaction": 8133
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 45237.7,
+    "duree_ms": 96,
+    "interaction": 8133
+   },
+   {
+    "nom": "click",
+    "debut_ms": 45237.7,
+    "duree_ms": 96,
+    "interaction": 8133
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 46089.7,
+    "duree_ms": 16,
+    "interaction": 8140
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 46089.7,
+    "duree_ms": 96,
+    "interaction": 8140
+   },
+   {
+    "nom": "click",
+    "debut_ms": 46089.7,
+    "duree_ms": 96,
+    "interaction": 8140
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 46918.7,
+    "duree_ms": 16,
+    "interaction": 8147
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 46918.7,
+    "duree_ms": 80,
+    "interaction": 8147
+   },
+   {
+    "nom": "click",
+    "debut_ms": 46918.7,
+    "duree_ms": 80,
+    "interaction": 8147
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 47773.7,
+    "duree_ms": 16,
+    "interaction": 8154
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 47773.7,
+    "duree_ms": 80,
+    "interaction": 8154
+   },
+   {
+    "nom": "click",
+    "debut_ms": 47773.7,
+    "duree_ms": 80,
+    "interaction": 8154
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 48621.7,
+    "duree_ms": 96,
+    "interaction": 8161
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 48621.7,
+    "duree_ms": 96,
+    "interaction": 8161
+   },
+   {
+    "nom": "click",
+    "debut_ms": 48621.7,
+    "duree_ms": 96,
+    "interaction": 8161
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 49466.7,
+    "duree_ms": 16,
+    "interaction": 8168
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 49466.7,
+    "duree_ms": 88,
+    "interaction": 8168
+   },
+   {
+    "nom": "click",
+    "debut_ms": 49466.7,
+    "duree_ms": 88,
+    "interaction": 8168
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 50321.7,
+    "duree_ms": 16,
+    "interaction": 8175
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 50321.7,
+    "duree_ms": 88,
+    "interaction": 8175
+   },
+   {
+    "nom": "click",
+    "debut_ms": 50321.7,
+    "duree_ms": 88,
+    "interaction": 8175
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 51200.7,
+    "duree_ms": 88,
+    "interaction": 8182
+   },
+   {
+    "nom": "click",
+    "debut_ms": 51200.7,
+    "duree_ms": 88,
+    "interaction": 8182
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 52047.7,
+    "duree_ms": 16,
+    "interaction": 8189
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 52047.7,
+    "duree_ms": 96,
+    "interaction": 8189
+   },
+   {
+    "nom": "click",
+    "debut_ms": 52047.7,
+    "duree_ms": 96,
+    "interaction": 8189
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 52897.7,
+    "duree_ms": 16,
+    "interaction": 8196
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 52897.7,
+    "duree_ms": 80,
+    "interaction": 8196
+   },
+   {
+    "nom": "click",
+    "debut_ms": 52897.7,
+    "duree_ms": 80,
+    "interaction": 8196
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 53744.7,
+    "duree_ms": 16,
+    "interaction": 8203
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 53744.7,
+    "duree_ms": 104,
+    "interaction": 8203
+   },
+   {
+    "nom": "click",
+    "debut_ms": 53744.7,
+    "duree_ms": 104,
+    "interaction": 8203
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 54590.7,
+    "duree_ms": 16,
+    "interaction": 8210
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 54590.7,
+    "duree_ms": 88,
+    "interaction": 8210
+   },
+   {
+    "nom": "click",
+    "debut_ms": 54590.7,
+    "duree_ms": 88,
+    "interaction": 8210
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 55440.7,
+    "duree_ms": 16,
+    "interaction": 8217
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 55440.7,
+    "duree_ms": 72,
+    "interaction": 8217
+   },
+   {
+    "nom": "click",
+    "debut_ms": 55440.7,
+    "duree_ms": 72,
+    "interaction": 8217
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 56287.7,
+    "duree_ms": 16,
+    "interaction": 8224
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 56287.7,
+    "duree_ms": 96,
+    "interaction": 8224
+   },
+   {
+    "nom": "click",
+    "debut_ms": 56287.7,
+    "duree_ms": 96,
+    "interaction": 8224
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 57141.7,
+    "duree_ms": 16,
+    "interaction": 8231
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 57141.7,
+    "duree_ms": 112,
+    "interaction": 8231
+   },
+   {
+    "nom": "click",
+    "debut_ms": 57141.7,
+    "duree_ms": 112,
+    "interaction": 8231
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 57996.7,
+    "duree_ms": 16,
+    "interaction": 8238
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 57996.7,
+    "duree_ms": 72,
+    "interaction": 8238
+   },
+   {
+    "nom": "click",
+    "debut_ms": 57996.7,
+    "duree_ms": 72,
+    "interaction": 8238
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 58846.7,
+    "duree_ms": 16,
+    "interaction": 8245
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 58846.7,
+    "duree_ms": 88,
+    "interaction": 8245
+   },
+   {
+    "nom": "click",
+    "debut_ms": 58846.7,
+    "duree_ms": 88,
+    "interaction": 8245
+   },
+   {
+    "nom": "pointerdown",
+    "debut_ms": 59689.7,
+    "duree_ms": 16,
+    "interaction": 8252
+   },
+   {
+    "nom": "pointerup",
+    "debut_ms": 59689.7,
+    "duree_ms": 80,
+    "interaction": 8252
+   },
+   {
+    "nom": "click",
+    "debut_ms": 59689.7,
+    "duree_ms": 80,
+    "interaction": 8252
+   }
+  ]
+ }
+}
