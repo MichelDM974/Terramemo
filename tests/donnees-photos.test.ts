@@ -52,7 +52,7 @@ describe('table des QID des territoires, des zones et de l’Antarctique (fiches
 // --- Règle des licences --------------------------------------------------------------
 
 type Verdict = { ok: true; licence: string; licence_url: string | null; auteur: string | null; titre: string | null; page: string } | { ok: false; raison: string };
-type Info = { w: number; h: number; mime: string; meta: Record<string, string> } | null;
+type Info = { w: number; h: number; mime: string; meta: Record<string, string>; categories?: string[] } | null;
 type Regle = {
   verdict: (fichier: string, info: Info) => Verdict;
   nettoyerAuteur: (html: string | undefined) => string | null;
@@ -64,7 +64,9 @@ type Regle = {
 };
 // Import dynamique sans types : les modules sont en JavaScript, sans déclaration.
 const regle = import('../geodata/photos/regle.mjs' as string) as Promise<Regle>;
-const essai = lire<{ resume_1917: Record<string, number>; cas: { fichier: string; origine: string; info: Info; attendu: Verdict }[] }>('tests/photos-licences-essai.json');
+type Cas = { fichier: string; info: Info; attendu: Verdict };
+const essai = lire<{ resume_1917: Record<string, number>; cas: (Cas & { origine: string })[]; cas_main: (Cas & { note: string })[] }>('tests/photos-licences-essai.json');
+const tousCas: Cas[] = [...essai.cas, ...essai.cas_main];
 const RELEVE_R5 = join(homedir(), 'Sauvegardes/terramemo/fiche-lieu-conception/photos/commons-candidats-info.json');
 const LICENCES_PERMISES = /^(CC0|Domaine public|CC BY(-SA)? (2\.0|2\.1|2\.5|3\.0|4\.0)( [a-z]{2,3})?)$/;
 
@@ -75,9 +77,15 @@ describe('règle des licences (regle.mjs), sur le jeu d’essai tiré des 1 917 
     for (const c of essai.cas) expect(verdict(c.fichier, c.info), c.fichier).toEqual(c.attendu);
   });
 
+  it('les cas écrits à la main (constats de la relecture du lot P1) rendent leur verdict', async () => {
+    const { verdict } = await regle;
+    expect(essai.cas_main.length).toBeGreaterThan(20);
+    for (const c of essai.cas_main) expect(verdict(c.fichier, c.info), `${c.fichier} (${c.note})`).toEqual(c.attendu);
+  });
+
   it('le jeu couvre chaque raison de refus et chaque famille de licence', async () => {
     const { RAISONS } = await regle;
-    const raisons = new Set(essai.cas.filter((c) => !c.attendu.ok).map((c) => (c.attendu as { raison: string }).raison));
+    const raisons = new Set(tousCas.filter((c) => !c.attendu.ok).map((c) => (c.attendu as { raison: string }).raison));
     for (const r of RAISONS.filter((x) => x !== 'absent')) expect(raisons, r).toContain(r);
     const licences = essai.cas.flatMap((c) => (c.attendu.ok ? [c.attendu.licence] : []));
     for (const l of ['CC0', 'Domaine public', 'CC BY 2.0', 'CC BY-SA 4.0', 'CC BY-SA 3.0 igo']) expect(licences, l).toContain(l);
@@ -97,13 +105,14 @@ describe('règle des licences (regle.mjs), sur le jeu d’essai tiré des 1 917 
 
   it('un CC BY ou BY-SA a toujours un auteur identifiable ; le domaine public peut ne pas en avoir', async () => {
     const { fauxAuteur } = await regle;
-    for (const c of essai.cas) {
+    for (const c of tousCas) {
       if (!c.attendu.ok) continue;
       if (/^CC BY/.test(c.attendu.licence)) {
         expect(c.attendu.auteur, c.fichier).not.toBeNull();
         expect(fauxAuteur(c.attendu.auteur), c.fichier).toBe(false);
       }
-      if (c.attendu.auteur) expect(c.attendu.auteur.length, c.fichier).toBeLessThanOrEqual(80);
+      // Jamais coupé : CC BY demande de nommer tous les créateurs (l'affichage seul raccourcit).
+      expect(c.attendu.auteur ?? '', c.fichier).not.toMatch(/…$/);
       expect(c.attendu.auteur ?? '', c.fichier).not.toMatch(/[<>]/);
       expect(c.attendu.page, c.fichier).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
     }
@@ -124,8 +133,21 @@ describe('règle des licences (regle.mjs), sur le jeu d’essai tiré des 1 917 
     expect(nettoyerAuteur('User:Jean-Pol GRANDMONT')).toBe('Jean-Pol GRANDMONT');
     expect(nettoyerAuteur('Thomas Wolf, www.foto-tw.de')).toBe('Thomas Wolf, www.foto-tw.de');
     expect(nettoyerAuteur('A &amp; B')).toBe('A & B');
-    expect(nettoyerAuteur('x'.repeat(200))).toHaveLength(80);
+    expect(nettoyerAuteur('x'.repeat(200))).toHaveLength(200);
     expect(fauxAuteur('Sémhur ·✉·✍·')).toBe(false);
+    // Vus dans les candidats de l'échantillon (relecture du lot P1, 17/11).
+    for (const f of ['self.', 'Self', 'Author', 'Photographer', 'Uploader', 'See below', 'Not specified', 'No author', 'Unidentified photographer', 'This file is lacking author information.', 'own-work', 'Imported from Flickr', 'Transferred from en.wikipedia'])
+      expect(nettoyerAuteur(f), f).toBeNull();
+    expect(nettoyerAuteur('The original uploader was SOLOXSALERNO at Italian Wikipedia.')).toBe('SOLOXSALERNO');
+    expect(nettoyerAuteur('Original uploader was Ptrbnsn at en.wikipedia')).toBe('Ptrbnsn');
+    expect(nettoyerAuteur('[//commons.wikimedia.org/wiki/User:Trantuonglam Trantuonglam]')).toBe('Trantuonglam');
+    expect(nettoyerAuteur('This image or media was taken or created by Matt H. Wade. To see his entire portfolio, visit his user page.')).toBe('Matt H. Wade');
+    expect(nettoyerAuteur('Rocky Masum This work was made by Masum-al-Hasan Rocky and released under the license')).toBe('Masum-al-Hasan Rocky');
+    expect(nettoyerAuteur('Matti&amp;Keti - lorenz.king@geogr.uni-giessen.de')).toBe('Matti&Keti');
+    expect(nettoyerAuteur('https://www.flickr.com/people/26116471@N03 Wajahat Mahmood')).toBe('Wajahat Mahmood');
+    expect(nettoyerAuteur('JJ Harrison (https://www.jjharrison.com.au/)')).toBe('JJ Harrison');
+    expect(nettoyerAuteur('---=XEON=---')).toBe('---=XEON=---');
+    expect(nettoyerAuteur('The Miller Atlas')).toBe('The Miller Atlas');
   });
 
   it('Attribution est préférée à Artist ; Credit (la provenance) n’est jamais un auteur', async () => {
@@ -179,11 +201,11 @@ describe('règle des licences (regle.mjs), sur le jeu d’essai tiré des 1 917 
 // --- candidats.json, main.json, choix.json ------------------------------------------
 
 type Candidat = {
-  fichier: string; sources: string[]; sujet: string | null; sujet_q: string | null; n?: number; sensible?: string; raison?: string;
-  licence: string; licence_url: string | null; auteur: string | null; titre: string | null; page: string; w: number; h: number; perte: number; miniature: string | null;
+  fichier: string; sources: string[]; sujet: string | null; sujet_q: string | null; n?: number; sensible?: string; raison?: string; nofop?: string;
+  licence: string; licence_url: string | null; auteur: string | null; titre: string | null; page: string; w: number; h: number; perte: number; miniature: string | null; lu_le: string;
 };
 type LieuCandidats = {
-  terrain: string; sorte: string; nom: string; q: string; sensible?: string; pauvre?: string; a_completer?: string[]; extrait_le: string;
+  terrain: string; sorte: string; nom: string; q: string; sensible?: string; pauvre?: string; a_completer?: string[]; extrait_le: string; lu_le: string;
   comptes: { trouves: number; acceptes: number; avec_sujet: number; montres: number; en_reserve: number; refuses: Record<string, number>; sources: Record<string, number> };
   candidats: Candidat[];
 };
@@ -209,6 +231,10 @@ describe('candidats.json (npm run photos:candidats)', () => {
       expect(l.q, id).toMatch(/^Q[1-9]\d*$/);
       expect(l.terrain, id).toBe(l.sorte === 'commune' ? 'reunion' : 'monde');
       expect(Date.parse(l.extrait_le), id).not.toBeNaN();
+      // La date de la plus ancienne réponse utilisée, pas celle du calcul : jamais après lui.
+      expect(Date.parse(l.lu_le), id).not.toBeNaN();
+      expect(l.lu_le <= l.extrait_le, id).toBe(true);
+      for (const c of l.candidats) expect(c.lu_le >= l.lu_le && c.lu_le <= l.extrait_le, `${id} : ${c.fichier}`).toBe(true);
     }
   });
 
@@ -236,6 +262,7 @@ describe('candidats.json (npm run photos:candidats)', () => {
         expect(c.page, t).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
         expect(c.miniature ?? '', t).toMatch(/^https:\/\/(upload|thumb)\.wikimedia\.org\//);
         expect(c.sources.length, t).toBeGreaterThan(0);
+        expect(c.auteur ?? '', t).not.toMatch(/…$/);
       }
     }
   });

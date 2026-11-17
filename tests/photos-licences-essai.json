@@ -1,11 +1,12 @@
 {
- "_": "Jeu d'essai de la règle des licences (geodata/photos/regle.mjs ; étude § 3.2), tiré des 1 917 fichiers du relevé R5 (~/Sauvegardes/terramemo/fiche-lieu-conception/photos/commons-candidats-info.json, métadonnées de Commons du 16/11/2026) : quelques fichiers de chaque verdict, chaque licence refusée, les auteurs à nettoyer ; plus des fichiers réels qui ont le champ Attribution (absent du relevé), lus à Commons le 17/11/2026. attendu : le verdict de la règle, relu à la main. resume_1917 : les verdicts sur les 1 917, que le test recompte quand le relevé est sur le PC.",
+ "_": "Jeu d'essai de la règle des licences (geodata/photos/regle.mjs ; étude § 3.2), tiré des 1 917 fichiers du relevé R5 (~/Sauvegardes/terramemo/fiche-lieu-conception/photos/commons-candidats-info.json, métadonnées de Commons du 16/11/2026) : quelques fichiers de chaque verdict, chaque licence refusée, les auteurs à nettoyer ; plus des fichiers réels qui ont le champ Attribution (absent du relevé), lus à Commons le 17/11/2026. attendu : le verdict de la règle, relu à la main. resume_1917 : les verdicts sur les 1 917, que le test recompte quand le relevé est sur le PC. cas_main : des cas écrits à la main d'après les constats de la relecture du lot P1 (17/11 : catégories de problème et NoFoP, faux auteurs et formules, auteur jamais coupé, vues de l'espace, guerre), le verdict attendu écrit à la main et non tiré de la règle.",
  "resume_1917": {
-  "nom": 56,
+  "ok": 1423,
+  "sujet": 129,
+  "espace": 43,
+  "nom": 57,
   "non_libre": 1,
-  "ok": 1455,
-  "petite": 163,
-  "sujet": 127,
+  "petite": 149,
   "licence": 49,
   "restrictions": 8,
   "format": 47,
@@ -122,7 +123,7 @@
    },
    "attendu": {
     "ok": false,
-    "raison": "petite"
+    "raison": "espace"
    }
   },
   {
@@ -404,12 +405,8 @@
     }
    },
    "attendu": {
-    "ok": true,
-    "licence": "CC BY 4.0",
-    "licence_url": "https://creativecommons.org/licenses/by/4.0",
-    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Bran…",
-    "titre": null,
-    "page": "https://commons.wikimedia.org/wiki/File:1-s2.0-S0016703718306562-gr10_lrg.jpg"
+    "ok": false,
+    "raison": "espace"
    }
   },
   {
@@ -430,12 +427,8 @@
     }
    },
    "attendu": {
-    "ok": true,
-    "licence": "CC BY 4.0",
-    "licence_url": "https://creativecommons.org/licenses/by/4.0",
-    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Bran…",
-    "titre": null,
-    "page": "https://commons.wikimedia.org/wiki/File:1-s2.0-S0016703718306562-gr11_lrg.jpg"
+    "ok": false,
+    "raison": "espace"
    }
   },
   {
@@ -456,12 +449,8 @@
     }
    },
    "attendu": {
-    "ok": true,
-    "licence": "CC BY 4.0",
-    "licence_url": "https://creativecommons.org/licenses/by/4.0",
-    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Bran…",
-    "titre": null,
-    "page": "https://commons.wikimedia.org/wiki/File:1-s2.0-S0016703718306562-gr12_lrg.jpg"
+    "ok": false,
+    "raison": "espace"
    }
   },
   {
@@ -482,12 +471,8 @@
     }
    },
    "attendu": {
-    "ok": true,
-    "licence": "CC BY 4.0",
-    "licence_url": "https://creativecommons.org/licenses/by/4.0",
-    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Bran…",
-    "titre": null,
-    "page": "https://commons.wikimedia.org/wiki/File:1-s2.0-S0016703718306562-gr13_lrg.jpg"
+    "ok": false,
+    "raison": "espace"
    }
   },
   {
@@ -509,7 +494,7 @@
    },
    "attendu": {
     "ok": false,
-    "raison": "petite"
+    "raison": "espace"
    }
   },
   {
@@ -1171,12 +1156,8 @@
     }
    },
    "attendu": {
-    "ok": true,
-    "licence": "Domaine public",
-    "licence_url": null,
-    "auteur": "NASA Earth Observatory image by Joshua Stevens, using MODIS data from the Land…",
-    "titre": null,
-    "page": "https://commons.wikimedia.org/wiki/File:A_Polynya_Seldom_Seen.jpg"
+    "ok": false,
+    "raison": "espace"
    }
   },
   {
@@ -1196,12 +1177,8 @@
     }
    },
    "attendu": {
-    "ok": true,
-    "licence": "Domaine public",
-    "licence_url": null,
-    "auteur": "NASA Earth Observatory image by Lauren Dauphin, using Landsat data from the U.S…",
-    "titre": null,
-    "page": "https://commons.wikimedia.org/wiki/File:A_Winter_Wanderer_in_the_Weddell_Sea_(153316_-_522_lrg).jpg"
+    "ok": false,
+    "raison": "espace"
    }
   },
   {
@@ -1222,7 +1199,7 @@
    },
    "attendu": {
     "ok": false,
-    "raison": "petite"
+    "raison": "espace"
    }
   },
   {
@@ -1242,12 +1219,8 @@
     }
    },
    "attendu": {
-    "ok": true,
-    "licence": "Domaine public",
-    "licence_url": null,
-    "auteur": "NASA Earth Observatory image by Lauren Dauphin, using Landsat data from the U.S…",
-    "titre": null,
-    "page": "https://commons.wikimedia.org/wiki/File:A_Winter_Wanderer_in_the_Weddell_Sea_(153316_-_826_lrg).jpg"
+    "ok": false,
+    "raison": "espace"
    }
   },
   {
@@ -1268,7 +1241,7 @@
    },
    "attendu": {
     "ok": false,
-    "raison": "petite"
+    "raison": "espace"
    }
   },
   {
@@ -2216,12 +2189,8 @@
     }
    },
    "attendu": {
-    "ok": true,
-    "licence": "CC BY-SA 3.0 igo",
-    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/igo/deed.en",
-    "auteur": "European Space Agency",
-    "titre": null,
-    "page": "https://commons.wikimedia.org/wiki/File:Gozo_from_space_via_laser_ESA378503_(cropped).jpg"
+    "ok": false,
+    "raison": "espace"
    }
   },
   {
@@ -2708,6 +2677,508 @@
    "attendu": {
     "ok": false,
     "raison": "auteur"
+   }
+  }
+ ],
+ "cas_main": [
+  {
+   "fichier": "Sede_Regione_Lazio.jpg",
+   "note": "demande de suppression ouverte (tyrrhen, 17/11)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "Carlo Dani"
+    },
+    "categories": [
+     "Deletion requests August 2026",
+     "Self-published work"
+    ]
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "statut"
+   }
+  },
+  {
+   "fichier": "Nha_Trang,_Khánh_Hòa.png",
+   "note": "licence YouTube à revoir (chinemer, 17/11)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/png",
+    "meta": {
+     "LicenseShortName": "CC BY 3.0",
+     "Artist": "Chris Lewis"
+    },
+    "categories": [
+     "License review needed",
+     "Nha Trang"
+    ]
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "statut"
+   }
+  },
+  {
+   "fichier": "Port_Royan.jpg",
+   "note": "NoFoP-France : passe, marquée (gascogne, 17/11)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Cobber17\">Cobber17</a>"
+    },
+    "categories": [
+     "NoFoP-France",
+     "Port of Royan"
+    ]
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "auteur": "Cobber17",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Port_Royan.jpg",
+    "nofop": "France"
+   }
+  },
+  {
+   "fichier": "Montaje_de_puerto_peñasco.jpg",
+   "note": "auteur « self. » (californ) : refusée pour l’auteur avant le nom",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "self."
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Puerto_peñasco.jpg",
+   "note": "auteur « self. » (californ), sans le mot montage",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "self."
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Montaje_de_puerto.jpg",
+   "note": "mosaïque",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "Pepe"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "nom"
+   }
+  },
+  {
+   "fichier": "Amalfi.jpg",
+   "note": "envoyeur de la Wikipédia italienne (tyrrhen)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "The original uploader was SOLOXSALERNO at Italian Wikipedia."
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "auteur": "SOLOXSALERNO",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Amalfi.jpg"
+   }
+  },
+  {
+   "fichier": "Bering.jpg",
+   "note": "auteur cité avant l’envoyeur (bering)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": "Baily, Ed - U.S. Fish &amp; Wildlife Service Original uploader was Mattisse at en.wikipedia."
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": "Baily, Ed - U.S. Fish & Wildlife Service",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Bering.jpg"
+   }
+  },
+  {
+   "fichier": "Bangkok.jpg",
+   "note": "lien de wikitexte (thailand)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "[//commons.wikimedia.org/wiki/User:Trantuonglam Trantuonglam]"
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "auteur": "Trantuonglam",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Bangkok.jpg"
+   }
+  },
+  {
+   "fichier": "Times_Square.jpg",
+   "note": "formule de Matt H. Wade (atlant, caraibes)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "This image or media was taken or created by Matt H. Wade. To see his entire portfolio, visit his user page."
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "auteur": "Matt H. Wade",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Times_Square.jpg"
+   }
+  },
+  {
+   "fichier": "Gdynia.jpg",
+   "note": "adresse électronique retirée (baltique)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "Andrzej Łuczak, woochuck@onet.eu"
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "auteur": "Andrzej Łuczak",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Gdynia.jpg"
+   }
+  },
+  {
+   "fichier": "Cilaos.jpg",
+   "note": "formule « This photo has been taken by » (97424), auteur jamais coupé",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "Artist": "This photo has been taken by Matthieu Sontag (User:Mirgolth) and released under the license(s) stated below."
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "auteur": "Matthieu Sontag (User:Mirgolth)",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Cilaos.jpg"
+   }
+  },
+  {
+   "fichier": "Roches.jpg",
+   "note": "quatorze coauteurs CC BY : tous nommés (ESH)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY 4.0",
+     "Artist": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Branney, G. M. Hansford, S. H. Baker, Susanne P. Schwenzer, S. J. Gurman, N. R. Stephen, E. D. Steer, J. D. Piercy, T. R. Ireland"
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Branney, G. M. Hansford, S. H. Baker, Susanne P. Schwenzer, S. J. Gurman, N. R. Stephen, E. D. Steer, J. D. Piercy, T. R. Ireland",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Roches.jpg"
+   }
+  },
+  {
+   "fichier": "ISS-30_Lake_Fitri,_Chad.jpg",
+   "note": "vue de l’ISS (TCD)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": "ISS Expedition 30 crew"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "Greenland.A2004208.1810.250m.jpg",
+   "note": "nom de fichier de MODIS (baffin)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": "Jeff Schmaltz"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "Scandinavia.TMO2003050.jpg",
+   "note": "nom de fichier de MODIS (norvege)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "Terra_Kyushu_20091028.jpg",
+   "note": "Terra datée (japon)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "QeshmIsland_NASA.jpg",
+   "note": "NASA dans le nom (persique)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "Tarso_Yéga_ASTER.jpg",
+   "note": "ASTER (TCD)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "OnekotanNASA.jpg",
+   "note": "NASA collé au nom (okhotsk)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "Dubai_World.jpg",
+   "note": "auteur de l'équipe ASTER (persique)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": "NASA image created by Jesse Allen, using data provided courtesy of NASA/GSFC/METI/ERSDAC/JAROS, and U.S./Japan ASTER Science Team."
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "Lac.jpg",
+   "note": "service de télédétection pour auteur",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": "Earth Science and Remote Sensing Unit, Lyndon B. Johnson Space Center"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "espace"
+   }
+  },
+  {
+   "fichier": "Weddell_flight.jpg",
+   "note": "photo d’avion de Goddard : une vue de la mer, gardée",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "Public domain",
+     "Artist": "Michael Studinger via NASA Goddard Space Flight Center"
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": "Michael Studinger via NASA Goddard Space Flight Center",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Weddell_flight.jpg"
+   }
+  },
+  {
+   "fichier": "Forced_Displacement_of_Gaza_Strip_Residents_During_the_Gaza-Israel_War.jpg",
+   "note": "scène de guerre (medit)",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "Jaber Jehad Badwan"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "Australian_War_Memorial.jpg",
+   "note": "un monument aux morts reste un monument",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "Jane Doe"
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "auteur": "Jane Doe",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Australian_War_Memorial.jpg"
+   }
+  },
+  {
+   "fichier": "Ruines_de_Carthage.jpg",
+   "note": "des ruines antiques : du patrimoine",
+   "info": {
+    "w": 4000,
+    "h": 3000,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 4.0",
+     "Artist": "Jane Doe"
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "auteur": "Jane Doe",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Ruines_de_Carthage.jpg"
    }
   }
  ]
