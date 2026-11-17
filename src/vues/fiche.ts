@@ -23,6 +23,7 @@ import type { DonneesDrapeaux } from '../map/drapeaux';
 import type { NomTerrain, Pays } from '../map/types';
 import type { DonneesFichesMonde } from '../fiches/donnees';
 import { listeEt } from '../fiches/format';
+export { prechaufferFormats } from '../fiches/format';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import { creer, croix, LIBELLE_STATUT } from './commun';
 import { remplir, textes } from './textes';

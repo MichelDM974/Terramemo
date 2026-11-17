@@ -338,8 +338,16 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     if (enChargement) return enChargement;
     const p = Promise.all([F.fiches(), F.capitales().catch(() => null)]).then(([fiches, capitales]) => {
       lues = { fiches, capitales };
-      // Le morceau de la fiche, demandé d'avance : il sera là quand on touchera la barre.
-      F.module().catch(() => undefined);
+      // Le morceau de la fiche, demandé d'avance : il sera là quand on touchera la barre. Ses formateurs (Intl)
+      // créés au repos : la première fiche ne paie pas leur création (22 ms sur l'A37) pendant sa montée.
+      F.module().then(
+        (m) => {
+          const repos = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => unknown }).requestIdleCallback;
+          if (repos) repos(() => m.prechaufferFormats(), { timeout: 2000 });
+          else setTimeout(() => m.prechaufferFormats(), 50);
+        },
+        () => undefined,
+      );
     });
     enChargement = p;
     p.then(
