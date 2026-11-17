@@ -88,7 +88,7 @@
 "GRL":{"s":"territoire"},
 "GTM":{"s":"pays","h":18687881,"ha":2025,"sup":108889,"alt":4203,"z":"America/Guatemala","m":["GTQ"],"lo":["es"],"f":[15,9]},
 "GUM":{"s":"territoire"},
-"GUY":{"s":"pays","h":835986,"ha":2025,"sup":214970,"alt":2810,"z":"America/Guyana","m":["GYD"],"lo":["en"],"f":[23,2]},
+"GUY":{"s":"pays","h":835986,"ha":2025,"sup":214970,"z":"America/Guyana","m":["GYD"],"lo":["en"],"f":[23,2]},
 "HKG":{"s":"territoire"},
 "HMD":{"s":"territoire"},
 "HND":{"s":"pays","h":11005850,"ha":2025,"sup":112492,"alt":2849,"z":"America/Tegucigalpa","m":["HNL"],"lo":["es"],"f":[15,9]},

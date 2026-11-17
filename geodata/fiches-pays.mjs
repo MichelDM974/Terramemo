@@ -303,7 +303,26 @@ export function monnaiesEnCours(region) {
 const lignes = (main, cle) => Object.fromEntries(sansNotes(main[cle]));
 
 /** Distance d'un sommet à une zone disputée sous laquelle il va à la relecture, en km. */
-const ZONE_KM = 5;
+export const ZONE_KM = 5;
+
+/**
+ * Les zones disputées à ZONE_KM ou moins du sommet `coord` du pays `id`, {zone, km, dedans}.
+ * `dist` : la distance du sommet au tracé du pays ; pour une zone que le pays tient
+ * (tenuesPar, de contestees.json), la distance comptée est l'excédent sur `dist` (un sommet
+ * de frontière dont la part du pays est dans la zone : 0). Les tests en font autant.
+ */
+export function zonesPres(zones, coord, dist, id, tenuesPar) {
+  if (!coord) return [];
+  const r = [];
+  for (const z of zones) {
+    const brute = distanceAuTrace(z, coord);
+    const tenue = dist > 0 && tenuesPar.get(z.properties.id)?.has(id);
+    // 50 m de tolérance : le tracé du pays et celui de la zone partagent leurs arcs.
+    const d = tenue ? (brute - dist <= 0.05 ? 0 : brute - dist) : brute;
+    if (d <= ZONE_KM) r.push({ zone: z.properties.id, km: Math.round(d * 10) / 10, dedans: d === 0 });
+  }
+  return r;
+}
 
 /** Superficie servie : au km² près, sauf sous 100 km² (le Vatican : 0,44), au centième. */
 export const arrondiSuperficie = (v) => (v >= 100 ? Math.round(v) : Math.round(v * 100) / 100);
@@ -354,8 +373,10 @@ export function chiffresPays({ entites, formes, zones = [], capitales, wd, bm, c
   const { zones: zonesTrace, horsTrace } = zonesParTrace(lignesTab, formes);
   R.horsTrace = horsTrace;
   const nomsLangues = Object.fromEntries(sansNotes(table.langues.noms));
-  // Emprise de chaque zone disputée, élargie de ZONE_KM : un sommet hors de l'emprise est loin.
-  const empZones = zones.map((z) => emprise(z, ZONE_KM));
+  // Emprise de chaque zone disputée, élargie de ZONE_KM et des 10 km d'un sommet de frontière
+  // (hors_trace au-delà) : un sommet hors de l'emprise est loin.
+  const empZones = zones.map((z) => emprise(z, ZONE_KM + 10));
+  const tenuesPar = new Map((contestees ?? []).map((z) => [z.id, new Set(z.dans ?? [])]));
 
   for (const e of pays) {
     const id = e.id;
@@ -453,21 +474,21 @@ export function chiffresPays({ entites, formes, zones = [], capitales, wd, bm, c
     }
     const coord = lc?.coord ?? coordWd;
     const f = forme.get(id);
-    const dist = coord && f ? Math.round(distanceAuTrace(f, coord) * 10) / 10 : null;
+    const distBrute = coord && f ? distanceAuTrace(f, coord) : null;
+    const dist = distBrute == null ? null : Math.round(distBrute * 10) / 10;
     if (lc?.hors_trace && dist != null && dist <= 10) faute(`fiches-main.json, culminant.${id} : hors_trace, mais le sommet est à ${dist} km du tracé`);
     const ecart = lc?.seconde && m != null ? Math.round(m - lc.seconde.m) : null;
     // Aucun point culminant ne passe par une zone disputée (décision du 18/11/2026) : un
     // sommet dans une zone de contestees.json est une faute ; à 5 km ou moins (le tracé est
-    // simplifié), il va à la relecture.
-    const presZones = [];
+    // simplifié), il va à la relecture. Un sommet de frontière hors du tracé (le Roraima,
+    // dont la coordonnée de Wikidata est au Venezuela) : la part du pays est au plus près
+    // de son tracé ; une zone que le pays tient (dans), à la même distance que le tracé,
+    // contient cette part : la distance comptée est l'excédent sur celle du tracé.
+    const presZones = zonesPres(zones.filter((x, i) => pres(empZones[i], coord ?? [0, 0])), coord, distBrute ?? 0, id, tenuesPar);
     if (coord && !lc?.aucun) {
-      for (const z of zones.filter((x, i) => pres(empZones[i], coord))) {
-        const d = distanceAuTrace(z, coord);
-        if (d === 0) faute(`${id} : le sommet ${nom ?? sommet} est dans la zone disputée ${z.properties.id} (aucun point culminant n'y passe)`);
-        else if (d <= ZONE_KM) presZones.push({ zone: z.properties.id, km: Math.round(d * 10) / 10 });
-      }
+      for (const z of presZones) if (z.dedans) faute(`${id} : le sommet ${nom ?? sommet} est dans la zone disputée ${z.zone} (aucun point culminant n'y passe)`);
     }
-    R.culminants.push({ id, sommet, nom, m, ecart, altWd: alt.m, valeurs: alt.valeurs, declares: decl.map((d) => ({ q: d.v, rang: d.rang, nom: wd.sommets[d.v]?.fr ?? null, alt: altitude(wd.sommets[d.v]?.altitudes).m })), coord, dist, presZones, ligne: lc ?? null });
+    R.culminants.push({ id, sommet, nom, m, ecart, altWd: alt.m, valeurs: alt.valeurs, declares: decl.map((d) => ({ q: d.v, rang: d.rang, nom: wd.sommets[d.v]?.fr ?? null, alt: altitude(wd.sommets[d.v]?.altitudes).m })), coord, dist, presZones: lc?.aucun ? [] : presZones.filter((z) => !z.dedans).map(({ zone, km }) => ({ zone, km })), ligne: lc ?? null });
 
     // Heure locale : la zone de zone.tab du code du pays la plus proche de sa capitale ;
     // le nombre de fuseaux, par le tracé (§ 2.1).

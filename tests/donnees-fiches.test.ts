@@ -26,6 +26,7 @@ type Regles = {
   sommetRetenu: (d: Decl[], ligne?: unknown) => { sommet: string | null; auto: string | null };
   coordSommet: (s: unknown) => [number, number] | null;
   distanceAuTrace: (f: GeoJSON.Feature, p: [number, number]) => number;
+  zonesPres: (zones: GeoJSON.Feature[], coord: [number, number] | null, dist: number, id: string, tenuesPar: Map<string, Set<string>>) => { zone: string; km: number; dedans: boolean }[];
   plurielGentile: (g: string) => string;
   paysTouches: (entites: unknown[], contestees: unknown[]) => { id: string; part: number }[];
   languesCandidates: (info: unknown) => { code: string; pct: number; officielle: boolean }[];
@@ -157,8 +158,9 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
     }
     // Une liste qui ne change que par un commit qui la touche (§ 7) ; BIH sans fête est
     // écrit au § 2.1, à relire (fiches-main.json, fete) ; la Somalie n'a pas de sommet
-    // (décision du 18/11/2026 : aucun point culminant dans une zone disputée).
-    expect(absents).toEqual({ alt: ['SOM'], cu: ['SOM'], f: ['BIH', 'GBR'], fn: ['BIH', 'GBR'] });
+    // et le Guyana (le Roraima, dans l'Essequibo) n'ont pas de sommet (décision du
+    // 18/11/2026 : aucun point culminant dans une zone disputée).
+    expect(absents).toEqual({ alt: ['GUY', 'SOM'], cu: ['GUY', 'SOM'], f: ['BIH', 'GBR'], fn: ['BIH', 'GBR'] });
   });
 
   it('habitants : la Banque mondiale en 2025, Taïwan (2026) et le Vatican (2024) par Wikidata ; superficie : Wikidata pour les 197, par la règle du choix (décision du 18/11/2026)', async () => {
@@ -228,7 +230,7 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
 
   it('points culminants : altitude entre 1 et 8 850 m ; le Fuji à 3 776 m (S63) ; le Midžor pour la Serbie, le Kosciuszko pour l’Australie ; aucun dans une zone disputée', () => {
     for (const id of ids197) {
-      if (id === 'SOM') continue;
+      if ((main.culminant![id] as { aucun?: boolean } | undefined)?.aucun) continue;
       expect(monde.lieux[id]!.alt, id).toBeGreaterThanOrEqual(1);
       expect(monde.lieux[id]!.alt, id).toBeLessThanOrEqual(8850);
       expect(Number.isInteger(monde.lieux[id]!.alt), id).toBe(true);
@@ -250,10 +252,14 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
     expect([fr.lieux.SOM!.cu, monde.lieux.SOM!.alt]).toEqual([undefined, undefined]);
     expect((main.culminant!.SOM as { aucun?: boolean }).aucun).toBe(true);
     expect([fr.lieux.PAK!.cu, monde.lieux.PAK!.alt]).toEqual(['Tirich Mir', 7708]);
+    // Le Guyana : la part du Roraima est dans l'Essequibo (NE_B56), comme le K2 au Pakistan.
+    expect([fr.lieux.GUY!.cu, monde.lieux.GUY!.alt]).toEqual([undefined, undefined]);
+    expect(Object.entries(main.culminant!).filter(([, l]) => (l as { aucun?: boolean }).aucun).map(([k]) => k)).toEqual(['GUY', 'SOM']);
   });
 
   it('S56 : le sommet retenu tombe dans le tracé de son pays, ou à moins de 10 km, jamais dans une zone disputée ; les exceptions sont écrites', async () => {
-    const { sommetRetenu, coordSommet, distanceAuTrace } = await regles;
+    const { sommetRetenu, coordSommet, distanceAuTrace, zonesPres } = await regles;
+    const tenuesPar = new Map(lire<{ id: string; dans?: string[] }[]>('public/geo/contestees.json').map((z) => [z.id, new Set(z.dans ?? [])]));
     const topo = lire<Topology>('public/geo/monde.topo.json');
     const formes = new Map((feature(topo, topo.objects.pays as never) as unknown as GeoJSON.FeatureCollection).features.map((f) => [f.properties!.id as string, f]));
     const zones = (feature(topo, topo.objects.contestees as never) as unknown as GeoJSON.FeatureCollection).features;
@@ -271,10 +277,11 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
       const d = distanceAuTrace(formes.get(id)!, coord);
       if (d > 10) exceptions[id] = `${Math.round(d)} km`;
       if (d === 0) expect(geoContains(formes.get(id)!, coord), id).toBe(true);
-      for (const z of zones) {
-        const dz = distanceAuTrace(z, coord);
-        expect(dz, `${id} dans ${z.properties!.id}`).toBeGreaterThan(0);
-        if (dz <= 5) presZones[id] = `${z.properties!.id} ${Math.round(dz * 10) / 10} km`;
+      for (const z of zones) expect(distanceAuTrace(z, coord), `${id} dans ${z.properties!.id}`).toBeGreaterThan(0);
+      // Un sommet de frontière : sa part du pays (au plus près du tracé) jamais dans une zone.
+      for (const z of zonesPres(zones, coord, d, id, tenuesPar)) {
+        expect(z.dedans, `${id} : sa part dans ${z.zone}`).toBe(false);
+        presZones[id] = `${z.zone} ${z.km} km`;
       }
     }
     // Gambie et Sénégal : sans coordonnées ; Marshall et Tuvalu : atolls que le tracé
@@ -282,6 +289,10 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
     expect(exceptions).toEqual({ GMB: 'sans coordonnées', MHL: '129 km', SEN: 'sans coordonnées', TUV: '154 km' });
     // Les sommets à 5 km ou moins d'une zone disputée (tracé simplifié) : à la relecture.
     expect(presZones).toEqual({ BLZ: 'NE_B51 0.5 km', BTN: 'NE_B75 2.7 km', SYR: 'NE_B16 2.8 km' });
+    // Le Roraima de Wikidata (au Venezuela, à 7,2 km du tracé du Guyana et de NE_B56) : la
+    // part du Guyana est dans la zone, que le contrôle voit ; il est sans ligne de sommet.
+    const roraima = coordSommet(wd.sommets[sommetRetenu(wd.lieux[wd.pays.GUY!]!.culminants ?? [], undefined).sommet!]);
+    expect(zonesPres(zones, roraima, distanceAuTrace(formes.get('GUY')!, roraima!), 'GUY', tenuesPar)).toEqual([{ zone: 'NE_B56', km: 0, dedans: true }]);
   });
 
   it('gentilés : masculin et pluriel pour les 197 ; le pluriel suit la règle sauf deux lignes de la table', async () => {

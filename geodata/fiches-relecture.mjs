@@ -101,7 +101,7 @@ export function texteRelecture({ R, main, noms, langues, sources, contestees = [
     `${cl.length} lignes : les sommets tranchés (plusieurs déclarés, ou hors du tracé du pays), les altitudes à trancher, la Gambie, l'Argentine, ` +
       'et chaque écart de plus de 5 m avec la seconde source (Wikipédia en français, « Liste des pays par point culminant ») : ' +
       'la valeur gardée reste celle de Wikidata, l\'écart est à relire. Critère : le plus haut point du tracé de fait de la carte, ' +
-      'jamais dans une zone disputée (décision du 18/11/2026 : Israël, le mont Méron ; la Somalie, sans ligne de sommet ; le Pakistan, le Tirich Mir, hors du Gilgit-Baltistan).',
+      'jamais dans une zone disputée (décision du 18/11/2026 : Israël, le mont Méron ; la Somalie, sans ligne de sommet ; le Pakistan, le Tirich Mir, hors du Gilgit-Baltistan ; le Guyana, sans ligne de sommet, le Roraima étant dans l\'Essequibo).',
   );
   o.push('');
   o.push(
