@@ -1,0 +1,2714 @@
+{
+ "_": "Jeu d'essai de la règle des licences (geodata/photos/regle.mjs ; étude § 3.2), tiré des 1 917 fichiers du relevé R5 (~/Sauvegardes/terramemo/fiche-lieu-conception/photos/commons-candidats-info.json, métadonnées de Commons du 16/11/2026) : quelques fichiers de chaque verdict, chaque licence refusée, les auteurs à nettoyer ; plus des fichiers réels qui ont le champ Attribution (absent du relevé), lus à Commons le 17/11/2026. attendu : le verdict de la règle, relu à la main. resume_1917 : les verdicts sur les 1 917, que le test recompte quand le relevé est sur le PC.",
+ "resume_1917": {
+  "nom": 56,
+  "non_libre": 1,
+  "ok": 1455,
+  "petite": 163,
+  "sujet": 127,
+  "licence": 49,
+  "restrictions": 8,
+  "format": 47,
+  "auteur": 11
+ },
+ "cas": [
+  {
+   "fichier": "\"River\" of sea ice in the Weddell Sea (MODIS 2018-04-09).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1600,
+    "h": 1200,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "This image or video was catalogued by Goddard Space Flight Center of the United States <a href=\"https://en.wikipedia.org/wiki/NASA\" class=\"extiw\" title=\"w:NASA\">National Aeronautics and Space Administration</a> (NASA) under <b>Photo ID:</b> <a rel=\"nofollow\" class=\"external text\" href=\"https://images.nasa.gov/search?q=2018-04-09&amp;page=1&amp;media=image,video,audio&amp;yearStart=1920&amp;yearEnd=2026\">2018-04-09</a>.",
+     "Artist": "Jeff Schmaltz, MODIS Land Rapid Response Team, NASA GSFC",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "nom"
+   }
+  },
+  {
+   "fichier": "(1973) Sahara Occidental - Río de Oro.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1295,
+    "h": 1600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:R0drigIo-7&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:R0drigIo-7 (page does not exist)\">R0drigIo-7</a>",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "NonFree": "true",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "non_libre"
+   }
+  },
+  {
+   "fichier": "(2020) Sahara Occidental mapa atualizado.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1000,
+    "h": 1667,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:R0drigIo-7&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:R0drigIo-7 (page does not exist)\">R0drigIo-7</a>",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "nom"
+   }
+  },
+  {
+   "fichier": "(Melilla) Aterrizando en Melilla (16668390111).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1926,
+    "h": 1199,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/atalaya/16668390111/\">Aterrizando en Melilla</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/48600078653@N01\">JJ Merelo</a>",
+     "LicenseShortName": "CC BY-SA 2.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 2.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/2.0",
+    "auteur": "JJ Merelo",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:(Melilla)_Aterrizando_en_Melilla_(16668390111).jpg"
+   }
+  },
+  {
+   "fichier": "(Region of Murcia) IberianPeninsulaNASA (cropped).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 571,
+    "h": 633,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" data-mw-original-href=\"http://visibleearth.nasa.gov/view_rec.php\" href=\"https://visibleearth.nasa.gov/view_rec.php\">http://visibleearth.nasa.gov/view_rec.php</a>",
+     "Artist": "NASA",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "- panoramio (4678).jpg",
+   "origine": "Commons, 17/11/2026",
+   "info": {
+    "w": 4040,
+    "h": 2271,
+    "mime": "image/jpeg",
+    "meta": {
+     "ObjectName": "- panoramio (4678)",
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"https://web.archive.org/web/20161015105331/http://www.panoramio.com/photo/35990946\">https://web.archive.org/web/20161015105331/http://www.panoramio.com/photo/35990946</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://web.archive.org/web/20161015105332/http://www.panoramio.com/user/558771?with_photo_id=35990946\">Андрей Бобровский</a>",
+     "LicenseShortName": "CC BY 3.0",
+     "AttributionRequired": "true",
+     "Attribution": "Андрей Бобровский",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by/3.0",
+    "auteur": "Андрей Бобровский",
+    "auteur_de": "Attribution",
+    "titre": "- panoramio (4678)",
+    "page": "https://commons.wikimedia.org/wiki/File:-_panoramio_(4678).jpg"
+   }
+  },
+  {
+   "fichier": "0 Amiens - Cathédrale Notre-Dame (1).JPG",
+   "origine": "R5",
+   "info": {
+    "w": 2252,
+    "h": 3456,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Jean-Pol_GRANDMONT\" title=\"User:Jean-Pol GRANDMONT\">Jean-Pol GRANDMONT</a>",
+     "LicenseShortName": "CC BY 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by/3.0",
+    "auteur": "Jean-Pol GRANDMONT",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:0_Amiens_-_Cath%C3%A9drale_Notre-Dame_(1).JPG"
+   }
+  },
+  {
+   "fichier": "0 Vimy - Mémorial national du Canada (1).JPG",
+   "origine": "R5",
+   "info": {
+    "w": 3456,
+    "h": 2304,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Jean-Pol_GRANDMONT\" title=\"User:Jean-Pol GRANDMONT\">Jean-Pol GRANDMONT</a>",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0",
+    "auteur": "Jean-Pol GRANDMONT",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:0_Vimy_-_M%C3%A9morial_national_du_Canada_(1).JPG"
+   }
+  },
+  {
+   "fichier": "00 1563 Cosco - Compania de Jesus.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 3300,
+    "h": 2200,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:W._Bulach\" title=\"User:W. Bulach\">W. Bulach</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "auteur": "W. Bulach",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:00_1563_Cosco_-_Compania_de_Jesus.jpg"
+   }
+  },
+  {
+   "fichier": "00 1566 Cusco - Plaza de Armas.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 3300,
+    "h": 2200,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:W._Bulach\" title=\"User:W. Bulach\">W. Bulach</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "auteur": "W. Bulach",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:00_1566_Cusco_-_Plaza_de_Armas.jpg"
+   }
+  },
+  {
+   "fichier": "0009 2015 in Tel Aviv-Yafo.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4928,
+    "h": 3264,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Rakoon\" title=\"User:Rakoon\">Rakoon</a>",
+     "LicenseShortName": "CC0",
+     "AttributionRequired": "false",
+     "LicenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC0",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "auteur": "Rakoon",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:0009_2015_in_Tel_Aviv-Yafo.jpg"
+   }
+  },
+  {
+   "fichier": "002 2014 03 16 Gegenlicht.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 3000,
+    "h": 2000,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\">Self-photographed</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:F._Riedelio\" title=\"User:F. Riedelio\">Friedrich Haag</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "auteur": "Friedrich Haag",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:002_2014_03_16_Gegenlicht.jpg"
+   }
+  },
+  {
+   "fichier": "081101 Tojinbo Sakai Fukui pref Japan01bs11.jpg",
+   "origine": "Commons, 17/11/2026",
+   "info": {
+    "w": 4592,
+    "h": 3056,
+    "mime": "image/jpeg",
+    "meta": {
+     "ObjectName": "081101 Tojinbo Sakai Fukui pref Japan01bs11",
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "Attribution": "Photo by <a href=\"//commons.wikimedia.org/wiki/User:663highland\" title=\"User:663highland\">663highland</a>",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "auteur": "663highland",
+    "auteur_de": "Attribution",
+    "titre": "081101 Tojinbo Sakai Fukui pref Japan01bs11",
+    "page": "https://commons.wikimedia.org/wiki/File:081101_Tojinbo_Sakai_Fukui_pref_Japan01bs11.jpg"
+   }
+  },
+  {
+   "fichier": "090826-N-6814F-052 (3883442878).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2100,
+    "h": 1397,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/coast_guard/3883442878/\">090826-N-6814F-052</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/30884892@N08\">Coast Guard</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "1 Common Dolphin Mare Mediterraneum 01.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4368,
+    "h": 2912,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Hwnautik&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Hwnautik (page does not exist)\">Hwnautik</a>",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0",
+    "auteur": "Hwnautik",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:1_Common_Dolphin_Mare_Mediterraneum_01.jpg"
+   }
+  },
+  {
+   "fichier": "1-s2.0-S0016703718306562-gr10 lrg.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1538,
+    "h": 2032,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<i>Mineralogical constraints on the thermal history of martian regolith breccia Northwest Africa 8114.</i> In: <i>Geochimica et Cosmochimica Acta</i>, Volume 246, p. 267-298; <bdi><span lang=\"en\" dir=\"ltr\"><a href=\"https://en.wikipedia.org/wiki/Digital_object_identifier\" class=\"extiw\" title=\"en:Digital object identifier\">doi</a></span>:<a href=\"//doi.org/10.1016/j.gca.2018.11.026\" class=\"extiw\" title=\"doi:10.1016/j.gca.2018.11.026\">10.1016/j.gca.2018.11.026</a></bdi>, <a href=\"https://ui.adsabs.harvard.edu/abs/2019GeCoA.246..267M/abstract\" class=\"extiw\" title=\"bibcode:2019GeCoA.246..267M\">bibcode:2019GeCoA.246..267M</a>, <a href=\"https://en.wikipedia.org/wiki/Wikidata\" class=\"extiw\" title=\"en:Wikidata\">Wikidata</a>:<a href=\"https://www.wikidata.org/wiki/Q106705214\" class=\"extiw\" title=\"d:Q106705214\">Q106705214</a>",
+     "Artist": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Branney, G. M. Hansford, S. H. Baker, Susanne P. Schwenzer, S. J. Gurman, N. R. Stephen, E. D. Steer, J. D. Piercy, T. R. Ireland",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0",
+    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Bran…",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:1-s2.0-S0016703718306562-gr10_lrg.jpg"
+   }
+  },
+  {
+   "fichier": "1-s2.0-S0016703718306562-gr11 lrg.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1512,
+    "h": 1329,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<i>Mineralogical constraints on the thermal history of martian regolith breccia Northwest Africa 8114.</i> In: <i>Geochimica et Cosmochimica Acta</i>, Volume 246, p. 267-298; <bdi><span lang=\"en\" dir=\"ltr\"><a href=\"https://en.wikipedia.org/wiki/Digital_object_identifier\" class=\"extiw\" title=\"en:Digital object identifier\">doi</a></span>:<a href=\"//doi.org/10.1016/j.gca.2018.11.026\" class=\"extiw\" title=\"doi:10.1016/j.gca.2018.11.026\">10.1016/j.gca.2018.11.026</a></bdi>, <a href=\"https://ui.adsabs.harvard.edu/abs/2019GeCoA.246..267M/abstract\" class=\"extiw\" title=\"bibcode:2019GeCoA.246..267M\">bibcode:2019GeCoA.246..267M</a>, <a href=\"https://en.wikipedia.org/wiki/Wikidata\" class=\"extiw\" title=\"en:Wikidata\">Wikidata</a>:<a href=\"https://www.wikidata.org/wiki/Q106705214\" class=\"extiw\" title=\"d:Q106705214\">Q106705214</a>",
+     "Artist": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Branney, G. M. Hansford, S. H. Baker, Susanne P. Schwenzer, S. J. Gurman, N. R. Stephen, E. D. Steer, J. D. Piercy, T. R. Ireland",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0",
+    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Bran…",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:1-s2.0-S0016703718306562-gr11_lrg.jpg"
+   }
+  },
+  {
+   "fichier": "1-s2.0-S0016703718306562-gr12 lrg.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2066,
+    "h": 987,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<i>Mineralogical constraints on the thermal history of martian regolith breccia Northwest Africa 8114.</i> In: <i>Geochimica et Cosmochimica Acta</i>, Volume 246, p. 267-298; <bdi><span lang=\"en\" dir=\"ltr\"><a href=\"https://en.wikipedia.org/wiki/Digital_object_identifier\" class=\"extiw\" title=\"en:Digital object identifier\">doi</a></span>:<a href=\"//doi.org/10.1016/j.gca.2018.11.026\" class=\"extiw\" title=\"doi:10.1016/j.gca.2018.11.026\">10.1016/j.gca.2018.11.026</a></bdi>, <a href=\"https://ui.adsabs.harvard.edu/abs/2019GeCoA.246..267M/abstract\" class=\"extiw\" title=\"bibcode:2019GeCoA.246..267M\">bibcode:2019GeCoA.246..267M</a>, <a href=\"https://en.wikipedia.org/wiki/Wikidata\" class=\"extiw\" title=\"en:Wikidata\">Wikidata</a>:<a href=\"https://www.wikidata.org/wiki/Q106705214\" class=\"extiw\" title=\"d:Q106705214\">Q106705214</a>",
+     "Artist": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Branney, G. M. Hansford, S. H. Baker, Susanne P. Schwenzer, S. J. Gurman, N. R. Stephen, E. D. Steer, J. D. Piercy, T. R. Ireland",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0",
+    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Bran…",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:1-s2.0-S0016703718306562-gr12_lrg.jpg"
+   }
+  },
+  {
+   "fichier": "1-s2.0-S0016703718306562-gr13 lrg.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1965,
+    "h": 1096,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<i>Mineralogical constraints on the thermal history of martian regolith breccia Northwest Africa 8114.</i> In: <i>Geochimica et Cosmochimica Acta</i>, Volume 246, p. 267-298; <bdi><span lang=\"en\" dir=\"ltr\"><a href=\"https://en.wikipedia.org/wiki/Digital_object_identifier\" class=\"extiw\" title=\"en:Digital object identifier\">doi</a></span>:<a href=\"//doi.org/10.1016/j.gca.2018.11.026\" class=\"extiw\" title=\"doi:10.1016/j.gca.2018.11.026\">10.1016/j.gca.2018.11.026</a></bdi>, <a href=\"https://ui.adsabs.harvard.edu/abs/2019GeCoA.246..267M/abstract\" class=\"extiw\" title=\"bibcode:2019GeCoA.246..267M\">bibcode:2019GeCoA.246..267M</a>, <a href=\"https://en.wikipedia.org/wiki/Wikidata\" class=\"extiw\" title=\"en:Wikidata\">Wikidata</a>:<a href=\"https://www.wikidata.org/wiki/Q106705214\" class=\"extiw\" title=\"d:Q106705214\">Q106705214</a>",
+     "Artist": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Branney, G. M. Hansford, S. H. Baker, Susanne P. Schwenzer, S. J. Gurman, N. R. Stephen, E. D. Steer, J. D. Piercy, T. R. Ireland",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by/4.0",
+    "auteur": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Bran…",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:1-s2.0-S0016703718306562-gr13_lrg.jpg"
+   }
+  },
+  {
+   "fichier": "1-s2.0-S0016703718306562-gr5 lrg.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1524,
+    "h": 575,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<i>Mineralogical constraints on the thermal history of martian regolith breccia Northwest Africa 8114.</i> In: <i>Geochimica et Cosmochimica Acta</i>, Volume 246, p. 267-298; <bdi><span lang=\"en\" dir=\"ltr\"><a href=\"https://en.wikipedia.org/wiki/Digital_object_identifier\" class=\"extiw\" title=\"en:Digital object identifier\">doi</a></span>:<a href=\"//doi.org/10.1016/j.gca.2018.11.026\" class=\"extiw\" title=\"doi:10.1016/j.gca.2018.11.026\">10.1016/j.gca.2018.11.026</a></bdi>, <a href=\"https://ui.adsabs.harvard.edu/abs/2019GeCoA.246..267M/abstract\" class=\"extiw\" title=\"bibcode:2019GeCoA.246..267M\">bibcode:2019GeCoA.246..267M</a>, <a href=\"https://en.wikipedia.org/wiki/Wikidata\" class=\"extiw\" title=\"en:Wikidata\">Wikidata</a>:<a href=\"https://www.wikidata.org/wiki/Q106705214\" class=\"extiw\" title=\"d:Q106705214\">Q106705214</a>",
+     "Artist": "J. L. MacArthur, J. C. Bridges, L. J. Hicks, Ray Burgess, K. H. Joy, M. J. Branney, G. M. Hansford, S. H. Baker, Susanne P. Schwenzer, S. J. Gurman, N. R. Stephen, E. D. Steer, J. D. Piercy, T. R. Ireland",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "100 ARW supports BTF over Mediterranean Sea (6589647).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 7394,
+    "h": 4929,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<table class=\"layouttemplate sourcetemplate\" style=\"width:100%; clear:both; text-align:center; margin:0.5em auto; box-sizing: border-box; padding: 0; border-spacing: 8px; background-color: var(--background-color-neutral-subtle, #f6f7f5); color: var(--color-base, #202122); border: var(--border-subtle, 1px solid #555555);\" dir=\"ltr\" lang=\"en\">\n\n<tbody><tr>\n<td><span typeof=\"mw:File\"><span><img src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Seal_of_the_United_States_Department_of_the_Air_Force.svg/120px-Seal_of_the_United_States_Department_of_the_Air_Force.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"80\" height=\"80\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Seal_of_the_United_States_Department_of_the_Air_Force.svg/250px-Seal_of_the_United_States_Department_of_the_Air_Force.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"600\" data-file-height=\"600\"></span></span>\n</td>\n<td align=\"center\">\n<p><span class=\"layouttemplateargs\" style=\"display:none;speak:none;\" title=\"template=ID-USMil 1%3D210407-F-PZ401-1293 2%3DAir+Force url%3Dhttps%3A%2F%2Fwww.dvidshub.net%2Fimage%2F6589647\"> </span>\nThis image was released by the United States Air Force with the <a href=\"//commons.wikimedia.org/wiki/Commons:VIRIN\" title=\"Commons:VIRIN\">ID</a> <a rel=\"nofollow\" class=\"external text\" href=\"https://www.dvidshub.net/image/6589647\">210407-F-PZ401-1293</a> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/w/index.php?title=Category:Files_created_by_the_United_States_Air_Force_with_known_IDs&amp;filefrom=210407-F-PZ401-1293#mw-category-media\" href=\"https://commons.wikimedia.org/w/index.php?title=Category:Files_created_by_the_United_States_Air_Force_with_known_IDs&amp;filefrom=210407-F-PZ401-1293#mw-category-media\"><small>(next)</small></a>.<br>\n<small>This tag does not indicate the copyright status of the attached work. <span style=\"white-space:nowrap\">A normal <a href=\"//commons.wikimedia.org/wiki/Special:MyLanguage/Commons:Copyright_tags\" title=\"Special:MyLanguage/Commons:Copyright tags\">copyright tag</a> is still required.</span> <span style=\"white-space:nowrap\">See <a href=\"//commons.wikimedia.org/wiki/Special:MyLanguage/Commons:Licensing\" title=\"Special:MyLanguage/Commons:Licensing\">Commons:Licensing</a>.</span></small>\n</p>\n<hr>\n<p><span style=\"font-size:small;line-height:1.4\" class=\"plainlinks noprint\"><a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ar\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ar\"><bdi class=\"language lang-ar\" lang=\"ar\">العربية</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/bn\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/bn\"><bdi class=\"language lang-bn\" lang=\"bn\">বাংলা</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/id\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/id\"><bdi class=\"language lang-id\" lang=\"id\">Bahasa Indonesia</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/jax\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/jax\"><bdi class=\"language lang-jax\" lang=\"jax\">Bahaso Jambi</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/de\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/de\"><bdi class=\"language lang-de\" lang=\"de\">Deutsch</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/de-formal\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/de-formal\"><bdi class=\"language lang-de-formal\" lang=\"de-formal\">Deutsch (Sie-Form)</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/en\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/en\"><bdi class=\"language lang-en\" lang=\"en\">English</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/es\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/es\"><bdi class=\"language lang-es\" lang=\"es\">español</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/eu\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/eu\"><bdi class=\"language lang-eu\" lang=\"eu\">euskara</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/fa\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/fa\"><bdi class=\"language lang-fa\" lang=\"fa\">فارسی</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/fr\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/fr\"><bdi class=\"language lang-fr\" lang=\"fr\">français</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/it\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/it\"><bdi class=\"language lang-it\" lang=\"it\">italiano</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ja\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ja\"><bdi class=\"language lang-ja\" lang=\"ja\">日本語</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ko\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ko\"><bdi class=\"language lang-ko\" lang=\"ko\">한국어</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/mk\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/mk\"><bdi class=\"language lang-mk\" lang=\"mk\">македонски</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ml\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ml\"><bdi class=\"language lang-ml\" lang=\"ml\">മലയാളം</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/nds\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/nds\"><bdi class=\"language lang-nds\" lang=\"nds\">Plattdüütsch</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/nl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/nl\"><bdi class=\"language lang-nl\" lang=\"nl\">Nederlands</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/pl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/pl\"><bdi class=\"language lang-pl\" lang=\"pl\">polski</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ps\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ps\"><bdi class=\"language lang-ps\" lang=\"ps\">پښتو</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/pt\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/pt\"><bdi class=\"language lang-pt\" lang=\"pt\">português</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ru\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ru\"><bdi class=\"language lang-ru\" lang=\"ru\">русский</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/sl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/sl\"><bdi class=\"language lang-sl\" lang=\"sl\">slovenščina</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/sv\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/sv\"><bdi class=\"language lang-sv\" lang=\"sv\">svenska</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/tr\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/tr\"><bdi class=\"language lang-tr\" lang=\"tr\">Türkçe</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/uk\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/uk\"><bdi class=\"language lang-uk\" lang=\"uk\">українська</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/zh-hans\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/zh-hans\"><bdi class=\"language lang-zh-hans\" lang=\"zh-hans\">简体中文</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/zh-hant\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/zh-hant\"><bdi class=\"language lang-zh-hant\" lang=\"zh-hant\">繁體中文</bdi></a> <b>∙</b> <small class=\"plainlinks\"><a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/w/index.php?title=Template:ID-USMil/lang&amp;action=edit\" href=\"https://commons.wikimedia.org/w/index.php?title=Template:ID-USMil/lang&amp;action=edit\">+/−</a></small></span>\n</p>\n</td>\n<td><span class=\"mw-image-border\" typeof=\"mw:File\"><span><img src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/120px-Flag_of_the_United_States.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"90\" height=\"47\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/250px-Flag_of_the_United_States.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"1235\" data-file-height=\"650\"></span></span>\n</td></tr></tbody></table>",
+     "Artist": "U.S. Air Force photo by Airman 1st Class <a rel=\"nofollow\" class=\"external text\" href=\"https://www.dvidshub.net/portfolio/1584435\">Joseph Barron</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "100 ARW supports BTF over Mediterranean Sea (6589648).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 7975,
+    "h": 5317,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<table class=\"layouttemplate sourcetemplate\" style=\"width:100%; clear:both; text-align:center; margin:0.5em auto; box-sizing: border-box; padding: 0; border-spacing: 8px; background-color: var(--background-color-neutral-subtle, #f6f7f5); color: var(--color-base, #202122); border: var(--border-subtle, 1px solid #555555);\" dir=\"ltr\" lang=\"en\">\n\n<tbody><tr>\n<td><span typeof=\"mw:File\"><span><img src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Seal_of_the_United_States_Department_of_the_Air_Force.svg/120px-Seal_of_the_United_States_Department_of_the_Air_Force.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"80\" height=\"80\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Seal_of_the_United_States_Department_of_the_Air_Force.svg/250px-Seal_of_the_United_States_Department_of_the_Air_Force.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"600\" data-file-height=\"600\"></span></span>\n</td>\n<td align=\"center\">\n<p><span class=\"layouttemplateargs\" style=\"display:none;speak:none;\" title=\"template=ID-USMil 1%3D210407-F-PZ401-1381 2%3DAir+Force url%3Dhttps%3A%2F%2Fwww.dvidshub.net%2Fimage%2F6589648\"> </span>\nThis image was released by the United States Air Force with the <a href=\"//commons.wikimedia.org/wiki/Commons:VIRIN\" title=\"Commons:VIRIN\">ID</a> <a rel=\"nofollow\" class=\"external text\" href=\"https://www.dvidshub.net/image/6589648\">210407-F-PZ401-1381</a> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/w/index.php?title=Category:Files_created_by_the_United_States_Air_Force_with_known_IDs&amp;filefrom=210407-F-PZ401-1381#mw-category-media\" href=\"https://commons.wikimedia.org/w/index.php?title=Category:Files_created_by_the_United_States_Air_Force_with_known_IDs&amp;filefrom=210407-F-PZ401-1381#mw-category-media\"><small>(next)</small></a>.<br>\n<small>This tag does not indicate the copyright status of the attached work. <span style=\"white-space:nowrap\">A normal <a href=\"//commons.wikimedia.org/wiki/Special:MyLanguage/Commons:Copyright_tags\" title=\"Special:MyLanguage/Commons:Copyright tags\">copyright tag</a> is still required.</span> <span style=\"white-space:nowrap\">See <a href=\"//commons.wikimedia.org/wiki/Special:MyLanguage/Commons:Licensing\" title=\"Special:MyLanguage/Commons:Licensing\">Commons:Licensing</a>.</span></small>\n</p>\n<hr>\n<p><span style=\"font-size:small;line-height:1.4\" class=\"plainlinks noprint\"><a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ar\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ar\"><bdi class=\"language lang-ar\" lang=\"ar\">العربية</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/bn\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/bn\"><bdi class=\"language lang-bn\" lang=\"bn\">বাংলা</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/id\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/id\"><bdi class=\"language lang-id\" lang=\"id\">Bahasa Indonesia</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/jax\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/jax\"><bdi class=\"language lang-jax\" lang=\"jax\">Bahaso Jambi</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/de\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/de\"><bdi class=\"language lang-de\" lang=\"de\">Deutsch</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/de-formal\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/de-formal\"><bdi class=\"language lang-de-formal\" lang=\"de-formal\">Deutsch (Sie-Form)</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/en\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/en\"><bdi class=\"language lang-en\" lang=\"en\">English</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/es\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/es\"><bdi class=\"language lang-es\" lang=\"es\">español</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/eu\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/eu\"><bdi class=\"language lang-eu\" lang=\"eu\">euskara</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/fa\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/fa\"><bdi class=\"language lang-fa\" lang=\"fa\">فارسی</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/fr\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/fr\"><bdi class=\"language lang-fr\" lang=\"fr\">français</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/it\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/it\"><bdi class=\"language lang-it\" lang=\"it\">italiano</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ja\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ja\"><bdi class=\"language lang-ja\" lang=\"ja\">日本語</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ko\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ko\"><bdi class=\"language lang-ko\" lang=\"ko\">한국어</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/mk\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/mk\"><bdi class=\"language lang-mk\" lang=\"mk\">македонски</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ml\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ml\"><bdi class=\"language lang-ml\" lang=\"ml\">മലയാളം</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/nds\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/nds\"><bdi class=\"language lang-nds\" lang=\"nds\">Plattdüütsch</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/nl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/nl\"><bdi class=\"language lang-nl\" lang=\"nl\">Nederlands</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/pl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/pl\"><bdi class=\"language lang-pl\" lang=\"pl\">polski</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ps\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ps\"><bdi class=\"language lang-ps\" lang=\"ps\">پښتو</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/pt\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/pt\"><bdi class=\"language lang-pt\" lang=\"pt\">português</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ru\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ru\"><bdi class=\"language lang-ru\" lang=\"ru\">русский</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/sl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/sl\"><bdi class=\"language lang-sl\" lang=\"sl\">slovenščina</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/sv\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/sv\"><bdi class=\"language lang-sv\" lang=\"sv\">svenska</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/tr\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/tr\"><bdi class=\"language lang-tr\" lang=\"tr\">Türkçe</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/uk\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/uk\"><bdi class=\"language lang-uk\" lang=\"uk\">українська</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/zh-hans\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/zh-hans\"><bdi class=\"language lang-zh-hans\" lang=\"zh-hans\">简体中文</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/zh-hant\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/zh-hant\"><bdi class=\"language lang-zh-hant\" lang=\"zh-hant\">繁體中文</bdi></a> <b>∙</b> <small class=\"plainlinks\"><a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/w/index.php?title=Template:ID-USMil/lang&amp;action=edit\" href=\"https://commons.wikimedia.org/w/index.php?title=Template:ID-USMil/lang&amp;action=edit\">+/−</a></small></span>\n</p>\n</td>\n<td><span class=\"mw-image-border\" typeof=\"mw:File\"><span><img src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/120px-Flag_of_the_United_States.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"90\" height=\"47\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/250px-Flag_of_the_United_States.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"1235\" data-file-height=\"650\"></span></span>\n</td></tr></tbody></table>",
+     "Artist": "U.S. Air Force photo by Airman 1st Class <a rel=\"nofollow\" class=\"external text\" href=\"https://www.dvidshub.net/portfolio/1584435\">Joseph Barron</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "100 ARW supports BTF over Mediterranean Sea (6589649).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 7030,
+    "h": 4687,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<table class=\"layouttemplate sourcetemplate\" style=\"width:100%; clear:both; text-align:center; margin:0.5em auto; box-sizing: border-box; padding: 0; border-spacing: 8px; background-color: var(--background-color-neutral-subtle, #f6f7f5); color: var(--color-base, #202122); border: var(--border-subtle, 1px solid #555555);\" dir=\"ltr\" lang=\"en\">\n\n<tbody><tr>\n<td><span typeof=\"mw:File\"><span><img src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Seal_of_the_United_States_Department_of_the_Air_Force.svg/120px-Seal_of_the_United_States_Department_of_the_Air_Force.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"80\" height=\"80\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8e/Seal_of_the_United_States_Department_of_the_Air_Force.svg/250px-Seal_of_the_United_States_Department_of_the_Air_Force.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"600\" data-file-height=\"600\"></span></span>\n</td>\n<td align=\"center\">\n<p><span class=\"layouttemplateargs\" style=\"display:none;speak:none;\" title=\"template=ID-USMil 1%3D210407-F-PZ401-1399 2%3DAir+Force url%3Dhttps%3A%2F%2Fwww.dvidshub.net%2Fimage%2F6589649\"> </span>\nThis image was released by the United States Air Force with the <a href=\"//commons.wikimedia.org/wiki/Commons:VIRIN\" title=\"Commons:VIRIN\">ID</a> <a rel=\"nofollow\" class=\"external text\" href=\"https://www.dvidshub.net/image/6589649\">210407-F-PZ401-1399</a> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/w/index.php?title=Category:Files_created_by_the_United_States_Air_Force_with_known_IDs&amp;filefrom=210407-F-PZ401-1399#mw-category-media\" href=\"https://commons.wikimedia.org/w/index.php?title=Category:Files_created_by_the_United_States_Air_Force_with_known_IDs&amp;filefrom=210407-F-PZ401-1399#mw-category-media\"><small>(next)</small></a>.<br>\n<small>This tag does not indicate the copyright status of the attached work. <span style=\"white-space:nowrap\">A normal <a href=\"//commons.wikimedia.org/wiki/Special:MyLanguage/Commons:Copyright_tags\" title=\"Special:MyLanguage/Commons:Copyright tags\">copyright tag</a> is still required.</span> <span style=\"white-space:nowrap\">See <a href=\"//commons.wikimedia.org/wiki/Special:MyLanguage/Commons:Licensing\" title=\"Special:MyLanguage/Commons:Licensing\">Commons:Licensing</a>.</span></small>\n</p>\n<hr>\n<p><span style=\"font-size:small;line-height:1.4\" class=\"plainlinks noprint\"><a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ar\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ar\"><bdi class=\"language lang-ar\" lang=\"ar\">العربية</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/bn\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/bn\"><bdi class=\"language lang-bn\" lang=\"bn\">বাংলা</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/id\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/id\"><bdi class=\"language lang-id\" lang=\"id\">Bahasa Indonesia</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/jax\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/jax\"><bdi class=\"language lang-jax\" lang=\"jax\">Bahaso Jambi</bdi></a> <b>∙</b> \n<a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/de\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/de\"><bdi class=\"language lang-de\" lang=\"de\">Deutsch</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/de-formal\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/de-formal\"><bdi class=\"language lang-de-formal\" lang=\"de-formal\">Deutsch (Sie-Form)</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/en\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/en\"><bdi class=\"language lang-en\" lang=\"en\">English</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/es\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/es\"><bdi class=\"language lang-es\" lang=\"es\">español</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/eu\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/eu\"><bdi class=\"language lang-eu\" lang=\"eu\">euskara</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/fa\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/fa\"><bdi class=\"language lang-fa\" lang=\"fa\">فارسی</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/fr\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/fr\"><bdi class=\"language lang-fr\" lang=\"fr\">français</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/it\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/it\"><bdi class=\"language lang-it\" lang=\"it\">italiano</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ja\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ja\"><bdi class=\"language lang-ja\" lang=\"ja\">日本語</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ko\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ko\"><bdi class=\"language lang-ko\" lang=\"ko\">한국어</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/mk\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/mk\"><bdi class=\"language lang-mk\" lang=\"mk\">македонски</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ml\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ml\"><bdi class=\"language lang-ml\" lang=\"ml\">മലയാളം</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/nds\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/nds\"><bdi class=\"language lang-nds\" lang=\"nds\">Plattdüütsch</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/nl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/nl\"><bdi class=\"language lang-nl\" lang=\"nl\">Nederlands</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/pl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/pl\"><bdi class=\"language lang-pl\" lang=\"pl\">polski</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ps\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ps\"><bdi class=\"language lang-ps\" lang=\"ps\">پښتو</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/pt\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/pt\"><bdi class=\"language lang-pt\" lang=\"pt\">português</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/ru\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/ru\"><bdi class=\"language lang-ru\" lang=\"ru\">русский</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/sl\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/sl\"><bdi class=\"language lang-sl\" lang=\"sl\">slovenščina</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/sv\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/sv\"><bdi class=\"language lang-sv\" lang=\"sv\">svenska</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/tr\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/tr\"><bdi class=\"language lang-tr\" lang=\"tr\">Türkçe</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/uk\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/uk\"><bdi class=\"language lang-uk\" lang=\"uk\">українська</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/zh-hans\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/zh-hans\"><bdi class=\"language lang-zh-hans\" lang=\"zh-hans\">简体中文</bdi></a> <b>∙</b> <a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/wiki/Template:ID-USMil/zh-hant\" href=\"https://commons.wikimedia.org/wiki/Template:ID-USMil/zh-hant\"><bdi class=\"language lang-zh-hant\" lang=\"zh-hant\">繁體中文</bdi></a> <b>∙</b> <small class=\"plainlinks\"><a class=\"external text\" data-mw-original-href=\"//commons.wikimedia.org/w/index.php?title=Template:ID-USMil/lang&amp;action=edit\" href=\"https://commons.wikimedia.org/w/index.php?title=Template:ID-USMil/lang&amp;action=edit\">+/−</a></small></span>\n</p>\n</td>\n<td><span class=\"mw-image-border\" typeof=\"mw:File\"><span><img src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/120px-Flag_of_the_United_States.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"90\" height=\"47\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a4/Flag_of_the_United_States.svg/250px-Flag_of_the_United_States.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"1235\" data-file-height=\"650\"></span></span>\n</td></tr></tbody></table>",
+     "Artist": "U.S. Air Force photo by Airman 1st Class <a rel=\"nofollow\" class=\"external text\" href=\"https://www.dvidshub.net/portfolio/1584435\">Joseph Barron</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "100923-N-7948R-034 (5029780931).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 3000,
+    "h": 2009,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/39955793@N07/5029780931/\">100923-N-7948R-034</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/39955793@N07\">U.S. Department of Defense Current Photos</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "110913-N-XQ375-139 (6172878992).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2100,
+    "h": 1384,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/39955793@N07/6172878992/\">110913-N-XQ375-139</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/39955793@N07\">U.S. Department of Defense Current Photos</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "130610-Queribus-03.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2400,
+    "h": 1600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:BlueBreezeWiki\" title=\"User:BlueBreezeWiki\">BlueBreezeWiki</a>",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "auteur": "BlueBreezeWiki",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:130610-Queribus-03.jpg"
+   }
+  },
+  {
+   "fichier": "130823 Cape Kamui Shakotan Hokkaido Japan06s3.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4912,
+    "h": 3264,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY 2.5",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by/2.5",
+    "auteur": "663highland",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:130823_Cape_Kamui_Shakotan_Hokkaido_Japan06s3.jpg"
+   }
+  },
+  {
+   "fichier": "130922 Mount Usu Sobetsu Hokkaido Japan09bs5.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4912,
+    "h": 3264,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY 2.5",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by/2.5",
+    "auteur": "663highland",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:130922_Mount_Usu_Sobetsu_Hokkaido_Japan09bs5.jpg"
+   }
+  },
+  {
+   "fichier": "130922 Showa-shinzan Sobetsu Hokkaido Japan01s3.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4650,
+    "h": 3100,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY 2.5",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by/2.5",
+    "auteur": "663highland",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:130922_Showa-shinzan_Sobetsu_Hokkaido_Japan01s3.jpg"
+   }
+  },
+  {
+   "fichier": "1400011322242580422511884 تصاویر هوایی روز طبیعت کیش.jpg",
+   "origine": "Commons, 17/11/2026",
+   "info": {
+    "w": 800,
+    "h": 489,
+    "mime": "image/jpeg",
+    "meta": {
+     "ObjectName": "1400011322242580422511884 تصاویر هوایی روز طبیعت کیش",
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.tasnimnews.ir/fa/news/1400/01/13/2477772/%D8%AA%D8%B5%D8%A7%D9%88%DB%8C%D8%B1-%D9%87%D9%88%D8%A7%DB%8C%DB%8C-%D8%B1%D9%88%D8%B2-%D8%B7%D8%A8%DB%8C%D8%B9%D8%AA-%D9%82%D9%85-%D9%88-%DA%A9%DB%8C%D8%B4/photo/16\">https://www.tasnimnews.ir/fa/news/1400/01/13/2477772/%D8%AA%D8%B5%D8%A7%D9%88%DB%8C%D8%B1-%D9%87%D9%88%D8%A7%DB%8C%DB%8C-%D8%B1%D9%88%D8%B2-%D8%B7%D8%A8%DB%8C%D8%B9%D8%AA-%D9%82%D9%85-%D9%88-%DA%A9%DB%8C%D8%B4/photo/16</a>",
+     "Artist": "Hossein Tahavori",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "Attribution": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.tasnimnews.ir\">Tasnim News Agency</a>",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan01s5.jpg",
+   "origine": "Commons, 17/11/2026",
+   "info": {
+    "w": 6000,
+    "h": 4000,
+    "mime": "image/jpeg",
+    "meta": {
+     "ObjectName": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan01s5",
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY 2.5",
+     "AttributionRequired": "true",
+     "Attribution": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by/2.5",
+    "auteur": "663highland",
+    "auteur_de": "Attribution",
+    "titre": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan01s5",
+    "page": "https://commons.wikimedia.org/wiki/File:140829_Ichiko_of_Shiretoko_Goko_Lakes_Hokkaido_Japan01s5.jpg"
+   }
+  },
+  {
+   "fichier": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan02s5.jpg",
+   "origine": "Commons, 17/11/2026",
+   "info": {
+    "w": 6000,
+    "h": 4000,
+    "mime": "image/jpeg",
+    "meta": {
+     "ObjectName": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan02s5",
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY 2.5",
+     "AttributionRequired": "true",
+     "Attribution": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by/2.5",
+    "auteur": "663highland",
+    "auteur_de": "Attribution",
+    "titre": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan02s5",
+    "page": "https://commons.wikimedia.org/wiki/File:140829_Ichiko_of_Shiretoko_Goko_Lakes_Hokkaido_Japan02s5.jpg"
+   }
+  },
+  {
+   "fichier": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan04s3.jpg",
+   "origine": "Commons, 17/11/2026",
+   "info": {
+    "w": 6000,
+    "h": 4000,
+    "mime": "image/jpeg",
+    "meta": {
+     "ObjectName": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan04s3",
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY 2.5",
+     "AttributionRequired": "true",
+     "Attribution": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by/2.5",
+    "auteur": "663highland",
+    "auteur_de": "Attribution",
+    "titre": "140829 Ichiko of Shiretoko Goko Lakes Hokkaido Japan04s3",
+    "page": "https://commons.wikimedia.org/wiki/File:140829_Ichiko_of_Shiretoko_Goko_Lakes_Hokkaido_Japan04s3.jpg"
+   }
+  },
+  {
+   "fichier": "140913 Sannai-Maruyama site Aomori Japan01bs6bs6.jpg",
+   "origine": "Commons, 17/11/2026",
+   "info": {
+    "w": 6000,
+    "h": 4000,
+    "mime": "image/jpeg",
+    "meta": {
+     "ObjectName": "140913 Sannai-Maruyama site Aomori Japan01bs6bs6",
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY 2.5",
+     "AttributionRequired": "true",
+     "Attribution": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by/2.5",
+    "auteur": "663highland",
+    "auteur_de": "Attribution",
+    "titre": "140913 Sannai-Maruyama site Aomori Japan01bs6bs6",
+    "page": "https://commons.wikimedia.org/wiki/File:140913_Sannai-Maruyama_site_Aomori_Japan01bs6bs6.jpg"
+   }
+  },
+  {
+   "fichier": "15-07-21-Flug-MEX-CDG-RalfR-N3S 9821.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4288,
+    "h": 2848,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<bdi><a href=\"https://www.wikidata.org/wiki/Q15080600\" class=\"extiw\" title=\"d:Q15080600\"><span title=\"German civil engineer and photographer\">Ralf Roletschek</span></a></bdi>",
+     "LicenseShortName": "GFDL 1.2",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://www.gnu.org/licenses/old-licenses/fdl-1.2.html",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "180503 Gotsu City Hall Gotsu Shimane pref Japan01bs.jpg",
+   "origine": "Commons, 17/11/2026",
+   "info": {
+    "w": 6000,
+    "h": 4000,
+    "mime": "image/jpeg",
+    "meta": {
+     "ObjectName": "180503 Gotsu City Hall Gotsu Shimane pref Japan01bs",
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/user:663highland\" class=\"extiw\" title=\"ja:user:663highland\">663highland</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "Attribution": "Photo by <a href=\"//commons.wikimedia.org/wiki/User:663highland\" title=\"User:663highland\">663highland</a>",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "auteur": "663highland",
+    "auteur_de": "Attribution",
+    "titre": "180503 Gotsu City Hall Gotsu Shimane pref Japan01bs",
+    "page": "https://commons.wikimedia.org/wiki/File:180503_Gotsu_City_Hall_Gotsu_Shimane_pref_Japan01bs.jpg"
+   }
+  },
+  {
+   "fichier": "19930101 02 Réunion Brulé 01.JPG",
+   "origine": "R5",
+   "info": {
+    "w": 889,
+    "h": 584,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "ddwiki",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "2006 Ojiya balloon festival night 004.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2399,
+    "h": 1349,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "photo taken by <a href=\"//commons.wikimedia.org/wiki/User:Kropsoq\" title=\"User:Kropsoq\">Kropsoq</a>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Kropsoq\" title=\"User:Kropsoq\">Kropsoq</a>",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "auteur": "Kropsoq",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:2006_Ojiya_balloon_festival_night_004.jpg"
+   }
+  },
+  {
+   "fichier": "2007 Nagaoka Festival 004 Edit.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2070,
+    "h": 1650,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "photo taken by <a href=\"//commons.wikimedia.org/wiki/User:Kropsoq\" title=\"User:Kropsoq\">Kropsoq</a>, original:<a href=\"//commons.wikimedia.org/wiki/File:2007_Nagaoka_Festival_004.jpg\" title=\"File:2007 Nagaoka Festival 004.jpg\">Image:2007_Nagaoka_Festival_004.jpg</a>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Kropsoq\" title=\"User:Kropsoq\">Kropsoq</a>",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "auteur": "Kropsoq",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:2007_Nagaoka_Festival_004_Edit.jpg"
+   }
+  },
+  {
+   "fichier": "20160427 April 2016 in Israel 44.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4928,
+    "h": 3264,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Rakoon\" title=\"User:Rakoon\">Rakoon</a>",
+     "LicenseShortName": "CC0",
+     "AttributionRequired": "false",
+     "LicenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC0",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "auteur": "Rakoon",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:20160427_April_2016_in_Israel_44.jpg"
+   }
+  },
+  {
+   "fichier": "20170809 150416 August 2017 in Greece.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 5184,
+    "h": 3456,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Rakoon\" title=\"User:Rakoon\">Rakoon</a>",
+     "LicenseShortName": "CC0",
+     "AttributionRequired": "false",
+     "LicenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC0",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "auteur": "Rakoon",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:20170809_150416_August_2017_in_Greece.jpg"
+   }
+  },
+  {
+   "fichier": "20200222 FIS NC COC Eisenerz PRC HS109 Women Yuna Kasai 850 4048.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 5875,
+    "h": 3305,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Granada\" title=\"User:Granada\">Granada</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": "personality"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "restrictions"
+   }
+  },
+  {
+   "fichier": "20230726 100033 IMG 18798.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 3500,
+    "h": 2333,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:RodolpheD&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:RodolpheD (page does not exist)\">RodolpheD</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "auteur": "RodolpheD",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:20230726_100033_IMG_18798.jpg"
+   }
+  },
+  {
+   "fichier": "205kei train in JR Nikko line 02.JPG",
+   "origine": "R5",
+   "info": {
+    "w": 3872,
+    "h": 2592,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Fortew_F&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Fortew F (page does not exist)\">Fortew F</a>",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+    "auteur": "Fortew F",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:205kei_train_in_JR_Nikko_line_02.JPG"
+   }
+  },
+  {
+   "fichier": "24 Kamele ziehen zur Wasserstelle im Ennedi-Gebirge im Tschad.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 745,
+    "h": 600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Desertman&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Desertman (page does not exist)\">Desertman</a>",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "974 Saint-Pierre Conseil municipal 2020.svg",
+   "origine": "R5",
+   "info": {
+    "w": 360,
+    "h": 185,
+    "mime": "image/svg+xml",
+    "meta": {
+     "Credit": "<a class=\"external text\" href=\"https://parliamentdiagram.toolforge.org/parliamentinputform.html\">Parliament diagram tool</a>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:HaT59\" title=\"User:HaT59\">User:HaT59</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "format"
+   }
+  },
+  {
+   "fichier": "A Polynya Seldom Seen.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4361,
+    "h": 4361,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://earthobservatory.nasa.gov/images/88656/a-polynya-seldom-seen\">A Polynya Seldom Seen</a>",
+     "Artist": "NASA Earth Observatory image by Joshua Stevens, using MODIS data from the Land Atmosphere Near real-time Capability for EOS (LANCE). Caption by Kathryn Hansen.",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": "NASA Earth Observatory image by Joshua Stevens, using MODIS data from the Land…",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:A_Polynya_Seldom_Seen.jpg"
+   }
+  },
+  {
+   "fichier": "A Winter Wanderer in the Weddell Sea (153316 - 522 lrg).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2041,
+    "h": 1701,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "This image or video was catalogued by Goddard Space Flight Center of the United States <a href=\"https://en.wikipedia.org/wiki/NASA\" class=\"extiw\" title=\"w:NASA\">National Aeronautics and Space Administration</a> (NASA) under <b>Photo ID:</b> <a rel=\"nofollow\" class=\"external text\" href=\"https://images.nasa.gov/search?q=153316&amp;page=1&amp;media=image,video,audio&amp;yearStart=1920&amp;yearEnd=2026\">153316</a>.",
+     "Artist": "NASA Earth Observatory image by Lauren Dauphin, using Landsat data from the U.S. Geological Survey. Story by Kathryn Hansen.",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": "NASA Earth Observatory image by Lauren Dauphin, using Landsat data from the U.S…",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:A_Winter_Wanderer_in_the_Weddell_Sea_(153316_-_522_lrg).jpg"
+   }
+  },
+  {
+   "fichier": "A Winter Wanderer in the Weddell Sea (153316 - 522).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 720,
+    "h": 665,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://science.nasa.gov/earth/earth-observatory/a-winter-wanderer-in-the-weddell-sea-153316/\">A Winter Wanderer in the Weddell Sea</a>",
+     "Artist": "NASA",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "A Winter Wanderer in the Weddell Sea (153316 - 826 lrg).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2041,
+    "h": 1701,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "This image or video was catalogued by Goddard Space Flight Center of the United States <a href=\"https://en.wikipedia.org/wiki/NASA\" class=\"extiw\" title=\"w:NASA\">National Aeronautics and Space Administration</a> (NASA) under <b>Photo ID:</b> <a rel=\"nofollow\" class=\"external text\" href=\"https://images.nasa.gov/search?q=153316&amp;page=1&amp;media=image,video,audio&amp;yearStart=1920&amp;yearEnd=2026\">153316</a>.",
+     "Artist": "NASA Earth Observatory image by Lauren Dauphin, using Landsat data from the U.S. Geological Survey. Story by Kathryn Hansen.",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": "NASA Earth Observatory image by Lauren Dauphin, using Landsat data from the U.S…",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:A_Winter_Wanderer_in_the_Weddell_Sea_(153316_-_826_lrg).jpg"
+   }
+  },
+  {
+   "fichier": "A Winter Wanderer in the Weddell Sea (153316 - 826).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 720,
+    "h": 665,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://science.nasa.gov/earth/earth-observatory/a-winter-wanderer-in-the-weddell-sea-153316/\">A Winter Wanderer in the Weddell Sea</a>",
+     "Artist": "NASA",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "A distant bow view of Endurance frozen into the ice floe (4792722677).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1280,
+    "h": 954,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/nationalmaritimemuseum/4792722677/\">A distant bow view of 'Endurance' frozen into the ice floe</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/11334970@N05\">National Maritime Museum</a> from Greenwich, United Kingdom",
+     "LicenseShortName": "No restrictions",
+     "AttributionRequired": "false",
+     "LicenseUrl": "https://www.flickr.com/commons/usage/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "A dog-sledge at rest, with Endurance in the background (4792719821).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1280,
+    "h": 985,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/nationalmaritimemuseum/4792719821/\">A dog-sledge at rest, with 'Endurance' in the background</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/11334970@N05\">National Maritime Museum</a> from Greenwich, United Kingdom",
+     "LicenseShortName": "No restrictions",
+     "AttributionRequired": "false",
+     "LicenseUrl": "https://www.flickr.com/commons/usage/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "A map shows the successful and unsuccessful maritime security patrols performed by Combined Task Force 150 in the Gulf of Aden at Manama, Bahrain, Sept 080922-N-TW583-001.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 792,
+    "h": 612,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"http://www.defenseimagery.mil/imageRetrieve.action?guid=cdc65f78b034d795378a06f52f121e7d20e61e4f&amp;t=2\">http://www.defenseimagery.mil/imageRetrieve.action?guid=cdc65f78b034d795378a06f52f121e7d20e61e4f&amp;t=2</a>",
+     "Artist": "Unknown author<span style=\"display: none;\">Unknown author</span>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "nom"
+   }
+  },
+  {
+   "fichier": "A public water collection point set up in response to the drought, Tuvalu, 2011. Photo- DFAT (12779967324).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1294,
+    "h": 1942,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/dfataustralianaid/12779967324/\">A public water collection point set up in response to the drought, Tuvalu, 2011. Photo: DFAT</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/106853342@N04\">Department of Foreign Affairs and Trade</a>",
+     "LicenseShortName": "CC BY 2.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.0",
+    "licence_url": "https://creativecommons.org/licenses/by/2.0",
+    "auteur": "Department of Foreign Affairs and Trade",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:A_public_water_collection_point_set_up_in_response_to_the_drought,_Tuvalu,_2011._Photo-_DFAT_(12779967324).jpg"
+   }
+  },
+  {
+   "fichier": "A seven-dog sledge team on the ice with unidentified Endurance crew member (4793354178).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1280,
+    "h": 1004,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/nationalmaritimemuseum/4793354178/\">A seven-dog sledge team on the ice with unidentified 'Endurance' crew member</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/11334970@N05\">National Maritime Museum</a> from Greenwich, United Kingdom",
+     "LicenseShortName": "No restrictions",
+     "AttributionRequired": "false",
+     "LicenseUrl": "https://www.flickr.com/commons/usage/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "A very distant broadside view of Endurance beset in ice (4792720287).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1280,
+    "h": 998,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/nationalmaritimemuseum/4792720287/\">A very distant broadside view of 'Endurance' beset in ice</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/11334970@N05\">National Maritime Museum</a> from Greenwich, United Kingdom",
+     "LicenseShortName": "No restrictions",
+     "AttributionRequired": "false",
+     "LicenseUrl": "https://www.flickr.com/commons/usage/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "A village in Chad Republic.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1382,
+    "h": 997,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Zionstar888&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Zionstar888 (page does not exist)\">Zionstar888</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 4.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+    "auteur": "Zionstar888",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:A_village_in_Chad_Republic.jpg"
+   }
+  },
+  {
+   "fichier": "A water tank for Nuitau Primary School in Tuvalu being delivered, October 2011. Photo- DFAT (12779671793).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1726,
+    "h": 1150,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/dfataustralianaid/12779671793/\">A water tank for Nuitau Primary School in Tuvalu being delivered, October 2011. Photo: DFAT</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/106853342@N04\">Department of Foreign Affairs and Trade</a>",
+     "LicenseShortName": "CC BY 2.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.0",
+    "licence_url": "https://creativecommons.org/licenses/by/2.0",
+    "auteur": "Department of Foreign Affairs and Trade",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:A_water_tank_for_Nuitau_Primary_School_in_Tuvalu_being_delivered,_October_2011._Photo-_DFAT_(12779671793).jpg"
+   }
+  },
+  {
+   "fichier": "AS09-23-3516 - Apollo 9 - Apollo 9 Mission image - Earth Observation - Libya - NARA - 16674177.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4400,
+    "h": 4600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Artist": "<div class=\"fn value\">\nUnknown author<span style=\"display: none;\">Unknown author</span> or not provided</div>",
+     "Credit": "<a href=\"https://en.wikipedia.org/wiki/U.S._National_Archives_and_Records_Administration\" class=\"extiw\" title=\"en:U.S. National Archives and Records Administration\">U.S. National Archives and Records Administration</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": null,
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:AS09-23-3516_-_Apollo_9_-_Apollo_9_Mission_image_-_Earth_Observation_-_Libya_-_NARA_-_16674177.jpg"
+   }
+  },
+  {
+   "fichier": "AS09-23-3517 - Apollo 9 - Apollo 9 Mission image - Earth Observation - Libya - NARA - 16674180.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4400,
+    "h": 4600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Artist": "<div class=\"fn value\">\nUnknown author<span style=\"display: none;\">Unknown author</span> or not provided</div>",
+     "Credit": "<a href=\"https://en.wikipedia.org/wiki/U.S._National_Archives_and_Records_Administration\" class=\"extiw\" title=\"en:U.S. National Archives and Records Administration\">U.S. National Archives and Records Administration</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": null,
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:AS09-23-3517_-_Apollo_9_-_Apollo_9_Mission_image_-_Earth_Observation_-_Libya_-_NARA_-_16674180.jpg"
+   }
+  },
+  {
+   "fichier": "AS09-23-3518 - Apollo 9 - Apollo 9 Mission image - Earth Observation - Libya - NARA - 16674183.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4400,
+    "h": 4600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Artist": "<div class=\"fn value\">\nUnknown author<span style=\"display: none;\">Unknown author</span> or not provided</div>",
+     "Credit": "<a href=\"https://en.wikipedia.org/wiki/U.S._National_Archives_and_Records_Administration\" class=\"extiw\" title=\"en:U.S. National Archives and Records Administration\">U.S. National Archives and Records Administration</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": null,
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:AS09-23-3518_-_Apollo_9_-_Apollo_9_Mission_image_-_Earth_Observation_-_Libya_-_NARA_-_16674183.jpg"
+   }
+  },
+  {
+   "fichier": "AS09-23-3519 - Apollo 9 - Apollo 9 Mission image - Earth Observation - Libya - NARA - 16674186.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4400,
+    "h": 4600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Artist": "<div class=\"fn value\">\nUnknown author<span style=\"display: none;\">Unknown author</span> or not provided</div>",
+     "Credit": "<a href=\"https://en.wikipedia.org/wiki/U.S._National_Archives_and_Records_Administration\" class=\"extiw\" title=\"en:U.S. National Archives and Records Administration\">U.S. National Archives and Records Administration</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": null,
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:AS09-23-3519_-_Apollo_9_-_Apollo_9_Mission_image_-_Earth_Observation_-_Libya_-_NARA_-_16674186.jpg"
+   }
+  },
+  {
+   "fichier": "AS09-23-3520 - Apollo 9 - Apollo 9 Mission image - Earth Observation - Crete and Mediterranean Sea - NARA - 16674190.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4400,
+    "h": 4600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Artist": "<div class=\"fn value\">\nUnknown author<span style=\"display: none;\">Unknown author</span> or not provided</div>",
+     "Credit": "<a href=\"https://en.wikipedia.org/wiki/U.S._National_Archives_and_Records_Administration\" class=\"extiw\" title=\"en:U.S. National Archives and Records Administration\">U.S. National Archives and Records Administration</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": null,
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:AS09-23-3520_-_Apollo_9_-_Apollo_9_Mission_image_-_Earth_Observation_-_Crete_and_Mediterranean_Sea_-_NARA_-_16674190.jpg"
+   }
+  },
+  {
+   "fichier": "AST-27-2364 - Apollo Soyuz Test Project - NARA - 16634192.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4400,
+    "h": 4600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Artist": "<div class=\"fn value\">\nUnknown author<span style=\"display: none;\">Unknown author</span> or not provided</div>",
+     "Credit": "<a href=\"https://en.wikipedia.org/wiki/U.S._National_Archives_and_Records_Administration\" class=\"extiw\" title=\"en:U.S. National Archives and Records Administration\">U.S. National Archives and Records Administration</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "Domaine public",
+    "licence_url": null,
+    "auteur": null,
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:AST-27-2364_-_Apollo_Soyuz_Test_Project_-_NARA_-_16634192.jpg"
+   }
+  },
+  {
+   "fichier": "Abbaye d'Hautecombe (Savoie) - Lac du Bourget - Vue depuis le belvédère du mont de la Charvaz - 51619987352.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4928,
+    "h": 3264,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.flickr.com/photos/78775886@N06/51619987352/\">https://www.flickr.com/photos/78775886@N06/51619987352/</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/78775886@N06\">Morio60</a>",
+     "LicenseShortName": "CC BY-SA 2.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 2.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/2.0",
+    "auteur": "Morio60",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Abbaye_d'Hautecombe_(Savoie)_-_Lac_du_Bourget_-_Vue_depuis_le_belv%C3%A9d%C3%A8re_du_mont_de_la_Charvaz_-_51619987352.jpg"
+   }
+  },
+  {
+   "fichier": "Abendstille - Serenity - Flickr - Stiller Beobachter.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2807,
+    "h": 1731,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/a-herzog/6813385772/\">Abendstille - Serenity</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/56091199@N03\">Stiller Beobachter</a> from Ansbach, Germany",
+     "LicenseShortName": "CC BY 2.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.0",
+    "licence_url": "https://creativecommons.org/licenses/by/2.0",
+    "auteur": "Stiller Beobachter from Ansbach, Germany",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Abendstille_-_Serenity_-_Flickr_-_Stiller_Beobachter.jpg"
+   }
+  },
+  {
+   "fichier": "Ad Alpés map II.png",
+   "origine": "R5",
+   "info": {
+    "w": 1749,
+    "h": 1135,
+    "mime": "image/png",
+    "meta": {
+     "Credit": "<a class=\"external free\" href=\"https://commons.wikimedia.org/wiki/File:Ad_Alpes.djvu\">https://commons.wikimedia.org/wiki/File:Ad_Alpes.djvu</a>",
+     "Artist": "Not credited",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "nom"
+   }
+  },
+  {
+   "fichier": "Admiralty Chart No 675 Port Burburra, Published 1828.png",
+   "origine": "R5",
+   "info": {
+    "w": 3383,
+    "h": 2560,
+    "mime": "image/png",
+    "meta": {
+     "Credit": "DO 925/1025 National Archives UK",
+     "Artist": "Lieutenant John Septimus Roe",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "nom"
+   }
+  },
+  {
+   "fichier": "Ain Taya - Surcouf - panoramio.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2540,
+    "h": 1815,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"https://web.archive.org/web/20161023140416/http://www.panoramio.com/photo/69607069\">https://web.archive.org/web/20161023140416/http://www.panoramio.com/photo/69607069</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://web.archive.org/web/20161023140418/http://www.panoramio.com/user/5095076?with_photo_id=69607069\">habib kaki</a>",
+     "LicenseShortName": "CC BY 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by/3.0",
+    "auteur": "habib kaki",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Ain_Taya_-_Surcouf_-_panoramio.jpg"
+   }
+  },
+  {
+   "fichier": "Airag lake, Mongolia, Landsat image.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1224,
+    "h": 1224,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "This file was derived from:  <a href=\"//commons.wikimedia.org/wiki/File:Khyargas-Nuur_lake,_Mongolia,_Landsat_image.jpg\" title=\"File:Khyargas-Nuur lake, Mongolia, Landsat image.jpg\">Khyargas-Nuur lake, Mongolia, Landsat image.jpg</a>: <span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:Khyargas-Nuur_lake,_Mongolia,_Landsat_image.jpg\" class=\"mw-file-description\"><img src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Khyargas-Nuur_lake%2C_Mongolia%2C_Landsat_image.jpg/60px-Khyargas-Nuur_lake%2C_Mongolia%2C_Landsat_image.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"50\" height=\"39\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/Khyargas-Nuur_lake%2C_Mongolia%2C_Landsat_image.jpg/120px-Khyargas-Nuur_lake%2C_Mongolia%2C_Landsat_image.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"3559\" data-file-height=\"2776\"></a></span><br>",
+     "Artist": "<ul><li><a href=\"//commons.wikimedia.org/wiki/File:Khyargas-Nuur_lake,_Mongolia,_Landsat_image.jpg\" title=\"File:Khyargas-Nuur lake, Mongolia, Landsat image.jpg\">Khyargas-Nuur_lake,_Mongolia,_Landsat_image.jpg</a>: NASA</li>\n<li>derivative work: <a href=\"//commons.wikimedia.org/wiki/User:Chinneeb\" title=\"User:Chinneeb\">Chinneeb</a></li></ul>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "nom"
+   }
+  },
+  {
+   "fichier": "Alpamayo.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2272,
+    "h": 1704,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"http://www.sxc.hu/photo/198396\">http://www.sxc.hu/photo/198396</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external text\" href=\"http://www.sxc.hu/profile/spock1\">Brad Mering</a><br>Baltimore, MD, United States",
+     "LicenseShortName": "Copyrighted free use",
+     "AttributionRequired": "false",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "Andean Man.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1806,
+    "h": 2400,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Cacophony\" title=\"User:Cacophony\">Cacophony</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": "personality"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "restrictions"
+   }
+  },
+  {
+   "fichier": "Annaba, algeria04.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4912,
+    "h": 3264,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.flickr.com/photos/dantoujours/15677055390\">https://www.flickr.com/photos/dantoujours/15677055390</a>",
+     "Artist": "Dan Sloan",
+     "LicenseShortName": "CC BY-SA 2.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 2.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/2.0",
+    "auteur": "Dan Sloan",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Annaba,_algeria04.jpg"
+   }
+  },
+  {
+   "fichier": "Arequipa-sta-catalina-c07.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 3553,
+    "h": 2364,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 2.5 es",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/2.5/es/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Arles Roman theater pillar ruins.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 583,
+    "h": 455,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Baleares-rotulado.png",
+   "origine": "R5",
+   "info": {
+    "w": 1013,
+    "h": 636,
+    "mime": "image/png",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Basílica de San Pedro.JPG",
+   "origine": "R5",
+   "info": {
+    "w": 2560,
+    "h": 1920,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "No machine-readable source provided. Own work assumed (based on copyright claims).",
+     "Artist": "No machine-readable author provided. <a href=\"//commons.wikimedia.org/wiki/User:Manuel_Gonz%C3%A1lez_Olaechea\" title=\"User:Manuel González Olaechea\">Manuel González Olaechea</a> assumed (based on copyright claims).",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "auteur": "Manuel González Olaechea",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Bas%C3%ADlica_de_San_Pedro.JPG"
+   }
+  },
+  {
+   "fichier": "Blason DomFr Salazie (Réunion).svg",
+   "origine": "R5",
+   "info": {
+    "w": 600,
+    "h": 660,
+    "mime": "image/svg+xml",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "format"
+   }
+  },
+  {
+   "fichier": "Chachani, Peru ESA413331.png",
+   "origine": "R5",
+   "info": {
+    "w": 4335,
+    "h": 3120,
+    "mime": "image/png",
+    "meta": {
+     "Credit": "<a href=\"//commons.wikimedia.org/wiki/File:Chachani,_Peru_ESA413331.tiff\" title=\"File:Chachani, Peru ESA413331.tiff\">File:Chachani, Peru ESA413331.tiff</a>",
+     "Artist": "European Space Agency",
+     "LicenseShortName": "CC BY-SA 3.0 igo",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/igo/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0 igo",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/igo/deed.en",
+    "auteur": "European Space Agency",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Chachani,_Peru_ESA413331.png"
+   }
+  },
+  {
+   "fichier": "Cilaos Conseil municipal 2020.svg",
+   "origine": "R5",
+   "info": {
+    "w": 360,
+    "h": 185,
+    "mime": "image/svg+xml",
+    "meta": {
+     "Credit": "<a class=\"external text\" href=\"https://parliamentdiagram.toolforge.org/parliamentinputform.html\">Parliament diagram tool</a>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:HaT59\" title=\"User:HaT59\">User:HaT59</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "format"
+   }
+  },
+  {
+   "fichier": "Cilaos.JPG",
+   "origine": "R5",
+   "info": {
+    "w": 2304,
+    "h": 1354,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "No machine-readable source provided. Own work assumed (based on copyright claims).",
+     "Artist": "No machine-readable author provided. <a href=\"//commons.wikimedia.org/wiki/User:B.navez\" title=\"User:B.navez\">B.navez</a> assumed (based on copyright claims).",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "auteur": "B.navez",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Cilaos.JPG"
+   }
+  },
+  {
+   "fichier": "Daimonzaka8618.JPG",
+   "origine": "R5",
+   "info": {
+    "w": 1200,
+    "h": 1600,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<table align=\"CENTER\" style=\"background-color:#99ccff; border:10px solid #3300cc; width:550px; padding:5px;\">\n<tbody><tr>\n<td><span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:IxyD200-0030.jpg\" class=\"mw-file-description\" title=\"カメラ\"><img alt=\"カメラ\" src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/IxyD200-0030.jpg/120px-IxyD200-0030.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"100\" height=\"75\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9d/IxyD200-0030.jpg/250px-IxyD200-0030.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"640\" data-file-height=\"480\"></a></span>\n</td>\n<td style=\"text-align:center;\">Photo or data with a <b>Canon IXY DIGITAL 200 ®</b><br>by <span style=\"font-family:Tahoma;font-size:large;\"><b>©<a href=\"//commons.wikimedia.org/wiki/User:Jnn\" title=\"User:Jnn\">Jnn</a></b>.</span>\n</td>\n<td><span typeof=\"mw:File\"><a href=\"//commons.wikimedia.org/wiki/File:PublicInformationSymbol_SafetyEvacuationArea.svg\" class=\"mw-file-description\"><img src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/PublicInformationSymbol_SafetyEvacuationArea.svg/120px-PublicInformationSymbol_SafetyEvacuationArea.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"80\" height=\"80\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/PublicInformationSymbol_SafetyEvacuationArea.svg/250px-PublicInformationSymbol_SafetyEvacuationArea.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"600\" data-file-height=\"600\"></a></span>\n</td></tr></tbody></table>\n<p><br>\n</p>\n<a href=\"https://ja.wikipedia.org/wiki/%E5%88%A9%E7%94%A8%E8%80%85:nnn\" class=\"extiw\" title=\"ja:利用者:nnn\">日:</a><a href=\"//commons.wikimedia.org/wiki/User:Jnn\" title=\"User:Jnn\">Jnn</a> <span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"https://ja.wikipedia.org/wiki/%E5%88%A9%E7%94%A8%E8%80%85:nnn\" class=\"extiw\" title=\"ja:利用者:nnn\">日:</a><a href=\"//commons.wikimedia.org/wiki/User:Jnn\" title=\"User:Jnn\">Jnn</a>",
+     "LicenseShortName": "CC BY 2.1 jp",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.1/jp/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 2.1 jp",
+    "licence_url": "https://creativecommons.org/licenses/by/2.1/jp/deed.en",
+    "auteur": "日:Jnn",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Daimonzaka8618.JPG"
+   }
+  },
+  {
+   "fichier": "Dayan Lake 2019-06-18 Sentinel-2 L2A True color.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2500,
+    "h": 2588,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"https://apps.sentinel-hub.com/eo-browser\">https://apps.sentinel-hub.com/eo-browser</a>",
+     "Artist": "European Space Agency",
+     "LicenseShortName": "Attribution",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "De-Mittelmeer.ogg",
+   "origine": "R5",
+   "info": {
+    "w": 0,
+    "h": 0,
+    "mime": "application/ogg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Jeuwre\" title=\"User:Jeuwre\">Jeuwre</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "format"
+   }
+  },
+  {
+   "fichier": "France Cilaos Conseil municipal 2026.svg",
+   "origine": "R5",
+   "info": {
+    "w": 360,
+    "h": 185,
+    "mime": "image/svg+xml",
+    "meta": {
+     "Credit": "<a class=\"external text\" href=\"https://parliamentdiagram.toolforge.org/archinputform\">Parliament diagram tool</a>",
+     "Artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:ViviMrtn&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:ViviMrtn (page does not exist)\">User:ViviMrtn</a>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "format"
+   }
+  },
+  {
+   "fichier": "France Loir-et-Cher Chambord Chateau 03.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2258,
+    "h": 1686,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "No machine-readable source provided. Own work assumed (based on copyright claims).",
+     "Artist": "No machine-readable author provided. <a href=\"//commons.wikimedia.org/wiki/User:Calips\" title=\"User:Calips\">Calips</a> assumed (based on copyright claims).",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "auteur": "Calips",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:France_Loir-et-Cher_Chambord_Chateau_03.jpg"
+   }
+  },
+  {
+   "fichier": "FujiSunriseKawaguchiko2025WP.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 960,
+    "h": 640,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<table class=\"licensetpl\" style=\"display:none\">\n<tbody><tr>\n<td><span class=\"licensetpl_short\">Public domain</span><span class=\"licensetpl_long\">Public domain</span><span class=\"licensetpl_link_req\">false</span><span class=\"licensetpl_attr_req\">false</span>\n</td></tr></tbody></table>\n<table style=\"width: 100%; clear: both; margin: 0.5em auto; background-color: var(--background-color-progressive-subtle, #f7f8ff); color: var(--color-base, #202122); border: var(--border-subtle, 2px solid #8888aa); border-spacing: 8px; padding: 0px;\" dir=\"ltr\" class=\"layouttemplate\" lang=\"en\">\n<tbody><tr>\n<td><span typeof=\"mw:File\"><span title=\"Public domain\"><img alt=\"Public domain\" src=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/6/62/PD-icon.svg/120px-PD-icon.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail\" decoding=\"async\" loading=\"lazy\" width=\"64\" height=\"64\" class=\"mw-file-element\" srcset=\"https://thumb.wikimedia.org/wikipedia/commons/thumb/6/62/PD-icon.svg/250px-PD-icon.svg.png?utm_source=commons.wikimedia.org&amp;utm_campaign=parser&amp;utm_content=thumbnail 2x\" data-file-width=\"196\" data-file-height=\"196\"></span></span>\n</td>\n<td>I, the copyright holder of this work, release this work into the <b><a href=\"https://en.wikipedia.org/wiki/en:public_domain\" class=\"extiw\" title=\"w:en:public domain\">public domain</a></b>. This applies worldwide.<br><small>In some countries this may not be legally possible; if so:</small><br><i>I grant anyone the right to use this work <b>for any purpose</b>, without any conditions, unless such conditions are required by law.</i>\n</td></tr></tbody></table>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "GETTING TO 'YES'- RESOLVING THE 30-YEAR CONFLICT OVER THE STATUS OF WESTERN SAHARA (IA gov.gpo.fdsys.CHRG-109hhrg24601).pdf",
+   "origine": "R5",
+   "info": {
+    "w": 1275,
+    "h": 1650,
+    "mime": "application/pdf",
+    "meta": {
+     "Artist": "<div class=\"fn value\">\nCommittee on Foreign Affairs</div>",
+     "Credit": "<dl><dd><a href=\"//archive.org/details/gov.gpo.fdsys.CHRG-109hhrg24601\" class=\"extiw\" title=\"iarchive:gov.gpo.fdsys.CHRG-109hhrg24601\"><bdi class=\"description en\" lang=\"en\" dir=\"ltr\">Internet Archive identifier:</bdi> gov.gpo.fdsys.CHRG-109hhrg24601</a></dd>\n<dd><a rel=\"nofollow\" class=\"external free\" href=\"https://archive.org/download/gov.gpo.fdsys.CHRG-109hhrg24601/CHRG-109hhrg24601.pdf\">https://archive.org/download/gov.gpo.fdsys.CHRG-109hhrg24601/CHRG-109hhrg24601.pdf</a></dd></dl>",
+     "LicenseShortName": "Public domain",
+     "AttributionRequired": "false",
+     "Copyrighted": "False",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "format"
+   }
+  },
+  {
+   "fichier": "German frigate Bayern (F 217) underway in the Gulf of Aden on January 29, 2022.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2000,
+    "h": 1333,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<ul><li><a rel=\"nofollow\" class=\"external free\" href=\"https://www.mod.go.jp/msdf/sf/news/2022/01/0131-01.html#sf001-1\">https://www.mod.go.jp/msdf/sf/news/2022/01/0131-01.html#sf001-1</a></li>\n<li><a rel=\"nofollow\" class=\"external free\" href=\"https://twitter.com/JMSDF_SDF/status/1488057216225931266/photo/1\">https://twitter.com/JMSDF_SDF/status/1488057216225931266/photo/1</a></li></ul>",
+     "Artist": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.mod.go.jp/msdf/index.html\">https://www.mod.go.jp/msdf/index.html</a> 海上自衛隊",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "Gobi, kompleks Szambala (22).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2026,
+    "h": 2783,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Halavar\" title=\"User:Halavar\">Marcin Konsek</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": "personality"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "restrictions"
+   }
+  },
+  {
+   "fichier": "Gozo from space via laser ESA378503 (cropped).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1667,
+    "h": 1156,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"http://www.esa.int/spaceinimages/Images/2017/06/Malta_from_space_via_laser\">http://www.esa.int/spaceinimages/Images/2017/06/Malta_from_space_via_laser</a>",
+     "Artist": "European Space Agency",
+     "LicenseShortName": "CC BY-SA 3.0 igo",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/igo/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0 igo",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/igo/deed.en",
+    "auteur": "European Space Agency",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Gozo_from_space_via_laser_ESA378503_(cropped).jpg"
+   }
+  },
+  {
+   "fichier": "Greenland Ilulissat1.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1280,
+    "h": 830,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Grönland2.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4288,
+    "h": 2848,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Taxiarchos228\" title=\"User:Taxiarchos228\">Taxiarchos228</a>",
+     "LicenseShortName": "FAL",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://artlibre.org/licence/lal/en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "Gulf of Aden map-el.svg",
+   "origine": "R5",
+   "info": {
+    "w": 2500,
+    "h": 2086,
+    "mime": "image/svg+xml",
+    "meta": {
+     "Credit": "This file was derived from:  <a href=\"//commons.wikimedia.org/wiki/File:Gulf_of_Aden_map.png\" title=\"File:Gulf of Aden map.png\">Gulf of Aden map.png</a><br>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:NormanEinstein\" title=\"User:NormanEinstein\">NormanEinstein</a>,<br> <a href=\"//commons.wikimedia.org/wiki/User:Michail_Angelos_Georgoulas\" title=\"User:Michail Angelos Georgoulas\">Michail Angelos Georgoulas</a> (translation)",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "format"
+   }
+  },
+  {
+   "fichier": "Gulf of Aden map3.png",
+   "origine": "R5",
+   "info": {
+    "w": 840,
+    "h": 701,
+    "mime": "image/png",
+    "meta": {
+     "Credit": "This file was derived from:  <a href=\"//commons.wikimedia.org/wiki/File:Gulf_of_Aden_map.png\" title=\"File:Gulf of Aden map.png\">Gulf of Aden map.png</a><br>",
+     "Artist": "<ul><li>Original: <a href=\"//commons.wikimedia.org/wiki/User:NormanEinstein\" title=\"User:NormanEinstein\">NormanEinstein</a><br>derivative <a href=\"//commons.wikimedia.org/wiki/User:Seemsrathytaway\" title=\"User:Seemsrathytaway\">Seemsrathytaway</a></li></ul>",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "petite"
+   }
+  },
+  {
+   "fichier": "HMS Cumberland MOD 45150545.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 3000,
+    "h": 2400,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<ul><li>Photo <a rel=\"nofollow\" class=\"external text\" href=\"http://www.defenceimagery.mod.uk/fotoweb/fwbin/download.dll/45153802.jpg?ForceSaveDialog=no&amp;D=A81D8793137680C0E66D08E8E606BD1F11732CAD1490F960D1DA871986B1F9663B985DAF6425EE16CAAA2B3AA2B030D852712EB1B11DAC16910A2D0D9AC01DBDFD4FF8B88BBB8DFBB7B853A1DDC5B802541203B7EA261E94F53A15485B8BD4344387AB417F4184AE6D8B7D14E1DA85FC1D77D3527AC2E94D2CBED32D1E4B20F3D1A4BB899F76D9396B7199226538B04669FE4492BD85E39C\">http://www.defenceimagery.mod.uk/fotoweb/fwbin/download.dll/45153802.jpg</a></li>\n<li>Metadata source: <a rel=\"nofollow\" class=\"external free\" href=\"http://www.defenceimagery.mod.uk/fotoweb/fwbin/fotoweb_isapi.dll/ArchiveAgent/5042/Search?FileInfo=1&amp;MetaData=1&amp;Search=45150545.jpg\">http://www.defenceimagery.mod.uk/fotoweb/fwbin/fotoweb_isapi.dll/ArchiveAgent/5042/Search?FileInfo=1&amp;MetaData=1&amp;Search=45150545.jpg</a></li></ul>",
+     "Artist": "LA(Phot) Steve Johncock",
+     "LicenseShortName": "OGL v1.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://NationalArchives.gov.uk/doc/open-government-licence/version/1/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "Japan tea ceremony 1165.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 3914,
+    "h": 2936,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Ermell\" title=\"User:Ermell\">Ermell</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": "personality"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "restrictions"
+   }
+  },
+  {
+   "fichier": "Khalili Collections A Composite Imaginary View of Japan.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 10485,
+    "h": 14223,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "Khalili Collections",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Kinkakuji 2004-09-21.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2272,
+    "h": 1704,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Pomakis\" title=\"User:Pomakis\">Keith Pomakis</a>",
+     "LicenseShortName": "CC BY-SA 2.5",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/2.5",
+    "auteur": "Keith Pomakis",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Kinkakuji_2004-09-21.jpg"
+   }
+  },
+  {
+   "fichier": "Kobe Dawn Panorama.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2780,
+    "h": 736,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Lowell_Silverman~commonswiki\" title=\"User:Lowell Silverman~commonswiki\">Lowell Silverman</a>",
+     "LicenseShortName": "CC BY-SA 2.5",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/2.5",
+    "auteur": "Lowell Silverman",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Kobe_Dawn_Panorama.jpg"
+   }
+  },
+  {
+   "fichier": "Kyoto Gion Matsuri 20100716 2544.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 4084,
+    "h": 2692,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Jakubhal\" title=\"User:Jakubhal\">Jakub Hałun</a>",
+     "LicenseShortName": "CC BY-SA 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+     "Copyrighted": "True",
+     "Restrictions": "personality"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "restrictions"
+   }
+  },
+  {
+   "fichier": "Mahbes.jpeg",
+   "origine": "R5",
+   "info": {
+    "w": 582,
+    "h": 424,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 2.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Manu riverbank.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1500,
+    "h": 1024,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "Transferred from en.wikipedia.org <a class=\"external autonumber\" data-mw-original-href=\"http://en.wikipedia.org/w/index.php?title=File%3AManu_riverbank.jpg\" href=\"https://en.wikipedia.org/w/index.php?title=File%3AManu_riverbank.jpg\">[1]</a>: <i>2007-07-28 22:09 . . As578 . . 1500×1024 (641583 bytes)</i>",
+     "Artist": "<a href=\"https://en.wikipedia.org/wiki/User:As578\" class=\"extiw\" title=\"en:User:As578\">As578</a>",
+     "LicenseShortName": "CC BY-SA 2.5",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/2.5",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 2.5",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/2.5",
+    "auteur": "As578",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Manu_riverbank.jpg"
+   }
+  },
+  {
+   "fichier": "Mataro playa.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 640,
+    "h": 480,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Onon.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1280,
+    "h": 960,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Palma von Castell de Bellver.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 29605,
+    "h": 7858,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<b><a href=\"//commons.wikimedia.org/wiki/User:Der_Wolf_im_Wald\" title=\"User:Der Wolf im Wald\">Thomas Wolf</a></b>, <small><a rel=\"nofollow\" class=\"external text\" href=\"http://www.foto-tw.de\">www.foto-tw.de</a></small>",
+     "LicenseShortName": "CC BY-SA 3.0 de",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY-SA 3.0 de",
+    "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+    "auteur": "Thomas Wolf, www.foto-tw.de",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Palma_von_Castell_de_Bellver.jpg"
+   }
+  },
+  {
+   "fichier": "Reed boat in Huanchaco.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 5184,
+    "h": 3456,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Bgag\" title=\"User:Bgag\">Bernard Gagnon</a>",
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+     "Copyrighted": "True",
+     "Restrictions": "personality"
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "restrictions"
+   }
+  },
+  {
+   "fichier": "SWOT Measures Tuvalu Sea Level (PIA25777).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1125,
+    "h": 1122,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "This image or video was catalogued by Jet Propulsion Laboratory of the United States <a href=\"https://en.wikipedia.org/wiki/NASA\" class=\"extiw\" title=\"w:NASA\">National Aeronautics and Space Administration</a> (NASA) under <b>Photo ID:</b> <a rel=\"nofollow\" class=\"external text\" href=\"https://images.nasa.gov/search?q=PIA25777&amp;page=1&amp;media=image,video,audio&amp;yearStart=1920&amp;yearEnd=2026\">PIA25777</a>.",
+     "Artist": "NASA/JPL-Caltech",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "licence"
+   }
+  },
+  {
+   "fichier": "Schwappender Wein.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2608,
+    "h": 3920,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+     "Artist": "<a href=\"//commons.wikimedia.org/wiki/User:Ritchyblack\" title=\"User:Ritchyblack\">Stefan Krause, Germany</a>",
+     "LicenseShortName": "CC BY 3.0 de",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/3.0/de/deed.en",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": true,
+    "licence": "CC BY 3.0 de",
+    "licence_url": "https://creativecommons.org/licenses/by/3.0/de/deed.en",
+    "auteur": "Stefan Krause, Germany",
+    "titre": null,
+    "page": "https://commons.wikimedia.org/wiki/File:Schwappender_Wein.jpg"
+   }
+  },
+  {
+   "fichier": "Sermitsiaq.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 500,
+    "h": 333,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Sálazie, Réunion Islands; hot springs and snowy peaks. Tinte Wellcome V0014455.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 2436,
+    "h": 3576,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<p><a rel=\"nofollow\" class=\"external free\" href=\"https://wellcomeimages.org/indexplus/obf_images/58/ad/2d783c880c815050cdb68462a859.jpg\">https://wellcomeimages.org/indexplus/obf_images/58/ad/2d783c880c815050cdb68462a859.jpg</a>\n</p>\n<ul><li>Gallery: <a rel=\"nofollow\" class=\"external free\" href=\"https://wellcomeimages.org/indexplus/image/V0014455.html\">https://wellcomeimages.org/indexplus/image/V0014455.html</a></li>\n<li>Wellcome Collection gallery (2018-04-03): <a rel=\"nofollow\" class=\"external free\" href=\"https://wellcomecollection.org/works/gytqurv3\">https://wellcomecollection.org/works/gytqurv3</a> <a rel=\"nofollow\" class=\"external text\" href=\"https://creativecommons.org/licenses/by/4.0/\">CC-BY-4.0</a></li></ul>",
+     "LicenseShortName": "CC BY 4.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/4.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  },
+  {
+   "fichier": "Tuvalu demonstration COP15.jpg",
+   "origine": "R5",
+   "info": {
+    "w": 1500,
+    "h": 900,
+    "mime": "image/jpeg",
+    "meta": {
+     "Credit": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.flickr.com/photos/greenpeacefinland/4172061502/\">https://www.flickr.com/photos/greenpeacefinland/4172061502/</a>",
+     "Artist": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.flickr.com/people/greenpeacefinland/\">https://www.flickr.com/people/greenpeacefinland/</a> Lauri Myllyvirta /",
+     "LicenseShortName": "CC BY 2.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "https://creativecommons.org/licenses/by/2.0",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "sujet"
+   }
+  },
+  {
+   "fichier": "Western sahara landscape (north).jpg",
+   "origine": "R5",
+   "info": {
+    "w": 800,
+    "h": 315,
+    "mime": "image/jpeg",
+    "meta": {
+     "LicenseShortName": "CC BY-SA 3.0",
+     "AttributionRequired": "true",
+     "LicenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+     "Copyrighted": "True",
+     "Restrictions": ""
+    }
+   },
+   "attendu": {
+    "ok": false,
+    "raison": "auteur"
+   }
+  }
+ ]
+}
