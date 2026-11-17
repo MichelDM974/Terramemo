@@ -37,5 +37,20 @@
     "fichiers": {
       "commons/Flag_of_the_Taliban.svg": "fc326ebb964d9a50e31984495d1cf94f810a8af2ecaac5615001358404a389be"
     }
+  },
+  "cldr-fiches": {
+    "telecharge_le": "2026-11-17",
+    "fichiers": {
+      "cldr/supplemental/territoryInfo.json": "c8aa7654c87de234118f14ada0e1466eb09467bed4048da7eab3e7e63ffe335d",
+      "cldr/supplemental/currencyData.json": "c187138fb1a91508056924caa7e11a63d4d579c2f34176949afa817f7ed63715",
+      "cldr/fr/languages.json": "49c4f489e321f62ec64e3950045225a6aa2d4accc71584dfde262083679215d9",
+      "cldr/fr/currencies.json": "c0445e7d65373794f9a1616c52867e90f790a843769957db064253c37d8f460f"
+    }
+  },
+  "tz": {
+    "telecharge_le": "2026-11-17",
+    "fichiers": {
+      "tz/tzdata2026e.tar.gz": "b26882805f26aac59d5b222978e6580484b834ccdc98be89df2f05a6dc53a652"
+    }
   }
 }

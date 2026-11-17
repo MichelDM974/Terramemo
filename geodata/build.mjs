@@ -27,8 +27,9 @@
 // drapeaux, les drapeaux (avec leurs seules sources, et pays.json) ; --seulement mers, les
 // mers (la source Natural Earth vérifiée, sans --maj-empreintes : c'est celle des pays) ;
 // --seulement notoriete, la notoriété (sans source : elle lit pays.json et capitales.json
-// déjà construits) ; --seulement fiches (npm run fiches), les fiches des lieux (sans source :
-// elles lisent pays.json déjà construit) ; tout le build donne les mêmes fichiers.
+// déjà construits) ; --seulement fiches (npm run fiches), les fiches des lieux (avec leurs
+// seules sources, geodata/fiches-sources.mjs, et pays.json déjà construit) ; tout le build
+// donne les mêmes fichiers.
 // Les sources sont téléchargées dans geodata/raw/ (ignoré par git) puis vérifiées par
 // SHA-256 contre geodata/sources.lock.json ; le script refuse une empreinte différente,
 // sauf avec --maj-empreintes qui réécrit le verrou. Sans réseau si raw/ est rempli.
@@ -46,6 +47,7 @@ import { construireCapitales, fusionnerSources } from './capitales.mjs';
 import { construireDrapeaux, SOURCES_DRAPEAUX } from './drapeaux.mjs';
 import { construireMers, fusionnerMers, NE_MERS } from './mers.mjs';
 import { construireFiches } from './fiches.mjs';
+import { SOURCES_FICHES } from './fiches-sources.mjs';
 import { construireNotoriete } from './notoriete.mjs';
 import { arrondi, aujourdhui, emprise, fusionnerPartie, km2, pointInterieur, polygones, R_TERRE_KM, sha256 } from './outils.mjs';
 
@@ -135,9 +137,9 @@ const SOURCES = [
   },
 ];
 
-// Toutes les sources téléchargées et verrouillées ; celles des drapeaux ont leur part de
-// sources.json écrite par geodata/drapeaux.mjs.
-const TELECHARGEES = [...SOURCES, ...SOURCES_DRAPEAUX];
+// Toutes les sources téléchargées et verrouillées ; celles des drapeaux et des fiches ont
+// leur part de sources.json écrite par geodata/drapeaux.mjs et geodata/fiches.mjs.
+const TELECHARGEES = [...SOURCES, ...SOURCES_DRAPEAUX, ...SOURCES_FICHES];
 
 // --- Tables d'exceptions (tout écart à une règle est écrit ici) --------------
 
@@ -564,6 +566,8 @@ async function main() {
     } else if (partie === 'notoriete') {
       await ecrireSources(fusionnerPartie(avant, await notoriete()));
     } else if (partie === 'fiches') {
+      console.log('Sources');
+      await sources(majEmpreintes, SOURCES_FICHES.map((s) => s.cle));
       await ecrireSources(fusionnerPartie(avant, await fiches()));
     } else if (partie === 'mers') {
       if (majEmpreintes) echec('--seulement mers sans --maj-empreintes : Natural Earth est aussi la source des pays, relancer tout le build');

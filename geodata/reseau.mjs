@@ -1,6 +1,6 @@
-// Téléchargement des scripts d'extraits lancés à la main (geodata/banque-mondiale.mjs,
-// geodata/onu.mjs), sans effet à l'import. Le build n'en dépend pas : il ne lit que des
-// fichiers figés. Une requête à la fois, réessayée sur 429, 5xx et coupure (la Banque
+// Téléchargement des scripts d'extraits lancés à la main (geodata/banque-mondiale.mjs),
+// sans effet à l'import. Le build n'en dépend pas : il ne lit que des fichiers figés.
+// Une requête à la fois, réessayée sur 429, 5xx et coupure (la Banque
 // mondiale a répondu 502 et 504 pendant le relevé du 16/11). User-Agent générique, celui
 // du build et de npm run wikidata : aucun nom ni adresse de personne.
 
