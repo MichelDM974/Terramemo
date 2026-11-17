@@ -146,7 +146,7 @@ Les 195 jouables, plus Taïwan et le Kosovo. Dénominateur : 197.
 |---|---|---|---|
 | Nom, drapeau, capitales | déjà au dépôt (`noms.fr.json`, `drapeaux.json`, `capitales.json`) | 197 | — |
 | Habitants et année | Banque mondiale, `SP.POP.TOTL`, 2025 ; à défaut Wikidata P1082 avec son année | 195 + 2 | Taïwan (2026, projection), Vatican (2024) |
-| Superficie | Wikidata P2046, règle du choix ci-dessous ; selon D57 pour les pays touchés par une zone disputée | 197 | 30 pays touchés par une zone disputée (D57) ; les pays à plusieurs valeurs, figés dans un test |
+| Superficie | Wikidata P2046, règle du choix ci-dessous, pour tous les pays, citée « selon Wikidata » (D57, tranchée le 18/11) | 197 | aucune ligne ; les 30 pays touchés par une zone disputée et les pays à plusieurs valeurs à la relecture, ceux-ci figés dans un test |
 | Langues | CLDR 49.0.0, `territoryInfo` ; noms français de CLDR | 197 | règle et table (D56) ; 15 codes sans nom français ; `no` et `nb` |
 | Monnaie | CLDR 49.0.0, `currencyData` | 197 | l'ordre pour 7 pays |
 | Gentilé | Wikidata P1549, français | 196 | Vatican ; 22 pays à plusieurs formes |
@@ -192,7 +192,8 @@ chiffre que chaque pays publie ». C'est faux. Mesuré (relecture,
 
 Le chiffre suit tantôt le revendiquant (Serbie, Inde, Pakistan), tantôt
 l'ONU (Maroc). L'afficher tel quel tranche des revendications. C'est D57,
-réécrite.
+réécrite, puis tranchée le 18/11 : Wikidata pour tous les pays, citée
+« selon Wikidata », par la règle du choix ci-dessous.
 
 Les pays concernés se repèrent par les données, pas par l'écart au tracé :
 un pays est **touché** s'il tient ou revendique une zone de
@@ -308,7 +309,8 @@ est arrêté depuis février 2026 ; un miroir figé le garde. Il **pré-remplit*
 une table à la main : jour, mois, nom en français. La règle des cas
 multiples : la fête que l'État se donne comme fête nationale, comme « toute
 capitale que le pays se déclare ». Le Royaume-Uni n'a pas de ligne. La
-Suisse a le 1er août. La table est montrée à l'utilisateur avant la mise en
+Bosnie-Herzégovine non plus, en attendant l'utilisateur (lot F2 : quatre jours, deux par
+entité, aucun pour l'État commun). La Suisse a le 1er août. La table est montrée à l'utilisateur avant la mise en
 ligne.
 
 **Continent et sous-région.** Les 23 sous-régions de `pays.json` (mesuré :
@@ -556,12 +558,12 @@ photos.
 | Wikidata | superficies, gentilés, sommets, profondeurs, capitales des territoires, liens | CC0 | rien d'obligatoire ; la date de l'extrait | extrait versionné `geodata/wikidata/fiches.json` ; requêtes dans un fichier à part |
 | Unicode CLDR 49.0.0 | langues, monnaies, leurs noms | Unicode License v3 | la notice, déjà servie | fichiers verrouillés par empreinte (`sources.lock.json`) |
 | Base tz de l'IANA, 2026e | zone de chaque pays | domaine public | la version | `zone.tab` verrouillé par empreinte |
-| CIA World Factbook, miroir figé | pré-remplissage des fêtes | domaine public (S46) | « d'après le World Factbook, relu » | rien au build : la table à la main fait foi |
+| CIA World Factbook, miroir figé | pré-remplissage des fêtes ; point culminant de la Gambie | domaine public (S46) | « d'après le World Factbook, relu » | rien au build : la table à la main fait foi ; ligne de `sources.json` |
 | Natural Earth | pays d'un territoire, riverains | domaine public | déjà cité | déjà verrouillé |
 | IGN, ADMIN EXPRESS | communes | Licence Ouverte 2.0 | source et date, déjà là ; plus « recensement INSEE 2023 » | déjà verrouillé |
 | flag-icons 7.6.0 | drapeaux des territoires | MIT | déjà cité | déjà verrouillé |
 | Wikimedia Commons | photos | par photo | auteur, licence, lien sous chaque photo (§ 3.2) | § 3 |
-| Wikipédia | des liens seulement | — | rien : un lien n'est pas une reprise. Aucun extrait de texte dans la fiche | — |
+| Wikipédia | des liens ; quelques faits écrits dans la table (altitudes, parts de langues, sources des statuts) | CC BY-SA 4.0 (texte ; seuls des faits en sont repris) | rien pour un lien ; aucun extrait de texte dans la fiche | révisions citées dans la table et dans `sources.json` (un test les compare) |
 
 Règles :
 - **rien n'est téléchargé au chargement du site**, et le build ne lit que
@@ -1789,7 +1791,7 @@ règles Firestore. Sur l'A37 : après `sauver_journal`.
 | Lot | Taille | Dépend de | Attend | Critère de fin |
 |---|---|---|---|---|
 | F1. Fiche des pays, avec les données déjà au dépôt, et son historique | L | — | — | une fiche s'ouvre au doigt pour les 258 entités, sur le site ; le retour du navigateur la ferme sans quitter la carte ; sans à-coup sur l'A37 |
-| F2. Chiffres des pays | L | F1 | D56 (ligne « Langues » hors ligne d'ici là), D57 superficie (défaut codé) | les lignes du § 4.2 pour les 197 pays ; « capitale · habitants » dans la barre |
+| F2. Chiffres des pays | L | F1 | D56 (ligne « Langues » hors ligne d'ici là), D57 superficie (tranchée le 18/11 : Wikidata) | les lignes du § 4.2 pour les 197 pays ; « capitale · habitants » dans la barre |
 | P1. Photos : candidats, licences, outil de relecture | L | F1 (liste des lieux) | D60 pour finir | l'utilisateur peut relire les 332 lieux |
 | F3. Territoires, zones contestées, Antarctique | M | F2 | D57 zones (défaut codé) ; relecture des statuts | statut, tenant et champs applicables ; liste des absents figée |
 | F4. Océans et mers | M | F1 | — | fiche des 50 zones |
@@ -1872,7 +1874,7 @@ sortir vite, c'est F1 : la fiche existe, avec ce que le dépôt sait déjà.
     l'altitude, seconde source), fuseaux, monnaies, langues, superficies ;
   - `geodata/fiches.mjs` complet pour les 197 pays : règle du choix des
     superficies, liste des pays touchés par une zone disputée et leur
-    superficie selon le défaut de D57, fuseaux comptés par le tracé ;
+    superficie de Wikidata (D57), fuseaux comptés par le tracé ;
   - la fiche : habitants, superficie, langues, monnaie, gentilé, heure
     locale, point culminant, fête ; le pied « Sources ». La ligne
     « Langues » est codée avec le défaut de D56, mais **pas mise en ligne**
@@ -2072,7 +2074,7 @@ sortir vite, c'est F1 : la fiche existe, avec ce que le dépôt sait déjà.
 ## 9. Décisions de l'utilisateur
 
 **Tranchées le 16/11, toutes selon la recommandation** : D56 c, D57 a
-(zones) et b (superficie de l'ONU), D58 b (lieu retenu sur l'appareil) et a
+(zones) et b (superficie ; retranchée le 18/11 : a, Wikidata pour tous), D58 b (lieu retenu sur l'appareil) et a
 (nom seul), D59 d (release GitHub), D60 a, D61 b (carte de situation, lot
 F8). Notées au registre : décision « Fiche d'un lieu : langues, superficies,
 zones, Apprendre, photos, voisins ». Le texte ci-dessous garde les options
@@ -2081,7 +2083,7 @@ et leurs raisons ; leurs « défauts codés » ne servent plus.
 | N° | Question | Recommandation | Bloque |
 |---|---|---|---|
 | D56 | Langues : montrer les langues apprises ? | c : les langues du pays, table relue | la mise en ligne de la ligne « Langues » (F2) |
-| D57 | Neutralité : champs d'une zone contestée ; superficie d'un pays touché par une zone disputée | a : fiche courte ; b : la superficie de l'ONU, citée | F3 (zones) ; la ligne « Superficie » de 30 pays (F2) |
+| D57 | Neutralité : champs d'une zone contestée ; superficie d'un pays touché par une zone disputée | a : fiche courte ; superficie : a, Wikidata pour tous, citée (tranchée le 18/11) | F3 (zones) |
 | D58 | « Apprendre ce lieu » quand la grappe du jour est prise ; fiches d'un pays | se souvenir du lieu sur l'appareil ; nom seul | la fin de F7 |
 | D59 | Photos : dans le dépôt public, ou dehors ? | d : archive jointe à une release GitHub | P3 (CI de l'APK) |
 | D60 | Photos : combien au moins par lieu ? | a : 3 à 5 visées, moins accepté | la fin de P1 |
@@ -2147,37 +2149,32 @@ formule ne tranche une revendication.
   tracé (§ 2.1). Les 167 autres gardent Wikidata, sans débat.
   - a) **Wikidata telle quelle**, citée. Coûte : rien. Tranche : son critère
     change d'un pays à l'autre. Écartée comme recommandation ;
-  - b) **la superficie de l'ONU** (Annuaire démographique de la Division de
-    statistique), pour tous les pays, citée « selon l'ONU ». Un seul
-    critère, nommé : la superficie de jure au sens de l'ONU. C'est le
-    critère de la liste des pays elle-même (décision « Pays et
-    frontières » : les membres de l'ONU). Coûte : un extrait de plus à
-    figer, et sa licence à lire (S60) ; l'ONU compte le Kosovo dans la
-    Serbie, et le Kosovo a aussi son chiffre (Wikidata, cité) : deux
-    chiffres qui se chevauchent, chacun avec sa source ; Taïwan, absent de
-    l'ONU, garde Wikidata, cité ;
+  - b) la superficie de l'Annuaire démographique de l'ONU, recommandée le
+    16/11, a été écartée par l'utilisateur le 18/11 : ses conditions
+    interdisent la redistribution, et il reprend le chiffre que déclare
+    chaque pays ;
   - c) **hors zones disputées** : le tracé de fait moins les zones de
     `contestees.json` qu'il contient. La zone ne compte pour personne : la
     formule est symétrique. Mesuré (`correction/hors-zones.py`) : Pakistan
-    796 733 km², proche du chiffre de l'ONU ; mais Guyana 54 738 au lieu de
+    796 733 km² ; mais Guyana 54 738 au lieu de
     ≈ 215 000, et l'Ukraine 552 474. Le chiffre grossit l'effet d'une
     revendication (Guyana), et ce n'est le chiffre d'aucune source ;
   - d) **aucune superficie** pour les 30 pays : rien ne tranche, et la liste
     se calcule. Coûte : la Chine, l'Inde, le Japon, l'Ukraine, le Maroc
     sans superficie ;
-  - e) deux chiffres pour les 30, chacun avec son critère (« selon l'ONU »,
-    « sur la carte »). Coûte : une ligne lourde, et « sur la carte » suit le
+  - e) deux chiffres pour les 30, chacun avec son critère (« selon
+    Wikidata », « sur la carte »). Coûte : une ligne lourde, et « sur la carte » suit le
     contrôle de fait, que la décision « Zones contestées et enclaves » ne
     veut pas seul.
   - Écarté : la surface du tracé de fait seule (option b de la rédaction).
     Elle suit le contrôle de fait : l'Ukraine sans la Crimée. La décision
     « Zones contestées et enclaves » a préféré une règle qui ne prend pas
     ce parti.
-  - Recommandation : **b**.
-  - Défaut codé en attendant : **d**, le seul qui ne tranche rien et se
-    rattrape.
-- Bloque : les 12 zones du lot F3 ; la ligne « Superficie » des 30 pays
-  touchés. Le reste de F3 et F2 avancent.
+  - **Tranchée le 18/11 par l'utilisateur : a**, Wikidata pour tous les
+    pays, citée « selon Wikidata », par la règle du choix du § 2.1. Les 30
+    pays touchés ont leur tableau à relire (`docs/relectures/fiches-pays.md` :
+    Wikidata, surface du tracé, écart), sans ligne de la table.
+- Bloque : les 12 zones du lot F3. F2 avance.
 - Confirmé au passage, sans alternative utile : les 77 zones hachurées
   (Crimée, Cachemire) n'ont pas de fiche ; on ne peut pas les toucher.
 
@@ -2420,8 +2417,8 @@ La numérotation suit celle du J2 (S26 à S40).
 | S43 | `Intl.DateTimeFormat` avec `timeZone` rend l'heure juste dans la WebView de l'A37, accepte les noms de `zone.tab` 2026e (`Asia/Kolkata`, `Europe/Kyiv`, `America/Nuuk`), et lève une erreur attrapable pour une zone inconnue. Node 24.19 a tz 2026b, la WebView sa propre version | la fiche du Népal, de l'Inde, de l'Ukraine et des îles Chatham sur le téléphone | lot F2 |
 | S44 | Glisser la barre vers le haut ne déclenche pas le geste système d'Android | essai sur l'A37, navigation par gestes | lot F1 |
 | S45 | Dans l'APK, le lien Wikipédia s'ouvre dans le navigateur du téléphone, et le retour ramène à l'appli intacte | essai sur l'A37 | lot F1 |
-| S46 | Le World Factbook est dans le domaine public | une source autre que le fichier du miroir (texte de loi, copie d'archive de la page du CIA) | lot F2 |
-| S47 | La Banque mondiale publie cette série sous CC BY 4.0, et la mention prévue suffit | sa page des conditions, lue le jour où l'extrait est figé | lot F2 |
+| S46 | Le World Factbook est dans le domaine public | **close** (17/11) : oui. Page « Copyright and Contributors » du CIA, copie du 05/12/2025 (`web.archive.org/web/20251205053024/https://www.cia.gov/the-world-factbook/about/copyright-and-contributors/`) : « Factbook data, including photos and maps, is the public domain and may be copied freely without permission from the Central Intelligence Agency (CIA) » (le sceau du CIA excepté) ; 17 U.S.C. § 105 (a) : « Copyright protection under this title is not available for any work of the United States Government ». Rien du Factbook au build : la table des fêtes fait foi | lot F2 |
+| S47 | La Banque mondiale publie cette série sous CC BY 4.0, et la mention prévue suffit | **close** (17/11) pour la licence : CC BY 4.0 (métadonnées de `SP.POP.TOTL` et `https://www.worldbank.org/ext/en/legal/terms-conditions/datasets`, citées dans `geodata/banque-mondiale/population.json`). La mention prévue ne suffit pas seule : la page demande le format « The World Bank: <jeu>: <source> » et, pour des données redistribuées, l'adresse de ces conditions ; à mettre dans Crédits | lot F2 |
 | S48 | Hosting n'a pas de limite de fichiers qui gêne 2 400 à 3 000 fichiers ; le réglage des versions gardées existe | la documentation, puis la console | avant P2 |
 | S49 | Un fichier inchangé d'une version à l'autre ne compte qu'une fois dans le stockage | la console, après deux déploiements d'essai | lot P2 |
 | S50 | La miniature de 1 920 px de Commons se télécharge sans blocage, à une requête à la fois | les 50 premières photos | lot P2 |
@@ -2430,14 +2427,14 @@ La numérotation suit celle du J2 (S26 à S40).
 | S53 | Le cache HTTP de la WebView garde les pleins écrans déjà vus | l'APK, mode avion après une première vue | lot P3 |
 | S54 | Des photos CC BY-SA dans la fiche ne changent pas la licence du code ni des autres données (collection) | lecture des licences ; à faire relire par l'utilisateur | lot P2 |
 | S55 | Le vol de la carte sous la fiche ne donne pas d'à-coup dans la fiche | scénario du pilote ; sinon l'option « sans vol » | lot F1 |
-| S56 | Le sommet de chacun des 12 pays à trancher tombe dans son tracé de fait | le test du lot F2 | lot F2 |
+| S56 | Le sommet de chacun des 12 pays à trancher tombe dans son tracé de fait | **en partie fausse** (17/11, `tests/donnees-fiches.test.ts`) : les sommets retenus des 197 pays sont dans leur tracé ou à moins de 10 km, sauf 4, figés : Gambie et Sénégal (sans coordonnées), Marshall et Tuvalu (atolls absents du tracé simplifié). Serbie : Velika Rudoka est à 75 km (Kosovo), remplacé par le Midžor (2 169 m). Décision du 18/11 : aucun point culminant ne passe par une zone disputée (le build échoue sur un sommet dans une zone de `contestees.json`) : **Israël**, le mont Méron (pas l'Hermon, dans le Golan) ; **Somalie**, pas de ligne de sommet (Shimbiris est dans le Somaliland) ; et, trouvé par la même règle, **Pakistan** : le K2 est dans le Gilgit-Baltistan, remplacé par le Tirich Mir (7 708 m), à relire. Belize, Bhoutan et Syrie ont leur sommet à 5 km ou moins d'une zone (tracé simplifié) : à la relecture. Le test ne voit pas un sommet de frontière dont le pays n'a qu'un flanc (moins de 10 km) : **Finlande** (Halti : 1 361 m en Norvège, 1 324 m sur le versant finlandais) et **Pologne** (Rysy : 2 499 m au pic nord-ouest, 2 501 dans Wikidata), corrigés à la main (contre-vérification du 17/11) ; d'autres ne sont pas cherchés (Mont-Blanc pour l'Italie, Khan Tengri) | lot F2 |
 | S57 | L'ordre des clés d'un cache est celui de leur entrée, ce qui permet de retirer les plus anciennes | la spécification, et un essai dans Chrome | lot P2 |
 | S58 | Les 59 QID des territoires et des zones désignent le bon lieu | relecture de la table, libellé français à côté | lot F3 |
 | S59 | Le gris des libellés a un contraste de 4,5 au moins sur le fond de la fiche | **close** : 6,17, mesuré (`#91949b` sur `#111214`, § 4.11) | — |
-| S60 | L'Annuaire démographique de l'ONU donne une superficie pour les 195 pays jouables, sous une licence qui permet de la reprendre en citant la source (D57 b) | les conditions d'UNdata, et l'extrait | lot F2, si D57 b |
+| S60 | (sans objet : l'option b de D57 est écartée le 18/11, voir D57) | close (18/11) | — |
 | S61 | Le traité Royaume-Uni–Maurice sur les Chagos (mai 2025) n'a pas changé leur statut, ou on sait comment | une source datée ; la ligne de la table porte la date | lot F3 |
-| S62 | La règle « zone de `zone.tab` dans le tracé de l'entité » donne 5 fuseaux à la France et n'en invente pas ailleurs | le test du lot F2, et la liste des exceptions | lot F2 |
-| S63 | Le mont Fuji fait 3 776 m (et non 3 777, Wikidata) ; les autres sommets de la table concordent avec une seconde source à 5 m près | Wikipédia française, ou l'institut du pays | lot F2 |
+| S62 | La règle « zone de `zone.tab` dans le tracé de l'entité » donne 5 fuseaux à la France et n'en invente pas ailleurs | **en partie fausse** (17/11) : la France en a 5, les Pays-Bas 2 (Bonaire), la Nouvelle-Zélande 3 (Tokelau, dans son tracé) ; 20 pays à plusieurs fuseaux, figés par le test. Mais la règle (le plus grand des deux jours) compte une heure d'été comme un fuseau : **États-Unis 7** (l'été, l'Aléoutienne et Hawaï divergent) et **Australie 6** ; et la **Chine 2** (Asia/Urumqi, « Xinjiang Time », heure d'usage, pas légale). Le décompte par décalage d'hiver de chaque zone (le plus petit des deux jours) donnerait 6 et 5. **Adopté** le 17/11 (contre-vérification : les 50 États ont 6 fuseaux légaux) : États-Unis 6, Australie 5. Décision du 18/11 (heure légale) : la Chine 1 (Asia/Urumqi est une heure d'usage) et la Nouvelle-Zélande 2 (Tokelau aura les siens au lot F3), deux lignes de la table | lot F2 |
+| S63 | Le mont Fuji fait 3 776 m (et non 3 777, Wikidata) ; les autres sommets de la table concordent avec une seconde source à 5 m près | **en partie fausse** (17/11) : le Fuji à 3 776 m (ligne de la table ; la valeur de l'institut japonais, 3 776,24 m, est citée de mémoire). Seconde source : Wikipédia en français, « Liste des pays par point culminant » (révision 240366193, qui reprend surtout le Factbook). 26 pays s'en écartent de plus de 5 m ou y nomment un autre sommet (Arabie saoudite, Koweït, Namibie, Sénégal…) : chacun a sa ligne (`seconde`), valeur de Wikidata gardée, à relire ; 8 altitudes doubles sans rang tranchées par elle ou par le qualificatif de la déclaration du pays | lot F2 |
 | S64 | Copier 105 à 138 Mo de photos de `public/` vers `dist/` ajoute moins de 5 s au build | `time npm run build`, avec et sans les photos | lot P2 |
 
 ## 12. Sources et écarts des relevés
@@ -2543,9 +2540,8 @@ code ou les données avant d'être intégré. Scripts de la correction :
 **Ce qui a changé le plus :**
 - **Superficie d'un pays disputé (bloquant).** Wikidata n'est pas « le
   chiffre que le pays publie » : la Serbie y compte le Kosovo, l'Inde tout
-  le Cachemire, le Maroc pas le Sahara. D57 est réécrite : la superficie de
-  l'ONU, citée, recommandée ; aucune ligne pour les 30 pays touchés en
-  attendant. Les pays se repèrent par `revendique_par` et `contestees.json`
+  le Cachemire, le Maroc pas le Sahara. D57 est réécrite, puis tranchée le
+  18/11 : Wikidata pour tous, citée, et les 30 pays touchés à la relecture. Les pays se repèrent par `revendique_par` et `contestees.json`
   (68 touchés, 30 à 1 % ou plus), plus par l'écart au tracé, qui manquait
   l'Inde.
 - **Statut des zones.** `note_ne` n'est plus recopiée (« Self admin. » pour
@@ -2611,10 +2607,8 @@ code ou les données avant d'être intégré. Scripts de la correction :
   filtre par série ; faux pour la Révision du jour, qui suit l'ordre global
   (`vues/seance.ts:277`). Les deux ordres sont maintenant dans le § 5.1, et
   D58 b garde sa recommandation.
-- « La superficie de jure au sens de l'ONU » comme critère à nommer
-  (relecture) : retenu comme recommandation (D57 b), pas comme défaut. Il
-  compte lui aussi le Kosovo dans la Serbie ; le défaut codé reste « pas de
-  ligne » pour les 30 pays, le seul qui ne tranche rien.
+- « Un critère de jure à nommer » (relecture) : retenu un temps comme
+  recommandation (D57 b), écarté le 18/11 (D57).
 - « Superficie hors zones contestées » (relecture) : gardée comme option
   (D57 c), pas recommandée. Mesurée, elle donne 54 738 km² au Guyana : elle
   grossit l'effet d'une revendication.
@@ -2646,3 +2640,53 @@ Relevés par le codeur et la correction du lot F1 (branche `fiche-lieu`) :
   continent « Amérique du Nord » (`geodata/fiches-main.json`).
 - Le scénario de mesure du § 6.4 vit dans `driver.py fiche` (et `ui_fiche`),
   pas dans `driver.py mesurer` ; chemin fixe France, Brésil, Argentine.
+
+## 15. Écarts du code au lot F2
+
+Relevés par le codeur du lot F2 (branche `f2-donnees`, données sans l'interface) :
+- Les règles du choix vivent dans `geodata/fiches-pays.mjs` et les tableaux à relire dans
+  `geodata/fiches-relecture.mjs` ; `fiches.mjs` les assemble. Le build écrit aussi
+  `docs/relectures/fiches-pays.md`, hors de `public/`.
+- `construireFiches` lit CLDR et tz dans `geodata/raw/` : le test de reproduction ne tourne
+  que là où ils sont (`skipIf`, comme celui des drapeaux) ; les autres tests lisent les
+  fichiers commités et les extraits versionnés, en CI.
+- Fêtes : 195 pays sur 197 ont une fête ; pas de ligne pour le Royaume-Uni (§ 2.1) ni pour
+  la **Bosnie-Herzégovine** (quatre jours, deux par entité, aucun pour l'État commun), à relire.
+  La liste de la Wikipédia sert de seconde source (elle suit les fêtes déclarées à l'ONU).
+- Superficie : au km², au centième sous 100 km² (le Vatican : 0,44).
+- Gentilés : la règle prend aussi une forme « masculin singulier et masculin pluriel »
+  (Japonais) ; elle laisse 18 pays à plusieurs formes, plus le Vatican (« Vaticanais », à
+  relire), et 4 graphies corrigées (Sud-Coréen, Nord-Coréen, Saint-Marinais, Néo-Zélandais).
+- Langues : au-delà des retraits, 3 ajouts écrits (romanche en Suisse, tamazight en Algérie,
+  amazighe standard au Maroc), et le français retiré des officielles de l'Algérie, du Maroc
+  et de la Tunisie, où CLDR le marque officiel : à relire.
+- Un sommet en mer, une zone horaire en mer : la distance au tracé se mesure aux segments,
+  en projection locale (`distanceAuTrace`), en suivant l'antiméridien.
+
+Après la contre-vérification du 17/11 :
+- Fuseaux : décalages normaux (d'hiver) de chaque zone, et non le plus grand des deux jours.
+- Langues : deux clés de plus dans la table, `parts` (une part écrite à la main, avec sa
+  source : le Pakistan au recensement de 2023) et `ordre` (l'ordre des officielles : le
+  kazakh avant le russe). Une officielle de CLDR ajoutée avec `officielle: false` reste en
+  langue parlée (russe en Ukraine, wolof au Sénégal, yoruba au Nigeria). Relues contre
+  CLDR : l'anglais retiré à Madagascar (Constitution de 2010), le latin au Vatican, et les
+  douze officielles de l'Afrique du Sud (CLDR n'en marque qu'une). Les autres
+  « official_regional » nationaux (Macédoine du Nord, Bolivie, Zimbabwe) ne sont pas relus.
+- Sommets : Finlande (versant sud du Halti, 1 324 m), Pologne (2 499 m), Gambie (point sans
+  nom près de Sabi, 63 m d'après le Factbook récent : « Red Rock » n'a qu'une source).
+- `sources.json` a trois lignes de plus : les pages de Wikipédia citées par la table, le
+  Factbook, l'ISO 639.
+
+Après les décisions de l'utilisateur du 18/11 :
+- Superficie : Wikidata pour les 197 pays, citée « selon Wikidata », par la règle du choix
+  (§ 2.1) ; la clé `superficie` n'a plus que la liste des 30 pays touchés, dont le tableau
+  montre Wikidata, la surface du tracé et l'écart ; les 18 pays à plusieurs valeurs ont le
+  leur, et le test les fige.
+- Sommets : aucun dans une zone disputée, vérifié par le build (faute) et par le test.
+  Israël garde le mont Méron ; la Somalie n'a pas de ligne de sommet (clé `aucun`) ; le
+  Pakistan prend le Tirich Mir (Wikidata Q207132, 7 708 m ; Wikipédia en français : point
+  culminant de l'Hindou Kouch), qu'il soit le plus haut hors des zones étant estimé : à
+  relire. Les sommets à 5 km ou moins d'une zone (Belize, Bhoutan, Syrie) vont à la relecture.
+- Fuseaux : heure légale au décalage d'hiver ; deux lignes `nz`, la Chine 1 et la
+  Nouvelle-Zélande 2.
+
