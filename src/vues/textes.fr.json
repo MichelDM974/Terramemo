@@ -693,7 +693,7 @@
       },
       {
         "nom": "Unicode CLDR",
-        "detail": "Noms des pays en français · v49.0.0",
+        "detail": "Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays · v49.0.0",
         "licence": "Unicode License v3",
         "auteur": "© 2015-2024 Unicode, Inc.",
         "lien": "/geo/LICENSE-CLDR.txt"
@@ -707,7 +707,7 @@
       },
       {
         "nom": "Wikidata",
-        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026",
+        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026 ; superficies, gentilés, sommets, habitants de Taïwan et du Vatican, liens vers Wikipédia · extrait du 17/11/2026",
         "licence": "CC0 1.0",
         "auteur": "Wikidata et ses contributeurs",
         "lien": "https://creativecommons.org/publicdomain/zero/1.0/deed.fr"
@@ -725,6 +725,27 @@
         "licence": "Domaine public",
         "auteur": "Wikimedia Commons et ses contributeurs",
         "lien": "https://commons.wikimedia.org/wiki/File:Flag_of_the_Taliban.svg"
+      },
+      {
+        "nom": "Banque mondiale",
+        "detail": "Habitants des pays, 2025 · World Development Indicators, extrait du 17/11/2026",
+        "licence": "CC BY 4.0, conditions de la Banque mondiale",
+        "auteur": "The World Bank: World Development Indicators, Population, total (SP.POP.TOTL): World Population Prospects (United Nations Population Division), offices statistiques nationaux, Eurostat",
+        "lien": "https://www.worldbank.org/ext/en/legal/terms-conditions/datasets"
+      },
+      {
+        "nom": "Base de données des fuseaux horaires de l'IANA",
+        "detail": "Fuseau de chaque pays · 2026e",
+        "licence": "Domaine public",
+        "auteur": "IANA et les contributeurs de la base tz",
+        "lien": "https://www.iana.org/time-zones"
+      },
+      {
+        "nom": "CIA World Factbook",
+        "detail": "Fêtes nationales, relues ; point culminant de la Gambie · miroir figé du 11/09/2026",
+        "licence": "Domaine public",
+        "auteur": "Central Intelligence Agency (États-Unis)",
+        "lien": "https://web.archive.org/web/20251205053024/https://www.cia.gov/the-world-factbook/about/copyright-and-contributors/"
       }
     ],
     "ign_date": "Source : IGN, à jour au {date}",

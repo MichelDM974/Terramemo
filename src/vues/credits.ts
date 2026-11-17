@@ -1,8 +1,10 @@
 // Vue « Crédits » (⚙ › Crédits et licences, #credits ; plan de travail, J1a :
 // « écran Crédits ») : les données (Natural Earth, Unicode CLDR, IGN ADMIN
 // EXPRESS, avec la date de mise à jour de l'IGN lue dans son sources.json,
-// Wikidata, avec la date de son extrait, que tests/donnees-capitales.test.ts
-// compare à geodata/wikidata/capitales.json),
+// Wikidata, avec la date de ses extraits, que tests/donnees-capitales.test.ts et
+// tests/credits-vue.test.ts comparent à geodata/wikidata/capitales.json et
+// fiches.json ; puis, à la fin, les sources des fiches des pays, lot F2 : la
+// Banque mondiale selon ses conditions, la base tz de l'IANA, le World Factbook),
 // les bibliothèques que le site et l'APK embarquent (vérifiées sur le build :
 // les outils de développement n'y sont pas), celles de l'APK seul (AndroidX,
 // Kotlin…) et la police, chacune avec sa licence et son auteur ; puis, dépliés

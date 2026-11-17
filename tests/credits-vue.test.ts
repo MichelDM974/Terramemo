@@ -103,6 +103,58 @@ describe('écran Crédits', () => {
     expect(readFileSync('public/geo/licences/flag-icons.txt', 'utf8')).toContain('Copyright (c) 2013 Panayiotis Lipiridis');
   });
 
+  it('les sources des fiches (lot F2, § 6.6) : à la fin des données, chacune avec la date ou la version de son extrait, lue dans son fichier', () => {
+    const v = ouvrir();
+    const json = <J,>(f: string) => JSON.parse(readFileSync(f, 'utf8')) as J;
+    /** « 2026-11-17 » → « 17/11/2026 ». */
+    const date = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
+    /** Espaces insécables en espaces simples, pour comparer. */
+    const simple = (x: string) => x.replace(/[\u00a0\u202f]/g, ' ');
+    const ligne = (nom: string) => {
+      const c = T.donnees.find((d) => d.nom === nom);
+      if (!c) throw new Error(`${nom} absent des crédits`);
+      return { ...c, detail: simple(c.detail), licence: simple(c.licence) };
+    };
+    const sources = json<{ sources: { nom: string; version: string }[] }>('public/geo/sources.json').sources;
+    const source = (debut: string) => sources.find((x) => x.nom.startsWith(debut))!.version;
+    // Les lignes nouvelles à la fin (credits.ts lit l'IGN par son rang) ; l'IGN, la troisième.
+    expect(T.donnees.map((d) => d.nom).slice(-3)).toEqual(['Banque mondiale', "Base de données des fuseaux horaires de l'IANA", 'CIA World Factbook']);
+    expect(T.donnees[2]!.nom).toContain('IGN');
+    // Unicode CLDR : les langues et les monnaies aussi, à la version des deux extraits.
+    const cldr = ligne('Unicode CLDR');
+    expect(cldr.detail).toBe(`Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays · v${source('Unicode CLDR, langues').split(' ')[0]}`);
+    expect(source('Unicode CLDR, noms').split(' ')[0]).toBe(source('Unicode CLDR, langues').split(' ')[0]);
+    // Wikidata : l'extrait des capitales, puis celui des fiches, chacun à sa date.
+    const wd = ligne('Wikidata');
+    expect(wd.detail).toBe(
+      `Capitales et notoriété des lieux · extrait du ${date(json<{ date: string }>('geodata/wikidata/capitales.json').date)} ; ` +
+        `superficies, gentilés, sommets, habitants de Taïwan et du Vatican, liens vers Wikipédia · extrait du ${date(json<{ date: string }>('geodata/wikidata/fiches.json').date)}`,
+    );
+    // La Banque mondiale, selon ses conditions : « The World Bank: <jeu>: <source> », CC BY 4.0, l'adresse des conditions en lien.
+    const bm = json<{ date: string; annee: number; source: { nom: string }; conditions: { url: string; licence: string } }>('geodata/banque-mondiale/population.json');
+    const banque = ligne('Banque mondiale');
+    expect(banque.detail).toBe(`Habitants des pays, ${bm.annee} · World Development Indicators, extrait du ${date(bm.date)}`);
+    expect(bm.conditions.licence).toContain('CC BY 4.0');
+    expect(banque.licence).toContain('CC BY 4.0');
+    expect(banque.lien).toBe(bm.conditions.url);
+    expect(banque.auteur).toMatch(/^The World Bank: World Development Indicators, Population, total \(SP\.POP\.TOTL\): \S/);
+    expect(bm.source.nom).toContain('Population, total (SP.POP.TOTL)');
+    // La base tz à la version de zone.tab ; le Factbook à la date de son miroir figé ; tous deux du domaine public.
+    const tz = ligne("Base de données des fuseaux horaires de l'IANA");
+    expect(tz.detail).toBe(`Fuseau de chaque pays · ${source('IANA Time Zone Database')}`);
+    expect(tz.licence).toBe('Domaine public');
+    const cia = ligne('CIA World Factbook');
+    expect(cia.detail.match(/miroir figé du (\d\d\/\d\d\/\d{4})$/)?.[1]).toBe(source('CIA World Factbook').match(/du (\d\d\/\d\d\/\d{4})/)?.[1]);
+    expect(cia.licence).toBe('Domaine public');
+    // Toutes à l'écran, la licence en lien.
+    const texte = simple(v.querySelector('#credits-liste-donnees')!.innerText);
+    for (const c of [cldr, wd, banque, tz, cia]) for (const m of [c.nom, c.detail, c.licence]) expect(texte, c.nom).toContain(m);
+    const liens = v.querySelectorAll('#credits-liste-donnees a').map((a) => a.getAttribute('href'));
+    for (const c of [banque, tz, cia]) expect(liens, c.nom).toContain(c.lien);
+    // Aucune ligne de l'Annuaire démographique de l'ONU (écarté le 18/11 : ses conditions interdisent la redistribution).
+    expect(texte).not.toMatch(/Annuaire|Demographic Yearbook/i);
+  });
+
   it('chaque dépendance du site et ses paquets embarqués, avec la licence de son package.json ; aucun outil de développement', () => {
     const v = ouvrir();
     const credites = T.bibliotheques.flatMap((b) => b.paquets.map((p) => [p, b.licence] as const));

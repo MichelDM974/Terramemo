@@ -638,7 +638,8 @@ describe('fichiers, sources et reproduction', () => {
     const w = textes.credits.donnees.find((c) => c.nom === 'Wikidata');
     if (!w) throw new Error('Wikidata absente des crédits');
     const [a, m, j] = extrait.date.split('-');
-    expect(w.detail).toBe(`Capitales et notoriété des lieux · extrait du ${j}/${m}/${a}`);
+    // La suite (« ; superficies, gentilés… · extrait du … ») : l'extrait des fiches (tests/credits-vue.test.ts).
+    expect(w.detail.startsWith(`Capitales et notoriété des lieux · extrait du ${j}/${m}/${a} ; `)).toBe(true);
     expect(w.licence).toContain('CC0');
   });
 
