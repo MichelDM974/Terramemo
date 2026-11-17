@@ -87,6 +87,8 @@ describe('chiffres, dates et heures des fiches (lot F2)', () => {
     expect(simple(fmtEcart(-540))).toBe('−9 h');
     expect(simple(fmtEcart(105))).toBe('+1 h 45');
     expect(simple(fmtEcart(-150))).toBe('−2 h 30');
+    expect(simple(fmtEcart(-30))).toBe('−30 min');
+    expect(simple(fmtEcart(45))).toBe('+45 min');
     expect(fmtEcart(0)).toBe("même heure qu'ici");
   });
 
@@ -95,6 +97,8 @@ describe('chiffres, dates et heures des fiches (lot F2)', () => {
     const R = 'Indian/Reunion';
     expect(simple(fmtHeureLieu('Asia/Tokyo', 1, t, R))).toBe('21 h 20 · +5 h');
     expect(simple(fmtHeureLieu('Asia/Kathmandu', 1, t, R))).toBe('18 h 05 · +1 h 45');
+    // Téhéran (UTC+3 h 30, sans heure d'été depuis 2022) : moins d'une heure d'écart.
+    expect(simple(fmtHeureLieu('Asia/Tehran', 1, t, R))).toBe('15 h 50 · −30 min');
     expect(simple(fmtHeureLieu('Pacific/Chatham', 1, t, R))).toBe('2 h 05 · +9 h 45');
     expect(simple(fmtHeureLieu('America/New_York', 6, t, R))).toBe('7 h 20 · −9 h · 6 fuseaux dans le pays');
     expect(simple(fmtHeureLieu('Indian/Mauritius', 1, t, R))).toBe("16 h 20 · même heure qu'ici");

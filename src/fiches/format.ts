@@ -157,7 +157,10 @@ export function fmtEcart(minutes: number): string {
   const a = Math.abs(minutes);
   const signe = minutes > 0 ? T.plus : T.moins;
   const min = a % 60;
-  return remplir(min ? T.ecart_min : T.ecart, { signe, h: Math.floor(a / 60), min: String(min).padStart(2, '0') });
+  const h = Math.floor(a / 60);
+  // Moins d'une heure (l'Iran depuis La Réunion) : « −30 min », pas « −0 h 30 ».
+  if (!h) return remplir(T.ecart_minutes, { signe, min });
+  return remplir(min ? T.ecart_min : T.ecart, { signe, h, min: String(min).padStart(2, '0') });
 }
 
 /**
