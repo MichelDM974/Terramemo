@@ -782,6 +782,13 @@ describe('les chiffres d’un pays (lot F2) : lignes, ordre, lignes à relire, h
     expect(de('FRA', 'Heure à Paris')).toMatch(/ · 5 fuseaux dans le pays$/);
     expect(de('USA', 'Heure à Washington')).toMatch(/ · 6 fuseaux dans le pays$/);
     expect(de('CHN', 'Heure à Pékin')).not.toMatch(/fuseaux/);
+    // Une capitale à article ou nom commun : la forme toute faite des données (« au Caire »),
+    // jamais « Heure à Le Caire » ; les autres, « à » et le nom (« à La Havane » est juste).
+    const libellesHeure = (id: string) => composer(id).faits.filter((f) => f.heure).map((f) => f.libelle);
+    expect(libellesHeure('EGY')).toEqual(['Heure au Caire']);
+    expect(libellesHeure('VAT')).toEqual(['Heure à la Cité du Vatican']);
+    expect(libellesHeure('CUB')).toEqual(['Heure à La Havane']);
+    for (const id of FICHES.lieux.keys()) for (const l of composer(id).faits.filter((f) => f.heure).map((f) => f.libelle)) expect(l, id).not.toMatch(/ à (Le|Les|L')\s|Heure à Cité/);
     for (const id of ['JPN', 'FRA', 'AGO', 'VAT', 'SOM']) for (const f of composer(id, { relues: TOUTES }).faits) expect(f.valeur, `${id} ${f.libelle}`).not.toBe('');
   });
 

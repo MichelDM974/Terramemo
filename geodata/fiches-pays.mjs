@@ -329,13 +329,14 @@ export const arrondiSuperficie = (v) => (v >= 100 ? Math.round(v) : Math.round(v
 
 /**
  * Les chiffres des 197 pays. Entrées : entites (pays.json, triées), formes (features du
- * tracé, monde.topo.json), zones (features des zones disputées, du même), capitales (capitales.json), wd (geodata/wikidata/fiches.json),
+ * tracé, monde.topo.json), zones (features des zones disputées, du même), capitales (capitales.json),
+ * nomsCapitales (capitales.fr.json, noms), wd (geodata/wikidata/fiches.json),
  * bm (Banque mondiale), cldr et zoneTab (lireSourcesFiches), contestees
  * (contestees.json), main (fiches-main.json). Rend {lieux, textes, langues, monnaies,
  * relecture, notes} ; lève sur toute faute (ligne qui ne s'applique plus, pays sans
  * valeur, nom manquant).
  */
-export function chiffresPays({ entites, formes, zones = [], capitales, wd, bm, cldr, zoneTab, contestees, main }) {
+export function chiffresPays({ entites, formes, zones = [], capitales, nomsCapitales = {}, wd, bm, cldr, zoneTab, contestees, main }) {
   const erreurs = [];
   const faute = (m) => erreurs.push(m);
   const pays = entites.filter((e) => e.statut === 'jouable' || e.statut === 'optionnel');
@@ -346,12 +347,13 @@ export function chiffresPays({ entites, formes, zones = [], capitales, wd, bm, c
   const textes = {};
   const langues = {};
   const monnaies = {};
-  const R = { habitants: [], superficies: [], gentiles: [], culminants: [], fuseaux: [], fuseauxPlusieurs: [], horsTrace: [], monnaies: [], langues: [], languesRetraits: [], languesAjouts: [], languesParts: [], languesOrdres: [], fetes: [], languesNoms: [] };
+  const R = { habitants: [], superficies: [], gentiles: [], culminants: [], fuseaux: [], fuseauxPlusieurs: [], heureA: [], horsTrace: [], monnaies: [], langues: [], languesRetraits: [], languesAjouts: [], languesParts: [], languesOrdres: [], fetes: [], languesNoms: [] };
   const table = {
     superficie: lignes(main, 'superficie'),
     gentile: lignes(main, 'gentile'),
     culminant: lignes(main, 'culminant'),
     fuseau: lignes(main, 'fuseau'),
+    heure_a: lignes(main, 'heure_a'),
     monnaies: lignes(main, 'monnaies'),
     langues: lignes(main, 'langues'),
     fete: lignes(main, 'fete'),
@@ -521,6 +523,18 @@ export function chiffresPays({ entites, formes, zones = [], capitales, wd, bm, c
     if (lf?.nz != null && lf.nz === nzRegle) faute(`fiches-main.json, fuseau.${id} : ${lf.nz} fuseaux, déjà le compte de la règle`);
     if (nz > 1) L.nz = nz;
     R.fuseaux.push({ id, zone, plusProche, ligne: lf ?? null, capitale: cap?.q ?? null });
+
+    // Le libellé « Heure à <capitale> » : aucune grammaire dans le code de l'appli ; une
+    // capitale à article (« Le Caire » : « au Caire ») ou nom commun (« Cité du Vatican »)
+    // a sa forme toute faite, hc (« Heure au Caire »).
+    const nomCap = cap ? nomsCapitales[cap.q] : null;
+    const la = table.heure_a[id];
+    if (la) {
+      if (!nomCap) faute(`fiches-main.json, heure_a.${id} : pas de capitale nommée`);
+      else if (!/^(à|au|aux) /.test(la.forme) || !la.forme.endsWith(nomCap.replace(/^(Le|La|Les|L') ?/, ''))) faute(`fiches-main.json, heure_a.${id} : « ${la.forme} » n'est pas « à|au|aux … ${nomCap} »`);
+      else T.hc = la.forme;
+    } else if (nomCap && /^(Le|Les) /.test(nomCap)) faute(`${id} : « Heure à ${nomCap} » : la forme (« au… », « aux… ») à écrire dans la table, clé heure_a`);
+    R.heureA.push({ id, capitale: nomCap ?? null, ligne: la ?? null });
     if (nzRegle > 1 || lf?.nz != null) R.fuseauxPlusieurs.push({ id, nz, nzRegle, decalages: decalagesFuseaux(zt), zones: zt.map((z) => `${z.zone}${z.cc !== e.a2 ? ` (${z.cc})` : ''}${z.mer != null ? ` (en mer, ${z.mer} km)` : ''}`), ligne: lf ?? null });
 
     // Monnaies (CLDR) : l'ordre fixé à la main pour les pays à plusieurs monnaies.

@@ -984,6 +984,13 @@ Zone de chaque pays : celle de `zone.tab` la plus proche de la capitale ; nombre
 | Portugal | 2 | 2 | -1, 0 | -1, 0 | 0, 1 | Europe/Lisbon, Atlantic/Madeira (en mer, 1.3 km), Atlantic/Azores (en mer, 1 km) |
 | Russie | 11 | 11 | 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 | 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 | 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 | Europe/Kaliningrad, Europe/Moscow, Europe/Simferopol (UA), Europe/Kirov, Europe/Volgograd, Europe/Astrakhan, Europe/Saratov, Europe/Ulyanovsk, Europe/Samara, Asia/Yekaterinburg, Asia/Omsk, Asia/Novosibirsk, Asia/Barnaul, Asia/Tomsk, Asia/Novokuznetsk, Asia/Krasnoyarsk, Asia/Irkutsk, Asia/Chita, Asia/Yakutsk, Asia/Khandyga, Asia/Vladivostok, Asia/Ust-Nera, Asia/Magadan, Asia/Sakhalin, Asia/Srednekolymsk, Asia/Kamchatka, Asia/Anadyr |
 
+Libellé de l'heure (clé `heure_a`) : « Heure à <capitale> », sauf une capitale dont « à » et le nom seraient faux (le build exige une ligne pour une capitale en « Le » ou « Les ») :
+
+| Pays | Capitale | Libellé | Raison |  |
+|---|---|---|---|---|
+| Égypte | Le Caire | Heure au Caire | « Le Caire » : « à » et « le » se contractent en « au » |  |
+| État de la Cité du Vatican | Cité du Vatican | Heure à la Cité du Vatican | « Cité du Vatican » est un nom commun suivi d'un complément : l'article est requis (« à la Cité du Vatican ») |  |
+
 ## 7. Monnaies (clé `monnaies`)
 
 | Pays | Ordre retenu | Ordre de CLDR | Raison |  |

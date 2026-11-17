@@ -2714,7 +2714,10 @@ Interface du lot F2 (fiche, barre, Crédits) :
   mois (`textes.fiche.premier_jour`).
 - Heure : l'écart à l'heure de l'appareil, sur les deux heures murales ; le formateur de la
   zone est créé au repos dès que le pays est dans la barre (`prechaufferZone`), la fiche n'en
-  crée aucun. Sans capitale lue : « Heure locale ».
+  crée aucun. Sans capitale lue : « Heure locale ». Une capitale dont « à » et le nom seraient
+  faux a son complément tout fait dans le fichier de langue (`hc`, clé `heure_a` de la table) :
+  « Heure au Caire », « Heure à la Cité du Vatican » ; le build exige la ligne d'une capitale
+  en « Le » ou « Les » (relecture du lot ; « à La Havane », « à La Valette » restent justes).
 - Barre : la ligne de faits tient sur une ligne, coupée par « … » plutôt que de grandir la
   barre (`carte.css`) ; « d'hab. » après un mot (« 123 millions d'hab. »), « hab. » après un
   nombre (« 56 800 hab. »).

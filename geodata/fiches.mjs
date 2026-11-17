@@ -7,6 +7,7 @@
 //   public/geo/monde.topo.json       le tracé de la carte et des zones disputées (fuseaux
 //                                    et sommets, § 2.1)
 //   public/geo/capitales.json        la capitale principale (zone horaire la plus proche)
+//   public/geo/capitales.fr.json     son nom (le libellé de l'heure, clé heure_a)
 //   public/geo/contestees.json       les zones hachurées (pays touchés par une zone, D57)
 //   public/geo/noms.fr.json          les noms des pays (tableaux à relire)
 //   geodata/wikidata/capitales.json  l'extrait figé de Wikidata des capitales : le titre
@@ -93,8 +94,8 @@ export async function construireFiches(racine) {
   const lire = (c) => readFile(join(racine, c));
   const json = (b) => JSON.parse(b.toString('utf8'));
   const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json'];
-  const autres = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
-  const [[scriptBrut, reglesBrut, relectureBrut, mainBrut, extraitBrut, capMainBrut, paysBrut], [topoBrut, capBrut, contBrut, nomsBrut, wdBrut, bmBrut], cldr] = await Promise.all([
+  const autres = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/capitales.fr.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
+  const [[scriptBrut, reglesBrut, relectureBrut, mainBrut, extraitBrut, capMainBrut, paysBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, wdBrut, bmBrut], cldr] = await Promise.all([
     Promise.all(chemins.map(lire)),
     Promise.all(autres.map(lire)),
     lireSourcesFiches(racine),
@@ -148,6 +149,7 @@ export async function construireFiches(racine) {
     formes: feature(topo, topo.objects.pays).features,
     zones: feature(topo, topo.objects.contestees).features,
     capitales: json(capBrut),
+    nomsCapitales: json(capFrBrut).noms,
     wd,
     bm,
     cldr,
@@ -157,7 +159,7 @@ export async function construireFiches(racine) {
   });
   // Ordre des clés fixe (la sorte d'abord), pour des fichiers stables et lisibles.
   const ORDRE = ['s', 'h', 'ha', 'hs', 'sup', 'alt', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
-  const ORDRE_FR = ['wp', 'g', 'gp', 'cu', 'fn'];
+  const ORDRE_FR = ['wp', 'g', 'gp', 'hc', 'cu', 'fn'];
   const range = (o, ordre) => Object.fromEntries(ordre.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
   for (const [id, l] of Object.entries(chiffres.lieux)) lieux[id] = range({ ...lieux[id], ...l }, ORDRE);
   for (const [id, t] of Object.entries(chiffres.textes)) textes[id] = range({ ...textes[id], ...t }, ORDRE_FR);

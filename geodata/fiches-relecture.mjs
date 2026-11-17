@@ -209,6 +209,9 @@ export function texteRelecture({ R, main, noms, langues, sources, contestees = [
       [...R.fuseauxPlusieurs].sort(parNom).map((f) => [nom(f.id), f.nz, f.ligne?.nz != null ? `${f.nzRegle} (table : ${f.nz})` : f.nzRegle, f.decalages[2].join(', '), f.decalages[0].join(', '), f.decalages[1].join(', '), f.zones.join(', ')]),
     ),
   );
+  o.push('Libellé de l\'heure (clé `heure_a`) : « Heure à <capitale> », sauf une capitale dont « à » et le nom seraient faux (le build exige une ligne pour une capitale en « Le » ou « Les ») :');
+  o.push('');
+  o.push(tableau(['Pays', 'Capitale', 'Libellé', 'Raison', ''], R.heureA.filter((h) => h.ligne).sort(parNom).map((h) => [nom(h.id), h.capitale, `Heure ${h.ligne.forme}`, h.ligne.raison, relire(h.ligne)])));
   o.push('## 7. Monnaies (clé `monnaies`)');
   o.push('');
   o.push(tableau(['Pays', 'Ordre retenu', 'Ordre de CLDR', 'Raison', ''], [...R.monnaies].sort(parNom).map((m) => [nom(m.id), m.ordre.join(', '), m.cldr.join(', '), m.ligne.raison, relire(m.ligne)])));

@@ -42,6 +42,8 @@ interface TexteBrut {
   /** Gentilé masculin, et son pluriel tout fait (aucune règle de grammaire dans le code). */
   g?: string;
   gp?: string;
+  /** Le complément du libellé de l'heure, tout fait, quand « à <capitale> » serait faux (« au Caire »). */
+  hc?: string;
   /** Nom du point culminant. */
   cu?: string;
   /** Nom de la fête nationale. */
@@ -79,6 +81,8 @@ export interface FicheMonde {
   gentils?: string;
   /** Zone IANA et nombre de fuseaux (1 sans la clé nz). */
   heure?: { zone: string; fuseaux: number };
+  /** « au Caire » : le libellé de l'heure tout fait (sinon « à » et le nom de la capitale). */
+  aCapitale?: string;
   culminant?: { nom: string; altitude: number };
   fete?: { jour: number; mois: number; nom: string };
 }
@@ -105,6 +109,7 @@ function lireLieu(b: FicheBrute, t: TexteBrut, fr: FichierMondeLangue): FicheMon
   if (b.m?.length) f.monnaies = nommer(b.m, fr.monnaies);
   if (t.gp) f.gentils = t.gp;
   if (b.z) f.heure = { zone: b.z, fuseaux: b.nz ?? 1 };
+  if (t.hc) f.aCapitale = t.hc;
   if (b.alt !== undefined && t.cu) f.culminant = { nom: t.cu, altitude: b.alt };
   if (b.f && t.fn) f.fete = { jour: b.f[0], mois: b.f[1], nom: t.fn };
   return f;

@@ -117,6 +117,11 @@
     "NZL": {"nz": 2, "raison": "Décision de l'utilisateur du 18/11/2026 : Pacific/Auckland (UTC+12) et Pacific/Chatham (UTC+12:45) ; la règle compte aussi Pacific/Fakaofo (TK, UTC+13), dont le point est à 4,6 km en mer du tracé de l'entité : Tokelau aura ses fuseaux sur sa propre fiche, au lot F3"},
     "XKX": {"zone": "Europe/Belgrade", "raison": "zone.tab n'a pas de ligne pour le Kosovo (XK est hors de la norme ISO 3166-1) ; le Kosovo suit l'heure d'Europe centrale et ses changements d'heure, comme Belgrade ; le nom de la zone ne s'affiche pas", "a_relire": true}
   },
+  "heure_a": {
+    "_": "Libellé de l'heure (§ 4.2, « Heure à <capitale> ») : forme : « à », « au » ou « aux » et le nom de la capitale principale (capitales.fr.json), tout faits, pour une capitale dont « à » + le nom serait faux ; le build exige une ligne pour une capitale en « Le » ou « Les ».",
+    "EGY": {"forme": "au Caire", "raison": "« Le Caire » : « à » et « le » se contractent en « au »"},
+    "VAT": {"forme": "à la Cité du Vatican", "raison": "« Cité du Vatican » est un nom commun suivi d'un complément : l'article est requis (« à la Cité du Vatican »)"}
+  },
   "monnaies": {
     "_": "Monnaies (CLDR 49.0.0, currencyData) : les monnaies en cours ; l'ordre, fixé ici pour chaque pays qui en a plusieurs (l'ordre de CLDR n'est pas fiable : le rand avant le loti au Lesotho). Le build échoue si la liste n'est plus celle de CLDR. Règle : la monnaie émise par le pays d'abord.",
     "BTN": {"ordre": ["BTN", "INR"], "raison": "le ngultrum, émis par le Bhoutan, puis la roupie indienne, qui y a cours"},

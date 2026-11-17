@@ -47,6 +47,7 @@
     "gentile_valeur": "les {gentils}",
     "heure": "Heure à {capitale}",
     "heure_locale": "Heure locale",
+    "heure_forme": "Heure {a_capitale}",
     "heure_valeur": "{h} h {min}",
     "ecart": "{signe}{h} h",
     "ecart_min": "{signe}{h} h {min}",

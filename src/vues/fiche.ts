@@ -147,7 +147,9 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
     try {
       const valeur = fmtHeureLieu(f.heure.zone, f.heure.fuseaux, d.maintenant ?? new Date());
       const capitale = caps?.principale.nom;
-      faits.push({ libelle: capitale ? remplir(T.heure, { capitale }) : T.heure_locale, valeur, heure: f.heure });
+      // « Heure au Caire » : la forme toute faite des données (aucune grammaire ici).
+      const libelle = !capitale ? T.heure_locale : f.aCapitale ? remplir(T.heure_forme, { a_capitale: f.aCapitale }) : remplir(T.heure, { capitale });
+      faits.push({ libelle, valeur, heure: f.heure });
       citer(S.tz);
     } catch (e) {
       if (!(e instanceof RangeError)) throw e;
