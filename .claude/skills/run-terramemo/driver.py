@@ -4582,6 +4582,14 @@ def ui_fiche_bilan(p, capturer, defauts):
     dire(f"  depuis le bilan : fiche {e['titre']!r}, {e['hash']}, barre {e['barre']}, focus {e['focus']}, ‹ {libelle!r}, entrée {e['etat']}")
     if e["hash"] != "#carte" or e["barre"] != cible or e["focus"] != "fiche-titre" or libelle != "Retour au bilan" or not (e["etat"] or {}).get("bilan"):
         defauts.append(f"erreur touchée : la carte (#carte), {cible} dans la barre, sa fiche, focus au titre, « ‹ » « Retour au bilan » attendus ({e}, ‹ {libelle!r})")
+    # « ‹ Bilan » en clair (décision « Fiche depuis le bilan », 18/11) : 44 px de haut, dans la tête, sans chevaucher le drapeau.
+    vu = p.js("""(() => { const a = document.querySelector('#fiche-lieu .fiche-avant'), r = a.getBoundingClientRect();
+      const d = document.querySelector('#fiche-lieu .fiche-drapeaux'), rd = d ? d.getBoundingClientRect() : null;
+      return {texte: a.innerText.replace(/\\s+/g, ''), h: r.height, l: r.width,
+              chevauche: !!rd && rd.width > 0 && r.right > rd.left && r.left < rd.right && r.bottom > rd.top && r.top < rd.bottom}; })()""")
+    dire(f"  « ‹ Bilan » : {vu}")
+    if vu["texte"] != "‹Bilan" or vu["h"] < 43.5 or vu["chevauche"]:
+        defauts.append(f"« ‹ Bilan » visible, 44 px de haut, sans chevaucher le drapeau attendu ({vu})")
     capturer("163-bilan-fiche")
     if e["voisins"]:
         v = e["voisins"][0]

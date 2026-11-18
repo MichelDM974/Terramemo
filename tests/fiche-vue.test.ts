@@ -611,6 +611,8 @@ describe('la fiche', () => {
     expect(avant().hidden).toBe(false);
     expect(avant().getAttribute('aria-label')).toBe(T.avant_bilan);
     expect(avant().getAttribute('title')).toBe(T.avant_bilan);
+    // « ‹ Bilan » en clair, le mot caché au lecteur d'écran (il lit l'aria-label entier).
+    expect(avant().textContent).toBe('‹' + T.avant_bilan_court);
     avant().click();
     expect(retourBilan).toHaveBeenCalledTimes(1);
     v.echap();
@@ -619,6 +621,7 @@ describe('la fiche', () => {
     (v.feuille()!.querySelectorAll('.fiche-voisin').find((b) => b.dataset.id === 'ESP') as El).click();
     await vi.waitFor(() => expect(v.titre()).toBe('Espagne'));
     expect(avant().getAttribute('aria-label')).toBe(T.avant);
+    expect(avant().textContent).toBe('‹');
     avant().click();
     await vi.waitFor(() => expect(v.titre()).toBe('France'));
     expect(retourBilan).toHaveBeenCalledTimes(2);

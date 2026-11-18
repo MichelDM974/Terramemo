@@ -494,7 +494,10 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
 
   function tete(m: ModeleFiche): HTMLElement {
     const libelle = versBilan ? T.avant_bilan : T.avant;
-    const avant = creer('button', { type: 'button', class: versBilan ? 'fiche-avant fiche-avant-bilan' : 'fiche-avant', 'aria-label': libelle, title: libelle }, '‹');
+    // Depuis un bilan, le mot « Bilan » en clair à côté de « ‹ » (décision « Fiche depuis le bilan », 18/11) : on voit
+    // où mène le bouton ; le lecteur d'écran garde son nom entier (aria-label).
+    const signe = versBilan ? [creer('span', { 'aria-hidden': 'true' }, '‹'), creer('span', { class: 'fiche-avant-mot', 'aria-hidden': 'true' }, T.avant_bilan_court)] : ['‹'];
+    const avant = creer('button', { type: 'button', class: versBilan ? 'fiche-avant fiche-avant-bilan' : 'fiche-avant', 'aria-label': libelle, title: libelle }, ...signe);
     avant.hidden = !avecAvant;
     avant.addEventListener('click', () => actions.avant());
     const titre = creer('h2', { class: 'fiche-titre', id: 'fiche-titre', tabindex: '-1' }, m.nom);

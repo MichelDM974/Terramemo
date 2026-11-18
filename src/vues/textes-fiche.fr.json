@@ -3,6 +3,7 @@
   "_": "Fiche d'un lieu (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4 et § 6.5) : la barre du bas devenue bouton, puis la feuille. Les noms (titres Wikipédia, sous-régions, langues, monnaies, gentilés, sommets, fêtes) sont dans public/geo/fiches-monde.fr.json ; nombres, dates et heures : src/fiches/format.ts.",
   "avant": "Fiche d'avant",
   "avant_bilan": "Retour au bilan",
+  "avant_bilan_court": "Bilan",
   "statut_continent": "continent",
   "drapeau": "Drapeau : {nom}",
   "capitale": "Capitale",

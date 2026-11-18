@@ -3066,9 +3066,18 @@ Puis les bilans qui ont leur propre ligne et leur propre `activer()` : Sans faut
 **Échap** rend le bilan (`#chrono`), le focus à la ligne ; le quiz Facile abandonné à la première question (169), sa
 fiche, « ‹ » rend le bilan (`#quiz`). Reconnaître et la séance restent aux tests à DOM factice.
 
-**Restent à l'utilisateur** : l'allure des lignes touchables (filet, chevron, sans puce) sur les captures 162 et 166 ;
-« ‹ » sans texte visible sur la première fiche (son nom « Retour au bilan » n'est lu que par les lecteurs d'écran et
-l'infobulle) : un libellé visible (« ‹ Bilan ») est possible si les captures le demandent.
+**Tranché par l'utilisateur (18/11, décision « Fiche depuis le bilan »)** : les lignes touchables gardent leur allure
+(filet, chevron, sans puce) ; « ‹ Retour au bilan » remonte à l'adresse du bilan (nav.remonter), et non d'un pas ;
+sur la première fiche ouverte depuis un bilan, le bouton dit « ‹ Bilan » en clair (`avant_bilan_court`, une pastille
+de 44 px de haut ; le mot est caché au lecteur d'écran, qui lit l'aria-label « Retour au bilan »). Le pilote le
+vérifie (`ui_fiche_bilan` : texte, 44 px, sans chevaucher le drapeau, capture 163).
+
+**Pilote réel (18/11)** : trois défauts du pilote, et non du site, n'apparaissaient qu'au lancement réel. La fiche
+s'ouvre plus tôt depuis que son morceau part avec les données : le voile était mesuré la feuille encore sous l'écran
+(`attendre_feuille_posee`). La partie de l'île cadre la commune demandée, et un faux toucher fixe pouvait tomber hors
+de l'écran : il prend une commune visible. Au quiz, les choix existent, actifs, dans la barre encore cachée : le
+pilote attend un choix montré, sans quoi « Abandonner » pendant le chargement des drapeaux (≈ 1 s en ligne) ramène
+aux difficultés sans bilan.
 
 ## 20. Écarts du code au lot F7
 
