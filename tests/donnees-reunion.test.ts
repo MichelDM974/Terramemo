@@ -386,6 +386,49 @@ describe('poids', () => {
   });
 });
 
+describe('fiches des communes (fiches.json, #34, lot F5)', () => {
+  // Ce que le jeu lit depuis le lot de l'île (#15) : le lot F5 ajoute des colonnes à la lecture du GeoPackage et un
+  // fichier, sans rien changer à ceux-là (relancer npm run geodata:reunion les refait à l'identique). sources.json change
+  // (ses empreintes, la description des fiches) : il n'est pas dans la liste.
+  it('les fichiers d’avant le lot F5 inchangés, octet pour octet', () => {
+    const empreinte = (f: string) => createHash('sha256').update(readFileSync(DOSSIER + f)).digest('hex');
+    expect(empreinte('communes.topo.json')).toBe('a48120187bc4c3e18f84b5c8dd60d40cdf7272784e42f14a59327cf09f24f891');
+    expect(empreinte('communes.json')).toBe('b980eac2a2a932179fe2bae922036b4791e218c5e710dd61ac8da01cfb99d001');
+    expect(empreinte('noms.fr.json')).toBe('4bed40ebe0ce872de13d76b1892cac49f4959fae6142f43c00b3bd33025072eb');
+  });
+
+  const fiches = lire<{ v: number; lieux: Record<string, { s: string; h: number; ha: number; sup: number; ic: string }> }>(DOSSIER + 'fiches.json');
+  const traitement = lire<{ traitement: { fiches: string; intercommunalites: Record<string, string> } }>(DOSSIER + 'sources.json').traitement;
+
+  it('une fiche par commune, dans l’ordre des codes : habitants du recensement de 2023 (total 889 679), superficie cadastrale, une intercommunalité', () => {
+    expect(fiches.v).toBe(1);
+    expect(Object.keys(fiches.lieux)).toEqual(communes.map((c) => c.id));
+    const total = Object.values(fiches.lieux).reduce((s, f) => s + f.h, 0);
+    expect(total).toBe(889_679);
+    expect(traitement.fiches).toContain('889679');
+    for (const [id, f] of Object.entries(fiches.lieux)) {
+      expect(f.s, id).toBe('commune');
+      expect(f.ha, id).toBe(2023);
+      expect(traitement.intercommunalites[f.ic], id).toBeTruthy();
+    }
+    // Saint-Pierre (critère de fin du lot) ; l'Entre-Deux et Le Tampon : le cadastre, pas le tracé (§ 2.4).
+    expect(fiches.lieux['97416']).toEqual({ s: 'commune', h: 85_038, ha: 2023, sup: 96, ic: '249740077' });
+    expect(fiches.lieux['97403']?.sup).toBe(66.8);
+    expect(parId.get('97403')?.superficie_km2).toBeCloseTo(51.55, 1);
+    expect(fiches.lieux['97422']?.sup).toBe(165.4);
+    // Superficies cadastrales : la même île que le tracé, à 1 % près.
+    const cadastre = Object.values(fiches.lieux).reduce((s, f) => s + f.sup, 0);
+    const trace = communes.reduce((s, c) => s + c.superficie_km2, 0);
+    expect(Math.abs(cadastre / trace - 1)).toBeLessThan(0.01);
+  });
+
+  it('les cinq intercommunalités de l’IGN, leur nom officiel dans sources.json', () => {
+    expect(Object.keys(traitement.intercommunalites)).toEqual(['249740077', '249740085', '249740093', '249740101', '249740119']);
+    expect(traitement.intercommunalites['249740077']).toContain('CIVIS');
+    expect(new Set(Object.values(fiches.lieux).map((f) => f.ic))).toEqual(new Set(Object.keys(traitement.intercommunalites)));
+  });
+});
+
 describe('sources', () => {
   it('une source, IGN, Licence Ouverte, édition et date de mise à jour datées', () => {
     expect(sources.sources).toHaveLength(1);

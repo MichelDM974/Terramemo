@@ -4,6 +4,10 @@
 //   communes.json       attributs de chaque commune (forme de pays.json : superficie,
 //                       point, bbox, voisins…)
 //   noms.fr.json        { code INSEE: nom }
+//   fiches.json         chiffres de la fiche de chaque commune (#34, lot F5) : habitants et
+//                       année du recensement, superficie cadastrale, intercommunalité (SIREN) ;
+//                       les textes (gentilés, titres, sigles) sont dans fiches.fr.json, écrit
+//                       par geodata/fiches.mjs (npm run fiches)
 //   sources.json        source, édition, date de mise à jour, licence, empreintes
 //
 // Usage : npm run geodata:reunion [-- --maj-empreintes]
@@ -72,6 +76,18 @@ const SOURCE = {
   ],
   table: 'commune',
   champs: { id: 'code_insee', departement: 'code_insee_du_departement', nom: 'nom_officiel', geometrie: 'geometrie' },
+  // Fiche d'une commune (#34, lot F5, étude fiche-lieu § 2.4) : habitants (population municipale du
+  // recensement de l'INSEE, organisme_recenseur), année, superficie cadastrale (en hectares),
+  // intercommunalité (codes SIREN, séparés par « / » s'il y en avait plusieurs : une seule ici).
+  champs_fiche: {
+    habitants: 'population',
+    recensement: 'date_du_recensement',
+    recenseur: 'organisme_recenseur',
+    superficie_ha: 'superficie_cadastrale',
+    epci: 'codes_siren_des_epci',
+  },
+  // Les intercommunalités : leur nom officiel et leurs membres, confrontés aux codes des communes.
+  epci: { table: 'epci', siren: 'code_siren', nom: 'nom_officiel', membres: 'codes_insee_des_communes_membres' },
   // Chef-lieu de chaque commune (mairie) : contrôle de la reprojection et de la
   // simplification, il doit tomber dans sa commune.
   chefs_lieux: { table: 'chef_lieu_de_commune', id: 'code_insee_de_la_commune' },
@@ -253,12 +269,16 @@ function lireGpkg(chemin) {
         echec(`GeoPackage : ${t} en ${col?.srs_id} (z ${col?.z}, m ${col?.m}), attendu EPSG:${SOURCE.srs} en 2D`);
       }
     }
+    const cf = SOURCE.champs_fiche;
     const lignes = db
       .prepare(
-        `SELECT ${champs.id} AS id, ${champs.nom} AS nom, ${champs.geometrie} AS g FROM ${table} ` +
+        `SELECT ${champs.id} AS id, ${champs.nom} AS nom, ${champs.geometrie} AS g, ${cf.habitants} AS h, ${cf.recensement} AS rec, ` +
+          `${cf.recenseur} AS recenseur, ${cf.superficie_ha} AS ha, ${cf.epci} AS epci FROM ${table} ` +
           `WHERE ${champs.departement} = ? ORDER BY ${champs.id}`,
       )
       .all(SOURCE.departement);
+    const E = SOURCE.epci;
+    const epci = db.prepare(`SELECT ${E.siren} AS siren, ${E.nom} AS nom, ${E.membres} AS membres FROM ${E.table} ORDER BY ${E.siren}`).all();
     const lieux = db.prepare(`SELECT ${cl.id} AS id, geometrie AS g FROM ${cl.table} ORDER BY ${cl.id}`).all();
     const geom = (l) => {
       const g = lireGeometrieGpkg(l.g);
@@ -267,8 +287,14 @@ function lireGpkg(chemin) {
       return g;
     };
     return {
-      communes: lignes.map((l) => ({ id: String(l.id), nom: String(l.nom), utm: geom(l) })),
+      communes: lignes.map((l) => ({
+        id: String(l.id),
+        nom: String(l.nom),
+        utm: geom(l),
+        fiche: { habitants: l.h, recensement: l.rec, recenseur: l.recenseur, superficieHa: l.ha, epci: l.epci },
+      })),
       chefsLieux: new Map(lieux.map((l) => [String(l.id), geom(l)])),
+      epci: epci.map((e) => ({ siren: String(e.siren), nom: String(e.nom), membres: String(e.membres ?? '').split('/').filter(Boolean).sort() })),
     };
   } finally {
     db.close();
@@ -312,6 +338,45 @@ async function reprojeter(communes) {
   }
 }
 
+// --- 4. Fiches des communes (#34, lot F5) -------------------------------------------------
+
+/** Version du format des fichiers de fiches (VERSION_FICHES de geodata/fiches.mjs et de src/fiches/donnees.ts). */
+const VERSION_FICHES = 1;
+
+/**
+ * Les chiffres de la fiche de chaque commune, lus dans la table commune : habitants (un entier
+ * positif, recensé par l'INSEE, la même année pour toutes), superficie cadastrale (hectares → km²),
+ * une seule intercommunalité, dont la table epci compte la commune parmi ses membres (et
+ * inversement : aucun membre de trop). Échoue sur le moindre écart.
+ */
+function fichesCommunes(communes, epci) {
+  const parSiren = new Map(epci.map((e) => [e.siren, e]));
+  const annees = new Set();
+  const lignes = communes.map((c) => {
+    const f = c.fiche;
+    if (!Number.isInteger(f.habitants) || f.habitants <= 0) echec(`${c.id} : population ${f.habitants}`);
+    if (f.recenseur !== 'INSEE') echec(`${c.id} : organisme recenseur « ${f.recenseur} », attendu INSEE (la mention des Crédits)`);
+    const an = /^(\d{4})-\d{2}-\d{2}$/.exec(String(f.recensement ?? ''))?.[1];
+    if (!an) echec(`${c.id} : date du recensement « ${f.recensement} »`);
+    annees.add(String(f.recensement));
+    if (!Number.isInteger(f.superficieHa) || f.superficieHa <= 0) echec(`${c.id} : superficie cadastrale ${f.superficieHa}`);
+    const sirens = String(f.epci ?? '').split('/').filter(Boolean);
+    if (sirens.length !== 1) echec(`${c.id} : ${sirens.length} intercommunalités (${f.epci}), une attendue`);
+    const e = parSiren.get(sirens[0]);
+    if (!e) echec(`${c.id} : intercommunalité ${sirens[0]} absente de la table ${SOURCE.epci.table}`);
+    if (!e.membres.includes(c.id)) echec(`${c.id} : absente des membres de ${e.siren} (${e.nom})`);
+    return { id: c.id, h: f.habitants, ha: Number(an), sup: f.superficieHa / 100, ic: e.siren };
+  });
+  if (annees.size !== 1) echec(`recensements de plusieurs dates : ${[...annees].join(', ')}`);
+  const ids = new Set(communes.map((c) => c.id));
+  for (const e of epci) {
+    for (const m of e.membres) if (!ids.has(m)) echec(`intercommunalité ${e.siren} : membre ${m} hors de l'île`);
+    const de = lignes.filter((l) => l.ic === e.siren).map((l) => l.id);
+    if (JSON.stringify(de) !== JSON.stringify(e.membres)) echec(`intercommunalité ${e.siren} : membres ${e.membres.join(', ')}, communes ${de.join(', ')}`);
+  }
+  return { lignes, total: lignes.reduce((s, l) => s + l.h, 0), recensement: [...annees][0] };
+}
+
 // --- Programme ------------------------------------------------------------------------
 
 async function main() {
@@ -322,7 +387,7 @@ async function main() {
   console.log('Lecture');
   const { gpkg, meta } = extraire(join(RAW, SOURCE.fichiers[0].chemin));
   const dates = lireMetadonnees(await readFile(meta, 'utf8'));
-  const { communes, chefsLieux } = lireGpkg(gpkg);
+  const { communes, chefsLieux, epci } = lireGpkg(gpkg);
   for (const k of ['edition', 'mise_a_jour']) {
     if (dates[k] !== SOURCE[k]) echec(`métadonnées : ${k} ${dates[k]}, SOURCE dit ${SOURCE[k]} (mettre SOURCE à jour)`);
   }
@@ -409,6 +474,9 @@ async function main() {
     if (c.voisins.length === 0) echec(`${c.id} sans voisin`);
   });
 
+  // --- Fiches (#34, lot F5) ---
+  const fiches = fichesCommunes(communes, epci);
+
   // --- Écriture ---
   console.log('Écriture');
   await mkdir(SORTIE, { recursive: true });
@@ -434,6 +502,15 @@ async function main() {
   // normaliser() (src/texte.ts) rend les deux équivalentes pour la saisie.
   const noms = Object.fromEntries(communes.map((c) => [c.id, c.nom.normalize('NFC').replaceAll("'", '’')]));
   await ecrire('noms.fr.json', JSON.stringify(noms, null, 1) + '\n');
+
+  // Une ligne par commune, clés courtes dans l'ordre (la forme des autres fichiers de fiches,
+  // src/fiches/donnees.ts) : s la sorte, h et ha les habitants et l'année du recensement, sup la
+  // superficie cadastrale en km² (au centième : les hectares de l'IGN), ic le SIREN de
+  // l'intercommunalité.
+  await ecrire(
+    'fiches.json',
+    `{"v":${VERSION_FICHES},"lieux":{\n${fiches.lignes.map((f) => `${JSON.stringify(f.id)}:${JSON.stringify({ s: 'commune', h: f.h, ha: f.ha, sup: f.sup, ic: f.ic })}`).join(',\n')}\n}}\n`,
+  );
 
   const metaSources = {
     sources: [
@@ -462,9 +539,16 @@ async function main() {
       quantification: QUANTIFICATION,
       noms: 'nom_officiel de l’IGN, apostrophe droite remplacée par l’apostrophe typographique',
       superficies:
-        'aire de la géométrie IGN de fait, pas la superficie officielle : géodésique, d3-geo geoArea × R², ' +
-        'R = 6371.0088 km, sur la géométrie non simplifiée. superficie_cadastrale (en hectares) n’est pas reprise : ' +
-        'elle s’écarte du tracé (Entre-Deux 66,8 km² cadastraux contre 51,6 tracés, Le Tampon 165,4 contre 181,7)',
+        'communes.json : aire de la géométrie IGN de fait, pas la superficie officielle : géodésique, d3-geo geoArea × R², ' +
+        'R = 6371.0088 km, sur la géométrie non simplifiée (le dessin et le jeu la lisent). fiches.json : superficie_cadastrale ' +
+        '(en hectares, divisée par 100), le chiffre officiel que la fiche affiche ; elle s’écarte du tracé (Entre-Deux 66,8 km² ' +
+        'cadastraux contre 51,6 tracés, Le Tampon 165,4 contre 181,7)',
+      fiches:
+        `fiches.json (#34, lot F5) : ${Object.values(SOURCE.champs_fiche).join(', ')} de la table ${SOURCE.table} ; ` +
+        `habitants : population du recensement de l’INSEE (organisme_recenseur), ${fiches.total} pour l’île, recensement du ${fiches.recensement} ; ` +
+        `intercommunalité : codes_siren_des_epci, confronté aux membres de la table ${SOURCE.epci.table}`,
+      // Les intercommunalités, leur nom officiel (table epci) : leur sigle est écrit à la main (geodata/fiches-main.json, clé epci).
+      intercommunalites: Object.fromEntries(epci.map((e) => [e.siren, e.nom])),
       // Poids compressés des sorties (sauf ce fichier) au dernier lancement, pour suivre
       // la cible de la conception (topologie ≤ 25 Ko).
       poids_gzip_octets: { ...poids },
@@ -480,6 +564,7 @@ async function main() {
 
   const total = communes.reduce((s, c) => s + c.superficie, 0);
   console.log(`Communes : ${communes.length}, ${total.toFixed(1)} km², trous ${communes.reduce((s, c) => s + c.trous, 0)}`);
+  console.log(`Fiches : ${fiches.total} habitants (recensement du ${fiches.recensement}), ${epci.length} intercommunalités`);
 }
 
 await main();

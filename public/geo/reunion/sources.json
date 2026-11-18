@@ -24,14 +24,23 @@
     "simplification": "-simplify dp interval=40 keep-shapes (Douglas-Peucker : écart au tracé de l'IGN borné à 40 m, 40.1 m mesurés sur les sommets source), un seul calque (frontières en arcs partagés) ; aucun polygone perdu",
     "quantification": 100000,
     "noms": "nom_officiel de l’IGN, apostrophe droite remplacée par l’apostrophe typographique",
-    "superficies": "aire de la géométrie IGN de fait, pas la superficie officielle : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée. superficie_cadastrale (en hectares) n’est pas reprise : elle s’écarte du tracé (Entre-Deux 66,8 km² cadastraux contre 51,6 tracés, Le Tampon 165,4 contre 181,7)",
+    "superficies": "communes.json : aire de la géométrie IGN de fait, pas la superficie officielle : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée (le dessin et le jeu la lisent). fiches.json : superficie_cadastrale (en hectares, divisée par 100), le chiffre officiel que la fiche affiche ; elle s’écarte du tracé (Entre-Deux 66,8 km² cadastraux contre 51,6 tracés, Le Tampon 165,4 contre 181,7)",
+    "fiches": "fiches.json (#34, lot F5) : population, date_du_recensement, organisme_recenseur, superficie_cadastrale, codes_siren_des_epci de la table commune ; habitants : population du recensement de l’INSEE (organisme_recenseur), 889679 pour l’île, recensement du 2023-01-01 ; intercommunalité : codes_siren_des_epci, confronté aux membres de la table epci",
+    "intercommunalites": {
+      "249740077": "CA CIVIS (Communauté Intercommunale des Villes Solidaires)",
+      "249740085": "CA du Sud",
+      "249740093": "CA Intercommunale de la Réunion Est (CIREST)",
+      "249740101": "CA Territoire de la Côte Ouest (TCO)",
+      "249740119": "CA Intercommunale du Nord de la Réunion (CINOR)"
+    },
     "poids_gzip_octets": {
       "communes.topo.json": 10587,
       "communes.json": 1114,
-      "noms.fr.json": 299
+      "noms.fr.json": 299,
+      "fiches.json": 370
     },
     "entrees": {
-      "geodata/reunion.mjs": "7f1c023dbf3d8268bf0545a117cbced918271aae8f97963b89340993bfd7b795",
+      "geodata/reunion.mjs": "5ad5d02c0bdfb6e387eaa7e27f450656dc9e426a13511faaa7822c2ebc18e723",
       "geodata/outils.mjs": "004e9d875414ed099b923d47ddfdd3c9fa8561beca16b100ea11f0bcc95cce1c"
     }
   }
