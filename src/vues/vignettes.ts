@@ -49,11 +49,12 @@ const MARGE = 0.06;
 const ECART = 4;
 
 /**
- * Simplifie le flux projeté : un point à moins de TOLERANCE du précédent
- * gardé est sauté (le dernier d'un anneau reste), et un anneau de moins de
- * AIRE_MIN est retiré (îlots invisibles à cette taille).
+ * Simplifie le flux projeté : un point à moins de `tolerance` (TOLERANCE) du
+ * précédent gardé est sauté (le dernier d'un anneau reste), et un anneau de
+ * moins de `aireMin` (AIRE_MIN) est retiré (îlots invisibles à cette taille).
+ * Partagé avec la carte de situation de la fiche (situation.ts, lot F8).
  */
-function simplifier(sortie: GeoStream): GeoStream {
+export function simplifier(sortie: GeoStream, tolerance = TOLERANCE, aireMin = AIRE_MIN): GeoStream {
   let anneau: number[] | null = null;
   let saute: [number, number] | null = null;
   let polygone = false;
@@ -61,7 +62,7 @@ function simplifier(sortie: GeoStream): GeoStream {
     point(x, y) {
       if (!anneau) return sortie.point(x, y);
       const n = anneau.length;
-      if (n >= 2 && (x - anneau[n - 2]!) ** 2 + (y - anneau[n - 1]!) ** 2 < TOLERANCE * TOLERANCE) {
+      if (n >= 2 && (x - anneau[n - 2]!) ** 2 + (y - anneau[n - 1]!) ** 2 < tolerance * tolerance) {
         saute = [x, y];
         return;
       }
@@ -85,7 +86,7 @@ function simplifier(sortie: GeoStream): GeoStream {
         const j = (i + 2) % a.length;
         aire += a[i]! * a[j + 1]! - a[j]! * a[i + 1]!;
       }
-      if (Math.abs(aire) / 2 < AIRE_MIN) return;
+      if (Math.abs(aire) / 2 < aireMin) return;
       sortie.lineStart();
       for (let i = 0; i < a.length; i += 2) sortie.point(a[i]!, a[i + 1]!);
       sortie.lineEnd();
@@ -139,6 +140,58 @@ function coins(p: Pays): [number, number][] {
   ];
 }
 
+/** Le tracé simplifié d'une forme par cette projection (chemin SVG, au dixième d'unité). */
+export function tracer(projection: GeoProjection, forme: Parameters<ReturnType<typeof geoPath>>[0], tolerance?: number, aireMin?: number): string {
+  const chemin = geoPath({ stream: (s: GeoStream) => projection.stream(simplifier(s, tolerance, aireMin)) }).digits(1);
+  return chemin(forme) ?? '';
+}
+
+/**
+ * Le cadrage d'une région : sa projection (Equal Earth tournée sur elle, LARGEUR de large, coupée à TOUR autour du
+ * cadre), son cadre (viewBox) ; seules passent par la projection les zones à moins de `rayon` de `centre` (proche).
+ */
+export interface Cadrage {
+  projection: GeoProjection;
+  cadre: [number, number, number, number];
+  centre: [number, number];
+  rayon: number;
+}
+
+/** Le cadrage autour de ces points, centré sur la longitude `lon` (degrés). */
+export function cadrerPoints(points: [number, number][], lon: number): Cadrage {
+  const nuage: Feature<MultiPoint> = { type: 'Feature', properties: {}, geometry: { type: 'MultiPoint', coordinates: points } };
+  const p = geoEqualEarth().rotate([-lon, 0]);
+  p.fitWidth(LARGEUR, nuage);
+  const [[bx0, by0], [bx1, by1]] = geoPath(p).bounds(nuage);
+  const m = MARGE * Math.max(bx1 - bx0, by1 - by0);
+  const cadre: Cadrage['cadre'] = [bx0 - m, by0 - m, bx1 - bx0 + 2 * m, by1 - by0 + 2 * m];
+  const [cx, cy, cw, ch] = cadre;
+  const t = TOUR * Math.max(cw, ch);
+  p.clipExtent([
+    [cx - t, cy - t],
+    [cx + cw + t, cy + ch + t],
+  ]);
+  const centre = geoCentroid(nuage) as [number, number];
+  return { projection: p, cadre, centre, rayon: Math.max(...points.map((q) => geoDistance(centre, q))) * (1 + 2 * TOUR) };
+}
+
+/**
+ * Le cadrage d'une région de pays (une série de Jouer) : sans ceux trop loin du centre (ECART), centré sur la moyenne
+ * circulaire des longitudes (pas de coupure dans la région : l'Océanie) ; null sans pays.
+ */
+export function cadrerPays(tous: readonly Pays[]): Cadrage | null {
+  if (!tous.length) return null;
+  const milieu = geoCentroid({ type: 'MultiPoint', coordinates: tous.map((p) => p.point) });
+  const ecarts = tous.map((p) => geoDistance(milieu, p.point));
+  const mediane = [...ecarts].sort((a, b) => a - b)[Math.floor(ecarts.length / 2)] ?? 0;
+  const pays = tous.filter((_, i) => (ecarts[i] ?? 0) <= ECART * mediane);
+  const [sx, sy] = pays.reduce(([a, b], p) => [a + Math.cos((p.point[0] * Math.PI) / 180), b + Math.sin((p.point[0] * Math.PI) / 180)], [0, 0]);
+  return cadrerPoints(pays.flatMap(coins), (Math.atan2(sy, sx) * 180) / Math.PI);
+}
+
+/** La zone tombe-t-elle près du cadre (à tracer) ? */
+export const proche = (c: Cadrage, l: Pick<Pays, 'point' | 'bbox'>): boolean => geoDistance(c.centre, l.point) <= c.rayon + rayonEmprise(l.bbox);
+
 export interface Vignettes {
   /**
    * La vignette d'une série (le monde, un continent, l'île) dans un sujet ;
@@ -156,11 +209,6 @@ export function creerVignettes(donnees: DonneesCarte, series: readonly Serie[]):
   const traces = new Map<string, Trace | null>();
   const parId = new Map(donnees.entites.map((e) => [e.pays.id, e]));
 
-  function tracer(projection: GeoProjection, forme: Parameters<ReturnType<typeof geoPath>>[0]): string {
-    const chemin = geoPath({ stream: (s: GeoStream) => projection.stream(simplifier(s)) }).digits(1);
-    return chemin(forme) ?? '';
-  }
-
   function monde(): Trace {
     const p = geoEqualEarth().fitWidth(LARGEUR, { type: 'Sphere' });
     const [[x0, y0], [x1, y1]] = geoPath(p).bounds({ type: 'Sphere' });
@@ -175,41 +223,18 @@ export function creerVignettes(donnees: DonneesCarte, series: readonly Serie[]):
   }
 
   function region(s: Serie): Trace | null {
-    const tous = s.ids.map((id) => parId.get(id)?.pays).filter((p): p is Pays => !!p);
-    if (!tous.length) return null;
-    const milieu = geoCentroid({ type: 'MultiPoint', coordinates: tous.map((p) => p.point) });
-    const ecarts = tous.map((p) => geoDistance(milieu, p.point));
-    const mediane = [...ecarts].sort((a, b) => a - b)[Math.floor(ecarts.length / 2)] ?? 0;
-    const pays = tous.filter((_, i) => (ecarts[i] ?? 0) <= ECART * mediane);
-    const points = pays.flatMap(coins);
-    const nuage: Feature<MultiPoint> = { type: 'Feature', properties: {}, geometry: { type: 'MultiPoint', coordinates: points } };
-    // Centrée sur la moyenne circulaire des longitudes : pas de coupure dans la région (Océanie).
-    const [sx, sy] = pays.reduce(([a, b], p) => [a + Math.cos((p.point[0] * Math.PI) / 180), b + Math.sin((p.point[0] * Math.PI) / 180)], [0, 0]);
-    const lon = (Math.atan2(sy, sx) * 180) / Math.PI;
-    const p = geoEqualEarth().rotate([-lon, 0]);
-    p.fitWidth(LARGEUR, nuage);
-    const [[bx0, by0], [bx1, by1]] = geoPath(p).bounds(nuage);
-    const m = MARGE * Math.max(bx1 - bx0, by1 - by0);
-    const cadre: Trace['cadre'] = [bx0 - m, by0 - m, bx1 - bx0 + 2 * m, by1 - by0 + 2 * m];
-    const [cx, cy, cw, ch] = cadre;
-    const t = TOUR * Math.max(cw, ch);
-    p.clipExtent([
-      [cx - t, cy - t],
-      [cx + cw + t, cy + ch + t],
-    ]);
-    // Seuls les pays proches du cadre passent par la projection.
-    const centre = geoCentroid(nuage);
-    const rayon = Math.max(...points.map((q) => geoDistance(centre, q))) * (1 + 2 * TOUR);
+    const c = cadrerPays(s.ids.map((id) => parId.get(id)?.pays).filter((p): p is Pays => !!p));
+    if (!c) return null;
     const dedans = new Set(s.ids);
     let fond = '';
     let serie = '';
     for (const e of donnees.entites) {
-      if (geoDistance(centre, e.pays.point) > rayon + rayonEmprise(e.pays.bbox)) continue;
-      const d = tracer(p, e.forme);
+      if (!proche(c, e.pays)) continue;
+      const d = tracer(c.projection, e.forme);
       if (dedans.has(e.pays.id)) serie += d;
       else fond += d;
     }
-    return { cadre, fond, serie };
+    return { cadre: c.cadre, fond, serie };
   }
 
   /** L'île : sa vignette toute faite (contour et limites des communes). */
