@@ -2729,3 +2729,62 @@ Interface du lot F2 (fiche, barre, Crédits) :
   celle de Wikidata ne dit pas encore les profondeurs (lot F4). La Banque mondiale porte la
   mention de ses conditions (« The World Bank: World Development Indicators, Population, total
   (SP.POP.TOTL): … ») et leur adresse en lien.
+
+## 16. Écarts du code au lot F3
+
+Relevés par le codeur du lot F3 (branche `fiche-lieu`, 18/11). Les statuts (première partie,
+`fiches-territoires.mjs`, `docs/relectures/fiches-territoires.md`) sont décrits par leurs commits ;
+ici, la suite.
+- Les chiffres des 61 autres lieux vivent dans `geodata/fiches-autres.mjs`, qui reprend les règles
+  des pays (`fiches-pays.mjs` : superficie, habitants, gentilé, sommet, et `languesLieu`, sortie
+  telle quelle de la boucle des pays) ; son tableau à relire est un fichier à part,
+  `docs/relectures/fiches-territoires-chiffres.md` (9 sections), pour ne pas toucher à celui des
+  statuts. Cinq clés de plus dans la table : `capitale_territoires`, `zone_territoires`,
+  `langues_territoires` (avec ses `noms`), `gentile_territoires`, `culminant_territoires` ; `wp`
+  vaut pour toute entité (Akrotiri et Dhekelia : l'article des deux bases).
+- Wikidata : l'extrait des fiches est refait le 18/11 pour les 258 items ; une section de plus
+  dans `requetes-fiches.rq`, `capitales` (P36, pour les seuls territoires, `{{territoires}}`), les
+  autres requêtes inchangées. Seul changement pour les pays : la superficie du Mexique
+  (1 960 647 → 1 964 375 km²).
+- Habitants : 43 territoires sur 48 (et non 45) et 5 zones. Akrotiri et Dhekelia ont chacune leur
+  item (P1 l'a corrigé) : les 18 000 habitants de R3 venaient de l'item commun des deux bases, qui
+  n'est plus lu. 0 sans année : les îles Heard, Ashmore-et-Cartier, Clipperton, Bajo Nuevo,
+  Serranilla (figés par le test).
+- Capitales : 36 (et non 38), pour la même raison (Episkopi, siège commun des deux bases). La
+  Géorgie du Sud n'a pas de ligne à la main : Wikidata met King Edward Point au rang préféré,
+  la règle le prend ; seule Montserrat est tranchée à la main (Brades, à relire).
+- Heure : 44 zones écrites (et non 47) : les îles Heard, Ashmore-et-Cartier et Clipperton,
+  inhabitées et sans zone dans zone.tab, n'ont pas de ligne d'heure, comme les îles mineures des
+  États-Unis. Les entités sans code ISO ont leur zone avec `hors_code` (Guantánamo : l'heure de
+  l'Est des États-Unis ; Christmas et Cocos : celle de Christmas, à relire). Pas de nombre de
+  fuseaux pour un territoire. **Tokelau** n'est pas une entité de la carte (il est dans le tracé
+  de la Nouvelle-Zélande) : il n'a pas de fiche, et son heure (UTC+13) n'est montrée nulle part ;
+  la décision « sommets et fuseaux » le supposait.
+- Points culminants : 24 territoires (et non 26) plus l'Antarctique. Les Malouines et la Géorgie
+  du Sud sont entières dans une zone hachurée (NE_B12, NE_B32) : la règle « aucun sommet dans une
+  zone disputée » les retire (lignes `aucun`, à relire : la règle visait un pays qui revendique
+  un sommet). Les îles Mariannes du Nord et les îles mineures des États-Unis : sommet sans nom
+  français (`aucun`) ; Niue : « point sans nom », Guernesey (114 m) et Wallis-et-Futuna (524 m) :
+  deux altitudes sans rang.
+- Gentilés : 11, comme prévu, mais pas les mêmes que R3 : sans Jersey (« Jersey crapaud »), les
+  îles Vierges britanniques, Saint-Pierre-et-Miquelon (à relire) ; avec les Féroé, Guam, Porto Rico.
+- Lignes tues, une clé par tableau (`src/fiches/relues.ts`) : `statut` (fiches-territoires.md),
+  `capitale_territoires`, `habitants_zones`, `superficie_territoires`, `langues_territoires`,
+  `gentile_territoires`, `culminant_territoires` (fiches-territoires-chiffres.md). En ligne sans
+  relecture : les habitants des territoires, leur monnaie, leur heure, le continent, le lien, le
+  drapeau. D'ici là, la barre d'un territoire dit ses habitants seuls et sa ligne d'heure
+  s'appelle « Heure locale ».
+- D57 a : le build échoue si une zone sert autre chose que `s`, `h`, `ha`, `hs`, `st`, `wp`
+  (l'Antarctique : `s`, `sup`, `alt`, `wp`, `cu`), et `composerFiche` ne montre d'une zone que
+  ses habitants et son continent, même si les données en portaient plus (testé).
+- Drapeaux : 40 territoires, 37 fichiers (des drapeaux pareils, celui de la France pour
+  Saint-Barthélemy et Saint-Martin, de l'Australie pour les îles Heard…), dans
+  `public/geo/drapeaux-territoires/` et `drapeaux-territoires.json`, écrits par
+  `construireDrapeaux` (`npm run geodata -- --seulement drapeaux`) ; `drapeaux.json` et le dossier
+  des pays sont inchangés. `stroke-dashoffset` entre dans la liste blanche des attributs (le
+  drapeau des Mariannes du Nord). Le dossier a sa règle immuable dans `firebase.json`. La ligne
+  « flag-icons » des Crédits dit toujours « Drapeaux des pays » : `tests/donnees-drapeaux.test.ts`
+  la fige, et ce lot n'y touche pas. La barre d'un territoire n'a pas de drapeau : seul le pays
+  en a un.
+- Poids : `fiches-monde.fr.json` à 11,4 Ko compressés (gzip -9), sous la borne de 12 Ko ; le
+  fichier sans langue à 8,9 Ko. Les lots F4 et F5 ont leurs fichiers : la marge suffit.

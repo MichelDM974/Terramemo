@@ -4254,8 +4254,9 @@ def ui_quiz(p, capturer, defauts, base, parametres=""):
 # --- Fiche d'un lieu (#34, lot F1) ---------------------------------------------
 
 def ressources_fiches(p):
-    """Ce que la fiche d'un lieu charge (étude fiche-lieu § 6.1) : /geo/fiches-*, /photos/, le morceau de la fiche (assets/fiche-*.js)."""
-    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => /\\/geo\\/fiches-|\\/photos\\/|\\/fiche(-[\\w-]+)?\\.(js|ts)/.test(n)).map(n => n.split('?')[0])")
+    """Ce que la fiche d'un lieu charge (étude fiche-lieu § 6.1) : /geo/fiches-*, les drapeaux des territoires (lot F3 :
+    /geo/drapeaux-territoires*), /photos/, le morceau de la fiche (assets/fiche-*.js)."""
+    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => /\\/geo\\/fiches-|\\/geo\\/drapeaux-territoires|\\/photos\\/|\\/fiche(-[\\w-]+)?\\.(js|ts)/.test(n)).map(n => n.split('?')[0])")
 
 
 # L'état de la fiche vu de la page : ouverte, son lieu et son titre, l'entrée d'historique, le focus,
@@ -4428,7 +4429,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     barre touchée (ou glissée vers le haut, au doigt) ouvre la fiche : titre, focus, entrée
     d'historique, barre inerte mais en place, zoom caché ; le retour du navigateur la ferme sans
     quitter la carte ; l'Espagne et ses voisins (France, puis « ‹ ») ; « × », le voile, Échap ;
-    ⚙ par-dessus (Échap ne ferme que la popup) ; le Groenland (territoire) et l'Antarctique ; une mer
+    ⚙ par-dessus (Échap ne ferme que la popup) ; lot F3 : le Groenland (barre, lignes, drapeau à part), Hong Kong, le Sahara occidental et Bir Tawil (zones), l'Antarctique ; une mer
     et une commune sans chevron (lots F4, F5) ; puis le scénario de mesure. DÉFAUT à chaque écart."""
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
@@ -4595,17 +4596,49 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     if e["ouverte"] or e["etat"]:
         defauts.append(f"🏆 ouvert depuis une fiche, sa « × » : la carte sans fiche ni entrée de fiche attendue ({e})")
 
-    # Un territoire et l'Antarctique : une fiche courte, avec le statut.
+    # Lot F3 : un territoire, une zone contestée, Bir Tawil, Hong Kong, l'Antarctique. Les lignes à relire
+    # (statut écrit, capitale, superficie, langues, gentilé, sommet, habitants des zones) restent tues tant que
+    # LIGNES_RELUES les tient : la barre du Groenland dit ses habitants seuls, sa fiche « Heure locale ».
+    debut_t = [n for n in ressources_fiches(p) if "drapeaux-territoires" in n]
+    if debut_t:
+        defauts.append(f"drapeaux des territoires lus avant la première fiche de territoire : {debut_t}")
     e = ouvrir_fiche(p, "GRL", defauts, "Groenland")
-    dire(f"  fiche du Groenland : statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau")
-    if e["statut"] != "territoire" or e["drapeaux"] or not any(l.startswith("Continent") for l in e["lignes"]):
-        defauts.append(f"fiche du Groenland : statut « territoire », continent, sans drapeau attendus ({e})")
+    faits = re.sub(r"\s+", " ", e["faits"])
+    e = attendre_fiche(p, lambda x: x["ouverte"] and x["drapeaux"], "drapeau du Groenland")
+    libelles = [l.split(" ")[0] for l in e["lignes"]]
+    lus_t = [n.split("/geo/")[-1] for n in ressources_fiches(p) if "drapeaux-territoires" in n]
+    dire(f"  fiche du Groenland : barre {faits!r}, statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau, lu {lus_t}")
+    if faits != "56 800 hab.":
+        defauts.append(f"barre du Groenland : « 56 800 hab. » attendu tant que les capitales ne sont pas relues ({faits!r})")
+    if e["statut"] != "territoire" or libelles != ["Habitants", "Monnaie", "Heure", "Continent"] or not any(l.startswith("Heure locale") for l in e["lignes"]):
+        defauts.append(f"fiche du Groenland : statut « territoire », lignes Habitants, Monnaie, Heure locale, Continent attendues ({e})")
+    if e["drapeaux"] != 1 or "drapeaux-territoires.json" not in lus_t or not any(n.startswith("drapeaux-territoires/") for n in lus_t):
+        defauts.append(f"fiche du Groenland : son drapeau, par drapeaux-territoires.json, attendu ({e['drapeaux']} drapeau, lu {lus_t})")
     capturer("153-fiche-territoire")
     p.js("history.back()")
     attendre_fiche(p, lambda e: not e["ouverte"], "Groenland fermé")
+    e = ouvrir_fiche(p, "HKG", defauts, "Hong Kong")
+    dire(f"  fiche de Hong Kong : barre {e['faits']!r}, lignes {e['lignes']}")
+    if [l.split(" ")[0] for l in e["lignes"]] != ["Habitants", "Monnaie", "Heure", "Continent"]:
+        defauts.append(f"fiche de Hong Kong : lignes Habitants, Monnaie, Heure locale, Continent attendues ({e['lignes']})")
+    p.js("history.back()")
+    attendre_fiche(p, lambda e: not e["ouverte"], "Hong Kong fermé")
+    # Une zone contestée (D57 a) : le statut de la barre, le continent seul (habitants à relire), ni drapeau.
+    for ident, nom_z in (("ESH", "Sahara occidental"), ("NE_BRT", "Bir Tawil")):
+        e = ouvrir_fiche(p, ident, defauts, nom_z)
+        dire(f"  fiche de {nom_z} : barre {e['faits']!r}, statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau")
+        if e["statut"] != "statut contesté" or [l.split(" ")[0] for l in e["lignes"]] != ["Continent"] or e["drapeaux"] or e["faits"]:
+            defauts.append(f"fiche de {nom_z} : statut contesté, continent seul, ni drapeau ni ligne de faits attendus ({e})")
+        if ident == "ESH":
+            capturer("156-fiche-zone")
+        p.js("history.back()")
+        attendre_fiche(p, lambda e: not e["ouverte"], f"{nom_z} fermé")
     e = ouvrir_fiche(p, "ATA", defauts, "Antarctique")
-    if e["statut"] != "continent":
-        defauts.append(f"fiche de l'Antarctique : statut « continent » attendu ({e})")
+    lien = p.js("(document.querySelector('#fiche-lieu .fiche-wikipedia') || {}).href || null")
+    dire(f"  fiche de l'Antarctique : statut {e['statut']!r}, lignes {e['lignes']}, lien {lien}")
+    if e["statut"] != "continent" or [l.split(" ")[0] for l in e["lignes"]] != ["Continent"] or e["drapeaux"] or not (lien or "").endswith("/Antarctique"):
+        defauts.append(f"fiche de l'Antarctique : statut « continent », continent seul, lien Wikipédia, sans drapeau attendus ({e}, {lien})")
+    capturer("157-fiche-antarctique")
     p.js("history.back()")
     attendre_fiche(p, lambda e: not e["ouverte"], "Antarctique fermé")
 
