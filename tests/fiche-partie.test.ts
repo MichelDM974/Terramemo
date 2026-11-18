@@ -253,7 +253,8 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
   const CAPITALES = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<NomsCapitales>('capitales.fr.json'));
   const COMMUNES = lireFichesCommunes(lire<FichierCommunes>('reunion/fiches.json'), lire<FichierCommunesLangue>('reunion/fiches.fr.json'));
 
-  function brancher() {
+  /** `horsLigne` : le morceau de la fiche ne vient pas (hors ligne, absent du cache). */
+  function brancher(o: { horsLigne?: boolean } = {}) {
     const h = new HistoriqueFactice();
     const zone = new El('main');
     const carte = () => ({
@@ -319,7 +320,7 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
         capitales: () => Promise.resolve(CAPITALES),
         drapeaux: () => Promise.reject(new Error('pas ici')),
         fichesCommunes: () => Promise.resolve(COMMUNES),
-        module: () => import('../src/vues/fiche'),
+        module: () => (o.horsLigne ? Promise.reject(new Error('hors ligne')) : import('../src/vues/fiche')),
         historique: { pousser: (l) => nav.pousserFiche(l), quitter: () => nav.quitterFiches(), retour: retourNavigateur },
         autorisee,
         retourBilan: () => chemin.retour(),
@@ -567,6 +568,24 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
     expect(v.nav.fiche()).toBeNull();
     expect(li.querySelector('.ligne-fiche-refus')!.textContent).toBe(textes.bilan.fiche_refusee);
     expect(li.querySelector('.ligne-fiche-refus')!.getAttribute('role')).toBe('status');
+  });
+
+  it('hors ligne (le morceau de la fiche ne vient pas) : la carte, le lieu montré, la barre le dit ; le retour rend le bilan', async () => {
+    const v = brancher({ horsLigne: true });
+    v.trouver('monde', ['FRA']);
+    const avant = v.h.i;
+    v.lignes()[0]!.click();
+    await vi.waitFor(() => expect(v.h.attente.length).toBeGreaterThan(0));
+    v.traverser();
+    expect(v.ici()).toBe('carte');
+    expect(v.h.i).toBe(avant + 1);
+    expect(v.ouverte()).toBe(false);
+    expect(v.nav.fiche()).toBeNull();
+    expect(v.el('#barre-carte')!.dataset.id).toBe('FRA');
+    expect(v.el('#barre-carte .barre-faits')!.textContent).toBe(textes.carte.fiche_echec);
+    v.retourNavigateur();
+    expect(v.ici()).toBe('toucher');
+    expect(v.bilan().hidden).toBe(false);
   });
 
   it('« ‹ Retour au bilan » touché deux fois avant l’arrivée (double toucher, Échap répété) : un seul go(), jamais au-delà du bilan', async () => {

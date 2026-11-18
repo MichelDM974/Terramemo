@@ -799,7 +799,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       ([m]) => {
         if (j !== jetonFiche || !active) return;
         const modele = composer(m, f);
-        if (!modele) return void historique.quitter();
+        if (!modele) return echecFiche();
         feuille ??= m.creerFeuille(ctx.zone, {
           fermer: () => historique.quitter(),
           // Lu avant l'écouteur du document qui ferme la popup (le voile est la cible du clic) : elle est encore ouverte.
@@ -832,9 +832,21 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       },
       // Hors ligne, morceau ou données absents : la fiche ne s'ouvre pas, l'entrée d'historique est rendue.
       () => {
-        if (j === jetonFiche) historique.quitter();
+        if (j === jetonFiche) echecFiche();
       },
     );
+  }
+
+  /**
+   * La fiche qui ne s'ouvre pas (hors ligne, morceau ou données absents ; un lieu sans fiche) : son entrée
+   * d'historique rendue, la carte avec le lieu montré, et la barre le dit. Une erreur d'un bilan (lot F6) promet
+   * une fiche par son chevron : sans ce mot, on restait sur la carte sans savoir pourquoi. Le bilan reste au retour.
+   */
+  function echecFiche(): void {
+    historique.quitter();
+    if (!active) return;
+    faits.textContent = C.fiche_echec;
+    annoncer();
   }
 
   bouton.addEventListener('click', () => ouvrir());
