@@ -344,7 +344,7 @@
     "quantification": 1000000,
     "carte_allegee": "monde-leger.topo.json : polygones d'au moins 40 km (plus grand côté de l'emprise), -simplify visvalingam interval=15000 keep-shapes chacun à part, regroupés par id, quantification 100000",
     "entrees": {
-      "geodata/build.mjs": "3ee03532840bf844e32fe3a7103bd88c2a8ec63e1af4bbc2767123bf595865b0",
+      "geodata/build.mjs": "56335086dc628b06047a082abd1b2e3c92bed475de1afd14a0c20a193cdc6c44",
       "geodata/outils.mjs": "004e9d875414ed099b923d47ddfdd3c9fa8561beca16b100ea11f0bcc95cce1c",
       "geodata/liste.json": "588b387d44d605a3f2aacc875eb7c51c90f388a883afd18a3ebaa18ce4bb255a",
       "geodata/revendications.json": "6d57155ff9b36e496c88a518b4550a9055d1e84a903f23b0b1027ec27e5f0303",
@@ -358,10 +358,11 @@
       "geodata/notoriete.mjs": "1d00ec190020051e110a9cb387b9886bed24ddf3b3dd34c2859e89175c3cdd76",
       "geodata/notoriete-main.json": "b2440762a0b0498dd11368815ff5b03925d5e26f9705c97332ea6f9baffa0f9d",
       "geodata/wikidata/notoriete.json": "e76e612174794c93614f5277248c267b4bdb7ea93af636526d1af0183004601f",
-      "geodata/fiches.mjs": "a73320dfc30b0170ee397b2a20764e3fa071ac20a650b7f37b2aaab089e8161f",
+      "geodata/fiches.mjs": "4d5b3367ea1b3c77c7d11680efee9085108b8a74aeb08e93635a48a6b4ad010c",
       "geodata/fiches-pays.mjs": "e4d07b2bc8b56d1663901115174c26283a5a971619d93f7346721237f582b711",
       "geodata/fiches-relecture.mjs": "0dd487fecfea593db7e3acf85714fa7d5e34f94116eb27ae4fc7f551b549c8f6",
-      "geodata/fiches-main.json": "58304c499e848862da8bbc02662fe06d1ad40e1cddabe17b16f656f741530e34",
+      "geodata/fiches-territoires.mjs": "a95fcd1cb78b53bdf29024b860b798363923905e8349eefca8805fcf9e2957dc",
+      "geodata/fiches-main.json": "81b0a2890bf9f2e3983a7d8073088b54a00375f2be28d490e113b1bc2611c920",
       "geodata/fiches-sources.mjs": "50d7f7d9c8d2c37dd0f08e93d6ac3cf20b2c1566b4834bf906aa291845999fa9"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",

@@ -18,6 +18,9 @@ export type SourceLigne = 'wp' | 'fb';
 /** Ce que fiches-monde.json dit d'un lieu (sans langue) ; geodata/fiches.mjs en décrit chaque clé. */
 interface FicheBrute {
   s: SorteLieu;
+  /** Territoire (lot F3) : l'id du pays souverain, la forme de son statut (clé formes_statut de geodata/fiches-main.json). */
+  sv?: string;
+  fs?: string;
   /** Habitants, leur année ; hs « wd » : de Wikidata (sinon la Banque mondiale). */
   h?: number;
   ha?: number;
@@ -41,6 +44,8 @@ interface FicheBrute {
 
 /** Ce que fiches-monde.fr.json dit d'un lieu (de la langue). */
 interface TexteBrut {
+  /** Territoire ou zone contestée (lot F3) : le statut affiché, écrit en entier (D57). */
+  st?: string;
   /** Titre de la Wikipédia de la langue (les 197 pays ; les autres au lot F3). */
   wp?: string;
   /** Gentilé masculin, et son pluriel tout fait (aucune règle de grammaire dans le code). */

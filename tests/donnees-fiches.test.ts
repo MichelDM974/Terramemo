@@ -17,7 +17,7 @@ import { IDS_MERS } from '../src/map/mers';
 import type { Pays } from '../src/map/types';
 
 type Module = {
-  construireFiches: (racine: string) => Promise<{ fichiers: Record<string, string>; relecture: { chemin: string; texte: string }; entrees: Record<string, string> }>;
+  construireFiches: (racine: string) => Promise<{ fichiers: Record<string, string>; relectures: { chemin: string; texte: string }[]; entrees: Record<string, string> }>;
   sorteEntite: (statut: string) => string | null;
 };
 type Decl = { id: string; rang: string; v: unknown; unite?: string; q: Record<string, string[]> };
@@ -39,7 +39,7 @@ const lire = <T>(chemin: string): T => JSON.parse(readFileSync(chemin, 'utf8')) 
 const brutMonde = readFileSync('public/geo/fiches-monde.json', 'utf8');
 const brutFr = readFileSync('public/geo/fiches-monde.fr.json', 'utf8');
 type FicheBrute = { s: string; h?: number; ha?: number; hs?: string; sup?: number; alt?: number; z?: string; nz?: number; m?: string[]; lo?: string[]; lp?: [string, number][]; f?: [number, number] };
-type TexteBrut = { wp?: string; g?: string; gp?: string; cu?: string; fn?: string };
+type TexteBrut = { st?: string; wp?: string; g?: string; gp?: string; cu?: string; fn?: string };
 const monde = JSON.parse(brutMonde) as { v: number; lieux: Record<string, FicheBrute> };
 const fr = JSON.parse(brutFr) as { v: number; sous_regions: Record<string, string>; langues: Record<string, string>; monnaies: Record<string, string>; lieux: Record<string, TexteBrut> };
 const pays = lire<Pays[]>('public/geo/pays.json');
@@ -82,20 +82,27 @@ describe('fiches du monde : une entrée par entité', () => {
     expect(sorteEntite('inconnu')).toBeNull();
   });
 
-  it('un titre de Wikipédia pour chacun des 197 pays, une entrée vide pour les 61 autres (sans QID ni chiffres avant le lot F3)', () => {
-    let vides = 0;
+  it('un titre de Wikipédia pour chacun des 197 pays ; pour les 48 territoires et les 12 zones, leur statut seul (lot F3, la suite viendra) ; une entrée vide pour l’Antarctique', () => {
+    const compte: Record<string, number> = {};
     for (const p of pays) {
       const t = fr.lieux[p.id]!;
-      if (monde.lieux[p.id]!.s === 'pays') {
+      const s = monde.lieux[p.id]!.s;
+      compte[s] = (compte[s] ?? 0) + 1;
+      if (s === 'pays') {
         expect(t.wp, p.id).toBeTruthy();
         expect(t.wp, p.id).not.toMatch(/_|^https?:/);
+      } else if (s === 'territoire') {
+        expect(Object.keys(t), p.id).toEqual(['st']);
+        expect(Object.keys(monde.lieux[p.id]!), p.id).toEqual(['s', 'sv', 'fs']);
+      } else if (s === 'zone') {
+        expect(Object.keys(t), p.id).toEqual(['st']);
+        expect(monde.lieux[p.id], p.id).toEqual({ s });
       } else {
         expect(t, p.id).toEqual({});
-        expect(monde.lieux[p.id], p.id).toEqual({ s: monde.lieux[p.id]!.s });
-        vides++;
+        expect(monde.lieux[p.id], p.id).toEqual({ s });
       }
     }
-    expect(vides).toBe(61);
+    expect(compte).toEqual({ pays: 197, territoire: 48, zone: 12, continent: 1 });
     // La table à la main : le titre du royaume pour le Danemark et les Pays-Bas.
     expect(fr.lieux.DNK?.wp).toBe('Danemark');
     expect(fr.lieux.NLD?.wp).toBe('Pays-Bas');
@@ -129,10 +136,10 @@ describe('fiches du monde : une entrée par entité', () => {
     const r = await construireFiches('.');
     expect(r.fichiers['fiches-monde.json']).toBe(brutMonde);
     expect(r.fichiers['fiches-monde.fr.json']).toBe(brutFr);
-    expect(r.relecture.chemin).toBe('docs/relectures/fiches-pays.md');
-    expect(r.relecture.texte).toBe(readFileSync(r.relecture.chemin, 'utf8'));
+    expect(r.relectures.map((x) => x.chemin)).toEqual(['docs/relectures/fiches-pays.md', 'docs/relectures/fiches-territoires.md']);
+    for (const x of r.relectures) expect(x.texte, x.chemin).toBe(readFileSync(x.chemin, 'utf8'));
     const sources = lire<{ traitement: { entrees: Record<string, string> } }>('public/geo/sources.json');
-    expect(Object.keys(r.entrees).sort()).toEqual(['geodata/fiches-main.json', 'geodata/fiches-pays.mjs', 'geodata/fiches-relecture.mjs', 'geodata/fiches-sources.mjs', 'geodata/fiches.mjs']);
+    expect(Object.keys(r.entrees).sort()).toEqual(['geodata/fiches-main.json', 'geodata/fiches-pays.mjs', 'geodata/fiches-relecture.mjs', 'geodata/fiches-sources.mjs', 'geodata/fiches-territoires.mjs', 'geodata/fiches.mjs']);
     for (const [f, h] of Object.entries(r.entrees)) {
       expect(h, f).toBe(createHash('sha256').update(readFileSync(f)).digest('hex'));
       expect(sources.traitement.entrees[f], f).toBe(h);

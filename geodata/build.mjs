@@ -20,7 +20,8 @@
 //   fiches-monde.json, fiches-monde.fr.json  fiches des lieux du monde (geodata/fiches.mjs, #34,
 //                    étude fiche-lieu § 2), tirées de pays.json, des extraits figés (capitales,
 //                    Wikidata, Banque mondiale), de CLDR, de tz et d'une table à la main ;
-//                    et hors de public/, docs/relectures/fiches-pays.md, les tableaux à relire
+//                    et hors de public/, les tableaux à relire : docs/relectures/fiches-pays.md
+//                    (chiffres des pays), docs/relectures/fiches-territoires.md (statuts)
 //
 // Usage : npm run geodata [-- --maj-empreintes] [-- --seulement capitales|drapeaux|mers|notoriete|fiches]
 // --seulement capitales ne refait que les capitales (sans source ni mapshaper : il lit
@@ -544,10 +545,13 @@ async function fiches() {
     echec(e.message);
   }
   for (const [nom, texte] of Object.entries(res.fichiers)) await ecrire(nom, texte);
-  // Les tableaux à relire (lot F2), hors de public/ : docs/relectures/fiches-pays.md.
-  await mkdir(dirname(join(RACINE, res.relecture.chemin)), { recursive: true });
-  await writeFile(join(RACINE, res.relecture.chemin), res.relecture.texte);
-  console.log(`  ${res.relecture.chemin}`);
+  // Les tableaux à relire, hors de public/ : docs/relectures/fiches-pays.md (lot F2),
+  // fiches-territoires.md (lot F3).
+  for (const r of res.relectures) {
+    await mkdir(dirname(join(RACINE, r.chemin)), { recursive: true });
+    await writeFile(join(RACINE, r.chemin), r.texte);
+    console.log(`  ${r.chemin}`);
+  }
   for (const n of res.notes) console.log(`  ${n}`);
   return res;
 }

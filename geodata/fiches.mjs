@@ -54,11 +54,13 @@
 // Échoue (exception) si les entrées et la table ne s'accordent plus : un pays sans titre ou
 // sans chiffre, une sous-région sans nom, une ligne de la table qui ne s'applique plus.
 
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { feature } from 'topojson-client';
 import { chiffresPays } from './fiches-pays.mjs';
 import { CHEMIN_RELECTURE, texteRelecture } from './fiches-relecture.mjs';
+import { CHEMIN_RELECTURE_TERRITOIRES, DBF_NE, lireDbf, statutsLieux, texteRelectureTerritoires, verifierNe } from './fiches-territoires.mjs';
 import { EXTRAITS_FICHES, lireSourcesFiches, sourcesFiches, TZ_VERSION, CLDR_TAG } from './fiches-sources.mjs';
 import { sha256 } from './outils.mjs';
 
@@ -66,6 +68,7 @@ export const CHEMINS = {
   script: 'geodata/fiches.mjs',
   regles: 'geodata/fiches-pays.mjs',
   relecture: 'geodata/fiches-relecture.mjs',
+  territoires: 'geodata/fiches-territoires.mjs',
   main: 'geodata/fiches-main.json',
   extrait: 'geodata/wikidata/capitales.json',
   capitalesMain: 'geodata/capitales-main.json',
@@ -84,18 +87,19 @@ const parId = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
  * Construit les deux fichiers servis du monde et les tableaux à relire. racine : la
- * racine du dépôt. Rend { fichiers: {nom: texte}, relecture: {chemin, texte}, sources,
+ * racine du dépôt. Rend { fichiers: {nom: texte}, relectures: [{chemin, texte}], sources,
  * entrees, notes } : sources et entrees vont dans public/geo/sources.json
  * (fusionnerPartie), notes s'affichent au build. La source Wikidata de l'extrait des
  * capitales y est déjà, citée par les capitales ; celles des chiffres viennent de
- * sourcesFiches. Lit geodata/raw/ (CLDR, tz), absent en CI.
+ * sourcesFiches. Lit geodata/raw/ (CLDR, tz ; et le .dbf de Natural Earth s'il y est,
+ * pour contrôler SOV_A3), absent en CI.
  */
 export async function construireFiches(racine) {
   const lire = (c) => readFile(join(racine, c));
   const json = (b) => JSON.parse(b.toString('utf8'));
-  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json'];
-  const autres = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/capitales.fr.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
-  const [[scriptBrut, reglesBrut, relectureBrut, mainBrut, extraitBrut, capMainBrut, paysBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, wdBrut, bmBrut], cldr] = await Promise.all([
+  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.territoires, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json'];
+  const autres = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/capitales.fr.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', 'src/vues/textes.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
+  const [[scriptBrut, reglesBrut, relectureBrut, territoiresBrut, mainBrut, extraitBrut, capMainBrut, paysBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, textesBrut, wdBrut, bmBrut], cldr] = await Promise.all([
     Promise.all(chemins.map(lire)),
     Promise.all(autres.map(lire)),
     lireSourcesFiches(racine),
@@ -157,12 +161,24 @@ export async function construireFiches(racine) {
     contestees: json(contBrut),
     main,
   });
+  // Les statuts des 48 territoires et des 12 zones (lot F3) : geodata/fiches-territoires.mjs.
+  const contestees = json(contBrut);
+  const noms = json(nomsBrut);
+  const statuts = statutsLieux({ entites, contestees, main, formesPays: json(textesBrut).formes_pays, noms });
+  // SOV_A3 de Natural Earth, là où le .dbf brut est présent (pas en CI) : la table fait foi, il la contrôle.
+  const cheminDbf = join(racine, DBF_NE);
+  const neVerifie = existsSync(cheminDbf);
+  const fautesNe = neVerifie ? verifierNe(lireDbf(await readFile(cheminDbf)), main) : [];
+  if (statuts.fautes.length || fautesNe.length) throw new Error(`fiches, statuts (${CHEMINS.main}) :\n  ${[...statuts.fautes, ...fautesNe].join('\n  ')}`);
+
   // Ordre des clés fixe (la sorte d'abord), pour des fichiers stables et lisibles.
-  const ORDRE = ['s', 'h', 'ha', 'hs', 'sup', 'alt', 'cs', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
-  const ORDRE_FR = ['wp', 'g', 'gp', 'gs', 'hc', 'cu', 'fn'];
+  const ORDRE = ['s', 'sv', 'fs', 'h', 'ha', 'hs', 'sup', 'alt', 'cs', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
+  const ORDRE_FR = ['st', 'wp', 'g', 'gp', 'gs', 'hc', 'cu', 'fn'];
   const range = (o, ordre) => Object.fromEntries(ordre.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
-  for (const [id, l] of Object.entries(chiffres.lieux)) lieux[id] = range({ ...lieux[id], ...l }, ORDRE);
-  for (const [id, t] of Object.entries(chiffres.textes)) textes[id] = range({ ...textes[id], ...t }, ORDRE_FR);
+  for (const parts of [chiffres, statuts]) {
+    for (const [id, l] of Object.entries(parts.lieux)) lieux[id] = range({ ...lieux[id], ...l }, ORDRE);
+    for (const [id, t] of Object.entries(parts.textes)) textes[id] = range({ ...textes[id], ...t }, ORDRE_FR);
+  }
 
   const objet = (o) => `{\n${Object.entries(o).map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(v)}`).join(',\n')}\n}`;
   const fichiers = {
@@ -176,12 +192,13 @@ export async function construireFiches(racine) {
     texte: texteRelecture({
       R: chiffres.relecture,
       main,
-      noms: json(nomsBrut),
-      contestees: json(contBrut),
+      noms,
+      contestees,
       langues: chiffres.langues,
       sources: { wikidata: wd.extrait_le.slice(0, 10), bm: `${bm.source.nom}, ${bm.annee}, mise à jour du ${bm.source.mis_a_jour_le}`, cldr: CLDR_TAG, tz: TZ_VERSION },
     }),
   };
+  const relectures = [relecture, { chemin: CHEMIN_RELECTURE_TERRITOIRES, texte: texteRelectureTerritoires({ R: statuts.relecture, noms }) }];
   const n = (s) => Object.values(lieux).filter((l) => l.s === s).length;
   const R = chiffres.relecture;
   notes.push(
@@ -191,14 +208,16 @@ export async function construireFiches(racine) {
       `superficie ${R.superficies.filter((x) => x.retenue != null).length} Wikidata ; ` +
       `${Object.keys(chiffres.langues).length} langues, ${Object.keys(chiffres.monnaies).length} monnaies ; ${R.fuseauxPlusieurs.length} pays à plusieurs fuseaux ; ` +
       `tableaux à relire : ${CHEMIN_RELECTURE}`,
+    `statuts : ${statuts.relecture.territoires.length} territoires, ${statuts.relecture.zones.length} zones ; SOV_A3 de Natural Earth ${neVerifie ? 'confronté à la table' : `non vérifié (${DBF_NE} absent)`} ; tableau à relire : ${CHEMIN_RELECTURE_TERRITOIRES}`,
   );
   const src = await sourcesFiches(racine);
   const entrees = {
     [CHEMINS.script]: sha256(scriptBrut),
     [CHEMINS.regles]: sha256(reglesBrut),
     [CHEMINS.relecture]: sha256(relectureBrut),
+    [CHEMINS.territoires]: sha256(territoiresBrut),
     [CHEMINS.main]: sha256(mainBrut),
     ...src.entrees,
   };
-  return { fichiers, relecture, sources: src.sources, entrees, notes };
+  return { fichiers, relectures, sources: src.sources, entrees, notes };
 }
