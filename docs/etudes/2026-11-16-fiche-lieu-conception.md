@@ -3306,11 +3306,22 @@ DOM factice ni le pilote (état, taille, chemins présents) ne regardaient le de
   invisible aussi sous le Japon, le Sahara occidental et chaque pays d'une région (le défaut 2 et le 3 sont le même
   que le 1, dans le fond). La couleur de l'eau n'était pas en cause (`--mer-choisie`, l'accent).
 - **Correction** : `decimer` compte en passant l'aire plane (en degrés) de l'anneau original et de l'éclairci ; si le
-  signe change, l'anneau reste entier (quelques dizaines de points). Après : terre ≤ 86,8 % de la carte (la
+  signe change, l'anneau reste entier (quelques dizaines de points). Un anneau réduit à moins de 4 points est retiré
+  avant cette garde (retouche à la relecture, 337874b : son aire nulle passait pour un sens retourné, et chaque îlot
+  à retirer était gardé entier, à pleine résolution : les points projetés d'un fond du monde de 16 600 à 43 500 à
+  0,78°, de 8 100 à 40 000 à 1,5°, sans rien changer au dessin). Après : terre ≤ 86,8 % de la carte (la
   Caspienne), lieu ≤ 12 % (le Brésil), eau ≥ 0,33 % (le golfe de Finlande), mer de l'ovale ≥ 28 % (le Pacifique).
-- **Fluidité** : la plus longue tranche du balayage des 308 lieux (vitest, ce PC, un pas par tranche) passe de 13,6 à
-  14,2 ms avant (les compléments coûtaient au découpage) à **4,1 à 6,0 ms** après. Morceau principal inchangé
-  (497,78 Ko).
+- **Vérification indépendante** (relecture) : chaque carte des 258 lieux, des 50 mers (couche légère et couche fine)
+  et des 24 communes comparée, pixel par pixel (120 × 80, nonzero), à la même carte tracée sans `decimer` (tolérance
+  nulle : les formes d'origine, elles-mêmes saines : aucun lieu sur plus de la moitié, aucun ovale sans mer, aucune
+  eau invisible) : au plus **2,3 %** de pixels différents (la Nouvelle-Zélande, la simplification), contre 306 cartes
+  sur 308 à plus de 3 % avant la correction (jusqu'à 100 %). L'antiméridien n'y est pour rien. Les tests ci-dessous
+  échouent tous les quatre sur le `decimer` d'avant.
+- **Fluidité** : la plus longue tranche du balayage des 308 lieux (vitest, ce PC, un pas par tranche) passait de 13,6
+  à 14,2 ms avant à 4,1 à 6,0 ms au relevé du codeur ; à la relecture, trois balayages de suite sous mémoire chargée
+  (swap ≈ 80 %), même mesure : avant 9,1 à 13,0 ms (balayage 1,4 à 1,7 s), garde du sens seule 12,7 à 13,0 ms
+  (1,8 à 1,9 s), **avec la retouche 9,0 à 10,2 ms (1,4 s)**. Les écarts entre relevés tiennent au PC (bruit, GC) ;
+  la retouche ôte le seul surcoût réel. Morceau principal inchangé (497,78 Ko).
 - **Tests** (`tests/situation-dessin.test.ts`, qui échouent avant) : l'aire sphérique de chaque polygone éclairci
   < 2π sr ; la Russie et le Groenland ; la Méditerranée et l'Atlantique (eau visible, sa couleur) ; les 258 lieux et
   50 mers (jamais plus de 93 % de terre, l'ovale du monde avec de la mer, le lieu sur moins de la moitié, l'eau d'une
