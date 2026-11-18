@@ -3069,3 +3069,99 @@ fiche, « ‹ » rend le bilan (`#quiz`). Reconnaître et la séance restent aux
 **Restent à l'utilisateur** : l'allure des lignes touchables (filet, chevron, sans puce) sur les captures 162 et 166 ;
 « ‹ » sans texte visible sur la première fiche (son nom « Retour au bilan » n'est lu que par les lecteurs d'écran et
 l'infobulle) : un libellé visible (« ‹ Bilan ») est possible si les captures le demandent.
+
+## 20. Écarts du code au lot F7
+
+Relevés par le codeur du lot F7 (branche `fiche-lieu`, 18/11). D58 tranchée b et a : le lieu retenu sur l'appareil
+(§ 5.6) est codé avec le reste du lot.
+
+**Morceau principal** (tailles lues dans la sortie de `npm run build`) :
+
+| | Morceau principal | gzip | Morceau de la fiche | gzip |
+|---|---|---|---|---|
+| avant le lot (5865f4a) | 494,84 Ko | 171,14 Ko | 18,30 Ko | 6,94 Ko |
+| après F7 | 497,46 Ko | 172,04 Ko | 20,41 Ko | 7,68 Ko |
+
+- Au morceau principal, ce qui ne peut pas aller ailleurs : `prefere` (`srs/planif.ts`), `refusDe` et l'état du lieu
+  (`vues/seance.ts`), la colle de `src/vues/apprendre-lieu.ts` (sujet et série d'un lieu, état, lancement, lieu retenu),
+  le geste dans `explorer.ts` et le branchement de `main.ts`. Le bloc et ses textes vont au morceau de la fiche
+  (`vues/fiche.ts`, `textes-fiche.fr.json`), jamais `textes.fr.json` (le § 8 le citait). **Marge : 2,54 Ko.** Le
+  lot F8 (carte de situation) ira au morceau de la fiche ; s'il touche au morceau principal, sortir d'abord
+  `composer()` et la pose de la feuille d'`explorer.ts` (§ 19, ≈ 1,8 Ko).
+
+**La séance** :
+- `grappeSuivante(etat, grappes, domaine, pret?, prefere?)` : après la grappe entamée, la grappe qui contient le lieu
+  passe en tête, **avant `pret`** (D39 b) ; si elle n'est pas prête, elle est prise quand même, marquée `prete: false`
+  (le conseil de la séance). Un lieu hors des grappes reçues (le Japon dans la série Afrique) ou déjà introduit : comme
+  sans lui. Mesuré par le test : Maurice est bien la 8e grappe sur 8 de l'Afrique et la 21e sur 31 au total (§ 5.1).
+- `comptes()` ne rend `refus` et `lieu` que pour une demande Apprendre **avec un lieu** : les autres comptes restent
+  `{ aRevoir, nouveaux }` (ligne de Jouer, tests d'avant). `ouvrir()` appelle `refusDe(blocs(d), d)` puis ouvre ; le
+  test compare, pour chaque ligne du § 5.4, le refus de `comptes()` à ce qu'`ouvrir()` rend.
+- L'état du lieu (`EtatLieu`, `vues/seance.ts`) : `sans_grappe`, `appris`, `a_charger` (les données du sujet pas là :
+  `info` nul), `possible` (`voisins` : les lieux **pas encore introduits** de la grappe, moins lui ; `revisions` :
+  révisions et introductions du bloc) et `attendre`, avec sa raison : `dues`, `plafond`, `grappe_faite`,
+  `introductions`, `autre_grappe`. `autre_grappe` couvre deux cas : une grappe commencée ce jour hors de la série (le
+  refus « grappe entamée ») et une grappe entamée dans la série, sur laquelle la séance s'ouvrirait sans refus.
+- `dues` : la séance s'ouvrirait (les révisions d'abord), sans le lieu ; la fiche ne montre pas le bouton, elle dit
+  « Des révisions attendent : fais d'abord la Révision du jour. ». `plafond` et `introductions` reprennent les textes
+  de la séance (`textes.seance.plafond`, `.introductions`) : « fais d'abord la Révision du jour » serait faux une fois
+  le plafond atteint.
+- Le lancement : `apprendreLieu().lancer` construit le `Lancement` (Entraînement, sujet, série, `apprendre`, `lieu`)
+  et appelle `lancer()` de `main.ts` (mémoire attendue, vue de partie). `garderDerniere` n'écrit que ses quatre champs :
+  le lieu n'est jamais gardé, sans code de plus. « Continuer » du bilan redemande la même chose, lieu compris (sans
+  effet une fois la grappe apprise). « Autre série » mène aux séries de Pays (`#jouer/entrainement/pays`), et la vue
+  sans partie aux exercices de l'Afrique (`redirection()`) : le test est dans `tests/essai-reprise.test.ts`, où Toucher
+  se monte avec une fabrique factice, et non dans `seance-vue`.
+
+**Le lieu retenu (D58 b, § 5.6)** :
+- Il ne se retient pas tout seul : la fiche montre « Retenir ce lieu » et dessous « Sa région sera ta prochaine
+  grappe. » ; touché, « Noté : sa région sera ta prochaine grappe. » (`role="status"`) et « Annuler », qui prend le
+  focus (la fiche refaite sur place, comme par `rafraichir`). Ouvrir une fiche n'écrit donc rien.
+- **Offert dans tous les états « pas aujourd'hui »** (`attendre`), et pas seulement « grappe du jour faite » : sans
+  lui, « fais d'abord la Révision du jour » mènerait à la grappe de l'ordre global, pas à celle du lieu, et le bouton
+  dirait ensuite « demain ». Le texte de la grappe faite devient « La grappe du jour est déjà apprise. » (sans
+  « celle-ci demain », que dit « Retenir »). Retenu et possible (le lendemain) : le bouton, puis « Noté » et « Annuler ».
+- Clé `terramemo.apprendre.<sujet>` (`CLE_APPRENDRE`), l'id du lieu ; un lieu retenu remplace celui d'avant du même
+  sujet ; « Annuler » n'efface que le sien. Lue par la séance (`OptionsSeances.prefere`, `lirePrefere`) : Apprendre du
+  sujet, et la grappe de pays de la Révision du jour (bloc 1, toutes les grappes), donc la ligne de Jouer. Elle
+  s'éteint à la lecture une fois le lieu introduit (la clé effacée). Rien au journal : le test compte les événements,
+  et `TYPES` du journal et des lots est inchangé.
+
+**Chaque sorte de lieu** (§ 5.3 et ce que les sujets permettent) :
+- un pays jouable : sujet Pays, série de son continent, son nom seul (`pays:X:localiser`) ; jamais `capitales:` ni
+  `drapeaux:` (test) ;
+- Taïwan, le Kosovo (pas `jouable`), les territoires, les zones, l'Antarctique : aucun sujet, pas de bloc ; `comptes()`
+  dit `sans_grappe` si on le lui demande ;
+- une mer ou un océan : sujet Océans et mers, série unique « mers », la grappe qui le contient (`grappesMers`) ; la
+  couche marine pas posée : `a_charger`, le bouton, et la séance la charge par le chemin d'avant. Retenu, il ne vaut que
+  pour Apprendre Océans et mers (la Révision du jour n'ouvre pas de grappe de mers, D46) ;
+- une commune : sujet Communes, série « reunion », sa grappe (pas la première de l'île) ; retenue, de même pour
+  Apprendre sous La Réunion seulement.
+
+**La fiche** :
+- Les lignes de la mémoire suivent désormais le § 5.5 : montrées **même le réglage « Carte de la mémoire » coupé**
+  (`CarteMemoire.details(…, malgreReglage)`, la mémoire lue). Ce n'était pas fait aux lots d'avant. La barre suit
+  toujours le réglage. Avec `?teintes=demo` ou `?mers=demo`, la carte n'a pas de mémoire : ni lignes, mais le bouton.
+- Le bloc existe s'il a des lignes **ou** un bouton (la mémoire en lecture : le bouton seul, sans ligne dessous). Le
+  bouton dit « Apprendre ce lieu », dessous « après 12 révisions · avec 6 pays voisins » (`aria-describedby`) ;
+  « océans ou mers voisins », « communes voisines » pour les autres sujets, et leurs singuliers. Mémoire pas gardée :
+  l'avis de la séance (`textes.seance.non_garde`) sous le bouton. Boutons de 44 px au moins (`carte.css`).
+- Fichiers hors de la liste du § 8 : `src/vues/apprendre-lieu.ts` (nouveau), `src/vues/explorer.ts`,
+  `src/vues/carte-memoire.ts`, `src/vues/arbre.ts`, `src/carte.css`, `src/vues/textes-fiche.fr.json`,
+  `tests/essai-reprise.test.ts`.
+
+**Ce que le pilote doit voir** (`driver.py fiche`, `ui_fiche_apprendre`, après `ui_fiche_bilan` ; non lancé par le
+codeur ; en téléphone et `--width 1280`, sur un profil neuf, donc un journal neuf). Le lendemain demande le serveur de
+développement (`?horloge=1`) : `driver.py serve` puis `driver.py fiche` (défaut `http://localhost:8060/`), et
+`--width 1280` ; sur `--preview` ou le site en ligne, cette étape est sautée. Maurice par la recherche (une île : mal
+placée pour un toucher), sa fiche : « Apprendre ce lieu », « avec N pays voisins », 44 px (capture 170) ; touché :
+`#toucher`, la séance (QCM, 171), « Apprendre · Afrique » au bilan, le journal ne gagne que des fiches `pays:` de
+pays d'Afrique, Maurice compris, une par réponse (172) ; le retour du navigateur rouvre la fiche de Maurice, sans
+bouton, « Pays : vu … » (173). Le Nigeria : « La grappe du jour est déjà apprise. » et « Retenir ce lieu » (174) ;
+touché : « Noté », « Annuler » (le focus), la clé à `NGA`, rien au journal (175). Le lendemain : le Nigeria avec
+« Apprendre ce lieu » et « Noté » (176), Maurice sans bouton ; « Annuler » efface la clé. Avec `driver.py ui` (la
+séance du J1a a pris la grappe du jour), la séance est sautée et Maurice sert au lieu retenu.
+
+**Restent à l'utilisateur** : « Retenir ce lieu » offert dans tous les états « pas aujourd'hui », et non seulement
+« grappe du jour faite » (à confirmer) ; les libellés (« Retenir ce lieu », « Sa région sera ta prochaine grappe. »,
+« océans ou mers voisins ») sur les captures 170 à 176.
