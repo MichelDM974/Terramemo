@@ -3115,8 +3115,10 @@ Relevés par le codeur du lot F7 (branche `fiche-lieu`, 18/11). D58 tranchée b 
 
 **Le lieu retenu (D58 b, § 5.6)** :
 - Il ne se retient pas tout seul : la fiche montre « Retenir ce lieu » et dessous « Sa région sera ta prochaine
-  grappe. » ; touché, « Noté : sa région sera ta prochaine grappe. » (`role="status"`) et « Annuler », qui prend le
-  focus (la fiche refaite sur place, comme par `rafraichir`). Ouvrir une fiche n'écrit donc rien.
+  grappe. » ; touché, « Noté : sa région sera ta prochaine grappe. » et « Annuler », qui prend le focus (la fiche
+  refaite sur place, comme par `rafraichir`). Ouvrir une fiche n'écrit donc rien. « Noté » est dit au lecteur d'écran
+  par une région live posée vide une fois pour toutes à côté de la feuille (`#fiche-annonce`) : un paragraphe
+  `role="status"` né avec la fiche refaite n'aurait en général pas été annoncé (relecture du lot).
 - **Offert dans tous les états « pas aujourd'hui »** (`attendre`), et pas seulement « grappe du jour faite » : sans
   lui, « fais d'abord la Révision du jour » mènerait à la grappe de l'ordre global, pas à celle du lieu, et le bouton
   dirait ensuite « demain ». Le texte de la grappe faite devient « La grappe du jour est déjà apprise. » (sans
