@@ -8,7 +8,7 @@ import { empriseDesLieux, lignesDe, lignesQuiCroisent } from './map/lignes';
 import { chargerCapitales } from './map/capitales';
 import { chargerDrapeaux } from './map/drapeaux';
 import { chargerMers } from './map/mers';
-import { chargerDrapeauxTerritoires, chargerFichesMonde } from './fiches/donnees';
+import { chargerDrapeauxTerritoires, chargerFichesMers, chargerFichesMonde } from './fiches/donnees';
 import type { Note, OptionsNoter, ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
@@ -773,6 +773,8 @@ async function demarrer(): Promise<void> {
     capitales: () => chargerCapitales(),
     drapeaux: () => chargerDrapeaux(),
     drapeauxTerritoires: () => chargerDrapeauxTerritoires(),
+    // Les mers (lot F4) : leurs fiches au premier toucher en mer, avec la couche légère.
+    fichesMers: () => chargerFichesMers(),
     module: () => import('./vues/fiche'),
     historique: { pousser: nav.pousserFiche, quitter: nav.quitterFiches, retour: () => history.back() },
     autorisee: ficheAutorisee,

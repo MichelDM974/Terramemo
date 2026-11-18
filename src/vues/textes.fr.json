@@ -39,6 +39,9 @@
     "aucun_habitant": "aucun habitant permanent",
     "superficie": "Superficie",
     "km2": "{n} km²",
+    "km2_court_mot": "{n} de km²",
+    "km2_environ": "environ {n} km²",
+    "km2_environ_mot": "environ {n} de km²",
     "langue": "Langue",
     "langues": "Langues",
     "langue_part": "{langue} {part} %",
@@ -67,6 +70,24 @@
     "barre_habitants": "{n} hab.",
     "barre_habitants_mot": "{n} d'hab.",
     "voisins": "Voisins",
+    "riverains": "Pays riverains",
+    "sortes_mer": {
+      "océan": "océan",
+      "mer": "mer",
+      "golfe": "golfe",
+      "baie": "baie",
+      "bras de mer": "bras de mer"
+    },
+    "sortes_mer_interieure": {
+      "mer": "mer intérieure",
+      "golfe": "golfe intérieur"
+    },
+    "mer_sans_cote": "mer sans côte",
+    "mere": "Fait partie de",
+    "ocean": "Océan",
+    "oceans": "Océans",
+    "profondeur": "Profondeur maximale",
+    "profondeur_valeur": "{n} m",
     "voisin_statut": "{nom} ({statut})",
     "voisin_titre": "Fiche : {nom}",
     "memoire": "Ta mémoire",
@@ -83,7 +104,9 @@
       "superficie": "superficie selon Wikidata",
       "tz": "base tz de l'IANA",
       "factbook": "CIA World Factbook",
-      "wikipedia": "Wikipédia"
+      "wikipedia": "Wikipédia",
+      "noaa": "NOAA (superficie)",
+      "trace": "superficie du tracé de Natural Earth"
     },
     "nombres": {
       "million": "{n} million",
@@ -711,7 +734,7 @@
       },
       {
         "nom": "Wikidata",
-        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026 ; superficies, gentilés, sommets, habitants de Taïwan, du Vatican, de territoires et de zones contestées, capitales des territoires, liens vers Wikipédia · extrait du 18/11/2026",
+        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026 ; superficies, gentilés, sommets, habitants de Taïwan, du Vatican, de territoires et de zones contestées, capitales des territoires, liens vers Wikipédia · extrait du 18/11/2026 ; superficies, profondeurs et pays riverains des mers · extrait du 18/11/2026",
         "licence": "CC0 1.0",
         "auteur": "Wikidata et ses contributeurs",
         "lien": "https://creativecommons.org/publicdomain/zero/1.0/deed.fr"

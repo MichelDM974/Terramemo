@@ -109,6 +109,20 @@ export function fmtHabitantsCourt(n: number, langue = 'fr'): string {
 /** « 377 974 km² » ; le centième sous 100 km² (« 0,44 km² », le Vatican). */
 export const fmtSuperficie = (km2: number, langue = 'fr'): string => remplir(textes.fiche.km2, { n: nombres(locale(langue), 2).format(km2) });
 
+/**
+ * Une superficie de mer (lot F4), déjà à trois chiffres : « 2,5 millions de km² », « 139 000 km² » (la barre) ;
+ * `environ` : « environ 2,5 millions de km² » (la fiche : la source n'est pas plus précise, § 2.3).
+ */
+export function fmtSuperficieMer(km2: number, environ: boolean, langue = 'fr'): string {
+  const T = textes.fiche;
+  const mot = Math.abs(troisChiffres(km2)) >= 1e6;
+  const modele = environ ? (mot ? T.km2_environ_mot : T.km2_environ) : mot ? T.km2_court_mot : T.km2;
+  return remplir(modele, { n: fmtNombreCourt(km2, langue) });
+}
+
+/** « 5 267 m », « 14,5 m » : une profondeur de mer, au dixième s'il y en a un (la mer d'Azov). */
+export const fmtProfondeur = (m: number, langue = 'fr'): string => remplir(textes.fiche.profondeur_valeur, { n: nombres(locale(langue), 1).format(m) });
+
 /** « 3 776 m » groupé par milliers, dans « mont Fuji, 3 776 m ». */
 export const fmtAltitude = (m: number, langue = 'fr'): string => fmtEntier(m, langue);
 

@@ -40,18 +40,20 @@
 // (surFiche). Les données se chargent au premier toucher d'un lieu, après la
 // réponse au toucher (sa mesure se ferme avant), jamais au premier affichage
 // (§ 6.1). Ni fiche, ni faits, ni chevron tant qu'une partie de Toucher attend
-// d'être reprise (OptionsFiche.autorisee, § 4.8).
+// d'être reprise (OptionsFiche.autorisee, § 4.8). Lot F4 : une mer a sa fiche ;
+// ses fichiers (fiches-mers*.json) partent au premier toucher en mer, avec la
+// couche légère, et sa barre dit « océan Atlantique · 2,5 millions de km² ».
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import { versEcran, versLonLat } from '../map/geo';
-import { chargerMersLegeres, estIdMer, mersPourNommer, nomsMersCharges } from '../map/mers';
+import { chargerInfosMers, chargerMersLegeres, estIdMer, mersPourNommer, nomsMersCharges, oceansDeMer, type InfosMers } from '../map/mers';
 import { NB_SEAUX } from '../map/teintes';
 import { estDomaine, type Domaine } from '../srs/fiches';
 import { tailleEcranPx } from '../map/pastilles';
 import { pickMer, type ResultatPick, type Via } from '../map/pick';
 import type { Lieu, NomTerrain, Pays } from '../map/types';
-import type { DonneesFichesMonde, DrapeauxTerritoires } from '../fiches/donnees';
-import { fmtHabitantsCourt } from '../fiches/format';
+import type { DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires } from '../fiches/donnees';
+import { fmtHabitantsCourt, fmtSuperficieMer } from '../fiches/format';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { EntreeFiche, LieuFiche } from '../navigation';
@@ -106,6 +108,11 @@ export interface OptionsFiche {
    * de territoire seulement ; sans eux, la place grise du drapeau reste.
    */
   drapeauxTerritoires?(): Promise<DrapeauxTerritoires>;
+  /**
+   * Les fiches des mers (chargerFichesMers, lot F4), lues au premier toucher en mer, avec la couche
+   * légère ; sans elles, une mer n'a pas de fiche (pas de chevron).
+   */
+  fichesMers?(): Promise<DonneesFichesMers>;
   /** Les lignes relues (absent : LIGNES_RELUES ; les tests passent les deux états). */
   relues?: Readonly<Record<LigneRelue, boolean>>;
   /** Le morceau de la fiche (import('./fiche')). */
@@ -132,8 +139,8 @@ export interface OptionsExplorer {
   fiche?: OptionsFiche;
 }
 
-/** Les sortes de lieux qui ont une fiche au lot F1 : les entités du monde (les mers au lot F4, les communes au lot F5). */
-const SORTES_F1: ReadonlySet<SorteLieu> = new Set(['pays', 'territoire', 'zone', 'continent']);
+/** Les sortes de lieux qui ont une fiche : les entités du monde (lot F1), les mers (lot F4) ; les communes au lot F5. */
+const SORTES_FICHE: ReadonlySet<SorteLieu> = new Set(['pays', 'territoire', 'zone', 'continent', 'mer']);
 /** Seuil du glissé vers le haut, commencé sur la barre, qui ouvre la fiche (§ 4.3). */
 export const GLISSE_OUVRIR_PX = 24;
 
@@ -339,9 +346,60 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   /** La sorte du lieu de la barre, s'il a une fiche à ce lot. */
   function sorteFiche(id: string): SorteLieu | null {
     if (t.nom !== 'monde') return null;
+    if (estIdMer(id)) return F?.fichesMers ? 'mer' : null;
     const e = t.donnees.entites.find((en) => en.pays.id === id);
     const s = sorteDeLieu(id, t.nom, e?.pays.statut);
-    return s && SORTES_F1.has(s) && e ? s : null;
+    return s && SORTES_FICHE.has(s) && e ? s : null;
+  }
+  /** Les fiches des mers (lot F4), une fois lues ; et les zones (mers.json) que la fiche d'une mer lit. */
+  let mersLues: DonneesFichesMers | null = null;
+  let mersEnCours: Promise<DonneesFichesMers> | null = null;
+  function chargerFichesMersBarre(): Promise<DonneesFichesMers> {
+    if (!F?.fichesMers) return Promise.reject(new Error('fiche : pas de fiches des mers'));
+    if (mersLues) return Promise.resolve(mersLues);
+    mersEnCours ??= F.fichesMers().then(
+      (m) => {
+        mersEnCours = null;
+        return (mersLues = m);
+      },
+      (e: unknown) => {
+        mersEnCours = null;
+        throw e;
+      },
+    );
+    return mersEnCours;
+  }
+  let infosMers: InfosMers | null = null;
+  /** Les zones et les noms des mers : ceux de la couche déjà lue, sinon mers.json et mers.fr.json (lus une fois, map/mers.ts). */
+  function chargerInfosMersFiche(): Promise<InfosMers> {
+    const deja = infosMers ?? mersPourNommer();
+    if (deja) return Promise.resolve((infosMers = deja));
+    return chargerInfosMers().then((i) => (infosMers = i));
+  }
+  /**
+   * Au premier toucher en mer (§ 6.1) : les fiches des mers demandées avec la couche légère ; à leur
+   * arrivée, la barre qui montre encore cette mer reçoit ses faits et son chevron.
+   */
+  function demanderFichesMers(): void {
+    if (mersLues || !F?.fichesMers || !active || !autorisee()) return;
+    const [j, k] = [jeton, touches];
+    chargerFichesMersBarre().then(
+      () => {
+        const id = barre.dataset.id;
+        if (j === jeton && k === touches && id && estIdMer(id)) poserFaits(false);
+        // Le morceau de la fiche, demandé d'avance comme pour un pays (chargerDonnees) : là quand on touchera la barre.
+        if (!moduleCharge) {
+          F.module().then(
+            (m) => {
+              moduleCharge = m;
+              auRepos(() => m.prechaufferFormats());
+            },
+            () => undefined,
+          );
+        }
+      },
+      () => undefined,
+    );
   }
   /** Les données de la barre, si elles sont lues : celles des fiches et, pour un pays, les capitales. */
   let lues: { fiches: DonneesFichesMonde; capitales: DonneesCapitales | null } | null = null;
@@ -432,7 +490,19 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     chevron.hidden = true;
     let drapeau: string | null = null;
     const sorte = id && active && autorisee() ? sorteFiche(id) : null;
-    if (id && sorte) {
+    if (id && sorte === 'mer') {
+      // Une mer (lot F4, § 4.1) : « océan Atlantique · 2,5 millions de km² » ; un océan, sa superficie ; la
+      // superficie une fois relue. Ses fiches sont demandées au premier toucher en mer (demanderFichesMers).
+      const f = mersLues?.get(id);
+      if (f) {
+        ficheDispo = true;
+        chevron.hidden = false;
+        const infos = infosMers ?? mersPourNommer();
+        const oceans = infos ? oceansDeMer(id, infos.zones).map((o) => infos.noms[o] ?? o) : [];
+        const sup = f.superficie && (F!.relues ?? LIGNES_RELUES).superficie_mers ? fmtSuperficieMer(f.superficie.km2, false) : '';
+        faits.textContent = [oceans.join(', '), sup].filter(Boolean).join(' · ');
+      } else if (charger) demanderFichesMers();
+    } else if (id && sorte) {
       if (lues?.fiches.lieux.has(id)) {
         ficheDispo = true;
         chevron.hidden = false;
@@ -548,13 +618,16 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   let drapeauxTerritoiresLus: DrapeauxTerritoires | null = null;
   function composer(m: ModuleFiche, id: string) {
     moduleFiche = m;
-    if (!lues) return null;
+    const mer = estIdMer(id);
+    if (mer ? !(mersLues && infosMers) : !lues) return null;
     const r = rendu(SUJET_CARTE[t.nom], t.donnees);
     return m.composerFiche(id, {
       entites: t.donnees.entites.map((e) => e.pays as Pays),
       nom: (x) => r.lieu(x),
-      fiches: lues.fiches,
-      capitales: lues.capitales,
+      // Une mer n'attend pas les fiches du monde : ses riverains ne disent que leur nom.
+      fiches: lues?.fiches ?? { lieux: new Map(), sousRegions: {} },
+      mers: mer && mersLues && infosMers ? { fiches: mersLues, zones: infosMers.zones, noms: infosMers.noms } : null,
+      capitales: lues?.capitales ?? null,
       drapeaux: drapeauxLus,
       drapeauxTerritoires: drapeauxTerritoiresLus,
       memoire: (x, jouable) => o.memoire?.details(t.nom, x, jouable) ?? null,
@@ -583,7 +656,17 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     // deux images après la fiche quand la page en a (volEnAttente).
     volEnAttente = null;
     if (t !== ctx.terrains.monde || barre.dataset.id !== f.id) {
-      const vol = () => montrer(ctx.terrains.monde, f.id);
+      // Une mer (la mère, l'océan d'une mer, lot F4) : la couche fine posée d'abord, comme pour la recherche.
+      const vol = () => {
+        const p = estIdMer(f.id) ? poserMers(ctx) : null;
+        if (!p) return montrer(ctx.terrains.monde, f.id);
+        p.then(
+          () => {
+            if (ficheOuverte === f && active) montrer(ctx.terrains.monde, f.id);
+          },
+          () => undefined,
+        );
+      };
       if (typeof requestAnimationFrame === 'function') {
         volEnAttente = vol;
         requestAnimationFrame(() =>
@@ -593,7 +676,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         );
       } else vol();
     }
-    Promise.all([F.module(), lues ? null : chargerDonnees()]).then(
+    const mer = estIdMer(f.id);
+    const donnees = mer ? Promise.all([chargerFichesMersBarre(), chargerInfosMersFiche()]) : lues ? null : chargerDonnees();
+    Promise.all([F.module(), donnees]).then(
       ([m]) => {
         if (j !== jetonFiche || !active) return;
         const modele = composer(m, f.id);
@@ -731,6 +816,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       return pickMer({ ...c, mers }, '', sx, sy, new Set());
     };
     const encore = () => j === jeton && k === touches && active;
+    // Les fiches des mers, avec la couche légère (§ 6.1, lot F4) : la barre de la mer a ses faits à leur arrivée.
+    if (ll) demanderFichesMers();
     if (ll && !posees.length) {
       poserMers(ctx)?.then(
         () => {

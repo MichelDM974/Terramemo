@@ -19,6 +19,13 @@
 // sa superficie et son sommet. Le statut écrit et les lignes à relire restent
 // tus derrière leur clé de LIGNES_RELUES.
 //
+// Lot F4 : une mer a sa sorte en tête (« mer intérieure », « golfe »), la mer
+// dont elle fait partie et son océan (des boutons dans leur ligne, comme un
+// voisin), sa superficie et sa profondeur maximale, ses pays riverains (la
+// section des voisins) ; ses données viennent de fiches-mers*.json et de
+// mers.json (déjà lu avec la couche). Superficie, profondeur et riverains
+// attendent leur relecture (LIGNES_RELUES).
+//
 // Contenu, de haut en bas : la tête (« ‹ » s'il y a une fiche d'avant, « × »,
 // le drapeau, le nom, le statut), les faits (lot F2 pour un pays, dans l'ordre
 // du § 4.2 : capitale, habitants, superficie, langues, monnaie, gentilé, heure,
@@ -31,9 +38,10 @@
 // viennent aux lots suivants.
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
-import type { NomTerrain, Pays } from '../map/types';
-import type { DonneesFichesMonde, DrapeauxTerritoires, SourceLigne } from '../fiches/donnees';
-import { fmtAltitude, fmtHabitants, fmtHeureLieu, fmtJourMois, fmtPart, fmtSuperficie, listeEt } from '../fiches/format';
+import { oceansDeMer } from '../map/mers';
+import type { Mer, NomTerrain, Pays } from '../map/types';
+import type { DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires, SourceLigne, SourceMer } from '../fiches/donnees';
+import { fmtAltitude, fmtHabitants, fmtHeureLieu, fmtJourMois, fmtPart, fmtProfondeur, fmtSuperficie, fmtSuperficieMer, listeEt } from '../fiches/format';
 export { prechaufferFormats, prechaufferZone } from '../fiches/format';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
@@ -50,11 +58,16 @@ export interface VoisinFiche {
   nom: string;
 }
 
-/** Une ligne de faits ; `heure` : la ligne de l'heure, refaite toutes les 30 s (DELAI_HEURE_MS). */
+/**
+ * Une ligne de faits ; `heure` : la ligne de l'heure, refaite toutes les 30 s (DELAI_HEURE_MS) ;
+ * `liens` : des lieux qui se touchent comme un voisin (la mère et l'océan d'une mer, lot F4), la
+ * valeur alors faite de leurs boutons.
+ */
 export interface FaitFiche {
   libelle: string;
   valeur: string;
   heure?: { zone: string; fuseaux: number };
+  liens?: readonly { id: string; nom: string }[];
 }
 
 /** Ce que la fiche montre d'un lieu (composerFiche) : tout est déjà dit, rien n'y est calculé à l'affichage. */
@@ -76,6 +89,8 @@ export interface ModeleFiche {
   faits: readonly FaitFiche[];
   /** Les pays jouables d'abord (alphabétique), puis les autres entités avec leur statut. */
   voisins: readonly VoisinFiche[];
+  /** Le titre de leur section : « Voisins », « Pays riverains » (une mer). */
+  titreVoisins: string;
   /** Une ligne par sujet ; null : pas de section (territoire, réglage coupé). */
   memoire: readonly string[] | null;
   /** L'adresse de l'article de Wikipédia, ou null. */
@@ -94,12 +109,21 @@ export interface DonneesComposition {
   drapeaux: DonneesDrapeaux | null;
   /** Les drapeaux des territoires (lot F3), lus à la première fiche de territoire ; absent : pas encore. */
   drapeauxTerritoires?: DrapeauxTerritoires | null;
+  /** Les mers (lot F4) : leurs fiches, leurs zones (mers.json : sorte, parents) et leurs noms ; absent : pas de fiche de mer. */
+  mers?: DonneesMers | null;
   /** Les lignes de la mémoire du lieu (CarteMemoire.details) ; null : pas de section. */
   memoire(id: string, jouable: boolean): readonly string[] | null;
   /** Les lignes relues (absent : LIGNES_RELUES ; les tests passent les deux états). */
   relues?: Readonly<Record<LigneRelue, boolean>>;
   /** L'instant de l'heure (absent : maintenant). */
   maintenant?: Date;
+}
+
+/** Ce que la fiche d'une mer lit (lot F4). */
+export interface DonneesMers {
+  fiches: DonneesFichesMers;
+  zones: readonly Mer[];
+  noms: Readonly<Record<string, string>>;
 }
 
 /** L'heure d'une fiche ouverte se refait toutes les 30 s (§ 4.2). */
@@ -122,10 +146,11 @@ function statutFiche(sorte: SorteLieu, p: Pays, ecrit: string | undefined, relu:
 const sourceLigne = (s: SourceLigne): string => (s === 'fb' ? T.noms_sources.factbook : T.noms_sources.wikipedia);
 
 /**
- * Ce que montre la fiche du lieu `id` du monde, ou null s'il n'en a pas
- * (absent des fiches, ou une mer : lot F4). Pur : les données sont passées.
+ * Ce que montre la fiche du lieu `id` du monde (une entité de pays.json, ou une mer : lot F4), ou
+ * null s'il n'en a pas (absent des fiches). Pur : les données sont passées.
  */
 export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | null {
+  if (d.mers?.zones.some((z) => z.id === id)) return composerFicheMer(id, d, d.mers);
   const p = d.entites.find((e) => e.id === id);
   const f = d.fiches.lieux.get(id);
   if (!p || !f) return null;
@@ -204,15 +229,6 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
   const drapeaux = pays ? (d.drapeaux?.parPays.get(id)?.justes ?? []) : drapeauT ? [drapeauT] : [];
   if (avecDrapeau) citer(S.flag_icons);
   if (f.wp) citer(S.wikidata);
-  // Les voisins : les pays jouables d'abord, par ordre alphabétique, puis à part les autres entités, avec leur statut (§ 2.1).
-  const parNom = (a: VoisinFiche, b: VoisinFiche) => a.nom.localeCompare(b.nom, 'fr');
-  const voisins = p.voisins.flatMap((v) => {
-    const e = d.entites.find((x) => x.id === v);
-    if (!e) return [];
-    const nom = d.nom(v);
-    const statut = e.statut === 'jouable' ? '' : LIBELLE_STATUT[e.statut];
-    return [{ id: v, nom, texte: statut ? remplir(T.voisin_statut, { nom, statut }) : nom, jouable: e.statut === 'jouable' }];
-  });
   return {
     terrain: 'monde',
     id,
@@ -222,8 +238,86 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
     drapeaux,
     avecDrapeau,
     faits,
-    voisins: [...voisins.filter((v) => v.jouable).sort(parNom), ...voisins.filter((v) => !v.jouable).sort(parNom)].map(({ id: i, nom, texte }) => ({ id: i, nom, texte })),
+    voisins: rangerVoisins(p.voisins, d),
+    titreVoisins: T.voisins,
     memoire: d.memoire(id, p.statut === 'jouable'),
+    wikipedia: f.wp ? adresseWikipedia(f.wp) : null,
+    sources,
+  };
+}
+
+/**
+ * Des voisins (ou des riverains) en boutons : les pays jouables d'abord, par ordre alphabétique, puis à
+ * part les autres entités, avec leur statut (§ 2.1). Un id inconnu de la carte est sauté.
+ */
+function rangerVoisins(ids: readonly string[], d: DonneesComposition): VoisinFiche[] {
+  const parNom = (a: VoisinFiche, b: VoisinFiche) => a.nom.localeCompare(b.nom, 'fr');
+  const voisins = ids.flatMap((v) => {
+    const e = d.entites.find((x) => x.id === v);
+    if (!e) return [];
+    const nom = d.nom(v);
+    const statut = e.statut === 'jouable' ? '' : LIBELLE_STATUT[e.statut];
+    return [{ id: v, nom, texte: statut ? remplir(T.voisin_statut, { nom, statut }) : nom, jouable: e.statut === 'jouable' }];
+  });
+  return [...voisins.filter((v) => v.jouable).sort(parNom), ...voisins.filter((v) => !v.jouable).sort(parNom)].map(({ id: i, nom, texte }) => ({ id: i, nom, texte }));
+}
+
+/** La sorte d'une mer dite en tête de sa fiche : « océan », « mer intérieure », « golfe intérieur », « mer sans côte ». */
+export function statutMer(z: Mer): string {
+  const sortes: Readonly<Record<string, string>> = T.sortes_mer;
+  const interieures: Readonly<Record<string, string>> = T.sortes_mer_interieure;
+  if (z.enclavee) return T.mer_sans_cote;
+  if (z.interieure && interieures[z.sorte]) return interieures[z.sorte]!;
+  return sortes[z.sorte] ?? z.sorte;
+}
+
+/**
+ * La fiche d'une mer (lot F4, § 4.2) : sa sorte en tête ; la mer dont elle fait partie et son océan,
+ * des lieux qui se touchent ; sa superficie (« environ … », à trois chiffres) et sa profondeur
+ * maximale ; ses pays riverains. Les trois dernières attendent leur relecture (LIGNES_RELUES).
+ */
+function composerFicheMer(id: string, d: DonneesComposition, M: DonneesMers): ModeleFiche | null {
+  const z = M.zones.find((x) => x.id === id);
+  const f = M.fiches.get(id);
+  if (!z || !f) return null;
+  const relues = d.relues ?? LIGNES_RELUES;
+  const S = T.noms_sources;
+  const sources = [S.natural_earth];
+  const citer = (nom: string) => void (sources.includes(nom) || sources.push(nom));
+  const nomMer = (x: string) => M.noms[x] ?? x;
+  const faits: FaitFiche[] = [];
+  const lien = (ids: readonly string[]) => ids.map((x) => ({ id: x, nom: nomMer(x) }));
+  const meres = z.parents.filter((x) => M.zones.find((y) => y.id === x)?.sorte !== 'océan');
+  if (meres.length) faits.push({ libelle: T.mere, valeur: listeEt(meres.map(nomMer)), liens: lien(meres) });
+  const oceans = oceansDeMer(id, M.zones);
+  if (oceans.length) faits.push({ libelle: oceans.length > 1 ? T.oceans : T.ocean, valeur: listeEt(oceans.map(nomMer)), liens: lien(oceans) });
+  const source = (s: SourceMer | undefined, wikidata: string): string => (s === 'wp' ? S.wikipedia : s === 'noaa' ? S.noaa : s === 'ne' ? S.trace : wikidata);
+  if (f.superficie && relues.superficie_mers) {
+    faits.push({ libelle: T.superficie, valeur: fmtSuperficieMer(f.superficie.km2, true) });
+    citer(source(f.superficie.source, S.superficie));
+  }
+  if (f.profondeur && relues.profondeur_mers) {
+    faits.push({ libelle: T.profondeur, valeur: fmtProfondeur(f.profondeur.m) });
+    citer(source(f.profondeur.source, S.wikidata));
+  }
+  const riverains = relues.riverains_mers ? rangerVoisins(f.riverains, d) : [];
+  if (riverains.length) {
+    citer(S.wikidata);
+    citer(S.cldr);
+  }
+  if (f.wp) citer(S.wikidata);
+  return {
+    terrain: 'monde',
+    id,
+    sorte: 'mer',
+    nom: nomMer(id),
+    statut: statutMer(z),
+    drapeaux: [],
+    avecDrapeau: false,
+    faits,
+    voisins: riverains,
+    titreVoisins: T.riverains,
+    memoire: d.memoire(id, true),
     wikipedia: f.wp ? adresseWikipedia(f.wp) : null,
     sources,
   };
@@ -241,7 +335,7 @@ export interface ActionsFiche {
   voile(): void;
   /** « ‹ » : un pas en arrière (history.back()). */
   avant(): void;
-  /** Un voisin touché : sa fiche, une entrée de plus (nav.pousserFiche). */
+  /** Un voisin touché (ou la mère, l'océan, un riverain d'une mer) : sa fiche, une entrée de plus (nav.pousserFiche). */
   voisin(id: string): void;
 }
 
@@ -342,7 +436,18 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
     const enfants: HTMLElement[] = [tete(m)];
     if (m.faits.length) {
       const lignes = m.faits.map((f) => {
-        const dd = creer('dd', {}, f.valeur);
+        // La mère et l'océan d'une mer (lot F4) : des boutons, qui ouvrent leur fiche comme un voisin.
+        const dd = f.liens?.length
+          ? creer(
+              'dd',
+              { class: 'fiche-liens' },
+              ...f.liens.map((l) => {
+                const b = creer('button', { type: 'button', class: 'secondary fiche-voisin', 'data-id': l.id, title: remplir(T.voisin_titre, { nom: l.nom }) }, l.nom);
+                b.addEventListener('click', () => actions.voisin(l.id));
+                return b;
+              }),
+            )
+          : creer('dd', {}, f.valeur);
         const ligne = creer('div', { class: 'fiche-fait' }, creer('dt', {}, f.libelle), dd);
         if (f.heure) heures.push({ ligne, dd, heure: f.heure });
         return ligne;
@@ -359,7 +464,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
           return creer('li', {}, b);
         }),
       );
-      enfants.push(creer('section', { class: 'fiche-section fiche-voisins', 'aria-labelledby': 'fiche-voisins-titre' }, creer('h3', { id: 'fiche-voisins-titre' }, T.voisins), liste));
+      enfants.push(creer('section', { class: 'fiche-section fiche-voisins', 'aria-labelledby': 'fiche-voisins-titre' }, creer('h3', { id: 'fiche-voisins-titre' }, m.titreVoisins), liste));
     }
     if (m.memoire?.length) {
       enfants.push(

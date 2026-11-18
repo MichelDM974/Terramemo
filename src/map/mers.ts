@@ -266,6 +266,34 @@ export function ancetres(id: string, mers: readonly Mer[]): Set<string> {
 }
 
 /**
+ * Les océans d'une zone, pour sa fiche (#34, lot F4) : ses parents qui sont des océans, sinon ceux
+ * de ses parents, en remontant (l'Adriatique : l'Atlantique, par la Méditerranée) ; la mer de
+ * Norvège en a deux. Aucun pour un océan, ni pour la mer Caspienne (sans parent : son bassin est
+ * posé à la main pour les exercices, la fiche ne le dit pas). Dans l'ordre des parents.
+ */
+export function oceansDeMer(id: string, mers: readonly Mer[]): string[] {
+  const parId = new Map(mers.map((m) => [m.id, m]));
+  const m = parId.get(id);
+  if (!m || m.sorte === 'océan') return [];
+  const res: string[] = [];
+  const vus = new Set<string>();
+  let niveau = [...m.parents];
+  while (niveau.length && !res.length) {
+    const suivant: string[] = [];
+    for (const p of niveau) {
+      if (vus.has(p)) continue;
+      vus.add(p);
+      const z = parId.get(p);
+      if (!z) continue;
+      if (z.sorte === 'océan') res.push(p);
+      else suivant.push(...z.parents);
+    }
+    niveau = suivant;
+  }
+  return res;
+}
+
+/**
  * Les zones jamais leurres pour la question de cette zone (étude J2, § 5.4) :
  * ses ancêtres et ses descendants en remontant ou descendant parents, quelle
  * que soit la règle des mers intérieures (« mer Méditerranée » serait juste

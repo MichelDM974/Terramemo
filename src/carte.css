@@ -576,6 +576,8 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 .fiche-section h3 { margin: 18px 0 8px; font-size: 0.95rem; font-weight: 600; }
 .fiche-voisins-liste { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .fiche-voisin { min-height: 44px; }
+/* La mère et l'océan d'une mer (lot F4) : des boutons dans leur ligne de faits, comme un voisin. */
+.fiche-fait dd.fiche-liens { display: flex; flex-wrap: wrap; gap: 8px; }
 .fiche-memoire ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
 .fiche-pied { margin-top: 18px; color: var(--muted); font-size: 0.85rem; }
 .fiche-pied p { margin: 6px 0; }

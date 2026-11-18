@@ -5,7 +5,20 @@
 // inconnue, formateurs gardés.
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
-import { chargerFichesMonde, fichesMondeChargees, lireFichesMonde, oublierFichesMonde, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
+import {
+  chargerFichesMers,
+  chargerFichesMonde,
+  fichesMersChargees,
+  fichesMondeChargees,
+  lireFichesMers,
+  lireFichesMonde,
+  oublierFichesMers,
+  oublierFichesMonde,
+  type FichierMers,
+  type FichierMersLangue,
+  type FichierMonde,
+  type FichierMondeLangue,
+} from '../src/fiches/donnees';
 import {
   fmtEcart,
   fmtEntier,
@@ -15,7 +28,9 @@ import {
   fmtJourMois,
   fmtNombreCourt,
   fmtPart,
+  fmtProfondeur,
   fmtSuperficie,
+  fmtSuperficieMer,
   heureDe,
   listeEt,
   nombreFormateurs,
@@ -198,5 +213,35 @@ describe('chargeur des fiches du monde', () => {
     expect(fichesMondeChargees()).toBe(a);
     await chargerFichesMonde(lire);
     expect(lus).toEqual(['/geo/fiches-monde.json', '/geo/fiches-monde.fr.json', '/geo/fiches-monde.json', '/geo/fiches-monde.fr.json']);
+  });
+});
+
+describe('fiches des mers (lot F4) : formats et chargeur', () => {
+  afterEach(() => oublierFichesMers());
+
+  it('superficie d’une mer : « 2,5 millions de km² » dans la barre, « environ … » dans la fiche ; profondeur au dixième s’il y en a un', () => {
+    expect(simple(fmtSuperficieMer(2_500_000, false))).toBe('2,5 millions de km²');
+    expect(simple(fmtSuperficieMer(2_500_000, true))).toBe('environ 2,5 millions de km²');
+    expect(simple(fmtSuperficieMer(1_210_000, true))).toBe('environ 1,21 million de km²');
+    expect(simple(fmtSuperficieMer(139_000, true))).toBe('environ 139 000 km²');
+    expect(simple(fmtSuperficieMer(29_500, false))).toBe('29 500 km²');
+    expect(simple(fmtProfondeur(5267))).toBe('5 267 m');
+    expect(simple(fmtProfondeur(14.5))).toBe('14,5 m');
+  });
+
+  it('les deux fichiers lus une fois, au premier toucher en mer ; un échec n’est pas gardé ; une autre version lève', async () => {
+    const lus: string[] = [];
+    const lire = async (c: string) => (lus.push(c), JSON.parse(readFileSync(`public${c}`, 'utf8')) as unknown);
+    expect(fichesMersChargees()).toBeNull();
+    await expect(chargerFichesMers(() => Promise.reject(new TypeError('hors ligne')))).rejects.toThrow('hors ligne');
+    const d = await chargerFichesMers(lire);
+    await chargerFichesMers(lire);
+    expect(lus).toEqual(['/geo/fiches-mers.json', '/geo/fiches-mers.fr.json']);
+    expect(fichesMersChargees()).toBe(d);
+    expect(d.size).toBe(50);
+    expect(d.get('atlant')).toEqual({ superficie: { km2: 85_100_000, source: 'noaa' }, profondeur: { m: 8605 }, riverains: [], wp: 'Océan Atlantique' });
+    expect(d.get('adriat')!.riverains).toEqual(['ALB', 'BIH', 'GRC', 'HRV', 'ITA', 'MNE', 'SVN']);
+    expect(d.get('californ')!.profondeur).toBeUndefined();
+    expect(() => lireFichesMers({ v: 2, lieux: {} } as FichierMers, { v: 1, lieux: {} } as FichierMersLangue)).toThrow('version');
   });
 });

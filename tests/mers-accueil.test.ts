@@ -9,7 +9,11 @@
 // zones teintées, et le carré « Jamais vu » de la légende couleur d'eau
 // (partie B), sans les pastilles des micro-États (choix de l'utilisateur du
 // 12/11), rendues sous un autre sujet et en partant. Une mer choisie dans la
-// recherche : cadrée, allumée.
+// recherche : cadrée, allumée. La fiche d'une mer (#34, lot F4) : ses fichiers
+// (fiches-mers.json, fiches-mers.fr.json) lus avec la couche légère, au premier
+// toucher en mer, jamais pour un pays ; la barre « océan Atlantique · 2,75
+// millions de km² » ; la fiche : sorte, mère et océan touchables, superficie,
+// profondeur, riverains (ces trois-là tus jusqu'à leur relecture).
 import { readFileSync } from 'node:fs';
 import type { Topology } from 'topojson-specification';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,7 +28,9 @@ import { pick, type ContexteCarte } from '../src/map/pick';
 import { cadre, placer, projectionDe, transfoDe, type VueGlobe } from '../src/map/vue';
 import { carteMemoire, CLE_SUJET_MEMOIRE, type CarteMemoire } from '../src/vues/carte-memoire';
 import type { ContexteVue } from '../src/vues/commun';
-import { vueExplorer } from '../src/vues/explorer';
+import { chargerFichesMers, lireFichesMonde, oublierFichesMers, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
+import { LIGNES_RELUES, type LigneRelue } from '../src/fiches/relues';
+import { vueExplorer, type OptionsFiche } from '../src/vues/explorer';
 import { textes } from '../src/vues/textes';
 import { El, installerDom } from './dom-factice';
 
@@ -39,7 +45,7 @@ const merEn = (ll: [number, number]) => fine.noms[fine.mers.find((e) => contient
 /** Les fichiers lus (sans le dossier). */
 const lus: string[] = [];
 
-function monter(memoire?: CarteMemoire) {
+function monter(memoire?: CarteMemoire, fiche?: Partial<OptionsFiche>) {
   const donnees: DonneesCarte = { ...monde, mers: [] };
   /** La vue de la carte : le monde au zoom 4 sur les Caraïbes (déplacée par voir()). */
   let v: VueGlobe = placer(C, [-60, 20], 192, 361, 4, true);
@@ -75,7 +81,17 @@ function monter(memoire?: CarteMemoire) {
     terrains: { monde: t, montrer() {}, deja: () => null },
     mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
   } as unknown as ContexteVue;
-  const vue = vueExplorer(ctx, memoire ? { memoire } : {});
+  const options: OptionsFiche | undefined = fiche
+    ? {
+        fiches: () => Promise.reject(new Error('fiches du monde : pas dans ce test')),
+        capitales: () => Promise.reject(new Error('capitales : pas dans ce test')),
+        drapeaux: () => Promise.reject(new Error('drapeaux : pas dans ce test')),
+        module: () => import('../src/vues/fiche'),
+        fichesMers: () => chargerFichesMers(async (c) => (lus.push(c.replace('/geo/', '')), JSON.parse(readFileSync(`public${c}`, 'utf8')))),
+        ...fiche,
+      }
+    : undefined;
+  const vue = vueExplorer(ctx, { ...(memoire ? { memoire } : {}), ...(options ? { fiche: options } : {}) });
   /** Touche le point [lon, lat], la carte centrée dessus au zoom k. */
   const toucher = (ll: [number, number], k = 8) => {
     v = placer(C, ll, 192, 361, k, true);
@@ -101,7 +117,22 @@ function monter(memoire?: CarteMemoire) {
   const detail = () => zone.querySelector('#barre-carte .barre-detail')!.textContent;
   // La ligne de la mémoire, à part dans la barre depuis la fiche d'un lieu (#34, § 4.1).
   const ligneMemoire = () => zone.querySelector('#barre-carte .barre-memoire')!.textContent;
-  return { vue, carte, donnees, marques, teintes, toucher, presDeMalte, toucherPresDeMalte, nom, detail, ligneMemoire, zone, pastilles: () => !sansPastilles };
+  const el = (sel: string) => zone.querySelector(sel);
+  const fiche_ = {
+    faits: () => el('#barre-carte .barre-faits')!.textContent,
+    chevron: () => !el('#barre-carte .barre-chevron')!.hidden,
+    ouverte: () => !!el('#fiche-lieu') && !el('#fiche-lieu')!.hidden,
+    titre: () => el('#fiche-titre')?.textContent ?? null,
+    statut: () => el('#fiche-lieu .fiche-statut')?.textContent ?? null,
+    lignes: () => (el('#fiche-lieu')?.querySelectorAll('.fiche-fait') ?? []).map((f) => `${f.querySelector('dt')!.textContent} · ${f.querySelector('dd')!.textContent}`),
+    voisins: () => (el('#fiche-lieu .fiche-voisins')?.querySelectorAll('.fiche-voisin') ?? []).map((b) => b.textContent),
+    titreVoisins: () => el('#fiche-voisins-titre')?.textContent ?? null,
+    lien: (id: string) => el(`#fiche-lieu .fiche-liens [data-id="${id}"]`),
+    sources: () => el('#fiche-lieu .fiche-sources')?.textContent ?? null,
+    wikipedia: () => el('#fiche-lieu .fiche-wikipedia')?.getAttribute('href') ?? null,
+    bouton: () => el('#barre-fiche')!,
+  };
+  return { vue, carte, donnees, marques, teintes, toucher, presDeMalte, toucherPresDeMalte, nom, detail, ligneMemoire, zone, pastilles: () => !sansPastilles, fiche: fiche_ };
 }
 
 const CARAIBES: [number, number] = [-78, 14];
@@ -112,6 +143,7 @@ const MEDITERRANEE: [number, number] = [20, 34];
 beforeEach(() => {
   installerDom();
   lus.length = 0;
+  oublierFichesMers();
   oublierMers(async (f) => (lus.push(f), readFileSync(`public/geo/${f}`, 'utf8')));
 });
 afterEach(() => {
@@ -383,3 +415,150 @@ describe('accueil : la carte de la mémoire « Mers » sans pastilles (choix de 
     expect(b.carte.cacherPastilles).not.toHaveBeenCalled();
   });
 });
+
+describe('accueil : la fiche d’une mer (#34, lot F4)', () => {
+  const TOUTES = Object.fromEntries(Object.keys(LIGNES_RELUES).map((k) => [k, true])) as Record<LigneRelue, boolean>;
+  const AUCUNE = Object.fromEntries(Object.keys(LIGNES_RELUES).map((k) => [k, false])) as Record<LigneRelue, boolean>;
+  const F = textes.fiche;
+  const simple = (x: string | null) => (x ?? '').replace(/[\u00a0\u202f]/g, ' ');
+
+  it('les fiches des mers partent avec la couche légère, au premier toucher en mer ; jamais au premier affichage ni pour un pays', async () => {
+    const a = monter(undefined, { relues: TOUTES });
+    a.vue.activer();
+    a.toucher(FRANCE);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(lus).toEqual([]);
+    a.toucher(CARAIBES);
+    await vi.waitFor(() => expect(a.fiche.chevron()).toBe(true));
+    expect([...lus].sort()).toEqual(['fiches-mers.fr.json', 'fiches-mers.json', 'mers-leger.topo.json', 'mers.fr.json', 'mers.json', 'mers.topo.json']);
+    // « océan Atlantique · 2,75 millions de km² » (§ 4.1) : l'océan, puis la superficie à trois chiffres.
+    expect(simple(a.fiche.faits())).toBe('océan Atlantique · 2,75 millions de km²');
+    expect(a.fiche.bouton().getAttribute('aria-expanded')).toBe('false');
+    // Un océan : sa superficie seule ; la mer suivante, tout de suite, sans rien relire.
+    a.toucher(PACIFIQUE, 1);
+    expect(merEn(PACIFIQUE)).toBe('océan Pacifique');
+    expect(simple(a.fiche.faits())).toBe('162 millions de km²');
+    a.toucher(MEDITERRANEE);
+    expect(simple(a.fiche.faits())).toBe('océan Atlantique · 2,5 millions de km²');
+    expect(lus.filter((f) => f.startsWith('fiches-mers'))).toHaveLength(2);
+    // Un pays après une mer : ni faits de mer, ni chevron (les fiches du monde manquent ici).
+    a.toucher(FRANCE);
+    expect(a.fiche.faits()).toBe('');
+  });
+
+  it('avant la relecture (LIGNES_RELUES) : la barre ne dit que l’océan ; un océan, rien ; le chevron reste', async () => {
+    const a = monter(undefined, { relues: AUCUNE });
+    a.vue.activer();
+    a.toucher(MEDITERRANEE);
+    await vi.waitFor(() => expect(a.fiche.chevron()).toBe(true));
+    expect(a.fiche.faits()).toBe('océan Atlantique');
+    a.toucher(PACIFIQUE, 1);
+    expect(a.nom()).toBe('océan Pacifique');
+    expect(a.fiche.faits()).toBe('');
+    expect(a.fiche.chevron()).toBe(true);
+  });
+
+  it('hors ligne : la barre de la mer reste sans chevron ; le toucher suivant réessaie', async () => {
+    let echec = true;
+    const a = monter(undefined, {
+      relues: TOUTES,
+      fichesMers: () => (echec ? Promise.reject(new TypeError('hors ligne')) : chargerFichesMers(async (c) => JSON.parse(readFileSync(`public${c}`, 'utf8')))),
+    });
+    a.vue.activer();
+    a.toucher(MEDITERRANEE);
+    await vi.waitFor(() => expect(a.nom()).toBe('mer Méditerranée'));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(a.fiche.chevron()).toBe(false);
+    a.fiche.bouton().click();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(a.fiche.ouverte()).toBe(false);
+    echec = false;
+    a.toucher(MEDITERRANEE);
+    await vi.waitFor(() => expect(a.fiche.chevron()).toBe(true));
+  });
+
+  it('critère de fin (§ 8) : la Méditerranée (sorte, océan, superficie, profondeur, 26 riverains), l’Adriatique (sa mère), l’Atlantique (sans riverains), la mer des Sargasses', async () => {
+    const a = monter(undefined, { relues: TOUTES });
+    a.vue.activer();
+    a.toucher(MEDITERRANEE);
+    await vi.waitFor(() => expect(a.fiche.chevron()).toBe(true));
+    a.fiche.bouton().click();
+    await vi.waitFor(() => expect(a.fiche.ouverte()).toBe(true));
+    expect(a.fiche.titre()).toBe('mer Méditerranée');
+    expect(a.fiche.statut()).toBe('mer intérieure');
+    expect(a.fiche.lignes().map(simple)).toEqual([`${F.ocean} · océan Atlantique`, `${F.superficie} · environ 2,5 millions de km²`, `${F.profondeur} · 5 267 m`]);
+    expect(a.fiche.titreVoisins()).toBe(F.riverains);
+    const riv = a.fiche.voisins();
+    expect(riv).toHaveLength(26);
+    // Les pays d'abord, par nom ; puis les autres entités avec leur statut (Gibraltar, Akrotiri, Dhekelia, Chypre du Nord).
+    expect(riv.slice(0, 3)).toEqual(['Albanie', 'Algérie', 'Bosnie-Herzégovine']);
+    expect(riv.slice(-4).every((x) => /\(/.test(x!))).toBe(true);
+    expect(riv).not.toContain('Royaume-Uni');
+    expect(riv).toContain('Malte');
+    expect(a.fiche.sources()).toContain('Natural Earth');
+    expect(a.fiche.sources()).toContain(F.noms_sources.superficie);
+    expect(a.fiche.wikipedia()).toBe(`${F.wikipedia_base}Mer_M%C3%A9diterran%C3%A9e`);
+    // L'océan se touche comme un voisin : la fiche de l'Atlantique, sans riverains, sa superficie d'après la NOAA.
+    (a.fiche.lien('atlant') as unknown as { click(): void }).click();
+    await vi.waitFor(() => expect(a.fiche.titre()).toBe('océan Atlantique'));
+    expect(a.fiche.statut()).toBe('océan');
+    expect(a.fiche.lignes().map(simple)).toEqual([`${F.superficie} · environ 85,1 millions de km²`, `${F.profondeur} · 8 605 m`]);
+    expect(a.fiche.voisins()).toEqual([]);
+    expect(a.fiche.sources()).toContain(F.noms_sources.noaa);
+    // La carte vole sous la fiche jusqu'à l'océan (deux images plus tard).
+    await vi.waitFor(() => expect(a.carte.montrer.mock.calls.some((c) => c[0] === 'atlant')).toBe(true));
+  });
+
+  it('l’Adriatique : sa mère se touche ; la mer des Sargasses, « mer sans côte », sans riverains', async () => {
+    const a = monter(undefined, { relues: TOUTES });
+    a.vue.activer();
+    a.vue.montrerLieu('monde', 'adriat');
+    await vi.waitFor(() => expect(a.fiche.chevron()).toBe(true));
+    a.fiche.bouton().click();
+    await vi.waitFor(() => expect(a.fiche.titre()).toBe('mer Adriatique'));
+    expect(a.fiche.statut()).toBe('mer');
+    expect(a.fiche.lignes().map(simple)).toEqual([`${F.mere} · mer Méditerranée`, `${F.ocean} · océan Atlantique`, `${F.superficie} · environ 139 000 km²`, `${F.profondeur} · 1 233 m`]);
+    expect(a.fiche.voisins()).toEqual(['Albanie', 'Bosnie-Herzégovine', 'Croatie', 'Grèce', 'Italie', 'Monténégro', 'Slovénie']);
+    (a.fiche.lien('medit') as unknown as { click(): void }).click();
+    await vi.waitFor(() => expect(a.fiche.titre()).toBe('mer Méditerranée'));
+    a.vue.montrerLieu('monde', 'sargasse');
+    await vi.waitFor(() => expect(a.fiche.chevron()).toBe(true));
+    a.fiche.bouton().click();
+    await vi.waitFor(() => expect(a.fiche.titre()).toBe('mer des Sargasses'));
+    expect(a.fiche.statut()).toBe(F.mer_sans_cote);
+    expect(a.fiche.lignes().map(simple)).toEqual([`${F.ocean} · océan Atlantique`, `${F.superficie} · environ 3 millions de km²`, `${F.profondeur} · 7 000 m`]);
+    expect(a.fiche.voisins()).toEqual([]);
+    expect(a.fiche.titreVoisins()).toBeNull();
+  });
+
+  it('un riverain se touche : la fiche du pays (le terrain reste le monde) ; « ‹ » rend la mer', async () => {
+    const monde_ = lireFichesMonde(lireJson('fiches-monde.json') as FichierMonde, lireJson('fiches-monde.fr.json') as FichierMondeLangue);
+    const a = monter(undefined, { relues: TOUTES, fiches: () => Promise.resolve(monde_) });
+    a.vue.activer();
+    a.toucher(MEDITERRANEE);
+    await vi.waitFor(() => expect(a.fiche.chevron()).toBe(true));
+    a.fiche.bouton().click();
+    await vi.waitFor(() => expect(a.fiche.titre()).toBe('mer Méditerranée'));
+    const italie = a.zone.querySelectorAll('#fiche-lieu .fiche-voisins .fiche-voisin').find((b) => b.textContent === 'Italie')!;
+    (italie as unknown as { click(): void }).click();
+    await vi.waitFor(() => expect(a.fiche.titre()).toBe('Italie'));
+    expect(a.fiche.titreVoisins()).toBe(F.voisins);
+    (a.zone.querySelector('#fiche-lieu .fiche-avant') as unknown as { click(): void }).click();
+    await vi.waitFor(() => expect(a.fiche.titre()).toBe('mer Méditerranée'));
+  });
+
+  it('avant la relecture : ni superficie, ni profondeur, ni riverains ; la sorte, la mère et l’océan restent ; les sources ne citent que ce qui est montré', async () => {
+    const a = monter(undefined, { relues: AUCUNE });
+    a.vue.activer();
+    a.vue.montrerLieu('monde', 'adriat');
+    await vi.waitFor(() => expect(a.fiche.chevron()).toBe(true));
+    a.fiche.bouton().click();
+    await vi.waitFor(() => expect(a.fiche.ouverte()).toBe(true));
+    expect(a.fiche.lignes().map(simple)).toEqual([`${F.mere} · mer Méditerranée`, `${F.ocean} · océan Atlantique`]);
+    expect(a.fiche.voisins()).toEqual([]);
+    expect(a.fiche.sources()).toBe(`${remplirSources('Natural Earth · Wikidata')} · ${F.credits}`);
+  });
+});
+
+/** Le pied « Sources : … » (textes.fiche.sources). */
+const remplirSources = (x: string) => textes.fiche.sources.replace('{sources}', x);

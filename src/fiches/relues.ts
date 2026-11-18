@@ -22,7 +22,10 @@ export type LigneRelue =
   | 'superficie_territoires'
   | 'langues_territoires'
   | 'gentile_territoires'
-  | 'culminant_territoires';
+  | 'culminant_territoires'
+  | 'riverains_mers'
+  | 'superficie_mers'
+  | 'profondeur_mers';
 
 /** Ce que la fiche montre aujourd'hui : rien de ce qui attend la relecture. */
 export const LIGNES_RELUES: Readonly<Record<LigneRelue, boolean>> = {
@@ -53,4 +56,13 @@ export const LIGNES_RELUES: Readonly<Record<LigneRelue, boolean>> = {
   gentile_territoires: false,
   /** § 8 : les points culminants des territoires et de l'Antarctique. */
   culminant_territoires: false,
+  /**
+   * fiches-mers.md, § 1 : les pays riverains des mers (union du tracé et de Wikidata, retraits et ajouts
+   * de la table) ; d'ici là, la fiche d'une mer n'a pas de section « Pays riverains ».
+   */
+  riverains_mers: false,
+  /** § 2 : les superficies des mers et des océans (corrigées, océans d'après la NOAA) ; la fiche et la barre. */
+  superficie_mers: false,
+  /** § 3 : les profondeurs maximales (Wikidata, et la table pour les ambiguës). */
+  profondeur_mers: false,
 };

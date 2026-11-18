@@ -4,9 +4,10 @@
 // d'un lieu du monde, jamais au premier affichage (le smoke du pilote le
 // vérifie) : la barre en tire sa ligne de faits et son chevron. Sur le modèle
 // des capitales (src/map/capitales.ts) : une promesse gardée, un échec (hors
-// ligne) qui ne reste pas en cache, relancé au toucher suivant. Les mers et
-// les communes auront leurs fichiers (lots F4 et F5) : qui ne touche que des
-// pays ne les paie pas.
+// ligne) qui ne reste pas en cache, relancé au toucher suivant. Les mers (lot
+// F4) ont leurs fichiers, fiches-mers.json et fiches-mers.fr.json, lus au
+// premier toucher en mer avec la couche légère (§ 6.1) ; les communes auront
+// les leurs (lot F5) : qui ne touche que des pays ne les paie pas.
 import type { SorteLieu } from './sorte';
 
 /** La version du format, écrite par geodata/fiches.mjs (VERSION_FICHES). */
@@ -228,4 +229,88 @@ export function chargerDrapeauxTerritoires(lire: Lecteur = lireHttp, base = '/ge
 export function oublierDrapeauxTerritoires(): void {
   drapeauxT = null;
   drapeauxTEnCours = null;
+}
+
+// --- Océans et mers (lot F4) -------------------------------------------------------------
+
+/** La source d'une superficie ou d'une profondeur de mer hors de Wikidata : le tracé de Natural Earth, Wikipédia, la NOAA (océans). */
+export type SourceMer = 'ne' | 'wp' | 'noaa';
+
+/** Ce que fiches-mers.json dit d'une zone (geodata/fiches.mjs en décrit chaque clé). */
+interface FicheMerBrute {
+  s: 'mer';
+  sup?: number;
+  ss?: SourceMer;
+  p?: number;
+  ps?: SourceMer;
+  r?: readonly string[];
+}
+
+export interface FichierMers {
+  v: number;
+  lieux: Record<string, FicheMerBrute>;
+}
+
+export interface FichierMersLangue {
+  v: number;
+  lieux: Record<string, { wp?: string }>;
+}
+
+/** La fiche d'une zone marine : ses chiffres ; sa sorte, sa mère et son océan viennent de mers.json (déjà là avec la couche). */
+export interface FicheMer {
+  /** Superficie en km², arrondie à trois chiffres ; source : hors de Wikidata. */
+  superficie?: { km2: number; source?: SourceMer };
+  /** Profondeur maximale en m. */
+  profondeur?: { m: number; source?: SourceMer };
+  /** Les pays riverains (ids de pays.json) ; vide pour un océan et la mer des Sargasses. */
+  riverains: readonly string[];
+  /** Titre de l'article de la Wikipédia de la langue, ou null. */
+  wp: string | null;
+}
+
+export type DonneesFichesMers = ReadonlyMap<string, FicheMer>;
+
+/** Les deux fichiers des mers assemblés ; lève sur une autre version du format. */
+export function lireFichesMers(m: FichierMers, fr: FichierMersLangue): DonneesFichesMers {
+  if (m.v !== VERSION_FICHES || fr.v !== VERSION_FICHES) throw new Error(`fiches-mers : version ${m.v} / ${fr.v}, attendue ${VERSION_FICHES}`);
+  const res = new Map<string, FicheMer>();
+  for (const [id, b] of Object.entries(m.lieux)) {
+    const f: FicheMer = { riverains: b.r ?? [], wp: fr.lieux[id]?.wp ?? null };
+    if (b.sup !== undefined) f.superficie = { km2: b.sup, ...(b.ss ? { source: b.ss } : {}) };
+    if (b.p !== undefined) f.profondeur = { m: b.p, ...(b.ps ? { source: b.ps } : {}) };
+    res.set(id, f);
+  }
+  return res;
+}
+
+let mersLues: DonneesFichesMers | null = null;
+let mersEnCours: Promise<DonneesFichesMers> | null = null;
+
+/**
+ * Les fiches des mers, lues une fois, au premier toucher en mer (avec la couche légère, § 6.1) ;
+ * un échec n'est pas gardé : le toucher suivant réessaie. `lire` : les tests.
+ */
+export function chargerFichesMers(lire: Lecteur = lireHttp, base = '/geo/'): Promise<DonneesFichesMers> {
+  if (mersLues) return Promise.resolve(mersLues);
+  if (!mersEnCours) {
+    const p = Promise.all([lire(`${base}fiches-mers.json`), lire(`${base}fiches-mers.fr.json`)]).then(([m, fr]) => {
+      mersLues = lireFichesMers(m as FichierMers, fr as FichierMersLangue);
+      return mersLues;
+    });
+    mersEnCours = p;
+    p.then(
+      () => (mersEnCours = null),
+      () => (mersEnCours = null),
+    );
+  }
+  return mersEnCours;
+}
+
+/** Les fiches des mers si elles sont déjà lues (sans réseau), null sinon. */
+export const fichesMersChargees = (): DonneesFichesMers | null => mersLues;
+
+/** Tests : oublie les fiches des mers lues. */
+export function oublierFichesMers(): void {
+  mersLues = null;
+  mersEnCours = null;
 }
