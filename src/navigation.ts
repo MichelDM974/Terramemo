@@ -117,6 +117,10 @@ export interface Navigation<V extends VueNavigable> {
   quitterFiches(): void;
   /** La fiche de l'entrée affichée, ou null. */
   fiche(): EntreeFiche | null;
+  /** L'adresse affichée telle que la pile la garde (« toucher », « jouer/entrainement »), null avant le premier router(). */
+  adresse(): string | null;
+  /** Un history.go() de remonter(), retour() ou quitterFiches() est-il parti, pas encore arrivé ? */
+  enRoute(): boolean;
 }
 
 /**
@@ -353,5 +357,51 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
     pousserFiche,
     quitterFiches,
     fiche: () => etatHistorique()?.fiche ?? null,
+    adresse: () => adresseRendue,
+    enRoute: () => traversee !== null || enQuittant,
+  };
+}
+
+/**
+ * Le chemin d'une erreur d'un bilan à la fiche de son lieu, et retour (#34,
+ * lot F6, étude § 4.6 et § 19) : la colle de main.ts, ici pour être testée
+ * avec la vraie navigation (tests/fiche-partie.test.ts).
+ */
+export interface CheminBilan {
+  /**
+   * La fiche du lieu juste d'une erreur : l'adresse du bilan retenue, la carte
+   * (une entrée), puis le lieu et sa fiche (ouvrirFiche, une entrée de plus).
+   * false, sans rien faire, pendant une partie (autorisee, § 4.8).
+   */
+  ouvrir(terrain: string, id: string): boolean;
+  /**
+   * « ‹ Retour au bilan » (et Échap) : à l'adresse du bilan, en remontant
+   * l'historique (toutes les entrées de fiche et celle de la carte d'un coup).
+   * Pas retour() : après un détour par une vue de passage (Crédits, 🏆) et son
+   * « Retour », la vue d'avant serait la carte elle-même. Rien tant qu'un go()
+   * est en route : un double toucher ne remonte pas au-delà du bilan.
+   */
+  retour(): void;
+}
+
+export function cheminBilan(
+  nav: Pick<Navigation<VueNavigable>, 'adresse' | 'pousser' | 'remonter' | 'retour' | 'enRoute'>,
+  o: { autorisee(): boolean; ouvrirFiche(terrain: string, id: string): void },
+): CheminBilan {
+  /** L'adresse du bilan d'où la dernière fiche est partie, telle que la pile la garde (nav.adresse()). */
+  let adresse: string | null = null;
+  return {
+    ouvrir(terrain, id) {
+      if (!o.autorisee()) return false;
+      adresse = nav.adresse();
+      nav.pousser('carte');
+      o.ouvrirFiche(terrain, id);
+      return true;
+    },
+    retour() {
+      if (nav.enRoute()) return;
+      if (adresse) nav.remonter(adresse);
+      else nav.retour();
+    },
   };
 }

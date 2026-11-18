@@ -11,7 +11,7 @@ import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/m
 import type { Pays } from '../src/map/types';
 import { BARRES_PARTIE, barrePartieVisible, type ContexteVue } from '../src/vues/commun';
 import { vueEssai } from '../src/vues/essai';
-import { creerNavigation, type VueNavigable } from '../src/navigation';
+import { cheminBilan, creerNavigation, type VueNavigable } from '../src/navigation';
 import { versAncre } from '../src/vues/arbre';
 import { vueExplorer } from '../src/vues/explorer';
 import { textesFiche } from '../src/vues/textes-fiche';
@@ -236,7 +236,12 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
     installerDom();
     installerStockage();
   });
-  afterEach(() => vi.unstubAllGlobals());
+  // Le focus rendu à la ligne repasse deux images plus tard (rendreFocusLigne) : ses requestAnimationFrame finis
+  // avant que les globales factices ne tombent (sinon « requestAnimationFrame is not defined » sous charge).
+  afterEach(async () => {
+    await new Promise((r) => setTimeout(r, 50));
+    vi.unstubAllGlobals();
+  });
 
   const tenir = () => new Promise((r) => setTimeout(r, 0));
   const pays = lire<Pays[]>('pays.json');
@@ -280,7 +285,8 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
     let nav!: ReturnType<typeof creerNavigation<VueNavigable>>;
     let explorer!: ReturnType<typeof vueExplorer>;
     const ouvertes: string[] = [];
-    let adresseBilan = '';
+    // La colle de main.ts (navigation.ts : cheminBilan), avec la vraie navigation : l'adresse du bilan lue à la pile.
+    let chemin!: ReturnType<typeof cheminBilan>;
     const ctx = {
       carte: monde.carte,
       donnees,
@@ -292,14 +298,9 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
         charger: (n: string) => (n === 'reunion' ? ((ileChargee = true), Promise.resolve(ile)) : Promise.reject(new Error(n))),
       },
       mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
-      // Comme main.ts (ficheDepuisBilan) : jamais pendant une partie, l'adresse du bilan retenue, la carte (une entrée),
-      // puis le lieu et sa fiche.
       ouvrirFiche: (t: string, id: string) => {
         ouvertes.push(`${t}:${id}`);
-        if (!autorisee()) return;
-        adresseBilan = h.ancre.replace(/^#/, '');
-        nav.pousser('carte');
-        explorer.ouvrirFiche(t as never, id);
+        return chemin.ouvrir(t, id);
       },
     } as unknown as ContexteVue;
     const essai = vueEssai(ctx, { versJouer: () => undefined, versCarte: () => nav.remonter('carte') });
@@ -320,8 +321,7 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
         module: () => import('../src/vues/fiche'),
         historique: { pousser: (l) => nav.pousserFiche(l), quitter: () => nav.quitterFiches(), retour: retourNavigateur },
         autorisee,
-        // Comme main.ts : l'adresse du bilan, en remontant l'historique.
-        retourBilan: () => nav.remonter(adresseBilan),
+        retourBilan: () => chemin.retour(),
       },
     });
     const classement = { activer() {}, desactiver() {} };
@@ -343,6 +343,7 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
       annoncer: () => undefined,
       canonique: (c) => c,
     });
+    chemin = cheminBilan(nav, { autorisee, ouvrirFiche: (t, id) => explorer.ouvrirFiche(t as never, id) });
     /** Les go() demandés, chacun une traversée (deux router()). */
     const traverser = () => {
       for (let n = h.attente.shift(); n !== undefined; n = h.attente.shift()) {
@@ -547,5 +548,20 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
     expect(v.ici()).toBe('toucher');
     expect(v.el('#barre-essai')!.hidden).toBe(false);
     expect(v.nav.fiche()).toBeNull();
+  });
+
+  it('« ‹ Retour au bilan » touché deux fois avant l’arrivée (double toucher, Échap répété) : un seul go(), jamais au-delà du bilan', async () => {
+    const v = brancher();
+    v.trouver('monde', ['FRA']);
+    const avant = v.h.i;
+    v.lignes()[0]!.click();
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    (v.avant() as El).click();
+    (v.avant() as El).click();
+    expect(v.h.attente).toEqual([-2]);
+    v.traverser();
+    expect(v.ici()).toBe('toucher');
+    expect(v.h.i).toBe(avant);
+    expect(v.bilan().hidden).toBe(false);
   });
 });

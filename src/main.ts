@@ -23,7 +23,7 @@ import { idAppareil } from './journal/appareil';
 import { depotIndexedDb } from './journal/depot';
 import { horlogeAppareil, horlogeDecalee, lireDecalage } from './journal/horloge';
 import { ouvrirMemoire } from './journal/memoire';
-import { creerNavigation } from './navigation';
+import { cheminBilan, creerNavigation } from './navigation';
 import { brancherRetourAndroid, dansApk } from './retour-android';
 import { brancherZoom } from './zoom-carte';
 import { comptesVisibles, poserDrapeaux, synchroCoupee } from './sync/drapeaux';
@@ -790,25 +790,17 @@ async function demarrer(): Promise<void> {
     historique: { pousser: nav.pousserFiche, quitter: nav.quitterFiches, retour: () => history.back() },
     autorisee: ficheAutorisee,
     reglagesOuverts: () => document.getElementById('settings-popup')?.hidden === false,
-    // « ‹ Retour au bilan » (lot F6) : l'adresse du bilan, en remontant l'historique (toutes les entrées de fiche et
-    // celle de la carte d'un coup). Pas nav.retour() : après un détour par une vue de passage (Crédits, ouverts par
-    // le pied de la fiche, puis « Retour »), la vue d'avant serait la carte elle-même, et rien ne se passerait.
-    retourBilan: () => (adresseBilan ? nav.remonter(adresseBilan) : nav.retour()),
+    // « ‹ Retour au bilan » (lot F6) : l'adresse du bilan, en remontant l'historique (navigation.ts : cheminBilan).
+    retourBilan: () => versBilan.retour(),
   };
-  /** L'adresse du bilan d'où la dernière fiche est partie (« toucher », « chrono », « quiz ») : celle de « ‹ Retour au bilan ». */
-  let adresseBilan: string | null = null;
   /**
-   * La fiche du lieu juste d'une erreur d'un bilan (#34, lot F6, § 4.6) : le chemin de la recherche, la carte
-   * (une entrée), le lieu montré, puis sa fiche (une entrée de plus). La vue de la partie garde son bilan
-   * (bilanAuRetour) et le rend à nav.retour(), sur son terrain. Jamais pendant une partie (§ 4.8, garde 4) : les
-   * lignes touchables n'existent que dans un bilan, c'est une ceinture en plus.
+   * La fiche du lieu juste d'une erreur d'un bilan (#34, lot F6, § 4.6) : la carte (une entrée), le lieu montré,
+   * puis sa fiche (une entrée de plus). La vue de la partie garde son bilan (bilanAuRetour) et le rend au retour,
+   * sur son terrain. Jamais pendant une partie (§ 4.8, garde 4) : une partie de Toucher en suspens refuse, et la
+   * ligne le dit (ligneFiche).
    */
-  const ficheDepuisBilan = (t: NomTerrain, id: string): void => {
-    if (!ficheAutorisee()) return;
-    adresseBilan = depuisAncre(location.hash).join('/') || null;
-    nav.pousser('carte');
-    explorer?.ouvrirFiche(t, id);
-  };
+  const versBilan = cheminBilan(nav, { autorisee: ficheAutorisee, ouvrirFiche: (t, id) => explorer?.ouvrirFiche(t as NomTerrain, id) });
+  const ficheDepuisBilan = (t: NomTerrain, id: string): boolean => versBilan.ouvrir(t, id);
   // ?teintes=demo et ?mers=demo gardent leurs teintes partout : l'accueil n'y pose pas celles de la mémoire.
   explorer = vueExplorer(ctx, teintesDemoDemandees || mersDemoDemandees ? { fiche } : { memoire: carteMemoire(memoire, () => carteMemoireActive, { stockage }), fiche });
   // Les communes (Apprendre sous La Réunion, leurs révisions) : les données de l'île une fois chargée.

@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Pays } from '../src/map/types';
-import { creerNavigation, type EntreeFiche, type Historique, type Navigation, type VueNavigable } from '../src/navigation';
+import { cheminBilan, creerNavigation, type EntreeFiche, type Historique, type Navigation, type VueNavigable } from '../src/navigation';
 import { surRetour } from '../src/retour-android';
 import { adresse, creerArbre, depuisAncre, versAncre } from '../src/vues/arbre';
 import { installerDom, installerStockage, El } from './dom-factice';
@@ -709,27 +709,29 @@ describe('navigation : les fiches des lieux dans l’historique', () => {
     const bilan = () => m.zone.querySelector('#essai-bilan')!;
     expect(bilan().hidden).toBe(false);
     const auBilan = m.h.i;
-    m.faire(() => m.nav.pousser('carte'));
-    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA', bilan: true }));
+    // La colle de main.ts (cheminBilan) : la carte, puis la fiche marquée « bilan » (explorer.ouvrirFiche).
+    const chemin = cheminBilan(m.nav, { autorisee: () => true, ouvrirFiche: (terrain, id) => m.nav.pousserFiche({ terrain, id, bilan: true }) });
+    m.faire(() => expect(chemin.ouvrir('monde', 'FRA')).toBe(true));
     expect(bilan().hidden).toBe(true);
     expect(m.nav.fiche()).toEqual({ terrain: 'monde', id: 'FRA', rang: 1, bilan: true });
-    return { m, bilan, auBilan };
+    return { m, bilan, auBilan, chemin };
   }
 
-  // « ‹ Retour au bilan » : main.ts remonte à l'adresse du bilan (remonter), comme la « × » remonte à la carte.
+  // « ‹ Retour au bilan » : cheminBilan remonte à l'adresse du bilan (remonter), comme la « × » remonte à la carte.
   it('depuis un bilan : « Retour au bilan » (remonter vers le bilan) rend le bilan, même après deux voisins (la pile compte les entrées de fiche)', () => {
     // Sur la première fiche : la carte et la fiche remontées d'un coup.
     {
-      const { m, bilan, auBilan } = depuisUnBilan();
+      const { m, bilan, auBilan, chemin } = depuisUnBilan();
       const gos = m.h.gos.length;
-      m.faire(() => m.nav.remonter('toucher'));
+      m.faire(() => chemin.retour());
       expect(m.h.gos.slice(gos)).toEqual([-2]);
       expect(m.h.i).toBe(auBilan);
       expect(m.ici()).toBe('toucher');
       expect(bilan().hidden).toBe(false);
       expect(m.nav.fiche()).toBeNull();
     }
-    // Après deux voisins (le voisin ne porte pas la marque) : toujours le bilan, en une seule remontée.
+    // Après deux voisins (le voisin ne porte pas la marque) : toujours le bilan, en une seule remontée (remonter : la
+    // fiche ne le demande qu'au rang 1, mais la pile compte les entrées de fiche).
     const { m, bilan, auBilan } = depuisUnBilan();
     m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
     m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'PRT' }));
@@ -766,20 +768,83 @@ describe('navigation : les fiches des lieux dans l’historique', () => {
     expect(bilan().hidden).toBe(false);
   });
 
-  it('depuis un bilan, au-delà de PILE_MAX voisins (45) : « Retour au bilan » rend quand même le bilan (la pile tronquée : à la place de l’entrée affichée)', () => {
-    const { m, bilan } = depuisUnBilan();
+  it('depuis un bilan, au-delà de PILE_MAX voisins (45) : les « ‹ » (retours) jusqu’à la première fiche, puis « Retour au bilan » rend le bilan d’une seule remontée', () => {
+    // C'est le chemin de l'interface : « ‹ » fait history.back() dès le rang 2, seul le rang 1 dit « Retour au bilan ».
+    const { m, bilan, auBilan, chemin } = depuisUnBilan();
     for (let k = 0; k < 45; k++) m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: `P${k}` }));
     expect(m.ficheMontree()).toBe('P44:46');
+    for (let k = 0; k < 45; k++) m.retourNavigateur();
+    expect(m.ficheMontree()).toBe('FRA:1');
+    expect(m.nav.fiche()?.bilan).toBe(true);
+    const gos = m.h.gos.length;
+    m.faire(() => chemin.retour());
+    expect(m.h.gos.slice(gos)).toEqual([-2]);
+    expect(m.h.i).toBe(auBilan);
+    expect(m.ici()).toBe('toucher');
+    expect(bilan().hidden).toBe(false);
+  });
+
+  it('remonter vers une adresse sortie de la pile (au-delà de PILE_MAX) : à la place de l’entrée affichée, sans sa fiche (un rechargement n’y remonte rien)', () => {
+    // Le repli de navigation.ts, que l'interface n'atteint pas depuis un bilan (test d'avant) : appelé tel quel.
+    const { m, bilan } = depuisUnBilan();
+    for (let k = 0; k < 45; k++) m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: `P${k}` }));
     m.faire(() => m.nav.remonter('toucher'));
     expect(m.ici()).toBe('toucher');
     expect(bilan().hidden).toBe(false);
-    // L'entrée remplacée ne porte plus de fiche : une page rechargée sur elle reste où elle est (aucune remontée).
     expect(m.nav.fiche()).toBeNull();
     const i = m.h.i;
     const gos = m.h.gos.length;
     const m2 = monter({ historique: m.h });
     m2.faire(() => m2.nav.router());
     expect(m.h.gos.length).toBe(gos);
+    expect(m.h.i).toBe(i);
+  });
+
+  it('« Retour au bilan » touché deux fois avant l’arrivée de la remontée : un seul go(), le bilan, jamais au-delà', () => {
+    const { m, bilan, auBilan, chemin } = depuisUnBilan();
+    const gos = m.h.gos.length;
+    m.faire(() => {
+      chemin.retour();
+      chemin.retour();
+    });
+    expect(m.h.gos.slice(gos)).toEqual([-2]);
+    expect(m.h.i).toBe(auBilan);
+    expect(m.ici()).toBe('toucher');
+    expect(bilan().hidden).toBe(false);
+    // Arrivé : un « Retour au bilan » suivant (une fiche rouverte) repart.
+    m.faire(() => expect(chemin.ouvrir('monde', 'ESP')).toBe(true));
+    m.faire(() => chemin.retour());
+    expect(m.h.gos.slice(gos)).toEqual([-2, -2]);
+    expect(m.ici()).toBe('toucher');
+  });
+
+  it('l’adresse du bilan est celle que la pile garde : une ancre à segment de trop (#toucher/x, tapée) remonte quand même l’historique', () => {
+    const { m, auBilan, chemin } = (() => {
+      const m = monter();
+      m.lien('classement');
+      m.lien('carte');
+      m.lancerToucher();
+      (m.zone.querySelector('#essai-terminer') as El).click();
+      // L'ancre affichée porte un segment que la vue de Toucher n'a pas (la pile garde « toucher »).
+      m.h.entrees[m.h.i]!.ancre = versAncre('toucher/x');
+      const auBilan = m.h.i;
+      const chemin = cheminBilan(m.nav, { autorisee: () => true, ouvrirFiche: (terrain, id) => m.nav.pousserFiche({ terrain, id, bilan: true }) });
+      m.faire(() => chemin.ouvrir('monde', 'FRA'));
+      return { m, auBilan, chemin };
+    })();
+    const gos = m.h.gos.length;
+    m.faire(() => chemin.retour());
+    expect(m.h.gos.slice(gos)).toEqual([-2]);
+    expect(m.h.i).toBe(auBilan);
+  });
+
+  it('pendant une partie (autorisee faux) : ouvrir rend false, sans entrée ni fiche', () => {
+    const m = monter();
+    m.lien('classement');
+    m.lien('carte');
+    const i = m.h.i;
+    const chemin = cheminBilan(m.nav, { autorisee: () => false, ouvrirFiche: () => expect.fail('pas de fiche') });
+    expect(chemin.ouvrir('monde', 'FRA')).toBe(false);
     expect(m.h.i).toBe(i);
   });
 
