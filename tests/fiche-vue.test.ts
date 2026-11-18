@@ -1378,8 +1378,18 @@ describe('la carte de situation en tête de la fiche (lot F8, D61 b)', () => {
       const p = v.place();
       const s = v.svg()!;
       const d = (c: string) => s.querySelector(`.${c}`)?.getAttribute('d') ?? '';
-      return { region: p.dataset.region, monde: p.classList.contains('situation-monde'), lieu: d('situation-lieu').length, eau: d('situation-eau').length, fond: d('vignette-fond').length, anneau: !!s.querySelector('.situation-anneau') };
+      return {
+        region: p.dataset.region,
+        monde: p.classList.contains('situation-monde'),
+        lieu: d('situation-lieu').length,
+        eau: d('situation-eau').length,
+        fond: d('vignette-fond').length,
+        anneau: !!s.querySelector('.situation-anneau'),
+        eclaire: p.dataset.eclaire,
+      };
     };
+    // Le lieu éclairé est bien le sien (sa forme, pas celle d'un voisin) : chaque pays, territoire ou zone.
+    for (const id of ['FRA', 'RUS', 'VAT', 'GRL', 'SHN', 'FLK', 'PYF', 'NE_SPI', 'ESH', 'TWN', 'EGY', 'ATA']) expect(voir(composer(id)).eclaire, id).toBe(id);
     // Un pays dans sa région ; la Russie (son point en Sibérie) : le monde.
     expect(voir(composer('FRA'))).toMatchObject({ region: 'continent:Europe', monde: false, anneau: false });
     expect(voir(composer('RUS'))).toMatchObject({ region: 'monde:0', monde: true, anneau: false });
@@ -1408,12 +1418,16 @@ describe('la carte de situation en tête de la fiche (lot F8, D61 b)', () => {
     expect(medit).toMatchObject({ region: 'mer:medit', monde: false, lieu: 0, anneau: false });
     expect(medit.eau).toBeGreaterThan(100);
     expect(medit.fond).toBeGreaterThan(1000);
-    expect(voir(modele('monde', 'azov', 'mer', 'mer d’Azov'))).toMatchObject({ region: 'mer:azov', anneau: false });
-    expect(voir(modele('monde', 'atlant', 'mer', 'océan Atlantique'))).toMatchObject({ region: 'monde:0', monde: true });
-    expect(voir(modele('monde', 'pacif', 'mer', 'océan Pacifique'))).toMatchObject({ region: 'monde:150', monde: true });
+    expect(medit.eclaire).toBe('medit');
+    expect(voir(modele('monde', 'azov', 'mer', 'mer d’Azov'))).toMatchObject({ region: 'mer:azov', anneau: false, eclaire: 'azov' });
+    // L'Atlantique éclairé avec la mer des Sargasses, enclavée dans lui (zonesAllumees), comme sur la carte.
+    const atlantique = voir(modele('monde', 'atlant', 'mer', 'océan Atlantique'));
+    expect(atlantique).toMatchObject({ region: 'monde:0', monde: true, lieu: 0 });
+    expect(atlantique.eclaire!.split(' ').sort()).toEqual(['atlant', 'sargasse']);
+    expect(voir(modele('monde', 'pacif', 'mer', 'océan Pacifique'))).toMatchObject({ region: 'monde:150', monde: true, eclaire: 'pacif' });
     // Une commune : l'île entière, la commune éclairée parmi les autres.
     const sp = voir(modele('reunion', '97416', 'commune', 'Saint-Pierre'));
-    expect(sp).toMatchObject({ region: 'ile', monde: false, anneau: false });
+    expect(sp).toMatchObject({ region: 'ile', monde: false, anneau: false, eclaire: '97416' });
     expect(sp.lieu).toBeGreaterThan(50);
     expect(sp.fond).toBeGreaterThan(sp.lieu);
   });

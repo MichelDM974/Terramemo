@@ -136,6 +136,8 @@ interface Plan {
   fond: string;
   lieu: string;
   anneau: [number, number, number] | null;
+  /** Les formes éclairées (leurs id) : dites en data-eclaire, pour le pilote et les tests (le bon lieu, l'océan et ses mers enclavées). */
+  eclaire: string;
 }
 
 const polygones = (f: Forme): Position[][][] => {
@@ -318,6 +320,7 @@ function poser(place: HTMLElement, p: Plan): void {
   place.classList.toggle('situation-monde', p.monde);
   place.dataset.etat = 'prete';
   place.dataset.region = p.region;
+  place.dataset.eclaire = p.eclaire;
   if (p.anneau) place.dataset.anneau = '';
   place.replaceChildren(svg);
 }
@@ -489,6 +492,7 @@ export function creerSituation(source: SourceSituation): Situation {
       fond: (f.texte ??= f.trace.d.join('')),
       lieu: l.eau ? '' : d,
       anneau: petit && pt ? [pt[0], pt[1], RAYON_ANNEAU * w] : null,
+      eclaire: l.formes.map((x) => x.properties.id).join(' '),
     };
   }
 
