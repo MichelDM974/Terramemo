@@ -2872,3 +2872,26 @@ Relevés par le codeur du lot F4 (branche `fiche-lieu`, 18/11). Tableau à relir
   toucher), la Méditerranée (capture 158), son océan touché dans la fiche (capture 159), « ‹ »,
   l'Adriatique et sa mère, la mer des Sargasses.
 
+
+Relecture du lot F4 (18/11) :
+- **Océans** : la page archivée de la NOAA, relue, dit que l'Atlantique (85 133 000 km²) **compte** la
+  Méditerranée et la Baltique (Nord 41 490 000 + Sud 40 270 000 + 2 967 000 + 406 000), et non
+  « comptées à part » ; et que le Pacifique (161 760 000, Nord + Sud) laisse à part la mer de Chine
+  méridionale (6 963 000), que la carte range dans le Pacifique. Retenu : 168 723 000 km² (« environ
+  169 millions »), comme l'Atlantique de la même table et la Wikipédia en anglais (« Ocean ») ; à
+  relire (162 ou 169 millions). Les quatre autres océans sont égaux à la page.
+- **Riverains** : une ligne « retire » d'une sous-mer ne retire plus de la mère un riverain qu'une
+  autre partie de la mère donne (par son tracé, Wikidata ou un ajout) : retirer la Grèce de
+  l'Adriatique l'aurait retirée de la Méditerranée. Le tableau le dit (« gardé ici, riverain par … ») ;
+  un test le fige sur des zones factices. Aucune liste servie ne change : Saint-Marin n'est donné
+  que par l'Adriatique.
+- Les fiches des mers sont demandées après la mesure du toucher (§ 6.1), et non dedans.
+- Tableau : Taïwan y porte « paquet optionnel », comme dans la fiche ; un test compte les lignes de
+  chaque section (45, 50, 50).
+- Vérifiés contre leur source : les cinq océans (NOAA), la mer Rouge, la mer d'Arabie et le golfe
+  d'Oman (Wikipédia en anglais, révisions citées), la mer d'Irlande (Wikipédia en français) ; les
+  valeurs servies des 50 zones relues à l'œil contre les ordres de grandeur connus.
+- Restent à l'utilisateur, en plus des tableaux : la Grèce riveraine de l'Adriatique (par le tracé
+  seul : Othonoi et le nord de Corfou, au bord de la limite de l'OHI ; la Wikipédia ne la cite pas) ;
+  la sorte « golfe intérieur » du golfe Persique (`interieure` de `mers.json`), peu usitée ;
+  la mer Caspienne, sans ligne d'océan ni de faits dans sa barre.

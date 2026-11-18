@@ -799,9 +799,10 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
    * fine, seule dessinée, est posée sur la carte au premier toucher en mer
    * (une fois), et la mer s'allume à son arrivée ; le nom n'attend pas (la
    * légère, plus petite, le donne d'abord). Un autre toucher ou une sortie
-   * avant l'arrivée : rien.
+   * avant l'arrivée : rien. Rend vrai si le point touché est sur le globe (de
+   * l'eau) : les fiches des mers sont alors demandées, après la mesure du toucher.
    */
-  function nommerMer(x: number, y: number): void {
+  function nommerMer(x: number, y: number): boolean {
     const c0 = t.carte.contexte();
     const ll = versLonLat(c0.proj, c0.t, x, y);
     const posees = mersPosees(ctx.donnees);
@@ -816,8 +817,6 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       return pickMer({ ...c, mers }, '', sx, sy, new Set());
     };
     const encore = () => j === jeton && k === touches && active;
-    // Les fiches des mers, avec la couche légère (§ 6.1, lot F4) : la barre de la mer a ses faits à leur arrivée.
-    if (ll) demanderFichesMers();
     if (ll && !posees.length) {
       poserMers(ctx)?.then(
         () => {
@@ -827,7 +826,10 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         () => undefined,
       );
     }
-    if (!ll || deja) return afficherMer(ll && deja ? pickMer({ ...c0, mers: deja }, '', x, y, new Set()) : null);
+    if (!ll || deja) {
+      afficherMer(ll && deja ? pickMer({ ...c0, mers: deja }, '', x, y, new Set()) : null);
+      return !!ll;
+    }
     afficherMer(null);
     chargerMersLegeres().then(
       (couche) => {
@@ -836,6 +838,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       },
       () => undefined,
     );
+    return true;
   }
 
   monde.addEventListener('click', () => {
@@ -932,13 +935,14 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       const carte = t.carte;
       // Un nouveau toucher : le nom d'une mer encore en chargement pour le précédent ne s'affichera pas.
       touches++;
+      let eau = false;
       ctx.mesures.toucher(ev, x, y, () => {
         const r = carte.pick(x, y);
         carte.effacerMarques();
         if (r) {
           carte.marquer(r.id, 'choisi');
           afficher(r.id, r.via);
-        } else if (t === ctx.terrains.monde) nommerMer(x, y);
+        } else if (t === ctx.terrains.monde) eau = nommerMer(x, y);
         else {
           nom.textContent = C.mer;
           detail.textContent = '';
@@ -948,6 +952,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       });
       // Les données de la fiche, après la réponse au toucher (sa mesure fermée) : au premier toucher d'un lieu (§ 6.1).
       poserFaits(true);
+      // L'eau du monde (lot F4) : les fiches des mers, avec la couche légère, la mer peut-être pas encore nommée.
+      if (eau) demanderFichesMers();
     },
   };
 }
