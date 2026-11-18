@@ -3176,3 +3176,117 @@ séance du J1a a pris la grappe du jour), la séance est sautée et Maurice sert
 **Restent à l'utilisateur** : « Retenir ce lieu » offert dans tous les états « pas aujourd'hui », et non seulement
 « grappe du jour faite » (à confirmer) ; les libellés (« Retenir ce lieu », « Sa région sera ta prochaine grappe. »,
 « océans ou mers voisins ») sur les captures 170 à 176.
+
+## 21. Écarts du code au lot F8
+
+Relevés par le codeur du lot F8 (branche `fiche-lieu`, 18/11). D61 b actée : « Une carte de situation en tête de
+fiche montre où est le lieu ».
+
+**Morceau principal** (tailles lues dans la sortie de `npm run build`) :
+
+| | Morceau principal | gzip | Morceau de la fiche | gzip |
+|---|---|---|---|---|
+| avant le lot (d69dd87) | 497,45 Ko | 172,03 Ko | 20,74 Ko | 7,77 Ko |
+| après F8 | 497,78 Ko | 172,15 Ko | 28,19 Ko | 10,83 Ko |
+
+- La carte de situation est un module à part, `src/vues/situation.ts`, importé par `vues/fiche.ts` seul (il part avec
+  le morceau de la fiche ; `tests/morceau-principal.test.ts` le compte parmi les modules des fiches). Le § 8 la
+  mettait dans `vues/vignettes.ts` : ce fichier est au morceau principal (Jouer). Il n'y gagne que des exports, sans
+  code de plus : la simplification (`simplifier`, sa tolérance et son aire devenues des paramètres), le tracé
+  (`tracer`, sorti de `creerVignettes`), le cadrage d'une région (`cadrerPays`, `cadrerPoints`, `proche`, sortis de
+  `region()`, qui les emploie). Les vignettes de Jouer ne changent pas (`jouer.test.ts`).
+- `explorer.ts` passe à `creerFeuille` ce que la carte lit déjà en mémoire (`ctx.donnees`, l'île si elle est
+  chargée) ; la couche des mers vient de `mersPourNommer()` (la fine ou la légère, celle que la carte a lue).
+  **Marge : 2,22 Ko.** Le § 19 et le § 20 disent ce qui pourrait encore sortir.
+
+**La place** :
+- Dans la tête, après « × » et « ‹ », avant le drapeau : un `div.fiche-situation` de **96 × 64** (3:2 ; 120 × 80
+  au-delà de 700 px) qui flotte à droite, à côté de « × », posé avec la tête, vide (`data-etat="attente"`) : la tête
+  ne saute pas quand la carte arrive. Aussi haute que la rangée du drapeau (6 + 48 + 10 px) : le nom passe dessous
+  sur toute la largeur, la tête d'un pays garde sa hauteur. Sans drapeau (mer, commune, zone, Antarctique, territoire
+  sans code ISO), le nom coule à sa gauche : la tête fait au moins 64 px (elle en faisait ≈ 44 à 54).
+- À 384 px, la largeur de la rangée du drapeau entre « ‹ Bilan » (≈ 76 px), la carte (96 + 8) et « × » (44) est de
+  ≈ 112 px : un drapeau y tient ; deux passent à la ligne (`flex-wrap`), sans déborder. À vérifier au pilote.
+- Couleurs de la carte (tokens) : la mer `--mer`, les terres `--terre` et leurs frontières `--frontiere` (les classes
+  des vignettes), le lieu `--accent` (comme `.pays.choisi` sur la carte), une mer éclairée `--mer-choisie`, l'anneau
+  `--accent` ; le monde entier : son ovale sur `--panel-2`. Une bordure `--border`, des coins de 8 px.
+- **Décorative pour le lecteur d'écran** (`aria-hidden` sur la place et le SVG) : elle ne dit rien que la fiche ne
+  dise déjà par écrit (la ligne Continent d'un pays, d'un territoire, d'une zone, de l'Antarctique ; l'océan et la
+  mère d'une mer ; l'intercommunalité d'une commune), et un nom « Où est {nom} » ne dirait pas où (ni l'accord :
+  « Où est les Comores »).
+
+**Le calcul** :
+- Il part après l'animation d'ouverture (`animationend`, ou 400 ms au plus tard : `SITUATION_APRES_MS`), tout de
+  suite quand la feuille ne monte pas (un voisin, un retour, le mouvement réduit), puis en **temps libre**
+  (`requestIdleCallback`, délai 1 s ; à défaut `setTimeout`), par tranches : des pas tant que l'échéance du
+  navigateur le permet, un au moins (6 ms sans échéance). Un pas trace au plus **400 points** d'entrée (`MORCEAU` ;
+  un polygone plus grand, seul : la Russie, 5 482 points). Les points sont éclaircis avant la projection
+  (`decimer` : sans trigonométrie, à la moitié de la tolérance) : un point projeté coûte ≈ 0,75 µs sur le PC, à
+  chaud (mesuré par un banc jetable, 124 924 points en ≈ 92 ms).
+- La simplification suit la largeur de la boîte : 0,6 px, îlots de moins de 0,3 px² retirés (le lieu éclairé : la
+  moitié, aucun îlot retiré). Tracé d'un fond : 11,5 Ko (Océanie) à 48,8 Ko (Asie), 36,6 Ko le monde, au lieu de 60
+  à 112 Ko avec les 2 unités fixes du premier jet.
+- **Gardée** : le fond d'une région (8 au plus) ; un autre lieu de la même région ne trace que lui (le Japon après la
+  Chine : moins d'un tiers des tranches, test). La carte d'un lieu (40 au plus) : la fiche rouverte, un retour, la
+  fiche refaite sur place (`rafraichir`) la montrent tout de suite, sans rien en temps libre. Fermée en plein calcul,
+  elle s'arrête ; le fond reprend où il en était.
+- Chaque tranche est datée en `performance.measure` « situation:region », « …:fond », « …:lieu », « …:pose » (et
+  leurs mélanges) : le pilote y rattache un gel.
+- Relevé sur le PC (vitest, script jetable, une tranche par pas) : les 258 lieux du monde l'un après l'autre, fonds
+  compris, 5 470 tranches, 559 ms en tout ; la plus longue 12,1 ms (au premier relevé, avant les cadres élargis :
+  21,6 ms, la toute première, code froid). **L'A37 reste à mesurer** (le pilote, scénario du § 6.4) : ≈ 6 à 10 fois
+  plus lent, une tranche de 400 points y fait quelques ms, les premières (code froid) peuvent approcher un à-coup.
+
+**Chaque sorte de lieu** (relevé sur les 258 entités de `pays.json`) :
+- un pays, un territoire, une zone contestée : la région de son continent (les pays jouables du continent, le cadre
+  de la série de Jouer, élargi en 3:2), si son point y tombe (à 4 % des bords) et qu'il n'est pas plus grand qu'elle :
+  **246 lieux**, dont Sainte-Hélène et le Territoire britannique de l'océan Indien (dans la boîte élargie de
+  l'Afrique) ;
+- sinon ce cadre élargi au lieu, s'il y compte comme un pays de la série (`cadrerPays` : à moins de 4 fois la distance
+  médiane du centre) et y tombe, un fond à lui : **6 lieux** (Guam, les Mariannes du Nord, Pitcairn, la Polynésie
+  française et les îles Heard avec l'Océanie ; le champ de glace Sud de Patagonie, au bord sud du cadre de l'Amérique
+  du Sud). Au premier jet, ils allaient au monde, la Patagonie comprise ;
+- sinon le monde, centré sur l'Atlantique : **6 lieux** (la Russie, son point en Sibérie ; le Groenland, au nord du
+  cadre de l'Amérique du Nord ; les Terres australes françaises, les Malouines, la Géorgie du Sud ; l'Antarctique). Le
+  monde centré sur le Pacifique (au-delà de 120° de longitude) ne sert plus qu'au Pacifique ;
+- l'Antarctique : le monde (pas de région : aucun pays jouable) ;
+- un océan : le monde, centré sur le milieu de son emprise (le Pacifique sur le Pacifique ; son point, à 115° O,
+  l'aurait centré sur l'Atlantique), l'océan éclairé avec les mers qu'il allume sur la carte (`zonesAllumees` : la mer
+  des Sargasses avec l'Atlantique) ;
+- une mer : un cadre autour de son emprise, au moins 7° de latitude et 10° de longitude de chaque côté (la mer d'Azov
+  montre la mer Noire), l'eau éclairée sous les terres. Sa géométrie est celle de la couche déjà lue ; pas encore là
+  (une mer ouverte par un lien avant l'arrivée de la couche fine) : la place reste vide, un nouvel essai toutes les
+  500 ms, 20 fois au plus ;
+- une commune : l'île entière, la commune éclairée parmi les autres ; l'île pas encore là : de même.
+- **Un lieu micro, ou plus petit que 2,5 % de la largeur de la boîte** (≈ 2,4 px sur 96, sa plus grande partie,
+  d'après sa superficie : Equal Earth est équivalente) **gagne un anneau** de 7,5 % de la largeur, à son point :
+  134 lieux sur 258 (les 77 micro, et par exemple le Luxembourg, le Liban, le Rwanda, le Salvador, le Sahara
+  occidental) ; ni Saint-Pierre, ni la Méditerranée, ni la mer d'Azov (tests).
+
+**Tests** (`fiche-vue`, bloc « la carte de situation ») : la place dans la tête dès l'ouverture, vide, rien en temps
+libre pendant la montée ; la carte après `animationend`, ou `SITUATION_APRES_MS` sans lui, tout de suite sans
+montée ; gardée d'une fiche à l'autre (fond partagé, carte rouverte et refaite sans calcul) ; fermée en plein calcul,
+reprise sans refaire le fond ; le Canada en plusieurs pas ; chaque sorte (France, Russie, Vatican, Monaco, Maurice,
+Groenland, Sainte-Hélène, les Malouines, la Polynésie et la Patagonie (cadres élargis), le Sahara occidental, Taïwan,
+l'Égypte, l'Antarctique, la
+Méditerranée, Azov, l'Atlantique, le Pacifique, Saint-Pierre) ; l'anneau centré dans la boîte ; les données en
+retard ; la place posée par la vue. La mise en page (place, chevauchements) n'est vue qu'au pilote.
+
+**Ce que le pilote doit voir** (`driver.py fiche`, non lancé par le codeur ; en téléphone et `--width 1280`, puis
+le site en ligne, et `--cible chrome|webview` sur l'A37 pour le scénario) : `verifier_situation` à chaque fiche du
+parcours (le Japon, le Groenland, le Sahara occidental, l'Antarctique, la Méditerranée, l'Atlantique, Saint-Pierre,
+Le Tampon, la fiche ouverte depuis un bilan à côté de « ‹ Bilan ») : posée (`data-etat`, attendu, jamais une durée),
+96 × 64 ou 120 × 80, dans la tête et la feuille, sans chevaucher « × », « ‹ », le drapeau, les lignes du titre et du
+statut, ni débordement, la tête de même hauteur vide et posée, `aria-hidden`, sa région et son anneau ; le Japon
+(capture 177), Saint-Vincent-et-les-Grenadines, le titre le plus long, son drapeau et son anneau (178), la Russie
+dans le monde (179) ; les captures 153, 156 à 161 et 163 sont prises la carte posée. Le scénario de mesure se joue
+sur une page rechargée (rien de gardé, le pire cas), avec **dix voisins** (la France, le Brésil, l'Argentine, le
+Chili, la Bolivie, le Pérou, la Colombie, le Panamá, le Costa Rica, le Nicaragua : trois régions) ; il dit le nombre
+de gels ≥ 46 ms, dont ceux dus à la carte de situation, et la cause de chacun (les tranches « situation:… » qui le
+recouvrent, sinon le script le plus long des Long Animation Frames, sinon le rendu). Un gel dû à la carte est un
+DÉFAUT même sur le PC.
+
+**Restent à l'utilisateur** : la place (à droite, à côté de « × », 96 × 64) et le seuil de l'anneau (134 lieux sur
+258) sur les captures 177 à 179 ; la mesure sur l'A37. Non retenu : un cadre centré sur chaque lieu (un fond par
+lieu, rien de partagé, et un lieu isolé n'y montre que de l'eau) ; une vue polaire pour l'Antarctique ; un cadre
+élargi pour la Russie et le Groenland (le monde les montre mieux).
