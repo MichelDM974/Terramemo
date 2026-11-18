@@ -30,7 +30,13 @@
 //                      « Leurres de drapeaux au quiz » : un leurre « éloigné » du quiz facile
 //                      et moyen n'en a aucune avec le juste), chargées avec lui ;
 //   licences/flag-icons.txt  le LICENSE de flag-icons tel quel (MIT : l'avis et le texte
-//                      accompagnent toute copie), hors du dossier immuable.
+//                      accompagnent toute copie), hors du dossier immuable ;
+//   drapeaux-territoires/<sha8>.svg, drapeaux-territoires.json  les drapeaux des 40
+//                      territoires qui ont un code ISO (#34, lot F3 : la fiche d'un lieu,
+//                      étude fiche-lieu § 2.2), tirés de flag-icons de la même façon, dans un
+//                      dossier et un manifeste à part ({v: 1, territoires: {id: sha8}}) : les
+//                      exercices (drapeaux.json, sosies, quiz) n'en voient rien. Sans
+//                      correction ni sosie ; chargés à l'ouverture d'une fiche de territoire.
 // Sosies : portage de ressemblances3.py (relevé du 10/11, ~/Sauvegardes/terramemo/
 // j2-conception/drapeaux/scripts/) : le drapeau montré de chaque pays rendu par resvg-wasm
 // en 64 × 48 px sur fond blanc, réduit en grille de 16 × 12 (cases de 4 px), en CIELAB ;
@@ -130,7 +136,7 @@ const ATTRIBUTS = new Set([
   'aria-label', 'class', 'clip-path', 'color', 'cx', 'cy', 'd', 'fill', 'fill-opacity', 'fill-rule', 'font-family', 'font-size',
   'font-weight', 'fx', 'fy', 'gradientTransform', 'gradientUnits', 'height', 'id', 'letter-spacing', 'marker-mid', 'markerHeight',
   'markerWidth', 'offset', 'opacity', 'overflow', 'r', 'rx', 'ry', 'stop-color', 'stop-opacity', 'stroke', 'stroke-linecap',
-  'stroke-linejoin', 'stroke-miterlimit', 'stroke-opacity', 'stroke-width', 'style', 'text-anchor', 'transform', 'viewBox', 'width',
+  'stroke-dashoffset', 'stroke-linejoin', 'stroke-miterlimit', 'stroke-opacity', 'stroke-width', 'style', 'text-anchor', 'transform', 'viewBox', 'width',
   'word-spacing', 'x', 'x1', 'x2', 'xlink:href', 'xml:space', 'xmlns', 'xmlns:xlink', 'y', 'y1', 'y2',
 ]);
 const ESPACES = { xmlns: 'http://www.w3.org/2000/svg', 'xmlns:xlink': 'http://www.w3.org/1999/xlink' };
@@ -457,7 +463,8 @@ export async function manifeste(lignes, textes, main) {
 
 /**
  * Construit les fichiers servis. racine : la racine du dépôt. Rend { fichiers: {nom:
- * texte} (drapeaux.json, drapeaux-proches.json, licences/flag-icons.txt), svgs: {sha8: texte}, sources,
+ * texte} (drapeaux.json, drapeaux-proches.json, licences/flag-icons.txt,
+ * drapeaux-territoires.json), svgs: {sha8: texte}, svgsTerritoires: {sha8: texte}, sources,
  * entrees, notes } : sources et entrees vont dans public/geo/sources.json
  * (fusionnerPartie d'outils.mjs), notes s'affichent au build.
  */
@@ -468,7 +475,8 @@ export async function construireDrapeaux(racine) {
   const [mainBrut, scriptBrut, verrouBrut, paysBrut] = await Promise.all([CHEMINS.main, CHEMINS.script, CHEMINS.verrou, 'public/geo/pays.json'].map(lire));
   const main = JSON.parse(mainBrut.toString('utf8'));
   const verrou = JSON.parse(verrouBrut.toString('utf8'));
-  const pays = JSON.parse(paysBrut.toString('utf8')).filter((p) => p.statut === 'jouable' || p.statut === 'optionnel');
+  const entites = JSON.parse(paysBrut.toString('utf8'));
+  const pays = entites.filter((p) => p.statut === 'jouable' || p.statut === 'optionnel');
   const ids = new Set(pays.map((p) => p.id));
 
   // Sources brutes, vérifiées contre le verrou (build.mjs l'a déjà fait ; les tests aussi passent ici).
@@ -537,7 +545,20 @@ export async function construireDrapeaux(racine) {
     }
     lignes.push({ pays: p.id, d });
   }
+  // Les drapeaux des territoires (lot F3) : ceux qui ont un code ISO, tels que flag-icons les donne, à part.
+  const svgsTerritoires = new Map();
+  const territoires = {};
+  for (const p of entites.filter((e) => e.statut === 'territoire' && e.a2).sort((a, b) => parId(a.id, b.id))) {
+    const texte = deFlagIcons(p);
+    if (texte === null) continue;
+    for (const f of fautesSvg(texte)) faute(`${p.id} (territoire) : ${f}`);
+    const h = sha8(texte);
+    if (svgsTerritoires.has(h) && svgsTerritoires.get(h) !== texte) faute(`${p.id} (territoire) : empreinte ${h} déjà prise par un autre drapeau`);
+    svgsTerritoires.set(h, texte);
+    territoires[p.id] = h;
+  }
   if (fautes.length) throw new Error(`drapeaux :\n  ${fautes.join('\n  ')}`);
+  const texteTerritoires = `{"v":1,"territoires":{\n${Object.entries(territoires).map(([id, h]) => `${JSON.stringify(id)}:${JSON.stringify(h)}`).join(',\n')}\n}}\n`;
 
   const m = await manifeste(lignes, svgs, main);
   if (m.fautes.length) throw new Error(`drapeaux :\n  ${m.fautes.join('\n  ')}`);
@@ -551,10 +572,15 @@ export async function construireDrapeaux(racine) {
     fichiers: s.fichiers.map((f) => ({ url: f.url, sha256: verrou[s.cle].fichiers[f.chemin] })),
   }));
   const entrees = { [CHEMINS.script]: sha256(scriptBrut), [CHEMINS.main]: sha256(mainBrut) };
-  const notes = [`${lignes.length} pays, ${svgs.size} drapeaux, ${lignes.filter((l) => l.d.length > 1).length} pays à deux drapeaux justes`, ...m.notes];
+  const notes = [
+    `${lignes.length} pays, ${svgs.size} drapeaux, ${lignes.filter((l) => l.d.length > 1).length} pays à deux drapeaux justes`,
+    ...m.notes,
+    `territoires : ${Object.keys(territoires).length} drapeaux, ${svgsTerritoires.size} fichiers (drapeaux-territoires/, manifeste à part)`,
+  ];
   return {
-    fichiers: { 'drapeaux.json': m.texte, 'drapeaux-proches.json': m.proches, 'licences/flag-icons.txt': licence },
+    fichiers: { 'drapeaux.json': m.texte, 'drapeaux-proches.json': m.proches, 'licences/flag-icons.txt': licence, 'drapeaux-territoires.json': texteTerritoires },
     svgs: Object.fromEntries([...svgs].sort(([a], [b]) => parId(a, b))),
+    svgsTerritoires: Object.fromEntries([...svgsTerritoires].sort(([a], [b]) => parId(a, b))),
     sources,
     entrees,
     notes,

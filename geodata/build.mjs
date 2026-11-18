@@ -11,7 +11,8 @@
 //   capitales.json, capitales.fr.json  capitales des pays (geodata/capitales.mjs, étude J2 § 2.1),
 //                    tirées d'un extrait figé de Wikidata (npm run wikidata) et d'une table à la main
 //   drapeaux/<sha8>.svg, drapeaux.json, drapeaux-proches.json, licences/flag-icons.txt  drapeaux des pays
-//                    (geodata/drapeaux.mjs, étude J2 § 2.2), tirés de flag-icons et d'une table à la main
+//                    (geodata/drapeaux.mjs, étude J2 § 2.2), tirés de flag-icons et d'une table à la main ;
+//                    drapeaux-territoires/<sha8>.svg, drapeaux-territoires.json  ceux des territoires (#34, lot F3)
 //   mers.topo.json, mers-leger.topo.json, mers.json, mers.fr.json  océans et mers
 //                    (geodata/mers.mjs, étude J2 § 2.3), tirés de la couche marine de Natural
 //                    Earth et d'une table à la main ; témoin geodata/mers-affectations.json
@@ -482,19 +483,23 @@ async function drapeaux() {
   } catch (e) {
     echec(e.message);
   }
-  const dossier = join(SORTIE, 'drapeaux');
-  await mkdir(dossier, { recursive: true });
   await mkdir(join(SORTIE, 'licences'), { recursive: true });
-  const voulus = new Set(Object.keys(res.svgs).map((h) => `${h}.svg`));
-  for (const f of await readdir(dossier)) if (!voulus.has(f)) await rm(join(dossier, f));
-  let brut = 0;
-  let gz = 0;
-  for (const [h, texte] of Object.entries(res.svgs)) {
-    await writeFile(join(dossier, `${h}.svg`), texte);
-    brut += Buffer.byteLength(texte);
-    gz += gzipSync(texte).length;
+  // Les drapeaux des pays (drapeaux/) et ceux des territoires (drapeaux-territoires/, lot F3 de #34), chacun dans
+  // son dossier : un dossier ne garde que les fichiers de ce build.
+  for (const [nom, svgs] of [['drapeaux', res.svgs], ['drapeaux-territoires', res.svgsTerritoires]]) {
+    const dossier = join(SORTIE, nom);
+    await mkdir(dossier, { recursive: true });
+    const voulus = new Set(Object.keys(svgs).map((h) => `${h}.svg`));
+    for (const f of await readdir(dossier)) if (!voulus.has(f)) await rm(join(dossier, f));
+    let brut = 0;
+    let gz = 0;
+    for (const [h, texte] of Object.entries(svgs)) {
+      await writeFile(join(dossier, `${h}.svg`), texte);
+      brut += Buffer.byteLength(texte);
+      gz += gzipSync(texte).length;
+    }
+    console.log(`  ${`${nom}/`.padEnd(18)} ${voulus.size} fichiers, ${(brut / 1024).toFixed(1)} Ko  gzip ${(gz / 1024).toFixed(1)} Ko`);
   }
-  console.log(`  drapeaux/          ${voulus.size} fichiers, ${(brut / 1024).toFixed(1)} Ko  gzip ${(gz / 1024).toFixed(1)} Ko`);
   for (const [nom, texte] of Object.entries(res.fichiers)) await ecrire(nom, texte);
   for (const n of res.notes) console.log(`  ${n}`);
   return res;
