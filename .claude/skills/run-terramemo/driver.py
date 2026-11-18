@@ -4851,20 +4851,27 @@ def ui_fiche_bilan(p, capturer, defauts):
         p.pause(100)
     fiche_depuis_autre_bilan(p, capturer, defauts, "bilan de Sans faute", "chrono-bilan", "#chrono", "168-bilan-chrono", par_echap=True)
     croix_vers_carte(p, defauts, "bilan de Sans faute", "#chrono-bilan")
-    p.js('location.hash = "#jouer"')
-    attendre_visible(p, "#jouer-panneau")
-    cliquer(p, '#jouer-panneau [data-racine="quiz"]')
-    cliquer(p, '#jouer-panneau [data-difficulte="facile"]')
-    fin = time.monotonic() + 30
-    # Le choix doit être montré (aucun ancêtre caché), et non seulement actif : au lancement, les boutons existent déjà,
-    # actifs, dans la barre cachée, et « Abandonner » pendant le chargement des images ramène aux difficultés sans
-    # bilan (D55 a). Vu au pilote du lot F6 sur le site en ligne, où les drapeaux mettent ≈ 1 s à venir.
-    while not p.js('(() => { const c = document.querySelector("#barre-quiz .nommer-choix"); return !!c && !c.disabled && !c.closest("[hidden]"); })()') and time.monotonic() < fin:
-        p.pause(100)
-    cliquer_apres_pause(p, "#quiz-abandonner")
-    fin = time.monotonic() + 8
-    while not visible(p, "#quiz-bilan") and time.monotonic() < fin:
-        p.pause(100)
+    # Le quiz Facile abandonné à sa première question. Une question pas encore « montrée » pour le quiz (une mer dont
+    # la couche se charge, des images en route) ne compte pas : « Abandonner » ramène alors aux difficultés sans bilan
+    # (D55 a, voulu). Vu une fois sur deux en largeur téléphone sur le site en ligne (lot F8) : jusqu'à 3 essais.
+    for essai in range(3):
+        p.js('location.hash = "#jouer"')
+        attendre_visible(p, "#jouer-panneau")
+        cliquer(p, '#jouer-panneau [data-racine="quiz"]')
+        cliquer(p, '#jouer-panneau [data-difficulte="facile"]')
+        fin = time.monotonic() + 30
+        # Le choix doit être montré (aucun ancêtre caché), et non seulement actif : au lancement, les boutons existent
+        # déjà, actifs, dans la barre cachée (vu au pilote du lot F6 sur le site en ligne).
+        while not p.js('(() => { const c = document.querySelector("#barre-quiz .nommer-choix"); return !!c && !c.disabled && !c.closest("[hidden]"); })()') and time.monotonic() < fin:
+            p.pause(100)
+        p.pause(500)
+        cliquer_apres_pause(p, "#quiz-abandonner")
+        fin = time.monotonic() + 8
+        while not visible(p, "#quiz-bilan") and not visible(p, "#jouer-panneau") and time.monotonic() < fin:
+            p.pause(100)
+        if visible(p, "#quiz-bilan"):
+            break
+        dire(f"  quiz : abandonné avant que sa première question compte (essai {essai + 1}), on recommence")
     fiche_depuis_autre_bilan(p, capturer, defauts, "bilan du quiz", "quiz-bilan", "#quiz", "169-bilan-quiz", par_echap=False)
     croix_vers_carte(p, defauts, "bilan du quiz", "#quiz-bilan")
 
