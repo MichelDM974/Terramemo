@@ -5068,7 +5068,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     le titre le plus long (Saint-Vincent-et-les-Grenadines, 178), la Russie (179), et le scénario de mesure sur une page
     rechargée, dix voisins, chaque gel avec sa cause. Les superficies,
     profondeurs et riverains des mers sont tus jusqu'à leur relecture (LIGNES_RELUES) : la fiche d'une mer n'a que sa
-    sorte, sa mère, son océan, la mémoire et le lien ; le gentilé d'une commune aussi. DÉFAUT à chaque écart."""
+    sorte, sa mère, son océan, la mémoire et le lien ; le gentilé d'une commune est en ligne (relu le 18/11). DÉFAUT à chaque écart."""
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
     debut = ressources_fiches(p)
@@ -5433,9 +5433,10 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "97416", "fiche de Saint-Pierre")
         sources = texte(p, "#fiche-lieu .fiche-sources")
         dire(f"  fiche de Saint-Pierre : {e['titre']!r}, statut {e['statut']!r}, lignes {e['lignes']}, voisines {e['voisins']}, focus {e['focus']}, {sources!r}")
-        attendues = ["Habitants 85 038 (recensement de 2023)", "Superficie 96 km²", "Intercommunalité CIVIS"]
+        # Les gentilés des communes sont relus (18/11, LIGNES_RELUES.gentile_communes) : la ligne est en ligne.
+        attendues = ["Habitants 85 038 (recensement de 2023)", "Superficie 96 km²", "Gentilé les Saint-Pierrois", "Intercommunalité CIVIS"]
         if e["titre"] != "Saint-Pierre" or e["statut"] or e["lignes"] != attendues or e["drapeaux"] or e["focus"] != "fiche-titre":
-            defauts.append(f"fiche de Saint-Pierre : lignes {attendues} (le gentilé tu jusqu'à sa relecture), sans statut ni drapeau, focus au titre attendus ({e})")
+            defauts.append(f"fiche de Saint-Pierre : lignes {attendues}, sans statut ni drapeau, focus au titre attendus ({e})")
         if e["voisins"] != ["97403", "97422", "97405", "97412", "97414"]:
             defauts.append(f"fiche de Saint-Pierre : voisines Entre-Deux, Le Tampon, Petite-Île, Saint-Joseph, Saint-Louis attendues ({e['voisins']})")
         if "IGN" not in sources or "INSEE" not in sources:

@@ -2963,6 +2963,10 @@ Relevés par le codeur du lot F5 (branche `fiche-lieu`, 18/11). Tableau à relir
   dans la fiche (l'île gardée, capture 161), « ‹ », « × ».
 - Restent à l'utilisateur : le tableau des gentilés (§ 1 de `fiches-communes.md`) ; « Dominicains » pour
   L'Étang-Salé, que la fiche ne dit pas ; l'accent de « Petite-Îlois ».
+- **Relu par l'utilisateur (18/11)** : le tableau des communes validé tel quel. « Petite-Îlois » garde son accent,
+  L'Étang-Salé n'a que « les Étang-Saléens », et le sigle CASUD reste. Les quatre lignes « à relire » sont retirées
+  de la table, et `gentile_communes` passe à `true` (3470766). Les tableaux disent désormais l'état de leur clé
+  (`dansLaFiche`, lu dans `relues.ts` par le build).
 
 Relecture du lot F5 (18/11) :
 - **Vérifiés contre leur source** : les 24 lignes de `reunion/fiches.json` (habitants, année, hectares, SIREN) et
