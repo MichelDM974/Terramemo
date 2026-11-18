@@ -4444,8 +4444,10 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     h1 = p.js("document.getElementById('barre-carte').getBoundingClientRect().height")
     lus = [n.split("/")[-1] for n in ressources_fiches(p) if "/geo/" in n]
     dire(f"  Japon touché : faits {e['faits']!r}, chevron {e['chevron']}, barre {h0:.0f} → {h1:.0f} px, lu {lus}")
-    if e["faits"] != "Tokyo" or not e["chevron"]:
-        defauts.append(f"Japon touché : ligne de faits « Tokyo » et chevron attendus ({e})")
+    # Lot F2 : « capitale · habitants », trois chiffres au plus (espaces insécables possibles).
+    faits = re.sub(r"\s+", " ", e["faits"])
+    if faits != "Tokyo · 123 millions d'hab." or not e["chevron"]:
+        defauts.append(f"Japon touché : ligne de faits « Tokyo · 123 millions d'hab. » et chevron attendus ({e})")
     if sorted(set(lus)) != sorted(FICHIERS_GEO_FICHES):
         defauts.append(f"Japon touché : {lus} lus au lieu des fiches du monde ({', '.join(FICHIERS_GEO_FICHES)})")
     if abs(h1 - h0) > 0.5:
@@ -4472,6 +4474,12 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         defauts.append(f"fiche ouverte : boutons de zoom visibles ({e['zoom']})")
     if not any(l.startswith("Capitale") and "Tokyo" in l for l in e["lignes"]) or not e["drapeaux"]:
         defauts.append(f"fiche du Japon : capitale et drapeau attendus ({e['lignes']}, {e['drapeaux']} drapeau)")
+    # Lot F2 : les lignes servies sans relecture (habitants, monnaie, heure), dans l'ordre du § 4.2 ; les lignes
+    # à relire (superficie, langues, gentilé, sommet, fête) tues tant que LIGNES_RELUES les tient.
+    libelles = [l.split(" ")[0] for l in e["lignes"]]
+    attendus = ["Capitale", "Habitants", "Monnaie", "Heure", "Continent"]
+    if libelles != attendus or not any(l.startswith("Heure à Tokyo") for l in e["lignes"]):
+        defauts.append(f"fiche du Japon : lignes {attendus} attendues, dans l'ordre ({e['lignes']})")
     # L'entrée d'historique : celle de la première fiche (rang 1). history.length seulement sous le plafond
     # de Chromium (50 entrées) : après les autres ui_*, pushState ne l'augmente plus.
     if (e["etat"] or {}).get("rang") != 1:
