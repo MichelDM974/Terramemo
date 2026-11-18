@@ -449,13 +449,16 @@ describe('fiches des territoires, des zones et de l’Antarctique : les chiffres
     // Ashmore-et-Cartier, Clipperton, Christmas et Cocos) n'ont ni langue, ni monnaie, ni drapeau.
     const sansCode = ['NE_ATC', 'NE_CLP', 'NE_CSI', 'NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB'];
     expect(absents).toEqual({
-      habitants: ['NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB'],
+      // Sans chiffre dans les sources ; et, par la table (habitants_territoires, relecture du lot F3), cinq territoires sans
+      // habitant permanent dont Wikidata compte le personnel (à relire).
+      habitants: ['ATF', 'IOT', 'NE_CSI', 'NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB', 'SGS', 'UMI'],
       superficie: ['NE_IOA', 'NE_KAB'],
       capitale: ['HKG', 'HMD', 'MAC', 'NE_ATC', 'NE_CLP', 'NE_CSI', 'NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB', 'UMI'],
       langues: ['HMD', ...sansCode],
       monnaie: sansCode,
       gentile: ['ABW', 'AIA', 'ALA', 'ASM', 'ATF', 'COK', 'CUW', 'CYM', 'FLK', 'GGY', 'HMD', 'IMN', 'IOT', 'JEY', 'MAC', 'MNP', 'MSR', ...sansCode, 'NFK', 'NIU', 'PCN', 'SGS', 'SHN', 'SPM', 'SXM', 'TCA', 'UMI', 'VGB', 'VIR', 'WLF'],
-      heure: ['HMD', 'NE_ATC', 'NE_CLP', 'UMI'],
+      // Christmas et Cocos (NE_IOA) : deux heures, aucune pour l'ensemble d'ici la relecture.
+      heure: ['HMD', 'NE_ATC', 'NE_CLP', 'NE_IOA', 'UMI'],
       culminant: ['AIA', 'BMU', 'CUW', 'CYM', 'FLK', 'GIB', 'IOT', 'JEY', 'MNP', 'MSR', 'NCL', 'NE_ATC', 'NE_CSI', 'NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB', 'NFK', 'PCN', 'SGS', 'SXM', 'UMI', 'VGB'],
       lien: [],
       drapeau: sansCode,
@@ -477,6 +480,16 @@ describe('fiches des territoires, des zones et de l’Antarctique : les chiffres
     // Les zones habitées, de Wikidata (D57 a : sourcées) : le Sahara occidental, Chypre du Nord, le Somaliland.
     expect(idsDe('zone').filter((id) => (monde.lieux[id]!.h ?? 0) > 0)).toEqual(['ESH', 'NE_CYN', 'NE_SOL']);
     for (const id of idsDe('zone')) if (monde.lieux[id]!.h !== undefined) expect(monde.lieux[id]!.hs, id).toBe('wd');
+    // Relecture du lot F3 : cinq territoires sans habitant permanent (World Factbook) dont Wikidata compte le personnel n'ont
+    // pas de ligne d'ici la réponse de l'utilisateur ; chaque ligne de la table a sa source et sa question.
+    const sansPermanent = lignes('habitants_territoires');
+    expect(sansPermanent.map(([id]) => id).sort()).toEqual(['ATF', 'IOT', 'NE_CSI', 'SGS', 'UMI']);
+    const wd = lire<{ autres: Record<string, string>; lieux: Record<string, { habitants?: { v: number }[] }> }>('geodata/wikidata/fiches.json');
+    for (const [id, l] of sansPermanent) {
+      expect([l.aucun, !!l.source, !!l.a_relire], id).toEqual([true, true, true]);
+      expect(monde.lieux[id]!.h, id).toBeUndefined();
+      expect(wd.lieux[wd.autres[id]!]!.habitants!.some((d) => d.v > 0), id).toBe(true);
+    }
   });
 
   it('heure : une ligne de la table par territoire, chaque zone se construit ; aucune pour les îles mineures des États-Unis ; le Groenland à Nuuk', () => {
@@ -493,6 +506,12 @@ describe('fiches des territoires, des zones et de l’Antarctique : les chiffres
       expect(monde.lieux[id]!.nz, id).toBeUndefined();
     }
     expect(monde.lieux.UMI!.z).toBeUndefined();
+    // Relecture du lot F3 : l'heure est affichée sans clé de LIGNES_RELUES, donc aucune ligne « à relire » n'y passe
+    // (Christmas et Cocos : pas d'heure d'ici la réponse) ; de même pour les habitants des territoires.
+    for (const [cle, champ] of [['zone_territoires', 'z'], ['habitants_territoires', 'h']] as const) {
+      for (const [id, l] of lignes(cle)) if (l.a_relire) expect(monde.lieux[id]![champ], `${cle}.${id}`).toBeUndefined();
+    }
+    expect(lignes('zone_territoires').filter(([, l]) => l.a_relire).map(([id]) => id)).toEqual(['NE_IOA']);
     expect(monde.lieux.GRL!.z).toBe('America/Nuuk');
     expect(monde.lieux.HKG!.z).toBe('Asia/Hong_Kong');
   });
@@ -511,7 +530,7 @@ describe('fiches des territoires, des zones et de l’Antarctique : les chiffres
 
   it('chaque ligne des clés du lot F3 a sa raison et vise un territoire (ou l’Antarctique pour un sommet)', () => {
     const T = new Set(idsDe('territoire'));
-    for (const cle of ['capitale_territoires', 'zone_territoires', 'langues_territoires', 'gentile_territoires', 'culminant_territoires']) {
+    for (const cle of ['capitale_territoires', 'habitants_territoires', 'zone_territoires', 'langues_territoires', 'gentile_territoires', 'culminant_territoires']) {
       expect(main[cle], cle).toBeTruthy();
       for (const [id, l] of lignes(cle)) {
         if (cle === 'langues_territoires' && id === 'noms') continue;

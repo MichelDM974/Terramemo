@@ -53,6 +53,7 @@ export function chiffresAutres({ entites, formes, zones = [], wd, bm, cldr, main
   const lignesTab = lireZoneTab(cldr.zoneTab);
   const table = {
     capitale: lignes(main, 'capitale_territoires'),
+    habitants: lignes(main, 'habitants_territoires'),
     zone: lignes(main, 'zone_territoires'),
     langues: lignes(main, 'langues_territoires'),
     gentile: lignes(main, 'gentile_territoires'),
@@ -104,14 +105,23 @@ export function chiffresAutres({ entites, formes, zones = [], wd, bm, cldr, main
         const x = habitantsWikidata(w.habitants);
         if (x) h = { ...x, source: 'wd' };
       }
+      // La table (habitants_territoires, relecture du lot F3) : aucun, pour un territoire sans habitant
+      // permanent dont Wikidata compte le personnel ; une ligne qui ne retire rien est une faute.
+      const lh = sorte === 'territoire' ? table.habitants[id] : undefined;
+      if (lh) {
+        if (!lh.aucun) faute(`fiches-main.json, habitants_territoires.${id} : seule « aucun » est prévue`);
+        if (!h || h.v === 0) faute(`fiches-main.json, habitants_territoires.${id} : aucun, mais les sources ne donnent pas de nombre positif, ligne inutile`);
+        if (!lh.source) faute(`fiches-main.json, habitants_territoires.${id} : sans source`);
+      }
       let montre = null;
-      if (h && h.v === 0) montre = { h: 0 };
+      if (lh?.aucun) montre = null;
+      else if (h && h.v === 0) montre = { h: 0 };
       else if (h && h.annee) montre = { h: h.v, ha: h.annee };
       if (montre) {
         Object.assign(L, montre);
         if (h.source === 'wd') L.hs = 'wd';
       }
-      R.habitants.push({ id, sorte, h, montre: Boolean(montre), declarations: (w.habitants ?? []).length });
+      R.habitants.push({ id, sorte, h, montre: Boolean(montre), declarations: (w.habitants ?? []).length, ligne: lh ?? null });
     }
 
     // Superficie (territoire, Antarctique) : Wikidata, par la règle des pays (D57 : aucune pour une zone).
@@ -119,7 +129,7 @@ export function chiffresAutres({ entites, formes, zones = [], wd, bm, cldr, main
       const v = superficieWikidata(w.superficies);
       if (v != null) L.sup = arrondiSuperficie(v);
       const decl = (w.superficies ?? []).filter((d) => d.unite === 'Q712226');
-      R.superficies.push({ id, sorte, wd: v, retenue: L.sup ?? null, trace: e.superficie_km2, valeurs: decl.map((d) => `${d.v}${d.rang === 'preferred' ? ' (préféré)' : ''}${d.q?.P585?.[0] ? ` (${d.q.P585[0].slice(0, 10)})` : ''}`), autres: (w.superficies ?? []).length - decl.length });
+      R.superficies.push({ id, sorte, wd: v, retenue: L.sup ?? null, trace: e.superficie_km2, kms: decl.map((d) => Number(d.v)), valeurs: decl.map((d) => `${d.v}${d.rang === 'preferred' ? ' (préféré)' : ''}${d.q?.P585?.[0] ? ` (${d.q.P585[0].slice(0, 10)})` : ''}`), autres: (w.superficies ?? []).length - decl.length });
     }
 
     if (sorte === 'territoire') {
@@ -279,6 +289,8 @@ export function texteRelectureAutres({ R, noms, langues, monnaies, sources }) {
   const trie = (l) => [...l].sort(parNom);
   const nomL = (c) => langues[c] ?? c;
   const enLigne = '**Dans la fiche : affichée** (aucune relecture attendue ; une erreur se corrige quand même ici).';
+  // Relecture du lot F3 : une section affichée n'affiche aucune ligne « à relire » ; la table la retire d'ici la réponse.
+  const enLigneSauf = '**Dans la fiche : affichée**, sauf les lignes « à relire » : la table les retire (pas de ligne) d\'ici la réponse ; une erreur se corrige quand même ici.';
   const tue = (cle) => `**Dans la fiche : tue** tant que \`${cle}\` est à \`false\` dans \`src/fiches/relues.ts\` (\`LIGNES_RELUES\`) ; à passer à \`true\` une fois cette section relue.`;
   const o = [];
   o.push('# Fiches des territoires, des zones contestées et de l\'Antarctique : chiffres à relire');
@@ -332,23 +344,24 @@ export function texteRelectureAutres({ R, noms, langues, monnaies, sources }) {
 
   // 2. Habitants
   const hs = trie(R.habitants);
-  o.push('## 2. Habitants (règle, sans clé)');
+  o.push('## 2. Habitants (clé `habitants_territoires`)');
   o.push('');
   o.push(
-    `Territoires : ${enLigne} Zones contestées : ${tue('habitants_zones')} ` +
+    `Territoires : ${enLigneSauf} Zones contestées : ${tue('habitants_zones')} ` +
       'Règle : la Banque mondiale (2025) pour les 21 territoires qu\'elle couvre ; sinon Wikidata (P1082 : rang préféré, sinon la plus récente), avec son année. ' +
-      '0 : « aucun habitant permanent », sans année ; un nombre positif sans année : pas de ligne.',
+      '0 : « aucun habitant permanent », sans année ; un nombre positif sans année : pas de ligne. La table retire le nombre d\'un territoire sans habitant permanent dont Wikidata compte le personnel.',
   );
   o.push('');
   o.push(
     tableau(
-      ['Lieu', 'Sorte', 'Affiché', 'Source', 'Remarque'],
+      ['Lieu', 'Sorte', 'Affiché', 'Source', 'Remarque', 'À relire'],
       hs.map((h) => [
         nom(h.id),
         h.sorte === 'zone' ? 'zone contestée' : 'territoire',
-        !h.h ? '—' : h.h.v === 0 ? 'aucun habitant permanent' : h.montre ? `${nb(h.h.v)} (${h.h.annee})` : `— (${nb(h.h.v)}, sans année)`,
-        !h.h ? '—' : h.h.source === 'bm' ? 'Banque mondiale' : `Wikidata (${h.declarations} déclaration${h.declarations > 1 ? 's' : ''})`,
-        !h.h ? 'aucun chiffre dans les sources : pas de ligne' : h.h.annee && h.h.annee < 2015 && h.h.v > 0 ? `chiffre ancien (${h.h.annee})` : '',
+        !h.h ? '—' : h.h.v === 0 ? 'aucun habitant permanent' : h.montre ? `${nb(h.h.v)} (${h.h.annee})` : h.ligne?.aucun ? `— (pas de ligne ; Wikidata : ${nb(h.h.v)} en ${h.h.annee})` : `— (${nb(h.h.v)}, sans année)`,
+        !h.h ? '—' : h.h.source === 'bm' ? 'Banque mondiale' : `Wikidata (${h.declarations} déclaration${h.declarations > 1 ? 's' : ''})${h.ligne?.source ? ` ; ${h.ligne.source}` : ''}`,
+        h.ligne ? `table : ${h.ligne.raison}` : !h.h ? 'aucun chiffre dans les sources : pas de ligne' : h.h.annee && h.h.annee < 2015 && h.h.v > 0 ? `chiffre ancien (${h.h.annee})` : '',
+        relire(h.ligne),
       ]),
     ),
   );
@@ -364,14 +377,21 @@ export function texteRelectureAutres({ R, noms, langues, monnaies, sources }) {
   o.push('');
   o.push(
     tableau(
-      ['Lieu', 'Retenue (km²)', 'Valeurs de Wikidata', 'Tracé de la carte (km²)', 'Remarque'],
-      ss.map((s) => [
-        nom(s.id),
-        nb(s.retenue),
-        s.valeurs.join(' ; ') || 'aucune',
-        nb(Math.round(s.trace)),
-        [s.valeurs.length > 1 ? 'plusieurs valeurs : la plus grande retenue' : '', s.autres ? `${s.autres} valeur(s) dans une autre unité, écartée(s)` : '', s.retenue && s.trace && (s.retenue / s.trace > 2 || s.trace / s.retenue > 2) ? 'écart de plus du double avec le tracé' : ''].filter(Boolean).join(' ; '),
-      ]),
+      ['Lieu', 'Retenue (km²)', 'Valeurs de Wikidata', 'Tracé de la carte (km²)', 'Remarque', 'À relire'],
+      ss.map((s) => {
+        const ecart = s.retenue && s.trace && (s.retenue / s.trace > 2 || s.trace / s.retenue > 2);
+        // Relecture du lot F3 : une valeur somme de deux autres (Hong Kong : 2 755 = 1 106 + 1 649) compte des eaux.
+        const kms = s.kms ?? [];
+        const somme = kms.find((x, i) => kms.some((y, j) => j !== i && kms.some((z, k) => k !== i && k > j && Math.abs(x - y - z) < 1)));
+        return [
+          nom(s.id),
+          nb(s.retenue),
+          s.valeurs.join(' ; ') || 'aucune',
+          nb(Math.round(s.trace)),
+          [s.valeurs.length > 1 ? 'plusieurs valeurs : la plus grande retenue' : '', somme != null ? `${nb(somme)} est la somme des deux autres valeurs (des terres et des eaux ?)` : '', s.autres ? `${s.autres} valeur(s) dans une autre unité, écartée(s)` : '', ecart ? 'écart de plus du double avec le tracé' : ''].filter(Boolean).join(' ; '),
+          ecart ? `**à relire** : la valeur de Wikidata compte-t-elle des eaux, un lagon ou des récifs ? Sinon le tracé de la carte (${nb(Math.round(s.trace))} km²) est trop grossier à cette échelle${somme != null ? ` ; ${nb(Math.min(...kms))} km² pour les terres seules ?` : ''}` : '',
+        ];
+      }),
     ),
   );
 
@@ -431,7 +451,7 @@ export function texteRelectureAutres({ R, noms, langues, monnaies, sources }) {
   o.push('## 7. Heure locale des territoires (clé `zone_territoires`)');
   o.push('');
   o.push(
-    `${enLigne} La zone est écrite à la main pour chaque territoire (§ 2.2 : la plus proche de la capitale ne suffit pas, le Groenland sortait à Danmarkshavn) ; le build vérifie qu'elle est dans zone.tab et qu'elle est celle du code du territoire, sinon la ligne dit pourquoi (hors code). ` +
+    `${enLigneSauf} La zone est écrite à la main pour chaque territoire (§ 2.2 : la plus proche de la capitale ne suffit pas, le Groenland sortait à Danmarkshavn) ; le build vérifie qu'elle est dans zone.tab et qu'elle est celle du code du territoire, sinon la ligne dit pourquoi (hors code). ` +
       'Pas de nombre de fuseaux pour un territoire. Le libellé est « Heure à <capitale> » une fois les capitales relues, « Heure locale » d\'ici là.',
   );
   o.push('');

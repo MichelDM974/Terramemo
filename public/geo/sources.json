@@ -322,7 +322,7 @@
       "fichiers": []
     },
     {
-      "nom": "CIA World Factbook, champ « National holiday » (pré-remplissage des fêtes) et « highest point » (Gambie)",
+      "nom": "CIA World Factbook, champ « National holiday » (pré-remplissage des fêtes), « highest point » (Gambie) et « Population » (territoires sans habitant permanent, relecture du lot F3)",
       "url": "https://github.com/factbook/factbook.json",
       "version": "miroir figé, commit 144d697 du 11/09/2026 (le Factbook est arrêté depuis février 2026)",
       "telecharge_le": "2026-11-16",
@@ -362,9 +362,9 @@
       "geodata/fiches-pays.mjs": "c9706c2b9399260313211f7e4c498df52f60c3fe38f39da224fe07bea5897665",
       "geodata/fiches-relecture.mjs": "0dd487fecfea593db7e3acf85714fa7d5e34f94116eb27ae4fc7f551b549c8f6",
       "geodata/fiches-territoires.mjs": "713304abe089994eec4ddb2c9dc7f807fab83654c0d9f411fd61cc99f6c523e9",
-      "geodata/fiches-autres.mjs": "2590940af603c10ebdeb2d5f0bff7223696a03c4ca5b730e294f377c32ed0998",
-      "geodata/fiches-main.json": "0e1dda19f82d371f5f7bfc941f6e606afaddb7b7acffa9615a8841aa2b5d3711",
-      "geodata/fiches-sources.mjs": "525a00d3d043d1b89cdbdf75dc136666bd6e3ef51288c95acf0072514bbb4ef1"
+      "geodata/fiches-autres.mjs": "4e7f14b605a53be9cde666cbddb75efe6bc039299530733d778b46593e6ed1c2",
+      "geodata/fiches-main.json": "da183dcb0399ce64ffdefc291b1b051607ea8ca823530f102c6d6724772ff18c",
+      "geodata/fiches-sources.mjs": "e1dac9e5dc576a9f7c32617322340ccccf5b81b24e26e46f3000af150d0e8f47"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",
     "mers": {

@@ -92,7 +92,7 @@ export const SOURCES_TABLE = [
     fichiers: [],
   },
   {
-    nom: 'CIA World Factbook, champ « National holiday » (pré-remplissage des fêtes) et « highest point » (Gambie)',
+    nom: 'CIA World Factbook, champ « National holiday » (pré-remplissage des fêtes), « highest point » (Gambie) et « Population » (territoires sans habitant permanent, relecture du lot F3)',
     url: 'https://github.com/factbook/factbook.json',
     version: 'miroir figé, commit 144d697 du 11/09/2026 (le Factbook est arrêté depuis février 2026)',
     telecharge_le: '2026-11-16',

@@ -66,128 +66,128 @@ Règle : la capitale déclarée par Wikidata (P36) ; s'il y en a plusieurs, cell
 | Territoires extérieurs australiens de l'Océan Indien | — | aucune | aucune capitale |  |
 | Wallis-et-Futuna | Mata Utu | Mata Utu (Q31002) | règle : la seule déclarée |  |
 
-## 2. Habitants (règle, sans clé)
+## 2. Habitants (clé `habitants_territoires`)
 
-Territoires : **Dans la fiche : affichée** (aucune relecture attendue ; une erreur se corrige quand même ici). Zones contestées : **Dans la fiche : tue** tant que `habitants_zones` est à `false` dans `src/fiches/relues.ts` (`LIGNES_RELUES`) ; à passer à `true` une fois cette section relue. Règle : la Banque mondiale (2025) pour les 21 territoires qu'elle couvre ; sinon Wikidata (P1082 : rang préféré, sinon la plus récente), avec son année. 0 : « aucun habitant permanent », sans année ; un nombre positif sans année : pas de ligne.
+Territoires : **Dans la fiche : affichée**, sauf les lignes « à relire » : la table les retire (pas de ligne) d'ici la réponse ; une erreur se corrige quand même ici. Zones contestées : **Dans la fiche : tue** tant que `habitants_zones` est à `false` dans `src/fiches/relues.ts` (`LIGNES_RELUES`) ; à passer à `true` une fois cette section relue. Règle : la Banque mondiale (2025) pour les 21 territoires qu'elle couvre ; sinon Wikidata (P1082 : rang préféré, sinon la plus récente), avec son année. 0 : « aucun habitant permanent », sans année ; un nombre positif sans année : pas de ligne. La table retire le nombre d'un territoire sans habitant permanent dont Wikidata compte le personnel.
 
-| Lieu | Sorte | Affiché | Source | Remarque |
-|---|---|---|---|---|
-| Akrotiri | territoire | — | — | aucun chiffre dans les sources : pas de ligne |
-| Anguilla | territoire | 16 293 (2025) | Wikidata (2 déclarations) |  |
-| Aruba | territoire | 108 785 (2025) | Banque mondiale |  |
-| Baïkonour | territoire | — | — | aucun chiffre dans les sources : pas de ligne |
-| Banc de Bajo Nuevo | zone contestée | aucun habitant permanent | Wikidata (1 déclaration) |  |
-| Banc de Serranilla | zone contestée | aucun habitant permanent | Wikidata (1 déclaration) |  |
-| Base navale de la baie de Guantánamo | territoire | — | — | aucun chiffre dans les sources : pas de ligne |
-| Bermudes | territoire | 64 555 (2025) | Banque mondiale |  |
-| Bir Tawil | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |
-| Champ de glace Sud de Patagonie | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |
-| Chypre du Nord | zone contestée | 489 308 (2024) | Wikidata (10 déclarations) |  |
-| Curaçao | territoire | 156 263 (2025) | Banque mondiale |  |
-| Dhekelia | territoire | — | — | aucun chiffre dans les sources : pas de ligne |
-| Géorgie du Sud-et-les Îles Sandwich du Sud | territoire | 35 (2019) | Wikidata (1 déclaration) |  |
-| Gibraltar | territoire | 40 126 (2025) | Banque mondiale |  |
-| Glacier de Siachen | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |
-| Groenland | territoire | 56 831 (2025) | Banque mondiale |  |
-| Guam | territoire | 168 999 (2025) | Banque mondiale |  |
-| Guernesey | territoire | 67 787 (2024) | Wikidata (1 déclaration) |  |
-| Hong Kong | territoire | 7 498 900 (2025) | Banque mondiale |  |
-| Île Brésilienne | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |
-| Île Clipperton | territoire | aucun habitant permanent | Wikidata (2 déclarations) |  |
-| Île de Man | territoire | 84 118 (2025) | Banque mondiale |  |
-| Île Norfolk | territoire | 2 188 (2021) | Wikidata (3 déclarations) |  |
-| Îles Åland | territoire | 30 836 (2025) | Wikidata (5 déclarations) |  |
-| Îles Ashmore-et-Cartier | territoire | aucun habitant permanent | Wikidata (1 déclaration) |  |
-| Îles Caïmans | territoire | 75 844 (2025) | Banque mondiale |  |
-| Îles Cook | territoire | 14 222 (2023) | Wikidata (3 déclarations) |  |
-| Îles de la mer de Corail | territoire | 4 (2018) | Wikidata (1 déclaration) |  |
-| Îles Féroé | territoire | 54 900 (2025) | Banque mondiale |  |
-| Îles Heard-et-MacDonald | territoire | aucun habitant permanent | Wikidata (1 déclaration) |  |
-| Îles Malouines | territoire | 3 662 (2021) | Wikidata (2 déclarations) |  |
-| Îles Mariannes du Nord | territoire | 43 541 (2025) | Banque mondiale |  |
-| Îles mineures éloignées des États-Unis | territoire | 190 (2010) | Wikidata (1 déclaration) | chiffre ancien (2010) |
-| Îles Pitcairn | territoire | 50 (2019) | Wikidata (4 déclarations) |  |
-| Îles Spratleys | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |
-| Îles Turques-et-Caïques | territoire | 46 855 (2025) | Banque mondiale |  |
-| Îles Vierges britanniques | territoire | 39 732 (2025) | Banque mondiale |  |
-| Îles Vierges des États-Unis | territoire | 103 792 (2025) | Banque mondiale |  |
-| Jersey | territoire | 103 267 (2021) | Wikidata (3 déclarations) |  |
-| Macao | territoire | 685 900 (2025) | Banque mondiale |  |
-| Montserrat | territoire | 5 440 (2023) | Wikidata (2 déclarations) |  |
-| Niue | territoire | 1 821 (2025) | Wikidata (2 déclarations) |  |
-| Nouvelle-Calédonie | territoire | 295 333 (2025) | Banque mondiale |  |
-| Polynésie française | territoire | 282 465 (2025) | Banque mondiale |  |
-| Porto Rico | territoire | 3 184 835 (2025) | Banque mondiale |  |
-| Récif de Scarborough | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |
-| Sahara occidental | zone contestée | 612 000 (2021) | Wikidata (2 déclarations) |  |
-| Saint-Barthélemy | territoire | 10 124 (2018) | Wikidata (3 déclarations) |  |
-| Saint-Martin | territoire | 24 941 (2025) | Banque mondiale |  |
-| Saint-Martin (partie néerlandaise) | territoire | 43 923 (2025) | Banque mondiale |  |
-| Saint-Pierre-et-Miquelon | territoire | 5 974 (2019) | Wikidata (1 déclaration) |  |
-| Sainte-Hélène | territoire | 5 633 (2016) | Wikidata (1 déclaration) |  |
-| Samoa américaines | territoire | 46 029 (2025) | Banque mondiale |  |
-| Somaliland | zone contestée | 6 500 000 (2024) | Wikidata (1 déclaration) |  |
-| Terres australes françaises | territoire | 196 (2012) | Wikidata (1 déclaration) | chiffre ancien (2012) |
-| Territoire britannique de l’océan Indien | territoire | 3 000 (2018) | Wikidata (1 déclaration) |  |
-| Territoires extérieurs australiens de l'Océan Indien | territoire | — | — | aucun chiffre dans les sources : pas de ligne |
-| Wallis-et-Futuna | territoire | 11 558 (2018) | Wikidata (1 déclaration) |  |
-| Zone tampon des Nations unies à Chypre | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |
+| Lieu | Sorte | Affiché | Source | Remarque | À relire |
+|---|---|---|---|---|---|
+| Akrotiri | territoire | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Anguilla | territoire | 16 293 (2025) | Wikidata (2 déclarations) |  |  |
+| Aruba | territoire | 108 785 (2025) | Banque mondiale |  |  |
+| Baïkonour | territoire | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Banc de Bajo Nuevo | zone contestée | aucun habitant permanent | Wikidata (1 déclaration) |  |  |
+| Banc de Serranilla | zone contestée | aucun habitant permanent | Wikidata (1 déclaration) |  |  |
+| Base navale de la baie de Guantánamo | territoire | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Bermudes | territoire | 64 555 (2025) | Banque mondiale |  |  |
+| Bir Tawil | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Champ de glace Sud de Patagonie | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Chypre du Nord | zone contestée | 489 308 (2024) | Wikidata (10 déclarations) |  |  |
+| Curaçao | territoire | 156 263 (2025) | Banque mondiale |  |  |
+| Dhekelia | territoire | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Géorgie du Sud-et-les Îles Sandwich du Sud | territoire | — (pas de ligne ; Wikidata : 35 en 2019) | Wikidata (1 déclaration) ; CIA World Factbook, miroir figé (commit 144d697), champ « Population » | table : Wikidata compte 35 personnes (2019) : le personnel de King Edward Point et de Bird Island ; le World Factbook : « no permanent inhabitants » ; la ligne « Habitants · 35 (2019) » laisserait croire à une population qui vit là | **à relire** : pas de ligne d'ici la réponse ; proposé : « aucun habitant permanent », d'après le Factbook (la règle du 0, avec sa source), ou le nombre de Wikidata ? |
+| Gibraltar | territoire | 40 126 (2025) | Banque mondiale |  |  |
+| Glacier de Siachen | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Groenland | territoire | 56 831 (2025) | Banque mondiale |  |  |
+| Guam | territoire | 168 999 (2025) | Banque mondiale |  |  |
+| Guernesey | territoire | 67 787 (2024) | Wikidata (1 déclaration) |  |  |
+| Hong Kong | territoire | 7 498 900 (2025) | Banque mondiale |  |  |
+| Île Brésilienne | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Île Clipperton | territoire | aucun habitant permanent | Wikidata (2 déclarations) |  |  |
+| Île de Man | territoire | 84 118 (2025) | Banque mondiale |  |  |
+| Île Norfolk | territoire | 2 188 (2021) | Wikidata (3 déclarations) |  |  |
+| Îles Åland | territoire | 30 836 (2025) | Wikidata (5 déclarations) |  |  |
+| Îles Ashmore-et-Cartier | territoire | aucun habitant permanent | Wikidata (1 déclaration) |  |  |
+| Îles Caïmans | territoire | 75 844 (2025) | Banque mondiale |  |  |
+| Îles Cook | territoire | 14 222 (2023) | Wikidata (3 déclarations) |  |  |
+| Îles de la mer de Corail | territoire | — (pas de ligne ; Wikidata : 4 en 2018) | Wikidata (1 déclaration) ; CIA World Factbook, miroir figé (commit 144d697), champ « Population » | table : Wikidata compte 4 personnes (2018) : le personnel de la station météo de l'île Willis ; le World Factbook : « no permanent inhabitants » ; la ligne « Habitants · 4 (2018) » laisserait croire à une population qui vit là | **à relire** : pas de ligne d'ici la réponse ; proposé : « aucun habitant permanent », d'après le Factbook (la règle du 0, avec sa source), ou le nombre de Wikidata ? |
+| Îles Féroé | territoire | 54 900 (2025) | Banque mondiale |  |  |
+| Îles Heard-et-MacDonald | territoire | aucun habitant permanent | Wikidata (1 déclaration) |  |  |
+| Îles Malouines | territoire | 3 662 (2021) | Wikidata (2 déclarations) |  |  |
+| Îles Mariannes du Nord | territoire | 43 541 (2025) | Banque mondiale |  |  |
+| Îles mineures éloignées des États-Unis | territoire | — (pas de ligne ; Wikidata : 190 en 2010) | Wikidata (1 déclaration) ; CIA World Factbook, miroir figé (commit 144d697), champ « Population » | table : Wikidata compte 190 personnes (2010) : le personnel des bases et des refuges (Wake, Midway, Palmyra…) ; le World Factbook : « no permanent inhabitants (Wake) ; uninhabited (Navase) » ; la ligne « Habitants · 190 (2010) » laisserait croire à une population qui vit là | **à relire** : pas de ligne d'ici la réponse ; proposé : « aucun habitant permanent », d'après le Factbook (la règle du 0, avec sa source), ou le nombre de Wikidata ? |
+| Îles Pitcairn | territoire | 50 (2019) | Wikidata (4 déclarations) |  |  |
+| Îles Spratleys | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Îles Turques-et-Caïques | territoire | 46 855 (2025) | Banque mondiale |  |  |
+| Îles Vierges britanniques | territoire | 39 732 (2025) | Banque mondiale |  |  |
+| Îles Vierges des États-Unis | territoire | 103 792 (2025) | Banque mondiale |  |  |
+| Jersey | territoire | 103 267 (2021) | Wikidata (3 déclarations) |  |  |
+| Macao | territoire | 685 900 (2025) | Banque mondiale |  |  |
+| Montserrat | territoire | 5 440 (2023) | Wikidata (2 déclarations) |  |  |
+| Niue | territoire | 1 821 (2025) | Wikidata (2 déclarations) |  |  |
+| Nouvelle-Calédonie | territoire | 295 333 (2025) | Banque mondiale |  |  |
+| Polynésie française | territoire | 282 465 (2025) | Banque mondiale |  |  |
+| Porto Rico | territoire | 3 184 835 (2025) | Banque mondiale |  |  |
+| Récif de Scarborough | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Sahara occidental | zone contestée | 612 000 (2021) | Wikidata (2 déclarations) |  |  |
+| Saint-Barthélemy | territoire | 10 124 (2018) | Wikidata (3 déclarations) |  |  |
+| Saint-Martin | territoire | 24 941 (2025) | Banque mondiale |  |  |
+| Saint-Martin (partie néerlandaise) | territoire | 43 923 (2025) | Banque mondiale |  |  |
+| Saint-Pierre-et-Miquelon | territoire | 5 974 (2019) | Wikidata (1 déclaration) |  |  |
+| Sainte-Hélène | territoire | 5 633 (2016) | Wikidata (1 déclaration) |  |  |
+| Samoa américaines | territoire | 46 029 (2025) | Banque mondiale |  |  |
+| Somaliland | zone contestée | 6 500 000 (2024) | Wikidata (1 déclaration) |  |  |
+| Terres australes françaises | territoire | — (pas de ligne ; Wikidata : 196 en 2012) | Wikidata (1 déclaration) ; CIA World Factbook, miroir figé (commit 144d697), champ « Population » | table : Wikidata compte 196 personnes (2012) : le personnel des bases scientifiques (Kerguelen, Crozet, Amsterdam) ; le World Factbook : « no permanent inhabitants » ; la ligne « Habitants · 196 (2012) » laisserait croire à une population qui vit là | **à relire** : pas de ligne d'ici la réponse ; proposé : « aucun habitant permanent », d'après le Factbook (la règle du 0, avec sa source), ou le nombre de Wikidata ? |
+| Territoire britannique de l’océan Indien | territoire | — (pas de ligne ; Wikidata : 3 000 en 2018) | Wikidata (1 déclaration) ; CIA World Factbook, miroir figé (commit 144d697), champ « Population » | table : Wikidata compte 3 000 personnes (2018) : le personnel militaire et civil de la base de Diego Garcia ; le World Factbook : « no permanent inhabitants » ; la ligne « Habitants · 3 000 (2018) » laisserait croire à une population qui vit là | **à relire** : pas de ligne d'ici la réponse ; proposé : « aucun habitant permanent », d'après le Factbook (la règle du 0, avec sa source), ou le nombre de Wikidata ? |
+| Territoires extérieurs australiens de l'Océan Indien | territoire | — | — | aucun chiffre dans les sources : pas de ligne |  |
+| Wallis-et-Futuna | territoire | 11 558 (2018) | Wikidata (1 déclaration) |  |  |
+| Zone tampon des Nations unies à Chypre | zone contestée | — | — | aucun chiffre dans les sources : pas de ligne |  |
 
 ## 3. Superficies (règle, sans clé)
 
 **Dans la fiche : tue** tant que `superficie_territoires` est à `false` dans `src/fiches/relues.ts` (`LIGNES_RELUES`) ; à passer à `true` une fois cette section relue. Territoires et Antarctique ; aucune pour une zone (D57). Règle des pays : Wikidata (P2046, en km²), rang préféré, la plus récente, sinon la plus grande ; la surface du tracé de la carte est montrée pour comparer, jamais affichée.
 
-| Lieu | Retenue (km²) | Valeurs de Wikidata | Tracé de la carte (km²) | Remarque |
-|---|---|---|---|---|
-| Akrotiri | 123 | 123 | 99 |  |
-| Anguilla | 97,55 | 97.55 | 88 |  |
-| Antarctique | 14 106 900 | 14106900 | 12 258 320 |  |
-| Aruba | 193 | 193 | 170 |  |
-| Baïkonour | — | aucune | 6 486 |  |
-| Base navale de la baie de Guantánamo | 118 | 117.6 | 66 |  |
-| Bermudes | 53 | 53 | 62 |  |
-| Curaçao | 444 | 444 | 465 |  |
-| Dhekelia | 131 | 130.8 | 127 |  |
-| Géorgie du Sud-et-les Îles Sandwich du Sud | 4 066 | 4066 | 3 904 |  |
-| Gibraltar | 6,8 | 6.8 | 4 |  |
-| Groenland | 2 166 086 | 2166086 | 2 137 891 |  |
-| Guam | 544 | 544 | 566 |  |
-| Guernesey | 78 | 78 | 74 |  |
-| Hong Kong | 2 755 | 2755.03 (2016-01-01) ; 1649.34 (2016-01-01) ; 1105.69 (2016-01-01) | 1 039 | plusieurs valeurs : la plus grande retenue ; écart de plus du double avec le tracé |
-| Île Clipperton | 8,9 | 8.9 | 5 |  |
-| Île de Man | 572 | 572 | 572 |  |
-| Île Norfolk | 34,6 | 34.6 | 41 |  |
-| Îles Åland | 1 583 | 1582.93 (2021-01-01) | 937 |  |
-| Îles Ashmore-et-Cartier | 199 | 199 | 3 | écart de plus du double avec le tracé |
-| Îles Caïmans | 262 | 262 | 310 |  |
-| Îles Cook | 240 | 240 | 192 |  |
-| Îles de la mer de Corail | 7 | 7 | 0 | écart de plus du double avec le tracé |
-| Îles Féroé | 1 399 | 1399 | 1 321 |  |
-| Îles Heard-et-MacDonald | 368 | 368 (préféré) | 393 | 1 valeur(s) dans une autre unité, écartée(s) |
-| Îles Malouines | 12 173 | 12173 | 11 553 |  |
-| Îles Mariannes du Nord | 464 | 464 | 581 |  |
-| Îles mineures éloignées des États-Unis | 34,2 | 34.2 | 28 |  |
-| Îles Pitcairn | 46,5 | 46.5 | 43 |  |
-| Îles Turques-et-Caïques | 417 | 417 | 446 |  |
-| Îles Vierges britanniques | 153 | 153 | 145 |  |
-| Îles Vierges des États-Unis | 346 | 346.36 | 356 |  |
-| Jersey | 118 | 118.2 | 119 |  |
-| Macao | 118 | 118.4 | 30 | écart de plus du double avec le tracé |
-| Montserrat | 102 | 102 | 100 |  |
-| Niue | 260 | 260 | 221 |  |
-| Nouvelle-Calédonie | 18 576 | 18576 | 18 892 |  |
-| Polynésie française | 4 167 | 4167 | 3 348 |  |
-| Porto Rico | 9 104 | 9104 | 9 035 |  |
-| Saint-Barthélemy | 25 | 25 | 25 |  |
-| Saint-Martin | 56 | 56 | 69 |  |
-| Saint-Martin (partie néerlandaise) | 34 | 34 | 23 |  |
-| Saint-Pierre-et-Miquelon | 242 | 242 | 242 |  |
-| Sainte-Hélène | 394 | 394 | 367 |  |
-| Samoa américaines | 199 | 199 | 181 |  |
-| Terres australes françaises | 7 829 | 7829 | 7 257 |  |
-| Territoire britannique de l’océan Indien | 60 | 60 | 49 |  |
-| Territoires extérieurs australiens de l'Océan Indien | — | aucune | 112 |  |
-| Wallis-et-Futuna | 142 | 142 | 140 |  |
+| Lieu | Retenue (km²) | Valeurs de Wikidata | Tracé de la carte (km²) | Remarque | À relire |
+|---|---|---|---|---|---|
+| Akrotiri | 123 | 123 | 99 |  |  |
+| Anguilla | 97,55 | 97.55 | 88 |  |  |
+| Antarctique | 14 106 900 | 14106900 | 12 258 320 |  |  |
+| Aruba | 193 | 193 | 170 |  |  |
+| Baïkonour | — | aucune | 6 486 |  |  |
+| Base navale de la baie de Guantánamo | 118 | 117.6 | 66 |  |  |
+| Bermudes | 53 | 53 | 62 |  |  |
+| Curaçao | 444 | 444 | 465 |  |  |
+| Dhekelia | 131 | 130.8 | 127 |  |  |
+| Géorgie du Sud-et-les Îles Sandwich du Sud | 4 066 | 4066 | 3 904 |  |  |
+| Gibraltar | 6,8 | 6.8 | 4 |  |  |
+| Groenland | 2 166 086 | 2166086 | 2 137 891 |  |  |
+| Guam | 544 | 544 | 566 |  |  |
+| Guernesey | 78 | 78 | 74 |  |  |
+| Hong Kong | 2 755 | 2755.03 (2016-01-01) ; 1649.34 (2016-01-01) ; 1105.69 (2016-01-01) | 1 039 | plusieurs valeurs : la plus grande retenue ; 2 755,03 est la somme des deux autres valeurs (des terres et des eaux ?) ; écart de plus du double avec le tracé | **à relire** : la valeur de Wikidata compte-t-elle des eaux, un lagon ou des récifs ? Sinon le tracé de la carte (1 039 km²) est trop grossier à cette échelle ; 1 105,69 km² pour les terres seules ? |
+| Île Clipperton | 8,9 | 8.9 | 5 |  |  |
+| Île de Man | 572 | 572 | 572 |  |  |
+| Île Norfolk | 34,6 | 34.6 | 41 |  |  |
+| Îles Åland | 1 583 | 1582.93 (2021-01-01) | 937 |  |  |
+| Îles Ashmore-et-Cartier | 199 | 199 | 3 | écart de plus du double avec le tracé | **à relire** : la valeur de Wikidata compte-t-elle des eaux, un lagon ou des récifs ? Sinon le tracé de la carte (3 km²) est trop grossier à cette échelle |
+| Îles Caïmans | 262 | 262 | 310 |  |  |
+| Îles Cook | 240 | 240 | 192 |  |  |
+| Îles de la mer de Corail | 7 | 7 | 0 | écart de plus du double avec le tracé | **à relire** : la valeur de Wikidata compte-t-elle des eaux, un lagon ou des récifs ? Sinon le tracé de la carte (0 km²) est trop grossier à cette échelle |
+| Îles Féroé | 1 399 | 1399 | 1 321 |  |  |
+| Îles Heard-et-MacDonald | 368 | 368 (préféré) | 393 | 1 valeur(s) dans une autre unité, écartée(s) |  |
+| Îles Malouines | 12 173 | 12173 | 11 553 |  |  |
+| Îles Mariannes du Nord | 464 | 464 | 581 |  |  |
+| Îles mineures éloignées des États-Unis | 34,2 | 34.2 | 28 |  |  |
+| Îles Pitcairn | 46,5 | 46.5 | 43 |  |  |
+| Îles Turques-et-Caïques | 417 | 417 | 446 |  |  |
+| Îles Vierges britanniques | 153 | 153 | 145 |  |  |
+| Îles Vierges des États-Unis | 346 | 346.36 | 356 |  |  |
+| Jersey | 118 | 118.2 | 119 |  |  |
+| Macao | 118 | 118.4 | 30 | écart de plus du double avec le tracé | **à relire** : la valeur de Wikidata compte-t-elle des eaux, un lagon ou des récifs ? Sinon le tracé de la carte (30 km²) est trop grossier à cette échelle |
+| Montserrat | 102 | 102 | 100 |  |  |
+| Niue | 260 | 260 | 221 |  |  |
+| Nouvelle-Calédonie | 18 576 | 18576 | 18 892 |  |  |
+| Polynésie française | 4 167 | 4167 | 3 348 |  |  |
+| Porto Rico | 9 104 | 9104 | 9 035 |  |  |
+| Saint-Barthélemy | 25 | 25 | 25 |  |  |
+| Saint-Martin | 56 | 56 | 69 |  |  |
+| Saint-Martin (partie néerlandaise) | 34 | 34 | 23 |  |  |
+| Saint-Pierre-et-Miquelon | 242 | 242 | 242 |  |  |
+| Sainte-Hélène | 394 | 394 | 367 |  |  |
+| Samoa américaines | 199 | 199 | 181 |  |  |
+| Terres australes françaises | 7 829 | 7829 | 7 257 |  |  |
+| Territoire britannique de l’océan Indien | 60 | 60 | 49 |  |  |
+| Territoires extérieurs australiens de l'Océan Indien | — | aucune | 112 |  |  |
+| Wallis-et-Futuna | 142 | 142 | 140 |  |  |
 
 ## 4. Langues des territoires (clé `langues_territoires`, D56 c)
 
@@ -313,7 +313,7 @@ Noms français absents de CLDR, écrits à la main :
 
 ## 7. Heure locale des territoires (clé `zone_territoires`)
 
-**Dans la fiche : affichée** (aucune relecture attendue ; une erreur se corrige quand même ici). La zone est écrite à la main pour chaque territoire (§ 2.2 : la plus proche de la capitale ne suffit pas, le Groenland sortait à Danmarkshavn) ; le build vérifie qu'elle est dans zone.tab et qu'elle est celle du code du territoire, sinon la ligne dit pourquoi (hors code). Pas de nombre de fuseaux pour un territoire. Le libellé est « Heure à <capitale> » une fois les capitales relues, « Heure locale » d'ici là.
+**Dans la fiche : affichée**, sauf les lignes « à relire » : la table les retire (pas de ligne) d'ici la réponse ; une erreur se corrige quand même ici. La zone est écrite à la main pour chaque territoire (§ 2.2 : la plus proche de la capitale ne suffit pas, le Groenland sortait à Danmarkshavn) ; le build vérifie qu'elle est dans zone.tab et qu'elle est celle du code du territoire, sinon la ligne dit pourquoi (hors code). Pas de nombre de fuseaux pour un territoire. Le libellé est « Heure à <capitale> » une fois les capitales relues, « Heure locale » d'ici là.
 
 | Territoire | Zone | Hiver / été | Zones de zone.tab pour son code | Raison | À relire |
 |---|---|---|---|---|---|
@@ -321,7 +321,7 @@ Noms français absents de CLDR, écrits à la main :
 | Anguilla | America/Anguilla | UTC−4 | America/Anguilla | seule zone de zone.tab pour ce code |  |
 | Aruba | America/Aruba | UTC−4 | America/Aruba | seule zone de zone.tab pour ce code |  |
 | Baïkonour | Asia/Qyzylorda | UTC+5 | aucune | Baïkonour suit l'heure du Kazakhstan, UTC+5 (Wikipédia, « Baïkonour », vérifié le 18/11/2026) ; tout le Kazakhstan est à UTC+5 depuis le 1er mars 2024, et Asia/Qyzylorda est la zone de zone.tab de la région de Kyzylorda, où est Baïkonour ; hors code (KZ) : Baïkonour n'a pas de code ISO ; Asia/Qyzylorda est une zone du Kazakhstan (KZ) ; point de zone.tab à 164 km du tracé |  |
-| Base navale de la baie de Guantánamo | America/New_York | UTC−5 / UTC−4 | aucune | la base suit l'heure de l'Est des États-Unis, heure d'été comprise, au rythme de son commandement en Floride et non de Cuba (timeanddate.com, « Cuba starts DST 2012 » ; Wikipédia en anglais, « Guantanamo Bay Naval Base » ; vérifié le 18/11/2026) ; hors code (US) : la base n'a pas de code ISO ; America/New_York est une zone des États-Unis (US) ; point de zone.tab à 2 308 km du tracé | **à relire** : les sources trouvées sont anciennes (2012) ou secondaires ; Cuba (America/Havana) a aussi UTC−5 l'hiver, l'heure d'été diffère de quelques jours |
+| Base navale de la baie de Guantánamo | America/New_York | UTC−5 / UTC−4 | aucune | la base suit l'heure de l'Est des États-Unis, heure d'été comprise, au rythme de son commandement en Floride et non de Cuba (timeanddate.com, « Cuba starts DST 2012 » ; Wikipédia en anglais, « Guantanamo Bay Naval Base » ; vérifié le 18/11/2026) ; relecture du lot F3 : ces sources sont anciennes ou secondaires, mais l'heure montrée serait la même avec celle de Cuba (America/Havana) : mesuré dans Node (ICU), heure par heure de 2025 à 2027, les deux zones ne diffèrent que 3 heures par an, la nuit des changements d'heure ; hors code (US) : la base n'a pas de code ISO ; America/New_York est une zone des États-Unis (US) ; point de zone.tab à 2 308 km du tracé |  |
 | Bermudes | Atlantic/Bermuda | UTC−4 / UTC−3 | Atlantic/Bermuda | seule zone de zone.tab pour ce code |  |
 | Curaçao | America/Curacao | UTC−4 | America/Curacao | seule zone de zone.tab pour ce code |  |
 | Dhekelia | Asia/Nicosia | UTC+2 / UTC+3 | aucune | les zones de souveraineté britanniques suivent l'heure de Chypre (heure d'Europe de l'Est, avec heure d'été) ; hors code (CY) : Dhekelia n'a pas de code ISO ; Asia/Nicosia est la zone de Chypre (CY), où sont les bases ; point de zone.tab à 32 km du tracé |  |
@@ -363,7 +363,7 @@ Noms français absents de CLDR, écrits à la main :
 | Samoa américaines | Pacific/Pago_Pago | UTC−11 | Pacific/Pago_Pago | seule zone de zone.tab pour ce code ; point de zone.tab à 1 km du tracé |  |
 | Terres australes françaises | Indian/Kerguelen | UTC+5 | Indian/Kerguelen | seule zone de zone.tab pour TF (les Kerguelen, où est Port-aux-Français) ; Crozet, Amsterdam et les îles Éparses ont d'autres heures d'usage |  |
 | Territoire britannique de l’océan Indien | Indian/Chagos | UTC+6 | Indian/Chagos | seule zone de zone.tab pour ce code ; point de zone.tab à 1 km du tracé |  |
-| Territoires extérieurs australiens de l'Océan Indien | Indian/Christmas | UTC+7 | aucune | deux zones pour l'entité, qui réunit l'île Christmas (CX, UTC+7, ≈ 1 700 habitants) et les îles Cocos (CC, UTC+6 h 30, ≈ 600 habitants) : celle de Christmas, la plus peuplée ; hors code (CX) : l'entité n'a pas de code ISO ; Indian/Christmas est la zone de l'île Christmas (CX) ; point de zone.tab à 2 km du tracé | **à relire** : les îles Cocos ont 30 minutes de moins : faut-il plutôt ne pas donner d'heure ? |
+| Territoires extérieurs australiens de l'Océan Indien | — (pas de ligne) | — | aucune | deux territoires à deux heures, que l'entité réunit : l'île Christmas (CX, Indian/Christmas, UTC+7, ≈ 1 700 habitants) et les îles Cocos (CC, Indian/Cocos, UTC+6 h 30, ≈ 600 habitants) ; sans capitale, la ligne s'appellerait « Heure locale » et serait fausse aux Cocos : aucune heure ne vaut pour l'ensemble, comme pour les îles mineures des États-Unis (§ 2.2) ; relecture du lot F3 : la zone de Christmas, montrée par le codeur avec un doute, est retirée d'ici la réponse | **à relire** : montrer l'heure de Christmas (Indian/Christmas, celle de la plus peuplée) pour les deux, ou aucune (retenu d'ici là) ? |
 | Wallis-et-Futuna | Pacific/Wallis | UTC+12 | Pacific/Wallis | seule zone de zone.tab pour ce code |  |
 
 ## 8. Points culminants (clé `culminant_territoires`)
