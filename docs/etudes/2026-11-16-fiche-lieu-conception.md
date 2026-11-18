@@ -2982,3 +2982,75 @@ Relecture du lot F5 (18/11) :
   bouton de voisine qui déborde.
 - Le morceau principal reste à 500,7 Ko (l'avertissement de Vite) : le passer sous 500 Ko demande de sortir du code
   du morceau, ou de relever `build.chunkSizeWarningLimit` ; non tranché ici.
+
+## 19. Écarts du code au lot F6
+
+Relevés par le codeur du lot F6 (branche `fiche-lieu`, 18/11).
+
+**Morceau principal, avant le lot** (choix de l'utilisateur du 18/11 : sortir du code, plutôt que relever
+`build.chunkSizeWarningLimit`). Tailles lues dans la sortie de `npm run build` :
+
+| | Morceau principal | gzip | Morceau de la fiche | gzip |
+|---|---|---|---|---|
+| après F5 (e926108) | 500,67 Ko | 173,38 Ko | 9,68 Ko | 3,67 Ko |
+| morceau sorti (6642dc1) | 492,67 Ko | 170,29 Ko | 18,20 Ko | 6,90 Ko |
+| après F6 (0118f15) | 494,35 Ko | 170,97 Ko | 18,30 Ko | 6,95 Ko |
+
+- **Ce qui est sorti** (mesuré au sourcemap du build, octets du morceau par fichier source) : le bloc `fiche` de
+  `textes.fr.json` (2,7 Ko), devenu `src/vues/textes-fiche.fr.json` (`textesFiche`, même règle de langue :
+  `textes-fiche.<langue>.json`) ; `fiches/format.ts` (2,9 Ko) ; la lecture des fichiers (`fiches/donnees.ts`, les
+  `lire*`, ≈ 2,5 Ko) ; `fiches/relues.ts` (0,3 Ko) ; la ligne de faits de la barre, sortie d'`explorer.ts` dans
+  `src/fiches/barre.ts` (`faitsPays`, `faitsTerritoire`, `faitsMer`, `faitsCommune`). Tout part avec le morceau de
+  la fiche (`vues/fiche.ts` les réexporte) : un seul morceau à la demande, toujours `fiche-*.js` (le `smoke` le
+  reconnaît).
+- **Le chargeur** reste au morceau principal, dans un fichier à part, `src/fiches/chargeur.ts` (et non
+  `fiches/donnees.ts`, § 6.1) : chaque chargement demande ses fichiers **et** le morceau de la fiche ensemble, en
+  parallèle, puis les lit par lui. La ligne de faits et le chevron attendent donc les deux, sans aller-retour de plus
+  (§ 6.1 : le morceau part avec les données) ; le toucher et sa mesure ne changent pas (le chargement part après). Le
+  morceau part désormais au premier toucher, comme le tableau du § 6.1 le disait, et non plus après l'arrivée des
+  données (le code des lots F1 à F5).
+- **Hors ligne** : rien à changer au service worker. Le morceau est au manifeste (`empreintes`), hors du
+  préchargement, rangé à l'usage comme avant ; l'APK le sert de ses fichiers.
+- **Garde** : `tests/morceau-principal.test.ts` suit les imports statiques depuis `src/main.ts` (les imports de types
+  exceptés) et refuse tout module des fiches ; un import oublié les ramènerait sans que Vite le dise.
+- **Marge** : 5,65 Ko après F6. F7 ajoute au morceau principal la préférence de la séance (`srs/planif.ts`,
+  `vues/seance.ts`) ; le bloc Mémoire et le bouton vont au morceau de la fiche. Non retenu : sortir aussi
+  `composer()` et la pose de la feuille d'`explorer.ts` (≈ 1,8 Ko au sourcemap, lignes 674 à 817 avant le lot), peu
+  de gain pour un état partagé de plus ; les textes du compte (13 Ko) servent aussi au morceau principal
+  (`main.ts`, `accueil.ts`, `classement.ts`). À reprendre si la marge manque.
+
+**Le lot F6** :
+- `ligneFiche(id, nom, texte, ouvrir?)`, et non `ligneFiche(id, texte, ouvrir)` : le nom du lieu de la fiche (le pays
+  sous Capitales, « Japon » pour « Tokyo (Japon) ») sert au nom du bouton, « Fiche : {nom}. {texte} »
+  (`textes.bilan.fiche_ligne`, au morceau principal). Sans `ouvrir`, le `<li>` de texte d'avant. Le `<li>` porte
+  `rate-fiche` : sans puce, un filet entre deux lignes, le bouton sur toute la largeur.
+- **« ‹ Retour au bilan »** remonte à l'**adresse du bilan** (`nav.remonter`, `main.ts` la retient à l'ouverture,
+  `adresseBilan`), et non `nav.retour()` (§ 4.4, § 4.6) : après un détour par une vue de passage (Crédits, ouverts
+  par le pied de la fiche ; 🏆) et son « Retour », la vue d'avant serait la carte elle-même, et rien ne se passait.
+  Un test le couvre (`fiche-partie`). Les tests de navigation du § 7 (deux voisins, au-delà de `PILE_MAX`) passent
+  par `remonter` de même.
+- La marque `bilan` vit dans l'entrée d'historique de la **première** fiche (`LieuFiche.bilan`, gardée par
+  `pousserFiche`) ; un voisin ne la porte pas. Sur elle seule, « ‹ » est montré (même au rang 1) et nommé « Retour
+  au bilan » (`aria-label` et `title`, `textesFiche.avant_bilan`) ; son signe reste « ‹ », sans texte visible.
+  **Échap** fait comme « ‹ ». Le retour du navigateur et celui d'Android font un pas : la première fiche fermée
+  (la carte, le lieu montré), puis le bilan.
+- Après « × », la fiche rouverte par la barre ne porte plus la marque : le bilan reste joignable par le retour.
+- `navigation.ts` : l'entrée remplacée par `remonter` (au-delà de `PILE_MAX`) perd sa fiche ; sinon un rechargement
+  sur elle remontait toutes les entrées de fiche (`demarrage`).
+- Le bilan remontré rend le **focus** à la ligne touchée (`rendreFocusLigne`, dans `activer()` de Toucher, du Chrono
+  et du quiz), de nouveau deux images plus tard s'il est tombé sur `body` : le § 4.6 ne le disait pas.
+- Le quiz : une question restée sans réponse (abandon) est une erreur du bilan, touchable aussi.
+- Fichiers hors de la liste du § 8 : `src/navigation.ts`, `src/vues/fiche.ts` (le libellé de « ‹ »), les textes ;
+  `src/fiches/chargeur.ts`, `src/fiches/barre.ts`, `src/vues/textes-fiche.*` (le morceau).
+
+**Ce que le pilote doit voir** (`driver.py fiche`, `ui_fiche_bilan`, après le scénario de mesure ; non lancé par le
+codeur ; en téléphone et `--width 1280`, puis `--url https://terramemo-geo.web.app/` après le déploiement) : une partie
+de Trouver (Amérique du Sud) avec une erreur, « Terminer » ; l'erreur en bouton de 44 px au moins, dans le bilan,
+sans débordement ni défilement horizontal, chevron à droite, nommé « Fiche : … » (capture 162) ; touchée : `#carte`,
+le lieu dans la barre, sa fiche, focus au titre, « ‹ » nommé « Retour au bilan » (163) ; un voisin (164), « ‹ », puis
+« ‹ Retour au bilan » : `#toucher`, le bilan, la fiche fermée, le focus à la ligne (165) ; « × » : la carte, puis
+`history.back()` rend le bilan ; l'île : une commune ratée (166), sa fiche sur l'île (167), le bilan rendu sur l'île.
+
+**Restent à l'utilisateur** : l'allure des lignes touchables (filet, chevron, sans puce) sur les captures 162 et 166 ;
+« ‹ » sans texte visible sur la première fiche (son nom « Retour au bilan » n'est lu que par les lecteurs d'écran et
+l'infobulle) : un libellé visible (« ‹ Bilan ») est possible si les captures le demandent.
