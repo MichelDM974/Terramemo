@@ -580,6 +580,7 @@ type ReglesMers = {
   profondeurWikidata: (d: Decl[] | undefined) => { v: number | null; comment: string };
   riverainsTrace: (marine: GeoJSON.FeatureCollection, pays: GeoJSON.FeatureCollection, aff: { ne_id: number; id?: string }[]) => Record<string, Record<string, number>>;
   sousMers: (id: string, zones: Mer[]) => string[];
+  chiffresMers: (e: Record<string, unknown>) => { lieux: Record<string, FicheMerBrute>; relecture: { riverains: { id: string; lignes: { mer: string; id: string; garde?: string[] }[] }[] } };
 };
 const reglesMers = import('../geodata/fiches-mers.mjs' as string) as Promise<ReglesMers>;
 const brutMers = readFileSync('public/geo/fiches-mers.json', 'utf8');
@@ -705,6 +706,31 @@ describe('fiches des océans et des mers : le lot F4', () => {
     expect(sousMers('noire', zonesMers)).toEqual(['azov']);
   });
 
+  it('une ligne « retire » d’une sous-mer vaut pour sa mère, sauf si une autre partie de la mère donne ce riverain', async () => {
+    const { chiffresMers } = await reglesMers;
+    // L'océan o ; la mère m, et ses deux filles a et b. Le tracé : S et X sur a, X sur b. La table retire S et X de a.
+    const zones = [
+      { id: 'o', sorte: 'océan', parents: [], superficie_km2: 100 },
+      { id: 'm', sorte: 'mer', parents: ['o'], superficie_km2: 10 },
+      { id: 'a', sorte: 'mer', parents: ['m'], superficie_km2: 5 },
+      { id: 'b', sorte: 'mer', parents: ['m'], superficie_km2: 5 },
+    ];
+    const r = chiffresMers({
+      zones,
+      titres: {},
+      wd: { etats: {}, mers: {}, lieux: {} },
+      itemsCarte: new Map(),
+      entites: [{ id: 'S' }, { id: 'X' }],
+      trace: { o: {}, m: {}, a: { S: 5, X: 5 }, b: { X: 5 } },
+      main: { souverain: {}, superficie_mers: {}, profondeur_mers: {}, riverains_mers: { a: { S: { retire: 'enclavé' }, X: { retire: 'pas sur a' } } }, riverains_items: {} },
+    });
+    expect(r.lieux.a!.r).toBeUndefined();
+    expect(r.lieux.b!.r).toEqual(['X']);
+    // S n'est donné que par a : retiré de m aussi ; X, donné par b, reste riverain de m (le tableau le dit).
+    expect(r.lieux.m!.r).toEqual(['X']);
+    expect(r.relecture.riverains.find((x) => x.id === 'm')!.lignes.find((l) => l.id === 'X')!.garde).toEqual(['b']);
+  });
+
   it('règle du tracé : une côte à moins de 0,12° de la zone, en 2 points au moins', async () => {
     const { riverainsTrace } = await reglesMers;
     const carre = (x0: number, y0: number, x1: number, y1: number) => ({ type: 'Polygon' as const, coordinates: [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]] });
@@ -740,5 +766,10 @@ describe('fiches des océans et des mers : le lot F4', () => {
     expect(t).not.toMatch(/undefined|NaN|\[object/);
     // Une ligne par mer dans chaque section : 45 pour les riverains, 50 pour les superficies et les profondeurs.
     expect(t.match(/^\| mer Méditerranée/gm)).toHaveLength(3);
+    const section = (n: number) => t.split(/^## /m).find((x) => x.startsWith(`${n}. `))!;
+    const lignesDe = (x: string) => x.split('\n').filter((l) => /^\| (?!Mer \||Item \||---)/.test(l) && !/^\|---/.test(l));
+    expect(lignesDe(section(1).split('Items de Wikidata')[0]!)).toHaveLength(45);
+    expect(lignesDe(section(2))).toHaveLength(50);
+    expect(lignesDe(section(3))).toHaveLength(50);
   });
 });

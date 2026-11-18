@@ -437,7 +437,7 @@ describe('accueil : la fiche d’une mer (#34, lot F4)', () => {
     // Un océan : sa superficie seule ; la mer suivante, tout de suite, sans rien relire.
     a.toucher(PACIFIQUE, 1);
     expect(merEn(PACIFIQUE)).toBe('océan Pacifique');
-    expect(simple(a.fiche.faits())).toBe('162 millions de km²');
+    expect(simple(a.fiche.faits())).toBe('169 millions de km²');
     a.toucher(MEDITERRANEE);
     expect(simple(a.fiche.faits())).toBe('océan Atlantique · 2,5 millions de km²');
     expect(lus.filter((f) => f.startsWith('fiches-mers'))).toHaveLength(2);

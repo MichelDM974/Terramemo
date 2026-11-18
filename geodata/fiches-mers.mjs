@@ -16,7 +16,7 @@
 //     disparus (P576) retirés ; d'office, un souverain que seul Wikidata donne, quand un de ses
 //     territoires est riverain par le tracé (le Royaume-Uni par Gibraltar) ; puis la table
 //     (riverains_mers : retraits et ajouts, chacun avec sa raison ; une ligne d'une mer vaut
-//     aussi pour les mers qui la contiennent) ; riverains_items : un item cité par Wikidata qui
+//     aussi pour les mers qui la contiennent, sauf un retrait d'un riverain qu'une autre partie de la mère donne) ; riverains_items : un item cité par Wikidata qui
 //     n'est pas celui d'une entité de la carte.
 // Échoue (fautes) si la table et les données ne s'accordent plus : une ligne qui ne s'applique
 // plus, une mer à plus de 25 % sans ligne, un item cité inconnu.
@@ -280,8 +280,15 @@ export function chiffresMers({ zones, titres, wd, itemsCarte, entites, trace, ma
     const office = [...W].filter((x) => !T.has(x) && [...T].some((t) => souverainDe.get(t) === x)).sort(parId);
     for (const x of office) union.delete(x);
     const base = new Set(union);
+    // Ce que chaque partie du groupe donne d'elle-même (tracé, Wikidata, ses ajouts) : une ligne « retire » d'une
+    // sous-mer ne retire pas de la mère un riverain qu'une autre partie donne (la Grèce retirée de l'Adriatique
+    // resterait riveraine de la Méditerranée par la mer Égée).
+    const apport = new Map(
+      groupe.map((g) => [g, new Set([...traceDe(g), ...wdDe(g).ids, ...Object.entries(rivMain[g] ?? {}).filter(([e, l]) => !e.startsWith('_') && l.ajoute).map(([e]) => e)])]),
+    );
     const lignes = [];
     for (const g of groupe) {
+      const dessous = new Set([g, ...sousMers(g, zones)]);
       for (const [e, l] of Object.entries(rivMain[g] ?? {})) {
         if (e.startsWith('_')) continue;
         const sens = l.retire ? 'retire' : l.ajoute ? 'ajoute' : null;
@@ -291,9 +298,10 @@ export function chiffresMers({ zones, titres, wd, itemsCarte, entites, trace, ma
           if (sens === 'retire' && !base.has(e)) faute(`riverains_mers : ${g} ${e} à retirer, mais ni le tracé ni Wikidata ne le donnent : ligne inutile`);
           if (sens === 'ajoute' && base.has(e)) faute(`riverains_mers : ${g} ${e} à ajouter, mais il est déjà riverain : ligne inutile`);
         }
-        if (sens === 'retire') union.delete(e);
+        const ailleurs = sens === 'retire' && g !== z.id ? groupe.filter((h) => !dessous.has(h) && apport.get(h).has(e)) : [];
+        if (sens === 'retire' && !ailleurs.length) union.delete(e);
         if (sens === 'ajoute') union.add(e);
-        lignes.push({ mer: g, id: e, sens, raison: l[sens], a_relire: l.a_relire });
+        lignes.push({ mer: g, id: e, sens, raison: l[sens], a_relire: l.a_relire, ...(ailleurs.length ? { garde: ailleurs } : {}) });
       }
     }
     const r = [...union].sort(parId);
@@ -406,7 +414,9 @@ export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles
   const mer = (id) => nomsMers[id] ?? id;
   const statut = new Map(entites.map((e) => [e.id, e.statut]));
   const parNom = (a, b) => nom(a).localeCompare(nom(b), 'fr');
-  const liste = (ids) => (ids.length ? [...ids].sort(parNom).map((id) => (statut.get(id) === 'jouable' ? nom(id) : `${nom(id)} (${statut.get(id) === 'territoire' ? 'territoire' : statut.get(id) === 'conteste' ? 'statut contesté' : statut.get(id)})`)).join(', ') : '—');
+  // Le statut comme la fiche le dit d'un voisin (src/vues/commun.ts, LIBELLE_STATUT) : « paquet optionnel » pour Taïwan.
+  const LIBELLE = { territoire: 'territoire', conteste: 'statut contesté', optionnel: 'paquet optionnel' };
+  const liste = (ids) => (ids.length ? [...ids].sort(parNom).map((id) => (statut.get(id) === 'jouable' ? nom(id) : `${nom(id)} (${LIBELLE[statut.get(id)] ?? statut.get(id)})`)).join(', ') : '—');
   const relireLignes = (lignes) => {
     const l = lignes.filter((x) => x.a_relire).map((x) => (typeof x.a_relire === 'string' ? `${nom(x.id)}, ${x.a_relire}` : nom(x.id)));
     return l.length ? `**à relire** : ${l.join(' ; ')}` : '';
@@ -452,6 +462,7 @@ export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles
       `**Le tracé** : un pays (ou un territoire) dont la côte passe à ${TOLERANCE_DEG.toLocaleString('fr-FR')}° (≈ 13 km) de la zone dessinée, en ${POINTS_MIN} points au moins (≈ 10 km de côte). ` +
       '**Wikidata** : les pays (P17) et pays du bassin (P205) déclarés pour la mer. Puis : les États disparus retirés ; d\'office, un pays que seul Wikidata donne quand un de ses ' +
       'territoires est riverain par le tracé (il est alors représenté par ce territoire) ; enfin les lignes de la table (retraits et ajouts, avec leur raison). ' +
+      'Une ligne d\'une sous-mer vaut aussi pour sa mère (Saint-Marin retiré de l\'Adriatique l\'est de la Méditerranée), sauf un retrait d\'un pays qu\'une autre partie de la mère donne : il y reste. ' +
       'Les territoires et les zones contestées portent leur statut ; la fiche range les pays d\'abord, les autres à part, comme les voisins d\'un pays.',
   );
   o.push('');
@@ -467,7 +478,14 @@ export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles
         liste(r.traceSeul),
         `${liste(r.wikidataSeul)}${r.disparus.length ? ` ; États disparus retirés : ${r.disparus.join(', ')}` : ''}`,
         liste(r.office),
-        r.lignes.length ? r.lignes.map((l) => `${l.sens === 'retire' ? 'retire' : 'ajoute'} ${nom(l.id)}${l.mer !== r.id ? ` (ligne de ${mer(l.mer)})` : ''} : ${l.raison}`).join(' ; ') : '—',
+        r.lignes.length
+          ? r.lignes
+              .map(
+                (l) =>
+                  `${l.sens === 'retire' ? 'retire' : 'ajoute'} ${nom(l.id)}${l.mer !== r.id ? ` (ligne de ${mer(l.mer)}${l.garde ? ` ; gardé ici, riverain par ${l.garde.map(mer).join(', ')}` : ''})` : ''} : ${l.raison}`,
+              )
+              .join(' ; ')
+          : '—',
         relireLignes(r.lignes),
       ]),
     ),
