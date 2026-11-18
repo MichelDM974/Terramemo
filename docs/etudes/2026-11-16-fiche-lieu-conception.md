@@ -2946,3 +2946,28 @@ Relevés par le codeur du lot F5 (branche `fiche-lieu`, 18/11). Tableau à relir
   dans la fiche (l'île gardée, capture 161), « ‹ », « × ».
 - Restent à l'utilisateur : le tableau des gentilés (§ 1 de `fiches-communes.md`) ; « Dominicains » pour
   L'Étang-Salé, que la fiche ne dit pas ; l'accent de « Petite-Îlois ».
+
+Relecture du lot F5 (18/11) :
+- **Vérifiés contre leur source** : les 24 lignes de `reunion/fiches.json` (habitants, année, hectares, SIREN) et
+  les membres des 5 intercommunalités, relus dans le GeoPackage par une requête à part (sqlite) : toutes égales,
+  889 679 habitants ; les gentilés de Petite-Île, Saint-Pierre, Saint-Benoît et du Tampon dans Wikidata (API, ce
+  jour) : égaux à l'extrait ; les infobox de L'Étang-Salé, Petite-Île, Saint-Benoît et Sainte-Marie (révisions
+  citées) : égales à ce que disent les lignes ; celles de Petite-Île, Saint-Benoît et Sainte-Marie donnent aussi les
+  habitants de 2023 et la superficie servis (13 067, 38 604, 37 093 ; 33,93, 229,61, 87,21 km²). Les relances de
+  `geodata/reunion.mjs` et de `npm run fiches` ne changent aucun fichier.
+- **CASUD** : la raison de la ligne citait « ses délibérations » ; la page de la Wikipédia citée abrège en fait
+  « CA Sud » dans sa première phrase, et seules ses sources (la presse) disent « CASUD ». Le sigle est gardé (§ 2.4) :
+  c'est celui du site de l'intercommunalité (`www.casud.re`, titre de la page, lu le 18/11/2026), que la raison cite
+  désormais.
+- **Tableau** : en-têtes nommés (« La fiche dira », « Les deux sources », « Le doute », « À relire ») ; la liste des
+  24 dit quelles communes ont une ligne ; la consigne « valider une ligne : retirer son `verifier` » faisait échouer
+  le build (une ligne sans `verifier`, `masculin` ni `pluriel` est refusée) : elle dit maintenant de retirer la
+  ligne entière.
+- **Tests** : un test de la vue comparait les chargements d'une commune à ceux de la France touchée avant ; il compare
+  maintenant à ce que la France avait demandé. Ajoutés : « × » après une voisine (la fiche fermée, la voisine dans la
+  barre, l'île gardée) ; une entrée de fiche de l'île rendue depuis le monde, l'île pas encore chargée ; la ligne de
+  l'IGN dans Crédits, à l'année du recensement servi.
+- **Pilote** : la fiche de Saint-Pierre doit commencer sous la mention de l'IGN (`.carte-credit`), sans ligne ni
+  bouton de voisine qui déborde.
+- Le morceau principal reste à 500,7 Ko (l'avertissement de Vite) : le passer sous 500 Ko demande de sortir du code
+  du morceau, ou de relever `build.chunkSizeWarningLimit` ; non tranché ici.

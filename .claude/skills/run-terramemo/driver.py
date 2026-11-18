@@ -4781,6 +4781,20 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
             defauts.append(f"fiche de Saint-Pierre : voisines Entre-Deux, Le Tampon, Petite-Île, Saint-Joseph, Saint-Louis attendues ({e['voisins']})")
         if "IGN" not in sources or "INSEE" not in sources:
             defauts.append(f"fiche de Saint-Pierre : l'IGN et le recensement de l'INSEE dans les sources attendus ({sources!r})")
+        # La fiche sous la mention de l'IGN (§ 4.2 : 40 px du haut sur l'île, comme le bilan), lue après son
+        # animation (200 ms), et rien qui déborde (lignes, boutons des voisines) à la largeur de la page.
+        p.pause(300)
+        g = p.js("""(() => { const f = document.getElementById('fiche-lieu').getBoundingClientRect(),
+            m = document.querySelector('#carte-ile .carte-credit'), r = m ? m.getBoundingClientRect() : null,
+            larges = [...document.querySelectorAll('#fiche-lieu .fiche-fait, #fiche-lieu .fiche-voisin')].filter(e => e.scrollWidth > e.clientWidth + 1).length;
+            return { haut: f.top, mention: r ? r.bottom : null, larges }; })()""")
+        dire(f"  fiche de Saint-Pierre : haut à {g['haut']:.0f} px, mention de l'IGN jusqu'à {g['mention']} px, {g['larges']} élément(s) qui débordent")
+        if g["mention"] is None:
+            defauts.append("fiche de Saint-Pierre : pas de mention de l'IGN sur la carte de l'île")
+        elif g["haut"] < g["mention"]:
+            defauts.append(f"fiche de Saint-Pierre : elle couvre la mention de l'IGN (haut {g['haut']:.0f} < {g['mention']:.0f})")
+        if g["larges"]:
+            defauts.append(f"fiche de Saint-Pierre : {g['larges']} ligne(s) ou voisine(s) qui débordent")
         capturer("160-fiche-commune")
         # Une voisine : sa fiche, « ‹ » montré ; la carte de l'île vole dessous (le terrain reste l'île).
         toucher_element(p, '#fiche-lieu .fiche-voisins [data-id="97422"]')
