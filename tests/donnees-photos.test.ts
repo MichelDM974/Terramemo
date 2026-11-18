@@ -223,6 +223,11 @@ const sorteAttendue = new Map<string, string>([
 const empreinte = (f: string) => createHash('sha256').update(readFileSync(f)).digest('hex');
 
 describe('candidats.json (npm run photos:candidats)', () => {
+  it('les pays en guerre (décision du 18/11) sont sensibles : rien n’y est coché d’avance', () => {
+    for (const id of ['YEM', 'LBY', 'ISR']) expect((candidats.lieux[id] as { sensible?: string | null }).sensible, id).toBe('pays en guerre');
+    expect((candidats.lieux.FRA as { sensible?: string | null }).sensible ?? null).toBeNull();
+  });
+
   it('les 332 lieux du code, et chaque lieu présent a sa sorte et son item', () => {
     expect(sorteAttendue.size).toBe(332);
     expect(candidats.v).toBe(1);
@@ -268,11 +273,12 @@ describe('candidats.json (npm run photos:candidats)', () => {
     }
   });
 
-  it('pauvre si moins de 3 candidats ont un sujet ; les zones contestées et les lieux revendiqués sont sensibles', () => {
+  it('pauvre si moins de 3 candidats ont un sujet ; les zones contestées, les lieux revendiqués et les pays en guerre sont sensibles', () => {
+    const enGuerre = new Set(['YEM', 'LBY', 'ISR']);
     for (const [id, l] of Object.entries(candidats.lieux)) {
       expect(Boolean(l.pauvre), id).toBe(l.comptes.avec_sujet < 3);
       const e = pays.find((p) => p.id === id);
-      expect(Boolean(l.sensible), id).toBe(Boolean(e && (e.statut === 'conteste' || (e.revendique_par?.length ?? 0) > 0)));
+      expect(Boolean(l.sensible), id).toBe(Boolean(e && (e.statut === 'conteste' || (e.revendique_par?.length ?? 0) > 0 || enGuerre.has(id))));
     }
   });
 

@@ -24,8 +24,15 @@ const RANG = { pays: 0, territoire: 1, zone: 2, continent: 3, mer: 4, commune: 5
  * (revendique_par de pays.json : Malouines, Gibraltar, Chagos, Géorgie du Sud,
  * Guantánamo, Taïwan, Kosovo).
  */
+/**
+ * Pays en guerre (décision de l'utilisateur du 18/11/2026) : rien n'y est coché d'avance non plus, une scène de
+ * conflit pouvant passer le filtre des noms. Liste close, à revoir avec l'actualité.
+ */
+export const PAYS_EN_GUERRE = { YEM: 'Yémen', LBY: 'Libye', ISR: 'Israël' };
+
 export function raisonSensible(entite) {
   if (entite.statut === 'conteste') return 'zone contestée';
+  if (PAYS_EN_GUERRE[entite.id]) return 'pays en guerre';
   if (entite.revendique_par?.length) return `souveraineté revendiquée (${entite.revendique_par.join(', ')})`;
   return null;
 }
