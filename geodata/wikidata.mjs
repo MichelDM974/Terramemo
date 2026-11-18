@@ -28,6 +28,12 @@
 // P205) et, pour chaque pays cité, sa dissolution (P576) et ses libellés, par les requêtes
 // de geodata/wikidata/requetes-fiches-mers.rq, dans geodata/wikidata/fiches-mers.json (les
 // items : clé q de geodata/mers.json) ; puis npm run fiches.
+// npm run wikidata -- --fiches-communes : les textes des fiches des 24 communes de La Réunion
+// (#34, lot F5, étude fiche-lieu § 2.4) : leur item par le code INSEE (P374), leur gentilé
+// (P1549), leur libellé et le titre de leur article de la Wikipédia en français, par les
+// requêtes de geodata/wikidata/requetes-fiches-communes.rq, dans
+// geodata/wikidata/fiches-communes.json (les codes : public/geo/reunion/communes.json) ;
+// puis npm run fiches.
 // Portage en Node des scripts du relevé (wikidata.py, wikidata_sieges.py, vues.py,
 // ~/Sauvegardes/terramemo/j2-conception/capitales/scripts/). User-Agent générique, sans
 // adresse ni nom. Le point SPARQL était bridé à une requête par minute le 10/11/2026 :
@@ -48,6 +54,9 @@ const EXTRAIT_FICHES = join(DOSSIER, 'fiches.json');
 const REQUETES_FICHES_MERS = join(DOSSIER, 'requetes-fiches-mers.rq');
 const EXTRAIT_FICHES_MERS = join(DOSSIER, 'fiches-mers.json');
 const TABLE_MERS = join(RACINE, 'geodata', 'mers.json');
+const REQUETES_FICHES_COMMUNES = join(DOSSIER, 'requetes-fiches-communes.rq');
+const EXTRAIT_FICHES_COMMUNES = join(DOSSIER, 'fiches-communes.json');
+const COMMUNES = join(RACINE, 'public', 'geo', 'reunion', 'communes.json');
 const MAIN_NOTORIETE = join(RACINE, 'geodata', 'notoriete-main.json');
 const MAIN = join(RACINE, 'geodata', 'capitales-main.json');
 const MAIN_FICHES = join(RACINE, 'geodata', 'fiches-main.json');
@@ -582,7 +591,67 @@ async function fichesMers() {
   );
 }
 
+/**
+ * Les textes des fiches des 24 communes de La Réunion (#34, lot F5) : l'item de chaque code
+ * INSEE (P374 ; un seul par code, sinon échec), ses gentilés (P1549, en français, avec leurs
+ * qualificatifs), son libellé et le titre de son article de la Wikipédia en français, tels que
+ * Wikidata les déclare, sans rien choisir (la règle est au build, geodata/fiches-communes.mjs).
+ * Une déclaration : {id, rang, v, q: {Pxxx: [valeurs]}}.
+ */
+async function fichesCommunes() {
+  const debut = Date.now();
+  const texteRequetes = await readFile(REQUETES_FICHES_COMMUNES, 'utf8');
+  const req = sections(texteRequetes);
+  for (const n of ['communes', 'gentiles']) if (!req[n]) echec(`requetes-fiches-communes.rq : section ${n} absente`);
+  const codes = JSON.parse(await readFile(COMMUNES, 'utf8')).map((c) => c.id).sort();
+  const extraitLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const date = aujourdhui();
+  console.log(`SPARQL : items de ${codes.length} communes (P374)`);
+  const parCode = {};
+  for (const b of await sparql(req.communes.replace('{{codes}}', codes.map((c) => JSON.stringify(c)).join(' ')))) {
+    const l = (parCode[b.code.value] ??= []);
+    const q = qid(b.lieu.value);
+    if (!l.includes(q)) l.push(q);
+  }
+  const communes = {};
+  for (const c of codes) {
+    const l = parCode[c] ?? [];
+    if (l.length !== 1) echec(`${c} : ${l.length} items pour ce code INSEE (${l.join(', ')})`);
+    communes[c] = l[0];
+  }
+  const items = [...new Set(Object.values(communes))].sort();
+  console.log(`SPARQL : gentilés de ${items.length} communes`);
+  await attendre(Math.max(0, derniereSparql + 2000 - Date.now()));
+  const gentiles = declarations(await sparql(req.gentiles.replace('{{communes}}', items.map((q) => `wd:${q}`).join(' '))), 'lieu', (b) => ({ v: b.v.value }));
+  // Libellés des items cités en qualificatif (genre et nombre), pour relire l'extrait sans Wikidata ouvert.
+  const cites = new Set();
+  for (const d of Object.values(gentiles).flat()) for (const l of Object.values(d.q)) for (const v of l) if (/^Q\d+$/.test(v)) cites.add(v);
+  console.log(`API : libellés et articles de ${items.length} communes, libellés de ${cites.size} items cités`);
+  const apiLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const ent = await entites([...items, ...cites], 'labels|sitelinks', 'frwiki');
+  const parLieu = {};
+  for (const q of items) {
+    const e = ent[q];
+    if (!e || e.missing !== undefined) echec(`${q} : commune absente de Wikidata`);
+    parLieu[q] = { fr: libelle(e, 'fr'), frwiki: frwiki(e), ...(gentiles[q] ? { gentiles: gentiles[q] } : {}) };
+  }
+  const libelles = {};
+  for (const q of [...cites].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))) libelles[q] = { fr: libelle(ent[q], 'fr'), en: libelle(ent[q], 'en') };
+  const objet = (o) => `{\n${Object.entries(o).map(([k, x]) => `${JSON.stringify(k)}:${JSON.stringify(x)}`).join(',\n')}\n}`;
+  const texte =
+    `{\n"extrait_le":${JSON.stringify(extraitLe)},\n"date":${JSON.stringify(date)},\n"api_le":${JSON.stringify(apiLe)},\n` +
+    `"requetes_sha256":${JSON.stringify(sha256(texteRequetes))},\n` +
+    `"items":${JSON.stringify('par le code INSEE (P374) des communes de public/geo/reunion/communes.json')},\n` +
+    `"communes":${JSON.stringify(communes)},\n` +
+    `"lieux":${objet(parLieu)},\n` +
+    `"libelles":${objet(libelles)}\n}\n`;
+  await writeFile(EXTRAIT_FICHES_COMMUNES, texte);
+  const n = Object.values(parLieu).filter((o) => o.gentiles).length;
+  console.log(`${items.length} communes : gentilé ${n}, article ${Object.values(parLieu).filter((o) => o.frwiki).length} ; ${Math.round((Date.now() - debut) / 1000)} s`);
+}
+
 if (process.argv.includes('--notoriete')) await notorietePays();
+else if (process.argv.includes('--fiches-communes')) await fichesCommunes();
 else if (process.argv.includes('--fiches-mers')) await fichesMers();
 else if (process.argv.includes('--fiches')) await fichesPays();
 else await main();

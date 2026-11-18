@@ -1,0 +1,37 @@
+{
+"extrait_le":"2026-11-18T10:20:42Z",
+"date":"2026-11-18",
+"api_le":"2026-11-18T10:20:45Z",
+"requetes_sha256":"9be3ec02b38d1ea7f423a7749ff28cd14f8c4cbbcaffa49a5fd30fbb4812be48",
+"items":"par le code INSEE (P374) des communes de public/geo/reunion/communes.json",
+"communes":{"97401":"Q1014814","97402":"Q691092","97403":"Q1014800","97404":"Q1014771","97405":"Q1326390","97406":"Q579430","97407":"Q956943","97408":"Q429770","97409":"Q1649370","97410":"Q478215","97411":"Q47045","97412":"Q305275","97413":"Q1649363","97414":"Q1617681","97415":"Q316887","97416":"Q249884","97417":"Q652100","97418":"Q662942","97419":"Q1014731","97420":"Q1757048","97421":"Q1014778","97422":"Q13648","97423":"Q1014763","97424":"Q1014746"},
+"lieux":{
+"Q1014731":{"fr":"Sainte-Rose","frwiki":"Sainte-Rose (La Réunion)","gentiles":[{"id":"Q1014731-edffd80a-456a-6087-3062-9c59f253f500","rang":"normal","v":"Sainte-Rosien","q":{}}]},
+"Q1014746":{"fr":"Cilaos","frwiki":"Cilaos","gentiles":[{"id":"Q1014746-2d726db2-46b4-1b5b-6fcf-2256dcd142fd","rang":"normal","v":"Cilaosien","q":{}}]},
+"Q1014763":{"fr":"Les Trois-Bassins","frwiki":"Les Trois-Bassins","gentiles":[{"id":"Q1014763-adfeca6b-42d2-53cc-2798-063c939a55a0","rang":"normal","v":"Trois-Bassinois","q":{}}]},
+"Q1014771":{"fr":"L'Étang-Salé","frwiki":"L'Étang-Salé","gentiles":[{"id":"Q1014771-504a2e50-4cc4-a600-301b-b747cd57ccc1","rang":"normal","v":"Étang-Saléen","q":{}}]},
+"Q1014778":{"fr":"Salazie","frwiki":"Salazie","gentiles":[{"id":"Q1014778-a81a683a-4d6d-c9eb-6b03-958d2604f8c9","rang":"normal","v":"Salazien","q":{}}]},
+"Q1014800":{"fr":"Entre-Deux","frwiki":"Entre-Deux","gentiles":[{"id":"Q1014800-05936ddc-4c7d-8f26-3e6d-ea7e8037d0b7","rang":"normal","v":"Entre-Deusien","q":{}}]},
+"Q1014814":{"fr":"Les Avirons","frwiki":"Les Avirons","gentiles":[{"id":"Q1014814-7eb1a4b8-415c-cee1-45c6-b0dad9d680c3","rang":"normal","v":"Avironnais","q":{}}]},
+"Q1326390":{"fr":"Petite-Île","frwiki":"Petite-Île","gentiles":[{"id":"Q1326390-3bbd62b3-403a-27a9-55f6-1a8eae5718b9","rang":"normal","v":"Petite-Îlois","q":{}}]},
+"Q13648":{"fr":"Le Tampon","frwiki":"Le Tampon","gentiles":[{"id":"Q13648-4e1c58ec-4d2e-54dc-d88d-b1eec3d72155","rang":"normal","v":"Tamponnais","q":{}}]},
+"Q1617681":{"fr":"Saint-Louis","frwiki":"Saint-Louis (La Réunion)","gentiles":[{"id":"Q1617681-0c10ee72-4fa5-75a9-5bfc-eedc7f1118ce","rang":"normal","v":"Saint-Louisien","q":{}}]},
+"Q1649363":{"fr":"Saint-Leu","frwiki":"Saint-Leu (La Réunion)","gentiles":[{"id":"Q1649363-0996860e-4a31-1a1b-79cd-1635cca9e3a4","rang":"normal","v":"Saint-Leusien","q":{}}]},
+"Q1649370":{"fr":"Saint-André","frwiki":"Saint-André (La Réunion)","gentiles":[{"id":"Q1649370-d110398e-450f-3182-672e-eae0a58a321a","rang":"normal","v":"Saint-Andréen","q":{}}]},
+"Q1757048":{"fr":"Sainte-Suzanne","frwiki":"Sainte-Suzanne (La Réunion)","gentiles":[{"id":"Q1757048-1765caa1-404e-8f11-6e3e-025b5bce48e1","rang":"normal","v":"Sainte-Suzannois","q":{}}]},
+"Q249884":{"fr":"Saint-Pierre","frwiki":"Saint-Pierre (La Réunion)","gentiles":[{"id":"Q249884-3defa6e6-493b-4eef-53c0-b1ae33f3fcb1","rang":"normal","v":"Saint-Pierrois","q":{}}]},
+"Q305275":{"fr":"Saint-Joseph","frwiki":"Saint-Joseph (La Réunion)","gentiles":[{"id":"Q305275-7e824afb-4277-85e1-00e1-0b81361870ca","rang":"normal","v":"Saint-Joséphois","q":{}}]},
+"Q316887":{"fr":"Saint-Paul","frwiki":"Saint-Paul (La Réunion)","gentiles":[{"id":"Q316887-7098debf-4ffc-bef7-4431-e3652617e681","rang":"normal","v":"Saint-Paulois","q":{}}]},
+"Q429770":{"fr":"La Possession","frwiki":"La Possession","gentiles":[{"id":"Q429770-3a7a3558-41e1-4e2e-f59e-1c1c8c1db971","rang":"normal","v":"Possessionnais","q":{}}]},
+"Q47045":{"fr":"Saint-Denis","frwiki":"Saint-Denis (La Réunion)","gentiles":[{"id":"Q47045-b6ce0a26-4591-37f7-171a-803956bd40ec","rang":"normal","v":"Dionysien","q":{}}]},
+"Q478215":{"fr":"Saint-Benoît","frwiki":"Saint-Benoît (La Réunion)","gentiles":[{"id":"Q478215-1bef6838-46da-9495-ec61-430ce49a2e7a","rang":"normal","v":"Bénédictin","q":{}}]},
+"Q579430":{"fr":"La Plaine-des-Palmistes","frwiki":"La Plaine-des-Palmistes","gentiles":[{"id":"Q579430-4f373c52-4aa2-458d-b529-cf24690b8837","rang":"normal","v":"Palmiplainois","q":{}}]},
+"Q652100":{"fr":"Saint-Philippe","frwiki":"Saint-Philippe (La Réunion)","gentiles":[{"id":"Q652100-13e738fc-4cc0-fb93-5af0-2a5b0ec384e9","rang":"normal","v":"Saint-Philippois","q":{}}]},
+"Q662942":{"fr":"Sainte-Marie","frwiki":"Sainte-Marie (La Réunion)","gentiles":[{"id":"Q662942-46e1234b-4474-74a2-061c-ae73fb4b49e2","rang":"normal","v":"Sainte-Marien","q":{}}]},
+"Q691092":{"fr":"Bras-Panon","frwiki":"Bras-Panon","gentiles":[{"id":"Q691092-e3a841a4-4e23-7573-78f0-3b3b1c78af9d","rang":"normal","v":"Panonnais","q":{}}]},
+"Q956943":{"fr":"Le Port","frwiki":"Le Port (La Réunion)","gentiles":[{"id":"Q956943-3af02ab9-4547-3f65-fdc1-0735e3b93f37","rang":"normal","v":"Portois","q":{}}]}
+},
+"libelles":{
+
+}
+}

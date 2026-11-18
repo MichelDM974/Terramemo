@@ -1,0 +1,35 @@
+# Requêtes SPARQL figées des fiches des communes de La Réunion (#34, lot F5, étude
+# fiche-lieu § 2.4 et § 2.5), lancées par npm run wikidata -- --fiches-communes
+# (geodata/wikidata.mjs), point https://query.wikidata.org/sparql. À part de
+# requetes-fiches.rq et de requetes-fiches-mers.rq : changer l'un d'eux obligerait à
+# refaire un extrait dont les tableaux sont en relecture.
+# Son empreinte va dans l'extrait (geodata/wikidata/fiches-communes.json) et dans
+# public/geo/sources.json.
+# Une section par requête, ouverte par « #= nom ». Le script remplace {{codes}} (les
+# codes INSEE "97401" à "97424" de public/geo/reunion/communes.json) et {{communes}} (les
+# items wd:Q… trouvés par la première requête).
+# Rien n'est choisi ici : toutes les déclarations non dépréciées, leur rang et tous leurs
+# qualificatifs ; la règle du choix est au build (geodata/fiches-communes.mjs). Les
+# habitants et la superficie viennent de l'IGN (geodata/reunion.mjs), pas de Wikidata, qui
+# mêle les années (Le Tampon y est à 2026).
+
+#= communes
+# P374 code INSEE de la commune : l'item de chaque code, avec le rang de la déclaration.
+SELECT ?lieu ?code ?stmt ?rang WHERE {
+  VALUES ?code { {{codes}} }
+  ?lieu p:P374 ?stmt .
+  ?stmt ps:P374 ?code ; wikibase:rank ?rang .
+  FILTER(?rang != wikibase:DeprecatedRank)
+}
+
+#= gentiles
+# P1549 gentilé, en français seulement, avec ses qualificatifs (genre et nombre : P518,
+# P5713 ou autre, selon la saisie ; les libellés des valeurs viennent de l'API).
+SELECT ?lieu ?stmt ?rang ?v ?pq ?qv WHERE {
+  VALUES ?lieu { {{communes}} }
+  ?lieu p:P1549 ?stmt .
+  ?stmt ps:P1549 ?v ; wikibase:rank ?rang .
+  FILTER(LANG(?v) = "fr")
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+}
