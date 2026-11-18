@@ -116,7 +116,7 @@ describe('statuts des territoires et des zones (lot F3, § 2.2)', () => {
     }
     // Les ajouts et retraits écrits, figés : une ligne nouvelle se voit.
     const ecarts = (o: Record<string, Ligne | string>) => lignes(o).flatMap(([id, l]) => [...Object.keys(l.ajouts ?? {}).map((a) => `${id} +${a}`), ...Object.keys(l.retraits ?? {}).map((r) => `${id} -${r}`)]);
-    expect([...ecarts(main.statut), ...ecarts(main.souverain)].sort()).toEqual(['ASM +TKL', 'ATF +COM', 'ATF -SYC', 'ESH +RASD', 'GRL -CAN', 'IOT +MDV', 'NE_BJN -NIC', 'NE_SER -NIC']);
+    expect([...ecarts(main.statut), ...ecarts(main.souverain)].sort()).toEqual(['ASM +TKL', 'ATF +COM', 'ATF -SYC', 'ESH +RASD', 'GRL -CAN', 'IOT +MDV', 'IOT -SYC', 'NE_BJN -NIC', 'NE_SER -NIC']);
   });
 
   it('tenants : chaque pays qui tient une zone est cité par son texte ; Bir Tawil n’a ni tenant ni revendicant', async () => {

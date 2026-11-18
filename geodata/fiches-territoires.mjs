@@ -320,12 +320,14 @@ export function texteRelectureTerritoires({ R, noms }) {
   // --- Formes ---
   o.push('## 2. Les formes de statut des territoires (clé `formes_statut`)');
   o.push('');
-  o.push('Une ligne par forme : le texte type, que le texte de chaque territoire contient (rempli pour chaque pays souverain qui la prend), et les territoires qui la prennent.');
+  o.push('Une ligne par forme : le texte type, que le texte de chaque territoire contient (rempli pour chaque pays souverain qui la prend ; « … » marque le début ou la suite propre à chaque territoire), et les territoires qui la prennent.');
   o.push('');
+  // Un texte type qui n'est qu'un morceau du texte (« louée par Cuba », « …, revendiqué par ») : « … » le dit au relecteur.
+  const morceau = (e) => `${/^\p{Ll}/u.test(e) ? '… ' : ''}${e}${/ par$/.test(e) ? ' …' : ''}`;
   o.push(
     tableau(
       ['Forme', 'Texte type', 'Territoires', 'Raison'],
-      R.formes.map((f) => [f.libelle, f.exemples.map((e) => `« ${e} »`).join(', '), `${f.territoires.length} : ${f.territoires.map(nom).sort((a, b) => a.localeCompare(b, 'fr')).join(', ')}`, f.raison]),
+      R.formes.map((f) => [f.libelle, f.exemples.map((e) => `« ${morceau(e)} »`).join(', '), `${f.territoires.length} : ${f.territoires.map(nom).sort((a, b) => a.localeCompare(b, 'fr')).join(', ')}`, f.raison]),
     ),
   );
 
