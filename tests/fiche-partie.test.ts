@@ -9,7 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lireFichesCommunes, lireFichesMonde, type FichierCommunes, type FichierCommunesLangue, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
 import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
 import type { Pays } from '../src/map/types';
-import { BARRES_PARTIE, barrePartieVisible, type ContexteVue } from '../src/vues/commun';
+import { BARRES_PARTIE, barrePartieVisible, ligneFiche, type ContexteVue } from '../src/vues/commun';
+import { textes } from '../src/vues/textes';
 import { vueEssai } from '../src/vues/essai';
 import { cheminBilan, creerNavigation, type VueNavigable } from '../src/navigation';
 import { versAncre } from '../src/vues/arbre';
@@ -548,6 +549,24 @@ describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F
     expect(v.ici()).toBe('toucher');
     expect(v.el('#barre-essai')!.hidden).toBe(false);
     expect(v.nav.fiche()).toBeNull();
+  });
+
+  it('une partie de Trouver en suspens, puis le bilan d’une autre vue (Chrono, quiz) : la ligne touchée dit pourquoi la fiche ne s’ouvre pas', () => {
+    const v = brancher();
+    const ids = ['FRA', 'ESP'];
+    v.nav.ouvrirPartie('toucher');
+    v.essai.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'x', mode: 'localiser' }, { id: 'x', terrain: 'monde', ids, n: 2 }, v.monde as never, ids);
+    // Quittée par un lien de l'en-tête : la partie attend sur la carte.
+    v.lien('classement');
+    expect(v.essai.enSuspens()).toBe(true);
+    // Une ligne d'un bilan d'une autre vue (comme chrono.ts et quiz.ts la posent), touchée.
+    const li = ligneFiche('ESP', 'Espagne', 'Espagne : 250 km', () => v.ouvrirFiche('monde', 'ESP')) as unknown as El;
+    const i = v.h.i;
+    (li.querySelector('button.ligne-fiche') as El).click();
+    expect(v.h.i).toBe(i);
+    expect(v.nav.fiche()).toBeNull();
+    expect(li.querySelector('.ligne-fiche-refus')!.textContent).toBe(textes.bilan.fiche_refusee);
+    expect(li.querySelector('.ligne-fiche-refus')!.getAttribute('role')).toBe('status');
   });
 
   it('« ‹ Retour au bilan » touché deux fois avant l’arrivée (double toucher, Échap répété) : un seul go(), jamais au-delà du bilan', async () => {

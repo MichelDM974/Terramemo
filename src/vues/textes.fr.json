@@ -15,7 +15,8 @@
   },
   "bilan": {
     "_": "Une erreur d'un bilan devenue bouton (#34, lot F6, étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4.6) : elle ouvre la fiche du lieu juste sur la carte. Le texte de la ligne reste celui du bilan.",
-    "fiche_ligne": "Fiche : {nom}. {texte}"
+    "fiche_ligne": "Fiche : {nom}. {texte}",
+    "fiche_refusee": "Une partie attend sur la carte : finis-la d'abord pour voir cette fiche."
   },
   "carte": {
     "touche": "Touche un pays",

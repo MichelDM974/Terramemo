@@ -35,9 +35,10 @@ export interface ContexteVue {
    * La fiche du lieu juste d'une erreur d'un bilan (#34, lot F6, étude § 4.6) :
    * la carte, le lieu montré, sa fiche ouverte ; « ‹ Retour au bilan » rend le
    * bilan. main.ts la donne, et ne fait rien pendant une partie
-   * (ficheAutorisee, § 4.8). Sans elle, les lignes des bilans restent du texte.
+   * (ficheAutorisee, § 4.8) : elle rend alors false, et la ligne le dit. Sans
+   * elle, les lignes des bilans restent du texte.
    */
-  ouvrirFiche?(terrain: NomTerrain, id: string): void;
+  ouvrirFiche?(terrain: NomTerrain, id: string): boolean | void;
 }
 
 export interface Vue {
@@ -95,9 +96,10 @@ export function barrePartieVisible(doc: Pick<Document, 'getElementById'> = docum
  * bouton entier (44 px de haut au moins, un chevron à droite, carte.css) qui
  * ouvre la fiche du lieu juste. Le texte reste celui du bilan ; le bouton est
  * nommé « Fiche : {nom}. {texte} ». La ligne touchée est retenue : le bilan
- * remontré lui rend le focus (rendreFocusLigne).
+ * remontré lui rend le focus (rendreFocusLigne). `ouvrir` qui rend false (une
+ * partie de Toucher en suspens, § 4.8) : la ligne dit pourquoi rien ne s'ouvre.
  */
-export function ligneFiche(id: string, nom: string, texte: string, ouvrir?: () => void): HTMLLIElement {
+export function ligneFiche(id: string, nom: string, texte: string, ouvrir?: () => boolean | void): HTMLLIElement {
   if (!ouvrir) return creer('li', {}, texte);
   const b = creer(
     'button',
@@ -105,11 +107,13 @@ export function ligneFiche(id: string, nom: string, texte: string, ouvrir?: () =
     creer('span', { class: 'ligne-fiche-texte' }, texte),
     creer('span', { class: 'ligne-fiche-chevron', 'aria-hidden': 'true' }, '›'),
   );
+  // Le refus, dit sous la ligne (une région vivante, lue au toucher) : vide tant que rien n'est refusé.
+  const refus = creer('p', { class: 'hint ligne-fiche-refus', role: 'status' });
   b.addEventListener('click', () => {
     ligneTouchee = b;
-    ouvrir();
+    refus.textContent = ouvrir() === false ? textes.bilan.fiche_refusee : '';
   });
-  return creer('li', { class: 'rate-fiche' }, b);
+  return creer('li', { class: 'rate-fiche' }, b, refus);
 }
 
 /** La dernière ligne de bilan touchée (ligneFiche) : le bilan remontré lui rend le focus. */

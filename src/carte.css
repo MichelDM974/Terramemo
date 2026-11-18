@@ -997,6 +997,9 @@ body[data-terrain="reunion"] .essai-bilan {
 .ligne-fiche:hover { background: var(--panel-2); }
 .ligne-fiche-texte { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .ligne-fiche-chevron { flex: none; color: var(--muted); font-size: 1.2rem; line-height: 1; }
+/* Le refus d'une ligne (une partie de Toucher en suspens, § 4.8) : sous elle, rien tant qu'il est vide. */
+.ligne-fiche-refus { margin: 0 4px 6px; }
+.ligne-fiche-refus:empty { display: none; }
 
 /* --- Panneau des mesures (haut) --- */
 .panneau-mesures {

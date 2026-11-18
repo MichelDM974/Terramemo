@@ -99,7 +99,7 @@ export interface PiloteSeance {
    * Le bilan de la séance dans `el` (« Continuer », « Carte », « Autre série ») ; `fiche` : une erreur touchée
    * ouvre la fiche de son lieu (#34, lot F6), absente sans ctx.ouvrirFiche (les lignes restent du texte).
    */
-  bilan(el: HTMLElement, actions: { continuer(): void; carte(): void; autre(): void; fiche?(terrain: NomTerrain, id: string): void }): void;
+  bilan(el: HTMLElement, actions: { continuer(): void; carte(): void; autre(): void; fiche?(terrain: NomTerrain, id: string): boolean | void }): void;
   /**
    * Un conseil d'Apprendre (D39 b, étude J2 § 6.2 : « Les pays de cette
    * région ne sont pas encore appris : Pays › Afrique › Apprendre ») : dit à
