@@ -2844,18 +2844,22 @@ def ressources_mers(p):
     return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => n.includes('/geo/mers')).map(n => n.split('/').pop().split('?')[0])")
 
 
-def position_mer(p, ident, barre="#barre-essai"):
+def position_mer(p, ident, barre="#barre-essai", sans_pays=False):
     """Où toucher la zone marine `ident` pour qu'elle soit notée juste, dans
     la partie visible de la carte (au-dessus de la barre) : son point
     d'étiquette (ecran) si noter() l'y dit juste, sinon le premier point
     d'une grille de 12 px où il l'est ; None sinon. La couche marine doit
-    être posée (une partie ou une séance de mers : noter lève avant)."""
+    être posée (une partie ou une séance de mers : noter lève avant).
+    sans_pays : à l'accueil, où un pays l'emporte sur la mer, aussi aucun
+    pays au point (pick n'y rend rien, ou la mer elle-même) : le point
+    d'étiquette de la Méditerranée tombe parfois sur la pastille de Malte."""
+    libre = f'(k => !k || k.id === "{ident}")(c.pick(q.x, q.y))' if sans_pays else "true"
     return p.js(f"""(() => {{
       const c = window.terramemo.carte, r = c.rect();
       const b = document.querySelector({json.dumps(barre)});
       const bas = b && !b.hidden ? b.getBoundingClientRect().top : r.y + r.hauteur;
       const dans = q => q && q.x >= r.x && q.x <= r.x + r.largeur && q.y >= r.y && q.y <= bas;
-      const juste = q => {{ try {{ return c.noter("{ident}", q.x, q.y).juste; }} catch (e) {{ return false; }} }};
+      const juste = q => {{ try {{ return c.noter("{ident}", q.x, q.y).juste && {libre}; }} catch (e) {{ return false; }} }};
       const q = c.ecran("{ident}");
       if (dans(q) && juste(q)) return q;
       for (let y = r.y + 6; y < bas; y += 12)
@@ -4618,7 +4622,13 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     faits = re.sub(r"\s+", " ", e["faits"])
     e = attendre_fiche(p, lambda x: x["ouverte"] and x["drapeaux"], "drapeau du Groenland")
     libelles = [l.split(" ")[0] for l in e["lignes"]]
-    lus_t = [n.split("/geo/")[-1] for n in ressources_fiches(p) if "drapeaux-territoires" in n]
+    # L'entrée de l'image n'est notée qu'à la fin de son chargement : sur le site en ligne, le drapeau
+    # est souvent encore en route quand la fiche est prête (en local, il arrive avant).
+    for _ in range(25):
+        lus_t = [n.split("/geo/")[-1] for n in ressources_fiches(p) if "drapeaux-territoires" in n]
+        if any(n.startswith("drapeaux-territoires/") for n in lus_t):
+            break
+        p.pause(200)
     dire(f"  fiche du Groenland : barre {faits!r}, statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau, lu {lus_t}")
     if faits != "56 800 hab.":
         defauts.append(f"barre du Groenland : « 56 800 hab. » attendu tant que les capitales ne sont pas relues ({faits!r})")
@@ -4683,9 +4693,24 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         p.js('window.terramemo.carte.zoomerSur("medit")')
         attendre_fin_vol(p)
         p.pause(PAUSE_AVANT_TOUCHER_MS)
-        pt = position_mer(p, "medit", "#barre-carte")
+        # Sur le site en ligne, le cadrage se perd parfois (vu le 18/11 : la carte restée sur l'Europe entière,
+        # aucun point juste hors des pays) : on recadre et on recommence, trois fois au plus.
+        for essai in range(3):
+            pt = position_mer(p, "medit", "#barre-carte", sans_pays=True)
+            if pt:
+                break
+            p.js('window.terramemo.carte.zoomerSur("medit")')
+            attendre_fin_vol(p)
+            p.pause(PAUSE_AVANT_TOUCHER_MS)
         if not pt:
-            defauts.append("la Méditerranée : pas de point où la toucher au-dessus de la barre")
+            diag = p.js("""(() => { const c = window.terramemo.carte, q = c.ecran("medit"), r = c.rect();
+              let n = null; try { n = q && c.noter("medit", q.x, q.y); } catch (e) { n = String(e); }
+              const ids = {};
+              for (let y = r.y + 6; y < r.y + r.hauteur; y += 12) for (let x = r.x + 6; x < r.x + r.largeur; x += 12) {
+                let j = false; try { j = c.noter("medit", x, y).juste; } catch (e) {}
+                if (j) { const k = c.pick(x, y); const i = k ? k.id + "/" + k.via : "rien"; ids[i] = (ids[i] || 0) + 1; } }
+              return {q, rect: r, noter: n, pick: q && c.pick(q.x, q.y), justes: ids}; })()""")
+            defauts.append(f"la Méditerranée : pas de point où la toucher au-dessus de la barre ({diag})")
         else:
             p.toucher(pt["x"], pt["y"])
             e = attendre_fiche(p, lambda e: e["barre"] == "medit" and e["chevron"], "Méditerranée touchée")
