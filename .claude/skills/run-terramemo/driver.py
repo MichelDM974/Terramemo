@@ -4440,9 +4440,9 @@ JS_LIGNES_BILAN = """((sel) => { const b = document.querySelector(sel); if (!b |
       deborde: x.scrollWidth > x.clientWidth + 1 || (!!t && t.scrollWidth > t.clientWidth + 1),
       chevron: !!cr && cr.width > 0 && getComputedStyle(c).visibility !== 'hidden' && cr.right <= q.right + 0.5 && cr.left >= q.left + q.width / 2 }; });
   return { lignes, gauche: r.left, droite: r.right, page: document.documentElement.scrollWidth - innerWidth }; })"""
-JS_APRES_RETOUR_BILAN = """(() => { const f = document.getElementById('fiche-lieu'), b = document.getElementById('essai-bilan'), a = document.activeElement;
+JS_APRES_RETOUR_BILAN = """((id) => { const f = document.getElementById('fiche-lieu'), b = document.getElementById(id), a = document.activeElement;
   return { hash: location.hash, bilan: !!b && !b.hidden, fiche: !!f && !f.hidden, terrain: window.terramemo.terrain(),
-    focus: a && a.classList && a.classList.contains('ligne-fiche') ? a.dataset.id : (a ? a.tagName + '#' + a.id : null) }; })()"""
+    focus: a && a.classList && a.classList.contains('ligne-fiche') ? a.dataset.id : (a ? a.tagName + '#' + a.id : null) }; })"""
 JS_AVANT_FICHE = "(() => { const a = document.querySelector('#fiche-lieu .fiche-avant'); return a && !a.hidden ? a.getAttribute('aria-label') : null; })()"
 
 
@@ -4471,14 +4471,48 @@ def verifier_lignes_bilan(p, defauts, quoi, sel="#essai-bilan"):
     return m["lignes"]
 
 
-def attendre_bilan(p, delai_s=6):
-    """Le bilan de Toucher affiché (« ‹ Retour au bilan », le retour du navigateur), puis les deux images du focus
-    rendu à la ligne ; rend JS_APRES_RETOUR_BILAN."""
+def attendre_bilan(p, delai_s=6, bilan="essai-bilan"):
+    """Le bilan d'id `bilan` affiché (« ‹ Retour au bilan », Échap, le retour du navigateur), puis les deux images
+    du focus rendu à la ligne ; rend JS_APRES_RETOUR_BILAN."""
     fin = time.monotonic() + delai_s
-    while not visible(p, "#essai-bilan") and time.monotonic() < fin:
+    while not visible(p, f"#{bilan}") and time.monotonic() < fin:
         p.pause(100)
     p.pause(300)
-    return p.js(JS_APRES_RETOUR_BILAN)
+    return p.js(f"{JS_APRES_RETOUR_BILAN}({json.dumps(bilan)})")
+
+
+def echap(p):
+    """La touche Échap, au clavier (CDP)."""
+    p.cdp("Input.dispatchKeyEvent", type="keyDown", key="Escape", code="Escape", windowsVirtualKeyCode=27)
+    p.cdp("Input.dispatchKeyEvent", type="keyUp", key="Escape", code="Escape", windowsVirtualKeyCode=27)
+
+
+def fiche_depuis_autre_bilan(p, capturer, defauts, quoi, bilan, adresse, capture, par_echap):
+    """Une erreur du bilan `bilan` (Chrono, quiz : leur propre ligne, leur propre activer) : le bouton de 44 px, sans
+    débordement, chevron à droite (verifier_lignes_bilan, capture `capture`) ; touchée, la fiche de son lieu, « ‹ »
+    nommé « Retour au bilan » ; puis le retour au bilan par « ‹ », ou par Échap (`par_echap`) : `adresse`, le bilan
+    visible, la fiche fermée, le focus à la ligne touchée. DÉFAUT à chaque écart."""
+    lignes = verifier_lignes_bilan(p, defauts, quoi, f"#{bilan}")
+    capturer(capture)
+    if not lignes:
+        return
+    cible = lignes[0]["id"]
+    toucher_element(p, f'#{bilan} .ligne-fiche[data-id="{cible}"]')
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == cible, f"{quoi} : fiche de {cible}")
+    attendre_fin_vol(p)
+    libelle = p.js(JS_AVANT_FICHE)
+    dire(f"  {quoi} : fiche {e['titre']!r}, {e['hash']}, barre {e['barre']}, focus {e['focus']}, ‹ {libelle!r}")
+    if e["hash"] != "#carte" or e["barre"] != cible or e["focus"] != "fiche-titre" or libelle != "Retour au bilan":
+        defauts.append(f"{quoi} : erreur touchée, la carte, {cible} dans la barre, sa fiche, focus au titre, « Retour au bilan » attendus ({e}, ‹ {libelle!r})")
+    capturer(capture + "-fiche")
+    if par_echap:
+        echap(p)
+    else:
+        toucher_element(p, "#fiche-lieu .fiche-avant")
+    r = attendre_bilan(p, bilan=bilan)
+    dire(f"  {quoi} : {'Échap' if par_echap else '« ‹ Retour au bilan »'} : {r}")
+    if r["hash"] != adresse or not r["bilan"] or r["fiche"] or r["focus"] != cible:
+        defauts.append(f"{quoi} : {'Échap' if par_echap else '« ‹ Retour au bilan »'} : le bilan ({adresse}), la fiche fermée, le focus à la ligne de {cible} attendus ({r})")
 
 
 def ui_fiche_bilan(p, capturer, defauts):
@@ -4488,7 +4522,10 @@ def ui_fiche_bilan(p, capturer, defauts):
     fiche du lieu juste, « ‹ » nommé « Retour au bilan », le focus au titre (163) ; un voisin (164), « ‹ », puis
     « ‹ Retour au bilan » : le bilan (#toucher), la fiche fermée, le focus à la ligne touchée (165) ; « × » laisse
     la carte, le lieu dans la barre, et le retour du navigateur rend le bilan. Puis l'île : une commune ratée
-    (166), sa fiche sur l'île (167), « ‹ Retour au bilan » : le bilan, l'île gardée. DÉFAUT à chaque écart."""
+    (166), sa fiche sur l'île (167), « ‹ Retour au bilan » : le bilan, l'île gardée. Enfin les bilans qui ont leur
+    propre ligne et leur propre activer() : Sans faute (une erreur, 168), sa fiche, Échap rend le bilan (#chrono),
+    le focus à la ligne ; le quiz Facile abandonné à la première question (169), sa fiche, « ‹ » rend le bilan
+    (#quiz). DÉFAUT à chaque écart."""
     consigne = 'document.querySelector("#barre-essai .essai-consigne").dataset.cible'
 
     def partie_avec_erreur(serie, faux_de):
@@ -4567,6 +4604,31 @@ def ui_fiche_bilan(p, capturer, defauts):
     if r["hash"] != "#toucher" or not r["bilan"] or r["fiche"] or r["terrain"] != "reunion" or r["focus"] != cible:
         defauts.append(f"« ‹ Retour au bilan » (île) : le bilan sur l'île, le focus à la ligne de {cible} attendus ({r})")
     croix_vers_carte(p, defauts, "bilan de Trouver (île)", "#essai-bilan")
+
+    # Les bilans du Chrono et du quiz (leur ligne, leur activer() qui rend le focus) : Sans faute, une erreur au
+    # premier toucher ; puis Échap pour revenir. Le quiz Facile abandonné à sa première question (une question sans
+    # réponse est une erreur) ; puis « ‹ ».
+    jouer_partie(p, "sansfaute", "South America")
+    c = p.js('document.querySelector("#barre-chrono .essai-consigne").dataset.cible')
+    toucher_pays(p, "BRA" if c == "ARG" else "ARG")
+    fin = time.monotonic() + 8
+    while not visible(p, "#chrono-bilan") and time.monotonic() < fin:
+        p.pause(100)
+    fiche_depuis_autre_bilan(p, capturer, defauts, "bilan de Sans faute", "chrono-bilan", "#chrono", "168-bilan-chrono", par_echap=True)
+    croix_vers_carte(p, defauts, "bilan de Sans faute", "#chrono-bilan")
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-racine="quiz"]')
+    cliquer(p, '#jouer-panneau [data-difficulte="facile"]')
+    fin = time.monotonic() + 30
+    while not p.js('(() => { const c = document.querySelector("#barre-quiz .nommer-choix"); return !!c && !c.disabled; })()') and time.monotonic() < fin:
+        p.pause(100)
+    cliquer_apres_pause(p, "#quiz-abandonner")
+    fin = time.monotonic() + 8
+    while not visible(p, "#quiz-bilan") and time.monotonic() < fin:
+        p.pause(100)
+    fiche_depuis_autre_bilan(p, capturer, defauts, "bilan du quiz", "quiz-bilan", "#quiz", "169-bilan-quiz", par_echap=False)
+    croix_vers_carte(p, defauts, "bilan du quiz", "#quiz-bilan")
 
 
 def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
