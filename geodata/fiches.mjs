@@ -81,7 +81,7 @@ import { CHAMPS_CONTINENT, CHAMPS_ZONE, CHEMIN_RELECTURE_AUTRES, chiffresAutres,
 import { CHEMIN_RELECTURE_COMMUNES, chiffresCommunes, FICHIER_LANGUE, FICHIERS_ILE, texteRelectureCommunes } from './fiches-communes.mjs';
 import { CHEMIN_RELECTURE_MERS, chiffresMers, lireCouchesNe, riverainsTrace, texteRelectureMers } from './fiches-mers.mjs';
 import { chiffresPays } from './fiches-pays.mjs';
-import { CHEMIN_RELECTURE, texteRelecture } from './fiches-relecture.mjs';
+import { CHEMIN_RELECTURE, CHEMIN_RELUES, lireRelues, texteRelecture } from './fiches-relecture.mjs';
 import { CHEMIN_RELECTURE_TERRITOIRES, DBF_NE, lireDbf, statutsLieux, texteRelectureTerritoires, verifierNe } from './fiches-territoires.mjs';
 import { EXTRAITS_FICHES, lireSourcesFiches, sourcesFiches, TZ_VERSION, CLDR_TAG } from './fiches-sources.mjs';
 import { sha256 } from './outils.mjs';
@@ -285,19 +285,21 @@ export async function construireFiches(racine) {
       sources: { wikidata: wd.extrait_le.slice(0, 10), bm: `${bm.source.nom}, ${bm.annee}, mise à jour du ${bm.source.mis_a_jour_le}`, cldr: CLDR_TAG, tz: TZ_VERSION },
     }),
   };
+  const relues = lireRelues(await readFile(join(racine, CHEMIN_RELUES), 'utf8'));
   const sourcesRelecture = { wikidata: wd.extrait_le.slice(0, 10), bm: `${bm.source.nom}, ${bm.annee}, mise à jour du ${bm.source.mis_a_jour_le}`, cldr: CLDR_TAG, tz: TZ_VERSION };
   const relectures = [
     relecture,
     { chemin: CHEMIN_RELECTURE_TERRITOIRES, texte: texteRelectureTerritoires({ R: statuts.relecture, noms }) },
-    { chemin: CHEMIN_RELECTURE_AUTRES, texte: texteRelectureAutres({ R: autres.relecture, noms, langues, monnaies, sources: sourcesRelecture }) },
+    { chemin: CHEMIN_RELECTURE_AUTRES, texte: texteRelectureAutres({ R: autres.relecture, noms, langues, monnaies, sources: sourcesRelecture, relues }) },
     {
       chemin: CHEMIN_RELECTURE_MERS,
-      texte: texteRelectureMers({ R: mers.relecture, noms, nomsMers, zones: zonesMers, entites, libelles: wdMers.libelles, sources: { wikidata: wdMers.extrait_le.slice(0, 10) } }),
+      texte: texteRelectureMers({ R: mers.relecture, noms, nomsMers, zones: zonesMers, entites, libelles: wdMers.libelles, sources: { wikidata: wdMers.extrait_le.slice(0, 10) }, relues }),
     },
     {
       chemin: CHEMIN_RELECTURE_COMMUNES,
       texte: texteRelectureCommunes({
         R: communes.relecture,
+        relues,
         sources: { wikidata: wdCommunes.extrait_le.slice(0, 10), ign: `édition du ${sourcesIle.sources[0].edition}, mise à jour du ${sourcesIle.sources[0].mise_a_jour}` },
       }),
     },

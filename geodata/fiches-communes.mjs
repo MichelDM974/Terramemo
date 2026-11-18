@@ -18,6 +18,7 @@
 // Échoue (fautes) si la table et les données ne s'accordent plus.
 
 import { gentilesMasculins, plurielGentile } from './fiches-pays.mjs';
+import { dansLaFiche } from './fiches-relecture.mjs';
 
 export const CHEMIN_RELECTURE_COMMUNES = 'docs/relectures/fiches-communes.md';
 export const EXTRAIT_COMMUNES = 'geodata/wikidata/fiches-communes.json';
@@ -138,7 +139,7 @@ const pct = (a, b) => (a == null || b == null || !b ? '—' : `${a >= b ? '+' : 
  * pour information, les intercommunalités et les chiffres de l'IGN, en ligne. R : la relecture de
  * chiffresCommunes ; sources : {wikidata, ign} (dates citées en tête). Identique d'un lancement à l'autre.
  */
-export function texteRelectureCommunes({ R, sources }) {
+export function texteRelectureCommunes({ R, sources, relues }) {
   const parNom = (a, b) => a.nom.localeCompare(b.nom, 'fr');
   const communes = [...R.communes].sort(parNom);
   const nomDe = (id) => R.communes.find((c) => c.id === id)?.nom ?? id;
@@ -156,9 +157,13 @@ export function texteRelectureCommunes({ R, sources }) {
     '- Ce que montre la fiche d\'une commune : ses habitants (avec l\'année du recensement), sa superficie, son gentilé, son intercommunalité, ' +
       'ses communes voisines (des boutons, qui ouvrent leur fiche) et le lien vers Wikipédia. Sa barre, en bas de la carte, dit ses habitants (« 85 000 hab. »).',
   );
+  const gentilesRelus = relues.gentile_communes === true;
   o.push(
-    '- **À relire : la section 1 seulement**, les gentilés. Elle est **tue dans la fiche** tant que la clé `gentile_communes` de `LIGNES_RELUES` ' +
-      '(`src/fiches/relues.ts`) est à `false` : la fiche n\'a pas de ligne « Gentilé » d\'ici là. Une fois la section relue, passer la clé à `true`.',
+    gentilesRelus
+      ? '- **Relue : la section 1**, les gentilés, validée par l\'utilisateur (la clé `gentile_communes` de `LIGNES_RELUES`, `src/fiches/relues.ts`, est à `true`) : ' +
+          'la fiche a sa ligne « Gentilé ».'
+      : '- **À relire : la section 1 seulement**, les gentilés. Elle est **tue dans la fiche** tant que la clé `gentile_communes` de `LIGNES_RELUES` ' +
+          '(`src/fiches/relues.ts`) est à `false` : la fiche n\'a pas de ligne « Gentilé » d\'ici là. Une fois la section relue, passer la clé à `true`.',
   );
   o.push(
     '- Les sections 2 et 3 sont **déjà en ligne**, données ici pour information : les sigles des intercommunalités (écrits à la main, un par ' +
@@ -173,7 +178,7 @@ export function texteRelectureCommunes({ R, sources }) {
   o.push(
     `- Sources : Wikidata (extrait des communes du ${sources.wikidata}) pour les gentilés et les liens ; l'IGN, ADMIN EXPRESS COG CARTO (${sources.ign}) pour ` +
       'les habitants (recensement de l\'INSEE), la superficie cadastrale et l\'intercommunalité. Seconde source des gentilés : l\'infobox de l\'article de ' +
-      'la Wikipédia en français de chaque commune, lue le 18/11/2026 (révisions citées dans les lignes, et dans `public/geo/sources.json`).',
+      `la Wikipédia en français de chaque commune, lue le 18/11/2026${R.communes.some((c) => c.ligne?.verifier) ? ' (révisions citées dans les lignes, et dans `public/geo/sources.json`)' : ''}.`,
   );
   o.push('');
 
@@ -181,23 +186,28 @@ export function texteRelectureCommunes({ R, sources }) {
   const lignes = communes.filter((c) => c.ligne);
   o.push('## 1. Gentilés (clé `gentile_communes`)');
   o.push('');
-  o.push('**Dans la fiche : tue** tant que `gentile_communes` est à `false` dans `src/fiches/relues.ts`.');
+  o.push(dansLaFiche('gentile_communes', relues));
   o.push('');
   o.push(
     'Règle : la forme masculine singulière de Wikidata (P1549, en français), mise au pluriel comme pour un pays (un « s », sauf après s, x ou z) ; ' +
       'la fiche dit « les Saint-Pierrois ». Les 24 formes de Wikidata ont été comparées à l\'infobox de l\'article de la Wikipédia en français de chaque commune : ' +
-      `elles s'accordent toutes, au nombre près ; les ${lignes.length} lignes de la table disent ce qui reste à voir (une seconde forme, un accent, une forme qui surprend).`,
+      (lignes.length
+        ? `elles s'accordent toutes, au nombre près ; les ${lignes.length} lignes de la table disent ce qui reste à voir (une seconde forme, un accent, une forme qui surprend).`
+        : 'elles s\'accordent toutes, au nombre près ; la table n\'a plus de ligne.'),
   );
   o.push('');
-  o.push(
+  if (lignes.length) o.push(
     tableau(
       ['Commune', 'Gentilé (Wikidata)', 'La fiche dira', 'Les deux sources', 'Le doute', 'À relire'],
       lignes.map((c) => [c.nom, c.formes.join(', ') || 'aucune', c.gp ? `les ${c.gp}` : '—', c.ligne.verifier ?? c.ligne.masculin ?? c.ligne.pluriel, c.ligne.raison, c.ligne.verifier || c.ligne.a_relire ? '**à relire**' : '']),
     ),
   );
   o.push(
-    `Les ${communes.length} communes (les ${lignes.length} ci-dessus comprises) : les ${communes.length - lignes.length} autres ont la même forme dans Wikidata et dans ` +
-      'l\'infobox de la Wikipédia en français ; il reste à dire si une forme est fausse ou peu usitée.',
+    lignes.length
+      ? `Les ${communes.length} communes (les ${lignes.length} ci-dessus comprises) : les ${communes.length - lignes.length} autres ont la même forme dans Wikidata et dans ` +
+          `l'infobox de la Wikipédia en français ; ${gentilesRelus ? 'relues.' : 'il reste à dire si une forme est fausse ou peu usitée.'}`
+      : `Les ${communes.length} communes : la même forme dans Wikidata et dans l'infobox de la Wikipédia en français` +
+          (gentilesRelus ? ', relue.' : ' ; il reste à dire si une forme est fausse ou peu usitée.'),
   );
   o.push('');
   o.push(

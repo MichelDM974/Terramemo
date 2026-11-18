@@ -69,9 +69,9 @@ export const LIGNES_RELUES: Readonly<Record<LigneRelue, boolean>> = {
   /** § 3 : les profondeurs maximales (Wikidata, et la table pour les ambiguës). */
   profondeur_mers: false,
   /**
-   * fiches-communes.md, § 1 : les gentilés des 24 communes de La Réunion (Wikidata, et les 4 à relire :
-   * Saint-Benoît, Petite-Île, L'Étang-Salé, Sainte-Marie) ; d'ici là, la fiche d'une commune n'a pas de
-   * ligne « Gentilé ». Les habitants, la superficie et l'intercommunalité sont en ligne.
+   * fiches-communes.md, § 1 : les gentilés des 24 communes de La Réunion (Wikidata), relus et validés
+   * tels quels par l'utilisateur le 18/11/2026. Sans cette clé, la fiche d'une commune n'a pas de ligne
+   * « Gentilé ». Les habitants, la superficie et l'intercommunalité étaient déjà en ligne.
    */
-  gentile_communes: false,
+  gentile_communes: true,
 };

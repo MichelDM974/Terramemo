@@ -786,7 +786,6 @@ const brutIle = readFileSync('public/geo/reunion/fiches.json', 'utf8');
 const brutIleFr = readFileSync('public/geo/reunion/fiches.fr.json', 'utf8');
 const fichesIle = JSON.parse(brutIle) as { v: number; lieux: Record<string, FicheCommune> };
 const fichesIleFr = JSON.parse(brutIleFr) as { v: number; intercommunalites: Record<string, string>; lieux: Record<string, { wp?: string; g?: string; gp?: string; gs?: string }> };
-const nomsIle = lire<Record<string, string>>('public/geo/reunion/noms.fr.json');
 type ModuleCommunes = {
   chiffresCommunes: (o: Record<string, unknown>) => { lieux: Record<string, { wp?: string; g?: string; gp?: string }>; intercommunalites: Record<string, string>; fautes: string[] };
 };
@@ -844,12 +843,8 @@ describe('fiches des communes de La Réunion : le lot F5', () => {
     expect(g('97405')).toBe('Petite-Îlois');
     expect(g('97404')).toBe('Étang-Saléens');
     expect(g('97418')).toBe('Sainte-Mariens');
-    const ligneG = lignes('gentile_communes');
-    expect(ligneG.map(([k]) => nomsIle[k]).sort((a, b) => a!.localeCompare(b!, 'fr'))).toEqual(['L’Étang-Salé', 'Petite-Île', 'Saint-Benoît', 'Sainte-Marie']);
-    for (const [k, l] of ligneG) {
-      expect(l.verifier, k).toBeTruthy();
-      expect(l.raison, k).toBeTruthy();
-    }
+    // Relu et validé tel quel par l'utilisateur le 18/11 : les quatre lignes « à relire » retirées, la forme de Wikidata prise.
+    expect(lignes('gentile_communes')).toEqual([]);
   });
 
   it('règles : une ligne qui ne s’applique plus, un sigle sans intercommunalité, un nom de l’IGN changé : le build échoue', async () => {
@@ -901,13 +896,14 @@ describe('fiches des communes de La Réunion : le lot F5', () => {
     expect(gzipSync(brutIleFr, { level: 9 }).length).toBeLessThanOrEqual(2 * 1024);
   });
 
-  it('le tableau à relire des communes est commité : les gentilés tus, les intercommunalités et les chiffres en ligne, une ligne par commune', () => {
+  it('le tableau à relire des communes est commité : les gentilés relus et affichés, les intercommunalités et les chiffres en ligne, une ligne par commune', () => {
     const t = readFileSync('docs/relectures/fiches-communes.md', 'utf8');
     for (const x of ['## 1. Gentilés', '## 2. Intercommunalités', '## 3. Habitants et superficies']) expect(t).toContain(x);
-    expect(t).toContain('tant que `gentile_communes`');
+    expect(t).toContain('section relue et validée (`gentile_communes` à `true`');
+    expect(t).not.toContain('tant que `gentile_communes`');
     expect(t).not.toMatch(/undefined|NaN|\[object/);
     expect(t.match(/^\| Saint-Pierre \|/gm)).toHaveLength(2);
-    expect(t.match(/\*\*à relire\*\*/g)).toHaveLength(4);
+    expect(t).not.toContain('**à relire**');
     expect(t).toMatch(/889\s679/);
   });
 });

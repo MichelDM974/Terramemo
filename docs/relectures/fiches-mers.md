@@ -5,13 +5,13 @@
 ## Comment relire, comment corriger
 
 - Ce que montre la fiche d'une mer : sa sorte (« mer intérieure », « golfe »…), la mer dont elle fait partie et son océan (des boutons, comme les voisins d'un pays), sa superficie, sa profondeur maximale, ses pays riverains (des boutons) et le lien vers Wikipédia. Un océan n'a pas de liste de riverains (une centaine de pays chacun) ; la mer des Sargasses non plus (elle n'a pas de côte).
-- Les trois sections sont **tues dans la fiche** tant que leur clé de `LIGNES_RELUES` (`src/fiches/relues.ts`) est à `false` : `riverains_mers`, `superficie_mers`, `profondeur_mers`. Une fois une section relue, passer sa clé à `true`. D'ici là, la fiche d'une mer montre sa sorte, sa mère, son océan, la mémoire et le lien, et sa barre ne dit que son océan.
+- Les trois sections sont **tues dans la fiche** tant que leur clé de `LIGNES_RELUES` (`src/fiches/relues.ts`) est à `false` (chaque section dit son état) : `riverains_mers`, `superficie_mers`, `profondeur_mers`. Une fois une section relue, passer sa clé à `true`. D'ici là, la fiche d'une mer montre sa sorte, sa mère, son océan, la mémoire et le lien, et sa barre ne dit que son océan.
 - Pour corriger : la ligne de la mer dans `geodata/fiches-main.json` (clé donnée en tête de section, une raison par ligne), puis `npm run fiches`. Le build échoue si une ligne ne s'applique plus (un pays à retirer que rien ne donne, un pays à ajouter déjà là, une superficie à moins de 25 % du tracé). Pour valider une ligne « à relire » : retirer son `a_relire`.
 - Sources : Wikidata (extrait des mers du 2026-11-18) ; Natural Earth 5.1.2 (zones marines et pays, au 1:10m) ; pour les lignes écrites à la main, la Wikipédia (révision citée dans la raison) et, pour les océans, la NOAA (Eakins et Sharman, 2010). Ces pages sont citées dans `public/geo/sources.json`.
 
 ## 1. Pays riverains (clés `riverains_mers` et `riverains_items`)
 
-**Dans la fiche : tue** tant que `riverains_mers` est à `false` dans `src/fiches/relues.ts`.
+**Dans la fiche : tue** tant que `riverains_mers` est à `false` dans `src/fiches/relues.ts` (`LIGNES_RELUES`) ; à passer à `true` une fois cette section relue.
 
 Règle : l'union de deux méthodes, sous-mers comprises (la Méditerranée a les riverains de l'Adriatique, de la mer Égée, de la mer Ionienne et de la mer Tyrrhénienne). **Le tracé** : un pays (ou un territoire) dont la côte passe à 0,12° (≈ 13 km) de la zone dessinée, en 2 points au moins (≈ 10 km de côte). **Wikidata** : les pays (P17) et pays du bassin (P205) déclarés pour la mer. Puis : les États disparus retirés ; d'office, un pays que seul Wikidata donne quand un de ses territoires est riverain par le tracé (il est alors représenté par ce territoire) ; enfin les lignes de la table (retraits et ajouts, avec leur raison). Une ligne d'une sous-mer vaut aussi pour sa mère (Saint-Marin retiré de l'Adriatique l'est de la Méditerranée), sauf un retrait d'un pays qu'une autre partie de la mère donne : il y reste. Les territoires et les zones contestées portent leur statut ; la fiche range les pays d'abord, les autres à part, comme les voisins d'un pays.
 
@@ -79,7 +79,7 @@ Items de Wikidata qui ne sont pas ceux d'une entité de la carte :
 
 ## 2. Superficies (clé `superficie_mers`)
 
-**Dans la fiche : tue** tant que `superficie_mers` est à `false` dans `src/fiches/relues.ts`.
+**Dans la fiche : tue** tant que `superficie_mers` est à `false` dans `src/fiches/relues.ts` (`LIGNES_RELUES`) ; à passer à `true` une fois cette section relue.
 
 Règle : la valeur de Wikidata (le rang préféré ; sinon, s'il y en a plusieurs, la plus proche du tracé) ; si elle s'écarte de plus de 25 % de la superficie du tracé (la zone dessinée sur la carte, sous-mers comprises), une ligne de la table la remplace, avec sa source ; sans valeur dans Wikidata, le tracé. Les océans n'ont pas de valeur unique (leurs limites varient) : une ligne chacun, d'après une même source. La fiche arrondit à trois chiffres : « environ 2,5 millions de km² ».
 
@@ -139,7 +139,7 @@ Règle : la valeur de Wikidata (le rang préféré ; sinon, s'il y en a plusieur
 
 ## 3. Profondeurs maximales (clé `profondeur_mers`)
 
-**Dans la fiche : tue** tant que `profondeur_mers` est à `false` dans `src/fiches/relues.ts`.
+**Dans la fiche : tue** tant que `profondeur_mers` est à `false` dans `src/fiches/relues.ts` (`LIGNES_RELUES`) ; à passer à `true` une fois cette section relue.
 
 Règle : la valeur de Wikidata qualifiée « maximum » ; sinon, les moyennes écartées, la seule valeur. Plusieurs valeurs sans qualificatif, ou aucune : une ligne de la table. Les lignes « vérifier » gardent la valeur de Wikidata et disent l'écart à une autre source.
 

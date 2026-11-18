@@ -24,6 +24,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import mapshaper from 'mapshaper';
+import { dansLaFiche } from './fiches-relecture.mjs';
 import { idNe } from './fiches-territoires.mjs';
 import { sha256 } from './outils.mjs';
 
@@ -409,7 +410,7 @@ function environ(km2) {
  * entités (noms.fr.json) ; nomsMers : mers.fr.json (noms) ; zones : public/geo/mers.json ;
  * libelles : ceux de l'extrait des mers (unités, critères) ; sources : {wikidata, ne} (dates).
  */
-export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles, sources }) {
+export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles, sources, relues }) {
   const nom = (id) => noms[id] ?? id;
   const mer = (id) => nomsMers[id] ?? id;
   const statut = new Map(entites.map((e) => [e.id, e.statut]));
@@ -437,7 +438,7 @@ export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles
       'la mer des Sargasses non plus (elle n\'a pas de côte).',
   );
   o.push(
-    '- Les trois sections sont **tues dans la fiche** tant que leur clé de `LIGNES_RELUES` (`src/fiches/relues.ts`) est à `false` : `riverains_mers`, `superficie_mers`, ' +
+    '- Les trois sections sont **tues dans la fiche** tant que leur clé de `LIGNES_RELUES` (`src/fiches/relues.ts`) est à `false` (chaque section dit son état) : `riverains_mers`, `superficie_mers`, ' +
       '`profondeur_mers`. Une fois une section relue, passer sa clé à `true`. D\'ici là, la fiche d\'une mer montre sa sorte, sa mère, son océan, la mémoire et le lien, ' +
       'et sa barre ne dit que son océan.',
   );
@@ -455,7 +456,7 @@ export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles
   // 1. Riverains.
   o.push('## 1. Pays riverains (clés `riverains_mers` et `riverains_items`)');
   o.push('');
-  o.push('**Dans la fiche : tue** tant que `riverains_mers` est à `false` dans `src/fiches/relues.ts`.');
+  o.push(dansLaFiche('riverains_mers', relues));
   o.push('');
   o.push(
     `Règle : l'union de deux méthodes, sous-mers comprises (la Méditerranée a les riverains de l'Adriatique, de la mer Égée, de la mer Ionienne et de la mer Tyrrhénienne). ` +
@@ -500,7 +501,7 @@ export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles
   const zone = new Map(zones.map((z) => [z.id, z]));
   o.push('## 2. Superficies (clé `superficie_mers`)');
   o.push('');
-  o.push('**Dans la fiche : tue** tant que `superficie_mers` est à `false` dans `src/fiches/relues.ts`.');
+  o.push(dansLaFiche('superficie_mers', relues));
   o.push('');
   o.push(
     'Règle : la valeur de Wikidata (le rang préféré ; sinon, s\'il y en a plusieurs, la plus proche du tracé) ; si elle s\'écarte de plus de 25 % de la superficie du tracé ' +
@@ -531,7 +532,7 @@ export function texteRelectureMers({ R, noms, nomsMers, zones, entites, libelles
   const critere = (c) => (c ? (libelles[c]?.fr ?? c) : 'sans qualificatif');
   o.push('## 3. Profondeurs maximales (clé `profondeur_mers`)');
   o.push('');
-  o.push('**Dans la fiche : tue** tant que `profondeur_mers` est à `false` dans `src/fiches/relues.ts`.');
+  o.push(dansLaFiche('profondeur_mers', relues));
   o.push('');
   o.push(
     'Règle : la valeur de Wikidata qualifiée « maximum » ; sinon, les moyennes écartées, la seule valeur. Plusieurs valeurs sans qualificatif, ou aucune : une ligne de la table. ' +

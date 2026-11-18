@@ -463,30 +463,6 @@
           "du": null
         },
         {
-          "titre": "L'Étang-Salé",
-          "url": "https://fr.wikipedia.org/w/index.php?oldid=237556683",
-          "revision": 237556683,
-          "du": "2026-07-04"
-        },
-        {
-          "titre": "Petite-Île",
-          "url": "https://fr.wikipedia.org/w/index.php?oldid=240647533",
-          "revision": 240647533,
-          "du": "2026-10-23"
-        },
-        {
-          "titre": "Saint-Benoît (La Réunion)",
-          "url": "https://fr.wikipedia.org/w/index.php?oldid=240227741",
-          "revision": 240227741,
-          "du": "2026-10-09"
-        },
-        {
-          "titre": "Sainte-Marie (La Réunion)",
-          "url": "https://fr.wikipedia.org/w/index.php?oldid=236360075",
-          "revision": 236360075,
-          "du": "2026-05-19"
-        },
-        {
           "titre": "Communauté d'agglomération du Sud",
           "url": "https://fr.wikipedia.org/w/index.php?oldid=234996175",
           "revision": 234996175,
@@ -574,16 +550,16 @@
       "geodata/notoriete.mjs": "1d00ec190020051e110a9cb387b9886bed24ddf3b3dd34c2859e89175c3cdd76",
       "geodata/notoriete-main.json": "b2440762a0b0498dd11368815ff5b03925d5e26f9705c97332ea6f9baffa0f9d",
       "geodata/wikidata/notoriete.json": "e76e612174794c93614f5277248c267b4bdb7ea93af636526d1af0183004601f",
-      "geodata/fiches.mjs": "a9e0b2d73e75cd8d8f697cda91027b3f2972827e532e44295556ec474f8480dd",
+      "geodata/fiches.mjs": "75e0c6a15e86946d051b7445213c7f502875ac9f54ebe21c2c54e6fde5456668",
       "geodata/fiches-pays.mjs": "c9706c2b9399260313211f7e4c498df52f60c3fe38f39da224fe07bea5897665",
-      "geodata/fiches-relecture.mjs": "0dd487fecfea593db7e3acf85714fa7d5e34f94116eb27ae4fc7f551b549c8f6",
+      "geodata/fiches-relecture.mjs": "a622fabe6c510627c6233351b3aa651967e1c6a0fc8eed61b3e61b53e7e80f0e",
       "geodata/fiches-territoires.mjs": "713304abe089994eec4ddb2c9dc7f807fab83654c0d9f411fd61cc99f6c523e9",
-      "geodata/fiches-autres.mjs": "4e7f14b605a53be9cde666cbddb75efe6bc039299530733d778b46593e6ed1c2",
-      "geodata/fiches-main.json": "f46cff4742bef36ce73c488edfb9dbe032da0e0c053455cca7f79117df7ce99e",
-      "geodata/fiches-sources.mjs": "c75256f173ebeedc2dddb0b21590892ba5933ed011aeb080ba603f3c8e40aaad",
-      "geodata/fiches-mers.mjs": "2f0f11e75f4509dca696f9ab61906f73266c0c14a9b303948b80d69817c956b6",
+      "geodata/fiches-autres.mjs": "f4a95eec14f12ea4bbb2e7012116445373d8f1a401a2d4c1995a10dd8afd2782",
+      "geodata/fiches-main.json": "300fa29a28d7003b900cbe88e938d398a8b54120dd85e5ef660ea14479ab1653",
+      "geodata/fiches-sources.mjs": "8797d5fed5ac69a8ad9bf9e10ccbc4b2d6325455156740f2b6dec43ea16eceac",
+      "geodata/fiches-mers.mjs": "83ed264a066a6bd6056bcff2b57ef5c6bc89bbc1e21b04c91c0000b663fbc8c3",
       "geodata/mers-affectations.json": "ea5f958e79ecf206e4d35c6bc7c464df623bfe7974e05806ab8add8e4270d416",
-      "geodata/fiches-communes.mjs": "38b9af1d20a9a15be0c82d097670d839ebeb500792097d902b13862868229baf"
+      "geodata/fiches-communes.mjs": "1aaff44ab835b56bec7816cd7a5ea36012ff314e0c34ed92413a77579d80b169"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",
     "mers": {

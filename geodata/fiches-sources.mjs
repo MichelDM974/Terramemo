@@ -117,11 +117,9 @@ export const SOURCES_TABLE = [
       WP('en', 'Arabian Sea', 1384467206, null),
       WP('en', 'Red Sea', 1386060551, null),
       WP('en', 'Andaman Sea', 1377184977, null),
-      // Lot F5 : gentilés et sigle d'une intercommunalité des communes de La Réunion (geodata/fiches-communes.mjs).
-      WP('fr', "L'Étang-Salé", 237556683, '2026-07-04'),
-      WP('fr', 'Petite-Île', 240647533, '2026-10-23'),
-      WP('fr', 'Saint-Benoît (La Réunion)', 240227741, '2026-10-09'),
-      WP('fr', 'Sainte-Marie (La Réunion)', 236360075, '2026-05-19'),
+      // Lot F5 : sigle d'une intercommunalité des communes de La Réunion (geodata/fiches-communes.mjs). Les
+      // infobox de quatre communes, citées par les lignes « à relire » des gentilés, sont parties avec elles
+      // (relues le 18/11) : les gentilés servis sont ceux de Wikidata.
       WP('fr', "Communauté d'agglomération du Sud", 234996175, null),
     ],
     fichiers: [],

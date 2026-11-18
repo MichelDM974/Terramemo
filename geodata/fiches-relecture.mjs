@@ -7,6 +7,30 @@
 
 export const CHEMIN_RELECTURE = 'docs/relectures/fiches-pays.md';
 
+/** Où vivent les clés de relecture (LIGNES_RELUES) que les tableaux citent. */
+export const CHEMIN_RELUES = 'src/fiches/relues.ts';
+
+/**
+ * Les clés de LIGNES_RELUES et leur valeur, lues dans le texte de src/fiches/relues.ts (le build
+ * ne charge pas le TypeScript) : chaque tableau dit ainsi si sa section est tue ou affichée, et le
+ * test de reproduction échoue si une clé change sans un nouveau `npm run fiches`.
+ */
+export function lireRelues(texte) {
+  const bloc = /export const LIGNES_RELUES[^{]*\{([\s\S]*?)\n\};/.exec(texte);
+  if (!bloc) throw new Error(`${CHEMIN_RELUES} : LIGNES_RELUES introuvable`);
+  const relues = Object.fromEntries([...bloc[1].matchAll(/^\s+(\w+): (true|false),?$/gm)].map((m) => [m[1], m[2] === 'true']));
+  if (!Object.keys(relues).length) throw new Error(`${CHEMIN_RELUES} : aucune clé lue dans LIGNES_RELUES`);
+  return relues;
+}
+
+/** La phrase d'en-tête d'une section soumise à relecture : tue, ou affichée une fois sa clé à true. */
+export function dansLaFiche(cle, relues) {
+  if (!(cle in relues)) throw new Error(`clé de relecture inconnue : ${cle} (absente de LIGNES_RELUES, ${CHEMIN_RELUES})`);
+  return relues[cle]
+    ? `**Dans la fiche : affichée**, section relue et validée (\`${cle}\` à \`true\` dans \`${CHEMIN_RELUES}\`) ; une erreur se corrige quand même ici.`
+    : `**Dans la fiche : tue** tant que \`${cle}\` est à \`false\` dans \`${CHEMIN_RELUES}\` (\`LIGNES_RELUES\`) ; à passer à \`true\` une fois cette section relue.`;
+}
+
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const date = (j, m) => `${j === 1 ? '1er' : j} ${MOIS[m - 1]}`;
 const nb = (x) => (x == null ? '—' : Number(x).toLocaleString('fr-FR'));

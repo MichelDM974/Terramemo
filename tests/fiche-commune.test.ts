@@ -63,11 +63,11 @@ describe('la fiche d’une commune (composerFiche, pure)', () => {
     expect(m.sources).toEqual([S.ign, S.insee, S.wikidata]);
   });
 
-  it('avant la relecture (LIGNES_RELUES.gentile_communes) : pas de ligne « Gentilé » ; les habitants, la superficie, l’intercommunalité restent', () => {
-    expect(LIGNES_RELUES.gentile_communes).toBe(false);
-    const m = composer(SAINT_PIERRE);
+  it('gentilés relus le 18/11 (LIGNES_RELUES.gentile_communes) : la ligne « Gentilé » en ligne ; sans la clé, les habitants, la superficie, l’intercommunalité seules', () => {
+    expect(LIGNES_RELUES.gentile_communes).toBe(true);
+    expect(lignesDe(composer(SAINT_PIERRE))).toEqual(lignesDe(composer(SAINT_PIERRE, TOUTES)));
+    const m = composer(SAINT_PIERRE, AUCUNE);
     expect(lignesDe(m).map((l) => l.split(' · ')[0])).toEqual([T.habitants, T.superficie, T.intercommunalite]);
-    expect(lignesDe(composer(SAINT_PIERRE, AUCUNE))).toEqual(lignesDe(m));
     // Wikidata reste cité : le lien vient de lui.
     expect(m.sources).toEqual([S.ign, S.insee, S.wikidata]);
   });

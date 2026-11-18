@@ -14,6 +14,7 @@
 // Rend des chiffres (sans langue), des textes (de la langue) et ce que le tableau à relire
 // docs/relectures/fiches-territoires-chiffres.md montre (texteRelectureAutres).
 
+import { dansLaFiche } from './fiches-relecture.mjs';
 import { altitude, choisir, coordSommet, decalage, distanceAuTrace, emprise, gentilesMasculins, habitantsWikidata, languesLieu, lireZoneTab, monnaiesEnCours, plurielGentile, pres, sommetRetenu, superficieWikidata, arrondiSuperficie, zonesPres, ZONE_KM } from './fiches-pays.mjs';
 
 export const CHEMIN_RELECTURE_AUTRES = 'docs/relectures/fiches-territoires-chiffres.md';
@@ -283,7 +284,7 @@ function tableau(entetes, rangs) {
  * chiffresAutres ; noms : noms.fr.json ; langues, monnaies : les noms servis ; sources :
  * {wikidata, bm, cldr, tz}. Identique octet pour octet d'un lancement à l'autre.
  */
-export function texteRelectureAutres({ R, noms, langues, monnaies, sources }) {
+export function texteRelectureAutres({ R, noms, langues, monnaies, sources, relues }) {
   const nom = (id) => noms[id] ?? id;
   const parNom = (a, b) => nom(a.id).localeCompare(nom(b.id), 'fr');
   const trie = (l) => [...l].sort(parNom);
@@ -291,7 +292,7 @@ export function texteRelectureAutres({ R, noms, langues, monnaies, sources }) {
   const enLigne = '**Dans la fiche : affichée** (aucune relecture attendue ; une erreur se corrige quand même ici).';
   // Relecture du lot F3 : une section affichée n'affiche aucune ligne « à relire » ; la table la retire d'ici la réponse.
   const enLigneSauf = '**Dans la fiche : affichée**, sauf les lignes « à relire » : la table les retire (pas de ligne) d\'ici la réponse ; une erreur se corrige quand même ici.';
-  const tue = (cle) => `**Dans la fiche : tue** tant que \`${cle}\` est à \`false\` dans \`src/fiches/relues.ts\` (\`LIGNES_RELUES\`) ; à passer à \`true\` une fois cette section relue.`;
+  const tue = (cle) => dansLaFiche(cle, relues);
   const o = [];
   o.push('# Fiches des territoires, des zones contestées et de l\'Antarctique : chiffres à relire');
   o.push('');
