@@ -8,7 +8,7 @@ import { empriseDesLieux, lignesDe, lignesQuiCroisent } from './map/lignes';
 import { chargerCapitales } from './map/capitales';
 import { chargerDrapeaux } from './map/drapeaux';
 import { chargerMers } from './map/mers';
-import { chargerDrapeauxTerritoires, chargerFichesCommunes, chargerFichesMers, chargerFichesMonde } from './fiches/donnees';
+import { chargerDrapeauxTerritoires, chargerFichesCommunes, chargerFichesMers, chargerFichesMonde } from './fiches/chargeur';
 import type { Note, OptionsNoter, ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';

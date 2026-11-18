@@ -1,15 +1,11 @@
 // Données des fiches des lieux (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md,
-// § 2.7 et § 6.1) : public/geo/fiches-monde.json et son fichier de langue
-// fiches-monde.fr.json (geodata/fiches.mjs), lus une fois, au premier toucher
-// d'un lieu du monde, jamais au premier affichage (le smoke du pilote le
-// vérifie) : la barre en tire sa ligne de faits et son chevron. Sur le modèle
-// des capitales (src/map/capitales.ts) : une promesse gardée, un échec (hors
-// ligne) qui ne reste pas en cache, relancé au toucher suivant. Les mers (lot
-// F4) ont leurs fichiers, fiches-mers.json et fiches-mers.fr.json, lus au
-// premier toucher en mer avec la couche légère (§ 6.1) ; les communes (lot F5)
-// ont les leurs, public/geo/reunion/fiches.json (geodata/reunion.mjs) et
-// fiches.fr.json (geodata/fiches.mjs), lus au premier toucher sur l'île : qui ne
-// touche que des pays ne les paie pas.
+// § 2.7 et § 6.1) : la forme de public/geo/fiches-monde.json et de son fichier de
+// langue fiches-monde.fr.json (geodata/fiches.mjs), des fichiers des mers (lot F4)
+// et des communes de La Réunion (lot F5), et leur lecture (lire*). Ce module part
+// avec le morceau de la fiche (src/vues/fiche.ts les réexporte), jamais avec le
+// morceau principal : le chargeur (src/fiches/chargeur.ts, au morceau principal)
+// demande les fichiers et ce morceau ensemble, au premier toucher d'un lieu, puis
+// les lit par lui (§ 19 de l'étude). Seuls des types s'en importent ailleurs.
 import type { SorteLieu } from './sorte';
 
 /** La version du format, écrite par geodata/fiches.mjs (VERSION_FICHES). */
@@ -148,47 +144,6 @@ export function lireFichesMonde(m: FichierMonde, fr: FichierMondeLangue): Donnee
   return { lieux, sousRegions: fr.sous_regions };
 }
 
-/** Lit un fichier JSON servi ; « <fichier> : HTTP xxx » levé comme les autres chargements. */
-export type Lecteur = (chemin: string) => Promise<unknown>;
-
-const lireHttp: Lecteur = async (chemin) => {
-  const r = await fetch(chemin);
-  if (!r.ok) throw new Error(`${chemin.split('/').pop()} : HTTP ${r.status}`);
-  return r.json();
-};
-
-let chargees: DonneesFichesMonde | null = null;
-let enCours: Promise<DonneesFichesMonde> | null = null;
-
-/**
- * Les fiches du monde, lues une fois (promesse gardée ; un échec ne reste
- * pas en cache : le prochain toucher réessaie). `lire` : les tests.
- */
-export function chargerFichesMonde(lire: Lecteur = lireHttp, base = '/geo/'): Promise<DonneesFichesMonde> {
-  if (chargees) return Promise.resolve(chargees);
-  if (!enCours) {
-    const p = Promise.all([lire(`${base}fiches-monde.json`), lire(`${base}fiches-monde.fr.json`)]).then(([m, fr]) => {
-      chargees = lireFichesMonde(m as FichierMonde, fr as FichierMondeLangue);
-      return chargees;
-    });
-    enCours = p;
-    p.then(
-      () => (enCours = null),
-      () => (enCours = null),
-    );
-  }
-  return enCours;
-}
-
-/** Les fiches du monde si elles sont déjà lues (sans réseau), null sinon. */
-export const fichesMondeChargees = (): DonneesFichesMonde | null => chargees;
-
-/** Tests : oublie ce qui a été lu (le prochain chargement relit). */
-export function oublierFichesMonde(): void {
-  chargees = null;
-  enCours = null;
-}
-
 // --- Drapeaux des territoires (lot F3) --------------------------------------------------
 
 /** Le manifeste public/geo/drapeaux-territoires.json (geodata/drapeaux.mjs) : l'empreinte du drapeau de chaque territoire. */
@@ -204,33 +159,6 @@ export type DrapeauxTerritoires = ReadonlyMap<string, string>;
 export function lireDrapeauxTerritoires(m: ManifesteDrapeauxTerritoires, base = '/geo/'): DrapeauxTerritoires {
   if (m.v !== 1) throw new Error(`drapeaux-territoires : version ${m.v}, attendue 1`);
   return new Map(Object.entries(m.territoires).map(([id, h]) => [id, `${base}drapeaux-territoires/${h}.svg`]));
-}
-
-let drapeauxT: DrapeauxTerritoires | null = null;
-let drapeauxTEnCours: Promise<DrapeauxTerritoires> | null = null;
-
-/**
- * Les drapeaux des territoires, lus à la première fiche de territoire ouverte (§ 6.1), jamais
- * avant : à part de ceux des pays (drapeaux.json), que les exercices lisent. Un échec n'est pas
- * gardé : la fiche suivante réessaie.
- */
-export function chargerDrapeauxTerritoires(lire: Lecteur = lireHttp, base = '/geo/'): Promise<DrapeauxTerritoires> {
-  if (drapeauxT) return Promise.resolve(drapeauxT);
-  if (!drapeauxTEnCours) {
-    const p = Promise.resolve(lire(`${base}drapeaux-territoires.json`)).then((m) => (drapeauxT = lireDrapeauxTerritoires(m as ManifesteDrapeauxTerritoires, base)));
-    drapeauxTEnCours = p;
-    p.then(
-      () => (drapeauxTEnCours = null),
-      () => (drapeauxTEnCours = null),
-    );
-  }
-  return drapeauxTEnCours;
-}
-
-/** Tests : oublie les drapeaux des territoires lus. */
-export function oublierDrapeauxTerritoires(): void {
-  drapeauxT = null;
-  drapeauxTEnCours = null;
 }
 
 // --- Océans et mers (lot F4) -------------------------------------------------------------
@@ -283,38 +211,6 @@ export function lireFichesMers(m: FichierMers, fr: FichierMersLangue): DonneesFi
     res.set(id, f);
   }
   return res;
-}
-
-let mersLues: DonneesFichesMers | null = null;
-let mersEnCours: Promise<DonneesFichesMers> | null = null;
-
-/**
- * Les fiches des mers, lues une fois, au premier toucher en mer (avec la couche légère, § 6.1) ;
- * un échec n'est pas gardé : le toucher suivant réessaie. `lire` : les tests.
- */
-export function chargerFichesMers(lire: Lecteur = lireHttp, base = '/geo/'): Promise<DonneesFichesMers> {
-  if (mersLues) return Promise.resolve(mersLues);
-  if (!mersEnCours) {
-    const p = Promise.all([lire(`${base}fiches-mers.json`), lire(`${base}fiches-mers.fr.json`)]).then(([m, fr]) => {
-      mersLues = lireFichesMers(m as FichierMers, fr as FichierMersLangue);
-      return mersLues;
-    });
-    mersEnCours = p;
-    p.then(
-      () => (mersEnCours = null),
-      () => (mersEnCours = null),
-    );
-  }
-  return mersEnCours;
-}
-
-/** Les fiches des mers si elles sont déjà lues (sans réseau), null sinon. */
-export const fichesMersChargees = (): DonneesFichesMers | null => mersLues;
-
-/** Tests : oublie les fiches des mers lues. */
-export function oublierFichesMers(): void {
-  mersLues = null;
-  mersEnCours = null;
 }
 
 // --- Communes de La Réunion (lot F5) -----------------------------------------------------
@@ -374,36 +270,4 @@ export function lireFichesCommunes(m: FichierCommunes, fr: FichierCommunesLangue
     res.set(id, f);
   }
   return res;
-}
-
-let communesLues: DonneesFichesCommunes | null = null;
-let communesEnCours: Promise<DonneesFichesCommunes> | null = null;
-
-/**
- * Les fiches des communes, lues une fois, au premier toucher sur l'île (§ 6.1) ; un échec n'est
- * pas gardé : le toucher suivant réessaie. `lire` : les tests.
- */
-export function chargerFichesCommunes(lire: Lecteur = lireHttp, base = '/geo/reunion/'): Promise<DonneesFichesCommunes> {
-  if (communesLues) return Promise.resolve(communesLues);
-  if (!communesEnCours) {
-    const p = Promise.all([lire(`${base}fiches.json`), lire(`${base}fiches.fr.json`)]).then(([m, fr]) => {
-      communesLues = lireFichesCommunes(m as FichierCommunes, fr as FichierCommunesLangue);
-      return communesLues;
-    });
-    communesEnCours = p;
-    p.then(
-      () => (communesEnCours = null),
-      () => (communesEnCours = null),
-    );
-  }
-  return communesEnCours;
-}
-
-/** Les fiches des communes si elles sont déjà lues (sans réseau), null sinon. */
-export const fichesCommunesChargees = (): DonneesFichesCommunes | null => communesLues;
-
-/** Tests : oublie les fiches des communes lues. */
-export function oublierFichesCommunes(): void {
-  communesLues = null;
-  communesEnCours = null;
 }

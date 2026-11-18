@@ -1,12 +1,13 @@
 // Nombres, listes, dates et heures des fiches des lieux (#34, étude
 // docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4.1, § 4.2 et § 6.5) : la
-// langue en paramètre (décision « Langue » : les mots viennent de textes.fiche,
+// langue en paramètre (décision « Langue » : les mots viennent de textes-fiche.fr.json,
 // les chiffres d'Intl), espace insécable avant l'unité, comme fmtKm
 // (src/vues/commun.ts). La barre donne trois chiffres au plus (« 123
 // millions », « 56 800 ») ; la fiche, le nombre entier. L'heure d'un pays : sa
 // zone IANA par Intl.DateTimeFormat, l'écart à l'heure de l'appareil calculé
 // sur les deux heures murales (§ 2.1 ; timeZoneName: 'longOffset' écarté).
-import { remplir, textes } from '../vues/textes';
+import { remplir } from '../vues/textes';
+import { textesFiche } from '../vues/textes-fiche';
 
 /** La locale des nombres et des listes, par langue des textes (le français seul pour l'instant). */
 const LOCALES: Readonly<Record<string, string>> = { fr: 'fr-FR' };
@@ -81,7 +82,7 @@ export function troisChiffres(n: number): number {
  * de 2 (« 1,5 million »).
  */
 export function fmtNombreCourt(n: number, langue = 'fr'): string {
-  const T = textes.fiche.nombres;
+  const T = textesFiche.nombres;
   const r = troisChiffres(n);
   const loc = locale(langue);
   const mot = (x: number, un: string, plusieurs: string) => remplir(x >= 2 ? plusieurs : un, { n: nombres(loc, 2).format(x) });
@@ -98,46 +99,46 @@ export function listeEt(elements: readonly string[], langue = 'fr'): string {
 }
 
 /** « 123 366 734 (2025) » : les habitants de la fiche, avec leur année. */
-export const fmtHabitants = (n: number, annee: number, langue = 'fr'): string => remplir(textes.fiche.habitants_valeur, { n: fmtEntier(n, langue), annee });
+export const fmtHabitants = (n: number, annee: number, langue = 'fr'): string => remplir(textesFiche.habitants_valeur, { n: fmtEntier(n, langue), annee });
 
 /** « 85 038 (recensement de 2023) » : les habitants d'une commune (lot F5), avec l'année de leur recensement. */
 export const fmtHabitantsRecensement = (n: number, annee: number, langue = 'fr'): string =>
-  remplir(textes.fiche.habitants_recensement, { n: fmtEntier(n, langue), annee });
+  remplir(textesFiche.habitants_recensement, { n: fmtEntier(n, langue), annee });
 
 /** La barre : « 123 millions d'hab. », « 56 800 hab. » (trois chiffres au plus, fmtNombreCourt). */
 export function fmtHabitantsCourt(n: number, langue = 'fr'): string {
-  const T = textes.fiche;
+  const T = textesFiche;
   return remplir(Math.abs(troisChiffres(n)) >= 1e6 ? T.barre_habitants_mot : T.barre_habitants, { n: fmtNombreCourt(n, langue) });
 }
 
 /** « 377 974 km² » ; le centième sous 100 km² (« 0,44 km² », le Vatican). */
-export const fmtSuperficie = (km2: number, langue = 'fr'): string => remplir(textes.fiche.km2, { n: nombres(locale(langue), 2).format(km2) });
+export const fmtSuperficie = (km2: number, langue = 'fr'): string => remplir(textesFiche.km2, { n: nombres(locale(langue), 2).format(km2) });
 
 /**
  * Une superficie de mer (lot F4), déjà à trois chiffres : « 2,5 millions de km² », « 139 000 km² » (la barre) ;
  * `environ` : « environ 2,5 millions de km² » (la fiche : la source n'est pas plus précise, § 2.3).
  */
 export function fmtSuperficieMer(km2: number, environ: boolean, langue = 'fr'): string {
-  const T = textes.fiche;
+  const T = textesFiche;
   const mot = Math.abs(troisChiffres(km2)) >= 1e6;
   const modele = environ ? (mot ? T.km2_environ_mot : T.km2_environ) : mot ? T.km2_court_mot : T.km2;
   return remplir(modele, { n: fmtNombreCourt(km2, langue) });
 }
 
 /** « 5 267 m », « 14,5 m » : une profondeur de mer, au dixième s'il y en a un (la mer d'Azov). */
-export const fmtProfondeur = (m: number, langue = 'fr'): string => remplir(textes.fiche.profondeur_valeur, { n: nombres(locale(langue), 1).format(m) });
+export const fmtProfondeur = (m: number, langue = 'fr'): string => remplir(textesFiche.profondeur_valeur, { n: nombres(locale(langue), 1).format(m) });
 
 /** « 3 776 m » groupé par milliers, dans « mont Fuji, 3 776 m ». */
 export const fmtAltitude = (m: number, langue = 'fr'): string => fmtEntier(m, langue);
 
-/** « 23 février », « 1er août » (le premier du mois : textes.fiche.premier_jour). */
+/** « 23 février », « 1er août » (le premier du mois : premier_jour). */
 export function fmtJourMois(jour: number, mois: number, langue = 'fr'): string {
   const f = joursMois(locale(langue));
   const date = new Date(Date.UTC(2000, mois - 1, jour)); // 2000 : bissextile, le 29 février existe.
   if (!f) return `${jour}/${mois}`;
   return f
     .formatToParts(date)
-    .map((p) => (p.type === 'day' && jour === 1 ? textes.fiche.premier_jour : p.value))
+    .map((p) => (p.type === 'day' && jour === 1 ? textesFiche.premier_jour : p.value))
     .join('');
 }
 
@@ -168,9 +169,9 @@ export function heureDe(zone: string, t: Date, ici?: string): { heures: number; 
   return { heures: Math.floor(jour / 60), minutes: jour % 60, ecart: la - ci };
 }
 
-/** « +5 h », « −3 h », « +1 h 45 », « même heure qu'ici » (le signe moins typographique, textes.fiche.moins). */
+/** « +5 h », « −3 h », « +1 h 45 », « même heure qu'ici » (le signe moins typographique, moins). */
 export function fmtEcart(minutes: number): string {
-  const T = textes.fiche;
+  const T = textesFiche;
   if (minutes === 0) return T.meme_heure;
   const a = Math.abs(minutes);
   const signe = minutes > 0 ? T.plus : T.moins;
@@ -186,7 +187,7 @@ export function fmtEcart(minutes: number): string {
  * dans le pays » s'il y en a plusieurs. Lève comme heureDe.
  */
 export function fmtHeureLieu(zone: string, fuseaux: number, t: Date, ici?: string): string {
-  const T = textes.fiche;
+  const T = textesFiche;
   const h = heureDe(zone, t, ici);
   const parts = [remplir(T.heure_valeur, { h: h.heures, min: String(h.minutes).padStart(2, '0') }), fmtEcart(h.ecart)];
   if (fuseaux > 1) parts.push(remplir(T.fuseaux, { n: fuseaux }));
@@ -194,4 +195,4 @@ export function fmtHeureLieu(zone: string, fuseaux: number, t: Date, ici?: strin
 }
 
 /** « umbundu 29 % » : une langue parlée et sa part. */
-export const fmtPart = (langue: string, part: number, l = 'fr'): string => remplir(textes.fiche.langue_part, { langue, part: fmtEntier(part, l) });
+export const fmtPart = (langue: string, part: number, l = 'fr'): string => remplir(textesFiche.langue_part, { langue, part: fmtEntier(part, l) });

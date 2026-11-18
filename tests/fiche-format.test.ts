@@ -5,15 +5,10 @@
 // inconnue, formateurs gardés.
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
+import { chargerFichesMers, chargerFichesMonde, fichesMersChargees, fichesMondeChargees, oublierFichesMers, oublierFichesMonde } from '../src/fiches/chargeur';
 import {
-  chargerFichesMers,
-  chargerFichesMonde,
-  fichesMersChargees,
-  fichesMondeChargees,
   lireFichesMers,
   lireFichesMonde,
-  oublierFichesMers,
-  oublierFichesMonde,
   type FichierMers,
   type FichierMersLangue,
   type FichierMonde,
@@ -213,6 +208,25 @@ describe('chargeur des fiches du monde', () => {
     expect(fichesMondeChargees()).toBe(a);
     await chargerFichesMonde(lire);
     expect(lus).toEqual(['/geo/fiches-monde.json', '/geo/fiches-monde.fr.json', '/geo/fiches-monde.json', '/geo/fiches-monde.fr.json']);
+  });
+
+  it('le morceau de la fiche (qui lit les fichiers) et les deux fichiers demandés ensemble, sans attendre l’un l’autre ; un morceau manqué n’est pas gardé (étude § 19)', async () => {
+    const demandes: string[] = [];
+    const lire = (chemin: string) => (demandes.push(chemin), Promise.resolve(chemin.endsWith('.fr.json') ? fr : m));
+    // Hors ligne, le morceau seul manque : rien de gardé.
+    await expect(chargerFichesMonde(lire, '/geo/', () => (demandes.push('morceau'), Promise.reject(new TypeError('hors ligne'))))).rejects.toThrow('hors ligne');
+    expect(fichesMondeChargees()).toBeNull();
+    demandes.length = 0;
+    // Le morceau tenu à la main : les fichiers sont déjà demandés pendant qu'il arrive.
+    let tenirMorceau!: () => void;
+    const morceau = () => (demandes.push('morceau'), new Promise<typeof import('../src/vues/fiche')>((ok) => (tenirMorceau = () => void import('../src/vues/fiche').then(ok))));
+    const p = chargerFichesMonde(lire, '/geo/', morceau);
+    expect(demandes).toEqual(['morceau', '/geo/fiches-monde.json', '/geo/fiches-monde.fr.json']);
+    expect(fichesMondeChargees()).toBeNull();
+    tenirMorceau();
+    const d = await p;
+    expect(d.lieux.get('JPN')?.sorte).toBe('pays');
+    expect(fichesMondeChargees()).toBe(d);
   });
 });
 

@@ -28,10 +28,12 @@ import { pick, type ContexteCarte } from '../src/map/pick';
 import { cadre, placer, projectionDe, transfoDe, type VueGlobe } from '../src/map/vue';
 import { carteMemoire, CLE_SUJET_MEMOIRE, type CarteMemoire } from '../src/vues/carte-memoire';
 import type { ContexteVue } from '../src/vues/commun';
-import { chargerFichesMers, lireFichesMonde, oublierFichesMers, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
+import { chargerFichesMers, oublierFichesMers } from '../src/fiches/chargeur';
+import { lireFichesMonde, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
 import { LIGNES_RELUES, type LigneRelue } from '../src/fiches/relues';
 import { vueExplorer, type OptionsFiche } from '../src/vues/explorer';
 import { textes } from '../src/vues/textes';
+import { textesFiche } from '../src/vues/textes-fiche';
 import { El, installerDom } from './dom-factice';
 
 const lireJson = (f: string) => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8'));
@@ -419,7 +421,7 @@ describe('accueil : la carte de la mémoire « Mers » sans pastilles (choix de 
 describe('accueil : la fiche d’une mer (#34, lot F4)', () => {
   const TOUTES = Object.fromEntries(Object.keys(LIGNES_RELUES).map((k) => [k, true])) as Record<LigneRelue, boolean>;
   const AUCUNE = Object.fromEntries(Object.keys(LIGNES_RELUES).map((k) => [k, false])) as Record<LigneRelue, boolean>;
-  const F = textes.fiche;
+  const F = textesFiche;
   const simple = (x: string | null) => (x ?? '').replace(/[\u00a0\u202f]/g, ' ');
 
   it('les fiches des mers partent avec la couche légère, au premier toucher en mer ; jamais au premier affichage ni pour un pays', async () => {
@@ -560,5 +562,5 @@ describe('accueil : la fiche d’une mer (#34, lot F4)', () => {
   });
 });
 
-/** Le pied « Sources : … » (textes.fiche.sources). */
-const remplirSources = (x: string) => textes.fiche.sources.replace('{sources}', x);
+/** Le pied « Sources : … » (textesFiche.sources). */
+const remplirSources = (x: string) => textesFiche.sources.replace('{sources}', x);

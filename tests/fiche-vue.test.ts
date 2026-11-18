@@ -22,6 +22,7 @@ import { versAncre } from '../src/vues/arbre';
 import { vueExplorer, type OptionsFiche } from '../src/vues/explorer';
 import { composerFiche, creerFeuille, DELAI_HEURE_MS, type ModeleFiche } from '../src/vues/fiche';
 import { remplir, textes } from '../src/vues/textes';
+import { textesFiche } from '../src/vues/textes-fiche';
 import { brancherZoom } from '../src/zoom-carte';
 import { El, installerDom } from './dom-factice';
 
@@ -32,7 +33,7 @@ const FICHES: DonneesFichesMonde = lireFichesMonde(lire<FichierMonde>('fiches-mo
 const CAPITALES = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<NomsCapitales>('capitales.fr.json'));
 const DRAPEAUX = lireDrapeaux(lire<ManifesteDrapeaux>('drapeaux.json'));
 const DRAPEAUX_T = lireDrapeauxTerritoires(lire<ManifesteDrapeauxTerritoires>('drapeaux-territoires.json'));
-const T = textes.fiche;
+const T = textesFiche;
 /** La part « habitants » de la ligne de faits d'un pays (« 123 millions d'hab. »). */
 const hab = (id: string) => fmtHabitantsCourt(FICHES.lieux.get(id)!.habitants!.n);
 const S = T.noms_sources;
@@ -995,8 +996,8 @@ describe('les fiches du lot F3 : territoires, zones contestées, Antarctique', (
     const v = monter({ fiche: { relues: TOUTES } });
     v.vue.activer();
     v.toucher('GRL');
-    await tenir();
-    expect(v.faits()).toBe(`Nuuk · ${hab('GRL')}`);
+    // La ligne attend aussi le morceau de la fiche (étude § 19), réimporté après le resetModules du test d'avant.
+    await vi.waitFor(() => expect(v.faits()).toBe(`Nuuk · ${hab('GRL')}`));
     v.toucher('HMD');
     expect(v.faits()).toBe(T.aucun_habitant);
     v.toucher('ESH');

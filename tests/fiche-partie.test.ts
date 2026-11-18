@@ -190,11 +190,10 @@ describe('une partie de Toucher en suspens sur la carte', () => {
     expect(v.essai.aMontrer?.()).toBe(true);
     expect(v.essai.enSuspens()).toBe(false);
     v.toucherCarte('JPN');
-    await tenir();
-    expect(v.faits()).toBe("Tokyo · 123 millions d'hab.");
+    // La ligne de faits attend le morceau de la fiche, demandé avec les données (étude § 19) : importé la première fois.
+    await vi.waitFor(() => expect(v.faits()).toBe("Tokyo · 123 millions d'hab."));
     expect(v.chevron()).toBe(true);
     (v.el('#barre-fiche') as El).click();
-    // Le morceau de la fiche, importé à la première ouverture.
     await vi.waitFor(() => expect(v.ouverte()).toBe(true));
     expect(v.gestes).toEqual(['quitter', 'pousser JPN']);
   });

@@ -5,13 +5,15 @@
 // factice : la mise en page, le focus réel et le vol de la carte sont au pilote (ui_fiche).
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { chargerFichesCommunes, lireFichesCommunes, oublierFichesCommunes, type DonneesFichesCommunes, type FichierCommunes, type FichierCommunesLangue } from '../src/fiches/donnees';
+import { chargerFichesCommunes, oublierFichesCommunes } from '../src/fiches/chargeur';
+import { lireFichesCommunes, type DonneesFichesCommunes, type FichierCommunes, type FichierCommunesLangue } from '../src/fiches/donnees';
 import { LIGNES_RELUES, type LigneRelue } from '../src/fiches/relues';
 import type { Pays } from '../src/map/types';
 import type { ContexteVue } from '../src/vues/commun';
 import { vueExplorer, type OptionsFiche } from '../src/vues/explorer';
 import { composerFiche, type ModeleFiche } from '../src/vues/fiche';
 import { remplir, textes } from '../src/vues/textes';
+import { textesFiche } from '../src/vues/textes-fiche';
 import { El, installerDom } from './dom-factice';
 
 const lire = <T>(f: string): T => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8')) as T;
@@ -20,7 +22,7 @@ const noms = lire<Record<string, string>>('noms.fr.json');
 const communes = lire<Pays[]>('reunion/communes.json');
 const nomsIle = lire<Record<string, string>>('reunion/noms.fr.json');
 const COMMUNES: DonneesFichesCommunes = lireFichesCommunes(lire<FichierCommunes>('reunion/fiches.json'), lire<FichierCommunesLangue>('reunion/fiches.fr.json'));
-const T = textes.fiche;
+const T = textesFiche;
 const S = T.noms_sources;
 const TOUTES = Object.fromEntries(Object.keys(LIGNES_RELUES).map((k) => [k, true])) as Record<LigneRelue, boolean>;
 const AUCUNE = Object.fromEntries(Object.keys(LIGNES_RELUES).map((k) => [k, false])) as Record<LigneRelue, boolean>;

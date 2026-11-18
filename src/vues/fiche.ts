@@ -1,8 +1,9 @@
 // La fiche d'un lieu (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md,
 // § 4.2 à § 4.5 et § 4.11 ; lot F1 : ce que le dépôt sait déjà). Un morceau à
 // part (import() dynamique, § 6.1) : le morceau principal ne porte que la barre
-// et le chargeur (explorer.ts, src/fiches/donnees.ts) ; celui-ci se charge au
-// premier toucher d'un lieu qui a une fiche.
+// et le chargeur (explorer.ts, src/fiches/chargeur.ts) ; celui-ci se charge au
+// premier toucher d'un lieu qui a une fiche, avec ses données (§ 19 : il porte
+// aussi leur lecture, la ligne de faits de la barre, les nombres et les textes).
 //
 // Deux états : la barre, ou la feuille ouverte (pas de mi-hauteur). La feuille
 // est posée dans #app, au-dessus de la carte et de la barre, opaque (--panel,
@@ -49,12 +50,17 @@ import type { Mer, NomTerrain, Pays } from '../map/types';
 import type { DonneesFichesCommunes, DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires, SourceLigne, SourceMer } from '../fiches/donnees';
 import { fmtAltitude, fmtHabitants, fmtHabitantsRecensement, fmtHeureLieu, fmtJourMois, fmtPart, fmtProfondeur, fmtSuperficie, fmtSuperficieMer, listeEt } from '../fiches/format';
 export { prechaufferFormats, prechaufferZone } from '../fiches/format';
+// Ce que le morceau principal prend de ce morceau-ci (§ 19 de l'étude) : la lecture des fichiers des
+// fiches (src/fiches/chargeur.ts) et la ligne de faits de la barre (explorer.ts).
+export { lireDrapeauxTerritoires, lireFichesCommunes, lireFichesMers, lireFichesMonde } from '../fiches/donnees';
+export { faitsCommune, faitsMer, faitsPays, faitsTerritoire } from '../fiches/barre';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import { creer, croix, LIBELLE_STATUT } from './commun';
 import { remplir, textes } from './textes';
+import { textesFiche } from './textes-fiche';
 
-const T = textes.fiche;
+const T = textesFiche;
 
 /** Un voisin dans la fiche : un bouton qui ouvre sa fiche. */
 export interface VoisinFiche {
@@ -140,7 +146,7 @@ export interface DonneesMers {
 /** L'heure d'une fiche ouverte se refait toutes les 30 s (§ 4.2). */
 export const DELAI_HEURE_MS = 30_000;
 
-/** L'adresse d'un article de la Wikipédia de la langue (textes.fiche.wikipedia_base), par son titre. */
+/** L'adresse d'un article de la Wikipédia de la langue (textes-fiche.fr.json, wikipedia_base), par son titre. */
 export const adresseWikipedia = (titre: string): string => T.wikipedia_base + encodeURIComponent(titre.replace(/ /g, '_'));
 
 /**

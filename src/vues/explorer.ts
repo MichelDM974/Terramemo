@@ -46,6 +46,9 @@
 // Lot F5 : une commune de l'île a sa fiche ; ses fichiers (reunion/fiches*.json)
 // partent au premier toucher sur l'île, et sa barre dit « 85 000 hab. » ; ses
 // voisines s'ouvrent sur l'île (entrées d'historique au terrain « reunion »).
+// La ligne de faits (faitsPays…), les nombres et les textes de la fiche sont au
+// morceau de la fiche, demandé avec les données au premier toucher : la ligne
+// les attend ensemble (étude § 19), le morceau principal ne les porte pas.
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import { versEcran, versLonLat } from '../map/geo';
@@ -56,8 +59,7 @@ import { tailleEcranPx } from '../map/pastilles';
 import { pickMer, type ResultatPick, type Via } from '../map/pick';
 import type { Lieu, NomTerrain, Pays } from '../map/types';
 import type { DonneesFichesCommunes, DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires } from '../fiches/donnees';
-import { fmtHabitantsCourt, fmtSuperficieMer } from '../fiches/format';
-import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
+import type { LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { EntreeFiche, LieuFiche } from '../navigation';
 import type { Terrain } from '../terrains';
@@ -391,22 +393,13 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
    * arrivée, la barre qui montre encore cette mer reçoit ses faits et son chevron.
    */
   function demanderFichesMers(): void {
-    if (mersLues || !F?.fichesMers || !active || !autorisee()) return;
+    if ((mersLues && moduleCharge) || !F?.fichesMers || !active || !autorisee()) return;
     const [j, k] = [jeton, touches];
-    chargerFichesMersBarre().then(
+    // Le morceau de la fiche avec les données, comme pour un pays (chargerDonnees) : il fait la ligne de faits.
+    Promise.all([chargerFichesMersBarre(), chargerModule()]).then(
       () => {
         const id = barre.dataset.id;
         if (j === jeton && k === touches && id && estIdMer(id)) poserFaits(false);
-        // Le morceau de la fiche, demandé d'avance comme pour un pays (chargerDonnees) : là quand on touchera la barre.
-        if (!moduleCharge) {
-          F.module().then(
-            (m) => {
-              moduleCharge = m;
-              auRepos(() => m.prechaufferFormats());
-            },
-            () => undefined,
-          );
-        }
       },
       () => undefined,
     );
@@ -431,23 +424,14 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   }
   /**
    * Au premier toucher sur l'île (§ 6.1) : les fiches des communes demandées ; à leur arrivée, la barre qui montre
-   * encore cette commune reçoit sa ligne de faits et son chevron, et le morceau de la fiche est demandé d'avance.
+   * encore cette commune reçoit sa ligne de faits et son chevron ; le morceau de la fiche est demandé avec elles.
    */
   function demanderFichesCommunes(): void {
-    if (communesLues || !F?.fichesCommunes || !active || !autorisee()) return;
+    if ((communesLues && moduleCharge) || !F?.fichesCommunes || !active || !autorisee()) return;
     const [j, k] = [jeton, touches];
-    chargerFichesCommunesBarre().then(
+    Promise.all([chargerFichesCommunesBarre(), chargerModule()]).then(
       () => {
         if (j === jeton && k === touches && barre.dataset.id && t.nom === 'reunion') poserFaits(false);
-        if (!moduleCharge) {
-          F.module().then(
-            (m) => {
-              moduleCharge = m;
-              auRepos(() => m.prechaufferFormats());
-            },
-            () => undefined,
-          );
-        }
       },
       () => undefined,
     );
@@ -480,8 +464,34 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     } else drapeauBarre.hidden = true;
     bouton.classList.toggle('barre-avec-drapeau', !!src);
   }
-  /** Le morceau de la fiche, une fois chargé : la zone de chaque pays touché préparée au repos. */
+  /**
+   * Le morceau de la fiche, une fois chargé : il fait la ligne de faits (faitsPays…) et prépare au repos la zone
+   * de chaque pays touché. Demandé avec les données de la barre, jamais seul avant elles (§ 6.1, § 19).
+   */
   let moduleCharge: ModuleFiche | null = null;
+  let moduleEnCours: Promise<ModuleFiche> | null = null;
+  function chargerModule(): Promise<ModuleFiche> {
+    if (!F) return Promise.reject(new Error('fiche : pas de morceau'));
+    if (moduleCharge) return Promise.resolve(moduleCharge);
+    // Ses formateurs (Intl) créés au repos : la première fiche ne paie pas leur création (22 ms sur l'A37) pendant
+    // sa montée. Puis celui de la zone du pays de la barre (prechaufferZone), et de chaque pays touché ensuite.
+    moduleEnCours ??= F.module().then(
+      (m) => {
+        moduleEnCours = null;
+        moduleCharge = m;
+        auRepos(() => {
+          m.prechaufferFormats();
+          prechaufferZoneBarre();
+        });
+        return m;
+      },
+      (e: unknown) => {
+        moduleEnCours = null;
+        throw e;
+      },
+    );
+    return moduleEnCours;
+  }
   /** `f` au repos (requestIdleCallback ; à défaut, un peu plus tard) : rien de lourd pendant le toucher. */
   function auRepos(f: () => void): void {
     const repos = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => unknown }).requestIdleCallback;
@@ -504,21 +514,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   function chargerDonnees(): Promise<unknown> {
     if (!F) return Promise.reject(new Error('fiche : pas de données'));
     if (enChargement) return enChargement;
-    const p = Promise.all([F.fiches(), F.capitales().catch(() => null)]).then(([fiches, capitales]) => {
+    // Le morceau de la fiche avec les données (§ 19) : il fait la ligne de faits, et sera là quand on touchera la barre.
+    const p = Promise.all([F.fiches(), F.capitales().catch(() => null), chargerModule()]).then(([fiches, capitales]) => {
       lues = { fiches, capitales };
-      // Le morceau de la fiche, demandé d'avance : il sera là quand on touchera la barre. Ses formateurs (Intl)
-      // créés au repos : la première fiche ne paie pas leur création (22 ms sur l'A37) pendant sa montée. Puis
-      // celui de la zone du pays de la barre (prechaufferZone), et de chaque pays touché ensuite.
-      F.module().then(
-        (m) => {
-          moduleCharge = m;
-          auRepos(() => {
-            m.prechaufferFormats();
-            prechaufferZoneBarre();
-          });
-        },
-        () => undefined,
-      );
     });
     enChargement = p;
     p.then(
@@ -545,41 +543,38 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       // Une mer (lot F4, § 4.1) : « océan Atlantique · 2,5 millions de km² » ; un océan, sa superficie ; la
       // superficie une fois relue. Ses fiches sont demandées au premier toucher en mer (demanderFichesMers).
       const f = mersLues?.get(id);
-      if (f) {
+      if (f && moduleCharge) {
         ficheDispo = true;
         chevron.hidden = false;
         const infos = infosMers ?? mersPourNommer();
         const oceans = infos ? oceansDeMer(id, infos.zones).map((o) => infos.noms[o] ?? o) : [];
-        const sup = f.superficie && (F!.relues ?? LIGNES_RELUES).superficie_mers ? fmtSuperficieMer(f.superficie.km2, false) : '';
-        faits.textContent = [oceans.join(', '), sup].filter(Boolean).join(' · ');
+        faits.textContent = moduleCharge.faitsMer(f, oceans, F!.relues);
       } else if (charger) demanderFichesMers();
     } else if (id && sorte === 'commune') {
       // Une commune (lot F5, § 4.1) : « 85 000 hab. ». Ses fiches sont demandées au premier toucher sur l'île.
       const f = communesLues?.get(id);
-      if (f) {
+      if (f && moduleCharge) {
         ficheDispo = true;
         chevron.hidden = false;
-        faits.textContent = fmtHabitantsCourt(f.habitants.n);
+        faits.textContent = moduleCharge.faitsCommune(f);
       } else if (charger) demanderFichesCommunes();
     } else if (id && sorte) {
-      if (lues?.fiches.lieux.has(id)) {
+      // lues n'est posé qu'avec le morceau (chargerDonnees) : il fait la ligne.
+      const m = moduleCharge;
+      if (m && lues?.fiches.lieux.has(id)) {
         ficheDispo = true;
         chevron.hidden = false;
         // « Nuuk · 56 800 hab. » (§ 4.1, lot F3) : la capitale une fois relue, sinon les habitants seuls ;
         // rien pour une zone contestée ni pour l'Antarctique.
         if (sorte === 'territoire') {
-          const f = lues.fiches.lieux.get(id)!;
-          const h = f.habitants;
-          const capitale = (F!.relues ?? LIGNES_RELUES).capitale_territoires ? f.capitale : undefined;
-          faits.textContent = [capitale, h ? (h.annee === null ? textes.fiche.aucun_habitant : fmtHabitantsCourt(h.n)) : ''].filter(Boolean).join(' · ');
-          if (moduleCharge) auRepos(prechaufferZoneBarre);
+          faits.textContent = m.faitsTerritoire(lues.fiches.lieux.get(id)!, F!.relues);
+          auRepos(prechaufferZoneBarre);
         }
         // « Tokyo · 123 millions d'hab. » (§ 4.1) ; plusieurs capitales : « La Paz, Sucre · … ».
         if (sorte === 'pays') {
-          const h = lues.fiches.lieux.get(id)?.habitants;
-          faits.textContent = [lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom).join(', '), h ? fmtHabitantsCourt(h.n) : ''].filter(Boolean).join(' · ');
+          faits.textContent = m.faitsPays(lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom) ?? [], lues.fiches.lieux.get(id));
           drapeau = id;
-          if (moduleCharge) auRepos(prechaufferZoneBarre);
+          auRepos(prechaufferZoneBarre);
           if (chargerDrapeau && !drapeauxLus) {
             const [j, k] = [jeton, touches];
             chargerDrapeauxBarre().then(
@@ -773,7 +768,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         : lues
           ? null
           : chargerDonnees();
-    Promise.all([F.module(), donnees]).then(
+    Promise.all([chargerModule(), donnees]).then(
       ([m]) => {
         if (j !== jetonFiche || !active) return;
         const modele = composer(m, f);
