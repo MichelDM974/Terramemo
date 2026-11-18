@@ -4380,13 +4380,66 @@ JS_SITUATION = """(() => { const f = document.getElementById('fiche-lieu'); if (
   const svg = s.querySelector('svg'), h2 = document.getElementById('fiche-titre');
   let haut_vide = rt.height;
   if (svg) { const avant = svg.style.display; svg.style.display = 'none'; haut_vide = t.getBoundingClientRect().height; svg.style.display = avant; }
-  return { present: true, haut_vide, eclaire: s.dataset.eclaire ?? null, etat: s.dataset.etat || null, region: s.dataset.region || null, anneau: s.dataset.anneau !== undefined,
+  // Ce qui se voit (le dessin, que l'état et les chemins présents ne disent pas) : sur une grille de 24 × 16 points du
+  // viewBox, la couche peinte dessus (isPointInFill : la règle de remplissage du navigateur, dans l'ordre des chemins) ;
+  // la boîte du lieu (getBBox) en part du viewBox ; l'eau d'une mer (longueur de son tracé, sa couleur, celles du fond
+  // de la place et de l'ovale). Un anneau retourné peignait le lieu sur tout l'ovale, ou les terres sur toute l'eau.
+  let dessin = null;
+  if (svg && svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width) {
+    const vb = svg.viewBox.baseVal, NX = 24, NY = 16, part = { mer: 0, eau: 0, terre: 0, lieu: 0, vide: 0 };
+    const couches = [['lieu', '.situation-lieu'], ['terre', '.vignette-fond'], ['eau', '.situation-eau'], ['mer', '.vignette-mer']]
+      .map(([k, q]) => [k, svg.querySelector(q)]).filter(([, e]) => e);
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+      const pt = new DOMPoint(vb.x + (i + 0.5) * vb.width / NX, vb.y + (j + 0.5) * vb.height / NY);
+      const c = couches.find(([, e]) => e.isPointInFill(pt));
+      part[c ? c[0] : 'vide'] += 1 / (NX * NY);
+    }
+    const L = svg.querySelector('.situation-lieu'), E = svg.querySelector('.situation-eau'), M = svg.querySelector('.vignette-mer');
+    const bb = L ? L.getBBox() : null;
+    dessin = { part, boite_lieu: bb ? (bb.width * bb.height) / (vb.width * vb.height) : 0, eau_d: E ? (E.getAttribute('d') || '').length : 0,
+      eau_couleur: E ? getComputedStyle(E).fill : null, fond_place: getComputedStyle(s).backgroundColor, mer_couleur: M ? getComputedStyle(M).fill : null };
+  }
+  return { present: true, haut_vide, dessin, eclaire: s.dataset.eclaire ?? null, etat: s.dataset.etat || null, region: s.dataset.region || null, anneau: s.dataset.anneau !== undefined,
     lieu: s.dataset.lieu || null, aria: s.getAttribute('aria-hidden'), chemins: svg ? [...svg.children].map(c => c.getAttribute('class')) : [],
     l: rs.width, h: rs.height, haut_tete: rt.height, largeur: innerWidth, page: document.documentElement.scrollWidth - innerWidth,
     dans_tete: rs.top >= rt.top - 0.5 && rs.bottom <= rt.bottom + 0.5 && rs.left >= rt.left - 0.5 && rs.right <= rt.right + 0.5,
     dans_fiche: rs.left >= rf.left - 0.5 && rs.right <= rf.right + 0.5,
     chevauche: Object.entries(autres).filter(([, l]) => l.some(q => sur(x, q))).map(([k]) => k),
     tete_deborde: t.scrollWidth > t.clientWidth + 1, titre_deborde: !!h2 && h2.scrollWidth > h2.clientWidth + 1 }; })()"""
+
+
+def verifier_dessin_situation(s, defauts, quoi):
+    """Le dessin de la carte de situation posée (JS_SITUATION, « dessin ») : jamais toute la carte en terre (plus de
+    93 % des points de la grille sous le fond ou le lieu : la Caspienne, la plus terrestre, en a ≈ 87 %), ni l'ovale du
+    monde sans mer (moins de 5 % des points : ≈ 28 % sous le Pacifique éclairé, 48 % sous la Russie) ; le lieu
+    (ni l'Antarctique, ni une mer : son eau) ni sur plus de la moitié des points, ni d'une boîte (getBBox) de plus de
+    60 % du viewBox (la Russie, coupée par l'antiméridien : ≈ 15 %) ; l'eau d'une mer ou d'un océan tracée, visible
+    (au moins un point de la grille), d'une couleur à elle (ni « none », ni celle du fond de la place ou de l'ovale).
+    Un anneau retourné par l'allègement des points (decimer, avant le 18/11) peignait le lieu sur tout l'ovale (la
+    Russie, le Groenland) et les terres sur toute l'eau (chaque fond de région, de mer et du monde)."""
+    d = s.get("dessin")
+    if s.get("etat") != "prete":
+        return
+    if not d:
+        defauts.append(f"{quoi} : carte de situation sans dessin lisible (pas de viewBox)")
+        return
+    part, lieu = d["part"], s.get("lieu") or ""
+    mer = lieu[:1].islower()
+    dire(f"  dessin ({quoi}) : terre {part['terre'] * 100:.0f} %, lieu {part['lieu'] * 100:.0f} % (boîte {d['boite_lieu'] * 100:.0f} %), "
+         f"eau {part['eau'] * 100:.0f} %, mer {part['mer'] * 100:.0f} %, vide {part['vide'] * 100:.0f} %"
+         + (f", eau {d['eau_couleur']} sur {d['fond_place']} / ovale {d['mer_couleur']}" if mer else ""))
+    if part["terre"] + part["lieu"] > 0.93:
+        defauts.append(f"{quoi} : carte de situation toute en terre ({(part['terre'] + part['lieu']) * 100:.0f} % des points)")
+    if d.get("mer_couleur") and part["mer"] < 0.05:
+        defauts.append(f"{quoi} : l'ovale du monde sans mer visible ({part['mer'] * 100:.0f} % des points)")
+    if not mer and lieu != "ATA" and (part["lieu"] > 0.5 or d["boite_lieu"] > 0.6):
+        defauts.append(f"{quoi} : le lieu couvre la carte de situation ({part['lieu'] * 100:.0f} % des points, boîte {d['boite_lieu'] * 100:.0f} %)")
+    if mer:
+        couleur = d.get("eau_couleur")
+        if not d["eau_d"] or part["eau"] <= 0:
+            defauts.append(f"{quoi} : l'eau de la mer absente ou invisible (tracé {d['eau_d']} car., {part['eau'] * 100:.1f} % des points)")
+        if not couleur or couleur == "none" or couleur in (d.get("fond_place"), d.get("mer_couleur")):
+            defauts.append(f"{quoi} : l'eau de la mer sans couleur d'éclairage ({couleur} sur {d.get('fond_place')}, ovale {d.get('mer_couleur')})")
 
 
 def verifier_situation(p, defauts, quoi, region=None, anneau=None, delai_s=10):
@@ -4396,7 +4449,8 @@ def verifier_situation(p, defauts, quoi, region=None, anneau=None, delai_s=10):
     drapeaux, titre, statut), sans débordement de la tête, du titre ni de la page ; décorative (aria-hidden) ; le lieu
     éclairé (ou l'eau d'une mer), et c'est bien lui (data-eclaire) ; sa région et son anneau s'ils sont donnés ; la tête
     de même hauteur vide et posée (elle ne saute pas : la hauteur vide lue à la première lecture « attente », sinon
-    mesurée la carte retirée du rendu, haut_vide). Rend l'état lu ; DÉFAUT à chaque écart."""
+    mesurée la carte retirée du rendu, haut_vide) ; ce qui se voit (verifier_dessin_situation). Rend l'état lu ;
+    DÉFAUT à chaque écart."""
     s = p.js(JS_SITUATION)
     vide = s["haut_tete"] if s and s.get("present") and s.get("etat") == "attente" else None
     fin = time.monotonic() + delai_s
@@ -4425,6 +4479,7 @@ def verifier_situation(p, defauts, quoi, region=None, anneau=None, delai_s=10):
         defauts.append(f"{quoi} : carte de situation lue par le lecteur d'écran (aria-hidden {s['aria']!r})")
     if region is not None and s["region"] != region:
         defauts.append(f"{quoi} : carte de situation sur {s['region']} au lieu de {region}")
+    verifier_dessin_situation(s, defauts, quoi)
     if anneau is not None and s["anneau"] != anneau:
         defauts.append(f"{quoi} : carte de situation {'sans' if anneau else 'avec'} anneau, {'avec' if anneau else 'sans'} attendu")
     if vide is None and s["etat"] == "prete":
