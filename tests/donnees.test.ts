@@ -481,6 +481,7 @@ describe('noms et sources', () => {
       'geodata/drapeaux-main.json',
       'geodata/drapeaux.mjs',
       'geodata/fiches-autres.mjs',
+      'geodata/fiches-communes.mjs',
       'geodata/fiches-main.json',
       'geodata/fiches-mers.mjs',
       'geodata/fiches-pays.mjs',
@@ -505,11 +506,11 @@ describe('noms et sources', () => {
   it('sources datées, licences et empreintes égales au verrou', () => {
     // Natural Earth, CLDR, flag-icons, le drapeau de l'Émirat (Commons), et pour les
     // fiches CLDR (langues, monnaies) et tz, téléchargées par le build ; extraits versionnés :
-    // Wikidata (capitales, fiches des pays, fiches des mers), Banque mondiale
+    // Wikidata (capitales, fiches des pays, fiches des mers, fiches des communes), Banque mondiale
     // (tests/donnees-capitales.test.ts et tests/donnees-extraits-fiches.test.ts comparent leurs
     // empreintes aux fichiers) ; et, sans fichier, les sources des valeurs écrites à la main
     // dans fiches-main.json (Wikipédia, Factbook, ISO 639, NOAA).
-    expect(sources.sources).toHaveLength(14);
+    expect(sources.sources).toHaveLength(15);
     for (const s of sources.sources) {
       expect(s.licence).toBeTruthy();
       expect(s.telecharge_le).toMatch(/^\d{4}-\d{2}-\d{2}$/);
