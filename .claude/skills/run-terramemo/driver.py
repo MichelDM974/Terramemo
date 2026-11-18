@@ -141,7 +141,9 @@ FICHIERS_GEO_QUIZ = ("notoriete.json", "drapeaux-proches.json")
 # La fiche d'un lieu (#34, lot F1) : les fiches du monde, chargées au premier toucher
 # d'un lieu (src/fiches/donnees.ts), jamais au premier affichage (étude fiche-lieu
 # § 6.1) ; rien sous /photos/ non plus (lot P2) ; smoke et ui_fiche le vérifient.
+# Lot F4 : celles des mers, au premier toucher en mer seulement, avec la couche légère.
 FICHIERS_GEO_FICHES = ("fiches-monde.json", "fiches-monde.fr.json")
+FICHIERS_GEO_FICHES_MERS = ("fiches-mers.json", "fiches-mers.fr.json")
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
 TELEPHONE = {"largeur": 384, "hauteur": 832, "dpr": 2.8125}
@@ -4429,8 +4431,12 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     barre touchée (ou glissée vers le haut, au doigt) ouvre la fiche : titre, focus, entrée
     d'historique, barre inerte mais en place, zoom caché ; le retour du navigateur la ferme sans
     quitter la carte ; l'Espagne et ses voisins (France, puis « ‹ ») ; « × », le voile, Échap ;
-    ⚙ par-dessus (Échap ne ferme que la popup) ; lot F3 : le Groenland (barre, lignes, drapeau à part), Hong Kong, le Sahara occidental et Bir Tawil (zones), l'Antarctique ; une mer
-    et une commune sans chevron (lots F4, F5) ; puis le scénario de mesure. DÉFAUT à chaque écart."""
+    ⚙ par-dessus (Échap ne ferme que la popup) ; lot F3 : le Groenland (barre, lignes, drapeau à part), Hong Kong, le Sahara occidental et Bir Tawil (zones), l'Antarctique ;
+    lot F4 : l'eau touchée (les fiches des mers lues à ce toucher, avec la couche, le chevron), la Méditerranée
+    (barre « océan Atlantique », fiche, capture 158), son océan touché dans la fiche (l'Atlantique, capture 159),
+    « ‹ », l'Adriatique et sa mère, la mer des Sargasses ; une commune sans chevron (lot F5) ; puis le scénario de
+    mesure. Les superficies, profondeurs et riverains des mers sont tus jusqu'à leur relecture (LIGNES_RELUES) :
+    la fiche d'une mer n'a que sa sorte, sa mère, son océan, la mémoire et le lien. DÉFAUT à chaque écart."""
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
     debut = ressources_fiches(p)
@@ -4642,7 +4648,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     p.js("history.back()")
     attendre_fiche(p, lambda e: not e["ouverte"], "Antarctique fermé")
 
-    # Une mer : son nom, pas de chevron au lot F1.
+    # Une mer (lot F4) : l'eau touchée, ses fiches lues à ce toucher (avec la couche légère), puis le chevron.
     p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
     p.pause(300)
     eau = p.js("""(() => { const c = window.terramemo.carte, r = c.rect(), b = document.getElementById('barre-carte').getBoundingClientRect();
@@ -4650,14 +4656,81 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         for (let y = r.y + r.hauteur * 0.55; y < Math.min(b.top, r.y + r.hauteur) - 6; y += 6) if (!c.pick(x, y)) return {x, y};
         for (let y = r.y + r.hauteur * 0.45; y > r.y + 6; y -= 6) if (!c.pick(x, y)) return {x, y};
         return null; })()""")
-    if eau:
+    if not eau:
+        defauts.append("une mer : aucun point d'eau trouvé à l'écran")
+    else:
+        avant_mers = [n for n in ressources_fiches(p) if "fiches-mers" in n]
+        if avant_mers:
+            defauts.append(f"fiches des mers lues avant le premier toucher en mer : {avant_mers}")
         p.pause(PAUSE_AVANT_TOUCHER_MS)
         p.toucher(eau["x"], eau["y"])
-        p.pause(1500)
-        e = etat_fiche(p)
-        dire(f"  une mer touchée : {texte(p, '#barre-carte .barre-nom')!r}, chevron {e['chevron']}")
-        if e["chevron"]:
-            defauts.append("une mer touchée : un chevron (pas de fiche de mer avant le lot F4)")
+        e = attendre_fiche(p, lambda e: e["chevron"] and (e["barre"] or "").islower(), "une mer touchée")
+        lus = sorted({n.split("/")[-1] for n in ressources_fiches(p) if "fiches-mers" in n})
+        dire(f"  une mer touchée : {texte(p, '#barre-carte .barre-nom')!r} ({e['barre']}), faits {e['faits']!r}, chevron {e['chevron']}, lu {lus}")
+        if not e["chevron"]:
+            defauts.append(f"une mer touchée : pas de chevron ({e})")
+        if lus != sorted(FICHIERS_GEO_FICHES_MERS):
+            defauts.append(f"une mer touchée : {lus} lus au lieu de {', '.join(FICHIERS_GEO_FICHES_MERS)}")
+
+        # La Méditerranée (la couche fine est posée depuis ce toucher) : « océan Atlantique » dans la barre (la
+        # superficie attend sa relecture), puis sa fiche.
+        p.js('window.terramemo.carte.zoomerSur("medit")')
+        attendre_fin_vol(p)
+        p.pause(PAUSE_AVANT_TOUCHER_MS)
+        pt = position_mer(p, "medit", "#barre-carte")
+        if not pt:
+            defauts.append("la Méditerranée : pas de point où la toucher au-dessus de la barre")
+        else:
+            p.toucher(pt["x"], pt["y"])
+            e = attendre_fiche(p, lambda e: e["barre"] == "medit" and e["chevron"], "Méditerranée touchée")
+            faits = re.sub(r"\s+", " ", e["faits"])
+            dire(f"  Méditerranée touchée : faits {faits!r}, chevron {e['chevron']}")
+            if faits != "océan Atlantique" or not e["chevron"]:
+                defauts.append(f"Méditerranée touchée : ligne de faits « océan Atlantique » (la superficie tue jusqu'à sa relecture) et chevron attendus ({e})")
+            toucher_element(p, "#barre-fiche")
+            e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "medit", "fiche de la Méditerranée")
+            dire(f"  fiche de la Méditerranée : {e['titre']!r}, statut {e['statut']!r}, lignes {e['lignes']}, boutons {e['voisins']}, focus {e['focus']}")
+            if e["titre"] != "mer Méditerranée" or e["statut"] != "mer intérieure" or e["lignes"] != ["Océan océan Atlantique"] or e["voisins"] != ["atlant"] or e["drapeaux"]:
+                defauts.append(f"fiche de la Méditerranée : « mer intérieure », la ligne « Océan » et son bouton seuls, sans drapeau ni riverains attendus ({e})")
+            capturer("158-fiche-mer")
+            # L'océan se touche comme un voisin : la fiche de l'Atlantique, « ‹ » montré ; la carte vole dessous.
+            toucher_element(p, '#fiche-lieu .fiche-liens [data-id="atlant"]')
+            e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "atlant", "fiche de l'Atlantique")
+            dire(f"  fiche de l'Atlantique : statut {e['statut']!r}, lignes {e['lignes']}, ‹ {e['avant']}, focus {e['focus']}")
+            if e["titre"] != "océan Atlantique" or e["statut"] != "océan" or e["lignes"] or e["voisins"] or not e["avant"] or e["focus"] != "fiche-titre":
+                defauts.append(f"fiche de l'Atlantique (son océan touché) : « océan », aucune ligne, « ‹ », focus au titre attendus ({e})")
+            attendre_fin_vol(p)
+            capturer("159-fiche-ocean")
+            toucher_element(p, "#fiche-lieu .fiche-avant")
+            e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "medit", "« ‹ » vers la Méditerranée")
+            if e["id"] != "medit":
+                defauts.append(f"« ‹ » depuis l'Atlantique : la Méditerranée attendue ({e})")
+            toucher_element(p, "#fiche-lieu .croix")
+            attendre_fiche(p, lambda e: not e["ouverte"], "fiche de la mer fermée")
+
+        # L'Adriatique, par la recherche : sa mère se touche ; la mer des Sargasses, « mer sans côte ».
+        for ident, nom_m, statut, lignes, mere in (
+            ("adriat", "mer Adriatique", "mer", ["Fait partie de mer Méditerranée", "Océan océan Atlantique"], "medit"),
+            ("sargasse", "mer des Sargasses", "mer sans côte", ["Océan océan Atlantique"], None),
+        ):
+            p.js('document.getElementById("recherche-champ").focus()')
+            p.cdp("Input.insertText", text=nom_m)
+            attendre_visible(p, f'#recherche-liste [data-terrain="monde"][data-id="{ident}"]')
+            cliquer(p, f'#recherche-liste [data-terrain="monde"][data-id="{ident}"]')
+            e = attendre_fiche(p, lambda e, i=ident: e["barre"] == i and e["chevron"], f"{nom_m} montrée")
+            attendre_fin_vol(p)
+            toucher_element(p, "#barre-fiche")
+            e = attendre_fiche(p, lambda e, i=ident: e["ouverte"] and e["id"] == i, f"fiche de {nom_m}")
+            dire(f"  fiche de {nom_m} : statut {e['statut']!r}, lignes {e['lignes']}")
+            if e["statut"] != statut or e["lignes"] != lignes:
+                defauts.append(f"fiche de {nom_m} : statut « {statut} » et lignes {lignes} attendus ({e})")
+            if mere:
+                toucher_element(p, f'#fiche-lieu .fiche-liens [data-id="{mere}"]')
+                e = attendre_fiche(p, lambda e, m=mere: e["ouverte"] and e["id"] == m, f"mère de {nom_m}")
+                if e["id"] != mere:
+                    defauts.append(f"fiche de {nom_m} : sa mère touchée n'ouvre pas sa fiche ({e})")
+            toucher_element(p, "#fiche-lieu .croix")
+            attendre_fiche(p, lambda e: not e["ouverte"], f"{nom_m} fermée")
     # L'île : une commune, pas de chevron au lot F1 ; puis « Monde ».
     p.js('document.getElementById("recherche-champ").focus()')
     p.cdp("Input.insertText", text="saint-denis")

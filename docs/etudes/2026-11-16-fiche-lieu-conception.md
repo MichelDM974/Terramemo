@@ -2814,3 +2814,61 @@ Relecture du lot F3 (18/11), sur les lignes affichées sans clé de `LIGNES_RELU
   supposait sa fiche) ; le sommet d'un territoire entièrement dans une zone disputée (Malouines,
   Géorgie du Sud) ; la ligne « flag-icons » des Crédits (« Drapeaux des pays »), figée par
   `tests/donnees-drapeaux.test.ts`, que ce lot ne touche pas.
+
+## 17. Écarts du code au lot F4
+
+Relevés par le codeur du lot F4 (branche `fiche-lieu`, 18/11). Tableau à relire :
+`docs/relectures/fiches-mers.md`.
+- **Extrait à part** : `geodata/wikidata/fiches-mers.json` (`npm run wikidata -- --fiches-mers`,
+  requêtes `requetes-fiches-mers.rq`), et non `geodata/wikidata/fiches.json` (§ 8) : changer
+  `requetes-fiches.rq` aurait obligé à refaire l'extrait des 258 entités, dont les tableaux sont en
+  relecture. Une section de plus que prévu, `etats` : la date de dissolution (P576) des pays cités,
+  qui retire l'URSS, l'Empire russe et le Yémen du Sud par la règle, sans liste écrite. Sa ligne de
+  `sources.json` a l'adresse du point SPARQL (`…/sparql`) : `sources.json` range ses lignes par adresse.
+- **Le tracé** est refait au build, dans `geodata/fiches-mers.mjs` (`riverainsTrace`), sur les
+  couches brutes de Natural Earth (`geodata/raw/`, vérifiées contre le verrou) : mêmes 225 liens que
+  R4, ids de la carte par `idNe`. `npm run fiches` lit donc aussi Natural Earth ; le test de
+  reproduction le saute là où `geodata/raw/` ne l'a pas (CI).
+- **Riverains** : 234 liens pour 44 mers. 16 lignes de la table (et non ≈ 25) et 2 items
+  (`riverains_items` : le royaume de Danemark rapporté au Danemark, l'Abkhazie ignorée). Une ligne
+  d'une mer vaut aussi pour les mers qui la contiennent (Saint-Marin retiré de l'Adriatique l'est de
+  la Méditerranée). Retirés : la zone tampon de Chypre, Saint-Marin, la Suède (mer du Nord), les
+  États-Unis (golfe du Saint-Laurent : le fleuve, fondu dans le golfe sur la carte, borde New York),
+  la Chine (mer du Japon). Ajoutés : Jersey et Guernesey (Manche), et neuf îles des Caraïbes que la
+  zone simplifiée de Natural Earth manque à 29-193 km (Aruba, Antigua, Saint-Vincent, les Caïmans,
+  Montserrat, les Pays-Bas par Bonaire, Saint-Martin, Sint Maarten, Saint-Barthélemy). Gardés, à
+  l'inverse du § 2.3 : Saint-Pierre-et-Miquelon (la Wikipédia en français le cite pour le golfe du
+  Saint-Laurent), la Barbade, Guantánamo, Akrotiri et Dhekelia, Chypre du Nord, le Somaliland. Le
+  Danemark et la France (mer de Corail) sont retirés d'office, comme le Royaume-Uni et les États-Unis.
+- **Superficies** : 8 lignes (mer Tyrrhénienne, d'Irlande, des Sargasses, de Beaufort, de Chine
+  orientale, baies de Baffin et d'Hudson, golfe d'Aden), et non ≈ 10 ; la mer Tyrrhénienne et la baie
+  de Baffin gardent la valeur de Wikidata, confirmée par la Wikipédia en anglais (la zone dessinée est
+  plus petite). Les 5 océans d'après la NOAA (Eakins et Sharman, 2010, page archivée : l'adresse
+  d'origine ne répond plus), une ligne de `sources.json` de plus. Les 4 mers sans valeur prennent le
+  tracé, « à relire ». Le rang préféré tranche 3 des 4 mers à deux valeurs ; la mer du Japon prend la
+  plus proche du tracé.
+- **Profondeurs** : la table sait aussi remplacer une valeur fausse de Wikidata (le golfe d'Oman,
+  200 m, contre 3 700 m) et en garder une avec un doute (`verifier`). Le contrôle de R4 (Wikipédia
+  en français) est refait contre la Wikipédia en anglais pour les 50 : 8 écarts de plus de 5 %, en
+  lignes `verifier` (mer Égée, golfe de Finlande, golfe de Thaïlande, mer d'Arabie, mer Rouge, mer
+  d'Andaman, mer d'Azov, golfe de Guinée). Le golfe de Californie n'a pas de ligne (`aucun`, à relire) :
+  aucune source lue ne donne sa profondeur maximale. La mer d'Azov s'affiche au dixième (14,5 m).
+- **Lignes tues** : trois clés de plus dans `LIGNES_RELUES`, `riverains_mers`, `superficie_mers`,
+  `profondeur_mers` (la troisième n'était pas au § 9 : des profondeurs sont écrites à la main ou
+  marquées à relire). D'ici là, la fiche d'une mer montre sa sorte (« mer intérieure », « golfe »,
+  « mer sans côte » pour les Sargasses, « océan »), sa mère, son océan, la mémoire et le lien ; sa barre
+  ne dit que l'océan, et rien pour un océan.
+- **Mère et océan** : des boutons dans leur ligne de faits (« Fait partie de », « Océan »), qui
+  ouvrent la fiche comme un voisin ; la mer de Norvège en a deux (« Océans »). L'océan d'une mer est
+  celui de ses parents, en remontant (`oceansDeMer`, `src/map/mers.ts`) : la mer Caspienne n'en a pas
+  (son bassin, posé à la main pour les exercices, n'est pas dit). Le vol vers une mer touchée dans une
+  fiche pose d'abord la couche fine, comme la recherche.
+- **Chargement** : les fiches des mers partent au premier toucher en mer, avec la couche légère
+  (`demanderFichesMers`), et le morceau de la fiche à leur arrivée ; la fiche d'une mer n'attend pas
+  les fiches du monde (ses riverains ne disent que leur nom). Poids : 1,4 et 0,6 Ko compressés.
+- **Crédits** : la ligne de Wikidata gagne un troisième extrait, « superficies, profondeurs et pays
+  riverains des mers · extrait du 18/11/2026 ». La ligne de Natural Earth est inchangée.
+- **Pilote** (`ui_fiche`, non lancé par le codeur) : l'eau touchée (les fiches des mers lues à ce
+  toucher), la Méditerranée (capture 158), son océan touché dans la fiche (capture 159), « ‹ »,
+  l'Adriatique et sa mère, la mer des Sargasses.
+
