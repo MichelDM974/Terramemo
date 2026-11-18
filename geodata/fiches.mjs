@@ -58,6 +58,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { feature } from 'topojson-client';
+import { CHAMPS_CONTINENT, CHAMPS_ZONE, CHEMIN_RELECTURE_AUTRES, chiffresAutres, texteRelectureAutres } from './fiches-autres.mjs';
 import { chiffresPays } from './fiches-pays.mjs';
 import { CHEMIN_RELECTURE, texteRelecture } from './fiches-relecture.mjs';
 import { CHEMIN_RELECTURE_TERRITOIRES, DBF_NE, lireDbf, statutsLieux, texteRelectureTerritoires, verifierNe } from './fiches-territoires.mjs';
@@ -69,6 +70,7 @@ export const CHEMINS = {
   regles: 'geodata/fiches-pays.mjs',
   relecture: 'geodata/fiches-relecture.mjs',
   territoires: 'geodata/fiches-territoires.mjs',
+  autres: 'geodata/fiches-autres.mjs',
   main: 'geodata/fiches-main.json',
   extrait: 'geodata/wikidata/capitales.json',
   capitalesMain: 'geodata/capitales-main.json',
@@ -97,11 +99,11 @@ const parId = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 export async function construireFiches(racine) {
   const lire = (c) => readFile(join(racine, c));
   const json = (b) => JSON.parse(b.toString('utf8'));
-  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.territoires, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json'];
-  const autres = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/capitales.fr.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', 'src/vues/textes.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
-  const [[scriptBrut, reglesBrut, relectureBrut, territoiresBrut, mainBrut, extraitBrut, capMainBrut, paysBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, textesBrut, wdBrut, bmBrut], cldr] = await Promise.all([
+  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.territoires, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json', CHEMINS.autres];
+  const donnees = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/capitales.fr.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', 'src/vues/textes.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
+  const [[scriptBrut, reglesBrut, relectureBrut, territoiresBrut, mainBrut, extraitBrut, capMainBrut, paysBrut, autresBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, textesBrut, wdBrut, bmBrut], cldr] = await Promise.all([
     Promise.all(chemins.map(lire)),
-    Promise.all(autres.map(lire)),
+    Promise.all(donnees.map(lire)),
     lireSourcesFiches(racine),
   ]);
   const main = json(mainBrut);
@@ -144,7 +146,7 @@ export async function construireFiches(racine) {
     }
     textes[e.id] = t;
   }
-  for (const id of Object.keys(wpMain)) if (lieux[id]?.s !== 'pays') faute(`${CHEMINS.main}, wp : ${id} n'est pas un pays de pays.json`);
+  for (const id of Object.keys(wpMain)) if (!lieux[id]) faute(`${CHEMINS.main}, wp : ${id} n'est pas une entité de pays.json`);
   if (erreurs.length) throw new Error(`fiches :\n  ${erreurs.join('\n  ')}`);
 
   // Les chiffres des 197 pays (lot F2) : geodata/fiches-pays.mjs.
@@ -165,6 +167,24 @@ export async function construireFiches(racine) {
   const contestees = json(contBrut);
   const noms = json(nomsBrut);
   const statuts = statutsLieux({ entites, contestees, main, formesPays: json(textesBrut).formes_pays, noms });
+  // Les chiffres des 48 territoires, des 12 zones et de l'Antarctique (lot F3) : geodata/fiches-autres.mjs.
+  // Les noms des langues et des monnaies des territoires s'ajoutent à ceux des pays.
+  const langues = { ...chiffres.langues };
+  const monnaies = { ...chiffres.monnaies };
+  const autres = chiffresAutres({
+    entites,
+    formes: feature(topo, topo.objects.pays).features,
+    zones: feature(topo, topo.objects.contestees).features,
+    wd,
+    bm,
+    cldr,
+    main,
+    noms,
+    contestees,
+    langues,
+    monnaies,
+  });
+  if (autres.fautes.length) throw new Error(`fiches, territoires, zones et Antarctique (${CHEMINS.main}) :\n  ${autres.fautes.join('\n  ')}`);
   // SOV_A3 de Natural Earth, là où le .dbf brut est présent (pas en CI) : la table fait foi, il la contrôle.
   const cheminDbf = join(racine, DBF_NE);
   const neVerifie = existsSync(cheminDbf);
@@ -173,19 +193,28 @@ export async function construireFiches(racine) {
 
   // Ordre des clés fixe (la sorte d'abord), pour des fichiers stables et lisibles.
   const ORDRE = ['s', 'sv', 'fs', 'h', 'ha', 'hs', 'sup', 'alt', 'cs', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
-  const ORDRE_FR = ['st', 'wp', 'g', 'gp', 'gs', 'hc', 'cu', 'fn'];
+  const ORDRE_FR = ['st', 'wp', 'ca', 'g', 'gp', 'gs', 'hc', 'cu', 'fn'];
   const range = (o, ordre) => Object.fromEntries(ordre.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
-  for (const parts of [chiffres, statuts]) {
+  for (const parts of [chiffres, statuts, autres]) {
     for (const [id, l] of Object.entries(parts.lieux)) lieux[id] = range({ ...lieux[id], ...l }, ORDRE);
     for (const [id, t] of Object.entries(parts.textes)) textes[id] = range({ ...textes[id], ...t }, ORDRE_FR);
   }
+  // D57 a : une zone contestée ne sert que sa sorte, ses habitants, son statut et son lien ; l'Antarctique, rien sur
+  // les revendications. Une clé de trop, et le build échoue (tests/donnees-fiches.test.ts le vérifie aussi).
+  for (const [id, l] of Object.entries(lieux)) {
+    const permis = l.s === 'zone' ? CHAMPS_ZONE : l.s === 'continent' ? CHAMPS_CONTINENT : null;
+    if (!permis) continue;
+    const trop = [...Object.keys(l).filter((k) => !permis.lieux.includes(k)), ...Object.keys(textes[id]).filter((k) => !permis.textes.includes(k))];
+    if (trop.length) throw new Error(`fiches : ${id} (${l.s}) sert ${trop.join(', ')}, hors de ses champs`);
+  }
+  const tri = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => parId(a, b)));
 
   const objet = (o) => `{\n${Object.entries(o).map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(v)}`).join(',\n')}\n}`;
   const fichiers = {
     'fiches-monde.json': `{"v":${VERSION_FICHES},"lieux":${objet(lieux)}}\n`,
     'fiches-monde.fr.json':
-      `{"v":${VERSION_FICHES},"sous_regions":${JSON.stringify(sousRegions)},"langues":${JSON.stringify(chiffres.langues)},` +
-      `"monnaies":${JSON.stringify(chiffres.monnaies)},"lieux":${objet(textes)}}\n`,
+      `{"v":${VERSION_FICHES},"sous_regions":${JSON.stringify(sousRegions)},"langues":${JSON.stringify(tri(langues))},` +
+      `"monnaies":${JSON.stringify(tri(monnaies))},"lieux":${objet(textes)}}\n`,
   };
   const relecture = {
     chemin: CHEMIN_RELECTURE,
@@ -198,7 +227,12 @@ export async function construireFiches(racine) {
       sources: { wikidata: wd.extrait_le.slice(0, 10), bm: `${bm.source.nom}, ${bm.annee}, mise à jour du ${bm.source.mis_a_jour_le}`, cldr: CLDR_TAG, tz: TZ_VERSION },
     }),
   };
-  const relectures = [relecture, { chemin: CHEMIN_RELECTURE_TERRITOIRES, texte: texteRelectureTerritoires({ R: statuts.relecture, noms }) }];
+  const sourcesRelecture = { wikidata: wd.extrait_le.slice(0, 10), bm: `${bm.source.nom}, ${bm.annee}, mise à jour du ${bm.source.mis_a_jour_le}`, cldr: CLDR_TAG, tz: TZ_VERSION };
+  const relectures = [
+    relecture,
+    { chemin: CHEMIN_RELECTURE_TERRITOIRES, texte: texteRelectureTerritoires({ R: statuts.relecture, noms }) },
+    { chemin: CHEMIN_RELECTURE_AUTRES, texte: texteRelectureAutres({ R: autres.relecture, noms, langues, monnaies, sources: sourcesRelecture }) },
+  ];
   const n = (s) => Object.values(lieux).filter((l) => l.s === s).length;
   const R = chiffres.relecture;
   notes.push(
@@ -208,6 +242,8 @@ export async function construireFiches(racine) {
       `superficie ${R.superficies.filter((x) => x.retenue != null).length} Wikidata ; ` +
       `${Object.keys(chiffres.langues).length} langues, ${Object.keys(chiffres.monnaies).length} monnaies ; ${R.fuseauxPlusieurs.length} pays à plusieurs fuseaux ; ` +
       `tableaux à relire : ${CHEMIN_RELECTURE}`,
+    `territoires, zones, Antarctique : ${Object.values(lieux).filter((l) => l.s !== 'pays' && l.h !== undefined).length} habitants, ${Object.values(textes).filter((t) => t.ca).length} capitales, ` +
+      `${Object.values(lieux).filter((l) => l.s !== 'pays' && l.z).length} zones horaires, ${Object.values(lieux).filter((l) => l.s !== 'pays' && l.alt).length} sommets ; tableau à relire : ${CHEMIN_RELECTURE_AUTRES}`,
     `statuts : ${statuts.relecture.territoires.length} territoires, ${statuts.relecture.zones.length} zones ; SOV_A3 de Natural Earth ${neVerifie ? 'confronté à la table' : `non vérifié (${DBF_NE} absent)`} ; tableau à relire : ${CHEMIN_RELECTURE_TERRITOIRES}`,
   );
   const src = await sourcesFiches(racine);
@@ -216,6 +252,7 @@ export async function construireFiches(racine) {
     [CHEMINS.regles]: sha256(reglesBrut),
     [CHEMINS.relecture]: sha256(relectureBrut),
     [CHEMINS.territoires]: sha256(territoiresBrut),
+    [CHEMINS.autres]: sha256(autresBrut),
     [CHEMINS.main]: sha256(mainBrut),
     ...src.entrees,
   };

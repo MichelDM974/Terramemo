@@ -64,7 +64,8 @@ describe('statuts des territoires et des zones (lot F3, § 2.2)', () => {
     for (const id of territoires) {
       const l = souverain[id]!;
       expect(fr.lieux[id]?.st, id).toBe(l.texte);
-      expect(monde.lieux[id], id).toEqual({ s: 'territoire', sv: l.pays, fs: l.forme });
+      // Les chiffres du lot F3 suivent (tests/donnees-fiches.test.ts) : ici, la sorte, le pays et la forme.
+      expect(monde.lieux[id], id).toMatchObject({ s: 'territoire', sv: l.pays, fs: l.forme });
       expect(estPays(l.pays), `${id} : ${l.pays}`).toBe(true);
       expect(main.formes_statut[l.forme], `${id} : ${l.forme}`).toBeTruthy();
     }

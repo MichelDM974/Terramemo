@@ -29,7 +29,9 @@
   "wp": {
     "_": "Titre de la Wikipédia en français du lien « Voir sur Wikipédia », quand ce n'est pas celui de l'item du pays dans l'extrait des capitales : l'item du pays jouable (le pays constitutif, sans ses îles des Caraïbes ou du Groenland) a son propre article, peu lu ; le lecteur cherche celui du royaume. Les mêmes que les titres de notoriete-main.json.",
     "DNK": {"titre": "Danemark", "raison": "l'item Q35 a pour article « Danemark (pays constitutif) » ; « Danemark » est l'article du royaume, celui qu'on lit"},
-    "NLD": {"titre": "Pays-Bas", "raison": "l'item Q55 a pour article « Pays-Bas (pays constitutif) » ; « Pays-Bas » est l'article du royaume, celui qu'on lit"}
+    "NLD": {"titre": "Pays-Bas", "raison": "l'item Q55 a pour article « Pays-Bas (pays constitutif) » ; « Pays-Bas » est l'article du royaume, celui qu'on lit"},
+    "NE_ESB": {"titre": "Akrotiri et Dhekelia", "raison": "l'item de la base de l'Est (Q9206745) n'a pas d'article en français ; « Akrotiri et Dhekelia » (Q37362) est celui des deux bases (qid, a_relire)"},
+    "NE_WSB": {"titre": "Akrotiri et Dhekelia", "raison": "l'item de la base de l'Ouest (Q9143535) n'a pas d'article en français ; « Akrotiri et Dhekelia » (Q37362) est celui des deux bases (qid, a_relire)"}
   },
   "superficie": {
     "_": "Superficie (D57, décision du 18/11/2026) : le chiffre de Wikidata pour tous les pays, cité « selon Wikidata », par la règle du choix du § 2.1 (rang préféré, sinon la plus récente si elles sont datées, sinon la plus grande) ; aucune ligne par pays. touches : les pays touchés par une zone disputée (§ 2.1), recalculés par le build depuis contestees.json et revendique_par (part ≥ 1 % du tracé) : ils ont leur tableau à relire (docs/relectures/fiches-pays.md), avec la surface du tracé et l'écart.",
@@ -581,5 +583,89 @@
     "NE_SER": {"texte": "Tenu par la Colombie · revendiqué par la Colombie, le Honduras et les États-Unis", "retraits": {"NIC": "le Nicaragua a accepté en 2014 l'arrêt de la Cour internationale de justice de 2012 (Wikipédia en anglais, « Serranilla Bank », lue le 18/11/2026)"}, "source": "Wikipédia en anglais, « Serranilla Bank » et « List of territorial disputes »", "verifie_le": "18/11/2026", "raison": "la Cour internationale de justice a reconnu la souveraineté de la Colombie en 2012 (non citée : D57) ; le Honduras l'a reconnue implicitement (traité de 1986, ratifié en 1999) sans retirer le banc de sa constitution ; les États-Unis le revendiquent (Guano Islands Act)", "a_relire": "le Nicaragua retiré des revendicants (Natural Earth le cite ; le jeu compte toujours un toucher pour lui ; une vérification séparée le retire aussi, l'arrêt de 2012 le liant) ; le Honduras gardé, sa revendication n'étant plus qu'écrite dans sa constitution (article 10, jamais retiré : Wikipédia en anglais, « Serranilla Bank », lue le 18/11/2026), alors que la même Wikipédia, page « Bajo Nuevo Bank », dit qu'il l'a revendiqué « auparavant », avant le traité ratifié en 1999 : la vérification séparée le juge incertain ; la Jamaïque, que la page « Serranilla Bank » range parmi les parties (revendication « largement réglée ») et que Natural Earth ne cite pas, n'est pas nommée, alors qu'elle l'est pour Bajo Nuevo"},
     "NE_SOL": {"texte": "Tenu en majeure partie par le gouvernement du Somaliland, indépendant de fait depuis 1991 ; l'est, autour de Las Anod, par l'État du Nord-Est, État fédéré de la Somalie, depuis 2023 · revendiqué par la Somalie", "source": "EUAA, « Somalia – Security situation », 2.7 ; African Arguments, « How Las Anod Changed Somaliland's Case for Recognition », 26/08/2026 ; Wikipédia en anglais, « List of territorial disputes »", "verifie_le": "18/11/2026", "raison": "la reconnaissance du Somaliland par Israël (26/12/2025) n'est pas dite (D57)", "a_relire": "nommer l'État du Nord-Est (SSC-Khatumo), que le Somaliland ne reconnaît pas ; « indépendant de fait » : une vérification séparée propose d'ajouter « reconnu par Israël seul » (26/12/2025, seul État membre de l'ONU à l'avoir fait au 18/11/2026), que D57 exclut, comme la reconnaissance de Chypre du Nord par la Turquie : à garder hors du texte ou non ; la limite entre les deux n'est pas tracée sur la carte"},
     "NE_SPI": {"texte": "Tenu en partie par l'Argentine, en partie par le Chili : la frontière n'y est pas tracée · revendiqué par l'un et l'autre", "source": "Wikipédia en anglais, « List of territorial disputes »", "verifie_le": "18/11/2026", "raison": "accord de 1998 : la frontière reste à tracer du mont Fitz Roy au Cerro Murallón ; chacun tient son côté", "a_relire": "« tenu en partie par l'un et l'autre » pour un champ de glace sans poste ; « l'un et l'autre » nomme les revendicants sans les répéter"}
+  },
+  "capitale_territoires": {
+    "_": "Capitale d'un territoire que la règle (geodata/fiches-autres.mjs, capitaleTerritoire : la déclaration P36 de rang préféré, sans celles qui ont une fin) ne tranche pas (§ 2.2). ville : l'item d'une capitale déclarée par Wikidata. Tableau : docs/relectures/fiches-territoires-chiffres.md, § 1.",
+    "MSR": {"ville": "Q31006", "raison": "Wikidata déclare deux capitales sans rang : Plymouth (capitale de jure), abandonnée après l'éruption de la Soufrière en 1997, et Brades (de facto), où siège le gouvernement ; retenue Brades, celle où l'on vit et gouverne", "a_relire": "Plymouth reste la capitale en droit : montrer Brades seule, ou « Brades » avec une note ?"}
+  },
+  "zone_territoires": {
+    "_": "Heure locale des 48 territoires (lot F3, § 2.2), écrite à la main : la zone IANA de la ligne d'heure, une par territoire, sans nombre de fuseaux. Le build vérifie qu'elle est dans zone.tab (base tz 2026e) et que zone.tab la range sous le code du territoire ; sinon hors_code dit pourquoi. aucune : pas de ligne d'heure (îles mineures des États-Unis, de + 12 h à − 11 h ; îles inhabitées sans zone dans zone.tab). Tableau : docs/relectures/fiches-territoires-chiffres.md, § 7.",
+    "ABW": {"zone": "America/Aruba", "raison": "seule zone de zone.tab pour ce code"},
+    "AIA": {"zone": "America/Anguilla", "raison": "seule zone de zone.tab pour ce code"},
+    "ALA": {"zone": "Europe/Mariehamn", "raison": "seule zone de zone.tab pour ce code"},
+    "ASM": {"zone": "Pacific/Pago_Pago", "raison": "seule zone de zone.tab pour ce code"},
+    "ATF": {"zone": "Indian/Kerguelen", "raison": "seule zone de zone.tab pour TF (les Kerguelen, où est Port-aux-Français) ; Crozet, Amsterdam et les îles Éparses ont d'autres heures d'usage"},
+    "BLM": {"zone": "America/St_Barthelemy", "raison": "seule zone de zone.tab pour ce code"},
+    "BMU": {"zone": "Atlantic/Bermuda", "raison": "seule zone de zone.tab pour ce code"},
+    "COK": {"zone": "Pacific/Rarotonga", "raison": "seule zone de zone.tab pour ce code"},
+    "CUW": {"zone": "America/Curacao", "raison": "seule zone de zone.tab pour ce code"},
+    "CYM": {"zone": "America/Cayman", "raison": "seule zone de zone.tab pour ce code"},
+    "FLK": {"zone": "Atlantic/Stanley", "raison": "seule zone de zone.tab pour ce code"},
+    "FRO": {"zone": "Atlantic/Faroe", "raison": "seule zone de zone.tab pour ce code"},
+    "GGY": {"zone": "Europe/Guernsey", "raison": "seule zone de zone.tab pour ce code"},
+    "GIB": {"zone": "Europe/Gibraltar", "raison": "seule zone de zone.tab pour ce code"},
+    "GRL": {"zone": "America/Nuuk", "raison": "zone.tab en donne quatre pour GL : America/Nuuk (« most of Greenland »), celle de Nuuk, la capitale ; Danmarkshavn, Ittoqqortoormiit et Pituffik ont la leur"},
+    "GUM": {"zone": "Pacific/Guam", "raison": "seule zone de zone.tab pour ce code"},
+    "HKG": {"zone": "Asia/Hong_Kong", "raison": "seule zone de zone.tab pour ce code"},
+    "HMD": {"aucune": true, "raison": "îles inhabitées (aucun habitant permanent) ; zone.tab n'a aucune zone pour HM"},
+    "IMN": {"zone": "Europe/Isle_of_Man", "raison": "seule zone de zone.tab pour ce code"},
+    "IOT": {"zone": "Indian/Chagos", "raison": "seule zone de zone.tab pour ce code"},
+    "JEY": {"zone": "Europe/Jersey", "raison": "seule zone de zone.tab pour ce code"},
+    "MAC": {"zone": "Asia/Macau", "raison": "seule zone de zone.tab pour ce code"},
+    "MAF": {"zone": "America/Marigot", "raison": "seule zone de zone.tab pour ce code"},
+    "MNP": {"zone": "Pacific/Saipan", "raison": "seule zone de zone.tab pour ce code"},
+    "MSR": {"zone": "America/Montserrat", "raison": "seule zone de zone.tab pour ce code"},
+    "NCL": {"zone": "Pacific/Noumea", "raison": "seule zone de zone.tab pour ce code"},
+    "NE_ATC": {"aucune": true, "raison": "îles inhabitées (aucun habitant permanent), sans code ISO ni zone dans zone.tab"},
+    "NE_CLP": {"aucune": true, "raison": "île inhabitée (aucun habitant permanent), sans code ISO ni zone dans zone.tab"},
+    "NE_CSI": {"zone": "Australia/Brisbane", "raison": "une station météo habitée (île Willis), à l'heure du Queensland (UTC+10, sans heure d'été), celle de l'Australie au large de laquelle sont les îles", "hors_code": "les îles n'ont pas de code ISO ; Australia/Brisbane est la zone du Queensland (AU)"},
+    "NE_ESB": {"zone": "Asia/Nicosia", "raison": "les zones de souveraineté britanniques suivent l'heure de Chypre (heure d'Europe de l'Est, avec heure d'été)", "hors_code": "Dhekelia n'a pas de code ISO ; Asia/Nicosia est la zone de Chypre (CY), où sont les bases"},
+    "NE_WSB": {"zone": "Asia/Nicosia", "raison": "les zones de souveraineté britanniques suivent l'heure de Chypre (heure d'Europe de l'Est, avec heure d'été)", "hors_code": "Akrotiri n'a pas de code ISO ; Asia/Nicosia est la zone de Chypre (CY), où sont les bases"},
+    "NE_IOA": {"zone": "Indian/Christmas", "raison": "deux zones pour l'entité, qui réunit l'île Christmas (CX, UTC+7, ≈ 1 700 habitants) et les îles Cocos (CC, UTC+6 h 30, ≈ 600 habitants) : celle de Christmas, la plus peuplée", "hors_code": "l'entité n'a pas de code ISO ; Indian/Christmas est la zone de l'île Christmas (CX)", "a_relire": "les îles Cocos ont 30 minutes de moins : faut-il plutôt ne pas donner d'heure ?"},
+    "NE_KAB": {"zone": "Asia/Qyzylorda", "raison": "Baïkonour suit l'heure du Kazakhstan, UTC+5 (Wikipédia, « Baïkonour », vérifié le 18/11/2026) ; tout le Kazakhstan est à UTC+5 depuis le 1er mars 2024, et Asia/Qyzylorda est la zone de zone.tab de la région de Kyzylorda, où est Baïkonour", "hors_code": "Baïkonour n'a pas de code ISO ; Asia/Qyzylorda est une zone du Kazakhstan (KZ)"},
+    "NE_USG": {"zone": "America/New_York", "raison": "la base suit l'heure de l'Est des États-Unis, heure d'été comprise, au rythme de son commandement en Floride et non de Cuba (timeanddate.com, « Cuba starts DST 2012 » ; Wikipédia en anglais, « Guantanamo Bay Naval Base » ; vérifié le 18/11/2026)", "hors_code": "la base n'a pas de code ISO ; America/New_York est une zone des États-Unis (US)", "a_relire": "les sources trouvées sont anciennes (2012) ou secondaires ; Cuba (America/Havana) a aussi UTC−5 l'hiver, l'heure d'été diffère de quelques jours"},
+    "NFK": {"zone": "Pacific/Norfolk", "raison": "seule zone de zone.tab pour ce code"},
+    "NIU": {"zone": "Pacific/Niue", "raison": "seule zone de zone.tab pour ce code"},
+    "PCN": {"zone": "Pacific/Pitcairn", "raison": "seule zone de zone.tab pour ce code"},
+    "PRI": {"zone": "America/Puerto_Rico", "raison": "seule zone de zone.tab pour ce code"},
+    "PYF": {"zone": "Pacific/Tahiti", "raison": "zone.tab en donne trois pour PF : Pacific/Tahiti (îles de la Société), celle de Papeete, la capitale ; les Marquises et les Gambier ont la leur"},
+    "SGS": {"zone": "Atlantic/South_Georgia", "raison": "seule zone de zone.tab pour ce code"},
+    "SHN": {"zone": "Atlantic/St_Helena", "raison": "seule zone de zone.tab pour SH ; Ascension et Tristan da Cunha sont aussi à UTC+0"},
+    "SPM": {"zone": "America/Miquelon", "raison": "seule zone de zone.tab pour ce code"},
+    "SXM": {"zone": "America/Lower_Princes", "raison": "seule zone de zone.tab pour ce code"},
+    "TCA": {"zone": "America/Grand_Turk", "raison": "seule zone de zone.tab pour ce code"},
+    "UMI": {"aucune": true, "raison": "des îles éparses de part et d'autre de l'antiméridien, de UTC+12 (Wake) à UTC−11 (Midway) : aucune heure ne vaut pour l'ensemble (§ 2.2)"},
+    "VGB": {"zone": "America/Tortola", "raison": "seule zone de zone.tab pour ce code"},
+    "VIR": {"zone": "America/St_Thomas", "raison": "seule zone de zone.tab pour ce code"},
+    "WLF": {"zone": "Pacific/Wallis", "raison": "seule zone de zone.tab pour ce code"}
+  },
+  "langues_territoires": {
+    "_": "Langues des territoires (lot F3, D56 c), quand la règle des pays sur CLDR (languesCandidates) ne suffit pas : retirer {code: raison}, ajouter {code: {officielle, source, raison}}, noms (noms français que CLDR n'a pas). Tableau : docs/relectures/fiches-territoires-chiffres.md, § 4.",
+    "ATF": {"ajouter": {"fr": {"officielle": true, "source": "loi n° 55-1052 du 6 août 1955 (statut des TAAF) : collectivité de la République, où le français est langue officielle (Constitution, art. 2)", "raison": "CLDR donne le français à 100 % sans le dire officiel"}}, "raison": "le français, langue de la République, officiel dans les Terres australes et antarctiques françaises"},
+    "HMD": {"retirer": {"und": "« langue indéterminée » de CLDR : les îles n'ont aucun habitant permanent"}, "raison": "îles inhabitées : pas de ligne de langue"},
+    "MAC": {"retirer": {"en": "langue apprise (23 % selon CLDR), ni officielle ni langue de Macao (D56 c)"}, "raison": "D56 c : les langues apprises sont retirées", "a_relire": "le cantonais et le chinois sont donnés tous deux officiels par CLDR (la Loi fondamentale dit « le chinois », parlé surtout en cantonais)"},
+    "noms": {
+      "_": "Noms français de langues que CLDR 49 ne nomme pas en français.",
+      "fud": {"nom": "futunien", "source": "ISO 639-3 fud (East Futuna) ; nom français : Wikipédia, « Futunien » (lu le 18/11/2026)"},
+      "wls": {"nom": "wallisien", "source": "ISO 639-3 wls (Wallisian) ; nom français : Wikipédia, « Wallisien » (lu le 18/11/2026)"}
+    }
+  },
+  "gentile_territoires": {
+    "_": "Gentilé d'un territoire (lot F3), quand Wikidata (P1549, formes masculines) en donne plusieurs ou une qui n'en est pas un : masculin (une forme de Wikidata) ou aucun. Tableau : docs/relectures/fiches-territoires-chiffres.md, § 6.",
+    "NCL": {"masculin": "Néo-Calédonien", "raison": "Wikidata donne trois masculins (Néo-Calédonien, Néocalédonien, Calédonien) : retenue la graphie à trait d'union, celle de l'article de la Wikipédia en français", "a_relire": "« Calédonien » est aussi d'usage en Nouvelle-Calédonie"},
+    "PYF": {"masculin": "Polynésien", "raison": "Wikidata donne « Polynésien » et « Polynésienne » sans marque de genre : retenu le masculin"},
+    "SPM": {"aucun": true, "raison": "Wikidata donne « Saint-Pierrais » et « Miquelonais », les habitants de chaque île ; aucun des deux ne vaut pour tout l'archipel", "a_relire": "« Saint-Pierrais et Miquelonais » est l'usage de l'archipel, mais n'est pas une forme de Wikidata"},
+    "JEY": {"aucun": true, "raison": "Wikidata donne « Jèrriais(e) », le nom de la langue normande de l'île, et « Jersey crapaud », un surnom : ni l'un ni l'autre n'est un gentilé"},
+    "VGB": {"aucun": true, "raison": "Wikidata donne « insulaire des Îles Vierges britanniques », une périphrase, et « britannique », la nationalité : ni l'un ni l'autre n'est un gentilé"}
+  },
+  "culminant_territoires": {
+    "_": "Point culminant d'un territoire ou de l'Antarctique (lot F3), quand la règle des pays (le sommet déclaré, son altitude) ne suffit pas : alt ou nom écrits d'après Wikidata (source), ou aucun. Aucun sommet dans une zone disputée (vérifié par le build). Tableau : docs/relectures/fiches-territoires-chiffres.md, § 8.",
+    "GGY": {"alt": 114, "source": "Wikidata Q3224807 (Le Moulin, sur Sercq) : deux altitudes sans rang, 114 et 109 m", "raison": "deux altitudes sans rang : retenue la plus haute, 114 m, celle de l'article de la Wikipédia en français « Le Moulin (Sercq) »", "a_relire": "le sommet est sur Sercq ; l'île de Guernesey culmine à Hautnez (≈ 110 m)"},
+    "WLF": {"alt": 524, "source": "Wikidata Q1549756 (mont Puke) : deux altitudes sans rang, 522 et 524 m", "raison": "deux altitudes sans rang : retenue 524 m, celle de l'article de la Wikipédia en français « Mont Puke »", "a_relire": true},
+    "NIU": {"nom": "point sans nom", "source": "Wikidata Q28745318 : l'item n'a pas de nom propre (libellé « point culminant de Niue »), 68 m", "raison": "le libellé de Wikidata redit « point culminant » ; le sommet n'a pas de nom", "a_relire": true},
+    "FLK": {"aucun": true, "raison": "le mont Usborne (705 m, Wikidata) est dans la zone disputée NE_B12, qui couvre tout l'archipel (revendiqué par l'Argentine) : aucun point culminant ne passe par une zone disputée (décision « sommets et fuseaux », 18/11/2026)", "a_relire": "la règle a été prise pour un pays qui revendique un sommet ; ici le sommet est celui du territoire lui-même, quel que soit son souverain : le montrer ?"},
+    "SGS": {"aucun": true, "raison": "le mont Paget (2 934 m, Wikidata) est dans la zone disputée NE_B32, qui couvre la Géorgie du Sud (revendiquée par l'Argentine) : aucun point culminant ne passe par une zone disputée (décision « sommets et fuseaux », 18/11/2026)", "a_relire": "même question que les Malouines"},
+    "MNP": {"aucun": true, "raison": "le sommet déclaré (Q27728822, « Mount Agrihan ») n'a ni nom français ni altitude dans Wikidata"},
+    "UMI": {"aucun": true, "raison": "le sommet déclaré (Q11695306, « Dunning Hill », sur l'île de la Navasse) n'a pas de nom français dans Wikidata"}
   }
 }

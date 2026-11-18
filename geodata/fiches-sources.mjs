@@ -141,7 +141,7 @@ export async function sourcesFiches(racine) {
   });
   const extraits = [
     {
-      nom: 'Wikidata, chiffres des fiches des pays : superficies (P2046), gentilés (P1549), habitants (P1082), points culminants (P610, P2044, P625)',
+      nom: 'Wikidata, chiffres des fiches des pays, des territoires, des zones et de l’Antarctique : superficies (P2046), gentilés (P1549), habitants (P1082), points culminants (P610, P2044, P625), capitales des territoires (P36), titres de la Wikipédia en français des lieux qui ne sont pas des pays',
       url: 'https://query.wikidata.org',
       version: `extrait du ${wd.extrait_le} (SPARQL), API du ${wd.api_le}`,
       licence: 'CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), aucune mention obligatoire : citée par courtoisie',

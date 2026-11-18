@@ -298,6 +298,59 @@ export function monnaiesEnCours(region) {
     .map(([c]) => c);
 }
 
+/**
+ * Les langues d'un lieu (D56 c) : les candidates de CLDR (languesCandidates), moins les
+ * retraits de sa ligne de la table, plus ses ajouts, ses parts et l'ordre de ses
+ * officielles ; chaque nom (table, sinon CLDR) rangé dans `langues`. ll : sa ligne (clé
+ * `cle` de la table : langues pour un pays, langues_territoires pour un territoire) ;
+ * utilisees.noms reçoit les codes nommés par la table ; vide : aucune langue n'est une
+ * faute (un territoire inhabité). Rend {cand, finales, retirer, ajouter}.
+ */
+export function languesLieu(id, a2, ll, { cldr, nomsLangues, utilisees, langues, faute, cle = 'langues', vide = false }) {
+  const cand = languesCandidates(cldr.territoryInfo[a2]);
+  const retirer = ll.retirer ?? {};
+  const ajouter = ll.ajouter ?? {};
+  for (const c of Object.keys(retirer)) if (!cand.some((l) => l.code === c)) faute(`fiches-main.json, ${cle}.${id} : ${c} à retirer n'est pas une candidate de CLDR`);
+  let finales = cand.filter((l) => !retirer[l.code]);
+  for (const [code, a] of Object.entries(ajouter)) {
+    const deja = finales.find((l) => l.code === code);
+    if (deja && deja.officielle === Boolean(a.officielle)) faute(`fiches-main.json, ${cle}.${id} : ${code} est déjà là`);
+    if (!a.source) faute(`fiches-main.json, ${cle}.${id}.ajouter.${code} : sans source`);
+    const info = cldr.territoryInfo[a2]?.languagePopulation ?? {};
+    const pct = Math.max(0, ...Object.entries(info).filter(([k]) => base(k) === code).map(([, v]) => Number(v._populationPercent)));
+    finales = finales.filter((l) => l.code !== code);
+    finales.push({ code, pct, officielle: Boolean(a.officielle), ajout: true });
+  }
+  // parts : une part écrite à la main, avec sa source, pour une langue parlée dont la part
+  // de CLDR est fausse (le pendjabi au Pakistan : 70 % dans CLDR, 37 % au recensement).
+  for (const [code, p] of Object.entries(ll.parts ?? {})) {
+    const l = finales.find((x) => x.code === code);
+    if (!l || l.officielle) faute(`fiches-main.json, ${cle}.${id}.parts.${code} : pas une langue parlée de la liste`);
+    else if (Math.round(l.pct) === p.pct) faute(`fiches-main.json, ${cle}.${id}.parts.${code} : ${p.pct} %, déjà la part de CLDR`);
+    if (!p.source) faute(`fiches-main.json, ${cle}.${id}.parts.${code} : sans source`);
+    if (l && !l.officielle) Object.assign(l, { pctCldr: l.pct, pct: p.pct, partMain: true });
+  }
+  const tri = (a, b) => b.pct - a.pct || parId(a.code, b.code);
+  let officielles = finales.filter((l) => l.officielle).sort(tri);
+  // ordre : l'ordre des officielles, quand la part n'est pas le bon ordre (le kazakh,
+  // langue d'État, avant le russe, plus parlé).
+  if (ll.ordre) {
+    if ([...ll.ordre].sort().join() !== officielles.map((l) => l.code).sort().join()) faute(`fiches-main.json, ${cle}.${id}.ordre : ${ll.ordre.join(', ')} ≠ officielles (${officielles.map((l) => l.code).join(', ')})`);
+    else if (ll.ordre.join() === officielles.map((l) => l.code).join()) faute(`fiches-main.json, ${cle}.${id}.ordre : déjà l'ordre des parts, ligne inutile`);
+    else officielles = ll.ordre.map((c) => officielles.find((l) => l.code === c));
+  }
+  finales = [...officielles, ...finales.filter((l) => !l.officielle).sort(tri)];
+  if (!finales.length && !vide) faute(`${id} : aucune langue après la table`);
+  for (const l of finales) {
+    const n = nomsLangues[l.code]?.nom ?? cldr.languesFr[l.code];
+    if (nomsLangues[l.code]) utilisees.noms.add(l.code);
+    if (nomsLangues[l.code] && cldr.languesFr[l.code]) faute(`fiches-main.json, ${cle}.noms.${l.code} : CLDR a déjà un nom (« ${cldr.languesFr[l.code]} »)`);
+    if (!n) faute(`${id} : langue ${l.code} sans nom français (CLDR ni table)`);
+    else langues[l.code] = n;
+  }
+  return { cand, finales, retirer, ajouter };
+}
+
 // --- Tout le pays -------------------------------------------------------------------------
 
 const lignes = (main, cle) => Object.fromEntries(sansNotes(main[cle]));
@@ -572,52 +625,12 @@ export function chiffresPays({ entites, formes, zones = [], capitales, nomsCapit
     if (liste.length > 1) R.monnaies.push({ id, cldr: enCours, ordre: liste, ligne: lm });
 
     // Langues (D56 c) : les officielles, puis les langues du pays à 10 % ou plus avec leur
-    // part ; la table retire (langue apprise, dialecte, double code) ou ajoute.
-    const cand = languesCandidates(cldr.territoryInfo[e.a2]);
+    // part ; la table retire (langue apprise, dialecte, double code) ou ajoute (languesLieu).
     const ll = table.langues[id] ?? {};
-    const retirer = ll.retirer ?? {};
-    const ajouter = ll.ajouter ?? {};
-    for (const c of Object.keys(retirer)) if (!cand.some((l) => l.code === c)) faute(`fiches-main.json, langues.${id} : ${c} à retirer n'est pas une candidate de CLDR`);
-    let finales = cand.filter((l) => !retirer[l.code]);
-    for (const [code, a] of Object.entries(ajouter)) {
-      const deja = finales.find((l) => l.code === code);
-      if (deja && deja.officielle === Boolean(a.officielle)) faute(`fiches-main.json, langues.${id} : ${code} est déjà là`);
-      if (!a.source) faute(`fiches-main.json, langues.${id}.ajouter.${code} : sans source`);
-      const info = cldr.territoryInfo[e.a2]?.languagePopulation ?? {};
-      const pct = Math.max(0, ...Object.entries(info).filter(([k]) => base(k) === code).map(([, v]) => Number(v._populationPercent)));
-      finales = finales.filter((l) => l.code !== code);
-      finales.push({ code, pct, officielle: Boolean(a.officielle), ajout: true });
-    }
-    // parts : une part écrite à la main, avec sa source, pour une langue parlée dont la part
-    // de CLDR est fausse (le pendjabi au Pakistan : 70 % dans CLDR, 37 % au recensement).
-    for (const [code, p] of Object.entries(ll.parts ?? {})) {
-      const l = finales.find((x) => x.code === code);
-      if (!l || l.officielle) faute(`fiches-main.json, langues.${id}.parts.${code} : pas une langue parlée de la liste`);
-      else if (Math.round(l.pct) === p.pct) faute(`fiches-main.json, langues.${id}.parts.${code} : ${p.pct} %, déjà la part de CLDR`);
-      if (!p.source) faute(`fiches-main.json, langues.${id}.parts.${code} : sans source`);
-      if (l && !l.officielle) Object.assign(l, { pctCldr: l.pct, pct: p.pct, partMain: true });
-    }
-    const tri = (a, b) => b.pct - a.pct || parId(a.code, b.code);
-    let officielles = finales.filter((l) => l.officielle).sort(tri);
-    // ordre : l'ordre des officielles, quand la part n'est pas le bon ordre (le kazakh,
-    // langue d'État, avant le russe, plus parlé).
-    if (ll.ordre) {
-      if ([...ll.ordre].sort().join() !== officielles.map((l) => l.code).sort().join()) faute(`fiches-main.json, langues.${id}.ordre : ${ll.ordre.join(', ')} ≠ officielles (${officielles.map((l) => l.code).join(', ')})`);
-      else if (ll.ordre.join() === officielles.map((l) => l.code).join()) faute(`fiches-main.json, langues.${id}.ordre : déjà l'ordre des parts, ligne inutile`);
-      else officielles = ll.ordre.map((c) => officielles.find((l) => l.code === c));
-    }
-    finales = [...officielles, ...finales.filter((l) => !l.officielle).sort(tri)];
-    if (!finales.length) faute(`${id} : aucune langue après la table`);
+    const { cand, finales, retirer, ajouter } = languesLieu(id, e.a2, ll, { cldr, nomsLangues, utilisees, langues, faute });
     L.lo = finales.filter((l) => l.officielle).map((l) => l.code);
     const parlees = finales.filter((l) => !l.officielle).map((l) => [l.code, Math.round(l.pct)]);
     if (parlees.length) L.lp = parlees;
-    for (const l of finales) {
-      const n = nomsLangues[l.code]?.nom ?? cldr.languesFr[l.code];
-      if (nomsLangues[l.code]) utilisees.noms.add(l.code);
-      if (nomsLangues[l.code] && cldr.languesFr[l.code]) faute(`fiches-main.json, langues.noms.${l.code} : CLDR a déjà un nom (« ${cldr.languesFr[l.code]} »)`);
-      if (!n) faute(`${id} : langue ${l.code} sans nom français (CLDR ni table)`);
-      else langues[l.code] = n;
-    }
     R.langues.push({ id, finales: finales.map((l) => ({ code: l.code, pct: l.pct, officielle: l.officielle, ajout: Boolean(l.ajout), partMain: Boolean(l.partMain) })), candidates: cand, ligne: table.langues[id] ?? null });
     for (const [code, p] of Object.entries(ll.parts ?? {})) R.languesParts.push({ id, code, pct: p.pct, cldr: finales.find((l) => l.code === code)?.pctCldr ?? null, source: p.source, raison: p.raison ?? ll.raison });
     if (ll.ordre) R.languesOrdres.push({ id, ordre: ll.ordre, raison: ll.raison_ordre ?? ll.raison, source: ll.source_ordre ?? null });

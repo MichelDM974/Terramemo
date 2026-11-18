@@ -4,8 +4,9 @@
 # l'empreinte de celui-là, et un test la compare ; celle-ci va dans l'extrait des fiches
 # (geodata/wikidata/fiches.json) et dans public/geo/sources.json.
 # Une section par requête, ouverte par « #= nom ». Le script remplace {{lieux}} (items
-# wd:Q… des lieux : les 197 pays au lot F2, les territoires et les zones par leur QID au
-# lot F3, sans rien changer ici) et {{sommets}} (items des points culminants déclarés).
+# wd:Q… des lieux : les 197 pays au lot F2, les territoires, les zones et l'Antarctique par
+# leur QID au lot F3, sans rien changer ici), {{territoires}} (les items des 48 territoires
+# seuls) et {{sommets}} (items des points culminants déclarés).
 # Rien n'est choisi ici : toutes les déclarations non dépréciées, leur rang et tous
 # leurs qualificatifs ; la règle du choix est au build (geodata/fiches.mjs).
 # P585 (date) : sa précision (9 l'année, 11 le jour) vient à part, ?prec.
@@ -62,6 +63,19 @@ SELECT ?lieu ?stmt ?rang ?sommet ?pq ?qv WHERE {
   VALUES ?lieu { {{lieux}} }
   ?lieu p:P610 ?stmt .
   ?stmt ps:P610 ?sommet ; wikibase:rank ?rang .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+}
+
+#= capitales
+# P36 capitale, pour les territoires seulement (lot F3 ; celle d'un pays est dans l'extrait
+# des capitales, requetes.rq) : la ville (item), rang, qualificatifs (P580 début, P582 fin :
+# une capitale d'autrefois garde sa déclaration). Ajoutée au lot F3, sans toucher aux
+# autres requêtes.
+SELECT ?lieu ?stmt ?rang ?ville ?pq ?qv WHERE {
+  VALUES ?lieu { {{territoires}} }
+  ?lieu p:P36 ?stmt .
+  ?stmt ps:P36 ?ville ; wikibase:rank ?rang .
   FILTER(?rang != wikibase:DeprecatedRank)
   OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
 }

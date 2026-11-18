@@ -17,8 +17,10 @@ type ExtraitWikidata = {
   api_le: string;
   requetes_sha256: string;
   pays: Record<string, string>;
-  lieux: Record<string, { superficies?: Declaration[]; gentiles?: Declaration[]; habitants?: Declaration[]; culminants?: Declaration[] }>;
+  autres: Record<string, string>;
+  lieux: Record<string, { fr?: string | null; frwiki?: string | null; superficies?: Declaration[]; gentiles?: Declaration[]; habitants?: Declaration[]; culminants?: Declaration[]; capitales?: Declaration[] }>;
   sommets: Record<string, { fr: string | null; frwiki: string | null; altitudes: Declaration[]; coordonnees: Declaration[] }>;
+  villes: Record<string, { fr: string | null; en: string | null; frwiki: string | null }>;
   libelles: Record<string, { fr: string | null; en: string | null }>;
 };
 type Source = { nom: string; url: string; version: string; licence: string; telecharge_le: string; requetes?: { chemin: string; sha256: string }; fichiers: { url?: string; chemin?: string; sha256: string }[] };
@@ -52,7 +54,27 @@ describe('extrait de Wikidata des fiches', () => {
     const cap = lire<{ items_par_code: Record<string, string[]> }>('geodata/wikidata/capitales.json');
     const main = lire<{ items_pays: Record<string, { q: string }> }>('geodata/capitales-main.json');
     for (const id of ids) expect(wd.pays[id], id).toBe(main.items_pays[id]?.q ?? cap.items_par_code[id]?.[0]);
-    expect(Object.keys(wd.lieux).sort()).toEqual([...new Set(Object.values(wd.pays))].sort());
+    // Lot F3 : les 61 autres entités (territoires, zones, Antarctique), par la clé qid de la table des fiches.
+    const qid = lire<{ qid: Record<string, { q: string }> }>('geodata/fiches-main.json').qid;
+    const autres = lire<Pays[]>('public/geo/pays.json').filter((p) => !ids.includes(p.id)).map((p) => p.id).sort();
+    expect(autres).toHaveLength(61);
+    expect(Object.keys(wd.autres).sort()).toEqual(autres);
+    for (const id of autres) expect(wd.autres[id], id).toBe(qid[id]!.q);
+    expect(Object.keys(wd.lieux).sort()).toEqual([...new Set([...Object.values(wd.pays), ...Object.values(wd.autres)])].sort());
+  });
+
+  it('lot F3 : la capitale (P36) des seuls territoires, nommée ; le libellé et l’article de chaque autre lieu', () => {
+    const territoires = lire<Pays[]>('public/geo/pays.json').filter((p) => p.statut === 'territoire').map((p) => wd.autres[p.id]!);
+    for (const [q, l] of Object.entries(wd.lieux)) if (l.capitales) expect(territoires, q).toContain(q);
+    const avec = territoires.filter((q) => wd.lieux[q]!.capitales?.length);
+    expect(avec).toHaveLength(36);
+    for (const q of avec) for (const d of wd.lieux[q]!.capitales!) expect(wd.villes[d.v as string]?.fr, `${q} ${d.v}`).toBeTruthy();
+    // Montserrat : deux capitales sans rang (la table tranche) ; la Géorgie du Sud : King Edward Point, préféré.
+    expect(wd.lieux[wd.autres.MSR!]!.capitales!.map((d) => d.v).sort()).toEqual(['Q30990', 'Q31006']);
+    expect(wd.lieux[wd.autres.SGS!]!.capitales!.filter((d) => d.rang === 'preferred').map((d) => d.v)).toEqual(['Q393878']);
+    // Sans article en français : l'île Brésilienne, et Akrotiri et Dhekelia (la table donne celui des deux bases).
+    expect(Object.entries(wd.autres).filter(([, q]) => !wd.lieux[q]!.frwiki).map(([id]) => id).sort()).toEqual(['NE_BRI', 'NE_ESB', 'NE_WSB']);
+    expect(wd.lieux.Q51!.superficies!.map((d) => d.v)).toEqual([14_106_900]);
   });
 
   it('requêtes à part de requetes.rq : l’empreinte de requetes-fiches.rq est celle de l’extrait et de sources.json', () => {
@@ -75,8 +97,10 @@ describe('extrait de Wikidata des fiches', () => {
   });
 
   it('superficies en km² ; les pays à plusieurs valeurs, figés (§ 2.1 : une valeur nouvelle se voit)', () => {
-    const unites = new Set(Object.values(wd.lieux).flatMap((l) => (l.superficies ?? []).map((d) => d.unite)));
+    const unites = new Set(ids.flatMap((id) => (lieuDe(id).superficies ?? []).map((d) => d.unite)));
     expect([...unites]).toEqual(['Q712226']);
+    // Des hectares (Q35852) pour deux autres lieux (Heard-et-MacDonald, Bajo Nuevo) : la règle ne lit que les km².
+    expect(Object.entries(wd.autres).filter(([, q]) => (wd.lieux[q]!.superficies ?? []).some((d) => d.unite !== 'Q712226')).map(([id]) => id).sort()).toEqual(['HMD', 'NE_BJN']);
     expect(wd.libelles.Q712226?.fr).toBe('kilomètre carré');
     expect(avec((id) => (lieuDe(id).superficies ?? []).length > 1)).toEqual(
       ['AUS', 'BEL', 'BIH', 'BLR', 'DEU', 'ECU', 'EST', 'FIN', 'HUN', 'JPN', 'LUX', 'LVA', 'NLD', 'NOR', 'SRB', 'SVK', 'SWE', 'TUR'],
@@ -90,11 +114,12 @@ describe('extrait de Wikidata des fiches', () => {
     expect(sommetsDe('FRA')).toContain('Q583'); // mont Blanc
     expect(sommetsDe('IND')).toEqual(expect.arrayContaining(['Q82019', 'Q43512'])); // Kangchenjunga, K2
     const horsMetre = Object.entries(wd.sommets).flatMap(([q, s]) => s.altitudes.filter((a) => a.unite !== 'Q11573').map((a) => `${q} ${a.v} ${a.unite}`));
-    expect(horsMetre).toEqual(['Q635179 2904 Q3710']); // mont Afadjato (Ghana), en pieds ; Guam est un territoire
+    expect(horsMetre).toEqual(['Q4380977 1332 Q3710', 'Q635179 2904 Q3710']); // mont Lamlam (Guam, lot F3) et mont Afadjato (Ghana), en pieds
     expect(wd.libelles.Q3710?.fr).toBe('pied');
     for (const id of ids) for (const q of sommetsDe(id)) expect(wd.sommets[q], `${id} ${q}`).toBeDefined();
-    // Chaque sommet a une altitude ; tous ont des coordonnées sur la Terre, sauf la falaise de Népin.
-    expect(Object.entries(wd.sommets).filter(([, s]) => !s.altitudes.length)).toEqual([]);
+    // Chaque sommet a une altitude, sauf le mont Agrihan (Mariannes du Nord, lot F3 : écarté par la table) ; tous ont des
+    // coordonnées sur la Terre, sauf la falaise de Népin.
+    expect(Object.entries(wd.sommets).filter(([, s]) => !s.altitudes.length).map(([q]) => q)).toEqual(['Q27728822']);
     expect(Object.entries(wd.sommets).filter(([, s]) => !s.coordonnees.length).map(([q]) => q)).toEqual(['Q98596662']);
     for (const s of Object.values(wd.sommets)) for (const c of s.coordonnees) expect((c as unknown as { globe: string }).globe).toBe('Q2');
   });

@@ -39,7 +39,7 @@ const lire = <T>(chemin: string): T => JSON.parse(readFileSync(chemin, 'utf8')) 
 const brutMonde = readFileSync('public/geo/fiches-monde.json', 'utf8');
 const brutFr = readFileSync('public/geo/fiches-monde.fr.json', 'utf8');
 type FicheBrute = { s: string; h?: number; ha?: number; hs?: string; sup?: number; alt?: number; z?: string; nz?: number; m?: string[]; lo?: string[]; lp?: [string, number][]; f?: [number, number] };
-type TexteBrut = { st?: string; wp?: string; g?: string; gp?: string; cu?: string; fn?: string };
+type TexteBrut = { st?: string; wp?: string; ca?: string; g?: string; gp?: string; cu?: string; fn?: string };
 const monde = JSON.parse(brutMonde) as { v: number; lieux: Record<string, FicheBrute> };
 const fr = JSON.parse(brutFr) as { v: number; sous_regions: Record<string, string>; langues: Record<string, string>; monnaies: Record<string, string>; lieux: Record<string, TexteBrut> };
 const pays = lire<Pays[]>('public/geo/pays.json');
@@ -82,30 +82,33 @@ describe('fiches du monde : une entrée par entité', () => {
     expect(sorteEntite('inconnu')).toBeNull();
   });
 
-  it('un titre de Wikipédia pour chacun des 197 pays ; pour les 48 territoires et les 12 zones, leur statut seul (lot F3, la suite viendra) ; une entrée vide pour l’Antarctique', () => {
+  it('un titre de Wikipédia pour 257 lieux (tous sauf l’île Brésilienne) ; les champs d’une zone contestée et de l’Antarctique, et eux seuls (D57 a, lot F3)', () => {
     const compte: Record<string, number> = {};
     for (const p of pays) {
       const t = fr.lieux[p.id]!;
-      const s = monde.lieux[p.id]!.s;
+      const l = monde.lieux[p.id]!;
+      const s = l.s;
       compte[s] = (compte[s] ?? 0) + 1;
-      if (s === 'pays') {
-        expect(t.wp, p.id).toBeTruthy();
-        expect(t.wp, p.id).not.toMatch(/_|^https?:/);
-      } else if (s === 'territoire') {
-        expect(Object.keys(t), p.id).toEqual(['st']);
-        expect(Object.keys(monde.lieux[p.id]!), p.id).toEqual(['s', 'sv', 'fs']);
+      if (p.id !== 'NE_BRI') expect(t.wp, p.id).toBeTruthy();
+      expect(t.wp ?? '', p.id).not.toMatch(/_|^https?:/);
+      if (s === 'territoire') {
+        expect(Object.keys(t).every((k) => ['st', 'wp', 'ca', 'g', 'gp', 'cu'].includes(k)), p.id).toBe(true);
+        expect(Object.keys(l).every((k) => ['s', 'sv', 'fs', 'h', 'ha', 'hs', 'sup', 'alt', 'z', 'm', 'lo', 'lp'].includes(k)), p.id).toBe(true);
       } else if (s === 'zone') {
-        expect(Object.keys(t), p.id).toEqual(['st']);
-        expect(monde.lieux[p.id], p.id).toEqual({ s });
-      } else {
-        expect(t, p.id).toEqual({});
-        expect(monde.lieux[p.id], p.id).toEqual({ s });
+        // Une zone : ses habitants (sourcés), son statut et son lien ; ni superficie, ni langue, ni monnaie, ni fuseau, ni capitale, ni sommet.
+        expect(Object.keys(t).every((k) => ['st', 'wp'].includes(k)), p.id).toBe(true);
+        expect(Object.keys(l).every((k) => ['s', 'h', 'ha', 'hs'].includes(k)), p.id).toBe(true);
+      } else if (s === 'continent') {
+        expect(l, p.id).toEqual({ s, sup: 14_106_900, alt: 4892 });
+        expect(t, p.id).toEqual({ wp: 'Antarctique', cu: 'massif Vinson' });
       }
     }
+    expect(fr.lieux.NE_BRI).toEqual({ st: fr.lieux.NE_BRI!.st });
     expect(compte).toEqual({ pays: 197, territoire: 48, zone: 12, continent: 1 });
-    // La table à la main : le titre du royaume pour le Danemark et les Pays-Bas.
+    // La table à la main : le titre du royaume pour le Danemark et les Pays-Bas ; celui des deux bases pour Akrotiri et Dhekelia.
     expect(fr.lieux.DNK?.wp).toBe('Danemark');
     expect(fr.lieux.NLD?.wp).toBe('Pays-Bas');
+    expect([fr.lieux.NE_ESB?.wp, fr.lieux.NE_WSB?.wp]).toEqual(['Akrotiri et Dhekelia', 'Akrotiri et Dhekelia']);
     for (const [id, l] of Object.entries(main.wp).filter(([k]) => !k.startsWith('_'))) {
       expect(l.raison, id).toBeTruthy();
       expect(fr.lieux[id]?.wp, id).toBe(l.titre);
@@ -136,10 +139,10 @@ describe('fiches du monde : une entrée par entité', () => {
     const r = await construireFiches('.');
     expect(r.fichiers['fiches-monde.json']).toBe(brutMonde);
     expect(r.fichiers['fiches-monde.fr.json']).toBe(brutFr);
-    expect(r.relectures.map((x) => x.chemin)).toEqual(['docs/relectures/fiches-pays.md', 'docs/relectures/fiches-territoires.md']);
+    expect(r.relectures.map((x) => x.chemin)).toEqual(['docs/relectures/fiches-pays.md', 'docs/relectures/fiches-territoires.md', 'docs/relectures/fiches-territoires-chiffres.md']);
     for (const x of r.relectures) expect(x.texte, x.chemin).toBe(readFileSync(x.chemin, 'utf8'));
     const sources = lire<{ traitement: { entrees: Record<string, string> } }>('public/geo/sources.json');
-    expect(Object.keys(r.entrees).sort()).toEqual(['geodata/fiches-main.json', 'geodata/fiches-pays.mjs', 'geodata/fiches-relecture.mjs', 'geodata/fiches-sources.mjs', 'geodata/fiches-territoires.mjs', 'geodata/fiches.mjs']);
+    expect(Object.keys(r.entrees).sort()).toEqual(['geodata/fiches-autres.mjs', 'geodata/fiches-main.json', 'geodata/fiches-pays.mjs', 'geodata/fiches-relecture.mjs', 'geodata/fiches-sources.mjs', 'geodata/fiches-territoires.mjs', 'geodata/fiches.mjs']);
     for (const [f, h] of Object.entries(r.entrees)) {
       expect(h, f).toBe(createHash('sha256').update(readFileSync(f)).digest('hex'));
       expect(sources.traitement.entrees[f], f).toBe(h);
@@ -331,6 +334,8 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
       }
       expect([...l.lo!, ...(l.lp ?? []).map(([c]) => c)], id).not.toContain('no');
     }
+    // Les noms servis : ceux des langues des pays et des territoires (lot F3), aucun de trop.
+    for (const l of Object.values(monde.lieux)) for (const c of [...(l.lo ?? []), ...(l.lp ?? []).map(([x]) => x)]) codes.add(c);
     expect(new Set(Object.keys(fr.langues))).toEqual(codes);
     for (const [c, n] of Object.entries(fr.langues)) expect(n, c).toBeTruthy();
     expect(monde.lieux.IND!.lo).toEqual(['hi', 'en']);
@@ -358,7 +363,7 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
   });
 
   it('monnaies : chaque code a son nom ; l’ordre des 7 pays à plusieurs monnaies est celui de la table', () => {
-    const codes = new Set(ids197.flatMap((id) => monde.lieux[id]!.m!));
+    const codes = new Set(Object.values(monde.lieux).flatMap((l) => l.m ?? []));
     expect(new Set(Object.keys(fr.monnaies))).toEqual(codes);
     const plusieurs = Object.fromEntries(ids197.filter((id) => monde.lieux[id]!.m!.length > 1).map((id) => [id, monde.lieux[id]!.m]));
     expect(plusieurs).toEqual(Object.fromEntries(lignes('monnaies').map(([id, l]) => [id, l.ordre])));
@@ -415,5 +420,111 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
     const attendues = lignes('langues').flatMap(([id, l]) => (Array.isArray(l.a_relire) ? (l.a_relire as string[]).map((c) => `${noms[id]} ${c}`) : []));
     // Toutes relues par l'utilisateur le 18/11/2026 : plus aucune marque ; une marque reposée reste vérifiée ici.
     for (const a of attendues) expect(marques.has(a), a).toBe(true);
+  });
+});
+
+// --- Lot F3 : les territoires, les zones contestées, l'Antarctique (§ 2.2, § 2.6, § 7) ----------
+
+const idsDe = (sorte: string) => pays.filter((p) => monde.lieux[p.id]!.s === sorte).map((p) => p.id).sort();
+const drapeauxT = lire<{ v: number; territoires: Record<string, string> }>('public/geo/drapeaux-territoires.json');
+
+describe('fiches des territoires, des zones et de l’Antarctique : les chiffres du lot F3', () => {
+  it('une ligne sans donnée n’est pas affichée : la liste des champs absents de chaque territoire est figée (§ 2.2)', () => {
+    const T = idsDe('territoire');
+    expect(T).toHaveLength(48);
+    const champs: Record<string, (id: string) => boolean> = {
+      habitants: (id) => monde.lieux[id]!.h !== undefined,
+      superficie: (id) => monde.lieux[id]!.sup !== undefined,
+      capitale: (id) => !!fr.lieux[id]!.ca,
+      langues: (id) => !!(monde.lieux[id]!.lo?.length || monde.lieux[id]!.lp?.length),
+      monnaie: (id) => !!monde.lieux[id]!.m?.length,
+      gentile: (id) => !!fr.lieux[id]!.gp,
+      heure: (id) => !!monde.lieux[id]!.z,
+      culminant: (id) => monde.lieux[id]!.alt !== undefined && !!fr.lieux[id]!.cu,
+      lien: (id) => !!fr.lieux[id]!.wp,
+      drapeau: (id) => !!drapeauxT.territoires[id],
+    };
+    const absents = Object.fromEntries(Object.entries(champs).map(([c, a]) => [c, T.filter((id) => !a(id))]));
+    // Les huit entités sans code ISO (Akrotiri, Dhekelia, Baïkonour, Guantánamo, les îles de la mer de Corail,
+    // Ashmore-et-Cartier, Clipperton, Christmas et Cocos) n'ont ni langue, ni monnaie, ni drapeau.
+    const sansCode = ['NE_ATC', 'NE_CLP', 'NE_CSI', 'NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB'];
+    expect(absents).toEqual({
+      habitants: ['NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB'],
+      superficie: ['NE_IOA', 'NE_KAB'],
+      capitale: ['HKG', 'HMD', 'MAC', 'NE_ATC', 'NE_CLP', 'NE_CSI', 'NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB', 'UMI'],
+      langues: ['HMD', ...sansCode],
+      monnaie: sansCode,
+      gentile: ['ABW', 'AIA', 'ALA', 'ASM', 'ATF', 'COK', 'CUW', 'CYM', 'FLK', 'GGY', 'HMD', 'IMN', 'IOT', 'JEY', 'MAC', 'MNP', 'MSR', ...sansCode, 'NFK', 'NIU', 'PCN', 'SGS', 'SHN', 'SPM', 'SXM', 'TCA', 'UMI', 'VGB', 'VIR', 'WLF'],
+      heure: ['HMD', 'NE_ATC', 'NE_CLP', 'UMI'],
+      culminant: ['AIA', 'BMU', 'CUW', 'CYM', 'FLK', 'GIB', 'IOT', 'JEY', 'MNP', 'MSR', 'NCL', 'NE_ATC', 'NE_CSI', 'NE_ESB', 'NE_IOA', 'NE_KAB', 'NE_USG', 'NE_WSB', 'NFK', 'PCN', 'SGS', 'SXM', 'UMI', 'VGB'],
+      lien: [],
+      drapeau: sansCode,
+    });
+    // Un drapeau pour chaque territoire qui a un code ISO, et pour eux seuls (la fiche lui réserve sa place).
+    for (const id of T) expect(!!drapeauxT.territoires[id], id).toBe(!!pays.find((p) => p.id === id)!.a2);
+  });
+
+  it('habitants : année affichée ; 0 sans année, « aucun habitant permanent » (liste figée) ; aucun nombre positif sans année ; les 21 territoires de la Banque mondiale', () => {
+    const autres = [...idsDe('territoire'), ...idsDe('zone')];
+    const zero = autres.filter((id) => monde.lieux[id]!.h === 0).sort();
+    expect(zero).toEqual(['HMD', 'NE_ATC', 'NE_BJN', 'NE_CLP', 'NE_SER']);
+    for (const id of zero) expect(monde.lieux[id]!.ha, id).toBeUndefined();
+    for (const id of autres.filter((x) => (monde.lieux[x]!.h ?? 0) > 0)) expect(monde.lieux[id]!.ha, id).toBeGreaterThanOrEqual(2000);
+    const bm = lire<{ economies: Record<string, { v: number; annee: number }> }>('geodata/banque-mondiale/population.json').economies;
+    const deBm = idsDe('territoire').filter((id) => bm[id]);
+    expect(deBm).toHaveLength(21);
+    for (const id of deBm) expect([monde.lieux[id]!.h, monde.lieux[id]!.ha, monde.lieux[id]!.hs], id).toEqual([bm[id]!.v, bm[id]!.annee, undefined]);
+    // Les zones habitées, de Wikidata (D57 a : sourcées) : le Sahara occidental, Chypre du Nord, le Somaliland.
+    expect(idsDe('zone').filter((id) => (monde.lieux[id]!.h ?? 0) > 0)).toEqual(['ESH', 'NE_CYN', 'NE_SOL']);
+    for (const id of idsDe('zone')) if (monde.lieux[id]!.h !== undefined) expect(monde.lieux[id]!.hs, id).toBe('wd');
+  });
+
+  it('heure : une ligne de la table par territoire, chaque zone se construit ; aucune pour les îles mineures des États-Unis ; le Groenland à Nuuk', () => {
+    const t = lignes('zone_territoires');
+    expect(t.map(([id]) => id).sort()).toEqual(idsDe('territoire'));
+    for (const [id, l] of t) {
+      expect(l.raison, id).toBeTruthy();
+      if (l.aucune) expect(monde.lieux[id]!.z, id).toBeUndefined();
+      else expect(monde.lieux[id]!.z, id).toBe(l.zone);
+    }
+    for (const id of idsDe('territoire')) {
+      const z = monde.lieux[id]!.z;
+      if (z) expect(() => new Intl.DateTimeFormat('fr', { timeZone: z }), id).not.toThrow();
+      expect(monde.lieux[id]!.nz, id).toBeUndefined();
+    }
+    expect(monde.lieux.UMI!.z).toBeUndefined();
+    expect(monde.lieux.GRL!.z).toBe('America/Nuuk');
+    expect(monde.lieux.HKG!.z).toBe('Asia/Hong_Kong');
+  });
+
+  it('points culminants : altitude entre 1 et 8 850 m ; aucun pour une zone ; les Malouines et la Géorgie du Sud sans sommet (zones disputées) ; l’Antarctique au massif Vinson', () => {
+    for (const id of [...idsDe('territoire'), 'ATA']) {
+      const a = monde.lieux[id]!.alt;
+      if (a !== undefined) expect(a, id).toBeGreaterThanOrEqual(1);
+      if (a !== undefined) expect(a, id).toBeLessThanOrEqual(8850);
+    }
+    for (const id of idsDe('zone')) expect(monde.lieux[id]!.alt, id).toBeUndefined();
+    expect([monde.lieux.FLK!.alt, monde.lieux.SGS!.alt]).toEqual([undefined, undefined]);
+    expect([fr.lieux.GRL!.cu, monde.lieux.GRL!.alt]).toEqual(['Gunnbjørn', 3694]);
+    expect([fr.lieux.ATA!.cu, monde.lieux.ATA!.alt]).toEqual(['massif Vinson', 4892]);
+  });
+
+  it('chaque ligne des clés du lot F3 a sa raison et vise un territoire (ou l’Antarctique pour un sommet)', () => {
+    const T = new Set(idsDe('territoire'));
+    for (const cle of ['capitale_territoires', 'zone_territoires', 'langues_territoires', 'gentile_territoires', 'culminant_territoires']) {
+      expect(main[cle], cle).toBeTruthy();
+      for (const [id, l] of lignes(cle)) {
+        if (cle === 'langues_territoires' && id === 'noms') continue;
+        expect(T.has(id) || (cle === 'culminant_territoires' && id === 'ATA'), `${cle}.${id}`).toBe(true);
+        expect(l.raison, `${cle}.${id}`).toBeTruthy();
+      }
+    }
+  });
+
+  it('le tableau à relire des chiffres est commité, une section par table, et dit ce qui est tu', () => {
+    const t = readFileSync('docs/relectures/fiches-territoires-chiffres.md', 'utf8');
+    for (const x of ['## 1. Capitales', '## 2. Habitants', '## 3. Superficies', '## 4. Langues', '## 5. Monnaies', '## 6. Gentilés', '## 7. Heure locale', '## 8. Points culminants', '## 9. Liens']) expect(t).toContain(x);
+    for (const k of ['capitale_territoires', 'habitants_zones', 'superficie_territoires', 'langues_territoires', 'gentile_territoires', 'culminant_territoires']) expect(t, k).toContain(`tant que \`${k}\``);
+    expect(t).not.toMatch(/undefined|NaN|\[object/);
   });
 });

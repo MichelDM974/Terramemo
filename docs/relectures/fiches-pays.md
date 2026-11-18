@@ -7,7 +7,7 @@
 - Chaque section reprend une clé de `geodata/fiches-main.json`, la seule table tenue à la main. Une ligne de la table a sa raison ; les lignes marquées **à relire** portent un fait incertain ou un choix qui revient à l'utilisateur.
 - Pour corriger : changer la ligne dans `geodata/fiches-main.json` (la clé est donnée en tête de chaque section), puis `npm run fiches`. Le build refait les fichiers servis et ce document ; il échoue si une ligne ne s'applique plus (valeur déjà celle de la source, pays inconnu, raison absente).
 - Pour valider une ligne « à relire » : retirer `"a_relire": true` de la ligne, ou la remplacer par une autre valeur avec sa raison.
-- Sources : Wikidata (extrait du 2026-11-17), Banque mondiale (World Development Indicators (WDI), Population, total (SP.POP.TOTL), 2025, mise à jour du 2026-11-11), CLDR 49.0.0, base tz 2026e ; seconde source des sommets et des fêtes : la Wikipédia en français (révisions citées dans les lignes). Le build ne lit ni la Wikipédia ni le Factbook : les valeurs qui en viennent sont écrites dans la table, avec leur source, et ces pages sont citées dans `public/geo/sources.json`.
+- Sources : Wikidata (extrait du 2026-11-18), Banque mondiale (World Development Indicators (WDI), Population, total (SP.POP.TOTL), 2025, mise à jour du 2026-11-11), CLDR 49.0.0, base tz 2026e ; seconde source des sommets et des fêtes : la Wikipédia en français (révisions citées dans les lignes). Le build ne lit ni la Wikipédia ni le Factbook : les valeurs qui en viennent sont écrites dans la table, avec leur source, et ces pages sont citées dans `public/geo/sources.json`.
 
 ## 1. Fêtes nationales (clé `fete`)
 

@@ -19,9 +19,10 @@
 // les items et les titres de l'extrait des capitales ; puis npm run geodata -- --seulement
 // notoriete.
 // npm run wikidata -- --fiches : les chiffres des fiches des lieux (#34, étude fiche-lieu
-// § 2.1 et § 2.5) des 197 pays (items de l'extrait des capitales), par les requêtes de
-// geodata/wikidata/requetes-fiches.rq, dans geodata/wikidata/fiches.json ; puis npm run
-// fiches.
+// § 2.1, § 2.2 et § 2.5) des 197 pays (items de l'extrait des capitales), des 48
+// territoires, des 12 zones contestées et de l'Antarctique (lot F3 : leurs items, clé qid
+// de geodata/fiches-main.json), par les requêtes de geodata/wikidata/requetes-fiches.rq,
+// dans geodata/wikidata/fiches.json ; puis npm run fiches.
 // Portage en Node des scripts du relevé (wikidata.py, wikidata_sieges.py, vues.py,
 // ~/Sauvegardes/terramemo/j2-conception/capitales/scripts/). User-Agent générique, sans
 // adresse ni nom. Le point SPARQL était bridé à une requête par minute le 10/11/2026 :
@@ -41,6 +42,7 @@ const REQUETES_FICHES = join(DOSSIER, 'requetes-fiches.rq');
 const EXTRAIT_FICHES = join(DOSSIER, 'fiches.json');
 const MAIN_NOTORIETE = join(RACINE, 'geodata', 'notoriete-main.json');
 const MAIN = join(RACINE, 'geodata', 'capitales-main.json');
+const MAIN_FICHES = join(RACINE, 'geodata', 'fiches-main.json');
 const PAYS = join(RACINE, 'public', 'geo', 'pays.json');
 
 const UA = 'Terramemo-geodata/1.0 (+https://terramemo-geo.web.app)';
@@ -324,18 +326,25 @@ async function notorietePays() {
  * habitants, points culminants (sommet, altitude, coordonnées), tels que Wikidata les
  * déclare, sans rien choisir (la règle est au build, geodata/fiches.mjs). L'item d'un
  * pays : celui de la table des capitales (items_pays), sinon le seul de son code, comme
- * notorietePays. Une déclaration : {id, rang, v, unite?, q: {Pxxx: [valeurs]}, prec?} ;
- * q les qualificatifs (items par leur QID, dates en ISO), prec la précision de P585.
+ * notorietePays. Lot F3 : les mêmes requêtes pour les items des territoires, des zones et
+ * de l'Antarctique (clé qid de geodata/fiches-main.json, rangés dans autres), plus la
+ * capitale (P36) des seuls territoires ; leurs libellés et le titre de leur article de la
+ * Wikipédia en français (lieux[q].fr, lieux[q].frwiki ; les pays ont le leur dans l'extrait
+ * des capitales), et ceux des capitales (villes). Une déclaration : {id, rang, v, unite?,
+ * q: {Pxxx: [valeurs]}, prec?} ; q les qualificatifs (items par leur QID, dates en ISO),
+ * prec la précision de P585.
  */
 async function fichesPays() {
   const debut = Date.now();
   const texteRequetes = await readFile(REQUETES_FICHES, 'utf8');
   const req = sections(texteRequetes);
-  const noms = ['superficies', 'gentiles', 'habitants', 'culminants', 'altitudes', 'coordonnees_sommets'];
+  const noms = ['superficies', 'gentiles', 'habitants', 'culminants', 'capitales', 'altitudes', 'coordonnees_sommets'];
   for (const n of noms) if (!req[n]) echec(`requetes-fiches.rq : section ${n} absente`);
   const extrait = JSON.parse(await readFile(EXTRAIT, 'utf8'));
   const main = JSON.parse(await readFile(MAIN, 'utf8'));
-  const ids = JSON.parse(await readFile(PAYS, 'utf8'))
+  const mainFiches = JSON.parse(await readFile(MAIN_FICHES, 'utf8'));
+  const entitesCarte = JSON.parse(await readFile(PAYS, 'utf8'));
+  const ids = entitesCarte
     .filter((p) => p.statut === 'jouable' || p.statut === 'optionnel')
     .map((p) => p.id)
     .sort();
@@ -346,7 +355,16 @@ async function fichesPays() {
     if (!q) echec(`${id} : ${parCode.length} items pour ce code, et aucun choisi (capitales-main.json, items_pays)`);
     items[id] = q;
   }
-  const lieux = [...new Set(Object.values(items))].sort();
+  // Lot F3 : les 61 autres entités (48 territoires, 12 zones, l'Antarctique), par la clé qid de la table des fiches.
+  const autresIds = entitesCarte.filter((p) => !ids.includes(p.id)).map((p) => p.id).sort();
+  const autres = {};
+  for (const id of autresIds) {
+    const q = mainFiches.qid?.[id]?.q;
+    if (!q) echec(`${id} : pas d'item dans geodata/fiches-main.json (clé qid)`);
+    autres[id] = q;
+  }
+  const territoires = entitesCarte.filter((p) => p.statut === 'territoire').map((p) => autres[p.id]).sort();
+  const lieux = [...new Set([...Object.values(items), ...Object.values(autres)])].sort();
   const extraitLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
   const date = aujourdhui();
   const valeur = (b) => (b.type === 'uri' ? qid(b.value) : b.value);
@@ -396,6 +414,11 @@ async function fichesPays() {
     await attendre(Math.max(0, derniereSparql + 2000 - Date.now()));
     parRequete[n] = declarations(await sparql(req[n].replace('{{lieux}}', valeursLieux)), 'lieu', champ);
   }
+  // La capitale (P36) des seuls territoires (lot F3) : celle d'un pays est dans l'extrait des capitales.
+  console.log(`SPARQL : capitales de ${territoires.length} territoires`);
+  await attendre(Math.max(0, derniereSparql + 2000 - Date.now()));
+  parRequete.capitales = declarations(await sparql(req.capitales.replace('{{territoires}}', territoires.map((q) => `wd:${q}`).join(' '))), 'lieu', (b) => ({ v: qid(b.ville.value) }));
+  const villesIds = [...new Set(Object.values(parRequete.capitales).flat().map((d) => d.v))].sort();
   const sommetsIds = [...new Set(Object.values(parRequete.culminants).flat().map((d) => d.v))].sort();
   const valeursSommets = sommetsIds.map((q) => `wd:${q}`).join(' ');
   console.log(`SPARQL : altitudes de ${sommetsIds.length} sommets`);
@@ -415,15 +438,28 @@ async function fichesPays() {
     if (decl.unite) cites.add(decl.unite);
     for (const l of Object.values(decl.q)) for (const v of l) if (/^Q\d+$/.test(v)) cites.add(v);
   }
-  console.log(`API : libellés de ${sommetsIds.length} sommets et ${cites.size} items cités`);
+  const autresQ = [...new Set(Object.values(autres))].sort();
+  console.log(`API : libellés de ${sommetsIds.length} sommets, ${villesIds.length} capitales, ${autresQ.length} autres lieux et ${cites.size} items cités`);
   const apiLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
-  const ent = await entites([...sommetsIds, ...cites], 'labels|sitelinks', 'frwiki');
+  const ent = await entites([...sommetsIds, ...villesIds, ...autresQ, ...cites], 'labels|sitelinks', 'frwiki');
 
   const parLieu = {};
   for (const q of lieux) {
     const o = {};
-    for (const n of ['superficies', 'gentiles', 'habitants', 'culminants']) if (parRequete[n][q]) o[n] = parRequete[n][q];
+    // Les autres lieux (lot F3) : leur libellé et leur article ; les pays ont les leurs dans l'extrait des capitales.
+    if (autresQ.includes(q)) {
+      const e = ent[q];
+      if (!e || e.missing !== undefined) echec(`${q} : lieu absent de Wikidata`);
+      Object.assign(o, { fr: libelle(e, 'fr'), en: libelle(e, 'en'), frwiki: frwiki(e) });
+    }
+    for (const n of ['superficies', 'gentiles', 'habitants', 'culminants', 'capitales']) if (parRequete[n][q]) o[n] = parRequete[n][q];
     parLieu[q] = o;
+  }
+  const villes = {};
+  for (const q of villesIds) {
+    const e = ent[q];
+    if (!e || e.missing !== undefined) echec(`${q} : capitale absente de Wikidata`);
+    villes[q] = { fr: libelle(e, 'fr'), en: libelle(e, 'en'), frwiki: frwiki(e) };
   }
   const sommets = {};
   for (const q of sommetsIds) {
@@ -438,16 +474,18 @@ async function fichesPays() {
   const texte =
     `{\n"extrait_le":${JSON.stringify(extraitLe)},\n"date":${JSON.stringify(date)},\n"api_le":${JSON.stringify(apiLe)},\n` +
     `"requetes_sha256":${JSON.stringify(sha256(texteRequetes))},\n` +
-    `"items":${JSON.stringify(`ceux de geodata/wikidata/capitales.json (extrait du ${extrait.extrait_le}) et de geodata/capitales-main.json (items_pays)`)},\n` +
+    `"items":${JSON.stringify(`pays : ceux de geodata/wikidata/capitales.json (extrait du ${extrait.extrait_le}) et de geodata/capitales-main.json (items_pays) ; autres : ceux de geodata/fiches-main.json (qid)`)},\n` +
     `"pays":${JSON.stringify(items)},\n` +
+    `"autres":${JSON.stringify(autres)},\n` +
     `"lieux":${objet(parLieu)},\n` +
     `"sommets":${objet(sommets)},\n` +
+    `"villes":${objet(villes)},\n` +
     `"libelles":${objet(libelles)}\n}\n`;
   await writeFile(EXTRAIT_FICHES, texte);
   const n = (k) => Object.values(parLieu).filter((o) => o[k]).length;
   console.log(
-    `${lieux.length} items : superficie ${n('superficies')}, gentilé ${n('gentiles')}, habitants ${n('habitants')}, culminant ${n('culminants')} ; ` +
-      `${sommetsIds.length} sommets ; ${Math.round((Date.now() - debut) / 1000)} s`,
+    `${lieux.length} items : superficie ${n('superficies')}, gentilé ${n('gentiles')}, habitants ${n('habitants')}, culminant ${n('culminants')}, capitale ${n('capitales')} ; ` +
+      `${sommetsIds.length} sommets, ${villesIds.length} capitales ; ${Math.round((Date.now() - debut) / 1000)} s`,
   );
 }
 

@@ -168,19 +168,19 @@
       ]
     },
     {
-      "nom": "Wikidata, chiffres des fiches des pays : superficies (P2046), gentilés (P1549), habitants (P1082), points culminants (P610, P2044, P625)",
+      "nom": "Wikidata, chiffres des fiches des pays, des territoires, des zones et de l’Antarctique : superficies (P2046), gentilés (P1549), habitants (P1082), points culminants (P610, P2044, P625), capitales des territoires (P36), titres de la Wikipédia en français des lieux qui ne sont pas des pays",
       "url": "https://query.wikidata.org",
-      "version": "extrait du 2026-11-17T04:14:39Z (SPARQL), API du 2026-11-17T04:14:52Z",
+      "version": "extrait du 2026-11-18T07:12:25Z (SPARQL), API du 2026-11-18T07:13:18Z",
       "licence": "CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), aucune mention obligatoire : citée par courtoisie",
-      "telecharge_le": "2026-11-17",
+      "telecharge_le": "2026-11-18",
       "requetes": {
         "chemin": "geodata/wikidata/requetes-fiches.rq",
-        "sha256": "2019d2b593a0d09a97e8454d401349a21b9d7816b222555f46d3e2da0cc5be8a"
+        "sha256": "3c05d01de0088ae228f5a64b617386715f7fac938b54c30fa42e1437d4d4ba9d"
       },
       "fichiers": [
         {
           "chemin": "geodata/wikidata/fiches.json",
-          "sha256": "42b430310630e718c7669c6edbb2360ffac126d5bbe980a408052abe5fede76d"
+          "sha256": "43c099e653ac960b6806af80225d96c234134c7f9dcbca52c2695f79d4e54afa"
         }
       ]
     },
@@ -358,12 +358,13 @@
       "geodata/notoriete.mjs": "1d00ec190020051e110a9cb387b9886bed24ddf3b3dd34c2859e89175c3cdd76",
       "geodata/notoriete-main.json": "b2440762a0b0498dd11368815ff5b03925d5e26f9705c97332ea6f9baffa0f9d",
       "geodata/wikidata/notoriete.json": "e76e612174794c93614f5277248c267b4bdb7ea93af636526d1af0183004601f",
-      "geodata/fiches.mjs": "4d5b3367ea1b3c77c7d11680efee9085108b8a74aeb08e93635a48a6b4ad010c",
-      "geodata/fiches-pays.mjs": "e4d07b2bc8b56d1663901115174c26283a5a971619d93f7346721237f582b711",
+      "geodata/fiches.mjs": "ff55b674ac8ca5dc2172977019f28e16d427e05b09ffb917ea245f3af03ef6ad",
+      "geodata/fiches-pays.mjs": "c9706c2b9399260313211f7e4c498df52f60c3fe38f39da224fe07bea5897665",
       "geodata/fiches-relecture.mjs": "0dd487fecfea593db7e3acf85714fa7d5e34f94116eb27ae4fc7f551b549c8f6",
       "geodata/fiches-territoires.mjs": "713304abe089994eec4ddb2c9dc7f807fab83654c0d9f411fd61cc99f6c523e9",
-      "geodata/fiches-main.json": "69cab9d451249cbf941a7a97845ee316eff2383fca4dd7ae9e65a982c298c5a2",
-      "geodata/fiches-sources.mjs": "50d7f7d9c8d2c37dd0f08e93d6ac3cf20b2c1566b4834bf906aa291845999fa9"
+      "geodata/fiches-autres.mjs": "2590940af603c10ebdeb2d5f0bff7223696a03c4ca5b730e294f377c32ed0998",
+      "geodata/fiches-main.json": "0e1dda19f82d371f5f7bfc941f6e606afaddb7b7acffa9615a8841aa2b5d3711",
+      "geodata/fiches-sources.mjs": "525a00d3d043d1b89cdbdf75dc136666bd6e3ef51288c95acf0072514bbb4ef1"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",
     "mers": {
