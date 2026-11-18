@@ -2266,9 +2266,9 @@ def position_visible(p, ident, barre="#barre-essai"):
       return null; }})()""")
 
 
-def toucher_pays(p, ident):
+def toucher_pays(p, ident, barre="#barre-essai"):
     p.pause(PAUSE_AVANT_TOUCHER_MS)
-    pt = position_visible(p, ident)
+    pt = position_visible(p, ident, barre)
     if not pt:
         raise RuntimeError(f"pas de position pour {ident}")
     p.toucher(pt["x"], pt["y"])
@@ -4639,7 +4639,13 @@ def ui_fiche_bilan(p, capturer, defauts):
     # réponse est une erreur) ; puis « ‹ ».
     jouer_partie(p, "sansfaute", "South America")
     c = p.js('document.querySelector("#barre-chrono .essai-consigne").dataset.cible')
-    toucher_pays(p, "BRA" if c == "ARG" else "ARG")
+    faux = "BRA" if c == "ARG" else "ARG"
+    # La carte vole vers la série après la barre : sur le site en ligne (PC), l'Argentine n'était pas encore à l'écran.
+    attendre_fin_vol(p)
+    fin = time.monotonic() + 8
+    while not position_visible(p, faux, "#barre-chrono") and time.monotonic() < fin:
+        p.pause(200)
+    toucher_pays(p, faux, "#barre-chrono")
     fin = time.monotonic() + 8
     while not visible(p, "#chrono-bilan") and time.monotonic() < fin:
         p.pause(100)
@@ -4650,7 +4656,10 @@ def ui_fiche_bilan(p, capturer, defauts):
     cliquer(p, '#jouer-panneau [data-racine="quiz"]')
     cliquer(p, '#jouer-panneau [data-difficulte="facile"]')
     fin = time.monotonic() + 30
-    while not p.js('(() => { const c = document.querySelector("#barre-quiz .nommer-choix"); return !!c && !c.disabled; })()') and time.monotonic() < fin:
+    # Le choix doit être montré (aucun ancêtre caché), et non seulement actif : au lancement, les boutons existent déjà,
+    # actifs, dans la barre cachée, et « Abandonner » pendant le chargement des images ramène aux difficultés sans
+    # bilan (D55 a). Vu au pilote du lot F6 sur le site en ligne, où les drapeaux mettent ≈ 1 s à venir.
+    while not p.js('(() => { const c = document.querySelector("#barre-quiz .nommer-choix"); return !!c && !c.disabled && !c.closest("[hidden]"); })()') and time.monotonic() < fin:
         p.pause(100)
     cliquer_apres_pause(p, "#quiz-abandonner")
     fin = time.monotonic() + 8
