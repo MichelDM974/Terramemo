@@ -3202,9 +3202,10 @@ fiche montre où est le lieu ».
 **La place** :
 - Dans la tête, après « × » et « ‹ », avant le drapeau : un `div.fiche-situation` de **96 × 64** (3:2 ; 120 × 80
   au-delà de 700 px) qui flotte à droite, à côté de « × », posé avec la tête, vide (`data-etat="attente"`) : la tête
-  ne saute pas quand la carte arrive. Aussi haute que la rangée du drapeau (6 + 48 + 10 px) : le nom passe dessous
-  sur toute la largeur, la tête d'un pays garde sa hauteur. Sans drapeau (mer, commune, zone, Antarctique, territoire
-  sans code ISO), le nom coule à sa gauche : la tête fait au moins 64 px (elle en faisait ≈ 44 à 54).
+  ne saute pas quand la carte arrive. Au téléphone, aussi haute que la rangée du drapeau (6 + 48 + 10 px) : le nom
+  passe dessous sur toute la largeur, la tête d'un pays garde sa hauteur ; sur PC (120 × 80), le haut du nom passe
+  à sa gauche. Sans drapeau (mer, commune, zone, Antarctique, territoire sans code ISO), le nom coule à sa gauche :
+  la tête fait au moins 8 + 64 + 10 = 82 px (98 sur PC), au lieu de ≈ 62 à 70 avec « × » seule (relecture du 18/11).
 - À 384 px, la largeur de la rangée du drapeau entre « ‹ Bilan » (≈ 76 px), la carte (96 + 8) et « × » (44) est de
   ≈ 112 px : un drapeau y tient ; deux passent à la ligne (`flex-wrap`), sans déborder. À vérifier au pilote.
 - Couleurs de la carte (tokens) : la mer `--mer`, les terres `--terre` et leurs frontières `--frontiere` (les classes
@@ -3269,7 +3270,8 @@ montée ; gardée d'une fiche à l'autre (fond partagé, carte rouverte et refai
 reprise sans refaire le fond ; le Canada en plusieurs pas ; chaque sorte (France, Russie, Vatican, Monaco, Maurice,
 Groenland, Sainte-Hélène, les Malouines, la Polynésie et la Patagonie (cadres élargis), le Sahara occidental, Taïwan,
 l'Égypte, l'Antarctique, la
-Méditerranée, Azov, l'Atlantique, le Pacifique, Saint-Pierre) ; l'anneau centré dans la boîte ; les données en
+Méditerranée, Azov, l'Atlantique, le Pacifique, Saint-Pierre), chacune avec les formes éclairées qu'elle dit
+(`data-eclaire` : l'id du lieu, `atlant sargasse` pour l'Atlantique, ajouté à la relecture du 18/11) ; l'anneau centré dans la boîte ; les données en
 retard ; la place posée par la vue. La mise en page (place, chevauchements) n'est vue qu'au pilote.
 
 **Ce que le pilote doit voir** (`driver.py fiche`, non lancé par le codeur ; en téléphone et `--width 1280`, puis
@@ -3277,7 +3279,9 @@ le site en ligne, et `--cible chrome|webview` sur l'A37 pour le scénario) : `ve
 parcours (le Japon, le Groenland, le Sahara occidental, l'Antarctique, la Méditerranée, l'Atlantique, Saint-Pierre,
 Le Tampon, la fiche ouverte depuis un bilan à côté de « ‹ Bilan ») : posée (`data-etat`, attendu, jamais une durée),
 96 × 64 ou 120 × 80, dans la tête et la feuille, sans chevaucher « × », « ‹ », le drapeau, les lignes du titre et du
-statut, ni débordement, la tête de même hauteur vide et posée, `aria-hidden`, sa région et son anneau ; le Japon
+statut, ni débordement, la tête de même hauteur vide et posée (la hauteur vide lue la carte retirée du rendu quand
+l'état « attente » n'a pas été vu : relecture du 18/11), `aria-hidden`, le lieu de la fiche dans `data-eclaire`, sa
+région et son anneau ; le Japon
 (capture 177), Saint-Vincent-et-les-Grenadines, le titre le plus long, son drapeau et son anneau (178), la Russie
 dans le monde (179) ; les captures 153, 156 à 161 et 163 sont prises la carte posée. Le scénario de mesure se joue
 sur une page rechargée (rien de gardé, le pire cas), avec **dix voisins** (la France, le Brésil, l'Argentine, le
