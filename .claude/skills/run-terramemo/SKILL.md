@@ -479,7 +479,19 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   « Retour au bilan » (`163-bilan-fiche`) ; un voisin (`164-bilan-voisin`),
   « ‹ », puis « ‹ Retour au bilan » : le bilan, le focus à la ligne
   (`165-bilan-retour`) ; « × » : la carte, puis le retour du navigateur rend
-  le bilan ; l'île de même (`166-bilan-ile`, `167-bilan-ile-fiche`).
+  le bilan ; l'île de même (`166-bilan-ile`, `167-bilan-ile-fiche`) ;
+  lot F7 (`ui_fiche_apprendre`, sur le journal du profil : neuf avec
+  `driver.py fiche`) : la fiche de Maurice par la recherche, « Apprendre ce
+  lieu » et « avec N pays voisins » (`170-apprendre-maurice`), la séance sur
+  sa grappe (`171-…-qcm`), « Apprendre · Afrique » au bilan et des fiches
+  `pays:` d'Afrique seules (`172-…-bilan`), le retour rouvre sa fiche sans
+  bouton (`173-…-apprise`) ; le Nigeria, grappe du jour prise : « Retenir ce
+  lieu » (`174-apprendre-retenir`), « Noté » et « Annuler »
+  (`175-apprendre-retenu`, rien au journal) ; le lendemain
+  (`?horloge=1` : **serveur de développement seulement**, sauté sinon) le
+  bouton revient avec « Noté » (`176-apprendre-lendemain`), Maurice sans
+  bouton ; « Annuler » efface la clé. Avec `ui` (journal pas neuf), la
+  séance est sautée et Maurice sert au lieu retenu.
   `DÉFAUT` à tout écart. Sur le téléphone, le scénario juge (critère de
   saccade : un `DÉFAUT` par gel ≥ 46 ms, et au-delà de 3 à-coups/s) et date
   chaque gel par le geste qui le précède (« gel de 50 ms : voisin FRA

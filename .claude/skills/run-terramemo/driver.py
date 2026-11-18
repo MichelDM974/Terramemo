@@ -28,8 +28,10 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
     fiche [--width 384] [--cible local|chrome|webview]
                                 la fiche d'un lieu seule (ui_fiche, aussi
                                 dans ui) : barre, fiche, voisins, retours,
-                                voile, Échap, ⚙, territoire, mer, île, et le
-                                scénario de mesure (10 fiches, 3 voisins) ;
+                                voile, Échap, ⚙, territoire, mer, île, le
+                                scénario de mesure (10 fiches, 3 voisins),
+                                depuis un bilan (F6), « Apprendre ce lieu »
+                                (F7 ; le lendemain : serveur de dev) ;
                                 chrome et webview : le scénario seul
     mesurer --cible local|chrome|webview [--rendu canvas|webgl|g|css]
                                 gestes et touchers rejoués par DevTools,
@@ -4669,6 +4671,173 @@ def ui_fiche_bilan(p, capturer, defauts):
     croix_vers_carte(p, defauts, "bilan du quiz", "#quiz-bilan")
 
 
+# Le bloc Mémoire de la fiche ouverte et « Apprendre ce lieu » (#34, lot F7) : ses lignes, ses textes, chaque bouton
+# (montré : aucun ancêtre caché), sa hauteur, sa place dans la feuille ; le lieu retenu (D58 b) ; la page sans
+# défilement horizontal ; le focus.
+JS_BLOC_APPRENDRE = """(() => { const f = document.getElementById('fiche-lieu'); if (!f || f.hidden) return null;
+  const b = f.querySelector('.fiche-memoire'), fr = f.getBoundingClientRect();
+  const bouton = (id) => { const e = document.getElementById(id); if (!e || e.closest('[hidden]')) return null; const r = e.getBoundingClientRect();
+    return { texte: e.textContent, haut: r.height, dans: r.left >= fr.left - 0.5 && r.right <= fr.right + 0.5, deborde: e.scrollWidth > e.clientWidth + 1 }; };
+  return { bloc: !!b, lignes: b ? [...b.querySelectorAll('li')].map(l => l.textContent) : [],
+    textes: b ? [...b.querySelectorAll('p')].map(x => x.textContent) : [],
+    apprendre: bouton('fiche-apprendre'), retenir: bouton('fiche-retenir'), oublier: bouton('fiche-oublier'),
+    retenu: localStorage.getItem('terramemo.apprendre.pays'), focus: document.activeElement ? document.activeElement.id : null,
+    page: document.documentElement.scrollWidth - innerWidth }; })()"""
+TEXTE_GRAPPE_FAITE = "La grappe du jour est déjà apprise."
+TEXTE_RETENU = "Noté : sa région sera ta prochaine grappe."
+
+
+def ouvrir_fiche_par_recherche(p, defauts, quoi, cherche, ident):
+    """Le lieu `ident` choisi dans la recherche (« Maurice » : une île, mal placée pour un toucher), la carte posée,
+    puis sa barre touchée : sa fiche, posée (attendre_feuille_posee). Rend l'état de la fiche."""
+    p.js('document.getElementById("recherche-champ").value = ""')
+    p.js('document.getElementById("recherche-champ").focus()')
+    p.cdp("Input.insertText", text=cherche)
+    choix = f'#recherche-liste [data-terrain="monde"][data-id="{ident}"]'
+    attendre_visible(p, choix)
+    cliquer(p, choix)
+    attendre_fin_vol(p)
+    e = attendre_fiche(p, lambda e: e["barre"] == ident and e["chevron"], f"{quoi} : {ident} montré")
+    if not e["chevron"]:
+        defauts.append(f"{quoi} : {ident} choisi dans la recherche, pas de chevron ({e})")
+        return e
+    toucher_element(p, "#barre-fiche")
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == ident, f"{quoi} : fiche de {ident}")
+    if not e["ouverte"]:
+        defauts.append(f"{quoi} : la barre touchée n'ouvre pas la fiche de {ident} ({e})")
+    else:
+        attendre_feuille_posee(p)
+    return e
+
+
+def lire_bloc_apprendre(p, defauts, quoi):
+    """Le bloc Mémoire amené au milieu de la fiche (il est en bas), puis lu (JS_BLOC_APPRENDRE) : chaque bouton
+    montré fait 44 px au moins, tient dans la feuille, sans débordement ; la page ne défile pas en largeur."""
+    p.js("(() => { const b = document.querySelector('#fiche-lieu .fiche-apprendre') || document.querySelector('#fiche-lieu .fiche-memoire'); if (b) b.scrollIntoView({block: 'center'}); })()")
+    p.pause(300)
+    m = p.js(JS_BLOC_APPRENDRE)
+    if not m or not m["bloc"]:
+        defauts.append(f"{quoi} : pas de bloc Mémoire dans la fiche ({m})")
+        return m or {"bloc": False, "lignes": [], "textes": [], "apprendre": None, "retenir": None, "oublier": None, "retenu": None, "focus": None, "page": 0}
+    boutons = {k: m[k] for k in ("apprendre", "retenir", "oublier") if m[k]}
+    dire(f"  {quoi} : lignes {m['lignes']}, textes {m['textes']}, boutons "
+         + (", ".join(f"{b['texte']!r} {b['haut']:.0f} px" for b in boutons.values()) or "aucun") + f", retenu {m['retenu']!r}")
+    for k, b in boutons.items():
+        if b["haut"] < 43.5 or not b["dans"] or b["deborde"]:
+            defauts.append(f"{quoi} : le bouton {b['texte']!r} fait {b['haut']:.1f} px, dans la feuille {b['dans']}, déborde {b['deborde']} (44 px, dans la feuille, sans débordement)")
+    if m["page"] > 0:
+        defauts.append(f"{quoi} : la page défile en largeur ({m['page']} px)")
+    return m
+
+
+def ui_fiche_apprendre(p, capturer, defauts, base, parametres=""):
+    """Captures 170 à 176 (#34, lot F7 ; étude fiche-lieu § 5, § 8 et D58). La fiche de Maurice (par la recherche) :
+    sur un journal neuf (commande fiche), « Apprendre ce lieu » et « avec N pays voisins » dessous, bouton de 44 px
+    (capture 170) ; touché, la séance Apprendre (#toucher) sur la grappe de Maurice (QCM, 171) : au bilan « Apprendre ·
+    Afrique » (172), et le journal n'a que des fiches pays: de pays d'Afrique, Maurice compris, une par réponse ; le
+    retour du navigateur rouvre sa fiche, sans bouton, « Pays : vu … » (173). Puis le Nigeria, la grappe du jour prise :
+    « La grappe du jour est déjà apprise. » et « Retenir ce lieu » (174) ; touché : « Noté », « Annuler », qui prend le
+    focus, la clé terramemo.apprendre.pays, rien au journal (175). Le lendemain (?horloge=1, serveur de développement
+    seulement) : le Nigeria, « Apprendre ce lieu » et « Noté » (176), Maurice sans bouton ; « Annuler » efface la clé.
+    Un journal pas neuf (commande ui : la séance a pris la grappe du jour) : la séance est sautée et Maurice tient le
+    rôle du Nigeria. DÉFAUT à chaque écart."""
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    continents = {x["id"]: x["continent"] for x in json.loads((RACINE / "public/geo/pays.json").read_text())}
+    fiches0 = collections.Counter(p.js(FICHES_JOURNAL) or [])
+    ouvrir_fiche_par_recherche(p, defauts, "Apprendre ce lieu", "Maurice", "MUS")
+    m = lire_bloc_apprendre(p, defauts, "fiche de Maurice")
+    capturer("170-apprendre-maurice")
+    appris = False
+    if m["apprendre"]:
+        detail = sans_insecables(" · ".join(m["textes"]))
+        if m["apprendre"]["texte"] != "Apprendre ce lieu" or not re.search(r"avec \d+ pays voisins?", detail):
+            defauts.append(f"fiche de Maurice : « Apprendre ce lieu » et « avec N pays voisins » attendus ({m['apprendre']}, {m['textes']})")
+        toucher_element(p, "#fiche-apprendre")
+        fin = time.monotonic() + 10
+        while p.js("location.hash") != "#toucher" and time.monotonic() < fin:
+            p.pause(100)
+        if p.js("location.hash") != "#toucher":
+            defauts.append(f"« Apprendre ce lieu » touché : {p.js('location.hash')} au lieu de #toucher")
+        n_rep = jouer_seance(p, capturer, defauts, "Apprendre ce lieu", captures={"qcm": "171-apprendre-maurice-qcm"})
+        bilan = sans_insecables(texte(p, "#essai-bilan"))
+        dire(f"  Apprendre ce lieu, bilan : {bilan[:200]!r}")
+        if "Apprendre · Afrique" not in bilan or not p.js("!!document.querySelector('#essai-bilan #essai-autre')"):
+            defauts.append(f"bilan d'« Apprendre ce lieu » : « Apprendre · Afrique » et « Autre série » attendus ({bilan[:200]!r})")
+        capturer("172-apprendre-maurice-bilan")
+        # getAll() rend les événements dans l'ordre de leur id, pas de leur écriture : la différence des deux lectures.
+        nouvelles = list((collections.Counter(p.js(FICHES_JOURNAL) or []) - fiches0).elements())
+        ids = sorted({f.split(":")[1] for f in nouvelles})
+        dire(f"  Apprendre ce lieu : {len(nouvelles)} événements pour {n_rep} réponses, lieux {ids}")
+        if len(nouvelles) != n_rep or "MUS" not in ids or not all(f.startswith("pays:") for f in nouvelles) or any(continents.get(i) != "Africa" for i in ids):
+            defauts.append(f"Apprendre ce lieu : la grappe de Maurice en fiches pays:, une par réponse, attendue ({len(nouvelles)} pour {n_rep}, {ids}, {nouvelles[:4]})")
+        appris = "MUS" in ids
+        # Le retour du navigateur : l'entrée de la fiche, sous celle de la partie ; Maurice appris, plus de bouton.
+        p.js("history.back()")
+        e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "MUS", "retour : la fiche de Maurice")
+        if not e["ouverte"]:
+            defauts.append(f"retour du navigateur depuis le bilan : la fiche de Maurice attendue ({e})")
+        else:
+            attendre_feuille_posee(p)
+        m = lire_bloc_apprendre(p, defauts, "fiche de Maurice, apprise")
+        if m["apprendre"] or m["retenir"] or not any(l.startswith("Pays : vu") for l in m["lignes"]):
+            defauts.append(f"fiche de Maurice apprise : ni bouton ni « Retenir », « Pays : vu … » attendus ({m})")
+        capturer("173-apprendre-maurice-apprise")
+        autre = ("Nigeria", "NGA")
+        ouvrir_fiche_par_recherche(p, defauts, "grappe du jour prise", *autre)
+    else:
+        dire("  fiche de Maurice sans « Apprendre ce lieu » (journal pas neuf : la grappe du jour est prise) : la séance est sautée, "
+             "le critère du lot est à la commande fiche, sur un profil neuf")
+        autre = ("Maurice", "MUS")
+    # La grappe du jour prise (D58 b) : pourquoi, « Retenir ce lieu », puis « Noté » et « Annuler » ; rien au journal.
+    m = lire_bloc_apprendre(p, defauts, f"fiche de {autre[0]}, grappe du jour prise")
+    # Sur un journal pas neuf, la raison peut être une autre (des révisions d'abord) : « Retenir ce lieu » y est aussi.
+    if m["apprendre"] or not m["retenir"] or (appris and TEXTE_GRAPPE_FAITE not in m["textes"]):
+        defauts.append(f"fiche de {autre[0]}, grappe du jour prise : « {TEXTE_GRAPPE_FAITE} » et « Retenir ce lieu » sans « Apprendre ce lieu » attendus ({m})")
+    capturer("174-apprendre-retenir")
+    if m["retenir"]:
+        n1 = p.js(COMPTER_JOURNAL)
+        toucher_element(p, "#fiche-retenir")
+        fin = time.monotonic() + 5
+        while not visible(p, "#fiche-oublier") and time.monotonic() < fin:
+            p.pause(100)
+        m = lire_bloc_apprendre(p, defauts, f"fiche de {autre[0]}, retenu")
+        if m["retenu"] != autre[1] or TEXTE_RETENU not in m["textes"] or not m["oublier"] or m["retenir"] or m["focus"] != "fiche-oublier":
+            defauts.append(f"« Retenir ce lieu » touché : « {TEXTE_RETENU} », « Annuler » (le focus), la clé à {autre[1]} attendus ({m})")
+        if p.js(COMPTER_JOURNAL) != n1:
+            defauts.append("« Retenir ce lieu » : un événement écrit au journal (rien attendu, D58 b)")
+        capturer("175-apprendre-retenu")
+    if m["oublier"] and serveur_de_dev(base):
+        # Le lendemain : sa grappe passe en tête, le bouton revient, « Noté » reste ; Maurice appris, toujours sans bouton.
+        p.goto(base + "?mesures=0&horloge=1" + parametres + "#carte")
+        p.attendre_carte()
+        ouvrir_fiche_par_recherche(p, defauts, "le lendemain", *autre)
+        m = lire_bloc_apprendre(p, defauts, f"le lendemain, fiche de {autre[0]}")
+        if not m["apprendre"] or not m["oublier"] or TEXTE_RETENU not in m["textes"]:
+            defauts.append(f"le lendemain, fiche de {autre[0]} retenu : « Apprendre ce lieu », « Noté » et « Annuler » attendus ({m})")
+        capturer("176-apprendre-lendemain")
+        if m["oublier"]:
+            toucher_element(p, "#fiche-oublier")
+            p.pause(300)
+            m = lire_bloc_apprendre(p, defauts, f"le lendemain, {autre[0]} oublié")
+        if appris:
+            ouvrir_fiche_par_recherche(p, defauts, "le lendemain", "Maurice", "MUS")
+            mm = lire_bloc_apprendre(p, defauts, "le lendemain, fiche de Maurice")
+            if mm["apprendre"] or mm["retenir"]:
+                defauts.append(f"le lendemain, fiche de Maurice : plus de bouton attendu ({mm})")
+    else:
+        if m["oublier"]:
+            dire("  lendemain : sauté (?horloge= n'agit qu'en serveur de développement)")
+            toucher_element(p, "#fiche-oublier")
+            p.pause(300)
+            m = lire_bloc_apprendre(p, defauts, f"fiche de {autre[0]}, « Annuler »")
+    if m["retenu"] is not None or m["oublier"]:
+        defauts.append(f"« Annuler » : la clé terramemo.apprendre.pays effacée, « Annuler » retiré attendus ({m})")
+    # La suite sans l'horloge de test.
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+
+
 def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     """Captures 150 à 159 (#34, lot F1 ; étude fiche-lieu § 4 et § 7) : sur une page rechargée,
     rien des fiches au premier affichage ; le Japon touché (sa ligne « Tokyo », son chevron, les
@@ -4683,7 +4852,8 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     communes lues à ce moment seulement, la barre « 156 000 hab. », capture 154), Saint-Pierre touché sur l'île et sa
     fiche (habitants de 2023, superficie, CIVIS, cinq voisines, capture 160), une voisine touchée (Le Tampon, la carte
     de l'île vole sous la fiche, capture 161), « ‹ », « × », « Monde » ; puis le scénario de mesure ; lot F6 : depuis
-    le bilan d'une partie de Trouver, au monde et sur l'île (ui_fiche_bilan, captures 162 à 167). Les superficies,
+    le bilan d'une partie de Trouver, au monde et sur l'île (ui_fiche_bilan, captures 162 à 169) ; lot F7 : « Apprendre
+    ce lieu » depuis la fiche de Maurice, puis le lieu retenu (ui_fiche_apprendre, captures 170 à 176). Les superficies,
     profondeurs et riverains des mers sont tus jusqu'à leur relecture (LIGNES_RELUES) : la fiche d'une mer n'a que sa
     sorte, sa mère, son océan, la mémoire et le lien ; le gentilé d'une commune aussi. DÉFAUT à chaque écart."""
     p.goto(base + "?mesures=0" + parametres + "#carte")
@@ -5097,6 +5267,8 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     capturer("155-fiche-apres-scenario")
     # Lot F6 : depuis le bilan (après la mesure, qui reste sur la carte d'avant).
     ui_fiche_bilan(p, capturer, defauts)
+    # Lot F7 : « Apprendre ce lieu », sur le journal du profil (neuf avec la commande fiche).
+    ui_fiche_apprendre(p, capturer, defauts, base, parametres)
     return m
 
 
@@ -7459,7 +7631,7 @@ def main():
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
     s = sub.add_parser("fiche", help="la fiche d'un lieu seule (ui_fiche, aussi dans ui) : barre, fiche, voisins, retours, voile, Échap, ⚙, "
-                                     "territoire, mer, île, scénario de mesure, depuis un bilan (lot F6) ; --cible chrome|webview : le scénario seul, sur le téléphone")
+                                     "territoire, mer, île, scénario de mesure, depuis un bilan (lot F6), « Apprendre ce lieu » (lot F7 ; le lendemain par ?horloge=1 : serveur de dev) ; --cible chrome|webview : le scénario seul, sur le téléphone")
     s.add_argument("--url", help=f"défaut : {URL_DEFAUT} (chrome : {URL_SITE} ; webview : {URL_APK})")
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
     s.add_argument("--out", default="/tmp/terramemo-captures")
