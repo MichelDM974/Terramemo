@@ -2788,3 +2788,29 @@ ici, la suite.
   en a un.
 - Poids : `fiches-monde.fr.json` à 11,4 Ko compressés (gzip -9), sous la borne de 12 Ko ; le
   fichier sans langue à 8,9 Ko. Les lots F4 et F5 ont leurs fichiers : la marge suffit.
+
+Relecture du lot F3 (18/11), sur les lignes affichées sans clé de `LIGNES_RELUES` :
+- Une ligne « à relire » ne s'affiche pas. Deux lignes d'heure et cinq d'habitants l'étaient :
+  - **Habitants** : 38 territoires (et non 43). Une clé de plus dans la table,
+    `habitants_territoires` (`aucun`, avec sa source et sa question) : les Terres australes
+    françaises (196 en 2012), le Territoire britannique de l'océan Indien (3 000 en 2018), les îles
+    de la mer de Corail (4 en 2018), la Géorgie du Sud (35 en 2019) et les îles mineures des
+    États-Unis (190 en 2010) n'ont pas de ligne. Wikidata y compte le personnel des stations et
+    des bases ; le World Factbook (miroir figé déjà au projet) dit « no permanent inhabitants »
+    (« uninhabited » pour la Navase). Proposé : « aucun habitant permanent » d'après le Factbook,
+    ce qui demande une source de plus pour la ligne (`hs`), à coder après la réponse.
+  - **Heure** : 43 zones (et non 44). Christmas et Cocos (`NE_IOA`) n'ont plus de ligne d'heure,
+    à relire : deux territoires à deux heures (UTC+7 et UTC+6 h 30), sans capitale pour nommer
+    la ligne, comme les îles mineures des États-Unis. Le doute sur Guantánamo est levé :
+    `America/New_York` et `America/Havana` ne diffèrent que 3 heures par an, la nuit des
+    changements d'heure (mesuré dans Node, heure par heure, de 2025 à 2027), et non « de quelques
+    jours ».
+- Superficies (section tue) : une colonne « À relire » pour les 4 lieux à plus du double de leur
+  tracé (Hong Kong, Macao, Ashmore-et-Cartier, la mer de Corail) ; le tableau dit quand une valeur
+  de Wikidata est la somme des deux autres (Hong Kong : 2 755 = 1 106 de terres + 1 649 d'eaux).
+- Le Factbook entre dans `sources.json` pour son champ « Population ». Ni fiche ni barre ne
+  changent de code : les sept lignes se retirent par les données.
+- Restent à l'utilisateur : ces sept lignes ; Tokelau (la décision « sommets et fuseaux »
+  supposait sa fiche) ; le sommet d'un territoire entièrement dans une zone disputée (Malouines,
+  Géorgie du Sud) ; la ligne « flag-icons » des Crédits (« Drapeaux des pays »), figée par
+  `tests/donnees-drapeaux.test.ts`, que ce lot ne touche pas.
