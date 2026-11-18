@@ -3290,6 +3290,37 @@ de gels ≥ 46 ms, dont ceux dus à la carte de situation, et la cause de chacun
 recouvrent, sinon le script le plus long des Long Animation Frames, sinon le rendu). Un gel dû à la carte est un
 DÉFAUT même sur le PC.
 
+**Le dessin** (correction du 18/11, après le pilote réel : captures 153, 158, 159, 179). Le pilote montrait la
+Russie et le Groenland peints sur tout l'ovale, la Méditerranée et l'Atlantique sans eau éclairée ; ni les tests à
+DOM factice ni le pilote (état, taille, chemins présents) ne regardaient le dessin.
+- **Cause** : `decimer` réduisait de petits îlots à un triangle tournant dans l'autre sens que l'original ; d3-geo lit
+  un tel anneau comme son complément (aire 4π sr, la sphère moins l'îlot) et le peint sur tout l'ovale ou tout le
+  cadre. 62 cas (polygone et tolérance, de 0,02° à 1,5°) dans les 258 lieux : l'Antarctique, la Russie (îlots à 57° et
+  83° E : pas l'antiméridien), le Groenland, l'Indonésie, la Norvège, le Canada, les États-Unis, la Finlande… Aucun
+  dans les 50 mers.
+- **Effets**, mesurés en pixellisant chaque carte posée (60 × 40 points, règle nonzero, ordre de peinture) : le lieu
+  sur toute la carte pour **12 lieux** (Australie, Bahamas, Canada, Allemagne, Grèce, Groenland, Italie,
+  Papouasie-Nouvelle-Guinée, Polynésie française, Russie, États-Unis, Venezuela) ; le fond en terre sur toute la carte
+  dans **les 12 régions de continents, les deux mondes et 46 des 50 cadres de mers** (seuls ceux de Guinée et du
+  Mozambique étaient justes) : l'eau, peinte sous les terres, invisible pour **48 des 50 mers et océans** ; la mer
+  invisible aussi sous le Japon, le Sahara occidental et chaque pays d'une région (le défaut 2 et le 3 sont le même
+  que le 1, dans le fond). La couleur de l'eau n'était pas en cause (`--mer-choisie`, l'accent).
+- **Correction** : `decimer` compte en passant l'aire plane (en degrés) de l'anneau original et de l'éclairci ; si le
+  signe change, l'anneau reste entier (quelques dizaines de points). Après : terre ≤ 86,8 % de la carte (la
+  Caspienne), lieu ≤ 12 % (le Brésil), eau ≥ 0,33 % (le golfe de Finlande), mer de l'ovale ≥ 28 % (le Pacifique).
+- **Fluidité** : la plus longue tranche du balayage des 308 lieux (vitest, ce PC, un pas par tranche) passe de 13,6 à
+  14,2 ms avant (les compléments coûtaient au découpage) à **4,1 à 6,0 ms** après. Morceau principal inchangé
+  (497,78 Ko).
+- **Tests** (`tests/situation-dessin.test.ts`, qui échouent avant) : l'aire sphérique de chaque polygone éclairci
+  < 2π sr ; la Russie et le Groenland ; la Méditerranée et l'Atlantique (eau visible, sa couleur) ; les 258 lieux et
+  50 mers (jamais plus de 93 % de terre, l'ovale du monde avec de la mer, le lieu sur moins de la moitié, l'eau d'une
+  mer visible).
+- **Pilote** : `JS_SITUATION` lit le dessin (une grille de 24 × 16 points du viewBox, la couche peinte dessus par
+  `isPointInFill` ; la boîte du lieu par `getBBox` ; les couleurs calculées de l'eau, du fond de la place et de
+  l'ovale) et `verifier_dessin_situation` dit DÉFAUT pour plus de 93 % de terre, un ovale sans mer (< 5 %), un lieu
+  (ni l'Antarctique ni une mer) sur plus de la moitié des points ou d'une boîte de plus de 60 %, l'eau d'une mer
+  absente, invisible ou de la couleur du fond. À relancer au pilote réel (non lancé par le codeur).
+
 **Restent à l'utilisateur** : la place (à droite, à côté de « × », 96 × 64) et le seuil de l'anneau (134 lieux sur
 258) sur les captures 177 à 179 ; la mesure sur l'A37. Non retenu : un cadre centré sur chaque lieu (un fond par
 lieu, rien de partagé, et un lieu isolé n'y montre que de l'eau) ; une vue polaire pour l'Antarctique ; un cadre
