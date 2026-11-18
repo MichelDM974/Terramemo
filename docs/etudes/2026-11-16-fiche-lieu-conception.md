@@ -2995,6 +2995,7 @@ Relevés par le codeur du lot F6 (branche `fiche-lieu`, 18/11).
 | après F5 (e926108) | 500,67 Ko | 173,38 Ko | 9,68 Ko | 3,67 Ko |
 | morceau sorti (6642dc1) | 492,67 Ko | 170,29 Ko | 18,20 Ko | 6,90 Ko |
 | après F6 (0118f15) | 494,35 Ko | 170,97 Ko | 18,30 Ko | 6,95 Ko |
+| après la relecture du lot F6 (23871d0) | 494,84 Ko | 171,14 Ko | 18,30 Ko | 6,94 Ko |
 
 - **Ce qui est sorti** (mesuré au sourcemap du build, octets du morceau par fichier source) : le bloc `fiche` de
   `textes.fr.json` (2,7 Ko), devenu `src/vues/textes-fiche.fr.json` (`textesFiche`, même règle de langue :
@@ -3024,11 +3025,22 @@ Relevés par le codeur du lot F6 (branche `fiche-lieu`, 18/11).
   sous Capitales, « Japon » pour « Tokyo (Japon) ») sert au nom du bouton, « Fiche : {nom}. {texte} »
   (`textes.bilan.fiche_ligne`, au morceau principal). Sans `ouvrir`, le `<li>` de texte d'avant. Le `<li>` porte
   `rate-fiche` : sans puce, un filet entre deux lignes, le bouton sur toute la largeur.
-- **« ‹ Retour au bilan »** remonte à l'**adresse du bilan** (`nav.remonter`, `main.ts` la retient à l'ouverture,
-  `adresseBilan`), et non `nav.retour()` (§ 4.4, § 4.6) : après un détour par une vue de passage (Crédits, ouverts
-  par le pied de la fiche ; 🏆) et son « Retour », la vue d'avant serait la carte elle-même, et rien ne se passait.
-  Un test le couvre (`fiche-partie`). Les tests de navigation du § 7 (deux voisins, au-delà de `PILE_MAX`) passent
-  par `remonter` de même.
+- **« ‹ Retour au bilan »** remonte à l'**adresse du bilan** (`nav.remonter`), et non `nav.retour()` (§ 4.4,
+  § 4.6) : après un détour par une vue de passage (Crédits, ouverts par le pied de la fiche ; 🏆) et son « Retour »,
+  la vue d'avant serait la carte elle-même, et rien ne se passait. Un test le couvre (`fiche-partie`).
+- **La colle vit dans `navigation.ts`** (`cheminBilan`, après relecture) : `main.ts` et les tests (`fiche-partie`,
+  `navigation`) l'emploient telle quelle. L'adresse du bilan est celle que la pile garde (`nav.adresse()`), pas
+  l'ancre relue (une ancre à segment de trop manquait la remontée). « Retour au bilan » ne fait rien tant qu'un
+  `go()` est en route (`nav.enRoute()`) : un double toucher, ou Échap répété, ne remonte pas au-delà du bilan.
+- **Au-delà de `PILE_MAX`** : l'interface ne demande « Retour au bilan » qu'au rang 1 (dès le rang 2, « ‹ » fait
+  `history.back()`), où la pile est entière ; le test suit ce chemin (45 voisins, 45 retours, une remontée de 2).
+  Le repli `replaceState` de `remonter` hors de la pile (§ 4.4) garde son test à part, que l'interface n'atteint
+  pas depuis un bilan.
+- **Une partie de Toucher en suspens** (§ 4.8, garde 3) pendant le bilan d'une autre vue (le Chrono et le quiz ne
+  l'abandonnent pas) : la ligne touchée ne s'ouvre pas et le dit sous elle (`textes.bilan.fiche_refusee`, région
+  vivante) ; `ctx.ouvrirFiche` rend `false`.
+- **Une fiche qui ne s'ouvre pas** (hors ligne, morceau absent ; lieu sans fiche) : la carte, le lieu montré, et la
+  ligne de faits de la barre le dit (`textes.carte.fiche_echec`) ; le retour rend le bilan.
 - La marque `bilan` vit dans l'entrée d'historique de la **première** fiche (`LieuFiche.bilan`, gardée par
   `pousserFiche`) ; un voisin ne la porte pas. Sur elle seule, « ‹ » est montré (même au rang 1) et nommé « Retour
   au bilan » (`aria-label` et `title`, `textesFiche.avant_bilan`) ; son signe reste « ‹ », sans texte visible.
@@ -3050,6 +3062,9 @@ sans débordement ni défilement horizontal, chevron à droite, nommé « Fiche 
 le lieu dans la barre, sa fiche, focus au titre, « ‹ » nommé « Retour au bilan » (163) ; un voisin (164), « ‹ », puis
 « ‹ Retour au bilan » : `#toucher`, le bilan, la fiche fermée, le focus à la ligne (165) ; « × » : la carte, puis
 `history.back()` rend le bilan ; l'île : une commune ratée (166), sa fiche sur l'île (167), le bilan rendu sur l'île.
+Puis les bilans qui ont leur propre ligne et leur propre `activer()` : Sans faute avec une erreur (168), sa fiche,
+**Échap** rend le bilan (`#chrono`), le focus à la ligne ; le quiz Facile abandonné à la première question (169), sa
+fiche, « ‹ » rend le bilan (`#quiz`). Reconnaître et la séance restent aux tests à DOM factice.
 
 **Restent à l'utilisateur** : l'allure des lignes touchables (filet, chevron, sans puce) sur les captures 162 et 166 ;
 « ‹ » sans texte visible sur la première fiche (son nom « Retour au bilan » n'est lu que par les lecteurs d'écran et
