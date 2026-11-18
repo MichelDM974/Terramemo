@@ -140,6 +140,23 @@ describe('le dessin de la carte de situation (lot F8)', () => {
     expect(retournes).toEqual([]);
   });
 
+  it('decimer retire toujours un îlot réduit à moins de 4 points, sans le garder entier : le nombre de points projetés reste celui d’avant la garde du sens', () => {
+    // Un îlot de 0,1° de côté (6 points) à 0,5° de tolérance : réduit à son premier et son dernier point, il est retiré
+    // (aire plane nulle : la garde du sens ne doit pas le prendre pour un anneau retourné et le garder entier).
+    const ilot: Position[] = [[10, 10], [10.05, 10], [10.1, 10], [10.1, 10.1], [10, 10.1], [10, 10]];
+    expect(decimer([[ilot]], 0.5)).toEqual([]);
+    // Sur les 258 lieux et les 50 mers à 1,5° (les cadres les plus larges) : ≈ 8 300 points gardés ; 40 050 quand
+    // chaque îlot retiré était gardé entier (≈ 30 % de calcul en plus sur le balayage, des tranches de 13 ms).
+    let n = 0;
+    for (const e of [...MONDE.entites, ...MERS.mers]) {
+      if (!e.forme) continue;
+      const g = e.forme.geometry as { type: 'Polygon' | 'MultiPolygon'; coordinates: Position[][] | Position[][][] };
+      const polys = (g.type === 'Polygon' ? [g.coordinates] : g.coordinates) as Position[][][];
+      for (const p of decimer(polys, 1.5)) for (const r of p) n += r.length;
+    }
+    expect(n).toBeLessThan(10_000);
+  });
+
   it('la Russie et le Groenland (le monde) : le pays seul éclairé, pas tout l’ovale ; l’océan reste visible', () => {
     const { cartes } = dessiner(TOUS.filter((d) => d.id === 'RUS' || d.id === 'GRL'));
     for (const c of cartes) {

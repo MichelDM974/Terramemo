@@ -159,7 +159,9 @@ const nouvelleTrace = (formes: readonly Forme[], tolerance: number, aireMin: num
  * triangle comme son complément, la sphère entière moins l'îlot, et le peindrait sur toute la carte (la Russie et le
  * Groenland sur tout l'ovale, les terres du fond sur l'eau de chaque mer ; § 21 de l'étude). Le sens se compte en
  * passant (une multiplication de plus par point, sans trigonométrie) ; l'anneau gardé entier est petit (quelques
- * dizaines de points au plus).
+ * dizaines de points au plus). Un anneau réduit à moins de 4 points est retiré avant cette garde : son aire nulle
+ * n'est pas un sens retourné (le garder entier, chaque îlot à pleine résolution, multipliait par 2 à 5 les points projetés
+ * d'un fond du monde et allongeait les tranches jusqu'à ≈ 13 ms).
  */
 export function decimer(polys: readonly Position[][][], tol: number): Position[][][] {
   const sortie: Position[][][] = [];
@@ -184,7 +186,7 @@ export function decimer(polys: readonly Position[][][], tol: number): Position[]
         lx = x;
         ly = y;
       }
-      const garde = Math.sign(aireG) === Math.sign(aire) ? g : r;
+      const garde = g.length < 4 || Math.sign(aireG) === Math.sign(aire) ? g : r;
       if (garde.length >= 4) anneaux.push(garde);
       else if (!anneaux.length) break;
     }
