@@ -198,6 +198,8 @@ describe('accueil : la fiche d’une commune (#34, lot F5)', () => {
     a.toucher('FRA');
     await tenir();
     expect(a.charges).not.toContain('communes');
+    // Ce que la France a demandé (les fiches du monde, les capitales) : rien de plus ne part pour une commune.
+    const duMonde = a.charges.slice();
     // La recherche montre une commune : l'île chargée, la commune montrée (un toucher), ses fiches demandées.
     a.vue.montrerLieu('reunion', SAINT_PIERRE);
     await vi.waitFor(() => expect(a.chevron()).toBe(true));
@@ -210,8 +212,8 @@ describe('accueil : la fiche d’une commune (#34, lot F5)', () => {
     expect(a.faits()).toBe('156 000 hab.');
     expect(a.chevron()).toBe(true);
     expect(a.charges.filter((c) => c === 'communes')).toHaveLength(1);
-    // Ni les fiches du monde, ni les capitales, ni les drapeaux pour une commune.
-    expect(a.charges.filter((c) => c !== 'communes').sort()).toEqual(['capitales', 'fiches']);
+    // Ni les fiches du monde, ni les capitales, ni les drapeaux pour une commune : seules celles des communes en plus.
+    expect(a.charges.filter((c) => c !== 'communes')).toEqual(duMonde);
   });
 
   it('sans fiches des communes (hors ligne) : pas de chevron, la barre n’ouvre rien ; le toucher suivant réessaie', async () => {
@@ -253,6 +255,35 @@ describe('accueil : la fiche d’une commune (#34, lot F5)', () => {
     a.avant();
     await vi.waitFor(() => expect(a.titre()).toBe('Saint-Pierre'));
     await vi.waitFor(() => expect(a.montresIle.at(-1)).toBe(SAINT_PIERRE));
+  });
+
+  it('« × » après une voisine : la fiche fermée, la voisine dans la barre, l’île gardée (rien sur la carte du monde)', async () => {
+    const a = monter();
+    a.vue.activer();
+    a.vue.montrerLieu('reunion', SAINT_PIERRE);
+    await vi.waitFor(() => expect(a.chevron()).toBe(true));
+    (a.bouton() as unknown as { click(): void }).click();
+    await vi.waitFor(() => expect(a.titre()).toBe('Saint-Pierre'));
+    a.voisin('Le Tampon');
+    await vi.waitFor(() => expect(a.montresIle).toContain('97422'));
+    (a.zone.querySelector('#fiche-lieu .croix') as unknown as { click(): void }).click();
+    await vi.waitFor(() => expect(a.ouverte()).toBe(false));
+    expect(a.zone.querySelector('#barre-carte')!.dataset.id).toBe('97422');
+    expect(a.nom()).toBe('Le Tampon');
+    expect(a.faits()).toBe('82 600 hab.');
+    expect(a.montresMonde).toEqual([]);
+    expect(a.terrainsMontres).not.toContain('monde');
+  });
+
+  it('une entrée de fiche de l’île rendue depuis le monde, l’île pas encore chargée (un retour, § 4.4) : l’île chargée avec les fiches, la commune montrée, sa fiche', async () => {
+    const a = monter();
+    a.vue.activer();
+    a.vue.surFiche({ terrain: 'reunion', id: SAINT_PIERRE, rang: 1 });
+    await vi.waitFor(() => expect(a.titre()).toBe('Saint-Pierre'));
+    expect(a.lignes()[3]).toBe(`${T.intercommunalite} · CIVIS`);
+    await vi.waitFor(() => expect(a.montresIle).toContain(SAINT_PIERRE));
+    expect(a.montresMonde).toEqual([]);
+    expect(a.charges.filter((c) => c === 'communes')).toHaveLength(1);
   });
 
   it('avant la relecture : pas de ligne « Gentilé »', async () => {

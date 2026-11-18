@@ -120,6 +120,10 @@ describe('écran Crédits', () => {
     // Les lignes nouvelles à la fin (credits.ts lit l'IGN par son rang) ; l'IGN, la troisième.
     expect(T.donnees.map((d) => d.nom).slice(-3)).toEqual(['Banque mondiale', "Base de données des fuseaux horaires de l'IANA", 'CIA World Factbook']);
     expect(T.donnees[2]!.nom).toContain('IGN');
+    // Lot F5 : la mention du recensement de l'INSEE, à l'année des habitants servis par reunion/fiches.json.
+    const annees = new Set(Object.values(json<{ lieux: Record<string, { ha: number }> }>('public/geo/reunion/fiches.json').lieux).map((l) => l.ha));
+    expect([...annees]).toHaveLength(1);
+    expect(simple(T.donnees[2]!.detail)).toBe(`Communes de La Réunion ; habitants : recensement INSEE de ${[...annees][0]}`);
     // Unicode CLDR : les langues et les monnaies aussi, à la version des deux extraits.
     const cldr = ligne('Unicode CLDR');
     expect(cldr.detail).toBe(`Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays et territoire · v${source('Unicode CLDR, langues').split(' ')[0]}`);
