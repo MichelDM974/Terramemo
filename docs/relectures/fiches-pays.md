@@ -11,7 +11,7 @@
 
 ## 1. Fêtes nationales (clé `fete`)
 
-197 pays ; 2 sans fête ; 19 où le World Factbook donne plusieurs jours (colonne « Plusieurs ») ; 44 à relire. Le Factbook pré-remplit (texte anglais, domaine public) ; la liste de la Wikipédia sert de seconde source.
+197 pays ; 2 sans fête ; 19 où le World Factbook donne plusieurs jours (colonne « Plusieurs ») ; 42 à relire. Le Factbook pré-remplit (texte anglais, domaine public) ; la liste de la Wikipédia sert de seconde source.
 
 | Pays | Jour | Nom | Plusieurs | Factbook | Wikipédia | Raison |  |
 |---|---|---|---|---|---|---|---|
@@ -39,7 +39,7 @@
 | Bhoutan | 17 décembre | Fête nationale |  | National Day (Ugyen WANGCHUCK became first hereditary king), 17 December (1907) | 17 décembre | Factbook et liste de Wikipédia : le 17 décembre |  |
 | Biélorussie | 3 juillet | Fête de l'indépendance |  | Independence Day, 3 July (1944) | 3 juillet | Factbook et liste de Wikipédia : le 3 juillet |  |
 | Bolivie | 6 août | Fête de l'indépendance |  | Independence Day, 6 August (1825) | 6 août | Factbook et liste de Wikipédia : le 6 août |  |
-| Bosnie-Herzégovine | aucune | — | oui | Independence Day, 1 March (1992) and Statehood Day, 25 November (1943) - both observed in the Federation of Bosnia and Herzegovina entity; Victory Day, 9 May (1945) and Dayton Agreement Day, 21 November (1995) - both observed in the Republika Srpska entity | — | Le Factbook donne quatre jours, deux par entité (1er mars et 25 novembre dans la Fédération, 9 mai et 21 novembre en Republika Srpska), et aucun pour l'État ; la liste de Wikipédia donne le 21 novembre (accords de Dayton). Aucune fête que l'État commun se donne : pas de ligne, à relire | **à relire** |
+| Bosnie-Herzégovine | aucune | — | oui | Independence Day, 1 March (1992) and Statehood Day, 25 November (1943) - both observed in the Federation of Bosnia and Herzegovina entity; Victory Day, 9 May (1945) and Dayton Agreement Day, 21 November (1995) - both observed in the Republika Srpska entity | — | Le Factbook donne quatre jours, deux par entité (1er mars et 25 novembre dans la Fédération, 9 mai et 21 novembre en Republika Srpska), et aucun pour l'État ; la liste de Wikipédia donne le 21 novembre (accords de Dayton). Aucune fête que l'État commun se donne : pas de ligne, à relire ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | Botswana | 30 septembre | Fête de l'indépendance |  | Independence Day (Botswana Day), 30 September (1966) | 30 septembre | Factbook et liste de Wikipédia : le 30 septembre |  |
 | Brésil | 7 septembre | Fête de l'indépendance |  | Independence Day, 7 September (1822) | 7 septembre | Factbook et liste de Wikipédia : le 7 septembre |  |
 | Brunei | 23 février | Fête nationale |  | National Day, 23 February (1984) | 23 février | Factbook et liste de Wikipédia : le 23 février |  |
@@ -152,7 +152,7 @@
 | Ouzbékistan | 1er septembre | Fête de l'indépendance |  | Independence Day, 1 September (1991) | 1er septembre | Factbook et liste de Wikipédia : le 1er septembre |  |
 | Pakistan | 23 mars | Jour du Pakistan |  | Pakistan Day, 23 March, also referred to as Pakistan Resolution Day (1940) or Republic Day (1956) | 23 mars | Factbook et liste de Wikipédia : le 23 mars |  |
 | Palaos | 9 juillet | Fête de la Constitution | oui | Constitution Day, 9 July (1981); Independence Day, 1 October (1994) | 9 juillet | Factbook : le 9 juillet (Constitution) et le 1er octobre (indépendance) ; retenu le 9 juillet, que la liste de Wikipédia donne seul : à relire | **à relire** |
-| Palestine | 15 novembre | Fête de l'indépendance |  | — | 15 novembre | Pas de fiche du Factbook pour l'État de Palestine (ses fiches sont la Cisjordanie et Gaza, sans fête) ; le 15 novembre, proclamation de l'indépendance de 1988, d'après la liste de Wikipédia : à relire | **à relire** |
+| Palestine | 15 novembre | Fête de l'indépendance |  | — | 15 novembre | Pas de fiche du Factbook pour l'État de Palestine (ses fiches sont la Cisjordanie et Gaza, sans fête) ; le 15 novembre, proclamation de l'indépendance de 1988, d'après la liste de Wikipédia : à relire ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | Panama | 3 novembre | Fête de l'indépendance |  | Independence Day (Separation Day), 3 November (1903) | 3 novembre | Factbook et liste de Wikipédia : le 3 novembre |  |
 | Papouasie-Nouvelle-Guinée | 16 septembre | Fête de l'indépendance |  | Independence Day, 16 September (1975) | 16 septembre | Factbook et liste de Wikipédia : le 16 septembre |  |
 | Paraguay | 15 mai | Fête de l'indépendance | oui | Independence Day, 14-15 May (1811) (observed 15 May); 14 May is celebrated as Flag Day | 15 mai | Factbook : l'indépendance les 14 et 15 mai, observée le 15 ; le 14 mai est le Jour du drapeau ; retenu le 15 mai, comme la liste de Wikipédia | **à relire** |
@@ -226,7 +226,7 @@
 | Chypre | Chypriote | Chypriotes | Chypriote, Cypriote | Wikidata : Chypriote et Cypriote ; « Chypriote » est la forme courante, « Cypriote » vieillie |  |
 | Corée du Nord | Nord-Coréen | Nord-Coréens | Nord-coréen | Wikidata : « Nord-coréen » ; majuscule aux deux éléments, comme « Sud-Coréen » |  |
 | Corée du Sud | Sud-Coréen | Sud-Coréens | Sud-coréen | Wikidata : « Sud-coréen » ; le gentilé prend la majuscule à ses deux éléments, comme « Sud-Africain » |  |
-| État de la Cité du Vatican | Vaticanais | Vaticanais | aucune | Wikidata n'a pas de gentilé ; l'infobox de la Wikipédia en français donne « Vaticanais, Vaticanaise » et « Vatican, Vaticane » (révision 241316685) : le premier | **à relire** |
+| État de la Cité du Vatican | Vaticanais | Vaticanais | aucune | Wikidata n'a pas de gentilé ; l'infobox de la Wikipédia en français donne « Vaticanais, Vaticanaise » et « Vatican, Vaticane » (révision 241316685) : le premier ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | États-Unis | Américain | Américains | Américain, États-Unien | Wikidata : Américain et États-Unien ; « Américain » est la forme la plus courante |  |
 | Éthiopie | Éthiopien | Éthiopiens | Éthiopien, Éthiopique | Wikidata : Éthiopien et Éthiopique ; « éthiopique » est un adjectif savant (langues, Antiquité) |  |
 | Guatemala | Guatémaltèque | Guatémaltèques | Guatémalien, Guatémaltèque | Wikidata : Guatémalien et Guatémaltèque ; « Guatémaltèque » est la forme courante |  |
@@ -467,10 +467,10 @@
 | Érythrée | mont Soira | 3 018 m | mont Soira (? m) ; valeurs : 3013 m, 3018 m | — | — | Wikidata : 3 013 m et 3 018 m pour le mont Soira, sans rang ni date ; 3 018 m selon la seconde source |  |
 | Éthiopie | Ras Dashan | 4 533 m | Ras Dashan (4 533 m) | 4 550 m | − 17 m | Wikidata : 4 533 m pour le Ras Dashan ; la seconde source : 4 550 m | **à relire** |
 | Finlande | versant sud du Halti | 1 324 m | Halti (1 361 m) | 1 328 m | − 4 m | Critère du § 2.1, le plus haut point du tracé de fait : Wikidata donne le Halti et l'altitude de son sommet (1 361 m), qui est en Norvège, à moins de 10 km du tracé finlandais (S56 ne le voit pas). Le World Factbook (miroir figé) et la seconde source donnent 1 328 m ; 1 324 m est celle de la page du Halti (l'écart est à relire) | **à relire** |
-| Gambie | point sans nom près de Sabi | 63 m | aucun | Red Rock, 53 m | + 10 m | Wikidata ne déclare pas de point culminant pour la Gambie. Le Factbook récent : un point sans nom à 63 m, à 3 km au sud-est de Sabi ; la Wikipédia en anglais (« Geography of the Gambia », révision 1379067827 du 07/10/2026) : « at least 53 m » (Factbook ancien, carte de 1966) ou 64 m (SRTM, peakbagger), entre Sabi et Vélingara ; la liste en français : « Red Rock », 53 m, nom qu'aucune autre source lue ne donne, donc pas servi. Sans coordonnées | **à relire** |
+| Gambie | point sans nom près de Sabi | 63 m | aucun | Red Rock, 53 m | + 10 m | Wikidata ne déclare pas de point culminant pour la Gambie. Le Factbook récent : un point sans nom à 63 m, à 3 km au sud-est de Sabi ; la Wikipédia en anglais (« Geography of the Gambia », révision 1379067827 du 07/10/2026) : « at least 53 m » (Factbook ancien, carte de 1966) ou 64 m (SRTM, peakbagger), entre Sabi et Vélingara ; la liste en français : « Red Rock », 53 m, nom qu'aucune autre source lue ne donne, donc pas servi. Sans coordonnées ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | Géorgie | Chkhara | 5 193 m | Chkhara (5 193 m) | 5 201 m | − 8 m | Wikidata : 5 193 m pour le Chkhara ; la seconde source : 5 201 m | **à relire** |
 | Guinée-Bissau | mont Torin | 262 m | mont Torin (262 m) | lieu sans nom au nord-est du pays, 300 m | − 38 m | Wikidata : mont Torin, 262 m ; la seconde source : un lieu sans nom au nord-est, 300 m | **à relire** |
-| Guyana | — | — | mont Roraima (2 810 m) | — | — | Décision de l'utilisateur du 18/11/2026 : aucun point culminant ne passe par une zone disputée. Wikidata déclare le mont Roraima (2 810 m, le sommet au Venezuela ; la Wikipédia en français, « Liste des pays par point culminant », révision 240366193 : 2 772 m pour le point du Guyana, estimé) ; la part du Guyana est dans l'Essequibo, tenu par le Guyana et revendiqué par le Venezuela (NE_B56), comme tout l'ouest du pays : le cas du K2 au Pakistan. Aucune source lue ne donne le plus haut point du reste du pays : pas de ligne de sommet (sinon, le Roraima par exception) | **à relire** |
+| Guyana | — | — | mont Roraima (2 810 m) | — | — | Décision de l'utilisateur du 18/11/2026 : aucun point culminant ne passe par une zone disputée. Wikidata déclare le mont Roraima (2 810 m, le sommet au Venezuela ; la Wikipédia en français, « Liste des pays par point culminant », révision 240366193 : 2 772 m pour le point du Guyana, estimé) ; la part du Guyana est dans l'Essequibo, tenu par le Guyana et revendiqué par le Venezuela (NE_B56), comme tout l'ouest du pays : le cas du K2 au Pakistan. Aucune source lue ne donne le plus haut point du reste du pays : pas de ligne de sommet (sinon, le Roraima par exception) ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | Haïti | pic la Selle | 2 674 m | pic la Selle (2 674 m) | 2 680 m | − 6 m | Wikidata : 2 674 m pour le pic la Selle ; la seconde source : 2 680 m | **à relire** |
 | Honduras | Cerro Las Minas | 2 849 m | Cerro Las Minas (2 849 m) | 2 870 m | − 21 m | Wikidata : 2 849 m pour le Cerro Las Minas ; la seconde source : 2 870 m | **à relire** |
 | Iran | mont Damavand | 5 610 m | mont Damavand (? m) ; valeurs : 5628 m, 5610 m | 5 604 m | + 6 m | Wikidata : 5 628 m et 5 610 m pour le mont Damavand, sans rang ni date ; 5 610 m selon le qualificatif de la déclaration de l'Iran ; la seconde source : 5 604 m | **à relire** |
@@ -481,13 +481,13 @@
 | Mexique | pic d'Orizaba | 5 636 m | pic d'Orizaba (5 636 m) | 5 675 m | − 39 m | Wikidata : 5 636 m pour le pic d'Orizaba ; la seconde source : 5 675 m | **à relire** |
 | Namibie | massif du Brandberg | 2 573 m | massif du Brandberg (2 573 m) | Königstein, 2 606 m | − 33 m | Wikidata : massif du Brandberg, 2 573 m ; la seconde source : le Königstein (son point culminant), 2 606 m | **à relire** |
 | Oman | djebel Shams | 3 018 m | djebel Shams (3 018 m) | 2 980 m | + 38 m | Wikidata : 3 018 m pour le djebel Shams ; la seconde source : 2 980 m | **à relire** |
-| Pakistan | Tirich Mir | 7 708 m | K2 (8 611 m) | — | — | Décision de l'utilisateur du 18/11/2026 : aucun point culminant ne passe par une zone disputée. Wikidata déclare le K2 (8 611 m), dans le Gilgit-Baltistan (zone tenue par le Pakistan, revendiquée par l'Inde, NE_B08), comme tous les sommets du Karakoram et le Nanga Parbat ; retenu le Tirich Mir, point culminant de l'Hindou Kouch, hors des zones : qu'il soit le plus haut point du Pakistan hors des zones est estimé (aucune source lue ne le dit) | **à relire** |
+| Pakistan | Tirich Mir | 7 708 m | K2 (8 611 m) | — | — | Décision de l'utilisateur du 18/11/2026 : aucun point culminant ne passe par une zone disputée. Wikidata déclare le K2 (8 611 m), dans le Gilgit-Baltistan (zone tenue par le Pakistan, revendiquée par l'Inde, NE_B08), comme tous les sommets du Karakoram et le Nanga Parbat ; retenu le Tirich Mir, point culminant de l'Hindou Kouch, hors des zones : qu'il soit le plus haut point du Pakistan hors des zones est estimé (aucune source lue ne le dit) ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | Pays-Bas | mont Scenery | 870 m | mont Scenery (870 m, préféré) ; Vaalserberg (322 m) ; valeurs : 887 m, 870 m (préféré) | 887 m | − 17 m | Wikidata préfère 870 m pour le mont Scenery (Saba, dans le tracé de l'entité de la carte) ; la seconde source : 887 m | **à relire** |
 | Pologne | Rysy | 2 499 m | Rysy (2 501 m) | — | — | Wikidata : 2 501 m pour le Rysy, dont le pic le plus haut (2 500 m) est en Slovaquie ; le point culminant de la Pologne est le pic nord-ouest, à 2 499 m (critère du § 2.1 : le plus haut point du tracé de fait) |  |
 | République centrafricaine | mont Ngaoui | 1 410 m | mont Ngaoui (1 410 m) | 1 420 m | − 10 m | Wikidata : 1 410 m ; la seconde source : 1 420 m | **à relire** |
 | Saint-Marin | mont Titano | 756 m | mont Titano (? m) ; valeurs : 739 m, 756 m | — | — | Wikidata : 739 m et 756 m pour le mont Titano, sans rang ni date ; 756 m, à 1 m de la seconde source |  |
 | Saint-Vincent-et-les Grenadines | la Soufrière | 1 220 m | la Soufrière (1 220 m) | 1 234 m | − 14 m | Wikidata : 1 220 m pour la Soufrière ; la seconde source : 1 234 m | **à relire** |
-| Sénégal | falaise de Népin | 531 m | falaise de Népin (531 m) | lieu sans toponyme proche de Nepen Diakha, 581 m | − 50 m | Wikidata : falaise de Népin, 531 m, sans coordonnées ; la seconde source : un lieu sans nom près de Nepen Diakha, 581 m ; le World Factbook récent (miroir figé du 11/09/2026, africa_sg.json) : « unnamed elevation 2.8 km southeast of Nepen Diaka 648 m ». Trois valeurs, aucune tranchée : Wikidata gardé | **à relire** |
+| Sénégal | point sans nom près de Nepen Diakha | 648 m | falaise de Népin (531 m) | lieu sans toponyme proche de Nepen Diakha, 581 m | + 67 m | Wikidata : falaise de Népin, 531 m, sans coordonnées ; la seconde source : un lieu sans nom près de Nepen Diakha, 581 m ; le World Factbook récent : un point sans nom à 2,8 km au sud-est de Nepen Diakha, 648 m. Retenu : le Factbook, comme pour la Gambie ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | Serbie | Midžor | 2 169 m | Velika Rudoka (2 658 m) | — | — | Wikidata déclare Velika Rudoka, sur la frontière du Kosovo et de la Macédoine du Nord, à 75 km du tracé de la Serbie : le Kosovo a sa propre fiche ; le plus haut point du tracé : le Midžor, sur la frontière bulgare |  |
 | Slovaquie | Gerlachovský štít | 2 655 m | Gerlachovský štít (? m) ; valeurs : 2655 m, 2654.4 m | — | — | Wikidata : 2 655 m et 2 654,4 m pour le Gerlachovský štít, sans rang ni date ; 2 655 m, comme la seconde source |  |
 | Somalie | — | — | Shimbiris (2 460 m) | — | — | Décision de l'utilisateur du 18/11/2026 : aucun point culminant ne passe par une zone disputée. Wikidata déclare Shimbiris (2 460 m ; 2 450 m selon la seconde source), dans le Somaliland, qui a sa propre fiche (à 185 km du tracé de la Somalie) ; aucune source lue ne donne le plus haut point du reste du pays : pas de ligne de sommet |  |
@@ -503,7 +503,7 @@ Sommets à plus de 10 km du tracé de leur pays, ou sans coordonnées (S56 ; la 
 |---|---|---|
 | Gambie | point sans nom près de Sabi | sans coordonnées |
 | Îles Marshall | Likiep | 128,7 km |
-| Sénégal | falaise de Népin | sans coordonnées |
+| Sénégal | point sans nom près de Nepen Diakha | sans coordonnées |
 | Tuvalu | Niulakita | 154,3 km |
 
 Sommets à 5 km ou moins d'une zone disputée de `contestees.json` (le tracé est simplifié ; un sommet dedans fait échouer le build) :
@@ -723,12 +723,12 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Pays | Code | Langue | Part (CLDR) | Statut (CLDR) | Raison |  |
 |---|---|---|---|---|---|---|
 | Algérie | arq | arq | 83 % |  | dialecte de l’arabe (arabe algérien) |  |
-| Algérie | fr | français | 33 % | officielle | le français n’a pas de statut officiel en Algérie (Constitution : l’arabe, et tamazight) ; CLDR le dit officiel | **à relire** |
+| Algérie | fr | français | 33 % | officielle | le français n’a pas de statut officiel en Algérie (Constitution : l’arabe, et tamazight) ; CLDR le dit officiel |  |
 | Algérie | mey | mey | 11 % |  | dialecte de l’arabe (hassanya) |  |
 | Allemagne | bar | bar | 17 % |  | dialecte de l’allemand (bavarois) |  |
 | Allemagne | en | anglais | 64 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Allemagne | fr | français | 18 % |  | langue apprise, sans statut officiel |  |
-| Allemagne | nds | nds | 12 % |  | bas allemand : langue régionale reconnue, dont tous les locuteurs parlent l’allemand ; retiré comme les dialectes (§ 2.1) | **à relire** |
+| Allemagne | nds | nds | 12 % |  | bas allemand : langue régionale reconnue, dont tous les locuteurs parlent l’allemand ; retiré comme les dialectes (§ 2.1) |  |
 | Arménie | ru | russe | 65 % |  | langue apprise, sans statut officiel |  |
 | Autriche | bar | bar | 95 % |  | dialecte de l’allemand (bavarois), qui double l’allemand officiel |  |
 | Autriche | en | anglais | 73 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
@@ -742,7 +742,7 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Bulgarie | ru | russe | 23 % |  | langue apprise, sans statut officiel |  |
 | Chypre | en | anglais | 73 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Croatie | en | anglais | 49 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
-| Danemark | de | allemand | 47 % |  | langue apprise ; la minorité allemande du Schleswig du Nord est de l’ordre de 0,3 % (estimé) | **à relire** |
+| Danemark | de | allemand | 47 % |  | langue apprise ; la minorité allemande du Schleswig du Nord est de l’ordre de 0,3 % (estimé) |  |
 | Danemark | en | anglais | 86 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Danemark | sv | suédois | 13 % |  | langue apprise, sans statut officiel |  |
 | Égypte | arz | arz | 64 % |  | dialecte de l’arabe (arabe égyptien) |  |
@@ -751,7 +751,7 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Espagne | en | anglais | 24 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Estonie | en | anglais | 50 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Estonie | fi | finnois | 21 % |  | langue apprise, sans statut officiel |  |
-| État de la Cité du Vatican | la | la | 82 % |  | langue officielle du Saint-Siège, que personne ne parle comme langue du pays ; CLDR lui donne la part de l'italien (82 %), recopiée | **à relire** |
+| État de la Cité du Vatican | la | la | 82 % |  | langue officielle du Saint-Siège, que personne ne parle comme langue du pays ; CLDR lui donne la part de l'italien (82 %), recopiée |  |
 | Éthiopie | en | anglais | 43 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Fidji | hi | hindi | 44 % |  | doublon du hindi fidjien (hif), officiel |  |
 | Finlande | de | allemand | 18 % |  | langue apprise, sans statut officiel |  |
@@ -763,12 +763,12 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Hongrie | de | allemand | 18 % |  | langue apprise, sans statut officiel |  |
 | Hongrie | en | anglais | 20 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Irak | en | anglais | 35 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
-| Irak | ku | ku | 10 % |  | kurde de CLDR (alphabet arabe), qui recouvre le sorani déjà listé : doublon | **à relire** |
+| Irak | ku | ku | 10 % |  | kurde de CLDR (alphabet arabe), qui recouvre le sorani déjà listé : doublon |  |
 | Irlande | fr | français | 13 % |  | langue apprise, sans statut officiel |  |
 | Israël | apc | apc | 17 % |  | dialecte de l’arabe (arabe levantin), qui double l’arabe officiel |  |
 | Israël | en | anglais | 85 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Italie | en | anglais | 34 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
-| Italie | fr | français | 20 % |  | langue apprise ; officielle dans la seule Vallée d’Aoste (0,2 % de la population, estimé) | **à relire** |
+| Italie | fr | français | 20 % |  | langue apprise ; officielle dans la seule Vallée d’Aoste (0,2 % de la population, estimé) |  |
 | Jordanie | apc | apc | 66 % |  | dialecte de l’arabe (arabe levantin) |  |
 | Jordanie | en | anglais | 45 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Kazakhstan | en | anglais | 15 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
@@ -776,11 +776,11 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Lettonie | en | anglais | 46 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Liban | apc | apc | 100 % |  | dialecte de l’arabe (arabe levantin) |  |
 | Liban | en | anglais | 40 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
-| Liban | fr | français | 38 % |  | langue apprise, sans statut officiel (très répandue) | **à relire** |
+| Liban | fr | français | 38 % |  | langue apprise, sans statut officiel (très répandue) |  |
 | Liechtenstein | gsw | gsw | 85 % | officielle | dialecte de l’allemand (alémanique, « officiel de fait » dans CLDR), qui double l’allemand |  |
 | Lituanie | de | allemand | 14 % |  | langue apprise, sans statut officiel |  |
 | Lituanie | en | anglais | 38 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
-| Lituanie | ru | russe | 80 % |  | langue apprise ; la minorité russe est d’environ 5 % (estimé) | **à relire** |
+| Lituanie | ru | russe | 80 % |  | langue apprise ; la minorité russe est d’environ 5 % (estimé) |  |
 | Luxembourg | en | anglais | 56 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Madagascar | en | anglais | 18 % | officielle | plus officiel depuis la Constitution de novembre 2010, qui ne nomme que le malgache et le français (Wikipédia en français, « Madagascar », révision 241288817 du 12/11/2026, lue le 17/11/2026) ; langue apprise (CLDR : 18 %, toute personne qui la parle) |  |
 | Malaisie | en | anglais | 21 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
@@ -789,22 +789,22 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Malte | it | italien | 56 % |  | langue apprise, sans statut officiel |  |
 | Maroc | ary | ary | 87 % |  | dialecte de l’arabe (arabe marocain) |  |
 | Maroc | en | anglais | 14 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
-| Maroc | fr | français | 36 % | officielle | le français n’a pas de statut officiel au Maroc (Constitution de 2011 : l’arabe et l’amazighe) ; CLDR le dit officiel de fait | **à relire** |
-| Maroc | tzm | tzm | 9,8 % | officielle | amazighe de l’Atlas central : une variété de l’amazighe, que l’amazighe standard (zgh) représente | **à relire** |
+| Maroc | fr | français | 36 % | officielle | le français n’a pas de statut officiel au Maroc (Constitution de 2011 : l’arabe et l’amazighe) ; CLDR le dit officiel de fait |  |
+| Maroc | tzm | tzm | 9,8 % | officielle | amazighe de l’Atlas central : une variété de l’amazighe, que l’amazighe standard (zgh) représente |  |
 | Mauritanie | fr | français | 13 % |  | langue apprise, sans statut officiel |  |
 | Mauritanie | mey | mey | 87 % |  | dialecte de l’arabe (hassanya), qui double l’arabe officiel |  |
 | Mexique | en | anglais | 13 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Norvège | no | no | 100 % | officielle | double code du norvégien : « no » recouvre le bokmål (nb) et le nynorsk (nn), déjà listés (§ 2.1) |  |
 | Ouzbékistan | ru | russe | 14 % |  | langue apprise, sans statut officiel |  |
-| Pakistan | lah | lah | 40 % |  | lahnda : macrolangue qui recouvre le pendjabi occidental et le saraïki, déjà listés | **à relire** |
+| Pakistan | lah | lah | 40 % |  | lahnda : macrolangue qui recouvre le pendjabi occidental et le saraïki, déjà listés |  |
 | Palestine | apc | apc | 87 % |  | dialecte de l’arabe (arabe levantin) |  |
 | Panama | en | anglais | 14 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Pays-Bas | de | allemand | 71 % |  | langue apprise, sans statut officiel |  |
 | Pays-Bas | en | anglais | 90 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Pays-Bas | fr | français | 19 % |  | langue apprise, sans statut officiel |  |
-| Pays-Bas | nds | nds | 11 % |  | bas saxon : langue régionale reconnue, dont tous les locuteurs parlent le néerlandais ; retiré comme en Allemagne | **à relire** |
+| Pays-Bas | nds | nds | 11 % |  | bas saxon : langue régionale reconnue, dont tous les locuteurs parlent le néerlandais ; retiré comme en Allemagne |  |
 | Philippines | es | espagnol | 31 % |  | langue apprise ; ses locuteurs de naissance sont rares (le chiffre de CLDR, 31 %, est sans doute faux, estimé) |  |
-| Pologne | de | allemand | 19 % |  | langue apprise ; la minorité allemande est d’environ 0,2 % (estimé) | **à relire** |
+| Pologne | de | allemand | 19 % |  | langue apprise ; la minorité allemande est d’environ 0,2 % (estimé) |  |
 | Pologne | en | anglais | 33 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Pologne | ru | russe | 18 % |  | langue apprise, sans statut officiel |  |
 | Portugal | en | anglais | 27 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
@@ -815,15 +815,15 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Roumanie | fr | français | 12 % |  | langue apprise, sans statut officiel |  |
 | Royaume-Uni | fr | français | 17 % |  | langue apprise, sans statut officiel |  |
 | Sao Tomé-et-Principe | fr | français | 20 % |  | langue apprise, sans statut officiel |  |
-| Serbie | sq | albanais | 19 % |  | le chiffre de CLDR (19 %) compte le Kosovo, qui a sa propre fiche ; l’albanais est parlé par environ 1 % de la Serbie seule (estimé) | **à relire** |
+| Serbie | sq | albanais | 19 % |  | le chiffre de CLDR (19 %) compte le Kosovo, qui a sa propre fiche ; l’albanais est parlé par environ 1 % de la Serbie seule (estimé) |  |
 | Slovaquie | cs | tchèque | 47 % |  | langue comprise de la plupart des Slovaques (proche) ; la minorité tchèque est d’environ 0,5 % (estimé) |  |
 | Slovaquie | de | allemand | 22 % |  | langue apprise, sans statut officiel |  |
 | Slovaquie | en | anglais | 26 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Slovénie | de | allemand | 42 % |  | langue apprise, sans statut officiel |  |
 | Slovénie | en | anglais | 59 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
-| Slovénie | hr | croate | 61 % |  | langue apprise ou comprise ; la minorité croate est d’environ 2 % (estimé) | **à relire** |
+| Slovénie | hr | croate | 61 % |  | langue apprise ou comprise ; la minorité croate est d’environ 2 % (estimé) |  |
 | Soudan | apd | apd | 61 % |  | dialecte de l’arabe (arabe soudanais) |  |
-| Sri Lanka | en | anglais | 10 % |  | langue de liaison (Constitution), apprise ; pas officielle | **à relire** |
+| Sri Lanka | en | anglais | 10 % |  | langue de liaison (Constitution), apprise ; pas officielle |  |
 | Suède | en | anglais | 86 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Suisse | en | anglais | 45 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Suisse | gsw | gsw | 66 % | officielle | dialecte de l’allemand (suisse allemand, « officiel de fait » dans CLDR), qui double l’allemand |  |
@@ -831,10 +831,10 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Tadjikistan | ru | russe | 12 % |  | langue apprise, sans statut officiel |  |
 | Tchéquie | de | allemand | 15 % |  | langue apprise, sans statut officiel |  |
 | Tchéquie | en | anglais | 27 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
-| Tchéquie | sk | slovaque | 16 % |  | langue comprise de la plupart des Tchèques (proche), la minorité slovaque est d’environ 1 % (estimé) | **à relire** |
+| Tchéquie | sk | slovaque | 16 % |  | langue comprise de la plupart des Tchèques (proche), la minorité slovaque est d’environ 1 % (estimé) |  |
 | Thaïlande | en | anglais | 27 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 | Tunisie | aeb | aeb | 90 % |  | dialecte de l’arabe (arabe tunisien) |  |
-| Tunisie | fr | français | 53 % | officielle | le français n’a pas de statut officiel en Tunisie (Constitution : l’arabe) ; CLDR le dit officiel | **à relire** |
+| Tunisie | fr | français | 53 % | officielle | le français n’a pas de statut officiel en Tunisie (Constitution : l’arabe) ; CLDR le dit officiel |  |
 | Turkménistan | ru | russe | 12 % |  | langue apprise, sans statut officiel |  |
 | Turquie | en | anglais | 17 % |  | langue apprise, sans statut officiel (CLDR compte toute personne qui la parle) |  |
 
@@ -852,12 +852,12 @@ Les officielles d'abord (sans part), puis les langues du pays parlées par 10 % 
 | Afrique du Sud | ve | venda | oui | officielle dans tout le pays (CLDR : « official_regional ») | Wikipédia en français, « Langues en Afrique du Sud », révision 239514997 du 15/09/2026 (lue le 17/11/2026) : douze langues officielles, dont onze depuis la Constitution de 1996 |  |
 | Afrique du Sud | xh | xhosa | oui | officielle dans tout le pays (CLDR : « official_regional ») | Wikipédia en français, « Langues en Afrique du Sud », révision 239514997 du 15/09/2026 (lue le 17/11/2026) : douze langues officielles, dont onze depuis la Constitution de 1996 |  |
 | Afrique du Sud | zu | zoulou | oui | officielle dans tout le pays (CLDR : « official_regional ») | Wikipédia en français, « Langues en Afrique du Sud », révision 239514997 du 15/09/2026 (lue le 17/11/2026) : douze langues officielles, dont onze depuis la Constitution de 1996 |  |
-| Afrique du Sud | sfs | langue des signes sud-africaine | oui | langue des signes sud-africaine, douzième langue officielle depuis l'amendement constitutionnel du 19 juillet 2023 (absente de CLDR) | Wikipédia en français, « Langues en Afrique du Sud », révision 239514997 du 15/09/2026 (lue le 17/11/2026) | **à relire** |
-| Algérie | ber | tamazight | oui | tamazight, langue nationale et officielle depuis 2016 ; CLDR ne la marque pas (il compte le kabyle, 7,8 %, sans statut) ; code ISO 639-2 « ber » (langues berbères) | Constitution algérienne, art. 4, révision de 2016 (estimé, de mémoire) | **à relire** |
-| Maroc | zgh | amazighe standard marocain | oui | l’amazighe, langue officielle depuis 2011 ; CLDR ne marque officielle que sa variété de l’Atlas central (tzm) | Constitution du Maroc de 2011, art. 5 (estimé, de mémoire) | **à relire** |
+| Afrique du Sud | sfs | langue des signes sud-africaine | oui | langue des signes sud-africaine, douzième langue officielle depuis l'amendement constitutionnel du 19 juillet 2023 (absente de CLDR) | Wikipédia en français, « Langues en Afrique du Sud », révision 239514997 du 15/09/2026 (lue le 17/11/2026) |  |
+| Algérie | ber | tamazight | oui | tamazight, langue nationale et officielle depuis 2016 ; CLDR ne la marque pas (il compte le kabyle, 7,8 %, sans statut) ; code ISO 639-2 « ber » (langues berbères) | Constitution algérienne, art. 4, révision de 2016 (estimé, de mémoire) |  |
+| Maroc | zgh | amazighe standard marocain | oui | l’amazighe, langue officielle depuis 2011 ; CLDR ne marque officielle que sa variété de l’Atlas central (tzm) | Constitution du Maroc de 2011, art. 5 (estimé, de mémoire) |  |
 | Nigeria | yo | yoruba | non | le yoruba n'est pas officiel : seul l'anglais l'est ; l'article 55 de la Constitution nomme le haoussa, l'igbo et le yoruba pour les débats de l'Assemblée. Gardé en langue parlée (13 %, comme le haoussa et l'igbo) | Wikipédia en français, « Nigeria », révision 241115666 du 07/11/2026 (lue le 17/11/2026) : « La langue officielle du Nigeria, l'anglais » |  |
 | Sénégal | wo | wolof | non | langue nationale, pas officielle (CLDR : « de_facto_official ») ; gardé en langue parlée, avec la part de CLDR (70 %) | Wikipédia en français, « Sénégal », révision 241251513 du 11/11/2026 (lue le 17/11/2026) : « La Constitution de 2001 a reconnu au français le statut de langue officielle et à six langues celui de langues nationales, le wolof […] » |  |
-| Suisse | rm | romanche | oui | le romanche, langue nationale, officielle de la Confédération pour les rapports avec les Romanches (CLDR : « official_regional », 0,5 %) | Constitution fédérale suisse, art. 4 et 70 (estimé, de mémoire) | **à relire** |
+| Suisse | rm | romanche | oui | le romanche, langue nationale, officielle de la Confédération pour les rapports avec les Romanches (CLDR : « official_regional », 0,5 %) | Constitution fédérale suisse, art. 4 et 70 (estimé, de mémoire) |  |
 | Ukraine | ru | russe | non | pas officiel (CLDR : « de_facto_official ») ; langue du pays, gardée en langue parlée avec la part de CLDR (46 %, toute personne qui la parle) | Wikipédia en français, « Ukraine », révision 240693733 du 25/10/2026 (lue le 17/11/2026) : « L'ukrainien est la seule langue officielle depuis une loi entrée en vigueur le 17 juillet 2019 » |  |
 
 ### Parts et ordres écrits à la main
@@ -958,7 +958,7 @@ Zone de chaque pays : celle de `zone.tab` la plus proche de la capitale ; nombre
 |---|---|---|---|---|
 | Chine | Asia/Shanghai | Asia/Shanghai | Décision de l'utilisateur du 18/11/2026 : l'heure légale de toute la Chine est l'heure de Pékin (UTC+8) ; Asia/Urumqi (UTC+6, « Xinjiang Time » dans zone.tab) est une heure d'usage au Xinjiang, d'après les commentaires de la zone dans le fichier asia de la base tz 2026e : la règle compterait 2 fuseaux |  |
 | Kazakhstan | Asia/Almaty | Asia/Qostanay | Astana est plus près du point d'Asia/Qostanay ; zone.tab décrit Asia/Almaty comme « most of Kazakhstan » ; même décalage (UTC+5) depuis 2024 |  |
-| Kosovo | Europe/Belgrade | — | zone.tab n'a pas de ligne pour le Kosovo (XK est hors de la norme ISO 3166-1) ; le Kosovo suit l'heure d'Europe centrale et ses changements d'heure, comme Belgrade ; le nom de la zone ne s'affiche pas | **à relire** |
+| Kosovo | Europe/Belgrade | — | zone.tab n'a pas de ligne pour le Kosovo (XK est hors de la norme ISO 3166-1) ; le Kosovo suit l'heure d'Europe centrale et ses changements d'heure, comme Belgrade ; le nom de la zone ne s'affiche pas ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | Nouvelle-Zélande | Pacific/Auckland | Pacific/Auckland | Décision de l'utilisateur du 18/11/2026 : Pacific/Auckland (UTC+12) et Pacific/Chatham (UTC+12:45) ; la règle compte aussi Pacific/Fakaofo (TK, UTC+13), dont le point est à 4,6 km en mer du tracé de l'entité : Tokelau aura ses fuseaux sur sa propre fiche, au lot F3 |  |
 
 | Pays | Fuseaux | Règle | Décalages normaux (h) | Au 1er janvier (h) | Au 1er juillet (h) | Zones comptées |
@@ -999,6 +999,6 @@ Libellé de l'heure (clé `heure_a`) : « Heure à <capitale> », sauf une capit
 | Haïti | HTG, USD | HTG, USD | la gourde, puis le dollar des États-Unis |  |
 | Lesotho | LSL, ZAR | ZAR, LSL | le loti, émis par le Lesotho, puis le rand, qui y a cours (CLDR met le rand en premier) |  |
 | Namibie | NAD, ZAR | NAD, ZAR | le dollar namibien, puis le rand |  |
-| Palestine | ILS, JOD | ILS, JOD | pas de monnaie propre : le shekel, le plus employé, puis le dinar jordanien (Cisjordanie) | **à relire** |
+| Palestine | ILS, JOD | ILS, JOD | pas de monnaie propre : le shekel, le plus employé, puis le dinar jordanien (Cisjordanie) ; recommandation acceptée par l'utilisateur le 18/11/2026 |  |
 | Panama | PAB, USD | PAB, USD | le balboa, puis le dollar des États-Unis, qui sert aux billets |  |
 | Zimbabwe | ZWG, USD | ZWG, USD | le ZiG (or du Zimbabwe, 2024), puis le dollar des États-Unis |  |

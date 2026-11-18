@@ -202,7 +202,7 @@
 "RWA":{"s":"pays","h":14569341,"ha":2025,"sup":26338,"alt":4507,"z":"Africa/Kigali","m":["RWF"],"lo":["rw","en","fr"],"f":[1,7]},
 "SAU":{"s":"pays","h":36973555,"ha":2025,"sup":2250000,"alt":3207,"z":"Asia/Riyadh","m":["SAR"],"lo":["ar"],"f":[23,9]},
 "SDN":{"s":"pays","h":51662147,"ha":2025,"sup":1878000,"alt":3042,"z":"Africa/Khartoum","m":["SDG"],"lo":["ar","en"],"f":[1,1]},
-"SEN":{"s":"pays","h":18931966,"ha":2025,"sup":196722,"alt":531,"z":"Africa/Dakar","m":["XOF"],"lo":["fr"],"lp":[["wo",70],["ff",21],["srr",11]],"f":[4,4]},
+"SEN":{"s":"pays","h":18931966,"ha":2025,"sup":196722,"alt":648,"cs":"fb","z":"Africa/Dakar","m":["XOF"],"lo":["fr"],"lp":[["wo",70],["ff",21],["srr",11]],"f":[4,4]},
 "SGP":{"s":"pays","h":6111175,"ha":2025,"sup":719,"alt":164,"z":"Asia/Singapore","m":["SGD"],"lo":["en","zh","ms","ta"],"f":[9,8]},
 "SGS":{"s":"territoire"},
 "SHN":{"s":"territoire"},

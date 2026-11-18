@@ -361,7 +361,7 @@
       "geodata/fiches.mjs": "a73320dfc30b0170ee397b2a20764e3fa071ac20a650b7f37b2aaab089e8161f",
       "geodata/fiches-pays.mjs": "e4d07b2bc8b56d1663901115174c26283a5a971619d93f7346721237f582b711",
       "geodata/fiches-relecture.mjs": "0dd487fecfea593db7e3acf85714fa7d5e34f94116eb27ae4fc7f551b549c8f6",
-      "geodata/fiches-main.json": "dc67b3514ce1f7fa83e95b8df62747746b03339b58faded4a9a151269e9fdf14",
+      "geodata/fiches-main.json": "58304c499e848862da8bbc02662fe06d1ad40e1cddabe17b16f656f741530e34",
       "geodata/fiches-sources.mjs": "50d7f7d9c8d2c37dd0f08e93d6ac3cf20b2c1566b4834bf906aa291845999fa9"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",

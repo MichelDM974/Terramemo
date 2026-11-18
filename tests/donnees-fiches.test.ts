@@ -406,7 +406,7 @@ describe('fiches des 197 pays : les chiffres du lot F2', () => {
     const marques = new Set([...t.matchAll(/^\| ([^|]+) \| ([a-z]{2,3}) \| .*\*\*à relire\*\* \|$/gmu)].map((m) => `${m[1]} ${m[2]}`));
     const noms = lire<Record<string, string>>('public/geo/noms.fr.json');
     const attendues = lignes('langues').flatMap(([id, l]) => (Array.isArray(l.a_relire) ? (l.a_relire as string[]).map((c) => `${noms[id]} ${c}`) : []));
-    expect(attendues.length).toBeGreaterThan(15);
+    // Toutes relues par l'utilisateur le 18/11/2026 : plus aucune marque ; une marque reposée reste vérifiée ici.
     for (const a of attendues) expect(marques.has(a), a).toBe(true);
   });
 });
