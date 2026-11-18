@@ -41,8 +41,14 @@
 // Une ligne sans donnée n'existe pas ; celles dont la table attend la relecture
 // restent tues (src/fiches/relues.ts). L'heure se refait toutes les 30 s tant
 // que la fiche est ouverte, par le formateur gardé de sa zone (créé au repos,
-// au toucher du pays : explorer.ts). Les photos et « Apprendre ce lieu »
-// viennent aux lots suivants.
+// au toucher du pays : explorer.ts). Les photos viennent aux lots suivants.
+//
+// Lot F7 (§ 5) : sous les lignes de la mémoire (montrées même le réglage « Carte
+// de la mémoire » coupé), « Apprendre ce lieu » : son état vient des comptes de
+// la séance (src/vues/apprendre-lieu.ts, ApprendreModele), jamais d'une règle
+// d'ici. Possible : le bouton, « avec 6 pays voisins » dessous ; pas
+// aujourd'hui : pourquoi, et « Retenir ce lieu » (D58 b : sa région sera la
+// prochaine grappe), puis « Noté » et « Annuler ».
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import { oceansDeMer } from '../map/mers';
@@ -56,6 +62,7 @@ export { lireDrapeauxTerritoires, lireFichesCommunes, lireFichesMers, lireFiches
 export { faitsCommune, faitsMer, faitsPays, faitsTerritoire } from '../fiches/barre';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
+import type { ApprendreModele } from './apprendre-lieu';
 import { creer, croix, LIBELLE_STATUT } from './commun';
 import { remplir, textes } from './textes';
 import { textesFiche } from './textes-fiche';
@@ -103,8 +110,10 @@ export interface ModeleFiche {
   voisins: readonly VoisinFiche[];
   /** Le titre de leur section : « Voisins », « Pays riverains » (une mer), « Communes voisines ». */
   titreVoisins: string;
-  /** Une ligne par sujet ; null : pas de section (territoire, réglage coupé). */
+  /** Une ligne par sujet ; null : pas de lignes (territoire, mémoire pas encore lue). */
   memoire: readonly string[] | null;
+  /** « Apprendre ce lieu » (lot F7) ; null : ni bouton ni « Noté » (territoire, zone, Antarctique). */
+  apprendre: ApprendreModele | null;
   /** L'adresse de l'article de Wikipédia, ou null. */
   wikipedia: string | null;
   /** Les sources de ce que la fiche montre (« Natural Earth », « Wikidata »…). */
@@ -130,6 +139,8 @@ export interface DonneesComposition {
   communes?: DonneesFichesCommunes | null;
   /** Les lignes de la mémoire du lieu (CarteMemoire.details) ; null : pas de section. */
   memoire(id: string, jouable: boolean): readonly string[] | null;
+  /** « Apprendre ce lieu » (lot F7, ApprendreFiche.etat) ; absent : pas de bouton. */
+  apprendre?(id: string): ApprendreModele | null;
   /** Les lignes relues (absent : LIGNES_RELUES ; les tests passent les deux états). */
   relues?: Readonly<Record<LigneRelue, boolean>>;
   /** L'instant de l'heure (absent : maintenant). */
@@ -259,6 +270,7 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
     voisins: rangerVoisins(p.voisins, d),
     titreVoisins: T.voisins,
     memoire: d.memoire(id, p.statut === 'jouable'),
+    apprendre: d.apprendre?.(id) ?? null,
     wikipedia: f.wp ? adresseWikipedia(f.wp) : null,
     sources,
   };
@@ -336,6 +348,7 @@ function composerFicheMer(id: string, d: DonneesComposition, M: DonneesMers): Mo
     voisins: riverains,
     titreVoisins: T.riverains,
     memoire: d.memoire(id, true),
+    apprendre: d.apprendre?.(id) ?? null,
     wikipedia: f.wp ? adresseWikipedia(f.wp) : null,
     sources,
   };
@@ -378,6 +391,7 @@ function composerFicheCommune(id: string, d: DonneesComposition, C: DonneesFiche
     voisins: rangerVoisins(p.voisins, d),
     titreVoisins: T.voisines,
     memoire: d.memoire(id, true),
+    apprendre: d.apprendre?.(id) ?? null,
     wikipedia: f.wp ? adresseWikipedia(f.wp) : null,
     sources,
   };
@@ -397,6 +411,8 @@ export interface ActionsFiche {
   avant(): void;
   /** Un voisin touché (ou la mère, l'océan, un riverain d'une mer) : sa fiche, une entrée de plus (nav.pousserFiche). */
   voisin(id: string): void;
+  /** « Apprendre ce lieu » (lot F7) : la séance ; « Retenir ce lieu » ; « Annuler » (D58 b). */
+  apprendre?(geste: 'lancer' | 'retenir' | 'oublier'): void;
 }
 
 export interface Feuille {
@@ -497,6 +513,40 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
     return t;
   }
 
+  /** Un bouton du bloc « Apprendre ce lieu », décrit par la ligne qui le suit (aria-describedby). */
+  function boutonApprendre(id: string, texte: string, geste: 'lancer' | 'retenir' | 'oublier', secondaire: boolean, detail?: string): HTMLElement[] {
+    const b = creer('button', { type: 'button', id, ...(secondaire ? { class: 'secondary' } : {}), ...(detail ? { 'aria-describedby': `${id}-detail` } : {}) }, texte);
+    b.addEventListener('click', () => actions.apprendre?.(geste));
+    return [b, ...(detail ? [creer('p', { class: 'hint fiche-apprendre-detail', id: `${id}-detail` }, detail)] : [])];
+  }
+
+  /**
+   * « Apprendre ce lieu » (lot F7, § 5.4) : le bouton et ce qu'il apprend, ou pourquoi pas aujourd'hui et
+   * « Retenir ce lieu » ; le lieu retenu, « Noté » et « Annuler » (D58 b, § 5.6). Appris : rien (les lignes suffisent).
+   */
+  function blocApprendre(a: ApprendreModele): HTMLElement[] {
+    const e = a.lieu;
+    if (e?.etat === 'appris' || e?.etat === 'sans_grappe') return [];
+    const el: HTMLElement[] = [];
+    if (e?.etat !== 'attendre') {
+      const parts: string[] = [];
+      if (e?.etat === 'possible') {
+        if (e.revisions) parts.push(remplir(e.revisions > 1 ? T.apprendre_apres : T.apprendre_apres_un, { n: e.revisions }));
+        const avec = T.apprendre_avec[a.sujet];
+        if (e.voisins) parts.push(remplir(e.voisins > 1 ? avec.n : avec.un, { n: e.voisins }));
+      }
+      el.push(...boutonApprendre('fiche-apprendre', T.apprendre, 'lancer', false, parts.join(' · ') || undefined));
+      if (!a.garde) el.push(creer('p', { class: 'hint fiche-apprendre-avis' }, textes.seance.non_garde));
+    } else {
+      const r = e.raison;
+      const pourquoi = r === 'dues' ? T.apprendre_dues : r === 'plafond' ? textes.seance.plafond : r === 'introductions' ? textes.seance.introductions : r === 'grappe_faite' ? T.apprendre_grappe_faite : T.apprendre_autre;
+      el.push(creer('p', { class: 'hint fiche-apprendre-pourquoi' }, pourquoi));
+      if (!a.retenu) el.push(...boutonApprendre('fiche-retenir', T.retenir, 'retenir', true, T.retenir_detail));
+    }
+    if (a.retenu) el.push(creer('p', { class: 'fiche-apprendre-retenu', role: 'status' }, T.retenu), ...boutonApprendre('fiche-oublier', T.annuler, 'oublier', true));
+    return [creer('div', { class: 'fiche-apprendre' }, ...el)];
+  }
+
   function rendre(m: ModeleFiche): HTMLElement {
     const enfants: HTMLElement[] = [tete(m)];
     if (m.faits.length) {
@@ -531,13 +581,14 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       );
       enfants.push(creer('section', { class: 'fiche-section fiche-voisins', 'aria-labelledby': 'fiche-voisins-titre' }, creer('h3', { id: 'fiche-voisins-titre' }, m.titreVoisins), liste));
     }
-    if (m.memoire?.length) {
+    if (m.memoire?.length || m.apprendre) {
       enfants.push(
         creer(
           'section',
           { class: 'fiche-section fiche-memoire', 'aria-labelledby': 'fiche-memoire-titre' },
           creer('h3', { id: 'fiche-memoire-titre' }, T.memoire),
-          creer('ul', {}, ...m.memoire.map((l) => creer('li', {}, l))),
+          ...(m.memoire?.length ? [creer('ul', {}, ...m.memoire.map((l) => creer('li', {}, l)))] : []),
+          ...(m.apprendre ? blocApprendre(m.apprendre) : []),
         ),
       );
     }

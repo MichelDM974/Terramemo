@@ -14,14 +14,19 @@ import type { Domaine } from '../src/srs/fiches';
 import { depotMemoire, type Depot } from '../src/journal/depot';
 import { ouvrirMemoire } from '../src/journal/memoire';
 import type { Evenement } from '../src/srs/journal';
-import { GRAPPE_OCEANS, grappesMers, grappesPays } from '../src/srs/grappes';
+import { GRAPPE_OCEANS, grappesCommunes, grappesMers, grappesPays } from '../src/srs/grappes';
 import { INTRODUCTIONS_PAR_JOUR } from '../src/srs/planif';
 import { etat } from '../src/srs/rejeu';
 import { evenementReponse } from '../src/srs/seance';
 import { catalogue, serieMers } from '../src/vues/cibles';
 import type { DemandeSeance, PiloteSeance, RefusSeance, ReponseJouee } from '../src/vues/essai';
 import { carteMemoire } from '../src/vues/carte-memoire';
-import { creerSeances, texteComptes } from '../src/vues/seance';
+import { creerSeances, texteComptes, type ComptesSeance } from '../src/vues/seance';
+import { apprendreLieu, CLE_APPRENDRE, lirePrefere } from '../src/vues/apprendre-lieu';
+import { garderDerniere, type Lancement } from '../src/vues/arbre';
+import type { Serie } from '../src/vues/cibles';
+import type { Memoire } from '../src/journal/memoire';
+import { textesFiche } from '../src/vues/textes-fiche';
 import { remplir, textes } from '../src/vues/textes';
 import { El, installerDom } from './dom-factice';
 import { code, remplaces, sansBrut, TEXTES_FACTICES } from './sujet-factice';
@@ -72,6 +77,8 @@ async function monter(
     /** Un monde à soi (les mers : sa couche posée par chargerMers), au lieu du monde commun. */
     monde?: DonneesCarte;
     chargerMers?: () => Promise<unknown>;
+    /** Le lieu retenu d'un sujet (D58 b, apprendre-lieu.ts lirePrefere). */
+    prefere?: (sujet: Domaine) => string | null;
   } = {},
 ) {
   let lectures = 0;
@@ -90,6 +97,7 @@ async function monter(
     ...(o.chargerCapitales ? { chargerCapitales: o.chargerCapitales } : {}),
     ...(o.chargerDrapeaux ? { chargerDrapeaux: o.chargerDrapeaux } : {}),
     ...(o.prechargerDrapeaux ? { prechargerDrapeaux: o.prechargerDrapeaux } : {}),
+    ...(o.prefere ? { prefere: o.prefere } : {}),
   });
   return { memoire, seances, depot, h, lectures: () => lectures };
 }
@@ -1354,5 +1362,222 @@ describe('séance : le sujet Océans et mers (lot 3b)', () => {
     const qs = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance).questions as { domaine?: string }[];
     expect(qs.some((q) => q.domaine === 'mers')).toBe(false);
     expect(m.seances.comptes()?.aRevoir).toBe(2);
+  });
+});
+
+// « Apprendre ce lieu » (#34, lot F7, étude fiche-lieu § 5 et § 7 « Mémoire ») : l'état du bouton lu dans
+// comptes() (le refus partagé avec ouvrir()), le lancement par lancer() (apprendre-lieu.ts, comme main.ts), et
+// le lieu retenu sur l'appareil quand la grappe du jour est prise (D58 b, § 5.6).
+describe('séance : « Apprendre ce lieu » depuis la fiche (#34, lot F7)', () => {
+  beforeEach(() => installerDom());
+  afterEach(() => vi.unstubAllGlobals());
+  const gs = grappesPays(monde.entites.map((e) => e.pays));
+  const deMaurice = gs.find((g) => g.membres.includes('MUS'))!;
+  const afriqueGs = gs.filter((g) => g.continent === 'Africa');
+  const entites = new Map(monde.entites.map((e) => [e.pays.id, e.pays]));
+  const AFRIQUE = { sorte: 'apprendre' as const, sujet: 'pays', serie: serie('Africa') };
+  const noter = (m: { memoire: Memoire }, fiches: string[], ts: number, note: 1 | 3 = 3) =>
+    m.memoire.ecrire(fiches.map((f) => evenementReponse({ seance: null, appareil: m.memoire.appareil, horloge: () => ({ ts, tz: 240 }), nouvelId: () => m.memoire.nouvelId() }, f, 'rappel', { correct: note > 1, duree_ms: 1000 }, note)));
+  /** Le refus d'une ouverture, ou null pour une séance ouverte. */
+  const refusDe = (r: PiloteSeance | RefusSeance) => ('refus' in r ? r : null);
+
+  /** La séance montée comme main.ts : le lieu retenu lu par lirePrefere, la fiche par apprendreLieu, lancer() noté puis ouvert. */
+  async function avecFiche(o: Parameters<typeof monter>[1] = {}, memoire?: (m: Memoire) => Pick<Memoire, 'charge' | 'garde' | 'etat'>) {
+    const cles = new Map<string, string>();
+    const stockage = { getItem: (k: string) => cles.get(k) ?? null, setItem: (k: string, v: string) => void cles.set(k, v), removeItem: (k: string) => void cles.delete(k) };
+    let mem: Memoire | null = null;
+    const m = await monter(undefined, { ...o, prefere: (sujet) => lirePrefere(stockage, mem!, sujet) });
+    mem = m.memoire;
+    const lances: { l: Lancement; s: Serie; r: PiloteSeance | RefusSeance }[] = [];
+    const a = apprendreLieu({
+      memoire: memoire ? memoire(m.memoire) : m.memoire,
+      seances: m.seances,
+      serie: (sujet, id) => (sujet === 'mers' ? serieMers() : CATALOGUE.find((x) => x.id === id)),
+      entite: (id) => entites.get(id),
+      stockage: () => stockage,
+      // Comme essai.lancer : Apprendre sur la série, le lieu passé à la demande.
+      lancer: (l, s) => void lances.push({ l, s, r: m.seances.ouvrir({ sorte: 'apprendre', sujet: l.sujet, serie: s, ...(l.lieu ? { lieu: l.lieu } : {}) }) }),
+    });
+    return { ...m, a, lances, cles };
+  }
+
+  it('critère du lot F7 : journal neuf, la fiche de Maurice lance sa grappe (8e sur 8 de l’Afrique) ; nom seul (pays:) ; le lendemain, plus de bouton ; grappe faite : le texte, pas de séance', async () => {
+    expect([afriqueGs.length, afriqueGs.indexOf(deMaurice) + 1]).toEqual([8, 8]);
+    const m = await avecFiche();
+    expect(m.a.etat('monde', 'MUS')).toEqual({ sujet: 'pays', lieu: { etat: 'possible', voisins: deMaurice.membres.length - 1, revisions: 0 }, retenu: false, garde: true });
+    m.a.lancer('monde', 'MUS');
+    expect(m.lances).toHaveLength(1);
+    expect(m.lances[0]!.l).toEqual({ branche: 'entrainement', sujet: 'pays', serie: 'Africa', mode: 'apprendre', lieu: 'MUS' });
+    expect(m.lances[0]!.s).toBe(serie('Africa'));
+    const { questions } = jouer(m.lances[0]!.r as PiloteSeance);
+    expect(new Set(questions.map((q) => q.id))).toEqual(new Set(deMaurice.membres));
+    expect(questions.some((q) => q.id === 'MUS' && q.forme === 'qcm')).toBe(true);
+    await m.memoire.ecrire([]);
+    const evts = await m.depot.tous();
+    // Le pays par son nom seul (D58 a) : des fiches pays:, jamais capitales: ni drapeaux: ; aucun type d'événement nouveau.
+    expect(evts.length).toBe(questions.length);
+    expect(evts.every((e) => e.fiche.startsWith('pays:') && deMaurice.membres.includes(e.fiche.split(':')[1]!))).toBe(true);
+    expect(new Set(evts.map((e) => e.type))).toEqual(new Set(['reponse']));
+    // Appris : pas de bouton (la ligne de la mémoire suffit).
+    expect(m.a.etat('monde', 'MUS')!.lieu).toEqual({ etat: 'appris' });
+    // Un autre pays d'Afrique le même jour : la grappe du jour est prise ; le refus est celui qu'ouvrir() rend, pas de séance.
+    const autre = afriqueGs[0]!.membres[0]!;
+    expect(m.a.etat('monde', autre)!.lieu).toEqual({ etat: 'attendre', raison: 'grappe_faite' });
+    const d = { ...AFRIQUE, lieu: autre };
+    expect(m.seances.comptes(d)!.refus).toEqual({ refus: S.grappe_faite, reviser: 0 });
+    expect(m.seances.ouvrir(d)).toEqual(m.seances.comptes(d)!.refus);
+    // Le lendemain : Maurice appris, toujours pas de bouton ; l'autre pays, après les fiches « Reconnaître » de la grappe de Maurice.
+    m.h.ts += JOUR_MS;
+    expect(m.a.etat('monde', 'MUS')!.lieu).toEqual({ etat: 'appris' });
+    expect(m.a.etat('monde', autre)!.lieu).toEqual({ etat: 'possible', voisins: afriqueGs[0]!.membres.length - 1, revisions: deMaurice.membres.length });
+  });
+
+  it('chaque ligne du § 5.4 : son état, et le refus toujours celui d’ouvrir() pour la même demande', async () => {
+    const etats: Record<string, ComptesSeance['lieu']> = {};
+    const verifier = (m: Awaited<ReturnType<typeof avecFiche>>, lieu: string, nom: string) => {
+      const d = { ...AFRIQUE, lieu };
+      const c = m.seances.comptes(d)!;
+      expect(c.refus, nom).toEqual(refusDe(m.seances.ouvrir(d)));
+      etats[nom] = c.lieu;
+      return c;
+    };
+    // Possible, journal neuf.
+    verifier(await avecFiche(), 'MUS', 'possible');
+    // Une grappe d'Europe commencée aujourd'hui, pas finie : elle passe avant (refus « grappe entamée »).
+    const e1 = await avecFiche();
+    await noter(e1, gs[0]!.membres.slice(0, 2).map((id) => `pays:${id}:localiser`), T0);
+    expect(verifier(e1, 'MUS', 'grappe entamée ailleurs').refus?.finir).toBeGreaterThan(0);
+    // Une grappe d'Afrique entamée la veille (deux pays sur six) : elle se finit d'abord, la séance s'ouvre sur elle.
+    const e2 = await avecFiche();
+    await noter(e2, afriqueGs[0]!.membres.slice(0, 2).map((id) => `pays:${id}:localiser`), T0 - JOUR_MS);
+    expect(verifier(e2, 'MUS', 'grappe entamée dans la série').refus).toBeNull();
+    // Des révisions dues qui ne tiennent pas dans la séance : la séance les fait d'abord (pas de refus), sans le lieu.
+    const autres = gs.flatMap((g) => g.membres).filter((id) => !deMaurice.membres.includes(id));
+    const e3 = await avecFiche();
+    await noter(e3, autres.slice(0, 30).map((id) => `pays:${id}:localiser`), T0 - JOUR_MS, 1);
+    expect(verifier(e3, 'MUS', 'dues').refus).toBeNull();
+    // Le plafond du jour atteint (60 révisions faites), des fiches encore dues.
+    const e4 = await avecFiche();
+    await noter(e4, autres.slice(0, 70).map((id) => `pays:${id}:localiser`), T0 - JOUR_MS, 1);
+    await noter(e4, autres.slice(0, 60).map((id) => `pays:${id}:localiser`), T0);
+    expect(verifier(e4, 'MUS', 'plafond').refus?.refus).toBe(S.plafond);
+    // Le reliquat : 20 pays appris la veille, leurs 20 fiches « Reconnaître » à introduire ; 15 introduites aujourd'hui
+    // (le plafond du jour), 5 attendent demain.
+    const e5 = await avecFiche();
+    await noter(e5, autres.slice(0, 20).map((id) => `pays:${id}:localiser`), T0 - JOUR_MS);
+    await noter(e5, autres.slice(0, 15).map((id) => `pays:${id}:nommer`), T0);
+    expect(verifier(e5, 'MUS', 'introductions').refus?.refus).toBe(S.introductions);
+    // Un territoire : aucune grappe ne le porte.
+    verifier(await avecFiche(), 'GRL', 'territoire');
+    expect(etats).toEqual({
+      possible: { etat: 'possible', voisins: deMaurice.membres.length - 1, revisions: 0 },
+      'grappe entamée ailleurs': { etat: 'attendre', raison: 'autre_grappe' },
+      'grappe entamée dans la série': { etat: 'attendre', raison: 'autre_grappe' },
+      dues: { etat: 'attendre', raison: 'dues' },
+      plafond: { etat: 'attendre', raison: 'plafond' },
+      introductions: { etat: 'attendre', raison: 'introductions' },
+      territoire: { etat: 'sans_grappe' },
+    });
+  });
+
+  it('pas de mémoire, mémoire en lecture, pas gardée, données pas chargées : rien, le bouton sans compte, l’avis, le chargement', async () => {
+    const m = await avecFiche();
+    // Territoire, zone contestée, Taïwan et Kosovo (hors des pays jouables), l'Antarctique : ni bloc ni bouton.
+    const sansMemoire = monde.entites.map((e) => e.pays).filter((p) => p.statut !== 'jouable');
+    expect(sansMemoire.length).toBeGreaterThan(50);
+    for (const p of sansMemoire) expect(m.a.etat('monde', p.id), p.id).toBeNull();
+    expect(m.seances.comptes({ ...AFRIQUE, lieu: 'GRL' })!.lieu).toEqual({ etat: 'sans_grappe' });
+    // La mémoire en lecture : comptes() rend null, le bouton sans compte.
+    const lent: Depot = { tous: () => new Promise(() => undefined), ajouter: async () => undefined };
+    const memoire = ouvrirMemoire({ depot: lent, appareil: 'a', horloge: () => ({ ts: T0, tz: 240 }) });
+    const seances = creerSeances({ memoire, monde });
+    const a = apprendreLieu({ memoire, seances, serie: (_s, id) => serie(id), entite: (id) => entites.get(id), stockage: () => null, lancer: vi.fn() });
+    expect(a.etat('monde', 'MUS')).toEqual({ sujet: 'pays', lieu: null, retenu: false, garde: true });
+    // Pas gardée : le bouton, et l'avis (garde faux).
+    const pg = await avecFiche({}, (mm) => ({ charge: true, garde: false, etat: () => mm.etat() }));
+    expect(pg.a.etat('monde', 'MUS')).toMatchObject({ lieu: { etat: 'possible' }, garde: false });
+    // Une mer, la couche marine pas posée : le bouton, la séance la chargera ; le refus est celui d'ouvrir().
+    const d: DonneesCarte = { ...monde, mers: [] };
+    oublierMers(async (f) => readFileSync(`public/geo/${f}`, 'utf8'));
+    try {
+      const mm = await avecFiche({ monde: d, chargerMers: async () => void (d.mers = (await chargerMers()).mers) });
+      const dm = { sorte: 'apprendre' as const, sujet: 'mers', serie: serieMers(), lieu: 'medit' };
+      expect(mm.a.etat('monde', 'medit')).toEqual({ sujet: 'mers', lieu: { etat: 'a_charger' }, retenu: false, garde: true });
+      expect(mm.seances.comptes(dm)!.refus).toEqual(mm.seances.ouvrir(dm));
+      await mm.seances.charger!(dm);
+      const e = mm.a.etat('monde', 'medit')!;
+      expect(e.lieu?.etat).toBe('possible');
+      mm.a.lancer('monde', 'medit');
+      expect(mm.lances[0]!.l).toEqual({ branche: 'entrainement', sujet: 'mers', serie: 'mers', mode: 'apprendre', lieu: 'medit' });
+      const { questions } = jouer(mm.lances[0]!.r as PiloteSeance);
+      const deLaMer = grappesMers(d.mers.map((x) => x.pays)).find((g) => g.membres.includes('medit'))!;
+      expect(new Set(questions.map((q) => q.id))).toEqual(new Set(deLaMer.membres));
+    } finally {
+      oublierMers();
+    }
+  });
+
+  it('une commune de l’île : Apprendre sous La Réunion, sa grappe à elle (et non la première)', async () => {
+    const m = await avecFiche({ ile: () => ile });
+    const gc = grappesCommunes(ile.entites.map((e) => e.pays));
+    const derniere = gc[gc.length - 1]!;
+    const id = derniere.membres[0]!;
+    expect(m.a.etat('reunion', id)).toEqual({ sujet: 'communes', lieu: { etat: 'possible', voisins: derniere.membres.length - 1, revisions: 0 }, retenu: false, garde: true });
+    m.a.lancer('reunion', id);
+    expect(m.lances[0]!.l).toMatchObject({ sujet: 'communes', serie: 'reunion', lieu: id });
+    const { questions } = jouer(m.lances[0]!.r as PiloteSeance);
+    expect(new Set(questions.map((q) => q.id))).toEqual(new Set(derniere.membres));
+    expect(questions.every((q) => q.terrain === 'reunion')).toBe(true);
+  });
+
+  it('D58 b : la grappe du jour prise, le lieu retenu (rien au journal) ; le lendemain, sa grappe en tête d’Apprendre et de la Révision du jour ; « Annuler » ; il s’éteint une fois appris', async () => {
+    const m = await avecFiche();
+    jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance);
+    await m.memoire.ecrire([]);
+    const ecrits = (await m.depot.tous()).length;
+    expect(m.a.etat('monde', 'MUS')).toEqual({ sujet: 'pays', lieu: { etat: 'attendre', raison: 'grappe_faite' }, retenu: false, garde: true });
+    m.a.retenir('monde', 'MUS');
+    expect([...m.cles]).toEqual([[`${CLE_APPRENDRE}.pays`, 'MUS']]);
+    expect(m.a.etat('monde', 'MUS')!.retenu).toBe(true);
+    // Le retenu d'un autre lieu du même sujet ne le montre pas ; « Annuler » l'oublie ; « Annuler » d'un autre lieu n'y touche pas.
+    expect(m.a.etat('monde', 'MDG')!.retenu).toBe(false);
+    m.a.oublier('monde', 'MDG');
+    expect(m.cles.size).toBe(1);
+    m.a.oublier('monde', 'MUS');
+    expect(m.cles.size).toBe(0);
+    expect(m.a.etat('monde', 'MUS')!.retenu).toBe(false);
+    m.a.retenir('monde', 'MUS');
+    await m.memoire.ecrire([]);
+    expect((await m.depot.tous()).length).toBe(ecrits);
+    // Le lendemain : la ligne de Jouer, Apprendre Afrique (sans lieu) et la Révision du jour prennent sa grappe.
+    m.h.ts += JOUR_MS;
+    expect(m.seances.comptes({ sorte: 'apprendre', sujet: 'pays', serie: serie('Africa') })!.nouveaux).toBe(deMaurice.membres.length);
+    expect(m.seances.comptes()!.nouveaux).toBe(deMaurice.membres.length);
+    // Hors de sa série, rien ne change : Apprendre Europe prend sa grappe suivante.
+    expect(m.seances.comptes({ sorte: 'apprendre', sujet: 'pays', serie: serie('Europe') })!.nouveaux).not.toBe(0);
+    const { questions } = jouer(m.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance);
+    expect(new Set(questions.filter((q) => q.forme === 'qcm').map((q) => q.id))).toEqual(new Set(deMaurice.membres));
+    // Appris : la préférence s'éteint seule, la clé effacée.
+    expect(lirePrefere({ getItem: (k) => m.cles.get(k) ?? null, setItem: () => undefined, removeItem: (k) => void m.cles.delete(k) }, m.memoire, 'pays')).toBeNull();
+    expect(m.cles.size).toBe(0);
+    expect(m.a.etat('monde', 'MUS')!.lieu).toEqual({ etat: 'appris' });
+  });
+
+  it('le lieu n’est jamais gardé dans « Rejouer » (garderDerniere) ; aucun type d’événement nouveau (TYPES du journal et des lots inchangés)', () => {
+    const cles = new Map<string, string>();
+    garderDerniere({ getItem: (k: string) => cles.get(k) ?? null, setItem: (k: string, v: string) => void cles.set(k, v), removeItem: () => undefined } as never, { branche: 'entrainement', sujet: 'pays', serie: 'Africa', mode: 'apprendre', lieu: 'MUS' });
+    expect(JSON.parse([...cles.values()][0]!)).toEqual({ branche: 'entrainement', sujet: 'pays', serie: 'Africa', mode: 'apprendre' });
+    expect(readFileSync('src/srs/journal.ts', 'utf8')).toContain("const TYPES: readonly string[] = ['reponse', 'connu', 'reinitialiser'];");
+    expect(readFileSync('src/sync/lots.ts', 'utf8')).toContain("const TYPES = ['reponse', 'connu', 'reinitialiser'] as const;");
+  });
+
+  it('textes de la fiche : le bouton et sa ligne, au singulier et au pluriel, pour les trois sujets', () => {
+    const T = textesFiche;
+    expect(T.apprendre).toBe('Apprendre ce lieu');
+    expect(remplir(T.apprendre_avec.pays.n, { n: 6 })).toBe('avec 6 pays voisins');
+    for (const s of ['pays', 'mers', 'communes'] as const) {
+      expect(T.apprendre_avec[s].un).toMatch(/^avec 1 /);
+      expect(T.apprendre_avec[s].n).toContain('{n}');
+    }
   });
 });

@@ -99,9 +99,11 @@ export interface CarteMemoire {
   /**
    * Le même détail en liste, une ligne par sujet (« Pays : vu 4 fois · revient
    * dans 5 j », « Capitale : jamais vue ») : les lignes de la mémoire de la
-   * fiche d'un lieu (#34, étude § 4.2). null comme detail().
+   * fiche d'un lieu (#34, étude § 4.2). null comme detail(). `malgreReglage` : la fiche les montre
+   * même le réglage coupé (§ 5.5 : il parle de la teinte de la carte ; « Apprendre ce lieu » n'a pas de sens
+   * sans l'état qu'il change) ; la mémoire doit être lue.
    */
-  details(t: NomTerrain, id: string, jouable: boolean): string[] | null;
+  details(t: NomTerrain, id: string, jouable: boolean, malgreReglage?: boolean): string[] | null;
   /**
    * Le réglage est-il actif et la mémoire lue ? La barre de l'accueil réserve
    * alors la place de sa ligne de la mémoire (fiche d'un lieu, § 4.1).
@@ -131,9 +133,9 @@ export function carteMemoire(m: Memoire, actif: () => boolean, o: OptionsCarteMe
     return d ? seauxEntites(m.etat(), d) : new Map<string, Seau>();
   };
   /** detail() en liste, une ligne par sujet. */
-  const details = (t: NomTerrain, id: string, jouable: boolean): string[] | null => {
+  const details = (t: NomTerrain, id: string, jouable: boolean, malgreReglage = false): string[] | null => {
     const d = sujet(t);
-    if (!pret() || !jouable || !d) return null;
+    if (!(malgreReglage ? m.charge : pret()) || !jouable || !d) return null;
     const ligne = (x: Domaine) => {
       const e = memoireEntite(m.etat(), x, id, m.jour());
       return e ? `${remplir(e.vu > 1 ? M.vu : M.vu_une, { n: e.vu })} · ${quand(e.dans)}` : M.jamais_vu;

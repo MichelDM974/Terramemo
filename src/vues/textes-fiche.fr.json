@@ -67,6 +67,30 @@
   "voisin_statut": "{nom} ({statut})",
   "voisin_titre": "Fiche : {nom}",
   "memoire": "Ta mémoire",
+  "apprendre": "Apprendre ce lieu",
+  "apprendre_avec": {
+    "pays": {
+      "un": "avec 1 pays voisin",
+      "n": "avec {n} pays voisins"
+    },
+    "mers": {
+      "un": "avec 1 océan ou mer voisin",
+      "n": "avec {n} océans ou mers voisins"
+    },
+    "communes": {
+      "un": "avec 1 commune voisine",
+      "n": "avec {n} communes voisines"
+    }
+  },
+  "apprendre_apres": "après {n} révisions",
+  "apprendre_apres_un": "après 1 révision",
+  "apprendre_dues": "Des révisions attendent : fais d'abord la Révision du jour.",
+  "apprendre_grappe_faite": "La grappe du jour est déjà apprise.",
+  "apprendre_autre": "Une région commencée se finit d'abord.",
+  "retenir": "Retenir ce lieu",
+  "retenir_detail": "Sa région sera ta prochaine grappe.",
+  "retenu": "Noté : sa région sera ta prochaine grappe.",
+  "annuler": "Annuler",
   "wikipedia": "Voir sur Wikipédia ↗",
   "wikipedia_base": "https://fr.wikipedia.org/wiki/",
   "sources": "Sources : {sources}",

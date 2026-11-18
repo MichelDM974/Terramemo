@@ -434,6 +434,72 @@ describe('plusieurs sujets : plafonds communs, reliquat, préférence (lot 0c)',
   });
 });
 
+describe('« Apprendre ce lieu » : prefere (#34, lot F7, § 5.2)', () => {
+  const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
+  const gs = grappesPays(pays);
+  const afrique = gs.filter((g) => g.continent === 'Africa');
+  const deMaurice = gs.find((g) => g.membres.includes('MUS'))!;
+  const appris = (ids: readonly string[], j: number, note: Note = GOOD) => ids.map((id) => rep(`pays:${id}:localiser`, j, note, 'rappel'));
+
+  it('Maurice : 8e grappe sur 8 de la série Afrique, 21e sur 31 dans l’ordre global (§ 5.1) ; prefere la met en tête des deux', () => {
+    expect([afrique.length, afrique.indexOf(deMaurice) + 1]).toEqual([8, 8]);
+    expect([gs.length, gs.indexOf(deMaurice) + 1]).toEqual([31, 21]);
+    expect(programme(new Map(), D0, afrique, 'pays', gs).nouveautes?.grappe).toBe(afrique[0]);
+    const p = programme(new Map(), D0, afrique, 'pays', gs, { prefere: 'MUS' });
+    expect(p.nouveautes?.grappe).toBe(deMaurice);
+    expect(p.nouveautes?.ids).toEqual(deMaurice.membres);
+    expect(p.nouveautes?.fiches).toEqual(deMaurice.membres.map((id) => `pays:${id}:localiser`));
+    expect(programme(new Map(), D0, gs, 'pays', gs, { prefere: 'MUS' }).nouveautes?.grappe).toBe(deMaurice);
+    expect(grappeSuivante(new Map(), gs, 'pays', undefined, 'MUS')?.grappe).toBe(deMaurice);
+  });
+
+  it('une grappe entamée passe avant le lieu préféré ; un lieu inconnu de la série, ou déjà appris : comme sans lui', () => {
+    // Deux pays de la 1re grappe d'Afrique appris un jour d'avant : elle est entamée, elle se finit d'abord.
+    const entamee = etat(appris(afrique[0]!.membres.slice(0, 2), D0 - 1));
+    expect(grappeSuivante(entamee, afrique, 'pays', undefined, 'MUS')?.grappe).toBe(afrique[0]);
+    expect(programme(entamee, D0, afrique, 'pays', gs, { prefere: 'MUS' }).nouveautes?.grappe).toBe(afrique[0]);
+    // Le Japon n'est pas en Afrique ; un id inconnu ; Maurice déjà appris (sa grappe entière apprise la veille).
+    for (const prefere of ['JPN', 'XXX']) expect(programme(new Map(), D0, afrique, 'pays', gs, { prefere }).nouveautes?.grappe, prefere).toBe(afrique[0]);
+    const vu = etat(appris(deMaurice.membres, D0 - 1));
+    expect(grappeSuivante(vu, afrique, 'pays', undefined, 'MUS')?.grappe).toBe(afrique[0]);
+    // La grappe du lieu entamée (Maurice appris, pas ses voisins) : elle est prise comme entamée, le reste seul.
+    const lui = etat(appris(['MUS'], D0 - 1));
+    expect(grappeSuivante(lui, afrique, 'pays', undefined, 'MUS')?.ids).toEqual(deMaurice.membres.filter((id) => id !== 'MUS'));
+  });
+
+  it('avec pret (D39 b) : le lieu préféré passe avant la grappe prête, marqué pas prêt s’il ne l’est pas', () => {
+    const a1 = afrique[1]!;
+    const m = etat(appris(a1.membres, D0 - 1));
+    const p = programme(m, D0, afrique, 'capitales', gs, { pret: pretSelon(m, D0, 'capitales')!, prefere: 'MUS' });
+    expect([p.nouveautes?.grappe, p.nouveautes?.prete]).toEqual([deMaurice, false]);
+    const m2 = etat(appris(deMaurice.membres, D0 - 1));
+    const p2 = programme(m2, D0, afrique, 'capitales', gs, { pret: pretSelon(m2, D0, 'capitales')!, prefere: 'MUS' });
+    expect([p2.nouveautes?.grappe, p2.nouveautes?.prete]).toEqual([deMaurice, true]);
+  });
+
+  it('le budget ne bouge pas : grappe faite, grappe entamée ailleurs, reliquat, révisions dues, plafond, avec et sans prefere', () => {
+    const avecSans = (e: ReadonlyMap<string, EtatFiche>, j: number) => {
+      const sans = programme(e, j, afrique, 'pays', gs);
+      const avec = programme(e, j, afrique, 'pays', gs, { prefere: 'MUS' });
+      expect(avec.sansNouveautes).toBe(sans.sansNouveautes);
+      expect([avec.revisions, avec.introductions, avec.restantes, avec.introRestantes]).toEqual([sans.revisions, sans.introductions, sans.restantes, sans.introRestantes]);
+      return avec;
+    };
+    // La grappe du jour prise (une grappe d'Europe apprise aujourd'hui).
+    expect(avecSans(etat(appris(gs[0]!.membres, D0)), D0).sansNouveautes).toBe('grappe_faite');
+    // Une grappe d'Europe commencée aujourd'hui, pas finie : elle passe avant (Apprendre Afrique la renvoie).
+    expect(avecSans(etat(appris(gs[0]!.membres.slice(0, 2), D0)), D0).sansNouveautes).toBe('grappe_entamee');
+    // Des révisions dues qui ne tiennent pas dans la séance (30 pays ratés la veille) ; le plafond du jour atteint.
+    const ids = gs.flatMap((g) => g.membres).filter((id) => !deMaurice.membres.includes(id));
+    expect(avecSans(etat(appris(ids.slice(0, 30), D0 - 1, AGAIN)), D0).sansNouveautes).toBe('dues');
+    const plafond = etat([...appris(ids.slice(0, 70), D0 - 1, AGAIN), ...ids.slice(0, 60).map((id) => rep(`pays:${id}:localiser`, D0, GOOD))]);
+    expect(avecSans(plafond, D0).sansNouveautes).toBe('plafond');
+    // Le reliquat : 20 fiches nommer à introduire, 15 permises (plus vieilles que 3 j, aucune due).
+    const reliquat = etat(appris(ids.filter((id) => nommerPose('pays', id)).slice(0, 20), D0 - 1));
+    expect(avecSans(reliquat, D0).sansNouveautes).toBe('introductions');
+  });
+});
+
 describe('D37 c : les 9 pays au nom de leur capitale n’ont pas de fiche capitales:…:nommer', () => {
   const gs = grappesPays(JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[]);
   it('leur fiche localiser apprise, jamais d’introduction nommer ; les autres capitales et les pays, si', () => {

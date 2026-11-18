@@ -53,6 +53,7 @@ import { vueSaisie } from './vues/saisie';
 import { vueConfidentialite } from './vues/confidentialite';
 import { vueCredits } from './vues/credits';
 import { creerSeances } from './vues/seance';
+import { apprendreLieu, lirePrefere } from './vues/apprendre-lieu';
 import { enregistrerServiceWorker, prendreMiseAJour } from './sw/enregistrer';
 import { textes } from './vues/textes';
 import { VERSION } from './version';
@@ -772,6 +773,7 @@ async function demarrer(): Promise<void> {
     ouvrirFiche: (t: NomTerrain, id: string) => ficheDepuisBilan(t, id),
   };
   const pays = donnees.entites.map((e) => e.pays);
+  const entites = new Map(pays.map((p) => [p.id, p]));
   arbre = creerArbre(catalogue(pays));
   // La fiche d'un lieu (#34) : ses données au premier toucher, son morceau à part, une entrée d'historique par
   // fiche (navigation.ts), et jamais pendant une partie : une barre de partie visible, ou une partie de Toucher
@@ -792,6 +794,15 @@ async function demarrer(): Promise<void> {
     reglagesOuverts: () => document.getElementById('settings-popup')?.hidden === false,
     // « ‹ Retour au bilan » (lot F6) : l'adresse du bilan, en remontant l'historique (navigation.ts : cheminBilan).
     retourBilan: () => versBilan.retour(),
+    // « Apprendre ce lieu » (lot F7) : l'état lu dans les comptes de la séance, le lancement par lancer(), comme Jouer.
+    apprendre: apprendreLieu({
+      memoire,
+      seances: { comptes: (d) => seances.comptes(d) },
+      serie: (sujet, id) => arbre?.serie(sujet, id),
+      entite: (id) => entites.get(id),
+      stockage,
+      lancer: (l, s) => lancer(l, s, ctx.terrains.monde, []),
+    }),
   };
   /**
    * La fiche du lieu juste d'une erreur d'un bilan (#34, lot F6, § 4.6) : la carte (une entrée), le lieu montré,
@@ -811,6 +822,8 @@ async function demarrer(): Promise<void> {
     chargerMers: () => poserMers(ctx) ?? Promise.resolve(),
     ile: () => terrains?.deja('reunion')?.donnees ?? null,
     charger: (t) => terrains?.charger(t) ?? Promise.reject(new Error('terrains pas prêts')),
+    // Le lieu retenu par la fiche (D58 b, § 5.6) : sa grappe est la prochaine du sujet.
+    prefere: (sujet) => lirePrefere(stockage(), memoire, sujet),
   });
   // Page rouverte en pleine grappe de communes, de capitales ou de drapeaux : l'île, les capitales, le manifeste des drapeaux chargés en fond, pour que la ligne de Jouer compte la grappe à finir.
   void memoire.pret.then(
@@ -830,6 +843,7 @@ async function demarrer(): Promise<void> {
   const lancer = (l: Lancement, s: Serie, t: Terrain, ids: string[]): void => {
     // Apprendre lit la mémoire : lancé pendant sa lecture (quelques ms), il l'attend.
     if (l.mode === 'apprendre' && !memoire.charge) return void memoire.pret.then(() => lancer(l, s, t, ids));
+    // Le lieu d'« Apprendre ce lieu » (lot F7) n'est pas gardé : « Rejouer » relance la série (garderDerniere l'ignore).
     if (arbre?.valide(l)) garderDerniere(stockage(), l);
     nav.ouvrirPartie(estEpreuve(l.mode) ? 'chrono' : 'toucher');
     (estEpreuve(l.mode) ? epreuve : essai).lancer(l, s, t, ids);

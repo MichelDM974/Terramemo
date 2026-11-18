@@ -159,19 +159,25 @@ function reste(etat: Etat, g: Grappe, domaine: Domaine): Nouveautes | null {
  * de grappes.ts, D4) qui a une entité jamais introduite ; réduite à ces
  * entités ; null si tout est introduit. Avec `pret` (D39 b, § 6.2) : la
  * première de ces grappes qui le remplit, à défaut la première tout court,
- * marquée `prete: false` (le conseil). Ne regarde pas le budget du jour
- * (programme() le fait).
+ * marquée `prete: false` (le conseil). Avec `prefere` (« Apprendre ce lieu »,
+ * #34, lot F7) : après la grappe entamée, celle qui contient ce lieu passe
+ * avant les autres (et avant `pret`) ; un lieu inconnu de `grappes` ou déjà
+ * introduit ne change rien. Ne regarde pas le budget du jour (programme() le
+ * fait).
  */
-export function grappeSuivante(etat: Etat, grappes: readonly Grappe[], domaine: Domaine, pret?: (g: Grappe) => boolean): Nouveautes | null {
+export function grappeSuivante(etat: Etat, grappes: readonly Grappe[], domaine: Domaine, pret?: (g: Grappe) => boolean, prefere?: string): Nouveautes | null {
   let premiere: Nouveautes | null = null;
   let prete: Nouveautes | null = null;
+  let preferee: Nouveautes | null = null;
   for (const g of grappes) {
     const r = reste(etat, g, domaine);
     if (!r) continue;
     if (r.ids.length < g.membres.length) return r;
     premiere ??= r;
     if (pret && !prete && pret(g)) prete = r;
+    if (prefere !== undefined && r.ids.includes(prefere)) preferee = r;
   }
+  if (preferee) return pret && !pret(preferee.grappe) ? { ...preferee, prete: false } : preferee;
   if (!pret || !premiere) return premiere;
   return prete ?? { ...premiere, prete: false };
 }
@@ -235,6 +241,11 @@ export interface OptionsProgramme {
   domaines?: readonly Domaine[];
   /** D39 b : la grappe préférée (pretSelon) ; sans lui, l'ordre des grappes seul. */
   pret?: (g: Grappe) => boolean;
+  /**
+   * « Apprendre ce lieu » (#34, lot F7, § 5.2) : la grappe qui contient ce lieu passe en tête des
+   * nouveautes (grappeSuivante), rien d'autre ; la cascade du budget ne change pas.
+   */
+  prefere?: string;
 }
 
 /**
@@ -349,7 +360,7 @@ export function programme(
   let entamee: Nouveautes | null = null;
   if (restantes > 0) sansNouveautes = duJour === 0 ? 'plafond' : 'dues';
   else {
-    const g = grappeSuivante(etat, grappes, domaine, o.pret);
+    const g = grappeSuivante(etat, grappes, domaine, o.pret, o.prefere);
     // La grappe du domaine commencée ce jour et pas finie : elle passe avant (jamais coupée, même avec un reliquat).
     const e = grappeEntamee(etat, j, toutes, domaine);
     if (e && grappes.includes(e.grappe)) nouveautes = e;

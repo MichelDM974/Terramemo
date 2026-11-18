@@ -579,6 +579,11 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 /* La mère et l'océan d'une mer (lot F4) : des boutons dans leur ligne de faits, comme un voisin. */
 .fiche-fait dd.fiche-liens { display: flex; flex-wrap: wrap; gap: 8px; }
 .fiche-memoire ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+/* « Apprendre ce lieu » (lot F7) : un bouton de 44 px au moins, sa ligne dessous ; pourquoi pas aujourd'hui, « Noté ». */
+.fiche-apprendre { margin-top: 12px; }
+.fiche-apprendre button { min-height: 44px; }
+.fiche-apprendre .hint { margin: 4px 0 8px; }
+.fiche-apprendre-retenu { margin: 8px 0 6px; font-size: 0.9rem; }
 .fiche-pied { margin-top: 18px; color: var(--muted); font-size: 0.85rem; }
 .fiche-pied p { margin: 6px 0; }
 .fiche-pied a { color: var(--accent); }

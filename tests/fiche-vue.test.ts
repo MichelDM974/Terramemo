@@ -20,6 +20,7 @@ import type { ContexteVue } from '../src/vues/commun';
 import { creerNavigation, type Historique, type VueNavigable } from '../src/navigation';
 import { versAncre } from '../src/vues/arbre';
 import { vueExplorer, type OptionsFiche } from '../src/vues/explorer';
+import type { ApprendreFiche, ApprendreModele } from '../src/vues/apprendre-lieu';
 import { composerFiche, creerFeuille, DELAI_HEURE_MS, type ModeleFiche } from '../src/vues/fiche';
 import { remplir, textes } from '../src/vues/textes';
 import { textesFiche } from '../src/vues/textes-fiche';
@@ -687,6 +688,138 @@ class HistoriqueFactice implements Historique {
     this.attente.push(n);
   }
 }
+
+// « Apprendre ce lieu » (lot F7, § 5.4 et § 5.5) : la fiche ne lit que l'état rendu par ApprendreFiche
+// (apprendre-lieu.ts, depuis les comptes de la séance : tests/seance-vue.test.ts) ; ici, ce qu'elle en montre
+// et ce que ses boutons demandent.
+describe('la fiche : le bloc Mémoire et « Apprendre ce lieu » (lot F7)', () => {
+  beforeEach(() => vi.useRealTimers());
+  const F = textesFiche;
+  /** Une mémoire dont les lignes ne viennent que si la fiche les demande malgré le réglage coupé (§ 5.5). */
+  const coupee = {
+    details: (_t: string, _id: string, jouable: boolean, malgre?: boolean) => (jouable && malgre ? ['Pays : vu 1 fois · revient demain', 'Capitale : jamais vue', 'Drapeau : jamais vu'] : null),
+    actif: () => false,
+    detail: () => null,
+    sujets: () => [],
+    sujet: () => 'pays',
+    choisir() {},
+    teintes: () => null,
+    maitrises: () => null,
+  } as unknown as CarteMemoire;
+  /** Un ApprendreFiche factice : l'état donné pour tout lieu jouable, les gestes notés ; null pour un territoire. */
+  function apprendre(etat: ApprendreModele | null) {
+    const gestes: string[] = [];
+    let e = etat;
+    const a: ApprendreFiche = {
+      etat: (_t, id) => (id === 'GRL' ? null : e),
+      lancer: (t, id) => void gestes.push(`lancer ${t} ${id}`),
+      retenir: (t, id) => {
+        gestes.push(`retenir ${t} ${id}`);
+        if (e) e = { ...e, retenu: true };
+      },
+      oublier: (t, id) => {
+        gestes.push(`oublier ${t} ${id}`);
+        if (e) e = { ...e, retenu: false };
+      },
+    };
+    return { a, gestes };
+  }
+  const bloc = (v: Awaited<ReturnType<typeof ouvrirSur>>) => v.feuille()!.querySelector('.fiche-memoire');
+  const textes_ = (v: Awaited<ReturnType<typeof ouvrirSur>>) => (bloc(v)?.querySelectorAll('p') ?? []).map((p) => p.textContent);
+
+  it('possible : « Apprendre ce lieu », et dessous « après 12 révisions · avec 6 pays voisins » ; le toucher lance la séance sur ce lieu', async () => {
+    const { a, gestes } = apprendre({ sujet: 'pays', lieu: { etat: 'possible', voisins: 6, revisions: 12 }, retenu: false, garde: true });
+    const v = await ouvrirSur('MUS', { memoire: coupee, fiche: { apprendre: a } });
+    // Les lignes de la mémoire, réglage coupé (§ 5.5), puis le bouton.
+    expect(bloc(v)!.querySelectorAll('li').map((l) => l.textContent)).toEqual(['Pays : vu 1 fois · revient demain', 'Capitale : jamais vue', 'Drapeau : jamais vu']);
+    const b = v.el('#fiche-apprendre')!;
+    expect(b.textContent).toBe('Apprendre ce lieu');
+    expect(b.classList.contains('secondary')).toBe(false);
+    expect(b.getAttribute('aria-describedby')).toBe('fiche-apprendre-detail');
+    expect(v.el('#fiche-apprendre-detail')!.textContent).toBe('après 12 révisions · avec 6 pays voisins');
+    expect(v.el('#fiche-retenir')).toBeNull();
+    b.click();
+    expect(gestes).toEqual(['lancer monde MUS']);
+    // Le même, sans révision, un seul voisin ; une mer, une commune : leurs mots.
+    const un = apprendre({ sujet: 'pays', lieu: { etat: 'possible', voisins: 1, revisions: 1 }, retenu: false, garde: true });
+    const w = await ouvrirSur('MUS', { fiche: { apprendre: un.a } });
+    expect(w.el('#fiche-apprendre-detail')!.textContent).toBe('après 1 révision · avec 1 pays voisin');
+    expect(remplir(F.apprendre_avec.mers.n, { n: 4 })).toBe('avec 4 océans ou mers voisins');
+    expect(remplir(F.apprendre_avec.communes.n, { n: 5 })).toBe('avec 5 communes voisines');
+  });
+
+  it('mémoire en lecture, données pas chargées : le bouton sans ligne ; pas gardée : l’avis de la séance', async () => {
+    for (const lieu of [null, { etat: 'a_charger' as const }]) {
+      const { a } = apprendre({ sujet: 'pays', lieu, retenu: false, garde: true });
+      const v = await ouvrirSur('MUS', { fiche: { apprendre: a } });
+      expect(v.el('#fiche-apprendre')!.textContent).toBe('Apprendre ce lieu');
+      expect(v.el('#fiche-apprendre')!.getAttribute('aria-describedby')).toBeNull();
+      // Sans lignes de la mémoire (pas encore lues) : le bloc existe pour le bouton.
+      expect(bloc(v)!.querySelector('ul')).toBeNull();
+    }
+    const { a } = apprendre({ sujet: 'pays', lieu: { etat: 'possible', voisins: 6, revisions: 0 }, retenu: false, garde: false });
+    const v = await ouvrirSur('MUS', { fiche: { apprendre: a } });
+    expect(v.el('#fiche-apprendre-detail')!.textContent).toBe('avec 6 pays voisins');
+    expect(textes_(v)).toContain(textes.seance.non_garde);
+  });
+
+  it('appris, territoire : pas de bouton (les lignes suffisent ; un territoire n’a pas de bloc)', async () => {
+    const { a } = apprendre({ sujet: 'pays', lieu: { etat: 'appris' }, retenu: false, garde: true });
+    const v = await ouvrirSur('MUS', { memoire: coupee, fiche: { apprendre: a } });
+    expect(bloc(v)!.querySelectorAll('li').length).toBe(3);
+    expect(bloc(v)!.querySelector('button')).toBeNull();
+    const g = await ouvrirSur('GRL', { memoire: coupee, fiche: { apprendre: a } });
+    expect(g.feuille()!.querySelector('.fiche-memoire')).toBeNull();
+  });
+
+  it('pas aujourd’hui : pourquoi (chaque raison), et « Retenir ce lieu » ; retenu : « Noté », « Annuler » rend le bouton, le focus gardé', async () => {
+    const raisons = {
+      dues: F.apprendre_dues,
+      plafond: textes.seance.plafond,
+      grappe_faite: F.apprendre_grappe_faite,
+      introductions: textes.seance.introductions,
+      autre_grappe: F.apprendre_autre,
+    } as const;
+    for (const [raison, texte] of Object.entries(raisons)) {
+      const { a } = apprendre({ sujet: 'pays', lieu: { etat: 'attendre', raison: raison as keyof typeof raisons }, retenu: false, garde: true });
+      const v = await ouvrirSur('MUS', { fiche: { apprendre: a } });
+      expect(textes_(v)[0], raison).toBe(texte);
+      expect(v.el('#fiche-apprendre'), raison).toBeNull();
+      expect(v.el('#fiche-retenir')!.textContent).toBe(F.retenir);
+    }
+    expect(F.apprendre_grappe_faite).toBe('La grappe du jour est déjà apprise.');
+    const { a, gestes } = apprendre({ sujet: 'pays', lieu: { etat: 'attendre', raison: 'grappe_faite' }, retenu: false, garde: true });
+    const v = await ouvrirSur('MUS', { fiche: { apprendre: a } });
+    expect(v.el('#fiche-retenir')!.classList.contains('secondary')).toBe(true);
+    expect(v.el('#fiche-retenir-detail')!.textContent).toBe(F.retenir_detail);
+    v.el('#fiche-retenir')!.focus();
+    v.el('#fiche-retenir')!.click();
+    expect(gestes).toEqual(['retenir monde MUS']);
+    // La fiche refaite sur place : « Noté », « Annuler » à la place de « Retenir », qui prend le focus ; la fiche reste ouverte.
+    expect(v.ouverte()).toBe(true);
+    expect(v.el('#fiche-retenir')).toBeNull();
+    expect(textes_(v)).toEqual([F.apprendre_grappe_faite, F.retenu]);
+    expect(v.el('.fiche-apprendre-retenu')!.getAttribute('role')).toBe('status');
+    expect(v.el('#fiche-oublier')!.textContent).toBe(F.annuler);
+    expect(v.doc.activeElement).toBe(v.el('#fiche-oublier'));
+    v.el('#fiche-oublier')!.click();
+    expect(gestes).toEqual(['retenir monde MUS', 'oublier monde MUS']);
+    expect(v.el('#fiche-retenir')).not.toBeNull();
+    expect(v.el('#fiche-oublier')).toBeNull();
+  });
+
+  it('retenu, et possible (le lendemain) : le bouton, puis « Noté » et « Annuler »', async () => {
+    const { a } = apprendre({ sujet: 'pays', lieu: { etat: 'possible', voisins: 6, revisions: 0 }, retenu: true, garde: true });
+    const v = await ouvrirSur('MUS', { fiche: { apprendre: a } });
+    expect(v.el('#fiche-apprendre')).not.toBeNull();
+    expect(v.el('#fiche-oublier')).not.toBeNull();
+    expect(textes_(v)).toEqual(['avec 6 pays voisins', F.retenu]);
+  });
+
+  it('la règle du bloc : boutons de 44 px au moins (la mise en page : pilote, ui_fiche_apprendre)', () => {
+    expect(readFileSync('src/carte.css', 'utf8')).toContain('.fiche-apprendre button { min-height: 44px; }');
+  });
+});
 
 describe('la fiche branchée sur la vraie navigation (navigation.ts, comme main.ts)', () => {
   beforeEach(() => vi.useRealTimers());

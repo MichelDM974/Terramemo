@@ -111,8 +111,10 @@ export interface PiloteSeance {
 /**
  * Ce que Toucher demande : la Révision du jour, ou Apprendre sur une série
  * d'un sujet (Lancement.sujet : le domaine des fiches, jamais tiré du terrain).
+ * `lieu` : « Apprendre ce lieu » de la fiche (#34, lot F7, § 5.2) ; la grappe
+ * qui le contient passe en tête, dans le budget du jour.
  */
-export type DemandeSeance = { sorte: 'revision' } | { sorte: 'apprendre'; sujet: string; serie: Serie };
+export type DemandeSeance = { sorte: 'revision' } | { sorte: 'apprendre'; sujet: string; serie: Serie; lieu?: string };
 
 /** Une séance refusée : pourquoi (« La grappe du jour est déjà apprise… ») et les révisions qui restent. */
 export interface RefusSeance {
@@ -742,7 +744,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     lancer(l, s, terrain, ids) {
       lancement = l;
       bilanAuRetour = false;
-      if (l.mode === 'apprendre') return lancerSeance({ sorte: 'apprendre', sujet: l.sujet, serie: s });
+      if (l.mode === 'apprendre') return lancerSeance({ sorte: 'apprendre', sujet: l.sujet, serie: s, ...(l.lieu ? { lieu: l.lieu } : {}) });
       mode = l.mode === 'nommer' ? 'nommer' : 'localiser';
       demarrer(s, terrain, ids);
     },

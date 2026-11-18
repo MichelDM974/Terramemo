@@ -94,6 +94,8 @@ export interface Lancement {
   sujet: string;
   serie: string;
   mode: ModeJeu;
+  /** Apprendre lancé par « Apprendre ce lieu » de la fiche (#34, lot F7) : le lieu dont la grappe passe en tête ; jamais gardé (garderDerniere). */
+  lieu?: string;
 }
 
 /**

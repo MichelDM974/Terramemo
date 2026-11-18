@@ -67,6 +67,7 @@ import type { LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { EntreeFiche, LieuFiche } from '../navigation';
 import type { Terrain } from '../terrains';
+import type { ApprendreFiche } from './apprendre-lieu';
 import type { CarteMemoire } from './carte-memoire';
 import { ANNEAU_SOUS_PX, anneauZone, creer, LIBELLE_STATUT, merPosee, mersPosees, poserMers, type ContexteVue, type Vue } from './commun';
 import type { Feuille } from './fiche';
@@ -156,6 +157,8 @@ export interface OptionsFiche {
    * (historique.retour).
    */
   retourBilan?(): void;
+  /** « Apprendre ce lieu » (lot F7, § 5) : l'état du bouton, le lancement, le lieu retenu ; sans lui, ni bouton ni « Noté ». */
+  apprendre?: ApprendreFiche;
 }
 
 export interface OptionsExplorer {
@@ -713,7 +716,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         communes: communesLues,
         capitales: null,
         drapeaux: null,
-        memoire: (x, jouable) => o.memoire?.details('reunion', x, jouable) ?? null,
+        memoire: (x, jouable) => o.memoire?.details('reunion', x, jouable, true) ?? null,
+        apprendre: (x) => F?.apprendre?.etat('reunion', x) ?? null,
         ...(F?.relues ? { relues: F.relues } : {}),
       });
     }
@@ -728,7 +732,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       capitales: lues?.capitales ?? null,
       drapeaux: drapeauxLus,
       drapeauxTerritoires: drapeauxTerritoiresLus,
-      memoire: (x, jouable) => o.memoire?.details('monde', x, jouable) ?? null,
+      memoire: (x, jouable) => o.memoire?.details('monde', x, jouable, true) ?? null,
+      apprendre: (x) => F?.apprendre?.etat('monde', x) ?? null,
       ...(F?.relues ? { relues: F.relues } : {}),
     });
   }
@@ -807,6 +812,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
           avant: () => reculer(),
           // Sur le terrain de la fiche ouverte : une commune voisine sur l'île, tout le reste au monde.
           voisin: (v) => historique.pousser({ terrain: ficheOuverte?.terrain ?? 'monde', id: v }),
+          apprendre: (geste) => apprendreGeste(geste),
         });
         feuille.montrer(modele, { ...optionsAvant(f), focus: true });
         // Le drapeau d'un territoire (lot F3) : son manifeste à part, à la première fiche de territoire.
@@ -835,6 +841,21 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         if (j === jetonFiche) echecFiche();
       },
     );
+  }
+
+  /**
+   * « Apprendre ce lieu » touché (lot F7) : la séance (la vue de partie s'ouvre et ferme la fiche), ou le lieu
+   * retenu ou oublié (D58 b), la fiche refaite sur place, le focus gardé (rafraichir).
+   */
+  function apprendreGeste(geste: 'lancer' | 'retenir' | 'oublier'): void {
+    const f = ficheOuverte;
+    const a = F?.apprendre;
+    if (!f || !a || !active) return;
+    const terrain = f.terrain as NomTerrain;
+    if (geste === 'lancer') return a.lancer(terrain, f.id);
+    a[geste](terrain, f.id);
+    const m = moduleFiche && feuille ? composer(moduleFiche, f) : null;
+    if (m) feuille?.montrer(m, { ...optionsAvant(f), focus: false });
   }
 
   /**

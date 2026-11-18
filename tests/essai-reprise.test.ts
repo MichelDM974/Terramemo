@@ -631,6 +631,27 @@ describe('Toucher : une séance quittée puis reprise', () => {
     expect(s.versJouer).toHaveBeenLastCalledWith('jouer/entrainement/pays');
   });
 
+  it('« Apprendre ce lieu » (#34, lot F7) : le lieu passé à la séance ; au bilan, « Autre série » mène aux séries du sujet, la vue sans partie à l’Afrique', () => {
+    const s = monterSeance(() => piloteFactice(QUESTIONS).p);
+    s.vue.activer();
+    const afrique = { id: 'Africa', terrain: 'monde' as const, ids: IDS5, n: 5 };
+    s.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Africa', mode: 'apprendre', lieu: 'MUS' }, afrique, {} as never, []);
+    expect(s.fabrique.ouvrir).toHaveBeenLastCalledWith({ sorte: 'apprendre', sujet: 'pays', serie: afrique, lieu: 'MUS' });
+    s.el('#essai-terminer').click();
+    // « Continuer » redemande la même grappe : le lieu reste dans la demande.
+    s.el('#essai-bilan #seance-continuer').click();
+    expect(s.fabrique.ouvrir).toHaveBeenCalledTimes(2);
+    expect(s.fabrique.ouvrir).toHaveBeenLastCalledWith({ sorte: 'apprendre', sujet: 'pays', serie: afrique, lieu: 'MUS' });
+    s.el('#essai-terminer').click();
+    s.el('#essai-bilan #essai-autre').click();
+    expect(s.versJouer).toHaveBeenLastCalledWith('jouer/entrainement/pays');
+    // La vue atteinte sans partie (le retour du navigateur) : les exercices de la série du lieu, l'Afrique.
+    expect(s.vue.redirection?.()).toEqual({ cible: 'jouer/entrainement/pays/Africa' });
+    // Sans lieu, la demande d'avant (Jouer) : inchangée.
+    s.vue.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'Africa', mode: 'apprendre' }, afrique, {} as never, []);
+    expect(s.fabrique.ouvrir).toHaveBeenLastCalledWith({ sorte: 'apprendre', sujet: 'pays', serie: afrique });
+  });
+
   it('Apprendre refusé (grappe du jour faite) : le dire ; « Trouver » lance la série, « Réviser » la révision', () => {
     const s = monterSeance((d) => (d.sorte === 'apprendre' ? { refus: 'La grappe du jour est déjà apprise : la suivante demain.', reviser: 3 } : piloteFactice(QUESTIONS).p));
     s.vue.activer();

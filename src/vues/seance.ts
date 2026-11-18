@@ -28,6 +28,13 @@
 // Les océans et mers (lot 3b) : leurs grappes (grappesMers : les océans, puis
 // les mers par bassin), sur le monde, la couche marine lue et posée sur la
 // carte avant la séance ; aucun prérequis (D39 : rien pour les mers).
+//
+// « Apprendre ce lieu » (fiche d'un lieu, #34, lot F7, § 5) : Apprendre avec un
+// lieu (DemandeSeance.lieu), dont la grappe passe en tête (planif.ts prefere),
+// dans le même budget ; à défaut, le lieu retenu sur l'appareil pour le sujet
+// (OptionsSeances.prefere, D58 b), aussi pour la grappe de pays de la Révision
+// du jour. comptes() avec un lieu rend l'état du bouton et le refus
+// qu'ouvrir() rendrait (refusDe, partagé) : la fiche ne lit que cela.
 import { capitalesChargees, chargerCapitales } from '../map/capitales';
 import { chargerDrapeaux, drapeauxCharges, prechargerJustes } from '../map/drapeaux';
 import type { DonneesCarte } from '../map/donnees';
@@ -41,6 +48,7 @@ import {
   dues,
   entreesDuJour,
   grappeEntamee,
+  introduite,
   introductions,
   introductionsPermises,
   PREREQUIS,
@@ -67,7 +75,25 @@ export interface ComptesSeance {
   aRevoir: number;
   /** Pays nouveaux que la prochaine séance apprendrait (la grappe suivante, si le budget le permet). */
   nouveaux: number;
+  /** Apprendre avec un lieu (la fiche, #34, lot F7, § 5.4) : le refus qu'ouvrir() rendrait à la même demande, ou null. */
+  refus?: RefusSeance | null;
+  /** Apprendre avec un lieu : ce que la séance ferait de lui (l'état du bouton « Apprendre ce lieu »). */
+  lieu?: EtatLieu;
 }
+
+/**
+ * « Apprendre ce lieu » (#34, lot F7, § 5.4), lu par la fiche dans comptes() : rien n'y est ouvert ni écrit.
+ * - `sans_grappe` : aucune grappe du sujet ne le porte (territoire, zone) : pas de bouton ;
+ * - `appris` : déjà introduit : pas de bouton ;
+ * - `a_charger` : les données du sujet ne sont pas là (la couche des mers, l'île) : le bouton, la séance les charge ;
+ * - `possible` : la séance apprend sa grappe, avec `voisins` autres lieux, après `revisions` révisions ;
+ * - `attendre` : pas aujourd'hui, et pourquoi : des révisions d'abord (`dues`, `plafond`), la grappe du jour prise
+ *   (`grappe_faite`), le reliquat (`introductions`), une autre grappe commencée qui se finit d'abord (`autre_grappe`).
+ */
+export type EtatLieu =
+  | { etat: 'sans_grappe' | 'appris' | 'a_charger' }
+  | { etat: 'possible'; voisins: number; revisions: number }
+  | { etat: 'attendre'; raison: 'dues' | 'plafond' | 'grappe_faite' | 'introductions' | 'autre_grappe' };
 
 /** « 12 à revoir · 6 nouveaux », « À jour ». */
 export function texteComptes(c: ComptesSeance): string {
@@ -137,6 +163,11 @@ export interface OptionsSeances {
   jouables?: readonly Domaine[];
   /** Hasard du mélange (tests : une graine). */
   hasard?: () => number;
+  /**
+   * Le lieu retenu sur l'appareil pour ce sujet (« Apprendre ce lieu », D58 b, § 5.6 : apprendre-lieu.ts), ou null :
+   * sa grappe passe en tête d'Apprendre du sujet, et de la Révision du jour pour les pays. Sans lui, aucun.
+   */
+  prefere?: (sujet: Domaine) => string | null;
 }
 
 /** Ce qu'une séance sait d'un domaine : son terrain, ses données, ses grappes. */
@@ -266,7 +297,9 @@ export function creerSeances(o: OptionsSeances): Seances {
       if (!info) return null;
       const grappes = info.terrain === 'monde' && d.serie.id !== SERIE_TOUS ? info.toutes.filter((g) => g.continent === d.serie.id) : info.toutes;
       const pret = pretSelon(etat, j, info.domaine);
-      return [bloc(info, grappes, pret ? { pret } : {})];
+      // Le lieu de la fiche (#34, lot F7), sinon celui retenu sur l'appareil pour ce sujet (D58 b).
+      const prefere = d.lieu ?? o.prefere?.(info.domaine) ?? undefined;
+      return [bloc(info, grappes, { ...(pret ? { pret } : {}), ...(prefere ? { prefere } : {}) })];
     }
     const duMonde = jouablesDu('monde', jouables).flatMap((x) => infoDe(x) ?? []);
     const c = estJouable('communes') ? infoCommunes() : null;
@@ -274,7 +307,9 @@ export function creerSeances(o: OptionsSeances): Seances {
     // confondus, puis chacune à son bloc. Sinon le monde se servait d'abord, et ses sujets affamaient les communes.
     const domainesSeance = [...duMonde.map((i) => i.domaine), ...(c ? [c.domaine] : [])];
     const introsPermises = new Set(introductions(etat, j, domainesSeance).slice(0, introductionsPermises(etat, j)));
-    const b1 = bloc(pays, pays.toutes, { domaines: duMonde.map((i) => i.domaine), introsPermises });
+    // Le pays retenu sur l'appareil (D58 b, § 5.6) : sa grappe est la prochaine des pays, seuls à ouvrir une grappe ici (D46).
+    const prefere = o.prefere?.('pays') ?? undefined;
+    const b1 = bloc(pays, pays.toutes, { domaines: duMonde.map((i) => i.domaine), introsPermises, ...(prefere ? { prefere } : {}) });
     const prises = { prises: b1.plan.revisions.length, introsPermises };
     // 2. La grappe qu'Apprendre a ouverte ce jour dans un autre sujet du monde, à finir : un bloc par grappe (Seance ne forme les nouveautés que d'un domaine).
     const entamees: Bloc[] = duMonde
@@ -345,13 +380,39 @@ export function creerSeances(o: OptionsSeances): Seances {
     const domaines: readonly Domaine[] = d.sorte === 'apprendre' ? (estJouable(d.sujet) ? [d.sujet] : []) : jouables;
     const aRevoir =
       Math.min(dues(etat, j, domaines).length, revisionsPermises(etat, j)) + Math.min(introductions(etat, j, domaines).length, introductionsPermises(etat, j));
-    return { aRevoir, nouveaux: (blocs(d) ?? []).reduce((n, b) => n + b.plan.nouveaux.length, 0) };
+    const bs = blocs(d);
+    const c: ComptesSeance = { aRevoir, nouveaux: (bs ?? []).reduce((n, b) => n + b.plan.nouveaux.length, 0) };
+    if (d.sorte !== 'apprendre' || d.lieu === undefined) return c;
+    const refus = refusDe(bs, d);
+    return { ...c, refus, lieu: etatLieu(bs, d.sujet, d.lieu, refus) };
   }
 
-  function ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance {
+  /**
+   * L'état du bouton « Apprendre ce lieu » (§ 5.4), tiré des mêmes blocs et du même refus qu'ouvrir() : la fiche ne
+   * promet jamais autre chose que la séance.
+   */
+  function etatLieu(bs: Bloc[] | null, sujet: string, lieu: string, refus: RefusSeance | null): EtatLieu {
+    const info = infoDe(sujet);
+    if (!info) return { etat: estJouable(sujet) ? 'a_charger' : 'sans_grappe' };
+    if (!info.toutes.some((g) => g.membres.includes(lieu))) return { etat: 'sans_grappe' };
+    if (introduite(m.etat(), info.domaine, lieu)) return { etat: 'appris' };
+    const b = bs?.[0];
+    if (!b) return { etat: 'a_charger' };
+    const n = b.p.nouveautes;
+    if (!refus && n && b.plan.nouveaux.includes(lieu)) return { etat: 'possible', voisins: n.ids.length - 1, revisions: b.plan.revisions.length + b.plan.introductions.length };
+    const r = b.p.sansNouveautes;
+    // Une autre grappe passe avant : commencée ce jour ailleurs (le refus « grappe entamée »), ou entamée dans la série.
+    if (n || r === 'grappe_entamee' || r === 'tout_appris' || r === null) return { etat: 'attendre', raison: 'autre_grappe' };
+    return { etat: 'attendre', raison: r };
+  }
+
+  /**
+   * Le refus d'une demande (null : la séance s'ouvre), partagé par ouvrir() et comptes() (#34, lot F7, § 5.4) : la
+   * fiche lit le même que la séance rendrait. `bs` : blocs(d).
+   */
+  function refusDe(bs: Bloc[] | null, d: DemandeSeance): RefusSeance | null {
     // Un sujet que cette version ne pose pas (Jouer ne le propose pas) : rien à faire, et pas le message de l'île.
     if (d.sorte === 'apprendre' && !estJouable(d.sujet)) return { refus: S.rien, reviser: 0 };
-    const bs = blocs(d);
     // Apprendre sans les données du sujet (hors ligne) : l'île pour les communes, « les données » pour un sujet du monde.
     if (!bs) return { refus: d.sorte === 'apprendre' && d.sujet !== 'communes' ? textes.toucher.echec_sujet : textes.toucher.echec_terrain, reviser: 0 };
     const aFaire = bs.reduce((n, b) => n + b.plan.revisions.length + b.plan.introductions.length, 0);
@@ -377,6 +438,14 @@ export function creerSeances(o: OptionsSeances): Seances {
                 : S.grappe_faite;
       return { refus: raison, reviser: d.sorte === 'apprendre' ? aFaire : 0 };
     }
+    return null;
+  }
+
+  function ouvrir(d: DemandeSeance): PiloteSeance | RefusSeance {
+    const bs = blocs(d);
+    const refus = refusDe(bs, d);
+    if (refus || !bs) return refus!;
+    const p = bs[0]!.p;
     precharger(bs);
     const id = m.nouvelId();
     const ctx = { seance: id, appareil: m.appareil, horloge: m.horloge, nouvelId: () => m.nouvelId(), hasard };
