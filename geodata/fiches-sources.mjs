@@ -55,6 +55,8 @@ export const EXTRAITS_FICHES = {
   requetes: 'geodata/wikidata/requetes-fiches.rq',
   wikidataMers: 'geodata/wikidata/fiches-mers.json',
   requetesMers: 'geodata/wikidata/requetes-fiches-mers.rq',
+  wikidataCommunes: 'geodata/wikidata/fiches-communes.json',
+  requetesCommunes: 'geodata/wikidata/requetes-fiches-communes.rq',
   banqueMondiale: 'geodata/banque-mondiale/population.json',
 };
 const SCRIPT = 'geodata/fiches-sources.mjs';
@@ -65,9 +67,9 @@ const SCRIPT = 'geodata/fiches-sources.mjs';
 const WP = (langue, titre, revision, du) => ({ titre, url: `https://${langue}.wikipedia.org/w/index.php?oldid=${revision}`, revision, du });
 export const SOURCES_TABLE = [
   {
-    nom: 'Wikipédia, pages lues pour la table à la main (sommets, fêtes, langues, gentilés ; superficies, profondeurs et riverains des mers)',
+    nom: 'Wikipédia, pages lues pour la table à la main (sommets, fêtes, langues, gentilés ; superficies, profondeurs et riverains des mers ; gentilés et intercommunalités des communes de La Réunion)',
     url: 'https://fr.wikipedia.org',
-    version: 'révisions citées, lues le 17/11/2026 (Tirich Mir et les mers : le 18/11/2026)',
+    version: 'révisions citées, lues le 17/11/2026 (Tirich Mir, les mers et les communes : le 18/11/2026)',
     telecharge_le: '2026-11-17',
     licence: 'CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/) pour le texte ; seuls des faits en sont repris (altitudes, parts, dates), chacun avec sa page',
     pages: [
@@ -115,6 +117,12 @@ export const SOURCES_TABLE = [
       WP('en', 'Arabian Sea', 1384467206, null),
       WP('en', 'Red Sea', 1386060551, null),
       WP('en', 'Andaman Sea', 1377184977, null),
+      // Lot F5 : gentilés et sigle d'une intercommunalité des communes de La Réunion (geodata/fiches-communes.mjs).
+      WP('fr', "L'Étang-Salé", 237556683, '2026-07-04'),
+      WP('fr', 'Petite-Île', 240647533, '2026-10-23'),
+      WP('fr', 'Saint-Benoît (La Réunion)', 240227741, '2026-10-09'),
+      WP('fr', 'Sainte-Marie (La Réunion)', 236360075, '2026-05-19'),
+      WP('fr', "Communauté d'agglomération du Sud", 234996175, null),
     ],
     fichiers: [],
   },
@@ -153,10 +161,18 @@ export const SOURCES_TABLE = [
  */
 export async function sourcesFiches(racine) {
   const lire = (c) => readFile(join(racine, c));
-  const [verrouBrut, wdBrut, rqBrut, bmBrut, scriptBrut, wdMersBrut, rqMersBrut] = await Promise.all(
-    ['geodata/sources.lock.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.requetes, EXTRAITS_FICHES.banqueMondiale, SCRIPT, EXTRAITS_FICHES.wikidataMers, EXTRAITS_FICHES.requetesMers].map(
-      lire,
-    ),
+  const [verrouBrut, wdBrut, rqBrut, bmBrut, scriptBrut, wdMersBrut, rqMersBrut, wdCommunesBrut, rqCommunesBrut] = await Promise.all(
+    [
+      'geodata/sources.lock.json',
+      EXTRAITS_FICHES.wikidata,
+      EXTRAITS_FICHES.requetes,
+      EXTRAITS_FICHES.banqueMondiale,
+      SCRIPT,
+      EXTRAITS_FICHES.wikidataMers,
+      EXTRAITS_FICHES.requetesMers,
+      EXTRAITS_FICHES.wikidataCommunes,
+      EXTRAITS_FICHES.requetesCommunes,
+    ].map(lire),
   );
   const verrou = JSON.parse(verrouBrut.toString('utf8'));
   const wd = JSON.parse(wdBrut.toString('utf8'));
@@ -167,6 +183,10 @@ export async function sourcesFiches(racine) {
   const wdMers = JSON.parse(wdMersBrut.toString('utf8'));
   if (wdMers.requetes_sha256 !== sha256(rqMersBrut)) {
     throw new Error(`${EXTRAITS_FICHES.requetesMers} a changé depuis l'extrait du ${wdMers.extrait_le} : relancer npm run wikidata -- --fiches-mers`);
+  }
+  const wdCommunes = JSON.parse(wdCommunesBrut.toString('utf8'));
+  if (wdCommunes.requetes_sha256 !== sha256(rqCommunesBrut)) {
+    throw new Error(`${EXTRAITS_FICHES.requetesCommunes} a changé depuis l'extrait du ${wdCommunes.extrait_le} : relancer npm run wikidata -- --fiches-communes`);
   }
   const telechargees = SOURCES_FICHES.map((s) => {
     const v = verrou[s.cle];
@@ -199,6 +219,16 @@ export async function sourcesFiches(racine) {
       telecharge_le: wdMers.date,
       requetes: { chemin: EXTRAITS_FICHES.requetesMers, sha256: sha256(rqMersBrut) },
       fichiers: [{ chemin: EXTRAITS_FICHES.wikidataMers, sha256: sha256(wdMersBrut) }],
+    },
+    {
+      nom: 'Wikidata, textes des fiches des communes de La Réunion (lot F5) : item par le code INSEE (P374), gentilés (P1549), titres de la Wikipédia en français',
+      // L'API wbgetentities (titres) : une autre adresse que les deux lignes SPARQL (sources.json les range par adresse).
+      url: 'https://www.wikidata.org/w/api.php',
+      version: `extrait du ${wdCommunes.extrait_le} (SPARQL), API du ${wdCommunes.api_le}`,
+      licence: 'CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), aucune mention obligatoire : citée par courtoisie',
+      telecharge_le: wdCommunes.date,
+      requetes: { chemin: EXTRAITS_FICHES.requetesCommunes, sha256: sha256(rqCommunesBrut) },
+      fichiers: [{ chemin: EXTRAITS_FICHES.wikidataCommunes, sha256: sha256(wdCommunesBrut) }],
     },
     {
       nom: `Banque mondiale, ${bm.source.nom}`,

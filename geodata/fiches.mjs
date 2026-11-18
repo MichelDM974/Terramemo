@@ -28,7 +28,11 @@
 //   noms), geodata/wikidata/mers-entites.json (titres de Wikipédia), l'extrait figé
 //   geodata/wikidata/fiches-mers.json, geodata/mers-affectations.json et, dans geodata/raw/,
 //   les couches des pays et des zones marines de Natural Earth (riverains par le tracé).
-// Les règles du choix sont dans geodata/fiches-pays.mjs (et fiches-autres.mjs, fiches-mers.mjs),
+//   lot F5 : public/geo/reunion/fiches.json (chiffres de l'IGN, écrits par geodata/reunion.mjs),
+//   communes.json, noms.fr.json et sources.json de l'île, l'extrait figé
+//   geodata/wikidata/fiches-communes.json.
+// Les règles du choix sont dans geodata/fiches-pays.mjs (et fiches-autres.mjs, fiches-mers.mjs,
+// fiches-communes.mjs),
 // les tableaux à relire dans geodata/fiches-relecture.mjs.
 // Produit (identiques octet pour octet d'un lancement à l'autre ; deux fichiers par
 // terrain, l'un sans langue, l'autre de la langue : décision « Langue », § 2.7) :
@@ -60,8 +64,11 @@
 //                         de Wikidata (ne le tracé, wp Wikipédia, noaa), p profondeur maximale
 //                         en m, ps sa source hors de Wikidata (wp), r les riverains (ids de
 //                         pays.json ; aucun pour un océan)}}} ; {v, lieux: {id: {wp}}} ;
+//   reunion/fiches.fr.json  les 24 communes de La Réunion (lot F5) : {v, intercommunalites:
+//                         {SIREN: sigle}, lieux: {code INSEE: {wp, g, gp, gs?}}} ; leurs chiffres
+//                         (reunion/fiches.json) sont écrits par geodata/reunion.mjs ;
 //   docs/relectures/fiches-pays.md  les tableaux à relire (fiches-relecture.mjs), et ceux
-//                         des territoires et des mers.
+//                         des territoires, des mers et des communes.
 // Continent, sous-région et voisins restent dans pays.json, déjà chargé (§ 2.7).
 // Échoue (exception) si les entrées et la table ne s'accordent plus : un pays sans titre ou
 // sans chiffre, une sous-région sans nom, une ligne de la table qui ne s'applique plus.
@@ -71,6 +78,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { feature } from 'topojson-client';
 import { CHAMPS_CONTINENT, CHAMPS_ZONE, CHEMIN_RELECTURE_AUTRES, chiffresAutres, texteRelectureAutres } from './fiches-autres.mjs';
+import { CHEMIN_RELECTURE_COMMUNES, chiffresCommunes, FICHIER_LANGUE, FICHIERS_ILE, texteRelectureCommunes } from './fiches-communes.mjs';
 import { CHEMIN_RELECTURE_MERS, chiffresMers, lireCouchesNe, riverainsTrace, texteRelectureMers } from './fiches-mers.mjs';
 import { chiffresPays } from './fiches-pays.mjs';
 import { CHEMIN_RELECTURE, texteRelecture } from './fiches-relecture.mjs';
@@ -85,6 +93,7 @@ export const CHEMINS = {
   territoires: 'geodata/fiches-territoires.mjs',
   autres: 'geodata/fiches-autres.mjs',
   mers: 'geodata/fiches-mers.mjs',
+  communes: 'geodata/fiches-communes.mjs',
   affectations: 'geodata/mers-affectations.json',
   main: 'geodata/fiches-main.json',
   extrait: 'geodata/wikidata/capitales.json',
@@ -114,13 +123,15 @@ const parId = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 export async function construireFiches(racine) {
   const lire = (c) => readFile(join(racine, c));
   const json = (b) => JSON.parse(b.toString('utf8'));
-  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.territoires, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json', CHEMINS.autres, CHEMINS.mers, CHEMINS.affectations];
+  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.territoires, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json', CHEMINS.autres, CHEMINS.mers, CHEMINS.affectations, CHEMINS.communes];
   const donnees = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/capitales.fr.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', 'src/vues/textes.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
   const donneesMers = ['public/geo/mers.json', 'public/geo/mers.fr.json', 'geodata/wikidata/mers-entites.json', EXTRAITS_FICHES.wikidataMers];
-  const [[scriptBrut, reglesBrut, relectureBrut, territoiresBrut, mainBrut, extraitBrut, capMainBrut, paysBrut, autresBrut, mersScriptBrut, affectationsBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, textesBrut, wdBrut, bmBrut], [zonesMersBrut, nomsMersBrut, entitesMersBrut, wdMersBrut], cldr, couchesNe] = await Promise.all([
+  const donneesIle = [FICHIERS_ILE.fiches, FICHIERS_ILE.communes, FICHIERS_ILE.noms, FICHIERS_ILE.sources, EXTRAITS_FICHES.wikidataCommunes];
+  const [[scriptBrut, reglesBrut, relectureBrut, territoiresBrut, mainBrut, extraitBrut, capMainBrut, paysBrut, autresBrut, mersScriptBrut, affectationsBrut, communesScriptBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, textesBrut, wdBrut, bmBrut], [zonesMersBrut, nomsMersBrut, entitesMersBrut, wdMersBrut], [fichesIleBrut, communesIleBrut, nomsIleBrut, sourcesIleBrut, wdCommunesBrut], cldr, couchesNe] = await Promise.all([
     Promise.all(chemins.map(lire)),
     Promise.all(donnees.map(lire)),
     Promise.all(donneesMers.map(lire)),
+    Promise.all(donneesIle.map(lire)),
     lireSourcesFiches(racine),
     lireCouchesNe(racine),
   ]);
@@ -226,6 +237,12 @@ export async function construireFiches(racine) {
   });
   if (mers.fautes.length) throw new Error(`fiches, océans et mers (${CHEMINS.main}) :\n  ${mers.fautes.join('\n  ')}`);
 
+  // Les 24 communes de La Réunion (lot F5) : geodata/fiches-communes.mjs ; leurs chiffres sont ceux de geodata/reunion.mjs.
+  const sourcesIle = json(sourcesIleBrut);
+  const wdCommunes = json(wdCommunesBrut);
+  const communes = chiffresCommunes({ fiches: json(fichesIleBrut), communes: json(communesIleBrut), noms: json(nomsIleBrut), sourcesIle, wd: wdCommunes, main });
+  if (communes.fautes.length) throw new Error(`fiches, communes de La Réunion (${CHEMINS.main}) :\n  ${communes.fautes.join('\n  ')}`);
+
   // Ordre des clés fixe (la sorte d'abord), pour des fichiers stables et lisibles.
   const ORDRE = ['s', 'sv', 'fs', 'h', 'ha', 'hs', 'sup', 'alt', 'cs', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
   const ORDRE_FR = ['st', 'wp', 'ca', 'g', 'gp', 'gs', 'hc', 'cu', 'fn'];
@@ -254,6 +271,8 @@ export async function construireFiches(racine) {
     // Dans l'ordre de mers.json, comme la couche des mers.
     'fiches-mers.json': `{"v":${VERSION_FICHES},"lieux":${objet(Object.fromEntries(Object.entries(mers.lieux).map(([id, l]) => [id, range(l, ORDRE_MERS)])))}}\n`,
     'fiches-mers.fr.json': `{"v":${VERSION_FICHES},"lieux":${objet(mers.textes)}}\n`,
+    // Dans l'ordre des codes INSEE, comme communes.json.
+    [FICHIER_LANGUE]: `{"v":${VERSION_FICHES},"intercommunalites":${JSON.stringify(communes.intercommunalites)},"lieux":${objet(Object.fromEntries(Object.entries(communes.lieux).map(([id, t]) => [id, range(t, ['wp', 'g', 'gp', 'gs'])])))}}\n`,
   };
   const relecture = {
     chemin: CHEMIN_RELECTURE,
@@ -275,6 +294,13 @@ export async function construireFiches(racine) {
       chemin: CHEMIN_RELECTURE_MERS,
       texte: texteRelectureMers({ R: mers.relecture, noms, nomsMers, zones: zonesMers, entites, libelles: wdMers.libelles, sources: { wikidata: wdMers.extrait_le.slice(0, 10) } }),
     },
+    {
+      chemin: CHEMIN_RELECTURE_COMMUNES,
+      texte: texteRelectureCommunes({
+        R: communes.relecture,
+        sources: { wikidata: wdCommunes.extrait_le.slice(0, 10), ign: `édition du ${sourcesIle.sources[0].edition}, mise à jour du ${sourcesIle.sources[0].mise_a_jour}` },
+      }),
+    },
   ];
   const n = (s) => Object.values(lieux).filter((l) => l.s === s).length;
   const R = chiffres.relecture;
@@ -289,6 +315,8 @@ export async function construireFiches(racine) {
       `${Object.values(lieux).filter((l) => l.s !== 'pays' && l.z).length} zones horaires, ${Object.values(lieux).filter((l) => l.s !== 'pays' && l.alt).length} sommets ; tableau à relire : ${CHEMIN_RELECTURE_AUTRES}`,
     `mers : ${Object.values(mers.lieux).filter((l) => l.sup).length} superficies, ${Object.values(mers.lieux).filter((l) => l.p).length} profondeurs, ` +
       `${Object.values(mers.lieux).filter((l) => l.r).length} listes de riverains (${Object.values(mers.lieux).reduce((n, l) => n + (l.r?.length ?? 0), 0)} liens) ; tableau à relire : ${CHEMIN_RELECTURE_MERS}`,
+    `communes : ${Object.keys(communes.lieux).length} fiches, ${communes.relecture.total} habitants, ${Object.values(communes.lieux).filter((t) => t.g).length} gentilés, ` +
+      `${Object.keys(communes.intercommunalites).length} intercommunalités ; tableau à relire : ${CHEMIN_RELECTURE_COMMUNES}`,
     `statuts : ${statuts.relecture.territoires.length} territoires, ${statuts.relecture.zones.length} zones ; SOV_A3 de Natural Earth ${neVerifie ? 'confronté à la table' : `non vérifié (${DBF_NE} absent)`} ; tableau à relire : ${CHEMIN_RELECTURE_TERRITOIRES}`,
   );
   const src = await sourcesFiches(racine);
@@ -299,6 +327,7 @@ export async function construireFiches(racine) {
     [CHEMINS.territoires]: sha256(territoiresBrut),
     [CHEMINS.autres]: sha256(autresBrut),
     [CHEMINS.mers]: sha256(mersScriptBrut),
+    [CHEMINS.communes]: sha256(communesScriptBrut),
     [CHEMINS.affectations]: sha256(affectationsBrut),
     [CHEMINS.main]: sha256(mainBrut),
     ...src.entrees,

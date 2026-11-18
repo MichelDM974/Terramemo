@@ -169,8 +169,8 @@ describe('sources téléchargées des fiches et lignes de sources.json', () => {
   it('sourcesFiches (npm run fiches) redonne les lignes de sources.json et l’empreinte du module, sans lire raw/', async () => {
     const { sourcesFiches } = await module;
     const r = await sourcesFiches('.');
-    // CLDR, tz, Wikidata (pays, puis mers : lot F4), Banque mondiale ; puis Wikipédia, Factbook, NOAA (océans, lot F4) et ISO 639 (table à la main).
-    expect(r.sources).toHaveLength(9);
+    // CLDR, tz, Wikidata (pays, puis mers : lot F4, puis communes : lot F5), Banque mondiale ; puis Wikipédia, Factbook, NOAA (océans, lot F4) et ISO 639 (table à la main).
+    expect(r.sources).toHaveLength(10);
     for (const s of r.sources) expect(sources.sources.find((x) => x.url === s.url), s.url).toEqual(s);
     expect(r.entrees).toEqual({ 'geodata/fiches-sources.mjs': empreinte('geodata/fiches-sources.mjs') });
     expect(sources.traitement.entrees['geodata/fiches-sources.mjs']).toBe(r.entrees['geodata/fiches-sources.mjs']);
@@ -223,5 +223,42 @@ describe('extrait de Wikidata des mers (lot F4)', () => {
     expect(sans('profondeurs')).toEqual(['californ']);
     expect(Object.entries(wdm.etats).filter(([, e]) => e.fin.length).map(([q]) => q).sort()).toEqual(['Q15180', 'Q199841', 'Q34266']);
     for (const l of Object.values(wdm.lieux)) for (const d of l.pays ?? []) expect(['P17', 'P205']).toContain(d.prop);
+  });
+});
+
+// --- Lot F5 : l'extrait des communes de La Réunion --------------------------------------------
+
+type ExtraitCommunes = {
+  date: string;
+  requetes_sha256: string;
+  communes: Record<string, string>;
+  lieux: Record<string, { fr: string | null; frwiki: string | null; gentiles?: (Declaration & { v: string })[] }>;
+  libelles: Record<string, { fr: string | null; en: string | null }>;
+};
+
+describe('extrait de Wikidata des communes de La Réunion (lot F5)', () => {
+  const wdc = lire<ExtraitCommunes>('geodata/wikidata/fiches-communes.json');
+  const communes = lire<{ id: string }[]>('public/geo/reunion/communes.json');
+
+  it('les 24 codes INSEE de communes.json, un item chacun (P374) ; requêtes à part (requetes-fiches-communes.rq), leur empreinte dans l’extrait et dans sources.json', () => {
+    expect(Object.keys(wdc.communes)).toEqual(communes.map((c) => c.id));
+    expect(new Set(Object.values(wdc.communes)).size).toBe(24);
+    expect(Object.keys(wdc.lieux).sort()).toEqual(Object.values(wdc.communes).sort());
+    expect(wdc.communes['97416']).toBe('Q249884'); // Saint-Pierre
+    expect(wdc.requetes_sha256).toBe(empreinte('geodata/wikidata/requetes-fiches-communes.rq'));
+    const s = sources.sources.find((x) => x.requetes?.chemin === 'geodata/wikidata/requetes-fiches-communes.rq');
+    expect(s?.requetes?.sha256).toBe(wdc.requetes_sha256);
+    expect(s?.fichiers).toEqual([{ chemin: 'geodata/wikidata/fiches-communes.json', sha256: empreinte('geodata/wikidata/fiches-communes.json') }]);
+    expect(s?.telecharge_le).toBe(wdc.date);
+  });
+
+  it('couverture du relevé R4 : un gentilé en français et un article de la Wikipédia en français pour les 24', () => {
+    for (const [code, q] of Object.entries(wdc.communes)) {
+      const l = wdc.lieux[q]!;
+      expect(l.frwiki, code).toBeTruthy();
+      expect(l.gentiles?.length, code).toBeGreaterThan(0);
+    }
+    // 13 titres précisés « (La Réunion) » (Saint-Pierre, Le Port…) ; le relevé R4 en comptait 14, recompté sur l'extrait.
+    expect(Object.values(wdc.lieux).filter((l) => l.frwiki?.endsWith(' (La Réunion)'))).toHaveLength(13);
   });
 });

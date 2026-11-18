@@ -744,5 +744,20 @@
     "_": "Items que Wikidata cite comme pays d'une mer (P17, P205) sans être l'item d'une entité de la carte ni un État disparu (lot F4) : id, l'entité à laquelle les rapporter, ou null (ignoré), avec la raison.",
     "Q756617": {"id": "DNK", "raison": "le royaume de Danemark (avec le Groenland et les Féroé), cité pour la mer du Groenland : rapporté au Danemark ; le Groenland, riverain par le tracé, le retire ensuite d'office"},
     "Q31354462": {"id": null, "raison": "l'Abkhazie n'est pas une entité de la carte (elle est dans le tracé de la Géorgie, déjà riveraine de la mer Noire)"}
+  },
+  "epci": {
+    "_": "Sigle de chaque intercommunalité de La Réunion (lot F5, étude § 2.4), par son SIREN (codes_siren_des_epci de l'IGN, public/geo/reunion/fiches.json) : la fiche d'une commune dit le sigle, pas le nom officiel de l'IGN, long (« CA Intercommunale du Nord de la Réunion (CINOR) »). Le build (geodata/fiches-communes.mjs) échoue si une intercommunalité de l'IGN n'a pas de ligne, si une ligne n'en désigne aucune, ou si le nom de l'IGN (public/geo/reunion/sources.json) a changé (nom_ign) : le sigle est alors à relire. Tableau : docs/relectures/fiches-communes.md, § 2.",
+    "249740077": {"sigle": "CIVIS", "nom_ign": "CA CIVIS (Communauté Intercommunale des Villes Solidaires)", "raison": "le sigle du nom officiel de l'IGN"},
+    "249740085": {"sigle": "CASUD", "nom_ign": "CA du Sud", "raison": "l'IGN la nomme « CA du Sud », sans sigle ; « CASUD » est celui qu'elle emploie (ses délibérations, citées par la Wikipédia en français, « Communauté d'agglomération du Sud », révision 234996175)"},
+    "249740093": {"sigle": "CIREST", "nom_ign": "CA Intercommunale de la Réunion Est (CIREST)", "raison": "le sigle du nom officiel de l'IGN"},
+    "249740101": {"sigle": "TCO", "nom_ign": "CA Territoire de la Côte Ouest (TCO)", "raison": "le sigle du nom officiel de l'IGN"},
+    "249740119": {"sigle": "CINOR", "nom_ign": "CA Intercommunale du Nord de la Réunion (CINOR)", "raison": "le sigle du nom officiel de l'IGN"}
+  },
+  "gentile_communes": {
+    "_": "Gentilé d'une commune de La Réunion (lot F5, étude § 2.4) : le build prend la seule forme masculine singulière de Wikidata (P1549, en français) et forme le pluriel (un « s », sauf après s, x ou z), comme pour un pays ; contrôlé le 18/11/2026 contre l'infobox de l'article de la Wikipédia en français des 24 communes : mêmes formes, au nombre près, sauf les remarques des lignes. Une ligne : masculin (une autre forme, avec sa source) ou pluriel (hors de la règle), ou verifier (la forme de Wikidata gardée, avec un doute à relire). Relu par l'utilisateur avant la mise en ligne (docs/relectures/fiches-communes.md, § 1 ; LIGNES_RELUES.gentile_communes).",
+    "97404": {"verifier": "« Étang-Saléen » (Wikidata) ; l'infobox de la Wikipédia en français (« L'Étang-Salé », révision 237556683) donne « Étang-Saléens ou Dominicains »", "raison": "une seconde forme, « Dominicains », que Wikidata n'a pas : la fiche n'en montre qu'une, « les Étang-Saléens »"},
+    "97405": {"verifier": "« Petite-Îlois » (Wikidata) ; l'infobox de la Wikipédia en français (« Petite-Île », révision 240647533) écrit « Petite-Ilois », sans accent circonflexe", "raison": "les deux sources diffèrent par l'accent ; gardée la forme de Wikidata, qui garde celui du nom de la commune (Petite-Île)"},
+    "97410": {"verifier": "« Bénédictin » (Wikidata) ; l'infobox de la Wikipédia en français (« Saint-Benoît (La Réunion) », révision 240227741) : « Bénédictins »", "raison": "les deux sources s'accordent, mais la forme surprend : tirée du nom latin du saint (Benedictus), et non « Saint-Benoîtois » ; elle se confond avec les moines bénédictins"},
+    "97418": {"verifier": "« Sainte-Marien » (Wikidata) ; l'infobox de la Wikipédia en français (« Sainte-Marie (La Réunion) », révision 236360075) : « Sainte-Mariens »", "raison": "les deux sources s'accordent (la fiche dit « les Sainte-Mariens ») ; le masculin singulier, seul dans Wikidata, est rare à l'écrit (relevé R4)"}
   }
 }

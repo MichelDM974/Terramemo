@@ -147,16 +147,21 @@ describe('fiches du monde : une entrée par entité', () => {
     // Lot F4 : les riverains par le tracé sont refaits depuis Natural Earth.
     expect(r.fichiers['fiches-mers.json']).toBe(readFileSync('public/geo/fiches-mers.json', 'utf8'));
     expect(r.fichiers['fiches-mers.fr.json']).toBe(readFileSync('public/geo/fiches-mers.fr.json', 'utf8'));
+    // Lot F5 : le fichier de la langue des communes (leurs chiffres viennent de geodata/reunion.mjs).
+    expect(r.fichiers['reunion/fiches.fr.json']).toBe(readFileSync('public/geo/reunion/fiches.fr.json', 'utf8'));
+    expect(Object.keys(r.fichiers)).toEqual(['fiches-monde.json', 'fiches-monde.fr.json', 'fiches-mers.json', 'fiches-mers.fr.json', 'reunion/fiches.fr.json']);
     expect(r.relectures.map((x) => x.chemin)).toEqual([
       'docs/relectures/fiches-pays.md',
       'docs/relectures/fiches-territoires.md',
       'docs/relectures/fiches-territoires-chiffres.md',
       'docs/relectures/fiches-mers.md',
+      'docs/relectures/fiches-communes.md',
     ]);
     for (const x of r.relectures) expect(x.texte, x.chemin).toBe(readFileSync(x.chemin, 'utf8'));
     const sources = lire<{ traitement: { entrees: Record<string, string> } }>('public/geo/sources.json');
     expect(Object.keys(r.entrees).sort()).toEqual([
       'geodata/fiches-autres.mjs',
+      'geodata/fiches-communes.mjs',
       'geodata/fiches-main.json',
       'geodata/fiches-mers.mjs',
       'geodata/fiches-pays.mjs',
@@ -771,5 +776,138 @@ describe('fiches des océans et des mers : le lot F4', () => {
     expect(lignesDe(section(1).split('Items de Wikidata')[0]!)).toHaveLength(45);
     expect(lignesDe(section(2))).toHaveLength(50);
     expect(lignesDe(section(3))).toHaveLength(50);
+  });
+});
+
+// --- Lot F5 : les 24 communes de La Réunion (§ 2.4, § 7) -------------------------------------
+
+type FicheCommune = { s: string; h: number; ha: number; sup: number; ic: string };
+const brutIle = readFileSync('public/geo/reunion/fiches.json', 'utf8');
+const brutIleFr = readFileSync('public/geo/reunion/fiches.fr.json', 'utf8');
+const fichesIle = JSON.parse(brutIle) as { v: number; lieux: Record<string, FicheCommune> };
+const fichesIleFr = JSON.parse(brutIleFr) as { v: number; intercommunalites: Record<string, string>; lieux: Record<string, { wp?: string; g?: string; gp?: string; gs?: string }> };
+const nomsIle = lire<Record<string, string>>('public/geo/reunion/noms.fr.json');
+type ModuleCommunes = {
+  chiffresCommunes: (o: Record<string, unknown>) => { lieux: Record<string, { wp?: string; g?: string; gp?: string }>; intercommunalites: Record<string, string>; fautes: string[] };
+};
+const reglesCommunes = import('../geodata/fiches-communes.mjs' as string) as Promise<ModuleCommunes>;
+
+describe('fiches des communes de La Réunion : le lot F5', () => {
+  const ids = communes.map((c) => c.id);
+
+  it('les 24 communes ont leur entrée, dans les deux fichiers, dans l’ordre de communes.json ; sorte commune ; aucune pour un id inconnu', () => {
+    expect(fichesIle.v).toBe(1);
+    expect(fichesIleFr.v).toBe(1);
+    expect(Object.keys(fichesIle.lieux)).toEqual(ids);
+    expect(Object.keys(fichesIleFr.lieux)).toEqual(ids);
+    for (const [id, l] of Object.entries(fichesIle.lieux)) {
+      expect(l.s, id).toBe(sorteDeLieu(id, 'reunion'));
+      expect(Object.keys(l), id).toEqual(['s', 'h', 'ha', 'sup', 'ic']);
+    }
+  });
+
+  it('aucun champ vide : habitants (recensement de 2023), superficie, intercommunalité, titre, gentilé et son pluriel pour les 24 ; total de l’île 889 679', () => {
+    for (const [id, l] of Object.entries(fichesIle.lieux)) {
+      expect(Number.isInteger(l.h) && l.h > 0, id).toBe(true);
+      expect(l.ha, id).toBe(2023);
+      // Superficie cadastrale : des hectares, au centième de km².
+      expect(l.sup, id).toBeGreaterThan(10);
+      expect(Math.round(l.sup * 100) / 100, id).toBe(l.sup);
+      expect(fichesIleFr.intercommunalites[l.ic], id).toBeTruthy();
+      const t = fichesIleFr.lieux[id]!;
+      expect(t.wp, id).toMatch(/^[^_]+$/);
+      expect(t.g, id).toBeTruthy();
+      expect(t.gp, id).toMatch(/s$/);
+      expect(t.gs, id).toBeUndefined();
+    }
+    expect(Object.values(fichesIle.lieux).reduce((n, l) => n + l.h, 0)).toBe(889_679);
+  });
+
+  it('les cinq intercommunalités : leur sigle, leurs communes (CIVIS 6, CASUD 4, CIREST 6, TCO 5, CINOR 3)', () => {
+    const membres = (sigle: string) => Object.entries(fichesIle.lieux).filter(([, l]) => fichesIleFr.intercommunalites[l.ic] === sigle).map(([id]) => id);
+    expect(Object.values(fichesIleFr.intercommunalites).sort()).toEqual(['CASUD', 'CINOR', 'CIREST', 'CIVIS', 'TCO']);
+    expect(membres('CIVIS')).toEqual(['97401', '97404', '97405', '97414', '97416', '97424']);
+    expect(membres('CASUD')).toEqual(['97403', '97412', '97417', '97422']);
+    expect(membres('CIREST')).toEqual(['97402', '97406', '97409', '97410', '97419', '97421']);
+    expect(membres('TCO')).toEqual(['97407', '97408', '97413', '97415', '97423']);
+    expect(membres('CINOR')).toEqual(['97411', '97418', '97420']);
+    const sigles = lignes('epci');
+    expect(sigles.map(([k]) => k).sort()).toEqual(Object.keys(fichesIleFr.intercommunalites).sort());
+    for (const [k, l] of sigles) expect(l.raison, k).toBeTruthy();
+  });
+
+  it('gentilés : la forme de Wikidata au pluriel de la règle ; les 4 lignes à relire (Saint-Benoît, Petite-Île, L’Étang-Salé, Sainte-Marie) gardent la forme', () => {
+    const g = (id: string) => fichesIleFr.lieux[id]!.gp;
+    expect(g('97416')).toBe('Saint-Pierrois');
+    expect(g('97411')).toBe('Dionysiens');
+    expect(g('97410')).toBe('Bénédictins');
+    expect(g('97405')).toBe('Petite-Îlois');
+    expect(g('97404')).toBe('Étang-Saléens');
+    expect(g('97418')).toBe('Sainte-Mariens');
+    const ligneG = lignes('gentile_communes');
+    expect(ligneG.map(([k]) => nomsIle[k]).sort((a, b) => a!.localeCompare(b!, 'fr'))).toEqual(['L’Étang-Salé', 'Petite-Île', 'Saint-Benoît', 'Sainte-Marie']);
+    for (const [k, l] of ligneG) {
+      expect(l.verifier, k).toBeTruthy();
+      expect(l.raison, k).toBeTruthy();
+    }
+  });
+
+  it('règles : une ligne qui ne s’applique plus, un sigle sans intercommunalité, un nom de l’IGN changé : le build échoue', async () => {
+    const { chiffresCommunes } = await reglesCommunes;
+    const decl = (v: string) => [{ id: 'x', rang: 'normal', v, q: {} }];
+    const base = () => ({
+      fiches: { lieux: { A: { s: 'commune', h: 10, ha: 2023, sup: 1, ic: '1' } } },
+      communes: [{ id: 'A', superficie_km2: 1 }],
+      noms: { A: 'A' },
+      sourcesIle: { traitement: { intercommunalites: { '1': 'CA Un (UN)' } } },
+      wd: { communes: { A: 'Q1' }, lieux: { Q1: { fr: 'A', frwiki: 'A', gentiles: decl('Aïen') } } },
+      main: { epci: { '1': { sigle: 'UN', nom_ign: 'CA Un (UN)', raison: 'r' } }, gentile_communes: {} as Record<string, unknown> },
+    });
+    const ok = chiffresCommunes(base());
+    expect(ok.fautes).toEqual([]);
+    expect(ok.lieux.A).toEqual({ wp: 'A', g: 'Aïen', gp: 'Aïens' });
+    expect(ok.intercommunalites).toEqual({ '1': 'UN' });
+    // Une forme masculine écrite égale à celle de Wikidata : ligne inutile.
+    const inutile = base();
+    inutile.main.gentile_communes = { A: { masculin: 'Aïen', raison: 'r' } };
+    expect(chiffresCommunes(inutile).fautes.join()).toMatch(/ligne inutile/);
+    // Une forme hors de Wikidata sans sa source.
+    const sansSource = base();
+    sansSource.main.gentile_communes = { A: { masculin: 'Aïon', raison: 'r' } };
+    expect(chiffresCommunes(sansSource).fautes.join()).toMatch(/sa source à écrire/);
+    // Le nom de l'IGN a changé : le sigle est à relire.
+    const renomme = base();
+    renomme.sourcesIle.traitement.intercommunalites['1'] = 'CA Deux';
+    expect(chiffresCommunes(renomme).fautes.join()).toMatch(/sigle à relire/);
+    // Une ligne d'intercommunalité que plus aucune commune ne cite.
+    const orpheline = base();
+    (orpheline.main.epci as Record<string, unknown>)['2'] = { sigle: 'DEUX', nom_ign: 'x', raison: 'r' };
+    expect(chiffresCommunes(orpheline).fautes.join()).toMatch(/aucune commune/);
+    // Deux formes dans Wikidata, sans ligne.
+    const deux = base();
+    deux.wd.lieux.Q1.gentiles = [...decl('Aïen'), { id: 'y', rang: 'normal', v: 'Aïois', q: {} }];
+    expect(chiffresCommunes(deux).fautes.join()).toMatch(/à trancher/);
+  });
+
+  it('critère de fin du lot (§ 8) : Saint-Pierre a ses habitants de 2023, sa superficie, « les Saint-Pierrois », la CIVIS, ses voisines', () => {
+    expect(fichesIle.lieux['97416']).toEqual({ s: 'commune', h: 85_038, ha: 2023, sup: 96, ic: '249740077' });
+    expect(fichesIleFr.intercommunalites['249740077']).toBe('CIVIS');
+    expect(fichesIleFr.lieux['97416']).toEqual({ wp: 'Saint-Pierre (La Réunion)', g: 'Saint-Pierrois', gp: 'Saint-Pierrois' });
+    expect(lire<{ id: string; voisins: string[] }[]>('public/geo/reunion/communes.json').find((c) => c.id === '97416')!.voisins).toEqual(['97403', '97405', '97412', '97414', '97422']);
+  });
+
+  it('poids : 2 Ko compressés au plus pour chacun des deux fichiers des communes (§ 2.7)', () => {
+    expect(gzipSync(brutIle, { level: 9 }).length).toBeLessThanOrEqual(2 * 1024);
+    expect(gzipSync(brutIleFr, { level: 9 }).length).toBeLessThanOrEqual(2 * 1024);
+  });
+
+  it('le tableau à relire des communes est commité : les gentilés tus, les intercommunalités et les chiffres en ligne, une ligne par commune', () => {
+    const t = readFileSync('docs/relectures/fiches-communes.md', 'utf8');
+    for (const x of ['## 1. Gentilés', '## 2. Intercommunalités', '## 3. Habitants et superficies']) expect(t).toContain(x);
+    expect(t).toContain('tant que `gentile_communes`');
+    expect(t).not.toMatch(/undefined|NaN|\[object/);
+    expect(t.match(/^\| Saint-Pierre \|/gm)).toHaveLength(2);
+    expect(t.match(/\*\*à relire\*\*/g)).toHaveLength(4);
+    expect(t).toMatch(/889\s679/);
   });
 });
