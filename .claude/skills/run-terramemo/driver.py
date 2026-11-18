@@ -4431,6 +4431,144 @@ def scenario_fiches(p, defauts, n=10, voisins=3, verdict=False):
     return m
 
 
+# Les erreurs touchables d'un bilan (#34, lot F6, commun.ts : ligneFiche) : chaque bouton, sa hauteur, sa place dans
+# le bilan, ce qui déborde, son chevron, son nom ; et la page sans défilement horizontal.
+JS_LIGNES_BILAN = """((sel) => { const b = document.querySelector(sel); if (!b || b.hidden) return null; const r = b.getBoundingClientRect();
+  const lignes = [...b.querySelectorAll('.essai-rates .ligne-fiche')].map(x => { const q = x.getBoundingClientRect(),
+      t = x.querySelector('.ligne-fiche-texte'), c = x.querySelector('.ligne-fiche-chevron'), cr = c ? c.getBoundingClientRect() : null;
+    return { id: x.dataset.id, label: x.getAttribute('aria-label'), texte: t ? t.textContent : '', haut: q.height, gauche: q.left, droite: q.right,
+      deborde: x.scrollWidth > x.clientWidth + 1 || (!!t && t.scrollWidth > t.clientWidth + 1),
+      chevron: !!cr && cr.width > 0 && getComputedStyle(c).visibility !== 'hidden' && cr.right <= q.right + 0.5 && cr.left >= q.left + q.width / 2 }; });
+  return { lignes, gauche: r.left, droite: r.right, page: document.documentElement.scrollWidth - innerWidth }; })"""
+JS_APRES_RETOUR_BILAN = """(() => { const f = document.getElementById('fiche-lieu'), b = document.getElementById('essai-bilan'), a = document.activeElement;
+  return { hash: location.hash, bilan: !!b && !b.hidden, fiche: !!f && !f.hidden, terrain: window.terramemo.terrain(),
+    focus: a && a.classList && a.classList.contains('ligne-fiche') ? a.dataset.id : (a ? a.tagName + '#' + a.id : null) }; })()"""
+JS_AVANT_FICHE = "(() => { const a = document.querySelector('#fiche-lieu .fiche-avant'); return a && !a.hidden ? a.getAttribute('aria-label') : null; })()"
+
+
+def verifier_lignes_bilan(p, defauts, quoi, sel="#essai-bilan"):
+    """Les erreurs du bilan `sel` : des boutons de 44 px au moins, dans le bilan, sans débordement, chevron à droite,
+    nommés « Fiche : {nom}. {texte} » ; la page sans défilement horizontal. Rend les lignes."""
+    m = p.js(f"{JS_LIGNES_BILAN}({json.dumps(sel)})")
+    if not m:
+        defauts.append(f"{quoi} : bilan {sel} pas affiché")
+        return []
+    dire(f"  {quoi} : {len(m['lignes'])} erreur(s) touchable(s) : "
+         + "; ".join(f"{l['id']} {l['haut']:.0f} px{' DÉBORDE' if l['deborde'] else ''}{'' if l['chevron'] else ' sans chevron'} {l['label']!r}" for l in m["lignes"]))
+    if not m["lignes"]:
+        defauts.append(f"{quoi} : aucune erreur touchable au bilan")
+    for l in m["lignes"]:
+        if l["haut"] < 43.5:
+            defauts.append(f"{quoi} : la ligne de {l['id']} fait {l['haut']:.1f} px de haut (44 au moins)")
+        if l["deborde"] or l["gauche"] < m["gauche"] - 0.5 or l["droite"] > m["droite"] + 0.5:
+            defauts.append(f"{quoi} : la ligne de {l['id']} déborde ({l['gauche']:.0f}–{l['droite']:.0f} dans {m['gauche']:.0f}–{m['droite']:.0f})")
+        if not l["chevron"]:
+            defauts.append(f"{quoi} : la ligne de {l['id']} sans chevron visible à droite")
+        if not (l["label"] or "").startswith("Fiche : ") or l["texte"] not in (l["label"] or ""):
+            defauts.append(f"{quoi} : la ligne de {l['id']} nommée {l['label']!r} (« Fiche : nom. texte » attendu)")
+    if m["page"] > 0:
+        defauts.append(f"{quoi} : la page défile en largeur ({m['page']} px)")
+    return m["lignes"]
+
+
+def attendre_bilan(p, delai_s=6):
+    """Le bilan de Toucher affiché (« ‹ Retour au bilan », le retour du navigateur), puis les deux images du focus
+    rendu à la ligne ; rend JS_APRES_RETOUR_BILAN."""
+    fin = time.monotonic() + delai_s
+    while not visible(p, "#essai-bilan") and time.monotonic() < fin:
+        p.pause(100)
+    p.pause(300)
+    return p.js(JS_APRES_RETOUR_BILAN)
+
+
+def ui_fiche_bilan(p, capturer, defauts):
+    """Captures 162 à 167 (#34, lot F6 ; étude fiche-lieu § 4.6, § 4.4 et § 8) : une partie de Trouver
+    (Amérique du Sud) jouée avec une erreur (un faux toucher, puis « Passer »), « Terminer » ; au bilan, l'erreur
+    est un bouton de 44 px au moins, sans débordement, chevron à droite (capture 162) ; touchée, la carte et la
+    fiche du lieu juste, « ‹ » nommé « Retour au bilan », le focus au titre (163) ; un voisin (164), « ‹ », puis
+    « ‹ Retour au bilan » : le bilan (#toucher), la fiche fermée, le focus à la ligne touchée (165) ; « × » laisse
+    la carte, le lieu dans la barre, et le retour du navigateur rend le bilan. Puis l'île : une commune ratée
+    (166), sa fiche sur l'île (167), « ‹ Retour au bilan » : le bilan, l'île gardée. DÉFAUT à chaque écart."""
+    consigne = 'document.querySelector("#barre-essai .essai-consigne").dataset.cible'
+
+    def partie_avec_erreur(serie, faux_de):
+        jouer_partie(p, "localiser", serie)
+        cible = p.js(consigne)
+        toucher_pays(p, faux_de(cible))
+        p.pause(300)
+        cliquer_apres_pause(p, "#essai-passer")
+        cliquer_apres_pause(p, "#essai-terminer")
+        attendre_visible(p, "#essai-bilan")
+        return cible
+
+    # Le monde : Trouver, la première question touchée faux puis passée.
+    cible = partie_avec_erreur("South America", lambda c: "BRA" if c == "ARG" else "ARG")
+    lignes = verifier_lignes_bilan(p, defauts, "bilan de Trouver")
+    if [l["id"] for l in lignes] != [cible]:
+        defauts.append(f"bilan de Trouver : l'erreur sur {cible} seule attendue, touchable ({[l['id'] for l in lignes]})")
+    capturer("162-bilan-lignes")
+    toucher_element(p, f'#essai-bilan .ligne-fiche[data-id="{cible}"]')
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == cible, f"fiche de {cible} depuis le bilan")
+    attendre_fin_vol(p)
+    libelle = p.js(JS_AVANT_FICHE)
+    dire(f"  depuis le bilan : fiche {e['titre']!r}, {e['hash']}, barre {e['barre']}, focus {e['focus']}, ‹ {libelle!r}, entrée {e['etat']}")
+    if e["hash"] != "#carte" or e["barre"] != cible or e["focus"] != "fiche-titre" or libelle != "Retour au bilan" or not (e["etat"] or {}).get("bilan"):
+        defauts.append(f"erreur touchée : la carte (#carte), {cible} dans la barre, sa fiche, focus au titre, « ‹ » « Retour au bilan » attendus ({e}, ‹ {libelle!r})")
+    capturer("163-bilan-fiche")
+    if e["voisins"]:
+        v = e["voisins"][0]
+        toucher_element(p, f'#fiche-lieu .fiche-voisins .fiche-voisin[data-id="{v}"]')
+        e = attendre_fiche(p, lambda x: x["ouverte"] and x["id"] == v, f"voisin {v} depuis le bilan")
+        libelle = p.js(JS_AVANT_FICHE)
+        if e["id"] != v or libelle != "Fiche d'avant":
+            defauts.append(f"voisin depuis le bilan : la fiche de {v}, « ‹ » « Fiche d'avant » attendus ({e}, ‹ {libelle!r})")
+        capturer("164-bilan-voisin")
+        toucher_element(p, "#fiche-lieu .fiche-avant")
+        e = attendre_fiche(p, lambda x: x["ouverte"] and x["id"] == cible, f"« ‹ » vers {cible}")
+        if p.js(JS_AVANT_FICHE) != "Retour au bilan":
+            defauts.append(f"« ‹ » depuis le voisin : la fiche de {cible} et « Retour au bilan » attendus ({e})")
+    else:
+        defauts.append(f"fiche de {cible} : aucun voisin")
+    toucher_element(p, "#fiche-lieu .fiche-avant")
+    r = attendre_bilan(p)
+    dire(f"  « ‹ Retour au bilan » : {r}")
+    if r["hash"] != "#toucher" or not r["bilan"] or r["fiche"] or r["focus"] != cible:
+        defauts.append(f"« ‹ Retour au bilan » : le bilan (#toucher), la fiche fermée, le focus à la ligne de {cible} attendus ({r})")
+    capturer("165-bilan-retour")
+    # « × » : la carte, le lieu montré ; le retour du navigateur rend le bilan.
+    toucher_element(p, f'#essai-bilan .ligne-fiche[data-id="{cible}"]')
+    attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == cible, f"fiche de {cible}, de nouveau")
+    toucher_element(p, "#fiche-lieu .croix")
+    e = attendre_fiche(p, lambda e: not e["ouverte"] and e["hash"] == "#carte", "« × » depuis le bilan")
+    if e["ouverte"] or e["hash"] != "#carte" or e["barre"] != cible:
+        defauts.append(f"« × » depuis le bilan : la carte, {cible} dans la barre, la fiche fermée attendus ({e})")
+    p.js("history.back()")
+    r = attendre_bilan(p)
+    if r["hash"] != "#toucher" or not r["bilan"]:
+        defauts.append(f"retour du navigateur après « × » : le bilan attendu ({r})")
+
+    # L'île : une commune ratée, sa fiche sur l'île, le bilan rendu sur l'île.
+    cible = partie_avec_erreur("reunion", lambda c: "97416" if c == "97411" else "97411")
+    lignes = verifier_lignes_bilan(p, defauts, "bilan de Trouver sur l'île")
+    if [l["id"] for l in lignes] != [cible]:
+        defauts.append(f"bilan de l'île : l'erreur sur {cible} seule attendue, touchable ({[l['id'] for l in lignes]})")
+    capturer("166-bilan-ile")
+    toucher_element(p, f'#essai-bilan .ligne-fiche[data-id="{cible}"]')
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == cible, f"fiche de la commune {cible} depuis le bilan")
+    attendre_fin_vol(p, "ile")
+    terrain = p.js("window.terramemo.terrain()")
+    dire(f"  depuis le bilan de l'île : fiche {e['titre']!r}, terrain {terrain}, ‹ {p.js(JS_AVANT_FICHE)!r}")
+    if terrain != "reunion" or (e["etat"] or {}).get("terrain") != "reunion" or p.js(JS_AVANT_FICHE) != "Retour au bilan":
+        defauts.append(f"commune touchée au bilan : sa fiche sur l'île, « Retour au bilan » attendus ({e}, terrain {terrain})")
+    capturer("167-bilan-ile-fiche")
+    toucher_element(p, "#fiche-lieu .fiche-avant")
+    r = attendre_bilan(p)
+    dire(f"  « ‹ Retour au bilan » (île) : {r}")
+    if r["hash"] != "#toucher" or not r["bilan"] or r["fiche"] or r["terrain"] != "reunion" or r["focus"] != cible:
+        defauts.append(f"« ‹ Retour au bilan » (île) : le bilan sur l'île, le focus à la ligne de {cible} attendus ({r})")
+    croix_vers_carte(p, defauts, "bilan de Trouver (île)", "#essai-bilan")
+
+
 def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     """Captures 150 à 159 (#34, lot F1 ; étude fiche-lieu § 4 et § 7) : sur une page rechargée,
     rien des fiches au premier affichage ; le Japon touché (sa ligne « Tokyo », son chevron, les
@@ -4444,7 +4582,8 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     « ‹ », l'Adriatique et sa mère, la mer des Sargasses ; lot F5 : Saint-Denis par la recherche (les fiches des
     communes lues à ce moment seulement, la barre « 156 000 hab. », capture 154), Saint-Pierre touché sur l'île et sa
     fiche (habitants de 2023, superficie, CIVIS, cinq voisines, capture 160), une voisine touchée (Le Tampon, la carte
-    de l'île vole sous la fiche, capture 161), « ‹ », « × », « Monde » ; puis le scénario de mesure. Les superficies,
+    de l'île vole sous la fiche, capture 161), « ‹ », « × », « Monde » ; puis le scénario de mesure ; lot F6 : depuis
+    le bilan d'une partie de Trouver, au monde et sur l'île (ui_fiche_bilan, captures 162 à 167). Les superficies,
     profondeurs et riverains des mers sont tus jusqu'à leur relecture (LIGNES_RELUES) : la fiche d'une mer n'a que sa
     sorte, sa mère, son océan, la mémoire et le lien ; le gentilé d'une commune aussi. DÉFAUT à chaque écart."""
     p.goto(base + "?mesures=0" + parametres + "#carte")
@@ -4855,6 +4994,8 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     # Le scénario de mesure (§ 6.4) : ouvrir et fermer 10 fiches, passer par 3 voisins.
     m = scenario_fiches(p, defauts)
     capturer("155-fiche-apres-scenario")
+    # Lot F6 : depuis le bilan (après la mesure, qui reste sur la carte d'avant).
+    ui_fiche_bilan(p, capturer, defauts)
     return m
 
 
@@ -7217,7 +7358,7 @@ def main():
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
     s = sub.add_parser("fiche", help="la fiche d'un lieu seule (ui_fiche, aussi dans ui) : barre, fiche, voisins, retours, voile, Échap, ⚙, "
-                                     "territoire, mer, île, scénario de mesure ; --cible chrome|webview : le scénario seul, sur le téléphone")
+                                     "territoire, mer, île, scénario de mesure, depuis un bilan (lot F6) ; --cible chrome|webview : le scénario seul, sur le téléphone")
     s.add_argument("--url", help=f"défaut : {URL_DEFAUT} (chrome : {URL_SITE} ; webview : {URL_APK})")
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
     s.add_argument("--out", default="/tmp/terramemo-captures")

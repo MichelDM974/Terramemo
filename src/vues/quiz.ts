@@ -45,7 +45,7 @@ import { profilModifie } from '../sync/pont';
 import { NIVEAU_QUIZ, adresse, nomDifficulte, nomQuiz, nomSujet } from './arbre';
 import { ANNONCE_MS, ATTENTE_IMAGE_MS, CHARGEMENT_VU_MS } from './chrono';
 import { blocClassement, lirePseudo, publierPartie } from './classement';
-import { anneauSiPetite, anneauZone, chargementSujet, creer, croix, fmtKm, mersPosees, optionsNoter, pastillesPour, poserContenu, poserEnonce, texteAdmis, zonesDuSujet, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, anneauZone, chargementSujet, creer, croix, fmtKm, ligneFiche, mersPosees, optionsNoter, pastillesPour, poserContenu, poserEnonce, rendreFocusLigne, texteAdmis, zonesDuSujet, type ContexteVue, type Vue } from './commun';
 import { creerJauge } from './jauge';
 import { allumerZone } from './nommer';
 import { NB_CHOIX } from './qcm';
@@ -568,9 +568,11 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     const b = bp.toujours;
     const s = bp.semaine;
     const detail = [...p.parSujet()].map(([su, x]) => remplir(Q.par_sujet, { sujet: nomSujet(su), justes: x.justes, n: x.questions })).join(' · ');
+    // Une erreur touchée : la fiche de la cible, sur le monde (#34, lot F6).
+    const ouvrir = ctx.ouvrirFiche;
     const rates = p.questions.flatMap((q, i) => {
       const j = p.jouees[i];
-      return j?.juste ? [] : [creer('li', {}, rate(q, j))];
+      return j?.juste ? [] : [ligneFiche(q.cible, rs(q).lieu(q.cible), rate(q, j), ouvrir && (() => ouvrir(t.nom, q.cible)))];
     });
     const versCarte = o.versCarte;
     bilan.replaceChildren(
@@ -641,6 +643,8 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
       bilanAuRetour = false;
       ctx.terrains.montrer('monde');
       bilan.hidden = false;
+      // Revenu d'une fiche ouverte depuis ce bilan (#34, lot F6) : le focus à la ligne touchée.
+      rendreFocusLigne(bilan);
     },
     desactiver() {
       // Quittée en cours de partie : elle compte (D55 a), le bilan attend le retour ; pendant le chargement, rien.

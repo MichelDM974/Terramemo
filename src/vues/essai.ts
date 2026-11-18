@@ -25,7 +25,7 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, optionsNoter, pastillesPour, poserEnonce, prechargerEnonces, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserEnonce, prechargerEnonces, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { rendu, type RenduSujet } from './sujets';
@@ -95,8 +95,11 @@ export interface PiloteSeance {
   connu(): void;
   /** Fin de la séance (« Terminer » ou file vide). */
   terminer(): void;
-  /** Le bilan de la séance dans `el` (« Continuer », « Carte », « Autre série »). */
-  bilan(el: HTMLElement, actions: { continuer(): void; carte(): void; autre(): void }): void;
+  /**
+   * Le bilan de la séance dans `el` (« Continuer », « Carte », « Autre série ») ; `fiche` : une erreur touchée
+   * ouvre la fiche de son lieu (#34, lot F6), absente sans ctx.ouvrirFiche (les lignes restent du texte).
+   */
+  bilan(el: HTMLElement, actions: { continuer(): void; carte(): void; autre(): void; fiche?(terrain: NomTerrain, id: string): void }): void;
   /**
    * Un conseil d'Apprendre (D39 b, étude J2 § 6.2 : « Les pays de cette
    * région ne sont pas encore appris : Pays › Afrique › Apprendre ») : dit à
@@ -551,6 +554,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         bilanAuRetour = false;
         o.versJouer(adresse(lancement ? niveauDe(lancement, 'series') : { type: 'sujets', branche: 'entrainement' }));
       },
+      ...(ctx.ouvrirFiche ? { fiche: ctx.ouvrirFiche } : {}),
     });
     bilan.hidden = false;
     // Une session perdue pendant la partie : l'écran de connexion maintenant, par-dessus le bilan (avant « Rejouer »).
@@ -670,6 +674,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const justes = resultats.filter((r) => r.juste).length;
     const temps = mediane(resultats.filter((r) => r.juste).map((r) => r.temps_ms));
     const rates = resultats.filter((r) => !r.premier);
+    // Une erreur touchée : la fiche de son lieu, sur le terrain de la partie (#34, lot F6).
+    const terrain = t.nom;
+    const ouvrir = ctx.ouvrirFiche;
     bilan.replaceChildren(
       ...croixBilan(),
       creer('h2', {}, remplir(T.bilan_titre, { serie: nomSerie(serie?.id ?? '') })),
@@ -690,15 +697,16 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         'ul',
         { class: 'essai-rates' },
         ...rates.map((r) =>
-          creer(
-            'li',
-            {},
+          ligneFiche(
+            r.id,
+            rs.lieu(r.id),
             remplir(T.rate, {
               pays: rs.nomBilan(r.id, 'localiser'),
               detail: r.juste ? `${nEssais(r.essais)}${r.vu ? T.rate_vu : ''}` : T.rate_passe,
               distance: r.distance_km != null ? remplir(T.rate_distance, { km: fmtKm(r.distance_km) }) : '',
               temps: fmtS(r.temps_ms),
             }),
+            ouvrir && (() => ouvrir(terrain, r.id)),
           ),
         ),
       ),
@@ -762,6 +770,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       } else if (bilanAuRetour) {
         ctx.terrains.montrer(t.nom);
         bilan.hidden = false;
+        // Revenu d'une fiche ouverte depuis ce bilan (#34, lot F6) : le focus à la ligne touchée.
+        rendreFocusLigne(bilan);
       }
     },
     desactiver() {

@@ -49,6 +49,10 @@
 // La ligne de faits (faitsPays…), les nombres et les textes de la fiche sont au
 // morceau de la fiche, demandé avec les données au premier toucher : la ligne
 // les attend ensemble (étude § 19), le morceau principal ne les porte pas.
+// Lot F6 : une erreur d'un bilan ouvre la fiche de son lieu (ouvrirFiche, par
+// main.ts : la carte, puis le lieu montré comme par la recherche, puis la fiche,
+// marquée « bilan ») ; sur cette première fiche, « ‹ » et Échap disent « Retour
+// au bilan » et le rendent (retourBilan).
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import { versEcran, versLonLat } from '../map/geo';
@@ -95,6 +99,12 @@ export interface VueExplorer extends Vue {
    * ferme (null). Sans effet hors de l'accueil.
    */
   surFiche(f: EntreeFiche | null): void;
+  /**
+   * La fiche du lieu juste d'une erreur d'un bilan (#34, lot F6, § 4.6), la carte déjà affichée (main.ts :
+   * nav.pousser('carte') d'abord, comme la recherche) : le lieu montré, puis sa fiche, une entrée d'historique
+   * marquée « bilan » (« ‹ Retour au bilan »). Sans effet hors de l'accueil, sans fiche, ou pendant une partie.
+   */
+  ouvrirFiche(terrain: NomTerrain, id: string): void;
 }
 
 /** Le morceau de la fiche (src/vues/fiche.ts), chargé à part. */
@@ -140,6 +150,12 @@ export interface OptionsFiche {
   autorisee?(): boolean;
   /** La popup ⚙ ouverte : Échap ne ferme qu'elle (son écouteur, main.ts), la fiche reste. */
   reglagesOuverts?(): boolean;
+  /**
+   * « ‹ Retour au bilan » de la première fiche ouverte depuis un bilan (lot F6) : main.ts remonte à l'adresse du
+   * bilan (nav.remonter), toutes les entrées de fiche et celle de la carte d'un coup. Sans lui, un pas en arrière
+   * (historique.retour).
+   */
+  retourBilan?(): void;
 }
 
 export interface OptionsExplorer {
@@ -621,6 +637,17 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     }
   }
 
+  /**
+   * « ‹ » et Échap : un pas en arrière ; la première fiche ouverte depuis un bilan, le bilan (§ 4.4, lot F6), toutes
+   * ses entrées remontées d'un coup.
+   */
+  function reculer(): void {
+    if (ficheOuverte?.bilan && ficheOuverte.rang === 1 && F?.retourBilan) F.retourBilan();
+    else historique.retour();
+  }
+  /** Ce que montre « ‹ » pour cette fiche : la fiche d'avant (un voisin), ou le bilan (la première, ouverte depuis un bilan). */
+  const optionsAvant = (f: EntreeFiche) => ({ avant: f.rang > 1 || !!f.bilan, bilan: f.rang === 1 && !!f.bilan });
+
   /** Ouvre la fiche du lieu de la barre (toucher, Entrée, glissé vers le haut) : une entrée d'historique. */
   function ouvrir(): void {
     const id = barre.dataset.id;
@@ -777,11 +804,11 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
           fermer: () => historique.quitter(),
           // Lu avant l'écouteur du document qui ferme la popup (le voile est la cible du clic) : elle est encore ouverte.
           voile: () => void (F.reglagesOuverts?.() || historique.quitter()),
-          avant: () => historique.retour(),
+          avant: () => reculer(),
           // Sur le terrain de la fiche ouverte : une commune voisine sur l'île, tout le reste au monde.
           voisin: (v) => historique.pousser({ terrain: ficheOuverte?.terrain ?? 'monde', id: v }),
         });
-        feuille.montrer(modele, { avant: f.rang > 1, focus: true });
+        feuille.montrer(modele, { ...optionsAvant(f), focus: true });
         // Le drapeau d'un territoire (lot F3) : son manifeste à part, à la première fiche de territoire.
         if (modele.avecDrapeau && !modele.drapeaux.length && modele.sorte === 'territoire' && F.drapeauxTerritoires) {
           F.drapeauxTerritoires().then(
@@ -836,7 +863,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         const cible = e.target as Element | null;
         if (cible?.closest?.('input, textarea, select')) return;
         e.preventDefault();
-        historique.retour();
+        reculer();
       },
       true,
     );
@@ -937,6 +964,53 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     aller(ctx.terrains.monde);
   });
 
+  /** Montre ce lieu (VueExplorer.montrerLieu : la recherche, une erreur d'un bilan). */
+  function montrerLieu(terrain: NomTerrain, id: string, point?: [number, number]): void {
+    // La recherche montre un autre lieu : la fiche se ferme, ses entrées d'historique remontées (§ 4.2, § 4.7).
+    if (ficheOuverte) {
+      fermerFiche(false);
+      historique.quitter();
+    }
+    const j = ++jeton;
+    if (terrain === 'monde' && estIdMer(id)) {
+      // Une mer : la couche fine posée sur la carte d'abord (une fois), son chargement dit dans la barre.
+      const p = poserMers(ctx);
+      if (!p) return montrer(ctx.terrains.monde, id);
+      aller(ctx.terrains.monde);
+      nom.textContent = '';
+      detail.textContent = textes.toucher.chargement_sujet;
+      annoncer();
+      p.then(
+        () => {
+          if (j === jeton) montrer(ctx.terrains.monde, id);
+        },
+        () => {
+          if (j !== jeton) return;
+          detail.textContent = textes.toucher.echec_sujet;
+          annoncer();
+        },
+      );
+      return;
+    }
+    if (terrain === 'monde') return montrer(ctx.terrains.monde, id, point);
+    const deja = ctx.terrains.deja(terrain);
+    if (deja) return montrer(deja, id);
+    // L'île au premier choix : son chargement annoncé dans la barre (sans les faits ni le chevron du lieu d'avant).
+    nom.textContent = '';
+    detail.textContent = textes.toucher.chargement_terrain;
+    sansLieu();
+    ctx.terrains.charger(terrain).then(
+      (ile) => {
+        if (j === jeton) montrer(ile, id);
+      },
+      () => {
+        if (j !== jeton) return;
+        detail.textContent = textes.toucher.echec_terrain;
+        annoncer();
+      },
+    );
+  }
+
   return {
     activer() {
       // Le routeur vient de montrer le monde.
@@ -967,7 +1041,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       if (id) afficher(id, viaAffiche);
       // La fiche ouverte relit sa mémoire (mémoire chargée, réglage changé), sans reprendre le focus.
       const m = ficheOuverte && moduleFiche && feuille && !feuille.element.hidden ? composer(moduleFiche, ficheOuverte) : null;
-      if (m && ficheOuverte) feuille?.montrer(m, { avant: ficheOuverte.rang > 1, focus: false });
+      if (m && ficheOuverte) feuille?.montrer(m, { ...optionsAvant(ficheOuverte), focus: false });
     },
     avis(texte) {
       // La région vivante le dit aussi (§ 4.1 : elle est hors du bouton, seul annoncer() la remplit).
@@ -977,50 +1051,12 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       } else avisAMontrer = texte;
     },
     surFiche,
-    montrerLieu(terrain, id, point) {
-      // La recherche montre un autre lieu : la fiche se ferme, ses entrées d'historique remontées (§ 4.2, § 4.7).
-      if (ficheOuverte) {
-        fermerFiche(false);
-        historique.quitter();
-      }
-      const j = ++jeton;
-      if (terrain === 'monde' && estIdMer(id)) {
-        // Une mer : la couche fine posée sur la carte d'abord (une fois), son chargement dit dans la barre.
-        const p = poserMers(ctx);
-        if (!p) return montrer(ctx.terrains.monde, id);
-        aller(ctx.terrains.monde);
-        nom.textContent = '';
-        detail.textContent = textes.toucher.chargement_sujet;
-        annoncer();
-        p.then(
-          () => {
-            if (j === jeton) montrer(ctx.terrains.monde, id);
-          },
-          () => {
-            if (j !== jeton) return;
-            detail.textContent = textes.toucher.echec_sujet;
-            annoncer();
-          },
-        );
-        return;
-      }
-      if (terrain === 'monde') return montrer(ctx.terrains.monde, id, point);
-      const deja = ctx.terrains.deja(terrain);
-      if (deja) return montrer(deja, id);
-      // L'île au premier choix : son chargement annoncé dans la barre (sans les faits ni le chevron du lieu d'avant).
-      nom.textContent = '';
-      detail.textContent = textes.toucher.chargement_terrain;
-      sansLieu();
-      ctx.terrains.charger(terrain).then(
-        (ile) => {
-          if (j === jeton) montrer(ile, id);
-        },
-        () => {
-          if (j !== jeton) return;
-          detail.textContent = textes.toucher.echec_terrain;
-          annoncer();
-        },
-      );
+    montrerLieu,
+    ouvrirFiche(terrain, id) {
+      // Depuis un bilan (lot F6, § 4.6) : le chemin de la recherche, le lieu montré, puis sa fiche par-dessus.
+      if (!F || !active || !autorisee()) return;
+      montrerLieu(terrain, id);
+      historique.pousser({ terrain, id, bilan: true });
     },
     toucher(x, y, ev) {
       const carte = t.carte;

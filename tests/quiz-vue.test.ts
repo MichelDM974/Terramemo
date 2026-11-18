@@ -69,6 +69,8 @@ const avis: string[] = [];
 /** Les touchers à rendre faux (leur numéro, à partir de 1). */
 let faux = new Set<number>();
 let touchers = 0;
+/** ctx.ouvrirFiche (#34, lot F6) : une erreur du bilan touchée ; sans lui, les lignes restent du texte. */
+let ouvrirFiche: ((terrain: string, id: string) => void) | undefined;
 
 function contexte(tirer: (d: Difficulte) => Question[], chargerImage?: ChargerImage) {
   const zone = new El('main');
@@ -91,7 +93,7 @@ function contexte(tirer: (d: Difficulte) => Question[], chargerImage?: ChargerIm
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
   // La fin d'une partie, dite à l'écran de connexion : rend si le bilan était caché à cet instant.
   const finDePartie = vi.fn(() => zone.querySelector('#quiz-bilan')?.hidden);
-  const ctx = { carte, donnees, terrains, mesures, zone, finDePartie };
+  const ctx = { carte, donnees, terrains, mesures, zone, finDePartie, ...(ouvrirFiche ? { ouvrirFiche } : {}) };
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
   const versCarte = vi.fn<() => void>();
   const tire = vi.fn(tirer);
@@ -131,6 +133,7 @@ beforeEach(() => {
   allumerZone.mockClear();
   faux = new Set();
   touchers = 0;
+  ouvrirFiche = undefined;
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -426,6 +429,31 @@ describe('les capitales (D49 d, § 9.2)', () => {
     }
     expect(p.consigne()!.dataset.cible).toBe('BOL');
     expect(p.consigne()!.textContent).toContain(autre.nom);
+  });
+
+  it('au bilan, une capitale ratée ouvre la fiche de son pays, sur le monde ; une question sans réponse aussi ; au retour, le focus à la ligne (#34, lot F6)', () => {
+    const fiches: string[] = [];
+    ouvrirFiche = (terrain, id) => void fiches.push(`${terrain}:${id}`);
+    const qs = partiePays('moyen').map((q, i) => (i === 0 ? question('capitales', 'JPN', 'qcm', 'moyen') : q));
+    const p = contexte(() => qs);
+    p.lancer('moyen');
+    // La capitale du Japon ratée (un leurre choisi), puis l'abandon : la deuxième question reste sans réponse.
+    p.repondre(false);
+    p.suivante();
+    p.el('#quiz-abandonner').click();
+    const bilan = p.el('#quiz-bilan');
+    const boutons = bilan.querySelectorAll('.essai-rates li button.ligne-fiche');
+    expect(boutons.slice(0, 2).map((b) => b.dataset.id)).toEqual(['JPN', qs[1]!.cible]);
+    const texte = boutons[0]!.querySelector('.ligne-fiche-texte')!.textContent;
+    expect(texte).toContain('Tokyo');
+    // Le nom du lieu de la fiche (le pays), puis le texte de la ligne.
+    expect(boutons[0]!.getAttribute('aria-label')).toBe(remplir(textes.bilan.fiche_ligne, { nom: NOMS.JPN!, texte }));
+    boutons[0]!.click();
+    expect(fiches).toEqual(['monde:JPN']);
+    p.v.desactiver();
+    p.v.activer();
+    expect(bilan.hidden).toBe(false);
+    expect((document as unknown as { activeElement?: unknown }).activeElement).toBe(boutons[0]);
   });
 });
 

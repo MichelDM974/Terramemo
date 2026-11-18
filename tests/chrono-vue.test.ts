@@ -43,6 +43,8 @@ let touchers = 0;
 let optionsNoter: unknown[] = [];
 /** La zone admise que noter() rend au prochain toucher juste (Note.admis). */
 let admisSuivant: unknown = null;
+/** ctx.ouvrirFiche (#34, lot F6) : une erreur du bilan touchée ; sans lui, les lignes restent du texte. */
+let ouvrirFiche: ((terrain: string, id: string) => void) | undefined;
 
 const L = 384;
 const H = 723;
@@ -95,7 +97,7 @@ function contexte(maintenant?: () => number, noms: Record<string, string> = { RU
   const mesures = { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() };
   // La fin d'une partie, dite à l'écran de connexion : rend si le bilan était caché à cet instant.
   const finDePartie = vi.fn(() => zone.querySelector('#chrono-bilan')?.hidden);
-  const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone, finDePartie };
+  const ctx = { carte, donnees: monde.donnees, terrains, mesures, zone, finDePartie, ...(ouvrirFiche ? { ouvrirFiche } : {}) };
   const versJouer = vi.fn<(cible: string, message?: string) => void>();
   const v = vueChrono(ctx as unknown as Parameters<typeof vueChrono>[0], { versJouer, maintenant, ...(chargerImage ? { chargerImage } : {}) });
   /** L'épreuve et sa série choisies dans Jouer : la vue s'ouvre, la partie part. */
@@ -116,6 +118,7 @@ beforeEach(() => {
   touchers = 0;
   optionsNoter = [];
   admisSuivant = null;
+  ouvrirFiche = undefined;
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -292,6 +295,54 @@ describe('Sans faute (décisions « Sans faute et Minute », « Barème et class
 });
 
 describe('bilan du Chrono (décision « Barème et classements »)', () => {
+  it('une manquée est un bouton qui ouvre la fiche de son lieu, sur le terrain de la partie ; au retour, le focus à la ligne touchée (#34, lot F6)', () => {
+    faux = new Set([2, 5]);
+    const fiches: string[] = [];
+    ouvrirFiche = (terrain, id) => void fiches.push(`${terrain}:${id}`);
+    const { v, zone, lancer } = contexte();
+    lancer();
+    const cibles: string[] = [];
+    for (let n = 1; n <= 12; n++) {
+      vi.advanceTimersByTime(1_000);
+      cibles.push(zone.querySelector('#barre-chrono .essai-consigne')!.dataset.cible!);
+      v.toucher?.(0, 0, {} as PointerEvent);
+      vi.advanceTimersByTime(faux.has(n) ? 1_800 : 900);
+    }
+    const bilan = zone.querySelector('#chrono-bilan')!;
+    const lignes = bilan.querySelectorAll('.essai-rates li');
+    expect(lignes).toHaveLength(2);
+    const boutons = bilan.querySelectorAll('.essai-rates li button.ligne-fiche');
+    // La cible de chaque question manquée, jamais ce qu'on a touché (le Brésil).
+    expect(boutons.map((b) => b.dataset.id)).toEqual([cibles[1], cibles[4]]);
+    for (const b of boutons) {
+      const texte = b.querySelector('.ligne-fiche-texte')!.textContent;
+      expect(texte).toContain(', à 120');
+      expect(b.getAttribute('aria-label')).toBe(remplir(textes.bilan.fiche_ligne, { nom: b.dataset.id!, texte }));
+      expect(b.querySelector('.ligne-fiche-chevron')!.getAttribute('aria-hidden')).toBe('true');
+    }
+    boutons[1]!.click();
+    expect(fiches).toEqual([`monde:${cibles[4]}`]);
+    // main.ts ouvre la carte (la vue quittée), puis « ‹ Retour au bilan » la rouvre : le focus à la ligne touchée.
+    v.desactiver();
+    v.activer();
+    expect(bilan.hidden).toBe(false);
+    expect((document as unknown as { activeElement?: unknown }).activeElement).toBe(boutons[1]);
+  });
+
+  it('sans ctx.ouvrirFiche, les manquées restent des lignes de texte, comme avant le lot F6', () => {
+    faux = new Set([2]);
+    const { v, zone, lancer } = contexte();
+    lancer();
+    for (let n = 1; n <= 12; n++) {
+      vi.advanceTimersByTime(1_000);
+      v.toucher?.(0, 0, {} as PointerEvent);
+      vi.advanceTimersByTime(faux.has(n) ? 1_800 : 900);
+    }
+    const bilan = zone.querySelector('#chrono-bilan')!;
+    expect(bilan.querySelectorAll('.essai-rates li')).toHaveLength(1);
+    expect(bilan.querySelectorAll('.ligne-fiche')).toHaveLength(0);
+  });
+
   it('la part de justes tronquée, le temps total, les manquées sans points ; l’ancien record dit en entier', () => {
     faux = new Set([2]);
     const { v, zone, lancer } = contexte();

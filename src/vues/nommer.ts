@@ -13,7 +13,7 @@ import { anneauPrincipal, empriseEcran, versEcran, type Emprise } from '../map/g
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
-import { ANNEAU_SOUS_PX, anneauZone, creer, fmtS, pastillesPour, poserContenu, prechargerSujet, zonesDuSujet, type ContexteVue } from './commun';
+import { ANNEAU_SOUS_PX, anneauZone, creer, fmtS, ligneFiche, pastillesPour, poserContenu, prechargerSujet, zonesDuSujet, type ContexteVue } from './commun';
 import { choix, doitCadrer, NB_CHOIX, PartieNommer } from './qcm';
 import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -329,6 +329,9 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     const r = rs;
     const b = partie.bilan();
     partie = null;
+    // Une faute touchée : la fiche de la cible, jamais du leurre choisi (#34, lot F6), sur le terrain de la partie.
+    const terrain = t.nom;
+    const ouvrir = ctx.ouvrirFiche;
     o.bilan.replaceChildren(
       ...(o.croix ? [o.croix()] : []),
       creer('h2', {}, remplir(T.bilan_nommer_titre, { serie })),
@@ -343,7 +346,9 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
         'ul',
         { class: 'essai-rates' },
         // La bonne réponse et son lieu (« Porto-Novo (Bénin) » ; le nom pour un pays), puis le leurre choisi tel qu'il était montré.
-        ...b.fautes.map((f) => creer('li', {}, remplir(T.bilan_nommer_faux, { cible: r.nomBilan(f.id, 'localiser'), choisi: r.nomChoix(f.choisi, f.id) }))),
+        ...b.fautes.map((f) =>
+          ligneFiche(f.id, r.lieu(f.id), remplir(T.bilan_nommer_faux, { cible: r.nomBilan(f.id, 'localiser'), choisi: r.nomChoix(f.choisi, f.id) }), ouvrir && (() => ouvrir(terrain, f.id))),
+        ),
       ),
       o.actions(),
     );

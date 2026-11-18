@@ -595,6 +595,50 @@ describe('la fiche', () => {
     expect(v.chevron()).toBe(true);
   });
 
+  it('depuis un bilan (lot F6) : le lieu montré et sa fiche ; « ‹ » et Échap disent « Retour au bilan » et le rendent ; sur un voisin, un pas', async () => {
+    const retourBilan = vi.fn();
+    const v = monter({ fiche: { retourBilan } });
+    // Hors de l'accueil : rien (main.ts montre la carte d'abord).
+    v.vue.ouvrirFiche('monde', 'FRA');
+    expect(v.feuille()).toBeNull();
+    v.vue.activer();
+    v.vue.ouvrirFiche('monde', 'FRA');
+    expect(v.barre().dataset.id).toBe('FRA');
+    expect(v.montres).toContain('FRA');
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    const avant = () => v.el('#fiche-lieu .fiche-avant')!;
+    expect(avant().hidden).toBe(false);
+    expect(avant().getAttribute('aria-label')).toBe(T.avant_bilan);
+    expect(avant().getAttribute('title')).toBe(T.avant_bilan);
+    avant().click();
+    expect(retourBilan).toHaveBeenCalledTimes(1);
+    v.echap();
+    expect(retourBilan).toHaveBeenCalledTimes(2);
+    // Un voisin : « ‹ » redevient « Fiche d'avant », un pas en arrière (la pile de la vue), sans le bilan.
+    (v.feuille()!.querySelectorAll('.fiche-voisin').find((b) => b.dataset.id === 'ESP') as El).click();
+    await vi.waitFor(() => expect(v.titre()).toBe('Espagne'));
+    expect(avant().getAttribute('aria-label')).toBe(T.avant);
+    avant().click();
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    expect(retourBilan).toHaveBeenCalledTimes(2);
+    expect(avant().getAttribute('aria-label')).toBe(T.avant_bilan);
+  });
+
+  it('depuis un bilan, pendant une partie (autorisee faux) : ni lieu ni fiche ; sans retourBilan, « ‹ » fait un pas (la fiche se ferme)', async () => {
+    let autorisee = false;
+    const v = monter({ fiche: { autorisee: () => autorisee } });
+    v.vue.activer();
+    v.vue.ouvrirFiche('monde', 'JPN');
+    await tenir();
+    expect(v.barre().dataset.id).toBeUndefined();
+    expect(v.feuille()).toBeNull();
+    autorisee = true;
+    v.vue.ouvrirFiche('monde', 'JPN');
+    await vi.waitFor(() => expect(v.titre()).toBe('Japon'));
+    v.el('#fiche-lieu .fiche-avant')!.click();
+    expect(v.ouverte()).toBe(false);
+  });
+
   it('le glissé vers le haut sur la barre (24 px) ouvre ; vers le bas sur la tête (60 px) ferme ; moins, rien', async () => {
     const v = monter();
     v.vue.activer();

@@ -471,7 +471,15 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   l'Espagne à la France, au Brésil puis à l'Argentine, les images de la page par
   `requestAnimationFrame` : à-coups ≥ 25 ms, gels ≥ 46 ms), indicatif sur
   le PC : le verdict est celui de l'A37 (`driver.py fiche --cible
-  chrome|webview --serie <n°>`, puis `touchers_reels.py` pour le toucher).
+  chrome|webview --serie <n°>`, puis `touchers_reels.py` pour le toucher) ;
+  enfin, lot F6 (`ui_fiche_bilan`) : une partie de Trouver (Amérique du Sud)
+  avec une erreur, « Terminer » ; au bilan, l'erreur est un bouton de 44 px
+  au moins, dans le bilan, chevron à droite, nommé « Fiche : … »
+  (`162-bilan-lignes`) ; touchée : la carte, le lieu, sa fiche, « ‹ » nommé
+  « Retour au bilan » (`163-bilan-fiche`) ; un voisin (`164-bilan-voisin`),
+  « ‹ », puis « ‹ Retour au bilan » : le bilan, le focus à la ligne
+  (`165-bilan-retour`) ; « × » : la carte, puis le retour du navigateur rend
+  le bilan ; l'île de même (`166-bilan-ile`, `167-bilan-ile-fiche`).
   `DÉFAUT` à tout écart. Sur le téléphone, le scénario juge (critère de
   saccade : un `DÉFAUT` par gel ≥ 46 ms, et au-delà de 3 à-coups/s) et date
   chaque gel par le geste qui le précède (« gel de 50 ms : voisin FRA

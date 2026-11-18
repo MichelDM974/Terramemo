@@ -13,6 +13,10 @@
     "carte": "Retour à la carte",
     "reglages": "Fermer les paramètres"
   },
+  "bilan": {
+    "_": "Une erreur d'un bilan devenue bouton (#34, lot F6, étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4.6) : elle ouvre la fiche du lieu juste sur la carte. Le texte de la ligne reste celui du bilan.",
+    "fiche_ligne": "Fiche : {nom}. {texte}"
+  },
   "carte": {
     "touche": "Touche un pays",
     "touche_ile": "Touche une commune",

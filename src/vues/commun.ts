@@ -6,7 +6,7 @@ import { chargerMers, estIdMer } from '../map/mers';
 import { tailleEcranPx } from '../map/pastilles';
 import type { DonneesCarte } from '../map/donnees';
 import type { OptionsNoter } from '../map/pick';
-import type { Entite, Forme, Lieu, Mer, Statut } from '../map/types';
+import type { Entite, Forme, Lieu, Mer, NomTerrain, Statut } from '../map/types';
 import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
 import type { Serie } from './cibles';
@@ -31,6 +31,13 @@ export interface ContexteVue {
    * « Rejouer ». Appelé en dernier, le bilan déjà montré.
    */
   finDePartie?(): void;
+  /**
+   * La fiche du lieu juste d'une erreur d'un bilan (#34, lot F6, étude § 4.6) :
+   * la carte, le lieu montré, sa fiche ouverte ; « ‹ Retour au bilan » rend le
+   * bilan. main.ts la donne, et ne fait rien pendant une partie
+   * (ficheAutorisee, § 4.8). Sans elle, les lignes des bilans restent du texte.
+   */
+  ouvrirFiche?(terrain: NomTerrain, id: string): void;
 }
 
 export interface Vue {
@@ -80,6 +87,53 @@ export function barrePartieVisible(doc: Pick<Document, 'getElementById'> = docum
     const b = doc.getElementById(id);
     return !!b && !b.hidden;
   });
+}
+
+/**
+ * Une ligne d'erreur d'un bilan (#34, lot F6, étude § 4.6), dans la liste des
+ * ratés (.essai-rates) : sans `ouvrir`, le texte seul, comme avant ; avec, un
+ * bouton entier (44 px de haut au moins, un chevron à droite, carte.css) qui
+ * ouvre la fiche du lieu juste. Le texte reste celui du bilan ; le bouton est
+ * nommé « Fiche : {nom}. {texte} ». La ligne touchée est retenue : le bilan
+ * remontré lui rend le focus (rendreFocusLigne).
+ */
+export function ligneFiche(id: string, nom: string, texte: string, ouvrir?: () => void): HTMLLIElement {
+  if (!ouvrir) return creer('li', {}, texte);
+  const b = creer(
+    'button',
+    { type: 'button', class: 'ligne-fiche', 'data-id': id, 'aria-label': remplir(textes.bilan.fiche_ligne, { nom, texte }) },
+    creer('span', { class: 'ligne-fiche-texte' }, texte),
+    creer('span', { class: 'ligne-fiche-chevron', 'aria-hidden': 'true' }, '›'),
+  );
+  b.addEventListener('click', () => {
+    ligneTouchee = b;
+    ouvrir();
+  });
+  return creer('li', { class: 'rate-fiche' }, b);
+}
+
+/** La dernière ligne de bilan touchée (ligneFiche) : le bilan remontré lui rend le focus. */
+let ligneTouchee: HTMLElement | null = null;
+
+/**
+ * Le bilan `bilan` remontré (« ‹ Retour au bilan », le retour du navigateur) :
+ * le focus à la ligne qui avait ouvert la fiche, si elle y est encore ; puis
+ * de nouveau deux images plus tard s'il est tombé sur body (le navigateur
+ * applique l'ancre de l'adresse rendue après la mise en page, comme pour la
+ * barre de la carte : explorer.ts, fermerFiche). Jamais pris à ce que
+ * l'utilisateur a touché entre-temps.
+ */
+export function rendreFocusLigne(bilan: HTMLElement): void {
+  const b = ligneTouchee;
+  if (!b || bilan.hidden || !bilan.contains(b)) return;
+  b.focus();
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (!bilan.hidden && bilan.contains(b) && document.activeElement === document.body) b.focus();
+      }),
+    );
+  }
 }
 
 export function creer<K extends keyof HTMLElementTagNameMap>(

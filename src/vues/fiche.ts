@@ -393,15 +393,18 @@ export interface ActionsFiche {
    * s'ouvre par-dessus la fiche sans la fermer).
    */
   voile(): void;
-  /** « ‹ » : un pas en arrière (history.back()). */
+  /** « ‹ » : un pas en arrière (history.back()) ; la première fiche ouverte depuis un bilan : le bilan (nav.retour()). */
   avant(): void;
   /** Un voisin touché (ou la mère, l'océan, un riverain d'une mer) : sa fiche, une entrée de plus (nav.pousserFiche). */
   voisin(id: string): void;
 }
 
 export interface Feuille {
-  /** Montre ce modèle (remplace la fiche affichée) ; `avant` : « ‹ » montré ; `focus` : le titre reçoit le focus. */
-  montrer(m: ModeleFiche, o: { avant: boolean; focus: boolean }): void;
+  /**
+   * Montre ce modèle (remplace la fiche affichée) ; `avant` : « ‹ » montré ; `bilan` : il dit « Retour au bilan »
+   * (la première fiche ouverte depuis un bilan, lot F6) ; `focus` : le titre reçoit le focus.
+   */
+  montrer(m: ModeleFiche, o: { avant: boolean; bilan?: boolean; focus: boolean }): void;
   /** Le drapeau arrivé après coup (le manifeste lu) : la tête seule est refaite. */
   drapeaux(adresses: readonly string[]): void;
   fermer(): void;
@@ -431,6 +434,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
 
   let modele: ModeleFiche | null = null;
   let avecAvant = false;
+  let versBilan = false;
   /** Les lignes de l'heure de la fiche montrée, et leur minuteur (arrêté à la fermeture, ou par la fiche suivante). */
   let heures: { ligne: HTMLElement; dd: HTMLElement; heure: NonNullable<FaitFiche['heure']> }[] = [];
   let minuteur: ReturnType<typeof setInterval> | null = null;
@@ -470,7 +474,8 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
   }
 
   function tete(m: ModeleFiche): HTMLElement {
-    const avant = creer('button', { type: 'button', class: 'fiche-avant', 'aria-label': T.avant, title: T.avant }, '‹');
+    const libelle = versBilan ? T.avant_bilan : T.avant;
+    const avant = creer('button', { type: 'button', class: versBilan ? 'fiche-avant fiche-avant-bilan' : 'fiche-avant', 'aria-label': libelle, title: libelle }, '‹');
     avant.hidden = !avecAvant;
     avant.addEventListener('click', () => actions.avant());
     const titre = creer('h2', { class: 'fiche-titre', id: 'fiche-titre', tabindex: '-1' }, m.nom);
@@ -568,6 +573,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       if (ouverture && globalThis.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) feuille.style.willChange = 'transform';
       modele = m;
       avecAvant = o.avant;
+      versBilan = !!o.bilan;
       feuille.dataset.id = m.id;
       feuille.dataset.sorte = m.sorte;
       arreterHeure();

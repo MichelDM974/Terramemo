@@ -699,6 +699,90 @@ describe('navigation : les fiches des lieux dans l’historique', () => {
     expect(m.ici()).toBe('carte');
   });
 
+  /** Lot F6 : une partie de Trouver finie (« Terminer »), son bilan ; puis une erreur touchée : la carte, puis la fiche marquée « bilan » (main.ts). */
+  function depuisUnBilan() {
+    const m = monter();
+    m.lien('classement');
+    m.lien('carte');
+    m.lancerToucher();
+    (m.zone.querySelector('#essai-terminer') as El).click();
+    const bilan = () => m.zone.querySelector('#essai-bilan')!;
+    expect(bilan().hidden).toBe(false);
+    const auBilan = m.h.i;
+    m.faire(() => m.nav.pousser('carte'));
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA', bilan: true }));
+    expect(bilan().hidden).toBe(true);
+    expect(m.nav.fiche()).toEqual({ terrain: 'monde', id: 'FRA', rang: 1, bilan: true });
+    return { m, bilan, auBilan };
+  }
+
+  // « ‹ Retour au bilan » : main.ts remonte à l'adresse du bilan (remonter), comme la « × » remonte à la carte.
+  it('depuis un bilan : « Retour au bilan » (remonter vers le bilan) rend le bilan, même après deux voisins (la pile compte les entrées de fiche)', () => {
+    // Sur la première fiche : la carte et la fiche remontées d'un coup.
+    {
+      const { m, bilan, auBilan } = depuisUnBilan();
+      const gos = m.h.gos.length;
+      m.faire(() => m.nav.remonter('toucher'));
+      expect(m.h.gos.slice(gos)).toEqual([-2]);
+      expect(m.h.i).toBe(auBilan);
+      expect(m.ici()).toBe('toucher');
+      expect(bilan().hidden).toBe(false);
+      expect(m.nav.fiche()).toBeNull();
+    }
+    // Après deux voisins (le voisin ne porte pas la marque) : toujours le bilan, en une seule remontée.
+    const { m, bilan, auBilan } = depuisUnBilan();
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'PRT' }));
+    expect(m.nav.fiche()).toEqual({ terrain: 'monde', id: 'PRT', rang: 3 });
+    const gos = m.h.gos.length;
+    m.faire(() => m.nav.remonter('toucher'));
+    expect(m.h.gos.slice(gos)).toEqual([-4]);
+    expect(m.h.i).toBe(auBilan);
+    expect(m.ici()).toBe('toucher');
+    expect(bilan().hidden).toBe(false);
+    // Les retours du navigateur depuis un voisin : une fiche à la fois, puis la carte, puis le bilan.
+    const { m: m2, bilan: bilan2 } = depuisUnBilan();
+    m2.faire(() => m2.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
+    m2.retourNavigateur();
+    expect(m2.ficheMontree()).toBe('FRA:1');
+    expect(m2.nav.fiche()?.bilan).toBe(true);
+    m2.retourNavigateur();
+    expect(m2.ici()).toBe('carte');
+    expect(m2.ficheMontree()).toBeNull();
+    m2.retourNavigateur();
+    expect(m2.ici()).toBe('toucher');
+    expect(bilan2().hidden).toBe(false);
+  });
+
+  it('depuis un bilan, la « × » : la carte (l’entrée d’avant les fiches) ; le retour suivant rend le bilan', () => {
+    const { m, bilan, auBilan } = depuisUnBilan();
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'ESP' }));
+    m.faire(() => m.nav.quitterFiches());
+    expect(m.h.i).toBe(auBilan + 1);
+    expect(m.ici()).toBe('carte');
+    expect(m.ficheMontree()).toBeNull();
+    m.retourNavigateur();
+    expect(m.ici()).toBe('toucher');
+    expect(bilan().hidden).toBe(false);
+  });
+
+  it('depuis un bilan, au-delà de PILE_MAX voisins (45) : « Retour au bilan » rend quand même le bilan (la pile tronquée : à la place de l’entrée affichée)', () => {
+    const { m, bilan } = depuisUnBilan();
+    for (let k = 0; k < 45; k++) m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: `P${k}` }));
+    expect(m.ficheMontree()).toBe('P44:46');
+    m.faire(() => m.nav.remonter('toucher'));
+    expect(m.ici()).toBe('toucher');
+    expect(bilan().hidden).toBe(false);
+    // L'entrée remplacée ne porte plus de fiche : une page rechargée sur elle reste où elle est (aucune remontée).
+    expect(m.nav.fiche()).toBeNull();
+    const i = m.h.i;
+    const gos = m.h.gos.length;
+    const m2 = monter({ historique: m.h });
+    m2.faire(() => m2.nav.router());
+    expect(m.h.gos.length).toBe(gos);
+    expect(m.h.i).toBe(i);
+  });
+
   it('dans l’APK : l’écran de connexion passe d’abord ; puis le retour d’Android fait history.back(), la fiche d’avant, puis la carte', () => {
     const m = surLaCarte();
     m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'FRA' }));

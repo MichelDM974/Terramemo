@@ -2,6 +2,7 @@
   "_lisez-moi": "Textes de la fiche d'un lieu et de la ligne de faits de sa barre (#34), en français, à part de textes.fr.json : ils partent avec le morceau de la fiche, chargé à la demande, et non avec le morceau principal (étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 6.1 et § 19). Même règle : une copie par langue, textes-fiche.<langue>.json ; les {clés} entre accolades sont remplacées à l'affichage.",
   "_": "Fiche d'un lieu (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 4 et § 6.5) : la barre du bas devenue bouton, puis la feuille. Les noms (titres Wikipédia, sous-régions, langues, monnaies, gentilés, sommets, fêtes) sont dans public/geo/fiches-monde.fr.json ; nombres, dates et heures : src/fiches/format.ts.",
   "avant": "Fiche d'avant",
+  "avant_bilan": "Retour au bilan",
   "statut_continent": "continent",
   "drapeau": "Drapeau : {nom}",
   "capitale": "Capitale",

@@ -40,7 +40,7 @@ import { adresse, estEpreuve, niveauDe, type Lancement } from './arbre';
 import { melanger, type Serie } from './cibles';
 import { blocClassement, publierPartie } from './classement';
 import { creerJauge } from './jauge';
-import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, optionsNoter, pastillesPour, poserEnonce, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserEnonce, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { nomEpreuve } from './general';
 import { fmtJustes, fmtTemps, nomMode, scoreCourt, scoreEntier, scoreLong } from './scores';
 import { rendu, type RenduSujet } from './sujets';
@@ -413,6 +413,9 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
           });
     const s = serie;
     const [ligneScore, detail] = lignesScore(epreuve, score, partie.cibles.length);
+    // Une erreur touchée : la fiche de son lieu, sur le terrain de la partie (#34, lot F6).
+    const terrain = t.nom;
+    const ouvrir = ctx.ouvrirFiche;
     const versCarte = o.versCarte;
     bilan.replaceChildren(
       // « × » : le bilan fermé pour de bon (comme « Autre série »), puis la carte.
@@ -444,7 +447,9 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
         creer('button', { type: 'button', class: 'secondary', id: 'chrono-autre' }, T.autre_serie),
       ),
       blocClassement(epreuve, T.classement_titre, (pseudo) => publierPartie(pseudo, epreuve, bp)),
-      ...(manquees.length ? [creer('ul', { class: 'essai-rates' }, ...manquees.map((q) => creer('li', {}, ligne(q))))] : []),
+      ...(manquees.length
+        ? [creer('ul', { class: 'essai-rates' }, ...manquees.map((q) => ligneFiche(q.id, r.lieu(q.id), ligne(q), ouvrir && (() => ouvrir(terrain, q.id)))))]
+        : []),
     );
     bilan.querySelector('#chrono-rejouer')?.addEventListener('click', () => demarrer(s, t, idsSerie(s, t)));
     bilan.querySelector('#chrono-autre')?.addEventListener('click', () => {
@@ -490,6 +495,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       bilanAuRetour = false;
       ctx.terrains.montrer(t.nom);
       bilan.hidden = false;
+      // Revenu d'une fiche ouverte depuis ce bilan (#34, lot F6) : le focus à la ligne touchée.
+      rendreFocusLigne(bilan);
     },
     desactiver() {
       // La dernière réponse donnée (pause de sa rétroaction) : la partie est

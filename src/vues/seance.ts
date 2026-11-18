@@ -54,7 +54,7 @@ import { evenementReponse, Seance, type BilanSeance, type PlanSeance } from '../
 import type { Terrain } from '../terrains';
 import type { Lancement } from './arbre';
 import { nomSerie, SERIE_TOUS } from './cibles';
-import { creer, croix, fmtKm } from './commun';
+import { creer, croix, fmtKm, ligneFiche } from './commun';
 import type { DemandeSeance, FabriqueSeances, PiloteSeance, RefusSeance, ReponseJouee } from './essai';
 import { rendu, textesSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -470,7 +470,7 @@ export function creerSeances(o: OptionsSeances): Seances {
             const f = analyser(r.fiche);
             const rs = rendu(f?.domaine ?? x.info.domaine, x.info.donnees);
             const sens = f?.sens ?? 'localiser';
-            return { ...r, sens, nom: rs.nomBilan(r.id, sens), ts: rs.textes };
+            return { ...r, sens, nom: rs.nomBilan(r.id, sens), lieu: rs.lieu(r.id), terrain: x.info.terrain, ts: rs.textes };
           }),
         );
         const lignes: HTMLElement[] = [croix(actions.carte), creer('h2', {}, d.sorte === 'apprendre' ? remplir(S.titre_apprendre, { serie: nomSerie(d.serie.id) }) : S.titre_revision)];
@@ -484,15 +484,18 @@ export function creerSeances(o: OptionsSeances): Seances {
             creer(
               'ul',
               { class: 'essai-rates' },
+              // Une erreur touchée : la fiche de son lieu (le pays sous Capitales et Drapeaux), sur le terrain de son
+              // bloc (#34, lot F6). « Nouveaux : … » reste du texte : ce ne sont pas des erreurs.
               ...rates.map((r) =>
-                creer(
-                  'li',
-                  {},
+                ligneFiche(
+                  r.id,
+                  r.lieu,
                   r.sens === 'nommer'
                     ? remplir(r.ts.rate_oublie, { nom: r.nom })
                     : r.distance_km != null
                       ? remplir(r.ts.rate_km, { nom: r.nom, km: fmtKm(r.distance_km) })
                       : remplir(r.ts.rate_trouver, { nom: r.nom }),
+                  actions.fiche && (() => actions.fiche!(r.terrain, r.id)),
                 ),
               ),
             ),

@@ -761,7 +761,16 @@ async function demarrer(): Promise<void> {
   poserLignes();
   // La fin d'une partie, dite à l'écran de connexion (session perdue) : après le tour en cours, jamais pendant
   // un router() (Toucher finit une partie à son activer) qu'ouvrir le panneau relancerait.
-  const ctx = { carte, donnees, mesures, zone, terrains, finDePartie: () => queueMicrotask(() => accueil?.finDePartie()) };
+  // ouvrirFiche : une erreur d'un bilan touchée (#34, lot F6), défini plus bas avec la fiche, lu au toucher seulement.
+  const ctx = {
+    carte,
+    donnees,
+    mesures,
+    zone,
+    terrains,
+    finDePartie: () => queueMicrotask(() => accueil?.finDePartie()),
+    ouvrirFiche: (t: NomTerrain, id: string) => ficheDepuisBilan(t, id),
+  };
   const pays = donnees.entites.map((e) => e.pays);
   arbre = creerArbre(catalogue(pays));
   // La fiche d'un lieu (#34) : ses données au premier toucher, son morceau à part, une entrée d'historique par
@@ -781,6 +790,24 @@ async function demarrer(): Promise<void> {
     historique: { pousser: nav.pousserFiche, quitter: nav.quitterFiches, retour: () => history.back() },
     autorisee: ficheAutorisee,
     reglagesOuverts: () => document.getElementById('settings-popup')?.hidden === false,
+    // « ‹ Retour au bilan » (lot F6) : l'adresse du bilan, en remontant l'historique (toutes les entrées de fiche et
+    // celle de la carte d'un coup). Pas nav.retour() : après un détour par une vue de passage (Crédits, ouverts par
+    // le pied de la fiche, puis « Retour »), la vue d'avant serait la carte elle-même, et rien ne se passerait.
+    retourBilan: () => (adresseBilan ? nav.remonter(adresseBilan) : nav.retour()),
+  };
+  /** L'adresse du bilan d'où la dernière fiche est partie (« toucher », « chrono », « quiz ») : celle de « ‹ Retour au bilan ». */
+  let adresseBilan: string | null = null;
+  /**
+   * La fiche du lieu juste d'une erreur d'un bilan (#34, lot F6, § 4.6) : le chemin de la recherche, la carte
+   * (une entrée), le lieu montré, puis sa fiche (une entrée de plus). La vue de la partie garde son bilan
+   * (bilanAuRetour) et le rend à nav.retour(), sur son terrain. Jamais pendant une partie (§ 4.8, garde 4) : les
+   * lignes touchables n'existent que dans un bilan, c'est une ceinture en plus.
+   */
+  const ficheDepuisBilan = (t: NomTerrain, id: string): void => {
+    if (!ficheAutorisee()) return;
+    adresseBilan = depuisAncre(location.hash).join('/') || null;
+    nav.pousser('carte');
+    explorer?.ouvrirFiche(t, id);
   };
   // ?teintes=demo et ?mers=demo gardent leurs teintes partout : l'accueil n'y pose pas celles de la mémoire.
   explorer = vueExplorer(ctx, teintesDemoDemandees || mersDemoDemandees ? { fiche } : { memoire: carteMemoire(memoire, () => carteMemoireActive, { stockage }), fiche });

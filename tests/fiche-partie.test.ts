@@ -6,12 +6,15 @@
 // la vraie vue de la carte, sur le DOM factice).
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { lireFichesMonde, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
+import { lireFichesCommunes, lireFichesMonde, type FichierCommunes, type FichierCommunesLangue, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
 import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
 import type { Pays } from '../src/map/types';
 import { BARRES_PARTIE, barrePartieVisible, type ContexteVue } from '../src/vues/commun';
 import { vueEssai } from '../src/vues/essai';
+import { creerNavigation, type VueNavigable } from '../src/navigation';
+import { versAncre } from '../src/vues/arbre';
 import { vueExplorer } from '../src/vues/explorer';
+import { textesFiche } from '../src/vues/textes-fiche';
 import { El, installerDom, installerStockage } from './dom-factice';
 
 const lire = <T>(f: string): T => JSON.parse(readFileSync(`public/geo/${f}`, 'utf8')) as T;
@@ -196,5 +199,353 @@ describe('une partie de Toucher en suspens sur la carte', () => {
     (v.el('#barre-fiche') as El).click();
     await vi.waitFor(() => expect(v.ouverte()).toBe(true));
     expect(v.gestes).toEqual(['quitter', 'pousser JPN']);
+  });
+});
+
+// --- Depuis un bilan (lot F6, étude § 4.6, § 4.4 et § 7) ---------------------------------------------------------
+// La vraie vue de Toucher (Trouver, Reconnaître), la vraie vue de la carte et la vraie navigation, sur un historique
+// factice (go() différé, deux router() par traversée, comme Chromium) ; ctx.ouvrirFiche fait ce que fait main.ts
+// (ficheDepuisBilan). Le DOM factice ne met rien en page : la hauteur des lignes et le focus réel sont au pilote
+// (driver.py ui_fiche, partie « bilan »).
+
+/** window.history et location.hash : des entrées, la courante, les go() en attente. */
+class HistoriqueFactice {
+  entrees: { etat: unknown; ancre: string }[] = [{ etat: null, ancre: '' }];
+  i = 0;
+  attente: number[] = [];
+  get state(): unknown {
+    return this.entrees[this.i]!.etat;
+  }
+  get ancre(): string {
+    return this.entrees[this.i]!.ancre;
+  }
+  pushState(etat: unknown, _u: string, url?: string): void {
+    this.entrees = [...this.entrees.slice(0, this.i + 1), { etat: structuredClone(etat), ancre: url ?? this.ancre }];
+    this.i++;
+  }
+  replaceState(etat: unknown, _u: string, url?: string): void {
+    this.entrees[this.i] = { etat: structuredClone(etat), ancre: url ?? this.ancre };
+  }
+  go(n: number): void {
+    this.attente.push(n);
+  }
+}
+
+describe('depuis un bilan : la fiche du lieu juste, et le retour au bilan (lot F6)', () => {
+  beforeEach(() => {
+    installerDom();
+    installerStockage();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const tenir = () => new Promise((r) => setTimeout(r, 0));
+  const pays = lire<Pays[]>('pays.json');
+  const noms = lire<Record<string, string>>('noms.fr.json');
+  const communes = lire<Pays[]>('reunion/communes.json');
+  const nomsIle = lire<Record<string, string>>('reunion/noms.fr.json');
+  const FICHES = lireFichesMonde(lire<FichierMonde>('fiches-monde.json'), lire<FichierMondeLangue>('fiches-monde.fr.json'));
+  const CAPITALES = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<NomsCapitales>('capitales.fr.json'));
+  const COMMUNES = lireFichesCommunes(lire<FichierCommunes>('reunion/fiches.json'), lire<FichierCommunesLangue>('reunion/fiches.fr.json'));
+
+  function brancher() {
+    const h = new HistoriqueFactice();
+    const zone = new El('main');
+    const carte = () => ({
+      cacherPastilles() {},
+      effacerMarques() {},
+      marquer() {},
+      anneau() {},
+      anneauEn() {},
+      teinter() {},
+      montrer() {},
+      montrerZone() {},
+      cadrer() {},
+      zoomer() {},
+      vueEntiere() {},
+      pick: () => null,
+      // Chaque toucher d'une question est faux : le Brésil (sur l'île : Saint-Paul), à 250 km.
+      noter: (_id: string) => ({ juste: false, pick: { id: 'BRA' }, distance_km: 250 }),
+      hote: new El('div'),
+      contexte: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
+      contexteFinal: () => ({ proj: Object.assign(() => [100, 100], { scale: () => 1e4 }), t: { k: 1, x: 0, y: 0 } }),
+      projection: { scale: () => 100 },
+      transfo: { k: 1 },
+    });
+    const donnees = { entites: pays.map((p) => ({ pays: p })), noms };
+    const monde = { nom: 'monde', carte: carte(), donnees, jouables: pays.filter((p) => p.statut === 'jouable').map((p) => p.id) };
+    const ile = { nom: 'reunion', carte: carte(), donnees: { entites: communes.map((c) => ({ pays: c })), noms: nomsIle }, jouables: communes.map((c) => c.id) };
+    let ileChargee = false;
+    /** Le terrain montré en dernier (terrains.montrer). */
+    let montre = 'monde';
+    let nav!: ReturnType<typeof creerNavigation<VueNavigable>>;
+    let explorer!: ReturnType<typeof vueExplorer>;
+    const ouvertes: string[] = [];
+    let adresseBilan = '';
+    const ctx = {
+      carte: monde.carte,
+      donnees,
+      zone,
+      terrains: {
+        monde,
+        montrer: (n: string) => void (montre = n),
+        deja: (n: string) => (n === 'reunion' && ileChargee ? ile : null),
+        charger: (n: string) => (n === 'reunion' ? ((ileChargee = true), Promise.resolve(ile)) : Promise.reject(new Error(n))),
+      },
+      mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => void) => f() },
+      // Comme main.ts (ficheDepuisBilan) : jamais pendant une partie, l'adresse du bilan retenue, la carte (une entrée),
+      // puis le lieu et sa fiche.
+      ouvrirFiche: (t: string, id: string) => {
+        ouvertes.push(`${t}:${id}`);
+        if (!autorisee()) return;
+        adresseBilan = h.ancre.replace(/^#/, '');
+        nav.pousser('carte');
+        explorer.ouvrirFiche(t as never, id);
+      },
+    } as unknown as ContexteVue;
+    const essai = vueEssai(ctx, { versJouer: () => undefined, versCarte: () => nav.remonter('carte') });
+    const doc = { getElementById: (id: string) => zone.querySelector(`#${id}`) } as unknown as Document;
+    const autorisee = () => !barrePartieVisible(doc) && !essai.enSuspens();
+    /** Le retour du navigateur (et history.back()) : un pas, deux router(). */
+    const retourNavigateur = () => {
+      h.i--;
+      nav.router();
+      nav.router();
+    };
+    explorer = vueExplorer(ctx, {
+      fiche: {
+        fiches: () => Promise.resolve(FICHES),
+        capitales: () => Promise.resolve(CAPITALES),
+        drapeaux: () => Promise.reject(new Error('pas ici')),
+        fichesCommunes: () => Promise.resolve(COMMUNES),
+        module: () => import('../src/vues/fiche'),
+        historique: { pousser: (l) => nav.pousserFiche(l), quitter: () => nav.quitterFiches(), retour: retourNavigateur },
+        autorisee,
+        // Comme main.ts : l'adresse du bilan, en remontant l'historique.
+        retourBilan: () => nav.remonter(adresseBilan),
+      },
+    });
+    const classement = { activer() {}, desactiver() {} };
+    const vues = new Map<string, VueNavigable>([
+      ['carte', explorer],
+      ['toucher', essai],
+      ['classement', classement],
+    ]);
+    nav = creerNavigation({
+      history: h,
+      ancre: () => h.ancre,
+      noms: ['carte', 'toucher', 'classement'],
+      accueil: 'carte',
+      passage: ['classement'],
+      arbre: 'jouer',
+      vue: (n) => vues.get(n),
+      aller: () => undefined,
+      surFiche: (f) => explorer.surFiche(f),
+      annoncer: () => undefined,
+      canonique: (c) => c,
+    });
+    /** Les go() demandés, chacun une traversée (deux router()). */
+    const traverser = () => {
+      for (let n = h.attente.shift(); n !== undefined; n = h.attente.shift()) {
+        h.i += n;
+        nav.router();
+        nav.router();
+      }
+    };
+    const lien = (a: string) => {
+      h.pushState(null, '', versAncre(a));
+      nav.router();
+      nav.router();
+    };
+    lien('classement');
+    lien('carte');
+    const el = (sel: string) => zone.querySelector(sel);
+    return {
+      h,
+      nav,
+      zone,
+      essai,
+      explorer,
+      ouvertes,
+      monde,
+      ile,
+      montre: () => montre,
+      ouvrirFiche: (t: string, id: string) => ctx.ouvrirFiche!(t as never, id),
+      traverser,
+      retourNavigateur,
+      ici: () => h.ancre.replace(/^#/, '') || 'carte',
+      lien,
+      el,
+      bilan: () => el('#essai-bilan')!,
+      lignes: () => zone.querySelectorAll('#essai-bilan .essai-rates li button.ligne-fiche'),
+      ouverte: () => !!el('#fiche-lieu') && !el('#fiche-lieu')!.hidden,
+      titre: () => el('#fiche-titre')?.textContent ?? null,
+      avant: () => el('#fiche-lieu .fiche-avant')!,
+      voisin: (id: string) => (el('#fiche-lieu')!.querySelectorAll('.fiche-voisins .fiche-voisin').find((b) => b.dataset.id === id) as El).click(),
+      /** Une partie de Trouver lancée comme main.ts (une entrée), chaque question touchée faux puis passée, puis le bilan. */
+      trouver(terrain: 'monde' | 'reunion', ids: string[]) {
+        const t = terrain === 'monde' ? monde : ile;
+        nav.ouvrirPartie('toucher');
+        essai.lancer({ branche: 'entrainement', sujet: terrain === 'monde' ? 'pays' : 'communes', serie: 'x', mode: 'localiser' }, { id: 'x', terrain, ids, n: ids.length }, t as never, ids);
+        for (let k = 0; k < ids.length; k++) {
+          essai.toucher?.(1, 1, {} as PointerEvent);
+          (el('#essai-passer') as El).click();
+        }
+      },
+    };
+  }
+
+  it('Trouver : chaque erreur est un bouton de son lieu ; touchée, la carte et sa fiche ; deux voisins, puis « ‹ » ×2 et « ‹ Retour au bilan » rend le bilan, le focus à la ligne', async () => {
+    const v = brancher();
+    v.trouver('monde', ['FRA', 'ESP']);
+    expect(v.bilan().hidden).toBe(false);
+    expect(v.ici()).toBe('toucher');
+    const lignes = v.lignes();
+    expect(lignes.map((b) => b.dataset.id).sort()).toEqual(['ESP', 'FRA']);
+    const france = lignes.find((b) => b.dataset.id === 'FRA')!;
+    const avant = v.h.i;
+    france.click();
+    expect(v.ouvertes).toEqual(['monde:FRA']);
+    // La carte (une entrée), puis la fiche (une de plus), marquée « bilan » ; le bilan caché, gardé pour le retour.
+    expect(v.ici()).toBe('carte');
+    expect(v.h.i).toBe(avant + 2);
+    expect(v.nav.fiche()).toEqual({ terrain: 'monde', id: 'FRA', rang: 1, bilan: true });
+    expect(v.bilan().hidden).toBe(true);
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    expect(v.el('#barre-carte')!.dataset.id).toBe('FRA');
+    // « ‹ » dit « Retour au bilan » sur la première fiche.
+    expect(v.avant().hidden).toBe(false);
+    expect(v.avant().getAttribute('aria-label')).toBe(textesFiche.avant_bilan);
+    // Deux voisins : « ‹ » redevient « Fiche d'avant ».
+    v.voisin('ESP');
+    await vi.waitFor(() => expect(v.titre()).toBe('Espagne'));
+    v.voisin('PRT');
+    await vi.waitFor(() => expect(v.titre()).toBe('Portugal'));
+    expect(v.avant().getAttribute('aria-label')).toBe(textesFiche.avant);
+    expect(v.nav.fiche()).toMatchObject({ id: 'PRT', rang: 3 });
+    (v.avant() as El).click();
+    await vi.waitFor(() => expect(v.titre()).toBe('Espagne'));
+    (v.avant() as El).click();
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    expect(v.avant().getAttribute('aria-label')).toBe(textesFiche.avant_bilan);
+    (v.avant() as El).click();
+    v.traverser();
+    // Le bilan rendu, sur son terrain, la fiche fermée ; le focus à la ligne touchée.
+    expect(v.ici()).toBe('toucher');
+    expect(v.h.i).toBe(avant);
+    expect(v.bilan().hidden).toBe(false);
+    expect(v.ouverte()).toBe(false);
+    expect(v.montre()).toBe('monde');
+    expect((document as unknown as { activeElement?: unknown }).activeElement).toBe(france);
+  });
+
+  it('« × » laisse la carte, le lieu montré, la fiche fermée ; le retour du navigateur rend ensuite le bilan', async () => {
+    const v = brancher();
+    v.trouver('monde', ['FRA']);
+    const avant = v.h.i;
+    v.lignes()[0]!.click();
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    v.voisin('ESP');
+    await vi.waitFor(() => expect(v.titre()).toBe('Espagne'));
+    (v.el('#fiche-lieu .croix') as El).click();
+    v.traverser();
+    expect(v.ici()).toBe('carte');
+    expect(v.ouverte()).toBe(false);
+    expect(v.nav.fiche()).toBeNull();
+    expect(v.el('#barre-carte')!.dataset.id).toBe('ESP');
+    expect(v.h.i).toBe(avant + 1);
+    v.retourNavigateur();
+    expect(v.ici()).toBe('toucher');
+    expect(v.bilan().hidden).toBe(false);
+  });
+
+  it('un détour par une vue de passage (🏆, Crédits du pied de la fiche) puis son « Retour » : « ‹ Retour au bilan » rend toujours le bilan', async () => {
+    const v = brancher();
+    v.trouver('monde', ['FRA']);
+    const avant = v.h.i;
+    v.lignes()[0]!.click();
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    v.lien('classement');
+    expect(v.ouverte()).toBe(false);
+    v.nav.retour();
+    v.traverser();
+    expect(v.ici()).toBe('carte');
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    expect(v.avant().getAttribute('aria-label')).toBe(textesFiche.avant_bilan);
+    (v.avant() as El).click();
+    v.traverser();
+    expect(v.ici()).toBe('toucher');
+    expect(v.h.i).toBe(avant);
+    expect(v.bilan().hidden).toBe(false);
+    expect(v.ouverte()).toBe(false);
+  });
+
+  it('le retour du navigateur sur la première fiche la ferme (la carte, le lieu montré) ; le suivant rend le bilan', async () => {
+    const v = brancher();
+    v.trouver('monde', ['FRA']);
+    v.lignes()[0]!.click();
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+    v.retourNavigateur();
+    expect(v.ici()).toBe('carte');
+    expect(v.ouverte()).toBe(false);
+    v.retourNavigateur();
+    expect(v.ici()).toBe('toucher');
+    expect(v.bilan().hidden).toBe(false);
+  });
+
+  it('l’île : une commune ratée ouvre sa fiche sur l’île ; « ‹ Retour au bilan » rend le bilan, l’île remontrée', async () => {
+    const v = brancher();
+    v.trouver('reunion', ['97416']);
+    expect(v.montre()).toBe('reunion');
+    const ligne = v.lignes()[0]!;
+    expect(ligne.dataset.id).toBe('97416');
+    expect(ligne.getAttribute('aria-label')).toContain('Fiche : Saint-Pierre. ');
+    ligne.click();
+    expect(v.ouvertes).toEqual(['reunion:97416']);
+    await vi.waitFor(() => expect(v.titre()).toBe('Saint-Pierre'));
+    expect(v.nav.fiche()).toEqual({ terrain: 'reunion', id: '97416', rang: 1, bilan: true });
+    v.voisin('97422');
+    await vi.waitFor(() => expect(v.titre()).toBe('Le Tampon'));
+    expect(v.nav.fiche()).toMatchObject({ terrain: 'reunion', id: '97422', rang: 2 });
+    (v.avant() as El).click();
+    await vi.waitFor(() => expect(v.titre()).toBe('Saint-Pierre'));
+    (v.avant() as El).click();
+    v.traverser();
+    expect(v.ici()).toBe('toucher');
+    expect(v.bilan().hidden).toBe(false);
+    expect(v.montre()).toBe('reunion');
+  });
+
+  it('Reconnaître : la faute ouvre la fiche de la cible, jamais celle du leurre choisi', async () => {
+    const v = brancher();
+    const ids = ['FRA'];
+    v.nav.ouvrirPartie('toucher');
+    v.essai.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'x', mode: 'nommer' }, { id: 'x', terrain: 'monde', ids, n: 1 }, v.monde as never, ids);
+    const leurre = v.zone.querySelectorAll('#barre-nommer .nommer-choix').find((b) => b.dataset.id && b.dataset.id !== 'FRA')!;
+    const choisi = leurre.dataset.id!;
+    (leurre as El).click();
+    (v.el('#nommer-terminer') as El).click();
+    expect(v.bilan().hidden).toBe(false);
+    const lignes = v.lignes();
+    expect(lignes.map((b) => b.dataset.id)).toEqual(['FRA']);
+    expect(lignes[0]!.querySelector('.ligne-fiche-texte')!.textContent).toContain(noms[choisi]!);
+    lignes[0]!.click();
+    expect(v.ouvertes).toEqual(['monde:FRA']);
+    await vi.waitFor(() => expect(v.titre()).toBe('France'));
+  });
+
+  it('pendant une question (une barre de partie visible), ctx.ouvrirFiche ne fait rien : ni carte, ni fiche, la partie reste', () => {
+    const v = brancher();
+    const ids = ['FRA', 'ESP'];
+    v.nav.ouvrirPartie('toucher');
+    v.essai.lancer({ branche: 'entrainement', sujet: 'pays', serie: 'x', mode: 'localiser' }, { id: 'x', terrain: 'monde', ids, n: 2 }, v.monde as never, ids);
+    expect(v.el('#barre-essai')!.hidden).toBe(false);
+    const i = v.h.i;
+    // Ceinture : les lignes touchables n'existent qu'au bilan ; appelé quand même, la garde (ficheAutorisee) refuse.
+    v.ouvrirFiche('monde', 'FRA');
+    expect(v.ouvertes).toEqual(['monde:FRA']);
+    expect(v.h.i).toBe(i);
+    expect(v.ici()).toBe('toucher');
+    expect(v.el('#barre-essai')!.hidden).toBe(false);
+    expect(v.nav.fiche()).toBeNull();
   });
 });

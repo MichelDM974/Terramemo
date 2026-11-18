@@ -524,10 +524,10 @@ describe('séance : le bilan par le rendu du sujet', () => {
     vi.unstubAllGlobals();
   });
 
-  const bilan = (p: PiloteSeance) => {
+  /** Le texte du bilan ; `el` : y faire le bilan, `fiche` : l'action d'une erreur touchée (#34, lot F6). */
+  const bilan = (p: PiloteSeance, el = new El('div'), fiche?: (terrain: string, id: string) => void) => {
     p.terminer();
-    const el = new El('div');
-    p.bilan(el as never, { continuer: vi.fn(), carte: vi.fn(), autre: vi.fn() });
+    p.bilan(el as never, { continuer: vi.fn(), carte: vi.fn(), autre: vi.fn(), ...(fiche ? { fiche } : {}) });
     return el.innerText;
   };
 
@@ -582,7 +582,7 @@ describe('séance : le bilan par le rendu du sujet', () => {
    * entamée (deux rappels faits la veille) puis la grappe de pays ; une commune
    * touchée à 300 km. Rend le bilan et les ids de chaque domaine.
    */
-  async function bilanMixte() {
+  async function bilanMixte(el?: El, fiche?: (terrain: string, id: string) => void) {
     const m = await monter(undefined, { ile: () => ile });
     const a = m.seances.ouvrir({ sorte: 'apprendre', sujet: 'communes', serie: serie('reunion') }) as PiloteSeance;
     let rappels = 0;
@@ -604,7 +604,7 @@ describe('séance : le bilan par le rendu du sujet', () => {
     expect(ids.monde.size).toBeGreaterThan(0);
     expect(ids.reunion.size).toBeGreaterThan(0);
     expect(rate).toBeTruthy();
-    return { texte: bilan(p), ids, rate };
+    return { texte: bilan(p, el, fiche), ids, rate };
   }
 
   it('pays et communes dans la même séance : chaque lieu nommé par le rendu de son domaine, sur les données de son terrain', async () => {
@@ -613,6 +613,29 @@ describe('séance : le bilan par le rendu du sujet', () => {
     for (const id of ids.reunion) expect(texte).toContain(ile.noms[id]!);
     expect(texte).toContain(remplir(textes.sujets.communes.rate_km, { nom: ile.noms[rate]!, km: '300\u00a0km' }));
     sansBrut(texte, [...ids.monde, ...ids.reunion]);
+  });
+
+  it('une erreur est un bouton qui ouvre la fiche de son lieu, sur le terrain de son bloc (une commune sur l’île) ; « Nouveaux : … » reste du texte (#34, lot F6)', async () => {
+    const el = new El('div');
+    const fiches: string[] = [];
+    const { rate } = await bilanMixte(el, (terrain, id) => void fiches.push(`${terrain}:${id}`));
+    const boutons = el.querySelectorAll('.essai-rates li button.ligne-fiche');
+    expect(boutons.map((b) => b.dataset.id)).toEqual([rate]);
+    const texte = boutons[0]!.querySelector('.ligne-fiche-texte')!.textContent;
+    expect(texte).toBe(remplir(textes.sujets.communes.rate_km, { nom: ile.noms[rate]!, km: '300\u00a0km' }));
+    expect(boutons[0]!.getAttribute('aria-label')).toBe(remplir(textes.bilan.fiche_ligne, { nom: ile.noms[rate]!, texte }));
+    boutons[0]!.click();
+    expect(fiches).toEqual([`reunion:${rate}`]);
+    // Les nouveaux ne sont pas des erreurs : aucune ligne touchable hors de la liste des ratés.
+    expect(el.querySelectorAll('.seance-resume button')).toHaveLength(0);
+    expect(el.querySelectorAll('.ligne-fiche')).toHaveLength(1);
+  });
+
+  it('sans l’action « fiche » (ctx.ouvrirFiche absent), les erreurs restent des lignes de texte', async () => {
+    const el = new El('div');
+    await bilanMixte(el);
+    expect(el.querySelectorAll('.essai-rates li')).toHaveLength(1);
+    expect(el.querySelectorAll('.ligne-fiche')).toHaveLength(0);
   });
 
   it('un sujet factice à la place des communes seules : les communes par son rendu, les pays par le leur', async () => {

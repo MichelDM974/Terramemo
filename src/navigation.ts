@@ -119,10 +119,16 @@ export interface Navigation<V extends VueNavigable> {
   fiche(): EntreeFiche | null;
 }
 
-/** Le lieu d'une fiche : son terrain et son id. */
+/**
+ * Le lieu d'une fiche : son terrain et son id ; `bilan` : la première fiche
+ * ouverte depuis un bilan (#34, lot F6, § 4.6), dont « ‹ » dit « Retour au
+ * bilan » et remonte à son adresse (main.ts : remonter ; la pile compte les
+ * entrées de fiche).
+ */
 export interface LieuFiche {
   terrain: string;
   id: string;
+  bilan?: boolean;
 }
 
 /** Une fiche dans l'historique : son lieu et son rang (1 : la première ouverte depuis la barre). */
@@ -273,7 +279,11 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
       traversee = o.ancre();
       return h.go(-n);
     }
-    h.replaceState(h.state, '', versAncre(a));
+    // À la place de l'entrée affichée (l'adresse n'est plus dans la pile : au-delà de PILE_MAX fiches, par exemple
+    // « Retour au bilan » après 45 voisins, lot F6) : sans sa fiche, que la nouvelle adresse ne montre pas ; sinon un
+    // rechargement sur elle remonterait toutes ses entrées de fiche (demarrage).
+    const e = etatHistorique();
+    h.replaceState(e?.fiche ? ({ pile: e.pile } satisfies EtatHistorique) : h.state, '', versAncre(a));
     router();
   }
 
@@ -303,7 +313,7 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
     const ici = adresseRendue ?? o.accueil;
     const rang = (etatHistorique()?.fiche?.rang ?? 0) + 1;
     h.pushState(
-      { pile: [...pileRendue, adresseEmpilee()].slice(-PILE_MAX), fiche: { terrain: lieu.terrain, id: lieu.id, rang } } satisfies EtatHistorique,
+      { pile: [...pileRendue, adresseEmpilee()].slice(-PILE_MAX), fiche: { terrain: lieu.terrain, id: lieu.id, rang, ...(lieu.bilan ? { bilan: true } : {}) } } satisfies EtatHistorique,
       '',
       versAncre(ici),
     );
