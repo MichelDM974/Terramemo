@@ -4342,7 +4342,18 @@ def ouvrir_fiche(p, ident, defauts, quoi):
     e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == ident, f"{quoi} : fiche de {ident}")
     if not e["ouverte"]:
         defauts.append(f"{quoi} : la barre touchée n'ouvre pas la fiche de {ident} ({e})")
+    else:
+        attendre_feuille_posee(p)
     return e
+
+
+def attendre_feuille_posee(p):
+    """Attend la fin de l'animation d'ouverture de la fiche : « ouverte » est vrai dès qu'elle commence, la feuille
+    encore sous l'écran. Depuis que son morceau part avec les données au premier toucher (lot F6), la fiche s'ouvre
+    sans attendre : le voile mesuré alors tombait sous l'écran (y 1203 sur 832), et son toucher était perdu."""
+    p.js("""(async () => { const f = document.getElementById('fiche-lieu');
+      for (let i = 0; i < 2; i++) await new Promise(r => requestAnimationFrame(r));
+      if (f) await Promise.all(f.getAnimations({subtree: true}).map(a => a.finished.catch(() => null))); return true; })()""")
 
 
 # Les images d'une page, mesurées par requestAnimationFrame pendant un scénario : les écarts entre deux images,
@@ -4515,6 +4526,10 @@ def fiche_depuis_autre_bilan(p, capturer, defauts, quoi, bilan, adresse, capture
         defauts.append(f"{quoi} : {'Échap' if par_echap else '« ‹ Retour au bilan »'} : le bilan ({adresse}), la fiche fermée, le focus à la ligne de {cible} attendus ({r})")
 
 
+# Les 24 communes de La Réunion, par code INSEE (97401 à 97424).
+COMMUNES_REUNION = [f"974{n:02d}" for n in range(1, 25)]
+
+
 def ui_fiche_bilan(p, capturer, defauts):
     """Captures 162 à 167 (#34, lot F6 ; étude fiche-lieu § 4.6, § 4.4 et § 8) : une partie de Trouver
     (Amérique du Sud) jouée avec une erreur (un faux toucher, puis « Passer »), « Terminer » ; au bilan, l'erreur
@@ -4531,7 +4546,21 @@ def ui_fiche_bilan(p, capturer, defauts):
     def partie_avec_erreur(serie, faux_de):
         jouer_partie(p, "localiser", serie)
         cible = p.js(consigne)
-        toucher_pays(p, faux_de(cible))
+        faux = faux_de(cible)
+        if serie == "reunion":
+            # La partie cadre l'île sur la commune demandée : une commune fixe peut être hors de l'écran (Saint-Denis
+            # à y −43 quand Le Tampon est demandé, pilote du lot F6). Le faux toucher prend la première commune
+            # visible, autre que la cible, dès que l'île est posée (8 s au plus).
+            attendre_fin_vol(p, "ile")
+            fin = time.monotonic() + 8
+            faux = None
+            while not faux and time.monotonic() < fin:
+                faux = next((c for c in COMMUNES_REUNION if c != cible and position_visible(p, c)), None)
+                if not faux:
+                    p.pause(200)
+            if not faux:
+                raise RuntimeError(f"île : aucune commune touchable autre que {cible}")
+        toucher_pays(p, faux)
         p.pause(300)
         cliquer_apres_pause(p, "#essai-passer")
         cliquer_apres_pause(p, "#essai-terminer")
@@ -4751,7 +4780,8 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         defauts.append(f"voisin France : sa fiche, la carte sur elle, « ‹ », rang 2 attendus ({e})")
     capturer("152-fiche-voisin")
     toucher_element(p, "#fiche-lieu .fiche-avant")
-    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "ESP", "« ‹ » vers l'Espagne")
+    # La barre suit la fiche d'une image (≈ 50 ms, sous la feuille) depuis que le morceau est là d'avance (lot F6).
+    e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "ESP" and e["barre"] == "ESP", "« ‹ » vers l'Espagne")
     if e["id"] != "ESP" or e["barre"] != "ESP":
         defauts.append(f"« ‹ » : la fiche de l'Espagne et son lieu attendus ({e})")
     toucher_element(p, '#fiche-lieu .fiche-voisin[data-id="PRT"]')
