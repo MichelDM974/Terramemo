@@ -314,7 +314,7 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(v.faits()).toBe(`Tokyo · ${hab('JPN')}`);
   });
 
-  it('une mer ou une commune : pas encore de fiche (lots F4 et F5), rien de chargé', async () => {
+  it('une mer, sans fiches des mers branchées : pas de fiche, rien de chargé (une commune : tests/fiche-commune.test.ts)', async () => {
     const v = monter();
     v.vue.activer();
     v.toucher('atlant');

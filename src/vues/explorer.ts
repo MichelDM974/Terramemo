@@ -43,6 +43,9 @@
 // d'être reprise (OptionsFiche.autorisee, § 4.8). Lot F4 : une mer a sa fiche ;
 // ses fichiers (fiches-mers*.json) partent au premier toucher en mer, avec la
 // couche légère, et sa barre dit « océan Atlantique · 2,5 millions de km² ».
+// Lot F5 : une commune de l'île a sa fiche ; ses fichiers (reunion/fiches*.json)
+// partent au premier toucher sur l'île, et sa barre dit « 85 000 hab. » ; ses
+// voisines s'ouvrent sur l'île (entrées d'historique au terrain « reunion »).
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import { versEcran, versLonLat } from '../map/geo';
@@ -52,7 +55,7 @@ import { estDomaine, type Domaine } from '../srs/fiches';
 import { tailleEcranPx } from '../map/pastilles';
 import { pickMer, type ResultatPick, type Via } from '../map/pick';
 import type { Lieu, NomTerrain, Pays } from '../map/types';
-import type { DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires } from '../fiches/donnees';
+import type { DonneesFichesCommunes, DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires } from '../fiches/donnees';
 import { fmtHabitantsCourt, fmtSuperficieMer } from '../fiches/format';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
@@ -113,6 +116,11 @@ export interface OptionsFiche {
    * légère ; sans elles, une mer n'a pas de fiche (pas de chevron).
    */
   fichesMers?(): Promise<DonneesFichesMers>;
+  /**
+   * Les fiches des communes de La Réunion (chargerFichesCommunes, lot F5), lues au premier toucher sur
+   * l'île ; sans elles, une commune n'a pas de fiche (pas de chevron).
+   */
+  fichesCommunes?(): Promise<DonneesFichesCommunes>;
   /** Les lignes relues (absent : LIGNES_RELUES ; les tests passent les deux états). */
   relues?: Readonly<Record<LigneRelue, boolean>>;
   /** Le morceau de la fiche (import('./fiche')). */
@@ -139,8 +147,8 @@ export interface OptionsExplorer {
   fiche?: OptionsFiche;
 }
 
-/** Les sortes de lieux qui ont une fiche : les entités du monde (lot F1), les mers (lot F4) ; les communes au lot F5. */
-const SORTES_FICHE: ReadonlySet<SorteLieu> = new Set(['pays', 'territoire', 'zone', 'continent', 'mer']);
+/** Les sortes de lieux qui ont une fiche : les entités du monde (lot F1), les mers (lot F4), les communes (lot F5). */
+const SORTES_FICHE: ReadonlySet<SorteLieu> = new Set(['pays', 'territoire', 'zone', 'continent', 'mer', 'commune']);
 /** Seuil du glissé vers le haut, commencé sur la barre, qui ouvre la fiche (§ 4.3). */
 export const GLISSE_OUVRIR_PX = 24;
 
@@ -345,6 +353,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   const autorisee = (): boolean => !!F && (F.autorisee?.() ?? true);
   /** La sorte du lieu de la barre, s'il a une fiche à ce lot. */
   function sorteFiche(id: string): SorteLieu | null {
+    // Une commune (lot F5) : une entité de l'île, si ses fiches sont branchées.
+    if (t.nom === 'reunion') return F?.fichesCommunes && t.donnees.entites.some((en) => en.pays.id === id) ? 'commune' : null;
     if (t.nom !== 'monde') return null;
     if (estIdMer(id)) return F?.fichesMers ? 'mer' : null;
     const e = t.donnees.entites.find((en) => en.pays.id === id);
@@ -388,6 +398,47 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         const id = barre.dataset.id;
         if (j === jeton && k === touches && id && estIdMer(id)) poserFaits(false);
         // Le morceau de la fiche, demandé d'avance comme pour un pays (chargerDonnees) : là quand on touchera la barre.
+        if (!moduleCharge) {
+          F.module().then(
+            (m) => {
+              moduleCharge = m;
+              auRepos(() => m.prechaufferFormats());
+            },
+            () => undefined,
+          );
+        }
+      },
+      () => undefined,
+    );
+  }
+  /** Les fiches des communes (lot F5), une fois lues. */
+  let communesLues: DonneesFichesCommunes | null = null;
+  let communesEnCours: Promise<DonneesFichesCommunes> | null = null;
+  function chargerFichesCommunesBarre(): Promise<DonneesFichesCommunes> {
+    if (!F?.fichesCommunes) return Promise.reject(new Error('fiche : pas de fiches des communes'));
+    if (communesLues) return Promise.resolve(communesLues);
+    communesEnCours ??= F.fichesCommunes().then(
+      (c) => {
+        communesEnCours = null;
+        return (communesLues = c);
+      },
+      (e: unknown) => {
+        communesEnCours = null;
+        throw e;
+      },
+    );
+    return communesEnCours;
+  }
+  /**
+   * Au premier toucher sur l'île (§ 6.1) : les fiches des communes demandées ; à leur arrivée, la barre qui montre
+   * encore cette commune reçoit sa ligne de faits et son chevron, et le morceau de la fiche est demandé d'avance.
+   */
+  function demanderFichesCommunes(): void {
+    if (communesLues || !F?.fichesCommunes || !active || !autorisee()) return;
+    const [j, k] = [jeton, touches];
+    chargerFichesCommunesBarre().then(
+      () => {
+        if (j === jeton && k === touches && barre.dataset.id && t.nom === 'reunion') poserFaits(false);
         if (!moduleCharge) {
           F.module().then(
             (m) => {
@@ -502,6 +553,14 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         const sup = f.superficie && (F!.relues ?? LIGNES_RELUES).superficie_mers ? fmtSuperficieMer(f.superficie.km2, false) : '';
         faits.textContent = [oceans.join(', '), sup].filter(Boolean).join(' · ');
       } else if (charger) demanderFichesMers();
+    } else if (id && sorte === 'commune') {
+      // Une commune (lot F5, § 4.1) : « 85 000 hab. ». Ses fiches sont demandées au premier toucher sur l'île.
+      const f = communesLues?.get(id);
+      if (f) {
+        ficheDispo = true;
+        chevron.hidden = false;
+        faits.textContent = fmtHabitantsCourt(f.habitants.n);
+      } else if (charger) demanderFichesCommunes();
     } else if (id && sorte) {
       if (lues?.fiches.lieux.has(id)) {
         ficheDispo = true;
@@ -616,13 +675,30 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   let moduleFiche: ModuleFiche | null = null;
   /** Les drapeaux des territoires, une fois lus (à la première fiche de territoire). */
   let drapeauxTerritoiresLus: DrapeauxTerritoires | null = null;
-  function composer(m: ModuleFiche, id: string) {
+  function composer(m: ModuleFiche, l: LieuFiche) {
     moduleFiche = m;
+    const id = l.id;
     const mer = estIdMer(id);
+    // Une commune (lot F5) : les données de l'île, quel que soit le terrain montré (le vol vers elle peut attendre).
+    const ile = l.terrain === 'reunion' ? ctx.terrains.deja('reunion') : null;
+    if (l.terrain === 'reunion') {
+      if (!communesLues || !ile) return null;
+      const ri = rendu(SUJET_CARTE.reunion, ile.donnees);
+      return m.composerFiche(id, {
+        entites: ile.donnees.entites.map((e) => e.pays as Pays),
+        nom: (x) => ri.lieu(x),
+        fiches: { lieux: new Map(), sousRegions: {} },
+        communes: communesLues,
+        capitales: null,
+        drapeaux: null,
+        memoire: (x, jouable) => o.memoire?.details('reunion', x, jouable) ?? null,
+        ...(F?.relues ? { relues: F.relues } : {}),
+      });
+    }
     if (mer ? !(mersLues && infosMers) : !lues) return null;
-    const r = rendu(SUJET_CARTE[t.nom], t.donnees);
+    const r = rendu(SUJET_CARTE.monde, ctx.terrains.monde.donnees);
     return m.composerFiche(id, {
-      entites: t.donnees.entites.map((e) => e.pays as Pays),
+      entites: ctx.terrains.monde.donnees.entites.map((e) => e.pays as Pays),
       nom: (x) => r.lieu(x),
       // Une mer n'attend pas les fiches du monde : ses riverains ne disent que leur nom.
       fiches: lues?.fiches ?? { lieux: new Map(), sousRegions: {} },
@@ -630,7 +706,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       capitales: lues?.capitales ?? null,
       drapeaux: drapeauxLus,
       drapeauxTerritoires: drapeauxTerritoiresLus,
-      memoire: (x, jouable) => o.memoire?.details(t.nom, x, jouable) ?? null,
+      memoire: (x, jouable) => o.memoire?.details('monde', x, jouable) ?? null,
       ...(F?.relues ? { relues: F.relues } : {}),
     });
   }
@@ -642,7 +718,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
    */
   function surFiche(f: EntreeFiche | null): void {
     if (!f) return fermerFiche(true);
-    if (!F || !active || f.terrain !== 'monde') return;
+    if (!F || !active || (f.terrain !== 'monde' && f.terrain !== 'reunion')) return;
     // Une partie de Toucher en suspens (§ 4.8, garde 3) : pas de fiche, et son entrée d'historique rendue, sinon le
     // retour suivant ne changerait rien à l'écran (§ 7 : aucune entrée de fiche orpheline).
     if (!autorisee()) return void historique.quitter();
@@ -655,9 +731,22 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     // Le lieu sur la carte : un voisin, ou une fiche rendue par un retour (aller() vide la barre, la fiche reste ouverte),
     // deux images après la fiche quand la page en a (volEnAttente).
     volEnAttente = null;
-    if (t !== ctx.terrains.monde || barre.dataset.id !== f.id) {
-      // Une mer (la mère, l'océan d'une mer, lot F4) : la couche fine posée d'abord, comme pour la recherche.
+    const commune = f.terrain === 'reunion';
+    if (t !== (commune ? ctx.terrains.deja('reunion') : ctx.terrains.monde) || barre.dataset.id !== f.id) {
+      // Une mer (la mère, l'océan d'une mer, lot F4) : la couche fine posée d'abord, comme pour la recherche. Une commune
+      // (lot F5) : l'île, chargée avec ses fiches (donnees, plus bas) si elle ne l'était pas.
       const vol = () => {
+        if (commune) {
+          const ile = ctx.terrains.deja('reunion');
+          if (ile) return montrer(ile, f.id);
+          ctx.terrains.charger('reunion').then(
+            (i) => {
+              if (ficheOuverte === f && active) montrer(i, f.id);
+            },
+            () => undefined,
+          );
+          return;
+        }
         const p = estIdMer(f.id) ? poserMers(ctx) : null;
         if (!p) return montrer(ctx.terrains.monde, f.id);
         p.then(
@@ -677,18 +766,25 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       } else vol();
     }
     const mer = estIdMer(f.id);
-    const donnees = mer ? Promise.all([chargerFichesMersBarre(), chargerInfosMersFiche()]) : lues ? null : chargerDonnees();
+    const donnees = commune
+      ? Promise.all([chargerFichesCommunesBarre(), ctx.terrains.charger('reunion')])
+      : mer
+        ? Promise.all([chargerFichesMersBarre(), chargerInfosMersFiche()])
+        : lues
+          ? null
+          : chargerDonnees();
     Promise.all([F.module(), donnees]).then(
       ([m]) => {
         if (j !== jetonFiche || !active) return;
-        const modele = composer(m, f.id);
+        const modele = composer(m, f);
         if (!modele) return void historique.quitter();
         feuille ??= m.creerFeuille(ctx.zone, {
           fermer: () => historique.quitter(),
           // Lu avant l'écouteur du document qui ferme la popup (le voile est la cible du clic) : elle est encore ouverte.
           voile: () => void (F.reglagesOuverts?.() || historique.quitter()),
           avant: () => historique.retour(),
-          voisin: (v) => historique.pousser({ terrain: 'monde', id: v }),
+          // Sur le terrain de la fiche ouverte : une commune voisine sur l'île, tout le reste au monde.
+          voisin: (v) => historique.pousser({ terrain: ficheOuverte?.terrain ?? 'monde', id: v }),
         });
         feuille.montrer(modele, { avant: f.rang > 1, focus: true });
         // Le drapeau d'un territoire (lot F3) : son manifeste à part, à la première fiche de territoire.
@@ -875,7 +971,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       const id = barre.dataset.id;
       if (id) afficher(id, viaAffiche);
       // La fiche ouverte relit sa mémoire (mémoire chargée, réglage changé), sans reprendre le focus.
-      const m = ficheOuverte && moduleFiche && feuille && !feuille.element.hidden ? composer(moduleFiche, ficheOuverte.id) : null;
+      const m = ficheOuverte && moduleFiche && feuille && !feuille.element.hidden ? composer(moduleFiche, ficheOuverte) : null;
       if (m && ficheOuverte) feuille?.montrer(m, { avant: ficheOuverte.rang > 1, focus: false });
     },
     avis(texte) {

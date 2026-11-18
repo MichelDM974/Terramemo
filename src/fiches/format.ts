@@ -100,6 +100,10 @@ export function listeEt(elements: readonly string[], langue = 'fr'): string {
 /** « 123 366 734 (2025) » : les habitants de la fiche, avec leur année. */
 export const fmtHabitants = (n: number, annee: number, langue = 'fr'): string => remplir(textes.fiche.habitants_valeur, { n: fmtEntier(n, langue), annee });
 
+/** « 85 038 (recensement de 2023) » : les habitants d'une commune (lot F5), avec l'année de leur recensement. */
+export const fmtHabitantsRecensement = (n: number, annee: number, langue = 'fr'): string =>
+  remplir(textes.fiche.habitants_recensement, { n: fmtEntier(n, langue), annee });
+
 /** La barre : « 123 millions d'hab. », « 56 800 hab. » (trois chiffres au plus, fmtNombreCourt). */
 export function fmtHabitantsCourt(n: number, langue = 'fr'): string {
   const T = textes.fiche;

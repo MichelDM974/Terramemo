@@ -6,8 +6,10 @@
 // des capitales (src/map/capitales.ts) : une promesse gardée, un échec (hors
 // ligne) qui ne reste pas en cache, relancé au toucher suivant. Les mers (lot
 // F4) ont leurs fichiers, fiches-mers.json et fiches-mers.fr.json, lus au
-// premier toucher en mer avec la couche légère (§ 6.1) ; les communes auront
-// les leurs (lot F5) : qui ne touche que des pays ne les paie pas.
+// premier toucher en mer avec la couche légère (§ 6.1) ; les communes (lot F5)
+// ont les leurs, public/geo/reunion/fiches.json (geodata/reunion.mjs) et
+// fiches.fr.json (geodata/fiches.mjs), lus au premier toucher sur l'île : qui ne
+// touche que des pays ne les paie pas.
 import type { SorteLieu } from './sorte';
 
 /** La version du format, écrite par geodata/fiches.mjs (VERSION_FICHES). */
@@ -313,4 +315,95 @@ export const fichesMersChargees = (): DonneesFichesMers | null => mersLues;
 export function oublierFichesMers(): void {
   mersLues = null;
   mersEnCours = null;
+}
+
+// --- Communes de La Réunion (lot F5) -----------------------------------------------------
+
+/** Ce que reunion/fiches.json dit d'une commune (geodata/reunion.mjs, d'après l'IGN). */
+interface FicheCommuneBrute {
+  s: 'commune';
+  /** Habitants (population municipale du recensement de l'INSEE) et l'année du recensement. */
+  h: number;
+  ha: number;
+  /** Superficie cadastrale, en km². */
+  sup: number;
+  /** SIREN de l'intercommunalité. */
+  ic: string;
+}
+
+export interface FichierCommunes {
+  v: number;
+  lieux: Record<string, FicheCommuneBrute>;
+}
+
+export interface FichierCommunesLangue {
+  v: number;
+  /** Le sigle de chaque intercommunalité, par SIREN (CIVIS, TCO…). */
+  intercommunalites: Record<string, string>;
+  lieux: Record<string, { wp?: string; g?: string; gp?: string; gs?: SourceLigne }>;
+}
+
+/** La fiche d'une commune ; son nom et ses voisines viennent des données de l'île (déjà là avec la carte). */
+export interface FicheCommune {
+  /** Habitants et l'année de leur recensement (2023). */
+  habitants: { n: number; annee: number };
+  /** Superficie cadastrale en km² (le chiffre officiel, pas le tracé). */
+  superficie: number;
+  /** Le sigle de l'intercommunalité ; absent si le fichier de la langue n'en a pas. */
+  intercommunalite?: string;
+  /** Le pluriel du gentilé (« Saint-Pierrois ») ; sa source hors de Wikidata. */
+  gentils?: string;
+  gentilsSource?: SourceLigne;
+  /** Titre de l'article de la Wikipédia de la langue, ou null. */
+  wp: string | null;
+}
+
+export type DonneesFichesCommunes = ReadonlyMap<string, FicheCommune>;
+
+/** Les deux fichiers des communes assemblés ; lève sur une autre version du format. */
+export function lireFichesCommunes(m: FichierCommunes, fr: FichierCommunesLangue): DonneesFichesCommunes {
+  if (m.v !== VERSION_FICHES || fr.v !== VERSION_FICHES) throw new Error(`fiches des communes : version ${m.v} / ${fr.v}, attendue ${VERSION_FICHES}`);
+  const res = new Map<string, FicheCommune>();
+  for (const [id, b] of Object.entries(m.lieux)) {
+    const t = fr.lieux[id] ?? {};
+    const f: FicheCommune = { habitants: { n: b.h, annee: b.ha }, superficie: b.sup, wp: t.wp ?? null };
+    const sigle = fr.intercommunalites[b.ic];
+    if (sigle) f.intercommunalite = sigle;
+    if (t.gp) f.gentils = t.gp;
+    if (t.gp && t.gs) f.gentilsSource = t.gs;
+    res.set(id, f);
+  }
+  return res;
+}
+
+let communesLues: DonneesFichesCommunes | null = null;
+let communesEnCours: Promise<DonneesFichesCommunes> | null = null;
+
+/**
+ * Les fiches des communes, lues une fois, au premier toucher sur l'île (§ 6.1) ; un échec n'est
+ * pas gardé : le toucher suivant réessaie. `lire` : les tests.
+ */
+export function chargerFichesCommunes(lire: Lecteur = lireHttp, base = '/geo/reunion/'): Promise<DonneesFichesCommunes> {
+  if (communesLues) return Promise.resolve(communesLues);
+  if (!communesEnCours) {
+    const p = Promise.all([lire(`${base}fiches.json`), lire(`${base}fiches.fr.json`)]).then(([m, fr]) => {
+      communesLues = lireFichesCommunes(m as FichierCommunes, fr as FichierCommunesLangue);
+      return communesLues;
+    });
+    communesEnCours = p;
+    p.then(
+      () => (communesEnCours = null),
+      () => (communesEnCours = null),
+    );
+  }
+  return communesEnCours;
+}
+
+/** Les fiches des communes si elles sont déjà lues (sans réseau), null sinon. */
+export const fichesCommunesChargees = (): DonneesFichesCommunes | null => communesLues;
+
+/** Tests : oublie les fiches des communes lues. */
+export function oublierFichesCommunes(): void {
+  communesLues = null;
+  communesEnCours = null;
 }

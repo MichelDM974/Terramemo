@@ -124,12 +124,13 @@ describe('écran Crédits', () => {
     const cldr = ligne('Unicode CLDR');
     expect(cldr.detail).toBe(`Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays et territoire · v${source('Unicode CLDR, langues').split(' ')[0]}`);
     expect(source('Unicode CLDR, noms').split(' ')[0]).toBe(source('Unicode CLDR, langues').split(' ')[0]);
-    // Wikidata : l'extrait des capitales, puis celui des fiches, puis celui des mers (lot F4), chacun à sa date.
+    // Wikidata : l'extrait des capitales, puis celui des fiches, puis celui des mers (lot F4), puis celui des communes (lot F5), chacun à sa date.
     const wd = ligne('Wikidata');
     expect(wd.detail).toBe(
       `Capitales et notoriété des lieux · extrait du ${date(json<{ date: string }>('geodata/wikidata/capitales.json').date)} ; ` +
         `superficies, gentilés, sommets, habitants de Taïwan, du Vatican, de territoires et de zones contestées, capitales des territoires, liens vers Wikipédia · extrait du ${date(json<{ date: string }>('geodata/wikidata/fiches.json').date)} ; ` +
-        `superficies, profondeurs et pays riverains des mers · extrait du ${date(json<{ date: string }>('geodata/wikidata/fiches-mers.json').date)}`,
+        `superficies, profondeurs et pays riverains des mers · extrait du ${date(json<{ date: string }>('geodata/wikidata/fiches-mers.json').date)} ; ` +
+        `gentilés des communes de La Réunion et liens vers Wikipédia · extrait du ${date(json<{ date: string }>('geodata/wikidata/fiches-communes.json').date)}`,
     );
     // La Banque mondiale, selon ses conditions : « The World Bank: <jeu>: <source> », CC BY 4.0, l'adresse des conditions en lien.
     const bm = json<{ date: string; annee: number; source: { nom: string; donnees_de: string }; conditions: { url: string; licence: string } }>('geodata/banque-mondiale/population.json');

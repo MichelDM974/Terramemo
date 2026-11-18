@@ -26,6 +26,12 @@
 // mers.json (déjà lu avec la couche). Superficie, profondeur et riverains
 // attendent leur relecture (LIGNES_RELUES).
 //
+// Lot F5 : une commune de La Réunion a ses habitants (avec l'année du
+// recensement), sa superficie cadastrale, son gentilé (tu jusqu'à sa relecture),
+// son intercommunalité, ses communes voisines (des boutons, sur l'île) et son
+// lien ; ses données viennent de reunion/fiches*.json, ses voisines et son nom
+// des données de l'île (déjà là avec la carte).
+//
 // Contenu, de haut en bas : la tête (« ‹ » s'il y a une fiche d'avant, « × »,
 // le drapeau, le nom, le statut), les faits (lot F2 pour un pays, dans l'ordre
 // du § 4.2 : capitale, habitants, superficie, langues, monnaie, gentilé, heure,
@@ -40,8 +46,8 @@ import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import { oceansDeMer } from '../map/mers';
 import type { Mer, NomTerrain, Pays } from '../map/types';
-import type { DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires, SourceLigne, SourceMer } from '../fiches/donnees';
-import { fmtAltitude, fmtHabitants, fmtHeureLieu, fmtJourMois, fmtPart, fmtProfondeur, fmtSuperficie, fmtSuperficieMer, listeEt } from '../fiches/format';
+import type { DonneesFichesCommunes, DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires, SourceLigne, SourceMer } from '../fiches/donnees';
+import { fmtAltitude, fmtHabitants, fmtHabitantsRecensement, fmtHeureLieu, fmtJourMois, fmtPart, fmtProfondeur, fmtSuperficie, fmtSuperficieMer, listeEt } from '../fiches/format';
 export { prechaufferFormats, prechaufferZone } from '../fiches/format';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
@@ -89,7 +95,7 @@ export interface ModeleFiche {
   faits: readonly FaitFiche[];
   /** Les pays jouables d'abord (alphabétique), puis les autres entités avec leur statut. */
   voisins: readonly VoisinFiche[];
-  /** Le titre de leur section : « Voisins », « Pays riverains » (une mer). */
+  /** Le titre de leur section : « Voisins », « Pays riverains » (une mer), « Communes voisines ». */
   titreVoisins: string;
   /** Une ligne par sujet ; null : pas de section (territoire, réglage coupé). */
   memoire: readonly string[] | null;
@@ -100,7 +106,7 @@ export interface ModeleFiche {
 }
 
 export interface DonneesComposition {
-  /** Les entités du monde (pays.json). */
+  /** Les entités du terrain (pays.json ; communes.json pour une commune). */
   entites: readonly Pays[];
   /** Le nom d'une entité (le rendu du sujet de la carte). */
   nom(id: string): string;
@@ -111,6 +117,11 @@ export interface DonneesComposition {
   drapeauxTerritoires?: DrapeauxTerritoires | null;
   /** Les mers (lot F4) : leurs fiches, leurs zones (mers.json : sorte, parents) et leurs noms ; absent : pas de fiche de mer. */
   mers?: DonneesMers | null;
+  /**
+   * Les communes de La Réunion (lot F5) : leurs fiches ; `entites` et `nom` sont alors ceux de l'île. Absent : pas de
+   * fiche de commune (le lieu est lu comme une entité du monde).
+   */
+  communes?: DonneesFichesCommunes | null;
   /** Les lignes de la mémoire du lieu (CarteMemoire.details) ; null : pas de section. */
   memoire(id: string, jouable: boolean): readonly string[] | null;
   /** Les lignes relues (absent : LIGNES_RELUES ; les tests passent les deux états). */
@@ -151,6 +162,7 @@ const sourceLigne = (s: SourceLigne): string => (s === 'fb' ? T.noms_sources.fac
  */
 export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | null {
   if (d.mers?.zones.some((z) => z.id === id)) return composerFicheMer(id, d, d.mers);
+  if (d.communes) return composerFicheCommune(id, d, d.communes);
   const p = d.entites.find((e) => e.id === id);
   const f = d.fiches.lieux.get(id);
   if (!p || !f) return null;
@@ -317,6 +329,48 @@ function composerFicheMer(id: string, d: DonneesComposition, M: DonneesMers): Mo
     faits,
     voisins: riverains,
     titreVoisins: T.riverains,
+    memoire: d.memoire(id, true),
+    wikipedia: f.wp ? adresseWikipedia(f.wp) : null,
+    sources,
+  };
+}
+
+/**
+ * La fiche d'une commune de La Réunion (lot F5, § 4.2) : ses habitants (« 85 038 (recensement de 2023) »), sa superficie
+ * cadastrale, son gentilé une fois relu (LIGNES_RELUES.gentile_communes), son intercommunalité (le sigle), ses communes
+ * voisines et son lien. Pas de statut ni de drapeau. Les sources : l'IGN (le tracé, les voisines, la superficie,
+ * l'intercommunalité), le recensement de l'INSEE pour les habitants, Wikidata pour le gentilé et le lien.
+ */
+function composerFicheCommune(id: string, d: DonneesComposition, C: DonneesFichesCommunes): ModeleFiche | null {
+  const p = d.entites.find((e) => e.id === id);
+  const f = C.get(id);
+  if (!p || !f) return null;
+  const relues = d.relues ?? LIGNES_RELUES;
+  const S = T.noms_sources;
+  const sources = [S.ign, S.insee];
+  const citer = (nom: string) => void (sources.includes(nom) || sources.push(nom));
+  const faits: FaitFiche[] = [
+    { libelle: T.habitants, valeur: fmtHabitantsRecensement(f.habitants.n, f.habitants.annee) },
+    { libelle: T.superficie, valeur: fmtSuperficie(f.superficie) },
+  ];
+  if (f.gentils && relues.gentile_communes) {
+    faits.push({ libelle: T.gentile, valeur: remplir(T.gentile_valeur, { gentils: f.gentils }) });
+    citer(S.wikidata);
+    if (f.gentilsSource) citer(sourceLigne(f.gentilsSource));
+  }
+  if (f.intercommunalite) faits.push({ libelle: T.intercommunalite, valeur: f.intercommunalite });
+  if (f.wp) citer(S.wikidata);
+  return {
+    terrain: 'reunion',
+    id,
+    sorte: 'commune',
+    nom: d.nom(id),
+    statut: '',
+    drapeaux: [],
+    avecDrapeau: false,
+    faits,
+    voisins: rangerVoisins(p.voisins, d),
+    titreVoisins: T.voisines,
     memoire: d.memoire(id, true),
     wikipedia: f.wp ? adresseWikipedia(f.wp) : null,
     sources,

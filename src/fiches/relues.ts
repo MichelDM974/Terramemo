@@ -2,7 +2,9 @@
 // l'utilisateur (#34, lot F2 pour les pays : tableaux de
 // docs/relectures/fiches-pays.md ; lot F3 pour les territoires, les zones et
 // l'Antarctique : docs/relectures/fiches-territoires.md, les statuts, et
-// fiches-territoires-chiffres.md, le reste ; écrits par npm run fiches). Une
+// fiches-territoires-chiffres.md, le reste ; lot F4 pour les mers :
+// fiches-mers.md ; lot F5 pour les communes : fiches-communes.md ; écrits par
+// npm run fiches). Une
 // clé par tableau. Codées et testées, mais hors ligne tant qu'elles
 // ne sont pas relues : chacune passe à true, une par une, une fois son
 // tableau relu (D56 c pour les langues, D57 pour la superficie). Les
@@ -25,7 +27,8 @@ export type LigneRelue =
   | 'culminant_territoires'
   | 'riverains_mers'
   | 'superficie_mers'
-  | 'profondeur_mers';
+  | 'profondeur_mers'
+  | 'gentile_communes';
 
 /** Ce que la fiche montre aujourd'hui : rien de ce qui attend la relecture. */
 export const LIGNES_RELUES: Readonly<Record<LigneRelue, boolean>> = {
@@ -65,4 +68,10 @@ export const LIGNES_RELUES: Readonly<Record<LigneRelue, boolean>> = {
   superficie_mers: false,
   /** § 3 : les profondeurs maximales (Wikidata, et la table pour les ambiguës). */
   profondeur_mers: false,
+  /**
+   * fiches-communes.md, § 1 : les gentilés des 24 communes de La Réunion (Wikidata, et les 4 à relire :
+   * Saint-Benoît, Petite-Île, L'Étang-Salé, Sainte-Marie) ; d'ici là, la fiche d'une commune n'a pas de
+   * ligne « Gentilé ». Les habitants, la superficie et l'intercommunalité sont en ligne.
+   */
+  gentile_communes: false,
 };

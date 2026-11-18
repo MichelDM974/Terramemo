@@ -36,6 +36,7 @@
     "capitales": "Capitales",
     "habitants": "Habitants",
     "habitants_valeur": "{n} ({annee})",
+    "habitants_recensement": "{n} (recensement de {annee})",
     "aucun_habitant": "aucun habitant permanent",
     "superficie": "Superficie",
     "km2": "{n} km²",
@@ -71,6 +72,8 @@
     "barre_habitants_mot": "{n} d'hab.",
     "voisins": "Voisins",
     "riverains": "Pays riverains",
+    "voisines": "Communes voisines",
+    "intercommunalite": "Intercommunalité",
     "sortes_mer": {
       "océan": "océan",
       "mer": "mer",
@@ -106,7 +109,9 @@
       "factbook": "CIA World Factbook",
       "wikipedia": "Wikipédia",
       "noaa": "NOAA (superficie)",
-      "trace": "superficie du tracé de Natural Earth"
+      "trace": "superficie du tracé de Natural Earth",
+      "ign": "IGN",
+      "insee": "recensement de l'INSEE (habitants)"
     },
     "nombres": {
       "million": "{n} million",
@@ -727,14 +732,14 @@
       },
       {
         "nom": "IGN, ADMIN EXPRESS COG CARTO",
-        "detail": "Communes de La Réunion",
+        "detail": "Communes de La Réunion ; habitants : recensement INSEE de 2023",
         "licence": "Licence Ouverte 2.0",
         "auteur": "Source : IGN",
         "lien": "https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
       },
       {
         "nom": "Wikidata",
-        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026 ; superficies, gentilés, sommets, habitants de Taïwan, du Vatican, de territoires et de zones contestées, capitales des territoires, liens vers Wikipédia · extrait du 18/11/2026 ; superficies, profondeurs et pays riverains des mers · extrait du 18/11/2026",
+        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026 ; superficies, gentilés, sommets, habitants de Taïwan, du Vatican, de territoires et de zones contestées, capitales des territoires, liens vers Wikipédia · extrait du 18/11/2026 ; superficies, profondeurs et pays riverains des mers · extrait du 18/11/2026 ; gentilés des communes de La Réunion et liens vers Wikipédia · extrait du 18/11/2026",
         "licence": "CC0 1.0",
         "auteur": "Wikidata et ses contributeurs",
         "lien": "https://creativecommons.org/publicdomain/zero/1.0/deed.fr"
