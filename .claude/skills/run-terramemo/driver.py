@@ -4685,6 +4685,16 @@ def ui_fiche_bilan(p, capturer, defauts):
                     p.pause(200)
             if not faux:
                 raise RuntimeError(f"île : aucune commune touchable autre que {cible}")
+        else:
+            # Le monde : la carte vole vers la série après la barre (page rechargée par le scénario de mesure, lot F8).
+            attendre_fin_vol(p)
+            fin = time.monotonic() + 8
+            while not position_visible(p, faux) and time.monotonic() < fin:
+                p.pause(200)
+            if not position_visible(p, faux):
+                # Le pays prévu reste caché (sous la barre, hors du cadre) : un autre pays visible de la série.
+                autres = ["BRA", "ARG", "BOL", "PER", "COL", "VEN", "PRY", "CHL", "URY", "ECU"]
+                faux = next((c for c in autres if c != cible and position_visible(p, c)), faux)
         toucher_pays(p, faux)
         p.pause(300)
         cliquer_apres_pause(p, "#essai-passer")
