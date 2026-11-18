@@ -2734,7 +2734,18 @@ Interface du lot F2 (fiche, barre, Crédits) :
 
 Relevés par le codeur du lot F3 (branche `fiche-lieu`, 18/11). Les statuts (première partie,
 `fiches-territoires.mjs`, `docs/relectures/fiches-territoires.md`) sont décrits par leurs commits ;
-ici, la suite.
+ici, la suite. Trois écarts des statuts au § 2.2, pourtant :
+- **Sahara occidental** : l'entité `ESH` n'est que la partie à l'est du mur des sables (90 696 km²
+  sur ≈ 266 000), tenue par la RASD ; l'ouest est dessiné dans le Maroc, en zone hachurée `NE_B19`
+  (mesuré sur le tracé : Laâyoune, Smara, Dakhla au Maroc ; Tifariti, Bir Lahlou dans `ESH`). La
+  note de Natural Earth est juste pour ce morceau, et le texte du § 2.2 (« tenue en majeure partie
+  par le Maroc ») aurait été faux pour ce qu'on touche : le texte dit la partie touchée, puis qui
+  tient l'autre.
+- **Retraits** : une clé `retraits` (avec raison) retire de la fiche un revendicant des données qui
+  ne revendique plus (le Nicaragua pour Bajo Nuevo et Serranilla, le Canada pour le Groenland, les
+  Seychelles pour les Chagos et Tromelin). Le jeu compte toujours un toucher juste pour lui
+  (`map/acceptes.ts`).
+- **SOV_A3** : onze codes à convertir, pas dix (`FI1`, Åland).
 - Les chiffres des 61 autres lieux vivent dans `geodata/fiches-autres.mjs`, qui reprend les règles
   des pays (`fiches-pays.mjs` : superficie, habitants, gentilé, sommet, et `languesLieu`, sortie
   telle quelle de la boucle des pays) ; son tableau à relire est un fichier à part,
