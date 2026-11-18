@@ -2895,3 +2895,54 @@ Relecture du lot F4 (18/11) :
   seul : Othonoi et le nord de Corfou, au bord de la limite de l'OHI ; la Wikipédia ne la cite pas) ;
   la sorte « golfe intérieur » du golfe Persique (`interieure` de `mers.json`), peu usitée ;
   la mer Caspienne, sans ligne d'océan ni de faits dans sa barre.
+
+## 18. Écarts du code au lot F5
+
+Relevés par le codeur du lot F5 (branche `fiche-lieu`, 18/11). Tableau à relire :
+`docs/relectures/fiches-communes.md`.
+- **Deux fichiers, deux scripts** : `public/geo/reunion/fiches.json` (habitants, année, superficie, SIREN de
+  l'intercommunalité) est écrit par `geodata/reunion.mjs`, qui seul lit le GeoPackage (7z, absent en CI) ;
+  `fiches.fr.json` (titres, gentilés, sigles) par `geodata/fiches.mjs` (`npm run fiches`, module
+  `geodata/fiches-communes.mjs`), qui lit le premier et contrôle tout. `reunion.mjs` confronte aussi chaque commune
+  aux membres de la table `epci`, exige `organisme_recenseur` « INSEE » et un seul recensement, et écrit les noms
+  officiels des cinq intercommunalités dans le `sources.json` de l'île (`traitement.intercommunalites`), que le
+  build des fiches compare à la table. La topologie, `communes.json` et `noms.fr.json` sont refaits octet pour octet ;
+  `tests/donnees-reunion.test.ts` les fige par leur empreinte. Le `sources.json` de l'île change (empreintes, la
+  description des superficies : le tracé pour la carte, le cadastre pour la fiche).
+- **Extrait à part** : `geodata/wikidata/fiches-communes.json` (`npm run wikidata -- --fiches-communes`, requêtes
+  `requetes-fiches-communes.rq` : l'item par le code INSEE, P374, un seul par code ; les gentilés), et non
+  `fiches.json` (§ 8), pour la raison du lot F4. Sa ligne de `sources.json` a l'adresse de l'API
+  (`www.wikidata.org/w/api.php`), une adresse de plus.
+- **Gentilés** : clé à part, `gentile_communes`, et non la clé `gentile` des pays (§ 2.5). Les quatre lignes ne
+  corrigent rien : ce sont des `verifier` (la forme de Wikidata gardée, avec le doute), comme les profondeurs du lot
+  F4. La seconde source a été lue pour les 24 (infobox de la Wikipédia en français, 18/11) : toutes égales à
+  Wikidata au nombre près, sauf l'accent de Petite-Île (« Petite-Ilois ») et la seconde forme de L'Étang-Salé
+  (« Dominicains »). Le pluriel suit la règle des pays (« les Saint-Pierrois », « les Bénédictins »).
+- **Sigles** : clé `epci`, par SIREN, avec le nom de l'IGN recopié (`nom_ign`) : l'IGN renomme une intercommunalité,
+  le build échoue et le sigle est à relire. Quatre sigles sont dans le nom de l'IGN ; « CASUD » n'y est pas
+  (« CA du Sud ») : sourcé par la Wikipédia en français (« Communauté d'agglomération du Sud », révision 234996175),
+  citée dans `sources.json` avec les quatre pages des gentilés.
+- **Lignes tues** : une clé de plus dans `LIGNES_RELUES`, `gentile_communes`. Les habitants, la superficie
+  cadastrale et l'intercommunalité sont en ligne sans relecture (le § 9 ne les demandait pas) ; le tableau les donne
+  pour information, avec l'écart au tracé (Entre-Deux − 22,8 %, Le Tampon + 9,8 %).
+- **La fiche** : ni statut ni drapeau en tête (comme un pays) ; « Habitants · 85 038 (recensement de 2023) »,
+  « Superficie · 96 km² », le gentilé une fois relu, « Intercommunalité · CIVIS » ; la section « Communes
+  voisines » ; sources « IGN · recensement de l'INSEE (habitants) · Wikidata » (ni Natural Earth ni CLDR). Barre :
+  « 85 000 hab. » (trois chiffres, comme un territoire).
+- **Historique** : une entrée de fiche au terrain `reunion` est rendue (elle était ignorée) ; un voisin est poussé
+  sur le terrain de la fiche ouverte (une commune sur l'île ; la mère, l'océan ou un riverain d'une mer, au monde).
+  La fiche se compose avec les données de l'île (`ctx.terrains.deja('reunion')`) même si le vol vers elle attend ses
+  deux images ; une entrée rendue alors que l'île n'est pas chargée la charge avec les fiches.
+- **Chargement** : au premier lieu de l'île (toucher, ou recherche), `reunion/fiches.json` et `fiches.fr.json`, 0,4
+  et 0,6 Ko compressés ; jamais pour un pays ni au premier affichage (le `smoke` vérifie déjà tout `/geo/reunion/`).
+- **Crédits** : ligne de l'IGN, « Communes de La Réunion ; habitants : recensement INSEE de 2023 » ; ligne de
+  Wikidata, un quatrième extrait, « gentilés des communes de La Réunion et liens vers Wikipédia · extrait du
+  18/11/2026 ».
+- Relevé R4 recompté : 13 titres de Wikipédia précisés « (La Réunion) », et non 14.
+- Le morceau principal passe de 498,2 à 500,7 Ko (non compressé) : Vite avertit au-delà de 500 Ko. Le chargeur des
+  communes, la branche de la barre et les textes en font l'essentiel ; rien n'échoue, à surveiller au lot suivant.
+- **Pilote** (`ui_fiche`, non lancé par le codeur) : Saint-Denis par la recherche (les deux fichiers lus à ce
+  moment, « 156 000 hab. », capture 154), Saint-Pierre touché sur l'île et sa fiche (capture 160), Le Tampon touché
+  dans la fiche (l'île gardée, capture 161), « ‹ », « × ».
+- Restent à l'utilisateur : le tableau des gentilés (§ 1 de `fiches-communes.md`) ; « Dominicains » pour
+  L'Étang-Salé, que la fiche ne dit pas ; l'accent de « Petite-Îlois ».

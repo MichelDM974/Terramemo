@@ -113,7 +113,7 @@ VALIDER_JOURNAL = pathlib.Path(__file__).resolve().parent / "outils/valider_jour
 FICHIERS_GEO = ("monde.topo.json", "pays.json", "contestees.json", "noms.fr.json", "sources.json")
 # La Réunion (#15) : chargée au choix de la série seulement, jamais au premier
 # affichage (décision « Hébergement ») ; smoke vérifie l'un et l'autre.
-FICHIERS_GEO_REUNION = ("communes.topo.json", "communes.json", "noms.fr.json", "sources.json")
+FICHIERS_GEO_REUNION = ("communes.topo.json", "communes.json", "noms.fr.json", "sources.json", "fiches.json", "fiches.fr.json")
 # Les capitales (lot 1 du J2, #4) : chargées au lancement d'une partie de
 # capitales, à la première frappe dans la recherche ou pour une séance qui en
 # a, jamais au premier affichage ni à l'ouverture de Jouer (sa vignette est
@@ -144,6 +144,9 @@ FICHIERS_GEO_QUIZ = ("notoriete.json", "drapeaux-proches.json")
 # Lot F4 : celles des mers, au premier toucher en mer seulement, avec la couche légère.
 FICHIERS_GEO_FICHES = ("fiches-monde.json", "fiches-monde.fr.json")
 FICHIERS_GEO_FICHES_MERS = ("fiches-mers.json", "fiches-mers.fr.json")
+# Lot F5 : celles des communes, sous /geo/reunion/, au premier toucher sur l'île seulement (rien de l'île au
+# premier affichage : smoke le vérifie déjà pour tout /geo/reunion/).
+FICHIERS_GEO_FICHES_COMMUNES = ("fiches.json", "fiches.fr.json")
 MESURES = RACINE / "docs/mesures/j0"
 # Le téléphone cible (Galaxy A37 : 1080 × 2340 à 450 dpi) en px CSS.
 TELEPHONE = {"largeur": 384, "hauteur": 832, "dpr": 2.8125}
@@ -4434,9 +4437,12 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     ⚙ par-dessus (Échap ne ferme que la popup) ; lot F3 : le Groenland (barre, lignes, drapeau à part), Hong Kong, le Sahara occidental et Bir Tawil (zones), l'Antarctique ;
     lot F4 : l'eau touchée (les fiches des mers lues à ce toucher, avec la couche, le chevron), la Méditerranée
     (barre « océan Atlantique », fiche, capture 158), son océan touché dans la fiche (l'Atlantique, capture 159),
-    « ‹ », l'Adriatique et sa mère, la mer des Sargasses ; une commune sans chevron (lot F5) ; puis le scénario de
-    mesure. Les superficies, profondeurs et riverains des mers sont tus jusqu'à leur relecture (LIGNES_RELUES) :
-    la fiche d'une mer n'a que sa sorte, sa mère, son océan, la mémoire et le lien. DÉFAUT à chaque écart."""
+    « ‹ », l'Adriatique et sa mère, la mer des Sargasses ; lot F5 : Saint-Denis par la recherche (les fiches des
+    communes lues à ce moment seulement, la barre « 156 000 hab. », capture 154), Saint-Pierre touché sur l'île et sa
+    fiche (habitants de 2023, superficie, CIVIS, cinq voisines, capture 160), une voisine touchée (Le Tampon, la carte
+    de l'île vole sous la fiche, capture 161), « ‹ », « × », « Monde » ; puis le scénario de mesure. Les superficies,
+    profondeurs et riverains des mers sont tus jusqu'à leur relecture (LIGNES_RELUES) : la fiche d'une mer n'a que sa
+    sorte, sa mère, son océan, la mémoire et le lien ; le gentilé d'une commune aussi. DÉFAUT à chaque écart."""
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
     debut = ressources_fiches(p)
@@ -4731,7 +4737,12 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
                     defauts.append(f"fiche de {nom_m} : sa mère touchée n'ouvre pas sa fiche ({e})")
             toucher_element(p, "#fiche-lieu .croix")
             attendre_fiche(p, lambda e: not e["ouverte"], f"{nom_m} fermée")
-    # L'île : une commune, pas de chevron au lot F1 ; puis « Monde ».
+    # L'île (lot F5) : Saint-Denis par la recherche ; les fiches des communes lues à ce moment, jamais avant ; la
+    # barre « 156 000 hab. » et son chevron (la fiche passe sous la mention de l'IGN : capture 160).
+    fiches_ile = "performance.getEntriesByType('resource').map(r => r.name.split('?')[0]).filter(n => /\\/geo\\/reunion\\/fiches/.test(n)).map(n => n.split('/').pop())"
+    avant_ile = p.js(fiches_ile)
+    if avant_ile:
+        defauts.append(f"fiches des communes lues avant le premier lieu de l'île : {avant_ile}")
     p.js('document.getElementById("recherche-champ").focus()')
     p.cdp("Input.insertText", text="saint-denis")
     attendre_visible(p, '#recherche-liste [data-terrain="reunion"][data-id="97411"]')
@@ -4740,11 +4751,54 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     while p.js("window.terramemo.terrain()") != "reunion" and time.monotonic() < fin:
         p.pause(100)
     attendre_fin_vol(p, "ile")
-    e = etat_fiche(p)
-    dire(f"  une commune (Saint-Denis) : chevron {e['chevron']}")
-    if e["chevron"]:
-        defauts.append("une commune : un chevron (pas de fiche de commune avant le lot F5)")
+    e = attendre_fiche(p, lambda e: e["barre"] == "97411" and e["chevron"], "Saint-Denis montrée")
+    lus = sorted(set(p.js(fiches_ile)))
+    faits = re.sub(r"\s+", " ", e["faits"])
+    dire(f"  une commune (Saint-Denis) : faits {faits!r}, chevron {e['chevron']}, lu {lus}")
+    if faits != "156 000 hab." or not e["chevron"]:
+        defauts.append(f"Saint-Denis montrée : ligne de faits « 156 000 hab. » et chevron attendus ({e})")
+    if lus != sorted(FICHIERS_GEO_FICHES_COMMUNES):
+        defauts.append(f"Saint-Denis montrée : {lus} lus au lieu des fiches des communes ({', '.join(FICHIERS_GEO_FICHES_COMMUNES)})")
     capturer("154-fiche-ile")
+    # Saint-Pierre touché sur la carte de l'île, puis sa fiche (critère de fin du lot F5, § 8).
+    p.js('window.terramemo.ile.zoomerSur("97416")')
+    attendre_fin_vol(p, "ile")
+    p.pause(PAUSE_AVANT_TOUCHER_MS)
+    pt = position_visible(p, "97416", "#barre-carte")
+    if not pt:
+        defauts.append("Saint-Pierre : pas de point où le toucher au-dessus de la barre")
+    else:
+        p.toucher(pt["x"], pt["y"])
+        e = attendre_fiche(p, lambda e: e["barre"] == "97416" and e["chevron"], "Saint-Pierre touchée")
+        toucher_element(p, "#barre-fiche")
+        e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "97416", "fiche de Saint-Pierre")
+        sources = texte(p, "#fiche-lieu .fiche-sources")
+        dire(f"  fiche de Saint-Pierre : {e['titre']!r}, statut {e['statut']!r}, lignes {e['lignes']}, voisines {e['voisins']}, focus {e['focus']}, {sources!r}")
+        attendues = ["Habitants 85 038 (recensement de 2023)", "Superficie 96 km²", "Intercommunalité CIVIS"]
+        if e["titre"] != "Saint-Pierre" or e["statut"] or e["lignes"] != attendues or e["drapeaux"] or e["focus"] != "fiche-titre":
+            defauts.append(f"fiche de Saint-Pierre : lignes {attendues} (le gentilé tu jusqu'à sa relecture), sans statut ni drapeau, focus au titre attendus ({e})")
+        if e["voisins"] != ["97403", "97422", "97405", "97412", "97414"]:
+            defauts.append(f"fiche de Saint-Pierre : voisines Entre-Deux, Le Tampon, Petite-Île, Saint-Joseph, Saint-Louis attendues ({e['voisins']})")
+        if "IGN" not in sources or "INSEE" not in sources:
+            defauts.append(f"fiche de Saint-Pierre : l'IGN et le recensement de l'INSEE dans les sources attendus ({sources!r})")
+        capturer("160-fiche-commune")
+        # Une voisine : sa fiche, « ‹ » montré ; la carte de l'île vole dessous (le terrain reste l'île).
+        toucher_element(p, '#fiche-lieu .fiche-voisins [data-id="97422"]')
+        e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "97422", "fiche du Tampon")
+        attendre_fin_vol(p, "ile")
+        terrain = p.js("window.terramemo.terrain()")
+        dire(f"  voisine (Le Tampon) : lignes {e['lignes']}, ‹ {e['avant']}, focus {e['focus']}, terrain {terrain}, barre {e['barre']}")
+        if e["titre"] != "Le Tampon" or not e["avant"] or e["focus"] != "fiche-titre" or terrain != "reunion" or "Intercommunalité CASUD" not in e["lignes"]:
+            defauts.append(f"voisine de Saint-Pierre : la fiche du Tampon (CASUD), « ‹ », focus au titre, l'île gardée attendus ({e}, {terrain})")
+        capturer("161-fiche-commune-voisine")
+        toucher_element(p, "#fiche-lieu .fiche-avant")
+        e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "97416", "« ‹ » vers Saint-Pierre")
+        if e["id"] != "97416":
+            defauts.append(f"« ‹ » depuis Le Tampon : Saint-Pierre attendu ({e})")
+        toucher_element(p, "#fiche-lieu .croix")
+        e = attendre_fiche(p, lambda e: not e["ouverte"], "fiche de la commune fermée")
+        if e["ouverte"] or e["barre"] != "97416" or p.js("window.terramemo.terrain()") != "reunion":
+            defauts.append(f"« × » sur une commune : la fiche fermée, Saint-Pierre dans la barre, l'île gardée attendus ({e})")
     cliquer(p, "#carte-monde")
     p.pause(300)
 

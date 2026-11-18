@@ -459,8 +459,13 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   (`152-fiche-voisin`, « ‹ », rang 2), « ‹ », le Portugal, « × » (une
   seule remontée) ; ⚙ puis le voile (la popup seule), le voile ; ⚙ puis
   Échap (la popup seule), Échap ; 🏆 ouvert depuis une fiche, puis sa
-  « × » (la carte seule, sans fiche ni entrée de fiche) ; le Groenland (`153-fiche-territoire`) et l'Antarctique ; une mer et
-  Saint-Denis sans chevron (`154-fiche-ile`, lots F4 et F5) ; la recherche
+  « × » (la carte seule, sans fiche ni entrée de fiche) ; le Groenland (`153-fiche-territoire`) et l'Antarctique ; une mer
+  (lot F4 : `158-fiche-mer`, `159-fiche-ocean`) ; lot F5 : Saint-Denis par la
+  recherche (`reunion/fiches*.json` lus à ce moment seulement, « 156 000
+  hab. » et le chevron, `154-fiche-ile`), Saint-Pierre touché sur l'île et
+  sa fiche (habitants de 2023, superficie, CIVIS, cinq voisines, sous la
+  mention de l'IGN, `160-fiche-commune`), Le Tampon touché dans la fiche
+  (l'île gardée, « ‹ », `161-fiche-commune-voisine`), « ‹ », « × » ; la recherche
   qui ferme la fiche ; puis le scénario de mesure de l'étude (§ 6.4 : 10
   fiches ouvertes et fermées, 3 voisins qui font voler la carte, de
   l'Espagne à la France, au Brésil puis à l'Argentine, les images de la page par
