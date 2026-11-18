@@ -1,0 +1,91 @@
+# Requêtes SPARQL figées de geodata/photos/candidats.mjs (npm run photos:candidats), point
+# https://query.wikidata.org/sparql. Une section par requête, ouverte par « #= nom ».
+# Le script remplace {{q}} (l'item du lieu, wd:Q…), {{items}} (une liste wd:Q…) et
+# {{codes}} (codes INSEE entre guillemets) avant l'envoi. L'empreinte de ce fichier va
+# dans candidats.json (requetes_sha256) : changer une requête se voit au diff.
+# ?n : le nombre de sitelinks du sujet, sa notoriété (Wikipédias et projets frères).
+
+#= lieux
+# Image (P18), catégorie Commons (P373) et sitelinks des lieux eux-mêmes.
+SELECT ?s ?img ?cat ?n WHERE {
+  VALUES ?s { {{items}} }
+  ?s wikibase:sitelinks ?n .
+  OPTIONAL { ?s wdt:P18 ?img . }
+  OPTIONAL { ?s wdt:P373 ?cat . }
+}
+
+#= communes
+# Items des communes de La Réunion par leur code INSEE (P374).
+SELECT ?c ?code WHERE {
+  VALUES ?code { {{codes}} }
+  ?c wdt:P374 ?code .
+}
+
+#= patrimoine
+# Sites du patrimoine mondial (P1435 = Q9259) du pays, avec photo ; ?np : le nombre de
+# pays du site (un site transnational passe en bas : « l'œuvre de Le Corbusier »
+# montrait Chandigarh pour le Japon, § 3.1).
+SELECT ?s ?l ?img ?n (COUNT(DISTINCT ?p) AS ?np) WHERE {
+  ?s wdt:P1435 wd:Q9259 ; wdt:P17 {{q}} ; wdt:P18 ?img ; wikibase:sitelinks ?n ; wdt:P17 ?p .
+  OPTIONAL { ?s rdfs:label ?l FILTER(lang(?l) = "fr") }
+} GROUP BY ?s ?l ?img ?n ORDER BY DESC(?n) LIMIT 40
+
+#= patrimoine_dans
+# Le même, pour un territoire ou une zone : le site est situé dans le lieu (P131, à
+# n'importe quelle profondeur), son pays (P17) étant le souverain. Le chemin P131 est
+# parcouru depuis chaque site vers le haut (gearing « forward ») : parcouru depuis le
+# lieu, Hong Kong et le Groenland dépassaient le délai.
+SELECT ?s ?l ?img ?n (COUNT(DISTINCT ?p) AS ?np) WHERE {
+  ?s wdt:P1435 wd:Q9259 .
+  ?s wdt:P131+ {{q}} . hint:Prior hint:gearing "forward" .
+  ?s wdt:P18 ?img ; wikibase:sitelinks ?n .
+  OPTIONAL { ?s wdt:P17 ?p . }
+  OPTIONAL { ?s rdfs:label ?l FILTER(lang(?l) = "fr") }
+} GROUP BY ?s ?l ?img ?n ORDER BY DESC(?n) LIMIT 40
+
+#= notables
+# Lieux notables du pays, requête resserrée (§ 3.1) : quelques classes de paysages et de
+# monuments, 5 sitelinks au moins. L'optimiseur est coupé pour partir du pays (P17),
+# petit, et non des classes, énormes : c'est ce qui dépassait le délai dans le relevé.
+SELECT ?s ?l ?img ?n WHERE {
+  hint:Query hint:optimizer "None" .
+  ?s wdt:P17 {{q}} .
+  ?s wdt:P31 ?t .
+  VALUES ?t { wd:Q8502 wd:Q46169 wd:Q23397 wd:Q570116 wd:Q23413 wd:Q4989906 wd:Q839954 wd:Q8072 wd:Q34038 wd:Q40080 wd:Q35509 wd:Q179049 }
+  ?s wdt:P18 ?img ; wikibase:sitelinks ?n .
+  FILTER(?n >= 5)
+  OPTIONAL { ?s rdfs:label ?l FILTER(lang(?l) = "fr") }
+} ORDER BY DESC(?n) LIMIT 40
+
+#= notables_dans
+# Le même, pour un territoire ou une zone : situés dans le lieu (P131, à n'importe quelle
+# profondeur), le pays (P17) des lieux d'un territoire étant son souverain.
+SELECT ?s ?l ?img ?n WHERE {
+  hint:Query hint:optimizer "None" .
+  ?s wdt:P131+ {{q}} .
+  ?s wdt:P31 ?t .
+  VALUES ?t { wd:Q8502 wd:Q46169 wd:Q23397 wd:Q570116 wd:Q23413 wd:Q4989906 wd:Q839954 wd:Q8072 wd:Q34038 wd:Q40080 wd:Q35509 wd:Q179049 }
+  ?s wdt:P18 ?img ; wikibase:sitelinks ?n .
+  FILTER(?n >= 5)
+  OPTIONAL { ?s rdfs:label ?l FILTER(lang(?l) = "fr") }
+} ORDER BY DESC(?n) LIMIT 40
+
+#= cote
+# Lieux au bord de la mer (P206), sans les États (leur image est une carte ou une vue
+# satellite) ni les personnes ; ?pays : les pays du lieu (P17), pour repérer un lieu
+# sensible (la bande de Gaza sortait parmi les premières photos de la Méditerranée).
+SELECT ?s ?l ?img ?n (GROUP_CONCAT(DISTINCT ?p; separator=" ") AS ?pays) WHERE {
+  ?s wdt:P206 {{q}} ; wdt:P18 ?img ; wikibase:sitelinks ?n .
+  FILTER NOT EXISTS { ?s wdt:P31/wdt:P279* wd:Q6256 }
+  FILTER NOT EXISTS { ?s wdt:P31 wd:Q5 }
+  OPTIONAL { ?s wdt:P17 ?p . }
+  OPTIONAL { ?s rdfs:label ?l FILTER(lang(?l) = "fr") }
+} GROUP BY ?s ?l ?img ?n ORDER BY DESC(?n) LIMIT 80
+
+#= commune
+# Lieux situés dans la commune (P131), sans les personnes.
+SELECT ?s ?l ?img ?n WHERE {
+  ?s wdt:P131 {{q}} ; wdt:P18 ?img ; wikibase:sitelinks ?n .
+  FILTER NOT EXISTS { ?s wdt:P31 wd:Q5 }
+  OPTIONAL { ?s rdfs:label ?l FILTER(lang(?l) = "fr") }
+} ORDER BY DESC(?n) LIMIT 40
