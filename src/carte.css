@@ -566,9 +566,11 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 .fiche-avant-bilan { width: auto; gap: 4px; padding: 0 14px 3px 8px; border-radius: 22px; color: var(--text); }
 .fiche-avant-mot { font-size: 1rem; font-weight: 600; padding-top: 3px; }
 /* La carte de situation (lot F8, D61 b ; situation.ts) : une place de 96 × 64 (3:2) qui flotte à droite, à côté de
-   « × », posée avec la tête (elle ne saute pas quand la carte arrive) ; aussi haute que la rangée du drapeau (6 + 48
-   + 10 px) : le nom passe dessous sur toute la largeur. Sans drapeau (mer, commune), le nom coule à sa gauche. Le lieu
-   prend l'accent, comme sur la carte (.pays.choisi, --mer-choisie) ; le reste, les couleurs de la carte. */
+   « × », posée avec la tête (elle ne saute pas quand la carte arrive). Au téléphone, aussi haute que la rangée du
+   drapeau (6 + 48 + 10 px) : le nom passe dessous sur toute la largeur ; sur PC (120 × 80), le haut du nom passe à
+   sa gauche. Sans drapeau (mer, commune, zone, Antarctique), le nom coule à sa gauche et la tête fait au moins
+   8 + 64 + 10 px (98 sur PC). Le lieu prend l'accent, comme sur la carte (.pays.choisi, --mer-choisie) ; le reste,
+   les couleurs de la carte. */
 .fiche-situation {
   float: right;
   width: 96px;
