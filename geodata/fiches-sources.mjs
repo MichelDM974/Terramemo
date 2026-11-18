@@ -53,6 +53,8 @@ export const SOURCES_FICHES = [
 export const EXTRAITS_FICHES = {
   wikidata: 'geodata/wikidata/fiches.json',
   requetes: 'geodata/wikidata/requetes-fiches.rq',
+  wikidataMers: 'geodata/wikidata/fiches-mers.json',
+  requetesMers: 'geodata/wikidata/requetes-fiches-mers.rq',
   banqueMondiale: 'geodata/banque-mondiale/population.json',
 };
 const SCRIPT = 'geodata/fiches-sources.mjs';
@@ -63,9 +65,9 @@ const SCRIPT = 'geodata/fiches-sources.mjs';
 const WP = (langue, titre, revision, du) => ({ titre, url: `https://${langue}.wikipedia.org/w/index.php?oldid=${revision}`, revision, du });
 export const SOURCES_TABLE = [
   {
-    nom: 'Wikipédia, pages lues pour la table à la main (sommets, fêtes, langues, gentilés)',
+    nom: 'Wikipédia, pages lues pour la table à la main (sommets, fêtes, langues, gentilés ; superficies, profondeurs et riverains des mers)',
     url: 'https://fr.wikipedia.org',
-    version: 'révisions citées, lues le 17/11/2026 (Tirich Mir : le 18/11/2026)',
+    version: 'révisions citées, lues le 17/11/2026 (Tirich Mir et les mers : le 18/11/2026)',
     telecharge_le: '2026-11-17',
     licence: 'CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/) pour le texte ; seuls des faits en sont repris (altitudes, parts, dates), chacun avec sa page',
     pages: [
@@ -88,6 +90,31 @@ export const SOURCES_TABLE = [
       WP('fr', 'Langues en Afrique du Sud', 239514997, '2026-09-15'),
       WP('en', 'Languages of Pakistan', 1383926115, '2026-11-05'),
       WP('en', 'Geography of the Gambia', 1379067827, '2026-10-07'),
+      // Lot F4 : superficies, profondeurs et riverains des mers (geodata/fiches-mers.mjs).
+      WP('fr', "Mer d'Irlande", 239983908, '2026-10-01'),
+      WP('fr', 'Mer des Sargasses', 241137264, '2026-11-08'),
+      WP('fr', "Baie d'Hudson", 240946791, '2026-11-02'),
+      WP('fr', 'Mer de Beaufort', 236766665, '2026-06-04'),
+      WP('fr', 'Mer de Chine orientale', 241159149, '2026-11-08'),
+      WP('fr', "Golfe d'Aden", 239070473, '2026-08-30'),
+      WP('fr', 'Golfe de Guinée', 241409503, '2026-11-16'),
+      WP('fr', 'Manche (mer)', 239744542, '2026-09-23'),
+      WP('fr', 'Mer du Nord', 239950381, '2026-09-30'),
+      WP('fr', 'Golfe du Saint-Laurent', 240868651, '2026-10-30'),
+      WP('fr', 'Mer du Japon', 235467931, '2026-04-23'),
+      WP('fr', 'Mer des Caraïbes', 240461779, '2026-10-17'),
+      WP('en', 'Tyrrhenian Sea', 1370977544, '2026-08-24'),
+      WP('en', 'Baffin Bay', 1371362930, '2026-08-26'),
+      WP('en', 'Greenland Sea', 1382700651, '2026-10-29'),
+      WP('en', 'Gulf of California', 1379374452, '2026-10-09'),
+      WP('en', 'Sea of Azov', 1369243023, '2026-08-13'),
+      WP('en', 'Gulf of Oman', 1370175502, null),
+      WP('en', 'Aegean Sea', 1382038023, null),
+      WP('en', 'Gulf of Finland', 1385974739, null),
+      WP('en', 'Gulf of Thailand', 1384262308, null),
+      WP('en', 'Arabian Sea', 1384467206, null),
+      WP('en', 'Red Sea', 1386060551, null),
+      WP('en', 'Andaman Sea', 1377184977, null),
     ],
     fichiers: [],
   },
@@ -99,6 +126,14 @@ export const SOURCES_TABLE = [
     licence:
       'domaine public (S46 : « Factbook data […] is the public domain and may be copied freely without permission from the Central Intelligence Agency », ' +
       'copie Wayback du 05/12/2025 de la page « Copyright and Contributors » ; le sceau du CIA excepté) ; « d\'après le World Factbook, relu »',
+    fichiers: [],
+  },
+  {
+    nom: 'NOAA, B. W. Eakins et G. F. Sharman, « Volumes of the World\'s Oceans from ETOPO1 » (2010), tableau 1 : superficie des cinq océans (lot F4)',
+    url: 'https://web.archive.org/web/20201230005526/https://www.ngdc.noaa.gov/mgg/global/etopo1_ocean_volumes.html',
+    version: 'page archivée le 30/12/2020 (l\'adresse d\'origine renvoie aujourd\'hui à la page d\'ETOPO), lue le 18/11/2026',
+    telecharge_le: '2026-11-18',
+    licence: 'œuvre du gouvernement fédéral des États-Unis (NOAA), domaine public aux États-Unis ; seuls cinq chiffres en sont repris, avec la source',
     fichiers: [],
   },
   {
@@ -118,14 +153,20 @@ export const SOURCES_TABLE = [
  */
 export async function sourcesFiches(racine) {
   const lire = (c) => readFile(join(racine, c));
-  const [verrouBrut, wdBrut, rqBrut, bmBrut, scriptBrut] = await Promise.all(
-    ['geodata/sources.lock.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.requetes, EXTRAITS_FICHES.banqueMondiale, SCRIPT].map(lire),
+  const [verrouBrut, wdBrut, rqBrut, bmBrut, scriptBrut, wdMersBrut, rqMersBrut] = await Promise.all(
+    ['geodata/sources.lock.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.requetes, EXTRAITS_FICHES.banqueMondiale, SCRIPT, EXTRAITS_FICHES.wikidataMers, EXTRAITS_FICHES.requetesMers].map(
+      lire,
+    ),
   );
   const verrou = JSON.parse(verrouBrut.toString('utf8'));
   const wd = JSON.parse(wdBrut.toString('utf8'));
   const bm = JSON.parse(bmBrut.toString('utf8'));
   if (wd.requetes_sha256 !== sha256(rqBrut)) {
     throw new Error(`${EXTRAITS_FICHES.requetes} a changé depuis l'extrait du ${wd.extrait_le} : relancer npm run wikidata -- --fiches`);
+  }
+  const wdMers = JSON.parse(wdMersBrut.toString('utf8'));
+  if (wdMers.requetes_sha256 !== sha256(rqMersBrut)) {
+    throw new Error(`${EXTRAITS_FICHES.requetesMers} a changé depuis l'extrait du ${wdMers.extrait_le} : relancer npm run wikidata -- --fiches-mers`);
   }
   const telechargees = SOURCES_FICHES.map((s) => {
     const v = verrou[s.cle];
@@ -148,6 +189,16 @@ export async function sourcesFiches(racine) {
       telecharge_le: wd.date,
       requetes: { chemin: EXTRAITS_FICHES.requetes, sha256: sha256(rqBrut) },
       fichiers: [{ chemin: EXTRAITS_FICHES.wikidata, sha256: sha256(wdBrut) }],
+    },
+    {
+      nom: 'Wikidata, chiffres des fiches des océans et des mers (lot F4) : superficies (P2046), profondeurs (P4511), pays (P17, P205) et dissolution des pays cités (P576)',
+      // Le point SPARQL lui-même : une autre adresse que la ligne des chiffres des pays (sources.json les range par adresse).
+      url: 'https://query.wikidata.org/sparql',
+      version: `extrait du ${wdMers.extrait_le} (SPARQL), API du ${wdMers.api_le}`,
+      licence: 'CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), aucune mention obligatoire : citée par courtoisie',
+      telecharge_le: wdMers.date,
+      requetes: { chemin: EXTRAITS_FICHES.requetesMers, sha256: sha256(rqMersBrut) },
+      fichiers: [{ chemin: EXTRAITS_FICHES.wikidataMers, sha256: sha256(wdMersBrut) }],
     },
     {
       nom: `Banque mondiale, ${bm.source.nom}`,

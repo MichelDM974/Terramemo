@@ -482,12 +482,14 @@ describe('noms et sources', () => {
       'geodata/drapeaux.mjs',
       'geodata/fiches-autres.mjs',
       'geodata/fiches-main.json',
+      'geodata/fiches-mers.mjs',
       'geodata/fiches-pays.mjs',
       'geodata/fiches-relecture.mjs',
       'geodata/fiches-sources.mjs',
       'geodata/fiches-territoires.mjs',
       'geodata/fiches.mjs',
       'geodata/liste.json',
+      'geodata/mers-affectations.json',
       'geodata/mers.json',
       'geodata/mers.mjs',
       'geodata/notoriete-main.json',
@@ -503,11 +505,11 @@ describe('noms et sources', () => {
   it('sources datées, licences et empreintes égales au verrou', () => {
     // Natural Earth, CLDR, flag-icons, le drapeau de l'Émirat (Commons), et pour les
     // fiches CLDR (langues, monnaies) et tz, téléchargées par le build ; extraits versionnés :
-    // Wikidata (capitales, fiches), Banque mondiale (tests/donnees-capitales.test.ts et
-    // tests/donnees-extraits-fiches.test.ts comparent leurs empreintes aux fichiers) ; et,
-    // sans fichier, les sources des valeurs écrites à la main dans fiches-main.json
-    // (Wikipédia, Factbook, ISO 639).
-    expect(sources.sources).toHaveLength(12);
+    // Wikidata (capitales, fiches des pays, fiches des mers), Banque mondiale
+    // (tests/donnees-capitales.test.ts et tests/donnees-extraits-fiches.test.ts comparent leurs
+    // empreintes aux fichiers) ; et, sans fichier, les sources des valeurs écrites à la main
+    // dans fiches-main.json (Wikipédia, Factbook, ISO 639, NOAA).
+    expect(sources.sources).toHaveLength(14);
     for (const s of sources.sources) {
       expect(s.licence).toBeTruthy();
       expect(s.telecharge_le).toMatch(/^\d{4}-\d{2}-\d{2}$/);

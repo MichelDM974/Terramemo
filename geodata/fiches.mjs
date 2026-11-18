@@ -1,5 +1,6 @@
 // Fiches des lieux (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md, § 2 ;
-// lot F1 : les données déjà au dépôt ; lot F2 : les chiffres des 197 pays), appelé par
+// lot F1 : les données déjà au dépôt ; lot F2 : les chiffres des 197 pays ; lot F3 : les
+// territoires, les zones et l'Antarctique ; lot F4 : les 50 océans et mers), appelé par
 // geodata/build.mjs (tout le build, ou --seulement fiches : npm run fiches) ; sans réseau,
 // sans effet à l'import. Lit :
 //   public/geo/pays.json             les 258 entités de la carte (sortie du build) :
@@ -23,8 +24,12 @@
 //                                    geodata/raw/ : npm run fiches les télécharge)
 //   geodata/wikidata/fiches.json,
 //   geodata/banque-mondiale/population.json  les extraits figés des chiffres
-// Les règles du choix sont dans geodata/fiches-pays.mjs, les tableaux à relire dans
-// geodata/fiches-relecture.mjs.
+//   lot F4 : public/geo/mers.json et mers.fr.json (sortes, parents, superficie du tracé ;
+//   noms), geodata/wikidata/mers-entites.json (titres de Wikipédia), l'extrait figé
+//   geodata/wikidata/fiches-mers.json, geodata/mers-affectations.json et, dans geodata/raw/,
+//   les couches des pays et des zones marines de Natural Earth (riverains par le tracé).
+// Les règles du choix sont dans geodata/fiches-pays.mjs (et fiches-autres.mjs, fiches-mers.mjs),
+// les tableaux à relire dans geodata/fiches-relecture.mjs.
 // Produit (identiques octet pour octet d'un lancement à l'autre ; deux fichiers par
 // terrain, l'un sans langue, l'autre de la langue : décision « Langue », § 2.7) :
 //   fiches-monde.json     {v: 1, lieux: {id: {s, …}}} : une entrée par entité, les 258,
@@ -49,7 +54,14 @@
 //                         masculin et son pluriel, cu le nom du point culminant, fn le nom
 //                         de la fête ; une entrée vide pour les 61 autres (48 territoires,
 //                         12 zones, l'Antarctique), qui viennent au lot F3 ;
-//   docs/relectures/fiches-pays.md  les tableaux à relire (fiches-relecture.mjs).
+//   fiches-mers.json, fiches-mers.fr.json  les 50 zones marines (lot F4), à part : qui ne
+//                         touche que des pays ne les paie pas (§ 2.7). {v, lieux: {id: {s
+//                         « mer », sup superficie en km² à trois chiffres, ss sa source hors
+//                         de Wikidata (ne le tracé, wp Wikipédia, noaa), p profondeur maximale
+//                         en m, ps sa source hors de Wikidata (wp), r les riverains (ids de
+//                         pays.json ; aucun pour un océan)}}} ; {v, lieux: {id: {wp}}} ;
+//   docs/relectures/fiches-pays.md  les tableaux à relire (fiches-relecture.mjs), et ceux
+//                         des territoires et des mers.
 // Continent, sous-région et voisins restent dans pays.json, déjà chargé (§ 2.7).
 // Échoue (exception) si les entrées et la table ne s'accordent plus : un pays sans titre ou
 // sans chiffre, une sous-région sans nom, une ligne de la table qui ne s'applique plus.
@@ -59,6 +71,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { feature } from 'topojson-client';
 import { CHAMPS_CONTINENT, CHAMPS_ZONE, CHEMIN_RELECTURE_AUTRES, chiffresAutres, texteRelectureAutres } from './fiches-autres.mjs';
+import { CHEMIN_RELECTURE_MERS, chiffresMers, lireCouchesNe, riverainsTrace, texteRelectureMers } from './fiches-mers.mjs';
 import { chiffresPays } from './fiches-pays.mjs';
 import { CHEMIN_RELECTURE, texteRelecture } from './fiches-relecture.mjs';
 import { CHEMIN_RELECTURE_TERRITOIRES, DBF_NE, lireDbf, statutsLieux, texteRelectureTerritoires, verifierNe } from './fiches-territoires.mjs';
@@ -71,6 +84,8 @@ export const CHEMINS = {
   relecture: 'geodata/fiches-relecture.mjs',
   territoires: 'geodata/fiches-territoires.mjs',
   autres: 'geodata/fiches-autres.mjs',
+  mers: 'geodata/fiches-mers.mjs',
+  affectations: 'geodata/mers-affectations.json',
   main: 'geodata/fiches-main.json',
   extrait: 'geodata/wikidata/capitales.json',
   capitalesMain: 'geodata/capitales-main.json',
@@ -99,12 +114,15 @@ const parId = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 export async function construireFiches(racine) {
   const lire = (c) => readFile(join(racine, c));
   const json = (b) => JSON.parse(b.toString('utf8'));
-  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.territoires, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json', CHEMINS.autres];
+  const chemins = [CHEMINS.script, CHEMINS.regles, CHEMINS.relecture, CHEMINS.territoires, CHEMINS.main, CHEMINS.extrait, CHEMINS.capitalesMain, 'public/geo/pays.json', CHEMINS.autres, CHEMINS.mers, CHEMINS.affectations];
   const donnees = ['public/geo/monde.topo.json', 'public/geo/capitales.json', 'public/geo/capitales.fr.json', 'public/geo/contestees.json', 'public/geo/noms.fr.json', 'src/vues/textes.fr.json', EXTRAITS_FICHES.wikidata, EXTRAITS_FICHES.banqueMondiale];
-  const [[scriptBrut, reglesBrut, relectureBrut, territoiresBrut, mainBrut, extraitBrut, capMainBrut, paysBrut, autresBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, textesBrut, wdBrut, bmBrut], cldr] = await Promise.all([
+  const donneesMers = ['public/geo/mers.json', 'public/geo/mers.fr.json', 'geodata/wikidata/mers-entites.json', EXTRAITS_FICHES.wikidataMers];
+  const [[scriptBrut, reglesBrut, relectureBrut, territoiresBrut, mainBrut, extraitBrut, capMainBrut, paysBrut, autresBrut, mersScriptBrut, affectationsBrut], [topoBrut, capBrut, capFrBrut, contBrut, nomsBrut, textesBrut, wdBrut, bmBrut], [zonesMersBrut, nomsMersBrut, entitesMersBrut, wdMersBrut], cldr, couchesNe] = await Promise.all([
     Promise.all(chemins.map(lire)),
     Promise.all(donnees.map(lire)),
+    Promise.all(donneesMers.map(lire)),
     lireSourcesFiches(racine),
+    lireCouchesNe(racine),
   ]);
   const main = json(mainBrut);
   const extrait = json(extraitBrut);
@@ -191,9 +209,27 @@ export async function construireFiches(racine) {
   const fautesNe = neVerifie ? verifierNe(lireDbf(await readFile(cheminDbf)), main) : [];
   if (statuts.fautes.length || fautesNe.length) throw new Error(`fiches, statuts (${CHEMINS.main}) :\n  ${[...statuts.fautes, ...fautesNe].join('\n  ')}`);
 
+  // Les 50 océans et mers (lot F4) : geodata/fiches-mers.mjs, leurs fichiers à part (§ 2.7).
+  const zonesMers = json(zonesMersBrut);
+  const nomsMers = json(nomsMersBrut).noms;
+  const entitesMers = json(entitesMersBrut);
+  const wdMers = json(wdMersBrut);
+  const itemsCarte = new Map([...Object.entries(wd.pays), ...Object.entries(wd.autres)].map(([id, q]) => [q, id]));
+  const mers = chiffresMers({
+    zones: zonesMers,
+    titres: Object.fromEntries(Object.entries(wdMers.mers).map(([id, q]) => [id, entitesMers[q]?.frwiki])),
+    wd: wdMers,
+    itemsCarte,
+    entites,
+    trace: riverainsTrace(couchesNe.marine, couchesNe.pays, json(affectationsBrut)),
+    main,
+  });
+  if (mers.fautes.length) throw new Error(`fiches, océans et mers (${CHEMINS.main}) :\n  ${mers.fautes.join('\n  ')}`);
+
   // Ordre des clés fixe (la sorte d'abord), pour des fichiers stables et lisibles.
   const ORDRE = ['s', 'sv', 'fs', 'h', 'ha', 'hs', 'sup', 'alt', 'cs', 'z', 'nz', 'm', 'lo', 'lp', 'f'];
   const ORDRE_FR = ['st', 'wp', 'ca', 'g', 'gp', 'gs', 'hc', 'cu', 'fn'];
+  const ORDRE_MERS = ['s', 'sup', 'ss', 'p', 'ps', 'r'];
   const range = (o, ordre) => Object.fromEntries(ordre.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
   for (const parts of [chiffres, statuts, autres]) {
     for (const [id, l] of Object.entries(parts.lieux)) lieux[id] = range({ ...lieux[id], ...l }, ORDRE);
@@ -215,6 +251,9 @@ export async function construireFiches(racine) {
     'fiches-monde.fr.json':
       `{"v":${VERSION_FICHES},"sous_regions":${JSON.stringify(sousRegions)},"langues":${JSON.stringify(tri(langues))},` +
       `"monnaies":${JSON.stringify(tri(monnaies))},"lieux":${objet(textes)}}\n`,
+    // Dans l'ordre de mers.json, comme la couche des mers.
+    'fiches-mers.json': `{"v":${VERSION_FICHES},"lieux":${objet(Object.fromEntries(Object.entries(mers.lieux).map(([id, l]) => [id, range(l, ORDRE_MERS)])))}}\n`,
+    'fiches-mers.fr.json': `{"v":${VERSION_FICHES},"lieux":${objet(mers.textes)}}\n`,
   };
   const relecture = {
     chemin: CHEMIN_RELECTURE,
@@ -232,6 +271,10 @@ export async function construireFiches(racine) {
     relecture,
     { chemin: CHEMIN_RELECTURE_TERRITOIRES, texte: texteRelectureTerritoires({ R: statuts.relecture, noms }) },
     { chemin: CHEMIN_RELECTURE_AUTRES, texte: texteRelectureAutres({ R: autres.relecture, noms, langues, monnaies, sources: sourcesRelecture }) },
+    {
+      chemin: CHEMIN_RELECTURE_MERS,
+      texte: texteRelectureMers({ R: mers.relecture, noms, nomsMers, zones: zonesMers, entites, libelles: wdMers.libelles, sources: { wikidata: wdMers.extrait_le.slice(0, 10) } }),
+    },
   ];
   const n = (s) => Object.values(lieux).filter((l) => l.s === s).length;
   const R = chiffres.relecture;
@@ -244,6 +287,8 @@ export async function construireFiches(racine) {
       `tableaux à relire : ${CHEMIN_RELECTURE}`,
     `territoires, zones, Antarctique : ${Object.values(lieux).filter((l) => l.s !== 'pays' && l.h !== undefined).length} habitants, ${Object.values(textes).filter((t) => t.ca).length} capitales, ` +
       `${Object.values(lieux).filter((l) => l.s !== 'pays' && l.z).length} zones horaires, ${Object.values(lieux).filter((l) => l.s !== 'pays' && l.alt).length} sommets ; tableau à relire : ${CHEMIN_RELECTURE_AUTRES}`,
+    `mers : ${Object.values(mers.lieux).filter((l) => l.sup).length} superficies, ${Object.values(mers.lieux).filter((l) => l.p).length} profondeurs, ` +
+      `${Object.values(mers.lieux).filter((l) => l.r).length} listes de riverains (${Object.values(mers.lieux).reduce((n, l) => n + (l.r?.length ?? 0), 0)} liens) ; tableau à relire : ${CHEMIN_RELECTURE_MERS}`,
     `statuts : ${statuts.relecture.territoires.length} territoires, ${statuts.relecture.zones.length} zones ; SOV_A3 de Natural Earth ${neVerifie ? 'confronté à la table' : `non vérifié (${DBF_NE} absent)`} ; tableau à relire : ${CHEMIN_RELECTURE_TERRITOIRES}`,
   );
   const src = await sourcesFiches(racine);
@@ -253,6 +298,8 @@ export async function construireFiches(racine) {
     [CHEMINS.relecture]: sha256(relectureBrut),
     [CHEMINS.territoires]: sha256(territoiresBrut),
     [CHEMINS.autres]: sha256(autresBrut),
+    [CHEMINS.mers]: sha256(mersScriptBrut),
+    [CHEMINS.affectations]: sha256(affectationsBrut),
     [CHEMINS.main]: sha256(mainBrut),
     ...src.entrees,
   };

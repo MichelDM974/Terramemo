@@ -198,9 +198,9 @@
       ]
     },
     {
-      "nom": "Wikipédia, pages lues pour la table à la main (sommets, fêtes, langues, gentilés)",
+      "nom": "Wikipédia, pages lues pour la table à la main (sommets, fêtes, langues, gentilés ; superficies, profondeurs et riverains des mers)",
       "url": "https://fr.wikipedia.org",
-      "version": "révisions citées, lues le 17/11/2026 (Tirich Mir : le 18/11/2026)",
+      "version": "révisions citées, lues le 17/11/2026 (Tirich Mir et les mers : le 18/11/2026)",
       "telecharge_le": "2026-11-17",
       "licence": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/) pour le texte ; seuls des faits en sont repris (altitudes, parts, dates), chacun avec sa page",
       "pages": [
@@ -317,6 +317,150 @@
           "url": "https://en.wikipedia.org/w/index.php?oldid=1379067827",
           "revision": 1379067827,
           "du": "2026-10-07"
+        },
+        {
+          "titre": "Mer d'Irlande",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=239983908",
+          "revision": 239983908,
+          "du": "2026-10-01"
+        },
+        {
+          "titre": "Mer des Sargasses",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241137264",
+          "revision": 241137264,
+          "du": "2026-11-08"
+        },
+        {
+          "titre": "Baie d'Hudson",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240946791",
+          "revision": 240946791,
+          "du": "2026-11-02"
+        },
+        {
+          "titre": "Mer de Beaufort",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=236766665",
+          "revision": 236766665,
+          "du": "2026-06-04"
+        },
+        {
+          "titre": "Mer de Chine orientale",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241159149",
+          "revision": 241159149,
+          "du": "2026-11-08"
+        },
+        {
+          "titre": "Golfe d'Aden",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=239070473",
+          "revision": 239070473,
+          "du": "2026-08-30"
+        },
+        {
+          "titre": "Golfe de Guinée",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=241409503",
+          "revision": 241409503,
+          "du": "2026-11-16"
+        },
+        {
+          "titre": "Manche (mer)",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=239744542",
+          "revision": 239744542,
+          "du": "2026-09-23"
+        },
+        {
+          "titre": "Mer du Nord",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=239950381",
+          "revision": 239950381,
+          "du": "2026-09-30"
+        },
+        {
+          "titre": "Golfe du Saint-Laurent",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240868651",
+          "revision": 240868651,
+          "du": "2026-10-30"
+        },
+        {
+          "titre": "Mer du Japon",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=235467931",
+          "revision": 235467931,
+          "du": "2026-04-23"
+        },
+        {
+          "titre": "Mer des Caraïbes",
+          "url": "https://fr.wikipedia.org/w/index.php?oldid=240461779",
+          "revision": 240461779,
+          "du": "2026-10-17"
+        },
+        {
+          "titre": "Tyrrhenian Sea",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1370977544",
+          "revision": 1370977544,
+          "du": "2026-08-24"
+        },
+        {
+          "titre": "Baffin Bay",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1371362930",
+          "revision": 1371362930,
+          "du": "2026-08-26"
+        },
+        {
+          "titre": "Greenland Sea",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1382700651",
+          "revision": 1382700651,
+          "du": "2026-10-29"
+        },
+        {
+          "titre": "Gulf of California",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1379374452",
+          "revision": 1379374452,
+          "du": "2026-10-09"
+        },
+        {
+          "titre": "Sea of Azov",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1369243023",
+          "revision": 1369243023,
+          "du": "2026-08-13"
+        },
+        {
+          "titre": "Gulf of Oman",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1370175502",
+          "revision": 1370175502,
+          "du": null
+        },
+        {
+          "titre": "Aegean Sea",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1382038023",
+          "revision": 1382038023,
+          "du": null
+        },
+        {
+          "titre": "Gulf of Finland",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1385974739",
+          "revision": 1385974739,
+          "du": null
+        },
+        {
+          "titre": "Gulf of Thailand",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1384262308",
+          "revision": 1384262308,
+          "du": null
+        },
+        {
+          "titre": "Arabian Sea",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1384467206",
+          "revision": 1384467206,
+          "du": null
+        },
+        {
+          "titre": "Red Sea",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1386060551",
+          "revision": 1386060551,
+          "du": null
+        },
+        {
+          "titre": "Andaman Sea",
+          "url": "https://en.wikipedia.org/w/index.php?oldid=1377184977",
+          "revision": 1377184977,
+          "du": null
         }
       ],
       "fichiers": []
@@ -336,6 +480,31 @@
       "telecharge_le": "2026-11-17",
       "licence": "des noms de langues seulement, traduits à la main ; conditions de SIL non relues (à relire)",
       "fichiers": []
+    },
+    {
+      "nom": "NOAA, B. W. Eakins et G. F. Sharman, « Volumes of the World's Oceans from ETOPO1 » (2010), tableau 1 : superficie des cinq océans (lot F4)",
+      "url": "https://web.archive.org/web/20201230005526/https://www.ngdc.noaa.gov/mgg/global/etopo1_ocean_volumes.html",
+      "version": "page archivée le 30/12/2020 (l'adresse d'origine renvoie aujourd'hui à la page d'ETOPO), lue le 18/11/2026",
+      "telecharge_le": "2026-11-18",
+      "licence": "œuvre du gouvernement fédéral des États-Unis (NOAA), domaine public aux États-Unis ; seuls cinq chiffres en sont repris, avec la source",
+      "fichiers": []
+    },
+    {
+      "nom": "Wikidata, chiffres des fiches des océans et des mers (lot F4) : superficies (P2046), profondeurs (P4511), pays (P17, P205) et dissolution des pays cités (P576)",
+      "url": "https://query.wikidata.org/sparql",
+      "version": "extrait du 2026-11-18T09:38:54Z (SPARQL), API du 2026-11-18T09:39:03Z",
+      "licence": "CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), aucune mention obligatoire : citée par courtoisie",
+      "telecharge_le": "2026-11-18",
+      "requetes": {
+        "chemin": "geodata/wikidata/requetes-fiches-mers.rq",
+        "sha256": "62b468e82c390eff775123d2adab76ccbad8057912806c697d974068be6bd0aa"
+      },
+      "fichiers": [
+        {
+          "chemin": "geodata/wikidata/fiches-mers.json",
+          "sha256": "9dc3d934518a967fd59b5ff3f17532ab22d9401b6eea8c31e7527fd0f71b2f07"
+        }
+      ]
     }
   ],
   "traitement": {
@@ -358,13 +527,15 @@
       "geodata/notoriete.mjs": "1d00ec190020051e110a9cb387b9886bed24ddf3b3dd34c2859e89175c3cdd76",
       "geodata/notoriete-main.json": "b2440762a0b0498dd11368815ff5b03925d5e26f9705c97332ea6f9baffa0f9d",
       "geodata/wikidata/notoriete.json": "e76e612174794c93614f5277248c267b4bdb7ea93af636526d1af0183004601f",
-      "geodata/fiches.mjs": "ff55b674ac8ca5dc2172977019f28e16d427e05b09ffb917ea245f3af03ef6ad",
+      "geodata/fiches.mjs": "d42b786f89935ef6151aa987d9177977196e3c80ecfc55210ecbfd850c0774e6",
       "geodata/fiches-pays.mjs": "c9706c2b9399260313211f7e4c498df52f60c3fe38f39da224fe07bea5897665",
       "geodata/fiches-relecture.mjs": "0dd487fecfea593db7e3acf85714fa7d5e34f94116eb27ae4fc7f551b549c8f6",
       "geodata/fiches-territoires.mjs": "713304abe089994eec4ddb2c9dc7f807fab83654c0d9f411fd61cc99f6c523e9",
       "geodata/fiches-autres.mjs": "4e7f14b605a53be9cde666cbddb75efe6bc039299530733d778b46593e6ed1c2",
-      "geodata/fiches-main.json": "da183dcb0399ce64ffdefc291b1b051607ea8ca823530f102c6d6724772ff18c",
-      "geodata/fiches-sources.mjs": "e1dac9e5dc576a9f7c32617322340ccccf5b81b24e26e46f3000af150d0e8f47"
+      "geodata/fiches-main.json": "87d3bfe87579ec7b28494d12371a93aee4f198a79e32835952237458b6362db3",
+      "geodata/fiches-sources.mjs": "6289b2803e9b88068b47ea1cae40766b716cd832b278169f48d16d66a6359193",
+      "geodata/fiches-mers.mjs": "119bf81ad6c9ee710cda3f338be223f70453a55819cb0b7eb17a6f7290e40b13",
+      "geodata/mers-affectations.json": "ea5f958e79ecf206e4d35c6bc7c464df623bfe7974e05806ab8add8e4270d416"
     },
     "superficies": "aire de la géométrie Natural Earth de fait, pas une superficie officielle (Monaco ×9, Chypre sans le Nord, Maroc avec le Sahara occidental) : géodésique, d3-geo geoArea × R², R = 6371.0088 km, sur la géométrie non simplifiée",
     "mers": {

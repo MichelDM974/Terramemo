@@ -133,16 +133,39 @@ describe('fiches du monde : une entrée par entité', () => {
     expect(gzipSync(brutFr, { level: 9 }).length).toBeLessThanOrEqual(12 * 1024);
   });
 
-  const raw = ['geodata/raw/cldr/supplemental/territoryInfo.json', 'geodata/raw/tz/tzdata2026e.tar.gz'];
-  it.skipIf(!raw.every((f) => existsSync(f)))('reproduction : construireFiches (npm run fiches) redonne les fichiers commités, les tableaux à relire et les empreintes de sources.json (là où geodata/raw/ a CLDR et tz)', async () => {
+  const raw = [
+    'geodata/raw/cldr/supplemental/territoryInfo.json',
+    'geodata/raw/tz/tzdata2026e.tar.gz',
+    'geodata/raw/natural-earth/ne_10m_admin_0_countries.shp',
+    'geodata/raw/natural-earth/ne_10m_geography_marine_polys.shp',
+  ];
+  it.skipIf(!raw.every((f) => existsSync(f)))('reproduction : construireFiches (npm run fiches) redonne les fichiers commités, les tableaux à relire et les empreintes de sources.json (là où geodata/raw/ a CLDR, tz et Natural Earth)', async () => {
     const { construireFiches } = await module;
     const r = await construireFiches('.');
     expect(r.fichiers['fiches-monde.json']).toBe(brutMonde);
     expect(r.fichiers['fiches-monde.fr.json']).toBe(brutFr);
-    expect(r.relectures.map((x) => x.chemin)).toEqual(['docs/relectures/fiches-pays.md', 'docs/relectures/fiches-territoires.md', 'docs/relectures/fiches-territoires-chiffres.md']);
+    // Lot F4 : les riverains par le tracé sont refaits depuis Natural Earth.
+    expect(r.fichiers['fiches-mers.json']).toBe(readFileSync('public/geo/fiches-mers.json', 'utf8'));
+    expect(r.fichiers['fiches-mers.fr.json']).toBe(readFileSync('public/geo/fiches-mers.fr.json', 'utf8'));
+    expect(r.relectures.map((x) => x.chemin)).toEqual([
+      'docs/relectures/fiches-pays.md',
+      'docs/relectures/fiches-territoires.md',
+      'docs/relectures/fiches-territoires-chiffres.md',
+      'docs/relectures/fiches-mers.md',
+    ]);
     for (const x of r.relectures) expect(x.texte, x.chemin).toBe(readFileSync(x.chemin, 'utf8'));
     const sources = lire<{ traitement: { entrees: Record<string, string> } }>('public/geo/sources.json');
-    expect(Object.keys(r.entrees).sort()).toEqual(['geodata/fiches-autres.mjs', 'geodata/fiches-main.json', 'geodata/fiches-pays.mjs', 'geodata/fiches-relecture.mjs', 'geodata/fiches-sources.mjs', 'geodata/fiches-territoires.mjs', 'geodata/fiches.mjs']);
+    expect(Object.keys(r.entrees).sort()).toEqual([
+      'geodata/fiches-autres.mjs',
+      'geodata/fiches-main.json',
+      'geodata/fiches-mers.mjs',
+      'geodata/fiches-pays.mjs',
+      'geodata/fiches-relecture.mjs',
+      'geodata/fiches-sources.mjs',
+      'geodata/fiches-territoires.mjs',
+      'geodata/fiches.mjs',
+      'geodata/mers-affectations.json',
+    ]);
     for (const [f, h] of Object.entries(r.entrees)) {
       expect(h, f).toBe(createHash('sha256').update(readFileSync(f)).digest('hex'));
       expect(sources.traitement.entrees[f], f).toBe(h);
@@ -545,5 +568,177 @@ describe('fiches des territoires, des zones et de l’Antarctique : les chiffres
     for (const x of ['## 1. Capitales', '## 2. Habitants', '## 3. Superficies', '## 4. Langues', '## 5. Monnaies', '## 6. Gentilés', '## 7. Heure locale', '## 8. Points culminants', '## 9. Liens']) expect(t).toContain(x);
     for (const k of ['capitale_territoires', 'habitants_zones', 'superficie_territoires', 'langues_territoires', 'gentile_territoires', 'culminant_territoires']) expect(t, k).toContain(`tant que \`${k}\``);
     expect(t).not.toMatch(/undefined|NaN|\[object/);
+  });
+});
+
+// --- Lot F4 : les 50 océans et mers (§ 2.3, § 2.7, § 7) ------------------------------------
+
+type FicheMerBrute = { s: string; sup?: number; ss?: string; p?: number; ps?: string; r?: string[] };
+type Mer = { id: string; sorte: string; parents: string[]; enclavee?: boolean };
+type ReglesMers = {
+  superficieWikidata: (d: Decl[] | undefined, trace: number) => { v: number | null; comment: string };
+  profondeurWikidata: (d: Decl[] | undefined) => { v: number | null; comment: string };
+  riverainsTrace: (marine: GeoJSON.FeatureCollection, pays: GeoJSON.FeatureCollection, aff: { ne_id: number; id?: string }[]) => Record<string, Record<string, number>>;
+  sousMers: (id: string, zones: Mer[]) => string[];
+};
+const reglesMers = import('../geodata/fiches-mers.mjs' as string) as Promise<ReglesMers>;
+const brutMers = readFileSync('public/geo/fiches-mers.json', 'utf8');
+const brutMersFr = readFileSync('public/geo/fiches-mers.fr.json', 'utf8');
+const fichesMers = JSON.parse(brutMers) as { v: number; lieux: Record<string, FicheMerBrute> };
+const fichesMersFr = JSON.parse(brutMersFr) as { v: number; lieux: Record<string, { wp?: string }> };
+const zonesMers = lire<Mer[]>('public/geo/mers.json');
+const oceans = zonesMers.filter((z) => z.sorte === 'océan').map((z) => z.id);
+
+describe('fiches des océans et des mers : le lot F4', () => {
+  it('les 50 zones ont leur entrée, dans les deux fichiers, dans l’ordre de mers.json ; sorte mer ; un titre de Wikipédia chacune', () => {
+    expect(fichesMers.v).toBe(1);
+    expect(fichesMersFr.v).toBe(1);
+    expect(Object.keys(fichesMers.lieux)).toEqual(zonesMers.map((z) => z.id));
+    expect(Object.keys(fichesMers.lieux).sort()).toEqual([...IDS_MERS].sort());
+    expect(Object.keys(fichesMersFr.lieux)).toEqual(zonesMers.map((z) => z.id));
+    for (const [id, l] of Object.entries(fichesMers.lieux)) {
+      expect(l.s, id).toBe(sorteDeLieu(id, 'monde'));
+      expect(Object.keys(l).every((k) => ['s', 'sup', 'ss', 'p', 'ps', 'r'].includes(k)), id).toBe(true);
+      expect(fichesMersFr.lieux[id]?.wp, id).toMatch(/^[^_]+$/);
+    }
+    expect(fichesMersFr.lieux.medit?.wp).toBe('Mer Méditerranée');
+  });
+
+  it('aucun champ vide sans le vouloir : superficie pour les 50, à trois chiffres ; profondeur pour 49 (pas le golfe de Californie)', () => {
+    for (const [id, l] of Object.entries(fichesMers.lieux)) {
+      expect(l.sup, id).toBeGreaterThan(0);
+      const p = 10 ** (Math.floor(Math.log10(l.sup!)) - 2);
+      expect(l.sup! % p, id).toBe(0);
+      if (l.ss !== undefined) expect(['ne', 'wp', 'noaa'], id).toContain(l.ss);
+      if (l.ps !== undefined) expect(l.ps, id).toBe('wp');
+      if (l.p !== undefined) {
+        expect(l.p, id).toBeGreaterThan(1);
+        expect(l.p, id).toBeLessThan(11_100);
+      }
+    }
+    expect(Object.entries(fichesMers.lieux).filter(([, l]) => l.p === undefined).map(([id]) => id)).toEqual(['californ']);
+    // Les océans d'après la NOAA ; les 4 mers sans valeur dans Wikidata, le tracé ; les 8 corrigées, Wikipédia.
+    expect(oceans.map((o) => fichesMers.lieux[o]!.ss)).toEqual(['noaa', 'noaa', 'noaa', 'noaa', 'noaa']);
+    const par = (s: string) => Object.entries(fichesMers.lieux).filter(([, l]) => l.ss === s).map(([id]) => id).sort();
+    expect(par('ne')).toEqual(['guinee', 'ionienne', 'mozamb', 'oman']);
+    expect(par('wp')).toEqual(['aden', 'baffin', 'beaufort', 'chineor', 'hudson', 'irlande', 'sargasse', 'tyrrhen']);
+    expect(Object.entries(fichesMers.lieux).filter(([, l]) => l.ps).map(([id]) => id).sort()).toEqual(['groenl', 'oman', 'sargasse']);
+  });
+
+  it('riverains : aucun pour un océan ni pour la mer des Sargasses ; 44 listes ; chaque id est une entité de la carte, une fois', () => {
+    const ids = new Set(pays.map((p) => p.id));
+    const sans = Object.entries(fichesMers.lieux).filter(([, l]) => !l.r).map(([id]) => id);
+    expect(sans.sort()).toEqual([...oceans, 'sargasse'].sort());
+    for (const [id, l] of Object.entries(fichesMers.lieux)) {
+      if (!l.r) continue;
+      expect(l.r.length, id).toBeGreaterThan(0);
+      expect([...l.r].sort(), id).toEqual(l.r);
+      expect(new Set(l.r).size, id).toBe(l.r.length);
+      for (const r of l.r) expect(ids.has(r), `${id} ${r}`).toBe(true);
+    }
+  });
+
+  it('riverains : la règle (union, d’office, table) donne les cas du § 2.3', () => {
+    const r = (id: string) => fichesMers.lieux[id]!.r ?? [];
+    // Méditerranée : Malte (Wikidata seul) ; Gibraltar, Akrotiri et Dhekelia (tracé) ; ni le Royaume-Uni (d'office), ni
+    // Saint-Marin (enclavé : ligne de l'Adriatique, qui vaut pour sa mère), ni la zone tampon de Chypre.
+    expect(r('medit')).toContain('MLT');
+    for (const x of ['GIB', 'NE_ESB', 'NE_WSB', 'SVN']) expect(r('medit'), x).toContain(x);
+    for (const x of ['GBR', 'SMR', 'NE_CNM']) expect(r('medit'), x).not.toContain(x);
+    expect(r('adriat')).toEqual(['ALB', 'BIH', 'GRC', 'HRV', 'ITA', 'MNE', 'SVN']);
+    // D'office : les États-Unis par Porto Rico, le Royaume-Uni par ses territoires, la France par la Nouvelle-Calédonie, le Danemark par le Groenland.
+    for (const [m, x] of [['caraibes', 'USA'], ['caraibes', 'GBR'], ['corail', 'FRA'], ['groenl', 'DNK']] as const) expect(r(m), `${m} ${x}`).not.toContain(x);
+    // Un souverain que le tracé donne reste : la France sur le canal du Mozambique (Mayotte).
+    expect(r('mozamb')).toContain('FRA');
+    // Les faux positifs du tracé, retirés par la table.
+    expect(r('japon')).not.toContain('CHN');
+    expect(r('nord')).not.toContain('SWE');
+    expect(r('laurent')).toEqual(['CAN', 'SPM']);
+    // Les États disparus de Wikidata n'existent pas comme entités : la Russie reste, le Yémen aussi (par le tracé).
+    expect(r('noire')).toContain('RUS');
+    expect(r('arabie')).toContain('YEM');
+  });
+
+  it('chaque ligne des clés du lot F4 a sa raison et vise une zone (et, pour les riverains, une entité)', () => {
+    const zones = new Set(zonesMers.map((z) => z.id));
+    const ids = new Set(pays.map((p) => p.id));
+    for (const cle of ['superficie_mers', 'profondeur_mers']) {
+      expect(main[cle], cle).toBeTruthy();
+      for (const [id, l] of lignes(cle)) {
+        expect(zones.has(id), `${cle}.${id}`).toBe(true);
+        expect(l.raison, `${cle}.${id}`).toBeTruthy();
+      }
+    }
+    // Les cinq océans ont leur ligne de superficie (aucune valeur unique : les limites varient).
+    for (const o of oceans) expect(main.superficie_mers?.[o]?.source, o).toBe('noaa');
+    const riv = (main as unknown as { riverains_mers: Record<string, Record<string, { retire?: string; ajoute?: string }>> }).riverains_mers;
+    let n = 0;
+    for (const [m, l] of Object.entries(riv)) {
+      if (m.startsWith('_')) continue;
+      expect(zones.has(m) && !oceans.includes(m), m).toBe(true);
+      for (const [id, x] of Object.entries(l)) {
+        n++;
+        expect(ids.has(id), `${m} ${id}`).toBe(true);
+        expect(!!x.retire !== !!x.ajoute, `${m} ${id}`).toBe(true);
+      }
+    }
+    expect(n).toBe(16);
+    for (const [q, l] of lignes('riverains_items')) {
+      expect(q).toMatch(/^Q\d+$/);
+      expect(l.raison, q).toBeTruthy();
+    }
+  });
+
+  it('règles : superficie (préférée, puis la plus proche du tracé ; mi² convertis) et profondeur (maximum, sinon la seule)', async () => {
+    const { superficieWikidata, profondeurWikidata, sousMers } = await reglesMers;
+    const d = (v: number, rang = 'normal', unite = 'Q712226', q: Record<string, string[]> = {}): Decl => ({ id: `x${v}`, rang, v, unite, q });
+    expect(superficieWikidata([d(1_249_000, 'preferred'), d(750_000)], 741_112)).toMatchObject({ v: 1_249_000, comment: 'préférée' });
+    expect(superficieWikidata([d(1_048_950), d(978_000)], 1_066_902)).toMatchObject({ v: 1_048_950, comment: 'la plus proche du tracé' });
+    expect(superficieWikidata([d(2_000_000, 'normal', 'Q232291')], 3e6).v).toBeCloseTo(5_179_976, 0);
+    expect(superficieWikidata(undefined, 1).v).toBeNull();
+    const M = 'Q10578722';
+    expect(profondeurWikidata([d(8605, 'normal', 'Q11573', { P1013: [M] }), d(3646, 'normal', 'Q11573', { P1013: ['Q202785'] })])).toMatchObject({ v: 8605, comment: 'maximum' });
+    expect(profondeurWikidata([d(7235, 'normal', 'Q11573'), d(7235, 'normal', 'Q11573')])).toMatchObject({ v: 7235, comment: 'seule' });
+    expect(profondeurWikidata([d(4800, 'normal', 'Q11573'), d(5600, 'normal', 'Q11573')])).toMatchObject({ v: null, comment: 'ambiguë' });
+    expect(profondeurWikidata([d(2000, 'normal', 'Q11573', { P1013: ['Q2796622'] })])).toMatchObject({ v: null, comment: 'aucune' });
+    expect(sousMers('medit', zonesMers).sort()).toEqual(['adriat', 'egee', 'ionienne', 'tyrrhen']);
+    expect(sousMers('noire', zonesMers)).toEqual(['azov']);
+  });
+
+  it('règle du tracé : une côte à moins de 0,12° de la zone, en 2 points au moins', async () => {
+    const { riverainsTrace } = await reglesMers;
+    const carre = (x0: number, y0: number, x1: number, y1: number) => ({ type: 'Polygon' as const, coordinates: [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]] });
+    const fc = (fs: { geometry: GeoJSON.Polygon; properties: Record<string, unknown> }[]) => ({ type: 'FeatureCollection' as const, features: fs.map((f) => ({ type: 'Feature' as const, ...f })) });
+    const marine = fc([{ geometry: carre(0, 0, 1, 1), properties: { ne_id: 1 } }]);
+    const pays2 = fc([
+      { geometry: carre(1.05, 0, 2, 1), properties: { ADM0_A3: 'AAA', ISO_A3: 'AAA' } }, // côte à 0,05° : riverain
+      { geometry: carre(1.5, 0, 2, 1), properties: { ADM0_A3: 'BBB', ISO_A3: 'BBB' } }, // à 0,5° : non
+    ]);
+    const r = riverainsTrace(marine as GeoJSON.FeatureCollection, pays2 as GeoJSON.FeatureCollection, [{ ne_id: 1, id: 'mer' }]);
+    expect(Object.keys(r.mer!)).toEqual(['AAA']);
+    expect(r.mer!.AAA).toBeGreaterThanOrEqual(2);
+  });
+
+  it('critère de fin du lot (§ 8) : la Méditerranée, l’Adriatique (sa mère), l’Atlantique (sans riverains), la mer des Sargasses', () => {
+    expect(fichesMers.lieux.medit).toMatchObject({ s: 'mer', sup: 2_500_000, p: 5267 });
+    expect(fichesMers.lieux.medit!.r).toHaveLength(26);
+    expect(zonesMers.find((z) => z.id === 'adriat')!.parents).toEqual(['medit']);
+    expect(fichesMers.lieux.adriat).toMatchObject({ sup: 139_000, p: 1233 });
+    expect(fichesMers.lieux.atlant).toEqual({ s: 'mer', sup: 85_100_000, ss: 'noaa', p: 8605 });
+    expect(fichesMers.lieux.sargasse).toEqual({ s: 'mer', sup: 3_000_000, ss: 'wp', p: 7000, ps: 'wp' });
+  });
+
+  it('poids : 3 Ko compressés au plus pour chacun des deux fichiers des mers (§ 2.7)', () => {
+    expect(gzipSync(brutMers, { level: 9 }).length).toBeLessThanOrEqual(3 * 1024);
+    expect(gzipSync(brutMersFr, { level: 9 }).length).toBeLessThanOrEqual(3 * 1024);
+  });
+
+  it('le tableau à relire des mers est commité, ses trois sections disent ce qui est tu', () => {
+    const t = readFileSync('docs/relectures/fiches-mers.md', 'utf8');
+    for (const x of ['## 1. Pays riverains', '## 2. Superficies', '## 3. Profondeurs']) expect(t).toContain(x);
+    for (const k of ['riverains_mers', 'superficie_mers', 'profondeur_mers']) expect(t, k).toContain(`tant que \`${k}\``);
+    expect(t).not.toMatch(/undefined|NaN|\[object/);
+    // Une ligne par mer dans chaque section : 45 pour les riverains, 50 pour les superficies et les profondeurs.
+    expect(t.match(/^\| mer Méditerranée/gm)).toHaveLength(3);
   });
 });

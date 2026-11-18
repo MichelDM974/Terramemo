@@ -169,8 +169,8 @@ describe('sources téléchargées des fiches et lignes de sources.json', () => {
   it('sourcesFiches (npm run fiches) redonne les lignes de sources.json et l’empreinte du module, sans lire raw/', async () => {
     const { sourcesFiches } = await module;
     const r = await sourcesFiches('.');
-    // CLDR, tz, Wikidata, Banque mondiale ; puis Wikipédia, Factbook et ISO 639 (table à la main).
-    expect(r.sources).toHaveLength(7);
+    // CLDR, tz, Wikidata (pays, puis mers : lot F4), Banque mondiale ; puis Wikipédia, Factbook, NOAA (océans, lot F4) et ISO 639 (table à la main).
+    expect(r.sources).toHaveLength(9);
     for (const s of r.sources) expect(sources.sources.find((x) => x.url === s.url), s.url).toEqual(s);
     expect(r.entrees).toEqual({ 'geodata/fiches-sources.mjs': empreinte('geodata/fiches-sources.mjs') });
     expect(sources.traitement.entrees['geodata/fiches-sources.mjs']).toBe(r.entrees['geodata/fiches-sources.mjs']);
@@ -188,4 +188,40 @@ describe('sources téléchargées des fiches et lignes de sources.json', () => {
       expect(r.currencyData.region.FR).toBeDefined();
     },
   );
+});
+
+// --- Lot F4 : l'extrait des océans et des mers ------------------------------------------------
+
+type ExtraitMers = {
+  date: string;
+  requetes_sha256: string;
+  mers: Record<string, string>;
+  lieux: Record<string, { superficies?: Declaration[]; profondeurs?: Declaration[]; pays?: (Declaration & { prop: string })[] }>;
+  etats: Record<string, { fr: string | null; en: string | null; fin: string[] }>;
+  libelles: Record<string, { fr: string | null; en: string | null }>;
+};
+
+describe('extrait de Wikidata des mers (lot F4)', () => {
+  const wdm = lire<ExtraitMers>('geodata/wikidata/fiches-mers.json');
+  const table = lire<{ zones: { id: string; q: string }[] }>('geodata/mers.json');
+
+  it('les 50 zones de geodata/mers.json, par leur item ; requêtes à part (requetes-fiches-mers.rq), leur empreinte dans l’extrait et dans sources.json', () => {
+    expect(wdm.mers).toEqual(Object.fromEntries(table.zones.map((z) => [z.id, z.q])));
+    expect(Object.keys(wdm.lieux).sort()).toEqual([...new Set(table.zones.map((z) => z.q))].sort());
+    expect(wdm.requetes_sha256).toBe(empreinte('geodata/wikidata/requetes-fiches-mers.rq'));
+    const s = sources.sources.find((x) => x.requetes?.chemin === 'geodata/wikidata/requetes-fiches-mers.rq');
+    expect(s?.requetes?.sha256).toBe(wdm.requetes_sha256);
+    expect(s?.fichiers).toEqual([{ chemin: 'geodata/wikidata/fiches-mers.json', sha256: empreinte('geodata/wikidata/fiches-mers.json') }]);
+    expect(s?.telecharge_le).toBe(wdm.date);
+  });
+
+  it('couverture du relevé R4 : superficie 46, profondeur 49, des pays pour 46 ; trois États disparus parmi les pays cités', () => {
+    const n = (k: 'superficies' | 'profondeurs' | 'pays') => Object.values(wdm.lieux).filter((l) => l[k]?.length).length;
+    expect([n('superficies'), n('profondeurs'), n('pays')]).toEqual([46, 49, 46]);
+    const sans = (k: 'superficies' | 'profondeurs') => Object.entries(wdm.mers).filter(([, q]) => !wdm.lieux[q]![k]?.length).map(([id]) => id).sort();
+    expect(sans('superficies')).toEqual(['guinee', 'ionienne', 'mozamb', 'oman']);
+    expect(sans('profondeurs')).toEqual(['californ']);
+    expect(Object.entries(wdm.etats).filter(([, e]) => e.fin.length).map(([q]) => q).sort()).toEqual(['Q15180', 'Q199841', 'Q34266']);
+    for (const l of Object.values(wdm.lieux)) for (const d of l.pays ?? []) expect(['P17', 'P205']).toContain(d.prop);
+  });
 });

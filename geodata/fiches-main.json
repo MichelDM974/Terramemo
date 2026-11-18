@@ -675,5 +675,74 @@
     "SGS": {"aucun": true, "raison": "le mont Paget (2 934 m, Wikidata) est dans la zone disputée NE_B32, qui couvre la Géorgie du Sud (revendiquée par l'Argentine) : aucun point culminant ne passe par une zone disputée (décision « sommets et fuseaux », 18/11/2026)", "a_relire": "même question que les Malouines"},
     "MNP": {"aucun": true, "raison": "le sommet déclaré (Q27728822, « Mount Agrihan ») n'a ni nom français ni altitude dans Wikidata"},
     "UMI": {"aucun": true, "raison": "le sommet déclaré (Q11695306, « Dunning Hill », sur l'île de la Navasse) n'a pas de nom français dans Wikidata"}
+  },
+  "superficie_mers": {
+    "_": "Superficie des 50 océans et mers (lot F4, étude § 2.3), écrite à la main. Règle (geodata/fiches-mers.mjs) : la valeur de Wikidata (P2046 ; le rang préféré, sinon la plus proche du tracé) ; si elle s'écarte de plus de 25 % du tracé de Natural Earth (sous-mers comprises), une ligne ici la remplace ; sans valeur dans Wikidata, le tracé ; les océans n'ont pas de valeur unique (les limites varient) : toujours une ligne, d'après une même source nommée. km2 : la valeur de la source (arrondie à trois chiffres au build) ; source : wp (Wikipédia, page et révision dans la raison) ou noaa. Relu par l'utilisateur avant la mise en ligne (docs/relectures/fiches-mers.md, LIGNES_RELUES.superficie_mers).",
+    "atlant": {"km2": 85133000, "source": "noaa", "raison": "NOAA, Eakins et Sharman (2010), « Volumes of the World's Oceans from ETOPO1 », tableau 1 (page archivée le 30/12/2020) : 85 133 000 km² (mers bordières comprises, la Méditerranée et la Baltique comptées à part) ; Wikidata 106 460 000, la Wikipédia en français 82 400 000 : les limites varient d'une source à l'autre", "a_relire": "une seule source pour les cinq océans, celle que cite la Wikipédia en anglais (« Ocean ») ; ses limites suivent l'OHI (1953) modifiées, l'océan Austral au sud de 60° S"},
+    "pacif": {"km2": 161760000, "source": "noaa", "raison": "NOAA, Eakins et Sharman (2010), « Volumes of the World's Oceans from ETOPO1 », tableau 1 (page archivée le 30/12/2020) : 161 760 000 km², la valeur de Wikidata"},
+    "indien": {"km2": 70560000, "source": "noaa", "raison": "NOAA, Eakins et Sharman (2010), « Volumes of the World's Oceans from ETOPO1 », tableau 1 (page archivée le 30/12/2020) : 70 560 000 km², la valeur de Wikidata et de la Wikipédia en français"},
+    "arctique": {"km2": 15558000, "source": "noaa", "raison": "NOAA, Eakins et Sharman (2010), « Volumes of the World's Oceans from ETOPO1 », tableau 1 (page archivée le 30/12/2020) : 15 558 000 km² ; Wikidata 14 056 000, la Wikipédia en français 5 200 000 (le bassin profond seul)"},
+    "austral": {"km2": 21960000, "source": "noaa", "raison": "NOAA, Eakins et Sharman (2010), « Volumes of the World's Oceans from ETOPO1 », tableau 1 (page archivée le 30/12/2020) : 21 960 000 km² (au sud de 60° S) ; Wikidata 20 327 000"},
+    "tyrrhen": {"km2": 275000, "source": "wp", "raison": "Wikidata 275 000 km², à 27 % du tracé (217 121 km² : la partition de Natural Earth en laisse une part à la Méditerranée) ; confirmé par Wikipédia en anglais, « Tyrrhenian Sea », révision 1370977544 (275 000 km²) ; la Wikipédia en français ne donne pas de superficie"},
+    "irlande": {"km2": 46007, "source": "wp", "raison": "Wikidata 100 000 km², à 97 % du tracé (50 690 km²) ; Wikipédia en français, « Mer d'Irlande », révision 239983908 : 46 007 km²"},
+    "sargasse": {"km2": 3000000, "source": "wp", "raison": "Wikidata 2 000 000 mi² (5 180 000 km²), à 72 % du tracé (3 013 163 km²) ; Wikipédia en français, « Mer des Sargasses », révision 241137264 : 3 000 000 km²", "a_relire": "la mer des Sargasses n'a pas de côte ni de limite fixe (elle suit les courants) : les sources vont de 2 à 5 millions de km² ; le chiffre retenu est celui de la Wikipédia en français, proche de la zone dessinée sur la carte"},
+    "baffin": {"km2": 689000, "source": "wp", "raison": "Wikidata 689 000 km², à 38 % du tracé (498 449 km²) ; confirmé par Wikipédia en anglais, « Baffin Bay », révision 1371362930 (689 000 km²) ; la Wikipédia en français ne donne pas de superficie", "a_relire": "la zone dessinée (Natural Earth) est plus petite que la baie des sources : le chiffre publié est gardé"},
+    "hudson": {"km2": 822324, "source": "wp", "raison": "Wikidata 1 243 000 km² (la baie avec la baie James et le bassin de Foxe), à 48 % du tracé (838 845 km²) ; Wikipédia en français, « Baie d'Hudson », révision 240946791 : 822 324 km², la baie seule, comme sur la carte"},
+    "beaufort": {"km2": 450000, "source": "wp", "raison": "Wikidata 178 000 km², à 59 % du tracé (436 830 km²) ; Wikipédia en français, « Mer de Beaufort », révision 236766665 : 450 000 km²"},
+    "chineor": {"km2": 750000, "source": "wp", "raison": "Wikidata 1 249 000 km² au rang préféré (750 000 au rang normal), à 69 % du tracé (741 112 km²) ; Wikipédia en français, « Mer de Chine orientale », révision 241159149 : 750 000 km²"},
+    "aden": {"km2": 262000, "source": "wp", "raison": "Wikidata 530 000 km², à 104 % du tracé (259 439 km²) ; Wikipédia en français, « Golfe d'Aden », révision 239070473 : 262 000 km²"}
+  },
+  "profondeur_mers": {
+    "_": "Profondeur maximale des 50 océans et mers (lot F4, étude § 2.3), écrite à la main là où Wikidata (P4511) ne tranche pas. Règle (geodata/fiches-mers.mjs) : la valeur qualifiée « maximum » (P1013) ; sinon, sans les moyennes, la seule valeur. Une ligne : m et sa source (wp, page et révision dans la raison), ou aucun (pas de ligne de profondeur), ou verifier (la valeur de Wikidata gardée, avec un doute à relire). Relu par l'utilisateur avant la mise en ligne (docs/relectures/fiches-mers.md, LIGNES_RELUES.profondeur_mers).",
+    "groenl": {"m": 4846, "source": "wp", "raison": "Wikidata donne 4 800 et 5 600 m sans qualificatif ; Wikipédia en anglais, « Greenland Sea », révision 1382700651 : 4 846 m au plus profond de la mer (5 570 m dans la fosse Molloy, au détroit de Fram, hors de la mer) ; la Wikipédia en français : 4 800 m"},
+    "sargasse": {"m": 7000, "source": "wp", "raison": "Wikidata donne 7 000 et 1 500 m sans qualificatif ; Wikipédia en français, « Mer des Sargasses », révision 241137264 : 7 000 m", "a_relire": "une mer sans limite fixe : sa profondeur est celle du fond de l'Atlantique sous elle ; la seconde valeur de Wikidata (1 500 m) n'est pas sourcée"},
+    "californ": {"aucun": true, "raison": "aucune profondeur dans Wikidata ni dans l'infobox de la Wikipédia en français ; Wikipédia en anglais, « Gulf of California », révision 1379374452 dit seulement « plus de 3 000 m »", "a_relire": "une source qui donne la profondeur maximale du golfe (le bassin de Pescadero, ≈ 3 700 m, n'est pas sourcé ici)"},
+    "azov": {"verifier": "Wikidata 14,5 m ; la Wikipédia en anglais (« Sea of Azov », révision 1369243023) 14 m, la Wikipédia en français 18 m (sans source)", "raison": "écart de plus de 5 % entre les sources (R4, et contrôle du 18/11/2026)"},
+    "oman": {"m": 3700, "source": "wp", "raison": "Wikidata 200 m, sans qualificatif ni source : sans doute la profondeur moyenne (le golfe dépasse 3 000 m au large de l'Oman) ; Wikipédia en anglais, « Gulf of Oman », révision 1370175502 : 3 700 m", "a_relire": "une seule source ; la Wikipédia en français ne donne pas de profondeur"},
+    "egee": {"verifier": "Wikidata 2 100 m ; la Wikipédia en anglais (« Aegean Sea », révision 1382038023) : 2 639 m, d'après EMODnet", "raison": "écart de plus de 5 % à la Wikipédia en anglais (contrôle du 18/11/2026)"},
+    "finlande": {"verifier": "Wikidata 121 m ; la Wikipédia en anglais (« Gulf of Finland », révision 1385974739) : 115 m", "raison": "écart de plus de 5 % à la Wikipédia en anglais (contrôle du 18/11/2026)"},
+    "thailand": {"verifier": "Wikidata 80 m ; la Wikipédia en anglais (« Gulf of Thailand », révision 1384262308) : 85 m", "raison": "écart de plus de 5 % à la Wikipédia en anglais (contrôle du 18/11/2026)"},
+    "arabie": {"verifier": "Wikidata 5 800 m ; la Wikipédia en anglais (« Arabian Sea », révision 1384467206) : 4 652 m ; la Wikipédia en français : 5 800 m", "raison": "écart de plus de 5 % à la Wikipédia en anglais (contrôle du 18/11/2026)"},
+    "rouge": {"verifier": "Wikidata 3 040 m ; la Wikipédia en anglais (« Red Sea », révision 1386060551) : 2 730 m ; la Wikipédia en français : 3 040 m", "raison": "écart de plus de 5 % à la Wikipédia en anglais (contrôle du 18/11/2026)"},
+    "andaman": {"verifier": "Wikidata 3 777 m ; la Wikipédia en anglais (« Andaman Sea », révision 1377184977) : 4 198 m ; la Wikipédia en français : 3 777 m", "raison": "écart de plus de 5 % à la Wikipédia en anglais (contrôle du 18/11/2026)"},
+    "guinee": {"verifier": "Wikidata 5 000 m ; la Wikipédia en français (« Golfe de Guinée », révision 241409503) : 6 363 m au large du Ghana", "raison": "écart de plus de 5 % entre les sources (R4) ; les limites du golfe varient"}
+  },
+  "riverains_mers": {
+    "_": "Pays riverains des mers (lot F4, étude § 2.3), exclusions et ajouts écrits à la main. Règle (geodata/fiches-mers.mjs) : l'union du tracé de Natural Earth (côte à 0,12° de la zone, en 2 points au moins) et de Wikidata (P17, P205), sous-mers comprises ; les États disparus retirés ; d'office, un souverain que seul Wikidata donne quand un de ses territoires est riverain par le tracé (le Royaume-Uni par Gibraltar, les États-Unis par Porto Rico). Puis ces lignes : {mer: {entité: {retire|ajoute: raison}}} ; une ligne d'une mer vaut aussi pour les mers qui la contiennent (Saint-Marin retiré de l'Adriatique l'est de la Méditerranée). Aucune liste pour un océan. Relu par l'utilisateur avant la mise en ligne (docs/relectures/fiches-mers.md, LIGNES_RELUES.riverains_mers).",
+    "medit": {
+      "NE_CNM": {"retire": "la zone tampon des Nations unies à Chypre touche la mer à ses deux bouts, mais c'est une ligne de cessez-le-feu, pas un riverain (étude § 2.3 : « les zones de Chypre »)", "a_relire": true}
+    },
+    "adriat": {
+      "SMR": {"retire": "Saint-Marin est enclavé dans l'Italie, à une dizaine de kilomètres de la côte : le tracé le prend (côte à 13 km)"}
+    },
+    "nord": {
+      "SWE": {"retire": "la Suède ne touche que le Skagerrak et le Kattegat, que la carte fond dans la mer du Nord ; l'OHI et la Wikipédia en français (« Mer du Nord », révision 239950381) les en séparent", "a_relire": "sur la carte, la mer du Nord dessinée borde bien la Suède"}
+    },
+    "manche": {
+      "JEY": {"ajoute": "Jersey est dans la Manche (golfe de Saint-Malo) ; la zone de Natural Earth s'arrête à 25 km ; la Wikipédia en français (« Manche (mer) », révision 239744542) le cite"},
+      "GGY": {"ajoute": "Guernesey est dans la Manche ; la zone de Natural Earth s'arrête à 23 km ; la Wikipédia en français (« Manche (mer) », révision 239744542) le cite"}
+    },
+    "laurent": {
+      "USA": {"retire": "le fleuve Saint-Laurent, que la carte fond dans le golfe, borde l'État de New York ; le golfe lui-même ne touche pas les États-Unis (Wikipédia en français, « Golfe du Saint-Laurent », révision 240868651 : Canada et France)"}
+    },
+    "japon": {
+      "CHN": {"retire": "la Chine n'a pas de côte sur la mer du Japon : l'embouchure du Tumen, coréenne et russe, est à 15 km de son territoire (la Wikipédia en français, « Mer du Japon », révision 235467931, ne la cite pas)"}
+    },
+    "caraibes": {
+      "ABW": {"ajoute": "Aruba est dans la mer des Caraïbes, au large du Venezuela ; la zone de Natural Earth, simplifiée, s'arrête à 29 km (Curaçao, voisine, y est)"},
+      "ATG": {"ajoute": "Antigua-et-Barbuda borde la mer des Caraïbes à l'ouest (arc des Petites Antilles, limite de l'OHI) ; à 44 km de la zone de Natural Earth ; la Wikipédia en français (« Mer des Caraïbes », révision 240461779) la cite"},
+      "VCT": {"ajoute": "Saint-Vincent-et-les-Grenadines borde la mer des Caraïbes à l'ouest (arc des Petites Antilles) ; à 43 km de la zone de Natural Earth"},
+      "CYM": {"ajoute": "les îles Caïmans sont au milieu de la mer des Caraïbes, au sud de Cuba ; à 193 km de la zone de Natural Earth, qui ne les entoure pas"},
+      "MSR": {"ajoute": "Montserrat borde la mer des Caraïbes à l'ouest (arc des Petites Antilles) ; à 56 km de la zone de Natural Earth"},
+      "NLD": {"ajoute": "les Pays-Bas caribéens (Bonaire, au large du Venezuela ; Saba et Saint-Eustache), dans le tracé des Pays-Bas chez Natural Earth ; à 42 km de la zone", "a_relire": "les Pays-Bas en riverain par Bonaire, comme la France par la Guadeloupe et la Martinique"},
+      "MAF": {"ajoute": "la côte sud de Saint-Martin (partie française) donne sur la mer des Caraïbes ; à 82 km de la zone de Natural Earth ; la Wikipédia en français (« Mer des Caraïbes », révision 240461779) cite Saint-Martin", "a_relire": "au nord de l'arc, la limite de l'OHI passe entre ces îles"},
+      "SXM": {"ajoute": "la côte sud de Sint Maarten donne sur la mer des Caraïbes ; à 85 km de la zone de Natural Earth", "a_relire": "même remarque que Saint-Martin"},
+      "BLM": {"ajoute": "Saint-Barthélemy, à l'ouest de l'arc, donne sur la mer des Caraïbes ; à 112 km de la zone de Natural Earth ; la Wikipédia en français (« Mer des Caraïbes », révision 240461779) le cite", "a_relire": "même remarque que Saint-Martin"}
+    }
+  },
+  "riverains_items": {
+    "_": "Items que Wikidata cite comme pays d'une mer (P17, P205) sans être l'item d'une entité de la carte ni un État disparu (lot F4) : id, l'entité à laquelle les rapporter, ou null (ignoré), avec la raison.",
+    "Q756617": {"id": "DNK", "raison": "le royaume de Danemark (avec le Groenland et les Féroé), cité pour la mer du Groenland : rapporté au Danemark ; le Groenland, riverain par le tracé, le retire ensuite d'office"},
+    "Q31354462": {"id": null, "raison": "l'Abkhazie n'est pas une entité de la carte (elle est dans le tracé de la Géorgie, déjà riveraine de la mer Noire)"}
   }
 }
