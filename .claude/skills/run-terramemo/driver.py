@@ -4363,7 +4363,9 @@ def attendre_feuille_posee(p):
 # La carte de situation en tête de la fiche (#34, lot F8, D61 b ; src/vues/situation.ts) : sa place, son état
 # (data-etat « attente » puis « prete »), sa région, son anneau, sa taille, et ce qu'elle chevauche dans la tête :
 # « × », « ‹ » (« ‹ Bilan » compris), chaque drapeau, les lignes du titre et du statut (un bloc passe sous un
-# flottant, ses lignes non : on mesure les lignes, par un Range).
+# flottant, ses lignes non : on mesure les lignes, par un Range). `haut_vide` : la hauteur de la tête sans la carte
+# (son SVG retiré du rendu le temps d'une lecture, sans image entre les deux), pour juger le saut de la tête quel que
+# soit l'état lu en premier (une carte gardée, ou déjà posée à la première lecture, n'est jamais vue « attente »).
 JS_SITUATION = """(() => { const f = document.getElementById('fiche-lieu'); if (!f || f.hidden) return null;
   const t = f.querySelector('.fiche-tete'), s = t ? t.querySelector(':scope > .fiche-situation') : null;
   if (!s) return { present: false };
@@ -4376,7 +4378,9 @@ JS_SITUATION = """(() => { const f = document.getElementById('fiche-lieu'); if (
     drapeaux: [...t.querySelectorAll('.fiche-drapeaux .drapeau')].flatMap(r), titre: lignes(document.getElementById('fiche-titre')),
     statut: lignes(t.querySelector('.fiche-statut')) };
   const svg = s.querySelector('svg'), h2 = document.getElementById('fiche-titre');
-  return { present: true, etat: s.dataset.etat || null, region: s.dataset.region || null, anneau: s.dataset.anneau !== undefined,
+  let haut_vide = rt.height;
+  if (svg) { const avant = svg.style.display; svg.style.display = 'none'; haut_vide = t.getBoundingClientRect().height; svg.style.display = avant; }
+  return { present: true, haut_vide, eclaire: s.dataset.eclaire ?? null, etat: s.dataset.etat || null, region: s.dataset.region || null, anneau: s.dataset.anneau !== undefined,
     lieu: s.dataset.lieu || null, aria: s.getAttribute('aria-hidden'), chemins: svg ? [...svg.children].map(c => c.getAttribute('class')) : [],
     l: rs.width, h: rs.height, haut_tete: rt.height, largeur: innerWidth, page: document.documentElement.scrollWidth - innerWidth,
     dans_tete: rs.top >= rt.top - 0.5 && rs.bottom <= rt.bottom + 0.5 && rs.left >= rt.left - 0.5 && rs.right <= rt.right + 0.5,
@@ -4390,8 +4394,9 @@ def verifier_situation(p, defauts, quoi, region=None, anneau=None, delai_s=10):
     attendu, `delai_s` au plus, jamais une durée fixe : en ligne, le réseau et l'appareil sont plus lents) ; de 96 × 64
     (téléphone) ou 120 × 80 (au-delà de 700 px) ; dans la tête et dans la feuille, sans rien chevaucher (« × », « ‹ »,
     drapeaux, titre, statut), sans débordement de la tête, du titre ni de la page ; décorative (aria-hidden) ; le lieu
-    éclairé (ou l'eau d'une mer) ; sa région et son anneau s'ils sont donnés ; la tête de même hauteur vide et posée
-    (elle ne saute pas). Rend l'état lu ; DÉFAUT à chaque écart."""
+    éclairé (ou l'eau d'une mer), et c'est bien lui (data-eclaire) ; sa région et son anneau s'ils sont donnés ; la tête
+    de même hauteur vide et posée (elle ne saute pas : la hauteur vide lue à la première lecture « attente », sinon
+    mesurée la carte retirée du rendu, haut_vide). Rend l'état lu ; DÉFAUT à chaque écart."""
     s = p.js(JS_SITUATION)
     vide = s["haut_tete"] if s and s.get("present") and s.get("etat") == "attente" else None
     fin = time.monotonic() + delai_s
@@ -4409,6 +4414,8 @@ def verifier_situation(p, defauts, quoi, region=None, anneau=None, delai_s=10):
         defauts.append(f"{quoi} : carte de situation pas posée en {delai_s} s ({s['etat']})")
     elif not ({"situation-lieu", "situation-eau"} & set(s["chemins"]) or (s["anneau"] and "situation-anneau" in s["chemins"])):
         defauts.append(f"{quoi} : carte de situation sans lieu éclairé ni anneau ({s['chemins']})")
+    elif s["lieu"] not in (s.get("eclaire") or "").split():
+        defauts.append(f"{quoi} : carte de situation qui éclaire {s.get('eclaire')!r} au lieu de {s['lieu']}")
     if abs(s["l"] - attendu[0]) > 0.5 or abs(s["h"] - attendu[1]) > 0.5:
         defauts.append(f"{quoi} : carte de situation de {s['l']:.1f} × {s['h']:.1f} px au lieu de {attendu[0]} × {attendu[1]}")
     if not s["dans_tete"] or not s["dans_fiche"] or s["chevauche"] or s["tete_deborde"] or s["titre_deborde"] or s["page"] > 0:
@@ -4420,6 +4427,8 @@ def verifier_situation(p, defauts, quoi, region=None, anneau=None, delai_s=10):
         defauts.append(f"{quoi} : carte de situation sur {s['region']} au lieu de {region}")
     if anneau is not None and s["anneau"] != anneau:
         defauts.append(f"{quoi} : carte de situation {'sans' if anneau else 'avec'} anneau, {'avec' if anneau else 'sans'} attendu")
+    if vide is None and s["etat"] == "prete":
+        vide = s["haut_vide"]
     if vide is not None and abs(s["haut_tete"] - vide) > 0.5:
         defauts.append(f"{quoi} : la tête saute à l'arrivée de la carte de situation ({vide:.1f} → {s['haut_tete']:.1f} px)")
     return s
