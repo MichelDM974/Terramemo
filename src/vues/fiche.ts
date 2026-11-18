@@ -64,7 +64,7 @@ export { prechaufferFormats, prechaufferZone } from '../fiches/format';
 // Ce que le morceau principal prend de ce morceau-ci (§ 19 de l'étude) : la lecture des fichiers des
 // fiches (src/fiches/chargeur.ts) et la ligne de faits de la barre (explorer.ts).
 export { lireDrapeauxTerritoires, lireFichesCommunes, lireFichesMers, lireFichesMonde } from '../fiches/donnees';
-export { faitsCommune, faitsMer, faitsPays, faitsTerritoire } from '../fiches/barre';
+export { faitsCommune, faitsMer, faitsPays, faitsTerritoire, habitantsBarre } from '../fiches/barre';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { ApprendreModele } from './apprendre-lieu';

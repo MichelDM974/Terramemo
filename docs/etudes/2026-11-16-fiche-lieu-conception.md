@@ -985,12 +985,18 @@ Structure nouvelle de `#barre-carte` :
 Les classes `.barre-nom` et `.barre-detail`, l'id et `dataset.id` restent :
 les tests et le pilote les lisent.
 
+Revu le 18/11 (choix de l'utilisateur) : les habitants d'un pays ou d'un
+territoire passent sur la ligne du nom, en gris (« Japon · 123 millions
+d'hab. », `.barre-habitants`) ; derrière la capitale (« Pékin · 1,41
+milliard d'hab. »), on les croyait ceux de la capitale. Ceux d'une commune
+restent sur la ligne de faits : rien ne les y confond.
+
 Ligne de faits, par sorte :
 
 | Sorte | Ligne |
 |---|---|
-| Pays | « Tokyo · 123 millions d'hab. » ; plusieurs capitales : « La Paz, Sucre · … » |
-| Territoire | « Nuuk · 56 800 hab. » ; sans capitale : les habitants seuls |
+| Pays | « Capitale : Tokyo » ; plusieurs : « Capitales : La Paz, Sucre » |
+| Territoire | « Capitale : Nuuk » ; sans capitale : rien |
 | Zone contestée, Antarctique | rien |
 | Mer | « océan Atlantique · 2,5 millions de km² » ; un océan : sa superficie |
 | Commune | « 85 000 hab. » |

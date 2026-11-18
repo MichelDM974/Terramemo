@@ -339,6 +339,12 @@ body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoi
 }
 .barre-nom { font-size: 1.05rem; font-weight: 600; }
 .barre-detail { color: var(--muted); font-size: 0.85rem; }
+/* Les habitants d'un pays ou d'un territoire, sur la ligne de son nom (« Chine · 1,41 milliard d'hab. ») et non
+   derrière sa capitale, où on les croyait ceux de la capitale (18/11, choix de l'utilisateur) ; d'un bloc, ils
+   passent entiers à la ligne après un nom long. Un statut qui les suit en est séparé par « · ». */
+.barre-habitants { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+.barre-habitants:not(:empty)::before { content: "· "; }
+.barre-habitants:not(:empty) + .barre-detail:not(:empty)::before { content: "· "; }
 
 .carte-barre.essai { flex-direction: column; align-items: stretch; }
 .essai-ligne { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
@@ -433,8 +439,8 @@ body:has(#barre-essai:not([hidden]), #barre-nommer:not([hidden]), #barre-chrono:
 /* --- Fiche d'un lieu (#34, étude docs/etudes/2026-11-16-fiche-lieu-conception.md,
    § 4.1 à § 4.3, § 4.11, § 4.12 ; src/vues/explorer.ts et src/vues/fiche.ts) ---
    La barre de l'accueil est un bouton sur toute sa largeur (« Monde » à côté,
-   hors du bouton) : le nom, puis le statut et « par sa pastille » ; la ligne de
-   faits (« Tokyo · 123 millions d'hab. », sur une ligne : coupée par « … »
+   hors du bouton) : le nom, ses habitants, puis le statut et « par sa pastille » ; la ligne de
+   faits (« Capitale : Tokyo », sur une ligne : coupée par « … »
    plutôt que de grandir la barre) ; la ligne de la mémoire. Un chevron « ⌃ » quand le lieu a
    une fiche. Elle réserve la hauteur de son cas complet dès qu'un lieu est
    affiché (.barre-lieu : la ligne de faits ; .barre-avec-memoire : la ligne de

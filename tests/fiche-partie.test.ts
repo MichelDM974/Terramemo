@@ -195,7 +195,7 @@ describe('une partie de Toucher en suspens sur la carte', () => {
     expect(v.essai.enSuspens()).toBe(false);
     v.toucherCarte('JPN');
     // La ligne de faits attend le morceau de la fiche, demandé avec les données (étude § 19) : importé la première fois.
-    await vi.waitFor(() => expect(v.faits()).toBe("Tokyo · 123 millions d'hab."));
+    await vi.waitFor(() => expect(v.faits()).toBe('Capitale : Tokyo'));
     expect(v.chevron()).toBe(true);
     (v.el('#barre-fiche') as El).click();
     await vi.waitFor(() => expect(v.ouverte()).toBe(true));

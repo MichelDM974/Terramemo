@@ -4282,6 +4282,7 @@ JS_ETAT_FICHE = """(() => {
     etat: history.state && history.state.fiche ? history.state.fiche : null, hash: location.hash, focus: document.activeElement ? document.activeElement.id : null,
     barre: b ? b.dataset.id || null : null, barre_cachee: !b || b.hidden, inerte: !!b && b.hasAttribute('inert'),
     chevron: !!b && !b.querySelector('.barre-chevron').hidden, faits: b ? b.querySelector('.barre-faits').textContent : '',
+    habitants: b ? (b.querySelector('.barre-habitants') || {}).textContent || '' : '',
     statut: ouverte ? ((f.querySelector('.fiche-statut') || {}).textContent || '') : '',
     lignes: ouverte ? [...f.querySelectorAll('.fiche-fait')].map(x => x.innerText.replace(/\\s+/g, ' ').trim()) : [],
     voisins: ouverte ? [...f.querySelectorAll('.fiche-voisin')].map(x => x.dataset.id) : [],
@@ -5081,11 +5082,12 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     e = attendre_fiche(p, lambda e: e["barre"] == "JPN" and e["chevron"], "Japon touché")
     h1 = p.js("document.getElementById('barre-carte').getBoundingClientRect().height")
     lus = [n.split("/")[-1] for n in ressources_fiches(p) if "/geo/" in n]
-    dire(f"  Japon touché : faits {e['faits']!r}, chevron {e['chevron']}, barre {h0:.0f} → {h1:.0f} px, lu {lus}")
-    # Lot F2 : « capitale · habitants », trois chiffres au plus (espaces insécables possibles).
-    faits = re.sub(r"\s+", " ", e["faits"])
-    if faits != "Tokyo · 123 millions d'hab." or not e["chevron"]:
-        defauts.append(f"Japon touché : ligne de faits « Tokyo · 123 millions d'hab. » et chevron attendus ({e})")
+    dire(f"  Japon touché : habitants {e['habitants']!r}, faits {e['faits']!r}, chevron {e['chevron']}, barre {h0:.0f} → {h1:.0f} px, lu {lus}")
+    # Lot F2, revu le 18/11 : les habitants sur la ligne du nom, trois chiffres au plus (espaces insécables possibles),
+    # et « Capitale : Tokyo » dessous (derrière la capitale, on croyait ses habitants ceux de la capitale).
+    faits, hab = re.sub(r"\s+", " ", e["faits"]), re.sub(r"\s+", " ", e["habitants"])
+    if faits != "Capitale : Tokyo" or hab != "123 millions d'hab." or not e["chevron"]:
+        defauts.append(f"Japon touché : « 123 millions d'hab. » sur la ligne du nom, « Capitale : Tokyo » et chevron attendus ({e})")
     if sorted(set(lus)) != sorted(FICHIERS_GEO_FICHES):
         defauts.append(f"Japon touché : {lus} lus au lieu des fiches du monde ({', '.join(FICHIERS_GEO_FICHES)})")
     if abs(h1 - h0) > 0.5:
@@ -5239,12 +5241,13 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
 
     # Lot F3 : un territoire, une zone contestée, Bir Tawil, Hong Kong, l'Antarctique. Les lignes à relire
     # (statut écrit, capitale, superficie, langues, gentilé, sommet, habitants des zones) restent tues tant que
-    # LIGNES_RELUES les tient : la barre du Groenland dit ses habitants seuls, sa fiche « Heure locale ».
+    # LIGNES_RELUES les tient : la barre du Groenland dit ses habitants seuls (ligne du nom), sa fiche « Heure locale ».
     debut_t = [n for n in ressources_fiches(p) if "drapeaux-territoires" in n]
     if debut_t:
         defauts.append(f"drapeaux des territoires lus avant la première fiche de territoire : {debut_t}")
     e = ouvrir_fiche(p, "GRL", defauts, "Groenland")
     faits = re.sub(r"\s+", " ", e["faits"])
+    hab = re.sub(r"\s+", " ", e["habitants"])
     e = attendre_fiche(p, lambda x: x["ouverte"] and x["drapeaux"], "drapeau du Groenland")
     libelles = [l.split(" ")[0] for l in e["lignes"]]
     # L'entrée de l'image n'est notée qu'à la fin de son chargement : sur le site en ligne, le drapeau
@@ -5254,9 +5257,9 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         if any(n.startswith("drapeaux-territoires/") for n in lus_t):
             break
         p.pause(200)
-    dire(f"  fiche du Groenland : barre {faits!r}, statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau, lu {lus_t}")
-    if faits != "56 800 hab.":
-        defauts.append(f"barre du Groenland : « 56 800 hab. » attendu tant que les capitales ne sont pas relues ({faits!r})")
+    dire(f"  fiche du Groenland : barre {hab!r} / {faits!r}, statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau, lu {lus_t}")
+    if hab != "56 800 hab." or faits:
+        defauts.append(f"barre du Groenland : « 56 800 hab. » sur la ligne du nom, rien dessous tant que les capitales ne sont pas relues ({hab!r} / {faits!r})")
     if e["statut"] != "territoire" or libelles != ["Habitants", "Monnaie", "Heure", "Continent"] or not any(l.startswith("Heure locale") for l in e["lignes"]):
         defauts.append(f"fiche du Groenland : statut « territoire », lignes Habitants, Monnaie, Heure locale, Continent attendues ({e})")
     if e["drapeaux"] != 1 or "drapeaux-territoires.json" not in lus_t or not any(n.startswith("drapeaux-territoires/") for n in lus_t):

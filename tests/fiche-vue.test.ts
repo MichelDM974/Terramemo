@@ -40,7 +40,7 @@ const CAPITALES = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<N
 const DRAPEAUX = lireDrapeaux(lire<ManifesteDrapeaux>('drapeaux.json'));
 const DRAPEAUX_T = lireDrapeauxTerritoires(lire<ManifesteDrapeauxTerritoires>('drapeaux-territoires.json'));
 const T = textesFiche;
-/** La part « habitants » de la ligne de faits d'un pays (« 123 millions d'hab. »). */
+/** Les habitants d'un pays sur la ligne de son nom (« 123 millions d'hab. »). */
 const hab = (id: string) => fmtHabitantsCourt(FICHES.lieux.get(id)!.habitants!.n);
 const S = T.noms_sources;
 /** Les lignes à relire, toutes relues, ou aucune (les deux états de LIGNES_RELUES). */
@@ -173,6 +173,7 @@ function monter(o: { fiche?: Partial<OptionsFiche>; memoire?: CarteMemoire; expl
     bouton: () => el('#barre-fiche')!,
     barre: () => el('#barre-carte')!,
     faits: () => el('#barre-carte .barre-faits')!.textContent,
+    habitants: () => el('#barre-carte .barre-habitants')!.textContent,
     chevron: () => !el('#barre-carte .barre-chevron')!.hidden,
     feuille: () => el('#fiche-lieu'),
     ouverte: () => !!el('#fiche-lieu') && !el('#fiche-lieu')!.hidden,
@@ -210,12 +211,16 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     v.toucher('JPN');
     expect(v.el('#barre-carte .barre-nom')!.textContent).toBe('Japon');
     expect(v.faits()).toBe('');
+    expect(v.habitants()).toBe('');
     expect(v.chevron()).toBe(false);
     await tenir();
     // Le manifeste des drapeaux, demandé à l'arrivée des fiches : le drapeau dès le premier toucher.
     expect(v.charges).toEqual(['fiches', 'capitales', 'drapeaux']);
-    // « capitale · habitants » (§ 4.1), trois chiffres au plus.
-    expect(v.faits()).toBe("Tokyo · 123 millions d'hab.");
+    // Les habitants sur la ligne du nom, trois chiffres au plus, et la capitale nommée comme telle (§ 4.1 ; 18/11 :
+    // derrière la capitale, on les croyait ceux de la capitale).
+    expect(v.habitants()).toBe("123 millions d'hab.");
+    expect(v.faits()).toBe('Capitale : Tokyo');
+    expect(v.el('#barre-carte .barre-annonce')!.textContent).toBe("Japon · 123 millions d'hab. · Capitale : Tokyo");
     expect(v.chevron()).toBe(true);
     await tenir();
     const drapeau = () => v.el('#barre-carte .barre-drapeau')!;
@@ -224,11 +229,13 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     expect(v.bouton().classList.contains('barre-avec-drapeau')).toBe(true);
     // Plusieurs capitales : toutes, dans l'ordre du fichier (la principale d'abord).
     v.toucher('BOL');
-    expect(v.faits()).toBe(`${CAPITALES.parPays.get('BOL')!.justes.map((c) => c.nom).join(', ')} · ${hab('BOL')}`);
+    expect(v.faits()).toBe(`Capitales : ${CAPITALES.parPays.get('BOL')!.justes.map((c) => c.nom).join(', ')}`);
+    expect(v.habitants()).toBe(hab('BOL'));
     // Un territoire (lot F3) : son statut, le chevron, ses habitants ; sa capitale attend la relecture (LIGNES_RELUES).
     v.toucher('GRL');
     expect(v.el('#barre-carte .barre-detail')!.textContent).toBe(textes.carte.statuts.territoire);
-    expect(v.faits()).toBe(LIGNES_RELUES.capitale_territoires ? `Nuuk · ${hab('GRL')}` : hab('GRL'));
+    expect(v.habitants()).toBe(hab('GRL'));
+    expect(v.faits()).toBe(LIGNES_RELUES.capitale_territoires ? 'Capitale : Nuuk' : '');
     expect(v.chevron()).toBe(true);
     // Ni drapeau pour un territoire : la barre reprend ses deux colonnes.
     expect(drapeau().hidden).toBe(true);
@@ -249,7 +256,8 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     d.tenir(FICHES);
     await tenir();
     expect(v.el('#barre-carte .barre-nom')!.textContent).toBe('France');
-    expect(v.faits()).toBe(`Paris · ${hab('FRA')}`);
+    expect(v.faits()).toBe('Capitale : Paris');
+    expect(v.habitants()).toBe(hab('FRA'));
     expect(v.barre().dataset.id).toBe('FRA');
   });
 
@@ -314,11 +322,12 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     v.toucher('JPN');
     await tenir();
     expect(v.chevron()).toBe(true);
-    expect(v.faits()).toBe(hab('JPN'));
+    expect(v.habitants()).toBe(hab('JPN'));
+    expect(v.faits()).toBe('');
     echoue = false;
     v.toucher('JPN');
     await tenir();
-    expect(v.faits()).toBe(`Tokyo · ${hab('JPN')}`);
+    expect(v.faits()).toBe('Capitale : Tokyo');
   });
 
   it('une mer, sans fiches des mers branchées : pas de fiche, rien de chargé (une commune : tests/fiche-commune.test.ts)', async () => {
@@ -597,7 +606,8 @@ describe('la fiche', () => {
     expect(v.ouverte()).toBe(false);
     expect(v.barre().dataset.id).toBe('CHN');
     await tenir();
-    expect(v.faits()).toBe(`Pékin · ${hab('CHN')}`);
+    expect(v.faits()).toBe('Capitale : Pékin');
+    expect(v.habitants()).toBe(hab('CHN'));
     expect(v.chevron()).toBe(true);
   });
 
@@ -1187,19 +1197,21 @@ describe('les fiches du lot F3 : territoires, zones contestées, Antarctique', (
     expect([a.avecDrapeau, a.wikipedia]).toEqual([false, 'https://fr.wikipedia.org/wiki/Antarctique']);
   });
 
-  it('la barre d’un territoire : « Nuuk · 56 800 hab. » une fois les capitales relues ; « aucun habitant permanent » ; rien pour une zone ni l’Antarctique', async () => {
+  it('la barre d’un territoire : « Capitale : Nuuk » une fois les capitales relues, ses habitants sur la ligne du nom ; « aucun habitant permanent » ; rien pour une zone ni l’Antarctique', async () => {
     const v = monter({ fiche: { relues: TOUTES } });
     v.vue.activer();
     v.toucher('GRL');
     // La ligne attend aussi le morceau de la fiche (étude § 19), réimporté après le resetModules du test d'avant.
-    await vi.waitFor(() => expect(v.faits()).toBe(`Nuuk · ${hab('GRL')}`));
+    await vi.waitFor(() => expect(v.faits()).toBe('Capitale : Nuuk'));
+    expect(v.habitants()).toBe(hab('GRL'));
     v.toucher('HMD');
-    expect(v.faits()).toBe(T.aucun_habitant);
-    v.toucher('ESH');
+    expect(v.habitants()).toBe(T.aucun_habitant);
     expect(v.faits()).toBe('');
+    v.toucher('ESH');
+    expect([v.habitants(), v.faits()]).toEqual(['', '']);
     expect(v.chevron()).toBe(true);
     v.toucher('ATA');
-    expect(v.faits()).toBe('');
+    expect([v.habitants(), v.faits()]).toEqual(['', '']);
   });
 });
 

@@ -177,6 +177,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   const F = o.fiche;
   const nom = creer('strong', { class: 'barre-nom' });
   const detail = creer('span', { class: 'barre-detail' });
+  // Les habitants d'un pays ou d'un territoire, sur la ligne de son nom (habitantsBarre) : pas derrière la capitale.
+  const habitants = creer('span', { class: 'barre-habitants' });
   const faits = creer('span', { class: 'barre-faits' });
   const memoireLigne = creer('span', { class: 'barre-memoire' });
   const chevron = creer('span', { class: 'barre-chevron', 'aria-hidden': 'true' }, '⌃');
@@ -190,7 +192,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     // aria-expanded et aria-controls seulement quand il y a une fiche à ouvrir (poserAria) : la barre ne promet rien d'autre (§ 4.1).
     { type: 'button', class: 'barre-fiche', id: 'barre-fiche' },
     drapeauBarre,
-    creer('span', { class: 'barre-ligne' }, nom, ' ', detail),
+    creer('span', { class: 'barre-ligne' }, nom, ' ', habitants, ' ', detail),
     faits,
     memoireLigne,
     chevron,
@@ -320,7 +322,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
 
   /** Ce que la barre dit, dans la région vivante. */
   function annoncer(): void {
-    annonce.textContent = [nom.textContent, detail.textContent, faits.textContent, memoireLigne.textContent].filter(Boolean).join(' · ');
+    annonce.textContent = [nom.textContent, habitants.textContent, detail.textContent, faits.textContent, memoireLigne.textContent].filter(Boolean).join(' · ');
   }
 
   /** L'avis du démarrage pas encore montré (avis()) : à la prochaine arrivée sur l'accueil. */
@@ -555,6 +557,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     const id = barre.dataset.id;
     ficheDispo = false;
     faits.textContent = '';
+    habitants.textContent = '';
     chevron.hidden = true;
     let drapeau: string | null = null;
     const sorte = id && active && autorisee() ? sorteFiche(id) : null;
@@ -583,15 +586,18 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       if (m && lues?.fiches.lieux.has(id)) {
         ficheDispo = true;
         chevron.hidden = false;
-        // « Nuuk · 56 800 hab. » (§ 4.1, lot F3) : la capitale une fois relue, sinon les habitants seuls ;
+        // Les habitants sur la ligne du nom, « Capitale : Nuuk » une fois relue (§ 4.1, lot F3) ;
         // rien pour une zone contestée ni pour l'Antarctique.
         if (sorte === 'territoire') {
+          habitants.textContent = m.habitantsBarre(lues.fiches.lieux.get(id));
           faits.textContent = m.faitsTerritoire(lues.fiches.lieux.get(id)!, F!.relues);
           auRepos(prechaufferZoneBarre);
         }
-        // « Tokyo · 123 millions d'hab. » (§ 4.1) ; plusieurs capitales : « La Paz, Sucre · … ».
+        // « Japon · 123 millions d'hab. », puis « Capitale : Tokyo » (§ 4.1 ; 18/11, choix de l'utilisateur : derrière
+        // la capitale, on croyait ses habitants ceux de la capitale) ; plusieurs : « Capitales : La Paz, Sucre ».
         if (sorte === 'pays') {
-          faits.textContent = m.faitsPays(lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom) ?? [], lues.fiches.lieux.get(id));
+          habitants.textContent = m.habitantsBarre(lues.fiches.lieux.get(id));
+          faits.textContent = m.faitsPays(lues.capitales?.parPays.get(id)?.justes.map((c) => c.nom) ?? []);
           drapeau = id;
           auRepos(prechaufferZoneBarre);
           if (chargerDrapeau && !drapeauxLus) {
@@ -1016,6 +1022,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       if (!p) return montrer(ctx.terrains.monde, id);
       aller(ctx.terrains.monde);
       nom.textContent = '';
+      habitants.textContent = '';
       detail.textContent = textes.toucher.chargement_sujet;
       annoncer();
       p.then(
