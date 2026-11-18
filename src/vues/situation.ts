@@ -153,23 +153,39 @@ const nouvelleTrace = (formes: readonly Forme[], tolerance: number, aireMin: num
  * garde à peine moins (simplifier le refait après la projection, à TOLERANCE près) ; un grand polygone (la Russie,
  * 5 482 points) passe d'un pas de ≈ 35 ms sur l'A37 à quelques ms. Un anneau réduit à moins de 4 points est retiré,
  * et le polygone avec lui si c'est son contour.
+ *
+ * Un anneau éclairci qui tourne dans l'autre sens que l'original (son aire plane, en degrés, change de signe : un îlot
+ * réduit à un triangle retourné : 62 cas, polygone et tolérance, dans les 258 lieux) reste entier : d3-geo lirait ce
+ * triangle comme son complément, la sphère entière moins l'îlot, et le peindrait sur toute la carte (la Russie et le
+ * Groenland sur tout l'ovale, les terres du fond sur l'eau de chaque mer ; § 21 de l'étude). Le sens se compte en
+ * passant (une multiplication de plus par point, sans trigonométrie) ; l'anneau gardé entier est petit (quelques
+ * dizaines de points au plus).
  */
-function decimer(polys: readonly Position[][][], tol: number): Position[][][] {
+export function decimer(polys: readonly Position[][][], tol: number): Position[][][] {
   const sortie: Position[][][] = [];
   for (const poly of polys) {
     const anneaux: Position[][] = [];
     for (const r of poly) {
       const g: Position[] = [r[0]!];
-      let [lx, ly] = r[0]! as [number, number];
-      for (let i = 1; i < r.length - 1; i++) {
+      const [x0, y0] = r[0]! as [number, number];
+      let [lx, ly] = [x0, y0];
+      // Les aires planes (doublées, depuis le premier point) de l'original et de l'éclairci : px, py le point d'avant.
+      let aire = 0;
+      let aireG = 0;
+      let [px, py] = [x0, y0];
+      for (let i = 1; i < r.length; i++) {
         const [x, y] = r[i]! as [number, number];
-        if (Math.abs(x - lx) < tol && Math.abs(y - ly) < tol) continue;
+        aire += (px - x0) * (y - y0) - (x - x0) * (py - y0);
+        px = x;
+        py = y;
+        if (i < r.length - 1 && Math.abs(x - lx) < tol && Math.abs(y - ly) < tol) continue;
+        aireG += (lx - x0) * (y - y0) - (x - x0) * (ly - y0);
         g.push(r[i]!);
         lx = x;
         ly = y;
       }
-      g.push(r[r.length - 1]!);
-      if (g.length >= 4) anneaux.push(g);
+      const garde = Math.sign(aireG) === Math.sign(aire) ? g : r;
+      if (garde.length >= 4) anneaux.push(garde);
       else if (!anneaux.length) break;
     }
     if (anneaux.length) sortie.push(anneaux);
