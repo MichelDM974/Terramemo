@@ -36,6 +36,7 @@
     "capitales": "Capitales",
     "habitants": "Habitants",
     "habitants_valeur": "{n} ({annee})",
+    "aucun_habitant": "aucun habitant permanent",
     "superficie": "Superficie",
     "km2": "{n} km²",
     "langue": "Langue",
@@ -696,7 +697,7 @@
       },
       {
         "nom": "Unicode CLDR",
-        "detail": "Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays · v49.0.0",
+        "detail": "Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays et territoire · v49.0.0",
         "licence": "Unicode License v3",
         "auteur": "© 2015-2024 Unicode, Inc.",
         "lien": "/geo/LICENSE-CLDR.txt"
@@ -710,7 +711,7 @@
       },
       {
         "nom": "Wikidata",
-        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026 ; superficies, gentilés, sommets, habitants de Taïwan et du Vatican, liens vers Wikipédia · extrait du 17/11/2026",
+        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026 ; superficies, gentilés, sommets, habitants de Taïwan, du Vatican, de territoires et de zones contestées, capitales des territoires, liens vers Wikipédia · extrait du 18/11/2026",
         "licence": "CC0 1.0",
         "auteur": "Wikidata et ses contributeurs",
         "lien": "https://creativecommons.org/publicdomain/zero/1.0/deed.fr"
@@ -731,14 +732,14 @@
       },
       {
         "nom": "Banque mondiale",
-        "detail": "Habitants des pays, 2025 · World Development Indicators, extrait du 17/11/2026",
+        "detail": "Habitants des pays et des territoires, 2025 · World Development Indicators, extrait du 17/11/2026",
         "licence": "CC BY 4.0, conditions de la Banque mondiale",
         "auteur": "The World Bank: World Development Indicators, Population, total (SP.POP.TOTL): World Population Prospects (UN Population Division), Statistical databases and publications from national statistical offices (National Statistical Offices), Eurostat: Demographic Statistics (Eurostat), Population and Vital Statistics Report (various years) (UN Statistics Division)",
         "lien": "https://www.worldbank.org/ext/en/legal/terms-conditions/datasets"
       },
       {
         "nom": "Base de données des fuseaux horaires de l'IANA",
-        "detail": "Fuseau de chaque pays · 2026e",
+        "detail": "Fuseau de chaque pays et territoire · 2026e",
         "licence": "Domaine public",
         "auteur": "IANA et les contributeurs de la base tz",
         "lien": "https://www.iana.org/time-zones"

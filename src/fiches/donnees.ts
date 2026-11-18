@@ -21,7 +21,7 @@ interface FicheBrute {
   /** Territoire (lot F3) : l'id du pays souverain, la forme de son statut (clé formes_statut de geodata/fiches-main.json). */
   sv?: string;
   fs?: string;
-  /** Habitants, leur année ; hs « wd » : de Wikidata (sinon la Banque mondiale). */
+  /** Habitants, leur année ; hs « wd » : de Wikidata (sinon la Banque mondiale). 0 sans année : aucun habitant permanent (lot F3). */
   h?: number;
   ha?: number;
   hs?: 'wd';
@@ -46,8 +46,10 @@ interface FicheBrute {
 interface TexteBrut {
   /** Territoire ou zone contestée (lot F3) : le statut affiché, écrit en entier (D57). */
   st?: string;
-  /** Titre de la Wikipédia de la langue (les 197 pays ; les autres au lot F3). */
+  /** Titre de la Wikipédia de la langue (257 lieux : tous sauf l'île Brésilienne). */
   wp?: string;
+  /** Territoire (lot F3) : le nom de sa capitale (Wikidata P36) ; un pays a les siennes dans capitales.fr.json. */
+  ca?: string;
   /** Gentilé masculin, et son pluriel tout fait (aucune règle de grammaire dans le code). */
   g?: string;
   gp?: string;
@@ -80,10 +82,14 @@ export interface FichierMondeLangue {
  */
 export interface FicheMonde {
   sorte: SorteLieu;
+  /** Territoire ou zone contestée (lot F3) : le statut écrit à la main, en entier (relu : LIGNES_RELUES.statut). */
+  statut?: string;
+  /** Territoire : le nom de sa capitale. */
+  capitale?: string;
   /** Titre de l'article de la Wikipédia de la langue, ou null (pas de lien). */
   wp: string | null;
-  /** source « wd » : Wikidata (Taïwan, Vatican), sinon la Banque mondiale. */
-  habitants?: { n: number; annee: number; source: 'bm' | 'wd' };
+  /** source « wd » : Wikidata (Taïwan, Vatican, des territoires et des zones), sinon la Banque mondiale ; annee null : 0, aucun habitant permanent. */
+  habitants?: { n: number; annee: number | null; source: 'bm' | 'wd' };
   superficie?: number;
   /** Les officielles, puis les langues du pays parlées par 10 % ou plus, avec leur part (D56 c). */
   langues?: { officielles: readonly string[]; parlees: readonly { nom: string; part: number }[] };
@@ -113,7 +119,9 @@ const nommer = (codes: readonly string[], noms: Readonly<Record<string, string>>
 /** Une entrée des deux fichiers, les noms résolus ; seuls les champs présents (et complets) sont posés. */
 function lireLieu(b: FicheBrute, t: TexteBrut, fr: FichierMondeLangue): FicheMonde {
   const f: FicheMonde = { sorte: b.s, wp: t.wp ?? null };
-  if (b.h !== undefined && b.ha !== undefined) f.habitants = { n: b.h, annee: b.ha, source: b.hs === 'wd' ? 'wd' : 'bm' };
+  if (t.st) f.statut = t.st;
+  if (t.ca) f.capitale = t.ca;
+  if (b.h !== undefined && (b.ha !== undefined || b.h === 0)) f.habitants = { n: b.h, annee: b.h === 0 ? null : b.ha!, source: b.hs === 'wd' ? 'wd' : 'bm' };
   if (b.sup !== undefined) f.superficie = b.sup;
   if (b.lo?.length || b.lp?.length) {
     const parlees = (b.lp ?? []).flatMap(([c, part]) => (fr.langues[c] ? [{ nom: fr.langues[c], part }] : []));
@@ -176,4 +184,48 @@ export const fichesMondeChargees = (): DonneesFichesMonde | null => chargees;
 export function oublierFichesMonde(): void {
   chargees = null;
   enCours = null;
+}
+
+// --- Drapeaux des territoires (lot F3) --------------------------------------------------
+
+/** Le manifeste public/geo/drapeaux-territoires.json (geodata/drapeaux.mjs) : l'empreinte du drapeau de chaque territoire. */
+export interface ManifesteDrapeauxTerritoires {
+  v: number;
+  territoires: Record<string, string>;
+}
+
+/** L'adresse du drapeau de chaque territoire qui en a un (les 40 qui ont un code ISO). */
+export type DrapeauxTerritoires = ReadonlyMap<string, string>;
+
+/** Le manifeste lu : id → adresse du drapeau (base : « /geo/ »). */
+export function lireDrapeauxTerritoires(m: ManifesteDrapeauxTerritoires, base = '/geo/'): DrapeauxTerritoires {
+  if (m.v !== 1) throw new Error(`drapeaux-territoires : version ${m.v}, attendue 1`);
+  return new Map(Object.entries(m.territoires).map(([id, h]) => [id, `${base}drapeaux-territoires/${h}.svg`]));
+}
+
+let drapeauxT: DrapeauxTerritoires | null = null;
+let drapeauxTEnCours: Promise<DrapeauxTerritoires> | null = null;
+
+/**
+ * Les drapeaux des territoires, lus à la première fiche de territoire ouverte (§ 6.1), jamais
+ * avant : à part de ceux des pays (drapeaux.json), que les exercices lisent. Un échec n'est pas
+ * gardé : la fiche suivante réessaie.
+ */
+export function chargerDrapeauxTerritoires(lire: Lecteur = lireHttp, base = '/geo/'): Promise<DrapeauxTerritoires> {
+  if (drapeauxT) return Promise.resolve(drapeauxT);
+  if (!drapeauxTEnCours) {
+    const p = Promise.resolve(lire(`${base}drapeaux-territoires.json`)).then((m) => (drapeauxT = lireDrapeauxTerritoires(m as ManifesteDrapeauxTerritoires, base)));
+    drapeauxTEnCours = p;
+    p.then(
+      () => (drapeauxTEnCours = null),
+      () => (drapeauxTEnCours = null),
+    );
+  }
+  return drapeauxTEnCours;
+}
+
+/** Tests : oublie les drapeaux des territoires lus. */
+export function oublierDrapeauxTerritoires(): void {
+  drapeauxT = null;
+  drapeauxTEnCours = null;
 }

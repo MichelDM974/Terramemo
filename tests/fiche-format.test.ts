@@ -173,7 +173,10 @@ describe('chargeur des fiches du monde', () => {
     expect(d.lieux.get('GMB')!.culminant!.source).toBe('fb');
     expect(d.lieux.get('VAT')!.gentilsSource).toBe('wp');
     expect(d.lieux.get('FRA')!.culminant!.source).toBeUndefined();
-    expect(d.lieux.get('GRL')).toEqual({ sorte: 'territoire', wp: null });
+    // Lot F3 : un territoire, son statut écrit, sa capitale et ses chiffres ; 0 habitant, sans année (« aucun habitant permanent »).
+    expect(d.lieux.get('GRL')).toMatchObject({ sorte: 'territoire', wp: 'Groenland', statut: 'Partie autonome du royaume du Danemark', capitale: 'Nuuk', habitants: { n: 56_831, annee: 2025, source: 'bm' } });
+    expect(d.lieux.get('HMD')!.habitants).toEqual({ n: 0, annee: null, source: 'wd' });
+    expect(d.lieux.get('NE_BRT')).toEqual({ sorte: 'zone', wp: 'Bir Tawil', statut: fr.lieux.NE_BRT!.st });
     expect(d.lieux.get('ATA')?.sorte).toBe('continent');
     expect(d.sousRegions['Eastern Asia']).toBe("Asie de l'Est");
     expect(() => lireFichesMonde({ ...m, v: 2 }, fr)).toThrow(/version/);

@@ -50,8 +50,9 @@ import { estDomaine, type Domaine } from '../srs/fiches';
 import { tailleEcranPx } from '../map/pastilles';
 import { pickMer, type ResultatPick, type Via } from '../map/pick';
 import type { Lieu, NomTerrain, Pays } from '../map/types';
-import type { DonneesFichesMonde } from '../fiches/donnees';
+import type { DonneesFichesMonde, DrapeauxTerritoires } from '../fiches/donnees';
 import { fmtHabitantsCourt } from '../fiches/format';
+import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { EntreeFiche, LieuFiche } from '../navigation';
 import type { Terrain } from '../terrains';
@@ -100,6 +101,13 @@ export interface OptionsFiche {
   capitales(): Promise<DonneesCapitales>;
   /** Le manifeste des drapeaux (chargerDrapeaux), à l'ouverture d'une fiche de pays. */
   drapeaux(): Promise<DonneesDrapeaux>;
+  /**
+   * Les drapeaux des territoires (chargerDrapeauxTerritoires, lot F3), à l'ouverture d'une fiche
+   * de territoire seulement ; sans eux, la place grise du drapeau reste.
+   */
+  drapeauxTerritoires?(): Promise<DrapeauxTerritoires>;
+  /** Les lignes relues (absent : LIGNES_RELUES ; les tests passent les deux états). */
+  relues?: Readonly<Record<LigneRelue, boolean>>;
   /** Le morceau de la fiche (import('./fiche')). */
   module(): Promise<ModuleFiche>;
   /**
@@ -428,6 +436,15 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       if (lues?.fiches.lieux.has(id)) {
         ficheDispo = true;
         chevron.hidden = false;
+        // « Nuuk · 56 800 hab. » (§ 4.1, lot F3) : la capitale une fois relue, sinon les habitants seuls ;
+        // rien pour une zone contestée ni pour l'Antarctique.
+        if (sorte === 'territoire') {
+          const f = lues.fiches.lieux.get(id)!;
+          const h = f.habitants;
+          const capitale = (F!.relues ?? LIGNES_RELUES).capitale_territoires ? f.capitale : undefined;
+          faits.textContent = [capitale, h ? (h.annee === null ? textes.fiche.aucun_habitant : fmtHabitantsCourt(h.n)) : ''].filter(Boolean).join(' · ');
+          if (moduleCharge) auRepos(prechaufferZoneBarre);
+        }
         // « Tokyo · 123 millions d'hab. » (§ 4.1) ; plusieurs capitales : « La Paz, Sucre · … ».
         if (sorte === 'pays') {
           const h = lues.fiches.lieux.get(id)?.habitants;
@@ -527,6 +544,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
 
   /** Le morceau de la fiche, une fois chargé (rafraichir() refait la fiche ouverte). */
   let moduleFiche: ModuleFiche | null = null;
+  /** Les drapeaux des territoires, une fois lus (à la première fiche de territoire). */
+  let drapeauxTerritoiresLus: DrapeauxTerritoires | null = null;
   function composer(m: ModuleFiche, id: string) {
     moduleFiche = m;
     if (!lues) return null;
@@ -537,7 +556,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
       fiches: lues.fiches,
       capitales: lues.capitales,
       drapeaux: drapeauxLus,
+      drapeauxTerritoires: drapeauxTerritoiresLus,
       memoire: (x, jouable) => o.memoire?.details(t.nom, x, jouable) ?? null,
+      ...(F?.relues ? { relues: F.relues } : {}),
     });
   }
 
@@ -585,8 +606,19 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
           voisin: (v) => historique.pousser({ terrain: 'monde', id: v }),
         });
         feuille.montrer(modele, { avant: f.rang > 1, focus: true });
+        // Le drapeau d'un territoire (lot F3) : son manifeste à part, à la première fiche de territoire.
+        if (modele.avecDrapeau && !modele.drapeaux.length && modele.sorte === 'territoire' && F.drapeauxTerritoires) {
+          F.drapeauxTerritoires().then(
+            (d) => {
+              drapeauxTerritoiresLus = d;
+              const src = d.get(f.id);
+              if (j === jetonFiche && active && src) feuille?.drapeaux([src]);
+            },
+            () => undefined,
+          );
+        }
         // Le drapeau d'un pays : le manifeste à la première fiche (§ 6.1), la place grise d'ici là.
-        if (modele.avecDrapeau && !modele.drapeaux.length) {
+        if (modele.avecDrapeau && !modele.drapeaux.length && modele.sorte === 'pays') {
           chargerDrapeauxBarre().then(
             () => {
               if (j === jetonFiche && active) feuille?.drapeaux(drapeauxLus?.parPays.get(f.id)?.justes ?? []);

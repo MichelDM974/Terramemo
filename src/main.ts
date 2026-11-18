@@ -8,7 +8,7 @@ import { empriseDesLieux, lignesDe, lignesQuiCroisent } from './map/lignes';
 import { chargerCapitales } from './map/capitales';
 import { chargerDrapeaux } from './map/drapeaux';
 import { chargerMers } from './map/mers';
-import { chargerFichesMonde } from './fiches/donnees';
+import { chargerDrapeauxTerritoires, chargerFichesMonde } from './fiches/donnees';
 import type { Note, OptionsNoter, ResultatPick } from './map/pick';
 import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
@@ -772,6 +772,7 @@ async function demarrer(): Promise<void> {
     fiches: () => chargerFichesMonde(),
     capitales: () => chargerCapitales(),
     drapeaux: () => chargerDrapeaux(),
+    drapeauxTerritoires: () => chargerDrapeauxTerritoires(),
     module: () => import('./vues/fiche'),
     historique: { pousser: nav.pousserFiche, quitter: nav.quitterFiches, retour: () => history.back() },
     autorisee: ficheAutorisee,

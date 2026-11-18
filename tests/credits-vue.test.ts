@@ -122,18 +122,18 @@ describe('écran Crédits', () => {
     expect(T.donnees[2]!.nom).toContain('IGN');
     // Unicode CLDR : les langues et les monnaies aussi, à la version des deux extraits.
     const cldr = ligne('Unicode CLDR');
-    expect(cldr.detail).toBe(`Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays · v${source('Unicode CLDR, langues').split(' ')[0]}`);
+    expect(cldr.detail).toBe(`Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays et territoire · v${source('Unicode CLDR, langues').split(' ')[0]}`);
     expect(source('Unicode CLDR, noms').split(' ')[0]).toBe(source('Unicode CLDR, langues').split(' ')[0]);
     // Wikidata : l'extrait des capitales, puis celui des fiches, chacun à sa date.
     const wd = ligne('Wikidata');
     expect(wd.detail).toBe(
       `Capitales et notoriété des lieux · extrait du ${date(json<{ date: string }>('geodata/wikidata/capitales.json').date)} ; ` +
-        `superficies, gentilés, sommets, habitants de Taïwan et du Vatican, liens vers Wikipédia · extrait du ${date(json<{ date: string }>('geodata/wikidata/fiches.json').date)}`,
+        `superficies, gentilés, sommets, habitants de Taïwan, du Vatican, de territoires et de zones contestées, capitales des territoires, liens vers Wikipédia · extrait du ${date(json<{ date: string }>('geodata/wikidata/fiches.json').date)}`,
     );
     // La Banque mondiale, selon ses conditions : « The World Bank: <jeu>: <source> », CC BY 4.0, l'adresse des conditions en lien.
     const bm = json<{ date: string; annee: number; source: { nom: string; donnees_de: string }; conditions: { url: string; licence: string } }>('geodata/banque-mondiale/population.json');
     const banque = ligne('Banque mondiale');
-    expect(banque.detail).toBe(`Habitants des pays, ${bm.annee} · World Development Indicators, extrait du ${date(bm.date)}`);
+    expect(banque.detail).toBe(`Habitants des pays et des territoires, ${bm.annee} · World Development Indicators, extrait du ${date(bm.date)}`);
     expect(bm.conditions.licence).toContain('CC BY 4.0');
     expect(banque.licence).toContain('CC BY 4.0');
     expect(banque.lien).toBe(bm.conditions.url);
@@ -143,7 +143,7 @@ describe('écran Crédits', () => {
     expect(bm.source.nom).toContain('Population, total (SP.POP.TOTL)');
     // La base tz à la version de zone.tab ; le Factbook à la date de son miroir figé ; tous deux du domaine public.
     const tz = ligne("Base de données des fuseaux horaires de l'IANA");
-    expect(tz.detail).toBe(`Fuseau de chaque pays · ${source('IANA Time Zone Database')}`);
+    expect(tz.detail).toBe(`Fuseau de chaque pays et territoire · ${source('IANA Time Zone Database')}`);
     expect(tz.licence).toBe('Domaine public');
     const cia = ligne('CIA World Factbook');
     expect(cia.detail.match(/miroir figé du (\d\d\/\d\d\/\d{4})$/)?.[1]).toBe(source('CIA World Factbook').match(/du (\d\d\/\d\d\/\d{4})/)?.[1]);

@@ -12,6 +12,13 @@
 // sous la fiche). Ni la barre, ni le voile, ni la feuille ne sont dans l'hôte
 // de la carte : leurs événements ne l'atteignent pas.
 //
+// Lot F3 : un territoire a les lignes d'un pays qui s'appliquent (pas de fête,
+// pas de nombre de fuseaux), son drapeau à part (drapeaux-territoires.json) et
+// son statut écrit en tête ; une zone contestée, son statut, ses habitants,
+// son continent, ses voisins et son lien, rien d'autre (D57 a) ; l'Antarctique,
+// sa superficie et son sommet. Le statut écrit et les lignes à relire restent
+// tus derrière leur clé de LIGNES_RELUES.
+//
 // Contenu, de haut en bas : la tête (« ‹ » s'il y a une fiche d'avant, « × »,
 // le drapeau, le nom, le statut), les faits (lot F2 pour un pays, dans l'ordre
 // du § 4.2 : capitale, habitants, superficie, langues, monnaie, gentilé, heure,
@@ -25,7 +32,7 @@
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import type { NomTerrain, Pays } from '../map/types';
-import type { DonneesFichesMonde, SourceLigne } from '../fiches/donnees';
+import type { DonneesFichesMonde, DrapeauxTerritoires, SourceLigne } from '../fiches/donnees';
 import { fmtAltitude, fmtHabitants, fmtHeureLieu, fmtJourMois, fmtPart, fmtSuperficie, listeEt } from '../fiches/format';
 export { prechaufferFormats, prechaufferZone } from '../fiches/format';
 import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
@@ -56,11 +63,14 @@ export interface ModeleFiche {
   id: string;
   sorte: SorteLieu;
   nom: string;
-  /** « territoire », « statut contesté », « continent » ; '' pour un pays. */
+  /**
+   * « territoire », « statut contesté », « continent » ; '' pour un pays. Un territoire ou une
+   * zone : son statut écrit (lot F3) une fois relu (LIGNES_RELUES.statut).
+   */
   statut: string;
-  /** Un pays : ses drapeaux (le montré d'abord) ; vide tant que le manifeste n'est pas lu, ou sans drapeau. */
+  /** Un pays ou un territoire : ses drapeaux (le montré d'abord) ; vide tant que le manifeste n'est pas lu, ou sans drapeau. */
   drapeaux: readonly string[];
-  /** Un pays : le drapeau a sa place (4:3), même avant le manifeste. */
+  /** Un pays, un territoire qui a un code ISO (les 40 drapeaux de territoires) : le drapeau a sa place (4:3), même avant le manifeste. */
   avecDrapeau: boolean;
   /** Les lignes « libellé · valeur » (dt, dd), sans ligne vide. */
   faits: readonly FaitFiche[];
@@ -82,6 +92,8 @@ export interface DonneesComposition {
   fiches: DonneesFichesMonde;
   capitales: DonneesCapitales | null;
   drapeaux: DonneesDrapeaux | null;
+  /** Les drapeaux des territoires (lot F3), lus à la première fiche de territoire ; absent : pas encore. */
+  drapeauxTerritoires?: DrapeauxTerritoires | null;
   /** Les lignes de la mémoire du lieu (CarteMemoire.details) ; null : pas de section. */
   memoire(id: string, jouable: boolean): readonly string[] | null;
   /** Les lignes relues (absent : LIGNES_RELUES ; les tests passent les deux états). */
@@ -96,11 +108,14 @@ export const DELAI_HEURE_MS = 30_000;
 /** L'adresse d'un article de la Wikipédia de la langue (textes.fiche.wikipedia_base), par son titre. */
 export const adresseWikipedia = (titre: string): string => T.wikipedia_base + encodeURIComponent(titre.replace(/ /g, '_'));
 
-/** Le statut que la fiche dit en tête : celui de la barre pour un territoire ou une zone ; « continent » pour l'Antarctique ; rien pour un pays. */
-function statutFiche(sorte: SorteLieu, p: Pays): string {
+/**
+ * Le statut que la fiche dit en tête : pour un territoire ou une zone, son texte écrit (lot F3)
+ * une fois relu, sinon le libellé de la barre ; « continent » pour l'Antarctique ; rien pour un pays.
+ */
+function statutFiche(sorte: SorteLieu, p: Pays, ecrit: string | undefined, relu: boolean): string {
   if (sorte === 'continent') return T.statut_continent;
   if (sorte === 'pays') return '';
-  return LIBELLE_STATUT[p.statut];
+  return relu && ecrit ? ecrit : LIBELLE_STATUT[p.statut];
 }
 
 /** Le nom d'une source de ligne écrite à la main hors de Wikidata. */
@@ -121,36 +136,47 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
   const S = T.noms_sources;
   const sources = [S.natural_earth, S.cldr];
   const citer = (nom: string) => void (sources.includes(nom) || sources.push(nom));
-  const caps = sorte === 'pays' ? d.capitales?.parPays.get(id) : undefined;
+  // Lot F3 : un territoire a les lignes d'un pays qui s'appliquent ; une zone contestée, ses habitants seuls (D57 a) ;
+  // l'Antarctique, sa superficie et son sommet. Les lignes à relire de chacun ont leur clé (src/fiches/relues.ts).
+  const pays = sorte === 'pays';
+  const territoire = sorte === 'territoire';
+  const zone = sorte === 'zone';
+  const continent = sorte === 'continent';
+  const caps = pays ? d.capitales?.parPays.get(id) : undefined;
+  const capTerritoire = territoire && relues.capitale_territoires ? f.capitale : undefined;
   if (caps) {
     faits.push({ libelle: caps.justes.length > 1 ? T.capitales : T.capitale, valeur: listeEt(caps.justes.map((c) => c.nom)) });
     citer(S.wikidata);
+  } else if (capTerritoire) {
+    faits.push({ libelle: T.capitale, valeur: capTerritoire });
+    citer(S.wikidata);
   }
-  if (f.habitants) {
-    faits.push({ libelle: T.habitants, valeur: fmtHabitants(f.habitants.n, f.habitants.annee) });
+  if (f.habitants && !continent && (!zone || relues.habitants_zones)) {
+    const { n, annee } = f.habitants;
+    faits.push({ libelle: T.habitants, valeur: annee === null ? T.aucun_habitant : fmtHabitants(n, annee) });
     citer(f.habitants.source === 'wd' ? S.wikidata : S.banque_mondiale);
   }
-  if (f.superficie !== undefined && relues.superficie) {
+  if (f.superficie !== undefined && !zone && (pays ? relues.superficie : relues.superficie_territoires)) {
     faits.push({ libelle: T.superficie, valeur: fmtSuperficie(f.superficie) });
     citer(S.superficie);
   }
-  if (f.langues && relues.langues) {
+  if (f.langues && (pays ? relues.langues : territoire && relues.langues_territoires)) {
     // Les officielles d'abord, puis les langues du pays parlées par 10 % ou plus, avec leur part (D56 c).
     const { officielles, parlees } = f.langues;
     const valeur = [...(officielles.length ? [listeEt(officielles)] : []), ...parlees.map((l) => fmtPart(l.nom, l.part))].join(' · ');
     if (valeur) faits.push({ libelle: officielles.length + parlees.length > 1 ? T.langues : T.langue, valeur });
   }
-  if (f.monnaies?.length) faits.push({ libelle: f.monnaies.length > 1 ? T.monnaies : T.monnaie, valeur: listeEt(f.monnaies) });
-  if (f.gentils && relues.gentile) {
+  if (f.monnaies?.length && (pays || territoire)) faits.push({ libelle: f.monnaies.length > 1 ? T.monnaies : T.monnaie, valeur: listeEt(f.monnaies) });
+  if (f.gentils && (pays ? relues.gentile : territoire && relues.gentile_territoires)) {
     faits.push({ libelle: T.gentile, valeur: remplir(T.gentile_valeur, { gentils: f.gentils }) });
     citer(S.wikidata);
     if (f.gentilsSource) citer(sourceLigne(f.gentilsSource));
   }
-  if (f.heure) {
+  if (f.heure && (pays || territoire)) {
     // Une zone que le navigateur ne connaît pas (RangeError) : pas de ligne (§ 4.2).
     try {
       const valeur = fmtHeureLieu(f.heure.zone, f.heure.fuseaux, d.maintenant ?? new Date());
-      const capitale = caps?.principale.nom;
+      const capitale = caps?.principale.nom ?? capTerritoire;
       // « Heure au Caire » : la forme toute faite des données (aucune grammaire ici).
       const libelle = !capitale ? T.heure_locale : f.aCapitale ? remplir(T.heure_forme, { a_capitale: f.aCapitale }) : remplir(T.heure, { capitale });
       faits.push({ libelle, valeur, heure: f.heure });
@@ -159,21 +185,23 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
       if (!(e instanceof RangeError)) throw e;
     }
   }
-  const continent = (textes.continents as Record<string, string>)[p.continent];
+  const nomContinent = (textes.continents as Record<string, string>)[p.continent];
   const sousRegion = d.fiches.sousRegions[p.sous_region];
-  if (continent && sousRegion && continent !== sousRegion) faits.push({ libelle: T.continent, valeur: remplir(T.continent_valeur, { continent, sous_region: sousRegion }) });
-  else if (continent ?? sousRegion) faits.push({ libelle: T.continent, valeur: (continent ?? sousRegion)! });
-  if (f.culminant && relues.culminant) {
+  if (nomContinent && sousRegion && nomContinent !== sousRegion) faits.push({ libelle: T.continent, valeur: remplir(T.continent_valeur, { continent: nomContinent, sous_region: sousRegion }) });
+  else if (nomContinent ?? sousRegion) faits.push({ libelle: T.continent, valeur: (nomContinent ?? sousRegion)! });
+  if (f.culminant && !zone && (pays ? relues.culminant : relues.culminant_territoires)) {
     faits.push({ libelle: T.culminant, valeur: remplir(T.culminant_valeur, { nom: f.culminant.nom, altitude: fmtAltitude(f.culminant.altitude) }) });
     citer(S.wikidata);
     if (f.culminant.source) citer(sourceLigne(f.culminant.source));
   }
-  if (f.fete && relues.fete) {
+  if (f.fete && pays && relues.fete) {
     faits.push({ libelle: T.fete, valeur: remplir(T.fete_valeur, { date: fmtJourMois(f.fete.jour, f.fete.mois), nom: f.fete.nom }) });
     citer(S.factbook);
   }
-  const avecDrapeau = sorte === 'pays';
-  const drapeaux = avecDrapeau ? (d.drapeaux?.parPays.get(id)?.justes ?? []) : [];
+  // Le drapeau : un pays ; un territoire qui a un code ISO (les 40 de drapeaux-territoires.json, lot F3).
+  const avecDrapeau = pays || (territoire && !!p.a2);
+  const drapeauT = territoire ? d.drapeauxTerritoires?.get(id) : undefined;
+  const drapeaux = pays ? (d.drapeaux?.parPays.get(id)?.justes ?? []) : drapeauT ? [drapeauT] : [];
   if (avecDrapeau) citer(S.flag_icons);
   if (f.wp) citer(S.wikidata);
   // Les voisins : les pays jouables d'abord, par ordre alphabétique, puis à part les autres entités, avec leur statut (§ 2.1).
@@ -190,7 +218,7 @@ export function composerFiche(id: string, d: DonneesComposition): ModeleFiche | 
     id,
     sorte,
     nom: d.nom(id),
-    statut: statutFiche(sorte, p),
+    statut: statutFiche(sorte, p, f.statut, relues.statut),
     drapeaux,
     avecDrapeau,
     faits,

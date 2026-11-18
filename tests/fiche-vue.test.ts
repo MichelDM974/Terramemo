@@ -9,7 +9,7 @@
 // pilote (ui_fiche).
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { lireFichesMonde, type DonneesFichesMonde, type FichierMonde, type FichierMondeLangue } from '../src/fiches/donnees';
+import { lireDrapeauxTerritoires, lireFichesMonde, type DonneesFichesMonde, type FichierMonde, type FichierMondeLangue, type ManifesteDrapeauxTerritoires } from '../src/fiches/donnees';
 import { fmtHabitants, fmtHabitantsCourt, fmtHeureLieu, nombreFormateurs } from '../src/fiches/format';
 import { LIGNES_RELUES, type LigneRelue } from '../src/fiches/relues';
 import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
@@ -31,22 +31,40 @@ const noms = lire<Record<string, string>>('noms.fr.json');
 const FICHES: DonneesFichesMonde = lireFichesMonde(lire<FichierMonde>('fiches-monde.json'), lire<FichierMondeLangue>('fiches-monde.fr.json'));
 const CAPITALES = lireCapitales(lire<LigneCapitales[]>('capitales.json'), lire<NomsCapitales>('capitales.fr.json'));
 const DRAPEAUX = lireDrapeaux(lire<ManifesteDrapeaux>('drapeaux.json'));
+const DRAPEAUX_T = lireDrapeauxTerritoires(lire<ManifesteDrapeauxTerritoires>('drapeaux-territoires.json'));
 const T = textes.fiche;
 /** La part « habitants » de la ligne de faits d'un pays (« 123 millions d'hab. »). */
 const hab = (id: string) => fmtHabitantsCourt(FICHES.lieux.get(id)!.habitants!.n);
 const S = T.noms_sources;
 /** Les lignes à relire, toutes relues, ou aucune (les deux états de LIGNES_RELUES). */
-const TOUTES: Record<LigneRelue, boolean> = { superficie: true, langues: true, gentile: true, culminant: true, fete: true };
-const AUCUNE: Record<LigneRelue, boolean> = { superficie: false, langues: false, gentile: false, culminant: false, fete: false };
+const TOUTES = Object.fromEntries(Object.keys(LIGNES_RELUES).map((k) => [k, true])) as Record<LigneRelue, boolean>;
+const AUCUNE = Object.fromEntries(Object.keys(LIGNES_RELUES).map((k) => [k, false])) as Record<LigneRelue, boolean>;
+/** Les lignes à relire d'un pays (lot F2) ; les autres clés (lot F3) ne touchent pas sa fiche. */
+type LignePays = 'superficie' | 'langues' | 'gentile' | 'culminant' | 'fete';
 /** Le libellé de chaque ligne à relire (« Langue » ou « Langues » selon le pays). */
-const libelleRelue = (k: LigneRelue, id: string): string => {
+const libelleRelue = (k: LignePays, id: string): string => {
   const lg = FICHES.lieux.get(id)!.langues!;
   return { superficie: T.superficie, langues: lg.officielles.length + lg.parlees.length > 1 ? T.langues : T.langue, gentile: T.gentile, culminant: T.culminant, fete: T.fete }[k];
 };
 /** Les libellés d'un pays qui a tous ses chiffres, dans l'ordre du § 4.2, selon les lignes relues. */
 function libellesAttendus(id: string, capitale: string, R: Readonly<Record<LigneRelue, boolean>> = LIGNES_RELUES): string[] {
-  const si = (k: LigneRelue) => (R[k] ? [libelleRelue(k, id)] : []);
+  const si = (k: LignePays) => (R[k] ? [libelleRelue(k, id)] : []);
   return [T.capitale, T.habitants, ...si('superficie'), ...si('langues'), T.monnaie, ...si('gentile'), remplir(T.heure, { capitale }), T.continent, ...si('culminant'), ...si('fete')];
+}
+/** Les libellés d'un territoire qui a tous ses chiffres (le Groenland), dans l'ordre du § 4.2, selon les lignes relues. */
+function lignesTerritoire(_id: string, R: Readonly<Record<LigneRelue, boolean>>): string[] {
+  const si = (k: LigneRelue, l: string) => (R[k] ? [l] : []);
+  return [
+    ...si('capitale_territoires', T.capitale),
+    T.habitants,
+    ...si('superficie_territoires', T.superficie),
+    ...si('langues_territoires', T.langues),
+    T.monnaie,
+    ...si('gentile_territoires', T.gentile),
+    R.capitale_territoires ? 'Heure à Nuuk' : T.heure_locale,
+    T.continent,
+    ...si('culminant_territoires', T.culminant),
+  ];
 }
 /** Les sources du Japon (habitants de la Banque mondiale ; le Fuji à 3 776 m d'après Wikipédia), dans l'ordre de ses lignes, selon les lignes relues. */
 function sourcesAttendues(_id: string, R: Readonly<Record<LigneRelue, boolean>> = LIGNES_RELUES): string[] {
@@ -62,6 +80,7 @@ function composer(id: string, o: { relues?: Record<LigneRelue, boolean>; mainten
     fiches: o.fiches ?? FICHES,
     capitales: CAPITALES,
     drapeaux: DRAPEAUX,
+    drapeauxTerritoires: DRAPEAUX_T,
     memoire: () => null,
     ...(o.relues ? { relues: o.relues } : {}),
     ...(o.maintenant ? { maintenant: o.maintenant } : {}),
@@ -122,6 +141,7 @@ function monter(o: { fiche?: Partial<OptionsFiche>; memoire?: CarteMemoire; expl
     fiches: () => (charges.push('fiches'), Promise.resolve(FICHES)),
     capitales: () => (charges.push('capitales'), Promise.resolve(CAPITALES)),
     drapeaux: () => (charges.push('drapeaux'), Promise.resolve(DRAPEAUX)),
+    drapeauxTerritoires: () => (charges.push('drapeaux-territoires'), Promise.resolve(DRAPEAUX_T)),
     module: () => import('../src/vues/fiche'),
     ...o.fiche,
   };
@@ -198,10 +218,10 @@ describe('la barre : un bouton, une ligne de faits, un chevron', () => {
     // Plusieurs capitales : toutes, dans l'ordre du fichier (la principale d'abord).
     v.toucher('BOL');
     expect(v.faits()).toBe(`${CAPITALES.parPays.get('BOL')!.justes.map((c) => c.nom).join(', ')} · ${hab('BOL')}`);
-    // Un territoire : son statut, le chevron, pas de ligne de faits au lot F1 (ni capitale ni habitants au dépôt).
+    // Un territoire (lot F3) : son statut, le chevron, ses habitants ; sa capitale attend la relecture (LIGNES_RELUES).
     v.toucher('GRL');
     expect(v.el('#barre-carte .barre-detail')!.textContent).toBe(textes.carte.statuts.territoire);
-    expect(v.faits()).toBe('');
+    expect(v.faits()).toBe(LIGNES_RELUES.capitale_territoires ? `Nuuk · ${hab('GRL')}` : hab('GRL'));
     expect(v.chevron()).toBe(true);
     // Ni drapeau pour un territoire : la barre reprend ses deux colonnes.
     expect(drapeau().hidden).toBe(true);
@@ -352,24 +372,30 @@ describe('la fiche', () => {
     expect(b.lignes()[0]).toBe(`${T.capitales} · ${CAPITALES.parPays.get('BOL')!.justes.map((c) => c.nom).join(' et ')}`);
   });
 
-  it('un territoire, une zone contestée, l’Antarctique : une fiche courte, avec le statut de la barre ; ni drapeau, ni capitale, ni lien', async () => {
+  it('un territoire, une zone contestée, l’Antarctique (lot F3) : le statut de la barre tant que le statut écrit n’est pas relu ; le drapeau d’un territoire à part, à son ouverture', async () => {
     const g = await ouvrirSur('GRL');
-    expect(g.feuille()!.querySelector('.fiche-statut')!.textContent).toBe(textes.carte.statuts.territoire);
-    expect(g.lignes()).toEqual([`${T.continent} · Amérique du Nord · Amérique septentrionale`]);
-    expect(g.feuille()!.querySelector('.fiche-drapeaux')!.hidden).toBe(true);
-    expect(g.feuille()!.querySelector('.fiche-wikipedia')).toBeNull();
+    expect(g.feuille()!.querySelector('.fiche-statut')!.textContent).toBe(LIGNES_RELUES.statut ? FICHES.lieux.get('GRL')!.statut : textes.carte.statuts.territoire);
+    // Les lignes en ligne sans relecture : habitants, monnaie, heure (« Heure locale » tant que la capitale n'est pas relue), continent.
+    expect(g.lignes().map((l) => l.split(' · ')[0])).toEqual(lignesTerritoire('GRL', LIGNES_RELUES));
+    expect(g.feuille()!.querySelector('.fiche-drapeaux')!.hidden).toBe(false);
+    // Le drapeau des territoires : leur manifeste, jamais celui des pays (les exercices).
+    await vi.waitFor(() => expect(g.feuille()!.querySelectorAll('.fiche-drapeaux img').map((i) => i.getAttribute('src'))).toEqual([DRAPEAUX_T.get('GRL')]));
+    expect(g.charges).toEqual(['fiches', 'capitales', 'drapeaux-territoires']);
+    expect(g.feuille()!.querySelector('.fiche-wikipedia')!.getAttribute('href')).toBe('https://fr.wikipedia.org/wiki/Groenland');
     expect(g.feuille()!.querySelector('.fiche-voisins')).toBeNull();
-    expect(g.charges).not.toContain('drapeaux');
     const z = await ouvrirSur('ESH');
-    expect(z.feuille()!.querySelector('.fiche-statut')!.textContent).toBe(textes.carte.statuts.conteste);
-    expect(z.lignes()).toEqual([`${T.continent} · Afrique · Afrique du Nord`]);
+    expect(z.feuille()!.querySelector('.fiche-statut')!.textContent).toBe(LIGNES_RELUES.statut ? FICHES.lieux.get('ESH')!.statut : textes.carte.statuts.conteste);
+    expect(z.lignes().map(simple)).toEqual([...(LIGNES_RELUES.habitants_zones ? [`${T.habitants} · ${simple(fmtHabitants(612_000, 2021))}`] : []), `${T.continent} · Afrique · Afrique du Nord`]);
     expect(z.voisins()).toEqual(['Algérie', 'Maroc', 'Mauritanie']);
-    expect(z.feuille()!.querySelectorAll('.fiche-drapeaux img')).toEqual([]);
-    // Ni note de Natural Earth ni revendicants : le statut écrit et relu vient au lot F3.
-    expect(z.feuille()!.textContent).not.toMatch(/Self admin|revendiqu/i);
+    expect(z.feuille()!.querySelector('.fiche-drapeaux')!.hidden).toBe(true);
+    expect(z.charges).not.toContain('drapeaux-territoires');
+    // Ni note de Natural Earth : seul le statut écrit et relu, une fois relu.
+    expect(z.feuille()!.textContent).not.toMatch(/Self admin/i);
     const a = await ouvrirSur('ATA');
     expect(a.feuille()!.querySelector('.fiche-statut')!.textContent).toBe(T.statut_continent);
-    expect(a.lignes()).toEqual([`${T.continent} · Antarctique`]);
+    expect(a.lignes().map((l) => l.split(' · ')[0])).toEqual([...(LIGNES_RELUES.superficie_territoires ? [T.superficie] : []), T.continent, ...(LIGNES_RELUES.culminant_territoires ? [T.culminant] : [])]);
+    expect(a.feuille()!.querySelector('.fiche-drapeaux')!.hidden).toBe(true);
+    expect(a.feuille()!.querySelector('.fiche-wikipedia')!.getAttribute('href')).toBe('https://fr.wikipedia.org/wiki/Antarctique');
   });
 
   it('la mémoire : une ligne par sujet ; aucune section pour un territoire', async () => {
@@ -890,5 +916,93 @@ describe('les chiffres d’un pays (lot F2) : lignes, ordre, lignes à relire, h
       vi.doUnmock('../src/fiches/relues');
       vi.resetModules();
     }
+  });
+});
+
+describe('les fiches du lot F3 : territoires, zones contestées, Antarctique', () => {
+  const T0 = new Date('2026-11-18T12:20:45Z');
+
+  it('le Groenland, toutes les lignes relues : statut écrit, capitale, chiffres dans l’ordre du § 4.2, drapeau ; le pied nomme ses sources', () => {
+    const m = composer('GRL', { relues: TOUTES, maintenant: T0 });
+    expect(m.statut).toBe('Partie autonome du royaume du Danemark');
+    expect(lignesDe(m)).toEqual([
+      'Capitale · Nuuk',
+      'Habitants · 56 831 (2025)',
+      'Superficie · 2 166 086 km²',
+      'Langues · groenlandais · danois 14 %',
+      'Monnaie · couronne danoise',
+      'Gentilé · les Groenlandais',
+      simple(`Heure à Nuuk · ${fmtHeureLieu('America/Nuuk', 1, T0)}`),
+      'Continent · Amérique du Nord · Amérique septentrionale',
+      'Point culminant · Gunnbjørn, 3 694 m',
+    ]);
+    expect(m.drapeaux).toEqual([DRAPEAUX_T.get('GRL')]);
+    expect(m.avecDrapeau).toBe(true);
+    expect(m.wikipedia).toBe('https://fr.wikipedia.org/wiki/Groenland');
+    expect(m.sources).toEqual([S.natural_earth, S.cldr, S.wikidata, S.banque_mondiale, S.superficie, S.tz, S.flag_icons]);
+    // Aucune ligne relue : le libellé générique, ni capitale ni « Heure à Nuuk ».
+    const sans = composer('GRL', { relues: AUCUNE, maintenant: T0 });
+    expect(sans.statut).toBe(textes.carte.statuts.territoire);
+    expect(lignesDe(sans).map((l) => l.split(' · ')[0])).toEqual(lignesTerritoire('GRL', AUCUNE));
+    // Chaque clé du lot F3, relue seule, n'ajoute que sa ligne, à sa place.
+    for (const k of ['capitale_territoires', 'superficie_territoires', 'langues_territoires', 'gentile_territoires', 'culminant_territoires'] as const) {
+      const R = { ...AUCUNE, [k]: true };
+      expect(lignesDe(composer('GRL', { relues: R, maintenant: T0 })).map((l) => l.split(' · ')[0]), k).toEqual(lignesTerritoire('GRL', R));
+    }
+  });
+
+  it('Hong Kong : sans capitale, « Heure locale » ; les îles Heard : « aucun habitant permanent », sans année ; un territoire sans code ISO : ni drapeau, ni place pour lui', () => {
+    const h = composer('HKG', { relues: TOUTES, maintenant: T0 });
+    expect(h.statut).toBe('Région administrative spéciale de la Chine');
+    expect(lignesDe(h).map((l) => l.split(' · ')[0])).toEqual([T.habitants, T.superficie, T.langues, T.monnaie, T.gentile, T.heure_locale, T.continent, T.culminant]);
+    expect(lignesDe(h)).toContain('Langues · chinois et anglais · cantonais 90 %');
+    expect(lignesDe(composer('HMD', { relues: TOUTES }))).toContain(`${T.habitants} · ${T.aucun_habitant}`);
+    const k = composer('NE_KAB', { relues: TOUTES, maintenant: T0 });
+    expect([k.avecDrapeau, k.drapeaux]).toEqual([false, []]);
+    expect(k.sources).not.toContain(S.flag_icons);
+    expect(lignesDe(k).map((l) => l.split(' · ')[0])).toEqual([T.heure_locale, T.continent]);
+  });
+
+  it('une zone contestée (D57 a) : son statut, ses habitants sourcés, le continent, les voisins, le lien ; aucun autre champ, même présent dans les données', () => {
+    const e = composer('ESH', { relues: TOUTES, maintenant: T0 });
+    expect(e.statut).toBe(FICHES.lieux.get('ESH')!.statut);
+    expect(lignesDe(e)).toEqual(['Habitants · 612 000 (2021)', 'Continent · Afrique · Afrique du Nord']);
+    expect([e.avecDrapeau, e.drapeaux]).toEqual([false, []]);
+    expect(e.sources).toEqual([S.natural_earth, S.cldr, S.wikidata]);
+    // Des données qu'une zone ne doit jamais montrer, glissées dans sa fiche : aucune ne sort.
+    const lieux = new Map(FICHES.lieux);
+    const japon = FICHES.lieux.get('JPN')!;
+    lieux.set('ESH', { ...japon, sorte: 'zone', statut: e.statut, capitale: 'Laâyoune' });
+    const z = composer('ESH', { relues: TOUTES, maintenant: T0, fiches: { ...FICHES, lieux } });
+    expect(lignesDe(z).map((l) => l.split(' · ')[0])).toEqual([T.habitants, T.continent]);
+    expect(z.sources).not.toContain(S.tz);
+    // Bir Tawil : ni tenant ni habitants ; Bajo Nuevo et Serranilla : aucun habitant permanent.
+    expect(lignesDe(composer('NE_BRT', { relues: TOUTES }))).toEqual(['Continent · Afrique · Afrique du Nord']);
+    expect(composer('NE_BRT', { relues: TOUTES }).statut).toMatch(/aucun État ne revendique/);
+    expect(lignesDe(composer('NE_SER', { relues: TOUTES }))[0]).toBe(`${T.habitants} · ${T.aucun_habitant}`);
+    // Les habitants d'une zone attendent leur relecture (habitants_zones).
+    expect(lignesDe(composer('ESH', { relues: { ...TOUTES, habitants_zones: false } }))).toEqual(['Continent · Afrique · Afrique du Nord']);
+  });
+
+  it('l’Antarctique : « continent », sa superficie et son sommet relus ; rien sur les revendications', () => {
+    const a = composer('ATA', { relues: TOUTES });
+    expect(a.statut).toBe(T.statut_continent);
+    expect(lignesDe(a)).toEqual(['Superficie · 14 106 900 km²', 'Continent · Antarctique', 'Point culminant · massif Vinson, 4 892 m']);
+    expect([a.avecDrapeau, a.wikipedia]).toEqual([false, 'https://fr.wikipedia.org/wiki/Antarctique']);
+  });
+
+  it('la barre d’un territoire : « Nuuk · 56 800 hab. » une fois les capitales relues ; « aucun habitant permanent » ; rien pour une zone ni l’Antarctique', async () => {
+    const v = monter({ fiche: { relues: TOUTES } });
+    v.vue.activer();
+    v.toucher('GRL');
+    await tenir();
+    expect(v.faits()).toBe(`Nuuk · ${hab('GRL')}`);
+    v.toucher('HMD');
+    expect(v.faits()).toBe(T.aucun_habitant);
+    v.toucher('ESH');
+    expect(v.faits()).toBe('');
+    expect(v.chevron()).toBe(true);
+    v.toucher('ATA');
+    expect(v.faits()).toBe('');
   });
 });
