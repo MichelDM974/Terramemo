@@ -5239,9 +5239,10 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     if e["ouverte"] or e["etat"]:
         defauts.append(f"🏆 ouvert depuis une fiche, sa « × » : la carte sans fiche ni entrée de fiche attendue ({e})")
 
-    # Lot F3 : un territoire, une zone contestée, Bir Tawil, Hong Kong, l'Antarctique. Les lignes à relire
-    # (statut écrit, capitale, superficie, langues, gentilé, sommet, habitants des zones) restent tues tant que
-    # LIGNES_RELUES les tient : la barre du Groenland dit ses habitants seuls (ligne du nom), sa fiche « Heure locale ».
+    # Lot F3 : un territoire, une zone contestée, Bir Tawil, Hong Kong, l'Antarctique. Le statut écrit est relu
+    # (18/11, LIGNES_RELUES.statut) : en tête de la fiche. Les autres lignes à relire (capitale, superficie, langues,
+    # gentilé, sommet, habitants des zones) restent tues tant que LIGNES_RELUES les tient : la barre du Groenland
+    # dit ses habitants seuls (ligne du nom), sa fiche « Heure locale ».
     debut_t = [n for n in ressources_fiches(p) if "drapeaux-territoires" in n]
     if debut_t:
         defauts.append(f"drapeaux des territoires lus avant la première fiche de territoire : {debut_t}")
@@ -5260,8 +5261,8 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     dire(f"  fiche du Groenland : barre {hab!r} / {faits!r}, statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau, lu {lus_t}")
     if hab != "56 800 hab." or faits:
         defauts.append(f"barre du Groenland : « 56 800 hab. » sur la ligne du nom, rien dessous tant que les capitales ne sont pas relues ({hab!r} / {faits!r})")
-    if e["statut"] != "territoire" or libelles != ["Habitants", "Monnaie", "Heure", "Continent"] or not any(l.startswith("Heure locale") for l in e["lignes"]):
-        defauts.append(f"fiche du Groenland : statut « territoire », lignes Habitants, Monnaie, Heure locale, Continent attendues ({e})")
+    if e["statut"] != "Partie autonome du royaume du Danemark" or libelles != ["Habitants", "Monnaie", "Heure", "Continent"] or not any(l.startswith("Heure locale") for l in e["lignes"]):
+        defauts.append(f"fiche du Groenland : statut « Partie autonome du royaume du Danemark », lignes Habitants, Monnaie, Heure locale, Continent attendues ({e})")
     if e["drapeaux"] != 1 or "drapeaux-territoires.json" not in lus_t or not any(n.startswith("drapeaux-territoires/") for n in lus_t):
         defauts.append(f"fiche du Groenland : son drapeau, par drapeaux-territoires.json, attendu ({e['drapeaux']} drapeau, lu {lus_t})")
     # Son point est au nord du cadre de l'Amérique du Nord : le monde.
@@ -5275,12 +5276,16 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         defauts.append(f"fiche de Hong Kong : lignes Habitants, Monnaie, Heure locale, Continent attendues ({e['lignes']})")
     p.js("history.back()")
     attendre_fiche(p, lambda e: not e["ouverte"], "Hong Kong fermé")
-    # Une zone contestée (D57 a) : le statut de la barre, le continent seul (habitants à relire), ni drapeau.
+    # Une zone contestée (D57 a) : son statut écrit, le continent seul (habitants à relire), ni drapeau.
+    statuts_z = {
+        "ESH": "Partie à l'est du mur des sables, tenue par la RASD (Front Polisario) ; l'ouest, plus vaste, est tenu par le Maroc · tout le Sahara occidental est revendiqué par le Maroc et par la RASD",
+        "NE_BRT": "Terre qu'aucun État ne revendique : l'Égypte et le Soudan la placent chacun chez l'autre",
+    }
     for ident, nom_z in (("ESH", "Sahara occidental"), ("NE_BRT", "Bir Tawil")):
         e = ouvrir_fiche(p, ident, defauts, nom_z)
         dire(f"  fiche de {nom_z} : barre {e['faits']!r}, statut {e['statut']!r}, lignes {e['lignes']}, {e['drapeaux']} drapeau")
-        if e["statut"] != "statut contesté" or [l.split(" ")[0] for l in e["lignes"]] != ["Continent"] or e["drapeaux"] or e["faits"]:
-            defauts.append(f"fiche de {nom_z} : statut contesté, continent seul, ni drapeau ni ligne de faits attendus ({e})")
+        if e["statut"] != statuts_z[ident] or [l.split(" ")[0] for l in e["lignes"]] != ["Continent"] or e["drapeaux"] or e["faits"]:
+            defauts.append(f"fiche de {nom_z} : son statut écrit, continent seul, ni drapeau ni ligne de faits attendus ({e})")
         if ident == "ESH":
             verifier_situation(p, defauts, f"fiche de {nom_z}", "continent:Africa", True)
             capturer("156-fiche-zone")

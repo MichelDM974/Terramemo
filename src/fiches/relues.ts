@@ -44,9 +44,10 @@ export const LIGNES_RELUES: Readonly<Record<LigneRelue, boolean>> = {
   fete: false,
   /**
    * fiches-territoires.md, en entier : le texte de statut d'un territoire ou d'une zone en tête de
-   * la fiche ; d'ici là, le libellé de la barre (« territoire », « statut contesté »).
+   * la fiche, relu et validé par l'utilisateur le 18/11/2026. Sans cette clé, le libellé de la barre
+   * (« territoire », « statut contesté »).
    */
-  statut: false,
+  statut: true,
   /** fiches-territoires-chiffres.md, § 1 : les capitales des territoires (la fiche, la barre, « Heure à … »). */
   capitale_territoires: false,
   /** § 2 : les habitants des zones contestées (D57 a : sourcés s'ils existent). Ceux des territoires sont en ligne. */

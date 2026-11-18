@@ -21,7 +21,7 @@ type Main = {
 };
 type Module = {
   statutsLieux: (a: unknown) => { lieux: Record<string, { sv: string; fs: string }>; textes: Record<string, { st: string }>; relecture: unknown; fautes: string[] };
-  texteRelectureTerritoires: (a: { R: unknown; noms: Record<string, string> }) => string;
+  texteRelectureTerritoires: (a: { R: unknown; noms: Record<string, string>; relues: Record<string, boolean> }) => string;
   formesCitees: (f: FormePays) => string[];
   remplirModele: (m: string, f: FormePays) => string;
   lireDbf: (b: Buffer) => Record<string, string>[];
@@ -33,6 +33,7 @@ type Module = {
 };
 // Import dynamique sans types : le module est en JavaScript, sans déclaration.
 const module = import('../geodata/fiches-territoires.mjs' as string) as Promise<Module>;
+const relecture = import('../geodata/fiches-relecture.mjs' as string) as Promise<{ lireRelues: (t: string) => Record<string, boolean> }>;
 
 const lire = <T>(chemin: string): T => JSON.parse(readFileSync(chemin, 'utf8')) as T;
 type Entite = { id: string; statut: string; revendique_par?: string[]; note_ne?: string };
@@ -178,7 +179,8 @@ describe('statuts des territoires et des zones (lot F3, § 2.2)', () => {
     for (const [id, l] of Object.entries(r.lieux)) expect(monde.lieux[id], id).toMatchObject(l);
     for (const [id, t] of Object.entries(r.textes)) expect(fr.lieux[id]?.st, id).toBe(t.st);
     expect(CHEMIN_RELECTURE_TERRITOIRES).toBe('docs/relectures/fiches-territoires.md');
-    expect(texteRelectureTerritoires({ R: r.relecture, noms })).toBe(readFileSync(CHEMIN_RELECTURE_TERRITOIRES, 'utf8'));
+    const relues = (await relecture).lireRelues(readFileSync('src/fiches/relues.ts', 'utf8'));
+    expect(texteRelectureTerritoires({ R: r.relecture, noms, relues })).toBe(readFileSync(CHEMIN_RELECTURE_TERRITOIRES, 'utf8'));
   });
 
   it('le build échoue sur un texte qui recopie une note, qui oublie un revendicant, qui cite un retrait ou qui oublie le pays', async () => {

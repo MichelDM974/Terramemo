@@ -289,7 +289,7 @@ export async function construireFiches(racine) {
   const sourcesRelecture = { wikidata: wd.extrait_le.slice(0, 10), bm: `${bm.source.nom}, ${bm.annee}, mise à jour du ${bm.source.mis_a_jour_le}`, cldr: CLDR_TAG, tz: TZ_VERSION };
   const relectures = [
     relecture,
-    { chemin: CHEMIN_RELECTURE_TERRITOIRES, texte: texteRelectureTerritoires({ R: statuts.relecture, noms }) },
+    { chemin: CHEMIN_RELECTURE_TERRITOIRES, texte: texteRelectureTerritoires({ R: statuts.relecture, noms, relues }) },
     { chemin: CHEMIN_RELECTURE_AUTRES, texte: texteRelectureAutres({ R: autres.relecture, noms, langues, monnaies, sources: sourcesRelecture, relues }) },
     {
       chemin: CHEMIN_RELECTURE_MERS,

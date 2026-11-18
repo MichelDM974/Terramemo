@@ -17,6 +17,8 @@
 //   - aucun texte égal à une note de Natural Earth (note_ne de pays.json, note de
 //     contestees.json) : D57, la note se trompe ou dit trop peu.
 
+import { dansLaFiche } from './fiches-relecture.mjs';
+
 export const CHEMIN_RELECTURE_TERRITOIRES = 'docs/relectures/fiches-territoires.md';
 
 /** Le .dbf de Natural Earth où lire SOV_A3 (geodata/raw/, absent en CI). */
@@ -248,7 +250,7 @@ function tableau(entetes, lignes) {
  * noms : noms.fr.json. Identique octet pour octet d'un lancement à l'autre (aucune date
  * du jour : les dates sont celles des lignes de la table).
  */
-export function texteRelectureTerritoires({ R, noms }) {
+export function texteRelectureTerritoires({ R, noms, relues }) {
   const nom = (id) => noms[id] ?? id;
   const parNom = (a, b) => nom(a.id).localeCompare(nom(b.id), 'fr');
   const liste = (ids) => ids.map(nom).join(', ') || '—';
@@ -267,8 +269,13 @@ export function texteRelectureTerritoires({ R, noms }) {
       'pas de superficie, de langue, de monnaie, de capitale ni de drapeau, qui sont ceux d\'une administration. Aucune note de Natural Earth n\'est recopiée : ' +
       'chaque texte est écrit à la main, en entier, accordé au genre du nom, et vérifié sur le web (source et date dans chaque ligne). ' +
       'La fiche d\'un territoire dit son pays et la forme de son statut (pays constitutif, région administrative spéciale…), et qui le revendique s\'il l\'est. ' +
-      `Les textes s'affichent tels quels en tête de la fiche. ${aRelire} lignes sont marquées **à relire** : un fait incertain ou une formulation qui pourrait prendre parti.`,
+      `Les textes s'affichent tels quels en tête de la fiche. ` +
+      (aRelire
+        ? `${aRelire} lignes sont marquées **à relire** : un fait incertain ou une formulation qui pourrait prendre parti.`
+        : 'Aucune ligne n\'est marquée à relire.'),
   );
+  o.push('');
+  o.push(dansLaFiche('statut', relues));
   o.push('');
   o.push('## Comment relire, comment corriger');
   o.push('');
