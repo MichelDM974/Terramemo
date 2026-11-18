@@ -167,7 +167,8 @@ export function texteRelectureCommunes({ R, sources }) {
   o.push(
     '- Pour corriger : la ligne de la commune dans `geodata/fiches-main.json` (clé donnée en tête de section, une raison par ligne), puis `npm run fiches`. ' +
       'Le build échoue si une ligne ne s\'applique plus (une forme déjà celle de Wikidata, une intercommunalité renommée par l\'IGN). ' +
-      'Pour valider une ligne « à relire » : retirer son `verifier`, ou la remplacer par une autre forme (`masculin`, avec sa source `cite`) ou un autre pluriel (`pluriel`).',
+      'Pour valider une ligne « à relire » : **retirer la ligne entière** (la forme de Wikidata est alors prise sans doute ; retirer son seul `verifier` ' +
+      'fait échouer le build), ou la remplacer par une autre forme (`masculin`, avec sa source `cite`) ou un autre pluriel (`pluriel`).',
   );
   o.push(
     `- Sources : Wikidata (extrait des communes du ${sources.wikidata}) pour les gentilés et les liens ; l'IGN, ADMIN EXPRESS COG CARTO (${sources.ign}) pour ` +
@@ -190,13 +191,21 @@ export function texteRelectureCommunes({ R, sources }) {
   o.push('');
   o.push(
     tableau(
-      ['Commune', 'Gentilé (Wikidata)', 'Dans la fiche', 'Remarque', 'Raison', ''],
+      ['Commune', 'Gentilé (Wikidata)', 'La fiche dira', 'Les deux sources', 'Le doute', 'À relire'],
       lignes.map((c) => [c.nom, c.formes.join(', ') || 'aucune', c.gp ? `les ${c.gp}` : '—', c.ligne.verifier ?? c.ligne.masculin ?? c.ligne.pluriel, c.ligne.raison, c.ligne.verifier || c.ligne.a_relire ? '**à relire**' : '']),
     ),
   );
-  o.push('Les 24 communes :');
+  o.push(
+    `Les ${communes.length} communes (les ${lignes.length} ci-dessus comprises) : les ${communes.length - lignes.length} autres ont la même forme dans Wikidata et dans ` +
+      'l\'infobox de la Wikipédia en français ; il reste à dire si une forme est fausse ou peu usitée.',
+  );
   o.push('');
-  o.push(tableau(['Commune', 'Masculin', 'Dans la fiche', 'Source'], communes.map((c) => [c.nom, c.g ?? '—', c.gp ? `les ${c.gp}` : '—', c.ligne?.masculin ? 'table' : 'Wikidata'])));
+  o.push(
+    tableau(
+      ['Commune', 'Masculin', 'La fiche dira', 'Source', 'Ligne de la table'],
+      communes.map((c) => [c.nom, c.g ?? '—', c.gp ? `les ${c.gp}` : '—', c.ligne?.masculin ? 'table' : 'Wikidata', c.ligne ? 'oui, ci-dessus' : '—']),
+    ),
+  );
 
   // --- Intercommunalités ---
   o.push('## 2. Intercommunalités (clé `epci`) — en ligne, pour information');
