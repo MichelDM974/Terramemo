@@ -4682,6 +4682,7 @@ JS_BLOC_APPRENDRE = """(() => { const f = document.getElementById('fiche-lieu');
     textes: b ? [...b.querySelectorAll('p')].map(x => x.textContent) : [],
     apprendre: bouton('fiche-apprendre'), retenir: bouton('fiche-retenir'), oublier: bouton('fiche-oublier'),
     retenu: localStorage.getItem('terramemo.apprendre.pays'), focus: document.activeElement ? document.activeElement.id : null,
+    annonce: (document.getElementById('fiche-annonce') || {}).textContent || '',
     page: document.documentElement.scrollWidth - innerWidth }; })()"""
 TEXTE_GRAPPE_FAITE = "La grappe du jour est déjà apprise."
 TEXTE_RETENU = "Noté : sa région sera ta prochaine grappe."
@@ -4718,7 +4719,7 @@ def lire_bloc_apprendre(p, defauts, quoi):
     m = p.js(JS_BLOC_APPRENDRE)
     if not m or not m["bloc"]:
         defauts.append(f"{quoi} : pas de bloc Mémoire dans la fiche ({m})")
-        return m or {"bloc": False, "lignes": [], "textes": [], "apprendre": None, "retenir": None, "oublier": None, "retenu": None, "focus": None, "page": 0}
+        return m or {"bloc": False, "lignes": [], "textes": [], "apprendre": None, "retenir": None, "oublier": None, "retenu": None, "focus": None, "annonce": "", "page": 0}
     boutons = {k: m[k] for k in ("apprendre", "retenir", "oublier") if m[k]}
     dire(f"  {quoi} : lignes {m['lignes']}, textes {m['textes']}, boutons "
          + (", ".join(f"{b['texte']!r} {b['haut']:.0f} px" for b in boutons.values()) or "aucun") + f", retenu {m['retenu']!r}")
@@ -4804,6 +4805,9 @@ def ui_fiche_apprendre(p, capturer, defauts, base, parametres=""):
         m = lire_bloc_apprendre(p, defauts, f"fiche de {autre[0]}, retenu")
         if m["retenu"] != autre[1] or TEXTE_RETENU not in m["textes"] or not m["oublier"] or m["retenir"] or m["focus"] != "fiche-oublier":
             defauts.append(f"« Retenir ce lieu » touché : « {TEXTE_RETENU} », « Annuler » (le focus), la clé à {autre[1]} attendus ({m})")
+        # « Noté » dit au lecteur d'écran : la région live de la feuille (#fiche-annonce), posée vide avant le geste.
+        if m.get("annonce") != TEXTE_RETENU:
+            defauts.append(f"« Retenir ce lieu » touché : « {TEXTE_RETENU} » attendu dans la région annoncée #fiche-annonce ({m.get('annonce')!r})")
         if p.js(COMPTER_JOURNAL) != n1:
             defauts.append("« Retenir ce lieu » : un événement écrit au journal (rien attendu, D58 b)")
         capturer("175-apprendre-retenu")

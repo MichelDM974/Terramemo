@@ -441,7 +441,10 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
   voile.addEventListener('click', () => actions.voile());
   const feuille = creer('section', { class: 'fiche', id: 'fiche-lieu', role: 'dialog', 'aria-labelledby': 'fiche-titre' });
   feuille.hidden = true;
-  zone.append(voile, feuille);
+  // « Noté » dit au lecteur d'écran (lot F7) : une région live posée vide une fois pour toutes, hors de la fiche
+  // refaite à chaque montrer() (une région créée avec son texte n'est en général pas annoncée).
+  const annonce = creer('span', { class: 'barre-annonce', id: 'fiche-annonce', 'aria-live': 'polite' });
+  zone.append(voile, feuille, annonce);
   // will-change: transform le temps de la montée seulement (§ 6.4) : la feuille composée à part pendant
   // l'animation (carte.css : fiche-monte), sans garder un calque pour elle une fois ouverte.
   const finMontee = () => void (feuille.style.willChange = '');
@@ -516,7 +519,11 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
   /** Un bouton du bloc « Apprendre ce lieu », décrit par la ligne qui le suit (aria-describedby). */
   function boutonApprendre(id: string, texte: string, geste: 'lancer' | 'retenir' | 'oublier', secondaire: boolean, detail?: string): HTMLElement[] {
     const b = creer('button', { type: 'button', id, ...(secondaire ? { class: 'secondary' } : {}), ...(detail ? { 'aria-describedby': `${id}-detail` } : {}) }, texte);
-    b.addEventListener('click', () => actions.apprendre?.(geste));
+    b.addEventListener('click', () => {
+      actions.apprendre?.(geste);
+      // La fiche est refaite sur place (explorer.ts) : « Noté » annoncé après « Retenir », l'annonce vidée après « Annuler ».
+      if (geste !== 'lancer') annonce.textContent = geste === 'retenir' ? T.retenu : '';
+    });
     return [b, ...(detail ? [creer('p', { class: 'hint fiche-apprendre-detail', id: `${id}-detail` }, detail)] : [])];
   }
 
@@ -543,7 +550,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       el.push(creer('p', { class: 'hint fiche-apprendre-pourquoi' }, pourquoi));
       if (!a.retenu) el.push(...boutonApprendre('fiche-retenir', T.retenir, 'retenir', true, T.retenir_detail));
     }
-    if (a.retenu) el.push(creer('p', { class: 'fiche-apprendre-retenu', role: 'status' }, T.retenu), ...boutonApprendre('fiche-oublier', T.annuler, 'oublier', true));
+    if (a.retenu) el.push(creer('p', { class: 'fiche-apprendre-retenu' }, T.retenu), ...boutonApprendre('fiche-oublier', T.annuler, 'oublier', true));
     return [creer('div', { class: 'fiche-apprendre' }, ...el)];
   }
 
@@ -614,6 +621,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       // toute la fiche nouvelle dans la même tâche (12 ms sur l'A37, un gel de 50 ms à l'ouverture, S41, 16/11).
       const ouverture = feuille.hidden;
       const meme = !o.focus && feuille.dataset.id === m.id && !ouverture;
+      if (!meme) annonce.textContent = '';
       const actif = document.activeElement as HTMLElement | null;
       const rangFocus = meme && actif && actif !== feuille && feuille.contains(actif) ? focusables().indexOf(actif) : -1;
       const defile = meme ? feuille.scrollTop : 0;
@@ -654,6 +662,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       if (feuille.scrollTop) feuille.scrollTop = 0;
       feuille.hidden = true;
       voile.hidden = true;
+      annonce.textContent = '';
       feuille.replaceChildren();
       delete feuille.dataset.id;
     },

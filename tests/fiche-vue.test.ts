@@ -792,20 +792,30 @@ describe('la fiche : le bloc Mémoire et « Apprendre ce lieu » (lot F7)', () =
     const v = await ouvrirSur('MUS', { fiche: { apprendre: a } });
     expect(v.el('#fiche-retenir')!.classList.contains('secondary')).toBe(true);
     expect(v.el('#fiche-retenir-detail')!.textContent).toBe(F.retenir_detail);
+    // La région annoncée existe avant le geste, vide (une région live créée avec son texte n'est en général pas dite).
+    const annonce = v.el('#fiche-annonce')!;
+    expect(annonce.getAttribute('aria-live')).toBe('polite');
+    expect(annonce.textContent).toBe('');
     v.el('#fiche-retenir')!.focus();
     v.el('#fiche-retenir')!.click();
     expect(gestes).toEqual(['retenir monde MUS']);
+    // La même région (pas refaite avec la fiche) reçoit « Noté » : le lecteur d'écran le dit.
+    expect(v.el('#fiche-annonce')).toBe(annonce);
+    expect(annonce.textContent).toBe(F.retenu);
     // La fiche refaite sur place : « Noté », « Annuler » à la place de « Retenir », qui prend le focus ; la fiche reste ouverte.
     expect(v.ouverte()).toBe(true);
     expect(v.el('#fiche-retenir')).toBeNull();
     expect(textes_(v)).toEqual([F.apprendre_grappe_faite, F.retenu]);
-    expect(v.el('.fiche-apprendre-retenu')!.getAttribute('role')).toBe('status');
+    // Le paragraphe visible n'est pas une région live (il naît avec la fiche refaite) : pas de double annonce.
+    expect(v.el('.fiche-apprendre-retenu')!.getAttribute('role')).toBeNull();
     expect(v.el('#fiche-oublier')!.textContent).toBe(F.annuler);
     expect(v.doc.activeElement).toBe(v.el('#fiche-oublier'));
     v.el('#fiche-oublier')!.click();
     expect(gestes).toEqual(['retenir monde MUS', 'oublier monde MUS']);
     expect(v.el('#fiche-retenir')).not.toBeNull();
     expect(v.el('#fiche-oublier')).toBeNull();
+    // « Annuler » : l'annonce vidée (un second « Retenir » la redira).
+    expect(annonce.textContent).toBe('');
   });
 
   it('retenu, et possible (le lendemain) : le bouton, puis « Noté » et « Annuler »', async () => {
