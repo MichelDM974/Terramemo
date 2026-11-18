@@ -23,6 +23,11 @@
 // territoires, des 12 zones contestées et de l'Antarctique (lot F3 : leurs items, clé qid
 // de geodata/fiches-main.json), par les requêtes de geodata/wikidata/requetes-fiches.rq,
 // dans geodata/wikidata/fiches.json ; puis npm run fiches.
+// npm run wikidata -- --fiches-mers : les chiffres des fiches des 50 océans et mers (#34,
+// lot F4, étude fiche-lieu § 2.3) : superficie (P2046), profondeur (P4511), pays (P17,
+// P205) et, pour chaque pays cité, sa dissolution (P576) et ses libellés, par les requêtes
+// de geodata/wikidata/requetes-fiches-mers.rq, dans geodata/wikidata/fiches-mers.json (les
+// items : clé q de geodata/mers.json) ; puis npm run fiches.
 // Portage en Node des scripts du relevé (wikidata.py, wikidata_sieges.py, vues.py,
 // ~/Sauvegardes/terramemo/j2-conception/capitales/scripts/). User-Agent générique, sans
 // adresse ni nom. Le point SPARQL était bridé à une requête par minute le 10/11/2026 :
@@ -40,6 +45,9 @@ const EXTRAIT = join(DOSSIER, 'capitales.json');
 const EXTRAIT_NOTORIETE = join(DOSSIER, 'notoriete.json');
 const REQUETES_FICHES = join(DOSSIER, 'requetes-fiches.rq');
 const EXTRAIT_FICHES = join(DOSSIER, 'fiches.json');
+const REQUETES_FICHES_MERS = join(DOSSIER, 'requetes-fiches-mers.rq');
+const EXTRAIT_FICHES_MERS = join(DOSSIER, 'fiches-mers.json');
+const TABLE_MERS = join(RACINE, 'geodata', 'mers.json');
 const MAIN_NOTORIETE = join(RACINE, 'geodata', 'notoriete-main.json');
 const MAIN = join(RACINE, 'geodata', 'capitales-main.json');
 const MAIN_FICHES = join(RACINE, 'geodata', 'fiches-main.json');
@@ -115,6 +123,44 @@ async function sparql(requete) {
   derniereSparql = Date.now();
   const j = await lireJson(url, { pause: ATTENTE_SPARQL_MS, entetes: { Accept: 'application/sparql-results+json' } });
   return j.results.bindings;
+}
+
+/** La valeur d'une ligne SPARQL : un item par son QID, sinon le texte. */
+const valeur = (b) => (b.type === 'uri' ? qid(b.value) : b.value);
+
+/**
+ * Déclarations par item, d'après les lignes SPARQL (une ligne par qualificatif) : {id, rang,
+ * ...champ(ligne), q: {Pxxx: [valeurs]}, prec?}, triées par id.
+ */
+function declarations(lignes, cleItem, champ) {
+  const parId = new Map();
+  for (const b of lignes) {
+    const id = b.stmt.value.slice(b.stmt.value.lastIndexOf('/') + 1);
+    const d =
+      parId.get(id) ??
+      {
+        item: qid(b[cleItem].value),
+        id,
+        rang: b.rang.value.split('#')[1].replace('Rank', '').toLowerCase(),
+        ...champ(b),
+        q: {},
+      };
+    if (b.pq) {
+      const l = (d.q[qid(b.pq.value)] ??= []);
+      const v = valeur(b.qv);
+      if (!l.includes(v)) l.push(v);
+    }
+    if (b.prec) d.prec = Number(b.prec.value);
+    parId.set(id, d);
+  }
+  const res = {};
+  for (const d of [...parId.values()].sort((a, b) => (a.id < b.id ? -1 : 1))) {
+    for (const l of Object.values(d.q)) l.sort();
+    d.q = Object.fromEntries(Object.entries(d.q).sort(([a], [b]) => (a < b ? -1 : 1)));
+    const { item, ...reste } = d;
+    (res[item] ??= []).push(reste);
+  }
+  return res;
 }
 
 async function entites(ids, props, sites = null) {
@@ -367,40 +413,7 @@ async function fichesPays() {
   const lieux = [...new Set([...Object.values(items), ...Object.values(autres)])].sort();
   const extraitLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
   const date = aujourdhui();
-  const valeur = (b) => (b.type === 'uri' ? qid(b.value) : b.value);
   const nombre = (b) => Number(b.value);
-
-  /** Déclarations par item, d'après les lignes SPARQL (une ligne par qualificatif). */
-  const declarations = (lignes, cleItem, champ) => {
-    const parId = new Map();
-    for (const b of lignes) {
-      const id = b.stmt.value.slice(b.stmt.value.lastIndexOf('/') + 1);
-      const d =
-        parId.get(id) ??
-        {
-          item: qid(b[cleItem].value),
-          id,
-          rang: b.rang.value.split('#')[1].replace('Rank', '').toLowerCase(),
-          ...champ(b),
-          q: {},
-        };
-      if (b.pq) {
-        const l = (d.q[qid(b.pq.value)] ??= []);
-        const v = valeur(b.qv);
-        if (!l.includes(v)) l.push(v);
-      }
-      if (b.prec) d.prec = Number(b.prec.value);
-      parId.set(id, d);
-    }
-    const res = {};
-    for (const d of [...parId.values()].sort((a, b) => (a.id < b.id ? -1 : 1))) {
-      for (const l of Object.values(d.q)) l.sort();
-      d.q = Object.fromEntries(Object.entries(d.q).sort(([a], [b]) => (a < b ? -1 : 1)));
-      const { item, ...reste } = d;
-      (res[item] ??= []).push(reste);
-    }
-    return res;
-  };
 
   const valeursLieux = lieux.map((q) => `wd:${q}`).join(' ');
   const parRequete = {};
@@ -489,6 +502,87 @@ async function fichesPays() {
   );
 }
 
+/**
+ * Les chiffres des fiches des 50 océans et mers (#34, lot F4) : superficies, profondeurs,
+ * pays (P17, P205) tels que Wikidata les déclare, sans rien choisir (la règle est au build,
+ * geodata/fiches-mers.mjs) ; pour chaque item cité en pays, ses libellés et sa date de
+ * dissolution (P576 : un État disparu est retiré au build). Les items des mers : clé q de
+ * geodata/mers.json. Une déclaration : {id, rang, v, unite?, prop?, q: {Pxxx: [valeurs]}}.
+ */
+async function fichesMers() {
+  const debut = Date.now();
+  const texteRequetes = await readFile(REQUETES_FICHES_MERS, 'utf8');
+  const req = sections(texteRequetes);
+  for (const n of ['superficies', 'profondeurs', 'pays', 'etats']) if (!req[n]) echec(`requetes-fiches-mers.rq : section ${n} absente`);
+  const table = JSON.parse(await readFile(TABLE_MERS, 'utf8'));
+  const mers = Object.fromEntries(table.zones.map((z) => [z.id, z.q]));
+  for (const [id, q] of Object.entries(mers)) if (!/^Q\d+$/.test(q ?? '')) echec(`${id} : pas d'item dans geodata/mers.json`);
+  const items = [...new Set(Object.values(mers))].sort();
+  const valeurs = items.map((q) => `wd:${q}`).join(' ');
+  const extraitLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const date = aujourdhui();
+  const nombre = (b) => Number(b.value);
+  const parRequete = {};
+  for (const [n, champ] of [
+    ['superficies', (b) => ({ v: nombre(b.v), unite: qid(b.unite.value) })],
+    ['profondeurs', (b) => ({ v: nombre(b.v), unite: qid(b.unite.value) })],
+    ['pays', (b) => ({ prop: b.prop.value, v: qid(b.pays.value) })],
+  ]) {
+    console.log(`SPARQL : ${n} de ${items.length} mers`);
+    await attendre(Math.max(0, derniereSparql + 2000 - Date.now()));
+    parRequete[n] = declarations(await sparql(req[n].replace('{{mers}}', valeurs)), 'lieu', champ);
+  }
+  const etatsIds = [...new Set(Object.values(parRequete.pays).flat().map((d) => d.v))].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+  console.log(`SPARQL : dissolution de ${etatsIds.length} pays cités`);
+  await attendre(Math.max(0, derniereSparql + 2000 - Date.now()));
+  const fins = new Map();
+  for (const b of await sparql(req.etats.replace('{{etats}}', etatsIds.map((q) => `wd:${q}`).join(' ')))) {
+    const q = qid(b.etat.value);
+    const l = fins.get(q) ?? [];
+    if (b.fin && !l.includes(b.fin.value)) l.push(b.fin.value);
+    fins.set(q, l);
+  }
+  // Libellés des pays cités, des unités et des items cités en qualificatif, pour relire l'extrait sans Wikidata ouvert.
+  const cites = new Set();
+  for (const d of Object.values(parRequete).flatMap((o) => Object.values(o).flat())) {
+    if (d.unite) cites.add(d.unite);
+    for (const l of Object.values(d.q)) for (const v of l) if (/^Q\d+$/.test(v)) cites.add(v);
+  }
+  console.log(`API : libellés de ${etatsIds.length} pays et de ${cites.size} items cités`);
+  const apiLe = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const ent = await entites([...etatsIds, ...cites], 'labels');
+  const parLieu = {};
+  for (const q of items) {
+    const o = {};
+    for (const n of ['superficies', 'profondeurs', 'pays']) if (parRequete[n][q]) o[n] = parRequete[n][q];
+    parLieu[q] = o;
+  }
+  const etats = {};
+  for (const q of etatsIds) {
+    const e = ent[q];
+    if (!e || e.missing !== undefined) echec(`${q} : pays cité absent de Wikidata`);
+    etats[q] = { fr: libelle(e, 'fr'), en: libelle(e, 'en'), fin: (fins.get(q) ?? []).sort() };
+  }
+  const libelles = {};
+  for (const q of [...cites].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))) libelles[q] = { fr: libelle(ent[q], 'fr'), en: libelle(ent[q], 'en') };
+  const objet = (o) => `{\n${Object.entries(o).map(([k, x]) => `${JSON.stringify(k)}:${JSON.stringify(x)}`).join(',\n')}\n}`;
+  const texte =
+    `{\n"extrait_le":${JSON.stringify(extraitLe)},\n"date":${JSON.stringify(date)},\n"api_le":${JSON.stringify(apiLe)},\n` +
+    `"requetes_sha256":${JSON.stringify(sha256(texteRequetes))},\n` +
+    `"items":${JSON.stringify('ceux de geodata/mers.json (q)')},\n` +
+    `"mers":${JSON.stringify(mers)},\n` +
+    `"lieux":${objet(parLieu)},\n` +
+    `"etats":${objet(etats)},\n` +
+    `"libelles":${objet(libelles)}\n}\n`;
+  await writeFile(EXTRAIT_FICHES_MERS, texte);
+  const n = (k) => Object.values(parLieu).filter((o) => o[k]).length;
+  console.log(
+    `${items.length} mers : superficie ${n('superficies')}, profondeur ${n('profondeurs')}, pays ${n('pays')} ; ` +
+      `${etatsIds.length} pays cités, dont ${Object.values(etats).filter((e) => e.fin.length).length} dissous ; ${Math.round((Date.now() - debut) / 1000)} s`,
+  );
+}
+
 if (process.argv.includes('--notoriete')) await notorietePays();
+else if (process.argv.includes('--fiches-mers')) await fichesMers();
 else if (process.argv.includes('--fiches')) await fichesPays();
 else await main();

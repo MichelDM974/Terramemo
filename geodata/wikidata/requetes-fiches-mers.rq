@@ -1,0 +1,54 @@
+# Requêtes SPARQL figées des fiches des océans et des mers (#34, lot F4, étude fiche-lieu
+# § 2.3 et § 2.5), lancées par npm run wikidata -- --fiches-mers (geodata/wikidata.mjs),
+# point https://query.wikidata.org/sparql. À part de requetes-fiches.rq : changer celui-là
+# obligerait à refaire l'extrait des 258 entités, dont les tableaux sont en relecture.
+# Son empreinte va dans l'extrait (geodata/wikidata/fiches-mers.json) et dans
+# public/geo/sources.json.
+# Une section par requête, ouverte par « #= nom ». Le script remplace {{mers}} (les items
+# wd:Q… des 50 zones, clé q de geodata/mers.json) et {{etats}} (les items cités par P17
+# et P205).
+# Rien n'est choisi ici : toutes les déclarations non dépréciées, leur rang et tous leurs
+# qualificatifs ; la règle du choix est au build (geodata/fiches-mers.mjs).
+
+#= superficies
+# P2046 superficie : valeur, unité (km², mi² : la mer des Sargasses au relevé), rang,
+# qualificatifs.
+SELECT ?lieu ?stmt ?rang ?v ?unite ?pq ?qv WHERE {
+  VALUES ?lieu { {{mers}} }
+  ?lieu p:P2046 ?stmt .
+  ?stmt psv:P2046 ?n ; wikibase:rank ?rang .
+  ?n wikibase:quantityAmount ?v ; wikibase:quantityUnit ?unite .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+}
+
+#= profondeurs
+# P4511 profondeur verticale : valeur, unité, rang, qualificatifs (P1013 critère : maximum
+# Q10578722, moyenne Q202785 ; souvent absent).
+SELECT ?lieu ?stmt ?rang ?v ?unite ?pq ?qv WHERE {
+  VALUES ?lieu { {{mers}} }
+  ?lieu p:P4511 ?stmt .
+  ?stmt psv:P4511 ?n ; wikibase:rank ?rang .
+  ?n wikibase:quantityAmount ?v ; wikibase:quantityUnit ?unite .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+}
+
+#= pays
+# P17 pays et P205 pays du bassin : l'item, la propriété, rang, qualificatifs.
+SELECT ?lieu ?prop ?stmt ?rang ?pays ?pq ?qv WHERE {
+  VALUES ?lieu { {{mers}} }
+  VALUES (?p ?ps ?prop) { (p:P17 ps:P17 "P17") (p:P205 ps:P205 "P205") }
+  ?lieu ?p ?stmt .
+  ?stmt ?ps ?pays ; wikibase:rank ?rang .
+  FILTER(?rang != wikibase:DeprecatedRank)
+  OPTIONAL { ?stmt ?pqx ?qv . ?pq wikibase:qualifier ?pqx . }
+}
+
+#= etats
+# Les items cités par P17 et P205 : leur date de dissolution (P576), s'ils en ont une.
+# Un État disparu (l'URSS, le Yémen du Sud) est retiré des riverains au build.
+SELECT ?etat ?fin WHERE {
+  VALUES ?etat { {{etats}} }
+  OPTIONAL { ?etat wdt:P576 ?fin }
+}
