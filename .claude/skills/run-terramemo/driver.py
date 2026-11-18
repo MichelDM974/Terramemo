@@ -29,7 +29,9 @@ adb). Python stdlib seule ; à lancer depuis Terramemo/ :
                                 la fiche d'un lieu seule (ui_fiche, aussi
                                 dans ui) : barre, fiche, voisins, retours,
                                 voile, Échap, ⚙, territoire, mer, île, le
-                                scénario de mesure (10 fiches, 3 voisins),
+                                scénario de mesure (10 fiches, 10 voisins ;
+                                gels ≥ 46 ms et leur cause), la carte de
+                                situation (F8),
                                 depuis un bilan (F6), « Apprendre ce lieu »
                                 (F7 ; le lendemain : serveur de dev) ;
                                 chrome et webview : le scénario seul
@@ -4358,22 +4360,119 @@ def attendre_feuille_posee(p):
       if (f) await Promise.all(f.getAnimations({subtree: true}).map(a => a.finished.catch(() => null))); return true; })()""")
 
 
+# La carte de situation en tête de la fiche (#34, lot F8, D61 b ; src/vues/situation.ts) : sa place, son état
+# (data-etat « attente » puis « prete »), sa région, son anneau, sa taille, et ce qu'elle chevauche dans la tête :
+# « × », « ‹ » (« ‹ Bilan » compris), chaque drapeau, les lignes du titre et du statut (un bloc passe sous un
+# flottant, ses lignes non : on mesure les lignes, par un Range).
+JS_SITUATION = """(() => { const f = document.getElementById('fiche-lieu'); if (!f || f.hidden) return null;
+  const t = f.querySelector('.fiche-tete'), s = t ? t.querySelector(':scope > .fiche-situation') : null;
+  if (!s) return { present: false };
+  const boite = (q) => ({ g: q.left, d: q.right, h: q.top, b: q.bottom });
+  const r = (e) => { if (!e || e.closest('[hidden]')) return []; const q = e.getBoundingClientRect(); return q.width > 0 && q.height > 0 ? [boite(q)] : []; };
+  const lignes = (e) => { if (!e) return []; const g = document.createRange(); g.selectNodeContents(e); return [...g.getClientRects()].filter(q => q.width > 0).map(boite); };
+  const sur = (a, b) => a.d > b.g + 0.5 && a.g < b.d - 0.5 && a.b > b.h + 0.5 && a.h < b.b - 0.5;
+  const rs = s.getBoundingClientRect(), x = boite(rs), rt = t.getBoundingClientRect(), rf = f.getBoundingClientRect();
+  const autres = { croix: r(t.querySelector(':scope > .croix')), avant: r(t.querySelector(':scope > .fiche-avant')),
+    drapeaux: [...t.querySelectorAll('.fiche-drapeaux .drapeau')].flatMap(r), titre: lignes(document.getElementById('fiche-titre')),
+    statut: lignes(t.querySelector('.fiche-statut')) };
+  const svg = s.querySelector('svg'), h2 = document.getElementById('fiche-titre');
+  return { present: true, etat: s.dataset.etat || null, region: s.dataset.region || null, anneau: s.dataset.anneau !== undefined,
+    lieu: s.dataset.lieu || null, aria: s.getAttribute('aria-hidden'), chemins: svg ? [...svg.children].map(c => c.getAttribute('class')) : [],
+    l: rs.width, h: rs.height, haut_tete: rt.height, largeur: innerWidth, page: document.documentElement.scrollWidth - innerWidth,
+    dans_tete: rs.top >= rt.top - 0.5 && rs.bottom <= rt.bottom + 0.5 && rs.left >= rt.left - 0.5 && rs.right <= rt.right + 0.5,
+    dans_fiche: rs.left >= rf.left - 0.5 && rs.right <= rf.right + 0.5,
+    chevauche: Object.entries(autres).filter(([, l]) => l.some(q => sur(x, q))).map(([k]) => k),
+    tete_deborde: t.scrollWidth > t.clientWidth + 1, titre_deborde: !!h2 && h2.scrollWidth > h2.clientWidth + 1 }; })()"""
+
+
+def verifier_situation(p, defauts, quoi, region=None, anneau=None, delai_s=10):
+    """La carte de situation de la fiche ouverte (lot F8) : présente dans la tête dès l'ouverture, puis posée (son état
+    attendu, `delai_s` au plus, jamais une durée fixe : en ligne, le réseau et l'appareil sont plus lents) ; de 96 × 64
+    (téléphone) ou 120 × 80 (au-delà de 700 px) ; dans la tête et dans la feuille, sans rien chevaucher (« × », « ‹ »,
+    drapeaux, titre, statut), sans débordement de la tête, du titre ni de la page ; décorative (aria-hidden) ; le lieu
+    éclairé (ou l'eau d'une mer) ; sa région et son anneau s'ils sont donnés ; la tête de même hauteur vide et posée
+    (elle ne saute pas). Rend l'état lu ; DÉFAUT à chaque écart."""
+    s = p.js(JS_SITUATION)
+    vide = s["haut_tete"] if s and s.get("present") and s.get("etat") == "attente" else None
+    fin = time.monotonic() + delai_s
+    while s and s.get("present") and s.get("etat") != "prete" and time.monotonic() < fin:
+        p.pause(100)
+        s = p.js(JS_SITUATION)
+    if not s or not s.get("present"):
+        defauts.append(f"{quoi} : pas de carte de situation dans la tête ({s})")
+        return s
+    dire(f"  carte de situation ({quoi}) : {s['etat']}, région {s['region']}, anneau {s['anneau']}, {s['l']:.0f} × {s['h']:.0f} px, "
+         f"chemins {s['chemins']}, chevauche {s['chevauche'] or 'rien'}, tête {s['haut_tete']:.0f} px"
+         + (f" (vide : {vide:.0f} px)" if vide is not None else ""))
+    attendu = (96, 64) if s["largeur"] <= 700 else (120, 80)
+    if s["etat"] != "prete" or not s["chemins"]:
+        defauts.append(f"{quoi} : carte de situation pas posée en {delai_s} s ({s['etat']})")
+    elif not ({"situation-lieu", "situation-eau"} & set(s["chemins"]) or (s["anneau"] and "situation-anneau" in s["chemins"])):
+        defauts.append(f"{quoi} : carte de situation sans lieu éclairé ni anneau ({s['chemins']})")
+    if abs(s["l"] - attendu[0]) > 0.5 or abs(s["h"] - attendu[1]) > 0.5:
+        defauts.append(f"{quoi} : carte de situation de {s['l']:.1f} × {s['h']:.1f} px au lieu de {attendu[0]} × {attendu[1]}")
+    if not s["dans_tete"] or not s["dans_fiche"] or s["chevauche"] or s["tete_deborde"] or s["titre_deborde"] or s["page"] > 0:
+        defauts.append(f"{quoi} : carte de situation dans la tête {s['dans_tete']}, dans la feuille {s['dans_fiche']}, chevauche {s['chevauche']}, "
+                       f"tête qui déborde {s['tete_deborde']}, titre qui déborde {s['titre_deborde']}, page {s['page']} px")
+    if s["aria"] != "true":
+        defauts.append(f"{quoi} : carte de situation lue par le lecteur d'écran (aria-hidden {s['aria']!r})")
+    if region is not None and s["region"] != region:
+        defauts.append(f"{quoi} : carte de situation sur {s['region']} au lieu de {region}")
+    if anneau is not None and s["anneau"] != anneau:
+        defauts.append(f"{quoi} : carte de situation {'sans' if anneau else 'avec'} anneau, {'avec' if anneau else 'sans'} attendu")
+    if vide is not None and abs(s["haut_tete"] - vide) > 0.5:
+        defauts.append(f"{quoi} : la tête saute à l'arrivée de la carte de situation ({vide:.1f} → {s['haut_tete']:.1f} px)")
+    return s
+
+
 # Les images d'une page, mesurées par requestAnimationFrame pendant un scénario : les écarts entre deux images,
 # et chaque image longue (≥ 25 ms) datée, pour la rattacher au geste qui la précède (marquer_scenario).
 JS_IMAGES_DEBUT = """(() => { window.__fiche_images = []; window.__fiche_longues = []; window.__fiche_marques = [];
-  window.__fiche_mesure = true; let t0 = performance.now();
+  window.__fiche_mesure = true; let t0 = performance.now(); window.__fiche_t0 = t0; window.__fiche_loaf = [];
+  // Les Long Animation Frames (Chromium 123 et plus) : ce qui a tenu le fil principal pendant une image longue.
+  try { if (window.__fiche_loaf_obs) window.__fiche_loaf_obs.disconnect();
+    window.__fiche_loaf_obs = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__fiche_loaf.push({ t: e.startTime, d: e.duration,
+      b: e.blockingDuration || 0, rendu: e.renderStart ? Math.round(e.startTime + e.duration - e.renderStart) : 0,
+      scripts: (e.scripts || []).map(x => ({ qui: x.invoker || x.invokerType || '', src: (x.sourceURL || '').split('/').pop() + (x.sourceFunctionName ? ':' + x.sourceFunctionName : ''),
+        d: Math.round(x.duration) })) }); });
+    window.__fiche_loaf_obs.observe({ type: 'long-animation-frame' }); } catch (e) { window.__fiche_loaf = null; }
   const f = (t) => { const d = t - t0; window.__fiche_images.push(d); if (d >= 25) window.__fiche_longues.push([t, d]); t0 = t;
     if (window.__fiche_mesure) requestAnimationFrame(f); };
   requestAnimationFrame(f); return true; })()"""
 JS_IMAGES_FIN = """(() => { window.__fiche_mesure = false; const d = (window.__fiche_images || []).slice(1);
   const duree = d.reduce((a, b) => a + b, 0);
+  if (window.__fiche_loaf_obs) { window.__fiche_loaf_obs.disconnect(); window.__fiche_loaf_obs = null; }
+  // Les tranches de la carte de situation (src/vues/situation.ts : performance.measure « situation:… »).
+  const situation = performance.getEntriesByType('measure').filter(m => m.name.startsWith('situation:') && m.startTime >= (window.__fiche_t0 || 0))
+    .map(m => [m.startTime, Math.round(m.duration * 10) / 10, m.name.slice(10)]);
   return { images: d.length, duree_ms: Math.round(duree), acoups: d.filter(x => x >= 25).length, gels: d.filter(x => x >= 46).length,
-           max_ms: Math.round(Math.max(0, ...d) * 10) / 10, longues: window.__fiche_longues || [], marques: window.__fiche_marques || [] }; })()"""
+           max_ms: Math.round(Math.max(0, ...d) * 10) / 10, longues: window.__fiche_longues || [], marques: window.__fiche_marques || [],
+           loaf: window.__fiche_loaf, situation }; })()"""
 
 
 def marquer_scenario(p, nom):
     """Date un geste du scénario (horloge de la page), pour situer les images longues."""
     p.js(f"(window.__fiche_marques || []).push([performance.now(), {json.dumps(nom)}])")
+
+
+def cause_image(m, t, d):
+    """La cause d'une image longue finie à `t` (horloge de la page), de `d` ms : (texte, due à la carte de situation).
+    D'abord les tranches de la carte de situation qui la recouvrent (performance.measure « situation:… », lot F8), puis
+    les Long Animation Frames : le script le plus long (son appelant, son fichier et sa fonction), ou le rendu seul."""
+    debut = t - d
+    situ = [x for x in m.get("situation") or [] if x[0] < t and x[0] + x[1] > debut]
+    if situ:
+        return "carte de situation (" + ", ".join(f"{nom} {duree:.0f} ms" for _, duree, nom in situ) + ")", True
+    loaf = m.get("loaf")
+    if loaf is None:
+        return "inconnue (pas de Long Animation Frames dans ce navigateur)", False
+    recouvre = [x for x in loaf if x["t"] < t and x["t"] + x["d"] > debut]
+    scripts = sorted((s for x in recouvre for s in x["scripts"]), key=lambda s: -s["d"])
+    if scripts:
+        return "script : " + ", ".join(f"{s['qui']} {s['src']} {s['d']} ms" for s in scripts[:2]), False
+    if recouvre:
+        return f"rendu (aucun script ; rendu {max(x['rendu'] for x in recouvre)} ms, blocage {max(x['b'] for x in recouvre):.0f} ms)", False
+    return "inconnue (aucune Long Animation Frame : hors du fil principal, ou le compositeur)", False
 
 
 def situer_images(m):
@@ -4388,18 +4487,21 @@ def situer_images(m):
 
 # Les voisins du scénario de mesure, depuis l'Espagne : de vrais vols sous la fiche (S55, D61), du court
 # (la France) au plus long (la Guyane fait du Brésil un voisin de la France), puis l'Argentine. Le premier
-# voisin de chaque liste faisait Espagne → Andorre → Espagne → Andorre : la carte bougeait à peine.
-CHEMIN_VOISINS = ("FRA", "BRA", "ARG")
+# voisin de chaque liste faisait Espagne → Andorre → Espagne → Andorre : la carte bougeait à peine. Lot F8 :
+# dix voisins (§ 8), chacun nouveau, et trois régions de la carte de situation (l'Europe, l'Amérique du Sud,
+# l'Amérique du Nord avec le Panamá) : un fond à tracer, puis des lieux sur un fond gardé.
+CHEMIN_VOISINS = ("FRA", "BRA", "ARG", "CHL", "BOL", "PER", "COL", "PAN", "CRI", "NIC")
 
 
-def scenario_fiches(p, defauts, n=10, voisins=3, verdict=False):
+def scenario_fiches(p, defauts, n=10, voisins=10, verdict=False):
     """Le scénario de mesure de l'étude (§ 6.4, S41 et S55) : ouvrir et fermer `n` fiches (la barre touchée,
     puis « × »), puis passer par `voisins` voisins depuis la fiche de l'Espagne (CHEMIN_VOISINS), les images de la page
     mesurées par requestAnimationFrame (critère de saccade : à-coup ≥ 25 ms, gel ≥ 46 ms). Le toucher
     est celui de DevTools : la médiane du toucher se juge à part (touchers_reels.py, critère du toucher).
     Indicatif sur le PC (chromium sans écran) : le verdict est celui de l'A37 (`verdict`, cibles chrome et
     webview : un DÉFAUT par gel, et au-delà de 3 à-coups par seconde). Chaque gel est situé par le geste qui le
-    précède."""
+    précède, et sa cause dite (cause_image : la carte de situation, un script, le rendu) ; un gel dû à la carte de
+    situation est un DÉFAUT même sur le PC (lot F8 : aucun gel de 50 ms qu'elle cause)."""
     toucher_lieu_accueil(p, "ESP")
     attendre_fiche(p, lambda e: e["chevron"], "scénario : chevron de l'Espagne")
     p.js(JS_IMAGES_DEBUT)
@@ -4434,11 +4536,23 @@ def scenario_fiches(p, defauts, n=10, voisins=3, verdict=False):
     par_s = m["acoups"] / (m["duree_ms"] / 1000) if m["duree_ms"] else 0
     dire(f"  scénario « {n} fiches, {voisins} voisins » : {m['images']} images en {m['duree_ms']} ms, {m['acoups']} à-coups "
          f"({par_s:.2f}/s), {m['gels']} gels, plus long {m['max_ms']} ms" + ("" if verdict else " (indicatif hors de l'A37)"))
-    for d, quand in situer_images(m):
-        if d >= 46:
-            dire(f"    gel de {d} ms : {quand}")
-            if verdict:
-                defauts.append(f"scénario : gel de {d} ms ({quand}), critère de saccade : aucun gel de 46 ms ou plus")
+    gels = [(round(d, 1), quand, *cause_image(m, t, d)) for (t, d), (_, quand) in zip(m["longues"], situer_images(m)) if d >= 46]
+    dus = [g for g in gels if g[3]]
+    dire(f"  gels ≥ 46 ms : {len(gels)}, dont {len(dus)} dus à la carte de situation"
+         + ("" if m.get("loaf") is not None else " (Long Animation Frames absentes : causes hors de la carte inconnues)"))
+    for d, quand, cause, situation in gels:
+        dire(f"    gel de {d} ms : {quand} ; cause : {cause}")
+        if verdict:
+            defauts.append(f"scénario : gel de {d} ms ({quand} ; {cause}), critère de saccade : aucun gel de 46 ms ou plus")
+        elif situation:
+            defauts.append(f"scénario : gel de {d} ms dû à la carte de situation ({quand} ; {cause}), lot F8 : aucun")
+    tranches = m.get("situation") or []
+    if tranches:
+        longue = max(tranches, key=lambda x: x[1])
+        dire(f"  carte de situation : {len(tranches)} tranches, {sum(x[1] for x in tranches):.0f} ms en tout, "
+             f"la plus longue {longue[1]:.1f} ms ({longue[2]})")
+    else:
+        dire("  carte de situation : aucune tranche mesurée (rien à calculer, ou User Timing absent)")
     if verdict and par_s > 3:
         defauts.append(f"scénario : {par_s:.2f} à-coups par seconde, critère de saccade : 3 au plus")
     return m
@@ -4590,6 +4704,8 @@ def ui_fiche_bilan(p, capturer, defauts):
     dire(f"  « ‹ Bilan » : {vu}")
     if vu["texte"] != "‹Bilan" or vu["h"] < 43.5 or vu["chevauche"]:
         defauts.append(f"« ‹ Bilan » visible, 44 px de haut, sans chevaucher le drapeau attendu ({vu})")
+    # Lot F8 : la carte de situation à côté de « ‹ Bilan », du drapeau et de « × » (384 px : la tête la plus chargée).
+    verifier_situation(p, defauts, "fiche depuis le bilan", "continent:South America", False)
     capturer("163-bilan-fiche")
     if e["voisins"]:
         v = e["voisins"][0]
@@ -4865,7 +4981,10 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     fiche (habitants de 2023, superficie, CIVIS, cinq voisines, capture 160), une voisine touchée (Le Tampon, la carte
     de l'île vole sous la fiche, capture 161), « ‹ », « × », « Monde » ; puis le scénario de mesure ; lot F6 : depuis
     le bilan d'une partie de Trouver, au monde et sur l'île (ui_fiche_bilan, captures 162 à 169) ; lot F7 : « Apprendre
-    ce lieu » depuis la fiche de Maurice, puis le lieu retenu (ui_fiche_apprendre, captures 170 à 176). Les superficies,
+    ce lieu » depuis la fiche de Maurice, puis le lieu retenu (ui_fiche_apprendre, captures 170 à 176) ; lot F8 : la carte de
+    situation de chaque fiche vérifiée (verifier_situation : sa région, son anneau, sa place dans la tête), le Japon (177),
+    le titre le plus long (Saint-Vincent-et-les-Grenadines, 178), la Russie (179), et le scénario de mesure sur une page
+    rechargée, dix voisins, chaque gel avec sa cause. Les superficies,
     profondeurs et riverains des mers sont tus jusqu'à leur relecture (LIGNES_RELUES) : la fiche d'une mer n'a que sa
     sorte, sa mère, son océan, la mémoire et le lien ; le gentilé d'une commune aussi. DÉFAUT à chaque écart."""
     p.goto(base + "?mesures=0" + parametres + "#carte")
@@ -4932,6 +5051,9 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     if not g or g["croix_d"] < g["fiche_d"] - 40 or g["titre_g"] > g["fiche_g"] + 40:
         defauts.append(f"tête de la fiche : « × » à droite et nom à gauche attendus ({g})")
     capturer("151-fiche-japon")
+    # Lot F8 : la carte de situation, l'Asie, le Japon éclairé.
+    verifier_situation(p, defauts, "fiche du Japon", "continent:Asia", False)
+    capturer("177-situation-japon")
     # Le retour du navigateur (celui d'Android fait history.back()) : la fiche se ferme, on reste sur la carte.
     p.js("history.back()")
     # Le focus revient à la barre deux images après la fermeture : Chromium applique d'abord l'ancre #carte
@@ -5058,6 +5180,8 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         defauts.append(f"fiche du Groenland : statut « territoire », lignes Habitants, Monnaie, Heure locale, Continent attendues ({e})")
     if e["drapeaux"] != 1 or "drapeaux-territoires.json" not in lus_t or not any(n.startswith("drapeaux-territoires/") for n in lus_t):
         defauts.append(f"fiche du Groenland : son drapeau, par drapeaux-territoires.json, attendu ({e['drapeaux']} drapeau, lu {lus_t})")
+    # Son point est au nord du cadre de l'Amérique du Nord : le monde.
+    verifier_situation(p, defauts, "fiche du Groenland", "monde:0", False)
     capturer("153-fiche-territoire")
     p.js("history.back()")
     attendre_fiche(p, lambda e: not e["ouverte"], "Groenland fermé")
@@ -5074,6 +5198,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         if e["statut"] != "statut contesté" or [l.split(" ")[0] for l in e["lignes"]] != ["Continent"] or e["drapeaux"] or e["faits"]:
             defauts.append(f"fiche de {nom_z} : statut contesté, continent seul, ni drapeau ni ligne de faits attendus ({e})")
         if ident == "ESH":
+            verifier_situation(p, defauts, f"fiche de {nom_z}", "continent:Africa", True)
             capturer("156-fiche-zone")
         p.js("history.back()")
         attendre_fiche(p, lambda e: not e["ouverte"], f"{nom_z} fermé")
@@ -5082,6 +5207,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
     dire(f"  fiche de l'Antarctique : statut {e['statut']!r}, lignes {e['lignes']}, lien {lien}")
     if e["statut"] != "continent" or [l.split(" ")[0] for l in e["lignes"]] != ["Continent"] or e["drapeaux"] or not (lien or "").endswith("/Antarctique"):
         defauts.append(f"fiche de l'Antarctique : statut « continent », continent seul, lien Wikipédia, sans drapeau attendus ({e}, {lien})")
+    verifier_situation(p, defauts, "fiche de l'Antarctique", "monde:0", False)
     capturer("157-fiche-antarctique")
     p.js("history.back()")
     attendre_fiche(p, lambda e: not e["ouverte"], "Antarctique fermé")
@@ -5145,6 +5271,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
             dire(f"  fiche de la Méditerranée : {e['titre']!r}, statut {e['statut']!r}, lignes {e['lignes']}, boutons {e['voisins']}, focus {e['focus']}")
             if e["titre"] != "mer Méditerranée" or e["statut"] != "mer intérieure" or e["lignes"] != ["Océan océan Atlantique"] or e["voisins"] != ["atlant"] or e["drapeaux"]:
                 defauts.append(f"fiche de la Méditerranée : « mer intérieure », la ligne « Océan » et son bouton seuls, sans drapeau ni riverains attendus ({e})")
+            verifier_situation(p, defauts, "fiche de la Méditerranée", "mer:medit", False)
             capturer("158-fiche-mer")
             # L'océan se touche comme un voisin : la fiche de l'Atlantique, « ‹ » montré ; la carte vole dessous.
             toucher_element(p, '#fiche-lieu .fiche-liens [data-id="atlant"]')
@@ -5153,6 +5280,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
             if e["titre"] != "océan Atlantique" or e["statut"] != "océan" or e["lignes"] or e["voisins"] or not e["avant"] or e["focus"] != "fiche-titre":
                 defauts.append(f"fiche de l'Atlantique (son océan touché) : « océan », aucune ligne, « ‹ », focus au titre attendus ({e})")
             attendre_fin_vol(p)
+            verifier_situation(p, defauts, "fiche de l'Atlantique", "monde:0", False)
             capturer("159-fiche-ocean")
             toucher_element(p, "#fiche-lieu .fiche-avant")
             e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "medit", "« ‹ » vers la Méditerranée")
@@ -5242,6 +5370,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
             defauts.append(f"fiche de Saint-Pierre : elle couvre la mention de l'IGN (haut {g['haut']:.0f} < {g['mention']:.0f})")
         if g["larges"]:
             defauts.append(f"fiche de Saint-Pierre : {g['larges']} ligne(s) ou voisine(s) qui débordent")
+        verifier_situation(p, defauts, "fiche de Saint-Pierre", "ile", False)
         capturer("160-fiche-commune")
         # Une voisine : sa fiche, « ‹ » montré ; la carte de l'île vole dessous (le terrain reste l'île).
         toucher_element(p, '#fiche-lieu .fiche-voisins [data-id="97422"]')
@@ -5251,6 +5380,7 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         dire(f"  voisine (Le Tampon) : lignes {e['lignes']}, ‹ {e['avant']}, focus {e['focus']}, terrain {terrain}, barre {e['barre']}")
         if e["titre"] != "Le Tampon" or not e["avant"] or e["focus"] != "fiche-titre" or terrain != "reunion" or "Intercommunalité CASUD" not in e["lignes"]:
             defauts.append(f"voisine de Saint-Pierre : la fiche du Tampon (CASUD), « ‹ », focus au titre, l'île gardée attendus ({e}, {terrain})")
+        verifier_situation(p, defauts, "fiche du Tampon", "ile", False)
         capturer("161-fiche-commune-voisine")
         toucher_element(p, "#fiche-lieu .fiche-avant")
         e = attendre_fiche(p, lambda e: e["ouverte"] and e["id"] == "97416", "« ‹ » vers Saint-Pierre")
@@ -5274,7 +5404,26 @@ def ui_fiche(p, capturer, defauts, base, parametres="", telephone=True):
         defauts.append(f"recherche pendant une fiche : la fiche fermée, la Chine dans la barre attendues ({e})")
     attendre_fin_vol(p)
 
-    # Le scénario de mesure (§ 6.4) : ouvrir et fermer 10 fiches, passer par 3 voisins.
+    # Lot F8 : la carte de situation à côté du titre le plus long (Saint-Vincent-et-les-Grenadines, micro : son
+    # anneau) et de son drapeau ; la Russie, dont le point est en Sibérie : le monde.
+    e = ouvrir_fiche_par_recherche(p, defauts, "titre long", "Saint-Vincent", "VCT")
+    if e["ouverte"]:
+        e = attendre_fiche(p, lambda x: x["ouverte"] and x["drapeaux"], "drapeau de Saint-Vincent-et-les-Grenadines")
+        verifier_situation(p, defauts, "fiche de Saint-Vincent-et-les-Grenadines", "continent:North America", True)
+        capturer("178-situation-titre-long")
+        toucher_element(p, "#fiche-lieu .croix")
+        attendre_fiche(p, lambda e: not e["ouverte"], "Saint-Vincent fermée")
+    e = ouvrir_fiche(p, "RUS", defauts, "Russie")
+    if e["ouverte"]:
+        verifier_situation(p, defauts, "fiche de la Russie", "monde:0", False)
+        capturer("179-situation-russie")
+        toucher_element(p, "#fiche-lieu .croix")
+        attendre_fiche(p, lambda e: not e["ouverte"], "Russie fermée")
+
+    # Le scénario de mesure (§ 6.4) : ouvrir et fermer 10 fiches, passer par 10 voisins (lot F8), sur une page
+    # rechargée : la carte de situation sans rien de gardé (ses fonds et ses lieux à tracer), le pire cas.
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
     m = scenario_fiches(p, defauts)
     capturer("155-fiche-apres-scenario")
     # Lot F6 : depuis le bilan (après la mesure, qui reste sur la carte d'avant).

@@ -47,7 +47,7 @@ python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de 
 python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers puis ses épreuves, ui_epreuves_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py quiz               # le quiz général seul (ui_quiz, aussi dans ui, #26), profil neuf, l'écran de connexion passé en invité
-python3 .claude/skills/run-terramemo/driver.py fiche              # la fiche d'un lieu seule (ui_fiche, aussi dans ui, #34) ; --width 1280 en PC ; --cible chrome|webview : le scénario de mesure seul (10 fiches, 3 voisins), sur le téléphone
+python3 .claude/skills/run-terramemo/driver.py fiche              # la fiche d'un lieu seule (ui_fiche, aussi dans ui, #34) ; --width 1280 en PC ; --cible chrome|webview : le scénario de mesure seul (10 fiches, 10 voisins, chaque gel ≥ 46 ms avec sa cause), sur le téléphone
 python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes de repère seules (ui_lignes, aussi dans ui, #11), profil neuf ; --rendu webgl|g|css pour les autres rendus
 ```
 
@@ -466,10 +466,22 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   sa fiche (habitants de 2023, superficie, CIVIS, cinq voisines, sous la
   mention de l'IGN, `160-fiche-commune`), Le Tampon touché dans la fiche
   (l'île gardée, « ‹ », `161-fiche-commune-voisine`), « ‹ », « × » ; la recherche
-  qui ferme la fiche ; puis le scénario de mesure de l'étude (§ 6.4 : 10
-  fiches ouvertes et fermées, 3 voisins qui font voler la carte, de
-  l'Espagne à la France, au Brésil puis à l'Argentine, les images de la page par
-  `requestAnimationFrame` : à-coups ≥ 25 ms, gels ≥ 46 ms), indicatif sur
+  qui ferme la fiche ; lot F8 : la carte de situation de chaque fiche
+  (`verifier_situation` : posée dans la tête, 96 × 64 ou 120 × 80 au-delà
+  de 700 px, sans chevaucher « × », « ‹ », le drapeau ni le titre, la tête
+  qui ne saute pas, sa région et son anneau ; l'état `data-etat` attendu,
+  jamais une durée), le Japon (`177-situation-japon`), le titre le plus
+  long (Saint-Vincent-et-les-Grenadines, son anneau, `178-…-titre-long`),
+  la Russie dans le monde (`179-situation-russie`) ; puis, sur une page
+  rechargée (la carte de situation sans rien de gardé), le scénario de
+  mesure de l'étude (§ 6.4 : 10 fiches ouvertes et fermées, 10 voisins qui
+  font voler la carte, de l'Espagne à la France, au Brésil, en Amérique du
+  Sud puis au Nicaragua, les images de la page par
+  `requestAnimationFrame` : à-coups ≥ 25 ms, gels ≥ 46 ms ; le nombre de
+  gels et la cause de chacun : les tranches `situation:…` de la carte de
+  situation qui le recouvrent, sinon le script le plus long des Long
+  Animation Frames, sinon le rendu ; un gel dû à la carte de situation est
+  un `DÉFAUT` même sur le PC), indicatif sur
   le PC : le verdict est celui de l'A37 (`driver.py fiche --cible
   chrome|webview --serie <n°>`, puis `touchers_reels.py` pour le toucher) ;
   enfin, lot F6 (`ui_fiche_bilan`) : une partie de Trouver (Amérique du Sud)
