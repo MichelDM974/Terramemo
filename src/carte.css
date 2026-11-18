@@ -565,6 +565,24 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 /* Depuis un bilan : « ‹ Bilan », une pastille de 44 px de haut au lieu du rond (décision « Fiche depuis le bilan »). */
 .fiche-avant-bilan { width: auto; gap: 4px; padding: 0 14px 3px 8px; border-radius: 22px; color: var(--text); }
 .fiche-avant-mot { font-size: 1rem; font-weight: 600; padding-top: 3px; }
+/* La carte de situation (lot F8, D61 b ; situation.ts) : une place de 96 × 64 (3:2) qui flotte à droite, à côté de
+   « × », posée avec la tête (elle ne saute pas quand la carte arrive) ; aussi haute que la rangée du drapeau (6 + 48
+   + 10 px) : le nom passe dessous sur toute la largeur. Sans drapeau (mer, commune), le nom coule à sa gauche. Le lieu
+   prend l'accent, comme sur la carte (.pays.choisi, --mer-choisie) ; le reste, les couleurs de la carte. */
+.fiche-situation {
+  float: right;
+  width: 96px;
+  height: 64px;
+  margin: 0 0 0 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--mer);
+}
+.fiche-situation.situation-monde { background: var(--panel-2); }
+.situation-lieu { fill: var(--accent); stroke: none; }
+.situation-eau { fill: var(--mer-choisie); }
+.situation-anneau { fill: none; stroke: var(--accent); stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .fiche-drapeaux { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
 .fiche-drapeaux .drapeau { width: 64px; height: 48px; }
 .fiche-titre { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
@@ -597,6 +615,7 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 /* PC : un peu plus grand, comme le panneau de Jouer. */
 @media (min-width: 701px) {
   .fiche { font-size: 1.05rem; }
+  .fiche-situation { width: 120px; height: 80px; }
 }
 
 /* Chrono : jauge du temps de la question (neutre : l'accent reste aux pages et au

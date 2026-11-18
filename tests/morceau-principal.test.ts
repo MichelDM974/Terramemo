@@ -42,7 +42,7 @@ describe('le morceau principal', () => {
   });
 
   it('ne porte rien de ce qui ne sert qu’aux fiches : tout part avec le morceau de la fiche, chargé avec les données', () => {
-    const fiches = ['src/vues/fiche.ts', 'src/fiches/donnees.ts', 'src/fiches/format.ts', 'src/fiches/barre.ts', 'src/fiches/relues.ts', 'src/vues/textes-fiche.ts', 'src/vues/textes-fiche.fr.json'];
+    const fiches = ['src/vues/fiche.ts', 'src/vues/situation.ts', 'src/fiches/donnees.ts', 'src/fiches/format.ts', 'src/fiches/barre.ts', 'src/fiches/relues.ts', 'src/vues/textes-fiche.ts', 'src/vues/textes-fiche.fr.json'];
     expect(fiches.filter((f) => vus.has(f))).toEqual([]);
   });
 });

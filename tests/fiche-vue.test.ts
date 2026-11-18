@@ -14,14 +14,19 @@ import { fmtHabitants, fmtHabitantsCourt, fmtHeureLieu, nombreFormateurs } from 
 import { LIGNES_RELUES, type LigneRelue } from '../src/fiches/relues';
 import { lireCapitales, type LigneCapitales, type NomsCapitales } from '../src/map/capitales';
 import { lireDrapeaux, type ManifesteDrapeaux } from '../src/map/drapeaux';
-import type { Pays } from '../src/map/types';
+import type { Topology } from 'topojson-specification';
+import { assembler } from '../src/map/donnees';
+import { assemblerTerrain } from '../src/map/donnees-terrain';
+import { assemblerLegere } from '../src/map/mers';
+import type { Contestee, Lieu, Pays } from '../src/map/types';
 import type { CarteMemoire } from '../src/vues/carte-memoire';
 import type { ContexteVue } from '../src/vues/commun';
 import { creerNavigation, type Historique, type VueNavigable } from '../src/navigation';
 import { versAncre } from '../src/vues/arbre';
 import { vueExplorer, type OptionsFiche } from '../src/vues/explorer';
 import type { ApprendreFiche, ApprendreModele } from '../src/vues/apprendre-lieu';
-import { composerFiche, creerFeuille, DELAI_HEURE_MS, type ModeleFiche } from '../src/vues/fiche';
+import { composerFiche, creerFeuille, DELAI_HEURE_MS, SITUATION_APRES_MS, type ModeleFiche } from '../src/vues/fiche';
+import { MORCEAU, type SourceSituation } from '../src/vues/situation';
 import { remplir, textes } from '../src/vues/textes';
 import { textesFiche } from '../src/vues/textes-fiche';
 import { brancherZoom } from '../src/zoom-carte';
@@ -1195,5 +1200,271 @@ describe('les fiches du lot F3 : territoires, zones contestées, Antarctique', (
     expect(v.chevron()).toBe(true);
     v.toucher('ATA');
     expect(v.faits()).toBe('');
+  });
+});
+
+describe('la carte de situation en tête de la fiche (lot F8, D61 b)', () => {
+  // Les vraies formes du dépôt : le monde (monde.topo.json), l'île, la couche légère des mers.
+  const texte = (f: string) => readFileSync(`public/geo/${f}`, 'utf8');
+  const MONDE = assembler(lire<Topology<never>>('monde.topo.json'), pays, lire<Contestee[]>('contestees.json'), noms);
+  const ILE = assemblerTerrain(lire<Topology<never>>('reunion/communes.topo.json'), 'communes', lire<Lieu[]>('reunion/communes.json'), lire<Record<string, string>>('reunion/noms.fr.json'));
+  const MERS = assemblerLegere({ leger: texte('mers-leger.topo.json'), mers: texte('mers.json'), fr: texte('mers.fr.json') });
+  const SOURCE: SourceSituation = { monde: () => MONDE, ile: () => ILE, mers: () => ({ mers: MERS.mers, zones: MERS.zones }) };
+
+  /** requestIdleCallback tenu à la main : chaque tranche reçoit une échéance de `ms` (0 : un seul pas par tranche). */
+  function repos() {
+    const attente = new Map<number, (e: { timeRemaining(): number; didTimeout: boolean }) => void>();
+    let n = 0;
+    vi.stubGlobal('requestIdleCallback', (f: (e: { timeRemaining(): number; didTimeout: boolean }) => void) => (attente.set(++n, f), n));
+    vi.stubGlobal('cancelIdleCallback', (h: number) => void attente.delete(h));
+    return {
+      attente: () => attente.size,
+      /** Une tranche. */
+      une(ms = 0): void {
+        const [h, f] = attente.entries().next().value!;
+        attente.delete(h);
+        f({ timeRemaining: () => ms, didTimeout: false });
+      },
+      /** Les tranches jusqu'à la carte posée ; rend leur nombre. */
+      vider(ms = 0): number {
+        let k = 0;
+        while (attente.size) {
+          const [h, f] = attente.entries().next().value!;
+          attente.delete(h);
+          if (++k > 5000) throw new Error('le calcul ne finit pas');
+          f({ timeRemaining: () => ms, didTimeout: false });
+        }
+        return k;
+      },
+    };
+  }
+
+  /** Une feuille seule (sans la vue), branchée sur les vraies formes. */
+  function feuilleSeule(source: SourceSituation = SOURCE) {
+    installerDom();
+    const zone = new El('main');
+    const f = creerFeuille(zone as unknown as HTMLElement, { fermer() {}, voile() {}, avant() {}, voisin() {} }, source);
+    const el = (sel: string) => (zone as El).querySelector(sel);
+    return { f, el, place: () => el('#fiche-lieu .fiche-situation')!, svg: () => el('#fiche-lieu .fiche-situation svg') };
+  }
+
+  /** Le modèle d'un lieu sans fiche du monde (une mer, une commune) : la tête seule compte ici. */
+  const modele = (terrain: 'monde' | 'reunion', id: string, sorte: ModeleFiche['sorte'], nom: string): ModeleFiche => ({
+    terrain,
+    id,
+    sorte,
+    nom,
+    statut: '',
+    drapeaux: [],
+    avecDrapeau: false,
+    faits: [],
+    voisins: [],
+    titreVoisins: '',
+    memoire: null,
+    apprendre: null,
+    wikipedia: null,
+    sources: [],
+  });
+
+  it('sa place est réservée dès l’ouverture, dans la tête (à côté de « × », avant le drapeau), vide ; la carte vient après la montée, en temps libre', () => {
+    const r = repos();
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('no-preference') }));
+    const v = feuilleSeule();
+    v.f.montrer(composer('JPN'), { avant: false, focus: true });
+    const tete = v.el('#fiche-lieu .fiche-tete')!;
+    const enfants = tete.enfants.filter((e): e is El => e instanceof El).map((e) => e.className);
+    expect(enfants.slice(0, 4)).toEqual(['croix', 'fiche-avant', 'fiche-situation', 'fiche-drapeaux']);
+    expect(v.place().getAttribute('aria-hidden')).toBe('true');
+    expect(v.place().dataset.etat).toBe('attente');
+    expect(v.svg()).toBeNull();
+    // Rien en temps libre pendant la montée.
+    expect(r.attente()).toBe(0);
+    (v.f.element as unknown as El).emettre('animationend', {});
+    expect(r.attente()).toBe(1);
+    expect(r.vider()).toBeGreaterThan(1);
+    expect(v.place().dataset.etat).toBe('prete');
+    expect(v.place().dataset.region).toBe('continent:Asia');
+    expect(v.svg()!.getAttribute('viewBox')!.split(' ')).toHaveLength(4);
+    expect(v.svg()!.getAttribute('aria-hidden')).toBe('true');
+    expect(v.svg()!.querySelector('.situation-lieu')!.getAttribute('d')).toMatch(/^M/);
+    expect(v.svg()!.querySelector('.vignette-fond')!.getAttribute('d')!.length).toBeGreaterThan(1000);
+    expect(v.svg()!.querySelector('.situation-anneau')).toBeNull();
+    // La règle de la place : une taille fixe (la tête ne saute pas), à droite, en 3:2, plus grande sur PC.
+    const css = readFileSync('src/carte.css', 'utf8');
+    const regle = /\n\.fiche-situation \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    for (const r2 of [/float: right;/, /width: 96px;/, /height: 64px;/, /overflow: hidden;/]) expect(regle).toMatch(r2);
+    expect(css).toMatch(/@media \(min-width: 701px\) \{[^}]*\}\s*\.fiche-situation \{ width: 120px; height: 80px; \}/);
+  });
+
+  it('sans animationend (onglet caché, animation coupée) : la carte part quand même, SITUATION_APRES_MS après l’ouverture ; sans montée, tout de suite', async () => {
+    vi.useFakeTimers();
+    try {
+      const r = repos();
+      vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('no-preference') }));
+      const v = feuilleSeule();
+      v.f.montrer(composer('FRA'), { avant: false, focus: true });
+      vi.advanceTimersByTime(SITUATION_APRES_MS - 1);
+      expect(r.attente()).toBe(0);
+      vi.advanceTimersByTime(1);
+      expect(r.attente()).toBe(1);
+      // Un voisin, la feuille ouverte : pas de montée, le calcul part tout de suite.
+      v.f.montrer(composer('ESP'), { avant: true, focus: true });
+      expect(r.attente()).toBe(1);
+      r.vider();
+      expect(v.place().dataset.lieu).toBe('ESP');
+      expect(v.place().dataset.etat).toBe('prete');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gardée d’une fiche à l’autre : le fond de la région se trace une fois, la carte d’un lieu revient tout de suite (rouverte, ou refaite sur place)', () => {
+    const r = repos();
+    const v = feuilleSeule();
+    v.f.montrer(composer('CHN'), { avant: false, focus: true });
+    const chine = r.vider();
+    // Le Japon, dans la même région : le fond est gardé, seul le Japon se trace.
+    v.f.montrer(composer('JPN'), { avant: true, focus: true });
+    const japon = r.vider();
+    expect(japon).toBeLessThan(chine / 3);
+    expect(v.place().dataset.region).toBe('continent:Asia');
+    // La Chine rouverte : sa carte est là dès la pose de la tête, sans rien en temps libre.
+    v.f.fermer();
+    v.f.montrer(composer('CHN'), { avant: false, focus: true });
+    expect(v.place().dataset.etat).toBe('prete');
+    expect(v.svg()!.querySelector('.situation-lieu')).not.toBeNull();
+    expect(r.attente()).toBe(0);
+    // La même fiche refaite sur place (rafraichir) : de même.
+    v.f.montrer(composer('CHN'), { avant: false, focus: false });
+    expect(v.place().dataset.etat).toBe('prete');
+    expect(r.attente()).toBe(0);
+  });
+
+  it('fermée en plein calcul : il s’arrête ; rouverte, le fond reprend où il en était', () => {
+    const r = repos();
+    // Une feuille témoin (ses caches à elle) : le nombre de pas de l'Allemagne, d'un trait.
+    feuilleSeule().f.montrer(composer('DEU'), { avant: false, focus: true });
+    const tout = r.vider();
+    const v = feuilleSeule();
+    v.f.montrer(composer('DEU'), { avant: false, focus: true });
+    for (let i = 0; i < 5; i++) r.une();
+    v.f.fermer();
+    expect(r.attente()).toBe(0);
+    v.f.montrer(composer('DEU'), { avant: false, focus: true });
+    expect(v.place().dataset.etat).toBe('attente');
+    // Les 4 pas du fond déjà faits ne se refont pas (la région se résout de nouveau : un pas).
+    expect(r.vider()).toBe(tout - 4);
+    expect(v.place().dataset.etat).toBe('prete');
+  });
+
+  it('le calcul se fait par pas : le Canada (13 316 points, 412 polygones) en plusieurs tranches, MORCEAU points au plus chacune (un polygone plus grand : seul)', () => {
+    const r = repos();
+    const v = feuilleSeule();
+    v.f.montrer(composer('USA'), { avant: false, focus: true });
+    r.vider(1000);
+    // Le fond de l'Amérique du Nord est gardé : le Canada seul se trace, en plusieurs pas.
+    v.f.montrer(composer('CAN'), { avant: true, focus: true });
+    // Son plus grand polygone (3 737 points) en un pas, le reste par MORCEAU points au plus.
+    expect(r.vider()).toBeGreaterThanOrEqual(Math.ceil((13316 - 3737) / MORCEAU));
+    expect(v.place().dataset.region).toBe('continent:North America');
+  });
+
+  it('chaque sorte de lieu : pays, territoire, zone contestée, Antarctique, mer, océan, commune ; un lieu micro gagne un anneau', () => {
+    const r = repos();
+    const v = feuilleSeule();
+    const voir = (m: ModeleFiche) => {
+      v.f.montrer(m, { avant: false, focus: true });
+      r.vider(1000);
+      const p = v.place();
+      const s = v.svg()!;
+      const d = (c: string) => s.querySelector(`.${c}`)?.getAttribute('d') ?? '';
+      return { region: p.dataset.region, monde: p.classList.contains('situation-monde'), lieu: d('situation-lieu').length, eau: d('situation-eau').length, fond: d('vignette-fond').length, anneau: !!s.querySelector('.situation-anneau') };
+    };
+    // Un pays dans sa région ; la Russie (son point en Sibérie) : le monde.
+    expect(voir(composer('FRA'))).toMatchObject({ region: 'continent:Europe', monde: false, anneau: false });
+    expect(voir(composer('RUS'))).toMatchObject({ region: 'monde:0', monde: true, anneau: false });
+    // Micro : le Vatican, Monaco ; Maurice dans l'Afrique.
+    for (const id of ['VAT', 'MCO']) expect(voir(composer(id)), id).toMatchObject({ region: 'continent:Europe', anneau: true });
+    expect(voir(composer('MUS'))).toMatchObject({ anneau: true });
+    // Un territoire : le Groenland, hors du cadre de l'Amérique du Nord (son point au nord du Canada) : le monde ;
+    // Sainte-Hélène (micro), dans la boîte de l'Afrique (élargie en 3:2) : l'Afrique et son anneau.
+    expect(voir(composer('GRL'))).toMatchObject({ region: 'monde:0', monde: true, anneau: false });
+    expect(voir(composer('SHN'))).toMatchObject({ region: 'continent:Africa', monde: false, anneau: true });
+    // Les Malouines, au large de l'Amérique du Sud, hors de sa boîte : le monde et son anneau.
+    expect(voir(composer('FLK'))).toMatchObject({ region: 'monde:0', monde: true, anneau: true });
+    // Hors du cadre de son continent mais assez près pour y compter : le cadre élargi à lui (la Polynésie française,
+    // le champ de glace Sud de Patagonie, au bord de l'Amérique du Sud).
+    expect(voir(composer('PYF'))).toMatchObject({ region: 'continent:Oceania+PYF', monde: false, anneau: true });
+    expect(voir(composer('NE_SPI'))).toMatchObject({ region: 'continent:South America+NE_SPI', monde: false });
+    // Une zone contestée : le Sahara occidental dans l'Afrique (moins de 2,5 % de la largeur de la boîte : son anneau).
+    expect(voir(composer('ESH'))).toMatchObject({ region: 'continent:Africa', monde: false, anneau: true });
+    // Taïwan (pays non jouable) dans l'Asie ; l'Égypte, assez grande : sans anneau.
+    expect(voir(composer('TWN'))).toMatchObject({ region: 'continent:Asia', anneau: true });
+    expect(voir(composer('EGY'))).toMatchObject({ region: 'continent:Africa', anneau: false });
+    // L'Antarctique : le monde.
+    expect(voir(composer('ATA'))).toMatchObject({ region: 'monde:0', monde: true, anneau: false });
+    // Une mer : son cadre, éclairée sous les terres (l'eau, pas de lieu) ; un océan : le monde.
+    const medit = voir(modele('monde', 'medit', 'mer', 'mer Méditerranée'));
+    expect(medit).toMatchObject({ region: 'mer:medit', monde: false, lieu: 0, anneau: false });
+    expect(medit.eau).toBeGreaterThan(100);
+    expect(medit.fond).toBeGreaterThan(1000);
+    expect(voir(modele('monde', 'azov', 'mer', 'mer d’Azov'))).toMatchObject({ region: 'mer:azov', anneau: false });
+    expect(voir(modele('monde', 'atlant', 'mer', 'océan Atlantique'))).toMatchObject({ region: 'monde:0', monde: true });
+    expect(voir(modele('monde', 'pacif', 'mer', 'océan Pacifique'))).toMatchObject({ region: 'monde:150', monde: true });
+    // Une commune : l'île entière, la commune éclairée parmi les autres.
+    const sp = voir(modele('reunion', '97416', 'commune', 'Saint-Pierre'));
+    expect(sp).toMatchObject({ region: 'ile', monde: false, anneau: false });
+    expect(sp.lieu).toBeGreaterThan(50);
+    expect(sp.fond).toBeGreaterThan(sp.lieu);
+  });
+
+  it('l’anneau : centré sur le point du lieu, dans la boîte, d’un rayon de 7,5 % de sa largeur', () => {
+    const r = repos();
+    const v = feuilleSeule();
+    v.f.montrer(composer('VAT'), { avant: false, focus: true });
+    r.vider(1000);
+    const [x, y, w, h] = v.svg()!.getAttribute('viewBox')!.split(' ').map(Number) as [number, number, number, number];
+    const a = v.svg()!.querySelector('.situation-anneau')!;
+    const [cx, cy, rr] = ['cx', 'cy', 'r'].map((k) => Number(a.getAttribute(k))) as [number, number, number];
+    expect(cx).toBeGreaterThan(x);
+    expect(cx).toBeLessThan(x + w);
+    expect(cy).toBeGreaterThan(y);
+    expect(cy).toBeLessThan(y + h);
+    expect(rr).toBeCloseTo(0.075 * w, 0);
+    expect(w / h).toBeCloseTo(1.5, 2);
+  });
+
+  it('les données pas encore là (l’île, la couche des mers) : la place reste vide, un nouvel essai plus tard ; rien de gardé à moitié', async () => {
+    vi.useFakeTimers();
+    try {
+      const r = repos();
+      let ile: typeof ILE | null = null;
+      let mers: ReturnType<NonNullable<SourceSituation['mers']>> = null;
+      const v = feuilleSeule({ monde: () => MONDE, ile: () => ile, mers: () => mers });
+      v.f.montrer(modele('reunion', '97416', 'commune', 'Saint-Pierre'), { avant: false, focus: true });
+      r.vider();
+      expect(v.place().dataset.etat).toBe('attente');
+      ile = ILE;
+      vi.advanceTimersByTime(500);
+      r.vider();
+      expect(v.place().dataset.etat).toBe('prete');
+      // Une mer dont la couche n'est pas lue : de même.
+      v.f.montrer(modele('monde', 'noire', 'mer', 'mer Noire'), { avant: true, focus: true });
+      r.vider();
+      expect(v.place().dataset.etat).toBe('attente');
+      mers = { mers: MERS.mers, zones: MERS.zones };
+      vi.advanceTimersByTime(500);
+      r.vider();
+      expect(v.place().dataset.region).toBe('mer:noire');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('branchée par la vue : la tête de toute fiche ouverte a sa place, pour le lieu de la fiche', async () => {
+    const v = await ouvrirSur('JPN');
+    const p = v.el('#fiche-lieu .fiche-tete .fiche-situation')!;
+    expect(p.dataset.lieu).toBe('JPN');
+    expect(p.getAttribute('aria-hidden')).toBe('true');
   });
 });

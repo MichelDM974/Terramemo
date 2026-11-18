@@ -49,6 +49,11 @@
 // d'ici. Possible : le bouton, « avec 6 pays voisins » dessous ; pas
 // aujourd'hui : pourquoi, et « Retenir ce lieu » (D58 b : sa région sera la
 // prochaine grappe), puis « Noté » et « Annuler ».
+//
+// Lot F8 (D61 b) : la carte de situation dans la tête (src/vues/situation.ts), à
+// droite, à côté de « × » : sa place est posée avec la tête, et la carte se
+// calcule après l'animation d'ouverture, en temps libre ; gardée d'une fiche à
+// l'autre.
 import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import { oceansDeMer } from '../map/mers';
@@ -64,6 +69,7 @@ import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { ApprendreModele } from './apprendre-lieu';
 import { creer, croix, LIBELLE_STATUT } from './commun';
+import { creerSituation, type SourceSituation } from './situation';
 import { remplir, textes } from './textes';
 import { textesFiche } from './textes-fiche';
 
@@ -431,11 +437,15 @@ export interface Feuille {
 /** Seuil du glissé vers le bas qui ferme, commencé sur la tête (§ 4.3). */
 export const GLISSE_FERMER_PX = 60;
 
+/** Sans fin d'animation entendue (animationend), la carte de situation part quand même après ce délai (la montée : 200 ms). */
+export const SITUATION_APRES_MS = 400;
+
 /**
  * La feuille et son voile, posés dans `zone` (#app), cachés. Un seul
- * exemplaire par page : la carte le garde.
+ * exemplaire par page : la carte le garde. `situation` : ce que lit la carte de
+ * situation (lot F8) ; absent, la tête n'en a pas.
  */
-export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille {
+export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation?: SourceSituation): Feuille {
   const voile = creer('div', { class: 'fiche-voile', id: 'fiche-voile', 'aria-hidden': 'true' });
   voile.hidden = true;
   voile.addEventListener('click', () => actions.voile());
@@ -447,7 +457,19 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
   zone.append(voile, feuille, annonce);
   // will-change: transform le temps de la montée seulement (§ 6.4) : la feuille composée à part pendant
   // l'animation (carte.css : fiche-monte), sans garder un calque pour elle une fois ouverte.
-  const finMontee = () => void (feuille.style.willChange = '');
+  // La carte de situation (lot F8) : calculée après la montée (animationend, ou SITUATION_APRES_MS au plus tard), en
+  // temps libre ; tout de suite (en temps libre aussi) quand la feuille ne monte pas (un voisin, mouvement réduit).
+  const carte = situation ? creerSituation(situation) : null;
+  let apresMontee: ReturnType<typeof setTimeout> | null = null;
+  function lancerCarte(): void {
+    if (apresMontee !== null) clearTimeout(apresMontee);
+    apresMontee = null;
+    carte?.lancer();
+  }
+  const finMontee = () => {
+    feuille.style.willChange = '';
+    if (apresMontee !== null) lancerCarte();
+  };
   feuille.addEventListener('animationend', finMontee);
   feuille.addEventListener('animationcancel', finMontee);
 
@@ -503,7 +525,9 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
     const titre = creer('h2', { class: 'fiche-titre', id: 'fiche-titre', tabindex: '-1' }, m.nom);
     poserDrapeaux(m);
     const statut = m.statut ? [creer('p', { class: 'fiche-statut' }, m.statut)] : [];
-    const t = creer('header', { class: 'fiche-tete' }, croix(() => actions.fermer()), avant, drapeauxEl, titre, ...statut);
+    // La carte de situation flotte à droite, à côté de « × » : sa place est là dès la pose (carte.css : .fiche-situation).
+    const place = carte ? [carte.place({ terrain: m.terrain, id: m.id, sorte: m.sorte })] : [];
+    const t = creer('header', { class: 'fiche-tete' }, croix(() => actions.fermer()), avant, ...place, drapeauxEl, titre, ...statut);
     // Glissé vers le bas de 60 px ou plus, commencé sur la tête : la fiche se ferme (la feuille ne suit pas le doigt).
     let depart: number | null = null;
     t.addEventListener('pointerdown', (e) => {
@@ -632,7 +656,8 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       // tant que la mise en page est à jour. Une feuille cachée n'a rien à remettre : fermer() l'a remise en haut.
       if (o.focus && !ouverture && feuille.scrollTop) feuille.scrollTop = 0;
       // Une ouverture (la feuille était cachée) : l'animation de carte.css part, sauf mouvement réduit.
-      if (ouverture && globalThis.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) feuille.style.willChange = 'transform';
+      const montee = ouverture && !!globalThis.matchMedia?.('(prefers-reduced-motion: no-preference)').matches;
+      if (montee) feuille.style.willChange = 'transform';
       modele = m;
       avecAvant = o.avant;
       versBilan = !!o.bilan;
@@ -643,6 +668,11 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       if (heures.length) minuteur = setInterval(refaireHeure, DELAI_HEURE_MS);
       voile.hidden = false;
       feuille.hidden = false;
+      // La carte de situation après la montée (ou celle encore en cours d'une ouverture précédente), sinon tout de suite.
+      if (montee || apresMontee !== null) {
+        if (apresMontee !== null) clearTimeout(apresMontee);
+        apresMontee = setTimeout(lancerCarte, SITUATION_APRES_MS);
+      } else lancerCarte();
       if (o.focus) {
         // Le focus au titre : le lecteur d'écran dit son nom. Le titre est en haut, rien à faire défiler.
         feuille.querySelector<HTMLElement>('#fiche-titre')?.focus({ preventScroll: true });
@@ -657,6 +687,9 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche): Feuille 
       poserDrapeaux(modele);
     },
     fermer() {
+      if (apresMontee !== null) clearTimeout(apresMontee);
+      apresMontee = null;
+      carte?.arreter();
       finMontee();
       arreterHeure();
       modele = null;

@@ -805,15 +805,20 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
         if (j !== jetonFiche || !active) return;
         const modele = composer(m, f);
         if (!modele) return echecFiche();
-        feuille ??= m.creerFeuille(ctx.zone, {
-          fermer: () => historique.quitter(),
-          // Lu avant l'écouteur du document qui ferme la popup (le voile est la cible du clic) : elle est encore ouverte.
-          voile: () => void (F.reglagesOuverts?.() || historique.quitter()),
-          avant: () => reculer(),
-          // Sur le terrain de la fiche ouverte : une commune voisine sur l'île, tout le reste au monde.
-          voisin: (v) => historique.pousser({ terrain: ficheOuverte?.terrain ?? 'monde', id: v }),
-          apprendre: (geste) => apprendreGeste(geste),
-        });
+        feuille ??= m.creerFeuille(
+          ctx.zone,
+          {
+            fermer: () => historique.quitter(),
+            // Lu avant l'écouteur du document qui ferme la popup (le voile est la cible du clic) : elle est encore ouverte.
+            voile: () => void (F.reglagesOuverts?.() || historique.quitter()),
+            avant: () => reculer(),
+            // Sur le terrain de la fiche ouverte : une commune voisine sur l'île, tout le reste au monde.
+            voisin: (v) => historique.pousser({ terrain: ficheOuverte?.terrain ?? 'monde', id: v }),
+            apprendre: (geste) => apprendreGeste(geste),
+          },
+          // La carte de situation (lot F8) : les données déjà en mémoire, rien de plus à charger.
+          { monde: () => ctx.donnees, ile: () => ctx.terrains.deja('reunion')?.donnees ?? null },
+        );
         feuille.montrer(modele, { ...optionsAvant(f), focus: true });
         // Le drapeau d'un territoire (lot F3) : son manifeste à part, à la première fiche de territoire.
         if (modele.avecDrapeau && !modele.drapeaux.length && modele.sorte === 'territoire' && F.drapeauxTerritoires) {
