@@ -3,11 +3,12 @@
 // panneau par-dessus la carte, figée et visible derrière un voile ; l'en-tête
 // n'est pas utilisable (inert) tant qu'on n'a pas choisi. Trois entrées :
 // « Continuer avec Google » (le site ; l'APK au lot 7), l'e-mail (se
-// connecter, créer un compte, mot de passe oublié), « Continuer en invité »
-// avec un pseudo d'invité, validé comme au classement (pseudoValide,
-// clePermise) et rangé là où il le lit (terramemo.pseudo). Le lien
-// Confidentialité se lit sans avoir choisi : la vue s'ouvre, le panneau
-// s'efface, et son retour le ramène.
+// connecter, créer un compte, mot de passe oublié), « Continuer en invité »,
+// qui ferme le panneau sans rien demander : le pseudo de l'invité, Guest-1000
+// puis Guest-1001…, vient avec son premier score publié (décision « Pseudo
+// d'invité » du 20/11/2026, src/vues/classement.ts), et un appareil qui a
+// déjà un pseudo le garde. Le lien Confidentialité se lit sans avoir
+// choisi : la vue s'ouvre, le panneau s'efface, et son retour le ramène.
 //
 // Les entrées des comptes ne sont pas recopiées ici : ce sont les écrans de
 // la vue Compte (accueilCompte, src/vues/compte.ts), dans leur morceau à la
@@ -44,13 +45,10 @@
 // il ne revient pas avant qu'elle l'ait été (pas de boucle). Hors ligne au
 // démarrage, la session ne se sait pas perdue : rien ne change.
 //
-// L'invité n'appelle rien de Firebase : ni compte anonyme (créé à la première
-// publication, décision « Comptes »), ni publication de ses records sous le
-// pseudo donné ici (ils partent avec les prochains, ou par « Changer » du
-// classement).
-import { garderPseudoDans, lirePseudoDe } from '../epreuve/chrono';
+// L'invité n'appelle rien de Firebase : ni compte anonyme ni numéro de
+// pseudo, pris tous deux à la première publication (décisions « Comptes »
+// et « Pseudo d'invité »).
 import { surEffacementJoueur } from '../sync/effacement';
-import { champPseudo } from './classement';
 import { creer } from './commun';
 import { textes } from './textes';
 
@@ -247,7 +245,6 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
 
   /** Le panneau, construit à chaque ouverture (retiré de la page à la fermeture). */
   function construire(): HTMLElement {
-    const st = o.stockage();
     const titre = creer(
       'h2',
       { class: 'accueil-titre', id: 'accueil-titre', tabindex: '-1' },
@@ -271,28 +268,9 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     partieInvite.hidden = perdue;
     const choix = creer('div', { class: 'accueil-choix', id: 'accueil-choix' }, zoneComptes, partieInvite);
 
-    // L'invité : son pseudo seul (celui de l'appareil pré-rempli : un joueur qui a déjà des progrès), validé comme
-    // au classement. Rien d'autre à lire (demande de l'utilisateur, 12/11 : « trop de blabla ») : l'erreur ne
-    // vient qu'à un pseudo refusé, et « Retour » est un lien.
-    const erreur = creer('p', { class: 'status error', id: 'accueil-erreur', role: 'alert' });
-    const pseudo = champPseudo({ id: 'accueil-pseudo', libelle: T.pseudo_libelle, valeur: lirePseudoDe(st) ?? '', erreur, entree: 'go' });
-    const champ = pseudo.input;
-    const commencer = creer('button', { type: 'submit', id: 'accueil-commencer' }, T.commencer);
-    const retour = creer('button', { type: 'button', class: 'lien', id: 'accueil-retour' }, T.retour);
-    const formInvite = creer(
-      'form',
-      { class: 'compte-form accueil-form-invite', id: 'accueil-form-invite', novalidate: '' },
-      pseudo.bloc,
-      erreur,
-      creer('div', { class: 'compte-actions' }, commencer),
-      creer('p', { class: 'accueil-liens' }, retour),
-    );
-    formInvite.hidden = true;
-
     const lien = creer('a', { href: '#confidentialite', id: 'accueil-confidentialite' }, textes.confidentialite.lien);
-    // Le pied (Confidentialité) reste aux entrées ; il se tait pendant l'écran de l'invité.
     const pied = creer('p', { class: 'accueil-liens', id: 'accueil-pied' }, lien);
-    const panneau = creer('div', { class: 'panel accueil-panneau' }, titre, accroche, choix, formInvite, pied);
+    const panneau = creer('div', { class: 'panel accueil-panneau' }, titre, accroche, choix, pied);
     const s = creer('section', { class: 'accueil ecrans-compte', id: 'accueil', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'accueil-titre', 'aria-describedby': 'accueil-accroche' }, panneau);
 
     invite.addEventListener('click', () => {
@@ -310,24 +288,7 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
         );
         return;
       }
-      choix.hidden = true;
-      pied.hidden = true;
-      formInvite.hidden = false;
-      erreur.textContent = '';
-      focaliser(champ);
-    });
-    retour.addEventListener('click', () => {
-      formInvite.hidden = true;
-      choix.hidden = false;
-      pied.hidden = false;
-      focaliser(invite);
-    });
-    formInvite.addEventListener('submit', (e) => {
-      (e as Event).preventDefault?.();
-      const p = pseudo.valider();
-      if (!p) return;
-      // Là où le classement le lit (lirePseudo) ; rien n'est publié d'ici (aucun appel à Firebase).
-      garderPseudoDans(o.stockage(), p);
+      // Rien à demander (décision « Pseudo d'invité ») : le pseudo de l'appareil reste, sinon le numéro viendra.
       fermer('invite');
     });
 
@@ -465,12 +426,6 @@ export function creerAccueil(o: OptionsAccueil): Accueil {
     },
     retour() {
       if (etat !== 'ouvert' || !section || suspendu) return null;
-      const retourInvite = section.querySelector<HTMLButtonElement>('#accueil-retour');
-      const formInvite = section.querySelector<HTMLElement>('#accueil-form-invite');
-      if (formInvite && !formInvite.hidden && retourInvite) {
-        retourInvite.click();
-        return 'fait';
-      }
       return comptes?.retour?.() ? 'fait' : 'reduire';
     },
     suivre(vue) {

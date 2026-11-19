@@ -10,23 +10,43 @@ const etat = {
   refus: null as null | { code: string },
   place: null as null | Record<string, unknown>,
   ecrits: [] as { chemin: string; donnees: Record<string, unknown> }[],
+  /** Le compteur des pseudos d'invité (compteurs/invites), absent tant qu'aucun n'a été tiré. */
+  compteur: null as null | { n: number },
+  /** Le compte du navigateur (Auth). */
+  utilisateur: null as null | { isAnonymous: boolean },
+  comptes: 0,
 };
 const fs = {
   collection: (_db: unknown, ...segments: string[]) => segments.join('/'),
-  doc: (col: string, id: string) => ({ chemin: `${col}/${id}`, id }),
+  // doc(collection, id) d'une place ; doc(db, 'compteurs', 'invites') du compteur.
+  doc: (col: string, ...ids: string[]) => (ids.length === 1 ? { chemin: `${col}/${ids[0]}`, id: ids[0]! } : { chemin: ids.join('/'), id: ids[ids.length - 1]! }),
   serverTimestamp: () => 'maintenant',
   setDoc: async (ref: { chemin: string }, donnees: Record<string, unknown>) => {
     if (etat.refus) throw etat.refus;
     etat.ecrits.push({ chemin: ref.chemin, donnees });
   },
   getDoc: async (ref: { id: string }) => ({ id: ref.id, exists: () => etat.place !== null, data: () => etat.place ?? {} }),
+  // Une transaction sur le compteur seul : lue, puis écrite d'un coup.
+  runTransaction: async <T>(_db: unknown, f: (t: unknown) => Promise<T>): Promise<T> => {
+    let ecrit: { n: number } | null = null;
+    const r = await f({
+      get: async () => ({ exists: () => etat.compteur !== null, data: () => etat.compteur ?? {} }),
+      set: (_ref: unknown, d: { n: number }) => (ecrit = d),
+      update: (_ref: unknown, d: { n: number }) => (ecrit = d),
+    });
+    if (ecrit) etat.compteur = ecrit;
+    return r;
+  },
 };
 vi.mock('../src/sync/firebase', () => ({
-  charger: async () => ({ db: 'db', m: { fs } }),
-  compte: async () => 'uid',
+  charger: async () => ({ db: 'db', m: { fs }, a: { get currentUser() { return etat.utilisateur; } } }),
+  compte: async () => {
+    etat.comptes++;
+    return 'uid';
+  },
 }));
 
-const { publier } = await import('../src/epreuve/classement');
+const { numeroInvite, publier } = await import('../src/epreuve/classement');
 const E = 'chrono:localiser:South America';
 /** Un score du barème 2 : points = justes. */
 const s = (justes: number, temps_ms: number, questions = 12): ScoreEpreuve => ({ points: justes, justes, questions, temps_ms });
@@ -35,6 +55,27 @@ beforeEach(() => {
   etat.refus = null;
   etat.place = null;
   etat.ecrits = [];
+  etat.compteur = null;
+  etat.utilisateur = null;
+  etat.comptes = 0;
+});
+
+describe('numeroInvite() (décision « Pseudo d’invité »)', () => {
+  it('Guest-1000 pour le premier, puis Guest-1001 : le compteur avance d’un pas, l’anonyme créé comme pour publier', async () => {
+    expect(await numeroInvite()).toBe('Guest-1000');
+    expect(etat.compteur).toEqual({ n: 1000 });
+    expect(await numeroInvite()).toBe('Guest-1001');
+    expect(etat.compteur).toEqual({ n: 1001 });
+    expect(etat.comptes).toBe(2);
+  });
+
+  it('un anonyme déjà là tire aussi ; un compte (non anonyme) non : il choisit son pseudo', async () => {
+    etat.utilisateur = { isAnonymous: true };
+    expect(await numeroInvite()).toBe('Guest-1000');
+    etat.utilisateur = { isAnonymous: false };
+    expect(await numeroInvite()).toBeNull();
+    expect(etat.compteur).toEqual({ n: 1000 });
+  });
 });
 
 describe('publier() après un refus', () => {

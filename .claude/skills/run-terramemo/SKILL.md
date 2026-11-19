@@ -235,14 +235,16 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   **Le pilote le passe sans drapeau de plus** : `ui`, `seance`, `synchro`
   et `mesurer` (PC) posent `terramemo.accueil=invite` sur le profil neuf
   avant le premier chargement (`Session.passer_accueil`), comme un joueur
-  qui a déjà choisi, **sans pseudo** : le pilote ne publie toujours rien
-  au classement. Sur le téléphone (chrome, webview), rien n'est posé (le
+  qui a déjà choisi, **sans pseudo**. Un invité sans pseudo reçoit
+  Guest-N au premier score publié (décision « Pseudo d'invité ») ; la
+  synchro coupée (`couper_synchro`, posé avant par ces commandes) l'en
+  empêche : le pilote ne publie toujours rien au classement. Sur le téléphone (chrome, webview), rien n'est posé (le
   choix est celui de l'utilisateur) et `mesurer` s'arrête si le panneau est
   ouvert (« choisir d'abord sur l'appareil »), de même si la carte de la
   mémoire y est gardée sous « Mers » (pastilles cachées, touchers des
   micro-États sans cible : choisir Pays dans sa légende). Un autre script : la même
-  clé avant de charger la page, ou au doigt `#accueil-invite`,
-  `#accueil-pseudo`, `#accueil-commencer`. Les entrées des comptes sont
+  clé avant de charger la page, ou au doigt `#accueil-invite` (le panneau
+  se ferme, rien à saisir). Les entrées des comptes sont
   les écrans de la vue Compte, id préfixés : `#accueil-compte-google`,
   `#accueil-compte-vers-connecter`, `#accueil-compte-vers-creer`, puis
   `#accueil-compte-adresse`, `#accueil-compte-mdp`,
@@ -255,8 +257,8 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   (`driver.py accueil [--width 360]`, avec `69-carte-avant` : la carte, le
   choix posé, pour comparer) retire la clé et le pseudo, recharge (une
   adresse neuve à chaque fois : la même, au fragment près, ne recharge
-  pas), et écrit `70-accueil`, `71-accueil-invite` (pseudo « a » refusé,
-  puis « Pilote »), `72-accueil-carte` (la Suisse touchée après le choix),
+  pas), et écrit `70-accueil`, `72-accueil-carte` (la Suisse touchée après
+  « Continuer en invité »),
   `73-accueil-email` (« Se connecter par e-mail »). `DÉFAUT` si le
   panneau manque, n'est pas `role=dialog`/`aria-modal`, n'a pas le focus,
   laisse l'en-tête ou la carte utilisables (`elementFromPoint` sur Jouer et
@@ -264,10 +266,8 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   bouton sous 44 px, n'a pas Google au serveur de dev, si `#jouer`,
   `#compte` ou `#classement` le contournent, si la touche + zoome dessous,
   si Confidentialité ne s'ouvre pas par-dessus ou si son « Retour » ne
-  ramène pas au panneau, si le pseudo « a » passe, si son avis reste sous
-  « Pilote » (saisi par `Input.insertText` : de vrais événements input), si
-  le choix, le pseudo, l'en-tête rendu ou la carte touchable manquent après
-  « Commencer », si une requête part vers Firebase (Auth, Firestore) pendant
+  ramène pas au panneau, si le choix, l'en-tête rendu ou la carte touchable
+  manquent après « Continuer en invité », ou si un pseudo y est posé, si une requête part vers Firebase (Auth, Firestore) pendant
   le chemin de l'invité ou si le SDK y a été demandé ou chargé
   (`terramemo.sdkDemande()`, morceaux `node_modules/…firebase` en dev,
   `assets/index.esm-*` au build : charger() sans utilisateur ne fait aucune

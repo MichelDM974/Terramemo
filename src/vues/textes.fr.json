@@ -179,6 +179,7 @@
     "pseudo_aide": "Publie tes records au classement : choisis un pseudo, visible de tous. Un pseudo, une place : prends le même sur chaque appareil (il n'est pas réservé, qui le choisit la partage).",
     "pseudo_placeholder": "Pseudo (2 à 20 caractères)",
     "pseudo_invalide": "Le pseudo fait de 2 à 20 caractères, en lettres ordinaires, sans « / ».",
+    "pseudo_reserve": "« Guest- » suivi d'un numéro est réservé aux invités : choisis un autre pseudo.",
     "pseudo_actuel": "Pseudo : {pseudo}",
     "pseudo_compte": "Pseudo du compte : {pseudo}",
     "avec_compte": "Avec un compte, ton pseudo et tes records te suivent",
@@ -195,6 +196,7 @@
     "classements_titre": "Classements",
     "classements_aide": "Ta place dans chaque épreuve classée. Touche une ligne pour voir ses dix premiers.",
     "classements_sans_pseudo": "Tu n'es pas encore classé : choisis un pseudo à la fin d'une épreuve classée (Chrono ou Sans faute). Touche une épreuve pour voir ses dix premiers.",
+    "classements_invite": "Tu n'es pas encore classé : termine une épreuve classée (Chrono ou Sans faute) pour y entrer. Touche une épreuve pour voir ses dix premiers.",
     "classements_aucune": "Aucune place trouvée pour cette période : joue une épreuve classée pour entrer au classement, ou cherche tes places sujet par sujet.",
     "toutes_epreuves": "Toutes les épreuves",
     "masquer_epreuves": "Masquer les autres épreuves",
@@ -971,10 +973,7 @@
     "comptes_echec_perdue": "Les comptes ne se chargent pas (hors ligne ?) : continue sans compte, ou réessaie.",
     "reessayer": "Réessayer",
     "ou": "ou",
-    "invite": "Continuer en invité",
-    "pseudo_libelle": "Ton pseudo",
-    "commencer": "Commencer",
-    "retour": "Retour"
+    "invite": "Continuer en invité"
   },
   "compte": {
     "lien": "Compte",

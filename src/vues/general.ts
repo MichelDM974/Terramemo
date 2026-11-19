@@ -25,7 +25,7 @@ import { clePseudo, difficulteQuiz, epreuvesClassees, lireRecords, modeEpreuve, 
 import { GENERAL, mesPlaces, type MaPlace } from '../epreuve/classement';
 import { nomDifficulte, nomQuiz, nomSujet } from './arbre';
 import { nomSerie } from './cibles';
-import { blocClassement, lirePseudo, relancerAttente } from './classement';
+import { blocClassement, inviteSansPseudo, lirePseudo, relancerAttente } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
 import { fmtJustesGeneral, fmtTemps, fractionDe, nomMode, pourcentDe, scoreCourt } from './scores';
 import { remplir, textes } from './textes';
@@ -252,7 +252,7 @@ export function vueGeneral(ctx: ContexteVue, o: { retour: () => void; versCarte:
     panneau.replaceChildren(
       croix(o.versCarte),
       creer('div', { class: 'chrono-classement-tete' }, creer('h2', {}, T.classements_titre), creer('div', { class: 'seg', role: 'group', 'aria-label': T.periode }, ...boutons)),
-      creer('p', { class: 'hint' }, pseudo ? T.classements_aide : T.classements_sans_pseudo),
+      creer('p', { class: 'hint' }, pseudo ? T.classements_aide : inviteSansPseudo() ? T.classements_invite : T.classements_sans_pseudo),
       mes,
       etat,
       plus,

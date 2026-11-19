@@ -7,7 +7,7 @@
 // sous un pseudo partagent sa place, qui garde le meilleur score.
 import { charger, compte, type Service } from '../sync/firebase';
 import { comparerScores, type ScoreEpreuve } from './bareme';
-import { BAREME_1, clePseudo, epreuvesDuGeneral, pointsV2, VERSION_BAREME } from './chrono';
+import { BAREME_1, clePseudo, epreuvesDuGeneral, pointsV2, pseudoInvite, VERSION_BAREME } from './chrono';
 
 /** Épreuve du classement général (somme des records de toutes les épreuves du Chrono). */
 export const GENERAL = 'general';
@@ -54,6 +54,33 @@ export async function publier(epreuve: string, periode: string, pseudo: string, 
   // Refusé : seulement une lecture de plus, pour savoir si la place avait déjà mieux.
   const place = await s.m.fs.getDoc(ref);
   return place.exists() && comparerScores(enPlace(place.id, place.data()), envoi) <= 0;
+}
+
+/** Le premier pseudo d'invité est Guest-1000 (firestore.rules, compteurs/invites). */
+export const PREMIER_INVITE = 1000;
+
+/**
+ * Le pseudo d'un invité à son premier score publié (décision « Pseudo
+ * d'invité » du 20/11/2026) : le numéro suivant du compteur
+ * `compteurs/invites`, pris dans une transaction, donc jamais le même pour
+ * deux invités. null pour un compte (non anonyme) : il choisit son pseudo.
+ * Crée l'anonyme comme publier(), qui le suit. Lève hors ligne.
+ */
+export async function numeroInvite(): Promise<string | null> {
+  const s = await charger();
+  const u = s.a.currentUser;
+  if (u && !u.isAnonymous) return null;
+  await compte(s);
+  const { fs } = s.m;
+  const ref = fs.doc(s.db, 'compteurs', 'invites');
+  const n = await fs.runTransaction(s.db, async (t) => {
+    const d = await t.get(ref);
+    const n = d.exists() ? Number(d.data().n) + 1 : PREMIER_INVITE;
+    if (d.exists()) t.update(ref, { n });
+    else t.set(ref, { n });
+    return n;
+  });
+  return pseudoInvite(n);
 }
 
 /**

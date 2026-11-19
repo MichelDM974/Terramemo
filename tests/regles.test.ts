@@ -8,7 +8,7 @@
 // les demandes de retrait des places d'un compte supprimé, `demandes/{uid}`
 // (lot 5, § 7.1, D27 b).
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { deleteDoc, doc, getDoc, getDocs, collection, serverTimestamp, setDoc, Timestamp, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, getDocs, collection, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { semaine } from '../src/epreuve/bareme';
 import { BORNE_GENERAL, clePermise, clePseudo, formePseudo, idEpreuve, idQuiz, pseudoValide, tempsMaxQuiz, vraisemblable } from '../src/epreuve/chrono';
@@ -752,6 +752,52 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     await assertFails(setDoc(doc(anon, 'joueurs', 'anon', 'lots', l.id), l.doc));
     // Sans compte : aucune lecture.
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore() as unknown as Firestore, 'joueurs', 'ana')));
+  });
+});
+
+describe.skipIf(!hote)('compteur des pseudos d’invité, compteurs/invites (décision « Pseudo d’invité »)', () => {
+  let env: RulesTestEnvironment;
+  const anon = () => env.authenticatedContext('anon', JETON_ANONYME as never).firestore() as unknown as Firestore;
+  const compteur = (f: Firestore) => doc(f, 'compteurs', 'invites');
+
+  beforeAll(async () => {
+    const [host, port] = (hote ?? '').split(':');
+    env = await initializeTestEnvironment({ projectId: 'demo-terramemo', firestore: { rules: REGLES, host, port: Number(port) } });
+  });
+  afterAll(async () => env?.cleanup());
+  beforeEach(async () => env.clearFirestore());
+
+  it('un invité anonyme le crée à 1000, puis l’avance d’un seul pas', async () => {
+    await assertFails(setDoc(compteur(anon()), { n: 1 }));
+    await assertFails(setDoc(compteur(anon()), { n: 1000, autre: true }));
+    await assertSucceeds(setDoc(compteur(anon()), { n: 1000 }));
+    await assertSucceeds(getDoc(compteur(anon())));
+    await assertFails(updateDoc(compteur(anon()), { n: 1002 }));
+    await assertFails(updateDoc(compteur(anon()), { n: 999 }));
+    await assertFails(updateDoc(compteur(anon()), { n: 1000 }));
+    await assertSucceeds(updateDoc(compteur(anon()), { n: 1001 }));
+    await assertFails(setDoc(compteur(anon()), { n: 1002, autre: true }));
+    await assertFails(deleteDoc(compteur(anon())));
+  });
+
+  it('dans une transaction, comme l’appli : deux tirages, deux numéros qui se suivent', async () => {
+    const f = anon();
+    const tirer = () =>
+      runTransaction(f, async (t) => {
+        const d = await t.get(compteur(f));
+        const n = d.exists() ? Number(d.data().n) + 1 : 1000;
+        if (d.exists()) t.update(compteur(f), { n });
+        else t.set(compteur(f), { n });
+        return n;
+      });
+    expect(await tirer()).toBe(1000);
+    expect(await tirer()).toBe(1001);
+  });
+
+  it('sans compte : ni lecture ni écriture', async () => {
+    const f = env.unauthenticatedContext().firestore() as unknown as Firestore;
+    await assertFails(setDoc(compteur(f), { n: 1000 }));
+    await assertFails(getDoc(compteur(f)));
   });
 });
 

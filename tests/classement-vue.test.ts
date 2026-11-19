@@ -12,14 +12,16 @@ import { installerDom, installerStockage, type El } from './dom-factice';
 const publier = vi.fn<(epreuve: string, periode: string, pseudo: string, s: ScoreEpreuve) => Promise<boolean>>();
 const placesDuPseudo = vi.fn<(periode: string, pseudo: string) => Promise<Map<string, ScoreEpreuve>>>();
 const lireTableau = vi.fn();
+const numeroInvite = vi.fn<() => Promise<string | null>>();
 vi.mock('../src/epreuve/classement', () => ({
   GENERAL: 'general',
+  numeroInvite: () => numeroInvite(),
   publier: (...a: Parameters<typeof publier>) => publier(...a),
   placesDuPseudo: (...a: Parameters<typeof placesDuPseudo>) => placesDuPseudo(...a),
   lireTableau: (...a: unknown[]) => lireTableau(...a),
 }));
 
-const { avisPublication, blocClassement, brancherRelance, lireAttente, publierPartie, publierTout, relancerAttente } = await import('../src/vues/classement');
+const { avisPublication, blocClassement, brancherRelance, champPseudo, inviteSansPseudo, lireAttente, publierPartie, publierTout, relancerAttente } = await import('../src/vues/classement');
 const { textes } = await import('../src/vues/textes');
 const { SDK_INDISPONIBLE } = await import('../src/sync/firebase');
 const { brancherProfil, poserEtatCompte } = await import('../src/sync/pont');
@@ -42,6 +44,7 @@ beforeEach(() => {
   placesDuPseudo.mockResolvedValue(new Map());
   lireTableau.mockReset();
   lireTableau.mockResolvedValue({ places: [], moi: null, rang: null, joueurs: 0 });
+  numeroInvite.mockReset();
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -804,5 +807,132 @@ describe('zone du pseudo et comptes (J1b, § 3.1)', () => {
       expect(z.querySelector('a')).toBeNull();
       expect(z.innerText).not.toContain(T.avec_compte);
     }
+  });
+});
+
+describe('pseudo d’invité : Guest-1000, puis Guest-1001… au premier score publié (décision « Pseudo d’invité »)', () => {
+  const horsLigne = () => Object.assign(new Error('hors ligne'), { code: 'unavailable' });
+  beforeEach(() => {
+    // « Continuer en invité » choisi à l'écran de connexion, sans pseudo.
+    localStorage.setItem('terramemo.accueil', 'invite');
+    publier.mockResolvedValue(true);
+  });
+  afterEach(() => poserEtatCompte('invite'));
+  const apresPartie = async (apres?: (pseudo: string) => Promise<{ refuses: number; echecs: number; locaux: number }>) => {
+    const bp = enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant);
+    const b = blocClassement(AMS, 'Classement', apres ?? ((p) => publierPartie(p, AMS, bp))) as unknown as El;
+    for (let i = 0; i < 4; i++) await attendre();
+    return b;
+  };
+
+  it('après sa première partie : ni formulaire ni pseudo à choisir ; le numéro tiré, gardé, et tous ses records publiés sous lui', async () => {
+    numeroInvite.mockResolvedValue('Guest-1000');
+    enregistrerPartie(localStorage, idEpreuve('Africa', 'sansfaute'), score(23, 23, 24, 60_000), maintenant);
+    const b = await apresPartie();
+    expect(numeroInvite).toHaveBeenCalledOnce();
+    expect(localStorage.getItem('terramemo.pseudo')).toBe('Guest-1000');
+    expect(new Set(publier.mock.calls.map(([, , p]) => p))).toEqual(new Set(['Guest-1000']));
+    // Le record d'avant (Sans faute) part aussi, comme au choix d'un pseudo.
+    expect(publier.mock.calls.some(([e]) => e === idEpreuve('Africa', 'sansfaute'))).toBe(true);
+    const z = b.querySelector('.chrono-pseudo')!;
+    expect(z.querySelector('input')).toBeNull();
+    expect(z.innerText).toContain('Pseudo : Guest-1000');
+    expect(b.querySelector('.chrono-classement-avis')?.hidden).toBe(true);
+    expect(inviteSansPseudo()).toBe(false);
+  });
+
+  it('un bloc ouvert sans record : rien à tirer, rien à choisir', async () => {
+    const b = blocClassement(ILE, 'Classement') as unknown as El;
+    await attendre();
+    await attendre();
+    expect(numeroInvite).not.toHaveBeenCalled();
+    expect(b.querySelector('.chrono-pseudo input')).toBeNull();
+    expect(await relancerAttente()).toBeNull();
+  });
+
+  it('hors ligne : « il partira au retour du réseau », et il part, numéro compris, au retour', async () => {
+    numeroInvite.mockRejectedValue(horsLigne());
+    const b = await apresPartie();
+    expect(b.innerText).toContain(T.publication_echec);
+    expect(localStorage.getItem('terramemo.pseudo')).toBeNull();
+    expect(publier).not.toHaveBeenCalled();
+    numeroInvite.mockResolvedValue('Guest-1001');
+    expect(await relancerAttente()).toEqual({ refuses: 0, echecs: 0, locaux: 0 });
+    expect(localStorage.getItem('terramemo.pseudo')).toBe('Guest-1001');
+    expect(publier.mock.calls.map(([e, p, ps]) => `${e}/${p}/${ps}`)).toContain(`${AMS}/toujours/Guest-1001`);
+  });
+
+  it('un autre échec (connexion anonyme refusée) : le score reste sur l’appareil, sans promesse de départ', async () => {
+    numeroInvite.mockRejectedValue(Object.assign(new Error('refusé'), { code: 'auth/admin-restricted-operation' }));
+    const b = await apresPartie();
+    expect(b.innerText).toContain(T.publication_locale);
+    expect(b.innerText).not.toContain(T.publication_echec);
+    expect(localStorage.getItem('terramemo.pseudo')).toBeNull();
+  });
+
+  it('un seul tirage à la fois : le bloc et les relances partagent le même numéro', async () => {
+    enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant);
+    let rendre: (p: string) => void = () => undefined;
+    numeroInvite.mockReturnValue(new Promise((r) => (rendre = r)));
+    const a = relancerAttente();
+    const b = relancerAttente();
+    rendre('Guest-1000');
+    await Promise.all([a, b]);
+    expect(numeroInvite).toHaveBeenCalledOnce();
+    expect(localStorage.getItem('terramemo.pseudo')).toBe('Guest-1000');
+  });
+
+  it('un pseudo choisi pendant le tirage l’emporte : le numéro tiré n’est pas gardé', async () => {
+    enregistrerPartie(localStorage, AMS, score(11, 11, 12, 60_000), maintenant);
+    numeroInvite.mockImplementation(async () => {
+      localStorage.setItem('terramemo.pseudo', 'Zoé');
+      return 'Guest-1000';
+    });
+    await relancerAttente();
+    expect(localStorage.getItem('terramemo.pseudo')).toBe('Zoé');
+    expect(new Set(publier.mock.calls.map(([, , p]) => p))).toEqual(new Set(['Zoé']));
+  });
+
+  it('pas un invité de l’écran de connexion (aucun choix gardé, ou un compte) : le formulaire comme avant, aucun tirage', async () => {
+    localStorage.removeItem('terramemo.accueil');
+    expect(inviteSansPseudo()).toBe(false);
+    const b = await apresPartie();
+    expect(b.querySelector('.chrono-pseudo input')).not.toBeNull();
+    localStorage.setItem('terramemo.accueil', 'invite');
+    poserEtatCompte('compte');
+    expect(inviteSansPseudo()).toBe(false);
+    expect(await relancerAttente()).toBeNull();
+    // Synchro coupée (le pilote, à chaque essai) : un invité sans pseudo ne tire pas, rien ne part au vrai projet.
+    poserEtatCompte('invite');
+    expect(inviteSansPseudo()).toBe(true);
+    localStorage.setItem('terramemo.sans-synchro', '1');
+    expect(inviteSansPseudo()).toBe(false);
+    expect(await relancerAttente()).toBeNull();
+    expect(numeroInvite).not.toHaveBeenCalled();
+  });
+
+  it('« Guest- » et un numéro ne se tape pas, sauf le pseudo d’invité de l’appareil lui-même', async () => {
+    localStorage.removeItem('terramemo.accueil');
+    const b = blocClassement(ILE, 'Classement') as unknown as El;
+    await attendre();
+    const z = b.querySelector('.chrono-pseudo')!;
+    z.querySelector('input')!.value = 'guest-1234';
+    z.querySelectorAll('button').find((x) => x.innerText === T.publier)!.click();
+    await attendre();
+    expect(z.innerText).toContain(T.pseudo_reserve);
+    expect(localStorage.getItem('terramemo.pseudo')).toBeNull();
+    // Les autres « Guest… » restent libres.
+    z.querySelector('input')!.value = 'Guest 1234';
+    z.querySelectorAll('button').find((x) => x.innerText === T.publier)!.click();
+    await attendre();
+    expect(localStorage.getItem('terramemo.pseudo')).toBe('Guest 1234');
+    // Le champ des comptes : de même, et le sien (Guest-1000) se garde.
+    const erreur = document.createElement('p') as unknown as HTMLElement;
+    const champ = champPseudo({ id: 'p', libelle: 'Pseudo', valeur: '', erreur, entree: 'done' });
+    champ.input.value = 'Guest-1000';
+    expect(champ.valider()).toBeNull();
+    expect(erreur.textContent).toBe(T.pseudo_reserve);
+    localStorage.setItem('terramemo.pseudo', 'Guest-1000');
+    expect(champ.valider()).toBe('Guest-1000');
   });
 });

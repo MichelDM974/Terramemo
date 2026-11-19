@@ -648,6 +648,17 @@ export function pseudoValide(brut: string): string | null {
   return p;
 }
 
+/** Le pseudo d'invité d'un numéro (décision « Pseudo d'invité » du 20/11/2026) : « Guest-1000 ». */
+export const pseudoInvite = (n: number): string => `Guest-${n}`;
+
+/**
+ * Un pseudo d'invité, tel que le compteur les donne (src/epreuve/classement.ts,
+ * numeroInvite) : « Guest- » et un numéro, casse ignorée comme au classement.
+ * Le joueur ne le tape pas (champ du pseudo) : le numéro reviendrait à un
+ * invité, qui partagerait sa place.
+ */
+export const estPseudoInvite = (p: string): boolean => /^guest-\d+$/i.test(p);
+
 const FORME_PSEUDO = /^[^\p{Z}\p{Cc}\p{Cf}\p{Co}\p{Cs}]+( [^\p{Z}\p{Cc}\p{Cf}\p{Co}\p{Cs}]+)*$/u;
 
 /**

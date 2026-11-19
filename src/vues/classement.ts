@@ -2,14 +2,18 @@
 // premiers, ma place et mon rang ; le pseudo public, choisi une fois (rien
 // n'est publié sans lui) et qui nomme la place : le même pseudo sur deux
 // appareils, c'est une seule place (décision « Une place par pseudo »).
+// L'invité ne le choisit pas : au premier score publié, il reçoit le numéro
+// suivant du compteur, Guest-1000, puis Guest-1001… (décision « Pseudo
+// d'invité » du 20/11/2026), qu'il peut changer ensuite.
 // Firebase n'est chargé qu'à l'ouverture du bloc, ou pour un envoi en attente.
 import type { BilanPartie } from '../epreuve/chrono';
 import { comparerScores, type ScoreEpreuve } from '../epreuve/bareme';
-import { convertirStockage, epreuvesClassees, epreuvesDuGeneral, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
-import { GENERAL, lireTableau, placesDuPseudo, publier, type Place } from '../epreuve/classement';
+import { clePseudo, convertirStockage, epreuvesClassees, epreuvesDuGeneral, estPseudoInvite, garderPseudoDans, lirePseudoDe, lireRecords, prendreAvisPseudo, modeEpreuve, periodeSemaine, pseudoValide, recordDe, recordPubliable, totalGeneral, vraisemblable } from '../epreuve/chrono';
+import { GENERAL, lireTableau, numeroInvite, placesDuPseudo, publier, type Place } from '../epreuve/classement';
 import { erreurReseau } from '../sync/firebase';
-import { comptesVisibles } from '../sync/drapeaux';
+import { comptesVisibles, synchroCoupee } from '../sync/drapeaux';
 import { etatCompteConnu, profilModifie } from '../sync/pont';
+import { lireChoix } from './accueil';
 import { creer } from './commun';
 import { estGeneral, fmtJustesGeneral, fmtTemps, pourcentDe, scoreEntier } from './scores';
 import { remplir, textes } from './textes';
@@ -17,6 +21,8 @@ import { remplir, textes } from './textes';
 const T = textes.chrono;
 /** Les envois échoués (hors ligne), à refaire : [épreuve, période], sans le score (relu des records au renvoi). */
 const CLE_ATTENTE = 'terramemo.chrono.attente';
+/** Le verrou (Web Locks) du tirage d'un pseudo d'invité : un seul numéro pour tous les onglets. */
+const VERROU_NUMERO = 'terramemo.invite.numero';
 
 function stockage(): Storage | null {
   try {
@@ -37,6 +43,65 @@ export function lirePseudo(): string | null {
 function garderPseudo(p: string): void {
   garderPseudoDans(stockage(), p);
   profilModifie('pseudo');
+}
+
+/**
+ * Un invité sans pseudo (décision « Pseudo d'invité ») : « Continuer en
+ * invité » choisi à l'écran de connexion, et aucun compte connu. Son pseudo
+ * viendra du compteur au premier score publié. Le choix gardé dit aussi que
+ * le stockage tient : sans lui, chaque publication tirerait un numéro neuf.
+ * Les autres (comptes, appareil sans choix gardé) choisissent le leur. Synchro
+ * coupée (drapeau que le pilote pose à chaque essai) : pas de tirage, le
+ * pilote, invité sans pseudo, ne publie rien au vrai projet.
+ */
+export function inviteSansPseudo(): boolean {
+  return !lirePseudo() && etatCompteConnu() === 'invite' && lireChoix(stockage()) === 'invite' && !synchroCoupee();
+}
+
+let tirage: Promise<string | null> | null = null;
+
+/**
+ * Le pseudo d'un invité qui n'en a pas : Guest-N du compteur (numeroInvite),
+ * gardé sur l'appareil. Un seul tirage à la fois, d'un onglet à l'autre
+ * aussi (Web Locks, quand ils existent) : relu dans le verrou, un pseudo posé
+ * entre-temps (l'autre onglet, ou choisi par le joueur) l'emporte, sans
+ * numéro de plus. null si ce n'est plus un invité sans pseudo. Lève hors
+ * ligne (rien n'est gardé : le prochain essai tire).
+ */
+function pseudoDInvite(): Promise<string | null> {
+  if (tirage) return tirage;
+  const tirer = async (): Promise<string | null> => {
+    if (!inviteSansPseudo()) return lirePseudo();
+    const p = await numeroInvite();
+    if (!p) return null;
+    // Choisi pendant le tirage : celui du joueur reste.
+    const entre = lirePseudo();
+    if (entre) return entre;
+    garderPseudo(p);
+    return p;
+  };
+  const verrous = (globalThis as { navigator?: { locks?: LockManager } }).navigator?.locks;
+  tirage = (verrous ? verrous.request(VERROU_NUMERO, tirer) : tirer()).finally(() => {
+    tirage = null;
+  });
+  return tirage;
+}
+
+/** Un record de l'appareil qu'un classement prendrait (une épreuve que cette version classe) ? */
+function recordsAPublier(): boolean {
+  const classees = epreuvesClassees();
+  return [...lireRecords(stockage()).keys()].some((cle) => classees.includes(cle.split('@')[0] ?? ''));
+}
+
+/**
+ * Un pseudo tapé (formulaire du classement, champ du pseudo des comptes) :
+ * l'avis de son refus, ou null s'il est pris. Refusé s'il n'est pas valide
+ * (pseudoValide), ou si c'est un pseudo d'invité (estPseudoInvite) autre que
+ * celui de l'appareil : le compteur le donnera à un invité.
+ */
+function refusDuPseudo(p: string | null): string | null {
+  if (!p) return T.pseudo_invalide;
+  return estPseudoInvite(p) && clePseudo(p) !== clePseudo(lirePseudo() ?? '') ? T.pseudo_reserve : null;
 }
 
 /**
@@ -196,12 +261,21 @@ async function renvoyer(pseudo: string): Promise<Publication> {
  * file sans envoi (les règles la refuseraient), comme un record disparu ou
  * sans score publiable. null : rien à refaire (file vide ou pas de pseudo),
  * ou un autre onglet s'en charge (verrou Web Locks, quand il existe). Un
- * seul renvoi à la fois : un appel pendant un renvoi rend celui-ci.
+ * seul renvoi à la fois : un appel pendant un renvoi rend celui-ci. Un
+ * invité sans pseudo qui a des records (son premier score n'a pas pu partir,
+ * hors ligne) : sa première publication (premierePublication).
  */
 export function relancerAttente(): Promise<Publication | null> {
   if (relance) return relance;
   const pseudo = lirePseudo();
-  if (!pseudo || !lireAttente().length) return Promise.resolve(null);
+  if (!pseudo) {
+    if (!inviteSansPseudo() || !recordsAPublier()) return Promise.resolve(null);
+    relance = premierePublication().finally(() => {
+      relance = null;
+    });
+    return relance;
+  }
+  if (!lireAttente().length) return Promise.resolve(null);
   const verrous = (globalThis as { navigator?: { locks?: LockManager } }).navigator?.locks;
   relance = (
     verrous ? verrous.request(CLE_ATTENTE, { ifAvailable: true }, (v) => (v ? renvoyer(pseudo) : null)) : renvoyer(pseudo)
@@ -269,6 +343,11 @@ export function brancherRelance(cible: Pick<Window, 'addEventListener' | 'setTim
 export async function publierTout(pseudo: string): Promise<Publication> {
   // Un renvoi sous l'ancien pseudo finit d'abord : il effacerait sinon les échecs de celui-ci.
   await relance?.catch(() => null);
+  return toutEnvoyer(pseudo);
+}
+
+/** publierTout, sans attendre le renvoi en cours (premierePublication en est un). */
+function toutEnvoyer(pseudo: string): Promise<Publication> {
   const records = lireRecords(stockage());
   const periode = periodeSemaine(Date.now());
   const classees = epreuvesClassees();
@@ -288,6 +367,25 @@ export async function publierTout(pseudo: string): Promise<Publication> {
   }
   const generaux = ['toujours', periode].filter((p) => envois.some(([e, q]) => q === p && duGeneral.includes(e)));
   return envoyer(pseudo, envois, generaux);
+}
+
+/**
+ * La première publication d'un invité sans pseudo (décision « Pseudo
+ * d'invité ») : son numéro tiré (pseudoDInvite), puis tous ses records,
+ * comme au choix d'un pseudo. Le tirage qui échoue faute de réseau compte
+ * comme un envoi en attente : relancerAttente le refait au retour du réseau,
+ * à l'ouverture d'un classement ou au démarrage, tant que l'appareil a des
+ * records. Un autre échec (quota, connexion anonyme refusée) : les records
+ * restent sur l'appareil, et le prochain score réessaie.
+ */
+async function premierePublication(): Promise<Publication> {
+  let pseudo: string | null;
+  try {
+    pseudo = await pseudoDInvite();
+  } catch (e) {
+    return erreurReseau(e) ? { refuses: 0, echecs: 1, locaux: 0 } : { refuses: 0, echecs: 0, locaux: 1 };
+  }
+  return pseudo ? toutEnvoyer(pseudo) : { refuses: 0, echecs: 0, locaux: 0 };
 }
 
 /**
@@ -435,6 +533,9 @@ export function blocClassement(
       const changer = creer('button', { type: 'button', class: 'lien' }, T.changer);
       changer.addEventListener('click', () => formulaire(pseudo));
       pseudoZone.replaceChildren(creer('span', { class: 'hint' }, remplir(T.pseudo_actuel, { pseudo })), changer);
+    } else if (inviteSansPseudo()) {
+      // Rien à choisir : son pseudo d'invité vient avec son premier score (relancerAttente, plus bas).
+      pseudoZone.replaceChildren();
     } else return formulaire('');
     // Le pseudo de l'appareil remplacé par celui du compte (J1b, § 2.3, étape 7) : dit une fois.
     const ancien = pseudo && prendreAvisPseudo(stockage());
@@ -458,8 +559,9 @@ export function blocClassement(
     inviterAuCompte();
     const envoyer = async () => {
       const p = pseudoValide(champ.value);
-      if (!p) {
-        aide.textContent = T.pseudo_invalide;
+      const refus = refusDuPseudo(p);
+      if (refus !== null || !p) {
+        aide.textContent = refus ?? T.pseudo_invalide;
         return;
       }
       garderPseudo(p);
@@ -492,10 +594,14 @@ export function blocClassement(
       // au démarrage de l'appli. Autre échec (quota) : il reste sur l'appareil.
       pubs.push(await apresPartie(pseudo));
     }
+    // L'invité sans pseudo, après sa partie : son numéro, puis tous ses records (relancerAttente : premierePublication).
+    else if (apresPartie && inviteSansPseudo()) etat.textContent = T.publication;
     // Les envois en attente d'avant, pour que le classement lu les montre ;
     // pas juste après une partie dont un envoi vient d'échouer.
     const attente = pubs.some((p) => p.echecs || p.locaux) ? null : await relancerAttente().catch(() => null);
     if (attente) pubs.push(attente);
+    // Le pseudo d'invité tout juste tiré : « Pseudo : Guest-1000 », et « Changer ».
+    if (!pseudo && lirePseudo()) afficherPseudo();
     const somme = (k: keyof Publication) => pubs.reduce((n, p) => n + p[k], 0);
     if (pubs.length) direAvis({ refuses: somme('refuses'), echecs: somme('echecs'), locaux: somme('locaux') });
     await charger();
@@ -504,11 +610,10 @@ export function blocClassement(
 }
 
 /*
- * Le champ du pseudo public, commun au panneau de la première ouverture
- * (pseudo de l'invité, src/vues/accueil.ts) et à l'écran « pseudo » des
- * comptes (src/vues/compte.ts) : mêmes attributs (remplissage automatique,
- * clavier), même validation que le classement (pseudoValide), même avis qui
- * s'efface dès qu'on corrige. Ici plutôt que dans un module à lui : un
+ * Le champ du pseudo public de l'écran « pseudo » des comptes
+ * (src/vues/compte.ts) : attributs du remplissage automatique et du
+ * clavier, même validation que le classement (pseudoValide, refusDuPseudo),
+ * avis qui s'efface dès qu'on corrige. Ici plutôt que dans un module à lui : un
  * module de plus partagé par le morceau principal et celui des comptes
  * faisait éclater le morceau principal en quatre (Rolldown), +2,3 Ko gzip au
  * premier chargement.
@@ -524,7 +629,7 @@ export interface ChampPseudo {
 export function champPseudo(o: {
   id: string;
   libelle: string;
-  /** Sous le champ, lue avec lui (aria-describedby) ; sans elle, rien sous le champ (panneau de la première ouverture). */
+  /** Sous le champ, lue avec lui (aria-describedby) ; sans elle, rien sous le champ. */
   aide?: string;
   valeur: string;
   /** Où dire le refus (role=alert). */
@@ -563,8 +668,9 @@ export function champPseudo(o: {
     input,
     valider() {
       const p = pseudoValide(input.value);
-      if (!p) {
-        o.erreur.textContent = textes.chrono.pseudo_invalide;
+      const refus = refusDuPseudo(p);
+      if (refus !== null || !p) {
+        o.erreur.textContent = refus ?? textes.chrono.pseudo_invalide;
         input.setAttribute('aria-invalid', 'true');
         if (typeof input.focus === 'function') input.focus();
         return null;

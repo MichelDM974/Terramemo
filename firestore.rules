@@ -236,6 +236,22 @@ service cloud.firestore {
         && cleDuPseudo(cle, request.resource.data.pseudo);
     }
 
+    // Numéro des pseudos d'invité (décision « Pseudo d'invité » du
+    // 20/11/2026) : Guest-1000, puis Guest-1001… Un seul document, `n` le
+    // dernier numéro donné, que l'appli prend dans une transaction au premier
+    // score publié d'un invité (src/epreuve/classement.ts, numeroInvite).
+    // Un compte (anonyme suffit, comme pour un score) le lit et l'avance d'un
+    // seul pas ; personne ne le recule ni ne le retire.
+    match /compteurs/invites {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['n'])
+        && request.resource.data.n == 1000;
+      allow update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['n'])
+        && request.resource.data.n == resource.data.n + 1;
+    }
+
     // --- Comptes du J1b (étude § 6) ---------------------------------------
 
     // Un compte, pas un invité (D16) : ce que le compte possède (ses

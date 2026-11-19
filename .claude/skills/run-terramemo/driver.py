@@ -54,8 +54,9 @@ Chaque commande pose le drapeau terramemo.sans-synchro sur l'origine
 qu'elle pilote (aucun envoi au vrai projet pendant un essai) et le retire à
 la fin, même après une erreur.
 Sur le profil neuf du PC, ui, seance, synchro et mesurer passent l'écran
-de connexion en invité (terramemo.accueil posé, sans pseudo : rien n'est
-publié) ; ui_accueil l'éprouve à part.
+de connexion en invité (terramemo.accueil posé, sans pseudo ; la synchro
+coupée empêche le tirage d'un pseudo d'invité : rien n'est publié) ;
+ui_accueil l'éprouve à part.
 Mode d'emploi, pièges et dépannage : SKILL.md à côté.
 """
 import argparse
@@ -862,9 +863,13 @@ class Session:
     def passer_accueil(self, url):
         """L'écran de connexion de la première ouverture passé en invité, sur le
         profil neuf du PC seulement : le choix gardé (CLE_ACCUEIL = invite) posé
-        sur l'origine de `url` avant le premier chargement, sans pseudo (le
-        pilote ne publie rien au classement). Pas de drapeau à part : c'est la
-        clé qu'un joueur garde en choisissant « Continuer en invité ». Sur le
+        sur l'origine de `url` avant le premier chargement, sans pseudo. Un
+        invité sans pseudo tire son pseudo (Guest-N) au premier score publié
+        (décision « Pseudo d'invité »), sauf synchro coupée : couper_synchro,
+        posé avant par chaque commande qui passe ici hors émulateurs, l'en
+        empêche, et le pilote ne publie rien au classement. Pas de drapeau à
+        part : c'est la clé qu'un joueur garde en choisissant « Continuer en
+        invité ». Sur le
         téléphone (chrome, webview), rien : le choix est celui de l'utilisateur,
         et mesurer s'arrête si le panneau est ouvert."""
         if self.cible != "local":
@@ -5720,23 +5725,16 @@ ETAT_ACCUEIL = """(() => {
 })()"""
 
 
-def saisir_pseudo(p, valeur):
-    """Le champ du pseudo de l'invité vidé, puis `valeur` tapée comme au
-    clavier (Input.insertText : un événement input, comme un vrai joueur)."""
-    p.js("(() => { const c = document.getElementById('accueil-pseudo'); c.focus(); c.select(); })()")
-    p.cdp("Input.insertText", text=valeur)
-    p.pause(100)
-
-
 def ui_accueil(p, capturer, defauts, base, parametres="", avant=None):
     """L'écran de connexion de la première ouverture (décision « Écran de
     connexion »), sur un appareil qui n'a pas choisi : le choix gardé et le
     pseudo retirés, la page rechargée. `70-accueil` (le panneau par-dessus
     la carte), les adresses retenues (#jouer, #compte : la carte sous le
     panneau), les touches de zoom sans effet, Confidentialité lisible et son
-    « Retour » au panneau ; `71-accueil-invite` (le pseudo), refusé (« a »),
-    puis « Pilote » : le panneau fermé, le choix et le pseudo gardés, aucune
-    requête vers Firebase, la carte de nouveau touchable (`72-accueil-carte`) ;
+    « Retour » au panneau ; « Continuer en invité », sans pseudo à choisir
+    (décision « Pseudo d'invité ») : le panneau fermé, le choix gardé, aucun
+    pseudo, aucune requête vers Firebase, la carte de nouveau touchable
+    (`72-accueil-carte`) ;
     rechargée, pas de panneau ; le choix retiré de nouveau, « Se connecter par
     e-mail » (`73-accueil-email`, champs pour le remplissage automatique).
     `avant` : une capture de la carte d'abord, le choix posé (la première
@@ -5802,31 +5800,15 @@ def ui_accueil(p, capturer, defauts, base, parametres="", avant=None):
     p.pause(400)
     if not visible(p, "#accueil") or visible(p, "#vue-confidentialite"):
         defaut("le « Retour » de Confidentialité ne ramène pas au panneau")
-    # L'invité : son pseudo, refusé puis accepté.
+    # L'invité : rien à demander (décision « Pseudo d'invité » : Guest-N au premier score publié).
     cliquer(p, "#accueil-invite")
-    attendre_visible(p, "#accueil-form-invite")
-    champ = p.js("[document.activeElement.id, document.getElementById('accueil-pseudo').autocomplete]")
-    if champ != ["accueil-pseudo", "nickname"]:
-        defaut(f"pseudo de l'invité : focus ou autocomplete inattendus ({champ})")
-    saisir_pseudo(p, "a")
-    cliquer(p, "#accueil-commencer")
-    p.pause(200)
-    erreur = texte(p, "#accueil-erreur")
-    if "2 à 20 caractères" not in erreur or not visible(p, "#accueil"):
-        defaut(f"un pseudo d'un caractère n'est pas refusé ({erreur!r})")
-    # Saisi comme au clavier (événements input) : l'avis du pseudo refusé s'efface.
-    saisir_pseudo(p, "Pilote")
-    if texte(p, "#accueil-erreur"):
-        defaut(f"l'avis du pseudo refusé reste sous « Pilote » ({texte(p, '#accueil-erreur')!r})")
-    capturer("71-accueil-invite")
-    cliquer(p, "#accueil-commencer")
     p.pause(400)
     apres = p.js(f"""[!!document.getElementById('accueil'), document.querySelector('header').inert,
         document.getElementById('app').inert, document.body.dataset.accueil || '',
         localStorage.getItem({json.dumps(CLE_ACCUEIL)}), localStorage.getItem('terramemo.pseudo')]""")
     dire(f"  invité choisi : {apres}")
-    if apres != [False, False, False, "", "invite", "Pilote"]:
-        defaut(f"après « Commencer » : {apres} (attendu panneau fermé, en-tête rendu, choix et pseudo gardés)")
+    if apres != [False, False, False, "", "invite", None]:
+        defaut(f"après « Continuer en invité » : {apres} (attendu panneau fermé, en-tête rendu, choix gardé, aucun pseudo)")
     reseau = [u for u in list(p.requetes.values())[requetes_avant:] if MOTIF_FIREBASE.search(u)]
     if reseau:
         defaut(f"l'invité a appelé Firebase : {reseau[:3]}")

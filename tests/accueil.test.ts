@@ -222,37 +222,13 @@ describe('démarrage', () => {
 });
 
 describe('le panneau', () => {
-  it('« Continuer en invité » : le pseudo (autocomplete), refusé comme au classement, puis gardé avec le choix', async () => {
+  it('« Continuer en invité » : le panneau se ferme tout de suite, sans pseudo à choisir (décision « Pseudo d’invité »), le choix gardé', async () => {
     const m = monter();
     await demarrer(m);
     $('#accueil-invite')!.click();
-    expect($('#accueil-choix')!.hidden).toBe(true);
-    expect($('#accueil-form-invite')!.hidden).toBe(false);
-    const champ = $('#accueil-pseudo')!;
-    expect((document as unknown as { activeElement?: El }).activeElement).toBe(champ);
-    expect([champ.getAttribute('autocomplete'), champ.getAttribute('maxlength'), champ.value]).toEqual(['nickname', '20', '']);
-    expect($('label')!.getAttribute('for')).toBe('accueil-pseudo');
-    // Le pseudo seul (12/11 : « trop de blabla ») : ni titre, ni paragraphe, ni aide ; le pied Confidentialité se tait.
-    expect($('label')!.textContent).toBe(T.pseudo_libelle);
-    expect($('#accueil-form-invite')!.querySelector('h3')).toBeNull();
-    expect($('#accueil-form-invite')!.querySelector('.hint')).toBeNull();
-    expect(champ.getAttribute('aria-describedby')).toBeNull();
-    expect($('#accueil-pied')!.hidden).toBe(true);
-    expect($('#accueil-retour')!.className).toBe('lien');
-    // Trop court, « / », lettre de fantaisie que les règles refuseraient (clePermise).
-    for (const faux of ['a', 'x/y', '𝐌ichel']) {
-      champ.value = faux;
-      $('#accueil-form-invite')!.emettre('submit', { preventDefault() {} });
-      expect([faux, $('#accueil-erreur')!.textContent]).toEqual([faux, textes.chrono.pseudo_invalide]);
-      expect(champ.getAttribute('aria-invalid')).toBe('true');
-      expect($('#accueil')).not.toBeNull();
-    }
+    // Ni formulaire ni champ : le numéro viendra avec le premier score publié (src/vues/classement.ts).
+    expect($('#accueil-pseudo')).toBeNull();
     expect(stockage.has('terramemo.pseudo')).toBe(false);
-    champ.emettre('input');
-    expect([$('#accueil-erreur')!.textContent, champ.getAttribute('aria-invalid')]).toEqual(['', null]);
-    champ.value = '  Zoé   Lou ';
-    $('#accueil-form-invite')!.emettre('submit', { preventDefault() {} });
-    expect(stockage.get('terramemo.pseudo')).toBe('Zoé Lou');
     expect(stockage.get(CLE_ACCUEIL)).toBe('invite');
     expect($('#accueil')).toBeNull();
     expect(m.a.etat()).toBe('ferme');
@@ -264,28 +240,15 @@ describe('le panneau', () => {
     expect(m.a.retient('jouer')).toBe(false);
   });
 
-  it('« Retour » : les entrées reviennent, le focus sur « Continuer en invité »', async () => {
-    const m = monter();
-    await demarrer(m);
-    $('#accueil-invite')!.click();
-    $('#accueil-retour')!.click();
-    expect($('#accueil-choix')!.hidden).toBe(false);
-    expect($('#accueil-form-invite')!.hidden).toBe(true);
-    expect($('#accueil-pied')!.hidden).toBe(false);
-    expect((document as unknown as { activeElement?: El }).activeElement).toBe($('#accueil-invite'));
-    expect(m.a.etat()).toBe('ouvert');
-  });
-
-  it('un joueur qui a déjà des progrès : son pseudo pré-rempli, gardé tel quel', async () => {
+  it('un joueur qui a déjà des progrès : son pseudo gardé tel quel', async () => {
     stockage.set('terramemo.pseudo', 'Michel');
     stockage.set('terramemo.chrono.records', '{}');
     const m = monter();
     await demarrer(m);
     $('#accueil-invite')!.click();
-    expect($('#accueil-pseudo')!.value).toBe('Michel');
-    $('#accueil-form-invite')!.emettre('submit', { preventDefault() {} });
     expect(stockage.get('terramemo.pseudo')).toBe('Michel');
     expect(stockage.get(CLE_ACCUEIL)).toBe('invite');
+    expect($('#accueil')).toBeNull();
   });
 
   it('les comptes : « Continuer en invité » sous les entrées seulement ; un compte connecté ferme le panneau (choix « compte »)', async () => {
@@ -299,7 +262,7 @@ describe('le panneau', () => {
     m.ctrl().occupe(true);
     expect($('#accueil-invite')!.disabled).toBe(true);
     $('#accueil-invite')!.click();
-    expect($('#accueil-form-invite')!.hidden).toBe(true);
+    expect($('#accueil')).not.toBeNull();
     m.ctrl().occupe(false);
     expect($('#accueil-invite')!.disabled).toBe(false);
     m.ctrl().fini();
@@ -309,13 +272,10 @@ describe('le panneau', () => {
     expect(m.entete.inert).toBe(false);
   });
 
-  it('le retour d’Android : le pseudo de l’invité, puis le sous-écran des comptes, se referment ; aux entrées, réduire', async () => {
+  it('le retour d’Android : le sous-écran des comptes se referme ; aux entrées, réduire', async () => {
     const m = monter();
     await demarrer(m);
-    $('#accueil-invite')!.click();
-    expect(m.a.retour()).toBe('fait');
-    expect($('#accueil-form-invite')!.hidden).toBe(true);
-    expect($('#accueil-choix')!.hidden).toBe(false);
+    expect(m.a.retour()).toBe('reduire');
     // Les comptes disent s'ils ont refermé un sous-écran (formulaire, question D22).
     const retour = vi.fn(() => true);
     (m.comptes as { retour?: () => boolean }).retour = retour;
@@ -398,8 +358,6 @@ describe('le panneau', () => {
     const m = monter({ st: { getItem: (k) => stockage.get(k) ?? null, setItem: () => { throw new Error('QuotaExceededError'); } } });
     await demarrer(m);
     $('#accueil-invite')!.click();
-    $('#accueil-pseudo')!.value = 'Ana';
-    $('#accueil-form-invite')!.emettre('submit', { preventDefault() {} });
     expect($('#accueil')).toBeNull();
     expect(stockage.has(CLE_ACCUEIL)).toBe(false);
     expect(m.a.retient('carte')).toBe(false);
@@ -571,8 +529,6 @@ describe('session perdue', () => {
     expect(m.comptes.desactiver).toHaveBeenCalledOnce();
     // Puis le choix de l'invité, comme sur un appareil neuf : fermé pour de bon.
     $('#accueil-invite')!.click();
-    $('#accueil-pseudo')!.value = 'Lou';
-    $('#accueil-form-invite')!.emettre('submit', { preventDefault() {} });
     expect($('#accueil')).toBeNull();
     expect(stockage.get(CLE_ACCUEIL)).toBe('invite');
     m.a.perdue(false);
@@ -663,7 +619,7 @@ describe('session perdue', () => {
     $('#accueil-invite')!.click();
     expect(sansCompte).toHaveBeenCalledOnce();
     // Rien de demandé : pas de pseudo, les progrès restent.
-    expect($('#accueil-form-invite')!.hidden).toBe(true);
+    expect($('#accueil-pseudo')).toBeNull();
     m.poserEtatCompte('invite');
     await attendre();
     expect($('#accueil')).toBeNull();
