@@ -2791,6 +2791,10 @@ ici, la suite. Trois écarts des statuts au § 2.2, pourtant :
   relecture : les habitants des territoires, leur monnaie, leur heure, le continent, le lien, le
   drapeau. D'ici là, la barre d'un territoire dit ses habitants seuls et sa ligne d'heure
   s'appelle « Heure locale ».
+- **Relu par l'utilisateur (18/11)** : `fiches-territoires.md` validé tel quel. Les 13 lignes « à relire » gardent
+  leur texte, et `statut` passe à `true` (f97c79a). Le texte de statut est en tête de la fiche d'un territoire ou
+  d'une zone, à la place du libellé « territoire » ou « statut contesté ». La ligne des Chagos avait été vérifiée le
+  jour même (sources du 17/11), comme elle le demandait avant la mise en ligne.
 - D57 a : le build échoue si une zone sert autre chose que `s`, `h`, `ha`, `hs`, `st`, `wp`
   (l'Antarctique : `s`, `sup`, `alt`, `wp`, `cu`), et `composerFiche` ne montre d'une zone que
   ses habitants et son continent, même si les données en portaient plus (testé).
