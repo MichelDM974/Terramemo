@@ -133,6 +133,11 @@ export interface LieuFiche {
   terrain: string;
   id: string;
   bilan?: boolean;
+  /**
+   * Le plein écran de la photo de ce rang (lot P2, § 4.4 et § 4.12) : une entrée de plus sur la
+   * fiche de ce lieu, que le retour ferme, la fiche restant.
+   */
+  photo?: number;
 }
 
 /** Une fiche dans l'historique : son lieu et son rang (1 : la première ouverte depuis la barre). */
@@ -317,7 +322,10 @@ export function creerNavigation<V extends VueNavigable>(o: OptionsNavigation<V>)
     const ici = adresseRendue ?? o.accueil;
     const rang = (etatHistorique()?.fiche?.rang ?? 0) + 1;
     h.pushState(
-      { pile: [...pileRendue, adresseEmpilee()].slice(-PILE_MAX), fiche: { terrain: lieu.terrain, id: lieu.id, rang, ...(lieu.bilan ? { bilan: true } : {}) } } satisfies EtatHistorique,
+      {
+        pile: [...pileRendue, adresseEmpilee()].slice(-PILE_MAX),
+        fiche: { terrain: lieu.terrain, id: lieu.id, rang, ...(lieu.bilan ? { bilan: true } : {}), ...(lieu.photo !== undefined ? { photo: lieu.photo } : {}) },
+      } satisfies EtatHistorique,
       '',
       versAncre(ici),
     );

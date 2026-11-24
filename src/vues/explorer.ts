@@ -71,6 +71,7 @@ import type { ApprendreFiche } from './apprendre-lieu';
 import type { CarteMemoire } from './carte-memoire';
 import { ANNEAU_SOUS_PX, anneauZone, creer, LIBELLE_STATUT, merPosee, mersPosees, poserMers, type ContexteVue, type Vue } from './commun';
 import type { Feuille } from './fiche';
+import type { SourcePhotos } from './fiche-photos';
 import { rendu, SUJET_CARTE } from './sujets';
 import { textes } from './textes';
 
@@ -159,6 +160,11 @@ export interface OptionsFiche {
   retourBilan?(): void;
   /** « Apprendre ce lieu » (lot F7, § 5) : l'état du bouton, le lancement, le lieu retenu ; sans lui, ni bouton ni « Noté ». */
   apprendre?: ApprendreFiche;
+  /**
+   * Les photos de la fiche (lot P2) : true, celles du site (sourcePhotosSite, dans le morceau de la fiche) ; une
+   * source à part (les tests) ; absent, pas de carrousel.
+   */
+  photos?: true | SourcePhotos;
 }
 
 export interface OptionsExplorer {
@@ -353,6 +359,11 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   let ficheDispo = false;
   /** La fiche ouverte (ou en train de l'être), telle que l'historique la dit. */
   let ficheOuverte: EntreeFiche | null = null;
+  /**
+   * Le plein écran d'une photo de la fiche ouverte (lot P2), son entrée d'historique : une de plus que celle de la
+   * fiche (même lieu, rang + 1), que le retour rend. ficheOuverte reste l'entrée de la fiche.
+   */
+  let photoOuverte: EntreeFiche | null = null;
   /** Change à chaque fiche demandée ou fermée : un chargement arrivé après ne montre rien. */
   let jetonFiche = 0;
   let feuille: Feuille | null = null;
@@ -651,7 +662,9 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
    * ses entrées remontées d'un coup.
    */
   function reculer(): void {
-    if (ficheOuverte?.bilan && ficheOuverte.rang === 1 && F?.retourBilan) F.retourBilan();
+    // Le plein écran d'une photo : un pas en arrière le ferme, la fiche reste (même ouverte depuis un bilan).
+    if (photoOuverte) historique.retour();
+    else if (ficheOuverte?.bilan && ficheOuverte.rang === 1 && F?.retourBilan) F.retourBilan();
     else historique.retour();
   }
   /** Ce que montre « ‹ » pour cette fiche : la fiche d'avant (un voisin), ou le bilan (la première, ouverte depuis un bilan). */
@@ -680,6 +693,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
   /** La fiche fermée sur place (sans toucher à l'historique) ; `focus` : rendu à la barre. */
   function fermerFiche(focus: boolean): void {
     jetonFiche++;
+    photoOuverte = null;
     if (!ficheOuverte) return;
     lancerVolEnAttente();
     ficheOuverte = null;
@@ -755,7 +769,30 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     // Une partie de Toucher en suspens (§ 4.8, garde 3) : pas de fiche, et son entrée d'historique rendue, sinon le
     // retour suivant ne changerait rien à l'écran (§ 7 : aucune entrée de fiche orpheline).
     if (!autorisee()) return void historique.quitter();
-    if (ficheOuverte && ficheOuverte.id === f.id && ficheOuverte.rang === f.rang) return;
+    // Le plein écran d'une photo (lot P2, § 4.4) : sur la fiche de son lieu déjà ouverte, il s'y pose ; le retour qui
+    // le quitte rend l'entrée de cette fiche (rang − 1), qui se ferme sans être refaite.
+    const lieu = f;
+    const memeLieu = (e: EntreeFiche | null) => !!e && e.id === lieu.id && e.terrain === lieu.terrain;
+    if (f.photo !== undefined && memeLieu(ficheOuverte) && ficheOuverte!.rang === f.rang - 1) {
+      photoOuverte = f;
+      feuille?.pleinEcran(f.photo);
+      return;
+    }
+    if (f.photo === undefined && photoOuverte && memeLieu(ficheOuverte) && ficheOuverte!.rang === f.rang) {
+      photoOuverte = null;
+      feuille?.pleinEcran(null);
+      return;
+    }
+    if (ficheOuverte && ficheOuverte.id === f.id && ficheOuverte.rang === f.rang && !photoOuverte) return;
+    // Une entrée de plein écran rendue sans sa fiche (le retour en avant du navigateur) : la fiche, puis la photo.
+    const photo = f.photo;
+    if (photo !== undefined) {
+      photoOuverte = f;
+      f = { terrain: f.terrain, id: f.id, rang: f.rang - 1, ...(f.bilan ? { bilan: true } : {}) };
+    } else {
+      photoOuverte = null;
+      feuille?.pleinEcran(null);
+    }
     ficheOuverte = f;
     const j = ++jetonFiche;
     barre.setAttribute('inert', '');
@@ -821,11 +858,17 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
             // Sur le terrain de la fiche ouverte : une commune voisine sur l'île, tout le reste au monde.
             voisin: (v) => historique.pousser({ terrain: ficheOuverte?.terrain ?? 'monde', id: v }),
             apprendre: (geste) => apprendreGeste(geste),
+            // Une photo touchée (lot P2) : son plein écran, une entrée de plus sur la fiche ; jamais deux d'affilée.
+            photo: (i) => {
+              if (ficheOuverte && !photoOuverte) historique.pousser({ terrain: ficheOuverte.terrain, id: ficheOuverte.id, photo: i });
+            },
           },
           // La carte de situation (lot F8) : les données déjà en mémoire, rien de plus à charger.
           { monde: () => ctx.donnees, ile: () => ctx.terrains.deja('reunion')?.donnees ?? null },
+          F.photos === true ? m.sourcePhotosSite : F.photos,
         );
         feuille.montrer(modele, { ...optionsAvant(f), focus: true });
+        if (photoOuverte && photo !== undefined) feuille.pleinEcran(photo);
         // Le drapeau d'un territoire (lot F3) : son manifeste à part, à la première fiche de territoire.
         if (modele.avecDrapeau && !modele.drapeaux.length && modele.sorte === 'territoire' && F.drapeauxTerritoires) {
           F.drapeauxTerritoires().then(

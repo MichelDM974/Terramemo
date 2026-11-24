@@ -592,6 +592,56 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 .situation-eau { fill: var(--mer-choisie); }
 .situation-anneau { fill: none; stroke: var(--accent); stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .fiche-drapeaux { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+/* Les photos (lot P2, § 3.5, § 4.12) : un carrousel 3:2 sur toute la largeur de la fiche, sous la tête ; il
+   défile par accrochage, à l'horizontale, d'un doigt (pan-x : le défilement vertical de la fiche n'est pas
+   gêné). Chaque case a sa place réservée (aspect-ratio) : la fiche ne saute pas à l'arrivée d'une photo ; la
+   case d'attente tient la place tant que la liste n'est pas lue. Le crédit sous chaque photo, du texte. */
+.fiche-photos { margin: 0 -16px 6px; }
+.fiche-carrousel {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+}
+.fiche-photo { flex: 0 0 100%; scroll-snap-align: start; }
+.fiche-photo figure { margin: 0; }
+.fiche-photo-bouton { display: block; width: 100%; padding: 0; border: 0; border-radius: 0; background: none; cursor: zoom-in; }
+.fiche-photo-bouton:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fiche-photo-cadre { display: block; width: 100%; aspect-ratio: 3 / 2; background: var(--panel-2); }
+.fiche-photo-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.fiche-credit { margin: 4px 16px 0; color: var(--muted); font-size: 0.78rem; line-height: 1.35; overflow-wrap: anywhere; }
+.fiche-credit a { color: var(--accent); }
+/* Le plein écran d'une photo : par-dessus la fiche, à sa place (mêmes bords), sombre ; la photo entière
+   (contain), son crédit dessous, « × » en haut à droite. Un toucher le ferme (le retour de l'historique). */
+.fiche-plein {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 52px 0 16px;
+  background: #000;
+  border-radius: 14px;
+  touch-action: none;
+}
+.fiche-plein[hidden] { display: none; }
+.fiche-plein > .croix { position: absolute; top: 4px; right: 4px; color: #fff; }
+.fiche-plein-img { display: block; width: 100%; max-height: calc(100% - 3.5em); object-fit: contain; aspect-ratio: 3 / 2; }
+.fiche-plein-avis { margin: 0 16px; color: var(--muted); text-align: center; }
+.fiche-plein-credit .fiche-credit { color: #c9cbd1; }
+body[data-terrain="reunion"] .fiche-plein { top: 40px; }
 .fiche-drapeaux .drapeau { width: 64px; height: 48px; }
 .fiche-titre { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
 .fiche-titre:focus { outline: none; }
@@ -618,7 +668,7 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 .fiche-pied a { color: var(--accent); }
 .fiche-wikipedia { display: inline-block; padding: 10px 0; font-size: 0.95rem; }
 @media (max-width: 700px) {
-  .fiche { top: 8px; bottom: 8px; left: 8px; right: 8px; }
+  .fiche, .fiche-plein { top: 8px; bottom: 8px; left: 8px; right: 8px; }
 }
 /* PC : un peu plus grand, comme le panneau de Jouer. */
 @media (min-width: 701px) {

@@ -576,6 +576,23 @@ describe('navigation : les fiches des lieux dans l’historique', () => {
     expect(m.nav.fiche()).toBeNull();
   });
 
+  it('le plein écran d’une photo (lot P2) : une entrée de plus sur la fiche, son rang dans l’état ; un retour le quitte, la fiche reste ; « × » remonte tout', () => {
+    const m = surLaCarte();
+    const avant = m.h.i;
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'JPN' }));
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'JPN', photo: 2 }));
+    expect(m.nav.fiche()).toEqual({ terrain: 'monde', id: 'JPN', rang: 2, photo: 2 });
+    m.retourNavigateur();
+    expect(m.nav.fiche()).toEqual({ terrain: 'monde', id: 'JPN', rang: 1 });
+    expect(m.ici()).toBe('carte');
+    m.faire(() => m.nav.pousserFiche({ terrain: 'monde', id: 'JPN', photo: 0 }));
+    const gos = m.h.gos.length;
+    m.faire(() => m.nav.quitterFiches());
+    expect(m.h.gos.slice(gos)).toEqual([-2]);
+    expect(m.h.i).toBe(avant);
+    expect(m.nav.fiche()).toBeNull();
+  });
+
   it('« × » après trois voisins : une seule remontée, jusqu’à l’entrée #carte d’avant la fiche, la fiche fermée', () => {
     const m = surLaCarte();
     const avant = m.h.i;

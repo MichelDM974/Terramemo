@@ -789,6 +789,8 @@ async function demarrer(): Promise<void> {
     // Les communes de La Réunion (lot F5) : leurs fiches au premier toucher sur l'île.
     fichesCommunes: () => chargerFichesCommunes(),
     module: () => import('./vues/fiche'),
+    // Les photos (lot P2) : celles du site, lues par le morceau de la fiche (photos/l/<id>.json, une à une).
+    photos: true as const,
     historique: { pousser: nav.pousserFiche, quitter: nav.quitterFiches, retour: () => history.back() },
     autorisee: ficheAutorisee,
     reglagesOuverts: () => document.getElementById('settings-popup')?.hidden === false,

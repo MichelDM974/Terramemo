@@ -113,6 +113,17 @@
     "ign": "IGN",
     "insee": "recensement de l'INSEE (habitants)"
   },
+  "photos": {
+    "_": "Photos de la fiche (#34, lot P2, § 3.2 et § 3.5) : le crédit sous chaque photo, « Photo recadrée : {auteur} · {licence} · Commons », la licence en lien vers son texte, « Commons » vers la page du fichier.",
+    "titre": "Photos",
+    "credit": "Photo recadrée : ",
+    "auteur_inconnu": "Auteur inconnu",
+    "commons": "Commons",
+    "agrandir": "Agrandir la photo : {alt}",
+    "fermer": "Fermer la photo",
+    "position": "Photo {n} sur {total}",
+    "hors_ligne": "Photo en grand : indisponible hors ligne"
+  },
   "nombres": {
     "million": "{n} million",
     "millions": "{n} millions",

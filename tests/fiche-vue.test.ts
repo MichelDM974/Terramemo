@@ -853,10 +853,10 @@ describe('la fiche branchée sur la vraie navigation (navigation.ts, comme main.
   beforeEach(() => vi.useRealTimers());
 
   /** La vue de la carte et les classements, l'historique factice ; chaque traversée donne deux router() (popstate puis hashchange). */
-  function brancher() {
+  function brancher(fiche: Partial<OptionsFiche> = {}) {
     const h = new HistoriqueFactice();
     let nav!: ReturnType<typeof creerNavigation<VueNavigable>>;
-    const v = monter({ fiche: { historique: { pousser: (l) => nav.pousserFiche(l), quitter: () => nav.quitterFiches(), retour: () => retour() } } });
+    const v = monter({ fiche: { historique: { pousser: (l) => nav.pousserFiche(l), quitter: () => nav.quitterFiches(), retour: () => retour() }, ...fiche } });
     let classementActif = false;
     const classement = { activer: () => void (classementActif = true), desactiver: () => void (classementActif = false) };
     const vues = new Map<string, VueNavigable>([
@@ -896,7 +896,13 @@ describe('la fiche branchée sur la vraie navigation (navigation.ts, comme main.
     const fichesEnHistorique = () => h.entrees.slice(0, h.i + 1).filter((e) => (e.etat as { fiche?: unknown } | null)?.fiche).length;
     lien('classement');
     lien('carte');
-    return { ...v, h, nav, traverser, lien, fichesEnHistorique, classementActif: () => classementActif };
+    /** Le retour en avant du navigateur (popstate, hashchange). */
+    const avancer = () => {
+      h.i++;
+      nav.router();
+      nav.router();
+    };
+    return { ...v, h, nav, traverser, lien, retour, avancer, fichesEnHistorique, classementActif: () => classementActif };
   }
 
   /** Le lieu touché, puis sa fiche ouverte par la barre. */
@@ -922,6 +928,66 @@ describe('la fiche branchée sur la vraie navigation (navigation.ts, comme main.
     expect(v.body.dataset.fiche).toBeUndefined();
     expect(v.doc.activeElement).toBe(v.bouton());
     expect(v.barre().dataset.id).toBe('ESP');
+    expect(v.fichesEnHistorique()).toBe(0);
+  });
+
+  /** Les photos du Japon (lot P2), d'une source factice ; les autres lieux n'en ont pas. */
+  const PHOTOS_JPN = [
+    { v: 'b87c3924fe', p: '08fb97862f', alt: { fr: 'préfecture de Kyoto' }, auteur: 'WKC from Hong Kong', licence: 'CC BY-SA 2.0', licence_url: 'https://creativecommons.org/licenses/by-sa/2.0', page: 'https://commons.wikimedia.org/wiki/File:K.jpg' },
+    { v: '51f90582a4', p: '49223f4399', alt: { fr: 'château de Himeji' }, auteur: 'Nikos Kitsakis', licence: 'CC BY-SA 4.0', licence_url: 'https://creativecommons.org/licenses/by-sa/4.0', page: 'https://commons.wikimedia.org/wiki/File:H.jpg' },
+  ];
+  const photos = {
+    liste: (id: string) => Promise.resolve(id === 'JPN' ? { v: 1, photos: PHOTOS_JPN } : null),
+    vignette: (n: string) => `/photos/v/${n}.webp`,
+    plein: (n: string) => `/photos/p/${n}.webp`,
+  };
+
+  it('le plein écran d’une photo (lot P2, § 4.4) : une entrée de plus ; un retour, sa « × » ou Échap le ferment, la fiche reste, son carrousel intact ; le retour en avant le rouvre', async () => {
+    const v = brancher({ photos });
+    const carte = v.h.i;
+    await ouvrir(v, 'JPN');
+    await vi.waitFor(() => expect(v.feuille()!.querySelectorAll('.fiche-photo-bouton')).toHaveLength(2));
+    const carrousel = v.feuille()!.querySelector('.fiche-photos');
+    const plein = () => v.el('#fiche-plein')!;
+    const photo = (i: number) => v.feuille()!.querySelectorAll('.fiche-photo-bouton')[i]!;
+    photo(1).click();
+    expect(v.h.i).toBe(carte + 2);
+    expect(plein().hidden).toBe(false);
+    expect((plein().querySelector('img') as unknown as { src: string }).src).toBe('/photos/p/49223f4399.webp');
+    expect(v.fichesEnHistorique()).toBe(2);
+    // Le retour du navigateur (ou d'Android) : la photo fermée, la fiche du Japon toujours là, pas refaite.
+    v.retour();
+    expect(v.h.i).toBe(carte + 1);
+    expect(plein().hidden).toBe(true);
+    expect(v.ouverte()).toBe(true);
+    expect(v.titre()).toBe('Japon');
+    expect(v.feuille()!.querySelector('.fiche-photos')).toBe(carrousel);
+    expect(v.doc.activeElement).toBe(photo(1));
+    // Le retour en avant : la photo revient.
+    v.avancer();
+    expect(plein().hidden).toBe(false);
+    // Sa « × » : un pas en arrière, comme le retour.
+    plein().querySelector('.croix')!.click();
+    expect(v.h.i).toBe(carte + 1);
+    expect(plein().hidden).toBe(true);
+    expect(v.ouverte()).toBe(true);
+    // Échap : la photo seule.
+    photo(0).click();
+    expect(plein().hidden).toBe(false);
+    expect(v.echap().defaultPrevented).toBe(true);
+    expect(plein().hidden).toBe(true);
+    expect(v.ouverte()).toBe(true);
+    expect(v.h.i).toBe(carte + 1);
+    // Deux touchers d'affilée ne posent qu'une entrée.
+    photo(0).click();
+    photo(1).click();
+    expect(v.h.i).toBe(carte + 2);
+    // « × » de la fiche, la photo ouverte : toutes les entrées remontées d'un coup, la photo et la fiche fermées.
+    v.feuille()!.querySelector('.fiche-tete .croix')!.click();
+    v.traverser();
+    expect(v.h.i).toBe(carte);
+    expect(plein().hidden).toBe(true);
+    expect(v.ouverte()).toBe(false);
     expect(v.fichesEnHistorique()).toBe(0);
   });
 

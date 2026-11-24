@@ -41,7 +41,12 @@
 // Une ligne sans donnée n'existe pas ; celles dont la table attend la relecture
 // restent tues (src/fiches/relues.ts). L'heure se refait toutes les 30 s tant
 // que la fiche est ouverte, par le formateur gardé de sa zone (créé au repos,
-// au toucher du pays : explorer.ts). Les photos viennent aux lots suivants.
+// au toucher du pays : explorer.ts).
+//
+// Lot P2 : sous la tête, le carrousel des photos du lieu (src/vues/fiche-photos.ts),
+// sa place réservée dès la pose, gardé quand la même fiche est refaite ; le plein
+// écran d'une photo par-dessus la fiche, une entrée d'historique (actions.photo,
+// pleinEcran).
 //
 // Lot F7 (§ 5) : sous les lignes de la mémoire (montrées même le réglage « Carte
 // de la mémoire » coupé), « Apprendre ce lieu » : son état vient des comptes de
@@ -69,6 +74,8 @@ import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { ApprendreModele } from './apprendre-lieu';
 import { creer, croix, LIBELLE_STATUT } from './commun';
+import { creerCarrousel, creerPleinEcran, type Carrousel, type PleinEcran, type SourcePhotos } from './fiche-photos';
+export { sourcePhotosSite } from './fiche-photos';
 import { creerSituation, type SourceSituation } from './situation';
 import { remplir, textes } from './textes';
 import { textesFiche } from './textes-fiche';
@@ -419,6 +426,8 @@ export interface ActionsFiche {
   voisin(id: string): void;
   /** « Apprendre ce lieu » (lot F7) : la séance ; « Retenir ce lieu » ; « Annuler » (D58 b). */
   apprendre?(geste: 'lancer' | 'retenir' | 'oublier'): void;
+  /** Une photo touchée (lot P2) : son plein écran, une entrée de plus (nav.pousserFiche) ; il se ferme par avant(). */
+  photo?(i: number): void;
 }
 
 export interface Feuille {
@@ -429,6 +438,11 @@ export interface Feuille {
   montrer(m: ModeleFiche, o: { avant: boolean; bilan?: boolean; focus: boolean }): void;
   /** Le drapeau arrivé après coup (le manifeste lu) : la tête seule est refaite. */
   drapeaux(adresses: readonly string[]): void;
+  /**
+   * Le plein écran de la photo i de la fiche montrée (lot P2), ou null : fermé, le focus rendu à la photo.
+   * Demandé avant que la liste soit lue (un retour en avant de l'historique) : montré à son arrivée.
+   */
+  pleinEcran(i: number | null): void;
   fermer(): void;
   readonly element: HTMLElement;
   readonly voile: HTMLElement;
@@ -443,9 +457,10 @@ export const SITUATION_APRES_MS = 400;
 /**
  * La feuille et son voile, posés dans `zone` (#app), cachés. Un seul
  * exemplaire par page : la carte le garde. `situation` : ce que lit la carte de
- * situation (lot F8) ; absent, la tête n'en a pas.
+ * situation (lot F8) ; absent, la tête n'en a pas. `photos` : d'où viennent les
+ * photos (lot P2, sourcePhotosSite) ; absent, pas de carrousel.
  */
-export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation?: SourceSituation): Feuille {
+export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation?: SourceSituation, photos?: SourcePhotos): Feuille {
   const voile = creer('div', { class: 'fiche-voile', id: 'fiche-voile', 'aria-hidden': 'true' });
   voile.hidden = true;
   voile.addEventListener('click', () => actions.voile());
@@ -499,6 +514,22 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation
     if (!heures.length) arreterHeure();
   }
   const drapeauxEl = creer('div', { class: 'fiche-drapeaux' });
+
+  // Les photos (lot P2) : le carrousel de la fiche montrée, gardé quand elle est refaite (rafraichir), et le plein
+  // écran, posé une fois dans #app au-dessus de la feuille ; il se ferme par le retour de l'historique (avant()).
+  let carrousel: Carrousel | null = null;
+  const plein: PleinEcran | null = photos ? creerPleinEcran(zone, () => actions.avant()) : null;
+  /** Le plein écran demandé (pleinEcran), et celui montré en dernier (le focus y revient). */
+  let pleinVoulu: number | null = null;
+  let pleinMontre = -1;
+  function carrouselDe(m: ModeleFiche): HTMLElement[] {
+    if (!photos) return [];
+    if (carrousel?.id !== m.id) {
+      carrousel?.arreter();
+      carrousel = creerCarrousel(m.id, photos, (i) => actions.photo?.(i));
+    }
+    return [carrousel.element];
+  }
 
   /** Les drapeaux de la tête : la place grise (4:3) tant qu'ils ne sont pas là. */
   function poserDrapeaux(m: ModeleFiche): void {
@@ -582,7 +613,7 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation
   }
 
   function rendre(m: ModeleFiche): HTMLElement {
-    const enfants: HTMLElement[] = [tete(m)];
+    const enfants: HTMLElement[] = [tete(m), ...carrouselDe(m)];
     if (m.faits.length) {
       const lignes = m.faits.map((f) => {
         // La mère et l'océan d'une mer (lot F4) : des boutons, qui ouvrent leur fiche comme un voisin.
@@ -686,7 +717,28 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation
       modele = { ...modele, drapeaux: adresses };
       poserDrapeaux(modele);
     },
+    pleinEcran(i) {
+      pleinVoulu = i;
+      if (i === null) {
+        if (!plein?.ouvert()) return;
+        plein.cacher();
+        carrousel?.bouton(pleinMontre)?.focus({ preventScroll: true });
+        return;
+      }
+      const c = carrousel;
+      if (!c || !plein || !photos) return;
+      c.quandLue(() => {
+        const p = c.photos()?.[i];
+        if (pleinVoulu !== i || carrousel !== c || !p) return;
+        pleinMontre = i;
+        plein.montrer(p, photos.plein(p.p));
+      });
+    },
     fermer() {
+      pleinVoulu = null;
+      plein?.cacher();
+      carrousel?.arreter();
+      carrousel = null;
       if (apresMontee !== null) clearTimeout(apresMontee);
       apresMontee = null;
       carte?.arreter();
