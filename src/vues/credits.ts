@@ -13,6 +13,13 @@
 // place plutôt qu'un lien vers le fichier : dans l'APK, on ne quitte pas
 // l'appli (choix du 06/11). Les versions des dépendances directes viennent de
 // package.json, pour ne pas vieillir. Textes : textes.fr.json (credits).
+//
+// Les photos des fiches (#34, lot P2 ; étude docs/etudes/2026-11-16-fiche-lieu-conception.md,
+// § 3.2) : une ligne « Wikimedia Commons » à la fin des données, la phrase qui dit
+// la modification (« Photos recadrées et réduites ; chacune garde la licence de
+// son auteur. ») et la rubrique « Photos », dépliée à la demande : chaque photo,
+// son titre ou son sujet, son auteur, sa licence, son lien (photos/credits.json,
+// écrit par le build, lu à la première ouverture).
 import { dependencies } from '../../package.json';
 import { dateCredit, type SourcesTerrain } from '../map/donnees-terrain';
 import { REUNION } from '../map/terrain';
@@ -23,6 +30,35 @@ const T = textes.credits;
 const VERSIONS: Readonly<Record<string, string>> = dependencies;
 /** Le fichier des licences tierces, à la racine (FICHIER_LICENCES de licences/tierces.ts, lu par Node seul). */
 export const URL_LICENCES = '/licences-tierces.txt';
+/** Les crédits des photos des fiches (geodata/photos/listes.mjs, écrit par le build). */
+export const URL_CREDITS_PHOTOS = '/photos/credits.json';
+
+/** Une ligne de photos/credits.json. */
+interface CreditPhoto {
+  titre: string;
+  auteur: string | null;
+  licence: string;
+  licence_url: string | null;
+  page: string;
+}
+
+/** Une photo de la rubrique « Photos » : son titre ou son sujet, puis « auteur · licence · page sur Commons ». */
+function lignePhoto(c: CreditPhoto): HTMLLIElement {
+  const lien = (href: string, t: string, cls: string) => creer('a', { href, target: '_blank', rel: 'noopener', class: cls }, t);
+  return creer(
+    'li',
+    {},
+    creer('span', { class: 'credits-nom' }, c.titre),
+    creer(
+      'span',
+      { class: 'hint credits-detail' },
+      `${c.auteur ?? T.photos_auteur_inconnu} · `,
+      c.licence_url ? lien(c.licence_url, c.licence, 'credits-licence') : creer('span', { class: 'credits-licence' }, c.licence),
+      ' · ',
+      lien(c.page, T.photos_commons, 'credits-page'),
+    ),
+  );
+}
 
 interface Credit {
   nom: string | HTMLElement;
@@ -95,6 +131,26 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void; versCarte:
       });
   });
 
+  // Les crédits des photos des fiches (lot P2), lus à la première ouverture du dépliant ; un échec se retente à la suivante.
+  const listePhotos = creer('ul', { class: 'credits-liste', id: 'credits-photos-liste' }, creer('li', { class: 'hint' }, T.photos_chargement));
+  const photos = creer('details', { class: 'credits-licences', id: 'credits-photos' }, creer('summary', {}, T.photos_resume), listePhotos);
+  let photosLues = false;
+  photos.addEventListener('toggle', () => {
+    if (!photos.open || photosLues) return;
+    photosLues = true;
+    listePhotos.replaceChildren(creer('li', { class: 'hint' }, T.photos_chargement));
+    fetch(URL_CREDITS_PHOTOS)
+      .then((r) => (r.ok ? (r.json() as Promise<{ photos?: CreditPhoto[] }>) : Promise.reject(new Error(String(r.status)))))
+      .then((c) => {
+        const l = c.photos ?? [];
+        listePhotos.replaceChildren(...(l.length ? l.map(lignePhoto) : [creer('li', { class: 'hint' }, T.photos_aucune)]));
+      })
+      .catch(() => {
+        photosLues = false;
+        listePhotos.replaceChildren(creer('li', { class: 'hint' }, T.photos_erreur));
+      });
+  });
+
   const retour = creer('button', { type: 'button', class: 'secondary', id: 'credits-retour' }, T.retour);
   retour.addEventListener('click', () => o.retour());
   const section = creer(
@@ -110,6 +166,8 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void; versCarte:
       creer('p', { class: 'credits-confidentialite' }, creer('a', { href: '#confidentialite', id: 'credits-confidentialite' }, T.confidentialite)),
       creer('h3', {}, T.donnees_titre),
       creer('ul', { class: 'credits-liste', id: 'credits-liste-donnees' }, ...T.donnees.map((c, i) => ligne(c, i === 2 ? { id: 'ign', auteur: auteurIgn } : {}))),
+      creer('p', { class: 'hint', id: 'credits-photos-modifiees' }, T.photos_modifiees),
+      photos,
       creer('h3', {}, T.bibliotheques_titre),
       creer('p', { class: 'hint' }, T.bibliotheques_aide),
       creer(

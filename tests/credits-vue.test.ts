@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APACHE_ICI, artefacts, composantsAar, factoriserApache, GROUPES_AVIS, releveAvis, termesApache } from '../licences/android.mjs';
 import { AVIS_ANDROID, artefactsAndroid, avisAndroid, FICHIER_LICENCES, LICENCES_A_PART, ligneAndroid, texteAvis, texteLicence, texteLicencePaquet, texteLicences } from '../licences/tierces';
-import { nomPaquets, URL_LICENCES, vueCredits } from '../src/vues/credits';
+import { nomPaquets, URL_CREDITS_PHOTOS, URL_LICENCES, vueCredits } from '../src/vues/credits';
 import { textes } from '../src/vues/textes';
 import { installerDom, type El } from './dom-factice';
 
@@ -68,16 +68,23 @@ function ouvrir(): El {
 
 /** Ce que rend le fetch factice pour le fichier des licences : le texte, ou un échec (hors ligne). */
 let licencesServies: string | null = 'TEXTES DES LICENCES';
+/** Ce que rend le fetch factice pour photos/credits.json (lot P2) : le JSON, ou un échec (hors ligne). */
+let creditsPhotos: unknown = { v: 1, photos: [] };
 
 beforeEach(() => {
   installerDom();
   licencesServies = 'TEXTES DES LICENCES';
+  creditsPhotos = { v: 1, photos: [] };
   fetch = vi.fn(async (url: string) =>
     url === URL_LICENCES
       ? licencesServies === null
         ? Promise.reject(new TypeError('Failed to fetch'))
         : { ok: true, text: async () => licencesServies }
-      : { ok: true, json: async () => JSON.parse(readFileSync('public/geo/reunion/sources.json', 'utf8')) },
+      : url === URL_CREDITS_PHOTOS
+        ? creditsPhotos === null
+          ? Promise.reject(new TypeError('Failed to fetch'))
+          : { ok: true, json: async () => creditsPhotos }
+        : { ok: true, json: async () => JSON.parse(readFileSync('public/geo/reunion/sources.json', 'utf8')) },
   );
   vi.stubGlobal('fetch', fetch);
 });
@@ -118,7 +125,7 @@ describe('écran Crédits', () => {
     const sources = json<{ sources: { nom: string; version: string }[] }>('public/geo/sources.json').sources;
     const source = (debut: string) => sources.find((x) => x.nom.startsWith(debut))!.version;
     // Les lignes nouvelles à la fin (credits.ts lit l'IGN par son rang) ; l'IGN, la troisième.
-    expect(T.donnees.map((d) => d.nom).slice(-3)).toEqual(['Banque mondiale', "Base de données des fuseaux horaires de l'IANA", 'CIA World Factbook']);
+    expect(T.donnees.map((d) => d.nom).slice(-4)).toEqual(['Banque mondiale', "Base de données des fuseaux horaires de l'IANA", 'CIA World Factbook', 'Wikimedia Commons']);
     expect(T.donnees[2]!.nom).toContain('IGN');
     // Lot F5 : la mention du recensement de l'INSEE, à l'année des habitants servis par reunion/fiches.json.
     const annees = new Set(Object.values(json<{ lieux: Record<string, { ha: number }> }>('public/geo/reunion/fiches.json').lieux).map((l) => l.ha));
@@ -417,5 +424,53 @@ describe('licences tierces (#20)', () => {
     details.emettre('toggle');
     expect(lus()).toBe(2);
   });
-});
 
+  it('les photos des fiches (#34, lot P2, § 3.2) : la ligne de Commons à la fin des données, la modification dite, puis la rubrique « Photos » dépliée à la demande, chaque photo avec son titre, son auteur, sa licence et son lien', async () => {
+    const v = ouvrir();
+    const commons = v.querySelectorAll('#credits-liste-donnees li').at(-1)!.innerText;
+    expect(commons).toContain('Wikimedia Commons');
+    expect(commons).toContain('Photos des fiches · auteur et licence sous chaque photo');
+    expect(v.querySelector('#credits-photos-modifiees')!.textContent).toBe(T.photos_modifiees);
+    expect(T.photos_modifiees.replace(/\u202f/g, ' ')).toBe('Photos recadrées et réduites ; chacune garde la licence de son auteur.');
+    const details = v.querySelector('#credits-photos') as El & { open?: boolean };
+    const liste = v.querySelector('#credits-photos-liste')!;
+    expect(details.querySelector('summary')!.textContent).toBe(T.photos_resume);
+    const lus = () => fetch.mock.calls.filter(([u]) => u === URL_CREDITS_PHOTOS).length;
+    expect(lus()).toBe(0);
+    // Hors ligne : le message, et un nouvel essai à la réouverture.
+    creditsPhotos = null;
+    details.open = true;
+    details.emettre('toggle');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(liste.innerText).toBe(T.photos_erreur);
+    creditsPhotos = {
+      v: 1,
+      photos: [
+        { titre: 'Himeji castle in may 2015', auteur: 'Nikos Kitsakis', licence: 'CC BY-SA 4.0', licence_url: 'https://creativecommons.org/licenses/by-sa/4.0', page: 'https://commons.wikimedia.org/wiki/File:Himeji_castle_in_may_2015.jpg' },
+        { titre: 'piton des Neiges', auteur: null, licence: 'Domaine public', licence_url: null, page: 'https://commons.wikimedia.org/wiki/File:Piton_des_Neiges1.JPG' },
+      ],
+    };
+    details.open = false;
+    details.emettre('toggle');
+    details.open = true;
+    details.emettre('toggle');
+    await new Promise((r) => setTimeout(r, 0));
+    const lignes = liste.querySelectorAll('li');
+    expect(lignes.map((l) => l.innerText)).toEqual([
+      `Himeji castle in may 2015Nikos Kitsakis · CC BY-SA 4.0 · ${T.photos_commons}`,
+      `piton des Neiges${T.photos_auteur_inconnu} · Domaine public · ${T.photos_commons}`,
+    ]);
+    expect(lignes[0]!.querySelector('a.credits-licence')!.getAttribute('href')).toBe('https://creativecommons.org/licenses/by-sa/4.0');
+    expect(lignes[0]!.querySelector('a.credits-page')!.getAttribute('href')).toBe('https://commons.wikimedia.org/wiki/File:Himeji_castle_in_may_2015.jpg');
+    expect(lignes[1]!.querySelector('a.credits-licence')).toBeNull();
+    expect(lus()).toBe(2);
+    // Aucune photo encore (la relecture du lot P1 en cours) : la rubrique le dit.
+    const v2 = ouvrir();
+    creditsPhotos = { v: 1, photos: [] };
+    const d2 = v2.querySelector('#credits-photos') as El & { open?: boolean };
+    d2.open = true;
+    d2.emettre('toggle');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(v2.querySelector('#credits-photos-liste')!.innerText).toBe(T.photos_aucune);
+  });
+});
