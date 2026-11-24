@@ -184,6 +184,15 @@ export function creerCarrousel(id: string, source: SourcePhotos, ouvrir: (i: num
       if (arrete) return;
       if (!l?.photos.length) return retirer();
       photos = l.photos;
+      /** Le libellé de chaque photo restée : « n sur total » parmi celles qui sont encore là. */
+      const etiqueter = () => {
+        const restes = boutons.filter((b) => liste.contains(b));
+        restes.forEach((b, n) => {
+          const p = l.photos[Number(b.getAttribute('data-i'))]!;
+          const alt = altPhoto(p);
+          b.setAttribute('aria-label', restes.length > 1 ? `${remplir(T.agrandir, { alt })} · ${remplir(T.position, { n: n + 1, total: restes.length })}` : remplir(T.agrandir, { alt }));
+        });
+      };
       const cases = l.photos.map((p, i) => {
         const alt = altPhoto(p);
         const img = creer('img', { class: 'fiche-photo-img', alt, draggable: 'false', decoding: 'async', 'data-src': source.vignette(p.v) });
@@ -191,16 +200,17 @@ export function creerCarrousel(id: string, source: SourcePhotos, ouvrir: (i: num
         img.addEventListener('error', () => {
           li.remove();
           if (!liste.querySelector('li')) retirer();
+          else etiqueter();
         });
         img.addEventListener('load', () => img.classList.add('charge'));
-        const label = l.photos.length > 1 ? `${remplir(T.agrandir, { alt })} · ${remplir(T.position, { n: i + 1, total: l.photos.length })}` : remplir(T.agrandir, { alt });
-        const b = creer('button', { type: 'button', class: 'fiche-photo-bouton', 'aria-label': label, 'data-i': String(i) }, creer('span', { class: 'fiche-photo-cadre' }, img));
+        const b = creer('button', { type: 'button', class: 'fiche-photo-bouton', 'data-i': String(i) }, creer('span', { class: 'fiche-photo-cadre' }, img));
         b.addEventListener('click', () => ouvrir(i));
         boutons[i] = b;
         const li = creer('li', { class: 'fiche-photo' }, creer('figure', {}, b, creer('figcaption', {}, creditPhoto(p))));
         return li;
       });
       liste.replaceChildren(...cases);
+      etiqueter();
       // La première aussitôt ; les suivantes quand elles entrent à moitié dans le cadre (sans observateur : toutes).
       observateur = source.observer?.(liste, charger) ?? null;
       cases.forEach((c, i) => (i === 0 || !observateur ? charger(c) : observateur.observe(c)));

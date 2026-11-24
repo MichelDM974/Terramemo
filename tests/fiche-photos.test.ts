@@ -195,6 +195,23 @@ describe('le carrousel : une à une', () => {
     expect(el.hidden).toBe(true);
   });
 
+  it('une photo retirée : les libellés « n sur total » des autres comptent celles qui restent ; le plein écran garde son rang', async () => {
+    const { source } = sourceFactice({ JPN: [KYOTO, HIMEJI, PITON] }, false);
+    const ouvrir = vi.fn<(i: number) => void>();
+    const c = creerCarrousel('JPN', source, ouvrir);
+    await tenir();
+    const el = c.element as unknown as El;
+    const labels = () => el.querySelectorAll('.fiche-photo-bouton').map((b) => b.getAttribute('aria-label'));
+    const lab = (alt: string, n: number, total: number) => `${remplir(T.agrandir, { alt })} · ${remplir(T.position, { n, total })}`;
+    expect(labels()).toEqual([lab('préfecture de Kyoto', 1, 3), lab('château de Himeji', 2, 3), lab('piton des Neiges', 3, 3)]);
+    imgs(el)[1]!.emettre('error');
+    expect(labels()).toEqual([lab('préfecture de Kyoto', 1, 2), lab('piton des Neiges', 2, 2)]);
+    el.querySelectorAll('.fiche-photo-bouton')[1]!.click();
+    expect(ouvrir).toHaveBeenCalledWith(2);
+    imgs(el)[1]!.emettre('error');
+    expect(labels()).toEqual([remplir(T.agrandir, { alt: 'préfecture de Kyoto' })]);
+  });
+
   it('arrêté avant la réponse (une autre fiche) : rien n’est posé', async () => {
     const { source } = sourceFactice({ JPN: [KYOTO] });
     const c = creerCarrousel('JPN', source, () => undefined);
