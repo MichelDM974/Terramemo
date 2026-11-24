@@ -9,7 +9,10 @@
 //        npm run photos:restaurer déploierait des fiches sans photos, ou des listes qui
 //        citent des photos absentes. Échoue (code 1) si une photo de licences.json manque,
 //        n'a pas son empreinte, sa taille ou ses dimensions, si un WebP n'est cité par
-//        rien (orphelin : servi sans crédit), ou si une liste cite une photo absente.
+//        rien (orphelin : servi sans crédit), si une liste cite une photo absente, ou si une
+//        photo gardée d'un lieu relu n'est pas traitée (sans ligne dans licences.json, elle
+//        manquerait au site sans un mot : listes.mjs l'omet), ou qu'une ligne de licences.json
+//        n'a pas sa licence, sa page de Commons ou un lien de licence en https (fautesDonnees).
 //   node geodata/photos/verifier.mjs --public           pareil sur public/photos/ (avant un build).
 //   --reseau : lot P3 (chaque fichier existe-t-il toujours sur Commons, avec la même licence).
 //
@@ -23,7 +26,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DOSSIER, DOSSIER_SITE, lireDonnees, NOM, webpAttendus } from './listes.mjs';
+import { DOSSIER, DOSSIER_SITE, fautesDonnees, lireDonnees, NOM, webpAttendus } from './listes.mjs';
 
 export const RACINE = resolve(DOSSIER, '..', '..');
 /** Dimensions et poids au plus de chaque taille (§ 3.3, § 7). */
@@ -109,7 +112,8 @@ export function fautesListes(racine) {
 }
 
 function principal(argv) {
-  const { licences } = lireDonnees();
+  const donnees = lireDonnees();
+  const { licences } = donnees;
   let racine = null;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--dist') racine = argv[i + 1] && !argv[i + 1].startsWith('--') ? resolve(argv[++i]) : join(RACINE, 'dist');
@@ -127,7 +131,7 @@ function principal(argv) {
     return 2;
   }
   const n = Object.keys(licences.photos ?? {}).length;
-  const fautes = [...fautesWebp(racine, licences), ...(racine.endsWith('public') ? [] : fautesListes(racine))];
+  const fautes = [...fautesDonnees(donnees), ...fautesWebp(racine, licences), ...(racine.endsWith('public') ? [] : fautesListes(racine))];
   if (fautes.length) {
     console.error(`Photos : ${fautes.length} faute(s) dans ${racine} (${n} photo(s) dans licences.json)`);
     for (const x of fautes.slice(0, 50)) console.error(`  ${x}`);

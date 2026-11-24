@@ -65,6 +65,12 @@ node geodata/photos/verifier.mjs --dist  # dist/ (le predeploy de firebase.json)
 s'écrivent quand même (les tests tournent partout), mais un build à déployer demande
 d'abord `npm run photos:restaurer`, sinon le predeploy refuse.
 
+**Photo gardée pas traitée** : une photo gardée d'un lieu relu sans ligne dans
+`licences.json` (`photos:traiter` oublié, ou arrêté par `--max`) manquerait au site
+sans un mot (les listes l'omettent) : `verifier.mjs`, `--dist` comme `--public`, refuse
+(code 1) et la nomme, comme une ligne sans licence, une page hors de Commons ou un lien
+de licence qui n'est pas en https. Un traitement partiel ne se déploie donc pas.
+
 ## Lieux d'essai (pilote, sans réseau)
 
 `tests/photos-essai/choix.json` (le Japon, Cilaos, Salazie ; un lieu en cours, le golfe

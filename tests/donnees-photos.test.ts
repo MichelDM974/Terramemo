@@ -391,6 +391,8 @@ type Listes = {
   dresserListes: (choix: unknown, licences: unknown) => { listes: Record<string, { v: number; photos: PhotoListe[] }>; credits: { v: number; photos: { titre: string; auteur: string | null; licence: string; licence_url: string | null; page: string }[] }; manquantes: { id: string; fichier: string }[] };
   fichiersDuSite: (d: { choix: unknown; licences: unknown }, ids?: readonly string[]) => { fileName: string; source: string }[];
   lieuxConnus: () => string[];
+  lieuxIllustres: (d: { choix: unknown; licences: unknown }) => string[];
+  fautesDonnees: (d: { choix: unknown; licences: unknown }) => string[];
   lireDonnees: (dossier?: string) => { choix: { v: number; lieux: Record<string, unknown> }; licences: { v: number; photos: Record<string, LignePhoto> } };
   NOM: RegExp;
 };
@@ -633,6 +635,58 @@ describe('verifier.mjs : en-tête WebP et fautes', () => {
       expect(f.some((x) => x.includes('pas un WebP'))).toBe(true);
       expect(f.some((x) => x.includes('p/fedcba9876.webp absent'))).toBe(true);
       expect(f.some((x) => x.includes('abcdefabcd.webp : orphelin'))).toBe(true);
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('verifier.mjs : les données avant les WebP (le predeploy)', () => {
+  it('une photo gardée d’un lieu relu sans ligne dans licences.json est une faute, pas un oubli silencieux', async () => {
+    const { fautesDonnees } = await listesMod;
+    expect(fautesDonnees({ choix: choixEssai, licences: licencesFactices() })).toEqual([]);
+    expect(fautesDonnees({ choix: choixEssai, licences: licencesFactices(['Cilaos.JPG']) })).toEqual([expect.stringContaining('97424 : Cilaos.JPG gardée mais pas traitée')]);
+  });
+
+  it('une ligne de licences.json sans licence, page hors de Commons, lien de licence pas en https : chacune dite', async () => {
+    const { fautesDonnees } = await listesMod;
+    const lic = licencesFactices();
+    const [a, b, c] = Object.keys(lic.photos);
+    lic.photos[a!] = { ...lic.photos[a!]!, licence_url: 'javascript:alert(1)' };
+    lic.photos[b!] = { ...lic.photos[b!]!, page: 'http://example.org/x' };
+    lic.photos[c!] = { ...lic.photos[c!]!, licence: '' };
+    const f = fautesDonnees({ choix: choixEssai, licences: lic });
+    expect(f).toHaveLength(3);
+    expect(f.some((x) => x.startsWith(`${a} : licence_url javascript:`))).toBe(true);
+    expect(f.some((x) => x.startsWith(`${b} : page http://example.org/x`))).toBe(true);
+    expect(f.some((x) => x.startsWith(`${c} : sans licence`))).toBe(true);
+  });
+
+  it('--dist refuse (code 1) un site dont une photo gardée n’est pas traitée, même sans aucun WebP attendu', () => {
+    const d = mkdtempSync(join(tmpdir(), 'terramemo-verifier-donnees-'));
+    try {
+      const donnees = join(d, 'donnees');
+      mkdirSync(donnees);
+      // Cilaos relu avec une photo gardée, licences.json vide : le build l'omet, le predeploy doit le dire.
+      const cilaos = choixEssai.lieux['97424']!;
+      writeFileSync(join(donnees, 'choix.json'), JSON.stringify({ v: 1, lieux: { '97424': { ...cilaos, gardees: cilaos.gardees.slice(0, 1) } } }));
+      writeFileSync(join(donnees, 'licences.json'), JSON.stringify({ v: 1, photos: {} }));
+      mkdirSync(join(d, 'dist'));
+      const lancer = () => {
+        try {
+          execFileSync('node', ['geodata/photos/verifier.mjs', '--dist', join(d, 'dist')], { env: { ...process.env, TERRAMEMO_PHOTOS_DONNEES: donnees }, encoding: 'utf8', stdio: 'pipe' });
+          return { code: 0, err: '' };
+        } catch (e) {
+          const x = e as { status: number; stderr: string };
+          return { code: x.status, err: x.stderr };
+        }
+      };
+      const r = lancer();
+      expect(r.code).toBe(1);
+      expect(r.err).toContain('gardée mais pas traitée');
+      // Le même lieu relu sans photo gardée : rien à refuser.
+      writeFileSync(join(donnees, 'choix.json'), JSON.stringify({ v: 1, lieux: {} }));
+      expect(lancer().code).toBe(0);
     } finally {
       rmSync(d, { recursive: true, force: true });
     }

@@ -97,6 +97,33 @@ export function dresserListes(choix, licences) {
 }
 
 /**
+ * Les lieux qui ont au moins une photo dans les listes, triés : l'index que la fiche lit dans son
+ * morceau (vite.config.ts, virtual:terramemo-photos-lieux), pour ne poser le carrousel, et sa
+ * place réservée, que là où une photo viendra, sans lire photos/l/<id>.json ailleurs.
+ */
+export function lieuxIllustres(donnees = lireDonnees()) {
+  return Object.keys(dresserListes(donnees.choix, donnees.licences).listes).sort();
+}
+
+/**
+ * Les fautes de données : chaque photo gardée d'un lieu relu sans ligne dans licences.json (pas
+ * encore traitée : npm run photos:traiter), ou dont la ligne n'a pas sa licence, sa page de
+ * Commons ou un lien de licence en https. Vide si tout est bon ; verifier.mjs refuse sinon.
+ */
+export function fautesDonnees(donnees = lireDonnees()) {
+  const f = [];
+  const { manquantes } = dresserListes(donnees.choix, donnees.licences);
+  for (const m of manquantes) f.push(`${m.id} : ${m.fichier} gardée mais pas traitée (absente de licences.json : npm run photos:traiter)`);
+  for (const [fichier, l] of Object.entries(donnees.licences.photos ?? {})) {
+    if (typeof l?.licence !== 'string' || !l.licence) f.push(`${fichier} : sans licence dans licences.json`);
+    if (!String(l?.page ?? '').startsWith('https://commons.wikimedia.org/wiki/File:')) f.push(`${fichier} : page ${l?.page} (https://commons.wikimedia.org/wiki/File: attendu)`);
+    if (l?.licence_url != null && !String(l.licence_url).startsWith('https://')) f.push(`${fichier} : licence_url ${l.licence_url} (https:// attendu)`);
+    if (l?.auteur != null && typeof l.auteur !== 'string') f.push(`${fichier} : auteur ${JSON.stringify(l.auteur)} (texte ou null attendu)`);
+  }
+  return f;
+}
+
+/**
  * Les fichiers que le build écrit : [{fileName, source}] (chemins relatifs à la racine du site) ; une liste
  * par lieu de `ids` (vide sans photo) et par lieu qui a des photos.
  */

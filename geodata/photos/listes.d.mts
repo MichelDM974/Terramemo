@@ -35,3 +35,5 @@ export function dresserListes(choix: unknown, licences: unknown): { listes: Reco
 export function lieuxConnus(): string[];
 export function fichiersDuSite(donnees?: DonneesPhotos, ids?: readonly string[]): { fileName: string; source: string }[];
 export function webpAttendus(licences: unknown): { fichier: string; taille: 'v' | 'p'; nom: string; sha256: string }[];
+export function lieuxIllustres(donnees?: DonneesPhotos): string[];
+export function fautesDonnees(donnees?: DonneesPhotos): string[];
