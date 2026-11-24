@@ -10,6 +10,11 @@ coverage/
 __pycache__/
 firestore-debug.log
 
+# Les WebP des photos des fiches (#34, D59) : hors de git, copiés sous
+# ~/Sauvegardes/terramemo/photos/ par npm run photos:traiter, remis en place par
+# npm run photos:restaurer ; seuls choix.json et licences.json sont versionnés.
+public/photos/
+
 # Clé de signature de l'APK : jamais dans le dépôt (décision « Signature de l'APK »)
 *.jks
 *.keystore

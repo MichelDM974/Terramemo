@@ -2,12 +2,15 @@
 // § 3 et § 7) : la table des QID des territoires et des zones (geodata/fiches-main.json,
 // clé qid), la règle des licences (geodata/photos/regle.mjs) sur un jeu d'essai tiré des
 // 1 917 fichiers du relevé R5, la forme de geodata/photos/candidats.json, main.json et
-// choix.json. Sans réseau.
+// choix.json ; lot P2 : licences.json, les listes que le build écrit (listes.mjs), la
+// vérification des WebP (verifier.mjs) et traiter.py sur les lieux d'essai
+// (tests/photos-essai/). Sans réseau.
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Pays } from '../src/map/types';
 
 const lire = <T>(chemin: string): T => JSON.parse(readFileSync(chemin, 'utf8')) as T;
@@ -379,5 +382,253 @@ describe('candidats.mjs : classement', () => {
     expect(fichierDe('http://commons.wikimedia.org/wiki/Special:FilePath/Pont%20du%20Gard%20BLS.jpg')).toBe('Pont du Gard BLS.jpg');
     const s = sections(readFileSync('geodata/photos/requetes.rq', 'utf8'));
     expect(Object.keys(s).sort()).toEqual(['commune', 'communes', 'cote', 'lieux', 'notables', 'notables_dans', 'patrimoine', 'patrimoine_dans']);
+  });
+});
+
+// --- Lot P2 : traitement, listes du site, vérification --------------------------------
+
+type Listes = {
+  dresserListes: (choix: unknown, licences: unknown) => { listes: Record<string, { v: number; photos: PhotoListe[] }>; credits: { v: number; photos: { titre: string; auteur: string | null; licence: string; licence_url: string | null; page: string }[] }; manquantes: { id: string; fichier: string }[] };
+  fichiersDuSite: (d: { choix: unknown; licences: unknown }) => { fileName: string; source: string }[];
+  lireDonnees: (dossier?: string) => { choix: { v: number; lieux: Record<string, unknown> }; licences: { v: number; photos: Record<string, LignePhoto> } };
+  NOM: RegExp;
+};
+type PhotoListe = { v: string; p: string; alt: { fr: string }; auteur: string | null; licence: string; licence_url: string | null; page: string };
+type LignePhoto = { v: string; p: string; sha256_v: string; sha256_p: string; auteur: string | null; licence: string; licence_url: string | null; titre: string | null; page: string; point: number[] | null; lieux: string[] };
+type Verifier = {
+  dimensionsWebp: (b: Buffer) => { w: number; h: number } | null;
+  fautesWebp: (racine: string, licences: unknown) => string[];
+  fautesListes: (racine: string) => string[];
+};
+const listesMod = import('../geodata/photos/listes.mjs' as string) as Promise<Listes>;
+const verifierMod = import('../geodata/photos/verifier.mjs' as string) as Promise<Verifier>;
+const ESSAI = 'tests/photos-essai/choix.json';
+type GardeeEssai = { fichier: string; sujet: string; point?: number[]; licence: string; auteur: string | null; page: string };
+const choixEssai = lire<{ lieux: Record<string, { etat: string; gardees: GardeeEssai[] }>; dimensions: Record<string, [number, number]> }>(ESSAI);
+
+/** Une ligne de licences.json factice pour un fichier (les noms tirés de son nom : pas de WebP derrière). */
+function ligneFactice(fichier: string, g: { licence?: string; auteur?: string | null; page?: string }): LignePhoto {
+  const h = createHash('sha256').update(fichier).digest('hex');
+  return { v: h.slice(0, 10), p: h.slice(10, 20), sha256_v: h, sha256_p: h, auteur: g.auteur ?? null, licence: g.licence ?? 'CC0', licence_url: null, titre: null, page: g.page ?? '', point: null, lieux: [] };
+}
+function licencesFactices(sauf: string[] = []) {
+  const photos: Record<string, LignePhoto> = {};
+  for (const e of Object.values(choixEssai.lieux)) for (const g of e.gardees) if (!sauf.includes(g.fichier)) photos[g.fichier] = ligneFactice(g.fichier, g);
+  return { v: 1, photos };
+}
+
+describe('listes du site (listes.mjs, écrites par le build)', () => {
+  it('les lieux relus seulement, dans l’ordre de la relecture ; le texte alternatif est le sujet ; un lieu sans photo n’a pas de fichier', async () => {
+    const { dresserListes } = await listesMod;
+    const lic = licencesFactices();
+    // FRA est en cours de relecture : une photo cochée, mais rien sur le site tant que le lieu n'est pas validé.
+    const { listes, manquantes } = dresserListes(choixEssai, lic);
+    expect(Object.keys(listes).sort()).toEqual(['97421', '97424', 'JPN']);
+    expect(manquantes).toEqual([]);
+    expect(listes.JPN!.photos.map((p) => p.alt.fr)).toEqual(choixEssai.lieux.JPN!.gardees.map((g) => g.sujet));
+    expect(listes.JPN!.photos[0]).toEqual({ ...pick(lic.photos[choixEssai.lieux.JPN!.gardees[0]!.fichier]!), alt: { fr: 'préfecture de Kyoto' } });
+    // Le golfe d'Aden relu sans photo (D60 a, « aucune ») : pas de liste, la fiche n'a pas de carrousel.
+    expect(listes.aden).toBeUndefined();
+  });
+
+  it('une photo de deux lieux : un seul nom, une seule ligne de crédits, chaque lieu son texte alternatif', async () => {
+    const { dresserListes } = await listesMod;
+    const { listes, credits } = dresserListes(choixEssai, licencesFactices());
+    const piton = listes['97424']!.photos[1]!;
+    expect(listes['97421']!.photos).toEqual([{ ...piton, alt: { fr: 'piton des Neiges, vu de Salazie' } }]);
+    expect(credits.photos.filter((c) => c.page === piton.page)).toHaveLength(1);
+    expect(credits.photos).toHaveLength(5);
+    // Le titre de Commons s'il y en a un, sinon le sujet (CC BY 2.0 à 3.0 demandent le titre de l'œuvre).
+    expect(credits.photos.map((c) => c.titre)).toEqual([...credits.photos.map((c) => c.titre)].sort((a, b) => a.localeCompare(b, 'fr')));
+    expect(credits.photos.map((c) => c.titre)).toContain('château de Himeji');
+  });
+
+  it('une photo gardée pas encore traitée n’est dans aucune liste, et elle est dite', async () => {
+    const { dresserListes } = await listesMod;
+    const { listes, manquantes } = dresserListes(choixEssai, licencesFactices(['Cilaos.JPG']));
+    expect(manquantes).toEqual([{ id: '97424', fichier: 'Cilaos.JPG' }]);
+    expect(listes['97424']!.photos.map((p) => p.alt.fr)).toEqual(['piton des Neiges']);
+  });
+
+  it('les fichiers du site : photos/l/<id>.json par lieu, photos/credits.json, en JSON', async () => {
+    const { fichiersDuSite } = await listesMod;
+    const f = fichiersDuSite({ choix: choixEssai, licences: licencesFactices() });
+    expect(f.map((x) => x.fileName).sort()).toEqual(['photos/credits.json', 'photos/l/97421.json', 'photos/l/97424.json', 'photos/l/JPN.json']);
+    for (const x of f) expect(JSON.parse(x.source).v).toBe(1);
+    // ≈ 0,3 Ko par lieu (§ 3.5) : trois photos du Japon, crédits compris, sous 1,5 Ko.
+    expect(f.find((x) => x.fileName === 'photos/l/JPN.json')!.source.length).toBeLessThan(1500);
+  });
+});
+
+describe('licences.json et listes du dépôt (geodata/photos/)', () => {
+  it('chaque photo gardée d’un lieu relu est traitée, et licences.json ne cite qu’elles (npm run photos:traiter)', async () => {
+    const { dresserListes, lireDonnees } = await listesMod;
+    const { licences } = lireDonnees('geodata/photos');
+    expect(licences.v).toBe(1);
+    const r = dresserListes(choix, licences);
+    expect(r.manquantes, 'npm run photos:traiter').toEqual([]);
+    const gardees = new Set(Object.values(choix.lieux).flatMap((e) => (e.etat === 'relu' ? ((e.gardees as { fichier: string }[] | undefined) ?? []).map((g) => g.fichier) : [])));
+    expect(Object.keys(licences.photos).filter((f) => !gardees.has(f))).toEqual([]);
+  });
+
+  it('chaque ligne : deux noms de 10 caractères, uniques, début de leur SHA-256 ; licence permise ; auteur pour CC BY', async () => {
+    const { lireDonnees, NOM } = await listesMod;
+    const { fauxAuteur } = await regle;
+    const { licences } = lireDonnees('geodata/photos');
+    const noms = new Set<string>();
+    for (const [f, l] of Object.entries(licences.photos)) {
+      for (const t of ['v', 'p'] as const) {
+        expect(l[t], f).toMatch(NOM);
+        expect(l[`sha256_${t}`].startsWith(l[t]), f).toBe(true);
+        expect(noms.has(`${t}/${l[t]}`), f).toBe(false);
+        noms.add(`${t}/${l[t]}`);
+      }
+      expect(l.licence, f).toMatch(LICENCES_PERMISES);
+      if (/^CC BY/.test(l.licence)) expect(l.auteur !== null && !fauxAuteur(l.auteur), f).toBe(true);
+      expect(l.page, f).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+    }
+  });
+
+  it.skipIf(!existsSync('public/photos'))('les WebP de public/photos/ (sur le PC, après photos:traiter ou photos:restaurer) : présents, justes, aucun orphelin', async () => {
+    const { lireDonnees } = await listesMod;
+    const { fautesWebp } = await verifierMod;
+    expect(fautesWebp('public', lireDonnees('geodata/photos').licences)).toEqual([]);
+  });
+});
+
+/** Les champs d'une ligne de licences.json que la liste d'un lieu reprend. */
+function pick(l: LignePhoto) {
+  return { v: l.v, p: l.p, auteur: l.auteur, licence: l.licence, licence_url: l.licence_url, page: l.page };
+}
+
+const python = (() => {
+  try {
+    execFileSync('python3', ['-c', 'import PIL.features as f; assert f.check("webp")'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+describe.skipIf(!python)('traiter.py sur les lieux d’essai (Pillow, sans réseau)', () => {
+  let dossier = '';
+  beforeAll(() => {
+    dossier = mkdtempSync(join(tmpdir(), 'terramemo-photos-'));
+    mkdirSync(join(dossier, 'donnees'));
+    copyFileSync(ESSAI, join(dossier, 'donnees', 'choix.json'));
+    execFileSync('python3', ['tests/photos-essai/sources.py', ESSAI, join(dossier, 'src')], { stdio: 'pipe' });
+  }, 60_000);
+  afterAll(() => {
+    if (dossier) rmSync(dossier, { recursive: true, force: true });
+  });
+  const traiter = (...a: string[]) => execFileSync('python3', ['geodata/photos/traiter.py', '--donnees', join(dossier, 'donnees'), '--vers', join(dossier, 'site', 'photos'), '--sans-sauvegarde', '--sources', join(dossier, 'src'), ...a], { encoding: 'utf8' });
+
+  it('deux WebP par photo, 480 × 320 et 1 080 × 720, nommés par leur SHA-256 ; licences.json les décrit ; une photo de deux lieux, un seul fichier', async () => {
+    const sortie = traiter();
+    expect(sortie).toContain('5 à traiter');
+    const { fautesWebp, fautesListes, dimensionsWebp } = await verifierMod;
+    const { lireDonnees, fichiersDuSite } = await listesMod;
+    const d = lireDonnees(join(dossier, 'donnees'));
+    expect(Object.keys(d.licences.photos)).toHaveLength(5);
+    expect(d.licences.photos['Piton des Neiges1.JPG']!.lieux.sort()).toEqual(['97421', '97424']);
+    expect(d.licences).toMatchObject({ pillow: expect.stringMatching(/^\d+\.\d+/), libwebp: expect.stringMatching(/^\d+\.\d+/) });
+    expect(fautesWebp(join(dossier, 'site'), d.licences)).toEqual([]);
+    // Les listes écrites dans le site citent des fichiers présents.
+    for (const f of fichiersDuSite(d)) {
+      mkdirSync(join(dossier, 'site', f.fileName, '..'), { recursive: true });
+      writeFileSync(join(dossier, 'site', f.fileName), f.source);
+    }
+    expect(fautesListes(join(dossier, 'site'))).toEqual([]);
+    const l = d.licences.photos['Himeji castle in may 2015.jpg']!;
+    expect(dimensionsWebp(readFileSync(join(dossier, 'site', 'photos', 'p', `${l.p}.webp`)))).toEqual({ w: 1080, h: 720 });
+    expect(dimensionsWebp(readFileSync(join(dossier, 'site', 'photos', 'v', `${l.v}.webp`)))).toEqual({ w: 480, h: 320 });
+    expect(l).toMatchObject({ auteur: 'Nikos Kitsakis', licence: 'CC BY-SA 4.0', titre: 'Himeji castle in may 2015' });
+  });
+
+  it('photos:restaurer : un arbre de travail neuf reprend les WebP de la copie du PC, vérifiés ; rien de copié deux fois', async () => {
+    type Restaurer = { restaurer: (l: unknown, depuis: string, vers: string) => { copies: number; deja: number; absents: string[] } };
+    const { restaurer } = (await import('../geodata/photos/restaurer.mjs' as string)) as Restaurer;
+    const { lireDonnees } = await listesMod;
+    const { fautesWebp } = await verifierMod;
+    const { licences } = lireDonnees(join(dossier, 'donnees'));
+    const neuf = join(dossier, 'neuf', 'photos');
+    expect(restaurer(licences, join(dossier, 'site', 'photos'), neuf)).toEqual({ copies: 10, deja: 0, absents: [] });
+    expect(fautesWebp(join(dossier, 'neuf'), licences)).toEqual([]);
+    expect(restaurer(licences, join(dossier, 'site', 'photos'), neuf)).toEqual({ copies: 0, deja: 10, absents: [] });
+    const r = restaurer(licences, join(dossier, 'vide'), join(dossier, 'autre', 'photos'));
+    expect(r.absents).toHaveLength(10);
+  });
+
+  it('relancé : rien n’est refait (les WebP sont gardés) ; un point changé refait la photo ; --elaguer retire l’ancien fichier', async () => {
+    const avant = readFileSync(join(dossier, 'donnees', 'licences.json'), 'utf8');
+    expect(traiter()).toContain('0 à traiter');
+    const apres = JSON.parse(readFileSync(join(dossier, 'donnees', 'licences.json'), 'utf8')) as { photos: Record<string, LignePhoto> };
+    const a = JSON.parse(avant) as { photos: Record<string, LignePhoto> };
+    for (const f of Object.keys(a.photos)) expect(apres.photos[f]!.p, f).toBe(a.photos[f]!.p);
+    const c = JSON.parse(readFileSync(join(dossier, 'donnees', 'choix.json'), 'utf8')) as typeof choixEssai;
+    c.lieux['97424']!.gardees[0]!.point = [0.1, 0.5];
+    writeFileSync(join(dossier, 'donnees', 'choix.json'), JSON.stringify(c));
+    expect(traiter()).toContain('1 à traiter');
+    const refait = JSON.parse(readFileSync(join(dossier, 'donnees', 'licences.json'), 'utf8')) as { photos: Record<string, LignePhoto> };
+    expect(refait.photos['Cilaos.JPG']!.p).not.toBe(a.photos['Cilaos.JPG']!.p);
+    const { fautesWebp } = await verifierMod;
+    expect(fautesWebp(join(dossier, 'site'), refait).filter((f) => f.includes('orphelin'))).toHaveLength(2);
+    expect(traiter('--elaguer')).toContain('retiré');
+    expect(fautesWebp(join(dossier, 'site'), refait)).toEqual([]);
+  });
+
+  it('le recadrage est celui de l’aperçu de l’outil de relecture (cadrage de relecture-logique.mjs)', async () => {
+    type Logique = { cadrage: (c: { w: number; h: number }, p?: number[] | null) => { cw: number; ch: number; ox: number; oy: number } };
+    const { cadrage } = (await import('../geodata/photos/relecture-logique.mjs' as string)) as Logique;
+    const cas: [number, number, number[] | null][] = [
+      [3648, 5472, [0.5, 0.3]],
+      [5632, 3754, null],
+      [2304, 1354, [0.9, 0.1]],
+      [6000, 1100, [0.2, 0.5]],
+      [1080, 720, [0, 1]],
+    ];
+    const code = `import json,sys; sys.path.insert(0,'geodata/photos'); from traiter import cadrage; print(json.dumps([cadrage(w,h,p) for w,h,p in ${JSON.stringify(cas).replace(/null/g, 'None')}]))`;
+    const py = JSON.parse(execFileSync('python3', ['-c', code], { encoding: 'utf8' })) as number[][];
+    cas.forEach(([w, h, p], i) => {
+      const j = cadrage({ w, h }, p);
+      expect(py[i]!.map((x) => Math.round(x * 1000) / 1000), `${w}×${h}`).toEqual([j.ox, j.oy, j.cw, j.ch].map((x) => Math.round(x * 1000) / 1000));
+    });
+  });
+
+  it('largeur demandée à Commons : 1 920 px, plus pour un panorama (720 px de haut une fois recadré), jamais plus que l’original', () => {
+    const code = `import sys; sys.path.insert(0,'geodata/photos'); from traiter import largeur_voulue as l; print(l(5632,3754), l(1417,1062), l(8000,1200), l(3648,5472))`;
+    expect(execFileSync('python3', ['-c', code], { encoding: 'utf8' }).trim()).toBe('1920 1417 4800 1920');
+  });
+});
+
+describe('verifier.mjs : en-tête WebP et fautes', () => {
+  it('dimensions lues dans les trois formes d’en-tête (VP8, VP8L, VP8X), null sinon', async () => {
+    const { dimensionsWebp } = await verifierMod;
+    const riff = (morceau: string, donnees: number[]) => Buffer.from([...Buffer.from('RIFF'), 0, 0, 0, 0, ...Buffer.from('WEBP'), ...Buffer.from(morceau), 0, 0, 0, 0, ...donnees, ...new Array(12).fill(0)]);
+    expect(dimensionsWebp(riff('VP8 ', [0, 0, 0, 0x9d, 0x01, 0x2a, 0x38, 0x04, 0xd0, 0x02]))).toEqual({ w: 1080, h: 720 });
+    // VP8L : 0x2f, puis largeur − 1 et hauteur − 1 sur 14 bits chacune (479 et 319).
+    const bits = 479 | (319 << 14);
+    expect(dimensionsWebp(riff('VP8L', [0x2f, bits & 0xff, (bits >> 8) & 0xff, (bits >> 16) & 0xff, (bits >> 24) & 0xff]))).toEqual({ w: 480, h: 320 });
+    expect(dimensionsWebp(riff('VP8X', [0, 0, 0, 0, 0x37, 0x04, 0x00, 0xcf, 0x02, 0x00]))).toEqual({ w: 1080, h: 720 });
+    expect(dimensionsWebp(Buffer.from('pas un webp, assez long pour être lu en entier'))).toBeNull();
+  });
+
+  it('une photo absente, un nom qui n’est pas l’empreinte, un orphelin : chacun dit', async () => {
+    const { fautesWebp } = await verifierMod;
+    const d = mkdtempSync(join(tmpdir(), 'terramemo-verifier-'));
+    try {
+      mkdirSync(join(d, 'photos', 'v'), { recursive: true });
+      mkdirSync(join(d, 'photos', 'p'), { recursive: true });
+      writeFileSync(join(d, 'photos', 'v', '0123456789.webp'), 'faux');
+      writeFileSync(join(d, 'photos', 'p', 'abcdefabcd.webp'), 'orphelin');
+      const lic = { v: 1, photos: { 'a.jpg': { ...ligneFactice('a.jpg', {}), v: '0123456789', p: 'fedcba9876', sha256_v: '0123456789' + '0'.repeat(54) } } };
+      const f = fautesWebp(d, lic);
+      expect(f.some((x) => x.includes('début de son SHA-256'))).toBe(true);
+      expect(f.some((x) => x.includes('pas un WebP'))).toBe(true);
+      expect(f.some((x) => x.includes('p/fedcba9876.webp absent'))).toBe(true);
+      expect(f.some((x) => x.includes('abcdefabcd.webp : orphelin'))).toBe(true);
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
   });
 });

@@ -1,0 +1,132 @@
+{
+ "_": "Lieux d’essai des photos (#34, lot P2) : un choix.json de relecture factice, tiré des candidats réels du Japon et de Cilaos, pour les tests (tests/photos-traiter.test.ts, tests/donnees-photos.test.ts) et le pilote (TERRAMEMO_PHOTOS_DONNEES). Jamais déployé : les images sont fabriquées par sources.py, aux dimensions des fichiers de Commons (dimensions).",
+ "v": 1,
+ "lieux": {
+  "97421": {
+   "etat": "relu",
+   "relu_le": "2026-11-25T00:00:00Z",
+   "gardees": [
+    {
+     "fichier": "Piton des Neiges1.JPG",
+     "sujet": "piton des Neiges, vu de Salazie",
+     "licence": "Domaine public",
+     "licence_url": null,
+     "auteur": "Dunog",
+     "titre": "Piton des Neiges1",
+     "page": "https://commons.wikimedia.org/wiki/File:Piton_des_Neiges1.JPG"
+    }
+   ],
+   "ecartees": {}
+  },
+  "97424": {
+   "etat": "relu",
+   "relu_le": "2026-11-25T00:00:00Z",
+   "gardees": [
+    {
+     "fichier": "Cilaos.JPG",
+     "sujet": "Cilaos",
+     "licence": "CC BY-SA 3.0",
+     "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+     "auteur": "B.navez",
+     "titre": "Cilaos",
+     "page": "https://commons.wikimedia.org/wiki/File:Cilaos.JPG"
+    },
+    {
+     "fichier": "Piton des Neiges1.JPG",
+     "sujet": "piton des Neiges",
+     "licence": "Domaine public",
+     "licence_url": null,
+     "auteur": "Dunog",
+     "titre": "Piton des Neiges1",
+     "page": "https://commons.wikimedia.org/wiki/File:Piton_des_Neiges1.JPG"
+    }
+   ],
+   "ecartees": {}
+  },
+  "JPN": {
+   "etat": "relu",
+   "relu_le": "2026-11-25T00:00:00Z",
+   "gardees": [
+    {
+     "fichier": "RX100VII - Amanohashidate view from Kasamatsu Park - Flickr - wkc.1.jpg",
+     "sujet": "préfecture de Kyoto",
+     "licence": "CC BY-SA 2.0",
+     "licence_url": "https://creativecommons.org/licenses/by-sa/2.0",
+     "auteur": "WKC from Hong Kong",
+     "titre": "RX100VII - Amanohashidate view from Kasamatsu Park - Flickr - wkc.1",
+     "page": "https://commons.wikimedia.org/wiki/File:RX100VII_-_Amanohashidate_view_from_Kasamatsu_Park_-_Flickr_-_wkc.1.jpg",
+     "point": [
+      0.5,
+      0.3
+     ]
+    },
+    {
+     "fichier": "Himeji castle in may 2015.jpg",
+     "sujet": "château de Himeji",
+     "licence": "CC BY-SA 4.0",
+     "licence_url": "https://creativecommons.org/licenses/by-sa/4.0",
+     "auteur": "Nikos Kitsakis",
+     "titre": "Himeji castle in may 2015",
+     "page": "https://commons.wikimedia.org/wiki/File:Himeji_castle_in_may_2015.jpg"
+    },
+    {
+     "fichier": "Genbaku Dome04-r.JPG",
+     "sujet": "dôme de Genbaku",
+     "licence": "CC BY 2.5",
+     "licence_url": "https://creativecommons.org/licenses/by/2.5",
+     "auteur": "Oilstreet",
+     "titre": "Genbaku Dome04-r",
+     "page": "https://commons.wikimedia.org/wiki/File:Genbaku_Dome04-r.JPG"
+    }
+   ],
+   "ecartees": {}
+  },
+  "FRA": {
+   "etat": "en_cours",
+   "gardees": [
+    {
+     "fichier": "Vue aérienne du domaine de Versailles par ToucanWings - Creative Commons By Sa 3.0 - 083.jpg",
+     "sujet": "château de Versailles",
+     "licence": "CC BY-SA 3.0",
+     "licence_url": "https://creativecommons.org/licenses/by-sa/3.0",
+     "auteur": "ToucanWings",
+     "titre": "Vue aérienne du domaine de Versailles par ToucanWings - Creative Commons By Sa 3.0 - 083",
+     "page": "https://commons.wikimedia.org/wiki/File:Vue_a%C3%A9rienne_du_domaine_de_Versailles_par_ToucanWings_-_Creative_Commons_By_Sa_3.0_-_083.jpg"
+    }
+   ],
+   "ecartees": {}
+  },
+  "aden": {
+   "etat": "relu",
+   "relu_le": "2026-11-25T00:00:00Z",
+   "gardees": [],
+   "aucune": "essai : rien de bon"
+  }
+ },
+ "dimensions": {
+  "RX100VII - Amanohashidate view from Kasamatsu Park - Flickr - wkc.1.jpg": [
+   3648,
+   5472
+  ],
+  "Himeji castle in may 2015.jpg": [
+   5632,
+   3754
+  ],
+  "Genbaku Dome04-r.JPG": [
+   5040,
+   3360
+  ],
+  "Cilaos.JPG": [
+   2304,
+   1354
+  ],
+  "Piton des Neiges1.JPG": [
+   3851,
+   2001
+  ],
+  "Vue aérienne du domaine de Versailles par ToucanWings - Creative Commons By Sa 3.0 - 083.jpg": [
+   4608,
+   3456
+  ]
+ }
+}
