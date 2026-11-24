@@ -637,7 +637,7 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
   touch-action: none;
 }
 .fiche-plein[hidden] { display: none; }
-.fiche-plein > .croix { position: absolute; top: 4px; right: 4px; color: #fff; }
+.fiche-plein > .croix { position: absolute; top: 4px; right: 4px; margin: 0; float: none; background: transparent; color: #fff; }
 .fiche-plein-img { display: block; width: 100%; max-height: calc(100% - 3.5em); object-fit: contain; aspect-ratio: 3 / 2; }
 .fiche-plein-avis { margin: 0 16px; color: var(--muted); text-align: center; }
 .fiche-plein-credit .fiche-credit { color: #c9cbd1; }
