@@ -73,9 +73,9 @@ Tout le tableau est au § 9. Coût estimé : quatre lots, M + M + M + S, soit
 | D351 | Portée et longueur | a : une série entière, arrêtable | a | non |
 | D352 | Note d'un bon toucher | a : Easy | a | **oui** (journal) |
 | D353 | Sort d'un raté | a : rien au FSRS, il reste à apprendre | a | **oui** (journal) |
-| D354 | Test et grappe du jour | a : hors du budget des grappes | a, à faire noter au registre | non |
+| D354 | Test et grappe du jour | a : hors du budget des grappes | **aucun** : a s'écarte de « Apprendre et Révision du jour », T1 attend la réponse | non |
 | D355 | Les lieux ratés | a : regroupés en grappes de rattrapage | a | non |
-| D356 | Sens Reconnaître des lieux placés | b : après les autres, sans reliquat | b, à faire noter au registre | non |
+| D356 | Sens Reconnaître des lieux placés | b : après les autres, sans reliquat | **aucun** : b touche la règle du reliquat de « Répétition espacée des nouveaux sujets », T1 attend la réponse | non |
 | D357 | Prérequis de D39 | a : garder la préférence, le test dans le conseil | a | non |
 | D358 | Sujets | a : les cinq sujets qui ont Apprendre | a | non |
 | D359 | Crédit croisé (capitale juste → pays placé) | a : non | a | **oui** (journal) |
@@ -307,7 +307,9 @@ Lecture :
    partie du Chrono »). Le test d'une série se reprend un autre jour sur les
    lieux qui restent.
 7. **Bilan** : « 41 pays sur 44 entrent dans ta mémoire. À apprendre :
-   Moldavie, Macédoine du Nord, Kosovo : ils formeront ta prochaine grappe. »
+   Moldavie, Macédoine du Nord, Bosnie-Herzégovine : ils formeront ta
+   prochaine grappe. » (Le Kosovo, optionnel dans `public/geo/pays.json`,
+   n'est pas dans les 44 pays de l'Europe.)
    Chaque raté est une ligne qui ouvre sa fiche (décision « Fiche depuis le
    bilan »). Un bouton « Apprendre » lance la grappe de rattrapage, dans le
    budget du jour.
@@ -630,6 +632,11 @@ actée la **remplace** (`noter_decision`, `remplace`) ; une précision la
 complète. Le « défaut » est ce que le lot code si la ligne n'a pas de
 réponse quand il commence. Trois lignes (D352, D353, D359) se figent dans
 le journal à la mise en ligne : elles attendent une réponse explicite.
+Deux autres (D354, D356) n'ont **pas de défaut** : leur recommandation
+modifie une décision actée (« Apprendre et Révision du jour », « Répétition
+espacée des nouveaux sujets »), ce que seul l'utilisateur peut faire. Le lot
+T1 attend leur réponse, notée au registre (`noter_decision`, `remplace` si
+elle remplace la décision), avant d'écrire une ligne.
 
 ### Forme et portée
 
@@ -693,7 +700,8 @@ le journal à la mise en ligne : elles attendent une réponse explicite.
 - b) **Dans le budget** : le test prend la grappe du jour du sujet. Coût :
   rien. Mais les ratés de la première grappe deviennent « la grappe
   entamée du jour », et le joueur ne peut plus rien ouvrir d'autre ce jour.
-- Recommandation et défaut : **a**.
+- Recommandation : **a**. Défaut : **aucun**, T1 attend la réponse (a
+  s'écarte d'une décision actée).
 
 **D355. Les lieux ratés.**
 - a) **Regroupés** en grappes de rattrapage de 5 à 9 par continent (§ 6.2).
@@ -706,9 +714,9 @@ le journal à la mise en ligne : elles attendent une réponse explicite.
   jour 30 ; b) S, jour 4, deux sens au jour 15, charge de D46 ; c) M, deux
   sens au jour 6, mais auto-évalué et un écran de plus ; d) S, deux sens au
   jour 14, mais jusqu'à 30 introductions par jour.
-- Recommandation et défaut : **b**, précision de « Répétition espacée des
-  nouveaux sujets » (à noter au registre). c à reprendre si l'attente paraît
-  longue.
+- Recommandation : **b**, qui modifie la règle du reliquat de « Répétition
+  espacée des nouveaux sujets ». Défaut : **aucun**, T1 attend la réponse.
+  c à reprendre si l'attente paraît longue.
 
 **D357. Le prérequis des capitales et drapeaux.**
 - a) **Garder la préférence** (D39 b, actée) et proposer le test dans le
