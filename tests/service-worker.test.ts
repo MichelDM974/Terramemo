@@ -11,11 +11,14 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { dresserManifeste, EN_PLUS_PREMIERE_VISITE, empreinteNode, injecterManifeste, MARQUEUR, referencesDe, SW_DE_RETRAIT } from '../src/sw/construction';
+import { createHash } from 'node:crypto';
+import { dresserManifeste, EN_PLUS_PREMIERE_VISITE, empreinteNode, horsManifeste, injecterManifeste, MARQUEUR, referencesDe, SW_DE_RETRAIT } from '../src/sw/construction';
 import * as page from '../src/sw/enregistrer';
 import {
   activer,
   aiguiller,
+  borner,
+  CACHE_PHOTOS,
   cachesPerimes,
   empreinte,
   ENTETE_EMPREINTE,
@@ -23,6 +26,7 @@ import {
   MESSAGE_ACTIVER,
   MESSAGE_CHARGES,
   nomCache,
+  PHOTOS_MAX,
   PREFIXE_CACHE,
   releveAccordee,
   repondre,
@@ -37,6 +41,9 @@ import {
 const ORIGINE = 'https://terramemo-geo.web.app';
 
 // --- Faux navigateur ---
+
+/** Le nom d'une photo d'après son contenu : les 10 premiers caractères hexadécimaux de son SHA-256 (§ 3.3). */
+const nomPhoto = (contenu: string): string => createHash('sha256').update(contenu).digest('hex').slice(0, 10);
 
 interface Rangee {
   corps: ArrayBuffer;
@@ -60,6 +67,7 @@ class FauxCaches implements CachesMin {
         cache.set(cle, { corps: await rep.arrayBuffer(), status: rep.status, entetes: [...rep.headers] });
       },
       keys: async () => [...cache.keys()].map((u) => new Request(u)),
+      delete: async (cle) => cache.delete(typeof cle === 'string' ? cle : cle.url),
     };
   }
   async keys(): Promise<string[]> {
@@ -502,6 +510,11 @@ describe('service worker : le sw.js d’un vrai build', () => {
     expect(m.prechargees.filter((c) => /drapeaux|capitales|reunion|mers|worker/.test(c))).toEqual([]);
     expect(m.version).toMatch(/^[0-9a-f]{16}$/);
   });
+
+  it('les crédits des photos (#34, lot P2) sont écrits par le build, hors du manifeste', () => {
+    expect(existsSync(join(sortie, 'photos', 'credits.json'))).toBe(true);
+    expect(Object.keys(m.empreintes).filter((c) => c.startsWith('/photos/'))).toEqual([]);
+  });
 });
 
 describe('service worker : la coquille du réseau d’abord, la version dépassée', () => {
@@ -571,6 +584,118 @@ describe('service worker : la coquille du réseau d’abord, la version dépass�
     await installer(mo);
     reseau.fichiers = new Map();
     expect(await demander(mo, '/', 'navigate')).toEqual({ texte: build(1).get('index.html'), status: 200 });
+  });
+});
+
+describe('service worker : les photos des fiches (#34, lot P2, § 3.6)', () => {
+  const photoV = 'vignette du Japon';
+  const photoP = 'plein écran du Japon';
+  const cheminV = `/photos/v/${nomPhoto(photoV)}.webp`;
+  const cheminP = `/photos/p/${nomPhoto(photoP)}.webp`;
+  const avecPhotos = (): Map<string, string> =>
+    new Map([...build(1), [cheminV.slice(1), photoV], [cheminP.slice(1), photoP], ['photos/l/JPN.json', '{"v":1,"photos":[]}'], ['photos/credits.json', '{"v":1,"photos":[]}']]);
+  const a = (url: string) => aiguiller({ url: ORIGINE + url, method: 'GET', mode: 'no-cors' }, ORIGINE, M1);
+
+  it('aiguillage : les WebP nommés vers « photo », les listes et les crédits vers « liste-photos », avant la règle du manifeste ; avec paramètres ou mal nommés, hors du SW', () => {
+    expect(a(cheminV)).toEqual({ strategie: 'photo', chemin: cheminV });
+    expect(a(cheminP)).toEqual({ strategie: 'photo', chemin: cheminP });
+    expect(a('/photos/l/JPN.json')).toEqual({ strategie: 'liste-photos', chemin: '/photos/l/JPN.json' });
+    expect(a('/photos/credits.json')).toEqual({ strategie: 'liste-photos', chemin: '/photos/credits.json' });
+    for (const u of ['/photos/v/x.webp', '/photos/v/0123456789abc.webp', '/photos/q/0123456789.webp', `${cheminV}?x=1`, '/photos/l/JPN.json?x=1']) expect(a(u).strategie, u).toBe('hors-sw');
+  });
+
+  it('manifeste : aucune entrée /photos/, et la même version avec ou sans les photos (un déploiement de photos ne relance pas le service worker)', () => {
+    const m = dresserManifeste(avecPhotos(), CODE_SW);
+    expect(Object.keys(m.empreintes).filter((c) => c.startsWith('/photos/'))).toEqual([]);
+    expect(m.version).toBe(M1.version);
+    expect(horsManifeste('photos/v/0123456789.webp')).toBe(true);
+    expect(horsManifeste('photos\\l\\JPN.json')).toBe(true);
+    expect(horsManifeste('geo/photos.json')).toBe(false);
+  });
+
+  it('le cache des photos est hors du préfixe : ni périmé, ni effacé à l’activation d’une version, ni parcouru par reprendre', async () => {
+    expect(CACHE_PHOTOS.startsWith(PREFIXE_CACHE)).toBe(false);
+    expect(cachesPerimes([CACHE_PHOTOS, nomCache('v1')], 'v2')).toEqual([nomCache('v1')]);
+    const caches = new FauxCaches();
+    const reseau = new FauxReseau(avecPhotos());
+    const mo1 = moteur(caches, reseau, M1);
+    await installer(mo1);
+    await activer(mo1);
+    await demander(mo1, cheminV, 'no-cors');
+    const ouverts: string[] = [];
+    const open = caches.open.bind(caches);
+    caches.open = async (nom: string) => (ouverts.push(nom), open(nom));
+    reseau.fichiers = new Map([...build(2), ...[...avecPhotos()].filter(([f]) => f.startsWith('photos/'))]);
+    const mo2 = moteur(caches, reseau, M2);
+    await installer(mo2);
+    await activer(mo2);
+    expect(ouverts).not.toContain(CACHE_PHOTOS);
+    expect((await caches.keys()).sort()).toEqual([CACHE_PHOTOS, nomCache(M2.version)].sort());
+    expect([...caches.contenu(CACHE_PHOTOS).keys()]).toEqual([cheminV]);
+  });
+
+  it('une photo : le réseau la première fois, rangée ; ensuite du cache, sans réseau, hors ligne compris', async () => {
+    const caches = new FauxCaches();
+    const reseau = new FauxReseau(avecPhotos());
+    const mo = moteur(caches, reseau, M1);
+    expect(await demander(mo, cheminP, 'no-cors')).toEqual({ texte: photoP, status: 200 });
+    expect(caches.contenu(CACHE_PHOTOS).get(cheminP)?.texte).toBe(photoP);
+    // Rien dans le cache de la version : les photos n'en sont pas.
+    expect(caches.contenu(nomCache(M1.version)).size).toBe(0);
+    reseau.appels = [];
+    reseau.horsLigne = true;
+    expect(await demander(mo, cheminP, 'no-cors')).toEqual({ texte: photoP, status: 200 });
+    expect(reseau.chemins()).toEqual([]);
+  });
+
+  it('une photo dont le contenu n’est pas son nom (une erreur, autre chose servi) n’est pas rangée ; un 404 non plus', async () => {
+    const caches = new FauxCaches();
+    const faux = `/photos/v/${nomPhoto('autre chose')}.webp`;
+    const reseau = new FauxReseau(new Map([[faux.slice(1), 'pas la photo']]));
+    const mo = moteur(caches, reseau, M1);
+    expect(await demander(mo, faux, 'no-cors')).toEqual({ texte: 'pas la photo', status: 200 });
+    expect(await demander(mo, cheminV, 'no-cors')).toMatchObject({ status: 404 });
+    expect(caches.contenu(CACHE_PHOTOS).size).toBe(0);
+  });
+
+  it('la liste d’un lieu : le réseau d’abord (une liste changée se voit tout de suite), la copie rangée hors ligne', async () => {
+    const caches = new FauxCaches();
+    const reseau = new FauxReseau(avecPhotos());
+    const mo = moteur(caches, reseau, M1);
+    expect(await demander(mo, '/photos/l/JPN.json')).toEqual({ texte: '{"v":1,"photos":[]}', status: 200 });
+    reseau.fichiers.set('photos/l/JPN.json', '{"v":1,"photos":[1]}');
+    expect(await demander(mo, '/photos/l/JPN.json')).toEqual({ texte: '{"v":1,"photos":[1]}', status: 200 });
+    reseau.horsLigne = true;
+    expect(await demander(mo, '/photos/l/JPN.json')).toEqual({ texte: '{"v":1,"photos":[1]}', status: 200 });
+    await expect(demander(mo, '/photos/l/FRA.json')).rejects.toThrow();
+  });
+
+  it(`borné à ${PHOTOS_MAX} fichiers : au-delà, les plus anciens partent (l’ordre d’entrée, S57)`, async () => {
+    const caches = new FauxCaches();
+    const fichiers = new Map<string, string>();
+    const chemins: string[] = [];
+    for (let i = 0; i < PHOTOS_MAX + 3; i++) {
+      const c = `photo ${i}`;
+      chemins.push(`/photos/v/${nomPhoto(c)}.webp`);
+      fichiers.set(chemins.at(-1)!.slice(1), c);
+    }
+    const mo = moteur(caches, new FauxReseau(fichiers), M1);
+    for (const c of chemins) await demander(mo, c, 'no-cors');
+    const gardes = [...caches.contenu(CACHE_PHOTOS).keys()];
+    expect(gardes).toHaveLength(PHOTOS_MAX);
+    expect(gardes).toEqual(chemins.slice(3));
+    const cache = await caches.open(CACHE_PHOTOS);
+    expect(await borner(cache, 10)).toBe(PHOTOS_MAX - 10);
+    expect([...caches.contenu(CACHE_PHOTOS).keys()]).toEqual(chemins.slice(-10));
+  });
+
+  it('firebase.json : les WebP immuables, les listes revalidées ; le predeploy vérifie les photos et son grep les saute', () => {
+    const f = JSON.parse(readFileSync('firebase.json', 'utf8')) as { hosting: { predeploy: string[]; headers: { source: string; headers: { key: string; value: string }[] }[] } };
+    const regle = (s: string) => f.hosting.headers.find((h) => h.source === s)?.headers;
+    expect(regle('/photos/@(v|p)/**')).toEqual([{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }]);
+    expect(regle('**/*.@(html|json)')).toEqual([{ key: 'Cache-Control', value: 'no-cache' }]);
+    expect(f.hosting.predeploy.some((c) => c.includes('verifier.mjs') && c.includes('--dist'))).toBe(true);
+    expect(f.hosting.predeploy.find((c) => c.includes('grep'))).toContain('--exclude-dir=photos');
   });
 });
 

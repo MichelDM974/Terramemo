@@ -12,6 +12,9 @@
 //   l'usage (quota de Hosting) ;
 // - version : l'empreinte de tout cela et du code de sw.js, d'où le nom du
 //   cache : un fichier qui change, et c'est une nouvelle version.
+// Les photos des fiches (photos/, #34 lot P2, § 3.6) n'y sont pas : elles ont
+// leurs propres règles (src/sw/logique.ts), et le build ne les lit même pas
+// (horsManifeste : 105 à 138 Mo de moins à lire à chaque build).
 import { createHash } from 'node:crypto';
 import { LONGUEUR_EMPREINTE, type Manifeste } from './logique';
 
@@ -45,11 +48,14 @@ export function referencesDe(html: string): string[] {
   return [...vus];
 }
 
+/** Un fichier du build hors du manifeste (et jamais lu pour lui) : sous photos/ (les photos des fiches et leurs listes). */
+export const horsManifeste = (relatif: string): boolean => /^photos[\\/]/.test(relatif);
+
 /** Le manifeste du build, depuis ses fichiers (chemin relatif → contenu) et le code de sw.js avant injection. */
 export function dresserManifeste(fichiers: ReadonlyMap<string, Uint8Array | string>, codeSw: string): Manifeste {
   const empreintes: Record<string, string> = {};
   for (const [relatif, contenu] of [...fichiers].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
-    if (relatif === FICHIER_SW) continue;
+    if (relatif === FICHIER_SW || horsManifeste(relatif)) continue;
     empreintes[cheminServi(relatif)] = empreinteNode(contenu);
   }
   const index = fichiers.get('index.html');

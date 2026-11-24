@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { FICHIER_LICENCES, texteLicences } from './licences/tierces';
-import { dresserManifeste, FICHIER_SW, injecterManifeste, SW_DE_RETRAIT } from './src/sw/construction';
+import { dresserManifeste, FICHIER_SW, horsManifeste, injecterManifeste, SW_DE_RETRAIT } from './src/sw/construction';
+import { dossierDonnees, fichiersDuSite, lireDonnees } from './geodata/photos/listes.mjs';
 
 /**
  * Le fichier des licences tierces (#20, licences/tierces.ts) : un fichier du
@@ -23,6 +24,56 @@ function licencesTierces(): Plugin {
     },
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: FICHIER_LICENCES, source: texteLicences() });
+    },
+  };
+}
+
+/**
+ * Les listes des photos des fiches (#34, lot P2 ; étude
+ * docs/etudes/2026-11-16-fiche-lieu-conception.md, § 3.5) : photos/l/<id>.json
+ * et photos/credits.json, écrits à chaque build depuis geodata/photos/choix.json
+ * et licences.json (geodata/photos/listes.mjs), servis de même au serveur de
+ * développement (relus à chaque requête). Les WebP, eux, sont dans
+ * public/photos/ (hors de git, D59), copiés par Vite. Avec
+ * TERRAMEMO_PHOTOS_DONNEES=<dossier> (les lieux d'essai du pilote), les deux
+ * JSON viennent de ce dossier, et les WebP de son sous-dossier photos/.
+ */
+function photosFiches(): Plugin {
+  const essai = process.env.TERRAMEMO_PHOTOS_DONNEES;
+  const webpEssai = essai ? join(essai, 'photos') : null;
+  const typeDe = (f: string) => (f.endsWith('.webp') ? 'image/webp' : 'application/json; charset=utf-8');
+  return {
+    name: 'terramemo-photos',
+    configureServer(server) {
+      server.middlewares.use('/photos/', (req, res, suite) => {
+        const chemin = `photos${(req.url ?? '').split('?')[0]}`;
+        const json = fichiersDuSite(lireDonnees(dossierDonnees())).find((f) => f.fileName === chemin);
+        if (json) {
+          res.setHeader('Content-Type', typeDe(chemin));
+          res.setHeader('Cache-Control', 'no-cache');
+          return res.end(json.source);
+        }
+        const fichier = webpEssai && /^photos\/[vp]\/[0-9a-f]{10}\.webp$/.test(chemin) ? join(webpEssai, chemin.slice('photos/'.length)) : null;
+        if (fichier && existsSync(fichier)) {
+          res.setHeader('Content-Type', typeDe(chemin));
+          return res.end(readFileSync(fichier));
+        }
+        // Une liste absente (un lieu sans photo) : 404, comme sur Hosting ; le reste (public/photos/) à Vite.
+        if (chemin.endsWith('.json')) {
+          res.statusCode = 404;
+          return res.end();
+        }
+        suite();
+      });
+    },
+    generateBundle() {
+      for (const f of fichiersDuSite(lireDonnees(dossierDonnees()))) this.emitFile({ type: 'asset', fileName: f.fileName, source: f.source });
+      if (!webpEssai) return;
+      for (const t of ['v', 'p']) {
+        const d = join(webpEssai, t);
+        if (!existsSync(d)) continue;
+        for (const n of readdirSync(d)) if (n.endsWith('.webp') && statSync(join(d, n)).isFile()) this.emitFile({ type: 'asset', fileName: `photos/${t}/${n}`, source: readFileSync(join(d, n)) });
+      }
     },
   };
 }
@@ -64,7 +115,9 @@ function serviceWorker(): Plugin {
       for (const f of readdirSync(dossier, { recursive: true, withFileTypes: true })) {
         if (f.isFile()) {
           const chemin = join(f.parentPath, f.name);
-          fichiers.set(relative(dossier, chemin), readFileSync(chemin));
+          const relatif = relative(dossier, chemin);
+          // Les photos (#34, § 3.6) : hors du manifeste, jamais lues ici (105 à 138 Mo).
+          if (!horsManifeste(relatif)) fichiers.set(relatif, readFileSync(chemin));
         }
       }
       const fichierSw = join(dossier, FICHIER_SW);
@@ -98,7 +151,7 @@ function versionAppli(): string {
 // Port 8060 : dizaine réservée à Terramemo (skill nouveau-projet), le driver
 // du skill run-terramemo prend 8061.
 export default defineConfig({
-  plugins: [licencesTierces(), serviceWorker()],
+  plugins: [licencesTierces(), photosFiches(), serviceWorker()],
   define: { __VERSION_APPLI__: JSON.stringify(versionAppli()) },
   // android/ (des milliers de fichiers de build Gradle) et dist/ ne se surveillent pas : ils
   // épuisaient la limite d'inotify du PC (ENOSPC), et le serveur de dev servait alors

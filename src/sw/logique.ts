@@ -65,6 +65,21 @@
 // l'activation, avant l'effacement. skipWaiting dès l'installation
 // aurait effacé le cache sous une partie en cours, dont les morceaux à la
 // demande ne sont plus sur le serveur après un déploiement.
+//
+// Les photos des fiches (#34, lot P2 ; étude docs/etudes/2026-11-16-fiche-lieu-conception.md,
+// § 3.6) : tout /photos/ est hors du manifeste (2 400 entrées de plus le
+// faisaient passer de 6 à 41 Ko compressés, payés à chaque visite après un
+// déploiement), avec ses propres règles et son propre cache, CACHE_PHOTOS,
+// hors du préfixe : ni effacé à l'activation d'une version (cachesPerimes),
+// ni parcouru à l'installation (reprendre), ni compté par le smoke du pilote.
+// - /photos/v/<nom>.webp et /photos/p/<nom>.webp : le cache d'abord, sinon le
+//   réseau ; rangée seulement si le début du SHA-256 du contenu est le nom du
+//   fichier (une photo ne change jamais sous un même nom). Borné à PHOTOS_MAX
+//   fichiers : au-delà, les plus anciens partent (l'ordre des clés d'un cache
+//   est celui de leur entrée, S57).
+// - /photos/**/*.json (la liste d'un lieu, les crédits) : le réseau d'abord ;
+//   la copie du cache s'il est coupé. Une liste périmée peut citer une photo
+//   retirée : l'image manque, la fiche montre les autres.
 
 /** Préfixe des caches du site : seuls ceux-là sont effacés (cachesPerimes). */
 export const PREFIXE_CACHE = 'terramemo-';
@@ -75,6 +90,12 @@ export const MESSAGE_ACTIVER = 'terramemo:activer';
 export const MESSAGE_CHARGES = 'terramemo:charges';
 /** Caractères hexadécimaux gardés du SHA-256 : 64 bits, contre une erreur, pas contre un adversaire. */
 export const LONGUEUR_EMPREINTE = 16;
+/** Le cache des photos des fiches : hors de PREFIXE_CACHE, gardé d'une version à l'autre (§ 3.6). */
+export const CACHE_PHOTOS = 'photos-terramemo-1';
+/** Fichiers gardés au plus dans CACHE_PHOTOS (listes comprises) ; au-delà, les plus anciens partent. */
+export const PHOTOS_MAX = 400;
+/** Une photo servie : /photos/v/ (vignette) ou /photos/p/ (plein écran), nommée par le début de son SHA-256. */
+const RE_PHOTO = /^\/photos\/[vp]\/([0-9a-f]{10})\.webp$/;
 
 export interface Manifeste {
   /** Empreinte du build (tous les fichiers servis et le code du service worker). */
@@ -102,9 +123,11 @@ export async function empreinte(contenu: ArrayBuffer): Promise<string> {
  * - hors-sw : le service worker ne répond pas (le navigateur va au réseau) ;
  * - coquille : index.html, du réseau d'abord, la copie de la version s'il est coupé (les navigations vers '/', '/?…', '/index.html') ;
  * - cache : du cache d'abord, sinon le réseau, rangé à l'usage (réseau d'abord si la version est dépassée) ;
- * - reseau-dabord : le réseau, la copie de la version s'il est coupé.
+ * - reseau-dabord : le réseau, la copie de la version s'il est coupé ;
+ * - photo : une photo d'une fiche, CACHE_PHOTOS d'abord, sinon le réseau, rangée si son contenu est son nom ;
+ * - liste-photos : la liste d'un lieu ou les crédits des photos, le réseau d'abord, CACHE_PHOTOS s'il est coupé.
  */
-export type Strategie = 'hors-sw' | 'coquille' | 'cache' | 'reseau-dabord';
+export type Strategie = 'hors-sw' | 'coquille' | 'cache' | 'reseau-dabord' | 'photo' | 'liste-photos';
 
 export interface Aiguillage {
   strategie: Strategie;
@@ -131,7 +154,11 @@ export function aiguiller(r: { url: string; method: string; mode: string }, orig
     return pageStatique(chemin) && chemin in m.empreintes ? { strategie: 'reseau-dabord', chemin } : HORS_SW;
   }
   // Une requête avec paramètres n'est pas un fichier du build (sonde du pilote, contournement voulu).
-  if (u.search || !(chemin in m.empreintes)) return HORS_SW;
+  if (u.search) return HORS_SW;
+  // Les photos des fiches, avant la règle du manifeste : elles n'y sont pas (§ 3.6).
+  if (RE_PHOTO.test(chemin)) return { strategie: 'photo', chemin };
+  if (chemin.startsWith('/photos/') && chemin.endsWith('.json')) return { strategie: 'liste-photos', chemin };
+  if (!(chemin in m.empreintes)) return HORS_SW;
   return { strategie: pageStatique(chemin) ? 'reseau-dabord' : 'cache', chemin };
 }
 
@@ -142,6 +169,7 @@ export interface CacheMin {
   match(cle: string): Promise<Response | undefined>;
   put(cle: string, reponse: Response): Promise<void>;
   keys(): Promise<readonly Request[]>;
+  delete(cle: string | Request): Promise<boolean>;
 }
 
 export interface CachesMin {
@@ -317,9 +345,73 @@ async function coquille(mo: Moteur, requete: Request, cache: CacheMin, garder: G
   return refaite(r, contenu, null);
 }
 
+/** Le SHA-256 entier d'un contenu, en hexadécimal. */
+async function sha256Hex(contenu: ArrayBuffer): Promise<string> {
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', contenu));
+  return [...h].map((o) => o.toString(16).padStart(2, '0')).join('');
+}
+
+/** Retire de `cache` ses plus anciennes entrées au-delà de `max` (l'ordre de keys() est celui de leur entrée, S57). */
+export async function borner(cache: CacheMin, max: number): Promise<number> {
+  const cles = await cache.keys();
+  const trop = cles.slice(0, Math.max(0, cles.length - max));
+  for (const r of trop) await cache.delete(r);
+  return trop.length;
+}
+
+/**
+ * Une photo d'une fiche : CACHE_PHOTOS d'abord, sinon le réseau ; la copie rangée en fond si le
+ * début du SHA-256 de son contenu est le nom du fichier (sinon c'est une erreur, ou autre chose
+ * que la photo : rien n'est rangé), puis le cache borné.
+ */
+async function photo(mo: Moteur, requete: Request, chemin: string, garder: Garder): Promise<Response> {
+  const cache = await mo.caches.open(CACHE_PHOTOS);
+  const rangee = await cache.match(cle(mo, chemin));
+  if (rangee) return rangee;
+  const r = await mo.fetch(requete);
+  const nom = RE_PHOTO.exec(chemin)?.[1];
+  if (nom && reponseDuSite(r)) {
+    const copie = r.clone();
+    garder(
+      (async () => {
+        const contenu = await copie.arrayBuffer();
+        if (!(await sha256Hex(contenu)).startsWith(nom)) return;
+        await cache.put(cle(mo, chemin), refaite(copie, contenu, null));
+        await borner(cache, PHOTOS_MAX);
+      })().catch(() => undefined),
+    );
+  }
+  return r;
+}
+
+/** La liste des photos d'un lieu, ou leurs crédits : le réseau d'abord, rangée ; la copie de CACHE_PHOTOS s'il est coupé. */
+async function listePhotos(mo: Moteur, requete: Request, chemin: string, garder: Garder): Promise<Response> {
+  const cache = await mo.caches.open(CACHE_PHOTOS);
+  let r: Response;
+  try {
+    r = await mo.fetch(requete);
+  } catch (e) {
+    const c = await cache.match(cle(mo, chemin));
+    if (c) return c;
+    throw e;
+  }
+  if (reponseDuSite(r)) {
+    const copie = r.clone();
+    garder(
+      (async () => {
+        await cache.put(cle(mo, chemin), refaite(copie, await copie.arrayBuffer(), null));
+        await borner(cache, PHOTOS_MAX);
+      })().catch(() => undefined),
+    );
+  }
+  return r;
+}
+
 /** La réponse du service worker à une requête aiguillée (pas hors-sw). */
 export async function repondre(mo: Moteur, requete: Request, a: Aiguillage, garder: Garder): Promise<Response> {
   const chemin = a.chemin!;
+  if (a.strategie === 'photo') return photo(mo, requete, chemin, garder);
+  if (a.strategie === 'liste-photos') return listePhotos(mo, requete, chemin, garder);
   const cache = await mo.caches.open(nomCache(mo.manifeste.version));
   if (a.strategie === 'coquille') return coquille(mo, requete, cache, garder);
   if (a.strategie === 'reseau-dabord' || depassee(mo)) {

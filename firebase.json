@@ -1,6 +1,9 @@
 {
   "hosting": {
-    "predeploy": ["! grep -rl CONTACT_A_REMPLIR \"$PROJECT_DIR/dist\""],
+    "predeploy": [
+      "! grep -rl --exclude-dir=photos CONTACT_A_REMPLIR \"$PROJECT_DIR/dist\"",
+      "node \"$PROJECT_DIR/geodata/photos/verifier.mjs\" --dist \"$PROJECT_DIR/dist\""
+    ],
     "public": "dist",
     "ignore": ["firebase.json", "**/.*"],
     "headers": [
@@ -21,6 +24,10 @@
       },
       {
         "source": "/geo/drapeaux-territoires/**",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      },
+      {
+        "source": "/photos/@(v|p)/**",
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       },
       {
