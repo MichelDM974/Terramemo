@@ -4,6 +4,10 @@
      --hachure, --pastille, --good, --danger). Palette A de #28 (décision « Carte
      en plein soleil ») : terre et mer à 1,98:1, contre 1,21 avant. */
   --mer: #090e18;
+  /* Le plein écran d'une photo d'une fiche (#34, lot P2) : un fond noir, la « × » blanche, le crédit clair. */
+  --plein-fond: #000;
+  --plein-texte: #fff;
+  --plein-credit: #c9cbd1;
   /* Frontières des rendus canvas et webgl : d'un pixel physique pendant un geste
      (le trait fin ne saccade pas), de --frontiere-repos px CSS à l'arrêt (et
      dans les rendus SVG, l'île comprise). Une seule couleur pour les deux. */
@@ -632,15 +636,15 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
   justify-content: center;
   gap: 8px;
   padding: 52px 0 16px;
-  background: #000;
+  background: var(--plein-fond);
   border-radius: 14px;
   touch-action: none;
 }
 .fiche-plein[hidden] { display: none; }
-.fiche-plein > .croix { position: absolute; top: 4px; right: 4px; margin: 0; float: none; background: transparent; color: #fff; }
+.fiche-plein > .croix { position: absolute; top: 4px; right: 4px; margin: 0; float: none; background: transparent; color: var(--plein-texte); }
 .fiche-plein-img { display: block; width: 100%; max-height: calc(100% - 3.5em); object-fit: contain; aspect-ratio: 3 / 2; }
 .fiche-plein-avis { margin: 0 16px; color: var(--muted); text-align: center; }
-.fiche-plein-credit .fiche-credit { color: #c9cbd1; }
+.fiche-plein-credit .fiche-credit { color: var(--plein-credit); }
 body[data-terrain="reunion"] .fiche-plein { top: 40px; }
 .fiche-drapeaux .drapeau { width: 64px; height: 48px; }
 .fiche-titre { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
