@@ -32,5 +32,6 @@ export function dossierDonnees(env?: Record<string, string | undefined>): string
 export function lireDonnees(dossier?: string): DonneesPhotos;
 export function gardeesRelues(choix: unknown): [string, Record<string, unknown>][];
 export function dresserListes(choix: unknown, licences: unknown): { listes: Record<string, ListePhotos>; credits: { v: 1; photos: CreditPhoto[] }; manquantes: { id: string; fichier: string }[] };
-export function fichiersDuSite(donnees?: DonneesPhotos): { fileName: string; source: string }[];
+export function lieuxConnus(): string[];
+export function fichiersDuSite(donnees?: DonneesPhotos, ids?: readonly string[]): { fileName: string; source: string }[];
 export function webpAttendus(licences: unknown): { fichier: string; taille: 'v' | 'p'; nom: string; sha256: string }[];

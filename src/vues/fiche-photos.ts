@@ -10,8 +10,8 @@
 // (un IntersectionObserver sur le carrousel pose son src : loading="lazy" charge
 // en avance, sur une grande distance), le plein écran au toucher seulement. Chaque
 // image a sa place réservée (aspect-ratio 3 / 2, carte.css) : la fiche ne saute
-// pas à l'arrivée d'une photo. Pas de liste (un lieu sans photo, D60 a : 404), ou
-// hors ligne sans copie : le carrousel se retire. Une photo qui ne vient pas
+// pas à l'arrivée d'une photo. Une liste vide (un lieu sans photo, D60 a, ou pas encore
+// relu), absente (404), ou hors ligne sans copie : le carrousel se retire. Une photo qui ne vient pas
 // (hors ligne, retirée du site) : sa case se retire, la fiche montre les autres.
 //
 // Le crédit, le même pour toutes, domaine public compris (§ 3.2) : « Photo

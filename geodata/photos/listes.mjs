@@ -14,8 +14,10 @@
 //
 // Seules les entrées relues (etat « relu ») comptent ; une photo gardée sans ligne dans
 // licences.json (pas encore traitée) n'est dans aucune liste : `manquantes` la dit, et
-// tests/donnees-photos.test.ts échoue tant qu'il en reste. Un lieu relu sans photo (D60 a,
-// « aucune ») n'a pas de fichier : sa fiche n'a pas de carrousel.
+// tests/donnees-photos.test.ts échoue tant qu'il en reste. Chacun des 332 lieux de
+// candidats.json a sa liste, vide s'il n'a pas de photo (relu sans photo, D60 a, ou pas encore
+// relu) : sa fiche n'a pas de carrousel, et le site ne répond jamais 404 à l'ouverture d'une
+// fiche (une requête en échec à chaque fiche sans photo, que le pilote compte comme une faute).
 //
 // Le nom de chaque WebP : les 10 premiers caractères hexadécimaux de son SHA-256 (§ 3.3) ;
 // la vignette et le plein écran ont chacun le leur (deux contenus, deux empreintes), sous
@@ -40,6 +42,11 @@ export const LANGUE = 'fr';
 export const dossierDonnees = (env = process.env) => env.TERRAMEMO_PHOTOS_DONNEES || DOSSIER;
 
 const lireJson = (f, defaut) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : defaut);
+
+/** Les lieux qui ont une fiche et des candidats (geodata/photos/candidats.json, toujours celui du dépôt). */
+export function lieuxConnus() {
+  return Object.keys(lireJson(join(DOSSIER, 'candidats.json'), { lieux: {} }).lieux ?? {});
+}
 
 /** choix.json et licences.json d'un dossier ; licences.json absent : aucune photo traitée. */
 export function lireDonnees(dossier = dossierDonnees()) {
@@ -89,11 +96,15 @@ export function dresserListes(choix, licences) {
   return { listes, credits: { v: 1, photos }, manquantes };
 }
 
-/** Les fichiers que le build écrit : [{fileName, source}] (chemins relatifs à la racine du site). */
-export function fichiersDuSite(donnees = lireDonnees()) {
+/**
+ * Les fichiers que le build écrit : [{fileName, source}] (chemins relatifs à la racine du site) ; une liste
+ * par lieu de `ids` (vide sans photo) et par lieu qui a des photos.
+ */
+export function fichiersDuSite(donnees = lireDonnees(), ids = lieuxConnus()) {
   const { listes, credits } = dresserListes(donnees.choix, donnees.licences);
+  const tous = [...new Set([...ids, ...Object.keys(listes)])].sort();
   return [
-    ...Object.entries(listes).map(([id, l]) => ({ fileName: `${DOSSIER_SITE}/l/${id}.json`, source: JSON.stringify(l) })),
+    ...tous.map((id) => ({ fileName: `${DOSSIER_SITE}/l/${id}.json`, source: JSON.stringify(listes[id] ?? { v: 1, photos: [] }) })),
     { fileName: `${DOSSIER_SITE}/credits.json`, source: JSON.stringify(credits) },
   ];
 }

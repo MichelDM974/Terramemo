@@ -389,7 +389,8 @@ describe('candidats.mjs : classement', () => {
 
 type Listes = {
   dresserListes: (choix: unknown, licences: unknown) => { listes: Record<string, { v: number; photos: PhotoListe[] }>; credits: { v: number; photos: { titre: string; auteur: string | null; licence: string; licence_url: string | null; page: string }[] }; manquantes: { id: string; fichier: string }[] };
-  fichiersDuSite: (d: { choix: unknown; licences: unknown }) => { fileName: string; source: string }[];
+  fichiersDuSite: (d: { choix: unknown; licences: unknown }, ids?: readonly string[]) => { fileName: string; source: string }[];
+  lieuxConnus: () => string[];
   lireDonnees: (dossier?: string) => { choix: { v: number; lieux: Record<string, unknown> }; licences: { v: number; photos: Record<string, LignePhoto> } };
   NOM: RegExp;
 };
@@ -450,11 +451,16 @@ describe('listes du site (listes.mjs, écrites par le build)', () => {
     expect(listes['97424']!.photos.map((p) => p.alt.fr)).toEqual(['piton des Neiges']);
   });
 
-  it('les fichiers du site : photos/l/<id>.json par lieu, photos/credits.json, en JSON', async () => {
-    const { fichiersDuSite } = await listesMod;
-    const f = fichiersDuSite({ choix: choixEssai, licences: licencesFactices() });
-    expect(f.map((x) => x.fileName).sort()).toEqual(['photos/credits.json', 'photos/l/97421.json', 'photos/l/97424.json', 'photos/l/JPN.json']);
+  it('les fichiers du site : photos/l/<id>.json par lieu, vide sans photo (jamais de 404 à l’ouverture d’une fiche), photos/credits.json', async () => {
+    const { fichiersDuSite, lieuxConnus } = await listesMod;
+    const f = fichiersDuSite({ choix: choixEssai, licences: licencesFactices() }, ['aden', 'FRA']);
+    expect(f.map((x) => x.fileName).sort()).toEqual(['photos/credits.json', 'photos/l/97421.json', 'photos/l/97424.json', 'photos/l/FRA.json', 'photos/l/JPN.json', 'photos/l/aden.json']);
     for (const x of f) expect(JSON.parse(x.source).v).toBe(1);
+    expect(JSON.parse(f.find((x) => x.fileName === 'photos/l/aden.json')!.source).photos).toEqual([]);
+    expect(JSON.parse(f.find((x) => x.fileName === 'photos/l/FRA.json')!.source).photos).toEqual([]);
+    // Par défaut, les 332 lieux de candidats.json.
+    expect(lieuxConnus()).toHaveLength(332);
+    expect(fichiersDuSite({ choix: { v: 1, lieux: {} }, licences: { v: 1, photos: {} } })).toHaveLength(333);
     // ≈ 0,3 Ko par lieu (§ 3.5) : trois photos du Japon, crédits compris, sous 1,5 Ko.
     expect(f.find((x) => x.fileName === 'photos/l/JPN.json')!.source.length).toBeLessThan(1500);
   });
