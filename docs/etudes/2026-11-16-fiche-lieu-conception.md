@@ -3350,3 +3350,83 @@ DOM factice ni le pilote (état, taille, chemins présents) ne regardaient le de
 258) sur les captures 177 à 179 ; la mesure sur l'A37. Non retenu : un cadre centré sur chaque lieu (un fond par
 lieu, rien de partagé, et un lieu isolé n'y montre que de l'eau) ; une vue polaire pour l'Antarctique ; un cadre
 élargi pour la Russie et le Groenland (le monde les montre mieux).
+
+## 22. Écarts du code au lot P2
+
+Relevés par le codeur du lot P2 (branche `photos-p2`, nuit du 24 au 25/11), **non déployé** : la liste « avant le
+premier déploiement » est en tête de `geodata/photos/LISEZMOI.md`. Le 25/11, `choix.json` n'a aucun lieu relu : le
+code est vérifié sur des lieux d'essai (`tests/photos-essai/` : un `choix.json` factice tiré des candidats du Japon,
+de Cilaos et de Salazie, des images fabriquées marquées « ESSAI »), jamais sur une vraie photo.
+
+**Morceaux** (sortie de `vite build`, la même machine, `origin/main` a3d08a0 puis la branche) :
+
+| | Morceau principal | gzip | Morceau de la fiche | gzip |
+|---|---|---|---|---|
+| avant le lot (a3d08a0) | 498,58 Ko | 172,50 Ko | 28,54 Ko | 10,99 Ko |
+| après P2 | 499,95 Ko | 172,99 Ko | 28,34 Ko + 4,43 Ko | 10,87 Ko + 1,99 Ko |
+
+- **Marge : 0,05 Ko** sous l'avertissement de Vite. Le premier jet passait à 500,86 Ko : la rubrique « Photos » des
+  Crédits est sortie dans un morceau à part (`vues/credits-photos.ts`, 0,88 Ko, chargé à l'ouverture du dépliant),
+  la source des photos du site se résout dans le morceau de la fiche, et le message d'échec de la rubrique reprend
+  celui des licences. Les textes de la fiche (`textes-fiche.fr.json`) deviennent un morceau partagé par la fiche et
+  la rubrique (4,43 Ko). Au morceau principal restent : l'entrée d'historique du plein écran (`explorer.ts`,
+  `navigation.ts`), le dépliant et la ligne de Commons des Crédits. Le prochain lot qui touche au morceau principal
+  devra d'abord en sortir quelque chose (§ 19 et § 20 : `composer()` et la pose de la feuille, ≈ 1,8 Ko).
+- **S64 close** : `vite build` avec 1 200 + 1 200 faux WebP (141 Mo) dans `public/photos/` : 1,07 s, contre 0,85 s
+  sans (PC, SSD). Les WebP restent dans `public/`.
+- `dist/` : 628 fichiers (293 avant le lot, dont 333 listes et `credits.json` de plus).
+
+**Données et build** :
+- **Deux noms par photo.** Le § 3.3 dit `photos/v/<nom>.webp` et `photos/p/<nom>.webp`, « le début du SHA-256 du
+  fichier », et le service worker vérifie que le contenu est son nom (§ 3.6) : la vignette et le plein écran ont deux
+  contenus, donc chacun le sien. `licences.json` et chaque liste portent `v` et `p`.
+- **Une liste pour chacun des 332 lieux**, vide sans photo (le lieu relu sans photo, D60 a, ou pas encore relu).
+  Le § 3.5 ne disait rien d'un lieu sans liste : un 404 à chaque fiche sans photo, vu au pilote (Saint-Denis), que la
+  console et le pilote comptent comme une requête en échec. 333 fichiers de plus sur Hosting (≈ 20 octets chacun
+  quand ils sont vides).
+- `listes.mjs` ne prend que les lieux **relus** ; une photo gardée sans ligne dans `licences.json` n'est dans aucune
+  liste, et `donnees-photos` échoue tant qu'il en reste (`npm run photos:traiter`).
+- **Une photo de deux lieux** : un fichier, une ligne de crédits, le point d'intérêt du premier lieu (`traiter.py` le
+  dit quand ils diffèrent) ; chaque lieu garde son texte alternatif.
+- **Le titre** de la rubrique « Photos » : le titre de Commons s'il y en a un (le nom du fichier sans extension, le
+  plus souvent), sinon le sujet. Un titre comme « RX100VII - Amanohashidate view from Kasamatsu Park - Flickr -
+  wkc.1 » se lit mal : CC BY 2.0 à 3.0 demande le titre de l'œuvre « s'il est fourni » ; à juger par l'utilisateur.
+- `traiter.py` demande à Commons la miniature de 1 920 px, **plus large pour un panorama** (son recadrage 3:2 doit
+  garder 720 px de haut : 4 800 px pour un 8 000 × 1 200), jamais plus que l'original ; convertit un profil de
+  couleur en sRGB et pose une image à transparence sur le fond de la fiche ; une photo ratée n'arrête pas les autres.
+  Le recadrage est celui de `cadrage()` de l'outil de relecture (comparé par un test).
+- `restaurer.mjs` ne fait que la copie du PC (D59 c, défaut codé) : l'archive jointe à une release (D59 d) vient au
+  lot P3 avec la CI de l'APK, qui en a besoin la première.
+- `TERRAMEMO_PHOTOS_DONNEES=<dossier>` : `choix.json`, `licences.json` et les WebP lus ailleurs (le pilote des lieux
+  d'essai), sans rien écrire dans `public/`.
+- `verifier.mjs --reseau` répond « lot P3 ».
+
+**Fiche** :
+- Les textes de la fiche vont dans `textes-fiche.fr.json` (bloc `photos`), pas `textes.fr.json` : le § 19 a sorti
+  les textes de la fiche du morceau principal après la rédaction du lot. Ceux de la rubrique des Crédits aussi, sauf
+  son titre et la phrase de la modification.
+- La case d'attente (3:2) est posée avant la liste ; une liste vide la retire : la fiche d'un lieu sans photo saute
+  d'une hauteur de carrousel à l'arrivée de sa liste (≈ 0,3 Ko, un aller-retour). Tant que la relecture n'est pas
+  faite, c'est le cas de toutes les fiches. Non retenu : un index des lieux qui ont des photos, lu avec les données
+  des fiches (une requête de plus au premier toucher).
+- Le crédit est **sous chaque photo** (une `figcaption` par case, qui défile avec elle) plutôt qu'un crédit sous le
+  carrousel refait à chaque défilement.
+- Le plein écran : une entrée d'historique de plus sur la fiche (`photo` dans l'état, posée par `pousserFiche`),
+  rang + 1 ; la fiche n'est pas refaite en le fermant (son carrousel reste où il était). « ‹ » et Échap le ferment
+  avant tout, même sur la première fiche ouverte depuis un bilan. Le retour en avant du navigateur le rouvre. Il
+  couvre la fiche (mêmes bords), fond noir, la photo entière (`contain`) ; un toucher hors des liens le ferme.
+- Sur PC, le carrousel défile à la barre de défilement, à la molette (Maj) ou au clavier (chaque photo est un
+  bouton) : pas de flèches « ‹ › ». À juger sur les captures.
+
+**Service worker** : comme le § 3.6 ; `CacheMin` gagne `delete` (l'éviction). `retenir` (la première visite) ne
+range pas les photos : elles le seront à leur prochain usage.
+
+**Pilote** (`pilote_photos.py`, jetable, sur les aides de `driver.py` sans le changer ; serveur de développement
+avec les lieux d'essai), au téléphone (384 × 832) et sur PC (1 280 × 800), 0 défaut : rien de `/photos/` au premier
+affichage ; le Japon ouvert : `l/JPN.json` et **une seule vignette** lues, les deux autres sans `src` ; le carrousel
+défilé d'une case : la deuxième arrive, pas la troisième ; la deuxième touchée : le plein écran 1 080 × 720, son
+crédit, l'entrée `{rang: 2, photo: 1}` ; le retour du navigateur le ferme, la fiche du Japon reste ; Échap aussi ;
+Cilaos (deux photos, dont une du domaine public) ; Saint-Denis : pas de carrousel ; Crédits : les cinq photos.
+Relancé après la sortie de la rubrique des Crédits dans son morceau : 0 défaut. Le `smoke` (sur un build servi par
+`serve --preview`) et `ui_fiche` complet n'ont pas été relancés ; `verifier.mjs --dist` sur un build sans les WebP des
+lieux d'essai refuse bien (10 fautes, « absent »).
