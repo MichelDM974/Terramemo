@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { APACHE_ICI, artefacts, composantsAar, factoriserApache, GROUPES_AVIS, releveAvis, termesApache } from '../licences/android.mjs';
 import { AVIS_ANDROID, artefactsAndroid, avisAndroid, FICHIER_LICENCES, LICENCES_A_PART, ligneAndroid, texteAvis, texteLicence, texteLicencePaquet, texteLicences } from '../licences/tierces';
 import { nomPaquets, URL_LICENCES, vueCredits } from '../src/vues/credits';
-import { URL_CREDITS_PHOTOS } from '../src/vues/credits-photos';
+import { lireCredits, URL_CREDITS_PHOTOS } from '../src/vues/credits-photos';
 import { textesFiche } from '../src/vues/textes-fiche';
 import { textes } from '../src/vues/textes';
 import { installerDom, type El } from './dom-factice';
@@ -465,6 +465,10 @@ describe('licences tierces (#20)', () => {
     expect(lignes[0]!.querySelector('a.credits-page')!.getAttribute('href')).toBe('https://commons.wikimedia.org/wiki/File:Himeji_castle_in_may_2015.jpg');
     expect(lignes[1]!.querySelector('a.credits-licence')).toBeNull();
     expect(lus()).toBe(2);
+    // Un lien qui ne serait pas en https (credits.json altéré) : la ligne n'est pas montrée, aucun href n'en vient.
+    const bonne = creditsPhotos.photos[0]!;
+    expect(lireCredits({ photos: [bonne, { ...bonne, licence_url: 'javascript:alert(1)' }, { ...bonne, page: 'javascript:alert(1)' }, { ...bonne, page: 'https://example.org/x' }, { ...bonne, titre: '' }, null] })).toEqual([bonne]);
+    expect(lireCredits(null)).toEqual([]);
     // Aucune photo encore (la relecture du lot P1 en cours) : la rubrique le dit.
     const v2 = ouvrir();
     creditsPhotos = { v: 1, photos: [] };

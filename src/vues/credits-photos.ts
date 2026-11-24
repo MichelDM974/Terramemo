@@ -21,6 +21,25 @@ export interface CreditPhoto {
   page: string;
 }
 
+const texte = (x: unknown): x is string => typeof x === 'string' && x.length > 0;
+
+/**
+ * Les lignes lues d'un JSON, sans celles mal formées : les mêmes contrôles que lireListe (fiche-photos.ts) pour les
+ * photos des fiches, page de Commons et lien de licence en https, pour qu'aucun href ne vienne d'ailleurs.
+ */
+export function lireCredits(x: unknown): CreditPhoto[] {
+  const l = (x as { photos?: unknown } | null)?.photos;
+  return (Array.isArray(l) ? (l as CreditPhoto[]) : []).filter(
+    (c) =>
+      !!c &&
+      texte(c.titre) &&
+      texte(c.licence) &&
+      (c.auteur === null || typeof c.auteur === 'string') &&
+      String(c.page).startsWith('https://commons.wikimedia.org/') &&
+      (c.licence_url === null || String(c.licence_url).startsWith('https://')),
+  );
+}
+
 /** Une photo de la rubrique : son titre ou son sujet, puis « auteur · licence · page sur Commons ». */
 export function lignePhoto(c: CreditPhoto): HTMLLIElement {
   const lien = (href: string, t: string, cls: string) => creer('a', { href, target: '_blank', rel: 'noopener', class: cls }, t);
@@ -43,7 +62,7 @@ export function lignePhoto(c: CreditPhoto): HTMLLIElement {
 export async function lignesPhotos(): Promise<HTMLLIElement[]> {
   const r = await fetch(URL_CREDITS_PHOTOS);
   if (!r.ok) throw new Error(`${URL_CREDITS_PHOTOS} : HTTP ${r.status}`);
-  const l = ((await r.json()) as { photos?: CreditPhoto[] }).photos ?? [];
+  const l = lireCredits(await r.json());
   return l.length ? l.map(lignePhoto) : [creer('li', { class: 'hint' }, T.credits_aucune)];
 }
 
