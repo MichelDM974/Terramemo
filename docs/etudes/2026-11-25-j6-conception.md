@@ -75,7 +75,8 @@ une fois (125,7 Mo, § 3.1).
    frontières »). Le ticket veut 101 départements, Mayotte compris. Je
    recommande de la poser au J6, parce que le J6 porte sur le découpage
    administratif de la France, et de dire la revendication dans sa fiche.
-   C'est un écart à la lettre de la décision, à acter.
+   C'est un écart à la lettre de la décision : seul l'utilisateur peut le
+   faire, donc D865 n'a pas de défaut et le lot 1 attend sa réponse.
 2. **D860, les sujets.** Je recommande quatre sujets (Départements, Régions,
    Préfectures, Numéros), chacun avec ses fiches dans les deux sens. Cela
    fait ≈ 640 fiches de plus. L'autre voie : le numéro affiché à côté du nom,
@@ -273,10 +274,12 @@ Les pièges :
 | `prefectures.json` | `{ "35": { nom: "Rennes", point: […] } }`, et le chef-lieu de chaque région | ≈ 2 Ko gzip (estimé) |
 | `sources.json` | forme de `reunion/sources.json` | ≈ 1,6 Ko gzip |
 
-- Ids des régions : **`R` suivi du code INSEE** (`R84`, `R01`), D867. Seize
-  codes de région sont aussi des codes de département (`11` Aude et
-  Île-de-France, `84` Vaucluse et Auvergne-Rhône-Alpes, `01` Ain et
-  Guadeloupe…), et ces ids vont au journal à vie.
+- Ids des régions : **`R` suivi du code INSEE** (`R84`, `R01`), D867. Les 18
+  codes de région sont tous aussi des codes de département : les 13 de la
+  métropole (`11` Aude et Île-de-France, `84` Vaucluse et
+  Auvergne-Rhône-Alpes, `24`, `27`, `28`, `32`, `44`, `52`, `53`, `75`,
+  `76`, `93`, `94`) et les 5 des DROM (`01` Ain et Guadeloupe, `02`, `03`,
+  `04`, `06`), et ces ids vont au journal à vie.
 
 ### 3.4 Poids
 
@@ -436,6 +439,23 @@ Place mesurée en 384 × 723 (le cadre de l'île, marges comprises,
 cadre 360 × 470 px. Il reste 134 px pour la bande, soit 6 cadres de 56 px.
 En 360 × 640, il ne reste que 59 px : la bande tient de justesse (S862).
 
+La largeur compte aussi. Six cadres de 56 px font 336 px, sans les écarts.
+Le cadre perd 12 px de chaque côté (`MARGES.cotes`, `map/terrain.ts:45`) :
+il reste 360 px en 384 de large, 336 px en 360 (aucun écart possible) et
+296 px en 320, largeur que le projet tient (décisions « Barème et
+classements », « En-tête des très petits téléphones »). Les cadres de 56 px
+ne passent donc pas sous 384 px. Disposition de repli (estimé, à mesurer au
+lot 2) :
+- seul l'encart de la petite couronne garde 56 px, car Paris y tombe sous
+  15 px s'il rétrécit (15,9 px à 56 px, 13,1 px à 46 px) ;
+- les 5 cadres des DROM prennent le reste, écarts de 4 px compris :
+  (L − 56 − 5 × 4) / 5, soit 56 px en 384 de large, 52 px en 360 et 44 px
+  en 320. Chacun ne porte qu'une zone, qui reste touchable à 44 px (Mayotte à
+  ≈ 1,1 px/km, la Guyane à ≈ 0,11 px/km) ;
+- si la hauteur manque en 320 × 568, deux rangées de 3 cadres de 56 px
+  (176 px de large, 116 px de haut), la métropole rétrécie d'autant : à
+  chiffrer sur capture avant de choisir.
+
 Échelle de chaque DROM dans un cadre de 56 px (estimé sur les emprises
 mesurées) :
 
@@ -483,7 +503,7 @@ au zoom 2 seulement (estimé : 15,6 px).
 ### 4.4 Taille à l'écran : le test
 
 `tests/france-carte.test.ts`, sur `public/geo/france/` et les cadres
-384 × 723 et 360 × 640 :
+384 × 723, 360 × 640 et 320 × 568 :
 - chaque département ≥ 15 px au zoom 1, dans sa place ou son encart, sauf le
   90 (≥ 15 px au zoom 2) ;
 - chaque région ≥ 15 px (la Corse : 8 705 km², ≈ 29 px, estimé) ;
@@ -837,7 +857,7 @@ les autres. Un sujet peut sortir en Entraînement avant ses épreuves.
     l'aller-retour écran → carte → écran dans chaque cadre ;
   - `ile` : inchangé, vert ;
   - `carte` : le monde inchangé (`versLonLat` sans `retour`).
-- **Vérification** : captures en 384 × 723, 360 × 640 et 1 280 × 700,
+- **Vérification** : captures en 384 × 723, 360 × 640, 320 × 568 et 1 280 × 700,
   montrées à l'utilisateur (disposition, filets, mention) ; puis l'A37 :
   aucun à-coup de 25 ms ou plus pendant un déplacement et un pincement de
   10 s (S861).
@@ -931,11 +951,14 @@ Le pilote complet, l'APK sur l'A37 en mode avion (le dossier embarqué),
 
 Chaque réponse se note au registre. Une réponse qui contredit une décision
 actée la **remplace** (`noter_decision`, `remplace`) ; c'est le cas de
-D865 a pour « Pays et frontières », en partie. En attendant, le code prend
-le défaut, une constante nommée et commentée « défaut en attente de
-l'utilisateur, #8 ». Quatre défauts cessent d'être réversibles :
-- dès qu'un classement en dépend : D865 (101 ou 100 questions) et D870 (le
-  général) ;
+D865 a ou c pour « Pays et frontières » (Mayotte, `NE_B22`, y est une zone
+contestée, hachurée et jamais posée). **D865 n'a donc pas de défaut** : le
+lot 1 attend la réponse, et aucune épreuve classée du J6 ne sort avant elle.
+Pour les autres, en attendant, le code prend le défaut, une constante nommée
+et commentée « défaut en attente de l'utilisateur, #8 ». Ces choix cessent
+d'être réversibles :
+- dès qu'un classement en dépend : D865 (101 ou 100 questions, d'où l'absence
+  de défaut) et D870 (le général) ;
 - dès qu'une fiche est écrite au journal : D860 (les domaines) et D867 (les
   ids).
 
@@ -946,9 +969,9 @@ l'utilisateur, #8 ». Quatre défauts cessent d'être réversibles :
 | D862 | Séries | a) France entière, les 13 régions et l'Outre-mer en Entraînement ; France entière seule en Classé ; b) France entière, Métropole, Outre-mer ; c) a, avec les régions aussi en Classé (120 épreuves de plus) | **a** | a |
 | D863 | Les encarts des DROM | a) projection composée maison (vraies coordonnées), bande sous la métropole en portrait, colonne à gauche en paysage, cadres sans nom ; b) `d3-composite-projections` ; c) DROM déplacés dans les données | **a** | a, captures montrées avant le lot 3 |
 | D864 | Paris et la petite couronne | a) un encart des 75, 92, 93, 94 (Paris à 16 px), touchables aux deux places ; b) pas d'encart, zoom au doigt ; c) un encart des 8 départements d'Île-de-France | **a** | a |
-| D865 | Mayotte | a) posée comme les autres départements, et sa fiche dit la revendication des Comores (écart à « Pays et frontières », qui reste la règle du monde) ; b) jamais posée, 100 départements (contre le critère du ticket) ; c) posée, mais hachurée dans son cadre | **a** : le J6 porte sur le découpage administratif de la France, et Mayotte y est un département | a |
+| D865 | Mayotte | a) posée comme les autres départements, et sa fiche dit la revendication des Comores (écart à « Pays et frontières », qui reste la règle du monde) ; b) jamais posée, 100 départements (contre le critère du ticket) ; c) posée, mais hachurée dans son cadre | **a** : le J6 porte sur le découpage administratif de la France, et Mayotte y est un département | **aucun** : a et c contredisent « Pays et frontières », que seul l'utilisateur remplace ; le lot 1 attend |
 | D866 | Régions | a) les 18 (13 et les 5 DROM, aussi départements) ; b) les 13 de la métropole | **a** (la liste officielle, et celle de la synthèse du 04/11) | a |
-| D867 | Identifiants (figés à vie) | a) départements par leur code INSEE (`01`, `2A`, `971`), régions par `R` et leur code (`R84`) ; b) codes ISO 3166-2 ; c) codes INSEE nus pour les deux (seize codes en commun) | **a** | a |
+| D867 | Identifiants (figés à vie) | a) départements par leur code INSEE (`01`, `2A`, `971`), régions par `R` et leur code (`R84`) ; b) codes ISO 3166-2 ; c) codes INSEE nus pour les deux (les 18 codes de région en commun) | **a** | a |
 | D868 | Préfectures qui donnent la réponse | a) Paris (75) et Belfort (90) jamais en choix parmi 4, présents en Trouver et dans les épreuves (la règle D37 c) ; b) Paris seul ; c) aucune exclusion | **a** | a |
 | D869 | Leurres des numéros | a) les voisins, puis les plus proches (`choix()`) ; b) les numéros voisins (±1, ±2) ; c) moitié l'un, moitié l'autre | **a** | a |
 | D870 | Le général | a) les quatre Chrono « France entière » (+321, borne 1 565 sans le J4) ; b) Départements et Régions seuls (+119) ; c) aucun | **a**, à la lettre de « Général à tous les sujets » | a |
@@ -1006,7 +1029,7 @@ La numérotation suit la plage de cette étude (S860 à S899).
 |---|---|---|---|
 | S860 | Le WFS `LATEST` lu pour mesurer est l'édition 2026-01-01 de l'archive : mêmes tracés, mêmes poids | comparer les tracés et les poids après le téléchargement | lot 1 |
 | S861 | La carte SVG « g » de 12 835 points ne fait aucun à-coup de 25 ms sur l'A37, en déplacement et en pincement | `performance.measure` et le pilote de mesure, sur l'A37 | lot 2 |
-| S862 | La bande de 6 cadres de 56 px tient en 360 × 640 (59 px libres), sans rétrécir la métropole de plus de 10 % ; la disposition plaît à l'œil | captures en 360 × 640, 384 × 723 et 1 280 × 700, montrées à l'utilisateur | lot 2 |
+| S862 | La bande de 6 cadres tient en 360 × 640 (59 px libres en hauteur, 336 px en largeur) et en 320 × 568 (296 px de large), avec le repli du § 4.2 (petite couronne à 56 px, DROM à 52 puis 44 px, ou deux rangées de 3), sans rétrécir la métropole de plus de 10 % ; la disposition plaît à l'œil | captures en 320 × 568, 360 × 640, 384 × 723 et 1 280 × 700, montrées à l'utilisateur | lot 2 |
 | S863 | Le disque de 12 px de `pick` près du bord d'un cadre ne donne aucune fausse zone (il retombe sur toutes les zones) | tests `france-carte` aux bords de chaque cadre | lot 2 |
 | S864 | Le tracé du 974 dans l'archive FRA recouvre l'union des 24 communes de `public/geo/reunion/` (même produit, même édition) | test de données | lot 1 |
 | S865 | La somme des populations des communes de l'IGN par département égale les populations légales de l'INSEE à l'unité près | comparer à la publication de l'INSEE pour 5 départements | lot 8 |
@@ -1015,7 +1038,7 @@ La numérotation suit la plage de cette étude (S860 à S899).
 | S868 | Le tri « terrain local » ou « l'île » du lot 0 ne change rien sur l'île | captures de l'île du pilote comparées avant et après | lot 0 |
 | S869 | Les noms de fleuves du J5 et des départements se distinguent par leur détail dans la recherche, et aucun sujet n'accepte la réponse d'un autre | liste du J5 confrontée à `collisions.py` | étude du J5, puis lot 3 |
 | S870 | La mention « IGN, ADMIN EXPRESS, édition du … · Licence Ouverte 2.0 », déjà affichée sur l'île, suffit pour les départements et les régions | relire la Licence Ouverte 2.0 (mention de la source et de la date de mise à jour) | lot 2 |
-| S871 | Les encarts de 56 px donnent Paris ≥ 15 px et le reste de la petite couronne ≥ 20 px sur tout téléphone de 360 px de large ou plus | test `france-carte` | lot 2 |
+| S871 | Les encarts de 56 px donnent Paris ≥ 15 px et le reste de la petite couronne ≥ 20 px sur tout téléphone de 320 px de large ou plus (l'encart de la petite couronne garde 56 px, § 4.2) | test `france-carte` en 320 × 568, 360 × 640 et 384 × 723 | lot 2 |
 | S872 | Un lecteur d'écran lit « 2A » en entier et sans le confondre avec un mot | TalkBack sur l'A37 | lot 6 |
 
 ## 13. Sources
