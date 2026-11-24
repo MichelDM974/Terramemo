@@ -9,7 +9,9 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APACHE_ICI, artefacts, composantsAar, factoriserApache, GROUPES_AVIS, releveAvis, termesApache } from '../licences/android.mjs';
 import { AVIS_ANDROID, artefactsAndroid, avisAndroid, FICHIER_LICENCES, LICENCES_A_PART, ligneAndroid, texteAvis, texteLicence, texteLicencePaquet, texteLicences } from '../licences/tierces';
-import { nomPaquets, URL_CREDITS_PHOTOS, URL_LICENCES, vueCredits } from '../src/vues/credits';
+import { nomPaquets, URL_LICENCES, vueCredits } from '../src/vues/credits';
+import { URL_CREDITS_PHOTOS } from '../src/vues/credits-photos';
+import { textesFiche } from '../src/vues/textes-fiche';
 import { textes } from '../src/vues/textes';
 import { installerDom, type El } from './dom-factice';
 
@@ -441,8 +443,7 @@ describe('licences tierces (#20)', () => {
     creditsPhotos = null;
     details.open = true;
     details.emettre('toggle');
-    await new Promise((r) => setTimeout(r, 0));
-    expect(liste.innerText).toBe(T.photos_erreur);
+    await vi.waitFor(() => expect(liste.innerText).toBe(T.licences_erreur));
     creditsPhotos = {
       v: 1,
       photos: [
@@ -454,11 +455,11 @@ describe('licences tierces (#20)', () => {
     details.emettre('toggle');
     details.open = true;
     details.emettre('toggle');
-    await new Promise((r) => setTimeout(r, 0));
+    await vi.waitFor(() => expect(liste.querySelectorAll('li')).toHaveLength(2));
     const lignes = liste.querySelectorAll('li');
     expect(lignes.map((l) => l.innerText)).toEqual([
-      `Himeji castle in may 2015Nikos Kitsakis · CC BY-SA 4.0 · ${T.photos_commons}`,
-      `piton des Neiges${T.photos_auteur_inconnu} · Domaine public · ${T.photos_commons}`,
+      `Himeji castle in may 2015Nikos Kitsakis · CC BY-SA 4.0 · ${textesFiche.photos.credits_page}`,
+      `piton des Neiges${textesFiche.photos.auteur_inconnu} · Domaine public · ${textesFiche.photos.credits_page}`,
     ]);
     expect(lignes[0]!.querySelector('a.credits-licence')!.getAttribute('href')).toBe('https://creativecommons.org/licenses/by-sa/4.0');
     expect(lignes[0]!.querySelector('a.credits-page')!.getAttribute('href')).toBe('https://commons.wikimedia.org/wiki/File:Himeji_castle_in_may_2015.jpg');
@@ -470,7 +471,6 @@ describe('licences tierces (#20)', () => {
     const d2 = v2.querySelector('#credits-photos') as El & { open?: boolean };
     d2.open = true;
     d2.emettre('toggle');
-    await new Promise((r) => setTimeout(r, 0));
-    expect(v2.querySelector('#credits-photos-liste')!.innerText).toBe(T.photos_aucune);
+    await vi.waitFor(() => expect(v2.querySelector('#credits-photos-liste')!.innerText).toBe(textesFiche.photos.credits_aucune));
   });
 });

@@ -74,8 +74,7 @@ import { LIGNES_RELUES, type LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
 import type { ApprendreModele } from './apprendre-lieu';
 import { creer, croix, LIBELLE_STATUT } from './commun';
-import { creerCarrousel, creerPleinEcran, type Carrousel, type PleinEcran, type SourcePhotos } from './fiche-photos';
-export { sourcePhotosSite } from './fiche-photos';
+import { creerCarrousel, creerPleinEcran, sourcePhotosSite, type Carrousel, type PleinEcran, type SourcePhotos } from './fiche-photos';
 import { creerSituation, type SourceSituation } from './situation';
 import { remplir, textes } from './textes';
 import { textesFiche } from './textes-fiche';
@@ -458,9 +457,10 @@ export const SITUATION_APRES_MS = 400;
  * La feuille et son voile, posés dans `zone` (#app), cachés. Un seul
  * exemplaire par page : la carte le garde. `situation` : ce que lit la carte de
  * situation (lot F8) ; absent, la tête n'en a pas. `photos` : d'où viennent les
- * photos (lot P2, sourcePhotosSite) ; absent, pas de carrousel.
+ * photos (lot P2) : true, celles du site (sourcePhotosSite) ; absent, pas de carrousel.
  */
-export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation?: SourceSituation, photos?: SourcePhotos): Feuille {
+export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation?: SourceSituation, source?: true | SourcePhotos): Feuille {
+  const photos = source === true ? sourcePhotosSite : source;
   const voile = creer('div', { class: 'fiche-voile', id: 'fiche-voile', 'aria-hidden': 'true' });
   voile.hidden = true;
   voile.addEventListener('click', () => actions.voile());

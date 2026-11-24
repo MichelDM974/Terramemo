@@ -18,8 +18,8 @@
 // § 3.2) : une ligne « Wikimedia Commons » à la fin des données, la phrase qui dit
 // la modification (« Photos recadrées et réduites ; chacune garde la licence de
 // son auteur. ») et la rubrique « Photos », dépliée à la demande : chaque photo,
-// son titre ou son sujet, son auteur, sa licence, son lien (photos/credits.json,
-// écrit par le build, lu à la première ouverture).
+// son titre ou son sujet, son auteur, sa licence, son lien (src/vues/credits-photos.ts,
+// un morceau à part chargé à la première ouverture, avec photos/credits.json).
 import { dependencies } from '../../package.json';
 import { dateCredit, type SourcesTerrain } from '../map/donnees-terrain';
 import { REUNION } from '../map/terrain';
@@ -30,35 +30,6 @@ const T = textes.credits;
 const VERSIONS: Readonly<Record<string, string>> = dependencies;
 /** Le fichier des licences tierces, à la racine (FICHIER_LICENCES de licences/tierces.ts, lu par Node seul). */
 export const URL_LICENCES = '/licences-tierces.txt';
-/** Les crédits des photos des fiches (geodata/photos/listes.mjs, écrit par le build). */
-export const URL_CREDITS_PHOTOS = '/photos/credits.json';
-
-/** Une ligne de photos/credits.json. */
-interface CreditPhoto {
-  titre: string;
-  auteur: string | null;
-  licence: string;
-  licence_url: string | null;
-  page: string;
-}
-
-/** Une photo de la rubrique « Photos » : son titre ou son sujet, puis « auteur · licence · page sur Commons ». */
-function lignePhoto(c: CreditPhoto): HTMLLIElement {
-  const lien = (href: string, t: string, cls: string) => creer('a', { href, target: '_blank', rel: 'noopener', class: cls }, t);
-  return creer(
-    'li',
-    {},
-    creer('span', { class: 'credits-nom' }, c.titre),
-    creer(
-      'span',
-      { class: 'hint credits-detail' },
-      `${c.auteur ?? T.photos_auteur_inconnu} · `,
-      c.licence_url ? lien(c.licence_url, c.licence, 'credits-licence') : creer('span', { class: 'credits-licence' }, c.licence),
-      ' · ',
-      lien(c.page, T.photos_commons, 'credits-page'),
-    ),
-  );
-}
 
 interface Credit {
   nom: string | HTMLElement;
@@ -131,24 +102,12 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void; versCarte:
       });
   });
 
-  // Les crédits des photos des fiches (lot P2), lus à la première ouverture du dépliant ; un échec se retente à la suivante.
-  const listePhotos = creer('ul', { class: 'credits-liste', id: 'credits-photos-liste' }, creer('li', { class: 'hint' }, T.photos_chargement));
+  // Les crédits des photos des fiches (lot P2) : leur morceau et leur liste lus à la première ouverture du dépliant
+  // (credits-photos.ts) ; un échec (hors ligne) se retente à la suivante.
+  const listePhotos = creer('ul', { class: 'credits-liste', id: 'credits-photos-liste' }, creer('li', { class: 'hint' }, T.licences_chargement));
   const photos = creer('details', { class: 'credits-licences', id: 'credits-photos' }, creer('summary', {}, T.photos_resume), listePhotos);
-  let photosLues = false;
   photos.addEventListener('toggle', () => {
-    if (!photos.open || photosLues) return;
-    photosLues = true;
-    listePhotos.replaceChildren(creer('li', { class: 'hint' }, T.photos_chargement));
-    fetch(URL_CREDITS_PHOTOS)
-      .then((r) => (r.ok ? (r.json() as Promise<{ photos?: CreditPhoto[] }>) : Promise.reject(new Error(String(r.status)))))
-      .then((c) => {
-        const l = c.photos ?? [];
-        listePhotos.replaceChildren(...(l.length ? l.map(lignePhoto) : [creer('li', { class: 'hint' }, T.photos_aucune)]));
-      })
-      .catch(() => {
-        photosLues = false;
-        listePhotos.replaceChildren(creer('li', { class: 'hint' }, T.photos_erreur));
-      });
+    if (photos.open) import('./credits-photos').then((m) => m.remplir(listePhotos, T.licences_erreur), () => listePhotos.replaceChildren(T.licences_erreur));
   });
 
   const retour = creer('button', { type: 'button', class: 'secondary', id: 'credits-retour' }, T.retour);

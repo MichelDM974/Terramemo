@@ -122,7 +122,9 @@
     "agrandir": "Agrandir la photo : {alt}",
     "fermer": "Fermer la photo",
     "position": "Photo {n} sur {total}",
-    "hors_ligne": "Photo en grand : indisponible hors ligne"
+    "hors_ligne": "Photo en grand : indisponible hors ligne",
+    "credits_page": "page sur Commons",
+    "credits_aucune": "Aucune photo pour l'instant."
   },
   "nombres": {
     "million": "{n} million",

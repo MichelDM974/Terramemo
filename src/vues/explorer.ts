@@ -771,28 +771,22 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     if (!autorisee()) return void historique.quitter();
     // Le plein écran d'une photo (lot P2, § 4.4) : sur la fiche de son lieu déjà ouverte, il s'y pose ; le retour qui
     // le quitte rend l'entrée de cette fiche (rang − 1), qui se ferme sans être refaite.
-    const lieu = f;
-    const memeLieu = (e: EntreeFiche | null) => !!e && e.id === lieu.id && e.terrain === lieu.terrain;
-    if (f.photo !== undefined && memeLieu(ficheOuverte) && ficheOuverte!.rang === f.rang - 1) {
+    const meme = ficheOuverte?.id === f.id && ficheOuverte.terrain === f.terrain;
+    if (meme && f.photo !== undefined && ficheOuverte!.rang === f.rang - 1) {
       photoOuverte = f;
-      feuille?.pleinEcran(f.photo);
+      return feuille?.pleinEcran(f.photo);
+    }
+    if (meme && f.photo === undefined && ficheOuverte!.rang === f.rang) {
+      if (photoOuverte) feuille?.pleinEcran(null);
+      photoOuverte = null;
       return;
     }
-    if (f.photo === undefined && photoOuverte && memeLieu(ficheOuverte) && ficheOuverte!.rang === f.rang) {
-      photoOuverte = null;
-      feuille?.pleinEcran(null);
-      return;
-    }
-    if (ficheOuverte && ficheOuverte.id === f.id && ficheOuverte.rang === f.rang && !photoOuverte) return;
-    // Une entrée de plein écran rendue sans sa fiche (le retour en avant du navigateur) : la fiche, puis la photo.
-    const photo = f.photo;
-    if (photo !== undefined) {
-      photoOuverte = f;
-      f = { terrain: f.terrain, id: f.id, rang: f.rang - 1, ...(f.bilan ? { bilan: true } : {}) };
-    } else {
-      photoOuverte = null;
-      feuille?.pleinEcran(null);
-    }
+    // Une autre fiche : sa photo fermée. Une entrée de plein écran rendue sans sa fiche (le retour en avant du
+    // navigateur) : la fiche, puis la photo.
+    feuille?.pleinEcran(null);
+    const { photo, ...base } = f;
+    photoOuverte = photo === undefined ? null : f;
+    if (photo !== undefined) f = { ...base, rang: f.rang - 1 };
     ficheOuverte = f;
     const j = ++jetonFiche;
     barre.setAttribute('inert', '');
@@ -865,7 +859,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
           },
           // La carte de situation (lot F8) : les données déjà en mémoire, rien de plus à charger.
           { monde: () => ctx.donnees, ile: () => ctx.terrains.deja('reunion')?.donnees ?? null },
-          F.photos === true ? m.sourcePhotosSite : F.photos,
+          F.photos,
         );
         feuille.montrer(modele, { ...optionsAvant(f), focus: true });
         if (photoOuverte && photo !== undefined) feuille.pleinEcran(photo);

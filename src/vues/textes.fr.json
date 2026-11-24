@@ -697,18 +697,13 @@
       {
         "nom": "Wikimedia Commons",
         "detail": "Photos des fiches · auteur et licence sous chaque photo",
-        "licence": "CC0, domaine public, CC BY ou CC BY-SA, selon la photo",
+        "licence": "celle de chaque photo",
         "auteur": "les auteurs de chaque photo",
-        "lien": "https://commons.wikimedia.org/wiki/Commons:Reusing_content_outside_Wikimedia"
+        "lien": "https://commons.wikimedia.org/"
       }
     ],
     "photos_modifiees": "Photos recadrées et réduites ; chacune garde la licence de son auteur.",
     "photos_resume": "Photos",
-    "photos_chargement": "Chargement…",
-    "photos_aucune": "Aucune photo pour l'instant.",
-    "photos_erreur": "Liste indisponible (hors ligne ?) : refermer puis rouvrir pour réessayer.",
-    "photos_auteur_inconnu": "Auteur inconnu",
-    "photos_commons": "page sur Commons",
     "ign_date": "Source : IGN, à jour au {date}",
     "bibliotheques_titre": "Bibliothèques",
     "bibliotheques_aide": "Celles que le site et l'appli embarquent ; les outils de développement n'y sont pas.",
