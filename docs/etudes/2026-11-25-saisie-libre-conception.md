@@ -1,7 +1,9 @@
 # Saisie libre des noms : conception (25/11/2026, #36)
 
-*Faite seule, de nuit, par un agent, sans relecture adverse ni réponse de
-l'utilisateur. Elle est à relire et à trancher avant tout code. Code lu sur
+*Faite seule, de nuit, par un agent, puis relue par un autre la même nuit
+(constats vérifiés et corrigés : capitales admises par deux pays dans la
+règle de collision, recours après un refus, lien avec la v2 du J4), sans
+réponse de l'utilisateur. Elle est à trancher avant tout code. Code lu sur
 `main` à `4525155` (le code est celui de `a3d08a0` : depuis, seules des
 études sont entrées). Rien n'est codé.*
 
@@ -11,7 +13,7 @@ part : D350 à D362 (test de placement), D600 à D649 (J4), D900 à D949
 (multijoueur, `git log` relu avant le commit). D'autres (J5, J6) peuvent
 reprendre à D62 ou prendre une centaine ronde. Celle-ci prend donc une
 plage réservée, hors des centaines à trois chiffres : **D1300 à D1349** et
-**S1300 à S1349** (utilisées : D1300 à D1315, S1300 à S1310). On peut
+**S1300 à S1349** (utilisées : D1300 à D1316, S1300 à S1310). On peut
 renuméroter à la validation.
 
 **Conventions** (celles des études du J2 et de la fiche d'un lieu).
@@ -303,6 +305,24 @@ Chaque paire à une faute est un cas du test (lot 9.1) : « Gambie » pour la
 Zambie est faux et désigne la Gambie ; « Zambi » pour la Zambie est juste ;
 « Gambi » pour la Zambie est faux.
 
+**Exception : les formes admises par plusieurs lieux** (ajoutée à la
+relecture). La décision « Capitales et drapeaux » (D36 i) rend Jérusalem
+juste pour la Palestine et Jérusalem-Est juste pour Israël, et
+`public/geo/capitales.json` porte ce croisement (`x` : `["PSE"]` sur la
+ligne d'Israël, `["ISR"]` sur celle de la Palestine, mesuré ; côté carte,
+`map/acceptes.ts:16-18`, sorte `capitale`). Sans exception, la règle
+ci-dessus rendrait « Jérusalem » faux pour la Palestine : d0 à
+« jerusalemest » vaut 3, au-delà des 2 fautes permises, et d1 = 0 pour
+Israël ; « Jérusalem-Est » serait faux pour Israël de même. La règle
+devient : **les formes du lieu demandé sont les siennes plus celles des
+lieux de son `x`** (pour les capitales : les capitales déclarées des pays
+de `x`), et un lieu de `x` n'est pas un concurrent pour lui. Aujourd'hui,
+seule la paire Israël-Palestine a un `x` (à figer dans le test). Cas du
+test (lot 9.1) : « Jérusalem » juste pour la Palestine, « Jérusalem-Est »
+juste pour Israël, « Jérusalem » juste pour Israël, et « Ramallah » juste
+pour la Palestine (le siège du gouvernement, `role: "siege"`, juste lui
+aussi selon la même décision) mais faux pour Israël.
+
 ### 3.5 Les formes ambiguës (D1305)
 
 Certaines saisies désignent deux lieux sans en être le nom : « Corée »
@@ -354,7 +374,9 @@ a.
 
 **Capitales.** Les 22 alias existants servent tels quels (Kyiv, Beijing).
 Toute capitale juste du pays est juste (décision « Capitales et
-drapeaux ») : pour la Bolivie, Sucre et La Paz. Une capitale écartée
+drapeaux ») : pour la Bolivie, Sucre et La Paz ; pour la Palestine,
+Jérusalem-Est, Ramallah (le siège) et, par le croisement `x`, Jérusalem ;
+pour Israël, Jérusalem et Jérusalem-Est (§ 3.4, exception). Une capitale écartée
 (Dar es Salaam pour la Tanzanie) est fausse, avec une remarque (D1315).
 
 **Mers.** L'alias existant suffit, avec la règle du générique (§ 3.1).
@@ -386,9 +408,9 @@ juger(tape, cible, domaine) → { verdict, fautes, designe, ambigus }
 
 1. `tape` passe par les étapes du § 3.1 ; vide → `vide` (rien n'est jugé).
 2. Si `tape` est une forme ambiguë qui contient la cible → `precise`.
-3. `d0` = distance à la forme la plus proche de la cible ; `d1` = la plus
-   petite distance à une forme d'un autre lieu (calcul arrêté dès qu'il
-   dépasse `d0`).
+3. `d0` = distance à la forme la plus proche de la cible, formes de son
+   `x` comprises ; `d1` = la plus petite distance à une forme d'un autre
+   lieu, hors des lieux de `x` (calcul arrêté dès qu'il dépasse `d0`).
 4. `d1 <= d0` → `faux`, `designe` = ce lieu ; `d0` > tolérance de cette
    forme → `faux`, `designe` = le lieu le plus proche s'il est dans sa
    propre tolérance, sinon null ; sinon → `juste`.
@@ -417,11 +439,40 @@ quelques Ko, estimé.
 5. Un seul essai (décision « Nommer »), sauf la forme ambiguë (§ 3.5).
 6. Un raté revient en fin de séance (reprise, `srs/seance.ts:13-14`), à
    retaper, sans nouvelle note.
+7. **Après un refus sans lieu désigné** (D1316, ajouté à la relecture) :
+   voir plus bas.
 
 Sur le PC, tout se fait au clavier physique : le champ a le focus, Entrée
 valide. Les touches + et − ne zooment pas dans un champ (décision « Boutons
 de zoom » : « hors d'un champ de saisie »), et les raccourcis 1 à 4 de
 Reconnaître s'y taisent déjà (`tests/nommer-vue.test.ts:384`).
+
+**Un refus alors que le joueur savait** (D1316). La carte retournée
+laissait au joueur le « Je savais » ; la saisie juge à sa place. Un nom
+su mais tapé à plus de fautes que la tolérance, ou une graphie juste
+absente des alias (ou des alias de l'APK, plus ancien : S1304), vaut
+Again sans recours. Exemples (distance OSA, mesurée) : « Kirgistan » pour
+le Kirghizstan, 2 fautes sur 11 lettres, est accepté ; « Ousbéquistan »
+pour l'Ouzbékistan, 3 fautes, est refusé, alors que le joueur sait le
+pays. Le banc (§ 3.2, 95 % des fautes simples acceptées) ne mesure que
+les fautes simples ; ce cas n'est pas chiffré (S1305 : le journal ne le
+gardera pas).
+
+- a) **aucun recours** : faux, Again, le bon nom montré. Simple, et le
+  plan veut un juge sans appel ;
+- b) **« Compter juste »** sous le bon nom, seulement si le refus ne
+  désigne **aucun autre lieu** (`designe` = null) et que `d0` dépasse la
+  tolérance d'au plus une faute : un toucher le change en juste (Good),
+  comme le « Je savais » de la carte retournée, qui est déjà une
+  auto-évaluation. Une confusion (« Gambie » pour la Zambie) reste
+  fausse sans bouton. Au journal : `correct: true`, `reponse: null`,
+  rien de nouveau (v1) ;
+- c) b, sans la borne de fautes.
+
+**Recommandation : b.** FSRS planifie sur la mémoire, pas sur
+l'orthographe (D1309 a le dit déjà pour les fautes admises), et la borne
+« une faute de plus que la tolérance, aucun lieu désigné » garde le bouton
+rare. Par défaut : a, réversible (aucune donnée nouvelle).
 
 ### 4.2 La rétroaction (D1315)
 
@@ -434,6 +485,7 @@ Reconnaître s'y taisent déjà (`tests/nommer-vue.test.ts:384`).
 | Faux, rien de proche | « C'est la **Zambie** » | `correct: false`, `reponse: null` |
 | Refus à remarque (Angleterre, Hollande si D1306 les refuse ; capitale écartée) | « C'est le **Royaume-Uni** · l'Angleterre en est une nation » ; « Dar es Salaam n'est plus la capitale depuis 1996 » (date à vérifier) | `correct: false` |
 | Je ne sais pas | le nom | `correct: false`, `aide: 'passer'` |
+| Faux, rien de désigné, à une faute de la tolérance (si D1316 b) | « C'est l'**Ouzbékistan** » et « Compter juste » | `correct: false`, ou `correct: true` après le bouton |
 | Forme ambiguë | « Il y a deux Corée : précise. » | rien, la question continue |
 
 **D1315.** a) montrer le lieu désigné (contour et nom), comme le prévoit la
@@ -548,6 +600,15 @@ retard », et la note figée à l'écriture (`srs/note.ts:1-3`) suffit à FSRS.
 Si un jour un autre champ demande la v2, le nombre de fautes pourra venir
 avec. Par défaut : a.
 
+**Lien avec le J4** (ajouté à la relecture). L'étude du J4 (#6, D617 a,
+lot 0 relu) propose justement une v2 pour le champ `estime` des ordres de
+grandeur, sur la même règle de `sync/lots.ts:21-22`. Les deux études
+lisent donc ce commentaire de la même façon : un champ nouveau, c'est une
+v2, règles et APK d'abord. Si les deux la prennent, c'est une seule v2
+(les deux champs à la fin de `FACULTATIFS`), faite par le premier lot qui
+la demande ; si le J4 la livre d'abord, D1310 b ne coûte plus que le
+champ lui-même (S au lieu de M), et la recommandation a se rediscute.
+
 **Les données par version.** L'APK juge avec ses propres noms et alias
 (§ 1). Une réponse jugée fausse dans un APK ancien (alias absent) et juste
 sur le site reste ce qu'elle a été : sa note est figée. C'est accepté
@@ -658,10 +719,15 @@ la logique (lot 9.5), pas aux claviers.
   « Atlantique » → juste ; « Bosnie » → faux (D1308 a) ; « Zmabie » → juste
   (D1303 a) ; les noms de 4 lettres avec une faute → faux ; une saisie vide
   → `vide` ; une capitale juste parmi plusieurs (Sucre, La Paz) ;
+  « Jérusalem » pour la Palestine et « Jérusalem-Est » pour Israël →
+  juste, « Ramallah » pour Israël → faux (§ 3.4, exception) ;
 - `tests/donnees-saisie.test.ts` (lot 9.2), sur les vraies données :
   - toute forme acceptée d'un lieu (nom, alias, formes du § 3.1), tapée
     exactement, est jugée juste pour lui et fausse pour tout autre lieu du
-    domaine : c'est le **test de collision** du plan, sur toutes les paires ;
+    domaine, **sauf pour un lieu qui l'admet par son `x`** (la liste de ces
+    exceptions est figée : Jérusalem et Jérusalem-Est, Israël et
+    Palestine) : c'est le **test de collision** du plan, sur toutes les
+    paires ;
   - aucun alias n'est égal à une forme d'un autre lieu ; chaque id d'alias
     et de forme ambiguë existe ;
   - la liste des paires à une faute est figée (Gambie et Zambie, Iran et
@@ -678,7 +744,9 @@ la logique (lot 9.5), pas aux claviers.
   et s'encode dans un lot v1 (`compacter`, `deplier`) sans perte : la
   garantie de D1310 a ;
 - tests DOM de la vue (focus à la fin du vol, Entrée, « Je ne sais pas »,
-  « Précise », rétroactions du § 4.2) ; si D1311 c, ceux du clavier.
+  « Précise », rétroactions du § 4.2 ; si D1316 b : « Compter juste »
+  pour « Ousbéquistan », absent pour « Gambie » donné pour la Zambie) ; si
+  D1311 c, ceux du clavier.
 
 ## 9. Lots
 
@@ -693,7 +761,7 @@ Sur l'A37 : après `sauver_journal`.
 | 9.1 Juge | S | — | D1302 à D1305, D1308 (défauts codés) | `saisie/juger.ts` et `tests/saisie-juger.test.ts` au vert ; rien de visible |
 | 9.2 Alias et test de collision | S, plus la relecture | 9.1 | **D1306** (relecture de l'annexe A), D1307 | `geodata/alias-pays.fr.json`, `public/geo/alias.fr.json`, formes ambiguës ; `tests/donnees-saisie.test.ts` et le banc au vert |
 | 9.3 Clavier | S (a, b) ou M (c) | — | **l'essai du § 7**, D1311 | le champ choisi, ou `vues/clavier.ts` et ses tests |
-| 9.4 La question en séance | M | 9.1, 9.2, 9.3 | D1300, D1301, D1309, D1312 à D1315 | la forme `saisie` dans `srs/seance.ts` ; la vue (dans `vues/retournee.ts` ou un `vues/ecrire.ts` voisin) ; textes ; réglage de ⚙ ; la Révision du jour se joue au clavier sur le site |
+| 9.4 La question en séance | M | 9.1, 9.2, 9.3 | D1300, D1301, D1309, D1312 à D1316 | la forme `saisie` dans `srs/seance.ts` ; la vue (dans `vues/retournee.ts` ou un `vues/ecrire.ts` voisin) ; textes ; réglage de ⚙ ; la Révision du jour se joue au clavier sur le site |
 | 9.5 Pilote | S | 9.4 | — | `driver.py ui_ecrire` : « Zambie » juste, « Gambie » faux avec la zone désignée, « Corée » → « précise », « St-Denis » juste ; captures |
 | 9.6 Fin du ticket | S | 9.5 | l'APK de la CI (`android.yml`) | une séance au clavier sur le site et dans l'APK de l'A37, les deux claviers ; critère de #36 |
 
@@ -708,7 +776,7 @@ derrière un drapeau ; 9.2 et 9.3 suivent sans rien défaire.
 
 ## 10. Décisions à trancher
 
-Seize décisions, D1300 à D1315. « Par défaut » dit ce que le code fait sans
+Dix-sept décisions, D1300 à D1316. « Par défaut » dit ce que le code fait sans
 réponse : une constante nommée, commentée « défaut en attente de
 l'utilisateur, #36 ».
 
@@ -724,6 +792,7 @@ l'utilisateur, #36 ».
 | D1307 | Anciens noms (§ 3.6) | a) récents (depuis 2018) justes avec « Nom actuel : … » ; b) tous ; c) aucun | **a** | a | — |
 | D1308 | Formes allégées (§ 3.7) | a) article, St, générique des mers facultatifs, nom composé en entier ; b) a + la première partie d'un composé ; c) nom exact | **a** | a | — |
 | D1309 | Note d'une réponse juste avec fautes | a) Good, comme sans faute (D3 : jamais Hard) ; b) Hard | **a** : la faute est d'orthographe, pas de mémoire | a | — |
+| D1316 | Recours après un refus (§ 4.1) | a) aucun ; b) « Compter juste » si aucun lieu n'est désigné et que la saisie dépasse la tolérance d'une faute au plus ; c) b sans borne | **b** | a | — |
 | **D1310** | Format du journal (§ 6) | a) v1 inchangé, `reponse` = id désigné ; b) champ nouveau, lots v2, règles et APK d'abord ; c) texte tapé gardé | **a** | a | 9.0 si b |
 | **D1311** | Clavier (§ 5) | a) celui du téléphone, champ réglé ; b) variante `type=url` ; c) 26 lettres dans l'appli | **selon l'essai** (§ 7, règle de décision) | a jusqu'à l'essai | 9.3 |
 | **D1312** | Place du champ, clavier ouvert (§ 4.3) | a) dans la barre du bas, qui monte ; b) en haut, sous l'en-tête ; c) le clavier de l'appli, page fixe | **a**, à confirmer à l'essai | a | 9.4 |
