@@ -1341,6 +1341,25 @@ worktree neuf : le script la retélécharge), la vérifie contre
 octet). Demande `7z` et Node 24 (`node:sqlite`) ; pas la CI, qui ne lit que
 les sorties versionnées (`tests/donnees-reunion.test.ts`).
 
+## Photos des fiches (#34, lot P2)
+
+Tout est dans `geodata/photos/LISEZMOI.md` (commandes, fichiers, liste « avant le
+premier déploiement »). À retenir ici :
+
+- Les WebP sont **hors de git** (`public/photos/`, ignoré ; D59) : un **worktree neuf
+  n'en a aucun**. Avant un build qui sera déployé : `npm run photos:restaurer` (copie
+  de `~/Sauvegardes/terramemo/photos/`, empreintes vérifiées). Le `predeploy` de
+  `firebase.json` lance `verifier.mjs --dist` et refuse un `dist/` où une photo de
+  `licences.json` manque (sinon `deploy` la retirerait du site).
+- Les listes `photos/l/<id>.json` (une par lieu, vide sans photo) et
+  `photos/credits.json` sont écrites par le build et servies par `serve` depuis
+  `choix.json` et `licences.json` : rien à faire.
+- Lieux d'essai sans réseau : `TERRAMEMO_PHOTOS_DONNEES=<dossier> driver.py serve`
+  (préparation dans le LISEZMOI) ; le serveur sert alors les WebP de
+  `<dossier>/photos/`, sans rien écrire dans `public/`.
+- Le service worker range les photos dans `photos-terramemo-1`, hors du préfixe
+  `terramemo-` : `smoke` compte toujours un seul cache `terramemo-*`.
+
 ## Classements et comptes : émulateurs et règles
 
 ```bash
@@ -2092,6 +2111,9 @@ npx firebase deploy --only firestore    # après un changement de firestore.rule
 Depuis le PC, juste après le commit. **`deploy` publie `dist/` tel qu'il
 est sur le disque, pas le dernier commit** : rebâtir juste avant, sur un
 arbre propre (`git status`).
+Dans un worktree, `npm run photos:restaurer` avant le build (les WebP des
+photos sont hors de git ; le `predeploy` refuse sans eux : « Photos des
+fiches »).
 
 **Règles d'abord** quand un sujet ouvre ses épreuves classées (étude J2
 § 8.2) : `npx firebase deploy --only firestore` (après `npm run
