@@ -524,6 +524,12 @@ export function creerFeuille(zone: HTMLElement, actions: ActionsFiche, situation
   let pleinMontre = -1;
   function carrouselDe(m: ModeleFiche): HTMLElement[] {
     if (!photos) return [];
+    // Un lieu sans photo (l'index du build) : ni carrousel, ni place réservée, rien de lu.
+    if (photos.illustre && !photos.illustre(m.id)) {
+      carrousel?.arreter();
+      carrousel = null;
+      return [];
+    }
     if (carrousel?.id !== m.id) {
       carrousel?.arreter();
       carrousel = creerCarrousel(m.id, photos, (i) => actions.photo?.(i));

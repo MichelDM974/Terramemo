@@ -11,6 +11,8 @@ import { creerFeuille, type ModeleFiche } from '../src/vues/fiche';
 import { remplir } from '../src/vues/textes';
 import { textesFiche } from '../src/vues/textes-fiche';
 import { El, installerDom } from './dom-factice';
+import { LIEUX_ILLUSTRES } from 'virtual:terramemo-photos-lieux';
+import { lieuxIllustres, lireDonnees } from '../geodata/photos/listes.mjs';
 
 const T = textesFiche.photos;
 const tenir = () => new Promise((r) => setTimeout(r, 0));
@@ -75,6 +77,16 @@ describe('la liste d’un lieu (photos/l/<id>.json)', () => {
     expect(l.photos).toEqual([HIMEJI, PITON]);
     expect(lireListe(null).photos).toEqual([]);
     expect(lireListe({ photos: 'x' }).photos).toEqual([]);
+  });
+
+  it('le site : l’index des lieux illustrés du build (vide tant que la relecture n’a rien validé), lu sans réseau', () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    expect(typeof sourcePhotosSite.illustre).toBe('function');
+    for (const id of LIEUX_ILLUSTRES) expect(sourcePhotosSite.illustre!(id), id).toBe(true);
+    expect(sourcePhotosSite.illustre!('pas-un-lieu')).toBe(false);
+    expect(LIEUX_ILLUSTRES).toEqual(lieuxIllustres(lireDonnees()));
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('le site : la liste à photos/l/<id>.json (404 : pas de photo), les fichiers sous photos/v/ et photos/p/', async () => {
@@ -262,6 +274,28 @@ describe('dans la feuille (fiche.ts)', () => {
     const sans = creerFeuille(new El('main') as unknown as HTMLElement, v.actions);
     sans.montrer(modele('JPN', 'Japon'), { avant: false, focus: true });
     expect((sans.element as unknown as El).querySelector('.fiche-photos')).toBeNull();
+  });
+
+  it('un lieu hors de l’index des lieux illustrés : ni carrousel, ni place réservée, ni liste lue ; la fiche ne saute pas', async () => {
+    const zone = new El('main');
+    const actions = { fermer: vi.fn(), voile: vi.fn(), avant: vi.fn(), voisin: vi.fn(), photo: vi.fn<(i: number) => void>() };
+    const s = sourceFactice({ JPN: [KYOTO] });
+    const f = creerFeuille(zone as unknown as HTMLElement, actions, undefined, { ...s.source, illustre: (id) => id === 'JPN' });
+    const el = f.element as unknown as El;
+    f.montrer(modele('FRA', 'France'), { avant: false, focus: true });
+    expect(el.querySelector('.fiche-photos')).toBeNull();
+    expect(el.querySelector('.fiche-photo-attente')).toBeNull();
+    await tenir();
+    expect(s.demandes).toEqual([]);
+    f.montrer(modele('JPN', 'Japon'), { avant: true, focus: true });
+    expect(el.querySelector('.fiche-photo-attente')).not.toBeNull();
+    await tenir();
+    expect(s.demandes).toEqual(['JPN']);
+    expect(imgs(el)).toHaveLength(1);
+    // Retour à un lieu sans photo : le carrousel du Japon part, rien n'est relu.
+    f.montrer(modele('FRA', 'France'), { avant: true, focus: true });
+    expect(el.querySelector('.fiche-photos')).toBeNull();
+    expect(s.demandes).toEqual(['JPN']);
   });
 
   it('pleinEcran(i) le montre, pleinEcran(null) le ferme et rend le focus à la photo ; sa « × » est un pas en arrière (actions.avant)', async () => {

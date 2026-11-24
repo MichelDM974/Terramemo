@@ -3405,10 +3405,10 @@ de Cilaos et de Salazie, des images fabriquées marquées « ESSAI »), jamais s
 - Les textes de la fiche vont dans `textes-fiche.fr.json` (bloc `photos`), pas `textes.fr.json` : le § 19 a sorti
   les textes de la fiche du morceau principal après la rédaction du lot. Ceux de la rubrique des Crédits aussi, sauf
   son titre et la phrase de la modification.
-- La case d'attente (3:2) est posée avant la liste ; une liste vide la retire : la fiche d'un lieu sans photo saute
-  d'une hauteur de carrousel à l'arrivée de sa liste (≈ 0,3 Ko, un aller-retour). Tant que la relecture n'est pas
-  faite, c'est le cas de toutes les fiches. Non retenu : un index des lieux qui ont des photos, lu avec les données
-  des fiches (une requête de plus au premier toucher).
+- La case d'attente (3:2) n'est posée que pour un lieu de l'index des lieux illustrés (`virtual:terramemo-photos-lieux`,
+  écrit par le build dans le morceau de la fiche : aucune requête de plus) ; une fiche sans photo n'a ni carrousel,
+  ni place réservée, ni lecture de `photos/l/<id>.json`, et ne saute plus à l'arrivée de sa liste (constat de la
+  relecture de P2). Seule une liste vide malgré l'index (un service worker resté sur un ancien morceau) la retire.
 - Le crédit est **sous chaque photo** (une `figcaption` par case, qui défile avec elle) plutôt qu'un crédit sous le
   carrousel refait à chaque défilement.
 - Le plein écran : une entrée d'historique de plus sur la fiche (`photo` dans l'état, posée par `pousserFiche`),

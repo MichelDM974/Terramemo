@@ -10,7 +10,9 @@
 // (un IntersectionObserver sur le carrousel pose son src : loading="lazy" charge
 // en avance, sur une grande distance), le plein écran au toucher seulement. Chaque
 // image a sa place réservée (aspect-ratio 3 / 2, carte.css) : la fiche ne saute
-// pas à l'arrivée d'une photo. Une liste vide (un lieu sans photo, D60 a, ou pas encore
+// pas à l'arrivée d'une photo. Le carrousel et sa place ne sont posés que pour un lieu de l'index
+// des lieux illustrés (LIEUX_ILLUSTRES, écrit par le build dans ce morceau) : une fiche sans photo
+// ne lit pas de liste et ne saute pas d'une hauteur de carrousel à son arrivée. Une liste vide (un lieu sans photo, D60 a, ou pas encore
 // relu), absente (404), ou hors ligne sans copie : le carrousel se retire. Une photo qui ne vient pas
 // (hors ligne, retirée du site) : sa case se retire, la fiche montre les autres.
 //
@@ -21,6 +23,7 @@
 // Le plein écran est une entrée d'historique (§ 4.4, posée par navigation.ts) :
 // un toucher, « × », Échap ou un retour le ferment par history.back(), la fiche
 // reste. Ce module ne touche pas à l'historique : il le demande (ouvrir, fermer).
+import { LIEUX_ILLUSTRES } from 'virtual:terramemo-photos-lieux';
 import { creer, croix } from './commun';
 import { remplir } from './textes';
 import { textesFiche } from './textes-fiche';
@@ -67,6 +70,8 @@ export interface SourcePhotos {
   /** L'adresse d'une vignette, d'un plein écran, par leur nom. */
   vignette(nom: string): string;
   plein(nom: string): string;
+  /** Le lieu a-t-il des photos (l'index du build) ? false : ni carrousel, ni place réservée, ni liste lue ; absent : oui. */
+  illustre?(id: string): boolean;
   /** Un observateur posé sur le carrousel : visible(el) quand une case y entre à moitié ; null : sans (tout se charge). */
   observer?(racine: HTMLElement, visible: (el: Element) => void): ObservateurPhotos | null;
 }
@@ -91,8 +96,11 @@ export function lireListe(x: unknown): ListePhotos {
   };
 }
 
-/** Les photos du site : photos/l/<id>.json, photos/v/, photos/p/ ; l'observateur du navigateur. */
+const illustres = new Set(LIEUX_ILLUSTRES);
+
+/** Les photos du site : l'index des lieux illustrés, photos/l/<id>.json, photos/v/, photos/p/ ; l'observateur du navigateur. */
 export const sourcePhotosSite: SourcePhotos = {
+  illustre: (id) => illustres.has(id),
   async liste(id) {
     const r = await fetch(`/photos/l/${encodeURIComponent(id)}.json`);
     if (r.status === 404) return null;

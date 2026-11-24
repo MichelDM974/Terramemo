@@ -6,7 +6,7 @@ import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { FICHIER_LICENCES, texteLicences } from './licences/tierces';
 import { dresserManifeste, FICHIER_SW, horsManifeste, injecterManifeste, SW_DE_RETRAIT } from './src/sw/construction';
-import { dossierDonnees, fichiersDuSite, lireDonnees } from './geodata/photos/listes.mjs';
+import { dossierDonnees, fichiersDuSite, lieuxIllustres, lireDonnees } from './geodata/photos/listes.mjs';
 
 /**
  * Le fichier des licences tierces (#20, licences/tierces.ts) : un fichier du
@@ -37,13 +37,26 @@ function licencesTierces(): Plugin {
  * public/photos/ (hors de git, D59), copiés par Vite. Avec
  * TERRAMEMO_PHOTOS_DONNEES=<dossier> (les lieux d'essai du pilote), les deux
  * JSON viennent de ce dossier, et les WebP de son sous-dossier photos/.
+ *
+ * L'index des lieux illustrés (virtual:terramemo-photos-lieux, src/photos-lieux.d.ts) : les
+ * ids qui ont au moins une photo, dans le morceau de la fiche (fiche-photos.ts) ; une fiche
+ * sans photo n'a ni carrousel, ni place réservée, ni lecture de sa liste. Au serveur de
+ * développement, refait quand choix.json ou licences.json change.
  */
+const MODULE_LIEUX = 'virtual:terramemo-photos-lieux';
 function photosFiches(): Plugin {
   const essai = process.env.TERRAMEMO_PHOTOS_DONNEES;
   const webpEssai = essai ? join(essai, 'photos') : null;
   const typeDe = (f: string) => (f.endsWith('.webp') ? 'image/webp' : 'application/json; charset=utf-8');
   return {
     name: 'terramemo-photos',
+    resolveId: (id) => (id === MODULE_LIEUX ? `\0${MODULE_LIEUX}` : null),
+    load(id) {
+      if (id !== `\0${MODULE_LIEUX}`) return null;
+      const d = dossierDonnees();
+      for (const f of ['choix.json', 'licences.json']) if (existsSync(join(d, f))) this.addWatchFile(join(d, f));
+      return `export const LIEUX_ILLUSTRES = ${JSON.stringify(lieuxIllustres(lireDonnees(d)))};`;
+    },
     configureServer(server) {
       server.middlewares.use('/photos/', (req, res, suite) => {
         const chemin = `photos${(req.url ?? '').split('?')[0]}`;
