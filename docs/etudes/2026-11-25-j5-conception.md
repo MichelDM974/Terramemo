@@ -1,7 +1,10 @@
 # J5, géographie physique : fleuves, montagnes, déserts, détroits : conception (25/11/2026, #7)
 
-*Faite seule, de nuit, par un agent, sans relecture adverse ni réponse de
-l'utilisateur : à relire et à trancher avant tout code. Code lu sur `main` à
+*Faite seule, de nuit, par un agent, puis relue par un autre la même nuit
+(constats vérifiés et corrigés : recouvrements entre classes, séance et
+carte de la mémoire, tests des lots 4, 5 et 7, quota des fleuves, Alpes du
+Sud, échelle estimée), sans réponse de l'utilisateur : à trancher avant
+tout code. Code lu sur `main` à
 `4826adc` ; le code est celui de `a3d08a0`, les commits suivants ne touchent
 que `docs/etudes/` (`git diff --name-only a3d08a0 HEAD`). Rien n'est codé.*
 
@@ -11,7 +14,7 @@ relues dans `git log -- docs/etudes` avant d'écrire : D350 à D362 (test de
 placement, #35), D600 à D649 (J4, #6), D860 à D899 (J6, #8), D900 à D949
 (multijoueur, #9), D1300 à D1349 (saisie libre, #36). Celle-ci prend la
 plage **D1700 à D1749** et **S1700 à S1749**, qu'aucune autre ne peut
-heurter. Elle utilise D1700 à D1718 et S1700 à S1709. On peut renuméroter à
+heurter. Elle utilise D1700 à D1720 et S1700 à S1711. On peut renuméroter à
 la validation.
 
 **Mesuré** : script lancé ou fichier lu, avec chemin et ligne. **Estimé** :
@@ -83,7 +86,7 @@ critère de fin du plan). Trois constats ont guidé la conception :
   détroit de Béring, le pas de Calais). D'où des détroits en points, tirés de
   Wikidata.
 
-**Les choix qui comptent vraiment** (le détail et les 19 décisions sont au
+**Les choix qui comptent vraiment** (le détail et les 21 décisions sont au
 § 15) :
 1. **D1700, les listes** : celles de l'annexe. 42 fleuves sur 100 sont
    européens, effet voulu des vues françaises ; un quota par continent est
@@ -96,8 +99,11 @@ critère de fin du plan). Trois constats ont guidé la conception :
 3. **D1705, un fleuve et ses tronçons** : le Nil comprend le Nil Blanc et la
    Kagera, l'Amazone l'Ucayali, mais jamais un affluent. Le Nil Blanc sort
    alors de la liste.
-4. **D1702, les montagnes** : des chaînes et quatre grands plateaux (dont le
-   Massif central et le plateau tibétain), sans les sommets. Ceux-ci
+4. **D1702, les montagnes** : des chaînes et deux grands plateaux (le
+   Massif central et le Deccan), sans les sommets. Le plateau tibétain et
+   l'Altiplano sortent : leurs polygones contiennent l'Himalaya, le
+   Karakoram, le Kunlun ou sont dans les Andes (mesuré à la relecture,
+   D1719). Ceux-ci
    viendraient plus tard en sujet à part (liste en annexe).
 5. **D1712, Jouer** : avec le J4, on passerait de 5 à 14 sujets. Je propose
    une tuile « Nature » qui ouvre Océans et mers et les quatre sujets du J5.
@@ -215,7 +221,12 @@ Ce que la couche ne dit pas bien (mesuré) :
   le Ténéré, le Grand Erg oriental et 17 autres déserts sont à 90 % ou plus
   dans le Sahara ; le Haut Atlas, le Rif et l'Anti-Atlas dans l'Atlas ; les
   Tatras et les Alpes de Transylvanie dans les Carpates ; 124 paires se
-  recouvrent à plus de 5 % (`sorties/regions-mesures.json`).
+  recouvrent à plus de 5 % (`sorties/regions-mesures.json`). Ce compte ne
+  compare que des objets **de même classe** de Natural Earth
+  (`scripts/regions.mjs` : `if (B === A || B.cla !== A.cla) continue`,
+  alors que son commentaire dit « même classe ou classe voisine ») : aucun
+  plateau n'y est comparé à une chaîne, ni un désert à une chaîne. Refait
+  à la relecture sur toutes les classes, voir § 4.
 
 ### 3.2 Wikidata
 
@@ -259,13 +270,45 @@ La règle est celle des mers, réglée sur chaque catégorie :
      une géométrie faite à la main (D1704) ;
    - ce qui n'est pas de la catégorie sort (le Pendjab, que Natural Earth
      range parmi les déserts ; un estuaire parmi les détroits) ;
-   - un objet à moitié ou plus dans un objet déjà retenu sort, sauf exception
-     écrite (le Ténéré dans le Sahara) : sans cela, un toucher juste pour
-     l'un serait juste pour l'autre ;
+   - un objet à moitié ou plus dans un objet déjà retenu **du même sujet**,
+     **ou qui contient à moitié ou plus un objet déjà retenu**, sort, sauf
+     exception écrite (le Ténéré dans le Sahara), **toutes classes de
+     Natural Earth confondues** (une chaîne et un plateau, D1719) : sans
+     cela, un toucher juste pour l'un serait juste pour l'autre ;
    - ce que le J2 joue déjà sort (Manche, canal du Mozambique).
 4. **Taille** : environ 100 fleuves (le plan), 40 chaînes, 25 déserts, 30
    détroits (D1700). Les suivants immédiats sont donnés, pour qu'un échange se
    décide sur pièces.
+
+**Recouvrements entre classes** (mesuré à la relecture : les 65 polygones
+retenus, `mesures/regions65-2000.topo.json`, grille de 0,25° et
+`geoContains`, part des points de A dans B, seuil 5 %). Onze paires, toutes
+entre classes différentes ; aucune entre objets de même classe :
+
+| A | dans B | Part | Même sujet ? |
+|---|---|---|---|
+| Himalaya (1er) | plateau tibétain (23e) | 100 % | oui (Montagnes) |
+| Karakoram (11e) | plateau tibétain | 100 % | oui |
+| cordillère du Kunlun (29e) | plateau tibétain | 100 % | oui |
+| Altiplano (25e) | cordillère des Andes (3e) | 100 % | oui |
+| Hindou Kouch (12e) | plateau tibétain | 24 % | oui |
+| plateau tibétain | Himalaya ; Kunlun | 15 % ; 10 % | oui |
+| Andes | Altiplano | 11 % | oui |
+| désert d'Atacama (Déserts, 3e) | cordillère des Andes | 99 % | non |
+| Andes | désert d'Atacama | 5 % | non |
+| Altaï | désert de Gobi | 8 % | non |
+
+Les cinq premières lignes violent le filtre ci-dessus : un toucher dans
+l'Altiplano est sous deux objets de la série Montagnes, et D1707 a n'y
+dit rien. La proposition (D1719 a) : **le plateau tibétain et l'Altiplano
+sortent**, puisqu'ils viennent après l'objet qu'ils contiennent ou qui
+les contient ; les deux suivants de la table 2, la chaîne pontique et le
+Petit Caucase, entrent, sans aucun recouvrement de 5 % avec les retenus
+(mesuré par le même calcul, comme les Sudètes, troisièmes suivants). Le
+recouvrement de l'Hindou Kouch disparaît avec le plateau. L'Atacama dans
+les Andes, et l'Altaï sur le Gobi, sont **entre deux sujets** : chaque
+sujet note sa cible, sans conflit (comme l'estuaire du Saint-Laurent,
+§ 5.1) ; le quiz ne mêle jamais deux sujets dans une question.
 
 Le seuil de 30 000 km² des mers ne vaut pas tel quel pour des lignes et des
 points. Il devient : un fleuve d'au moins 300 km de long (≈ 3 px au zoom 1,
@@ -409,8 +452,9 @@ fleuve demandé, si aucun autre fleuve de la série n'est plus près du doigt**
 et la règle « le plus proche » des villes du J4 (D610). Le pays sous le doigt
 ne compte pas.
 
-- Au zoom 1 (≈ 95 km par pixel sur l'A37, étude du J4 § 4.2), 12 px font
-  ≈ 1 100 km de part et d'autre du tracé : savoir le continent suffirait
+- Au zoom 1 (≈ 95 km par pixel sur l'A37, **estimé** dans l'étude du J4,
+  § 4.2 : ≈ 36 000 km sur ≈ 380 px, à mesurer à l'essai S600 du J4), 12 px
+  font ≈ 1 100 km de part et d'autre du tracé (estimé de même) : savoir le continent suffirait
   presque pour un grand fleuve isolé (l'Amazone). D'où des séries cadrées par
   continent (§ 5.6) : cadrée sur l'Europe (≈ 12 km par pixel, estimé), la
   tolérance tombe à ≈ 145 km, et le Rhin, la Meuse et la Moselle se
@@ -437,7 +481,20 @@ seul essai, comme Nommer.
   de limite entre deux continents (l'Oural) est rangé à la main. Les séries
   d'Océanie et d'Amérique du Sud seraient petites (Océanie 1, Amérique du
   Sud 7, mesuré) : une série de moins de 8 fleuves se fond avec sa voisine,
-  d'où « Amériques » (18) et « Asie et Océanie » (27) (D1708).
+  d'où « Amériques » (18) et « Asie et Océanie » (27) (D1708). Le seuil de
+  8 et la raison des séries cadrées reposent sur l'échelle estimée du
+  § 5.4 : si l'essai (S600 du J4, S1702) donne une autre échelle, D1708 et
+  la tolérance de 12 px se revoient.
+- **Le quota de D1700 d, chiffré** (vivier de 260 fleuves de
+  `sorties/pool.json`, lu à la relecture) : l'Amérique du Sud a 7 retenus
+  et au moins treize candidats de plus de 300 km hors de la liste (rio São
+  Francisco, 2e suivant, Tocantins, Araguaia, Xingu, Tapajós, Purus, Juruá,
+  Caquetá, Putumayo, Essequibo, Beni, Mamoré, Biobío ; le Marañón et
+  l'Ucayali sont des tronçons de l'Amazone) : 8 s'atteint. L'**Océanie
+  n'a que le Darling** (925 km de tracé) en plus du Murray : le vivier,
+  tiré des 170 premiers fleuves par nombre de Wikipédias, n'a ni le Sepik
+  ni le Fly. D1700 d se lit donc « au moins 8 par continent habité, sauf
+  l'Océanie (2 : Murray et Darling) », et la série d'Océanie reste fondue.
 - Grappes : par continent et de proche en proche, comme les mers (`bassin`).
 - Épreuves : Chrono et Sans faute par série, comme les pays.
 
@@ -468,11 +525,19 @@ Ce qui demande un choix :
 - **Quatre plateaux** que Natural Earth range à part entrent par le rang :
   le Massif central (21e), le plateau tibétain (23e), l'Altiplano (25e) et
   le Deccan (30e). Les Hauts plateaux abyssins (38e) sont rangés parmi les
-  chaînes. Je propose de les garder, dans un sujet nommé « Montagnes »
-  (D1702 a) : le Massif central est un massif pour un Français, le plateau
-  tibétain le « toit du monde ».
+  chaînes. Je propose de garder le Massif central et le Deccan, dans un
+  sujet nommé « Montagnes » (D1702 a) : le Massif central est un massif
+  pour un Français. Le plateau tibétain (le « toit du monde ») et
+  l'Altiplano sortent par le filtre de recouvrement (§ 4, D1719 a) ; les
+  garder demanderait de sortir l'Himalaya, le Karakoram et le Kunlun, ou
+  les Andes, bien plus connus.
 - **Deux sierras Nevada** (États-Unis, 19e ; Espagne, 34e) : même nom, le
   pays en précision dans le nom affiché.
+- **Les Alpes du Sud** (28e), en Nouvelle-Zélande : à côté des Alpes, un
+  public français lit « Alpes du Sud » comme le sud des Alpes françaises.
+  Nom affiché proposé : « Alpes du Sud (Nouvelle-Zélande) », la précision
+  gardée comme pour les sierras (une exception à D1716 a, qui retire la
+  parenthèse du titre de l'article) ; « Alpes néo-zélandaises » en alias.
 - **Écartés** :
   - sans tracé : les Apennins (14e au rang, 101 Wikipédias), les Dolomites
     (161 928 vues, la plus lue des chaînes, mais une partie des Alpes), le
@@ -493,6 +558,11 @@ Ce qui demande un choix :
   polygone, ou à 12 px au plus de son bord, si aucune autre chaîne de la
   série n'est sous le doigt (D1707 a) : un doigt dans les Alpes est juste
   pour les Alpes, pas pour le Jura voisin.
+- **Un recouvrement résiduel** (sous la moitié, que le filtre du § 4
+  laisse : aucun dans la liste après D1719 a, mais une liste échangée peut
+  en créer) : un doigt dans les deux polygones est juste pour chacun des
+  deux, comme une zone admise, et la rétroaction nomme les deux. Hors des
+  deux, la règle du plus proche vaut.
 - Rien n'est dessiné pendant la question (comme les mers : « aucune frontière
   n'est dessinée entre les mers »). Les polygones de Natural Earth sont des
   aires d'étiquette : les montrer à l'avance donnerait la réponse, et leurs
@@ -578,7 +648,7 @@ Ce qui demande un choix :
 Un détroit fait de quelques centaines de mètres (le Bosphore, à vérifier :
 Wikidata n'a pas sa largeur) à quelques dizaines de kilomètres (Wikidata,
 `P2049` : Gibraltar 14,3 km, Kertch 15, le pas de Calais 40, Ormuz 55) : à
-≈ 95 km par pixel au zoom 1, aucun ne se voit. Natural Earth n'en a
+≈ 95 km par pixel au zoom 1 (estimé, J4 S600), aucun ne se voit. Natural Earth n'en a
 d'ailleurs que 36, et pas les plus connus (§ 3.1). Un détroit du jeu est donc **un point** (son passage le
 plus étroit, `P625` de Wikidata relu), avec ses deux mers reliées dans la
 fiche. La zone marine de Natural Earth, quand elle existe, ne sert qu'à
@@ -778,6 +848,55 @@ avec la notoriété du rang combiné, après leur livraison (D1714 a). Le quiz
 facile n'en prendrait que les plus connus (le Nil, l'Amazone, l'Himalaya, le
 Sahara, Gibraltar).
 
+### 13.5 Séance, carte de la mémoire, prérequis, charge (D1720)
+
+Ajouté à la relecture. `srs/seance.ts:183` fixe la forme d'une étape par le
+**sens seul** : `trouver` (un toucher noté par `noter`, sur un pays) pour
+toute fiche `localiser`, `retournee` (la zone de l'entité allumée par
+`allumerZone`, `vues/retournee.ts:105`) pour toute fiche `nommer`, `qcm`
+pour le QCM d'apprentissage. Telle quelle, `fleuves:danube:localiser` due en
+Révision du jour serait jugée sur le pays sous le doigt, et une carte
+retournée d'un fleuve n'allumerait rien (`allumerZone` attend une zone de
+pays ou de mer). Ce qu'il faut (D1720 a), sur le modèle de l'étude du J4
+(§ 7.5, `formeDe(domaine, sens)`) :
+
+| Domaine | `localiser` en séance | `nommer` en séance | QCM d'apprentissage |
+|---|---|---|---|
+| `fleuves` | `trouver`, noté par `noterLigne`, les fleuves de la grappe dessinés (D1706) | `retournee`, le fleuve allumé (trait de 3 px, § 5.3), « Révéler » son nom | « Quel est ce fleuve ? », leurres du § 5.5 |
+| `montagnes`, `deserts` | `trouver`, noté par `noterRegion` | `retournee`, le polygone teinté (§ 6.3) | « Quelle est cette chaîne ? » / « … ce désert ? » |
+| `detroits` | `trouver`, noté par `noterPoint`, les pastilles de la grappe | `retournee`, la pastille allumée et la carte cadrée sur ses deux mers | « Quel est ce détroit ? » |
+
+Dans une séance, la « série » qui départage au plus proche (D1707 a) est la
+**grappe** de la fiche (Apprendre) ou, en Révision du jour, la liste
+entière du domaine sur le continent cadré : sinon un toucher sur le Rhin
+pour la Moselle serait juste quand la Moselle est seule à réviser.
+
+**`source()` de `vues/seance.ts`** (`:245-259`, un `switch` sur `Domaine`) :
+le lot 0 y rend `null` (« pas encore posable ») pour les quatre domaines ;
+le lot 2b y met le chargement de la couche physique (`aCharger`,
+`charger`, comme les mers).
+
+**Carte de la mémoire** (décision « Répétition espacée des nouveaux
+sujets » : sujet choisi dans la légende, détail au toucher). Aucune teinte
+n'existe pour une ligne, un polygone posé sur les pays ou un point. Il faut
+un calque par seau dans les trois rendus : un trait teinté par fleuve, un
+polygone translucide par chaîne ou désert, une pastille teintée par
+détroit, comme les pastilles des micro-États ; les pays restent neutres
+quand un domaine du J5 est choisi. Le détail au toucher prend l'objet le
+plus proche (12 px), comme Trouver. C'est le gros morceau du lot 2b, comme
+le calque des villes au lot 4b du J4.
+
+**Prérequis** (`PREREQUIS`, `srs/planif.ts:41`) : aucun (D1720 a) ; placer
+le Danube ne demande pas les pays. D1720 b : Océans et mers avant les
+Détroits, qui relient deux mers.
+
+**Charge** (calcul) : 100 + 40 + 25 + 30 = **195 fiches `nommer`** à
+introduire, soit **13 jours au moins** au plafond commun de 15 par jour
+(`INTRODUCTIONS_PAR_JOUR`, `srs/planif.ts:33`) ; avec le J4 (≈ 912,
+étude du J4 § 7.5), ≈ 1 107, soit **74 jours** au moins. La simulation de
+charge du J2 (`tests/sim-charge.test.ts`, S40) est à reprendre à 14
+domaines (S1710).
+
 ## 14. Lots
 
 Chaque lot finit par `npm run typecheck`, `npx vitest run` et `npm run
@@ -793,11 +912,12 @@ déploiement Hosting et le pilote sur le site en ligne (skill
 | 0. Socle | S | — (avec le lot 0 du J4 s'il n'est pas livré) | D1701 | rien de visible ; les quatre domaines lus ; APK rebâti |
 | 1. Données | L | 0 | D1700, D1703, D1704, D1705, D1709, D1716, D1717 | `npm run geodata` refait la couche à l'octet près ; budgets et noms testés en CI |
 | 2. Carte | L | 1 | D1706, D1711 | la couche dessinée et allumée dans les trois rendus ; sans saccade sur l'A37 |
+| 2b. Séance et mémoire | M | 2 | D1720 | la séance pose les quatre domaines sous leur forme (§ 13.5) ; carte de la mémoire teintée dans les trois rendus ; simulation de charge à 14 domaines |
 | 3. Déserts et chaînes | M | 2 | D1702, D1707 | deux sujets au doigt sur le site ; épreuves en ligne |
 | 4. Détroits et canaux | M | 2 | D1707 | un sujet au doigt sur le site |
 | 5. Fleuves | M-L | 2 | D1707, D1708 | un sujet au doigt sur le site, séries par continent |
 | 6. Fiches | M | 1, puis chaque sujet | D1710, D1718 | une fiche par objet, relecture générée et relue |
-| 7. Jouer, quiz, fin | M | 3 à 6 | D1712, D1713, D1714 | critères de #7 ; APK |
+| 7. Jouer, quiz, fin | M | 2b à 6 | D1712, D1713, D1714 | critères de #7, testés (`chrono.test`, `regles.test`, `quiz.test`) ; APK |
 
 Ordre recommandé (D1715 a) : les déserts et les chaînes d'abord, parce qu'ils
 reprennent presque tout de la couche marine (polygones, aucune frontière
@@ -811,9 +931,10 @@ centaine de fleuves »), à une inversion près.
 - **Contenu** : `Domaine`, `DOMAINES` gagnent `fleuves`, `montagnes`,
   `deserts`, `detroits` (lus, pas jouables : `DOMAINES_JOUABLES` inchangé) ;
   `TERRAIN_DOMAINE` (le monde) ; `CLE_SUJET` ; `CoucheLieu` gagne
-  `'physique'` (vide) ; le message de `couche()`.
+  `'physique'` (vide) ; le message de `couche()` ; `source()` de
+  `vues/seance.ts` rend `null` pour les quatre domaines (§ 13.5).
 - **Fichiers** : `src/srs/fiches.ts`, `src/epreuve/chrono.ts`,
-  `src/map/lieux.ts`, `src/map/pick.ts`.
+  `src/map/lieux.ts`, `src/map/pick.ts`, `src/vues/seance.ts`.
 - **Tests** : `srs-jour` (les quatre acceptés, un nom inconnu toujours
   refusé), `sync-lecture` (un lot qui mêle `pays:` et `fleuves:` est lu),
   `sync-lots` (la carte la pire avec `montagnes` et un id de 8 lettres sous
@@ -847,7 +968,9 @@ centaine de fleuves »), à une inversion près.
   absents de `mers.json` et de `pays.json` ; un nom non vide pour chaque id
   dans chaque langue de `LANGUES` ; aucune géométrie vide ; longueur du tracé
   entre 60 % et 140 % de Wikidata sauf ligne de la table ; aucun tronçon
-  donné à deux fleuves ; aucun polygone retenu à moitié dans un autre ;
+  donné à deux fleuves ; aucun polygone retenu à moitié dans un autre du
+  même sujet, dans les deux sens et **toutes classes de Natural Earth
+  confondues** (le contrôle que la mesure d'origine ne faisait pas, § 4) ;
   détroits à 100 km au moins l'un de l'autre ; budgets gzip (§ 12) ; deux
   builds identiques octet pour octet.
 - **Fin** : la liste de l'annexe, revue par l'utilisateur, sort du build.
@@ -865,6 +988,27 @@ centaine de fleuves »), à une inversion près.
 - **Vérification** : sur l'A37, Trouver un fleuve d'Europe en tournant et en
   zoomant, sans saccade (critère de saccade, S1701).
 
+### Lot 2b. Séance et carte de la mémoire
+
+- **Contenu** : `formeDe(domaine, sens)` dans `srs/seance.ts` (la table du
+  § 13.5, partagée avec le J4 s'il la livre d'abord) ; la notation de
+  chaque domaine dans `vues/essai.ts` ; la carte retournée sur un objet
+  physique (`vues/retournee.ts`) ; `source()` de `vues/seance.ts` ; le
+  calque par seau de `vues/carte-memoire.ts` dans les trois rendus ;
+  `PREREQUIS` selon D1720.
+- **Fichiers** : `src/srs/seance.ts`, `src/srs/planif.ts`,
+  `src/vues/seance.ts`, `src/vues/essai.ts`, `src/vues/retournee.ts`,
+  `src/vues/carte-memoire.ts`, `src/map/carte-canvas.ts`,
+  `src/map/carte-webgl.ts`, le rendu SVG.
+- **Tests** : `srs-seance` (la forme de chaque domaine et sens ;
+  `fleuves:danube:localiser` noté sur le tracé, jamais sur un pays) ;
+  `seance-vue` (une Révision du jour qui mêle un pays, un fleuve, une
+  chaîne et un détroit pose chaque étape sous sa forme) ; `carte-memoire`
+  (un fleuve faible et un fleuve jamais vu se distinguent ; un détroit en
+  pastille teintée) ; `sim-charge` à 14 domaines (S1710).
+- **Fin** : une Révision du jour avec des fiches du J5 jouée sur le site ;
+  captures de la carte de la mémoire (S1711).
+
 ### Lot 3. Déserts et chaînes
 
 - **Contenu** : `noterRegion` dans `map/pick.ts` (dans le polygone ou à
@@ -872,16 +1016,23 @@ centaine de fleuves »), à une inversion près.
   les deux sujets ; séries uniques ; grappes par continent ; Chrono et Sans
   faute (tailles dans `chrono.ts` et `firestore.rules`, règles d'abord).
 - **Tests** : `pick` (un toucher dans les Alpes juste pour les Alpes, faux
-  pour le Jura ; une chaîne de 6 px touchée à 10 px) ; vues ; `chrono.test`
-  (tailles, borne).
+  pour le Jura ; une chaîne de 6 px touchée à 10 px ; un recouvrement
+  résiduel juste pour les deux, D1707) ; vues ; `chrono.test` (tailles,
+  borne) ; `regles.test` (`chrono:montagnes:…` à 40 et `chrono:deserts:…`
+  à 25).
 - **Fin** : les deux sujets jouables au doigt sur le site.
 
 ### Lot 4. Détroits et canaux
 
 - **Contenu** : `noterPoint` (repris du lot des villes du J4 s'il est livré,
   écrit ici sinon) ; les pastilles de la série ; le sujet.
+- **Contenu, en plus** : Chrono et Sans faute (taille 30 dans `chrono.ts`,
+  `epreuveConnue` et `tailles` dans `firestore.rules`, règles déployées
+  d'abord).
 - **Tests** : `pick` (le disque le plus proche l'emporte ; Bosphore et
-  Dardanelles séparés au zoom de la série) ; vues.
+  Dardanelles séparés au zoom de la série) ; vues ; `chrono.test`
+  (taille 30, catalogue et règles d'accord) ; `regles.test`
+  (`chrono:detroits:…` à 30 questions passe, à 31 non).
 - **Fin** : le sujet jouable au doigt.
 
 ### Lot 5. Fleuves
@@ -889,9 +1040,14 @@ centaine de fleuves »), à une inversion près.
 - **Contenu** : `noterLigne` (distance à l'écran du doigt au tracé projeté,
   et le plus proche de la série) ; séries par continent (D1708) ; leurres
   voisins sans affluents ; rétroaction « plus près de… ».
+- **Contenu, en plus** : Chrono et Sans faute des cinq séries (Tous 100,
+  Europe 42, Asie et Océanie 27, Amériques 18, Afrique 13) dans
+  `TAILLES_SERIES` et `firestore.rules`, règles d'abord.
 - **Tests** : `pick` (le Rhin et la Moselle départagés au zoom de la série
   Europe ; un toucher en mer près d'une embouchure) ; `journal`
-  (`distance_km` au tracé) ; vues.
+  (`distance_km` au tracé) ; vues ; `chrono.test` (les cinq tailles, leur
+  somme hors « Tous » égale à 100) ; `regles.test` (une série de fleuves
+  inconnue de `epreuveConnue` refusée, chacune des cinq acceptée).
 - **Fin** : le sujet jouable au doigt, chaque série.
 
 ### Lot 6. Fiches
@@ -907,6 +1063,13 @@ centaine de fleuves »), à une inversion près.
 - **Contenu** : la tuile du J5 dans Jouer (D1712) ; les générateurs du quiz
   (D1714) ; la borne du général (D1713) ; le pilote (`ui_fleuves`…,
   `SUJETS_ENTRAINEMENT`) ; l'APK.
+- **Tests** : `chrono.test` (la borne du général à 1 539 sans le J4, ou
+  à la somme des deux jalons avec lui, égale dans `BORNE_GENERAL` et
+  `firestore.rules` ; `epreuvesDuGeneral` compte les Chrono du J5) ;
+  `regles.test` (un Chrono du général à la nouvelle borne passe, un au-delà
+  non) ; `quiz.test` (les générateurs des quatre sujets à graine fixe :
+  formes, leurres sans affluent, aucun objet deux fois ; les parts à
+  8 sujets ou plus, `quiz/tirage.ts:19`) ; le pilote.
 - **Fin** : les critères de #7 : poids dans le budget, testé en CI ; aucun
   nom manquant dans une langue ; chaque sujet jouable au doigt sur le site
   et dans l'APK.
@@ -924,15 +1087,15 @@ d'Entraînement non.
 
 | N° | Question | Options | Recommandation | Défaut si rien n'est dit |
 |---|---|---|---|---|
-| D1700 | Les listes | a) les listes de l'annexe : 100 fleuves, 40 chaînes et plateaux, 25 déserts, 30 détroits et canaux, par le rang combiné et les filtres du § 4 ; b) plus courtes (50, 25, 20, 20 : les premières de chaque liste) ; c) plus longues (150, 60, 30, 40 ; il n'y a guère plus de déserts) ; d) a, avec un quota par continent (au moins 8 fleuves par continent habité, au plus 2 déserts d'Australie) | **a**, après relecture de l'annexe (échanges ligne à ligne) ; d si l'Europe à 42 fleuves sur 100 gêne | a, liste montrée avant les épreuves |
+| D1700 | Les listes | a) les listes de l'annexe : 100 fleuves, 40 chaînes et plateaux (après D1719), 25 déserts, 30 détroits et canaux, par le rang combiné et les filtres du § 4 ; b) plus courtes (50, 25, 20, 20 : les premières de chaque liste) ; c) plus longues (150, 60, 30, 40 ; il n'y a guère plus de déserts) ; d) a, avec un quota par continent (au moins 8 fleuves par continent habité sauf l'Océanie, qui n'en a que 2 candidats, § 5.6 ; au plus 2 déserts d'Australie) | **a**, après relecture de l'annexe (échanges ligne à ligne) ; d si l'Europe à 42 fleuves sur 100 gêne | a, liste montrée avant les épreuves |
 | D1701 | Sujets et domaines | a) quatre sujets, quatre domaines : Fleuves, Montagnes, Déserts, Détroits ; b) deux : « Eaux » (fleuves, détroits) et « Reliefs » (chaînes, déserts) ; c) un seul « Géographie physique » | **a** : une seule sorte de cible par sujet (une ligne, un polygone, un point), donc une seule notation, des grappes et des épreuves simples | a |
-| D1702 | Montagnes | a) les chaînes et les quatre plateaux du rang (Massif central, plateau tibétain, Altiplano, Deccan) ; b) les chaînes seules (les plateaux sortent, les quatre suivants entrent) ; c) a, plus un sujet Sommets (≈ 30, annexe, table 5) au J5 ; d) chaînes et sommets dans le même sujet | **a**, et c plus tard si l'on veut les sommets | a |
+| D1702 | Montagnes | a) les chaînes et les plateaux du rang que le filtre de recouvrement garde (Massif central, Deccan ; D1719) ; b) les chaînes seules (les plateaux sortent, les quatre suivants entrent) ; c) a, plus un sujet Sommets (≈ 30, annexe, table 5) au J5 ; d) chaînes et sommets dans le même sujet | **a**, et c plus tard si l'on veut les sommets | a |
 | D1703 | Canaux | a) Suez et Panama dans le sujet, renommé « Détroits et canaux » ; b) hors du J5 | **a** : les deux passages les plus connus (170 et 154 Wikipédias) | a |
 | D1704 | Objets sans tracé dans la couche principale (Apennins, désert d'Arabie, Mojaves ; Aar, Isar, Neckar, Sprée, Arno) | a) écartés : la liste est ce que dessinent `rivers_lake_centerlines` et `geography_regions_polys` ; b) a, plus un polygone à la main pour les Apennins seuls (101 Wikipédias, 42 207 vues), relu à l'œil ; c) b, plus les cinq rivières du complément européen de Natural Earth ; d) une autre source de tracés (licence à vérifier) | **b** : les Apennins manquent à un Français, l'Europe a déjà 42 fleuves | a |
 | D1705 | Un fleuve, ses tronçons | a) avec ses tronçons sous un autre nom (Ucayali, Jinsha, Lualaba, Nil Blanc et Kagera), jamais ses affluents, table relue ; b) les tronçons de son seul item (le Nil depuis Khartoum) | **a** : c'est le fleuve des longueurs qu'on enseigne | a |
 | D1706 | Ce qui est dessiné pendant une question de fleuve ou de détroit | a) tous les fleuves (traits) ou détroits (pastilles) de la série, sans nom ; b) rien : on touche une carte muette, juste à N km | **a** : on voit les candidats, comme les frontières des pays ; b ferait d'une erreur proche une distance, que le barème renvoie à la rétroaction | a |
-| D1707 | Le juste | a) à 12 px de la cible (dans le polygone, ou dans le disque de 44 px d'un détroit), aucun autre objet de la série plus près du doigt ; b) 12 px seul ; c) une distance en km (100 km, comme les villes du J4) | **a** | a |
-| D1708 | Séries des fleuves | a) Tous et une série par continent, celles de moins de 8 fleuves fondues avec leur voisine ; b) une série unique de 100 | **a** : au zoom 1, 12 px font ≈ 1 100 km | a |
+| D1707 | Le juste | a) à 12 px de la cible (dans le polygone, ou dans le disque de 44 px d'un détroit), aucun autre objet de la série plus près du doigt ; dans deux polygones à la fois (recouvrement résiduel), juste pour chacun des deux (§ 6.3) ; b) 12 px seul ; c) une distance en km (100 km, comme les villes du J4) | **a** | a |
+| D1708 | Séries des fleuves | a) Tous et une série par continent, celles de moins de 8 fleuves fondues avec leur voisine ; b) une série unique de 100 | **a** : au zoom 1, 12 px font ≈ 1 100 km (estimé, à mesurer : S600 du J4) | a |
 | D1709 | Un objet dans un autre (le Ténéré dans le Sahara) | a) le tout seul, ses parties hors de la liste, sauf exception écrite ; b) les parties dans la liste, justes aussi pour le tout (la règle des sous-mers) | **a** | a |
 | D1710 | Le J5 à l'accueil | a) une case « Fleuves » dans ⚙, à côté des lignes de repère : elle dessine les fleuves de la liste, le toucher reste au pays ; b) a, et un fleuve à 6 px sous le doigt ouvre sa fiche ; c) rien | **a** | c |
 | D1711 | Pastilles des micro-États pendant une question du J5 | a) cachées, comme pour les mers ; b) gardées | **a** : un fleuve ne se juge pas à un disque, et les pastilles des détroits ne doivent pas se mêler à celles des pays | a |
@@ -942,6 +1105,8 @@ d'Entraînement non.
 | D1715 | Ordre des lots | a) déserts et chaînes, détroits, fleuves ; b) l'ordre du plan (détroits, montagnes, déserts, fleuves) ; c) les fleuves d'abord | **a** : du plus proche de la couche marine au plus neuf | a |
 | D1716 | Noms affichés | a) le titre de la Wikipédia française sans parenthèse, générique en minuscule, l'article en donnée, les autres noms en alias, relus ; b) le libellé de Wikidata tel quel ; c) le `name_fr` de Natural Earth | **a** | a |
 | D1717 | Neutralité | a) la table du § 10 : riverains et pays traversés par le tracé de fait, zones contestées à part avec leur statut, usage français et alias pour les noms ; b) aucun pays dans les fiches du J5 | **a** : la règle déjà validée pour les voisins et les riverains des mers | a |
+| D1719 | Recouvrements entre classes (§ 4) | a) le plateau tibétain et l'Altiplano sortent, la chaîne pontique et le Petit Caucase entrent ; b) l'Himalaya, le Karakoram, le Kunlun et les Andes sortent, les plateaux restent ; c) les cinq gardés, avec une exception écrite (le plus petit polygone l'emporte sous le doigt) | **a** : les chaînes sont bien plus connues ; c rendrait faux, pour le plateau tibétain, un doigt posé au milieu du Tibet himalayen sans que le joueur voie pourquoi | a |
+| D1720 | Séance et carte de la mémoire du J5 (§ 13.5) | a) une forme d'étape par domaine (noter par ligne, région ou point ; carte retournée sur l'objet allumé), la carte de la mémoire teinte traits, polygones et pastilles par seau, aucun prérequis ; b) a, avec Océans et mers en prérequis des Détroits | **a** | a |
 | D1718 | Fiches des objets du J5 | a) au lot 6, sans photos ; b) avec photos, la relecture du lot P1 étendue ; c) pas de fiches | **a** : la relecture des 332 lieux n'a pas commencé (2 entrées dans `choix.json`) | a |
 
 **Ce qui ne se décide pas ici.** La place du J5 parmi les autres jalons (J4,
@@ -990,12 +1155,14 @@ J6, le Play Store #5) est une question posée à part. Le test de placement
 | S1701 | Le Canvas reste sans saccade sur l'A37 avec les traits des fleuves pendant les gestes | critère de saccade, `touchers_reels.py` (skill `run-terramemo`) | lot 2 |
 | S1702 | 12 px suffisent à toucher un fleuve au doigt, et « le plus proche » départage le Rhin, la Meuse et la Moselle sans injustice visible | essai sur l'A37, série Europe | lot 5 |
 | S1703 | Le bleu des fleuves, l'ocre des chaînes et le sable des déserts se lisent, en plein soleil compris (#28) | essai à l'œil sur l'A37 | lot 2 |
-| S1704 | Les polygones de Natural Earth des chaînes et des déserts ressemblent à ce qu'un joueur attend (les Alpes, le Sahara) | planche des 65 formes sur la carte, relue à l'œil par l'utilisateur | lot 1 |
+| S1704 | Les polygones de Natural Earth des chaînes et des déserts ressemblent à ce qu'un joueur attend (les Alpes, le Sahara), et aucun n'est à moitié dans un autre du même sujet après D1719 (mesuré à la relecture, toutes classes) | planche des 65 formes sur la carte, relue à l'œil par l'utilisateur ; le test du lot 1 | lot 1 |
 | S1705 | Chaque nom, article et alias de l'annexe est l'usage français | relecture de l'annexe, puis de `physique.fr.json` | lot 1 |
 | S1706 | Les superficies des déserts dans Wikidata se convertissent sans erreur (24 en km², 4 en hectares sur les 25 retenus) | conversion par l'unité (`unit` de la valeur), écarts au tracé au-delà de 25 % en table, comme les mers | lot 6 |
 | S1707 | Les vues de 12 mois ne sont pas faussées par l'actualité (un détroit dans les nouvelles) | comparer à 24 mois pour les échanges en bord de liste | lot 1 |
 | S1708 | La carte la plus longue d'un lot reste sous 160 caractères avec `montagnes` | test `sync-lots` | lot 0 |
 | S1709 | Les coordonnées de Wikidata d'un détroit sont à son passage le plus étroit, en mer | carte des 30 points, relue ; un test : chaque point hors de la terre | lot 1 |
+| S1710 | Avec 14 domaines (J2, J4, J5), la charge de la mémoire reste près de ≈ 5 min par jour au plafond commun de 15 introductions | `tests/sim-charge.test.ts` (S40 du J2, S607 du J4) reprise sur 90 jours | lot 2b, puis lot 7 |
+| S1711 | Un fleuve, une chaîne ou une pastille teintés par seau se lisent sur la carte de la mémoire, sans se confondre avec la teinte des pays | captures des trois rendus, à l'œil sur l'A37 | lot 2b |
 
 ## 18. Sources
 
@@ -1196,6 +1363,12 @@ Suivants : Ili (67 ; 6 140), rio São Francisco (75 ; 2 384), Shannon (67 ; 6 04
 | 38 | Hauts plateaux abyssins | Plateaux d'Éthiopie | 66 | 4 849 | 662 403 | chaîne |
 | 39 | cordillère Cantabrique |  | 53 | 13 858 | 27 886 | chaîne |
 | 40 | Black Hills |  | 54 | 10 798 | 14 571 | chaîne |
+
+Après D1719 a (relecture) : le plateau tibétain (23e) et l'Altiplano (25e)
+sortent, recouverts par l'Himalaya, le Karakoram et le Kunlun, ou dans les
+Andes (§ 4) ; la chaîne pontique et le Petit Caucase entrent (41e et 42e
+du rang), sans recouvrement mesuré avec les retenus. Les Alpes du Sud (28e)
+s'affichent « Alpes du Sud (Nouvelle-Zélande) » (§ 6.2).
 
 Suivants : chaîne pontique (63 ; 3 779), Petit Caucase (64 ; 3 228), chaîne Transantarctique (62 ; 3 837), Sudètes (60 ; 4 744), massif de l'Aïr (57 ; 5 095), Fouta-Djalon (44 ; 20 446), Pinde (56 ; 4 701), plateau de Sibérie centrale (60 ; 1 773), massif du Tibesti (47 ; 7 126), Kopet-Dag (55 ; 1 321), Sikhote-Aline (54 ; 1 507), Ghats orientaux (58 ; 595).
 
