@@ -187,7 +187,11 @@ la partie en direct un lot L.
   `/defi/…` répondrait 404, alors qu'un fragment `#defi/…` tombe sur `/`,
   comme toutes les vues. Firestore est en `eur3` (`firebase.json:42`).
 - **Poids** (build du 20/11 dans `dist/assets/`, `ls -la`) : le morceau
-  principal fait 498 582 octets, celui de Firestore lite 124 485
+  principal fait 498 582 octets, **1,4 Ko sous l'avertissement de 500 Ko**
+  (décision « Morceau JS principal sous 500 Ko », qui sort le code à la
+  demande ; `tests/morceau-principal.test.ts` suit des modules, pas la
+  taille) : tout ajout statique au morceau principal se budgète (M1, M2),
+  celui de Firestore lite 124 485
   (`index.esm-g6si2MsV.js`), celui d'Auth 127 240. Dans `node_modules`, le
   cœur de Firestore lite fait 340 530 octets non minifiés
   (`@firebase/firestore/dist/lite/common-COCKIFt2.esm.js`), celui du SDK
@@ -308,16 +312,38 @@ sosies »). C'est S903, à fixer par un test « même graine, mêmes énoncés �
 Forme proposée (D909 a), à fixer au lot M2 :
 
 ```
-https://terramemo-geo.web.app/#defi/1.chrono.localiser.Africa.k3f9a2.9c41e0b7/Michel.47.183/Anne.49.201
+https://terramemo-geo.web.app/#defi/1.chrono.localiser.Africa.k3f9a2.9c41e0b7/TWljaGVs.47.3xcw/QW5uZQ.49.4b3c
 ```
 
 - `1` : version du format du lien ;
 - l'épreuve, ses `:` remplacés par des points, et une série à espace
   (`North America`) écrite par un code court ;
 - la graine en base 36, puis l'empreinte ;
-- une ligne par joueur : nom, justes, temps en secondes. Les questions et
-  le pourcentage se déduisent de l'épreuve. Au plus 10 lignes (estimé :
-  le lien reste sous 300 caractères).
+- une ligne par joueur : nom, justes, temps. Les questions et le
+  pourcentage se déduisent de l'épreuve. Au plus 10 lignes.
+- **Le nom est encodé en base64url** (UTF-8, sans `=` final : `Michel` →
+  `TWljaGVs`). La forme de `formePseudo` (`src/epreuve/chrono.ts:662`, `:680`)
+  n'écarte que les séparateurs et les caractères de contrôle, de format ou
+  privés : `.`, `/`, `#`, `?`, `%`, `&` et toute lettre non ASCII y sont
+  permis, et `pseudoValide` n'écarte que `/` en plus. Écrit tel quel,
+  « M.Dupont » se lirait comme un score, et « A/B » comme deux joueurs.
+  Base64url n'emploie que `A-Z a-z 0-9 - _` : les séparateurs `.` et `/`
+  restent sûrs, et rien n'est à pourcent-encoder. Prix : le nom n'est plus
+  lisible dans le lien. `encodeURIComponent` laisserait passer le point et
+  triplerait chaque octet non ASCII (240 caractères pour 20 emojis, contre
+  107 en base64url).
+- **Le temps est en millisecondes, en base 36** (183 200 ms → `3xcw`,
+  4 caractères jusqu'à 28 min, 5 au-delà) : le bilan comparé départage
+  donc au temps exact, comme `comparerScores` au classement (`temps_ms`).
+  En secondes entières, 183,2 s et 183,7 s seraient une égalité.
+- **Longueur** (calculée, préfixe de 77 caractères) : 267 caractères pour
+  10 joueurs aux noms courts (`Michel`), 457 pour 10 noms ASCII de 20
+  caractères, 727 pour 10 noms de 20 lettres accentuées, **1 257 au pire**
+  (10 noms de 20 emojis de 4 octets, 195 justes, plus d'une heure). La
+  borne de 300 caractères ne tient donc pas : S900 et S911 portent sur le
+  pire cas. Si une messagerie coupe un lien de 1 300 caractères, repli : le
+  lien garde la ligne du créateur et les meilleures lignes tant qu'il tient
+  sous la longueur que S900 aura mesurée.
 
 Ce que ce choix donne :
 - **zéro opération Firestore**, et le SDK Firebase n'est même pas chargé
@@ -562,16 +588,22 @@ Store, M6 seulement si D910 a, b ou c.
   puis les mélangent par `graine(n)` ; le quiz passe la graine à
   `tirerPartie` ; l'empreinte des questions (FNV-1a, 8 caractères). Rien de
   visible : les parties restent au hasard.
-- **Fichiers** : `src/epreuve/defi.ts` (nouveau : graine, empreinte),
-  `src/vues/chrono.ts` (`demarrer`, ligne 259), `src/vues/quiz.ts`
-  (`tirer`, ligne 221), `src/quiz/hasard.ts` (repris, sans changement).
+- **Fichiers** : `src/epreuve/graine.ts` (nouveau, le seul importé par
+  `vues/chrono.ts` et `vues/quiz.ts` : tirer et appliquer la graine, en
+  réutilisant `quiz/hasard.ts`), `src/epreuve/defi.ts` (nouveau :
+  l'empreinte FNV-1a, et au lot M2 le lien ; importé par le seul morceau du
+  défi, chargé à la demande), `src/vues/chrono.ts` (`demarrer`, ligne 259),
+  `src/vues/quiz.ts` (`tirer`, ligne 221), `src/quiz/hasard.ts` (repris,
+  sans changement).
 - **Tests** : `tests/defi.test.ts` (nouveau : même graine, même ordre pour
   chaque série du catalogue ; ordre indépendant de celui de `pays.json` ;
   même graine, même quiz, choix et indice compris, sur des données fixées ;
   graines voisines, parties différentes ; empreinte stable et sensible à un
   id changé) ; `tests/chrono-vue.test.ts` et `tests/quiz-vue.test.ts` (la
   partie lancée porte sa graine) ; S902 et S903.
-- **Fin** : une graine rejoue la même partie, testée en CI.
+- **Fin** : une graine rejoue la même partie, testée en CI ; `npm run
+  build` sans avertissement de taille, le morceau principal mesuré (`ls -la
+  dist/assets/`) et noté dans le commit.
 
 ### Lot M2. Le lien de défi (M)
 
@@ -590,20 +622,24 @@ Store, M6 seulement si D910 a, b ou c.
   `.claude/skills/run-terramemo/driver.py` (`ui_defi`).
 - **Tests** : `tests/defi.test.ts` (aller-retour du lien, 10 lignes au
   plus, liens tronqués, noms refusés par `formePseudo`, épreuve inconnue,
-  version du format) ; `tests/navigation.test.ts` (`#defi/…` retenu
+  version du format ; aller-retour de noms contenant `.`, `/`, `#`, `%`,
+  des accents et des emojis ; longueur au pire, 10 noms de 20 emojis,
+  S911 ; deux temps de 183,2 s et 183,7 s rangés dans l'ordre) ; `tests/navigation.test.ts` (`#defi/…` retenu
   derrière le panneau, puis rendu ; retour arrière) ;
   `tests/chrono-vue.test.ts` et `tests/quiz-vue.test.ts` (une partie de
   défi ne publie rien et n'écrit aucun record ; bilan comparé, rangé par
   `comparerScores`) ; `tests/accueil.test.ts` (ligne du défi) ;
-  `tests/morceau-principal.test.ts` (la vue du défi hors du morceau
-  principal, chargée à la demande) ; pilote `ui_defi` (un Chrono de
+  `tests/morceau-principal.test.ts` (la vue du défi et `epreuve/defi.ts`,
+  lien et empreinte, hors du morceau principal, chargés à la demande : le
+  bouton « Défier » du bilan n'importe que le morceau du défi, au clic) ; pilote `ui_defi` (un Chrono de
   l'Océanie, « Défier », le lien rejoué dans un second profil du
   navigateur, bilan comparé, captures).
 - **Vérification** : sur le site déployé, un défi joué entre le PC et le
   téléphone (Chrome) ; lien ouvert depuis WhatsApp et depuis Messages
   (S900).
 - **Fin** : un défi joué de bout en bout entre deux navigateurs, sur le
-  site.
+  site ; `npm run build` sans avertissement de taille (morceau principal
+  sous 500 Ko, mesuré).
 
 ### Lot M3. Le défi dans l'APK (S)
 
@@ -809,7 +845,7 @@ actée la remplace (`noter_decision`, `remplace`).
 
 | # | Supposition | Comment vérifier | Quand |
 |---|---|---|---|
-| S900 | Le fragment d'un lien n'est jamais envoyé à Hosting, et WhatsApp et Messages le gardent intact jusqu'au clic | ouvrir un lien de 300 caractères depuis les deux, sur l'A37 | lot M2 |
+| S900 | Le fragment d'un lien n'est jamais envoyé à Hosting, et WhatsApp et Messages le gardent intact jusqu'au clic | ouvrir un lien de 1 300 caractères (le pire cas du § 4.1) depuis les deux, sur l'A37 ; s'il est coupé, mesurer la longueur qui passe | lot M2 |
 | S901 | La WebView de l'APK n'a pas `navigator.share` | `typeof navigator.share` dans l'APK (DevTools par adb) | lot M3 |
 | S902 | `graine` et `melanger` donnent la même suite dans Chrome, la WebView et Node | `tests/defi.test.ts` (suite figée), puis le pilote dans l'APK | lot M1 |
 | S903 | Aucun `Math.random` dans le rendu d'une épreuve : même graine, mêmes énoncés, pour tous les sujets | test « même graine, mêmes énoncés » sur chaque sujet | lot M1 |
@@ -820,7 +856,7 @@ actée la remplace (`noter_decision`, `remplace`).
 | S908 | La latence de La Réunion à `eur3` reste sous 300 ms | mesure depuis le téléphone en 4G | avant M6 |
 | S909 | L'usage réel du quota laisse la place d'un tableau de défis | console Firestore › Utilisation, sur une semaine | avant M4 |
 | S910 | App Links ne filtrent pas sur le fragment : il faut un chemin | documentation Android des App Links | lot M5 |
-| S911 | Un lien de 10 lignes de scores reste sous 300 caractères | `tests/defi.test.ts` (longueur au pire) | lot M2 |
+| S911 | Un lien de 10 lignes de scores, noms en base64url, reste sous 1 300 caractères au pire (10 noms de 20 emojis de 4 octets, 1 257 calculés), et un nom contenant `.` ou `/` fait l'aller-retour | `tests/defi.test.ts` (longueur au pire, noms piégés) | lot M2 |
 
 ## 14. Sources
 
