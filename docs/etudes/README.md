@@ -67,5 +67,30 @@ Conception de la fiche d'un lieu (16/11/2026) :
   D61 (ticket #34). Faite par un workflow : cinq relevés, une rédaction,
   deux relectures adverses, une correction.
 
+Conceptions du 25/11/2026 (propositions : aucune décision n'est encore
+tranchée, chaque étude porte son tableau de décisions avec recommandation ;
+écrites la même nuit, d'où des plages de numéros séparées ; chacune rédigée,
+relue par un second agent puis corrigée) :
+
+- `2026-11-25-j4-conception.md` : voisins, villes, habitants, superficies,
+  silhouettes, en juste ou faux ; lot 0 qui lit avant d'écrire ; décisions
+  D600 à D623 (ticket #6).
+- `2026-11-25-j5-conception.md` : 100 fleuves, chaînes et plateaux, déserts,
+  détroits ; listes candidates en annexe, géométrie et règle du toucher,
+  poids ; décisions D1700 à D1720 (ticket #7).
+- `2026-11-25-j6-conception.md` : départements, régions, préfectures,
+  numéros ; DROM et petite couronne en encarts par une projection composée ;
+  décisions D860 à D876 (ticket #8).
+- `2026-11-25-test-placement-conception.md` : « Je connais déjà », un
+  Trouver par série noté Easy, et les deux réglages de la planification sans
+  lesquels il ne fait gagner que deux jours ; décisions D350 à D362
+  (ticket #35).
+- `2026-11-25-saisie-libre-conception.md` : la carte « nommer » tapée au
+  clavier, tolérance aux fautes, collisions, alias, protocole d'essai des
+  claviers sur le téléphone ; décisions D1300 à D1316 (ticket #36).
+- `2026-11-25-multijoueur-conception.md` : défi par lien (graine, empreinte
+  et scores dans le lien, sans Firestore), coût chiffré d'une partie en
+  direct ; décisions D900 à D912 (ticket #9).
+
 Le plan arrêté, qui tient compte des réponses de l'utilisateur et de la
 critique, est `../plan.md` : il fait foi là où ces études divergent.
