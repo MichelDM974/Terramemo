@@ -43,10 +43,11 @@ export type Sens = 'localiser' | 'nommer';
  * Les domaines que cette version sait LIRE (journal, lots, export, rejeu) :
  * tous ceux du J2, avant qu'aucune version ne les écrive, pour qu'un lot
  * mixte (une Révision du jour qui mêle pays et capitales) reste lisible
- * (étude J2 § 3.3). Ceux du J4 et du J5 de même, dès leur lot 0 commun : un
- * APK plus ancien met en `a_relire` tout lot d'un domaine qu'il ne connaît
- * pas (ceux du J6 aussi, même socle : D876 a) (« Mets à jour l'appli ») ; lus longtemps avant d'être écrits, ce cas
- * se borne aux APK d'avant ce socle. Toujours ajoutés à la fin : l'ordre
+ * (étude J2 § 3.3). Ceux du J4, du J5 et du J6 de même, dès leur lot 0
+ * commun (D876 a) : un APK d'avant ce socle met en `a_relire` tout lot d'un
+ * domaine qu'il ne connaît pas (« Mets à jour l'appli ») ; ces domaines étant
+ * lus bien avant d'être écrits, ce cas se borne aux APK d'avant ce socle.
+ * Toujours ajoutés à la fin : l'ordre
  * départage la planification à âge égal. Lire n'est pas savoir poser :
  * DOMAINES_JOUABLES.
  */
