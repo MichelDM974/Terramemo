@@ -82,27 +82,20 @@ export const DOMAINES: readonly Domaine[] = [
  */
 export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', 'mers', 'communes'];
 
+/**
+ * Une table par domaine, chaque valeur tirée de son nom : toutes les clés de
+ * DOMAINES, dans son ordre. Plus courte qu'une table écrite de 18 lignes (le
+ * morceau principal reste sous 500 Ko) ; les tests figent les valeurs.
+ */
+function parDomaine<T>(f: (d: Domaine) => T): Readonly<Record<Domaine, T>> {
+  return Object.fromEntries(DOMAINES.map((d) => [d, f(d)])) as Record<Domaine, T>;
+}
+
+/** Les domaines qui ne se jouent pas sur le monde : les communes sur l'île, le J6 sur la France (départements ou régions). */
+const HORS_DU_MONDE: Readonly<Partial<Record<Domaine, NomTerrain>>> = { communes: 'reunion', departements: 'departements', regions: 'regions', prefectures: 'departements', numeros: 'departements' };
+
 /** Le terrain où se jouent les fiches d'un domaine : l'île pour les communes, la France (départements ou régions) pour le J6, le monde pour les autres. */
-export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = {
-  pays: 'monde',
-  communes: 'reunion',
-  capitales: 'monde',
-  drapeaux: 'monde',
-  mers: 'monde',
-  voisins: 'monde',
-  villes: 'monde',
-  habitants: 'monde',
-  superficies: 'monde',
-  silhouettes: 'monde',
-  fleuves: 'monde',
-  montagnes: 'monde',
-  deserts: 'monde',
-  detroits: 'monde',
-  departements: 'departements',
-  regions: 'regions',
-  prefectures: 'departements',
-  numeros: 'departements',
-};
+export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = parDomaine((d) => HORS_DU_MONDE[d] ?? 'monde');
 
 /** Le nom est-il celui d'un domaine (un sujet de Jouer qui a ses fiches) ? */
 export const estDomaine = (x: string): x is Domaine => (DOMAINES as readonly string[]).includes(x);

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CLE_SUJET,
+  cleSujet,
   clePseudo,
   enregistrer,
   enregistrerPartie,
@@ -431,10 +432,11 @@ describe('records de la semaine et classement général', () => {
   });
 
   it('ids avec le sujet : pays et communes gardent `localiser` (inchangés), les autres sujets leur nom (étude J2 § 3.2)', () => {
-    expect(CLE_SUJET).toMatchObject({ pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' });
+    expect(CLE_SUJET).toEqual({ pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' });
     // Les sujets lus dès le socle commun des J4, J5 et J6 : leur nom ; aucune épreuve tant qu'ils ne sont pas dans EPREUVES_SUJETS.
     for (const d of ['voisins', 'villes', 'habitants', 'superficies', 'silhouettes', 'fleuves', 'montagnes', 'deserts', 'detroits', 'departements', 'regions', 'prefectures', 'numeros'] as const) {
-      expect(CLE_SUJET[d]).toBe(d);
+      expect(cleSujet(d)).toBe(d);
+      expect(idEpreuve('tous', 'chrono', d)).toBe(`chrono:${d}:tous`);
       expect(EPREUVES_SUJETS.some((p) => p.sujet === d)).toBe(false);
       expect(tailleEpreuve(idEpreuve('tous', 'chrono', d))).toBeNull();
     }
