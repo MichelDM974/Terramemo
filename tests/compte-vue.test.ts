@@ -11,10 +11,11 @@ import { vueALaDemande } from '../src/vues/a-la-demande';
 import { accueilCompte, adresseGmail, detailProgres, texteGoogle, textePerdue, textePerduePanneau, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { remplir, textes } from '../src/vues/textes';
+import { textesCompte } from '../src/vues/textes-compte';
 import { textesErreurs } from '../src/vues/textes-erreurs';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
-const T = textes.compte;
+const T = { ...textes.compte, ...textesCompte };
 const attendre = () => new Promise((r) => setTimeout(r, 0));
 const err = (code: string) => Object.assign(new Error(`Firebase: Error (${code}).`), { code });
 

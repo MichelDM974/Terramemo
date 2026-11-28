@@ -4,6 +4,7 @@
 // au pilote (window.terramemo.comptes()). Sans dépendance à Firebase : la vue
 // Compte et les tests s'en servent sans charger le SDK.
 import { textesErreurs } from '../vues/textes-erreurs';
+import { textesCompte } from '../vues/textes-compte';
 import { remplir, textes } from '../vues/textes';
 
 const E: Readonly<Record<string, string>> = textesErreurs;
@@ -106,6 +107,6 @@ export function traduire(err: unknown, quand: Date = new Date(), fuseau?: string
   const brut = messageBrut(err);
   if (SILENCIEUX.has(code)) return { texte: null, code, brut };
   const modele = E[code] ?? E[code.replace(/^firestore\//, '')];
-  if (modele !== undefined) return { texte: remplir(modele, { heure: heureRemiseQuota(quand, fuseau), adresse: adresseErreur(err) ?? textes.compte.google_compte_attendu }), code, brut };
+  if (modele !== undefined) return { texte: remplir(modele, { heure: heureRemiseQuota(quand, fuseau), adresse: adresseErreur(err) ?? textesCompte.google_compte_attendu }), code, brut };
   return { texte: remplir(E.inattendue!, { code: code || 'sans code' }), code, brut };
 }

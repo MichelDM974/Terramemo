@@ -9,6 +9,7 @@ import { adapterLiens, contenuDePage, SITE, URL_CONFIDENTIALITE, vueConfidential
 import { REUNION } from '../src/map/terrain';
 import { vueCredits } from '../src/vues/credits';
 import { textes } from '../src/vues/textes';
+import { textesCompte } from '../src/vues/textes-compte';
 import { textesCredits } from '../src/vues/textes-credits';
 import { installerDom, type El } from './dom-factice';
 
@@ -20,7 +21,7 @@ const texteDe = (html: string) =>
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ');
 const adresses = (html: string) => [...sansCommentaires(html).matchAll(/mailto:([^"]+)"/g)].map((m) => m[1]!);
-const C = textes.compte;
+const C = { ...textes.compte, ...textesCompte };
 
 describe('pages statiques (public/)', () => {
   it.each(Object.entries(PAGES))('%s : lisible sans JS, en français, style commun, un seul <main>', (nom, html) => {
@@ -45,7 +46,7 @@ describe('pages statiques (public/)', () => {
     // Le texte du lien est l'adresse elle-même.
     expect(texteDe(PAGES.confidentialite)).toContain(toutes[0]);
     // La vue Compte la donne aussi (suppression qu'on ne peut plus finir) : la même.
-    const dansLesTextes = JSON.stringify([textes, textesCredits]).match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
+    const dansLesTextes = JSON.stringify([textes, textesCompte, textesCredits]).match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
     expect(dansLesTextes.length).toBeGreaterThanOrEqual(1);
     expect(new Set([...dansLesTextes, toutes[0]]).size).toBe(1);
   });

@@ -65,6 +65,10 @@ describe('le morceau principal', () => {
     expect(['src/sync/erreurs.ts', 'src/vues/textes-erreurs.ts', 'src/vues/textes-erreurs.fr.json'].filter((f) => vus.has(f))).toEqual([]);
   });
 
+  it('ne porte pas les textes de la vue Compte : seuls ses morceaux les lisent (src/vues/compte.ts, src/sync/erreurs.ts)', () => {
+    expect(['src/vues/compte.ts', 'src/vues/textes-compte.ts', 'src/vues/textes-compte.fr.json'].filter((f) => vus.has(f))).toEqual([]);
+  });
+
   it('ne porte pas l’écran Crédits ni ses textes : un morceau chargé à la demande (main.ts, vueALaDemande)', () => {
     const credits = ['src/vues/credits.ts', 'src/vues/textes-credits.ts', 'src/vues/textes-credits.fr.json', 'package.json'];
     expect(credits.filter((f) => vus.has(f))).toEqual([]);
