@@ -14,7 +14,7 @@ import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
 import { teintesDemo } from './map/teintes';
 import type { NomProjection, NomTerrain, Rendu, Transfo } from './map/types';
-import { TERRAINS_LOCAUX } from './map/terrain';
+import { REUNION, TERRAINS_LOCAUX } from './map/terrain';
 import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
@@ -52,7 +52,6 @@ import { remplirEssaiJ0, vueJouer, type VueJouer } from './vues/jouer';
 import { brancherRecherche } from './vues/recherche';
 import { vueSaisie } from './vues/saisie';
 import { vueConfidentialite } from './vues/confidentialite';
-import { vueCredits } from './vues/credits';
 import { creerSeances } from './vues/seance';
 import { apprendreLieu, lirePrefere } from './vues/apprendre-lieu';
 import { enregistrerServiceWorker, prendreMiseAJour } from './sw/enregistrer';
@@ -126,6 +125,8 @@ poserDrapeaux(params);
 /** Comptes montrés (⚙ › Compte, vue #compte) : en DEV, avec ?comptes, ou une fois ouverts au public (lot 8). */
 const COMPTES = comptesVisibles(params);
 const TEXTES_COMPTE = textes.compte;
+/** Les textes de l'attente de l'écran Crédits (chargé à la demande) : `textes` est masqué plus bas par les fichiers lus de la carte. */
+const TEXTES_CREDITS = textes.credits;
 const pRendu = params.get('rendu');
 const rendu: Rendu = pRendu === 'g' || pRendu === 'css' || pRendu === 'canvas' || pRendu === 'webgl' ? pRendu : RENDU_DEFAUT;
 const pProj = params.get('projection');
@@ -886,7 +887,19 @@ async function demarrer(): Promise<void> {
   vues.set('quiz', quiz);
   vues.set('classement', vueGeneral(ctx, { retour, versCarte }));
   vues.set('saisie', vueSaisie(ctx, { versCarte }));
-  vues.set('credits', vueCredits(ctx, { retour, versCarte }));
+  // Crédits : un morceau chargé à la demande, ses textes avec lui (textes-credits.fr.json) ; rien au premier affichage.
+  const TC = TEXTES_CREDITS;
+  vues.set(
+    'credits',
+    vueALaDemande(
+      ctx,
+      'credits',
+      { titre: TC.titre, chargement: TC.chargement, echec: TC.echec, reessayer: TC.reessayer, retour: TC.retour },
+      () => import('./vues/credits').then(({ vueCredits }) => vueCredits(ctx, { retour, versCarte, dossierIle: REUNION.dossier })),
+      retour,
+      versCarte,
+    ),
+  );
   vues.set('confidentialite', vueConfidentialite(ctx, { retour, versCarte }));
   if (COMPTES) {
     const T = TEXTES_COMPTE;

@@ -9,11 +9,13 @@ import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APACHE_ICI, artefacts, composantsAar, factoriserApache, GROUPES_AVIS, releveAvis, termesApache } from '../licences/android.mjs';
 import { AVIS_ANDROID, artefactsAndroid, avisAndroid, FICHIER_LICENCES, LICENCES_A_PART, ligneAndroid, texteAvis, texteLicence, texteLicencePaquet, texteLicences } from '../licences/tierces';
+import { REUNION } from '../src/map/terrain';
 import { nomPaquets, URL_LICENCES, vueCredits } from '../src/vues/credits';
 import { textes } from '../src/vues/textes';
+import { textesCredits } from '../src/vues/textes-credits';
 import { installerDom, type El } from './dom-factice';
 
-const T = textes.credits;
+const T = textesCredits;
 const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
 const licence = (p: string) => (JSON.parse(readFileSync(`node_modules/${p}/package.json`, 'utf8')) as { license: string }).license;
 /**
@@ -60,7 +62,7 @@ function ouvrir(): El {
   versCarte = vi.fn<() => void>();
   zone = document.createElement('div') as unknown as El;
   const masquer = vi.fn();
-  const v = vueCredits({ zone, carte: { masquer } } as never, { retour, versCarte });
+  const v = vueCredits({ zone, carte: { masquer } } as never, { retour, versCarte, dossierIle: REUNION.dossier });
   v.activer();
   expect(masquer).toHaveBeenCalledWith(true);
   return zone.querySelector('#vue-credits')!;
@@ -206,7 +208,9 @@ describe('écran Crédits', () => {
   });
 
   it('textes : espaces insécables avant « : » et « ; », comme la mention de la carte', () => {
-    const tous = JSON.stringify(T);
+    // Ceux de l'écran et ceux restés au morceau principal (textes.credits), sans la note aux relecteurs (_lisez-moi).
+    const { '_lisez-moi': _note, ...propres } = T;
+    const tous = JSON.stringify([textes.credits, propres]);
     expect(tous).not.toMatch(/ [:;]/);
   });
 

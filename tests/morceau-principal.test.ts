@@ -45,4 +45,9 @@ describe('le morceau principal', () => {
     const fiches = ['src/vues/fiche.ts', 'src/vues/situation.ts', 'src/fiches/donnees.ts', 'src/fiches/format.ts', 'src/fiches/barre.ts', 'src/fiches/relues.ts', 'src/vues/textes-fiche.ts', 'src/vues/textes-fiche.fr.json'];
     expect(fiches.filter((f) => vus.has(f))).toEqual([]);
   });
+
+  it('ne porte pas l’écran Crédits ni ses textes : un morceau chargé à la demande (main.ts, vueALaDemande)', () => {
+    const credits = ['src/vues/credits.ts', 'src/vues/textes-credits.ts', 'src/vues/textes-credits.fr.json', 'package.json'];
+    expect(credits.filter((f) => vus.has(f))).toEqual([]);
+  });
 });

@@ -8,7 +8,7 @@ import type { GeometryCollection, Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import { ENCLAVES } from '../src/map/acceptes';
 import { normaliser } from '../src/texte';
-import { textes } from '../src/vues/textes';
+import { textesCredits } from '../src/vues/textes-credits';
 
 // Capitales des pays (étude J2, § 2.1 ; geodata/capitales.mjs, lot 1) : tests sans réseau
 // sur les fichiers versionnés, l'extrait Wikidata figé et la table à la main.
@@ -635,7 +635,7 @@ describe('fichiers, sources et reproduction', () => {
   });
 
   it('crédits : Wikidata, CC0, à la date de l’extrait', () => {
-    const w = textes.credits.donnees.find((c) => c.nom === 'Wikidata');
+    const w = textesCredits.donnees.find((c) => c.nom === 'Wikidata');
     if (!w) throw new Error('Wikidata absente des crédits');
     const [a, m, j] = extrait.date.split('-');
     // La suite (« ; superficies, gentilés… · extrait du … ») : l'extrait des fiches (tests/credits-vue.test.ts).

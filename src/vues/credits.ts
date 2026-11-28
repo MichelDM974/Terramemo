@@ -12,14 +12,15 @@
 // licences-tierces.txt, produit au build par licences/tierces.ts). Dépliés sur
 // place plutôt qu'un lien vers le fichier : dans l'APK, on ne quitte pas
 // l'appli (choix du 06/11). Les versions des dépendances directes viennent de
-// package.json, pour ne pas vieillir. Textes : textes.fr.json (credits).
+// package.json, pour ne pas vieillir. Textes : textes-credits.fr.json, et textes.fr.json
+// (credits) pour ce qui sert avant ce morceau, chargé à la demande (main.ts).
 import { dependencies } from '../../package.json';
 import { dateCredit, type SourcesTerrain } from '../map/donnees-terrain';
-import { REUNION } from '../map/terrain';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
+import { textesCredits } from './textes-credits';
 import { remplir, textes } from './textes';
 
-const T = textes.credits;
+const T = textesCredits;
 const VERSIONS: Readonly<Record<string, string>> = dependencies;
 /** Le fichier des licences tierces, à la racine (FICHIER_LICENCES de licences/tierces.ts, lu par Node seul). */
 export const URL_LICENCES = '/licences-tierces.txt';
@@ -58,14 +59,19 @@ function ligne(c: Credit, o: { id?: string; auteur?: HTMLElement } = {}): HTMLLI
   );
 }
 
-export function vueCredits(ctx: ContexteVue, o: { retour: () => void; versCarte: () => void }): Vue {
+/**
+ * `dossierIle` : le dossier des données de l'île (REUNION.dossier, donné par main.ts). Ce morceau n'importe pas
+ * map/terrain.ts : il le ferait sortir, avec ce qu'il partage avec le morceau principal (d3-geo, commun.ts,
+ * les textes…), dans un morceau partagé préchargé au démarrage (mesuré au build) ; rien ne partirait à la demande.
+ */
+export function vueCredits(ctx: ContexteVue, o: { retour: () => void; versCarte: () => void; dossierIle: string }): Vue {
   // L'IGN demande la date de dernière mise à jour : lue à la première ouverture (le sources.json de l'île, ~2 ko).
   const auteurIgn = creer('span', {}, T.donnees[2]!.auteur);
   let dateLue = false;
   const lireDate = () => {
     if (dateLue) return;
     dateLue = true;
-    fetch(`${REUNION.dossier}sources.json`)
+    fetch(`${o.dossierIle}sources.json`)
       .then((r) => (r.ok ? (r.json() as Promise<SourcesTerrain>) : null))
       .then((s) => {
         const date = s && dateCredit(s);
@@ -95,7 +101,7 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void; versCarte:
       });
   });
 
-  const retour = creer('button', { type: 'button', class: 'secondary', id: 'credits-retour' }, T.retour);
+  const retour = creer('button', { type: 'button', class: 'secondary', id: 'credits-retour' }, textes.credits.retour);
   retour.addEventListener('click', () => o.retour());
   const section = creer(
     'section',
@@ -104,7 +110,7 @@ export function vueCredits(ctx: ContexteVue, o: { retour: () => void; versCarte:
       'div',
       { class: 'panel' },
       croix(o.versCarte),
-      creer('h2', {}, T.titre),
+      creer('h2', {}, textes.credits.titre),
       creer('p', { class: 'hint' }, T.intro),
       // La politique de confidentialité (J1b, § 7.3) : la vue #confidentialite.
       creer('p', { class: 'credits-confidentialite' }, creer('a', { href: '#confidentialite', id: 'credits-confidentialite' }, T.confidentialite)),
