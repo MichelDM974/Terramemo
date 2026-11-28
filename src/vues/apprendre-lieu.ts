@@ -100,6 +100,8 @@ export interface OptionsApprendreLieu {
 export function apprendreLieu(o: OptionsApprendreLieu): ApprendreFiche {
   /** Le sujet et la série d'un lieu ; null : aucun sujet ne le fait apprendre. */
   function demande(terrain: NomTerrain, id: string): { sujet: SujetLieu; serie: Serie } | null {
+    // L'île précisément (tri du J6, § 4.6) : ses communes ; un autre terrain local n'a pas encore de sujet à apprendre.
+    if (terrain !== 'monde' && terrain !== 'reunion') return null;
     const choix: [SujetLieu, string] | null =
       terrain === 'reunion'
         ? ['communes', SERIE_REUNION]

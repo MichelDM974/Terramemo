@@ -1095,7 +1095,7 @@ describe('CarteCanvas : océans et mers (lot 3a, étude J2, § 4.3)', () => {
   it('noter une mer sur la carte : une erreur avant prendreMers, juste au point de l’Atlantique après ; la couche dans contexteFinal pendant un vol', () => {
     const c = carteMers();
     image(0);
-    expect(() => c.noter('atlant', L / 2, H / 2)).toThrow(/cible marine avant la couche marine/);
+    expect(() => c.noter('atlant', L / 2, H / 2)).toThrow(/cible avant sa couche/);
     c.prendreMers(couche);
     image(16);
     const [x, y] = c.ecran('atlant') as [number, number];

@@ -16,11 +16,14 @@ export type SorteLieu = 'pays' | 'territoire' | 'zone' | 'continent' | 'mer' | '
 /**
  * La sorte du lieu `id` touché sur `terrain` ; `statut` : celui de son entité
  * (pays.json), absent pour une mer. null : rien qu'une fiche sache dire (un
- * id du monde sans statut qui n'est pas une mer).
+ * id du monde sans statut qui n'est pas une mer, un lieu d'un terrain local
+ * autre que l'île : les terrains du J6 n'ont pas encore de fiche).
  */
 export function sorteDeLieu(id: string, terrain: NomTerrain, statut?: Statut): SorteLieu | null {
   if (estIdMer(id)) return 'mer';
+  // L'île précisément (tri du J6, § 4.6) : ses communes.
   if (terrain === 'reunion') return 'commune';
+  if (terrain !== 'monde') return null;
   switch (statut) {
     case 'jouable':
     case 'optionnel':

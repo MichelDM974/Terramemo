@@ -9,7 +9,7 @@ import type { DonneesCarte } from './map/donnees';
 import { chargerTerrain, dateCredit, type SourcesTerrain } from './map/donnees-terrain';
 import { prechauffer } from './map/geo';
 import { cadreLocal, REUNION, type DefTerrain } from './map/terrain';
-import type { Lieu, NomTerrain } from './map/types';
+import type { Lieu, NomTerrain, NomTerrainLocal } from './map/types';
 import { remplir, textes } from './vues/textes';
 
 export interface Terrain {
@@ -33,8 +33,15 @@ export interface Terrains {
   deja(nom: NomTerrain): Terrain | null;
 }
 
-/** Les terrains locaux connus, par nom, et le suffixe de leur hôte (#carte-ile, .carte-ile). */
-const DEFS: Record<Exclude<NomTerrain, 'monde'>, { def: DefTerrain; hote: string }> = { reunion: { def: REUNION, hote: 'ile' } };
+/**
+ * Les terrains locaux définis, par nom, et le suffixe de leur hôte (#carte-ile,
+ * .carte-ile). Ceux du J6 (départements, régions) sont nommés (NomTerrain) mais
+ * sans définition avant leurs données : les charger échoue, rien ne le demande.
+ */
+const DEFS: Partial<Record<NomTerrainLocal, { def: DefTerrain; hote: string }>> = { reunion: { def: REUNION, hote: 'ile' } };
+
+/** Le libellé de la carte d'un terrain local (fichier de langue) ; null s'il n'en a pas encore. */
+const texteTerrain = (nom: NomTerrainLocal): { libelle: string } | null => (textes.terrains as Partial<Record<NomTerrainLocal, { libelle: string }>>)[nom] ?? null;
 
 /** Les ids des zones au statut « jouable », dans l'ordre des données. */
 export function idsJouables(d: DonneesCarte<Lieu>): string[] {
@@ -53,8 +60,10 @@ export function creerTerrains(o: {
   let actif: NomTerrain = 'monde';
   document.body.dataset.terrain = actif;
 
-  async function chargerLocal(nom: Exclude<NomTerrain, 'monde'>): Promise<Terrain> {
-    const { def, hote: suffixe } = DEFS[nom];
+  async function chargerLocal(nom: NomTerrainLocal): Promise<Terrain> {
+    const d = DEFS[nom];
+    if (!d) throw new Error(`terrain sans définition : ${nom}`);
+    const { def, hote: suffixe } = d;
     const { donnees, sources } = await chargerTerrain(def);
     const hote = document.createElement('div');
     hote.id = `carte-${suffixe}`;
@@ -73,7 +82,8 @@ export function creerTerrains(o: {
 
   function creerLocal(def: DefTerrain, hote: HTMLElement, donnees: DonneesCarte<Lieu>, sources: SourcesTerrain): Terrain {
     const emprise = { type: 'FeatureCollection' as const, features: donnees.entites.map((e) => e.forme) };
-    const T = textes.terrains[def.nom];
+    const T = texteTerrain(def.nom);
+    if (!T) throw new Error(`terrain sans libellé : ${def.nom}`);
     // Toujours en rendu « g » : 24 communes, quelques milliers de sommets, pas
     // de rotation ; sans gestes : les mesures restent celles du monde.
     const carte = new Carte({
@@ -117,7 +127,7 @@ export function creerTerrains(o: {
       if (deja) return Promise.resolve(deja);
       let p = enCours.get(nom);
       if (!p) {
-        p = chargerLocal(nom as Exclude<NomTerrain, 'monde'>);
+        p = chargerLocal(nom as NomTerrainLocal);
         enCours.set(nom, p);
         // Une fois chargé, il est dans charges ; un échec (hors ligne) se retente au prochain choix.
         p.then(

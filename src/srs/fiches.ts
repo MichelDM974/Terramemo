@@ -4,13 +4,38 @@
 // reunion/communes.json), sans « : » (ISO3, NE_…, code INSEE). Capitales et
 // drapeaux prennent l'id du pays (`capitales:BOL:localiser`), les mers le
 // leur, de 8 lettres au plus (`mers:medit:localiser` ; étude J2 § 3.1, 3.3).
+// Ceux du J4 prennent l'id du pays, les villes leur Qid (`villes:Q90:localiser`) ;
+// ceux du J5 un id de 3 à 8 lettres, comme les mers (`fleuves:danube:nommer`) ;
+// ceux du J6 le code INSEE du département (`departements:2A:localiser`,
+// `prefectures:971:nommer`) ou `R` et le code de la région (`regions:R84:…`, D867 a).
 import type { NomTerrain } from '../map/types';
 
 /**
  * Un domaine = un sujet de Jouer, du même nom (étude J2 § 3.1). Ces noms vont
  * au journal, aux lots en ligne et à l'export : figés à vie.
  */
-export type Domaine = 'pays' | 'communes' | 'capitales' | 'drapeaux' | 'mers';
+export type Domaine =
+  | 'pays'
+  | 'communes'
+  | 'capitales'
+  | 'drapeaux'
+  | 'mers'
+  // J4 (étude 2026-11-25-j4-conception.md, § 7.1)
+  | 'voisins'
+  | 'villes'
+  | 'habitants'
+  | 'superficies'
+  | 'silhouettes'
+  // J5 (étude 2026-11-25-j5-conception.md, § 13.1)
+  | 'fleuves'
+  | 'montagnes'
+  | 'deserts'
+  | 'detroits'
+  // J6 (étude 2026-11-25-j6-conception.md, § 6.3)
+  | 'departements'
+  | 'regions'
+  | 'prefectures'
+  | 'numeros';
 /** localiser : « où est X ? » (Trouver) ; nommer : « quel est ce pays ? » (Reconnaître). */
 export type Sens = 'localiser' | 'nommer';
 
@@ -18,9 +43,34 @@ export type Sens = 'localiser' | 'nommer';
  * Les domaines que cette version sait LIRE (journal, lots, export, rejeu) :
  * tous ceux du J2, avant qu'aucune version ne les écrive, pour qu'un lot
  * mixte (une Révision du jour qui mêle pays et capitales) reste lisible
- * (étude J2 § 3.3). Lire n'est pas savoir poser : DOMAINES_JOUABLES.
+ * (étude J2 § 3.3). Ceux du J4, du J5 et du J6 de même, dès leur lot 0
+ * commun (D876 a) : un APK d'avant ce socle met en `a_relire` tout lot d'un
+ * domaine qu'il ne connaît pas (« Mets à jour l'appli ») ; ces domaines étant
+ * lus bien avant d'être écrits, ce cas se borne aux APK d'avant ce socle.
+ * Toujours ajoutés à la fin : l'ordre
+ * départage la planification à âge égal. Lire n'est pas savoir poser :
+ * DOMAINES_JOUABLES.
  */
-export const DOMAINES: readonly Domaine[] = ['pays', 'communes', 'capitales', 'drapeaux', 'mers'];
+export const DOMAINES: readonly Domaine[] = [
+  'pays',
+  'communes',
+  'capitales',
+  'drapeaux',
+  'mers',
+  'voisins',
+  'villes',
+  'habitants',
+  'superficies',
+  'silhouettes',
+  'fleuves',
+  'montagnes',
+  'deserts',
+  'detroits',
+  'departements',
+  'regions',
+  'prefectures',
+  'numeros',
+];
 
 /**
  * Les domaines que cette version sait POSER : les sujets livrés (étude J2
@@ -33,8 +83,20 @@ export const DOMAINES: readonly Domaine[] = ['pays', 'communes', 'capitales', 'd
  */
 export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', 'mers', 'communes'];
 
-/** Le terrain où se jouent les fiches d'un domaine : l'île pour les communes, le monde pour les autres. */
-export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = { pays: 'monde', communes: 'reunion', capitales: 'monde', drapeaux: 'monde', mers: 'monde' };
+/**
+ * Une table par domaine, chaque valeur tirée de son nom : toutes les clés de
+ * DOMAINES, dans son ordre. Plus courte qu'une table écrite de 18 lignes (le
+ * morceau principal reste sous 500 Ko) ; les tests figent les valeurs.
+ */
+function parDomaine<T>(f: (d: Domaine) => T): Readonly<Record<Domaine, T>> {
+  return Object.fromEntries(DOMAINES.map((d) => [d, f(d)])) as Record<Domaine, T>;
+}
+
+/** Les domaines qui ne se jouent pas sur le monde : les communes sur l'île, le J6 sur la France (départements ou régions). */
+const HORS_DU_MONDE: Readonly<Partial<Record<Domaine, NomTerrain>>> = { communes: 'reunion', departements: 'departements', regions: 'regions', prefectures: 'departements', numeros: 'departements' };
+
+/** Le terrain où se jouent les fiches d'un domaine : l'île pour les communes, la France (départements ou régions) pour le J6, le monde pour les autres. */
+export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = parDomaine((d) => HORS_DU_MONDE[d] ?? 'monde');
 
 /** Le nom est-il celui d'un domaine (un sujet de Jouer qui a ses fiches) ? */
 export const estDomaine = (x: string): x is Domaine => (DOMAINES as readonly string[]).includes(x);

@@ -54,6 +54,12 @@ export interface Evenement {
    * libre). Changer la règle de note plus tard ne réécrit pas le passé.
    */
   note?: Note | null;
+  /**
+   * La valeur estimée d'une question à curseur (Habitants, Superficies : étude
+   * du J4, § 5 et D617 a), pour mesurer plus tard le calibrage ; absente
+   * ailleurs. Un lot qui en porte une s'écrit au format v2 (sync/lots.ts).
+   */
+  estime?: number;
 }
 
 const TYPES: readonly string[] = ['reponse', 'connu', 'reinitialiser'];
@@ -73,6 +79,8 @@ const DUREE_MAX_MS = 86_400_000;
 /** Demi-tour de la Terre, arrondi au-dessus : aucune distance au bord ne le dépasse. */
 const DISTANCE_MAX_KM = 20_100;
 const ZOOM_MAX = 1e4;
+/** Au-dessus de toute population (8,2 × 10⁹) et de toute superficie de pays (17,1 × 10⁶ km²). */
+const ESTIME_MAX = 1e10;
 
 const estId = (x: unknown): x is string => typeof x === 'string' && x.length > 0 && x.length <= LONGUEUR_ID;
 const entier = (x: unknown): x is number => Number.isSafeInteger(x);
@@ -100,6 +108,7 @@ export function probleme(e: unknown): string | null {
   if (o.duree_ms !== undefined && !(entier(o.duree_ms) && o.duree_ms >= 0 && o.duree_ms <= DUREE_MAX_MS)) return 'duree_ms';
   if (o.distance_km !== undefined && o.distance_km !== null && !(nombre(o.distance_km) && o.distance_km >= 0 && o.distance_km <= DISTANCE_MAX_KM)) return 'distance_km';
   if (o.note !== undefined && o.note !== null && !(o.note === 1 || o.note === 2 || o.note === 3 || o.note === 4)) return 'note';
+  if (o.estime !== undefined && !(nombre(o.estime) && o.estime > 0 && o.estime <= ESTIME_MAX)) return 'estime';
   const cles = new Set(Object.keys(o));
   for (const k of CHAMPS_CONNUS) cles.delete(k);
   if (cles.size) return `champ inconnu : ${[...cles].join(', ')}`;
@@ -112,13 +121,18 @@ export function probleme(e: unknown): string | null {
     if (o.correct === true && o.reponse != null) return 'reponse remplie sur une réponse juste';
   } else if (o.note != null) {
     return `note sur un événement ${String(o.type)}`;
+  } else if (o.estime !== undefined) {
+    // La valeur qu'une réponse a estimée (D617) : un « connu » ou une
+    // remise à zéro n'en ont pas. Refusée dès sa lecture, comme `note`, pour
+    // qu'aucune version n'en écrive ailleurs sans changer de format.
+    return `estime sur un événement ${String(o.type)}`;
   }
   return null;
 }
 
 const CHAMPS_CONNUS: readonly string[] = [
   'v', 'id', 'appareil', 'ts', 'tz', 'seance', 'type', 'fiche', 'mode', 'reponse',
-  'via', 'zoom', 'correct', 'aide', 'duree_ms', 'distance_km', 'note',
+  'via', 'zoom', 'correct', 'aide', 'duree_ms', 'distance_km', 'note', 'estime',
 ];
 
 /** Vrai si l'événement est bien formé (probleme() le dit sinon). */

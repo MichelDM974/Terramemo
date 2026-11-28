@@ -196,16 +196,22 @@ const scoreLisible = (r: { points?: unknown; justes?: unknown }): boolean => typ
  * La clé d'un sujet dans l'id de ses épreuves (étude J2 § 3.2) : `localiser`
  * pour les pays et les communes, inchangé (records, profils et classements
  * en dépendent), le nom du sujet pour les autres. Figée à vie, comme les
- * règles Firestore qui la lisent.
+ * règles Firestore qui la lisent. Écrite pour les sujets du J2 ; ceux des
+ * J4, J5 et J6, lus dès leur socle commun et sans épreuve tant qu'ils ne
+ * sont pas dans EPREUVES_SUJETS, prennent leur nom par cleSujet (une table
+ * écrite pour eux passait le morceau principal au-delà de 500 Ko).
  */
-export const CLE_SUJET: Readonly<Record<Domaine, string>> = { pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' };
+export const CLE_SUJET: Readonly<Partial<Record<Domaine, string>>> = { pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' };
+
+/** La clé d'un sujet dans l'id de ses épreuves : CLE_SUJET, sinon son nom. */
+export const cleSujet = (d: Domaine): string => CLE_SUJET[d] ?? d;
 
 /**
  * Identifiant d'une épreuve : mode, clé du sujet, série (un continent, 'tous',
  * 'reunion', 'mers') : `chrono:localiser:reunion`, `sansfaute:localiser:Africa`,
  * `chrono:capitales:Africa`.
  */
-export const idEpreuve = (serie: string, mode: ModeEpreuve = 'chrono', sujet: Domaine = 'pays'): string => `${mode}:${CLE_SUJET[sujet]}:${serie}`;
+export const idEpreuve = (serie: string, mode: ModeEpreuve = 'chrono', sujet: Domaine = 'pays'): string => `${mode}:${cleSujet(sujet)}:${serie}`;
 
 /** Le classement général : la somme des records des épreuves de epreuvesDuGeneral (src/epreuve/classement.ts, GENERAL). */
 const ID_GENERAL = 'general';
@@ -223,7 +229,7 @@ export function modeEpreuve(epreuve: string): ModeClasse | null {
   return m === 'quiz' || (MODES_EPREUVE as readonly string[]).includes(m) ? (m as ModeClasse) : null;
 }
 
-/** Une épreuve d'un sujet : le sujet (sa clé, CLE_SUJET, fait l'id) et la série. */
+/** Une épreuve d'un sujet : le sujet (sa clé, cleSujet, fait l'id) et la série. */
 export interface PaireEpreuve {
   sujet: Domaine;
   serie: string;
@@ -293,7 +299,7 @@ export const epreuvesClassees = (): string[] => [...MODES_EPREUVE.flatMap((m) =>
 /** Le sujet d'une épreuve du catalogue (`chrono:localiser:reunion` → communes) ; null hors du catalogue (le général, le quiz). */
 export function sujetEpreuve(epreuve: string): Domaine | null {
   const [, cle, serie] = (epreuve.split('@')[0] ?? '').split(':');
-  return EPREUVES_SUJETS.find((p) => p.serie === serie && CLE_SUJET[p.sujet] === cle)?.sujet ?? null;
+  return EPREUVES_SUJETS.find((p) => p.serie === serie && cleSujet(p.sujet) === cle)?.sujet ?? null;
 }
 
 /**
@@ -316,7 +322,8 @@ const TAILLES_MONDE: Readonly<Record<string, number>> = { tous: 195, Africa: 54,
  * Capitales et drapeaux ont les séries et les tailles des pays (D37 c) ;
  * les mers, leur série unique de 50 zones (IDS_MERS, D44 a).
  */
-const TAILLES_SERIES: Readonly<Record<Domaine, Readonly<Record<string, number>>>> = {
+const TAILLES_SERIES: Readonly<Partial<Record<Domaine, Readonly<Record<string, number>>>>> = {
+  // Les sujets des J4, J5 et J6, lus mais sans épreuve, n'y sont pas : aucune série (leur lot d'épreuves les ajoute, règles d'abord).
   pays: TAILLES_MONDE,
   capitales: TAILLES_MONDE,
   drapeaux: TAILLES_MONDE,
@@ -334,7 +341,7 @@ export function tailleEpreuve(epreuve: string): number | null {
   if (modeEpreuve(epreuve) === null) return null;
   const sujet = sujetEpreuve(epreuve);
   const serie = (epreuve.split('@')[0] ?? '').split(':')[2] ?? '';
-  return sujet === null ? null : (TAILLES_SERIES[sujet][serie] ?? null);
+  return sujet === null ? null : (TAILLES_SERIES[sujet]?.[serie] ?? null);
 }
 
 const CLE_RECORDS = 'terramemo.chrono.records';

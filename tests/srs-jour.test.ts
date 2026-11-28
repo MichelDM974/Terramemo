@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyser, DOMAINES, DOMAINES_JOUABLES, domaineJouable, estDomaine, fichesDe, former, jouablesDu, SENS_ACTIFS, SENS_ENTREE, soeur, TERRAIN_DOMAINE } from '../src/srs/fiches';
+import { analyser, DOMAINES, DOMAINES_JOUABLES, domaineJouable, estDomaine, fichesDe, former, jouablesDu, SENS_ACTIFS, SENS_ENTREE, soeur, TERRAIN_DOMAINE, type Domaine } from '../src/srs/fiches';
 import { jour, jourDe } from '../src/srs/jour';
 
 // Vecteurs écrits à la main : l'heure UTC de chaque instant est convertie de
@@ -48,7 +48,7 @@ describe('fiches', () => {
   });
 
   it('analyser refuse ce qui n’est pas une fiche', () => {
-    for (const x of ['', 'pays:FRA', 'pays:FRA:localiser:x', 'villes:FRA:localiser', 'pays::localiser', 'pays:FRA:situer']) {
+    for (const x of ['', 'pays:FRA', 'pays:FRA:localiser:x', 'inconnu:FRA:localiser', 'pays::localiser', 'pays:FRA:situer']) {
       expect(analyser(x)).toBeNull();
     }
     expect(() => former('pays', 'A:B', 'localiser')).toThrow();
@@ -62,7 +62,7 @@ describe('fiches', () => {
   });
 
   it('les domaines du J2 se lisent dès le socle : capitales et drapeaux à l’id du pays, mers à leur id (étude J2 § 3.1, 3.3)', () => {
-    expect(DOMAINES).toEqual(['pays', 'communes', 'capitales', 'drapeaux', 'mers']);
+    expect(DOMAINES.slice(0, 5)).toEqual(['pays', 'communes', 'capitales', 'drapeaux', 'mers']);
     expect(former('capitales', 'BOL', 'localiser')).toBe('capitales:BOL:localiser');
     expect(analyser('capitales:BOL:localiser')).toEqual({ domaine: 'capitales', id: 'BOL', sens: 'localiser' });
     expect(analyser('drapeaux:TCD:nommer')).toEqual({ domaine: 'drapeaux', id: 'TCD', sens: 'nommer' });
@@ -73,17 +73,52 @@ describe('fiches', () => {
     expect(soeur('mers:medit:nommer')).toBe('mers:medit:localiser');
     expect(fichesDe('mers', 'medit', SENS_ACTIFS)).toEqual(['mers:medit:localiser', 'mers:medit:nommer']);
     // Toujours refusés : un domaine inconnu, un nom proche, la casse.
-    for (const x of ['villes:FRA:localiser', 'capitale:BOL:localiser', 'Capitales:BOL:localiser', 'mer:medit:localiser', 'quiz:general:facile']) expect(analyser(x)).toBeNull();
-    expect(estDomaine('villes')).toBe(false);
+    for (const x of ['inconnu:FRA:localiser', 'capitale:BOL:localiser', 'Capitales:BOL:localiser', 'mer:medit:localiser', 'quiz:general:facile']) expect(analyser(x)).toBeNull();
+    expect(estDomaine('inconnu')).toBe(false);
+  });
+
+  it('les domaines du J4 et du J5 se lisent dès leur socle commun, à la fin de DOMAINES, sur le monde, sans être jouables (études J4 § 7.1, J5 § 13.1)', () => {
+    const j4 = ['voisins', 'villes', 'habitants', 'superficies', 'silhouettes'];
+    const j5 = ['fleuves', 'montagnes', 'deserts', 'detroits'];
+    expect(DOMAINES.slice(5, 14)).toEqual([...j4, ...j5]);
+    for (const d of [...j4, ...j5]) {
+      expect(estDomaine(d), d).toBe(true);
+      expect(domaineJouable(d), d).toBe(false);
+      expect(TERRAIN_DOMAINE[d as Domaine], d).toBe('monde');
+    }
+    // Les villes à leur Qid : former, analyser et la sœur restent dans le domaine.
+    expect(former('villes', 'Q90', 'localiser')).toBe('villes:Q90:localiser');
+    expect(analyser('villes:Q90:localiser')).toEqual({ domaine: 'villes', id: 'Q90', sens: 'localiser' });
+    expect(soeur('villes:Q90:localiser')).toBe('villes:Q90:nommer');
+    expect(analyser('voisins:HUN:nommer')).toEqual({ domaine: 'voisins', id: 'HUN', sens: 'nommer' });
+    expect(analyser('fleuves:danube:localiser')).toEqual({ domaine: 'fleuves', id: 'danube', sens: 'localiser' });
+    expect(soeur('detroits:ormuz:nommer')).toBe('detroits:ormuz:localiser');
+    // Toujours refusés : un nom proche, la casse, un singulier.
+    for (const x of ['ville:Q90:localiser', 'Villes:Q90:localiser', 'fleuve:danube:localiser', 'desert:sahara:nommer']) expect(analyser(x)).toBeNull();
+  });
+
+  it('les domaines du J6 se lisent dès le même socle, sur les deux terrains de la France, sans être jouables (étude J6 § 6.3, D867 a, D876 a)', () => {
+    expect(DOMAINES.slice(14)).toEqual(['departements', 'regions', 'prefectures', 'numeros']);
+    expect(DOMAINES.slice(14).map((d) => TERRAIN_DOMAINE[d])).toEqual(['departements', 'regions', 'departements', 'departements']);
+    for (const d of DOMAINES.slice(14)) expect(domaineJouable(d), d).toBe(false);
+    expect(jouablesDu('departements')).toEqual([]);
+    expect(jouablesDu('regions')).toEqual([]);
+    // Les départements au code INSEE (Corse et outre-mer compris), les régions à R et leur code.
+    expect(analyser('departements:2A:localiser')).toEqual({ domaine: 'departements', id: '2A', sens: 'localiser' });
+    expect(analyser('prefectures:971:nommer')).toEqual({ domaine: 'prefectures', id: '971', sens: 'nommer' });
+    expect(analyser('numeros:01:localiser')).toEqual({ domaine: 'numeros', id: '01', sens: 'localiser' });
+    expect(former('regions', 'R84', 'nommer')).toBe('regions:R84:nommer');
+    expect(soeur('regions:R84:nommer')).toBe('regions:R84:localiser');
+    for (const x of ['departement:2A:localiser', 'region:R84:localiser', 'Regions:R84:localiser']) expect(analyser(x)).toBeNull();
   });
 
   it('lire n’est pas savoir poser : pays, capitales (lot 1), drapeaux (lot 2), mers (lot 3b) et communes sont jouables, chacun sur son terrain (étude J2 § 3.1)', () => {
     expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     expect(DOMAINES.filter(domaineJouable)).toEqual(['pays', 'communes', 'capitales', 'drapeaux', 'mers']);
-    expect(['villes'].some(domaineJouable)).toBe(false);
+    expect(['inconnu', 'villes', 'fleuves'].some(domaineJouable)).toBe(false);
     expect(jouablesDu('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'mers']);
     expect(jouablesDu('reunion')).toEqual(['communes']);
-    expect(DOMAINES.map((d) => TERRAIN_DOMAINE[d])).toEqual(['monde', 'reunion', 'monde', 'monde', 'monde']);
+    expect(DOMAINES.slice(0, 5).map((d) => TERRAIN_DOMAINE[d])).toEqual(['monde', 'reunion', 'monde', 'monde', 'monde']);
   });
 
   it('les deux sens se révisent ; une grappe introduit le sens d’entrée, localiser (décision « Sens « quel est ce pays ? » »)', () => {

@@ -1,14 +1,27 @@
 // Terrain local (pur) : une carte d'une région, hors du monde (l'île de La
-// Réunion ; la France du J6 n'aura qu'une DefTerrain de plus). Ses données
+// Réunion ; la France du J6, ses deux terrains `departements` et `regions`,
+// n'aura qu'une DefTerrain de plus chacun, à son lot 2).
+//
+// Tri du J6 (étude 2026-11-25-j6-conception.md, § 4.6) : le code qui vaut pour
+// « un terrain local » (la barre, la fiche, l'historique, le retour au monde)
+// prend le terrain par son nom (estLocal) ; celui qui vaut pour « l'île
+// précisément » (les communes, leurs fiches, la carte de situation) garde
+// 'reunion' et le dit. Ses données
 // sont dans public/geo/<dossier>/ (geodata/reunion.mjs), chargées au choix de
 // la série seulement (donnees-terrain.ts) ; la Carte SVG la dessine par un
 // cadre (carte.ts), toujours en rendu « g », sans pastilles.
 import { geoMercator, type GeoPermissibleObjects, type GeoProjection } from 'd3-geo';
 import type { CadreCarte } from './carte';
-import type { NomTerrain } from './types';
+import type { NomTerrain, NomTerrainLocal } from './types';
+
+/** Les terrains locaux, dans l'ordre de leur arrivée (l'île au J1, la France au J6). */
+export const TERRAINS_LOCAUX: readonly NomTerrainLocal[] = ['reunion', 'departements', 'regions'];
+
+/** Le terrain est-il local (une carte hors du monde : l'île, la France) ? */
+export const estLocal = (t: NomTerrain): t is NomTerrainLocal => t !== 'monde';
 
 export interface DefTerrain {
-  nom: Exclude<NomTerrain, 'monde'>;
+  nom: NomTerrainLocal;
   /** Dossier servi des quatre fichiers (communes.topo.json, communes.json, noms.fr.json, sources.json). */
   dossier: string;
   /** Objet de la topologie. */

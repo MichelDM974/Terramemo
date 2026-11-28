@@ -374,21 +374,26 @@ export function noter(ctx: ContexteCarte, cible: string, x: number, y: number, o
   return { juste: false, via: null, distance_km, admis: null, ...base };
 }
 
-/** Ids de mers.json : 3 à 8 lettres minuscules (étude J2, § 2.3) ; aucun id de pays.json ni de commune n'y ressemble. */
+/**
+ * Ids de mers.json : 3 à 8 lettres minuscules (étude J2, § 2.3) ; aucun id de
+ * pays.json ni de commune n'y ressemble. Ceux de la couche physique du J5 ont
+ * la même forme (étude J5, § 13.1).
+ */
 const ID_MER = /^[a-z]{3,8}$/;
 
 /**
  * La couche de la cible, par l'index commun (lieux.ts) ; sans index, entites
  * puis mers. Une cible inconnue lève une erreur, comme toujours ; une cible
- * marine avant la pose de la couche aussi, qui le dit (une partie de mers ne
- * part qu'après chargerMers et prendreMers : lot 3b).
+ * de 3 à 8 lettres avant la pose de sa couche aussi, qui le dit : une partie
+ * de mers ne part qu'après chargerMers et prendreMers (lot 3b), et l'id ne
+ * dit pas si la couche attendue est la marine ou la physique (J5).
  */
 function couche(ctx: ContexteCarte, cible: string): CoucheLieu {
   const li = ctx.lieux?.get(cible);
   if (li) return li.couche;
   if (ctx.entites.some((en) => en.pays.id === cible)) return 'pays';
   if (ctx.mers?.some((m) => m.pays.id === cible)) return 'mers';
-  if (ID_MER.test(cible) && !ctx.mers?.length) throw new Error(`cible marine avant la couche marine : ${cible} (chargerMers puis prendreMers)`);
+  if (ID_MER.test(cible) && !ctx.mers?.length) throw new Error(`cible avant sa couche : ${cible} (chargerMers puis prendreMers)`);
   throw new Error(`cible inconnue : ${cible}`);
 }
 

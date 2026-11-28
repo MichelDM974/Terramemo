@@ -452,7 +452,7 @@ describe('séance : le sujet de bout en bout', () => {
     m.seances.libre(sous('pays', 'Europe'), monde_)!(juste('FRA', 'localiser'));
     m.seances.libre(sous('communes', 'reunion'), { nom: 'reunion' } as never)!(juste('97411', 'localiser'));
     // Un sujet qui n'a pas de fiches : pas de journal, plutôt qu'un domaine pris au terrain.
-    expect(m.seances.libre(sous('villes', 'Europe'), monde_)).toBeNull();
+    expect(m.seances.libre(sous('inconnu', 'Europe'), monde_)).toBeNull();
     await m.memoire.ecrire([]);
     expect((await m.depot.tous()).map((e) => [e.fiche, e.mode])).toEqual([
       ['capitales:BOL:localiser', 'libre'],
@@ -518,6 +518,41 @@ describe('séance : le sujet de bout en bout', () => {
     expect(teintes.size).toBeGreaterThan(0);
     expect([...teintes.keys()].some((id) => /^m[a-z]/.test(id))).toBe(false);
     expect(carte.detail('monde', mer('POL'), true)).toBe(textes.memoire.jamais_vu);
+  });
+
+  it('des fiches voisins:, villes:, fleuves: et departements: au journal (lues dès le socle commun des J4, J5 et J6) : ni comptées, ni posées, ni teintées tant que leur domaine n’est pas jouable', async () => {
+    const qid = (id: string) => `Q${id.charCodeAt(0)}${id.charCodeAt(1)}`;
+    const fleuve = (id: string) => `f${id.toLowerCase()}`;
+    const insee = (id: string) => String(id.charCodeAt(0) + id.charCodeAt(2));
+    const { m2, seul, copies } = await journalMixte([{ domaine: 'voisins' }, { domaine: 'villes', ent: qid }, { domaine: 'fleuves', ent: fleuve }, { domaine: 'departements', ent: insee }]);
+    // Lues : dans l'état, intactes.
+    const notees = copies.filter((e) => e.note !== null);
+    expect(notees.length).toBeGreaterThan(0);
+    expect(notees.every((e) => m2.memoire.etat().has(e.fiche))).toBe(true);
+    // Comptées comme sans elles.
+    for (const d of [{ sorte: 'revision' as const }, { sorte: 'apprendre' as const, sujet: 'pays', serie: serie('tous') }]) expect(m2.seances.comptes(d)).toEqual(seul.seances.comptes(d));
+    for (const sujet of ['voisins', 'villes', 'fleuves', 'departements']) {
+      expect(m2.seances.comptes({ sorte: 'apprendre', sujet, serie: serie('tous') })).toEqual({ aRevoir: 0, nouveaux: 0 });
+      expect(m2.seances.ouvrir({ sorte: 'apprendre', sujet, serie: serie('tous') })).toEqual({ refus: S.rien, reviser: 0 });
+    }
+    // Posées : aucune de leurs fiches en Révision du jour.
+    const { questions } = jouer(m2.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance);
+    expect(questions.length).toBeGreaterThan(0);
+    expect(questions.some((q) => ['voisins', 'villes', 'fleuves', 'departements'].includes((q as { domaine?: string }).domaine ?? ''))).toBe(false);
+    expect(questions.every((q) => q.terrain === 'monde')).toBe(true);
+    await m2.memoire.ecrire([]);
+    const ecrits = (await m2.depot.tous()).filter((e) => e.ts > T0 + JOUR_MS / 2);
+    expect(ecrits.length).toBe(questions.length);
+    expect(ecrits.some((e) => /^(voisins|villes|fleuves|departements):/.test(e.fiche))).toBe(false);
+    // Teintées : ni le choix du sujet de la carte de la mémoire ni ses teintes ne les prennent.
+    const carte = carteMemoire(m2.memoire, () => true);
+    expect(carte.sujets('monde').some((d) => ['voisins', 'villes', 'fleuves'].includes(d))).toBe(false);
+    expect([...(carte.teintes('monde') ?? new Map()).keys()].some((id) => /^(Q\d|f[a-z]|\d)/.test(id))).toBe(false);
+    // Sur les terrains du J6 : aucun sujet, aucune teinte.
+    for (const t of ['departements', 'regions'] as const) {
+      expect(carte.sujets(t)).toEqual([]);
+      expect(carte.sujet(t)).toBeNull();
+    }
   });
 });
 
@@ -1493,6 +1528,8 @@ describe('séance : « Apprendre ce lieu » depuis la fiche (#34, lot F7)', () =
     const seances = creerSeances({ memoire, monde });
     const a = apprendreLieu({ memoire, seances, serie: (_s, id) => serie(id), entite: (id) => entites.get(id), stockage: () => null, lancer: vi.fn() });
     expect(a.etat('monde', 'MUS')).toEqual({ sujet: 'pays', lieu: null, retenu: false, garde: true });
+    // Un terrain du J6 : aucun sujet à apprendre, pas même un pays au même id.
+    expect(a.etat('departements', 'MUS')).toBeNull();
     // Pas gardée : le bouton, et l'avis (garde faux).
     const pg = await avecFiche({}, (mm) => ({ charge: true, garde: false, etat: () => mm.etat() }));
     expect(pg.a.etat('monde', 'MUS')).toMatchObject({ lieu: { etat: 'possible' }, garde: false });
