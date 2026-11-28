@@ -67,8 +67,13 @@ Conception de la fiche d'un lieu (16/11/2026) :
   D61 (ticket #34). Faite par un workflow : cinq relevés, une rédaction,
   deux relectures adverses, une correction.
 
-Conceptions du 25/11/2026 (propositions : aucune décision n'est encore
-tranchée, chaque étude porte son tableau de décisions avec recommandation ;
+Conceptions du 25/11/2026 (chaque étude porte son tableau de décisions avec
+recommandation ; **toutes les recommandations retenues par l'utilisateur le
+28/11/2026**, actées au registre de cdc : une décision par étude, et
+« Pays et frontières », « Apprendre et Révision du jour », « Répétition
+espacée des nouveaux sujets », « Barème et classements », « Général à tous
+les sujets », « Ordre des sujets » et « Écran Jouer » revues ; ce qui
+demande ses yeux reste à lui : listes, alias, captures, essai des claviers ;
 écrites la même nuit, d'où des plages de numéros séparées ; chacune rédigée,
 relue par un second agent puis corrigée) :
 
