@@ -257,6 +257,17 @@ export function creerSeances(o: OptionsSeances): Seances {
       case 'mers':
         // Les grappes des mers et ce que montrent leurs questions : la couche marine, lue et posée sur la carte avant la séance.
         return { info: infoMers, aCharger: true, charger: () => o.chargerMers?.() ?? Promise.reject(new Error('mers : pas de chargeur')) };
+      case 'voisins':
+      case 'villes':
+      case 'habitants':
+      case 'superficies':
+      case 'silhouettes':
+      case 'fleuves':
+      case 'montagnes':
+      case 'deserts':
+      case 'detroits':
+        // Lus (J4, J5 : lot 0), pas encore posables ; chaque sujet y mettra le chargement de ses données.
+        return null;
     }
   }
 

@@ -198,7 +198,23 @@ const scoreLisible = (r: { points?: unknown; justes?: unknown }): boolean => typ
  * en dépendent), le nom du sujet pour les autres. Figée à vie, comme les
  * règles Firestore qui la lisent.
  */
-export const CLE_SUJET: Readonly<Record<Domaine, string>> = { pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' };
+export const CLE_SUJET: Readonly<Record<Domaine, string>> = {
+  pays: 'localiser',
+  communes: 'localiser',
+  capitales: 'capitales',
+  drapeaux: 'drapeaux',
+  mers: 'mers',
+  // J4, J5 : lus dès leur socle commun, sans épreuve tant qu'ils ne sont pas dans EPREUVES_SUJETS.
+  voisins: 'voisins',
+  villes: 'villes',
+  habitants: 'habitants',
+  superficies: 'superficies',
+  silhouettes: 'silhouettes',
+  fleuves: 'fleuves',
+  montagnes: 'montagnes',
+  deserts: 'deserts',
+  detroits: 'detroits',
+};
 
 /**
  * Identifiant d'une épreuve : mode, clé du sujet, série (un continent, 'tous',
@@ -322,6 +338,16 @@ const TAILLES_SERIES: Readonly<Record<Domaine, Readonly<Record<string, number>>>
   drapeaux: TAILLES_MONDE,
   communes: { reunion: 24 },
   mers: { mers: 50 },
+  // Les sujets du J4 et du J5, lus mais sans épreuve : aucune série (leur lot d'épreuves les remplit, règles d'abord).
+  voisins: {},
+  villes: {},
+  habitants: {},
+  superficies: {},
+  silhouettes: {},
+  fleuves: {},
+  montagnes: {},
+  deserts: {},
+  detroits: {},
 };
 
 /**

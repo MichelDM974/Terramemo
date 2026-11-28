@@ -4,13 +4,31 @@
 // reunion/communes.json), sans « : » (ISO3, NE_…, code INSEE). Capitales et
 // drapeaux prennent l'id du pays (`capitales:BOL:localiser`), les mers le
 // leur, de 8 lettres au plus (`mers:medit:localiser` ; étude J2 § 3.1, 3.3).
+// Ceux du J4 prennent l'id du pays, les villes leur Qid (`villes:Q90:localiser`) ;
+// ceux du J5 un id de 3 à 8 lettres, comme les mers (`fleuves:danube:nommer`).
 import type { NomTerrain } from '../map/types';
 
 /**
  * Un domaine = un sujet de Jouer, du même nom (étude J2 § 3.1). Ces noms vont
  * au journal, aux lots en ligne et à l'export : figés à vie.
  */
-export type Domaine = 'pays' | 'communes' | 'capitales' | 'drapeaux' | 'mers';
+export type Domaine =
+  | 'pays'
+  | 'communes'
+  | 'capitales'
+  | 'drapeaux'
+  | 'mers'
+  // J4 (étude 2026-11-25-j4-conception.md, § 7.1)
+  | 'voisins'
+  | 'villes'
+  | 'habitants'
+  | 'superficies'
+  | 'silhouettes'
+  // J5 (étude 2026-11-25-j5-conception.md, § 13.1)
+  | 'fleuves'
+  | 'montagnes'
+  | 'deserts'
+  | 'detroits';
 /** localiser : « où est X ? » (Trouver) ; nommer : « quel est ce pays ? » (Reconnaître). */
 export type Sens = 'localiser' | 'nommer';
 
@@ -18,9 +36,29 @@ export type Sens = 'localiser' | 'nommer';
  * Les domaines que cette version sait LIRE (journal, lots, export, rejeu) :
  * tous ceux du J2, avant qu'aucune version ne les écrive, pour qu'un lot
  * mixte (une Révision du jour qui mêle pays et capitales) reste lisible
- * (étude J2 § 3.3). Lire n'est pas savoir poser : DOMAINES_JOUABLES.
+ * (étude J2 § 3.3). Ceux du J4 et du J5 de même, dès leur lot 0 commun : un
+ * APK plus ancien met en `a_relire` tout lot d'un domaine qu'il ne connaît
+ * pas (« Mets à jour l'appli ») ; lus longtemps avant d'être écrits, ce cas
+ * se borne aux APK d'avant ce socle. Toujours ajoutés à la fin : l'ordre
+ * départage la planification à âge égal. Lire n'est pas savoir poser :
+ * DOMAINES_JOUABLES.
  */
-export const DOMAINES: readonly Domaine[] = ['pays', 'communes', 'capitales', 'drapeaux', 'mers'];
+export const DOMAINES: readonly Domaine[] = [
+  'pays',
+  'communes',
+  'capitales',
+  'drapeaux',
+  'mers',
+  'voisins',
+  'villes',
+  'habitants',
+  'superficies',
+  'silhouettes',
+  'fleuves',
+  'montagnes',
+  'deserts',
+  'detroits',
+];
 
 /**
  * Les domaines que cette version sait POSER : les sujets livrés (étude J2
@@ -34,7 +72,22 @@ export const DOMAINES: readonly Domaine[] = ['pays', 'communes', 'capitales', 'd
 export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', 'mers', 'communes'];
 
 /** Le terrain où se jouent les fiches d'un domaine : l'île pour les communes, le monde pour les autres. */
-export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = { pays: 'monde', communes: 'reunion', capitales: 'monde', drapeaux: 'monde', mers: 'monde' };
+export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = {
+  pays: 'monde',
+  communes: 'reunion',
+  capitales: 'monde',
+  drapeaux: 'monde',
+  mers: 'monde',
+  voisins: 'monde',
+  villes: 'monde',
+  habitants: 'monde',
+  superficies: 'monde',
+  silhouettes: 'monde',
+  fleuves: 'monde',
+  montagnes: 'monde',
+  deserts: 'monde',
+  detroits: 'monde',
+};
 
 /** Le nom est-il celui d'un domaine (un sujet de Jouer qui a ses fiches) ? */
 export const estDomaine = (x: string): x is Domaine => (DOMAINES as readonly string[]).includes(x);

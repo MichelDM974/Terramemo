@@ -237,6 +237,20 @@ describe('lecture des lots et union', () => {
     await coherent(v2.memoire, depot);
   });
 
+  it('un lot qui mêle pays: et fleuves: (domaine du J5, lu dès le socle commun) est lu en entier par cette version', async () => {
+    const s = fauxServeur();
+    const se = uuid();
+    const pays = evt(B, se, T0 - 86_400_000, { fiche: 'pays:EGY:localiser' });
+    const fleuve = evt(B, se, T0 - 86_400_000 + 1, { fiche: 'fleuves:nil:localiser', mode: 'libre', note: null });
+    s.poser(UID, [pays, fleuve]);
+    const a = appareil({ serveur: s });
+    const r = await a.envoi.declencher('connexion');
+    expect(r.lecture).toMatchObject({ lots: 1, evenements: 2, illisibles: 0 });
+    expect(new Set((await a.memoire.tous()).map((e) => e.id))).toEqual(new Set([pays.id, fleuve.id]));
+    expect(await a.envoi.etat(UID)).toMatchObject({ aRelire: 0 });
+    await coherent(a.memoire, a.depot);
+  });
+
   it('contrôle au démarrage : un id en ligne absent du journal fait tout relire', async () => {
     const s = fauxServeur();
     const lots = depotLotsMemoire();

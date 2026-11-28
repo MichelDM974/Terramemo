@@ -431,7 +431,13 @@ describe('records de la semaine et classement général', () => {
   });
 
   it('ids avec le sujet : pays et communes gardent `localiser` (inchangés), les autres sujets leur nom (étude J2 § 3.2)', () => {
-    expect(CLE_SUJET).toEqual({ pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' });
+    expect(CLE_SUJET).toMatchObject({ pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' });
+    // Les sujets lus dès le socle commun des J4 et J5 : leur nom ; aucune épreuve tant qu'ils ne sont pas dans EPREUVES_SUJETS.
+    for (const d of ['voisins', 'villes', 'habitants', 'superficies', 'silhouettes', 'fleuves', 'montagnes', 'deserts', 'detroits'] as const) {
+      expect(CLE_SUJET[d]).toBe(d);
+      expect(EPREUVES_SUJETS.some((p) => p.sujet === d)).toBe(false);
+      expect(tailleEpreuve(idEpreuve('tous', 'chrono', d))).toBeNull();
+    }
     expect([idEpreuve('Africa'), idEpreuve('Africa', 'chrono', 'pays'), idEpreuve('reunion', 'sansfaute', 'communes')]).toEqual(['chrono:localiser:Africa', 'chrono:localiser:Africa', 'sansfaute:localiser:reunion']);
     expect([idEpreuve('Africa', 'chrono', 'capitales'), idEpreuve('tous', 'sansfaute', 'drapeaux'), idEpreuve('mers', 'chrono', 'mers')]).toEqual([
       'chrono:capitales:Africa',

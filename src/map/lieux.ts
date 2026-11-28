@@ -10,8 +10,13 @@ import { anneauPrincipal, centreEmprise, contourEmprise, recentrerBande } from '
 import { empriseMer } from './mers';
 import type { Forme, Lieu, Mer } from './types';
 
-/** La couche d'une zone : celle des pays (donnees.entites) ou la couche marine (donnees.mers). */
-export type CoucheLieu = 'pays' | 'mers';
+/**
+ * La couche d'une zone : celle des pays (donnees.entites), la couche marine
+ * (donnees.mers) ou la couche physique du J5 (fleuves, montagnes, déserts,
+ * détroits ; étude 2026-11-25-j5-conception.md, § 13.1), vide tant que son
+ * lot de données n'est pas livré : indexLieux ne la donne encore à aucune zone.
+ */
+export type CoucheLieu = 'pays' | 'mers' | 'physique';
 
 export interface LieuIndexe {
   lieu: Lieu;

@@ -156,6 +156,26 @@ describe('compacter et deplier', () => {
     expect(relu.ok && relu.evenements.map(propre)).toEqual(trier(evts).map(propre));
   });
 
+  it('la carte la pire des domaines du J4 et du J5 tient la borne : montagnes et un id de 8 lettres, villes à un Qid long (études J4 § 8, J5 § 13.1)', () => {
+    const pire = (fiche: string, o: Partial<Evenement> = {}) =>
+      reponse({ fiche, mode: 'libre', tz: -720, correct: false, reponse: 'NE_B98', via: null, aide: null, note: null, zoom: 1.2345678901234567, distance_km: 20_099.123456789012, duree_ms: 120_000, ...o });
+    const longueur = (evts: Evenement[]) => doc(evts).evenements.length;
+    const cas = [
+      pire('montagnes:abcdefgh:localiser', { reponse: 'abcdefgh' }),
+      pire('superficies:TCD:localiser'),
+      pire('silhouettes:TCD:localiser'),
+      pire('villes:Q12345678:localiser', { reponse: 'Q87654321' }),
+    ];
+    for (const e of cas) expect(longueur([e]), e.fiche).toBeLessThanOrEqual(CARACTERES_PAR_EVENEMENT);
+    // 200 cartes mêlées : sous n × 160, le lot passe les règles et se relit tel quel.
+    const evts = Array.from({ length: N_MAX }, (_, i) => ({ ...cas[i % cas.length]!, id: id(), ts: 1_762_500_000_000 + i * 500_000 }));
+    const d = doc(evts);
+    expect(d.evenements.length).toBeLessThanOrEqual(N_MAX * CARACTERES_PAR_EVENEMENT);
+    expect(problemeLot(trier(evts)[0]!.id, d)).toBeNull();
+    const relu = deplier(d);
+    expect(relu.ok && relu.evenements.map(propre)).toEqual(trier(evts).map(propre));
+  });
+
   it('un lot illisible pour cette version : v inconnu, n faux, carte refusée, valeur hors du format', () => {
     const e = reponse();
     const d = doc([e]);

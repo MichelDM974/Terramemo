@@ -659,7 +659,7 @@ describe('Carte SVG : une mer se cadre par son emprise (lot 3a, étude J2, § 4.
   it('noter une mer sur la carte : une erreur avant prendreMers, juste au point de l’Atlantique après ; la couche dans contexteFinal pendant un vol', () => {
     const c = new Carte({ hote: new FauxElement() as unknown as HTMLElement, donnees: { ...donnees, mers: [] }, projection: 'monde', rendu: 'g' });
     c.rendre();
-    expect(() => c.noter('atlant', L / 2, H / 2)).toThrow(/cible marine avant la couche marine/);
+    expect(() => c.noter('atlant', L / 2, H / 2)).toThrow(/cible avant sa couche/);
     c.prendreMers(couche);
     const [x, y] = c.ecran('atlant') as [number, number];
     expect(c.noter('atlant', x, y)).toMatchObject({ juste: true, pick: { id: 'atlant' } });
