@@ -4,8 +4,8 @@
 // l'appareil, pour qu'ils suivent le compte d'un appareil à l'autre.
 //
 // Document : `{v: 1, pseudo?, records?, maj}` ; `records` est une chaîne JSON
-// (les règles bornent une chaîne, pas une carte : 32 768 caractères au plus,
-// ≈ 7 Ko pour 48 clés), clé d'épreuve → record de l'appareil sans
+// (les règles bornent une chaîne, pas une carte : RECORDS_MAX caractères au
+// plus, ≈ 137 par record au pire), clé d'épreuve → record de l'appareil sans
 // `publiable` (la place en ligne du pseudo en tient lieu). `supprime: true`,
 // sans pseudo ni records, est la pierre tombale d'une suppression (§ 7.1) :
 // rien ne s'y lit ni ne s'y écrit plus.
@@ -77,8 +77,16 @@ export function pseudoChangeIci(local: string | null, base: BasePseudo | null, u
 /** Version du document du profil (`v`). */
 export const V_PROFIL = 1;
 
-/** Borne de la chaîne des records : celle de profilValide() (firestore.rules). */
-export const RECORDS_MAX = 32_768;
+/**
+ * Borne de la chaîne des records : celle de profilValide() (firestore.rules).
+ * 32 768 jusqu'au 28/11/2026 ; relevée à 131 072 (S608 du J4, choix de
+ * l'utilisateur), règles d'abord : le J4 entier l'aurait dépassée (≈ 38 300
+ * caractères au pire), J5 et J6 compris on reste vers 43 %
+ * (tests/sync-profil.test.ts). Une version d'avant garde 32 768 : au-delà,
+ * elle reçoit les records du compte sans plus envoyer les siens (trop_gros)
+ * jusqu'à sa mise à jour.
+ */
+export const RECORDS_MAX = 131_072;
 
 /** Le profil tel qu'il est en ligne, pas encore validé ; absent : `existe` faux. */
 export interface ProfilLu {

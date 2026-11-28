@@ -968,7 +968,7 @@ describe.skipIf(!hote)('profil joueurs/{uid} (J1b, lot 2 ; essai() ouvert)', () 
     await assertSucceeds(setDoc(moi(db('ana')), { v: 1, maj: serverTimestamp() }));
   });
 
-  it('forme du profil : champs, version, heure du serveur, pseudo de 2 à 20, records en chaîne de 32 768 au plus', async () => {
+  it('forme du profil : champs, version, heure du serveur, pseudo de 2 à 20, records en chaîne de 131 072 au plus (S608 du J4)', async () => {
     const d = moi(db('ana'));
     for (const faux of [
       profil({ triche: true }),
@@ -980,14 +980,14 @@ describe.skipIf(!hote)('profil joueurs/{uid} (J1b, lot 2 ; essai() ouvert)', () 
       profil({ pseudo: 'M' }),
       profil({ pseudo: 'x'.repeat(21) }),
       profil({ pseudo: 42 }),
-      profil({ records: 'x'.repeat(32_769) }),
+      profil({ records: 'x'.repeat(131_073) }),
       profil({ records: { 'chrono:localiser:tous': { points: 1000 } } }),
       profil({ records: ['un', 'deux'] }),
       profil({ supprime: false }),
       profil({ supprime: true }),
     ])
       await assertFails(setDoc(d, faux));
-    await assertSucceeds(setDoc(d, profil({ records: 'x'.repeat(32_768), pseudo: 'x'.repeat(20) })));
+    await assertSucceeds(setDoc(d, profil({ records: 'x'.repeat(131_072), pseudo: 'x'.repeat(20) })));
     await assertSucceeds(setDoc(d, profil({ pseudo: 'Mi' })));
   });
 

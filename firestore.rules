@@ -322,8 +322,8 @@ service cloud.firestore {
     }
 
     // Le profil (§ 5.4, src/sync/profil.ts) : pseudo et records (une chaîne
-    // JSON, bornée : les règles ne savent pas borner une carte), l'heure du
-    // serveur. `supprime: true`, sans pseudo ni records : la pierre tombale
+    // JSON, bornée : les règles ne savent pas borner une carte ; 131 072
+    // caractères depuis le 28/11/2026, S608 du J4), l'heure du serveur. `supprime: true`, sans pseudo ni records : la pierre tombale
     // d'une suppression (§ 7.1).
     function profilValide() {
       let d = request.resource.data;
@@ -332,7 +332,7 @@ service cloud.firestore {
         && d.v == 1
         && d.maj == request.time
         && (!('pseudo' in d) || (d.pseudo is string && d.pseudo.size() >= 2 && d.pseudo.size() <= 20))
-        && (!('records' in d) || (d.records is string && d.records.size() <= 32768))
+        && (!('records' in d) || (d.records is string && d.records.size() <= 131072))
         && (!('supprime' in d) || (d.supprime == true && !('pseudo' in d) && !('records' in d)));
     }
 

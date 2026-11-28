@@ -137,14 +137,37 @@ describe('fusion du profil (pure)', () => {
     expect(n).toBeLessThan(RECORDS_MAX);
     // Avec les mers (lot 3b) : 18 633 caractères, 57 % de la borne (environ 137 par record). Le quiz (lot 4b : 4
     // épreuves, 72 au J2, Minute compris) y ajoute 8 records, moins de 60 % au pire : la marge tient.
-    // Avec les voisins (J4, lot 2 : 12 épreuves, 24 records de plus) : 22 953 caractères, 70 % de la borne. Chaque sujet du
-    // J4 à 7 séries en ajoute 28 (≈ 3 800 caractères) : les cinq dépasseraient la borne (S608, à reprendre au lot 5).
-    expect(n).toBeLessThan(RECORDS_MAX * 0.72);
+    // Avec les voisins (J4, lot 2 : 12 épreuves, 24 records de plus) : 22 953 caractères, 70 % de l'ancienne borne
+    // (32 768), 18 % de la nouvelle. Chaque sujet du J4 à 7 séries en ajoute 28 (≈ 3 800 caractères) : d'où S608.
+    expect(n).toBeLessThan(RECORDS_MAX * 0.2);
+  });
+
+  it('S608 : le J4 entier, un J5 à quatre sujets et les 8 épreuves du J6, aux nombres les plus longs, tiennent sous la moitié de RECORDS_MAX', () => {
+    // Projection (28/11/2026) : silhouettes, habitants, superficies et villes à 7 séries comme les pays ; le J5 (non chiffré
+    // par son étude) supposé à quatre sujets de 7 séries ; le J6 en Classé, la France entière seule (D862 a), quatre sujets.
+    const classees = epreuvesClassees();
+    const pays = classees.filter((e) => e.split(':')[1] === 'localiser' && e.split(':')[2] !== 'reunion');
+    expect(pays).toHaveLength(14);
+    const projetees = [
+      ...['silhouettes', 'habitants', 'superficies', 'villes', 'fleuves', 'montagnes', 'deserts', 'detroits'].flatMap((s) => pays.map((e) => e.replace(':localiser:', `:${s}:`))),
+      ...['chrono', 'sansfaute'].flatMap((m) => ['departements', 'regions', 'prefectures', 'numeros'].map((s) => `${m}:${s}:france`)),
+    ];
+    const epreuves = [...new Set([...classees, ...projetees])];
+    const minute = classees.filter((e) => e.startsWith('chrono:') && !/:(mers|voisins):/.test(e)).map((e) => e.replace('chrono:', 'minute:'));
+    expect(epreuves.length + minute.length).toBe(62 + 112 + 8 + 22);
+    const pire = (): RecordChrono => ({ points: 194, justes: 194, questions: 195, temps_ms: 2_924_999.9999999995, date: 1_794_787_199_999, bareme: VERSION_BAREME });
+    const records = new Map<string, RecordChrono>();
+    for (const e of [...epreuves, ...minute]) for (const k of [e, `${e}@${SEMAINE}`]) records.set(k, pire());
+    const f = fusionner(PROFIL_ABSENT, { pseudo: 'Michel', records }, o);
+    expect(f.tropGros).toBe(false);
+    // 55 957 caractères, 43 % : plus que l'ancienne borne de 32 768, qui aurait cédé dès le lot 3 du J4, Silhouettes visibles.
+    expect(f.doc!.records!.length).toBeGreaterThan(32_768);
+    expect(f.doc!.records!.length).toBeLessThan(RECORDS_MAX * 0.5);
   });
 
   it('au-delà de la borne des règles : rien n’est écrit, l’appareil reçoit quand même', () => {
     const records = new Map<string, RecordChrono>();
-    for (let i = 0; i < 400; i++) records.set(`${AMS}:${'x'.repeat(40)}${i}`, rec(11));
+    for (let i = 0; i < 1600; i++) records.set(`${AMS}:${'x'.repeat(40)}${i}`, rec(11));
     const f = fusionner(lu('Michel', { [AFR]: rec(12) }), { pseudo: 'Michel', records }, o);
     expect(JSON.stringify(f.enLigne).length).toBeGreaterThan(RECORDS_MAX);
     expect(f).toMatchObject({ tropGros: true, doc: null, recus: 1 });

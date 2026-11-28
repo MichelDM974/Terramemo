@@ -1137,7 +1137,7 @@ La numérotation suit la plage de cette étude (S600 à S649).
 | S605 | Quatre silhouettes dessinées à la volée ne gèlent pas l'A37 (critère des à-coups de 25 ms) | `performance.measure`, pilote | lot 1 |
 | S606 | Le tracé de fait de Natural Earth donne des silhouettes justes pour les pays touchés (Ukraine et Crimée, Maroc et Sahara occidental, Serbie et Kosovo) | captures des 30 pays touchés, montrées à l'utilisateur | lot 1 |
 | S607 | La charge de la mémoire à dix domaines reste près de ≈ 5 min par jour avec 15 introductions par jour en commun | `tests/sim-charge.test.ts` reprise sur 90 jours | lot 0, puis lot 5 |
-| S608 | La chaîne des records du profil reste sous 32 768 caractères avec 68 épreuves de plus | script sur un profil plein | lot 5 |
+| S608 | La chaîne des records du profil reste sous 32 768 caractères avec 68 épreuves de plus | script sur un profil plein | lot 5. **Fausse, tranchée le 28/11** : 22 953 au pire avec les Voisins (70 %), le lot 3 l'aurait dépassée ; borne relevée à 131 072 (règles d'abord, choix de l'utilisateur), le J4 entier, un J5 à quatre sujets et le J6 font 55 957 (43 %, `tests/sync-profil.test.ts`) |
 | S609 | Un appareil d'avant le lot 0 met les lots du J4 (v2, ou v1 avec un domaine nouveau) dans `a_relire` et les relit après sa mise à jour, sans rien perdre | `tests/sync-lecture`, puis l'A37 avec un APK de la release d'avant | lot 0 |
 | S610 | Le seuil des formes proches (recouvrement en 64 × 64) donne des paires que l'œil juge proches | liste montrée à l'utilisateur | lot 1 |
 | S611 | `sync/export.ts` reprend un champ nouveau du journal sans changement | lecture du code, test d'export | lot 0 |
