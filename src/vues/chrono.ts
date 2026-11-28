@@ -30,6 +30,9 @@
 // filet, une question dont l'image n'est plus là quand elle est posée montre le
 // gris 4:3 qui tient sa place, et son temps n'attend que son décodage, au plus
 // ATTENTE_IMAGE_MS (un échec ou un réseau trop lent ne bloquent pas la partie).
+// Les Voisins (J4, lot 2 ; D607 a) : un toucher par voisin (src/vues/voisins.ts,
+// QuestionCarte), un délai par question, 4 s plus 2 s par voisin ; une question
+// est juste quand tous ses voisins sont touchés sans faute.
 import { DELAI_CHRONO_MS, type ScoreEpreuve } from '../epreuve/bareme';
 import { enregistrerPartie, idEpreuve, PartieChrono, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
 import type { ChargerImage } from '../map/drapeaux';
@@ -43,7 +46,8 @@ import { creerJauge } from './jauge';
 import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserEnonce, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { nomEpreuve } from './general';
 import { fmtJustes, fmtTemps, nomMode, scoreCourt, scoreEntier, scoreLong } from './scores';
-import { rendu, type RenduSujet } from './sujets';
+import { rendu, voisinsCharges, type RenduSujet } from './sujets';
+import type { QuestionCarte } from './voisins';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -79,9 +83,10 @@ function imageEnAttente(el: HTMLElement): HTMLImageElement | null {
   return img && img.complete === false && typeof img.decode === 'function' ? img : null;
 }
 
-/** Une partie de l'épreuve sur ces cibles, dans l'ordre où les poser (déjà mélangées). */
-function nouvellePartieDe(mode: ModeEpreuve, cibles: readonly string[]): PartieChrono {
-  return mode === 'sansfaute' ? new PartieSansFaute(cibles, DELAI) : new PartieChrono(cibles, DELAI);
+/** Une partie de l'épreuve sur ces cibles, dans l'ordre où les poser (déjà mélangées) ; `delais` : celui de chacune (les Voisins). */
+function nouvellePartieDe(mode: ModeEpreuve, cibles: readonly string[], delais?: readonly number[]): PartieChrono {
+  const max = delais ? Math.max(...delais) : DELAI;
+  return mode === 'sansfaute' ? new PartieSansFaute(cibles, max, delais) : new PartieChrono(cibles, max, delais);
 }
 
 function stockage(): Storage | null {
@@ -147,6 +152,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   /** Change à chaque départ ou sortie : un chargement d'île (ou ses deux images) arrivé après ne lance rien. */
   let jeton = 0;
   let partie: PartieChrono | null = null;
+  /** Les Voisins : la question à plusieurs touchers en cours ; null pour les autres sujets. */
+  let qv: QuestionCarte | null = null;
   /** Les images de la partie sont attendues avant son départ (décision « Images d'une épreuve ») : pas encore de partie. */
   let enChargement = false;
   /** « Réessayer » : redemande les images qui ont échoué (celles de la partie en attente). */
@@ -251,7 +258,12 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       enChargement = false;
       reprendreChargement = null;
       montrerChargement(null);
-      partie = nouvellePartieDe(mode, cibles);
+      const v = r.sujet === 'voisins' ? voisinsCharges() : null;
+      partie = nouvellePartieDe(
+        mode,
+        cibles,
+        v ? cibles.map((id) => v.delai(t, id)) : undefined,
+      );
       barre.hidden = false;
       poser();
     };
@@ -308,13 +320,16 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     if (!partie || partie.finie || !id) return finir();
     // Une épreuve des mers : sans les pastilles des micro-États (décision du 16/11).
     pastillesPour(ctx, rs.sujet);
-    poserEnonce(consigne, rs.enonce(id));
+    qv = rs.sujet === 'voisins' ? voisinsCharges()!.question(t, id, rs) : null;
+    poserEnonce(consigne, qv ? qv.enonce() : rs.enonce(id));
     consigne.dataset.cible = id;
     afficherCompte(false);
     retro.textContent = '';
     retro.className = 'essai-retro';
+    // Le pays des voisins allumé, la carte sur lui : le temps court pendant le vol (S603).
+    qv?.poser(barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
     const p = partie;
-    const ms = DELAI;
+    const ms = p.delaiCourant;
     const ouvrir = () => {
       debut = performance.now();
       ouverte = true;
@@ -365,10 +380,15 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     if (!partie || !id || !ouverte) return;
     const q = partie.expirer();
     jauge.vide();
+    retro.className = 'essai-retro faux';
+    // Les voisins : les trouvés restent, les manqués montrés.
+    if (qv) {
+      retro.textContent = qv.arreter(true);
+      return apres(q);
+    }
     t.carte.effacerMarques();
     t.carte.marquer(id, 'juste');
     anneauSiPetite(t, id, 'juste');
-    retro.className = 'essai-retro faux';
     retro.textContent = rs.expire(id);
     apres(q);
   }
@@ -406,10 +426,13 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const ligne = (q: QuestionJouee) =>
       q.temps_ms == null
         ? remplir(T.bilan_expire, { pays: r.nomBilan(q.id, 'localiser') })
-        : remplir(E.bilan_faux, {
+        : // Sans distance (une faute des Voisins, un toucher hors du globe) : le pays touché seul.
+          q.distance_km == null
+          ? remplir(E.bilan_faux_touche, { pays: r.nomBilan(q.id, 'localiser'), touche: r.touche(q.touche) })
+          : remplir(E.bilan_faux, {
             pays: r.nomBilan(q.id, 'localiser'),
             touche: r.touche(q.touche),
-            km: q.distance_km == null ? '—' : fmtKm(q.distance_km),
+            km: fmtKm(q.distance_km),
           });
     const s = serie;
     const [ligneScore, detail] = lignesScore(epreuve, score, partie.cibles.length);
@@ -512,8 +535,18 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       const id = partie?.courante;
       if (!partie || !id || !ouverte) return;
       // La minuterie a du retard : le temps était écoulé avant ce toucher.
-      if (performance.now() - debut >= DELAI) return expirer();
+      if (performance.now() - debut >= partie.delaiCourant) return expirer();
       const carte = t.carte;
+      const v = qv;
+      // Les voisins : chaque toucher dit le compte ; seule la fin de la question (tous trouvés, une faute) y répond.
+      if (v)
+        return ctx.mesures.toucher(ev, x, y, () => {
+          const c = v.toucher(x, y);
+          retro.className = `essai-retro ${c.classe}`;
+          retro.textContent = c.texte;
+          if (c.fin) apres(partie!.repondre(v.faute, c.juste, null, performance.now() - debut));
+          return { pick: c.pick, cible: id, juste: c.juste };
+        });
       ctx.mesures.toucher(ev, x, y, () => {
         const temps_ms = performance.now() - debut;
         // Les zones admises de la carte (zones contestées et enclaves, admises en épreuve aussi depuis le

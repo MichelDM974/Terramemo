@@ -1,5 +1,6 @@
 // Parties des épreuves classées (pur) : les lieux d'une série (pays,
-// capitales, drapeaux, mers ou communes), une question à la fois, un seul toucher. Chrono et Sans faute
+// capitales, drapeaux, mers ou communes), une question à la fois, un seul toucher (les
+// Voisins du J4 : un toucher par voisin, un délai par question). Chrono et Sans faute
 // comptent les justes (bareme.ts, décision « Barème et classements » du
 // 12/11/2026). Les records se gardent sur l'appareil (de toujours et de la
 // semaine) ; classement.ts les publie.
@@ -61,10 +62,14 @@ export class PartieChrono {
   protected i = 0;
   readonly jouees: QuestionJouee[] = [];
 
-  /** `cibles` dans l'ordre où les poser (la vue les mélange). */
+  /**
+   * `cibles` dans l'ordre où les poser (la vue les mélange) ; `delais` : le délai de chacune, quand il varie d'une
+   * question à l'autre (les Voisins, D607 a), `delai_ms` alors leur maximum.
+   */
   constructor(
     readonly cibles: readonly string[],
     readonly delai_ms: number,
+    readonly delais?: readonly number[],
   ) {}
 
   get courante(): string | undefined {
@@ -83,9 +88,14 @@ export class PartieChrono {
     return this.jouees.reduce((s, q) => s + q.points, 0);
   }
 
-  /** Le délai de la question `i` (0 : la première) : le même pour toutes ici ; le quiz a le sien par question (quiz.ts). */
-  protected delaiQuestion(_i: number): number {
-    return this.delai_ms;
+  /** Le délai de la question `i` (0 : la première) : celui de `delais`, sinon le même pour toutes ; le quiz a le sien par question (quiz.ts). */
+  protected delaiQuestion(i: number): number {
+    return this.delais?.[i] ?? this.delai_ms;
+  }
+
+  /** Le délai de la question courante (ms) : la jauge et la minuterie de la vue. */
+  get delaiCourant(): number {
+    return this.delaiQuestion(this.i);
   }
 
   private jouer(q: Omit<QuestionJouee, 'id' | 'points'>): QuestionJouee {
@@ -108,7 +118,7 @@ export class PartieChrono {
   }
 
   score(): ScoreEpreuve {
-    return scoreEpreuve(this.jouees, this.delai_ms);
+    return scoreEpreuve(this.jouees, (i) => this.delaiQuestion(i));
   }
 }
 
@@ -122,8 +132,8 @@ const tempsBorne = (q: QuestionJouee, max: number) => (q.temps_ms == null ? max 
  * partie n'y compte pas. La série vidée est le score maximal.
  */
 export class PartieSansFaute extends PartieChrono {
-  constructor(cibles: readonly string[], delai_ms: number = DELAI_SANS_FAUTE_MS) {
-    super(cibles, delai_ms);
+  constructor(cibles: readonly string[], delai_ms: number = DELAI_SANS_FAUTE_MS, delais?: readonly number[]) {
+    super(cibles, delai_ms, delais);
   }
 
   override get finie(): boolean {
@@ -131,9 +141,14 @@ export class PartieSansFaute extends PartieChrono {
   }
 
   override score(): ScoreEpreuve {
-    const justes = this.jouees.filter((q) => q.points > 0);
-    const temps_ms = justes.reduce((t, q) => t + tempsBorne(q, this.delai_ms), 0);
-    return { points: justes.length, justes: justes.length, questions: this.jouees.length, temps_ms };
+    let justes = 0;
+    let temps_ms = 0;
+    this.jouees.forEach((q, i) => {
+      if (q.points <= 0) return;
+      justes++;
+      temps_ms += tempsBorne(q, this.delaiQuestion(i));
+    });
+    return { points: justes, justes, questions: this.jouees.length, temps_ms };
   }
 }
 
@@ -261,6 +276,9 @@ export const EPREUVES_SUJETS: readonly PaireEpreuve[] = [
   // Silhouettes (J4, lot 1) : les séries des pays, sans les 29 sans silhouette (TAILLES_SILHOUETTES) ; ouvertes
   // quand leur liste est relue (SILHOUETTES_VISIBLES), les règles les acceptant d'avance.
   ...(SILHOUETTES_VISIBLES ? SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'silhouettes', serie })) : []),
+  // Voisins (J4, lot 2) : les séries des pays sans l'Océanie (une seule question, la Papouasie-Nouvelle-Guinée,
+  // qui reste dans « tous ») ; TAILLES_VOISINS.
+  ...SERIES_MONDE.filter((s) => s !== 'Oceania').map((serie): PaireEpreuve => ({ sujet: 'voisins', serie })),
   { sujet: 'mers', serie: 'mers' },
   { sujet: 'communes', serie: 'reunion' },
 ];
@@ -314,15 +332,29 @@ export function sujetEpreuve(epreuve: string): Domaine | null {
  * monte, règles d'abord : une version d'avant publie un général plus bas,
  * que les règles refusent sans bruit (pas de progrès ; étude J2 § 3.2).
  * tests/chrono.test.ts la compare à la somme des tailles et aux règles.
- * Les silhouettes (D603 a) y ajoutent 166 + 166 = 332 quand elles sont
- * visibles : 1 576, que les règles acceptent déjà (règles d'abord).
+ * Les voisins (D603 a, lot 2) : 156 + 155 = 311 (l'Océanie n'a pas de série),
+ * 1 555 ; les silhouettes y ajoutent 166 + 166 = 332 quand elles sont
+ * visibles : 1 887, que les règles acceptent déjà (règles d'abord).
  */
-export const BORNE_GENERAL = SILHOUETTES_VISIBLES ? 1244 + 2 * 166 : 1244;
+export const BORNE_GENERAL = 1244 + 311 + (SILHOUETTES_VISIBLES ? 2 * 166 : 0);
 
 /** Questions de chaque série du monde : les 195 pays jouables (src/vues/cibles.ts), répartis en six continents. */
 const TAILLES_MONDE: Readonly<Record<string, number>> = { tous: 195, Africa: 54, 'North America': 23, 'South America': 12, Asia: 48, Europe: 44, Oceania: 14 };
 /** Les silhouettes (D618 a) : les pays jouables sans les 29 micro-États, par continent. */
 const TAILLES_SILHOUETTES: Readonly<Record<string, number>> = { tous: 166, Africa: 49, 'North America': 16, 'South America': 12, Asia: 45, Europe: 38, Oceania: 6 };
+/** Les voisins (étude J4 § 3.4) : les pays jouables qui ont au moins un voisin jouable (aVoisins de srs/fiches.ts), sans série d'Océanie. */
+const TAILLES_VOISINS: Readonly<Record<string, number>> = { tous: 156, Africa: 48, 'North America': 12, 'South America': 12, Asia: 41, Europe: 42 };
+/**
+ * Le temps le plus long d'un Chrono des Voisins, par série (ms) : la somme des délais de ses questions (D607 a :
+ * 4 s plus 2 s par voisin), bornée ainsi par les règles (tempsVoisins() de firestore.rules : tests/chrono.test.ts
+ * et tests/regles.test.ts les confrontent).
+ */
+export const TEMPS_CHRONO_VOISINS_MS: Readonly<Record<string, number>> = { tous: 1_872_000, Africa: 614_000, 'North America': 98_000, 'South America': 146_000, Asia: 490_000, Europe: 518_000 };
+/**
+ * Sans faute des Voisins (décision « Barème et classements », exception du 28/11) : le temps des justes borné à
+ * 32 s chacune (le délai de la Chine) au lieu de 15 s, dans le code comme dans les règles.
+ */
+export const TEMPS_MAX_JUSTE_VOISINS_MS = 32_000;
 
 /**
  * Questions de chaque série, par sujet : celles de tailles(cle) dans
@@ -336,6 +368,7 @@ const TAILLES_SERIES: Readonly<Partial<Record<Domaine, Readonly<Record<string, n
   capitales: TAILLES_MONDE,
   drapeaux: TAILLES_MONDE,
   silhouettes: TAILLES_SILHOUETTES,
+  voisins: TAILLES_VOISINS,
   communes: { reunion: 24 },
   mers: { mers: 50 },
 };
@@ -589,13 +622,23 @@ export function vraisemblable(s: ScoreEpreuve, epreuve: string): boolean {
   const temps = Math.round(s.temps_ms);
   const { justes, questions: q } = s;
   if (!Number.isInteger(justes) || !Number.isInteger(q) || justes < 0 || justes > q) return false;
+  const id = epreuve.split('@')[0] ?? '';
+  const serie = id.split(':')[2] ?? '';
+  // Les Voisins (D607 a) : leur délai varie d'une question à l'autre, d'où leurs propres bornes.
+  const voisins = sujetEpreuve(epreuve) === 'voisins';
   switch (modeEpreuve(epreuve)) {
     case 'sansfaute':
       // Les justes d'affilée, plus l'erreur qui a fini la partie (sauf série vidée) ; le temps des justes seules.
-      return q >= 1 && q <= justes + 1 && points === justes && temps >= justes * TEMPS_MIN_QUESTION_MS && temps <= justes * TEMPS_MAX_QUESTION_MS;
+      return (
+        q >= 1 &&
+        q <= justes + 1 &&
+        points === justes &&
+        temps >= justes * TEMPS_MIN_QUESTION_MS &&
+        temps <= justes * (voisins ? TEMPS_MAX_JUSTE_VOISINS_MS : TEMPS_MAX_QUESTION_MS)
+      );
     case 'chrono':
-      // Le général : au plus BORNE_GENERAL questions, comme chronoValide(d, 0).
-      return baremeChrono(points, justes, q, temps) && (epreuve.split('@')[0] !== ID_GENERAL || q <= BORNE_GENERAL);
+      // Le général : au plus BORNE_GENERAL questions, comme chronoValide(d, 0) ; un Chrono des Voisins, au plus la somme de ses délais.
+      return baremeChrono(points, justes, q, temps) && (id !== ID_GENERAL || q <= BORNE_GENERAL) && (!voisins || temps <= (TEMPS_CHRONO_VOISINS_MS[serie] ?? 0));
     case 'quiz': {
       // quizValide : 20 questions, points = justes, au moins 0,2 s par question, au plus le délai de chacune.
       const d = difficulteQuiz(epreuve);

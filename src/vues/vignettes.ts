@@ -321,6 +321,8 @@ const ICONES: Record<string, string> = {
   drapeaux: 'M5 21V3.5M5 4.5c2.5-1.3 5-1.3 7 0s4.5 1.3 7 0v9c-2.5 1.3-5 1.3-7 0s-4.5-1.3-7 0',
   // Le sujet Silhouettes (étude J4 § 7.2) : le contour d'un pays, rien de silhouettes* à charger.
   silhouettes: 'M4.5 8 8 4.5l3 1.5 3.5-1.5L18 7l-.5 3.5 2.5 3-3 1.5-1 4-3.5-1-2.5 2.5-2.5-3L4 15l1.5-3z',
+  // Le sujet Voisins (décision « Ordre des sujets ») : un pays allumé (plein, après « | ») et ses voisins cernés autour.
+  voisins: 'M3.5 7.5 8 3.5l5 1 4.5-1 3 4-1 5 1.5 4-4 3.5-5-1-4.5 1.5-3-4 .5-5zM9.5 9.5 5.5 6M12 8.5V4.5M14.5 9.5 18 5M15 13l5 2M12 15v4M9 13l-4.4 1.5|M9.5 9.5 12 8.5l2.5 1L15 13l-3 2-3-2z',
   // Le quiz général (étude J2 § 7.1) : un point d'interrogation dans une bulle ; ses difficultés, une à quatre barres montantes.
   quiz: 'M12 20.5a8.5 8.5 0 1 0-7.6-4.7L3.5 20.5l4.7-.9a8.5 8.5 0 0 0 3.8.9zM9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.6h.01',
   ...barres(),
@@ -332,7 +334,7 @@ function barres(): Record<string, string> {
   return Object.fromEntries(['facile', 'moyen', 'difficile', 'expert'].map((d, n) => [`quiz-${d}`, Array.from({ length: n + 1 }, (_, i) => barre(i)).join('')]));
 }
 
-/** L'icône de ce nom (branche, exercice, « revision », les sujets Drapeaux et Silhouettes, le quiz et ses difficultés) ; null si elle n'en a pas. */
+/** L'icône de ce nom (branche, exercice, « revision », les sujets Drapeaux, Silhouettes et Voisins, le quiz et ses difficultés) ; null si elle n'en a pas. */
 export function icone(nom: string): SVGSVGElement | null {
   const d = ICONES[nom];
   if (!d) return null;
@@ -345,8 +347,12 @@ export function icone(nom: string): SVGSVGElement | null {
   svg.setAttribute('stroke-linejoin', 'round');
   svg.setAttribute('aria-hidden', 'true');
   svg.classList.add('vignette-icone');
-  const chemin = document.createElementNS(NS, 'path');
-  chemin.setAttribute('d', d);
-  svg.append(chemin);
+  // Après « | », ce qui est plein (le pays allumé des Voisins).
+  d.split('|').forEach((x, i) => {
+    const chemin = document.createElementNS(NS, 'path');
+    chemin.setAttribute('d', x);
+    if (i) chemin.setAttribute('fill', 'currentColor');
+    svg.append(chemin);
+  });
   return svg;
 }

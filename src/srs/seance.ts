@@ -13,15 +13,31 @@
 // (rappel, révision, carte retournée) revient en fin de séance (reprise),
 // sans nouvelle note : une note par fiche et par jour.
 
-import { analyser, former, nommerPose, type Domaine } from './fiches';
+import { analyser, former, nommerPose, type Domaine, type Sens } from './fiches';
 import type { Horloge } from './jour';
 import type { Aide, Evenement, ModeEvenement, Via } from './journal';
 import { noteEtape, type Note } from './note';
 
 /** Étape de la file : QCM d'apprentissage, rappel (première note localiser), révision, carte retournée (nommer), reprise d'un raté. */
 export type SorteEtape = 'qcm' | 'rappel' | 'revision' | 'retournee' | 'reprise';
-/** Ce que la vue montre : Trouver (localiser), le QCM de Reconnaître, la carte retournée (nommer). */
-export type FormeEtape = 'trouver' | 'qcm' | 'retournee';
+/**
+ * Ce que la vue montre : Trouver (localiser), le QCM de Reconnaître, la carte
+ * retournée (nommer) ; la question à plusieurs touchers des Voisins (J4).
+ */
+export type FormeEtape = 'trouver' | 'qcm' | 'retournee' | 'voisins';
+
+/**
+ * La forme d'une fiche hors du QCM d'apprentissage (étude J4 § 7.5, D623 a) :
+ * par domaine et par sens. Les sujets du J2 et les silhouettes : localiser en
+ * Trouver, nommer en carte retournée. Les voisins : localiser à plusieurs
+ * touchers (on touche chaque voisin, § 3.2) ; nommer en Trouver, l'énoncé
+ * étant la liste des voisins (§ 3.3 : la carte retournée allumerait le pays,
+ * qui est la réponse).
+ */
+export function formeDe(d: Domaine, s: Sens): FormeEtape {
+  if (d === 'voisins') return s === 'localiser' ? 'voisins' : 'trouver';
+  return s === 'nommer' ? 'retournee' : 'trouver';
+}
 
 /**
  * Cadrage de la carte à poser avant une question (décision « Cadrage et
@@ -180,7 +196,7 @@ export class Seance {
     const etape = (fiche: string, sorte: SorteEtape, mode: ModeEvenement): Etape | null => {
       const f = analyser(fiche);
       if (!f) return null;
-      const forme: FormeEtape = sorte === 'qcm' ? 'qcm' : f.sens === 'nommer' ? 'retournee' : 'trouver';
+      const forme: FormeEtape = sorte === 'qcm' ? 'qcm' : formeDe(f.domaine, f.sens);
       return { etape: sorte === 'revision' && forme === 'retournee' ? 'retournee' : sorte, fiche, id: f.id, domaine: f.domaine, forme, mode, passage: 1, cadrage: null };
     };
     const ok = (e: Etape | null): e is Etape => e !== null;

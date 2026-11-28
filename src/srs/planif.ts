@@ -37,9 +37,9 @@ export const INTRODUCTIONS_PAR_JOUR = 15;
  * suivre. Une préférence, jamais un blocage : Apprendre Capitales ou
  * Drapeaux prend d'abord la grappe dont les pays sont appris (pret), sinon
  * la suivante, avec un conseil. Rien pour les mers ; les pays pour les
- * silhouettes (D602 a).
+ * silhouettes et les voisins (D602 a).
  */
-export const PREREQUIS: Readonly<Partial<Record<Domaine, Domaine>>> = { capitales: 'pays', drapeaux: 'pays', silhouettes: 'pays' };
+export const PREREQUIS: Readonly<Partial<Record<Domaine, Domaine>>> = { capitales: 'pays', drapeaux: 'pays', silhouettes: 'pays', voisins: 'pays' };
 
 type Etat = ReadonlyMap<string, EtatFiche>;
 

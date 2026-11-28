@@ -55,6 +55,7 @@
     "visuel": "Exercices visuels : les drapeaux sont des images, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient).",
     "visuel_choix": "Les quatre choix se touchent, ou se prennent aux touches 1 à 4 du clavier.",
     "visuel_silhouettes": "Exercices visuels : les silhouettes sont des dessins, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient).",
+    "voisins": "Voisins : touche chaque voisin, leur nombre est donné, et une faute finit la question. Un voisin qui n'est pas un pays jouable (le Kosovo pour la Serbie), ou voisin par une zone contestée (la Mauritanie pour le Maroc), ne compte ni pour ni contre. Reconnaître donne la liste des voisins : touche le pays.",
     "record": "record",
     "branches": {
       "entrainement": {
@@ -78,6 +79,9 @@
       },
       "silhouettes": {
         "nom": "Silhouettes"
+      },
+      "voisins": {
+        "nom": "Voisins"
       },
       "mers": {
         "nom": "Océans et mers",
@@ -107,6 +111,13 @@
         "apprendre": "Les silhouettes des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
         "localiser": "Une silhouette est montrée : touche son pays sur la carte",
         "nommer": "Une silhouette est montrée : choisis son pays parmi quatre"
+      },
+      "voisins": {
+        "apprendre": "Les pays voisins suivants : QCM sur leurs voisins, puis toucher leurs voisins sur la carte",
+        "localiser": "Un pays est nommé : touche tous ses voisins",
+        "nommer": "Ses voisins sont nommés : touche le pays",
+        "chrono": "4 s plus 2 s par voisin, une faute finit la question",
+        "sansfaute": "4 s plus 2 s par voisin, jusqu'à la première erreur"
       },
       "mers": {
         "apprendre": "Les océans, puis les mers voisines suivantes : QCM, puis les trouver sur la carte",
@@ -145,6 +156,7 @@
     "admis_jumeau_elide": " (même drapeau qu'{zone})",
     "admis_partie": " : {zone}, {dans}",
     "admis_capitale": " (capitale revendiquée aussi par {zone})",
+    "admis_voisins": " (mêmes voisins que {zone})",
     "essai_un": "{n} essai",
     "essais": "{n} essais",
     "faux": "Faux : {touche}{ou}. {suite}",
@@ -230,11 +242,13 @@
   "epreuves": {
     "chrono": {
       "nom": "Chrono",
-      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : ton score est la part de justes ; à égalité, le temps total départage."
+      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : ton score est la part de justes ; à égalité, le temps total départage.",
+      "aide_voisins": "Tous les pays de la série dans le désordre, 4 s plus 2 s par voisin à trouver (6 s pour le Portugal, 32 s pour la Chine) : une question est juste quand tous ses voisins sont touchés sans faute. Ton score est la part de justes ; à égalité, le temps total départage."
     },
     "sansfaute": {
       "nom": "Sans faute",
       "aide": "Les lieux de la série dans le désordre, {s} s par question, un seul toucher : la partie s'arrête à la première erreur. Ton score est la part de la série faite d'affilée (100 % : toute la série sans erreur) ; à égalité, le plus rapide.",
+      "aide_voisins": "Les pays de la série dans le désordre, 4 s plus 2 s par voisin à trouver : la partie s'arrête à la première question manquée. Ton score est la part de la série faite d'affilée (100 % : toute la série sans erreur) ; à égalité, le plus rapide.",
       "compte": "{n} d'affilée",
       "score": "{n} d'affilée sur {total} · {pourcent}",
       "parfait": "Sans faute : {total} sur {total} !",
@@ -249,7 +263,8 @@
     "en_temps": "{score} en {temps}",
     "juste": "Juste{admis}",
     "faux": "Faux : {touche}, à {km} du bord · bonne réponse : {cible}",
-    "bilan_faux": "{pays} → {touche}, à {km}"
+    "bilan_faux": "{pays} → {touche}, à {km}",
+    "bilan_faux_touche": "{pays} → {touche}"
   },
   "terrains": {
     "reunion": {
@@ -336,6 +351,26 @@
         "jamais": "jamais vue",
         "vu": "vue {n} fois",
         "vu_une": "vue 1 fois"
+      }
+    },
+    "voisins": {
+      "n": "{n} pays",
+      "enonce": "Pays qui a pour voisins : ",
+      "consigne_nommer": "Quel pays a pour voisins :",
+      "faux_suite": "Bonne réponse : {cible}, en vert : touche-le.",
+      "expire": "Temps écoulé · bonne réponse : {cible}",
+      "la_mer": "la mer",
+      "rate_km": "{nom} : touché à {km} du bord",
+      "rate_trouver": "{nom} : voisins pas tous trouvés",
+      "rate_oublie": "{nom} : pays oublié",
+      "tout_appris": "Les voisins de tous les pays de cette série sont appris.",
+      "grappe_entamee": "Les voisins commencés aujourd'hui ({serie}) ne sont pas finis : ils passent avant.",
+      "conseil": "Les pays de cette région ne sont pas encore appris : {chemin}",
+      "memoire": {
+        "nom": "Voisins",
+        "jamais": "jamais vus",
+        "vu": "vus {n} fois",
+        "vu_une": "vus 1 fois"
       }
     },
     "mers": {

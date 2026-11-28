@@ -9,14 +9,15 @@
 // (lot 5, § 7.1, D27 b).
 // Les silhouettes du J4 (lot 1) visibles ici (src/visibles.ts remplacé) : les
 // règles les acceptent d'avance, avant que le site ne les ouvre, et la borne
-// du général des règles est celle du client qui les montre (1 576).
+// du général des règles est celle du client qui les montre, avec les voisins
+// du lot 2 (1 887).
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { deleteDoc, doc, getDoc, getDocs, collection, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/visibles', () => ({ SILHOUETTES_VISIBLES: true }));
 import { semaine } from '../src/epreuve/bareme';
-import { BORNE_GENERAL, clePermise, clePseudo, formePseudo, idEpreuve, idQuiz, pseudoValide, tempsMaxQuiz, vraisemblable } from '../src/epreuve/chrono';
+import { BORNE_GENERAL, clePermise, clePseudo, formePseudo, idEpreuve, idQuiz, pseudoValide, TEMPS_CHRONO_VOISINS_MS, tempsMaxQuiz, vraisemblable } from '../src/epreuve/chrono';
 import { DIFFICULTES } from '../src/quiz/types';
 import type { Evenement } from '../src/srs/journal';
 import { docDuLot, problemeLot, type DocLot } from '../src/sync/lots';
@@ -381,12 +382,17 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     });
   });
 
-  it('général : la somme des épreuves du Chrono des sujets ouverts, 1576 questions au plus (390 des pays + 24 de l’île + 390 des capitales + 390 des drapeaux + 50 des mers + 332 des silhouettes, D40 a, D603 a)', async () => {
+  it('général : la somme des épreuves du Chrono des sujets ouverts, 1887 questions au plus (390 des pays + 24 de l’île + 390 des capitales + 390 des drapeaux + 50 des mers + 332 des silhouettes + 311 des voisins, D40 a, D603 a)', async () => {
     const a = db('ana');
-    expect(BORNE_GENERAL).toBe(1576);
+    expect(BORNE_GENERAL).toBe(1887);
+    await assertSucceeds(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1887, justes: 600, points: 600, temps_ms: 9_000_000 })));
+    await env.clearFirestore();
+    await assertFails(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1888, justes: 600, points: 600, temps_ms: 9_000_000 })));
+    // 1576, la borne d'avant les voisins, et 1555, celle du client qui cache les silhouettes, restent acceptées.
     await assertSucceeds(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1576, justes: 600, points: 600, temps_ms: 8_000_000 })));
     await env.clearFirestore();
-    await assertFails(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1577, justes: 600, points: 600, temps_ms: 8_000_000 })));
+    await assertSucceeds(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1555, justes: 600, points: 600, temps_ms: 8_000_000 })));
+    await env.clearFirestore();
     // 1244, la borne d'avant les silhouettes (et celle du client qui les cache), reste acceptée.
     await assertSucceeds(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1244, justes: 600, points: 600, temps_ms: 6_000_000 })));
     await env.clearFirestore();
@@ -417,6 +423,8 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
       { questions: 804, justes: 600, points: 600, temps_ms: 6_000_000 },
       { questions: 1576, justes: 600, points: 600, temps_ms: 8_000_000 },
       { questions: 1577, justes: 600, points: 600, temps_ms: 8_000_000 },
+      { questions: 1887, justes: 600, points: 600, temps_ms: 9_000_000 },
+      { questions: 1888, justes: 600, points: 600, temps_ms: 9_000_000 },
     ];
     for (const [i, c] of cas.entries()) {
       const ecrire = setDoc(place(db('ana'), `joueur ${i}`, 'toujours', 'general'), score({ ...c, pseudo: `Joueur ${i}` }));
@@ -527,6 +535,64 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
       }
       await assertFails(setDoc(place(a, 'michel', 'toujours', 'chrono:silhouettes:reunion'), score({ questions: 24, justes: 23, points: 23, temps_ms: 120_000 })));
       await assertFails(setDoc(place(a, 'michel', 'toujours', 'minute:silhouettes:Oceania'), score({ questions: 6, justes: 6, points: 6, temps_ms: 60_000 })));
+    });
+  });
+
+  describe('épreuves des voisins (lot 2 du J4, § 3.4 ; D607 a, exception du 28/11 de « Barème et classements »)', () => {
+    const VOI_EUR = idEpreuve('Europe', 'chrono', 'voisins');
+    const europe = (o: Record<string, unknown> = {}) => score({ questions: 42, justes: 40, points: 40, temps_ms: 500_000, ...o });
+
+    it('chrono:voisins:Europe : 500 s passe, 600 s non (au-delà de 518 s, la somme de ses délais), alors que 15 s par question l’admettraient', async () => {
+      const a = db('ana');
+      expect(VOI_EUR).toBe('chrono:voisins:Europe');
+      expect(TEMPS_CHRONO_VOISINS_MS.Europe).toBe(518_000);
+      await assertSucceeds(setDoc(place(a, 'michel', 'toujours', VOI_EUR), europe()));
+      await env.clearFirestore();
+      await assertFails(setDoc(place(a, 'michel', 'toujours', VOI_EUR), europe({ temps_ms: 600_000 })));
+      await assertSucceeds(setDoc(place(a, 'michel', 'toujours', VOI_EUR), europe({ temps_ms: 518_000 })));
+      await env.clearFirestore();
+      await assertFails(setDoc(place(a, 'michel', 'toujours', VOI_EUR), europe({ temps_ms: 518_001 })));
+    });
+
+    it('sansfaute:voisins:Asia : 3 justes en 90 s passent (plus de 15 s par juste), en 100 s non (32 s par juste au plus)', async () => {
+      const a = db('ana');
+      const e = idEpreuve('Asia', 'sansfaute', 'voisins');
+      await assertSucceeds(setDoc(place(a, 'michel', 'toujours', e), score({ questions: 4, justes: 3, points: 3, temps_ms: 90_000 })));
+      await env.clearFirestore();
+      await assertFails(setDoc(place(a, 'michel', 'toujours', e), score({ questions: 4, justes: 3, points: 3, temps_ms: 100_000 })));
+      await assertSucceeds(setDoc(place(a, 'michel', 'toujours', e), score({ questions: 4, justes: 3, points: 3, temps_ms: 96_000 })));
+      // Ailleurs, Sans faute garde ses 15 s par juste.
+      await assertFails(setDoc(place(a, 'michel', 'toujours', idEpreuve('Asia', 'sansfaute', 'pays')), score({ questions: 4, justes: 3, points: 3, temps_ms: 90_000 })));
+    });
+
+    it('chaque série : tous 156, Afrique 48, Asie 41, Europe 42, Amérique du Nord 12, Amérique du Sud 12 ; ni l’Océanie, ni l’île, ni Minute', async () => {
+      const a = db('ana');
+      const tailles: Record<string, number> = { tous: 156, Africa: 48, Asia: 41, Europe: 42, 'North America': 12, 'South America': 12 };
+      for (const [serie, n] of Object.entries(tailles)) {
+        for (const mode of ['chrono', 'sansfaute'] as const) {
+          const e = idEpreuve(serie, mode, 'voisins');
+          await assertSucceeds(setDoc(place(a, 'michel', 'toujours', e), score({ questions: n, justes: n, points: n, temps_ms: n * 5_000 })));
+          await assertFails(setDoc(place(a, 'grand', 'toujours', e), score({ pseudo: 'Grand', questions: n + 1, justes: n + 1, points: n + 1, temps_ms: n * 5_000 })));
+        }
+      }
+      await assertFails(setDoc(place(a, 'michel', 'toujours', 'chrono:voisins:Oceania'), score({ questions: 1, justes: 1, points: 1, temps_ms: 5_000 })));
+      await assertFails(setDoc(place(a, 'michel', 'toujours', 'chrono:voisins:reunion'), score({ questions: 24, justes: 23, points: 23, temps_ms: 120_000 })));
+      await assertFails(setDoc(place(a, 'michel', 'toujours', 'minute:voisins:Europe'), score({ questions: 42, justes: 42, points: 42, temps_ms: 60_000 })));
+    });
+
+    it('vraisemblable() du client juge comme les règles, Chrono et Sans faute des voisins', async () => {
+      const cas: [string, { questions: number; justes: number; points: number; temps_ms: number }][] = [];
+      for (const [serie, max] of Object.entries(TEMPS_CHRONO_VOISINS_MS)) {
+        const n = { tous: 156, Africa: 48, Asia: 41, Europe: 42, 'North America': 12, 'South America': 12 }[serie]!;
+        cas.push([idEpreuve(serie, 'chrono', 'voisins'), { questions: n, justes: n - 1, points: n - 1, temps_ms: max }]);
+        cas.push([idEpreuve(serie, 'chrono', 'voisins'), { questions: n, justes: n - 1, points: n - 1, temps_ms: max + 1 }]);
+      }
+      for (const t of [3 * 32_000, 3 * 32_000 + 1, 3 * 15_000 + 1]) cas.push([idEpreuve('Africa', 'sansfaute', 'voisins'), { questions: 4, justes: 3, points: 3, temps_ms: t }]);
+      for (const [i, [e, c]] of cas.entries()) {
+        const ecrire = setDoc(place(db('ana'), `joueur ${i}`, 'toujours', e), score({ ...c, pseudo: `Joueur ${i}` }));
+        if (vraisemblable(c, e)) await assertSucceeds(ecrire);
+        else await assertFails(ecrire);
+      }
     });
   });
 

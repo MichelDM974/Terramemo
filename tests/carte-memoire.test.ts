@@ -192,12 +192,12 @@ describe('carte de la mémoire : le choix dans la légende de l’accueil', () =
     };
   }
 
-  it('les jouables de cette version (lot 3b) : Pays, Capitales, Drapeaux, Mers dans le choix, dans cet ordre, nommés comme dans Jouer (Mers : le nom court)', async () => {
+  it('les jouables de cette version (lot 3b, J4 lot 2) : Pays, Capitales, Drapeaux, Voisins, Mers dans le choix, dans cet ordre, nommés comme dans Jouer (Mers : le nom court)', async () => {
     const v = monter(carteMemoire(await memoire(), () => true));
     v.vue.activer();
     const choix = v.choix()!;
-    expect(choix.querySelectorAll('option').map((o) => o.getAttribute('value'))).toEqual(['pays', 'capitales', 'drapeaux', 'mers']);
-    expect(choix.innerText).toBe(`${textes.jouer.sujets.pays.nom}${textes.jouer.sujets.capitales.nom}${textes.jouer.sujets.drapeaux.nom}Mers`);
+    expect(choix.querySelectorAll('option').map((o) => o.getAttribute('value'))).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers']);
+    expect(choix.innerText).toBe(`${textes.jouer.sujets.pays.nom}${textes.jouer.sujets.capitales.nom}${textes.jouer.sujets.drapeaux.nom}${textes.jouer.sujets.voisins.nom}Mers`);
   });
 
   it('un seul sujet jouable : pas de choix dans la légende', async () => {
@@ -237,14 +237,14 @@ describe('carte de la mémoire : capitales (lot 1), drapeaux (lot 2) et mers (lo
   beforeEach(() => installerDom());
   afterEach(() => vi.unstubAllGlobals());
 
-  it('par défaut, le monde a quatre sujets (Pays, Capitales, Drapeaux, Mers) ; teintes, maîtrisés et détail des vraies capitales, des vrais drapeaux et des mers', async () => {
+  it('par défaut, le monde a cinq sujets (Pays, Capitales, Drapeaux, Voisins, Mers) ; teintes, maîtrisés et détail des vraies capitales, des vrais drapeaux et des mers', async () => {
     const m = await memoire();
     const evt = (fiche: string, correct: boolean) =>
       evenementReponse({ seance: null, appareil: m.appareil, horloge: () => ({ ts: T0, tz: 240 }), nouvelId: () => m.nouvelId() }, fiche, 'rappel', { correct, duree_ms: 1000 }, correct ? 3 : 1);
     // Le drapeau de l'Italie raté aujourd'hui (Again) : « Drapeau : vu 1 fois · revient demain » ; la Méditerranée aussi.
     await m.ecrire([evt('drapeaux:ITA:localiser', false), evt('mers:medit:localiser', false)]);
     const c = carteMemoire(m, () => true);
-    expect(c.sujets('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'mers']);
+    expect(c.sujets('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers']);
     expect(c.sujets('reunion')).toEqual([]);
     expect(c.sujet('monde')).toBe('pays');
     c.choisir('monde', 'capitales');
@@ -257,11 +257,14 @@ describe('carte de la mémoire : capitales (lot 1), drapeaux (lot 2) et mers (lo
     const K = textes.sujets.capitales.memoire;
     const D = textes.sujets.drapeaux.memoire;
     expect(D.nom).toBe('Drapeau');
+    // Les voisins (J4, lot 2) : leur ligne pour un pays qui en a, aucune pour une île.
+    const V = textes.sujets.voisins.memoire;
     expect(c.detail('monde', 'ITA', true)).toBe(
-      `${P.nom} : ${P.jamais} · ${K.nom} : ${remplir(K.vu_une, { n: 1 })} · ${M.revient_demain} · ${D.nom} : ${remplir(D.vu_une, { n: 1 })} · ${M.revient_demain}`,
+      `${P.nom} : ${P.jamais} · ${K.nom} : ${remplir(K.vu_une, { n: 1 })} · ${M.revient_demain} · ${D.nom} : ${remplir(D.vu_une, { n: 1 })} · ${M.revient_demain} · ${V.nom} : ${V.jamais}`,
     );
+    expect(c.detail('monde', 'JPN', true)).not.toContain(V.nom);
     expect(c.detail('monde', 'ITA', true)).toContain('Drapeau : vu 1 fois · revient demain');
-    expect(c.detail('monde', 'FRA', true)).toMatch(new RegExp(`^${P.nom} : vu 2 fois · revient (dans \\d+ j|demain) · ${K.nom} : ${K.jamais} · ${D.nom} : ${D.jamais}$`));
+    expect(c.detail('monde', 'FRA', true)).toMatch(new RegExp(`^${P.nom} : vu 2 fois · revient (dans \\d+ j|demain) · ${K.nom} : ${K.jamais} · ${D.nom} : ${D.jamais} · ${V.nom} : ${V.jamais}$`));
     // Mers : ses zones teintées seules (les pays neutres), « n/50 maîtrisées » (accordé à « mer », quel que soit le total passé).
     c.choisir('monde', 'mers');
     expect(c.sujet('monde')).toBe('mers');

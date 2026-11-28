@@ -410,7 +410,7 @@ describe('plusieurs sujets : plafonds communs, reliquat, préférence (lot 0c)',
 
   it('préférence D39 b : la première grappe de la série dont les pays sont appris un jour d’avant, sinon la suivante (conseil)', () => {
     // Les silhouettes aussi (J4, lot 1 ; D602 a), une préférence comme les autres.
-    expect(PREREQUIS).toEqual({ capitales: 'pays', drapeaux: 'pays', silhouettes: 'pays' });
+    expect(PREREQUIS).toEqual({ capitales: 'pays', drapeaux: 'pays', silhouettes: 'pays', voisins: 'pays' });
     expect(pretSelon(new Map(), D0, 'pays')).toBeUndefined();
     expect(pretSelon(new Map(), D0, 'mers')).toBeUndefined();
     const afrique = gs.filter((g) => g.continent === 'Africa');

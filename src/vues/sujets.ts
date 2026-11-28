@@ -60,6 +60,14 @@
 // Le rendu vient d'un morceau chargé à la demande (silhouettes.ts, avec
 // public/geo/silhouettes.json) : chargerSilhouettes, avant la partie
 // (chargementSujet de commun.ts, la séance, le quiz).
+//
+// Voisins (étude J4 § 3, lot 2 ; D605 à D607) : la cible est le pays. Son rendu
+// est celui de Reconnaître, la liste écrite de ses voisins (« Pays qui a pour
+// voisins : Autriche, Croatie… »), le pays touché ou choisi parmi quatre ; la
+// question à plusieurs touchers de Trouver et des épreuves (« Touche les 7
+// voisins de : Hongrie ») a la sienne (ModuleVoisins.question). Les deux
+// viennent d'un morceau chargé à la demande (voisins.ts) : chargerVoisins de
+// commun.ts, avant la partie, comme les silhouettes.
 import type { SorteAdmise } from '../map/acceptes';
 import { ADMET_EN_PLUS, capitalesChargees, type Capitale, type DonneesCapitales } from '../map/capitales';
 import { drapeauxCharges, type DonneesDrapeaux } from '../map/drapeaux';
@@ -69,6 +77,7 @@ import type { Entite, Lieu, Mer, NomTerrain } from '../map/types';
 import { geoAzimuthalEqualArea, geoCentroid } from 'd3-geo';
 import { aSilhouette, nommerPose, SANS_NOMMER, SANS_SILHOUETTE, type Sens } from '../srs/fiches';
 import type { ModuleSilhouettes, Outils } from './silhouettes';
+import type { ModuleVoisins, Outils as OutilsVoisins } from './voisins';
 import { tracer } from './vignettes';
 import { formePays } from './formes';
 import { leurresParmi, type StrategieLeurres } from './qcm';
@@ -575,8 +584,36 @@ const parSilhouette: Fabrique = (ts, d, o) => {
   return silhouettes.fabrique(ts, d, o);
 };
 
+/** Le morceau des voisins (voisins.ts), une fois chargé (chargerVoisins). */
+let voisins: ModuleVoisins | null = null;
+
+/** Le morceau des voisins s'il est chargé (sans réseau), null sinon. */
+export const voisinsCharges = (): ModuleVoisins | null => voisins;
+
+/**
+ * Le morceau des voisins arrivé (chargerVoisins de commun.ts) : installé avec les noms et les textes d'ici, et ce que
+ * `o` donne de commun.ts ; il rend dès lors. Les tests : `m` déjà installé, ou null pour l'oublier.
+ */
+export function poserVoisins(m: typeof import('./voisins') | ModuleVoisins | null, o?: Omit<OutilsVoisins, 'nomDe' | 'formePays' | 'remplir'>): void {
+  voisins = m && 'installer' in m ? m.installer({ nomDe, formePays, remplir, ...o! }) : (m as ModuleVoisins | null);
+}
+
+/** Les voisins : leur rendu vient de leur morceau ; lève s'il n'est pas chargé (une partie de voisins ne part qu'après lui). */
+const parVoisins: Fabrique = (ts, d, o) => {
+  if (!voisins) throw new Error('voisins : morceau pas chargé');
+  return voisins.fabrique(ts, d, o);
+};
+
 /** Le rendu de chaque sujet : un sujet qui a ses textes a son rendu, sinon le build ne compile pas. */
-const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, capitales: parCapitale, drapeaux: parDrapeau, silhouettes: parSilhouette, mers: parMer, communes: parNom };
+const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = {
+  pays: parNom,
+  capitales: parCapitale,
+  drapeaux: parDrapeau,
+  silhouettes: parSilhouette,
+  voisins: parVoisins,
+  mers: parMer,
+  communes: parNom,
+};
 
 /** Le sujet a-t-il son rendu (ses textes) ? */
 export const estSujetRendu = (s: string): s is SujetRendu => Object.keys(FABRIQUES).includes(s);

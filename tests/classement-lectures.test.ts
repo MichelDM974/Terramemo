@@ -60,7 +60,7 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     const tout = await mesPlaces('toujours', 'Michel', [GENERAL, ...classees]);
     const avant = lectures;
     expect(tout).toHaveLength(5);
-    expect(avant).toBe(1 + 50 + 3 * 5);
+    expect(avant).toBe(1 + 62 + 3 * 5);
 
     // Après : le général, les épreuves à record, la place vue (un Sans faute sans place : une lecture, pas de rang).
     lectures = 0;
@@ -70,8 +70,9 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     const apres = lectures;
     expect(lues.map((p) => p.epreuve)).toEqual([GENERAL, AFR, CAP, DRA, ILE]);
     expect(apres).toBe(1 + 5 + 3 * 5);
-    // 66 lectures avant, 21 après : les mers (lot 3b) et le quiz (lot 4b) n'ajoutent rien à l'ouverture sans record ni place à eux.
-    expect([avant, apres]).toEqual([66, 21]);
+    // 78 lectures avant, 21 après : les mers (lot 3b), le quiz (lot 4b) et les voisins (J4, lot 2) n'ajoutent rien à
+    // l'ouverture sans record ni place à eux.
+    expect([avant, apres]).toEqual([78, 21]);
     places.clear();
   });
 
@@ -99,16 +100,17 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     expect(lectures).toBe(0);
   });
 
-  it('le général se lit dans les Chrono de tous les sujets, capitales, drapeaux et mers compris : 23 lectures par période', async () => {
-    expect(epreuvesDuGeneral()).toHaveLength(23);
+  it('le général se lit dans les Chrono de tous les sujets, capitales, drapeaux, voisins et mers compris : 29 lectures par période', async () => {
+    expect(epreuvesDuGeneral()).toHaveLength(29);
     lectures = 0;
     lus.length = 0;
     await placesDuPseudo('toujours', 'Michel');
-    expect(lectures).toBe(23);
+    expect(lectures).toBe(29);
     expect(lus).toEqual(epreuvesDuGeneral().map(col));
     expect(lus.filter((c) => /:(capitales|drapeaux):/.test(c))).toHaveLength(14);
-    // Les mers (lot 3b) : une lecture de plus par période, leur Chrono.
+    // Les mers (lot 3b) : une lecture de plus par période, leur Chrono ; les voisins, leurs 6.
     expect(lus.filter((c) => c.includes(':mers:'))).toEqual([col('chrono:mers:mers')]);
+    expect(lus.filter((c) => c.includes(':voisins:'))).toHaveLength(6);
   });
 
   // Barème 2 (décision « Barème et classements » du 12/11/2026, #30) : une

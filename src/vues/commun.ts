@@ -10,7 +10,7 @@ import type { Entite, Forme, Lieu, Mer, NomTerrain, Statut } from '../map/types'
 import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
 import type { Serie } from './cibles';
-import { chargerSilhouettes, dansZone, silhouettesChargees, type Contenu, type Dessin, type Enonce, type RenduSujet } from './sujets';
+import { chargerSilhouettes, dansZone, poserVoisins, silhouettesChargees, voisinsCharges, type Contenu, type Dessin, type Enonce, type RenduSujet } from './sujets';
 import { elide } from './formes';
 import { remplir, textes } from './textes';
 
@@ -271,7 +271,8 @@ export type AdmisDit = Admis | { zone: string; tenant: string; sorte: 'partie' }
  * Palestine) » ; sous Drapeaux, « (même drapeau que l'Indonésie) », « qu' »
  * devant une voyelle (elide). Sous Mers, la partie touchée et ce qui la contient, la forme
  * voulue par l'utilisateur : « Juste : mer des Caraïbes, dans l'Atlantique »
- * (dansZone, le bon article pour chaque zone qui a des parties).
+ * (dansZone, le bon article pour chaque zone qui a des parties). Sous
+ * Voisins, l'autre pays d'un ensemble ambigu : « (mêmes voisins que le Yémen) ».
  */
 export function texteAdmis(r: Pick<RenduSujet, 'lieu' | 'lieuArticle'>, cible: string, admis: AdmisDit | null | undefined): string {
   if (!admis) return '';
@@ -283,6 +284,7 @@ export function texteAdmis(r: Pick<RenduSujet, 'lieu' | 'lieuArticle'>, cible: s
   }
   if (admis.sorte === 'partie') return remplir(T.admis_partie, { zone: r.lieu(admis.zone), dans: dansZone(cible, r.lieu(cible)) });
   if (admis.sorte === 'capitale') return remplir(T.admis_capitale, { zone: r.lieuArticle(admis.zone) });
+  if (admis.sorte === 'voisins') return remplir(T.admis_voisins, { zone: r.lieuArticle(admis.zone) });
   if (admis.tenant === cible) return '';
   if (admis.tenant === admis.zone) return remplir(T.admis_contestee_zone, { zone: r.lieu(admis.zone) });
   return remplir(T.admis_contestee, { tenant: r.lieuArticle(admis.tenant) });
@@ -375,15 +377,26 @@ export function pastillesPour(c: Pick<ContexteVue, 'carte'>, sujet: string | nul
  * la promesse de leur chargement (capitales.json et son fichier de langue ;
  * le manifeste des drapeaux, sans les images ; la couche marine, posée sur
  * la carte du monde `monde` ; le morceau des silhouettes et silhouettes.json,
- * leurs dessins ensuite calculés d'avance).
+ * leurs dessins ensuite calculés d'avance ; le morceau des voisins, sans
+ * données de plus).
  */
 export function chargementSujet(sujet: string, monde?: Pick<ContexteVue, 'carte' | 'donnees'>): Promise<unknown> | null {
   if (sujet === 'capitales') return capitalesChargees() ? null : chargerCapitales();
   if (sujet === 'drapeaux') return drapeauxCharges() ? null : chargerDrapeaux();
   if (sujet === 'mers') return monde ? poserMers(monde) : Promise.reject(new Error('mers : pas de carte où les poser'));
   if (sujet === 'silhouettes') return silhouettesChargees() ? null : chargerSilhouettes(monde?.donnees);
+  if (sujet === 'voisins') return voisinsCharges() ? null : chargerVoisins();
   return null;
 }
+
+/**
+ * Le morceau des voisins (voisins.ts : leur rendu, la question à plusieurs
+ * touchers, leurs textes), chargé une fois et installé avec ce qu'il emploie
+ * d'ici ; ses données sont celles du monde, déjà là. Un échec (hors ligne,
+ * sans service worker) ne reste pas en cache.
+ */
+export const chargerVoisins = (): Promise<unknown> =>
+  voisinsCharges() ? Promise.resolve() : import('./voisins').then((m) => poserVoisins(m, { texteAdmis, estPetite, statuts: LIBELLE_STATUT }));
 
 /**
  * Les zones d'une partie de ce sujet sur ce terrain (Reconnaître, carte

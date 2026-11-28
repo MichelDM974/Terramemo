@@ -15,7 +15,7 @@
 // niveau à part, `#jouer/quiz`, qui propose ses quatre difficultés.
 import { MODES_EPREUVE, sujetOuvert, type ModeEpreuve } from '../epreuve/chrono';
 import { DIFFICULTES, type Difficulte } from '../quiz/types';
-import { aSilhouette, estDomaine } from '../srs/fiches';
+import { aSilhouette, aVoisins, estDomaine } from '../srs/fiches';
 import { SILHOUETTES_VISIBLES } from '../visibles';
 import type { NomTerrain } from '../map/types';
 import { nomSerie, serieMers, type Serie } from './cibles';
@@ -79,6 +79,26 @@ export const SUJET_SILHOUETTES: DefSujet = {
 };
 
 /**
+ * Voisins (étude J4 § 3 et § 7.2, lot 2 ; D605 à D607) : les séries des pays
+ * sans les 39 qui n'ont aucun voisin jouable (156, « 48 pays » en Afrique), et
+ * sans série de moins de deux questions (l'Océanie : la Papouasie-Nouvelle-
+ * Guinée seule, qui reste dans « Tous les pays ») ; Apprendre, Trouver (on
+ * touche chaque voisin), Reconnaître (la liste des voisins, on touche le
+ * pays), Chrono et Sans faute (4 s plus 2 s par voisin, D607 a).
+ */
+export const SUJET_VOISINS: DefSujet = {
+  id: 'voisins',
+  series: (c) =>
+    duTerrain('monde')(c)
+      .map((s) => {
+        const ids = s.ids.filter(aVoisins);
+        return { ...s, ids, n: ids.length };
+      })
+      .filter((s) => s.n > 1),
+  modes: AVEC_APPRENDRE,
+};
+
+/**
  * Les sujets, dans l'ordre affiché (D53 b, décision « Ordre des sujets ») :
  * les sujets du monde ensemble, Communes en dernier. Aucun sujet « à venir »
  * factice : un sujet existe quand il se joue.
@@ -94,6 +114,8 @@ export const SUJETS: readonly DefSujet[] = [
   // Silhouettes (J4, lot 1), près des drapeaux (des images de pays, D601 a) : cachées tant que leur liste attend
   // la relecture de l'utilisateur (src/visibles.ts).
   ...(SILHOUETTES_VISIBLES ? [SUJET_SILHOUETTES] : []),
+  // Voisins (J4, lot 2), après les silhouettes (décision « Ordre des sujets ») ; ses épreuves ouvertes (EPREUVES_SUJETS).
+  SUJET_VOISINS,
   // Océans et mers (étude J2 § 7.2, lot 3b) : une série unique de 50 (D44 a), son niveau sauté comme celui de
   // Communes ; Apprendre (ses grappes, grappesMers), Trouver, Reconnaître ; sous Classé, Chrono et Sans faute,
   // ses épreuves ouvertes comme les autres (EPREUVES_SUJETS ; creerArbre, sujetOuvert).

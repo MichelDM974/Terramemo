@@ -950,12 +950,16 @@ body[data-terrain="reunion"] .essai-bilan {
 .jouer-grille { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(var(--j-tuile), var(--j-tuile-max)); }
 .jouer-grille > .jouer-large { grid-column: 1 / -1; }
 .jouer-panneau[data-niveau="racine"] .jouer-grille { grid-auto-rows: minmax(var(--j-branche), var(--j-branche-max)); }
-/* Entraînement et Classé, et les sujets : l'un sous l'autre sur le téléphone
-   (ils remplissent l'écran sans être des colonnes étroites et hautes), côte à
-   côte sur PC ; les séries restent en deux colonnes. */
+/* Entraînement et Classé : l'un sous l'autre sur le téléphone (ils remplissent
+   l'écran sans être des colonnes étroites et hautes), côte à côte sur PC ; les
+   séries restent en deux colonnes. Les sujets aussi, depuis le J4 (décision
+   « Écran Jouer », exception du 28/11 ; D601 a) : en grille partout, l'un sous
+   l'autre ils ne tenaient plus à 360 px ; en nombre impair (les silhouettes
+   visibles), le dernier (Communes) prend toute la largeur, sans trou à côté. */
 @media (max-width: 700px) {
-  .jouer-panneau:is([data-niveau="racine"], [data-niveau="sujets"]) .jouer-grille { grid-template-columns: minmax(0, 1fr); }
+  .jouer-panneau[data-niveau="racine"] .jouer-grille { grid-template-columns: minmax(0, 1fr); }
 }
+.jouer-panneau[data-niveau="sujets"] .jouer-grille > .jouer-tuile:last-child:nth-child(odd) { grid-column: 1 / -1; }
 /* Les exercices : une ligne pleine largeur chacun. La Révision du jour,
    au-dessus des sujets, garde la hauteur d'une ligne. */
 .jouer-lignes { grid-auto-rows: minmax(var(--j-ligne), var(--j-ligne-max)); }

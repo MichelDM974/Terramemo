@@ -31,6 +31,10 @@
 // Les silhouettes (J4, lot 1) : les grappes des pays qui en ont une (D618 a),
 // leur morceau et silhouettes.json chargés avant la séance ; leurs fiches
 // nommer en carte retournée sans zone allumée (retournee.ts, D623 a).
+// Les voisins (J4, lot 2) : les grappes des pays sans les 39 qui n'ont aucun
+// voisin jouable, leur morceau chargé avant la séance ; leurs fiches localiser
+// à plusieurs touchers (forme « voisins »), nommer en Trouver sur la liste
+// écrite des voisins (formeDe de srs/seance.ts, D623 a).
 //
 // « Apprendre ce lieu » (fiche d'un lieu, #34, lot F7, § 5) : Apprendre avec un
 // lieu (DemandeSeance.lieu), dont la grappe passe en tête (planif.ts prefere),
@@ -45,7 +49,7 @@ import { empriseGrappe, unionEmprises, type Emprise } from '../map/geo';
 import { empriseMer } from '../map/mers';
 import type { Lieu, NomTerrain } from '../map/types';
 import type { Memoire } from '../journal/memoire';
-import { analyser, aSilhouette, DOMAINES_JOUABLES, estDomaine, former, jouablesDu, type Domaine } from '../srs/fiches';
+import { analyser, aSilhouette, aVoisins, DOMAINES_JOUABLES, estDomaine, former, jouablesDu, type Domaine } from '../srs/fiches';
 import { grappesCommunes, grappesMers, grappesPays, type Grappe } from '../srs/grappes';
 import {
   dues,
@@ -65,9 +69,9 @@ import { evenementReponse, Seance, type BilanSeance, type PlanSeance } from '../
 import type { Terrain } from '../terrains';
 import type { Lancement } from './arbre';
 import { nomSerie, SERIE_TOUS } from './cibles';
-import { creer, croix, fmtKm, ligneFiche } from './commun';
+import { chargerVoisins, creer, croix, fmtKm, ligneFiche } from './commun';
 import type { DemandeSeance, FabriqueSeances, PiloteSeance, RefusSeance, ReponseJouee } from './essai';
-import { chargerSilhouettes, rendu, silhouettesChargees, textesSujet } from './sujets';
+import { chargerSilhouettes, rendu, silhouettesChargees, textesSujet, voisinsCharges } from './sujets';
 import { remplir, textes } from './textes';
 
 const S = textes.seance;
@@ -249,6 +253,13 @@ export function creerSeances(o: OptionsSeances): Seances {
   let silhouettes: InfoDomaine | null = null;
   const infoSilhouettes = (): InfoDomaine =>
     (silhouettes ??= infoDomaine('silhouettes', 'monde', o.monde, grappesPays(o.monde.entites.map((e) => e.pays).filter((p) => aSilhouette(p.id)))));
+  /**
+   * Les voisins (étude J4 § 3.4, § 7.5) : les grappes des pays, sans les 39 qui n'ont aucun voisin jouable (une
+   * grappe vidée retirée) ; alignées sur celles des pays, que leur prérequis lit (D602 a).
+   */
+  let voisins: InfoDomaine | null = null;
+  const infoVoisins = (): InfoDomaine =>
+    (voisins ??= infoDomaine('voisins', 'monde', o.monde, pays.toutes.map((g) => ({ ...g, membres: g.membres.filter(aVoisins) })).filter((g) => g.membres.length)));
   const toujoursLa = (info: () => InfoDomaine): SourceDomaine => ({ info, aCharger: false, charger: () => Promise.resolve() });
   /** La source de chaque domaine ; null : pas encore posable. */
   function source(d: Domaine): SourceDomaine | null {
@@ -274,6 +285,8 @@ export function creerSeances(o: OptionsSeances): Seances {
           charger: () => (o.chargerSilhouettes ?? (() => chargerSilhouettes(o.monde)))(),
         };
       case 'voisins':
+        // Ce que posent ses questions (la liste écrite, les touchers multiples) : son morceau, chargé avant la séance.
+        return { info: () => (voisinsCharges() ? infoVoisins() : null), aCharger: true, charger: chargerVoisins };
       case 'villes':
       case 'habitants':
       case 'superficies':

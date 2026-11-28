@@ -50,6 +50,11 @@ describe('le morceau principal', () => {
     expect(vus.has('src/vues/silhouettes.ts')).toBe(false);
   });
 
+  it('ne porte pas les voisins : leur rendu, leur question, leur partie pure et leurs textes, un morceau chargé à la demande (commun.ts, chargerVoisins)', () => {
+    const voisins = ['src/vues/voisins.ts', 'src/exercices/voisins.ts', 'src/vues/textes-voisins.ts', 'src/vues/textes-voisins.fr.json'];
+    expect(voisins.filter((f) => vus.has(f))).toEqual([]);
+  });
+
   it('ne porte pas les textes des erreurs des comptes : seul src/sync/erreurs.ts les lit, dans les morceaux des comptes', () => {
     expect(['src/sync/erreurs.ts', 'src/vues/textes-erreurs.ts', 'src/vues/textes-erreurs.fr.json'].filter((f) => vus.has(f))).toEqual([]);
   });

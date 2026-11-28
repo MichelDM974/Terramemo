@@ -80,11 +80,11 @@ export const DOMAINES: readonly Domaine[] = [
  * journal, intactes, et entrent en séance à la mise à jour qui livre leur
  * sujet. Capitales au lot 1, drapeaux au lot 2, mers au lot 3b ; les
  * silhouettes du J4 (lot 1) quand leur liste est relue (SILHOUETTES_VISIBLES,
- * src/visibles.ts). Dans
- * l'ordre des sujets de Jouer (D53 b) : celui du choix du sujet de la carte
- * de la mémoire.
+ * src/visibles.ts) ; les voisins (lot 2). Dans
+ * l'ordre des sujets de Jouer (D53 b, décision « Ordre des sujets ») : celui
+ * du choix du sujet de la carte de la mémoire.
  */
-export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', ...(SILHOUETTES_VISIBLES ? (['silhouettes'] as const) : []), 'mers', 'communes'];
+export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', ...(SILHOUETTES_VISIBLES ? (['silhouettes'] as const) : []), 'voisins', 'mers', 'communes'];
 
 /**
  * Une table par domaine, chaque valeur tirée de son nom : toutes les clés de
@@ -142,6 +142,19 @@ export const SANS_SILHOUETTE: ReadonlySet<string> = new Set(
 
 /** Le pays a-t-il sa silhouette (D618 a) ? */
 export const aSilhouette = (id: string): boolean => !SANS_SILHOUETTE.has(id);
+
+/**
+ * Les 39 pays jouables sans voisin jouable (étude J4 § 3.1) : les îles, plus
+ * Cuba (seul voisin, la base de Guantánamo) et Chypre (zone tampon, bases
+ * britanniques). Écrits ici, figés comme SANS_SILHOUETTE (le test les
+ * confronte à pays.json) : ni fiche voisins, ni série, ni grappe, ni épreuve.
+ */
+export const SANS_VOISIN: ReadonlySet<string> = new Set(
+  'ATG AUS BHR BHS BRB COM CPV CUB CYP DMA FJI FSM GRD ISL JAM JPN KIR KNA LCA LKA MDG MDV MHL MLT MUS NRU NZL PHL PLW SGP SLB STP SYC TON TTO TUV VCT VUT WSM'.split(' '),
+);
+
+/** Le pays a-t-il au moins un voisin jouable (une fiche voisins) ? */
+export const aVoisins = (id: string): boolean => !SANS_VOISIN.has(id);
 
 /** L'entité a-t-elle une fiche nommer dans ce domaine (posée en QCM, en carte retournée) ? */
 export const nommerPose = (domaine: Domaine, id: string): boolean => !SANS_NOMMER[domaine]?.has(id);
