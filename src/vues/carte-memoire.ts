@@ -12,7 +12,7 @@
 import type { Memoire } from '../journal/memoire';
 import { estIdMer, IDS_MERS } from '../map/mers';
 import type { NomTerrain } from '../map/types';
-import { aVoisins, DOMAINES_JOUABLES, jouablesDu, type Domaine } from '../srs/fiches';
+import { aVoisins, DOMAINES_JOUABLES, jouablesDu, SANS_SILHOUETTE, SANS_VOISIN, type Domaine } from '../srs/fiches';
 import { maitrises, memoireEntite, seauxEntites, type Seau } from '../srs/planif';
 import { textesSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -87,7 +87,10 @@ export interface CarteMemoire {
   choisir(t: NomTerrain, d: Domaine): void;
   /** Le seau de chaque zone vue du terrain, dans le sujet montré (absente : jamais vue, elle garde --terre). */
   teintes(t: NomTerrain): Map<string, number> | null;
-  /** « 3/195 maîtrisés » sur `total` zones jouables, dans le sujet montré ; « 3/50 maîtrisées » pour les mers (leurs 50 zones, quel que soit `total`). */
+  /**
+   * « 3/195 maîtrisés » sur `total` zones jouables, dans le sujet montré ; « 3/50 maîtrisées » pour les mers (leurs 50 zones, quel que soit
+   * `total`) ; `total` moins les pays sans voisin pour les voisins (156), moins les micro-États pour les silhouettes (166).
+   */
   maitrises(t: NomTerrain, total: number): string | null;
   /**
    * « Vu 4 fois · revient dans 5 j », « Jamais vu » ; à partir de deux sujets
@@ -172,7 +175,8 @@ export function carteMemoire(m: Memoire, actif: () => boolean, o: OptionsCarteMe
       if (!pret()) return null;
       // Les mers : leurs 50 zones, accordé à « mer » (textes.sujets.mers.memoire.maitrises) ; les autres sujets, le texte d'avant.
       if (sujet(t) === 'mers') return remplir((textesSujet('mers').memoire as { maitrises?: string }).maitrises ?? M.maitrises, { n: maitrises(seaux(t)), total: IDS_MERS.length });
-      return remplir(M.maitrises, { n: maitrises(seaux(t)), total });
+      const sans = sujet(t) === 'voisins' ? SANS_VOISIN.size : sujet(t) === 'silhouettes' ? SANS_SILHOUETTE.size : 0;
+      return remplir(M.maitrises, { n: maitrises(seaux(t)), total: total - sans });
     },
     detail(t, id, jouable) {
       return details(t, id, jouable)?.join(' · ') ?? null;

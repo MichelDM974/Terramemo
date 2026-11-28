@@ -250,6 +250,13 @@ describe('carte de la mémoire : capitales (lot 1), drapeaux (lot 2) et mers (lo
     c.choisir('monde', 'capitales');
     expect([...c.teintes('monde')!.keys()].sort()).toEqual(['ESP', 'ITA']);
     expect(c.maitrises('monde', 195)).toBe('0/195 maîtrisés');
+    // Les voisins : sur les 156 pays qui en ont, pas les 195 du monde.
+    c.choisir('monde', 'voisins');
+    expect(c.maitrises('monde', 195)).toBe('0/156 maîtrisés');
+    // Les silhouettes (cachées tant que leur liste n'est pas relue) : sur les 166 pays qui en ont.
+    const cs = carteMemoire(m, () => true, { jouables: ['pays', 'silhouettes'] });
+    cs.choisir('monde', 'silhouettes');
+    expect(cs.maitrises('monde', 195)).toBe('0/166 maîtrisés');
     c.choisir('monde', 'drapeaux');
     expect(c.sujet('monde')).toBe('drapeaux');
     expect([...c.teintes('monde')!.keys()]).toEqual(['ITA']);
