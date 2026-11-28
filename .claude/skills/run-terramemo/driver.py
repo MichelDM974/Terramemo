@@ -3225,6 +3225,26 @@ def ui_voisins(p, capturer, defauts, base, parametres="", ecran=None, telephone=
     if p.js("window.terramemo.carte.transfo().k") < 1.5:
         defauts.append("Trouver (voisins) : la carte n'a pas volé jusqu'au pays demandé")
     capturer("166-voisins-trouver")
+    # Un seul voisin (Danemark, Portugal…) : le toucher finit la question, et la suite
+    # (le pays demandé, la faute) viserait la question d'après. On les joue jusqu'à
+    # une question à plusieurs voisins.
+    for _ in range(6):
+        if len(vs) > 1:
+            break
+        seul = vs[0] if vs else None
+        if not seul or not position_visible(p, seul):
+            break
+        toucher_pays(p, seul)
+        p.pause(300)
+        r = retro()
+        dire(f"  Trouver, {seul} touché (seul voisin de {cible}) : {r!r}")
+        if not r.startswith("Juste") or "seul voisin" not in r:
+            defauts.append(f"Trouver (voisins) : le seul voisin touché ({seul}) sans « Juste : le seul voisin… » ({r!r})")
+        p.pause(1600)
+        attendre_fin_vol(p)
+        texte_q, cible = consigne()
+        vs = voisins_de(cible)
+        dire(f"  Trouver ({cible}) : {texte_q!r}, voisins {vs}")
     premier = next((v for v in vs if position_visible(p, v)), None)
     if premier:
         toucher_pays(p, premier)
@@ -3864,7 +3884,7 @@ def ui_epreuves_capitales(p, capturer, defauts, base, parametres=""):
     ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:capitales:Oceania"]')
     dire(f"  🏆 : sujets {h4[:5]}…, ligne {ligne!r}")
     # Sous le titre de son sujet (h4), la série seule (tableau du 🏆, choix du 12/11) : « Océanie », pas « Capitales · Océanie ».
-    if h4[:5] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océanie" or "Capitales ·" in ligne:
+    if h4[:len(H4_CLASSEMENTS)] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océanie" or "Capitales ·" in ligne:
         defauts.append(f"🏆 : sujets {h4}, ligne des capitales d'Océanie {ligne!r}")
     # Sa place (lue en ligne, absente hors ligne) en pourcentage, jamais en points (décision « Barème et classements »).
     if "pts" in ligne or "point" in ligne.lower():
@@ -4018,7 +4038,7 @@ def ui_epreuves_drapeaux(p, capturer, defauts, base, parametres=""):
     h4 = p.js("[...document.querySelectorAll('#classement-general .classements-sujet h4')].map(h => h.textContent)")
     ligne = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:drapeaux:Oceania"]')
     dire(f"  🏆 : sujets {h4[:5]}…, ligne {ligne!r}")
-    if h4[:5] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océanie" or "Drapeaux ·" in ligne:
+    if h4[:len(H4_CLASSEMENTS)] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océanie" or "Drapeaux ·" in ligne:
         defauts.append(f"🏆 : sujets {h4}, ligne des drapeaux d'Océanie {ligne!r}")
     if "pts" in ligne or "point" in ligne.lower():
         defauts.append(f"🏆 : ligne des drapeaux d'Océanie encore en points ({ligne!r})")
@@ -4203,7 +4223,7 @@ def ui_epreuves_mers(p, capturer, defauts, base, parametres=""):
     ligne = texte(p, '#classement-general .essai-serie[data-epreuve="sansfaute:mers:mers"]')
     chrono = texte(p, '#classement-general .essai-serie[data-epreuve="chrono:mers:mers"]')
     dire(f"  🏆 : sujets {h4[:5]}…, ligne {ligne!r}")
-    if h4[:5] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océans et mers" or "Océans et mers ·" in ligne or not chrono:
+    if h4[:len(H4_CLASSEMENTS)] != H4_CLASSEMENTS or ligne.split("\n")[0].strip() != "Océans et mers" or "Océans et mers ·" in ligne or not chrono:
         defauts.append(f"🏆 : sujets {h4}, lignes des mers {ligne!r} / {chrono!r} (« Océans et mers » sous son sujet attendu)")
     if "pts" in ligne or "point" in ligne.lower():
         defauts.append(f"🏆 : ligne des mers encore en points ({ligne!r})")
