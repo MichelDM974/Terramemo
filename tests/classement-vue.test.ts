@@ -722,13 +722,13 @@ describe('tableau d’un classement (décision « Barème et classements »)', (
     expect(a!.querySelector('.pts-bref')?.textContent).toBe('31\u00a0%');
   });
 
-  it('le général : « 5,8 % », et « 91 justes sur 1 555 » (les voisins compris) en title et aux lecteurs d’écran', async () => {
-    const [a, b] = await lignes('general', [place('Ana', 1554, 1555, 9_000_000), place('Bea', 91, 120, 600_000)]);
+  it('le général : « 3,8 % », et « 91 justes sur 2 335 » (les voisins, les habitants et les superficies compris) en title et aux lecteurs d’écran', async () => {
+    const [a, b] = await lignes('general', [place('Ana', 2334, 2335, 9_000_000), place('Bea', 91, 120, 600_000)]);
     expect(a!.querySelector('.pts')?.textContent).toMatch(/^99,9\u00a0%/);
     const pts = b!.querySelector('.pts')!;
-    expect(pts.textContent).toBe('5,8\u00a0% · 91 justes sur 1\u202f555');
-    expect(pts.querySelector('.pts-lu')?.textContent).toBe(' · 91 justes sur 1\u202f555');
-    expect(pts.getAttribute('title')).toBe('91 justes sur 1\u202f555');
+    expect(pts.textContent).toBe('3,8\u00a0% · 91 justes sur 2\u202f335');
+    expect(pts.querySelector('.pts-lu')?.textContent).toBe(' · 91 justes sur 2\u202f335');
+    expect(pts.getAttribute('title')).toBe('91 justes sur 2\u202f335');
   });
 });
 

@@ -24,6 +24,11 @@
 // voisins manqués et la finit. Reconnaître est un Trouver sur la liste écrite
 // des voisins (sens nommer au journal), pas un QCM ; la séance pose de même
 // ses fiches (formes « voisins » et « trouver »).
+//
+// J4, Habitants et Superficies (lot 3) : Trouver règle un curseur (src/vues/curseur.ts, QuestionCurseur : le pays
+// allumé et nommé, − et +, « Valider ») au lieu d'un toucher, dont la valeur affichée part au journal (`estime`) ;
+// « Voir » n'y a pas de sens (caché), « Passer » reste. Reconnaître est le QCM de Nommer, la valeur dans la barre ; la
+// séance pose de même ses fiches (formes « curseur » et « qcm »).
 import type { Emprise } from '../map/geo';
 import type { Via } from '../map/pick';
 import type { NomTerrain } from '../map/types';
@@ -36,8 +41,9 @@ import { melanger, nomSerie, type Serie } from './cibles';
 import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserComparaison, poserEnonce, prechargerEnonces, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
-import { rendu, voisinsCharges, type RenduSujet } from './sujets';
+import { curseurCharge, rendu, voisinsCharges, type RenduSujet } from './sujets';
 import type { QuestionCarte } from './voisins';
+import type { QuestionCurseur, ReponseCurseur } from './curseur';
 import { remplir, textes } from './textes';
 
 interface Resultat {
@@ -59,9 +65,14 @@ interface Resultat {
   zoom: number | null;
   /** Temps jusqu'à la première réponse (ms). */
   premier_ms: number;
-  /** Voisins : une faute a fini la question (ni « Voir » ni « Passer ») ; le détail de son bilan (« 3 sur 7, puis Pologne »). */
+  /**
+   * Voisins : une faute a fini la question (ni « Voir » ni « Passer ») ; le curseur : une valeur fausse validée. Le
+   * détail de son bilan (« 3 sur 7, puis Pologne », « 150 millions d'habitants, 1,6 fois trop peu »).
+   */
   faute?: boolean;
   detail?: string;
+  /** Le curseur des grandeurs : la valeur validée, telle qu'affichée (`estime` au journal). */
+  estime?: number;
 }
 
 /**
@@ -79,11 +90,13 @@ export interface ReponseJouee {
   zoom: number | null;
   distance_km: number | null;
   duree_ms: number;
+  /** La valeur validée au curseur (Habitants, Superficies : D617 a), telle qu'affichée ; absente ailleurs. */
+  estime?: number | null;
 }
 
 /**
  * Une question de séance (src/vues/seance.ts) : Trouver, le QCM de Reconnaître ou la carte retournée ; les touchers
- * multiples des voisins ; le curseur des grandeurs (FormeEtape : pas encore posé ici, ses sujets n'étant pas jouables).
+ * multiples des voisins ; le curseur des grandeurs.
  */
 export interface QuestionPilotee {
   id: string;
@@ -203,7 +216,14 @@ const deTrouver = (r: Resultat, sens: Mode): ReponseJouee => ({
   zoom: r.zoom,
   distance_km: r.distance_km,
   duree_ms: r.premier_ms,
+  ...(r.estime !== undefined ? { estime: r.estime } : {}),
 });
+
+/** Les Habitants et les Superficies : leur Trouver est un curseur (curseur.ts). */
+const grandeur = (sujet: string) => sujet === 'habitants' || sujet === 'superficies';
+/** Le temps de lire la rétroaction d'un curseur (la valeur vraie, sa source), avant la question suivante (ms). */
+const CURSEUR_JUSTE_MS = 2000;
+const CURSEUR_FAUX_MS = 4000;
 
 /** Une réponse au QCM, pour le journal. */
 const deNommer = (r: ReponseNommer): ReponseJouee => ({
@@ -228,10 +248,14 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   const voir = creer('button', { type: 'button', class: 'secondary', id: 'essai-voir' }, T.voir);
   const passer = creer('button', { type: 'button', class: 'secondary', id: 'essai-passer' }, T.passer);
   const terminer = creer('button', { type: 'button', class: 'secondary', id: 'essai-terminer' }, T.terminer);
+  /** Le curseur d'une question des grandeurs (curseur.ts) ; vide et caché pour les autres. */
+  const curseurHote = creer('div', { class: 'curseur-hote', id: 'essai-curseur' });
+  curseurHote.hidden = true;
   const barre = creer(
     'div',
     { class: 'carte-barre essai', id: 'barre-essai' },
     creer('div', { class: 'essai-ligne' }, consigne, compte),
+    curseurHote,
     retro,
     comparaison,
     creer('div', { class: 'essai-actions' }, voir, passer, terminer),
@@ -296,6 +320,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   let sensQ: Mode = 'localiser';
   /** Les Voisins en sens localiser : la question à plusieurs touchers en cours (voisins.ts) ; null pour les autres. */
   let qv: QuestionCarte | null = null;
+  /** Les grandeurs en sens localiser : la question au curseur en cours (curseur.ts) ; null pour les autres. */
+  let qc: QuestionCurseur | null = null;
   let cibles: string[] = [];
   let i = 0;
   let essais = 0;
@@ -354,6 +380,15 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       neuve = !reprise || qv?.id !== id;
       if (neuve) qv = voisinsCharges()!.question(t, id, rs);
     } else qv = null;
+    // Les grandeurs (sens localiser) : leur curseur, gardé tel quel à la reprise (sa valeur réglée comprise).
+    let neuveC = false;
+    if (grandeur(rs.sujet) && sensQ === 'localiser') {
+      neuveC = !reprise || qc?.id !== id;
+      if (neuveC) qc = curseurCharge()!.question(t, id, rs.sujet as 'habitants' | 'superficies', rs, finirCurseur);
+    } else qc = null;
+    curseurHote.replaceChildren(...(qc ? [qc.el] : []));
+    curseurHote.hidden = !qc;
+    voir.hidden = !!qc;
     poserEnonce(consigne, qv ? qv.enonce() : rs.enonce(id));
     consigne.dataset.cible = id;
     // Le drapeau de la question suivante, demandé pendant celle-ci (étude J2 § 2.2) : celui que son énoncé montrera
@@ -373,6 +408,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     // Posée : le pays allumé et la carte sur lui ; reprise : ses marques remises.
     if (qv && neuve) qv.poser(hBarre());
     else qv?.remarquer();
+    if (qc && neuveC) qc.poser(hBarre());
+    else qc?.remarquer();
     debut = performance.now();
   }
 
@@ -451,6 +488,32 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         suivante(res);
       },
       juste ? 1200 : 3500,
+    );
+  }
+
+  /**
+   * Une question au curseur validée : sa rétroaction (la valeur vraie et l'écart), au journal avec la valeur répondue
+   * (`estime`), puis la suivante, après le temps de la lire.
+   */
+  function finirCurseur(r: ReponseCurseur): void {
+    const id = courante();
+    if (!id || enAttente) return;
+    noterPremiere();
+    essais++;
+    retro.className = `essai-retro ${r.juste ? 'juste' : 'faux'}`;
+    retro.textContent = r.texte;
+    // Fausse, c'est une réponse donnée (faute : ni « Passer » ni « Voir » au journal), son détail au bilan.
+    const res: Resultat = { ...resultat(id, r.juste), estime: r.estime, ...(r.juste ? {} : { faute: true, detail: r.detail }) };
+    const ligne = rapporter(res);
+    if (ligne) retro.append(creer('span', { class: 'seance-ligne' }, ` · ${ligne}`));
+    resEnAttente = res;
+    enAttente = window.setTimeout(
+      () => {
+        enAttente = 0;
+        resEnAttente = null;
+        suivante(res);
+      },
+      r.juste ? CURSEUR_JUSTE_MS : CURSEUR_FAUX_MS,
     );
   }
 
@@ -555,6 +618,13 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     rs = rendu(q.domaine ?? 'pays', t.donnees);
     // Les voisins (formeDe de srs/seance.ts) : localiser à plusieurs touchers ; nommer, un Trouver sur leur liste.
     sensQ = q.forme === 'trouver' && q.domaine === 'voisins' ? 'nommer' : 'localiser';
+    // Les grandeurs : localiser au curseur (le pays allumé, la carte sur lui : le Trouver suivant repart du monde).
+    if (q.forme === 'curseur') {
+      cibles = [q.id];
+      barre.hidden = false;
+      if (t.nom === 'monde') mondeZoome = true;
+      return afficherQuestion();
+    }
     if (q.forme === 'voisins') {
       cibles = [q.id];
       barre.hidden = false;
@@ -704,6 +774,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     retournee.arreter();
     pilote = null;
     journal = null;
+    qc = null;
+    curseurHote.replaceChildren();
+    curseurHote.hidden = true;
     barre.hidden = true;
     bilan.hidden = true;
     effacer();
@@ -811,6 +884,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     const id = courante();
     if (!id || enAttente) return;
     qv?.arreter();
+    qc?.arreter();
     const r = resultat(id, false);
     rapporter(r);
     suivante(r);
@@ -868,9 +942,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       ctx.terrains.montrer('monde');
     },
     toucher(x, y, ev) {
-      // Nommer : les touchers sur la carte ne répondent pas (cibles est vide).
+      // Nommer : les touchers sur la carte ne répondent pas (cibles est vide) ; le curseur non plus (on y règle un nombre).
       const id = courante();
-      if (!id || enAttente || nommer.enCours || retournee.enCours) return;
+      if (!id || enAttente || nommer.enCours || retournee.enCours || qc) return;
       const carte = t.carte;
       const v = qv;
       if (v)

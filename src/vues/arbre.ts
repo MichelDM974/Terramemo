@@ -1,6 +1,6 @@
 // L'arbre de l'écran « Jouer » (pur ; décision « Écran Jouer », ticket #18) :
 // un choix par écran, d'abord la branche (Entraînement ou Classé), puis le
-// sujet (Pays, Capitales, Drapeaux, Océans et mers, Communes), la série (Tous
+// sujet (Pays, Capitales, Drapeaux, Voisins, Habitants, Superficies, Océans et mers, Communes), la série (Tous
 // les pays puis les continents ; La Réunion ; la série unique des mers, sautée), et l'exercice en
 // dernier. Déclaratif : un sujet de plus est une entrée de SUJETS (ses séries,
 // ses exercices par branche), son nom (textes.jouer.sujets) et son rendu
@@ -116,6 +116,11 @@ export const SUJETS: readonly DefSujet[] = [
   ...(SILHOUETTES_VISIBLES ? [SUJET_SILHOUETTES] : []),
   // Voisins (J4, lot 2), après les silhouettes (décision « Ordre des sujets ») ; ses épreuves ouvertes (EPREUVES_SUJETS).
   SUJET_VOISINS,
+  // Habitants et Superficies (J4, lot 3 ; D601, D613 à D617), après les voisins (les Villes viendront entre eux) : les
+  // séries des pays (195) ; Apprendre, Trouver (le curseur), Reconnaître (un QCM sur le nombre), Chrono et Sans faute
+  // (15 s par question, au curseur) ; leurs épreuves ouvertes (EPREUVES_SUJETS).
+  { id: 'habitants', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
+  { id: 'superficies', series: duTerrain('monde'), modes: AVEC_APPRENDRE },
   // Océans et mers (étude J2 § 7.2, lot 3b) : une série unique de 50 (D44 a), son niveau sauté comme celui de
   // Communes ; Apprendre (ses grappes, grappesMers), Trouver, Reconnaître ; sous Classé, Chrono et Sans faute,
   // ses épreuves ouvertes comme les autres (EPREUVES_SUJETS ; creerArbre, sujetOuvert).

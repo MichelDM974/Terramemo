@@ -279,6 +279,10 @@ export const EPREUVES_SUJETS: readonly PaireEpreuve[] = [
   // Voisins (J4, lot 2) : les séries des pays sans l'Océanie (une seule question, la Papouasie-Nouvelle-Guinée,
   // qui reste dans « tous ») ; TAILLES_VOISINS.
   ...SERIES_MONDE.filter((s) => s !== 'Oceania').map((serie): PaireEpreuve => ({ sujet: 'voisins', serie })),
+  // Habitants et Superficies (J4, lot 3 ; § 5.5) : les séries des pays et leurs tailles (TAILLES_MONDE), au curseur,
+  // 15 s par question comme le toucher.
+  ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'habitants', serie })),
+  ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'superficies', serie })),
   { sujet: 'mers', serie: 'mers' },
   { sujet: 'communes', serie: 'reunion' },
 ];
@@ -333,10 +337,12 @@ export function sujetEpreuve(epreuve: string): Domaine | null {
  * que les règles refusent sans bruit (pas de progrès ; étude J2 § 3.2).
  * tests/chrono.test.ts la compare à la somme des tailles et aux règles.
  * Les voisins (D603 a, lot 2) : 156 + 155 = 311 (l'Océanie n'a pas de série),
- * 1 555 ; les silhouettes y ajoutent 166 + 166 = 332 quand elles sont
- * visibles : 1 887, que les règles acceptent déjà (règles d'abord).
+ * 1 555 ; les habitants et les superficies (lot 3) : 390 chacun (195 + 195,
+ * les séries des pays), 2 335 ; les silhouettes y ajoutent 166 + 166 = 332
+ * quand elles sont visibles : 2 667, que les règles acceptent déjà (règles
+ * d'abord).
  */
-export const BORNE_GENERAL = 1244 + 311 + (SILHOUETTES_VISIBLES ? 2 * 166 : 0);
+export const BORNE_GENERAL = 1244 + 311 + 2 * 390 + (SILHOUETTES_VISIBLES ? 2 * 166 : 0);
 
 /** Questions de chaque série du monde : les 195 pays jouables (src/vues/cibles.ts), répartis en six continents. */
 const TAILLES_MONDE: Readonly<Record<string, number>> = { tous: 195, Africa: 54, 'North America': 23, 'South America': 12, Asia: 48, Europe: 44, Oceania: 14 };
@@ -369,6 +375,8 @@ const TAILLES_SERIES: Readonly<Partial<Record<Domaine, Readonly<Record<string, n
   drapeaux: TAILLES_MONDE,
   silhouettes: TAILLES_SILHOUETTES,
   voisins: TAILLES_VOISINS,
+  habitants: TAILLES_MONDE,
+  superficies: TAILLES_MONDE,
   communes: { reunion: 24 },
   mers: { mers: 50 },
 };

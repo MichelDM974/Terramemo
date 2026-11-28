@@ -60,8 +60,8 @@ afterAll(() => poserSilhouettes(null));
 describe('visibles (une seule constante, src/visibles.ts) : Jouer, la mémoire, les épreuves, le quiz', () => {
   it('un domaine jouable, après les drapeaux (D601 a) ; un sujet de Jouer, ses séries sans les 29 sans silhouette, ses exercices ; Pays en prérequis (D602 a)', () => {
     // Les voisins (lot 2) juste après (décision « Ordre des sujets »).
-    expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'mers', 'communes']);
-    expect(SUJETS.map((s) => s.id)).toEqual(['pays', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'mers', 'communes']);
+    expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'habitants', 'superficies', 'mers', 'communes']);
+    expect(SUJETS.map((s) => s.id)).toEqual(['pays', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'habitants', 'superficies', 'mers', 'communes']);
     const a = creerArbre(CATALOGUE);
     const series = a.series('silhouettes');
     expect(Object.fromEntries(series.map((s) => [s.id, s.n]))).toEqual({ tous: 166, Africa: 49, 'North America': 16, 'South America': 12, Asia: 45, Europe: 38, Oceania: 6 });
@@ -79,18 +79,18 @@ describe('visibles (une seule constante, src/visibles.ts) : Jouer, la mémoire, 
     vi.unstubAllGlobals();
   });
 
-  it('ses épreuves (D603 a) : 7 séries après les drapeaux, chrono:silhouettes:Africa à 49 ; le général monte à 1 887 avec les voisins, la borne des règles', () => {
+  it('ses épreuves (D603 a) : 7 séries après les drapeaux, chrono:silhouettes:Africa à 49 ; le général monte à 2 667 avec les voisins, les habitants et les superficies, la borne des règles', () => {
     expect(sujetOuvert('silhouettes')).toBe(true);
     const sil = EPREUVES_SUJETS.filter((p) => p.sujet === 'silhouettes').map((p) => p.serie);
     expect(sil).toEqual(['tous', 'Africa', 'North America', 'South America', 'Asia', 'Europe', 'Oceania']);
     const ordre = [...new Set(EPREUVES_SUJETS.map((p) => p.sujet))];
-    expect(ordre).toEqual(['pays', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'mers', 'communes']);
+    expect(ordre).toEqual(['pays', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'habitants', 'superficies', 'mers', 'communes']);
     expect(idEpreuve('Africa', 'chrono', 'silhouettes')).toBe('chrono:silhouettes:Africa');
     expect(tailleEpreuve('chrono:silhouettes:Africa')).toBe(49);
     expect(tailleEpreuve('sansfaute:silhouettes:tous@s2914')).toBe(166);
     expect(tailleEpreuve('chrono:silhouettes:reunion')).toBeNull();
     expect(epreuvesDuGeneral().reduce((n, e) => n + (tailleEpreuve(e) ?? NaN), 0)).toBe(BORNE_GENERAL);
-    expect(BORNE_GENERAL).toBe(1887);
+    expect(BORNE_GENERAL).toBe(2667);
     const regles = readFileSync('firestore.rules', 'utf8');
     expect(regles).toContain(`n == 0 ? d.questions <= ${BORNE_GENERAL} :`);
   });

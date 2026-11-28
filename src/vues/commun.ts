@@ -10,7 +10,8 @@ import type { Entite, Forme, Lieu, Mer, NomTerrain, Statut } from '../map/types'
 import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
 import type { Serie } from './cibles';
-import { chargerSilhouettes, dansZone, poserVoisins, silhouettesChargees, voisinsCharges, type Contenu, type Dessin, type Enonce, type RenduSujet } from './sujets';
+import { chargerGrandeurs } from '../fiches/chargeur';
+import { chargerSilhouettes, curseurCharge, dansZone, poserCurseur, poserVoisins, silhouettesChargees, voisinsCharges, type Contenu, type Dessin, type Enonce, type RenduSujet } from './sujets';
 import { elide } from './formes';
 import { remplir, textes } from './textes';
 
@@ -378,7 +379,8 @@ export function pastillesPour(c: Pick<ContexteVue, 'carte'>, sujet: string | nul
  * le manifeste des drapeaux, sans les images ; la couche marine, posée sur
  * la carte du monde `monde` ; le morceau des silhouettes et silhouettes.json,
  * leurs dessins ensuite calculés d'avance ; le morceau des voisins, sans
- * données de plus).
+ * données de plus ; pour les Habitants et les Superficies, le morceau du
+ * curseur et leurs chiffres, lus pour les pays de `monde`).
  */
 export function chargementSujet(sujet: string, monde?: Pick<ContexteVue, 'carte' | 'donnees'>): Promise<unknown> | null {
   if (sujet === 'capitales') return capitalesChargees() ? null : chargerCapitales();
@@ -386,7 +388,22 @@ export function chargementSujet(sujet: string, monde?: Pick<ContexteVue, 'carte'
   if (sujet === 'mers') return monde ? poserMers(monde) : Promise.reject(new Error('mers : pas de carte où les poser'));
   if (sujet === 'silhouettes') return silhouettesChargees() ? null : chargerSilhouettes(monde?.donnees);
   if (sujet === 'voisins') return voisinsCharges() ? null : chargerVoisins();
+  if (sujet === 'habitants' || sujet === 'superficies') return curseurCharge() ? null : chargerCurseur(monde?.donnees);
   return null;
+}
+
+/**
+ * Le morceau du curseur (curseur.ts : le rendu des Habitants et des
+ * Superficies, leur curseur, leur partie pure et leurs textes) et leurs
+ * chiffres (fiches-monde.json, chargerGrandeurs), demandés ensemble, installés
+ * une fois avec ce qu'il emploie d'ici ; `monde` : les pays de la carte du
+ * monde (continent, tracé de fait pour D616 a). Un échec (hors ligne) ne reste
+ * pas en cache.
+ */
+export function chargerCurseur(monde?: Pick<DonneesCarte, 'entites'>): Promise<unknown> {
+  if (curseurCharge()) return Promise.resolve();
+  if (!monde) return Promise.reject(new Error('grandeurs : pas de carte du monde'));
+  return Promise.all([import('./curseur'), chargerGrandeurs(monde.entites.map((e) => e.pays))]).then(([m, grandeurs]) => poserCurseur(m, { estPetite, grandeurs }));
 }
 
 /**

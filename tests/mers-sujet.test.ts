@@ -42,8 +42,8 @@ describe('les 50 zones', () => {
   });
 
   it('les mers sont jouables, sur le monde, dans l’ordre des sujets de Jouer (D53 b)', () => {
-    expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
-    expect(jouablesDu('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers']);
+    expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'habitants', 'superficies', 'mers', 'communes']);
+    expect(jouablesDu('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'habitants', 'superficies', 'mers']);
   });
 });
 

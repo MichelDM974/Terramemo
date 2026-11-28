@@ -360,6 +360,17 @@ body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoi
 .essai-actions { display: flex; gap: 8px; }
 .essai-actions button { padding: 6px 12px; font-size: 0.85rem; }
 
+/* Le curseur des Habitants et des Superficies (J4, lot 3, src/vues/curseur.ts) :
+   la valeur en mots et « Valider » sur une ligne, puis −, le curseur et + ; 44 px
+   au moins pour chaque cible du doigt (§ 5.5), le curseur rétréci d'abord à 320 px. */
+.curseur { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 2px; }
+.curseur-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.curseur-valeur { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.curseur-valider { min-height: 44px; flex: none; }
+.curseur-ligne { display: flex; align-items: center; gap: 8px; }
+.curseur-range { flex: 1; min-width: 0; height: 44px; margin: 0; accent-color: var(--accent); }
+.curseur-pas { flex: none; width: 44px; height: 44px; padding: 0; font-size: 1.35rem; line-height: 1; }
+
 /* Nommer : quatre noms en grille 2 × 2 sous le pouce, 48 px au moins, deux lignes
    au besoin (« Saint-Vincent-et-les Grenadines » sur ~166 px) ; après le choix,
    le bon en vert, le mauvais en rouge (désactivés, ils gardent leur couleur). */

@@ -33,6 +33,10 @@
 // Les Voisins (J4, lot 2 ; D607 a) : un toucher par voisin (src/vues/voisins.ts,
 // QuestionCarte), un délai par question, 4 s plus 2 s par voisin ; une question
 // est juste quand tous ses voisins sont touchés sans faute.
+// Les Habitants et les Superficies (J4, lot 3 ; § 5.5) : un curseur par question
+// (src/vues/curseur.ts, QuestionCurseur), 15 s pour le régler et valider, juste
+// à ×1,5 près ; le temps écoulé dit la valeur vraie ; le bilan, la valeur
+// répondue et l'écart (« Nigeria → 150 millions d'habitants, 1,6 fois trop peu »).
 import { DELAI_CHRONO_MS, type ScoreEpreuve } from '../epreuve/bareme';
 import { enregistrerPartie, idEpreuve, PartieChrono, PartieSansFaute, type ModeEpreuve, type QuestionJouee } from '../epreuve/chrono';
 import type { ChargerImage } from '../map/drapeaux';
@@ -46,8 +50,9 @@ import { creerJauge } from './jauge';
 import { anneauSiPetite, attendreEnonces, creer, croix, fmtKm, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserEnonce, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { nomEpreuve } from './general';
 import { fmtJustes, fmtTemps, nomMode, scoreCourt, scoreEntier, scoreLong } from './scores';
-import { rendu, voisinsCharges, type RenduSujet } from './sujets';
+import { curseurCharge, rendu, voisinsCharges, type RenduSujet } from './sujets';
 import type { QuestionCarte } from './voisins';
+import type { QuestionCurseur, ReponseCurseur } from './curseur';
 import { remplir, textes } from './textes';
 
 const T = textes.chrono;
@@ -57,6 +62,8 @@ const DELAI = DELAI_CHRONO_MS.localiser;
 /** Durée de la rétroaction avant la question suivante (ms), hors du temps compté. */
 const PAUSE_JUSTE_MS = 900;
 const PAUSE_FAUX_MS = 1800;
+/** Un curseur manqué : le temps de lire la valeur vraie et sa source (ms), hors du temps compté. */
+const PAUSE_FAUX_CURSEUR_MS = 3000;
 /**
  * Au plus, l'attente de l'image d'un énoncé pas encore arrivée (un drapeau)
  * avant que le temps de sa question ne coure (ms) : au-delà, le gris 4:3
@@ -120,6 +127,9 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
   const abandonner = creer('button', { type: 'button', class: 'secondary', id: 'chrono-abandonner' }, T.abandonner);
   const ligne = creer('div', { class: 'essai-ligne' }, consigne, compte);
+  /** Le curseur d'une question des grandeurs (curseur.ts) ; vide et caché pour les autres. */
+  const curseurHote = creer('div', { class: 'curseur-hote', id: 'chrono-curseur' });
+  curseurHote.hidden = true;
   const temps = jauge.el;
   /** Au départ d'une partie aux images, à la place de la question : leur chargement, ou son échec. */
   const chargement = creer('div', { class: 'chrono-chargement', id: 'chrono-chargement', 'aria-live': 'polite' });
@@ -128,6 +138,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     'div',
     { class: 'carte-barre essai', id: 'barre-chrono' },
     ligne,
+    curseurHote,
     temps,
     retro,
     chargement,
@@ -154,6 +165,10 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
   let partie: PartieChrono | null = null;
   /** Les Voisins : la question à plusieurs touchers en cours ; null pour les autres sujets. */
   let qv: QuestionCarte | null = null;
+  /** Les grandeurs : la question au curseur en cours ; null pour les autres sujets. */
+  let qc: QuestionCurseur | null = null;
+  /** Les grandeurs : le détail du bilan de chaque question manquée (« 150 millions d'habitants, 1,6 fois trop peu »). */
+  let details = new Map<string, string>();
   /** Les images de la partie sont attendues avant son départ (décision « Images d'une épreuve ») : pas encore de partie. */
   let enChargement = false;
   /** « Réessayer » : redemande les images qui ont échoué (celles de la partie en attente). */
@@ -200,6 +215,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const attente = texte !== null;
     const apparait = attente && (chargement.hidden || barre.hidden);
     ligne.hidden = temps.hidden = retro.hidden = attente;
+    curseurHote.hidden = attente || !qc;
     chargement.hidden = !attente;
     chargement.classList.toggle('echec', echec);
     reessayer.hidden = !echec;
@@ -237,6 +253,9 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     reprendreChargement = null;
     montrerChargement(null);
     ouverte = false;
+    qc = null;
+    curseurHote.replaceChildren();
+    curseurHote.hidden = true;
     barre.hidden = true;
     bilan.hidden = true;
     t.carte.effacerMarques();
@@ -258,6 +277,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
       enChargement = false;
       reprendreChargement = null;
       montrerChargement(null);
+      details = new Map();
       const v = r.sujet === 'voisins' ? voisinsCharges() : null;
       partie = nouvellePartieDe(
         mode,
@@ -321,6 +341,10 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     // Une épreuve des mers : sans les pastilles des micro-États (décision du 16/11).
     pastillesPour(ctx, rs.sujet);
     qv = rs.sujet === 'voisins' ? voisinsCharges()!.question(t, id, rs) : null;
+    const s = rs.sujet;
+    qc = s === 'habitants' || s === 'superficies' ? curseurCharge()!.question(t, id, s, rs, valider) : null;
+    curseurHote.replaceChildren(...(qc ? [qc.el] : []));
+    curseurHote.hidden = !qc;
     poserEnonce(consigne, qv ? qv.enonce() : rs.enonce(id));
     consigne.dataset.cible = id;
     afficherCompte(false);
@@ -328,6 +352,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     retro.className = 'essai-retro';
     // Le pays des voisins allumé, la carte sur lui : le temps court pendant le vol (S603).
     qv?.poser(barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
+    qc?.poser(barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
     const p = partie;
     const ms = p.delaiCourant;
     const ouvrir = () => {
@@ -371,7 +396,20 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     clearTimeout(minuterie);
     jauge.figer();
     afficherCompte(true);
-    pause = window.setTimeout(poser, q.juste ? PAUSE_JUSTE_MS : PAUSE_FAUX_MS);
+    pause = window.setTimeout(poser, q.juste ? PAUSE_JUSTE_MS : qc ? PAUSE_FAUX_CURSEUR_MS : PAUSE_FAUX_MS);
+  }
+
+  /** « Valider » au curseur (les grandeurs) : juste à ×1,5 près, dans le délai ; sa rétroaction, puis la suivante. */
+  function valider(r: ReponseCurseur): void {
+    const id = partie?.courante;
+    if (!partie || !id || !ouverte) return;
+    const temps_ms = performance.now() - debut;
+    // La minuterie a du retard : le temps était écoulé avant la réponse.
+    if (temps_ms >= partie.delaiCourant) return expirer();
+    retro.className = `essai-retro ${r.juste ? 'juste' : 'faux'}`;
+    retro.textContent = r.texte;
+    if (!r.juste) details.set(id, r.detail);
+    apres(partie.repondre(null, r.juste, null, temps_ms));
   }
 
   /** Le délai de la question est écoulé : une erreur. */
@@ -384,6 +422,11 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     // Les voisins : les trouvés restent, les manqués montrés.
     if (qv) {
       retro.textContent = qv.arreter(true);
+      return apres(q);
+    }
+    // Le curseur : bloqué, la valeur vraie dite.
+    if (qc) {
+      retro.textContent = qc.arreter(true);
       return apres(q);
     }
     t.carte.effacerMarques();
@@ -426,7 +469,10 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     const ligne = (q: QuestionJouee) =>
       q.temps_ms == null
         ? remplir(T.bilan_expire, { pays: r.nomBilan(q.id, 'localiser') })
-        : // Sans distance (une faute des Voisins, un toucher hors du globe) : le pays touché seul.
+        : // Le curseur : la valeur répondue et l'écart.
+          details.has(q.id)
+          ? remplir(E.bilan_faux_touche, { pays: r.nomBilan(q.id, 'localiser'), touche: details.get(q.id)! })
+          : // Sans distance (une faute des Voisins, un toucher hors du globe) : le pays touché seul.
           q.distance_km == null
           ? remplir(E.bilan_faux_touche, { pays: r.nomBilan(q.id, 'localiser'), touche: r.touche(q.touche) })
           : remplir(E.bilan_faux, {
@@ -533,7 +579,8 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
     },
     toucher(x, y, ev) {
       const id = partie?.courante;
-      if (!partie || !id || !ouverte) return;
+      // Le curseur : la carte ne répond pas (on y règle un nombre).
+      if (!partie || !id || !ouverte || qc) return;
       // La minuterie a du retard : le temps était écoulé avant ce toucher.
       if (performance.now() - debut >= partie.delaiCourant) return expirer();
       const carte = t.carte;

@@ -31,12 +31,12 @@ describe.skipIf(SILHOUETTES_VISIBLES)('silhouettes cachées (src/visibles.ts), e
     expect(lireDerniere(stockage, a)).toBeNull();
   });
 
-  it('ni dans les épreuves (le général reste à 1 555, avec les voisins), ni au quiz ; les règles les acceptent d’avance (1 887)', () => {
+  it('ni dans les épreuves (le général reste à 2 335, avec les voisins, les habitants et les superficies), ni au quiz ; les règles les acceptent d’avance (2 667)', () => {
     expect(EPREUVES_SUJETS.some((p) => p.sujet === 'silhouettes')).toBe(false);
     expect(sujetOuvert('silhouettes')).toBe(false);
     expect(epreuvesClassees().some((e) => e.includes(':silhouettes:'))).toBe(false);
-    expect(BORNE_GENERAL).toBe(1555);
-    expect(readFileSync('firestore.rules', 'utf8')).toContain('n == 0 ? d.questions <= 1887 :');
+    expect(BORNE_GENERAL).toBe(2335);
+    expect(readFileSync('firestore.rules', 'utf8')).toContain('n == 0 ? d.questions <= 2667 :');
     const m = installer(lire('silhouettes.json'), outilsSilhouettes());
     const d = { pays: PAYS, noms: lire('noms.fr.json'), notoriete: lireNotoriete(lire('notoriete.json')), silhouettes: m.proches };
     expect(generateurs(d).map((g) => g.sujet)).toEqual(['pays']);

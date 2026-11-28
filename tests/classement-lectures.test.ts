@@ -60,7 +60,7 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     const tout = await mesPlaces('toujours', 'Michel', [GENERAL, ...classees]);
     const avant = lectures;
     expect(tout).toHaveLength(5);
-    expect(avant).toBe(1 + 62 + 3 * 5);
+    expect(avant).toBe(1 + 90 + 3 * 5);
 
     // Après : le général, les épreuves à record, la place vue (un Sans faute sans place : une lecture, pas de rang).
     lectures = 0;
@@ -70,9 +70,9 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     const apres = lectures;
     expect(lues.map((p) => p.epreuve)).toEqual([GENERAL, AFR, CAP, DRA, ILE]);
     expect(apres).toBe(1 + 5 + 3 * 5);
-    // 78 lectures avant, 21 après : les mers (lot 3b), le quiz (lot 4b) et les voisins (J4, lot 2) n'ajoutent rien à
-    // l'ouverture sans record ni place à eux.
-    expect([avant, apres]).toEqual([78, 21]);
+    // 106 lectures avant, 21 après : les mers (lot 3b), le quiz (lot 4b), les voisins (J4, lot 2), les habitants et les
+    // superficies (lot 3) n'ajoutent rien à l'ouverture sans record ni place à eux.
+    expect([avant, apres]).toEqual([106, 21]);
     places.clear();
   });
 
@@ -100,17 +100,19 @@ describe('lectures à l’ouverture du 🏆 (D52 b)', () => {
     expect(lectures).toBe(0);
   });
 
-  it('le général se lit dans les Chrono de tous les sujets, capitales, drapeaux, voisins et mers compris : 29 lectures par période', async () => {
-    expect(epreuvesDuGeneral()).toHaveLength(29);
+  it('le général se lit dans les Chrono de tous les sujets, capitales, drapeaux, voisins, habitants, superficies et mers compris : 43 lectures par période', async () => {
+    expect(epreuvesDuGeneral()).toHaveLength(43);
     lectures = 0;
     lus.length = 0;
     await placesDuPseudo('toujours', 'Michel');
-    expect(lectures).toBe(29);
+    expect(lectures).toBe(43);
     expect(lus).toEqual(epreuvesDuGeneral().map(col));
     expect(lus.filter((c) => /:(capitales|drapeaux):/.test(c))).toHaveLength(14);
     // Les mers (lot 3b) : une lecture de plus par période, leur Chrono ; les voisins, leurs 6.
     expect(lus.filter((c) => c.includes(':mers:'))).toEqual([col('chrono:mers:mers')]);
     expect(lus.filter((c) => c.includes(':voisins:'))).toHaveLength(6);
+    // Les habitants et les superficies (J4, lot 3) : leurs 7 chacun.
+    expect(lus.filter((c) => /:(habitants|superficies):/.test(c))).toHaveLength(14);
   });
 
   // Barème 2 (décision « Barème et classements » du 12/11/2026, #30) : une

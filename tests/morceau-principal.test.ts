@@ -57,6 +57,9 @@ describe('le morceau principal', () => {
 
   it('ne porte pas les ordres de grandeur : leur partie pure (curseur, juste, leurres, nombres), chargée à la demande avec leurs chiffres (chargeur.ts, chargerGrandeurs)', () => {
     expect(vus.has('src/exercices/grandeurs.ts')).toBe(false);
+    // Leur vue (le curseur, leur rendu) et ses textes, chargés à la demande avec eux (commun.ts, chargerCurseur).
+    expect(['src/vues/curseur.ts', 'src/vues/textes-grandeurs.ts', 'src/vues/textes-grandeurs.fr.json'].filter((f) => vus.has(f))).toEqual([]);
+    expect(readFileSync('src/vues/commun.ts', 'utf8')).toMatch(/import\('\.\/curseur'\)/);
     // Le chargeur l'atteint par un import() et des types seuls.
     expect(readFileSync('src/fiches/chargeur.ts', 'utf8')).toMatch(/import\('\.\.\/exercices\/grandeurs'\)/);
   });

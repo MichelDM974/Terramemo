@@ -119,13 +119,14 @@ describe('fusion du profil (pure)', () => {
     expect(fusionner(lu(null, null), { pseudo: null, records: new Map() }, o)).toMatchObject({ pseudo: null, doc: null });
   });
 
-  it('les 62 épreuves classées, capitales, drapeaux, voisins, mers et les 4 du quiz compris, plus les 22 de Minute (retiré, ses records restent), de toujours et de la semaine, aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
+  it('les 90 épreuves classées, capitales, drapeaux, voisins, habitants, superficies, mers et les 4 du quiz compris, plus les 22 de Minute (retiré, ses records restent), de toujours et de la semaine, aux nombres les plus longs : la chaîne reste sous RECORDS_MAX (étude J2 § 3.4)', () => {
     const classees = epreuvesClassees();
-    expect(classees).toHaveLength(62);
+    expect(classees).toHaveLength(90);
     // Minute retiré le 12/11/2026 (décision « Barème et classements ») : ses records restent au profil, sans plus rien
-    // publier. Les mers et les voisins n'en ont jamais eu (leurs épreuves ouvrent après, lot 3b du J2, lot 2 du J4).
-    const epreuves = [...classees, ...classees.filter((e) => e.startsWith('chrono:') && !/:(mers|voisins):/.test(e)).map((e) => e.replace('chrono:', 'minute:'))];
-    expect(epreuves).toHaveLength(84);
+    // publier. Les mers, les voisins, les habitants et les superficies n'en ont jamais eu (leurs épreuves ouvrent après,
+    // lot 3b du J2, lots 2 et 3 du J4).
+    const epreuves = [...classees, ...classees.filter((e) => e.startsWith('chrono:') && !/:(mers|voisins|habitants|superficies):/.test(e)).map((e) => e.replace('chrono:', 'minute:'))];
+    expect(epreuves).toHaveLength(112);
     // Le pire : des points entiers (barème 2 : les justes), un temps à 17 chiffres (performance.now()), 195 questions, une date à 13 chiffres.
     const pire = (): RecordChrono => ({ points: 194, justes: 194, questions: 195, temps_ms: 2_924_999.9999999995, date: 1_794_787_199_999, bareme: VERSION_BAREME });
     const records = new Map<string, RecordChrono>();
@@ -133,13 +134,14 @@ describe('fusion du profil (pure)', () => {
     const f = fusionner(PROFIL_ABSENT, { pseudo: 'Michel', records }, o);
     expect(f.tropGros).toBe(false);
     const n = f.doc!.records!.length;
-    expect(Object.keys(recordsDuDoc(f))).toHaveLength(168);
+    expect(Object.keys(recordsDuDoc(f))).toHaveLength(224);
     expect(n).toBeLessThan(RECORDS_MAX);
     // Avec les mers (lot 3b) : 18 633 caractères, 57 % de la borne (environ 137 par record). Le quiz (lot 4b : 4
     // épreuves, 72 au J2, Minute compris) y ajoute 8 records, moins de 60 % au pire : la marge tient.
     // Avec les voisins (J4, lot 2 : 12 épreuves, 24 records de plus) : 22 953 caractères, 70 % de l'ancienne borne
     // (32 768), 18 % de la nouvelle. Chaque sujet du J4 à 7 séries en ajoute 28 (≈ 3 800 caractères) : d'où S608.
-    expect(n).toBeLessThan(RECORDS_MAX * 0.2);
+    // Avec les habitants et les superficies (lot 3 : 28 épreuves, 56 records de plus) : sous le quart de la borne.
+    expect(n).toBeLessThan(RECORDS_MAX * 0.25);
   });
 
   it('S608 : le J4 entier, un J5 à quatre sujets et les 8 épreuves du J6, aux nombres les plus longs, tiennent sous la moitié de RECORDS_MAX', () => {
@@ -153,8 +155,9 @@ describe('fusion du profil (pure)', () => {
       ...['chrono', 'sansfaute'].flatMap((m) => ['departements', 'regions', 'prefectures', 'numeros'].map((s) => `${m}:${s}:france`)),
     ];
     const epreuves = [...new Set([...classees, ...projetees])];
-    const minute = classees.filter((e) => e.startsWith('chrono:') && !/:(mers|voisins):/.test(e)).map((e) => e.replace('chrono:', 'minute:'));
-    expect(epreuves.length + minute.length).toBe(62 + 112 + 8 + 22);
+    const minute = classees.filter((e) => e.startsWith('chrono:') && !/:(mers|voisins|habitants|superficies):/.test(e)).map((e) => e.replace('chrono:', 'minute:'));
+    // Les 28 des habitants et des superficies, ouvertes au lot 3, sont classées et projetées à la fois (une fois chacune).
+    expect(epreuves.length + minute.length).toBe(90 - 28 + 112 + 8 + 22);
     const pire = (): RecordChrono => ({ points: 194, justes: 194, questions: 195, temps_ms: 2_924_999.9999999995, date: 1_794_787_199_999, bareme: VERSION_BAREME });
     const records = new Map<string, RecordChrono>();
     for (const e of [...epreuves, ...minute]) for (const k of [e, `${e}@${SEMAINE}`]) records.set(k, pire());

@@ -74,8 +74,15 @@ function stockage(): Storage | null {
 export const detailExercice = (m: ModeJeu, sujet = 'pays'): string =>
   remplir((J.exercices as unknown as Record<string, Partial<Record<ModeJeu, string>> | undefined>)[sujet]?.[m] ?? J.exercices[m], { s: estEpreuve(m) ? SECONDES_EPREUVE : 0 });
 
-/** Règles complètes d'une épreuve (barème, départage), derrière « ? » ; celles des Voisins, au délai par voisin (D607 a) ; '' pour un exercice d'entraînement. */
-export const regleExercice = (m: ModeJeu, sujet = 'pays'): string => (estEpreuve(m) ? remplir(sujet === 'voisins' ? E[m].aide_voisins : E[m].aide, { s: SECONDES_EPREUVE }) : '');
+/** Les Habitants et les Superficies (J4, lot 3) : un curseur, pas un toucher. */
+const grandeur = (sujet: string) => sujet === 'habitants' || sujet === 'superficies';
+
+/**
+ * Règles complètes d'une épreuve (barème, départage), derrière « ? » ; celles des Voisins, au délai par voisin (D607 a),
+ * et des ordres de grandeur, au curseur ; '' pour un exercice d'entraînement.
+ */
+export const regleExercice = (m: ModeJeu, sujet = 'pays'): string =>
+  estEpreuve(m) ? remplir(sujet === 'voisins' ? E[m].aide_voisins : grandeur(sujet) ? E[m].aide_grandeurs : E[m].aide, { s: SECONDES_EPREUVE }) : '';
 
 /**
  * Ce que le « ? » des exercices d'un sujet dit en plus de leurs règles : que
@@ -86,8 +93,21 @@ export const regleExercice = (m: ModeJeu, sujet = 'pays'): string => (estEpreuve
  */
 export const aideSujet = (sujet: string, branche: Branche): string =>
   // Les silhouettes : la question est un dessin, les choix des noms (pas de touches 1 à 4 à dire). Les voisins : ce qui
-  // compte et ce qui ne compte pas (D605 a).
-  sujet === 'silhouettes' ? J.visuel_silhouettes : sujet === 'voisins' ? J.voisins : sujet !== 'drapeaux' ? '' : branche === 'classe' ? J.visuel : `${J.visuel} ${J.visuel_choix}`;
+  // compte et ce qui ne compte pas (D605 a). Les ordres de grandeur : le curseur, le juste à ×1,5 (D613 b), et le tracé
+  // de fait pour les superficies (D616 a).
+  sujet === 'silhouettes'
+    ? J.visuel_silhouettes
+    : sujet === 'voisins'
+      ? J.voisins
+      : grandeur(sujet)
+        ? sujet === 'superficies'
+          ? `${J.grandeurs} ${J.grandeurs_trace}`
+          : J.grandeurs
+        : sujet !== 'drapeaux'
+          ? ''
+          : branche === 'classe'
+            ? J.visuel
+            : `${J.visuel} ${J.visuel_choix}`;
 
 /** La phrase courte d'une difficulté du quiz : « Plus de lieux : 10 à 4 choix (10 s), 10 sur la carte (15 s) » (src/quiz/regles.ts). */
 export function detailDifficulte(d: Difficulte): string {

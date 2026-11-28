@@ -1,0 +1,36 @@
+{
+  "_lisez-moi": "Textes du curseur des Habitants et des Superficies (J4, lot 3) que seul son morceau chargé à la demande lit (src/vues/curseur.ts) : à part de textes.fr.json pour ne pas peser sur le morceau principal (décision « Morceau JS principal sous 500 Ko »), comme textes-voisins.fr.json. Les noms des sujets et les textes de tout sujet (textes.sujets.habitants, textes.sujets.superficies) restent dans textes.fr.json. {v} : un nombre déjà écrit en français (« 230 millions », « 450 000 »).",
+  "unites": {
+    "habitants": { "mots": "{v} d'habitants", "chiffres": "{v} habitants" },
+    "superficies": { "mots": "{v} de km²", "chiffres": "{v} km²" }
+  },
+  "etiquettes": {
+    "habitants": "Habitants {de}",
+    "superficies": "Superficie {de}"
+  },
+  "moins": "Moins : divise par 1,1",
+  "plus": "Plus : multiplie par 1,1",
+  "valider": "Valider",
+  "sources": {
+    "bm": "Banque mondiale, {annee}",
+    "wd": "Wikidata, {annee}",
+    "sup": "Wikidata"
+  },
+  "trace": "{v} sur le tracé de la carte",
+  "vraie": "{pays} : {v} ({source})",
+  "vraie_trace": "{pays} : {v} ({source}), {trace}",
+  "lieu": "{pays}, {v} ({source})",
+  "lieu_trace": "{pays}, {v} ({source}), {trace}",
+  "reponse": "{vraie} ; ta réponse : {v}, {ecart} : {verdict}",
+  "ecart": {
+    "trop": "{fois} fois trop",
+    "peu": "{fois} fois trop peu",
+    "egal": "pile, à l'arrondi près"
+  },
+  "pour_trace": "{ecart} pour le tracé",
+  "juste": "juste",
+  "faux": "faux",
+  "temps": "Temps écoulé · {vraie}",
+  "bilan": "{v}, {ecart}",
+  "qcm": "{v} ?"
+}

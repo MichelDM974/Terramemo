@@ -437,7 +437,7 @@ describe('records de la semaine et classement général', () => {
   it('ids avec le sujet : pays et communes gardent `localiser` (inchangés), les autres sujets leur nom (étude J2 § 3.2)', () => {
     expect(CLE_SUJET).toEqual({ pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' });
     // Les sujets lus dès le socle commun des J4, J5 et J6 : leur nom ; aucune épreuve tant qu'ils ne sont pas dans EPREUVES_SUJETS.
-    for (const d of ['villes', 'habitants', 'superficies', 'silhouettes', 'fleuves', 'montagnes', 'deserts', 'detroits', 'departements', 'regions', 'prefectures', 'numeros'] as const) {
+    for (const d of ['villes', 'silhouettes', 'fleuves', 'montagnes', 'deserts', 'detroits', 'departements', 'regions', 'prefectures', 'numeros'] as const) {
       expect(cleSujet(d)).toBe(d);
       expect(idEpreuve('tous', 'chrono', d)).toBe(`chrono:${d}:tous`);
       expect(EPREUVES_SUJETS.some((p) => p.sujet === d)).toBe(false);
@@ -445,6 +445,13 @@ describe('records de la semaine et classement général', () => {
     }
     // Les voisins (J4, lot 2) : leur nom, leurs épreuves ouvertes.
     expect([cleSujet('voisins'), idEpreuve('Europe', 'sansfaute', 'voisins'), tailleEpreuve('chrono:voisins:tous')]).toEqual(['voisins', 'sansfaute:voisins:Europe', 156]);
+    // Les habitants et les superficies (J4, lot 3) : leur nom, leurs épreuves ouvertes, les tailles des pays.
+    expect([cleSujet('habitants'), idEpreuve('Africa', 'chrono', 'superficies'), tailleEpreuve('chrono:habitants:tous'), tailleEpreuve('sansfaute:superficies:Oceania')]).toEqual([
+      'habitants',
+      'chrono:superficies:Africa',
+      195,
+      14,
+    ]);
     expect([idEpreuve('Africa'), idEpreuve('Africa', 'chrono', 'pays'), idEpreuve('reunion', 'sansfaute', 'communes')]).toEqual(['chrono:localiser:Africa', 'chrono:localiser:Africa', 'sansfaute:localiser:reunion']);
     expect([idEpreuve('Africa', 'chrono', 'capitales'), idEpreuve('tous', 'sansfaute', 'drapeaux'), idEpreuve('mers', 'chrono', 'mers')]).toEqual([
       'chrono:capitales:Africa',
@@ -624,9 +631,9 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
   const tailleDe = new Map([...catalogue(pays), serieMers()].map((x) => [x.id, x.n]));
   const regles = readFileSync('firestore.rules', 'utf8');
   const corps = regles.slice(regles.indexOf('function tailles(cle)'), regles.indexOf('function epreuveConnue'));
-  /** Les cartes de tailles(cle) des règles, dans l'ordre : mers, capitales, drapeaux, silhouettes (prête d'avance, J4 lot 1), voisins (lot 2), localiser. */
+  /** Les cartes de tailles(cle) des règles, dans l'ordre : mers, capitales, drapeaux, silhouettes (prête d'avance, J4 lot 1), voisins (lot 2), habitants et superficies (lot 3), localiser. */
   const cartes = [...corps.matchAll(/\{([^{}]*)\}/g)].map((m) => Object.fromEntries([...m[1]!.matchAll(/'([^']+)': (\d+)/g)].map((x) => [x[1]!, Number(x[2])])));
-  const ORDRE_CARTES = ['mers', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'localiser'];
+  const ORDRE_CARTES = ['mers', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'habitants', 'superficies', 'localiser'];
   const taillesRegles = (cle: string): Record<string, number> => cartes[ORDRE_CARTES.indexOf(cle)] ?? {};
   /** Les séries des voisins (J4, lot 2), mesurées sur pays.json : les jouables qui ont un voisin jouable. */
   const jouables = new Set(pays.filter((p) => p.statut === 'jouable').map((p) => p.id));
@@ -643,6 +650,9 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
       ...SERIES_PAYS.map((x) => `drapeaux:${x}`),
       // Les voisins (J4, lot 2), sans l'Océanie (une seule question) ; les silhouettes, cachées ici, viendraient avant.
       ...SERIES_PAYS.filter((x) => x !== 'Oceania').map((x) => `voisins:${x}`),
+      // Les habitants et les superficies (J4, lot 3) : les séries des pays.
+      ...SERIES_PAYS.map((x) => `habitants:${x}`),
+      ...SERIES_PAYS.map((x) => `superficies:${x}`),
       'mers:mers',
       'communes:reunion',
     ]);
@@ -667,7 +677,7 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
   });
 
   it('sujetOuvert, sans date (décision « Ouverture des épreuves d’un sujet », 12/11) : un sujet de EPREUVES_SUJETS, les mers comprises (lot 3b) ; pas le quiz', () => {
-    for (const su of ['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']) expect(sujetOuvert(su)).toBe(true);
+    for (const su of ['pays', 'capitales', 'drapeaux', 'voisins', 'habitants', 'superficies', 'mers', 'communes']) expect(sujetOuvert(su)).toBe(true);
     for (const su of ['quiz', 'xyz']) expect(sujetOuvert(su)).toBe(false);
   });
 
@@ -679,23 +689,29 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
     }
     expect(epreuvesClassees().filter(de('mers'))).toEqual(['chrono:mers:mers', 'sansfaute:mers:mers']);
     expect(epreuvesDuGeneral().filter(de('mers'))).toEqual(['chrono:mers:mers']);
-    // Les voisins : 6 séries (sans l'Océanie), 12 épreuves, 6 au général.
+    // Les voisins : 6 séries (sans l'Océanie), 12 épreuves, 6 au général ; les habitants et les superficies, 14 et 7 chacun.
     expect(epreuvesClassees().filter(de('voisins'))).toHaveLength(12);
     expect(epreuvesDuGeneral().filter(de('voisins'))).toHaveLength(6);
+    for (const cle of ['habitants', 'superficies']) {
+      expect(epreuvesClassees().filter(de(cle))).toHaveLength(14);
+      expect(epreuvesDuGeneral().filter(de(cle))).toHaveLength(7);
+    }
     expect(epreuvesDuGeneral()).toEqual([
       ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x)),
       ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x, 'chrono', 'capitales')),
       ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x, 'chrono', 'drapeaux')),
       ...SERIES_PAYS_ILE.slice(0, -2).map((x) => idEpreuve(x, 'chrono', 'voisins')),
+      ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x, 'chrono', 'habitants')),
+      ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x, 'chrono', 'superficies')),
       idEpreuve('mers', 'chrono', 'mers'),
       idEpreuve('reunion'),
     ]);
     // Et les 4 du quiz (lot 4b), en dernier.
-    expect(epreuvesClassees()).toHaveLength(2 * 29 + 4);
+    expect(epreuvesClassees()).toHaveLength(2 * 43 + 4);
     // Mode par mode, puis sujet par sujet (§ 8.3).
-    expect(epreuvesClassees().slice(0, 29)).toEqual(epreuvesDuGeneral());
-    expect(epreuvesClassees().slice(29, 58).every((e) => modeEpreuve(e) === 'sansfaute')).toBe(true);
-    expect(epreuvesClassees().slice(58).every((e) => modeEpreuve(e) === 'quiz')).toBe(true);
+    expect(epreuvesClassees().slice(0, 43)).toEqual(epreuvesDuGeneral());
+    expect(epreuvesClassees().slice(43, 86).every((e) => modeEpreuve(e) === 'sansfaute')).toBe(true);
+    expect(epreuvesClassees().slice(86).every((e) => modeEpreuve(e) === 'quiz')).toBe(true);
   });
 
   it('tailleEpreuve : les questions de la série (les 100 %), celles du catalogue et de tailles(cle) des règles ; null hors du catalogue', () => {
@@ -713,9 +729,9 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
       expect(tailleEpreuve(e), e).toBeNull();
   });
 
-  it('BORNE_GENERAL : la somme des tailles des Chrono du général (1 555 = 390 + 24 + 390 + 390 + 311 + 50), celle de chronoValide des règles', () => {
+  it('BORNE_GENERAL : la somme des tailles des Chrono du général (2 335 = 390 + 24 + 390 + 390 + 311 + 390 + 390 + 50), celle de chronoValide des règles', () => {
     const somme = epreuvesDuGeneral().reduce((n, e) => n + (tailleAttendue(e.split(':')[1]!, e.split(':')[2]!) ?? NaN), 0);
-    expect(somme).toBe(1555);
+    expect(somme).toBe(2335);
     // Et la somme des tailles du catalogue (tailleEpreuve), sujet par sujet.
     expect(epreuvesDuGeneral().reduce((n, e) => n + (tailleEpreuve(e) ?? NaN), 0)).toBe(BORNE_GENERAL);
     expect(BORNE_GENERAL).toBe(somme);
@@ -724,15 +740,18 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
   });
 
   it('les tailles des règles (tailles(cle)) : celles du catalogue, par clé ; les capitales (D37 c) et les drapeaux celles des pays, sans l’île ; les mers leur série unique de 50 (§ 8.2)', () => {
-    expect(cartes).toHaveLength(6);
-    const [mers, capitales, drapeaux, silhouettes, voisins, localiser] = cartes;
+    expect(cartes).toHaveLength(8);
+    const [mers, capitales, drapeaux, silhouettes, voisins, habitants, superficies, localiser] = cartes;
     const attendu = (sujets: string[]) => Object.fromEntries(EPREUVES_SUJETS.filter((p) => sujets.includes(p.sujet)).map((p) => [p.serie, tailleDe.get(p.serie)]));
     expect(mers).toEqual(attendu(['mers']));
     expect(mers).toEqual({ mers: 50 });
     expect(capitales).toEqual(attendu(['capitales']));
     expect(drapeaux).toEqual(attendu(['drapeaux']));
     expect(localiser).toEqual(attendu(['pays', 'communes']));
-    for (const c of [capitales, drapeaux]) expect(c).toEqual({ Africa: 54, Asia: 48, Europe: 44, 'North America': 23, Oceania: 14, 'South America': 12, tous: 195 });
+    // Les habitants et les superficies (J4, lot 3) : de même, les séries et les tailles des pays.
+    expect(habitants).toEqual(attendu(['habitants']));
+    expect(superficies).toEqual(attendu(['superficies']));
+    for (const c of [capitales, drapeaux, habitants, superficies]) expect(c).toEqual({ Africa: 54, Asia: 48, Europe: 44, 'North America': 23, Oceania: 14, 'South America': 12, tous: 195 });
     // Les silhouettes, prêtes avant d'être ouvertes (cachées ici : EPREUVES_SUJETS ne les a pas ; tests/silhouettes.test.ts).
     expect(silhouettes).toEqual({ Africa: 49, Asia: 45, Europe: 38, 'North America': 16, Oceania: 6, 'South America': 12, tous: 166 });
     // Les voisins (lot 2) : les pays qui ont un voisin jouable, sans l'Océanie.
@@ -743,7 +762,9 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
     expect(corps.indexOf("cle == 'capitales'")).toBeLessThan(corps.indexOf("cle == 'drapeaux'"));
     expect(corps.indexOf("cle == 'drapeaux'")).toBeLessThan(corps.indexOf("cle == 'silhouettes'"));
     expect(corps.indexOf("cle == 'silhouettes'")).toBeLessThan(corps.indexOf("cle == 'voisins'"));
-    expect(regles).toMatch(/p\[1\] in \['localiser', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'mers'\]/);
+    expect(corps.indexOf("cle == 'voisins'")).toBeLessThan(corps.indexOf("cle == 'habitants'"));
+    expect(corps.indexOf("cle == 'habitants'")).toBeLessThan(corps.indexOf("cle == 'superficies'"));
+    expect(regles).toMatch(/p\[1\] in \['localiser', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'habitants', 'superficies', 'mers'\]/);
     // Minute retiré : les règles ne connaissent plus que le Chrono et Sans faute.
     expect(regles).toMatch(/p\[0\] in \['chrono', 'sansfaute'\]/);
   });

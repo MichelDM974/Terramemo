@@ -77,13 +77,13 @@ describe('fiches', () => {
     expect(estDomaine('inconnu')).toBe(false);
   });
 
-  it('les domaines du J4 et du J5 se lisent dès leur socle commun, à la fin de DOMAINES, sur le monde, sans être jouables (études J4 § 7.1, J5 § 13.1) ; les voisins le sont depuis leur lot 2', () => {
+  it('les domaines du J4 et du J5 se lisent dès leur socle commun, à la fin de DOMAINES, sur le monde, sans être jouables (études J4 § 7.1, J5 § 13.1) ; les voisins le sont depuis leur lot 2, les habitants et les superficies depuis le lot 3', () => {
     const j4 = ['voisins', 'villes', 'habitants', 'superficies', 'silhouettes'];
     const j5 = ['fleuves', 'montagnes', 'deserts', 'detroits'];
     expect(DOMAINES.slice(5, 14)).toEqual([...j4, ...j5]);
     for (const d of [...j4, ...j5]) {
       expect(estDomaine(d), d).toBe(true);
-      expect(domaineJouable(d), d).toBe(d === 'voisins');
+      expect(domaineJouable(d), d).toBe(['voisins', 'habitants', 'superficies'].includes(d));
       expect(TERRAIN_DOMAINE[d as Domaine], d).toBe('monde');
     }
     // Les villes à leur Qid : former, analyser et la sœur restent dans le domaine.
@@ -112,11 +112,11 @@ describe('fiches', () => {
     for (const x of ['departement:2A:localiser', 'region:R84:localiser', 'Regions:R84:localiser']) expect(analyser(x)).toBeNull();
   });
 
-  it('lire n’est pas savoir poser : pays, capitales (lot 1), drapeaux (lot 2), mers (lot 3b), voisins (J4, lot 2) et communes sont jouables, chacun sur son terrain (étude J2 § 3.1)', () => {
-    expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
-    expect(DOMAINES.filter(domaineJouable)).toEqual(['pays', 'communes', 'capitales', 'drapeaux', 'mers', 'voisins']);
+  it('lire n’est pas savoir poser : pays, capitales (lot 1), drapeaux (lot 2), mers (lot 3b), voisins (J4, lot 2), habitants et superficies (J4, lot 3) et communes sont jouables, chacun sur son terrain (étude J2 § 3.1)', () => {
+    expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'habitants', 'superficies', 'mers', 'communes']);
+    expect(DOMAINES.filter(domaineJouable)).toEqual(['pays', 'communes', 'capitales', 'drapeaux', 'mers', 'voisins', 'habitants', 'superficies']);
     expect(['inconnu', 'villes', 'fleuves'].some(domaineJouable)).toBe(false);
-    expect(jouablesDu('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers']);
+    expect(jouablesDu('monde')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'habitants', 'superficies', 'mers']);
     expect(jouablesDu('reunion')).toEqual(['communes']);
     expect(DOMAINES.slice(0, 5).map((d) => TERRAIN_DOMAINE[d])).toEqual(['monde', 'reunion', 'monde', 'monde', 'monde']);
   });

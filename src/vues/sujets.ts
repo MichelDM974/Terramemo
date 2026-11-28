@@ -68,6 +68,11 @@
 // voisins de : Hongrie ») a la sienne (ModuleVoisins.question). Les deux
 // viennent d'un morceau chargé à la demande (voisins.ts) : chargerVoisins de
 // commun.ts, avant la partie, comme les silhouettes.
+//
+// Habitants et Superficies (étude J4 § 5, lot 3 ; D613 à D617) : la cible est le pays. Leur rendu (Reconnaître et le
+// QCM : « Lequel compte environ », la valeur dans la barre au lieu de la zone allumée, quatre pays) et le curseur de
+// Trouver et des épreuves (ModuleCurseur.question) viennent d'un morceau chargé à la demande avec leurs chiffres
+// (curseur.ts, fiches-monde.json) : chargerCurseur de commun.ts, avant la partie.
 import type { SorteAdmise } from '../map/acceptes';
 import { ADMET_EN_PLUS, capitalesChargees, type Capitale, type DonneesCapitales } from '../map/capitales';
 import { drapeauxCharges, type DonneesDrapeaux } from '../map/drapeaux';
@@ -78,6 +83,7 @@ import { geoAzimuthalEqualArea, geoCentroid } from 'd3-geo';
 import { aSilhouette, nommerPose, SANS_NOMMER, SANS_SILHOUETTE, type Sens } from '../srs/fiches';
 import type { ModuleSilhouettes, Outils } from './silhouettes';
 import type { ModuleVoisins, Outils as OutilsVoisins } from './voisins';
+import type { ModuleCurseur, Outils as OutilsCurseur } from './curseur';
 import { tracer } from './vignettes';
 import { formePays } from './formes';
 import { leurresParmi, type StrategieLeurres } from './qcm';
@@ -604,6 +610,28 @@ const parVoisins: Fabrique = (ts, d, o) => {
   return voisins.fabrique(ts, d, o);
 };
 
+/** Le morceau du curseur (curseur.ts, avec les chiffres des grandeurs), une fois chargé (chargerCurseur de commun.ts). */
+let curseur: ModuleCurseur | null = null;
+
+/** Le morceau du curseur s'il est chargé (sans réseau), null sinon. */
+export const curseurCharge = (): ModuleCurseur | null => curseur;
+
+/**
+ * Le morceau du curseur arrivé, avec les chiffres (chargerCurseur de commun.ts) : installé avec les noms et les textes
+ * d'ici, et ce que `o` donne de commun.ts ; il rend dès lors. Les tests : `m` déjà installé, ou null pour l'oublier.
+ */
+export function poserCurseur(m: typeof import('./curseur') | ModuleCurseur | null, o?: Omit<OutilsCurseur, 'nomDe' | 'formePays' | 'remplir'>): void {
+  curseur = m && 'installer' in m ? m.installer({ nomDe, formePays, remplir, ...o! }) : (m as ModuleCurseur | null);
+}
+
+/** Habitants et Superficies : leur rendu vient du morceau du curseur ; lève s'il n'est pas chargé (une partie ne part qu'après lui). */
+const parGrandeur =
+  (s: 'habitants' | 'superficies'): Fabrique =>
+  (ts, d, o) => {
+    if (!curseur) throw new Error(`${s} : morceau pas chargé`);
+    return curseur.fabrique(s)(ts, d, o);
+  };
+
 /** Le rendu de chaque sujet : un sujet qui a ses textes a son rendu, sinon le build ne compile pas. */
 const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = {
   pays: parNom,
@@ -611,6 +639,8 @@ const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = {
   drapeaux: parDrapeau,
   silhouettes: parSilhouette,
   voisins: parVoisins,
+  habitants: parGrandeur('habitants'),
+  superficies: parGrandeur('superficies'),
   mers: parMer,
   communes: parNom,
 };

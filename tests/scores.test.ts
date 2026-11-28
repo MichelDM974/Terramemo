@@ -8,7 +8,7 @@ import { fmtJustesGeneral, fmtPart, fmtPourcent, fmtPourcentGeneral, fmtTemps, p
 
 /** Espace insécable avant « % » et « s », espace fine insécable des milliers (fr-FR). */
 const NB = ' ';
-const MILLE = (1555).toLocaleString('fr-FR');
+const MILLE = (2335).toLocaleString('fr-FR');
 const score = (justes: number, questions: number, temps_ms = 0) => ({ points: justes, justes, questions, temps_ms });
 
 describe('pourcentages tronqués', () => {
@@ -22,12 +22,12 @@ describe('pourcentages tronqués', () => {
     expect(fmtPart(190, 195)).toBe(`190/195 · 97${NB}%`);
   });
 
-  it('le général : une décimale tronquée sur BORNE_GENERAL (1 554 → 99,9 %, 91 → 5,8 %), ses justes au détail', () => {
-    // Les voisins (J4, lot 2) y sont ; les silhouettes, cachées, non.
-    expect(BORNE_GENERAL).toBe(1555);
-    expect(fmtPourcentGeneral(1554)).toBe(`99,9${NB}%`);
-    expect(fmtPourcentGeneral(91)).toBe(`5,8${NB}%`);
-    expect(fmtPourcentGeneral(1555)).toBe(`100,0${NB}%`);
+  it('le général : une décimale tronquée sur BORNE_GENERAL (2 334 → 99,9 %, 91 → 3,8 %), ses justes au détail', () => {
+    // Les voisins (J4, lot 2), les habitants et les superficies (lot 3) y sont ; les silhouettes, cachées, non.
+    expect(BORNE_GENERAL).toBe(2335);
+    expect(fmtPourcentGeneral(2334)).toBe(`99,9${NB}%`);
+    expect(fmtPourcentGeneral(91)).toBe(`3,8${NB}%`);
+    expect(fmtPourcentGeneral(2335)).toBe(`100,0${NB}%`);
     expect(fmtPourcentGeneral(0)).toBe(`0,0${NB}%`);
     expect(fmtJustesGeneral(91)).toBe(`91 justes sur ${MILLE}`);
     expect(fmtJustesGeneral(1)).toBe(`1 juste sur ${MILLE}`);
@@ -59,9 +59,9 @@ describe('le score d’une épreuve', () => {
 
   it('le général : son pourcentage en bref, ses justes en entier, de toujours comme de la semaine', () => {
     for (const g of ['general', 'general@s100']) {
-      expect(scoreCourt(g, score(91, 120))).toBe(`5,8${NB}%`);
+      expect(scoreCourt(g, score(91, 120))).toBe(`3,8${NB}%`);
       expect(scoreEntier(g, score(91, 120))).toBe(`91 justes sur ${MILLE}`);
-      expect(pourcentDe(g, score(91, 120))).toBe(`5,8${NB}%`);
+      expect(pourcentDe(g, score(91, 120))).toBe(`3,8${NB}%`);
     }
   });
 

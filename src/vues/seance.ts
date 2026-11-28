@@ -35,6 +35,11 @@
 // voisin jouable, leur morceau chargé avant la séance ; leurs fiches localiser
 // à plusieurs touchers (forme « voisins »), nommer en Trouver sur la liste
 // écrite des voisins (formeDe de srs/seance.ts, D623 a).
+// Les habitants et les superficies (J4, lot 3) : les grappes des pays (195),
+// le morceau du curseur et leurs chiffres chargés avant la séance ; leurs
+// fiches localiser au curseur (forme « curseur », la réponse n'est pas un
+// toucher : `estime` au journal), nommer en QCM, même en Révision du jour
+// (D623 a).
 //
 // « Apprendre ce lieu » (fiche d'un lieu, #34, lot F7, § 5) : Apprendre avec un
 // lieu (DemandeSeance.lieu), dont la grappe passe en tête (planif.ts prefere),
@@ -69,9 +74,9 @@ import { evenementReponse, Seance, type BilanSeance, type PlanSeance } from '../
 import type { Terrain } from '../terrains';
 import type { Lancement } from './arbre';
 import { nomSerie, SERIE_TOUS } from './cibles';
-import { chargerVoisins, creer, croix, fmtKm, ligneFiche } from './commun';
+import { chargerCurseur, chargerVoisins, creer, croix, fmtKm, ligneFiche } from './commun';
 import type { DemandeSeance, FabriqueSeances, PiloteSeance, RefusSeance, ReponseJouee } from './essai';
-import { chargerSilhouettes, rendu, silhouettesChargees, textesSujet, voisinsCharges } from './sujets';
+import { chargerSilhouettes, curseurCharge, rendu, silhouettesChargees, textesSujet, voisinsCharges } from './sujets';
 import { remplir, textes } from './textes';
 
 const S = textes.seance;
@@ -162,6 +167,8 @@ export interface OptionsSeances {
   chargerMers?: () => Promise<unknown>;
   /** Charge le morceau des silhouettes et silhouettes.json (chargerSilhouettes par défaut ; les tests : un échec, une attente). */
   chargerSilhouettes?: () => Promise<unknown>;
+  /** Charge le morceau du curseur et les chiffres des grandeurs (chargerCurseur par défaut ; les tests : un échec, une attente). */
+  chargerCurseur?: () => Promise<unknown>;
   /** Précharge les drapeaux de ces pays (prechargerJustes par défaut : tous leurs justes ; les tests : un espion). */
   prechargerDrapeaux?: (ids: readonly string[]) => void;
   /**
@@ -287,9 +294,12 @@ export function creerSeances(o: OptionsSeances): Seances {
       case 'voisins':
         // Ce que posent ses questions (la liste écrite, les touchers multiples) : son morceau, chargé avant la séance.
         return { info: () => (voisinsCharges() ? infoVoisins() : null), aCharger: true, charger: chargerVoisins };
-      case 'villes':
       case 'habitants':
       case 'superficies':
+        // Les grappes des pays ; ce que posent leurs questions (le curseur, le QCM sur le nombre) et leurs chiffres
+        // (fiches-monde.json), chargés avant la séance.
+        return { info: () => (curseurCharge() ? commePays(d) : null), aCharger: true, charger: () => (o.chargerCurseur ?? (() => chargerCurseur(o.monde)))() };
+      case 'villes':
       case 'fleuves':
       case 'montagnes':
       case 'deserts':
@@ -560,7 +570,7 @@ export function creerSeances(o: OptionsSeances): Seances {
         const b = courant();
         const e = b?.seance.courante;
         if (!b || !e) return '';
-        const evt = b.seance.repondre({ correct: r.correct, aide: r.aide, reponse: r.reponse, via: r.via, zoom: r.zoom, distance_km: r.distance_km, duree_ms: r.duree_ms });
+        const evt = b.seance.repondre({ correct: r.correct, aide: r.aide, reponse: r.reponse, via: r.via, zoom: r.zoom, distance_km: r.distance_km, duree_ms: r.duree_ms, estime: r.estime ?? null });
         void m.ecrire([evt]);
         if (e.etape === 'qcm') return '';
         return ligneApres(e.fiche, r.correct && !r.aide, b.seance.reste(e.fiche));

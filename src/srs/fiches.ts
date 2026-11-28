@@ -80,11 +80,12 @@ export const DOMAINES: readonly Domaine[] = [
  * journal, intactes, et entrent en séance à la mise à jour qui livre leur
  * sujet. Capitales au lot 1, drapeaux au lot 2, mers au lot 3b ; les
  * silhouettes du J4 (lot 1) quand leur liste est relue (SILHOUETTES_VISIBLES,
- * src/visibles.ts) ; les voisins (lot 2). Dans
+ * src/visibles.ts) ; les voisins (lot 2) ; les habitants et les superficies
+ * (lot 3). Dans
  * l'ordre des sujets de Jouer (D53 b, décision « Ordre des sujets ») : celui
  * du choix du sujet de la carte de la mémoire.
  */
-export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', ...(SILHOUETTES_VISIBLES ? (['silhouettes'] as const) : []), 'voisins', 'mers', 'communes'];
+export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', ...(SILHOUETTES_VISIBLES ? (['silhouettes'] as const) : []), 'voisins', 'habitants', 'superficies', 'mers', 'communes'];
 
 /**
  * Une table par domaine, chaque valeur tirée de son nom : toutes les clés de
