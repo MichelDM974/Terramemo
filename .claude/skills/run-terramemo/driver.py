@@ -3086,7 +3086,11 @@ def commande_silhouettes(args):
 # distinctes), la largeur de chaque tuile et de la grille, le défilement du panneau, la dernière tuile.
 GRILLE_SUJETS = """(() => {
   const g = document.querySelector('#jouer-panneau .jouer-grille'), p = document.getElementById('jouer-panneau');
-  const t = [...g.querySelectorAll('[data-sujet]')].map(b => { const r = b.getBoundingClientRect(); return { id: b.dataset.sujet, l: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height), bas: Math.round(r.bottom) }; });
+  const t = [...g.querySelectorAll('[data-sujet]')].map(b => { const r = b.getBoundingClientRect();
+    // L'icône d'un sujet sans carte doit tenir dans sa vignette (elle débordait sur le nom, 28/11).
+    const v = b.querySelector('.jouer-vignette'), i = b.querySelector('.vignette-icone'), rv = v && v.getBoundingClientRect(), ri = i && i.getBoundingClientRect();
+    const deborde = !!(rv && ri) && (ri.top < rv.top - 1 || ri.bottom > rv.bottom + 1 || ri.left < rv.left - 1 || ri.right > rv.right + 1);
+    return { id: b.dataset.sujet, l: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height), bas: Math.round(r.bottom), deborde }; });
   return { tuiles: t, colonnes: new Set(t.map(x => x.l)).size, grille: Math.round(g.getBoundingClientRect().width),
            defile: p.scrollHeight - p.clientHeight, bas: Math.round(p.getBoundingClientRect().bottom) };
 })()"""
@@ -3147,6 +3151,8 @@ def ui_voisins(p, capturer, defauts, base, parametres="", ecran=None, telephone=
             defauts.append(f"{quoi} : sujets {[x['id'] for x in g['tuiles']]} au lieu de {attendus}")
         if g["colonnes"] != 2:
             defauts.append(f"{quoi} : les sujets en {g['colonnes']} colonne(s), pas en grille à deux colonnes")
+        if [x["id"] for x in g["tuiles"] if x["deborde"]]:
+            defauts.append(f"{quoi} : l'icône déborde de sa vignette : {[x['id'] for x in g['tuiles'] if x['deborde']]}")
         dernier = g["tuiles"][-1]
         if len(g["tuiles"]) % 2 and dernier["w"] < g["grille"] - 2:
             defauts.append(f"{quoi} : nombre impair de sujets, la dernière tuile ({dernier['id']}) pas sur toute la largeur ({dernier['w']} px sur {g['grille']})")
@@ -3524,6 +3530,8 @@ def ui_grandeurs(p, capturer, defauts, base, parametres="", ecran=None, telephon
             defauts.append(f"{quoi} : sujets {[x['id'] for x in g['tuiles']]} au lieu de {attendus}")
         if g["colonnes"] != 2:
             defauts.append(f"{quoi} : les sujets en {g['colonnes']} colonne(s), pas en grille à deux colonnes")
+        if [x["id"] for x in g["tuiles"] if x["deborde"]]:
+            defauts.append(f"{quoi} : l'icône déborde de sa vignette : {[x['id'] for x in g['tuiles'] if x['deborde']]}")
         dernier = g["tuiles"][-1]
         if len(g["tuiles"]) % 2 and dernier["w"] < g["grille"] - 2:
             defauts.append(f"{quoi} : nombre impair de sujets, la dernière tuile ({dernier['id']}) pas sur toute la largeur ({dernier['w']} px sur {g['grille']})")
