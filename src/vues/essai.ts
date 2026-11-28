@@ -29,6 +29,7 @@ import type { Via } from '../map/pick';
 import type { NomTerrain } from '../map/types';
 import { mediane } from '../mesure/stats';
 import type { Domaine } from '../srs/fiches';
+import type { FormeEtape } from '../srs/seance';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
@@ -80,10 +81,13 @@ export interface ReponseJouee {
   duree_ms: number;
 }
 
-/** Une question de séance (src/vues/seance.ts) : Trouver, le QCM de Reconnaître ou la carte retournée. */
+/**
+ * Une question de séance (src/vues/seance.ts) : Trouver, le QCM de Reconnaître ou la carte retournée ; les touchers
+ * multiples des voisins ; le curseur des grandeurs (FormeEtape : pas encore posé ici, ses sujets n'étant pas jouables).
+ */
 export interface QuestionPilotee {
   id: string;
-  forme: 'trouver' | 'qcm' | 'retournee' | 'voisins';
+  forme: FormeEtape;
   /** Avant la question : la carte au monde entier, cadrée sur cette emprise (rappel d'une grappe), ou laissée au joueur. */
   cadrer: Emprise | 'monde' | null;
   /** « Je connais déjà » proposé (QCM d'un pays nouveau). */

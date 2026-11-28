@@ -22,9 +22,10 @@ import { noteEtape, type Note } from './note';
 export type SorteEtape = 'qcm' | 'rappel' | 'revision' | 'retournee' | 'reprise';
 /**
  * Ce que la vue montre : Trouver (localiser), le QCM de Reconnaître, la carte
- * retournée (nommer) ; la question à plusieurs touchers des Voisins (J4).
+ * retournée (nommer) ; la question à plusieurs touchers des Voisins (J4) ; le
+ * curseur des Habitants et des Superficies (J4, lot 3).
  */
-export type FormeEtape = 'trouver' | 'qcm' | 'retournee' | 'voisins';
+export type FormeEtape = 'trouver' | 'qcm' | 'retournee' | 'voisins' | 'curseur';
 
 /**
  * La forme d'une fiche hors du QCM d'apprentissage (étude J4 § 7.5, D623 a) :
@@ -32,10 +33,17 @@ export type FormeEtape = 'trouver' | 'qcm' | 'retournee' | 'voisins';
  * Trouver, nommer en carte retournée. Les voisins : localiser à plusieurs
  * touchers (on touche chaque voisin, § 3.2) ; nommer en Trouver, l'énoncé
  * étant la liste des voisins (§ 3.3 : la carte retournée allumerait le pays,
- * qui est la réponse).
+ * qui est la réponse). Les habitants et les superficies : localiser au curseur
+ * (§ 5.2, le pays allumé et nommé) ; nommer en QCM, celui de Reconnaître
+ * (§ 5.3 : quatre pays à ×3 les uns des autres), même en révision : une carte
+ * retournée « environ 230 millions : quel pays ? » n'aurait pas de réponse
+ * unique à ×1,5 (le Pakistan, le Nigeria, le Brésil). Une étape de révision ou
+ * d'introduction sous la forme qcm reste notée (son mode), à la différence du
+ * QCM d'apprentissage (étape qcm).
  */
 export function formeDe(d: Domaine, s: Sens): FormeEtape {
   if (d === 'voisins') return s === 'localiser' ? 'voisins' : 'trouver';
+  if (d === 'habitants' || d === 'superficies') return s === 'localiser' ? 'curseur' : 'qcm';
   return s === 'nommer' ? 'retournee' : 'trouver';
 }
 
@@ -89,6 +97,12 @@ export interface ReponseSeance {
   distance_km?: number | null;
   /** Temps jusqu'à la première réponse (ms). */
   duree_ms: number;
+  /**
+   * La valeur répondue au curseur (Habitants, Superficies : D617 a), telle
+   * qu'affichée ; absente ailleurs. Écrite au journal à 2 chiffres
+   * significatifs (evenementReponse).
+   */
+  estime?: number | null;
 }
 
 export interface ContexteSeance {
@@ -110,6 +124,19 @@ export const PASSAGES_REPRISE = 3;
 export const DUREE_MAX_MS = 120_000;
 const ZOOM_MAX = 1e4;
 const DISTANCE_MAX_KM = 20_100;
+/** La plus grande valeur d'un curseur (2 milliards d'habitants : PLAGES de exercices/grandeurs.ts), sous ESTIME_MAX du journal. */
+const ESTIME_MAX = 2e9;
+
+/**
+ * `estime` comme le curseur l'affiche (D617 a) : 2 chiffres significatifs
+ * (arrondi de exercices/grandeurs.ts, recopié ici : ce module est au morceau
+ * principal, celui des grandeurs chargé à la demande ; le test les confronte),
+ * jamais un flottant brut ; null si ce n'est pas un nombre > 0 et fini.
+ */
+export function estimeJournal(x: number | null | undefined): number | null {
+  if (x == null || !Number.isFinite(x) || x <= 0) return null;
+  return Math.min(ESTIME_MAX, Number(x.toPrecision(2)));
+}
 
 export interface BilanSeance {
   /** Révisions et introductions nommer répondues (premier passage) et justes du premier coup. */
@@ -138,7 +165,11 @@ const borner = (x: number, min: number, max: number): number => Math.min(max, Ma
 /**
  * L'événement d'une réponse (journal.ts) : reponse rempli seulement si faux,
  * via seulement si juste, durée bornée, note figée. Sert aussi aux parties
- * libres (mode 'libre', note null : D11).
+ * libres (mode 'libre', note null : D11). Une réponse au curseur (`estime`)
+ * n'est pas un toucher : ni reponse, ni via, ni zoom, ni distance ; sa carte
+ * de lot reste ainsi sous la borne des règles (160 caractères), qu'un
+ * toucher en pleine précision avec `estime` dépasserait (tests/sync-lots).
+ * Sans `estime`, l'événement n'a pas ce champ : son lot reste en v1.
  */
 export function evenementReponse(
   ctx: Pick<ContexteSeance, 'appareil' | 'horloge' | 'nouvelId'> & { seance: string | null },
@@ -150,6 +181,8 @@ export function evenementReponse(
   const { ts, tz } = ctx.horloge();
   const zoom = r.zoom != null && Number.isFinite(r.zoom) && r.zoom > 0 ? borner(r.zoom, 1e-6, ZOOM_MAX) : null;
   const distance = r.distance_km != null && Number.isFinite(r.distance_km) ? borner(r.distance_km, 0, DISTANCE_MAX_KM) : null;
+  const estime = estimeJournal(r.estime);
+  const curseur = estime !== null;
   return {
     v: 1,
     id: ctx.nouvelId(),
@@ -160,14 +193,15 @@ export function evenementReponse(
     type: 'reponse',
     fiche,
     mode,
-    reponse: r.correct ? null : (r.reponse ?? null),
-    via: r.correct ? (r.via ?? null) : null,
-    zoom,
+    reponse: r.correct || curseur ? null : (r.reponse ?? null),
+    via: r.correct && !curseur ? (r.via ?? null) : null,
+    zoom: curseur ? null : zoom,
     correct: r.correct,
     aide: r.aide ?? null,
     duree_ms: Math.round(borner(Number.isFinite(r.duree_ms) ? r.duree_ms : 0, 0, DUREE_MAX_MS)),
-    distance_km: distance,
+    distance_km: curseur ? null : distance,
     note,
+    ...(curseur ? { estime } : {}),
   };
 }
 

@@ -264,9 +264,11 @@ describe('séance : reprises et une note par fiche et par jour', () => {
 });
 
 describe('séance : la forme d’une fiche par domaine et par sens (étude J4 § 7.5, D623 a)', () => {
-  it('formeDe : localiser en Trouver et nommer en carte retournée, sauf les voisins (plusieurs touchers ; nommer en Trouver sur la liste)', () => {
-    for (const d of DOMAINES.filter((x) => x !== 'voisins')) expect([formeDe(d, 'localiser'), formeDe(d, 'nommer')], d).toEqual(['trouver', 'retournee']);
+  it('formeDe : localiser en Trouver et nommer en carte retournée, sauf les voisins (plusieurs touchers ; nommer en Trouver sur la liste) et les grandeurs (le curseur ; nommer en QCM)', () => {
+    const a_part = ['voisins', 'habitants', 'superficies'];
+    for (const d of DOMAINES.filter((x) => !a_part.includes(x))) expect([formeDe(d, 'localiser'), formeDe(d, 'nommer')], d).toEqual(['trouver', 'retournee']);
     expect([formeDe('voisins', 'localiser'), formeDe('voisins', 'nommer')]).toEqual(['voisins', 'trouver']);
+    for (const d of ['habitants', 'superficies'] as const) expect([formeDe(d, 'localiser'), formeDe(d, 'nommer')], d).toEqual(['curseur', 'qcm']);
   });
 
   it('une séance des voisins : révisions et rappel à plusieurs touchers, nommer en Trouver ; le QCM d’apprentissage reste un QCM', () => {
@@ -282,5 +284,77 @@ describe('séance : la forme d’une fiche par domaine et par sens (étude J4 §
     const i = vues.findIndex((v) => v.forme === 'trouver');
     if (i > 0 && vues[i - 1]!.forme === 'voisins') expect(vues[i]!.cadrage).toEqual({ sorte: 'monde' });
     expect(evts.every((e) => probleme(e) === null)).toBe(true);
+  });
+});
+
+describe('séance : les ordres de grandeur (étude J4 § 7.5, D623 a ; § 5, D617 a)', () => {
+  const auCurseur = (estime: number, correct = false): ReponseSeance => ({ correct, reponse: null, zoom: null, distance_km: null, duree_ms: 4200, estime });
+
+  it('habitants:NGA:localiser en Révision du jour au curseur, habitants:NGA:nommer en QCM noté ; une introduction nommer en QCM, le rappel au curseur', () => {
+    const plan: PlanSeance = { domaine: 'habitants', revisions: ['habitants:NGA:localiser', 'habitants:NGA:nommer', 'superficies:TCD:nommer'], introductions: ['habitants:FRA:nommer'], nouveaux: ['BEN', 'TGO'] };
+    const s = new Seance(plan, ctx());
+    const { vues, evts } = parcourir(s, (e) => (e.forme === 'curseur' ? auCurseur(230_000_000, true) : juste));
+    const de = (fiche: string, etape?: string) => vues.find((v) => v.fiche === fiche && (!etape || v.etape === etape))!;
+    expect(de('habitants:NGA:localiser')).toMatchObject({ etape: 'revision', forme: 'curseur', mode: 'revision' });
+    expect(de('habitants:NGA:nommer')).toMatchObject({ etape: 'revision', forme: 'qcm', mode: 'revision' });
+    expect(de('superficies:TCD:nommer')).toMatchObject({ etape: 'revision', forme: 'qcm', domaine: 'superficies' });
+    expect(de('habitants:FRA:nommer')).toMatchObject({ forme: 'qcm', mode: 'rappel' });
+    expect(de('habitants:BEN:nommer', 'qcm')).toMatchObject({ forme: 'qcm', mode: 'qcm' });
+    expect(de('habitants:BEN:localiser', 'rappel')).toMatchObject({ forme: 'curseur', mode: 'rappel' });
+    // Le QCM de révision est noté (FSRS), à la différence du QCM d'apprentissage.
+    const evt = (fiche: string, mode: string) => evts.find((e) => e.fiche === fiche && e.mode === mode)!;
+    expect(evt('habitants:NGA:nommer', 'revision').note).toBe(GOOD);
+    expect(evt('habitants:FRA:nommer', 'rappel').note).toBe(GOOD);
+    expect(evt('habitants:BEN:nommer', 'qcm').note).toBeNull();
+    // Au curseur, `estime` ; ailleurs, pas de champ (le lot reste en v1).
+    expect(evt('habitants:NGA:localiser', 'revision')).toMatchObject({ estime: 230_000_000, correct: true, note: GOOD, reponse: null, via: null, zoom: null, distance_km: null });
+    expect('estime' in evt('habitants:NGA:nommer', 'revision')).toBe(false);
+    expect(evts.every((e) => probleme(e) === null)).toBe(true);
+    // « Je connais déjà » au QCM d'apprentissage seul.
+    expect(vues.filter((v) => v.etape === 'qcm').every((v) => v.forme === 'qcm')).toBe(true);
+    // Le Trouver qui suivrait le curseur (le pays allumé, la carte sur lui) repartirait du monde : aucun ici.
+    expect(vues.filter((v) => v.forme === 'trouver')).toEqual([]);
+  });
+
+  it('un curseur faux est noté Again et revient en fin de séance, `estime` à chaque passage', () => {
+    const plan: PlanSeance = { domaine: 'superficies', revisions: ['superficies:CYP:localiser'], introductions: [], nouveaux: [] };
+    const s = new Seance(plan, ctx());
+    const e1 = s.repondre(auCurseur(3500));
+    expect(e1).toMatchObject({ correct: false, note: AGAIN, estime: 3500, reponse: null });
+    expect(s.courante).toMatchObject({ etape: 'reprise', forme: 'curseur', fiche: 'superficies:CYP:localiser' });
+    const e2 = s.repondre(auCurseur(6000, true));
+    expect(e2).toMatchObject({ correct: true, note: null, estime: 6000 });
+    expect(s.finie).toBe(true);
+  });
+
+  it('`estime` au journal : arrondi comme affiché (2 chiffres), jamais un flottant brut ; à 0, négatif ou non fini, absent ; borné à 2 milliards', () => {
+    const plan: PlanSeance = { domaine: 'habitants', revisions: Array.from({ length: 9 }, (_, i) => `habitants:${['NGA', 'FRA', 'IND', 'CHN', 'BRA', 'USA', 'RUS', 'JPN', 'MEX'][i]}:localiser`), introductions: [], nouveaux: [] };
+    const s = new Seance(plan, ctx());
+    const cas: [number, number | undefined][] = [
+      [237_527_782.123, 240_000_000],
+      [0.437, 0.44],
+      [1_999_999_999.9, 2_000_000_000],
+      [9e9, 2_000_000_000],
+      [0, undefined],
+      [-5, undefined],
+      [Number.NaN, undefined],
+      [Number.POSITIVE_INFINITY, undefined],
+      [100, 100],
+    ];
+    for (const [x, attendu] of cas) {
+      const e = s.repondre(auCurseur(x));
+      expect(e.estime, String(x)).toBe(attendu);
+      expect('estime' in e, String(x)).toBe(attendu !== undefined);
+      expect(probleme(e), String(x)).toBeNull();
+    }
+  });
+
+  it('une réponse au curseur n’est pas un toucher : la vue qui passerait un toucher avec `estime` n’en écrit ni reponse, ni via, ni zoom, ni distance', () => {
+    const plan: PlanSeance = { domaine: 'habitants', revisions: ['habitants:NGA:localiser', 'habitants:FRA:localiser'], introductions: [], nouveaux: [] };
+    const s = new Seance(plan, ctx());
+    const faux1 = s.repondre({ ...faux('NE_B98', 20_099.123456789012), zoom: 1.2345678901234567, estime: 150e6 });
+    expect(faux1).toMatchObject({ reponse: null, via: null, zoom: null, distance_km: null, estime: 150_000_000 });
+    const juste1 = s.repondre({ ...juste, zoom: 1.2345678901234567, estime: 67e6 });
+    expect(juste1).toMatchObject({ via: null, zoom: null, distance_km: null, estime: 67_000_000 });
   });
 });
