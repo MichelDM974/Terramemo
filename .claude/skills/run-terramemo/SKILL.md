@@ -46,6 +46,7 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
 python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord
 python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py silhouettes        # le sujet Silhouettes (J4, lot 1) seul, caché avant sa relecture : montré par ?silhouettes, serveur de développement seul (serve) ; Jouer à 360 px, puis --width (384 par défaut, 1280 : PC)
+python3 .claude/skills/run-terramemo/driver.py voisins            # le sujet Voisins (J4, lot 2) seul, profil neuf : Jouer à 360 px (grille des sujets ; sept tuiles avec ?silhouettes au serveur de développement), puis --width (384 par défaut, 1280 : PC)
 python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers puis ses épreuves, ui_epreuves_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py quiz               # le quiz général seul (ui_quiz, aussi dans ui, #26), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py fiche              # la fiche d'un lieu seule (ui_fiche, aussi dans ui, #34) ; --width 1280 en PC ; --cible chrome|webview : le scénario de mesure seul (10 fiches, 10 voisins, chaque gel ≥ 46 ms avec sa cause), sur le téléphone
@@ -313,6 +314,20 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   seulement), `153` Chrono ; enfin les durées des dessins (S605,
   `performance.measure` « silhouette:… »). Captures du PC :
   `--width 1280 --out …-pc`.
+- Le sujet Voisins (lot 2 du J4, #6, `ui_voisins`, pas dans `ui` :
+  `driver.py voisins`, profil neuf). `160` à `164` à 360 px : Jouer, les
+  sujets en grille à deux colonnes (décision « Écran Jouer » du 28/11),
+  Voisins après Drapeaux, « 156 pays », ses séries sans l'Océanie
+  (« 48 pays » en Afrique), le « ? » (ce qui ne compte pas ; sous Classé,
+  « 4 s plus 2 s par voisin ») ; `164` : avec `?silhouettes` (serveur de
+  développement seul), sept tuiles, Communes sur toute la largeur. Puis à
+  `--width` : `165` la grille à cette largeur, `166` à `170` Trouver
+  (« Touche les N voisins de : … », un voisin juste et compté, le pays
+  lui-même qui ne compte pas, une faute qui montre les manqués cernés,
+  « Voir », le bilan « n sur N, puis … »), `171` et `172` Reconnaître (la
+  liste écrite, aucun QCM), `173` à `175` Apprendre (Europe, journal en
+  `voisins:` seulement), `176` Chrono (la question, ses voisins touchés).
+  Captures du PC : `--width 1280 --out …-pc`.
 - Le sujet Drapeaux (lot 2 du J2, partie B, #4, `ui_drapeaux`, après
   `ui_capitales` et avant `ui_seance`, sur une page rechargée ; seul :
   `driver.py drapeaux`, profil neuf, l'écran de connexion passé en invité

@@ -1241,18 +1241,19 @@ def part_juste(m):
 SERIES_PAYS = ["tous", "Africa", "North America", "South America", "Asia", "Europe", "Oceania"]
 # Les sujets de Classé, ceux de EPREUVES_SUJETS (src/epreuve/chrono.ts ; décision « Ouverture des épreuves
 # d'un sujet », 12/11 : ouverts dès leur livraison, sans date), dans l'ordre de D53 b (Communes en dernier).
-# Océans et mers depuis ses épreuves (lot 3b, partie B).
-SUJETS_CLASSE = ["pays", "capitales", "drapeaux", "mers", "communes"]
-NOMS_CLASSE = "Pays, Capitales, Drapeaux, Océans et mers, Communes"
+# Océans et mers depuis ses épreuves (lot 3b, partie B) ; Voisins depuis le lot 2 du J4 (décision « Ordre des sujets »).
+SUJETS_CLASSE = ["pays", "capitales", "drapeaux", "voisins", "mers", "communes"]
+NOMS_CLASSE = "Pays, Capitales, Drapeaux, Voisins, Océans et mers, Communes"
 # Les titres des sujets (h4) du 🏆 sous chaque mode, quand tous y ont des lignes (sans pseudo : toutes les épreuves).
-H4_CLASSEMENTS = ["Pays", "Capitales", "Drapeaux", "Océans et mers", "Communes"]
+H4_CLASSEMENTS = ["Pays", "Capitales", "Drapeaux", "Voisins", "Océans et mers", "Communes"]
 
 
-# Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 3b du J2 (Océans et mers).
-SUJETS_ENTRAINEMENT = ["pays", "capitales", "drapeaux", "mers", "communes"]
-NOMS_ENTRAINEMENT = "Pays, Capitales, Drapeaux, Océans et mers, Communes"
-# Le choix du sujet de la carte de la mémoire du monde (D47 a), depuis le lot 3b.
-SUJETS_MEMOIRE = ["pays", "capitales", "drapeaux", "mers"]
+# Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 3b du J2 (Océans et mers) et
+# le lot 2 du J4 (Voisins).
+SUJETS_ENTRAINEMENT = ["pays", "capitales", "drapeaux", "voisins", "mers", "communes"]
+NOMS_ENTRAINEMENT = "Pays, Capitales, Drapeaux, Voisins, Océans et mers, Communes"
+# Le choix du sujet de la carte de la mémoire du monde (D47 a), depuis le lot 3b ; les voisins depuis le lot 2 du J4.
+SUJETS_MEMOIRE = ["pays", "capitales", "drapeaux", "voisins", "mers"]
 
 
 def niveau_jouer(page):
@@ -2850,7 +2851,7 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
 
 # Les sujets d'Entraînement avec les silhouettes montrées (?silhouettes, serveur de développement) : près des
 # drapeaux (D601 a). Tant que leur liste n'est pas relue (src/visibles.ts), Jouer garde SUJETS_ENTRAINEMENT.
-SUJETS_SILHOUETTES = ["pays", "capitales", "drapeaux", "silhouettes", "mers", "communes"]
+SUJETS_SILHOUETTES = ["pays", "capitales", "drapeaux", "silhouettes", "voisins", "mers", "communes"]
 ALT_SILHOUETTE = "Silhouette à reconnaître"  # textes.silhouettes.alt
 
 # Ce que montre la barre d'une question de silhouette : son dessin (le SVG, son nom pour les lecteurs d'écran, sa
@@ -3068,6 +3069,328 @@ def commande_silhouettes(args):
             faites.append(chemin)
 
         ui_silhouettes(p, capturer, defauts, base, rendu, ecran, telephone)
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    return 1 if erreurs or defauts else 0
+
+
+# --- Le sujet Voisins (lot 2 du J4, #6) --------------------------------------
+
+# La grille des sujets de Jouer (décision « Écran Jouer », exception du 28/11 ; D601 a) : les colonnes (gauches
+# distinctes), la largeur de chaque tuile et de la grille, le défilement du panneau, la dernière tuile.
+GRILLE_SUJETS = """(() => {
+  const g = document.querySelector('#jouer-panneau .jouer-grille'), p = document.getElementById('jouer-panneau');
+  const t = [...g.querySelectorAll('[data-sujet]')].map(b => { const r = b.getBoundingClientRect(); return { id: b.dataset.sujet, l: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height), bas: Math.round(r.bottom) }; });
+  return { tuiles: t, colonnes: new Set(t.map(x => x.l)).size, grille: Math.round(g.getBoundingClientRect().width),
+           defile: p.scrollHeight - p.clientHeight, bas: Math.round(p.getBoundingClientRect().bottom) };
+})()"""
+
+# Un point de la carte visible (hors de la barre) où pick() désigne un pays jouable hors de `exclus` : de quoi
+# toucher à tort pendant une question des voisins ; null s'il n'y en a pas à l'écran.
+POINT_AUTRE = """(exclus => {
+  const c = window.terramemo.carte, r = c.rect(), b = document.querySelector('#barre-essai'), rb = b.getBoundingClientRect();
+  for (let y = r.y + 15; y < r.y + r.hauteur; y += 12)
+    for (let x = r.x + 15; x < r.x + r.largeur; x += 12) {
+      if (x >= rb.left && x <= rb.right && y >= rb.top && y <= rb.bottom) continue;
+      const el = document.elementFromPoint(x, y);
+      if (el && el.closest('button, a, input, select, label')) continue;
+      const k = c.pick(x, y);
+      if (k && k.via === 'trace' && !exclus.includes(k.id)) return { x, y, id: k.id };
+    }
+  return null; })"""
+
+
+def ressources_voisins(p):
+    """Le morceau des voisins (vues/voisins, exercices/voisins, textes-voisins), s'il est chargé par la page."""
+    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => /voisins/.test(n))")
+
+
+def ui_voisins(p, capturer, defauts, base, parametres="", ecran=None, telephone=True):
+    """Captures 160 à 176 (lot 2 du J4, #6 ; étude 2026-11-25-j4-conception.md, § 3, § 7 ; D601, D605 à D607) : rien
+    des voisins au premier affichage ; Jouer à 360 px de large (S602, décision « Écran Jouer » : les sujets en grille à
+    deux colonnes, Voisins après Drapeaux, son icône, « 156 pays » ; avec ?silhouettes, au serveur de développement,
+    sept tuiles et Communes sur toute la largeur), ses séries sans l'Océanie (« 48 pays » en Afrique), le « ? » ; puis,
+    à la largeur de l'écran demandé : Trouver sur l'Europe (« Touche les N voisins de : … », le pays allumé, un voisin
+    juste et compté, le pays lui-même qui ne compte pas, une faute qui finit la question et montre les manqués, « Voir »
+    sur la suivante, le bilan) ; Reconnaître (la liste écrite, aucun QCM, le pays touché) ; Apprendre sur l'Europe
+    jusqu'au bilan (le journal en voisins: seulement) ; Classé › Voisins › Europe › Chrono (le délai de la question,
+    4 s plus 2 s par voisin, les voisins touchés jusqu'au « Juste »). DÉFAUT à tout écart."""
+    ecran = ecran or TELEPHONE
+    p.goto("about:blank")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    if ressources_voisins(p):
+        defauts.append(f"voisins* chargé au premier affichage : {ressources_voisins(p)}")
+    fiches_avant = collections.Counter(p.js(FICHES_JOURNAL) or [])
+    _, _, corps = http(base + "geo/noms.fr.json")
+    noms = json.loads(corps)
+    _, _, corps = http(base + "geo/pays.json")
+    entites = {e["id"]: e for e in json.loads(corps)}
+    jouables = {i for i, e in entites.items() if e["statut"] == "jouable"}
+
+    def voisins_de(ident):
+        return [v for v in entites[ident]["voisins"] if v in jouables]
+
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def grille(quoi, attendus):
+        g = p.js(GRILLE_SUJETS)
+        dire(f"  {quoi} : {len(g['tuiles'])} tuiles en {g['colonnes']} colonnes, grille {g['grille']} px, défilement {g['defile']} px")
+        if [x["id"] for x in g["tuiles"]] != attendus:
+            defauts.append(f"{quoi} : sujets {[x['id'] for x in g['tuiles']]} au lieu de {attendus}")
+        if g["colonnes"] != 2:
+            defauts.append(f"{quoi} : les sujets en {g['colonnes']} colonne(s), pas en grille à deux colonnes")
+        dernier = g["tuiles"][-1]
+        if len(g["tuiles"]) % 2 and dernier["w"] < g["grille"] - 2:
+            defauts.append(f"{quoi} : nombre impair de sujets, la dernière tuile ({dernier['id']}) pas sur toute la largeur ({dernier['w']} px sur {g['grille']})")
+        if not len(g["tuiles"]) % 2 and any(x["w"] > g["grille"] / 2 for x in g["tuiles"]):
+            defauts.append(f"{quoi} : nombre pair de sujets, une tuile sur toute la largeur ({g['tuiles']})")
+        petites = [x for x in g["tuiles"] if x["h"] < 48]
+        if petites:
+            defauts.append(f"{quoi} : tuiles sous 48 px de haut : {petites}")
+        return g
+
+    # Jouer à 360 px (S602 : les sujets en grille, rien ne déborde).
+    p.emuler(dict(TELEPHONE, largeur=360), tactile=True)
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    grille("Entraînement à 360 px", SUJETS_ENTRAINEMENT)
+    if not p.js("!!document.querySelector('#jouer-panneau [data-sujet=\"voisins\"] .vignette-icone')"):
+        defauts.append("Voisins sans son icône")
+    tuile = sans_insecables(texte(p, '#jouer-panneau [data-sujet="voisins"]'))
+    if "Voisins" not in tuile or "156 pays" not in tuile:
+        defauts.append(f"la tuile Voisins ne dit pas « Voisins », « 156 pays » ({tuile!r})")
+    panneau_jouer(p, defauts, "Entraînement à 360 px (Voisins)")
+    capturer("160-voisins-sujets-360")
+    cliquer(p, '#jouer-panneau [data-sujet="voisins"]')
+    series = lire("data-serie")
+    if series != SERIES_PAYS[:-1]:
+        defauts.append(f"Voisins : séries {series} au lieu de {SERIES_PAYS[:-1]} (sans l'Océanie)")
+    afrique = sans_insecables(texte(p, '#jouer-panneau [data-serie="Africa"]'))
+    if "48 pays" not in afrique:
+        defauts.append(f"Voisins › Afrique sans « 48 pays » ({afrique!r})")
+    panneau_jouer(p, defauts, "Voisins, séries à 360 px")
+    capturer("161-voisins-series-360")
+    cliquer(p, '#jouer-panneau [data-serie="Europe"]')
+    aide = p.js("(() => { const b = document.querySelector('#jouer-panneau .help-btn'); if (b) b.click(); return document.getElementById('jouer-panneau').innerText; })()") or ""
+    if "ne compte ni pour ni contre" not in aide:
+        defauts.append("Voisins › Europe : le « ? » ne dit pas ce qui ne compte pas (voisins non jouables, par une zone contestée)")
+    capturer("162-voisins-exercices-360")
+    # Classé : le « ? » des épreuves dit le délai par voisin, pas « 15 s par question ».
+    jouer_jusqua(p, "chrono", "Europe", "voisins")
+    regles = p.js("(() => { const b = document.querySelector('#jouer-panneau .help-btn'); if (b) b.click(); return document.getElementById('jouer-panneau').innerText; })()") or ""
+    detail = sans_insecables(texte(p, '#jouer-panneau [data-mode="chrono"]'))
+    if "4 s plus 2 s par voisin" not in sans_insecables(regles) or "15 s par question" in sans_insecables(regles) or "2 s par voisin" not in detail:
+        defauts.append(f"Classé › Voisins : règles ou phrase courte sans « 4 s plus 2 s par voisin » ({detail!r})")
+    capturer("163-voisins-classe-360")
+    # Les silhouettes montrées (?silhouettes, serveur de développement seul) : sept tuiles, Communes sur toute la largeur.
+    p.goto(base + "?mesures=0&silhouettes" + parametres + "#jouer")
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    if "silhouettes" in lire("data-sujet"):
+        grille("Entraînement à 360 px, silhouettes montrées", SUJETS_SILHOUETTES)
+        panneau_jouer(p, defauts, "Entraînement à 360 px (Silhouettes et Voisins)")
+        capturer("164-voisins-sujets-silhouettes-360")
+    else:
+        dire("  ?silhouettes sans effet (build) : la grille à sept tuiles n'est pas vue")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    p.emuler(ecran, tactile=telephone)
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    grille(f"Entraînement à {ecran['largeur']} px", SUJETS_ENTRAINEMENT)
+    capturer("165-voisins-sujets")
+
+    def consigne(barre="#barre-essai"):
+        return texte(p, f"{barre} .essai-consigne"), p.js(f'document.querySelector("{barre} .essai-consigne").dataset.cible')
+
+    def retro(barre="#barre-essai"):
+        return texte(p, f"{barre} .essai-retro")
+
+    # Trouver : chaque voisin compté, le pays lui-même ne compte pas, une faute finit la question.
+    jouer_partie(p, "localiser", "Europe", "voisins")
+    attendre_fin_vol(p)
+    texte_q, cible = consigne()
+    vs = voisins_de(cible)
+    dire(f"  Trouver ({cible}) : {texte_q!r}, voisins {vs}")
+    if not texte_q.startswith("Touche l") or noms[cible] not in texte_q or (len(vs) > 1 and str(len(vs)) not in texte_q):
+        defauts.append(f"Trouver (voisins) : consigne {texte_q!r} pour {cible} ({len(vs)} voisins)")
+    if p.js("window.terramemo.carte.transfo().k") < 1.5:
+        defauts.append("Trouver (voisins) : la carte n'a pas volé jusqu'au pays demandé")
+    capturer("166-voisins-trouver")
+    premier = next((v for v in vs if position_visible(p, v)), None)
+    if premier:
+        toucher_pays(p, premier)
+        p.pause(300)
+        r = retro()
+        dire(f"  Trouver, {premier} touché : {r!r}")
+        if not r.startswith(f"Juste : {noms[premier]}") or f"1 sur {len(vs)}" not in r and len(vs) > 1:
+            defauts.append(f"Trouver (voisins) : un voisin touché ({premier}) sans « Juste : {noms[premier]} · 1 sur {len(vs)} » ({r!r})")
+        capturer("167-voisins-trouver-juste")
+    toucher_pays(p, cible)
+    p.pause(300)
+    r = retro()
+    if "pays demandé" not in r:
+        defauts.append(f"Trouver (voisins) : le pays demandé touché, pas « c'est le pays demandé » ({r!r})")
+    autre = p.js(f"{POINT_AUTRE}({json.dumps(vs + [cible] + [v for v in entites[cible]['voisins']])})")
+    if autre:
+        p.pause(PAUSE_AVANT_TOUCHER_MS)
+        p.toucher(autre["x"], autre["y"])
+        p.pause(300)
+        r = retro()
+        dire(f"  Trouver, faute ({autre['id']}) : {r!r}")
+        if not r.startswith("Faux") or (len(vs) > 1 and "il manquait" not in r):
+            defauts.append(f"Trouver (voisins) : une faute ({autre['id']}) sans « Faux … il manquait » ({r!r})")
+        capturer("168-voisins-trouver-faux")
+        p.pause(3700)
+    else:
+        defauts.append("Trouver (voisins) : aucun pays non voisin à l'écran pour la faute")
+    if p.js("!document.getElementById('essai-bilan').hidden"):
+        dire("  Trouver : bilan déjà là")
+    else:
+        attendre_fin_vol(p)
+        cliquer_apres_pause(p, "#essai-voir")
+        p.pause(400)
+        dire(f"  Trouver, « Voir » : {retro()!r}")
+        if not p.js("window.terramemo.carte.anneaux()"):
+            defauts.append("Trouver (voisins) : « Voir » sans les voisins manqués cernés")
+        capturer("169-voisins-trouver-voir")
+        p.pause(3700)
+        cliquer_apres_pause(p, "#essai-terminer")
+    p.pause(400)
+    bilan = texte(p, "#essai-bilan")
+    if " sur " not in bilan:
+        defauts.append(f"Trouver (voisins) : bilan sans « n sur N » ({bilan[:160]!r})")
+    capturer("170-voisins-trouver-bilan")
+    croix_vers_carte(p, defauts, "bilan de Trouver (voisins)", "#essai-bilan")
+
+    # Reconnaître : la liste écrite, aucun QCM ; le pays touché.
+    jouer_jusqua(p, "nommer", "Europe", "voisins")
+    cliquer(p, '#jouer-panneau [data-mode="nommer"]')
+    attendre_visible(p, "#barre-essai")
+    if visible(p, "#barre-nommer"):
+        defauts.append("Reconnaître (voisins) : un QCM au lieu de la liste écrite")
+    p.js("window.terramemo.carte.zoomer({k: 1, x: 0, y: 0})")
+    texte_q, cible = consigne()
+    dire(f"  Reconnaître ({cible}) : {texte_q!r}")
+    if not texte_q.startswith("Pays qui a pour") or noms[cible] in texte_q:
+        defauts.append(f"Reconnaître (voisins) : consigne {texte_q!r} (la liste, jamais le pays {noms[cible]})")
+    capturer("171-voisins-reconnaitre")
+    p.js(f'window.terramemo.carte.zoomerSur("{cible}")')
+    attendre_fin_vol(p)
+    toucher_pays(p, cible)
+    p.pause(300)
+    if not retro().startswith("Juste"):
+        defauts.append(f"Reconnaître (voisins) : {cible} touché, pas juste ({retro()!r})")
+    capturer("172-voisins-reconnaitre-juste")
+    cliquer_apres_pause(p, "#essai-terminer")
+    p.pause(300)
+
+    # Apprendre sur l'Europe jusqu'au bilan : le QCM sur la liste, puis le rappel à plusieurs touchers.
+    jouer_jusqua(p, "apprendre", "Europe", "voisins")
+    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
+    p.pause(800)
+    if p.js("!!document.getElementById('seance-commencer')"):
+        cliquer_apres_pause(p, "#seance-commencer")
+    vu_qcm = vu_rappel = False
+    q = attendre_question(p)
+    for _ in range(60):
+        forme, cible = q
+        if forme in (None, "bilan"):
+            break
+        attendre_fin_vol(p)
+        if forme == "qcm":
+            if not vu_qcm:
+                vu_qcm = True
+                consigne_qcm = texte(p, "#barre-nommer")
+                if noms[cible] in texte(p, "#barre-nommer .question-dessin"):
+                    defauts.append(f"Apprendre (voisins), QCM : la liste nomme le pays ({consigne_qcm!r})")
+                capturer("173-voisins-apprendre-qcm")
+            cliquer_apres_pause(p, f'#barre-nommer .nommer-choix[data-id="{cible}"]')
+            p.pause(1000)
+        elif forme == "trouver":
+            texte_q = texte(p, "#barre-essai .essai-consigne")
+            if texte_q.startswith("Touche l"):
+                if not vu_rappel:
+                    vu_rappel = True
+                    capturer("174-voisins-apprendre-rappel")
+                for v in voisins_de(cible):
+                    if not p.js('document.getElementById("barre-essai").hidden') and position_visible(p, v):
+                        toucher_pays(p, v)
+                        p.pause(200)
+                if not retro().startswith("Juste : l"):
+                    dire(f"  Apprendre (voisins), {cible} : {retro()!r} — Passer")
+                    cliquer_apres_pause(p, "#essai-passer")
+            else:
+                toucher_pays(p, cible)
+            p.pause(1500)
+        else:
+            defauts.append(f"Apprendre (voisins) : forme inattendue {forme}")
+            break
+        q = attendre_question(p, q)
+    if seance_question(p)[0] != "bilan":
+        defauts.append(f"Apprendre (voisins) : pas de bilan ({seance_question(p)})")
+    capturer("175-voisins-apprendre-bilan")
+    nouvelles = collections.Counter(p.js(FICHES_JOURNAL) or []) - fiches_avant
+    hors = [f for f in nouvelles.elements() if not f.startswith("voisins:")]
+    dire(f"  journal : {sum(nouvelles.values())} événements, {len(hors)} hors voisins:")
+    if hors or not nouvelles:
+        defauts.append(f"journal des parties de voisins : {hors[:5]} hors voisins: ({sum(nouvelles.values())} événements)")
+    sans = [f for f in nouvelles if not voisins_de(f.split(":")[1])]
+    if sans:
+        defauts.append(f"un pays sans voisin posé : {sans}")
+    cliquer_apres_pause(p, "#seance-carte")
+    p.pause(400)
+
+    # Classé › Voisins › Europe › Chrono : la jauge au délai de la question (4 s plus 2 s par voisin), ses voisins touchés.
+    jouer_partie(p, "chrono", "Europe", "voisins")
+    attendre_fin_vol(p)
+    texte_q, cible = consigne("#barre-chrono")
+    vs = voisins_de(cible)
+    dire(f"  Chrono ({cible}) : {texte_q!r}, {len(vs)} voisins, délai {4 + 2 * len(vs)} s")
+    for v in vs:
+        if position_visible(p, v, "#barre-chrono"):
+            toucher_pays(p, v, "#barre-chrono")
+            p.pause(150)
+    r = retro("#barre-chrono")
+    dire(f"  Chrono, après les voisins : {r!r}")
+    capturer("176-voisins-chrono")
+    if not r.startswith("Juste") and not r.startswith("Faux") and "sur" not in r:
+        defauts.append(f"Chrono (voisins) : rien dit après les voisins touchés ({r!r})")
+    cliquer_apres_pause(p, "#chrono-abandonner")
+    p.pause(300)
+
+
+def commande_voisins(args):
+    """ui_voisins seul, sur un profil neuf : l'écran de connexion passé en invité (passer_accueil). Au serveur de
+    développement (driver.py serve) pour la grille à sept tuiles (?silhouettes) ; le reste vaut aussi au build."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
+    faites, defauts = [], []
+    with Session("local") as s:
+        s.couper_synchro(base)
+        s.passer_accueil(base)
+        p = s.page
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        ui_voisins(p, capturer, defauts, base, rendu, ecran, telephone)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -8096,6 +8419,13 @@ def main():
     s.add_argument("--out", default="/tmp/terramemo-captures-silhouettes")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
+    s = sub.add_parser("voisins", help="le sujet Voisins (J4, lot 2) seul, profil neuf : Jouer à 360 px (la grille des sujets, "
+                                       "avec ?silhouettes au serveur de développement), Trouver, Reconnaître, Apprendre, Chrono")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures-voisins")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+
     s = sub.add_parser("mers", help="le sujet Océans et mers seul (ui_mers, ui_epreuves_mers) : Jouer, l'accueil (couche légère), la recherche, Trouver, Reconnaître, Apprendre, carte de la mémoire, puis Classé › Océans et mers (un Sans faute joué jusqu'à sa fin)")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
@@ -8182,7 +8512,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "silhouettes", "mers", "fiche", "quiz", "lignes", "synchro", "suppression", "export", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "silhouettes", "voisins", "mers", "fiche", "quiz", "lignes", "synchro", "suppression", "export", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -8195,7 +8525,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "silhouettes": commande_silhouettes, "mers": commande_mers, "fiche": commande_fiche, "quiz": commande_quiz, "lignes": commande_lignes, "synchro": commande_synchro,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "silhouettes": commande_silhouettes, "voisins": commande_voisins, "mers": commande_mers, "fiche": commande_fiche, "quiz": commande_quiz, "lignes": commande_lignes, "synchro": commande_synchro,
                  "suppression": commande_suppression, "export": commande_export,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
