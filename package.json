@@ -30,6 +30,7 @@
     "vignette-ile": "node geodata/vignette-ile.mjs",
     "vignette-capitales": "node geodata/vignette-capitales.mjs",
     "vignette-mers": "node geodata/vignette-mers.mjs",
+    "silhouettes": "node geodata/silhouettes.mjs",
     "licences:android": "node licences/android.mjs"
   },
   "dependencies": {
