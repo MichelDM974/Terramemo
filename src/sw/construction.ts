@@ -7,9 +7,10 @@
 //   ('/index.html' sous '/', la clé de la coquille) ;
 // - prechargees : la coquille (index.html et ce qu'il référence de l'origine :
 //   script, feuille de style, icône, police, morceaux pré-chargés, données
-//   de la carte qu'il pré-charge) et EN_PLUS_PREMIERE_VISITE. Rien d'autre :
-//   drapeaux, capitales, île, mers, morceaux à la demande s'y ajoutent à
-//   l'usage (quota de Hosting) ;
+//   de la carte qu'il pré-charge), EN_PLUS_PREMIERE_VISITE et les morceaux
+//   de MORCEAUX_PREMIERE_VISITE. Rien d'autre : drapeaux, capitales, île,
+//   mers, autres morceaux à la demande s'y ajoutent à l'usage (quota de
+//   Hosting) ;
 // - version : l'empreinte de tout cela et du code de sw.js, d'où le nom du
 //   cache : un fichier qui change, et c'est une nouvelle version.
 import { createHash } from 'node:crypto';
@@ -27,6 +28,24 @@ export const FICHIER_SW = 'sw.js';
  * sont pré-chargés par index.html (<link rel="preload">), donc pris avec lui.
  */
 export const EN_PLUS_PREMIERE_VISITE = ['/geo/monde-leger.topo.json'];
+
+/**
+ * Morceaux chargés à la demande mais pré-chargés quand même, par leur nom
+ * (assets/<nom>-<empreinte>.js, résolu au build) : les Crédits (attributions
+ * des données et des bibliothèques), sortis du morceau principal pour sa
+ * taille (#6), doivent rester lisibles hors ligne dans une PWA qui n'y est
+ * jamais passée, comme avant. Chacun ne doit importer que le morceau
+ * principal (sinon ses imports manqueraient hors ligne).
+ */
+export const MORCEAUX_PREMIERE_VISITE = ['credits'];
+
+/** Le chemin servi du morceau `nom` dans le build (un seul attendu, sinon lève). */
+export function cheminMorceau(chemins: readonly string[], nom: string): string {
+  const re = new RegExp(`^/assets/${nom}-[A-Za-z0-9_-]{8}\\.js$`);
+  const trouves = chemins.filter((c) => re.test(c));
+  if (trouves.length !== 1) throw new Error(`service worker : morceau « ${nom} » trouvé ${trouves.length} fois dans le build, 1 attendu`);
+  return trouves[0]!;
+}
 
 export function empreinteNode(contenu: Uint8Array | string): string {
   return createHash('sha256').update(contenu).digest('hex').slice(0, LONGUEUR_EMPREINTE);
@@ -55,7 +74,8 @@ export function dresserManifeste(fichiers: ReadonlyMap<string, Uint8Array | stri
   const index = fichiers.get('index.html');
   if (index === undefined) throw new Error('service worker : pas d’index.html dans le build');
   const html = typeof index === 'string' ? index : new TextDecoder().decode(index);
-  const voulus = ['/', ...referencesDe(html), ...EN_PLUS_PREMIERE_VISITE];
+  const morceaux = MORCEAUX_PREMIERE_VISITE.map((nom) => cheminMorceau(Object.keys(empreintes), nom));
+  const voulus = ['/', ...referencesDe(html), ...EN_PLUS_PREMIERE_VISITE, ...morceaux];
   const absents = voulus.filter((c) => !(c in empreintes));
   if (absents.length) throw new Error(`service worker : à pré-charger mais absent du build : ${absents.join(', ')}`);
   const prechargees = [...new Set(voulus)];
