@@ -12,10 +12,14 @@ déployée**. Dans l'ordre :
    (au clavier, sur le PC ; 1 à 2 h pour les lieux riches, d'après le relevé). Le 25/11,
    `choix.json` n'a encore aucun lieu relu. On peut commencer par 2 ou 3 lieux (le Japon,
    Cilaos) pour juger le rendu avant de relire les 332.
-2. **Borner les versions gardées de Hosting à 10** : console de Firebase, Hosting,
-   historique des versions, « Release storage settings » (S48 ; 1,4 Go au plus sur 10).
-   Terramemo se déploie plusieurs fois par jour : sans cette borne, chaque version
-   garderait sa copie des 105 à 138 Mo de photos.
+2. **Borner les versions gardées de Hosting à 10** : **fait le 28/11/2026** (S48 ;
+   1,4 Go au plus sur 10), par l'API de Hosting plutôt que la console : `PATCH
+   https://firebasehosting.googleapis.com/v1beta1/sites/terramemo-geo/config?updateMask=maxVersions`
+   avec `{"maxVersions": "10"}` (jeton de firebase-tools, `getAccessToken` de
+   `node_modules/firebase-tools/lib/auth.js`) ; un `GET` de la même adresse rend
+   `"maxVersions": "10"` (avant : 999999). Dans la console : Hosting, historique des
+   versions, « Release storage settings ». Terramemo se déploie plusieurs fois par jour :
+   sans cette borne, chaque version garderait sa copie des 105 à 138 Mo de photos.
 3. **Traiter les photos relues** : `npm run photos:traiter -- --max 50` d'abord (S50 :
    la miniature de Commons se télécharge-t-elle sans blocage, une requête à la fois ?),
    puis `npm run photos:traiter`. Écrit `public/photos/` (ignoré par git), une copie
