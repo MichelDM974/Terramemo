@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { dresserManifeste, EN_PLUS_PREMIERE_VISITE, empreinteNode, injecterManifeste, MARQUEUR, referencesDe, SW_DE_RETRAIT } from '../src/sw/construction';
+import { cheminMorceau, dresserManifeste, EN_PLUS_PREMIERE_VISITE, empreinteNode, MORCEAUX_PREMIERE_VISITE, injecterManifeste, MARQUEUR, referencesDe, SW_DE_RETRAIT } from '../src/sw/construction';
 import * as page from '../src/sw/enregistrer';
 import {
   activer,
@@ -110,6 +110,7 @@ function build(version: 1 | 2): Map<string, string> {
     ['assets/index-s1.css', 'body{}'],
     ['assets/icone-i1.svg', '<svg/>'],
     [`assets/${compte}`, `compte ${version}`],
+    ['assets/credits-Cr3d1t5x.js', 'crédits'],
     ['vendor/inter/InterVariable.woff2', 'police'],
     ['geo/monde.topo.json', 'carte du monde (inchangée)'],
     ['geo/monde-leger.topo.json', 'carte allégée'],
@@ -190,7 +191,7 @@ describe('service worker : installation, usage, hors ligne', () => {
     const { telecharges, repris } = await installer(moteur(caches, reseau, M1));
     expect(repris).toEqual([]);
     expect(telecharges.sort()).toEqual(
-      ['/', '/assets/index-a1.js', '/assets/index-s1.css', '/assets/icone-i1.svg', '/vendor/inter/InterVariable.woff2', '/geo/monde.topo.json', '/geo/pays.json', '/geo/monde-leger.topo.json'].sort(),
+      ['/', '/assets/index-a1.js', '/assets/index-s1.css', '/assets/icone-i1.svg', '/vendor/inter/InterVariable.woff2', '/geo/monde.topo.json', '/geo/pays.json', '/geo/monde-leger.topo.json', '/assets/credits-Cr3d1t5x.js'].sort(),
     );
     // Les noms hachés se prennent au cache HTTP, les autres se revalident (304 s'ils n'ont pas changé).
     for (const { chemin, cache } of reseau.appels) expect(cache, chemin).toBe(chemin.startsWith('/assets/') ? 'default' : 'no-cache');
@@ -298,7 +299,7 @@ describe('service worker : une nouvelle version remplace l’ancienne sans cache
     expect(telecharges.sort()).toEqual(['/', '/assets/index-a2.js', '/geo/pays.json']);
     expect(reseau.chemins().sort()).toEqual(['/', '/assets/index-a2.js', '/geo/pays.json']);
     expect(repris.sort()).toEqual(
-      ['/assets/icone-i1.svg', '/assets/index-s1.css', '/geo/drapeaux/fra1.svg', '/geo/monde-leger.topo.json', '/geo/monde.topo.json', '/vendor/inter/InterVariable.woff2'].sort(),
+      ['/assets/credits-Cr3d1t5x.js', '/assets/icone-i1.svg', '/assets/index-s1.css', '/geo/drapeaux/fra1.svg', '/geo/monde-leger.topo.json', '/geo/monde.topo.json', '/vendor/inter/InterVariable.woff2'].sort(),
     );
     // Pendant ce temps, la page ouverte sous la v1 a toujours tout son cache.
     expect(caches.contenu(nomCache(M1.version))).toEqual(v1);
@@ -371,7 +372,20 @@ describe('service worker : construction du manifeste et de sw.js', () => {
       '/assets/index-a1.js',
       '/assets/index-s1.css',
       ...EN_PLUS_PREMIERE_VISITE,
+      '/assets/credits-Cr3d1t5x.js',
     ]);
+  });
+
+  it('morceaux de MORCEAUX_PREMIERE_VISITE (les Crédits) : pré-chargés par leur nom, résolu au build ; absent ou en double, le build échoue', () => {
+    expect(MORCEAUX_PREMIERE_VISITE).toContain('credits');
+    expect(M1.prechargees).not.toContain('/assets/compte-c1.js');
+    expect(cheminMorceau(['/assets/compte-c1.js', '/assets/credits-Ab_c-12x.js', '/geo/pays.json'], 'credits')).toBe('/assets/credits-Ab_c-12x.js');
+    const sans = new Map(build(1));
+    sans.delete('assets/credits-Cr3d1t5x.js');
+    expect(() => dresserManifeste(sans, CODE_SW)).toThrow(/credits/);
+    const deux = new Map(build(1));
+    deux.set('assets/credits-Zz9yYx8w.js', 'autre');
+    expect(() => dresserManifeste(deux, CODE_SW)).toThrow(/credits/);
   });
 
   it('version : la même pour le même build (quel que soit l’ordre des fichiers), une autre si un fichier ou le code de sw.js change', () => {
@@ -500,6 +514,11 @@ describe('service worker : le sw.js d’un vrai build', () => {
     const script = /<script type="module" crossorigin src="([^"]+)"/.exec(index.toString())![1]!;
     expect(m.prechargees).toEqual(expect.arrayContaining(['/', script, '/geo/monde.topo.json', '/geo/pays.json', '/geo/contestees.json', '/geo/noms.fr.json', '/geo/monde-leger.topo.json', '/vendor/inter/InterVariable.woff2']));
     expect(m.prechargees.filter((c) => /drapeaux|capitales|reunion|mers|worker/.test(c))).toEqual([]);
+    // Les Crédits, chargés à la demande, pré-chargés quand même (lisibles hors ligne), sans rien d'autre que le morceau principal.
+    const credits = m.prechargees.filter((c) => /^\/assets\/credits-/.test(c));
+    expect(credits).toHaveLength(1);
+    const imports = [...readFileSync(join(sortie, credits[0]!.slice(1)), 'utf8').matchAll(/from\s*["']\.\/([^"']+)["']/g)].map((x) => `/assets/${x[1]}`);
+    for (const i of imports) expect(m.prechargees, i).toContain(i);
     expect(m.version).toMatch(/^[0-9a-f]{16}$/);
   });
 });

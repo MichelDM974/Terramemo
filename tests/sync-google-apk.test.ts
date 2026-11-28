@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { codeGoogleApk, creerJetonGoogle, ERREURS_GOOGLE_APK as E, erreurGoogleApk, type PluginGoogle } from '../src/sync/google-apk';
 import { traduire } from '../src/sync/erreurs';
 import { ID_CLIENT_WEB } from '../src/sync/firebase';
-import { textes } from '../src/vues/textes';
+import { textesErreurs } from '../src/vues/textes-erreurs';
 
 /** Une erreur du plugin telle que Capacitor la rend (CapacitorException : message, et code s'il y en a un). */
 const rejet = (message: string, code?: string) => Object.assign(new Error(message), code ? { code } : {});
@@ -138,12 +138,12 @@ describe('codeGoogleApk : chaque erreur du plugin, un code de l’appli', () => 
       [E.echec]: 'Connexion Google impossible : réessaie plus tard.',
     };
     for (const [code, texte] of Object.entries(attendus)) {
-      expect(textes.compte.erreurs[code as keyof typeof textes.compte.erreurs], code).toBe(texte);
+      expect(textesErreurs[code as keyof typeof textesErreurs], code).toBe(texte);
       const e = Object.assign(new Error('Account reauth failed'), { code });
       expect(traduire(e).texte, code).toBe(texte);
     }
     // Chaque code de l'appli a son texte, sauf l'annulation (silencieuse).
-    for (const code of Object.values(E)) if (code !== E.annule) expect(textes.compte.erreurs, code).toHaveProperty([code]);
+    for (const code of Object.values(E)) if (code !== E.annule) expect(textesErreurs, code).toHaveProperty([code]);
   });
 
   it('le pilote garde le code et le message du plugin (rapport des comptes), l’écran ne les montre pas', () => {

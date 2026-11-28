@@ -54,6 +54,8 @@
     "aide": "Aide sur ces exercices",
     "visuel": "Exercices visuels : les drapeaux sont des images, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient).",
     "visuel_choix": "Les quatre choix se touchent, ou se prennent aux touches 1 à 4 du clavier.",
+    "visuel_silhouettes": "Exercices visuels : les silhouettes sont des dessins, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient).",
+    "voisins": "Voisins : touche chaque voisin, leur nombre est donné, et une faute finit la question. Un voisin qui n'est pas un pays jouable (le Kosovo pour la Serbie), ou voisin par une zone contestée (la Mauritanie pour le Maroc), ne compte ni pour ni contre. Reconnaître donne la liste des voisins : touche le pays.",
     "record": "record",
     "branches": {
       "entrainement": {
@@ -74,6 +76,12 @@
       },
       "drapeaux": {
         "nom": "Drapeaux"
+      },
+      "silhouettes": {
+        "nom": "Silhouettes"
+      },
+      "voisins": {
+        "nom": "Voisins"
       },
       "mers": {
         "nom": "Océans et mers",
@@ -98,6 +106,18 @@
         "apprendre": "Les drapeaux des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
         "localiser": "Un drapeau est montré : touche son pays sur la carte",
         "nommer": "Un pays s'allume : choisis son drapeau parmi quatre"
+      },
+      "silhouettes": {
+        "apprendre": "Les silhouettes des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
+        "localiser": "Une silhouette est montrée : touche son pays sur la carte",
+        "nommer": "Une silhouette est montrée : choisis son pays parmi quatre"
+      },
+      "voisins": {
+        "apprendre": "Les pays voisins suivants : QCM sur leurs voisins, puis toucher leurs voisins sur la carte",
+        "localiser": "Un pays est nommé : touche tous ses voisins",
+        "nommer": "Ses voisins sont nommés : touche le pays",
+        "chrono": "4 s plus 2 s par voisin, une faute finit la question",
+        "sansfaute": "4 s plus 2 s par voisin, jusqu'à la première erreur"
       },
       "mers": {
         "apprendre": "Les océans, puis les mers voisines suivantes : QCM, puis les trouver sur la carte",
@@ -136,6 +156,7 @@
     "admis_jumeau_elide": " (même drapeau qu'{zone})",
     "admis_partie": " : {zone}, {dans}",
     "admis_capitale": " (capitale revendiquée aussi par {zone})",
+    "admis_voisins": " (mêmes voisins que {zone})",
     "essai_un": "{n} essai",
     "essais": "{n} essais",
     "faux": "Faux : {touche}{ou}. {suite}",
@@ -221,11 +242,13 @@
   "epreuves": {
     "chrono": {
       "nom": "Chrono",
-      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : ton score est la part de justes ; à égalité, le temps total départage."
+      "aide": "Toutes les questions de la série dans le désordre, {s} s par question, un seul toucher : ton score est la part de justes ; à égalité, le temps total départage.",
+      "aide_voisins": "Tous les pays de la série dans le désordre, 4 s plus 2 s par voisin à trouver (6 s pour le Portugal, 32 s pour la Chine) : une question est juste quand tous ses voisins sont touchés sans faute. Ton score est la part de justes ; à égalité, le temps total départage."
     },
     "sansfaute": {
       "nom": "Sans faute",
       "aide": "Les lieux de la série dans le désordre, {s} s par question, un seul toucher : la partie s'arrête à la première erreur. Ton score est la part de la série faite d'affilée (100 % : toute la série sans erreur) ; à égalité, le plus rapide.",
+      "aide_voisins": "Les pays de la série dans le désordre, 4 s plus 2 s par voisin à trouver : la partie s'arrête à la première question manquée. Ton score est la part de la série faite d'affilée (100 % : toute la série sans erreur) ; à égalité, le plus rapide.",
       "compte": "{n} d'affilée",
       "score": "{n} d'affilée sur {total} · {pourcent}",
       "parfait": "Sans faute : {total} sur {total} !",
@@ -240,7 +263,8 @@
     "en_temps": "{score} en {temps}",
     "juste": "Juste{admis}",
     "faux": "Faux : {touche}, à {km} du bord · bonne réponse : {cible}",
-    "bilan_faux": "{pays} → {touche}, à {km}"
+    "bilan_faux": "{pays} → {touche}, à {km}",
+    "bilan_faux_touche": "{pays} → {touche}"
   },
   "terrains": {
     "reunion": {
@@ -307,6 +331,46 @@
         "jamais": "jamais vu",
         "vu": "vu {n} fois",
         "vu_une": "vu 1 fois"
+      }
+    },
+    "silhouettes": {
+      "n": "{n} silhouettes",
+      "enonce": "Pays de cette silhouette : ",
+      "consigne_nommer": "Quel est ce pays ?",
+      "faux_suite": "Bonne réponse : {cible}, en vert : touche-le.",
+      "expire": "Temps écoulé · bonne réponse : {cible}, en vert",
+      "la_mer": "la mer",
+      "rate_km": "{nom} : touché à {km} du bord",
+      "rate_trouver": "{nom} : vu ou passé",
+      "rate_oublie": "{nom} : silhouette oubliée",
+      "tout_appris": "Toutes les silhouettes de cette série sont apprises.",
+      "grappe_entamee": "Les silhouettes commencées aujourd'hui ({serie}) ne sont pas finies : elles passent avant.",
+      "conseil": "Les pays de cette région ne sont pas encore appris : {chemin}",
+      "memoire": {
+        "nom": "Silhouette",
+        "jamais": "jamais vue",
+        "vu": "vue {n} fois",
+        "vu_une": "vue 1 fois"
+      }
+    },
+    "voisins": {
+      "n": "{n} pays",
+      "enonce": "Pays qui a pour seuls voisins : ",
+      "consigne_nommer": "Quel pays a pour seuls voisins :",
+      "faux_suite": "Bonne réponse : {cible}, en vert : touche-le.",
+      "expire": "Temps écoulé · bonne réponse : {cible}",
+      "la_mer": "la mer",
+      "rate_km": "{nom} : touché à {km} du bord",
+      "rate_trouver": "{nom} : voisins pas tous trouvés",
+      "rate_oublie": "{nom} : pays oublié",
+      "tout_appris": "Les voisins de tous les pays de cette série sont appris.",
+      "grappe_entamee": "Les voisins commencés aujourd'hui ({serie}) ne sont pas finis : ils passent avant.",
+      "conseil": "Les pays de cette région ne sont pas encore appris : {chemin}",
+      "memoire": {
+        "nom": "Voisins",
+        "jamais": "jamais vus",
+        "vu": "vus {n} fois",
+        "vu_une": "vus 1 fois"
       }
     },
     "mers": {
@@ -595,6 +659,12 @@
     "choix": "Choix {n}",
     "faux": "Faux · bonne réponse : {cible} · tu avais choisi : {choisi}"
   },
+  "silhouettes": {
+    "alt": "Silhouette à reconnaître",
+    "choisi": "Tu as choisi : {nom}",
+    "etait": "C'était : {nom}",
+    "comparaison": "Les deux silhouettes"
+  },
   "mers": {
     "_dans": "Le « dans » de la rétroaction d'une partie touchée (« Juste : mer des Caraïbes, dans l'Atlantique ») : écrit à la main pour chaque zone qui a des parties ; à défaut, l'article tiré du générique (dans_defaut).",
     "dans": {
@@ -627,267 +697,9 @@
     "carte": "IGN, ADMIN EXPRESS, à jour au {date} · Licence Ouverte 2.0",
     "lien": "Crédits et licences",
     "titre": "Crédits",
-    "intro": "Terramemo est fait avec ces données et ces logiciels, tous libres sauf les services Google de l'appli Android.",
-    "confidentialite": "Politique de confidentialité",
-    "donnees_titre": "Données",
-    "donnees": [
-      {
-        "nom": "Natural Earth",
-        "detail": "Frontières des pays, zones contestées et zones marines, au 1:10m · v5.1.2",
-        "licence": "Domaine public",
-        "auteur": "Made with Natural Earth",
-        "lien": "https://www.naturalearthdata.com/about/terms-of-use/"
-      },
-      {
-        "nom": "Unicode CLDR",
-        "detail": "Noms des pays, des langues et des monnaies ; langues et monnaies de chaque pays et territoire · v49.0.0",
-        "licence": "Unicode License v3",
-        "auteur": "© 2015-2024 Unicode, Inc.",
-        "lien": "/geo/LICENSE-CLDR.txt"
-      },
-      {
-        "nom": "IGN, ADMIN EXPRESS COG CARTO",
-        "detail": "Communes de La Réunion ; habitants : recensement INSEE de 2023",
-        "licence": "Licence Ouverte 2.0",
-        "auteur": "Source : IGN",
-        "lien": "https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
-      },
-      {
-        "nom": "Wikidata",
-        "detail": "Capitales et notoriété des lieux · extrait du 11/11/2026 ; superficies, gentilés, sommets, habitants de Taïwan, du Vatican, de territoires et de zones contestées, capitales des territoires, liens vers Wikipédia · extrait du 18/11/2026 ; superficies, profondeurs et pays riverains des mers · extrait du 18/11/2026 ; gentilés des communes de La Réunion et liens vers Wikipédia · extrait du 18/11/2026",
-        "licence": "CC0 1.0",
-        "auteur": "Wikidata et ses contributeurs",
-        "lien": "https://creativecommons.org/publicdomain/zero/1.0/deed.fr"
-      },
-      {
-        "nom": "flag-icons",
-        "detail": "Drapeaux des pays · v7.6.0, Honduras mis à jour (2026)",
-        "licence": "MIT",
-        "auteur": "© 2013 Panayiotis Lipiridis",
-        "lien": "/geo/licences/flag-icons.txt"
-      },
-      {
-        "nom": "Wikimedia Commons",
-        "detail": "Drapeau de l'Émirat islamique d'Afghanistan",
-        "licence": "Domaine public",
-        "auteur": "Wikimedia Commons et ses contributeurs",
-        "lien": "https://commons.wikimedia.org/wiki/File:Flag_of_the_Taliban.svg"
-      },
-      {
-        "nom": "Banque mondiale",
-        "detail": "Habitants des pays et des territoires, 2025 · World Development Indicators, extrait du 17/11/2026",
-        "licence": "CC BY 4.0, conditions de la Banque mondiale",
-        "auteur": "The World Bank: World Development Indicators, Population, total (SP.POP.TOTL): World Population Prospects (UN Population Division), Statistical databases and publications from national statistical offices (National Statistical Offices), Eurostat: Demographic Statistics (Eurostat), Population and Vital Statistics Report (various years) (UN Statistics Division)",
-        "lien": "https://www.worldbank.org/ext/en/legal/terms-conditions/datasets"
-      },
-      {
-        "nom": "Base de données des fuseaux horaires de l'IANA",
-        "detail": "Fuseau de chaque pays et territoire · 2026e",
-        "licence": "Domaine public",
-        "auteur": "IANA et les contributeurs de la base tz",
-        "lien": "https://www.iana.org/time-zones"
-      },
-      {
-        "nom": "CIA World Factbook",
-        "detail": "Fêtes nationales, relues ; point culminant de la Gambie · miroir figé du 11/09/2026",
-        "licence": "Domaine public",
-        "auteur": "Central Intelligence Agency (États-Unis)",
-        "lien": "https://web.archive.org/web/20251205053024/https://www.cia.gov/the-world-factbook/about/copyright-and-contributors/"
-      }
-    ],
-    "ign_date": "Source : IGN, à jour au {date}",
-    "bibliotheques_titre": "Bibliothèques",
-    "bibliotheques_aide": "Celles que le site et l'appli embarquent ; les outils de développement n'y sont pas.",
-    "bibliotheques": [
-      {
-        "paquets": [
-          "ts-fsrs"
-        ],
-        "detail": "Planification des révisions (FSRS)",
-        "licence": "MIT",
-        "auteur": "© Open Spaced Repetition"
-      },
-      {
-        "paquets": [
-          "d3-geo"
-        ],
-        "detail": "Projection de la carte, avec du code dérivé de GeographicLib (MIT)",
-        "licence": "ISC",
-        "auteur": "© Mike Bostock, © 2008-2012 Charles Karney"
-      },
-      {
-        "paquets": [
-          "d3-selection",
-          "d3-transition",
-          "d3-zoom"
-        ],
-        "detail": "Zoom et vols",
-        "licence": "ISC",
-        "auteur": "© Mike Bostock"
-      },
-      {
-        "paquets": [
-          "d3-array",
-          "d3-color",
-          "d3-dispatch",
-          "d3-drag",
-          "d3-interpolate",
-          "d3-timer"
-        ],
-        "detail": "Embarquées par les précédentes",
-        "licence": "ISC",
-        "auteur": "© Mike Bostock"
-      },
-      {
-        "paquets": [
-          "d3-ease"
-        ],
-        "detail": "Courbes des vols, embarquée par d3-transition",
-        "licence": "BSD-3-Clause",
-        "auteur": "© Mike Bostock, © 2001 Robert Penner"
-      },
-      {
-        "paquets": [
-          "topojson-client"
-        ],
-        "detail": "Lecture des fonds de carte",
-        "licence": "ISC",
-        "auteur": "© Michael Bostock"
-      },
-      {
-        "paquets": [
-          "earcut"
-        ],
-        "detail": "Triangulation des pays (rendu webgl)",
-        "licence": "ISC",
-        "auteur": "© Mapbox"
-      },
-      {
-        "paquets": [
-          "firebase"
-        ],
-        "detail": "Classements en ligne : compte anonyme, Firestore",
-        "licence": "Apache-2.0",
-        "auteur": "© Google LLC"
-      },
-      {
-        "paquets": [
-          "idb"
-        ],
-        "detail": "Embarquée par Firebase",
-        "licence": "ISC",
-        "auteur": "© Jake Archibald"
-      },
-      {
-        "paquets": [
-          "tslib"
-        ],
-        "detail": "Embarquée par Firebase",
-        "licence": "0BSD",
-        "auteur": "© Microsoft Corporation"
-      },
-      {
-        "paquets": [
-          "@capacitor/core",
-          "@capacitor/app"
-        ],
-        "detail": "Appli Android : pont avec le téléphone, bouton retour",
-        "licence": "MIT",
-        "auteur": "© Drifty Co. (Ionic)"
-      },
-      {
-        "paquets": [
-          "@capacitor/android"
-        ],
-        "detail": "Dans l'appli Android seulement",
-        "licence": "MIT",
-        "auteur": "© Drifty Co. (Ionic)"
-      },
-      {
-        "paquets": [
-          "@capawesome/capacitor-google-sign-in"
-        ],
-        "detail": "Dans l'appli Android seulement : connexion avec Google",
-        "licence": "MIT",
-        "auteur": "© 2026 Robin Genz (Capawesome)"
-      }
-    ],
-    "android_titre": "Dans l'appli Android",
-    "android_aide": "Bibliothèques de l'APK seulement, embarquées par Capacitor et par la connexion avec Google.",
-    "android": [
-      {
-        "nom": "AndroidX (Jetpack)",
-        "groupes": [
-          "androidx.*"
-        ],
-        "detail": "Interface et WebView de l'appli",
-        "licence": "Apache-2.0",
-        "auteur": "© The Android Open Source Project"
-      },
-      {
-        "nom": "Kotlin, kotlinx.coroutines",
-        "groupes": [
-          "org.jetbrains.kotlin",
-          "org.jetbrains.kotlinx"
-        ],
-        "detail": "Embarquées par AndroidX",
-        "licence": "Apache-2.0",
-        "auteur": "© JetBrains s.r.o. et les contributeurs de Kotlin"
-      },
-      {
-        "nom": "Apache Cordova",
-        "groupes": [
-          "org.apache.cordova"
-        ],
-        "detail": "Compatibilité des greffons, embarquée par Capacitor",
-        "licence": "Apache-2.0",
-        "auteur": "© The Apache Software Foundation"
-      },
-      {
-        "nom": "JSpecify, JetBrains Annotations, ListenableFuture",
-        "groupes": [
-          "org.jspecify",
-          "org.jetbrains",
-          "com.google.guava"
-        ],
-        "detail": "Annotations, embarquées par AndroidX",
-        "licence": "Apache-2.0",
-        "auteur": "© The JSpecify Authors, © JetBrains s.r.o., © The Guava Authors"
-      },
-      {
-        "nom": "Services Google Play, Sign in with Google",
-        "groupes": [
-          "com.google.android.gms",
-          "com.google.android.libraries.identity.googleid"
-        ],
-        "detail": "Connexion avec Google, embarqués par le greffon Google",
-        "licence": "Licence du SDK Android (non libre)",
-        "auteur": "© Google LLC",
-        "lien": "https://developer.android.com/studio/terms"
-      }
-    ],
-    "licences_resume": "Textes des licences et avis de copyright",
-    "licences_chargement": "Chargement…",
-    "licences_erreur": "Textes indisponibles (hors ligne ?) : refermer puis rouvrir pour réessayer.",
-    "fichier_titre": "Terramemo : licences des bibliothèques tierces",
-    "fichier_intro": "Le site et l'appli Android embarquent ces bibliothèques. Pour chacune : sa version, sa licence et son texte, avec les avis de copyright de ses auteurs. Puis les données dont la licence demande le texte (les drapeaux) ; les autres données et la police ont leurs licences dans l'écran Crédits.",
-    "fichier_android": "Dans l'appli Android seulement",
-    "fichier_donnees": "Données",
-    "fichier_apache": "Texte de la licence Apache 2.0, commun aux bibliothèques qui la citent",
-    "fichier_voir_apache": "texte en fin de fichier",
-    "fichier_avis": "Avis (NOTICE)",
-    "fichier_avis_google": "Avis de tiers de leurs AAR (third_party_licenses.txt) : le code libre qu'ils embarquent, chaque texte une fois sous les composants qui l'emploient",
-    "fichier_avis_apache": "[Termes et conditions de la licence Apache 2.0 : texte en fin de fichier]",
-    "police_titre": "Police",
-    "police": {
-      "nom": "Inter",
-      "detail": "Police de l'interface · v4",
-      "licence": "SIL Open Font License 1.1",
-      "auteur": "© The Inter Project Authors",
-      "lien": "/vendor/inter/LICENSE.txt"
-    },
-    "texte_licence": "Texte de la licence",
-    "conditions": "Conditions",
+    "chargement": "Chargement…",
+    "echec": "Écran des crédits indisponible (hors ligne ?).",
+    "reessayer": "Réessayer",
     "retour": "Retour"
   },
   "seance": {
@@ -1118,59 +930,7 @@
     "synchro_attend_verification_une": "1 séance gardée sur cet appareil : elle partira quand tu auras validé ton adresse avec le lien reçu par e-mail (regarde aussi dans les spams)",
     "synchro_attend_verification_n": "{n} séances gardées sur cet appareil : elles partiront quand tu auras validé ton adresse avec le lien reçu par e-mail (regarde aussi dans les spams)",
     "synchro_a_relire": "Mets à jour l'appli : {n} réponses venues d'un autre appareil attendent",
-    "synchro_a_relire_une": "Mets à jour l'appli : 1 réponse venue d'un autre appareil attend",
-    "erreurs": {
-      "auth/invalid-credential": "Adresse ou mot de passe incorrect",
-      "auth/user-not-found": "Adresse ou mot de passe incorrect",
-      "auth/wrong-password": "Adresse ou mot de passe incorrect",
-      "auth/invalid-email": "Adresse e-mail invalide",
-      "auth/missing-email": "Saisis ton adresse e-mail",
-      "auth/missing-password": "Saisis ton mot de passe",
-      "auth/email-already-in-use": "Un compte existe déjà avec cette adresse : connecte-toi",
-      "auth/weak-password": "Mot de passe trop faible (8 caractères au moins)",
-      "auth/password-does-not-meet-requirements": "Mot de passe : 8 caractères au moins",
-      "auth/too-many-requests": "Trop de tentatives : réessaie dans quelques minutes.",
-      "auth/network-request-failed": "Réseau injoignable",
-      "auth/popup-blocked": "Fenêtre de Google bloquée : touche encore le bouton (ou autorise les fenêtres pour ce site).",
-      "auth/user-disabled": "Compte désactivé",
-      "auth/requires-recent-login": "Pour ta sécurité, reconnecte-toi avant de continuer",
-      "auth/provider-already-linked": "Ce compte est déjà relié à ce moyen de connexion",
-      "auth/account-exists-with-different-credential": "Ce compte se connecte par mot de passe : connecte-toi avec ton adresse",
-      "auth/operation-not-allowed": "Ce moyen de connexion n'est pas encore ouvert",
-      "auth/admin-restricted-operation": "Ce moyen de connexion n'est pas encore ouvert",
-      "auth/unauthorized-domain": "Connexion impossible depuis cette adresse du site",
-      "auth/quota-exceeded": "Limite du jour atteinte : réessaie après {heure}.",
-      "permission-denied": "Action non autorisée.",
-      "unavailable": "Serveur injoignable",
-      "terramemo/sdk-indisponible": "Réseau injoignable",
-      "resource-exhausted": "Limite du jour atteinte : réessaie après {heure}.",
-      "terramemo/google-sans-compte": "Aucun compte Google utilisable (aucun sur ce téléphone, ou réglage de l'appli) : vérifie les comptes dans les réglages d'Android, ou connecte-toi par e-mail.",
-      "terramemo/google-services": "Services Google Play absents ou à mettre à jour : mets-les à jour depuis le Play Store, ou connecte-toi par e-mail.",
-      "terramemo/google-reglage": "Connexion Google impossible : vérifie le réseau, puis réessaie. Si ça dure, connecte-toi par e-mail.",
-      "terramemo/google-reseau": "Réseau injoignable : touche encore le bouton de Google une fois en ligne.",
-      "terramemo/google-echec": "Connexion Google impossible : réessaie plus tard.",
-      "terramemo/mdp-court": "Mot de passe : 8 caractères au moins",
-      "terramemo/mdp-actuel-faux": "Mot de passe actuel incorrect",
-      "terramemo/mdp-google": "Ce compte se connecte avec Google, sans mot de passe",
-      "terramemo/sans-compte": "Aucun compte connecté sur cet appareil",
-      "terramemo/deja-connecte": "Un compte est déjà connecté sur cet appareil",
-      "inattendue": "Erreur inattendue ({code})",
-      "terramemo/pseudo-invalide": "Le pseudo fait de 2 à 20 caractères, en lettres ordinaires, sans « / ».",
-      "terramemo/profil-trop-gros": "Trop de records pour le compte : ils restent sur cet appareil.",
-      "terramemo/effacement-inacheve": "Cet appareil n'a pas pu être vidé : il le sera au prochain démarrage de l'appli.",
-      "terramemo/suppression-mot": "Écris « supprimer » pour confirmer",
-      "terramemo/mdp-faux": "Mot de passe incorrect",
-      "terramemo/google-apk": "Dans l'appli, un compte Google se supprime depuis le site : terramemo-geo.web.app.",
-      "terramemo/suppression-inachevee": "Une suppression du compte est inachevée : reprends-la d'abord.",
-      "terramemo/suppression-engagee": "La suppression est déjà engagée : elle ne s'annule plus, reprends-la.",
-      "terramemo/suppression-reconnexion": "Ce compte se reconnecte sur le site : terramemo-geo.web.app.",
-      "auth/user-mismatch": "Ce n'est pas le compte connecté : choisis {adresse} dans la fenêtre de Google.",
-      "auth/web-storage-unsupported": "Ce navigateur refuse la fenêtre de Google (données de sites bloquées ?) : passe par l'e-mail.",
-      "terramemo/google-reessayer": "Connexion Google interrompue : touche encore le bouton de Google.",
-      "terramemo/google-apk-bientot": "Google arrive bientôt dans l'appli : connecte-toi par e-mail, ou sur le site.",
-      "terramemo/compte-parti": "Le compte {adresse} n'existe plus (supprimé ?) : continue sans compte, ou crée-en un.",
-      "terramemo/google-autre-compte": "Ce n'est pas le compte à supprimer : choisis {adresse} dans la fenêtre de Google."
-    }
+    "synchro_a_relire_une": "Mets à jour l'appli : 1 réponse venue d'un autre appareil attend"
   },
   "confidentialite": {
     "lien": "Confidentialité",

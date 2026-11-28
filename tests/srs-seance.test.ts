@@ -4,7 +4,8 @@
 import { describe, expect, it } from 'vitest';
 import { probleme, type Evenement } from '../src/srs/journal';
 import { AGAIN, EASY, GOOD } from '../src/srs/note';
-import { DUREE_MAX_MS, PASSAGES_QCM, PASSAGES_REPRISE, Seance, type ContexteSeance, type PlanSeance, type ReponseSeance } from '../src/srs/seance';
+import { DOMAINES } from '../src/srs/fiches';
+import { DUREE_MAX_MS, formeDe, PASSAGES_QCM, PASSAGES_REPRISE, Seance, type ContexteSeance, type PlanSeance, type ReponseSeance } from '../src/srs/seance';
 
 function graine(s: number): () => number {
   return () => {
@@ -259,5 +260,27 @@ describe('séance : reprises et une note par fiche et par jour', () => {
     expect(s.finie).toBe(true);
     expect(s.bilan().reponses).toBe(2);
     expect(s.bilan().revisions.n).toBe(2);
+  });
+});
+
+describe('séance : la forme d’une fiche par domaine et par sens (étude J4 § 7.5, D623 a)', () => {
+  it('formeDe : localiser en Trouver et nommer en carte retournée, sauf les voisins (plusieurs touchers ; nommer en Trouver sur la liste)', () => {
+    for (const d of DOMAINES.filter((x) => x !== 'voisins')) expect([formeDe(d, 'localiser'), formeDe(d, 'nommer')], d).toEqual(['trouver', 'retournee']);
+    expect([formeDe('voisins', 'localiser'), formeDe('voisins', 'nommer')]).toEqual(['voisins', 'trouver']);
+  });
+
+  it('une séance des voisins : révisions et rappel à plusieurs touchers, nommer en Trouver ; le QCM d’apprentissage reste un QCM', () => {
+    const plan: PlanSeance = { domaine: 'voisins', revisions: ['voisins:HUN:localiser', 'voisins:FRA:nommer'], introductions: ['voisins:ESP:nommer'], nouveaux: ['BEN', 'TGO'] };
+    const { vues, evts } = parcourir(new Seance(plan, ctx()));
+    const forme = (fiche: string, etape?: string) => vues.find((v) => v.fiche === fiche && (!etape || v.etape === etape))!.forme;
+    expect(forme('voisins:HUN:localiser')).toBe('voisins');
+    expect(forme('voisins:FRA:nommer')).toBe('trouver');
+    expect(forme('voisins:ESP:nommer')).toBe('trouver');
+    expect(forme('voisins:BEN:nommer', 'qcm')).toBe('qcm');
+    expect(forme('voisins:BEN:localiser', 'rappel')).toBe('voisins');
+    // Le Trouver qui suit une question des voisins (la carte a volé jusqu'à son pays) repart du monde.
+    const i = vues.findIndex((v) => v.forme === 'trouver');
+    if (i > 0 && vues[i - 1]!.forme === 'voisins') expect(vues[i]!.cadrage).toEqual({ sorte: 'monde' });
+    expect(evts.every((e) => probleme(e) === null)).toBe(true);
   });
 });

@@ -12,7 +12,9 @@ import type { DonneesCapitales } from '../map/capitales';
 import type { DonneesDrapeaux } from '../map/drapeaux';
 import { mersPareilles, parenteMer } from '../map/mers';
 import type { Mer, Pays } from '../map/types';
-import { nommerPose, SANS_NOMMER } from '../srs/fiches';
+import { aSilhouette, nommerPose, SANS_NOMMER, SANS_SILHOUETTE } from '../srs/fiches';
+import { SILHOUETTES_VISIBLES } from '../visibles';
+import type { ProchesSilhouettes } from '../vues/silhouettes';
 import { nomsProches } from '../texte';
 import { choix, LEURRES_VOISINS, leurresParmi, sosiesDrapeau, VOISINS, type LieuQcm, type OptionsChoix, type SourceLeurres, type StrategieLeurres } from '../vues/qcm';
 import type { Notoriete, ProchesDrapeaux } from './donnees';
@@ -31,6 +33,8 @@ export interface DonneesGenerateurs {
   drapeaux?: DonneesDrapeaux | null;
   /** Les paires de drapeaux proches (drapeaux-proches.json) : sans elles, pas de drapeaux. */
   proches?: ProchesDrapeaux | null;
+  /** Les formes proches des silhouettes (silhouettes.json, le morceau des silhouettes chargé) : sans elles, pas de silhouettes. */
+  silhouettes?: ProchesSilhouettes | null;
   /** Les 50 zones marines (mers.json) et leurs noms (mers.fr.json) : sans elles, pas de mers. */
   mers?: readonly Mer[] | null;
   nomsMers?: Readonly<Record<string, string>> | null;
@@ -274,6 +278,51 @@ export function generateurDrapeaux(d: DonneesGenerateurs): Generateur | null {
 }
 
 /**
+ * Les silhouettes (étude J4 § 6.4, § 7.4 ; D604 a, D621 a) : la cible est le
+ * pays ; au QCM, sa silhouette et quatre noms ; au toucher, sa silhouette, et
+ * l'on touche le pays. Les 166 qui ont une silhouette (D618 a), au niveau de
+ * notoriété de leur pays (pas de meilleure mesure : notoriete.pays). Leurres :
+ * au facile, des pays connus du même continent ; au moyen, une forme proche
+ * puis des pays du niveau ; au difficile et à l'expert, les formes proches
+ * (silhouettes.json : recouvrement d'au moins son seuil), complétées par les
+ * voisins puis les plus proches. Les 29 sans silhouette jamais leurres.
+ */
+export function generateurSilhouettes(d: DonneesGenerateurs): Generateur | null {
+  const formes = d.silhouettes;
+  if (!formes) return null;
+  const m = monde(d);
+  const niveau = (id: string) => d.notoriete.pays[id];
+  const ids = m.ids.filter((id) => aSilhouette(id) && niveau(id) !== undefined);
+  const connus = (max: Niveau) => ids.filter((id) => (niveau(id) ?? 3) <= max);
+  const proches = (n: number): SourceLeurres => leurresParmi((c) => formes.de(c), n);
+  const s: Sujet = {
+    sujet: 'silhouettes',
+    niveau,
+    ...m,
+    ids,
+    jouables: new Set(ids),
+    posable: (id) => aSilhouette(id),
+    entites: (id) => [id],
+    connus: (df) => sourcesConnus(m, connus, REGLES[df].niveauMax, N_LEURRES),
+    strategie: (_id, df) => {
+      switch (LEURRES[df]) {
+        case 'connus':
+          return undefined;
+        case 'voisin':
+          return [proches(1), ...sourcesConnus(m, connus, REGLES[df].niveauMax, N_LEURRES)];
+        case 'voisins':
+          return [proches(N_LEURRES), VOISINS];
+      }
+    },
+    exclus: () => SANS_SILHOUETTE,
+    nomChoix: (id) => d.noms[id] ?? id,
+    // Le nom serait la réponse : l'énoncé ne nomme jamais le pays.
+    nommeAuFacile: false,
+  };
+  return fabriquer(s);
+}
+
+/**
  * Océans et mers : la zone allumée et son nom parmi 4, ou son nom et l'on
  * touche. Un océan allumé n'a que des océans en leurres (sujets.ts) ; une mer,
  * jamais un océan au facile et au moyen (des mers connues), ni ses ancêtres
@@ -320,5 +369,8 @@ export function generateurMers(d: DonneesGenerateurs): Generateur | null {
 
 /** Les générateurs des sujets prêts, dans l'ordre de Jouer (décision « Ordre des sujets ») : ceux dont les données manquent sont absents. */
 export function generateurs(d: DonneesGenerateurs): Generateur[] {
-  return [generateurPays(d), generateurCapitales(d), generateurDrapeaux(d), generateurMers(d)].filter((g): g is Generateur => g !== null);
+  // Les silhouettes, quand leur liste est relue (src/visibles.ts).
+  return [generateurPays(d), generateurCapitales(d), generateurDrapeaux(d), SILHOUETTES_VISIBLES ? generateurSilhouettes(d) : null, generateurMers(d)].filter(
+    (g): g is Generateur => g !== null,
+  );
 }

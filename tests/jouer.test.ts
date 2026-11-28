@@ -16,6 +16,7 @@ import {
   depuisAncre,
   garderDerniere,
   lireDerniere,
+  nombreSujet,
   pasVers,
   SUJETS,
   versAncre,
@@ -24,7 +25,7 @@ import {
   type Niveau,
 } from '../src/vues/arbre';
 import { catalogue, SERIE_ESSAI } from '../src/vues/cibles';
-import { recordDe, remplirEssaiJ0, vueJouer, type OptionsJouer } from '../src/vues/jouer';
+import { aideSujet, recordDe, regleExercice, remplirEssaiJ0, vueJouer, type OptionsJouer } from '../src/vues/jouer';
 import { estSujetRendu } from '../src/vues/sujets';
 import { textes } from '../src/vues/textes';
 import { El, installerDom, installerStockage } from './dom-factice';
@@ -40,8 +41,8 @@ describe('l’arbre (pur)', () => {
     // Le quiz général en tête de la racine (étude J2 § 7.1), puis Entraînement et Classé.
     expect(arbre.choix({ type: 'racine' })).toEqual(['quiz', 'entrainement', 'classe']);
     expect(arbre.choix({ type: 'quiz' })).toEqual(['facile', 'moyen', 'difficile', 'expert']);
-    expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
-    expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(arbre.choix({ type: 'sujets', branche: 'entrainement' })).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
+    expect(arbre.choix({ type: 'sujets', branche: 'classe' })).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     // Capitales : les séries des pays, tailles comprises (D37 c).
     expect(arbre.choix({ type: 'series', branche: 'entrainement', sujet: 'capitales' })).toEqual(SERIES_PAYS);
     expect(arbre.series('capitales').map((x) => x.n)).toEqual(arbre.series('pays').map((x) => x.n));
@@ -70,15 +71,36 @@ describe('l’arbre (pur)', () => {
     const localiser = (e: string) => e.split(':')[1] === 'localiser';
     expect(epreuvesClassees().filter(localiser).slice(0, 8)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id)));
     expect(epreuvesClassees().filter(localiser).slice(8, 16)).toEqual(CATALOGUE.map((s) => idEpreuve(s.id, 'sansfaute')));
-    expect(epreuvesClassees().slice(0, 23)).toEqual([
+    expect(epreuvesClassees().slice(0, 29)).toEqual([
       ...SERIES_PAYS.map((x) => idEpreuve(x)),
       ...SERIES_PAYS.map((x) => idEpreuve(x, 'chrono', 'capitales')),
       ...SERIES_PAYS.map((x) => idEpreuve(x, 'chrono', 'drapeaux')),
+      ...SERIES_PAYS.slice(0, -1).map((x) => idEpreuve(x, 'chrono', 'voisins')),
       idEpreuve('mers', 'chrono', 'mers'),
       idEpreuve('reunion'),
     ]);
     // Les sujets du catalogue des épreuves, dans l'ordre de Jouer (Classé).
     expect([...new Set(EPREUVES_SUJETS.map((p) => p.sujet))]).toEqual(arbre.choix({ type: 'sujets', branche: 'classe' }));
+  });
+
+  it('Voisins (J4, lot 2) : après les drapeaux, les séries des pays sans l’Océanie (une seule question), sans les 39 qui n’ont aucun voisin jouable ; Apprendre, Trouver, Reconnaître ; Chrono et Sans faute', () => {
+    const voisins = arbre.series('voisins');
+    expect(voisins.map((x) => x.id)).toEqual(SERIES_PAYS.slice(0, -1));
+    expect(voisins.map((x) => x.n)).toEqual([156, 48, 12, 12, 41, 42]);
+    expect(voisins.find((x) => x.id === 'tous')!.ids).toContain('PNG');
+    expect(voisins.find((x) => x.id === 'tous')!.ids).not.toContain('JPN');
+    expect(arbre.modes('entrainement', 'voisins')).toEqual(['apprendre', 'localiser', 'nommer']);
+    expect(arbre.modes('classe', 'voisins')).toEqual(['chrono', 'sansfaute']);
+    expect(arbre.valide({ branche: 'classe', sujet: 'voisins', serie: 'Oceania', mode: 'chrono' })).toBe(false);
+    expect(nombreSujet('voisins', voisins)).toBe('156 pays');
+    // Le « ? » des épreuves : le délai par voisin (D607 a), pas « 15 s par question » ; et ce qui compte ou non.
+    for (const m of ['chrono', 'sansfaute'] as const) {
+      expect(regleExercice(m, 'voisins')).toContain('4 s plus 2 s par voisin');
+      expect(regleExercice(m, 'voisins')).not.toContain('15 s');
+      expect(regleExercice(m)).toContain('15 s par question');
+    }
+    expect(aideSujet('voisins', 'entrainement')).toContain('ne compte ni pour ni contre');
+    expect(aideSujet('voisins', 'classe')).toBe(aideSujet('voisins', 'entrainement'));
   });
 
   it('Classé › Capitales (décision « Ouverture des épreuves d’un sujet », 12/11 : sans date) : les séries des pays (D37 c), les deux épreuves', () => {
@@ -385,7 +407,7 @@ describe('la vue Jouer', () => {
   it('Classé : les sujets avec leur nombre ; Pays mène aux séries, Communes directement aux exercices de La Réunion', () => {
     const j = monter();
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     expect(j.panneau.innerText).toContain('195 pays');
     expect(j.panneau.innerText).toContain('24 communes');
     expect(j.panneau.querySelector('h2')?.textContent).toBe('Classé');
@@ -568,7 +590,7 @@ describe('la vue Jouer', () => {
     expect(r.innerText).toContain('12 à revoir · 6 nouveaux');
     expect(r.innerText).not.toContain('record');
     expect(r.disabled).toBe(false);
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     r.click();
     expect(revision.lancer).toHaveBeenCalledTimes(1);
     // Pas d'adresse dans l'arbre : la ligne ne pousse rien.
@@ -705,7 +727,7 @@ describe('la vue Jouer : le sujet Capitales', () => {
   it('Entraînement : Pays, Capitales, Drapeaux, Océans et mers, Communes ; sa vignette (le monde et ses capitales en points) sans rien charger ; ses séries « 54 capitales »', () => {
     const j = monter();
     j.ouvrir('entrainement');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     expect(j.panneau.querySelector('[data-sujet="capitales"]')!.innerText).toContain('Capitales');
     expect(j.panneau.querySelector('[data-sujet="capitales"]')!.innerText).toContain('195 capitales');
     expect(j.panneau.querySelector('[data-sujet="capitales"] .vignette-carte .vignette-points')).not.toBeNull();
@@ -719,7 +741,7 @@ describe('la vue Jouer : le sujet Capitales', () => {
     for (const m of ['apprendre', 'localiser', 'nommer'] as const) expect(j.panneau.querySelector(`[data-mode="${m}"]`)!.innerText).toContain(textes.jouer.exercices.capitales[m]);
     // Sous Classé aussi (partie C).
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     // Rien de capitales* demandé pour afficher Jouer.
     expect(demandes).toEqual([]);
     expect(capitalesChargees()).toBeNull();
@@ -782,7 +804,7 @@ describe('la vue Jouer : Classé › Capitales', () => {
   it('Classé : Pays, Capitales, Drapeaux, Océans et mers, Communes', () => {
     const j = monter();
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     expect(j.panneau.querySelector('[data-sujet="capitales"] .vignette-points')).not.toBeNull();
   });
 
@@ -845,7 +867,7 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
   it('Entraînement : Pays, Capitales, Drapeaux, Océans et mers, Communes (D53 b) ; son icône (D53 a) sans rien charger ; « 195 drapeaux », « 54 drapeaux »', () => {
     const j = monter();
     j.ouvrir('entrainement');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     const tuile = j.panneau.querySelector('[data-sujet="drapeaux"]')!;
     expect(tuile.innerText).toContain('Drapeaux');
     expect(tuile.innerText).toContain('195 drapeaux');
@@ -874,7 +896,7 @@ describe('la vue Jouer : le sujet Drapeaux', () => {
     j.ouvrir('entrainement', 'pays', 'Africa');
     expect(j.panneau.querySelector('#jouer-aide')).toBeNull();
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     // Rien de drapeaux* demandé pour afficher Jouer.
     expect(demandes).toEqual([]);
     expect(drapeauxCharges()).toBeNull();
@@ -993,7 +1015,7 @@ describe('la vue Jouer : le sujet Océans et mers', () => {
   it('Entraînement : après Drapeaux, avant Communes ; « 50 océans et mers » et sa vignette sans rien charger ; la série unique sautée ; Apprendre, Trouver, Reconnaître', () => {
     const j = monter();
     j.ouvrir('entrainement');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     const tuile = j.panneau.querySelector('[data-sujet="mers"]')!;
     expect(tuile.innerText).toContain('Océans et mers');
     expect(tuile.innerText).toContain('50 océans et mers');
@@ -1020,7 +1042,7 @@ describe('la vue Jouer : le sujet Océans et mers', () => {
     enregistrerPartie(localStorage, idEpreuve('mers', 'sansfaute', 'mers'), { points: 17, justes: 17, questions: 18, temps_ms: 60_000 }, 1);
     const j = monter();
     j.ouvrir('classe');
-    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
+    expect(j.attr('data-sujet')).toEqual(['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']);
     const tuile = j.panneau.querySelector('[data-sujet="mers"]')!;
     expect(tuile.innerText).toContain('50 océans et mers');
     expect(tuile.querySelector('.vignette-carte .vignette-mer')).not.toBeNull();

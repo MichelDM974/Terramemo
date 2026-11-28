@@ -12,7 +12,11 @@ import { rolldown } from 'rolldown';
 import { fileURLToPath } from 'node:url';
 
 const source = fileURLToPath(new URL('../../../../src/srs/journal.ts', import.meta.url));
-const paquet = await rolldown({ input: source, logLevel: 'silent' });
+// import.meta.env n'existe que sous Vite : un module de l'appli qui le lit au
+// chargement (src/visibles.ts, importé par fiches.ts) planterait sous node.
+// Valeurs d'un build.
+const define = { 'import.meta.env': JSON.stringify({ DEV: false, PROD: true, MODE: 'production', SSR: false, BASE_URL: '/' }) };
+const paquet = await rolldown({ input: source, logLevel: 'silent', transform: { define } });
 const { output } = await paquet.generate({ format: 'esm' });
 await paquet.close();
 const { probleme } = await import('data:text/javascript;base64,' + Buffer.from(output[0].code).toString('base64'));

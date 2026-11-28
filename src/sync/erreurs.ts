@@ -1,11 +1,12 @@
 // Erreurs des comptes en français (étude du J1b, § 3.3) : textes de
-// textes.fr.json (compte.erreurs), repris clé par clé de ceux d'une autre
+// textes-erreurs.fr.json (à part du morceau principal), repris clé par clé de ceux d'une autre
 // de mes applis, plus ceux du J1b. Le message anglais brut n'est jamais affiché : il va
 // au pilote (window.terramemo.comptes()). Sans dépendance à Firebase : la vue
 // Compte et les tests s'en servent sans charger le SDK.
+import { textesErreurs } from '../vues/textes-erreurs';
 import { remplir, textes } from '../vues/textes';
 
-const E: Readonly<Record<string, string>> = textes.compte.erreurs;
+const E: Readonly<Record<string, string>> = textesErreurs;
 
 /**
  * Codes qui ne s'affichent pas : un retour silencieux (fenêtre Google fermée)

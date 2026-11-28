@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { adresseErreur, heureRemiseQuota, traduire } from '../src/sync/erreurs';
 import { textes } from '../src/vues/textes';
+import { textesErreurs } from '../src/vues/textes-erreurs';
 
 const err = (code: string, message = `Firebase: Error (${code}).`) => Object.assign(new Error(message), { code });
 const HIVER = new Date(Date.UTC(2026, 10, 7, 6)); // 7/11/2026, 10 h à La Réunion (Los Angeles en PST)
@@ -103,8 +104,8 @@ describe('traduire', () => {
     expect(adresseErreur(null)).toBeNull();
   });
 
-  it('chaque texte de compte.erreurs est atteint par son code', () => {
-    for (const code of Object.keys(textes.compte.erreurs).filter((c) => c !== 'inattendue'))
+  it('chaque texte de textes-erreurs.fr.json est atteint par son code', () => {
+    for (const code of Object.keys(textesErreurs).filter((c) => c !== 'inattendue' && !c.startsWith('_')))
       expect(traduire(err(code)).texte, code).not.toMatch(/inattendue/);
   });
 });

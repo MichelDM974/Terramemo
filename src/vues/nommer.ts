@@ -8,12 +8,16 @@
 // boutons-images nommés « Choix 1 » à « Choix 4 » (sans title ni rien qui
 // nomme le pays avant la réponse), touches 1 à 4, rétroaction qui dit aussi
 // le choix fait ; les drapeaux de la question suivante préchargés.
+// Un sujet dont la question montre un dessin (les silhouettes : RenduSujet.question,
+// D619 à D621) : le dessin dans la barre, aucune zone allumée (elle donnerait la
+// réponse) ; après la réponse, la carte vole sur le pays juste et l'allume, et une
+// erreur montre les deux silhouettes nommées (RenduSujet.comparaison).
 import type { CarteAffichee, ReglageZone } from '../map/carte';
 import { anneauPrincipal, empriseEcran, versEcran, type Emprise } from '../map/geo';
 import type { Forme, Lieu } from '../map/types';
 import { tailleEcranPx } from '../map/pastilles';
 import type { Terrain } from '../terrains';
-import { ANNEAU_SOUS_PX, anneauZone, creer, fmtS, ligneFiche, pastillesPour, poserContenu, prechargerSujet, zonesDuSujet, type ContexteVue } from './commun';
+import { ANNEAU_SOUS_PX, anneauZone, creer, fmtS, ligneFiche, pastillesPour, poserComparaison, poserContenu, prechargerSujet, zonesDuSujet, type ContexteVue } from './commun';
 import { choix, doitCadrer, NB_CHOIX, PartieNommer } from './qcm';
 import { rendu, type RenduSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -167,6 +171,11 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
+  /** Le dessin de la question (une silhouette), à la place de la zone allumée ; caché pour les autres sujets. */
+  const dessin = creer('div', { class: 'question-dessin' });
+  /** Une erreur : les deux silhouettes nommées, côte à côte. */
+  const comparaison = creer('div', { class: 'comparaison' });
+  dessin.hidden = comparaison.hidden = true;
   const boutons = Array.from({ length: NB_CHOIX }, () => creer('button', { type: 'button', class: 'secondary nommer-choix' }));
   const grille = creer('div', { class: 'nommer-grille' }, ...boutons);
   const terminer = creer('button', { type: 'button', class: 'secondary', id: 'nommer-terminer' }, T.terminer);
@@ -175,8 +184,10 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     'div',
     { class: 'carte-barre essai', id: 'barre-nommer' },
     creer('div', { class: 'essai-ligne' }, consigne, compte),
+    dessin,
     grille,
     retro,
+    comparaison,
     creer('div', { class: 'essai-actions' }, connu, terminer),
   );
   barre.hidden = true;
@@ -236,6 +247,10 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
     connu.disabled = false;
     retro.textContent = '';
     retro.className = 'essai-retro';
+    poserComparaison(comparaison, null);
+    const montre = r.question(id);
+    dessin.hidden = !montre;
+    if (montre) poserContenu(dessin, montre);
     grille.classList.toggle('nommer-grille-images', r.visuel);
     boutons.forEach((b, k) => {
       const c = choixCourants[k] ?? '';
@@ -258,7 +273,11 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       if (t.nom !== 'monde') t.carte.cadrer(crochets.cadrer, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
       crochets = { ...crochets, cadrer: undefined };
     }
-    allumer(t.carte, id, t.nom !== 'monde');
+    // Un dessin dans la barre : aucune zone allumée (elle donnerait la réponse) ; la carte reste où elle est.
+    if (montre) {
+      t.carte.effacerMarques();
+      petite = false;
+    } else allumer(t.carte, id, t.nom !== 'monde');
     debut = performance.now();
   }
 
@@ -273,6 +292,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       if (b.dataset.id === id) b.classList.add('juste');
       else if (b.dataset.id === choisi) b.classList.add('faux');
     }
+    // La question montrait un dessin : la carte vole maintenant sur le pays juste (D621 a), puis le marque.
+    if (rs.question(id)) allumer(t.carte, id, t.nom !== 'monde');
     // Sur la carte : la zone demandée en vert, celle choisie en rouge (on voit où elle est).
     const carte = t.carte;
     carte.effacerMarques();
@@ -291,6 +312,8 @@ export function vueNommer(ctx: ContexteVue, o: { bilan: HTMLElement; actions: ()
       : rs.visuel
         ? remplir(D.faux, { cible: lieu || rs.nomChoix(id, id), choisi: rs.nomChoix(choisi, id) })
         : remplir(T.nommer_faux, { cible: lieu || rs.nomChoix(id, id) });
+    // Les deux silhouettes nommées, côte à côte (D621 a) ; rien pour un sujet sans dessin.
+    poserComparaison(comparaison, juste ? null : rs.comparaison(choisi, id));
     if (!crochets.compte) compte.textContent = `${partie.numero - 1} / ${n}`;
     const ligne = crochets.surReponse?.({ id, choisi, juste, temps_ms, zoom: carte.transfo.k });
     if (ligne) retro.append(creer('span', { class: 'seance-ligne' }, ` · ${ligne}`));

@@ -31,7 +31,7 @@
 // feuille de Google d'Android, src/sync/google-apk.ts) ; sans lui, une ligne
 // dit que Google vient (googleOffert). Les champs portent autocomplete et inputmode : le remplissage
 // automatique d'Android marche ainsi dans la WebView (§ 3.2). Textes :
-// textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts.
+// textes.fr.json (compte), erreurs traduites par src/sync/erreurs.ts (textes-erreurs.fr.json).
 //
 // Écran de connexion de la première ouverture (décision « Écran de
 // connexion », src/vues/accueil.ts) : les mêmes écrans, montés dans son
@@ -56,6 +56,7 @@ import { dansApk } from '../retour-android';
 import { COMPTES_OUVERTS, synchroCoupee } from '../sync/drapeaux';
 import type { Envoi, EtatSynchro } from '../sync/envoi';
 import { adresseErreur, codeErreur, traduire } from '../sync/erreurs';
+import { textesErreurs } from './textes-erreurs';
 import { telecharger } from '../sync/export';
 import { champPseudo, lirePseudo } from './classement';
 import { creer, croix, type ContexteVue, type Vue } from './commun';
@@ -645,7 +646,7 @@ function moteurCompte(o: OptionsMoteur): MoteurCompte {
     nom.value = adresse ?? '';
     const envoyer = () => {
       if (mot.input.value.trim().toLocaleLowerCase('fr') !== MOT_SUPPRESSION) {
-        erreur.textContent = T.erreurs['terramemo/suppression-mot'];
+        erreur.textContent = textesErreurs['terramemo/suppression-mot'];
         return;
       }
       void agir(async (c) => {

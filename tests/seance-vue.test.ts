@@ -22,6 +22,9 @@ import { catalogue, serieMers } from '../src/vues/cibles';
 import type { DemandeSeance, PiloteSeance, RefusSeance, ReponseJouee } from '../src/vues/essai';
 import { carteMemoire } from '../src/vues/carte-memoire';
 import { creerSeances, texteComptes, type ComptesSeance } from '../src/vues/seance';
+import { LIBELLE_STATUT, texteAdmis } from '../src/vues/commun';
+import { poserVoisins, rendu } from '../src/vues/sujets';
+import * as morceauVoisins from '../src/vues/voisins';
 import { apprendreLieu, CLE_APPRENDRE, lirePrefere } from '../src/vues/apprendre-lieu';
 import { garderDerniere, type Lancement } from '../src/vues/arbre';
 import type { Serie } from '../src/vues/cibles';
@@ -520,33 +523,57 @@ describe('séance : le sujet de bout en bout', () => {
     expect(carte.detail('monde', mer('POL'), true)).toBe(textes.memoire.jamais_vu);
   });
 
-  it('des fiches voisins:, villes:, fleuves: et departements: au journal (lues dès le socle commun des J4, J5 et J6) : ni comptées, ni posées, ni teintées tant que leur domaine n’est pas jouable', async () => {
+  it('des fiches voisins: au journal (J4, lot 2) : comptées et posées dans la Révision du jour, localiser à plusieurs touchers (forme « voisins »), nommer en Trouver sur la liste de ses voisins (D623 a)', async () => {
+    poserVoisins(morceauVoisins, { texteAdmis, estPetite: () => false, statuts: LIBELLE_STATUT });
+    try {
+      // Les fiches de la première séance (des pays d'Europe de l'Est), recopiées sous voisins: : toutes ont des voisins.
+      const { m2, seul } = await journalMixte([{ domaine: 'voisins' }]);
+      expect(m2.seances.comptes({ sorte: 'revision' })!.aRevoir).toBeGreaterThan(seul.seances.comptes({ sorte: 'revision' })!.aRevoir);
+      const { questions } = jouer(m2.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance);
+      await m2.memoire.ecrire([]);
+      // Une réponse écrite par question, dans l'ordre : la fiche de chacune.
+      const ecrits = (await m2.depot.tous()).filter((e) => e.ts > T0 + JOUR_MS / 2);
+      expect(ecrits.length).toBe(questions.length);
+      const v = questions.map((q, k) => [q, ecrits[k]!.fiche] as const).filter(([q]) => (q as { domaine?: string }).domaine === 'voisins');
+      const formes = (sens: string) => new Set(v.filter(([, f]) => f.endsWith(`:${sens}`)).map(([q]) => q.forme));
+      expect(formes('localiser')).toEqual(new Set(['voisins']));
+      expect(formes('nommer')).toEqual(new Set(['trouver']));
+      expect(v.every(([q, f]) => f.startsWith(`voisins:${q.id}:`) && q.terrain === 'monde')).toBe(true);
+      // Leur rendu : la liste écrite (le Trouver d'une fiche nommer), jamais le pays.
+      expect(rendu('voisins', monde).enonce('POL').objet).toEqual({ texte: 'Allemagne, Biélorussie, Lituanie, Russie, Slovaquie, Tchéquie, Ukraine' });
+    } finally {
+      poserVoisins(null);
+    }
+  });
+
+  it('des fiches habitants:, villes:, fleuves: et departements: au journal (lues dès le socle commun des J4, J5 et J6) : ni comptées, ni posées, ni teintées tant que leur domaine n’est pas jouable', async () => {
     const qid = (id: string) => `Q${id.charCodeAt(0)}${id.charCodeAt(1)}`;
     const fleuve = (id: string) => `f${id.toLowerCase()}`;
     const insee = (id: string) => String(id.charCodeAt(0) + id.charCodeAt(2));
-    const { m2, seul, copies } = await journalMixte([{ domaine: 'voisins' }, { domaine: 'villes', ent: qid }, { domaine: 'fleuves', ent: fleuve }, { domaine: 'departements', ent: insee }]);
+    // Les voisins, jouables depuis le lot 2 du J4, ont laissé leur place d'exemple aux habitants.
+    const { m2, seul, copies } = await journalMixte([{ domaine: 'habitants' }, { domaine: 'villes', ent: qid }, { domaine: 'fleuves', ent: fleuve }, { domaine: 'departements', ent: insee }]);
     // Lues : dans l'état, intactes.
     const notees = copies.filter((e) => e.note !== null);
     expect(notees.length).toBeGreaterThan(0);
     expect(notees.every((e) => m2.memoire.etat().has(e.fiche))).toBe(true);
     // Comptées comme sans elles.
     for (const d of [{ sorte: 'revision' as const }, { sorte: 'apprendre' as const, sujet: 'pays', serie: serie('tous') }]) expect(m2.seances.comptes(d)).toEqual(seul.seances.comptes(d));
-    for (const sujet of ['voisins', 'villes', 'fleuves', 'departements']) {
+    for (const sujet of ['habitants', 'villes', 'fleuves', 'departements']) {
       expect(m2.seances.comptes({ sorte: 'apprendre', sujet, serie: serie('tous') })).toEqual({ aRevoir: 0, nouveaux: 0 });
       expect(m2.seances.ouvrir({ sorte: 'apprendre', sujet, serie: serie('tous') })).toEqual({ refus: S.rien, reviser: 0 });
     }
     // Posées : aucune de leurs fiches en Révision du jour.
     const { questions } = jouer(m2.seances.ouvrir({ sorte: 'revision' }) as PiloteSeance);
     expect(questions.length).toBeGreaterThan(0);
-    expect(questions.some((q) => ['voisins', 'villes', 'fleuves', 'departements'].includes((q as { domaine?: string }).domaine ?? ''))).toBe(false);
+    expect(questions.some((q) => ['habitants', 'villes', 'fleuves', 'departements'].includes((q as { domaine?: string }).domaine ?? ''))).toBe(false);
     expect(questions.every((q) => q.terrain === 'monde')).toBe(true);
     await m2.memoire.ecrire([]);
     const ecrits = (await m2.depot.tous()).filter((e) => e.ts > T0 + JOUR_MS / 2);
     expect(ecrits.length).toBe(questions.length);
-    expect(ecrits.some((e) => /^(voisins|villes|fleuves|departements):/.test(e.fiche))).toBe(false);
+    expect(ecrits.some((e) => /^(habitants|villes|fleuves|departements):/.test(e.fiche))).toBe(false);
     // Teintées : ni le choix du sujet de la carte de la mémoire ni ses teintes ne les prennent.
     const carte = carteMemoire(m2.memoire, () => true);
-    expect(carte.sujets('monde').some((d) => ['voisins', 'villes', 'fleuves'].includes(d))).toBe(false);
+    expect(carte.sujets('monde').some((d) => ['habitants', 'villes', 'fleuves'].includes(d))).toBe(false);
     expect([...(carte.teintes('monde') ?? new Map()).keys()].some((id) => /^(Q\d|f[a-z]|\d)/.test(id))).toBe(false);
     // Sur les terrains du J6 : aucun sujet, aucune teinte.
     for (const t of ['departements', 'regions'] as const) {

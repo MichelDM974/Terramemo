@@ -74,8 +74,8 @@ function stockage(): Storage | null {
 export const detailExercice = (m: ModeJeu, sujet = 'pays'): string =>
   remplir((J.exercices as unknown as Record<string, Partial<Record<ModeJeu, string>> | undefined>)[sujet]?.[m] ?? J.exercices[m], { s: estEpreuve(m) ? SECONDES_EPREUVE : 0 });
 
-/** Règles complètes d'une épreuve (barème, départage), derrière « ? » ; '' pour un exercice d'entraînement. */
-export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[m].aide, { s: SECONDES_EPREUVE }) : '');
+/** Règles complètes d'une épreuve (barème, départage), derrière « ? » ; celles des Voisins, au délai par voisin (D607 a) ; '' pour un exercice d'entraînement. */
+export const regleExercice = (m: ModeJeu, sujet = 'pays'): string => (estEpreuve(m) ? remplir(sujet === 'voisins' ? E[m].aide_voisins : E[m].aide, { s: SECONDES_EPREUVE }) : '');
 
 /**
  * Ce que le « ? » des exercices d'un sujet dit en plus de leurs règles : que
@@ -85,7 +85,9 @@ export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[
  * Reconnaître sont des QCM) : les épreuves de Classé se jouent sur la carte.
  */
 export const aideSujet = (sujet: string, branche: Branche): string =>
-  sujet !== 'drapeaux' ? '' : branche === 'classe' ? J.visuel : `${J.visuel} ${J.visuel_choix}`;
+  // Les silhouettes : la question est un dessin, les choix des noms (pas de touches 1 à 4 à dire). Les voisins : ce qui
+  // compte et ce qui ne compte pas (D605 a).
+  sujet === 'silhouettes' ? J.visuel_silhouettes : sujet === 'voisins' ? J.voisins : sujet !== 'drapeaux' ? '' : branche === 'classe' ? J.visuel : `${J.visuel} ${J.visuel_choix}`;
 
 /** La phrase courte d'une difficulté du quiz : « Plus de lieux : 10 à 4 choix (10 s), 10 sur la carte (15 s) » (src/quiz/regles.ts). */
 export function detailDifficulte(d: Difficulte): string {
@@ -281,6 +283,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
     }
     const titre = creer('h2', { class: 'jouer-fil', 'aria-label': `${J.fil} : ${choix.map((c) => c.nom).join(', ')}` }, ...fil);
     const regles = n.type === 'exercices' ? arbre.modes(n.branche, n.sujet).filter((m) => regleExercice(m)) : [];
+    const sujet = n.type === 'exercices' ? n.sujet : undefined;
     // Un sujet aux exercices visuels (les drapeaux) le dit derrière le même « ? », en Entraînement comme en Classé.
     const duSujet = n.type === 'exercices' ? aideSujet(n.sujet, n.branche) : '';
     const quiz = n.type === 'quiz';
@@ -290,7 +293,7 @@ export function vueJouer(ctx: ContexteVue, arbre: Arbre, o: OptionsJouer): VueJo
       'div',
       { class: 'help-text', id: 'jouer-regles' },
       ...regles.map((m) => {
-        const r = regleExercice(m);
+        const r = regleExercice(m, sujet);
         return creer('p', {}, creer('strong', {}, nomExercice(m)), ` : ${r.charAt(0).toLowerCase()}${r.slice(1)}`);
       }),
       ...(duSujet ? [creer('p', { class: 'jouer-aide-sujet' }, duSujet)] : []),

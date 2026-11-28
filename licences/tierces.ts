@@ -5,7 +5,7 @@
 // serveur de développement) et déplié dans l'écran Crédits
 // (src/vues/credits.ts). Lu par Node, jamais par le navigateur.
 //
-// - Les paquets npm : ceux des lignes de textes.credits.bibliotheques, que
+// - Les paquets npm : ceux des lignes de textes-credits.fr.json (bibliotheques), que
 //   tests/credits-vue.test.ts compare à chaque passage aux paquets que le
 //   build embarque vraiment ; leur LICENSE lu dans node_modules, un seul
 //   exemplaire pour les textes identiques (les d3). Un paquet qui ne publie
@@ -14,7 +14,7 @@
 //   LICENSE (Firebase), seule Apache-2.0 est admise : son texte est en fin
 //   de fichier.
 // - Les bibliothèques Android : licences/android.json (relevé de Gradle,
-//   licences/android.mjs), rangées sous les lignes de textes.credits.android
+//   licences/android.mjs), rangées sous les lignes de textes-credits.fr.json (android)
 //   par leur groupe Maven ; Apache-2.0, avec les avis (NOTICE) que
 //   Cordova, Kotlin et kotlinx.coroutines publient (Apache 2.0, § 4 d), sauf
 //   les services Google Play et googleid (lot 7 du J1b) : licence du SDK
@@ -27,20 +27,20 @@
 //   termes d'Apache 2.0 renvoyés au texte de fin de fichier. Un artefact
 //   d'une ligne non libre sans avis relevé fait échouer le build.
 // - Les données dont la licence demande le texte avec toute copie : les lignes
-//   de textes.credits.donnees dont le lien est un fichier de /geo/licences/
+//   de textes-credits.fr.json (donnees) dont le lien est un fichier de /geo/licences/
 //   (flag-icons, MIT ; étude J2, § 2.5), sous « Données », le texte lu dans
 //   public/ (celui que le site sert).
 // Un paquet ou un artefact qu'aucune ligne ne couvre fait échouer le build.
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import fr from '../src/vues/textes.fr.json';
+import fr from '../src/vues/textes-credits.fr.json';
 import { APACHE_ICI } from './android.mjs';
 
 /** Son nom, servi à la racine du site (src/vues/credits.ts le demande). */
 export const FICHIER_LICENCES = 'licences-tierces.txt';
 
-const T = fr.credits;
+const T = fr;
 // Le dossier licences/ (import.meta.url : celle du fichier d'origine aussi dans la config de Vite, regroupée).
 const ICI = dirname(fileURLToPath(import.meta.url));
 
@@ -77,7 +77,7 @@ export function texteLicencePaquet(paquet: string, racine = join(ICI, '..')): st
   return texteLicence(join(racine, 'node_modules', paquet)) ?? (aPart ? readFileSync(join(ICI, aPart), 'utf8').trim() : null);
 }
 
-/** L'indice de la ligne de textes.credits.android qui couvre un artefact « groupe:nom:version » (« androidx.* » : tout groupe androidx.…), -1 sinon. */
+/** L'indice de la ligne de textes-credits.fr.json (android) qui couvre un artefact « groupe:nom:version » (« androidx.* » : tout groupe androidx.…), -1 sinon. */
 export function ligneAndroid(artefact: string, lignes: readonly { groupes: readonly string[] }[] = T.android): number {
   const groupe = artefact.split(':')[0] ?? '';
   return lignes.findIndex((l) => l.groupes.some((g) => (g.endsWith('.*') ? groupe.startsWith(g.slice(0, -1)) : groupe === g)));
@@ -138,7 +138,7 @@ export function texteLicences(racine = join(ICI, '..')): string {
   const parLigne = T.android.map(() => [] as string[]);
   for (const a of artefactsAndroid()) {
     const i = ligneAndroid(a);
-    if (i < 0) throw new Error(`licences tierces : ${a} (licences/android.json) n'est sous aucune ligne de textes.credits.android`);
+    if (i < 0) throw new Error(`licences tierces : ${a} (licences/android.json) n'est sous aucune ligne de textes-credits.fr.json (android)`);
     parLigne[i]!.push(a);
   }
   sortie.push('', DOUBLE, T.fichier_android, DOUBLE, '');

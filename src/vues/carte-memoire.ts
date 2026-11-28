@@ -12,7 +12,7 @@
 import type { Memoire } from '../journal/memoire';
 import { estIdMer, IDS_MERS } from '../map/mers';
 import type { NomTerrain } from '../map/types';
-import { DOMAINES_JOUABLES, jouablesDu, type Domaine } from '../srs/fiches';
+import { aVoisins, DOMAINES_JOUABLES, jouablesDu, type Domaine } from '../srs/fiches';
 import { maitrises, memoireEntite, seauxEntites, type Seau } from '../srs/planif';
 import { textesSujet } from './sujets';
 import { remplir, textes } from './textes';
@@ -142,8 +142,9 @@ export function carteMemoire(m: Memoire, actif: () => boolean, o: OptionsCarteMe
     };
     // Une zone marine : sa mémoire des mers (« Vu 2 fois · revient demain »), quel que soit le sujet montré.
     if (estIdMer(id)) return jouables.includes('mers') ? [ligne('mers')] : null;
-    // Les sujets qui jouent cette zone : sur le monde, le pays, sa capitale, son drapeau ; les mers ont leurs propres zones.
-    const ici = jouablesDu(t, jouables).filter((x) => x !== 'mers');
+    // Les sujets qui jouent cette zone : sur le monde, le pays, sa capitale, son drapeau, ses voisins s'il en a (J4) ; les
+    // mers ont leurs propres zones.
+    const ici = jouablesDu(t, jouables).filter((x) => x !== 'mers' && (x !== 'voisins' || aVoisins(id)));
     // Un seul sujet : la ligne d'avant, telle quelle (celui de la zone, si le sujet montré est celui des mers).
     if (ici.length < 2) return [ligne(d === 'mers' ? (ici[0] ?? d) : d)];
     return ici.map((x) => {

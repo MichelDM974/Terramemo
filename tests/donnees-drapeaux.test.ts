@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { textes } from '../src/vues/textes';
+import { textesCredits } from '../src/vues/textes-credits';
 
 // Drapeaux des pays (étude J2, § 2.2 ; geodata/drapeaux.mjs, lot 2) : tests sur les fichiers
 // versionnés. Le calcul des sosies est refait ici sur les SVG versionnés, par le même
@@ -499,10 +499,10 @@ describe('licence, sources, hébergement, crédits', () => {
   });
 
   it('crédits : flag-icons (v7.6.0, Honduras mis à jour, MIT, avis de 2013, lien vers le texte servi) et le drapeau de l’Émirat (Commons, domaine public)', () => {
-    const fi = textes.credits.donnees.find((c) => c.nom === 'flag-icons');
+    const fi = textesCredits.donnees.find((c) => c.nom === 'flag-icons');
     if (!fi) throw new Error('flag-icons absent des crédits');
     expect(fi).toMatchObject({ detail: 'Drapeaux des pays · v7.6.0, Honduras mis à jour (2026)', licence: 'MIT', auteur: '© 2013 Panayiotis Lipiridis', lien: '/geo/licences/flag-icons.txt' });
-    const com = textes.credits.donnees.find((c) => c.nom === 'Wikimedia Commons');
+    const com = textesCredits.donnees.find((c) => c.nom === 'Wikimedia Commons');
     if (!com) throw new Error('Commons absent des crédits');
     expect(com.detail).toBe("Drapeau de l'Émirat islamique d'Afghanistan");
     expect(com.licence).toBe('Domaine public');

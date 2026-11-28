@@ -63,7 +63,7 @@ function graine(s: number): () => number {
 }
 
 /** Le texte d'un contenu et tout ce qu'il dirait d'un pays : alt, légende, adresse. */
-const dit = (c: ReturnType<ReturnType<typeof rendu>['choix']>) => ('texte' in c ? c.texte : [c.alt, c.legende ?? '', c.image].join(' '));
+const dit = (c: ReturnType<ReturnType<typeof rendu>['choix']>) => ('texte' in c ? c.texte : [c.alt, c.legende ?? '', 'image' in c ? c.image : ''].join(' '));
 
 describe('manifeste lu (src/map/drapeaux.ts)', () => {
   afterEach(() => oublierDrapeaux());

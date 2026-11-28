@@ -6,8 +6,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { adapterLiens, contenuDePage, SITE, URL_CONFIDENTIALITE, vueConfidentialite } from '../src/vues/confidentialite';
+import { REUNION } from '../src/map/terrain';
 import { vueCredits } from '../src/vues/credits';
 import { textes } from '../src/vues/textes';
+import { textesCredits } from '../src/vues/textes-credits';
 import { installerDom, type El } from './dom-factice';
 
 const PAGES = { confidentialite: readFileSync('public/confidentialite.html', 'utf8'), suppression: readFileSync('public/suppression.html', 'utf8') };
@@ -43,7 +45,7 @@ describe('pages statiques (public/)', () => {
     // Le texte du lien est l'adresse elle-même.
     expect(texteDe(PAGES.confidentialite)).toContain(toutes[0]);
     // La vue Compte la donne aussi (suppression qu'on ne peut plus finir) : la même.
-    const dansLesTextes = JSON.stringify(textes).match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
+    const dansLesTextes = JSON.stringify([textes, textesCredits]).match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
     expect(dansLesTextes.length).toBeGreaterThanOrEqual(1);
     expect(new Set([...dansLesTextes, toutes[0]]).size).toBe(1);
   });
@@ -223,9 +225,9 @@ describe('vue #confidentialite', () => {
     const html = readFileSync('index.html', 'utf8');
     expect(html).toMatch(/<a href="#credits" id="lien-credits"><\/a><\/p>\s*<!--[\s\S]*?-->\s*<p class="reglage-outil"><a href="#confidentialite" id="lien-confidentialite"><\/a><\/p>/);
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
-    vueCredits({ zone, carte: { masquer: () => undefined } } as never, { retour: () => undefined, versCarte: () => undefined });
+    vueCredits({ zone, carte: { masquer: () => undefined } } as never, { retour: () => undefined, versCarte: () => undefined, dossierIle: REUNION.dossier });
     const a = zone.querySelector('#credits-confidentialite')!;
-    expect([a.getAttribute('href'), a.textContent]).toEqual(['#confidentialite', textes.credits.confidentialite]);
+    expect([a.getAttribute('href'), a.textContent]).toEqual(['#confidentialite', textesCredits.confidentialite]);
   });
 
   it('la page lue par défaut : public/confidentialite.html, à la racine du site et de l’APK', () => {

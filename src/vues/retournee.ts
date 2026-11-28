@@ -4,7 +4,9 @@
 // zoom lent de la décision « Zone allumée montrée par un zoom lent »), on
 // pense au nom, « Révéler » le montre, puis « Je savais » (Good) ou « Je ne savais pas »
 // (Again) ; une ligne discrète dit quand elle revient. Une question à la
-// fois, posée par la séance (src/vues/seance.ts, via essai.ts).
+// fois, posée par la séance (src/vues/seance.ts, via essai.ts). Une silhouette
+// (D623 a, RenduSujet.question) : le dessin dans la barre, aucune zone allumée
+// (elle donnerait la réponse) ; « Révéler » donne le nom, puis le pays s'allume.
 import type { Terrain } from '../terrains';
 import type { Forme, Lieu } from '../map/types';
 import { creer, pastillesPour, poserContenu, zonesDuSujet, type ContexteVue } from './commun';
@@ -45,6 +47,9 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const nom = creer('div', { class: 'retournee-nom', 'aria-live': 'polite' });
+  /** Le dessin de la question (une silhouette), à la place de la zone allumée. */
+  const dessin = creer('div', { class: 'question-dessin' });
+  dessin.hidden = true;
   const reveler = creer('button', { type: 'button', id: 'retournee-reveler' }, S.reveler);
   const savais = creer('button', { type: 'button', class: 'secondary', id: 'retournee-savais' }, S.savais);
   const oublie = creer('button', { type: 'button', class: 'secondary', id: 'retournee-savais-pas' }, S.savais_pas);
@@ -55,6 +60,7 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
     'div',
     { class: 'carte-barre essai', id: 'barre-retournee' },
     creer('div', { class: 'essai-ligne' }, consigne, compte),
+    dessin,
     nom,
     reveler,
     reponses,
@@ -100,9 +106,15 @@ export function vueRetournee(ctx: ContexteVue): Retournee {
     retro.className = etape === 'repondu' ? `essai-retro ${juste ? 'juste' : 'faux'}` : 'essai-retro';
     retro.textContent = etape === 'repondu' ? ligne : '';
     barre.hidden = false;
+    const montre = rs.question(id);
+    dessin.hidden = !montre;
+    if (montre) poserContenu(dessin, montre);
     // Le zoom lent sur la zone à la question seulement (posée, ou reprise au retour dans la vue) : révélée ou
-    // répondue, elle se rallume où la carte en est (décision « Zone allumée montrée par un zoom lent »).
-    allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde', etape === 'question');
+    // répondue, elle se rallume où la carte en est (décision « Zone allumée montrée par un zoom lent »). Un dessin
+    // dans la barre : rien d'allumé avant « Révéler », puis le zoom lent sur le pays.
+    if (!montre) allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde', etape === 'question');
+    else if (revele) allumerZone(t.carte, id, lieux.get(id), formes.get(id), barre, t.nom !== 'monde', etape === 'revele');
+    else t.carte.effacerMarques();
     // Révélée : un anneau à chaque ville révélée (D53 c : les capitales justes) ; rien pour un pays.
     if (revele) for (const p of rs.points(id)) t.carte.anneauEn(p, 'juste');
   }

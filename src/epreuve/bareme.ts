@@ -30,13 +30,18 @@ export interface ScoreEpreuve {
   temps_ms: number;
 }
 
-export function scoreEpreuve(reponses: readonly ReponseChrono[], delai_ms: number): ScoreEpreuve {
+/**
+ * Le score de ces réponses : `delai_ms`, le délai de chacune, le même pour toutes, ou celui de la question `i`
+ * (les Voisins, D607 a : 4 s plus 2 s par voisin).
+ */
+export function scoreEpreuve(reponses: readonly ReponseChrono[], delai_ms: number | ((i: number) => number)): ScoreEpreuve {
   let justes = 0;
   let temps_ms = 0;
-  for (const r of reponses) {
-    justes += pointsQuestion(r, delai_ms);
-    temps_ms += r.temps_ms == null ? delai_ms : Math.min(r.temps_ms, delai_ms);
-  }
+  reponses.forEach((r, i) => {
+    const d = typeof delai_ms === 'number' ? delai_ms : delai_ms(i);
+    justes += pointsQuestion(r, d);
+    temps_ms += r.temps_ms == null ? d : Math.min(r.temps_ms, d);
+  });
   return { points: justes, justes, questions: reponses.length, temps_ms };
 }
 

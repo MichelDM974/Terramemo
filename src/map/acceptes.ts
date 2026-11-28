@@ -19,11 +19,13 @@ import type { Entite, Forme, Lieu } from './types';
  * (D41 d : Monaco juste pour l'Indonésie, le Tchad pour la Roumanie, et
  * l'inverse) ; partie : du seul sujet Mers (D43, étude J2 § 4.4 : la mer des
  * Caraïbes juste pour l'Atlantique, l'Adriatique pour la Méditerranée ;
- * zonesParties, mers.ts). Toutes trois passées par OptionsNoter.acceptes,
+ * zonesParties, mers.ts) ; voisins : du seul Reconnaître des Voisins (J4,
+ * D606 a : l'autre pays d'un ensemble ambigu, le Yémen pour les Émirats,
+ * qui ont les mêmes voisins). Toutes passées par OptionsNoter.acceptes,
  * jamais dans la table commune (sous Pays, Monaco touché pour l'Indonésie
  * reste faux).
  */
-export type SorteAdmise = 'contestee' | 'enclave' | 'capitale' | 'jumeau' | 'partie';
+export type SorteAdmise = 'contestee' | 'enclave' | 'capitale' | 'jumeau' | 'partie' | 'voisins';
 
 /** Pourquoi un toucher hors du tracé de la cible est juste (Note.admis, pick.ts). */
 export interface Admis {

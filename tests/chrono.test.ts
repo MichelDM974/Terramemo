@@ -30,6 +30,8 @@ import {
   sujetEpreuve,
   sujetOuvert,
   tailleEpreuve,
+  TEMPS_CHRONO_VOISINS_MS,
+  TEMPS_MAX_JUSTE_VOISINS_MS,
   tempsMaxQuiz,
   totalGeneral,
   type RecordChrono,
@@ -37,6 +39,7 @@ import {
   vraisemblable,
 } from '../src/epreuve/chrono';
 import { comparerScores } from '../src/epreuve/bareme';
+import { delaiVoisins } from '../src/exercices/voisins';
 import type { Pays } from '../src/map/types';
 import { catalogue, SERIE_REUNION, SERIE_TOUS, serieMers } from '../src/vues/cibles';
 import { IDS_MERS } from '../src/map/mers';
@@ -434,12 +437,14 @@ describe('records de la semaine et classement général', () => {
   it('ids avec le sujet : pays et communes gardent `localiser` (inchangés), les autres sujets leur nom (étude J2 § 3.2)', () => {
     expect(CLE_SUJET).toEqual({ pays: 'localiser', communes: 'localiser', capitales: 'capitales', drapeaux: 'drapeaux', mers: 'mers' });
     // Les sujets lus dès le socle commun des J4, J5 et J6 : leur nom ; aucune épreuve tant qu'ils ne sont pas dans EPREUVES_SUJETS.
-    for (const d of ['voisins', 'villes', 'habitants', 'superficies', 'silhouettes', 'fleuves', 'montagnes', 'deserts', 'detroits', 'departements', 'regions', 'prefectures', 'numeros'] as const) {
+    for (const d of ['villes', 'habitants', 'superficies', 'silhouettes', 'fleuves', 'montagnes', 'deserts', 'detroits', 'departements', 'regions', 'prefectures', 'numeros'] as const) {
       expect(cleSujet(d)).toBe(d);
       expect(idEpreuve('tous', 'chrono', d)).toBe(`chrono:${d}:tous`);
       expect(EPREUVES_SUJETS.some((p) => p.sujet === d)).toBe(false);
       expect(tailleEpreuve(idEpreuve('tous', 'chrono', d))).toBeNull();
     }
+    // Les voisins (J4, lot 2) : leur nom, leurs épreuves ouvertes.
+    expect([cleSujet('voisins'), idEpreuve('Europe', 'sansfaute', 'voisins'), tailleEpreuve('chrono:voisins:tous')]).toEqual(['voisins', 'sansfaute:voisins:Europe', 156]);
     expect([idEpreuve('Africa'), idEpreuve('Africa', 'chrono', 'pays'), idEpreuve('reunion', 'sansfaute', 'communes')]).toEqual(['chrono:localiser:Africa', 'chrono:localiser:Africa', 'sansfaute:localiser:reunion']);
     expect([idEpreuve('Africa', 'chrono', 'capitales'), idEpreuve('tous', 'sansfaute', 'drapeaux'), idEpreuve('mers', 'chrono', 'mers')]).toEqual([
       'chrono:capitales:Africa',
@@ -619,10 +624,16 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
   const tailleDe = new Map([...catalogue(pays), serieMers()].map((x) => [x.id, x.n]));
   const regles = readFileSync('firestore.rules', 'utf8');
   const corps = regles.slice(regles.indexOf('function tailles(cle)'), regles.indexOf('function epreuveConnue'));
-  /** Les cartes de tailles(cle) des règles, dans l'ordre : mers, capitales, drapeaux, localiser. */
+  /** Les cartes de tailles(cle) des règles, dans l'ordre : mers, capitales, drapeaux, silhouettes (prête d'avance, J4 lot 1), voisins (lot 2), localiser. */
   const cartes = [...corps.matchAll(/\{([^{}]*)\}/g)].map((m) => Object.fromEntries([...m[1]!.matchAll(/'([^']+)': (\d+)/g)].map((x) => [x[1]!, Number(x[2])])));
-  const ORDRE_CARTES = ['mers', 'capitales', 'drapeaux', 'localiser'];
+  const ORDRE_CARTES = ['mers', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'localiser'];
   const taillesRegles = (cle: string): Record<string, number> => cartes[ORDRE_CARTES.indexOf(cle)] ?? {};
+  /** Les séries des voisins (J4, lot 2), mesurées sur pays.json : les jouables qui ont un voisin jouable. */
+  const jouables = new Set(pays.filter((p) => p.statut === 'jouable').map((p) => p.id));
+  const posables = pays.filter((p) => jouables.has(p.id) && p.voisins.some((v) => jouables.has(v)));
+  const tailleVoisins = (serie: string) => (serie === 'tous' ? posables.length : posables.filter((p) => p.continent === serie).length);
+  /** La taille attendue d'une série sous une clé de sujet : celle du catalogue, sauf pour les voisins. */
+  const tailleAttendue = (cle: string, serie: string) => (cle === 'voisins' ? tailleVoisins(serie) : tailleDe.get(serie));
 
   it('EPREUVES_SUJETS : Pays, Capitales (les séries des pays, D37 c), Drapeaux (de même), Océans et mers (sa série unique, D44 a), puis Communes (D53 b) ; chaque sujet retrouvé par son id', () => {
     const SERIES_PAYS = SERIES_PAYS_ILE.slice(0, -1);
@@ -630,9 +641,12 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
       ...SERIES_PAYS.map((x) => `pays:${x}`),
       ...SERIES_PAYS.map((x) => `capitales:${x}`),
       ...SERIES_PAYS.map((x) => `drapeaux:${x}`),
+      // Les voisins (J4, lot 2), sans l'Océanie (une seule question) ; les silhouettes, cachées ici, viendraient avant.
+      ...SERIES_PAYS.filter((x) => x !== 'Oceania').map((x) => `voisins:${x}`),
       'mers:mers',
       'communes:reunion',
     ]);
+    expect(sujetEpreuve('chrono:voisins:Oceania')).toBeNull();
     for (const p of EPREUVES_SUJETS) for (const m of MODES_EPREUVE) expect(sujetEpreuve(idEpreuve(p.serie, m, p.sujet))).toBe(p.sujet);
     expect([sujetEpreuve(`${idEpreuve('Africa', 'chrono', 'capitales')}@s2914`), sujetEpreuve('general'), sujetEpreuve('quiz:general:facile'), sujetEpreuve('chrono:capitales:reunion')]).toEqual([
       'capitales',
@@ -653,7 +667,7 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
   });
 
   it('sujetOuvert, sans date (décision « Ouverture des épreuves d’un sujet », 12/11) : un sujet de EPREUVES_SUJETS, les mers comprises (lot 3b) ; pas le quiz', () => {
-    for (const su of ['pays', 'capitales', 'drapeaux', 'mers', 'communes']) expect(sujetOuvert(su)).toBe(true);
+    for (const su of ['pays', 'capitales', 'drapeaux', 'voisins', 'mers', 'communes']) expect(sujetOuvert(su)).toBe(true);
     for (const su of ['quiz', 'xyz']) expect(sujetOuvert(su)).toBe(false);
   });
 
@@ -665,28 +679,32 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
     }
     expect(epreuvesClassees().filter(de('mers'))).toEqual(['chrono:mers:mers', 'sansfaute:mers:mers']);
     expect(epreuvesDuGeneral().filter(de('mers'))).toEqual(['chrono:mers:mers']);
+    // Les voisins : 6 séries (sans l'Océanie), 12 épreuves, 6 au général.
+    expect(epreuvesClassees().filter(de('voisins'))).toHaveLength(12);
+    expect(epreuvesDuGeneral().filter(de('voisins'))).toHaveLength(6);
     expect(epreuvesDuGeneral()).toEqual([
       ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x)),
       ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x, 'chrono', 'capitales')),
       ...SERIES_PAYS_ILE.slice(0, -1).map((x) => idEpreuve(x, 'chrono', 'drapeaux')),
+      ...SERIES_PAYS_ILE.slice(0, -2).map((x) => idEpreuve(x, 'chrono', 'voisins')),
       idEpreuve('mers', 'chrono', 'mers'),
       idEpreuve('reunion'),
     ]);
     // Et les 4 du quiz (lot 4b), en dernier.
-    expect(epreuvesClassees()).toHaveLength(2 * 23 + 4);
+    expect(epreuvesClassees()).toHaveLength(2 * 29 + 4);
     // Mode par mode, puis sujet par sujet (§ 8.3).
-    expect(epreuvesClassees().slice(0, 23)).toEqual(epreuvesDuGeneral());
-    expect(epreuvesClassees().slice(23, 46).every((e) => modeEpreuve(e) === 'sansfaute')).toBe(true);
-    expect(epreuvesClassees().slice(46).every((e) => modeEpreuve(e) === 'quiz')).toBe(true);
+    expect(epreuvesClassees().slice(0, 29)).toEqual(epreuvesDuGeneral());
+    expect(epreuvesClassees().slice(29, 58).every((e) => modeEpreuve(e) === 'sansfaute')).toBe(true);
+    expect(epreuvesClassees().slice(58).every((e) => modeEpreuve(e) === 'quiz')).toBe(true);
   });
 
   it('tailleEpreuve : les questions de la série (les 100 %), celles du catalogue et de tailles(cle) des règles ; null hors du catalogue', () => {
     // Le quiz n'a pas de série : ses 20 questions font les 100 % (scores.ts, totalDe).
     for (const e of epreuvesClassees().filter((x) => modeEpreuve(x) !== 'quiz')) {
       const [, cle, serie] = e.split(':') as [string, string, string];
-      expect(tailleEpreuve(e), e).toBe(tailleDe.get(serie));
+      expect(tailleEpreuve(e), e).toBe(tailleAttendue(cle, serie));
       expect(tailleEpreuve(e), e).toBe(taillesRegles(cle)[serie]);
-      expect(tailleEpreuve(`${e}@s2914`), e).toBe(tailleDe.get(serie));
+      expect(tailleEpreuve(`${e}@s2914`), e).toBe(tailleAttendue(cle, serie));
     }
     expect([tailleEpreuve(idEpreuve('tous')), tailleEpreuve(idEpreuve('reunion', 'sansfaute', 'communes'))]).toEqual([195, 24]);
     // Les mers : les 50 zones de leur série unique (IDS_MERS), la couche non chargée.
@@ -695,18 +713,19 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
       expect(tailleEpreuve(e), e).toBeNull();
   });
 
-  it('BORNE_GENERAL : la somme des tailles des Chrono du général (1 244 = 390 + 24 + 390 + 390 + 50), celle de chronoValide des règles', () => {
-    const somme = epreuvesDuGeneral().reduce((n, e) => n + (tailleDe.get(e.split(':')[2]!) ?? NaN), 0);
-    expect(somme).toBe(1244);
+  it('BORNE_GENERAL : la somme des tailles des Chrono du général (1 555 = 390 + 24 + 390 + 390 + 311 + 50), celle de chronoValide des règles', () => {
+    const somme = epreuvesDuGeneral().reduce((n, e) => n + (tailleAttendue(e.split(':')[1]!, e.split(':')[2]!) ?? NaN), 0);
+    expect(somme).toBe(1555);
     // Et la somme des tailles du catalogue (tailleEpreuve), sujet par sujet.
     expect(epreuvesDuGeneral().reduce((n, e) => n + (tailleEpreuve(e) ?? NaN), 0)).toBe(BORNE_GENERAL);
     expect(BORNE_GENERAL).toBe(somme);
-    expect(regles).toContain(`n == 0 ? d.questions <= ${BORNE_GENERAL} :`);
+    // Les règles acceptent d'avance les Chrono des silhouettes (166 + 166), cachées ici (src/visibles.ts) : tests/silhouettes.test.ts.
+    expect(regles).toContain(`n == 0 ? d.questions <= ${BORNE_GENERAL + 332} :`);
   });
 
   it('les tailles des règles (tailles(cle)) : celles du catalogue, par clé ; les capitales (D37 c) et les drapeaux celles des pays, sans l’île ; les mers leur série unique de 50 (§ 8.2)', () => {
-    expect(cartes).toHaveLength(4);
-    const [mers, capitales, drapeaux, localiser] = cartes;
+    expect(cartes).toHaveLength(6);
+    const [mers, capitales, drapeaux, silhouettes, voisins, localiser] = cartes;
     const attendu = (sujets: string[]) => Object.fromEntries(EPREUVES_SUJETS.filter((p) => sujets.includes(p.sujet)).map((p) => [p.serie, tailleDe.get(p.serie)]));
     expect(mers).toEqual(attendu(['mers']));
     expect(mers).toEqual({ mers: 50 });
@@ -714,11 +733,81 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
     expect(drapeaux).toEqual(attendu(['drapeaux']));
     expect(localiser).toEqual(attendu(['pays', 'communes']));
     for (const c of [capitales, drapeaux]) expect(c).toEqual({ Africa: 54, Asia: 48, Europe: 44, 'North America': 23, Oceania: 14, 'South America': 12, tous: 195 });
+    // Les silhouettes, prêtes avant d'être ouvertes (cachées ici : EPREUVES_SUJETS ne les a pas ; tests/silhouettes.test.ts).
+    expect(silhouettes).toEqual({ Africa: 49, Asia: 45, Europe: 38, 'North America': 16, Oceania: 6, 'South America': 12, tous: 166 });
+    // Les voisins (lot 2) : les pays qui ont un voisin jouable, sans l'Océanie.
+    expect(voisins).toEqual(Object.fromEntries(EPREUVES_SUJETS.filter((p) => p.sujet === 'voisins').map((p) => [p.serie, tailleAttendue('voisins', p.serie)])));
+    expect(voisins).toEqual({ Africa: 48, Asia: 41, Europe: 42, 'North America': 12, 'South America': 12, tous: 156 });
     // Chaque carte sous sa clé : « cle == 'mers' ? {…} : cle == 'capitales' ? {…} : cle == 'drapeaux' ? {…} : {…} ».
     expect(corps.indexOf("cle == 'mers'")).toBeLessThan(corps.indexOf("cle == 'capitales'"));
     expect(corps.indexOf("cle == 'capitales'")).toBeLessThan(corps.indexOf("cle == 'drapeaux'"));
-    expect(regles).toMatch(/p\[1\] in \['localiser', 'capitales', 'drapeaux', 'mers'\]/);
+    expect(corps.indexOf("cle == 'drapeaux'")).toBeLessThan(corps.indexOf("cle == 'silhouettes'"));
+    expect(corps.indexOf("cle == 'silhouettes'")).toBeLessThan(corps.indexOf("cle == 'voisins'"));
+    expect(regles).toMatch(/p\[1\] in \['localiser', 'capitales', 'drapeaux', 'silhouettes', 'voisins', 'mers'\]/);
     // Minute retiré : les règles ne connaissent plus que le Chrono et Sans faute.
     expect(regles).toMatch(/p\[0\] in \['chrono', 'sansfaute'\]/);
+  });
+});
+
+describe('les Voisins (J4, lot 2 ; D607 a, exception du 28/11 de « Barème et classements »)', () => {
+  const pays = JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as Pays[];
+  const jouables = new Set(pays.filter((p) => p.statut === 'jouable').map((p) => p.id));
+  const posables = pays.filter((p) => jouables.has(p.id) && p.voisins.some((v) => jouables.has(v)));
+  const n = (p: Pays) => p.voisins.filter((v) => jouables.has(v)).length;
+  const regles = readFileSync('firestore.rules', 'utf8');
+  const sc = (justes: number, questions: number, temps_ms: number) => ({ points: justes, justes, questions, temps_ms });
+
+  it('délai : 4 s plus 2 s par voisin (Portugal 6 s, Hongrie 18 s, Chine 32 s)', () => {
+    expect([1, 7, 14].map(delaiVoisins)).toEqual([6_000, 18_000, 32_000]);
+    const de = (id: string) => n(pays.find((p) => p.id === id)!);
+    expect(['PRT', 'HUN', 'CHN'].map((id) => delaiVoisins(de(id)))).toEqual([6_000, 18_000, 32_000]);
+    // Le plus long, celui de la Chine et de la Russie : la borne de Sans faute par juste.
+    expect(Math.max(...posables.map((p) => delaiVoisins(n(p))))).toBe(TEMPS_MAX_JUSTE_VOISINS_MS);
+  });
+
+  it('le temps maximal de chaque série : la somme de ses délais (1 872 s pour « tous »), celui des règles (tempsVoisins)', () => {
+    const somme = (ps: Pays[]) => ps.reduce((t, p) => t + delaiVoisins(n(p)), 0);
+    const attendu = Object.fromEntries(
+      EPREUVES_SUJETS.filter((p) => p.sujet === 'voisins').map((p) => [p.serie, somme(p.serie === 'tous' ? posables : posables.filter((x) => x.continent === p.serie))]),
+    );
+    expect(TEMPS_CHRONO_VOISINS_MS).toEqual(attendu);
+    expect(TEMPS_CHRONO_VOISINS_MS.tous).toBe(1_872_000);
+    const corps = regles.slice(regles.indexOf('function tempsVoisins()'), regles.indexOf('function semaineCourante'));
+    const carte = Object.fromEntries([...corps.matchAll(/'([^']+)': (\d+)/g)].map((x) => [x[1]!, Number(x[2])]));
+    expect(carte).toEqual(TEMPS_CHRONO_VOISINS_MS);
+    // Toujours sous 15 s par question en moyenne : le général garde sa borne par question.
+    for (const [serie, t] of Object.entries(TEMPS_CHRONO_VOISINS_MS)) expect(t / tailleEpreuve(`chrono:voisins:${serie}`)!, serie).toBeLessThan(15_000);
+    expect(regles).toContain("sansFauteValide(d, tailles(p[1])[p[2]], p[1] == 'voisins' ? 32000 : 15000)");
+  });
+
+  it('vraisemblable le suit : le Chrono borné à la somme de ses délais, Sans faute à 32 s par juste (15 s ailleurs)', () => {
+    const e = idEpreuve('Europe', 'chrono', 'voisins');
+    expect(vraisemblable(sc(40, 42, 500_000), e)).toBe(true);
+    expect(vraisemblable(sc(40, 42, 518_000), e)).toBe(true);
+    expect(vraisemblable(sc(40, 42, 518_001), e)).toBe(false);
+    expect(vraisemblable(sc(40, 42, 600_000), e)).toBe(false);
+    // Sous 15 s par question, mais au-delà des délais : refusé quand même ; la même chose pour les pays passe.
+    expect(vraisemblable(sc(40, 42, 600_000), idEpreuve('Europe'))).toBe(true);
+    const sf = idEpreuve('Asia', 'sansfaute', 'voisins');
+    expect(vraisemblable({ points: 3, justes: 3, questions: 4, temps_ms: 90_000 }, sf)).toBe(true);
+    expect(vraisemblable({ points: 3, justes: 3, questions: 4, temps_ms: 96_000 }, sf)).toBe(true);
+    expect(vraisemblable({ points: 3, justes: 3, questions: 4, temps_ms: 100_000 }, sf)).toBe(false);
+    expect(vraisemblable({ points: 3, justes: 3, questions: 4, temps_ms: 90_000 }, idEpreuve('Asia', 'sansfaute'))).toBe(false);
+    // Une clé de record de la semaine : les mêmes bornes.
+    expect(vraisemblable(sc(40, 42, 518_001), `${e}@s2914`)).toBe(false);
+  });
+
+  it('une partie au délai par question : chaque réponse bornée par le sien, un juste hors de son délai compte faux', () => {
+    const p = new PartieChrono(['PRT', 'CHN'], 32_000, [6_000, 32_000]);
+    expect(p.delaiCourant).toBe(6_000);
+    p.repondre('PRT', true, null, 7_000);
+    expect(p.delaiCourant).toBe(32_000);
+    p.repondre('CHN', true, null, 20_000);
+    expect(p.score()).toEqual({ points: 1, justes: 1, questions: 2, temps_ms: 6_000 + 20_000 });
+    const s = new PartieSansFaute(['CHN', 'PRT'], 32_000, [32_000, 6_000]);
+    s.repondre('CHN', true, null, 30_000);
+    expect(s.finie).toBe(false);
+    s.expirer();
+    expect(s.score()).toEqual({ points: 1, justes: 1, questions: 2, temps_ms: 30_000 });
   });
 });

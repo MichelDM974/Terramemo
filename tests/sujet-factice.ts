@@ -56,6 +56,8 @@ export function renduFactice(): RenduSujet {
     point: () => null,
     points: () => [],
     imageEnonce: () => null,
+    question: () => null,
+    comparaison: () => null,
     qcmPosable: () => true,
     qcmExclus: () => new Set(),
     qcmPareils: () => false,

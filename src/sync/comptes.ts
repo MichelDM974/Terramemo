@@ -401,7 +401,7 @@ function stockageDeLaPage(): StockageProfil | null {
   }
 }
 
-/** Une erreur propre à l'appli, traduite comme celles de Firebase (textes compte.erreurs). */
+/** Une erreur propre à l'appli, traduite comme celles de Firebase (textes-erreurs.fr.json). */
 export class ErreurCompte extends Error {
   /** `email` : l'adresse que le texte nomme (« choisis {adresse} »), lue par adresseErreur comme celle de Firebase. */
   readonly customData?: { email: string };

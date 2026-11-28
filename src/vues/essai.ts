@@ -17,6 +17,13 @@
 // J2 : ce qu'une question montre d'un lieu (énoncé, rétroaction, bilan) vient
 // du rendu de son sujet (src/vues/sujets.ts) : celui de la partie lancée, ou
 // le domaine de la fiche en séance ; l'Essai J0 joue les pays.
+//
+// J4, Voisins (lot 2) : Trouver touche chaque voisin du pays nommé, une
+// question à plusieurs touchers (src/vues/voisins.ts, QuestionCarte : le
+// compte, ce qui est neutre, une faute qui la finit) ; « Voir » montre les
+// voisins manqués et la finit. Reconnaître est un Trouver sur la liste écrite
+// des voisins (sens nommer au journal), pas un QCM ; la séance pose de même
+// ses fiches (formes « voisins » et « trouver »).
 import type { Emprise } from '../map/geo';
 import type { Via } from '../map/pick';
 import type { NomTerrain } from '../map/types';
@@ -25,10 +32,11 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserEnonce, prechargerEnonces, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserComparaison, poserEnonce, prechargerEnonces, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
-import { rendu, type RenduSujet } from './sujets';
+import { rendu, voisinsCharges, type RenduSujet } from './sujets';
+import type { QuestionCarte } from './voisins';
 import { remplir, textes } from './textes';
 
 interface Resultat {
@@ -50,6 +58,9 @@ interface Resultat {
   zoom: number | null;
   /** Temps jusqu'à la première réponse (ms). */
   premier_ms: number;
+  /** Voisins : une faute a fini la question (ni « Voir » ni « Passer ») ; le détail de son bilan (« 3 sur 7, puis Pologne »). */
+  faute?: boolean;
+  detail?: string;
 }
 
 /**
@@ -72,7 +83,7 @@ export interface ReponseJouee {
 /** Une question de séance (src/vues/seance.ts) : Trouver, le QCM de Reconnaître ou la carte retournée. */
 export interface QuestionPilotee {
   id: string;
-  forme: 'trouver' | 'qcm' | 'retournee';
+  forme: 'trouver' | 'qcm' | 'retournee' | 'voisins';
   /** Avant la question : la carte au monde entier, cadrée sur cette emprise (rappel d'une grappe), ou laissée au joueur. */
   cadrer: Emprise | 'monde' | null;
   /** « Je connais déjà » proposé (QCM d'un pays nouveau). */
@@ -177,12 +188,12 @@ export interface OptionsEssai {
   libre?(l: Lancement | null, t: Terrain): ((r: ReponseJouee) => void) | null;
 }
 
-/** Une question de Trouver finie, pour le journal. */
-const deTrouver = (r: Resultat): ReponseJouee => ({
+/** Une question de Trouver finie, pour le journal ; `sens` nommer : Reconnaître des Voisins (la liste, on touche le pays). */
+const deTrouver = (r: Resultat, sens: Mode): ReponseJouee => ({
   id: r.id,
-  sens: 'localiser',
+  sens,
   correct: r.premier,
-  aide: r.vu ? 'voir' : r.juste ? null : 'passer',
+  aide: r.vu ? 'voir' : r.juste || r.faute ? null : 'passer',
   reponse: r.premier ? null : r.reponse,
   via: r.premier ? r.via : null,
   zoom: r.zoom,
@@ -207,6 +218,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
+  /** Un toucher faux sous Silhouettes : la silhouette touchée et la juste, nommées (D621 a, RenduSujet.comparaison). */
+  const comparaison = creer('div', { class: 'comparaison' });
+  comparaison.hidden = true;
   const voir = creer('button', { type: 'button', class: 'secondary', id: 'essai-voir' }, T.voir);
   const passer = creer('button', { type: 'button', class: 'secondary', id: 'essai-passer' }, T.passer);
   const terminer = creer('button', { type: 'button', class: 'secondary', id: 'essai-terminer' }, T.terminer);
@@ -215,6 +229,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     { class: 'carte-barre essai', id: 'barre-essai' },
     creer('div', { class: 'essai-ligne' }, consigne, compte),
     retro,
+    comparaison,
     creer('div', { class: 'essai-actions' }, voir, passer, terminer),
   );
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'essai-bilan' });
@@ -273,6 +288,10 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
    * (l'Essai J0 : pays), ou le domaine de la fiche en séance (sujets.ts).
    */
   let rs: RenduSujet = rendu('pays', t.donnees);
+  /** Le sens des questions de Trouver en cours : nommer pour Reconnaître des Voisins (un Trouver sur leur liste). */
+  let sensQ: Mode = 'localiser';
+  /** Les Voisins en sens localiser : la question à plusieurs touchers en cours (voisins.ts) ; null pour les autres. */
+  let qv: QuestionCarte | null = null;
   let cibles: string[] = [];
   let i = 0;
   let essais = 0;
@@ -325,7 +344,13 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     if (!id) return pilote ? prochaine() : finir();
     // Une question de mer : sans les pastilles des micro-États (décision du 16/11) ; rendues pour un autre sujet.
     pastillesPour(ctx, rs.sujet);
-    poserEnonce(consigne, rs.enonce(id));
+    // Les voisins à toucher (sens localiser) : leur question, gardée telle quelle à la reprise.
+    let neuve = false;
+    if (rs.sujet === 'voisins' && sensQ === 'localiser') {
+      neuve = !reprise || qv?.id !== id;
+      if (neuve) qv = voisinsCharges()!.question(t, id, rs);
+    } else qv = null;
+    poserEnonce(consigne, qv ? qv.enonce() : rs.enonce(id));
     consigne.dataset.cible = id;
     // Le drapeau de la question suivante, demandé pendant celle-ci (étude J2 § 2.2) : celui que son énoncé montrera
     // (tiré, D38 a) ; en séance, la séance a préchargé les siennes.
@@ -334,14 +359,21 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     if (!reprise) {
       retro.textContent = '';
       retro.className = 'essai-retro';
+      poserComparaison(comparaison, null);
       essais = 0;
       premierFaux = null;
       vu = false;
       premiere = null;
     }
     for (const m of aRejouer) poser(m);
+    // Posée : le pays allumé et la carte sur lui ; reprise : ses marques remises.
+    if (qv && neuve) qv.poser(hBarre());
+    else qv?.remarquer();
     debut = performance.now();
   }
+
+  /** La hauteur de carte visible au-dessus de la barre. */
+  const hBarre = () => barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top;
 
   // Un « juste » encore affiché quand on quitte la vue ou termine compte quand
   // même : il était perdu, et la question revenait (bloquée, enAttente restant vrai).
@@ -361,6 +393,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     marques = [];
     retro.textContent = '';
     retro.className = 'essai-retro';
+    poserComparaison(comparaison, null);
   }
 
   function suivante(r: Resultat): void {
@@ -381,7 +414,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       id,
       essais,
       juste,
-      premier: juste && essais === 1 && !vu,
+      // Les voisins : juste sans aide, quel que soit le nombre de touchers.
+      premier: juste && (qv !== null || essais === 1) && !vu,
       vu,
       temps_ms: performance.now() - debut,
       distance_km: premierFaux,
@@ -389,12 +423,36 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       via: p.via,
       zoom: p.zoom,
       premier_ms: p.ms,
+      ...(qv ? { faute: qv.faute !== null, detail: qv.detail(), reponse: qv.faute } : {}),
     };
+  }
+
+  /**
+   * Une question des Voisins finie (tous trouvés, une faute, « Voir ») : sa rétroaction, au journal, puis la
+   * suivante, après un temps pour voir les manqués sur la carte (3,5 s ; 1,2 s quand elle est juste).
+   */
+  function finirVoisins(texte: string, juste = false): void {
+    const id = courante();
+    if (!id) return;
+    retro.className = `essai-retro ${juste ? 'juste' : 'faux'}`;
+    retro.textContent = texte;
+    const res = resultat(id, juste);
+    const ligne = rapporter(res);
+    if (ligne) retro.append(creer('span', { class: 'seance-ligne' }, ` · ${ligne}`));
+    resEnAttente = res;
+    enAttente = window.setTimeout(
+      () => {
+        enAttente = 0;
+        resEnAttente = null;
+        suivante(res);
+      },
+      juste ? 1200 : 3500,
+    );
   }
 
   /** Une question finie : au journal de la partie libre, ou à la séance (rend sa ligne discrète). */
   function rapporter(r: Resultat): string {
-    const j = deTrouver(r);
+    const j = deTrouver(r, sensQ);
     if (pilote) return pilote.repondre(j);
     journal?.(j);
     return '';
@@ -491,6 +549,15 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       ctx.terrains.montrer(t.nom);
     }
     rs = rendu(q.domaine ?? 'pays', t.donnees);
+    // Les voisins (formeDe de srs/seance.ts) : localiser à plusieurs touchers ; nommer, un Trouver sur leur liste.
+    sensQ = q.forme === 'trouver' && q.domaine === 'voisins' ? 'nommer' : 'localiser';
+    if (q.forme === 'voisins') {
+      cibles = [q.id];
+      barre.hidden = false;
+      // La question vole jusqu'à son pays : le Trouver suivant repart du monde (cadrage de la séance).
+      if (t.nom === 'monde') mondeZoome = true;
+      return afficherQuestion();
+    }
     if (q.forme === 'trouver') {
       cibles = [q.id];
       barre.hidden = false;
@@ -647,14 +714,17 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     t = terrain;
     rs = rendu(lancement?.sujet ?? 'pays', t.donnees);
     ctx.terrains.montrer(t.nom);
+    // Reconnaître des Voisins : un Trouver sur la liste de leurs voisins (D606 a), pas un QCM.
+    const surLaCarte = mode === 'localiser' || rs.sujet === 'voisins';
+    sensQ = mode;
     // Toucher sur le monde : la vue du monde, sinon celle laissée par le zoom lent d'un QCM (le quiz, Reconnaître)
     // ouvrirait la partie sur la région de sa dernière zone, peut-être une cible (décision « Zone allumée montrée
     // par un zoom lent »). Reconnaître repart d'elle de lui-même.
-    if (mode === 'localiser' && t.nom === 'monde') t.carte.vueEntiere();
+    if (surLaCarte && t.nom === 'monde') t.carte.vueEntiere();
     const j = o.libre?.(lancement, t) ?? null;
     journal = j;
     // Reconnaître : seuls les lieux qui se posent en QCM (D37 c : sous Capitales, pas les 9 pays au nom de leur capitale).
-    if (mode === 'nommer') return nommer.demarrer(t, rs.sujet, nomSerie(s.id), melanger(ids.filter((id) => rs.qcmPosable(id))), { surReponse: (r) => void j?.(deNommer(r)) });
+    if (!surLaCarte) return nommer.demarrer(t, rs.sujet, nomSerie(s.id), melanger(ids.filter((id) => rs.qcmPosable(id))), { surReponse: (r) => void j?.(deNommer(r)) });
     cibles = melanger(ids);
     i = 0;
     resultats = [];
@@ -704,7 +774,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
             rs.lieu(r.id),
             remplir(T.rate, {
               pays: rs.nomBilan(r.id, 'localiser'),
-              detail: r.juste ? `${nEssais(r.essais)}${r.vu ? T.rate_vu : ''}` : T.rate_passe,
+              detail: r.detail ?? (r.juste ? `${nEssais(r.essais)}${r.vu ? T.rate_vu : ''}` : T.rate_passe),
               distance: r.distance_km != null ? remplir(T.rate_distance, { km: fmtKm(r.distance_km) }) : '',
               temps: fmtS(r.temps_ms),
             }),
@@ -727,6 +797,8 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     if (!id || enAttente) return;
     noterPremiere();
     vu = true;
+    // Les voisins : les manqués montrés, la question finie (aide « voir »).
+    if (qv) return finirVoisins(qv.arreter());
     effacer();
     marquer(id, 'juste', true);
     t.carte.montrer(id, barre.getBoundingClientRect().top - t.carte.hote.getBoundingClientRect().top);
@@ -734,6 +806,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   passer.addEventListener('click', () => {
     const id = courante();
     if (!id || enAttente) return;
+    qv?.arreter();
     const r = resultat(id, false);
     rapporter(r);
     suivante(r);
@@ -795,6 +868,19 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
       const id = courante();
       if (!id || enAttente || nommer.enCours || retournee.enCours) return;
       const carte = t.carte;
+      const v = qv;
+      if (v)
+        return ctx.mesures.toucher(ev, x, y, () => {
+          const c = v.toucher(x, y);
+          noterPremiere(c.pick?.id ?? null);
+          essais++;
+          if (c.fin) finirVoisins(c.texte, c.juste);
+          else {
+            retro.className = `essai-retro ${c.classe}`;
+            retro.textContent = c.texte;
+          }
+          return { pick: c.pick, ...c.mesure };
+        });
       ctx.mesures.toucher(ev, x, y, () => {
         // Juste : la cible en vert ; faux : ce que la carte désigne (pick) en rouge.
         // Les zones admises de la carte, plus celles du sujet (D36 i : Jérusalem ↔ Jérusalem-Est sous Capitales).
@@ -803,6 +889,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         noterPremiere(note.juste ? null : (r?.id ?? null), note.juste ? note.via : null);
         essais++;
         effacer();
+        poserComparaison(comparaison, !note.juste && r && r.id !== id ? rs.comparaison(r.id, id) : null);
         if (note.juste) {
           marquer(id, 'juste');
           marquerPoint(id);
