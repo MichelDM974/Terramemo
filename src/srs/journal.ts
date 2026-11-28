@@ -121,6 +121,11 @@ export function probleme(e: unknown): string | null {
     if (o.correct === true && o.reponse != null) return 'reponse remplie sur une réponse juste';
   } else if (o.note != null) {
     return `note sur un événement ${String(o.type)}`;
+  } else if (o.estime !== undefined) {
+    // La valeur qu'une réponse a estimée (D617) : un « connu » ou une
+    // remise à zéro n'en ont pas. Refusée dès sa lecture, comme `note`, pour
+    // qu'aucune version n'en écrive ailleurs sans changer de format.
+    return `estime sur un événement ${String(o.type)}`;
   }
   return null;
 }

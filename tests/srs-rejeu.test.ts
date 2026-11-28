@@ -80,6 +80,11 @@ describe('validation des événements', () => {
       [{ distance_km: 30_000 }, 'distance_km'],
       [{ note: 5 }, 'note'],
       [{ note: 0 }, 'note'],
+      [{ estime: 0 }, 'estime'],
+      [{ estime: -3 }, 'estime'],
+      [{ estime: Infinity }, 'estime'],
+      [{ estime: 2e10 }, 'estime'],
+      [{ estime: '5' }, 'estime'],
       [{ autre: 1 }, 'champ inconnu : autre'],
     ];
     for (const [modif, attendu] of cas) expect(probleme({ ...ok, ...modif }), JSON.stringify(modif)).toBe(attendu);
@@ -94,6 +99,10 @@ describe('validation des événements', () => {
     const { note: _n, ...sansNote } = ok;
     expect(probleme(sansNote)).toBe('reponse sans note');
     expect(probleme({ ...ok, type: 'reinitialiser' })).toBe('note sur un événement reinitialiser');
+    // `estime` (D617) : sur une réponse seulement, comme la note.
+    expect(probleme({ ...ok, estime: 5 })).toBeNull();
+    expect(probleme({ ...ok, type: 'connu', note: null, estime: 5 })).toBe('estime sur un événement connu');
+    expect(probleme({ v: 1, id: 'x', appareil: 'A', ts: 0, tz: 0, seance: null, type: 'reinitialiser', fiche: 'pays:FRA:localiser', estime: 5 })).toBe('estime sur un événement reinitialiser');
   });
 });
 
