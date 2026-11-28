@@ -45,6 +45,7 @@ python3 .claude/skills/run-terramemo/driver.py ui --rendu webgl   # carte du mon
 python3 .claude/skills/run-terramemo/driver.py seance             # la séance du J1a seule (ui_seance), sur un journal vide
 python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord
 python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
+python3 .claude/skills/run-terramemo/driver.py silhouettes        # le sujet Silhouettes (J4, lot 1) seul, caché avant sa relecture : montré par ?silhouettes, serveur de développement seul (serve) ; Jouer à 360 px, puis --width (384 par défaut, 1280 : PC)
 python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers puis ses épreuves, ui_epreuves_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py quiz               # le quiz général seul (ui_quiz, aussi dans ui, #26), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py fiche              # la fiche d'un lieu seule (ui_fiche, aussi dans ui, #34) ; --width 1280 en PC ; --cible chrome|webview : le scénario de mesure seul (10 fiches, 10 voisins, chaque gel ≥ 46 ms avec sa cause), sur le téléphone
@@ -300,6 +301,18 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   conseil ou un bilan, ou si une fiche hors `capitales:` est écrite.
   Comme la Révision du jour d'après n'ouvre que la grappe de pays, sa
   grappe de capitales finie la laisse « À jour » pour `ui_seance`.
+- Le sujet Silhouettes (lot 1 du J4, #6, `ui_silhouettes`, pas dans `ui` :
+  `driver.py silhouettes`, profil neuf) : caché tant que sa liste n'est
+  pas relue (`src/visibles.ts`, `docs/relectures/silhouettes.md`), montré
+  par `?silhouettes` au serveur de développement seul (au build : ÉCHEC,
+  le sujet n'est pas dans Jouer). `140` à `142` à 360 px (Jouer : les six
+  sujets, « 166 silhouettes », « 49 silhouettes », le « ? »), puis à
+  `--width` : `143` à `145` Reconnaître (le dessin, aucun zoom avant la
+  réponse, une faute : les deux silhouettes nommées), `146` à `148`
+  Trouver, `149` à `152` Apprendre (Océanie, journal en `silhouettes:`
+  seulement), `153` Chrono ; enfin les durées des dessins (S605,
+  `performance.measure` « silhouette:… »). Captures du PC :
+  `--width 1280 --out …-pc`.
 - Le sujet Drapeaux (lot 2 du J2, partie B, #4, `ui_drapeaux`, après
   `ui_capitales` et avant `ui_seance`, sur une page rechargée ; seul :
   `driver.py drapeaux`, profil neuf, l'écran de connexion passé en invité
