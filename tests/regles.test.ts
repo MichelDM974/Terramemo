@@ -1006,9 +1006,10 @@ function reponses(n: number): Evenement[] {
     note: 1 as const,
   }));
 }
-/** Un lot composé (src/sync/lots.ts) de n réponses, `fin` à l'heure du serveur. */
-function lot(n = 1, o: Partial<DocLot> & Record<string, unknown> = {}): { id: string; doc: Record<string, unknown> } {
-  const e = reponses(n);
+/** Un lot composé (src/sync/lots.ts) de n réponses, `fin` à l'heure du serveur ; en v2 avec `estime`. */
+function lot(n = 1, o: Partial<DocLot> & Record<string, unknown> = {}, estime?: number): { id: string; doc: Record<string, unknown> } {
+  // Avec `estime` : une réponse au curseur (Habitants : étude du J4, § 5.2), qui n'est pas un toucher.
+  const e = reponses(n).map((x) => (estime === undefined ? x : { ...x, fiche: 'habitants:NGA:localiser', reponse: null, zoom: null, distance_km: null, estime }));
   const d = docDuLot({ id: e[0]!.id, appareil: APPAREIL, seance: SEANCE, evenements: e });
   return { id: e[0]!.id, doc: { ...d, fin: serverTimestamp(), ...o } };
 }
@@ -1079,7 +1080,9 @@ describe.skipIf(!hote)('lots joueurs/{uid}/lots/{lot} (J1b, lot 3 ; essai() ouve
       { evenements: ' '.repeat(161 - s.length) + s },
       { evenements: [s] },
       { evenements: { cartes: s } },
-      { v: 2 },
+      { v: 3 },
+      { v: 0 },
+      { v: '2' },
       { appareil: APPAREIL.slice(1) },
       { seance: 'courte' },
       { fin: Timestamp.now() },
@@ -1094,6 +1097,21 @@ describe.skipIf(!hote)('lots joueurs/{uid}/lots/{lot} (J1b, lot 3 ; essai() ouve
     await assertSucceeds(setDoc(ref(d, l.id), { ...l.doc, seance: null, evenements: ' '.repeat(160 - s.length) + s }));
   });
 
+  it('format v2 (étude du J4, lot 0, D617 a) : un lot qui porte `estime` s’écrit en v2 et passe, 200 compris ; un v3 non', async () => {
+    const d = db('ana');
+    for (const n of [1, 200]) {
+      const l = lot(n, {}, 8_123_456_789.5);
+      expect(l.doc.v).toBe(2);
+      expect((l.doc.evenements as string).length).toBeLessThanOrEqual(n * 160);
+      await assertSucceeds(setDoc(ref(d, l.id), l.doc));
+    }
+    // Sans `estime`, toujours v1.
+    expect(lot().doc.v).toBe(1);
+    const v3 = lot(1, { v: 3 }, 1000);
+    expect(problemeLot(v3.id, (({ fin: _, ...x }) => x)(v3.doc) as unknown as DocLot)).toBe('v');
+    await assertFails(setDoc(ref(d, v3.id), v3.doc));
+  });
+
   it('problemeLot (client) juge comme les règles ce qu’elles voient', async () => {
     const d = db('ana');
     const cas: [string, Partial<DocLot>, ((id: string) => string)?][] = [
@@ -1102,6 +1120,7 @@ describe.skipIf(!hote)('lots joueurs/{uid}/lots/{lot} (J1b, lot 3 ; essai() ouve
       ['n = 201', { n: 201 }],
       ['n = 1,5', { n: 1.5 }],
       ['v = 2', { v: 2 }],
+      ['v = 3', { v: 3 }],
       ['appareil court', { appareil: 'x'.repeat(35) }],
       ['séance longue', { seance: 'x'.repeat(37) }],
       ['séance nulle', { seance: null }],

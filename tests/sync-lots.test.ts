@@ -4,7 +4,7 @@
 // tri, coupe par 200), copie client de lotValide.
 import { describe, expect, it } from 'vitest';
 import { valider, type Evenement } from '../src/srs/journal';
-import { CARACTERES_PAR_EVENEMENT, compacter, composer, decoderId, deplier, docDuLot, encoderId, idsDuLot, N_MAX, problemeLot, trier, type DocLot } from '../src/sync/lots';
+import { CARACTERES_PAR_EVENEMENT, compacter, composer, decoderId, deplier, docDuLot, encoderId, idsDuLot, N_MAX, problemeLot, trier, versionLot, type DocLot } from '../src/sync/lots';
 
 const APPAREIL = '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b';
 const SEANCE = '0a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d';
@@ -179,7 +179,8 @@ describe('compacter et deplier', () => {
   it('un lot illisible pour cette version : v inconnu, n faux, carte refusée, valeur hors du format', () => {
     const e = reponse();
     const d = doc([e]);
-    expect(deplier({ ...d, v: 2 }).ok).toBe(false);
+    expect(deplier({ ...d, v: 3 }).ok).toBe(false);
+    expect(deplier({ ...d, v: 0 }).ok).toBe(false);
     expect(deplier({ ...d, n: 2 }).ok).toBe(false);
     expect(deplier({ ...d, evenements: 'pas du json' }).ok).toBe(false);
     const carte = (JSON.parse(d.evenements) as unknown[][])[0]!;
@@ -200,6 +201,58 @@ describe('compacter et deplier', () => {
     expect(idsDuLot({ evenements: futur })).toEqual(trier([a, b]).map((e) => e.id));
     expect(() => idsDuLot({ evenements: '[[3]]' })).toThrow();
     expect(() => idsDuLot({})).toThrow();
+  });
+});
+
+describe('format v2 : `estime` (étude du J4, lot 0, D617 a)', () => {
+  it('un lot sans `estime` reste en v1, octet pour octet comme avant la v2', () => {
+    const evts = [reponse(), reponse({ correct: false, reponse: 'ITA', via: null, distance_km: 312.5, note: 1, aide: 'voir' }), reponse({ fiche: 'villes:Q90:localiser' })];
+    const d = doc(evts);
+    expect(d.v).toBe(1);
+    expect(versionLot(evts)).toBe(1);
+    // L'encodage figé de la v1 (masque de 9 bits, valeurs dans l'ordre de FACULTATIFS) : recopié à la main.
+    const e = trier(evts)[0]!;
+    const premiere = (JSON.parse(d.evenements) as unknown[][])[0]!;
+    expect(premiere).toEqual([encoderId(e.id), e.ts, 240, 0, e.fiche, 0b111111111, 2, null, 0, 1.2345678901234567, 1, null, 2345, null, 3]);
+    expect(compacter(evts)).toBe(d.evenements);
+  });
+
+  it('un lot avec `estime` s’écrit en v2 (le 10e bit), se plie et se déplie à l’identique ; ses voisins sans `estime` aussi', () => {
+    const evts = [reponse({ fiche: 'habitants:NGA:localiser', estime: 230_000_000 }), reponse(), reponse({ fiche: 'superficies:TCD:localiser', estime: 1_284_000.75, correct: false, reponse: 'NER' })];
+    for (const e of evts) expect(valider(e)).toBe(true);
+    const d = doc(evts);
+    expect(d.v).toBe(2);
+    const cartes = JSON.parse(d.evenements) as unknown[][];
+    const avec = cartes.find((c) => c[4] === 'habitants:NGA:localiser')!;
+    expect(avec[5]).toBe(0b1111111111);
+    expect(avec.at(-1)).toBe(230_000_000);
+    const r = deplier(d);
+    expect(r.ok && r.evenements.map(propre)).toEqual(trier(evts).map(propre));
+    expect(problemeLot(d.evenements.length ? trier(evts)[0]!.id : '', d)).toBeNull();
+    // Le même lot étiqueté v1 : le 10e bit n'existe pas en v1, illisible.
+    expect(deplier({ ...d, v: 1 })).toMatchObject({ ok: false });
+  });
+
+  it('`estime` borné : nombre fini, > 0, ≤ 10¹⁰', () => {
+    expect(valider(reponse({ estime: 1e10 }))).toBe(true);
+    expect(valider(reponse({ estime: 0.001 }))).toBe(true);
+    for (const x of [0, -1, 1e10 + 1, Number.NaN, Number.POSITIVE_INFINITY, '12', null]) expect(valider(reponse({ estime: x as number })), String(x)).toBe(false);
+  });
+
+  it('la carte la pire d’une réponse au curseur, `estime` en pleine précision, tient la borne, 200 comprises ; avec un toucher en plus, non', () => {
+    // Une réponse au curseur (Habitants, Superficies : étude du J4, § 5.2) n'est pas un toucher : ni zoom, ni via, ni distance.
+    const pire = (fiche: string, o: Partial<Evenement> = {}) =>
+      reponse({ fiche, mode: 'libre', tz: -720, correct: false, reponse: null, via: null, aide: 'passer', note: null, zoom: null, distance_km: null, duree_ms: 86_400_000, estime: 9_876_543_210.123456, ...o });
+    for (const f of ['superficies:TCD:localiser', 'habitants:TCD:nommer']) expect(doc([pire(f)]).evenements.length, f).toBeLessThanOrEqual(CARACTERES_PAR_EVENEMENT);
+    const evts = Array.from({ length: N_MAX }, (_, i) => pire(i % 2 ? 'superficies:TCD:nommer' : 'habitants:TCD:localiser', { ts: 1_762_500_000_000 + i * 500_000 }));
+    const d = doc(evts);
+    expect(d.v).toBe(2);
+    expect(d.evenements.length).toBeLessThanOrEqual(N_MAX * CARACTERES_PAR_EVENEMENT);
+    expect(problemeLot(trier(evts)[0]!.id, d)).toBeNull();
+    // Pourquoi le lot 3 (Ordres de grandeur) ne doit pas écrire `estime` en pleine précision sur une réponse qui porte aussi
+    // zoom et distance en pleine précision : la carte la pire dépasse (173 caractères mesurés).
+    const touche = pire('superficies:TCD:localiser', { reponse: 'NE_B98', zoom: 1.2345678901234567, distance_km: 20_099.123456789012, duree_ms: 120_000, aide: null });
+    expect(doc([touche]).evenements.length).toBeGreaterThan(CARACTERES_PAR_EVENEMENT);
   });
 });
 
@@ -236,7 +289,9 @@ describe('problemeLot (lotValide des règles, recopiée)', () => {
     const d = doc([e]);
     expect(problemeLot(e.id, d)).toBeNull();
     expect(problemeLot(e.id.slice(1), d)).toBe('id');
-    expect(problemeLot(e.id, { ...d, v: 2 })).toBe('v');
+    expect(problemeLot(e.id, { ...d, v: 3 })).toBe('v');
+    // Un lot v1 relabellisé v2 reste lisible (la v2 est la v1 plus un champ) : les règles l'acceptent aussi.
+    expect(problemeLot(e.id, { ...d, v: 2 })).toBeNull();
     expect(problemeLot(e.id, { ...d, appareil: 'court' })).toBe('appareil');
     expect(problemeLot(e.id, { ...d, seance: 'courte' })).toBe('seance');
     expect(problemeLot(e.id, { ...d, n: 0 })).toBe('n');

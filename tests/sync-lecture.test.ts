@@ -12,7 +12,7 @@ import type { Evenement } from '../src/srs/journal';
 import { etat as rejouer } from '../src/srs/rejeu';
 import { depotARelireMemoire, depotLotsMemoire, type DepotARelire, type DepotLots } from '../src/sync/depot-lots';
 import { BORD_FIN, creerEnvoi, PAGE_LECTURE, type Marques, type Serveur } from '../src/sync/envoi';
-import { composer, deplier, docDuLot, idsDuLot, type DocLot } from '../src/sync/lots';
+import { composer, decoderId, deplier, docDuLot, idsDuLot, type DocLot } from '../src/sync/lots';
 
 const UID = 'uid-ana';
 const A = '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b';
@@ -110,6 +110,82 @@ async function deplierAvantJ2(): Promise<typeof deplier> {
     vi.doUnmock('../src/srs/fiches');
     vi.resetModules();
   }
+}
+
+/**
+ * Le deplier d'une version d'avant le socle commun des J4, J5 et J6, gardé en
+ * copie (src/sync/lots.ts au commit ed91d8c : v1 seule, neuf champs
+ * facultatifs), avec le valider de src/srs/journal.ts rechargé sur les seuls
+ * domaines du J2 (src/srs/fiches.ts au même commit). Une copie, pas le code
+ * du jour : elle ne suit pas les versions suivantes.
+ */
+async function deplierAvantSocle(): Promise<(doc: Record<string, unknown>) => ReturnType<typeof deplier>> {
+  vi.resetModules();
+  vi.doMock('../src/srs/fiches', async (original) => {
+    const f = await original<typeof import('../src/srs/fiches')>();
+    const lus: readonly string[] = ['pays', 'communes', 'capitales', 'drapeaux', 'mers'];
+    return { ...f, DOMAINES: lus, estDomaine: (x: string) => lus.includes(x), analyser: (x: string) => (lus.includes(x.split(':')[0] ?? '') ? f.analyser(x) : null) };
+  });
+  let valider: (e: unknown) => boolean;
+  try {
+    const j = await import('../src/srs/journal');
+    // Le journal d'avant ne connaissait pas `estime` : champ inconnu.
+    valider = (e) => !('estime' in (e as object)) && j.valider(e);
+  } finally {
+    vi.doUnmock('../src/srs/fiches');
+    vi.resetModules();
+  }
+  const TYPES = ['reponse', 'connu', 'reinitialiser'];
+  const MODES = ['qcm', 'rappel', 'revision', 'libre'];
+  const VIAS = ['trace', 'pastille', 'proche'];
+  const AIDES = ['voir', 'passer', 'connu'];
+  const FACULTATIFS = ['mode', 'reponse', 'via', 'zoom', 'correct', 'aide', 'duree_ms', 'distance_km', 'note'] as const;
+  const rang = (liste: readonly string[]) => (x: unknown) => (x === null ? null : Number.isInteger(x) && (x as number) >= 0 && (x as number) < liste.length ? liste[x as number] : undefined);
+  const tel = (x: unknown) => x;
+  const DECODE: Record<(typeof FACULTATIFS)[number], (x: unknown) => unknown> = {
+    mode: (x) => (x === null ? undefined : rang(MODES)(x)),
+    reponse: tel,
+    via: rang(VIAS),
+    zoom: tel,
+    correct: (x) => (x === 1 ? true : x === 0 ? false : undefined),
+    aide: rang(AIDES),
+    duree_ms: tel,
+    distance_km: tel,
+    note: tel,
+  };
+  return (doc) => {
+    if (doc.v !== 1) return { ok: false, probleme: `version ${String(doc.v)}` };
+    if (typeof doc.evenements !== 'string') return { ok: false, probleme: 'evenements' };
+    let cartes: unknown;
+    try {
+      cartes = JSON.parse(doc.evenements);
+    } catch {
+      return { ok: false, probleme: 'evenements illisibles' };
+    }
+    if (!Array.isArray(cartes) || cartes.length !== doc.n) return { ok: false, probleme: 'n' };
+    const evenements: Evenement[] = [];
+    let t0 = 0;
+    for (const [i, c] of cartes.entries()) {
+      if (!Array.isArray(c) || c.length < 6) return { ok: false, probleme: `carte ${i}` };
+      const [idc, t, tz, type, fiche, masque, ...valeurs] = c as unknown[];
+      const id = decoderId(idc);
+      if (!id || !Number.isSafeInteger(t) || !Number.isSafeInteger(masque) || (masque as number) < 0 || (masque as number) >= 1 << FACULTATIFS.length) return { ok: false, probleme: `carte ${i}` };
+      if (i === 0) t0 = t as number;
+      const e: Record<string, unknown> = { v: 1, id, appareil: doc.appareil, ts: i === 0 ? t : t0 + (t as number), tz, seance: doc.seance, type: Number.isInteger(type) ? TYPES[type as number] : undefined, fiche };
+      let j = 0;
+      for (const [b, k] of FACULTATIFS.entries()) {
+        if (!((masque as number) & (1 << b))) continue;
+        if (j >= valeurs.length) return { ok: false, probleme: `carte ${i} : ${k} manquant` };
+        const x = DECODE[k](valeurs[j++]);
+        if (x === undefined) return { ok: false, probleme: `carte ${i} : ${k}` };
+        e[k] = x;
+      }
+      if (j !== valeurs.length) return { ok: false, probleme: `carte ${i} : valeurs en trop` };
+      if (!valider(e)) return { ok: false, probleme: `carte ${i} refusée` };
+      evenements.push(e as unknown as Evenement);
+    }
+    return { ok: true, evenements };
+  };
 }
 
 async function coherent(m: Memoire, depot: Depot) {
@@ -249,6 +325,49 @@ describe('lecture des lots et union', () => {
     expect(new Set((await a.memoire.tous()).map((e) => e.id))).toEqual(new Set([pays.id, fleuve.id]));
     expect(await a.envoi.etat(UID)).toMatchObject({ aRelire: 0 });
     await coherent(a.memoire, a.depot);
+  });
+
+  it('un APK d’avant le socle commun (copie de son deplier) : un lot v2 avec `estime` et un lot v1 avec une fiche voisins:, illisibles, gardés ; la nouvelle version les relit sans perte (étude J4, lot 0)', async () => {
+    const avant = await deplierAvantSocle();
+    const s = fauxServeur();
+    const se1 = uuid();
+    const se2 = uuid();
+    const estime = evt(B, se1, T0 - 86_400_000, { fiche: 'habitants:NGA:localiser', mode: 'libre', note: null, via: null, zoom: null, correct: false, estime: 150_000_000 });
+    const voisin = evt(B, se2, T0 - 86_400_000 + 5, { fiche: 'voisins:HUN:localiser', mode: 'libre', note: null });
+    const pays = evt(B, se2, T0 - 86_400_000 + 6, { fiche: 'pays:HUN:localiser' });
+    s.poser(UID, [estime]);
+    s.poser(UID, [voisin, pays]);
+    const seul = evt(B, uuid(), T0 - 2 * 86_400_000, { fiche: 'capitales:FRA:localiser' });
+    s.poser(UID, [seul]);
+    const docs = [...s.docs.values()].map((d) => d as unknown as DocLot);
+    // Les documents : le lot à `estime` en v2, les autres en v1 (octet pour octet ceux d'avant).
+    expect(docs.map((d) => d.v)).toEqual([2, 1, 1]);
+    // C'est bien la version d'avant : elle lit le lot du J2, pas les deux autres.
+    expect(docs.map((d) => avant(d as unknown as Record<string, unknown>))).toEqual([{ ok: false, probleme: 'version 2' }, { ok: false, probleme: 'carte 0 refusée' }, { ok: true, evenements: [seul] }]);
+    expect(docs.map((d) => deplier(d).ok)).toEqual([true, true, true]);
+    const aRelire = depotARelireMemoire();
+    const lots = depotLotsMemoire();
+    const depot = depotMemoire();
+    const v1 = appareil({ serveur: s, depot, lots, aRelire, deplier: avant });
+    const r = await v1.envoi.declencher('connexion');
+    expect(r.lecture).toMatchObject({ lots: 3, illisibles: 2 });
+    expect((await v1.memoire.tous()).map((e) => e.id)).toEqual([seul.id]);
+    expect(await v1.envoi.etat(UID)).toMatchObject({ aRelire: 3 });
+    expect(s.creer).not.toHaveBeenCalled();
+    v1.memoire.fermer();
+    // Mise à jour vers ce socle, sans réseau : relus depuis l'appareil, `estime` compris.
+    s.hors = true;
+    const v2 = appareil({ serveur: s, depot, lots, aRelire, version: 'v2' });
+    await v2.memoire.pret;
+    const r2 = await v2.envoi.declencher('cloture');
+    expect(r2.lecture).toMatchObject({ relus: 2 });
+    expect(await aRelire.tous(UID)).toEqual([]);
+    const tous = await v2.memoire.tous();
+    expect(new Set(tous.map((e) => e.id))).toEqual(new Set([seul.id, estime.id, voisin.id, pays.id]));
+    expect(tous.find((e) => e.id === estime.id)?.estime).toBe(150_000_000);
+    expect(v2.memoire.etat().has('pays:HUN:localiser')).toBe(true);
+    expect(s.creer).not.toHaveBeenCalled();
+    await coherent(v2.memoire, depot);
   });
 
   it('contrôle au démarrage : un id en ligne absent du journal fait tout relire', async () => {

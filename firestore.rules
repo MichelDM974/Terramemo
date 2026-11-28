@@ -305,12 +305,14 @@ service cloud.firestore {
     // caractères par événement (les règles ne savent pas borner une carte
     // d'une liste : D34) ; l'heure du serveur. Que la première carte porte
     // l'id du lot, seul le client le vérifie (la carte est dans la chaîne).
+    // v : 1, ou 2 pour un lot qui porte `estime` (étude du J4, lot 0, D617 a) ;
+    // le profil garde sa v1.
     function lotValide(lot) {
       let d = request.resource.data;
       return lot.size() == 36
         && d.keys().hasOnly(['v', 'appareil', 'seance', 'fin', 'n', 'evenements'])
         && d.keys().hasAll(['v', 'appareil', 'seance', 'fin', 'n', 'evenements'])
-        && d.v == 1
+        && d.v in [1, 2]
         && d.appareil is string && d.appareil.size() == 36
         && (d.seance == null || (d.seance is string && d.seance.size() == 36))
         && d.fin == request.time

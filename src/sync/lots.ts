@@ -17,13 +17,19 @@
 // - masque : un bit par champ facultatif présent, dans l'ordre de
 //   FACULTATIFS ; les valeurs des champs présents suivent, dans cet ordre
 //   (null compris : présent et null n'est pas absent) ;
-// - `v` (1), `appareil` et `seance` sont mis en facteur dans le lot.
+// - `v`, `appareil` et `seance` sont mis en facteur dans le lot.
 // Ces listes sont le format v1 : on n'y ajoute qu'à la fin, et jamais
 // pendant que v vaut 1 (un champ nouveau du journal demande v = 2).
+//
+// Format v2 (étude du J4, lot 0, D617 a) : la v1 plus `estime` à la fin de
+// FACULTATIFS (le 10e bit du masque). compacter() écrit une carte v1 et une
+// carte v2 de la même façon ; seul `v` change : 1 tant qu'aucun événement du
+// lot n'a `estime` (le lot est alors octet pour octet celui d'avant la v2,
+// lisible par une version plus ancienne), 2 sinon. deplier() lit les deux.
 import { valider, type Evenement } from '../srs/journal';
 
-/** Version du format du lot et de ses cartes (`v` du document). */
-export const V_LOT = 1;
+/** Versions du format que cette version sait lire (`v` du document) ; lotValide des règles les accepte. */
+export const VERSIONS_LOT: readonly number[] = [1, 2];
 /** Événements par lot, au plus (règles : `n` de 1 à 200). */
 export const N_MAX = 200;
 /** Borne de la chaîne des règles : n × 160 caractères au plus. */
@@ -54,8 +60,13 @@ const TYPES = ['reponse', 'connu', 'reinitialiser'] as const;
 const MODES = ['qcm', 'rappel', 'revision', 'libre'] as const;
 const VIAS = ['trace', 'pastille', 'proche'] as const;
 const AIDES = ['voir', 'passer', 'connu'] as const;
-const FACULTATIFS = ['mode', 'reponse', 'via', 'zoom', 'correct', 'aide', 'duree_ms', 'distance_km', 'note'] as const;
+const FACULTATIFS = ['mode', 'reponse', 'via', 'zoom', 'correct', 'aide', 'duree_ms', 'distance_km', 'note', 'estime'] as const;
 type Facultatif = (typeof FACULTATIFS)[number];
+/** Champs facultatifs de chaque version : les premiers de FACULTATIFS (la v1 ses neuf, la v2 `estime` en plus). */
+const CHAMPS_DE_V: Readonly<Record<number, number>> = { 1: 9, 2: 10 };
+
+/** La version d'un lot de ces événements : 2 si l'un porte `estime`, 1 sinon (la v1 d'avant, octet pour octet). */
+export const versionLot = (evts: readonly Evenement[]): number => (evts.some((e) => e.estime !== undefined) ? 2 : 1);
 
 /** Un rang d'une liste (enum), ou null pour null. */
 const rang = (liste: readonly string[]) => ({
@@ -77,6 +88,7 @@ const CODECS: Record<Facultatif, { encoder(x: unknown): unknown; decoder(x: unkn
   duree_ms: tel,
   distance_km: tel,
   note: tel,
+  estime: tel,
 };
 
 // --- Ids ---------------------------------------------------------------------
@@ -150,11 +162,13 @@ export type Deplie = { ok: true; evenements: Evenement[] } | { ok: false; proble
 
 /**
  * Le lot déplié : chaque carte redevient un événement, validé. Un `v`
- * inconnu ou une carte refusée rend le lot entier illisible pour cette
- * version de l'appli (il ira dans `a_relire`, lot 4).
+ * inconnu, un bit du masque hors de sa version (`estime` dans un lot v1) ou
+ * une carte refusée rend le lot entier illisible pour cette version de
+ * l'appli (il ira dans `a_relire`, lot 4).
  */
 export function deplier(doc: Pick<DocLot, 'v' | 'appareil' | 'seance' | 'n' | 'evenements'>): Deplie {
-  if (doc.v !== V_LOT) return { ok: false, probleme: `version ${String(doc.v)}` };
+  if (!VERSIONS_LOT.includes(doc.v)) return { ok: false, probleme: `version ${String(doc.v)}` };
+  const champs = CHAMPS_DE_V[doc.v]!;
   if (typeof doc.evenements !== 'string') return { ok: false, probleme: 'evenements' };
   let cartes: unknown;
   try {
@@ -169,7 +183,7 @@ export function deplier(doc: Pick<DocLot, 'v' | 'appareil' | 'seance' | 'n' | 'e
     if (!Array.isArray(c) || c.length < 6) return { ok: false, probleme: `carte ${i}` };
     const [idc, t, tz, type, fiche, masque, ...valeurs] = c as unknown[];
     const id = decoderId(idc);
-    if (!id || !Number.isSafeInteger(t) || !Number.isSafeInteger(masque) || (masque as number) < 0 || (masque as number) >= 1 << FACULTATIFS.length)
+    if (!id || !Number.isSafeInteger(t) || !Number.isSafeInteger(masque) || (masque as number) < 0 || (masque as number) >= 1 << champs)
       return { ok: false, probleme: `carte ${i}` };
     if (i === 0) t0 = t as number;
     const e: Record<string, unknown> = {
@@ -183,7 +197,7 @@ export function deplier(doc: Pick<DocLot, 'v' | 'appareil' | 'seance' | 'n' | 'e
       fiche,
     };
     let j = 0;
-    for (const [b, k] of FACULTATIFS.entries()) {
+    for (const [b, k] of FACULTATIFS.slice(0, champs).entries()) {
       if (!((masque as number) & (1 << b))) continue;
       if (j >= valeurs.length) return { ok: false, probleme: `carte ${i} : ${k} manquant` };
       const x = CODECS[k].decoder(valeurs[j++]);
@@ -240,9 +254,9 @@ export function composer(evts: readonly Evenement[]): Lot[] {
   return lots.sort((a, b) => a.evenements[0]!.ts - b.evenements[0]!.ts || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
-/** Le document d'un lot composé. */
+/** Le document d'un lot composé, en v1 tant qu'aucun de ses événements n'a `estime` (versionLot). */
 export function docDuLot(l: Lot): DocLot {
-  return { v: V_LOT, appareil: l.appareil, seance: l.seance, n: l.evenements.length, evenements: compacter(l.evenements) };
+  return { v: versionLot(l.evenements), appareil: l.appareil, seance: l.seance, n: l.evenements.length, evenements: compacter(l.evenements) };
 }
 
 /**
@@ -253,7 +267,7 @@ export function docDuLot(l: Lot): DocLot {
  */
 export function problemeLot(id: string, doc: DocLot): string | null {
   if (id.length !== LONGUEUR_UUID) return 'id';
-  if (doc.v !== V_LOT) return 'v';
+  if (!VERSIONS_LOT.includes(doc.v)) return 'v';
   if (typeof doc.appareil !== 'string' || doc.appareil.length !== LONGUEUR_UUID) return 'appareil';
   if (doc.seance !== null && (typeof doc.seance !== 'string' || doc.seance.length !== LONGUEUR_UUID)) return 'seance';
   if (!Number.isInteger(doc.n) || doc.n < 1 || doc.n > N_MAX) return 'n';
