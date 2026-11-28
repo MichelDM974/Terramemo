@@ -174,7 +174,9 @@ export function installer(o: Outils): ModuleCurseur {
     let finie = false;
     let note: ReponseCurseur | null = null;
 
-    const valeurEl = el('output', { class: 'curseur-valeur' });
+    // Un <span>, pas un <output> : son rôle status (région aria-live implicite) redirait la valeur à chaque cran,
+    // déjà dite par l'aria-valuetext du curseur.
+    const valeurEl = el('span', { class: 'curseur-valeur' });
     const range = el('input', {
       type: 'range',
       class: 'curseur-range',

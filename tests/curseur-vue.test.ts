@@ -104,6 +104,12 @@ describe('le curseur (curseur.ts, § 5.2, D614 a)', () => {
     expect(esp(c.el.querySelector('.curseur-valeur')!.textContent)).toBe('450 000 habitants');
     expect(c.el.dataset.valeur).toBe('450000');
     expect(c.range.getAttribute('aria-label')).toBe('Habitants du Nigeria');
+    // La valeur dite une seule fois au lecteur d'écran, par aria-valuetext : pas un <output> (rôle status, région
+    // aria-live implicite, qui la redirait à chaque cran).
+    const valeurEl = c.el.querySelector('.curseur-valeur')!;
+    expect(valeurEl.tagName.toLowerCase()).toBe('span');
+    expect(valeurEl.getAttribute('role')).toBeNull();
+    expect(valeurEl.getAttribute('aria-live')).toBeNull();
     // Superficies : 1 400 km² au départ.
     const s = question('NGA', 'superficies');
     expect(s.q.valeur).toBe(1400);
