@@ -395,6 +395,22 @@ describe('Chrono et Sans faute (chrono.ts, § 5.5)', () => {
     expect(esp(bilan.innerText)).toContain(`${monde.noms[d]} : temps écoulé`);
   });
 
+  it('Valider après la fin du délai (la minuterie en retard) : temps écoulé, et le pays marqué faux, pas juste', () => {
+    const c = chrono();
+    c.lancer('chrono', ['BRA', 'ARG', 'CHL']);
+    const a = c.el('#barre-chrono .essai-consigne').dataset.cible!;
+    c.regler(grandeurs.get(a)!.habitants);
+    // 15,02 s écoulées sans que la minuterie de 15 s n'ait encore sonné.
+    const t0 = performance.now();
+    const now = vi.spyOn(performance, 'now').mockReturnValue(t0 + 15_020);
+    c.el('#barre-chrono .curseur-valider').click();
+    now.mockRestore();
+    expect(c.el('#barre-chrono .essai-retro').className).toBe('essai-retro faux');
+    expect(esp(c.el('#barre-chrono .essai-retro').textContent)).toMatch(new RegExp(`^Temps écoulé · ${monde.noms[a]} : `));
+    expect(c.marques.filter((m) => m.startsWith(`${a}:`) || m.startsWith(`anneau ${a}:`))).not.toContainEqual(`${a}:juste`);
+    expect(c.marques).toContain(`${a}:faux`);
+  });
+
   it('Sans faute des superficies : la première erreur finit la partie', () => {
     const c = chrono();
     c.lancer('sansfaute', ['BRA', 'ARG'], 'superficies');

@@ -285,6 +285,11 @@ export function installer(o: Outils): ModuleCurseur {
       valider: noterValeur,
       arreter(temps = false) {
         if (!finie) bloquer();
+        // Validée trop tard (le Chrono la compte au temps écoulé, la minuterie en retard) : marquée fausse, pas juste.
+        if (note?.juste) {
+          note = { ...note, juste: false };
+          marquer();
+        }
         return temps ? remplir(T.temps, { vraie: vraie(x, s, nom) }) : vraie(x, s, nom);
       },
     };
