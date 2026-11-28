@@ -38,7 +38,7 @@ import { ID_CLIENT_WEB } from './firebase';
 /** Le plugin, ce qu'on en appelle (tests : un faux). */
 export type PluginGoogle = Pick<GoogleSignInPlugin, 'initialize' | 'signIn'>;
 
-/** Les codes de l'appli pour Google dans l'APK, traduits par src/sync/erreurs.ts (textes compte.erreurs). */
+/** Les codes de l'appli pour Google dans l'APK, traduits par src/sync/erreurs.ts (textes-erreurs.fr.json). */
 export const ERREURS_GOOGLE_APK = {
   /** « Annuler », retour, toucher hors de la feuille : rien à dire, comme la fenêtre fermée du site. */
   annule: 'terramemo/google-annule',

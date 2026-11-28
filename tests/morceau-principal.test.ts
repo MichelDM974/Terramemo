@@ -50,6 +50,10 @@ describe('le morceau principal', () => {
     expect(vus.has('src/vues/silhouettes.ts')).toBe(false);
   });
 
+  it('ne porte pas les textes des erreurs des comptes : seul src/sync/erreurs.ts les lit, dans les morceaux des comptes', () => {
+    expect(['src/sync/erreurs.ts', 'src/vues/textes-erreurs.ts', 'src/vues/textes-erreurs.fr.json'].filter((f) => vus.has(f))).toEqual([]);
+  });
+
   it('ne porte pas l’écran Crédits ni ses textes : un morceau chargé à la demande (main.ts, vueALaDemande)', () => {
     const credits = ['src/vues/credits.ts', 'src/vues/textes-credits.ts', 'src/vues/textes-credits.fr.json', 'package.json'];
     expect(credits.filter((f) => vus.has(f))).toEqual([]);

@@ -11,6 +11,7 @@ import { vueALaDemande } from '../src/vues/a-la-demande';
 import { accueilCompte, adresseGmail, detailProgres, texteGoogle, textePerdue, textePerduePanneau, textePseudoDuCompte, texteQuestion, texteSynchro, textesDeconnexion, vueCompte } from '../src/vues/compte';
 import type { Vue } from '../src/vues/commun';
 import { remplir, textes } from '../src/vues/textes';
+import { textesErreurs } from '../src/vues/textes-erreurs';
 import { installerDom, installerStockage, type El } from './dom-factice';
 
 const T = textes.compte;
@@ -600,7 +601,7 @@ describe('vue Compte, lot 6 : Google', () => {
     $('#compte-google')!.click();
     await attendre();
     await attendre();
-    expect($('#compte-erreur')!.textContent).toBe(T.erreurs['terramemo/google-reglage']);
+    expect($('#compte-erreur')!.textContent).toBe(textesErreurs['terramemo/google-reglage']);
     expect($('#compte-erreur')!.textContent).not.toMatch(/reauth/);
   });
 
@@ -714,7 +715,7 @@ describe('vue Compte, lot 6 : Google', () => {
     const attendus: Record<string, string> = {
       'auth/popup-blocked': 'Fenêtre de Google bloquée : touche encore le bouton (ou autorise les fenêtres pour ce site).',
       'auth/unauthorized-domain': 'Connexion impossible depuis cette adresse du site',
-      'auth/web-storage-unsupported': T.erreurs['auth/web-storage-unsupported']!,
+      'auth/web-storage-unsupported': textesErreurs['auth/web-storage-unsupported']!,
       'terramemo/google-reessayer': 'Connexion Google interrompue : touche encore le bouton de Google.',
     };
     for (const [code, texte] of Object.entries(attendus)) {
@@ -1235,7 +1236,7 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     $('#compte-suppression-annuler')!.click();
     await attendre();
     await attendre();
-    expect($('#compte-erreur')!.textContent).toBe(T.erreurs['terramemo/suppression-engagee']);
+    expect($('#compte-erreur')!.textContent).toBe(textesErreurs['terramemo/suppression-engagee']);
     expect($('#compte-suppression-inachevee')).not.toBeNull();
   });
 
@@ -1301,7 +1302,7 @@ describe('vue Compte, lot 5 : suppression du compte', () => {
     await attendre();
     await attendre();
     expect($('#compte-suppression-inachevee')).not.toBeNull();
-    expect($('#compte-erreur')!.textContent).toBe(T.erreurs['terramemo/suppression-inachevee']);
+    expect($('#compte-erreur')!.textContent).toBe(textesErreurs['terramemo/suppression-inachevee']);
   });
 
   it('suppression inachevée, deleteUser abouti ici : il reste à vider l’appareil, sans mot de passe', async () => {
