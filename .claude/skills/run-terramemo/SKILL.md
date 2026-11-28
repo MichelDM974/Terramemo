@@ -46,7 +46,8 @@ python3 .claude/skills/run-terramemo/driver.py seance             # la séance d
 python3 .claude/skills/run-terramemo/driver.py accueil            # l'écran de connexion de la première ouverture seul (ui_accueil), la carte d'abord
 python3 .claude/skills/run-terramemo/driver.py drapeaux           # le sujet Drapeaux seul (ui_drapeaux, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py silhouettes        # le sujet Silhouettes (J4, lot 1) seul, caché avant sa relecture : montré par ?silhouettes, serveur de développement seul (serve) ; Jouer à 360 px, puis --width (384 par défaut, 1280 : PC)
-python3 .claude/skills/run-terramemo/driver.py voisins            # le sujet Voisins (J4, lot 2) seul, profil neuf : Jouer à 360 px (grille des sujets ; sept tuiles avec ?silhouettes au serveur de développement), puis --width (384 par défaut, 1280 : PC)
+python3 .claude/skills/run-terramemo/driver.py voisins            # le sujet Voisins (J4, lot 2) seul, profil neuf : Jouer à 360 px (grille des sujets ; neuf tuiles avec ?silhouettes au serveur de développement), puis --width (384 par défaut, 1280 : PC)
+python3 .claude/skills/run-terramemo/driver.py grandeurs          # Habitants et Superficies (J4, lot 3) seuls, profil neuf : Jouer et le curseur à 360 px, puis --width (384 par défaut, 1280 : PC) : Trouver, Reconnaître, Chypre, un Chrono, Apprendre, le journal
 python3 .claude/skills/run-terramemo/driver.py mers               # le sujet Océans et mers seul (ui_mers puis ses épreuves, ui_epreuves_mers, aussi dans ui), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py quiz               # le quiz général seul (ui_quiz, aussi dans ui, #26), profil neuf, l'écran de connexion passé en invité
 python3 .claude/skills/run-terramemo/driver.py fiche              # la fiche d'un lieu seule (ui_fiche, aussi dans ui, #34) ; --width 1280 en PC ; --cible chrome|webview : le scénario de mesure seul (10 fiches, 10 voisins, chaque gel ≥ 46 ms avec sa cause), sur le téléphone
@@ -320,7 +321,7 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   Voisins après Drapeaux, « 156 pays », ses séries sans l'Océanie
   (« 48 pays » en Afrique), le « ? » (ce qui ne compte pas ; sous Classé,
   « 4 s plus 2 s par voisin ») ; `164` : avec `?silhouettes` (serveur de
-  développement seul), sept tuiles, Communes sur toute la largeur. Puis à
+  développement seul), neuf tuiles, Communes sur toute la largeur. Puis à
   `--width` : `165` la grille à cette largeur, `166` à `170` Trouver
   (« Touche les N voisins de : … », un voisin juste et compté, le pays
   lui-même qui ne compte pas, une faute qui montre les manqués cernés,
@@ -328,6 +329,28 @@ python3 .claude/skills/run-terramemo/driver.py lignes             # les lignes d
   liste écrite, aucun QCM), `173` à `175` Apprendre (Europe, journal en
   `voisins:` seulement), `176` Chrono (la question, ses voisins touchés).
   Captures du PC : `--width 1280 --out …-pc`.
+- Les Habitants et les Superficies (lot 3 du J4, #6, `ui_grandeurs`, pas
+  dans `ui` : `driver.py grandeurs`, profil neuf ; rien de curseur*,
+  grandeurs* ni fiches-monde.json au premier affichage). `180` à `183` à
+  360 px : Jouer (huit tuiles, Habitants et Superficies après Voisins, leur
+  icône, « 195 pays » ; `183` avec `?silhouettes`, serveur de développement
+  seul : neuf tuiles, Communes sur toute la largeur), le « ? » (le curseur,
+  ×1,5 ; le tracé pour les superficies ; sous Classé, « au curseur »), le
+  curseur dans la barre (rien ne déborde, − et + et « Valider » de 44 px).
+  Puis à `--width` : `184` la grille, `185` à `189` Trouver (« Combien
+  d'habitants : … », « Voir » caché, départ à 450 000 habitants, un glissé
+  du doigt ou de la souris, → du clavier, + et − à ×1,1, une réponse juste
+  puis une fausse, « … fois trop : faux », le bilan qui dit la valeur
+  répondue), `190` et `191` Reconnaître (« Lequel compte environ », la
+  valeur dans la barre, aucun zoom avant la réponse), `192` et `193`
+  Superficies › Asie sur Chypre (« Passer » jusqu'à elle ; juste à
+  6 000 km² « pour le tracé », puis à 10 000 par Wikidata, les deux valeurs
+  citées, D616 a), `194` à `196` Classé › Habitants › Amérique du Sud ›
+  Chrono joué en entier (la deuxième question fausse : « 11/12 »), `197` à
+  `199` Apprendre (le QCM, puis le curseur, jusqu'au bilan) ; enfin le
+  journal (`estime` à 2 chiffres sur les fiches localiser seules, rien d'un
+  toucher, une valeur fausse jamais écrite « Passer »). Captures du PC :
+  `--width 1280 --out /tmp/terramemo-captures-grandeurs-pc`.
 - Le sujet Drapeaux (lot 2 du J2, partie B, #4, `ui_drapeaux`, après
   `ui_capitales` et avant `ui_seance`, sur une page rechargée ; seul :
   `driver.py drapeaux`, profil neuf, l'écran de connexion passé en invité

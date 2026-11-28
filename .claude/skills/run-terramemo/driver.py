@@ -1241,19 +1241,21 @@ def part_juste(m):
 SERIES_PAYS = ["tous", "Africa", "North America", "South America", "Asia", "Europe", "Oceania"]
 # Les sujets de Classé, ceux de EPREUVES_SUJETS (src/epreuve/chrono.ts ; décision « Ouverture des épreuves
 # d'un sujet », 12/11 : ouverts dès leur livraison, sans date), dans l'ordre de D53 b (Communes en dernier).
-# Océans et mers depuis ses épreuves (lot 3b, partie B) ; Voisins depuis le lot 2 du J4 (décision « Ordre des sujets »).
-SUJETS_CLASSE = ["pays", "capitales", "drapeaux", "voisins", "mers", "communes"]
-NOMS_CLASSE = "Pays, Capitales, Drapeaux, Voisins, Océans et mers, Communes"
+# Océans et mers depuis ses épreuves (lot 3b, partie B) ; Voisins depuis le lot 2 du J4 (décision « Ordre des sujets ») ;
+# Habitants et Superficies depuis le lot 3 du J4.
+SUJETS_CLASSE = ["pays", "capitales", "drapeaux", "voisins", "habitants", "superficies", "mers", "communes"]
+NOMS_CLASSE = "Pays, Capitales, Drapeaux, Voisins, Habitants, Superficies, Océans et mers, Communes"
 # Les titres des sujets (h4) du 🏆 sous chaque mode, quand tous y ont des lignes (sans pseudo : toutes les épreuves).
-H4_CLASSEMENTS = ["Pays", "Capitales", "Drapeaux", "Voisins", "Océans et mers", "Communes"]
+H4_CLASSEMENTS = ["Pays", "Capitales", "Drapeaux", "Voisins", "Habitants", "Superficies", "Océans et mers", "Communes"]
 
 
-# Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 3b du J2 (Océans et mers) et
-# le lot 2 du J4 (Voisins).
-SUJETS_ENTRAINEMENT = ["pays", "capitales", "drapeaux", "voisins", "mers", "communes"]
-NOMS_ENTRAINEMENT = "Pays, Capitales, Drapeaux, Voisins, Océans et mers, Communes"
-# Le choix du sujet de la carte de la mémoire du monde (D47 a), depuis le lot 3b ; les voisins depuis le lot 2 du J4.
-SUJETS_MEMOIRE = ["pays", "capitales", "drapeaux", "voisins", "mers"]
+# Les sujets d'Entraînement, dans l'ordre de D53 b (Communes en dernier), depuis le lot 3b du J2 (Océans et mers), le
+# lot 2 du J4 (Voisins) et son lot 3 (Habitants, Superficies).
+SUJETS_ENTRAINEMENT = ["pays", "capitales", "drapeaux", "voisins", "habitants", "superficies", "mers", "communes"]
+NOMS_ENTRAINEMENT = "Pays, Capitales, Drapeaux, Voisins, Habitants, Superficies, Océans et mers, Communes"
+# Le choix du sujet de la carte de la mémoire du monde (D47 a), depuis le lot 3b ; les voisins depuis le lot 2 du J4, les
+# habitants et les superficies depuis son lot 3.
+SUJETS_MEMOIRE = ["pays", "capitales", "drapeaux", "voisins", "habitants", "superficies", "mers"]
 
 
 def niveau_jouer(page):
@@ -2851,7 +2853,7 @@ def ui_drapeaux(p, capturer, defauts, base, parametres="", ecran=None, telephone
 
 # Les sujets d'Entraînement avec les silhouettes montrées (?silhouettes, serveur de développement) : près des
 # drapeaux (D601 a). Tant que leur liste n'est pas relue (src/visibles.ts), Jouer garde SUJETS_ENTRAINEMENT.
-SUJETS_SILHOUETTES = ["pays", "capitales", "drapeaux", "silhouettes", "voisins", "mers", "communes"]
+SUJETS_SILHOUETTES = ["pays", "capitales", "drapeaux", "silhouettes", "voisins", "habitants", "superficies", "mers", "communes"]
 ALT_SILHOUETTE = "Silhouette à reconnaître"  # textes.silhouettes.alt
 
 # Ce que montre la barre d'une question de silhouette : son dessin (le SVG, son nom pour les lecteurs d'écran, sa
@@ -3113,7 +3115,7 @@ def ui_voisins(p, capturer, defauts, base, parametres="", ecran=None, telephone=
     """Captures 160 à 176 (lot 2 du J4, #6 ; étude 2026-11-25-j4-conception.md, § 3, § 7 ; D601, D605 à D607) : rien
     des voisins au premier affichage ; Jouer à 360 px de large (S602, décision « Écran Jouer » : les sujets en grille à
     deux colonnes, Voisins après Drapeaux, son icône, « 156 pays » ; avec ?silhouettes, au serveur de développement,
-    sept tuiles et Communes sur toute la largeur), ses séries sans l'Océanie (« 48 pays » en Afrique), le « ? » ; puis,
+    neuf tuiles et Communes sur toute la largeur), ses séries sans l'Océanie (« 48 pays » en Afrique), le « ? » ; puis,
     à la largeur de l'écran demandé : Trouver sur l'Europe (« Touche les N voisins de : … », le pays allumé, un voisin
     juste et compté, le pays lui-même qui ne compte pas, une faute qui finit la question et montre les manqués, « Voir »
     sur la suivante, le bilan) ; Reconnaître (la liste écrite, aucun QCM, le pays touché) ; Apprendre sur l'Europe
@@ -3189,7 +3191,7 @@ def ui_voisins(p, capturer, defauts, base, parametres="", ecran=None, telephone=
     if "4 s plus 2 s par voisin" not in sans_insecables(regles) or "15 s par question" in sans_insecables(regles) or "2 s par voisin" not in detail:
         defauts.append(f"Classé › Voisins : règles ou phrase courte sans « 4 s plus 2 s par voisin » ({detail!r})")
     capturer("163-voisins-classe-360")
-    # Les silhouettes montrées (?silhouettes, serveur de développement seul) : sept tuiles, Communes sur toute la largeur.
+    # Les silhouettes montrées (?silhouettes, serveur de développement seul) : neuf tuiles, Communes sur toute la largeur.
     p.goto(base + "?mesures=0&silhouettes" + parametres + "#jouer")
     attendre_visible(p, "#jouer-panneau")
     cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
@@ -3198,7 +3200,7 @@ def ui_voisins(p, capturer, defauts, base, parametres="", ecran=None, telephone=
         panneau_jouer(p, defauts, "Entraînement à 360 px (Silhouettes et Voisins)")
         capturer("164-voisins-sujets-silhouettes-360")
     else:
-        dire("  ?silhouettes sans effet (build) : la grille à sept tuiles n'est pas vue")
+        dire("  ?silhouettes sans effet (build) : la grille à neuf tuiles n'est pas vue")
     p.goto(base + "?mesures=0" + parametres + "#carte")
     p.attendre_carte()
     p.emuler(ecran, tactile=telephone)
@@ -3390,7 +3392,7 @@ def ui_voisins(p, capturer, defauts, base, parametres="", ecran=None, telephone=
 
 def commande_voisins(args):
     """ui_voisins seul, sur un profil neuf : l'écran de connexion passé en invité (passer_accueil). Au serveur de
-    développement (driver.py serve) pour la grille à sept tuiles (?silhouettes) ; le reste vaut aussi au build."""
+    développement (driver.py serve) pour la grille à neuf tuiles (?silhouettes) ; le reste vaut aussi au build."""
     out = pathlib.Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     telephone = args.width < 700
@@ -3411,6 +3413,479 @@ def commande_voisins(args):
             faites.append(chemin)
 
         ui_voisins(p, capturer, defauts, base, rendu, ecran, telephone)
+        erreurs = p.erreurs + p.echecs
+    for e in erreurs:
+        dire(f"  erreur : {e}")
+    for d in defauts:
+        dire(f"  DÉFAUT : {d}")
+    dire(f"  {len(faites)} captures dans {out}")
+    return 1 if erreurs or defauts else 0
+
+
+# --- Les ordres de grandeur, Habitants et Superficies (lot 3 du J4, #6) -------
+
+# Le curseur affiché dans une barre (#barre-essai, #barre-chrono ; src/vues/curseur.ts) : sa valeur (data-valeur), son
+# texte, aria-valuetext et aria-label, la position du <input type="range"> (0 à 1000) et son rectangle, la taille
+# des boutons − et + et de « Valider » ; null sans curseur.
+ETAT_CURSEUR = """(barre => {
+  const c = document.querySelector(barre + ' .curseur');
+  if (!c) return null;
+  const r = c.querySelector('.curseur-range'), b = r.getBoundingClientRect(), v = c.querySelector('.curseur-valider');
+  const t = e => { const q = e.getBoundingClientRect(); return [Math.round(q.width), Math.round(q.height)]; };
+  const br = document.querySelector(barre).getBoundingClientRect();
+  return { valeur: +c.dataset.valeur, sujet: c.dataset.sujet, texte: c.querySelector('.curseur-valeur').innerText,
+           aria: r.getAttribute('aria-valuetext'), label: r.getAttribute('aria-label'), pos: +r.value,
+           x: b.left, y: b.top + b.height / 2, w: b.width, h: b.height,
+           pas: [...c.querySelectorAll('.curseur-pas')].map(t), valider: t(v), actif: !v.disabled,
+           barre: [Math.round(br.left), Math.round(br.right), Math.round(br.top), Math.round(br.bottom)], largeur: innerWidth, hauteur: innerHeight };
+})"""
+
+# Règle le curseur d'une barre à la valeur v, comme un glissé (l'événement input du curseur natif) : sa position sur
+# l'échelle logarithmique de la plage du sujet (PLAGES de src/exercices/grandeurs.ts : 100 à 2 milliards d'habitants,
+# 0,1 à 20 millions de km²). Rend la valeur affichée (data-valeur, 2 chiffres).
+REGLER_CURSEUR = """((barre, v) => {
+  const c = document.querySelector(barre + ' .curseur'), r = c.querySelector('.curseur-range');
+  const p = c.dataset.sujet === 'habitants' ? [100, 2e9] : [0.1, 2e7];
+  const x = Math.min(1, Math.max(0, (Math.log(v) - Math.log(p[0])) / (Math.log(p[1]) - Math.log(p[0]))));
+  r.value = String(x * 1000);
+  r.dispatchEvent(new Event('input', { bubbles: true }));
+  return +c.dataset.valeur;
+})"""
+
+# Les événements du journal (terramemo-journal) : fiche, mode, juste, aide et ce que garde une réponse ; null si la
+# base est illisible.
+EVENEMENTS_JOURNAL = """new Promise(async ok => {
+  const bases = indexedDB.databases ? await indexedDB.databases() : [];
+  if (!bases.some(b => b.name === 'terramemo-journal')) return ok([]);
+  const r = indexedDB.open('terramemo-journal');
+  r.onerror = () => ok(null);
+  r.onsuccess = () => { const db = r.result;
+    if (!db.objectStoreNames.contains('evenements')) { db.close(); return ok([]); }
+    const q = db.transaction('evenements').objectStore('evenements').getAll();
+    q.onsuccess = () => { ok(q.result.map(e => ({ fiche: e.fiche, mode: e.mode, correct: e.correct, aide: e.aide, estime: e.estime ?? null,
+      a_estime: 'estime' in e, reponse: e.reponse, via: e.via, zoom: e.zoom, distance_km: e.distance_km }))); db.close(); };
+    q.onerror = () => { ok(null); db.close(); }; };
+})"""
+
+# Le verdict à la fin de la rétroaction d'un curseur (§ 5.2 : « … 1,6 fois trop peu : faux »), une ligne de la séance
+# (« · Revient demain ») pouvant suivre.
+MOTIF_VERDICT = re.compile(r": (juste|faux)(?: · .*)?$")
+
+
+def ressources_grandeurs(p):
+    """Le morceau du curseur et des grandeurs (vues/curseur, exercices/grandeurs, textes-grandeurs) et fiches-monde.json,
+    s'ils sont chargés par la page."""
+    return p.js("performance.getEntriesByType('resource').map(r => r.name).filter(n => /curseur|grandeurs|fiches-monde/.test(n))")
+
+
+def deux_chiffres(x):
+    """x est-il écrit à 2 chiffres significatifs au plus (450 000, 0,44, 2 milliards) ?"""
+    return isinstance(x, (int, float)) and x > 0 and abs(float(f"{x:.2g}") - x) <= 1e-9 * x
+
+
+def ui_grandeurs(p, capturer, defauts, base, parametres="", ecran=None, telephone=True):
+    """Captures 180 à 199 (lot 3 du J4, #6 ; étude 2026-11-25-j4-conception.md, § 5, § 7 ; D601, D613 à D617, D623) :
+    rien du curseur au premier affichage ; Jouer à 360 px (les sujets en grille à deux colonnes, Habitants et
+    Superficies après Voisins, leur icône, « 195 pays » ; huit tuiles, neuf avec ?silhouettes au serveur de
+    développement, Communes alors sur toute la largeur), le « ? » (le curseur, ×1,5 ; le tracé pour les superficies),
+    sous Classé « au curseur » ; le curseur à 360 px (rien ne déborde, − et + et « Valider » de 44 px) ; puis, à la
+    largeur de l'écran demandé : Habitants › Afrique › Trouver (« Combien d'habitants : … », « Voir » caché, départ à
+    450 000 habitants, un glissé, une flèche du clavier et + à ×1,1, puis −, une réponse juste puis une fausse et leur
+    rétroaction, le bilan) ; Reconnaître (le QCM : « Lequel compte environ », la valeur dans la barre, aucun zoom
+    avant la réponse) ; Superficies › Asie › Trouver sur Chypre (D616 a : juste à 6 000 km² par le tracé, puis à
+    10 000 par Wikidata, les deux valeurs citées) ; Classé › Habitants › Amérique du Sud › Chrono joué en entier
+    (12 questions au curseur, une fausse, le bilan « 11/12 ») ; Apprendre Habitants › Amérique du Sud jusqu'au bilan
+    (le QCM, puis le curseur) ; le journal (`estime` à 2 chiffres sur les fiches localiser seules, rien d'un
+    toucher). DÉFAUT à tout écart."""
+    ecran = ecran or TELEPHONE
+    p.goto("about:blank")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    if ressources_grandeurs(p):
+        defauts.append(f"curseur ou grandeurs chargés au premier affichage : {ressources_grandeurs(p)}")
+    _, _, corps = http(base + "geo/noms.fr.json")
+    noms = json.loads(corps)
+    _, _, corps = http(base + "geo/fiches-monde.json")
+    chiffres = json.loads(corps)["lieux"]
+
+    def vraie(ident, sujet):
+        return chiffres[ident]["h"] if sujet == "habitants" else chiffres[ident]["sup"]
+
+    def lire(attr):
+        return p.js(f"[...document.querySelectorAll('#jouer-panneau [{attr}]')].map(b => b.getAttribute('{attr}'))")
+
+    def aide():
+        return p.js("(() => { const b = document.querySelector('#jouer-panneau .help-btn'); if (b) b.click(); return document.getElementById('jouer-panneau').innerText; })()") or ""
+
+    def grille(quoi, attendus):
+        g = p.js(GRILLE_SUJETS)
+        dire(f"  {quoi} : {len(g['tuiles'])} tuiles en {g['colonnes']} colonnes, grille {g['grille']} px, défilement {g['defile']} px")
+        if [x["id"] for x in g["tuiles"]] != attendus:
+            defauts.append(f"{quoi} : sujets {[x['id'] for x in g['tuiles']]} au lieu de {attendus}")
+        if g["colonnes"] != 2:
+            defauts.append(f"{quoi} : les sujets en {g['colonnes']} colonne(s), pas en grille à deux colonnes")
+        dernier = g["tuiles"][-1]
+        if len(g["tuiles"]) % 2 and dernier["w"] < g["grille"] - 2:
+            defauts.append(f"{quoi} : nombre impair de sujets, la dernière tuile ({dernier['id']}) pas sur toute la largeur ({dernier['w']} px sur {g['grille']})")
+        if not len(g["tuiles"]) % 2 and any(x["w"] > g["grille"] / 2 for x in g["tuiles"]):
+            defauts.append(f"{quoi} : nombre pair de sujets, une tuile sur toute la largeur ({g['tuiles']})")
+        petites = [x for x in g["tuiles"] if x["h"] < 48]
+        if petites:
+            defauts.append(f"{quoi} : tuiles sous 48 px de haut : {petites}")
+
+    def consigne(barre="#barre-essai"):
+        return texte(p, f"{barre} .essai-consigne"), p.js(f'document.querySelector("{barre} .essai-consigne").dataset.cible')
+
+    def retro(barre="#barre-essai"):
+        return sans_insecables(texte(p, f"{barre} .essai-retro"))
+
+    def etat(barre="#barre-essai"):
+        return p.js(f"{ETAT_CURSEUR}({json.dumps(barre)})")
+
+    def regler(v, barre="#barre-essai"):
+        return p.js(f"{REGLER_CURSEUR}({json.dumps(barre)}, {v!r})")
+
+    def mesures_curseur(quoi, barre="#barre-essai"):
+        """Le curseur tient dans la barre et l'écran ; ses cibles du doigt font 44 px au moins (§ 5.5)."""
+        e = etat(barre)
+        if not e:
+            defauts.append(f"{quoi} : pas de curseur dans {barre}")
+            return None
+        gauche, droite, haut, bas = e["barre"]
+        if gauche < 0 or droite > e["largeur"] or haut < 0 or bas > e["hauteur"]:
+            defauts.append(f"{quoi} : la barre sort de l'écran ({e['barre']}, écran {e['largeur']} × {e['hauteur']})")
+        if e["w"] < 120 or e["h"] < 44:
+            defauts.append(f"{quoi} : curseur de {e['w']:.0f} × {e['h']:.0f} px (120 × 44 au moins)")
+        if any(w < 44 or h < 44 for w, h in e["pas"]) or e["valider"][1] < 44:
+            defauts.append(f"{quoi} : − et + {e['pas']}, « Valider » {e['valider']} : sous 44 px")
+        return e
+
+    def verdict(quoi, r, attendu):
+        m = MOTIF_VERDICT.search(r)
+        if not m or m[1] != attendu:
+            defauts.append(f"{quoi} : rétroaction sans « : {attendu} » à la fin ({r!r})")
+
+    # Jouer à 360 px : les sujets en grille (huit tuiles), leur icône, « 195 pays » ; le « ? » ; Classé.
+    p.emuler(dict(TELEPHONE, largeur=360), tactile=True)
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    grille("Entraînement à 360 px", SUJETS_ENTRAINEMENT)
+    for s, nom in (("habitants", "Habitants"), ("superficies", "Superficies")):
+        if not p.js(f"!!document.querySelector('#jouer-panneau [data-sujet=\"{s}\"] .vignette-icone')"):
+            defauts.append(f"{nom} sans son icône")
+        tuile = sans_insecables(texte(p, f'#jouer-panneau [data-sujet="{s}"]'))
+        if nom not in tuile or "195 pays" not in tuile:
+            defauts.append(f"la tuile {nom} ne dit pas « {nom} », « 195 pays » ({tuile!r})")
+    panneau_jouer(p, defauts, "Entraînement à 360 px (Habitants, Superficies)")
+    capturer("180-grandeurs-sujets-360")
+    cliquer(p, '#jouer-panneau [data-sujet="habitants"]')
+    if lire("data-serie") != SERIES_PAYS:
+        defauts.append(f"Habitants : séries {lire('data-serie')} au lieu de {SERIES_PAYS}")
+    cliquer(p, '#jouer-panneau [data-serie="Africa"]')
+    a = sans_insecables(aide())
+    if "curseur" not in a or "×1,5" not in a:
+        defauts.append("Habitants › Afrique : le « ? » ne dit pas le curseur ni le juste à ×1,5")
+    capturer("181-grandeurs-exercices-360")
+    jouer_jusqua(p, "localiser", "Africa", "superficies")
+    if "tracé de la carte" not in sans_insecables(aide()):
+        defauts.append("Superficies › Afrique : le « ? » ne dit pas que le tracé de la carte est juste aussi (D616 a)")
+    jouer_jusqua(p, "chrono", "South America", "habitants")
+    detail = sans_insecables(texte(p, '#jouer-panneau [data-mode="chrono"]'))
+    regles = sans_insecables(aide())
+    if "au curseur" not in detail or "un seul toucher" in regles or "régler le curseur" not in regles:
+        defauts.append(f"Classé › Habitants : phrase courte ou règles sans le curseur ({detail!r})")
+    # Le curseur à 360 px : rien ne déborde, ses cibles de 44 px.
+    jouer_partie(p, "localiser", "Africa", "habitants")
+    attendre_visible(p, "#barre-essai .curseur")
+    attendre_fin_vol(p)
+    e = mesures_curseur("Trouver à 360 px")
+    dire(f"  le curseur à 360 px : {e and (round(e['w']), round(e['h']), e['pas'], e['valider'], e['barre'])}")
+    capturer("182-grandeurs-curseur-360")
+    cliquer_apres_pause(p, "#essai-terminer")
+    p.pause(300)
+    croix_vers_carte(p, defauts, "bilan de Trouver (habitants, 360 px)", "#essai-bilan")
+    # Les silhouettes montrées (?silhouettes, serveur de développement seul) : neuf tuiles, Communes sur toute la largeur.
+    p.goto(base + "?mesures=0&silhouettes" + parametres + "#jouer")
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    if "silhouettes" in lire("data-sujet"):
+        grille("Entraînement à 360 px, silhouettes montrées", SUJETS_SILHOUETTES)
+        panneau_jouer(p, defauts, "Entraînement à 360 px (Silhouettes, Habitants, Superficies)")
+        capturer("183-grandeurs-sujets-silhouettes-360")
+    else:
+        dire("  ?silhouettes sans effet (build) : la grille à neuf tuiles n'est pas vue")
+    p.goto(base + "?mesures=0" + parametres + "#carte")
+    p.attendre_carte()
+    p.emuler(ecran, tactile=telephone)
+    p.js('location.hash = "#jouer"')
+    attendre_visible(p, "#jouer-panneau")
+    cliquer(p, '#jouer-panneau [data-branche="entrainement"]')
+    grille(f"Entraînement à {ecran['largeur']} px", SUJETS_ENTRAINEMENT)
+    capturer("184-grandeurs-sujets")
+
+    # Habitants › Afrique › Trouver : le pays nommé, le curseur ; glissé, clavier, ± ; une juste, une fausse.
+    jouer_partie(p, "localiser", "Africa", "habitants")
+    attendre_visible(p, "#barre-essai .curseur")
+    attendre_fin_vol(p)
+    texte_q, cible = consigne()
+    e = mesures_curseur(f"Trouver à {ecran['largeur']} px")
+    dire(f"  Trouver ({cible}) : {texte_q!r}, curseur {e and (e['valeur'], e['aria'], e['label'])}")
+    if not texte_q.startswith("Combien d'habitants") or noms[cible] not in texte_q:
+        defauts.append(f"Trouver (habitants) : consigne {texte_q!r} pour {cible}")
+    if visible(p, "#essai-voir"):
+        defauts.append("Trouver (habitants) : « Voir » montré (un curseur n'a rien à voir)")
+    if not e or e["valeur"] != 450_000 or sans_insecables(e["aria"] or "") != "450 000 habitants" or noms[cible] not in (e["label"] or ""):
+        defauts.append(f"Trouver (habitants) : départ {e and (e['valeur'], e['aria'], e['label'])} au lieu de 450 000 habitants, nommé par le pays")
+    capturer("185-grandeurs-trouver")
+    # Un glissé du pouce (la souris sur PC), de la position du curseur vers la droite.
+    if e:
+        x0, y = e["x"] + e["w"] * e["pos"] / 1000, e["y"]
+        if p.tactile:
+            p.geste([[(x0 + dx, y)] for dx in range(0, 81, 10)], 30)
+        else:
+            p.cdp("Input.dispatchMouseEvent", type="mouseMoved", x=x0, y=y, button="none")
+            p.cdp("Input.dispatchMouseEvent", type="mousePressed", x=x0, y=y, button="left", clickCount=1)
+            for dx in range(10, 81, 10):
+                p.cdp("Input.dispatchMouseEvent", type="mouseMoved", x=x0 + dx, y=y, button="left", buttons=1)
+            p.cdp("Input.dispatchMouseEvent", type="mouseReleased", x=x0 + 80, y=y, button="left", clickCount=1)
+        p.pause(200)
+        g = etat()
+        dire(f"  Trouver, glissé de 80 px : {e['valeur']} → {g['valeur']} ({sans_insecables(g['texte'])!r})")
+        if not g["valeur"] > e["valeur"] or not deux_chiffres(g["valeur"]) or sans_insecables(g["aria"]) != sans_insecables(g["texte"]):
+            defauts.append(f"Trouver (habitants) : le glissé n'a pas monté la valeur à 2 chiffres ({e['valeur']} → {g['valeur']}, {g['aria']!r})")
+        capturer("186-grandeurs-glisse")
+        # Une flèche du clavier sur le curseur : ×1,1 ; puis + et − (×1,1 et ÷1,1, à 2 chiffres).
+        p.js("document.querySelector('#barre-essai .curseur-range').focus()")
+        avant = etat()["valeur"]
+        p.cdp("Input.dispatchKeyEvent", type="keyDown", key="ArrowRight", code="ArrowRight", windowsVirtualKeyCode=39)
+        p.cdp("Input.dispatchKeyEvent", type="keyUp", key="ArrowRight", code="ArrowRight", windowsVirtualKeyCode=39)
+        apres_cle = etat()["valeur"]
+        cliquer_apres_pause(p, "#barre-essai .curseur-plus")
+        plus = etat()["valeur"]
+        cliquer_apres_pause(p, "#barre-essai .curseur-moins")
+        moins = etat()["valeur"]
+        dire(f"  Trouver, → du clavier, +, − : {avant} → {apres_cle} → {plus} → {moins}")
+        for quoi, a, b in (("→", avant, apres_cle), ("+", apres_cle, plus)):
+            if not (1.04 <= b / a <= 1.16) or not deux_chiffres(b):
+                defauts.append(f"Trouver (habitants) : {quoi} ne multiplie pas par 1,1 ({a} → {b})")
+        if not (1.04 <= plus / moins <= 1.16):
+            defauts.append(f"Trouver (habitants) : − ne divise pas par 1,1 ({plus} → {moins})")
+    # La réponse juste : la valeur vraie (fiches-monde.json), à 2 chiffres.
+    regler(vraie(cible, "habitants"))
+    cliquer_apres_pause(p, "#barre-essai .curseur-valider")
+    p.pause(300)
+    r = retro()
+    dire(f"  Trouver, juste ({cible}) : {r!r}")
+    verdict("Trouver (habitants), réponse juste", r, "juste")
+    if not r.startswith(f"{noms[cible]} : ") or "Banque mondiale" not in r and "Wikidata" not in r or "ta réponse : " not in r:
+        defauts.append(f"Trouver (habitants) : la rétroaction ne dit pas « {noms[cible]} : … (Banque mondiale, …) ; ta réponse : … » ({r!r})")
+    capturer("187-grandeurs-trouver-juste")
+    p.pause(2300)
+    texte_q, cible2 = consigne()
+    if cible2 == cible:
+        defauts.append("Trouver (habitants) : pas de question suivante après la réponse juste")
+    # La réponse fausse : vingt fois la valeur vraie (bornée par la plage).
+    regler(min(2e9, vraie(cible2, "habitants") * 20))
+    cliquer_apres_pause(p, "#barre-essai .curseur-valider")
+    p.pause(300)
+    r = retro()
+    dire(f"  Trouver, faux ({cible2}) : {r!r}")
+    verdict("Trouver (habitants), réponse fausse", r, "faux")
+    if "fois trop" not in r:
+        defauts.append(f"Trouver (habitants) : la réponse fausse sans « … fois trop » ({r!r})")
+    if not p.js("document.querySelector('#barre-essai .curseur-valider').disabled"):
+        defauts.append("Trouver (habitants) : « Valider » encore actif après la réponse")
+    capturer("188-grandeurs-trouver-faux")
+    p.pause(4300)
+    cliquer_apres_pause(p, "#essai-terminer")
+    p.pause(400)
+    bilan = sans_insecables(texte(p, "#essai-bilan"))
+    if noms[cible2] not in bilan or "fois trop" not in bilan:
+        defauts.append(f"Trouver (habitants) : le bilan ne dit pas la valeur répondue pour {noms[cible2]} ({bilan[:200]!r})")
+    capturer("189-grandeurs-trouver-bilan")
+    croix_vers_carte(p, defauts, "bilan de Trouver (habitants)", "#essai-bilan")
+
+    # Reconnaître : le QCM sur le nombre, aucune zone allumée ni zoom avant la réponse.
+    jouer_partie(p, "nommer", "Africa", "habitants")
+    k0 = p.js("window.terramemo.carte.transfo().k")
+    p.pause(1500)
+    k1 = p.js("window.terramemo.carte.transfo().k")
+    texte_q, cible = consigne("#barre-nommer")
+    question = sans_insecables(texte(p, "#barre-nommer .question-dessin"))
+    choix = p.js("[...document.querySelectorAll('#barre-nommer .nommer-choix')].map(b => b.dataset.id)")
+    dire(f"  Reconnaître ({cible}) : {texte_q!r} {question!r}, choix {choix}, zoom {k0:.2f} → {k1:.2f}")
+    if not texte_q.startswith("Lequel compte environ") or not question.endswith("habitants ?") or noms[cible] in question:
+        defauts.append(f"Reconnaître (habitants) : énoncé {texte_q!r} {question!r} (« Lequel compte environ », la valeur, jamais le pays)")
+    if len(choix) != 4 or cible not in choix:
+        defauts.append(f"Reconnaître (habitants) : choix {choix} (quatre pays, {cible} parmi eux)")
+    if abs(k1 - k0) > 0.01:
+        defauts.append(f"Reconnaître (habitants) : la carte a zoomé avant la réponse ({k0:.2f} → {k1:.2f}) : la zone allumée donnerait la réponse")
+    capturer("190-grandeurs-reconnaitre")
+    cliquer_apres_pause(p, f'#barre-nommer .nommer-choix[data-id="{cible}"]')
+    p.pause(300)
+    r = sans_insecables(texte(p, "#barre-nommer .essai-retro"))
+    dire(f"  Reconnaître, juste : {r!r}")
+    if not r.startswith(f"Juste : {noms[cible]}, ") or "habitants" not in r:
+        defauts.append(f"Reconnaître (habitants) : pas « Juste : {noms[cible]}, … habitants (…) » ({r!r})")
+    capturer("191-grandeurs-reconnaitre-juste")
+    p.pause(1200)
+    cliquer_apres_pause(p, "#nommer-terminer")
+    p.pause(400)
+    croix_vers_carte(p, defauts, "bilan de Reconnaître (habitants)", "#essai-bilan")
+
+    # Superficies › Asie › Trouver sur Chypre (D616 a) : « Passer » jusqu'à elle, juste à 6 000 km² (le tracé), puis
+    # une autre partie, juste à 10 000 km² (Wikidata).
+    def jusqua_chypre():
+        for _ in range(50):
+            attendre_visible(p, "#barre-essai .curseur")
+            if consigne()[1] == "CYP":
+                return True
+            cliquer_apres_pause(p, "#essai-passer")
+            p.pause(150)
+        return False
+
+    jouer_partie(p, "localiser", "Asia", "superficies")
+    for v, appui, numero in ((6000, "tracé", "192"), (10_000, "Wikidata", "193")):
+        if not jusqua_chypre():
+            defauts.append("Superficies › Asie : Chypre jamais posée")
+            break
+        attendre_fin_vol(p)
+        regler(v)
+        cliquer_apres_pause(p, "#barre-essai .curseur-valider")
+        p.pause(300)
+        r = retro()
+        dire(f"  Chypre à {v} km² : {r!r}")
+        verdict(f"Chypre à {v} km²", r, "juste")
+        if "Wikidata" not in r or "tracé de la carte" not in r:
+            defauts.append(f"Chypre : la rétroaction ne cite pas Wikidata et le tracé de la carte ({r!r})")
+        if (appui == "tracé") != ("pour le tracé" in r):
+            defauts.append(f"Chypre à {v} km² : l'écart n'est pas dit {'au tracé' if appui == 'tracé' else 'à Wikidata'} ({r!r})")
+        capturer(f"{numero}-grandeurs-chypre-{'trace' if appui == 'tracé' else 'wikidata'}")
+        p.pause(2300)
+        cliquer_apres_pause(p, "#essai-terminer")
+        p.pause(400)
+        if appui == "tracé":
+            cliquer_apres_pause(p, "#essai-recommencer")
+            p.pause(400)
+    if visible(p, "#essai-bilan"):
+        croix_vers_carte(p, defauts, "bilan de Trouver (superficies)", "#essai-bilan")
+
+    # Classé › Habitants › Amérique du Sud › Chrono, en entier : 12 questions au curseur, la deuxième fausse.
+    jouer_partie(p, "chrono", "South America", "habitants")
+    vues = []
+    for k in range(14):
+        fin = time.monotonic() + 20
+        while time.monotonic() < fin and not visible(p, "#chrono-bilan"):
+            if p.js("(() => { const b = document.querySelector('#barre-chrono .curseur-valider'); return !!b && !b.disabled; })()"):
+                break
+            p.pause(100)
+        if visible(p, "#chrono-bilan"):
+            break
+        _, cible = consigne("#barre-chrono")
+        vues.append(cible)
+        if k == 0:
+            mesures_curseur("Chrono (habitants)", "#barre-chrono")
+            capturer("194-grandeurs-chrono")
+        regler(vraie(cible, "habitants") * (10 if k == 1 else 1), "#barre-chrono")
+        cliquer(p, "#barre-chrono .curseur-valider")
+        p.pause(200)
+        r = retro("#barre-chrono")
+        verdict(f"Chrono (habitants), question {k + 1} ({cible})", r, "faux" if k == 1 else "juste")
+        if k == 1:
+            dire(f"  Chrono, faux ({cible}) : {r!r}")
+            capturer("195-grandeurs-chrono-faux")
+    attendre_visible(p, "#chrono-bilan", 10)
+    bilan = sans_insecables(texte(p, "#chrono-bilan"))
+    m = MOTIF_PART.search(bilan)
+    dire(f"  Chrono : {len(vues)} questions, bilan {m and m[0]!r}")
+    if len(vues) != 12 or len(set(vues)) != 12:
+        defauts.append(f"Chrono (habitants) › Amérique du Sud : {len(vues)} questions ({vues}), pas les 12 pays")
+    if not m or (int(m[1]), int(m[2])) != (11, 12) or not part_juste(m):
+        defauts.append(f"Chrono (habitants) : bilan sans « 11/12 · 91 % » ({bilan[:200]!r})")
+    if len(vues) > 1 and (f"{noms[vues[1]]} → " not in bilan or "fois trop" not in bilan):
+        defauts.append(f"Chrono (habitants) : le bilan ne dit pas la valeur répondue de {vues[1] if len(vues) > 1 else '?'} ({bilan[:300]!r})")
+    capturer("196-grandeurs-chrono-bilan")
+    croix_vers_carte(p, defauts, "bilan du Chrono (habitants)", "#chrono-bilan")
+
+    # Apprendre Habitants › Amérique du Sud jusqu'au bilan : le QCM de la grappe, puis son rappel au curseur.
+    jouer_jusqua(p, "apprendre", "South America", "habitants")
+    cliquer_apres_pause(p, '#jouer-panneau [data-mode="apprendre"]')
+    p.pause(800)
+    if p.js("!!document.getElementById('seance-commencer')"):
+        cliquer_apres_pause(p, "#seance-commencer")
+    vu_qcm = vu_curseur = False
+    q = attendre_question(p)
+    for _ in range(60):
+        forme, cible = q
+        if forme in (None, "bilan"):
+            break
+        if forme == "qcm":
+            if not vu_qcm:
+                vu_qcm = True
+                capturer("197-grandeurs-apprendre-qcm")
+            cliquer_apres_pause(p, f'#barre-nommer .nommer-choix[data-id="{cible}"]')
+            p.pause(1000)
+        elif forme == "trouver" and visible(p, "#barre-essai .curseur"):
+            if not vu_curseur:
+                vu_curseur = True
+                capturer("198-grandeurs-apprendre-curseur")
+            regler(vraie(cible, "habitants"))
+            cliquer_apres_pause(p, "#barre-essai .curseur-valider")
+            p.pause(2300)
+        else:
+            defauts.append(f"Apprendre (habitants) : forme inattendue {forme} ({cible}), sans curseur")
+            break
+        q = attendre_question(p, q)
+    if seance_question(p)[0] != "bilan":
+        defauts.append(f"Apprendre (habitants) : pas de bilan ({seance_question(p)})")
+    if not vu_qcm or not vu_curseur:
+        defauts.append(f"Apprendre (habitants) : QCM vu {vu_qcm}, curseur vu {vu_curseur}")
+    capturer("199-grandeurs-apprendre-bilan")
+    cliquer_apres_pause(p, "#seance-carte")
+    p.pause(400)
+
+    # Le journal : `estime` sur les réponses au curseur seules (localiser), à 2 chiffres, rien d'un toucher.
+    evts = [x for x in (p.js(EVENEMENTS_JOURNAL) or []) if x["fiche"].split(":")[0] in ("habitants", "superficies")]
+    avec = [x for x in evts if x["a_estime"]]
+    dire(f"  journal : {len(evts)} réponses des grandeurs, {len(avec)} avec estime")
+    if not avec:
+        defauts.append("journal : aucune réponse au curseur avec `estime`")
+    for x in avec:
+        if not x["fiche"].endswith(":localiser") or not deux_chiffres(x["estime"]) or any(x[k] is not None for k in ("reponse", "via", "zoom", "distance_km")):
+            defauts.append(f"journal : réponse au curseur mal écrite {x}")
+            break
+    nommer = [x for x in evts if x["fiche"].endswith(":nommer")]
+    if not nommer or any(x["a_estime"] for x in nommer):
+        defauts.append(f"journal : réponses de Reconnaître et du QCM ({len(nommer)}) avec `estime`, ou aucune")
+    faux_passes = [x for x in avec if not x["correct"] and x["aide"] == "passer"]
+    if faux_passes:
+        defauts.append(f"journal : une valeur fausse validée écrite « Passer » ({faux_passes[0]})")
+
+
+def commande_grandeurs(args):
+    """ui_grandeurs seul, sur un profil neuf : l'écran de connexion passé en invité (passer_accueil). Au serveur de
+    développement (driver.py serve) pour la grille à neuf tuiles (?silhouettes) ; le reste vaut aussi au build."""
+    out = pathlib.Path(args.out).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    telephone = args.width < 700
+    ecran = dict(TELEPHONE, largeur=args.width) if telephone else dict(PC, largeur=args.width)
+    base = args.url.rstrip("/") + "/"
+    rendu = f"&rendu={args.rendu}" + ("&logiciel=1" if args.rendu == "webgl" else "") if args.rendu else ""
+    faites, defauts = [], []
+    with Session("local") as s:
+        s.couper_synchro(base)
+        s.passer_accueil(base)
+        p = s.page
+        p.emuler(ecran, tactile=telephone)
+
+        def capturer(nom):
+            chemin = out / f"{nom}.png"
+            p.pause(350)
+            p.capture(chemin)
+            faites.append(chemin)
+
+        ui_grandeurs(p, capturer, defauts, base, rendu, ecran, telephone)
         erreurs = p.erreurs + p.echecs
     for e in erreurs:
         dire(f"  erreur : {e}")
@@ -8446,6 +8921,14 @@ def main():
     s.add_argument("--out", default="/tmp/terramemo-captures-voisins")
     s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
 
+    s = sub.add_parser("grandeurs", help="Habitants et Superficies (J4, lot 3) seuls, profil neuf : Jouer à 360 px (la grille des "
+                                         "sujets, neuf tuiles avec ?silhouettes au serveur de développement), le curseur, Trouver, "
+                                         "Reconnaître, Chypre (D616 a), un Chrono en entier, Apprendre, le journal (estime)")
+    s.add_argument("--url", default=URL_DEFAUT)
+    s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
+    s.add_argument("--out", default="/tmp/terramemo-captures-grandeurs")
+    s.add_argument("--rendu", choices=("g", "css", "canvas", "webgl"), help="rendu de la carte du monde")
+
     s = sub.add_parser("mers", help="le sujet Océans et mers seul (ui_mers, ui_epreuves_mers) : Jouer, l'accueil (couche légère), la recherche, Trouver, Reconnaître, Apprendre, carte de la mémoire, puis Classé › Océans et mers (un Sans faute joué jusqu'à sa fin)")
     s.add_argument("--url", default=URL_DEFAUT)
     s.add_argument("--width", type=int, default=TELEPHONE["largeur"], help="< 700 : téléphone (toucher), sinon PC")
@@ -8532,7 +9015,7 @@ def main():
                                      "sans effet en webview")
         s.add_argument("--serie", help="numéro de série adb si plusieurs appareils")
 
-    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "silhouettes", "voisins", "mers", "fiche", "quiz", "lignes", "synchro", "suppression", "export", "mesurer"):
+    for nom in ("smoke", "ui", "seance", "accueil", "drapeaux", "silhouettes", "voisins", "grandeurs", "mers", "fiche", "quiz", "lignes", "synchro", "suppression", "export", "mesurer"):
         sub.choices[nom].add_argument(
             "--binaire", default="shell",
             help="navigateur local : shell (chrome-headless-shell, défaut : Event Timing juste), chromium "
@@ -8545,7 +9028,7 @@ def main():
     global BINAIRE, GPU
     BINAIRE = getattr(args, "binaire", BINAIRE)
     GPU = getattr(args, "gpu", GPU)
-    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "silhouettes": commande_silhouettes, "voisins": commande_voisins, "mers": commande_mers, "fiche": commande_fiche, "quiz": commande_quiz, "lignes": commande_lignes, "synchro": commande_synchro,
+    commandes = {"serve": commande_serve, "smoke": commande_smoke, "ui": commande_ui, "seance": commande_seance, "accueil": commande_accueil, "drapeaux": commande_drapeaux, "silhouettes": commande_silhouettes, "voisins": commande_voisins, "grandeurs": commande_grandeurs, "mers": commande_mers, "fiche": commande_fiche, "quiz": commande_quiz, "lignes": commande_lignes, "synchro": commande_synchro,
                  "suppression": commande_suppression, "export": commande_export,
                  "mesurer": commande_mesurer, "resumer": commande_resumer, "apk": commande_apk,
                  "sauver_journal": commande_sauver_journal, "restaurer_journal": commande_restaurer_journal}
