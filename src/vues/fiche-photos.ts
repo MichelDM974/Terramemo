@@ -16,6 +16,12 @@
 // relu), absente (404), ou hors ligne sans copie : le carrousel se retire. Une photo qui ne vient pas
 // (hors ligne, retirée du site) : sa case se retire, la fiche montre les autres.
 //
+// Le défilement (décision « Photos de la fiche : carrousel et Crédits », 28/11/2026) : au doigt (glissé,
+// accrochage), au clavier (les flèches du carrousel où le focus est), et sur PC aux flèches ‹ › posées sur
+// la photo, montrées au survol d'une souris (carte.css) et toujours atteignables au clavier ; un compteur
+// « 1 / 3 » sur la photo, partout, qui suit le défilement. Ni flèches ni compteur pour une seule photo ; la
+// flèche de la première vers l'avant et celle de la dernière vers l'après se cachent.
+//
 // Le crédit, le même pour toutes, domaine public compris (§ 3.2) : « Photo
 // recadrée : {auteur} · {licence} · Commons », la licence en lien vers son texte,
 // « Commons » vers la page du fichier ; du texte, pas une infobulle (§ 4.11).
@@ -157,12 +163,50 @@ export interface Carrousel {
  */
 export function creerCarrousel(id: string, source: SourcePhotos, ouvrir: (i: number) => void): Carrousel {
   const liste = creer('ul', { class: 'fiche-carrousel' }, creer('li', { class: 'fiche-photo fiche-photo-attente', 'aria-hidden': 'true' }, creer('span', { class: 'fiche-photo-cadre' })));
-  const section = creer('section', { class: 'fiche-photos', 'aria-label': T.titre }, liste);
+  const fleche = (cls: string, nom: string, signe: string, d: number) => {
+    const b = creer('button', { type: 'button', class: `fiche-fleche ${cls}`, 'aria-label': nom }, creer('span', { 'aria-hidden': 'true' }, signe));
+    b.addEventListener('click', () => aller(d));
+    return b;
+  };
+  const avant = fleche('fiche-fleche-avant', T.precedente, '‹', -1);
+  const apres = fleche('fiche-fleche-apres', T.suivante, '›', 1);
+  // Le compteur se voit ; le lecteur d'écran a déjà « photo n sur total » dans le nom de chaque photo.
+  const compteur = creer('span', { class: 'fiche-photos-compteur', 'aria-hidden': 'true' });
+  const commandes = creer('div', { class: 'fiche-photos-commandes' }, avant, apres, compteur);
+  commandes.hidden = true;
+  const section = creer('section', { class: 'fiche-photos', 'aria-label': T.titre }, liste, commandes);
   let photos: readonly PhotoFiche[] | null = null;
   let arrete = false;
   let observateur: ObservateurPhotos | null = null;
   const boutons: HTMLElement[] = [];
   const rappels: (() => void)[] = [];
+
+  /** La photo montrée (le rang de la case au bord gauche du cadre) et le nombre de celles qui restent. */
+  const rang = () => {
+    const total = liste.querySelectorAll('li.fiche-photo').length;
+    const largeur = liste.clientWidth || 0;
+    const i = largeur > 0 ? Math.round((liste.scrollLeft || 0) / largeur) : 0;
+    return { i: Math.max(0, Math.min(total - 1, i)), total };
+  };
+  /** Compteur et flèches à jour (à chaque défilement, et quand une case part). */
+  const suivre = () => {
+    const { i, total } = rang();
+    commandes.hidden = !photos || total < 2;
+    compteur.textContent = remplir(T.compteur, { n: i + 1, total });
+    const focus = (globalThis.document as Document | undefined)?.activeElement;
+    avant.disabled = i === 0;
+    apres.disabled = i >= total - 1;
+    // Une flèche qui se cache sous le focus le passe à l'autre : le clavier ne le perd pas.
+    if (focus === avant && avant.disabled && !apres.disabled) apres.focus({ preventScroll: true });
+    else if (focus === apres && apres.disabled && !avant.disabled) avant.focus({ preventScroll: true });
+  };
+  function aller(d: number) {
+    const { i, total } = rang();
+    const cible = Math.max(0, Math.min(total - 1, i + d));
+    const doux = !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    liste.scrollTo?.({ left: cible * (liste.clientWidth || 0), behavior: doux ? 'smooth' : 'auto' });
+  }
+  liste.addEventListener('scroll', suivre, { passive: true });
 
   const retirer = () => {
     section.hidden = true;
@@ -192,6 +236,7 @@ export function creerCarrousel(id: string, source: SourcePhotos, ouvrir: (i: num
           const alt = altPhoto(p);
           b.setAttribute('aria-label', restes.length > 1 ? `${remplir(T.agrandir, { alt })} · ${remplir(T.position, { n: n + 1, total: restes.length })}` : remplir(T.agrandir, { alt }));
         });
+        suivre();
       };
       const cases = l.photos.map((p, i) => {
         const alt = altPhoto(p);

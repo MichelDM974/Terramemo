@@ -3416,7 +3416,10 @@ de Cilaos et de Salazie, des images fabriquées marquées « ESSAI »), jamais s
   avant tout, même sur la première fiche ouverte depuis un bilan. Le retour en avant du navigateur le rouvre. Il
   couvre la fiche (mêmes bords), fond noir, la photo entière (`contain`) ; un toucher hors des liens le ferme.
 - Sur PC, le carrousel défile à la barre de défilement, à la molette (Maj) ou au clavier (chaque photo est un
-  bouton) : pas de flèches « ‹ › ». À juger sur les captures.
+  bouton) : pas de flèches « ‹ › ». À juger sur les captures. **Jugé le 28/11** (décision « Photos de la fiche :
+  carrousel et Crédits ») : rien ne montrait les autres photos ; des flèches ‹ › sur la photo au survol d'une souris
+  (`hover: hover` et `pointer: fine`, toujours au Tab ; celle qui ne mène nulle part se cache) et un compteur
+  « 1 / 3 » partout, qui suit le défilement ; au doigt, le glissé reste le geste.
 
 **Service worker** : comme le § 3.6 ; `CacheMin` gagne `delete` (l'éviction). `retenir` (la première visite) ne
 range pas les photos : elles le seront à leur prochain usage.

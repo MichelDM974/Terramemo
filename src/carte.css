@@ -8,6 +8,10 @@
   --plein-fond: #000;
   --plein-texte: #fff;
   --plein-credit: #c9cbd1;
+  /* Les flèches et le compteur posés sur une photo du carrousel : un voile sombre sous le texte blanc
+     (--plein-texte), lisible sur un ciel clair comme sur une ombre ; plus dense au survol d'une flèche. */
+  --photo-voile: rgba(0, 0, 0, 0.55);
+  --photo-voile-fort: rgba(0, 0, 0, 0.75);
   /* Frontières des rendus canvas et webgl : d'un pixel physique pendant un geste
      (le trait fin ne saccade pas), de --frontiere-repos px CSS à l'arrêt (et
      dans les rendus SVG, l'île comprise). Une seule couleur pour les deux. */
@@ -600,7 +604,7 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
    défile par accrochage, à l'horizontale, d'un doigt (pan-x : le défilement vertical de la fiche n'est pas
    gêné). Chaque case a sa place réservée (aspect-ratio) : la fiche ne saute pas à l'arrivée d'une photo ; la
    case d'attente tient la place tant que la liste n'est pas lue. Le crédit sous chaque photo, du texte. */
-.fiche-photos { margin: 0 -16px 6px; }
+.fiche-photos { position: relative; margin: 0 -16px 6px; }
 .fiche-carrousel {
   display: flex;
   margin: 0;
@@ -618,6 +622,51 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 .fiche-photo-bouton:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .fiche-photo-cadre { display: block; width: 100%; aspect-ratio: 3 / 2; background: var(--panel-2); }
 .fiche-photo-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Les flèches ‹ › et le compteur « 1 / 3 » (décision « Photos de la fiche : carrousel et Crédits ») : posés sur
+   la photo (une couche de sa taille, 3:2, qui laisse passer le toucher), sans place à eux. Le compteur partout ;
+   les flèches au survol d'une souris seulement (un doigt glisse) et à leur focus clavier, toujours atteignables
+   au Tab ; sans pointeur dessus, elles ne prennent pas le toucher. Celle qui ne mène nulle part se cache. */
+.fiche-photos-commandes { position: absolute; top: 0; left: 0; right: 0; aspect-ratio: 3 / 2; pointer-events: none; }
+.fiche-photos-commandes[hidden] { display: none; }
+.fiche-photos-compteur {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--photo-voile);
+  color: var(--plein-texte);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.fiche-fleche {
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  display: grid;
+  place-items: center;
+  padding: 0 0 3px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--photo-voile);
+  color: var(--plein-texte);
+  font-size: 1.6rem;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.fiche-fleche-avant { left: 10px; }
+.fiche-fleche-apres { right: 10px; }
+.fiche-fleche:hover { background: var(--photo-voile-fort); }
+.fiche-fleche:focus-visible { opacity: 1; pointer-events: auto; outline: 2px solid var(--accent); outline-offset: 2px; }
+.fiche-fleche:disabled { visibility: hidden; }
+@media (hover: hover) and (pointer: fine) {
+  .fiche-photos:hover .fiche-fleche { opacity: 1; pointer-events: auto; }
+}
 .fiche-credit { margin: 4px 16px 0; color: var(--muted); font-size: 0.78rem; line-height: 1.35; overflow-wrap: anywhere; }
 .fiche-credit a { color: var(--accent); }
 /* Le plein écran d'une photo : par-dessus la fiche, à sa place (mêmes bords), sombre ; la photo entière

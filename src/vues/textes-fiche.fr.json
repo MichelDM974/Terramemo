@@ -122,6 +122,9 @@
     "agrandir": "Agrandir la photo : {alt}",
     "fermer": "Fermer la photo",
     "position": "Photo {n} sur {total}",
+    "precedente": "Photo précédente",
+    "suivante": "Photo suivante",
+    "compteur": "{n} / {total}",
     "hors_ligne": "Photo en grand : indisponible hors ligne",
     "credits_page": "page sur Commons",
     "credits_aucune": "Aucune photo pour l'instant."

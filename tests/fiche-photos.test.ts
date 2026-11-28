@@ -212,6 +212,57 @@ describe('le carrousel : une à une', () => {
     expect(labels()).toEqual([remplir(T.agrandir, { alt: 'préfecture de Kyoto' })]);
   });
 
+  it('les flèches ‹ › et le compteur « 1 / 3 » : nommés, suivent le défilement (doigt, clavier, flèches) ; celle qui ne mène nulle part se cache', async () => {
+    const { source } = sourceFactice({ JPN: [KYOTO, HIMEJI, PITON] }, false);
+    const c = creerCarrousel('JPN', source, () => undefined);
+    const el = c.element as unknown as El;
+    const commandes = el.querySelector('.fiche-photos-commandes')!;
+    // Avant la liste : rien à compter.
+    expect(commandes.hidden).toBe(true);
+    await tenir();
+    const liste = el.querySelector('ul.fiche-carrousel')! as El & { scrollLeft: number; clientWidth: number; scrollTo?: (o: { left: number; behavior: string }) => void };
+    const [avant, apres] = el.querySelectorAll('button.fiche-fleche');
+    const compteur = el.querySelector('.fiche-photos-compteur')!;
+    expect(commandes.hidden).toBe(false);
+    expect([avant!.getAttribute('aria-label'), apres!.getAttribute('aria-label')]).toEqual([T.precedente, T.suivante]);
+    expect([avant!.getAttribute('type'), apres!.getAttribute('type')]).toEqual(['button', 'button']);
+    expect(compteur.textContent).toBe('1 / 3');
+    expect(compteur.getAttribute('aria-hidden')).toBe('true');
+    expect([avant!.disabled, apres!.disabled]).toEqual([true, false]);
+    // Un glissé (ou le clavier) fait défiler la liste : le compteur suit, à la case la plus proche.
+    liste.clientWidth = 400;
+    liste.scrollLeft = 390;
+    liste.emettre('scroll');
+    expect(compteur.textContent).toBe('2 / 3');
+    expect([avant!.disabled, apres!.disabled]).toEqual([false, false]);
+    // Les flèches demandent la case voisine ; le défilement qui suit met le compteur à jour.
+    const demandes: number[] = [];
+    liste.scrollTo = (o) => void demandes.push(o.left);
+    apres!.click();
+    avant!.click();
+    expect(demandes).toEqual([800, 0]);
+    liste.scrollLeft = 800;
+    apres!.focus();
+    liste.emettre('scroll');
+    expect(compteur.textContent).toBe('3 / 3');
+    expect([avant!.disabled, apres!.disabled]).toEqual([false, true]);
+    // La flèche cachée sous le focus le passe à l'autre.
+    expect((globalThis.document as unknown as { activeElement: El }).activeElement).toBe(avant);
+    // Une photo qui ne vient pas : le compteur compte celles qui restent ; une seule : ni flèches ni compteur.
+    liste.scrollLeft = 0;
+    imgs(el)[2]!.emettre('error');
+    expect(compteur.textContent).toBe('1 / 2');
+    imgs(el)[1]!.emettre('error');
+    expect(commandes.hidden).toBe(true);
+  });
+
+  it('une seule photo : ni flèches ni compteur', async () => {
+    const { source } = sourceFactice({ JPN: [HIMEJI] }, false);
+    const c = creerCarrousel('JPN', source, () => undefined);
+    await tenir();
+    expect((c.element as unknown as El).querySelector('.fiche-photos-commandes')!.hidden).toBe(true);
+  });
+
   it('arrêté avant la réponse (une autre fiche) : rien n’est posé', async () => {
     const { source } = sourceFactice({ JPN: [KYOTO] });
     const c = creerCarrousel('JPN', source, () => undefined);
