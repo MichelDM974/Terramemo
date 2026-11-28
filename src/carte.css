@@ -1273,6 +1273,8 @@ body[data-vue="compte"] .panneau-mesures { display: none; }
 .credits-liste li:last-child { border-bottom: none; }
 .credits-nom { color: var(--text); font-weight: 600; }
 .credits-paquet { white-space: nowrap; }
+/* Le titre de Commons d'une photo, sous sa ligne de tête (lieu · sujet) : en petit, il se coupe n'importe où (souvent un nom de fichier). */
+.credits-titre { color: var(--muted); font-size: 0.8rem; overflow-wrap: anywhere; }
 .credits-detail { margin: 0; font-size: 0.85rem; }
 .credits-detail a { color: var(--accent); }
 /* Textes des licences (#20) : un dépliant en lien du contenu, le texte brut

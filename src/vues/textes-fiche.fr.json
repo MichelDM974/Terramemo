@@ -127,6 +127,7 @@
     "compteur": "{n} / {total}",
     "hors_ligne": "Photo en grand : indisponible hors ligne",
     "credits_page": "page sur Commons",
+    "credits_titre": "« {titre} »",
     "credits_aucune": "Aucune photo pour l'instant."
   },
   "nombres": {

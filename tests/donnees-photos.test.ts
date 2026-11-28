@@ -388,9 +388,11 @@ describe('candidats.mjs : classement', () => {
 // --- Lot P2 : traitement, listes du site, vérification --------------------------------
 
 type Listes = {
-  dresserListes: (choix: unknown, licences: unknown) => { listes: Record<string, { v: number; photos: PhotoListe[] }>; credits: { v: number; photos: { titre: string; auteur: string | null; licence: string; licence_url: string | null; page: string }[] }; manquantes: { id: string; fichier: string }[] };
-  fichiersDuSite: (d: { choix: unknown; licences: unknown }, ids?: readonly string[]) => { fileName: string; source: string }[];
+  dresserListes: (choix: unknown, licences: unknown, noms?: Record<string, string>) => { listes: Record<string, { v: number; photos: PhotoListe[] }>; credits: { v: number; photos: { tete: string; titre: string | null; auteur: string | null; licence: string; licence_url: string | null; page: string }[] }; manquantes: { id: string; fichier: string }[] };
+  fichiersDuSite: (d: { choix: unknown; licences: unknown }, ids?: readonly string[], noms?: Record<string, string>) => { fileName: string; source: string }[];
   lieuxConnus: () => string[];
+  nomsLieux: () => Record<string, string>;
+  teteCredit: (vues: { nom: string; sujet: string }[]) => string;
   lieuxIllustres: (d: { choix: unknown; licences: unknown }) => string[];
   fautesDonnees: (d: { choix: unknown; licences: unknown }) => string[];
   lireDonnees: (dossier?: string) => { choix: { v: number; lieux: Record<string, unknown> }; licences: { v: number; photos: Record<string, LignePhoto> } };
@@ -434,16 +436,36 @@ describe('listes du site (listes.mjs, écrites par le build)', () => {
     expect(listes.aden).toBeUndefined();
   });
 
-  it('une photo de deux lieux : un seul nom, une seule ligne de crédits, chaque lieu son texte alternatif', async () => {
-    const { dresserListes } = await listesMod;
-    const { listes, credits } = dresserListes(choixEssai, licencesFactices());
+  it('une photo de deux lieux : un seul nom, une seule ligne de crédits qui nomme les deux, chaque lieu son texte alternatif', async () => {
+    const { dresserListes, nomsLieux } = await listesMod;
+    const lic = licencesFactices();
+    lic.photos['Himeji castle in may 2015.jpg']!.titre = 'Himeji castle in may 2015';
+    const { listes, credits } = dresserListes(choixEssai, lic, nomsLieux());
     const piton = listes['97424']!.photos[1]!;
     expect(listes['97421']!.photos).toEqual([{ ...piton, alt: { fr: 'piton des Neiges, vu de Salazie' } }]);
     expect(credits.photos.filter((c) => c.page === piton.page)).toHaveLength(1);
-    expect(credits.photos).toHaveLength(5);
-    // Le titre de Commons s'il y en a un, sinon le sujet (CC BY 2.0 à 3.0 demandent le titre de l'œuvre).
-    expect(credits.photos.map((c) => c.titre)).toEqual([...credits.photos.map((c) => c.titre)].sort((a, b) => a.localeCompare(b, 'fr')));
-    expect(credits.photos.map((c) => c.titre)).toContain('château de Himeji');
+    // Décision « Photos de la fiche : carrousel et Crédits » : en tête le lieu (le nom de sa fiche) et le sujet,
+    // triées par elle ; le titre de Commons à part, null sans titre (CC BY 2.0 à 3.0 demandent de le citer).
+    expect(credits.photos.map((c) => c.tete)).toEqual([
+      'Cilaos',
+      'Japon · Château de Himeji',
+      'Japon · Dôme de Genbaku',
+      'Japon · Préfecture de Kyoto',
+      'Salazie · Piton des Neiges, vu de Salazie ; Cilaos · Piton des Neiges',
+    ]);
+    expect(credits.photos.find((c) => c.tete === 'Japon · Château de Himeji')!.titre).toBe('Himeji castle in may 2015');
+    expect(credits.photos.find((c) => c.tete === 'Cilaos')!.titre).toBeNull();
+    // Sans les noms : l'id du lieu.
+    expect(dresserListes(choixEssai, lic).credits.photos.map((c) => c.tete)).toContain('JPN · Château de Himeji');
+  });
+
+  it('la tête d’une ligne des crédits : deux lieux au même sujet nommés ensemble, un sujet qui n’est que le nom du lieu pas répété', async () => {
+    const { teteCredit, nomsLieux } = await listesMod;
+    expect(teteCredit([{ nom: 'Japon', sujet: 'Amanohashidate' }])).toBe('Japon · Amanohashidate');
+    expect(teteCredit([{ nom: 'Salazie', sujet: 'piton des Neiges' }, { nom: 'Cilaos', sujet: 'piton des Neiges' }])).toBe('Salazie, Cilaos · Piton des Neiges');
+    expect(teteCredit([{ nom: 'Cilaos', sujet: 'cilaos' }])).toBe('Cilaos');
+    // Le nom français, celui de la fiche.
+    expect(nomsLieux()).toMatchObject({ JPN: 'Japon', '97424': 'Cilaos', '97421': 'Salazie', aden: expect.stringContaining('Aden') });
   });
 
   it('une photo gardée pas encore traitée n’est dans aucune liste, et elle est dite', async () => {

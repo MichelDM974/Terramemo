@@ -18,7 +18,7 @@
 // § 3.2) : une ligne « Wikimedia Commons » à la fin des données, la phrase qui dit
 // la modification (« Photos recadrées et réduites ; chacune garde la licence de
 // son auteur. ») et la rubrique « Photos », dépliée à la demande : chaque photo,
-// son titre ou son sujet, son auteur, sa licence, son lien (src/vues/credits-photos.ts,
+// son lieu et son sujet, son titre de Commons, son auteur, sa licence, son lien (src/vues/credits-photos.ts,
 // un morceau à part chargé à la première ouverture, avec photos/credits.json).
 import { dependencies } from '../../package.json';
 import { dateCredit, type SourcesTerrain } from '../map/donnees-terrain';

@@ -3390,7 +3390,11 @@ de Cilaos et de Salazie, des images fabriquées marquées « ESSAI »), jamais s
   dit quand ils diffèrent) ; chaque lieu garde son texte alternatif.
 - **Le titre** de la rubrique « Photos » : le titre de Commons s'il y en a un (le nom du fichier sans extension, le
   plus souvent), sinon le sujet. Un titre comme « RX100VII - Amanohashidate view from Kasamatsu Park - Flickr -
-  wkc.1 » se lit mal : CC BY 2.0 à 3.0 demande le titre de l'œuvre « s'il est fourni » ; à juger par l'utilisateur.
+  wkc.1 » se lit mal : CC BY 2.0 à 3.0 demande le titre de l'œuvre « s'il est fourni » ; à juger par l'utilisateur. **Jugé le 28/11**
+  (décision « Photos de la fiche : carrousel et Crédits ») : chaque ligne commence par le lieu (le nom de sa fiche)
+  et le sujet de la relecture, « Japon · Préfecture de Kyoto », qui la trient (`tete`, écrite par `listes.mjs` ; une
+  photo de deux lieux les nomme tous deux), puis le titre de Commons en petit, entre guillemets (`titre`, null sans
+  titre), puis auteur · licence · page.
 - `traiter.py` demande à Commons la miniature de 1 920 px, **plus large pour un panorama** (son recadrage 3:2 doit
   garder 720 px de haut : 4 800 px pour un 8 000 × 1 200), jamais plus que l'original ; convertit un profil de
   couleur en sRGB et pose une image à transparence sur le fond de la fiche ; une photo ratée n'arrête pas les autres.

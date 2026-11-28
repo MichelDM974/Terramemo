@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { APACHE_ICI, artefacts, composantsAar, factoriserApache, GROUPES_AVIS, releveAvis, termesApache } from '../licences/android.mjs';
 import { AVIS_ANDROID, artefactsAndroid, avisAndroid, FICHIER_LICENCES, LICENCES_A_PART, ligneAndroid, texteAvis, texteLicence, texteLicencePaquet, texteLicences } from '../licences/tierces';
 import { nomPaquets, URL_LICENCES, vueCredits } from '../src/vues/credits';
-import { lireCredits, URL_CREDITS_PHOTOS, type CreditPhoto } from '../src/vues/credits-photos';
+import { lignePhoto, lireCredits, URL_CREDITS_PHOTOS, type CreditPhoto } from '../src/vues/credits-photos';
 import { textesFiche } from '../src/vues/textes-fiche';
 import { textes } from '../src/vues/textes';
 import { installerDom, type El } from './dom-factice';
@@ -427,7 +427,7 @@ describe('licences tierces (#20)', () => {
     expect(lus()).toBe(2);
   });
 
-  it('les photos des fiches (#34, lot P2, § 3.2) : la ligne de Commons à la fin des données, la modification dite, puis la rubrique « Photos » dépliée à la demande, chaque photo avec son titre, son auteur, sa licence et son lien', async () => {
+  it('les photos des fiches (#34, lot P2, § 3.2) : la ligne de Commons à la fin des données, la modification dite, puis la rubrique « Photos » dépliée à la demande, chaque photo avec son lieu et son sujet, son titre de Commons entre guillemets, son auteur, sa licence et son lien', async () => {
     const v = ouvrir();
     const commons = v.querySelectorAll('#credits-liste-donnees li').at(-1)!.innerText;
     expect(commons).toContain('Wikimedia Commons');
@@ -447,8 +447,8 @@ describe('licences tierces (#20)', () => {
     creditsPhotos = {
       v: 1,
       photos: [
-        { titre: 'Himeji castle in may 2015', auteur: 'Nikos Kitsakis', licence: 'CC BY-SA 4.0', licence_url: 'https://creativecommons.org/licenses/by-sa/4.0', page: 'https://commons.wikimedia.org/wiki/File:Himeji_castle_in_may_2015.jpg' },
-        { titre: 'piton des Neiges', auteur: null, licence: 'Domaine public', licence_url: null, page: 'https://commons.wikimedia.org/wiki/File:Piton_des_Neiges1.JPG' },
+        { tete: 'Japon · Château de Himeji', titre: 'Himeji castle in may 2015', auteur: 'Nikos Kitsakis', licence: 'CC BY-SA 4.0', licence_url: 'https://creativecommons.org/licenses/by-sa/4.0', page: 'https://commons.wikimedia.org/wiki/File:Himeji_castle_in_may_2015.jpg' },
+        { tete: 'Salazie, Cilaos · Piton des Neiges', titre: null, auteur: null, licence: 'Domaine public', licence_url: null, page: 'https://commons.wikimedia.org/wiki/File:Piton_des_Neiges1.JPG' },
       ],
     };
     details.open = false;
@@ -458,16 +458,26 @@ describe('licences tierces (#20)', () => {
     await vi.waitFor(() => expect(liste.querySelectorAll('li')).toHaveLength(2));
     const lignes = liste.querySelectorAll('li');
     expect(lignes.map((l) => l.innerText)).toEqual([
-      `Himeji castle in may 2015Nikos Kitsakis · CC BY-SA 4.0 · ${textesFiche.photos.credits_page}`,
-      `piton des Neiges${textesFiche.photos.auteur_inconnu} · Domaine public · ${textesFiche.photos.credits_page}`,
+      `Japon · Château de Himeji«\u00a0Himeji castle in may 2015\u00a0»Nikos Kitsakis · CC BY-SA 4.0 · ${textesFiche.photos.credits_page}`,
+      `Salazie, Cilaos · Piton des Neiges${textesFiche.photos.auteur_inconnu} · Domaine public · ${textesFiche.photos.credits_page}`,
     ]);
+    // La tête en gras (credits-nom), le titre de Commons en petit dessous, entre guillemets ; sans titre, pas de ligne.
+    expect(lignes[0]!.querySelector('.credits-nom')!.textContent).toBe('Japon · Château de Himeji');
+    expect(lignes[0]!.querySelector('.credits-titre')!.textContent).toBe('«\u00a0Himeji castle in may 2015\u00a0»');
+    expect(lignes[1]!.querySelector('.credits-titre')).toBeNull();
     expect(lignes[0]!.querySelector('a.credits-licence')!.getAttribute('href')).toBe('https://creativecommons.org/licenses/by-sa/4.0');
     expect(lignes[0]!.querySelector('a.credits-page')!.getAttribute('href')).toBe('https://commons.wikimedia.org/wiki/File:Himeji_castle_in_may_2015.jpg');
     expect(lignes[1]!.querySelector('a.credits-licence')).toBeNull();
     expect(lus()).toBe(2);
     // Un lien qui ne serait pas en https (credits.json altéré) : la ligne n'est pas montrée, aucun href n'en vient.
     const bonne = (creditsPhotos as { photos: CreditPhoto[] }).photos[0]!;
-    expect(lireCredits({ photos: [bonne, { ...bonne, licence_url: 'javascript:alert(1)' }, { ...bonne, page: 'javascript:alert(1)' }, { ...bonne, page: 'https://example.org/x' }, { ...bonne, titre: '' }, null] })).toEqual([bonne]);
+    expect(lireCredits({ photos: [bonne, { ...bonne, licence_url: 'javascript:alert(1)' }, { ...bonne, page: 'javascript:alert(1)' }, { ...bonne, page: 'https://example.org/x' }, { ...bonne, tete: '', titre: null }, { ...bonne, tete: 3 }, { ...bonne, titre: 3 }, null] })).toEqual([bonne]);
+    // Un credits.json d'avant la tête (titre seul) se lit encore : le titre en tête, sans ligne de titre.
+    const ancienne = { titre: 'piton des Neiges', auteur: null, licence: 'Domaine public', licence_url: null, page: 'https://commons.wikimedia.org/wiki/File:Piton_des_Neiges1.JPG' };
+    expect(lireCredits({ v: 1, photos: [ancienne] })).toEqual([ancienne]);
+    const l = lignePhoto(ancienne) as unknown as El;
+    expect(l.querySelector('.credits-nom')!.textContent).toBe('piton des Neiges');
+    expect(l.querySelector('.credits-titre')).toBeNull();
     expect(lireCredits(null)).toEqual([]);
     // Aucune photo encore (la relecture du lot P1 en cours) : la rubrique le dit.
     const v2 = ouvrir();

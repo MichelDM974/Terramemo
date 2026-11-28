@@ -6,8 +6,13 @@
 //                        {v: 1, photos: [{v, p, alt: {fr}, auteur, licence, licence_url, page}]},
 //                        dans l'ordre du carrousel (celui de la relecture) ;
 //   photos/credits.json  la rubrique « Photos » des Crédits, lue quand on la déplie :
-//                        {v: 1, photos: [{titre, auteur, licence, licence_url, page}]}, une ligne
-//                        par photo (une photo de deux lieux n'en a qu'une).
+//                        {v: 1, photos: [{tete, titre, auteur, licence, licence_url, page}]}, une
+//                        ligne par photo (une photo de deux lieux n'en a qu'une, qui les nomme),
+//                        triée par sa tête : le lieu, puis ce que montre la photo (« Japon ·
+//                        Préfecture de Kyoto », le nom de la fiche et le sujet de la relecture) ;
+//                        titre, celui de Commons ou null (décision « Photos de la fiche :
+//                        carrousel et Crédits » : il ne dit souvent pas le lieu, mais CC BY 2.0
+//                        à 3.0 demandent de le citer quand il existe).
 // Ce ne sont pas des fichiers gardés : le plugin de vite.config.ts les écrit à chaque build
 // (et les sert au serveur de développement), pour que la CI et un arbre de travail neuf les
 // aient, avec ou sans les WebP (hors de git, D59 : public/photos/ est ignoré).
@@ -43,9 +48,34 @@ export const dossierDonnees = (env = process.env) => env.TERRAMEMO_PHOTOS_DONNEE
 
 const lireJson = (f, defaut) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : defaut);
 
+const lieuxCandidats = () => lireJson(join(DOSSIER, 'candidats.json'), { lieux: {} }).lieux ?? {};
+
 /** Les lieux qui ont une fiche et des candidats (geodata/photos/candidats.json, toujours celui du dépôt). */
 export function lieuxConnus() {
-  return Object.keys(lireJson(join(DOSSIER, 'candidats.json'), { lieux: {} }).lieux ?? {});
+  return Object.keys(lieuxCandidats());
+}
+
+/** Le nom français de chaque lieu, celui de sa fiche (candidats.json, repris des noms du site par lieux.mjs) : {id: nom}. */
+export function nomsLieux() {
+  return Object.fromEntries(Object.entries(lieuxCandidats()).map(([id, l]) => [id, l?.nom ?? id]));
+}
+
+const majuscule = (t) => (t ? t[0].toLocaleUpperCase('fr') + t.slice(1) : t);
+
+/**
+ * La tête d'une ligne des crédits : chaque lieu de la photo puis son sujet, « Japon · Préfecture de Kyoto » ; deux
+ * lieux au même sujet, « Salazie, Cilaos · Piton des Neiges » ; à deux sujets, « Salazie · Piton des Neiges, vu de
+ * Salazie ; Cilaos · Piton des Neiges ». Un sujet qui n'est que le nom du lieu (« Cilaos ») ne se répète pas.
+ */
+export function teteCredit(vues) {
+  const parSujet = new Map();
+  for (const { nom, sujet } of vues) {
+    const s = sujet && sujet.toLocaleLowerCase('fr') !== nom.toLocaleLowerCase('fr') ? majuscule(sujet) : '';
+    const noms = parSujet.get(s) ?? [];
+    if (!noms.includes(nom)) noms.push(nom);
+    parSujet.set(s, noms);
+  }
+  return [...parSujet].map(([s, noms]) => (s ? `${noms.join(', ')} · ${s}` : noms.join(', '))).join(' ; ');
 }
 
 /** choix.json et licences.json d'un dossier ; licences.json absent : aucune photo traitée. */
@@ -67,10 +97,10 @@ export function gardeesRelues(choix) {
 }
 
 /**
- * Les listes par lieu et les crédits, depuis choix.json et licences.json.
- * Rend {listes: {id: liste}, credits, manquantes: [{id, fichier}]}.
+ * Les listes par lieu et les crédits, depuis choix.json et licences.json ; `noms` ({id: nom}, nomsLieux()) pour la
+ * tête des crédits, l'id à défaut. Rend {listes: {id: liste}, credits, manquantes: [{id, fichier}]}.
  */
-export function dresserListes(choix, licences) {
+export function dresserListes(choix, licences, noms = {}) {
   const L = licences.photos ?? {};
   const listes = {};
   const manquantes = [];
@@ -90,9 +120,12 @@ export function dresserListes(choix, licences) {
       licence_url: l.licence_url ?? null,
       page: l.page,
     });
-    if (!vues.has(g.fichier)) vues.set(g.fichier, { titre: l.titre || g.sujet, auteur: l.auteur ?? null, licence: l.licence, licence_url: l.licence_url ?? null, page: l.page });
+    if (!vues.has(g.fichier)) vues.set(g.fichier, { lieux: [], ligne: { titre: l.titre || null, auteur: l.auteur ?? null, licence: l.licence, licence_url: l.licence_url ?? null, page: l.page } });
+    vues.get(g.fichier).lieux.push({ nom: noms[id] ?? id, sujet: g.sujet });
   }
-  const photos = [...vues.values()].sort((a, b) => a.titre.localeCompare(b.titre, 'fr') || a.page.localeCompare(b.page));
+  const photos = [...vues.values()]
+    .map((x) => ({ tete: teteCredit(x.lieux), ...x.ligne }))
+    .sort((a, b) => a.tete.localeCompare(b.tete, 'fr') || a.page.localeCompare(b.page));
   return { listes, credits: { v: 1, photos }, manquantes };
 }
 
@@ -127,8 +160,8 @@ export function fautesDonnees(donnees = lireDonnees()) {
  * Les fichiers que le build écrit : [{fileName, source}] (chemins relatifs à la racine du site) ; une liste
  * par lieu de `ids` (vide sans photo) et par lieu qui a des photos.
  */
-export function fichiersDuSite(donnees = lireDonnees(), ids = lieuxConnus()) {
-  const { listes, credits } = dresserListes(donnees.choix, donnees.licences);
+export function fichiersDuSite(donnees = lireDonnees(), ids = lieuxConnus(), noms = nomsLieux()) {
+  const { listes, credits } = dresserListes(donnees.choix, donnees.licences, noms);
   const tous = [...new Set([...ids, ...Object.keys(listes)])].sort();
   return [
     ...tous.map((id) => ({ fileName: `${DOSSIER_SITE}/l/${id}.json`, source: JSON.stringify(listes[id] ?? { v: 1, photos: [] }) })),

@@ -13,7 +13,10 @@ export interface ListePhotos {
   photos: PhotoListe[];
 }
 export interface CreditPhoto {
-  titre: string;
+  /** Le lieu, puis ce que montre la photo (« Japon · Préfecture de Kyoto »). */
+  tete: string;
+  /** Le titre de Commons, ou null. */
+  titre: string | null;
   auteur: string | null;
   licence: string;
   licence_url: string | null;
@@ -31,9 +34,11 @@ export const LANGUE: string;
 export function dossierDonnees(env?: Record<string, string | undefined>): string;
 export function lireDonnees(dossier?: string): DonneesPhotos;
 export function gardeesRelues(choix: unknown): [string, Record<string, unknown>][];
-export function dresserListes(choix: unknown, licences: unknown): { listes: Record<string, ListePhotos>; credits: { v: 1; photos: CreditPhoto[] }; manquantes: { id: string; fichier: string }[] };
+export function dresserListes(choix: unknown, licences: unknown, noms?: Readonly<Record<string, string>>): { listes: Record<string, ListePhotos>; credits: { v: 1; photos: CreditPhoto[] }; manquantes: { id: string; fichier: string }[] };
 export function lieuxConnus(): string[];
-export function fichiersDuSite(donnees?: DonneesPhotos, ids?: readonly string[]): { fileName: string; source: string }[];
+export function nomsLieux(): Record<string, string>;
+export function teteCredit(vues: readonly { nom: string; sujet: string }[]): string;
+export function fichiersDuSite(donnees?: DonneesPhotos, ids?: readonly string[], noms?: Readonly<Record<string, string>>): { fileName: string; source: string }[];
 export function webpAttendus(licences: unknown): { fichier: string; taille: 'v' | 'p'; nom: string; sha256: string }[];
 export function lieuxIllustres(donnees?: DonneesPhotos): string[];
 export function fautesDonnees(donnees?: DonneesPhotos): string[];
