@@ -879,7 +879,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
             retro.className = `essai-retro ${c.classe}`;
             retro.textContent = c.texte;
           }
-          return { pick: c.pick, cible: id, juste: c.juste };
+          return { pick: c.pick, ...c.mesure };
         });
       ctx.mesures.toucher(ev, x, y, () => {
         // Juste : la cible en vert ; faux : ce que la carte désigne (pick) en rouge.

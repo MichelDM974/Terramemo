@@ -65,14 +65,16 @@ function monter() {
     },
   };
   const terrain = { nom: 'monde', carte, donnees: monde, jouables: [], credit: null };
+  /** Ce que chaque toucher donne à sa mesure (ctx.mesures.toucher) : pick, cible, juste. */
+  const mesures: Record<string, unknown>[] = [];
   const ctx = {
     carte,
     donnees: monde,
     zone,
     terrains: { monde: terrain, actif: 'monde', montrer() {}, deja: () => null, charger: vi.fn() },
-    mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => unknown) => f() },
+    mesures: { toucher: (_ev: unknown, _x: number, _y: number, f: () => Record<string, unknown>) => void mesures.push(f()) },
   };
-  return { zone, carte, marques, terrain, ctx };
+  return { zone, carte, marques, terrain, ctx, mesures };
 }
 
 describe('Trouver et Reconnaître (essai.ts)', () => {
@@ -120,6 +122,21 @@ describe('Trouver et Reconnaître (essai.ts)', () => {
     vi.advanceTimersByTime(3_500);
     expect(e.el('#essai-bilan').hidden).toBe(false);
     expect(e.el('#essai-bilan').innerText).toContain(`Hongrie : ${remplir(T.bilan_faute, { compte: compte(1, 7), nom: 'Pologne' })}`);
+  });
+
+  it('la mesure des touchers : un voisin trouvé est un toucher juste sur lui, une faute un toucher faux pour le pays, le reste ni l’un ni l’autre', () => {
+    const e = essai();
+    e.lancer('localiser', ['HUN']);
+    for (const id of ['AUT', 'AUT', 'HUN', 'POL']) e.toucher(id);
+    e.vue.toucher!(99, 0, {} as PointerEvent);
+    const vus = e.mesures.map(({ cible, juste }) => ({ cible, juste }));
+    expect(vus.slice(0, 4)).toEqual([
+      { cible: 'AUT', juste: true },
+      { cible: 'AUT', juste: true },
+      { cible: undefined, juste: undefined },
+      { cible: 'HUN', juste: false },
+    ]);
+    expect(e.mesures[0]).toMatchObject({ pick: { id: 'AUT' } });
   });
 
   it('tous trouvés : juste du premier coup, quel que soit le nombre de touchers', () => {
@@ -205,6 +222,8 @@ describe('Chrono et Sans faute (chrono.ts) : un délai par question, 4 s plus 2 
     const e = epreuve('sansfaute', ['HUN']);
     e.toucher('AUT');
     e.toucher('POL');
+    // La mesure : l'Autriche, un toucher juste sur elle ; la Pologne, un toucher faux pour la Hongrie.
+    expect(e.mesures.map(({ cible, juste }) => [cible, juste])).toEqual([['AUT', true], ['HUN', false]]);
     vi.advanceTimersByTime(2_000);
     const bilan = e.el('#chrono-bilan');
     expect(bilan.hidden).toBe(false);

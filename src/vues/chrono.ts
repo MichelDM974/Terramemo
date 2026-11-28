@@ -545,7 +545,7 @@ export function vueChrono(ctx: ContexteVue, o: OptionsChrono): VueChrono {
           retro.className = `essai-retro ${c.classe}`;
           retro.textContent = c.texte;
           if (c.fin) apres(partie!.repondre(v.faute, c.juste, null, performance.now() - debut));
-          return { pick: c.pick, cible: id, juste: c.juste };
+          return { pick: c.pick, ...c.mesure };
         });
       ctx.mesures.toucher(ev, x, y, () => {
         const temps_ms = performance.now() - debut;

@@ -51,6 +51,12 @@ export interface ReponseVoisins {
   texte: string;
   /** Ce que la carte désigne (null : la mer) : la mesure du toucher le garde. */
   pick: ResultatPick | null;
+  /**
+   * Ce que la mesure du toucher (Toucher.cible, Toucher.juste) en retient : un voisin trouvé (ou déjà trouvé) est un
+   * toucher juste sur ce voisin ; une faute, un toucher faux pour le pays demandé ; un toucher qui ne compte pas (le
+   * pays lui-même, un voisin neutre, la mer), rien : ni juste ni faux.
+   */
+  mesure: { cible?: string; juste?: boolean };
 }
 
 /** Une question « Touche les voisins de la Hongrie » sur la carte d'un terrain. */
@@ -200,7 +206,8 @@ export function installer(o: Outils): ModuleVoisins {
         const pick = t.carte.pick(x, y);
         const c = q.jouer(juge, pick?.id ?? null);
         const fin = q.finie;
-        const rep = (classe: ReponseVoisins['classe'], texte: string): ReponseVoisins => ({ fin, juste: q.juste, classe, texte, pick });
+        const mesure: ReponseVoisins['mesure'] = c.sorte === 'trouve' || c.sorte === 'deja' ? { cible: c.id, juste: true } : c.sorte === 'faute' ? { cible: id, juste: false } : {};
+        const rep = (classe: ReponseVoisins['classe'], texte: string): ReponseVoisins => ({ fin, juste: q.juste, classe, texte, pick, mesure });
         switch (c.sorte) {
           case 'trouve':
             poser({ id: c.id, classe: 'juste', anneau: o.estPetite(t, c.id) });
