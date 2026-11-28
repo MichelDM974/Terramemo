@@ -5,6 +5,7 @@
 // l'ouverture, le suivant quand sa case entre dans le cadre, le plein écran au toucher
 // seulement), crédit sous chaque photo, retrait sans liste ou sans réseau. L'historique du
 // plein écran avec la vraie navigation : tests/fiche-vue.test.ts.
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { creditPhoto, creerCarrousel, creerPleinEcran, lireListe, sourcePhotosSite, type ListePhotos, type PhotoFiche, type SourcePhotos } from '../src/vues/fiche-photos';
 import { creerFeuille, type ModeleFiche } from '../src/vues/fiche';
@@ -254,6 +255,50 @@ describe('le carrousel : une à une', () => {
     expect(compteur.textContent).toBe('1 / 2');
     imgs(el)[1]!.emettre('error');
     expect(commandes.hidden).toBe(true);
+  });
+
+  it('deux clics rapides sur › pendant le défilement doux avancent de deux photos ; ‹ revient d’autant', async () => {
+    const { source } = sourceFactice({ JPN: [KYOTO, HIMEJI, PITON] }, false);
+    const c = creerCarrousel('JPN', source, () => undefined);
+    await tenir();
+    const el = c.element as unknown as El;
+    const liste = el.querySelector('ul.fiche-carrousel')! as El & { scrollLeft: number; clientWidth: number; scrollTo?: (o: { left: number; behavior: string }) => void };
+    const [avant, apres] = el.querySelectorAll('button.fiche-fleche');
+    const demandes: number[] = [];
+    liste.scrollTo = (o) => void demandes.push(o.left);
+    liste.clientWidth = 400;
+    liste.scrollLeft = 0;
+    apres!.click();
+    // Le défilement vers la 2e n'a fait qu'un quart du chemin quand vient le second clic.
+    liste.scrollLeft = 100;
+    apres!.click();
+    // Au repos sur la 3e, à un demi-pixel près ; puis deux ‹ rapides.
+    liste.scrollLeft = 799.5;
+    liste.emettre('scroll');
+    avant!.click();
+    liste.scrollLeft = 700;
+    avant!.click();
+    expect(demandes).toEqual([400, 800, 400, 0]);
+  });
+
+  it('la couche des flèches qui se cache sous le focus (une seule photo restée) le rend à cette photo', async () => {
+    const { source } = sourceFactice({ JPN: [KYOTO, HIMEJI] }, false);
+    const c = creerCarrousel('JPN', source, () => undefined);
+    await tenir();
+    const el = c.element as unknown as El;
+    const apres = el.querySelectorAll('button.fiche-fleche')[1]!;
+    apres.focus();
+    imgs(el)[1]!.emettre('error');
+    expect(el.querySelector('.fiche-photos-commandes')!.hidden).toBe(true);
+    expect((globalThis.document as unknown as { activeElement: El }).activeElement).toBe(el.querySelectorAll('.fiche-photo-bouton')[0]);
+  });
+
+  it('les flèches se montrent au survol de la photo, pas de toute la section (son crédit dessous)', () => {
+    const css = readFileSync('src/carte.css', 'utf8');
+    const survol = css.slice(css.indexOf('@media (hover: hover) and (pointer: fine)'));
+    expect(survol).toContain('.fiche-carrousel:has(.fiche-photo-bouton:hover) ~ .fiche-photos-commandes .fiche-fleche');
+    expect(survol).toContain('.fiche-photos-commandes:has(.fiche-fleche:hover) .fiche-fleche');
+    expect(css).not.toMatch(/\.fiche-photos:hover\s+\.fiche-fleche/);
   });
 
   it('une seule photo : ni flèches ni compteur', async () => {

@@ -194,15 +194,25 @@ export function creerCarrousel(id: string, source: SourcePhotos, ouvrir: (i: num
     commandes.hidden = !photos || total < 2;
     compteur.textContent = remplir(T.compteur, { n: i + 1, total });
     const focus = (globalThis.document as Document | undefined)?.activeElement;
+    // La couche qui se cache sous le focus (une seule photo restée) le rend à cette photo.
+    if (commandes.hidden && focus && commandes.contains(focus)) boutons.find((b) => b && liste.contains(b))?.focus({ preventScroll: true });
     avant.disabled = i === 0;
     apres.disabled = i >= total - 1;
     // Une flèche qui se cache sous le focus le passe à l'autre : le clavier ne le perd pas.
     if (focus === avant && avant.disabled && !apres.disabled) apres.focus({ preventScroll: true });
     else if (focus === apres && apres.disabled && !avant.disabled) avant.focus({ preventScroll: true });
   };
+  /**
+   * La case voisine dans le sens `d`, comptée depuis la position exacte et non l'arrondie : un deuxième clic
+   * pendant le défilement doux part de la case visée par le premier (la prochaine dans ce sens), pas de
+   * celle qu'on quitte. La marge (5 % d'une case) absorbe les demi-pixels d'une case au repos.
+   */
   function aller(d: number) {
-    const { i, total } = rang();
-    const cible = Math.max(0, Math.min(total - 1, i + d));
+    const { total } = rang();
+    const largeur = liste.clientWidth || 0;
+    const pos = largeur > 0 ? (liste.scrollLeft || 0) / largeur : 0;
+    const depart = d > 0 ? Math.ceil(pos - 0.05) : Math.floor(pos + 0.05);
+    const cible = Math.max(0, Math.min(total - 1, depart + d));
     const doux = !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     liste.scrollTo?.({ left: cible * (liste.clientWidth || 0), behavior: doux ? 'smooth' : 'auto' });
   }

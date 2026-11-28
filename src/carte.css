@@ -665,7 +665,9 @@ body[data-terrain="reunion"] .fiche { top: 40px; }
 .fiche-fleche:focus-visible { opacity: 1; pointer-events: auto; outline: 2px solid var(--accent); outline-offset: 2px; }
 .fiche-fleche:disabled { visibility: hidden; }
 @media (hover: hover) and (pointer: fine) {
-  .fiche-photos:hover .fiche-fleche { opacity: 1; pointer-events: auto; }
+  /* Le survol de la photo seule (pas de son crédit dessous), ou d'une flèche : la couche laisse passer le pointeur. */
+  .fiche-carrousel:has(.fiche-photo-bouton:hover) ~ .fiche-photos-commandes .fiche-fleche,
+  .fiche-photos-commandes:has(.fiche-fleche:hover) .fiche-fleche { opacity: 1; pointer-events: auto; }
 }
 .fiche-credit { margin: 4px 16px 0; color: var(--muted); font-size: 0.78rem; line-height: 1.35; overflow-wrap: anywhere; }
 .fiche-credit a { color: var(--accent); }
