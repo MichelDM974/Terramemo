@@ -2,10 +2,15 @@
 // position, aller-retour exact (null et absent compris), borne des règles à
 // 200 réponses aux champs les plus longs, composition (séance, appareil,
 // tri, coupe par 200), copie client de lotValide.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { PLAGES, valeurEn } from '../src/exercices/grandeurs';
 import { valider, type Evenement } from '../src/srs/journal';
+import { evenementReponse } from '../src/srs/seance';
 import { CARACTERES_PAR_EVENEMENT, compacter, composer, decoderId, deplier, docDuLot, encoderId, idsDuLot, N_MAX, problemeLot, trier, versionLot, type DocLot } from '../src/sync/lots';
 
+/** Again (src/srs/note.ts) : la note d'une réponse fausse notée. */
+const AGAIN_NOTE = 1;
 const APPAREIL = '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b';
 const SEANCE = '0a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d';
 let k = 0;
@@ -253,6 +258,40 @@ describe('format v2 : `estime` (étude du J4, lot 0, D617 a)', () => {
     // zoom et distance en pleine précision : la carte la pire dépasse (173 caractères mesurés).
     const touche = pire('superficies:TCD:localiser', { reponse: 'NE_B98', zoom: 1.2345678901234567, distance_km: 20_099.123456789012, duree_ms: 120_000, aide: null });
     expect(doc([touche]).evenements.length).toBeGreaterThan(CARACTERES_PAR_EVENEMENT);
+  });
+
+  it('lot 3 : la pire carte qu’écrit vraiment une réponse au curseur (evenementReponse), aux deux bouts de chaque plage, l’id de fiche le plus long, un toucher passé par la vue compris, tient la borne, 200 comprises', () => {
+    // Les ids de fiches les plus longs des grandeurs : superficies, un pays jouable (3 lettres), localiser.
+    const pays = (JSON.parse(readFileSync('public/geo/pays.json', 'utf8')) as { id: string; statut: string }[]).filter((p) => p.statut === 'jouable');
+    expect(Math.max(...pays.map((p) => p.id.length))).toBe(3);
+    const fiche = (i: number) => `superficies:${pays[i % pays.length]!.id}:localiser`;
+    const bouts = [PLAGES.habitants.min, PLAGES.habitants.max, PLAGES.superficies.min, PLAGES.superficies.max, 1_900_000_000, 0.11, 0.99, 19_000_000];
+    const uuid = () => id();
+    const cartes = (n: number, estime: (i: number) => number) =>
+      Array.from({ length: n }, (_, i) =>
+        evenementReponse(
+          { appareil: APPAREIL, seance: SEANCE, horloge: () => ({ ts: 1_762_500_000_000 + i * 120_000, tz: -720 }), nouvelId: uuid },
+          fiche(i),
+          'revision',
+          // Le pire qu'une vue puisse passer : un toucher en pleine précision, une aide, la durée la plus longue.
+          { correct: false, reponse: 'NE_B98', via: 'proche', zoom: 1.2345678901234567, distance_km: 20_099.123456789012, duree_ms: 1e9, aide: 'passer', estime: estime(i) },
+          AGAIN_NOTE,
+        ),
+      );
+    for (const b of bouts) {
+      const [e] = cartes(1, () => b);
+      expect(e!.estime, String(b)).toBe(b);
+      expect(valider(e), String(b)).toBe(true);
+      expect(doc([e!]).evenements.length, String(b)).toBeLessThanOrEqual(CARACTERES_PAR_EVENEMENT);
+    }
+    // Un flottant brut du curseur (valeurEn) est arrondi avant d'être écrit : la même borne.
+    const brut = cartes(N_MAX, (i) => valeurEn(i / (N_MAX - 1), i % 2 ? PLAGES.superficies : PLAGES.habitants) * 1.000_000_123);
+    for (const e of brut) expect(String(e.estime).length).toBeLessThanOrEqual(10);
+    const d = doc(brut);
+    expect(d.v).toBe(2);
+    expect(d.evenements.length).toBeLessThanOrEqual(N_MAX * CARACTERES_PAR_EVENEMENT);
+    for (const c of JSON.parse(d.evenements) as unknown[][]) expect(JSON.stringify(c).length + 1).toBeLessThanOrEqual(CARACTERES_PAR_EVENEMENT);
+    expect(problemeLot(trier(brut)[0]!.id, d)).toBeNull();
   });
 });
 

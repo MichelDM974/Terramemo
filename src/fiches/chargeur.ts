@@ -15,6 +15,9 @@
 //   la couche légère ;
 // - les communes (lot F5) : reunion/fiches.json (geodata/reunion.mjs) et fiches.fr.json
 //   (geodata/fiches.mjs), au premier toucher sur l'île : qui ne touche que des pays ne les paie pas.
+// - les ordres de grandeur (J4, lot 3 : Habitants, Superficies) : fiches-monde.json seul, lu par le morceau des
+//   grandeurs (src/exercices/grandeurs.ts, sans le morceau de la fiche), avant la première partie de ces sujets.
+import type * as Grandeurs from '../exercices/grandeurs';
 import type * as Donnees from './donnees';
 import type { DonneesFichesCommunes, DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires } from './donnees';
 
@@ -111,3 +114,27 @@ export function chargerFichesCommunes(lire: Lecteur = lireHttp, base = '/geo/reu
 export const fichesCommunesChargees = communes.deja;
 /** Tests : oublie les fiches des communes lues. */
 export const oublierFichesCommunes = communes.oublier;
+
+/** Ce que le chargeur prend du morceau des grandeurs : la lecture des chiffres. */
+export type MorceauGrandeurs = () => Promise<Pick<typeof Grandeurs, 'lireGrandeurs'>>;
+const morceauGrandeurs: MorceauGrandeurs = () => import('../exercices/grandeurs');
+
+const grandeurs = garde<Grandeurs.Grandeurs>();
+/**
+ * Les chiffres des Habitants et des Superficies (étude J4 § 5.1), lus une fois, avant la première partie ou séance
+ * de ces sujets (comme les capitales) : fiches-monde.json (h, ha, hs, sup) et le morceau des grandeurs, demandés
+ * ensemble ; `pays` : les entités de la carte du monde (pays.json : continent, tracé de fait pour D616 a). Un échec
+ * (hors ligne) n'est pas gardé. `lire`, `base`, `morceau` : les tests.
+ */
+export function chargerGrandeurs(
+  pays: readonly Grandeurs.PaysGrandeur[],
+  lire: Lecteur = lireHttp,
+  base = '/geo/',
+  morceau: MorceauGrandeurs = morceauGrandeurs,
+): Promise<Grandeurs.Grandeurs> {
+  return grandeurs.charger(() => Promise.all([morceau(), lire(`${base}fiches-monde.json`)]).then(([m, f]) => m.lireGrandeurs(f as Donnees.FichierMonde, pays)));
+}
+/** Les chiffres des grandeurs s'ils sont déjà lus (sans réseau), null sinon. */
+export const grandeursChargees = grandeurs.deja;
+/** Tests : oublie les chiffres lus. */
+export const oublierGrandeurs = grandeurs.oublier;

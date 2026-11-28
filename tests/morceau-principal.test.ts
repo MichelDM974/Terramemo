@@ -55,6 +55,12 @@ describe('le morceau principal', () => {
     expect(voisins.filter((f) => vus.has(f))).toEqual([]);
   });
 
+  it('ne porte pas les ordres de grandeur : leur partie pure (curseur, juste, leurres, nombres), chargée à la demande avec leurs chiffres (chargeur.ts, chargerGrandeurs)', () => {
+    expect(vus.has('src/exercices/grandeurs.ts')).toBe(false);
+    // Le chargeur l'atteint par un import() et des types seuls.
+    expect(readFileSync('src/fiches/chargeur.ts', 'utf8')).toMatch(/import\('\.\.\/exercices\/grandeurs'\)/);
+  });
+
   it('ne porte pas les textes des erreurs des comptes : seul src/sync/erreurs.ts les lit, dans les morceaux des comptes', () => {
     expect(['src/sync/erreurs.ts', 'src/vues/textes-erreurs.ts', 'src/vues/textes-erreurs.fr.json'].filter((f) => vus.has(f))).toEqual([]);
   });
