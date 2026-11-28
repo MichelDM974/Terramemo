@@ -266,7 +266,11 @@ export function creerSeances(o: OptionsSeances): Seances {
       case 'montagnes':
       case 'deserts':
       case 'detroits':
-        // Lus (J4, J5 : lot 0), pas encore posables ; chaque sujet y mettra le chargement de ses données.
+      case 'departements':
+      case 'regions':
+      case 'prefectures':
+      case 'numeros':
+        // Lus (J4, J5, J6 : lot 0 commun), pas encore posables ; chaque sujet y mettra le chargement de ses données.
         return null;
     }
   }

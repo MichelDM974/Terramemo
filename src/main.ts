@@ -14,6 +14,7 @@ import { estNomProjection } from './map/projection';
 import { RelaisWebGL, type EtatRelais } from './map/relais-webgl';
 import { teintesDemo } from './map/teintes';
 import type { NomProjection, NomTerrain, Rendu, Transfo } from './map/types';
+import { TERRAINS_LOCAUX } from './map/terrain';
 import { Mesures } from './mesure/mesures';
 import { panneauMesures } from './mesure/panneau';
 import type { Rapport } from './mesure/rapport';
@@ -306,8 +307,11 @@ function poserLignes(): void {
   if (!terrains) return;
   const lignes = lignesDe(choixLignes, textes.lignes);
   terrains.monde.carte.lignes(lignes);
-  const ile = terrains.deja('reunion');
-  if (ile) ile.carte.lignes(lignesQuiCroisent(lignes, empriseDesLieux(ile.donnees.entites.map((e) => e.pays))));
+  // Chaque terrain local chargé : les lignes qui croisent son emprise.
+  for (const nom of TERRAINS_LOCAUX) {
+    const t = terrains.deja(nom);
+    if (t) t.carte.lignes(lignesQuiCroisent(lignes, empriseDesLieux(t.donnees.entites.map((e) => e.pays))));
+  }
 }
 
 // --- Vues, par l'ancre (décision « En-tête ») : la carte (l'accueil, où la
@@ -487,6 +491,8 @@ export interface Terramemo {
   terrain(): NomTerrain;
   /** La carte de l'île une fois chargée (rendu g, sans pastilles : pastilles [], dessin et webgl null). */
   ile: AideCarte | null;
+  /** La carte d'un terrain local une fois chargé, l'île comprise (la France du J6 : étude du J6, § 4.6) ; null avant. */
+  local(nom: NomTerrain): AideCarte | null;
   /**
    * Comptes (J1b) : état, claims du dernier jeton (S16) et erreurs brutes ;
    * null tant que le module n'est pas chargé (invité qui n'a pas ouvert #compte).
@@ -529,6 +535,8 @@ declare global {
 
 let pretOk!: () => void;
 let reposOk!: (p: number) => void;
+/** Les aides des terrains locaux chargés (window.terramemo.local). */
+const aidesLocales = new Map<NomTerrain, AideCarte>();
 window.terramemo = {
   version: VERSION,
   pret: new Promise<void>((ok) => (pretOk = ok)),
@@ -542,6 +550,7 @@ window.terramemo = {
   carte: null,
   terrain: () => terrains?.actif ?? 'monde',
   ile: null,
+  local: (nom) => aidesLocales.get(nom) ?? null,
   comptes: async () => {
     if (!comptesCharges) return null;
     try {
@@ -755,7 +764,10 @@ async function demarrer(): Promise<void> {
     hoteMonde: hote,
     surToucher,
     surCharge: (t) => {
-      window.terramemo.ile = aide(t.carte, t.carte.hote, t.jouables);
+      const a = aide(t.carte, t.carte.hote, t.jouables);
+      aidesLocales.set(t.nom, a);
+      // ile reste l'aide de l'île précisément (pilote) ; local(nom) sert tout terrain local.
+      if (t.nom === 'reunion') window.terramemo.ile = a;
       poserLignes();
     },
   });

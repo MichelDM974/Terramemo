@@ -327,32 +327,40 @@ describe('lecture des lots et union', () => {
     await coherent(a.memoire, a.depot);
   });
 
-  it('un APK d’avant le socle commun (copie de son deplier) : un lot v2 avec `estime` et un lot v1 avec une fiche voisins:, illisibles, gardés ; la nouvelle version les relit sans perte (étude J4, lot 0)', async () => {
+  it('un APK d’avant le socle commun (copie de son deplier) : un lot v2 avec `estime`, un lot v1 avec une fiche voisins: et un du J6 (prefectures:), illisibles, gardés ; la nouvelle version les relit sans perte (étude J4, lot 0)', async () => {
     const avant = await deplierAvantSocle();
     const s = fauxServeur();
     const se1 = uuid();
     const se2 = uuid();
+    const se3 = uuid();
     const estime = evt(B, se1, T0 - 86_400_000, { fiche: 'habitants:NGA:localiser', mode: 'libre', note: null, via: null, zoom: null, correct: false, estime: 150_000_000 });
     const voisin = evt(B, se2, T0 - 86_400_000 + 5, { fiche: 'voisins:HUN:localiser', mode: 'libre', note: null });
+    const prefecture = evt(B, se3, T0 - 86_400_000 + 9, { fiche: 'prefectures:974:localiser', mode: 'libre', note: null });
     const pays = evt(B, se2, T0 - 86_400_000 + 6, { fiche: 'pays:HUN:localiser' });
     s.poser(UID, [estime]);
     s.poser(UID, [voisin, pays]);
+    s.poser(UID, [prefecture]);
     const seul = evt(B, uuid(), T0 - 2 * 86_400_000, { fiche: 'capitales:FRA:localiser' });
     s.poser(UID, [seul]);
     const docs = [...s.docs.values()].map((d) => d as unknown as DocLot);
     // Les documents : le lot à `estime` en v2, les autres en v1 (octet pour octet ceux d'avant).
-    expect(docs.map((d) => d.v)).toEqual([2, 1, 1]);
+    expect(docs.map((d) => d.v)).toEqual([2, 1, 1, 1]);
     // C'est bien la version d'avant : elle lit le lot du J2, pas les deux autres.
-    expect(docs.map((d) => avant(d as unknown as Record<string, unknown>))).toEqual([{ ok: false, probleme: 'version 2' }, { ok: false, probleme: 'carte 0 refusée' }, { ok: true, evenements: [seul] }]);
-    expect(docs.map((d) => deplier(d).ok)).toEqual([true, true, true]);
+    expect(docs.map((d) => avant(d as unknown as Record<string, unknown>))).toEqual([
+      { ok: false, probleme: 'version 2' },
+      { ok: false, probleme: 'carte 0 refusée' },
+      { ok: false, probleme: 'carte 0 refusée' },
+      { ok: true, evenements: [seul] },
+    ]);
+    expect(docs.map((d) => deplier(d).ok)).toEqual([true, true, true, true]);
     const aRelire = depotARelireMemoire();
     const lots = depotLotsMemoire();
     const depot = depotMemoire();
     const v1 = appareil({ serveur: s, depot, lots, aRelire, deplier: avant });
     const r = await v1.envoi.declencher('connexion');
-    expect(r.lecture).toMatchObject({ lots: 3, illisibles: 2 });
+    expect(r.lecture).toMatchObject({ lots: 4, illisibles: 3 });
     expect((await v1.memoire.tous()).map((e) => e.id)).toEqual([seul.id]);
-    expect(await v1.envoi.etat(UID)).toMatchObject({ aRelire: 3 });
+    expect(await v1.envoi.etat(UID)).toMatchObject({ aRelire: 4 });
     expect(s.creer).not.toHaveBeenCalled();
     v1.memoire.fermer();
     // Mise à jour vers ce socle, sans réseau : relus depuis l'appareil, `estime` compris.
@@ -360,10 +368,10 @@ describe('lecture des lots et union', () => {
     const v2 = appareil({ serveur: s, depot, lots, aRelire, version: 'v2' });
     await v2.memoire.pret;
     const r2 = await v2.envoi.declencher('cloture');
-    expect(r2.lecture).toMatchObject({ relus: 2 });
+    expect(r2.lecture).toMatchObject({ relus: 3 });
     expect(await aRelire.tous(UID)).toEqual([]);
     const tous = await v2.memoire.tous();
-    expect(new Set(tous.map((e) => e.id))).toEqual(new Set([seul.id, estime.id, voisin.id, pays.id]));
+    expect(new Set(tous.map((e) => e.id))).toEqual(new Set([seul.id, estime.id, voisin.id, pays.id, prefecture.id]));
     expect(tous.find((e) => e.id === estime.id)?.estime).toBe(150_000_000);
     expect(v2.memoire.etat().has('pays:HUN:localiser')).toBe(true);
     expect(s.creer).not.toHaveBeenCalled();

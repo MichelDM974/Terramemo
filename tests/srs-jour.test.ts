@@ -97,6 +97,21 @@ describe('fiches', () => {
     for (const x of ['ville:Q90:localiser', 'Villes:Q90:localiser', 'fleuve:danube:localiser', 'desert:sahara:nommer']) expect(analyser(x)).toBeNull();
   });
 
+  it('les domaines du J6 se lisent dès le même socle, sur les deux terrains de la France, sans être jouables (étude J6 § 6.3, D867 a, D876 a)', () => {
+    expect(DOMAINES.slice(14)).toEqual(['departements', 'regions', 'prefectures', 'numeros']);
+    expect(DOMAINES.slice(14).map((d) => TERRAIN_DOMAINE[d])).toEqual(['departements', 'regions', 'departements', 'departements']);
+    for (const d of DOMAINES.slice(14)) expect(domaineJouable(d), d).toBe(false);
+    expect(jouablesDu('departements')).toEqual([]);
+    expect(jouablesDu('regions')).toEqual([]);
+    // Les départements au code INSEE (Corse et outre-mer compris), les régions à R et leur code.
+    expect(analyser('departements:2A:localiser')).toEqual({ domaine: 'departements', id: '2A', sens: 'localiser' });
+    expect(analyser('prefectures:971:nommer')).toEqual({ domaine: 'prefectures', id: '971', sens: 'nommer' });
+    expect(analyser('numeros:01:localiser')).toEqual({ domaine: 'numeros', id: '01', sens: 'localiser' });
+    expect(former('regions', 'R84', 'nommer')).toBe('regions:R84:nommer');
+    expect(soeur('regions:R84:nommer')).toBe('regions:R84:localiser');
+    for (const x of ['departement:2A:localiser', 'region:R84:localiser', 'Regions:R84:localiser']) expect(analyser(x)).toBeNull();
+  });
+
   it('lire n’est pas savoir poser : pays, capitales (lot 1), drapeaux (lot 2), mers (lot 3b) et communes sont jouables, chacun sur son terrain (étude J2 § 3.1)', () => {
     expect(DOMAINES_JOUABLES).toEqual(['pays', 'capitales', 'drapeaux', 'mers', 'communes']);
     expect(DOMAINES.filter(domaineJouable)).toEqual(['pays', 'communes', 'capitales', 'drapeaux', 'mers']);

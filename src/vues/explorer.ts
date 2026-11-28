@@ -62,6 +62,7 @@ import { estDomaine, type Domaine } from '../srs/fiches';
 import { tailleEcranPx } from '../map/pastilles';
 import { pickMer, type ResultatPick, type Via } from '../map/pick';
 import type { Lieu, NomTerrain, Pays } from '../map/types';
+import { estLocal } from '../map/terrain';
 import type { DonneesFichesCommunes, DonneesFichesMers, DonneesFichesMonde, DrapeauxTerritoires } from '../fiches/donnees';
 import type { LigneRelue } from '../fiches/relues';
 import { sorteDeLieu, type SorteLieu } from '../fiches/sorte';
@@ -335,7 +336,8 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     const e = t.donnees.entites.find((en) => en.pays.id === id);
     const mer = estIdMer(id);
     // Le nom par le sujet qui nomme les zones de ce terrain (sujets.ts) : les pays, les communes ; une mer par mers.fr.json.
-    nom.textContent = mer ? (nomsMersCharges()?.[id] ?? C.mer) : rendu(SUJET_CARTE[t.nom], t.donnees).lieu(id);
+    const sujetCarte = SUJET_CARTE[t.nom];
+    nom.textContent = mer ? (nomsMersCharges()?.[id] ?? C.mer) : sujetCarte ? rendu(sujetCarte, t.donnees).lieu(id) : id;
     const statut = e ? LIBELLE_STATUT[e.pays.statut] : '';
     detail.textContent = [statut, via === 'pastille' ? C.par_pastille : via === 'proche' ? C.au_plus_pres : ''].filter(Boolean).join(' · ');
     // La ligne de la mémoire, à part (§ 4.1) ; sa place réservée tant que le réglage est actif, même vide (un territoire).
@@ -751,6 +753,7 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
    */
   function surFiche(f: EntreeFiche | null): void {
     if (!f) return fermerFiche(true);
+    // Une fiche sur le monde ou sur l'île ; les terrains du J6 n'en ont pas encore (leur lot 8).
     if (!F || !active || (f.terrain !== 'monde' && f.terrain !== 'reunion')) return;
     // Une partie de Toucher en suspens (§ 4.8, garde 3) : pas de fiche, et son entrée d'historique rendue, sinon le
     // retour suivant ne changerait rien à l'écran (§ 7 : aucune entrée de fiche orpheline).
@@ -764,15 +767,18 @@ export function vueExplorer(ctx: ContexteVue, o: OptionsExplorer = {}): VueExplo
     // Le lieu sur la carte : un voisin, ou une fiche rendue par un retour (aller() vide la barre, la fiche reste ouverte),
     // deux images après la fiche quand la page en a (volEnAttente).
     volEnAttente = null;
+    // Le terrain local de la fiche (tri du J6, § 4.6 : la fiche et son vol valent pour tout terrain local) ; une commune
+    // (l'île précisément) a en plus ses fiches à charger.
+    const local = estLocal(f.terrain) ? f.terrain : null;
     const commune = f.terrain === 'reunion';
-    if (t !== (commune ? ctx.terrains.deja('reunion') : ctx.terrains.monde) || barre.dataset.id !== f.id) {
+    if (t !== (local ? ctx.terrains.deja(local) : ctx.terrains.monde) || barre.dataset.id !== f.id) {
       // Une mer (la mère, l'océan d'une mer, lot F4) : la couche fine posée d'abord, comme pour la recherche. Une commune
       // (lot F5) : l'île, chargée avec ses fiches (donnees, plus bas) si elle ne l'était pas.
       const vol = () => {
-        if (commune) {
-          const ile = ctx.terrains.deja('reunion');
-          if (ile) return montrer(ile, f.id);
-          ctx.terrains.charger('reunion').then(
+        if (local) {
+          const deja = ctx.terrains.deja(local);
+          if (deja) return montrer(deja, f.id);
+          ctx.terrains.charger(local).then(
             (i) => {
               if (ficheOuverte === f && active) montrer(i, f.id);
             },

@@ -90,8 +90,16 @@ export interface Entite<L extends Lieu = Pays> {
   forme: Forme;
 }
 
-/** Terrain de jeu : le monde, ou une carte locale (src/map/terrain.ts). */
-export type NomTerrain = 'monde' | 'reunion';
+/**
+ * Terrain de jeu : le monde, ou une carte locale (src/map/terrain.ts) : l'île
+ * de La Réunion, et les deux cartes de la France du J6 (étude
+ * 2026-11-25-j6-conception.md, § 4.1), nommées dès son socle mais sans
+ * définition tant que leurs données ne sont pas livrées.
+ */
+export type NomTerrain = 'monde' | 'reunion' | 'departements' | 'regions';
+
+/** Un terrain local : tout terrain hors du monde (estLocal, src/map/terrain.ts). */
+export type NomTerrainLocal = Exclude<NomTerrain, 'monde'>;
 
 /**
  * Transformation de la carte : écran = k × base + (x, y), la base étant la

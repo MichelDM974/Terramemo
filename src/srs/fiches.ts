@@ -5,7 +5,9 @@
 // drapeaux prennent l'id du pays (`capitales:BOL:localiser`), les mers le
 // leur, de 8 lettres au plus (`mers:medit:localiser` ; étude J2 § 3.1, 3.3).
 // Ceux du J4 prennent l'id du pays, les villes leur Qid (`villes:Q90:localiser`) ;
-// ceux du J5 un id de 3 à 8 lettres, comme les mers (`fleuves:danube:nommer`).
+// ceux du J5 un id de 3 à 8 lettres, comme les mers (`fleuves:danube:nommer`) ;
+// ceux du J6 le code INSEE du département (`departements:2A:localiser`,
+// `prefectures:971:nommer`) ou `R` et le code de la région (`regions:R84:…`, D867 a).
 import type { NomTerrain } from '../map/types';
 
 /**
@@ -28,7 +30,12 @@ export type Domaine =
   | 'fleuves'
   | 'montagnes'
   | 'deserts'
-  | 'detroits';
+  | 'detroits'
+  // J6 (étude 2026-11-25-j6-conception.md, § 6.3)
+  | 'departements'
+  | 'regions'
+  | 'prefectures'
+  | 'numeros';
 /** localiser : « où est X ? » (Trouver) ; nommer : « quel est ce pays ? » (Reconnaître). */
 export type Sens = 'localiser' | 'nommer';
 
@@ -38,7 +45,7 @@ export type Sens = 'localiser' | 'nommer';
  * mixte (une Révision du jour qui mêle pays et capitales) reste lisible
  * (étude J2 § 3.3). Ceux du J4 et du J5 de même, dès leur lot 0 commun : un
  * APK plus ancien met en `a_relire` tout lot d'un domaine qu'il ne connaît
- * pas (« Mets à jour l'appli ») ; lus longtemps avant d'être écrits, ce cas
+ * pas (ceux du J6 aussi, même socle : D876 a) (« Mets à jour l'appli ») ; lus longtemps avant d'être écrits, ce cas
  * se borne aux APK d'avant ce socle. Toujours ajoutés à la fin : l'ordre
  * départage la planification à âge égal. Lire n'est pas savoir poser :
  * DOMAINES_JOUABLES.
@@ -58,6 +65,10 @@ export const DOMAINES: readonly Domaine[] = [
   'montagnes',
   'deserts',
   'detroits',
+  'departements',
+  'regions',
+  'prefectures',
+  'numeros',
 ];
 
 /**
@@ -71,7 +82,7 @@ export const DOMAINES: readonly Domaine[] = [
  */
 export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', 'mers', 'communes'];
 
-/** Le terrain où se jouent les fiches d'un domaine : l'île pour les communes, le monde pour les autres. */
+/** Le terrain où se jouent les fiches d'un domaine : l'île pour les communes, la France (départements ou régions) pour le J6, le monde pour les autres. */
 export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = {
   pays: 'monde',
   communes: 'reunion',
@@ -87,6 +98,10 @@ export const TERRAIN_DOMAINE: Readonly<Record<Domaine, NomTerrain>> = {
   montagnes: 'monde',
   deserts: 'monde',
   detroits: 'monde',
+  departements: 'departements',
+  regions: 'regions',
+  prefectures: 'departements',
+  numeros: 'departements',
 };
 
 /** Le nom est-il celui d'un domaine (un sujet de Jouer qui a ses fiches) ? */

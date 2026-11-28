@@ -74,6 +74,8 @@ describe('fiches du monde : une entrée par entité', () => {
     // Aucun id de la carte n'est pris pour une mer, et le script dit comme le code.
     for (const p of pays) expect(sorteDeLieu(p.id, 'monde', p.statut), p.id).not.toBe('mer');
     expect(sorteDeLieu('XYZ', 'monde')).toBeNull();
+    // Un terrain local autre que l'île (le J6, sans fiche avant son lot 8) : rien, jamais un pays ni une commune.
+    for (const t of ['departements', 'regions'] as const) expect(sorteDeLieu('2A', t, 'jouable')).toBeNull();
   });
 
   it('le script et le code s’accordent sur la sorte de chaque statut', async () => {

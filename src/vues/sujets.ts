@@ -496,6 +496,7 @@ export function rendu(sujet: string, d: DonneesSujet, o: OptionsRendu = {}): Ren
 
 /**
  * Le sujet qui nomme les zones de la carte d'un terrain, hors partie (le nom
- * au toucher, à l'accueil) : les pays sur le monde, les communes sur l'île.
+ * au toucher, à l'accueil) : les pays sur le monde, les communes sur l'île ;
+ * aucun encore pour les terrains du J6 (leur sujet vient avec leurs données).
  */
-export const SUJET_CARTE: Readonly<Record<NomTerrain, SujetRendu>> = { monde: 'pays', reunion: 'communes' };
+export const SUJET_CARTE: Readonly<Record<'monde' | 'reunion', SujetRendu> & Partial<Record<NomTerrain, SujetRendu>>> = { monde: 'pays', reunion: 'communes' };
