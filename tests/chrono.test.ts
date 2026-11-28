@@ -619,9 +619,9 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
   const tailleDe = new Map([...catalogue(pays), serieMers()].map((x) => [x.id, x.n]));
   const regles = readFileSync('firestore.rules', 'utf8');
   const corps = regles.slice(regles.indexOf('function tailles(cle)'), regles.indexOf('function epreuveConnue'));
-  /** Les cartes de tailles(cle) des règles, dans l'ordre : mers, capitales, drapeaux, localiser. */
+  /** Les cartes de tailles(cle) des règles, dans l'ordre : mers, capitales, drapeaux, silhouettes (prête d'avance, J4 lot 1), localiser. */
   const cartes = [...corps.matchAll(/\{([^{}]*)\}/g)].map((m) => Object.fromEntries([...m[1]!.matchAll(/'([^']+)': (\d+)/g)].map((x) => [x[1]!, Number(x[2])])));
-  const ORDRE_CARTES = ['mers', 'capitales', 'drapeaux', 'localiser'];
+  const ORDRE_CARTES = ['mers', 'capitales', 'drapeaux', 'silhouettes', 'localiser'];
   const taillesRegles = (cle: string): Record<string, number> => cartes[ORDRE_CARTES.indexOf(cle)] ?? {};
 
   it('EPREUVES_SUJETS : Pays, Capitales (les séries des pays, D37 c), Drapeaux (de même), Océans et mers (sa série unique, D44 a), puis Communes (D53 b) ; chaque sujet retrouvé par son id', () => {
@@ -701,12 +701,13 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
     // Et la somme des tailles du catalogue (tailleEpreuve), sujet par sujet.
     expect(epreuvesDuGeneral().reduce((n, e) => n + (tailleEpreuve(e) ?? NaN), 0)).toBe(BORNE_GENERAL);
     expect(BORNE_GENERAL).toBe(somme);
-    expect(regles).toContain(`n == 0 ? d.questions <= ${BORNE_GENERAL} :`);
+    // Les règles acceptent d'avance les Chrono des silhouettes (166 + 166), cachées ici (src/visibles.ts) : tests/silhouettes.test.ts.
+    expect(regles).toContain(`n == 0 ? d.questions <= ${BORNE_GENERAL + 332} :`);
   });
 
   it('les tailles des règles (tailles(cle)) : celles du catalogue, par clé ; les capitales (D37 c) et les drapeaux celles des pays, sans l’île ; les mers leur série unique de 50 (§ 8.2)', () => {
-    expect(cartes).toHaveLength(4);
-    const [mers, capitales, drapeaux, localiser] = cartes;
+    expect(cartes).toHaveLength(5);
+    const [mers, capitales, drapeaux, silhouettes, localiser] = cartes;
     const attendu = (sujets: string[]) => Object.fromEntries(EPREUVES_SUJETS.filter((p) => sujets.includes(p.sujet)).map((p) => [p.serie, tailleDe.get(p.serie)]));
     expect(mers).toEqual(attendu(['mers']));
     expect(mers).toEqual({ mers: 50 });
@@ -714,10 +715,13 @@ describe('catalogue des épreuves et ouverture des capitales, des drapeaux et de
     expect(drapeaux).toEqual(attendu(['drapeaux']));
     expect(localiser).toEqual(attendu(['pays', 'communes']));
     for (const c of [capitales, drapeaux]) expect(c).toEqual({ Africa: 54, Asia: 48, Europe: 44, 'North America': 23, Oceania: 14, 'South America': 12, tous: 195 });
+    // Les silhouettes, prêtes avant d'être ouvertes (cachées ici : EPREUVES_SUJETS ne les a pas ; tests/silhouettes.test.ts).
+    expect(silhouettes).toEqual({ Africa: 49, Asia: 45, Europe: 38, 'North America': 16, Oceania: 6, 'South America': 12, tous: 166 });
     // Chaque carte sous sa clé : « cle == 'mers' ? {…} : cle == 'capitales' ? {…} : cle == 'drapeaux' ? {…} : {…} ».
     expect(corps.indexOf("cle == 'mers'")).toBeLessThan(corps.indexOf("cle == 'capitales'"));
     expect(corps.indexOf("cle == 'capitales'")).toBeLessThan(corps.indexOf("cle == 'drapeaux'"));
-    expect(regles).toMatch(/p\[1\] in \['localiser', 'capitales', 'drapeaux', 'mers'\]/);
+    expect(corps.indexOf("cle == 'drapeaux'")).toBeLessThan(corps.indexOf("cle == 'silhouettes'"));
+    expect(regles).toMatch(/p\[1\] in \['localiser', 'capitales', 'drapeaux', 'silhouettes', 'mers'\]/);
     // Minute retiré : les règles ne connaissent plus que le Chrono et Sans faute.
     expect(regles).toMatch(/p\[0\] in \['chrono', 'sansfaute'\]/);
   });

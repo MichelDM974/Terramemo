@@ -28,6 +28,9 @@
 // Les océans et mers (lot 3b) : leurs grappes (grappesMers : les océans, puis
 // les mers par bassin), sur le monde, la couche marine lue et posée sur la
 // carte avant la séance ; aucun prérequis (D39 : rien pour les mers).
+// Les silhouettes (J4, lot 1) : les grappes des pays qui en ont une (D618 a),
+// leur morceau et silhouettes.json chargés avant la séance ; leurs fiches
+// nommer en carte retournée sans zone allumée (retournee.ts, D623 a).
 //
 // « Apprendre ce lieu » (fiche d'un lieu, #34, lot F7, § 5) : Apprendre avec un
 // lieu (DemandeSeance.lieu), dont la grappe passe en tête (planif.ts prefere),
@@ -42,7 +45,7 @@ import { empriseGrappe, unionEmprises, type Emprise } from '../map/geo';
 import { empriseMer } from '../map/mers';
 import type { Lieu, NomTerrain } from '../map/types';
 import type { Memoire } from '../journal/memoire';
-import { analyser, DOMAINES_JOUABLES, estDomaine, former, jouablesDu, type Domaine } from '../srs/fiches';
+import { analyser, aSilhouette, DOMAINES_JOUABLES, estDomaine, former, jouablesDu, type Domaine } from '../srs/fiches';
 import { grappesCommunes, grappesMers, grappesPays, type Grappe } from '../srs/grappes';
 import {
   dues,
@@ -64,7 +67,7 @@ import type { Lancement } from './arbre';
 import { nomSerie, SERIE_TOUS } from './cibles';
 import { creer, croix, fmtKm, ligneFiche } from './commun';
 import type { DemandeSeance, FabriqueSeances, PiloteSeance, RefusSeance, ReponseJouee } from './essai';
-import { rendu, textesSujet } from './sujets';
+import { chargerSilhouettes, rendu, silhouettesChargees, textesSujet } from './sujets';
 import { remplir, textes } from './textes';
 
 const S = textes.seance;
@@ -153,6 +156,8 @@ export interface OptionsSeances {
    * fiches de mers ; sans lui, elles attendent (comme hors ligne).
    */
   chargerMers?: () => Promise<unknown>;
+  /** Charge le morceau des silhouettes et silhouettes.json (chargerSilhouettes par défaut ; les tests : un échec, une attente). */
+  chargerSilhouettes?: () => Promise<unknown>;
   /** Précharge les drapeaux de ces pays (prechargerJustes par défaut : tous leurs justes ; les tests : un espion). */
   prechargerDrapeaux?: (ids: readonly string[]) => void;
   /**
@@ -240,6 +245,10 @@ export function creerSeances(o: OptionsSeances): Seances {
     }
     return mers;
   };
+  /** Les silhouettes (étude J4 § 7.5) : les grappes des pays qui en ont une (D618 a : sans les 29), sur le monde. */
+  let silhouettes: InfoDomaine | null = null;
+  const infoSilhouettes = (): InfoDomaine =>
+    (silhouettes ??= infoDomaine('silhouettes', 'monde', o.monde, grappesPays(o.monde.entites.map((e) => e.pays).filter((p) => aSilhouette(p.id)))));
   const toujoursLa = (info: () => InfoDomaine): SourceDomaine => ({ info, aCharger: false, charger: () => Promise.resolve() });
   /** La source de chaque domaine ; null : pas encore posable. */
   function source(d: Domaine): SourceDomaine | null {
@@ -257,11 +266,17 @@ export function creerSeances(o: OptionsSeances): Seances {
       case 'mers':
         // Les grappes des mers et ce que montrent leurs questions : la couche marine, lue et posée sur la carte avant la séance.
         return { info: infoMers, aCharger: true, charger: () => o.chargerMers?.() ?? Promise.reject(new Error('mers : pas de chargeur')) };
+      case 'silhouettes':
+        // Ce que montrent ses questions (le dessin) : son morceau et silhouettes.json, chargés avant la séance.
+        return {
+          info: () => (silhouettesChargees() ? infoSilhouettes() : null),
+          aCharger: true,
+          charger: () => (o.chargerSilhouettes ?? (() => chargerSilhouettes(o.monde)))(),
+        };
       case 'voisins':
       case 'villes':
       case 'habitants':
       case 'superficies':
-      case 'silhouettes':
       case 'fleuves':
       case 'montagnes':
       case 'deserts':

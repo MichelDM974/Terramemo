@@ -9,6 +9,7 @@
 // ceux du J6 le code INSEE du département (`departements:2A:localiser`,
 // `prefectures:971:nommer`) ou `R` et le code de la région (`regions:R84:…`, D867 a).
 import type { NomTerrain } from '../map/types';
+import { SILHOUETTES_VISIBLES } from '../visibles';
 
 /**
  * Un domaine = un sujet de Jouer, du même nom (étude J2 § 3.1). Ces noms vont
@@ -77,11 +78,13 @@ export const DOMAINES: readonly Domaine[] = [
  * § 3.1). Révision du jour, comptes de Jouer, introductions et carte de la
  * mémoire ne prennent qu'eux ; les fiches d'un autre domaine restent au
  * journal, intactes, et entrent en séance à la mise à jour qui livre leur
- * sujet. Capitales au lot 1, drapeaux au lot 2, mers au lot 3b. Dans
+ * sujet. Capitales au lot 1, drapeaux au lot 2, mers au lot 3b ; les
+ * silhouettes du J4 (lot 1) quand leur liste est relue (SILHOUETTES_VISIBLES,
+ * src/visibles.ts). Dans
  * l'ordre des sujets de Jouer (D53 b) : celui du choix du sujet de la carte
  * de la mémoire.
  */
-export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', 'mers', 'communes'];
+export const DOMAINES_JOUABLES: readonly Domaine[] = ['pays', 'capitales', 'drapeaux', ...(SILHOUETTES_VISIBLES ? (['silhouettes'] as const) : []), 'mers', 'communes'];
 
 /**
  * Une table par domaine, chaque valeur tirée de son nom : toutes les clés de
@@ -125,6 +128,20 @@ export const SENS: readonly Sens[] = ['localiser', 'nommer'];
 export const SANS_NOMMER: Readonly<Partial<Record<Domaine, ReadonlySet<string>>>> = {
   capitales: new Set(['DJI', 'GTM', 'KWT', 'LUX', 'MCO', 'PAN', 'SGP', 'SMR', 'VAT']),
 };
+
+/**
+ * D618 a : les 29 pays jouables sans silhouette, ceux dont le plus grand
+ * morceau fait moins de 2 000 km² (micro: true de pays.json, SEUIL_MICRO_KM2
+ * de geodata/build.mjs). Écrits ici, figés : un tracé refait ne change pas
+ * en silence la liste, dont les fiches sont écrites à vie (le test les
+ * confronte à pays.json). Ni fiche, ni série, ni leurre, ni épreuve.
+ */
+export const SANS_SILHOUETTE: ReadonlySet<string> = new Set(
+  'AND ATG BHR BRB COM CPV DMA FSM GRD KIR KNA LCA LIE MCO MDV MHL MLT MUS NRU PLW SGP SMR STP SYC TON TUV VAT VCT WSM'.split(' '),
+);
+
+/** Le pays a-t-il sa silhouette (D618 a) ? */
+export const aSilhouette = (id: string): boolean => !SANS_SILHOUETTE.has(id);
 
 /** L'entité a-t-elle une fiche nommer dans ce domaine (posée en QCM, en carte retournée) ? */
 export const nommerPose = (domaine: Domaine, id: string): boolean => !SANS_NOMMER[domaine]?.has(id);

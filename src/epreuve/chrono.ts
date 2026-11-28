@@ -6,6 +6,7 @@
 import { REGLES } from '../quiz/regles';
 import { DIFFICULTES, type Difficulte } from '../quiz/types';
 import type { Domaine } from '../srs/fiches';
+import { SILHOUETTES_VISIBLES } from '../visibles';
 import { comparerScores, DELAI_CHRONO_MS, pointsQuestion, scoreEpreuve, semaine, type ReponseChrono, type ScoreEpreuve } from './bareme';
 
 /**
@@ -257,6 +258,9 @@ export const EPREUVES_SUJETS: readonly PaireEpreuve[] = [
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'pays', serie })),
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'capitales', serie })),
   ...SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'drapeaux', serie })),
+  // Silhouettes (J4, lot 1) : les séries des pays, sans les 29 sans silhouette (TAILLES_SILHOUETTES) ; ouvertes
+  // quand leur liste est relue (SILHOUETTES_VISIBLES), les règles les acceptant d'avance.
+  ...(SILHOUETTES_VISIBLES ? SERIES_MONDE.map((serie): PaireEpreuve => ({ sujet: 'silhouettes', serie })) : []),
   { sujet: 'mers', serie: 'mers' },
   { sujet: 'communes', serie: 'reunion' },
 ];
@@ -310,11 +314,15 @@ export function sujetEpreuve(epreuve: string): Domaine | null {
  * monte, règles d'abord : une version d'avant publie un général plus bas,
  * que les règles refusent sans bruit (pas de progrès ; étude J2 § 3.2).
  * tests/chrono.test.ts la compare à la somme des tailles et aux règles.
+ * Les silhouettes (D603 a) y ajoutent 166 + 166 = 332 quand elles sont
+ * visibles : 1 576, que les règles acceptent déjà (règles d'abord).
  */
-export const BORNE_GENERAL = 1244;
+export const BORNE_GENERAL = SILHOUETTES_VISIBLES ? 1244 + 2 * 166 : 1244;
 
 /** Questions de chaque série du monde : les 195 pays jouables (src/vues/cibles.ts), répartis en six continents. */
 const TAILLES_MONDE: Readonly<Record<string, number>> = { tous: 195, Africa: 54, 'North America': 23, 'South America': 12, Asia: 48, Europe: 44, Oceania: 14 };
+/** Les silhouettes (D618 a) : les pays jouables sans les 29 micro-États, par continent. */
+const TAILLES_SILHOUETTES: Readonly<Record<string, number>> = { tous: 166, Africa: 49, 'North America': 16, 'South America': 12, Asia: 45, Europe: 38, Oceania: 6 };
 
 /**
  * Questions de chaque série, par sujet : celles de tailles(cle) dans
@@ -327,6 +335,7 @@ const TAILLES_SERIES: Readonly<Partial<Record<Domaine, Readonly<Record<string, n
   pays: TAILLES_MONDE,
   capitales: TAILLES_MONDE,
   drapeaux: TAILLES_MONDE,
+  silhouettes: TAILLES_SILHOUETTES,
   communes: { reunion: 24 },
   mers: { mers: 50 },
 };

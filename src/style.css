@@ -53,6 +53,9 @@
   --drapeau-fond: #ffffff;
   --drapeau-lisere: #80858f;
   --drapeau-attente: #3c414c;
+  /* Une silhouette (J4) : claire sur le panneau (contraste 17:1, WCAG 1.4.11 en veut 3:1), ses zones contestées hachurées du fond du panneau. */
+  --silhouette: #eff0f3;
+  --silhouette-hachure: #111214;
   /* Marge latérale : le contenu de l'en-tête s'aligne sur celui de la page. */
   --pad: max(32px, calc((100% - 1216px) / 2));
 }

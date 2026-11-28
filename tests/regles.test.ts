@@ -7,9 +7,14 @@
 // § 6), et la copie client de lotValide (problemeLot) confrontée aux règles ;
 // les demandes de retrait des places d'un compte supprimé, `demandes/{uid}`
 // (lot 5, § 7.1, D27 b).
+// Les silhouettes du J4 (lot 1) visibles ici (src/visibles.ts remplacé) : les
+// règles les acceptent d'avance, avant que le site ne les ouvre, et la borne
+// du général des règles est celle du client qui les montre (1 576).
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { deleteDoc, doc, getDoc, getDocs, collection, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, writeBatch, type Firestore } from 'firebase/firestore';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../src/visibles', () => ({ SILHOUETTES_VISIBLES: true }));
 import { semaine } from '../src/epreuve/bareme';
 import { BORNE_GENERAL, clePermise, clePseudo, formePseudo, idEpreuve, idQuiz, pseudoValide, tempsMaxQuiz, vraisemblable } from '../src/epreuve/chrono';
 import { DIFFICULTES } from '../src/quiz/types';
@@ -376,12 +381,17 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
     });
   });
 
-  it('général : la somme des épreuves du Chrono des sujets ouverts, 1244 questions au plus (390 des pays + 24 de l’île + 390 des capitales + 390 des drapeaux + 50 des mers, D40 a)', async () => {
+  it('général : la somme des épreuves du Chrono des sujets ouverts, 1576 questions au plus (390 des pays + 24 de l’île + 390 des capitales + 390 des drapeaux + 50 des mers + 332 des silhouettes, D40 a, D603 a)', async () => {
     const a = db('ana');
-    expect(BORNE_GENERAL).toBe(1244);
+    expect(BORNE_GENERAL).toBe(1576);
+    await assertSucceeds(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1576, justes: 600, points: 600, temps_ms: 8_000_000 })));
+    await env.clearFirestore();
+    await assertFails(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1577, justes: 600, points: 600, temps_ms: 8_000_000 })));
+    // 1244, la borne d'avant les silhouettes (et celle du client qui les cache), reste acceptée.
     await assertSucceeds(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1244, justes: 600, points: 600, temps_ms: 6_000_000 })));
     await env.clearFirestore();
-    await assertFails(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1245, justes: 600, points: 600, temps_ms: 6_000_000 })));
+    await assertSucceeds(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1245, justes: 600, points: 600, temps_ms: 6_000_000 })));
+    await env.clearFirestore();
     // Points = justes au général aussi : la somme des points du barème 1, refusée.
     await assertFails(setDoc(place(a, 'michel', 'toujours', 'general'), score({ questions: 1244, justes: 600, points: 600_000, temps_ms: 6_000_000 })));
     // Les anciennes bornes (414, puis 804 avec les capitales, 1194 avec les drapeaux) n'arrêtent plus rien.
@@ -405,6 +415,8 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
       { questions: 1194, justes: 600, points: 600, temps_ms: 6_000_000 },
       { questions: 1195, justes: 600, points: 600, temps_ms: 6_000_000 },
       { questions: 804, justes: 600, points: 600, temps_ms: 6_000_000 },
+      { questions: 1576, justes: 600, points: 600, temps_ms: 8_000_000 },
+      { questions: 1577, justes: 600, points: 600, temps_ms: 8_000_000 },
     ];
     for (const [i, c] of cas.entries()) {
       const ecrire = setDoc(place(db('ana'), `joueur ${i}`, 'toujours', 'general'), score({ ...c, pseudo: `Joueur ${i}` }));
@@ -486,6 +498,35 @@ describe.skipIf(!hote)('règles des classements (émulateur)', () => {
         if (vraisemblable(c as never, e)) await assertSucceeds(ecrire);
         else await assertFails(ecrire);
       }
+    });
+  });
+
+  describe('épreuves des silhouettes (lot 1 du J4, D618 a, D603 a : les séries des pays sans les 29 micro-États)', () => {
+    const SIL_AFR = idEpreuve('Africa', 'chrono', 'silhouettes');
+    // 45 justes et 4 erreurs sur les 49 silhouettes d'Afrique.
+    const afrique = (o: Record<string, unknown> = {}) => score({ questions: 49, justes: 45, points: 45, temps_ms: 300_000, ...o });
+
+    it('chrono:silhouettes:Africa : accepté à 49 questions, refusé à 48, 50 ou 54 (la taille des pays)', async () => {
+      const a = db('ana');
+      expect(SIL_AFR).toBe('chrono:silhouettes:Africa');
+      await assertSucceeds(setDoc(place(a, 'michel', 'toujours', SIL_AFR), afrique()));
+      await env.clearFirestore();
+      for (const questions of [48, 50, 54]) await assertFails(setDoc(place(a, 'michel', 'toujours', SIL_AFR), afrique({ questions })));
+      await assertSucceeds(setDoc(place(a, 'michel', cetteSemaine(), SIL_AFR), afrique()));
+    });
+
+    it('chaque série : tous 166, Afrique 49, Asie 45, Europe 38, Amérique du Nord 16, Amérique du Sud 12, Océanie 6 ; ni l’île, ni Minute', async () => {
+      const a = db('ana');
+      const tailles: Record<string, number> = { tous: 166, Africa: 49, Asia: 45, Europe: 38, 'North America': 16, 'South America': 12, Oceania: 6 };
+      for (const [serie, n] of Object.entries(tailles)) {
+        for (const mode of ['chrono', 'sansfaute'] as const) {
+          const e = idEpreuve(serie, mode, 'silhouettes');
+          await assertSucceeds(setDoc(place(a, 'michel', 'toujours', e), score({ questions: n, justes: n, points: n, temps_ms: n * 5_000 })));
+          await assertFails(setDoc(place(a, 'grand', 'toujours', e), score({ pseudo: 'Grand', questions: n + 1, justes: n + 1, points: n + 1, temps_ms: n * 5_000 })));
+        }
+      }
+      await assertFails(setDoc(place(a, 'michel', 'toujours', 'chrono:silhouettes:reunion'), score({ questions: 24, justes: 23, points: 23, temps_ms: 120_000 })));
+      await assertFails(setDoc(place(a, 'michel', 'toujours', 'minute:silhouettes:Oceania'), score({ questions: 6, justes: 6, points: 6, temps_ms: 60_000 })));
     });
   });
 

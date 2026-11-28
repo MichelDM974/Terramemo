@@ -21,8 +21,11 @@ service cloud.firestore {
     // tailles des pays (D37 c : les 9 pays au nom de leur capitale restent en
     // épreuve), sans l'île. 'drapeaux' (lot 2) : de même, les séries et les
     // tailles des pays, sans l'île. 'mers' (lot 3b) : une série unique, les 5
-    // océans et 45 mers et golfes (src/map/mers.ts, IDS_MERS ; D44 a). Chaque
-    // carte s'écrit en entier, sans fusion.
+    // océans et 45 mers et golfes (src/map/mers.ts, IDS_MERS ; D44 a).
+    // 'silhouettes' (J4, lot 1) : les séries des pays sans les 29 micro-États
+    // (D618 a : 166), acceptées avant que le site ne les ouvre
+    // (SILHOUETTES_VISIBLES de src/visibles.ts). Chaque carte s'écrit en
+    // entier, sans fusion.
     function tailles(cle) {
       return cle == 'mers'
         ? {
@@ -48,6 +51,16 @@ service cloud.firestore {
           'South America': 12,
           'tous': 195
         }
+        : cle == 'silhouettes'
+        ? {
+          'Africa': 49,
+          'Asia': 45,
+          'Europe': 38,
+          'North America': 16,
+          'Oceania': 6,
+          'South America': 12,
+          'tous': 166
+        }
         : {
           'Africa': 54,
           'Asia': 48,
@@ -72,7 +85,7 @@ service cloud.firestore {
     function epreuveConnue(p) {
       return p.size() == 3
         && ((p[0] in ['chrono', 'sansfaute']
-          && p[1] in ['localiser', 'capitales', 'drapeaux', 'mers']
+          && p[1] in ['localiser', 'capitales', 'drapeaux', 'silhouettes', 'mers']
           && p[2] in tailles(p[1]))
         || (p[0] == 'quiz' && p[1] == 'general' && p[2] in tempsQuiz()));
     }
@@ -101,12 +114,13 @@ service cloud.firestore {
     // points sont les justes (barème 2, 12/11/2026) ; au moins 0,2 s par
     // question, 15 s au plus. Le
     // général (n = 0) additionne les records du Chrono de tous les sujets
-    // ouverts (D40 a) : 1244 questions au plus (195 pays deux fois, par
+    // ouverts (D40 a) : 1576 questions au plus (195 pays deux fois, par
     // continent et tous, + 24 communes + 195 capitales deux fois + 195
-    // drapeaux deux fois + 50 mers ; BORNE_GENERAL de src/epreuve/chrono.ts).
+    // drapeaux deux fois + 50 mers + 166 silhouettes deux fois ; BORNE_GENERAL
+    // de src/epreuve/chrono.ts, 1244 tant que les silhouettes sont cachées).
     // Chaque sujet ouvert la monte, ces règles d'abord.
     function chronoValide(d, n) {
-      return d.questions >= 1 && (n == 0 ? d.questions <= 1244 : d.questions == n)
+      return d.questions >= 1 && (n == 0 ? d.questions <= 1576 : d.questions == n)
         && d.points == d.justes
         && d.temps_ms >= d.questions * 200 && d.temps_ms <= d.questions * 15000;
     }

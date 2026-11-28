@@ -25,7 +25,7 @@ import type { Domaine } from '../srs/fiches';
 import type { Terrain } from '../terrains';
 import { adresse, niveauDe, type Lancement } from './arbre';
 import { melanger, nomSerie, type Serie } from './cibles';
-import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserEnonce, prechargerEnonces, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
+import { anneauZone, chargementSujet, merPosee, creer, croix, estPetite, fmtKm, fmtS, idsSerie, ligneFiche, optionsNoter, pastillesPour, poserComparaison, poserEnonce, prechargerEnonces, rendreFocusLigne, texteAdmis, type ContexteVue, type Vue } from './commun';
 import { vueNommer, type ReponseNommer } from './nommer';
 import { vueRetournee } from './retournee';
 import { rendu, type RenduSujet } from './sujets';
@@ -207,6 +207,9 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
   const consigne = creer('div', { class: 'essai-consigne' });
   const compte = creer('span', { class: 'essai-compte' });
   const retro = creer('div', { class: 'essai-retro', 'aria-live': 'polite' });
+  /** Un toucher faux sous Silhouettes : la silhouette touchée et la juste, nommées (D621 a, RenduSujet.comparaison). */
+  const comparaison = creer('div', { class: 'comparaison' });
+  comparaison.hidden = true;
   const voir = creer('button', { type: 'button', class: 'secondary', id: 'essai-voir' }, T.voir);
   const passer = creer('button', { type: 'button', class: 'secondary', id: 'essai-passer' }, T.passer);
   const terminer = creer('button', { type: 'button', class: 'secondary', id: 'essai-terminer' }, T.terminer);
@@ -215,6 +218,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     { class: 'carte-barre essai', id: 'barre-essai' },
     creer('div', { class: 'essai-ligne' }, consigne, compte),
     retro,
+    comparaison,
     creer('div', { class: 'essai-actions' }, voir, passer, terminer),
   );
   const bilan = creer('div', { class: 'essai-bilan panel', id: 'essai-bilan' });
@@ -334,6 +338,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     if (!reprise) {
       retro.textContent = '';
       retro.className = 'essai-retro';
+      poserComparaison(comparaison, null);
       essais = 0;
       premierFaux = null;
       vu = false;
@@ -361,6 +366,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
     marques = [];
     retro.textContent = '';
     retro.className = 'essai-retro';
+    poserComparaison(comparaison, null);
   }
 
   function suivante(r: Resultat): void {
@@ -803,6 +809,7 @@ export function vueEssai(ctx: ContexteVue, o: OptionsEssai): VueEssai {
         noterPremiere(note.juste ? null : (r?.id ?? null), note.juste ? note.via : null);
         essais++;
         effacer();
+        poserComparaison(comparaison, !note.juste && r && r.id !== id ? rs.comparaison(r.id, id) : null);
         if (note.juste) {
           marquer(id, 'juste');
           marquerPoint(id);

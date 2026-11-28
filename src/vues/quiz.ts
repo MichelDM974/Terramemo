@@ -50,7 +50,8 @@ import { creerJauge } from './jauge';
 import { allumerZone } from './nommer';
 import { NB_CHOIX } from './qcm';
 import { fmtJustes, fmtTemps, scoreCourt, scoreLong } from './scores';
-import { rendu, type RenduSujet } from './sujets';
+import { rendu, silhouettesChargees, type Contenu, type RenduSujet } from './sujets';
+import { SILHOUETTES_VISIBLES } from '../visibles';
 import { remplir, textes } from './textes';
 
 const Q = textes.quiz;
@@ -142,11 +143,13 @@ export function avisInterrompue(p: PartieInterrompue): string {
  * Ce que le quiz doit charger avant sa partie (étude J2 § 9.3, « Préparation ») :
  * sa notoriété et ses paires de drapeaux proches (quiz/donnees.ts), les
  * capitales, le manifeste des drapeaux (sans les images : la vue les attend
- * au départ) et la couche marine, posée sur la carte du monde ; null si tout
+ * au départ), le morceau des silhouettes quand elles sont visibles
+ * (src/visibles.ts) et la couche marine, posée sur la carte du monde ; null si tout
  * est déjà là. Jouer l'appelle (statut, échec hors ligne : jouer.ts).
  */
 export function preparerQuiz(ctx: Pick<ContexteVue, 'carte' | 'donnees'>): Promise<unknown> | null {
-  const attentes = [donneesQuizChargees() ? null : chargerDonneesQuiz(), ...(['capitales', 'drapeaux', 'mers'] as const).map((s) => chargementSujet(s, ctx))].filter(
+  const sujets = ['capitales', 'drapeaux', ...(SILHOUETTES_VISIBLES ? (['silhouettes'] as const) : []), 'mers'] as const;
+  const attentes = [donneesQuizChargees() ? null : chargerDonneesQuiz(), ...sujets.map((s) => chargementSujet(s, ctx))].filter(
     (p): p is Promise<unknown> => p !== null,
   );
   return attentes.length ? Promise.all(attentes) : null;
@@ -163,6 +166,7 @@ export function generateursQuiz(ctx: Pick<ContexteVue, 'donnees'>): Generateur[]
     capitales: capitalesChargees(),
     drapeaux: drapeauxCharges(),
     proches: q.proches,
+    silhouettes: silhouettesChargees()?.proches ?? null,
     mers: mersPosees(ctx.donnees).map((e) => e.pays),
     nomsMers: nomsMersCharges(),
   };
@@ -245,6 +249,8 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
   let posee = 0;
   /** La zone d'un QCM est petite à l'écran : un anneau l'entoure, aussi à la réponse. */
   let petite = false;
+  /** La question QCM en cours montre un dessin (une silhouette, RenduSujet.question) au lieu de la zone allumée. */
+  let dessinee: Contenu | null = null;
   let messageRetour = '';
   let bilanAuRetour = false;
 
@@ -387,9 +393,12 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     afficherCompte(false);
     barre.hidden = false;
     petite = false;
+    // Un QCM qui montre un dessin (les silhouettes) : la consigne et le dessin, la carte au monde entier, rien d'allumé.
+    dessinee = q.forme === 'qcm' ? r.question(id) : null;
     if (q.forme === 'qcm') {
       consigne.replaceChildren(q.nomme ? (r.consigneNommee(id) ?? r.consigneQcm(id)) : r.consigneQcm(id));
       consigne.classList.remove('consigne-deux-lignes', 'consigne-image');
+      if (dessinee) poserEnonce(consigne, { invite: r.consigneQcm(id), objet: dessinee });
       grille.hidden = false;
       grille.classList.toggle('nommer-grille-images', r.visuel);
       boutons.forEach((b, k) => {
@@ -403,7 +412,8 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
         b.disabled = true;
       });
       const z = zonesDe(q);
-      petite = allumerZone(t.carte, id, z.lieux.get(id), z.formes.get(id), barre, false);
+      if (dessinee) t.carte.vueEntiere();
+      else petite = allumerZone(t.carte, id, z.lieux.get(id), z.formes.get(id), barre, false);
     } else {
       // La vue du monde, avant que le temps ne coure : celle d'un QCM montrerait la réponse.
       grille.hidden = true;
@@ -471,7 +481,7 @@ export function vueQuiz(ctx: ContexteVue, o: OptionsQuiz): VueQuiz {
     const carte = t.carte;
     carte.effacerMarques();
     carte.marquer(q.cible, 'juste');
-    if (q.forme === 'qcm') {
+    if (q.forme === 'qcm' && !dessinee) {
       if (petite) anneauZone(carte, q.cible, zonesDe(q).lieux.get(q.cible) as Lieu | undefined, 'juste');
     } else anneauSiPetite(t, q.cible, 'juste');
   }

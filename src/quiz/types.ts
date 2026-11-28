@@ -12,8 +12,8 @@ export const DIFFICULTES: readonly Difficulte[] = ['facile', 'moyen', 'difficile
 /** Niveau de notoriété d'un lieu (public/geo/notoriete.json, D48 b) : 1, très connu (le facile), à 3. */
 export type Niveau = 1 | 2 | 3;
 
-/** Les sujets du quiz au J2 (D51 : pas de communes de La Réunion). */
-export type SujetQuiz = 'pays' | 'capitales' | 'drapeaux' | 'mers';
+/** Les sujets du quiz : ceux du J2 (D51 : pas de communes de La Réunion), les silhouettes du J4 (D604 a). */
+export type SujetQuiz = 'pays' | 'capitales' | 'drapeaux' | 'silhouettes' | 'mers';
 
 export interface Question {
   sujet: SujetQuiz;

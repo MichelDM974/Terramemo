@@ -36,9 +36,10 @@ export const INTRODUCTIONS_PAR_JOUR = 15;
  * D39 b (étude J2 § 6.2) : le domaine que la grappe d'un sujet devrait
  * suivre. Une préférence, jamais un blocage : Apprendre Capitales ou
  * Drapeaux prend d'abord la grappe dont les pays sont appris (pret), sinon
- * la suivante, avec un conseil. Rien pour les mers.
+ * la suivante, avec un conseil. Rien pour les mers ; les pays pour les
+ * silhouettes (D602 a).
  */
-export const PREREQUIS: Readonly<Partial<Record<Domaine, Domaine>>> = { capitales: 'pays', drapeaux: 'pays' };
+export const PREREQUIS: Readonly<Partial<Record<Domaine, Domaine>>> = { capitales: 'pays', drapeaux: 'pays', silhouettes: 'pays' };
 
 type Etat = ReadonlyMap<string, EtatFiche>;
 

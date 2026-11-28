@@ -85,7 +85,8 @@ export const regleExercice = (m: ModeJeu): string => (estEpreuve(m) ? remplir(E[
  * Reconnaître sont des QCM) : les épreuves de Classé se jouent sur la carte.
  */
 export const aideSujet = (sujet: string, branche: Branche): string =>
-  sujet !== 'drapeaux' ? '' : branche === 'classe' ? J.visuel : `${J.visuel} ${J.visuel_choix}`;
+  // Les silhouettes : la question est un dessin, les choix des noms (pas de touches 1 à 4 à dire).
+  sujet === 'silhouettes' ? J.visuel_silhouettes : sujet !== 'drapeaux' ? '' : branche === 'classe' ? J.visuel : `${J.visuel} ${J.visuel_choix}`;
 
 /** La phrase courte d'une difficulté du quiz : « Plus de lieux : 10 à 4 choix (10 s), 10 sur la carte (15 s) » (src/quiz/regles.ts). */
 export function detailDifficulte(d: Difficulte): string {

@@ -50,12 +50,26 @@
 // mer des Caraïbes, dans l'Atlantique ». Ce qu'on a touché est nommé, une
 // autre mer (« Faux : mer Noire, à 0 km du bord ») ou un pays, jamais « la
 // mer ». Noms : mers.fr.json, jamais l'id (« medit »).
+//
+// Silhouettes (étude J4 § 6, lot 1 ; D618 à D621) : la cible est le pays ; on
+// montre sa forme, dessinée sur place (aucune image à télécharger) : « Pays de
+// cette silhouette : » et le dessin ; Reconnaître et la carte retournée
+// montrent le dessin dans la barre au lieu d'allumer la zone (question()), qui
+// donnerait la réponse ; quatre noms ; « Révéler » donne le nom, puis le pays
+// s'allume. Une erreur montre les deux silhouettes nommées (comparaison()).
+// Le rendu vient d'un morceau chargé à la demande (silhouettes.ts, avec
+// public/geo/silhouettes.json) : chargerSilhouettes, avant la partie
+// (chargementSujet de commun.ts, la séance, le quiz).
 import type { SorteAdmise } from '../map/acceptes';
 import { ADMET_EN_PLUS, capitalesChargees, type Capitale, type DonneesCapitales } from '../map/capitales';
 import { drapeauxCharges, type DonneesDrapeaux } from '../map/drapeaux';
 import { mersChargees, mersPareilles, nomsMersCharges, parenteMer, zonesParties } from '../map/mers';
-import type { Entite, Mer, NomTerrain } from '../map/types';
-import { nommerPose, SANS_NOMMER, type Sens } from '../srs/fiches';
+import type { DonneesCarte } from '../map/donnees';
+import type { Entite, Lieu, Mer, NomTerrain } from '../map/types';
+import { geoAzimuthalEqualArea, geoCentroid } from 'd3-geo';
+import { aSilhouette, nommerPose, SANS_NOMMER, SANS_SILHOUETTE, type Sens } from '../srs/fiches';
+import type { ModuleSilhouettes, Outils } from './silhouettes';
+import { tracer } from './vignettes';
 import { formePays } from './formes';
 import { leurresParmi, type StrategieLeurres } from './qcm';
 import { remplir, textes, type Textes } from './textes';
@@ -70,13 +84,23 @@ export type SujetRendu = keyof Textes['sujets'];
 export type TextesSujet = Textes['sujets']['pays'];
 
 /**
- * Ce qu'une question montre d'un lieu : un texte, ou une image (un drapeau)
- * et son texte alternatif, qui ne donne jamais la réponse avant elle
- * (« Drapeau à reconnaître », ou vide dans un bouton nommé « Choix 1 ») ;
- * `legende` : un texte montré sous l'image (la révélation nomme le pays).
- * commun.ts (poserContenu) le met dans la page.
+ * Un dessin vectoriel (une silhouette) : son cadre (viewBox), son tracé, et
+ * celui des zones contestées qu'il porte, hachurées comme sur la carte.
  */
-export type Contenu = { texte: string } | { image: string; alt: string; legende?: string };
+export interface Dessin {
+  cadre: string;
+  trace: string;
+  hachures: string;
+}
+
+/**
+ * Ce qu'une question montre d'un lieu : un texte, une image (un drapeau) ou
+ * un dessin (une silhouette), avec un texte alternatif qui ne donne jamais la
+ * réponse avant elle (« Drapeau à reconnaître », ou vide dans un bouton nommé
+ * « Choix 1 ») ; `legende` : un texte montré sous l'image ou le dessin (la
+ * révélation nomme le pays). commun.ts (poserContenu) le met dans la page.
+ */
+export type Contenu = { texte: string } | { image: string; alt: string; legende?: string } | { dessin: Dessin; alt: string; legende?: string };
 
 /**
  * L'énoncé de Trouver et des épreuves : l'invite (« Touche : ») puis l'objet,
@@ -153,6 +177,19 @@ export interface RenduSujet {
   imageEnonce(id: string): string | null;
   /** Le lieu se pose-t-il en QCM (Reconnaître, QCM d'Apprendre) ? Non pour les 9 de D37 c. */
   qcmPosable(id: string): boolean;
+  /**
+   * Ce que la question de Reconnaître, du QCM et de la carte retournée montre
+   * dans la barre, à la place de la zone allumée, qui donnerait la réponse (la
+   * silhouette) ; null : la zone s'allume (les autres sujets). Le lieu
+   * s'allume alors après la réponse, ou à « Révéler ».
+   */
+  question(id: string): Contenu | null;
+  /**
+   * Une erreur (`choisi`, la zone choisie ou touchée, au lieu de `id`) : ce
+   * que la rétroaction montre côte à côte, nommé (D621 : « Tu as choisi : le
+   * Laos », « C'était : le Cambodge ») ; null sans rien à montrer.
+   */
+  comparaison(choisi: string, id: string): readonly [Contenu, Contenu] | null;
   /** Les lieux jamais leurres pour la question de ce lieu (qcm.choix, option exclus). */
   qcmExclus(id: string): ReadonlySet<string>;
   /** Deux lieux qui montrent la même chose, jamais ensemble parmi les choix (les jumeaux d'un drapeau ; qcm.choix, option pareils). */
@@ -187,6 +224,10 @@ export interface DonneesSujet {
   mers?: readonly Entite<Mer>[];
   /** Les noms des mers (mers.fr.json) ; à défaut, ceux déjà lus (nomsMersCharges). */
   nomsMers?: Readonly<Record<string, string>> | null;
+  /** Les formes du terrain (DonneesCarte.entites) : ce que dessinent les silhouettes. */
+  entites?: readonly Entite<Lieu>[];
+  /** Les zones contestées du terrain (DonneesCarte.contestees) : hachurées sur une silhouette. */
+  contestees?: DonneesCarte['contestees'];
 }
 
 /**
@@ -237,7 +278,8 @@ export function nomDe(d: DonneesSujet, id: string): string {
   return d.noms[id] ?? id;
 }
 
-type Fabrique = (ts: TextesSujet, d: DonneesSujet, o: OptionsRendu) => Omit<RenduSujet, 'sujet' | 'textes'>;
+/** Le rendu d'un sujet, sur ses textes, les données de son terrain et ses options. */
+export type Fabrique = (ts: TextesSujet, d: DonneesSujet, o: OptionsRendu) => Omit<RenduSujet, 'sujet' | 'textes'>;
 
 /** Les textes de chaque sujet : une clé de moins qu'aux pays ne compile pas. */
 const TEXTES: Readonly<Record<SujetRendu, TextesSujet>> = textes.sujets;
@@ -250,6 +292,8 @@ const SANS_PLUS = {
   point: () => null,
   points: () => [],
   imageEnonce: () => null,
+  question: () => null,
+  comparaison: () => null,
   qcmPosable: () => true,
   qcmExclus: () => new Set<string>(),
   qcmPareils: () => false,
@@ -339,6 +383,8 @@ const parCapitale: Fabrique = (ts, d, o) => {
     point: (id) => montree(id)?.point ?? null,
     points: (id) => (de(id)?.justes ?? []).map((c) => c.point),
     imageEnonce: () => null,
+    question: () => null,
+    comparaison: () => null,
     visuel: false,
     qcmPosable: (id) => nommerPose('capitales', id),
     // Les 9 au nom de leur capitale (D37 c) et le pays de x (Israël ↔ Palestine) : jamais leurres.
@@ -404,6 +450,8 @@ const parDrapeau: Fabrique = (ts, d, o) => {
     retro: pays,
     point: () => null,
     points: () => [],
+    question: () => null,
+    comparaison: () => null,
     qcmPosable: (id) => !!de(id),
     qcmExclus: (id) => new Set(jumeaux(id)),
     qcmPareils: (a, b) => jumeaux(a).includes(b),
@@ -469,8 +517,66 @@ const parMer: Fabrique = (ts, d) => {
     },
   };
 };
+/** Le morceau des silhouettes, une fois chargé (chargerSilhouettes) : leur rendu et leurs données. */
+let silhouettes: ModuleSilhouettes | null = null;
+let silhouettesEnCours: Promise<ModuleSilhouettes> | null = null;
+
+/** Le morceau des silhouettes s'il est chargé (sans réseau), null sinon. */
+export const silhouettesChargees = (): ModuleSilhouettes | null => silhouettes;
+
+/**
+ * Le morceau des silhouettes (silhouettes.ts) et leurs données
+ * (public/geo/silhouettes.json : parties lointaines retirées, formes
+ * proches), chargés une fois ; un échec (hors ligne) ne reste pas en cache.
+ * `monde` : ses dessins se calculent ensuite d'avance, en temps libre.
+ */
+export function chargerSilhouettes(monde?: Pick<DonneesCarte, 'entites' | 'contestees'>, base = '/geo/'): Promise<ModuleSilhouettes> {
+  if (silhouettes) return Promise.resolve(silhouettes);
+  if (!silhouettesEnCours) {
+    const p = Promise.all([
+      import('./silhouettes'),
+      fetch(`${base}silhouettes.json`).then((r) => (r.ok ? (r.json() as Promise<unknown>) : Promise.reject(new Error(`silhouettes.json : HTTP ${r.status}`)))),
+    ]).then(([m, brut]) => {
+      silhouettes = m.installer(brut, outilsSilhouettes());
+      // Les dessins du monde, calculés d'avance en temps libre (gardés) : la première question n'attend pas le sien.
+      if (monde) silhouettes.prechauffer(monde.entites, monde.contestees);
+      return silhouettes;
+    });
+    silhouettesEnCours = p;
+    p.then(
+      () => (silhouettesEnCours = null),
+      () => (silhouettesEnCours = null),
+    );
+  }
+  return silhouettesEnCours;
+}
+
+/** Ce que le morceau des silhouettes emploie du morceau principal, donné à l'installation (silhouettes.ts, Outils). */
+export const outilsSilhouettes = (): Outils => ({
+  geoAzimuthalEqualArea,
+  geoCentroid,
+  tracer,
+  nomDe,
+  formePays,
+  remplir,
+  textes: textes.silhouettes,
+  aSilhouette,
+  sansSilhouette: SANS_SILHOUETTE,
+});
+
+/** Tests : le module des silhouettes posé tel quel (null : oublié). */
+export function poserSilhouettes(m: ModuleSilhouettes | null): void {
+  silhouettes = m;
+}
+
+/** Les silhouettes : leur rendu vient de leur morceau ; lève s'il n'est pas chargé (une partie de silhouettes ne part qu'après lui). */
+const parSilhouette: Fabrique = (ts, d, o) => {
+  if (!silhouettes) throw new Error('silhouettes : morceau pas chargé');
+  return silhouettes.fabrique(ts, d, o);
+};
+
 /** Le rendu de chaque sujet : un sujet qui a ses textes a son rendu, sinon le build ne compile pas. */
-const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, capitales: parCapitale, drapeaux: parDrapeau, mers: parMer, communes: parNom };
+const FABRIQUES: Readonly<Record<SujetRendu, Fabrique>> = { pays: parNom, capitales: parCapitale, drapeaux: parDrapeau, silhouettes: parSilhouette, mers: parMer, communes: parNom };
 
 /** Le sujet a-t-il son rendu (ses textes) ? */
 export const estSujetRendu = (s: string): s is SujetRendu => Object.keys(FABRIQUES).includes(s);

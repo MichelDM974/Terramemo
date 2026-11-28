@@ -45,11 +45,11 @@ describe('src/srs/ reste pur', () => {
     });
   }
 
-  it('imports : le dossier lui-même, des types de la carte, ts-fsrs dans fsrs.ts seul', () => {
+  it('imports : le dossier lui-même, des types de la carte, ts-fsrs dans fsrs.ts seul, les sujets visibles (des constantes) dans fiches.ts seul', () => {
     for (const { f, code } of sources) {
       for (const m of code.matchAll(/^\s*import\s+(type\s+)?[\s\S]*?from\s+'([^']+)'/gm)) {
         const [, type, de] = m as unknown as [string, string | undefined, string];
-        const permis = de.startsWith('./') || (type && de === '../map/types') || (f === 'fsrs.ts' && de === 'ts-fsrs');
+        const permis = de.startsWith('./') || (type && de === '../map/types') || (f === 'fsrs.ts' && de === 'ts-fsrs') || (f === 'fiches.ts' && de === '../visibles');
         expect(permis, `${f} importe ${de}`).toBeTruthy();
       }
     }

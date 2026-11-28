@@ -10,7 +10,7 @@ import type { Entite, Forme, Lieu, Mer, NomTerrain, Statut } from '../map/types'
 import type { Mesures } from '../mesure/mesures';
 import type { Terrain, Terrains } from '../terrains';
 import type { Serie } from './cibles';
-import { dansZone, type Contenu, type Enonce, type RenduSujet } from './sujets';
+import { chargerSilhouettes, dansZone, silhouettesChargees, type Contenu, type Dessin, type Enonce, type RenduSujet } from './sujets';
 import { elide } from './formes';
 import { remplir, textes } from './textes';
 
@@ -182,9 +182,60 @@ export function poserContenu(el: HTMLElement, c: Contenu): void {
     el.textContent = c.texte;
     return;
   }
+  const legende = c.legende ? [creer('span', { class: 'contenu-legende' }, c.legende)] : [];
+  if ('dessin' in c) return el.replaceChildren(svgDessin(c.dessin, c.alt), ...legende);
   const img = creer('img', { class: 'drapeau', src: c.image, alt: c.alt, draggable: 'false' });
   img.addEventListener('load', () => img.classList.add('charge'));
-  el.replaceChildren(img, ...(c.legende ? [creer('span', { class: 'contenu-legende' }, c.legende)] : []));
+  el.replaceChildren(img, ...legende);
+}
+
+const NS_SVG = 'http://www.w3.org/2000/svg';
+/** Un numéro par motif de hachures : chaque dessin a le sien (deux SVG d'une page ne partagent pas un id). */
+let motifs = 0;
+
+/**
+ * Un dessin (une silhouette : sujets.ts, Dessin) en SVG de taille fixe en CSS
+ * (.silhouette, carte.css) : le tracé plein, puis ses zones contestées
+ * hachurées (un motif de traits obliques, comme sur la carte). `alt` vide :
+ * caché aux lecteurs d'écran (une légende le nomme) ; sinon une image nommée
+ * par lui (« Silhouette à reconnaître », jamais le pays).
+ */
+function svgDessin(d: Dessin, alt: string): SVGSVGElement {
+  const el = <K extends keyof SVGElementTagNameMap>(nom: K, attrs: Record<string, string>) => {
+    const e = document.createElementNS(NS_SVG, nom);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  const svg = el('svg', { viewBox: d.cadre, class: 'silhouette', ...(alt ? { role: 'img', 'aria-label': alt } : { 'aria-hidden': 'true' }) });
+  const forme = el('path', { d: d.trace, class: 'silhouette-forme' });
+  if (!d.hachures) {
+    svg.append(forme);
+    return svg;
+  }
+  const id = `silhouette-hachures-${++motifs}`;
+  const motif = el('pattern', { id, width: '3', height: '3', patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
+  motif.append(el('rect', { width: '1.2', height: '3', class: 'silhouette-hachure' }));
+  const defs = el('defs', {});
+  defs.append(motif);
+  svg.append(defs, forme, el('path', { d: d.hachures, fill: `url(#${id})` }));
+  return svg;
+}
+
+/**
+ * Les deux contenus d'une erreur côte à côte (RenduSujet.comparaison, D621 :
+ * les deux silhouettes nommées), dans `el` ; rien sans comparaison. Hors de
+ * la région aria-live : la rétroaction dit déjà les deux noms.
+ */
+export function poserComparaison(el: HTMLElement, c: readonly [Contenu, Contenu] | null): void {
+  el.hidden = !c;
+  if (!c) return el.replaceChildren();
+  el.replaceChildren(
+    ...c.map((x) => {
+      const f = creer('figure', { class: 'comparaison-cote' });
+      poserContenu(f, x);
+      return f;
+    }),
+  );
 }
 
 /** L'énoncé d'une question (sujets.ts) dans la consigne de la barre : « Touche : » puis l'objet en gras (une image : à côté de l'invite). */
@@ -193,7 +244,7 @@ export function poserEnonce(el: HTMLElement, e: Enonce): void {
   poserContenu(objet, e.objet);
   el.replaceChildren(e.invite, objet);
   el.classList.toggle('consigne-deux-lignes', !!e.deuxLignes);
-  el.classList.toggle('consigne-image', 'image' in e.objet);
+  el.classList.toggle('consigne-image', 'image' in e.objet || 'dessin' in e.objet);
 }
 
 /**
@@ -323,12 +374,14 @@ export function pastillesPour(c: Pick<ContexteVue, 'carte'>, sujet: string | nul
  * null si elles sont déjà là ou qu'il n'en a pas (pays, communes), sinon
  * la promesse de leur chargement (capitales.json et son fichier de langue ;
  * le manifeste des drapeaux, sans les images ; la couche marine, posée sur
- * la carte du monde `monde`).
+ * la carte du monde `monde` ; le morceau des silhouettes et silhouettes.json,
+ * leurs dessins ensuite calculés d'avance).
  */
 export function chargementSujet(sujet: string, monde?: Pick<ContexteVue, 'carte' | 'donnees'>): Promise<unknown> | null {
   if (sujet === 'capitales') return capitalesChargees() ? null : chargerCapitales();
   if (sujet === 'drapeaux') return drapeauxCharges() ? null : chargerDrapeaux();
   if (sujet === 'mers') return monde ? poserMers(monde) : Promise.reject(new Error('mers : pas de carte où les poser'));
+  if (sujet === 'silhouettes') return silhouettesChargees() ? null : chargerSilhouettes(monde?.donnees);
   return null;
 }
 

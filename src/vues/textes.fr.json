@@ -54,6 +54,7 @@
     "aide": "Aide sur ces exercices",
     "visuel": "Exercices visuels : les drapeaux sont des images, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient).",
     "visuel_choix": "Les quatre choix se touchent, ou se prennent aux touches 1 à 4 du clavier.",
+    "visuel_silhouettes": "Exercices visuels : les silhouettes sont des dessins, que les lecteurs d'écran ne décrivent pas avant la réponse (ils la donneraient).",
     "record": "record",
     "branches": {
       "entrainement": {
@@ -74,6 +75,9 @@
       },
       "drapeaux": {
         "nom": "Drapeaux"
+      },
+      "silhouettes": {
+        "nom": "Silhouettes"
       },
       "mers": {
         "nom": "Océans et mers",
@@ -98,6 +102,11 @@
         "apprendre": "Les drapeaux des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
         "localiser": "Un drapeau est montré : touche son pays sur la carte",
         "nommer": "Un pays s'allume : choisis son drapeau parmi quatre"
+      },
+      "silhouettes": {
+        "apprendre": "Les silhouettes des pays voisins suivants : QCM, puis trouver leur pays sur la carte",
+        "localiser": "Une silhouette est montrée : touche son pays sur la carte",
+        "nommer": "Une silhouette est montrée : choisis son pays parmi quatre"
       },
       "mers": {
         "apprendre": "Les océans, puis les mers voisines suivantes : QCM, puis les trouver sur la carte",
@@ -307,6 +316,26 @@
         "jamais": "jamais vu",
         "vu": "vu {n} fois",
         "vu_une": "vu 1 fois"
+      }
+    },
+    "silhouettes": {
+      "n": "{n} silhouettes",
+      "enonce": "Pays de cette silhouette : ",
+      "consigne_nommer": "Quel est ce pays ?",
+      "faux_suite": "Bonne réponse : {cible}, en vert : touche-le.",
+      "expire": "Temps écoulé · bonne réponse : {cible}, en vert",
+      "la_mer": "la mer",
+      "rate_km": "{nom} : touché à {km} du bord",
+      "rate_trouver": "{nom} : vu ou passé",
+      "rate_oublie": "{nom} : silhouette oubliée",
+      "tout_appris": "Toutes les silhouettes de cette série sont apprises.",
+      "grappe_entamee": "Les silhouettes commencées aujourd'hui ({serie}) ne sont pas finies : elles passent avant.",
+      "conseil": "Les pays de cette région ne sont pas encore appris : {chemin}",
+      "memoire": {
+        "nom": "Silhouette",
+        "jamais": "jamais vue",
+        "vu": "vue {n} fois",
+        "vu_une": "vue 1 fois"
       }
     },
     "mers": {
@@ -594,6 +623,12 @@
     "alt_enonce": "Drapeau à reconnaître",
     "choix": "Choix {n}",
     "faux": "Faux · bonne réponse : {cible} · tu avais choisi : {choisi}"
+  },
+  "silhouettes": {
+    "alt": "Silhouette à reconnaître",
+    "choisi": "Tu as choisi : {nom}",
+    "etait": "C'était : {nom}",
+    "comparaison": "Les deux silhouettes"
   },
   "mers": {
     "_dans": "Le « dans » de la rétroaction d'une partie touchée (« Juste : mer des Caraïbes, dans l'Atlantique ») : écrit à la main pour chaque zone qui a des parties ; à défaut, l'article tiré du générique (dans_defaut).",

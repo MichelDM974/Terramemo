@@ -414,6 +414,24 @@ body[data-vue="saisie"] .legende-memoire, body[data-vue="compte"] .legende-memoi
   .drapeau { width: 96px; height: 72px; }
   .nommer-choix-image .drapeau { width: 128px; height: 96px; }
 }
+/* Une silhouette (J4, D620 : sujets.ts Dessin, commun.ts poserContenu) : un SVG carré de taille fixe, le pays
+   plein en clair, ses zones contestées hachurées. Dans l'énoncé de Trouver et des épreuves (à côté de « Pays de
+   cette silhouette : ») 64 px ; la question de Reconnaître, du QCM et de la carte retournée, au-dessus des choix,
+   88 px ; une erreur, les deux silhouettes nommées côte à côte, 64 px. Les grands écrans : un tiers de plus. */
+.silhouette { display: block; width: 64px; height: 64px; flex: none; }
+.silhouette-forme { fill: var(--silhouette); }
+.silhouette-hachure { fill: var(--silhouette-hachure); }
+.question-dessin { display: flex; justify-content: center; margin: 2px 0 6px; }
+.question-dessin[hidden] { display: none; }
+.question-dessin .silhouette { width: 88px; height: 88px; }
+.retournee-nom .silhouette { margin: 0 auto; }
+.comparaison { display: flex; justify-content: center; gap: 16px; margin-top: 6px; }
+.comparaison[hidden] { display: none; }
+.comparaison-cote { margin: 0; display: flex; flex-direction: column; align-items: center; max-width: 45%; text-align: center; font-size: 0.85rem; color: var(--muted); }
+@media (min-width: 600px) and (min-height: 600px) {
+  .silhouette { width: 88px; height: 88px; }
+  .question-dessin .silhouette { width: 120px; height: 120px; }
+}
 
 /* Une partie en cours (sa barre affichée) : la recherche, qui donnerait la
    réponse, s'efface ; l'en-tête garde sa place. Les barres citées sont

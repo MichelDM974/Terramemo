@@ -46,6 +46,10 @@ describe('le morceau principal', () => {
     expect(fiches.filter((f) => vus.has(f))).toEqual([]);
   });
 
+  it('ne porte pas le rendu des silhouettes : un morceau chargé à la demande avec silhouettes.json (sujets.ts, chargerSilhouettes)', () => {
+    expect(vus.has('src/vues/silhouettes.ts')).toBe(false);
+  });
+
   it('ne porte pas l’écran Crédits ni ses textes : un morceau chargé à la demande (main.ts, vueALaDemande)', () => {
     const credits = ['src/vues/credits.ts', 'src/vues/textes-credits.ts', 'src/vues/textes-credits.fr.json', 'package.json'];
     expect(credits.filter((f) => vus.has(f))).toEqual([]);
