@@ -82,6 +82,18 @@ describe('les données (§ 3.1)', () => {
     expect(V.ambigus('HUN')).toEqual([]);
   });
 
+  it('la liste est dite entière : 22 pays ont un sur-ensemble de voisins, ni justes ni écartés des leurres ; « seuls » le dit', () => {
+    // Le Liechtenstein (Autriche, Suisse) : l'Allemagne et l'Italie les bordent aussi ; « Pays qui a pour voisins »
+    // les aurait désignées aussi (la liste d'un seul voisin disait déjà « seul »).
+    const sur = (a: string) => V.posables.filter((b) => b !== a && V.voisins(b).length > V.voisins(a).length && V.voisins(a).every((x) => V.voisins(b).includes(x)));
+    const avec = V.posables.filter((id) => V.voisins(id).length > 1 && sur(id).length).map((id) => `${id}:${sur(id).join(',')}`);
+    expect(avec).toEqual(['BDI:UGA', 'BGD:CHN', 'BTN:MMR,PAK', 'CHL:BRA', 'DJI:SDN', 'ECU:BRA', 'EST:BLR,LTU', 'GNB:MLI', 'GNQ:COG', 'KWT:JOR', 'LBN:JOR', 'LIE:DEU,ITA', 'MDA:HUN', 'MNG:KAZ,PRK', 'NLD:FRA,LUX', 'NPL:MMR,PAK', 'SLE:CIV', 'SOM:SSD', 'SWE:RUS', 'SWZ:ZWE', 'TUN:NER', 'URY:BOL,PRY']);
+    expect(V.ambigus('LIE')).toEqual([]);
+    expect(V.ambigus('BTN')).toEqual(['NPL']);
+    for (const t of [T.liste, T.qcm, textes.sujets.voisins.enonce, textes.sujets.voisins.consigne_nommer]) expect(t).toContain('seuls voisins');
+    for (const t of [T.liste_un, T.qcm_un]) expect(t).toContain('seul voisin');
+  });
+
   it('les voisins par une zone admise (D605 a), neutres dans les deux sens : les 3 de l’étude, sur les entités', () => {
     expect(V.parZone('MAR')).toEqual(['MRT']);
     expect(V.parZone('MRT')).toEqual(['MAR']);
@@ -264,7 +276,8 @@ describe('le rendu du sujet : Reconnaître par la liste écrite (D606 a)', () =>
     expect(r().enonce('PRT')).toEqual({ invite: T.liste_un, objet: { texte: 'Espagne' }, deuxLignes: true });
     expect(r().question('HUN')).toEqual({ texte: 'Autriche, Croatie, Roumanie, Serbie, Slovaquie, Slovénie, Ukraine' });
     expect(JSON.stringify(r().enonce('HUN'))).not.toContain('Hongrie');
-    expect([r().retro('HUN'), r().nomBilan('HUN', 'nommer'), r().lieu('HUN'), r().consigneQcm('HUN')]).toEqual(['Hongrie', 'Hongrie', 'Hongrie', textes.sujets.voisins.consigne_nommer]);
+    expect([r().retro('HUN'), r().nomBilan('HUN', 'nommer'), r().lieu('HUN'), r().consigneQcm('HUN')]).toEqual(['Hongrie', 'Hongrie', 'Hongrie', T.qcm]);
+    expect(r().consigneQcm('PRT')).toBe(T.qcm_un);
   });
 
   it('les ambigus : justes tous les deux (une zone de sorte « voisins »), jamais leurres l’un de l’autre ; ni un voisin de la liste en leurre', () => {

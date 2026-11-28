@@ -67,7 +67,11 @@ export interface Voisinage {
   autres(id: string): readonly string[];
   /** Les voisins par une zone admise (VOISINS_PAR_ZONE), jouables : neutres, cités à part. */
   parZone(id: string): readonly string[];
-  /** Les autres pays qui ont exactement les mêmes voisins jouables (Reconnaître : justes aussi, jamais leurres). */
+  /**
+   * Les autres pays qui ont exactement les mêmes voisins jouables (Reconnaître : justes aussi, jamais leurres). Pas
+   * ceux qui en ont plus : la liste est dite entière (« Pays qui a pour seuls voisins »), l'Allemagne n'est pas juste
+   * pour le Liechtenstein.
+   */
   ambigus(id: string): readonly string[];
 }
 

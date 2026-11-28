@@ -355,8 +355,8 @@
     },
     "voisins": {
       "n": "{n} pays",
-      "enonce": "Pays qui a pour voisins : ",
-      "consigne_nommer": "Quel pays a pour voisins :",
+      "enonce": "Pays qui a pour seuls voisins : ",
+      "consigne_nommer": "Quel pays a pour seuls voisins :",
       "faux_suite": "Bonne réponse : {cible}, en vert : touche-le.",
       "expire": "Temps écoulé · bonne réponse : {cible}",
       "la_mer": "la mer",

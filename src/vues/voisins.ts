@@ -4,7 +4,8 @@
 // sont celles de la carte du monde (pays.json, Lieu.voisins), déjà en mémoire : rien à télécharger d'autre.
 //
 // Le rendu (sujets.ts, RenduSujet) : celui de Reconnaître (D606 a), la liste écrite des voisins, « Pays qui a pour
-// voisins : Autriche, Croatie… » ; on touche le pays (Trouver d'essai.ts, sens nommer), noté par noter, les
+// seuls voisins : Autriche, Croatie… » (la liste entière : 22 pays ont un sur-ensemble de voisins, l'Allemagne borde
+// l'Autriche et la Suisse comme le Liechtenstein ; dite entière, elle ne désigne qu'eux, aux ensembles ambigus près) ; on touche le pays (Trouver d'essai.ts, sens nommer), noté par noter, les
 // ensembles ambigus admis (une zone de sorte « voisins » : Arabie saoudite et Oman désignent les Émirats et le
 // Yémen) ; le QCM d'Apprendre, la même liste au-dessus de quatre noms, jamais l'autre pays d'un ensemble ambigu ni
 // un voisin de la liste en leurre.
@@ -114,7 +115,8 @@ export function installer(o: Outils): ModuleVoisins {
     const ecrits = (id: string) => liste(v.voisins(id).map(nom));
     return {
       enonce: (id) => ({ invite: v.voisins(id).length > 1 ? T.liste : T.liste_un, objet: { texte: ecrits(id) }, deuxLignes: true }),
-      consigneQcm: () => ts.consigne_nommer,
+      // « seuls » : la liste est entière, la Biélorussie (qui borde aussi la Lettonie et la Russie) est un leurre de l'Estonie.
+      consigneQcm: (id) => (v.voisins(id).length > 1 ? T.qcm : T.qcm_un),
       choix: (id) => ({ texte: nom(id) }),
       nomChoix: nom,
       revelation: (id) => ({ texte: nom(id) }),
